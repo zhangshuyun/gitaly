@@ -6,17 +6,17 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	hookservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -45,13 +45,13 @@ func TestSuccessfulDeleteRefs(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			repo, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], testCase.desc)
+			repo, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], testCase.desc)
 			defer cleanupFn()
 
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/delete/a", "b83d6e391c22777fca1ed3012fce84f633d7fed0")
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/also-delete/b", "1b12f15a11fc6e62177bef08f47bc7b5ce50b141")
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/keep/c", "498214de67004b1da3d820901307bed2a68a8ef6")
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/also-keep/d", "b83d6e391c22777fca1ed3012fce84f633d7fed0")
+			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/delete/a", "b83d6e391c22777fca1ed3012fce84f633d7fed0")
+			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/also-delete/b", "1b12f15a11fc6e62177bef08f47bc7b5ce50b141")
+			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/keep/c", "498214de67004b1da3d820901307bed2a68a8ef6")
+			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/also-keep/d", "b83d6e391c22777fca1ed3012fce84f633d7fed0")
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
@@ -61,7 +61,7 @@ func TestSuccessfulDeleteRefs(t *testing.T) {
 			require.NoError(t, err)
 
 			// Ensure that the internal refs are gone, but the others still exist
-			refs, err := localrepo.New(git.NewExecCommandFactory(cfg), repo, cfg).GetReferences(ctx, "refs/")
+			refs, err := localrepo.NewTestRepo(t, cfg, repo).GetReferences(ctx, "refs/")
 			require.NoError(t, err)
 
 			refNames := make([]string, len(refs))
@@ -85,14 +85,20 @@ func TestDeleteRefs_transaction(t *testing.T) {
 
 	var votes int
 	txManager := &transaction.MockManager{
-		VoteFn: func(context.Context, metadata.Transaction, metadata.PraefectServer, transaction.Vote) error {
+		VoteFn: func(context.Context, txinfo.Transaction, txinfo.PraefectServer, voting.Vote) error {
 			votes++
 			return nil
 		},
 	}
 
 	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterRefServiceServer(srv, NewServer(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory(), deps.GetTxManager()))
+		gitalypb.RegisterRefServiceServer(srv, NewServer(
+			deps.GetCfg(),
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			deps.GetTxManager(),
+			deps.GetCatfileCache(),
+		))
 		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
 	}, testserver.WithTransactionManager(txManager))
 
@@ -102,9 +108,9 @@ func TestDeleteRefs_transaction(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	t.Cleanup(cancel)
 
-	ctx, err := metadata.InjectTransaction(ctx, 1, "node", true)
+	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
-	ctx, err = (&metadata.PraefectServer{SocketPath: "i-dont-care"}).Inject(ctx)
+	ctx, err = (&txinfo.PraefectServer{SocketPath: "i-dont-care"}).Inject(ctx)
 	require.NoError(t, err)
 	ctx = helper.IncomingToOutgoing(ctx)
 
@@ -131,7 +137,7 @@ func TestDeleteRefs_transaction(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			votes = 0
 
-			repo, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], tc.desc)
+			repo, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], tc.desc)
 			t.Cleanup(cleanup)
 			tc.request.Repository = repo
 

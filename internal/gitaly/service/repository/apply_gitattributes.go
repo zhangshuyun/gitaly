@@ -11,8 +11,8 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -93,12 +93,12 @@ func (s *server) applyGitattributes(ctx context.Context, c catfile.Batch, repoPa
 }
 
 func (s *server) vote(ctx context.Context, oid git.ObjectID) error {
-	tx, err := metadata.TransactionFromContext(ctx)
-	if errors.Is(err, metadata.ErrTransactionNotFound) {
+	tx, err := txinfo.TransactionFromContext(ctx)
+	if errors.Is(err, txinfo.ErrTransactionNotFound) {
 		return nil
 	}
 
-	praefect, err := metadata.PraefectFromContext(ctx)
+	praefect, err := txinfo.PraefectFromContext(ctx)
 	if err != nil {
 		return fmt.Errorf("vote has invalid Praefect info: %w", err)
 	}
@@ -108,7 +108,7 @@ func (s *server) vote(ctx context.Context, oid git.ObjectID) error {
 		return fmt.Errorf("vote with invalid object ID: %w", err)
 	}
 
-	vote, err := transaction.VoteFromHash(hash)
+	vote, err := voting.VoteFromHash(hash)
 	if err != nil {
 		return fmt.Errorf("cannot convert OID to vote: %w", err)
 	}
@@ -121,7 +121,7 @@ func (s *server) vote(ctx context.Context, oid git.ObjectID) error {
 }
 
 func (s *server) ApplyGitattributes(ctx context.Context, in *gitalypb.ApplyGitattributesRequest) (*gitalypb.ApplyGitattributesResponse, error) {
-	repo := in.GetRepository()
+	repo := s.localrepo(in.GetRepository())
 	repoPath, err := s.locator.GetRepoPath(repo)
 	if err != nil {
 		return nil, err
@@ -131,7 +131,7 @@ func (s *server) ApplyGitattributes(ctx context.Context, in *gitalypb.ApplyGitat
 		return nil, status.Errorf(codes.InvalidArgument, "ApplyGitAttributes: revision: %v", err)
 	}
 
-	c, err := catfile.New(ctx, s.gitCmdFactory, repo)
+	c, err := s.catfileCache.BatchProcess(ctx, repo)
 	if err != nil {
 		return nil, err
 	}

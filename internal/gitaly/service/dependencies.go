@@ -3,12 +3,15 @@ package service
 import (
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/linguist"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 )
 
@@ -23,7 +26,9 @@ type Dependencies struct {
 	GitCmdFactory       git.CommandFactory
 	Linguist            *linguist.Instance
 	BackchannelRegistry *backchannel.Registry
-	GitlabAPI           gitalyhook.GitlabAPI
+	GitlabClient        gitlab.Client
+	CatfileCache        catfile.Cache
+	DiskCache           *cache.Cache
 }
 
 // GetCfg returns service configuration.
@@ -71,7 +76,17 @@ func (dc *Dependencies) GetBackchannelRegistry() *backchannel.Registry {
 	return dc.BackchannelRegistry
 }
 
-// GetGitlabAPI returns client to access GitLab API.
-func (dc *Dependencies) GetGitlabAPI() gitalyhook.GitlabAPI {
-	return dc.GitlabAPI
+// GetGitlabClient returns client to access GitLab API.
+func (dc *Dependencies) GetGitlabClient() gitlab.Client {
+	return dc.GitlabClient
+}
+
+// GetCatfileCache returns catfile cache.
+func (dc *Dependencies) GetCatfileCache() catfile.Cache {
+	return dc.CatfileCache
+}
+
+// GetDiskCache returns the disk cache.
+func (dc *Dependencies) GetDiskCache() *cache.Cache {
+	return dc.DiskCache
 }

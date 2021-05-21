@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git/housekeeping"
-	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -54,7 +53,7 @@ func (s *server) optimizeRepository(ctx context.Context, repository *gitalypb.Re
 		return fmt.Errorf("could not repack: %w", err)
 	}
 
-	repo := localrepo.New(s.gitCmdFactory, repository, s.cfg)
+	repo := s.localrepo(repository)
 
 	if err := housekeeping.Perform(ctx, repo); err != nil {
 		return fmt.Errorf("could not execute houskeeping: %w", err)

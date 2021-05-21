@@ -188,10 +188,10 @@ func TestGetArchiveWithLfsSuccess(t *testing.T) {
 	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil)
 	client := newRepositoryClient(t, cfg, serverSocketPath)
 
-	repo, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+	repo, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 	t.Cleanup(cleanup)
 
-	testhelper.ConfigureGitalyLfsSmudge(cfg.BinDir)
+	testhelper.ConfigureGitalyLfsSmudge(t, cfg.BinDir)
 
 	// lfs-moar branch SHA
 	sha := "46abbb087fcc0fd02c340f0f2f052bd2c7708da3"
@@ -405,7 +405,7 @@ func TestGetArchiveFailure(t *testing.T) {
 }
 
 func TestGetArchivePathInjection(t *testing.T) {
-	_, repo, repoPath, client := setupRepositoryServiceWithWorktree(t)
+	cfg, repo, repoPath, client := setupRepositoryServiceWithWorktree(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -436,9 +436,9 @@ func TestGetArchivePathInjection(t *testing.T) {
 	require.NoError(t, f.Close())
 
 	// Add the directory to the repository
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "add", ".")
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-m", "adding fake key file")
-	commitID := strings.TrimRight(string(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "HEAD")), "\n")
+	gittest.Exec(t, cfg, "-C", repoPath, "add", ".")
+	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-m", "adding fake key file")
+	commitID := strings.TrimRight(string(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD")), "\n")
 
 	injectionPath := fmt.Sprintf("--output=%s", authorizedKeysPath)
 
@@ -482,16 +482,22 @@ env | grep -E "^GL_|CORRELATION|GITALY_"`))
 	require.NoError(t, err)
 	require.NoError(t, tmpFile.Close())
 
-	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{Git: config.Git{BinPath: tmpFile.Name()}}))
+	cfg := testcfg.Build(t)
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
-	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil)
+	// We re-define path to the git executable to catch parameters used to call it.
+	// This replacement only needs to be done for the configuration used to invoke git commands.
+	// Other operations should use actual path to the git binary to work properly.
+	spyGitCfg := cfg
+	spyGitCfg.Git.BinPath = tmpFile.Name()
+
+	serverSocketPath := runRepositoryServerWithConfig(t, spyGitCfg, nil)
 	cfg.SocketPath = serverSocketPath
 
 	client := newRepositoryClient(t, cfg, serverSocketPath)
 
-	repo, _, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+	repo, _, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanup)
 
 	commitID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"

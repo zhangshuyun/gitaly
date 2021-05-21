@@ -10,7 +10,6 @@ import (
 
 	"github.com/opentracing/opentracing-go"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/labkit/correlation"
 )
 
@@ -33,8 +32,8 @@ type batchProcess struct {
 	sync.Mutex
 }
 
-func newBatchProcess(ctx context.Context, gitCmdFactory git.CommandFactory, repo repository.GitRepo) (*batchProcess, error) {
-	totalCatfileProcesses.Inc()
+func (bc *BatchCache) newBatchProcess(ctx context.Context, repo git.RepositoryExecutor) (*batchProcess, error) {
+	bc.totalCatfileProcesses.Inc()
 	b := &batchProcess{}
 
 	var stdinReader io.Reader
@@ -45,7 +44,7 @@ func newBatchProcess(ctx context.Context, gitCmdFactory git.CommandFactory, repo
 	ctx = correlation.ContextWithCorrelation(ctx, "")
 	ctx = opentracing.ContextWithSpan(ctx, nil)
 
-	batchCmd, err := gitCmdFactory.New(ctx, repo,
+	batchCmd, err := repo.Exec(ctx,
 		git.SubCmd{
 			Name: "cat-file",
 			Flags: []git.Option{
@@ -60,15 +59,15 @@ func newBatchProcess(ctx context.Context, gitCmdFactory git.CommandFactory, repo
 
 	b.r = bufio.NewReader(batchCmd)
 
-	currentCatfileProcesses.Inc()
+	bc.currentCatfileProcesses.Inc()
 	go func() {
 		<-ctx.Done()
 		// This Close() is crucial to prevent leaking file descriptors.
 		b.w.Close()
-		currentCatfileProcesses.Dec()
+		bc.currentCatfileProcesses.Dec()
 	}()
 
-	if injectSpawnErrors {
+	if bc.injectSpawnErrors {
 		// Testing only: intentionally leak process
 		return nil, &simulatedBatchSpawnError{}
 	}

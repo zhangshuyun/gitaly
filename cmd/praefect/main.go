@@ -322,11 +322,14 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		healthChecker = hm
 
 		elector := nodes.NewPerRepositoryElector(logger, db, hm)
-		go func() {
-			if err := elector.Run(ctx, hm.Updated()); err != nil {
-				logger.WithError(err).Error("primary elector exited")
-			}
-		}()
+
+		if conf.Failover.Enabled {
+			go func() {
+				if err := elector.Run(ctx, hm.Updated()); err != nil {
+					logger.WithError(err).Error("primary elector exited")
+				}
+			}()
+		}
 
 		primaryGetter = elector
 		assignmentStore = datastore.NewAssignmentStore(db, conf.StorageNames())
@@ -341,6 +344,11 @@ func run(cfgs []starter.Config, conf config.Config) error {
 			conf.DefaultReplicationFactors(),
 		)
 	} else {
+		if conf.Failover.Enabled {
+			logger.WithField("election_strategy", conf.Failover.ElectionStrategy).Warn(
+				"Deprecated election stategy in use, migrate to repository specific primary nodes following https://docs.gitlab.com/ee/administration/gitaly/praefect.html#migrate-to-repository-specific-primary-gitaly-nodes. The other election strategies are scheduled for removal in GitLab 14.0.")
+		}
+
 		nodeMgr, err := nodes.NewManager(logger, conf, db, csg, nodeLatencyHistogram, protoregistry.GitalyProtoPreregistered, errTracker, clientHandshaker)
 		if err != nil {
 			return err
@@ -518,6 +526,7 @@ func getStarterConfigs(conf config.Config) ([]starter.Config, error) {
 			}
 			addrConf = starter.Config{Name: schema, Addr: addr}
 		}
+		addrConf.HandoverOnUpgrade = true
 
 		if _, found := unique[addrConf.Addr]; found {
 			return nil, fmt.Errorf("same address can't be used for different schemas %q", addr)

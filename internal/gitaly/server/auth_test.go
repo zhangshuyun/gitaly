@@ -16,7 +16,9 @@ import (
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
@@ -24,6 +26,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -63,9 +66,7 @@ func TestTLSSanity(t *testing.T) {
 	certPool, err := x509.SystemCertPool()
 	require.NoError(t, err)
 
-	cert, err := ioutil.ReadFile("testdata/gitalycert.pem")
-	require.NoError(t, err)
-
+	cert := testhelper.MustReadFile(t, "testdata/gitalycert.pem")
 	ok := certPool.AppendCertsFromPEM(cert)
 	require.True(t, ok)
 
@@ -196,10 +197,12 @@ func runServer(t *testing.T, cfg config.Cfg) string {
 	t.Cleanup(func() { conns.Close() })
 	locator := config.NewLocator(cfg)
 	txManager := transaction.NewManager(cfg, registry)
-	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
+	hookManager := hook.NewManager(locator, txManager, gitlab.NewMockClient(), cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	catfileCache := catfile.NewCache(cfg)
+	diskCache := cache.New(cfg, locator)
 
-	srv, err := New(false, cfg, testhelper.DiscardTestEntry(t), registry)
+	srv, err := New(false, cfg, testhelper.DiscardTestEntry(t), registry, diskCache)
 	require.NoError(t, err)
 
 	setup.RegisterAll(srv, &service.Dependencies{
@@ -209,6 +212,7 @@ func runServer(t *testing.T, cfg config.Cfg) string {
 		StorageLocator:     locator,
 		ClientPool:         conns,
 		GitCmdFactory:      gitCmdFactory,
+		CatfileCache:       catfileCache,
 	})
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
@@ -232,7 +236,7 @@ func runSecureServer(t *testing.T, cfg config.Cfg) string {
 	conns := client.NewPool()
 	t.Cleanup(func() { conns.Close() })
 
-	srv, err := New(true, cfg, testhelper.DiscardTestEntry(t), backchannel.NewRegistry())
+	srv, err := New(true, cfg, testhelper.DiscardTestEntry(t), backchannel.NewRegistry(), cache.New(cfg, config.NewLocator(cfg)))
 	require.NoError(t, err)
 
 	healthpb.RegisterHealthServer(srv, health.NewServer())
@@ -304,7 +308,7 @@ func TestAuthBeforeLimit(t *testing.T) {
 
 	gitlabURL, cleanup := testhelper.SetupAndStartGitlabServer(t, cfg.GitlabShell.Dir, &testhelper.GitlabTestServerOptions{
 		SecretToken:                 "secretToken",
-		GLID:                        testhelper.GlID,
+		GLID:                        gittest.GlID,
 		GLRepository:                repo.GetGlRepository(),
 		PostReceiveCounterDecreased: true,
 		Protocol:                    "web",
@@ -326,7 +330,7 @@ func TestAuthBeforeLimit(t *testing.T) {
 		Repository:     repo,
 		TagName:        []byte(inputTagName),
 		TargetRevision: []byte(targetRevision),
-		User:           testhelper.TestUser,
+		User:           gittest.TestUser,
 		Message:        []byte("a new tag!"),
 	}
 

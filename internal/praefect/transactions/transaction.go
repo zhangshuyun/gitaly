@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"sync"
+
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 )
 
 var (
@@ -43,7 +45,7 @@ type Voter struct {
 	// this voter.
 	Votes uint
 
-	vote   *vote
+	vote   *voting.Vote
 	result VoteResult
 }
 
@@ -55,6 +57,8 @@ type Transaction interface {
 	CountSubtransactions() int
 	// State returns the state of each voter part of the transaction.
 	State() (map[string]VoteResult, error)
+	// DidCommitAnySubtransaction returns whether the transaction committed at least one subtransaction.
+	DidCommitAnySubtransaction() bool
 }
 
 // transaction is a session where a set of voters votes on one or more
@@ -182,6 +186,28 @@ func (t *transaction) CountSubtransactions() int {
 	return len(t.subtransactions)
 }
 
+// DidCommitSubtransaction returns whether the transaction committed at least one subtransaction.
+func (t *transaction) DidCommitAnySubtransaction() bool {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	if len(t.subtransactions) == 0 {
+		return false
+	}
+
+	// We only need to check the first subtransaction. If it failed, there would
+	// be no further subtransactions.
+	for _, result := range t.subtransactions[0].state() {
+		// It's sufficient to find a single commit in the subtransaction
+		// to say it was committed.
+		if result == VoteCommitted {
+			return true
+		}
+	}
+
+	return false
+}
+
 // getOrCreateSubtransaction gets an ongoing subtransaction on which the given
 // node hasn't yet voted on or creates a new one if the node has succeeded on
 // all subtransactions. In case the node has failed on any of the
@@ -244,13 +270,13 @@ func (t *transaction) getOrCreateSubtransaction(node string) (*subtransaction, e
 	return subtransaction, nil
 }
 
-func (t *transaction) vote(ctx context.Context, node string, hash []byte) error {
+func (t *transaction) vote(ctx context.Context, node string, vote voting.Vote) error {
 	subtransaction, err := t.getOrCreateSubtransaction(node)
 	if err != nil {
 		return err
 	}
 
-	if err := subtransaction.vote(node, hash); err != nil {
+	if err := subtransaction.vote(node, vote); err != nil {
 		return err
 	}
 

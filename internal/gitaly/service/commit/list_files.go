@@ -8,7 +8,6 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
@@ -26,14 +25,14 @@ func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.Commit
 		return err
 	}
 
-	repo := in.Repository
-	if _, err := s.locator.GetRepoPath(repo); err != nil {
+	repo := s.localrepo(in.GetRepository())
+	if _, err := repo.Path(); err != nil {
 		return err
 	}
 
 	revision := string(in.GetRevision())
 	if len(revision) == 0 {
-		defaultBranch, err := defaultBranchName(stream.Context(), s.gitCmdFactory, repo)
+		defaultBranch, err := defaultBranchName(stream.Context(), repo)
 		if err != nil {
 			return helper.DecorateError(codes.NotFound, fmt.Errorf("revision not found %q", revision))
 		}
@@ -45,7 +44,7 @@ func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.Commit
 		revision = string(defaultBranch)
 	}
 
-	contained, err := localrepo.New(s.gitCmdFactory, in.Repository, s.cfg).HasRevision(stream.Context(), git.Revision(revision))
+	contained, err := s.localrepo(repo).HasRevision(stream.Context(), git.Revision(revision))
 	if err != nil {
 		return helper.ErrInternal(err)
 	}
@@ -68,8 +67,8 @@ func validateListFilesRequest(in *gitalypb.ListFilesRequest) error {
 	return nil
 }
 
-func (s *server) listFiles(repo *gitalypb.Repository, revision string, stream gitalypb.CommitService_ListFilesServer) error {
-	cmd, err := s.gitCmdFactory.New(stream.Context(), repo, git.SubCmd{Name: "ls-tree",
+func (s *server) listFiles(repo git.RepositoryExecutor, revision string, stream gitalypb.CommitService_ListFilesServer) error {
+	cmd, err := repo.Exec(stream.Context(), git.SubCmd{Name: "ls-tree",
 		Flags:       []git.Option{git.Flag{Name: "-z"}, git.Flag{Name: "-r"}, git.Flag{Name: "--full-tree"}, git.Flag{Name: "--full-name"}},
 		PostSepArgs: []string{revision},
 	})

@@ -106,7 +106,7 @@ func TestSetupEnv(t *testing.T) {
 	require.Contains(t, env, fmt.Sprintf("GITALY_RUBY_MAX_COMMIT_OR_TAG_MESSAGE_SIZE=%d", helper.MaxCommitOrTagMessageSize))
 	require.Contains(t, env, "GITALY_RUBY_GITALY_BIN_DIR=/bin/dit")
 	require.Contains(t, env, "GITALY_VERSION="+version.GetVersion())
-	require.Contains(t, env, "GITALY_SOCKET=/gitaly/internal.sock")
+	require.Contains(t, env, fmt.Sprintf("GITALY_SOCKET=%s", cfg.GitalyInternalSocketPath()))
 	require.Contains(t, env, "GITALY_TOKEN=paswd")
 	require.Contains(t, env, "GITALY_RUGGED_GIT_CONFIG_SEARCH_PATH=/bin/rugged")
 	require.Contains(t, env, "SENTRY_DSN=testDSN")

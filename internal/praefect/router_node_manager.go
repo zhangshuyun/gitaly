@@ -117,8 +117,29 @@ func (r *nodeManagerRouter) RouteRepositoryMutator(ctx context.Context, virtualS
 	}, nil
 }
 
+// RouteRepositoryCreation includes healthy secondaries in the transaction and sets the unhealthy secondaries as
+// replication targets. The virtual storage's primary acts as the primary for every repository.
 func (r *nodeManagerRouter) RouteRepositoryCreation(ctx context.Context, virtualStorage string) (RepositoryMutatorRoute, error) {
-	// nodeManagerRouter doesn't support repository assignments nor repository specific primaries. It
-	// is sufficient to route the requests as normal mutators.
-	return r.RouteRepositoryMutator(ctx, virtualStorage, "")
+	shard, err := r.mgr.GetShard(ctx, virtualStorage)
+	if err != nil {
+		return RepositoryMutatorRoute{}, fmt.Errorf("get shard: %w", err)
+	}
+
+	var secondaries []RouterNode
+	var replicationTargets []string
+
+	for _, secondary := range shard.Secondaries {
+		if secondary.IsHealthy() {
+			secondaries = append(secondaries, toRouterNode(secondary))
+			continue
+		}
+
+		replicationTargets = append(replicationTargets, secondary.GetStorage())
+	}
+
+	return RepositoryMutatorRoute{
+		Primary:            toRouterNode(shard.Primary),
+		Secondaries:        secondaries,
+		ReplicationTargets: replicationTargets,
+	}, nil
 }

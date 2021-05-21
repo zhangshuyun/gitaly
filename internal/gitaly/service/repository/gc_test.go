@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
@@ -29,7 +28,7 @@ var (
 )
 
 func TestGarbageCollectCommitGraph(t *testing.T) {
-	cfg, repo, repoPath, client := setupRepositoryService(t)
+	_, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -38,20 +37,8 @@ func TestGarbageCollectCommitGraph(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, c)
 
-	assert.FileExistsf(t,
-		filepath.Join(repoPath, "objects/info/commit-graph"),
-		"pre-computed commit-graph should exist after running garbage collect",
-	)
-
-	repoCfgPath := filepath.Join(repoPath, "config")
-
-	cfgF, err := os.Open(repoCfgPath)
-	require.NoError(t, err)
-	defer cfgF.Close()
-
-	cfgCmd, err := localrepo.New(git.NewExecCommandFactory(cfg), repo, cfg).Config().GetRegexp(ctx, "core.commitgraph", git.ConfigGetRegexpOpts{})
-	require.NoError(t, err)
-	require.Equal(t, []git.ConfigPair{{Key: "core.commitgraph", Value: "true"}}, cfgCmd)
+	chainPath := filepath.Join(repoPath, CommitGraphChainRelPath)
+	require.FileExists(t, chainPath, "pre-computed commit-graph should exist after running garbage collect")
 }
 
 func TestGarbageCollectSuccess(t *testing.T) {
@@ -111,13 +98,17 @@ func TestGarbageCollectWithPrune(t *testing.T) {
 
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
-	blobHashes := gittest.WriteBlobs(t, repoPath, 3)
+	blobHashes := gittest.WriteBlobs(t, cfg, repoPath, 3)
 	oldDanglingObjFile := filepath.Join(repoPath, "objects", blobHashes[0][:2], blobHashes[0][2:])
 	newDanglingObjFile := filepath.Join(repoPath, "objects", blobHashes[1][:2], blobHashes[1][2:])
 	oldReferencedObjFile := filepath.Join(repoPath, "objects", blobHashes[2][:2], blobHashes[2][2:])
 
 	// create a reference to the blob, so it should not be removed by gc
-	gittest.CommitBlobWithName(t, cfg, repoPath, blobHashes[2], t.Name(), t.Name())
+	gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithTreeEntries(gittest.TreeEntry{
+			OID: git.ObjectID(blobHashes[2]), Path: t.Name(), Mode: "100644",
+		}),
+	)
 
 	// change modification time of the blobs to make them attractive for the gc
 	aBitMoreThan30MinutesAgo := time.Now().Add(-30*time.Minute - time.Second)
@@ -137,8 +128,7 @@ func TestGarbageCollectWithPrune(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, c)
 
-	_, err = os.Stat(oldDanglingObjFile)
-	require.True(t, os.IsNotExist(err), "blob should be removed from object storage as it is too old and there are no references to it")
+	require.NoFileExists(t, oldDanglingObjFile, "blob should be removed from object storage as it is too old and there are no references to it")
 	require.FileExists(t, newDanglingObjFile, "blob should not be removed from object storage as it is fresh enough despite there are no references to it")
 	require.FileExists(t, oldReferencedObjFile, "blob should not be removed from object storage as it is referenced by something despite it is too old")
 }
@@ -196,7 +186,163 @@ func TestGarbageCollectDeletesRefsLocks(t *testing.T) {
 
 	assert.FileExists(t, keepLockPath)
 
-	testhelper.AssertPathNotExists(t, deleteLockPath)
+	require.NoFileExists(t, deleteLockPath)
+}
+
+func TestGarbageCollectDeletesPackedRefsLock(t *testing.T) {
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+	testCases := []struct {
+		desc        string
+		lockTime    *time.Time
+		shouldExist bool
+	}{
+		{
+			desc:        "with a recent lock",
+			lockTime:    &freshTime,
+			shouldExist: true,
+		},
+		{
+			desc:        "with an old lock",
+			lockTime:    &oldTime,
+			shouldExist: false,
+		},
+		{
+			desc:        "with a non-existing lock",
+			lockTime:    nil,
+			shouldExist: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			repo, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
+			t.Cleanup(cleanupFn)
+
+			// Force the packed-refs file to have an old time to test that even
+			// in that case it doesn't get deleted
+			packedRefsPath := filepath.Join(repoPath, "packed-refs")
+			require.NoError(t, os.Chtimes(packedRefsPath, oldTime, oldTime))
+
+			req := &gitalypb.GarbageCollectRequest{Repository: repo}
+			lockPath := filepath.Join(repoPath, "packed-refs.lock")
+
+			if tc.lockTime != nil {
+				mustCreateFileWithTimes(t, lockPath, *tc.lockTime)
+			}
+
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			c, err := client.GarbageCollect(ctx, req)
+
+			// Sanity checks
+			assert.FileExists(t, filepath.Join(repoPath, "HEAD")) // For good measure
+			assert.FileExists(t, packedRefsPath)
+
+			if tc.shouldExist {
+				assert.Error(t, err)
+				testhelper.RequireGrpcError(t, err, codes.Internal)
+
+				require.FileExists(t, lockPath)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, c)
+
+				require.NoFileExists(t, lockPath)
+			}
+		})
+	}
+}
+
+func TestGarbageCollectDeletesFileLocks(t *testing.T) {
+	_, repo, repoPath, client := setupRepositoryService(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	req := &gitalypb.GarbageCollectRequest{Repository: repo}
+
+	for _, tc := range []string{
+		"config.lock",
+		"HEAD.lock",
+		"objects/info/commit-graphs/commit-graph-chain.lock",
+	} {
+		lockPath := filepath.Join(repoPath, tc)
+		// No file on the lock path
+		_, err := client.GarbageCollect(ctx, req)
+		assert.NoError(t, err)
+
+		// Fresh lock should remain
+		mustCreateFileWithTimes(t, lockPath, freshTime)
+		_, err = client.GarbageCollect(ctx, req)
+
+		assert.NoError(t, err)
+
+		assert.FileExists(t, lockPath)
+
+		// Old lock should be removed
+		mustCreateFileWithTimes(t, lockPath, oldTime)
+		_, err = client.GarbageCollect(ctx, req)
+		assert.NoError(t, err)
+		require.NoFileExists(t, lockPath)
+	}
+}
+
+func TestGarbageCollectDeletesPackedRefsNew(t *testing.T) {
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+	testCases := []struct {
+		desc        string
+		lockTime    *time.Time
+		shouldExist bool
+	}{
+		{
+			desc:        "created recently",
+			lockTime:    &freshTime,
+			shouldExist: true,
+		},
+		{
+			desc:        "exists for too long",
+			lockTime:    &oldTime,
+			shouldExist: false,
+		},
+		{
+			desc:        "nothing to clean up",
+			shouldExist: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			repo, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
+			t.Cleanup(cleanupFn)
+
+			req := &gitalypb.GarbageCollectRequest{Repository: repo}
+			packedRefsNewPath := filepath.Join(repoPath, "packed-refs.new")
+
+			if tc.lockTime != nil {
+				mustCreateFileWithTimes(t, packedRefsNewPath, *tc.lockTime)
+			}
+
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			c, err := client.GarbageCollect(ctx, req)
+
+			if tc.shouldExist {
+				require.Error(t, err)
+				testhelper.RequireGrpcError(t, err, codes.Internal)
+
+				require.FileExists(t, packedRefsNewPath)
+			} else {
+				require.NotNil(t, c)
+				require.NoError(t, err)
+
+				require.NoFileExists(t, packedRefsNewPath)
+			}
+		})
+	}
 }
 
 func TestGarbageCollectFailure(t *testing.T) {
@@ -223,7 +369,7 @@ func TestGarbageCollectFailure(t *testing.T) {
 }
 
 func TestCleanupInvalidKeepAroundRefs(t *testing.T) {
-	_, repo, repoPath, client := setupRepositoryService(t)
+	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	// Make the directory, so we can create random reflike things in it
 	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "refs", "keep-around"), 0755))
@@ -271,7 +417,7 @@ func TestCleanupInvalidKeepAroundRefs(t *testing.T) {
 			// Create a proper keep-around loose ref
 			existingSha := "1e292f8fedd741b75372e19097c76d327140c312"
 			existingRefName := fmt.Sprintf("refs/keep-around/%s", existingSha)
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", existingRefName, existingSha)
+			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", existingRefName, existingSha)
 
 			// Create an invalid ref that should should be removed with the testcase
 			bogusSha := "b3f5e4adf6277b571b7943a4f0405a6dd7ee7e15"
@@ -288,20 +434,18 @@ func TestCleanupInvalidKeepAroundRefs(t *testing.T) {
 			require.NoError(t, err)
 
 			// The existing keeparound still exists
-			commitSha := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", existingRefName)
+			commitSha := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", existingRefName)
 			require.Equal(t, existingSha, text.ChompBytes(commitSha))
 
 			//The invalid one was removed
-			_, err = os.Stat(bogusPath)
-			require.True(t, os.IsNotExist(err), "expected 'does not exist' error, got %v", err)
+			require.NoFileExists(t, bogusPath)
 
 			if testcase.shouldExist {
 				keepAroundName := fmt.Sprintf("refs/keep-around/%s", testcase.refName)
-				commitSha := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", keepAroundName)
+				commitSha := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", keepAroundName)
 				require.Equal(t, testcase.refName, text.ChompBytes(commitSha))
 			} else {
-				_, err := os.Stat(refPath)
-				require.True(t, os.IsNotExist(err), "expected 'does not exist' error, got %v", err)
+				require.NoFileExists(t, refPath)
 			}
 		})
 	}
@@ -316,12 +460,12 @@ func mustCreateFileWithTimes(t testing.TB, path string, mTime time.Time) {
 }
 
 func TestGarbageCollectDeltaIslands(t *testing.T) {
-	_, repo, repoPath, client := setupRepositoryService(t)
+	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	gittest.TestDeltaIslands(t, repoPath, func() error {
+	gittest.TestDeltaIslands(t, cfg, repoPath, func() error {
 		_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo})
 		return err
 	})

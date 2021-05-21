@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -27,7 +26,7 @@ func (s *server) CommitStats(ctx context.Context, in *gitalypb.CommitStatsReques
 }
 
 func (s *server) commitStats(ctx context.Context, in *gitalypb.CommitStatsRequest) (*gitalypb.CommitStatsResponse, error) {
-	repo := localrepo.New(s.gitCmdFactory, in.Repository, s.cfg)
+	repo := s.localrepo(in.GetRepository())
 
 	commit, err := repo.ReadCommit(ctx, git.Revision(in.Revision))
 	if err != nil {

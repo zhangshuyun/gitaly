@@ -65,16 +65,12 @@ func TestWithRubySidecar(t *testing.T) {
 	fs := []func(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server){
 		testSuccessfulWikiDeletePageRequest,
 		testFailedWikiDeletePageDueToValidations,
-		testSuccessfulWikiFindFileRequest,
-		testFailedWikiFindFileDueToValidation,
 		testSuccessfulWikiFindPageRequest,
 		testSuccessfulWikiFindPageSameTitleDifferentPathRequest,
 		testSuccessfulWikiFindPageRequestWithTrailers,
 		testSuccessfulWikiGetAllPagesRequest,
 		testWikiGetAllPagesSorting,
 		testFailedWikiGetAllPagesDueToValidation,
-		testWikiGetPageVersionsRequest,
-		testWikiGetPageVersionsPaginationParams,
 		testSuccessfulWikiListPagesRequest,
 		testWikiListPagesSorting,
 		testSuccessfulWikiUpdatePageRequest,
@@ -152,39 +148,8 @@ func writeWikiPage(t *testing.T, client gitalypb.WikiServiceClient, wikiRepo *gi
 	require.NoError(t, err)
 }
 
-func updateWikiPage(t *testing.T, client gitalypb.WikiServiceClient, wikiRepo *gitalypb.Repository, name string, content []byte) {
-	t.Helper()
-
-	commitDetails := &gitalypb.WikiCommitDetails{
-		Name:     []byte("Ahmad Sherif"),
-		Email:    []byte("ahmad@gitlab.com"),
-		Message:  []byte("Update " + name),
-		UserId:   int32(1),
-		UserName: []byte("ahmad"),
-	}
-
-	request := &gitalypb.WikiUpdatePageRequest{
-		Repository:    wikiRepo,
-		PagePath:      []byte(name),
-		Title:         []byte(name),
-		Format:        "markdown",
-		CommitDetails: commitDetails,
-		Content:       content,
-	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	stream, err := client.WikiUpdatePage(ctx)
-	require.NoError(t, err)
-	require.NoError(t, stream.Send(request))
-
-	_, err = stream.CloseAndRecv()
-	require.NoError(t, err)
-}
-
 func setupWikiRepo(t *testing.T, cfg config.Cfg) (*gitalypb.Repository, string, func()) {
-	return gittest.InitBareRepoAt(t, cfg.Storages[0])
+	return gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 }
 
 func sendBytes(data []byte, chunkSize int, sender func([]byte) error) (int, error) {
@@ -211,9 +176,9 @@ func createTestWikiPage(t *testing.T, cfg config.Cfg, client gitalypb.WikiServic
 	defer cancel()
 
 	writeWikiPage(t, client, wikiRepoProto, opts)
-	head1ID := testhelper.MustRunCommand(t, nil, "git", "-C", wikiRepoPath, "show", "--format=format:%H", "--no-patch", "HEAD")
+	head1ID := gittest.Exec(t, cfg, "-C", wikiRepoPath, "show", "--format=format:%H", "--no-patch", "HEAD")
 
-	wikiRepo := localrepo.New(git.NewExecCommandFactory(cfg), wikiRepoProto, cfg)
+	wikiRepo := localrepo.NewTestRepo(t, cfg, wikiRepoProto)
 	pageCommit, err := wikiRepo.ReadCommit(ctx, git.Revision(head1ID))
 	require.NoError(t, err, "look up git commit after writing a wiki page")
 

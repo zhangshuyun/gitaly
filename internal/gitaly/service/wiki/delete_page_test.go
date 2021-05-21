@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
@@ -17,7 +18,7 @@ func testSuccessfulWikiDeletePageRequest(t *testing.T, cfg config.Cfg, rubySrv *
 	wikiRepoProto, wikiRepoPath, cleanupFunc := setupWikiRepo(t, cfg)
 	defer cleanupFunc()
 
-	wikiRepo := localrepo.New(git.NewExecCommandFactory(cfg), wikiRepoProto, cfg)
+	wikiRepo := localrepo.NewTestRepo(t, cfg, wikiRepoProto)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -71,7 +72,7 @@ func testSuccessfulWikiDeletePageRequest(t *testing.T, cfg config.Cfg, rubySrv *
 			_, err := client.WikiDeletePage(ctx, tc.req)
 			require.NoError(t, err)
 
-			headID := testhelper.MustRunCommand(t, nil, "git", "-C", wikiRepoPath, "show", "--format=format:%H", "--no-patch", "HEAD")
+			headID := gittest.Exec(t, cfg, "-C", wikiRepoPath, "show", "--format=format:%H", "--no-patch", "HEAD")
 			commit, err := wikiRepo.ReadCommit(ctx, git.Revision(headID))
 			require.NoError(t, err, "look up git commit after deleting a wiki page")
 

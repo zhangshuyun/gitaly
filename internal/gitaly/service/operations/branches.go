@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -26,13 +25,13 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 		return nil, status.Errorf(codes.InvalidArgument, "empty start point")
 	}
 
-	repo := localrepo.New(s.gitCmdFactory, req.Repository, s.cfg)
+	repo := s.localrepo(req.GetRepository())
 
 	// BEGIN TODO: Uncomment if StartPoint started behaving sensibly
 	// like BranchName. See
 	// https://gitlab.com/gitlab-org/gitaly/-/issues/3331
 	//
-	// startPointReference, err := localrepo.New(req.Repository).GetReference(ctx, "refs/heads/"+string(req.StartPoint))
+	// startPointReference, err := s.localrepo(req.GetRepository()).GetReference(ctx, "refs/heads/"+string(req.StartPoint))
 	// startPointCommit, err := log.GetCommit(ctx, req.Repository, startPointReference.Target)
 	startPointCommit, err := repo.ReadCommit(ctx, git.Revision(req.StartPoint))
 	// END TODO
@@ -170,7 +169,7 @@ func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteB
 
 	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))
 
-	referenceValue, err := localrepo.New(s.gitCmdFactory, req.Repository, s.cfg).ResolveRevision(ctx, referenceName.Revision())
+	referenceValue, err := s.localrepo(req.GetRepository()).ResolveRevision(ctx, referenceName.Revision())
 	if err != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "branch not found: %s", req.BranchName)
 	}

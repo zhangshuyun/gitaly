@@ -12,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -29,7 +28,7 @@ func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagR
 	}
 
 	referenceName := git.ReferenceName(fmt.Sprintf("refs/tags/%s", req.TagName))
-	revision, err := localrepo.New(s.gitCmdFactory, req.Repository, s.cfg).ResolveRevision(ctx, referenceName.Revision())
+	revision, err := s.localrepo(req.GetRepository()).ResolveRevision(ctx, referenceName.Revision())
 	if err != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "tag not found: %s", req.TagName)
 	}
@@ -92,8 +91,8 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 	}
 
 	// Setup
-	repo := req.GetRepository()
-	catFile, err := catfile.New(ctx, s.gitCmdFactory, repo)
+	repo := s.localrepo(req.GetRepository())
+	catFile, err := s.catfileCache.BatchProcess(ctx, repo)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -144,7 +143,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 	refObjectID := targetObjectID
 	var tagObject *gitalypb.Tag
 	if makingTag {
-		localRepo := localrepo.New(s.gitCmdFactory, repo, s.cfg)
+		localRepo := s.localrepo(repo)
 
 		committerTime := time.Now()
 		if req.Timestamp != nil {
@@ -168,7 +167,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 			return nil, status.Error(codes.Internal, err.Error())
 		}
 
-		createdTag, err := log.GetTagCatfile(ctx, catFile, tagObjectID.Revision(), string(req.TagName), false, false)
+		createdTag, err := catfile.GetTag(ctx, catFile, tagObjectID.Revision(), string(req.TagName), false, false)
 		if err != nil {
 			return nil, status.Error(codes.Internal, err.Error())
 		}
@@ -249,7 +248,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 	// Save ourselves looking this up earlier in case update-ref
 	// died
 	if peeledTargetObjectType == "commit" {
-		peeledTargetCommit, err := log.GetCommitCatfile(ctx, catFile, peeledTargetObjectID.Revision())
+		peeledTargetCommit, err := catfile.GetCommit(ctx, catFile, peeledTargetObjectID.Revision())
 		if err != nil {
 			return nil, status.Error(codes.Internal, err.Error())
 		}

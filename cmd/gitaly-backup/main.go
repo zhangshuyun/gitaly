@@ -16,7 +16,8 @@ type subcmd interface {
 }
 
 var subcommands = map[string]subcmd{
-	"create": &createSubcommand{},
+	"create":  &createSubcommand{},
+	"restore": &restoreSubcommand{},
 }
 
 func main() {

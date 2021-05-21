@@ -1,7 +1,6 @@
 package operations
 
 import (
-	"context"
 	"testing"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
@@ -9,25 +8,21 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
-func testServerUserRevertSuccessful(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserRevert, cfg, rubySrv, testServerUserRevertSuccessfulFeatured)
-}
+func TestServer_UserRevert_successful(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertSuccessfulFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "revert-dst"
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
 
 	masterHeadCommit, err := repo.ReadCommit(ctx, "master")
 	require.NoError(t, err)
@@ -35,10 +30,10 @@ func testServerUserRevertSuccessfulFeatured(t *testing.T, ctx context.Context, c
 	revertedCommit, err := repo.ReadCommit(ctx, "d59c60028b053793cecfb4022de34602e1a9218e")
 	require.NoError(t, err)
 
-	testRepoCopy, testRepoCopyPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "read-only") // read-only repo
+	testRepoCopy, testRepoCopyPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "read-only") // read-only repo
 	defer cleanup()
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoCopyPath, "branch", destinationBranch, "master")
+	gittest.Exec(t, cfg, "-C", testRepoCopyPath, "branch", destinationBranch, "master")
 
 	testCases := []struct {
 		desc         string
@@ -49,7 +44,7 @@ func testServerUserRevertSuccessfulFeatured(t *testing.T, ctx context.Context, c
 			desc: "branch exists",
 			request: &gitalypb.UserRevertRequest{
 				Repository: repoProto,
-				User:       testhelper.TestUser,
+				User:       gittest.TestUser,
 				Commit:     revertedCommit,
 				BranchName: []byte(destinationBranch),
 				Message:    []byte("Reverting " + revertedCommit.Id),
@@ -60,7 +55,7 @@ func testServerUserRevertSuccessfulFeatured(t *testing.T, ctx context.Context, c
 			desc: "nonexistent branch + start_repository == repository",
 			request: &gitalypb.UserRevertRequest{
 				Repository:      repoProto,
-				User:            testhelper.TestUser,
+				User:            gittest.TestUser,
 				Commit:          revertedCommit,
 				BranchName:      []byte("to-be-reverted-into-1"),
 				Message:         []byte("Reverting " + revertedCommit.Id),
@@ -72,7 +67,7 @@ func testServerUserRevertSuccessfulFeatured(t *testing.T, ctx context.Context, c
 			desc: "nonexistent branch + start_repository != repository",
 			request: &gitalypb.UserRevertRequest{
 				Repository:      repoProto,
-				User:            testhelper.TestUser,
+				User:            gittest.TestUser,
 				Commit:          revertedCommit,
 				BranchName:      []byte("to-be-reverted-into-2"),
 				Message:         []byte("Reverting " + revertedCommit.Id),
@@ -85,7 +80,7 @@ func testServerUserRevertSuccessfulFeatured(t *testing.T, ctx context.Context, c
 			desc: "nonexistent branch + empty start_repository",
 			request: &gitalypb.UserRevertRequest{
 				Repository:      repoProto,
-				User:            testhelper.TestUser,
+				User:            gittest.TestUser,
 				Commit:          revertedCommit,
 				BranchName:      []byte("to-be-reverted-into-3"),
 				Message:         []byte("Reverting " + revertedCommit.Id),
@@ -97,7 +92,7 @@ func testServerUserRevertSuccessfulFeatured(t *testing.T, ctx context.Context, c
 			desc: "branch exists with dry run",
 			request: &gitalypb.UserRevertRequest{
 				Repository: testRepoCopy,
-				User:       testhelper.TestUser,
+				User:       gittest.TestUser,
 				Commit:     revertedCommit,
 				BranchName: []byte(destinationBranch),
 				Message:    []byte("Reverting " + revertedCommit.Id),
@@ -109,7 +104,7 @@ func testServerUserRevertSuccessfulFeatured(t *testing.T, ctx context.Context, c
 			desc: "nonexistent branch + start_repository == repository with dry run",
 			request: &gitalypb.UserRevertRequest{
 				Repository:      testRepoCopy,
-				User:            testhelper.TestUser,
+				User:            gittest.TestUser,
 				Commit:          revertedCommit,
 				BranchName:      []byte("to-be-reverted-into-1"),
 				Message:         []byte("Reverting " + revertedCommit.Id),
@@ -122,7 +117,7 @@ func testServerUserRevertSuccessfulFeatured(t *testing.T, ctx context.Context, c
 			desc: "nonexistent branch + start_repository != repository with dry run",
 			request: &gitalypb.UserRevertRequest{
 				Repository:      testRepoCopy,
-				User:            testhelper.TestUser,
+				User:            gittest.TestUser,
 				Commit:          revertedCommit,
 				BranchName:      []byte("to-be-reverted-into-2"),
 				Message:         []byte("Reverting " + revertedCommit.Id),
@@ -136,7 +131,7 @@ func testServerUserRevertSuccessfulFeatured(t *testing.T, ctx context.Context, c
 			desc: "nonexistent branch + empty start_repository with dry run",
 			request: &gitalypb.UserRevertRequest{
 				Repository:      testRepoCopy,
-				User:            testhelper.TestUser,
+				User:            gittest.TestUser,
 				Commit:          revertedCommit,
 				BranchName:      []byte("to-be-reverted-into-3"),
 				Message:         []byte("Reverting " + revertedCommit.Id),
@@ -152,7 +147,7 @@ func testServerUserRevertSuccessfulFeatured(t *testing.T, ctx context.Context, c
 			response, err := client.UserRevert(ctx, testCase.request)
 			require.NoError(t, err)
 
-			testCaseRepo := localrepo.New(git.NewExecCommandFactory(cfg), testCase.request.Repository, cfg)
+			testCaseRepo := localrepo.NewTestRepo(t, cfg, testCase.request.Repository)
 			headCommit, err := testCaseRepo.ReadCommit(ctx, git.Revision(testCase.request.BranchName))
 			require.NoError(t, err)
 
@@ -174,21 +169,20 @@ func testServerUserRevertSuccessfulFeatured(t *testing.T, ctx context.Context, c
 	}
 }
 
-func testServerUserRevertStableID(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserRevert, cfg, rubySrv, testServerUserRevertStableIDFeatured)
-}
+func TestServer_UserRevert_stableID(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertStableIDFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	commitToRevert, err := repo.ReadCommit(ctx, "d59c60028b053793cecfb4022de34602e1a9218e")
 	require.NoError(t, err)
 
 	response, err := client.UserRevert(ctx, &gitalypb.UserRevertRequest{
 		Repository: repoProto,
-		User:       testhelper.TestUser,
+		User:       gittest.TestUser,
 		Commit:     commitToRevert,
 		BranchName: []byte("master"),
 		Message:    []byte("Reverting commit"),
@@ -229,16 +223,13 @@ func testServerUserRevertStableIDFeatured(t *testing.T, ctx context.Context, cfg
 	}, revertedCommit)
 }
 
-func testServerUserRevertSuccessfulIntoEmptyRepo(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserRevert, cfg, rubySrv, testServerUserRevertSuccessfulIntoNewRepo)
-}
+func TestServer_UserRevert_successfulIntoEmptyRepo(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertSuccessfulIntoNewRepo(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, startRepoProto, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, startRepoProto, _, client := setupOperationsService(t, ctx)
 
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-
-	startRepo := localrepo.New(gitCmdFactory, startRepoProto, cfg)
+	startRepo := localrepo.NewTestRepo(t, cfg, startRepoProto)
 
 	revertedCommit, err := startRepo.ReadCommit(ctx, "d59c60028b053793cecfb4022de34602e1a9218e")
 	require.NoError(t, err)
@@ -246,13 +237,13 @@ func testServerUserRevertSuccessfulIntoNewRepo(t *testing.T, ctx context.Context
 	masterHeadCommit, err := startRepo.ReadCommit(ctx, "master")
 	require.NoError(t, err)
 
-	repoProto, _, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	repoProto, _, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	defer cleanup()
-	repo := localrepo.New(gitCmdFactory, repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	request := &gitalypb.UserRevertRequest{
 		Repository:      repoProto,
-		User:            testhelper.TestUser,
+		User:            gittest.TestUser,
 		Commit:          revertedCommit,
 		BranchName:      []byte("dst-branch"),
 		Message:         []byte("Reverting " + revertedCommit.Id),
@@ -279,24 +270,23 @@ func testServerUserRevertSuccessfulIntoNewRepo(t *testing.T, ctx context.Context
 	require.Equal(t, masterHeadCommit.Id, headCommit.ParentIds[0])
 }
 
-func testServerUserRevertSuccessfulGitHooks(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserRevert, cfg, rubySrv, testServerUserRevertSuccessfulGitHooksFeatured)
-}
+func TestServer_UserRevert_successfulGitHooks(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertSuccessfulGitHooksFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "revert-dst"
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
 
 	revertedCommit, err := repo.ReadCommit(ctx, "d59c60028b053793cecfb4022de34602e1a9218e")
 	require.NoError(t, err)
 
 	request := &gitalypb.UserRevertRequest{
 		Repository: repoProto,
-		User:       testhelper.TestUser,
+		User:       gittest.TestUser,
 		Commit:     revertedCommit,
 		BranchName: []byte(destinationBranch),
 		Message:    []byte("Reverting " + revertedCommit.Id),
@@ -314,18 +304,17 @@ func testServerUserRevertSuccessfulGitHooksFeatured(t *testing.T, ctx context.Co
 
 	for _, file := range hookOutputFiles {
 		output := string(testhelper.MustReadFile(t, file))
-		require.Contains(t, output, "GL_USERNAME="+testhelper.TestUser.GlUsername)
+		require.Contains(t, output, "GL_USERNAME="+gittest.TestUser.GlUsername)
 	}
 }
 
-func testServerUserRevertFailuedDueToValidations(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserRevert, cfg, rubySrv, testServerUserRevertFailuedDueToValidationsFeatured)
-}
+func TestServer_UserRevert_failuedDueToValidations(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertFailuedDueToValidationsFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	revertedCommit, err := repo.ReadCommit(ctx, "d59c60028b053793cecfb4022de34602e1a9218e")
 	require.NoError(t, err)
@@ -352,7 +341,7 @@ func testServerUserRevertFailuedDueToValidationsFeatured(t *testing.T, ctx conte
 			desc: "empty commit",
 			request: &gitalypb.UserRevertRequest{
 				Repository: repoProto,
-				User:       testhelper.TestUser,
+				User:       gittest.TestUser,
 				Commit:     nil,
 				BranchName: []byte(destinationBranch),
 				Message:    []byte("Reverting " + revertedCommit.Id),
@@ -363,7 +352,7 @@ func testServerUserRevertFailuedDueToValidationsFeatured(t *testing.T, ctx conte
 			desc: "empty branch name",
 			request: &gitalypb.UserRevertRequest{
 				Repository: repoProto,
-				User:       testhelper.TestUser,
+				User:       gittest.TestUser,
 				Commit:     revertedCommit,
 				BranchName: nil,
 				Message:    []byte("Reverting " + revertedCommit.Id),
@@ -374,7 +363,7 @@ func testServerUserRevertFailuedDueToValidationsFeatured(t *testing.T, ctx conte
 			desc: "empty message",
 			request: &gitalypb.UserRevertRequest{
 				Repository: repoProto,
-				User:       testhelper.TestUser,
+				User:       gittest.TestUser,
 				Commit:     revertedCommit,
 				BranchName: []byte(destinationBranch),
 				Message:    nil,
@@ -391,24 +380,23 @@ func testServerUserRevertFailuedDueToValidationsFeatured(t *testing.T, ctx conte
 	}
 }
 
-func testServerUserRevertFailedDueToPreReceiveError(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserRevert, cfg, rubySrv, testServerUserRevertFailedDueToPreReceiveErrorFeatured)
-}
+func TestServer_UserRevert_failedDueToPreReceiveError(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertFailedDueToPreReceiveErrorFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "revert-dst"
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
 
 	revertedCommit, err := repo.ReadCommit(ctx, "d59c60028b053793cecfb4022de34602e1a9218e")
 	require.NoError(t, err)
 
 	request := &gitalypb.UserRevertRequest{
 		Repository: repoProto,
-		User:       testhelper.TestUser,
+		User:       gittest.TestUser,
 		Commit:     revertedCommit,
 		BranchName: []byte(destinationBranch),
 		Message:    []byte("Reverting " + revertedCommit.Id),
@@ -422,22 +410,21 @@ func testServerUserRevertFailedDueToPreReceiveErrorFeatured(t *testing.T, ctx co
 
 			response, err := client.UserRevert(ctx, request)
 			require.NoError(t, err)
-			require.Contains(t, response.PreReceiveError, "GL_ID="+testhelper.TestUser.GlId)
+			require.Contains(t, response.PreReceiveError, "GL_ID="+gittest.TestUser.GlId)
 		})
 	}
 }
 
-func testServerUserRevertFailedDueToCreateTreeErrorConflict(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserRevert, cfg, rubySrv, testServerUserRevertFailedDueToCreateTreeErrorConflictFeatured)
-}
+func TestServer_UserRevert_failedDueToCreateTreeErrorConflict(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertFailedDueToCreateTreeErrorConflictFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "revert-dst"
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
 
 	// This revert patch of the following commit cannot be applied to the destinationBranch above
 	revertedCommit, err := repo.ReadCommit(ctx, "372ab6950519549b14d220271ee2322caa44d4eb")
@@ -445,7 +432,7 @@ func testServerUserRevertFailedDueToCreateTreeErrorConflictFeatured(t *testing.T
 
 	request := &gitalypb.UserRevertRequest{
 		Repository: repoProto,
-		User:       testhelper.TestUser,
+		User:       gittest.TestUser,
 		Commit:     revertedCommit,
 		BranchName: []byte(destinationBranch),
 		Message:    []byte("Reverting " + revertedCommit.Id),
@@ -457,24 +444,23 @@ func testServerUserRevertFailedDueToCreateTreeErrorConflictFeatured(t *testing.T
 	require.Equal(t, gitalypb.UserRevertResponse_CONFLICT, response.CreateTreeErrorCode)
 }
 
-func testServerUserRevertFailedDueToCreateTreeErrorEmpty(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserRevert, cfg, rubySrv, testServerUserRevertFailedDueToCreateTreeErrorEmptyFeatured)
-}
+func TestServer_UserRevert_failedDueToCreateTreeErrorEmpty(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertFailedDueToCreateTreeErrorEmptyFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "revert-dst"
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
 
 	revertedCommit, err := repo.ReadCommit(ctx, "d59c60028b053793cecfb4022de34602e1a9218e")
 	require.NoError(t, err)
 
 	request := &gitalypb.UserRevertRequest{
 		Repository: repoProto,
-		User:       testhelper.TestUser,
+		User:       gittest.TestUser,
 		Commit:     revertedCommit,
 		BranchName: []byte(destinationBranch),
 		Message:    []byte("Reverting " + revertedCommit.Id),
@@ -491,26 +477,25 @@ func testServerUserRevertFailedDueToCreateTreeErrorEmptyFeatured(t *testing.T, c
 	require.Equal(t, gitalypb.UserRevertResponse_EMPTY, response.CreateTreeErrorCode)
 }
 
-func testServerUserRevertFailedDueToCommitError(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserRevert, cfg, rubySrv, testServerUserRevertFailedDueToCommitErrorFeatured)
-}
+func TestServer_UserRevert_failedDueToCommitError(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertFailedDueToCommitErrorFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	sourceBranch := "revert-src"
 	destinationBranch := "revert-dst"
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", sourceBranch, "a5391128b0ef5d21df5dd23d98557f4ef12fae20")
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", sourceBranch, "a5391128b0ef5d21df5dd23d98557f4ef12fae20")
 
 	revertedCommit, err := repo.ReadCommit(ctx, git.Revision(sourceBranch))
 	require.NoError(t, err)
 
 	request := &gitalypb.UserRevertRequest{
 		Repository:      repoProto,
-		User:            testhelper.TestUser,
+		User:            gittest.TestUser,
 		Commit:          revertedCommit,
 		BranchName:      []byte(destinationBranch),
 		Message:         []byte("Reverting " + revertedCommit.Id),

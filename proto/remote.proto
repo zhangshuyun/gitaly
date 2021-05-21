@@ -40,6 +40,12 @@ service RemoteService {
         scope_level: STORAGE
       };
     }
+
+    // FindRemoteRootRef tries to find the root reference of a remote
+    // repository. The root reference is the default branch as pointed to by
+    // the remotes HEAD reference. Returns an InvalidArgument error if the
+    // specified remote does not exist and a NotFound error in case no HEAD
+    // branch was found.
     rpc FindRemoteRootRef(FindRemoteRootRefRequest) returns (FindRemoteRootRefResponse) {
       option (op_type) = {
         op: ACCESSOR
@@ -119,12 +125,28 @@ message FindRemoteRepositoryResponse {
   bool exists = 1;
 }
 
+// FindRemoteRootRefRequest represents a request for the FindRemoteRootRef RPC.
 message FindRemoteRootRefRequest {
+  // Repository is the repository in which the request shall be executed in. If
+  // a remote name is given, then this is the repository in which the remote
+  // will be looked up.
   Repository repository = 1 [(target_repository)=true];
-  string remote = 2;
+  // Remote is the name of the remote of which the root reference shall be
+  // looked up. The remote must have been created before this call. This
+  // parameter is deprecated in favor of `RemoteUrl`, see
+  // https://gitlab.com/gitlab-org/gitaly/-/issues/1773.
+  string remote = 2 [deprecated=true];
+  // RemoteUrl specifies the remote repository URL which should be fetched from.
+  string remote_url = 3;
+  // HttpAuthorizationHeader is the HTTP header which should be added to the
+  // request in order to authenticate against the repository.
+  string http_authorization_header = 4;
 }
 
+// FindRemoteRootRefResponse represents the response for the FindRemoteRootRef
+// request.
 message FindRemoteRootRefResponse {
+  // Ref is the name of the remote root reference.
   string ref = 1;
 }
 

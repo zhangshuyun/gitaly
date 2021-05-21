@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/archive"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -54,8 +55,8 @@ func TestGetSnapshotSuccess(t *testing.T) {
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	// Ensure certain files exist in the test repo.
-	// CreateCommit produces a loose object with the given sha
-	sha := gittest.CreateCommit(t, cfg, repoPath, "master", nil)
+	// WriteCommit produces a loose object with the given sha
+	sha := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 	zeroes := strings.Repeat("0", 40)
 	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "hooks"), 0755))
 	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "objects/pack"), 0755))
@@ -111,7 +112,8 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg, repo, repoPath, client := setupRepositoryServiceWithWorktree(t)
+			cfg, repoProto, repoPath, client := setupRepositoryServiceWithWorktree(t)
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
@@ -128,16 +130,16 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 			originalAlternatesCommit := string(commitSha)
 
 			locator := config.NewLocator(cfg)
-			gitCmdFactory := git.NewExecCommandFactory(cfg)
+			catfileCache := catfile.NewCache(cfg)
 
 			// ensure commit cannot be found in current repository
-			c, err := catfile.New(ctx, gitCmdFactory, repo)
+			c, err := catfileCache.BatchProcess(ctx, repo)
 			require.NoError(t, err)
 			_, err = c.Info(ctx, git.Revision(originalAlternatesCommit))
 			require.True(t, catfile.IsNotFound(err))
 
 			// write alternates file to point to alt objects folder
-			alternatesPath, err := locator.InfoAlternatesPath(repo)
+			alternatesPath, err := locator.InfoAlternatesPath(repoProto)
 			require.NoError(t, err)
 			require.NoError(t, ioutil.WriteFile(alternatesPath, []byte(filepath.Join(repoPath, ".git", fmt.Sprintf("%s\n", alternateObjDir))), 0644))
 
@@ -148,17 +150,17 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 				"commit", "--allow-empty", "-m", "Another empty commit")
 			commitSha = gittest.CreateCommitInAlternateObjectDirectory(t, cfg.Git.BinPath, repoPath, alternateObjDir, cmd)
 
-			c, err = catfile.New(ctx, gitCmdFactory, repo)
+			c, err = catfileCache.BatchProcess(ctx, repo)
 			require.NoError(t, err)
 			_, err = c.Info(ctx, git.Revision(commitSha))
 			require.NoError(t, err)
 
-			_, repoCopyPath, cleanupCopy := copyRepoUsingSnapshot(t, cfg, client, repo)
+			_, repoCopyPath, cleanupCopy := copyRepoUsingSnapshot(t, cfg, client, repoProto)
 			defer cleanupCopy()
 
 			// ensure the sha committed to the alternates directory can be accessed
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoCopyPath, "cat-file", "-p", originalAlternatesCommit)
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoCopyPath, "fsck")
+			gittest.Exec(t, cfg, "-C", repoCopyPath, "cat-file", "-p", originalAlternatesCommit)
+			gittest.Exec(t, cfg, "-C", repoCopyPath, "fsck")
 		})
 	}
 }
@@ -166,7 +168,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 func TestGetSnapshotWithDedupeSoftFailures(t *testing.T) {
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	testRepo, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+	testRepo, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	defer cleanup()
 
 	locator := config.NewLocator(cfg)
@@ -216,8 +218,8 @@ func TestGetSnapshotWithDedupeSoftFailures(t *testing.T) {
 	defer cleanupCopy()
 
 	// ensure the sha committed to the alternates directory can be accessed
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoCopyPath, "cat-file", "-p", originalAlternatesCommit)
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoCopyPath, "fsck")
+	gittest.Exec(t, cfg, "-C", repoCopyPath, "cat-file", "-p", originalAlternatesCommit)
+	gittest.Exec(t, cfg, "-C", repoCopyPath, "fsck")
 }
 
 // copyRepoUsingSnapshot creates a tarball snapshot, then creates a new repository from that snapshot
@@ -232,7 +234,7 @@ func copyRepoUsingSnapshot(t *testing.T, cfg config.Cfg, client gitalypb.Reposit
 	srv := httptest.NewServer(&tarTesthandler{tarData: bytes.NewBuffer(data), secret: secret})
 	defer srv.Close()
 
-	repoCopy, repoCopyPath, cleanupCopy := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
+	repoCopy, repoCopyPath, cleanupCopy := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "copy")
 
 	// Delete the repository so we can re-use the path
 	require.NoError(t, os.RemoveAll(repoCopyPath))

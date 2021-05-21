@@ -16,11 +16,9 @@ func TestNewProtoRegistry(t *testing.T) {
 
 	expectedResults := map[string]map[string]protoregistry.OpType{
 		"BlobService": map[string]protoregistry.OpType{
-			"GetBlob":           protoregistry.OpAccessor,
-			"GetBlobs":          protoregistry.OpAccessor,
-			"GetLFSPointers":    protoregistry.OpAccessor,
-			"GetNewLFSPointers": protoregistry.OpAccessor,
-			"GetAllLFSPointers": protoregistry.OpAccessor,
+			"GetBlob":        protoregistry.OpAccessor,
+			"GetBlobs":       protoregistry.OpAccessor,
+			"GetLFSPointers": protoregistry.OpAccessor,
 		},
 		"CleanupService": map[string]protoregistry.OpType{
 			"ApplyBfgObjectMapStream": protoregistry.OpMutator,
@@ -125,7 +123,7 @@ func TestNewProtoRegistry(t *testing.T) {
 			"GetArchive":                   protoregistry.OpAccessor,
 			"HasLocalBranches":             protoregistry.OpAccessor,
 			"FetchSourceBranch":            protoregistry.OpMutator,
-			"Fsck":                         protoregistry.OpMutator,
+			"Fsck":                         protoregistry.OpAccessor,
 			"WriteRef":                     protoregistry.OpMutator,
 			"FindMergeBase":                protoregistry.OpAccessor,
 			"CreateFork":                   protoregistry.OpMutator,
@@ -160,14 +158,12 @@ func TestNewProtoRegistry(t *testing.T) {
 			"SSHUploadArchive": protoregistry.OpAccessor,
 		},
 		"WikiService": map[string]protoregistry.OpType{
-			"WikiGetPageVersions": protoregistry.OpAccessor,
-			"WikiWritePage":       protoregistry.OpMutator,
-			"WikiUpdatePage":      protoregistry.OpMutator,
-			"WikiDeletePage":      protoregistry.OpMutator,
-			"WikiFindPage":        protoregistry.OpAccessor,
-			"WikiFindFile":        protoregistry.OpAccessor,
-			"WikiGetAllPages":     protoregistry.OpAccessor,
-			"WikiListPages":       protoregistry.OpAccessor,
+			"WikiWritePage":   protoregistry.OpMutator,
+			"WikiUpdatePage":  protoregistry.OpMutator,
+			"WikiDeletePage":  protoregistry.OpMutator,
+			"WikiFindPage":    protoregistry.OpAccessor,
+			"WikiGetAllPages": protoregistry.OpAccessor,
+			"WikiListPages":   protoregistry.OpAccessor,
 		},
 	}
 

@@ -76,6 +76,10 @@ func (s *server) repackCommand(ctx context.Context, repo repository.GitRepo, bit
 		return status.Errorf(codes.Internal, err.Error())
 	}
 
+	if err = s.writeCommitGraph(ctx, repo, gitalypb.WriteCommitGraphRequest_SizeMultiple); err != nil {
+		return err
+	}
+
 	stats.LogObjectsInfo(ctx, s.gitCmdFactory, repo)
 
 	return nil

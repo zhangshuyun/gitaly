@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
@@ -18,7 +19,7 @@ import (
 func testSuccessfulWikiWritePageRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	wikiRepoProto, wikiRepoPath, cleanupFunc := setupWikiRepo(t, cfg)
 	defer cleanupFunc()
-	wikiRepo := localrepo.New(git.NewExecCommandFactory(cfg), wikiRepoProto, cfg)
+	wikiRepo := localrepo.NewTestRepo(t, cfg, wikiRepoProto)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -100,7 +101,7 @@ func testSuccessfulWikiWritePageRequest(t *testing.T, cfg config.Cfg, rubySrv *r
 
 			require.Empty(t, resp.DuplicateError, "DuplicateError must be empty")
 
-			headID := testhelper.MustRunCommand(t, nil, "git", "-C", wikiRepoPath, "show", "--format=format:%H", "--no-patch", "HEAD")
+			headID := gittest.Exec(t, cfg, "-C", wikiRepoPath, "show", "--format=format:%H", "--no-patch", "HEAD")
 			commit, err := wikiRepo.ReadCommit(ctx, git.Revision(headID))
 			require.NoError(t, err, "look up git commit after writing a wiki page")
 
@@ -108,7 +109,7 @@ func testSuccessfulWikiWritePageRequest(t *testing.T, cfg config.Cfg, rubySrv *r
 			require.Equal(t, authorEmail, commit.Author.Email, "author email mismatched")
 			require.Equal(t, message, commit.Subject, "message mismatched")
 
-			pageContent := testhelper.MustRunCommand(t, nil, "git", "-C", wikiRepoPath, "cat-file", "blob", "HEAD:"+tc.gollumPath)
+			pageContent := gittest.Exec(t, cfg, "-C", wikiRepoPath, "cat-file", "blob", "HEAD:"+tc.gollumPath)
 			require.Equal(t, tc.content, pageContent, "mismatched content")
 		})
 	}

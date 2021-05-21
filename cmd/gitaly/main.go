@@ -13,8 +13,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/bootstrap"
 	"gitlab.com/gitlab-org/gitaly/internal/bootstrap/starter"
+	"gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/cgroups"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/sentry"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
@@ -24,12 +26,14 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/gitlab"
 	glog "gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/internal/version"
 	"gitlab.com/gitlab-org/labkit/monitoring"
 	"gitlab.com/gitlab-org/labkit/tracing"
+	"google.golang.org/grpc"
 )
 
 var (
@@ -147,12 +151,13 @@ func run(cfg config.Cfg) error {
 	if config.SkipHooks() {
 		log.Warn("skipping GitLab API client creation since hooks are bypassed via GITALY_TESTING_NO_GIT_HOOKS")
 	} else {
-		gitlabAPI, err := hook.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
+		gitlabClient, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS, cfg.Prometheus)
 		if err != nil {
 			return fmt.Errorf("could not create GitLab API client: %w", err)
 		}
+		prometheus.MustRegister(gitlabClient)
 
-		hm := hook.NewManager(locator, transactionManager, gitlabAPI, cfg)
+		hm := hook.NewManager(locator, transactionManager, gitlabClient, cfg)
 
 		hookManager = hm
 	}
@@ -166,7 +171,16 @@ func run(cfg config.Cfg) error {
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	prometheus.MustRegister(gitCmdFactory)
 
-	gitalyServerFactory := server.NewGitalyServerFactory(cfg, registry)
+	catfileCache := catfile.NewCache(cfg)
+	prometheus.MustRegister(catfileCache)
+
+	diskCache := cache.New(cfg, locator)
+	prometheus.MustRegister(diskCache)
+	if err := diskCache.StartWalkers(); err != nil {
+		return fmt.Errorf("disk cache walkers: %w", err)
+	}
+
+	gitalyServerFactory := server.NewGitalyServerFactory(cfg, glog.Default(), registry, diskCache)
 	defer gitalyServerFactory.Stop()
 
 	ling, err := linguist.New(cfg)
@@ -183,19 +197,28 @@ func run(cfg config.Cfg) error {
 	defer rubySrv.Stop()
 
 	for _, c := range []starter.Config{
-		{starter.Unix, cfg.SocketPath},
-		{starter.Unix, cfg.GitalyInternalSocketPath()},
-		{starter.TCP, cfg.ListenAddr},
-		{starter.TLS, cfg.TLSListenAddr},
+		{Name: starter.Unix, Addr: cfg.SocketPath, HandoverOnUpgrade: true},
+		{Name: starter.Unix, Addr: cfg.GitalyInternalSocketPath(), HandoverOnUpgrade: false},
+		{Name: starter.TCP, Addr: cfg.ListenAddr, HandoverOnUpgrade: true},
+		{Name: starter.TLS, Addr: cfg.TLSListenAddr, HandoverOnUpgrade: true},
 	} {
 		if c.Addr == "" {
 			continue
 		}
 
-		srv, err := gitalyServerFactory.Create(c.IsSecure())
-		if err != nil {
-			return fmt.Errorf("create gRPC server: %w", err)
+		var srv *grpc.Server
+		if c.HandoverOnUpgrade {
+			srv, err = gitalyServerFactory.CreateExternal(c.IsSecure())
+			if err != nil {
+				return fmt.Errorf("create external gRPC server: %w", err)
+			}
+		} else {
+			srv, err = gitalyServerFactory.CreateInternal()
+			if err != nil {
+				return fmt.Errorf("create internal gRPC server: %w", err)
+			}
 		}
+
 		setup.RegisterAll(srv, &service.Dependencies{
 			Cfg:                cfg,
 			RubyServer:         rubySrv,
@@ -205,6 +228,8 @@ func run(cfg config.Cfg) error {
 			ClientPool:         conns,
 			GitCmdFactory:      gitCmdFactory,
 			Linguist:           ling,
+			CatfileCache:       catfileCache,
+			DiskCache:          diskCache,
 		})
 		b.RegisterStarter(starter.New(c, srv))
 	}

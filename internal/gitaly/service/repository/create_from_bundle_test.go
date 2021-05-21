@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/tempdir"
@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestServer_CreateRepositoryFromBundle_successful(t *testing.T) {
@@ -30,9 +31,9 @@ func TestServer_CreateRepositoryFromBundle_successful(t *testing.T) {
 	require.NoError(t, err)
 	bundlePath := filepath.Join(tmpdir, "original.bundle")
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/custom-refs/ref1", "HEAD")
+	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/custom-refs/ref1", "HEAD")
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "bundle", "create", bundlePath, "--all")
+	gittest.Exec(t, cfg, "-C", repoPath, "bundle", "create", bundlePath, "--all")
 	defer os.RemoveAll(bundlePath)
 
 	stream, err := client.CreateRepositoryFromBundle(ctx)
@@ -42,7 +43,7 @@ func TestServer_CreateRepositoryFromBundle_successful(t *testing.T) {
 		StorageName:  repo.GetStorageName(),
 		RelativePath: "a-repo-from-bundle",
 	}
-	importedRepo := localrepo.New(git.NewExecCommandFactory(cfg), importedRepoProto, cfg)
+	importedRepo := localrepo.NewTestRepo(t, cfg, importedRepoProto)
 	importedRepoPath, err := locator.GetPath(importedRepoProto)
 	require.NoError(t, err)
 	defer os.RemoveAll(importedRepoPath)
@@ -70,7 +71,7 @@ func TestServer_CreateRepositoryFromBundle_successful(t *testing.T) {
 	_, err = stream.CloseAndRecv()
 	require.NoError(t, err)
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", importedRepoPath, "fsck")
+	gittest.Exec(t, cfg, "-C", importedRepoPath, "fsck")
 
 	info, err := os.Lstat(filepath.Join(importedRepoPath, "hooks"))
 	require.NoError(t, err)
@@ -147,8 +148,7 @@ func TestServer_CreateRepositoryFromBundle_failed_existing_directory(t *testing.
 	}))
 
 	_, err = stream.CloseAndRecv()
-	testhelper.RequireGrpcError(t, err, codes.FailedPrecondition)
-	testhelper.GrpcErrorHasMessage(t, err, "CreateRepositoryFromBundle: target directory is non-empty")
+	require.Equal(t, status.Error(codes.FailedPrecondition, "CreateRepositoryFromBundle: target directory is non-empty"), err)
 }
 
 func TestSanitizedError(t *testing.T) {

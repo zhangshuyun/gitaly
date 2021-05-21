@@ -1,5 +1,41 @@
-## Reason
+## 	Reason
 
+### Git Characteristics That Make Horizontal Scaling Difficult
+
+Git's fundamental behaviors are similar to relational database engines and are difficult to horizontally scale for the same reasons that serverless database is challenging and why serverless database cannot handle all existing relational database workloads.
+
+Gitaly is a layer that brings horizontal scaling and higher availability to massively scaled Git operations through a variety of optimizations in disk locality, caching results of intensive operations (like git pack-objects), coordinating between multiple nodes, cluster synchronization and sharding.
+
+> **Note:** While Gitaly is designed to help Git scale horizontally, Gitaly internal operations depend on the standard open source release of the git client which it calls during git operations. So some Gitaly limitations still pass through from Git. The same is true of any server system that does not have a layer like Gitaly - but in such cases there is no ability to provide any horizontal scaling support at all.
+#### Git Architectural Characteristics and Assumptions
+
+- **Stateful, Atomic, ACID Transactions** (“database synonymous” workload with regard to memory / CPU / disk IO).
+- **"Process Atomic" Transactions** - requires one commit to be coordinated by one and only one Git process.
+- **Atomic Storage** - assumes that operations of a single git command write to a single storage end-point.
+- **Storage channel speeds** - assumes low latency, high bandwidth storage access (near bus speeds).
+- **ACID Isolation** - by design Git allows concurrent update access to the same repository as much as possible, in the area of updating Git Refs, record locking is necessary and implemented by Git.
+- **Wide ranging burst memory / CPU / disk IO requirements** - assumes significant available memory headroom for operations that intensify depending on the content size.
+
+#### Specific Git Workload Characteristics That Make Remote File Systems and Containerization of Gitaly Challenging
+
+**IMPORTANT:** The above characteristics and assumptions combined with specific Git workloads create challenging compute characteristics - high burst CPU utilization, high burst memory utilization and high burst storage channel utilization. Bursts in these compute needs are based on Git usage patterns - how much content, how dense (e.g. binaries) and how often.
+
+These workload characteristics are not fundamentally predictable across the portfolio of source code that a given GitLab server may need to store. Large monorepos might exist at companies with few employees.  Binaries storage - while not considered an ideal file type for Git file systems - is common in some industry segments or project types. This means that architecting a GitLab instance with built-in Git headroom limitations causes unexpected limitations of specific Git usage patterns of the people using the instance.
+
+These are some of the most challenging git workloads for Git:
+- Large scale, busy monorepos (commit volume is high and packs for full clones are very large).
+- High commit volume on a single repository (commit volume is high packs for full clones are very frequent).
+- Binaries stored in the Git object database. (In GitLab Git LFS can be redirected to PaaS storage).
+- Full history cloning - due to packfile creation requirements.
+
+The above workload factors compound together when a given workload has more than one characteristic.
+#### Affects on Horizontal Compute Architecture
+- The memory burstiness profile of Git makes it (and therefore Gitaly) very challenging to reliably containerize because container systems have very strong memory limits. Exceeding these limits causes significant operational instability and/or termination by the container running system.
+- The disk IO burstiness profile of Git makes it (and therefore Gitaly) very challenging to use remote file systems with reliability and integrity (e.g.  NFS - including PaaS versions). This was, in fact, the first design reason for Gitaly - to avoid having the Git binary operate on remote storage.
+- The CPU burstiness profile of Git (and therefore Gitaly) also makes it challenging to reliably containerize.
+
+These are the challenges that imply an application layer is needed to help Git scale horizontally in any scaled implementation - not just GitLab.  GitLab has built this layer and continues to chip away (iterate) against all of the above challenges in this innovative layer.
+### Evidence To Back Building a New Horizontal Layer to Scale Git
 For GitLab.com the [git access is slow](https://gitlab.com/gitlab-com/infrastructure/issues/351).
 
 When looking at `Rugged::Repository.new` performance data we can see that our P99 spikes up to 30 wall seconds, while the CPU time keeps in the realm of the 15 milliseconds. Pointing at filesystem access as the culprit.
@@ -16,9 +52,6 @@ Gitaly will make our situation better in a few steps:
 1. Performance improvements doing less and caching more
 1. Move the git operations from the app to the file/git server with git rpc (routing git access over JSON HTTP calls)
 1. Use Git ketch to allow active-active (push to a local server), and distributed read operations (read from a secondary). This is far in the future, we might also use a distributed key value store instead. See the [active-active issue](https://gitlab.com/gitlab-org/gitlab-ee/issues/1381). Until we are active active we can just use persistent storage on the cloud to shard, this eliminates the need for redundancy.
-
-
-
 
 ## Scope
 

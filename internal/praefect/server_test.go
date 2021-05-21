@@ -3,7 +3,6 @@ package praefect
 import (
 	"bytes"
 	"context"
-	"crypto/sha1"
 	"errors"
 	"io"
 	"net"
@@ -22,15 +21,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	gconfig "gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/mock"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes/tracker"
@@ -41,11 +39,12 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/internal/version"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	grpc_metadata "google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -70,7 +69,9 @@ func TestNewBackchannelServerFactory(t *testing.T) {
 			}
 
 			resp, err := gitalypb.NewRefTransactionClient(backchannelConn).VoteTransaction(
-				stream.Context(), &gitalypb.VoteTransactionRequest{},
+				stream.Context(), &gitalypb.VoteTransactionRequest{
+					ReferenceUpdatesHash: voting.VoteFromData([]byte{}).Bytes(),
+				},
 			)
 			assert.Nil(t, resp)
 
@@ -198,7 +199,7 @@ func TestGitalyServerInfo(t *testing.T) {
 
 func TestGitalyServerInfoBadNode(t *testing.T) {
 	gitalySocket := testhelper.GetTemporaryGitalySocketFileName(t)
-	_, healthSrv := testhelper.NewServerWithHealth(t, gitalySocket)
+	healthSrv := testhelper.NewServerWithHealth(t, gitalySocket)
 	healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_UNKNOWN)
 
 	conf := config.Config{
@@ -677,13 +678,13 @@ func (m *mockSmartHTTP) PostReceivePack(stream gitalypb.SmartHTTPService_PostRec
 
 	ctx := stream.Context()
 
-	tx, err := metadata.TransactionFromContext(ctx)
+	tx, err := txinfo.TransactionFromContext(ctx)
 	if err != nil {
 		return helper.ErrInternal(err)
 	}
 
-	hash := sha1.Sum([]byte{})
-	if err := m.txMgr.VoteTransaction(ctx, tx.ID, tx.Node, hash[:]); err != nil {
+	vote := voting.VoteFromData([]byte{})
+	if err := m.txMgr.VoteTransaction(ctx, tx.ID, tx.Node, vote); err != nil {
 		return helper.ErrInternal(err)
 	}
 
@@ -697,21 +698,10 @@ func (m *mockSmartHTTP) Called(method string) int {
 	return m.methodsCalled[method]
 }
 
-func newSmartHTTPGrpcServer(t *testing.T, srv gitalypb.SmartHTTPServiceServer) (string, *grpc.Server) {
-	socketPath := testhelper.GetTemporaryGitalySocketFileName(t)
-	listener, err := net.Listen("unix", socketPath)
-	require.NoError(t, err)
-
-	grpcServer := testhelper.NewTestGrpcServer(t, nil, nil)
-
-	healthSrvr := health.NewServer()
-	grpc_health_v1.RegisterHealthServer(grpcServer, healthSrvr)
-	healthSrvr.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
-	gitalypb.RegisterSmartHTTPServiceServer(grpcServer, srv)
-
-	go grpcServer.Serve(listener)
-
-	return socketPath, grpcServer
+func newSmartHTTPGrpcServer(t *testing.T, cfg gconfig.Cfg, smartHTTPService gitalypb.SmartHTTPServiceServer) string {
+	return testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterSmartHTTPServiceServer(srv, smartHTTPService)
+	}, testserver.WithDisablePraefect())
 }
 
 func TestProxyWrites(t *testing.T) {
@@ -719,12 +709,14 @@ func TestProxyWrites(t *testing.T) {
 
 	smartHTTP0, smartHTTP1, smartHTTP2 := &mockSmartHTTP{txMgr: txMgr}, &mockSmartHTTP{txMgr: txMgr}, &mockSmartHTTP{txMgr: txMgr}
 
-	socket0, srv0 := newSmartHTTPGrpcServer(t, smartHTTP0)
-	defer srv0.Stop()
-	socket1, srv1 := newSmartHTTPGrpcServer(t, smartHTTP1)
-	defer srv1.Stop()
-	socket2, srv2 := newSmartHTTPGrpcServer(t, smartHTTP2)
-	defer srv2.Stop()
+	cfg0 := testcfg.Build(t, testcfg.WithStorages("praefect-internal-0"))
+	addr0 := newSmartHTTPGrpcServer(t, cfg0, smartHTTP0)
+
+	cfg1 := testcfg.Build(t, testcfg.WithStorages("praefect-internal-1"))
+	addr1 := newSmartHTTPGrpcServer(t, cfg1, smartHTTP1)
+
+	cfg2 := testcfg.Build(t, testcfg.WithStorages("praefect-internal-2"))
+	addr2 := newSmartHTTPGrpcServer(t, cfg2, smartHTTP2)
 
 	conf := config.Config{
 		VirtualStorages: []*config.VirtualStorage{
@@ -732,16 +724,16 @@ func TestProxyWrites(t *testing.T) {
 				Name: "default",
 				Nodes: []*config.Node{
 					{
-						Storage: "praefect-internal-0",
-						Address: "unix://" + socket0,
+						Storage: cfg0.Storages[0].Name,
+						Address: addr0,
 					},
 					{
-						Storage: "praefect-internal-1",
-						Address: "unix://" + socket1,
+						Storage: cfg1.Storages[0].Name,
+						Address: addr1,
 					},
 					{
-						Storage: "praefect-internal-2",
-						Address: "unix://" + socket2,
+						Storage: cfg2.Storages[0].Name,
+						Address: addr2,
 					},
 				},
 			},
@@ -758,12 +750,11 @@ func TestProxyWrites(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
+	_, repo, _ := testcfg.BuildWithRepo(t)
 
 	rs := datastore.MockRepositoryStore{
 		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
-			return map[string]struct{}{"praefect-internal-0": {}, "praefect-internal-1": {}, "praefect-internal-2": {}}, nil
+			return map[string]struct{}{cfg0.Storages[0].Name: {}, cfg1.Storages[0].Name: {}, cfg2.Storages[0].Name: {}}, nil
 		},
 	}
 
@@ -805,7 +796,7 @@ func TestProxyWrites(t *testing.T) {
 	payload := "some pack data"
 	for i := 0; i < 10; i++ {
 		require.NoError(t, stream.Send(&gitalypb.PostReceivePackRequest{
-			Repository: testRepo,
+			Repository: repo,
 			Data:       []byte(payload),
 		}))
 	}
@@ -950,8 +941,7 @@ func TestErrorThreshold(t *testing.T) {
 			require.NoError(t, err)
 			cli := mock.NewSimpleServiceClient(conn)
 
-			repo, _, cleanup := gittest.CloneRepo(t)
-			defer cleanup()
+			_, repo, _ := testcfg.BuildWithRepo(t)
 
 			node := nodeMgr.Nodes()["default"][0]
 			require.Equal(t, "praefect-internal-0", node.GetStorage())

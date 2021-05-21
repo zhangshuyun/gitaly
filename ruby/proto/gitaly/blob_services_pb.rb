@@ -22,21 +22,7 @@ module Gitaly
       # GetLFSPointers retrieves LFS pointers from a given set of object IDs.
       # This RPC filters all requested objects and only returns those which refer
       # to a valid LFS pointer.
-      #
-      # Deprecated in favor of `ListLFSPointers`, passing object IDs as revisions.
       rpc :GetLFSPointers, Gitaly::GetLFSPointersRequest, stream(Gitaly::GetLFSPointersResponse)
-      # GetNewLFSPointers retrieves LFS pointers for a limited subset of the
-      # commit graph. It will return all LFS pointers which are reachable by the
-      # provided revision, but not reachable by any of the limiting references.
-      #
-      # Deprecated in favor of `ListLFSPointers`. `NotInAll` can be replaced with
-      # `REVISION` `--not` `--all`, while `NotInRefs` can be replaced with
-      # `REVISION` `--not` `NotInRevs...`.
-      rpc :GetNewLFSPointers, Gitaly::GetNewLFSPointersRequest, stream(Gitaly::GetNewLFSPointersResponse)
-      # GetAllLFSPointers retrieves all LFS pointers of the given repository.
-      #
-      # Deprecated in favor of `ListLFSPointers`, passing `--all` as revision.
-      rpc :GetAllLFSPointers, Gitaly::GetAllLFSPointersRequest, stream(Gitaly::GetAllLFSPointersResponse)
       # ListLFSPointers retrieves LFS pointers reachable from a given set of
       # revisions by doing a graph walk. This includes both normal revisions like
       # an object ID or branch, but also the pseudo-revisions "--all" and "--not"
@@ -44,9 +30,8 @@ module Gitaly
       # transitively reference any LFS pointers are ignored. It is not valid to
       # pass revisions which do not resolve to an existing object.
       rpc :ListLFSPointers, Gitaly::ListLFSPointersRequest, stream(Gitaly::ListLFSPointersResponse)
-      # ListAllLFSPointers retrieves all LFS pointers in the repository. In
-      # contrast to `GetAllLFSPointers`, this RPC also includes LFS pointers which
-      # are not reachable by any reference.
+      # ListAllLFSPointers retrieves all LFS pointers in the repository, including
+      # those not reachable by any reference.
       rpc :ListAllLFSPointers, Gitaly::ListAllLFSPointersRequest, stream(Gitaly::ListAllLFSPointersResponse)
     end
 

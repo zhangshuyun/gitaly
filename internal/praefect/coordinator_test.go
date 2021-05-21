@@ -2,7 +2,6 @@ package praefect
 
 import (
 	"context"
-	"crypto/sha1"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -17,7 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/metadatahandler"
@@ -25,19 +24,23 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
-	praefect_metadata "gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/mock"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/transactions"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 )
 
@@ -126,10 +129,8 @@ func TestStreamDirectorReadOnlyEnforcement(t *testing.T) {
 
 func TestStreamDirectorMutator(t *testing.T) {
 	gitalySocket0, gitalySocket1 := testhelper.GetTemporaryGitalySocketFileName(t), testhelper.GetTemporaryGitalySocketFileName(t)
-	srv1, _ := testhelper.NewServerWithHealth(t, gitalySocket0)
-	defer srv1.Stop()
-	srv2, _ := testhelper.NewServerWithHealth(t, gitalySocket1)
-	defer srv2.Stop()
+	testhelper.NewServerWithHealth(t, gitalySocket0)
+	testhelper.NewServerWithHealth(t, gitalySocket1)
 
 	primaryAddress, secondaryAddress := "unix://"+gitalySocket0, "unix://"+gitalySocket1
 	primaryNode := &config.Node{Address: primaryAddress, Storage: "praefect-internal-1"}
@@ -194,7 +195,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 
 	md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
 	require.True(t, ok)
-	require.Contains(t, md, praefect_metadata.PraefectMetadataKey)
+	require.Contains(t, md, txinfo.PraefectMetadataKey)
 
 	mi, err := coordinator.registry.LookupMethod(fullMethod)
 	require.NoError(t, err)
@@ -236,8 +237,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 
 func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 	socket := testhelper.GetTemporaryGitalySocketFileName(t)
-	server, _ := testhelper.NewServerWithHealth(t, socket)
-	defer server.Stop()
+	testhelper.NewServerWithHealth(t, socket)
 
 	conf := config.Config{
 		VirtualStorages: []*config.VirtualStorage{
@@ -300,7 +300,8 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 	streamParams, err := coordinator.StreamDirector(correlation.ContextWithCorrelation(ctx, "my-correlation-id"), fullMethod, peeker)
 	require.NoError(t, err)
 
-	transaction, err := praefect_metadata.TransactionFromContext(streamParams.Primary().Ctx)
+	txCtx := peer.NewContext(streamParams.Primary().Ctx, &peer.Peer{})
+	transaction, err := txinfo.TransactionFromContext(txCtx)
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup
@@ -312,8 +313,8 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 	go func() {
 		defer wg.Done()
 
-		vote := sha1.Sum([]byte("vote"))
-		err := txMgr.VoteTransaction(ctx, transaction.ID, "primary", vote[:])
+		vote := voting.VoteFromData([]byte("vote"))
+		err := txMgr.VoteTransaction(ctx, transaction.ID, "primary", vote)
 		require.NoError(t, err)
 
 		// Assure that at least one vote was agreed on.
@@ -326,15 +327,15 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 	go func() {
 		defer wg.Done()
 
-		vote := sha1.Sum([]byte("vote"))
-		err := txMgr.VoteTransaction(ctx, transaction.ID, "secondary", vote[:])
+		vote := voting.VoteFromData([]byte("vote"))
+		err := txMgr.VoteTransaction(ctx, transaction.ID, "secondary", vote)
 		require.NoError(t, err)
 
 		// Assure that at least one vote was agreed on.
 		syncWG.Done()
 		syncWG.Wait()
 
-		err = txMgr.VoteTransaction(ctx, transaction.ID, "secondary", vote[:])
+		err = txMgr.VoteTransaction(ctx, transaction.ID, "secondary", vote)
 		assert.True(t, errors.Is(err, transactions.ErrTransactionStopped))
 	}()
 
@@ -355,8 +356,7 @@ func (m mockRouter) RouteRepositoryAccessor(ctx context.Context, virtualStorage,
 
 func TestStreamDirectorAccessor(t *testing.T) {
 	gitalySocket := testhelper.GetTemporaryGitalySocketFileName(t)
-	srv, _ := testhelper.NewServerWithHealth(t, gitalySocket)
-	defer srv.Stop()
+	testhelper.NewServerWithHealth(t, gitalySocket)
 
 	gitalyAddress := "unix://" + gitalySocket
 	conf := config.Config{
@@ -438,7 +438,7 @@ func TestStreamDirectorAccessor(t *testing.T) {
 
 			md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
 			require.True(t, ok)
-			require.Contains(t, md, praefect_metadata.PraefectMetadataKey)
+			require.Contains(t, md, txinfo.PraefectMetadataKey)
 
 			mi, err := coordinator.registry.LookupMethod(fullMethod)
 			require.NoError(t, err)
@@ -457,10 +457,8 @@ func TestStreamDirectorAccessor(t *testing.T) {
 
 func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 	gitalySocket0, gitalySocket1 := testhelper.GetTemporaryGitalySocketFileName(t), testhelper.GetTemporaryGitalySocketFileName(t)
-	srv1, primaryHealthSrv := testhelper.NewServerWithHealth(t, gitalySocket0)
-	defer srv1.Stop()
-	srv2, healthSrv := testhelper.NewServerWithHealth(t, gitalySocket1)
-	defer srv2.Stop()
+	primaryHealthSrv := testhelper.NewServerWithHealth(t, gitalySocket0)
+	healthSrv := testhelper.NewServerWithHealth(t, gitalySocket1)
 
 	primaryNodeConf := config.Node{
 		Address: "unix://" + gitalySocket0,
@@ -545,7 +543,7 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 
 			md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
 			require.True(t, ok)
-			require.Contains(t, md, praefect_metadata.PraefectMetadataKey)
+			require.Contains(t, md, txinfo.PraefectMetadataKey)
 
 			mi, err := coordinator.registry.LookupMethod(fullMethod)
 			require.NoError(t, err)
@@ -594,7 +592,7 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 
 			md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
 			require.True(t, ok)
-			require.Contains(t, md, praefect_metadata.PraefectMetadataKey)
+			require.Contains(t, md, txinfo.PraefectMetadataKey)
 
 			mi, err := coordinator.registry.LookupMethod(fullMethod)
 			require.NoError(t, err)
@@ -643,7 +641,7 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 
 			md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
 			require.True(t, ok)
-			require.Contains(t, md, praefect_metadata.PraefectMetadataKey)
+			require.Contains(t, md, txinfo.PraefectMetadataKey)
 
 			mi, err := coordinator.registry.LookupMethod(fullMethod)
 			require.NoError(t, err)
@@ -687,7 +685,7 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 
 		md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
 		require.True(t, ok)
-		require.Contains(t, md, praefect_metadata.PraefectMetadataKey)
+		require.Contains(t, md, txinfo.PraefectMetadataKey)
 
 		mi, err := coordinator.registry.LookupMethod(fullMethod)
 		require.NoError(t, err)
@@ -741,7 +739,7 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 
 		md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
 		require.True(t, ok)
-		require.Contains(t, md, praefect_metadata.PraefectMetadataKey)
+		require.Contains(t, md, txinfo.PraefectMetadataKey)
 
 		mi, err := coordinator.registry.LookupMethod(fullMethod)
 		require.NoError(t, err)
@@ -815,12 +813,13 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 
 			var createRepositoryCalled int64
 			rs := datastore.MockRepositoryStore{
-				CreateRepositoryFunc: func(ctx context.Context, virtualStorage, relativePath, primary string, secondaries []string, storePrimary, storeAssignments bool) error {
+				CreateRepositoryFunc: func(ctx context.Context, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error {
 					atomic.AddInt64(&createRepositoryCalled, 1)
 					assert.Equal(t, targetRepo.StorageName, virtualStorage)
 					assert.Equal(t, targetRepo.RelativePath, relativePath)
 					assert.Equal(t, rewrittenStorage, primary)
-					assert.ElementsMatch(t, []string{healthySecondaryNode.Storage, unhealthySecondaryNode.Storage}, secondaries)
+					assert.Equal(t, []string{healthySecondaryNode.Storage}, updatedSecondaries)
+					assert.Equal(t, []string{unhealthySecondaryNode.Storage}, outdatedSecondaries)
 					assert.Equal(t, tc.primaryStored, storePrimary)
 					assert.Equal(t, tc.assignmentsStored, storeAssignments)
 					return nil
@@ -834,18 +833,15 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 			case config.ElectionStrategySQL:
 				gitalySocket0 := testhelper.GetTemporaryGitalySocketFileName(t)
 				gitalySocket1 := testhelper.GetTemporaryGitalySocketFileName(t)
-				gitalySocket3 := testhelper.GetTemporaryGitalySocketFileName(t)
-				srv1, _ := testhelper.NewServerWithHealth(t, gitalySocket0)
-				defer srv1.Stop()
-				srv2, _ := testhelper.NewServerWithHealth(t, gitalySocket1)
-				defer srv2.Stop()
-				srv3, healthSrv3 := testhelper.NewServerWithHealth(t, gitalySocket3)
-				healthSrv3.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
-				defer srv3.Stop()
+				gitalySocket2 := testhelper.GetTemporaryGitalySocketFileName(t)
+				testhelper.NewServerWithHealth(t, gitalySocket0)
+				testhelper.NewServerWithHealth(t, gitalySocket1)
+				healthSrv2 := testhelper.NewServerWithHealth(t, gitalySocket2)
+				healthSrv2.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 
 				primaryNode.Address = "unix://" + gitalySocket0
 				healthySecondaryNode.Address = "unix://" + gitalySocket1
-				unhealthySecondaryNode.Address = "unix://" + gitalySocket1
+				unhealthySecondaryNode.Address = "unix://" + gitalySocket2
 
 				nodeMgr, err := nodes.NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil)
 				require.NoError(t, err)
@@ -857,6 +853,10 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 						primaryConnPointer = fmt.Sprintf("%p", node.GetConnection())
 						continue
 					}
+
+					if node.GetStorage() == healthySecondaryNode.Storage {
+						secondaryConnPointers = []string{fmt.Sprintf("%p", node.GetConnection())}
+					}
 				}
 			case config.ElectionStrategyPerRepository:
 				conns := Connections{
@@ -867,6 +867,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 					},
 				}
 				primaryConnPointer = fmt.Sprintf("%p", conns["praefect"][primaryNode.Storage])
+				secondaryConnPointers = []string{fmt.Sprintf("%p", conns["praefect"][healthySecondaryNode.Storage])}
 				router = NewPerRepositoryRouter(
 					conns,
 					nil,
@@ -922,7 +923,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 
 			md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
 			require.True(t, ok)
-			require.Contains(t, md, praefect_metadata.PraefectMetadataKey)
+			require.Contains(t, md, txinfo.PraefectMetadataKey)
 
 			mi, err := coordinator.registry.LookupMethod(fullMethod)
 			require.NoError(t, err)
@@ -934,7 +935,12 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, rewrittenStorage, rewrittenTargetRepo.GetStorageName(), "stream director should have rewritten the storage name")
 
-			replEventWait.Add(2) // expected only one event to be created
+			replEventWait.Add(1)
+
+			vote := voting.VoteFromData([]byte{})
+			require.NoError(t, txMgr.VoteTransaction(ctx, 1, "praefect-internal-1", vote))
+			require.NoError(t, txMgr.VoteTransaction(ctx, 1, "praefect-internal-2", vote))
+
 			// this call creates new events in the queue and simulates usual flow of the update operation
 			err = streamParams.RequestFinalizer()
 			require.NoError(t, err)
@@ -942,7 +948,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 			replEventWait.Wait() // wait until event persisted (async operation)
 
 			var expectedEvents, actualEvents []datastore.ReplicationEvent
-			for _, target := range []string{healthySecondaryNode.Storage, unhealthySecondaryNode.Storage} {
+			for _, target := range []string{unhealthySecondaryNode.Storage} {
 				actual, err := queueInterceptor.Dequeue(ctx, "praefect", target, 10)
 				require.NoError(t, err)
 				require.Len(t, actual, 1)
@@ -1000,8 +1006,8 @@ func (m *mockPeeker) Modify(payload []byte) error {
 
 func TestAbsentCorrelationID(t *testing.T) {
 	gitalySocket0, gitalySocket1 := testhelper.GetTemporaryGitalySocketFileName(t), testhelper.GetTemporaryGitalySocketFileName(t)
-	_, healthSrv0 := testhelper.NewServerWithHealth(t, gitalySocket0)
-	_, healthSrv1 := testhelper.NewServerWithHealth(t, gitalySocket1)
+	healthSrv0 := testhelper.NewServerWithHealth(t, gitalySocket0)
+	healthSrv1 := testhelper.NewServerWithHealth(t, gitalySocket1)
 	healthSrv0.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 	healthSrv1.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 
@@ -1151,10 +1157,8 @@ func TestCoordinatorEnqueueFailure(t *testing.T) {
 func TestStreamDirectorStorageScope(t *testing.T) {
 	// stubs health-check requests because nodes.NewManager establishes connection on creation
 	gitalySocket0, gitalySocket1 := testhelper.GetTemporaryGitalySocketFileName(t), testhelper.GetTemporaryGitalySocketFileName(t)
-	srv1, _ := testhelper.NewServerWithHealth(t, gitalySocket0)
-	defer srv1.Stop()
-	srv2, _ := testhelper.NewServerWithHealth(t, gitalySocket1)
-	defer srv2.Stop()
+	testhelper.NewServerWithHealth(t, gitalySocket0)
+	testhelper.NewServerWithHealth(t, gitalySocket1)
 
 	primaryAddress, secondaryAddress := "unix://"+gitalySocket0, "unix://"+gitalySocket1
 	primaryGitaly := &config.Node{Address: primaryAddress, Storage: "gitaly-1"}
@@ -1416,12 +1420,10 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 
 	type gitalyNode struct {
 		mock            *nodes.MockNode
-		grpcServer      *grpc.Server
 		operationServer *mockOperationServer
 	}
 
-	repoProto, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
+	_, repoProto, _ := testcfg.BuildWithRepo(t)
 
 	for _, tc := range []struct {
 		desc        string
@@ -1460,19 +1462,18 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 			for _, gitaly := range []string{"primary", "secondary-1", "secondary-2"} {
 				gitaly := gitaly
 
-				grpcServer := testhelper.NewTestGrpcServer(t, nil, nil)
+				cfg := testcfg.Build(t, testcfg.WithStorages(gitaly))
+				cfg.ListenAddr = ":0"
 
 				operationServer := &mockOperationServer{
 					t:  t,
 					wg: &wg,
 				}
-				gitalypb.RegisterOperationServiceServer(grpcServer, operationServer)
+				addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+					gitalypb.RegisterOperationServiceServer(srv, operationServer)
+				})
 
-				listener, address := testhelper.GetLocalhostListener(t)
-				go grpcServer.Serve(listener)
-				defer grpcServer.Stop()
-
-				conn, err := client.DialContext(ctx, "tcp://"+address, []grpc.DialOption{
+				conn, err := client.DialContext(ctx, addr, []grpc.DialOption{
 					grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())),
 				})
 				require.NoError(t, err)
@@ -1483,12 +1484,11 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 						Healthy:          true,
 						GetStorageMethod: func() string { return gitaly },
 					},
-					grpcServer:      grpcServer,
 					operationServer: operationServer,
 				}
 
 				praefectConfig.VirtualStorages[0].Nodes = append(praefectConfig.VirtualStorages[0].Nodes, &config.Node{
-					Address: "tcp://" + address,
+					Address: addr,
 					Storage: gitaly,
 				})
 			}
@@ -1539,8 +1539,9 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 }
 
 type mockTransaction struct {
-	nodeStates      map[string]transactions.VoteResult
-	subtransactions int
+	nodeStates                 map[string]transactions.VoteResult
+	subtransactions            int
+	didCommitAnySubtransaction bool
 }
 
 func (t mockTransaction) ID() uint64 {
@@ -1549,6 +1550,10 @@ func (t mockTransaction) ID() uint64 {
 
 func (t mockTransaction) CountSubtransactions() int {
 	return t.subtransactions
+}
+
+func (t mockTransaction) DidCommitAnySubtransaction() bool {
+	return t.didCommitAnySubtransaction
 }
 
 func (t mockTransaction) State() (map[string]transactions.VoteResult, error) {
@@ -1568,13 +1573,15 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 	anyErr := errors.New("arbitrary error")
 
 	for _, tc := range []struct {
-		desc             string
-		primary          node
-		secondaries      []node
-		replicas         []string
-		subtransactions  int
-		expectedOutdated []string
-		expectedUpdated  []string
+		desc                       string
+		primary                    node
+		secondaries                []node
+		replicas                   []string
+		subtransactions            int
+		didCommitAnySubtransaction bool
+		expectedPrimaryDirtied     bool
+		expectedOutdated           []string
+		expectedUpdated            []string
 	}{
 		{
 			desc: "single committed node",
@@ -1582,7 +1589,9 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 				name:  "primary",
 				state: transactions.VoteCommitted,
 			},
-			subtransactions: 1,
+			didCommitAnySubtransaction: true,
+			subtransactions:            1,
+			expectedPrimaryDirtied:     true,
 		},
 		{
 			desc: "single failed node",
@@ -1604,7 +1613,8 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			primary: node{
 				name: "primary",
 			},
-			subtransactions: 0,
+			subtransactions:        0,
+			expectedPrimaryDirtied: true,
 		},
 		{
 			desc: "single successful node with replica",
@@ -1612,9 +1622,11 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 				name:  "primary",
 				state: transactions.VoteCommitted,
 			},
-			replicas:         []string{"replica"},
-			subtransactions:  1,
-			expectedOutdated: []string{"replica"},
+			replicas:                   []string{"replica"},
+			didCommitAnySubtransaction: true,
+			subtransactions:            1,
+			expectedPrimaryDirtied:     true,
+			expectedOutdated:           []string{"replica"},
 		},
 		{
 			desc: "single failing node with replica",
@@ -1633,18 +1645,21 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 				state: transactions.VoteCommitted,
 				err:   anyErr,
 			},
-			replicas:         []string{"replica"},
-			subtransactions:  1,
-			expectedOutdated: []string{"replica"},
+			replicas:                   []string{"replica"},
+			didCommitAnySubtransaction: true,
+			subtransactions:            1,
+			expectedPrimaryDirtied:     true,
+			expectedOutdated:           []string{"replica"},
 		},
 		{
 			desc: "single node without transaction with replica",
 			primary: node{
 				name: "primary",
 			},
-			replicas:         []string{"replica"},
-			subtransactions:  0,
-			expectedOutdated: []string{"replica"},
+			replicas:               []string{"replica"},
+			subtransactions:        0,
+			expectedPrimaryDirtied: true,
+			expectedOutdated:       []string{"replica"},
 		},
 		{
 			desc: "multiple committed nodes",
@@ -1656,8 +1671,10 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 				{name: "s1", state: transactions.VoteCommitted},
 				{name: "s2", state: transactions.VoteCommitted},
 			},
-			subtransactions: 1,
-			expectedUpdated: []string{"s1", "s2"},
+			didCommitAnySubtransaction: true,
+			subtransactions:            1,
+			expectedPrimaryDirtied:     true,
+			expectedUpdated:            []string{"s1", "s2"},
 		},
 		{
 			desc: "multiple committed nodes with primary err",
@@ -1670,8 +1687,10 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 				{name: "s1", state: transactions.VoteCommitted},
 				{name: "s2", state: transactions.VoteCommitted},
 			},
-			subtransactions:  1,
-			expectedOutdated: []string{"s1", "s2"},
+			didCommitAnySubtransaction: true,
+			subtransactions:            1,
+			expectedPrimaryDirtied:     true,
+			expectedOutdated:           []string{"s1", "s2"},
 		},
 		{
 			desc: "multiple committed nodes with secondary err",
@@ -1683,9 +1702,11 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 				{name: "s1", state: transactions.VoteCommitted, err: anyErr},
 				{name: "s2", state: transactions.VoteCommitted},
 			},
-			subtransactions:  1,
-			expectedUpdated:  []string{"s2"},
-			expectedOutdated: []string{"s1"},
+			didCommitAnySubtransaction: true,
+			subtransactions:            1,
+			expectedPrimaryDirtied:     true,
+			expectedUpdated:            []string{"s2"},
+			expectedOutdated:           []string{"s1"},
 		},
 		{
 			desc: "partial success",
@@ -1697,9 +1718,11 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 				{name: "s1", state: transactions.VoteFailed},
 				{name: "s2", state: transactions.VoteCommitted},
 			},
-			subtransactions:  1,
-			expectedUpdated:  []string{"s2"},
-			expectedOutdated: []string{"s1"},
+			didCommitAnySubtransaction: true,
+			subtransactions:            1,
+			expectedPrimaryDirtied:     true,
+			expectedUpdated:            []string{"s2"},
+			expectedOutdated:           []string{"s1"},
 		},
 		{
 			desc: "failure with (impossible) secondary success",
@@ -1711,8 +1734,10 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 				{name: "s1", state: transactions.VoteFailed},
 				{name: "s2", state: transactions.VoteCommitted},
 			},
-			subtransactions:  1,
-			expectedOutdated: []string{"s1", "s2"},
+			didCommitAnySubtransaction: true,
+			subtransactions:            1,
+			expectedPrimaryDirtied:     true,
+			expectedOutdated:           []string{"s1", "s2"},
 		},
 		{
 			desc: "multiple nodes without subtransactions",
@@ -1724,8 +1749,9 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 				{name: "s1", state: transactions.VoteFailed},
 				{name: "s2", state: transactions.VoteCommitted},
 			},
-			subtransactions:  0,
-			expectedOutdated: []string{"s1", "s2"},
+			subtransactions:        0,
+			expectedPrimaryDirtied: true,
+			expectedOutdated:       []string{"s1", "s2"},
 		},
 		{
 			desc: "multiple nodes with replica and partial failures",
@@ -1737,10 +1763,12 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 				{name: "s1", state: transactions.VoteFailed},
 				{name: "s2", state: transactions.VoteCommitted},
 			},
-			replicas:         []string{"r1", "r2"},
-			subtransactions:  1,
-			expectedOutdated: []string{"s1", "r1", "r2"},
-			expectedUpdated:  []string{"s2"},
+			replicas:                   []string{"r1", "r2"},
+			didCommitAnySubtransaction: true,
+			subtransactions:            1,
+			expectedPrimaryDirtied:     true,
+			expectedOutdated:           []string{"s1", "r1", "r2"},
+			expectedUpdated:            []string{"s2"},
 		},
 		{
 			desc: "multiple nodes with replica and partial err",
@@ -1752,9 +1780,11 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 				{name: "s1", state: transactions.VoteFailed},
 				{name: "s2", state: transactions.VoteCommitted, err: anyErr},
 			},
-			replicas:         []string{"r1", "r2"},
-			subtransactions:  1,
-			expectedOutdated: []string{"s1", "s2", "r1", "r2"},
+			replicas:                   []string{"r1", "r2"},
+			didCommitAnySubtransaction: true,
+			subtransactions:            1,
+			expectedPrimaryDirtied:     true,
+			expectedOutdated:           []string{"s1", "s2", "r1", "r2"},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -1776,8 +1806,9 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			}
 
 			transaction := mockTransaction{
-				nodeStates:      states,
-				subtransactions: tc.subtransactions,
+				nodeStates:                 states,
+				subtransactions:            tc.subtransactions,
+				didCommitAnySubtransaction: tc.didCommitAnySubtransaction,
 			}
 
 			route := RepositoryMutatorRoute{
@@ -1792,9 +1823,102 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			}
 			route.ReplicationTargets = append(route.ReplicationTargets, tc.replicas...)
 
-			updated, outdated := getUpdatedAndOutdatedSecondaries(ctx, route, transaction, nodeErrors)
+			primaryDirtied, updated, outdated := getUpdatedAndOutdatedSecondaries(ctx, route, transaction, nodeErrors)
+			require.Equal(t, tc.expectedPrimaryDirtied, primaryDirtied)
 			require.ElementsMatch(t, tc.expectedUpdated, updated)
 			require.ElementsMatch(t, tc.expectedOutdated, outdated)
+		})
+	}
+}
+
+func TestNewRequestFinalizer_contextIsDisjointedFromTheRPC(t *testing.T) {
+	type ctxKey struct{}
+
+	parentDeadline := time.Now()
+	ctx, cancel := context.WithDeadline(context.WithValue(context.Background(), ctxKey{}, "value"), parentDeadline)
+	cancel()
+
+	requireSuppressedCancellation := func(t testing.TB, ctx context.Context) {
+		deadline, ok := ctx.Deadline()
+		require.True(t, ok)
+		require.NotEqual(t, parentDeadline, deadline)
+		require.Equal(t, ctx.Value(ctxKey{}), "value")
+		require.Nil(t, ctx.Err())
+		select {
+		case <-ctx.Done():
+			t.Fatal("context should not be canceled if the parent is canceled")
+		default:
+			require.NotNil(t, ctx.Done())
+		}
+	}
+
+	err := errors.New("error")
+
+	for _, tc := range []struct {
+		change datastore.ChangeType
+		errMsg string
+	}{
+		{
+			change: datastore.UpdateRepo,
+			errMsg: "increment generation: error",
+		},
+		{
+			change: datastore.RenameRepo,
+			errMsg: "rename repository: error",
+		},
+		{
+			change: datastore.DeleteRepo,
+			errMsg: "delete repository: error",
+		},
+		{
+			change: "replication jobs only",
+			errMsg: "enqueue replication event: error",
+		},
+	} {
+		t.Run(string(tc.change), func(t *testing.T) {
+			require.EqualError(t,
+				NewCoordinator(
+					&datastore.MockReplicationEventQueue{
+						EnqueueFunc: func(ctx context.Context, _ datastore.ReplicationEvent) (datastore.ReplicationEvent, error) {
+							requireSuppressedCancellation(t, ctx)
+							return datastore.ReplicationEvent{}, err
+						},
+					},
+					datastore.MockRepositoryStore{
+						IncrementGenerationFunc: func(ctx context.Context, _, _, _ string, _ []string) error {
+							requireSuppressedCancellation(t, ctx)
+							return err
+						},
+						RenameRepositoryFunc: func(ctx context.Context, _, _, _, _ string) error {
+							requireSuppressedCancellation(t, ctx)
+							return err
+						},
+						DeleteRepositoryFunc: func(ctx context.Context, _, _, _ string) error {
+							requireSuppressedCancellation(t, ctx)
+							return err
+						},
+						CreateRepositoryFunc: func(ctx context.Context, _, _, _ string, _, _ []string, _, _ bool) error {
+							requireSuppressedCancellation(t, ctx)
+							return err
+						},
+					},
+					nil,
+					nil,
+					config.Config{},
+					nil,
+				).newRequestFinalizer(
+					ctx,
+					"virtual storage",
+					&gitalypb.Repository{},
+					"primary",
+					[]string{},
+					[]string{"secondary"},
+					tc.change,
+					datastore.Params{"RelativePath": "relative-path"},
+					"rpc-name",
+				)(),
+				tc.errMsg,
+			)
 		})
 	}
 }

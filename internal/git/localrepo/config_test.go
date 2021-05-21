@@ -2,15 +2,14 @@ package localrepo
 
 import (
 	"errors"
-	"io/ioutil"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
@@ -21,19 +20,13 @@ func setupRepoConfig(t *testing.T) (Config, string) {
 
 	cfg := testcfg.Build(t)
 
-	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanup)
 
-	repo := New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	repo := New(gitCmdFactory, catfile.NewCache(cfg), repoProto, cfg)
+
 	return repo.Config(), repoPath
-}
-
-func TestRepo_Config(t *testing.T) {
-	bareRepo, _, cleanup := gittest.InitBareRepo(t)
-	defer cleanup()
-
-	repo := New(nil, bareRepo, config.Cfg{})
-	require.Equal(t, Config{repo: repo}, repo.Config())
 }
 
 func TestBuildConfigAddOptsFlags(t *testing.T) {
@@ -68,7 +61,7 @@ func TestConfig_Add(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		require.NoError(t, repoConfig.Add(ctx, "key.one", "1", git.ConfigAddOpts{}))
 
-		actual := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "key.one"))
+		actual := text.ChompBytes(gittest.Exec(t, repoConfig.repo.cfg, "-C", repoPath, "config", "key.one"))
 		require.Equal(t, "1", actual)
 	})
 
@@ -76,14 +69,14 @@ func TestConfig_Add(t *testing.T) {
 		require.NoError(t, repoConfig.Add(ctx, "key.two", "2", git.ConfigAddOpts{}))
 		require.NoError(t, repoConfig.Add(ctx, "key.two", "3", git.ConfigAddOpts{}))
 
-		actual := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--get-all", "key.two"))
+		actual := text.ChompBytes(gittest.Exec(t, repoConfig.repo.cfg, "-C", repoPath, "config", "--get-all", "key.two"))
 		require.Equal(t, "2\n3", actual)
 	})
 
 	t.Run("options are passed", func(t *testing.T) {
 		require.NoError(t, repoConfig.Add(ctx, "key.three", "3", git.ConfigAddOpts{Type: git.ConfigTypeInt}))
 
-		actual := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--int", "key.three"))
+		actual := text.ChompBytes(gittest.Exec(t, repoConfig.repo.cfg, "-C", repoPath, "config", "--int", "key.three"))
 		require.Equal(t, "3", actual)
 	})
 
@@ -160,9 +153,9 @@ func TestConfig_GetRegexp(t *testing.T) {
 	repoConfig, repoPath := setupRepoConfig(t)
 
 	t.Run("ok", func(t *testing.T) {
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.one", "one")
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.two", "2")
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.three", "!@#$%^&")
+		gittest.Exec(t, repoConfig.repo.cfg, "-C", repoPath, "config", "--add", "key.one", "one")
+		gittest.Exec(t, repoConfig.repo.cfg, "-C", repoPath, "config", "--add", "key.two", "2")
+		gittest.Exec(t, repoConfig.repo.cfg, "-C", repoPath, "config", "--add", "key.three", "!@#$%^&")
 
 		vals, err := repoConfig.GetRegexp(ctx, "^key\\..*o", git.ConfigGetRegexpOpts{})
 		require.NoError(t, err)
@@ -170,8 +163,8 @@ func TestConfig_GetRegexp(t *testing.T) {
 	})
 
 	t.Run("show origin and scope", func(t *testing.T) {
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.four", "4")
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.five", "five")
+		gittest.Exec(t, repoConfig.repo.cfg, "-C", repoPath, "config", "--add", "key.four", "4")
+		gittest.Exec(t, repoConfig.repo.cfg, "-C", repoPath, "config", "--add", "key.five", "five")
 
 		exp := []git.ConfigPair{
 			{Key: "key.four", Value: "4", Origin: "file:" + filepath.Join(repoPath, "config"), Scope: "local"},
@@ -190,7 +183,7 @@ func TestConfig_GetRegexp(t *testing.T) {
 	})
 
 	t.Run("bad combination of regexp and type", func(t *testing.T) {
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.six", "key-six")
+		gittest.Exec(t, repoConfig.repo.cfg, "-C", repoPath, "config", "--add", "key.six", "key-six")
 
 		_, err := repoConfig.GetRegexp(ctx, "^key\\.six$", git.ConfigGetRegexpOpts{Type: git.ConfigTypeBool})
 		require.Error(t, err)
@@ -253,8 +246,7 @@ func TestBuildConfigUnsetOptsFlags(t *testing.T) {
 
 func TestConfig_UnsetAll(t *testing.T) {
 	configContains := func(t *testing.T, repoPath string) func(t *testing.T, val string, contains bool) {
-		data, err := ioutil.ReadFile(filepath.Join(repoPath, "config"))
-		require.NoError(t, err)
+		data := testhelper.MustReadFile(t, filepath.Join(repoPath, "config"))
 		require.Contains(t, string(data), "[core]", "config should have core section defined by default")
 		return func(t *testing.T, val string, contains bool) {
 			require.Equal(t, contains, strings.Contains(string(data), val))
@@ -267,7 +259,7 @@ func TestConfig_UnsetAll(t *testing.T) {
 	repoConfig, repoPath := setupRepoConfig(t)
 
 	t.Run("unset single value", func(t *testing.T) {
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.one", "key-one")
+		gittest.Exec(t, repoConfig.repo.cfg, "-C", repoPath, "config", "--add", "key.one", "key-one")
 
 		require.NoError(t, repoConfig.Unset(ctx, "key.one", git.ConfigUnsetOpts{}))
 
@@ -276,8 +268,8 @@ func TestConfig_UnsetAll(t *testing.T) {
 	})
 
 	t.Run("unset multiple values", func(t *testing.T) {
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.two", "key-two-1")
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.two", "key-two-2")
+		gittest.Exec(t, repoConfig.repo.cfg, "-C", repoPath, "config", "--add", "key.two", "key-two-1")
+		gittest.Exec(t, repoConfig.repo.cfg, "-C", repoPath, "config", "--add", "key.two", "key-two-2")
 
 		require.NoError(t, repoConfig.Unset(ctx, "key.two", git.ConfigUnsetOpts{All: true}))
 
@@ -287,8 +279,8 @@ func TestConfig_UnsetAll(t *testing.T) {
 	})
 
 	t.Run("unset single with multiple values", func(t *testing.T) {
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.two", "key-two-1")
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.two", "key-two-2")
+		gittest.Exec(t, repoConfig.repo.cfg, "-C", repoPath, "config", "--add", "key.two", "key-two-1")
+		gittest.Exec(t, repoConfig.repo.cfg, "-C", repoPath, "config", "--add", "key.two", "key-two-2")
 
 		err := repoConfig.Unset(ctx, "key.two", git.ConfigUnsetOpts{})
 		require.Equal(t, git.ErrNotFound, err)
@@ -299,7 +291,7 @@ func TestConfig_UnsetAll(t *testing.T) {
 	})
 
 	t.Run("config key doesn't exist - is strict (by default)", func(t *testing.T) {
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.three", "key-three")
+		gittest.Exec(t, repoConfig.repo.cfg, "-C", repoPath, "config", "--add", "key.three", "key-three")
 
 		err := repoConfig.Unset(ctx, "some.stub", git.ConfigUnsetOpts{})
 		require.Equal(t, git.ErrNotFound, err)
@@ -309,7 +301,7 @@ func TestConfig_UnsetAll(t *testing.T) {
 	})
 
 	t.Run("config key doesn't exist - not strict", func(t *testing.T) {
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.four", "key-four")
+		gittest.Exec(t, repoConfig.repo.cfg, "-C", repoPath, "config", "--add", "key.four", "key-four")
 
 		require.NoError(t, repoConfig.Unset(ctx, "some.stub", git.ConfigUnsetOpts{NotStrict: true}))
 

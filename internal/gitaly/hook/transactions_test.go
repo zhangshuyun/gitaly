@@ -14,26 +14,28 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 )
 
 func TestHookManager_stopCalled(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
-	expectedTx := metadata.Transaction{
+	expectedTx := txinfo.Transaction{
 		ID: 1234, Node: "primary", Primary: true,
 	}
 
-	expectedPraefect := metadata.PraefectServer{
+	expectedPraefect := txinfo.PraefectServer{
 		SocketPath: "socket",
 		Token:      "foo",
 	}
 
 	var mockTxMgr transaction.MockManager
-	hookManager := NewManager(config.NewLocator(cfg), &mockTxMgr, GitlabAPIStub, cfg)
+	hookManager := NewManager(config.NewLocator(cfg), &mockTxMgr, gitlab.NewMockClient(), cfg)
 
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
@@ -102,7 +104,7 @@ func TestHookManager_stopCalled(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			wasInvoked := false
-			mockTxMgr.StopFn = func(ctx context.Context, tx metadata.Transaction, praefect metadata.PraefectServer) error {
+			mockTxMgr.StopFn = func(ctx context.Context, tx txinfo.Transaction, praefect txinfo.PraefectServer) error {
 				require.Equal(t, expectedTx, tx)
 				require.Equal(t, expectedPraefect, praefect)
 				wasInvoked = true
@@ -120,21 +122,21 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	mockTxMgr := transaction.MockManager{
-		VoteFn: func(ctx context.Context, tx metadata.Transaction, praefect metadata.PraefectServer, vote transaction.Vote) error {
+		VoteFn: func(ctx context.Context, tx txinfo.Transaction, praefect txinfo.PraefectServer, vote voting.Vote) error {
 			<-ctx.Done()
 			return fmt.Errorf("mock error: %s", ctx.Err())
 		},
 	}
 
-	hookManager := NewManager(config.NewLocator(cfg), &mockTxMgr, GitlabAPIStub, cfg)
+	hookManager := NewManager(config.NewLocator(cfg), &mockTxMgr, gitlab.NewMockClient(), cfg)
 
 	hooksPayload, err := git.NewHooksPayload(
 		cfg,
 		repo,
-		&metadata.Transaction{
+		&txinfo.Transaction{
 			ID: 1234, Node: "primary", Primary: true,
 		},
-		&metadata.PraefectServer{
+		&txinfo.PraefectServer{
 			SocketPath: "does_not",
 			Token:      "matter",
 		},

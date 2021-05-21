@@ -19,7 +19,7 @@ func TestReduplicate(t *testing.T) {
 	defer cancel()
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	pool, err := objectpool.NewObjectPool(cfg, locator, gitCmdFactory, repo.GetStorageName(), gittest.NewObjectPoolName(t))
+	pool, err := objectpool.NewObjectPool(cfg, locator, gitCmdFactory, nil, repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, pool.Remove(ctx))
@@ -27,7 +27,7 @@ func TestReduplicate(t *testing.T) {
 	require.NoError(t, pool.Create(ctx, repo))
 	require.NoError(t, pool.Link(ctx, repo))
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "gc")
+	gittest.Exec(t, cfg, "-C", repoPath, "gc")
 
 	existingObjectID := "55bc176024cfa3baaceb71db584c7e5df900ea65"
 
@@ -47,5 +47,5 @@ func TestReduplicate(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, pool.Unlink(ctx, repo))
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "cat-file", "-e", existingObjectID)
+	gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-e", existingObjectID)
 }

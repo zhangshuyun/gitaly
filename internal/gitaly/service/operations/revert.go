@@ -8,12 +8,9 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -21,16 +18,13 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 	if err := validateCherryPickOrRevertRequest(req); err != nil {
 		return nil, helper.ErrInvalidArgument(err)
 	}
-	if featureflag.IsDisabled(ctx, featureflag.GoUserRevert) {
-		return s.rubyUserRevert(ctx, req)
-	}
 
 	startRevision, err := s.fetchStartRevision(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
-	localRepo := localrepo.New(s.gitCmdFactory, req.Repository, s.cfg)
+	localRepo := s.localrepo(req.GetRepository())
 	repoHadBranches, err := localRepo.HasBranches(ctx)
 	if err != nil {
 		return nil, err
@@ -129,20 +123,6 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 	}, nil
 }
 
-func (s *Server) rubyUserRevert(ctx context.Context, req *gitalypb.UserRevertRequest) (*gitalypb.UserRevertResponse, error) {
-	client, err := s.ruby.OperationServiceClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, req.GetRepository())
-	if err != nil {
-		return nil, err
-	}
-
-	return client.UserRevert(clientCtx, req)
-}
-
 type requestFetchingStartRevision interface {
 	GetRepository() *gitalypb.Repository
 	GetBranchName() []byte
@@ -174,7 +154,7 @@ func (s *Server) fetchStartRevision(ctx context.Context, req requestFetchingStar
 		return startRevision, nil
 	}
 
-	localRepo := localrepo.New(s.gitCmdFactory, req.GetRepository(), s.cfg)
+	localRepo := s.localrepo(req.GetRepository())
 
 	_, err = localRepo.ResolveRevision(ctx, startRevision.Revision()+"^{commit}")
 	if errors.Is(err, git.ErrReferenceNotFound) {

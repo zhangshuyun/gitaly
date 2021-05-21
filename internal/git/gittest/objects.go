@@ -11,8 +11,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
 // GitObjectMustExist is a test assertion that fails unless the git repo in repoPath contains sha
@@ -65,19 +65,19 @@ func getGitDirSize(t testing.TB, repoPath string, subdirs ...string) int64 {
 
 // WriteBlobs writes n distinct blobs into the git repository's object
 // database. Each object has the current time in nanoseconds as contents.
-func WriteBlobs(t testing.TB, testRepoPath string, n int) []string {
+func WriteBlobs(t testing.TB, cfg config.Cfg, testRepoPath string, n int) []string {
 	var blobIDs []string
 	for i := 0; i < n; i++ {
 		contents := []byte(strconv.Itoa(time.Now().Nanosecond()))
-		blobIDs = append(blobIDs, WriteBlob(t, testRepoPath, contents).String())
+		blobIDs = append(blobIDs, WriteBlob(t, cfg, testRepoPath, contents).String())
 	}
 
 	return blobIDs
 }
 
 // WriteBlob writes the given contents as a blob into the repository and returns its OID.
-func WriteBlob(t testing.TB, testRepoPath string, contents []byte) git.ObjectID {
-	hex := text.ChompBytes(testhelper.MustRunCommand(t, bytes.NewReader(contents), "git", "-C", testRepoPath, "hash-object", "-w", "--stdin"))
+func WriteBlob(t testing.TB, cfg config.Cfg, testRepoPath string, contents []byte) git.ObjectID {
+	hex := text.ChompBytes(ExecStream(t, cfg, bytes.NewReader(contents), "-C", testRepoPath, "hash-object", "-w", "--stdin"))
 	oid, err := git.NewObjectIDFromHex(hex)
 	require.NoError(t, err)
 	return oid

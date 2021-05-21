@@ -61,23 +61,6 @@ func TestWithRubySidecar(t *testing.T) {
 		testSuccessfulUserApplyPatch,
 		testUserApplyPatchStableID,
 		testFailedPatchApplyPatch,
-		testServerUserCherryPickSuccessful,
-		testServerUserCherryPickSuccessfulGitHooks,
-		testServerUserCherryPickStableID,
-		testServerUserCherryPickFailedValidations,
-		testServerUserCherryPickFailedWithPreReceiveError,
-		testServerUserCherryPickFailedWithCreateTreeError,
-		testServerUserCherryPickFailedWithCommitError,
-		testServerUserCherryPickFailedWithConflict,
-		testServerUserCherryPickSuccessfulWithGivenCommits,
-		testServerUserRevertSuccessful,
-		testServerUserRevertStableID,
-		testServerUserRevertSuccessfulIntoEmptyRepo,
-		testServerUserRevertSuccessfulGitHooks,
-		testServerUserRevertFailuedDueToValidations,
-		testServerUserRevertFailedDueToPreReceiveError,
-		testServerUserRevertFailedDueToCreateTreeErrorConflict,
-		testServerUserRevertFailedDueToCommitError,
 		testSuccessfulUserUpdateBranchRequestToDelete,
 		testSuccessfulGitHooksForUserUpdateBranchRequest,
 		testFailedUserUpdateBranchDueToHooks,
@@ -93,14 +76,7 @@ func TestWithRubySidecar(t *testing.T) {
 		testFailedUserRebaseConfirmableDueToGitError,
 		testRebaseRequestWithDeletedFile,
 		testRebaseOntoRemoteBranch,
-		testSuccessfulUserUpdateSubmoduleRequest,
-		testUserUpdateSubmoduleStableID,
-		testFailedUserUpdateSubmoduleRequestDueToValidations,
-		testFailedUserUpdateSubmoduleRequestDueToInvalidBranch,
-		testFailedUserUpdateSubmoduleRequestDueToInvalidSubmodule,
-		testFailedUserUpdateSubmoduleRequestDueToSameReference,
-		testFailedUserUpdateSubmoduleRequestDueToRepositoryEmpty,
-		testServerUserRevertFailedDueToCreateTreeErrorEmpty,
+		testRebaseFailedWithCode,
 	}
 	for _, f := range fs {
 		t.Run(runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(), func(t *testing.T) {
@@ -120,7 +96,7 @@ func setupOperationsService(t testing.TB, ctx context.Context) (context.Context,
 func setupOperationsServiceWithRuby(
 	t testing.TB, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server, options ...testserver.GitalyServerOpt,
 ) (context.Context, config.Cfg, *gitalypb.Repository, string, gitalypb.OperationServiceClient) {
-	repo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+	repo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 	t.Cleanup(cleanup)
 
 	testhelper.ConfigureGitalySSHBin(t, cfg)
@@ -143,12 +119,44 @@ func runOperationServiceServer(t testing.TB, cfg config.Cfg, rubySrv *rubyserver
 	t.Helper()
 
 	return testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterOperationServiceServer(srv, NewServer(deps.GetCfg(), deps.GetRubyServer(), deps.GetHookManager(), deps.GetLocator(), deps.GetConnsPool(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterOperationServiceServer(srv, NewServer(
+			deps.GetCfg(),
+			deps.GetRubyServer(),
+			deps.GetHookManager(),
+			deps.GetLocator(),
+			deps.GetConnsPool(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+		))
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(cfg, deps.GetHookManager(), deps.GetGitCmdFactory()))
-		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(cfg, rubySrv, deps.GetLocator(), deps.GetTxManager(), deps.GetGitCmdFactory()))
-		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(cfg, deps.GetLocator(), deps.GetGitCmdFactory(), deps.GetTxManager()))
-		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(cfg, deps.GetLocator(), deps.GetGitCmdFactory(), nil))
-		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(cfg, deps.GetLocator(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
+			deps.GetCfg(),
+			rubySrv,
+			deps.GetLocator(),
+			deps.GetTxManager(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+		))
+		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(
+			deps.GetCfg(),
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			deps.GetTxManager(),
+			deps.GetCatfileCache(),
+		))
+		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(
+			deps.GetCfg(),
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			nil,
+			deps.GetCatfileCache(),
+		))
+		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
+			deps.GetCfg(),
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			deps.GetTxManager(),
+		))
 	}, options...)
 }
 

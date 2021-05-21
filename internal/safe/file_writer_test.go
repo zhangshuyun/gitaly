@@ -25,12 +25,11 @@ func TestFile(t *testing.T) {
 	_, err = io.Copy(file, bytes.NewBufferString(fileContents))
 	require.NoError(t, err)
 
-	testhelper.AssertPathNotExists(t, filePath)
+	require.NoFileExists(t, filePath)
 
 	require.NoError(t, file.Commit())
 
-	writtenContents, err := ioutil.ReadFile(filePath)
-	require.NoError(t, err)
+	writtenContents := testhelper.MustReadFile(t, filePath)
 	require.Equal(t, fileContents, string(writtenContents))
 
 	filesInTempDir, err := ioutil.ReadDir(dir)

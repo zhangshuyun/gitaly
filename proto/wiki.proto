@@ -8,11 +8,6 @@ package gitaly;
 option go_package = "gitlab.com/gitlab-org/gitaly/proto/go/gitalypb";
 
 service WikiService {
-  rpc WikiGetPageVersions(WikiGetPageVersionsRequest) returns (stream WikiGetPageVersionsResponse) {
-    option (op_type) = {
-      op: ACCESSOR
-    };
-  }
   rpc WikiWritePage(stream WikiWritePageRequest) returns (WikiWritePageResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -30,11 +25,6 @@ service WikiService {
   }
   // WikiFindPage returns a stream because the page's raw_data field may be arbitrarily large.
   rpc WikiFindPage(WikiFindPageRequest) returns (stream WikiFindPageResponse) {
-    option (op_type) = {
-      op: ACCESSOR
-    };
-  }
-  rpc WikiFindFile(WikiFindFileRequest) returns (stream WikiFindFileResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
@@ -78,18 +68,6 @@ message WikiPage {
 
   // This field is present in all messages of a WikiPage stream
   bytes raw_data = 8;
-}
-
-message WikiGetPageVersionsRequest {
-  Repository repository = 1 [(target_repository)=true];
-  bytes page_path = 2;
-
-  int32 page = 3;
-  int32 per_page = 4;
-}
-
-message WikiGetPageVersionsResponse {
-  repeated WikiPageVersion versions = 1;
 }
 
 // This message is sent in a stream because the 'content' field may be large.
@@ -142,21 +120,6 @@ message WikiFindPageRequest {
 // messages to send the raw_data field.
 message WikiFindPageResponse {
   WikiPage page = 1;
-}
-
-message WikiFindFileRequest {
-  Repository repository = 1 [(target_repository)=true];
-  bytes name = 2;
-  // Optional: revision
-  bytes revision = 3;
-}
-
-message WikiFindFileResponse {
-  // If 'name' is empty, the file was not found.
-  bytes name = 1;
-  string mime_type = 2;
-  bytes raw_data = 3;
-  bytes path = 4;
 }
 
 message WikiGetAllPagesRequest {

@@ -20,10 +20,10 @@ func TestNewObjectPool(t *testing.T) {
 
 	locator := config.NewLocator(cfg)
 
-	_, err := NewObjectPool(cfg, locator, nil, cfg.Storages[0].Name, gittest.NewObjectPoolName(t))
+	_, err := NewObjectPool(cfg, locator, nil, nil, cfg.Storages[0].Name, gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 
-	_, err = NewObjectPool(cfg, locator, nil, "mepmep", gittest.NewObjectPoolName(t))
+	_, err = NewObjectPool(cfg, locator, nil, nil, "mepmep", gittest.NewObjectPoolName(t))
 	require.Error(t, err, "creating pool in storage that does not exist should fail")
 }
 
@@ -36,7 +36,7 @@ func TestNewFromRepoSuccess(t *testing.T) {
 	require.NoError(t, pool.Create(ctx, testRepo))
 	require.NoError(t, pool.Link(ctx, testRepo))
 
-	poolFromRepo, err := FromRepo(pool.cfg, pool.locator, pool.gitCmdFactory, testRepo)
+	poolFromRepo, err := FromRepo(pool.cfg, pool.locator, pool.gitCmdFactory, nil, testRepo)
 	require.NoError(t, err)
 	require.Equal(t, pool.relativePath, poolFromRepo.relativePath)
 	require.Equal(t, pool.storageName, poolFromRepo.storageName)
@@ -48,7 +48,7 @@ func TestNewFromRepoNoObjectPool(t *testing.T) {
 	testRepoPath := filepath.Join(pool.cfg.Storages[0].Path, testRepo.RelativePath)
 
 	// no alternates file
-	poolFromRepo, err := FromRepo(pool.cfg, pool.locator, pool.gitCmdFactory, testRepo)
+	poolFromRepo, err := FromRepo(pool.cfg, pool.locator, pool.gitCmdFactory, nil, testRepo)
 	require.Equal(t, ErrAlternateObjectDirNotExist, err)
 	require.Nil(t, poolFromRepo)
 
@@ -81,7 +81,7 @@ func TestNewFromRepoNoObjectPool(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			alternateFilePath := filepath.Join(testRepoPath, "objects", "info", "alternates")
 			require.NoError(t, ioutil.WriteFile(alternateFilePath, tc.fileContent, 0644))
-			poolFromRepo, err := FromRepo(pool.cfg, pool.locator, pool.gitCmdFactory, testRepo)
+			poolFromRepo, err := FromRepo(pool.cfg, pool.locator, pool.gitCmdFactory, nil, testRepo)
 			require.Equal(t, tc.expectedErr, err)
 			require.Nil(t, poolFromRepo)
 
@@ -98,7 +98,7 @@ func TestCreate(t *testing.T) {
 
 	testRepoPath := filepath.Join(pool.cfg.Storages[0].Path, testRepo.RelativePath)
 
-	masterSha := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "show-ref", "master")
+	masterSha := gittest.Exec(t, pool.cfg, "-C", testRepoPath, "show-ref", "master")
 
 	err := pool.Create(ctx, testRepo)
 	require.NoError(t, err)
@@ -109,19 +109,18 @@ func TestCreate(t *testing.T) {
 	require.True(t, pool.IsValid())
 
 	// No hooks
-	_, err = os.Stat(filepath.Join(pool.FullPath(), "hooks"))
-	assert.True(t, os.IsNotExist(err))
+	assert.NoDirExists(t, filepath.Join(pool.FullPath(), "hooks"))
 
 	// origin is set
-	out := testhelper.MustRunCommand(t, nil, "git", "-C", pool.FullPath(), "remote", "get-url", "origin")
+	out := gittest.Exec(t, pool.cfg, "-C", pool.FullPath(), "remote", "get-url", "origin")
 	assert.Equal(t, testRepoPath, strings.TrimRight(string(out), "\n"))
 
 	// refs exist
-	out = testhelper.MustRunCommand(t, nil, "git", "-C", pool.FullPath(), "show-ref", "refs/heads/master")
+	out = gittest.Exec(t, pool.cfg, "-C", pool.FullPath(), "show-ref", "refs/heads/master")
 	assert.Equal(t, masterSha, out)
 
 	// No problems
-	out = testhelper.MustRunCommand(t, nil, "git", "-C", pool.FullPath(), "cat-file", "-s", "55bc176024cfa3baaceb71db584c7e5df900ea65")
+	out = gittest.Exec(t, pool.cfg, "-C", pool.FullPath(), "cat-file", "-s", "55bc176024cfa3baaceb71db584c7e5df900ea65")
 	assert.Equal(t, "282\n", string(out))
 }
 

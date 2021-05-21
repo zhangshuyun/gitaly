@@ -19,7 +19,7 @@ func TestGetObjectPoolSuccess(t *testing.T) {
 
 	relativePoolPath := gittest.NewObjectPoolName(t)
 
-	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), repo.GetStorageName(), relativePoolPath)
+	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), nil, repo.GetStorageName(), relativePoolPath)
 	require.NoError(t, err)
 
 	poolCtx, cancel := testhelper.Context()

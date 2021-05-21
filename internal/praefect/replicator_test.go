@@ -2,7 +2,6 @@ package praefect
 
 import (
 	"context"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	gconfig "gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
@@ -38,10 +38,7 @@ import (
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/health"
-	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/reflection"
 )
 
 func TestMain(m *testing.M) {
@@ -92,7 +89,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 
 	// create object pool on the source
 	objectPoolPath := gittest.NewObjectPoolName(t)
-	pool, err := objectpool.NewObjectPool(primaryCfg, gconfig.NewLocator(primaryCfg), git.NewExecCommandFactory(primaryCfg), testRepo.GetStorageName(), objectPoolPath)
+	pool, err := objectpool.NewObjectPool(primaryCfg, gconfig.NewLocator(primaryCfg), git.NewExecCommandFactory(primaryCfg), nil, testRepo.GetStorageName(), objectPoolPath)
 	require.NoError(t, err)
 
 	poolCtx, cancel := testhelper.Context()
@@ -145,9 +142,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	}
 	require.Len(t, events, 1)
 
-	commitID := gittest.CreateCommit(t, primaryCfg, testRepoPath, "master", &gittest.CreateCommitOpts{
-		Message: "a commit",
-	})
+	commitID := gittest.WriteCommit(t, primaryCfg, testRepoPath, gittest.WithBranch("master"))
 
 	var mockReplicationLatencyHistogramVec promtest.MockHistogramVec
 	var mockReplicationDelayHistogramVec promtest.MockHistogramVec
@@ -201,8 +196,8 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 
 	replicatedPath := filepath.Join(backupCfg.Storages[0].Path, testRepo.GetRelativePath())
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", replicatedPath, "cat-file", "-e", commitID)
-	testhelper.MustRunCommand(t, nil, "git", "-C", replicatedPath, "gc")
+	gittest.Exec(t, backupCfg, "-C", replicatedPath, "cat-file", "-e", commitID.String())
+	gittest.Exec(t, backupCfg, "-C", replicatedPath, "gc")
 	require.Less(t, gittest.GetGitPackfileDirSize(t, replicatedPath), int64(100), "expect a small pack directory")
 
 	require.Equal(t, mockReplicationLatencyHistogramVec.LabelsCalled(), [][]string{{"update"}})
@@ -273,13 +268,14 @@ func TestReplicatorDowngradeAttempt(t *testing.T) {
 }
 
 func TestPropagateReplicationJob(t *testing.T) {
-	primaryServer, primarySocketPath, cleanup := runMockRepositoryServer(t)
-	defer cleanup()
-
-	secondaryServer, secondarySocketPath, cleanup := runMockRepositoryServer(t)
-	defer cleanup()
-
 	primaryStorage, secondaryStorage := "internal-gitaly-0", "internal-gitaly-1"
+
+	primCfg := testcfg.Build(t, testcfg.WithStorages(primaryStorage))
+	primaryServer, primarySocketPath := runMockRepositoryServer(t, primCfg)
+
+	secCfg := testcfg.Build(t, testcfg.WithStorages(secondaryStorage))
+	secondaryServer, secondarySocketPath := runMockRepositoryServer(t, secCfg)
+
 	conf := config.Config{
 		VirtualStorages: []*config.VirtualStorage{
 			{
@@ -464,23 +460,14 @@ func (m *mockServer) PackRefs(ctx context.Context, in *gitalypb.PackRefsRequest)
 	return &gitalypb.PackRefsResponse{}, nil
 }
 
-func runMockRepositoryServer(t *testing.T) (*mockServer, string, func()) {
-	server := testhelper.NewTestGrpcServer(t, nil, nil)
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
-
-	listener, err := net.Listen("unix", serverSocketPath)
-	require.NoError(t, err)
-
+func runMockRepositoryServer(t *testing.T, cfg gconfig.Cfg) (*mockServer, string) {
 	mockServer := newMockRepositoryServer()
 
-	gitalypb.RegisterRepositoryServiceServer(server, mockServer)
-	gitalypb.RegisterRefServiceServer(server, mockServer)
-	healthpb.RegisterHealthServer(server, health.NewServer())
-	reflection.Register(server)
-
-	go server.Serve(listener)
-
-	return mockServer, "unix://" + serverSocketPath, server.Stop
+	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterRepositoryServiceServer(srv, mockServer)
+		gitalypb.RegisterRefServiceServer(srv, mockServer)
+	})
+	return mockServer, addr
 }
 
 func waitForRequest(t *testing.T, ch chan proto.Message, expected proto.Message, timeout time.Duration) {
@@ -502,7 +489,7 @@ func TestConfirmReplication(t *testing.T) {
 	cfg, testRepoA, testRepoAPath := testcfg.BuildWithRepo(t)
 	srvSocketPath := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
-	testRepoB, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "second")
+	testRepoB, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "second")
 	t.Cleanup(cleanupFn)
 
 	connOpts := []grpc.DialOption{
@@ -517,9 +504,7 @@ func TestConfirmReplication(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, equal)
 
-	gittest.CreateCommit(t, cfg, testRepoAPath, "master", &gittest.CreateCommitOpts{
-		Message: "a commit",
-	})
+	gittest.WriteCommit(t, cfg, testRepoAPath, gittest.WithBranch("master"))
 
 	equal, err = confirmChecksums(ctx, testhelper.DiscardTestLogger(t), gitalypb.NewRepositoryServiceClient(conn), gitalypb.NewRepositoryServiceClient(conn), testRepoA, testRepoB)
 	require.NoError(t, err)
@@ -812,8 +797,7 @@ func TestProcessBacklog_Success(t *testing.T) {
 		t.Fatal("time limit expired for job to complete")
 	}
 
-	_, serr := os.Stat(fullNewPath1)
-	require.True(t, os.IsNotExist(serr), "repository must be moved from %q to the new location", fullNewPath1)
+	require.NoDirExists(t, fullNewPath1, "repository must be moved from %q to the new location", fullNewPath1)
 	require.True(t, storage.IsGitDirectory(fullNewPath2), "repository must exist at new last RenameRepository location")
 }
 

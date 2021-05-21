@@ -112,16 +112,19 @@ func TestGetStarterConfigs(t *testing.T) {
 			},
 			exp: []starter.Config{
 				{
-					Name: starter.TCP,
-					Addr: "127.0.0.1:2306",
+					Name:              starter.TCP,
+					Addr:              "127.0.0.1:2306",
+					HandoverOnUpgrade: true,
 				},
 				{
-					Name: starter.TLS,
-					Addr: "127.0.0.1:2307",
+					Name:              starter.TLS,
+					Addr:              "127.0.0.1:2307",
+					HandoverOnUpgrade: true,
 				},
 				{
-					Name: starter.Unix,
-					Addr: "/socket/path",
+					Name:              starter.Unix,
+					Addr:              "/socket/path",
+					HandoverOnUpgrade: true,
 				},
 			},
 		},
@@ -134,16 +137,19 @@ func TestGetStarterConfigs(t *testing.T) {
 			},
 			exp: []starter.Config{
 				{
-					Name: starter.TCP,
-					Addr: "127.0.0.1:2306",
+					Name:              starter.TCP,
+					Addr:              "127.0.0.1:2306",
+					HandoverOnUpgrade: true,
 				},
 				{
-					Name: starter.TLS,
-					Addr: "127.0.0.1:2307",
+					Name:              starter.TLS,
+					Addr:              "127.0.0.1:2307",
+					HandoverOnUpgrade: true,
 				},
 				{
-					Name: starter.Unix,
-					Addr: "/socket/path",
+					Name:              starter.Unix,
+					Addr:              "/socket/path",
+					HandoverOnUpgrade: true,
 				},
 			},
 		},
@@ -156,16 +162,19 @@ func TestGetStarterConfigs(t *testing.T) {
 			},
 			exp: []starter.Config{
 				{
-					Name: starter.TCP,
-					Addr: "127.0.0.1:2306",
+					Name:              starter.TCP,
+					Addr:              "127.0.0.1:2306",
+					HandoverOnUpgrade: true,
 				},
 				{
-					Name: starter.TLS,
-					Addr: "127.0.0.1:2307",
+					Name:              starter.TLS,
+					Addr:              "127.0.0.1:2307",
+					HandoverOnUpgrade: true,
 				},
 				{
-					Name: starter.Unix,
-					Addr: "/socket/path",
+					Name:              starter.Unix,
+					Addr:              "/socket/path",
+					HandoverOnUpgrade: true,
 				},
 			},
 		},
@@ -178,16 +187,19 @@ func TestGetStarterConfigs(t *testing.T) {
 			},
 			exp: []starter.Config{
 				{
-					Name: starter.TCP,
-					Addr: "127.0.0.1:2306",
+					Name:              starter.TCP,
+					Addr:              "127.0.0.1:2306",
+					HandoverOnUpgrade: true,
 				},
 				{
-					Name: starter.TLS,
-					Addr: "127.0.0.1:2307",
+					Name:              starter.TLS,
+					Addr:              "127.0.0.1:2307",
+					HandoverOnUpgrade: true,
 				},
 				{
-					Name: starter.Unix,
-					Addr: "/socket/path",
+					Name:              starter.Unix,
+					Addr:              "/socket/path",
+					HandoverOnUpgrade: true,
 				},
 			},
 		},

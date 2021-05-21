@@ -237,7 +237,7 @@ func TestMerge_recursive(t *testing.T) {
 	cfg := testcfg.Build(t)
 	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 
-	_, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	_, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	defer cleanup()
 
 	base := cmdtesthelper.BuildCommit(t, repoPath, nil, map[string]string{"base": "base\n"})

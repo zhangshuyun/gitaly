@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -21,12 +22,14 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 		return nil, status.Errorf(codes.InvalidArgument, "DeleteRefs: %v", err)
 	}
 
-	refnames, err := s.refsToRemove(ctx, in)
+	repo := s.localrepo(in.GetRepository())
+
+	refnames, err := s.refsToRemove(ctx, repo, in)
 	if err != nil {
 		return nil, helper.ErrInternal(err)
 	}
 
-	updater, err := updateref.New(ctx, s.cfg, s.gitCmdFactory, in.GetRepository())
+	updater, err := updateref.New(ctx, s.cfg, repo)
 	if err != nil {
 		if errors.Is(err, git.ErrInvalidArg) {
 			return nil, helper.ErrInvalidArgument(err)
@@ -34,7 +37,7 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 		return nil, helper.ErrInternal(err)
 	}
 
-	voteHash := transaction.NewVoteHash()
+	voteHash := voting.NewVoteHash()
 	for _, ref := range refnames {
 		if err := updater.Delete(ref); err != nil {
 			return &gitalypb.DeleteRefsResponse{GitError: err.Error()}, nil
@@ -69,7 +72,7 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 	return &gitalypb.DeleteRefsResponse{}, nil
 }
 
-func (s *server) refsToRemove(ctx context.Context, req *gitalypb.DeleteRefsRequest) ([]git.ReferenceName, error) {
+func (s *server) refsToRemove(ctx context.Context, repo *localrepo.Repo, req *gitalypb.DeleteRefsRequest) ([]git.ReferenceName, error) {
 	if len(req.Refs) > 0 {
 		refs := make([]git.ReferenceName, len(req.Refs))
 		for i, ref := range req.Refs {
@@ -83,7 +86,7 @@ func (s *server) refsToRemove(ctx context.Context, req *gitalypb.DeleteRefsReque
 		prefixes[i] = string(prefix)
 	}
 
-	existingRefs, err := localrepo.New(s.gitCmdFactory, req.GetRepository(), s.cfg).GetReferences(ctx)
+	existingRefs, err := repo.GetReferences(ctx)
 	if err != nil {
 		return nil, err
 	}

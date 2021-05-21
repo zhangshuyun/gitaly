@@ -550,212 +550,6 @@ func (m *GetLFSPointersResponse) GetLfsPointers() []*LFSPointer {
 	return nil
 }
 
-// GetNewLFSPointersRequest is a request for the GetNewLFSPointers RPC.
-type GetNewLFSPointersRequest struct {
-	// Repository is the repository for which LFS pointers should be retrieved
-	// from.
-	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Revision is the revision for which to retrieve new LFS pointers.
-	Revision []byte `protobuf:"bytes,2,opt,name=revision,proto3" json:"revision,omitempty"`
-	// Limit limits the number of LFS pointers returned.
-	Limit int32 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
-	// NotInAll limits the revision graph to not include any commits which are
-	// referenced by a git reference. When `not_in_all` is true, `not_in_refs` is
-	// ignored.
-	NotInAll bool `protobuf:"varint,4,opt,name=not_in_all,json=notInAll,proto3" json:"not_in_all,omitempty"`
-	// NotInRefs is a list of references used to limit the revision graph. Any
-	// commit reachable by any commit in NotInRefs will not be searched for new
-	// LFS pointers. This is ignored if NotInAll is set to `true`.
-	NotInRefs            [][]byte `protobuf:"bytes,5,rep,name=not_in_refs,json=notInRefs,proto3" json:"not_in_refs,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *GetNewLFSPointersRequest) Reset()         { *m = GetNewLFSPointersRequest{} }
-func (m *GetNewLFSPointersRequest) String() string { return proto.CompactTextString(m) }
-func (*GetNewLFSPointersRequest) ProtoMessage()    {}
-func (*GetNewLFSPointersRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6903d1e8a20272e8, []int{8}
-}
-
-func (m *GetNewLFSPointersRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_GetNewLFSPointersRequest.Unmarshal(m, b)
-}
-func (m *GetNewLFSPointersRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_GetNewLFSPointersRequest.Marshal(b, m, deterministic)
-}
-func (m *GetNewLFSPointersRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetNewLFSPointersRequest.Merge(m, src)
-}
-func (m *GetNewLFSPointersRequest) XXX_Size() int {
-	return xxx_messageInfo_GetNewLFSPointersRequest.Size(m)
-}
-func (m *GetNewLFSPointersRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetNewLFSPointersRequest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_GetNewLFSPointersRequest proto.InternalMessageInfo
-
-func (m *GetNewLFSPointersRequest) GetRepository() *Repository {
-	if m != nil {
-		return m.Repository
-	}
-	return nil
-}
-
-func (m *GetNewLFSPointersRequest) GetRevision() []byte {
-	if m != nil {
-		return m.Revision
-	}
-	return nil
-}
-
-func (m *GetNewLFSPointersRequest) GetLimit() int32 {
-	if m != nil {
-		return m.Limit
-	}
-	return 0
-}
-
-func (m *GetNewLFSPointersRequest) GetNotInAll() bool {
-	if m != nil {
-		return m.NotInAll
-	}
-	return false
-}
-
-func (m *GetNewLFSPointersRequest) GetNotInRefs() [][]byte {
-	if m != nil {
-		return m.NotInRefs
-	}
-	return nil
-}
-
-// GetNewLFSPointersResponse is a response for the GetNewLFSPointers RPC.
-type GetNewLFSPointersResponse struct {
-	// LfsPointers is the list of LFS pointers which were requested.
-	LfsPointers          []*LFSPointer `protobuf:"bytes,1,rep,name=lfs_pointers,json=lfsPointers,proto3" json:"lfs_pointers,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
-	XXX_unrecognized     []byte        `json:"-"`
-	XXX_sizecache        int32         `json:"-"`
-}
-
-func (m *GetNewLFSPointersResponse) Reset()         { *m = GetNewLFSPointersResponse{} }
-func (m *GetNewLFSPointersResponse) String() string { return proto.CompactTextString(m) }
-func (*GetNewLFSPointersResponse) ProtoMessage()    {}
-func (*GetNewLFSPointersResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6903d1e8a20272e8, []int{9}
-}
-
-func (m *GetNewLFSPointersResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_GetNewLFSPointersResponse.Unmarshal(m, b)
-}
-func (m *GetNewLFSPointersResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_GetNewLFSPointersResponse.Marshal(b, m, deterministic)
-}
-func (m *GetNewLFSPointersResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetNewLFSPointersResponse.Merge(m, src)
-}
-func (m *GetNewLFSPointersResponse) XXX_Size() int {
-	return xxx_messageInfo_GetNewLFSPointersResponse.Size(m)
-}
-func (m *GetNewLFSPointersResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetNewLFSPointersResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_GetNewLFSPointersResponse proto.InternalMessageInfo
-
-func (m *GetNewLFSPointersResponse) GetLfsPointers() []*LFSPointer {
-	if m != nil {
-		return m.LfsPointers
-	}
-	return nil
-}
-
-// GetAllLFSPointersRequest is a request for the GetAllLFSPointers RPC.
-type GetAllLFSPointersRequest struct {
-	// Repository is the repository for which LFS pointers shoul be retrieved
-	// from.
-	Repository           *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
-	XXX_unrecognized     []byte      `json:"-"`
-	XXX_sizecache        int32       `json:"-"`
-}
-
-func (m *GetAllLFSPointersRequest) Reset()         { *m = GetAllLFSPointersRequest{} }
-func (m *GetAllLFSPointersRequest) String() string { return proto.CompactTextString(m) }
-func (*GetAllLFSPointersRequest) ProtoMessage()    {}
-func (*GetAllLFSPointersRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6903d1e8a20272e8, []int{10}
-}
-
-func (m *GetAllLFSPointersRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_GetAllLFSPointersRequest.Unmarshal(m, b)
-}
-func (m *GetAllLFSPointersRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_GetAllLFSPointersRequest.Marshal(b, m, deterministic)
-}
-func (m *GetAllLFSPointersRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetAllLFSPointersRequest.Merge(m, src)
-}
-func (m *GetAllLFSPointersRequest) XXX_Size() int {
-	return xxx_messageInfo_GetAllLFSPointersRequest.Size(m)
-}
-func (m *GetAllLFSPointersRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetAllLFSPointersRequest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_GetAllLFSPointersRequest proto.InternalMessageInfo
-
-func (m *GetAllLFSPointersRequest) GetRepository() *Repository {
-	if m != nil {
-		return m.Repository
-	}
-	return nil
-}
-
-// GetAllLFSPointersResponse is a response for the GetAllLFSPointers RPC.
-type GetAllLFSPointersResponse struct {
-	// LfsPointers is the list of LFS pointers.
-	LfsPointers          []*LFSPointer `protobuf:"bytes,1,rep,name=lfs_pointers,json=lfsPointers,proto3" json:"lfs_pointers,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
-	XXX_unrecognized     []byte        `json:"-"`
-	XXX_sizecache        int32         `json:"-"`
-}
-
-func (m *GetAllLFSPointersResponse) Reset()         { *m = GetAllLFSPointersResponse{} }
-func (m *GetAllLFSPointersResponse) String() string { return proto.CompactTextString(m) }
-func (*GetAllLFSPointersResponse) ProtoMessage()    {}
-func (*GetAllLFSPointersResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6903d1e8a20272e8, []int{11}
-}
-
-func (m *GetAllLFSPointersResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_GetAllLFSPointersResponse.Unmarshal(m, b)
-}
-func (m *GetAllLFSPointersResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_GetAllLFSPointersResponse.Marshal(b, m, deterministic)
-}
-func (m *GetAllLFSPointersResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetAllLFSPointersResponse.Merge(m, src)
-}
-func (m *GetAllLFSPointersResponse) XXX_Size() int {
-	return xxx_messageInfo_GetAllLFSPointersResponse.Size(m)
-}
-func (m *GetAllLFSPointersResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetAllLFSPointersResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_GetAllLFSPointersResponse proto.InternalMessageInfo
-
-func (m *GetAllLFSPointersResponse) GetLfsPointers() []*LFSPointer {
-	if m != nil {
-		return m.LfsPointers
-	}
-	return nil
-}
-
 // ListLFSPointersRequest is a request for the ListLFSPointers RPC.
 type ListLFSPointersRequest struct {
 	// Repository is the repository for which LFS pointers should be retrieved
@@ -775,7 +569,7 @@ func (m *ListLFSPointersRequest) Reset()         { *m = ListLFSPointersRequest{}
 func (m *ListLFSPointersRequest) String() string { return proto.CompactTextString(m) }
 func (*ListLFSPointersRequest) ProtoMessage()    {}
 func (*ListLFSPointersRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6903d1e8a20272e8, []int{12}
+	return fileDescriptor_6903d1e8a20272e8, []int{8}
 }
 
 func (m *ListLFSPointersRequest) XXX_Unmarshal(b []byte) error {
@@ -830,7 +624,7 @@ func (m *ListLFSPointersResponse) Reset()         { *m = ListLFSPointersResponse
 func (m *ListLFSPointersResponse) String() string { return proto.CompactTextString(m) }
 func (*ListLFSPointersResponse) ProtoMessage()    {}
 func (*ListLFSPointersResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6903d1e8a20272e8, []int{13}
+	return fileDescriptor_6903d1e8a20272e8, []int{9}
 }
 
 func (m *ListLFSPointersResponse) XXX_Unmarshal(b []byte) error {
@@ -874,7 +668,7 @@ func (m *ListAllLFSPointersRequest) Reset()         { *m = ListAllLFSPointersReq
 func (m *ListAllLFSPointersRequest) String() string { return proto.CompactTextString(m) }
 func (*ListAllLFSPointersRequest) ProtoMessage()    {}
 func (*ListAllLFSPointersRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6903d1e8a20272e8, []int{14}
+	return fileDescriptor_6903d1e8a20272e8, []int{10}
 }
 
 func (m *ListAllLFSPointersRequest) XXX_Unmarshal(b []byte) error {
@@ -922,7 +716,7 @@ func (m *ListAllLFSPointersResponse) Reset()         { *m = ListAllLFSPointersRe
 func (m *ListAllLFSPointersResponse) String() string { return proto.CompactTextString(m) }
 func (*ListAllLFSPointersResponse) ProtoMessage()    {}
 func (*ListAllLFSPointersResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6903d1e8a20272e8, []int{15}
+	return fileDescriptor_6903d1e8a20272e8, []int{11}
 }
 
 func (m *ListAllLFSPointersResponse) XXX_Unmarshal(b []byte) error {
@@ -960,10 +754,6 @@ func init() {
 	proto.RegisterType((*NewBlobObject)(nil), "gitaly.NewBlobObject")
 	proto.RegisterType((*GetLFSPointersRequest)(nil), "gitaly.GetLFSPointersRequest")
 	proto.RegisterType((*GetLFSPointersResponse)(nil), "gitaly.GetLFSPointersResponse")
-	proto.RegisterType((*GetNewLFSPointersRequest)(nil), "gitaly.GetNewLFSPointersRequest")
-	proto.RegisterType((*GetNewLFSPointersResponse)(nil), "gitaly.GetNewLFSPointersResponse")
-	proto.RegisterType((*GetAllLFSPointersRequest)(nil), "gitaly.GetAllLFSPointersRequest")
-	proto.RegisterType((*GetAllLFSPointersResponse)(nil), "gitaly.GetAllLFSPointersResponse")
 	proto.RegisterType((*ListLFSPointersRequest)(nil), "gitaly.ListLFSPointersRequest")
 	proto.RegisterType((*ListLFSPointersResponse)(nil), "gitaly.ListLFSPointersResponse")
 	proto.RegisterType((*ListAllLFSPointersRequest)(nil), "gitaly.ListAllLFSPointersRequest")
@@ -973,55 +763,47 @@ func init() {
 func init() { proto.RegisterFile("blob.proto", fileDescriptor_6903d1e8a20272e8) }
 
 var fileDescriptor_6903d1e8a20272e8 = []byte{
-	// 756 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x56, 0xcd, 0x6e, 0xd3, 0x40,
-	0x10, 0x96, 0xe3, 0x24, 0x75, 0x26, 0xe9, 0x0f, 0x2b, 0x68, 0x5d, 0xab, 0x14, 0xd7, 0x42, 0xc8,
-	0x07, 0x48, 0xaa, 0x22, 0x24, 0x4e, 0x48, 0xad, 0x50, 0xa3, 0xd2, 0xaa, 0xad, 0x36, 0x5c, 0xa8,
-	0x90, 0x22, 0xbb, 0xd9, 0xb4, 0x0b, 0x1b, 0xaf, 0xf1, 0x6e, 0x5b, 0x85, 0x33, 0xe2, 0x15, 0xe0,
-	0x81, 0x10, 0x2f, 0xc1, 0x3b, 0xf0, 0x00, 0x9c, 0x90, 0xff, 0x12, 0x27, 0x76, 0x7a, 0x49, 0x6e,
-	0xbb, 0x33, 0x3b, 0xf3, 0x7d, 0x33, 0xf3, 0x79, 0xd7, 0x00, 0x2e, 0xe3, 0x6e, 0xd3, 0x0f, 0xb8,
-	0xe4, 0xa8, 0x7a, 0x45, 0xa5, 0xc3, 0x86, 0x06, 0x30, 0xea, 0xc9, 0xd8, 0x66, 0x34, 0xc4, 0xb5,
-	0x13, 0x90, 0x5e, 0xbc, 0xb3, 0x02, 0x58, 0x69, 0x13, 0x79, 0xc0, 0xb8, 0x8b, 0xc9, 0x97, 0x1b,
-	0x22, 0x24, 0x7a, 0x0d, 0x10, 0x10, 0x9f, 0x0b, 0x2a, 0x79, 0x30, 0xd4, 0x15, 0x53, 0xb1, 0xeb,
-	0x7b, 0xa8, 0x19, 0x27, 0x6a, 0xe2, 0x91, 0xe7, 0xa0, 0xfc, 0xf3, 0xf7, 0x73, 0x05, 0x67, 0xce,
-	0xa2, 0x35, 0x50, 0x39, 0xed, 0xe9, 0x25, 0x53, 0xb1, 0x6b, 0x38, 0x5c, 0xa2, 0x87, 0x50, 0x61,
-	0x74, 0x40, 0xa5, 0xae, 0x9a, 0x8a, 0xad, 0xe2, 0x78, 0x63, 0x1d, 0xc3, 0xea, 0x08, 0x53, 0xf8,
-	0xdc, 0x13, 0x04, 0x21, 0x28, 0x0b, 0xfa, 0x95, 0x44, 0x70, 0x2a, 0x8e, 0xd6, 0xa1, 0xad, 0xe7,
-	0x48, 0x27, 0xca, 0xd7, 0xc0, 0xd1, 0x3a, 0x85, 0x50, 0x47, 0x10, 0xd6, 0x5f, 0x65, 0x94, 0x4d,
-	0xcc, 0x5f, 0xc2, 0x31, 0xac, 0x04, 0xe4, 0x96, 0x0a, 0xca, 0xbd, 0xae, 0xef, 0xc8, 0x6b, 0xa1,
-	0x97, 0x4c, 0xd5, 0xae, 0xef, 0x3d, 0x4d, 0xa3, 0xa7, 0xa0, 0x9a, 0x38, 0x39, 0x7d, 0xee, 0xc8,
-	0x6b, 0xbc, 0x1c, 0x64, 0x76, 0xa2, 0xb8, 0x7a, 0xe3, 0x0d, 0x34, 0xb2, 0x41, 0xc8, 0x00, 0x2d,
-	0x0d, 0x8b, 0xa8, 0xd6, 0xf0, 0x68, 0x1f, 0xb6, 0x20, 0x64, 0x91, 0xb6, 0x20, 0x5c, 0x5b, 0x7f,
-	0x14, 0x58, 0x1b, 0xb3, 0x98, 0xb7, 0x7f, 0x68, 0x07, 0x1a, 0x54, 0x74, 0xc5, 0x8d, 0x3b, 0xe0,
-	0xbd, 0x1b, 0x46, 0xf4, 0xb2, 0xa9, 0xd8, 0x1a, 0xae, 0x53, 0xd1, 0x49, 0x4d, 0x61, 0xa2, 0x01,
-	0xef, 0x11, 0xbd, 0x62, 0x2a, 0x76, 0x05, 0x47, 0xeb, 0x09, 0xd6, 0xd5, 0x19, 0xac, 0x97, 0xc6,
-	0xac, 0xd1, 0x33, 0x28, 0xcb, 0xa1, 0x4f, 0x74, 0xcd, 0x54, 0xec, 0x95, 0xf1, 0x30, 0xce, 0xdc,
-	0x4f, 0xe4, 0x52, 0xbe, 0x1f, 0xfa, 0x04, 0x47, 0x7e, 0xeb, 0x10, 0xe0, 0xe4, 0xb0, 0x73, 0xce,
-	0xa9, 0x27, 0x49, 0x30, 0x87, 0x2c, 0x8e, 0x60, 0xf9, 0x94, 0xdc, 0x85, 0x4d, 0x8a, 0x21, 0x0a,
-	0x53, 0xe5, 0x05, 0x9b, 0x52, 0x57, 0x33, 0x0d, 0x67, 0xf0, 0xa8, 0x4d, 0xe4, 0x98, 0xd5, 0x02,
-	0x64, 0xb6, 0x09, 0x5a, 0xf8, 0x95, 0x76, 0x69, 0x2f, 0x16, 0x58, 0x0d, 0x2f, 0x85, 0xfb, 0xa3,
-	0x9e, 0xb0, 0xce, 0x60, 0x7d, 0x1a, 0x2d, 0x99, 0xf1, 0x2b, 0x68, 0xb0, 0xbe, 0xe8, 0xfa, 0x89,
-	0x5d, 0x57, 0x22, 0x65, 0x8e, 0x00, 0xc7, 0x21, 0xb8, 0xce, 0xfa, 0x22, 0x0d, 0xb7, 0x7e, 0x29,
-	0xa0, 0xb7, 0x89, 0x3c, 0x25, 0x77, 0x0b, 0x2d, 0x21, 0x2b, 0x80, 0x78, 0x14, 0x63, 0x01, 0x4c,
-	0x08, 0xbf, 0x92, 0x08, 0x1f, 0x6d, 0x01, 0x78, 0x5c, 0x76, 0xa9, 0xd7, 0x75, 0x18, 0x4b, 0x74,
-	0xa6, 0x79, 0x5c, 0x1e, 0x79, 0xfb, 0x8c, 0xa1, 0x6d, 0xa8, 0x27, 0xde, 0x80, 0xf4, 0x85, 0x5e,
-	0x31, 0x55, 0xbb, 0x81, 0x6b, 0x91, 0x1b, 0x93, 0xbe, 0xb0, 0x30, 0x6c, 0x16, 0x54, 0x31, 0x5f,
-	0x6b, 0x2e, 0xa2, 0xce, 0xec, 0x33, 0xb6, 0xc8, 0xce, 0xbc, 0x2b, 0x6b, 0xa5, 0x35, 0x35, 0xe1,
-	0x3b, 0x9d, 0x7b, 0x3e, 0xbe, 0xdf, 0x15, 0x58, 0x3f, 0xa1, 0x62, 0xb1, 0x5a, 0xdc, 0x82, 0x5a,
-	0x3a, 0xb8, 0x54, 0x8c, 0x63, 0x43, 0xf1, 0x28, 0xad, 0x73, 0xd8, 0xc8, 0xf1, 0x98, 0xaf, 0xb4,
-	0xcf, 0xb0, 0x19, 0x66, 0x5c, 0xf0, 0x2c, 0x66, 0xd0, 0xef, 0x80, 0x51, 0x04, 0x36, 0x57, 0x05,
-	0x7b, 0xdf, 0x2a, 0x50, 0x0f, 0xef, 0x9b, 0x0e, 0x09, 0x6e, 0xe9, 0x25, 0x41, 0x6f, 0x61, 0x29,
-	0xb9, 0xa6, 0xd1, 0xfa, 0xd4, 0xeb, 0x91, 0xd4, 0x65, 0x6c, 0xe4, 0xec, 0x31, 0x05, 0xab, 0xfa,
-	0xef, 0x87, 0x5d, 0xd2, 0x4a, 0xbb, 0x0a, 0x6a, 0x83, 0x96, 0x5e, 0xf6, 0x68, 0x63, 0xc6, 0x23,
-	0x64, 0xe8, 0x79, 0x47, 0x2e, 0xd1, 0x87, 0xe8, 0xa1, 0xcf, 0xd4, 0x8b, 0x1e, 0x67, 0xa2, 0xf2,
-	0x4d, 0x37, 0xb6, 0x67, 0xb9, 0x73, 0xa9, 0x5d, 0x78, 0x90, 0xfb, 0x34, 0x91, 0x99, 0x09, 0x2f,
-	0xbc, 0x7b, 0x8c, 0x9d, 0x7b, 0x4e, 0xcc, 0xc0, 0x98, 0x9c, 0xd8, 0x04, 0x46, 0xa1, 0x72, 0x26,
-	0x30, 0x8a, 0xc7, 0x9d, 0xc1, 0xf8, 0x08, 0xab, 0x53, 0xaa, 0x46, 0xa3, 0x26, 0x14, 0x7f, 0x76,
-	0xc6, 0x93, 0x99, 0xfe, 0x5c, 0x76, 0x02, 0x28, 0x2f, 0x3a, 0xb4, 0x93, 0x4d, 0x50, 0x5c, 0x83,
-	0x75, 0xdf, 0x91, 0x69, 0x98, 0x83, 0xdd, 0x8b, 0xf0, 0x38, 0x73, 0xdc, 0xe6, 0x25, 0x1f, 0xb4,
-	0xe2, 0xe5, 0x0b, 0x1e, 0x5c, 0xb5, 0xe2, 0x24, 0xad, 0xe8, 0xb7, 0xaf, 0x75, 0xc5, 0x93, 0xbd,
-	0xef, 0xba, 0xd5, 0xc8, 0xf4, 0xf2, 0x7f, 0x00, 0x00, 0x00, 0xff, 0xff, 0xbd, 0x71, 0xf0, 0xaa,
-	0x39, 0x0a, 0x00, 0x00,
+	// 639 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x55, 0xcb, 0x6e, 0xd3, 0x40,
+	0x14, 0xd5, 0xc4, 0x49, 0x9a, 0xdc, 0xa4, 0x0f, 0x8d, 0xa0, 0x75, 0x2d, 0x1e, 0xae, 0x85, 0x90,
+	0x17, 0x90, 0x54, 0x45, 0x48, 0xac, 0x90, 0xa8, 0x50, 0xab, 0xaa, 0x15, 0xad, 0x26, 0x6c, 0x40,
+	0x48, 0x91, 0x5d, 0x4f, 0xdb, 0x81, 0x49, 0xc6, 0x78, 0xa6, 0x45, 0xe1, 0x03, 0xf8, 0x05, 0xf8,
+	0x18, 0xd6, 0xfc, 0x04, 0xff, 0xc0, 0x07, 0xb0, 0x42, 0x63, 0xc7, 0x8f, 0xc6, 0x0e, 0x9b, 0x64,
+	0x77, 0x1f, 0x73, 0xcf, 0x3d, 0xf7, 0xce, 0xf1, 0x18, 0xc0, 0xe7, 0xc2, 0xef, 0x85, 0x91, 0x50,
+	0x02, 0x37, 0x2f, 0x99, 0xf2, 0xf8, 0xc4, 0x02, 0xce, 0xc6, 0x2a, 0x89, 0x59, 0x5d, 0x79, 0xe5,
+	0x45, 0x34, 0x48, 0x3c, 0x27, 0x82, 0xb5, 0x43, 0xaa, 0xf6, 0xb9, 0xf0, 0x09, 0xfd, 0x7c, 0x4d,
+	0xa5, 0xc2, 0x2f, 0x00, 0x22, 0x1a, 0x0a, 0xc9, 0x94, 0x88, 0x26, 0x26, 0xb2, 0x91, 0xdb, 0xd9,
+	0xc3, 0xbd, 0x04, 0xa8, 0x47, 0xb2, 0xcc, 0x7e, 0xfd, 0xc7, 0xaf, 0x27, 0x88, 0x14, 0xce, 0xe2,
+	0x0d, 0x30, 0x04, 0x0b, 0xcc, 0x9a, 0x8d, 0xdc, 0x36, 0xd1, 0x26, 0xbe, 0x03, 0x0d, 0xce, 0x46,
+	0x4c, 0x99, 0x86, 0x8d, 0x5c, 0x83, 0x24, 0x8e, 0x73, 0x0c, 0xeb, 0x59, 0x4f, 0x19, 0x8a, 0xb1,
+	0xa4, 0x18, 0x43, 0x5d, 0xb2, 0xaf, 0x34, 0x6e, 0x67, 0x90, 0xd8, 0xd6, 0xb1, 0xc0, 0x53, 0x5e,
+	0x8c, 0xd7, 0x25, 0xb1, 0x9d, 0xb6, 0x30, 0xb2, 0x16, 0xce, 0x1f, 0x94, 0xa1, 0xc9, 0xc5, 0x47,
+	0x38, 0x86, 0xb5, 0x88, 0xde, 0x30, 0xc9, 0xc4, 0x78, 0x18, 0x7a, 0xea, 0x4a, 0x9a, 0x35, 0xdb,
+	0x70, 0x3b, 0x7b, 0x8f, 0xd2, 0xea, 0x99, 0x56, 0x3d, 0x32, 0x3d, 0x7d, 0xe6, 0xa9, 0x2b, 0xb2,
+	0x1a, 0x15, 0x3c, 0x59, 0x3d, 0xbd, 0xf5, 0x12, 0xba, 0xc5, 0x22, 0x6c, 0x41, 0x2b, 0x2d, 0x8b,
+	0xa9, 0xb6, 0x49, 0xe6, 0xeb, 0x15, 0x68, 0x16, 0xe9, 0x0a, 0xb4, 0xed, 0xfc, 0x46, 0xb0, 0x91,
+	0xb3, 0x58, 0x74, 0x7f, 0x78, 0x07, 0xba, 0x4c, 0x0e, 0xe5, 0xb5, 0x3f, 0x12, 0xc1, 0x35, 0xa7,
+	0x66, 0xdd, 0x46, 0x6e, 0x8b, 0x74, 0x98, 0x1c, 0xa4, 0x21, 0x0d, 0x34, 0x12, 0x01, 0x35, 0x1b,
+	0x36, 0x72, 0x1b, 0x24, 0xb6, 0x6f, 0xb1, 0x6e, 0xce, 0x61, 0xbd, 0x92, 0xb3, 0xc6, 0x8f, 0xa1,
+	0xae, 0x26, 0x21, 0x35, 0x5b, 0x36, 0x72, 0xd7, 0xf2, 0xcb, 0x38, 0xf5, 0x3f, 0xd2, 0x73, 0xf5,
+	0x76, 0x12, 0x52, 0x12, 0xe7, 0x9d, 0x03, 0x80, 0x93, 0x83, 0xc1, 0x99, 0x60, 0x63, 0x45, 0xa3,
+	0x05, 0x64, 0x71, 0x04, 0xab, 0x6f, 0xe8, 0x17, 0xbd, 0xa4, 0xa4, 0x45, 0x25, 0x54, 0x59, 0xb0,
+	0x29, 0x75, 0xa3, 0xb0, 0x70, 0x0e, 0x77, 0x0f, 0xa9, 0xca, 0x59, 0x2d, 0x41, 0x66, 0xdb, 0xd0,
+	0xd2, 0x5f, 0xe9, 0x90, 0x05, 0x89, 0xc0, 0xda, 0x64, 0x45, 0xfb, 0x47, 0x81, 0x74, 0x4e, 0x61,
+	0x73, 0xb6, 0xdb, 0xf4, 0x8e, 0x9f, 0x43, 0x97, 0x5f, 0xc8, 0x61, 0x38, 0x8d, 0x9b, 0x28, 0x56,
+	0x66, 0xd6, 0x30, 0x2f, 0x21, 0x1d, 0x7e, 0x21, 0xd3, 0x72, 0xe7, 0x1b, 0x82, 0xcd, 0x13, 0x26,
+	0x97, 0x3b, 0xc0, 0x3d, 0x68, 0xa7, 0xd7, 0x9d, 0x4e, 0x90, 0x07, 0x6e, 0x0b, 0xbf, 0x91, 0x7e,
+	0xf6, 0x67, 0xb0, 0x55, 0xe2, 0xb1, 0xd8, 0x68, 0x9f, 0x60, 0x5b, 0x23, 0xbe, 0xe2, 0x7c, 0xa9,
+	0xc3, 0x55, 0xd3, 0x1f, 0x80, 0x55, 0xd5, 0x6c, 0xa1, 0x09, 0xf6, 0x7e, 0x1a, 0xd0, 0xd1, 0x22,
+	0x1d, 0xd0, 0xe8, 0x86, 0x9d, 0x53, 0xfc, 0x1a, 0x56, 0xa6, 0xdf, 0x36, 0xde, 0x9c, 0x79, 0x72,
+	0xa6, 0x73, 0x59, 0x5b, 0xa5, 0x78, 0x42, 0xc1, 0x69, 0xfe, 0xfd, 0xee, 0xd6, 0x5a, 0xb5, 0x5d,
+	0x84, 0x0f, 0xa1, 0x95, 0xbe, 0x10, 0x78, 0x6b, 0xce, 0xcb, 0x65, 0x99, 0xe5, 0x44, 0x09, 0xe8,
+	0x5d, 0xfc, 0x77, 0x28, 0xcc, 0x8b, 0xef, 0x17, 0xaa, 0xca, 0x4b, 0xb7, 0x1e, 0xcc, 0x4b, 0x97,
+	0xa0, 0x3f, 0xc0, 0xfa, 0x8c, 0x1a, 0x70, 0x56, 0x5c, 0x2d, 0x57, 0xeb, 0xe1, 0xdc, 0x7c, 0x09,
+	0x9d, 0x02, 0x2e, 0x5f, 0x16, 0xde, 0x29, 0x02, 0x54, 0xaa, 0xc6, 0x72, 0xfe, 0x77, 0x64, 0xb6,
+	0xcd, 0xfe, 0xee, 0x7b, 0x7d, 0x9c, 0x7b, 0x7e, 0xef, 0x5c, 0x8c, 0xfa, 0x89, 0xf9, 0x54, 0x44,
+	0x97, 0xfd, 0x04, 0xa4, 0x1f, 0xff, 0x63, 0xfb, 0x97, 0x62, 0xea, 0x87, 0xbe, 0xdf, 0x8c, 0x43,
+	0xcf, 0xfe, 0x05, 0x00, 0x00, 0xff, 0xff, 0xcf, 0x77, 0x87, 0x52, 0xa6, 0x07, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1044,21 +826,7 @@ type BlobServiceClient interface {
 	// GetLFSPointers retrieves LFS pointers from a given set of object IDs.
 	// This RPC filters all requested objects and only returns those which refer
 	// to a valid LFS pointer.
-	//
-	// Deprecated in favor of `ListLFSPointers`, passing object IDs as revisions.
 	GetLFSPointers(ctx context.Context, in *GetLFSPointersRequest, opts ...grpc.CallOption) (BlobService_GetLFSPointersClient, error)
-	// GetNewLFSPointers retrieves LFS pointers for a limited subset of the
-	// commit graph. It will return all LFS pointers which are reachable by the
-	// provided revision, but not reachable by any of the limiting references.
-	//
-	// Deprecated in favor of `ListLFSPointers`. `NotInAll` can be replaced with
-	// `REVISION` `--not` `--all`, while `NotInRefs` can be replaced with
-	// `REVISION` `--not` `NotInRevs...`.
-	GetNewLFSPointers(ctx context.Context, in *GetNewLFSPointersRequest, opts ...grpc.CallOption) (BlobService_GetNewLFSPointersClient, error)
-	// GetAllLFSPointers retrieves all LFS pointers of the given repository.
-	//
-	// Deprecated in favor of `ListLFSPointers`, passing `--all` as revision.
-	GetAllLFSPointers(ctx context.Context, in *GetAllLFSPointersRequest, opts ...grpc.CallOption) (BlobService_GetAllLFSPointersClient, error)
 	// ListLFSPointers retrieves LFS pointers reachable from a given set of
 	// revisions by doing a graph walk. This includes both normal revisions like
 	// an object ID or branch, but also the pseudo-revisions "--all" and "--not"
@@ -1066,9 +834,8 @@ type BlobServiceClient interface {
 	// transitively reference any LFS pointers are ignored. It is not valid to
 	// pass revisions which do not resolve to an existing object.
 	ListLFSPointers(ctx context.Context, in *ListLFSPointersRequest, opts ...grpc.CallOption) (BlobService_ListLFSPointersClient, error)
-	// ListAllLFSPointers retrieves all LFS pointers in the repository. In
-	// contrast to `GetAllLFSPointers`, this RPC also includes LFS pointers which
-	// are not reachable by any reference.
+	// ListAllLFSPointers retrieves all LFS pointers in the repository, including
+	// those not reachable by any reference.
 	ListAllLFSPointers(ctx context.Context, in *ListAllLFSPointersRequest, opts ...grpc.CallOption) (BlobService_ListAllLFSPointersClient, error)
 }
 
@@ -1176,72 +943,8 @@ func (x *blobServiceGetLFSPointersClient) Recv() (*GetLFSPointersResponse, error
 	return m, nil
 }
 
-func (c *blobServiceClient) GetNewLFSPointers(ctx context.Context, in *GetNewLFSPointersRequest, opts ...grpc.CallOption) (BlobService_GetNewLFSPointersClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_BlobService_serviceDesc.Streams[3], "/gitaly.BlobService/GetNewLFSPointers", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &blobServiceGetNewLFSPointersClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type BlobService_GetNewLFSPointersClient interface {
-	Recv() (*GetNewLFSPointersResponse, error)
-	grpc.ClientStream
-}
-
-type blobServiceGetNewLFSPointersClient struct {
-	grpc.ClientStream
-}
-
-func (x *blobServiceGetNewLFSPointersClient) Recv() (*GetNewLFSPointersResponse, error) {
-	m := new(GetNewLFSPointersResponse)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func (c *blobServiceClient) GetAllLFSPointers(ctx context.Context, in *GetAllLFSPointersRequest, opts ...grpc.CallOption) (BlobService_GetAllLFSPointersClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_BlobService_serviceDesc.Streams[4], "/gitaly.BlobService/GetAllLFSPointers", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &blobServiceGetAllLFSPointersClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type BlobService_GetAllLFSPointersClient interface {
-	Recv() (*GetAllLFSPointersResponse, error)
-	grpc.ClientStream
-}
-
-type blobServiceGetAllLFSPointersClient struct {
-	grpc.ClientStream
-}
-
-func (x *blobServiceGetAllLFSPointersClient) Recv() (*GetAllLFSPointersResponse, error) {
-	m := new(GetAllLFSPointersResponse)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 func (c *blobServiceClient) ListLFSPointers(ctx context.Context, in *ListLFSPointersRequest, opts ...grpc.CallOption) (BlobService_ListLFSPointersClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_BlobService_serviceDesc.Streams[5], "/gitaly.BlobService/ListLFSPointers", opts...)
+	stream, err := c.cc.NewStream(ctx, &_BlobService_serviceDesc.Streams[3], "/gitaly.BlobService/ListLFSPointers", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1273,7 +976,7 @@ func (x *blobServiceListLFSPointersClient) Recv() (*ListLFSPointersResponse, err
 }
 
 func (c *blobServiceClient) ListAllLFSPointers(ctx context.Context, in *ListAllLFSPointersRequest, opts ...grpc.CallOption) (BlobService_ListAllLFSPointersClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_BlobService_serviceDesc.Streams[6], "/gitaly.BlobService/ListAllLFSPointers", opts...)
+	stream, err := c.cc.NewStream(ctx, &_BlobService_serviceDesc.Streams[4], "/gitaly.BlobService/ListAllLFSPointers", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1314,21 +1017,7 @@ type BlobServiceServer interface {
 	// GetLFSPointers retrieves LFS pointers from a given set of object IDs.
 	// This RPC filters all requested objects and only returns those which refer
 	// to a valid LFS pointer.
-	//
-	// Deprecated in favor of `ListLFSPointers`, passing object IDs as revisions.
 	GetLFSPointers(*GetLFSPointersRequest, BlobService_GetLFSPointersServer) error
-	// GetNewLFSPointers retrieves LFS pointers for a limited subset of the
-	// commit graph. It will return all LFS pointers which are reachable by the
-	// provided revision, but not reachable by any of the limiting references.
-	//
-	// Deprecated in favor of `ListLFSPointers`. `NotInAll` can be replaced with
-	// `REVISION` `--not` `--all`, while `NotInRefs` can be replaced with
-	// `REVISION` `--not` `NotInRevs...`.
-	GetNewLFSPointers(*GetNewLFSPointersRequest, BlobService_GetNewLFSPointersServer) error
-	// GetAllLFSPointers retrieves all LFS pointers of the given repository.
-	//
-	// Deprecated in favor of `ListLFSPointers`, passing `--all` as revision.
-	GetAllLFSPointers(*GetAllLFSPointersRequest, BlobService_GetAllLFSPointersServer) error
 	// ListLFSPointers retrieves LFS pointers reachable from a given set of
 	// revisions by doing a graph walk. This includes both normal revisions like
 	// an object ID or branch, but also the pseudo-revisions "--all" and "--not"
@@ -1336,9 +1025,8 @@ type BlobServiceServer interface {
 	// transitively reference any LFS pointers are ignored. It is not valid to
 	// pass revisions which do not resolve to an existing object.
 	ListLFSPointers(*ListLFSPointersRequest, BlobService_ListLFSPointersServer) error
-	// ListAllLFSPointers retrieves all LFS pointers in the repository. In
-	// contrast to `GetAllLFSPointers`, this RPC also includes LFS pointers which
-	// are not reachable by any reference.
+	// ListAllLFSPointers retrieves all LFS pointers in the repository, including
+	// those not reachable by any reference.
 	ListAllLFSPointers(*ListAllLFSPointersRequest, BlobService_ListAllLFSPointersServer) error
 }
 
@@ -1354,12 +1042,6 @@ func (*UnimplementedBlobServiceServer) GetBlobs(req *GetBlobsRequest, srv BlobSe
 }
 func (*UnimplementedBlobServiceServer) GetLFSPointers(req *GetLFSPointersRequest, srv BlobService_GetLFSPointersServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetLFSPointers not implemented")
-}
-func (*UnimplementedBlobServiceServer) GetNewLFSPointers(req *GetNewLFSPointersRequest, srv BlobService_GetNewLFSPointersServer) error {
-	return status.Errorf(codes.Unimplemented, "method GetNewLFSPointers not implemented")
-}
-func (*UnimplementedBlobServiceServer) GetAllLFSPointers(req *GetAllLFSPointersRequest, srv BlobService_GetAllLFSPointersServer) error {
-	return status.Errorf(codes.Unimplemented, "method GetAllLFSPointers not implemented")
 }
 func (*UnimplementedBlobServiceServer) ListLFSPointers(req *ListLFSPointersRequest, srv BlobService_ListLFSPointersServer) error {
 	return status.Errorf(codes.Unimplemented, "method ListLFSPointers not implemented")
@@ -1435,48 +1117,6 @@ func (x *blobServiceGetLFSPointersServer) Send(m *GetLFSPointersResponse) error 
 	return x.ServerStream.SendMsg(m)
 }
 
-func _BlobService_GetNewLFSPointers_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(GetNewLFSPointersRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(BlobServiceServer).GetNewLFSPointers(m, &blobServiceGetNewLFSPointersServer{stream})
-}
-
-type BlobService_GetNewLFSPointersServer interface {
-	Send(*GetNewLFSPointersResponse) error
-	grpc.ServerStream
-}
-
-type blobServiceGetNewLFSPointersServer struct {
-	grpc.ServerStream
-}
-
-func (x *blobServiceGetNewLFSPointersServer) Send(m *GetNewLFSPointersResponse) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func _BlobService_GetAllLFSPointers_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(GetAllLFSPointersRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(BlobServiceServer).GetAllLFSPointers(m, &blobServiceGetAllLFSPointersServer{stream})
-}
-
-type BlobService_GetAllLFSPointersServer interface {
-	Send(*GetAllLFSPointersResponse) error
-	grpc.ServerStream
-}
-
-type blobServiceGetAllLFSPointersServer struct {
-	grpc.ServerStream
-}
-
-func (x *blobServiceGetAllLFSPointersServer) Send(m *GetAllLFSPointersResponse) error {
-	return x.ServerStream.SendMsg(m)
-}
-
 func _BlobService_ListLFSPointers_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(ListLFSPointersRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -1537,16 +1177,6 @@ var _BlobService_serviceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "GetLFSPointers",
 			Handler:       _BlobService_GetLFSPointers_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "GetNewLFSPointers",
-			Handler:       _BlobService_GetNewLFSPointers_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "GetAllLFSPointers",
-			Handler:       _BlobService_GetAllLFSPointers_Handler,
 			ServerStreams: true,
 		},
 		{

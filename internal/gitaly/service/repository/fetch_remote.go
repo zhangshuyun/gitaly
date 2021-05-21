@@ -14,7 +14,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -38,7 +39,7 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 		opts.Tags = localrepo.FetchOptsTagsNone
 	}
 
-	repo := localrepo.New(s.gitCmdFactory, req.GetRepository(), s.cfg)
+	repo := s.localrepo(req.GetRepository())
 	remoteName := req.GetRemote()
 
 	if params := req.GetRemoteParams(); params != nil {
@@ -110,8 +111,8 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 	// is of course racy and may conflict with other mutators, causing the vote to fail. But it
 	// is arguably preferable to accept races in favour always replicating. If loosing the race,
 	// we'd fail this RPC and schedule a replication job afterwards.
-	if err := transaction.RunOnContext(ctx, func(tx metadata.Transaction, praefect metadata.PraefectServer) error {
-		hash := transaction.NewVoteHash()
+	if err := transaction.RunOnContext(ctx, func(tx txinfo.Transaction, praefect txinfo.PraefectServer) error {
+		hash := voting.NewVoteHash()
 
 		if err := repo.ExecAndWait(ctx, git.SubCmd{
 			Name: "for-each-ref",

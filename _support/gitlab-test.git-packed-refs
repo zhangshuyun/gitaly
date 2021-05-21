@@ -1,4 +1,4 @@
-# pack-refs with: peeled fully-peeled sorted 
+# pack-refs with: peeled fully-peeled sorted
 e56497bb5f03a90a51293fc6d516788730953899 refs/heads/'test'
 1b12f15a11fc6e62177bef08f47bc7b5ce50b141 refs/heads/100%branch
 1942eed5cc108b19c7405106e81fa96125d0be22 refs/heads/1942eed5cc108b19c7405106e81fa96125d0be22
@@ -44,6 +44,7 @@ bb5206fee213d983da88c47f9cf4cc6caf9c66dc refs/heads/feature_conflict
 ce369011c189f62c815f5971d096b26759bab0d1 refs/heads/flat-path
 d25b6d94034242f3930dfcfeb6d8d9aac3583992 refs/heads/flat-path-2
 e56497bb5f03a90a51293fc6d516788730953899 refs/heads/flatten-dirs
+9a944d90955aaf45f6d0c88f30e27f8d2c41cec0 refs/heads/gitaly-branches-test
 ab2c9622c02288a2bbaaf35d96088cfdff31d9d9 refs/heads/gitaly-diff-stuff
 0999bb770f8dc92ab5581cc0b474b3e31a96bf5c refs/heads/gitaly-non-utf8-commit
 94bb47ca1297b7b3731ff2a36923640991e9236f refs/heads/gitaly-rename-test
@@ -68,6 +69,7 @@ b83d6e391c22777fca1ed3012fce84f633d7fed0 refs/heads/not-mergéd-branch
 fe42f41cdc7ca97ae200fb50a268431add95901a refs/heads/png-lfs
 c84ff944ff4529a70788a5e9003c2b7feae29047 refs/heads/rd-add-file-larger-than-1-mb
 ca47bfd5e930148c42ed74c3b561a8783e381f7f refs/heads/rebase-encoding-failure-trigger
+842616594688d2351480dfebd67b3d8d15571e6d refs/heads/sha-starting-with-large-number
 6101e87e575de14b38b4e1ce180519a813671e10 refs/heads/signed-commits
 ed775cc81e5477df30c2abba7b6fdbb5d0baadae refs/heads/smime-signed-commits
 ba3343bc4fa403a8dfbfcab7fc1a8c29ee34bd69 refs/heads/spooky-stuff

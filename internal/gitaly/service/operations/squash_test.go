@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -49,11 +50,11 @@ func TestSuccessfulUserSquashRequest(t *testing.T) {
 func testSuccessfulUserSquashRequest(t *testing.T, ctx context.Context, start, end string) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	request := &gitalypb.UserSquashRequest{
 		Repository:    repoProto,
-		User:          testhelper.TestUser,
+		User:          gittest.TestUser,
 		SquashId:      "1",
 		Author:        author,
 		CommitMessage: commitMessage,
@@ -70,11 +71,11 @@ func testSuccessfulUserSquashRequest(t *testing.T, ctx context.Context, start, e
 	require.Equal(t, []string{start}, commit.ParentIds)
 	require.Equal(t, author.Name, commit.Author.Name)
 	require.Equal(t, author.Email, commit.Author.Email)
-	require.Equal(t, testhelper.TestUser.Name, commit.Committer.Name)
-	require.Equal(t, testhelper.TestUser.Email, commit.Committer.Email)
+	require.Equal(t, gittest.TestUser.Name, commit.Committer.Name)
+	require.Equal(t, gittest.TestUser.Email, commit.Committer.Email)
 	require.Equal(t, commitMessage, commit.Subject)
 
-	treeData := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "ls-tree", "--name-only", response.SquashSha)
+	treeData := gittest.Exec(t, cfg, "-C", repoPath, "ls-tree", "--name-only", response.SquashSha)
 	files := strings.Fields(text.ChompBytes(treeData))
 	require.Subset(t, files, []string{"VERSION", "README", "files", ".gitattributes"}, "ensure the files remain on their places")
 }
@@ -85,11 +86,11 @@ func TestUserSquash_stableID(t *testing.T) {
 
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
 		Repository:    repoProto,
-		User:          testhelper.TestUser,
+		User:          gittest.TestUser,
 		SquashId:      "1",
 		Author:        author,
 		CommitMessage: []byte("Squashed commit"),
@@ -118,16 +119,16 @@ func TestUserSquash_stableID(t *testing.T) {
 			Timezone: []byte("+0000"),
 		},
 		Committer: &gitalypb.CommitAuthor{
-			Name:     testhelper.TestUser.Name,
-			Email:    testhelper.TestUser.Email,
+			Name:     gittest.TestUser.Name,
+			Email:    gittest.TestUser.Email,
 			Date:     &timestamp.Timestamp{Seconds: 1234512345},
 			Timezone: []byte("+0000"),
 		},
 	}, commit)
 }
 
-func ensureSplitIndexExists(t *testing.T, repoDir string) bool {
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoDir, "update-index", "--add")
+func ensureSplitIndexExists(t *testing.T, cfg config.Cfg, repoDir string) bool {
+	gittest.Exec(t, cfg, "-C", repoDir, "update-index", "--add")
 
 	fis, err := ioutil.ReadDir(repoDir)
 	require.NoError(t, err)
@@ -145,11 +146,11 @@ func TestSuccessfulUserSquashRequestWith3wayMerge(t *testing.T) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	request := &gitalypb.UserSquashRequest{
 		Repository:    repoProto,
-		User:          testhelper.TestUser,
+		User:          gittest.TestUser,
 		SquashId:      "1",
 		Author:        author,
 		CommitMessage: commitMessage,
@@ -167,8 +168,8 @@ func TestSuccessfulUserSquashRequestWith3wayMerge(t *testing.T) {
 	require.Equal(t, []string{"6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9"}, commit.ParentIds)
 	require.Equal(t, author.Name, commit.Author.Name)
 	require.Equal(t, author.Email, commit.Author.Email)
-	require.Equal(t, testhelper.TestUser.Name, commit.Committer.Name)
-	require.Equal(t, testhelper.TestUser.Email, commit.Committer.Email)
+	require.Equal(t, gittest.TestUser.Name, commit.Committer.Name)
+	require.Equal(t, gittest.TestUser.Email, commit.Committer.Email)
 	require.Equal(t, commitMessage, commit.Subject)
 
 	// Handle symlinks in macOS from /tmp -> /private/tmp
@@ -176,7 +177,7 @@ func TestSuccessfulUserSquashRequestWith3wayMerge(t *testing.T) {
 	require.NoError(t, err)
 
 	// Ensure Git metadata is cleaned up
-	worktreeList := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "worktree", "list", "--porcelain"))
+	worktreeList := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "worktree", "list", "--porcelain"))
 	expectedOut := fmt.Sprintf("worktree %s\nbare\n", repoPath)
 	require.Equal(t, expectedOut, worktreeList)
 
@@ -190,13 +191,13 @@ func TestSplitIndex(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	require.False(t, ensureSplitIndexExists(t, repoPath))
+	require.False(t, ensureSplitIndexExists(t, cfg, repoPath))
 
 	request := &gitalypb.UserSquashRequest{
 		Repository:    repo,
-		User:          testhelper.TestUser,
+		User:          gittest.TestUser,
 		SquashId:      "1",
 		Author:        author,
 		CommitMessage: commitMessage,
@@ -207,7 +208,7 @@ func TestSplitIndex(t *testing.T) {
 	response, err := client.UserSquash(ctx, request)
 	require.NoError(t, err)
 	require.Empty(t, response.GetGitError())
-	require.False(t, ensureSplitIndexExists(t, repoPath))
+	require.False(t, ensureSplitIndexExists(t, cfg, repoPath))
 }
 
 func TestSquashRequestWithRenamedFiles(t *testing.T) {
@@ -216,39 +217,37 @@ func TestSquashRequestWithRenamedFiles(t *testing.T) {
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
-	repoProto, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+	repoProto, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanup)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	originalFilename := "original-file.txt"
 	renamedFilename := "renamed-file.txt"
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "testhelper.TestUser.name", string(author.Name))
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "testhelper.TestUser.email", string(author.Email))
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "checkout", "-b", "squash-rename-test", "master")
+	gittest.Exec(t, cfg, "-C", repoPath, "checkout", "-b", "squash-rename-test", "master")
 	require.NoError(t, ioutil.WriteFile(filepath.Join(repoPath, originalFilename), []byte("This is a test"), 0644))
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "add", ".")
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-m", "test file")
+	gittest.Exec(t, cfg, "-C", repoPath, "add", ".")
+	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-m", "test file")
 
-	startCommitID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "HEAD"))
+	startCommitID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "mv", originalFilename, renamedFilename)
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-a", "-m", "renamed test file")
+	gittest.Exec(t, cfg, "-C", repoPath, "mv", originalFilename, renamedFilename)
+	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-a", "-m", "renamed test file")
 
 	// Modify the original file in another branch
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "checkout", "-b", "squash-rename-branch", startCommitID)
+	gittest.Exec(t, cfg, "-C", repoPath, "checkout", "-b", "squash-rename-branch", startCommitID)
 	require.NoError(t, ioutil.WriteFile(filepath.Join(repoPath, originalFilename), []byte("This is a change"), 0644))
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-a", "-m", "test")
+	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-a", "-m", "test")
 
 	require.NoError(t, ioutil.WriteFile(filepath.Join(repoPath, originalFilename), []byte("This is another change"), 0644))
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-a", "-m", "test")
+	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-a", "-m", "test")
 
-	endCommitID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "HEAD"))
+	endCommitID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
 
 	request := &gitalypb.UserSquashRequest{
 		Repository:    repoProto,
-		User:          testhelper.TestUser,
+		User:          gittest.TestUser,
 		SquashId:      "1",
 		Author:        author,
 		CommitMessage: commitMessage,
@@ -265,8 +264,8 @@ func TestSquashRequestWithRenamedFiles(t *testing.T) {
 	require.Equal(t, []string{startCommitID}, commit.ParentIds)
 	require.Equal(t, author.Name, commit.Author.Name)
 	require.Equal(t, author.Email, commit.Author.Email)
-	require.Equal(t, testhelper.TestUser.Name, commit.Committer.Name)
-	require.Equal(t, testhelper.TestUser.Email, commit.Committer.Email)
+	require.Equal(t, gittest.TestUser.Name, commit.Committer.Name)
+	require.Equal(t, gittest.TestUser.Email, commit.Committer.Email)
 	require.Equal(t, commitMessage, commit.Subject)
 }
 
@@ -280,7 +279,7 @@ func TestSuccessfulUserSquashRequestWithMissingFileOnTargetBranch(t *testing.T) 
 
 	request := &gitalypb.UserSquashRequest{
 		Repository:    repo,
-		User:          testhelper.TestUser,
+		User:          gittest.TestUser,
 		SquashId:      "1",
 		Author:        author,
 		CommitMessage: commitMessage,
@@ -308,9 +307,9 @@ func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
 			desc: "empty Repository",
 			request: &gitalypb.UserSquashRequest{
 				Repository:    nil,
-				User:          testhelper.TestUser,
+				User:          gittest.TestUser,
 				SquashId:      "1",
-				Author:        testhelper.TestUser,
+				Author:        gittest.TestUser,
 				CommitMessage: commitMessage,
 				StartSha:      startSha,
 				EndSha:        endSha,
@@ -323,7 +322,7 @@ func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
 				Repository:    repo,
 				User:          nil,
 				SquashId:      "1",
-				Author:        testhelper.TestUser,
+				Author:        gittest.TestUser,
 				CommitMessage: commitMessage,
 				StartSha:      startSha,
 				EndSha:        endSha,
@@ -334,9 +333,9 @@ func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
 			desc: "empty SquashId",
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
-				User:          testhelper.TestUser,
+				User:          gittest.TestUser,
 				SquashId:      "",
-				Author:        testhelper.TestUser,
+				Author:        gittest.TestUser,
 				CommitMessage: commitMessage,
 				StartSha:      startSha,
 				EndSha:        endSha,
@@ -347,9 +346,9 @@ func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
 			desc: "empty StartSha",
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
-				User:          testhelper.TestUser,
+				User:          gittest.TestUser,
 				SquashId:      "1",
-				Author:        testhelper.TestUser,
+				Author:        gittest.TestUser,
 				CommitMessage: commitMessage,
 				StartSha:      "",
 				EndSha:        endSha,
@@ -360,9 +359,9 @@ func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
 			desc: "empty EndSha",
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
-				User:          testhelper.TestUser,
+				User:          gittest.TestUser,
 				SquashId:      "1",
-				Author:        testhelper.TestUser,
+				Author:        gittest.TestUser,
 				CommitMessage: commitMessage,
 				StartSha:      startSha,
 				EndSha:        "",
@@ -373,7 +372,7 @@ func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
 			desc: "empty Author",
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
-				User:          testhelper.TestUser,
+				User:          gittest.TestUser,
 				SquashId:      "1",
 				Author:        nil,
 				CommitMessage: commitMessage,
@@ -386,9 +385,9 @@ func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
 			desc: "empty CommitMessage",
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
-				User:          testhelper.TestUser,
+				User:          gittest.TestUser,
 				SquashId:      "1",
-				Author:        testhelper.TestUser,
+				Author:        gittest.TestUser,
 				CommitMessage: nil,
 				StartSha:      startSha,
 				EndSha:        endSha,
@@ -399,9 +398,9 @@ func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
 			desc: "worktree id can't contain slashes",
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
-				User:          testhelper.TestUser,
+				User:          gittest.TestUser,
 				SquashId:      "1/2",
-				Author:        testhelper.TestUser,
+				Author:        gittest.TestUser,
 				CommitMessage: commitMessage,
 				StartSha:      startSha,
 				EndSha:        endSha,
@@ -435,8 +434,8 @@ func TestUserSquashWithGitError(t *testing.T) {
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
 				SquashId:      "1",
-				User:          testhelper.TestUser,
-				Author:        testhelper.TestUser,
+				User:          gittest.TestUser,
+				Author:        gittest.TestUser,
 				CommitMessage: commitMessage,
 				StartSha:      "doesntexisting",
 				EndSha:        endSha,
@@ -448,8 +447,8 @@ func TestUserSquashWithGitError(t *testing.T) {
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
 				SquashId:      "1",
-				User:          testhelper.TestUser,
-				Author:        testhelper.TestUser,
+				User:          gittest.TestUser,
+				Author:        gittest.TestUser,
 				CommitMessage: commitMessage,
 				StartSha:      startSha,
 				EndSha:        "doesntexisting",
@@ -461,8 +460,8 @@ func TestUserSquashWithGitError(t *testing.T) {
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
 				SquashId:      "1",
-				User:          &gitalypb.User{Email: testhelper.TestUser.Email},
-				Author:        testhelper.TestUser,
+				User:          &gitalypb.User{Email: gittest.TestUser.Email},
+				Author:        gittest.TestUser,
 				CommitMessage: commitMessage,
 				StartSha:      startSha,
 				EndSha:        endSha,
@@ -474,8 +473,8 @@ func TestUserSquashWithGitError(t *testing.T) {
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
 				SquashId:      "1",
-				User:          testhelper.TestUser,
-				Author:        &gitalypb.User{Email: testhelper.TestUser.Email},
+				User:          gittest.TestUser,
+				Author:        &gitalypb.User{Email: gittest.TestUser.Email},
 				CommitMessage: commitMessage,
 				StartSha:      startSha,
 				EndSha:        endSha,

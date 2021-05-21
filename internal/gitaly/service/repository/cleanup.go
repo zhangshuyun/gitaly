@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -16,7 +15,7 @@ import (
 )
 
 func (s *server) Cleanup(ctx context.Context, in *gitalypb.CleanupRequest) (*gitalypb.CleanupResponse, error) {
-	repo := localrepo.New(s.gitCmdFactory, in.GetRepository(), s.cfg)
+	repo := s.localrepo(in.GetRepository())
 
 	if err := s.cleanupRepo(ctx, repo); err != nil {
 		return nil, err
@@ -37,10 +36,6 @@ func (s *server) cleanupRepo(ctx context.Context, repo *localrepo.Repo) error {
 
 	if err := s.cleanDisconnectedWorktrees(ctx, repo); err != nil {
 		return status.Errorf(codes.Internal, "Cleanup: cleanDisconnectedWorktrees: %v", err)
-	}
-
-	if err := housekeeping.Perform(ctx, repo); err != nil {
-		return status.Errorf(codes.Internal, "Cleanup: houskeeping: %v", err)
 	}
 
 	return nil

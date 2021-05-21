@@ -2,7 +2,6 @@ package conflicts_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"io/ioutil"
 	"os/exec"
@@ -15,12 +14,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/conflicts"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -55,35 +50,13 @@ var (
 	}
 )
 
-func TestWithRubyServer(t *testing.T) {
-	cfg := testcfg.Build(t)
+func TestSuccessfulResolveConflictsRequest(t *testing.T) {
+	cfg, repoProto, repoPath, client := conflicts.SetupConflictsService(t, true)
 
-	rubySrv := rubyserver.New(cfg)
-	require.NoError(t, rubySrv.Start())
-	t.Cleanup(rubySrv.Stop)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	t.Run("testSuccessfulResolveConflictsRequest", func(t *testing.T) { testSuccessfulResolveConflictsRequest(t, cfg, rubySrv) })
-	t.Run("testResolveConflictsWithRemoteRepo", func(t *testing.T) { testResolveConflictsWithRemoteRepo(t, cfg, rubySrv) })
-	t.Run("testResolveConflictsLineEndings", func(t *testing.T) { testResolveConflictsLineEndings(t, cfg, rubySrv) })
-	t.Run("testResolveConflictsNonOIDRequests", func(t *testing.T) { testResolveConflictsNonOIDRequests(t, cfg, rubySrv) })
-	t.Run("testResolveConflictsIdenticalContent", func(t *testing.T) { testResolveConflictsIdenticalContent(t, cfg, rubySrv) })
-	t.Run("testResolveConflictsStableID", func(t *testing.T) { testResolveConflictsStableID(t, cfg, rubySrv) })
-	t.Run("testFailedResolveConflictsRequestDueToResolutionError", func(t *testing.T) { testFailedResolveConflictsRequestDueToResolutionError(t, cfg, rubySrv) })
-	t.Run("testFailedResolveConflictsRequestDueToValidation", func(t *testing.T) { testFailedResolveConflictsRequestDueToValidation(t, cfg, rubySrv) })
-}
-
-func testSuccessfulResolveConflictsRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoResolveConflicts,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testSuccessfulResolveConflictsRequestFeatured(t, ctx, cfg, rubySrv)
-	})
-}
-
-func testSuccessfulResolveConflictsRequestFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	cfg, repoProto, repoPath, client := conflicts.SetupConflictsServiceWithRuby(t, cfg, rubySrv, true)
-
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	mdGS := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	mdFF, _ := metadata.FromOutgoingContext(ctx)
@@ -130,24 +103,19 @@ func testSuccessfulResolveConflictsRequestFeatured(t *testing.T, ctx context.Con
 	commitConflict := func(parentCommitID, branch, blob string) string {
 		blobID, err := repo.WriteBlob(ctx, "", strings.NewReader(blob))
 		require.NoError(t, err)
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "read-tree", branch)
-		testhelper.MustRunCommand(t, nil,
-			"git", "-C", repoPath,
+		gittest.Exec(t, cfg, "-C", repoPath, "read-tree", branch)
+		gittest.Exec(t, cfg, "-C", repoPath,
 			"update-index", "--add", "--cacheinfo", "100644", blobID.String(), missingAncestorPath,
 		)
 		treeID := bytes.TrimSpace(
-			testhelper.MustRunCommand(t, nil,
-				"git", "-C", repoPath, "write-tree",
-			),
+			gittest.Exec(t, cfg, "-C", repoPath, "write-tree"),
 		)
 		commitID := bytes.TrimSpace(
-			testhelper.MustRunCommand(t, nil,
-				"git", "-C", repoPath,
+			gittest.Exec(t, cfg, "-C", repoPath,
 				"commit-tree", string(treeID), "-p", parentCommitID,
 			),
 		)
-		testhelper.MustRunCommand(t, nil,
-			"git", "-C", repoPath, "update-ref", "refs/heads/"+branch, string(commitID))
+		gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/"+branch, string(commitID))
 		return string(commitID)
 	}
 
@@ -203,33 +171,35 @@ func testSuccessfulResolveConflictsRequestFeatured(t *testing.T, ctx context.Con
 	require.Equal(t, string(headCommit.Subject), conflictResolutionCommitMessage)
 }
 
-func testResolveConflictsWithRemoteRepo(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoResolveConflicts,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testResolveConflictsWithRemoteRepoFeatured(t, ctx, cfg, rubySrv)
-	})
-}
-
-func testResolveConflictsWithRemoteRepoFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	cfg, _, _, client := conflicts.SetupConflictsServiceWithRuby(t, cfg, rubySrv, true)
+func TestResolveConflictsWithRemoteRepo(t *testing.T) {
+	cfg, _, _, client := conflicts.SetupConflictsService(t, true)
 
 	testhelper.ConfigureGitalySSHBin(t, cfg)
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
-	sourceRepo, sourceRepoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "source")
+	sourceRepo, sourceRepoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "source")
 	t.Cleanup(cleanup)
-	sourceBlobOID := gittest.WriteBlob(t, sourceRepoPath, []byte("contents-1\n"))
-	sourceCommitOID := gittest.CommitBlobWithName(t, cfg, sourceRepoPath, sourceBlobOID.String(), "file.txt", "message")
-	testhelper.MustRunCommand(t, nil, "git", "-C", sourceRepoPath, "update-ref", "refs/heads/source", sourceCommitOID)
+	sourceBlobOID := gittest.WriteBlob(t, cfg, sourceRepoPath, []byte("contents-1\n"))
+	sourceCommitOID := gittest.WriteCommit(t, cfg, sourceRepoPath,
+		gittest.WithTreeEntries(gittest.TreeEntry{
+			Path: "file.txt", OID: sourceBlobOID, Mode: "100644",
+		}),
+	)
+	gittest.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", "refs/heads/source", sourceCommitOID.String())
 
-	targetRepo, targetRepoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "target")
+	targetRepo, targetRepoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "target")
 	t.Cleanup(cleanup)
-	targetBlobOID := gittest.WriteBlob(t, targetRepoPath, []byte("contents-2\n"))
-	targetCommitOID := gittest.CommitBlobWithName(t, cfg, targetRepoPath, targetBlobOID.String(), "file.txt", "message")
-	testhelper.MustRunCommand(t, nil, "git", "-C", targetRepoPath, "update-ref", "refs/heads/target", targetCommitOID)
+	targetBlobOID := gittest.WriteBlob(t, cfg, targetRepoPath, []byte("contents-2\n"))
+	targetCommitOID := gittest.WriteCommit(t, cfg, targetRepoPath,
+		gittest.WithTreeEntries(gittest.TreeEntry{
+			OID: targetBlobOID, Path: "file.txt", Mode: "100644",
+		}),
+	)
+	gittest.Exec(t, cfg, "-C", targetRepoPath, "update-ref", "refs/heads/target", targetCommitOID.String())
 
-	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadata(t, cfg.SocketPath))
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
 
 	stream, err := client.ResolveConflicts(ctx)
 	require.NoError(t, err)
@@ -251,8 +221,8 @@ func testResolveConflictsWithRemoteRepoFeatured(t *testing.T, ctx context.Contex
 				Repository:       sourceRepo,
 				TargetRepository: targetRepo,
 				CommitMessage:    []byte(conflictResolutionCommitMessage),
-				OurCommitOid:     sourceCommitOID,
-				TheirCommitOid:   targetCommitOID,
+				OurCommitOid:     sourceCommitOID.String(),
+				TheirCommitOid:   targetCommitOID.String(),
 				SourceBranch:     []byte("source"),
 				TargetBranch:     []byte("target"),
 				User:             user,
@@ -269,21 +239,15 @@ func testResolveConflictsWithRemoteRepoFeatured(t *testing.T, ctx context.Contex
 	require.NoError(t, err)
 	require.Empty(t, response.GetResolutionError())
 
-	require.Equal(t, []byte("contents-2\n"), testhelper.MustRunCommand(t, nil, "git", "-C", sourceRepoPath, "cat-file", "-p", "refs/heads/source:file.txt"))
+	require.Equal(t, []byte("contents-2\n"), gittest.Exec(t, cfg, "-C", sourceRepoPath, "cat-file", "-p", "refs/heads/source:file.txt"))
 }
 
-func testResolveConflictsLineEndings(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoResolveConflicts,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testResolveConflictsLineEndingsFeatured(t, ctx, cfg, rubySrv)
-	})
-}
+func TestResolveConflictsLineEndings(t *testing.T) {
+	cfg, repo, repoPath, client := conflicts.SetupConflictsService(t, true)
 
-func testResolveConflictsLineEndingsFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	cfg, repo, repoPath, client := conflicts.SetupConflictsServiceWithRuby(t, cfg, rubySrv, true)
-
-	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadata(t, cfg.SocketPath))
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
 
 	for _, tc := range []struct {
 		desc             string
@@ -346,13 +310,21 @@ func testResolveConflictsLineEndingsFeatured(t *testing.T, ctx context.Context, 
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ourOID := gittest.WriteBlob(t, repoPath, []byte(tc.ourContent))
-			ourCommit := gittest.CommitBlobWithName(t, cfg, repoPath, ourOID.String(), "file.txt", "message")
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/heads/ours", ourCommit)
+			ourOID := gittest.WriteBlob(t, cfg, repoPath, []byte(tc.ourContent))
+			ourCommit := gittest.WriteCommit(t, cfg, repoPath,
+				gittest.WithTreeEntries(gittest.TreeEntry{
+					OID: ourOID, Path: "file.txt", Mode: "100644",
+				}),
+			)
+			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/ours", ourCommit.String())
 
-			theirOID := gittest.WriteBlob(t, repoPath, []byte(tc.theirContent))
-			theirCommit := gittest.CommitBlobWithName(t, cfg, repoPath, theirOID.String(), "file.txt", "message")
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/heads/theirs", theirCommit)
+			theirOID := gittest.WriteBlob(t, cfg, repoPath, []byte(tc.theirContent))
+			theirCommit := gittest.WriteCommit(t, cfg, repoPath,
+				gittest.WithTreeEntries(gittest.TreeEntry{
+					OID: theirOID, Path: "file.txt", Mode: "100644",
+				}),
+			)
+			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/theirs", theirCommit.String())
 
 			stream, err := client.ResolveConflicts(ctx)
 			require.NoError(t, err)
@@ -366,8 +338,8 @@ func testResolveConflictsLineEndingsFeatured(t *testing.T, ctx context.Context, 
 						Repository:       repo,
 						TargetRepository: repo,
 						CommitMessage:    []byte(conflictResolutionCommitMessage),
-						OurCommitOid:     ourCommit,
-						TheirCommitOid:   theirCommit,
+						OurCommitOid:     ourCommit.String(),
+						TheirCommitOid:   theirCommit.String(),
 						SourceBranch:     []byte("ours"),
 						TargetBranch:     []byte("theirs"),
 						User:             user,
@@ -384,23 +356,17 @@ func testResolveConflictsLineEndingsFeatured(t *testing.T, ctx context.Context, 
 			require.NoError(t, err)
 			require.Empty(t, response.GetResolutionError())
 
-			require.Equal(t, []byte(tc.expectedContents), testhelper.MustRunCommand(t, nil,
-				"git", "-C", repoPath, "cat-file", "-p", "refs/heads/ours:file.txt"))
+			oursFile := gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-p", "refs/heads/ours:file.txt")
+			require.Equal(t, []byte(tc.expectedContents), oursFile)
 		})
 	}
 }
 
-func testResolveConflictsNonOIDRequests(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoResolveConflicts,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testResolveConflictsNonOIDRequestsFeatured(t, ctx, cfg, rubySrv)
-	})
-}
+func TestResolveConflictsNonOIDRequests(t *testing.T) {
+	cfg, repoProto, _, client := conflicts.SetupConflictsService(t, true)
 
-func testResolveConflictsNonOIDRequestsFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	cfg, repoProto, _, client := conflicts.SetupConflictsServiceWithRuby(t, cfg, rubySrv, true)
-
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
 
 	stream, err := client.ResolveConflicts(ctx)
@@ -433,18 +399,13 @@ func testResolveConflictsNonOIDRequestsFeatured(t *testing.T, ctx context.Contex
 	require.Equal(t, status.Errorf(codes.Unknown, "Rugged::InvalidError: unable to parse OID - contains invalid characters"), err)
 }
 
-func testResolveConflictsIdenticalContent(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoResolveConflicts,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testResolveConflictsIdenticalContentFeatured(t, ctx, cfg, rubySrv)
-	})
-}
+func TestResolveConflictsIdenticalContent(t *testing.T) {
+	cfg, repoProto, repoPath, client := conflicts.SetupConflictsService(t, true)
 
-func testResolveConflictsIdenticalContentFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	cfg, repoProto, repoPath, client := conflicts.SetupConflictsServiceWithRuby(t, cfg, rubySrv, true)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	sourceBranch := "conflict-resolvable"
 	sourceOID, err := repo.ResolveRevision(ctx, git.Revision(sourceBranch))
@@ -462,7 +423,7 @@ func testResolveConflictsIdenticalContentFeatured(t *testing.T, ctx context.Cont
 		"6907208d755b60ebeacb2e9dfea74c92c3449a1f",
 		targetOID.String(),
 	} {
-		contents := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "cat-file", "-p", rev+":files/ruby/popen.rb")
+		contents := gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-p", rev+":files/ruby/popen.rb")
 		path := filepath.Join(tempDir, rev)
 		require.NoError(t, ioutil.WriteFile(path, contents, 0644))
 		conflictingPaths = append(conflictingPaths, path)
@@ -535,20 +496,13 @@ func testResolveConflictsIdenticalContentFeatured(t *testing.T, ctx context.Cont
 	}, response)
 }
 
-func testResolveConflictsStableID(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
+func TestResolveConflictsStableID(t *testing.T) {
+	cfg, repoProto, _, client := conflicts.SetupConflictsService(t, true)
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoResolveConflicts,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testResolveConflictsStableIDFeatured(t, ctx, cfg, rubySrv)
-	})
-}
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-func testResolveConflictsStableIDFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	cfg, repoProto, _, client := conflicts.SetupConflictsServiceWithRuby(t, cfg, rubySrv, true)
-
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
@@ -611,16 +565,11 @@ func testResolveConflictsStableIDFeatured(t *testing.T, ctx context.Context, cfg
 	}, resolvedCommit)
 }
 
-func testFailedResolveConflictsRequestDueToResolutionError(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoResolveConflicts,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testFailedResolveConflictsRequestDueToResolutionErrorFeatured(t, ctx, cfg, rubySrv)
-	})
-}
+func TestFailedResolveConflictsRequestDueToResolutionError(t *testing.T) {
+	cfg, repo, _, client := conflicts.SetupConflictsService(t, true)
 
-func testFailedResolveConflictsRequestDueToResolutionErrorFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	cfg, repo, _, client := conflicts.SetupConflictsServiceWithRuby(t, cfg, rubySrv, true)
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	mdGS := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	mdFF, _ := metadata.FromOutgoingContext(ctx)
@@ -673,16 +622,11 @@ func testFailedResolveConflictsRequestDueToResolutionErrorFeatured(t *testing.T,
 	require.Equal(t, r.GetResolutionError(), "Missing resolution for section ID: 6eb14e00385d2fb284765eb1cd8d420d33d63fc9_21_21")
 }
 
-func testFailedResolveConflictsRequestDueToValidation(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoResolveConflicts,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testFailedResolveConflictsRequestDueToValidationFeatured(t, ctx, cfg, rubySrv)
-	})
-}
+func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
+	cfg, repo, _, client := conflicts.SetupConflictsService(t, true)
 
-func testFailedResolveConflictsRequestDueToValidationFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	cfg, repo, _, client := conflicts.SetupConflictsServiceWithRuby(t, cfg, rubySrv, true)
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	mdGS := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	ourCommitOid := "1450cd639e0bc6721eb02800169e464f212cde06"

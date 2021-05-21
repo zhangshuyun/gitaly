@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
 	"net"
 	"os"
 	"testing"
@@ -13,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/bootstrap/starter"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	gconfig "gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
@@ -58,7 +58,7 @@ func TestServerFactory(t *testing.T) {
 	}
 
 	repo.StorageName = conf.VirtualStorages[0].Name // storage must be re-written to virtual to be properly redirected by praefect
-	revision := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "HEAD"))
+	revision := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
 
 	logger := testhelper.DiscardTestEntry(t)
 	queue := datastore.NewMemoryReplicationEventQueue(conf)
@@ -93,9 +93,12 @@ func TestServerFactory(t *testing.T) {
 		t.Helper()
 
 		commitClient := gitalypb.NewCommitServiceClient(cc)
-		resp, err := commitClient.CommitLanguages(ctx, &gitalypb.CommitLanguagesRequest{Repository: repo, Revision: []byte(revision)})
+		resp, err := commitClient.FindCommit(ctx, &gitalypb.FindCommitRequest{
+			Repository: repo,
+			Revision:   []byte(revision),
+		})
 		require.NoError(t, err)
-		require.Len(t, resp.Languages, 4)
+		require.Equal(t, revision, resp.Commit.Id)
 	}
 
 	t.Run("insecure", func(t *testing.T) {
@@ -143,8 +146,7 @@ func TestServerFactory(t *testing.T) {
 		certPool, err := x509.SystemCertPool()
 		require.NoError(t, err)
 
-		pem, err := ioutil.ReadFile(conf.TLS.CertPath)
-		require.NoError(t, err)
+		pem := testhelper.MustReadFile(t, conf.TLS.CertPath)
 
 		require.True(t, certPool.AppendCertsFromPEM(pem))
 

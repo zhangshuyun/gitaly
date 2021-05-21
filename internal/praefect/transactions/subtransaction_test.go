@@ -1,14 +1,18 @@
 package transactions
 
 import (
+	"context"
 	"crypto/sha1"
 	"errors"
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 )
 
 func TestSubtransaction_cancel(t *testing.T) {
@@ -22,7 +26,7 @@ func TestSubtransaction_cancel(t *testing.T) {
 
 	s.cancel()
 
-	require.True(t, s.isDone)
+	require.True(t, s.isDone())
 	require.Equal(t, VoteCanceled, s.votersByNode["1"].result)
 	require.Equal(t, VoteCommitted, s.votersByNode["2"].result)
 	require.Equal(t, VoteFailed, s.votersByNode["3"].result)
@@ -40,7 +44,7 @@ func TestSubtransaction_stop(t *testing.T) {
 
 		require.NoError(t, s.stop())
 
-		require.True(t, s.isDone)
+		require.True(t, s.isDone())
 		require.Equal(t, VoteStopped, s.votersByNode["1"].result)
 		require.Equal(t, VoteCommitted, s.votersByNode["2"].result)
 		require.Equal(t, VoteFailed, s.votersByNode["3"].result)
@@ -56,7 +60,7 @@ func TestSubtransaction_stop(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, s.stop(), ErrTransactionCanceled)
-		require.False(t, s.isDone)
+		require.False(t, s.isDone())
 	})
 
 	t.Run("stop of stopped transaction fails", func(t *testing.T) {
@@ -69,7 +73,7 @@ func TestSubtransaction_stop(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, s.stop(), ErrTransactionStopped)
-		require.False(t, s.isDone)
+		require.False(t, s.isDone())
 	})
 }
 
@@ -117,7 +121,7 @@ func TestSubtransaction_getResult(t *testing.T) {
 }
 
 func TestSubtransaction_vote(t *testing.T) {
-	var zeroVote vote
+	var zeroVote voting.Vote
 	voteA := newVote(t, "a")
 	voteB := newVote(t, "b")
 
@@ -126,9 +130,9 @@ func TestSubtransaction_vote(t *testing.T) {
 		voters             []Voter
 		threshold          uint
 		voterName          string
-		vote               vote
+		vote               voting.Vote
 		expectedVoterState []Voter
-		expectedVoteCounts map[vote]uint
+		expectedVoteCounts map[voting.Vote]uint
 		expectedErr        error
 	}{
 		{
@@ -142,7 +146,7 @@ func TestSubtransaction_vote(t *testing.T) {
 			expectedVoterState: []Voter{
 				{Name: "1", Votes: 1, result: VoteCommitted, vote: &voteA},
 			},
-			expectedVoteCounts: map[vote]uint{
+			expectedVoteCounts: map[voting.Vote]uint{
 				voteA: 1,
 			},
 		},
@@ -157,7 +161,7 @@ func TestSubtransaction_vote(t *testing.T) {
 			expectedVoterState: []Voter{
 				{Name: "1", Votes: 1, vote: &voteA},
 			},
-			expectedVoteCounts: map[vote]uint{
+			expectedVoteCounts: map[voting.Vote]uint{
 				voteA: 1,
 			},
 			expectedErr: errors.New("node already cast a vote: \"1\""),
@@ -173,7 +177,7 @@ func TestSubtransaction_vote(t *testing.T) {
 			expectedVoterState: []Voter{
 				{Name: "1", Votes: 1, result: VoteCommitted, vote: &zeroVote},
 			},
-			expectedVoteCounts: map[vote]uint{
+			expectedVoteCounts: map[voting.Vote]uint{
 				zeroVote: 1,
 			},
 		},
@@ -188,7 +192,7 @@ func TestSubtransaction_vote(t *testing.T) {
 			expectedVoterState: []Voter{
 				{Name: "1", Votes: 1, result: VoteCanceled},
 			},
-			expectedVoteCounts: map[vote]uint{},
+			expectedVoteCounts: map[voting.Vote]uint{},
 			expectedErr:        ErrTransactionCanceled,
 		},
 		{
@@ -202,7 +206,7 @@ func TestSubtransaction_vote(t *testing.T) {
 			expectedVoterState: []Voter{
 				{Name: "1", Votes: 1, result: VoteStopped},
 			},
-			expectedVoteCounts: map[vote]uint{},
+			expectedVoteCounts: map[voting.Vote]uint{},
 			expectedErr:        ErrTransactionStopped,
 		},
 		{
@@ -220,7 +224,7 @@ func TestSubtransaction_vote(t *testing.T) {
 				{Name: "2", Votes: 1, result: VoteCommitted, vote: &voteA},
 				{Name: "3", Votes: 1, result: VoteCommitted, vote: &voteA},
 			},
-			expectedVoteCounts: map[vote]uint{
+			expectedVoteCounts: map[voting.Vote]uint{
 				voteA: 3,
 			},
 		},
@@ -239,7 +243,7 @@ func TestSubtransaction_vote(t *testing.T) {
 				{Name: "2", Votes: 1},
 				{Name: "3", Votes: 1, vote: &voteA},
 			},
-			expectedVoteCounts: map[vote]uint{
+			expectedVoteCounts: map[voting.Vote]uint{
 				voteA: 2,
 			},
 		},
@@ -258,7 +262,7 @@ func TestSubtransaction_vote(t *testing.T) {
 				{Name: "2", Votes: 1, result: VoteFailed, vote: &voteA},
 				{Name: "3", Votes: 1, result: VoteFailed, vote: &voteB},
 			},
-			expectedVoteCounts: map[vote]uint{
+			expectedVoteCounts: map[voting.Vote]uint{
 				voteA: 2,
 				voteB: 1,
 			},
@@ -278,7 +282,7 @@ func TestSubtransaction_vote(t *testing.T) {
 				{Name: "2", Votes: 1, result: VoteCommitted, vote: &voteA},
 				{Name: "3", Votes: 1, result: VoteFailed, vote: &voteB},
 			},
-			expectedVoteCounts: map[vote]uint{
+			expectedVoteCounts: map[voting.Vote]uint{
 				voteA: 2,
 				voteB: 1,
 			},
@@ -288,7 +292,7 @@ func TestSubtransaction_vote(t *testing.T) {
 			s, err := newSubtransaction(tc.voters, tc.threshold)
 			require.NoError(t, err)
 
-			voteCounts := make(map[vote]uint)
+			voteCounts := make(map[voting.Vote]uint)
 			for _, voter := range tc.voters {
 				if voter.vote != nil {
 					voteCounts[*voter.vote] += voter.Votes
@@ -302,7 +306,7 @@ func TestSubtransaction_vote(t *testing.T) {
 				expectedVoterState[voter.Name] = &voter
 			}
 
-			require.Equal(t, tc.expectedErr, s.vote(tc.voterName, tc.vote[:]))
+			require.Equal(t, tc.expectedErr, s.vote(tc.voterName, tc.vote))
 			require.Equal(t, expectedVoterState, s.votersByNode)
 			require.Equal(t, tc.expectedVoteCounts, s.voteCounts)
 		})
@@ -392,7 +396,7 @@ func TestSubtransaction_mustSignalVoters(t *testing.T) {
 			s, err := newSubtransaction(tc.voters, tc.threshold)
 			require.NoError(t, err)
 
-			voteCounts := make(map[vote]uint)
+			voteCounts := make(map[voting.Vote]uint)
 			for _, voter := range tc.voters {
 				if voter.vote != nil {
 					voteCounts[*voter.vote] += voter.Votes
@@ -400,9 +404,131 @@ func TestSubtransaction_mustSignalVoters(t *testing.T) {
 			}
 
 			s.voteCounts = voteCounts
-			s.isDone = tc.isDone
+			if tc.isDone {
+				close(s.doneCh)
+			}
 
 			require.Equal(t, tc.mustSignal, s.mustSignalVoters())
+		})
+	}
+}
+
+func TestSubtransaction_voterStopsWaiting(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	agreeingVote := newVote(t, "agreeing")
+	disagreeingVote := newVote(t, "disagreeing")
+
+	errorMessageForVote := func(agreeingVotes uint, threshold uint, vote voting.Vote) string {
+		return fmt.Sprintf("transaction did not reach quorum: got %d/%d votes for %s", agreeingVotes, threshold, vote)
+	}
+
+	type outcomes []struct {
+		drops        bool
+		vote         voting.Vote
+		weight       uint
+		errorMessage string
+		result       VoteResult
+	}
+
+	for _, tc := range []struct {
+		desc     string
+		outcomes outcomes
+	}{
+		{
+			desc: "quorum not reached",
+			outcomes: outcomes{
+				{weight: 1, vote: agreeingVote, drops: true, errorMessage: context.Canceled.Error(), result: VoteCanceled},
+				{weight: 1, vote: agreeingVote, errorMessage: errorMessageForVote(1, 2, agreeingVote), result: VoteFailed},
+				{weight: 1, vote: disagreeingVote, errorMessage: errorMessageForVote(1, 2, disagreeingVote), result: VoteFailed},
+			},
+		},
+		{
+			desc: "quorum reached",
+			outcomes: outcomes{
+				{weight: 1, vote: agreeingVote, drops: true, errorMessage: context.Canceled.Error(), result: VoteCanceled},
+				{weight: 1, vote: agreeingVote, result: VoteCommitted},
+				{weight: 1, vote: agreeingVote, result: VoteCommitted},
+			},
+		},
+		{
+			desc: "can't cancel a finished transaction",
+			outcomes: outcomes{
+				{weight: 1, vote: agreeingVote, result: VoteCommitted},
+				{weight: 1, vote: agreeingVote, result: VoteCommitted},
+				{weight: 1, vote: agreeingVote, drops: true, result: VoteCommitted, errorMessage: "cancel vote: subtransaction was already finished"},
+			},
+		},
+		{
+			desc: "primary cancels its vote before transaction is finished",
+			outcomes: outcomes{
+				{weight: 2, vote: agreeingVote, drops: true, result: VoteCanceled, errorMessage: context.Canceled.Error()},
+				{weight: 1, vote: agreeingVote, result: VoteFailed, errorMessage: errorMessageForVote(2, 3, agreeingVote)},
+				{weight: 1, vote: agreeingVote, result: VoteFailed, errorMessage: errorMessageForVote(2, 3, agreeingVote)},
+			},
+		},
+		{
+			desc: "secondary cancels its vote after crossing the threshold",
+			outcomes: outcomes{
+				{weight: 2, vote: agreeingVote, result: VoteCommitted},
+				{weight: 1, vote: agreeingVote, drops: true, result: VoteCommitted, errorMessage: "cancel vote: subtransaction was already finished"},
+				{weight: 1, vote: disagreeingVote, result: VoteFailed, errorMessage: errorMessageForVote(1, 3, disagreeingVote)},
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
+			defer cancel()
+
+			var totalWeight uint
+			var voters []Voter
+			for i, outcome := range tc.outcomes {
+				totalWeight += outcome.weight
+				voters = append(voters, Voter{Name: fmt.Sprintf("voter-%d", i), Votes: outcome.weight})
+			}
+
+			s, err := newSubtransaction(voters, totalWeight/2+1)
+			require.NoError(t, err)
+
+			results := make([]chan error, len(tc.outcomes))
+			for i, outcome := range tc.outcomes {
+				voterName := voters[i].Name
+				resultCh := make(chan error, 1)
+				results[i] = resultCh
+
+				collectVotes := func(ctx context.Context) { resultCh <- s.collectVotes(ctx, voterName) }
+
+				require.NoError(t, s.vote(voterName, outcome.vote))
+
+				if outcome.drops {
+					ctx, dropVoter := context.WithCancel(ctx)
+					dropVoter()
+
+					// Run the dropping nodes's collectVotes in sync just to ensure
+					// we get the correct error back. If we ran all of the collectVotes
+					// async, the agreeing nodes could finish the transaction and
+					// we would not get a context.Canceled when the vote is successfully
+					// canceled.
+					collectVotes(ctx)
+					continue
+				}
+
+				go collectVotes(ctx)
+			}
+
+			for i, outcome := range tc.outcomes {
+				voterName := voters[i].Name
+				assert.Equal(t, outcome.result, s.state()[voterName], "Node: %q", voterName)
+
+				err := <-results[i]
+				if outcome.errorMessage != "" {
+					assert.EqualError(t, err, outcome.errorMessage)
+					continue
+				}
+
+				assert.NoError(t, err)
+			}
 		})
 	}
 }
@@ -433,7 +559,7 @@ func TestSubtransaction_race(t *testing.T) {
 					require.NoError(t, err)
 					require.Equal(t, VoteUndecided, result)
 
-					require.NoError(t, s.vote(voter.Name, voteA[:]))
+					require.NoError(t, s.vote(voter.Name, voteA))
 					require.NoError(t, s.collectVotes(ctx, voter.Name))
 
 					result, err = s.getResult(voter.Name)
@@ -447,9 +573,9 @@ func TestSubtransaction_race(t *testing.T) {
 	}
 }
 
-func newVote(t *testing.T, s string) vote {
+func newVote(t *testing.T, s string) voting.Vote {
 	hash := sha1.Sum([]byte(s))
-	vote, err := voteFromHash(hash[:])
+	vote, err := voting.VoteFromHash(hash[:])
 	require.NoError(t, err)
 	return vote
 }

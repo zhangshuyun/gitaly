@@ -21,12 +21,12 @@ func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
 	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
-	targetRepoProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "fetch-source-target.git")
+	targetRepoProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "fetch-source-target.git")
 	defer cleanup()
-	targetRepo := localrepo.New(git.NewExecCommandFactory(cfg), targetRepoProto, cfg)
+	targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
 
 	sourceBranch := "fetch-source-branch-test-branch"
-	newCommitID := gittest.CreateCommit(t, cfg, sourcePath, sourceBranch, nil)
+	newCommitID := gittest.WriteCommit(t, cfg, sourcePath, gittest.WithBranch(sourceBranch))
 
 	targetRef := "refs/tmp/fetch-source-branch-test"
 	req := &gitalypb.FetchSourceBranchRequest{
@@ -42,7 +42,7 @@ func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
 
 	fetchedCommit, err := targetRepo.ReadCommit(ctx, git.Revision(targetRef))
 	require.NoError(t, err)
-	require.Equal(t, newCommitID, fetchedCommit.GetId())
+	require.Equal(t, newCommitID.String(), fetchedCommit.GetId())
 }
 
 func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
@@ -54,10 +54,10 @@ func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
 	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	sourceBranch := "fetch-source-branch-test-branch"
-	newCommitID := gittest.CreateCommit(t, cfg, repoPath, sourceBranch, nil)
+	newCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(sourceBranch))
 
 	targetRef := "refs/tmp/fetch-source-branch-test"
 	req := &gitalypb.FetchSourceBranchRequest{
@@ -73,7 +73,7 @@ func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
 
 	fetchedCommit, err := repo.ReadCommit(ctx, git.Revision(targetRef))
 	require.NoError(t, err)
-	require.Equal(t, newCommitID, fetchedCommit.GetId())
+	require.Equal(t, newCommitID.String(), fetchedCommit.GetId())
 }
 
 func TestFetchSourceBranchBranchNotFound(t *testing.T) {
@@ -85,7 +85,7 @@ func TestFetchSourceBranchBranchNotFound(t *testing.T) {
 	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
-	sourceRepo, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "fetch-source-source.git")
+	sourceRepo, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "fetch-source-source.git")
 	t.Cleanup(cleanup)
 
 	sourceBranch := "does-not-exist"
@@ -133,11 +133,11 @@ func TestFetchSourceBranchWrongRef(t *testing.T) {
 	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
-	sourceRepo, sourceRepoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "fetch-source-source.git")
+	sourceRepo, sourceRepoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "fetch-source-source.git")
 	defer cleanup()
 
 	sourceBranch := "fetch-source-branch-testmas-branch"
-	gittest.CreateCommit(t, cfg, sourceRepoPath, sourceBranch, nil)
+	gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch(sourceBranch))
 
 	targetRef := "refs/tmp/fetch-source-branch-test"
 

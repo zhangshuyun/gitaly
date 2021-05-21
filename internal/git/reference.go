@@ -6,6 +6,15 @@ import (
 	"strings"
 )
 
+// InternalRefPrefixes is an array of all reference prefixes which are used internally by GitLab.
+// These need special treatment in some cases, e.g. to restrict writing to them.
+var InternalRefPrefixes = [...]string{
+	"refs/environments/",
+	"refs/keep-around/",
+	"refs/merge-requests/",
+	"refs/pipelines/",
+}
+
 // Revision represents anything that resolves to either a commit, multiple
 // commits or to an object different than a commit. This could be e.g.
 // "master", "master^{commit}", an object hash or similar. See gitrevisions(1)

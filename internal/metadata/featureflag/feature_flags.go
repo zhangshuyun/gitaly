@@ -11,43 +11,33 @@ type FeatureFlag struct {
 var (
 	// ReferenceTransactions will handle Git reference updates via the transaction service for strong consistency
 	ReferenceTransactions = FeatureFlag{Name: "reference_transactions", OnByDefault: true}
-	// LogCommandStats will log additional rusage stats for commands
-	LogCommandStats = FeatureFlag{Name: "log_command_stats", OnByDefault: true}
-	// GoUserCherryPick enables the Go implementation of UserCherryPick
-	GoUserCherryPick = FeatureFlag{Name: "go_user_cherry_pick", OnByDefault: true}
 	// GoUserUpdateBranch enables the Go implementation of UserUpdateBranch
 	GoUserUpdateBranch = FeatureFlag{Name: "go_user_update_branch", OnByDefault: true}
-	// GoResolveConflicts enables the Go implementation of ResolveConflicts
-	GoResolveConflicts = FeatureFlag{Name: "go_resolve_conflicts", OnByDefault: false}
-	// GoUserUpdateSubmodule enables the Go implementation of
-	// UserUpdateSubmodules
-	GoUserUpdateSubmodule = FeatureFlag{Name: "go_user_update_submodule", OnByDefault: true}
-	// GoUserRevert enables the Go implementation of UserRevert
-	GoUserRevert = FeatureFlag{Name: "go_user_revert", OnByDefault: false}
+	// UserRebaseConfirmable
+	GoUserRebaseConfirmable = FeatureFlag{Name: "go_user_rebase_confirmable", OnByDefault: true}
 	// GoUpdateRemoteMirror enables the Go implementation of UpdateRemoteMirror
 	GoUpdateRemoteMirror = FeatureFlag{Name: "go_update_remote_mirror", OnByDefault: false}
 	// GrpcTreeEntryNotFound makes the TreeEntry gRPC call return NotFound instead of an empty blob
 	GrpcTreeEntryNotFound = FeatureFlag{Name: "grpc_tree_entry_not_found", OnByDefault: false}
-	// BackchannelVoting enables voting via the backchannel connection.
-	BackchannelVoting = FeatureFlag{Name: "backchannel_voting", OnByDefault: false}
 	// FetchInternalRemoteErrors makes FetchInternalRemote return actual errors instead of a boolean
 	FetchInternalRemoteErrors = FeatureFlag{Name: "fetch_internal_remote_errors", OnByDefault: false}
 	// GoFindLicense enables Go implementation of FindLicense
 	GoFindLicense = FeatureFlag{Name: "go_find_license", OnByDefault: false}
+	// TxConfig enables transactional voting for SetConfig and DeleteConfig RPCs.
+	TxConfig = FeatureFlag{Name: "tx_config", OnByDefault: false}
+	// TxRemote enables transactional voting for AddRemote and DeleteRemote.
+	TxRemote = FeatureFlag{Name: "tx_remote", OnByDefault: false}
 )
 
 // All includes all feature flags.
 var All = []FeatureFlag{
-	LogCommandStats,
 	ReferenceTransactions,
-	GoUserCherryPick,
 	GoUserUpdateBranch,
-	GoResolveConflicts,
-	GoUserUpdateSubmodule,
-	GoUserRevert,
+	GoUserRebaseConfirmable,
 	GrpcTreeEntryNotFound,
 	GoUpdateRemoteMirror,
-	BackchannelVoting,
 	FetchInternalRemoteErrors,
 	GoFindLicense,
+	TxConfig,
+	TxRemote,
 }

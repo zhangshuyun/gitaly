@@ -1,0 +1,5 @@
+---
+title: 'ssh: Fix secondaries being out-of-date if all refs are rejected'
+merge_request: 3455
+author:
+type: fixed

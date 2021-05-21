@@ -2,14 +2,12 @@ package commit
 
 import (
 	"bufio"
-	"io/ioutil"
 	"strings"
 	"testing"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -21,21 +19,20 @@ import (
 )
 
 func TestSuccessfulFindCommitRequest(t *testing.T) {
-	windows1251Message, err := ioutil.ReadFile("testdata/commit-c809470461118b7bcab850f6e9a7ca97ac42f8ea-message.txt")
-	require.NoError(t, err)
+	windows1251Message := testhelper.MustReadFile(t, "testdata/commit-c809470461118b7bcab850f6e9a7ca97ac42f8ea-message.txt")
 
 	cfg, repoProto, repoPath, client := setupCommitServiceWithRepo(t, true)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	bigMessage := "An empty commit with REALLY BIG message\n\n" + strings.Repeat("MOAR!\n", 20*1024)
-	bigCommitID := gittest.CreateCommit(t, cfg, repoPath, "local-big-commits", &gittest.CreateCommitOpts{
-		Message:  bigMessage,
-		ParentID: "60ecb67744cb56576c30214ff52294f8ce2def98",
-	})
+	bigCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithBranch("local-big-commits"), gittest.WithMessage(bigMessage),
+		gittest.WithParents("60ecb67744cb56576c30214ff52294f8ce2def98"),
+	)
 	bigCommit, err := repo.ReadCommit(ctx, git.Revision(bigCommitID))
 	require.NoError(t, err)
 
@@ -200,9 +197,9 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 		},
 		{
 			description: "with a very large message",
-			revision:    bigCommitID,
+			revision:    bigCommitID.String(),
 			commit: &gitalypb.GitCommit{
-				Id:      bigCommitID,
+				Id:      bigCommitID.String(),
 				Subject: []byte("An empty commit with REALLY BIG message"),
 				Author: &gitalypb.CommitAuthor{
 					Name:     []byte("Scrooge McDuck"),
@@ -316,8 +313,6 @@ func benchmarkFindCommit(withCache bool, b *testing.B) {
 
 	require.NoError(b, logCmd.Wait())
 
-	defer catfile.ExpireAll()
-
 	for i := 0; i < b.N; i++ {
 		revision := revisions[b.N%len(revisions)]
 		if withCache {
@@ -356,8 +351,6 @@ func TestFindCommitWithCache(t *testing.T) {
 	}
 
 	require.NoError(t, logCmd.Wait())
-
-	defer catfile.ExpireAll()
 
 	for i := 0; i < 10; i++ {
 		revision := revisions[i%len(revisions)]

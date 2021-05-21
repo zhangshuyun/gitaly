@@ -17,7 +17,7 @@ func TestSuccessfulFindBranchRequest(t *testing.T) {
 
 	cfg, repoProto, _, client := setupRefService(t)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	branchesByName := make(map[git.ReferenceName]*gitalypb.Branch)
 	for branchName, revision := range map[git.ReferenceName]git.Revision{

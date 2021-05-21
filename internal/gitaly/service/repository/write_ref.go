@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -24,31 +25,28 @@ func (s *server) WriteRef(ctx context.Context, req *gitalypb.WriteRefRequest) (*
 }
 
 func (s *server) writeRef(ctx context.Context, req *gitalypb.WriteRefRequest) error {
+	repo := s.localrepo(req.GetRepository())
 	if string(req.Ref) == "HEAD" {
-		return s.updateSymbolicRef(ctx, req)
+		return s.updateSymbolicRef(ctx, repo, req)
 	}
-	return updateRef(ctx, s.cfg, s.gitCmdFactory, req)
+	return updateRef(ctx, s.cfg, repo, req)
 }
 
-func (s *server) updateSymbolicRef(ctx context.Context, req *gitalypb.WriteRefRequest) error {
-	cmd, err := s.gitCmdFactory.New(ctx, req.GetRepository(),
+func (s *server) updateSymbolicRef(ctx context.Context, repo *localrepo.Repo, req *gitalypb.WriteRefRequest) error {
+	if err := repo.ExecAndWait(ctx,
 		git.SubCmd{
 			Name: "symbolic-ref",
 			Args: []string{string(req.GetRef()), string(req.GetRevision())},
 		},
 		git.WithRefTxHook(ctx, req.GetRepository(), s.cfg),
-	)
-	if err != nil {
-		return fmt.Errorf("error when creating symbolic-ref command: %v", err)
-	}
-	if err = cmd.Wait(); err != nil {
+	); err != nil {
 		return fmt.Errorf("error when running symbolic-ref command: %v", err)
 	}
 	return nil
 }
 
-func updateRef(ctx context.Context, cfg config.Cfg, gitCmdFactory git.CommandFactory, req *gitalypb.WriteRefRequest) error {
-	u, err := updateref.New(ctx, cfg, gitCmdFactory, req.GetRepository())
+func updateRef(ctx context.Context, cfg config.Cfg, repo *localrepo.Repo, req *gitalypb.WriteRefRequest) error {
+	u, err := updateref.New(ctx, cfg, repo)
 	if err != nil {
 		return fmt.Errorf("error when running creating new updater: %v", err)
 	}

@@ -9,7 +9,6 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -55,7 +54,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 
 	referenceName := git.NewReferenceNameFromBranchName(string(firstRequest.Branch))
 
-	revision, err := localrepo.New(s.gitCmdFactory, repo, s.cfg).ResolveRevision(ctx, referenceName.Revision())
+	revision, err := s.localrepo(repo).ResolveRevision(ctx, referenceName.Revision())
 	if err != nil {
 		return err
 	}
@@ -157,7 +156,7 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 
 	referenceName := git.NewReferenceNameFromBranchName(string(in.Branch))
 
-	repo := localrepo.New(s.gitCmdFactory, in.Repository, s.cfg)
+	repo := s.localrepo(in.GetRepository())
 	revision, err := repo.ResolveRevision(ctx, referenceName.Revision())
 	if err != nil {
 		return nil, helper.ErrInvalidArgument(err)
@@ -239,7 +238,7 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		return nil, err
 	}
 
-	repo := localrepo.New(s.gitCmdFactory, request.Repository, s.cfg)
+	repo := s.localrepo(request.GetRepository())
 
 	revision := git.Revision(request.Branch)
 	if request.FirstParentRef != nil {

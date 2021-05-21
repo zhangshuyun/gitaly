@@ -21,7 +21,7 @@ func TestDisconnectGitAlternates(t *testing.T) {
 	defer cancel()
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	pool, err := objectpool.NewObjectPool(cfg, locator, gitCmdFactory, repo.GetStorageName(), gittest.NewObjectPoolName(t))
+	pool, err := objectpool.NewObjectPool(cfg, locator, gitCmdFactory, nil, repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, pool.Remove(ctx))
@@ -29,7 +29,7 @@ func TestDisconnectGitAlternates(t *testing.T) {
 
 	require.NoError(t, pool.Create(ctx, repo))
 	require.NoError(t, pool.Link(ctx, repo))
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "gc")
+	gittest.Exec(t, cfg, "-C", repoPath, "gc")
 
 	existingObjectID := "55bc176024cfa3baaceb71db584c7e5df900ea65"
 
@@ -55,24 +55,24 @@ func TestDisconnectGitAlternates(t *testing.T) {
 	// Check that the object can still be found, even though
 	// objects/info/alternates is gone. This is the purpose of
 	// DisconnectGitAlternates.
-	testhelper.AssertPathNotExists(t, altPath)
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "cat-file", "-e", existingObjectID)
+	require.NoFileExists(t, altPath)
+	gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-e", existingObjectID)
 }
 
 func TestDisconnectGitAlternatesNoAlternates(t *testing.T) {
-	_, repo, repoPath, locator, client := setup(t)
+	cfg, repo, repoPath, locator, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	altPath, err := locator.InfoAlternatesPath(repo)
 	require.NoError(t, err, "find info/alternates")
-	testhelper.AssertPathNotExists(t, altPath)
+	require.NoFileExists(t, altPath)
 
 	_, err = client.DisconnectGitAlternates(ctx, &gitalypb.DisconnectGitAlternatesRequest{Repository: repo})
 	require.NoError(t, err, "call DisconnectGitAlternates on repository without alternates")
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "fsck")
+	gittest.Exec(t, cfg, "-C", repoPath, "fsck")
 }
 
 func TestDisconnectGitAlternatesUnexpectedAlternates(t *testing.T) {
@@ -92,7 +92,7 @@ func TestDisconnectGitAlternatesUnexpectedAlternates(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			repo, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+			repo, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 			defer cleanupFn()
 
 			altPath, err := locator.InfoAlternatesPath(repo)
@@ -103,8 +103,7 @@ func TestDisconnectGitAlternatesUnexpectedAlternates(t *testing.T) {
 			_, err = client.DisconnectGitAlternates(ctx, &gitalypb.DisconnectGitAlternatesRequest{Repository: repo})
 			require.Error(t, err, "call DisconnectGitAlternates on repository with unexpected objects/info/alternates")
 
-			contentAfterRPC, err := ioutil.ReadFile(altPath)
-			require.NoError(t, err, "read back objects/info/alternates")
+			contentAfterRPC := testhelper.MustReadFile(t, altPath)
 			require.Equal(t, tc.altContent, string(contentAfterRPC), "objects/info/alternates content should not have changed")
 		})
 	}
@@ -142,8 +141,7 @@ func TestRemoveAlternatesIfOk(t *testing.T) {
 func assertAlternates(t *testing.T, altPath string, altContent string) {
 	t.Helper()
 
-	actualContent, err := ioutil.ReadFile(altPath)
-	require.NoError(t, err, "read %s after fsck failure", altPath)
+	actualContent := testhelper.MustReadFile(t, altPath)
 
 	require.Equal(t, altContent, string(actualContent), "%s content after fsck failure", altPath)
 }

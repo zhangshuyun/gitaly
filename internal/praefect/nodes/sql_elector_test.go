@@ -40,8 +40,7 @@ func TestGetPrimaryAndSecondaries(t *testing.T) {
 	}
 
 	internalSocket0 := testhelper.GetTemporaryGitalySocketFileName(t)
-	srv0, _ := testhelper.NewServerWithHealth(t, internalSocket0)
-	defer srv0.Stop()
+	testhelper.NewServerWithHealth(t, internalSocket0)
 
 	cc0, err := grpc.Dial(
 		"unix://"+internalSocket0,
@@ -77,8 +76,7 @@ func TestSqlElector_slow_execution(t *testing.T) {
 	logger := testhelper.NewTestLogger(t).WithField("test", t.Name())
 
 	gitalySocket := testhelper.GetTemporaryGitalySocketFileName(t)
-	gitalySrv, _ := testhelper.NewServerWithHealth(t, gitalySocket)
-	defer gitalySrv.Stop()
+	testhelper.NewServerWithHealth(t, gitalySocket)
 
 	gitalyConn, err := grpc.Dial(
 		"unix://"+gitalySocket,
@@ -118,11 +116,8 @@ func TestBasicFailover(t *testing.T) {
 	conf := config.Config{SocketPath: socketName}
 
 	internalSocket0, internalSocket1 := testhelper.GetTemporaryGitalySocketFileName(t), testhelper.GetTemporaryGitalySocketFileName(t)
-	srv0, healthSrv0 := testhelper.NewServerWithHealth(t, internalSocket0)
-	defer srv0.Stop()
-
-	srv1, healthSrv1 := testhelper.NewServerWithHealth(t, internalSocket1)
-	defer srv1.Stop()
+	healthSrv0 := testhelper.NewServerWithHealth(t, internalSocket0)
+	healthSrv1 := testhelper.NewServerWithHealth(t, internalSocket1)
 
 	addr0 := "unix://" + internalSocket0
 	cc0, err := grpc.Dial(

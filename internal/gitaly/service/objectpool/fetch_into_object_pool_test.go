@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
@@ -23,6 +24,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/log"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -33,9 +35,9 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repoCommit := gittest.CreateCommit(t, cfg, repoPath, t.Name(), &gittest.CreateCommitOpts{Message: t.Name()})
+	repoCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(t.Name()))
 
-	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), repo.GetStorageName(), gittest.NewObjectPoolName(t))
+	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), nil, repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, pool.Remove(ctx))
@@ -53,13 +55,13 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 	require.True(t, pool.IsValid(), "ensure underlying repository is valid")
 
 	// No problems
-	testhelper.MustRunCommand(t, nil, "git", "-C", pool.FullPath(), "fsck")
+	gittest.Exec(t, cfg, "-C", pool.FullPath(), "fsck")
 
 	packFiles, err := filepath.Glob(filepath.Join(pool.FullPath(), "objects", "pack", "pack-*.pack"))
 	require.NoError(t, err)
 	require.Len(t, packFiles, 1, "ensure commits got packed")
 
-	packContents := testhelper.MustRunCommand(t, nil, "git", "-C", pool.FullPath(), "verify-pack", "-v", packFiles[0])
+	packContents := gittest.Exec(t, cfg, "-C", pool.FullPath(), "verify-pack", "-v", packFiles[0])
 	require.Contains(t, string(packContents), repoCommit)
 
 	_, err = client.FetchIntoObjectPool(ctx, req)
@@ -90,7 +92,7 @@ func TestFetchIntoObjectPool_hooks(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, err := objectpool.NewObjectPool(cfg, locator, gitCmdFactory, repo.GetStorageName(), gittest.NewObjectPoolName(t))
+	pool, err := objectpool.NewObjectPool(cfg, locator, gitCmdFactory, nil, repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, pool.Remove(ctx))
@@ -114,24 +116,29 @@ func TestFetchIntoObjectPool_hooks(t *testing.T) {
 	}
 
 	_, err = client.FetchIntoObjectPool(ctx, req)
-	require.Equal(t, status.Error(codes.Internal, "exit status 128"), err)
+	require.Equal(t, status.Error(codes.Internal, "fetch into object pool: exit status 128, stderr: \"fatal: ref updates aborted by hook\\n\""), err)
 }
 
 func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
-	defer func(old func(tb testing.TB) *logrus.Logger) { testhelper.NewTestLogger = old }(testhelper.NewTestLogger)
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
+	testhelper.ConfigureGitalyHooksBin(t, cfg)
+
+	locator := config.NewLocator(cfg)
 	logBuffer := &bytes.Buffer{}
-	testhelper.NewTestLogger = func(tb testing.TB) *logrus.Logger {
-		return &logrus.Logger{Out: logBuffer, Formatter: &logrus.JSONFormatter{}, Level: logrus.InfoLevel}
-	}
+	logger := &logrus.Logger{Out: logBuffer, Formatter: &logrus.JSONFormatter{}, Level: logrus.InfoLevel}
+	serverSocketPath := runObjectPoolServer(t, cfg, locator, logger)
 
-	cfg, repo, _, locator, client := setup(t)
+	conn, err := grpc.Dial(serverSocketPath, grpc.WithInsecure())
+	require.NoError(t, err)
+	t.Cleanup(func() { testhelper.MustClose(t, conn) })
+	client := gitalypb.NewObjectPoolServiceClient(conn)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	ctx = ctxlogrus.ToContext(ctx, log.WithField("test", "logging"))
 
-	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), repo.GetStorageName(), gittest.NewObjectPoolName(t))
+	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), nil, repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, pool.Remove(ctx))
@@ -167,12 +174,12 @@ func TestFetchIntoObjectPool_Failure(t *testing.T) {
 
 	locator := config.NewLocator(cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	server := NewServer(cfg, locator, gitCmdFactory)
+	server := NewServer(cfg, locator, gitCmdFactory, catfile.NewCache(cfg))
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, err := objectpool.NewObjectPool(cfg, locator, gitCmdFactory, repos[0].StorageName, gittest.NewObjectPoolName(t))
+	pool, err := objectpool.NewObjectPool(cfg, locator, gitCmdFactory, nil, repos[0].StorageName, gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, pool.Remove(ctx))

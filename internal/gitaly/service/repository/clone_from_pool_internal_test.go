@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -23,7 +23,16 @@ func newTestObjectPool(t *testing.T, cfg config.Cfg) (*objectpool.ObjectPool, *g
 	relativePath := gittest.NewObjectPoolName(t)
 	repo := gittest.InitRepoDir(t, cfg.Storages[0].Path, relativePath)
 
-	pool, err := objectpool.NewObjectPool(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), repo.GetStorageName(), relativePath)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+
+	pool, err := objectpool.NewObjectPool(
+		cfg,
+		config.NewLocator(cfg),
+		gitCmdFactory,
+		catfile.NewCache(cfg),
+		repo.GetStorageName(),
+		relativePath,
+	)
 	require.NoError(t, err)
 
 	return pool, repo
@@ -57,9 +66,9 @@ func TestCloneFromPoolInternal(t *testing.T) {
 	require.NoError(t, pool.Create(ctx, repo))
 	require.NoError(t, pool.Link(ctx, repo))
 
-	fullRepack(t, repoPath)
+	fullRepack(t, cfg, repoPath)
 
-	_, newBranch := gittest.CreateCommitOnNewBranch(t, cfg, repoPath)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
 
 	forkedRepo, forkRepoPath, forkRepoCleanup := getForkDestination(t, cfg.Storages[0])
 	defer forkRepoCleanup()
@@ -83,11 +92,11 @@ func TestCloneFromPoolInternal(t *testing.T) {
 
 	// feature is a branch known to exist in the source repository. By looking it up in the target
 	// we establish that the target has branches, even though (as we saw above) it has no objects.
-	testhelper.MustRunCommand(t, nil, "git", "-C", forkRepoPath, "show-ref", "--verify", "refs/heads/feature")
-	testhelper.MustRunCommand(t, nil, "git", "-C", forkRepoPath, "show-ref", "--verify", fmt.Sprintf("refs/heads/%s", newBranch))
+	gittest.Exec(t, cfg, "-C", forkRepoPath, "show-ref", "--verify", "refs/heads/feature")
+	gittest.Exec(t, cfg, "-C", forkRepoPath, "show-ref", "--verify", "refs/heads/branch")
 }
 
 // fullRepack does a full repack on the repository, which means if it has a pool repository linked, it will get rid of redundant objects that are reachable in the pool
-func fullRepack(t *testing.T, repoPath string) {
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "repack", "-A", "-l", "-d")
+func fullRepack(t *testing.T, cfg config.Cfg, repoPath string) {
+	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-l", "-d")
 }

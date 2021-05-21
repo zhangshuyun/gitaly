@@ -90,15 +90,16 @@ type RepositoryStore interface {
 	// downgrade, a DowngradeAttemptedError is returned.
 	GetReplicatedGeneration(ctx context.Context, virtualStorage, relativePath, source, target string) (int, error)
 	// CreateRepository creates a record for a repository in the specified virtual storage and relative path.
-	// Primary is the storage the repository was created on. Returns RepositoryExistsError when trying to create
-	// a repository which already exists in the store.
+	// Primary is the storage the repository was created on. UpdatedSecondaries are secondaries that participated
+	// and successfully completed the transaction. OutdatedSecondaries are secondaries that were outdated or failed
+	// the transaction. Returns RepositoryExistsError when trying to create a repository which already exists in the store.
 	//
 	// storePrimary should be set when repository specific primaries are enabled. When set, the primary is stored as
 	// the repository's primary.
 	//
 	// storeAssignments should be set when variable replication factor is enabled. When set, the primary and the
 	// secondaries are stored as the assigned hosts of the repository.
-	CreateRepository(ctx context.Context, virtualStorage, relativePath, primary string, secondaries []string, storePrimary, storeAssignments bool) error
+	CreateRepository(ctx context.Context, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error
 	// DeleteRepository deletes the repository from the virtual storage and the storage. Returns
 	// RepositoryNotExistsError when trying to delete a repository which has no record in the virtual storage
 	// or the storage.
@@ -297,7 +298,7 @@ AND storage = ANY($3)
 
 //nolint:stylecheck
 //nolint:golint
-func (rs *PostgresRepositoryStore) CreateRepository(ctx context.Context, virtualStorage, relativePath, primary string, secondaries []string, storePrimary, storeAssignments bool) error {
+func (rs *PostgresRepositoryStore) CreateRepository(ctx context.Context, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error {
 	const q = `
 WITH repo AS (
 	INSERT INTO repositories (
@@ -316,11 +317,13 @@ assignments AS (
 	)
 	SELECT $1, $2, storage
 	FROM (
-		SELECT unnest($5::text[]) AS storage
+		SELECT $3 AS storage
 		UNION
-		SELECT $3
+		SELECT unnest($5::text[])
+		UNION
+		SELECT unnest($6::text[])
 	) AS storages
-	WHERE $6
+	WHERE $7
 )
 
 INSERT INTO storage_repositories (
@@ -329,11 +332,23 @@ INSERT INTO storage_repositories (
 	storage,
 	generation
 )
-VALUES ($1, $2, $3, 0)
+SELECT $1, $2, storage, 0
+FROM (
+	SELECT $3 AS storage
+	UNION
+	SELECT unnest($5::text[])
+) AS updated_storages
 `
 
 	_, err := rs.db.ExecContext(ctx, q,
-		virtualStorage, relativePath, primary, storePrimary, pq.StringArray(secondaries), storeAssignments)
+		virtualStorage,
+		relativePath,
+		primary,
+		storePrimary,
+		pq.StringArray(updatedSecondaries),
+		pq.StringArray(outdatedSecondaries),
+		storeAssignments,
+	)
 
 	var pqerr *pq.Error
 	if errors.As(err, &pqerr) && pqerr.Code.Name() == "unique_violation" {

@@ -17,7 +17,7 @@ func TestRemoveRepository(t *testing.T) {
 	_, err := client.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{Repository: repo})
 	require.NoError(t, err)
 
-	testhelper.AssertPathNotExists(t, repoPath)
+	require.NoFileExists(t, repoPath)
 }
 
 func TestRemoveRepositoryDoesNotExist(t *testing.T) {

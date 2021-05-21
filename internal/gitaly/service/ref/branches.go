@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -16,7 +15,7 @@ func (s *server) FindBranch(ctx context.Context, req *gitalypb.FindBranchRequest
 		return nil, status.Errorf(codes.InvalidArgument, "Branch name cannot be empty")
 	}
 
-	repo := localrepo.New(s.gitCmdFactory, req.GetRepository(), s.cfg)
+	repo := s.localrepo(req.GetRepository())
 
 	branchName := git.NewReferenceNameFromBranchName(string(req.GetName()))
 	branchRef, err := repo.GetReference(ctx, branchName)

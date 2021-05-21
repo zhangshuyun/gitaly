@@ -25,7 +25,7 @@ func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseReque
 		if req.GetRepository() == nil {
 			return &gitalypb.FindLicenseResponse{}, nil
 		}
-		repo := localrepo.New(s.gitCmdFactory, req.GetRepository(), s.cfg)
+		repo := localrepo.New(s.gitCmdFactory, s.catfileCache, req.GetRepository(), s.cfg)
 
 		hasHeadRevision, err := repo.HasRevision(ctx, "HEAD")
 		if err != nil {

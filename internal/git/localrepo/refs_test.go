@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -180,14 +181,14 @@ func TestRepo_GetReferences(t *testing.T) {
 		{
 			desc: "all references",
 			match: func(t *testing.T, refs []git.Reference) {
-				require.Len(t, refs, 94)
+				require.Len(t, refs, 96)
 			},
 		},
 		{
 			desc:     "branches",
 			patterns: []string{"refs/heads/"},
 			match: func(t *testing.T, refs []git.Reference) {
-				require.Len(t, refs, 91)
+				require.Len(t, refs, 93)
 			},
 		},
 		{
@@ -220,9 +221,9 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 	const relativePath = "repository-1"
 	repoPath := filepath.Join(storagePath, relativePath)
 
-	testhelper.MustRunCommand(t, nil, "git", "init", repoPath)
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "--allow-empty", "-m", "commit message")
-	commit := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "refs/heads/master"))
+	gittest.Exec(t, cfg, "init", repoPath)
+	gittest.Exec(t, cfg, "-C", repoPath, "commit", "--allow-empty", "-m", "commit message")
+	commit := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/master"))
 
 	for _, cmd := range [][]string{
 		{"update-ref", "refs/heads/master", commit},
@@ -231,13 +232,15 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 		{"symbolic-ref", "refs/heads/symbolic", "refs/heads/master"},
 		{"update-ref", "refs/remote/remote-name/remote-branch", commit},
 	} {
-		testhelper.MustRunCommand(t, nil, "git", append([]string{"-C", repoPath}, cmd...)...)
+		gittest.Exec(t, cfg, append([]string{"-C", repoPath}, cmd...)...)
 	}
 
-	annotatedTagOID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "annotated-tag"))
+	annotatedTagOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "annotated-tag"))
 
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	repo := New(
-		git.NewExecCommandFactory(cfg),
+		gitCmdFactory,
+		catfile.NewCache(cfg),
 		&gitalypb.Repository{StorageName: "default", RelativePath: filepath.Join(relativePath, ".git")},
 		cfg,
 	)
@@ -287,7 +290,7 @@ func TestRepo_GetBranches(t *testing.T) {
 
 	refs, err := repo.GetBranches(ctx)
 	require.NoError(t, err)
-	require.Len(t, refs, 91)
+	require.Len(t, refs, 93)
 }
 
 func TestRepo_UpdateRef(t *testing.T) {
@@ -397,8 +400,8 @@ func TestRepo_UpdateRef(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
 			// Re-create repo for each testcase.
-			repoProto, _, _ := gittest.CloneRepoAtStorage(t, repo.cfg.Storages[0], t.Name())
-			repo := New(repo.gitCmdFactory, repoProto, repo.cfg)
+			repoProto, _, _ := gittest.CloneRepoAtStorage(t, repo.cfg, repo.cfg.Storages[0], t.Name())
+			repo := New(repo.gitCmdFactory, repo.catfileCache, repoProto, repo.cfg)
 			err := repo.UpdateRef(ctx, git.ReferenceName(tc.ref), tc.newValue, tc.oldValue)
 			tc.verify(t, repo, err)
 		})

@@ -201,7 +201,7 @@ func TestPerform(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
-			repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
@@ -289,7 +289,7 @@ func TestPerform_references(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
-			repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 			for _, ref := range tc.refs {
 				path := filepath.Join(repoPath, ref.name)
@@ -397,7 +397,7 @@ func TestPerform_emptyRefDirs(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
-			repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
@@ -431,7 +431,7 @@ func testPerformWithSpecificFile(t *testing.T, file string, finder staleFileFind
 	defer cancel()
 
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	for _, tc := range []struct {
 		desc          string
@@ -545,7 +545,7 @@ func TestPerform_referenceLocks(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
-			repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 			for _, e := range tc.entries {
 				e.create(t, repoPath)
@@ -648,7 +648,7 @@ func TestShouldRemoveTemporaryObject(t *testing.T) {
 
 func TestPerformRepoDoesNotExist(t *testing.T) {
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -660,7 +660,7 @@ func TestPerformRepoDoesNotExist(t *testing.T) {
 
 func TestPerform_UnsetConfiguration(t *testing.T) {
 	cfg, repoProto, _ := testcfg.BuildWithRepo(t)
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

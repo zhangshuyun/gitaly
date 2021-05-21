@@ -1,5 +1,17 @@
 # Gitaly changelog
 
+## 13.11.4 (2021-05-14)
+
+- No changes.
+
+## 13.11.3 (2021-04-30)
+
+- No changes.
+
+## 13.11.2 (2021-04-27)
+
+- No changes.
+
 ## 13.11.1 (2021-04-22)
 
 - No changes.
@@ -61,6 +73,10 @@
 
 - Update gitlab-gollum-rugged_adapter to 0.4.4.4.gitlab.1. !3357 (Takuya Noguchi)
 
+
+## 13.10.4 (2021-04-27)
+
+- No changes.
 
 ## 13.10.3 (2021-04-13)
 
@@ -137,6 +153,10 @@
 - Streamio: remove custom ReadFrom and WriteTo. !3201
 - Remove unused Ruby code. !3203
 
+
+## 13.9.7 (2021-04-27)
+
+- No changes.
 
 ## 13.9.6 (2021-04-13)
 

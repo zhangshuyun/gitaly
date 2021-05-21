@@ -2,7 +2,6 @@ package objectpool
 
 import (
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -23,26 +22,21 @@ func TestLink(t *testing.T) {
 
 	altPath, err := pool.locator.InfoAlternatesPath(testRepo)
 	require.NoError(t, err)
-	_, err = os.Stat(altPath)
-	require.True(t, os.IsNotExist(err))
+	require.NoFileExists(t, altPath)
 
 	require.NoError(t, pool.Link(ctx, testRepo))
 
 	require.FileExists(t, altPath, "alternates file must exist after Link")
 
-	content, err := ioutil.ReadFile(altPath)
-	require.NoError(t, err)
-
+	content := testhelper.MustReadFile(t, altPath)
 	require.True(t, strings.HasPrefix(string(content), "../"), "expected %q to be relative path", content)
 
 	require.NoError(t, pool.Link(ctx, testRepo))
 
-	newContent, err := ioutil.ReadFile(altPath)
-	require.NoError(t, err)
-
+	newContent := testhelper.MustReadFile(t, altPath)
 	require.Equal(t, content, newContent)
 
-	require.False(t, gittest.RemoteExists(t, pool.FullPath(), testRepo.GetGlRepository()), "pool remotes should not include %v", testRepo)
+	require.False(t, gittest.RemoteExists(t, pool.cfg, pool.FullPath(), testRepo.GetGlRepository()), "pool remotes should not include %v", testRepo)
 }
 
 func TestLinkRemoveBitmap(t *testing.T) {
@@ -55,24 +49,24 @@ func TestLinkRemoveBitmap(t *testing.T) {
 	testRepoPath := filepath.Join(pool.cfg.Storages[0].Path, testRepo.RelativePath)
 
 	poolPath := pool.FullPath()
-	testhelper.MustRunCommand(t, nil, "git", "-C", poolPath, "fetch", testRepoPath, "+refs/*:refs/*")
+	gittest.Exec(t, pool.cfg, "-C", poolPath, "fetch", testRepoPath, "+refs/*:refs/*")
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", poolPath, "repack", "-adb")
+	gittest.Exec(t, pool.cfg, "-C", poolPath, "repack", "-adb")
 	require.Len(t, listBitmaps(t, pool.FullPath()), 1, "pool bitmaps before")
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "repack", "-adb")
+	gittest.Exec(t, pool.cfg, "-C", testRepoPath, "repack", "-adb")
 	require.Len(t, listBitmaps(t, testRepoPath), 1, "member bitmaps before")
 
-	refsBefore := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "for-each-ref")
+	refsBefore := gittest.Exec(t, pool.cfg, "-C", testRepoPath, "for-each-ref")
 
 	require.NoError(t, pool.Link(ctx, testRepo))
 
 	require.Len(t, listBitmaps(t, pool.FullPath()), 1, "pool bitmaps after")
 	require.Len(t, listBitmaps(t, testRepoPath), 0, "member bitmaps after")
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "fsck")
+	gittest.Exec(t, pool.cfg, "-C", testRepoPath, "fsck")
 
-	refsAfter := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "for-each-ref")
+	refsAfter := gittest.Exec(t, pool.cfg, "-C", testRepoPath, "for-each-ref")
 	require.Equal(t, refsBefore, refsAfter, "compare member refs before/after link")
 }
 
@@ -101,10 +95,10 @@ func TestUnlink(t *testing.T) {
 	require.NoError(t, pool.Create(ctx, testRepo), "create pool")
 	require.NoError(t, pool.Link(ctx, testRepo), "link test repo to pool")
 
-	require.False(t, gittest.RemoteExists(t, pool.FullPath(), testRepo.GetGlRepository()), "pool remotes should include %v", testRepo)
+	require.False(t, gittest.RemoteExists(t, pool.cfg, pool.FullPath(), testRepo.GetGlRepository()), "pool remotes should include %v", testRepo)
 
 	require.NoError(t, pool.Unlink(ctx, testRepo), "unlink repo")
-	require.False(t, gittest.RemoteExists(t, pool.FullPath(), testRepo.GetGlRepository()), "pool remotes should no longer include %v", testRepo)
+	require.False(t, gittest.RemoteExists(t, pool.cfg, pool.FullPath(), testRepo.GetGlRepository()), "pool remotes should no longer include %v", testRepo)
 }
 
 func TestLinkAbsoluteLinkExists(t *testing.T) {
@@ -129,13 +123,11 @@ func TestLinkAbsoluteLinkExists(t *testing.T) {
 
 	require.FileExists(t, altPath, "alternates file must exist after Link")
 
-	content, err := ioutil.ReadFile(altPath)
-	require.NoError(t, err)
-
+	content := testhelper.MustReadFile(t, altPath)
 	require.False(t, filepath.IsAbs(string(content)), "expected %q to be relative path", content)
 
 	testRepoObjectsPath := filepath.Join(testRepoPath, "objects")
 	require.Equal(t, fullPath, filepath.Join(testRepoObjectsPath, string(content)), "the content of the alternates file should be the relative version of the absolute pat")
 
-	require.True(t, gittest.RemoteExists(t, pool.FullPath(), "origin"), "pool remotes should include %v", testRepo)
+	require.True(t, gittest.RemoteExists(t, pool.cfg, pool.FullPath(), "origin"), "pool remotes should include %v", testRepo)
 }

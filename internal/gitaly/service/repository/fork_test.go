@@ -12,7 +12,10 @@ import (
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	gclient "gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
@@ -24,6 +27,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/remote"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ssh"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
@@ -102,9 +106,9 @@ func TestSuccessfulCreateForkRequest(t *testing.T) {
 			require.NoError(t, err)
 			defer func() { require.NoError(t, os.RemoveAll(forkedRepoPath)) }()
 
-			testhelper.MustRunCommand(t, nil, "git", "-C", forkedRepoPath, "fsck")
+			gittest.Exec(t, cfg, "-C", forkedRepoPath, "fsck")
 
-			remotes := testhelper.MustRunCommand(t, nil, "git", "-C", forkedRepoPath, "remote")
+			remotes := gittest.Exec(t, cfg, "-C", forkedRepoPath, "remote")
 			require.NotContains(t, string(remotes), "origin")
 
 			info, err := os.Lstat(filepath.Join(forkedRepoPath, "hooks"))
@@ -198,8 +202,7 @@ func injectCustomCATestCerts(t *testing.T, cfg *config.Cfg) *x509.CertPool {
 	revertEnv := testhelper.ModifyEnvironment(t, gitaly_x509.SSLCertFile, certFile)
 	t.Cleanup(revertEnv)
 
-	caPEMBytes, err := ioutil.ReadFile(certFile)
-	require.NoError(t, err)
+	caPEMBytes := testhelper.MustReadFile(t, certFile)
 	pool := x509.NewCertPool()
 	require.True(t, pool.AppendCertsFromPEM(caPEMBytes))
 
@@ -210,21 +213,23 @@ func runSecureServer(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) s
 	t.Helper()
 
 	registry := backchannel.NewRegistry()
-	server, err := gserver.New(true, cfg, testhelper.DiscardTestEntry(t), registry)
+	locator := config.NewLocator(cfg)
+	cache := cache.New(cfg, locator)
+	server, err := gserver.New(true, cfg, testhelper.DiscardTestEntry(t), registry, cache)
 	require.NoError(t, err)
 	listener, addr := testhelper.GetLocalhostListener(t)
 
-	locator := config.NewLocator(cfg)
 	txManager := transaction.NewManager(cfg, registry)
-	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
+	hookManager := hook.NewManager(locator, txManager, gitlab.NewMockClient(), cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	catfileCache := catfile.NewCache(cfg)
 
-	gitalypb.RegisterRepositoryServiceServer(server, NewServer(cfg, rubySrv, locator, txManager, gitCmdFactory))
+	gitalypb.RegisterRepositoryServiceServer(server, NewServer(cfg, rubySrv, locator, txManager, gitCmdFactory, catfileCache))
 	gitalypb.RegisterHookServiceServer(server, hookservice.NewServer(cfg, hookManager, gitCmdFactory))
-	gitalypb.RegisterRemoteServiceServer(server, remote.NewServer(cfg, rubySrv, locator, gitCmdFactory))
-	gitalypb.RegisterSSHServiceServer(server, ssh.NewServer(cfg, locator, gitCmdFactory))
-	gitalypb.RegisterRefServiceServer(server, ref.NewServer(cfg, locator, gitCmdFactory, txManager))
-	gitalypb.RegisterCommitServiceServer(server, commit.NewServer(cfg, locator, gitCmdFactory, nil))
+	gitalypb.RegisterRemoteServiceServer(server, remote.NewServer(cfg, rubySrv, locator, gitCmdFactory, catfileCache, txManager))
+	gitalypb.RegisterSSHServiceServer(server, ssh.NewServer(cfg, locator, gitCmdFactory, txManager))
+	gitalypb.RegisterRefServiceServer(server, ref.NewServer(cfg, locator, gitCmdFactory, txManager, catfileCache))
+	gitalypb.RegisterCommitServiceServer(server, commit.NewServer(cfg, locator, gitCmdFactory, nil, catfileCache))
 	errQ := make(chan error, 1)
 
 	// This creates a secondary GRPC server which isn't "secure". Reusing

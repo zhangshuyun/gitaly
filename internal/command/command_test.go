@@ -1,7 +1,6 @@
 package command
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"fmt"
@@ -17,26 +16,11 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
 )
 
-func TestNewCommandTZEnv(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	oldTZ := os.Getenv("TZ")
-	defer func() {
-		require.NoError(t, os.Setenv("TZ", oldTZ))
-	}()
-
-	require.NoError(t, os.Setenv("TZ", "foobar"))
-
-	buff := &bytes.Buffer{}
-	cmd, err := New(ctx, exec.Command("env"), nil, buff, nil)
-
-	require.NoError(t, err)
-	require.NoError(t, cmd.Wait())
-
-	require.Contains(t, strings.Split(buff.String(), "\n"), "TZ=foobar")
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m)
 }
 
 func TestNewCommandExtraEnv(t *testing.T) {
@@ -53,7 +37,7 @@ func TestNewCommandExtraEnv(t *testing.T) {
 	require.Contains(t, strings.Split(buff.String(), "\n"), extraVar)
 }
 
-func TestNewCommandProxyEnv(t *testing.T) {
+func TestNewCommandExportedEnv(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -61,6 +45,42 @@ func TestNewCommandProxyEnv(t *testing.T) {
 		key   string
 		value string
 	}{
+		{
+			key:   "HOME",
+			value: "/home/git",
+		},
+		{
+			key:   "PATH",
+			value: "/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin",
+		},
+		{
+			key:   "LD_LIBRARY_PATH",
+			value: "/path/to/your/lib",
+		},
+		{
+			key:   "TZ",
+			value: "foobar",
+		},
+		{
+			key:   "GIT_TRACE",
+			value: "true",
+		},
+		{
+			key:   "GIT_TRACE_PACK_ACCESS",
+			value: "true",
+		},
+		{
+			key:   "GIT_TRACE_PACKET",
+			value: "true",
+		},
+		{
+			key:   "GIT_TRACE_PERFORMANCE",
+			value: "true",
+		},
+		{
+			key:   "GIT_TRACE_SETUP",
+			value: "true",
+		},
 		{
 			key:   "all_proxy",
 			value: "http://localhost:4000",
@@ -93,16 +113,51 @@ func TestNewCommandProxyEnv(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.key, func(t *testing.T) {
-			extraVar := fmt.Sprintf("%s=%s", tc.key, tc.value)
-			buff := &bytes.Buffer{}
-			cmd, err := New(ctx, exec.Command("/usr/bin/env"), nil, buff, nil, extraVar)
+			oldValue, exists := os.LookupEnv(tc.key)
+			defer func() {
+				if !exists {
+					require.NoError(t, os.Unsetenv(tc.key))
+					return
+				}
+				require.NoError(t, os.Setenv(tc.key, oldValue))
+			}()
+			require.NoError(t, os.Setenv(tc.key, tc.value))
 
+			buff := &bytes.Buffer{}
+			cmd, err := New(ctx, exec.Command("/usr/bin/env"), nil, buff, nil)
 			require.NoError(t, err)
 			require.NoError(t, cmd.Wait())
 
-			require.Contains(t, strings.Split(buff.String(), "\n"), extraVar)
+			expectedEnv := fmt.Sprintf("%s=%s", tc.key, tc.value)
+			require.Contains(t, strings.Split(buff.String(), "\n"), expectedEnv)
 		})
 	}
+}
+
+func TestNewCommandUnexportedEnv(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	unexportedEnvKey, unexportedEnvVal := "GITALY_UNEXPORTED_ENV", "foobar"
+
+	oldValue, exists := os.LookupEnv(unexportedEnvKey)
+	defer func() {
+		if !exists {
+			require.NoError(t, os.Unsetenv(unexportedEnvKey))
+			return
+		}
+		require.NoError(t, os.Setenv(unexportedEnvKey, oldValue))
+	}()
+
+	require.NoError(t, os.Setenv(unexportedEnvKey, unexportedEnvVal))
+
+	buff := &bytes.Buffer{}
+	cmd, err := New(ctx, exec.Command("/usr/bin/env"), nil, buff, nil)
+
+	require.NoError(t, err)
+	require.NoError(t, cmd.Wait())
+
+	require.NotContains(t, strings.Split(buff.String(), "\n"), fmt.Sprintf("%s=%s", unexportedEnvKey, unexportedEnvVal))
 }
 
 func TestRejectEmptyContextDone(t *testing.T) {
@@ -220,146 +275,114 @@ func TestNewCommandNullInArg(t *testing.T) {
 	require.EqualError(t, err, `detected null byte in command argument "hello\x00world"`)
 }
 
+func TestNewNonExistent(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	cmd, err := New(ctx, exec.Command("command-non-existent"), nil, nil, nil)
+	require.Nil(t, cmd)
+	require.Error(t, err)
+}
+
 func TestCommandStdErr(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	var stdout bytes.Buffer
-
-	expectedMessage := `hello world\\nhello world\\nhello world\\nhello world\\nhello world\\n`
-
-	r, w := io.Pipe()
-	defer r.Close()
-	defer w.Close()
+	var stdout, stderr bytes.Buffer
+	expectedMessage := `hello world\nhello world\nhello world\nhello world\nhello world\n`
 
 	logger := logrus.New()
-	logger.SetOutput(w)
+	logger.SetOutput(&stderr)
 
 	ctx = ctxlogrus.ToContext(ctx, logrus.NewEntry(logger))
 
 	cmd, err := New(ctx, exec.Command("./testdata/stderr_script.sh"), nil, &stdout, nil)
 	require.NoError(t, err)
-
 	require.Error(t, cmd.Wait())
-	assert.Empty(t, stdout.Bytes())
 
-	b := bufio.NewReader(r)
-	line, err := b.ReadString('\n')
-	require.NoError(t, err)
-	require.Equal(t, expectedMessage, extractMessage(line))
+	assert.Empty(t, stdout.Bytes())
+	require.Equal(t, expectedMessage, extractMessage(stderr.String()))
 }
 
 func TestCommandStdErrLargeOutput(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	var stdout bytes.Buffer
-	r, w := io.Pipe()
-	defer r.Close()
-	defer w.Close()
+	var stdout, stderr bytes.Buffer
 
 	logger := logrus.New()
-	logger.SetOutput(w)
+	logger.SetOutput(&stderr)
 
 	ctx = ctxlogrus.ToContext(ctx, logrus.NewEntry(logger))
 
 	cmd, err := New(ctx, exec.Command("./testdata/stderr_many_lines.sh"), nil, &stdout, nil)
 	require.NoError(t, err)
-
 	require.Error(t, cmd.Wait())
+
 	assert.Empty(t, stdout.Bytes())
-
-	b := bufio.NewReader(r)
-	line, err := b.ReadString('\n')
-	require.NoError(t, err)
-
-	// the logrus printer prints with %q, so with an escaped newline it will add an extra \ escape to the
-	// output. So for the test we can take out the extra \ since it was logrus that added it, not the command
-	// https://github.com/sirupsen/logrus/blob/master/text_formatter.go#L324
-	msg := strings.Replace(extractMessage(line), `\\n`, `\n`, -1)
-	require.LessOrEqual(t, len(msg), MaxStderrBytes)
+	msg := strings.ReplaceAll(extractMessage(stderr.String()), "\\n", "\n")
+	require.LessOrEqual(t, len(msg), maxStderrBytes)
 }
 
 func TestCommandStdErrBinaryNullBytes(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	var stdout bytes.Buffer
-
-	r, w := io.Pipe()
-	defer r.Close()
-	defer w.Close()
+	var stdout, stderr bytes.Buffer
 
 	logger := logrus.New()
-	logger.SetOutput(w)
+	logger.SetOutput(&stderr)
 
 	ctx = ctxlogrus.ToContext(ctx, logrus.NewEntry(logger))
 
 	cmd, err := New(ctx, exec.Command("./testdata/stderr_binary_null.sh"), nil, &stdout, nil)
 	require.NoError(t, err)
-
 	require.Error(t, cmd.Wait())
-	assert.Empty(t, stdout.Bytes())
 
-	b := bufio.NewReader(r)
-	line, err := b.ReadString('\n')
-	require.NoError(t, err)
-	require.NotEmpty(t, extractMessage(line))
+	assert.Empty(t, stdout.Bytes())
+	msg := strings.SplitN(extractMessage(stderr.String()), "\\n", 2)[0]
+	require.Equal(t, strings.Repeat("\\x00", maxStderrLineLength), msg)
 }
 
 func TestCommandStdErrLongLine(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	var stdout bytes.Buffer
-	r, w := io.Pipe()
-	defer r.Close()
-	defer w.Close()
+	var stdout, stderr bytes.Buffer
 
 	logger := logrus.New()
-	logger.SetOutput(w)
+	logger.SetOutput(&stderr)
 
 	ctx = ctxlogrus.ToContext(ctx, logrus.NewEntry(logger))
 
 	cmd, err := New(ctx, exec.Command("./testdata/stderr_repeat_a.sh"), nil, &stdout, nil)
 	require.NoError(t, err)
-
 	require.Error(t, cmd.Wait())
-	assert.Empty(t, stdout.Bytes())
 
-	b := bufio.NewReader(r)
-	line, err := b.ReadString('\n')
-	require.NoError(t, err)
-	require.Contains(t, line, fmt.Sprintf(`%s\\n%s`, strings.Repeat("a", StderrBufferSize), strings.Repeat("b", StderrBufferSize)))
+	assert.Empty(t, stdout.Bytes())
+	require.Contains(t, stderr.String(), fmt.Sprintf("%s\\n%s", strings.Repeat("a", maxStderrLineLength), strings.Repeat("b", maxStderrLineLength)))
 }
 
 func TestCommandStdErrMaxBytes(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	var stdout bytes.Buffer
-	r, w := io.Pipe()
-	defer r.Close()
-	defer w.Close()
+	var stdout, stderr bytes.Buffer
 
 	logger := logrus.New()
-	logger.SetOutput(w)
+	logger.SetOutput(&stderr)
 
 	ctx = ctxlogrus.ToContext(ctx, logrus.NewEntry(logger))
 
 	cmd, err := New(ctx, exec.Command("./testdata/stderr_max_bytes_edge_case.sh"), nil, &stdout, nil)
 	require.NoError(t, err)
-
 	require.Error(t, cmd.Wait())
-	assert.Empty(t, stdout.Bytes())
 
-	b := bufio.NewReader(r)
-	line, err := b.ReadString('\n')
-	require.NoError(t, err)
-	require.NotEmpty(t, extractMessage(line))
+	assert.Empty(t, stdout.Bytes())
+	require.Equal(t, maxStderrBytes, len(strings.ReplaceAll(extractMessage(stderr.String()), "\\n", "\n")))
 }
 
-var logMsgRegex = regexp.MustCompile(`msg="(.+)"`)
+var logMsgRegex = regexp.MustCompile(`msg="(.+?)"`)
 
 func extractMessage(logMessage string) string {
 	subMatches := logMsgRegex.FindStringSubmatch(logMessage)
@@ -368,88 +391,4 @@ func extractMessage(logMessage string) string {
 	}
 
 	return subMatches[1]
-}
-
-func TestUncancellableContext(t *testing.T) {
-	t.Run("cancellation", func(t *testing.T) {
-		parent, cancel := context.WithCancel(context.Background())
-		ctx := SuppressCancellation(parent)
-
-		cancel()
-		require.Equal(t, context.Canceled, parent.Err(), "sanity check: context should be cancelled")
-
-		require.Nil(t, ctx.Err(), "cancellation of the parent shouldn't propagate via Err")
-		select {
-		case <-ctx.Done():
-			require.FailNow(t, "cancellation of the parent shouldn't propagate via Done")
-		default:
-		}
-	})
-
-	t.Run("timeout", func(t *testing.T) {
-		parent, cancel := context.WithTimeout(context.Background(), time.Nanosecond)
-		defer cancel()
-
-		ctx := SuppressCancellation(parent)
-
-		time.Sleep(time.Millisecond)
-		require.Equal(t, context.DeadlineExceeded, parent.Err(), "sanity check: context should be expired after awaiting")
-
-		require.Nil(t, ctx.Err(), "timeout on the parent shouldn't propagate via Err")
-		select {
-		case <-ctx.Done():
-			require.FailNow(t, "timeout on the parent shouldn't propagate via Done")
-		default:
-		}
-		_, ok := ctx.Deadline()
-		require.False(t, ok, "no deadline should be set")
-	})
-
-	t.Run("re-cancellation", func(t *testing.T) {
-		parent, cancelParent := context.WithCancel(context.Background())
-		ctx := SuppressCancellation(parent)
-		child, cancelChild := context.WithCancel(ctx)
-		defer cancelChild()
-
-		cancelParent()
-		select {
-		case <-child.Done():
-			require.FailNow(t, "uncancellable context should suppress cancellation on the parent")
-		default:
-			// all good
-		}
-
-		cancelChild()
-		require.Equal(t, context.Canceled, child.Err(), "context derived from cancellable could be cancelled")
-
-		select {
-		case <-child.Done():
-			// all good
-		default:
-			require.FailNow(t, "child context should be canceled despite if parent is uncancellable")
-		}
-	})
-
-	t.Run("context values are preserved", func(t *testing.T) {
-		type ctxKey string
-		k1 := ctxKey("1")
-		k2 := ctxKey("2")
-
-		parent, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		parent = context.WithValue(parent, k1, 1)
-		parent = context.WithValue(parent, k2, "two")
-
-		ctx := SuppressCancellation(parent)
-
-		require.Equal(t, 1, ctx.Value(k1))
-		require.Equal(t, "two", ctx.Value(k2))
-
-		cancel()
-		require.Equal(t, context.Canceled, parent.Err(), "sanity check: context should be cancelled")
-
-		require.Equal(t, 1, ctx.Value(k1), "should be accessible after parent context cancellation")
-		require.Equal(t, "two", ctx.Value(k2))
-	})
 }

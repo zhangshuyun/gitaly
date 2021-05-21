@@ -10,7 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/commit"
 	hook_service "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
@@ -46,21 +45,23 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func SetupConflictsServiceWithRuby(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server, bare bool) (config.Cfg, *gitalypb.Repository, string, gitalypb.ConflictsServiceClient) {
+func SetupConflictsService(t testing.TB, bare bool) (config.Cfg, *gitalypb.Repository, string, gitalypb.ConflictsServiceClient) {
+	cfg := testcfg.Build(t)
+
 	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 
 	var repo *gitalypb.Repository
 	var repoPath string
 	var cleanup testhelper.Cleanup
 	if bare {
-		repo, repoPath, cleanup = gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+		repo, repoPath, cleanup = gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 		t.Cleanup(cleanup)
 	} else {
-		repo, repoPath, cleanup = gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+		repo, repoPath, cleanup = gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 		t.Cleanup(cleanup)
 	}
 
-	serverSocketPath := runConflictsServer(t, cfg, rubySrv)
+	serverSocketPath := runConflictsServer(t, cfg)
 	cfg.SocketPath = serverSocketPath
 
 	client, conn := NewConflictsClient(t, serverSocketPath)
@@ -69,19 +70,36 @@ func SetupConflictsServiceWithRuby(t testing.TB, cfg config.Cfg, rubySrv *rubyse
 	return cfg, repo, repoPath, client
 }
 
-func SetupConflictsService(t testing.TB, bare bool) (config.Cfg, *gitalypb.Repository, string, gitalypb.ConflictsServiceClient) {
-	cfg := testcfg.Build(t)
-
-	return SetupConflictsServiceWithRuby(t, cfg, nil, bare)
-}
-
-func runConflictsServer(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server) string {
-	return testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterConflictsServiceServer(srv, NewServer(deps.GetRubyServer(), deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory()))
-		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(deps.GetCfg(), deps.GetRubyServer(), deps.GetLocator(), deps.GetTxManager(), deps.GetGitCmdFactory()))
-		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory()))
+func runConflictsServer(t testing.TB, cfg config.Cfg) string {
+	return testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterConflictsServiceServer(srv, NewServer(
+			deps.GetCfg(),
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+		))
+		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
+			deps.GetCfg(),
+			deps.GetRubyServer(),
+			deps.GetLocator(),
+			deps.GetTxManager(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+		))
+		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
+			deps.GetCfg(),
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			deps.GetTxManager(),
+		))
 		gitalypb.RegisterHookServiceServer(srv, hook_service.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
-		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory(), deps.GetLinguist()))
+		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(
+			deps.GetCfg(),
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			deps.GetLinguist(),
+			deps.GetCatfileCache(),
+		))
 	})
 }
 

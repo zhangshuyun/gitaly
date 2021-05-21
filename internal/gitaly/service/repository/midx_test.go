@@ -40,7 +40,7 @@ func TestMidxWrite(t *testing.T) {
 	require.NoError(t, err)
 	defer cfgF.Close()
 
-	cfgCmd, err := localrepo.New(git.NewExecCommandFactory(cfg), repo, cfg).Config().GetRegexp(ctx, "core.multipackindex", git.ConfigGetRegexpOpts{})
+	cfgCmd, err := localrepo.NewTestRepo(t, cfg, repo).Config().GetRegexp(ctx, "core.multipackindex", git.ConfigGetRegexpOpts{})
 	require.NoError(t, err)
 	require.Equal(t, []git.ConfigPair{{Key: "core.multipackindex", Value: "true"}}, cfgCmd)
 }
@@ -117,7 +117,7 @@ func TestMidxRepackExpire(t *testing.T) {
 	for _, packsAdded := range []int{3, 5, 11, 20} {
 		t.Run(fmt.Sprintf("Test repack expire with %d added packs", packsAdded),
 			func(t *testing.T) {
-				repo, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+				repo, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 				t.Cleanup(cleanupFn)
 
 				ctx, cancel := testhelper.Context()
@@ -216,7 +216,8 @@ func addPackFiles(
 	// create some pack files with different sizes
 	for i := 0; i < packCount; i++ {
 		for y := packCount + 1 - i; y > 0; y-- {
-			gittest.CreateCommitOnNewBranch(t, cfg, repoPath)
+			branch := fmt.Sprintf("branch-%d-%d", i, y)
+			gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage(branch), gittest.WithBranch(branch))
 		}
 
 		_, err = client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: repo})

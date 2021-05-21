@@ -331,18 +331,15 @@ func TestNonUtf8ListLastCommitsForTreeRequest(t *testing.T) {
 	nonUTF8Filename := "hello\x80world"
 	require.False(t, utf8.ValidString(nonUTF8Filename))
 
-	commitID := gittest.CommitBlobWithName(
-		t,
-		cfg,
-		repoPath,
-		blobID,
-		nonUTF8Filename,
-		"commit for non-utf8 path",
+	commitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithTreeEntries(gittest.TreeEntry{
+			Mode: "100644", Path: nonUTF8Filename, OID: blobID,
+		}),
 	)
 
 	request := &gitalypb.ListLastCommitsForTreeRequest{
 		Repository: repo,
-		Revision:   commitID,
+		Revision:   commitID.String(),
 		Limit:      100,
 		Offset:     0,
 	}
@@ -354,17 +351,15 @@ func TestNonUtf8ListLastCommitsForTreeRequest(t *testing.T) {
 }
 
 func TestSuccessfulListLastCommitsForTreeRequestWithGlobCharacters(t *testing.T) {
-	_, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
 
 	path := ":wq"
 	err := os.Mkdir(filepath.Join(repoPath, path), 0755)
 	require.NoError(t, err)
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "testhelper.TestUser.name", "test@example.com")
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "testhelper.TestUser.email", "test@example.com")
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "mv", "README.md", path)
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-a", "-m", "renamed test file")
-	commitID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "HEAD"))
+	gittest.Exec(t, cfg, "-C", repoPath, "mv", "README.md", path)
+	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-a", "-m", "renamed test file")
+	commitID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
 
 	request := &gitalypb.ListLastCommitsForTreeRequest{
 		Repository:    repo,

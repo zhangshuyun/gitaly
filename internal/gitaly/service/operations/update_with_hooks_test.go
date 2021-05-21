@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
@@ -62,7 +63,7 @@ func TestUpdateReferenceWithHooks_invalidParameters(t *testing.T) {
 
 	revA, revB := git.ObjectID(strings.Repeat("a", 40)), git.ObjectID(strings.Repeat("b", 40))
 
-	server := NewServer(cfg, nil, &mockHookManager{}, nil, nil, nil)
+	server := NewServer(cfg, nil, &mockHookManager{}, nil, nil, nil, nil)
 
 	testCases := []struct {
 		desc           string
@@ -144,6 +145,7 @@ func TestUpdateReferenceWithHooks(t *testing.T) {
 		payload,
 	}
 
+	referenceTransactionCalls := 0
 	testCases := []struct {
 		desc                 string
 		preReceive           func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error
@@ -182,7 +184,15 @@ func TestUpdateReferenceWithHooks(t *testing.T) {
 				changes, err := ioutil.ReadAll(stdin)
 				require.NoError(t, err)
 				require.Equal(t, fmt.Sprintf("%s %s refs/heads/master\n", oldRev, git.ZeroOID.String()), string(changes))
-				require.Equal(t, state, hook.ReferenceTransactionPrepared)
+
+				require.Less(t, referenceTransactionCalls, 2)
+				if referenceTransactionCalls == 0 {
+					require.Equal(t, state, hook.ReferenceTransactionPrepared)
+				} else {
+					require.Equal(t, state, hook.ReferenceTransactionCommitted)
+				}
+				referenceTransactionCalls++
+
 				require.Equal(t, env, expectedEnv)
 				return nil
 			},
@@ -254,6 +264,7 @@ func TestUpdateReferenceWithHooks(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
+		referenceTransactionCalls = 0
 		t.Run(tc.desc, func(t *testing.T) {
 			hookManager := &mockHookManager{
 				t:                    t,
@@ -264,7 +275,7 @@ func TestUpdateReferenceWithHooks(t *testing.T) {
 			}
 
 			gitCmdFactory := git.NewExecCommandFactory(cfg)
-			hookServer := NewServer(cfg, nil, hookManager, nil, nil, gitCmdFactory)
+			hookServer := NewServer(cfg, nil, hookManager, nil, nil, gitCmdFactory, nil)
 
 			err := hookServer.updateReferenceWithHooks(ctx, repo, user, git.ReferenceName("refs/heads/master"), git.ZeroOID, git.ObjectID(oldRev))
 			if tc.expectedErr == "" {
@@ -274,12 +285,12 @@ func TestUpdateReferenceWithHooks(t *testing.T) {
 			}
 
 			if tc.expectedRefDeletion {
-				contained, err := localrepo.New(gitCmdFactory, repo, cfg).HasRevision(ctx, git.Revision("refs/heads/master"))
+				contained, err := localrepo.NewTestRepo(t, cfg, repo).HasRevision(ctx, git.Revision("refs/heads/master"))
 				require.NoError(t, err)
 				require.False(t, contained, "branch should have been deleted")
-				testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "master", oldRev)
+				gittest.Exec(t, cfg, "-C", repoPath, "branch", "master", oldRev)
 			} else {
-				ref, err := localrepo.New(gitCmdFactory, repo, cfg).GetReference(ctx, "refs/heads/master")
+				ref, err := localrepo.NewTestRepo(t, cfg, repo).GetReference(ctx, "refs/heads/master")
 				require.NoError(t, err)
 				require.Equal(t, ref.Target, oldRev)
 			}

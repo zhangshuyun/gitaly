@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -14,49 +13,52 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-func copyRepoWithNewRemote(t *testing.T, repo *gitalypb.Repository, repoPath string, remote string) (*gitalypb.Repository, string) {
+func copyRepoWithNewRemote(t *testing.T, cfg config.Cfg, repo *gitalypb.Repository, repoPath string, remote string) (*gitalypb.Repository, string) {
 	cloneRepo := &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "fetch-remote-clone.git"}
 
 	clonePath := filepath.Join(filepath.Dir(repoPath), "fetch-remote-clone.git")
 	require.NoError(t, os.RemoveAll(clonePath))
 
-	testhelper.MustRunCommand(t, nil, "git", "clone", "--bare", repoPath, clonePath)
+	gittest.Exec(t, cfg, "clone", "--bare", repoPath, clonePath)
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", clonePath, "remote", "add", remote, repoPath)
+	gittest.Exec(t, cfg, "-C", clonePath, "remote", "add", remote, repoPath)
 
 	return cloneRepo, clonePath
 }
 
 func TestFetchRemoteSuccess(t *testing.T) {
-	_, repo, repoPath, client := setupRepositoryService(t)
+	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	cloneRepo, cloneRepoPath := copyRepoWithNewRemote(t, repo, repoPath, "my-remote")
+	cloneRepo, cloneRepoPath := copyRepoWithNewRemote(t, cfg, repo, repoPath, "my-remote")
 	defer func() {
 		require.NoError(t, os.RemoveAll(cloneRepoPath))
 	}()
 
 	// Ensure there's a new tag to fetch
-	testhelper.CreateTag(t, repoPath, "testtag", "master", nil)
+	gittest.CreateTag(t, cfg, repoPath, "testtag", "master", nil)
 
 	req := &gitalypb.FetchRemoteRequest{Repository: cloneRepo, Remote: "my-remote", Timeout: 120, CheckTagsChanged: true}
 	resp, err := client.FetchRemote(ctx, req)
@@ -93,12 +95,15 @@ func TestFetchRemote_sshCommand(t *testing.T) {
 	exit 7`, outputPath)
 	testhelper.WriteExecutable(t, gitPath, []byte(script))
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t, testcfg.WithBase(config.Cfg{
-		Git: config.Git{BinPath: gitPath},
-	}))
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	client, serverSocketPath := runRepositoryService(t, cfg, nil)
-	cfg.SocketPath = serverSocketPath
+	// We re-define path to the git executable to catch parameters used to call it.
+	// This replacement only needs to be done for the configuration used to invoke git commands.
+	// Other operations should use actual path to the git binary to work properly.
+	spyGitCfg := cfg
+	spyGitCfg.Git.BinPath = gitPath
+
+	client, _ := runRepositoryService(t, spyGitCfg, nil)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -163,15 +168,13 @@ func TestFetchRemote_sshCommand(t *testing.T) {
 func TestFetchRemote_withDefaultRefmaps(t *testing.T) {
 	cfg, sourceRepoProto, sourceRepoPath, client := setupRepositoryService(t)
 
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	sourceRepo := localrepo.NewTestRepo(t, cfg, sourceRepoProto)
 
-	sourceRepo := localrepo.New(gitCmdFactory, sourceRepoProto, cfg)
-
-	targetRepoProto, targetRepoPath := copyRepoWithNewRemote(t, sourceRepoProto, sourceRepoPath, "my-remote")
+	targetRepoProto, targetRepoPath := copyRepoWithNewRemote(t, cfg, sourceRepoProto, sourceRepoPath, "my-remote")
 	defer func() {
 		require.NoError(t, os.RemoveAll(targetRepoPath))
 	}()
-	targetRepo := localrepo.New(gitCmdFactory, targetRepoProto, cfg)
+	targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
 
 	port, stopGitServer := gittest.GitServer(t, cfg, sourceRepoPath, nil)
 	defer func() { require.NoError(t, stopGitServer()) }()
@@ -205,7 +208,7 @@ type mockTxManager struct {
 	votes int
 }
 
-func (m *mockTxManager) Vote(context.Context, metadata.Transaction, metadata.PraefectServer, transaction.Vote) error {
+func (m *mockTxManager) Vote(context.Context, txinfo.Transaction, txinfo.PraefectServer, voting.Vote) error {
 	m.votes++
 	return nil
 }
@@ -213,16 +216,19 @@ func (m *mockTxManager) Vote(context.Context, metadata.Transaction, metadata.Pra
 func TestFetchRemote_transaction(t *testing.T) {
 	sourceCfg, _, sourceRepoPath := testcfg.BuildWithRepo(t)
 
-	locator := config.NewLocator(sourceCfg)
 	txManager := &mockTxManager{}
-	gitCmdFactory := git.NewExecCommandFactory(sourceCfg)
+	addr := testserver.RunGitalyServer(t, sourceCfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterRepositoryServiceServer(srv, NewServer(
+			deps.GetCfg(),
+			deps.GetRubyServer(),
+			deps.GetLocator(),
+			deps.GetTxManager(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+		))
+	}, testserver.WithTransactionManager(txManager))
 
-	srv := testhelper.NewServerWithAuth(t, nil, nil, sourceCfg.Auth.Token, backchannel.NewRegistry(), testhelper.WithInternalSocket(sourceCfg))
-	gitalypb.RegisterRepositoryServiceServer(srv.GrpcServer(), NewServer(sourceCfg, nil, locator, txManager, gitCmdFactory))
-	srv.Start(t)
-	defer srv.Stop()
-
-	client := newRepositoryClient(t, sourceCfg, "unix://"+srv.Socket())
+	client := newRepositoryClient(t, sourceCfg, addr)
 
 	targetCfg, targetRepoProto, targetRepoPath := testcfg.BuildWithRepo(t)
 	port, stopGitServer := gittest.GitServer(t, targetCfg, targetRepoPath, nil)
@@ -230,9 +236,9 @@ func TestFetchRemote_transaction(t *testing.T) {
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	ctx, err := metadata.InjectTransaction(ctx, 1, "node", true)
+	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
-	ctx, err = (&metadata.PraefectServer{SocketPath: "i-dont-care"}).Inject(ctx)
+	ctx, err = (&txinfo.PraefectServer{SocketPath: "i-dont-care"}).Inject(ctx)
 	require.NoError(t, err)
 	ctx = helper.IncomingToOutgoing(ctx)
 
@@ -328,11 +334,11 @@ func TestFetchRemote_prune(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			targetRepoProto, targetRepoPath := copyRepoWithNewRemote(t, sourceRepo, sourceRepoPath, "my-remote")
+			targetRepoProto, targetRepoPath := copyRepoWithNewRemote(t, cfg, sourceRepo, sourceRepoPath, "my-remote")
 			defer func() {
 				require.NoError(t, os.RemoveAll(targetRepoPath))
 			}()
-			targetRepo := localrepo.New(git.NewExecCommandFactory(cfg), targetRepoProto, cfg)
+			targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
@@ -356,9 +362,8 @@ func TestFetchRemote_force(t *testing.T) {
 	defer cancel()
 
 	cfg, sourceRepoProto, sourceRepoPath, client := setupRepositoryService(t)
-	gitCommandFactory := git.NewExecCommandFactory(cfg)
 
-	sourceRepo := localrepo.New(gitCommandFactory, sourceRepoProto, cfg)
+	sourceRepo := localrepo.NewTestRepo(t, cfg, sourceRepoProto)
 
 	branchOID, err := sourceRepo.ResolveRevision(ctx, "refs/heads/master")
 	require.NoError(t, err)
@@ -366,8 +371,8 @@ func TestFetchRemote_force(t *testing.T) {
 	tagOID, err := sourceRepo.ResolveRevision(ctx, "refs/tags/v1.0.0")
 	require.NoError(t, err)
 
-	divergingBranchOID, _ := gittest.CreateCommitOnNewBranch(t, cfg, sourceRepoPath)
-	divergingTagOID, _ := gittest.CreateCommitOnNewBranch(t, cfg, sourceRepoPath)
+	divergingBranchOID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("b1"))
+	divergingTagOID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("b2"))
 
 	port, stopGitServer := gittest.GitServer(t, cfg, sourceRepoPath, nil)
 	defer func() { require.NoError(t, stopGitServer()) }()
@@ -402,7 +407,7 @@ func TestFetchRemote_force(t *testing.T) {
 			// branches would get updated.
 			expectedRefs: map[git.ReferenceName]git.ObjectID{
 				"refs/heads/master": branchOID,
-				"refs/tags/v1.0.0":  git.ObjectID(divergingTagOID),
+				"refs/tags/v1.0.0":  divergingTagOID,
 			},
 		},
 		{
@@ -427,8 +432,8 @@ func TestFetchRemote_force(t *testing.T) {
 				Force: true,
 			},
 			expectedRefs: map[git.ReferenceName]git.ObjectID{
-				"refs/heads/master": git.ObjectID(divergingBranchOID),
-				"refs/tags/v1.0.0":  git.ObjectID(divergingTagOID),
+				"refs/heads/master": divergingBranchOID,
+				"refs/tags/v1.0.0":  divergingTagOID,
 			},
 		},
 		{
@@ -446,7 +451,7 @@ func TestFetchRemote_force(t *testing.T) {
 			// diverge.
 			expectedErr: status.Error(codes.Unknown, "fetch remote: exit status 1"),
 			expectedRefs: map[git.ReferenceName]git.ObjectID{
-				"refs/heads/master": git.ObjectID(divergingBranchOID),
+				"refs/heads/master": divergingBranchOID,
 				"refs/tags/v1.0.0":  tagOID,
 			},
 		},
@@ -462,8 +467,8 @@ func TestFetchRemote_force(t *testing.T) {
 				Force: true,
 			},
 			expectedRefs: map[git.ReferenceName]git.ObjectID{
-				"refs/heads/master": git.ObjectID(divergingBranchOID),
-				"refs/tags/v1.0.0":  git.ObjectID(divergingTagOID),
+				"refs/heads/master": divergingBranchOID,
+				"refs/tags/v1.0.0":  divergingTagOID,
 			},
 		},
 		{
@@ -478,31 +483,31 @@ func TestFetchRemote_force(t *testing.T) {
 				NoTags: true,
 			},
 			expectedRefs: map[git.ReferenceName]git.ObjectID{
-				"refs/heads/master": git.ObjectID(divergingBranchOID),
+				"refs/heads/master": divergingBranchOID,
 				"refs/tags/v1.0.0":  tagOID,
 			},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			targetRepoProto, targetRepoPath := copyRepoWithNewRemote(t, sourceRepoProto, sourceRepoPath, "my-remote")
+			targetRepoProto, targetRepoPath := copyRepoWithNewRemote(t, cfg, sourceRepoProto, sourceRepoPath, "my-remote")
 			defer func() {
 				require.NoError(t, os.RemoveAll(targetRepoPath))
 			}()
 
-			targetRepo := localrepo.New(gitCommandFactory, targetRepoProto, cfg)
+			targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
 
 			// We're force-updating a branch and a tag in the source repository to point
 			// to a diverging object ID in order to verify that the `force` parameter
 			// takes effect.
-			require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/heads/master", git.ObjectID(divergingBranchOID), branchOID))
-			require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/tags/v1.0.0", git.ObjectID(divergingTagOID), tagOID))
+			require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/heads/master", divergingBranchOID, branchOID))
+			require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/tags/v1.0.0", divergingTagOID, tagOID))
 			defer func() {
 				// Restore references after the current testcase again. Moving
 				// source repository setup into the testcases is not easily possible
 				// because hosting the gitserver requires the repo path, and we need
 				// the URL for our testcases.
-				require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/heads/master", branchOID, git.ObjectID(divergingBranchOID)))
-				require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/tags/v1.0.0", tagOID, git.ObjectID(divergingTagOID)))
+				require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/heads/master", branchOID, divergingBranchOID))
+				require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/tags/v1.0.0", tagOID, divergingTagOID))
 			}()
 
 			tc.request.Repository = targetRepoProto
@@ -630,8 +635,7 @@ const (
 )
 
 func remoteHTTPServer(t *testing.T, repoName, httpToken string) (*httptest.Server, string) {
-	b, err := ioutil.ReadFile("testdata/advertise.txt")
-	require.NoError(t, err)
+	b := testhelper.MustReadFile(t, "testdata/advertise.txt")
 
 	s := httptest.NewServer(
 		// https://github.com/git/git/blob/master/Documentation/technical/http-protocol.txt
@@ -647,7 +651,7 @@ func remoteHTTPServer(t *testing.T, repoName, httpToken string) (*httptest.Serve
 			}
 
 			w.Header().Set("Content-Type", "application/x-git-upload-pack-advertisement")
-			_, err = w.Write(b)
+			_, err := w.Write(b)
 			assert.NoError(t, err)
 		}),
 	)
@@ -655,8 +659,8 @@ func remoteHTTPServer(t *testing.T, repoName, httpToken string) (*httptest.Serve
 	return s, fmt.Sprintf("%s/%s.git", s.URL, repoName)
 }
 
-func getRefnames(t *testing.T, repoPath string) []string {
-	result := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "for-each-ref", "--format", "%(refname:lstrip=2)")
+func getRefnames(t *testing.T, cfg config.Cfg, repoPath string) []string {
+	result := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--format", "%(refname:lstrip=2)")
 	return strings.Split(text.ChompBytes(result), "\n")
 }
 
@@ -683,7 +687,7 @@ func testFetchRemoteOverHTTP(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.S
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			forkedRepo, forkedRepoPath, forkedRepoCleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+			forkedRepo, forkedRepoPath, forkedRepoCleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 			defer forkedRepoCleanup()
 
 			s, remoteURL := remoteHTTPServer(t, "my-repo", tc.httpToken)
@@ -702,13 +706,13 @@ func testFetchRemoteOverHTTP(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.S
 				req.RemoteParams.Url = s.URL + tc.remoteURL
 			}
 
-			refs := getRefnames(t, forkedRepoPath)
+			refs := getRefnames(t, cfg, forkedRepoPath)
 			require.True(t, len(refs) > 1, "the advertisement.txt should have deleted all refs except for master")
 
 			_, err := client.FetchRemote(ctx, req)
 			require.NoError(t, err)
 
-			refs = getRefnames(t, forkedRepoPath)
+			refs = getRefnames(t, cfg, forkedRepoPath)
 
 			require.Len(t, refs, 1)
 			assert.Equal(t, "master", refs[0])

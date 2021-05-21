@@ -13,11 +13,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/log"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -46,7 +46,15 @@ func createNewServer(t *testing.T, cfg config.Cfg) *grpc.Server {
 
 	server := grpc.NewServer(opts...)
 
-	gitalypb.RegisterRefServiceServer(server, ref.NewServer(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), transaction.NewManager(cfg, backchannel.NewRegistry())))
+	gitCommandFactory := git.NewExecCommandFactory(cfg)
+
+	gitalypb.RegisterRefServiceServer(server, ref.NewServer(
+		cfg,
+		config.NewLocator(cfg),
+		gitCommandFactory,
+		transaction.NewManager(cfg, backchannel.NewRegistry()),
+		catfile.NewCache(cfg),
+	))
 
 	return server
 }
@@ -116,8 +124,8 @@ func TestInterceptor(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			logBuffer.Reset()
 
-			ctx := context.TODO()
-			ctx = featureflag.OutgoingCtxWithFeatureFlags(ctx, featureflag.LogCommandStats)
+			ctx, cancel := testhelper.Context()
+			defer cancel()
 
 			conn, err := grpc.DialContext(ctx, "", grpc.WithContextDialer(getBufDialer(listener)), grpc.WithInsecure())
 			require.NoError(t, err)

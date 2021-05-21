@@ -8,7 +8,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
@@ -32,32 +34,32 @@ func TestFetchFromOriginDangling(t *testing.T) {
 	nonce, err := text.RandomHex(4)
 	require.NoError(t, err)
 
-	baseArgs := []string{"-C", pool.FullPath()}
-
 	// A blob with random contents should be unique.
-	newBlobArgs := append(baseArgs, "hash-object", "-t", "blob", "-w", "--stdin")
-	newBlob := text.ChompBytes(testhelper.MustRunCommand(t, strings.NewReader(nonce), "git", newBlobArgs...))
+	newBlob := gittest.WriteBlob(t, pool.cfg, pool.FullPath(), []byte(nonce))
 
 	// A tree with a randomly named blob entry should be unique.
-	newTreeArgs := append(baseArgs, "mktree")
-	newTreeStdin := strings.NewReader(fmt.Sprintf("100644 blob %s	%s\n", existingBlob, nonce))
-	newTree := text.ChompBytes(testhelper.MustRunCommand(t, newTreeStdin, "git", newTreeArgs...))
+	newTree := gittest.WriteTree(t, pool.cfg, pool.FullPath(), []gittest.TreeEntry{
+		{Mode: "100644", OID: git.ObjectID(existingBlob), Path: nonce},
+	})
 
 	// A commit with a random message should be unique.
-	newCommitArgs := append(baseArgs, "commit-tree", existingTree)
-	newCommit := text.ChompBytes(testhelper.MustRunCommand(t, strings.NewReader(nonce), "git", newCommitArgs...))
+	newCommit := gittest.WriteCommit(t, pool.cfg, pool.FullPath(),
+		gittest.WithTreeEntries(gittest.TreeEntry{
+			OID: git.ObjectID(existingTree), Path: nonce, Mode: "040000",
+		}),
+	)
 
 	// A tag with random hex characters in its name should be unique.
 	newTagName := "tag-" + nonce
-	newTagArgs := append(baseArgs, "tag", "-m", "msg", "-a", newTagName, existingCommit)
-	testhelper.MustRunCommand(t, strings.NewReader(nonce), "git", newTagArgs...)
-	newTag := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", append(baseArgs, "rev-parse", newTagName)...))
+	newTag := gittest.CreateTag(t, pool.cfg, pool.FullPath(), newTagName, existingCommit, &gittest.CreateTagOpts{
+		Message: "msg",
+	})
 
 	// `git tag` automatically creates a ref, so our new tag is not dangling.
 	// Deleting the ref should fix that.
-	testhelper.MustRunCommand(t, nil, "git", append(baseArgs, "update-ref", "-d", "refs/tags/"+newTagName)...)
+	gittest.Exec(t, pool.cfg, "-C", pool.FullPath(), "update-ref", "-d", "refs/tags/"+newTagName)
 
-	fsckBefore := testhelper.MustRunCommand(t, nil, "git", append(baseArgs, "fsck", "--connectivity-only", "--dangling")...)
+	fsckBefore := gittest.Exec(t, pool.cfg, "-C", pool.FullPath(), "fsck", "--connectivity-only", "--dangling")
 	fsckBeforeLines := strings.Split(string(fsckBefore), "\n")
 
 	for _, l := range []string{
@@ -73,12 +75,35 @@ func TestFetchFromOriginDangling(t *testing.T) {
 	// non-dangling objects.
 	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "second fetch")
 
-	refsArgs := append(baseArgs, "for-each-ref", "--format=%(refname) %(objectname)")
-	refsAfter := testhelper.MustRunCommand(t, nil, "git", refsArgs...)
+	refsAfter := gittest.Exec(t, pool.cfg, "-C", pool.FullPath(), "for-each-ref", "--format=%(refname) %(objectname)")
 	refsAfterLines := strings.Split(string(refsAfter), "\n")
-	for _, id := range []string{newBlob, newTree, newCommit, newTag} {
+	for _, id := range []string{newBlob.String(), newTree.String(), newCommit.String(), newTag} {
 		require.Contains(t, refsAfterLines, fmt.Sprintf("refs/dangling/%s %s", id, id))
 	}
+}
+
+func TestFetchFromOriginFsck(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	pool, repo := setupObjectPool(t)
+	repoPath := filepath.Join(pool.cfg.Storages[0].Path, repo.RelativePath)
+
+	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "seed pool")
+
+	// We're creating a new commit which has a root tree with duplicate entries. git-mktree(1)
+	// allows us to create these trees just fine, but git-fsck(1) complains.
+	gittest.WriteCommit(t, pool.cfg, repoPath,
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{OID: "4b825dc642cb6eb9a060e54bf8d69288fbee4904", Path: "dup", Mode: "040000"},
+			gittest.TreeEntry{OID: "4b825dc642cb6eb9a060e54bf8d69288fbee4904", Path: "dup", Mode: "040000"},
+		),
+		gittest.WithBranch("branch"),
+	)
+
+	err := pool.FetchFromOrigin(ctx, repo)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "duplicateEntries: contains duplicate file entries")
 }
 
 func TestFetchFromOriginDeltaIslands(t *testing.T) {
@@ -91,14 +116,14 @@ func TestFetchFromOriginDeltaIslands(t *testing.T) {
 	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "seed pool")
 	require.NoError(t, pool.Link(ctx, testRepo))
 
-	gittest.TestDeltaIslands(t, testRepoPath, func() error {
+	gittest.TestDeltaIslands(t, pool.cfg, testRepoPath, func() error {
 		// This should create a new packfile with good delta chains in the pool
 		if err := pool.FetchFromOrigin(ctx, testRepo); err != nil {
 			return err
 		}
 
 		// Make sure the old packfile, with bad delta chains, is deleted from the source repo
-		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "repack", "-ald")
+		gittest.Exec(t, pool.cfg, "-C", testRepoPath, "repack", "-ald")
 
 		return nil
 	})
@@ -146,8 +171,8 @@ func TestFetchFromOriginRefUpdates(t *testing.T) {
 	}
 
 	for ref, oid := range oldRefs {
-		require.Equal(t, oid, resolveRef(t, testRepoPath, "refs/"+ref), "look up %q in source", ref)
-		require.Equal(t, oid, resolveRef(t, poolPath, "refs/remotes/origin/"+ref), "look up %q in pool", ref)
+		require.Equal(t, oid, resolveRef(t, pool.cfg, testRepoPath, "refs/"+ref), "look up %q in source", ref)
+		require.Equal(t, oid, resolveRef(t, pool.cfg, poolPath, "refs/remotes/origin/"+ref), "look up %q in pool", ref)
 	}
 
 	newRefs := map[string]string{
@@ -160,21 +185,21 @@ func TestFetchFromOriginRefUpdates(t *testing.T) {
 	}
 
 	for ref, oid := range newRefs {
-		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "update-ref", "refs/"+ref, oid)
-		require.Equal(t, oid, resolveRef(t, testRepoPath, "refs/"+ref), "look up %q in source after update", ref)
+		gittest.Exec(t, pool.cfg, "-C", testRepoPath, "update-ref", "refs/"+ref, oid)
+		require.Equal(t, oid, resolveRef(t, pool.cfg, testRepoPath, "refs/"+ref), "look up %q in source after update", ref)
 	}
 
 	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "update pool")
 
 	for ref, oid := range newRefs {
-		require.Equal(t, oid, resolveRef(t, poolPath, "refs/remotes/origin/"+ref), "look up %q in pool after update", ref)
+		require.Equal(t, oid, resolveRef(t, pool.cfg, poolPath, "refs/remotes/origin/"+ref), "look up %q in pool after update", ref)
 	}
 
 	looseRefs := testhelper.MustRunCommand(t, nil, "find", filepath.Join(poolPath, "refs"), "-type", "f")
 	require.Equal(t, "", string(looseRefs), "there should be no loose refs after the fetch")
 }
 
-func resolveRef(t *testing.T, repo string, ref string) string {
-	out := testhelper.MustRunCommand(t, nil, "git", "-C", repo, "rev-parse", ref)
+func resolveRef(t *testing.T, cfg config.Cfg, repo string, ref string) string {
+	out := gittest.Exec(t, cfg, "-C", repo, "rev-parse", ref)
 	return text.ChompBytes(out)
 }

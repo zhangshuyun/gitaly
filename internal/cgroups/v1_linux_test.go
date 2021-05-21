@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"hash/crc32"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/cgroups"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
 func defaultCgroupsConfig() cgroups.Config {
@@ -123,8 +123,5 @@ func readCgroupFile(t *testing.T, path string) []byte {
 	// so we can read the file.
 	require.NoError(t, os.Chmod(path, 0666))
 
-	content, err := ioutil.ReadFile(path)
-	require.NoError(t, err)
-
-	return content
+	return testhelper.MustReadFile(t, path)
 }

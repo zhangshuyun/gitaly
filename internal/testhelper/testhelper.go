@@ -1,5 +1,6 @@
 package testhelper
 
+//nolint: gci
 import (
 	"context"
 	"crypto/ecdsa"
@@ -31,8 +32,11 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/metadata"
+
+	// The goleak import only exists such that this test-only dependency is properly being
+	// attributed in our NOTICE file.
+	_ "go.uber.org/goleak"
 )
 
 const (
@@ -42,18 +46,6 @@ const (
 	RepositoryAuthToken = "the-secret-token"
 	// DefaultStorageName is the default name of the Gitaly storage.
 	DefaultStorageName = "default"
-	// GlID is the ID of the default user.
-	GlID = "user-123"
-)
-
-var (
-	// TestUser is the default user for tests.
-	TestUser = &gitalypb.User{
-		Name:       []byte("Jane Doe"),
-		Email:      []byte("janedoe@gitlab.com"),
-		GlId:       GlID,
-		GlUsername: "janedoe",
-	}
 )
 
 // MustReadFile returns the content of a file or fails at once.
@@ -72,24 +64,6 @@ func GitlabTestStoragePath() string {
 		panic("you must call testhelper.Configure() before GitlabTestStoragePath()")
 	}
 	return filepath.Join(testDirectory, "storage")
-}
-
-// GitalyServersMetadata returns a metadata pair for gitaly-servers to be used in
-// inter-gitaly operations.
-func GitalyServersMetadata(t testing.TB, serverSocketPath string) metadata.MD {
-	gitalyServers := storage.GitalyServers{
-		"default": storage.ServerInfo{
-			Address: serverSocketPath,
-			Token:   RepositoryAuthToken,
-		},
-	}
-
-	gitalyServersJSON, err := json.Marshal(gitalyServers)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return metadata.Pairs("gitaly-servers", base64.StdEncoding.EncodeToString(gitalyServersJSON))
 }
 
 // GitalyServersMetadataFromCfg returns a metadata pair for gitaly-servers to be used in
@@ -121,29 +95,13 @@ storages:
 
 // MustRunCommand runs a command with an optional standard input and returns the standard output, or fails.
 func MustRunCommand(t testing.TB, stdin io.Reader, name string, args ...string) []byte {
-	if t != nil {
-		t.Helper()
+	t.Helper()
+
+	if filepath.Base(name) == "git" {
+		require.Fail(t, "Please use gittest.Exec or gittest.ExecStream to run git commands.")
 	}
 
-	var cmd *exec.Cmd
-	if name == "git" {
-		if args[0] == "init" {
-			// Many tests depend on the fact "master" is the initial branch.
-			// To overcome the case when the user has set anything else in
-			// their git-config, override it to be "master".
-			args = append([]string{"-c", "init.defaultBranch=master"}, args...)
-		}
-		cmd = exec.Command(config.Config.Git.BinPath, args...)
-		cmd.Env = os.Environ()
-		cmd.Env = append(command.GitEnv, cmd.Env...)
-		cmd.Env = append(cmd.Env,
-			"GIT_AUTHOR_DATE=1572776879 +0100",
-			"GIT_COMMITTER_DATE=1572776879 +0100",
-		)
-	} else {
-		cmd = exec.Command(name, args...)
-	}
-
+	cmd := exec.Command(name, args...)
 	if stdin != nil {
 		cmd.Stdin = stdin
 	}
@@ -151,15 +109,7 @@ func MustRunCommand(t testing.TB, stdin io.Reader, name string, args ...string) 
 	output, err := cmd.Output()
 	if err != nil {
 		stderr := err.(*exec.ExitError).Stderr
-		if t == nil {
-			log.Print(name, args)
-			log.Printf("%s", stderr)
-			panic(err)
-		} else {
-			t.Log(name, args)
-			t.Logf("%s", stderr)
-			t.Fatal(err)
-		}
+		require.NoError(t, err, "%s %s: %s", name, args, stderr)
 	}
 
 	return output
@@ -171,6 +121,20 @@ func MustRunCommand(t testing.TB, stdin io.Reader, name string, args ...string) 
 // be executed early already.
 func MustClose(t testing.TB, closer io.Closer) {
 	require.NoError(t, closer.Close())
+}
+
+// CopyFile copies a file at the path src to a file at the path dst
+func CopyFile(t testing.TB, src, dst string) {
+	fsrc, err := os.Open(src)
+	require.NoError(t, err)
+	defer MustClose(t, fsrc)
+
+	fdst, err := os.Create(dst)
+	require.NoError(t, err)
+	defer MustClose(t, fdst)
+
+	_, err = io.Copy(fdst, fsrc)
+	require.NoError(t, err)
 }
 
 // GetTemporaryGitalySocketFileName will return a unique, useable socket file name
@@ -285,12 +249,6 @@ func Context(opts ...ContextOpt) (context.Context, func()) {
 			cancels[i]()
 		}
 	}
-}
-
-// AssertPathNotExists asserts true if the path doesn't exist, false otherwise
-func AssertPathNotExists(t testing.TB, path string) {
-	_, err := os.Stat(path)
-	assert.True(t, os.IsNotExist(err), "file should not exist: %s", path)
 }
 
 // TempDir is a wrapper around ioutil.TempDir that provides a cleanup function.

@@ -38,6 +38,10 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     end
     add_message "gitaly.WriteCommitGraphRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
+      optional :splitStrategy, :enum, 2, "gitaly.WriteCommitGraphRequest.SplitStrategy"
+    end
+    add_enum "gitaly.WriteCommitGraphRequest.SplitStrategy" do
+      value :SizeMultiple, 0
     end
     add_message "gitaly.WriteCommitGraphResponse" do
     end
@@ -164,6 +168,12 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :repository, :message, 1, "gitaly.Repository"
     end
     add_message "gitaly.CreateBundleResponse" do
+      optional :data, :bytes, 1
+    end
+    add_message "gitaly.GetConfigRequest" do
+      optional :repository, :message, 1, "gitaly.Repository"
+    end
+    add_message "gitaly.GetConfigResponse" do
       optional :data, :bytes, 1
     end
     add_message "gitaly.SetConfigRequest" do
@@ -346,6 +356,7 @@ module Gitaly
   GarbageCollectRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GarbageCollectRequest").msgclass
   GarbageCollectResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GarbageCollectResponse").msgclass
   WriteCommitGraphRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WriteCommitGraphRequest").msgclass
+  WriteCommitGraphRequest::SplitStrategy = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WriteCommitGraphRequest.SplitStrategy").enummodule
   WriteCommitGraphResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WriteCommitGraphResponse").msgclass
   CleanupRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CleanupRequest").msgclass
   CleanupResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CleanupResponse").msgclass
@@ -380,6 +391,8 @@ module Gitaly
   CreateRepositoryFromURLResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CreateRepositoryFromURLResponse").msgclass
   CreateBundleRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CreateBundleRequest").msgclass
   CreateBundleResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CreateBundleResponse").msgclass
+  GetConfigRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GetConfigRequest").msgclass
+  GetConfigResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GetConfigResponse").msgclass
   SetConfigRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.SetConfigRequest").msgclass
   SetConfigRequest::Entry = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.SetConfigRequest.Entry").msgclass
   SetConfigResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.SetConfigResponse").msgclass

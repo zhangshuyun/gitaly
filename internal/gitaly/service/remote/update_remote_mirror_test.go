@@ -137,6 +137,24 @@ func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg confi
 			},
 		},
 		{
+			desc: "ignores diverged branches not matched by the branch selector",
+			sourceRefs: refs{
+				"refs/heads/matched":  {"commit 1"},
+				"refs/heads/diverged": {"commit 1"},
+			},
+			onlyBranchesMatching: []string{"matched"},
+			keepDivergentRefs:    true,
+			mirrorRefs: refs{
+				"refs/heads/matched":  {"commit 1"},
+				"refs/heads/diverged": {"commit 2"},
+			},
+			response: &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{
+				"refs/heads/matched":  "commit 1",
+				"refs/heads/diverged": "commit 2",
+			},
+		},
+		{
 			desc: "does not delete refs with KeepDivergentRefs",
 			sourceRefs: refs{
 				"refs/heads/master": {"commit 1"},
@@ -350,14 +368,14 @@ func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg confi
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			_, mirrorRepoPath, cleanMirrorRepo := gittest.InitBareRepoAt(t, cfg.Storages[0])
+			_, mirrorRepoPath, cleanMirrorRepo := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 			defer cleanMirrorRepo()
 
-			sourceRepoPb, sourceRepoPath, cleanSourceRepo := gittest.InitBareRepoAt(t, cfg.Storages[0])
+			sourceRepoPb, sourceRepoPath, cleanSourceRepo := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 			defer cleanSourceRepo()
 
 			// configure the mirror repository as a remote in the source
-			testhelper.MustRunCommand(t, nil, "git", "-C", sourceRepoPath, "remote", "add", "mirror", mirrorRepoPath)
+			gittest.Exec(t, cfg, "-C", sourceRepoPath, "remote", "add", "mirror", mirrorRepoPath)
 
 			// create identical commits in both repositories so we can use them for
 			// the references
@@ -383,7 +401,7 @@ func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg confi
 						require.NoError(t, err)
 					}
 
-					testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", reference, commitOID.String())
+					gittest.Exec(t, cfg, "-C", repoPath, "update-ref", reference, commitOID.String())
 				}
 			}
 			for repoPath, symRefs := range map[string]map[string]string{
@@ -391,7 +409,7 @@ func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg confi
 				mirrorRepoPath: tc.mirrorSymRefs,
 			} {
 				for symRef, targetRef := range symRefs {
-					testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "symbolic-ref", symRef, targetRef)
+					gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", symRef, targetRef)
 				}
 			}
 
@@ -425,7 +443,7 @@ func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg confi
 			// the same.
 			actualMirrorRefs := map[string]string{}
 
-			refLines := strings.Split(text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", mirrorRepoPath, "for-each-ref", "--format=%(refname)%00%(contents:subject)")), "\n")
+			refLines := strings.Split(text.ChompBytes(gittest.Exec(t, cfg, "-C", mirrorRepoPath, "for-each-ref", "--format=%(refname)%00%(contents:subject)")), "\n")
 			for _, line := range refLines {
 				if line == "" {
 					continue
@@ -450,27 +468,34 @@ func testSuccessfulUpdateRemoteMirrorRequest(t *testing.T, cfg config.Cfg, rubyS
 
 func testSuccessfulUpdateRemoteMirrorRequestFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	serverSocketPath := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterRemoteServiceServer(srv, NewServer(deps.GetCfg(), deps.GetRubyServer(), deps.GetLocator(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
+			deps.GetCfg(),
+			deps.GetRubyServer(),
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+			deps.GetTxManager(),
+		))
 	})
 
 	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "source")
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "source")
 	defer cleanupFn()
 
-	_, mirrorPath, mirrorCleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "mirror")
+	_, mirrorPath, mirrorCleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "mirror")
 	defer mirrorCleanupFn()
 
 	remoteName := "remote_mirror_1"
 
-	testhelper.CreateTag(t, mirrorPath, "v0.0.1", "master", nil) // I needed another tag for the tests
-	testhelper.CreateTag(t, testRepoPath, "new-tag", "60ecb67744cb56576c30214ff52294f8ce2def98", nil)
-	testhelper.CreateTag(t, testRepoPath, "v1.0.0", "0b4bc9a49b562e85de7cc9e834518ea6828729b9", &testhelper.CreateTagOpts{
+	gittest.CreateTag(t, cfg, mirrorPath, "v0.0.1", "master", nil) // I needed another tag for the tests
+	gittest.CreateTag(t, cfg, testRepoPath, "new-tag", "60ecb67744cb56576c30214ff52294f8ce2def98", nil)
+	gittest.CreateTag(t, cfg, testRepoPath, "v1.0.0", "0b4bc9a49b562e85de7cc9e834518ea6828729b9", &gittest.CreateTagOpts{
 		Message: "Overriding tag", Force: true})
 
 	// Create a commit that only exists in the mirror
-	mirrorOnlyCommitOid := gittest.CreateCommit(t, cfg, mirrorPath, "master", nil)
+	mirrorOnlyCommitOid := gittest.WriteCommit(t, cfg, mirrorPath, gittest.WithBranch("master"))
 	require.NotEmpty(t, mirrorOnlyCommitOid)
 
 	setupCommands := [][]string{
@@ -493,10 +518,10 @@ func testSuccessfulUpdateRemoteMirrorRequestFeatured(t *testing.T, ctx context.C
 	for _, args := range setupCommands {
 		gitArgs := []string{"-C", testRepoPath}
 		gitArgs = append(gitArgs, args...)
-		testhelper.MustRunCommand(t, nil, "git", gitArgs...)
+		gittest.Exec(t, cfg, gitArgs...)
 	}
 
-	newTagOid := string(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", "v1.0.0"))
+	newTagOid := string(gittest.Exec(t, cfg, "-C", testRepoPath, "rev-parse", "v1.0.0"))
 	newTagOid = strings.TrimSpace(newTagOid)
 	require.NotEqual(t, newTagOid, "f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8") // Sanity check that the tag did in fact change
 
@@ -523,10 +548,10 @@ func testSuccessfulUpdateRemoteMirrorRequestFeatured(t *testing.T, ctx context.C
 	require.Empty(t, response.DivergentRefs)
 
 	// Ensure the local repository still has no reference to the mirror-only commit
-	localRefs := string(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "for-each-ref"))
+	localRefs := string(gittest.Exec(t, cfg, "-C", testRepoPath, "for-each-ref"))
 	require.NotContains(t, localRefs, mirrorOnlyCommitOid)
 
-	mirrorRefs := string(testhelper.MustRunCommand(t, nil, "git", "-C", mirrorPath, "for-each-ref"))
+	mirrorRefs := string(gittest.Exec(t, cfg, "-C", mirrorPath, "for-each-ref"))
 
 	require.Contains(t, mirrorRefs, mirrorOnlyCommitOid)
 	require.Contains(t, mirrorRefs, "60ecb67744cb56576c30214ff52294f8ce2def98 commit\trefs/heads/new-branch")
@@ -550,16 +575,23 @@ func testSuccessfulUpdateRemoteMirrorRequestWithWildcards(t *testing.T, cfg conf
 
 func testSuccessfulUpdateRemoteMirrorRequestWithWildcardsFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	serverSocketPath := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterRemoteServiceServer(srv, NewServer(deps.GetCfg(), deps.GetRubyServer(), deps.GetLocator(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
+			deps.GetCfg(),
+			deps.GetRubyServer(),
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+			deps.GetTxManager(),
+		))
 	})
 
 	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "source")
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "source")
 	defer cleanupFn()
 
-	_, mirrorPath, mirrorCleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "mirror")
+	_, mirrorPath, mirrorCleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "mirror")
 	defer mirrorCleanupFn()
 
 	remoteName := "remote_mirror_2"
@@ -579,21 +611,21 @@ func testSuccessfulUpdateRemoteMirrorRequestWithWildcardsFeatured(t *testing.T, 
 		{"tag", "--delete", "v1.1.0"},         // v1.1.0 is ambiguous, maps to a branch and a tag in gitlab-test repository
 	}
 
-	testhelper.CreateTag(t, testRepoPath, "new-tag", "60ecb67744cb56576c30214ff52294f8ce2def98", nil) // Add tag
-	testhelper.CreateTag(t, testRepoPath, "v1.0.0", "0b4bc9a49b562e85de7cc9e834518ea6828729b9",
-		&testhelper.CreateTagOpts{Message: "Overriding tag", Force: true}) // Update tag
+	gittest.CreateTag(t, cfg, testRepoPath, "new-tag", "60ecb67744cb56576c30214ff52294f8ce2def98", nil) // Add tag
+	gittest.CreateTag(t, cfg, testRepoPath, "v1.0.0", "0b4bc9a49b562e85de7cc9e834518ea6828729b9",
+		&gittest.CreateTagOpts{Message: "Overriding tag", Force: true}) // Update tag
 
 	for _, args := range setupCommands {
 		gitArgs := []string{"-C", testRepoPath}
 		gitArgs = append(gitArgs, args...)
-		testhelper.MustRunCommand(t, nil, "git", gitArgs...)
+		gittest.Exec(t, cfg, gitArgs...)
 	}
 
 	// Workaround for https://gitlab.com/gitlab-org/gitaly/issues/1439
 	// Create a tag on the remote to ensure it gets deleted later
-	testhelper.CreateTag(t, mirrorPath, "v1.2.0", "master", nil)
+	gittest.CreateTag(t, cfg, mirrorPath, "v1.2.0", "master", nil)
 
-	newTagOid := string(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", "v1.0.0"))
+	newTagOid := string(gittest.Exec(t, cfg, "-C", testRepoPath, "rev-parse", "v1.0.0"))
 	newTagOid = strings.TrimSpace(newTagOid)
 	require.NotEqual(t, newTagOid, "f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8") // Sanity check that the tag did in fact change
 	firstRequest := &gitalypb.UpdateRemoteMirrorRequest{
@@ -610,7 +642,7 @@ func testSuccessfulUpdateRemoteMirrorRequestWithWildcardsFeatured(t *testing.T, 
 	require.NoError(t, err)
 	require.Empty(t, response.DivergentRefs)
 
-	mirrorRefs := string(testhelper.MustRunCommand(t, nil, "git", "-C", mirrorPath, "for-each-ref"))
+	mirrorRefs := string(gittest.Exec(t, cfg, "-C", mirrorPath, "for-each-ref"))
 	require.Contains(t, mirrorRefs, "60ecb67744cb56576c30214ff52294f8ce2def98 commit\trefs/heads/11-0-stable")
 	require.Contains(t, mirrorRefs, "60ecb67744cb56576c30214ff52294f8ce2def98 commit\trefs/heads/11-1-stable")
 	require.Contains(t, mirrorRefs, "0b4bc9a49b562e85de7cc9e834518ea6828729b9 commit\trefs/heads/feature")
@@ -634,21 +666,28 @@ func testSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T, 
 
 func testSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefsFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	serverSocketPath := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterRemoteServiceServer(srv, NewServer(deps.GetCfg(), deps.GetRubyServer(), deps.GetLocator(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
+			deps.GetCfg(),
+			deps.GetRubyServer(),
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+			deps.GetTxManager(),
+		))
 	})
 
 	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "source")
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "source")
 	defer cleanupFn()
 
-	_, mirrorPath, mirrorCleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "mirror")
+	_, mirrorPath, mirrorCleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "mirror")
 	defer mirrorCleanupFn()
 
 	remoteName := "remote_mirror_1"
 
-	testhelper.CreateTag(t, mirrorPath, "v2.0.0", "master", nil)
+	gittest.CreateTag(t, cfg, mirrorPath, "v2.0.0", "master", nil)
 
 	setupCommands := [][]string{
 		// Preconditions
@@ -666,7 +705,7 @@ func testSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefsFeatured(t *tes
 	for _, args := range setupCommands {
 		gitArgs := []string{"-C", testRepoPath}
 		gitArgs = append(gitArgs, args...)
-		testhelper.MustRunCommand(t, nil, "git", gitArgs...)
+		gittest.Exec(t, cfg, gitArgs...)
 	}
 	firstRequest := &gitalypb.UpdateRemoteMirrorRequest{
 		Repository:        testRepo,
@@ -682,7 +721,7 @@ func testSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefsFeatured(t *tes
 	require.NoError(t, err)
 	require.ElementsMatch(t, response.DivergentRefs, [][]byte{[]byte("refs/heads/master")})
 
-	mirrorRefs := string(testhelper.MustRunCommand(t, nil, "git", "-C", mirrorPath, "for-each-ref"))
+	mirrorRefs := string(gittest.Exec(t, cfg, "-C", mirrorPath, "for-each-ref"))
 
 	// Verify `master` didn't get updated, since its HEAD is no longer an ancestor of remote's version
 	require.Contains(t, mirrorRefs, "1e292f8fedd741b75372e19097c76d327140c312 commit\trefs/heads/master")
@@ -701,7 +740,7 @@ func testSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefsFeatured(t *tes
 	_, err = stream.CloseAndRecv()
 	require.NoError(t, err)
 
-	mirrorRefs = string(testhelper.MustRunCommand(t, nil, "git", "-C", mirrorPath, "for-each-ref"))
+	mirrorRefs = string(gittest.Exec(t, cfg, "-C", mirrorPath, "for-each-ref"))
 
 	// Verify `master` gets overwritten with the value from the source
 	require.Contains(t, mirrorRefs, "ba3faa7dbecdb555c748b36e8bc0f427e69de5e7 commit\trefs/heads/master")
@@ -720,13 +759,20 @@ func testFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T, cfg config
 
 func testFailedUpdateRemoteMirrorRequestDueToValidationFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	serverSocketPath := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterRemoteServiceServer(srv, NewServer(deps.GetCfg(), deps.GetRubyServer(), deps.GetLocator(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
+			deps.GetCfg(),
+			deps.GetRubyServer(),
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+			deps.GetTxManager(),
+		))
 	})
 
 	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+	testRepo, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 	defer cleanupFn()
 
 	testCases := []struct {

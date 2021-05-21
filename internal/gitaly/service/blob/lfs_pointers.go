@@ -9,10 +9,12 @@ import (
 	"io"
 	"strings"
 
+	"github.com/golang/protobuf/proto"
 	gitaly_errors "gitlab.com/gitlab-org/gitaly/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"golang.org/x/text/transform"
 	"google.golang.org/grpc/codes"
@@ -24,19 +26,12 @@ const (
 	// as a heuristic to filter blobs which can't be LFS pointers. The format of these pointers
 	// is described in https://github.com/git-lfs/git-lfs/blob/master/docs/spec.md#the-pointer.
 	lfsPointerMaxSize = 200
-
-	// lfsPointerSliceSize is the maximum number of LFSPointers to send at once.
-	lfsPointerSliceSize = 100
 )
 
 var (
 	errInvalidRevision = errors.New("invalid revision")
+	errLimitReached    = errors.New("limit reached")
 )
-
-type getLFSPointerByRevisionRequest interface {
-	GetRepository() *gitalypb.Repository
-	GetRevision() []byte
-}
 
 // ListLFSPointers finds all LFS pointers which are transitively reachable via a graph walk of the
 // given set of revisions.
@@ -50,21 +45,22 @@ func (s *server) ListLFSPointers(in *gitalypb.ListLFSPointersRequest, stream git
 		return status.Error(codes.InvalidArgument, "missing revisions")
 	}
 
-	repo := localrepo.New(s.gitCmdFactory, in.Repository, s.cfg)
-	lfsPointers, err := findLFSPointersByRevisions(ctx, repo, s.gitCmdFactory, int(in.Limit), in.Revisions...)
-	if err != nil {
+	chunker := chunk.New(&lfsPointerSender{
+		send: func(pointers []*gitalypb.LFSPointer) error {
+			return stream.Send(&gitalypb.ListLFSPointersResponse{
+				LfsPointers: pointers,
+			})
+		},
+	})
+
+	repo := s.localrepo(in.GetRepository())
+	if err := findLFSPointersByRevisions(ctx, repo, s.gitCmdFactory, chunker, int(in.Limit), in.Revisions...); err != nil {
 		if errors.Is(err, errInvalidRevision) {
 			return status.Errorf(codes.InvalidArgument, err.Error())
 		}
-		return err
-	}
-
-	if err := sliceLFSPointers(lfsPointers, func(slice []*gitalypb.LFSPointer) error {
-		return stream.Send(&gitalypb.ListLFSPointersResponse{
-			LfsPointers: slice,
-		})
-	}); err != nil {
-		return err
+		if !errors.Is(err, errLimitReached) {
+			return err
+		}
 	}
 
 	return nil
@@ -79,7 +75,7 @@ func (s *server) ListAllLFSPointers(in *gitalypb.ListAllLFSPointersRequest, stre
 		return status.Error(codes.InvalidArgument, "empty repository")
 	}
 
-	repo := localrepo.New(s.gitCmdFactory, in.Repository, s.cfg)
+	repo := s.localrepo(in.GetRepository())
 	cmd, err := repo.Exec(ctx, git.SubCmd{
 		Name: "cat-file",
 		Flags: []git.Option{
@@ -93,18 +89,22 @@ func (s *server) ListAllLFSPointers(in *gitalypb.ListAllLFSPointersRequest, stre
 		return status.Errorf(codes.Internal, "could not run batch-check: %v", err)
 	}
 
-	filteredReader := transform.NewReader(cmd, lfsPointerFilter{})
-	lfsPointers, err := readLFSPointers(ctx, repo, filteredReader, int(in.Limit))
-	if err != nil {
-		return status.Errorf(codes.Internal, "could not read LFS pointers: %v", err)
-	}
+	chunker := chunk.New(&lfsPointerSender{
+		send: func(pointers []*gitalypb.LFSPointer) error {
+			return stream.Send(&gitalypb.ListAllLFSPointersResponse{
+				LfsPointers: pointers,
+			})
+		},
+	})
 
-	if err := sliceLFSPointers(lfsPointers, func(slice []*gitalypb.LFSPointer) error {
-		return stream.Send(&gitalypb.ListAllLFSPointersResponse{
-			LfsPointers: slice,
-		})
-	}); err != nil {
-		return err
+	filteredReader := transform.NewReader(cmd, blobFilter{
+		maxSize: lfsPointerMaxSize,
+	})
+
+	if err := readLFSPointers(ctx, repo, chunker, filteredReader, int(in.Limit)); err != nil {
+		if !errors.Is(err, errLimitReached) {
+			return status.Errorf(codes.Internal, "could not read LFS pointers: %v", err)
+		}
 	}
 
 	return nil
@@ -120,21 +120,21 @@ func (s *server) GetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gita
 		return status.Errorf(codes.InvalidArgument, "GetLFSPointers: %v", err)
 	}
 
-	repo := localrepo.New(s.gitCmdFactory, req.Repository, s.cfg)
+	repo := s.localrepo(req.GetRepository())
 	objectIDs := strings.Join(req.BlobIds, "\n")
 
-	lfsPointers, err := readLFSPointers(ctx, repo, strings.NewReader(objectIDs), 0)
-	if err != nil {
-		return err
-	}
-
-	err = sliceLFSPointers(lfsPointers, func(slice []*gitalypb.LFSPointer) error {
-		return stream.Send(&gitalypb.GetLFSPointersResponse{
-			LfsPointers: slice,
-		})
+	chunker := chunk.New(&lfsPointerSender{
+		send: func(pointers []*gitalypb.LFSPointer) error {
+			return stream.Send(&gitalypb.GetLFSPointersResponse{
+				LfsPointers: pointers,
+			})
+		},
 	})
-	if err != nil {
-		return err
+
+	if err := readLFSPointers(ctx, repo, chunker, strings.NewReader(objectIDs), 0); err != nil {
+		if !errors.Is(err, errLimitReached) {
+			return err
+		}
 	}
 
 	return nil
@@ -152,106 +152,19 @@ func validateGetLFSPointersRequest(req *gitalypb.GetLFSPointersRequest) error {
 	return nil
 }
 
-// GetNewLFSPointers returns all LFS pointers which were newly introduced in a given revision,
-// excluding either all other existing refs or a set of provided refs. If NotInAll is set, then it
-// has precedence over NotInRefs.
-func (s *server) GetNewLFSPointers(in *gitalypb.GetNewLFSPointersRequest, stream gitalypb.BlobService_GetNewLFSPointersServer) error {
-	ctx := stream.Context()
-
-	if err := validateGetLfsPointersByRevisionRequest(in); err != nil {
-		return status.Errorf(codes.InvalidArgument, "GetNewLFSPointers: %v", err)
-	}
-
-	repo := localrepo.New(s.gitCmdFactory, in.Repository, s.cfg)
-
-	var refs []string
-	if in.NotInAll {
-		refs = []string{string(in.Revision), "--not", "--all"}
-	} else {
-		refs = []string{string(in.Revision), "--not"}
-		for _, notInRef := range in.NotInRefs {
-			refs = append(refs, string(notInRef))
-		}
-	}
-
-	lfsPointers, err := findLFSPointersByRevisions(ctx, repo, s.gitCmdFactory, int(in.Limit), refs...)
-	if err != nil {
-		if errors.Is(err, errInvalidRevision) {
-			return status.Errorf(codes.InvalidArgument, err.Error())
-		}
-		return err
-	}
-
-	err = sliceLFSPointers(lfsPointers, func(slice []*gitalypb.LFSPointer) error {
-		return stream.Send(&gitalypb.GetNewLFSPointersResponse{
-			LfsPointers: slice,
-		})
-	})
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func validateGetLfsPointersByRevisionRequest(in getLFSPointerByRevisionRequest) error {
-	if in.GetRepository() == nil {
-		return fmt.Errorf("empty Repository")
-	}
-
-	return git.ValidateRevision(in.GetRevision())
-}
-
-// GetAllLFSPointers returns all LFS pointers of the git repository which are reachable by any git
-// reference. LFS pointers are streamed back in batches of lfsPointerSliceSize.
-func (s *server) GetAllLFSPointers(in *gitalypb.GetAllLFSPointersRequest, stream gitalypb.BlobService_GetAllLFSPointersServer) error {
-	ctx := stream.Context()
-
-	if err := validateGetAllLFSPointersRequest(in); err != nil {
-		return status.Errorf(codes.InvalidArgument, "GetAllLFSPointers: %v", err)
-	}
-
-	repo := localrepo.New(s.gitCmdFactory, in.Repository, s.cfg)
-
-	lfsPointers, err := findLFSPointersByRevisions(ctx, repo, s.gitCmdFactory, 0, "--all")
-	if err != nil {
-		if errors.Is(err, errInvalidRevision) {
-			return status.Errorf(codes.InvalidArgument, err.Error())
-		}
-		return err
-	}
-
-	err = sliceLFSPointers(lfsPointers, func(slice []*gitalypb.LFSPointer) error {
-		return stream.Send(&gitalypb.GetAllLFSPointersResponse{
-			LfsPointers: slice,
-		})
-	})
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func validateGetAllLFSPointersRequest(in *gitalypb.GetAllLFSPointersRequest) error {
-	if in.GetRepository() == nil {
-		return fmt.Errorf("empty Repository")
-	}
-	return nil
-}
-
 // findLFSPointersByRevisions will return all LFS objects reachable via the given set of revisions.
 // Revisions accept all syntax supported by git-rev-list(1).
 func findLFSPointersByRevisions(
 	ctx context.Context,
 	repo *localrepo.Repo,
 	gitCmdFactory git.CommandFactory,
+	chunker *chunk.Chunker,
 	limit int,
 	revisions ...string,
-) (lfsPointers []*gitalypb.LFSPointer, returnErr error) {
+) (returnErr error) {
 	for _, revision := range revisions {
 		if strings.HasPrefix(revision, "-") && revision != "--all" && revision != "--not" {
-			return nil, fmt.Errorf("%w: %q", errInvalidRevision, revision)
+			return fmt.Errorf("%w: %q", errInvalidRevision, revision)
 		}
 	}
 
@@ -269,8 +182,9 @@ func findLFSPointersByRevisions(
 		Args: revisions,
 	}, git.WithStderr(&revListStderr))
 	if err != nil {
-		return nil, fmt.Errorf("could not execute rev-list: %w", err)
+		return fmt.Errorf("could not execute rev-list: %w", err)
 	}
+
 	defer func() {
 		// There is no way to properly determine whether the process has exited because of
 		// us signalling the context or because of any other means. We can only approximate
@@ -278,12 +192,11 @@ func findLFSPointersByRevisions(
 		// awful, but given that `Signaled()` status is also not accessible to us,
 		// it's the best we could do.
 		//
-		// Let's not do any of this, it's awful. Instead, we can simply check whether a
-		// limit was set and if the number of returned LFS pointers matches that limit. If
-		// so, we found all LFS pointers which the user requested and needn't bother whether
-		// git-rev-list(1) may have failed. So let's instead just have the RPCcontext cancel
-		// the process.
-		if limit > 0 && len(lfsPointers) == limit {
+		// Let's not do any of this, it's awful. Instead, we can simply check whether we
+		// have reached the limit. If so, we found all LFS pointers which the user requested
+		// and needn't bother whether git-rev-list(1) may have failed. So let's instead just
+		// have the RPCcontext cancel the process.
+		if errors.Is(returnErr, errLimitReached) {
 			return
 		}
 
@@ -293,7 +206,7 @@ func findLFSPointersByRevisions(
 		}
 	}()
 
-	return readLFSPointers(ctx, repo, revlist, limit)
+	return readLFSPointers(ctx, repo, chunker, revlist, limit)
 }
 
 // readLFSPointers reads object IDs of potential LFS pointers from the given reader and for each of
@@ -302,9 +215,16 @@ func findLFSPointersByRevisions(
 func readLFSPointers(
 	ctx context.Context,
 	repo *localrepo.Repo,
+	chunker *chunk.Chunker,
 	objectIDReader io.Reader,
 	limit int,
-) ([]*gitalypb.LFSPointer, error) {
+) (returnErr error) {
+	defer func() {
+		if err := chunker.Flush(); err != nil && returnErr == nil {
+			returnErr = err
+		}
+	}()
+
 	catfileBatch, err := repo.Exec(ctx, git.SubCmd{
 		Name: "cat-file",
 		Flags: []git.Option{
@@ -313,10 +233,10 @@ func readLFSPointers(
 		},
 	}, git.WithStdin(objectIDReader))
 	if err != nil {
-		return nil, fmt.Errorf("could not execute cat-file: %w", err)
+		return fmt.Errorf("could not execute cat-file: %w", err)
 	}
 
-	var lfsPointers []*gitalypb.LFSPointer
+	var pointersFound int
 	reader := bufio.NewReader(catfileBatch)
 	buf := &bytes.Buffer{}
 	for {
@@ -325,18 +245,18 @@ func readLFSPointers(
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			return nil, fmt.Errorf("could not get LFS pointer info: %w", err)
+			return fmt.Errorf("could not get LFS pointer info: %w", err)
 		}
 
 		// Avoid allocating bytes for an LFS pointer until we know the current
 		// blob really is an LFS pointer.
 		buf.Reset()
 		if _, err := io.CopyN(buf, reader, objectInfo.Size+1); err != nil {
-			return nil, fmt.Errorf("could not read LFS pointer candidate: %w", err)
+			return fmt.Errorf("could not read LFS pointer candidate: %w", err)
 		}
 		tempData := buf.Bytes()[:buf.Len()-1]
 
-		if objectInfo.Type != "blob" || !isLFSPointer(tempData) {
+		if objectInfo.Type != "blob" || !git.IsLFSPointer(tempData) {
 			continue
 		}
 
@@ -345,11 +265,15 @@ func readLFSPointers(
 		data := make([]byte, len(tempData))
 		copy(data, tempData)
 
-		lfsPointers = append(lfsPointers, &gitalypb.LFSPointer{
+		if err := chunker.Send(&gitalypb.LFSPointer{
 			Data: data,
 			Size: int64(len(data)),
 			Oid:  objectInfo.Oid.String(),
-		})
+		}); err != nil {
+			return fmt.Errorf("sending LFS pointer chunk: %w", err)
+		}
+
+		pointersFound++
 
 		// Exit early in case we've got all LFS pointers. We want to do this here instead of
 		// just terminating the loop because we need to check git-cat-file(1)'s exit code in
@@ -357,45 +281,31 @@ func readLFSPointers(
 		// though: we don't care for successful termination of the command, we only care
 		// that we've got all pointers. The command is then getting cancelled via the
 		// parent's context.
-		if limit > 0 && len(lfsPointers) >= limit {
-			return lfsPointers, nil
+		if limit > 0 && pointersFound >= limit {
+			return errLimitReached
 		}
 	}
 
 	if err := catfileBatch.Wait(); err != nil {
-		return nil, err
+		return nil
 	}
 
-	return lfsPointers, nil
+	return nil
 }
 
-// isLFSPointer determines whether the given blob contents are an LFS pointer or not.
-func isLFSPointer(data []byte) bool {
-	// TODO: this is incomplete as it does not recognize pre-release version of LFS blobs with
-	// the "https://hawser.github.com/spec/v1" version. For compatibility with the Ruby RPC, we
-	// leave this as-is for now though.
-	return bytes.HasPrefix(data, []byte("version https://git-lfs.github.com/spec"))
+type lfsPointerSender struct {
+	pointers []*gitalypb.LFSPointer
+	send     func([]*gitalypb.LFSPointer) error
 }
 
-// sliceLFSPointers slices the given pointers into subsets of slices with at most
-// lfsPointerSliceSize many pointers and executes the given fallback function. If the callback
-// returns an error, slicing is aborted and the error is returned verbosely.
-func sliceLFSPointers(pointers []*gitalypb.LFSPointer, fn func([]*gitalypb.LFSPointer) error) error {
-	chunkSize := lfsPointerSliceSize
+func (t *lfsPointerSender) Reset() {
+	t.pointers = t.pointers[:0]
+}
 
-	for {
-		if len(pointers) == 0 {
-			return nil
-		}
+func (t *lfsPointerSender) Append(m proto.Message) {
+	t.pointers = append(t.pointers, m.(*gitalypb.LFSPointer))
+}
 
-		if len(pointers) < chunkSize {
-			chunkSize = len(pointers)
-		}
-
-		if err := fn(pointers[:chunkSize]); err != nil {
-			return err
-		}
-
-		pointers = pointers[chunkSize:]
-	}
+func (t *lfsPointerSender) Send() error {
+	return t.send(t.pointers)
 }

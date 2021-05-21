@@ -16,7 +16,9 @@ import (
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
 	gitalylog "gitlab.com/gitlab-org/gitaly/internal/gitaly/config/log"
@@ -26,6 +28,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/gitlab"
 	praefectconfig "gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -201,7 +204,12 @@ func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, regi
 	deps := gsd.createDependencies(t, cfg, rubyServer)
 	t.Cleanup(func() { gsd.conns.Close() })
 
-	srv, err := server.New(cfg.TLS.CertPath != "" && cfg.TLS.KeyPath != "", cfg, gsd.logger.WithField("test", t.Name()), deps.GetBackchannelRegistry())
+	srv, err := server.NewGitalyServerFactory(
+		cfg,
+		gsd.logger.WithField("test", t.Name()),
+		deps.GetBackchannelRegistry(),
+		deps.GetDiskCache(),
+	).CreateExternal(cfg.TLS.CertPath != "" && cfg.TLS.KeyPath != "")
 	require.NoError(t, err)
 	t.Cleanup(srv.Stop)
 
@@ -264,10 +272,12 @@ type gitalyServerDeps struct {
 	locator         storage.Locator
 	txMgr           transaction.Manager
 	hookMgr         hook.Manager
-	gitlabAPI       hook.GitlabAPI
+	gitlabClient    gitlab.Client
 	gitCmdFactory   git.CommandFactory
 	linguist        *linguist.Instance
 	backchannelReg  *backchannel.Registry
+	catfileCache    catfile.Cache
+	diskCache       *cache.Cache
 }
 
 func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server) *service.Dependencies {
@@ -283,8 +293,8 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 		gsd.locator = config.NewLocator(cfg)
 	}
 
-	if gsd.gitlabAPI == nil {
-		gsd.gitlabAPI = hook.GitlabAPIStub
+	if gsd.gitlabClient == nil {
+		gsd.gitlabClient = gitlab.NewMockClient()
 	}
 
 	if gsd.backchannelReg == nil {
@@ -296,7 +306,7 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 	}
 
 	if gsd.hookMgr == nil {
-		gsd.hookMgr = hook.NewManager(gsd.locator, gsd.txMgr, gsd.gitlabAPI, cfg)
+		gsd.hookMgr = hook.NewManager(gsd.locator, gsd.txMgr, gsd.gitlabClient, cfg)
 	}
 
 	if gsd.gitCmdFactory == nil {
@@ -309,6 +319,14 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 		require.NoError(t, err)
 	}
 
+	if gsd.catfileCache == nil {
+		gsd.catfileCache = catfile.NewCache(cfg)
+	}
+
+	if gsd.diskCache == nil {
+		gsd.diskCache = cache.New(cfg, gsd.locator)
+	}
+
 	return &service.Dependencies{
 		Cfg:                 cfg,
 		RubyServer:          rubyServer,
@@ -319,7 +337,9 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 		GitCmdFactory:       gsd.gitCmdFactory,
 		Linguist:            gsd.linguist,
 		BackchannelRegistry: gsd.backchannelReg,
-		GitlabAPI:           gsd.gitlabAPI,
+		GitlabClient:        gsd.gitlabClient,
+		CatfileCache:        gsd.catfileCache,
+		DiskCache:           gsd.diskCache,
 	}
 }
 
@@ -342,10 +362,10 @@ func WithLocator(locator storage.Locator) GitalyServerOpt {
 	}
 }
 
-// WithGitLabAPI sets hook.GitlabAPI instance that will be used for gitaly services initialisation.
-func WithGitLabAPI(gitlabAPI hook.GitlabAPI) GitalyServerOpt {
+// WithGitLabClient sets gitlab.Client instance that will be used for gitaly services initialisation.
+func WithGitLabClient(gitlabClient gitlab.Client) GitalyServerOpt {
 	return func(deps gitalyServerDeps) gitalyServerDeps {
-		deps.gitlabAPI = gitlabAPI
+		deps.gitlabClient = gitlabClient
 		return deps
 	}
 }
@@ -378,6 +398,14 @@ func WithDisablePraefect() GitalyServerOpt {
 func WithBackchannelRegistry(backchannelReg *backchannel.Registry) GitalyServerOpt {
 	return func(deps gitalyServerDeps) gitalyServerDeps {
 		deps.backchannelReg = backchannelReg
+		return deps
+	}
+}
+
+// WithCatfileCache sets catfile.Cache instance that will be used for gitaly services initialisation.
+func WithCatfileCache(catfileCache catfile.Cache) GitalyServerOpt {
+	return func(deps gitalyServerDeps) gitalyServerDeps {
+		deps.catfileCache = catfileCache
 		return deps
 	}
 }

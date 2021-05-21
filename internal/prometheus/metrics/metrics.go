@@ -21,6 +21,9 @@ type Histogram interface {
 	Observe(float64)
 }
 
+// HistogramVec is a subset of a prometheus HistogramVec
 type HistogramVec interface {
 	WithLabelValues(lvs ...string) prometheus.Observer
+	Collect(chan<- prometheus.Metric)
+	Describe(chan<- *prometheus.Desc)
 }

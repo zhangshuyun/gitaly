@@ -17,11 +17,8 @@ func TestStorageDiskStatistics(t *testing.T) {
 
 	cfg.Storages = append(cfg.Storages, config.Storage{Name: "broken", Path: "/does/not/exist"})
 
-	server, serverSocketPath := runServer(t, cfg)
-	defer server.Stop()
-
-	client, conn := newServerClient(t, serverSocketPath)
-	defer conn.Close()
+	addr := runServer(t, cfg)
+	client := newServerClient(t, addr)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -53,7 +50,7 @@ func getSpaceStats(t *testing.T, path string) (available int64, used int64) {
 	require.NoError(t, err)
 
 	// Redundant conversions to handle differences between unix families
-	available = int64(stats.Bavail) * int64(stats.Bsize)                   //nolint:unconvert
-	used = (int64(stats.Blocks) - int64(stats.Bfree)) * int64(stats.Bsize) //nolint:unconvert
+	available = int64(stats.Bavail) * int64(stats.Bsize)                   //nolint:unconvert,nolintlint
+	used = (int64(stats.Blocks) - int64(stats.Bfree)) * int64(stats.Bsize) //nolint:unconvert,nolintlint
 	return
 }

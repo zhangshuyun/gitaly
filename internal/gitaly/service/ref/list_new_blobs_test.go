@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -15,10 +16,10 @@ func TestListNewBlobs(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, repo, repoPath, client := setupRefService(t)
+	cfg, repo, repoPath, client := setupRefService(t)
 
 	oid := "ab2c9622c02288a2bbaaf35d96088cfdff31d9d9"
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "-D", "gitaly-diff-stuff")
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", "-D", "gitaly-diff-stuff")
 
 	testCases := []struct {
 		revision     string

@@ -15,13 +15,14 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/prometheus"
+	"gitlab.com/gitlab-org/gitaly/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
@@ -132,10 +133,10 @@ func TestPreReceiveHook_GitlabAPIAccess(t *testing.T) {
 		SecretFile: secretFilePath,
 	}
 
-	gitlabAPI, err := gitalyhook.NewGitlabAPI(gitlabConfig, cfg.TLS)
+	gitlabClient, err := gitlab.NewHTTPClient(gitlabConfig, cfg.TLS, prometheus.Config{})
 	require.NoError(t, err)
 
-	serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabAPI(gitlabAPI))
+	serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
 
 	client, conn := newHooksClient(t, serverSocketPath)
 	defer conn.Close()
@@ -248,10 +249,10 @@ func TestPreReceive_APIErrors(t *testing.T) {
 				SecretFile: secretFilePath,
 			}
 
-			gitlabAPI, err := gitalyhook.NewGitlabAPI(gitlabConfig, cfg.TLS)
+			gitlabClient, err := gitlab.NewHTTPClient(gitlabConfig, cfg.TLS, prometheus.Config{})
 			require.NoError(t, err)
 
-			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabAPI(gitlabAPI))
+			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
 
 			client, conn := newHooksClient(t, serverSocketPath)
 			defer conn.Close()
@@ -321,10 +322,10 @@ exit %d
 		SecretFile: secretFilePath,
 	}
 
-	gitlabAPI, err := gitalyhook.NewGitlabAPI(gitlabConfig, cfg.TLS)
+	gitlabClient, err := gitlab.NewHTTPClient(gitlabConfig, cfg.TLS, prometheus.Config{})
 	require.NoError(t, err)
 
-	serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabAPI(gitlabAPI))
+	serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
 
 	client, conn := newHooksClient(t, serverSocketPath)
 	defer conn.Close()
@@ -430,7 +431,7 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 
 	for i, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], fmt.Sprintf("repo-%d", i))
+			testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], fmt.Sprintf("repo-%d", i))
 			defer cleanupFn()
 
 			mux := http.NewServeMux()
@@ -446,13 +447,13 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 
 			gittest.WriteCustomHook(t, testRepoPath, "pre-receive", []byte(fmt.Sprintf("#!/bin/bash\nexit %d", tc.hookExitCode)))
 
-			gitlabAPI, err := gitalyhook.NewGitlabAPI(config.Gitlab{
+			gitlabClient, err := gitlab.NewHTTPClient(config.Gitlab{
 				URL:        srv.URL,
 				SecretFile: secretFilePath,
-			}, cfg.TLS)
+			}, cfg.TLS, prometheus.Config{})
 			require.NoError(t, err)
 
-			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabAPI(gitlabAPI))
+			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
 
 			client, conn := newHooksClient(t, serverSocketPath)
 			defer conn.Close()
@@ -463,12 +464,12 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 			hooksPayload, err := git.NewHooksPayload(
 				cfg,
 				testRepo,
-				&metadata.Transaction{
+				&txinfo.Transaction{
 					ID:      1234,
 					Node:    "node-1",
 					Primary: tc.primary,
 				},
-				&metadata.PraefectServer{
+				&txinfo.PraefectServer{
 					SocketPath: "/path/to/socket",
 					Token:      "secret",
 				},

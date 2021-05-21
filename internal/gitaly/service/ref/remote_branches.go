@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -23,6 +22,8 @@ func (s *server) FindAllRemoteBranches(req *gitalypb.FindAllRemoteBranchesReques
 }
 
 func (s *server) findAllRemoteBranches(req *gitalypb.FindAllRemoteBranchesRequest, stream gitalypb.RefService_FindAllRemoteBranchesServer) error {
+	repo := s.localrepo(req.GetRepository())
+
 	args := []git.Option{
 		git.Flag{Name: "--format=" + strings.Join(localBranchFormatFields, "%00")},
 	}
@@ -30,7 +31,7 @@ func (s *server) findAllRemoteBranches(req *gitalypb.FindAllRemoteBranchesReques
 	patterns := []string{"refs/remotes/" + req.GetRemoteName()}
 
 	ctx := stream.Context()
-	c, err := catfile.New(ctx, s.gitCmdFactory, req.GetRepository())
+	c, err := s.catfileCache.BatchProcess(ctx, repo)
 	if err != nil {
 		return err
 	}
@@ -39,7 +40,7 @@ func (s *server) findAllRemoteBranches(req *gitalypb.FindAllRemoteBranchesReques
 	opts.cmdArgs = args
 	writer := newFindAllRemoteBranchesWriter(stream, c)
 
-	return s.findRefs(ctx, writer, req.GetRepository(), patterns, opts)
+	return s.findRefs(ctx, writer, repo, patterns, opts)
 }
 
 func validateFindAllRemoteBranchesRequest(req *gitalypb.FindAllRemoteBranchesRequest) error {

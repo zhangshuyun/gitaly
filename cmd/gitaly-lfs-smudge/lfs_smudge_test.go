@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -33,8 +32,8 @@ size 177735`
 	glRepository = "project-1"
 	secretToken  = "topsecret"
 	testData     = "hello world"
-	certPath     = "../../internal/gitaly/hook/testdata/certs/server.crt"
-	keyPath      = "../../internal/gitaly/hook/testdata/certs/server.key"
+	certPath     = "../../internal/gitlab/testdata/certs/server.crt"
+	keyPath      = "../../internal/gitlab/testdata/certs/server.key"
 )
 
 var (
@@ -134,7 +133,7 @@ func TestSuccessfulLfsSmudge(t *testing.T) {
 			logFilename := filepath.Join(tmpDir, "gitaly_lfs_smudge.log")
 			require.FileExists(t, logFilename)
 
-			data, err := ioutil.ReadFile(logFilename)
+			data := testhelper.MustReadFile(t, logFilename)
 			require.NoError(t, err)
 			d := string(data)
 
@@ -256,8 +255,7 @@ func TestUnsuccessfulLfsSmudge(t *testing.T) {
 			logFilename := filepath.Join(tmpDir, "gitaly_lfs_smudge.log")
 			require.FileExists(t, logFilename)
 
-			data, err := ioutil.ReadFile(logFilename)
-			require.NoError(t, err)
+			data := testhelper.MustReadFile(t, logFilename)
 
 			if tc.expectedLogMessage != "" {
 				require.Contains(t, string(data), tc.expectedLogMessage)

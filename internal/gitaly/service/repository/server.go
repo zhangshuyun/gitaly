@@ -3,6 +3,9 @@ package repository
 import (
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
@@ -19,6 +22,7 @@ type server struct {
 	cfg           config.Cfg
 	binDir        string
 	loggingCfg    config.Logging
+	catfileCache  catfile.Cache
 }
 
 // NewServer creates a new instance of a gRPC repo server
@@ -28,6 +32,7 @@ func NewServer(
 	locator storage.Locator,
 	txManager transaction.Manager,
 	gitCmdFactory git.CommandFactory,
+	catfileCache catfile.Cache,
 ) gitalypb.RepositoryServiceServer {
 	return &server{
 		ruby:          rs,
@@ -38,8 +43,13 @@ func NewServer(
 			client.WithDialer(client.HealthCheckDialer(client.DialContext)),
 			client.WithDialOptions(client.FailOnNonTempDialError()...),
 		),
-		cfg:        cfg,
-		binDir:     cfg.BinDir,
-		loggingCfg: cfg.Logging,
+		cfg:          cfg,
+		binDir:       cfg.BinDir,
+		loggingCfg:   cfg.Logging,
+		catfileCache: catfileCache,
 	}
+}
+
+func (s *server) localrepo(repo repository.GitRepo) *localrepo.Repo {
+	return localrepo.New(s.gitCmdFactory, s.catfileCache, repo, s.cfg)
 }

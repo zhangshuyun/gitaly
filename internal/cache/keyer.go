@@ -39,56 +39,24 @@ var (
 	ErrPendingExists = errors.New("one or more cache generations are pending transition for the current repository")
 )
 
-// Keyer abstracts how to obtain a unique file path key for a request at a
-// specific generation of the cache. The key path will magically update as new
-// critical sections are declared. An error will be returned if the repo's cache
-// has any open critical sections.
-type Keyer interface {
-	// KeyPath will return a key filepath for the provided request. If an error
-	// is returned, the cache should not be used.
-	KeyPath(context.Context, *gitalypb.Repository, proto.Message) (string, error)
-}
-
-// LeaseKeyer will try to return a key path for the current generation of
+// leaseKeyer will try to return a key path for the current generation of
 // the repo's cache. It uses a strategy that avoids file locks in favor of
-// atomically created/renamed files. Read more about LeaseKeyer's design:
+// atomically created/renamed files. Read more about leaseKeyer's design:
 // https://gitlab.com/gitlab-org/gitaly/issues/1745
-type LeaseKeyer struct {
-	locator storage.Locator
+type leaseKeyer struct {
+	locator  storage.Locator
+	countErr func(error) error
 }
 
-// NewLeaseKeyer initializes a new LeaseKeyer
-func NewLeaseKeyer(locator storage.Locator) LeaseKeyer {
-	return LeaseKeyer{
-		locator: locator,
+// newLeaseKeyer initializes a new leaseKeyer
+func newLeaseKeyer(locator storage.Locator, countErr func(error) error) leaseKeyer {
+	return leaseKeyer{
+		locator:  locator,
+		countErr: countErr,
 	}
 }
 
-type lease struct {
-	pendingPath string
-	repo        *gitalypb.Repository
-	keyer       LeaseKeyer
-}
-
-// EndLease will end the lease by removing the pending lease file and updating
-// the key file with the current lease ID.
-func (l lease) EndLease(ctx context.Context) error {
-	_, err := l.keyer.updateLatest(ctx, l.repo)
-	if err != nil {
-		return err
-	}
-
-	if err := os.Remove(l.pendingPath); err != nil {
-		if os.IsNotExist(err) {
-			return countErr(ErrMissingLeaseFile)
-		}
-		return err
-	}
-
-	return nil
-}
-
-func (keyer LeaseKeyer) updateLatest(ctx context.Context, repo *gitalypb.Repository) (string, error) {
+func (keyer leaseKeyer) updateLatest(ctx context.Context, repo *gitalypb.Repository) (string, error) {
 	repoStatePath, err := keyer.getRepoStatePath(repo)
 	if err != nil {
 		return "", err
@@ -125,35 +93,13 @@ func (keyer LeaseKeyer) updateLatest(ctx context.Context, repo *gitalypb.Reposit
 	return nextGenID, nil
 }
 
-// LeaseEnder allows the caller to indicate when a lease is no longer needed
-type LeaseEnder interface {
-	EndLease(context.Context) error
-}
-
-// StartLease will mark the repository as being in an indeterministic state.
-// This is typically used when modifying the repo, since the cache is not
-// stable until after the modification is complete. A lease object will be
-// returned that allows the caller to signal the end of the lease.
-func (keyer LeaseKeyer) StartLease(repo *gitalypb.Repository) (LeaseEnder, error) {
-	pendingPath, err := keyer.newPendingLease(repo)
-	if err != nil {
-		return lease{}, err
-	}
-
-	return lease{
-		pendingPath: pendingPath,
-		repo:        repo,
-		keyer:       keyer,
-	}, nil
-}
-
 // staleAge is how old we consider a pending file to be stale before removal
 const staleAge = time.Hour
 
-// KeyPath will attempt to return the unique keypath for a request in the
+// keyPath will attempt to return the unique keypath for a request in the
 // specified repo for the current generation. The context must contain the gRPC
 // method in its values.
-func (keyer LeaseKeyer) KeyPath(ctx context.Context, repo *gitalypb.Repository, req proto.Message) (string, error) {
+func (keyer leaseKeyer) keyPath(ctx context.Context, repo *gitalypb.Repository, req proto.Message) (string, error) {
 	pending, err := keyer.currentLeases(repo)
 	if err != nil {
 		return "", err
@@ -179,7 +125,7 @@ func (keyer LeaseKeyer) KeyPath(ctx context.Context, repo *gitalypb.Repository, 
 	}
 
 	if anyValidPending {
-		return "", countErr(ErrPendingExists)
+		return "", keyer.countErr(ErrPendingExists)
 	}
 
 	genID, err := keyer.currentGenID(ctx, repo)
@@ -207,7 +153,7 @@ func radixPath(root, key string) (string, error) {
 	return filepath.Join(root, key[0:2], key[2:]), nil
 }
 
-func (keyer LeaseKeyer) newPendingLease(repo *gitalypb.Repository) (string, error) {
+func (keyer leaseKeyer) newPendingLease(repo *gitalypb.Repository) (string, error) {
 	repoStatePath, err := keyer.getRepoStatePath(repo)
 	if err != nil {
 		return "", err
@@ -237,7 +183,7 @@ func (keyer LeaseKeyer) newPendingLease(repo *gitalypb.Repository) (string, erro
 }
 
 // cacheDir is $STORAGE/+gitaly/cache
-func (keyer LeaseKeyer) cacheDir(repo *gitalypb.Repository) (string, error) {
+func (keyer leaseKeyer) cacheDir(repo *gitalypb.Repository) (string, error) {
 	storagePath, err := keyer.locator.GetStorageByName(repo.StorageName)
 	if err != nil {
 		return "", fmt.Errorf("storage not found for %v", repo)
@@ -246,7 +192,7 @@ func (keyer LeaseKeyer) cacheDir(repo *gitalypb.Repository) (string, error) {
 	return tempdir.AppendCacheDir(storagePath), nil
 }
 
-func (keyer LeaseKeyer) getRepoStatePath(repo *gitalypb.Repository) (string, error) {
+func (keyer leaseKeyer) getRepoStatePath(repo *gitalypb.Repository) (string, error) {
 	storagePath, err := keyer.locator.GetStorageByName(repo.StorageName)
 	if err != nil {
 		return "", fmt.Errorf("getRepoStatePath: storage not found for %v", repo)
@@ -266,7 +212,7 @@ func (keyer LeaseKeyer) getRepoStatePath(repo *gitalypb.Repository) (string, err
 	return filepath.Join(stateDir, relativePath), nil
 }
 
-func (keyer LeaseKeyer) currentLeases(repo *gitalypb.Repository) ([]os.FileInfo, error) {
+func (keyer leaseKeyer) currentLeases(repo *gitalypb.Repository) ([]os.FileInfo, error) {
 	repoStatePath, err := keyer.getRepoStatePath(repo)
 	if err != nil {
 		return nil, err
@@ -286,7 +232,7 @@ func (keyer LeaseKeyer) currentLeases(repo *gitalypb.Repository) ([]os.FileInfo,
 	return pendings, nil
 }
 
-func (keyer LeaseKeyer) currentGenID(ctx context.Context, repo *gitalypb.Repository) (string, error) {
+func (keyer leaseKeyer) currentGenID(ctx context.Context, repo *gitalypb.Repository) (string, error) {
 	repoStatePath, err := keyer.getRepoStatePath(repo)
 	if err != nil {
 		return "", err

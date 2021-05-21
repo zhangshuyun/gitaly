@@ -24,17 +24,17 @@ func TestSuccessfulCreateBundleRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	// create a work tree with a HEAD pointing to a commit that is missing.
-	// CreateBundle should clean this up before creating the bundle
-	sha, branchName := gittest.CreateCommitOnNewBranch(t, cfg, repoPath)
+	// Create a work tree with a HEAD pointing to a commit that is missing. CreateBundle should
+	// clean this up before creating the bundle.
+	sha := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
 
 	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "gitlab-worktree"), 0755))
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "worktree", "add", "gitlab-worktree/worktree1", sha)
+	gittest.Exec(t, cfg, "-C", repoPath, "worktree", "add", "gitlab-worktree/worktree1", sha.String())
 	require.NoError(t, os.Chtimes(filepath.Join(repoPath, "gitlab-worktree", "worktree1"), time.Now().Add(-7*time.Hour), time.Now().Add(-7*time.Hour)))
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "-D", branchName)
-	require.NoError(t, os.Remove(filepath.Join(repoPath, "objects", sha[0:2], sha[2:])))
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", "-D", "branch")
+	require.NoError(t, os.Remove(filepath.Join(repoPath, "objects", sha.String()[0:2], sha.String()[2:])))
 
 	request := &gitalypb.CreateBundleRequest{Repository: repo}
 
@@ -56,7 +56,7 @@ func TestSuccessfulCreateBundleRequest(t *testing.T) {
 	_, err = io.Copy(dstFile, reader)
 	require.NoError(t, err)
 
-	output := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "bundle", "verify", dstFile.Name())
+	output := gittest.Exec(t, cfg, "-C", repoPath, "bundle", "verify", dstFile.Name())
 	// Extra sanity; running verify should fail on bad bundles
 	require.Contains(t, string(output), "The bundle records a complete history")
 }

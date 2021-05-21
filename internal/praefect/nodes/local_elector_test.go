@@ -12,9 +12,9 @@ import (
 	"google.golang.org/grpc"
 )
 
-func setupElector(t *testing.T) (*localElector, []*nodeStatus, *grpc.ClientConn, *grpc.Server) {
+func setupElector(t *testing.T) (*localElector, []*nodeStatus, *grpc.ClientConn) {
 	socket := testhelper.GetTemporaryGitalySocketFileName(t)
-	svr, _ := testhelper.NewServerWithHealth(t, socket)
+	testhelper.NewServerWithHealth(t, socket)
 
 	cc, err := grpc.Dial(
 		"unix://"+socket,
@@ -34,12 +34,11 @@ func setupElector(t *testing.T) (*localElector, []*nodeStatus, *grpc.ClientConn,
 
 	strategy.bootstrap(time.Second)
 
-	return strategy, ns, cc, svr
+	return strategy, ns, cc
 }
 
 func TestGetShard(t *testing.T) {
-	strategy, ns, _, svr := setupElector(t)
-	defer svr.Stop()
+	strategy, ns, _ := setupElector(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -52,8 +51,7 @@ func TestGetShard(t *testing.T) {
 }
 
 func TestConcurrentCheckWithPrimary(t *testing.T) {
-	strategy, ns, _, svr := setupElector(t)
-	defer svr.Stop()
+	strategy, ns, _ := setupElector(t)
 
 	iterations := 10
 	var wg sync.WaitGroup

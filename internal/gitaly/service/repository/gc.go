@@ -26,7 +26,7 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 		"WriteBitmaps": in.GetCreateBitmap(),
 	}).Debug("GarbageCollect")
 
-	repo := localrepo.New(s.gitCmdFactory, in.GetRepository(), s.cfg)
+	repo := s.localrepo(in.GetRepository())
 
 	if err := s.cleanupRepo(ctx, repo); err != nil {
 		return nil, err
@@ -36,23 +36,17 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 		return nil, err
 	}
 
+	// Perform housekeeping to cleanup stale lockfiles that may block GC
+	if err := housekeeping.Perform(ctx, repo); err != nil {
+		ctxlogger.WithError(err).Warn("Pre gc housekeeping failed")
+	}
+
 	if err := s.gc(ctx, in); err != nil {
 		return nil, err
 	}
 
-	if err := s.configureCommitGraph(ctx, in); err != nil {
+	if err := s.writeCommitGraph(ctx, repo, gitalypb.WriteCommitGraphRequest_SizeMultiple); err != nil {
 		return nil, err
-	}
-
-	if err := s.writeCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
-		Repository: in.GetRepository(),
-	}); err != nil {
-		return nil, err
-	}
-
-	// Perform housekeeping post GC
-	if err := housekeeping.Perform(ctx, repo); err != nil {
-		ctxlogger.WithError(err).Warn("Post gc housekeeping failed")
 	}
 
 	stats.LogObjectsInfo(ctx, s.gitCmdFactory, repo)
@@ -61,7 +55,7 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 }
 
 func (s *server) gc(ctx context.Context, in *gitalypb.GarbageCollectRequest) error {
-	config := repackConfig(ctx, in.CreateBitmap)
+	config := append(repackConfig(ctx, in.CreateBitmap), git.ConfigPair{Key: "gc.writeCommitGraph", Value: "false"})
 
 	var flags []git.Option
 	if in.Prune {
@@ -91,35 +85,13 @@ func (s *server) gc(ctx context.Context, in *gitalypb.GarbageCollectRequest) err
 	return nil
 }
 
-func (s *server) configureCommitGraph(ctx context.Context, in *gitalypb.GarbageCollectRequest) error {
-	cmd, err := s.gitCmdFactory.New(ctx, in.GetRepository(), git.SubCmd{
-		Name: "config",
-		Flags: []git.Option{
-			git.ConfigPair{Key: "core.commitGraph", Value: "true"},
-		},
-	})
-	if err != nil {
-		if _, ok := status.FromError(err); ok {
-			return err
-		}
-
-		return helper.ErrInternal(fmt.Errorf("GarbageCollect: config gitCommand: %v", err))
-	}
-
-	if err := cmd.Wait(); err != nil {
-		return helper.ErrInternal(fmt.Errorf("GarbageCollect: config cmd wait: %v", err))
-	}
-
-	return nil
-}
-
 func (s *server) cleanupKeepArounds(ctx context.Context, repo *localrepo.Repo) error {
 	repoPath, err := repo.Path()
 	if err != nil {
 		return nil
 	}
 
-	batch, err := catfile.New(ctx, s.gitCmdFactory, repo)
+	batch, err := s.catfileCache.BatchProcess(ctx, repo)
 	if err != nil {
 		return nil
 	}

@@ -268,6 +268,32 @@ func TestWithConfig(t *testing.T) {
 	}
 }
 
+func TestExecCommandFactoryGitalyConfigOverrides(t *testing.T) {
+	var cfg config.Cfg
+	require.NoError(t, cfg.SetGitPath())
+
+	cfg.Git.Config = []config.GitConfig{
+		{Key: "foo.bar", Value: "from-gitaly-config"},
+	}
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	var stdout bytes.Buffer
+	cmd, err := NewExecCommandFactory(cfg).NewWithoutRepo(ctx,
+		SubCmd{
+			Name: "config",
+			Args: []string{"foo.bar"},
+		},
+		WithStdout(&stdout),
+		WithConfig(ConfigPair{Key: "foo.bar", Value: "from-config-option"}),
+		WithConfigEnv(ConfigPair{Key: "foo.bar", Value: "from-config-env"}),
+	)
+	require.NoError(t, err)
+	require.NoError(t, cmd.Wait())
+	require.Equal(t, "from-gitaly-config\n", stdout.String())
+}
+
 func TestWithConfigEnv(t *testing.T) {
 	var cfg config.Cfg
 	require.NoError(t, cfg.SetGitPath())

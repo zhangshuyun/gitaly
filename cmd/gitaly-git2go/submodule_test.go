@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
@@ -27,8 +28,8 @@ func TestSubmodule(t *testing.T) {
 		{
 			desc: "Update submodule",
 			command: git2go.SubmoduleCommand{
-				AuthorName: string(testhelper.TestUser.Name),
-				AuthorMail: string(testhelper.TestUser.Email),
+				AuthorName: string(gittest.TestUser.Name),
+				AuthorMail: string(gittest.TestUser.Email),
 				Message:    string(commitMessage),
 				CommitSHA:  "41fa1bc9e0f0630ced6a8a211d60c2af425ecc2d",
 				Submodule:  "gitlab-grack",
@@ -38,8 +39,8 @@ func TestSubmodule(t *testing.T) {
 		{
 			desc: "Update submodule inside folder",
 			command: git2go.SubmoduleCommand{
-				AuthorName: string(testhelper.TestUser.Name),
-				AuthorMail: string(testhelper.TestUser.Email),
+				AuthorName: string(gittest.TestUser.Name),
+				AuthorMail: string(gittest.TestUser.Email),
 				Message:    string(commitMessage),
 				CommitSHA:  "e25eda1fece24ac7a03624ed1320f82396f35bd8",
 				Submodule:  "test_inside_folder/another_folder/six",
@@ -49,8 +50,8 @@ func TestSubmodule(t *testing.T) {
 		{
 			desc: "Invalid branch",
 			command: git2go.SubmoduleCommand{
-				AuthorName: string(testhelper.TestUser.Name),
-				AuthorMail: string(testhelper.TestUser.Email),
+				AuthorName: string(gittest.TestUser.Name),
+				AuthorMail: string(gittest.TestUser.Email),
 				Message:    string(commitMessage),
 				CommitSHA:  "e25eda1fece24ac7a03624ed1320f82396f35bd8",
 				Submodule:  "test_inside_folder/another_folder/six",
@@ -61,8 +62,8 @@ func TestSubmodule(t *testing.T) {
 		{
 			desc: "Invalid submodule",
 			command: git2go.SubmoduleCommand{
-				AuthorName: string(testhelper.TestUser.Name),
-				AuthorMail: string(testhelper.TestUser.Email),
+				AuthorName: string(gittest.TestUser.Name),
+				AuthorMail: string(gittest.TestUser.Email),
 				Message:    string(commitMessage),
 				CommitSHA:  "e25eda1fece24ac7a03624ed1320f82396f35bd8",
 				Submodule:  "non-existent-submodule",
@@ -73,8 +74,8 @@ func TestSubmodule(t *testing.T) {
 		{
 			desc: "Duplicate reference",
 			command: git2go.SubmoduleCommand{
-				AuthorName: string(testhelper.TestUser.Name),
-				AuthorMail: string(testhelper.TestUser.Email),
+				AuthorName: string(gittest.TestUser.Name),
+				AuthorMail: string(gittest.TestUser.Email),
 				Message:    string(commitMessage),
 				CommitSHA:  "409f37c4f05865e4fb208c771485f211a22c4c2d",
 				Submodule:  "six",
@@ -88,7 +89,7 @@ func TestSubmodule(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 			testhelper.ConfigureGitalyGit2GoBin(t, cfg)
-			repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 			tc.command.Repository = repoPath
 
@@ -105,14 +106,13 @@ func TestSubmodule(t *testing.T) {
 
 			commit, err := repo.ReadCommit(ctx, git.Revision(response.CommitID))
 			require.NoError(t, err)
-			require.Equal(t, commit.Author.Email, testhelper.TestUser.Email)
-			require.Equal(t, commit.Committer.Email, testhelper.TestUser.Email)
+			require.Equal(t, commit.Author.Email, gittest.TestUser.Email)
+			require.Equal(t, commit.Committer.Email, gittest.TestUser.Email)
 			require.Equal(t, commit.Subject, commitMessage)
 
-			entry := testhelper.MustRunCommand(
+			entry := gittest.Exec(
 				t,
-				nil,
-				"git",
+				cfg,
 				"-C",
 				repoPath,
 				"ls-tree",

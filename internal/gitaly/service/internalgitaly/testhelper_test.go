@@ -1,14 +1,16 @@
 package internalgitaly
 
 import (
-	"net"
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 )
 
 func TestMain(m *testing.M) {
@@ -22,31 +24,13 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func runInternalGitalyServer(t *testing.T, srv gitalypb.InternalGitalyServer) (*grpc.Server, string) {
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
-	grpcServer := testhelper.NewTestGrpcServer(t, nil, nil)
+func setupInternalGitalyService(t *testing.T, cfg config.Cfg, internalService gitalypb.InternalGitalyServer) gitalypb.InternalGitalyClient {
+	add := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterInternalGitalyServer(srv, internalService)
+	}, testserver.WithDisablePraefect())
+	conn, err := grpc.Dial(add, grpc.WithInsecure())
+	require.NoError(t, err)
+	t.Cleanup(func() { testhelper.MustClose(t, conn) })
 
-	listener, err := net.Listen("unix", serverSocketPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	gitalypb.RegisterInternalGitalyServer(grpcServer, srv)
-	reflection.Register(grpcServer)
-
-	go grpcServer.Serve(listener)
-
-	return grpcServer, "unix://" + serverSocketPath
-}
-
-func newInternalGitalyClient(t *testing.T, serverSocketPath string) (gitalypb.InternalGitalyClient, *grpc.ClientConn) {
-	connOpts := []grpc.DialOption{
-		grpc.WithInsecure(),
-	}
-	conn, err := grpc.Dial(serverSocketPath, connOpts...)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return gitalypb.NewInternalGitalyClient(conn), conn
+	return gitalypb.NewInternalGitalyClient(conn)
 }

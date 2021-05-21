@@ -12,11 +12,15 @@ import (
 
 // Exec runs a git command and returns the standard output, or fails.
 func Exec(t testing.TB, cfg config.Cfg, args ...string) []byte {
+	t.Helper()
+
 	return run(t, nil, cfg, args...)
 }
 
 // ExecStream runs a git command with an input stream and returns the standard output, or fails.
 func ExecStream(t testing.TB, cfg config.Cfg, stream io.Reader, args ...string) []byte {
+	t.Helper()
+
 	return run(t, stream, cfg, args...)
 }
 

@@ -18,7 +18,8 @@ type server struct {
 }
 
 // NewServer creates a new instance of a grpc SmartHTTPServer
-func NewServer(cfg config.Cfg, locator storage.Locator, gitCmdFactory git.CommandFactory, serverOpts ...ServerOpt) gitalypb.SmartHTTPServiceServer {
+func NewServer(cfg config.Cfg, locator storage.Locator, gitCmdFactory git.CommandFactory,
+	cache *cache.Cache, serverOpts ...ServerOpt) gitalypb.SmartHTTPServiceServer {
 	s := &server{
 		cfg:           cfg,
 		locator:       locator,
@@ -27,7 +28,7 @@ func NewServer(cfg config.Cfg, locator storage.Locator, gitCmdFactory git.Comman
 			prometheus.CounterOpts{},
 			[]string{"git_negotiation_feature"},
 		),
-		infoRefCache: newInfoRefCache(cache.NewStreamDB(cache.NewLeaseKeyer(locator))),
+		infoRefCache: newInfoRefCache(cache),
 	}
 
 	for _, serverOpt := range serverOpts {

@@ -3,27 +3,23 @@ package repository
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/reflection"
 )
 
 func TestReplicateRepository(t *testing.T) {
@@ -38,18 +34,23 @@ func TestReplicateRepository(t *testing.T) {
 
 	client := newRepositoryClient(t, cfg, serverSocketPath)
 
-	repo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "source")
+	repo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "source")
 	t.Cleanup(cleanup)
 
 	// create a loose object to ensure snapshot replication is used
 	blobData, err := text.RandomHex(10)
 	require.NoError(t, err)
-	blobID := text.ChompBytes(testhelper.MustRunCommand(t, bytes.NewBuffer([]byte(blobData)), "git", "-C", repoPath, "hash-object", "-w", "--stdin"))
+	blobID := text.ChompBytes(gittest.ExecStream(t, cfg, bytes.NewBuffer([]byte(blobData)), "-C", repoPath, "hash-object", "-w", "--stdin"))
 
 	// write info attributes
 	attrFilePath := filepath.Join(repoPath, "info", "attributes")
 	attrData := []byte("*.pbxproj binary\n")
 	require.NoError(t, ioutil.WriteFile(attrFilePath, attrData, 0644))
+
+	// Write a modified gitconfig
+	gittest.Exec(t, cfg, "-C", repoPath, "config", "please.replicate", "me")
+	configData := testhelper.MustReadFile(t, filepath.Join(repoPath, "config"))
+	require.Contains(t, string(configData), "[please]\n\treplicate = me\n")
 
 	targetRepo := *repo
 	targetRepo.StorageName = cfg.Storages[1].Name
@@ -66,27 +67,30 @@ func TestReplicateRepository(t *testing.T) {
 	require.NoError(t, err)
 
 	targetRepoPath := filepath.Join(cfg.Storages[1].Path, targetRepo.GetRelativePath())
-	testhelper.MustRunCommand(t, nil, "git", "-C", targetRepoPath, "fsck")
+	gittest.Exec(t, cfg, "-C", targetRepoPath, "fsck")
 
 	replicatedAttrFilePath := filepath.Join(targetRepoPath, "info", "attributes")
-	replicatedAttrData, err := ioutil.ReadFile(replicatedAttrFilePath)
-	require.NoError(t, err)
+	replicatedAttrData := testhelper.MustReadFile(t, replicatedAttrFilePath)
 	require.Equal(t, string(attrData), string(replicatedAttrData), "info/attributes files must match")
 
+	replicatedConfigPath := filepath.Join(targetRepoPath, "config")
+	replicatedConfigData := testhelper.MustReadFile(t, replicatedConfigPath)
+	require.Equal(t, string(configData), string(replicatedConfigData), "config files must match")
+
 	// create another branch
-	_, anotherNewBranch := gittest.CreateCommitOnNewBranch(t, cfg, repoPath)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
 	_, err = client.ReplicateRepository(injectedCtx, &gitalypb.ReplicateRepositoryRequest{
 		Repository: &targetRepo,
 		Source:     repo,
 	})
 	require.NoError(t, err)
 	require.Equal(t,
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "show-ref", "--hash", "--verify", fmt.Sprintf("refs/heads/%s", anotherNewBranch)),
-		testhelper.MustRunCommand(t, nil, "git", "-C", targetRepoPath, "show-ref", "--hash", "--verify", fmt.Sprintf("refs/heads/%s", anotherNewBranch)),
+		gittest.Exec(t, cfg, "-C", repoPath, "show-ref", "--hash", "--verify", "refs/heads/branch"),
+		gittest.Exec(t, cfg, "-C", targetRepoPath, "show-ref", "--hash", "--verify", "refs/heads/branch"),
 	)
 
 	// if an unreachable object has been replicated, that means snapshot replication was used
-	testhelper.MustRunCommand(t, nil, "git", "-C", targetRepoPath, "cat-file", "-p", blobID)
+	gittest.Exec(t, cfg, "-C", targetRepoPath, "cat-file", "-p", blobID)
 }
 
 func TestReplicateRepositoryInvalidArguments(t *testing.T) {
@@ -214,10 +218,10 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 
 			client := newRepositoryClient(t, cfg, serverSocketPath)
 
-			sourceRepo, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "source")
+			sourceRepo, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "source")
 			t.Cleanup(cleanup)
 
-			targetRepo, targetRepoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[1], sourceRepo.RelativePath)
+			targetRepo, targetRepoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[1], sourceRepo.RelativePath)
 			t.Cleanup(cleanup)
 
 			var invalidRepos []*gitalypb.Repository
@@ -255,7 +259,7 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			testhelper.MustRunCommand(t, nil, "git", "-C", targetRepoPath, "fsck")
+			gittest.Exec(t, cfg, "-C", targetRepoPath, "fsck")
 		})
 	}
 }
@@ -268,7 +272,7 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 
 	locator := config.NewLocator(cfg)
 
-	testRepo, _, cleanupRepo := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+	testRepo, _, cleanupRepo := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 	t.Cleanup(cleanupRepo)
 
 	repoClient := newRepositoryClient(t, cfg, cfg.SocketPath)
@@ -296,23 +300,17 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 }
 
 func runServerWithBadFetchInternalRemote(t *testing.T, cfg config.Cfg) string {
-	server := testhelper.NewTestGrpcServer(t, nil, nil)
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
-
-	listener, err := net.Listen("unix", serverSocketPath)
-	require.NoError(t, err)
-
-	internalListener, err := net.Listen("unix", cfg.GitalyInternalSocketPath())
-	require.NoError(t, err)
-
-	gitalypb.RegisterRepositoryServiceServer(server, NewServer(cfg, nil, config.NewLocator(cfg), transaction.NewManager(cfg, backchannel.NewRegistry()), git.NewExecCommandFactory(cfg)))
-	gitalypb.RegisterRemoteServiceServer(server, &mockRemoteServer{})
-	reflection.Register(server)
-
-	go server.Serve(listener)
-	go server.Serve(internalListener)
-	t.Cleanup(server.Stop)
-	return "unix://" + serverSocketPath
+	return testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterRepositoryServiceServer(srv, NewServer(
+			deps.GetCfg(),
+			deps.GetRubyServer(),
+			deps.GetLocator(),
+			deps.GetTxManager(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+		))
+		gitalypb.RegisterRemoteServiceServer(srv, &mockRemoteServer{})
+	})
 }
 
 type mockRemoteServer struct {

@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -31,9 +30,9 @@ func testCloneFromPoolHTTP(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Ser
 	require.NoError(t, pool.Create(ctx, repo))
 	require.NoError(t, pool.Link(ctx, repo))
 
-	fullRepack(t, repoPath)
+	fullRepack(t, cfg, repoPath)
 
-	_, newBranch := gittest.CreateCommitOnNewBranch(t, cfg, repoPath)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
 
 	forkedRepo, forkRepoPath, forkRepoCleanup := getForkDestination(t, cfg.Storages[0])
 	defer forkRepoCleanup()
@@ -64,6 +63,6 @@ func testCloneFromPoolHTTP(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Ser
 
 	// feature is a branch known to exist in the source repository. By looking it up in the target
 	// we establish that the target has branches, even though (as we saw above) it has no objects.
-	testhelper.MustRunCommand(t, nil, "git", "-C", forkRepoPath, "show-ref", "--verify", "refs/heads/feature")
-	testhelper.MustRunCommand(t, nil, "git", "-C", forkRepoPath, "show-ref", "--verify", fmt.Sprintf("refs/heads/%s", newBranch))
+	gittest.Exec(t, cfg, "-C", forkRepoPath, "show-ref", "--verify", "refs/heads/feature")
+	gittest.Exec(t, cfg, "-C", forkRepoPath, "show-ref", "--verify", "refs/heads/branch")
 }

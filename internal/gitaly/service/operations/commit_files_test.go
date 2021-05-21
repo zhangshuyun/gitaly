@@ -46,7 +46,7 @@ func TestUserCommitFiles(t *testing.T) {
 	// repository there on every test run. This allows us to use deterministic
 	// paths in the tests.
 
-	startRepo, startRepoPath, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	startRepo, startRepoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanup)
 
 	pathToStorage := strings.TrimSuffix(startRepoPath, startRepo.RelativePath)
@@ -880,7 +880,7 @@ func TestUserCommitFiles(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			defer os.RemoveAll(repoPath)
-			testhelper.MustRunCommand(t, nil, "git", "init", "--bare", repoPath)
+			gittest.Exec(t, cfg, "init", "--bare", repoPath)
 
 			const branch = "master"
 
@@ -894,7 +894,7 @@ func TestUserCommitFiles(t *testing.T) {
 			for i, step := range tc.steps {
 				headerRequest := headerRequest(
 					repo,
-					testhelper.TestUser,
+					gittest.TestUser,
 					branch,
 					[]byte("commit message"),
 				)
@@ -929,7 +929,7 @@ func TestUserCommitFiles(t *testing.T) {
 
 				require.Equal(t, step.branchCreated, resp.BranchUpdate.BranchCreated, "step %d", i+1)
 				require.Equal(t, step.repoCreated, resp.BranchUpdate.RepoCreated, "step %d", i+1)
-				gittest.RequireTree(t, repoPath, branch, step.treeEntries)
+				gittest.RequireTree(t, cfg, repoPath, branch, step.treeEntries)
 			}
 		})
 	}
@@ -941,9 +941,9 @@ func TestUserCommitFilesStableCommitID(t *testing.T) {
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
-	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	defer cleanup()
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	for key, values := range testhelper.GitalyServersMetadataFromCfg(t, cfg) {
 		for _, value := range values {
@@ -954,7 +954,7 @@ func TestUserCommitFilesStableCommitID(t *testing.T) {
 	stream, err := client.UserCommitFiles(ctx)
 	require.NoError(t, err)
 
-	headerRequest := headerRequest(repoProto, testhelper.TestUser, "master", []byte("commit message"))
+	headerRequest := headerRequest(repoProto, gittest.TestUser, "master", []byte("commit message"))
 	setAuthorAndEmail(headerRequest, []byte("Author Name"), []byte("author.email@example.com"))
 	setTimestamp(t, headerRequest, time.Unix(12345, 0))
 	require.NoError(t, stream.Send(headerRequest))
@@ -967,7 +967,7 @@ func TestUserCommitFilesStableCommitID(t *testing.T) {
 	require.Equal(t, resp.BranchUpdate.CommitId, "4f0ca1fbf05e04dbd5f68d14677034e0afee58ff")
 	require.True(t, resp.BranchUpdate.BranchCreated)
 	require.True(t, resp.BranchUpdate.RepoCreated)
-	gittest.RequireTree(t, repoPath, "refs/heads/master", []gittest.TreeEntry{
+	gittest.RequireTree(t, cfg, repoPath, "refs/heads/master", []gittest.TreeEntry{
 		{Mode: "100644", Path: "file.txt", Content: "content"},
 	})
 
@@ -986,8 +986,8 @@ func TestUserCommitFilesStableCommitID(t *testing.T) {
 			Timezone: []byte("+0000"),
 		},
 		Committer: &gitalypb.CommitAuthor{
-			Name:     testhelper.TestUser.Name,
-			Email:    testhelper.TestUser.Email,
+			Name:     gittest.TestUser.Name,
+			Email:    gittest.TestUser.Email,
 			Date:     &timestamp.Timestamp{Seconds: 12345},
 			Timezone: []byte("+0000"),
 		},
@@ -1000,7 +1000,7 @@ func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	newRepo, newRepoPath, newRepoCleanupFn := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	newRepo, newRepoPath, newRepoCleanupFn := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	defer newRepoCleanupFn()
 
 	filePath := "héllo/wörld"
@@ -1052,7 +1052,7 @@ func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			headerRequest := headerRequest(tc.repo, testhelper.TestUser, tc.branchName, commitFilesMessage)
+			headerRequest := headerRequest(tc.repo, gittest.TestUser, tc.branchName, commitFilesMessage)
 			setAuthorAndEmail(headerRequest, authorName, authorEmail)
 
 			actionsRequest1 := createFileHeaderRequest(filePath)
@@ -1073,18 +1073,18 @@ func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
 			require.Equal(t, tc.repoCreated, resp.GetBranchUpdate().GetRepoCreated())
 			require.Equal(t, tc.branchCreated, resp.GetBranchUpdate().GetBranchCreated())
 
-			headCommit, err := localrepo.New(git.NewExecCommandFactory(cfg), tc.repo, cfg).ReadCommit(ctx, git.Revision(tc.branchName))
+			headCommit, err := localrepo.NewTestRepo(t, cfg, tc.repo).ReadCommit(ctx, git.Revision(tc.branchName))
 			require.NoError(t, err)
 			require.Equal(t, authorName, headCommit.Author.Name)
-			require.Equal(t, testhelper.TestUser.Name, headCommit.Committer.Name)
+			require.Equal(t, gittest.TestUser.Name, headCommit.Committer.Name)
 			require.Equal(t, authorEmail, headCommit.Author.Email)
-			require.Equal(t, testhelper.TestUser.Email, headCommit.Committer.Email)
+			require.Equal(t, gittest.TestUser.Email, headCommit.Committer.Email)
 			require.Equal(t, commitFilesMessage, headCommit.Subject)
 
-			fileContent := testhelper.MustRunCommand(t, nil, "git", "-C", tc.repoPath, "show", headCommit.GetId()+":"+filePath)
+			fileContent := gittest.Exec(t, cfg, "-C", tc.repoPath, "show", headCommit.GetId()+":"+filePath)
 			require.Equal(t, "My content", string(fileContent))
 
-			commitInfo := testhelper.MustRunCommand(t, nil, "git", "-C", tc.repoPath, "show", headCommit.GetId())
+			commitInfo := gittest.Exec(t, cfg, "-C", tc.repoPath, "show", headCommit.GetId())
 			expectedFilemode := "100644"
 			if tc.executeFilemode {
 				expectedFilemode = "100755"
@@ -1116,11 +1116,11 @@ func TestSuccessfulUserCommitFilesRequestMove(t *testing.T) {
 		{content: "foo", infer: true},
 	} {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+			testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 			defer cleanupFn()
 
-			origFileContent := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "show", branchName+":"+previousFilePath)
-			headerRequest := headerRequest(testRepo, testhelper.TestUser, branchName, commitFilesMessage)
+			origFileContent := gittest.Exec(t, cfg, "-C", testRepoPath, "show", branchName+":"+previousFilePath)
+			headerRequest := headerRequest(testRepo, gittest.TestUser, branchName, commitFilesMessage)
 			setAuthorAndEmail(headerRequest, authorName, authorEmail)
 			actionsRequest1 := moveFileHeaderRequest(previousFilePath, filePath, tc.infer)
 
@@ -1140,7 +1140,7 @@ func TestSuccessfulUserCommitFilesRequestMove(t *testing.T) {
 			update := resp.GetBranchUpdate()
 			require.NotNil(t, update)
 
-			fileContent := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "show", update.CommitId+":"+filePath)
+			fileContent := gittest.Exec(t, cfg, "-C", testRepoPath, "show", update.CommitId+":"+filePath)
 
 			if tc.infer {
 				require.Equal(t, string(origFileContent), string(fileContent))
@@ -1157,7 +1157,7 @@ func TestSuccessfulUserCommitFilesRequestForceCommit(t *testing.T) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	authorName := []byte("Jane Doe")
 	authorEmail := []byte("janedoe@gitlab.com")
@@ -1170,11 +1170,11 @@ func TestSuccessfulUserCommitFilesRequestForceCommit(t *testing.T) {
 	targetBranchCommit, err := repo.ReadCommit(ctx, git.Revision(targetBranchName))
 	require.NoError(t, err)
 
-	mergeBaseOut := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "merge-base", targetBranchCommit.Id, startBranchCommit.Id)
+	mergeBaseOut := gittest.Exec(t, cfg, "-C", repoPath, "merge-base", targetBranchCommit.Id, startBranchCommit.Id)
 	mergeBaseID := text.ChompBytes(mergeBaseOut)
 	require.NotEqual(t, mergeBaseID, targetBranchCommit.Id, "expected %s not to be an ancestor of %s", targetBranchCommit.Id, startBranchCommit.Id)
 
-	headerRequest := headerRequest(repoProto, testhelper.TestUser, targetBranchName, commitFilesMessage)
+	headerRequest := headerRequest(repoProto, gittest.TestUser, targetBranchName, commitFilesMessage)
 	setAuthorAndEmail(headerRequest, authorName, authorEmail)
 	setStartBranchName(headerRequest, startBranchName)
 	setForce(headerRequest, true)
@@ -1202,14 +1202,14 @@ func TestSuccessfulUserCommitFilesRequestStartSha(t *testing.T) {
 
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	targetBranchName := "new"
 
 	startCommit, err := repo.ReadCommit(ctx, "master")
 	require.NoError(t, err)
 
-	headerRequest := headerRequest(repoProto, testhelper.TestUser, targetBranchName, commitFilesMessage)
+	headerRequest := headerRequest(repoProto, gittest.TestUser, targetBranchName, commitFilesMessage)
 	setStartSha(headerRequest, startCommit.Id)
 
 	stream, err := client.UserCommitFiles(ctx)
@@ -1250,20 +1250,18 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 
 		ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
-		gitCmdFactory := git.NewExecCommandFactory(cfg)
+		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-		repo := localrepo.New(gitCmdFactory, repoProto, cfg)
-
-		newRepoProto, _, newRepoCleanupFn := gittest.InitBareRepoAt(t, cfg.Storages[0])
+		newRepoProto, _, newRepoCleanupFn := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 		defer newRepoCleanupFn()
-		newRepo := localrepo.New(gitCmdFactory, newRepoProto, cfg)
+		newRepo := localrepo.NewTestRepo(t, cfg, newRepoProto)
 
 		targetBranchName := "new"
 
 		startCommit, err := repo.ReadCommit(ctx, "master")
 		require.NoError(t, err)
 
-		headerRequest := headerRequest(newRepoProto, testhelper.TestUser, targetBranchName, commitFilesMessage)
+		headerRequest := headerRequest(newRepoProto, gittest.TestUser, targetBranchName, commitFilesMessage)
 		setHeader(headerRequest)
 		setStartRepository(headerRequest, repoProto)
 
@@ -1291,9 +1289,9 @@ func TestSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
-	repoProto, _, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	repoProto, _, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	defer cleanup()
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	targetBranchName := "master"
 
@@ -1304,12 +1302,12 @@ func TestSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 	}{
 		{
 			desc:   "special characters at start and end",
-			user:   &gitalypb.User{Name: []byte(".,:;<>\"'\nJane Doe.,:;<>'\"\n"), Email: []byte(".,:;<>'\"\njanedoe@gitlab.com.,:;<>'\"\n"), GlId: testhelper.GlID},
+			user:   &gitalypb.User{Name: []byte(".,:;<>\"'\nJane Doe.,:;<>'\"\n"), Email: []byte(".,:;<>'\"\njanedoe@gitlab.com.,:;<>'\"\n"), GlId: gittest.GlID},
 			author: &gitalypb.CommitAuthor{Name: []byte("Jane Doe"), Email: []byte("janedoe@gitlab.com")},
 		},
 		{
 			desc:   "special characters in the middle",
-			user:   &gitalypb.User{Name: []byte("Ja<ne\n D>oe"), Email: []byte("ja<ne\ndoe>@gitlab.com"), GlId: testhelper.GlID},
+			user:   &gitalypb.User{Name: []byte("Ja<ne\n D>oe"), Email: []byte("ja<ne\ndoe>@gitlab.com"), GlId: gittest.GlID},
 			author: &gitalypb.CommitAuthor{Name: []byte("Jane Doe"), Email: []byte("janedoe@gitlab.com")},
 		},
 	}
@@ -1345,7 +1343,7 @@ func TestFailedUserCommitFilesRequestDueToHooks(t *testing.T) {
 
 	branchName := "feature"
 	filePath := "my/file.txt"
-	headerRequest := headerRequest(repoProto, testhelper.TestUser, branchName, commitFilesMessage)
+	headerRequest := headerRequest(repoProto, gittest.TestUser, branchName, commitFilesMessage)
 	actionsRequest1 := createFileHeaderRequest(filePath)
 	actionsRequest2 := actionContentRequest("My content")
 	hookContent := []byte("#!/bin/sh\nprintenv | paste -sd ' ' -\nexit 1")
@@ -1363,8 +1361,8 @@ func TestFailedUserCommitFilesRequestDueToHooks(t *testing.T) {
 			resp, err := stream.CloseAndRecv()
 			require.NoError(t, err)
 
-			require.Contains(t, resp.PreReceiveError, "GL_ID="+testhelper.TestUser.GlId)
-			require.Contains(t, resp.PreReceiveError, "GL_USERNAME="+testhelper.TestUser.GlUsername)
+			require.Contains(t, resp.PreReceiveError, "GL_ID="+gittest.TestUser.GlId)
+			require.Contains(t, resp.PreReceiveError, "GL_USERNAME="+gittest.TestUser.GlUsername)
 		})
 	}
 }
@@ -1383,7 +1381,7 @@ func TestFailedUserCommitFilesRequestDueToIndexError(t *testing.T) {
 		{
 			desc: "file already exists",
 			requests: []*gitalypb.UserCommitFilesRequest{
-				headerRequest(repo, testhelper.TestUser, "feature", commitFilesMessage),
+				headerRequest(repo, gittest.TestUser, "feature", commitFilesMessage),
 				createFileHeaderRequest("README.md"),
 				actionContentRequest("This file already exists"),
 			},
@@ -1392,7 +1390,7 @@ func TestFailedUserCommitFilesRequestDueToIndexError(t *testing.T) {
 		{
 			desc: "file doesn't exists",
 			requests: []*gitalypb.UserCommitFilesRequest{
-				headerRequest(repo, testhelper.TestUser, "feature", commitFilesMessage),
+				headerRequest(repo, gittest.TestUser, "feature", commitFilesMessage),
 				chmodFileHeaderRequest("documents/story.txt", true),
 			},
 			indexError: "A file with this name doesn't exist",
@@ -1400,7 +1398,7 @@ func TestFailedUserCommitFilesRequestDueToIndexError(t *testing.T) {
 		{
 			desc: "dir already exists",
 			requests: []*gitalypb.UserCommitFilesRequest{
-				headerRequest(repo, testhelper.TestUser, "utf-dir", commitFilesMessage),
+				headerRequest(repo, gittest.TestUser, "utf-dir", commitFilesMessage),
 				actionRequest(&gitalypb.UserCommitFilesAction{
 					UserCommitFilesActionPayload: &gitalypb.UserCommitFilesAction_Header{
 						Header: &gitalypb.UserCommitFilesActionHeader{
@@ -1446,7 +1444,7 @@ func TestFailedUserCommitFilesRequest(t *testing.T) {
 	}{
 		{
 			desc: "empty Repository",
-			req:  headerRequest(nil, testhelper.TestUser, branchName, commitFilesMessage),
+			req:  headerRequest(nil, gittest.TestUser, branchName, commitFilesMessage),
 		},
 		{
 			desc: "empty User",
@@ -1454,15 +1452,15 @@ func TestFailedUserCommitFilesRequest(t *testing.T) {
 		},
 		{
 			desc: "empty BranchName",
-			req:  headerRequest(repo, testhelper.TestUser, "", commitFilesMessage),
+			req:  headerRequest(repo, gittest.TestUser, "", commitFilesMessage),
 		},
 		{
 			desc: "empty CommitMessage",
-			req:  headerRequest(repo, testhelper.TestUser, branchName, nil),
+			req:  headerRequest(repo, gittest.TestUser, branchName, nil),
 		},
 		{
 			desc: "invalid object ID: \"foobar\"",
-			req:  setStartSha(headerRequest(repo, testhelper.TestUser, branchName, commitFilesMessage), "foobar"),
+			req:  setStartSha(headerRequest(repo, gittest.TestUser, branchName, commitFilesMessage), "foobar"),
 		},
 		{
 			desc: "failed to parse signature - Signature cannot have an empty name or email",

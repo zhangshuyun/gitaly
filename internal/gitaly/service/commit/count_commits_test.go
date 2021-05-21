@@ -16,23 +16,23 @@ import (
 func TestSuccessfulCountCommitsRequest(t *testing.T) {
 	cfg, repo1, _, client := setupCommitServiceWithRepo(t, true)
 
-	repo2, repo2Path, cleanupFn := gittest.InitRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+	repo2, repo2Path, cleanupFn := gittest.InitRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanupFn)
 
 	committerName := "Scrooge McDuck"
 	committerEmail := "scrooge@mcduck.com"
 
 	for i := 0; i < 5; i++ {
-		testhelper.MustRunCommand(t, nil, "git", "-C", repo2Path,
+		gittest.Exec(t, cfg, "-C", repo2Path,
 			"-c", fmt.Sprintf("user.name=%s", committerName),
 			"-c", fmt.Sprintf("user.email=%s", committerEmail),
 			"commit", "--allow-empty", "-m", "Empty commit")
 	}
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repo2Path, "checkout", "-b", "another-branch")
+	gittest.Exec(t, cfg, "-C", repo2Path, "checkout", "-b", "another-branch")
 
 	for i := 0; i < 3; i++ {
-		testhelper.MustRunCommand(t, nil, "git", "-C", repo2Path,
+		gittest.Exec(t, cfg, "-C", repo2Path,
 			"-c", fmt.Sprintf("user.name=%s", committerName),
 			"-c", fmt.Sprintf("user.email=%s", committerEmail),
 			"commit", "--allow-empty", "-m", "Empty commit")

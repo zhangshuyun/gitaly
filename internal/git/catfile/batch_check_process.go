@@ -9,7 +9,6 @@ import (
 
 	"github.com/opentracing/opentracing-go"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/labkit/correlation"
 )
 
@@ -20,18 +19,18 @@ type batchCheckProcess struct {
 	sync.Mutex
 }
 
-func newBatchCheckProcess(ctx context.Context, gitCmdFactory git.CommandFactory, repo repository.GitRepo) (*batchCheckProcess, error) {
-	bc := &batchCheckProcess{}
+func (bc *BatchCache) newBatchCheckProcess(ctx context.Context, repo git.RepositoryExecutor) (*batchCheckProcess, error) {
+	process := &batchCheckProcess{}
 
 	var stdinReader io.Reader
-	stdinReader, bc.w = io.Pipe()
+	stdinReader, process.w = io.Pipe()
 
 	// batch processes are long-lived and reused across RPCs,
 	// so we de-correlate the process from the RPC
 	ctx = correlation.ContextWithCorrelation(ctx, "")
 	ctx = opentracing.ContextWithSpan(ctx, nil)
 
-	batchCmd, err := gitCmdFactory.New(ctx, repo,
+	batchCmd, err := repo.Exec(ctx,
 		git.SubCmd{
 			Name: "cat-file",
 			Flags: []git.Option{
@@ -44,19 +43,19 @@ func newBatchCheckProcess(ctx context.Context, gitCmdFactory git.CommandFactory,
 		return nil, err
 	}
 
-	bc.r = bufio.NewReader(batchCmd)
+	process.r = bufio.NewReader(batchCmd)
 	go func() {
 		<-ctx.Done()
 		// This is crucial to prevent leaking file descriptors.
-		bc.w.Close()
+		process.w.Close()
 	}()
 
-	if injectSpawnErrors {
+	if bc.injectSpawnErrors {
 		// Testing only: intentionally leak process
 		return nil, &simulatedBatchSpawnError{}
 	}
 
-	return bc, nil
+	return process, nil
 }
 
 func (bc *batchCheckProcess) info(revision git.Revision) (*ObjectInfo, error) {

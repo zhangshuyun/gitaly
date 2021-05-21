@@ -1,7 +1,6 @@
 package objectpool
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -12,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/status"
 )
@@ -22,7 +22,7 @@ func TestCreate(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), repo.GetStorageName(), gittest.NewObjectPoolName(t))
+	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), nil, repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 
 	poolReq := &gitalypb.CreateObjectPoolRequest{
@@ -40,11 +40,10 @@ func TestCreate(t *testing.T) {
 	require.True(t, pool.IsValid())
 
 	// No hooks
-	_, err = os.Stat(filepath.Join(pool.FullPath(), "hooks"))
-	assert.True(t, os.IsNotExist(err))
+	assert.NoDirExists(t, filepath.Join(pool.FullPath(), "hooks"))
 
 	// No problems
-	out := testhelper.MustRunCommand(t, nil, "git", "-C", pool.FullPath(), "cat-file", "-s", "55bc176024cfa3baaceb71db584c7e5df900ea65")
+	out := gittest.Exec(t, cfg, "-C", pool.FullPath(), "cat-file", "-s", "55bc176024cfa3baaceb71db584c7e5df900ea65")
 	assert.Equal(t, "282\n", string(out))
 
 	// Making the same request twice, should result in an error
@@ -54,14 +53,14 @@ func TestCreate(t *testing.T) {
 }
 
 func TestUnsuccessfulCreate(t *testing.T) {
-	cfg, repo, _, locator, client := setup(t)
+	cfg, repo, _, locator, client := setup(t, testserver.WithDisablePraefect())
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	validPoolPath := gittest.NewObjectPoolName(t)
 	storageName := repo.GetStorageName()
-	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), storageName, validPoolPath)
+	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), nil, storageName, validPoolPath)
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, pool.Remove(ctx))
@@ -155,7 +154,7 @@ func TestDelete(t *testing.T) {
 	defer cancel()
 
 	validPoolPath := gittest.NewObjectPoolName(t)
-	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), repo.GetStorageName(), validPoolPath)
+	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), nil, repo.GetStorageName(), validPoolPath)
 	require.NoError(t, err)
 	require.NoError(t, pool.Create(ctx, repo))
 

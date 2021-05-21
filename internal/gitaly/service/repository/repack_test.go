@@ -37,6 +37,11 @@ func TestRepackIncrementalSuccess(t *testing.T) {
 
 	// Entire `path`-folder gets updated so this is fine :D
 	assertModTimeAfter(t, testTime, packPath)
+
+	assert.FileExistsf(t,
+		filepath.Join(repoPath, CommitGraphChainRelPath),
+		"pre-computed commit-graph should exist after running incremental repack",
+	)
 }
 
 func TestRepackIncrementalCollectLogStatistics(t *testing.T) {
@@ -63,7 +68,7 @@ func TestRepackLocal(t *testing.T) {
 	altObjectsDir := "./alt-objects"
 	altDirsCommit := gittest.CreateCommitInAlternateObjectDirectory(t, cfg.Git.BinPath, repoPath, altObjectsDir, cmd)
 
-	repoCommit := gittest.CreateCommit(t, cfg, repoPath, t.Name(), &gittest.CreateCommitOpts{Message: t.Name()})
+	repoCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(t.Name()))
 
 	ctx, cancelFn := testhelper.Context()
 	defer cancelFn()
@@ -81,7 +86,7 @@ func TestRepackLocal(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, packFiles, 1)
 
-	packContents := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "verify-pack", "-v", packFiles[0])
+	packContents := gittest.Exec(t, cfg, "-C", repoPath, "verify-pack", "-v", packFiles[0])
 	require.NotContains(t, string(packContents), string(altDirsCommit))
 	require.Contains(t, string(packContents), repoCommit)
 }
@@ -111,22 +116,23 @@ func TestRepackIncrementalFailure(t *testing.T) {
 }
 
 func TestRepackFullSuccess(t *testing.T) {
-	_, repo, repoPath, client := setupRepositoryService(t)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	tests := []struct {
 		req  *gitalypb.RepackFullRequest
 		desc string
 	}{
-		{req: &gitalypb.RepackFullRequest{Repository: repo, CreateBitmap: true}, desc: "with bitmap"},
-		{req: &gitalypb.RepackFullRequest{Repository: repo, CreateBitmap: false}, desc: "without bitmap"},
+		{req: &gitalypb.RepackFullRequest{CreateBitmap: true}, desc: "with bitmap"},
+		{req: &gitalypb.RepackFullRequest{CreateBitmap: false}, desc: "without bitmap"},
 	}
-
-	packPath := filepath.Join(repoPath, "objects", "pack")
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
+			var repoPath string
+			test.req.Repository, repoPath, _ = gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 			// Reset mtime to a long while ago since some filesystems don't have sub-second
 			// precision on `mtime`.
+			packPath := filepath.Join(repoPath, "objects", "pack")
 			testhelper.MustRunCommand(t, nil, "touch", "-t", testTimeString, packPath)
 			testTime := time.Date(2006, 01, 02, 15, 04, 05, 0, time.UTC)
 			ctx, cancel := testhelper.Context()
@@ -152,6 +158,11 @@ func TestRepackFullSuccess(t *testing.T) {
 					t.Errorf("Bitmap found: %v", bmPath)
 				}
 			}
+
+			assert.FileExistsf(t,
+				filepath.Join(repoPath, CommitGraphChainRelPath),
+				"pre-computed commit-graph should exist after running full repack",
+			)
 		})
 	}
 }
@@ -224,12 +235,12 @@ func TestRepackFullFailure(t *testing.T) {
 }
 
 func TestRepackFullDeltaIslands(t *testing.T) {
-	_, repo, repoPath, client := setupRepositoryService(t)
+	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	gittest.TestDeltaIslands(t, repoPath, func() error {
+	gittest.TestDeltaIslands(t, cfg, repoPath, func() error {
 		_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: repo})
 		return err
 	})

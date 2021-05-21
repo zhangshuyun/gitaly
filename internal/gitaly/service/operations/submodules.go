@@ -11,11 +11,8 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -28,21 +25,7 @@ func (s *Server) UserUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 		return nil, status.Errorf(codes.InvalidArgument, userUpdateSubmoduleName+": %v", err)
 	}
 
-	if featureflag.IsEnabled(ctx, featureflag.GoUserUpdateSubmodule) {
-		return s.userUpdateSubmodule(ctx, req)
-	}
-
-	client, err := s.ruby.OperationServiceClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, req.GetRepository())
-	if err != nil {
-		return nil, err
-	}
-
-	return client.UserUpdateSubmodule(clientCtx, req)
+	return s.userUpdateSubmodule(ctx, req)
 }
 
 func validateUserUpdateSubmoduleRequest(req *gitalypb.UserUpdateSubmoduleRequest) error {
@@ -78,7 +61,7 @@ func validateUserUpdateSubmoduleRequest(req *gitalypb.UserUpdateSubmoduleRequest
 }
 
 func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpdateSubmoduleRequest) (*gitalypb.UserUpdateSubmoduleResponse, error) {
-	repo := localrepo.New(s.gitCmdFactory, req.GetRepository(), s.cfg)
+	repo := s.localrepo(req.GetRepository())
 	branches, err := repo.GetBranches(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("%s: get branches: %w", userUpdateSubmoduleName, err)

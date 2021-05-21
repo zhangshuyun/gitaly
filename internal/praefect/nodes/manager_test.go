@@ -57,8 +57,7 @@ func assertShard(t *testing.T, exp shardAssertion, act Shard) {
 
 func TestNodeStatus(t *testing.T) {
 	socket := testhelper.GetTemporaryGitalySocketFileName(t)
-	svr, healthSvr := testhelper.NewServerWithHealth(t, socket)
-	defer svr.Stop()
+	healthSvr := testhelper.NewServerWithHealth(t, socket)
 
 	cc, err := grpc.Dial(
 		"unix://"+socket,
@@ -112,11 +111,8 @@ func TestManagerFailoverDisabledElectionStrategySQL(t *testing.T) {
 		},
 	}
 
-	srv0, healthSrv := testhelper.NewServerWithHealth(t, socket0)
-	defer srv0.Stop()
-
-	srv1, _ := testhelper.NewServerWithHealth(t, socket1)
-	defer srv1.Stop()
+	healthSrv := testhelper.NewServerWithHealth(t, socket0)
+	testhelper.NewServerWithHealth(t, socket1)
 
 	conf := config.Config{
 		Failover:        config.Failover{Enabled: false, ElectionStrategy: config.ElectionStrategySQL},
@@ -168,8 +164,7 @@ func TestDialWithUnhealthyNode(t *testing.T) {
 		},
 	}
 
-	srv, _ := testhelper.NewHealthServerWithListener(t, primaryLn)
-	defer srv.Stop()
+	testhelper.NewHealthServerWithListener(t, primaryLn)
 
 	mgr, err := NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil)
 	require.NoError(t, err)
@@ -189,11 +184,8 @@ func TestDialWithUnhealthyNode(t *testing.T) {
 
 func TestNodeManager(t *testing.T) {
 	internalSocket0, internalSocket1 := testhelper.GetTemporaryGitalySocketFileName(t), testhelper.GetTemporaryGitalySocketFileName(t)
-	srv0, healthSrv0 := testhelper.NewServerWithHealth(t, internalSocket0)
-	defer srv0.Stop()
-
-	srv1, healthSrv1 := testhelper.NewServerWithHealth(t, internalSocket1)
-	defer srv1.Stop()
+	healthSrv0 := testhelper.NewServerWithHealth(t, internalSocket0)
+	healthSrv1 := testhelper.NewServerWithHealth(t, internalSocket1)
 
 	node1 := &config.Node{
 		Storage: "praefect-internal-0",
@@ -314,13 +306,11 @@ func TestMgr_GetSyncedNode(t *testing.T) {
 	const virtualStorage = "virtual-storage-0"
 	const repoPath = "path/1"
 
-	var srvs [count]*grpc.Server
 	var healthSrvs [count]*health.Server
 	var nodes [count]*config.Node
 	for i := 0; i < count; i++ {
 		socket := testhelper.GetTemporaryGitalySocketFileName(t)
-		srvs[i], healthSrvs[i] = testhelper.NewServerWithHealth(t, socket)
-		defer srvs[i].Stop()
+		healthSrvs[i] = testhelper.NewServerWithHealth(t, socket)
 		nodes[i] = &config.Node{Storage: fmt.Sprintf("gitaly-%d", i), Address: "unix://" + socket}
 	}
 
@@ -479,8 +469,7 @@ func TestNodeStatus_IsHealthy(t *testing.T) {
 	socket := testhelper.GetTemporaryGitalySocketFileName(t)
 	address := "unix://" + socket
 
-	srv, healthSrv := testhelper.NewServerWithHealth(t, socket)
-	defer srv.Stop()
+	healthSrv := testhelper.NewServerWithHealth(t, socket)
 
 	clientConn, err := client.Dial(address, nil)
 	require.NoError(t, err)

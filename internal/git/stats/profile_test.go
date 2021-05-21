@@ -16,7 +16,7 @@ import (
 func TestRepositoryProfile(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	testRepo, testRepoPath, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	testRepo, testRepoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
@@ -36,7 +36,7 @@ func TestRepositoryProfile(t *testing.T) {
 	require.Zero(t, packfilesCount)
 
 	blobs := 10
-	blobIDs := gittest.WriteBlobs(t, testRepoPath, blobs)
+	blobIDs := gittest.WriteBlobs(t, cfg, testRepoPath, blobs)
 
 	unpackedObjects, err = UnpackedObjects(testRepoPath)
 	require.NoError(t, err)
@@ -48,14 +48,19 @@ func TestRepositoryProfile(t *testing.T) {
 	require.Equal(t, int64(blobs), looseObjects)
 
 	for _, blobID := range blobIDs {
-		commitID := gittest.CommitBlobWithName(t, cfg, testRepoPath, blobID, blobID, "adding another blob....")
-		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "update-ref", "refs/heads/"+blobID, commitID)
+		commitID := gittest.WriteCommit(t, cfg, testRepoPath,
+			gittest.WithTreeEntries(gittest.TreeEntry{
+				Mode: "100644", Path: "blob", OID: git.ObjectID(blobID),
+			}),
+			gittest.WithParents(),
+		)
+		gittest.Exec(t, cfg, "-C", testRepoPath, "update-ref", "refs/heads/"+blobID, commitID.String())
 	}
 
 	// write a loose object
-	gittest.WriteBlobs(t, testRepoPath, 1)
+	gittest.WriteBlobs(t, cfg, testRepoPath, 1)
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "repack", "-A", "-b", "-d")
+	gittest.Exec(t, cfg, "-C", testRepoPath, "repack", "-A", "-b", "-d")
 
 	unpackedObjects, err = UnpackedObjects(testRepoPath)
 	require.NoError(t, err)
@@ -68,7 +73,7 @@ func TestRepositoryProfile(t *testing.T) {
 	time.Sleep(1 * time.Millisecond)
 
 	// write another loose object
-	blobID := gittest.WriteBlobs(t, testRepoPath, 1)[0]
+	blobID := gittest.WriteBlobs(t, cfg, testRepoPath, 1)[0]
 
 	// due to OS semantics, ensure that the blob has a timestamp that is after the packfile
 	theFuture := time.Now().Add(10 * time.Minute)

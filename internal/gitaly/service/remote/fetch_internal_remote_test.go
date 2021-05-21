@@ -151,12 +151,23 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 	testhelper.ConfigureGitalyHooksBin(t, remoteCfg)
 
 	remoteAddr := testserver.RunGitalyServer(t, remoteCfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory()))
-		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory(), deps.GetTxManager()))
+		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
+			deps.GetCfg(),
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			deps.GetTxManager(),
+		))
+		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(
+			deps.GetCfg(),
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			deps.GetTxManager(),
+			deps.GetCatfileCache(),
+		))
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
 	}, testserver.WithDisablePraefect())
 
-	gittest.CreateCommit(t, remoteCfg, remoteRepoPath, "master", nil)
+	gittest.WriteCommit(t, remoteCfg, remoteRepoPath, gittest.WithBranch("master"))
 
 	localCfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("gitaly-1"))
 
@@ -170,12 +181,19 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 
 	hookManager := &mockHookManager{}
 	localAddr := testserver.RunGitalyServer(t, localCfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterRemoteServiceServer(srv, NewServer(deps.GetCfg(), deps.GetRubyServer(), deps.GetLocator(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
+			deps.GetCfg(),
+			deps.GetRubyServer(),
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+			deps.GetTxManager(),
+		))
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
 	}, testserver.WithHookManager(hookManager), testserver.WithDisablePraefect())
 
 	localRepoPath := filepath.Join(localCfg.Storages[0].Path, localRepo.GetRelativePath())
-	testhelper.MustRunCommand(t, nil, "git", "-C", localRepoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
+	gittest.Exec(t, remoteCfg, "-C", localRepoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
 
 	client, conn := newRemoteClient(t, localAddr)
 	t.Cleanup(func() { conn.Close() })
@@ -194,8 +212,8 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 	require.True(t, c.GetResult())
 
 	require.Equal(t,
-		string(testhelper.MustRunCommand(t, nil, "git", "-C", remoteRepoPath, "show-ref", "--head")),
-		string(testhelper.MustRunCommand(t, nil, "git", "-C", localRepoPath, "show-ref", "--head")),
+		string(gittest.Exec(t, remoteCfg, "-C", remoteRepoPath, "show-ref", "--head")),
+		string(gittest.Exec(t, remoteCfg, "-C", localRepoPath, "show-ref", "--head")),
 	)
 
 	gitalySSHInvocationParams := getGitalySSHInvocationParams()

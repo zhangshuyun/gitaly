@@ -29,6 +29,28 @@ merge_request: %<mr_iid>s
 #{SEE_DOC}
 SUGGEST_COMMENT
 
+CATEGORIES = YAML
+  .load_file(File.expand_path('../../.gitlab/changelog_config.yml', __dir__))
+  .fetch('categories')
+  .keys
+  .freeze
+
+def check_changelog_trailer(commit)
+  trailer = commit.message.match(/^Changelog:\s*(?<category>.+)$/)
+
+  return :missing if trailer.nil? || trailer[:category].nil?
+
+  category = trailer[:category]
+
+  return :valid if CATEGORIES.include?(category)
+
+  self.fail(
+    "Commit #{commit.sha} uses an invalid changelog category: #{category}"
+  )
+
+  :invalid
+end
+
 def check_changelog(path)
   raw_file = File.read(path)
   yaml = YAML.safe_load(raw_file)
@@ -73,6 +95,42 @@ if changelog_found
 elsif changelog_needed
   warn "**[CHANGELOG missing](https://docs.gitlab.com/ce/development/changelog.html).**\n\n" +
     format(CREATE_CHANGELOG_MESSAGE, mr_iid: gitlab.mr_json["iid"], mr_title: mr_title, labels: presented_no_changelog_labels)
+end
+
+if changelog_needed
+  checked = 0
+
+  git.commits.each do |commit|
+    case check_changelog_trailer(commit)
+    when :valid, :invalid
+      checked += 1
+    end
+  end
+
+  if checked == 0
+    message <<~MSG
+      We are in the process of rolling out a new workflow for adding changelog entries. This new workflow uses Git commit subjects and Git trailers to generate changelogs. This new approach will soon replace the current YAML based approach.
+
+      To ease the transition process, we recommend you start using both the old and new approach in parallel. This is not required at this time, but will make it easier to transition to the new approach in the future. To do so, pick the commit that should go in the changelog and add a `Changelog` trailer to it.  For example:
+
+      ```
+      This is my commit's subject line
+
+      This is the optional commit body.
+
+      Changelog: added
+      ```
+
+      The value of the `Changelog` trailer should be one of the following: added, fixed, changed, deprecated, removed, security, performance, other.
+
+      For more information, take a look at the following resources:
+
+      - `https://gitlab.com/gitlab-com/gl-infra/delivery/-/issues/1564`
+      - https://docs.gitlab.com/ee/api/repositories.html#generate-changelog-data
+
+      If you'd like to see the new approach in action, take a look at the commits in [the Omnibus repository](https://gitlab.com/gitlab-org/omnibus-gitlab/-/commits/master).
+    MSG
+  end
 end
 
 # vim: ft=ruby

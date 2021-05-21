@@ -2,18 +2,17 @@ package commit
 
 import (
 	"io"
-	"net"
 	"os"
 	"testing"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/linguist"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
@@ -43,9 +42,9 @@ func setupCommitServiceWithRepo(
 ) (config.Cfg, *gitalypb.Repository, string, gitalypb.CommitServiceClient) {
 	return setupCommitServiceCreateRepo(t, func(tb testing.TB, cfg config.Cfg) (*gitalypb.Repository, string, testhelper.Cleanup) {
 		if bare {
-			return gittest.CloneRepoAtStorage(tb, cfg.Storages[0], t.Name())
+			return gittest.CloneRepoAtStorage(tb, cfg, cfg.Storages[0], t.Name())
 		}
-		return gittest.CloneRepoWithWorktreeAtStorage(tb, cfg.Storages[0])
+		return gittest.CloneRepoWithWorktreeAtStorage(tb, cfg, cfg.Storages[0])
 	})
 }
 
@@ -67,22 +66,15 @@ func setupCommitServiceCreateRepo(
 
 func startTestServices(t testing.TB, cfg config.Cfg) string {
 	t.Helper()
-
-	server := testhelper.NewTestGrpcServer(t, nil, nil)
-	t.Cleanup(server.Stop)
-
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
-
-	listener, err := net.Listen("unix", serverSocketPath)
-	require.NoError(t, err)
-
-	ling, err := linguist.New(cfg)
-	require.NoError(t, err)
-
-	gitalypb.RegisterCommitServiceServer(server, NewServer(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), ling))
-
-	go server.Serve(listener)
-	return "unix://" + serverSocketPath
+	return testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterCommitServiceServer(srv, NewServer(
+			deps.GetCfg(),
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			deps.GetLinguist(),
+			deps.GetCatfileCache(),
+		))
+	})
 }
 
 func newCommitServiceClient(t testing.TB, serviceSocketPath string) gitalypb.CommitServiceClient {

@@ -22,12 +22,17 @@ func TestSuccessfulGetCommitMessagesRequest(t *testing.T) {
 	message1 := strings.Repeat("a\n", helper.MaxCommitOrTagMessageSize*2)
 	message2 := strings.Repeat("b\n", helper.MaxCommitOrTagMessageSize*2)
 
-	commit1ID := gittest.CreateCommit(t, cfg, repoPath, "local-big-commits", &gittest.CreateCommitOpts{Message: message1})
-	commit2ID := gittest.CreateCommit(t, cfg, repoPath, "local-big-commits", &gittest.CreateCommitOpts{Message: message2, ParentID: commit1ID})
+	commit1ID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithBranch("local-big-commits"), gittest.WithMessage(message1),
+	)
+	commit2ID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithBranch("local-big-commits"), gittest.WithMessage(message2),
+		gittest.WithParents(commit1ID),
+	)
 
 	request := &gitalypb.GetCommitMessagesRequest{
 		Repository: repo,
-		CommitIds:  []string{commit1ID, commit2ID},
+		CommitIds:  []string{commit1ID.String(), commit2ID.String()},
 	}
 
 	c, err := client.GetCommitMessages(ctx, request)
@@ -35,11 +40,11 @@ func TestSuccessfulGetCommitMessagesRequest(t *testing.T) {
 
 	expectedMessages := []*gitalypb.GetCommitMessagesResponse{
 		{
-			CommitId: commit1ID,
+			CommitId: commit1ID.String(),
 			Message:  []byte(message1),
 		},
 		{
-			CommitId: commit2ID,
+			CommitId: commit2ID.String(),
 			Message:  []byte(message2),
 		},
 	}

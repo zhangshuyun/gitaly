@@ -27,6 +27,8 @@ func (s *server) FetchInternalRemote(ctx context.Context, req *gitalypb.FetchInt
 		return nil, status.Errorf(codes.InvalidArgument, "FetchInternalRemote: %v", err)
 	}
 
+	repo := s.localrepo(req.GetRepository())
+
 	env, err := gitalyssh.UploadPackEnv(ctx, s.cfg, &gitalypb.SSHUploadPackRequest{Repository: req.RemoteRepository})
 	if err != nil {
 		return nil, fmt.Errorf("upload pack environment: %w", err)
@@ -41,10 +43,10 @@ func (s *server) FetchInternalRemote(ctx context.Context, req *gitalypb.FetchInt
 	options := []git.CmdOpt{
 		git.WithEnv(env...),
 		git.WithStderr(stderr),
-		git.WithRefTxHook(ctx, req.Repository, s.cfg),
+		git.WithRefTxHook(ctx, repo, s.cfg),
 	}
 
-	cmd, err := s.gitCmdFactory.New(ctx, req.Repository,
+	cmd, err := repo.Exec(ctx,
 		git.SubCmd{
 			Name:  "fetch",
 			Flags: flags,
@@ -75,13 +77,13 @@ func (s *server) FetchInternalRemote(ctx context.Context, req *gitalypb.FetchInt
 		return nil, status.Errorf(codes.Internal, "FetchInternalRemote: remote default branch: %v", err)
 	}
 
-	defaultBranch, err := ref.DefaultBranchName(ctx, s.gitCmdFactory, req.Repository)
+	defaultBranch, err := ref.DefaultBranchName(ctx, repo)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "FetchInternalRemote: default branch: %v", err)
 	}
 
 	if !bytes.Equal(defaultBranch, remoteDefaultBranch) {
-		if err := ref.SetDefaultBranchRef(ctx, s.gitCmdFactory, req.Repository, string(remoteDefaultBranch), s.cfg); err != nil {
+		if err := ref.SetDefaultBranchRef(ctx, s.gitCmdFactory, req.GetRepository(), string(remoteDefaultBranch), s.cfg); err != nil {
 			return nil, status.Errorf(codes.Internal, "FetchInternalRemote: set default branch: %v", err)
 		}
 	}

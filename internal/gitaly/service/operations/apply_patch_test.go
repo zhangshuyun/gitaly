@@ -3,7 +3,6 @@ package operations
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -17,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
@@ -28,7 +28,7 @@ func testSuccessfulUserApplyPatch(t *testing.T, cfg config.Cfg, rubySrv *rubyser
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	testPatchReadme := "testdata/0001-A-commit-from-a-patch.patch"
 	testPatchFeature := "testdata/0001-This-does-not-apply-to-the-feature-branch.patch"
@@ -68,7 +68,7 @@ func testSuccessfulUserApplyPatch(t *testing.T, cfg config.Cfg, rubySrv *rubyser
 			stream, err := client.UserApplyPatch(ctx)
 			require.NoError(t, err)
 
-			headerRequest := applyPatchHeaderRequest(repoProto, testhelper.TestUser, testCase.branchName)
+			headerRequest := applyPatchHeaderRequest(repoProto, gittest.TestUser, testCase.branchName)
 			require.NoError(t, stream.Send(headerRequest))
 
 			writer := streamio.NewWriter(func(p []byte) error {
@@ -95,7 +95,7 @@ func testSuccessfulUserApplyPatch(t *testing.T, cfg config.Cfg, rubySrv *rubyser
 			response.GetBranchUpdate()
 			require.Equal(t, testCase.branchCreated, response.GetBranchUpdate().GetBranchCreated())
 
-			branches := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch")
+			branches := gittest.Exec(t, cfg, "-C", repoPath, "branch")
 			require.Contains(t, string(branches), testCase.branchName)
 
 			maxCount := fmt.Sprintf("--max-count=%d", len(testCase.commitMessages))
@@ -110,7 +110,7 @@ func testSuccessfulUserApplyPatch(t *testing.T, cfg config.Cfg, rubySrv *rubyser
 				"--reverse",
 			}
 
-			output := testhelper.MustRunCommand(t, nil, "git", gitArgs...)
+			output := gittest.Exec(t, cfg, gitArgs...)
 			shas := strings.Split(string(output), "\n")
 			// Throw away the last element, as that's going to be
 			// an empty string.
@@ -125,7 +125,7 @@ func testSuccessfulUserApplyPatch(t *testing.T, cfg config.Cfg, rubySrv *rubyser
 				require.NotNil(t, commit)
 				require.Equal(t, string(commit.Subject), testCase.commitMessages[index])
 				require.Equal(t, string(commit.Author.Email), "patchuser@gitlab.org")
-				require.Equal(t, string(commit.Committer.Email), string(testhelper.TestUser.Email))
+				require.Equal(t, string(commit.Committer.Email), string(gittest.TestUser.Email))
 			}
 		})
 	}
@@ -137,7 +137,7 @@ func testUserApplyPatchStableID(t *testing.T, cfg config.Cfg, rubySrv *rubyserve
 
 	ctx, cfg, repoProto, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	stream, err := client.UserApplyPatch(ctx)
 	require.NoError(t, err)
@@ -146,15 +146,14 @@ func testUserApplyPatchStableID(t *testing.T, cfg config.Cfg, rubySrv *rubyserve
 		UserApplyPatchRequestPayload: &gitalypb.UserApplyPatchRequest_Header_{
 			Header: &gitalypb.UserApplyPatchRequest_Header{
 				Repository:   repoProto,
-				User:         testhelper.TestUser,
+				User:         gittest.TestUser,
 				TargetBranch: []byte("branch"),
 				Timestamp:    &timestamp.Timestamp{Seconds: 1234512345},
 			},
 		},
 	}))
 
-	patch, err := ioutil.ReadFile("testdata/0001-A-commit-from-a-patch.patch")
-	require.NoError(t, err)
+	patch := testhelper.MustReadFile(t, "testdata/0001-A-commit-from-a-patch.patch")
 	require.NoError(t, stream.Send(&gitalypb.UserApplyPatchRequest{
 		UserApplyPatchRequestPayload: &gitalypb.UserApplyPatchRequest_Patches{
 			Patches: patch,
@@ -183,8 +182,8 @@ func testUserApplyPatchStableID(t *testing.T, cfg config.Cfg, rubySrv *rubyserve
 			Timezone: []byte("+0200"),
 		},
 		Committer: &gitalypb.CommitAuthor{
-			Name:     testhelper.TestUser.Name,
-			Email:    testhelper.TestUser.Email,
+			Name:     gittest.TestUser.Name,
+			Email:    gittest.TestUser.Email,
 			Date:     &timestamp.Timestamp{Seconds: 1234512345},
 			Timezone: []byte("+0000"),
 		},
@@ -197,13 +196,12 @@ func testFailedPatchApplyPatch(t *testing.T, cfg config.Cfg, rubySrv *rubyserver
 
 	ctx, _, repo, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	testPatch, err := ioutil.ReadFile("testdata/0001-This-does-not-apply-to-the-feature-branch.patch")
-	require.NoError(t, err)
+	testPatch := testhelper.MustReadFile(t, "testdata/0001-This-does-not-apply-to-the-feature-branch.patch")
 
 	stream, err := client.UserApplyPatch(ctx)
 	require.NoError(t, err)
 
-	headerRequest := applyPatchHeaderRequest(repo, testhelper.TestUser, "feature")
+	headerRequest := applyPatchHeaderRequest(repo, gittest.TestUser, "feature")
 	require.NoError(t, stream.Send(headerRequest))
 
 	patchRequest := applyPatchPatchesRequest(testPatch)
@@ -214,8 +212,7 @@ func testFailedPatchApplyPatch(t *testing.T, cfg config.Cfg, rubySrv *rubyserver
 }
 
 func TestFailedValidationUserApplyPatch(t *testing.T) {
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _ := testcfg.BuildWithRepo(t)
 
 	testCases := []struct {
 		desc         string
@@ -228,27 +225,27 @@ func TestFailedValidationUserApplyPatch(t *testing.T) {
 			desc:         "missing Repository",
 			errorMessage: "missing Repository",
 			branchName:   "new-branch",
-			user:         testhelper.TestUser,
+			user:         gittest.TestUser,
 		},
 
 		{
 			desc:         "missing Branch",
 			errorMessage: "missing Branch",
-			repo:         testRepo,
-			user:         testhelper.TestUser,
+			repo:         repo,
+			user:         gittest.TestUser,
 		},
 		{
 			desc:         "empty BranchName",
 			errorMessage: "missing Branch",
-			repo:         testRepo,
-			user:         testhelper.TestUser,
+			repo:         repo,
+			user:         gittest.TestUser,
 			branchName:   "",
 		},
 		{
 			desc:         "missing User",
 			errorMessage: "missing User",
 			branchName:   "new-branch",
-			repo:         testRepo,
+			repo:         repo,
 		},
 	}
 

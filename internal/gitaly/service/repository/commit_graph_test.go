@@ -6,36 +6,106 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
-func TestWriteCommitGraph(t *testing.T) {
+func TestWriteCommitGraph_withExistingCommitGraphCreatedWithDefaults(t *testing.T) {
 	cfg, repo, repoPath, client := setupRepositoryService(t)
+
+	commitGraphPath := filepath.Join(repoPath, CommitGraphRelPath)
+	require.NoFileExists(t, commitGraphPath, "sanity check no commit graph")
+
+	chainPath := filepath.Join(repoPath, CommitGraphChainRelPath)
+	require.NoFileExists(t, chainPath, "sanity check no commit graph chain exists")
+
+	// write commit graph using an old approach
+	gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable")
+	require.FileExists(t, commitGraphPath)
+
+	treeEntry := gittest.TreeEntry{Mode: "100644", Path: "file.txt", Content: "something"}
+	gittest.WriteCommit(
+		t,
+		cfg,
+		repoPath,
+		gittest.WithBranch(t.Name()),
+		gittest.WithTreeEntries(treeEntry),
+	)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	commitGraphPath := filepath.Join(repoPath, CommitGraphRelPath)
+	res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
+		Repository:    repo,
+		SplitStrategy: gitalypb.WriteCommitGraphRequest_SizeMultiple,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, res)
 
-	_, err := os.Stat(commitGraphPath)
-	assert.True(t, os.IsNotExist(err))
+	require.FileExists(t, chainPath, "commit graph chain should be created")
+	require.NoFileExists(t, commitGraphPath, "commit-graph file should be replaced with commit graph chain")
+}
 
-	gittest.CreateCommit(
-		t,
-		cfg,
-		repoPath,
-		t.Name(),
-		&gittest.CreateCommitOpts{Message: t.Name()},
-	)
+func TestWriteCommitGraph(t *testing.T) {
+	_, repo, repoPath, client := setupRepositoryService(t)
 
-	res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{Repository: repo})
-	assert.NoError(t, err)
-	assert.NotNil(t, res)
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-	assert.FileExists(t, commitGraphPath)
+	chainPath := filepath.Join(repoPath, CommitGraphChainRelPath)
+
+	require.NoFileExists(t, chainPath)
+
+	res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
+		Repository:    repo,
+		SplitStrategy: gitalypb.WriteCommitGraphRequest_SizeMultiple,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, res)
+
+	require.FileExists(t, chainPath)
+}
+
+func TestWriteCommitGraph_validationChecks(t *testing.T) {
+	_, repo, _, client := setupRepositoryService(t, testserver.WithDisablePraefect())
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	for _, tc := range []struct {
+		desc   string
+		req    *gitalypb.WriteCommitGraphRequest
+		expErr error
+	}{
+		{
+			desc: "invalid split strategy",
+			req: &gitalypb.WriteCommitGraphRequest{
+				Repository:    repo,
+				SplitStrategy: gitalypb.WriteCommitGraphRequest_SplitStrategy(42),
+			},
+			expErr: status.Error(codes.InvalidArgument, "unsupported split strategy: 42"),
+		},
+		{
+			desc:   "no repository",
+			req:    &gitalypb.WriteCommitGraphRequest{},
+			expErr: status.Error(codes.InvalidArgument, `GetStorageByName: no such storage: ""`),
+		},
+		{
+			desc:   "invalid storage",
+			req:    &gitalypb.WriteCommitGraphRequest{Repository: &gitalypb.Repository{StorageName: "invalid"}},
+			expErr: status.Error(codes.InvalidArgument, `GetStorageByName: no such storage: "invalid"`),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			_, err := client.WriteCommitGraph(ctx, tc.req)
+			require.Equal(t, tc.expErr, err)
+		})
+	}
 }
 
 func TestUpdateCommitGraph(t *testing.T) {
@@ -44,43 +114,40 @@ func TestUpdateCommitGraph(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	gittest.CreateCommit(
-		t,
-		cfg,
-		repoPath,
-		t.Name(),
-		&gittest.CreateCommitOpts{Message: t.Name()},
-	)
+	chainPath := filepath.Join(repoPath, CommitGraphChainRelPath)
+	require.NoFileExists(t, chainPath)
 
-	commitGraphPath := filepath.Join(repoPath, CommitGraphRelPath)
+	res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
+		Repository:    repo,
+		SplitStrategy: gitalypb.WriteCommitGraphRequest_SizeMultiple,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, res)
+	require.FileExists(t, chainPath)
 
-	_, err := os.Stat(commitGraphPath)
-	assert.True(t, os.IsNotExist(err))
-
-	res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{Repository: repo})
-	assert.NoError(t, err)
-	assert.NotNil(t, res)
-	assert.FileExists(t, commitGraphPath)
-
-	// Reset the mtime of commit-graph file to use
+	// Reset the mtime of commit-graph-chain file to use
 	// as basis to detect changes
-	assert.NoError(t, os.Chtimes(commitGraphPath, time.Time{}, time.Time{}))
-	info, err := os.Stat(commitGraphPath)
-	assert.NoError(t, err)
+	require.NoError(t, os.Chtimes(chainPath, time.Time{}, time.Time{}))
+	info, err := os.Stat(chainPath)
+	require.NoError(t, err)
 	mt := info.ModTime()
 
-	gittest.CreateCommit(
+	treeEntry := gittest.TreeEntry{Mode: "100644", Path: "file.txt", Content: "something"}
+	gittest.WriteCommit(
 		t,
 		cfg,
 		repoPath,
-		t.Name(),
-		&gittest.CreateCommitOpts{Message: t.Name()},
+		gittest.WithBranch(t.Name()),
+		gittest.WithTreeEntries(treeEntry),
 	)
 
-	res, err = client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{Repository: repo})
-	assert.NoError(t, err)
-	assert.NotNil(t, res)
-	assert.FileExists(t, commitGraphPath)
+	res, err = client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
+		Repository:    repo,
+		SplitStrategy: gitalypb.WriteCommitGraphRequest_SizeMultiple,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, res)
+	require.FileExists(t, chainPath)
 
-	assertModTimeAfter(t, mt, commitGraphPath)
+	assertModTimeAfter(t, mt, chainPath)
 }

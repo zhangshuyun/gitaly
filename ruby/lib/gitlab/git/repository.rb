@@ -209,16 +209,6 @@ module Gitlab
         OperationService.new(user, self).update_branch(branch_name, newrev, oldrev, push_options: push_options, transaction: transaction)
       end
 
-      def ff_merge(user, source_sha, target_branch)
-        OperationService.new(user, self).with_branch(target_branch) do |our_commit|
-          raise ArgumentError, 'Invalid merge target' unless our_commit
-
-          source_sha
-        end
-      rescue Rugged::ReferenceError, InvalidRef
-        raise ArgumentError, 'Invalid merge source'
-      end
-
       # rubocop:disable Metrics/ParameterLists
       def revert(user:, commit:, branch_name:, message:, start_branch_name:, start_repository:, dry_run: false, timestamp: nil)
         OperationService.new(user, self).with_branch(

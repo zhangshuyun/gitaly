@@ -28,15 +28,6 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :historical, :bool, 7
       optional :raw_data, :bytes, 8
     end
-    add_message "gitaly.WikiGetPageVersionsRequest" do
-      optional :repository, :message, 1, "gitaly.Repository"
-      optional :page_path, :bytes, 2
-      optional :page, :int32, 3
-      optional :per_page, :int32, 4
-    end
-    add_message "gitaly.WikiGetPageVersionsResponse" do
-      repeated :versions, :message, 1, "gitaly.WikiPageVersion"
-    end
     add_message "gitaly.WikiWritePageRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
       optional :name, :bytes, 2
@@ -74,17 +65,6 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     add_message "gitaly.WikiFindPageResponse" do
       optional :page, :message, 1, "gitaly.WikiPage"
     end
-    add_message "gitaly.WikiFindFileRequest" do
-      optional :repository, :message, 1, "gitaly.Repository"
-      optional :name, :bytes, 2
-      optional :revision, :bytes, 3
-    end
-    add_message "gitaly.WikiFindFileResponse" do
-      optional :name, :bytes, 1
-      optional :mime_type, :string, 2
-      optional :raw_data, :bytes, 3
-      optional :path, :bytes, 4
-    end
     add_message "gitaly.WikiGetAllPagesRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
       optional :limit, :uint32, 2
@@ -120,8 +100,6 @@ module Gitaly
   WikiCommitDetails = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiCommitDetails").msgclass
   WikiPageVersion = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiPageVersion").msgclass
   WikiPage = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiPage").msgclass
-  WikiGetPageVersionsRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiGetPageVersionsRequest").msgclass
-  WikiGetPageVersionsResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiGetPageVersionsResponse").msgclass
   WikiWritePageRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiWritePageRequest").msgclass
   WikiWritePageResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiWritePageResponse").msgclass
   WikiUpdatePageRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiUpdatePageRequest").msgclass
@@ -130,8 +108,6 @@ module Gitaly
   WikiDeletePageResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiDeletePageResponse").msgclass
   WikiFindPageRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiFindPageRequest").msgclass
   WikiFindPageResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiFindPageResponse").msgclass
-  WikiFindFileRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiFindFileRequest").msgclass
-  WikiFindFileResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiFindFileResponse").msgclass
   WikiGetAllPagesRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiGetAllPagesRequest").msgclass
   WikiGetAllPagesRequest::SortBy = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiGetAllPagesRequest.SortBy").enummodule
   WikiGetAllPagesResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiGetAllPagesResponse").msgclass

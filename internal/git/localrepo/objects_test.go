@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -30,13 +31,14 @@ func setupRepo(t *testing.T, bare bool) (*Repo, string) {
 	var repoPath string
 	var repoCleanUp func()
 	if bare {
-		repoProto, repoPath, repoCleanUp = gittest.InitBareRepoAt(t, cfg.Storages[0])
+		repoProto, repoPath, repoCleanUp = gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	} else {
-		repoProto, repoPath, repoCleanUp = gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+		repoProto, repoPath, repoCleanUp = gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 	}
 	t.Cleanup(repoCleanUp)
 
-	return New(git.NewExecCommandFactory(cfg), repoProto, cfg), repoPath
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	return New(gitCmdFactory, catfile.NewCache(cfg), repoProto, cfg), repoPath
 }
 
 type ReaderFunc func([]byte) (int, error)
@@ -208,7 +210,7 @@ func TestRepo_WriteTag(t *testing.T) {
 			tagObjID, err := repo.WriteTag(ctx, tc.objectID, tc.objectType, tc.tagName, tc.userName, tc.userEmail, tc.tagBody, tc.authorDate)
 			require.NoError(t, err)
 
-			repoTagObjID := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", tagObjID.String())
+			repoTagObjID := gittest.Exec(t, repo.cfg, "-C", repoPath, "rev-parse", tagObjID.String())
 			require.Equal(t, text.ChompBytes(repoTagObjID), tagObjID.String())
 		})
 	}

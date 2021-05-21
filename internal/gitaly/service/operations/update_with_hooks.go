@@ -12,7 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -50,8 +50,9 @@ func (s *Server) updateReferenceWithHooks(
 	user *gitalypb.User,
 	reference git.ReferenceName,
 	newrev, oldrev git.ObjectID,
+	pushOptions ...string,
 ) error {
-	transaction, praefect, err := metadata.TransactionMetadataFromContext(ctx)
+	transaction, praefect, err := txinfo.FromContext(ctx)
 	if err != nil {
 		return err
 	}
@@ -82,7 +83,7 @@ func (s *Server) updateReferenceWithHooks(
 	changes := fmt.Sprintf("%s %s %s\n", oldrev, newrev, reference)
 	var stdout, stderr bytes.Buffer
 
-	if err := s.hookManager.PreReceiveHook(ctx, repo, nil, env, strings.NewReader(changes), &stdout, &stderr); err != nil {
+	if err := s.hookManager.PreReceiveHook(ctx, repo, pushOptions, env, strings.NewReader(changes), &stdout, &stderr); err != nil {
 		msg := hookErrorMessage(stdout.String(), stderr.String(), err)
 		return preReceiveError{message: msg}
 	}
@@ -95,6 +96,8 @@ func (s *Server) updateReferenceWithHooks(
 		return preReceiveError{message: err.Error()}
 	}
 
+	localRepo := s.localrepo(repo)
+
 	// We are already manually invoking the reference-transaction hook, so there is no need to
 	// set up hooks again here. One could argue that it would be easier to just have git handle
 	// execution of the reference-transaction hook. But unfortunately, it has proven to be
@@ -105,7 +108,7 @@ func (s *Server) updateReferenceWithHooks(
 	// is packed, which is obviously a bad thing as Gitaly nodes may be differently packed. We
 	// thus continue to manually drive the reference-transaction hook here, which doesn't have
 	// this problem.
-	updater, err := updateref.New(ctx, s.cfg, s.gitCmdFactory, repo, updateref.WithDisabledTransactions())
+	updater, err := updateref.New(ctx, s.cfg, localRepo, updateref.WithDisabledTransactions())
 	if err != nil {
 		return err
 	}
@@ -118,7 +121,11 @@ func (s *Server) updateReferenceWithHooks(
 		return updateRefError{reference: reference.String()}
 	}
 
-	if err := s.hookManager.PostReceiveHook(ctx, repo, nil, env, strings.NewReader(changes), &stdout, &stderr); err != nil {
+	if err := s.hookManager.ReferenceTransactionHook(ctx, hook.ReferenceTransactionCommitted, env, strings.NewReader(changes)); err != nil {
+		return preReceiveError{message: err.Error()}
+	}
+
+	if err := s.hookManager.PostReceiveHook(ctx, repo, pushOptions, env, strings.NewReader(changes), &stdout, &stderr); err != nil {
 		msg := hookErrorMessage(stdout.String(), stderr.String(), err)
 		return preReceiveError{message: msg}
 	}

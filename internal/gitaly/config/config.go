@@ -33,15 +33,6 @@ const (
 	GitalyDataPrefix = "+gitaly"
 )
 
-var (
-	// Config stores the global configuration
-	// Deprecated: please do not use global variable and pass preconfigured Cfg as a parameter
-	// where it is needed.
-	Config Cfg
-
-	hooks []func(*Cfg) error
-)
-
 // DailyJob enables a daily task to be scheduled for specific storages
 type DailyJob struct {
 	Hour     uint     `toml:"start_hour"`
@@ -180,16 +171,7 @@ func Load(file io.Reader) (Cfg, error) {
 	return cfg, nil
 }
 
-// RegisterHook adds a post-validation callback. Your hook should only
-// access config via the Cfg instance it gets passed. This avoids race
-// conditions during testing, when the global config.Config instance gets
-// updated after these hooks have run.
-func RegisterHook(f func(c *Cfg) error) {
-	hooks = append(hooks, f)
-}
-
-// Validate checks the current Config for sanity. It also runs all hooks
-// registered with RegisterHook.
+// Validate checks the current Config for sanity.
 func (cfg *Cfg) Validate() error {
 	for _, run := range []func() error{
 		cfg.validateListeners,
@@ -206,12 +188,6 @@ func (cfg *Cfg) Validate() error {
 		cfg.configurePackObjectsCache,
 	} {
 		if err := run(); err != nil {
-			return err
-		}
-	}
-
-	for _, f := range hooks {
-		if err := f(cfg); err != nil {
 			return err
 		}
 	}
@@ -426,7 +402,7 @@ func (cfg *Cfg) Storage(storageName string) (Storage, bool) {
 
 // GitalyInternalSocketPath is the path to the internal gitaly socket
 func (cfg *Cfg) GitalyInternalSocketPath() string {
-	return filepath.Join(cfg.InternalSocketDir, "internal.sock")
+	return filepath.Join(cfg.InternalSocketDir, fmt.Sprintf("internal_%d.sock", os.Getpid()))
 }
 
 func (cfg *Cfg) validateBinDir() error {

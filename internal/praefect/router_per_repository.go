@@ -234,7 +234,8 @@ func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtua
 	return route, nil
 }
 
-// RouteRepositoryCreation picks a random healthy node to act as the primary node and sets other nodes as
+// RouteRepositoryCreation picks a random healthy node to act as the primary node and selects the secondary nodes
+// if assignments are enabled. Healthy secondaries take part in the transaction, unhealthy secondaries are set as
 // replication targets.
 func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtualStorage string) (RepositoryMutatorRoute, error) {
 	healthyNodes, err := r.healthyNodes(virtualStorage)
@@ -252,31 +253,51 @@ func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtu
 		return RepositoryMutatorRoute{Primary: primary}, nil
 	}
 
-	// NodeManagerRouter doesn't consider any secondaries as consistent when creating a repository,
-	// thus the primary is the only participant in the transaction and the secondaries get replicated to.
-	// PerRepositoryRouter matches that behavior here for consistency.
-	var replicationTargets []string
-	for storage := range r.conns[virtualStorage] {
+	var secondaryNodes []RouterNode
+	for storage, conn := range r.conns[virtualStorage] {
 		if storage == primary.Storage {
 			continue
 		}
 
-		replicationTargets = append(replicationTargets, storage)
+		secondaryNodes = append(secondaryNodes, RouterNode{
+			Storage:    storage,
+			Connection: conn,
+		})
 	}
 
 	// replicationFactor being zero indicates it has not been configured. If so, we fallback to the behavior
-	// of no assignments and replicate everywhere.
-	if replicationFactor > 1 {
-		r.rand.Shuffle(len(replicationTargets), func(i, j int) {
-			replicationTargets[i], replicationTargets[j] = replicationTargets[j], replicationTargets[i]
+	// of no assignments, replicate everywhere and do not select assigned secondaries below.
+	if replicationFactor > 0 {
+		// Select random secondaries according to the default replication factor.
+		r.rand.Shuffle(len(secondaryNodes), func(i, j int) {
+			secondaryNodes[i], secondaryNodes[j] = secondaryNodes[j], secondaryNodes[i]
 		})
 
-		// deduct one as the primary is also hosting the repository
-		replicationTargets = replicationTargets[:replicationFactor-1]
+		secondaryNodes = secondaryNodes[:replicationFactor-1]
+	}
+
+	var secondaries []RouterNode
+	var replicationTargets []string
+	for _, secondaryNode := range secondaryNodes {
+		isHealthy := false
+		for _, healthyNode := range healthyNodes {
+			if healthyNode == secondaryNode {
+				isHealthy = true
+				break
+			}
+		}
+
+		if isHealthy {
+			secondaries = append(secondaries, secondaryNode)
+			continue
+		}
+
+		replicationTargets = append(replicationTargets, secondaryNode.Storage)
 	}
 
 	return RepositoryMutatorRoute{
 		Primary:            primary,
+		Secondaries:        secondaries,
 		ReplicationTargets: replicationTargets,
 	}, nil
 }

@@ -19,10 +19,10 @@ func TestExecutor_Apply(t *testing.T) {
 	cfg := testcfg.Build(t)
 	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 
-	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanup)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	executor := New(filepath.Join(cfg.BinDir, "gitaly-git2go"), cfg.Git.BinPath)
 
 	ctx, cancel := testhelper.Context()
@@ -99,8 +99,7 @@ func TestExecutor_Apply(t *testing.T) {
 
 	diffBetween := func(t testing.TB, fromCommit, toCommit git.ObjectID) []byte {
 		t.Helper()
-		return testhelper.MustRunCommand(t, nil,
-			"git", "-C", repoPath, "format-patch", "--stdout", fromCommit.String()+".."+toCommit.String())
+		return gittest.Exec(t, cfg, "-C", repoPath, "format-patch", "--stdout", fromCommit.String()+".."+toCommit.String())
 	}
 
 	for _, tc := range []struct {
@@ -215,7 +214,7 @@ func TestExecutor_Apply(t *testing.T) {
 				Committer: committer,
 				Message:   tc.patches[len(tc.patches)-1].Message,
 			}, getCommit(t, ctx, repo, commitID))
-			gittest.RequireTree(t, repoPath, commitID.String(), tc.tree)
+			gittest.RequireTree(t, cfg, repoPath, commitID.String(), tc.tree)
 		})
 	}
 }

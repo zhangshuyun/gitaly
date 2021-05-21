@@ -10,6 +10,8 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
@@ -39,15 +41,16 @@ func TestVisibilityOfHiddenRefs(t *testing.T) {
 	keepAroundRef := fmt.Sprintf("%s/%s", keepAroundNamespace, existingSha)
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	updater, err := updateref.New(ctx, cfg, gitCmdFactory, repo)
+	localRepo := localrepo.NewTestRepo(t, cfg, repo)
+	updater, err := updateref.New(ctx, cfg, localRepo)
 
 	require.NoError(t, err)
 	require.NoError(t, updater.Create(git.ReferenceName(keepAroundRef), existingSha))
 	require.NoError(t, updater.Wait())
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "transfer.hideRefs", keepAroundNamespace)
+	gittest.Exec(t, cfg, "-C", repoPath, "config", "transfer.hideRefs", keepAroundNamespace)
 
-	output := testhelper.MustRunCommand(t, nil, "git", "ls-remote", repoPath, keepAroundNamespace)
+	output := gittest.Exec(t, cfg, "ls-remote", repoPath, keepAroundNamespace)
 	require.Empty(t, output, "there should be no keep-around refs in normal ls-remote output")
 
 	wd, err := os.Getwd()
