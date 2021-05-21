@@ -1,5 +1,0 @@
----
-title: 'conflicts: Drop ResolveConflicts feature flag'
-merge_request: 3410
-author:
-type: performance
