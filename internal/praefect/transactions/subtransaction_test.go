@@ -193,7 +193,7 @@ func TestSubtransaction_vote(t *testing.T) {
 				{Name: "1", Votes: 1, result: VoteCanceled},
 			},
 			expectedVoteCounts: map[voting.Vote]uint{},
-			expectedErr:        ErrTransactionCanceled,
+			expectedErr:        fmt.Errorf("updating state of node \"1\": %w", ErrTransactionCanceled),
 		},
 		{
 			desc: "single voter trying to vote on stopped transaction",
@@ -207,7 +207,7 @@ func TestSubtransaction_vote(t *testing.T) {
 				{Name: "1", Votes: 1, result: VoteStopped},
 			},
 			expectedVoteCounts: map[voting.Vote]uint{},
-			expectedErr:        ErrTransactionStopped,
+			expectedErr:        fmt.Errorf("updating state of node \"1\": %w", ErrTransactionStopped),
 		},
 		{
 			desc: "multiple voters doing final vote",

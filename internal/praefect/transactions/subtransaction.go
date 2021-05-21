@@ -125,6 +125,25 @@ func (t *subtransaction) vote(node string, vote voting.Vote) error {
 		return fmt.Errorf("node already cast a vote: %q", node)
 	}
 
+	// Update voter state to reflect the new vote counts. Before quorum is reached, this
+	// function will check whether the threshold was reached and, if so, update all voters which
+	// have already cast a vote. After quorum was reached, it will only update the currently
+	// voting node.
+	if err := t.updateVoterState(voter, &vote); err != nil {
+		return fmt.Errorf("updating state of node %q: %w", node, err)
+	}
+
+	if t.mustSignalVoters() {
+		close(t.doneCh)
+	}
+
+	return nil
+}
+
+// updateVoterStates updates undecided voters or cancels existing votes of decided voters if given a
+// `nil` vote. Voters are updated either as soon as quorum was reached or alternatively when all
+// votes were cast.
+func (t *subtransaction) updateVoterState(voter *Voter, vote *voting.Vote) error {
 	switch voter.result {
 	case VoteUndecided:
 		// Happy case, we can still cast a vote.
@@ -136,29 +155,21 @@ func (t *subtransaction) vote(node string, vote voting.Vote) error {
 	default:
 		// Because we didn't vote yet, we know that the node cannot be
 		// either in VoteCommitted or VoteFailed state.
-		return fmt.Errorf("voter is in invalid state %d: %q", voter.result, node)
+		return fmt.Errorf("voter is in invalid state %d", voter.result)
 	}
 
-	voter.vote = &vote
+	switch {
+	case vote != nil:
+		if voter.vote != nil {
+			return errors.New("changing current vote is not allowed")
+		}
 
-	t.voteCounts[vote] += voter.Votes
-
-	// Update voter states to reflect the new vote counts. Before quorum is
-	// reached, this function will check whether the threshold was reached
-	// and, if so, update all voters which have already cast a vote. After
-	// quorum was reached, it will only update the currently voting node.
-	t.updateVoterStates()
-
-	if t.mustSignalVoters() {
-		close(t.doneCh)
+		t.voteCounts[*vote] += voter.Votes
+		voter.vote = vote
+	case vote == nil:
+		return errors.New("cannot remove vote")
 	}
 
-	return nil
-}
-
-// updateVoterStates updates undecided voters. Voters are updated either as
-// soon as quorum was reached or alternatively when all votes were cast.
-func (t *subtransaction) updateVoterStates() {
 	var majorityVote *voting.Vote
 	for v, voteCount := range t.voteCounts {
 		if voteCount >= t.threshold {
@@ -180,7 +191,7 @@ func (t *subtransaction) updateVoterStates() {
 	// when all votes were cast. If all votes were cast without reaching
 	// quorum, we set all voters into VoteFailed state.
 	if majorityVote == nil && !allVotesCast {
-		return
+		return nil
 	}
 
 	// Update all voters which have cast a vote and which are not
@@ -205,6 +216,8 @@ func (t *subtransaction) updateVoterStates() {
 			voter.result = VoteFailed
 		}
 	}
+
+	return nil
 }
 
 // mustSignalVoters determines whether we need to signal voters. Signalling may
