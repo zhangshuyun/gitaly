@@ -35,21 +35,6 @@ func TestPerRepositoryElector(t *testing.T) {
 
 	type state map[string]map[string]map[string]storageRecord
 
-	type matcher func(t testing.TB, primary string)
-	any := func(expected ...string) matcher {
-		return func(t testing.TB, primary string) {
-			t.Helper()
-			require.Contains(t, expected, primary)
-		}
-	}
-
-	noPrimary := func() matcher {
-		return func(t testing.TB, primary string) {
-			t.Helper()
-			require.Empty(t, primary)
-		}
-	}
-
 	type logMatcher func(t testing.TB, entry logrus.Entry)
 
 	anyChange := func(expected ...primaryChanges) logMatcher {
@@ -74,10 +59,10 @@ func TestPerRepositoryElector(t *testing.T) {
 	}
 
 	type steps []struct {
-		healthyNodes map[string][]string
-		error        error
-		primary      matcher
-		matchLogs    logMatcher
+		healthyNodes   map[string][]string
+		error          error
+		primaryIsOneOf []string
+		matchLogs      logMatcher
 	}
 
 	for _, tc := range []struct {
@@ -101,8 +86,8 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1", "gitaly-2", "gitaly-3"},
 					},
-					primary:   any("gitaly-1"),
-					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}}),
+					primaryIsOneOf: []string{"gitaly-1"},
+					matchLogs:      anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}}),
 				},
 			},
 		},
@@ -121,8 +106,8 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
-					primary:   any("gitaly-2"),
-					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-2": {"demoted": 0, "promoted": 1}}}),
+					primaryIsOneOf: []string{"gitaly-2"},
+					matchLogs:      anyChange(primaryChanges{"virtual-storage-1": {"gitaly-2": {"demoted": 0, "promoted": 1}}}),
 				},
 			},
 		},
@@ -141,7 +126,6 @@ func TestPerRepositoryElector(t *testing.T) {
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
 					error:     ErrNoPrimary,
-					primary:   noPrimary(),
 					matchLogs: noChanges,
 				},
 			},
@@ -161,7 +145,7 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1", "gitaly-2", "gitaly-3"},
 					},
-					primary: any("gitaly-1", "gitaly-2"),
+					primaryIsOneOf: []string{"gitaly-1", "gitaly-2"},
 					matchLogs: anyChange(
 						primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}},
 						primaryChanges{"virtual-storage-1": {"gitaly-2": {"demoted": 0, "promoted": 1}}},
@@ -185,14 +169,14 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1", "gitaly-3"},
 					},
-					primary:   any("gitaly-1"),
-					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}}),
+					primaryIsOneOf: []string{"gitaly-1"},
+					matchLogs:      anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}}),
 				},
 				{
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
-					primary: any("gitaly-2"),
+					primaryIsOneOf: []string{"gitaly-2"},
 					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {
 						"gitaly-1": {"demoted": 1, "promoted": 0},
 						"gitaly-2": {"demoted": 0, "promoted": 1},
@@ -215,14 +199,14 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1", "gitaly-2", "gitaly-3"},
 					},
-					primary:   any("gitaly-1"),
-					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}}),
+					primaryIsOneOf: []string{"gitaly-1"},
+					matchLogs:      anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}}),
 				},
 				{
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
-					primary: any("gitaly-3"),
+					primaryIsOneOf: []string{"gitaly-3"},
 					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {
 						"gitaly-1": {"demoted": 1, "promoted": 0},
 						"gitaly-3": {"demoted": 0, "promoted": 1},
@@ -246,14 +230,14 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1", "gitaly-2", "gitaly-3"},
 					},
-					primary:   any("gitaly-1"),
-					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}}),
+					primaryIsOneOf: []string{"gitaly-1"},
+					matchLogs:      anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}}),
 				},
 				{
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
-					primary: any("gitaly-2"),
+					primaryIsOneOf: []string{"gitaly-2"},
 					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {
 						"gitaly-1": {"demoted": 1, "promoted": 0},
 						"gitaly-2": {"demoted": 0, "promoted": 1},
@@ -276,15 +260,14 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1", "gitaly-2", "gitaly-3"},
 					},
-					primary:   any("gitaly-1"),
-					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}}),
+					primaryIsOneOf: []string{"gitaly-1"},
+					matchLogs:      anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}}),
 				},
 				{
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
 					error:     ErrNoPrimary,
-					primary:   noPrimary(),
 					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 1, "promoted": 0}}}),
 				},
 			},
@@ -315,7 +298,6 @@ func TestPerRepositoryElector(t *testing.T) {
 						"virtual-storage-1": {"gitaly-1"},
 					},
 					error:     ErrNoPrimary,
-					primary:   noPrimary(),
 					matchLogs: noChanges,
 				},
 			},
@@ -346,7 +328,6 @@ func TestPerRepositoryElector(t *testing.T) {
 						"virtual-storage-1": {"gitaly-1"},
 					},
 					error:     ErrNoPrimary,
-					primary:   noPrimary(),
 					matchLogs: noChanges,
 				},
 			},
@@ -377,7 +358,6 @@ func TestPerRepositoryElector(t *testing.T) {
 						"virtual-storage-1": {"gitaly-1"},
 					},
 					error:     ErrNoPrimary,
-					primary:   noPrimary(),
 					matchLogs: noChanges,
 				},
 			},
@@ -452,8 +432,8 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
-					primary:   any("gitaly-1"),
-					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}}),
+					primaryIsOneOf: []string{"gitaly-1"},
+					matchLogs:      anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}}),
 				},
 			},
 		},
@@ -462,7 +442,6 @@ func TestPerRepositoryElector(t *testing.T) {
 			steps: steps{
 				{
 					error:     commonerr.NewRepositoryNotFoundError("virtual-storage-1", "relative-path-1"),
-					primary:   noPrimary(),
 					matchLogs: noChanges,
 				},
 			},
@@ -518,7 +497,12 @@ func TestPerRepositoryElector(t *testing.T) {
 
 					primary, err := elector.GetPrimary(ctx, "virtual-storage-1", "relative-path-1")
 					assert.Equal(t, step.error, err)
-					step.primary(t, primary)
+
+					if primary != "" {
+						require.Contains(t, step.primaryIsOneOf, primary)
+					} else {
+						require.Empty(t, step.primaryIsOneOf, "expected no primary but got %q", primary)
+					}
 
 					require.Len(t, hook.Entries, 3)
 					matchLogs(t, hook.Entries[1])
