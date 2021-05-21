@@ -251,11 +251,10 @@ func (t *subtransaction) mustSignalVoters() bool {
 		}
 	}
 
-	// The threshold wasn't reached by any node yet. If there are missing
-	// votes, then we cannot notify yet as any remaining nodes may cause us
-	// to reach quorum.
+	// The threshold wasn't reached by any node yet. If there are undecided voters, then we
+	// cannot notify yet as any remaining nodes may cause us to reach quorum.
 	for _, voter := range t.votersByNode {
-		if voter.vote == nil {
+		if voter.result == VoteUndecided {
 			return false
 		}
 	}

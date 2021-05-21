@@ -328,7 +328,7 @@ func TestSubtransaction_mustSignalVoters(t *testing.T) {
 		{
 			desc: "single voter with vote",
 			voters: []Voter{
-				{Name: "1", Votes: 1, vote: &voteA},
+				{Name: "1", Votes: 1, vote: &voteA, result: VoteCommitted},
 			},
 			threshold:  1,
 			mustSignal: true,
@@ -336,7 +336,7 @@ func TestSubtransaction_mustSignalVoters(t *testing.T) {
 		{
 			desc: "single voter with missing vote",
 			voters: []Voter{
-				{Name: "1", Votes: 1},
+				{Name: "1", Votes: 1, result: VoteUndecided},
 			},
 			threshold:  1,
 			mustSignal: false,
@@ -344,9 +344,9 @@ func TestSubtransaction_mustSignalVoters(t *testing.T) {
 		{
 			desc: "multiple agreeing voters",
 			voters: []Voter{
-				{Name: "1", Votes: 1, vote: &voteA},
-				{Name: "2", Votes: 1, vote: &voteA},
-				{Name: "3", Votes: 1, vote: &voteA},
+				{Name: "1", Votes: 1, vote: &voteA, result: VoteCommitted},
+				{Name: "2", Votes: 1, vote: &voteA, result: VoteCommitted},
+				{Name: "3", Votes: 1, vote: &voteA, result: VoteCommitted},
 			},
 			threshold:  1,
 			mustSignal: true,
@@ -354,9 +354,9 @@ func TestSubtransaction_mustSignalVoters(t *testing.T) {
 		{
 			desc: "multiple disagreeing voters not reaching threshold",
 			voters: []Voter{
-				{Name: "1", Votes: 1, vote: &voteA},
-				{Name: "2", Votes: 1, vote: &voteB},
-				{Name: "3", Votes: 1, vote: &voteC},
+				{Name: "1", Votes: 1, vote: &voteA, result: VoteFailed},
+				{Name: "2", Votes: 1, vote: &voteB, result: VoteFailed},
+				{Name: "3", Votes: 1, vote: &voteC, result: VoteFailed},
 			},
 			threshold:  3,
 			mustSignal: true,
@@ -364,9 +364,9 @@ func TestSubtransaction_mustSignalVoters(t *testing.T) {
 		{
 			desc: "multiple disagreeing voters reaching threshold",
 			voters: []Voter{
-				{Name: "1", Votes: 1, vote: &voteA},
-				{Name: "2", Votes: 1, vote: &voteB},
-				{Name: "3", Votes: 1, vote: &voteB},
+				{Name: "1", Votes: 1, vote: &voteA, result: VoteFailed},
+				{Name: "2", Votes: 1, vote: &voteB, result: VoteCommitted},
+				{Name: "3", Votes: 1, vote: &voteB, result: VoteCommitted},
 			},
 			threshold:  2,
 			mustSignal: true,
@@ -374,9 +374,9 @@ func TestSubtransaction_mustSignalVoters(t *testing.T) {
 		{
 			desc: "multiple voters reach quorum with with missing votes",
 			voters: []Voter{
-				{Name: "1", Votes: 1},
-				{Name: "2", Votes: 1, vote: &voteA},
-				{Name: "3", Votes: 1, vote: &voteA},
+				{Name: "1", Votes: 1, result: VoteUndecided},
+				{Name: "2", Votes: 1, vote: &voteA, result: VoteCommitted},
+				{Name: "3", Votes: 1, vote: &voteA, result: VoteCommitted},
 			},
 			threshold:  2,
 			mustSignal: true,
@@ -384,9 +384,9 @@ func TestSubtransaction_mustSignalVoters(t *testing.T) {
 		{
 			desc: "multiple voters do not reach quorum with missing votes",
 			voters: []Voter{
-				{Name: "1", Votes: 1},
-				{Name: "2", Votes: 1, vote: &voteB},
-				{Name: "3", Votes: 1, vote: &voteB},
+				{Name: "1", Votes: 1, result: VoteUndecided},
+				{Name: "2", Votes: 1, vote: &voteB, result: VoteCommitted},
+				{Name: "3", Votes: 1, vote: &voteB, result: VoteCommitted},
 			},
 			threshold:  3,
 			mustSignal: false,
