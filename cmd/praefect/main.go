@@ -321,22 +321,12 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		}()
 		healthChecker = hm
 
-		elector := nodes.NewPerRepositoryElector(logger, db, hm)
-
-		if conf.Failover.Enabled {
-			go func() {
-				if err := elector.Run(ctx, hm.Updated()); err != nil {
-					logger.WithError(err).Error("primary elector exited")
-				}
-			}()
-		}
-
-		primaryGetter = elector
+		primaryGetter = nodes.NewPerRepositoryElector(logger, db, hm)
 		assignmentStore = datastore.NewAssignmentStore(db, conf.StorageNames())
 
 		router = praefect.NewPerRepositoryRouter(
 			nodeSet.Connections(),
-			elector,
+			primaryGetter,
 			hm,
 			praefect.NewLockedRandom(rand.New(rand.NewSource(time.Now().UnixNano()))),
 			csg,
