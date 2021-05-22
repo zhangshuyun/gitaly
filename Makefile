@@ -70,7 +70,7 @@ GOIMPORTS_VERSION         ?= 2538eef75904eff384a2551359968e40c207d9d2
 GO_JUNIT_REPORT_VERSION   ?= 984a47ca6b0a7d704c4b589852051b4d7865aa17
 GO_LICENSES_VERSION       ?= 73411c8fa237ccc6a75af79d0a5bc021c9487aad
 PROTOC_VERSION            ?= 3.12.4
-PROTOC_GEN_GO_VERSION     ?= 1.3.2
+PROTOC_GEN_GO_VERSION     ?= 1.4.3
 GIT_VERSION               ?= v2.31.1
 GIT2GO_VERSION            ?= v31
 LIBGIT2_VERSION           ?= v1.1.0
@@ -317,7 +317,7 @@ proto: ${PROTOC} ${PROTOC_GEN_GO} ${SOURCE_DIR}/.ruby-bundle
 	${PROTOC} --plugin=${PROTOC_GEN_GO} -I ${SOURCE_DIR}/proto --go_out=paths=source_relative,plugins=grpc:${SOURCE_DIR}/proto/go/gitalypb ${SOURCE_DIR}/proto/*.proto
 	${SOURCE_DIR}/_support/generate-proto-ruby
 	${Q}# this part is related to the generation of sources from testing proto files
-	${PROTOC} --plugin=${PROTOC_GEN_GO} -I ${SOURCE_DIR}/internal --go_out=path=source_relative,plugins=grpc:${SOURCE_DIR}/internal ${SOURCE_DIR}/internal/praefect/grpc-proxy/testdata/test.proto
+	${PROTOC} --plugin=${PROTOC_GEN_GO} -I ${SOURCE_DIR}/internal --go_out=paths=source_relative,plugins=grpc:${SOURCE_DIR}/internal ${SOURCE_DIR}/internal/praefect/grpc-proxy/testdata/test.proto
 	${PROTOC} --plugin=${PROTOC_GEN_GO} -I ${SOURCE_DIR}/proto -I ${SOURCE_DIR}/internal --go_out=paths=source_relative,plugins=grpc:${SOURCE_DIR}/internal ${SOURCE_DIR}/internal/praefect/mock/mock.proto
 	${PROTOC} --plugin=${PROTOC_GEN_GO} -I ${SOURCE_DIR}/proto -I ${SOURCE_DIR}/internal --go_out=paths=source_relative,plugins=grpc:${SOURCE_DIR}/internal ${SOURCE_DIR}/internal/middleware/cache/testdata/stream.proto
 	${PROTOC} --plugin=${PROTOC_GEN_GO} -I ${SOURCE_DIR}/proto --go_out=paths=source_relative,plugins=grpc:${SOURCE_DIR}/proto ${SOURCE_DIR}/proto/go/internal/linter/testdata/*.proto
