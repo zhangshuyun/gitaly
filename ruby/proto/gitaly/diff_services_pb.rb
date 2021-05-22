@@ -8,21 +8,21 @@ module Gitaly
   module DiffService
     class Service
 
-      include GRPC::GenericService
+      include ::GRPC::GenericService
 
       self.marshal_class_method = :encode
       self.unmarshal_class_method = :decode
       self.service_name = 'gitaly.DiffService'
 
       # Returns stream of CommitDiffResponse with patches chunked over messages
-      rpc :CommitDiff, Gitaly::CommitDiffRequest, stream(Gitaly::CommitDiffResponse)
+      rpc :CommitDiff, ::Gitaly::CommitDiffRequest, stream(::Gitaly::CommitDiffResponse)
       # Return a stream so we can divide the response in chunks of deltas
-      rpc :CommitDelta, Gitaly::CommitDeltaRequest, stream(Gitaly::CommitDeltaResponse)
-      rpc :RawDiff, Gitaly::RawDiffRequest, stream(Gitaly::RawDiffResponse)
-      rpc :RawPatch, Gitaly::RawPatchRequest, stream(Gitaly::RawPatchResponse)
-      rpc :DiffStats, Gitaly::DiffStatsRequest, stream(Gitaly::DiffStatsResponse)
+      rpc :CommitDelta, ::Gitaly::CommitDeltaRequest, stream(::Gitaly::CommitDeltaResponse)
+      rpc :RawDiff, ::Gitaly::RawDiffRequest, stream(::Gitaly::RawDiffResponse)
+      rpc :RawPatch, ::Gitaly::RawPatchRequest, stream(::Gitaly::RawPatchResponse)
+      rpc :DiffStats, ::Gitaly::DiffStatsRequest, stream(::Gitaly::DiffStatsResponse)
       # Return a list of files changed along with the status of each file
-      rpc :FindChangedPaths, Gitaly::FindChangedPathsRequest, stream(Gitaly::FindChangedPathsResponse)
+      rpc :FindChangedPaths, ::Gitaly::FindChangedPathsRequest, stream(::Gitaly::FindChangedPathsResponse)
     end
 
     Stub = Service.rpc_stub_class

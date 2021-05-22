@@ -8,24 +8,24 @@ module Gitaly
   module PraefectInfoService
     class Service
 
-      include GRPC::GenericService
+      include ::GRPC::GenericService
 
       self.marshal_class_method = :encode
       self.unmarshal_class_method = :decode
       self.service_name = 'gitaly.PraefectInfoService'
 
-      rpc :RepositoryReplicas, Gitaly::RepositoryReplicasRequest, Gitaly::RepositoryReplicasResponse
+      rpc :RepositoryReplicas, ::Gitaly::RepositoryReplicasRequest, ::Gitaly::RepositoryReplicasResponse
       # ConsistencyCheck will perform a consistency check on the requested
       # virtual storage backend. A stream of repository statuses will be sent
       # back indicating which repos are consistent with the primary and which ones
       # need repair.
-      rpc :ConsistencyCheck, Gitaly::ConsistencyCheckRequest, stream(Gitaly::ConsistencyCheckResponse)
+      rpc :ConsistencyCheck, ::Gitaly::ConsistencyCheckRequest, stream(::Gitaly::ConsistencyCheckResponse)
       # DatalossCheck checks for outdated repository replicas.
-      rpc :DatalossCheck, Gitaly::DatalossCheckRequest, Gitaly::DatalossCheckResponse
+      rpc :DatalossCheck, ::Gitaly::DatalossCheckRequest, ::Gitaly::DatalossCheckResponse
       # SetAuthoritativeStorage sets the authoritative storage for a repository on a given virtual storage.
       # This causes the current version of the repository on the authoritative storage to be considered the
       # latest and overwrite any other version on the virtual storage.
-      rpc :SetAuthoritativeStorage, Gitaly::SetAuthoritativeStorageRequest, Gitaly::SetAuthoritativeStorageResponse
+      rpc :SetAuthoritativeStorage, ::Gitaly::SetAuthoritativeStorageRequest, ::Gitaly::SetAuthoritativeStorageResponse
       # SetReplicationFactor assigns or unassigns host nodes from the repository to meet the desired replication factor.
       # SetReplicationFactor returns an error when trying to set a replication factor that exceeds the storage node count
       # in the virtual storage. An error is also returned when trying to set a replication factor below one. The primary node
@@ -34,7 +34,7 @@ module Gitaly
       # This might cause the actual replication factor to be higher than desired if the replication factor is set during an upgrade
       # from a Praefect node that does not yet know about a new node. As assignments of unconfigured storages are ignored, replication
       # factor of repositories assigned to a storage node removed from the cluster is effectively decreased.
-      rpc :SetReplicationFactor, Gitaly::SetReplicationFactorRequest, Gitaly::SetReplicationFactorResponse
+      rpc :SetReplicationFactor, ::Gitaly::SetReplicationFactorRequest, ::Gitaly::SetReplicationFactorResponse
     end
 
     Stub = Service.rpc_stub_class

@@ -10,7 +10,7 @@ module Gitaly
     # only reachable by Praefect or other Gitalies
     class Service
 
-      include GRPC::GenericService
+      include ::GRPC::GenericService
 
       self.marshal_class_method = :encode
       self.unmarshal_class_method = :decode
@@ -18,7 +18,7 @@ module Gitaly
 
       # WalkRepos walks the storage and streams back all known git repos on the
       # requested storage
-      rpc :WalkRepos, Gitaly::WalkReposRequest, stream(Gitaly::WalkReposResponse)
+      rpc :WalkRepos, ::Gitaly::WalkReposRequest, stream(::Gitaly::WalkReposResponse)
     end
 
     Stub = Service.rpc_stub_class

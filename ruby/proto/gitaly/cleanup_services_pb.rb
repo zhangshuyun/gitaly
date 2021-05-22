@@ -8,13 +8,13 @@ module Gitaly
   module CleanupService
     class Service
 
-      include GRPC::GenericService
+      include ::GRPC::GenericService
 
       self.marshal_class_method = :encode
       self.unmarshal_class_method = :decode
       self.service_name = 'gitaly.CleanupService'
 
-      rpc :ApplyBfgObjectMapStream, stream(Gitaly::ApplyBfgObjectMapStreamRequest), stream(Gitaly::ApplyBfgObjectMapStreamResponse)
+      rpc :ApplyBfgObjectMapStream, stream(::Gitaly::ApplyBfgObjectMapStreamRequest), stream(::Gitaly::ApplyBfgObjectMapStreamResponse)
     end
 
     Stub = Service.rpc_stub_class
