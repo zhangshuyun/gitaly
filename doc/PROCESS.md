@@ -403,6 +403,21 @@ If the changes needed are not yet released, [create a release candidate](#creati
 - Checkout the tag to publish (vX.Y.Z)
 - run `_support/publish-gem X.Y.Z`
 
+### Publishing the go module
+
+If an [updated version](https://golang.org/doc/modules/release-workflow) of the go module is needed, it can be [published](https://golang.org/doc/modules/publishing)
+by tag creation.
+
+If a new [major module version update](https://golang.org/doc/modules/major-version) is needed,
+it can be changed by running `upgrade-module` `make` task with desired parameters:
+
+```bash
+make upgrade-module FROM_MODULE=v14 TO_MODULE=v15
+```
+
+It replaces old imports with the new version in the go source files,
+updates `*.proto` files and modifies `go.mod` file to use a new target version of the module.
+
 ##### Security release
 
 Security releases involve additional processes to ensure that recent releases
