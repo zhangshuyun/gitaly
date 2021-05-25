@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 13.12.1 (2021-05-25)
+
+No changes.
+
 ## 13.12.0 (2021-05-22)
 
 ### Security (2 changes, 1 of them is from the community)
