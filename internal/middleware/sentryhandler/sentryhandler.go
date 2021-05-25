@@ -10,7 +10,7 @@ import (
 
 	sentry "github.com/getsentry/sentry-go"
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 )

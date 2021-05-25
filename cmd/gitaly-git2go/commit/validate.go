@@ -6,7 +6,7 @@ import (
 	"os"
 
 	git "github.com/libgit2/git2go/v31"
-	"gitlab.com/gitlab-org/gitaly/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 )
 
 func validateFileExists(index *git.Index, path string) error {

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metrics"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/metrics"
 )
 
 // localElector relies on an in-memory datastore to track the primary

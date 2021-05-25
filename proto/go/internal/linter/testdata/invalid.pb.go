@@ -7,7 +7,7 @@ import (
 	context "context"
 	fmt "fmt"
 	proto "github.com/golang/protobuf/proto"
-	gitalypb "gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	gitalypb "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"

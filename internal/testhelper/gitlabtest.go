@@ -2,7 +2,7 @@ package testhelper
 
 import (
 	"github.com/golang/protobuf/ptypes/timestamp"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
 var (

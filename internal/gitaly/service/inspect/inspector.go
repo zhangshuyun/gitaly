@@ -7,8 +7,8 @@ import (
 	"io/ioutil"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
-	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/pktline"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 )
 
 // NewWriter returns Writer that will feed 'action' with data on each write to it.

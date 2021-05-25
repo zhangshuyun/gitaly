@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync"
 
-	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
 )
 
 var (

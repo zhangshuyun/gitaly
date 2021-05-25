@@ -8,8 +8,8 @@ import (
 	"net/url"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
-	gitaly_x509 "gitlab.com/gitlab-org/gitaly/internal/x509"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
+	gitaly_x509 "gitlab.com/gitlab-org/gitaly/v14/internal/x509"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
 	"google.golang.org/grpc"

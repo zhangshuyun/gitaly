@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metrics"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/metrics"
 )
 
 // newDisabledElector returns a stub that always returns the same shard where the

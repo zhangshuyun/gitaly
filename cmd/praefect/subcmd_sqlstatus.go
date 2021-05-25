@@ -6,8 +6,8 @@ import (
 	"sort"
 
 	"github.com/olekukonko/tablewriter"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 )
 
 type sqlMigrateStatusSubcommand struct{}

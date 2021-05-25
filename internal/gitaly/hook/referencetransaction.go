@@ -9,7 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 
-	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 )
 
 var (

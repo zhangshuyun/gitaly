@@ -9,7 +9,7 @@ import (
 	"io"
 	"os"
 
-	"gitlab.com/gitlab-org/gitaly/cmd/gitaly-git2go/conflicts"
+	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/conflicts"
 )
 
 type subcmd interface {

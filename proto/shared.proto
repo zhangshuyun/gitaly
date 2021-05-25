@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package gitaly;
 
-option go_package = "gitlab.com/gitlab-org/gitaly/proto/go/gitalypb";
+option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 
 import "google/protobuf/timestamp.proto";
 import "lint.proto";

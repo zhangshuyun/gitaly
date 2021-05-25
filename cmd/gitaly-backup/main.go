@@ -7,7 +7,7 @@ import (
 	"os"
 
 	log "github.com/sirupsen/logrus"
-	glog "gitlab.com/gitlab-org/gitaly/internal/log"
+	glog "gitlab.com/gitlab-org/gitaly/v14/internal/log"
 )
 
 type subcmd interface {

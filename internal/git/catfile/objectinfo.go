@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 )
 
 // ObjectInfo represents a header returned by `git cat-file --batch`

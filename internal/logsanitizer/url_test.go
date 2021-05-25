@@ -81,9 +81,9 @@ func TestUrlSanitizerHook(t *testing.T) {
 			logFunc: func() {
 				logger.WithFields(log.Fields{
 					"grpc.method": "CreateRepositoryFromURL",
-				}).Info("asked for: https://gitlab.com/gitlab-org/gitaly")
+				}).Info("asked for: https://gitlab.com/gitlab-org/gitaly/v14")
 			},
-			expectedString: "asked for: https://gitlab.com/gitlab-org/gitaly",
+			expectedString: "asked for: https://gitlab.com/gitlab-org/gitaly/v14",
 		},
 	}
 

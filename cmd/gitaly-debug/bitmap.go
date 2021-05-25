@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"gitlab.com/gitlab-org/gitaly/internal/git/packfile"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/packfile"
 )
 
 func listBitmapPack(idxFile string) {

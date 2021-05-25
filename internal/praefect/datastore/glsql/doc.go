@@ -23,7 +23,7 @@
 //    -tags=postgres \
 //    -v \
 //    -count=1 \
-//    gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/glsql \
+//    gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql \
 //    -run=^TestOpenDB$
 //
 // Once it is finished successfully you can be sure other tests would be able to

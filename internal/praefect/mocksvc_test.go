@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/golang/protobuf/ptypes/empty"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/mock"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/mock"
 )
 
 type (

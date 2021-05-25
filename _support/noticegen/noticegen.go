@@ -47,7 +47,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		if p == "gitlab.com/gitlab-org/gitaly" {
+		if p == "gitlab.com/gitlab-org/gitaly/v14" {
 			return nil
 		}
 

@@ -9,8 +9,8 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"gitlab.com/gitlab-org/gitaly/internal/command"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 )
 
 // HasRevision checks if a revision in the repository exists. This will not

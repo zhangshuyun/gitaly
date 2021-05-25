@@ -8,8 +8,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver/balancer"
-	"gitlab.com/gitlab-org/gitaly/internal/supervisor"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver/balancer"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/supervisor"
 )
 
 var (

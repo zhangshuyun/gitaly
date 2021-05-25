@@ -8,8 +8,8 @@ import (
 	// Blank import to enable integration of github.com/lib/pq into database/sql
 	_ "github.com/lib/pq"
 	migrate "github.com/rubenv/sql-migrate"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/migrations"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/migrations"
 )
 
 // OpenDB returns connection pool to the database.

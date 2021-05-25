@@ -15,8 +15,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	gitalylog "gitlab.com/gitlab-org/gitaly/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	gitalylog "gitlab.com/gitlab-org/gitaly/v14/internal/log"
 )
 
 var (
@@ -199,7 +199,7 @@ func buildCommand(t testing.TB, outputDir, cmd string) {
 		"build",
 		"-tags", "static,system_libgit2",
 		"-o", filepath.Join(outputDir, cmd),
-		fmt.Sprintf("gitlab.com/gitlab-org/gitaly/cmd/%s", cmd),
+		fmt.Sprintf("gitlab.com/gitlab-org/gitaly/v14/cmd/%s", cmd),
 	}
 	MustRunCommand(t, nil, "go", goBuildArgs...)
 }

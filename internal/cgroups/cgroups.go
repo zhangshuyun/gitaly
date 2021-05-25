@@ -1,8 +1,8 @@
 package cgroups
 
 import (
-	"gitlab.com/gitlab-org/gitaly/internal/command"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/cgroups"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/cgroups"
 )
 
 // Manager supplies an interface for interacting with cgroups

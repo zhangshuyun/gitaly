@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	"github.com/golang/protobuf/proto"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
 const (

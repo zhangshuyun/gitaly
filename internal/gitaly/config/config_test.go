@@ -14,8 +14,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/cgroups"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/sentry"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/cgroups"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/sentry"
 )
 
 func TestLoadBrokenConfig(t *testing.T) {

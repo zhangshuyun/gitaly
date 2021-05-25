@@ -3,7 +3,7 @@
 package cgroups
 
 import (
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/cgroups"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/cgroups"
 )
 
 // For systems other than Linux, we return a noop manager if cgroups was enabled.

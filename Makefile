@@ -57,7 +57,7 @@ GOLANGCI_LINT_CONFIG  ?= ${SOURCE_DIR}/.golangci.yml
 
 # Build information
 BUNDLE_DEPLOYMENT ?= $(shell test -f ${SOURCE_DIR}/../.gdk-install-root && echo false || echo true)
-GITALY_PACKAGE    := gitlab.com/gitlab-org/gitaly
+GITALY_PACKAGE    := gitlab.com/gitlab-org/gitaly/v14
 BUILD_TIME        := $(shell date +"%Y%m%d.%H%M%S")
 GITALY_VERSION    := $(shell ${GIT} describe --match v* 2>/dev/null | sed 's/^v//' || cat ${SOURCE_DIR}/VERSION 2>/dev/null || echo unknown)
 GO_LDFLAGS        := -ldflags '-X ${GITALY_PACKAGE}/internal/version.version=${GITALY_VERSION} -X ${GITALY_PACKAGE}/internal/version.buildtime=${BUILD_TIME}'
@@ -233,7 +233,7 @@ test-with-praefect: build prepare-tests
 
 .PHONY: test-postgres
 test-postgres: GO_BUILD_TAGS := ${GO_BUILD_TAGS},postgres
-test-postgres: TEST_PACKAGES := gitlab.com/gitlab-org/gitaly/internal/praefect/...
+test-postgres: TEST_PACKAGES := gitlab.com/gitlab-org/gitaly/v14/internal/praefect/...
 test-postgres: prepare-tests
 	${Q}$(call run_go_tests)
 

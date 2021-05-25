@@ -32,7 +32,7 @@ hooks are built in ruby and then get shelled out to `gitaly-hooks`.
 
 ## What does gitaly-hooks do?
 
-`gitaly-hooks` will take the arguments and make an RPC call to `PreReceiveHook`, `UpdateHook`, or `PostReceiveHook` accordingly. 
+`gitaly-hooks` will take the arguments and make an RPC call to `PreReceiveHook`, `UpdateHook`, or `PostReceiveHook` accordingly.
 
 **Note:**
 Currently `gitaly-hooks` will only make an RPC call to `PreReceiveHook`, `UpdateHook`, or `PostReceiveHook` if a feature flag `gitaly_hook_rpc` is enabled. Otherwise, `gitaly-hooks` falls back to calling the ruby hooks directly.
