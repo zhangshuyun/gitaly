@@ -99,10 +99,15 @@ type ParallelCreatePipeline struct {
 	workersOnce sync.Once
 	wg          sync.WaitGroup
 	done        chan struct{}
-	requests    chan *CreateRequest
+	requests    chan *contextCreateRequest
 
 	mu  sync.Mutex
 	err error
+}
+
+type contextCreateRequest struct {
+	CreateRequest
+	Context context.Context
 }
 
 // NewParallelCreatePipeline creates a new ParallelCreatePipeline where `next`
@@ -113,7 +118,7 @@ func NewParallelCreatePipeline(next CreatePipeline, n int) *ParallelCreatePipeli
 		next:     next,
 		n:        n,
 		done:     make(chan struct{}),
-		requests: make(chan *CreateRequest),
+		requests: make(chan *contextCreateRequest),
 	}
 }
 
@@ -124,7 +129,10 @@ func (p *ParallelCreatePipeline) Create(ctx context.Context, req *CreateRequest)
 	select {
 	case <-ctx.Done():
 		p.setErr(ctx.Err())
-	case p.requests <- req:
+	case p.requests <- &contextCreateRequest{
+		CreateRequest: *req,
+		Context:       ctx,
+	}:
 	}
 }
 
@@ -155,7 +163,7 @@ func (p *ParallelCreatePipeline) worker() {
 		case <-p.done:
 			return
 		case req := <-p.requests:
-			p.next.Create(context.TODO(), req)
+			p.next.Create(req.Context, &req.CreateRequest)
 		}
 	}
 }
@@ -178,7 +186,7 @@ type ParallelStorageCreatePipeline struct {
 	done chan struct{}
 
 	mu       sync.Mutex
-	requests map[string]chan *CreateRequest
+	requests map[string]chan *contextCreateRequest
 	err      error
 }
 
@@ -192,7 +200,7 @@ func NewParallelStorageCreatePipeline(next CreatePipeline, n int) *ParallelStora
 		next:     next,
 		n:        n,
 		done:     make(chan struct{}),
-		requests: make(map[string]chan *CreateRequest),
+		requests: make(map[string]chan *contextCreateRequest),
 	}
 }
 
@@ -204,7 +212,10 @@ func (p *ParallelStorageCreatePipeline) Create(ctx context.Context, req *CreateR
 	select {
 	case <-ctx.Done():
 		p.setErr(ctx.Err())
-	case ch <- req:
+	case ch <- &contextCreateRequest{
+		CreateRequest: *req,
+		Context:       ctx,
+	}:
 	}
 }
 
@@ -229,7 +240,7 @@ func (p *ParallelStorageCreatePipeline) getStorage(storage string) chan<- *conte
 
 	ch, ok := p.requests[storage]
 	if !ok {
-		ch = make(chan *CreateRequest)
+		ch = make(chan *contextCreateRequest)
 		p.requests[storage] = ch
 
 		for i := 0; i < p.n; i++ {
@@ -240,14 +251,14 @@ func (p *ParallelStorageCreatePipeline) getStorage(storage string) chan<- *conte
 	return ch
 }
 
-func (p *ParallelStorageCreatePipeline) worker(ch <-chan *CreateRequest) {
+func (p *ParallelStorageCreatePipeline) worker(ch <-chan *contextCreateRequest) {
 	defer p.wg.Done()
 	for {
 		select {
 		case <-p.done:
 			return
 		case req := <-ch:
-			p.next.Create(context.TODO(), req)
+			p.next.Create(req.Context, &req.CreateRequest)
 		}
 	}
 }
