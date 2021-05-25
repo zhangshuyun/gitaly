@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/lib/pq"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/glsql"
@@ -33,12 +32,11 @@ type HealthConsensus interface {
 }
 
 // NewPerRepositoryElector returns a new per repository primary elector.
-func NewPerRepositoryElector(log logrus.FieldLogger, db glsql.Querier, hc HealthConsensus) *PerRepositoryElector {
+func NewPerRepositoryElector(log logrus.FieldLogger, db glsql.Querier) *PerRepositoryElector {
 	log = log.WithField("component", "PerRepositoryElector")
 	return &PerRepositoryElector{
 		log: log,
 		db:  db,
-		hc:  hc,
 	}
 }
 
@@ -50,35 +48,17 @@ WITH new AS (
 	UPDATE repositories
 		SET "primary" = (
 			SELECT storage
-			FROM ( SELECT unnest($3::text[]) AS storage ) AS healthy_storages
-			LEFT JOIN storage_repositories USING (storage)
-			WHERE virtual_storage = $1
-			AND relative_path = $2
-			AND (
-				-- If assignments exist for the repository, only the assigned storages elected as primary.
-				-- If no assignments exist, any healthy node can be elected as the primary
-				SELECT COUNT(*) = 0 OR COUNT(*) FILTER (WHERE storage = storage_repositories.storage) = 1
-				FROM repository_assignments
-				WHERE repository_assignments.virtual_storage = storage_repositories.virtual_storage
-				AND repository_assignments.relative_path = storage_repositories.relative_path
-			)
-			AND NOT EXISTS (
-				-- This check exists to prevent us from electing a primary that is pending deletion. The primary
-				-- could accept a write and lose it when the deletion is carried out.
-				SELECT true
-				FROM replication_queue
-				WHERE state NOT IN ('completed', 'dead', 'cancelled')
-				AND job->>'change' = 'delete_replica'
-				AND job->>'virtual_storage' = virtual_storage
-				AND job->>'relative_path' = relative_path
-				AND job->>'target_node_storage' = storage
-			)
+			FROM valid_primaries
+			JOIN storage_repositories USING (virtual_storage, relative_path, storage)
 			ORDER BY generation DESC NULLS LAST, random()
 			LIMIT 1
 		)
-	WHERE virtual_storage = $1
-	AND   relative_path   = $2
-	AND   ("primary" IS NULL OR "primary" != ALL($3::text[]))
+	WHERE NOT EXISTS (
+		SELECT FROM valid_primaries
+		WHERE virtual_storage = $1
+		AND relative_path = $2
+		AND storage = repositories."primary"
+	)
 	RETURNING true AS elected, "primary"
 )
 
@@ -95,7 +75,6 @@ AND relative_path = $2
 		`,
 		virtualStorage,
 		relativePath,
-		pq.StringArray(pr.hc.HealthConsensus()[virtualStorage]),
 	).Scan(&current, &previous); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", commonerr.NewRepositoryNotFoundError(virtualStorage, relativePath)
