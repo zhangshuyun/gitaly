@@ -8,12 +8,17 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 )
 
-// DefaultBranch now defaults to master, as that's the Git default
-const DefaultBranch = "master"
+// DefaultBranch is the default reference written to HEAD when a repository is created
+const DefaultBranch = "main"
 
 // DefaultRef is the reference that GitLab will use if HEAD of the bare repository
 // is not found, or other edge cases to detect the default branch.
 var DefaultRef = []byte("refs/heads/" + DefaultBranch)
+
+// LegacyDefaultRef is the reference that used to be the default HEAD of the bare
+// repository. If the default reference is not found, Gitaly will still test the
+// legacy default.
+var LegacyDefaultRef = []byte("refs/heads/master")
 
 var (
 	// ErrReferenceNotFound represents an error when a reference was not
