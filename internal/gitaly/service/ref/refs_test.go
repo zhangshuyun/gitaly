@@ -230,7 +230,7 @@ func TestHeadReference(t *testing.T) {
 	headRef, err := headReference(ctx, localrepo.NewTestRepo(t, cfg, repo))
 	require.NoError(t, err)
 
-	require.Equal(t, git.DefaultRef, headRef)
+	require.Equal(t, git.LegacyDefaultRef, headRef)
 }
 
 func TestHeadReferenceWithNonExistingHead(t *testing.T) {
@@ -269,7 +269,7 @@ func TestSetDefaultBranchRef(t *testing.T) {
 		{
 			desc:        "unknown ref",
 			ref:         "refs/heads/non_existent_ref",
-			expectedRef: "refs/heads/master",
+			expectedRef: string(git.LegacyDefaultRef),
 		},
 	}
 
@@ -332,7 +332,7 @@ func TestDefaultBranchName(t *testing.T) {
 		},
 		{
 			desc:     "Get `ref/heads/master` when several branches exist",
-			expected: git.DefaultRef,
+			expected: git.LegacyDefaultRef,
 			findBranchNames: func(context.Context, git.RepositoryExecutor) ([][]byte, error) {
 				return [][]byte{[]byte("refs/heads/foo"), []byte("refs/heads/master"), []byte("refs/heads/bar")}, nil
 			},
@@ -363,6 +363,23 @@ func TestDefaultBranchName(t *testing.T) {
 }
 
 func TestSuccessfulFindDefaultBranchName(t *testing.T) {
+	cfg, repo, repoPath, client := setupRefService(t)
+	rpcRequest := &gitalypb.FindDefaultBranchNameRequest{Repository: repo}
+
+	// The testing repository has no main branch, so we create it and update
+	// HEAD to it
+	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/main", "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863")
+	gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/main")
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+	r, err := client.FindDefaultBranchName(ctx, rpcRequest)
+	require.NoError(t, err)
+
+	require.Equal(t, r.GetName(), git.DefaultRef)
+}
+
+func TestSuccessfulFindDefaultBranchNameLegacy(t *testing.T) {
 	_, repo, _, client := setupRefService(t)
 	rpcRequest := &gitalypb.FindDefaultBranchNameRequest{Repository: repo}
 
@@ -371,7 +388,7 @@ func TestSuccessfulFindDefaultBranchName(t *testing.T) {
 	r, err := client.FindDefaultBranchName(ctx, rpcRequest)
 	require.NoError(t, err)
 
-	require.Equal(t, r.GetName(), git.DefaultRef)
+	require.Equal(t, r.GetName(), git.LegacyDefaultRef)
 }
 
 func TestEmptyFindDefaultBranchNameRequest(t *testing.T) {

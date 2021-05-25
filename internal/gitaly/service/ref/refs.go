@@ -241,7 +241,7 @@ func DefaultBranchName(ctx context.Context, repo git.RepositoryExecutor) ([]byte
 		return branches[0], nil
 	}
 
-	hasDefaultRef := false
+	var hasDefaultRef, hasLegacyDefaultRef = false, false
 	headRef, err := headReference(ctx, repo)
 	if err != nil {
 		return nil, err
@@ -256,11 +256,17 @@ func DefaultBranchName(ctx context.Context, repo git.RepositoryExecutor) ([]byte
 		if bytes.Equal(branch, git.DefaultRef) {
 			hasDefaultRef = true
 		}
+
+		hasLegacyDefaultRef = hasLegacyDefaultRef || bytes.Equal(branch, git.LegacyDefaultRef)
 	}
 
 	// Return the default ref if it exists
 	if hasDefaultRef {
 		return git.DefaultRef, nil
+	}
+
+	if hasLegacyDefaultRef {
+		return git.LegacyDefaultRef, nil
 	}
 
 	// If all else fails, return the first branch name
