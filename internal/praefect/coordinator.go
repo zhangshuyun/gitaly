@@ -236,13 +236,14 @@ type grpcCall struct {
 // downstream server. The coordinator is thread safe; concurrent calls to
 // register nodes are safe.
 type Coordinator struct {
-	router       Router
-	txMgr        *transactions.Manager
-	queue        datastore.ReplicationEventQueue
-	rs           datastore.RepositoryStore
-	registry     *protoregistry.Registry
-	conf         config.Config
-	votersMetric *prometheus.HistogramVec
+	router                   Router
+	txMgr                    *transactions.Manager
+	queue                    datastore.ReplicationEventQueue
+	rs                       datastore.RepositoryStore
+	registry                 *protoregistry.Registry
+	conf                     config.Config
+	votersMetric             *prometheus.HistogramVec
+	txReplicationCountMetric *prometheus.CounterVec
 }
 
 // NewCoordinator returns a new Coordinator that utilizes the provided logger
@@ -276,6 +277,13 @@ func NewCoordinator(
 			},
 			[]string{"virtual_storage"},
 		),
+		txReplicationCountMetric: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "gitaly_praefect_tx_replications_total",
+				Help: "The number of replication jobs scheduled for transactional RPCs",
+			},
+			[]string{"reason"},
+		),
 	}
 
 	return coordinator
@@ -287,6 +295,7 @@ func (c *Coordinator) Describe(descs chan<- *prometheus.Desc) {
 
 func (c *Coordinator) Collect(metrics chan<- prometheus.Metric) {
 	c.votersMetric.Collect(metrics)
+	c.txReplicationCountMetric.Collect(metrics)
 }
 
 func (c *Coordinator) directRepositoryScopedMessage(ctx context.Context, call grpcCall) (*proxy.StreamParameters, error) {
@@ -738,7 +747,8 @@ func (c *Coordinator) createTransactionFinalizer(
 	nodeErrors *nodeErrors,
 ) func() error {
 	return func() error {
-		primaryDirtied, updated, outdated := getUpdatedAndOutdatedSecondaries(ctx, route, transaction, nodeErrors)
+		primaryDirtied, updated, outdated := getUpdatedAndOutdatedSecondaries(
+			ctx, route, transaction, nodeErrors, c.txReplicationCountMetric)
 		if !primaryDirtied {
 			// If the primary replica was not modified then we don't need to consider the secondaries
 			// outdated. Praefect requires the primary to be always part of the quorum, so no changes
@@ -774,14 +784,10 @@ func getUpdatedAndOutdatedSecondaries(
 	route RepositoryMutatorRoute,
 	transaction transactions.Transaction,
 	nodeErrors *nodeErrors,
+	replicationCountMetric *prometheus.CounterVec,
 ) (primaryDirtied bool, updated []string, outdated []string) {
 	nodeErrors.Lock()
 	defer nodeErrors.Unlock()
-
-	// Replication targets were not added to the transaction, most likely because they are
-	// either not healthy or out of date. We thus need to make sure to create replication jobs
-	// for them.
-	outdated = append(outdated, route.ReplicationTargets...)
 
 	primaryErr := nodeErrors.errByNode[route.Primary.Storage]
 
@@ -796,11 +802,27 @@ func getUpdatedAndOutdatedSecondaries(
 	primaryDirtied = transaction.DidCommitAnySubtransaction() ||
 		(transaction.CountSubtransactions() == 0 && primaryErr == nil)
 
+	recordReplication := func(reason string, replicationCount int) {
+		// If the primary wasn't dirtied, then we never replicate any changes. While this is
+		// duplicates logic defined elsewhere, it's probably good enough given that we only
+		// talk about metrics here.
+		if primaryDirtied && replicationCount > 0 {
+			replicationCountMetric.WithLabelValues(reason).Add(float64(replicationCount))
+		}
+	}
+
+	// Replication targets were not added to the transaction, most likely because they are
+	// either not healthy or out of date. We thus need to make sure to create replication jobs
+	// for them.
+	outdated = append(outdated, route.ReplicationTargets...)
+	recordReplication("outdated", len(route.ReplicationTargets))
+
 	// If the primary errored, then we need to assume that it has modified on-disk state and
 	// thus need to replicate those changes to secondaries.
 	if primaryErr != nil {
 		ctxlogrus.Extract(ctx).WithError(primaryErr).Info("primary failed transaction")
 		outdated = append(outdated, routerNodesToStorages(route.Secondaries)...)
+		recordReplication("primary-failed", len(route.Secondaries))
 		return
 	}
 
@@ -811,6 +833,7 @@ func getUpdatedAndOutdatedSecondaries(
 	if transaction.CountSubtransactions() == 0 {
 		ctxlogrus.Extract(ctx).Info("transaction did not create subtransactions")
 		outdated = append(outdated, routerNodesToStorages(route.Secondaries)...)
+		recordReplication("no-votes", len(route.Secondaries))
 		return
 	}
 
@@ -820,6 +843,7 @@ func getUpdatedAndOutdatedSecondaries(
 	if err != nil {
 		ctxlogrus.Extract(ctx).WithError(err).Error("could not get transaction state")
 		outdated = append(outdated, routerNodesToStorages(route.Secondaries)...)
+		recordReplication("missing-tx-state", len(route.Secondaries))
 		return
 	}
 
@@ -831,6 +855,7 @@ func getUpdatedAndOutdatedSecondaries(
 			ctxlogrus.Extract(ctx).Error("transaction: primary failed vote")
 		}
 		outdated = append(outdated, routerNodesToStorages(route.Secondaries)...)
+		recordReplication("primary-not-committed", len(route.Secondaries))
 		return
 	}
 
@@ -839,11 +864,13 @@ func getUpdatedAndOutdatedSecondaries(
 	for _, secondary := range route.Secondaries {
 		if nodeErrors.errByNode[secondary.Storage] != nil {
 			outdated = append(outdated, secondary.Storage)
+			recordReplication("node-failed", 1)
 			continue
 		}
 
 		if nodeStates[secondary.Storage] != transactions.VoteCommitted {
 			outdated = append(outdated, secondary.Storage)
+			recordReplication("node-not-committed", 1)
 			continue
 		}
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1582,6 +1585,7 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 		expectedPrimaryDirtied     bool
 		expectedOutdated           []string
 		expectedUpdated            []string
+		expectedMetrics            map[string]int
 	}{
 		{
 			desc: "single committed node",
@@ -1627,6 +1631,9 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			subtransactions:            1,
 			expectedPrimaryDirtied:     true,
 			expectedOutdated:           []string{"replica"},
+			expectedMetrics: map[string]int{
+				"outdated": 1,
+			},
 		},
 		{
 			desc: "single failing node with replica",
@@ -1650,6 +1657,9 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			subtransactions:            1,
 			expectedPrimaryDirtied:     true,
 			expectedOutdated:           []string{"replica"},
+			expectedMetrics: map[string]int{
+				"outdated": 1,
+			},
 		},
 		{
 			desc: "single node without transaction with replica",
@@ -1660,6 +1670,9 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			subtransactions:        0,
 			expectedPrimaryDirtied: true,
 			expectedOutdated:       []string{"replica"},
+			expectedMetrics: map[string]int{
+				"outdated": 1,
+			},
 		},
 		{
 			desc: "multiple committed nodes",
@@ -1691,6 +1704,9 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			subtransactions:            1,
 			expectedPrimaryDirtied:     true,
 			expectedOutdated:           []string{"s1", "s2"},
+			expectedMetrics: map[string]int{
+				"primary-failed": 2,
+			},
 		},
 		{
 			desc: "multiple committed nodes with secondary err",
@@ -1707,6 +1723,9 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			expectedPrimaryDirtied:     true,
 			expectedUpdated:            []string{"s2"},
 			expectedOutdated:           []string{"s1"},
+			expectedMetrics: map[string]int{
+				"node-failed": 1,
+			},
 		},
 		{
 			desc: "partial success",
@@ -1723,6 +1742,9 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			expectedPrimaryDirtied:     true,
 			expectedUpdated:            []string{"s2"},
 			expectedOutdated:           []string{"s1"},
+			expectedMetrics: map[string]int{
+				"node-not-committed": 1,
+			},
 		},
 		{
 			desc: "failure with (impossible) secondary success",
@@ -1738,6 +1760,9 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			subtransactions:            1,
 			expectedPrimaryDirtied:     true,
 			expectedOutdated:           []string{"s1", "s2"},
+			expectedMetrics: map[string]int{
+				"primary-not-committed": 2,
+			},
 		},
 		{
 			desc: "multiple nodes without subtransactions",
@@ -1752,6 +1777,9 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			subtransactions:        0,
 			expectedPrimaryDirtied: true,
 			expectedOutdated:       []string{"s1", "s2"},
+			expectedMetrics: map[string]int{
+				"no-votes": 2,
+			},
 		},
 		{
 			desc: "multiple nodes with replica and partial failures",
@@ -1769,6 +1797,10 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			expectedPrimaryDirtied:     true,
 			expectedOutdated:           []string{"s1", "r1", "r2"},
 			expectedUpdated:            []string{"s2"},
+			expectedMetrics: map[string]int{
+				"node-not-committed": 1,
+				"outdated":           2,
+			},
 		},
 		{
 			desc: "multiple nodes with replica and partial err",
@@ -1785,6 +1817,11 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			subtransactions:            1,
 			expectedPrimaryDirtied:     true,
 			expectedOutdated:           []string{"s1", "s2", "r1", "r2"},
+			expectedMetrics: map[string]int{
+				"node-failed":        1,
+				"node-not-committed": 1,
+				"outdated":           2,
+			},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -1823,10 +1860,21 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			}
 			route.ReplicationTargets = append(route.ReplicationTargets, tc.replicas...)
 
-			primaryDirtied, updated, outdated := getUpdatedAndOutdatedSecondaries(ctx, route, transaction, nodeErrors)
+			metric := prometheus.NewCounterVec(prometheus.CounterOpts{
+				Name: "stub", Help: "help",
+			}, []string{"reason"})
+
+			primaryDirtied, updated, outdated := getUpdatedAndOutdatedSecondaries(ctx, route, transaction, nodeErrors, metric)
 			require.Equal(t, tc.expectedPrimaryDirtied, primaryDirtied)
 			require.ElementsMatch(t, tc.expectedUpdated, updated)
 			require.ElementsMatch(t, tc.expectedOutdated, outdated)
+
+			expectedMetrics := "# HELP stub help\n# TYPE stub counter\n"
+			for metric, value := range tc.expectedMetrics {
+				expectedMetrics += fmt.Sprintf("stub{reason=\"%s\"} %d\n", metric, value)
+			}
+
+			require.NoError(t, testutil.CollectAndCompare(metric, strings.NewReader(expectedMetrics)))
 		})
 	}
 }
