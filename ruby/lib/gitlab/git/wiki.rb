@@ -31,10 +31,6 @@ module Gitlab
         gollum_write_page(name, format, content, commit_details)
       end
 
-      def delete_page(page_path, commit_details)
-        gollum_delete_page(page_path, commit_details)
-      end
-
       def update_page(page_path, title, format, content, commit_details)
         gollum_update_page(page_path, title, format, content, commit_details)
       end
@@ -135,14 +131,6 @@ module Gitlab
         end
       rescue Gollum::DuplicatePageError => e
         raise Gitlab::Git::Wiki::DuplicatePageError, e.message
-      end
-
-      def gollum_delete_page(page_path, commit_details)
-        assert_type!(commit_details, CommitDetails)
-
-        with_committer_with_hooks(commit_details) do |committer|
-          gollum_wiki.delete_page(gollum_page_by_path(page_path), committer: committer)
-        end
       end
 
       def gollum_update_page(page_path, title, format, content, commit_details)
