@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/lib/pq"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
@@ -557,9 +558,10 @@ func TestPerRepositoryElector(t *testing.T) {
 					setHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect-0": step.healthyNodes})
 
 					logger, hook := test.NewNullLogger()
-					elector := NewPerRepositoryElector(logrus.NewEntry(logger), tx)
+					elector := NewPerRepositoryElector(tx)
 
-					primary, err := elector.GetPrimary(ctx, "virtual-storage-1", "relative-path-1")
+					primary, err := elector.GetPrimary(
+						ctxlogrus.ToContext(ctx, logrus.NewEntry(logger)), "virtual-storage-1", "relative-path-1")
 					require.Equal(t, step.error, err)
 					require.Less(t, len(hook.Entries), 2)
 
@@ -595,7 +597,6 @@ func TestPerRepositoryElector(t *testing.T) {
 					require.NotNil(t, logEntry)
 					require.Equal(t, "primary node changed", logEntry.Message)
 					require.Equal(t, logrus.Fields{
-						"component":        "PerRepositoryElector",
 						"virtual_storage":  "virtual-storage-1",
 						"relative_path":    "relative-path-1",
 						"current_primary":  primary,

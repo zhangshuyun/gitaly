@@ -325,7 +325,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		}()
 		healthChecker = hm
 
-		elector := nodes.NewPerRepositoryElector(logger, db)
+		elector := nodes.NewPerRepositoryElector(db)
 
 		primaryGetter = elector
 		assignmentStore = datastore.NewAssignmentStore(db, conf.StorageNames())

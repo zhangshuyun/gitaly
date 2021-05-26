@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
@@ -17,18 +18,11 @@ var ErrNoPrimary = errors.New("no primary")
 // PerRepositoryElector implements an elector that selects a primary for each repository.
 // It elects a healthy node with most recent generation as the primary. If all nodes are
 // on the same generation, it picks one randomly to balance repositories in simple fashion.
-type PerRepositoryElector struct {
-	log logrus.FieldLogger
-	db  glsql.Querier
-}
+type PerRepositoryElector struct{ db glsql.Querier }
 
 // NewPerRepositoryElector returns a new per repository primary elector.
-func NewPerRepositoryElector(log logrus.FieldLogger, db glsql.Querier) *PerRepositoryElector {
-	log = log.WithField("component", "PerRepositoryElector")
-	return &PerRepositoryElector{
-		log: log,
-		db:  db,
-	}
+func NewPerRepositoryElector(db glsql.Querier) *PerRepositoryElector {
+	return &PerRepositoryElector{db: db}
 }
 
 // GetPrimary returns the primary storage of a repository. If the primary is not a valid primary anymore, an election
@@ -80,7 +74,7 @@ AND relative_path = $2
 	}
 
 	if current != previous {
-		pr.log.WithFields(logrus.Fields{
+		ctxlogrus.Extract(ctx).WithFields(logrus.Fields{
 			"virtual_storage":  virtualStorage,
 			"relative_path":    relativePath,
 			"current_primary":  current.String,
