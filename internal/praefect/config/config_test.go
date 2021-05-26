@@ -295,7 +295,7 @@ func TestConfigParsing(t *testing.T) {
 				Replication: Replication{BatchSize: 1},
 				Failover: Failover{
 					Enabled:                  true,
-					ElectionStrategy:         ElectionStrategySQL,
+					ElectionStrategy:         ElectionStrategyPerRepository,
 					ErrorThresholdWindow:     config.Duration(20 * time.Second),
 					WriteErrorThresholdCount: 1500,
 					ReadErrorThresholdCount:  100,
@@ -331,7 +331,7 @@ func TestConfigParsing(t *testing.T) {
 				Replication:         DefaultReplicationConfig(),
 				Failover: Failover{
 					Enabled:           true,
-					ElectionStrategy:  ElectionStrategySQL,
+					ElectionStrategy:  ElectionStrategyPerRepository,
 					BootstrapInterval: config.Duration(time.Second),
 					MonitorInterval:   config.Duration(3 * time.Second),
 				},

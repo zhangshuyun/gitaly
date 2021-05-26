@@ -59,7 +59,8 @@ func runPraefectProxy(t testing.TB, cfg config.Cfg, gitalyAddr, praefectBinPath 
 	praefectServerSocketPath := "unix://" + testhelper.GetTemporaryGitalySocketFileName(t)
 
 	conf := praefectconfig.Config{
-		SocketPath: praefectServerSocketPath,
+		AllowLegacyElectors: true,
+		SocketPath:          praefectServerSocketPath,
 		Auth: auth.Config{
 			Token: cfg.Auth.Token,
 		},
