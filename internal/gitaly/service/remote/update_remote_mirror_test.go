@@ -8,9 +8,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
@@ -32,8 +35,16 @@ func testUpdateRemoteMirror(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Se
 	})
 }
 
+type commandFactoryWrapper struct {
+	git.CommandFactory
+	newFunc func(context.Context, repository.GitRepo, git.Cmd, ...git.CmdOpt) (*command.Command, error)
+}
+
+func (w commandFactoryWrapper) New(ctx context.Context, repo repository.GitRepo, sc git.Cmd, opts ...git.CmdOpt) (*command.Command, error) {
+	return w.newFunc(ctx, repo, sc, opts...)
+}
+
 func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	cfg, _, _, client := setupRemoteServiceWithRuby(t, cfg, rubySrv)
 	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 
 	type refs map[string][]string
@@ -46,6 +57,7 @@ func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg confi
 		mirrorSymRefs        map[string]string
 		keepDivergentRefs    bool
 		onlyBranchesMatching []string
+		wrapCommandFactory   func(testing.TB, git.CommandFactory) git.CommandFactory
 		requests             []*gitalypb.UpdateRemoteMirrorRequest
 		errorContains        string
 		response             *gitalypb.UpdateRemoteMirrorResponse
@@ -352,7 +364,7 @@ func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg confi
 			desc: "push batching works",
 			sourceRefs: func() refs {
 				out := refs{}
-				for i := 0; i < 2*PushBatchSize+1; i++ {
+				for i := 0; i < 2*pushBatchSize+1; i++ {
 					out[fmt.Sprintf("refs/heads/branch-%d", i)] = []string{"commit 1"}
 				}
 				return out
@@ -360,8 +372,76 @@ func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg confi
 			response: &gitalypb.UpdateRemoteMirrorResponse{},
 			expectedMirrorRefs: func() map[string]string {
 				out := map[string]string{}
-				for i := 0; i < 2*PushBatchSize+1; i++ {
+				for i := 0; i < 2*pushBatchSize+1; i++ {
 					out[fmt.Sprintf("refs/heads/branch-%d", i)] = "commit 1"
+				}
+				return out
+			}(),
+		},
+		{
+			desc: "pushes default branch in the first batch",
+			wrapCommandFactory: func(t testing.TB, original git.CommandFactory) git.CommandFactory {
+				firstPush := true
+				return commandFactoryWrapper{
+					CommandFactory: original,
+					newFunc: func(ctx context.Context, repo repository.GitRepo, sc git.Cmd, opts ...git.CmdOpt) (*command.Command, error) {
+						if sc.Subcommand() == "push" && firstPush {
+							firstPush = false
+							args, err := sc.CommandArgs()
+							assert.NoError(t, err)
+							assert.Contains(t, args, "refs/heads/master", "first push should contain the default branch")
+						}
+
+						return original.New(ctx, repo, sc, opts...)
+					},
+				}
+			},
+			sourceRefs: func() refs {
+				out := refs{"refs/heads/master": []string{"commit 1"}}
+				for i := 0; i < 2*pushBatchSize; i++ {
+					out[fmt.Sprintf("refs/heads/branch-%d", i)] = []string{"commit 1"}
+				}
+				return out
+			}(),
+			response: &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: func() map[string]string {
+				out := map[string]string{"refs/heads/master": "commit 1"}
+				for i := 0; i < 2*pushBatchSize; i++ {
+					out[fmt.Sprintf("refs/heads/branch-%d", i)] = "commit 1"
+				}
+				return out
+			}(),
+		},
+		{
+			desc: "limits the number of divergent refs returned",
+			sourceRefs: func() refs {
+				out := refs{}
+				for i := 0; i < maxDivergentRefs+1; i++ {
+					out[fmt.Sprintf("refs/heads/branch-%03d", i)] = []string{"commit 1"}
+				}
+				return out
+			}(),
+			mirrorRefs: func() refs {
+				out := refs{}
+				for i := 0; i < maxDivergentRefs+1; i++ {
+					out[fmt.Sprintf("refs/heads/branch-%03d", i)] = []string{"commit 2"}
+				}
+				return out
+			}(),
+			keepDivergentRefs: true,
+			response: &gitalypb.UpdateRemoteMirrorResponse{
+				DivergentRefs: func() [][]byte {
+					out := make([][]byte, maxDivergentRefs)
+					for i := range out {
+						out[i] = []byte(fmt.Sprintf("refs/heads/branch-%03d", i))
+					}
+					return out
+				}(),
+			},
+			expectedMirrorRefs: func() map[string]string {
+				out := map[string]string{}
+				for i := 0; i < maxDivergentRefs+1; i++ {
+					out[fmt.Sprintf("refs/heads/branch-%03d", i)] = "commit 2"
 				}
 				return out
 			}(),
@@ -412,6 +492,25 @@ func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg confi
 					gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", symRef, targetRef)
 				}
 			}
+
+			addr := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
+				cmdFactory := deps.GetGitCmdFactory()
+				if tc.wrapCommandFactory != nil {
+					cmdFactory = tc.wrapCommandFactory(t, deps.GetGitCmdFactory())
+				}
+
+				gitalypb.RegisterRemoteServiceServer(srv, NewServer(
+					deps.GetCfg(),
+					deps.GetRubyServer(),
+					deps.GetLocator(),
+					cmdFactory,
+					deps.GetCatfileCache(),
+					deps.GetTxManager(),
+				))
+			})
+
+			client, conn := newRemoteClient(t, addr)
+			defer conn.Close()
 
 			stream, err := client.UpdateRemoteMirror(ctx)
 			require.NoError(t, err)

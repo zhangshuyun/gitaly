@@ -10,13 +10,19 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
-// PushBatchSize is the maximum number of branches to push in a single push call.
-const PushBatchSize = 10
+const (
+	// pushBatchSize is the maximum number of branches to push in a single push call.
+	pushBatchSize = 10
+	// maxDivergentRefs is the maximum number of divergent refs to return in UpdateRemoteMirror's
+	// response.
+	maxDivergentRefs = 100
+)
 
 func (s *server) UpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMirrorServer) error {
 	firstRequest, err := stream.Recv()
@@ -129,6 +135,11 @@ func (s *server) goUpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemote
 		return errors.New("close stream to gitaly-ruby: rpc error: code = Unknown desc = NoMethodError: undefined method `id' for nil:NilClass")
 	}
 
+	defaultBranch, err := ref.DefaultBranchName(ctx, repo)
+	if err != nil {
+		return fmt.Errorf("get default branch: %w", err)
+	}
+
 	remoteRefs := make(map[git.ReferenceName]string, len(remoteRefsSlice))
 	for _, ref := range remoteRefsSlice {
 		remoteRefs[ref.Name] = ref.Target
@@ -160,7 +171,7 @@ func (s *server) goUpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemote
 			if !isAncestor {
 				// The mirror's reference has diverged from the local ref, or the mirror contains a commit
 				// which is not present in the local repository.
-				if referenceMatcher.MatchString(localRef.Name.String()) {
+				if referenceMatcher.MatchString(localRef.Name.String()) && len(divergentRefs) < maxDivergentRefs {
 					// diverged branches on the mirror are only included in the response if they match
 					// one of the branches in the selector
 					divergentRefs = append(divergentRefs, []byte(localRef.Name))
@@ -197,6 +208,13 @@ func (s *server) goUpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemote
 			}
 
 			refspecs = append(refspecs, prefix+reference.String())
+			if reference == git.ReferenceName(defaultBranch) {
+				// The default branch needs to be pushed in the first batch of refspecs as some features
+				// depend on it existing in the repository. The default branch may not exist in the repo
+				// yet if this is the first mirroring push.
+				last := len(refspecs) - 1
+				refspecs[0], refspecs[last] = refspecs[last], refspecs[0]
+			}
 
 			// https://gitlab.com/gitlab-org/gitaly/-/issues/3504
 			name := strings.TrimPrefix(reference.String(), "refs/heads/")
@@ -221,8 +239,8 @@ func (s *server) goUpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemote
 
 		for len(refspecs) > 0 {
 			batch := refspecs
-			if len(refspecs) > PushBatchSize {
-				batch = refspecs[:PushBatchSize]
+			if len(refspecs) > pushBatchSize {
+				batch = refspecs[:pushBatchSize]
 			}
 
 			refspecs = refspecs[len(batch):]
