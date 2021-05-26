@@ -21,9 +21,9 @@ func (err unexpectedPositionalArgsError) Error() string {
 }
 
 type datalossSubcommand struct {
-	output                     io.Writer
-	virtualStorage             string
-	includePartiallyReplicated bool
+	output                    io.Writer
+	virtualStorage            string
+	includePartiallyAvailable bool
 }
 
 func newDatalossSubcommand() *datalossSubcommand {
@@ -33,12 +33,10 @@ func newDatalossSubcommand() *datalossSubcommand {
 func (cmd *datalossSubcommand) FlagSet() *flag.FlagSet {
 	fs := flag.NewFlagSet("dataloss", flag.ContinueOnError)
 	fs.StringVar(&cmd.virtualStorage, "virtual-storage", "", "virtual storage to check for data loss")
-	fs.BoolVar(&cmd.includePartiallyReplicated, "partially-replicated", false, strings.TrimSpace(`
-Additionally include repositories which are fully up to date on the
-primary but outdated on some secondaries. Such repositories are writable
-and do not suffer from data loss. The data on the primary is not fully
-replicated to all secondaries which leads to increased risk of data loss
-following a failover.`))
+	fs.BoolVar(&cmd.includePartiallyAvailable, "partially-unavailable", false, strings.TrimSpace(`
+Additionally include repositories which are available but some assigned replicas
+are unavailable. Such repositories are available but are not fully replicated. This
+increases the change of data loss on primary failure`))
 	return fs
 }
 
@@ -82,7 +80,7 @@ func (cmd *datalossSubcommand) Exec(flags *flag.FlagSet, cfg config.Config) erro
 	for _, vs := range virtualStorages {
 		resp, err := client.DatalossCheck(context.Background(), &gitalypb.DatalossCheckRequest{
 			VirtualStorage:             vs,
-			IncludePartiallyReplicated: cmd.includePartiallyReplicated,
+			IncludePartiallyReplicated: cmd.includePartiallyAvailable,
 		})
 		if err != nil {
 			return fmt.Errorf("error checking: %v", err)
@@ -90,23 +88,23 @@ func (cmd *datalossSubcommand) Exec(flags *flag.FlagSet, cfg config.Config) erro
 
 		cmd.println(0, "Virtual storage: %s", vs)
 		if len(resp.Repositories) == 0 {
-			msg := "All repositories are writable!"
-			if cmd.includePartiallyReplicated {
-				msg = "All repositories are up to date!"
+			msg := "All repositories are available!"
+			if cmd.includePartiallyAvailable {
+				msg = "All repositories are fully available on all assigned storages!"
 			}
 
 			cmd.println(1, msg)
 			continue
 		}
 
-		cmd.println(1, "Outdated repositories:")
+		cmd.println(1, "Repositories:")
 		for _, repo := range resp.Repositories {
-			mode := "writable"
-			if repo.ReadOnly {
-				mode = "read-only"
+			unavailable := ""
+			if repo.Unavailable {
+				unavailable = " (unavailable)"
 			}
 
-			cmd.println(2, "%s (%s):", repo.RelativePath, mode)
+			cmd.println(2, "%s%s:", repo.RelativePath, unavailable)
 
 			primary := repo.Primary
 			if primary == "" {
@@ -120,7 +118,11 @@ func (cmd *datalossSubcommand) Exec(flags *flag.FlagSet, cfg config.Config) erro
 					continue
 				}
 
-				cmd.println(4, "%s%s", storage.Name, assignedMessage(storage.Assigned))
+				cmd.println(4, "%s%s%s",
+					storage.Name,
+					assignedMessage(storage.Assigned),
+					unhealthyMessage(storage.Healthy),
+				)
 			}
 
 			cmd.println(3, "Outdated Storages:")
@@ -134,12 +136,26 @@ func (cmd *datalossSubcommand) Exec(flags *flag.FlagSet, cfg config.Config) erro
 					plural = "s"
 				}
 
-				cmd.println(4, "%s is behind by %d change%s or less%s", storage.Name, storage.BehindBy, plural, assignedMessage(storage.Assigned))
+				cmd.println(4, "%s is behind by %d change%s or less%s%s",
+					storage.Name,
+					storage.BehindBy,
+					plural,
+					assignedMessage(storage.Assigned),
+					unhealthyMessage(storage.Healthy),
+				)
 			}
 		}
 	}
 
 	return nil
+}
+
+func unhealthyMessage(healthy bool) string {
+	if healthy {
+		return ""
+	}
+
+	return ", unhealthy"
 }
 
 func assignedMessage(assigned bool) string {

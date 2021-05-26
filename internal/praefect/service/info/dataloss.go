@@ -13,30 +13,32 @@ func (s *Server) DatalossCheck(ctx context.Context, req *gitalypb.DatalossCheckR
 	}
 
 	pbRepos := make([]*gitalypb.DatalossCheckResponse_Repository, 0, len(repos))
-	for _, repo := range repos {
-		readOnly := true
+	for _, outdatedRepo := range repos {
+		unavailable := true
 
-		storages := make([]*gitalypb.DatalossCheckResponse_Repository_Storage, 0, len(repo.Storages))
-		for _, storage := range repo.Storages {
-			if storage.Name == repo.Primary && storage.BehindBy == 0 {
-				readOnly = false
+		storages := make([]*gitalypb.DatalossCheckResponse_Repository_Storage, 0, len(outdatedRepo.Storages))
+		for _, storage := range outdatedRepo.Storages {
+			if storage.ValidPrimary {
+				unavailable = false
 			}
 
 			storages = append(storages, &gitalypb.DatalossCheckResponse_Repository_Storage{
-				Name:     storage.Name,
-				BehindBy: int64(storage.BehindBy),
-				Assigned: storage.Assigned,
+				Name:         storage.Name,
+				BehindBy:     int64(storage.BehindBy),
+				Assigned:     storage.Assigned,
+				Healthy:      storage.Healthy,
+				ValidPrimary: storage.ValidPrimary,
 			})
 		}
 
-		if !req.IncludePartiallyReplicated && !readOnly {
+		if !req.IncludePartiallyReplicated && !unavailable {
 			continue
 		}
 
 		pbRepos = append(pbRepos, &gitalypb.DatalossCheckResponse_Repository{
-			RelativePath: repo.RelativePath,
-			Primary:      repo.Primary,
-			ReadOnly:     readOnly,
+			RelativePath: outdatedRepo.RelativePath,
+			Primary:      outdatedRepo.Primary,
+			Unavailable:  unavailable,
 			Storages:     storages,
 		})
 	}

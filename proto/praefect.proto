@@ -17,7 +17,7 @@ service PraefectInfoService {
   // need repair.
   rpc ConsistencyCheck(ConsistencyCheckRequest) returns (stream ConsistencyCheckResponse);
 
-  // DatalossCheck checks for outdated repository replicas.
+  // DatalossCheck checks for unavailable repositories.
   rpc DatalossCheck(DatalossCheckRequest) returns (DatalossCheckResponse);
 
   // SetAuthoritativeStorage sets the authoritative storage for a repository on a given virtual storage.
@@ -62,10 +62,8 @@ message SetAuthoritativeStorageResponse {}
 
 message DatalossCheckRequest {
   string virtual_storage = 1;
-  // include_partially_replicated decides whether to include repositories which are fully up to date
-  // on the primary but are outdated on some secondaries. Such repositories are still writable and do
-  // not suffer from data loss. The data on the primary is not fully replicated which increases the
-  // chances of data loss following a failover.
+  // include_partially_unavailable indicates whether to include repositories which are available but
+  // are unavailable on some assigned storages.
   bool include_partially_replicated = 2;
 }
 
@@ -78,14 +76,18 @@ message DatalossCheckResponse {
       int64 behind_by = 2;
       // assigned indicates whether the storage is assigned to host the repository.
       bool assigned = 3;
+      // healthy indicates whether the storage is considered healthy by the consensus of Praefect nodes.
+      bool healthy = 4;
+      // valid_primary indicates whether the storage is ready to act as the primary if necessary.
+      bool valid_primary = 5;
     }
 
     // relative path of the repository with outdated replicas
     string relative_path = 1;
     // storages on which the repository is outdated
     repeated Storage storages = 2;
-    // read_only indicates whether the repository is in read-only mode.
-    bool read_only = 3;
+    // unavailable indicates whether the repository is in unavailable.
+    bool unavailable = 3;
 
     // current primary storage of the repository
     string primary = 4;

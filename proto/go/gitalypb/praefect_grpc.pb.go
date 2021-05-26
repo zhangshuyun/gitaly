@@ -24,7 +24,7 @@ type PraefectInfoServiceClient interface {
 	// back indicating which repos are consistent with the primary and which ones
 	// need repair.
 	ConsistencyCheck(ctx context.Context, in *ConsistencyCheckRequest, opts ...grpc.CallOption) (PraefectInfoService_ConsistencyCheckClient, error)
-	// DatalossCheck checks for outdated repository replicas.
+	// DatalossCheck checks for unavailable repositories.
 	DatalossCheck(ctx context.Context, in *DatalossCheckRequest, opts ...grpc.CallOption) (*DatalossCheckResponse, error)
 	// SetAuthoritativeStorage sets the authoritative storage for a repository on a given virtual storage.
 	// This causes the current version of the repository on the authoritative storage to be considered the
@@ -127,7 +127,7 @@ type PraefectInfoServiceServer interface {
 	// back indicating which repos are consistent with the primary and which ones
 	// need repair.
 	ConsistencyCheck(*ConsistencyCheckRequest, PraefectInfoService_ConsistencyCheckServer) error
-	// DatalossCheck checks for outdated repository replicas.
+	// DatalossCheck checks for unavailable repositories.
 	DatalossCheck(context.Context, *DatalossCheckRequest) (*DatalossCheckResponse, error)
 	// SetAuthoritativeStorage sets the authoritative storage for a repository on a given virtual storage.
 	// This causes the current version of the repository on the authoritative storage to be considered the
