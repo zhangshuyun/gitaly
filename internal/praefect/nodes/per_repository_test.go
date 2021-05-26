@@ -5,14 +5,11 @@ package nodes
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"testing"
-	"time"
 
 	"github.com/lib/pq"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
@@ -79,34 +76,10 @@ func TestPerRepositoryElector(t *testing.T) {
 		}
 	}
 
-	type logMatcher func(t testing.TB, entry logrus.Entry)
-
-	anyChange := func(expected ...primaryChanges) logMatcher {
-		return func(t testing.TB, entry logrus.Entry) {
-			require.Equal(t, "performed failovers", entry.Message)
-
-			var fields []logrus.Fields
-			for _, changes := range expected {
-				fields = append(fields, logrus.Fields{
-					"component": "PerRepositoryElector",
-					"changes":   changes,
-				})
-			}
-
-			require.Contains(t, fields, entry.Data)
-		}
-	}
-
-	noChanges := func(t testing.TB, entry logrus.Entry) {
-		t.Helper()
-		require.Equal(t, "attempting failovers resulted no changes", entry.Message)
-	}
-
 	type steps []struct {
 		healthyNodes map[string][]string
 		error        error
 		primary      matcher
-		matchLogs    logMatcher
 	}
 
 	for _, tc := range []struct {
@@ -130,8 +103,7 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1", "gitaly-2", "gitaly-3"},
 					},
-					primary:   any("gitaly-1"),
-					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}}),
+					primary: any("gitaly-1"),
 				},
 			},
 		},
@@ -150,9 +122,8 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
-					error:     ErrNoPrimary,
-					primary:   noPrimary(),
-					matchLogs: noChanges,
+					error:   ErrNoPrimary,
+					primary: noPrimary(),
 				},
 			},
 		},
@@ -170,9 +141,8 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
-					error:     ErrNoPrimary,
-					primary:   noPrimary(),
-					matchLogs: noChanges,
+					error:   ErrNoPrimary,
+					primary: noPrimary(),
 				},
 			},
 		},
@@ -192,10 +162,6 @@ func TestPerRepositoryElector(t *testing.T) {
 						"virtual-storage-1": {"gitaly-1", "gitaly-2", "gitaly-3"},
 					},
 					primary: any("gitaly-1", "gitaly-2"),
-					matchLogs: anyChange(
-						primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}},
-						primaryChanges{"virtual-storage-1": {"gitaly-2": {"demoted": 0, "promoted": 1}}},
-					),
 				},
 			},
 		},
@@ -215,18 +181,13 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1", "gitaly-3"},
 					},
-					primary:   any("gitaly-1"),
-					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}}),
+					primary: any("gitaly-1"),
 				},
 				{
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
 					primary: any("gitaly-2"),
-					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {
-						"gitaly-1": {"demoted": 1, "promoted": 0},
-						"gitaly-2": {"demoted": 0, "promoted": 1},
-					}}),
 				},
 			},
 		},
@@ -245,16 +206,14 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1", "gitaly-2", "gitaly-3"},
 					},
-					primary:   any("gitaly-1"),
-					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}}),
+					primary: any("gitaly-1"),
 				},
 				{
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
-					error:     ErrNoPrimary,
-					primary:   noPrimary(),
-					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 1, "promoted": 0}}}),
+					error:   ErrNoPrimary,
+					primary: noPrimary(),
 				},
 			},
 		},
@@ -274,18 +233,13 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1", "gitaly-3"},
 					},
-					primary:   any("gitaly-1"),
-					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}}),
+					primary: any("gitaly-1"),
 				},
 				{
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
 					primary: any("gitaly-2"),
-					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {
-						"gitaly-1": {"demoted": 1, "promoted": 0},
-						"gitaly-2": {"demoted": 0, "promoted": 1},
-					}}),
 				},
 			},
 		},
@@ -304,18 +258,13 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1", "gitaly-2", "gitaly-3"},
 					},
-					primary:   any("gitaly-1"),
-					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}}),
+					primary: any("gitaly-1"),
 				},
 				{
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
 					primary: any("gitaly-2"),
-					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {
-						"gitaly-1": {"demoted": 1, "promoted": 0},
-						"gitaly-2": {"demoted": 0, "promoted": 1},
-					}}),
 				},
 			},
 		},
@@ -334,18 +283,13 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
-					primary:   any("gitaly-2"),
-					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-2": {"demoted": 0, "promoted": 1}}}),
+					primary: any("gitaly-2"),
 				},
 				{
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1", "gitaly-2", "gitaly-3"},
 					},
 					primary: any("gitaly-1"),
-					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {
-						"gitaly-1": {"demoted": 0, "promoted": 1},
-						"gitaly-2": {"demoted": 1, "promoted": 0},
-					}}),
 				},
 			},
 		},
@@ -364,15 +308,13 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
-					primary:   any("gitaly-2"),
-					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-2": {"demoted": 0, "promoted": 1}}}),
+					primary: any("gitaly-2"),
 				},
 				{
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1", "gitaly-2", "gitaly-3"},
 					},
-					primary:   any("gitaly-2"),
-					matchLogs: noChanges,
+					primary: any("gitaly-2"),
 				},
 			},
 		},
@@ -391,16 +333,14 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1", "gitaly-2", "gitaly-3"},
 					},
-					primary:   any("gitaly-1"),
-					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}}),
+					primary: any("gitaly-1"),
 				},
 				{
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
-					error:     ErrNoPrimary,
-					primary:   noPrimary(),
-					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 1, "promoted": 0}}}),
+					error:   ErrNoPrimary,
+					primary: noPrimary(),
 				},
 			},
 		},
@@ -429,9 +369,8 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
-					error:     ErrNoPrimary,
-					primary:   noPrimary(),
-					matchLogs: noChanges,
+					error:   ErrNoPrimary,
+					primary: noPrimary(),
 				},
 			},
 		},
@@ -460,9 +399,8 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
-					error:     ErrNoPrimary,
-					primary:   noPrimary(),
-					matchLogs: noChanges,
+					error:   ErrNoPrimary,
+					primary: noPrimary(),
 				},
 			},
 		},
@@ -491,9 +429,8 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
-					error:     ErrNoPrimary,
-					primary:   noPrimary(),
-					matchLogs: noChanges,
+					error:   ErrNoPrimary,
+					primary: noPrimary(),
 				},
 			},
 		},
@@ -567,8 +504,7 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
-					primary:   any("gitaly-1"),
-					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}}),
+					primary: any("gitaly-1"),
 				},
 			},
 		},
@@ -576,9 +512,8 @@ func TestPerRepositoryElector(t *testing.T) {
 			desc: "repository does not exist",
 			steps: steps{
 				{
-					error:     commonerr.NewRepositoryNotFoundError("virtual-storage-1", "relative-path-1"),
-					primary:   noPrimary(),
-					matchLogs: noChanges,
+					error:   commonerr.NewRepositoryNotFoundError("virtual-storage-1", "relative-path-1"),
+					primary: noPrimary(),
 				},
 			},
 		},
@@ -616,27 +551,26 @@ func TestPerRepositoryElector(t *testing.T) {
 				require.NoError(t, err)
 			}
 
+			previousPrimary := ""
 			for _, step := range tc.steps {
-				runElection := func(tx *sql.Tx, matchLogs logMatcher) {
+				runElection := func(tx *sql.Tx) (string, *logrus.Entry) {
 					setHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect-0": step.healthyNodes})
 
-					// The first transaction runs first
 					logger, hook := test.NewNullLogger()
 					elector := NewPerRepositoryElector(logrus.NewEntry(logger), tx)
-					elector.handleError = func(err error) error { return err }
-
-					trigger := make(chan struct{}, 1)
-					trigger <- struct{}{}
-					close(trigger)
-
-					require.NoError(t, elector.Run(ctx, trigger))
 
 					primary, err := elector.GetPrimary(ctx, "virtual-storage-1", "relative-path-1")
-					assert.Equal(t, step.error, err)
-					step.primary(t, primary)
+					require.Equal(t, step.error, err)
+					require.Less(t, len(hook.Entries), 2)
 
-					require.Len(t, hook.Entries, 3)
-					matchLogs(t, hook.Entries[1])
+					var entry *logrus.Entry
+					if len(hook.Entries) == 1 {
+						entry = &hook.Entries[0]
+					}
+
+					require.NoError(t, tx.Commit())
+
+					return primary, entry
 				}
 
 				// Run every step with two concurrent transactions to ensure two Praefect's running
@@ -654,53 +588,31 @@ func TestPerRepositoryElector(t *testing.T) {
 				require.NoError(t, err)
 				defer txSecond.Rollback()
 
-				runElection(txFirst, step.matchLogs)
+				primary, logEntry := runElection(txFirst)
+				step.primary(t, primary)
 
-				require.NoError(t, txFirst.Commit())
+				if previousPrimary != primary {
+					require.NotNil(t, logEntry)
+					require.Equal(t, "primary node changed", logEntry.Message)
+					require.Equal(t, logrus.Fields{
+						"component":        "PerRepositoryElector",
+						"virtual_storage":  "virtual-storage-1",
+						"relative_path":    "relative-path-1",
+						"current_primary":  primary,
+						"previous_primary": previousPrimary,
+					}, logEntry.Data)
+				} else {
+					require.Nil(t, logEntry)
+				}
 
 				// Run the second election on the same database snapshot. This should result in no changes.
 				// Running this prior to the first transaction committing would block.
-				runElection(txSecond, noChanges)
+				secondPrimary, secondLogEntry := runElection(txSecond)
+				require.Equal(t, primary, secondPrimary)
+				require.Nil(t, secondLogEntry)
 
-				require.NoError(t, txSecond.Commit())
+				previousPrimary = primary
 			}
 		})
 	}
-}
-
-func TestPerRepositoryElector_Retry(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	dbCalls := 0
-	handleErrorCalls := 0
-	elector := NewPerRepositoryElector(
-		testhelper.DiscardTestLogger(t),
-		&glsql.MockQuerier{
-			QueryContextFunc: func(context.Context, string, ...interface{}) (*sql.Rows, error) {
-				dbCalls++
-
-				return nil, assert.AnError
-			},
-		},
-	)
-	elector.retryWait = time.Nanosecond
-	elector.handleError = func(err error) error {
-		handleErrorCalls++
-		require.True(t, errors.Is(err, assert.AnError))
-
-		if handleErrorCalls == 2 {
-			return context.Canceled
-		}
-
-		return nil
-	}
-
-	// we are only sending one trigger, second attempt must come from the retry logic
-	trigger := make(chan struct{}, 1)
-	trigger <- struct{}{}
-
-	require.Equal(t, context.Canceled, elector.Run(ctx, trigger))
-	require.Equal(t, 2, dbCalls)
-	require.Equal(t, 2, handleErrorCalls)
 }
