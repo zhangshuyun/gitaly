@@ -136,7 +136,7 @@ func TestPerRepositoryElector(t *testing.T) {
 			},
 		},
 		{
-			desc: "elects the most up to date healthy storage",
+			desc: "does not elect healthy outdated replicas",
 			state: state{
 				"virtual-storage-1": {
 					"relative-path-1": {
@@ -150,8 +150,9 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
-					primary:   any("gitaly-2"),
-					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-2": {"demoted": 0, "promoted": 1}}}),
+					error:     ErrNoPrimary,
+					primary:   noPrimary(),
+					matchLogs: noChanges,
 				},
 			},
 		},
@@ -230,7 +231,7 @@ func TestPerRepositoryElector(t *testing.T) {
 			},
 		},
 		{
-			desc: "fails over to most up to date healthy note",
+			desc: "does not fail over to healthy outdated nodes",
 			state: state{
 				"virtual-storage-1": {
 					"relative-path-1": {
@@ -251,22 +252,50 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
-					primary: any("gitaly-3"),
+					error:     ErrNoPrimary,
+					primary:   noPrimary(),
+					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 1, "promoted": 0}}}),
+				},
+			},
+		},
+		{
+			desc: "fails over to assigned nodes when assignments are set",
+			state: state{
+				"virtual-storage-1": {
+					"relative-path-1": {
+						"gitaly-1": {generation: 2, assigned: true},
+						"gitaly-2": {generation: 2, assigned: true},
+						"gitaly-3": {generation: 2, assigned: false},
+					},
+				},
+			},
+			steps: steps{
+				{
+					healthyNodes: map[string][]string{
+						"virtual-storage-1": {"gitaly-1", "gitaly-3"},
+					},
+					primary:   any("gitaly-1"),
+					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}}),
+				},
+				{
+					healthyNodes: map[string][]string{
+						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
+					},
+					primary: any("gitaly-2"),
 					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {
 						"gitaly-1": {"demoted": 1, "promoted": 0},
-						"gitaly-3": {"demoted": 0, "promoted": 1},
+						"gitaly-2": {"demoted": 0, "promoted": 1},
 					}}),
 				},
 			},
 		},
 		{
-			desc: "fails over only to assigned nodes when assignments are set",
+			desc: "fails over to unassigned replicas if no valid assigned primaries exist",
 			state: state{
 				"virtual-storage-1": {
 					"relative-path-1": {
 						"gitaly-1": {generation: 2, assigned: true},
-						"gitaly-2": {generation: 1, assigned: true},
-						"gitaly-3": {generation: 2, assigned: false},
+						"gitaly-2": {generation: 2, assigned: false},
 					},
 				},
 			},
@@ -291,12 +320,69 @@ func TestPerRepositoryElector(t *testing.T) {
 			},
 		},
 		{
-			desc: "demotes primary when no valid candidates",
+			desc: "fails over to up to date assigned replica from healthy unassigned",
+			state: state{
+				"virtual-storage-1": {
+					"relative-path-1": {
+						"gitaly-1": {generation: 2, assigned: true},
+						"gitaly-2": {generation: 2, assigned: false},
+					},
+				},
+			},
+			steps: steps{
+				{
+					healthyNodes: map[string][]string{
+						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
+					},
+					primary:   any("gitaly-2"),
+					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-2": {"demoted": 0, "promoted": 1}}}),
+				},
+				{
+					healthyNodes: map[string][]string{
+						"virtual-storage-1": {"gitaly-1", "gitaly-2", "gitaly-3"},
+					},
+					primary: any("gitaly-1"),
+					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {
+						"gitaly-1": {"demoted": 0, "promoted": 1},
+						"gitaly-2": {"demoted": 1, "promoted": 0},
+					}}),
+				},
+			},
+		},
+		{
+			desc: "doesnt fail over to outdated assigned replica from healthy unassigned",
 			state: state{
 				"virtual-storage-1": {
 					"relative-path-1": {
 						"gitaly-1": {generation: 1, assigned: true},
-						"gitaly-2": {generation: 1, assigned: false},
+						"gitaly-2": {generation: 2, assigned: false},
+					},
+				},
+			},
+			steps: steps{
+				{
+					healthyNodes: map[string][]string{
+						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
+					},
+					primary:   any("gitaly-2"),
+					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-2": {"demoted": 0, "promoted": 1}}}),
+				},
+				{
+					healthyNodes: map[string][]string{
+						"virtual-storage-1": {"gitaly-1", "gitaly-2", "gitaly-3"},
+					},
+					primary:   any("gitaly-2"),
+					matchLogs: noChanges,
+				},
+			},
+		},
+		{
+			desc: "demotes the primary when there are no valid candidates",
+			state: state{
+				"virtual-storage-1": {
+					"relative-path-1": {
+						"gitaly-1": {generation: 1, assigned: true},
+						"gitaly-2": {generation: 0, assigned: false},
 					},
 				},
 			},

@@ -87,41 +87,59 @@ func (pr *PerRepositoryElector) Run(ctx context.Context, trigger <-chan struct{}
 
 func (pr *PerRepositoryElector) performFailovers(ctx context.Context) error {
 	rows, err := pr.db.QueryContext(ctx, `
-WITH updated AS (
+WITH repository_generations AS (
+	SELECT virtual_storage, relative_path, MAX(generation) AS generation
+	FROM storage_repositories
+	GROUP BY virtual_storage, relative_path
+),
+
+candidates AS (
+	SELECT virtual_storage, relative_path, storage, repository_assignments.storage IS NOT NULL AS assigned
+	FROM storage_repositories
+	JOIN repository_generations USING (virtual_storage, relative_path, generation)
+	JOIN healthy_storages USING (virtual_storage, storage)
+	LEFT JOIN repository_assignments USING (virtual_storage, relative_path, storage)
+	WHERE NOT EXISTS (
+		-- This check exists to prevent us from electing a primary that is pending deletion. The primary
+		-- could accept a write and lose it when the deletion is carried out.
+		SELECT true
+		FROM replication_queue
+		WHERE state NOT IN ('completed', 'dead', 'cancelled')
+		AND job->>'change' = 'delete_replica'
+		AND job->>'virtual_storage' = virtual_storage
+		AND job->>'relative_path' = relative_path
+		AND job->>'target_node_storage' = storage
+	)
+),
+
+valid_primaries AS (
+	SELECT virtual_storage, relative_path, storage
+	FROM candidates
+	WHERE assigned OR (
+		SELECT NOT EXISTS (
+			SELECT FROM candidates AS assigned_candidates
+			WHERE assigned
+			AND assigned_candidates.virtual_storage = candidates.virtual_storage
+			AND assigned_candidates.relative_path   = candidates.relative_path
+		)
+	)
+),
+
+updated AS (
 	UPDATE repositories
 		SET "primary" = (
 			SELECT storage
-			FROM healthy_storages
-			LEFT JOIN storage_repositories USING (virtual_storage, storage)
+			FROM valid_primaries
 			WHERE virtual_storage = repositories.virtual_storage
-			AND storage_repositories.relative_path = repositories.relative_path
-			AND (
-				-- If assignments exist for the repository, only the assigned storages elected as primary.
-				-- If no assignments exist, any healthy node can be elected as the primary
-				SELECT COUNT(*) = 0 OR COUNT(*) FILTER (WHERE storage = storage_repositories.storage) = 1
-				FROM repository_assignments
-				WHERE repository_assignments.virtual_storage = storage_repositories.virtual_storage
-				AND repository_assignments.relative_path = storage_repositories.relative_path
-			)
-			AND NOT EXISTS (
-				-- This check exists to prevent us from electing a primary that is pending deletion. The primary
-				-- could accept a write and lose it when the deletion is carried out.
-				SELECT true
-				FROM replication_queue
-				WHERE state NOT IN ('completed', 'dead', 'cancelled')
-				AND job->>'change' = 'delete_replica'
-				AND job->>'virtual_storage' = virtual_storage
-				AND job->>'relative_path' = relative_path
-				AND job->>'target_node_storage' = storage
-			)
-			ORDER BY generation DESC NULLS LAST, random()
+			AND   relative_path   = repositories.relative_path
+			ORDER BY random()
 			LIMIT 1
 		)
 	WHERE NOT EXISTS (
-		SELECT 1
-		FROM healthy_storages
+		SELECT FROM valid_primaries
 		WHERE virtual_storage = repositories.virtual_storage
-		AND storage = repositories."primary"
+		AND   relative_path   = repositories.relative_path
+		AND   storage         = repositories."primary"
 	)
 	RETURNING virtual_storage, relative_path, "primary"
 ),
