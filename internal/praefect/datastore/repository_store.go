@@ -117,9 +117,7 @@ type RepositoryStore interface {
 	// RepositoryExists returns whether the repository exists on a virtual storage.
 	RepositoryExists(ctx context.Context, virtualStorage, relativePath string) (bool, error)
 	// GetPartiallyReplicatedRepositories returns information on repositories which have an outdated copy on an assigned storage.
-	// By default, repository specific primaries are returned in the results. If useVirtualStoragePrimaries is set, virtual storage's
-	// primary is returned instead for each repository.
-	GetPartiallyReplicatedRepositories(ctx context.Context, virtualStorage string, virtualStoragePrimaries bool) ([]OutdatedRepository, error)
+	GetPartiallyReplicatedRepositories(ctx context.Context, virtualStorage string) ([]OutdatedRepository, error)
 	// DeleteInvalidRepository is a method for deleting records of invalid repositories. It deletes a storage's
 	// record of the invalid repository. If the storage was the only storage with the repository, the repository's
 	// record on the virtual storage is also deleted.
@@ -541,7 +539,7 @@ type OutdatedRepository struct {
 	Storages []OutdatedRepositoryStorageDetails
 }
 
-func (rs *PostgresRepositoryStore) GetPartiallyReplicatedRepositories(ctx context.Context, virtualStorage string, useVirtualStoragePrimaries bool) ([]OutdatedRepository, error) {
+func (rs *PostgresRepositoryStore) GetPartiallyReplicatedRepositories(ctx context.Context, virtualStorage string) ([]OutdatedRepository, error) {
 	configuredStorages, ok := rs.storages[virtualStorage]
 	if !ok {
 		return nil, fmt.Errorf("unknown virtual storage: %q", virtualStorage)
@@ -575,7 +573,6 @@ func (rs *PostgresRepositoryStore) GetPartiallyReplicatedRepositories(ctx contex
 	//    is reached. Status of unassigned storages does not matter as long as they don't contain a later generation
 	//    than the assigned ones.
 	//
-	// If virtual storage scoped primaries are used, the primary is instead selected from the `shard_primaries` table.
 	rows, err := rs.db.QueryContext(ctx, `
 SELECT
 	json_build_object (
@@ -592,10 +589,7 @@ SELECT
 FROM (
 	SELECT
 		relative_path,
-		CASE WHEN $3
-			THEN shard_primaries.node_name
-			ELSE repositories."primary"
-		END AS "primary",
+		repositories.primary,
 		storage,
 		max(storage_repositories.generation) OVER (PARTITION BY virtual_storage, relative_path) - COALESCE(storage_repositories.generation, -1) AS behind_by,
 		repository_assignments.storage IS NOT NULL AS assigned
@@ -613,14 +607,13 @@ FROM (
 		)
 	) AS repository_assignments USING (virtual_storage, relative_path, storage)
 	JOIN repositories USING (virtual_storage, relative_path)
-	LEFT JOIN shard_primaries ON $3 AND shard_name = virtual_storage AND NOT demoted
 	WHERE virtual_storage = $1
 	ORDER BY relative_path, "primary", storage
 ) AS outdated_repositories
 GROUP BY relative_path, "primary"
 HAVING max(behind_by) FILTER(WHERE assigned) > 0
 ORDER BY relative_path, "primary"
-	`, virtualStorage, pq.StringArray(configuredStorages), useVirtualStoragePrimaries)
+	`, virtualStorage, pq.StringArray(configuredStorages))
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}

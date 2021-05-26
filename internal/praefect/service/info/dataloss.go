@@ -3,13 +3,11 @@ package info
 import (
 	"context"
 
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
 func (s *Server) DatalossCheck(ctx context.Context, req *gitalypb.DatalossCheckRequest) (*gitalypb.DatalossCheckResponse, error) {
-	outdatedRepos, err := s.rs.GetPartiallyReplicatedRepositories(
-		ctx, req.GetVirtualStorage(), s.conf.Failover.ElectionStrategy != config.ElectionStrategyPerRepository)
+	outdatedRepos, err := s.rs.GetPartiallyReplicatedRepositories(ctx, req.GetVirtualStorage())
 	if err != nil {
 		return nil, err
 	}

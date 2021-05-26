@@ -14,7 +14,7 @@ type MockRepositoryStore struct {
 	DeleteReplicaFunc                      func(ctx context.Context, virtualStorage, relativePath, storage string) error
 	RenameRepositoryFunc                   func(ctx context.Context, virtualStorage, relativePath, storage, newRelativePath string) error
 	GetConsistentStoragesFunc              func(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error)
-	GetPartiallyReplicatedRepositoriesFunc func(ctx context.Context, virtualStorage string, virtualStorageScopedPrimaries bool) ([]OutdatedRepository, error)
+	GetPartiallyReplicatedRepositoriesFunc func(ctx context.Context, virtualStorage string) ([]OutdatedRepository, error)
 	DeleteInvalidRepositoryFunc            func(ctx context.Context, virtualStorage, relativePath, storage string) error
 	RepositoryExistsFunc                   func(ctx context.Context, virtualStorage, relativePath string) (bool, error)
 }
@@ -95,12 +95,12 @@ func (m MockRepositoryStore) GetConsistentStorages(ctx context.Context, virtualS
 	return m.GetConsistentStoragesFunc(ctx, virtualStorage, relativePath)
 }
 
-func (m MockRepositoryStore) GetPartiallyReplicatedRepositories(ctx context.Context, virtualStorage string, virtualStorageScopedPrimaries bool) ([]OutdatedRepository, error) {
+func (m MockRepositoryStore) GetPartiallyReplicatedRepositories(ctx context.Context, virtualStorage string) ([]OutdatedRepository, error) {
 	if m.GetPartiallyReplicatedRepositoriesFunc == nil {
 		return nil, nil
 	}
 
-	return m.GetPartiallyReplicatedRepositoriesFunc(ctx, virtualStorage, virtualStorageScopedPrimaries)
+	return m.GetPartiallyReplicatedRepositoriesFunc(ctx, virtualStorage)
 }
 
 func (m MockRepositoryStore) DeleteInvalidRepository(ctx context.Context, virtualStorage, relativePath, storage string) error {
