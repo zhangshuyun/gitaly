@@ -171,6 +171,7 @@ func run(cfg config.Cfg) error {
 	prometheus.MustRegister(gitCmdFactory)
 
 	catfileCache := catfile.NewCache(cfg)
+	defer catfileCache.Stop()
 	prometheus.MustRegister(catfileCache)
 
 	diskCache := cache.New(cfg, locator)

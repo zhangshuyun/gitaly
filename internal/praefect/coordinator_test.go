@@ -1480,6 +1480,7 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 					grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())),
 				})
 				require.NoError(t, err)
+				defer conn.Close()
 
 				gitalies[gitaly] = gitalyNode{
 					mock: &nodes.MockNode{
