@@ -3,7 +3,6 @@
 package datastore
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -57,17 +56,6 @@ func TestRepositoryStoreCollector(t *testing.T) {
 		},
 	}
 	for virtualStorage, relativePaths := range state {
-		demoted := false
-		if virtualStorage == "no-primary" {
-			demoted = true
-		}
-		_, err := db.ExecContext(ctx, `
-			INSERT INTO shard_primaries (shard_name, node_name, elected_by_praefect, elected_at, demoted)
-			VALUES ($1, 'vs-primary', 'not-needed', now(), $2)
-			`, virtualStorage, demoted,
-		)
-		require.NoError(t, err)
-
 		for relativePath, storages := range relativePaths {
 			if virtualStorage != "no-primary" {
 				_, err := db.ExecContext(ctx, `
@@ -93,31 +81,13 @@ func TestRepositoryStoreCollector(t *testing.T) {
 		virtualStorages = append(virtualStorages, vs)
 	}
 
-	for _, tc := range []struct {
-		desc              string
-		repositoryScoped  bool
-		someReadOnlyCount int
-	}{
-		{
-			desc:              "repository scoped",
-			someReadOnlyCount: 1,
-			repositoryScoped:  true,
-		},
-		{
-			desc:              "virtual storage scoped",
-			someReadOnlyCount: 2,
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			c := NewRepositoryStoreCollector(logrus.New(), virtualStorages, db, tc.repositoryScoped)
-			require.NoError(t, testutil.CollectAndCompare(c, strings.NewReader(fmt.Sprintf(`
+	c := NewRepositoryStoreCollector(logrus.New(), virtualStorages, db)
+	require.NoError(t, testutil.CollectAndCompare(c, strings.NewReader(`
 # HELP gitaly_praefect_read_only_repositories Number of repositories in read-only mode within a virtual storage.
 # TYPE gitaly_praefect_read_only_repositories gauge
 gitaly_praefect_read_only_repositories{virtual_storage="all-writable"} 0
 gitaly_praefect_read_only_repositories{virtual_storage="no-records"} 0
 gitaly_praefect_read_only_repositories{virtual_storage="no-primary"} 1
-gitaly_praefect_read_only_repositories{virtual_storage="some-read-only"} %d
-`, tc.someReadOnlyCount))))
-		})
-	}
+gitaly_praefect_read_only_repositories{virtual_storage="some-read-only"} 1
+`)))
 }
