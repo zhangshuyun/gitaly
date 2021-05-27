@@ -113,7 +113,7 @@ type leaderElectionStrategy interface {
 
 // ErrPrimaryNotHealthy indicates the primary of a shard is not in a healthy state and hence
 // should not be used for a new request
-var ErrPrimaryNotHealthy = errors.New("primary is not healthy")
+var ErrPrimaryNotHealthy = errors.New("primary gitaly is not healthy")
 
 const dialTimeout = 10 * time.Second
 
