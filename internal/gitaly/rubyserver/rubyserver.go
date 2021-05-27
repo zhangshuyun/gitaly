@@ -188,14 +188,6 @@ func (s *Server) WikiServiceClient(ctx context.Context) (gitalypb.WikiServiceCli
 	return gitalypb.NewWikiServiceClient(conn), err
 }
 
-// ConflictsServiceClient returns a ConflictsServiceClient instance that is
-// configured to connect to the running Ruby server. This assumes Start()
-// has been called already.
-func (s *Server) ConflictsServiceClient(ctx context.Context) (gitalypb.ConflictsServiceClient, error) {
-	conn, err := s.getConnection(ctx)
-	return gitalypb.NewConflictsServiceClient(conn), err
-}
-
 // RemoteServiceClient returns a RemoteServiceClient instance that is
 // configured to connect to the running Ruby server. This assumes Start()
 // has been called already.

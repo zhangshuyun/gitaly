@@ -8,7 +8,6 @@ require_relative 'gitaly_server/utils.rb'
 require_relative 'gitaly_server/operations_service.rb'
 require_relative 'gitaly_server/repository_service.rb'
 require_relative 'gitaly_server/wiki_service.rb'
-require_relative 'gitaly_server/conflicts_service.rb'
 require_relative 'gitaly_server/remote_service.rb'
 require_relative 'gitaly_server/health_service.rb'
 require_relative 'gitaly_server/feature_flags.rb'
@@ -50,7 +49,6 @@ module GitalyServer
     server.handle(OperationsService.new)
     server.handle(RepositoryService.new)
     server.handle(WikiService.new)
-    server.handle(ConflictsService.new)
     server.handle(RemoteService.new)
     server.handle(HealthService.new)
   end
