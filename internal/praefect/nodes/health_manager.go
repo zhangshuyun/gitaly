@@ -44,12 +44,6 @@ type HealthManager struct {
 	praefectName string
 	// healthCheckTimeout is the duration after a health check attempt times out.
 	healthCheckTimeout time.Duration
-	// healthinessTimeout is the time after a node is unhealthy after the last
-	// successful health check.
-	healthinessTimeout time.Duration
-	// quorumParticipantTimeout is the time after a Praefect is no longer considered
-	// to be part of the quorum if it has not performed a health check.
-	quorumParticipantTimeout time.Duration
 
 	firstUpdate bool
 	updated     chan struct{}
@@ -75,12 +69,10 @@ func NewHealthManager(
 			log.WithError(err).Error("checking health failed")
 			return nil
 		},
-		praefectName:             praefectName,
-		healthCheckTimeout:       healthcheckTimeout,
-		healthinessTimeout:       failoverTimeout,
-		quorumParticipantTimeout: activePraefectTimeout,
-		firstUpdate:              true,
-		updated:                  make(chan struct{}, 1),
+		praefectName:       praefectName,
+		healthCheckTimeout: healthcheckTimeout,
+		firstUpdate:        true,
+		updated:            make(chan struct{}, 1),
 	}
 
 	hm.locallyHealthy.Store(make(map[string][]string, len(clients)))
@@ -148,61 +140,30 @@ func (hm *HealthManager) updateHealthChecks(ctx context.Context) error {
 
 	hm.locallyHealthy.Store(locallyHealthy)
 
-	rows, err := hm.db.QueryContext(ctx, `
-WITH updated_checks AS (
-	INSERT INTO node_status (praefect_name, shard_name, node_name, last_contact_attempt_at, last_seen_active_at)
-	SELECT $1, shard_name, node_name, NOW(), CASE WHEN is_healthy THEN NOW() ELSE NULL END
-	FROM (
-        SELECT unnest($2::text[]) AS shard_name,
-	    	   unnest($3::text[]) AS node_name,
-	       	   unnest($4::boolean[]) AS is_healthy
-	) AS results
-	ON CONFLICT (praefect_name, shard_name, node_name)
-		DO UPDATE SET
-			last_contact_attempt_at = NOW(),
-			last_seen_active_at = COALESCE(EXCLUDED.last_seen_active_at, node_status.last_seen_active_at)
-	RETURNING *
-),
-updated_node_status AS (
-	/*
-		Updates performed in a CTE are not visible except in the temporary table created by it.
-		Construct the updated view of node_status by getting rows updated during this statement
-		from update_checks and the rest of the rows from node_status.
-	*/
-	SELECT *
-	FROM node_status
-	WHERE NOT EXISTS (
-		SELECT 1 FROM updated_checks
-		WHERE praefect_name = node_status.praefect_name
-		AND shard_name = node_status.shard_name
-		AND node_name = node_status.node_name
-	)
-	UNION
-	SELECT *
-	FROM updated_checks
-)
-
-SELECT shard_name, node_name
-FROM updated_node_status AS ns
-WHERE last_seen_active_at >= NOW() - INTERVAL '1 MICROSECOND' * $5
-GROUP BY shard_name, node_name
-HAVING COUNT(praefect_name) >= (
-	SELECT CEIL(COUNT(DISTINCT praefect_name) / 2.0) AS quorum_count
-	FROM updated_node_status
-	WHERE shard_name = ns.shard_name
-	AND last_contact_attempt_at >= NOW() - INTERVAL '1 MICROSECOND' * $6
-)
-ORDER BY shard_name, node_name
+	if _, err := hm.db.ExecContext(ctx, `
+INSERT INTO node_status (praefect_name, shard_name, node_name, last_contact_attempt_at, last_seen_active_at)
+SELECT $1, shard_name, node_name, NOW(), CASE WHEN is_healthy THEN NOW() ELSE NULL END
+FROM (
+    SELECT unnest($2::text[]) AS shard_name,
+           unnest($3::text[]) AS node_name,
+           unnest($4::boolean[]) AS is_healthy
+) AS results
+ON CONFLICT (praefect_name, shard_name, node_name)
+	DO UPDATE SET
+		last_contact_attempt_at = NOW(),
+		last_seen_active_at = COALESCE(EXCLUDED.last_seen_active_at, node_status.last_seen_active_at)
 	`,
 		hm.praefectName,
 		pq.StringArray(virtualStorages),
 		pq.StringArray(physicalStorages),
 		pq.BoolArray(healthy),
-		hm.healthinessTimeout.Microseconds(),
-		hm.quorumParticipantTimeout.Microseconds(),
-	)
+	); err != nil {
+		return fmt.Errorf("update checks: %w", err)
+	}
+
+	rows, err := hm.db.QueryContext(ctx, `SELECT virtual_storage, storage FROM healthy_storages`)
 	if err != nil {
-		return fmt.Errorf("query: %w", err)
+		return fmt.Errorf("query healthy storages: %w", err)
 	}
 
 	defer func() {

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
@@ -19,10 +20,38 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
-// HealthConsensusFunc is an adapter to turn a conforming function in to a HealthConsensus.
-type HealthConsensusFunc func() map[string][]string
+func setHealthyNodes(t testing.TB, ctx context.Context, db glsql.Querier, healthyNodes map[string]map[string][]string) {
+	var praefects, virtualStorages, storages []string
+	for praefect, virtualStors := range healthyNodes {
+		for virtualStorage, stors := range virtualStors {
+			for _, storage := range stors {
+				praefects = append(praefects, praefect)
+				virtualStorages = append(virtualStorages, virtualStorage)
+				storages = append(storages, storage)
+			}
+		}
+	}
 
-func (fn HealthConsensusFunc) HealthConsensus() map[string][]string { return fn() }
+	_, err := db.ExecContext(ctx, `
+WITH clear_previous_checks AS ( DELETE FROM node_status )
+
+INSERT INTO node_status (praefect_name, shard_name, node_name, last_contact_attempt_at, last_seen_active_at)
+SELECT
+	unnest($1::text[]) AS praefect_name,
+	unnest($2::text[]) AS shard_name,
+	unnest($3::text[]) AS node_name,
+	NOW() AS last_contact_attempt_at,
+	NOW() AS last_seen_active_at
+ON CONFLICT (praefect_name, shard_name, node_name) DO UPDATE SET
+	last_contact_attempt_at = NOW(),
+	last_seen_active_at = NOW()
+		`,
+		pq.StringArray(praefects),
+		pq.StringArray(virtualStorages),
+		pq.StringArray(storages),
+	)
+	require.NoError(t, err)
+}
 
 func TestPerRepositoryElector(t *testing.T) {
 	ctx, cancel := testhelper.Context()
@@ -503,11 +532,11 @@ func TestPerRepositoryElector(t *testing.T) {
 
 			for _, step := range tc.steps {
 				runElection := func(tx *sql.Tx, matchLogs logMatcher) {
+					setHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect-0": step.healthyNodes})
+
 					// The first transaction runs first
 					logger, hook := test.NewNullLogger()
-					elector := NewPerRepositoryElector(logrus.NewEntry(logger), tx,
-						HealthConsensusFunc(func() map[string][]string { return step.healthyNodes }),
-					)
+					elector := NewPerRepositoryElector(logrus.NewEntry(logger), tx)
 					elector.handleError = func(err error) error { return err }
 
 					trigger := make(chan struct{}, 1)
@@ -568,7 +597,6 @@ func TestPerRepositoryElector_Retry(t *testing.T) {
 				return nil, assert.AnError
 			},
 		},
-		HealthConsensusFunc(func() map[string][]string { return map[string][]string{} }),
 	)
 	elector.retryWait = time.Nanosecond
 	elector.handleError = func(err error) error {

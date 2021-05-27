@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lib/pq"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/glsql"
@@ -22,26 +21,16 @@ var ErrNoPrimary = errors.New("no primary")
 type PerRepositoryElector struct {
 	log         logrus.FieldLogger
 	db          glsql.Querier
-	hc          HealthConsensus
 	handleError func(error) error
 	retryWait   time.Duration
 }
 
-// HealthConsensus returns the cluster's consensus of healthy nodes.
-type HealthConsensus interface {
-	// HealthConsensus returns a list of healthy nodes by cluster consensus. Returned
-	// set may contains nodes not present in the local configuration if the cluster has
-	// deemed them healthy.
-	HealthConsensus() map[string][]string
-}
-
 // NewPerRepositoryElector returns a new per repository primary elector.
-func NewPerRepositoryElector(log logrus.FieldLogger, db glsql.Querier, hc HealthConsensus) *PerRepositoryElector {
+func NewPerRepositoryElector(log logrus.FieldLogger, db glsql.Querier) *PerRepositoryElector {
 	log = log.WithField("component", "PerRepositoryElector")
 	return &PerRepositoryElector{
 		log: log,
 		db:  db,
-		hc:  hc,
 		handleError: func(err error) error {
 			log.WithError(err).Error("failed performing failovers")
 			return nil
@@ -97,22 +86,8 @@ func (pr *PerRepositoryElector) Run(ctx context.Context, trigger <-chan struct{}
 }
 
 func (pr *PerRepositoryElector) performFailovers(ctx context.Context) error {
-	healthyNodes := pr.hc.HealthConsensus()
-
-	var virtualStorages, physicalStorages []string
-	for virtualStorage, nodes := range healthyNodes {
-		for _, node := range nodes {
-			virtualStorages = append(virtualStorages, virtualStorage)
-			physicalStorages = append(physicalStorages, node)
-		}
-	}
-
 	rows, err := pr.db.QueryContext(ctx, `
-WITH healthy_storages AS (
-    SELECT unnest($1::text[]) AS virtual_storage, unnest($2::text[]) AS storage
-),
-
-updated AS (
+WITH updated AS (
 	UPDATE repositories
 		SET "primary" = (
 			SELECT storage
@@ -169,7 +144,7 @@ promoted AS (
 SELECT virtual_storage, storage, COALESCE(demoted, 0), COALESCE(promoted, 0)
 FROM demoted
 FULL JOIN promoted USING (virtual_storage, storage)
-`, pq.StringArray(virtualStorages), pq.StringArray(physicalStorages))
+	`)
 	if err != nil {
 		return fmt.Errorf("query: %w", err)
 	}

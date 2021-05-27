@@ -321,7 +321,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		}()
 		healthChecker = hm
 
-		elector := nodes.NewPerRepositoryElector(logger, db, hm)
+		elector := nodes.NewPerRepositoryElector(logger, db)
 
 		if conf.Failover.Enabled {
 			go func() {
