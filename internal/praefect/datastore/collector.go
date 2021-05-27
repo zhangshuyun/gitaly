@@ -49,24 +49,20 @@ func (c *RepositoryStoreCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
-// queryMetrics queries the number of read-only repositories from the database.
-// A repository is in read-only mode when its primary storage is not on the latest
-// generation.
+// queryMetrics queries the number of unavailable repositories from the database.
+// A repository is unavailable when it has no replicas that can act as a primary, indicating
+// they are either unhealthy or out of date.
 func (c *RepositoryStoreCollector) queryMetrics(ctx context.Context) (map[string]int, error) {
-	const query = `
-SELECT repositories.virtual_storage, COUNT(*)
+	rows, err := c.db.QueryContext(ctx, `
+SELECT virtual_storage, COUNT(*)
 FROM repositories
-LEFT JOIN storage_repositories ON
-	repositories.virtual_storage = storage_repositories.virtual_storage AND
-	repositories.relative_path = storage_repositories.relative_path AND
-	repositories.primary = storage_repositories.storage
-WHERE
-	COALESCE(storage_repositories.generation, -1) < repositories.generation AND
-	repositories.virtual_storage = ANY($1)
-GROUP BY repositories.virtual_storage
-`
-
-	rows, err := c.db.QueryContext(ctx, query, pq.StringArray(c.virtualStorages))
+WHERE NOT EXISTS (
+	SELECT FROM valid_primaries
+	WHERE valid_primaries.virtual_storage = repositories.virtual_storage
+	AND   valid_primaries.relative_path   = repositories.relative_path
+) AND repositories.virtual_storage = ANY($1)
+GROUP BY virtual_storage
+	`, pq.StringArray(c.virtualStorages))
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
