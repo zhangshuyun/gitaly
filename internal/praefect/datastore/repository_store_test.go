@@ -803,6 +803,7 @@ func TestPostgresRepositoryStore_GetPartiallyReplicatedRepositories(t *testing.T
 	for _, tc := range []struct {
 		desc                  string
 		nonExistentRepository bool
+		unhealthyStorages     map[string]struct{}
 		existingGenerations   map[string]int
 		existingAssignments   []string
 		storageDetails        []OutdatedRepositoryStorageDetails
@@ -819,8 +820,8 @@ func TestPostgresRepositoryStore_GetPartiallyReplicatedRepositories(t *testing.T
 			desc:                "unconfigured node contains the latest",
 			existingGenerations: map[string]int{"primary": 0, "secondary-1": 0, "unconfigured": 1},
 			storageDetails: []OutdatedRepositoryStorageDetails{
-				{Name: "primary", BehindBy: 1, Assigned: true},
-				{Name: "secondary-1", BehindBy: 1, Assigned: true},
+				{Name: "primary", BehindBy: 1, Assigned: true, Healthy: true},
+				{Name: "secondary-1", BehindBy: 1, Assigned: true, Healthy: true},
 				{Name: "unconfigured", BehindBy: 0, Assigned: false},
 			},
 		},
@@ -828,32 +829,32 @@ func TestPostgresRepositoryStore_GetPartiallyReplicatedRepositories(t *testing.T
 			desc:                "node has no repository without assignments",
 			existingGenerations: map[string]int{"primary": 0},
 			storageDetails: []OutdatedRepositoryStorageDetails{
-				{Name: "primary", BehindBy: 0, Assigned: true},
-				{Name: "secondary-1", BehindBy: 1, Assigned: true},
+				{Name: "primary", BehindBy: 0, Assigned: true, Healthy: true, ValidPrimary: true},
+				{Name: "secondary-1", BehindBy: 1, Assigned: true, Healthy: true},
 			},
 		},
 		{
 			desc:                "node has outdated repository without assignments",
 			existingGenerations: map[string]int{"primary": 1, "secondary-1": 0},
 			storageDetails: []OutdatedRepositoryStorageDetails{
-				{Name: "primary", BehindBy: 0, Assigned: true},
-				{Name: "secondary-1", BehindBy: 1, Assigned: true},
+				{Name: "primary", BehindBy: 0, Assigned: true, Healthy: true, ValidPrimary: true},
+				{Name: "secondary-1", BehindBy: 1, Assigned: true, Healthy: true},
 			},
 		},
 		{
 			desc:                "node with no repository heavily outdated",
 			existingGenerations: map[string]int{"primary": 10},
 			storageDetails: []OutdatedRepositoryStorageDetails{
-				{Name: "primary", BehindBy: 0, Assigned: true},
-				{Name: "secondary-1", BehindBy: 11, Assigned: true},
+				{Name: "primary", BehindBy: 0, Assigned: true, Healthy: true, ValidPrimary: true},
+				{Name: "secondary-1", BehindBy: 11, Assigned: true, Healthy: true},
 			},
 		},
 		{
 			desc:                "node with a heavily outdated repository",
 			existingGenerations: map[string]int{"primary": 10, "secondary-1": 0},
 			storageDetails: []OutdatedRepositoryStorageDetails{
-				{Name: "primary", BehindBy: 0, Assigned: true},
-				{Name: "secondary-1", BehindBy: 10, Assigned: true},
+				{Name: "primary", BehindBy: 0, Assigned: true, Healthy: true, ValidPrimary: true},
+				{Name: "secondary-1", BehindBy: 10, Assigned: true, Healthy: true},
 			},
 		},
 		{
@@ -876,8 +877,8 @@ func TestPostgresRepositoryStore_GetPartiallyReplicatedRepositories(t *testing.T
 			existingAssignments: []string{"primary", "secondary-1"},
 			existingGenerations: map[string]int{"primary": 0},
 			storageDetails: []OutdatedRepositoryStorageDetails{
-				{Name: "primary", BehindBy: 0, Assigned: true},
-				{Name: "secondary-1", BehindBy: 1, Assigned: true},
+				{Name: "primary", BehindBy: 0, Assigned: true, Healthy: true, ValidPrimary: true},
+				{Name: "secondary-1", BehindBy: 1, Assigned: true, Healthy: true},
 			},
 		},
 		{
@@ -885,8 +886,8 @@ func TestPostgresRepositoryStore_GetPartiallyReplicatedRepositories(t *testing.T
 			existingAssignments: []string{"primary", "secondary-1"},
 			existingGenerations: map[string]int{"primary": 1, "secondary-1": 0},
 			storageDetails: []OutdatedRepositoryStorageDetails{
-				{Name: "primary", BehindBy: 0, Assigned: true},
-				{Name: "secondary-1", BehindBy: 1, Assigned: true},
+				{Name: "primary", BehindBy: 0, Assigned: true, Healthy: true, ValidPrimary: true},
+				{Name: "secondary-1", BehindBy: 1, Assigned: true, Healthy: true},
 			},
 		},
 		{
@@ -894,8 +895,8 @@ func TestPostgresRepositoryStore_GetPartiallyReplicatedRepositories(t *testing.T
 			existingAssignments: []string{"primary"},
 			existingGenerations: map[string]int{"primary": 0, "secondary-1": 1},
 			storageDetails: []OutdatedRepositoryStorageDetails{
-				{Name: "primary", BehindBy: 1, Assigned: true},
-				{Name: "secondary-1", BehindBy: 0, Assigned: false},
+				{Name: "primary", BehindBy: 1, Assigned: true, Healthy: true},
+				{Name: "secondary-1", BehindBy: 0, Assigned: false, Healthy: true, ValidPrimary: true},
 			},
 		},
 		{
@@ -903,8 +904,8 @@ func TestPostgresRepositoryStore_GetPartiallyReplicatedRepositories(t *testing.T
 			existingAssignments: []string{"primary"},
 			existingGenerations: map[string]int{"secondary-1": 0},
 			storageDetails: []OutdatedRepositoryStorageDetails{
-				{Name: "primary", BehindBy: 1, Assigned: true},
-				{Name: "secondary-1", BehindBy: 0, Assigned: false},
+				{Name: "primary", BehindBy: 1, Assigned: true, Healthy: true},
+				{Name: "secondary-1", BehindBy: 0, Assigned: false, Healthy: true, ValidPrimary: true},
 			},
 		},
 		{
@@ -912,7 +913,7 @@ func TestPostgresRepositoryStore_GetPartiallyReplicatedRepositories(t *testing.T
 			existingAssignments: []string{"primary"},
 			existingGenerations: map[string]int{"unconfigured": 0},
 			storageDetails: []OutdatedRepositoryStorageDetails{
-				{Name: "primary", BehindBy: 1, Assigned: true},
+				{Name: "primary", BehindBy: 1, Assigned: true, Healthy: true},
 				{Name: "unconfigured", BehindBy: 0, Assigned: false},
 			},
 		},
@@ -931,8 +932,8 @@ func TestPostgresRepositoryStore_GetPartiallyReplicatedRepositories(t *testing.T
 			existingAssignments: []string{"unconfigured"},
 			existingGenerations: map[string]int{"unconfigured": 0},
 			storageDetails: []OutdatedRepositoryStorageDetails{
-				{Name: "primary", BehindBy: 1, Assigned: true},
-				{Name: "secondary-1", BehindBy: 1, Assigned: true},
+				{Name: "primary", BehindBy: 1, Assigned: true, Healthy: true},
+				{Name: "secondary-1", BehindBy: 1, Assigned: true, Healthy: true},
 				{Name: "unconfigured", BehindBy: 0, Assigned: false},
 			},
 		},
@@ -941,12 +942,27 @@ func TestPostgresRepositoryStore_GetPartiallyReplicatedRepositories(t *testing.T
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			db := getDB(t)
+			tx, err := getDB(t).Begin()
+			require.NoError(t, err)
+			defer tx.Rollback()
 
 			configuredStorages := map[string][]string{"virtual-storage": {"primary", "secondary-1"}}
 
+			var healthyStorages []string
+			for _, storage := range configuredStorages["virtual-storage"] {
+				if _, ok := tc.unhealthyStorages[storage]; ok {
+					continue
+				}
+
+				healthyStorages = append(healthyStorages, storage)
+			}
+
+			testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{
+				"praefect-0": {"virtual-storage": healthyStorages},
+			})
+
 			if !tc.nonExistentRepository {
-				_, err := db.ExecContext(ctx, `
+				_, err := tx.ExecContext(ctx, `
 							INSERT INTO repositories (virtual_storage, relative_path, "primary")
 							VALUES ('virtual-storage', 'relative-path', 'repository-primary')
 						`)
@@ -954,26 +970,26 @@ func TestPostgresRepositoryStore_GetPartiallyReplicatedRepositories(t *testing.T
 			}
 
 			for storage, generation := range tc.existingGenerations {
-				_, err := db.ExecContext(ctx, `
+				_, err := tx.ExecContext(ctx, `
 							INSERT INTO storage_repositories VALUES ('virtual-storage', 'relative-path', $1, $2)
 						`, storage, generation)
 				require.NoError(t, err)
 			}
 
 			for _, storage := range tc.existingAssignments {
-				_, err := db.ExecContext(ctx, `
+				_, err := tx.ExecContext(ctx, `
 							INSERT INTO repository_assignments VALUES ('virtual-storage', 'relative-path', $1)
 						`, storage)
 				require.NoError(t, err)
 			}
 
-			_, err := db.ExecContext(ctx, `
+			_, err = tx.ExecContext(ctx, `
 						INSERT INTO shard_primaries (shard_name, node_name, elected_by_praefect, elected_at)
 						VALUES ('virtual-storage', 'virtual-storage-primary', 'ignored', now())
 					`)
 			require.NoError(t, err)
 
-			store := NewPostgresRepositoryStore(db, configuredStorages)
+			store := NewPostgresRepositoryStore(tx, configuredStorages)
 			outdated, err := store.GetPartiallyReplicatedRepositories(ctx, "virtual-storage")
 			require.NoError(t, err)
 

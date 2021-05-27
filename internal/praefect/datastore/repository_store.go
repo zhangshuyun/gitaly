@@ -526,6 +526,10 @@ type OutdatedRepositoryStorageDetails struct {
 	BehindBy int
 	// Assigned indicates whether the storage is an assigned host of the repository.
 	Assigned bool
+	// Healthy indicates whether the replica is considered healthy by the consensus of Praefect nodes.
+	Healthy bool
+	// ValidPrimary indicates whether the replica is ready to serve as the primary if necessary.
+	ValidPrimary bool
 }
 
 // OutdatedRepository is a repository with one or more outdated assigned storages.
@@ -545,8 +549,10 @@ func (rs *PostgresRepositoryStore) GetPartiallyReplicatedRepositories(ctx contex
 		return nil, fmt.Errorf("unknown virtual storage: %q", virtualStorage)
 	}
 
-	// The query below gets the generations and assignments of every repository
-	// which has one or more outdated assigned nodes. It works as follows:
+	// The query below gets the status of every repository which has one or more outdated assigned nodes.
+	// The status includes how many changes a replica is behind, whether the replica is assigned host or
+	// not, whether the replica is healthy and whether the replica is considered a valid primary. It works
+	// as follows:
 	//
 	// 1. First we get all the storages which contain the repository from `storage_repositories`. We
 	//    list every copy of the repository as the latest generation could exist on an unassigned
@@ -582,7 +588,9 @@ SELECT
 			json_build_object(
 				'Name', storage,
 				'BehindBy', behind_by,
-				'Assigned', assigned
+				'Assigned', assigned,
+				'Healthy', healthy,
+				'ValidPrimary', valid_primary
 			)
 		)
 	)
@@ -592,7 +600,9 @@ FROM (
 		repositories.primary,
 		storage,
 		repository_generations.generation - COALESCE(storage_repositories.generation, -1) AS behind_by,
-		repository_assignments.storage IS NOT NULL AS assigned
+		repository_assignments.storage IS NOT NULL AS assigned,
+		healthy_storages.storage IS NOT NULL AS healthy,
+		valid_primaries.storage IS NOT NULL AS valid_primary
 	FROM storage_repositories
 	FULL JOIN (
 		SELECT virtual_storage, relative_path, storage
@@ -608,6 +618,8 @@ FROM (
 	) AS repository_assignments USING (virtual_storage, relative_path, storage)
 	JOIN repositories USING (virtual_storage, relative_path)
 	JOIN repository_generations USING (virtual_storage, relative_path)
+	LEFT JOIN healthy_storages USING (virtual_storage, storage)
+	LEFT JOIN valid_primaries USING (virtual_storage, relative_path, storage)
 	WHERE virtual_storage = $1
 	ORDER BY relative_path, "primary", storage
 ) AS outdated_repositories
