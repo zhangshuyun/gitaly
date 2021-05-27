@@ -179,7 +179,11 @@ func TestRepositoryStoreCollector(t *testing.T) {
 # TYPE gitaly_praefect_read_only_repositories gauge
 gitaly_praefect_read_only_repositories{virtual_storage="virtual-storage-1"} %d
 gitaly_praefect_read_only_repositories{virtual_storage="virtual-storage-2"} 0
-			`, tc.count))))
+# HELP gitaly_praefect_unavailable_repositories Number of repositories that have no healthy, up to date replicas.
+# TYPE gitaly_praefect_unavailable_repositories gauge
+gitaly_praefect_unavailable_repositories{virtual_storage="virtual-storage-1"} %d
+gitaly_praefect_unavailable_repositories{virtual_storage="virtual-storage-2"} 0
+			`, tc.count, tc.count))))
 		})
 	}
 }

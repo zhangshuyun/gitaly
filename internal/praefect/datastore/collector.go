@@ -10,9 +10,19 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 )
 
+// This is kept for backwards compatibility as some alerting rules depend on this.
+// The unavailable repositories is a more accurate description for the metric and
+// is exported below so we can migrate to it.
 var descReadOnlyRepositories = prometheus.NewDesc(
 	"gitaly_praefect_read_only_repositories",
 	"Number of repositories in read-only mode within a virtual storage.",
+	[]string{"virtual_storage"},
+	nil,
+)
+
+var descUnavailableRepositories = prometheus.NewDesc(
+	"gitaly_praefect_unavailable_repositories",
+	"Number of repositories that have no healthy, up to date replicas.",
 	[]string{"virtual_storage"},
 	nil,
 )
@@ -38,14 +48,16 @@ func (c *RepositoryStoreCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (c *RepositoryStoreCollector) Collect(ch chan<- prometheus.Metric) {
-	readOnlyCounts, err := c.queryMetrics(context.TODO())
+	unavailableCounts, err := c.queryMetrics(context.TODO())
 	if err != nil {
 		c.log.WithError(err).Error("failed collecting read-only repository count metric")
 		return
 	}
 
 	for _, vs := range c.virtualStorages {
-		ch <- prometheus.MustNewConstMetric(descReadOnlyRepositories, prometheus.GaugeValue, float64(readOnlyCounts[vs]), vs)
+		for _, desc := range []*prometheus.Desc{descReadOnlyRepositories, descUnavailableRepositories} {
+			ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(unavailableCounts[vs]), vs)
+		}
 	}
 }
 
@@ -68,7 +80,7 @@ GROUP BY virtual_storage
 	}
 	defer rows.Close()
 
-	vsReadOnly := make(map[string]int)
+	vsUnavailable := make(map[string]int)
 	for rows.Next() {
 		var vs string
 		var count int
@@ -77,8 +89,8 @@ GROUP BY virtual_storage
 			return nil, fmt.Errorf("scan: %w", err)
 		}
 
-		vsReadOnly[vs] = count
+		vsUnavailable[vs] = count
 	}
 
-	return vsReadOnly, rows.Err()
+	return vsUnavailable, rows.Err()
 }
