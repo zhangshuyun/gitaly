@@ -591,7 +591,7 @@ FROM (
 		relative_path,
 		repositories.primary,
 		storage,
-		max(storage_repositories.generation) OVER (PARTITION BY virtual_storage, relative_path) - COALESCE(storage_repositories.generation, -1) AS behind_by,
+		repository_generations.generation - COALESCE(storage_repositories.generation, -1) AS behind_by,
 		repository_assignments.storage IS NOT NULL AS assigned
 	FROM storage_repositories
 	FULL JOIN (
@@ -607,6 +607,7 @@ FROM (
 		)
 	) AS repository_assignments USING (virtual_storage, relative_path, storage)
 	JOIN repositories USING (virtual_storage, relative_path)
+	JOIN repository_generations USING (virtual_storage, relative_path)
 	WHERE virtual_storage = $1
 	ORDER BY relative_path, "primary", storage
 ) AS outdated_repositories
