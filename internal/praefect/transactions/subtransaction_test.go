@@ -124,6 +124,7 @@ func TestSubtransaction_vote(t *testing.T) {
 	var zeroVote voting.Vote
 	voteA := newVote(t, "a")
 	voteB := newVote(t, "b")
+	voteC := newVote(t, "c")
 
 	for _, tc := range []struct {
 		desc               string
@@ -193,7 +194,7 @@ func TestSubtransaction_vote(t *testing.T) {
 				{Name: "1", Votes: 1, result: VoteCanceled},
 			},
 			expectedVoteCounts: map[voting.Vote]uint{},
-			expectedErr:        ErrTransactionCanceled,
+			expectedErr:        fmt.Errorf("updating state of node \"1\": %w", ErrTransactionCanceled),
 		},
 		{
 			desc: "single voter trying to vote on stopped transaction",
@@ -207,7 +208,7 @@ func TestSubtransaction_vote(t *testing.T) {
 				{Name: "1", Votes: 1, result: VoteStopped},
 			},
 			expectedVoteCounts: map[voting.Vote]uint{},
-			expectedErr:        ErrTransactionStopped,
+			expectedErr:        fmt.Errorf("updating state of node \"1\": %w", ErrTransactionStopped),
 		},
 		{
 			desc: "multiple voters doing final vote",
@@ -287,6 +288,29 @@ func TestSubtransaction_vote(t *testing.T) {
 				voteB: 1,
 			},
 		},
+		{
+			desc: "multiple disagreeing voters fail early",
+			voters: []Voter{
+				{Name: "1", Votes: 1},
+				{Name: "2", Votes: 1, vote: &voteB},
+				{Name: "3", Votes: 1, vote: &voteC},
+				{Name: "4", Votes: 1},
+			},
+			threshold: 3,
+			voterName: "1",
+			vote:      voteA,
+			expectedVoterState: []Voter{
+				{Name: "1", Votes: 1, result: VoteFailed, vote: &voteA},
+				{Name: "2", Votes: 1, result: VoteFailed, vote: &voteB},
+				{Name: "3", Votes: 1, result: VoteFailed, vote: &voteC},
+				{Name: "4", Votes: 1, result: VoteUndecided},
+			},
+			expectedVoteCounts: map[voting.Vote]uint{
+				voteA: 1,
+				voteB: 1,
+				voteC: 1,
+			},
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			s, err := newSubtransaction(tc.voters, tc.threshold)
@@ -328,7 +352,7 @@ func TestSubtransaction_mustSignalVoters(t *testing.T) {
 		{
 			desc: "single voter with vote",
 			voters: []Voter{
-				{Name: "1", Votes: 1, vote: &voteA},
+				{Name: "1", Votes: 1, vote: &voteA, result: VoteCommitted},
 			},
 			threshold:  1,
 			mustSignal: true,
@@ -336,7 +360,7 @@ func TestSubtransaction_mustSignalVoters(t *testing.T) {
 		{
 			desc: "single voter with missing vote",
 			voters: []Voter{
-				{Name: "1", Votes: 1},
+				{Name: "1", Votes: 1, result: VoteUndecided},
 			},
 			threshold:  1,
 			mustSignal: false,
@@ -344,9 +368,9 @@ func TestSubtransaction_mustSignalVoters(t *testing.T) {
 		{
 			desc: "multiple agreeing voters",
 			voters: []Voter{
-				{Name: "1", Votes: 1, vote: &voteA},
-				{Name: "2", Votes: 1, vote: &voteA},
-				{Name: "3", Votes: 1, vote: &voteA},
+				{Name: "1", Votes: 1, vote: &voteA, result: VoteCommitted},
+				{Name: "2", Votes: 1, vote: &voteA, result: VoteCommitted},
+				{Name: "3", Votes: 1, vote: &voteA, result: VoteCommitted},
 			},
 			threshold:  1,
 			mustSignal: true,
@@ -354,9 +378,9 @@ func TestSubtransaction_mustSignalVoters(t *testing.T) {
 		{
 			desc: "multiple disagreeing voters not reaching threshold",
 			voters: []Voter{
-				{Name: "1", Votes: 1, vote: &voteA},
-				{Name: "2", Votes: 1, vote: &voteB},
-				{Name: "3", Votes: 1, vote: &voteC},
+				{Name: "1", Votes: 1, vote: &voteA, result: VoteFailed},
+				{Name: "2", Votes: 1, vote: &voteB, result: VoteFailed},
+				{Name: "3", Votes: 1, vote: &voteC, result: VoteFailed},
 			},
 			threshold:  3,
 			mustSignal: true,
@@ -364,9 +388,9 @@ func TestSubtransaction_mustSignalVoters(t *testing.T) {
 		{
 			desc: "multiple disagreeing voters reaching threshold",
 			voters: []Voter{
-				{Name: "1", Votes: 1, vote: &voteA},
-				{Name: "2", Votes: 1, vote: &voteB},
-				{Name: "3", Votes: 1, vote: &voteB},
+				{Name: "1", Votes: 1, vote: &voteA, result: VoteFailed},
+				{Name: "2", Votes: 1, vote: &voteB, result: VoteCommitted},
+				{Name: "3", Votes: 1, vote: &voteB, result: VoteCommitted},
 			},
 			threshold:  2,
 			mustSignal: true,
@@ -374,9 +398,9 @@ func TestSubtransaction_mustSignalVoters(t *testing.T) {
 		{
 			desc: "multiple voters reach quorum with with missing votes",
 			voters: []Voter{
-				{Name: "1", Votes: 1},
-				{Name: "2", Votes: 1, vote: &voteA},
-				{Name: "3", Votes: 1, vote: &voteA},
+				{Name: "1", Votes: 1, result: VoteUndecided},
+				{Name: "2", Votes: 1, vote: &voteA, result: VoteCommitted},
+				{Name: "3", Votes: 1, vote: &voteA, result: VoteCommitted},
 			},
 			threshold:  2,
 			mustSignal: true,
@@ -384,9 +408,9 @@ func TestSubtransaction_mustSignalVoters(t *testing.T) {
 		{
 			desc: "multiple voters do not reach quorum with missing votes",
 			voters: []Voter{
-				{Name: "1", Votes: 1},
-				{Name: "2", Votes: 1, vote: &voteB},
-				{Name: "3", Votes: 1, vote: &voteB},
+				{Name: "1", Votes: 1, result: VoteUndecided},
+				{Name: "2", Votes: 1, vote: &voteB, result: VoteCommitted},
+				{Name: "3", Votes: 1, vote: &voteB, result: VoteCommitted},
 			},
 			threshold:  3,
 			mustSignal: false,
@@ -457,7 +481,7 @@ func TestSubtransaction_voterStopsWaiting(t *testing.T) {
 			outcomes: outcomes{
 				{weight: 1, vote: agreeingVote, result: VoteCommitted},
 				{weight: 1, vote: agreeingVote, result: VoteCommitted},
-				{weight: 1, vote: agreeingVote, drops: true, result: VoteCommitted, errorMessage: "cancel vote: subtransaction was already finished"},
+				{weight: 1, vote: agreeingVote, drops: true, result: VoteCommitted, errorMessage: "cancel vote: cannot change committed vote"},
 			},
 		},
 		{
@@ -472,7 +496,7 @@ func TestSubtransaction_voterStopsWaiting(t *testing.T) {
 			desc: "secondary cancels its vote after crossing the threshold",
 			outcomes: outcomes{
 				{weight: 2, vote: agreeingVote, result: VoteCommitted},
-				{weight: 1, vote: agreeingVote, drops: true, result: VoteCommitted, errorMessage: "cancel vote: subtransaction was already finished"},
+				{weight: 1, vote: agreeingVote, drops: true, result: VoteCommitted, errorMessage: "cancel vote: cannot change committed vote"},
 				{weight: 1, vote: disagreeingVote, result: VoteFailed, errorMessage: errorMessageForVote(1, 3, disagreeingVote)},
 			},
 		},
