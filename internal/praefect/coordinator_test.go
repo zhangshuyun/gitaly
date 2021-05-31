@@ -1293,7 +1293,7 @@ func TestStreamDirectorStorageScopeError(t *testing.T) {
 		require.Equal(t, "virtual storage does not exist", result.Message())
 	})
 
-	t.Run("primary is not healthy", func(t *testing.T) {
+	t.Run("primary gitaly is not healthy", func(t *testing.T) {
 		t.Run("accessor", func(t *testing.T) {
 			mgr := &nodes.MockManager{
 				GetShardFunc: func(s string) (nodes.Shard, error) {
@@ -1323,7 +1323,7 @@ func TestStreamDirectorStorageScopeError(t *testing.T) {
 			result, ok := status.FromError(err)
 			require.True(t, ok)
 			require.Equal(t, codes.Internal, result.Code())
-			require.Equal(t, `accessor storage scoped: route storage accessor "fake": primary is not healthy`, result.Message())
+			require.Equal(t, `accessor storage scoped: route storage accessor "fake": primary gitaly is not healthy`, result.Message())
 		})
 
 		t.Run("mutator", func(t *testing.T) {
@@ -1354,7 +1354,7 @@ func TestStreamDirectorStorageScopeError(t *testing.T) {
 			result, ok := status.FromError(err)
 			require.True(t, ok)
 			require.Equal(t, codes.Internal, result.Code())
-			require.Equal(t, `mutator storage scoped: get shard "fake": primary is not healthy`, result.Message())
+			require.Equal(t, `mutator storage scoped: get shard "fake": primary gitaly is not healthy`, result.Message())
 		})
 	})
 }
