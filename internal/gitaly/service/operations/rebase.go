@@ -10,9 +10,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -33,18 +31,6 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 		return helper.ErrInvalidArgumentf("UserRebaseConfirmable: %v", err)
 	}
 
-	if featureflag.IsEnabled(stream.Context(), featureflag.GoUserRebaseConfirmable) {
-		return s.userRebaseConfirmableGo(stream, header)
-	}
-
-	if err := s.userRebaseConfirmable(stream, firstRequest, header.GetRepository()); err != nil {
-		return helper.ErrInternal(err)
-	}
-
-	return nil
-}
-
-func (s *Server) userRebaseConfirmableGo(stream gitalypb.OperationService_UserRebaseConfirmableServer, header *gitalypb.UserRebaseConfirmableRequest_Header) error {
 	ctx := stream.Context()
 
 	repo := header.Repository
@@ -127,48 +113,6 @@ func (s *Server) userRebaseConfirmableGo(stream gitalypb.OperationService_UserRe
 			RebaseApplied: true,
 		},
 	})
-}
-
-func (s *Server) userRebaseConfirmable(stream gitalypb.OperationService_UserRebaseConfirmableServer, firstRequest *gitalypb.UserRebaseConfirmableRequest, repository *gitalypb.Repository) error {
-	ctx := stream.Context()
-	client, err := s.ruby.OperationServiceClient(ctx)
-	if err != nil {
-		return err
-	}
-
-	clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, repository)
-	if err != nil {
-		return err
-	}
-
-	rubyStream, err := client.UserRebaseConfirmable(clientCtx)
-	if err != nil {
-		return err
-	}
-
-	if err := rubyStream.Send(firstRequest); err != nil {
-		return err
-	}
-
-	return rubyserver.ProxyBidi(
-		func() error {
-			request, err := stream.Recv()
-			if err != nil {
-				return err
-			}
-
-			return rubyStream.Send(request)
-		},
-		rubyStream,
-		func() error {
-			response, err := rubyStream.Recv()
-			if err != nil {
-				return err
-			}
-
-			return stream.Send(response)
-		},
-	)
 }
 
 // ErrInvalidBranch indicates a branch name is invalid

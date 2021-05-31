@@ -11,8 +11,6 @@ type FeatureFlag struct {
 var (
 	// ReferenceTransactions will handle Git reference updates via the transaction service for strong consistency
 	ReferenceTransactions = FeatureFlag{Name: "reference_transactions", OnByDefault: true}
-	// UserRebaseConfirmable
-	GoUserRebaseConfirmable = FeatureFlag{Name: "go_user_rebase_confirmable", OnByDefault: true}
 	// GoUpdateRemoteMirror enables the Go implementation of UpdateRemoteMirror
 	GoUpdateRemoteMirror = FeatureFlag{Name: "go_update_remote_mirror", OnByDefault: false}
 	// GrpcTreeEntryNotFound makes the TreeEntry gRPC call return NotFound instead of an empty blob
@@ -28,7 +26,6 @@ var (
 // All includes all feature flags.
 var All = []FeatureFlag{
 	ReferenceTransactions,
-	GoUserRebaseConfirmable,
 	GrpcTreeEntryNotFound,
 	GoUpdateRemoteMirror,
 	FetchInternalRemoteErrors,
