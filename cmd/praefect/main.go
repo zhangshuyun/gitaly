@@ -188,6 +188,10 @@ func initConfig() (config.Config, error) {
 		return config.Config{}, err
 	}
 
+	if !conf.AllowLegacyElectors {
+		conf.Failover.ElectionStrategy = config.ElectionStrategyPerRepository
+	}
+
 	if !conf.Failover.Enabled && conf.Failover.ElectionStrategy != "" {
 		logger.WithField("election_strategy", conf.Failover.ElectionStrategy).Warn(
 			"ignoring configured election strategy as failover is disabled")

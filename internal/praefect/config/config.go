@@ -106,6 +106,7 @@ func DefaultReplicationConfig() Replication {
 
 // Config is a container for everything found in the TOML config file
 type Config struct {
+	AllowLegacyElectors  bool              `toml:"i_understand_my_election_strategy_is_unsupported_and_will_be_removed_without_warning"`
 	Reconciliation       Reconciliation    `toml:"reconciliation"`
 	Replication          Replication       `toml:"replication"`
 	ListenAddr           string            `toml:"listen_addr"`
@@ -149,7 +150,7 @@ func FromFile(filePath string) (Config, error) {
 		Reconciliation: DefaultReconciliationConfig(),
 		Replication:    DefaultReplicationConfig(),
 		// Sets the default Failover, to be overwritten when deserializing the TOML
-		Failover: Failover{Enabled: true, ElectionStrategy: ElectionStrategySQL},
+		Failover: Failover{Enabled: true, ElectionStrategy: ElectionStrategyPerRepository},
 	}
 	if err := toml.Unmarshal(b, conf); err != nil {
 		return Config{}, err
