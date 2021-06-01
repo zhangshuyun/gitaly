@@ -167,9 +167,9 @@ func (rs *PostgresRepositoryStore) IncrementGeneration(ctx context.Context, virt
 	//   3. `eligible_secondaries` filters out secondaries which participated in a transaction but failed a
 	///     concurrent transaction.
 	//   4. `eligible_storages` CTE combines the primary and the up to date secondaries in a list of storages to
-	//      to increment the generation for.
-	//   5. Finally, we upsert the records in 'storage_repositories' table to match the new generation for the
-	//      eligble storages.
+	//      increment the generation for.
+	//   5. Finally, we update the records in 'storage_repositories' table to match the new generation for the
+	//      eligible storages.
 
 	const q = `
 WITH next_generation AS (
@@ -201,17 +201,10 @@ WITH next_generation AS (
 	SELECT $3
 )
 
-INSERT INTO storage_repositories AS sr (
-	virtual_storage,
-	relative_path,
-	storage,
-	generation
-)
-SELECT virtual_storage, relative_path, storage, generation
-FROM eligible_storages
-CROSS JOIN next_generation
-ON CONFLICT (virtual_storage, relative_path, storage) DO
-	UPDATE SET generation = EXCLUDED.generation
+UPDATE storage_repositories AS sr
+SET generation = ng.generation
+FROM eligible_storages AS es, next_generation AS ng
+WHERE es.storage = sr.storage AND ng.virtual_storage = sr.virtual_storage AND ng.relative_path = sr.relative_path
 `
 	_, err := rs.db.ExecContext(ctx, q, virtualStorage, relativePath, primary, pq.StringArray(secondaries))
 	return err

@@ -118,7 +118,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 	)
 
 	t.Run("IncrementGeneration", func(t *testing.T) {
-		t.Run("creates a new record for primary", func(t *testing.T) {
+		t.Run("doesn't create a new record for primary", func(t *testing.T) {
 			rs, requireState := newStore(t, nil)
 
 			require.NoError(t, rs.IncrementGeneration(ctx, vs, repo, "primary", []string{"secondary-1"}))
@@ -128,13 +128,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 						"repository-1": repositoryRecord{},
 					},
 				},
-				storageState{
-					"virtual-storage-1": {
-						"repository-1": {
-							"primary": 0,
-						},
-					},
-				},
+				storageState{},
 			)
 		})
 
