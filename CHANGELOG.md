@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 13.12.2 (2021-06-01)
+
+No changes.
+
 ## 13.12.1 (2021-05-25)
 
 No changes.
@@ -48,6 +52,10 @@ No changes.
 
 - Multiplex connections between Praefect and Gitaly by default. !3360
 
+
+## 13.11.5 (2021-06-01)
+
+No changes.
 
 ## 13.11.4 (2021-05-14)
 
@@ -122,6 +130,10 @@ No changes.
 
 - Update gitlab-gollum-rugged_adapter to 0.4.4.4.gitlab.1. !3357 (Takuya Noguchi)
 
+
+## 13.10.5 (2021-06-01)
+
+No changes.
 
 ## 13.10.4 (2021-04-27)
 
