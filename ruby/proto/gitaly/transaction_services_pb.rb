@@ -8,14 +8,14 @@ module Gitaly
   module RefTransaction
     class Service
 
-      include GRPC::GenericService
+      include ::GRPC::GenericService
 
       self.marshal_class_method = :encode
       self.unmarshal_class_method = :decode
       self.service_name = 'gitaly.RefTransaction'
 
-      rpc :VoteTransaction, Gitaly::VoteTransactionRequest, Gitaly::VoteTransactionResponse
-      rpc :StopTransaction, Gitaly::StopTransactionRequest, Gitaly::StopTransactionResponse
+      rpc :VoteTransaction, ::Gitaly::VoteTransactionRequest, ::Gitaly::VoteTransactionResponse
+      rpc :StopTransaction, ::Gitaly::StopTransactionRequest, ::Gitaly::StopTransactionResponse
     end
 
     Stub = Service.rpc_stub_class

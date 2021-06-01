@@ -8,17 +8,17 @@ module Gitaly
   module ConflictsService
     class Service
 
-      include GRPC::GenericService
+      include ::GRPC::GenericService
 
       self.marshal_class_method = :encode
       self.unmarshal_class_method = :decode
       self.service_name = 'gitaly.ConflictsService'
 
-      rpc :ListConflictFiles, Gitaly::ListConflictFilesRequest, stream(Gitaly::ListConflictFilesResponse)
+      rpc :ListConflictFiles, ::Gitaly::ListConflictFilesRequest, stream(::Gitaly::ListConflictFilesResponse)
       # ResolveConflicts tries to resolve a conflicting merge with a set of
       # user-provided merge resolutions. If resolving the conflict succeeds, the
       # result will be a new merge commit.
-      rpc :ResolveConflicts, stream(Gitaly::ResolveConflictsRequest), Gitaly::ResolveConflictsResponse
+      rpc :ResolveConflicts, stream(::Gitaly::ResolveConflictsRequest), ::Gitaly::ResolveConflictsResponse
     end
 
     Stub = Service.rpc_stub_class
