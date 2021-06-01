@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/dontpanic"
-	"gitlab.com/gitlab-org/gitaly/internal/log"
-	"gitlab.com/gitlab-org/gitaly/internal/tempdir"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/dontpanic"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
 )
 
 func (c *Cache) logWalkErr(err error, path, msg string) {

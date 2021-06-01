@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"io/ioutil"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"text/template"
 )
@@ -34,6 +36,19 @@ func main() {
 
 	var licenses []license
 
+	data, err := exec.Command("go", "mod", "edit", "-json").Output()
+	if err != nil {
+		log.Fatal(err)
+	}
+	var modInfo = struct {
+		Module struct {
+			Path string
+		}
+	}{}
+	if err := json.Unmarshal(data, &modInfo); err != nil {
+		log.Fatal(err)
+	}
+
 	if err := filepath.Walk(*sourcePath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -47,7 +62,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		if p == "gitlab.com/gitlab-org/gitaly" {
+		if p == modInfo.Module.Path {
 			return nil
 		}
 

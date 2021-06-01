@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"os"
 
-	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/objectpool"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
 func (s *server) CloneFromPool(ctx context.Context, req *gitalypb.CloneFromPoolRequest) (*gitalypb.CloneFromPoolResponse, error) {

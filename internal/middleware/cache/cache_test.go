@@ -1,4 +1,4 @@
-package cache_test
+package cache
 
 import (
 	"context"
@@ -12,12 +12,11 @@ import (
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	diskcache "gitlab.com/gitlab-org/gitaly/internal/cache"
-	"gitlab.com/gitlab-org/gitaly/internal/middleware/cache"
-	"gitlab.com/gitlab-org/gitaly/internal/middleware/cache/testdata"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	diskcache "gitlab.com/gitlab-org/gitaly/v14/internal/cache"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/cache/testdata"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/protoregistry"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health"
@@ -34,10 +33,10 @@ func TestInvalidators(t *testing.T) {
 
 	srvr := grpc.NewServer(
 		grpc.StreamInterceptor(
-			cache.StreamInvalidator(mCache, reg),
+			StreamInvalidator(mCache, reg),
 		),
 		grpc.UnaryInterceptor(
-			cache.UnaryInvalidator(mCache, reg),
+			UnaryInvalidator(mCache, reg),
 		),
 	)
 
@@ -119,11 +118,11 @@ func TestInvalidators(t *testing.T) {
 	hcr := &grpc_health_v1.HealthCheckRequest{Service: "TestService"}
 	_, err = grpc_health_v1.NewHealthClient(cc).Check(ctx, hcr)
 	require.NoError(t, err)
-	require.Equal(t, 0, cache.MethodErrCount.Method["/grpc.health.v1.Health/Check"])
+	require.Equal(t, 0, MethodErrCount.Method["/grpc.health.v1.Health/Check"])
 
 	_, err = testdata.NewInterceptedServiceClient(cc).IgnoredMethod(ctx, &testdata.Request{})
 	require.Equal(t, status.Error(codes.Unimplemented, "method IgnoredMethod not implemented"), err)
-	require.Equal(t, 0, cache.MethodErrCount.Method["/testdata.InterceptedService/IgnoredMethod"])
+	require.Equal(t, 0, MethodErrCount.Method["/testdata.InterceptedService/IgnoredMethod"])
 
 	require.Equal(t, expectedInvalidations, mCache.(*mockCache).invalidatedRepos)
 	require.Equal(t, expectedSvcRequests, svc.repoRequests)
@@ -140,7 +139,7 @@ type mockCache struct {
 	}
 }
 
-func newMockCache() cache.Invalidator {
+func newMockCache() Invalidator {
 	return &mockCache{
 		endedLeases: &struct {
 			sync.RWMutex

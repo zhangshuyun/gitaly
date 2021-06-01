@@ -7,32 +7,32 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
 // The test setup takes a lot of time, so it is better to run each sub-benchmark separately with limit on number of repeats.
 func BenchmarkPostgresRepositoryStore_GetConsistentStorages(b *testing.B) {
-	// go test -tags=postgres -test.bench=BenchmarkPostgresRepositoryStore_GetConsistentStorages/extra-small -benchtime=5000x gitlab.com/gitlab-org/gitaly/internal/praefect/datastore
+	// go test -tags=postgres -test.bench=BenchmarkPostgresRepositoryStore_GetConsistentStorages/extra-small -benchtime=5000x gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore
 	b.Run("extra-small", func(b *testing.B) {
 		benchmarkGetConsistentStorages(b, 3, 1000)
 	})
 
-	// go test -tags=postgres -test.bench=BenchmarkPostgresRepositoryStore_GetConsistentStorages/small -benchtime=1000x gitlab.com/gitlab-org/gitaly/internal/praefect/datastore
+	// go test -tags=postgres -test.bench=BenchmarkPostgresRepositoryStore_GetConsistentStorages/small -benchtime=1000x gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore
 	b.Run("small", func(b *testing.B) {
 		benchmarkGetConsistentStorages(b, 3, 10_000)
 	})
 
-	// go test -tags=postgres -test.bench=BenchmarkPostgresRepositoryStore_GetConsistentStorages/medium -benchtime=50x gitlab.com/gitlab-org/gitaly/internal/praefect/datastore
+	// go test -tags=postgres -test.bench=BenchmarkPostgresRepositoryStore_GetConsistentStorages/medium -benchtime=50x gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore
 	b.Run("medium", func(b *testing.B) {
 		benchmarkGetConsistentStorages(b, 3, 100_000)
 	})
 
-	// go test -tags=postgres -test.bench=BenchmarkPostgresRepositoryStore_GetConsistentStorages/large -benchtime=10x gitlab.com/gitlab-org/gitaly/internal/praefect/datastore
+	// go test -tags=postgres -test.bench=BenchmarkPostgresRepositoryStore_GetConsistentStorages/large -benchtime=10x gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore
 	b.Run("large", func(b *testing.B) {
 		benchmarkGetConsistentStorages(b, 3, 1_000_000)
 	})
 
-	// go test -tags=postgres -test.bench=BenchmarkPostgresRepositoryStore_GetConsistentStorages/huge -benchtime=1x gitlab.com/gitlab-org/gitaly/internal/praefect/datastore
+	// go test -tags=postgres -test.bench=BenchmarkPostgresRepositoryStore_GetConsistentStorages/huge -benchtime=1x gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore
 	b.Run("huge", func(b *testing.B) {
 		benchmarkGetConsistentStorages(b, 6, 1_000_000)
 	})

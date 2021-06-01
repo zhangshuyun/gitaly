@@ -3,7 +3,7 @@ package gittest
 import (
 	"testing"
 
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 )
 
 // CreateRemoteBranch creates a new remote branch

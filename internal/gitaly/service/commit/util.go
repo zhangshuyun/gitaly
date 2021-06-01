@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
 func newTreeEntry(commitOid, rootOid, rootPath string, filename, oidBytes, modeBytes []byte) (*gitalypb.TreeEntry, error) {

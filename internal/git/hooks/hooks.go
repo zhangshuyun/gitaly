@@ -3,7 +3,7 @@ package hooks
 import (
 	"path/filepath"
 
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 )
 
 // Override allows tests to control where the hooks directory is.

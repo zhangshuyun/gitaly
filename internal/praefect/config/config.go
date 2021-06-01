@@ -9,11 +9,11 @@ import (
 
 	"github.com/pelletier/go-toml"
 	promclient "github.com/prometheus/client_golang/prometheus"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/log"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/prometheus"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/sentry"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/auth"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/log"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/prometheus"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/sentry"
 )
 
 // ElectionStrategy is a Praefect primary election strategy.

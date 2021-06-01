@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/client"
 	"google.golang.org/grpc"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )

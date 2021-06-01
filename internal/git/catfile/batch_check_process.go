@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/opentracing/opentracing-go"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/labkit/correlation"
 )
 

@@ -7,7 +7,7 @@ import (
 	"flag"
 	"io"
 
-	"gitlab.com/gitlab-org/gitaly/cmd/gitaly-git2go/commit"
+	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/commit"
 )
 
 type commitSubcommand struct{}

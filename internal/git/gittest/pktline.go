@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/pktline"
 )
 
 // WritePktlineString writes the pktline-formatted data into the writer.

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 )
 
 // CreateTagOpts holds extra options for CreateTag.

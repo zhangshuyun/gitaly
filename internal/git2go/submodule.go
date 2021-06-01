@@ -6,7 +6,7 @@ import (
 	"io"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 )
 
 // Error strings present in the legacy Ruby implementation

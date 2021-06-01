@@ -266,7 +266,7 @@ See our examples of [valid](go/internal/linter/testdata/valid.proto) and
 If adding new protobuf files, make sure to correctly set the `go_package` option
 near the top of the file:
 
-`option go_package = "gitlab.com/gitlab-org/gitaly-proto/go/gitalypb";`
+`option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";`
 
 This allows other protobuf files to locate and import the Go generated stubs. If
 you forget to add a `go_package` option, you may receive an error similar to:

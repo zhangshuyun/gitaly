@@ -8,14 +8,14 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/command"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
-	"gitlab.com/gitlab-org/gitaly/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/inspect"
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/streamio"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/pktline"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/inspect"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 )
 
 func (s *server) SSHUploadPack(stream gitalypb.SSHService_SSHUploadPackServer) error {

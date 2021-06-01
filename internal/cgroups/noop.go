@@ -1,7 +1,7 @@
 package cgroups
 
 import (
-	"gitlab.com/gitlab-org/gitaly/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 )
 
 // NoopManager is a cgroups manager that does nothing

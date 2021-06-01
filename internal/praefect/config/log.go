@@ -2,7 +2,7 @@ package config
 
 import (
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/log"
 )
 
 // ConfigureLogger applies the settings from the configuration file to the

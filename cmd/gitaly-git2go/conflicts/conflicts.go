@@ -11,8 +11,8 @@ import (
 	"os"
 
 	git "github.com/libgit2/git2go/v31"
-	"gitlab.com/gitlab-org/gitaly/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

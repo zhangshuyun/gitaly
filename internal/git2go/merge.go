@@ -7,7 +7,7 @@ import (
 	"io"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 )
 
 const (

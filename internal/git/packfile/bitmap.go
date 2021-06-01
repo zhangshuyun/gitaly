@@ -11,7 +11,7 @@ import (
 	"math/big"
 	"os"
 
-	"gitlab.com/gitlab-org/gitaly/internal/git/gitio"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gitio"
 )
 
 // IndexBitmap is the in-memory representation of a .bitmap file.

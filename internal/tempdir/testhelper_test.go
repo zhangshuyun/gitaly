@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
 var cleanRoot string

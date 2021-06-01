@@ -9,9 +9,9 @@ import (
 	"net"
 	"net/url"
 
-	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/internal/bootstrap/starter"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/bootstrap/starter"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"

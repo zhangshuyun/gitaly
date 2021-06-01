@@ -12,8 +12,8 @@ import (
 	"time"
 
 	git "github.com/libgit2/git2go/v31"
-	"gitlab.com/gitlab-org/gitaly/cmd/gitaly-git2go/conflicts"
-	"gitlab.com/gitlab-org/gitaly/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/conflicts"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 )
 
 type mergeSubcommand struct {

@@ -10,8 +10,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/glsql"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
 func TestPostgresReplicationEventQueue_DeleteReplicaUniqueIndex(t *testing.T) {

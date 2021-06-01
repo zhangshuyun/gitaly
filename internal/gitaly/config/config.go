@@ -16,12 +16,12 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"github.com/pelletier/go-toml"
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/cgroups"
-	internallog "gitlab.com/gitlab-org/gitaly/internal/gitaly/config/log"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/prometheus"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/sentry"
-	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/auth"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/cgroups"
+	internallog "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/log"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/prometheus"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/sentry"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"golang.org/x/sys/unix"
 )
 

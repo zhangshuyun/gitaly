@@ -10,10 +10,10 @@ import (
 	"path/filepath"
 
 	"github.com/git-lfs/git-lfs/lfs"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/prometheus"
-	"gitlab.com/gitlab-org/gitaly/internal/gitlab"
-	gitalylog "gitlab.com/gitlab-org/gitaly/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/prometheus"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
+	gitalylog "gitlab.com/gitlab-org/gitaly/v14/internal/log"
 	"gitlab.com/gitlab-org/labkit/log"
 	"gitlab.com/gitlab-org/labkit/tracing"
 )

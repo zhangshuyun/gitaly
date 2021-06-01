@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/pelletier/go-toml"
-	logconfig "gitlab.com/gitlab-org/gitaly/internal/gitaly/config/log"
+	logconfig "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/log"
 )
 
 type Config struct {

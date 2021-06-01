@@ -14,10 +14,10 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/commonerr"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/glsql"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
 func setHealthyNodes(t testing.TB, ctx context.Context, db glsql.Querier, healthyNodes map[string]map[string][]string) {

@@ -64,7 +64,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
-	"gitlab.com/gitlab-org/gitaly/proto/go/internal/linter"
+	"gitlab.com/gitlab-org/gitaly/v14/proto/go/internal/linter"
 )
 
 const (

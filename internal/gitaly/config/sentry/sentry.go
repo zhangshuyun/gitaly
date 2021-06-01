@@ -5,7 +5,7 @@ import (
 
 	sentry "github.com/getsentry/sentry-go"
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/middleware/panichandler"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/panichandler"
 )
 
 // Config contains configuration for sentry

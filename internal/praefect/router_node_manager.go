@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/commonerr"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
 )
 
 type nodeManagerRouter struct {

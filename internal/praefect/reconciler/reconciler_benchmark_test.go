@@ -8,8 +8,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
 func BenchmarkReconcile(b *testing.B) {
@@ -49,10 +49,10 @@ WITH repositories AS (
 )
 
 INSERT INTO storage_repositories
-SELECT 
+SELECT
 	virtual_storage,
-	relative_path, 
-	storage, 
+	relative_path,
+	storage,
 	CASE WHEN storage = 'gitaly-1' THEN generation ELSE generation - $2 END AS generation
 FROM repositories
 CROSS JOIN (SELECT unnest('{gitaly-1, gitaly-2, gitaly-3}'::text[]) AS storage) AS storages

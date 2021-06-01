@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
-	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/pktline"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 )
 
 // Reference as used by the reference discovery protocol
