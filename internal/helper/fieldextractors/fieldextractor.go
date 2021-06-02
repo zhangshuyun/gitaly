@@ -31,24 +31,9 @@ func formatRepoRequest(repo *gitalypb.Repository) map[string]interface{} {
 	return map[string]interface{}{
 		"repoStorage":   repo.StorageName,
 		"repoPath":      repo.RelativePath,
-		"topLevelGroup": getTopLevelGroupFromRepoPath(repo.RelativePath),
 		"glRepository":  repo.GlRepository,
 		"glProjectPath": repo.GlProjectPath,
 	}
-}
-
-// getTopLevelGroupFromRepoPath gives the top-level group name, given
-// a repoPath. For example:
-// - "gitlab-org/gitlab-ce.git" returns "gitlab-org"
-// - "gitlab-org/gitter/webapp.git" returns "gitlab-org"
-// - "x.git" returns ""
-func getTopLevelGroupFromRepoPath(repoPath string) string {
-	parts := strings.SplitN(repoPath, "/", 2)
-	if len(parts) != 2 {
-		return ""
-	}
-
-	return parts[0]
 }
 
 func formatStorageRequest(storageReq storageBasedRequest) map[string]interface{} {
