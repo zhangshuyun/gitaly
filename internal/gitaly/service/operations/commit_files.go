@@ -332,7 +332,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 	return stream.SendAndClose(&gitalypb.UserCommitFilesResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{
 		CommitId:      commitID.String(),
 		RepoCreated:   !hasBranches,
-		BranchCreated: parentCommitOID == "",
+		BranchCreated: oldRevision.IsZeroOID(),
 	}})
 }
 
