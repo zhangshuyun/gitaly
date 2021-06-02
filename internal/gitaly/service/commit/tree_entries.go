@@ -28,11 +28,18 @@ func validateGetTreeEntriesRequest(in *gitalypb.GetTreeEntriesRequest) error {
 }
 
 func populateFlatPath(ctx context.Context, c catfile.Batch, entries []*gitalypb.TreeEntry) error {
+	flattenedTrees := 0
+
 	for _, entry := range entries {
 		entry.FlatPath = entry.Path
 
 		if entry.Type != gitalypb.TreeEntry_TREE {
 			continue
+		}
+
+		flattenedTrees++
+		if flattenedTrees > maxFlattenedTrees {
+			break
 		}
 
 		for i := 1; i < defaultFlatTreeRecursion; i++ {

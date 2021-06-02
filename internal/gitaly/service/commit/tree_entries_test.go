@@ -443,6 +443,47 @@ func TestSuccessfulGetTreeEntries_FlatPathMaxDeep_SingleFoldersStructure(t *test
 	}}, fetchedEntries)
 }
 
+func TestSuccessfulGetTreeEntries_FlatPathMaxSubdirectories_SingleFoldersStructure(t *testing.T) {
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
+
+	for i := 0; i < maxFlattenedTrees+10; i++ {
+		folderName := filepath.Join(repoPath, fmt.Sprintf("%d", i), "next")
+		require.NoError(t, os.MkdirAll(folderName, 0755))
+		testhelper.MustRunCommand(t, nil, "touch", filepath.Join(folderName, ".gitkeep"))
+	}
+
+	gittest.Exec(t, cfg, "-C", repoPath, "add", "--all")
+	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-m", "Many folders")
+
+	commitID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
+
+	request := &gitalypb.GetTreeEntriesRequest{
+		Repository: repo,
+		Revision:   []byte(commitID),
+		Path:       []byte("."),
+		Recursive:  false,
+	}
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	// request entries of the tree with single-folder structure on each level
+	entriesClient, err := client.GetTreeEntries(ctx, request)
+	require.NoError(t, err)
+
+	fetchedEntries := getTreeEntriesFromTreeEntryClient(t, entriesClient)
+
+	count := 0
+	for _, entry := range fetchedEntries {
+		if strings.Contains(string(entry.FlatPath), "next") {
+			count++
+		}
+	}
+
+	require.Equal(t, maxFlattenedTrees, count)
+	require.GreaterOrEqual(t, len(fetchedEntries), maxFlattenedTrees)
+}
+
 func TestFailedGetTreeEntriesRequestDueToValidationError(t *testing.T) {
 	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)

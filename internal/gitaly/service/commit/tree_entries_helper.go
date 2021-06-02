@@ -60,6 +60,7 @@ func (tef *TreeEntryFinder) FindByRevisionAndPath(ctx context.Context, revision,
 const (
 	oidSize                  = sha1.Size
 	defaultFlatTreeRecursion = 10
+	maxFlattenedTrees        = 100
 )
 
 func extractEntryInfoFromTreeData(treeData io.Reader, commitOid, rootOid, rootPath, oid string) ([]*gitalypb.TreeEntry, error) {
