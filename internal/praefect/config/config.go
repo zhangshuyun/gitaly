@@ -302,7 +302,20 @@ func (c Config) DefaultReplicationFactors() map[string]int {
 	return replicationFactors
 }
 
-// DB holds Postgres client configuration data.
+// DBConnection holds Postgres client configuration data.
+type DBConnection struct {
+	Host        string `toml:"host"`
+	Port        int    `toml:"port"`
+	User        string `toml:"user"`
+	Password    string `toml:"password"`
+	DBName      string `toml:"dbname"`
+	SSLMode     string `toml:"sslmode"`
+	SSLCert     string `toml:"sslcert"`
+	SSLKey      string `toml:"sslkey"`
+	SSLRootCert string `toml:"sslrootcert"`
+}
+
+// DB holds database configuration data.
 type DB struct {
 	Host        string `toml:"host"`
 	Port        int    `toml:"port"`
@@ -313,24 +326,60 @@ type DB struct {
 	SSLCert     string `toml:"sslcert"`
 	SSLKey      string `toml:"sslkey"`
 	SSLRootCert string `toml:"sslrootcert"`
+
+	SessionPooled DBConnection `toml:"session_pooled"`
+
+	// The following configuration keys are deprecated and
+	// will be removed. Use Host and Port attributes of
+	// SessionPooled instead.
 	HostNoProxy string `toml:"host_no_proxy"`
 	PortNoProxy int    `toml:"port_no_proxy"`
 }
 
+func coalesceStr(values ...string) string {
+	for _, cur := range values {
+		if cur != "" {
+			return cur
+		}
+	}
+	return ""
+}
+
+func coalesceInt(values ...int) int {
+	for _, cur := range values {
+		if cur != 0 {
+			return cur
+		}
+	}
+	return 0
+}
+
 // ToPQString returns a connection string that can be passed to github.com/lib/pq.
 func (db DB) ToPQString(direct bool) string {
-	var hostVal string
+	var hostVal, userVal, passwordVal, dbNameVal string
+	var sslModeVal, sslCertVal, sslKeyVal, sslRootCertVal string
 	var portVal int
 
 	if direct {
-		if db.HostNoProxy == "" || db.PortNoProxy == 0 {
-			return ""
-		}
-		hostVal = db.HostNoProxy
-		portVal = db.PortNoProxy
+		hostVal = coalesceStr(db.SessionPooled.Host, db.HostNoProxy, db.Host)
+		portVal = coalesceInt(db.SessionPooled.Port, db.PortNoProxy, db.Port)
+		userVal = coalesceStr(db.SessionPooled.User, db.User)
+		passwordVal = coalesceStr(db.SessionPooled.Password, db.Password)
+		dbNameVal = coalesceStr(db.SessionPooled.DBName, db.DBName)
+		sslModeVal = coalesceStr(db.SessionPooled.SSLMode, db.SSLMode)
+		sslCertVal = coalesceStr(db.SessionPooled.SSLCert, db.SSLCert)
+		sslKeyVal = coalesceStr(db.SessionPooled.SSLKey, db.SSLKey)
+		sslRootCertVal = coalesceStr(db.SessionPooled.SSLRootCert, db.SSLRootCert)
 	} else {
 		hostVal = db.Host
 		portVal = db.Port
+		userVal = db.User
+		passwordVal = db.Password
+		dbNameVal = db.DBName
+		sslModeVal = db.SSLMode
+		sslCertVal = db.SSLCert
+		sslKeyVal = db.SSLKey
+		sslRootCertVal = db.SSLRootCert
 	}
 
 	var fields []string
@@ -340,13 +389,13 @@ func (db DB) ToPQString(direct bool) string {
 
 	for _, kv := range []struct{ key, value string }{
 		{"host", hostVal},
-		{"user", db.User},
-		{"password", db.Password},
-		{"dbname", db.DBName},
-		{"sslmode", db.SSLMode},
-		{"sslcert", db.SSLCert},
-		{"sslkey", db.SSLKey},
-		{"sslrootcert", db.SSLRootCert},
+		{"user", userVal},
+		{"password", passwordVal},
+		{"dbname", dbNameVal},
+		{"sslmode", sslModeVal},
+		{"sslcert", sslCertVal},
+		{"sslkey", sslKeyVal},
+		{"sslrootcert", sslRootCertVal},
 		{"binary_parameters", "yes"},
 	} {
 		if len(kv.value) == 0 {
