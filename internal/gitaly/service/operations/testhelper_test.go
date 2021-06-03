@@ -61,17 +61,6 @@ func TestWithRubySidecar(t *testing.T) {
 		testSuccessfulUserApplyPatch,
 		testUserApplyPatchStableID,
 		testFailedPatchApplyPatch,
-		testSuccessfulUserRebaseConfirmableRequest,
-		testUserRebaseConfirmableTransaction,
-		testUserRebaseConfirmableStableCommitIDs,
-		testFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeader,
-		testAbortedUserRebaseConfirmable,
-		testFailedUserRebaseConfirmableDueToApplyBeingFalse,
-		testFailedUserRebaseConfirmableRequestDueToPreReceiveError,
-		testFailedUserRebaseConfirmableDueToGitError,
-		testRebaseRequestWithDeletedFile,
-		testRebaseOntoRemoteBranch,
-		testRebaseFailedWithCode,
 	}
 	for _, f := range fs {
 		t.Run(runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(), func(t *testing.T) {

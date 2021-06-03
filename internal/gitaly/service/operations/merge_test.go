@@ -2,7 +2,6 @@ package operations
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -16,10 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -31,14 +27,6 @@ var (
 	mergeBranchName       = "gitaly-merge-test-branch"
 	mergeBranchHeadBefore = "281d3a76f31c812dbf48abce82ccf6860adedd81"
 )
-
-func testWithFeature(t *testing.T, feature featureflag.FeatureFlag, cfg config.Cfg, rubySrv *rubyserver.Server, testcase func(*testing.T, context.Context, config.Cfg, *rubyserver.Server)) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		feature,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testcase(t, ctx, cfg, rubySrv)
-	})
-}
 
 func TestSuccessfulMerge(t *testing.T) {
 	ctx, cancel := testhelper.Context()
