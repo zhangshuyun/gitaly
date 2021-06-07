@@ -463,14 +463,15 @@ if [ -z ${GIT_SSH_COMMAND+x} ];then rm -f %q ;else echo -n "$GIT_SSH_COMMAND" > 
 	cfg.Git.BinPath = gitPath
 	sourceRepo := NewTestRepo(t, cfg, sourceRepoPb)
 
-	setupPushRepo := func(t testing.TB) (*Repo, string) {
+	setupPushRepo := func(t testing.TB) (*Repo, string, []git.ConfigPair) {
 		repoProto, repopath, _ := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-		return NewTestRepo(t, cfg, repoProto), repopath
+		return NewTestRepo(t, cfg, repoProto), repopath, nil
 	}
 
 	for _, tc := range []struct {
 		desc           string
-		setupPushRepo  func(testing.TB) (*Repo, string)
+		setupPushRepo  func(testing.TB) (*Repo, string, []git.ConfigPair)
+		config         []git.ConfigPair
 		sshCommand     string
 		refspecs       []string
 		errorMessage   string
@@ -496,7 +497,7 @@ if [ -z ${GIT_SSH_COMMAND+x} ];then rm -f %q ;else echo -n "$GIT_SSH_COMMAND" > 
 		{
 			desc:     "force pushes over diverged refs",
 			refspecs: []string{"refs/heads/master"},
-			setupPushRepo: func(t testing.TB) (*Repo, string) {
+			setupPushRepo: func(t testing.TB) (*Repo, string, []git.ConfigPair) {
 				repoProto, repoPath, _ := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 				repo := NewTestRepo(t, cfg, repoProto)
 
@@ -514,7 +515,7 @@ if [ -z ${GIT_SSH_COMMAND+x} ];then rm -f %q ;else echo -n "$GIT_SSH_COMMAND" > 
 				require.NoError(t, err)
 				require.Equal(t, master.Target, divergedMaster.String())
 
-				return repo, repoPath
+				return repo, repoPath, nil
 			},
 		},
 		{
@@ -530,18 +531,32 @@ if [ -z ${GIT_SSH_COMMAND+x} ];then rm -f %q ;else echo -n "$GIT_SSH_COMMAND" > 
 		},
 		{
 			desc: "invalid remote",
-			setupPushRepo: func(t testing.TB) (*Repo, string) {
+			setupPushRepo: func(t testing.TB) (*Repo, string, []git.ConfigPair) {
 				repoProto, _, _ := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-				return NewTestRepo(t, cfg, repoProto), ""
+				return NewTestRepo(t, cfg, repoProto), "", nil
 			},
 			refspecs:     []string{"refs/heads/master"},
 			errorMessage: `git push: exit status 128, stderr: "fatal: no path specified; see 'git help pull' for valid url syntax\n"`,
 		},
+		{
+			desc: "in-memory remote",
+			setupPushRepo: func(testing.TB) (*Repo, string, []git.ConfigPair) {
+				repoProto, repoPath, _ := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
+				return NewTestRepo(t, cfg, repoProto), "inmemory", []git.ConfigPair{
+					{Key: "remote.inmemory.url", Value: repoPath},
+				}
+			},
+			refspecs:       []string{"refs/heads/master"},
+			expectedFilter: []string{"refs/heads/master"},
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			pushRepo, remote := tc.setupPushRepo(t)
+			pushRepo, remote, remoteConfig := tc.setupPushRepo(t)
 
-			err := sourceRepo.Push(ctx, remote, tc.refspecs, PushOptions{SSHCommand: tc.sshCommand})
+			err := sourceRepo.Push(ctx, remote, tc.refspecs, PushOptions{
+				SSHCommand: tc.sshCommand,
+				Config:     remoteConfig,
+			})
 			if tc.errorMessage != "" {
 				require.EqualError(t, err, tc.errorMessage)
 				return
