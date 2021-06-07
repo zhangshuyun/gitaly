@@ -160,9 +160,29 @@ func (repo *Repo) UpdateRef(ctx context.Context, reference git.ReferenceName, ne
 	return nil
 }
 
-// GetRemoteReferences lists references of the remote. Multiple patterns can be supplied to filter the references on the
-// remote down to the needed ones. Symbolic references are dereferenced. Peeled tags are not returned.
-func (repo *Repo) GetRemoteReferences(ctx context.Context, remote string, patterns ...string) ([]git.Reference, error) {
+type getRemoteReferenceConfig struct {
+	patterns []string
+}
+
+// GetRemoteReferencesOption is an option which can be passed to GetRemoteReferences.
+type GetRemoteReferencesOption func(*getRemoteReferenceConfig)
+
+// WithPatterns sets up a set of patterns which are then used to filter the list of returned
+// references.
+func WithPatterns(patterns ...string) GetRemoteReferencesOption {
+	return func(cfg *getRemoteReferenceConfig) {
+		cfg.patterns = patterns
+	}
+}
+
+// GetRemoteReferences lists references of the remote. Symbolic references are dereferenced. Peeled
+// tags are not returned.
+func (repo *Repo) GetRemoteReferences(ctx context.Context, remote string, opts ...GetRemoteReferencesOption) ([]git.Reference, error) {
+	var cfg getRemoteReferenceConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 	if err := repo.ExecAndWait(ctx,
@@ -171,7 +191,7 @@ func (repo *Repo) GetRemoteReferences(ctx context.Context, remote string, patter
 			Flags: []git.Option{
 				git.Flag{Name: "--refs"},
 			},
-			Args: append([]string{remote}, patterns...),
+			Args: append([]string{remote}, cfg.patterns...),
 		},
 		git.WithStdout(stdout),
 		git.WithStderr(stderr),

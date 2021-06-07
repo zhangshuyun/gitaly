@@ -120,7 +120,8 @@ func (s *server) goUpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemote
 	}
 
 	repo := s.localrepo(firstRequest.GetRepository())
-	remoteRefsSlice, err := repo.GetRemoteReferences(ctx, firstRequest.GetRefName(), "refs/heads/*", "refs/tags/*")
+	remoteRefsSlice, err := repo.GetRemoteReferences(ctx, firstRequest.GetRefName(),
+		localrepo.WithPatterns("refs/heads/*", "refs/tags/*"))
 	if err != nil {
 		return fmt.Errorf("get remote references: %w", err)
 	}

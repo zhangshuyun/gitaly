@@ -246,12 +246,14 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 	)
 	for _, tc := range []struct {
 		desc     string
-		patterns []string
+		opts     []GetRemoteReferencesOption
 		expected []git.Reference
 	}{
 		{
-			desc:     "not found",
-			patterns: []string{"this-pattern-does-not-match-anything"},
+			desc: "not found",
+			opts: []GetRemoteReferencesOption{
+				WithPatterns("this-pattern-does-not-match-anything"),
+			},
 		},
 		{
 			desc: "all",
@@ -264,8 +266,10 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 			},
 		},
 		{
-			desc:     "branches and tags only",
-			patterns: []string{"refs/heads/*", "refs/tags/*"},
+			desc: "branches and tags only",
+			opts: []GetRemoteReferencesOption{
+				WithPatterns("refs/heads/*", "refs/tags/*"),
+			},
 			expected: []git.Reference{
 				{Name: "refs/heads/master", Target: commit},
 				{Name: "refs/heads/symbolic", Target: commit},
@@ -275,7 +279,7 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			refs, err := repo.GetRemoteReferences(ctx, repoPath, tc.patterns...)
+			refs, err := repo.GetRemoteReferences(ctx, repoPath, tc.opts...)
 			require.NoError(t, err)
 			require.Equal(t, tc.expected, refs)
 		})
