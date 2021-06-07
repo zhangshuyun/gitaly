@@ -162,6 +162,7 @@ func (repo *Repo) UpdateRef(ctx context.Context, reference git.ReferenceName, ne
 
 type getRemoteReferenceConfig struct {
 	patterns []string
+	config   []git.ConfigPair
 }
 
 // GetRemoteReferencesOption is an option which can be passed to GetRemoteReferences.
@@ -172,6 +173,14 @@ type GetRemoteReferencesOption func(*getRemoteReferenceConfig)
 func WithPatterns(patterns ...string) GetRemoteReferencesOption {
 	return func(cfg *getRemoteReferenceConfig) {
 		cfg.patterns = patterns
+	}
+}
+
+// WithConfig sets up Git configuration for the git-ls-remote(1) invocation. The config pairs are
+// set up via `WithConfigEnv()` and are thus not exposed via the command line.
+func WithConfig(config ...git.ConfigPair) GetRemoteReferencesOption {
+	return func(cfg *getRemoteReferenceConfig) {
+		cfg.config = config
 	}
 }
 
@@ -195,6 +204,7 @@ func (repo *Repo) GetRemoteReferences(ctx context.Context, remote string, opts .
 		},
 		git.WithStdout(stdout),
 		git.WithStderr(stderr),
+		git.WithConfigEnv(cfg.config...),
 	); err != nil {
 		return nil, fmt.Errorf("create git ls-remote: %w, stderr: %q", err, stderr)
 	}

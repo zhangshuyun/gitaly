@@ -281,6 +281,20 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 				{Name: "refs/tags/lightweight-tag", Target: commit},
 			},
 		},
+		{
+			desc:   "with in-memory remote",
+			remote: "inmemory",
+			opts: []GetRemoteReferencesOption{
+				WithPatterns("refs/heads/master"),
+				WithConfig(git.ConfigPair{
+					Key:   "remote.inmemory.url",
+					Value: repoPath,
+				}),
+			},
+			expected: []git.Reference{
+				{Name: "refs/heads/master", Target: commit},
+			},
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			refs, err := repo.GetRemoteReferences(ctx, tc.remote, tc.opts...)
