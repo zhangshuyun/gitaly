@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -146,28 +145,6 @@ func TestSuccessfulTreeEntry(t *testing.T) {
 			require.NoError(t, err)
 
 			assertExactReceivedTreeEntry(t, c, &testCase.expectedTreeEntry)
-		})
-	}
-}
-
-// Extracted from TestSuccessfulTreeEntry, to be removed with featureflag.GrpcTreeEntryNotFound
-func TestFFGrpcTreeEntryNotFoundDisabled(t *testing.T) {
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
-
-	testRequests := []*gitalypb.TreeEntryRequest{
-		{Repository: repo, Revision: []byte("913c66a37b4a45b9769037c55c2d238bd0942d2e"), Path: []byte("../bar/.gitkeep")}, // Git blows up on paths like this
-		{Repository: repo, Revision: []byte("deadfacedeadfacedeadfacedeadfacedeadface"), Path: []byte("with space/README.md")},
-		{Repository: repo, Revision: []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"), Path: []byte("missing.rb")},
-	}
-
-	for _, request := range testRequests {
-		t.Run(fmt.Sprintf("revision=%q path=%q", request.Revision, request.Path), func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
-			ctx = featureflag.OutgoingCtxWithFeatureFlagValue(ctx, featureflag.GrpcTreeEntryNotFound, "false")
-			c, err := client.TreeEntry(ctx, request)
-			require.NoError(t, err)
-			assertExactReceivedTreeEntry(t, c, &treeEntry{})
 		})
 	}
 }
