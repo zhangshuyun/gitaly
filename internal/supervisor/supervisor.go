@@ -34,18 +34,23 @@ var (
 		[]string{"name"},
 	)
 
-	config      Config
 	envInjector = tracing.NewEnvInjector()
 )
 
-func init() {
-	envconfig.MustProcess("gitaly_supervisor", &config)
+// NewConfigFromEnv returns Config initialised from environment variables or an error.
+func NewConfigFromEnv() (Config, error) {
+	var config Config
+	if err := envconfig.Process("gitaly_supervisor", &config); err != nil {
+		return Config{}, err
+	}
+	return config, nil
 }
 
 // Process represents a running process.
 type Process struct {
 	Name string
 
+	config          Config
 	memoryThreshold int
 	events          chan<- Event
 	healthCheck     func() error
@@ -62,13 +67,14 @@ type Process struct {
 }
 
 // New creates a new process instance.
-func New(name string, env []string, args []string, dir string, memoryThreshold int, events chan<- Event, healthCheck func() error) (*Process, error) {
+func New(config Config, name string, env []string, args []string, dir string, memoryThreshold int, events chan<- Event, healthCheck func() error) (*Process, error) {
 	if len(args) < 1 {
 		return nil, fmt.Errorf("need at least one argument")
 	}
 
 	p := &Process{
 		Name:            name,
+		config:          config,
 		memoryThreshold: memoryThreshold,
 		events:          events,
 		healthCheck:     healthCheck,
@@ -110,7 +116,7 @@ func watch(p *Process) {
 
 	// Use a buffered channel because we don't want to block the respawn loop
 	// on the monitor goroutine.
-	monitorChan := make(chan monitorProcess, config.CrashThreshold)
+	monitorChan := make(chan monitorProcess, p.config.CrashThreshold)
 	monitorDone := make(chan struct{})
 	go monitorRss(monitorChan, monitorDone, p.events, p.Name, p.memoryThreshold)
 
@@ -121,12 +127,12 @@ func watch(p *Process) {
 
 spawnLoop:
 	for {
-		if crashes >= config.CrashThreshold {
+		if crashes >= p.config.CrashThreshold {
 			logger.Warn("opening circuit breaker")
 			select {
 			case <-p.shutdown:
 				break spawnLoop
-			case <-time.After(config.CrashWaitTime):
+			case <-time.After(p.config.CrashWaitTime):
 				logger.Warn("closing circuit breaker")
 				crashes = 0
 			}
@@ -167,7 +173,7 @@ spawnLoop:
 				// We repeat this idempotent notification because its delivery is not
 				// guaranteed.
 				go p.notifyUp(pid)
-			case <-time.After(config.CrashResetTime):
+			case <-time.After(p.config.CrashResetTime):
 				crashes = 0
 			case <-waitCh:
 				crashes++
