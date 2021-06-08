@@ -292,23 +292,25 @@ func (m *FetchInternalRemoteResponse) GetResult() bool {
 }
 
 type UpdateRemoteMirrorRequest struct {
-	// repository is the repository whose mirror repository to update.
+	// Repository is the repository whose mirror repository to update.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// ref_name is actually the remote to update.
+	// RefName is actually the remote to update.
 	RefName string `protobuf:"bytes,2,opt,name=ref_name,json=refName,proto3" json:"ref_name,omitempty"`
-	// only_branches_matching contains patterns to match branches against. Only
-	// the matched brances are updated in the remote mirror. If no patterns are
+	// OnlyBranchesMatching contains patterns to match branches against. Only the
+	// matched brances are updated in the remote mirror. If no patterns are
 	// specified, all branches are updated. The patterns should only contain the
-	// branch name without the 'refs/heads/' prefix. "*" can be used as a wildcard
-	// to match anything. only_branches_matching can be streamed to the server over multiple
-	// messages. Optional.
+	// branch name without the 'refs/heads/' prefix. "*" can be used as a
+	// wildcard to match anything. only_branches_matching can be streamed to the
+	// server over multiple messages. Optional.
 	OnlyBranchesMatching [][]byte `protobuf:"bytes,3,rep,name=only_branches_matching,json=onlyBranchesMatching,proto3" json:"only_branches_matching,omitempty"`
-	// ssh_key is the SSH key to use for accessing to the mirror repository. Optional.
+	// SshKey is the SSH key to use for accessing to the mirror repository.
+	// Optional.
 	SshKey string `protobuf:"bytes,4,opt,name=ssh_key,json=sshKey,proto3" json:"ssh_key,omitempty"`
-	// known_hosts specifies the identities used for strict host key checking. Optional.
+	// KnownHosts specifies the identities used for strict host key checking.
+	// Optional.
 	KnownHosts string `protobuf:"bytes,5,opt,name=known_hosts,json=knownHosts,proto3" json:"known_hosts,omitempty"`
-	// keep_divergent_refs specifies whether or not to update diverged references in the
-	// mirror repository.
+	// KeepDivergentRefs specifies whether or not to update diverged references
+	// in the mirror repository.
 	KeepDivergentRefs    bool     `protobuf:"varint,6,opt,name=keep_divergent_refs,json=keepDivergentRefs,proto3" json:"keep_divergent_refs,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -383,8 +385,8 @@ func (m *UpdateRemoteMirrorRequest) GetKeepDivergentRefs() bool {
 }
 
 type UpdateRemoteMirrorResponse struct {
-	// divergent_refs contains a list of references that had diverged in the mirror from the
-	// source repository.
+	// DivergentRefs contains a list of references that had diverged in the
+	// mirror from the source repository.
 	DivergentRefs        [][]byte `protobuf:"bytes,1,rep,name=divergent_refs,json=divergentRefs,proto3" json:"divergent_refs,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
