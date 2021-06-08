@@ -105,28 +105,54 @@ func resolveConflicts(repo *git.Repository, index *git.Index) error {
 	}
 
 	for _, conflict := range indexConflicts {
-		merge, err := conflicts.Merge(repo, conflict)
-		if err != nil {
-			return err
-		}
+		if isConflictMergeable(conflict) {
+			merge, err := conflicts.Merge(repo, conflict)
+			if err != nil {
+				return err
+			}
 
-		mergedBlob, err := repo.CreateBlobFromBuffer(merge.Contents)
-		if err != nil {
-			return err
-		}
+			mergedBlob, err := repo.CreateBlobFromBuffer(merge.Contents)
+			if err != nil {
+				return err
+			}
 
-		mergedIndexEntry := git.IndexEntry{
-			Path: merge.Path,
-			Mode: git.Filemode(merge.Mode),
-			Id:   mergedBlob,
-		}
+			mergedIndexEntry := git.IndexEntry{
+				Path: merge.Path,
+				Mode: git.Filemode(merge.Mode),
+				Id:   mergedBlob,
+			}
 
-		if err := index.Add(&mergedIndexEntry); err != nil {
-			return err
-		}
+			if err := index.Add(&mergedIndexEntry); err != nil {
+				return err
+			}
 
-		if err := index.RemoveConflict(merge.Path); err != nil {
-			return err
+			if err := index.RemoveConflict(merge.Path); err != nil {
+				return err
+			}
+		} else {
+			if conflict.Their != nil {
+				// If a conflict has `Their` present, we add it back to the index
+				// as we want those changes to be part of the merge.
+				if err := index.Add(conflict.Their); err != nil {
+					return err
+				}
+
+				if err := index.RemoveConflict(conflict.Their.Path); err != nil {
+					return err
+				}
+			} else if conflict.Our != nil {
+				// If a conflict has `Our` present, remove its conflict as we
+				// don't want to include those changes.
+				if err := index.RemoveConflict(conflict.Our.Path); err != nil {
+					return err
+				}
+			} else {
+				// If conflict has no `Their` and `Our`, remove the conflict to
+				// mark it as resolved.
+				if err := index.RemoveConflict(conflict.Ancestor.Path); err != nil {
+					return err
+				}
+			}
 		}
 	}
 
@@ -135,6 +161,24 @@ func resolveConflicts(repo *git.Repository, index *git.Index) error {
 	}
 
 	return nil
+}
+
+func isConflictMergeable(conflict git.IndexConflict) bool {
+	conflictIndexEntriesCount := 0
+
+	if conflict.Their != nil {
+		conflictIndexEntriesCount++
+	}
+
+	if conflict.Our != nil {
+		conflictIndexEntriesCount++
+	}
+
+	if conflict.Ancestor != nil {
+		conflictIndexEntriesCount++
+	}
+
+	return conflictIndexEntriesCount >= 2
 }
 
 func getConflicts(index *git.Index) ([]git.IndexConflict, error) {
