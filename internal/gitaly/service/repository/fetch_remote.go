@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/url"
 	"strings"
 	"time"
 
@@ -169,13 +168,9 @@ func (s *server) validateFetchRemoteRequest(req *gitalypb.FetchRemoteRequest) er
 		return nil
 	}
 
-	remoteURL, err := url.ParseRequestURI(params.GetUrl())
-	if err != nil {
-		return helper.ErrInvalidArgument(fmt.Errorf(`invalid "remote_params.url": %q: %w`, params.GetUrl(), err))
-	}
-
-	if remoteURL.Host == "" {
-		return helper.ErrInvalidArgumentf(`invalid "remote_params.url": %q: no host`, params.GetUrl())
+	remoteURL := params.GetUrl()
+	if strings.TrimSpace(remoteURL) == "" {
+		return helper.ErrInvalidArgumentf("blank or empty remote URL: %q", remoteURL)
 	}
 
 	return nil

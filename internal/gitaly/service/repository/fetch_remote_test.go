@@ -577,30 +577,16 @@ func TestFetchRemoteFailure(t *testing.T) {
 			errMsg: `blank or empty "remote"`,
 		},
 		{
-			desc: "invalid remote url: bad format",
+			desc: "invalid remote url",
 			req: &gitalypb.FetchRemoteRequest{
 				Repository: repo,
 				RemoteParams: &gitalypb.Remote{
-					Url:                     "not a url",
-					HttpAuthorizationHeader: httpToken,
+					Url: "",
 				},
 				Timeout: 1000,
 			},
 			code:   codes.InvalidArgument,
-			errMsg: `invalid "remote_params.url"`,
-		},
-		{
-			desc: "invalid remote url: no host",
-			req: &gitalypb.FetchRemoteRequest{
-				Repository: repo,
-				RemoteParams: &gitalypb.Remote{
-					Url:                     "/not/a/url",
-					HttpAuthorizationHeader: httpToken,
-				},
-				Timeout: 1000,
-			},
-			code:   codes.InvalidArgument,
-			errMsg: `invalid "remote_params.url"`,
+			errMsg: `blank or empty remote URL`,
 		},
 		{
 			desc: "not existing repo via http",
@@ -615,6 +601,18 @@ func TestFetchRemoteFailure(t *testing.T) {
 			},
 			code:   codes.Unknown,
 			errMsg: "invalid/repo/path.git/' not found",
+		},
+		{
+			desc: "/dev/null",
+			req: &gitalypb.FetchRemoteRequest{
+				Repository: repo,
+				RemoteParams: &gitalypb.Remote{
+					Url: "/dev/null",
+				},
+				Timeout: 1000,
+			},
+			code:   codes.Unknown,
+			errMsg: "'/dev/null' does not appear to be a git repository",
 		},
 	}
 	for _, tc := range tests {
@@ -717,6 +715,26 @@ func TestFetchRemoteOverHTTP(t *testing.T) {
 			assert.Equal(t, "master", refs[0])
 		})
 	}
+}
+
+func TestFetchRemoteWithPath(t *testing.T) {
+	cfg, _, sourceRepoPath, client := setupRepositoryService(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	mirrorRepo, mirrorRepoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
+	defer cleanup()
+
+	_, err := client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
+		Repository: mirrorRepo,
+		RemoteParams: &gitalypb.Remote{
+			Url: sourceRepoPath,
+		},
+	})
+	require.NoError(t, err)
+
+	require.Equal(t, getRefnames(t, cfg, sourceRepoPath), getRefnames(t, cfg, mirrorRepoPath))
 }
 
 func TestFetchRemoteOverHTTPWithRedirect(t *testing.T) {
