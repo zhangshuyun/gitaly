@@ -85,29 +85,44 @@ message FetchInternalRemoteResponse {
 }
 
 message UpdateRemoteMirrorRequest {
-  // repository is the repository whose mirror repository to update.
+  message Remote {
+    // URL is the URL of the remote repository.
+    string url = 1;
+    // HTTPAuthorizationHeader is an optional HTTP header used for
+    // authenticating against the remote repository.
+    string http_authorization_header = 2;
+  }
+
+  // Repository is the repository whose mirror repository to update.
   Repository repository = 1 [(target_repository)=true];
-  // ref_name is actually the remote to update.
+  // RefName is actually the remote to update. Deprecated in favor of the
+  // Remote field.
   string ref_name = 2;
-  // only_branches_matching contains patterns to match branches against. Only
-  // the matched brances are updated in the remote mirror. If no patterns are
+  // Remote contains parameters required to connect to the remote repository.
+  // This allows Gitaly to use an in-memory remote and does not require any
+  // on-disk remote configuration.
+  Remote remote = 7;
+  // OnlyBranchesMatching contains patterns to match branches against. Only the
+  // matched brances are updated in the remote mirror. If no patterns are
   // specified, all branches are updated. The patterns should only contain the
-  // branch name without the 'refs/heads/' prefix. "*" can be used as a wildcard
-  // to match anything. only_branches_matching can be streamed to the server over multiple
-  // messages. Optional.
+  // branch name without the 'refs/heads/' prefix. "*" can be used as a
+  // wildcard to match anything. only_branches_matching can be streamed to the
+  // server over multiple messages. Optional.
   repeated bytes only_branches_matching = 3;
-  // ssh_key is the SSH key to use for accessing to the mirror repository. Optional.
+  // SshKey is the SSH key to use for accessing to the mirror repository.
+  // Optional.
   string ssh_key = 4;
-  // known_hosts specifies the identities used for strict host key checking. Optional.
+  // KnownHosts specifies the identities used for strict host key checking.
+  // Optional.
   string known_hosts = 5;
-  // keep_divergent_refs specifies whether or not to update diverged references in the
-  // mirror repository.
+  // KeepDivergentRefs specifies whether or not to update diverged references
+  // in the mirror repository.
   bool keep_divergent_refs = 6;
 }
 
 message UpdateRemoteMirrorResponse {
-  // divergent_refs contains a list of references that had diverged in the mirror from the
-  // source repository.
+  // DivergentRefs contains a list of references that had diverged in the
+  // mirror from the source repository.
   repeated bytes divergent_refs = 1;
 }
 

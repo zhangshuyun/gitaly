@@ -25,6 +25,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func testUpdateRemoteMirror(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
@@ -755,6 +756,71 @@ func testSuccessfulUpdateRemoteMirrorRequestWithWildcardsFeatured(t *testing.T, 
 	require.NotContains(t, mirrorRefs, "refs/tags/v1.1.0")
 }
 
+func testUpdateRemoteMirrorInmemory(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	serverSocketPath := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
+			deps.GetCfg(),
+			deps.GetRubyServer(),
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+			deps.GetTxManager(),
+		))
+	})
+
+	client, conn := newRemoteClient(t, serverSocketPath)
+	defer conn.Close()
+
+	localRepo, localPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "local")
+	defer cleanup()
+	gittest.WriteCommit(t, cfg, localPath)
+
+	_, remotePath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "remote")
+	defer cleanup()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	t.Run("Ruby implementation fails gracefully", func(t *testing.T) {
+		ctx := featureflag.OutgoingCtxWithFeatureFlagValue(ctx, featureflag.GoUpdateRemoteMirror, "false")
+
+		stream, err := client.UpdateRemoteMirror(ctx)
+		require.NoError(t, err)
+
+		require.NoError(t, stream.Send(&gitalypb.UpdateRemoteMirrorRequest{
+			Repository: localRepo,
+			Remote: &gitalypb.UpdateRemoteMirrorRequest_Remote{
+				Url: remotePath,
+			},
+		}))
+
+		_, err = stream.CloseAndRecv()
+		require.Equal(t, status.Error(codes.InvalidArgument, "in-memory remotes require `gitaly_go_update_remote_mirror` feature flag"), err)
+	})
+
+	t.Run("Go implementation succeeds", func(t *testing.T) {
+		ctx := featureflag.OutgoingCtxWithFeatureFlags(ctx, featureflag.GoUpdateRemoteMirror)
+
+		stream, err := client.UpdateRemoteMirror(ctx)
+		require.NoError(t, err)
+
+		require.NoError(t, stream.Send(&gitalypb.UpdateRemoteMirrorRequest{
+			Repository: localRepo,
+			Remote: &gitalypb.UpdateRemoteMirrorRequest_Remote{
+				Url: remotePath,
+			},
+		}))
+
+		response, err := stream.CloseAndRecv()
+		require.NoError(t, err)
+		testhelper.ProtoEqual(t, &gitalypb.UpdateRemoteMirrorResponse{}, response)
+
+		localRefs := string(gittest.Exec(t, cfg, "-C", localPath, "for-each-ref"))
+		remoteRefs := string(gittest.Exec(t, cfg, "-C", remotePath, "for-each-ref"))
+		require.Equal(t, localRefs, remoteRefs)
+	})
+}
+
 func testSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoUpdateRemoteMirror,
@@ -890,6 +956,23 @@ func testFailedUpdateRemoteMirrorRequestDueToValidationFeatured(t *testing.T, ct
 			request: &gitalypb.UpdateRemoteMirrorRequest{
 				Repository: testRepo,
 				RefName:    "",
+			},
+		},
+		{
+			desc: "remote is missing URL",
+			request: &gitalypb.UpdateRemoteMirrorRequest{
+				Repository: testRepo,
+				Remote: &gitalypb.UpdateRemoteMirrorRequest_Remote{
+					Url: "",
+				},
+			},
+		},
+		{
+			desc: "both remote name and remote parameters set",
+			request: &gitalypb.UpdateRemoteMirrorRequest{
+				Repository: testRepo,
+				RefName:    "foobar",
+				Remote:     &gitalypb.UpdateRemoteMirrorRequest_Remote{},
 			},
 		},
 	}

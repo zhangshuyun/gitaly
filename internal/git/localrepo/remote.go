@@ -279,6 +279,10 @@ type PushOptions struct {
 	// SSHCommand is the command line to use for git's SSH invocation. The command line is used
 	// as is and must be verified by the caller to be safe.
 	SSHCommand string
+	// Config is the Git configuration which gets passed to the git-push(1) invocation.
+	// Configuration is set up via `WithConfigEnv()`, so potential credentials won't be leaked
+	// via the command line.
+	Config []git.ConfigPair
 }
 
 // Push force pushes the refspecs to the remote.
@@ -301,6 +305,7 @@ func (repo *Repo) Push(ctx context.Context, remote string, refspecs []string, op
 		},
 		git.WithStderr(stderr),
 		git.WithEnv(env...),
+		git.WithConfigEnv(options.Config...),
 	); err != nil {
 		return fmt.Errorf("git push: %w, stderr: %q", err, stderr)
 	}

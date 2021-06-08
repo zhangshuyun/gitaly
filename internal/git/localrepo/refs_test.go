@@ -246,15 +246,20 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 	)
 	for _, tc := range []struct {
 		desc     string
-		patterns []string
+		remote   string
+		opts     []GetRemoteReferencesOption
 		expected []git.Reference
 	}{
 		{
-			desc:     "not found",
-			patterns: []string{"this-pattern-does-not-match-anything"},
+			desc:   "not found",
+			remote: repoPath,
+			opts: []GetRemoteReferencesOption{
+				WithPatterns("this-pattern-does-not-match-anything"),
+			},
 		},
 		{
-			desc: "all",
+			desc:   "all",
+			remote: repoPath,
 			expected: []git.Reference{
 				{Name: "refs/heads/master", Target: commit},
 				{Name: "refs/heads/symbolic", Target: commit},
@@ -264,8 +269,11 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 			},
 		},
 		{
-			desc:     "branches and tags only",
-			patterns: []string{"refs/heads/*", "refs/tags/*"},
+			desc:   "branches and tags only",
+			remote: repoPath,
+			opts: []GetRemoteReferencesOption{
+				WithPatterns("refs/heads/*", "refs/tags/*"),
+			},
 			expected: []git.Reference{
 				{Name: "refs/heads/master", Target: commit},
 				{Name: "refs/heads/symbolic", Target: commit},
@@ -273,9 +281,23 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 				{Name: "refs/tags/lightweight-tag", Target: commit},
 			},
 		},
+		{
+			desc:   "with in-memory remote",
+			remote: "inmemory",
+			opts: []GetRemoteReferencesOption{
+				WithPatterns("refs/heads/master"),
+				WithConfig(git.ConfigPair{
+					Key:   "remote.inmemory.url",
+					Value: repoPath,
+				}),
+			},
+			expected: []git.Reference{
+				{Name: "refs/heads/master", Target: commit},
+			},
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			refs, err := repo.GetRemoteReferences(ctx, repoPath, tc.patterns...)
+			refs, err := repo.GetRemoteReferences(ctx, tc.remote, tc.opts...)
 			require.NoError(t, err)
 			require.Equal(t, tc.expected, refs)
 		})
