@@ -17,7 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
@@ -527,8 +526,8 @@ func TestFetchRemote_force(t *testing.T) {
 	}
 }
 
-func testFetchRemoteFailure(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	_, repo, _, client := setupRepositoryServiceWithRuby(t, cfg, rubySrv)
+func TestFetchRemoteFailure(t *testing.T) {
+	_, repo, _, client := setupRepositoryService(t)
 
 	const remoteName = "test-repo"
 	httpSrv, _ := remoteHTTPServer(t, remoteName, httpToken)
@@ -664,8 +663,8 @@ func getRefnames(t *testing.T, cfg config.Cfg, repoPath string) []string {
 	return strings.Split(text.ChompBytes(result), "\n")
 }
 
-func testFetchRemoteOverHTTP(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	cfg, _, _, client := setupRepositoryServiceWithRuby(t, cfg, rubySrv)
+func TestFetchRemoteOverHTTP(t *testing.T) {
+	cfg, _, _, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
