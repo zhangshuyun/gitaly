@@ -85,10 +85,23 @@ message FetchInternalRemoteResponse {
 }
 
 message UpdateRemoteMirrorRequest {
+  message Remote {
+    // URL is the URL of the remote repository.
+    string url = 1;
+    // HTTPAuthorizationHeader is an optional HTTP header used for
+    // authenticating against the remote repository.
+    string http_authorization_header = 2;
+  }
+
   // Repository is the repository whose mirror repository to update.
   Repository repository = 1 [(target_repository)=true];
-  // RefName is actually the remote to update.
+  // RefName is actually the remote to update. Deprecated in favor of the
+  // Remote field.
   string ref_name = 2;
+  // Remote contains parameters required to connect to the remote repository.
+  // This allows Gitaly to use an in-memory remote and does not require any
+  // on-disk remote configuration.
+  Remote remote = 7;
   // OnlyBranchesMatching contains patterns to match branches against. Only the
   // matched brances are updated in the remote mirror. If no patterns are
   // specified, all branches are updated. The patterns should only contain the

@@ -41,6 +41,7 @@ func TestWithRubySidecar(t *testing.T) {
 	fs := []func(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server){
 		testSuccessfulUpdateRemoteMirrorRequest,
 		testSuccessfulUpdateRemoteMirrorRequestWithWildcards,
+		testUpdateRemoteMirrorInmemory,
 		testSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs,
 		testFailedUpdateRemoteMirrorRequestDueToValidation,
 		testSuccessfulAddRemote,
