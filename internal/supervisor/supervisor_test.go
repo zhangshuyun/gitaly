@@ -62,7 +62,9 @@ func testMain(m *testing.M) int {
 }
 
 func TestRespawnAfterCrashWithoutCircuitBreaker(t *testing.T) {
-	process, err := New(t.Name(), nil, []string{testExe}, testDir, 0, nil, nil)
+	config, err := NewConfigFromEnv()
+	require.NoError(t, err)
+	process, err := New(config, t.Name(), nil, []string{testExe}, testDir, 0, nil, nil)
 	require.NoError(t, err)
 	defer process.Stop()
 
@@ -83,7 +85,9 @@ func TestRespawnAfterCrashWithoutCircuitBreaker(t *testing.T) {
 }
 
 func TestTooManyCrashes(t *testing.T) {
-	process, err := New(t.Name(), nil, []string{testExe}, testDir, 0, nil, nil)
+	config, err := NewConfigFromEnv()
+	require.NoError(t, err)
+	process, err := New(config, t.Name(), nil, []string{testExe}, testDir, 0, nil, nil)
 	require.NoError(t, err)
 	defer process.Stop()
 
@@ -97,17 +101,15 @@ func TestTooManyCrashes(t *testing.T) {
 }
 
 func TestSpawnFailure(t *testing.T) {
-	defer func(waitTime time.Duration) {
-		config.CrashWaitTime = waitTime
-	}(config.CrashWaitTime)
-
+	config, err := NewConfigFromEnv()
+	require.NoError(t, err)
 	config.CrashWaitTime = 2 * time.Second
 
 	notFoundExe := filepath.Join(testDir, "not-found")
 	require.NoError(t, os.RemoveAll(notFoundExe))
 	defer os.Remove(notFoundExe)
 
-	process, err := New(t.Name(), nil, []string{notFoundExe}, testDir, 0, nil, nil)
+	process, err := New(config, t.Name(), nil, []string{notFoundExe}, testDir, 0, nil, nil)
 	require.NoError(t, err)
 	defer process.Stop()
 

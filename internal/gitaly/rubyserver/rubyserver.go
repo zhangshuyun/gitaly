@@ -116,6 +116,11 @@ func (s *Server) start() error {
 	numWorkers := cfg.Ruby.NumWorkers
 	balancer.ConfigureBuilder(numWorkers, 0, time.Now)
 
+	svConfig, err := supervisor.NewConfigFromEnv()
+	if err != nil {
+		return fmt.Errorf("get supervisor configuration: %w", err)
+	}
+
 	for i := 0; i < numWorkers; i++ {
 		name := fmt.Sprintf("gitaly-ruby.%d", i)
 		socketPath := filepath.Join(cfg.InternalSocketDir, fmt.Sprintf("ruby.%d", i))
@@ -127,7 +132,7 @@ func (s *Server) start() error {
 
 		events := make(chan supervisor.Event)
 		check := func() error { return ping(socketPath) }
-		p, err := supervisor.New(name, env, args, cfg.Ruby.Dir, cfg.Ruby.MaxRSS, events, check)
+		p, err := supervisor.New(svConfig, name, env, args, cfg.Ruby.Dir, cfg.Ruby.MaxRSS, events, check)
 		if err != nil {
 			return err
 		}
