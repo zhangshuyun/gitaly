@@ -38,7 +38,7 @@ func validateMergeBranchRequest2(request *gitalypb.UserMergeBranchRequest) error
 	return nil
 }
 
-func (s *Server) UserMergeBranch2(stream gitalypb.OperationService_UserMergeBranchServer) error {
+func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranchServer) error {
 	ctx := stream.Context()
 
 	firstRequest, err := stream.Recv()
