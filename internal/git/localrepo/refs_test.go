@@ -1,6 +1,8 @@
 package localrepo
 
 import (
+	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -215,6 +217,9 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 
+	wrappedGit, gitSSHCommandFile := captureGitSSHCommand(t, cfg.Git.BinPath)
+	cfg.Git.BinPath = wrappedGit
+
 	storagePath, ok := cfg.StoragePath("default")
 	require.True(t, ok)
 
@@ -245,10 +250,11 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 		cfg,
 	)
 	for _, tc := range []struct {
-		desc     string
-		remote   string
-		opts     []GetRemoteReferencesOption
-		expected []git.Reference
+		desc                  string
+		remote                string
+		opts                  []GetRemoteReferencesOption
+		expected              []git.Reference
+		expectedGitSSHCommand string
 	}{
 		{
 			desc:   "not found",
@@ -295,11 +301,30 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 				{Name: "refs/heads/master", Target: commit},
 			},
 		},
+		{
+			desc:   "with custom ssh command",
+			remote: repoPath,
+			opts: []GetRemoteReferencesOption{
+				WithPatterns("refs/heads/master"),
+				WithSSHCommand("custom-ssh -with-creds"),
+			},
+			expected: []git.Reference{
+				{Name: "refs/heads/master", Target: commit},
+			},
+			expectedGitSSHCommand: "custom-ssh -with-creds",
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			refs, err := repo.GetRemoteReferences(ctx, tc.remote, tc.opts...)
 			require.NoError(t, err)
 			require.Equal(t, tc.expected, refs)
+
+			gitSSHCommand, err := ioutil.ReadFile(gitSSHCommandFile)
+			if !os.IsNotExist(err) {
+				require.NoError(t, err)
+			}
+
+			require.Equal(t, tc.expectedGitSSHCommand, string(gitSSHCommand))
 		})
 	}
 }
