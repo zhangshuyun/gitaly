@@ -57,22 +57,6 @@ issues:
       text: "exported function `BuildCommit` should have comment or be unexported"
     - linters:
         - golint
-      path: "internal/blackbox/blackbox.go"
-      text: "exported function `Run` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/blackbox/config.go"
-      text: "exported type `Config` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/blackbox/config.go"
-      text: "exported type `Probe` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/blackbox/config.go"
-      text: "exported function `ParseConfig` should have comment or be unexported"
-    - linters:
-        - golint
       path: "internal/cgroups/noop.go"
       text: "exported method `NoopManager.Setup` should have comment or be unexported"
     - linters:

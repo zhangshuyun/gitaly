@@ -12,6 +12,8 @@ import (
 	"gitlab.com/gitlab-org/labkit/monitoring"
 )
 
+// Run starts the blackbox. It sets up and serves the Prometheus listener and starts a Goroutine
+// which runs the probes.
 func Run(cfg *Config) error {
 	listener, err := net.Listen("tcp", cfg.PrometheusListenAddr)
 	if err != nil {

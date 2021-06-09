@@ -9,21 +9,38 @@ import (
 	logconfig "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/log"
 )
 
+// Config is the configuration for gitaly-blackbox.
 type Config struct {
+	// PrometheusListenAddr is the listen address on which Prometheus metrics should be
+	// made available for clients.
 	PrometheusListenAddr string `toml:"prometheus_listen_addr"`
-	Sleep                int    `toml:"sleep"`
-	SleepDuration        time.Duration
-	Logging              logconfig.Config `toml:"logging"`
-	Probes               []Probe          `toml:"probe"`
+	// Sleep is the number of seconds between probe runs.
+	Sleep int `toml:"sleep"`
+	// SleepDuration is the same as Sleep but converted to a proper duration.
+	SleepDuration time.Duration
+	// Logging configures logging.
+	Logging logconfig.Config `toml:"logging"`
+	// Probes defines endpoints to probe. At least one probe must be defined.
+	Probes []Probe `toml:"probe"`
 }
 
+// Probe is the configuration for a specific endpoint whose clone performance should be exercised.
 type Probe struct {
-	Name     string `toml:"name"`
-	URL      string `toml:"url"`
-	User     string `toml:"user"`
+	// Name is the name of the probe. This is used both for logging and for exported
+	// Prometheus metrics.
+	Name string `toml:"name"`
+	// URL is the URL of the Git repository that should be probed. For now, only the
+	// HTTP transport is supported.
+	URL string `toml:"url"`
+	// User is the user to authenticate as when connecting to the repository.
+	User string `toml:"user"`
+	// Password is the password to authenticate with when connecting to the repository.
+	// Note that this password may easily leak when connecting to a non-HTTPS URL.
 	Password string `toml:"password"`
 }
 
+// ParseConfig parses the provided TOML-formatted configuration string and either returns the
+// parsed configuration or an error.
 func ParseConfig(raw string) (*Config, error) {
 	config := &Config{}
 	if err := toml.Unmarshal([]byte(raw), config); err != nil {
