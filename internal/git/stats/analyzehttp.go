@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -125,39 +124,23 @@ func (cl *Clone) doGet(ctx context.Context) error {
 }
 
 type Post struct {
-	start             time.Time
-	responseHeader    time.Duration
-	httpStatus        int
-	nak               time.Duration
-	multiband         map[string]*bandInfo
-	responseBody      time.Duration
-	packets           int
-	largestPacketSize int
+	start          time.Time
+	responseHeader time.Duration
+	httpStatus     int
+	stats          FetchPack
 }
 
 func (p *Post) ResponseHeader() time.Duration { return p.responseHeader }
 func (p *Post) HTTPStatus() int               { return p.httpStatus }
-func (p *Post) NAK() time.Duration            { return p.nak }
-func (p *Post) ResponseBody() time.Duration   { return p.responseBody }
-func (p *Post) Packets() int                  { return p.packets }
-func (p *Post) LargestPacketSize() int        { return p.largestPacketSize }
+func (p *Post) NAK() time.Duration            { return p.stats.nak.Sub(p.start) }
+func (p *Post) ResponseBody() time.Duration   { return p.stats.responseBody.Sub(p.start) }
+func (p *Post) Packets() int                  { return p.stats.packets }
+func (p *Post) LargestPacketSize() int        { return p.stats.largestPacketSize }
 
-func (p *Post) BandPackets(b string) int               { return p.multiband[b].packets }
-func (p *Post) BandPayloadSize(b string) int64         { return p.multiband[b].size }
-func (p *Post) BandFirstPacket(b string) time.Duration { return p.multiband[b].firstPacket }
-
-type bandInfo struct {
-	firstPacket time.Duration
-	size        int64
-	packets     int
-}
-
-func (bi *bandInfo) consume(start time.Time, data []byte) {
-	if bi.packets == 0 {
-		bi.firstPacket = time.Since(start)
-	}
-	bi.size += int64(len(data))
-	bi.packets++
+func (p *Post) BandPackets(b string) int       { return p.stats.multiband[b].packets }
+func (p *Post) BandPayloadSize(b string) int64 { return p.stats.multiband[b].size }
+func (p *Post) BandFirstPacket(b string) time.Duration {
+	return p.stats.multiband[b].firstPacket.Sub(p.start)
 }
 
 // See
@@ -232,83 +215,14 @@ func (cl *Clone) doPost(ctx context.Context) error {
 	cl.printInteractive("response code: %d\n", resp.StatusCode)
 	cl.printInteractive("response header: %v\n", resp.Header)
 
-	// Expected response:
-	// - "NAK\n"
-	// - "<side band byte><pack or progress or error data>
-	// - ...
-	// - FLUSH
-	//
+	cl.Post.stats.ReportProgress = func(b []byte) { cl.printInteractive("%s", string(b)) }
 
-	cl.Post.multiband = make(map[string]*bandInfo)
-	for _, band := range Bands() {
-		cl.Post.multiband[band] = &bandInfo{}
-	}
-
-	seenFlush := false
-
-	scanner := pktline.NewScanner(resp.Body)
-	for ; scanner.Scan(); cl.Post.packets++ {
-		if seenFlush {
-			return errors.New("received extra packet after flush")
-		}
-
-		if n := len(scanner.Bytes()); n > cl.Post.largestPacketSize {
-			cl.Post.largestPacketSize = n
-		}
-
-		data := pktline.Data(scanner.Bytes())
-
-		if cl.Post.packets == 0 {
-			// We're now looking at the first git packet sent by the server. The
-			// server must conclude the ref negotiation. Because we have not sent any
-			// "have" messages there is nothing to negotiate and the server should
-			// send a single NAK.
-			if !bytes.Equal([]byte("NAK\n"), data) {
-				return fmt.Errorf("expected NAK, got %q", data)
-			}
-			cl.Post.nak = time.Since(cl.Post.start)
-			continue
-		}
-
-		if pktline.IsFlush(scanner.Bytes()) {
-			seenFlush = true
-			continue
-		}
-
-		if len(data) == 0 {
-			return errors.New("empty packet in PACK data")
-		}
-
-		band, err := bandToHuman(data[0])
-		if err != nil {
-			return err
-		}
-
-		cl.Post.multiband[band].consume(cl.Post.start, data[1:])
-
-		// Print progress data as-is
-		if band == bandProgress {
-			cl.printInteractive("%s", string(data[1:]))
-		}
-
-		if cl.Post.packets%500 == 0 && cl.Post.packets > 0 && band == bandPack {
-			// Print dots to have some sort of progress meter for the user in
-			// interactive mode. It's not accurate progress, but it shows that
-			// something is happening.
-			cl.printInteractive(".")
-		}
+	if err := cl.Post.stats.Parse(resp.Body); err != nil {
+		return err
 	}
 
 	cl.printInteractive("\n")
 
-	if err := scanner.Err(); err != nil {
-		return err
-	}
-	if !seenFlush {
-		return errors.New("POST response did not end in flush")
-	}
-
-	cl.Post.responseBody = time.Since(cl.Post.start)
 	return nil
 }
 
@@ -320,27 +234,4 @@ func (cl *Clone) printInteractive(format string, a ...interface{}) {
 	// Ignore any errors returned by this given that we only use it as a debugging aid
 	// to write to stdout.
 	fmt.Printf(format, a...)
-}
-
-const (
-	bandPack     = "pack"
-	bandProgress = "progress"
-	bandError    = "error"
-)
-
-// Bands returns the slice of bands which git uses to transport different kinds
-// of data in a multiplexed way. See
-// https://git-scm.com/docs/protocol-capabilities/2.24.0#_side_band_side_band_64k
-// for more information about the different bands.
-func Bands() []string { return []string{bandPack, bandProgress, bandError} }
-
-func bandToHuman(b byte) (string, error) {
-	bands := Bands()
-
-	// Band index bytes are 1-indexed.
-	if b < 1 || int(b) > len(bands) {
-		return "", fmt.Errorf("invalid band index: %d", b)
-	}
-
-	return bands[b-1], nil
 }
