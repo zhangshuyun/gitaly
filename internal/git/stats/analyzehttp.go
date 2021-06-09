@@ -15,11 +15,6 @@ import (
 )
 
 type Clone struct {
-	URL         string
-	Interactive bool
-	User        string
-	Password    string
-
 	// ReferenceDiscovery is the reference discovery performed as part of the clone.
 	ReferenceDiscovery HTTPReferenceDiscovery
 	// FetchPack is the response to a git-fetch-pack(1) request which computes transmits the
@@ -27,23 +22,31 @@ type Clone struct {
 	FetchPack HTTPFetchPack
 }
 
-// Perform does a Git HTTP clone, discarding cloned data to /dev/null.
-func (cl *Clone) Perform(ctx context.Context) error {
-	referenceDiscovery, err := performReferenceDiscovery(ctx, cl.URL, cl.User, cl.Password, cl.printInteractive)
-	if err != nil {
-		return ctxErr(ctx, err)
+// PerformClone does a Git HTTP clone, discarding cloned data to /dev/null.
+func PerformClone(ctx context.Context, url, user, password string, interactive bool) (Clone, error) {
+	printInteractive := func(format string, a ...interface{}) {
+		if interactive {
+			// Ignore any errors returned by this given that we only use it as a
+			// debugging aid to write to stdout.
+			fmt.Printf(format, a...)
+		}
 	}
 
-	fetchPack, err := performFetchPack(ctx, cl.URL, cl.User, cl.Password,
-		referenceDiscovery.Refs(), cl.printInteractive)
+	referenceDiscovery, err := performReferenceDiscovery(ctx, url, user, password, printInteractive)
 	if err != nil {
-		return ctxErr(ctx, err)
+		return Clone{}, ctxErr(ctx, err)
 	}
 
-	cl.ReferenceDiscovery = referenceDiscovery
-	cl.FetchPack = fetchPack
+	fetchPack, err := performFetchPack(ctx, url, user, password,
+		referenceDiscovery.Refs(), printInteractive)
+	if err != nil {
+		return Clone{}, ctxErr(ctx, err)
+	}
 
-	return nil
+	return Clone{
+		ReferenceDiscovery: referenceDiscovery,
+		FetchPack:          fetchPack,
+	}, nil
 }
 
 func ctxErr(ctx context.Context, err error) error {
@@ -296,14 +299,4 @@ func performFetchPack(
 	reportProgress("\n")
 
 	return fetchPack, nil
-}
-
-func (cl *Clone) printInteractive(format string, a ...interface{}) {
-	if !cl.Interactive {
-		return
-	}
-
-	// Ignore any errors returned by this given that we only use it as a debugging aid
-	// to write to stdout.
-	fmt.Printf(format, a...)
 }

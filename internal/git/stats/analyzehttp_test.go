@@ -24,8 +24,8 @@ func TestClone(t *testing.T) {
 		require.NoError(t, stopGitServer())
 	}()
 
-	clone := Clone{URL: fmt.Sprintf("http://localhost:%d/%s", serverPort, filepath.Base(repoPath))}
-	require.NoError(t, clone.Perform(ctx), "perform analysis clone")
+	clone, err := PerformClone(ctx, fmt.Sprintf("http://localhost:%d/%s", serverPort, filepath.Base(repoPath)), "", "", false)
+	require.NoError(t, err, "perform analysis clone")
 
 	const expectedRequests = 90 // based on contents of _support/gitlab-test.git-packed-refs
 	require.Greater(t, clone.FetchPack.RefsWanted(), expectedRequests, "number of wanted refs")
@@ -100,12 +100,14 @@ func TestCloneWithAuth(t *testing.T) {
 		require.NoError(t, stopGitServer())
 	}()
 
-	clone := Clone{
-		URL:      fmt.Sprintf("http://localhost:%d/%s", serverPort, filepath.Base(repoPath)),
-		User:     user,
-		Password: password,
-	}
-	require.NoError(t, clone.Perform(ctx), "perform analysis clone")
+	_, err := PerformClone(
+		ctx,
+		fmt.Sprintf("http://localhost:%d/%s", serverPort, filepath.Base(repoPath)),
+		user,
+		password,
+		false,
+	)
+	require.NoError(t, err, "perform analysis clone")
 
 	require.True(t, authWasChecked, "authentication middleware should have gotten triggered")
 }

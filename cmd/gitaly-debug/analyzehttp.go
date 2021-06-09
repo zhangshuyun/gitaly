@@ -8,12 +8,8 @@ import (
 )
 
 func analyzeHTTPClone(cloneURL string) {
-	st := &stats.Clone{
-		URL:         cloneURL,
-		Interactive: true,
-	}
-
-	noError(st.Perform(context.Background()))
+	st, err := stats.PerformClone(context.Background(), cloneURL, "", "", true)
+	noError(err)
 
 	fmt.Println("\n--- Reference discovery metrics:")
 	for _, entry := range []metric{

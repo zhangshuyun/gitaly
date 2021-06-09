@@ -105,13 +105,8 @@ func (b Blackbox) doProbe(probe Probe) {
 	entry := log.WithField("probe", probe.Name)
 	entry.Info("starting probe")
 
-	clone := &stats.Clone{
-		URL:      probe.URL,
-		User:     probe.User,
-		Password: probe.Password,
-	}
-
-	if err := clone.Perform(ctx); err != nil {
+	clone, err := stats.PerformClone(ctx, probe.URL, probe.User, probe.Password, false)
+	if err != nil {
 		entry.WithError(err).Error("probe failed")
 		return
 	}
