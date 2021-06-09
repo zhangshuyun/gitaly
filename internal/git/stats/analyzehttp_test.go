@@ -27,8 +27,8 @@ func TestClone(t *testing.T) {
 	clone := Clone{URL: fmt.Sprintf("http://localhost:%d/%s", serverPort, filepath.Base(repoPath))}
 	require.NoError(t, clone.Perform(ctx), "perform analysis clone")
 
-	const expectedWants = 90 // based on contents of _support/gitlab-test.git-packed-refs
-	require.Greater(t, clone.RefsWanted(), expectedWants, "number of wanted refs")
+	const expectedRequests = 90 // based on contents of _support/gitlab-test.git-packed-refs
+	require.Greater(t, clone.Post.RefsWanted(), expectedRequests, "number of wanted refs")
 
 	require.Equal(t, 200, clone.Get.HTTPStatus(), "get status")
 	require.Greater(t, clone.Get.Packets(), 0, "number of get packets")

@@ -20,12 +20,9 @@ type Clone struct {
 	User        string
 	Password    string
 
-	wants []string // all branch and tag pointers
-	Get   Get
-	Post  Post
+	Get  Get
+	Post Post
 }
-
-func (cl *Clone) RefsWanted() int { return len(cl.wants) }
 
 // Perform does a Git HTTP clone, discarding cloned data to /dev/null.
 func (cl *Clone) Perform(ctx context.Context) error {
@@ -33,7 +30,7 @@ func (cl *Clone) Perform(ctx context.Context) error {
 		return ctxErr(ctx, err)
 	}
 
-	if err := cl.doPost(ctx); err != nil {
+	if err := cl.doPost(ctx, cl.Get.Refs()); err != nil {
 		return ctxErr(ctx, err)
 	}
 
@@ -126,12 +123,6 @@ func (cl *Clone) doGet(ctx context.Context) error {
 		return err
 	}
 
-	for _, ref := range cl.Get.Refs() {
-		if strings.HasPrefix(ref.Name, "refs/heads/") || strings.HasPrefix(ref.Name, "refs/tags/") {
-			cl.wants = append(cl.wants, ref.Oid)
-		}
-	}
-
 	return nil
 }
 
@@ -140,6 +131,7 @@ type Post struct {
 	responseHeader time.Duration
 	httpStatus     int
 	stats          FetchPack
+	wantedRefs     []string
 }
 
 func (p *Post) ResponseHeader() time.Duration { return p.responseHeader }
@@ -148,6 +140,9 @@ func (p *Post) NAK() time.Duration            { return p.stats.nak.Sub(p.start) 
 func (p *Post) ResponseBody() time.Duration   { return p.stats.responseBody.Sub(p.start) }
 func (p *Post) Packets() int                  { return p.stats.packets }
 func (p *Post) LargestPacketSize() int        { return p.stats.largestPacketSize }
+
+// RefsWanted returns the number of references sent to the remote repository as "want"s.
+func (p *Post) RefsWanted() int { return len(p.wantedRefs) }
 
 func (p *Post) BandPackets(b string) int       { return p.stats.multiband[b].packets }
 func (p *Post) BandPayloadSize(b string) int64 { return p.stats.multiband[b].size }
@@ -158,10 +153,16 @@ func (p *Post) BandFirstPacket(b string) time.Duration {
 // See
 // https://github.com/git/git/blob/v2.25.0/Documentation/technical/http-protocol.txt#L351
 // for background information.
-func (cl *Clone) buildPost(ctx context.Context) (*http.Request, error) {
+func (cl *Clone) buildPost(ctx context.Context, announcedRefs []Reference) (*http.Request, error) {
+	for _, ref := range announcedRefs {
+		if strings.HasPrefix(ref.Name, "refs/heads/") || strings.HasPrefix(ref.Name, "refs/tags/") {
+			cl.Post.wantedRefs = append(cl.Post.wantedRefs, ref.Oid)
+		}
+	}
+
 	reqBodyRaw := &bytes.Buffer{}
 	reqBodyGzip := gzip.NewWriter(reqBodyRaw)
-	for i, oid := range cl.wants {
+	for i, oid := range cl.Post.wantedRefs {
 		if i == 0 {
 			oid += " multi_ack_detailed no-done side-band-64k thin-pack ofs-delta deepen-since deepen-not agent=git/2.21.0"
 		}
@@ -201,8 +202,8 @@ func (cl *Clone) buildPost(ctx context.Context) (*http.Request, error) {
 	return req, nil
 }
 
-func (cl *Clone) doPost(ctx context.Context) error {
-	req, err := cl.buildPost(ctx)
+func (cl *Clone) doPost(ctx context.Context, announcedRefs []Reference) error {
+	req, err := cl.buildPost(ctx, announcedRefs)
 	if err != nil {
 		return err
 	}

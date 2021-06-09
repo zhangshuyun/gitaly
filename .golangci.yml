@@ -290,10 +290,6 @@ issues:
     - linters:
         - golint
       path: "internal/git/stats/analyzehttp.go"
-      text: "exported method `Clone.RefsWanted` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/stats/analyzehttp.go"
       text: "exported type `Get` should have comment or be unexported"
     - linters:
         - golint

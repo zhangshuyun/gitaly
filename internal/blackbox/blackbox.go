@@ -125,7 +125,7 @@ func (b Blackbox) doProbe(probe Probe) {
 	setGauge(b.getFirstPacket, clone.Get.FirstGitPacket().Seconds())
 	setGauge(b.getTotalTime, clone.Get.ResponseBody().Seconds())
 	setGauge(b.getAdvertisedRefs, float64(len(clone.Get.Refs())))
-	setGauge(b.wantedRefs, float64(clone.RefsWanted()))
+	setGauge(b.wantedRefs, float64(clone.Post.RefsWanted()))
 	setGauge(b.postTotalTime, clone.Post.ResponseBody().Seconds())
 	setGauge(b.postFirstProgressPacket, clone.Post.BandFirstPacket("progress").Seconds())
 	setGauge(b.postFirstPackPacket, clone.Post.BandFirstPacket("pack").Seconds())

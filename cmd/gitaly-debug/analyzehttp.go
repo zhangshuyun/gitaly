@@ -23,7 +23,6 @@ func analyzeHTTPClone(cloneURL string) {
 		{"payload size", st.Get.PayloadSize()},
 		{"Git packets received", st.Get.Packets()},
 		{"refs advertised", len(st.Get.Refs())},
-		{"wanted refs", st.RefsWanted()},
 	} {
 		entry.print()
 	}
@@ -35,6 +34,7 @@ func analyzeHTTPClone(cloneURL string) {
 		{"response body time", st.Post.ResponseBody()},
 		{"largest single Git packet", st.Post.LargestPacketSize()},
 		{"Git packets received", st.Post.Packets()},
+		{"wanted refs", st.Post.RefsWanted()},
 	} {
 		entry.print()
 	}
