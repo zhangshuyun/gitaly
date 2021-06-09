@@ -322,16 +322,14 @@ func (cl *Clone) doPost(ctx context.Context) error {
 	return nil
 }
 
-func (cl *Clone) printInteractive(format string, a ...interface{}) error {
+func (cl *Clone) printInteractive(format string, a ...interface{}) {
 	if !cl.Interactive {
-		return nil
+		return
 	}
 
-	if _, err := fmt.Println(fmt.Sprintf(format, a...)); err != nil {
-		return err
-	}
-
-	return nil
+	// Ignore any errors returned by this given that we only use it as a debugging aid
+	// to write to stdout.
+	fmt.Printf(format+"\n", a...)
 }
 
 const (
