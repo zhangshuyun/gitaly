@@ -13,7 +13,7 @@ variables:
   DOCKER_DRIVER: overlay2
   SAST_DISABLE_DIND: "true"
   SAST_DEFAULT_ANALYZERS: "gosec"
-  GIT_VERSION: "v2.31.1"
+  GIT_VERSION: "v2.32.0"
   GO_VERSION: "1.16"
   RUBY_VERSION: "2.7"
 
@@ -119,7 +119,7 @@ build:
   parallel:
     matrix:
       - GO_VERSION: [ "1.15", "1.16" ]
-        GIT_VERSION: [ "v2.31.1" ]
+        GIT_VERSION: [ "v2.31.1", "v2.32.0" ]
 
 binaries:
   <<: *cache_definition
@@ -141,7 +141,7 @@ binaries:
   parallel:
     matrix:
       - GO_VERSION: [ "1.15", "1.16" ]
-        GIT_VERSION: "v2.31.1"
+        GIT_VERSION: "v2.32.0"
 
 test:
   <<: *test_definition
@@ -162,10 +162,10 @@ test:
   parallel:
     matrix:
       - GO_VERSION: [ "1.15", "1.16" ]
-        GIT_VERSION: [ "v2.31.1" ]
+        GIT_VERSION: [ "v2.31.1", "v2.32.0" ]
         TARGET: test
       - GO_VERSION: "1.16"
-        GIT_VERSION: "v2.31.1"
+        GIT_VERSION: "v2.32.0"
         TARGET: [ test-with-proxies, test-with-praefect, race-go ]
 
 nightly:git:
