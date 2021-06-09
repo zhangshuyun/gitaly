@@ -144,9 +144,16 @@ func (s *server) goUpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemote
 		}
 	}
 
+	sshCommand, clean, err := git.BuildSSHInvocation(ctx, firstRequest.GetSshKey(), firstRequest.GetKnownHosts())
+	if err != nil {
+		return fmt.Errorf("build ssh invocation: %w", err)
+	}
+	defer clean()
+
 	remoteRefsSlice, err := repo.GetRemoteReferences(ctx, remoteName,
 		localrepo.WithPatterns("refs/heads/*", "refs/tags/*"),
 		localrepo.WithConfig(remoteConfig...),
+		localrepo.WithSSHCommand(sshCommand),
 	)
 	if err != nil {
 		return fmt.Errorf("get remote references: %w", err)
@@ -258,12 +265,6 @@ func (s *server) goUpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemote
 	}
 
 	if len(refspecs) > 0 {
-		sshCommand, clean, err := git.BuildSSHInvocation(ctx, firstRequest.GetSshKey(), firstRequest.GetKnownHosts())
-		if err != nil {
-			return fmt.Errorf("build ssh invocation: %w", err)
-		}
-		defer clean()
-
 		for len(refspecs) > 0 {
 			batch := refspecs
 			if len(refspecs) > pushBatchSize {
