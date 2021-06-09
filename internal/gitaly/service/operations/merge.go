@@ -251,7 +251,7 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		return nil, helper.ErrInvalidArgument(errors.New("Invalid merge source"))
 	}
 
-	sourceRef, err := repo.ResolveRevision(ctx, git.Revision(request.SourceSha))
+	sourceOID, err := repo.ResolveRevision(ctx, git.Revision(request.SourceSha))
 	if err != nil {
 		//nolint:stylecheck
 		return nil, helper.ErrInvalidArgument(errors.New("Invalid merge source"))
@@ -278,14 +278,15 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		AuthorDate:     authorDate,
 		Message:        string(request.Message),
 		Ours:           oid.String(),
-		Theirs:         sourceRef.String(),
+		Theirs:         sourceOID.String(),
 		AllowConflicts: request.AllowConflicts,
 	}.Run(ctx, s.cfg)
 	if err != nil {
 		if errors.Is(err, git2go.ErrInvalidArgument) {
 			return nil, helper.ErrInvalidArgument(err)
 		}
-		return nil, helper.ErrPreconditionFailedf("Failed to create merge commit for source_sha %s and target_sha %s at %s", sourceRef, oid, string(request.TargetRef))
+		return nil, helper.ErrPreconditionFailedf("Failed to create merge commit for source_sha %s and target_sha %s at %s",
+			sourceOID, oid, string(request.TargetRef))
 	}
 
 	mergeOID, err := git.NewObjectIDFromHex(merge.CommitID)
