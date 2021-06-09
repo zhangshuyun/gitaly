@@ -151,12 +151,8 @@ index 0000000000000000000000000000000000000000..3be11c69355948412925fa5e073d76d5
 		MaxPatchBytes: 100000,
 		CollapseDiffs: false,
 	}
-	diffParser := NewDiffParser(strings.NewReader(rawDiff), limits)
 
-	diffs := []*Diff{}
-	for diffParser.Parse() {
-		diffs = append(diffs, diffParser.Diff())
-	}
+	diffs := getDiffs(rawDiff, limits)
 
 	expectedDiffs := []*Diff{
 		&Diff{
@@ -218,12 +214,8 @@ index 0000000000000000000000000000000000000000..3be11c69355948412925fa5e073d76d5
 		MaxPatchBytes: 125000, // bumping from default 100KB to 125kb (first patch has 124.6KB)
 		CollapseDiffs: false,
 	}
-	diffParser := NewDiffParser(strings.NewReader(rawDiff), limits)
 
-	diffs := []*Diff{}
-	for diffParser.Parse() {
-		diffs = append(diffs, diffParser.Diff())
-	}
+	diffs := getDiffs(rawDiff, limits)
 
 	expectedDiffs := []*Diff{
 		&Diff{
@@ -330,6 +322,40 @@ index 0000000000000000000000000000000000000000..b6507e5b5ce18077e3ec8aaa2291404e
 	require.Equal(t, expectedDiffs, diffs)
 }
 
+func TestDiffLongLine(t *testing.T) {
+	header := `:000000 100644 0000000000000000000000000000000000000000 c3ae147b03a2d1fd89b25198b3fc53028c5b0d53 A	file-0
+
+diff --git a/file-0 b/file-0
+new file mode 100644
+index 0000000000000000000000000000000000000000..c3ae147b03a2d1fd89b25198b3fc53028c5b0d53
+--- /dev/null
++++ b/file-0
+`
+	patch := "@@ -0,0 +1,100 @@\n+" + strings.Repeat("z", 100*1000)
+
+	limits := Limits{
+		MaxPatchBytes: 1000 * 1000,
+	}
+	diffs := getDiffs(header+patch, limits)
+
+	expectedDiffs := []*Diff{
+		&Diff{
+			OldMode:   0,
+			NewMode:   0100644,
+			FromID:    git.ZeroOID.String(),
+			ToID:      "c3ae147b03a2d1fd89b25198b3fc53028c5b0d53",
+			FromPath:  []byte("file-0"),
+			ToPath:    []byte("file-0"),
+			Status:    'A',
+			Collapsed: false,
+			Patch:     []byte(patch),
+			lineCount: 1,
+		},
+	}
+
+	require.Equal(t, expectedDiffs, diffs)
+}
+
 func TestDiffLimitsBeingEnforcedByUpperBound(t *testing.T) {
 	limits := Limits{
 		SafeMaxLines:  999999999,
@@ -356,7 +382,13 @@ func getDiffs(rawDiff string, limits Limits) []*Diff {
 
 	diffs := []*Diff{}
 	for diffParser.Parse() {
-		diffs = append(diffs, diffParser.Diff())
+		// Make a deep copy of diffParser.Diff()
+		d := *diffParser.Diff()
+		for _, p := range []*[]byte{&d.FromPath, &d.ToPath, &d.Patch} {
+			*p = append([]byte(nil), *p...)
+		}
+
+		diffs = append(diffs, &d)
 	}
 
 	return diffs
