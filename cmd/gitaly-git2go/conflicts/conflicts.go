@@ -67,6 +67,18 @@ func Merge(repo *git.Repository, conflict git.IndexConflict) (*git.MergeFileResu
 		return nil, fmt.Errorf("could not compute conflicts: %w", err)
 	}
 
+	// In a case of tree-based conflicts (e.g. no ancestor), fallback to `Path`
+	// of `their` side. If that's also blank, fallback to `Path` of `our` side.
+	// This is to ensure that there's always a `Path` when we try to merge
+	// conflicts.
+	if merge.Path == "" {
+		if their.Path != "" {
+			merge.Path = their.Path
+		} else {
+			merge.Path = our.Path
+		}
+	}
+
 	return merge, nil
 }
 

@@ -872,7 +872,9 @@ type UserMergeToRefRequest struct {
 	// first parent of the computed merge. Overrides `branch`.
 	FirstParentRef []byte `protobuf:"bytes,7,opt,name=first_parent_ref,json=firstParentRef,proto3" json:"first_parent_ref,omitempty"`
 	// Allow conflicts to occur. Any conflict markers will be part of the merge commit.
-	// Only text conflicts are handled, tree-based conflicts are not supported.
+	// When tree-based conflicts occur, no conflict markers will be added to the
+	// file on the merge commit. The `Their` side of the conflict will be kept and
+	// `Our` and `Ancestor` will be ignored.
 	AllowConflicts bool `protobuf:"varint,8,opt,name=allow_conflicts,json=allowConflicts,proto3" json:"allow_conflicts,omitempty"`
 	// timestamp is the optional timestamp to use for the merge commit. If it's
 	// not set, the current time will be used.

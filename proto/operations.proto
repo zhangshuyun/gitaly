@@ -270,7 +270,9 @@ message UserMergeToRefRequest {
   // first parent of the computed merge. Overrides `branch`.
   bytes first_parent_ref = 7;
   // Allow conflicts to occur. Any conflict markers will be part of the merge commit.
-  // Only text conflicts are handled, tree-based conflicts are not supported.
+  // When tree-based conflicts occur, no conflict markers will be added to the
+  // file on the merge commit. The `Their` side of the conflict will be kept and
+  // `Our` and `Ancestor` will be ignored.
   bool allow_conflicts = 8;
   // timestamp is the optional timestamp to use for the merge commit. If it's
   // not set, the current time will be used.
