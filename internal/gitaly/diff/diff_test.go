@@ -1,6 +1,7 @@
 package diff
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"testing"
@@ -359,4 +360,40 @@ func getDiffs(rawDiff string, limits Limits) []*Diff {
 	}
 
 	return diffs
+}
+
+// BenchmarkParserMemory is meant to benchmark memory allocations in the
+// parser. Run with 'go test -bench=. -benchmem'.
+func BenchmarkParserMemory(b *testing.B) {
+	const NDiffs = 10000
+
+	diffData := &bytes.Buffer{}
+	for i := 0; i < NDiffs; i++ {
+		fmt.Fprintf(diffData, ":000000 100644 0000000000000000000000000000000000000000 c3ae147b03a2d1fd89b25198b3fc53028c5b0d53 A	file-%d\n", i)
+	}
+	fmt.Fprintln(diffData)
+	for i := 0; i < NDiffs; i++ {
+		fmt.Fprintf(diffData, `diff --git a/file-%d b/file-%d
+new file mode 100644
+index 0000000000000000000000000000000000000000..c3ae147b03a2d1fd89b25198b3fc53028c5b0d53
+--- /dev/null
++++ b/file-%d
+@@ -0,0 +1,100 @@
+`, i, i, i)
+		for j := 0; j < 100; j++ {
+			fmt.Fprintln(diffData, "+zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz")
+		}
+	}
+
+	b.Run("parse", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			parser := NewDiffParser(bytes.NewReader(diffData.Bytes()), Limits{})
+			n := 0
+			for parser.Parse() {
+				n++
+			}
+			require.NoError(b, parser.Err())
+			require.Equal(b, NDiffs, n)
+		}
+	})
 }
