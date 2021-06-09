@@ -41,18 +41,18 @@ type Probe struct {
 
 // ParseConfig parses the provided TOML-formatted configuration string and either returns the
 // parsed configuration or an error.
-func ParseConfig(raw string) (*Config, error) {
-	config := &Config{}
-	if err := toml.Unmarshal([]byte(raw), config); err != nil {
-		return nil, err
+func ParseConfig(raw string) (Config, error) {
+	config := Config{}
+	if err := toml.Unmarshal([]byte(raw), &config); err != nil {
+		return Config{}, err
 	}
 
 	if config.PrometheusListenAddr == "" {
-		return nil, fmt.Errorf("missing prometheus_listen_addr")
+		return Config{}, fmt.Errorf("missing prometheus_listen_addr")
 	}
 
 	if config.Sleep < 0 {
-		return nil, fmt.Errorf("sleep time is less than 0")
+		return Config{}, fmt.Errorf("sleep time is less than 0")
 	}
 	if config.Sleep == 0 {
 		config.Sleep = 15 * 60
@@ -60,21 +60,21 @@ func ParseConfig(raw string) (*Config, error) {
 	config.sleepDuration = time.Duration(config.Sleep) * time.Second
 
 	if len(config.Probes) == 0 {
-		return nil, fmt.Errorf("must define at least one probe")
+		return Config{}, fmt.Errorf("must define at least one probe")
 	}
 
 	for _, probe := range config.Probes {
 		if len(probe.Name) == 0 {
-			return nil, fmt.Errorf("all probes must have a 'name' attribute")
+			return Config{}, fmt.Errorf("all probes must have a 'name' attribute")
 		}
 
 		parsedURL, err := url.Parse(probe.URL)
 		if err != nil {
-			return nil, err
+			return Config{}, err
 		}
 
 		if s := parsedURL.Scheme; s != "http" && s != "https" {
-			return nil, fmt.Errorf("unsupported probe URL scheme: %v", probe.URL)
+			return Config{}, fmt.Errorf("unsupported probe URL scheme: %v", probe.URL)
 		}
 	}
 

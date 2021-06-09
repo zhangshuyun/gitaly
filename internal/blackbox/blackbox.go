@@ -14,7 +14,7 @@ import (
 
 // Run starts the blackbox. It sets up and serves the Prometheus listener and starts a Goroutine
 // which runs the probes.
-func Run(cfg *Config) error {
+func Run(cfg Config) error {
 	listener, err := net.Listen("tcp", cfg.PrometheusListenAddr)
 	if err != nil {
 		return err
@@ -25,7 +25,7 @@ func Run(cfg *Config) error {
 	return servePrometheus(listener)
 }
 
-func runProbes(cfg *Config) {
+func runProbes(cfg Config) {
 	for ; ; time.Sleep(cfg.sleepDuration) {
 		for _, probe := range cfg.Probes {
 			doProbe(probe)
