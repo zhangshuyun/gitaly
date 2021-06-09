@@ -82,9 +82,9 @@ func (cl *Clone) doGet(ctx context.Context) error {
 	}
 
 	cl.Get.start = time.Now()
-	cl.printInteractive("---")
-	cl.printInteractive("--- GET %v", req.URL)
-	cl.printInteractive("---")
+	cl.printInteractive("---\n")
+	cl.printInteractive("--- GET %v\n", req.URL)
+	cl.printInteractive("---\n")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -101,8 +101,8 @@ func (cl *Clone) doGet(ctx context.Context) error {
 
 	cl.Get.responseHeader = time.Since(cl.Get.start)
 	cl.Get.httpStatus = resp.StatusCode
-	cl.printInteractive("response code: %d", resp.StatusCode)
-	cl.printInteractive("response header: %v", resp.Header)
+	cl.printInteractive("response code: %d\n", resp.StatusCode)
+	cl.printInteractive("response header: %v\n", resp.Header)
 
 	body := resp.Body
 	if resp.Header.Get("Content-Encoding") == "gzip" {
@@ -214,9 +214,9 @@ func (cl *Clone) doPost(ctx context.Context) error {
 	}
 
 	cl.Post.start = time.Now()
-	cl.printInteractive("---")
-	cl.printInteractive("--- POST %v", req.URL)
-	cl.printInteractive("---")
+	cl.printInteractive("---\n")
+	cl.printInteractive("--- POST %v\n", req.URL)
+	cl.printInteractive("---\n")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -230,8 +230,8 @@ func (cl *Clone) doPost(ctx context.Context) error {
 
 	cl.Post.responseHeader = time.Since(cl.Post.start)
 	cl.Post.httpStatus = resp.StatusCode
-	cl.printInteractive("response code: %d", resp.StatusCode)
-	cl.printInteractive("response header: %v", resp.Header)
+	cl.printInteractive("response code: %d\n", resp.StatusCode)
+	cl.printInteractive("response header: %v\n", resp.Header)
 
 	// Expected response:
 	// - "NAK\n"
@@ -329,7 +329,7 @@ func (cl *Clone) printInteractive(format string, a ...interface{}) {
 
 	// Ignore any errors returned by this given that we only use it as a debugging aid
 	// to write to stdout.
-	fmt.Printf(format+"\n", a...)
+	fmt.Printf(format, a...)
 }
 
 const (
