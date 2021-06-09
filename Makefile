@@ -71,7 +71,7 @@ GO_JUNIT_REPORT_VERSION   ?= 984a47ca6b0a7d704c4b589852051b4d7865aa17
 GO_LICENSES_VERSION       ?= 73411c8fa237ccc6a75af79d0a5bc021c9487aad
 PROTOC_VERSION            ?= 3.12.4
 PROTOC_GEN_GO_VERSION     ?= 1.3.2
-GIT_VERSION               ?= v2.31.1
+GIT_VERSION               ?= v2.32.0
 GIT2GO_VERSION            ?= v31
 LIBGIT2_VERSION           ?= v1.1.0
 
@@ -97,7 +97,7 @@ ifndef GIT_PATCHES
     # Before adding custom patches, please read doc/PROCESS.md#Patching-git
     # first to make sure your patches meet our acceptance criteria. Patches
     # must be put into `_support/git-patches`.
-    GIT_PATCHES += pack-bitmap-avoid-traversal-of-uninteresting-tag.patch
+    #GIT_PATCHES +=
 endif
 
 ifndef GIT_BUILD_OPTIONS
