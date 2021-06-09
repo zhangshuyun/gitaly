@@ -12,23 +12,35 @@ import (
 	"gitlab.com/gitlab-org/labkit/monitoring"
 )
 
+// Blackbox encapsulates all details required to run the blackbox prober.
+type Blackbox struct {
+	cfg Config
+}
+
+// New creates a new Blackbox structure.
+func New(cfg Config) Blackbox {
+	return Blackbox{
+		cfg: cfg,
+	}
+}
+
 // Run starts the blackbox. It sets up and serves the Prometheus listener and starts a Goroutine
 // which runs the probes.
-func Run(cfg Config) error {
-	listener, err := net.Listen("tcp", cfg.PrometheusListenAddr)
+func (b Blackbox) Run() error {
+	listener, err := net.Listen("tcp", b.cfg.PrometheusListenAddr)
 	if err != nil {
 		return err
 	}
 
-	go runProbes(cfg)
+	go b.runProbes()
 
 	return servePrometheus(listener)
 }
 
-func runProbes(cfg Config) {
-	for ; ; time.Sleep(cfg.sleepDuration) {
-		for _, probe := range cfg.Probes {
-			doProbe(probe)
+func (b Blackbox) runProbes() {
+	for ; ; time.Sleep(b.cfg.sleepDuration) {
+		for _, probe := range b.cfg.Probes {
+			b.doProbe(probe)
 		}
 	}
 }
@@ -40,7 +52,7 @@ func servePrometheus(l net.Listener) error {
 	)
 }
 
-func doProbe(probe Probe) {
+func (b Blackbox) doProbe(probe Probe) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
