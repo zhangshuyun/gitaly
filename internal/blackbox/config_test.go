@@ -57,7 +57,7 @@ url = 'http://foo/bar'
 			cfg, err := ParseConfig(tc.in + validConfig)
 			require.NoError(t, err, "parse config")
 
-			require.Equal(t, tc.out, cfg.SleepDuration, "parsed sleep time")
+			require.Equal(t, tc.out, cfg.sleepDuration, "parsed sleep time")
 		})
 	}
 }

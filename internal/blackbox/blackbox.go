@@ -26,7 +26,7 @@ func Run(cfg *Config) error {
 }
 
 func runProbes(cfg *Config) {
-	for ; ; time.Sleep(cfg.SleepDuration) {
+	for ; ; time.Sleep(cfg.sleepDuration) {
 		for _, probe := range cfg.Probes {
 			doProbe(probe)
 		}

@@ -16,8 +16,8 @@ type Config struct {
 	PrometheusListenAddr string `toml:"prometheus_listen_addr"`
 	// Sleep is the number of seconds between probe runs.
 	Sleep int `toml:"sleep"`
-	// SleepDuration is the same as Sleep but converted to a proper duration.
-	SleepDuration time.Duration
+	// sleepDuration is the same as Sleep but converted to a proper duration.
+	sleepDuration time.Duration
 	// Logging configures logging.
 	Logging logconfig.Config `toml:"logging"`
 	// Probes defines endpoints to probe. At least one probe must be defined.
@@ -57,7 +57,7 @@ func ParseConfig(raw string) (*Config, error) {
 	if config.Sleep == 0 {
 		config.Sleep = 15 * 60
 	}
-	config.SleepDuration = time.Duration(config.Sleep) * time.Second
+	config.sleepDuration = time.Duration(config.Sleep) * time.Second
 
 	if len(config.Probes) == 0 {
 		return nil, fmt.Errorf("must define at least one probe")
