@@ -22,7 +22,9 @@ type Clone struct {
 
 	// ReferenceDiscovery is the reference discovery performed as part of the clone.
 	ReferenceDiscovery HTTPReferenceDiscovery
-	Post               Post
+	// FetchPack is the response to a git-fetch-pack(1) request which computes transmits the
+	// packfile.
+	FetchPack HTTPFetchPack
 }
 
 // Perform does a Git HTTP clone, discarding cloned data to /dev/null.
@@ -32,11 +34,14 @@ func (cl *Clone) Perform(ctx context.Context) error {
 		return ctxErr(ctx, err)
 	}
 
-	if err := cl.doPost(ctx, referenceDiscovery.Refs()); err != nil {
+	fetchPack, err := performFetchPack(ctx, cl.URL, cl.User, cl.Password,
+		referenceDiscovery.Refs(), cl.printInteractive)
+	if err != nil {
 		return ctxErr(ctx, err)
 	}
 
 	cl.ReferenceDiscovery = referenceDiscovery
+	cl.FetchPack = fetchPack
 
 	return nil
 }
@@ -150,7 +155,9 @@ func performReferenceDiscovery(
 	return referenceDiscovery, nil
 }
 
-type Post struct {
+// HTTPFetchPack is a FetchPack obtained via a clone of a target repository via HTTP. It contains
+// additional information about the cloning process like status codes and timings.
+type HTTPFetchPack struct {
 	start          time.Time
 	responseHeader time.Duration
 	httpStatus     int
@@ -158,60 +165,80 @@ type Post struct {
 	wantedRefs     []string
 }
 
-func (p *Post) ResponseHeader() time.Duration { return p.responseHeader }
-func (p *Post) HTTPStatus() int               { return p.httpStatus }
-func (p *Post) NAK() time.Duration            { return p.stats.nak.Sub(p.start) }
-func (p *Post) ResponseBody() time.Duration   { return p.stats.responseBody.Sub(p.start) }
-func (p *Post) Packets() int                  { return p.stats.packets }
-func (p *Post) LargestPacketSize() int        { return p.stats.largestPacketSize }
+// ResponseHeader returns how long it took to receive the response header.
+func (p *HTTPFetchPack) ResponseHeader() time.Duration { return p.responseHeader }
+
+// HTTPStatus returns the HTTP status code.
+func (p *HTTPFetchPack) HTTPStatus() int { return p.httpStatus }
+
+// NAK returns how long it took to receive the NAK which signals that negotiation has concluded.
+func (p *HTTPFetchPack) NAK() time.Duration { return p.stats.nak.Sub(p.start) }
+
+// ResponseBody returns how long it took to receive the first bytes of the response body.
+func (p *HTTPFetchPack) ResponseBody() time.Duration { return p.stats.responseBody.Sub(p.start) }
+
+// Packets returns the number of Git packets received.
+func (p *HTTPFetchPack) Packets() int { return p.stats.packets }
+
+// LargestPacketSize returns the largest packet size received.
+func (p *HTTPFetchPack) LargestPacketSize() int { return p.stats.largestPacketSize }
 
 // RefsWanted returns the number of references sent to the remote repository as "want"s.
-func (p *Post) RefsWanted() int { return len(p.wantedRefs) }
+func (p *HTTPFetchPack) RefsWanted() int { return len(p.wantedRefs) }
 
-func (p *Post) BandPackets(b string) int       { return p.stats.multiband[b].packets }
-func (p *Post) BandPayloadSize(b string) int64 { return p.stats.multiband[b].size }
-func (p *Post) BandFirstPacket(b string) time.Duration {
+// BandPackets returns how many packets were received on a specific sideband.
+func (p *HTTPFetchPack) BandPackets(b string) int { return p.stats.multiband[b].packets }
+
+// BandPayloadSize returns how many bytes were received on a specific sideband.
+func (p *HTTPFetchPack) BandPayloadSize(b string) int64 { return p.stats.multiband[b].size }
+
+// BandFirstPacket returns how long it took to receive the first packet on a specific sideband.
+func (p *HTTPFetchPack) BandFirstPacket(b string) time.Duration {
 	return p.stats.multiband[b].firstPacket.Sub(p.start)
 }
 
-// See
-// https://github.com/git/git/blob/v2.25.0/Documentation/technical/http-protocol.txt#L351
+// See https://github.com/git/git/blob/v2.25.0/Documentation/technical/http-protocol.txt#L351
 // for background information.
-func (cl *Clone) buildPost(ctx context.Context, announcedRefs []Reference) (*http.Request, error) {
+func buildFetchPackRequest(
+	ctx context.Context,
+	url, user, password string,
+	announcedRefs []Reference,
+) (*http.Request, []string, error) {
+	var wants []string
 	for _, ref := range announcedRefs {
 		if strings.HasPrefix(ref.Name, "refs/heads/") || strings.HasPrefix(ref.Name, "refs/tags/") {
-			cl.Post.wantedRefs = append(cl.Post.wantedRefs, ref.Oid)
+			wants = append(wants, ref.Oid)
 		}
 	}
 
 	reqBodyRaw := &bytes.Buffer{}
 	reqBodyGzip := gzip.NewWriter(reqBodyRaw)
-	for i, oid := range cl.Post.wantedRefs {
+	for i, oid := range wants {
 		if i == 0 {
 			oid += " multi_ack_detailed no-done side-band-64k thin-pack ofs-delta deepen-since deepen-not agent=git/2.21.0"
 		}
 		if _, err := pktline.WriteString(reqBodyGzip, "want "+oid+"\n"); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	if err := pktline.WriteFlush(reqBodyGzip); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if _, err := pktline.WriteString(reqBodyGzip, "done\n"); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := reqBodyGzip.Close(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	req, err := http.NewRequest("POST", cl.URL+"/git-upload-pack", reqBodyRaw)
+	req, err := http.NewRequest("POST", url+"/git-upload-pack", reqBodyRaw)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	req = req.WithContext(ctx)
-	if cl.User != "" {
-		req.SetBasicAuth(cl.User, cl.Password)
+	if user != "" {
+		req.SetBasicAuth(user, password)
 	}
 
 	for k, v := range map[string]string{
@@ -223,44 +250,52 @@ func (cl *Clone) buildPost(ctx context.Context, announcedRefs []Reference) (*htt
 		req.Header.Set(k, v)
 	}
 
-	return req, nil
+	return req, wants, nil
 }
 
-func (cl *Clone) doPost(ctx context.Context, announcedRefs []Reference) error {
-	req, err := cl.buildPost(ctx, announcedRefs)
-	if err != nil {
-		return err
-	}
+func performFetchPack(
+	ctx context.Context,
+	url, user, password string,
+	announcedRefs []Reference,
+	reportProgress func(string, ...interface{}),
+) (HTTPFetchPack, error) {
+	var fetchPack HTTPFetchPack
 
-	cl.Post.start = time.Now()
-	cl.printInteractive("---\n")
-	cl.printInteractive("--- POST %v\n", req.URL)
-	cl.printInteractive("---\n")
+	req, wants, err := buildFetchPackRequest(ctx, url, user, password, announcedRefs)
+	if err != nil {
+		return HTTPFetchPack{}, err
+	}
+	fetchPack.wantedRefs = wants
+
+	fetchPack.start = time.Now()
+	reportProgress("---\n")
+	reportProgress("--- POST %v\n", req.URL)
+	reportProgress("---\n")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return err
+		return HTTPFetchPack{}, err
 	}
 	defer resp.Body.Close()
 
 	if code := resp.StatusCode; code < 200 || code >= 400 {
-		return fmt.Errorf("git http post: unexpected http status: %d", code)
+		return HTTPFetchPack{}, fmt.Errorf("git http post: unexpected http status: %d", code)
 	}
 
-	cl.Post.responseHeader = time.Since(cl.Post.start)
-	cl.Post.httpStatus = resp.StatusCode
-	cl.printInteractive("response code: %d\n", resp.StatusCode)
-	cl.printInteractive("response header: %v\n", resp.Header)
+	fetchPack.responseHeader = time.Since(fetchPack.start)
+	fetchPack.httpStatus = resp.StatusCode
+	reportProgress("response code: %d\n", resp.StatusCode)
+	reportProgress("response header: %v\n", resp.Header)
 
-	cl.Post.stats.ReportProgress = func(b []byte) { cl.printInteractive("%s", string(b)) }
+	fetchPack.stats.ReportProgress = func(b []byte) { reportProgress("%s", string(b)) }
 
-	if err := cl.Post.stats.Parse(resp.Body); err != nil {
-		return err
+	if err := fetchPack.stats.Parse(resp.Body); err != nil {
+		return HTTPFetchPack{}, err
 	}
 
-	cl.printInteractive("\n")
+	reportProgress("\n")
 
-	return nil
+	return fetchPack, nil
 }
 
 func (cl *Clone) printInteractive(format string, a ...interface{}) {

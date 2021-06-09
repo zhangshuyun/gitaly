@@ -28,7 +28,7 @@ func TestClone(t *testing.T) {
 	require.NoError(t, clone.Perform(ctx), "perform analysis clone")
 
 	const expectedRequests = 90 // based on contents of _support/gitlab-test.git-packed-refs
-	require.Greater(t, clone.Post.RefsWanted(), expectedRequests, "number of wanted refs")
+	require.Greater(t, clone.FetchPack.RefsWanted(), expectedRequests, "number of wanted refs")
 
 	require.Equal(t, 200, clone.ReferenceDiscovery.HTTPStatus(), "get status")
 	require.Greater(t, clone.ReferenceDiscovery.Packets(), 0, "number of get packets")
@@ -48,25 +48,25 @@ func TestClone(t *testing.T) {
 		previousValue = m.value
 	}
 
-	require.Equal(t, 200, clone.Post.HTTPStatus(), "post status")
-	require.Greater(t, clone.Post.Packets(), 0, "number of post packets")
+	require.Equal(t, 200, clone.FetchPack.HTTPStatus(), "post status")
+	require.Greater(t, clone.FetchPack.Packets(), 0, "number of post packets")
 
-	require.Greater(t, clone.Post.BandPackets("progress"), 0, "number of progress packets")
-	require.Greater(t, clone.Post.BandPackets("pack"), 0, "number of pack packets")
+	require.Greater(t, clone.FetchPack.BandPackets("progress"), 0, "number of progress packets")
+	require.Greater(t, clone.FetchPack.BandPackets("pack"), 0, "number of pack packets")
 
-	require.Greater(t, clone.Post.BandPayloadSize("progress"), int64(0), "progress payload bytes")
-	require.Greater(t, clone.Post.BandPayloadSize("pack"), int64(0), "pack payload bytes")
+	require.Greater(t, clone.FetchPack.BandPayloadSize("progress"), int64(0), "progress payload bytes")
+	require.Greater(t, clone.FetchPack.BandPayloadSize("pack"), int64(0), "pack payload bytes")
 
 	previousValue = time.Duration(0)
 	for _, m := range []struct {
 		desc  string
 		value time.Duration
 	}{
-		{"time to receive response header", clone.Post.ResponseHeader()},
-		{"time to receive NAK", clone.Post.NAK()},
-		{"time to receive first progress message", clone.Post.BandFirstPacket("progress")},
-		{"time to receive first pack message", clone.Post.BandFirstPacket("pack")},
-		{"time to receive response body", clone.Post.ResponseBody()},
+		{"time to receive response header", clone.FetchPack.ResponseHeader()},
+		{"time to receive NAK", clone.FetchPack.NAK()},
+		{"time to receive first progress message", clone.FetchPack.BandFirstPacket("progress")},
+		{"time to receive first pack message", clone.FetchPack.BandFirstPacket("pack")},
+		{"time to receive response body", clone.FetchPack.ResponseBody()},
 	} {
 		require.True(t, m.value > previousValue, "post: expect %s (%v) to be greater than previous value %v", m.desc, m.value, previousValue)
 		previousValue = m.value

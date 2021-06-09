@@ -27,29 +27,29 @@ func analyzeHTTPClone(cloneURL string) {
 		entry.print()
 	}
 
-	fmt.Println("\n--- POST metrics:")
+	fmt.Println("\n--- Fetch pack metrics:")
 	for _, entry := range []metric{
-		{"response header time", st.Post.ResponseHeader()},
-		{"time to server NAK", st.Post.NAK()},
-		{"response body time", st.Post.ResponseBody()},
-		{"largest single Git packet", st.Post.LargestPacketSize()},
-		{"Git packets received", st.Post.Packets()},
-		{"wanted refs", st.Post.RefsWanted()},
+		{"response header time", st.FetchPack.ResponseHeader()},
+		{"time to server NAK", st.FetchPack.NAK()},
+		{"response body time", st.FetchPack.ResponseBody()},
+		{"largest single Git packet", st.FetchPack.LargestPacketSize()},
+		{"Git packets received", st.FetchPack.Packets()},
+		{"wanted refs", st.FetchPack.RefsWanted()},
 	} {
 		entry.print()
 	}
 
 	for _, band := range stats.Bands() {
-		numPackets := st.Post.BandPackets(band)
+		numPackets := st.FetchPack.BandPackets(band)
 		if numPackets == 0 {
 			continue
 		}
 
-		fmt.Printf("\n--- POST %s band\n", band)
+		fmt.Printf("\n--- FetchPack %s band\n", band)
 		for _, entry := range []metric{
-			{"time to first packet", st.Post.BandFirstPacket(band)},
+			{"time to first packet", st.FetchPack.BandFirstPacket(band)},
 			{"packets", numPackets},
-			{"total payload size", st.Post.BandPayloadSize(band)},
+			{"total payload size", st.FetchPack.BandPayloadSize(band)},
 		} {
 			entry.print()
 		}
