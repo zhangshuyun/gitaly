@@ -9,7 +9,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -288,28 +287,19 @@ func (cl *Clone) doPost(ctx context.Context) error {
 		cl.Post.multiband[band].consume(cl.Post.start, data[1:])
 
 		// Print progress data as-is
-		if cl.Interactive && band == bandProgress {
-			if _, err := os.Stdout.Write(data[1:]); err != nil {
-				return err
-			}
+		if band == bandProgress {
+			cl.printInteractive("%s", string(data[1:]))
 		}
 
-		if cl.Interactive && cl.Post.packets%500 == 0 && cl.Post.packets > 0 && band == bandPack {
+		if cl.Post.packets%500 == 0 && cl.Post.packets > 0 && band == bandPack {
 			// Print dots to have some sort of progress meter for the user in
 			// interactive mode. It's not accurate progress, but it shows that
 			// something is happening.
-			if _, err := fmt.Print("."); err != nil {
-				return err
-			}
+			cl.printInteractive(".")
 		}
 	}
 
-	if cl.Interactive {
-		// Trailing newline for progress dots.
-		if _, err := fmt.Println(""); err != nil {
-			return err
-		}
-	}
+	cl.printInteractive("\n")
 
 	if err := scanner.Err(); err != nil {
 		return err
