@@ -38,6 +38,9 @@ func validateMergeBranchRequest2(request *gitalypb.UserMergeBranchRequest) error
 	return nil
 }
 
+// UserMergeBranch is using the new merge-ort merge strategy. This is
+// a test to see how it goes and what is needed to make that work
+// wihtout a worktree.
 func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranchServer) error {
 	ctx := stream.Context()
 
@@ -78,7 +81,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 
 		return helper.ErrInternal(err)
 	}
-	
+
 	mergeOID, err := s.localrepo(repo).ResolveRevision(ctx, referenceName.Revision())
 	if err != nil {
 		return helper.ErrInternalf("could not resolve merge ID: %w", err)
@@ -173,8 +176,8 @@ func (s *Server) checkout2(ctx context.Context, repo *gitalypb.Repository, workt
 	var stderr bytes.Buffer
 	checkoutCmd, err := s.gitCmdFactory.NewWithDir(ctx, worktreePath,
 		git.SubCmd{
-			Name:  "checkout",
-			Args:  []string{branch.String()},
+			Name: "checkout",
+			Args: []string{branch.String()},
 		},
 		git.WithStderr(&stderr),
 		git.WithRefTxHook(ctx, repo, s.cfg),
@@ -195,7 +198,7 @@ func (s *Server) checkout2(ctx context.Context, repo *gitalypb.Repository, workt
 }
 
 func (s *Server) userMerge(ctx context.Context, referenceName git.ReferenceName, commitID string, env []string,
-	repo *gitalypb.Repository, repoPath string) (error) {
+	repo *gitalypb.Repository, repoPath string) error {
 
 	worktreePath := newWorktreePath(repoPath, "merge", commitID)
 
@@ -353,4 +356,3 @@ func (s *Server) diffFiles2(ctx context.Context, env []string, repoPath string,
 func diffRange2(referenceName git.ReferenceName, commitID string) string {
 	return referenceName.String() + "..." + commitID
 }
-
