@@ -15,13 +15,59 @@ import (
 // Blackbox encapsulates all details required to run the blackbox prober.
 type Blackbox struct {
 	cfg Config
+
+	getFirstPacket          *prometheus.GaugeVec
+	getTotalTime            *prometheus.GaugeVec
+	getAdvertisedRefs       *prometheus.GaugeVec
+	wantedRefs              *prometheus.GaugeVec
+	postTotalTime           *prometheus.GaugeVec
+	postFirstProgressPacket *prometheus.GaugeVec
+	postFirstPackPacket     *prometheus.GaugeVec
+	postPackBytes           *prometheus.GaugeVec
 }
 
 // New creates a new Blackbox structure.
 func New(cfg Config) Blackbox {
 	return Blackbox{
-		cfg: cfg,
+		cfg:                     cfg,
+		getFirstPacket:          newGauge("get_first_packet_seconds", "Time to first Git packet in GET /info/refs response"),
+		getTotalTime:            newGauge("get_total_time_seconds", "Time to receive entire GET /info/refs response"),
+		getAdvertisedRefs:       newGauge("get_advertised_refs", "Number of Git refs advertised in GET /info/refs"),
+		wantedRefs:              newGauge("wanted_refs", "Number of Git refs selected for (fake) Git clone (branches + tags)"),
+		postTotalTime:           newGauge("post_total_time_seconds", "Time to receive entire POST /upload-pack response"),
+		postFirstProgressPacket: newGauge("post_first_progress_packet_seconds", "Time to first progress band Git packet in POST /upload-pack response"),
+		postFirstPackPacket:     newGauge("post_first_pack_packet_seconds", "Time to first pack band Git packet in POST /upload-pack response"),
+		postPackBytes:           newGauge("post_pack_bytes", "Number of pack band bytes in POST /upload-pack response"),
 	}
+}
+
+func newGauge(name string, help string) *prometheus.GaugeVec {
+	return prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "gitaly_blackbox",
+			Subsystem: "git_http",
+			Name:      name,
+			Help:      help,
+		},
+		[]string{"probe"},
+	)
+}
+
+// Describe is used to describe Prometheus metrics.
+func (b Blackbox) Describe(descs chan<- *prometheus.Desc) {
+	prometheus.DescribeByCollect(b, descs)
+}
+
+// Collect is used to collect Prometheus metrics.
+func (b Blackbox) Collect(metrics chan<- prometheus.Metric) {
+	b.getFirstPacket.Collect(metrics)
+	b.getTotalTime.Collect(metrics)
+	b.getAdvertisedRefs.Collect(metrics)
+	b.wantedRefs.Collect(metrics)
+	b.postTotalTime.Collect(metrics)
+	b.postFirstProgressPacket.Collect(metrics)
+	b.postFirstPackPacket.Collect(metrics)
+	b.postPackBytes.Collect(metrics)
 }
 
 // Run starts the blackbox. It sets up and serves the Prometheus listener and starts a Goroutine
@@ -76,12 +122,12 @@ func (b Blackbox) doProbe(probe Probe) {
 		gv.WithLabelValues(probe.Name).Set(value)
 	}
 
-	setGauge(getFirstPacket, clone.Get.FirstGitPacket().Seconds())
-	setGauge(getTotalTime, clone.Get.ResponseBody().Seconds())
-	setGauge(getAdvertisedRefs, float64(len(clone.Get.Refs)))
-	setGauge(wantedRefs, float64(clone.RefsWanted()))
-	setGauge(postTotalTime, clone.Post.ResponseBody().Seconds())
-	setGauge(postFirstProgressPacket, clone.Post.BandFirstPacket("progress").Seconds())
-	setGauge(postFirstPackPacket, clone.Post.BandFirstPacket("pack").Seconds())
-	setGauge(postPackBytes, float64(clone.Post.BandPayloadSize("pack")))
+	setGauge(b.getFirstPacket, clone.Get.FirstGitPacket().Seconds())
+	setGauge(b.getTotalTime, clone.Get.ResponseBody().Seconds())
+	setGauge(b.getAdvertisedRefs, float64(len(clone.Get.Refs)))
+	setGauge(b.wantedRefs, float64(clone.RefsWanted()))
+	setGauge(b.postTotalTime, clone.Post.ResponseBody().Seconds())
+	setGauge(b.postFirstProgressPacket, clone.Post.BandFirstPacket("progress").Seconds())
+	setGauge(b.postFirstPackPacket, clone.Post.BandFirstPacket("pack").Seconds())
+	setGauge(b.postPackBytes, float64(clone.Post.BandPayloadSize("pack")))
 }
