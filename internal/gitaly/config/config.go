@@ -21,6 +21,7 @@ import (
 	internallog "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/log"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/sentry"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/env"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"golang.org/x/sys/unix"
 )
@@ -354,7 +355,8 @@ func (cfg *Cfg) validateStorages() error {
 }
 
 func SkipHooks() bool {
-	return os.Getenv("GITALY_TESTING_NO_GIT_HOOKS") == "1"
+	enabled, _ := env.GetBool("GITALY_TESTING_NO_GIT_HOOKS", false)
+	return enabled
 }
 
 // SetGitPath populates the variable GitPath with the path to the `git`

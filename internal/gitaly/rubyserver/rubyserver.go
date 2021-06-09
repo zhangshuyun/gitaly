@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver/balancer"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/env"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/supervisor"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/version"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -32,9 +33,9 @@ var (
 )
 
 func init() {
-	timeout64, err := strconv.ParseInt(os.Getenv("GITALY_RUBY_CONNECT_TIMEOUT"), 10, 32)
-	if err == nil && timeout64 > 0 {
-		ConnectTimeout = time.Duration(timeout64) * time.Second
+	timeout, err := env.GetInt("GITALY_RUBY_CONNECT_TIMEOUT", 0)
+	if err == nil && timeout > 0 {
+		ConnectTimeout = time.Duration(timeout) * time.Second
 	}
 }
 

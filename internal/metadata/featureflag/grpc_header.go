@@ -3,12 +3,12 @@ package featureflag
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/env"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -18,7 +18,7 @@ var (
 	// GITALY_TESTING_ENABLE_ALL_FEATURE_FLAGS is set to "true", then all
 	// feature flags will be enabled. This is only used for testing
 	// purposes such that we can run integration tests with feature flags.
-	featureFlagsOverride = os.Getenv("GITALY_TESTING_ENABLE_ALL_FEATURE_FLAGS")
+	featureFlagsOverride, _ = env.GetBool("GITALY_TESTING_ENABLE_ALL_FEATURE_FLAGS", false)
 
 	flagChecks = promauto.NewCounterVec(
 		prometheus.CounterOpts{
@@ -35,7 +35,7 @@ const Delim = ":"
 // IsEnabled checks if the feature flag is enabled for the passed context.
 // Only returns true if the metadata for the feature flag is set to "true"
 func IsEnabled(ctx context.Context, flag FeatureFlag) bool {
-	if featureFlagsOverride == "true" {
+	if featureFlagsOverride {
 		return true
 	}
 
