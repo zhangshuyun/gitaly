@@ -21,7 +21,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
@@ -1361,19 +1360,15 @@ func TestStreamDirectorStorageScopeError(t *testing.T) {
 }
 
 func TestDisabledTransactionsWithFeatureFlag(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.ReferenceTransactions,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		for rpc, enabledFn := range transactionRPCs {
-			if enabledFn(ctx) {
-				require.Equal(t,
-					featureflag.IsEnabled(ctx, featureflag.ReferenceTransactions),
-					shouldUseTransaction(ctx, rpc),
-				)
-				break
-			}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	for rpc, enabledFn := range transactionRPCs {
+		if enabledFn(ctx) {
+			require.True(t, shouldUseTransaction(ctx, rpc))
+			break
 		}
-	})
+	}
 }
 
 func requireScopeOperation(t *testing.T, registry *protoregistry.Registry, fullMethod string, scope protoregistry.Scope, op protoregistry.OpType) {

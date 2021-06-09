@@ -511,12 +511,8 @@ changes.
 
 ## Using Strong Consistency
 
-The current implementation of strong consistency via reference-transaction hook
-is enabled by default. You can use the following feature flags to change its
-behavior:
-
-- `gitaly_reference_transactions`: This feature flag is enabled by default. If
-  disabled, reference transactions will not be used.
+The current implementation uses strong consistency via reference-transaction
+hooks.
 
 In order to observe reference transactions, the following metrics can be used:
 

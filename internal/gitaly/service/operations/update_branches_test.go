@@ -1,7 +1,6 @@
 package operations
 
 import (
-	"context"
 	"crypto/sha1"
 	"fmt"
 	"testing"
@@ -10,7 +9,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -25,12 +23,6 @@ var (
 )
 
 func TestSuccessfulUserUpdateBranchRequest(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.ReferenceTransactions,
-	}).Run(t, testSuccessfulUserUpdateBranchRequest)
-}
-
-func testSuccessfulUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
