@@ -245,10 +245,6 @@ issues:
       text: "exported function `WithPackfileNegotiationMetrics` should have comment or be unexported"
     - linters:
         - golint
-      path: "internal/git/stats/analyzehttp.go"
-      text: "exported type `Clone` should have comment or be unexported"
-    - linters:
-        - golint
       path: "internal/git/stats/packfile_negotiation.go"
       text: "exported type `PackfileNegotiation` should have comment or be unexported"
     - linters:

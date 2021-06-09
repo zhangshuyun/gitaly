@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/pktline"
 )
 
+// Clone hosts information about a typical HTTP-based clone.
 type Clone struct {
 	// ReferenceDiscovery is the reference discovery performed as part of the clone.
 	ReferenceDiscovery HTTPReferenceDiscovery
