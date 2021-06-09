@@ -289,26 +289,6 @@ issues:
       text: "exported type `Clone` should have comment or be unexported"
     - linters:
         - golint
-      path: "internal/git/stats/analyzehttp.go"
-      text: "exported type `Get` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/stats/analyzehttp.go"
-      text: "exported method `Get.ResponseHeader` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/stats/analyzehttp.go"
-      text: "exported method `Get.HTTPStatus` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/stats/analyzehttp.go"
-      text: "exported method `Get.FirstGitPacket` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/stats/analyzehttp.go"
-      text: "exported method `Get.ResponseBody` should have comment or be unexported"
-    - linters:
-        - golint
       path: "internal/git/stats/packfile_negotiation.go"
       text: "exported type `PackfileNegotiation` should have comment or be unexported"
     - linters:

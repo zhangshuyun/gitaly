@@ -15,14 +15,14 @@ func analyzeHTTPClone(cloneURL string) {
 
 	noError(st.Perform(context.Background()))
 
-	fmt.Println("\n--- GET metrics:")
+	fmt.Println("\n--- Reference discovery metrics:")
 	for _, entry := range []metric{
-		{"response header time", st.Get.ResponseHeader()},
-		{"first Git packet", st.Get.FirstGitPacket()},
-		{"response body time", st.Get.ResponseBody()},
-		{"payload size", st.Get.PayloadSize()},
-		{"Git packets received", st.Get.Packets()},
-		{"refs advertised", len(st.Get.Refs())},
+		{"response header time", st.ReferenceDiscovery.ResponseHeader()},
+		{"first Git packet", st.ReferenceDiscovery.FirstGitPacket()},
+		{"response body time", st.ReferenceDiscovery.ResponseBody()},
+		{"payload size", st.ReferenceDiscovery.PayloadSize()},
+		{"Git packets received", st.ReferenceDiscovery.Packets()},
+		{"refs advertised", len(st.ReferenceDiscovery.Refs())},
 	} {
 		entry.print()
 	}

@@ -20,19 +20,23 @@ type Clone struct {
 	User        string
 	Password    string
 
-	Get  Get
-	Post Post
+	// ReferenceDiscovery is the reference discovery performed as part of the clone.
+	ReferenceDiscovery HTTPReferenceDiscovery
+	Post               Post
 }
 
 // Perform does a Git HTTP clone, discarding cloned data to /dev/null.
 func (cl *Clone) Perform(ctx context.Context) error {
-	if err := cl.doGet(ctx); err != nil {
+	referenceDiscovery, err := performReferenceDiscovery(ctx, cl.URL, cl.User, cl.Password, cl.printInteractive)
+	if err != nil {
 		return ctxErr(ctx, err)
 	}
 
-	if err := cl.doPost(ctx, cl.Get.Refs()); err != nil {
+	if err := cl.doPost(ctx, referenceDiscovery.Refs()); err != nil {
 		return ctxErr(ctx, err)
 	}
+
+	cl.ReferenceDiscovery = referenceDiscovery
 
 	return nil
 }
@@ -44,39 +48,59 @@ func ctxErr(ctx context.Context, err error) error {
 	return err
 }
 
-type Get struct {
+// HTTPReferenceDiscovery is a ReferenceDiscovery obtained via a clone of a target repository via
+// HTTP. It contains additional information about the cloning process like status codes and
+// timings.
+type HTTPReferenceDiscovery struct {
 	start          time.Time
 	responseHeader time.Duration
 	httpStatus     int
 	stats          ReferenceDiscovery
 }
 
-func (g *Get) ResponseHeader() time.Duration { return g.responseHeader }
-func (g *Get) HTTPStatus() int               { return g.httpStatus }
-func (g *Get) FirstGitPacket() time.Duration { return g.stats.FirstPacket.Sub(g.start) }
-func (g *Get) ResponseBody() time.Duration   { return g.stats.LastPacket.Sub(g.start) }
+// ResponseHeader returns how long it took to receive the response header.
+func (d HTTPReferenceDiscovery) ResponseHeader() time.Duration { return d.responseHeader }
+
+// HTTPStatus returns the HTTP status code.
+func (d HTTPReferenceDiscovery) HTTPStatus() int { return d.httpStatus }
+
+// FirstGitPacket returns how long it took to receive the first Git packet.
+func (d HTTPReferenceDiscovery) FirstGitPacket() time.Duration {
+	return d.stats.FirstPacket.Sub(d.start)
+}
+
+// ResponseBody returns how long it took to receive the first bytes of the response body.
+func (d HTTPReferenceDiscovery) ResponseBody() time.Duration {
+	return d.stats.LastPacket.Sub(d.start)
+}
 
 // Refs returns all announced references.
-func (g *Get) Refs() []Reference { return g.stats.Refs }
+func (d HTTPReferenceDiscovery) Refs() []Reference { return d.stats.Refs }
 
 // Packets returns the number of Git packets received.
-func (g *Get) Packets() int { return g.stats.Packets }
+func (d HTTPReferenceDiscovery) Packets() int { return d.stats.Packets }
 
 // PayloadSize returns the total size of all pktlines' data.
-func (g *Get) PayloadSize() int64 { return g.stats.PayloadSize }
+func (d HTTPReferenceDiscovery) PayloadSize() int64 { return d.stats.PayloadSize }
 
 // Caps returns all announced capabilities.
-func (g *Get) Caps() []string { return g.stats.Caps }
+func (d HTTPReferenceDiscovery) Caps() []string { return d.stats.Caps }
 
-func (cl *Clone) doGet(ctx context.Context) error {
-	req, err := http.NewRequest("GET", cl.URL+"/info/refs?service=git-upload-pack", nil)
+func performReferenceDiscovery(
+	ctx context.Context,
+	url, user, password string,
+	reportProgress func(string, ...interface{}),
+) (HTTPReferenceDiscovery, error) {
+	var referenceDiscovery HTTPReferenceDiscovery
+
+	req, err := http.NewRequest("GET", url+"/info/refs?service=git-upload-pack", nil)
 	if err != nil {
-		return err
+		return HTTPReferenceDiscovery{}, err
 	}
 
 	req = req.WithContext(ctx)
-	if cl.User != "" {
-		req.SetBasicAuth(cl.User, cl.Password)
+	if user != "" {
+		req.SetBasicAuth(user, password)
 	}
 
 	for k, v := range map[string]string{
@@ -88,14 +112,14 @@ func (cl *Clone) doGet(ctx context.Context) error {
 		req.Header.Set(k, v)
 	}
 
-	cl.Get.start = time.Now()
-	cl.printInteractive("---\n")
-	cl.printInteractive("--- GET %v\n", req.URL)
-	cl.printInteractive("---\n")
+	referenceDiscovery.start = time.Now()
+	reportProgress("---\n")
+	reportProgress("--- GET %v\n", req.URL)
+	reportProgress("---\n")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return err
+		return HTTPReferenceDiscovery{}, err
 	}
 	defer func() {
 		io.Copy(ioutil.Discard, resp.Body)
@@ -103,27 +127,27 @@ func (cl *Clone) doGet(ctx context.Context) error {
 	}()
 
 	if code := resp.StatusCode; code < 200 || code >= 400 {
-		return fmt.Errorf("git http get: unexpected http status: %d", code)
+		return HTTPReferenceDiscovery{}, fmt.Errorf("git http get: unexpected http status: %d", code)
 	}
 
-	cl.Get.responseHeader = time.Since(cl.Get.start)
-	cl.Get.httpStatus = resp.StatusCode
-	cl.printInteractive("response code: %d\n", resp.StatusCode)
-	cl.printInteractive("response header: %v\n", resp.Header)
+	referenceDiscovery.responseHeader = time.Since(referenceDiscovery.start)
+	referenceDiscovery.httpStatus = resp.StatusCode
+	reportProgress("response code: %d\n", resp.StatusCode)
+	reportProgress("response header: %v\n", resp.Header)
 
 	body := resp.Body
 	if resp.Header.Get("Content-Encoding") == "gzip" {
 		body, err = gzip.NewReader(body)
 		if err != nil {
-			return err
+			return HTTPReferenceDiscovery{}, err
 		}
 	}
 
-	if err := cl.Get.stats.Parse(body); err != nil {
-		return err
+	if err := referenceDiscovery.stats.Parse(body); err != nil {
+		return HTTPReferenceDiscovery{}, err
 	}
 
-	return nil
+	return referenceDiscovery, nil
 }
 
 type Post struct {

@@ -122,9 +122,9 @@ func (b Blackbox) doProbe(probe Probe) {
 		gv.WithLabelValues(probe.Name).Set(value)
 	}
 
-	setGauge(b.getFirstPacket, clone.Get.FirstGitPacket().Seconds())
-	setGauge(b.getTotalTime, clone.Get.ResponseBody().Seconds())
-	setGauge(b.getAdvertisedRefs, float64(len(clone.Get.Refs())))
+	setGauge(b.getFirstPacket, clone.ReferenceDiscovery.FirstGitPacket().Seconds())
+	setGauge(b.getTotalTime, clone.ReferenceDiscovery.ResponseBody().Seconds())
+	setGauge(b.getAdvertisedRefs, float64(len(clone.ReferenceDiscovery.Refs())))
 	setGauge(b.wantedRefs, float64(clone.Post.RefsWanted()))
 	setGauge(b.postTotalTime, clone.Post.ResponseBody().Seconds())
 	setGauge(b.postFirstProgressPacket, clone.Post.BandFirstPacket("progress").Seconds())

@@ -30,19 +30,19 @@ func TestClone(t *testing.T) {
 	const expectedRequests = 90 // based on contents of _support/gitlab-test.git-packed-refs
 	require.Greater(t, clone.Post.RefsWanted(), expectedRequests, "number of wanted refs")
 
-	require.Equal(t, 200, clone.Get.HTTPStatus(), "get status")
-	require.Greater(t, clone.Get.Packets(), 0, "number of get packets")
-	require.Greater(t, clone.Get.PayloadSize(), int64(0), "get payload size")
-	require.Greater(t, len(clone.Get.Caps()), 10, "get capabilities")
+	require.Equal(t, 200, clone.ReferenceDiscovery.HTTPStatus(), "get status")
+	require.Greater(t, clone.ReferenceDiscovery.Packets(), 0, "number of get packets")
+	require.Greater(t, clone.ReferenceDiscovery.PayloadSize(), int64(0), "get payload size")
+	require.Greater(t, len(clone.ReferenceDiscovery.Caps()), 10, "get capabilities")
 
 	previousValue := time.Duration(0)
 	for _, m := range []struct {
 		desc  string
 		value time.Duration
 	}{
-		{"time to receive response header", clone.Get.ResponseHeader()},
-		{"time to first packet", clone.Get.FirstGitPacket()},
-		{"time to receive response body", clone.Get.ResponseBody()},
+		{"time to receive response header", clone.ReferenceDiscovery.ResponseHeader()},
+		{"time to first packet", clone.ReferenceDiscovery.FirstGitPacket()},
+		{"time to receive response body", clone.ReferenceDiscovery.ResponseBody()},
 	} {
 		require.True(t, m.value > previousValue, "get: expect %s (%v) to be greater than previous value %v", m.desc, m.value, previousValue)
 		previousValue = m.value
