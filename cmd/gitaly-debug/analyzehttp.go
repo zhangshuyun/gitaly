@@ -20,9 +20,9 @@ func analyzeHTTPClone(cloneURL string) {
 		{"response header time", st.Get.ResponseHeader()},
 		{"first Git packet", st.Get.FirstGitPacket()},
 		{"response body time", st.Get.ResponseBody()},
-		{"payload size", st.Get.PayloadSize},
-		{"Git packets received", st.Get.Packets},
-		{"refs advertised", len(st.Get.Refs)},
+		{"payload size", st.Get.PayloadSize()},
+		{"Git packets received", st.Get.Packets()},
+		{"refs advertised", len(st.Get.Refs())},
 		{"wanted refs", st.RefsWanted()},
 	} {
 		entry.print()

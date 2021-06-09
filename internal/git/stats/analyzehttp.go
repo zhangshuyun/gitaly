@@ -21,8 +21,8 @@ type Clone struct {
 	Password    string
 
 	wants []string // all branch and tag pointers
-	Get
-	Post
+	Get   Get
+	Post  Post
 }
 
 func (cl *Clone) RefsWanted() int { return len(cl.wants) }
@@ -51,13 +51,25 @@ type Get struct {
 	start          time.Time
 	responseHeader time.Duration
 	httpStatus     int
-	ReferenceDiscovery
+	stats          ReferenceDiscovery
 }
 
 func (g *Get) ResponseHeader() time.Duration { return g.responseHeader }
 func (g *Get) HTTPStatus() int               { return g.httpStatus }
-func (g *Get) FirstGitPacket() time.Duration { return g.FirstPacket.Sub(g.start) }
-func (g *Get) ResponseBody() time.Duration   { return g.LastPacket.Sub(g.start) }
+func (g *Get) FirstGitPacket() time.Duration { return g.stats.FirstPacket.Sub(g.start) }
+func (g *Get) ResponseBody() time.Duration   { return g.stats.LastPacket.Sub(g.start) }
+
+// Refs returns all announced references.
+func (g *Get) Refs() []Reference { return g.stats.Refs }
+
+// Packets returns the number of Git packets received.
+func (g *Get) Packets() int { return g.stats.Packets }
+
+// PayloadSize returns the total size of all pktlines' data.
+func (g *Get) PayloadSize() int64 { return g.stats.PayloadSize }
+
+// Caps returns all announced capabilities.
+func (g *Get) Caps() []string { return g.stats.Caps }
 
 func (cl *Clone) doGet(ctx context.Context) error {
 	req, err := http.NewRequest("GET", cl.URL+"/info/refs?service=git-upload-pack", nil)
@@ -110,11 +122,11 @@ func (cl *Clone) doGet(ctx context.Context) error {
 		}
 	}
 
-	if err := cl.Get.Parse(body); err != nil {
+	if err := cl.Get.stats.Parse(body); err != nil {
 		return err
 	}
 
-	for _, ref := range cl.Get.Refs {
+	for _, ref := range cl.Get.Refs() {
 		if strings.HasPrefix(ref.Name, "refs/heads/") || strings.HasPrefix(ref.Name, "refs/tags/") {
 			cl.wants = append(cl.wants, ref.Oid)
 		}
