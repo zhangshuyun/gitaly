@@ -161,8 +161,9 @@ func (repo *Repo) UpdateRef(ctx context.Context, reference git.ReferenceName, ne
 }
 
 type getRemoteReferenceConfig struct {
-	patterns []string
-	config   []git.ConfigPair
+	patterns   []string
+	config     []git.ConfigPair
+	sshCommand string
 }
 
 // GetRemoteReferencesOption is an option which can be passed to GetRemoteReferences.
@@ -173,6 +174,13 @@ type GetRemoteReferencesOption func(*getRemoteReferenceConfig)
 func WithPatterns(patterns ...string) GetRemoteReferencesOption {
 	return func(cfg *getRemoteReferenceConfig) {
 		cfg.patterns = patterns
+	}
+}
+
+// WithSSHCommand sets the SSH invocation to use when communicating with the remote.
+func WithSSHCommand(cmd string) GetRemoteReferencesOption {
+	return func(cfg *getRemoteReferenceConfig) {
+		cfg.sshCommand = cmd
 	}
 }
 
@@ -192,6 +200,11 @@ func (repo *Repo) GetRemoteReferences(ctx context.Context, remote string, opts .
 		opt(&cfg)
 	}
 
+	var env []string
+	if cfg.sshCommand != "" {
+		env = append(env, envGitSSHCommand(cfg.sshCommand))
+	}
+
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 	if err := repo.ExecAndWait(ctx,
@@ -204,6 +217,7 @@ func (repo *Repo) GetRemoteReferences(ctx context.Context, remote string, opts .
 		},
 		git.WithStdout(stdout),
 		git.WithStderr(stderr),
+		git.WithEnv(env...),
 		git.WithConfigEnv(cfg.config...),
 	); err != nil {
 		return nil, fmt.Errorf("create git ls-remote: %w, stderr: %q", err, stderr)

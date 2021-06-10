@@ -274,6 +274,10 @@ func validateNotBlank(val, name string) error {
 	return nil
 }
 
+func envGitSSHCommand(cmd string) string {
+	return "GIT_SSH_COMMAND=" + cmd
+}
+
 // PushOptions are options that can be configured for a push.
 type PushOptions struct {
 	// SSHCommand is the command line to use for git's SSH invocation. The command line is used
@@ -293,7 +297,7 @@ func (repo *Repo) Push(ctx context.Context, remote string, refspecs []string, op
 
 	var env []string
 	if options.SSHCommand != "" {
-		env = append(env, "GIT_SSH_COMMAND="+options.SSHCommand)
+		env = append(env, envGitSSHCommand(options.SSHCommand))
 	}
 
 	stderr := &bytes.Buffer{}

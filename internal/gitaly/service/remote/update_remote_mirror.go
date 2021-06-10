@@ -144,9 +144,16 @@ func (s *server) goUpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemote
 		}
 	}
 
+	sshCommand, clean, err := git.BuildSSHInvocation(ctx, firstRequest.GetSshKey(), firstRequest.GetKnownHosts())
+	if err != nil {
+		return fmt.Errorf("build ssh invocation: %w", err)
+	}
+	defer clean()
+
 	remoteRefsSlice, err := repo.GetRemoteReferences(ctx, remoteName,
 		localrepo.WithPatterns("refs/heads/*", "refs/tags/*"),
 		localrepo.WithConfig(remoteConfig...),
+		localrepo.WithSSHCommand(sshCommand),
 	)
 	if err != nil {
 		return fmt.Errorf("get remote references: %w", err)
@@ -257,31 +264,23 @@ func (s *server) goUpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemote
 		}
 	}
 
-	if len(refspecs) > 0 {
-		sshCommand, clean, err := git.BuildSSHInvocation(ctx, firstRequest.GetSshKey(), firstRequest.GetKnownHosts())
-		if err != nil {
-			return fmt.Errorf("build ssh invocation: %w", err)
+	for len(refspecs) > 0 {
+		batch := refspecs
+		if len(refspecs) > pushBatchSize {
+			batch = refspecs[:pushBatchSize]
 		}
-		defer clean()
 
-		for len(refspecs) > 0 {
-			batch := refspecs
-			if len(refspecs) > pushBatchSize {
-				batch = refspecs[:pushBatchSize]
-			}
+		refspecs = refspecs[len(batch):]
 
-			refspecs = refspecs[len(batch):]
-
-			// The refs could have been modified on the mirror during after we fetched them.
-			// This could cause divergent refs to be force pushed over even with keep_divergent_refs set.
-			// This could be addressed by force pushing only if the current ref still matches what
-			// we received in the original fetch. https://gitlab.com/gitlab-org/gitaly/-/issues/3505
-			if err := repo.Push(ctx, remoteName, batch, localrepo.PushOptions{
-				SSHCommand: sshCommand,
-				Config:     remoteConfig,
-			}); err != nil {
-				return fmt.Errorf("push to mirror: %w", err)
-			}
+		// The refs could have been modified on the mirror during after we fetched them.
+		// This could cause divergent refs to be force pushed over even with keep_divergent_refs set.
+		// This could be addressed by force pushing only if the current ref still matches what
+		// we received in the original fetch. https://gitlab.com/gitlab-org/gitaly/-/issues/3505
+		if err := repo.Push(ctx, remoteName, batch, localrepo.PushOptions{
+			SSHCommand: sshCommand,
+			Config:     remoteConfig,
+		}); err != nil {
+			return fmt.Errorf("push to mirror: %w", err)
 		}
 	}
 

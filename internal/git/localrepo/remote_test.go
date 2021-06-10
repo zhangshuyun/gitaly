@@ -438,13 +438,11 @@ func TestRepo_FetchRemote(t *testing.T) {
 	})
 }
 
-func TestRepo_Push(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	cfg, sourceRepoPb, _ := testcfg.BuildWithRepo(t)
-
-	tmpDir := testhelper.TempDir(t)
+// captureGitSSHCommand returns a path to a script that wraps the git at the passed in path
+// and records the GIT_SSH_COMMAND that was passed to it. It returns also a path to the file
+// that contains the captured GIT_SSH_COMMAND value.
+func captureGitSSHCommand(t testing.TB, gitBinaryPath string) (string, string) {
+	tmpDir := t.TempDir()
 
 	gitPath := filepath.Join(tmpDir, "git-hook")
 	envPath := filepath.Join(tmpDir, "GIT_SSH_PATH")
@@ -455,12 +453,23 @@ func TestRepo_Push(t *testing.T) {
 if [ -z ${GIT_SSH_COMMAND+x} ];then rm -f %q ;else echo -n "$GIT_SSH_COMMAND" > %q; fi
 %s "$@"`,
 			envPath, envPath,
-			cfg.Git.BinPath,
+			gitBinaryPath,
 		)),
 		os.ModePerm),
 	)
 
-	cfg.Git.BinPath = gitPath
+	return gitPath, envPath
+}
+
+func TestRepo_Push(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	cfg, sourceRepoPb, _ := testcfg.BuildWithRepo(t)
+
+	wrappedGit, gitSSHCommandFile := captureGitSSHCommand(t, cfg.Git.BinPath)
+
+	cfg.Git.BinPath = wrappedGit
 	sourceRepo := NewTestRepo(t, cfg, sourceRepoPb)
 
 	setupPushRepo := func(t testing.TB) (*Repo, string, []git.ConfigPair) {
@@ -563,7 +572,7 @@ if [ -z ${GIT_SSH_COMMAND+x} ];then rm -f %q ;else echo -n "$GIT_SSH_COMMAND" > 
 			}
 			require.NoError(t, err)
 
-			gitSSHCommand, err := ioutil.ReadFile(envPath)
+			gitSSHCommand, err := ioutil.ReadFile(gitSSHCommandFile)
 			if !os.IsNotExist(err) {
 				require.NoError(t, err)
 			}
