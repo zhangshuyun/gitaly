@@ -140,17 +140,12 @@ func (parser *Parser) Parse() bool {
 	// We are consuming this patch so it is no longer 'next'
 	parser.nextPatchFromPath = nil
 
-	for {
+	for currentPatchDone := false; !currentPatchDone || parser.patchReader.Buffered() > 0; {
 		// We cannot use bufio.Scanner because the line may be very long.
 		line, err := parser.patchReader.Peek(10)
 		if err == io.EOF {
 			parser.finished = true
-
-			if len(line) > 0 && len(line) < 10 {
-				parser.consumeChunkLine(true)
-			}
-
-			break
+			currentPatchDone = true
 		} else if err != nil {
 			parser.err = fmt.Errorf("peek diff line: %v", err)
 			return false
@@ -164,7 +159,10 @@ func (parser *Parser) Parse() bool {
 			parser.consumeLine(false)
 		} else if bytes.HasPrefix(line, []byte("~\n")) {
 			parser.consumeChunkLine(true)
-		} else if helper.ByteSliceHasAnyPrefix(line, "-", "+", " ", "\\", "Binary") {
+		} else if bytes.HasPrefix(line, []byte("Binary")) {
+			parser.currentDiff.Binary = true
+			parser.consumeChunkLine(true)
+		} else if helper.ByteSliceHasAnyPrefix(line, "-", "+", " ", "\\") {
 			parser.consumeChunkLine(true)
 		} else {
 			parser.consumeLine(false)
@@ -383,31 +381,18 @@ func (parser *Parser) consumeChunkLine(updateLineStats bool) {
 	// can copy bytes into currentDiff.Patch without intermediate
 	// allocations.
 	n := 0
-	for done, firstRead := false, true; !done; {
+	for done := false; !done; {
 		line, err = parser.patchReader.ReadSlice('\n')
 		n += len(line)
 
 		switch err {
-		case io.EOF:
+		case io.EOF, nil:
 			done = true
-		case nil: // last element of line is '\n'
-			if parser.finished {
-				// keep reading
-			} else {
-				done = true
-			}
-		case bufio.ErrBufferFull: // long line
-			// keep reading
+		case bufio.ErrBufferFull:
+			// long line: keep reading
 		default:
 			parser.err = fmt.Errorf("read chunk line: %v", err)
 			return
-		}
-
-		if firstRead {
-			firstRead = false
-			if bytes.HasPrefix(line, []byte("Binary")) {
-				parser.currentDiff.Binary = true
-			}
 		}
 
 		parser.currentDiff.Patch = append(parser.currentDiff.Patch, line...)
