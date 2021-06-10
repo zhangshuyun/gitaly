@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
@@ -175,6 +176,100 @@ func catfileInfo(ctx context.Context, catfile catfile.Batch, revlistResultChan <
 			if isDone := sendResult(catfileInfoResult{
 				objectName: revlistResult.objectName,
 				objectInfo: objectInfo,
+			}); isDone {
+				return
+			}
+		}
+	}()
+
+	return resultChan
+}
+
+// catfileObjectResult is a result for the catfileObject pipeline step.
+type catfileObjectResult struct {
+	// err is an error which occurred during execution of the pipeline.
+	err error
+
+	// objectName is the object name as received from the revlistResultChan.
+	objectName []byte
+	// objectInfo is the object info of the object.
+	objectInfo *catfile.ObjectInfo
+	// obbjectData is the raw object data.
+	objectData []byte
+}
+
+// catfileObject processes catfileInfoResults from the given channel and reads associated objects
+// into memory via `git cat-file --batch`. The returned channel will contain all processed objects.
+// Any error received via the channel or encountered in this step will cause the pipeline to fail.
+// Context cancellation will gracefully halt the pipeline.
+func catfileObject(
+	ctx context.Context,
+	catfileProcess catfile.Batch,
+	catfileInfoResultChan <-chan catfileInfoResult,
+) <-chan catfileObjectResult {
+	resultChan := make(chan catfileObjectResult)
+	go func() {
+		defer close(resultChan)
+
+		sendResult := func(result catfileObjectResult) bool {
+			select {
+			case resultChan <- result:
+				return false
+			case <-ctx.Done():
+				return true
+			}
+		}
+
+		for catfileInfoResult := range catfileInfoResultChan {
+			if catfileInfoResult.err != nil {
+				sendResult(catfileObjectResult{err: catfileInfoResult.err})
+				return
+			}
+
+			var object *catfile.Object
+			var err error
+
+			objectType := catfileInfoResult.objectInfo.Type
+			switch objectType {
+			case "tag":
+				object, err = catfileProcess.Tag(ctx, catfileInfoResult.objectInfo.Oid.Revision())
+			case "commit":
+				object, err = catfileProcess.Commit(ctx, catfileInfoResult.objectInfo.Oid.Revision())
+			case "tree":
+				object, err = catfileProcess.Tree(ctx, catfileInfoResult.objectInfo.Oid.Revision())
+			case "blob":
+				object, err = catfileProcess.Blob(ctx, catfileInfoResult.objectInfo.Oid.Revision())
+			default:
+				err = fmt.Errorf("unknown object type %q", objectType)
+			}
+
+			if err != nil {
+				sendResult(catfileObjectResult{
+					err: fmt.Errorf("requesting object: %w", err),
+				})
+				return
+			}
+
+			// Ideally, we'd let the caller read the object because he'll know exactly
+			// what to do with it. But unfortunately, this doesn't really work because
+			// we mustn't try to read another object until the current object has been
+			// fully read. We thus read the object here and return it to the caller
+			// directly.
+			//
+			// If the need arises, we can refactor this code to support limited reads
+			// via options at a later point.
+			objectData, err := ioutil.ReadAll(object)
+			if err != nil {
+				sendResult(catfileObjectResult{
+					err: fmt.Errorf("reading object: %w", err),
+				})
+				return
+			}
+
+			if isDone := sendResult(catfileObjectResult{
+				objectName: catfileInfoResult.objectName,
+				objectInfo: catfileInfoResult.objectInfo,
+				objectData: objectData,
 			}); isDone {
 				return
 			}
