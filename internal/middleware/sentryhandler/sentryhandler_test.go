@@ -8,6 +8,7 @@ import (
 
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -44,6 +45,13 @@ func Test_generateSentryEvent(t *testing.T) {
 			wantCulprit: "RepoService::RepoExists",
 		},
 		{
+			name:       "GRPC error",
+			method:     "/gitaly.CommitService/TreeEntry",
+			sinceStart: 500 * time.Millisecond,
+			err:        status.Errorf(codes.NotFound, "Path not found"),
+			wantNil:    true,
+		},
+		{
 			name:       "nil",
 			method:     "/gitaly.RepoService/RepoExists",
 			sinceStart: 500 * time.Millisecond,
@@ -77,10 +85,11 @@ func Test_generateSentryEvent(t *testing.T) {
 				var result context.Context
 				ctx := context.Background()
 				// this is the only way how we could populate context with `tags` assembler
-				grpc_ctxtags.UnaryServerInterceptor()(ctx, nil, nil, func(ctx context.Context, req interface{}) (interface{}, error) {
+				_, err := grpc_ctxtags.UnaryServerInterceptor()(ctx, nil, nil, func(ctx context.Context, req interface{}) (interface{}, error) {
 					result = ctx
 					return nil, nil
 				})
+				require.NoError(t, err)
 				MarkToSkip(result)
 				return result
 			}(),
@@ -103,6 +112,7 @@ func Test_generateSentryEvent(t *testing.T) {
 				return
 			}
 
+			require.NotNil(t, event)
 			assert.Equal(t, tt.wantCulprit, event.Transaction)
 			assert.Equal(t, tt.wantMessage, event.Message)
 			assert.Equal(t, event.Tags["system"], "grpc")

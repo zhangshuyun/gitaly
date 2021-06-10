@@ -19,15 +19,23 @@ const (
 	skipSubmission = "sentry.skip"
 )
 
-var ignoredCodes = []codes.Code{
-	// OK means there was no error
-	codes.OK,
-	// Canceled and DeadlineExceeded indicate clients that disappeared or lost interest
-	codes.Canceled,
-	codes.DeadlineExceeded,
-	// We use FailedPrecondition to signal error conditions that are 'normal'
-	codes.FailedPrecondition,
-}
+var (
+	ignoredCodes = []codes.Code{
+		// OK means there was no error
+		codes.OK,
+		// Canceled and DeadlineExceeded indicate clients that disappeared or lost interest
+		codes.Canceled,
+		codes.DeadlineExceeded,
+		// We use FailedPrecondition to signal error conditions that are 'normal'
+		codes.FailedPrecondition,
+	}
+	method2ignoredCodes = map[string][]codes.Code{
+		"/gitaly.CommitService/TreeEntry": {
+			// NotFound is returned when a file is not found.
+			codes.NotFound,
+		},
+	}
+)
 
 // UnaryLogHandler handles access times and errors for unary RPC's
 func UnaryLogHandler(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
@@ -67,10 +75,16 @@ func methodToCulprit(methodName string) string {
 	return methodName
 }
 
-func logErrorToSentry(ctx context.Context, err error) (code codes.Code, bypass bool) {
+func logErrorToSentry(ctx context.Context, method string, err error) (code codes.Code, bypass bool) {
 	code = helper.GrpcCode(err)
 
 	for _, ignoredCode := range ignoredCodes {
+		if code == ignoredCode {
+			return code, true
+		}
+	}
+
+	for _, ignoredCode := range method2ignoredCodes[method] {
 		if code == ignoredCode {
 			return code, true
 		}
@@ -85,7 +99,7 @@ func logErrorToSentry(ctx context.Context, err error) (code codes.Code, bypass b
 }
 
 func generateSentryEvent(ctx context.Context, method string, start time.Time, err error) *sentry.Event {
-	grpcErrorCode, bypass := logErrorToSentry(ctx, err)
+	grpcErrorCode, bypass := logErrorToSentry(ctx, method, err)
 	if bypass {
 		return nil
 	}
