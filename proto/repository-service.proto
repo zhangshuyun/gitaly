@@ -354,6 +354,7 @@ message FetchRemoteResponse {
 
 message CreateRepositoryRequest {
   Repository repository = 1 [(target_repository)=true];
+  string default_branch = 2;
 }
 
 message CreateRepositoryResponse {}

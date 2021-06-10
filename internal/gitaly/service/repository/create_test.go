@@ -73,6 +73,39 @@ func TestCreateRepositorySuccess(t *testing.T) {
 	require.Equal(t, symRef, []byte(fmt.Sprintf("ref: %s\n", git.DefaultRef)))
 }
 
+func TestCreateRepositoryWithDefaultBranchSuccess(t *testing.T) {
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	relativePath := "create-repository-test.git"
+	defaultBranch := "develop"
+	repoDir := filepath.Join(cfg.Storages[0].Path, relativePath)
+
+	repo := &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: relativePath}
+	req := &gitalypb.CreateRepositoryRequest{Repository: repo, DefaultBranch: defaultBranch}
+	_, err := client.CreateRepository(ctx, req)
+	require.NoError(t, err)
+
+	require.NoError(t, unix.Access(repoDir, unix.R_OK))
+	require.NoError(t, unix.Access(repoDir, unix.W_OK))
+	require.NoError(t, unix.Access(repoDir, unix.X_OK))
+
+	for _, dir := range []string{repoDir, filepath.Join(repoDir, "refs")} {
+		fi, err := os.Stat(dir)
+		require.NoError(t, err)
+		require.True(t, fi.IsDir(), "%q must be a directory", fi.Name())
+
+		require.NoError(t, unix.Access(dir, unix.R_OK))
+		require.NoError(t, unix.Access(dir, unix.W_OK))
+		require.NoError(t, unix.Access(dir, unix.X_OK))
+	}
+
+	symRef := testhelper.MustReadFile(t, path.Join(repoDir, "HEAD"))
+	require.Equal(t, symRef, []byte(fmt.Sprintf("ref: %s\n", []byte("refs/heads/"+defaultBranch))))
+}
+
 func TestCreateRepositoryFailure(t *testing.T) {
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 

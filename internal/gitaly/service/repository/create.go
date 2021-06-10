@@ -27,17 +27,21 @@ func (s *server) CreateRepository(ctx context.Context, req *gitalypb.CreateRepos
 	}
 
 	stderr := &bytes.Buffer{}
-	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx,
-		git.SubCmd{
-			Name: "init",
-			Flags: []git.Option{
-				git.Flag{Name: "--bare"},
-				git.Flag{Name: "--quiet"},
-			},
-			Args: []string{diskPath},
+
+	subCmd := git.SubCmd{
+		Name: "init",
+		Flags: []git.Option{
+			git.Flag{Name: "--bare"},
+			git.Flag{Name: "--quiet"},
 		},
-		git.WithStderr(stderr),
-	)
+		Args: []string{diskPath},
+	}
+
+	if req.GetDefaultBranch() != "" {
+		subCmd.Flags = append(subCmd.Flags, git.Flag{Name: fmt.Sprintf("--initial-branch=%s", req.GetDefaultBranch())})
+	}
+
+	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx, subCmd, git.WithStderr(stderr))
 	if err != nil {
 		return nil, helper.ErrInternalf("create git init: %w", err)
 	}

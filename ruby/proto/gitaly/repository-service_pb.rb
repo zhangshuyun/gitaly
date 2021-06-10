@@ -79,6 +79,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     end
     add_message "gitaly.CreateRepositoryRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
+      optional :default_branch, :string, 2
     end
     add_message "gitaly.CreateRepositoryResponse" do
     end
