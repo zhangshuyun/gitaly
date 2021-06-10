@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 )
 
@@ -121,6 +122,62 @@ func revlist(
 				err: fmt.Errorf("rev-list pipeline command: %w", err),
 			})
 			return
+		}
+	}()
+
+	return resultChan
+}
+
+// catfileInfoResult is a result for the catfileInfo pipeline step.
+type catfileInfoResult struct {
+	// err is an error which occurred during execution of the pipeline.
+	err error
+
+	// objectName is the object name as received from the revlistResultChan.
+	objectName []byte
+	// objectInfo is the object info of the object.
+	objectInfo *catfile.ObjectInfo
+}
+
+// catfileInfo processes revlistResults from the given channel and extracts object information via
+// `git cat-file --batch-check`. The returned channel will contain all processed catfile info
+// results. Any error received via the channel or encountered in this step will cause the pipeline
+// to fail. Context cancellation will gracefully halt the pipeline.
+func catfileInfo(ctx context.Context, catfile catfile.Batch, revlistResultChan <-chan revlistResult) <-chan catfileInfoResult {
+	resultChan := make(chan catfileInfoResult)
+
+	go func() {
+		defer close(resultChan)
+
+		sendResult := func(result catfileInfoResult) bool {
+			select {
+			case resultChan <- result:
+				return false
+			case <-ctx.Done():
+				return true
+			}
+		}
+
+		for revlistResult := range revlistResultChan {
+			if revlistResult.err != nil {
+				sendResult(catfileInfoResult{err: revlistResult.err})
+				return
+			}
+
+			objectInfo, err := catfile.Info(ctx, revlistResult.oid.Revision())
+			if err != nil {
+				sendResult(catfileInfoResult{
+					err: fmt.Errorf("retrieving object info for %q: %w", revlistResult.oid, err),
+				})
+				return
+			}
+
+			if isDone := sendResult(catfileInfoResult{
+				objectName: revlistResult.objectName,
+				objectInfo: objectInfo,
+			}); isDone {
+				return
+			}
 		}
 	}()
 

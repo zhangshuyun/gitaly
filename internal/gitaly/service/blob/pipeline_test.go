@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -152,6 +153,109 @@ func TestRevlist(t *testing.T) {
 			resultChan := revlist(ctx, repo, tc.revisions, tc.options...)
 
 			var results []revlistResult
+			for result := range resultChan {
+				// We're converting the error here to a plain un-nested error such
+				// that we don't have to replicate the complete error's structure.
+				if result.err != nil {
+					result.err = errors.New(result.err.Error())
+				}
+
+				results = append(results, result)
+			}
+
+			require.Equal(t, tc.expectedResults, results)
+		})
+	}
+}
+
+func TestCatfileInfo(t *testing.T) {
+	cfg := testcfg.Build(t)
+
+	repoProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
+	defer cleanup()
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	for _, tc := range []struct {
+		desc            string
+		revlistInputs   []revlistResult
+		expectedResults []catfileInfoResult
+	}{
+		{
+			desc: "single blob",
+			revlistInputs: []revlistResult{
+				{oid: lfsPointer1},
+			},
+			expectedResults: []catfileInfoResult{
+				{objectInfo: &catfile.ObjectInfo{Oid: lfsPointer1, Type: "blob", Size: 133}},
+			},
+		},
+		{
+			desc: "multiple blobs",
+			revlistInputs: []revlistResult{
+				{oid: lfsPointer1},
+				{oid: lfsPointer2},
+				{oid: lfsPointer3},
+				{oid: lfsPointer4},
+			},
+			expectedResults: []catfileInfoResult{
+				{objectInfo: &catfile.ObjectInfo{Oid: lfsPointer1, Type: "blob", Size: 133}},
+				{objectInfo: &catfile.ObjectInfo{Oid: lfsPointer2, Type: "blob", Size: 127}},
+				{objectInfo: &catfile.ObjectInfo{Oid: lfsPointer3, Type: "blob", Size: 127}},
+				{objectInfo: &catfile.ObjectInfo{Oid: lfsPointer4, Type: "blob", Size: 129}},
+			},
+		},
+		{
+			desc: "object name",
+			revlistInputs: []revlistResult{
+				{oid: "b95c0fad32f4361845f91d9ce4c1721b52b82793"},
+				{oid: "93e123ac8a3e6a0b600953d7598af629dec7b735", objectName: []byte("branch-test.txt")},
+			},
+			expectedResults: []catfileInfoResult{
+				{objectInfo: &catfile.ObjectInfo{Oid: "b95c0fad32f4361845f91d9ce4c1721b52b82793", Type: "tree", Size: 43}},
+				{objectInfo: &catfile.ObjectInfo{Oid: "93e123ac8a3e6a0b600953d7598af629dec7b735", Type: "blob", Size: 59}, objectName: []byte("branch-test.txt")},
+			},
+		},
+		{
+			desc: "invalid object ID",
+			revlistInputs: []revlistResult{
+				{oid: "invalidobjectid"},
+			},
+			expectedResults: []catfileInfoResult{
+				{err: errors.New("retrieving object info for \"invalidobjectid\": object not found")},
+			},
+		},
+		{
+			desc: "mixed valid and invalid revision",
+			revlistInputs: []revlistResult{
+				{oid: lfsPointer1},
+				{oid: "invalidobjectid"},
+				{oid: lfsPointer2},
+			},
+			expectedResults: []catfileInfoResult{
+				{objectInfo: &catfile.ObjectInfo{Oid: lfsPointer1, Type: "blob", Size: 133}},
+				{err: errors.New("retrieving object info for \"invalidobjectid\": object not found")},
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			catfileCache := catfile.NewCache(cfg)
+			defer catfileCache.Stop()
+
+			catfileProcess, err := catfileCache.BatchProcess(ctx, repo)
+			require.NoError(t, err)
+
+			revlistResultChan := make(chan revlistResult, len(tc.revlistInputs))
+			for _, input := range tc.revlistInputs {
+				revlistResultChan <- input
+			}
+			close(revlistResultChan)
+
+			resultChan := catfileInfo(ctx, catfileProcess, revlistResultChan)
+
+			var results []catfileInfoResult
 			for result := range resultChan {
 				// We're converting the error here to a plain un-nested error such
 				// that we don't have to replicate the complete error's structure.
