@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -697,10 +698,11 @@ func TestConflictsOnUserMergeToRefRequest(t *testing.T) {
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	t.Run("allow conflicts to be merged with markers when modified on both sides", func(t *testing.T) {
-		request := buildUserMergeToRefRequest(t, cfg, repo, repoPath, "1450cd639e0bc6721eb02800169e464f212cde06", "824be604a34828eb682305f0d963056cfac87b2d", "modified-both-sides-conflict")
+		request := buildUserMergeToRefRequest(t, cfg, repoProto, repoPath, "1450cd639e0bc6721eb02800169e464f212cde06", "824be604a34828eb682305f0d963056cfac87b2d", "modified-both-sides-conflict")
 		request.AllowConflicts = true
 
 		resp, err := client.UserMergeToRef(ctx, request)
@@ -713,7 +715,7 @@ func TestConflictsOnUserMergeToRefRequest(t *testing.T) {
 	})
 
 	t.Run("allow conflicts to be merged with markers when modified on source and removed on target", func(t *testing.T) {
-		request := buildUserMergeToRefRequest(t, cfg, repo, repoPath, "eb227b3e214624708c474bdab7bde7afc17cefcc", "92417abf83b75e67b8ace920bc8e83e1986da4ac", "modified-source-removed-target-conflict")
+		request := buildUserMergeToRefRequest(t, cfg, repoProto, repoPath, "eb227b3e214624708c474bdab7bde7afc17cefcc", "92417abf83b75e67b8ace920bc8e83e1986da4ac", "modified-source-removed-target-conflict")
 		request.AllowConflicts = true
 
 		resp, err := client.UserMergeToRef(ctx, request)
@@ -726,7 +728,7 @@ func TestConflictsOnUserMergeToRefRequest(t *testing.T) {
 	})
 
 	t.Run("allow conflicts to be merged with markers when removed on source and modified on target", func(t *testing.T) {
-		request := buildUserMergeToRefRequest(t, cfg, repo, repoPath, "92417abf83b75e67b8ace920bc8e83e1986da4ac", "eb227b3e214624708c474bdab7bde7afc17cefcc", "removed-source-modified-target-conflict")
+		request := buildUserMergeToRefRequest(t, cfg, repoProto, repoPath, "92417abf83b75e67b8ace920bc8e83e1986da4ac", "eb227b3e214624708c474bdab7bde7afc17cefcc", "removed-source-modified-target-conflict")
 		request.AllowConflicts = true
 
 		resp, err := client.UserMergeToRef(ctx, request)
@@ -739,7 +741,7 @@ func TestConflictsOnUserMergeToRefRequest(t *testing.T) {
 	})
 
 	t.Run("allow conflicts to be merged with markers when both source and target added the same file", func(t *testing.T) {
-		request := buildUserMergeToRefRequest(t, cfg, repo, repoPath, "f0f390655872bb2772c85a0128b2fbc2d88670cb", "5b4bb08538b9249995b94aa69121365ba9d28082", "source-target-added-same-file-conflict")
+		request := buildUserMergeToRefRequest(t, cfg, repoProto, repoPath, "f0f390655872bb2772c85a0128b2fbc2d88670cb", "5b4bb08538b9249995b94aa69121365ba9d28082", "source-target-added-same-file-conflict")
 		request.AllowConflicts = true
 
 		resp, err := client.UserMergeToRef(ctx, request)
@@ -757,7 +759,7 @@ func TestConflictsOnUserMergeToRefRequest(t *testing.T) {
 	// to show the `Their` side when we present the merge commit on the merge
 	// request diff.
 	t.Run("allow conflicts to be merged without markers when renamed on source and removed on target", func(t *testing.T) {
-		request := buildUserMergeToRefRequest(t, cfg, repo, repoPath, "aafecf84d791ec43dfa16e55eb0a0fbd9c72d3fb", "3ac7abfb7621914e596d5bf369be8234b9086052", "renamed-source-removed-target")
+		request := buildUserMergeToRefRequest(t, cfg, repoProto, repoPath, "aafecf84d791ec43dfa16e55eb0a0fbd9c72d3fb", "3ac7abfb7621914e596d5bf369be8234b9086052", "renamed-source-removed-target")
 		request.AllowConflicts = true
 
 		resp, err := client.UserMergeToRef(ctx, request)
@@ -769,7 +771,7 @@ func TestConflictsOnUserMergeToRefRequest(t *testing.T) {
 	})
 
 	t.Run("allow conflicts to be merged without markers when removed on source and renamed on target", func(t *testing.T) {
-		request := buildUserMergeToRefRequest(t, cfg, repo, repoPath, "3ac7abfb7621914e596d5bf369be8234b9086052", "aafecf84d791ec43dfa16e55eb0a0fbd9c72d3fb", "removed-source-renamed-target")
+		request := buildUserMergeToRefRequest(t, cfg, repoProto, repoPath, "3ac7abfb7621914e596d5bf369be8234b9086052", "aafecf84d791ec43dfa16e55eb0a0fbd9c72d3fb", "removed-source-renamed-target")
 		request.AllowConflicts = true
 
 		resp, err := client.UserMergeToRef(ctx, request)
@@ -781,7 +783,7 @@ func TestConflictsOnUserMergeToRefRequest(t *testing.T) {
 	})
 
 	t.Run("allow conflicts to be merged without markers when both source and target renamed the same file", func(t *testing.T) {
-		request := buildUserMergeToRefRequest(t, cfg, repo, repoPath, "aafecf84d791ec43dfa16e55eb0a0fbd9c72d3fb", "fe6d6ff5812e7fb292168851dc0edfc6a0171909", "source-target-renamed-same-file")
+		request := buildUserMergeToRefRequest(t, cfg, repoProto, repoPath, "aafecf84d791ec43dfa16e55eb0a0fbd9c72d3fb", "fe6d6ff5812e7fb292168851dc0edfc6a0171909", "source-target-renamed-same-file")
 		request.AllowConflicts = true
 
 		resp, err := client.UserMergeToRef(ctx, request)
@@ -793,11 +795,48 @@ func TestConflictsOnUserMergeToRefRequest(t *testing.T) {
 	})
 
 	t.Run("disallow conflicts to be merged", func(t *testing.T) {
-		request := buildUserMergeToRefRequest(t, cfg, repo, repoPath, "1450cd639e0bc6721eb02800169e464f212cde06", "824be604a34828eb682305f0d963056cfac87b2d", "disallowed-conflicts")
+		request := buildUserMergeToRefRequest(t, cfg, repoProto, repoPath, "1450cd639e0bc6721eb02800169e464f212cde06", "824be604a34828eb682305f0d963056cfac87b2d", "disallowed-conflicts")
 		request.AllowConflicts = false
 
 		_, err := client.UserMergeToRef(ctx, request)
 		require.Equal(t, status.Error(codes.FailedPrecondition, "Failed to create merge commit for source_sha 1450cd639e0bc6721eb02800169e464f212cde06 and target_sha 824be604a34828eb682305f0d963056cfac87b2d at refs/merge-requests/x/written"), err)
+	})
+
+	targetRef := git.Revision("refs/merge-requests/foo")
+
+	t.Run("failing merge does not update target reference if skipping precursor update-ref", func(t *testing.T) {
+		ctx := featureflag.OutgoingCtxWithFeatureFlags(ctx, featureflag.UserMergeToRefSkipPrecursorRefUpdate)
+
+		request := buildUserMergeToRefRequest(t, cfg, repoProto, repoPath, "1450cd639e0bc6721eb02800169e464f212cde06", "824be604a34828eb682305f0d963056cfac87b2d", t.Name())
+		request.TargetRef = []byte(targetRef)
+
+		_, err := client.UserMergeToRef(ctx, request)
+		testhelper.RequireGrpcError(t, err, codes.FailedPrecondition)
+
+		hasRevision, err := repo.HasRevision(ctx, targetRef)
+		require.NoError(t, err)
+		require.False(t, hasRevision, "branch should not have been created")
+	})
+
+	t.Run("failing merge does update target reference if not skipping precursor update-ref", func(t *testing.T) {
+		ctx := featureflag.OutgoingCtxWithDisabledFeatureFlags(ctx, featureflag.UserMergeToRefSkipPrecursorRefUpdate)
+
+		request := buildUserMergeToRefRequest(t, cfg, repoProto, repoPath,
+			"1450cd639e0bc6721eb02800169e464f212cde06", "824be604a34828eb682305f0d963056cfac87b2d", t.Name())
+		request.TargetRef = []byte(targetRef)
+
+		_, err := client.UserMergeToRef(ctx, request)
+		testhelper.RequireGrpcError(t, err, codes.FailedPrecondition)
+
+		firstParentRevision, err := repo.ResolveRevision(ctx, git.Revision(request.FirstParentRef))
+		require.NoError(t, err)
+
+		// The previous implementation of UserMergeToRef would've written the first parent
+		// ref into the target reference before computing the merge. As a result, it exists
+		// even if the merge itself failed.
+		targetRevision, err := repo.ResolveRevision(ctx, targetRef)
+		require.NoError(t, err)
+		require.Equal(t, firstParentRevision, targetRevision)
 	})
 }
 
