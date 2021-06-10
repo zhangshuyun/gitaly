@@ -29,8 +29,7 @@ const (
 )
 
 var (
-	errInvalidRevision = errors.New("invalid revision")
-	errLimitReached    = errors.New("limit reached")
+	errLimitReached = errors.New("limit reached")
 )
 
 // ListLFSPointers finds all LFS pointers which are transitively reachable via a graph walk of the
@@ -44,6 +43,11 @@ func (s *server) ListLFSPointers(in *gitalypb.ListLFSPointersRequest, stream git
 	if len(in.Revisions) == 0 {
 		return status.Error(codes.InvalidArgument, "missing revisions")
 	}
+	for _, revision := range in.Revisions {
+		if strings.HasPrefix(revision, "-") && revision != "--all" && revision != "--not" {
+			return status.Errorf(codes.InvalidArgument, "invalid revision: %q", revision)
+		}
+	}
 
 	chunker := chunk.New(&lfsPointerSender{
 		send: func(pointers []*gitalypb.LFSPointer) error {
@@ -55,9 +59,6 @@ func (s *server) ListLFSPointers(in *gitalypb.ListLFSPointersRequest, stream git
 
 	repo := s.localrepo(in.GetRepository())
 	if err := findLFSPointersByRevisions(ctx, repo, s.gitCmdFactory, chunker, int(in.Limit), in.Revisions...); err != nil {
-		if errors.Is(err, errInvalidRevision) {
-			return status.Errorf(codes.InvalidArgument, err.Error())
-		}
 		if !errors.Is(err, errLimitReached) {
 			return err
 		}
@@ -162,12 +163,6 @@ func findLFSPointersByRevisions(
 	limit int,
 	revisions ...string,
 ) (returnErr error) {
-	for _, revision := range revisions {
-		if strings.HasPrefix(revision, "-") && revision != "--all" && revision != "--not" {
-			return fmt.Errorf("%w: %q", errInvalidRevision, revision)
-		}
-	}
-
 	// git-rev-list(1) currently does not have any way to list all reachable objects of a
 	// certain type.
 	var revListStderr bytes.Buffer

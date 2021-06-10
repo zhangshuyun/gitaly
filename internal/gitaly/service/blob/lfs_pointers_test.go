@@ -459,11 +459,6 @@ func TestFindLFSPointersByRevisions(t *testing.T) {
 			},
 		},
 		{
-			desc:        "invalid dashed option",
-			revs:        []string{"master", "--foobar"},
-			expectedErr: fmt.Errorf("invalid revision: \"--foobar\""),
-		},
-		{
 			desc:        "invalid revision",
 			revs:        []string{"does-not-exist"},
 			expectedErr: fmt.Errorf("fatal: ambiguous argument 'does-not-exist'"),
