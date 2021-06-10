@@ -168,6 +168,91 @@ func TestRevlist(t *testing.T) {
 	}
 }
 
+func TestRevlistFilter(t *testing.T) {
+	for _, tc := range []struct {
+		desc            string
+		input           []revlistResult
+		filter          func(revlistResult) bool
+		expectedResults []revlistResult
+	}{
+		{
+			desc: "all accepted",
+			input: []revlistResult{
+				{oid: "a"},
+				{oid: "b"},
+				{oid: "c"},
+			},
+			filter: func(revlistResult) bool {
+				return true
+			},
+			expectedResults: []revlistResult{
+				{oid: "a"},
+				{oid: "b"},
+				{oid: "c"},
+			},
+		},
+		{
+			desc: "all filtered",
+			input: []revlistResult{
+				{oid: "a"},
+				{oid: "b"},
+				{oid: "c"},
+			},
+			filter: func(revlistResult) bool {
+				return false
+			},
+			expectedResults: nil,
+		},
+		{
+			desc: "errors always get through",
+			input: []revlistResult{
+				{oid: "a"},
+				{oid: "b"},
+				{err: errors.New("foobar")},
+				{oid: "c"},
+			},
+			filter: func(revlistResult) bool {
+				return false
+			},
+			expectedResults: []revlistResult{
+				{err: errors.New("foobar")},
+			},
+		},
+		{
+			desc: "subset filtered",
+			input: []revlistResult{
+				{oid: "a"},
+				{oid: "b"},
+				{oid: "c"},
+			},
+			filter: func(r revlistResult) bool {
+				return r.oid == "b"
+			},
+			expectedResults: []revlistResult{
+				{oid: "b"},
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			inputChan := make(chan revlistResult, len(tc.input))
+			for _, input := range tc.input {
+				inputChan <- input
+			}
+			close(inputChan)
+
+			var results []revlistResult
+			for result := range revlistFilter(ctx, inputChan, tc.filter) {
+				results = append(results, result)
+			}
+
+			require.Equal(t, tc.expectedResults, results)
+		})
+	}
+}
+
 func TestCatfileInfo(t *testing.T) {
 	cfg := testcfg.Build(t)
 
@@ -263,6 +348,90 @@ func TestCatfileInfo(t *testing.T) {
 					result.err = errors.New(result.err.Error())
 				}
 
+				results = append(results, result)
+			}
+
+			require.Equal(t, tc.expectedResults, results)
+		})
+	}
+}
+
+func TestCatfileInfoFilter(t *testing.T) {
+	for _, tc := range []struct {
+		desc            string
+		input           []catfileInfoResult
+		filter          func(catfileInfoResult) bool
+		expectedResults []catfileInfoResult
+	}{
+		{
+			desc: "all accepted",
+			input: []catfileInfoResult{
+				{objectName: []byte{'a'}},
+				{objectName: []byte{'b'}},
+				{objectName: []byte{'c'}},
+			},
+			filter: func(catfileInfoResult) bool {
+				return true
+			},
+			expectedResults: []catfileInfoResult{
+				{objectName: []byte{'a'}},
+				{objectName: []byte{'b'}},
+				{objectName: []byte{'c'}},
+			},
+		},
+		{
+			desc: "all filtered",
+			input: []catfileInfoResult{
+				{objectName: []byte{'a'}},
+				{objectName: []byte{'b'}},
+				{objectName: []byte{'c'}},
+			},
+			filter: func(catfileInfoResult) bool {
+				return false
+			},
+		},
+		{
+			desc: "errors always get through",
+			input: []catfileInfoResult{
+				{objectName: []byte{'a'}},
+				{objectName: []byte{'b'}},
+				{err: errors.New("foobar")},
+				{objectName: []byte{'c'}},
+			},
+			filter: func(catfileInfoResult) bool {
+				return false
+			},
+			expectedResults: []catfileInfoResult{
+				{err: errors.New("foobar")},
+			},
+		},
+		{
+			desc: "subset filtered",
+			input: []catfileInfoResult{
+				{objectName: []byte{'a'}},
+				{objectName: []byte{'b'}},
+				{objectName: []byte{'c'}},
+			},
+			filter: func(r catfileInfoResult) bool {
+				return r.objectName[0] == 'b'
+			},
+			expectedResults: []catfileInfoResult{
+				{objectName: []byte{'b'}},
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			inputChan := make(chan catfileInfoResult, len(tc.input))
+			for _, input := range tc.input {
+				inputChan <- input
+			}
+			close(inputChan)
+
+			var results []catfileInfoResult
+			for result := range catfileInfoFilter(ctx, inputChan, tc.filter) {
 				results = append(results, result)
 			}
 
@@ -383,6 +552,90 @@ func TestCatfileObject(t *testing.T) {
 					result.objectData = nil
 				}
 
+				results = append(results, result)
+			}
+
+			require.Equal(t, tc.expectedResults, results)
+		})
+	}
+}
+
+func TestCatfileObjectFilter(t *testing.T) {
+	for _, tc := range []struct {
+		desc            string
+		input           []catfileObjectResult
+		filter          func(catfileObjectResult) bool
+		expectedResults []catfileObjectResult
+	}{
+		{
+			desc: "all accepted",
+			input: []catfileObjectResult{
+				{objectName: []byte{'a'}},
+				{objectName: []byte{'b'}},
+				{objectName: []byte{'c'}},
+			},
+			filter: func(catfileObjectResult) bool {
+				return true
+			},
+			expectedResults: []catfileObjectResult{
+				{objectName: []byte{'a'}},
+				{objectName: []byte{'b'}},
+				{objectName: []byte{'c'}},
+			},
+		},
+		{
+			desc: "all filtered",
+			input: []catfileObjectResult{
+				{objectName: []byte{'a'}},
+				{objectName: []byte{'b'}},
+				{objectName: []byte{'c'}},
+			},
+			filter: func(catfileObjectResult) bool {
+				return false
+			},
+		},
+		{
+			desc: "errors always get through",
+			input: []catfileObjectResult{
+				{objectName: []byte{'a'}},
+				{objectName: []byte{'b'}},
+				{err: errors.New("foobar")},
+				{objectName: []byte{'c'}},
+			},
+			filter: func(catfileObjectResult) bool {
+				return false
+			},
+			expectedResults: []catfileObjectResult{
+				{err: errors.New("foobar")},
+			},
+		},
+		{
+			desc: "subset filtered",
+			input: []catfileObjectResult{
+				{objectName: []byte{'a'}},
+				{objectName: []byte{'b'}},
+				{objectName: []byte{'c'}},
+			},
+			filter: func(r catfileObjectResult) bool {
+				return r.objectName[0] == 'b'
+			},
+			expectedResults: []catfileObjectResult{
+				{objectName: []byte{'b'}},
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			inputChan := make(chan catfileObjectResult, len(tc.input))
+			for _, input := range tc.input {
+				inputChan <- input
+			}
+			close(inputChan)
+
+			var results []catfileObjectResult
+			for result := range catfileObjectFilter(ctx, inputChan, tc.filter) {
 				results = append(results, result)
 			}
 

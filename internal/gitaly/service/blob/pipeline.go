@@ -129,6 +129,27 @@ func revlist(
 	return resultChan
 }
 
+// revlistFilter filters the revlistResults from the provided channel with the filter function: if
+// the filter returns `false` for a given item, then it will be dropped from the pipeline. Errors
+// cannot be filtered and will always be passed through.
+func revlistFilter(ctx context.Context, c <-chan revlistResult, filter func(revlistResult) bool) <-chan revlistResult {
+	resultChan := make(chan revlistResult)
+	go func() {
+		defer close(resultChan)
+
+		for result := range c {
+			if result.err != nil || filter(result) {
+				select {
+				case resultChan <- result:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}
+	}()
+	return resultChan
+}
+
 // catfileInfoResult is a result for the catfileInfo pipeline step.
 type catfileInfoResult struct {
 	// err is an error which occurred during execution of the pipeline.
@@ -182,6 +203,27 @@ func catfileInfo(ctx context.Context, catfile catfile.Batch, revlistResultChan <
 		}
 	}()
 
+	return resultChan
+}
+
+// catfileInfoFilter filters the catfileInfoResults from the provided channel with the filter
+// function: if the filter returns `false` for a given item, then it will be dropped from the
+// pipeline. Errors cannot be filtered and will always be passed through.
+func catfileInfoFilter(ctx context.Context, c <-chan catfileInfoResult, filter func(catfileInfoResult) bool) <-chan catfileInfoResult {
+	resultChan := make(chan catfileInfoResult)
+	go func() {
+		defer close(resultChan)
+
+		for result := range c {
+			if result.err != nil || filter(result) {
+				select {
+				case resultChan <- result:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}
+	}()
 	return resultChan
 }
 
@@ -276,5 +318,26 @@ func catfileObject(
 		}
 	}()
 
+	return resultChan
+}
+
+// catfileObjectFilter filters the catfileObjectResults from the provided channel with the filter
+// function: if the filter returns `false` for a given item, then it will be dropped from the
+// pipeline. Errors cannot be filtered and will always be passed through.
+func catfileObjectFilter(ctx context.Context, c <-chan catfileObjectResult, filter func(catfileObjectResult) bool) <-chan catfileObjectResult {
+	resultChan := make(chan catfileObjectResult)
+	go func() {
+		defer close(resultChan)
+
+		for result := range c {
+			if result.err != nil || filter(result) {
+				select {
+				case resultChan <- result:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}
+	}()
 	return resultChan
 }
