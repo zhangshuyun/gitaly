@@ -1,6 +1,8 @@
 package blob
 
 import (
+	"bytes"
+	"context"
 	"errors"
 	"testing"
 
@@ -642,4 +644,257 @@ func TestCatfileObjectFilter(t *testing.T) {
 			require.Equal(t, tc.expectedResults, results)
 		})
 	}
+}
+
+func TestPipeline(t *testing.T) {
+	cfg := testcfg.Build(t)
+
+	repoProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
+	defer cleanup()
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	for _, tc := range []struct {
+		desc                string
+		revisions           []string
+		revlistFilter       func(revlistResult) bool
+		catfileInfoFilter   func(catfileInfoResult) bool
+		catfileObjectFilter func(catfileObjectResult) bool
+		expectedResults     []catfileObjectResult
+	}{
+		{
+			desc: "single blob",
+			revisions: []string{
+				lfsPointer1,
+			},
+			expectedResults: []catfileObjectResult{
+				{objectInfo: &catfile.ObjectInfo{Oid: lfsPointer1, Type: "blob", Size: 133}},
+			},
+		},
+		{
+			desc: "multiple blobs",
+			revisions: []string{
+				lfsPointer1,
+				lfsPointer2,
+				lfsPointer3,
+			},
+			expectedResults: []catfileObjectResult{
+				{objectInfo: &catfile.ObjectInfo{Oid: lfsPointer1, Type: "blob", Size: 133}},
+				{objectInfo: &catfile.ObjectInfo{Oid: lfsPointer2, Type: "blob", Size: 127}},
+				{objectInfo: &catfile.ObjectInfo{Oid: lfsPointer3, Type: "blob", Size: 127}},
+			},
+		},
+		{
+			desc: "multiple blobs with filter",
+			revisions: []string{
+				lfsPointer1,
+				lfsPointer2,
+				lfsPointer3,
+			},
+			revlistFilter: func(r revlistResult) bool {
+				return r.oid == lfsPointer2
+			},
+			expectedResults: []catfileObjectResult{
+				{objectInfo: &catfile.ObjectInfo{Oid: lfsPointer2, Type: "blob", Size: 127}},
+			},
+		},
+		{
+			desc: "tree",
+			revisions: []string{
+				"b95c0fad32f4361845f91d9ce4c1721b52b82793",
+			},
+			expectedResults: []catfileObjectResult{
+				{objectInfo: &catfile.ObjectInfo{Oid: "b95c0fad32f4361845f91d9ce4c1721b52b82793", Type: "tree", Size: 43}},
+				{objectInfo: &catfile.ObjectInfo{Oid: "93e123ac8a3e6a0b600953d7598af629dec7b735", Type: "blob", Size: 59}, objectName: []byte("branch-test.txt")},
+			},
+		},
+		{
+			desc: "tree with blob filter",
+			revisions: []string{
+				"b95c0fad32f4361845f91d9ce4c1721b52b82793",
+			},
+			catfileInfoFilter: func(r catfileInfoResult) bool {
+				return r.objectInfo.Type == "blob"
+			},
+			expectedResults: []catfileObjectResult{
+				{objectInfo: &catfile.ObjectInfo{Oid: "93e123ac8a3e6a0b600953d7598af629dec7b735", Type: "blob", Size: 59}, objectName: []byte("branch-test.txt")},
+			},
+		},
+		{
+			desc: "revision range",
+			revisions: []string{
+				"^master~",
+				"master",
+			},
+			expectedResults: []catfileObjectResult{
+				{objectInfo: &catfile.ObjectInfo{Oid: "1e292f8fedd741b75372e19097c76d327140c312", Type: "commit", Size: 388}},
+				{objectInfo: &catfile.ObjectInfo{Oid: "07f8147e8e73aab6c935c296e8cdc5194dee729b", Type: "tree", Size: 780}},
+				{objectInfo: &catfile.ObjectInfo{Oid: "ceb102b8d3f9a95c2eb979213e49f7cc1b23d56e", Type: "tree", Size: 258}, objectName: []byte("files")},
+				{objectInfo: &catfile.ObjectInfo{Oid: "2132d150328bd9334cc4e62a16a5d998a7e399b9", Type: "tree", Size: 31}, objectName: []byte("files/flat")},
+				{objectInfo: &catfile.ObjectInfo{Oid: "f3942dc8b824a2c9359e518d48e68f84461bd2f7", Type: "tree", Size: 34}, objectName: []byte("files/flat/path")},
+				{objectInfo: &catfile.ObjectInfo{Oid: "ea7249055466085d0a6c69951908ef47757e92f4", Type: "tree", Size: 39}, objectName: []byte("files/flat/path/correct")},
+				{objectInfo: &catfile.ObjectInfo{Oid: "c1c67abbaf91f624347bb3ae96eabe3a1b742478", Type: "commit", Size: 326}},
+			},
+		},
+		{
+			desc: "revision with blob contents filter",
+			revisions: []string{
+				"master",
+			},
+			catfileObjectFilter: func(r catfileObjectResult) bool {
+				return bytes.HasPrefix(r.objectData, []byte("/custom-highlighting/"))
+			},
+			expectedResults: []catfileObjectResult{
+				{objectInfo: &catfile.ObjectInfo{Oid: "b680596c9f3a3c834b933aef14f94a0ab9fa604a", Type: "blob", Size: 100}, objectName: []byte(".gitattributes")},
+				{objectInfo: &catfile.ObjectInfo{Oid: "36814a3da051159a1683479e7a1487120309db8f", Type: "blob", Size: 58}, objectName: []byte(".gitattributes")},
+			},
+		},
+		{
+			desc: "--all with all filters",
+			revisions: []string{
+				"--all",
+			},
+			revlistFilter: func(r revlistResult) bool {
+				// Let through two LFS pointers and a tree.
+				return r.oid == "b95c0fad32f4361845f91d9ce4c1721b52b82793" ||
+					r.oid == lfsPointer1 || r.oid == lfsPointer2
+			},
+			catfileInfoFilter: func(r catfileInfoResult) bool {
+				// Only let through blobs, so only the two LFS pointers remain.
+				return r.objectInfo.Type == "blob"
+			},
+			catfileObjectFilter: func(r catfileObjectResult) bool {
+				// This brings it down to a single LFS pointer.
+				return len(r.objectData) == 133
+			},
+			expectedResults: []catfileObjectResult{
+				{objectInfo: &catfile.ObjectInfo{Oid: lfsPointer1, Type: "blob", Size: 133}, objectName: []byte("files/lfs/lfs_object.iso")},
+			},
+		},
+		{
+			desc: "invalid revision",
+			revisions: []string{
+				"doesnotexist",
+			},
+			expectedResults: []catfileObjectResult{
+				{err: errors.New("rev-list pipeline command: exit status 128")},
+			},
+		},
+		{
+			desc: "mixed valid and invalid revision",
+			revisions: []string{
+				lfsPointer1,
+				"doesnotexist",
+				lfsPointer2,
+			},
+			expectedResults: []catfileObjectResult{
+				{err: errors.New("rev-list pipeline command: exit status 128")},
+			},
+		},
+		{
+			desc: "invalid revision with all filters",
+			revisions: []string{
+				"doesnotexist",
+			},
+			revlistFilter: func(r revlistResult) bool {
+				require.Fail(t, "filter should not be invoked on errors")
+				return true
+			},
+			catfileInfoFilter: func(r catfileInfoResult) bool {
+				require.Fail(t, "filter should not be invoked on errors")
+				return true
+			},
+			catfileObjectFilter: func(r catfileObjectResult) bool {
+				require.Fail(t, "filter should not be invoked on errors")
+				return true
+			},
+			expectedResults: []catfileObjectResult{
+				{err: errors.New("rev-list pipeline command: exit status 128")},
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			catfileCache := catfile.NewCache(cfg)
+			defer catfileCache.Stop()
+
+			catfileProcess, err := catfileCache.BatchProcess(ctx, repo)
+			require.NoError(t, err)
+
+			revlistChan := revlist(ctx, repo, tc.revisions)
+			if tc.revlistFilter != nil {
+				revlistChan = revlistFilter(ctx, revlistChan, tc.revlistFilter)
+			}
+
+			catfileInfoChan := catfileInfo(ctx, catfileProcess, revlistChan)
+			if tc.catfileInfoFilter != nil {
+				catfileInfoChan = catfileInfoFilter(ctx, catfileInfoChan, tc.catfileInfoFilter)
+			}
+
+			catfileObjectChan := catfileObject(ctx, catfileProcess, catfileInfoChan)
+			if tc.catfileObjectFilter != nil {
+				catfileObjectChan = catfileObjectFilter(ctx, catfileObjectChan, tc.catfileObjectFilter)
+			}
+
+			var results []catfileObjectResult
+			for result := range catfileObjectChan {
+				// We're converting the error here to a plain un-nested error such
+				// that we don't have to replicate the complete error's structure.
+				if result.err != nil {
+					result.err = errors.New(result.err.Error())
+				}
+
+				if result.err == nil {
+					// While we could also assert object data, let's not do this: it
+					// would just be too annoying.
+					require.NotNil(t, result.objectData)
+					require.Len(t, result.objectData, int(result.objectInfo.Size))
+					result.objectData = nil
+				}
+
+				results = append(results, result)
+			}
+
+			require.Equal(t, tc.expectedResults, results)
+		})
+	}
+
+	t.Run("context cancellation", func(t *testing.T) {
+		ctx, cancel := testhelper.Context()
+		defer cancel()
+
+		catfileCache := catfile.NewCache(cfg)
+		defer catfileCache.Stop()
+
+		catfileProcess, err := catfileCache.BatchProcess(ctx, repo)
+		require.NoError(t, err)
+
+		// We need to create a separate child context because otherwise we'd kill the batch
+		// process.
+		childCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+
+		revlistChan := revlist(childCtx, repo, []string{"--all"})
+		revlistChan = revlistFilter(childCtx, revlistChan, func(revlistResult) bool { return true })
+		catfileInfoChan := catfileInfo(childCtx, catfileProcess, revlistChan)
+		catfileInfoChan = catfileInfoFilter(childCtx, catfileInfoChan, func(catfileInfoResult) bool { return true })
+		catfileObjectChan := catfileObject(childCtx, catfileProcess, catfileInfoChan)
+		catfileObjectChan = catfileObjectFilter(childCtx, catfileObjectChan, func(catfileObjectResult) bool { return true })
+
+		i := 0
+		for result := range catfileObjectChan {
+			require.NoError(t, result.err)
+			i++
+
+			if i == 3 {
+				cancel()
+			}
+		}
+
+		// Context cancellation is timing sensitive: at the point of cancelling the context,
+		// the last pipeline step may already have queued up an additional result. We thus
+		// cannot assert the exact number of requests, but we know that it's bounded.
+		require.LessOrEqual(t, i, 4)
+	})
 }
