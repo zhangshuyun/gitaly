@@ -41,7 +41,7 @@ index 0000000000000000000000000000000000000000..3be11c69355948412925fa5e073d76d5
 		MaxPatchBytes: 100000,
 		CollapseDiffs: true,
 	}
-	diffs := getDiffs(rawDiff, limits)
+	diffs := getDiffs(t, rawDiff, limits)
 
 	expectedDiffs := []*Diff{
 		&Diff{
@@ -100,7 +100,7 @@ index 000000000..3a62d28e3
 		MaxPatchBytes: 100000,
 		CollapseDiffs: false,
 	}
-	diffs := getDiffs(rawDiff, limits)
+	diffs := getDiffs(t, rawDiff, limits)
 
 	expectedDiffs := []*Diff{
 		&Diff{
@@ -113,7 +113,7 @@ index 000000000..3a62d28e3
 			Status:    'A',
 			Collapsed: false,
 			Patch:     []byte("@@ -0,0 +1,3 @@\n+A\n~\n+B\n+C\n~\n"),
-			lineCount: 4,
+			lineCount: 5,
 		},
 	}
 
@@ -152,7 +152,7 @@ index 0000000000000000000000000000000000000000..3be11c69355948412925fa5e073d76d5
 		CollapseDiffs: false,
 	}
 
-	diffs := getDiffs(rawDiff, limits)
+	diffs := getDiffs(t, rawDiff, limits)
 
 	expectedDiffs := []*Diff{
 		&Diff{
@@ -215,7 +215,7 @@ index 0000000000000000000000000000000000000000..3be11c69355948412925fa5e073d76d5
 		CollapseDiffs: false,
 	}
 
-	diffs := getDiffs(rawDiff, limits)
+	diffs := getDiffs(t, rawDiff, limits)
 
 	expectedDiffs := []*Diff{
 		&Diff{
@@ -278,7 +278,7 @@ index 0000000000000000000000000000000000000000..b6507e5b5ce18077e3ec8aaa2291404e
 		MaxPatchBytes: 100000,
 		CollapseDiffs: true,
 	}
-	diffs := getDiffs(rawDiff, limits)
+	diffs := getDiffs(t, rawDiff, limits)
 
 	expectedDiffs := []*Diff{
 		&Diff{
@@ -336,7 +336,7 @@ index 0000000000000000000000000000000000000000..c3ae147b03a2d1fd89b25198b3fc5302
 	limits := Limits{
 		MaxPatchBytes: 1000 * 1000,
 	}
-	diffs := getDiffs(header+patch, limits)
+	diffs := getDiffs(t, header+patch, limits)
 
 	expectedDiffs := []*Diff{
 		&Diff{
@@ -377,7 +377,9 @@ func TestDiffLimitsBeingEnforcedByUpperBound(t *testing.T) {
 	require.Equal(t, diffParser.limits.MaxPatchBytes, 0)
 }
 
-func getDiffs(rawDiff string, limits Limits) []*Diff {
+func getDiffs(t testing.TB, rawDiff string, limits Limits) []*Diff {
+	t.Helper()
+
 	diffParser := NewDiffParser(strings.NewReader(rawDiff), limits)
 
 	diffs := []*Diff{}
@@ -390,6 +392,7 @@ func getDiffs(rawDiff string, limits Limits) []*Diff {
 
 		diffs = append(diffs, &d)
 	}
+	require.NoError(t, diffParser.Err())
 
 	return diffs
 }
