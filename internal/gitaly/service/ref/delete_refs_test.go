@@ -110,8 +110,6 @@ func TestDeleteRefs_transaction(t *testing.T) {
 
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
-	ctx, err = (&txinfo.PraefectServer{SocketPath: "i-dont-care"}).Inject(ctx)
-	require.NoError(t, err)
 	ctx = helper.IncomingToOutgoing(ctx)
 
 	for _, tc := range []struct {

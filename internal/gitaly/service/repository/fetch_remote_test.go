@@ -238,8 +238,6 @@ func TestFetchRemote_transaction(t *testing.T) {
 	defer cancel()
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
-	ctx, err = (&txinfo.PraefectServer{SocketPath: "i-dont-care"}).Inject(ctx)
-	require.NoError(t, err)
 	ctx = helper.IncomingToOutgoing(ctx)
 
 	require.Equal(t, 0, txManager.votes)

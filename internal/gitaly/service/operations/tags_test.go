@@ -303,11 +303,6 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 		),
 	)
 
-	praefectServer := &txinfo.PraefectServer{
-		SocketPath: "unix://" + cfg.GitalyInternalSocketPath(),
-		Token:      cfg.Auth.Token,
-	}
-
 	for i, testCase := range []struct {
 		desc    string
 		primary bool
@@ -356,8 +351,6 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 			// order to preserve the feature flag.
 			ctx = helper.OutgoingToIncoming(ctx)
 			ctx, err = txinfo.InjectTransaction(ctx, 1, "node", testCase.primary)
-			require.NoError(t, err)
-			ctx, err = praefectServer.Inject(ctx)
 			require.NoError(t, err)
 			ctx = helper.IncomingToOutgoing(ctx)
 

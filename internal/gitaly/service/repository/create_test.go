@@ -135,9 +135,7 @@ func TestCreateRepositoryTransactional(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	ctx, err := (&txinfo.PraefectServer{SocketPath: "something"}).Inject(ctx)
-	require.NoError(t, err)
-	ctx, err = txinfo.InjectTransaction(ctx, 1, "node", true)
+	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
 	ctx = helper.IncomingToOutgoing(ctx)
 

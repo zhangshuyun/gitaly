@@ -115,11 +115,6 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 		}),
 	)
 
-	praefect := txinfo.PraefectServer{
-		SocketPath: "unix://" + cfg.GitalyInternalSocketPath(),
-		Token:      cfg.Auth.Token,
-	}
-
 	for _, tc := range []struct {
 		desc        string
 		revision    []byte
@@ -180,8 +175,6 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 			require.NoError(t, os.RemoveAll(infoPath))
 
 			ctx, err := txinfo.InjectTransaction(ctx, 1, "primary", true)
-			require.NoError(t, err)
-			ctx, err = praefect.Inject(ctx)
 			require.NoError(t, err)
 			ctx = helper.IncomingToOutgoing(ctx)
 

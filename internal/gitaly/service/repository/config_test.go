@@ -149,9 +149,7 @@ func TestDeleteConfigTransactional(t *testing.T) {
 
 		cfg, repo, repoPath, client := setupRepositoryService(t, testserver.WithTransactionManager(&txManager))
 
-		ctx, err := (&txinfo.PraefectServer{SocketPath: "i-dont-care"}).Inject(ctx)
-		require.NoError(t, err)
-		ctx, err = txinfo.InjectTransaction(ctx, 1, "node", true)
+		ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 		require.NoError(t, err)
 		ctx = helper.IncomingToOutgoing(ctx)
 
@@ -250,9 +248,7 @@ func testSetConfigTransactional(t *testing.T, cfg config.Cfg, rubySrv *rubyserve
 
 		_, repo, repoPath, client := setupRepositoryServiceWithRuby(t, cfg, rubySrv, testserver.WithTransactionManager(&txManager))
 
-		ctx, err := (&txinfo.PraefectServer{SocketPath: "i-dont-care"}).Inject(ctx)
-		require.NoError(t, err)
-		ctx, err = txinfo.InjectTransaction(ctx, 1, "node", true)
+		ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 		require.NoError(t, err)
 		ctx = helper.IncomingToOutgoing(ctx)
 

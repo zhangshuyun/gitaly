@@ -46,13 +46,13 @@ func (s *testTransactionServer) StopTransaction(ctx context.Context, in *gitalyp
 func TestPoolManager_Vote(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	transactionServer, praefect := runTransactionServer(t, cfg)
+	transactionServer, transactionServerAddr := runTransactionServer(t, cfg)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	registry := backchannel.NewRegistry()
-	backchannelConn, err := client.Dial(ctx, praefect.ListenAddr, nil, nil)
+	backchannelConn, err := client.Dial(ctx, transactionServerAddr, nil, nil)
 	require.NoError(t, err)
 	defer backchannelConn.Close()
 
@@ -134,13 +134,13 @@ func TestPoolManager_Vote(t *testing.T) {
 func TestPoolManager_Stop(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	transactionServer, praefect := runTransactionServer(t, cfg)
+	transactionServer, transactionServerAddr := runTransactionServer(t, cfg)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	registry := backchannel.NewRegistry()
-	backchannelConn, err := client.Dial(ctx, praefect.ListenAddr, nil, nil)
+	backchannelConn, err := client.Dial(ctx, transactionServerAddr, nil, nil)
 	require.NoError(t, err)
 	defer backchannelConn.Close()
 
@@ -188,17 +188,11 @@ func TestPoolManager_Stop(t *testing.T) {
 	}
 }
 
-func runTransactionServer(t *testing.T, cfg config.Cfg) (*testTransactionServer, txinfo.PraefectServer) {
+func runTransactionServer(t *testing.T, cfg config.Cfg) (*testTransactionServer, string) {
 	transactionServer := &testTransactionServer{}
 	cfg.ListenAddr = ":0" // pushes gRPC to listen on the TCP address
 	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRefTransactionServer(srv, transactionServer)
 	}, testserver.WithDisablePraefect())
-
-	praefect := txinfo.PraefectServer{
-		ListenAddr: addr,
-		Token:      cfg.Auth.Token,
-	}
-
-	return transactionServer, praefect
+	return transactionServer, addr
 }

@@ -150,11 +150,6 @@ func TestUserRebaseConfirmableTransaction(t *testing.T) {
 				var err error
 				ctx, err = txinfo.InjectTransaction(ctx, 1, "node", tc.primary)
 				require.NoError(t, err)
-				ctx, err = (&txinfo.PraefectServer{
-					SocketPath: "irrelevant",
-				}).Inject(ctx)
-				require.NoError(t, err)
-
 				ctx = helper.IncomingToOutgoing(ctx)
 			}
 

@@ -24,7 +24,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
-	pconfig "gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -594,23 +593,11 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
 	}, testserver.WithDisablePraefect())
 
-	// As we ain't got a Praefect server setup, we instead hooked up the
-	// RefTransaction server for Gitaly itself. As this is the only Praefect
-	// service required in this context, we can just pretend that
-	// Gitaly is the Praefect server and inject it.
-	praefectServer, err := txinfo.PraefectFromConfig(pconfig.Config{
-		SocketPath: addr,
-	})
-	require.NoError(t, err)
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	ctx, err = txinfo.InjectTransaction(ctx, 1234, "primary", true)
+	ctx, err := txinfo.InjectTransaction(ctx, 1234, "primary", true)
 	require.NoError(t, err)
-	ctx, err = praefectServer.Inject(ctx)
-	require.NoError(t, err)
-
 	ctx = helper.IncomingToOutgoing(ctx)
 
 	client := newMuxedSmartHTTPClient(t, ctx, addr, cfg.Auth.Token, func() backchannel.Server {
