@@ -147,8 +147,9 @@ func TestReferenceTransactionHook(t *testing.T) {
 				cfg,
 				repo,
 				&txinfo.Transaction{
-					ID:   1234,
-					Node: "node-1",
+					BackchannelID: backchannelID,
+					ID:            1234,
+					Node:          "node-1",
 				},
 				&txinfo.PraefectServer{BackchannelID: backchannelID},
 				nil,

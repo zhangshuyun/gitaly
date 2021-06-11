@@ -87,29 +87,10 @@ func (m *PoolManager) Collect(metrics chan<- prometheus.Metric) {
 	m.votingDelayMetric.Collect(metrics)
 }
 
-func (m *PoolManager) getTransactionClient(ctx context.Context, server txinfo.PraefectServer) (gitalypb.RefTransactionClient, error) {
-	// Gitaly is upgraded prior to Praefect. Older Praefects may still be using non-multiplexed connections
-	// and send dialing information for voting. To prevent failing RPCs during the upgrade, Gitaly still
-	// needs to support the old voting approach. If multiplexed connection is in use, the backchannel ID would
-	// be set to >0. If so, the mutator came from an upgraded Praefect that supports backchannel voting and Gitaly
-	// defaults to the backchannel. The fallback code can be removed in 14.0.
-	if server.BackchannelID > 0 {
-		conn, err := m.backchannels.Backchannel(server.BackchannelID)
-		if err != nil {
-			return nil, fmt.Errorf("get backchannel: %w", err)
-		}
-
-		return gitalypb.NewRefTransactionClient(conn), nil
-	}
-
-	address, err := server.Address()
+func (m *PoolManager) getTransactionClient(ctx context.Context, tx txinfo.Transaction) (gitalypb.RefTransactionClient, error) {
+	conn, err := m.backchannels.Backchannel(tx.BackchannelID)
 	if err != nil {
-		return nil, err
-	}
-
-	conn, err := m.conns.Dial(ctx, address, server.Token)
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get backchannel: %w", err)
 	}
 
 	return gitalypb.NewRefTransactionClient(conn), nil
@@ -117,7 +98,7 @@ func (m *PoolManager) getTransactionClient(ctx context.Context, server txinfo.Pr
 
 // Vote connects to the given server and casts vote as a vote for the transaction identified by tx.
 func (m *PoolManager) Vote(ctx context.Context, tx txinfo.Transaction, server txinfo.PraefectServer, vote voting.Vote) error {
-	client, err := m.getTransactionClient(ctx, server)
+	client, err := m.getTransactionClient(ctx, tx)
 	if err != nil {
 		return err
 	}
@@ -165,7 +146,7 @@ func (m *PoolManager) Vote(ctx context.Context, tx txinfo.Transaction, server tx
 
 // Stop connects to the given server and stops the transaction identified by tx.
 func (m *PoolManager) Stop(ctx context.Context, tx txinfo.Transaction, server txinfo.PraefectServer) error {
-	client, err := m.getTransactionClient(ctx, server)
+	client, err := m.getTransactionClient(ctx, tx)
 	if err != nil {
 		return err
 	}

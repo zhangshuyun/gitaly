@@ -55,7 +55,8 @@ func TestPoolManager_Vote(t *testing.T) {
 	backchannelConn, err := client.Dial(ctx, praefect.ListenAddr, nil, nil)
 	require.NoError(t, err)
 	defer backchannelConn.Close()
-	praefect = txinfo.PraefectServer{BackchannelID: registry.RegisterBackchannel(backchannelConn)}
+
+	backchannelID := registry.RegisterBackchannel(backchannelConn)
 
 	manager := transaction.NewManager(cfg, registry)
 
@@ -69,8 +70,9 @@ func TestPoolManager_Vote(t *testing.T) {
 		{
 			desc: "successful vote",
 			transaction: txinfo.Transaction{
-				ID:   1,
-				Node: "node",
+				BackchannelID: backchannelID,
+				ID:            1,
+				Node:          "node",
 			},
 			vote: voting.VoteFromData([]byte("foobar")),
 			voteFn: func(t *testing.T, request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
@@ -85,6 +87,9 @@ func TestPoolManager_Vote(t *testing.T) {
 		},
 		{
 			desc: "aborted vote",
+			transaction: txinfo.Transaction{
+				BackchannelID: backchannelID,
+			},
 			voteFn: func(t *testing.T, request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
 				return &gitalypb.VoteTransactionResponse{
 					State: gitalypb.VoteTransactionResponse_ABORT,
@@ -94,6 +99,9 @@ func TestPoolManager_Vote(t *testing.T) {
 		},
 		{
 			desc: "stopped vote",
+			transaction: txinfo.Transaction{
+				BackchannelID: backchannelID,
+			},
 			voteFn: func(t *testing.T, request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
 				return &gitalypb.VoteTransactionResponse{
 					State: gitalypb.VoteTransactionResponse_STOP,
@@ -103,6 +111,9 @@ func TestPoolManager_Vote(t *testing.T) {
 		},
 		{
 			desc: "erroneous vote",
+			transaction: txinfo.Transaction{
+				BackchannelID: backchannelID,
+			},
 			voteFn: func(t *testing.T, request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
 				return nil, status.Error(codes.Internal, "foobar")
 			},
@@ -132,7 +143,8 @@ func TestPoolManager_Stop(t *testing.T) {
 	backchannelConn, err := client.Dial(ctx, praefect.ListenAddr, nil, nil)
 	require.NoError(t, err)
 	defer backchannelConn.Close()
-	praefect = txinfo.PraefectServer{BackchannelID: registry.RegisterBackchannel(backchannelConn)}
+
+	backchannelID := registry.RegisterBackchannel(backchannelConn)
 
 	manager := transaction.NewManager(cfg, registry)
 
@@ -145,8 +157,9 @@ func TestPoolManager_Stop(t *testing.T) {
 		{
 			desc: "successful stop",
 			transaction: txinfo.Transaction{
-				ID:   1,
-				Node: "node",
+				BackchannelID: backchannelID,
+				ID:            1,
+				Node:          "node",
 			},
 			stopFn: func(t *testing.T, request *gitalypb.StopTransactionRequest) (*gitalypb.StopTransactionResponse, error) {
 				require.Equal(t, uint64(1), request.TransactionId)
@@ -155,6 +168,9 @@ func TestPoolManager_Stop(t *testing.T) {
 		},
 		{
 			desc: "erroneous stop",
+			transaction: txinfo.Transaction{
+				BackchannelID: backchannelID,
+			},
 			stopFn: func(t *testing.T, request *gitalypb.StopTransactionRequest) (*gitalypb.StopTransactionResponse, error) {
 				return nil, status.Error(codes.Internal, "foobar")
 			},
