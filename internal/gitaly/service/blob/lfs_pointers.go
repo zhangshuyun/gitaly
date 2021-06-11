@@ -14,7 +14,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/chunk"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"golang.org/x/text/transform"
 	"google.golang.org/grpc/codes"
@@ -58,9 +60,51 @@ func (s *server) ListLFSPointers(in *gitalypb.ListLFSPointersRequest, stream git
 	})
 
 	repo := s.localrepo(in.GetRepository())
-	if err := findLFSPointersByRevisions(ctx, repo, s.gitCmdFactory, chunker, int(in.Limit), in.Revisions...); err != nil {
-		if !errors.Is(err, errLimitReached) {
-			return err
+
+	if featureflag.IsDisabled(ctx, featureflag.LFSPointersPipeline) {
+		if err := findLFSPointersByRevisions(ctx, repo, s.gitCmdFactory, chunker, int(in.Limit), in.Revisions...); err != nil {
+			if !errors.Is(err, errLimitReached) {
+				return err
+			}
+		}
+	} else {
+		catfileProcess, err := s.catfileCache.BatchProcess(ctx, repo)
+		if err != nil {
+			return helper.ErrInternal(fmt.Errorf("creating catfile process: %w", err))
+		}
+
+		revlistChan := revlist(ctx, repo, in.GetRevisions(), withBlobLimit(lfsPointerMaxSize))
+		catfileInfoChan := catfileInfo(ctx, catfileProcess, revlistChan)
+		catfileInfoChan = catfileInfoFilter(ctx, catfileInfoChan, func(r catfileInfoResult) bool {
+			return r.objectInfo.Type == "blob" && r.objectInfo.Size <= lfsPointerMaxSize
+		})
+		catfileObjectChan := catfileObject(ctx, catfileProcess, catfileInfoChan)
+		catfileObjectChan = catfileObjectFilter(ctx, catfileObjectChan, func(r catfileObjectResult) bool {
+			return git.IsLFSPointer(r.objectData)
+		})
+
+		var i int32
+		for lfsPointer := range catfileObjectChan {
+			if lfsPointer.err != nil {
+				return helper.ErrInternal(lfsPointer.err)
+			}
+
+			if err := chunker.Send(&gitalypb.LFSPointer{
+				Data: lfsPointer.objectData,
+				Size: lfsPointer.objectInfo.Size,
+				Oid:  lfsPointer.objectInfo.Oid.String(),
+			}); err != nil {
+				return helper.ErrInternal(fmt.Errorf("sending LFS pointer chunk: %w", err))
+			}
+
+			i++
+			if in.Limit > 0 && i >= in.Limit {
+				break
+			}
+		}
+
+		if err := chunker.Flush(); err != nil {
+			return helper.ErrInternal(err)
 		}
 	}
 

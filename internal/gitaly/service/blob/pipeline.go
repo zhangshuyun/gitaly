@@ -81,7 +81,7 @@ func revlist(
 		}
 
 		revlist, err := repo.Exec(ctx, git.SubCmd{
-			Name: "rev-list",
+			Name:  "rev-list",
 			Flags: flags,
 			Args:  revisions,
 		})
