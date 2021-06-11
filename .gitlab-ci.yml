@@ -312,3 +312,4 @@ trigger-qa:
     ALTERNATIVE_SOURCES: "true"
     GITALY_SERVER_VERSION: $CI_COMMIT_SHA
     ee: "true"
+    MAX_PACKAGE_SIZE_MB: "990"
