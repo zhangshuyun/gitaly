@@ -125,7 +125,7 @@ func TestPoolManager_Vote(t *testing.T) {
 				return tc.voteFn(t, request)
 			}
 
-			err := manager.Vote(ctx, tc.transaction, praefect, tc.vote)
+			err := manager.Vote(ctx, tc.transaction, tc.vote)
 			testassert.GrpcEqualErr(t, tc.expectedErr, err)
 		})
 	}
@@ -182,7 +182,7 @@ func TestPoolManager_Stop(t *testing.T) {
 				return tc.stopFn(t, request)
 			}
 
-			err := manager.Stop(ctx, tc.transaction, praefect)
+			err := manager.Stop(ctx, tc.transaction)
 			testassert.GrpcEqualErr(t, tc.expectedErr, err)
 		})
 	}

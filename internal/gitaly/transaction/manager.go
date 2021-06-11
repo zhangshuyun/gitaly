@@ -47,11 +47,11 @@ var (
 type Manager interface {
 	// Vote casts a vote on the given transaction which is hosted by the
 	// given Praefect server.
-	Vote(context.Context, txinfo.Transaction, txinfo.PraefectServer, voting.Vote) error
+	Vote(context.Context, txinfo.Transaction, voting.Vote) error
 
 	// Stop gracefully stops the given transaction which is hosted by the
 	// given Praefect server.
-	Stop(context.Context, txinfo.Transaction, txinfo.PraefectServer) error
+	Stop(context.Context, txinfo.Transaction) error
 }
 
 // PoolManager is an implementation of the Manager interface using a pool to
@@ -97,7 +97,7 @@ func (m *PoolManager) getTransactionClient(ctx context.Context, tx txinfo.Transa
 }
 
 // Vote connects to the given server and casts vote as a vote for the transaction identified by tx.
-func (m *PoolManager) Vote(ctx context.Context, tx txinfo.Transaction, server txinfo.PraefectServer, vote voting.Vote) error {
+func (m *PoolManager) Vote(ctx context.Context, tx txinfo.Transaction, vote voting.Vote) error {
 	client, err := m.getTransactionClient(ctx, tx)
 	if err != nil {
 		return err
@@ -145,7 +145,7 @@ func (m *PoolManager) Vote(ctx context.Context, tx txinfo.Transaction, server tx
 }
 
 // Stop connects to the given server and stops the transaction identified by tx.
-func (m *PoolManager) Stop(ctx context.Context, tx txinfo.Transaction, server txinfo.PraefectServer) error {
+func (m *PoolManager) Stop(ctx context.Context, tx txinfo.Transaction) error {
 	client, err := m.getTransactionClient(ctx, tx)
 	if err != nil {
 		return err
@@ -170,20 +170,20 @@ func (m *PoolManager) log(ctx context.Context) logrus.FieldLogger {
 }
 
 // RunOnContext runs the given function if the context identifies a transaction.
-func RunOnContext(ctx context.Context, fn func(txinfo.Transaction, txinfo.PraefectServer) error) error {
-	transaction, praefect, err := txinfo.FromContext(ctx)
+func RunOnContext(ctx context.Context, fn func(txinfo.Transaction) error) error {
+	transaction, err := txinfo.TransactionFromContext(ctx)
 	if err != nil {
+		if errors.Is(err, txinfo.ErrTransactionNotFound) {
+			return nil
+		}
 		return err
 	}
-	if transaction == nil {
-		return nil
-	}
-	return fn(*transaction, *praefect)
+	return fn(transaction)
 }
 
 // VoteOnContext casts the vote on a transaction identified by the context, if there is any.
 func VoteOnContext(ctx context.Context, m Manager, vote voting.Vote) error {
-	return RunOnContext(ctx, func(transaction txinfo.Transaction, praefect txinfo.PraefectServer) error {
-		return m.Vote(ctx, transaction, praefect, vote)
+	return RunOnContext(ctx, func(transaction txinfo.Transaction) error {
+		return m.Vote(ctx, transaction, vote)
 	})
 }

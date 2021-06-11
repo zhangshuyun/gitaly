@@ -143,7 +143,7 @@ func (s *server) voteOnRemote(ctx context.Context, repo *gitalypb.Repository, re
 		return nil
 	}
 
-	return transaction.RunOnContext(ctx, func(tx txinfo.Transaction, server txinfo.PraefectServer) error {
+	return transaction.RunOnContext(ctx, func(tx txinfo.Transaction) error {
 		localrepo := s.localrepo(repo)
 
 		configEntries, err := localrepo.Config().GetRegexp(ctx, "remote\\."+remoteName+"\\.", git.ConfigGetRegexpOpts{})
@@ -164,7 +164,7 @@ func (s *server) voteOnRemote(ctx context.Context, repo *gitalypb.Repository, re
 			return fmt.Errorf("compute remote config vote: %w", err)
 		}
 
-		if err := s.txManager.Vote(ctx, tx, server, vote); err != nil {
+		if err := s.txManager.Vote(ctx, tx, vote); err != nil {
 			return fmt.Errorf("vote: %w", err)
 		}
 

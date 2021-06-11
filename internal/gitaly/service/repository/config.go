@@ -137,7 +137,7 @@ func (s *server) voteOnConfig(ctx context.Context, repo *gitalypb.Repository) er
 		return nil
 	}
 
-	return transaction.RunOnContext(ctx, func(tx txinfo.Transaction, praefect txinfo.PraefectServer) error {
+	return transaction.RunOnContext(ctx, func(tx txinfo.Transaction) error {
 		repoPath, err := s.locator.GetPath(repo)
 		if err != nil {
 			return fmt.Errorf("get repo path: %w", err)
@@ -158,7 +158,7 @@ func (s *server) voteOnConfig(ctx context.Context, repo *gitalypb.Repository) er
 			return fmt.Errorf("computing vote: %w", err)
 		}
 
-		if err := s.txManager.Vote(ctx, tx, praefect, vote); err != nil {
+		if err := s.txManager.Vote(ctx, tx, vote); err != nil {
 			return fmt.Errorf("casting vote: %w", err)
 		}
 

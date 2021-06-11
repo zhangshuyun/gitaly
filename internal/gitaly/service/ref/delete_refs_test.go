@@ -85,7 +85,7 @@ func TestDeleteRefs_transaction(t *testing.T) {
 
 	var votes int
 	txManager := &transaction.MockManager{
-		VoteFn: func(context.Context, txinfo.Transaction, txinfo.PraefectServer, voting.Vote) error {
+		VoteFn: func(context.Context, txinfo.Transaction, voting.Vote) error {
 			votes++
 			return nil
 		},

@@ -208,7 +208,7 @@ type mockTxManager struct {
 	votes int
 }
 
-func (m *mockTxManager) Vote(context.Context, txinfo.Transaction, txinfo.PraefectServer, voting.Vote) error {
+func (m *mockTxManager) Vote(context.Context, txinfo.Transaction, voting.Vote) error {
 	m.votes++
 	return nil
 }

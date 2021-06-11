@@ -141,7 +141,7 @@ func TestDeleteConfigTransactional(t *testing.T) {
 	}).Run(t, func(t *testing.T, ctx context.Context) {
 		var votes []voting.Vote
 		txManager := transaction.MockManager{
-			VoteFn: func(_ context.Context, _ txinfo.Transaction, _ txinfo.PraefectServer, vote voting.Vote) error {
+			VoteFn: func(_ context.Context, _ txinfo.Transaction, vote voting.Vote) error {
 				votes = append(votes, vote)
 				return nil
 			},
@@ -242,7 +242,7 @@ func testSetConfigTransactional(t *testing.T, cfg config.Cfg, rubySrv *rubyserve
 		var votes []voting.Vote
 
 		txManager := transaction.MockManager{
-			VoteFn: func(_ context.Context, _ txinfo.Transaction, _ txinfo.PraefectServer, vote voting.Vote) error {
+			VoteFn: func(_ context.Context, _ txinfo.Transaction, vote voting.Vote) error {
 				votes = append(votes, vote)
 				return nil
 			},

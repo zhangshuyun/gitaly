@@ -104,9 +104,8 @@ func TestHookManager_stopCalled(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			wasInvoked := false
-			mockTxMgr.StopFn = func(ctx context.Context, tx txinfo.Transaction, praefect txinfo.PraefectServer) error {
+			mockTxMgr.StopFn = func(ctx context.Context, tx txinfo.Transaction) error {
 				require.Equal(t, expectedTx, tx)
-				require.Equal(t, expectedPraefect, praefect)
 				wasInvoked = true
 				return tc.stopErr
 			}
@@ -122,7 +121,7 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	mockTxMgr := transaction.MockManager{
-		VoteFn: func(ctx context.Context, tx txinfo.Transaction, praefect txinfo.PraefectServer, vote voting.Vote) error {
+		VoteFn: func(ctx context.Context, tx txinfo.Transaction, vote voting.Vote) error {
 			<-ctx.Done()
 			return fmt.Errorf("mock error: %s", ctx.Err())
 		},

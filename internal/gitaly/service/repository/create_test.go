@@ -123,7 +123,7 @@ func TestCreateRepositoryTransactional(t *testing.T) {
 	var called int
 
 	mockTxManager := transaction.MockManager{
-		VoteFn: func(ctx context.Context, tx txinfo.Transaction, server txinfo.PraefectServer, v voting.Vote) error {
+		VoteFn: func(ctx context.Context, tx txinfo.Transaction, v voting.Vote) error {
 			actualVote = v
 			called++
 			return nil

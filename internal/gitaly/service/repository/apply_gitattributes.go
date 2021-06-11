@@ -98,11 +98,6 @@ func (s *server) vote(ctx context.Context, oid git.ObjectID) error {
 		return nil
 	}
 
-	praefect, err := txinfo.PraefectFromContext(ctx)
-	if err != nil {
-		return fmt.Errorf("vote has invalid Praefect info: %w", err)
-	}
-
 	hash, err := oid.Bytes()
 	if err != nil {
 		return fmt.Errorf("vote with invalid object ID: %w", err)
@@ -113,7 +108,7 @@ func (s *server) vote(ctx context.Context, oid git.ObjectID) error {
 		return fmt.Errorf("cannot convert OID to vote: %w", err)
 	}
 
-	if err := s.txManager.Vote(ctx, tx, *praefect, vote); err != nil {
+	if err := s.txManager.Vote(ctx, tx, vote); err != nil {
 		return fmt.Errorf("vote failed: %w", err)
 	}
 

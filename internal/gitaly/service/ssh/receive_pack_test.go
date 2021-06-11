@@ -267,9 +267,7 @@ func TestReceivePackTransactional(t *testing.T) {
 	var votes int
 	serverSocketPath := runSSHServer(t, cfg, testserver.WithTransactionManager(
 		&transaction.MockManager{
-			VoteFn: func(context.Context, txinfo.Transaction,
-				txinfo.PraefectServer, voting.Vote,
-			) error {
+			VoteFn: func(context.Context, txinfo.Transaction, voting.Vote) error {
 				votes++
 				return nil
 			},
