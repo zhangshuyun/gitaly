@@ -196,10 +196,6 @@ func TestStreamDirectorMutator(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, primaryAddress, streamParams.Primary().Conn.Target())
 
-	md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
-	require.True(t, ok)
-	require.Contains(t, md, txinfo.PraefectMetadataKey)
-
 	mi, err := coordinator.registry.LookupMethod(fullMethod)
 	require.NoError(t, err)
 
@@ -439,10 +435,6 @@ func TestStreamDirectorAccessor(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, gitalyAddress, streamParams.Primary().Conn.Target())
 
-			md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
-			require.True(t, ok)
-			require.Contains(t, md, txinfo.PraefectMetadataKey)
-
 			mi, err := coordinator.registry.LookupMethod(fullMethod)
 			require.NoError(t, err)
 			require.Equal(t, protoregistry.ScopeRepository, mi.Scope, "method must be repository scoped")
@@ -544,10 +536,6 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 				secondaryChosen++
 			}
 
-			md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
-			require.True(t, ok)
-			require.Contains(t, md, txinfo.PraefectMetadataKey)
-
 			mi, err := coordinator.registry.LookupMethod(fullMethod)
 			require.NoError(t, err)
 			require.Equal(t, protoregistry.OpAccessor, mi.Operation, "method must be an accessor")
@@ -592,10 +580,6 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 				nodeConf = secondaryNodeConf
 				secondaryChosen++
 			}
-
-			md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
-			require.True(t, ok)
-			require.Contains(t, md, txinfo.PraefectMetadataKey)
 
 			mi, err := coordinator.registry.LookupMethod(fullMethod)
 			require.NoError(t, err)
@@ -642,10 +626,6 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 				secondaryChosen++
 			}
 
-			md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
-			require.True(t, ok)
-			require.Contains(t, md, txinfo.PraefectMetadataKey)
-
 			mi, err := coordinator.registry.LookupMethod(fullMethod)
 			require.NoError(t, err)
 			require.Equal(t, protoregistry.OpAccessor, mi.Operation, "method must be an accessor")
@@ -685,10 +665,6 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 		streamParams, err := coordinator.StreamDirector(correlation.ContextWithCorrelation(ctx, "my-correlation-id"), fullMethod, peeker)
 		require.NoError(t, err)
 		require.Equal(t, primaryNodeConf.Address, streamParams.Primary().Conn.Target(), "must be redirected to primary")
-
-		md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
-		require.True(t, ok)
-		require.Contains(t, md, txinfo.PraefectMetadataKey)
 
 		mi, err := coordinator.registry.LookupMethod(fullMethod)
 		require.NoError(t, err)
@@ -739,10 +715,6 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 		streamParams, err := coordinator.StreamDirector(correlation.ContextWithCorrelation(ctx, "my-correlation-id"), fullMethod, peeker)
 		require.NoError(t, err)
 		require.Equal(t, primaryNodeConf.Address, streamParams.Primary().Conn.Target(), "must be redirected to primary")
-
-		md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
-		require.True(t, ok)
-		require.Contains(t, md, txinfo.PraefectMetadataKey)
 
 		mi, err := coordinator.registry.LookupMethod(fullMethod)
 		require.NoError(t, err)
@@ -923,10 +895,6 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 				secondaries = append(secondaries, fmt.Sprintf("%p", dst.Conn))
 			}
 			require.Equal(t, secondaryConnPointers, secondaries, "secondary connections did not match expected")
-
-			md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
-			require.True(t, ok)
-			require.Contains(t, md, txinfo.PraefectMetadataKey)
 
 			mi, err := coordinator.registry.LookupMethod(fullMethod)
 			require.NoError(t, err)
