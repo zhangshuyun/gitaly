@@ -27,15 +27,14 @@ require (
 	github.com/olekukonko/tablewriter v0.0.2
 	github.com/opencontainers/runtime-spec v1.0.2
 	github.com/opentracing/opentracing-go v1.2.0
-	github.com/otiai10/curr v1.0.0 // indirect
 	github.com/pelletier/go-toml v1.8.1
 	github.com/prometheus/client_golang v1.10.0
 	github.com/rubenv/sql-migrate v0.0.0-20191213152630-06338513c237
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
 	github.com/uber/jaeger-client-go v2.27.0+incompatible
-	gitlab.com/gitlab-org/gitlab-shell v1.9.8-0.20201117050822-3f9890ef73dc
-	gitlab.com/gitlab-org/labkit v1.4.0
+	gitlab.com/gitlab-org/gitlab-shell v1.9.8-0.20210608004414-a9c25c17ea0a
+	gitlab.com/gitlab-org/labkit v1.4.1
 	go.uber.org/goleak v1.1.10
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/sys v0.0.0-20210412220455-f1c623a9e750
