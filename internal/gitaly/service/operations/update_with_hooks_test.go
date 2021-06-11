@@ -134,7 +134,7 @@ func TestUpdateReferenceWithHooks(t *testing.T) {
 
 	oldRev := "1e292f8fedd741b75372e19097c76d327140c312"
 
-	payload, err := git.NewHooksPayload(cfg, repo, nil, nil, &git.ReceiveHooksPayload{
+	payload, err := git.NewHooksPayload(cfg, repo, nil, &git.ReceiveHooksPayload{
 		UserID:   "1234",
 		Username: "Username",
 		Protocol: "web",

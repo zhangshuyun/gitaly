@@ -104,10 +104,6 @@ func TestHooksMissingStdin(t *testing.T) {
 					Node:    "node-1",
 					Primary: tc.primary,
 				},
-				&txinfo.PraefectServer{
-					SocketPath: "/path/to/socket",
-					Token:      "secret",
-				},
 				&git.ReceiveHooksPayload{
 					UserID:   "key_id",
 					Username: "username",
@@ -235,7 +231,6 @@ To create a merge request for okay, visit:
 			hooksPayload, err := git.NewHooksPayload(
 				cfg,
 				repo,
-				nil,
 				nil,
 				&git.ReceiveHooksPayload{
 					UserID:   "key_id",

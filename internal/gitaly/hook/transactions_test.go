@@ -29,11 +29,6 @@ func TestHookManager_stopCalled(t *testing.T) {
 		ID: 1234, Node: "primary", Primary: true,
 	}
 
-	expectedPraefect := txinfo.PraefectServer{
-		SocketPath: "socket",
-		Token:      "foo",
-	}
-
 	var mockTxMgr transaction.MockManager
 	hookManager := NewManager(config.NewLocator(cfg), &mockTxMgr, gitlab.NewMockClient(), cfg)
 
@@ -44,7 +39,6 @@ func TestHookManager_stopCalled(t *testing.T) {
 		cfg,
 		repo,
 		&expectedTx,
-		&expectedPraefect,
 		&git.ReceiveHooksPayload{
 			UserID:   "1234",
 			Username: "user",
@@ -134,10 +128,6 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 		repo,
 		&txinfo.Transaction{
 			ID: 1234, Node: "primary", Primary: true,
-		},
-		&txinfo.PraefectServer{
-			SocketPath: "does_not",
-			Token:      "matter",
 		},
 		nil,
 		git.ReferenceTransactionHook,

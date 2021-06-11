@@ -77,7 +77,7 @@ func TestPostReceive_customHook(t *testing.T) {
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
-	payload, err := git.NewHooksPayload(cfg, repo, nil, nil, receiveHooksPayload, git.PostReceiveHook, featureflag.RawFromContext(ctx)).Env()
+	payload, err := git.NewHooksPayload(cfg, repo, nil, receiveHooksPayload, git.PostReceiveHook, featureflag.RawFromContext(ctx)).Env()
 	require.NoError(t, err)
 
 	primaryPayload, err := git.NewHooksPayload(
@@ -85,10 +85,6 @@ func TestPostReceive_customHook(t *testing.T) {
 		repo,
 		&txinfo.Transaction{
 			ID: 1234, Node: "primary", Primary: true,
-		},
-		&txinfo.PraefectServer{
-			SocketPath: "/path/to/socket",
-			Token:      "secret",
 		},
 		receiveHooksPayload,
 		git.PostReceiveHook,
@@ -101,10 +97,6 @@ func TestPostReceive_customHook(t *testing.T) {
 		repo,
 		&txinfo.Transaction{
 			ID: 1234, Node: "secondary", Primary: false,
-		},
-		&txinfo.PraefectServer{
-			SocketPath: "/path/to/socket",
-			Token:      "secret",
 		},
 		receiveHooksPayload,
 		git.PostReceiveHook,
@@ -248,7 +240,7 @@ func (m *postreceiveAPIMock) PostReceive(ctx context.Context, glRepository, glID
 func TestPostReceive_gitlab(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
-	payload, err := git.NewHooksPayload(cfg, repo, nil, nil, &git.ReceiveHooksPayload{
+	payload, err := git.NewHooksPayload(cfg, repo, nil, &git.ReceiveHooksPayload{
 		UserID:   "1234",
 		Username: "user",
 		Protocol: "web",

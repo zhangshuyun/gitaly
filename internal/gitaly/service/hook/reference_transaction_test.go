@@ -151,7 +151,6 @@ func TestReferenceTransactionHook(t *testing.T) {
 					ID:            1234,
 					Node:          "node-1",
 				},
-				&txinfo.PraefectServer{BackchannelID: backchannelID},
 				nil,
 				git.ReferenceTransactionHook,
 				featureflag.RawFromContext(ctx),

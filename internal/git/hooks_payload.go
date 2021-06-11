@@ -76,9 +76,6 @@ type HooksPayload struct {
 	// Transaction is used to identify a reference transaction. This is an optional field -- if
 	// it's not set, no transactional voting will happen.
 	Transaction *txinfo.Transaction `json:"transaction"`
-	// Praefect is used to identify the Praefect server which is hosting the transaction. This
-	// field must be set if and only if `Transaction` is.
-	Praefect *txinfo.PraefectServer `json:"praefect"`
 
 	// ReceiveHooksPayload contains information required when executing
 	// git-receive-pack.
@@ -111,7 +108,6 @@ func NewHooksPayload(
 	cfg config.Cfg,
 	repo *gitalypb.Repository,
 	tx *txinfo.Transaction,
-	praefect *txinfo.PraefectServer,
 	receiveHooksPayload *ReceiveHooksPayload,
 	requestedHooks Hook,
 	featureFlags featureflag.Raw,
@@ -123,7 +119,6 @@ func NewHooksPayload(
 		InternalSocket:      cfg.GitalyInternalSocketPath(),
 		InternalSocketToken: cfg.Auth.Token,
 		Transaction:         tx,
-		Praefect:            praefect,
 		ReceiveHooksPayload: receiveHooksPayload,
 		RequestedHooks:      requestedHooks,
 		FeatureFlags:        featureFlags,
@@ -172,10 +167,6 @@ func HooksPayloadFromEnv(envs []string) (HooksPayload, error) {
 
 	payload := jsonPayload.HooksPayload
 	payload.Repo = &repo
-
-	if payload.Transaction != nil && payload.Praefect == nil {
-		return HooksPayload{}, txinfo.ErrPraefectServerNotFound
-	}
 
 	// If no git path is set up as part of the serialized hooks payload,
 	// then we need to fall back to the old GITALY_GIT_BIN_PATH variable.

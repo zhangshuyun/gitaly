@@ -33,7 +33,7 @@ func TestUpdate_customHooks(t *testing.T) {
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
-	payload, err := git.NewHooksPayload(cfg, repo, nil, nil, receiveHooksPayload, git.UpdateHook, featureflag.RawFromContext(ctx)).Env()
+	payload, err := git.NewHooksPayload(cfg, repo, nil, receiveHooksPayload, git.UpdateHook, featureflag.RawFromContext(ctx)).Env()
 	require.NoError(t, err)
 
 	primaryPayload, err := git.NewHooksPayload(
@@ -41,10 +41,6 @@ func TestUpdate_customHooks(t *testing.T) {
 		repo,
 		&txinfo.Transaction{
 			ID: 1234, Node: "primary", Primary: true,
-		},
-		&txinfo.PraefectServer{
-			SocketPath: "/path/to/socket",
-			Token:      "secret",
 		},
 		receiveHooksPayload,
 		git.UpdateHook,
@@ -57,10 +53,6 @@ func TestUpdate_customHooks(t *testing.T) {
 		repo,
 		&txinfo.Transaction{
 			ID: 1234, Node: "secondary", Primary: false,
-		},
-		&txinfo.PraefectServer{
-			SocketPath: "/path/to/socket",
-			Token:      "secret",
 		},
 		receiveHooksPayload,
 		git.UpdateHook,

@@ -55,7 +55,7 @@ func rawFeatureFlags() featureflag.Raw {
 
 // envForHooks generates a set of environment variables for gitaly hooks
 func envForHooks(t testing.TB, cfg config.Cfg, repo *gitalypb.Repository, glHookValues glHookValues, proxyValues proxyValues, gitPushOptions ...string) []string {
-	payload, err := git.NewHooksPayload(cfg, repo, nil, nil, &git.ReceiveHooksPayload{
+	payload, err := git.NewHooksPayload(cfg, repo, nil, &git.ReceiveHooksPayload{
 		UserID:   glHookValues.GLID,
 		Username: glHookValues.GLUsername,
 		Protocol: glHookValues.GLProtocol,
@@ -402,10 +402,6 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 					Node:    "node",
 					Primary: tc.primary,
 				},
-				&txinfo.PraefectServer{
-					SocketPath: "/path/to/socket",
-					Token:      "secret",
-				},
 				&git.ReceiveHooksPayload{
 					UserID:   glID,
 					Username: glUsername,
@@ -707,7 +703,7 @@ func TestRequestedHooks(t *testing.T) {
 				testhelper.ConfigureGitalyHooksBin(t, cfg)
 				testhelper.ConfigureGitalySSHBin(t, cfg)
 
-				payload, err := git.NewHooksPayload(cfg, &gitalypb.Repository{}, nil, nil, nil, git.AllHooks&^hook, nil).Env()
+				payload, err := git.NewHooksPayload(cfg, &gitalypb.Repository{}, nil, nil, git.AllHooks&^hook, nil).Env()
 				require.NoError(t, err)
 
 				cmd := exec.Command(filepath.Join(cfg.BinDir, "gitaly-hooks"), hookName)
@@ -720,7 +716,7 @@ func TestRequestedHooks(t *testing.T) {
 				testhelper.ConfigureGitalyHooksBin(t, cfg)
 				testhelper.ConfigureGitalySSHBin(t, cfg)
 
-				payload, err := git.NewHooksPayload(cfg, &gitalypb.Repository{}, nil, nil, nil, hook, nil).Env()
+				payload, err := git.NewHooksPayload(cfg, &gitalypb.Repository{}, nil, nil, hook, nil).Env()
 				require.NoError(t, err)
 
 				cmd := exec.Command(filepath.Join(cfg.BinDir, "gitaly-hooks"), hookName)

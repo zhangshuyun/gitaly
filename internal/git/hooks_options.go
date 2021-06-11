@@ -84,12 +84,14 @@ func (cc *cmdCfg) configureHooks(
 		return errors.New("hooks already configured")
 	}
 
-	transaction, praefect, err := txinfo.FromContext(ctx)
-	if err != nil {
+	var transaction *txinfo.Transaction
+	if tx, err := txinfo.TransactionFromContext(ctx); err == nil {
+		transaction = &tx
+	} else if !errors.Is(err, txinfo.ErrTransactionNotFound) {
 		return err
 	}
 
-	payload, err := NewHooksPayload(cfg, repo, transaction, praefect, receiveHooksPayload, requestedHooks, featureflag.RawFromContext(ctx)).Env()
+	payload, err := NewHooksPayload(cfg, repo, transaction, receiveHooksPayload, requestedHooks, featureflag.RawFromContext(ctx)).Env()
 	if err != nil {
 		return err
 	}
