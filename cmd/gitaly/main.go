@@ -109,6 +109,7 @@ func configure(configPath string) (config.Cfg, error) {
 	cfg.Prometheus.Configure()
 	config.ConfigureConcurrencyLimits(cfg)
 	tracing.Initialize(tracing.WithServiceName("gitaly"))
+	preloadLicenseDatabase()
 
 	return cfg, nil
 }
