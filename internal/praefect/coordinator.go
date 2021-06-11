@@ -159,10 +159,6 @@ func init() {
 }
 
 func shouldUseTransaction(ctx context.Context, method string) bool {
-	if !featureflag.IsEnabled(ctx, featureflag.ReferenceTransactions) {
-		return false
-	}
-
 	condition, ok := transactionRPCs[method]
 	if !ok {
 		return false

@@ -517,12 +517,9 @@ func TestPostReceivePackToHooks(t *testing.T) {
 }
 
 func TestPostReceiveWithTransactionsViaPraefect(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.ReferenceTransactions,
-	}).Run(t, testPostReceiveWithTransactionsViaPraefect)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testPostReceiveWithTransactionsViaPraefect(t *testing.T, ctx context.Context) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
