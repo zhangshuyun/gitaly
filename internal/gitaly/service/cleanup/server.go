@@ -10,6 +10,7 @@ import (
 )
 
 type server struct {
+	gitalypb.UnimplementedCleanupServiceServer
 	cfg           config.Cfg
 	gitCmdFactory git.CommandFactory
 	catfileCache  catfile.Cache

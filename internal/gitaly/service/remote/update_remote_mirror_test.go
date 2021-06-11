@@ -21,6 +21,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -536,7 +537,7 @@ func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg confi
 			}
 
 			require.NoError(t, err)
-			require.Equal(t, tc.response, resp)
+			testassert.ProtoEqual(t, tc.response, resp)
 
 			// Check that the refs on the mirror now refer to the correct commits.
 			// This is done by checking the commit messages as the commits are otherwise
@@ -795,7 +796,7 @@ func testUpdateRemoteMirrorInmemory(t *testing.T, cfg config.Cfg, rubySrv *rubys
 		}))
 
 		_, err = stream.CloseAndRecv()
-		require.Equal(t, status.Error(codes.InvalidArgument, "in-memory remotes require `gitaly_go_update_remote_mirror` feature flag"), err)
+		testassert.GrpcEqualErr(t, status.Error(codes.InvalidArgument, "in-memory remotes require `gitaly_go_update_remote_mirror` feature flag"), err)
 	})
 
 	t.Run("Go implementation succeeds", func(t *testing.T) {
@@ -813,7 +814,7 @@ func testUpdateRemoteMirrorInmemory(t *testing.T, cfg config.Cfg, rubySrv *rubys
 
 		response, err := stream.CloseAndRecv()
 		require.NoError(t, err)
-		testhelper.ProtoEqual(t, &gitalypb.UpdateRemoteMirrorResponse{}, response)
+		testassert.ProtoEqual(t, &gitalypb.UpdateRemoteMirrorResponse{}, response)
 
 		localRefs := string(gittest.Exec(t, cfg, "-C", localPath, "for-each-ref"))
 		remoteRefs := string(gittest.Exec(t, cfg, "-C", remotePath, "for-each-ref"))

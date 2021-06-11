@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -247,7 +248,7 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 			response, err := client.FindCommit(ctx, request)
 			require.NoError(t, err)
 
-			testhelper.ProtoEqual(t, testCase.commit, response.Commit)
+			testassert.ProtoEqual(t, testCase.commit, response.Commit)
 		})
 	}
 }

@@ -26,6 +26,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	pconfig "gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
@@ -78,7 +79,7 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 
 	// Compare the repository up front so that we can use require.Equal for
 	// the remaining values.
-	testhelper.ProtoEqual(t, repo, payload.Repo)
+	testassert.ProtoEqual(t, repo, payload.Repo)
 	payload.Repo = nil
 
 	// If running tests with Praefect, then these would be set, but we have
@@ -328,7 +329,7 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 	client, conn := newSmartHTTPClient(t, serverSocketPath, cfg.Auth.Token)
 	defer conn.Close()
 
-	rpcRequests := []gitalypb.PostReceivePackRequest{
+	rpcRequests := []*gitalypb.PostReceivePackRequest{
 		{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, GlId: "user-123"}, // Repository doesn't exist
 		{Repository: nil, GlId: "user-123"}, // Repository is nil
 		{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "path/to/repo"}, GlId: ""},                               // Empty GlId
@@ -342,7 +343,7 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 			stream, err := client.PostReceivePack(ctx)
 			require.NoError(t, err)
 
-			require.NoError(t, stream.Send(&rpcRequest))
+			require.NoError(t, stream.Send(rpcRequest))
 			require.NoError(t, stream.CloseSend())
 
 			err = drainPostReceivePackResponse(stream)
@@ -496,7 +497,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 
 	socket := runSmartHTTPServer(t, cfg)
 
-	client, conn := newSmartHTTPClient(t, "unix://"+socket, cfg.Auth.Token)
+	client, conn := newSmartHTTPClient(t, socket, cfg.Auth.Token)
 	defer conn.Close()
 
 	stream, err := client.PostReceivePack(ctx)

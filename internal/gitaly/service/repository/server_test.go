@@ -19,7 +19,7 @@ func TestGetConnectionByStorage(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	storageName, address := "default", "unix://fake/address/wont/work"
+	storageName, address := "default", "unix:///fake/address/wont/work"
 	injectedCtx, err := helper.InjectGitalyServers(ctx, storageName, address, "token")
 	require.NoError(t, err)
 

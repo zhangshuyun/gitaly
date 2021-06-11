@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 )
 
 // Replicator performs the actual replication logic between two nodes
@@ -117,10 +118,10 @@ func (dr defaultReplicator) Replicate(ctx context.Context, event datastore.Repli
 
 	if sourceObjectPool != nil {
 		targetObjectPoolClient := gitalypb.NewObjectPoolServiceClient(targetCC)
-		targetObjectPool := *sourceObjectPool
+		targetObjectPool := proto.Clone(sourceObjectPool).(*gitalypb.ObjectPool)
 		targetObjectPool.GetRepository().StorageName = targetRepository.GetStorageName()
 		if _, err := targetObjectPoolClient.LinkRepositoryToObjectPool(ctx, &gitalypb.LinkRepositoryToObjectPoolRequest{
-			ObjectPool: &targetObjectPool,
+			ObjectPool: targetObjectPool,
 			Repository: targetRepository,
 		}); err != nil {
 			return err

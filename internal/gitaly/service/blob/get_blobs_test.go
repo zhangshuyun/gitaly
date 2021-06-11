@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -120,7 +121,11 @@ func TestSuccessfulGetBlobsRequest(t *testing.T) {
 					expectedBlob.Data = expectedBlob.Data[:limit]
 				}
 
-				testhelper.ProtoEqual(t, expectedBlob, receivedBlob)
+				// comparison of the huge blobs is not possible with testassert.ProtoEqual
+				// we compare them manually and override to use in testassert.ProtoEqual
+				require.Equal(t, expectedBlob.Data, receivedBlob.Data)
+				expectedBlob.Data, receivedBlob.Data = nil, nil
+				testassert.ProtoEqual(t, expectedBlob, receivedBlob)
 			}
 		})
 	}

@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestFilesystem_Create(t *testing.T) {
@@ -30,7 +31,7 @@ func TestFilesystem_Create(t *testing.T) {
 
 	noHooksRepo, _, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "no-hooks")
 	emptyRepo, _, _ := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-	nonexistentRepo := *emptyRepo
+	nonexistentRepo := proto.Clone(emptyRepo).(*gitalypb.Repository)
 	nonexistentRepo.RelativePath = "nonexistent"
 
 	for _, tc := range []struct {
@@ -61,7 +62,7 @@ func TestFilesystem_Create(t *testing.T) {
 		},
 		{
 			desc:               "nonexistent repo",
-			repo:               &nonexistentRepo,
+			repo:               nonexistentRepo,
 			createsBundle:      false,
 			createsCustomHooks: false,
 			err:                ErrSkipped,

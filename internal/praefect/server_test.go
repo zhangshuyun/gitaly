@@ -37,6 +37,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/transactions"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/promtest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
@@ -98,7 +99,7 @@ func TestNewBackchannelServerFactory(t *testing.T) {
 	defer nodeSet.Close()
 
 	clientConn := nodeSet["default"]["gitaly-1"].Connection
-	require.Equal(t,
+	testassert.GrpcEqualErr(t,
 		status.Error(codes.NotFound, "transaction not found: 0"),
 		clientConn.Invoke(ctx, "/Service/Method", &gitalypb.CreateBranchRequest{}, &gitalypb.CreateBranchResponse{}),
 	)
@@ -174,7 +175,7 @@ func TestGitalyServerInfo(t *testing.T) {
 						{
 							Storage: cfg.Storages[0].Name,
 							Token:   cfg.Auth.Token,
-							Address: "unix://invalid.addr",
+							Address: "unix:///invalid.addr",
 						},
 					},
 				},
@@ -276,7 +277,7 @@ func TestHealthCheck(t *testing.T) {
 	cc, _, cleanup := runPraefectServer(t, config.Config{VirtualStorages: []*config.VirtualStorage{
 		{
 			Name:  "praefect",
-			Nodes: []*config.Node{{Storage: "stub", Address: "unix://stub-address", Token: ""}},
+			Nodes: []*config.Node{{Storage: "stub", Address: "unix:///stub-address", Token: ""}},
 		},
 	}}, buildOptions{})
 	defer cleanup()
@@ -498,11 +499,11 @@ func TestRemoveRepository(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	virtualRepo := *repos[0][0]
+	virtualRepo := proto.Clone(repos[0][0]).(*gitalypb.Repository)
 	virtualRepo.StorageName = praefectCfg.VirtualStorages[0].Name
 
 	_, err := gitalypb.NewRepositoryServiceClient(cc).RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{
-		Repository: &virtualRepo,
+		Repository: virtualRepo,
 	})
 	require.NoError(t, err)
 
@@ -574,7 +575,7 @@ func TestRenameRepository(t *testing.T) {
 	defer cleanup()
 
 	// virtualRepo is a virtual repository all requests to it would be applied to the underline Gitaly nodes behind it
-	virtualRepo := *repo
+	virtualRepo := proto.Clone(repo).(*gitalypb.Repository)
 	virtualRepo.StorageName = praefectCfg.VirtualStorages[0].Name
 
 	repoServiceClient := gitalypb.NewRepositoryServiceClient(cc)
@@ -583,13 +584,13 @@ func TestRenameRepository(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = repoServiceClient.RenameRepository(ctx, &gitalypb.RenameRepositoryRequest{
-		Repository:   &virtualRepo,
+		Repository:   virtualRepo,
 		RelativePath: newName,
 	})
 	require.NoError(t, err)
 
 	resp, err := repoServiceClient.RepositoryExists(ctx, &gitalypb.RepositoryExistsRequest{
-		Repository: &virtualRepo,
+		Repository: virtualRepo,
 	})
 	require.NoError(t, err)
 	require.False(t, resp.GetExists(), "repo with old name must gone")
@@ -610,6 +611,7 @@ func TestRenameRepository(t *testing.T) {
 }
 
 type mockSmartHTTP struct {
+	gitalypb.UnimplementedSmartHTTPServiceServer
 	txMgr         *transactions.Manager
 	m             sync.Mutex
 	methodsCalled map[string]int
@@ -967,7 +969,7 @@ func TestErrorThreshold(t *testing.T) {
 				require.True(t, healthy)
 
 				_, err = handler(ctx, &mock.RepoRequest{Repo: repo})
-				require.Equal(t, status.Error(codes.Internal, "something went wrong"), err)
+				testassert.GrpcEqualErr(t, status.Error(codes.Internal, "something went wrong"), err)
 			}
 
 			healthy, err := node.CheckHealth(ctx)

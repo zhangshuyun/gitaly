@@ -13,6 +13,7 @@ import (
 const msgSizeThreshold = 5 * 1024
 
 type server struct {
+	gitalypb.UnimplementedDiffServiceServer
 	MsgSizeThreshold int
 	cfg              config.Cfg
 	locator          storage.Locator

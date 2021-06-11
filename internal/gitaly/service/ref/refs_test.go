@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -1075,15 +1076,15 @@ func TestInvalidFindAllBranchesRequest(t *testing.T) {
 
 	testCases := []struct {
 		description string
-		request     gitalypb.FindAllBranchesRequest
+		request     *gitalypb.FindAllBranchesRequest
 	}{
 		{
 			description: "Empty request",
-			request:     gitalypb.FindAllBranchesRequest{},
+			request:     &gitalypb.FindAllBranchesRequest{},
 		},
 		{
 			description: "Invalid repo",
-			request: gitalypb.FindAllBranchesRequest{
+			request: &gitalypb.FindAllBranchesRequest{
 				Repository: &gitalypb.Repository{
 					StorageName:  "fake",
 					RelativePath: "repo",
@@ -1096,7 +1097,7 @@ func TestInvalidFindAllBranchesRequest(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
-			c, err := client.FindAllBranches(ctx, &tc.request)
+			c, err := client.FindAllBranches(ctx, tc.request)
 			require.NoError(t, err)
 
 			var recvError error
@@ -1442,7 +1443,7 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 		resp, err := client.FindTag(ctx, rpcRequest)
 		require.NoError(t, err)
 
-		testhelper.ProtoEqual(t, expectedTag, resp.GetTag())
+		testassert.ProtoEqual(t, expectedTag, resp.GetTag())
 	}
 }
 

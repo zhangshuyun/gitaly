@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/cache/testdata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -75,8 +76,8 @@ func TestInvalidators(t *testing.T) {
 		StorageName:                   "3",
 	}
 
-	expectedSvcRequests := []gitalypb.Repository{*repo1, *repo2, *repo3, *repo1, *repo2}
-	expectedInvalidations := []gitalypb.Repository{*repo2, *repo3, *repo1}
+	expectedSvcRequests := []*gitalypb.Repository{repo1, repo2, repo3, repo1, repo2}
+	expectedInvalidations := []*gitalypb.Repository{repo2, repo3, repo1}
 
 	// Should NOT trigger cache invalidation
 	c, err := cli.ClientStreamRepoAccessor(ctx, &testdata.Request{
@@ -121,18 +122,18 @@ func TestInvalidators(t *testing.T) {
 	require.Equal(t, 0, MethodErrCount.Method["/grpc.health.v1.Health/Check"])
 
 	_, err = testdata.NewInterceptedServiceClient(cc).IgnoredMethod(ctx, &testdata.Request{})
-	require.Equal(t, status.Error(codes.Unimplemented, "method IgnoredMethod not implemented"), err)
+	testassert.GrpcEqualErr(t, status.Error(codes.Unimplemented, "method IgnoredMethod not implemented"), err)
 	require.Equal(t, 0, MethodErrCount.Method["/testdata.InterceptedService/IgnoredMethod"])
 
-	require.Equal(t, expectedInvalidations, mCache.(*mockCache).invalidatedRepos)
-	require.Equal(t, expectedSvcRequests, svc.repoRequests)
+	testassert.ProtoEqual(t, expectedInvalidations, mCache.(*mockCache).invalidatedRepos)
+	testassert.ProtoEqual(t, expectedSvcRequests, svc.repoRequests)
 	require.Equal(t, 3, mCache.(*mockCache).endedLeases.count)
 }
 
 // mockCache allows us to relay back via channel which repos are being
 // invalidated in the cache
 type mockCache struct {
-	invalidatedRepos []gitalypb.Repository
+	invalidatedRepos []*gitalypb.Repository
 	endedLeases      *struct {
 		sync.RWMutex
 		count int
@@ -157,7 +158,7 @@ func (mc *mockCache) EndLease(_ context.Context) error {
 }
 
 func (mc *mockCache) StartLease(repo *gitalypb.Repository) (diskcache.LeaseEnder, error) {
-	mc.invalidatedRepos = append(mc.invalidatedRepos, *repo)
+	mc.invalidatedRepos = append(mc.invalidatedRepos, repo)
 	return mc, nil
 }
 
@@ -200,25 +201,26 @@ func newTestSvc(t testing.TB, ctx context.Context, srvr *grpc.Server, svc testda
 }
 
 type testSvc struct {
-	repoRequests []gitalypb.Repository
+	testdata.UnimplementedTestServiceServer
+	repoRequests []*gitalypb.Repository
 }
 
 func (ts *testSvc) ClientStreamRepoMutator(req *testdata.Request, _ testdata.TestService_ClientStreamRepoMutatorServer) error {
-	ts.repoRequests = append(ts.repoRequests, *req.GetDestination())
+	ts.repoRequests = append(ts.repoRequests, req.GetDestination())
 	return nil
 }
 
 func (ts *testSvc) ClientStreamRepoAccessor(req *testdata.Request, _ testdata.TestService_ClientStreamRepoAccessorServer) error {
-	ts.repoRequests = append(ts.repoRequests, *req.GetDestination())
+	ts.repoRequests = append(ts.repoRequests, req.GetDestination())
 	return nil
 }
 
 func (ts *testSvc) ClientUnaryRepoMutator(_ context.Context, req *testdata.Request) (*testdata.Response, error) {
-	ts.repoRequests = append(ts.repoRequests, *req.GetDestination())
+	ts.repoRequests = append(ts.repoRequests, req.GetDestination())
 	return &testdata.Response{}, nil
 }
 
 func (ts *testSvc) ClientUnaryRepoAccessor(_ context.Context, req *testdata.Request) (*testdata.Response, error) {
-	ts.repoRequests = append(ts.repoRequests, *req.GetDestination())
+	ts.repoRequests = append(ts.repoRequests, req.GetDestination())
 	return &testdata.Response{}, nil
 }

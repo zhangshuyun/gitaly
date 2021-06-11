@@ -446,7 +446,7 @@ func TestFailedGetTreeEntriesRequestDueToValidationError(t *testing.T) {
 	revision := []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72")
 	path := []byte("a/b/c")
 
-	rpcRequests := []gitalypb.GetTreeEntriesRequest{
+	rpcRequests := []*gitalypb.GetTreeEntriesRequest{
 		{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, Revision: revision, Path: path}, // Repository doesn't exist
 		{Repository: nil, Revision: revision, Path: path},                                                             // Repository is nil
 		{Repository: repo, Revision: nil, Path: path},                                                                 // Revision is empty
@@ -458,7 +458,7 @@ func TestFailedGetTreeEntriesRequestDueToValidationError(t *testing.T) {
 		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
-			c, err := client.GetTreeEntries(ctx, &rpcRequest)
+			c, err := client.GetTreeEntries(ctx, rpcRequest)
 			require.NoError(t, err)
 
 			err = drainTreeEntriesResponse(c)

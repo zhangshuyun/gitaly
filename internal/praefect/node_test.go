@@ -31,7 +31,7 @@ func TestDialNodes(t *testing.T) {
 		storage string
 		token   string
 		status  grpc_health_v1.HealthCheckResponse_ServingStatus
-		error   error
+		error   string
 	}
 
 	expectedNodes := []nodeAssertion{
@@ -68,7 +68,7 @@ func TestDialNodes(t *testing.T) {
 
 	expectedNodes = append(expectedNodes, nodeAssertion{
 		storage: "invalid",
-		error:   status.Error(codes.Unavailable, `connection error: desc = "transport: Error while dialing dial unix non-existent-socket: connect: no such file or directory"`),
+		error:   status.Error(codes.Unavailable, `connection error: desc = "transport: Error while dialing dial unix non-existent-socket: connect: no such file or directory"`).Error(),
 	})
 
 	nodeSet, err := DialNodes(ctx,
@@ -92,10 +92,15 @@ func TestDialNodes(t *testing.T) {
 			require.NotNil(t, conns[virtualStorage][node.Storage], "connection not found for storage %q", node.Storage)
 			resp, err := healthClients[virtualStorage][node.Storage].Check(ctx, &grpc_health_v1.HealthCheckRequest{})
 
+			var errStr string
+			if err != nil {
+				errStr = err.Error()
+			}
+
 			assertion := nodeAssertion{
 				storage: node.Storage,
 				token:   node.Token,
-				error:   err,
+				error:   errStr,
 			}
 
 			if resp != nil {

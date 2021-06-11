@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
@@ -18,10 +17,12 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
@@ -918,7 +919,7 @@ func TestUserCommitFiles(t *testing.T) {
 				}
 
 				resp, err := stream.CloseAndRecv()
-				require.Equal(t, step.error, err)
+				testassert.GrpcEqualErr(t, step.error, err)
 				if step.error != nil {
 					continue
 				}
@@ -957,7 +958,7 @@ func TestUserCommitFilesStableCommitID(t *testing.T) {
 
 	headerRequest := headerRequest(repoProto, gittest.TestUser, "master", []byte("commit message"), "")
 	setAuthorAndEmail(headerRequest, []byte("Author Name"), []byte("author.email@example.com"))
-	setTimestamp(t, headerRequest, time.Unix(12345, 0))
+	setTimestamp(headerRequest, time.Unix(12345, 0))
 	require.NoError(t, stream.Send(headerRequest))
 
 	require.NoError(t, stream.Send(createFileHeaderRequest("file.txt")))
@@ -1530,10 +1531,8 @@ func setAuthorAndEmail(headerRequest *gitalypb.UserCommitFilesRequest, authorNam
 	header.CommitAuthorEmail = authorEmail
 }
 
-func setTimestamp(t testing.TB, headerRequest *gitalypb.UserCommitFilesRequest, time time.Time) {
-	timestamp, err := ptypes.TimestampProto(time)
-	require.NoError(t, err)
-	getHeader(headerRequest).Timestamp = timestamp
+func setTimestamp(headerRequest *gitalypb.UserCommitFilesRequest, time time.Time) {
+	getHeader(headerRequest).Timestamp = timestamppb.New(time)
 }
 
 func setStartBranchName(headerRequest *gitalypb.UserCommitFilesRequest, startBranchName []byte) {

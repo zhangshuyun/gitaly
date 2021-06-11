@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
@@ -311,7 +312,7 @@ func TestSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T) {
 					TargetCommit: targetCommitOK,
 				},
 			}
-			require.Equal(t, responseOk, response)
+			testassert.ProtoEqual(t, responseOk, response)
 			branches := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+testCase.branchName)
 			require.Contains(t, string(branches), "refs/heads/"+testCase.branchName)
 		})
@@ -397,7 +398,7 @@ func TestFailedUserCreateBranchRequest(t *testing.T) {
 			}
 
 			response, err := client.UserCreateBranch(ctx, request)
-			require.Equal(t, testCase.err, err)
+			testassert.GrpcEqualErr(t, testCase.err, err)
 			require.Empty(t, response)
 		})
 	}
@@ -453,7 +454,7 @@ func testSuccessfulUserDeleteBranchRequest(t *testing.T, ctx context.Context) {
 				User:       testCase.user,
 			})
 			require.NoError(t, err)
-			testhelper.ProtoEqual(t, testCase.response, response)
+			testassert.ProtoEqual(t, testCase.response, response)
 
 			refs := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+testCase.branchNameInput)
 			require.NotContains(t, string(refs), testCase.branchCommit, "branch deleted from refs")
@@ -595,8 +596,8 @@ func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			response, err := client.UserDeleteBranch(ctx, testCase.request)
-			require.Equal(t, testCase.err, err)
-			testhelper.ProtoEqual(t, testCase.response, response)
+			testassert.GrpcEqualErr(t, testCase.err, err)
+			testassert.ProtoEqual(t, testCase.response, response)
 		})
 	}
 }

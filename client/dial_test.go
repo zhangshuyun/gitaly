@@ -18,6 +18,7 @@ import (
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
 	proxytestdata "gitlab.com/gitlab-org/gitaly/v14/internal/praefect/grpc-proxy/testdata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	gitaly_x509 "gitlab.com/gitlab-org/gitaly/v14/internal/x509"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
@@ -147,7 +148,7 @@ func TestDial(t *testing.T) {
 }
 
 type testSvc struct {
-	proxytestdata.TestServiceServer
+	proxytestdata.UnimplementedTestServiceServer
 	PingMethod       func(context.Context, *proxytestdata.PingRequest) (*proxytestdata.PingResponse, error)
 	PingStreamMethod func(stream proxytestdata.TestService_PingStreamServer) error
 }
@@ -293,6 +294,7 @@ func TestDial_Tracing(t *testing.T) {
 	t.Run("unary", func(t *testing.T) {
 		reporter := jaeger.NewInMemoryReporter()
 		tracer, tracerCloser := jaeger.NewTracer("", jaeger.NewConstSampler(true), reporter)
+		defer tracerCloser.Close()
 
 		defer func(old opentracing.Tracer) { opentracing.SetGlobalTracer(old) }(opentracing.GlobalTracer())
 		opentracing.SetGlobalTracer(tracer)
@@ -318,7 +320,6 @@ func TestDial_Tracing(t *testing.T) {
 		require.NoError(t, err)
 
 		span.Finish()
-		tracerCloser.Close()
 
 		spans := reporter.GetSpans()
 		require.Len(t, spans, 3)
@@ -350,6 +351,7 @@ func TestDial_Tracing(t *testing.T) {
 	t.Run("stream", func(t *testing.T) {
 		reporter := jaeger.NewInMemoryReporter()
 		tracer, tracerCloser := jaeger.NewTracer("", jaeger.NewConstSampler(true), reporter)
+		defer tracerCloser.Close()
 
 		defer func(old opentracing.Tracer) { opentracing.SetGlobalTracer(old) }(opentracing.GlobalTracer())
 		opentracing.SetGlobalTracer(tracer)
@@ -380,7 +382,6 @@ func TestDial_Tracing(t *testing.T) {
 		require.Nil(t, resp)
 
 		span.Finish()
-		tracerCloser.Close()
 
 		spans := reporter.GetSpans()
 		require.Len(t, spans, 3)
@@ -526,9 +527,9 @@ func TestHealthCheckDialer(t *testing.T) {
 	defer cancel()
 
 	_, err := HealthCheckDialer(DialContext)(ctx, addr, nil)
-	require.Equal(t, status.Error(codes.Unauthenticated, "authentication required"), err, "should fail without token configured")
+	testassert.GrpcEqualErr(t, status.Error(codes.Unauthenticated, "authentication required"), err)
 
 	cc, err := HealthCheckDialer(DialContext)(ctx, addr, []grpc.DialOption{grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2("token"))})
 	require.NoError(t, err)
-	cc.Close()
+	require.NoError(t, cc.Close())
 }

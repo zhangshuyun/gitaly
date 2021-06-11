@@ -4,12 +4,13 @@ import (
 	"context"
 	"sync/atomic"
 
-	pb "gitlab.com/gitlab-org/gitaly/v14/internal/middleware/limithandler/testpb"
+	pb "gitlab.com/gitlab-org/gitaly/v14/internal/middleware/limithandler/testdata"
 )
 
 type server struct {
+	pb.UnimplementedTestServer
 	requestCount uint64
-	blockCh      chan (struct{})
+	blockCh      chan struct{}
 }
 
 func (s *server) registerRequest() {

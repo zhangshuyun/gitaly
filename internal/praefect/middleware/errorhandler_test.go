@@ -20,7 +20,9 @@ import (
 	"google.golang.org/grpc"
 )
 
-type simpleService struct{}
+type simpleService struct {
+	mock.UnimplementedSimpleServiceServer
+}
 
 func (s *simpleService) RepoAccessorUnary(ctx context.Context, in *mock.RepoRequest) (*empty.Empty, error) {
 	if in.GetRepo() == nil {

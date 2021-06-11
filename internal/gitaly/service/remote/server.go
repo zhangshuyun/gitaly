@@ -14,6 +14,7 @@ import (
 )
 
 type server struct {
+	gitalypb.UnimplementedRemoteServiceServer
 	cfg           config.Cfg
 	ruby          *rubyserver.Server
 	locator       storage.Locator

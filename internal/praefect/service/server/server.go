@@ -8,6 +8,7 @@ import (
 
 // Server is a ServerService server
 type Server struct {
+	gitalypb.UnimplementedServerServiceServer
 	conf  config.Config
 	conns service.Connections
 }

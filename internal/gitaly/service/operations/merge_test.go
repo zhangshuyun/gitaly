@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -87,7 +88,7 @@ func TestSuccessfulMerge(t *testing.T) {
 	commit, err := repo.ReadCommit(ctx, git.Revision(mergeBranchName))
 	require.NoError(t, err, "look up git commit after call has finished")
 
-	require.Equal(t, gitalypb.OperationBranchUpdate{CommitId: commit.Id}, *(secondResponse.BranchUpdate))
+	testassert.ProtoEqual(t, &gitalypb.OperationBranchUpdate{CommitId: commit.Id}, secondResponse.BranchUpdate)
 
 	require.Equal(t, commit.ParentIds, []string{mergeBranchHeadBefore, commitToMerge})
 
@@ -279,7 +280,7 @@ func TestFailedMergeConcurrentUpdate(t *testing.T) {
 
 	secondResponse, err := mergeBidi.Recv()
 	require.NoError(t, err, "receive second response")
-	testhelper.ProtoEqual(t, secondResponse, &gitalypb.UserMergeBranchResponse{})
+	testassert.ProtoEqual(t, secondResponse, &gitalypb.UserMergeBranchResponse{})
 
 	commit, err := repo.ReadCommit(ctx, git.Revision(mergeBranchName))
 	require.NoError(t, err, "get commit after RPC finished")
@@ -342,7 +343,7 @@ func TestUserMergeBranch_ambiguousReference(t *testing.T) {
 	commit, err := repo.ReadCommit(ctx, git.Revision("refs/heads/"+mergeBranchName))
 	require.NoError(t, err, "look up git commit after call has finished")
 
-	require.Equal(t, gitalypb.OperationBranchUpdate{CommitId: commit.Id}, *(response.BranchUpdate))
+	testassert.ProtoEqual(t, &gitalypb.OperationBranchUpdate{CommitId: commit.Id}, response.BranchUpdate)
 	require.Equal(t, mergeCommitMessage, string(commit.Body))
 	require.Equal(t, gittest.TestUser.Name, commit.Author.Name)
 	require.Equal(t, gittest.TestUser.Email, commit.Author.Email)
@@ -424,7 +425,7 @@ func TestSuccessfulUserFFBranchRequest(t *testing.T) {
 
 	resp, err := client.UserFFBranch(ctx, request)
 	require.NoError(t, err)
-	testhelper.ProtoEqual(t, expectedResponse, resp)
+	testassert.ProtoEqual(t, expectedResponse, resp)
 	newBranchHead := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", branchName)
 	require.Equal(t, commitID, text.ChompBytes(newBranchHead), "branch head not updated")
 }
@@ -585,7 +586,7 @@ func TestUserFFBranch_ambiguousReference(t *testing.T) {
 
 	resp, err := client.UserFFBranch(ctx, request)
 	require.NoError(t, err)
-	testhelper.ProtoEqual(t, expectedResponse, resp)
+	testassert.ProtoEqual(t, expectedResponse, resp)
 	newBranchHead := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/"+branchName)
 	require.Equal(t, commitID, text.ChompBytes(newBranchHead), "branch head not updated")
 }
@@ -799,7 +800,7 @@ func TestConflictsOnUserMergeToRefRequest(t *testing.T) {
 		request.AllowConflicts = false
 
 		_, err := client.UserMergeToRef(ctx, request)
-		require.Equal(t, status.Error(codes.FailedPrecondition, "Failed to create merge commit for source_sha 1450cd639e0bc6721eb02800169e464f212cde06 and target_sha 824be604a34828eb682305f0d963056cfac87b2d at refs/merge-requests/x/written"), err)
+		testassert.GrpcEqualErr(t, status.Error(codes.FailedPrecondition, "Failed to create merge commit for source_sha 1450cd639e0bc6721eb02800169e464f212cde06 and target_sha 824be604a34828eb682305f0d963056cfac87b2d at refs/merge-requests/x/written"), err)
 	})
 
 	targetRef := git.Revision("refs/merge-requests/foo")
@@ -877,7 +878,7 @@ func TestUserMergeToRef_stableMergeID(t *testing.T) {
 
 	commit, err := repo.ReadCommit(ctx, git.Revision("refs/merge-requests/x/written"))
 	require.NoError(t, err, "look up git commit after call has finished")
-	require.Equal(t, &gitalypb.GitCommit{
+	testassert.ProtoEqual(t, &gitalypb.GitCommit{
 		Subject:  []byte("Merge message"),
 		Body:     []byte("Merge message"),
 		BodySize: 13,

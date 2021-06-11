@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -97,7 +98,7 @@ func TestBackchannel_concurrentRequestsFromMultipleClients(t *testing.T) {
 			}
 
 			resp, err := gitalypb.NewRefTransactionClient(client).VoteTransaction(ctx, &gitalypb.VoteTransactionRequest{})
-			assert.Equal(t, err, errNonMultiplexed)
+			testassert.GrpcEqualErr(t, errNonMultiplexed, err)
 			assert.Nil(t, resp)
 
 			assert.NoError(t, client.Close())
@@ -112,7 +113,7 @@ func TestBackchannel_concurrentRequestsFromMultipleClients(t *testing.T) {
 				srv := grpc.NewServer()
 				gitalypb.RegisterRefTransactionServer(srv, mockTransactionServer{
 					voteTransactionFunc: func(ctx context.Context, req *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
-						assert.Equal(t, &gitalypb.VoteTransactionRequest{TransactionId: i}, req)
+						testassert.ProtoEqual(t, &gitalypb.VoteTransactionRequest{TransactionId: i}, req)
 						return nil, expectedErr
 					},
 				})
@@ -136,7 +137,7 @@ func TestBackchannel_concurrentRequestsFromMultipleClients(t *testing.T) {
 				go func() {
 					defer invocations.Done()
 					resp, err := gitalypb.NewRefTransactionClient(client).VoteTransaction(ctx, &gitalypb.VoteTransactionRequest{TransactionId: i})
-					assert.Equal(t, err, expectedErr)
+					testassert.GrpcEqualErr(t, expectedErr, err)
 					assert.Nil(t, resp)
 				}()
 			}

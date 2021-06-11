@@ -9,7 +9,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/stretchr/testify/require"
-	test "gitlab.com/gitlab-org/gitaly/v14/internal/helper/chunk/pb"
+	test "gitlab.com/gitlab-org/gitaly/v14/internal/helper/chunk/testdata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"google.golang.org/grpc"
 )
@@ -64,7 +64,9 @@ func TestChunker(t *testing.T) {
 	}
 }
 
-type server struct{}
+type server struct {
+	test.UnimplementedTestServer
+}
 
 func (s *server) StreamOutput(req *test.StreamOutputRequest, srv test.Test_StreamOutputServer) error {
 	const kilobyte = 1024

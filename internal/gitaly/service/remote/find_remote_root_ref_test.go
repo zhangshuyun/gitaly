@@ -7,6 +7,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -70,7 +71,7 @@ func TestFindRemoteRootRefWithUnbornRemoteHead(t *testing.T) {
 		&gitalypb.FindRemoteRootRefRequest{Repository: remoteRepo, RemoteUrl: "file://" + clientRepoPath},
 	} {
 		response, err := client.FindRemoteRootRef(ctx, request)
-		require.Equal(t, status.Error(codes.NotFound, "no remote HEAD found"), err)
+		testassert.GrpcEqualErr(t, status.Error(codes.NotFound, "no remote HEAD found"), err)
 		require.Nil(t, response)
 	}
 }
@@ -138,7 +139,7 @@ func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 			// proxy via Praefect or not. We thus simply assert that the actual error is
 			// one of the possible errors, which is the same as equality for all the
 			// other tests.
-			require.Contains(t, testCase.expectedErr, err)
+			testassert.ContainsGrpcError(t, testCase.expectedErr, err)
 		})
 	}
 }

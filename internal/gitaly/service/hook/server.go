@@ -24,6 +24,7 @@ var (
 )
 
 type server struct {
+	gitalypb.UnimplementedHookServiceServer
 	cfg              config.Cfg
 	manager          gitalyhook.Manager
 	gitCmdFactory    git.CommandFactory

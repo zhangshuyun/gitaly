@@ -1,6 +1,8 @@
 syntax = "proto3";
 
-package test;
+package test.chunk;
+
+option go_package = "gitlab.com/gitlab-org/gitaly/v14/internal/helper/chunk/testdata";
 
 service Test {
   rpc StreamOutput(StreamOutputRequest) returns (stream StreamOutputResponse) {}
