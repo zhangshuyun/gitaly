@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	gitalylog "gitlab.com/gitlab-org/gitaly/v14/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/version"
 )
 
 var (
@@ -124,6 +125,14 @@ func ConfigureRuby(cfg *config.Cfg) error {
 // ConfigureGitalyGit2GoBin configures the gitaly-git2go command for tests
 func ConfigureGitalyGit2GoBin(t testing.TB, cfg config.Cfg) {
 	buildBinary(t, cfg.BinDir, "gitaly-git2go")
+	// The link is needed because gitaly uses version-named binary.
+	// Please check out https://gitlab.com/gitlab-org/gitaly/-/issues/3647 for more info.
+	if err := os.Link(filepath.Join(cfg.BinDir, "gitaly-git2go"), filepath.Join(cfg.BinDir, "gitaly-git2go-"+version.GetModuleVersion())); err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return
+		}
+		require.NoError(t, err)
+	}
 }
 
 // ConfigureGitalyLfsSmudge configures the gitaly-lfs-smudge command for tests

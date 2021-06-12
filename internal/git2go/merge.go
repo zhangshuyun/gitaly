@@ -73,7 +73,7 @@ func (m MergeCommand) Run(ctx context.Context, cfg config.Cfg) (MergeResult, err
 		return MergeResult{}, err
 	}
 
-	stdout, err := run(ctx, binaryPathFromCfg(cfg), nil, "merge", "-request", serialized)
+	stdout, err := run(ctx, BinaryPath(cfg.BinDir), nil, "merge", "-request", serialized)
 	if err != nil {
 		return MergeResult{}, err
 	}

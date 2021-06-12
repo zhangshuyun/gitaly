@@ -86,7 +86,7 @@ func (c ConflictsCommand) Run(ctx context.Context, cfg config.Cfg) (ConflictsRes
 		return ConflictsResult{}, err
 	}
 
-	stdout, err := run(ctx, binaryPathFromCfg(cfg), nil, "conflicts", "-request", serialized)
+	stdout, err := run(ctx, BinaryPath(cfg.BinDir), nil, "conflicts", "-request", serialized)
 	if err != nil {
 		return ConflictsResult{}, err
 	}

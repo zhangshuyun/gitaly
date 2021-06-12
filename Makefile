@@ -30,6 +30,7 @@ COVERAGE_DIR     := ${BUILD_DIR}/cover
 DEPENDENCY_DIR   := ${BUILD_DIR}/deps
 TOOLS_DIR        := ${BUILD_DIR}/tools
 GITALY_RUBY_DIR  := ${SOURCE_DIR}/ruby
+MODULE_VERSION   := $(notdir $(shell go list -m))
 
 # These variables may be overridden at runtime by top-level make
 PREFIX           ?= /usr/local
@@ -61,7 +62,7 @@ BUNDLE_DEPLOYMENT ?= $(shell test -f ${SOURCE_DIR}/../.gdk-install-root && echo 
 GITALY_PACKAGE    := gitlab.com/gitlab-org/gitaly/v14
 BUILD_TIME        := $(shell date +"%Y%m%d.%H%M%S")
 GITALY_VERSION    := $(shell ${GIT} describe --match v* 2>/dev/null | sed 's/^v//' || cat ${SOURCE_DIR}/VERSION 2>/dev/null || echo unknown)
-GO_LDFLAGS        := -ldflags '-X ${GITALY_PACKAGE}/internal/version.version=${GITALY_VERSION} -X ${GITALY_PACKAGE}/internal/version.buildtime=${BUILD_TIME}'
+GO_LDFLAGS        := -ldflags '-X ${GITALY_PACKAGE}/internal/version.version=${GITALY_VERSION} -X ${GITALY_PACKAGE}/internal/version.buildtime=${BUILD_TIME} -X ${GITALY_PACKAGE}/internal/version.moduleVersion=${MODULE_VERSION}'
 GO_BUILD_TAGS     := tracer_static,tracer_static_jaeger,continuous_profiler_stackdriver,static,system_libgit2
 
 # Dependency versions
@@ -159,7 +160,7 @@ BENCHMARK_REPO   := ${TEST_REPO_DIR}/benchmark.git
 # Find all commands.
 find_commands         = $(notdir $(shell find ${SOURCE_DIR}/cmd -mindepth 1 -maxdepth 1 -type d -print))
 # Find all command binaries.
-find_command_binaries = $(addprefix ${BUILD_DIR}/bin/, $(call find_commands))
+find_command_binaries = $(addprefix ${BUILD_DIR}/bin/, $(shell ls ${BUILD_DIR}/bin))
 # Find all Go source files.
 find_go_sources       = $(shell find ${SOURCE_DIR} -type d \( -name ruby -o -name vendor -o -name testdata -o -name '_*' -o -path '*/proto/go' \) -prune -o -type f -name '*.go' -not -name '*.pb.go' -print | sort -u)
 
@@ -171,7 +172,7 @@ find_go_sources       = $(shell find ${SOURCE_DIR} -type d \( -name ruby -o -nam
 # TEST_PACKAGES: packages which shall be tested
 run_go_tests = PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}' \
     GIT_DIR=/dev/null \
-    go test -tags '${GO_BUILD_TAGS}' ${TEST_OPTIONS} ${TEST_PACKAGES}
+    go test ${GO_LDFLAGS} -tags '${GO_BUILD_TAGS}' ${TEST_OPTIONS} ${TEST_PACKAGES}
 
 unexport GOROOT
 export GOBIN                      = ${BUILD_DIR}/bin
@@ -199,6 +200,10 @@ all: install
 .PHONY: build
 build: ${SOURCE_DIR}/.ruby-bundle libgit2
 	go install ${GO_LDFLAGS} -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, $(call find_commands))
+	# We use version suffix for the gitaly-git2go binary to support compatibility contract between
+	# gitaly and gitaly-git2go during upgrade deployment.
+	# For more information refer to https://gitlab.com/gitlab-org/gitaly/-/issues/3647#note_599082033
+	cp ${BUILD_DIR}/bin/gitaly-git2go "${BUILD_DIR}/bin/gitaly-git2go-${MODULE_VERSION}"
 
 .PHONY: install
 install: build

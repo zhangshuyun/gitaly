@@ -1,8 +1,6 @@
 package operations
 
 import (
-	"path/filepath"
-
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
@@ -44,7 +42,7 @@ func NewServer(
 		hookManager:   hookManager,
 		locator:       locator,
 		conns:         conns,
-		git2go:        git2go.New(filepath.Join(cfg.BinDir, "gitaly-git2go"), cfg.Git.BinPath),
+		git2go:        git2go.New(cfg.BinDir, cfg.Git.BinPath),
 		gitCmdFactory: gitCmdFactory,
 		catfileCache:  catfileCache,
 	}

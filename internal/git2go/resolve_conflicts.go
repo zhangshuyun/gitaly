@@ -33,7 +33,7 @@ func (r ResolveCommand) Run(ctx context.Context, cfg config.Cfg) (ResolveResult,
 		return ResolveResult{}, fmt.Errorf("resolve: %w", err)
 	}
 
-	stdout, err := run(ctx, binaryPathFromCfg(cfg), input, "resolve")
+	stdout, err := run(ctx, BinaryPath(cfg.BinDir), input, "resolve")
 	if err != nil {
 		return ResolveResult{}, err
 	}
