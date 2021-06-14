@@ -167,7 +167,6 @@ func (s *server) GetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gita
 	}
 
 	repo := s.localrepo(req.GetRepository())
-	objectIDs := strings.Join(req.BlobIds, "\n")
 
 	chunker := chunk.New(&lfsPointerSender{
 		send: func(pointers []*gitalypb.LFSPointer) error {
@@ -177,8 +176,36 @@ func (s *server) GetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gita
 		},
 	})
 
-	if err := readLFSPointers(ctx, repo, chunker, strings.NewReader(objectIDs), 0); err != nil {
-		if !errors.Is(err, errLimitReached) {
+	if featureflag.IsDisabled(ctx, featureflag.LFSPointersPipeline) {
+		objectIDs := strings.Join(req.BlobIds, "\n")
+
+		if err := readLFSPointers(ctx, repo, chunker, strings.NewReader(objectIDs), 0); err != nil {
+			if !errors.Is(err, errLimitReached) {
+				return err
+			}
+		}
+	} else {
+		catfileProcess, err := s.catfileCache.BatchProcess(ctx, repo)
+		if err != nil {
+			return helper.ErrInternal(fmt.Errorf("creating catfile process: %w", err))
+		}
+
+		objectChan := make(chan revlistResult, len(req.GetBlobIds()))
+		for _, blobID := range req.GetBlobIds() {
+			objectChan <- revlistResult{oid: git.ObjectID(blobID)}
+		}
+		close(objectChan)
+
+		catfileInfoChan := catfileInfo(ctx, catfileProcess, objectChan)
+		catfileInfoChan = catfileInfoFilter(ctx, catfileInfoChan, func(r catfileInfoResult) bool {
+			return r.objectInfo.Type == "blob" && r.objectInfo.Size <= lfsPointerMaxSize
+		})
+		catfileObjectChan := catfileObject(ctx, catfileProcess, catfileInfoChan)
+		catfileObjectChan = catfileObjectFilter(ctx, catfileObjectChan, func(r catfileObjectResult) bool {
+			return git.IsLFSPointer(r.objectData)
+		})
+
+		if err := sendLFSPointers(chunker, catfileObjectChan, 0); err != nil {
 			return err
 		}
 	}
