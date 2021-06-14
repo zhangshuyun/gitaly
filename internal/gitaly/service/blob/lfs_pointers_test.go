@@ -2,6 +2,7 @@ package blob
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -18,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -71,10 +73,15 @@ var (
 )
 
 func TestListLFSPointers(t *testing.T) {
-	_, repo, _, client := setup(t)
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.LFSPointersPipeline,
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		testListLFSPointers(t, ctx)
+	})
+}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+func testListLFSPointers(t *testing.T, ctx context.Context) {
+	_, repo, _, client := setup(t)
 
 	for _, tc := range []struct {
 		desc             string
@@ -457,11 +464,6 @@ func TestFindLFSPointersByRevisions(t *testing.T) {
 				lfsPointers[lfsPointer2],
 				lfsPointers[lfsPointer3],
 			},
-		},
-		{
-			desc:        "invalid dashed option",
-			revs:        []string{"master", "--foobar"},
-			expectedErr: fmt.Errorf("invalid revision: \"--foobar\""),
 		},
 		{
 			desc:        "invalid revision",

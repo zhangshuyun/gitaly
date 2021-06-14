@@ -14,7 +14,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/chunk"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"golang.org/x/text/transform"
 	"google.golang.org/grpc/codes"
@@ -29,8 +31,7 @@ const (
 )
 
 var (
-	errInvalidRevision = errors.New("invalid revision")
-	errLimitReached    = errors.New("limit reached")
+	errLimitReached = errors.New("limit reached")
 )
 
 // ListLFSPointers finds all LFS pointers which are transitively reachable via a graph walk of the
@@ -44,6 +45,11 @@ func (s *server) ListLFSPointers(in *gitalypb.ListLFSPointersRequest, stream git
 	if len(in.Revisions) == 0 {
 		return status.Error(codes.InvalidArgument, "missing revisions")
 	}
+	for _, revision := range in.Revisions {
+		if strings.HasPrefix(revision, "-") && revision != "--all" && revision != "--not" {
+			return status.Errorf(codes.InvalidArgument, "invalid revision: %q", revision)
+		}
+	}
 
 	chunker := chunk.New(&lfsPointerSender{
 		send: func(pointers []*gitalypb.LFSPointer) error {
@@ -54,12 +60,51 @@ func (s *server) ListLFSPointers(in *gitalypb.ListLFSPointersRequest, stream git
 	})
 
 	repo := s.localrepo(in.GetRepository())
-	if err := findLFSPointersByRevisions(ctx, repo, s.gitCmdFactory, chunker, int(in.Limit), in.Revisions...); err != nil {
-		if errors.Is(err, errInvalidRevision) {
-			return status.Errorf(codes.InvalidArgument, err.Error())
+
+	if featureflag.IsDisabled(ctx, featureflag.LFSPointersPipeline) {
+		if err := findLFSPointersByRevisions(ctx, repo, s.gitCmdFactory, chunker, int(in.Limit), in.Revisions...); err != nil {
+			if !errors.Is(err, errLimitReached) {
+				return err
+			}
 		}
-		if !errors.Is(err, errLimitReached) {
-			return err
+	} else {
+		catfileProcess, err := s.catfileCache.BatchProcess(ctx, repo)
+		if err != nil {
+			return helper.ErrInternal(fmt.Errorf("creating catfile process: %w", err))
+		}
+
+		revlistChan := revlist(ctx, repo, in.GetRevisions(), withBlobLimit(lfsPointerMaxSize))
+		catfileInfoChan := catfileInfo(ctx, catfileProcess, revlistChan)
+		catfileInfoChan = catfileInfoFilter(ctx, catfileInfoChan, func(r catfileInfoResult) bool {
+			return r.objectInfo.Type == "blob" && r.objectInfo.Size <= lfsPointerMaxSize
+		})
+		catfileObjectChan := catfileObject(ctx, catfileProcess, catfileInfoChan)
+		catfileObjectChan = catfileObjectFilter(ctx, catfileObjectChan, func(r catfileObjectResult) bool {
+			return git.IsLFSPointer(r.objectData)
+		})
+
+		var i int32
+		for lfsPointer := range catfileObjectChan {
+			if lfsPointer.err != nil {
+				return helper.ErrInternal(lfsPointer.err)
+			}
+
+			if err := chunker.Send(&gitalypb.LFSPointer{
+				Data: lfsPointer.objectData,
+				Size: lfsPointer.objectInfo.Size,
+				Oid:  lfsPointer.objectInfo.Oid.String(),
+			}); err != nil {
+				return helper.ErrInternal(fmt.Errorf("sending LFS pointer chunk: %w", err))
+			}
+
+			i++
+			if in.Limit > 0 && i >= in.Limit {
+				break
+			}
+		}
+
+		if err := chunker.Flush(); err != nil {
+			return helper.ErrInternal(err)
 		}
 	}
 
@@ -162,12 +207,6 @@ func findLFSPointersByRevisions(
 	limit int,
 	revisions ...string,
 ) (returnErr error) {
-	for _, revision := range revisions {
-		if strings.HasPrefix(revision, "-") && revision != "--all" && revision != "--not" {
-			return fmt.Errorf("%w: %q", errInvalidRevision, revision)
-		}
-	}
-
 	// git-rev-list(1) currently does not have any way to list all reachable objects of a
 	// certain type.
 	var revListStderr bytes.Buffer

@@ -20,6 +20,9 @@ var (
 	// UserMergeToRefSkipPrecursorRefUpdate causes UserMergeToRef to not update the
 	// target reference in case computing the merge fails.
 	UserMergeToRefSkipPrecursorRefUpdate = FeatureFlag{Name: "user_merge_to_ref_skip_precursor_ref_update", OnByDefault: true}
+	// LFSPointersPipeline enables the alternative pipeline implementation of LFS-pointer
+	// related RPCs.
+	LFSPointersPipeline = FeatureFlag{Name: "lfs_pointers_pipeline", OnByDefault: false}
 )
 
 // All includes all feature flags.
@@ -29,4 +32,5 @@ var All = []FeatureFlag{
 	TxConfig,
 	TxRemote,
 	UserMergeToRefSkipPrecursorRefUpdate,
+	LFSPointersPipeline,
 }
