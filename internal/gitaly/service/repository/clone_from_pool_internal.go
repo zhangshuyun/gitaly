@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/remote"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -26,24 +27,10 @@ func (s *server) CloneFromPoolInternal(ctx context.Context, req *gitalypb.CloneF
 		return nil, helper.ErrInternal(err)
 	}
 
-	client, err := s.newRemoteClient(ctx)
-	if err != nil {
-		return nil, helper.ErrInternalf("getting remote service client: %v", err)
-	}
+	repo := s.localrepo(req.GetRepository())
 
-	fetchInternalReq := &gitalypb.FetchInternalRemoteRequest{
-		Repository:       req.GetRepository(),
-		RemoteRepository: req.GetSourceRepository(),
-	}
-
-	outgoingCtx := helper.IncomingToOutgoing(ctx)
-
-	resp, err := client.FetchInternalRemote(outgoingCtx, fetchInternalReq)
-	if err != nil {
+	if err := remote.FetchInternalRemote(ctx, s.cfg, s.conns, repo, req.GetSourceRepository()); err != nil {
 		return nil, helper.ErrInternalf("fetch internal remote: %v", err)
-	}
-	if !resp.Result {
-		return nil, helper.ErrInternalf("fetch internal remote failed")
 	}
 
 	objectPool, err := objectpool.FromProto(s.cfg, s.locator, s.gitCmdFactory, s.catfileCache, req.GetPool())
