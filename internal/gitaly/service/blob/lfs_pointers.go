@@ -83,28 +83,8 @@ func (s *server) ListLFSPointers(in *gitalypb.ListLFSPointersRequest, stream git
 			return git.IsLFSPointer(r.objectData)
 		})
 
-		var i int32
-		for lfsPointer := range catfileObjectChan {
-			if lfsPointer.err != nil {
-				return helper.ErrInternal(lfsPointer.err)
-			}
-
-			if err := chunker.Send(&gitalypb.LFSPointer{
-				Data: lfsPointer.objectData,
-				Size: lfsPointer.objectInfo.Size,
-				Oid:  lfsPointer.objectInfo.Oid.String(),
-			}); err != nil {
-				return helper.ErrInternal(fmt.Errorf("sending LFS pointer chunk: %w", err))
-			}
-
-			i++
-			if in.Limit > 0 && i >= in.Limit {
-				break
-			}
-		}
-
-		if err := chunker.Flush(); err != nil {
-			return helper.ErrInternal(err)
+		if err := sendLFSPointers(chunker, catfileObjectChan, int(in.Limit)); err != nil {
+			return err
 		}
 	}
 
@@ -347,4 +327,32 @@ func (t *lfsPointerSender) Append(m proto.Message) {
 
 func (t *lfsPointerSender) Send() error {
 	return t.send(t.pointers)
+}
+
+func sendLFSPointers(chunker *chunk.Chunker, lfsPointers <-chan catfileObjectResult, limit int) error {
+	var i int
+	for lfsPointer := range lfsPointers {
+		if lfsPointer.err != nil {
+			return helper.ErrInternal(lfsPointer.err)
+		}
+
+		if err := chunker.Send(&gitalypb.LFSPointer{
+			Data: lfsPointer.objectData,
+			Size: lfsPointer.objectInfo.Size,
+			Oid:  lfsPointer.objectInfo.Oid.String(),
+		}); err != nil {
+			return helper.ErrInternal(fmt.Errorf("sending LFS pointer chunk: %w", err))
+		}
+
+		i++
+		if limit > 0 && i >= limit {
+			break
+		}
+	}
+
+	if err := chunker.Flush(); err != nil {
+		return helper.ErrInternal(err)
+	}
+
+	return nil
 }
