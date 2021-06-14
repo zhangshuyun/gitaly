@@ -12,32 +12,88 @@ import (
 	"gitlab.com/gitlab-org/labkit/monitoring"
 )
 
+type httpReferenceDiscoveryMetrics struct {
+	firstPacket    *prometheus.GaugeVec
+	totalTime      *prometheus.GaugeVec
+	advertisedRefs *prometheus.GaugeVec
+}
+
+func (m httpReferenceDiscoveryMetrics) measure(probeName string, rd stats.HTTPReferenceDiscovery) {
+	m.firstPacket.WithLabelValues(probeName).Set(rd.FirstGitPacket().Seconds())
+	m.totalTime.WithLabelValues(probeName).Set(rd.ResponseBody().Seconds())
+	m.advertisedRefs.WithLabelValues(probeName).Set(float64(len(rd.Refs())))
+}
+
+// Describe is used to describe Prometheus metrics.
+func (m httpReferenceDiscoveryMetrics) Describe(descs chan<- *prometheus.Desc) {
+	prometheus.DescribeByCollect(m, descs)
+}
+
+// Collect is used to collect Prometheus metrics.
+func (m httpReferenceDiscoveryMetrics) Collect(metrics chan<- prometheus.Metric) {
+	m.firstPacket.Collect(metrics)
+	m.totalTime.Collect(metrics)
+	m.advertisedRefs.Collect(metrics)
+}
+
+type httpPostStats interface {
+	ResponseBody() time.Duration
+	BandFirstPacket(b string) time.Duration
+	BandPayloadSize(b string) int64
+}
+
+type httpPostMetrics struct {
+	totalTime           *prometheus.GaugeVec
+	firstProgressPacket *prometheus.GaugeVec
+	firstPackPacket     *prometheus.GaugeVec
+	packBytes           *prometheus.GaugeVec
+}
+
+func (m httpPostMetrics) measure(probeName string, stats httpPostStats) {
+	m.totalTime.WithLabelValues(probeName).Set(stats.ResponseBody().Seconds())
+	m.firstProgressPacket.WithLabelValues(probeName).Set(stats.BandFirstPacket("progress").Seconds())
+	m.firstPackPacket.WithLabelValues(probeName).Set(stats.BandFirstPacket("pack").Seconds())
+	m.packBytes.WithLabelValues(probeName).Set(float64(stats.BandPayloadSize("pack")))
+}
+
+// Describe is used to describe Prometheus metrics.
+func (m httpPostMetrics) Describe(descs chan<- *prometheus.Desc) {
+	prometheus.DescribeByCollect(m, descs)
+}
+
+// Collect is used to collect Prometheus metrics.
+func (m httpPostMetrics) Collect(metrics chan<- prometheus.Metric) {
+	m.totalTime.Collect(metrics)
+	m.firstProgressPacket.Collect(metrics)
+	m.firstPackPacket.Collect(metrics)
+	m.packBytes.Collect(metrics)
+}
+
 // Blackbox encapsulates all details required to run the blackbox prober.
 type Blackbox struct {
 	cfg Config
 
-	getFirstPacket          *prometheus.GaugeVec
-	getTotalTime            *prometheus.GaugeVec
-	getAdvertisedRefs       *prometheus.GaugeVec
-	wantedRefs              *prometheus.GaugeVec
-	postTotalTime           *prometheus.GaugeVec
-	postFirstProgressPacket *prometheus.GaugeVec
-	postFirstPackPacket     *prometheus.GaugeVec
-	postPackBytes           *prometheus.GaugeVec
+	fetchReferenceDiscoveryMetrics httpReferenceDiscoveryMetrics
+	httpPostMetrics                httpPostMetrics
+	wantedRefs                     *prometheus.GaugeVec
 }
 
 // New creates a new Blackbox structure.
 func New(cfg Config) Blackbox {
 	return Blackbox{
-		cfg:                     cfg,
-		getFirstPacket:          newGauge("get_first_packet_seconds", "Time to first Git packet in GET /info/refs response"),
-		getTotalTime:            newGauge("get_total_time_seconds", "Time to receive entire GET /info/refs response"),
-		getAdvertisedRefs:       newGauge("get_advertised_refs", "Number of Git refs advertised in GET /info/refs"),
-		wantedRefs:              newGauge("wanted_refs", "Number of Git refs selected for (fake) Git clone (branches + tags)"),
-		postTotalTime:           newGauge("post_total_time_seconds", "Time to receive entire POST /upload-pack response"),
-		postFirstProgressPacket: newGauge("post_first_progress_packet_seconds", "Time to first progress band Git packet in POST /upload-pack response"),
-		postFirstPackPacket:     newGauge("post_first_pack_packet_seconds", "Time to first pack band Git packet in POST /upload-pack response"),
-		postPackBytes:           newGauge("post_pack_bytes", "Number of pack band bytes in POST /upload-pack response"),
+		cfg: cfg,
+		fetchReferenceDiscoveryMetrics: httpReferenceDiscoveryMetrics{
+			firstPacket:    newGauge("get_first_packet_seconds", "Time to first Git packet in GET /info/refs response"),
+			totalTime:      newGauge("get_total_time_seconds", "Time to receive entire GET /info/refs response"),
+			advertisedRefs: newGauge("get_advertised_refs", "Number of Git refs advertised in GET /info/refs"),
+		},
+		httpPostMetrics: httpPostMetrics{
+			totalTime:           newGauge("post_total_time_seconds", "Time to receive entire POST /upload-pack response"),
+			firstProgressPacket: newGauge("post_first_progress_packet_seconds", "Time to first progress band Git packet in POST /upload-pack response"),
+			firstPackPacket:     newGauge("post_first_pack_packet_seconds", "Time to first pack band Git packet in POST /upload-pack response"),
+			packBytes:           newGauge("post_pack_bytes", "Number of pack band bytes in POST /upload-pack response"),
+		},
+		wantedRefs: newGauge("wanted_refs", "Number of Git refs selected for (fake) Git clone (branches + tags)"),
 	}
 }
 
@@ -60,14 +116,9 @@ func (b Blackbox) Describe(descs chan<- *prometheus.Desc) {
 
 // Collect is used to collect Prometheus metrics.
 func (b Blackbox) Collect(metrics chan<- prometheus.Metric) {
-	b.getFirstPacket.Collect(metrics)
-	b.getTotalTime.Collect(metrics)
-	b.getAdvertisedRefs.Collect(metrics)
+	b.fetchReferenceDiscoveryMetrics.Collect(metrics)
+	b.httpPostMetrics.Collect(metrics)
 	b.wantedRefs.Collect(metrics)
-	b.postTotalTime.Collect(metrics)
-	b.postFirstProgressPacket.Collect(metrics)
-	b.postFirstPackPacket.Collect(metrics)
-	b.postPackBytes.Collect(metrics)
 }
 
 // Run starts the blackbox. It sets up and serves the Prometheus listener and starts a Goroutine
@@ -117,12 +168,7 @@ func (b Blackbox) doProbe(probe Probe) {
 		gv.WithLabelValues(probe.Name).Set(value)
 	}
 
-	setGauge(b.getFirstPacket, clone.ReferenceDiscovery.FirstGitPacket().Seconds())
-	setGauge(b.getTotalTime, clone.ReferenceDiscovery.ResponseBody().Seconds())
-	setGauge(b.getAdvertisedRefs, float64(len(clone.ReferenceDiscovery.Refs())))
+	b.fetchReferenceDiscoveryMetrics.measure(probe.Name, clone.ReferenceDiscovery)
+	b.httpPostMetrics.measure(probe.Name, &clone.FetchPack)
 	setGauge(b.wantedRefs, float64(clone.FetchPack.RefsWanted()))
-	setGauge(b.postTotalTime, clone.FetchPack.ResponseBody().Seconds())
-	setGauge(b.postFirstProgressPacket, clone.FetchPack.BandFirstPacket("progress").Seconds())
-	setGauge(b.postFirstPackPacket, clone.FetchPack.BandFirstPacket("pack").Seconds())
-	setGauge(b.postPackBytes, float64(clone.FetchPack.BandPayloadSize("pack")))
 }
