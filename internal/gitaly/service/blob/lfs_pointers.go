@@ -101,18 +101,6 @@ func (s *server) ListAllLFSPointers(in *gitalypb.ListAllLFSPointersRequest, stre
 	}
 
 	repo := s.localrepo(in.GetRepository())
-	cmd, err := repo.Exec(ctx, git.SubCmd{
-		Name: "cat-file",
-		Flags: []git.Option{
-			git.Flag{Name: "--batch-all-objects"},
-			git.Flag{Name: "--batch-check=%(objecttype) %(objectsize) %(objectname)"},
-			git.Flag{Name: "--buffer"},
-			git.Flag{Name: "--unordered"},
-		},
-	})
-	if err != nil {
-		return status.Errorf(codes.Internal, "could not run batch-check: %v", err)
-	}
 
 	chunker := chunk.New(&lfsPointerSender{
 		send: func(pointers []*gitalypb.LFSPointer) error {
@@ -122,13 +110,46 @@ func (s *server) ListAllLFSPointers(in *gitalypb.ListAllLFSPointersRequest, stre
 		},
 	})
 
-	filteredReader := transform.NewReader(cmd, blobFilter{
-		maxSize: lfsPointerMaxSize,
-	})
+	if featureflag.IsDisabled(ctx, featureflag.LFSPointersPipeline) {
+		cmd, err := repo.Exec(ctx, git.SubCmd{
+			Name: "cat-file",
+			Flags: []git.Option{
+				git.Flag{Name: "--batch-all-objects"},
+				git.Flag{Name: "--batch-check=%(objecttype) %(objectsize) %(objectname)"},
+				git.Flag{Name: "--buffer"},
+				git.Flag{Name: "--unordered"},
+			},
+		})
+		if err != nil {
+			return status.Errorf(codes.Internal, "could not run batch-check: %v", err)
+		}
 
-	if err := readLFSPointers(ctx, repo, chunker, filteredReader, int(in.Limit)); err != nil {
-		if !errors.Is(err, errLimitReached) {
-			return status.Errorf(codes.Internal, "could not read LFS pointers: %v", err)
+		filteredReader := transform.NewReader(cmd, blobFilter{
+			maxSize: lfsPointerMaxSize,
+		})
+
+		if err := readLFSPointers(ctx, repo, chunker, filteredReader, int(in.Limit)); err != nil {
+			if !errors.Is(err, errLimitReached) {
+				return status.Errorf(codes.Internal, "could not read LFS pointers: %v", err)
+			}
+		}
+	} else {
+		catfileProcess, err := s.catfileCache.BatchProcess(ctx, repo)
+		if err != nil {
+			return helper.ErrInternal(fmt.Errorf("creating catfile process: %w", err))
+		}
+
+		catfileInfoChan := catfileInfoAllObjects(ctx, repo)
+		catfileInfoChan = catfileInfoFilter(ctx, catfileInfoChan, func(r catfileInfoResult) bool {
+			return r.objectInfo.Type == "blob" && r.objectInfo.Size <= lfsPointerMaxSize
+		})
+		catfileObjectChan := catfileObject(ctx, catfileProcess, catfileInfoChan)
+		catfileObjectChan = catfileObjectFilter(ctx, catfileObjectChan, func(r catfileObjectResult) bool {
+			return git.IsLFSPointer(r.objectData)
+		})
+
+		if err := sendLFSPointers(chunker, catfileObjectChan, int(in.Limit)); err != nil {
+			return err
 		}
 	}
 
