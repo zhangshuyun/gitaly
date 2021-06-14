@@ -119,18 +119,13 @@ func (s *server) cloneFromPool(ctx context.Context, objectPoolRepo *gitalypb.Obj
 		return fmt.Errorf("could not get object pool path: %v", err)
 	}
 
-	pbRepo, ok := repo.(*gitalypb.Repository)
-	if !ok {
-		return fmt.Errorf("expected *gitlaypb.Repository but got %T", repo)
-	}
-
 	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx,
 		git.SubCmd{
 			Name:        "clone",
 			Flags:       []git.Option{git.Flag{Name: "--bare"}, git.Flag{Name: "--shared"}},
 			PostSepArgs: []string{objectPoolPath, repositoryPath},
 		},
-		git.WithRefTxHook(ctx, pbRepo, s.cfg),
+		git.WithRefTxHook(ctx, repo, s.cfg),
 	)
 	if err != nil {
 		return fmt.Errorf("clone with object pool start: %v", err)
