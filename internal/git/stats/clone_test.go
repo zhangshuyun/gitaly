@@ -24,49 +24,49 @@ func TestClone(t *testing.T) {
 		require.NoError(t, stopGitServer())
 	}()
 
-	clone := Clone{URL: fmt.Sprintf("http://localhost:%d/%s", serverPort, filepath.Base(repoPath))}
-	require.NoError(t, clone.Perform(ctx), "perform analysis clone")
+	clone, err := PerformClone(ctx, fmt.Sprintf("http://localhost:%d/%s", serverPort, filepath.Base(repoPath)), "", "", false)
+	require.NoError(t, err, "perform analysis clone")
 
-	const expectedWants = 90 // based on contents of _support/gitlab-test.git-packed-refs
-	require.Greater(t, clone.RefsWanted(), expectedWants, "number of wanted refs")
+	const expectedRequests = 90 // based on contents of _support/gitlab-test.git-packed-refs
+	require.Greater(t, clone.FetchPack.RefsWanted(), expectedRequests, "number of wanted refs")
 
-	require.Equal(t, 200, clone.Get.HTTPStatus(), "get status")
-	require.Greater(t, clone.Get.Packets, 0, "number of get packets")
-	require.Greater(t, clone.Get.PayloadSize, int64(0), "get payload size")
-	require.Greater(t, len(clone.Get.Caps), 10, "get capabilities")
+	require.Equal(t, 200, clone.ReferenceDiscovery.HTTPStatus(), "get status")
+	require.Greater(t, clone.ReferenceDiscovery.Packets(), 0, "number of get packets")
+	require.Greater(t, clone.ReferenceDiscovery.PayloadSize(), int64(0), "get payload size")
+	require.Greater(t, len(clone.ReferenceDiscovery.Caps()), 10, "get capabilities")
 
 	previousValue := time.Duration(0)
 	for _, m := range []struct {
 		desc  string
 		value time.Duration
 	}{
-		{"time to receive response header", clone.Get.ResponseHeader()},
-		{"time to first packet", clone.Get.FirstGitPacket()},
-		{"time to receive response body", clone.Get.ResponseBody()},
+		{"time to receive response header", clone.ReferenceDiscovery.ResponseHeader()},
+		{"time to first packet", clone.ReferenceDiscovery.FirstGitPacket()},
+		{"time to receive response body", clone.ReferenceDiscovery.ResponseBody()},
 	} {
 		require.True(t, m.value > previousValue, "get: expect %s (%v) to be greater than previous value %v", m.desc, m.value, previousValue)
 		previousValue = m.value
 	}
 
-	require.Equal(t, 200, clone.Post.HTTPStatus(), "post status")
-	require.Greater(t, clone.Post.Packets(), 0, "number of post packets")
+	require.Equal(t, 200, clone.FetchPack.HTTPStatus(), "post status")
+	require.Greater(t, clone.FetchPack.Packets(), 0, "number of post packets")
 
-	require.Greater(t, clone.Post.BandPackets("progress"), 0, "number of progress packets")
-	require.Greater(t, clone.Post.BandPackets("pack"), 0, "number of pack packets")
+	require.Greater(t, clone.FetchPack.BandPackets("progress"), 0, "number of progress packets")
+	require.Greater(t, clone.FetchPack.BandPackets("pack"), 0, "number of pack packets")
 
-	require.Greater(t, clone.Post.BandPayloadSize("progress"), int64(0), "progress payload bytes")
-	require.Greater(t, clone.Post.BandPayloadSize("pack"), int64(0), "pack payload bytes")
+	require.Greater(t, clone.FetchPack.BandPayloadSize("progress"), int64(0), "progress payload bytes")
+	require.Greater(t, clone.FetchPack.BandPayloadSize("pack"), int64(0), "pack payload bytes")
 
 	previousValue = time.Duration(0)
 	for _, m := range []struct {
 		desc  string
 		value time.Duration
 	}{
-		{"time to receive response header", clone.Post.ResponseHeader()},
-		{"time to receive NAK", clone.Post.NAK()},
-		{"time to receive first progress message", clone.Post.BandFirstPacket("progress")},
-		{"time to receive first pack message", clone.Post.BandFirstPacket("pack")},
-		{"time to receive response body", clone.Post.ResponseBody()},
+		{"time to receive response header", clone.FetchPack.ResponseHeader()},
+		{"time to receive NAK", clone.FetchPack.NAK()},
+		{"time to receive first progress message", clone.FetchPack.BandFirstPacket("progress")},
+		{"time to receive first pack message", clone.FetchPack.BandFirstPacket("pack")},
+		{"time to receive response body", clone.FetchPack.ResponseBody()},
 	} {
 		require.True(t, m.value > previousValue, "post: expect %s (%v) to be greater than previous value %v", m.desc, m.value, previousValue)
 		previousValue = m.value
@@ -100,12 +100,14 @@ func TestCloneWithAuth(t *testing.T) {
 		require.NoError(t, stopGitServer())
 	}()
 
-	clone := Clone{
-		URL:      fmt.Sprintf("http://localhost:%d/%s", serverPort, filepath.Base(repoPath)),
-		User:     user,
-		Password: password,
-	}
-	require.NoError(t, clone.Perform(ctx), "perform analysis clone")
+	_, err := PerformClone(
+		ctx,
+		fmt.Sprintf("http://localhost:%d/%s", serverPort, filepath.Base(repoPath)),
+		user,
+		password,
+		false,
+	)
+	require.NoError(t, err, "perform analysis clone")
 
 	require.True(t, authWasChecked, "authentication middleware should have gotten triggered")
 }

@@ -8,48 +8,44 @@ import (
 )
 
 func analyzeHTTPClone(cloneURL string) {
-	st := &stats.Clone{
-		URL:         cloneURL,
-		Interactive: true,
-	}
+	st, err := stats.PerformClone(context.Background(), cloneURL, "", "", true)
+	noError(err)
 
-	noError(st.Perform(context.Background()))
-
-	fmt.Println("\n--- GET metrics:")
+	fmt.Println("\n--- Reference discovery metrics:")
 	for _, entry := range []metric{
-		{"response header time", st.Get.ResponseHeader()},
-		{"first Git packet", st.Get.FirstGitPacket()},
-		{"response body time", st.Get.ResponseBody()},
-		{"payload size", st.Get.PayloadSize},
-		{"Git packets received", st.Get.Packets},
-		{"refs advertised", len(st.Get.Refs)},
-		{"wanted refs", st.RefsWanted()},
+		{"response header time", st.ReferenceDiscovery.ResponseHeader()},
+		{"first Git packet", st.ReferenceDiscovery.FirstGitPacket()},
+		{"response body time", st.ReferenceDiscovery.ResponseBody()},
+		{"payload size", st.ReferenceDiscovery.PayloadSize()},
+		{"Git packets received", st.ReferenceDiscovery.Packets()},
+		{"refs advertised", len(st.ReferenceDiscovery.Refs())},
 	} {
 		entry.print()
 	}
 
-	fmt.Println("\n--- POST metrics:")
+	fmt.Println("\n--- Fetch pack metrics:")
 	for _, entry := range []metric{
-		{"response header time", st.Post.ResponseHeader()},
-		{"time to server NAK", st.Post.NAK()},
-		{"response body time", st.Post.ResponseBody()},
-		{"largest single Git packet", st.Post.LargestPacketSize()},
-		{"Git packets received", st.Post.Packets()},
+		{"response header time", st.FetchPack.ResponseHeader()},
+		{"time to server NAK", st.FetchPack.NAK()},
+		{"response body time", st.FetchPack.ResponseBody()},
+		{"largest single Git packet", st.FetchPack.LargestPacketSize()},
+		{"Git packets received", st.FetchPack.Packets()},
+		{"wanted refs", st.FetchPack.RefsWanted()},
 	} {
 		entry.print()
 	}
 
 	for _, band := range stats.Bands() {
-		numPackets := st.Post.BandPackets(band)
+		numPackets := st.FetchPack.BandPackets(band)
 		if numPackets == 0 {
 			continue
 		}
 
-		fmt.Printf("\n--- POST %s band\n", band)
+		fmt.Printf("\n--- FetchPack %s band\n", band)
 		for _, entry := range []metric{
-			{"time to first packet", st.Post.BandFirstPacket(band)},
+			{"time to first packet", st.FetchPack.BandFirstPacket(band)},
 			{"packets", numPackets},
-			{"total payload size", st.Post.BandPayloadSize(band)},
+			{"total payload size", st.FetchPack.BandPayloadSize(band)},
 		} {
 			entry.print()
 		}

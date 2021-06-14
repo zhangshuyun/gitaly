@@ -60,7 +60,7 @@ func TestSuccessfulInfoRefsUploadWithPartialClone(t *testing.T) {
 
 	partialResponse, err := makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, request)
 	require.NoError(t, err)
-	partialRefs := stats.Get{}
+	partialRefs := stats.ReferenceDiscovery{}
 	err = partialRefs.Parse(bytes.NewReader(partialResponse))
 	require.NoError(t, err)
 

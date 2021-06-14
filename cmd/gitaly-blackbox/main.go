@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/blackbox"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/log"
@@ -53,7 +54,10 @@ func run(configPath string) error {
 		return err
 	}
 
+	bb := blackbox.New(config)
+	prometheus.MustRegister(bb)
+
 	log.Configure(log.Loggers, config.Logging.Format, config.Logging.Level)
 
-	return blackbox.Run(config)
+	return bb.Run()
 }

@@ -57,22 +57,6 @@ issues:
       text: "exported function `BuildCommit` should have comment or be unexported"
     - linters:
         - golint
-      path: "internal/blackbox/blackbox.go"
-      text: "exported function `Run` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/blackbox/config.go"
-      text: "exported type `Config` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/blackbox/config.go"
-      text: "exported type `Probe` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/blackbox/config.go"
-      text: "exported function `ParseConfig` should have comment or be unexported"
-    - linters:
-        - golint
       path: "internal/cgroups/noop.go"
       text: "exported method `NoopManager.Setup` should have comment or be unexported"
     - linters:
@@ -259,74 +243,6 @@ issues:
         - golint
       path: "internal/gitaly/service/ssh/server.go"
       text: "exported function `WithPackfileNegotiationMetrics` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/stats/analyzehttp.go"
-      text: "exported type `Post` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/stats/analyzehttp.go"
-      text: "exported method `Post.ResponseHeader` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/stats/analyzehttp.go"
-      text: "exported method `Post.HTTPStatus` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/stats/analyzehttp.go"
-      text: "exported method `Post.NAK` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/stats/analyzehttp.go"
-      text: "exported method `Post.ResponseBody` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/stats/analyzehttp.go"
-      text: "exported method `Post.Packets` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/stats/analyzehttp.go"
-      text: "exported method `Post.LargestPacketSize` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/stats/analyzehttp.go"
-      text: "exported method `Post.BandPackets` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/stats/analyzehttp.go"
-      text: "exported method `Post.BandPayloadSize` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/stats/analyzehttp.go"
-      text: "exported method `Post.BandFirstPacket` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/stats/analyzehttp.go"
-      text: "exported type `Clone` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/stats/analyzehttp.go"
-      text: "exported method `Clone.RefsWanted` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/stats/analyzehttp.go"
-      text: "exported type `Get` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/stats/analyzehttp.go"
-      text: "exported method `Get.ResponseHeader` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/stats/analyzehttp.go"
-      text: "exported method `Get.HTTPStatus` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/stats/analyzehttp.go"
-      text: "exported method `Get.FirstGitPacket` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/stats/analyzehttp.go"
-      text: "exported method `Get.ResponseBody` should have comment or be unexported"
     - linters:
         - golint
       path: "internal/git/stats/packfile_negotiation.go"
@@ -791,10 +707,6 @@ issues:
         - errcheck
       path: "cmd/praefect/subcmd_sqldown.go"
       text: "Error return value is not checked"
-    - linters:
-        - errcheck
-      path: "internal/git/stats/analyzehttp.go"
-      text: "Error return value of `cl.printInteractive` is not checked"
     - linters:
         - errcheck
       path: "internal/supervisor/supervisor_test.go"
