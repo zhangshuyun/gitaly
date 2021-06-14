@@ -83,7 +83,7 @@ func (s *server) FetchInternalRemote(ctx context.Context, req *gitalypb.FetchInt
 	}
 
 	if !bytes.Equal(defaultBranch, remoteDefaultBranch) {
-		if err := ref.SetDefaultBranchRef(ctx, s.gitCmdFactory, req.GetRepository(), string(remoteDefaultBranch), s.cfg); err != nil {
+		if err := ref.SetDefaultBranchRef(ctx, repo, string(remoteDefaultBranch), s.cfg); err != nil {
 			return nil, status.Errorf(codes.Internal, "FetchInternalRemote: set default branch: %v", err)
 		}
 	}
