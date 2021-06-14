@@ -358,6 +358,39 @@ func TestCatfileInfo(t *testing.T) {
 	}
 }
 
+func TestCatfileAllObjects(t *testing.T) {
+	cfg := testcfg.Build(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
+	defer cleanup()
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	blob1 := gittest.WriteBlob(t, cfg, repoPath, []byte("foobar"))
+	blob2 := gittest.WriteBlob(t, cfg, repoPath, []byte("barfoo"))
+	tree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+		{Path: "foobar", Mode: "100644", OID: blob1},
+	})
+	commit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
+
+	resultChan := catfileInfoAllObjects(ctx, repo)
+
+	var results []catfileInfoResult
+	for result := range resultChan {
+		require.NoError(t, result.err)
+		results = append(results, result)
+	}
+
+	require.ElementsMatch(t, []catfileInfoResult{
+		{objectInfo: &catfile.ObjectInfo{Oid: blob1, Type: "blob", Size: 6}},
+		{objectInfo: &catfile.ObjectInfo{Oid: blob2, Type: "blob", Size: 6}},
+		{objectInfo: &catfile.ObjectInfo{Oid: tree, Type: "tree", Size: 34}},
+		{objectInfo: &catfile.ObjectInfo{Oid: commit, Type: "commit", Size: 177}},
+	}, results)
+}
+
 func TestCatfileInfoFilter(t *testing.T) {
 	for _, tc := range []struct {
 		desc            string
