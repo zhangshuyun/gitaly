@@ -54,24 +54,10 @@ func setHeaders(ctx context.Context, locator storage.Locator, repo *gitalypb.Rep
 		repoAltDirsHeader, repoAltDirsCombined,
 	)
 
-	// While it looks weird that we're extracting and then re-injecting the
-	// Praefect server info into the context, `PraefectFromContext()` will
-	// also resolve connection information from the context's peer info.
-	// Thus the re-injected connection info will contain resolved addresses.
-	if praefectServer, err := txinfo.PraefectFromContext(ctx); err == nil {
-		ctx, err = praefectServer.Inject(ctx)
-		if err != nil {
-			return nil, err
-		}
-	} else if err != txinfo.ErrPraefectServerNotFound {
-		return nil, err
-	}
-
 	// list of http/2 headers that will be forwarded as-is to gitaly-ruby
 	proxyHeaderAllowlist := []string{
 		"gitaly-servers",
 		txinfo.TransactionMetadataKey,
-		txinfo.PraefectMetadataKey,
 	}
 
 	if inMD, ok := metadata.FromIncomingContext(ctx); ok {

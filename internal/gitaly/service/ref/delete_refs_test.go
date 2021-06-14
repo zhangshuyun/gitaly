@@ -85,7 +85,7 @@ func TestDeleteRefs_transaction(t *testing.T) {
 
 	var votes int
 	txManager := &transaction.MockManager{
-		VoteFn: func(context.Context, txinfo.Transaction, txinfo.PraefectServer, voting.Vote) error {
+		VoteFn: func(context.Context, txinfo.Transaction, voting.Vote) error {
 			votes++
 			return nil
 		},
@@ -109,8 +109,6 @@ func TestDeleteRefs_transaction(t *testing.T) {
 	t.Cleanup(cancel)
 
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
-	require.NoError(t, err)
-	ctx, err = (&txinfo.PraefectServer{SocketPath: "i-dont-care"}).Inject(ctx)
 	require.NoError(t, err)
 	ctx = helper.IncomingToOutgoing(ctx)
 

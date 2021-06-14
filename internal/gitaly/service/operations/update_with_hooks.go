@@ -52,12 +52,14 @@ func (s *Server) updateReferenceWithHooks(
 	newrev, oldrev git.ObjectID,
 	pushOptions ...string,
 ) error {
-	transaction, praefect, err := txinfo.FromContext(ctx)
-	if err != nil {
+	var transaction *txinfo.Transaction
+	if tx, err := txinfo.TransactionFromContext(ctx); err == nil {
+		transaction = &tx
+	} else if !errors.Is(err, txinfo.ErrTransactionNotFound) {
 		return err
 	}
 
-	payload, err := git.NewHooksPayload(s.cfg, repo, transaction, praefect, &git.ReceiveHooksPayload{
+	payload, err := git.NewHooksPayload(s.cfg, repo, transaction, &git.ReceiveHooksPayload{
 		UserID:   user.GetGlId(),
 		Username: user.GetGlUsername(),
 		Protocol: "web",

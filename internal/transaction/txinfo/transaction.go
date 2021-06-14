@@ -114,22 +114,3 @@ func TransactionFromContext(ctx context.Context) (Transaction, error) {
 
 	return transaction, nil
 }
-
-// FromContext extracts transaction-related metadata from the given context. No error is returned in
-// case no transaction was found.
-func FromContext(ctx context.Context) (*Transaction, *PraefectServer, error) {
-	transaction, err := TransactionFromContext(ctx)
-	if err != nil {
-		if err != ErrTransactionNotFound {
-			return nil, nil, err
-		}
-		return nil, nil, nil
-	}
-
-	praefect, err := PraefectFromContext(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return &transaction, praefect, nil
-}

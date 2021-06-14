@@ -108,7 +108,7 @@ func testAddRemoteTransactional(t *testing.T, cfg config.Cfg, rubySrv *rubyserve
 	}).Run(t, func(t *testing.T, ctx context.Context) {
 		var votes []voting.Vote
 		txManager := transaction.MockManager{
-			VoteFn: func(_ context.Context, _ txinfo.Transaction, _ txinfo.PraefectServer, vote voting.Vote) error {
+			VoteFn: func(_ context.Context, _ txinfo.Transaction, vote voting.Vote) error {
 				votes = append(votes, vote)
 				return nil
 			},
@@ -116,9 +116,7 @@ func testAddRemoteTransactional(t *testing.T, cfg config.Cfg, rubySrv *rubyserve
 
 		_, repo, repoPath, client := setupRemoteServiceWithRuby(t, cfg, rubySrv, testserver.WithTransactionManager(&txManager))
 
-		ctx, err := (&txinfo.PraefectServer{SocketPath: "i-dont-care"}).Inject(ctx)
-		require.NoError(t, err)
-		ctx, err = txinfo.InjectTransaction(ctx, 1, "node", true)
+		ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 		require.NoError(t, err)
 		ctx = helper.IncomingToOutgoing(ctx)
 
@@ -244,7 +242,7 @@ func TestRemoveRemoteTransactional(t *testing.T) {
 	}).Run(t, func(t *testing.T, ctx context.Context) {
 		var votes []voting.Vote
 		txManager := transaction.MockManager{
-			VoteFn: func(_ context.Context, _ txinfo.Transaction, _ txinfo.PraefectServer, vote voting.Vote) error {
+			VoteFn: func(_ context.Context, _ txinfo.Transaction, vote voting.Vote) error {
 				votes = append(votes, vote)
 				return nil
 			},
@@ -252,9 +250,7 @@ func TestRemoveRemoteTransactional(t *testing.T) {
 
 		cfg, repo, repoPath, client := setupRemoteService(t, testserver.WithTransactionManager(&txManager))
 
-		ctx, err := (&txinfo.PraefectServer{SocketPath: "i-dont-care"}).Inject(ctx)
-		require.NoError(t, err)
-		ctx, err = txinfo.InjectTransaction(ctx, 1, "node", true)
+		ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 		require.NoError(t, err)
 		ctx = helper.IncomingToOutgoing(ctx)
 

@@ -20,22 +20,14 @@ func TestHooksPayload(t *testing.T) {
 		Primary: true,
 	}
 
-	praefect := txinfo.PraefectServer{
-		BackchannelID: 1,
-		ListenAddr:    "127.0.0.1:1234",
-		TLSListenAddr: "127.0.0.1:4321",
-		SocketPath:    "/path/to/unix",
-		Token:         "secret",
-	}
-
 	t.Run("envvar has proper name", func(t *testing.T) {
-		env, err := git.NewHooksPayload(cfg, repo, nil, nil, nil, git.AllHooks, nil).Env()
+		env, err := git.NewHooksPayload(cfg, repo, nil, nil, git.AllHooks, nil).Env()
 		require.NoError(t, err)
 		require.True(t, strings.HasPrefix(env, git.EnvHooksPayload+"="))
 	})
 
 	t.Run("roundtrip succeeds", func(t *testing.T) {
-		env, err := git.NewHooksPayload(cfg, repo, nil, nil, nil, git.PreReceiveHook, featureflag.Raw{"flag-key": "flag-value"}).Env()
+		env, err := git.NewHooksPayload(cfg, repo, nil, nil, git.PreReceiveHook, featureflag.Raw{"flag-key": "flag-value"}).Env()
 		require.NoError(t, err)
 
 		payload, err := git.HooksPayloadFromEnv([]string{
@@ -57,7 +49,7 @@ func TestHooksPayload(t *testing.T) {
 	})
 
 	t.Run("roundtrip with transaction succeeds", func(t *testing.T) {
-		env, err := git.NewHooksPayload(cfg, repo, &tx, &praefect, nil, git.UpdateHook, nil).Env()
+		env, err := git.NewHooksPayload(cfg, repo, &tx, nil, git.UpdateHook, nil).Env()
 		require.NoError(t, err)
 
 		payload, err := git.HooksPayloadFromEnv([]string{env})
@@ -69,7 +61,6 @@ func TestHooksPayload(t *testing.T) {
 			GitPath:        cfg.Git.BinPath,
 			InternalSocket: cfg.GitalyInternalSocketPath(),
 			Transaction:    &tx,
-			Praefect:       &praefect,
 			RequestedHooks: git.UpdateHook,
 		}, payload)
 	})
@@ -85,16 +76,8 @@ func TestHooksPayload(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("payload with missing Praefect", func(t *testing.T) {
-		env, err := git.NewHooksPayload(cfg, repo, &tx, nil, nil, git.AllHooks, nil).Env()
-		require.NoError(t, err)
-
-		_, err = git.HooksPayloadFromEnv([]string{env})
-		require.Equal(t, err, txinfo.ErrPraefectServerNotFound)
-	})
-
 	t.Run("receive hooks payload", func(t *testing.T) {
-		env, err := git.NewHooksPayload(cfg, repo, nil, nil, &git.ReceiveHooksPayload{
+		env, err := git.NewHooksPayload(cfg, repo, nil, &git.ReceiveHooksPayload{
 			UserID:   "1234",
 			Username: "user",
 			Protocol: "ssh",
@@ -128,7 +111,7 @@ func TestHooksPayload(t *testing.T) {
 		cfg, repo, _ := testcfg.BuildWithRepo(t)
 		cfg.Git.BinPath = ""
 
-		env, err := git.NewHooksPayload(cfg, repo, nil, nil, nil, git.ReceivePackHooks, nil).Env()
+		env, err := git.NewHooksPayload(cfg, repo, nil, nil, git.ReceivePackHooks, nil).Env()
 		require.NoError(t, err)
 
 		payload, err := git.HooksPayloadFromEnv([]string{

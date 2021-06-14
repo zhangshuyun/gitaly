@@ -110,7 +110,7 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 	// is of course racy and may conflict with other mutators, causing the vote to fail. But it
 	// is arguably preferable to accept races in favour always replicating. If loosing the race,
 	// we'd fail this RPC and schedule a replication job afterwards.
-	if err := transaction.RunOnContext(ctx, func(tx txinfo.Transaction, praefect txinfo.PraefectServer) error {
+	if err := transaction.RunOnContext(ctx, func(tx txinfo.Transaction) error {
 		hash := voting.NewVoteHash()
 
 		if err := repo.ExecAndWait(ctx, git.SubCmd{
@@ -124,7 +124,7 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 			return err
 		}
 
-		return s.txManager.Vote(ctx, tx, praefect, vote)
+		return s.txManager.Vote(ctx, tx, vote)
 	}); err != nil {
 		return nil, status.Errorf(codes.Aborted, "failed vote on refs: %v", err)
 	}

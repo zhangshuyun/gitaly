@@ -45,7 +45,6 @@ func TestUpdate_CustomHooks(t *testing.T) {
 		cfg,
 		repo,
 		nil,
-		nil,
 		&git.ReceiveHooksPayload{
 			UserID:   "key-123",
 			Username: "username",

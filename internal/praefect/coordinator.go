@@ -300,16 +300,9 @@ func (c *Coordinator) directRepositoryScopedMessage(ctx context.Context, call gr
 		"relative_path":   call.targetRepo.RelativePath,
 	})
 
-	praefectServer, err := txinfo.PraefectFromConfig(c.conf)
-	if err != nil {
-		return nil, fmt.Errorf("repo scoped: could not create Praefect configuration: %w", err)
-	}
-
-	if ctx, err = praefectServer.Inject(ctx); err != nil {
-		return nil, fmt.Errorf("repo scoped: could not inject Praefect server: %w", err)
-	}
-
+	var err error
 	var ps *proxy.StreamParameters
+
 	switch call.methodInfo.Operation {
 	case protoregistry.OpAccessor:
 		ps, err = c.accessorStreamParameters(ctx, call)

@@ -47,11 +47,11 @@ var (
 type Manager interface {
 	// Vote casts a vote on the given transaction which is hosted by the
 	// given Praefect server.
-	Vote(context.Context, txinfo.Transaction, txinfo.PraefectServer, voting.Vote) error
+	Vote(context.Context, txinfo.Transaction, voting.Vote) error
 
 	// Stop gracefully stops the given transaction which is hosted by the
 	// given Praefect server.
-	Stop(context.Context, txinfo.Transaction, txinfo.PraefectServer) error
+	Stop(context.Context, txinfo.Transaction) error
 }
 
 // PoolManager is an implementation of the Manager interface using a pool to
@@ -87,37 +87,18 @@ func (m *PoolManager) Collect(metrics chan<- prometheus.Metric) {
 	m.votingDelayMetric.Collect(metrics)
 }
 
-func (m *PoolManager) getTransactionClient(ctx context.Context, server txinfo.PraefectServer) (gitalypb.RefTransactionClient, error) {
-	// Gitaly is upgraded prior to Praefect. Older Praefects may still be using non-multiplexed connections
-	// and send dialing information for voting. To prevent failing RPCs during the upgrade, Gitaly still
-	// needs to support the old voting approach. If multiplexed connection is in use, the backchannel ID would
-	// be set to >0. If so, the mutator came from an upgraded Praefect that supports backchannel voting and Gitaly
-	// defaults to the backchannel. The fallback code can be removed in 14.0.
-	if server.BackchannelID > 0 {
-		conn, err := m.backchannels.Backchannel(server.BackchannelID)
-		if err != nil {
-			return nil, fmt.Errorf("get backchannel: %w", err)
-		}
-
-		return gitalypb.NewRefTransactionClient(conn), nil
-	}
-
-	address, err := server.Address()
+func (m *PoolManager) getTransactionClient(ctx context.Context, tx txinfo.Transaction) (gitalypb.RefTransactionClient, error) {
+	conn, err := m.backchannels.Backchannel(tx.BackchannelID)
 	if err != nil {
-		return nil, err
-	}
-
-	conn, err := m.conns.Dial(ctx, address, server.Token)
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get backchannel: %w", err)
 	}
 
 	return gitalypb.NewRefTransactionClient(conn), nil
 }
 
 // Vote connects to the given server and casts vote as a vote for the transaction identified by tx.
-func (m *PoolManager) Vote(ctx context.Context, tx txinfo.Transaction, server txinfo.PraefectServer, vote voting.Vote) error {
-	client, err := m.getTransactionClient(ctx, server)
+func (m *PoolManager) Vote(ctx context.Context, tx txinfo.Transaction, vote voting.Vote) error {
+	client, err := m.getTransactionClient(ctx, tx)
 	if err != nil {
 		return err
 	}
@@ -164,8 +145,8 @@ func (m *PoolManager) Vote(ctx context.Context, tx txinfo.Transaction, server tx
 }
 
 // Stop connects to the given server and stops the transaction identified by tx.
-func (m *PoolManager) Stop(ctx context.Context, tx txinfo.Transaction, server txinfo.PraefectServer) error {
-	client, err := m.getTransactionClient(ctx, server)
+func (m *PoolManager) Stop(ctx context.Context, tx txinfo.Transaction) error {
+	client, err := m.getTransactionClient(ctx, tx)
 	if err != nil {
 		return err
 	}
@@ -189,20 +170,20 @@ func (m *PoolManager) log(ctx context.Context) logrus.FieldLogger {
 }
 
 // RunOnContext runs the given function if the context identifies a transaction.
-func RunOnContext(ctx context.Context, fn func(txinfo.Transaction, txinfo.PraefectServer) error) error {
-	transaction, praefect, err := txinfo.FromContext(ctx)
+func RunOnContext(ctx context.Context, fn func(txinfo.Transaction) error) error {
+	transaction, err := txinfo.TransactionFromContext(ctx)
 	if err != nil {
+		if errors.Is(err, txinfo.ErrTransactionNotFound) {
+			return nil
+		}
 		return err
 	}
-	if transaction == nil {
-		return nil
-	}
-	return fn(*transaction, *praefect)
+	return fn(transaction)
 }
 
 // VoteOnContext casts the vote on a transaction identified by the context, if there is any.
 func VoteOnContext(ctx context.Context, m Manager, vote voting.Vote) error {
-	return RunOnContext(ctx, func(transaction txinfo.Transaction, praefect txinfo.PraefectServer) error {
-		return m.Vote(ctx, transaction, praefect, vote)
+	return RunOnContext(ctx, func(transaction txinfo.Transaction) error {
+		return m.Vote(ctx, transaction, vote)
 	})
 }

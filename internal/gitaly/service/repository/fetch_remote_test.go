@@ -208,7 +208,7 @@ type mockTxManager struct {
 	votes int
 }
 
-func (m *mockTxManager) Vote(context.Context, txinfo.Transaction, txinfo.PraefectServer, voting.Vote) error {
+func (m *mockTxManager) Vote(context.Context, txinfo.Transaction, voting.Vote) error {
 	m.votes++
 	return nil
 }
@@ -237,8 +237,6 @@ func TestFetchRemote_transaction(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
-	require.NoError(t, err)
-	ctx, err = (&txinfo.PraefectServer{SocketPath: "i-dont-care"}).Inject(ctx)
 	require.NoError(t, err)
 	ctx = helper.IncomingToOutgoing(ctx)
 

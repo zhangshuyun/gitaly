@@ -2,7 +2,6 @@ package hook
 
 import (
 	"context"
-	"errors"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
@@ -17,7 +16,7 @@ func isPrimary(payload git.HooksPayload) bool {
 }
 
 // transactionHandler is a callback invoked on a transaction if it exists.
-type transactionHandler func(ctx context.Context, tx txinfo.Transaction, praefect txinfo.PraefectServer) error
+type transactionHandler func(ctx context.Context, tx txinfo.Transaction) error
 
 // runWithTransaction runs the given function if the payload identifies a transaction. No error
 // is returned if no transaction exists. If a transaction exists and the function is executed on it,
@@ -26,10 +25,7 @@ func (m *GitLabHookManager) runWithTransaction(ctx context.Context, payload git.
 	if payload.Transaction == nil {
 		return nil
 	}
-	if payload.Praefect == nil {
-		return errors.New("transaction without Praefect server")
-	}
-	if err := handler(ctx, *payload.Transaction, *payload.Praefect); err != nil {
+	if err := handler(ctx, *payload.Transaction); err != nil {
 		return err
 	}
 
@@ -37,14 +33,13 @@ func (m *GitLabHookManager) runWithTransaction(ctx context.Context, payload git.
 }
 
 func (m *GitLabHookManager) voteOnTransaction(ctx context.Context, vote voting.Vote, payload git.HooksPayload) error {
-	return m.runWithTransaction(ctx, payload, func(ctx context.Context, tx txinfo.Transaction,
-		praefect txinfo.PraefectServer) error {
-		return m.txManager.Vote(ctx, tx, praefect, vote)
+	return m.runWithTransaction(ctx, payload, func(ctx context.Context, tx txinfo.Transaction) error {
+		return m.txManager.Vote(ctx, tx, vote)
 	})
 }
 
 func (m *GitLabHookManager) stopTransaction(ctx context.Context, payload git.HooksPayload) error {
-	return m.runWithTransaction(ctx, payload, func(ctx context.Context, tx txinfo.Transaction, praefect txinfo.PraefectServer) error {
-		return m.txManager.Stop(ctx, tx, praefect)
+	return m.runWithTransaction(ctx, payload, func(ctx context.Context, tx txinfo.Transaction) error {
+		return m.txManager.Stop(ctx, tx)
 	})
 }

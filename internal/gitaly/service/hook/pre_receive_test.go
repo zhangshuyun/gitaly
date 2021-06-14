@@ -148,7 +148,6 @@ func TestPreReceiveHook_GitlabAPIAccess(t *testing.T) {
 		cfg,
 		repo,
 		nil,
-		nil,
 		&git.ReceiveHooksPayload{
 			UserID:   glID,
 			Username: "username",
@@ -264,7 +263,6 @@ func TestPreReceive_APIErrors(t *testing.T) {
 				cfg,
 				repo,
 				nil,
-				nil,
 				&git.ReceiveHooksPayload{
 					UserID:   "key-123",
 					Username: "username",
@@ -336,7 +334,6 @@ exit %d
 	hooksPayload, err := git.NewHooksPayload(
 		cfg,
 		repo,
-		nil,
 		nil,
 		&git.ReceiveHooksPayload{
 			UserID:   "key-123",
@@ -468,10 +465,6 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 					ID:      1234,
 					Node:    "node-1",
 					Primary: tc.primary,
-				},
-				&txinfo.PraefectServer{
-					SocketPath: "/path/to/socket",
-					Token:      "secret",
 				},
 				&git.ReceiveHooksPayload{
 					UserID:   "key-123",

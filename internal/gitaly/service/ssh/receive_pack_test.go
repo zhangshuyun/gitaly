@@ -126,11 +126,9 @@ func TestReceivePackPushSuccess(t *testing.T) {
 	}, payload.Repo)
 	payload.Repo = nil
 
-	// If running tests with Praefect, then these would be set, but we have
-	// no way of figuring out their actual contents. So let's just remove
-	// that data, too.
+	// If running tests with Praefect, then the transaction would be set, but we have no way of
+	// figuring out their actual contents. So let's just remove it, too.
 	payload.Transaction = nil
-	payload.Praefect = nil
 
 	require.Equal(t, git.HooksPayload{
 		BinDir:              cfg.BinDir,
@@ -267,9 +265,7 @@ func TestReceivePackTransactional(t *testing.T) {
 	var votes int
 	serverSocketPath := runSSHServer(t, cfg, testserver.WithTransactionManager(
 		&transaction.MockManager{
-			VoteFn: func(context.Context, txinfo.Transaction,
-				txinfo.PraefectServer, voting.Vote,
-			) error {
+			VoteFn: func(context.Context, txinfo.Transaction, voting.Vote) error {
 				votes++
 				return nil
 			},
@@ -281,9 +277,7 @@ func TestReceivePackTransactional(t *testing.T) {
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	ctx, err := (&txinfo.PraefectServer{SocketPath: "whatever"}).Inject(ctx)
-	require.NoError(t, err)
-	ctx, err = txinfo.InjectTransaction(ctx, 1, "node", true)
+	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
 	ctx = helper.IncomingToOutgoing(ctx)
 

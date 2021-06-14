@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/remote"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
@@ -26,24 +27,10 @@ func (s *server) CloneFromPoolInternal(ctx context.Context, req *gitalypb.CloneF
 		return nil, helper.ErrInternal(err)
 	}
 
-	client, err := s.newRemoteClient(ctx)
-	if err != nil {
-		return nil, helper.ErrInternalf("getting remote service client: %v", err)
-	}
+	repo := s.localrepo(req.GetRepository())
 
-	fetchInternalReq := &gitalypb.FetchInternalRemoteRequest{
-		Repository:       req.GetRepository(),
-		RemoteRepository: req.GetSourceRepository(),
-	}
-
-	outgoingCtx := helper.IncomingToOutgoing(ctx)
-
-	resp, err := client.FetchInternalRemote(outgoingCtx, fetchInternalReq)
-	if err != nil {
+	if err := remote.FetchInternalRemote(ctx, s.cfg, s.conns, repo, req.GetSourceRepository()); err != nil {
 		return nil, helper.ErrInternalf("fetch internal remote: %v", err)
-	}
-	if !resp.Result {
-		return nil, helper.ErrInternalf("fetch internal remote failed")
 	}
 
 	objectPool, err := objectpool.FromProto(s.cfg, s.locator, s.gitCmdFactory, s.catfileCache, req.GetPool())
@@ -119,18 +106,13 @@ func (s *server) cloneFromPool(ctx context.Context, objectPoolRepo *gitalypb.Obj
 		return fmt.Errorf("could not get object pool path: %v", err)
 	}
 
-	pbRepo, ok := repo.(*gitalypb.Repository)
-	if !ok {
-		return fmt.Errorf("expected *gitlaypb.Repository but got %T", repo)
-	}
-
 	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx,
 		git.SubCmd{
 			Name:        "clone",
 			Flags:       []git.Option{git.Flag{Name: "--bare"}, git.Flag{Name: "--shared"}},
 			PostSepArgs: []string{objectPoolPath, repositoryPath},
 		},
-		git.WithRefTxHook(ctx, pbRepo, s.cfg),
+		git.WithRefTxHook(ctx, repo, s.cfg),
 	)
 	if err != nil {
 		return fmt.Errorf("clone with object pool start: %v", err)
