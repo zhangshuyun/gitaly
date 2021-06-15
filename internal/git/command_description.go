@@ -115,6 +115,9 @@ var commandDescriptions = map[string]commandDescription{
 	"ls-tree": {
 		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
+	"merge": {
+		flags: scNoRefUpdates,
+	},
 	"merge-base": {
 		flags: scNoRefUpdates,
 	},
