@@ -55,7 +55,7 @@ func (s *GitalyServerFactory) StartWorkers(ctx context.Context, l logrus.FieldLo
 		))
 	}
 
-	cc, err := client.Dial("unix://"+cfg.GitalyInternalSocketPath(), opts)
+	cc, err := client.Dial("unix:"+cfg.GitalyInternalSocketPath(), opts)
 	if err != nil {
 		return nil, err
 	}
