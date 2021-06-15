@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func Example() {
@@ -30,7 +31,7 @@ func Example() {
 	// it creates the backchannel connection and stores it into the registry. For each connection,
 	// the ServerHandshaker passes down the peer ID via the context. The peer ID identifies a
 	// backchannel connection.
-	handshaker := backchannel.NewServerHandshaker(logger, backchannel.Insecure(), registry, nil)
+	handshaker := backchannel.NewServerHandshaker(logger, insecure.NewCredentials(), registry, nil)
 
 	// Create the server
 	srv := grpc.NewServer(
@@ -114,7 +115,7 @@ func invokeWithMuxedClient(logger *logrus.Entry, address string) error {
 		}))
 	})
 
-	return invokeWithOpts(address, grpc.WithTransportCredentials(clientHandshaker.ClientHandshake(backchannel.Insecure())))
+	return invokeWithOpts(address, grpc.WithTransportCredentials(clientHandshaker.ClientHandshake(insecure.NewCredentials())))
 }
 
 func invokeWithNormalClient(address string) error {

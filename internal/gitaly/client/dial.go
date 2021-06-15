@@ -8,12 +8,12 @@ import (
 	"net/url"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	gitaly_x509 "gitlab.com/gitlab-org/gitaly/v14/internal/x509"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 )
 
@@ -108,7 +108,7 @@ func Dial(ctx context.Context, rawAddress string, connOpts []grpc.DialOption, ha
 
 	if handshaker != nil {
 		if transportCredentials == nil {
-			transportCredentials = backchannel.Insecure()
+			transportCredentials = insecure.NewCredentials()
 		}
 
 		transportCredentials = handshaker.ClientHandshake(transportCredentials)
