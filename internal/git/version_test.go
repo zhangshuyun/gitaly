@@ -123,8 +123,10 @@ func TestVersion_IsSupported(t *testing.T) {
 		{"2.31.1", true},
 		{"3.0.0", true},
 	} {
-		version, err := parseVersion(tc.version)
-		require.NoError(t, err)
-		require.Equal(t, tc.expect, version.IsSupported())
+		t.Run(tc.version, func(t *testing.T) {
+			version, err := parseVersion(tc.version)
+			require.NoError(t, err)
+			require.Equal(t, tc.expect, version.IsSupported())
+		})
 	}
 }
