@@ -73,7 +73,17 @@ func (s *server) ListLFSPointers(in *gitalypb.ListLFSPointersRequest, stream git
 			return helper.ErrInternal(fmt.Errorf("creating catfile process: %w", err))
 		}
 
-		revlistChan := revlist(ctx, repo, in.GetRevisions(), withBlobLimit(lfsPointerMaxSize))
+		gitVersion, err := git.CurrentVersion(ctx, s.gitCmdFactory)
+		if err != nil {
+			return helper.ErrInternalf("cannot determine Git version: %v", err)
+		}
+
+		revlistOptions := []revlistOption{withBlobLimit(lfsPointerMaxSize)}
+		if gitVersion.SupportsObjectTypeFilter() {
+			revlistOptions = append(revlistOptions, withObjectTypeFilter(objectTypeBlob))
+		}
+
+		revlistChan := revlist(ctx, repo, in.GetRevisions(), revlistOptions...)
 		catfileInfoChan := catfileInfo(ctx, catfileProcess, revlistChan)
 		catfileInfoChan = catfileInfoFilter(ctx, catfileInfoChan, func(r catfileInfoResult) bool {
 			return r.objectInfo.Type == "blob" && r.objectInfo.Size <= lfsPointerMaxSize
