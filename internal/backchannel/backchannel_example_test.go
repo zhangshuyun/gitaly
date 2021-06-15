@@ -7,6 +7,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/listenmux"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -31,11 +32,12 @@ func Example() {
 	// it creates the backchannel connection and stores it into the registry. For each connection,
 	// the ServerHandshaker passes down the peer ID via the context. The peer ID identifies a
 	// backchannel connection.
-	handshaker := backchannel.NewServerHandshaker(logger, insecure.NewCredentials(), registry, nil)
+	lm := listenmux.New(insecure.NewCredentials())
+	lm.Register(backchannel.NewServerHandshaker(logger, registry, nil))
 
 	// Create the server
 	srv := grpc.NewServer(
-		grpc.Creds(handshaker),
+		grpc.Creds(lm),
 		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
 			fmt.Println("Gitaly received a transactional mutator")
 

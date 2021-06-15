@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/listenmux"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -39,9 +40,9 @@ func newLogger() *logrus.Entry {
 func TestBackchannel_concurrentRequestsFromMultipleClients(t *testing.T) {
 	var interceptorInvoked int32
 	registry := NewRegistry()
-	handshaker := NewServerHandshaker(
+	lm := listenmux.New(insecure.NewCredentials())
+	lm.Register(NewServerHandshaker(
 		newLogger(),
-		insecure.NewCredentials(),
 		registry,
 		[]grpc.DialOption{
 			grpc.WithUnaryInterceptor(func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
@@ -49,13 +50,13 @@ func TestBackchannel_concurrentRequestsFromMultipleClients(t *testing.T) {
 				return invoker(ctx, method, req, reply, cc, opts...)
 			}),
 		},
-	)
+	))
 
 	ln, err := net.Listen("tcp", "localhost:0")
 	require.NoError(t, err)
 
 	errNonMultiplexed := status.Error(codes.FailedPrecondition, ErrNonMultiplexedConnection.Error())
-	srv := grpc.NewServer(grpc.Creds(handshaker))
+	srv := grpc.NewServer(grpc.Creds(lm))
 
 	gitalypb.RegisterRefTransactionServer(srv, mockTransactionServer{
 		voteTransactionFunc: func(ctx context.Context, req *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
@@ -182,8 +183,10 @@ func Benchmark(b *testing.B) {
 				b.Run(fmt.Sprintf("message size %dkb", messageSize/1024), func(b *testing.B) {
 					var serverOpts []grpc.ServerOption
 					if tc.multiplexed {
+						lm := listenmux.New(insecure.NewCredentials())
+						lm.Register(NewServerHandshaker(newLogger(), NewRegistry(), nil))
 						serverOpts = []grpc.ServerOption{
-							grpc.Creds(NewServerHandshaker(newLogger(), insecure.NewCredentials(), NewRegistry(), nil)),
+							grpc.Creds(lm),
 						}
 					}
 
