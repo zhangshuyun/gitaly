@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
@@ -23,8 +24,21 @@ func TestRevlist(t *testing.T) {
 	defer cleanup()
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
+	needsObjectTypeFilters := func(t *testing.T) {
+		ctx, cancel := testhelper.Context()
+		defer cancel()
+
+		gitVersion, err := git.CurrentVersion(ctx, git.NewExecCommandFactory(cfg))
+		require.NoError(t, err)
+
+		if !gitVersion.SupportsObjectTypeFilter() {
+			t.Skip("Git does not support object type filters")
+		}
+	}
+
 	for _, tc := range []struct {
 		desc            string
+		precondition    func(t *testing.T)
 		revisions       []string
 		options         []revlistOption
 		expectedResults []revlistResult
@@ -131,6 +145,86 @@ func TestRevlist(t *testing.T) {
 			},
 		},
 		{
+			desc:         "tree with blob object type filter",
+			precondition: needsObjectTypeFilters,
+			revisions: []string{
+				"79d5f98270ad677c86a7e1ab2baa922958565135",
+			},
+			options: []revlistOption{
+				withObjectTypeFilter(objectTypeBlob),
+			},
+			expectedResults: []revlistResult{
+				{oid: "8af7f880ce38649fc49f66e3f38857bfbec3f0b7", objectName: []byte("feature-1.txt")},
+				{oid: "16ca0b267f82cd2f5ca1157dd162dae98745eab8", objectName: []byte("feature-2.txt")},
+				{oid: "0fb47f093f769008049a0b0976ac3fa6d6125033", objectName: []byte("hotfix-1.txt")},
+				{oid: "4ae6c5e14452a35d04156277ae63e8356eb17cae", objectName: []byte("hotfix-2.txt")},
+				{oid: "b988ffed90cb6a9b7f98a3686a933edb3c5d70c0", objectName: []byte("iso8859.txt")},
+				{oid: "570f8e1dfe8149c1d17002712310d43dfeb43159", objectName: []byte("russian.rb")},
+				{oid: "7a17968582c21c9153ec24c6a9d5f33592ad9103", objectName: []byte("test.txt")},
+				{oid: "f3064a3aa9c14277483f690250072e987e2c8356", objectName: []byte("\xe3\x83\x86\xe3\x82\xb9\xe3\x83\x88.txt")},
+				{oid: "3a26c18b02e843b459732e7ade7ab9a154a1002b", objectName: []byte("\xe3\x83\x86\xe3\x82\xb9\xe3\x83\x88.xls")},
+			},
+		},
+		{
+			desc:         "tree with tag object type filter",
+			precondition: needsObjectTypeFilters,
+			revisions: []string{
+				"--all",
+			},
+			options: []revlistOption{
+				withObjectTypeFilter(objectTypeTag),
+			},
+			expectedResults: []revlistResult{
+				{oid: "f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8", objectName: []byte("v1.0.0")},
+				{oid: "8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b", objectName: []byte("v1.1.0")},
+				{oid: "8f03acbcd11c53d9c9468078f32a2622005a4841", objectName: []byte("v1.1.1")},
+			},
+		},
+		{
+			desc:         "tree with commit object type filter",
+			precondition: needsObjectTypeFilters,
+			revisions: []string{
+				"79d5f98270ad677c86a7e1ab2baa922958565135",
+			},
+			options: []revlistOption{
+				withObjectTypeFilter(objectTypeTree),
+			},
+			expectedResults: []revlistResult{
+				{oid: "79d5f98270ad677c86a7e1ab2baa922958565135"},
+			},
+		},
+		{
+			desc:         "tree with commit object type filter",
+			precondition: needsObjectTypeFilters,
+			revisions: []string{
+				"^refs/heads/master~",
+				"refs/heads/master",
+			},
+			options: []revlistOption{
+				withObjectTypeFilter(objectTypeCommit),
+			},
+			expectedResults: []revlistResult{
+				{oid: "1e292f8fedd741b75372e19097c76d327140c312"},
+				{oid: "c1c67abbaf91f624347bb3ae96eabe3a1b742478"},
+			},
+		},
+		{
+			desc:         "tree with object type and blob size filter",
+			precondition: needsObjectTypeFilters,
+			revisions: []string{
+				"79d5f98270ad677c86a7e1ab2baa922958565135",
+			},
+			options: []revlistOption{
+				withBlobLimit(10),
+				withObjectTypeFilter(objectTypeBlob),
+			},
+			expectedResults: []revlistResult{
+				{oid: "0fb47f093f769008049a0b0976ac3fa6d6125033", objectName: []byte("hotfix-1.txt")},
+				{oid: "4ae6c5e14452a35d04156277ae63e8356eb17cae", objectName: []byte("hotfix-2.txt")},
+				{oid: "b988ffed90cb6a9b7f98a3686a933edb3c5d70c0", objectName: []byte("iso8859.txt")},
+			},
+		},
+		{
 			desc: "invalid revision",
 			revisions: []string{
 				"refs/heads/does-not-exist",
@@ -151,6 +245,10 @@ func TestRevlist(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			if tc.precondition != nil {
+				tc.precondition(t)
+			}
+
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
