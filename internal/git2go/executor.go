@@ -7,9 +7,9 @@ type Executor struct {
 }
 
 // New returns a new gitaly-git2go executor using the provided binary.
-func New(binaryPath, gitBinaryPath string) Executor {
+func New(binaryDirectory, gitBinaryPath string) Executor {
 	return Executor{
-		binaryPath:    binaryPath,
+		binaryPath:    BinaryPath(binaryDirectory),
 		gitBinaryPath: gitBinaryPath,
 	}
 }

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -67,7 +66,7 @@ func TestExecutor_Commit(t *testing.T) {
 	updatedFile, err := repo.WriteBlob(ctx, "file", bytes.NewBufferString("updated"))
 	require.NoError(t, err)
 
-	executor := New(filepath.Join(cfg.BinDir, "gitaly-git2go"), cfg.Git.BinPath)
+	executor := New(cfg.BinDir, cfg.Git.BinPath)
 
 	for _, tc := range []struct {
 		desc  string

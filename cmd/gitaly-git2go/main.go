@@ -10,6 +10,7 @@ import (
 	"os"
 
 	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/conflicts"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 )
 
 type subcmd interface {
@@ -29,15 +30,13 @@ var subcommands = map[string]subcmd{
 	"submodule":   &submoduleSubcommand{},
 }
 
-const programName = "gitaly-git2go"
-
 func fatalf(format string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, format+"\n", args...)
 	os.Exit(1)
 }
 
 func main() {
-	flags := flag.NewFlagSet(programName, flag.ExitOnError)
+	flags := flag.NewFlagSet(git2go.BinaryName, flag.ExitOnError)
 	flags.Parse(os.Args)
 
 	if flags.NArg() < 2 {
