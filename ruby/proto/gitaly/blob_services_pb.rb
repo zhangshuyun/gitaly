@@ -19,6 +19,10 @@ module Gitaly
       # response
       rpc :GetBlob, Gitaly::GetBlobRequest, stream(Gitaly::GetBlobResponse)
       rpc :GetBlobs, Gitaly::GetBlobsRequest, stream(Gitaly::GetBlobsResponse)
+      # ListBlobs will list all blobs reachable from a given set of revisions by
+      # doing a graph walk. It is not valid to pass revisions which do not resolve
+      # to an existing object.
+      rpc :ListBlobs, Gitaly::ListBlobsRequest, stream(Gitaly::ListBlobsResponse)
       # GetLFSPointers retrieves LFS pointers from a given set of object IDs.
       # This RPC filters all requested objects and only returns those which refer
       # to a valid LFS pointer.
