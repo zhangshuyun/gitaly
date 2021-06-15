@@ -38,7 +38,10 @@ module Gitaly
       rpc :IsRebaseInProgress, ::Gitaly::IsRebaseInProgressRequest, ::Gitaly::IsRebaseInProgressResponse
       rpc :IsSquashInProgress, ::Gitaly::IsSquashInProgressRequest, ::Gitaly::IsSquashInProgressResponse
       rpc :CreateRepositoryFromURL, ::Gitaly::CreateRepositoryFromURLRequest, ::Gitaly::CreateRepositoryFromURLResponse
+      # CreateBundle creates a bundle from all refs
       rpc :CreateBundle, ::Gitaly::CreateBundleRequest, stream(::Gitaly::CreateBundleResponse)
+      # CreateBundleFromRefList creates a bundle from a stream of ref patterns
+      rpc :CreateBundleFromRefList, stream(::Gitaly::CreateBundleFromRefListRequest), stream(::Gitaly::CreateBundleFromRefListResponse)
       rpc :CreateRepositoryFromBundle, stream(::Gitaly::CreateRepositoryFromBundleRequest), ::Gitaly::CreateRepositoryFromBundleResponse
       # GetConfig reads the target repository's gitconfig and streams its contents
       # back. Returns a NotFound error in case no gitconfig was found.
