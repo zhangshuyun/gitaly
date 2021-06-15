@@ -30,12 +30,22 @@ type Diff struct {
 	Patch          []byte
 }
 
+// Reset clears all fields of d in a way that lets the underlying memory
+// allocations of the []byte fields be reused.
+func (d *Diff) Reset() {
+	*d = Diff{
+		FromPath: d.FromPath[:0],
+		ToPath:   d.ToPath[:0],
+		Patch:    d.Patch[:0],
+	}
+}
+
 // Parser holds necessary state for parsing a diff stream
 type Parser struct {
 	limits            Limits
 	patchReader       *bufio.Reader
 	rawLines          [][]byte
-	currentDiff       *Diff
+	currentDiff       Diff
 	nextPatchFromPath []byte
 	filesProcessed    int
 	linesProcessed    int
@@ -130,21 +140,12 @@ func (parser *Parser) Parse() bool {
 	// We are consuming this patch so it is no longer 'next'
 	parser.nextPatchFromPath = nil
 
-	for {
+	for currentPatchDone := false; !currentPatchDone || parser.patchReader.Buffered() > 0; {
 		// We cannot use bufio.Scanner because the line may be very long.
 		line, err := parser.patchReader.Peek(10)
 		if err == io.EOF {
 			parser.finished = true
-
-			if parser.currentDiff == nil { // Probably NewDiffParser was passed an empty src (e.g. git diff failed)
-				return false
-			}
-
-			if len(line) > 0 && len(line) < 10 {
-				parser.consumeChunkLine(true)
-			}
-
-			break
+			currentPatchDone = true
 		} else if err != nil {
 			parser.err = fmt.Errorf("peek diff line: %v", err)
 			return false
@@ -158,7 +159,10 @@ func (parser *Parser) Parse() bool {
 			parser.consumeLine(false)
 		} else if bytes.HasPrefix(line, []byte("~\n")) {
 			parser.consumeChunkLine(true)
-		} else if helper.ByteSliceHasAnyPrefix(line, "-", "+", " ", "\\", "Binary") {
+		} else if bytes.HasPrefix(line, []byte("Binary")) {
+			parser.currentDiff.Binary = true
+			parser.consumeChunkLine(true)
+		} else if helper.ByteSliceHasAnyPrefix(line, "-", "+", " ", "\\") {
 			parser.consumeChunkLine(true)
 		} else {
 			parser.consumeLine(false)
@@ -186,7 +190,8 @@ func (parser *Parser) Parse() bool {
 
 		if maxFilesExceeded || maxBytesOrLinesExceeded {
 			parser.finished = true
-			parser.currentDiff = &Diff{OverflowMarker: true}
+			parser.currentDiff.Reset()
+			parser.currentDiff.OverflowMarker = true
 		}
 	}
 
@@ -209,13 +214,14 @@ func (limit *Limits) enforceUpperBound() {
 func (parser *Parser) prunePatch() {
 	parser.linesProcessed -= parser.currentDiff.lineCount
 	parser.bytesProcessed -= len(parser.currentDiff.Patch)
-	parser.currentDiff.Patch = nil
+	// Clear Patch, but preserve underlying memory allocation
+	parser.currentDiff.Patch = parser.currentDiff.Patch[:0]
 }
 
 // Diff returns a successfully parsed diff. It should be called only when Parser.Parse()
-// returns true.
+// returns true. The return value is valid only until the next call to Parser.Parse().
 func (parser *Parser) Diff() *Diff {
-	return parser.currentDiff
+	return &parser.currentDiff
 }
 
 // Err returns the error encountered (if any) when parsing the diff stream. It should be called only when Parser.Parse()
@@ -273,10 +279,11 @@ func (parser *Parser) nextRawLine() []byte {
 }
 
 func (parser *Parser) initializeCurrentDiff() error {
+	parser.currentDiff.Reset()
+
 	// Raw and regular diff formats don't necessarily have the same files, since some flags (e.g. --ignore-space-change)
 	// can suppress certain kinds of diffs from showing in regular format, but raw format will always have all the files.
-	parser.currentDiff = &Diff{}
-	if err := parseRawLine(parser.nextRawLine(), parser.currentDiff); err != nil {
+	if err := parseRawLine(parser.nextRawLine(), &parser.currentDiff); err != nil {
 		parser.err = err
 		return err
 	}
@@ -368,25 +375,31 @@ func (parser *Parser) consumeChunkLine(updateLineStats bool) {
 	var line []byte
 	var err error
 
-	if parser.finished {
-		line, err = ioutil.ReadAll(parser.patchReader)
-	} else {
-		line, err = parser.patchReader.ReadBytes('\n')
-	}
+	// The code that follows would be much simpler if we used
+	// bufio.Reader.ReadBytes, but that allocates an intermediate copy of
+	// each line which adds up to a lot of allocations. By using ReadSlice we
+	// can copy bytes into currentDiff.Patch without intermediate
+	// allocations.
+	n := 0
+	for done := false; !done; {
+		line, err = parser.patchReader.ReadSlice('\n')
+		n += len(line)
 
-	if err != nil && err != io.EOF {
-		parser.err = fmt.Errorf("read chunk line: %v", err)
-		return
-	}
+		switch err {
+		case io.EOF, nil:
+			done = true
+		case bufio.ErrBufferFull:
+			// long line: keep reading
+		default:
+			parser.err = fmt.Errorf("read chunk line: %v", err)
+			return
+		}
 
-	if bytes.HasPrefix(line, []byte("Binary")) {
-		parser.currentDiff.Binary = true
+		parser.currentDiff.Patch = append(parser.currentDiff.Patch, line...)
 	}
-
-	parser.currentDiff.Patch = append(parser.currentDiff.Patch, line...)
 
 	if updateLineStats {
-		parser.bytesProcessed += len(line)
+		parser.bytesProcessed += n
 		parser.currentDiff.lineCount++
 		parser.linesProcessed++
 	}

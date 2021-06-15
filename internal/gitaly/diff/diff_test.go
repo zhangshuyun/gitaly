@@ -1,6 +1,7 @@
 package diff
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"testing"
@@ -40,7 +41,7 @@ index 0000000000000000000000000000000000000000..3be11c69355948412925fa5e073d76d5
 		MaxPatchBytes: 100000,
 		CollapseDiffs: true,
 	}
-	diffs := getDiffs(rawDiff, limits)
+	diffs := getDiffs(t, rawDiff, limits)
 
 	expectedDiffs := []*Diff{
 		&Diff{
@@ -99,7 +100,7 @@ index 000000000..3a62d28e3
 		MaxPatchBytes: 100000,
 		CollapseDiffs: false,
 	}
-	diffs := getDiffs(rawDiff, limits)
+	diffs := getDiffs(t, rawDiff, limits)
 
 	expectedDiffs := []*Diff{
 		&Diff{
@@ -112,7 +113,7 @@ index 000000000..3a62d28e3
 			Status:    'A',
 			Collapsed: false,
 			Patch:     []byte("@@ -0,0 +1,3 @@\n+A\n~\n+B\n+C\n~\n"),
-			lineCount: 4,
+			lineCount: 5,
 		},
 	}
 
@@ -150,12 +151,8 @@ index 0000000000000000000000000000000000000000..3be11c69355948412925fa5e073d76d5
 		MaxPatchBytes: 100000,
 		CollapseDiffs: false,
 	}
-	diffParser := NewDiffParser(strings.NewReader(rawDiff), limits)
 
-	diffs := []*Diff{}
-	for diffParser.Parse() {
-		diffs = append(diffs, diffParser.Diff())
-	}
+	diffs := getDiffs(t, rawDiff, limits)
 
 	expectedDiffs := []*Diff{
 		&Diff{
@@ -217,12 +214,8 @@ index 0000000000000000000000000000000000000000..3be11c69355948412925fa5e073d76d5
 		MaxPatchBytes: 125000, // bumping from default 100KB to 125kb (first patch has 124.6KB)
 		CollapseDiffs: false,
 	}
-	diffParser := NewDiffParser(strings.NewReader(rawDiff), limits)
 
-	diffs := []*Diff{}
-	for diffParser.Parse() {
-		diffs = append(diffs, diffParser.Diff())
-	}
+	diffs := getDiffs(t, rawDiff, limits)
 
 	expectedDiffs := []*Diff{
 		&Diff{
@@ -285,7 +278,7 @@ index 0000000000000000000000000000000000000000..b6507e5b5ce18077e3ec8aaa2291404e
 		MaxPatchBytes: 100000,
 		CollapseDiffs: true,
 	}
-	diffs := getDiffs(rawDiff, limits)
+	diffs := getDiffs(t, rawDiff, limits)
 
 	expectedDiffs := []*Diff{
 		&Diff{
@@ -329,6 +322,40 @@ index 0000000000000000000000000000000000000000..b6507e5b5ce18077e3ec8aaa2291404e
 	require.Equal(t, expectedDiffs, diffs)
 }
 
+func TestDiffLongLine(t *testing.T) {
+	header := `:000000 100644 0000000000000000000000000000000000000000 c3ae147b03a2d1fd89b25198b3fc53028c5b0d53 A	file-0
+
+diff --git a/file-0 b/file-0
+new file mode 100644
+index 0000000000000000000000000000000000000000..c3ae147b03a2d1fd89b25198b3fc53028c5b0d53
+--- /dev/null
++++ b/file-0
+`
+	patch := "@@ -0,0 +1,100 @@\n+" + strings.Repeat("z", 100*1000)
+
+	limits := Limits{
+		MaxPatchBytes: 1000 * 1000,
+	}
+	diffs := getDiffs(t, header+patch, limits)
+
+	expectedDiffs := []*Diff{
+		&Diff{
+			OldMode:   0,
+			NewMode:   0100644,
+			FromID:    git.ZeroOID.String(),
+			ToID:      "c3ae147b03a2d1fd89b25198b3fc53028c5b0d53",
+			FromPath:  []byte("file-0"),
+			ToPath:    []byte("file-0"),
+			Status:    'A',
+			Collapsed: false,
+			Patch:     []byte(patch),
+			lineCount: 1,
+		},
+	}
+
+	require.Equal(t, expectedDiffs, diffs)
+}
+
 func TestDiffLimitsBeingEnforcedByUpperBound(t *testing.T) {
 	limits := Limits{
 		SafeMaxLines:  999999999,
@@ -350,13 +377,58 @@ func TestDiffLimitsBeingEnforcedByUpperBound(t *testing.T) {
 	require.Equal(t, diffParser.limits.MaxPatchBytes, 0)
 }
 
-func getDiffs(rawDiff string, limits Limits) []*Diff {
+func getDiffs(t testing.TB, rawDiff string, limits Limits) []*Diff {
+	t.Helper()
+
 	diffParser := NewDiffParser(strings.NewReader(rawDiff), limits)
 
 	diffs := []*Diff{}
 	for diffParser.Parse() {
-		diffs = append(diffs, diffParser.Diff())
+		// Make a deep copy of diffParser.Diff()
+		d := *diffParser.Diff()
+		for _, p := range []*[]byte{&d.FromPath, &d.ToPath, &d.Patch} {
+			*p = append([]byte(nil), *p...)
+		}
+
+		diffs = append(diffs, &d)
 	}
+	require.NoError(t, diffParser.Err())
 
 	return diffs
+}
+
+// BenchmarkParserMemory is meant to benchmark memory allocations in the
+// parser. Run with 'go test -bench=. -benchmem'.
+func BenchmarkParserMemory(b *testing.B) {
+	const NDiffs = 10000
+
+	diffData := &bytes.Buffer{}
+	for i := 0; i < NDiffs; i++ {
+		fmt.Fprintf(diffData, ":000000 100644 0000000000000000000000000000000000000000 c3ae147b03a2d1fd89b25198b3fc53028c5b0d53 A	file-%d\n", i)
+	}
+	fmt.Fprintln(diffData)
+	for i := 0; i < NDiffs; i++ {
+		fmt.Fprintf(diffData, `diff --git a/file-%d b/file-%d
+new file mode 100644
+index 0000000000000000000000000000000000000000..c3ae147b03a2d1fd89b25198b3fc53028c5b0d53
+--- /dev/null
++++ b/file-%d
+@@ -0,0 +1,100 @@
+`, i, i, i)
+		for j := 0; j < 100; j++ {
+			fmt.Fprintln(diffData, "+zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz")
+		}
+	}
+
+	b.Run("parse", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			parser := NewDiffParser(bytes.NewReader(diffData.Bytes()), Limits{})
+			n := 0
+			for parser.Parse() {
+				n++
+			}
+			require.NoError(b, parser.Err())
+			require.Equal(b, NDiffs, n)
+		}
+	})
 }
