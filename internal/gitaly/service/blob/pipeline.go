@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
@@ -200,6 +202,74 @@ func catfileInfo(ctx context.Context, catfile catfile.Batch, revlistResultChan <
 			}); isDone {
 				return
 			}
+		}
+	}()
+
+	return resultChan
+}
+
+// catfileInfoAllObjects enumerates all Git objects part of the repository's object directory and
+// extracts their object info via `git cat-file --batch-check`. The returned channel will contain
+// all processed results. Any error encountered during execution of this pipeline step will cause
+// the pipeline to fail. Context cancellation will gracefully halt the pipeline. Note that with this
+// pipeline step, the resulting catfileInfoResults will never have an object name.
+func catfileInfoAllObjects(ctx context.Context, repo *localrepo.Repo) <-chan catfileInfoResult {
+	resultChan := make(chan catfileInfoResult)
+
+	go func() {
+		defer close(resultChan)
+
+		sendResult := func(result catfileInfoResult) bool {
+			select {
+			case resultChan <- result:
+				return false
+			case <-ctx.Done():
+				return true
+			}
+		}
+
+		cmd, err := repo.Exec(ctx, git.SubCmd{
+			Name: "cat-file",
+			Flags: []git.Option{
+				git.Flag{Name: "--batch-all-objects"},
+				git.Flag{Name: "--batch-check"},
+				git.Flag{Name: "--buffer"},
+				git.Flag{Name: "--unordered"},
+			},
+		})
+		if err != nil {
+			sendResult(catfileInfoResult{
+				err: fmt.Errorf("spawning cat-file failed: %w", err),
+			})
+			return
+		}
+
+		reader := bufio.NewReader(cmd)
+		for {
+			objectInfo, err := catfile.ParseObjectInfo(reader)
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+
+				sendResult(catfileInfoResult{
+					err: fmt.Errorf("parsing object info: %w", err),
+				})
+				return
+			}
+
+			if isDone := sendResult(catfileInfoResult{
+				objectInfo: objectInfo,
+			}); isDone {
+				return
+			}
+		}
+
+		if err := cmd.Wait(); err != nil {
+			sendResult(catfileInfoResult{
+				err: fmt.Errorf("cat-file failed: %w", err),
+			})
+			return
 		}
 	}()
 
