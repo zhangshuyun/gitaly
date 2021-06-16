@@ -58,7 +58,7 @@ func (s *reconcileSubcommand) Exec(flags *flag.FlagSet, conf config.Config) erro
 func getNodeAddress(cfg config.Config) (string, error) {
 	switch {
 	case cfg.SocketPath != "":
-		return "unix://" + cfg.SocketPath, nil
+		return "unix:" + cfg.SocketPath, nil
 	case cfg.ListenAddr != "":
 		return "tcp://" + cfg.ListenAddr, nil
 	default:
