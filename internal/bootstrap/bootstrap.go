@@ -10,6 +10,7 @@ import (
 
 	"github.com/cloudflare/tableflip"
 	log "github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/env"
 	"golang.org/x/sys/unix"
 )
 
@@ -65,7 +66,7 @@ type upgrader interface {
 // gitaly-wrapper is supposed to set EnvUpgradesEnabled in order to enable graceful upgrades
 func New() (*Bootstrap, error) {
 	pidFile := os.Getenv(EnvPidFile)
-	_, upgradesEnabled := os.LookupEnv(EnvUpgradesEnabled)
+	upgradesEnabled, _ := env.GetBool(EnvUpgradesEnabled, false)
 
 	// PIDFile is optional, if provided tableflip will keep it updated
 	upg, err := tableflip.New(tableflip.Options{
