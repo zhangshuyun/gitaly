@@ -390,24 +390,3 @@ func catfileObject(
 
 	return resultChan
 }
-
-// catfileObjectFilter filters the catfileObjectResults from the provided channel with the filter
-// function: if the filter returns `false` for a given item, then it will be dropped from the
-// pipeline. Errors cannot be filtered and will always be passed through.
-func catfileObjectFilter(ctx context.Context, c <-chan catfileObjectResult, filter func(catfileObjectResult) bool) <-chan catfileObjectResult {
-	resultChan := make(chan catfileObjectResult)
-	go func() {
-		defer close(resultChan)
-
-		for result := range c {
-			if result.err != nil || filter(result) {
-				select {
-				case resultChan <- result:
-				case <-ctx.Done():
-					return
-				}
-			}
-		}
-	}()
-	return resultChan
-}

@@ -1,7 +1,6 @@
 package blob
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"testing"
@@ -595,90 +594,6 @@ func TestCatfileObject(t *testing.T) {
 	}
 }
 
-func TestCatfileObjectFilter(t *testing.T) {
-	for _, tc := range []struct {
-		desc            string
-		input           []catfileObjectResult
-		filter          func(catfileObjectResult) bool
-		expectedResults []catfileObjectResult
-	}{
-		{
-			desc: "all accepted",
-			input: []catfileObjectResult{
-				{objectName: []byte{'a'}},
-				{objectName: []byte{'b'}},
-				{objectName: []byte{'c'}},
-			},
-			filter: func(catfileObjectResult) bool {
-				return true
-			},
-			expectedResults: []catfileObjectResult{
-				{objectName: []byte{'a'}},
-				{objectName: []byte{'b'}},
-				{objectName: []byte{'c'}},
-			},
-		},
-		{
-			desc: "all filtered",
-			input: []catfileObjectResult{
-				{objectName: []byte{'a'}},
-				{objectName: []byte{'b'}},
-				{objectName: []byte{'c'}},
-			},
-			filter: func(catfileObjectResult) bool {
-				return false
-			},
-		},
-		{
-			desc: "errors always get through",
-			input: []catfileObjectResult{
-				{objectName: []byte{'a'}},
-				{objectName: []byte{'b'}},
-				{err: errors.New("foobar")},
-				{objectName: []byte{'c'}},
-			},
-			filter: func(catfileObjectResult) bool {
-				return false
-			},
-			expectedResults: []catfileObjectResult{
-				{err: errors.New("foobar")},
-			},
-		},
-		{
-			desc: "subset filtered",
-			input: []catfileObjectResult{
-				{objectName: []byte{'a'}},
-				{objectName: []byte{'b'}},
-				{objectName: []byte{'c'}},
-			},
-			filter: func(r catfileObjectResult) bool {
-				return r.objectName[0] == 'b'
-			},
-			expectedResults: []catfileObjectResult{
-				{objectName: []byte{'b'}},
-			},
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
-
-			inputChan := make(chan catfileObjectResult, len(tc.input))
-			for _, input := range tc.input {
-				inputChan <- input
-			}
-			close(inputChan)
-
-			var results []catfileObjectResult
-			for result := range catfileObjectFilter(ctx, inputChan, tc.filter) {
-				results = append(results, result)
-			}
-
-			require.Equal(t, tc.expectedResults, results)
-		})
-	}
-}
-
 func TestPipeline(t *testing.T) {
 	cfg := testcfg.Build(t)
 
@@ -687,12 +602,11 @@ func TestPipeline(t *testing.T) {
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	for _, tc := range []struct {
-		desc                string
-		revisions           []string
-		revlistFilter       func(revlistResult) bool
-		catfileInfoFilter   func(catfileInfoResult) bool
-		catfileObjectFilter func(catfileObjectResult) bool
-		expectedResults     []catfileObjectResult
+		desc              string
+		revisions         []string
+		revlistFilter     func(revlistResult) bool
+		catfileInfoFilter func(catfileInfoResult) bool
+		expectedResults   []catfileObjectResult
 	}{
 		{
 			desc: "single blob",
@@ -769,19 +683,6 @@ func TestPipeline(t *testing.T) {
 			},
 		},
 		{
-			desc: "revision with blob contents filter",
-			revisions: []string{
-				"master",
-			},
-			catfileObjectFilter: func(r catfileObjectResult) bool {
-				return bytes.HasPrefix(r.objectData, []byte("/custom-highlighting/"))
-			},
-			expectedResults: []catfileObjectResult{
-				{objectInfo: &catfile.ObjectInfo{Oid: "b680596c9f3a3c834b933aef14f94a0ab9fa604a", Type: "blob", Size: 100}, objectName: []byte(".gitattributes")},
-				{objectInfo: &catfile.ObjectInfo{Oid: "36814a3da051159a1683479e7a1487120309db8f", Type: "blob", Size: 58}, objectName: []byte(".gitattributes")},
-			},
-		},
-		{
 			desc: "--all with all filters",
 			revisions: []string{
 				"--all",
@@ -795,12 +696,9 @@ func TestPipeline(t *testing.T) {
 				// Only let through blobs, so only the two LFS pointers remain.
 				return r.objectInfo.Type == "blob"
 			},
-			catfileObjectFilter: func(r catfileObjectResult) bool {
-				// This brings it down to a single LFS pointer.
-				return len(r.objectData) == 133
-			},
 			expectedResults: []catfileObjectResult{
 				{objectInfo: &catfile.ObjectInfo{Oid: lfsPointer1, Type: "blob", Size: 133}, objectName: []byte("files/lfs/lfs_object.iso")},
+				{objectInfo: &catfile.ObjectInfo{Oid: lfsPointer2, Type: "blob", Size: 127}, objectName: []byte("another.lfs")},
 			},
 		},
 		{
@@ -836,10 +734,6 @@ func TestPipeline(t *testing.T) {
 				require.Fail(t, "filter should not be invoked on errors")
 				return true
 			},
-			catfileObjectFilter: func(r catfileObjectResult) bool {
-				require.Fail(t, "filter should not be invoked on errors")
-				return true
-			},
 			expectedResults: []catfileObjectResult{
 				{err: errors.New("rev-list pipeline command: exit status 128")},
 			},
@@ -866,9 +760,6 @@ func TestPipeline(t *testing.T) {
 			}
 
 			catfileObjectChan := catfileObject(ctx, catfileProcess, catfileInfoChan)
-			if tc.catfileObjectFilter != nil {
-				catfileObjectChan = catfileObjectFilter(ctx, catfileObjectChan, tc.catfileObjectFilter)
-			}
 
 			var results []catfileObjectResult
 			for result := range catfileObjectChan {
@@ -913,7 +804,6 @@ func TestPipeline(t *testing.T) {
 		catfileInfoChan := catfileInfo(childCtx, catfileProcess, revlistChan)
 		catfileInfoChan = catfileInfoFilter(childCtx, catfileInfoChan, func(catfileInfoResult) bool { return true })
 		catfileObjectChan := catfileObject(childCtx, catfileProcess, catfileInfoChan)
-		catfileObjectChan = catfileObjectFilter(childCtx, catfileObjectChan, func(catfileObjectResult) bool { return true })
 
 		i := 0
 		for result := range catfileObjectChan {
