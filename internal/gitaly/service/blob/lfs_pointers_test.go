@@ -187,6 +187,14 @@ func testListLFSPointers(t *testing.T, ctx context.Context) {
 }
 
 func TestListAllLFSPointers(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.LFSPointersPipeline,
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		testListAllLFSPointers(t, ctx)
+	})
+}
+
+func testListAllLFSPointers(t *testing.T, ctx context.Context) {
 	receivePointers := func(t *testing.T, stream gitalypb.BlobService_ListAllLFSPointersClient) []*gitalypb.LFSPointer {
 		t.Helper()
 
@@ -201,9 +209,6 @@ func TestListAllLFSPointers(t *testing.T) {
 		}
 		return pointers
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	lfsPointerContents := `version https://git-lfs.github.com/spec/v1
 oid sha256:1111111111111111111111111111111111111111111111111111111111111111
@@ -301,10 +306,15 @@ size 12345`
 }
 
 func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
-	_, repo, _, client := setup(t)
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.LFSPointersPipeline,
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		testSuccessfulGetLFSPointersRequest(t, ctx)
+	})
+}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+func testSuccessfulGetLFSPointersRequest(t *testing.T, ctx context.Context) {
+	_, repo, _, client := setup(t)
 
 	lfsPointerIds := []string{
 		lfsPointer1,
@@ -346,10 +356,15 @@ func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
 }
 
 func TestFailedGetLFSPointersRequestDueToValidations(t *testing.T) {
-	_, repo, _, client := setup(t)
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.LFSPointersPipeline,
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		testFailedGetLFSPointersRequestDueToValidations(t, ctx)
+	})
+}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+func testFailedGetLFSPointersRequestDueToValidations(t *testing.T, ctx context.Context) {
+	_, repo, _, client := setup(t)
 
 	testCases := []struct {
 		desc    string

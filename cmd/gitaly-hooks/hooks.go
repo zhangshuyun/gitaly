@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -18,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/env"
 	gitalylog "gitlab.com/gitlab-org/gitaly/v14/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/stream"
@@ -163,7 +163,7 @@ func dialGitaly(payload git.HooksPayload) (*grpc.ClientConn, error) {
 func gitPushOptions() []string {
 	var gitPushOptions []string
 
-	gitPushOptionCount, err := strconv.Atoi(os.Getenv("GIT_PUSH_OPTION_COUNT"))
+	gitPushOptionCount, err := env.GetInt("GIT_PUSH_OPTION_COUNT", 0)
 	if err != nil {
 		return gitPushOptions
 	}
