@@ -12,7 +12,7 @@ var (
 	// GoUpdateRemoteMirror enables the Go implementation of UpdateRemoteMirror
 	GoUpdateRemoteMirror = FeatureFlag{Name: "go_update_remote_mirror", OnByDefault: false}
 	// FetchInternalRemoteErrors makes FetchInternalRemote return actual errors instead of a boolean
-	FetchInternalRemoteErrors = FeatureFlag{Name: "fetch_internal_remote_errors", OnByDefault: false}
+	FetchInternalRemoteErrors = FeatureFlag{Name: "fetch_internal_remote_errors", OnByDefault: true}
 	// TxConfig enables transactional voting for SetConfig and DeleteConfig RPCs.
 	TxConfig = FeatureFlag{Name: "tx_config", OnByDefault: true}
 	// TxRemote enables transactional voting for AddRemote and DeleteRemote.
