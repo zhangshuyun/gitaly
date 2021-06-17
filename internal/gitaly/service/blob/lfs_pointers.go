@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"strings"
 
 	"github.com/golang/protobuf/proto"
@@ -375,12 +376,20 @@ func sendLFSPointers(chunker *chunk.Chunker, lfsPointers <-chan catfileObjectRes
 			return helper.ErrInternal(lfsPointer.err)
 		}
 
-		if !git.IsLFSPointer(lfsPointer.objectData) {
+		// Given that we filter pipeline objects by size, the biggest object we may see here
+		// is 200 bytes in size. So it's not much of a problem to read this into memory
+		// completely.
+		objectData, err := ioutil.ReadAll(lfsPointer.objectReader)
+		if err != nil {
+			return helper.ErrInternal(fmt.Errorf("reading LFS pointer data: %w", err))
+		}
+
+		if !git.IsLFSPointer(objectData) {
 			continue
 		}
 
 		if err := chunker.Send(&gitalypb.LFSPointer{
-			Data: lfsPointer.objectData,
+			Data: objectData,
 			Size: lfsPointer.objectInfo.Size,
 			Oid:  lfsPointer.objectInfo.Oid.String(),
 		}); err != nil {

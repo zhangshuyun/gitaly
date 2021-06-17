@@ -3,6 +3,9 @@ package blob
 import (
 	"context"
 	"errors"
+	"io"
+	"io/ioutil"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -579,11 +582,15 @@ func TestCatfileObject(t *testing.T) {
 				}
 
 				if result.err == nil {
-					// While we could also assert object data, let's not do this: it
-					// would just be too annoying.
-					require.NotNil(t, result.objectData)
-					require.Len(t, result.objectData, int(result.objectInfo.Size))
-					result.objectData = nil
+					// While we could also assert object data, let's not do
+					// this: it would just be too annoying.
+					require.NotNil(t, result.objectReader)
+
+					objectData, err := ioutil.ReadAll(result.objectReader)
+					require.NoError(t, err)
+					require.Len(t, objectData, int(result.objectInfo.Size))
+
+					result.objectReader = nil
 				}
 
 				results = append(results, result)
@@ -770,11 +777,15 @@ func TestPipeline(t *testing.T) {
 				}
 
 				if result.err == nil {
-					// While we could also assert object data, let's not do this: it
-					// would just be too annoying.
-					require.NotNil(t, result.objectData)
-					require.Len(t, result.objectData, int(result.objectInfo.Size))
-					result.objectData = nil
+					// While we could also assert object data, let's not do
+					// this: it would just be too annoying.
+					require.NotNil(t, result.objectReader)
+
+					objectData, err := ioutil.ReadAll(result.objectReader)
+					require.NoError(t, err)
+					require.Len(t, objectData, int(result.objectInfo.Size))
+
+					result.objectReader = nil
 				}
 
 				results = append(results, result)
@@ -810,6 +821,9 @@ func TestPipeline(t *testing.T) {
 			require.NoError(t, result.err)
 			i++
 
+			_, err := io.Copy(ioutil.Discard, result.objectReader)
+			require.NoError(t, err)
+
 			if i == 3 {
 				cancel()
 			}
@@ -819,5 +833,47 @@ func TestPipeline(t *testing.T) {
 		// the last pipeline step may already have queued up an additional result. We thus
 		// cannot assert the exact number of requests, but we know that it's bounded.
 		require.LessOrEqual(t, i, 4)
+	})
+
+	t.Run("interleaving object reads", func(t *testing.T) {
+		ctx, cancel := testhelper.Context()
+		defer cancel()
+
+		catfileCache := catfile.NewCache(cfg)
+		defer catfileCache.Stop()
+
+		catfileProcess, err := catfileCache.BatchProcess(ctx, repo)
+		require.NoError(t, err)
+
+		revlistChan := revlist(ctx, repo, []string{"--all"})
+		catfileInfoChan := catfileInfo(ctx, catfileProcess, revlistChan)
+		catfileObjectChan := catfileObject(ctx, catfileProcess, catfileInfoChan)
+
+		i := 0
+		var wg sync.WaitGroup
+		for result := range catfileObjectChan {
+			require.NoError(t, result.err)
+
+			wg.Add(1)
+			i++
+
+			// With the catfile package, one mustn't ever request a new object before
+			// the old object's reader was completely consumed. We cannot reliably test
+			// this given that the object channel, if it behaves correctly, will block
+			// until we've read the old object. Chances are high though that we'd
+			// eventually hit the race here in case we didn't correctly synchronize on
+			// the object reader.
+			go func(object catfileObjectResult) {
+				defer wg.Done()
+				_, err := io.Copy(ioutil.Discard, object.objectReader)
+				require.NoError(t, err)
+			}(result)
+		}
+
+		wg.Wait()
+
+		// We could in theory assert the exact amount of objects, but this would make it
+		// harder than necessary to change the test repo's contents.
+		require.Greater(t, i, 1000)
 	})
 }
