@@ -18,6 +18,7 @@ import (
 )
 
 func TestFindCommitsFields(t *testing.T) {
+	t.Parallel()
 	windows1251Message := testhelper.MustReadFile(t, "testdata/commit-c809470461118b7bcab850f6e9a7ca97ac42f8ea-message.txt")
 
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
@@ -176,6 +177,7 @@ func TestFindCommitsFields(t *testing.T) {
 }
 
 func TestSuccessfulFindCommitsRequest(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	testCases := []struct {
@@ -433,6 +435,7 @@ func TestSuccessfulFindCommitsRequest(t *testing.T) {
 }
 
 func TestSuccessfulFindCommitsRequestWithAltGitObjectDirs(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
 
 	committerName := "Scrooge McDuck"
@@ -485,6 +488,7 @@ func TestSuccessfulFindCommitsRequestWithAltGitObjectDirs(t *testing.T) {
 }
 
 func TestSuccessfulFindCommitsRequestWithAmbiguousRef(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
 
 	// These are arbitrary SHAs in the repository. The important part is
@@ -513,6 +517,7 @@ func TestSuccessfulFindCommitsRequestWithAmbiguousRef(t *testing.T) {
 }
 
 func TestFailureFindCommitsRequest(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	testCases := []struct {
@@ -557,6 +562,7 @@ func TestFailureFindCommitsRequest(t *testing.T) {
 }
 
 func TestFindCommitsRequestWithFollowAndOffset(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	request := &gitalypb.FindCommitsRequest{
@@ -584,6 +590,7 @@ func TestFindCommitsRequestWithFollowAndOffset(t *testing.T) {
 }
 
 func TestFindCommitsWithExceedingOffset(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	ctx, cancel := testhelper.Context()

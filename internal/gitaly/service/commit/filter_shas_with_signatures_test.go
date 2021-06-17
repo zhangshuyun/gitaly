@@ -10,6 +10,7 @@ import (
 )
 
 func TestFilterShasWithSignaturesSuccessful(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -58,6 +59,7 @@ func TestFilterShasWithSignaturesSuccessful(t *testing.T) {
 }
 
 func TestFilterShasWithSignaturesValidationError(t *testing.T) {
+	t.Parallel()
 	err := validateFirstFilterShasWithSignaturesRequest(&gitalypb.FilterShasWithSignaturesRequest{})
 	require.Contains(t, err.Error(), "no repository given")
 }

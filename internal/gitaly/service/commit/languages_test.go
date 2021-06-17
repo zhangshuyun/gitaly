@@ -11,6 +11,7 @@ import (
 )
 
 func TestLanguages(t *testing.T) {
+	t.Parallel()
 	cfg, repo, _ := testcfg.BuildWithRepo(t, testcfg.WithRealLinguist())
 
 	serverSocketPath := startTestServices(t, cfg)
@@ -49,6 +50,7 @@ func TestLanguages(t *testing.T) {
 }
 
 func TestFileCountIsZeroWhenFeatureIsDisabled(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	request := &gitalypb.CommitLanguagesRequest{
@@ -80,6 +82,7 @@ func requireLanguageEqual(t *testing.T, expected, actual *gitalypb.CommitLanguag
 }
 
 func TestLanguagesEmptyRevision(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	request := &gitalypb.CommitLanguagesRequest{
@@ -103,6 +106,7 @@ func TestLanguagesEmptyRevision(t *testing.T) {
 }
 
 func TestInvalidCommitLanguagesRequestRevision(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	ctx, cancel := testhelper.Context()
@@ -116,6 +120,7 @@ func TestInvalidCommitLanguagesRequestRevision(t *testing.T) {
 }
 
 func TestAmbiguousRefCommitLanguagesRequestRevision(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	ctx, cancel := testhelper.Context()

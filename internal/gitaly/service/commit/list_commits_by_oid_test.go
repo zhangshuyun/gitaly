@@ -9,6 +9,7 @@ import (
 )
 
 func TestSuccessfulListCommitsByOidRequest(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	commits := []*gitalypb.GitCommit{
@@ -151,6 +152,7 @@ var masterCommitids = []string{
 }
 
 func TestSuccessfulListCommitsByOidLargeRequest(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	req := &gitalypb.ListCommitsByOidRequest{

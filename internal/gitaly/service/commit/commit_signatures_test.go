@@ -16,6 +16,7 @@ import (
 )
 
 func TestSuccessfulGetCommitSignaturesRequest(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
 
 	commitData := testhelper.MustReadFile(t, "testdata/dc00eb001f41dfac08192ead79c2377c588b82ee.commit")
@@ -72,6 +73,7 @@ func TestSuccessfulGetCommitSignaturesRequest(t *testing.T) {
 }
 
 func TestFailedGetCommitSignaturesRequest(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	testCases := []struct {

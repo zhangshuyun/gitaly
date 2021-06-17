@@ -60,6 +60,7 @@ func createRepoWithDivergentBranches(t *testing.T, cfg config.Cfg, leftCommits, 
 }
 
 func TestSuccessfulCountDivergentCommitsRequest(t *testing.T) {
+	t.Parallel()
 	cfg, client := setupCommitService(t)
 
 	testRepo, cleanupFn := createRepoWithDivergentBranches(t, cfg, 3, 3, "left", "right")
@@ -134,6 +135,7 @@ func TestSuccessfulCountDivergentCommitsRequest(t *testing.T) {
 }
 
 func TestSuccessfulCountDivergentCommitsRequestWithMaxCount(t *testing.T) {
+	t.Parallel()
 	cfg, client := setupCommitService(t)
 
 	testRepo, cleanupFn := createRepoWithDivergentBranches(t, cfg, 4, 4, "left", "right")
@@ -179,6 +181,7 @@ func TestSuccessfulCountDivergentCommitsRequestWithMaxCount(t *testing.T) {
 }
 
 func TestFailedCountDivergentCommitsRequestDueToValidationError(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	revision := []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72")

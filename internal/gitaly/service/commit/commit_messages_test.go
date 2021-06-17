@@ -15,6 +15,7 @@ import (
 )
 
 func TestSuccessfulGetCommitMessagesRequest(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
 
 	ctx, cancel := testhelper.Context()
@@ -57,6 +58,7 @@ func TestSuccessfulGetCommitMessagesRequest(t *testing.T) {
 }
 
 func TestFailedGetCommitMessagesRequest(t *testing.T) {
+	t.Parallel()
 	_, _, _, client := setupCommitServiceWithRepo(t, true)
 
 	testCases := []struct {
