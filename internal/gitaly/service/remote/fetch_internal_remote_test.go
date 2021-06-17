@@ -260,6 +260,27 @@ func TestFailedFetchInternalRemote(t *testing.T) {
 		require.NoError(t, err, "FetchInternalRemote is not supposed to return an error when 'git fetch' fails")
 		require.False(t, c.GetResult())
 	})
+
+	t.Run("GITALY_DISABLE_FETCH_INTERNAL_REMOTE_ERRORS set", func(t *testing.T) {
+		cleanup := testhelper.ModifyEnvironment(t, "GITALY_DISABLE_FETCH_INTERNAL_REMOTE_ERRORS", "1")
+		t.Cleanup(cleanup)
+
+		cfg, repo, _, client := setupRemoteService(t)
+
+		ctx := testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
+
+		// Non-existing remote repo
+		remoteRepo := &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "fake.git"}
+
+		request := &gitalypb.FetchInternalRemoteRequest{
+			Repository:       repo,
+			RemoteRepository: remoteRepo,
+		}
+
+		c, err := client.FetchInternalRemote(ctx, request)
+		require.NoError(t, err, "FetchInternalRemote is not supposed to return an error when 'git fetch' fails")
+		require.False(t, c.GetResult())
+	})
 }
 
 func TestFailedFetchInternalRemoteDueToValidations(t *testing.T) {

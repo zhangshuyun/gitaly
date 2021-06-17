@@ -107,7 +107,7 @@ func (s *server) FetchInternalRemote(ctx context.Context, req *gitalypb.FetchInt
 	if err := FetchInternalRemote(ctx, s.cfg, s.conns, repo, req.RemoteRepository); err != nil {
 		var fetchErr fetchFailedError
 
-		if featureflag.IsDisabled(ctx, featureflag.FetchInternalRemoteErrors) && errors.As(err, &fetchErr) {
+		if s.isFetchInternalRemoteErrorsDisabled(ctx) && errors.As(err, &fetchErr) {
 			// Design quirk: if the fetch fails, this RPC returns Result: false, but no error.
 			ctxlogrus.Extract(ctx).WithError(fetchErr.err).WithField("stderr", fetchErr.stderr).Warn("git fetch failed")
 			return &gitalypb.FetchInternalRemoteResponse{Result: false}, nil
@@ -117,6 +117,13 @@ func (s *server) FetchInternalRemote(ctx context.Context, req *gitalypb.FetchInt
 	}
 
 	return &gitalypb.FetchInternalRemoteResponse{Result: true}, nil
+}
+
+func (s *server) isFetchInternalRemoteErrorsDisabled(ctx context.Context) bool {
+	// Since feature flags can only be turned on through requests from
+	// gitlab-rails we need a way to explicitly disable the feature without
+	// triggering a new release.
+	return featureflag.IsDisabled(ctx, featureflag.FetchInternalRemoteErrors) || s.disableFetchInternalRemoteErrors
 }
 
 // getRemoteDefaultBranch gets the default branch of a repository hosted on another Gitaly node.

@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/env"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
@@ -23,6 +24,8 @@ type server struct {
 	txManager     transaction.Manager
 
 	conns *client.Pool
+
+	disableFetchInternalRemoteErrors bool
 }
 
 // NewServer creates a new instance of a grpc RemoteServiceServer
@@ -34,6 +37,11 @@ func NewServer(
 	catfileCache catfile.Cache,
 	txManager transaction.Manager,
 ) gitalypb.RemoteServiceServer {
+	disableFetchInternalRemoteErrors, err := env.GetBool("GITALY_DISABLE_FETCH_INTERNAL_REMOTE_ERRORS", false)
+	if err != nil {
+		panic(err)
+	}
+
 	return &server{
 		cfg:           cfg,
 		ruby:          rs,
@@ -45,6 +53,7 @@ func NewServer(
 			client.WithDialer(client.HealthCheckDialer(client.DialContext)),
 			client.WithDialOptions(client.FailOnNonTempDialError()...),
 		),
+		disableFetchInternalRemoteErrors: disableFetchInternalRemoteErrors,
 	}
 }
 
