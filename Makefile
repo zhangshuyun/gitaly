@@ -336,7 +336,8 @@ proto: ${PROTOC} ${PROTOC_GEN_GO} ${PROTOC_GEN_GO_GRPC} ${SOURCE_DIR}/.ruby-bund
 		${SOURCE_DIR}/internal/praefect/mock/mock.proto \
 		${SOURCE_DIR}/internal/middleware/cache/testdata/stream.proto \
 		${SOURCE_DIR}/internal/helper/chunk/testdata/test.proto \
-		${SOURCE_DIR}/internal/middleware/limithandler/testdata/test.proto
+		${SOURCE_DIR}/internal/middleware/limithandler/testdata/test.proto \
+		${SOURCE_DIR}/internal/streamrpc/testdata/test.proto
 	${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/proto --go_out=${SOURCE_DIR}/proto --go-grpc_out=${SOURCE_DIR}/proto ${SOURCE_DIR}/proto/go/internal/linter/testdata/*.proto
 
 .PHONY: lint-proto

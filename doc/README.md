@@ -38,6 +38,7 @@ For configuration please read [praefects configuration documentation](doc/config
 - [Tips for reading Git source code](reading_git_source.md)
 - [Serverside Git Usage](serverside_git_usage.md)
 - [Object Pools](object_pools.md)
+- [StreamRPC](stream_rpc.md)
 
 #### RFCs
 
