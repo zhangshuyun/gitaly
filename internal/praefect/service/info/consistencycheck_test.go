@@ -77,8 +77,10 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 
 	referenceConn, err := client.Dial(referenceAddr, nil)
 	require.NoError(t, err)
+	defer referenceConn.Close()
 	targetConn, err := client.Dial(targetGitaly.Address(), nil)
 	require.NoError(t, err)
+	defer targetConn.Close()
 
 	nm := &nodes.MockManager{
 		GetShardFunc: func(s string) (nodes.Shard, error) {
