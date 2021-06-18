@@ -30,6 +30,7 @@ import (
 	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 )
 
@@ -78,7 +79,7 @@ func New(
 
 	lh := limithandler.New(concurrencyKeyFn)
 
-	transportCredentials := backchannel.Insecure()
+	transportCredentials := insecure.NewCredentials()
 	// If tls config is specified attempt to extract tls options and use it
 	// as a grpc.ServerOption
 	if secure {

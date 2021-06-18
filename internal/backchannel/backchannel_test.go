@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 )
 
@@ -40,7 +41,7 @@ func TestBackchannel_concurrentRequestsFromMultipleClients(t *testing.T) {
 	registry := NewRegistry()
 	handshaker := NewServerHandshaker(
 		newLogger(),
-		Insecure(),
+		insecure.NewCredentials(),
 		registry,
 		[]grpc.DialOption{
 			grpc.WithUnaryInterceptor(func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
@@ -123,7 +124,7 @@ func TestBackchannel_concurrentRequestsFromMultipleClients(t *testing.T) {
 
 			<-start
 			client, err := grpc.Dial(ln.Addr().String(),
-				grpc.WithTransportCredentials(clientHandshaker.ClientHandshake(Insecure())),
+				grpc.WithTransportCredentials(clientHandshaker.ClientHandshake(insecure.NewCredentials())),
 			)
 			if !assert.NoError(t, err) {
 				return
@@ -182,7 +183,7 @@ func Benchmark(b *testing.B) {
 					var serverOpts []grpc.ServerOption
 					if tc.multiplexed {
 						serverOpts = []grpc.ServerOption{
-							grpc.Creds(NewServerHandshaker(newLogger(), Insecure(), NewRegistry(), nil)),
+							grpc.Creds(NewServerHandshaker(newLogger(), insecure.NewCredentials(), NewRegistry(), nil)),
 						}
 					}
 
@@ -213,7 +214,7 @@ func Benchmark(b *testing.B) {
 						clientHandshaker := NewClientHandshaker(newLogger(), func() Server { return grpc.NewServer() })
 						opts = []grpc.DialOption{
 							grpc.WithBlock(),
-							grpc.WithTransportCredentials(clientHandshaker.ClientHandshake(Insecure())),
+							grpc.WithTransportCredentials(clientHandshaker.ClientHandshake(insecure.NewCredentials())),
 						}
 					}
 
