@@ -11,34 +11,34 @@ import (
 )
 
 func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveRepositoryRequest) (*gitalypb.RemoveRepositoryResponse, error) {
-	path, err := s.locator.GetPath(in.Repository)
+	repo := in.GetRepository()
+
+	path, err := s.locator.GetPath(repo)
 	if err != nil {
 		return nil, helper.ErrInternal(err)
 	}
 
-	storage, ok := s.cfg.Storage(in.GetRepository().GetStorageName())
+	storage, ok := s.cfg.Storage(repo.GetStorageName())
 	if !ok {
-		return nil, helper.ErrInvalidArgumentf("storage %v not found", in.GetRepository().GetStorageName())
+		return nil, helper.ErrInvalidArgumentf("storage %v not found", repo.GetStorageName())
 	}
 
-	base := filepath.Base(path)
-
 	tempDir := tempdir.TempDir(storage)
-
-	if err = os.MkdirAll(tempDir, 0755); err != nil {
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
 		return nil, helper.ErrInternal(err)
 	}
 
+	base := filepath.Base(path)
 	destDir := filepath.Join(tempDir, base+"+removed")
 
-	if err = os.Rename(path, destDir); err != nil {
+	if err := os.Rename(path, destDir); err != nil {
 		if os.IsNotExist(err) {
 			return &gitalypb.RemoveRepositoryResponse{}, nil
 		}
 		return nil, helper.ErrInternal(err)
 	}
 
-	if err = os.RemoveAll(destDir); err != nil {
+	if err := os.RemoveAll(destDir); err != nil {
 		return nil, helper.ErrInternal(err)
 	}
 
