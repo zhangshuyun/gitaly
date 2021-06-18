@@ -135,6 +135,7 @@ func testAddRemoteTransactional(t *testing.T, cfg config.Cfg, rubySrv *rubyserve
 }
 
 func TestFailedAddRemoteDueToValidation(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRemoteService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -175,6 +176,7 @@ func TestFailedAddRemoteDueToValidation(t *testing.T) {
 }
 
 func TestSuccessfulRemoveRemote(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath, client := setupRemoteService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -218,6 +220,7 @@ func TestSuccessfulRemoveRemote(t *testing.T) {
 }
 
 func TestFailedRemoveRemoteDueToValidation(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRemoteService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -230,6 +233,7 @@ func TestFailedRemoveRemoteDueToValidation(t *testing.T) {
 }
 
 func TestRemoveRemoteTransactional(t *testing.T) {
+	t.Parallel()
 	var votes []voting.Vote
 	txManager := transaction.MockManager{
 		VoteFn: func(_ context.Context, _ txinfo.Transaction, vote voting.Vote) error {
@@ -262,6 +266,7 @@ func TestRemoveRemoteTransactional(t *testing.T) {
 }
 
 func TestFindRemoteRepository(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRemoteService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -281,6 +286,7 @@ func TestFindRemoteRepository(t *testing.T) {
 }
 
 func TestFailedFindRemoteRepository(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRemoteService(t)
 
 	ctx, cancel := testhelper.Context()
