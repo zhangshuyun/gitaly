@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"sync"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
@@ -306,14 +306,32 @@ type catfileObjectResult struct {
 	objectName []byte
 	// objectInfo is the object info of the object.
 	objectInfo *catfile.ObjectInfo
-	// obbjectData is the raw object data.
-	objectData []byte
+	// obbjectReader is the reader for the raw object data. The reader must always be consumed
+	// by the caller.
+	objectReader io.Reader
+}
+
+type signallingReader struct {
+	reader    io.Reader
+	doneCh    chan interface{}
+	closeOnce sync.Once
+}
+
+func (r *signallingReader) Read(p []byte) (int, error) {
+	n, err := r.reader.Read(p)
+	if errors.Is(err, io.EOF) {
+		r.closeOnce.Do(func() {
+			close(r.doneCh)
+		})
+	}
+	return n, err
 }
 
 // catfileObject processes catfileInfoResults from the given channel and reads associated objects
 // into memory via `git cat-file --batch`. The returned channel will contain all processed objects.
 // Any error received via the channel or encountered in this step will cause the pipeline to fail.
-// Context cancellation will gracefully halt the pipeline.
+// Context cancellation will gracefully halt the pipeline. The returned object readers must always
+// be fully consumed by the caller.
 func catfileObject(
 	ctx context.Context,
 	catfileProcess catfile.Batch,
@@ -332,10 +350,24 @@ func catfileObject(
 			}
 		}
 
+		var objectReader *signallingReader
+
 		for catfileInfoResult := range catfileInfoResultChan {
 			if catfileInfoResult.err != nil {
 				sendResult(catfileObjectResult{err: catfileInfoResult.err})
 				return
+			}
+
+			// We mustn't try to read another object before reading the previous object
+			// has concluded. Given that this is not under our control but under the
+			// control of the caller, we thus have to wait until the blocking reader has
+			// reached EOF.
+			if objectReader != nil {
+				select {
+				case <-objectReader.doneCh:
+				case <-ctx.Done():
+					return
+				}
 			}
 
 			var object *catfile.Object
@@ -362,52 +394,20 @@ func catfileObject(
 				return
 			}
 
-			// Ideally, we'd let the caller read the object because he'll know exactly
-			// what to do with it. But unfortunately, this doesn't really work because
-			// we mustn't try to read another object until the current object has been
-			// fully read. We thus read the object here and return it to the caller
-			// directly.
-			//
-			// If the need arises, we can refactor this code to support limited reads
-			// via options at a later point.
-			objectData, err := ioutil.ReadAll(object)
-			if err != nil {
-				sendResult(catfileObjectResult{
-					err: fmt.Errorf("reading object: %w", err),
-				})
-				return
+			objectReader = &signallingReader{
+				reader: object,
+				doneCh: make(chan interface{}),
 			}
 
 			if isDone := sendResult(catfileObjectResult{
-				objectName: catfileInfoResult.objectName,
-				objectInfo: catfileInfoResult.objectInfo,
-				objectData: objectData,
+				objectName:   catfileInfoResult.objectName,
+				objectInfo:   catfileInfoResult.objectInfo,
+				objectReader: objectReader,
 			}); isDone {
 				return
 			}
 		}
 	}()
 
-	return resultChan
-}
-
-// catfileObjectFilter filters the catfileObjectResults from the provided channel with the filter
-// function: if the filter returns `false` for a given item, then it will be dropped from the
-// pipeline. Errors cannot be filtered and will always be passed through.
-func catfileObjectFilter(ctx context.Context, c <-chan catfileObjectResult, filter func(catfileObjectResult) bool) <-chan catfileObjectResult {
-	resultChan := make(chan catfileObjectResult)
-	go func() {
-		defer close(resultChan)
-
-		for result := range c {
-			if result.err != nil || filter(result) {
-				select {
-				case resultChan <- result:
-				case <-ctx.Done():
-					return
-				}
-			}
-		}
-	}()
 	return resultChan
 }

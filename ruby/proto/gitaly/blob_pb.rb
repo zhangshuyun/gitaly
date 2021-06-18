@@ -36,6 +36,20 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :path, :bytes, 7
       optional :type, :enum, 8, "gitaly.ObjectType"
     end
+    add_message "gitaly.ListBlobsRequest" do
+      optional :repository, :message, 1, "gitaly.Repository"
+      repeated :revisions, :string, 2
+      optional :limit, :uint32, 3
+      optional :bytes_limit, :int64, 4
+    end
+    add_message "gitaly.ListBlobsResponse" do
+      repeated :blobs, :message, 1, "gitaly.ListBlobsResponse.Blob"
+    end
+    add_message "gitaly.ListBlobsResponse.Blob" do
+      optional :oid, :string, 1
+      optional :size, :int64, 2
+      optional :data, :bytes, 3
+    end
     add_message "gitaly.LFSPointer" do
       optional :size, :int64, 1
       optional :data, :bytes, 2
@@ -77,6 +91,9 @@ module Gitaly
   GetBlobsRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GetBlobsRequest").msgclass
   GetBlobsRequest::RevisionPath = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GetBlobsRequest.RevisionPath").msgclass
   GetBlobsResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GetBlobsResponse").msgclass
+  ListBlobsRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListBlobsRequest").msgclass
+  ListBlobsResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListBlobsResponse").msgclass
+  ListBlobsResponse::Blob = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListBlobsResponse.Blob").msgclass
   LFSPointer = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.LFSPointer").msgclass
   NewBlobObject = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.NewBlobObject").msgclass
   GetLFSPointersRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GetLFSPointersRequest").msgclass

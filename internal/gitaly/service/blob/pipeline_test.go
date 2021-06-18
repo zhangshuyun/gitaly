@@ -1,9 +1,11 @@
 package blob
 
 import (
-	"bytes"
 	"context"
 	"errors"
+	"io"
+	"io/ioutil"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -580,97 +582,17 @@ func TestCatfileObject(t *testing.T) {
 				}
 
 				if result.err == nil {
-					// While we could also assert object data, let's not do this: it
-					// would just be too annoying.
-					require.NotNil(t, result.objectData)
-					require.Len(t, result.objectData, int(result.objectInfo.Size))
-					result.objectData = nil
+					// While we could also assert object data, let's not do
+					// this: it would just be too annoying.
+					require.NotNil(t, result.objectReader)
+
+					objectData, err := ioutil.ReadAll(result.objectReader)
+					require.NoError(t, err)
+					require.Len(t, objectData, int(result.objectInfo.Size))
+
+					result.objectReader = nil
 				}
 
-				results = append(results, result)
-			}
-
-			require.Equal(t, tc.expectedResults, results)
-		})
-	}
-}
-
-func TestCatfileObjectFilter(t *testing.T) {
-	for _, tc := range []struct {
-		desc            string
-		input           []catfileObjectResult
-		filter          func(catfileObjectResult) bool
-		expectedResults []catfileObjectResult
-	}{
-		{
-			desc: "all accepted",
-			input: []catfileObjectResult{
-				{objectName: []byte{'a'}},
-				{objectName: []byte{'b'}},
-				{objectName: []byte{'c'}},
-			},
-			filter: func(catfileObjectResult) bool {
-				return true
-			},
-			expectedResults: []catfileObjectResult{
-				{objectName: []byte{'a'}},
-				{objectName: []byte{'b'}},
-				{objectName: []byte{'c'}},
-			},
-		},
-		{
-			desc: "all filtered",
-			input: []catfileObjectResult{
-				{objectName: []byte{'a'}},
-				{objectName: []byte{'b'}},
-				{objectName: []byte{'c'}},
-			},
-			filter: func(catfileObjectResult) bool {
-				return false
-			},
-		},
-		{
-			desc: "errors always get through",
-			input: []catfileObjectResult{
-				{objectName: []byte{'a'}},
-				{objectName: []byte{'b'}},
-				{err: errors.New("foobar")},
-				{objectName: []byte{'c'}},
-			},
-			filter: func(catfileObjectResult) bool {
-				return false
-			},
-			expectedResults: []catfileObjectResult{
-				{err: errors.New("foobar")},
-			},
-		},
-		{
-			desc: "subset filtered",
-			input: []catfileObjectResult{
-				{objectName: []byte{'a'}},
-				{objectName: []byte{'b'}},
-				{objectName: []byte{'c'}},
-			},
-			filter: func(r catfileObjectResult) bool {
-				return r.objectName[0] == 'b'
-			},
-			expectedResults: []catfileObjectResult{
-				{objectName: []byte{'b'}},
-			},
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
-
-			inputChan := make(chan catfileObjectResult, len(tc.input))
-			for _, input := range tc.input {
-				inputChan <- input
-			}
-			close(inputChan)
-
-			var results []catfileObjectResult
-			for result := range catfileObjectFilter(ctx, inputChan, tc.filter) {
 				results = append(results, result)
 			}
 
@@ -687,12 +609,11 @@ func TestPipeline(t *testing.T) {
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	for _, tc := range []struct {
-		desc                string
-		revisions           []string
-		revlistFilter       func(revlistResult) bool
-		catfileInfoFilter   func(catfileInfoResult) bool
-		catfileObjectFilter func(catfileObjectResult) bool
-		expectedResults     []catfileObjectResult
+		desc              string
+		revisions         []string
+		revlistFilter     func(revlistResult) bool
+		catfileInfoFilter func(catfileInfoResult) bool
+		expectedResults   []catfileObjectResult
 	}{
 		{
 			desc: "single blob",
@@ -769,19 +690,6 @@ func TestPipeline(t *testing.T) {
 			},
 		},
 		{
-			desc: "revision with blob contents filter",
-			revisions: []string{
-				"master",
-			},
-			catfileObjectFilter: func(r catfileObjectResult) bool {
-				return bytes.HasPrefix(r.objectData, []byte("/custom-highlighting/"))
-			},
-			expectedResults: []catfileObjectResult{
-				{objectInfo: &catfile.ObjectInfo{Oid: "b680596c9f3a3c834b933aef14f94a0ab9fa604a", Type: "blob", Size: 100}, objectName: []byte(".gitattributes")},
-				{objectInfo: &catfile.ObjectInfo{Oid: "36814a3da051159a1683479e7a1487120309db8f", Type: "blob", Size: 58}, objectName: []byte(".gitattributes")},
-			},
-		},
-		{
 			desc: "--all with all filters",
 			revisions: []string{
 				"--all",
@@ -795,12 +703,9 @@ func TestPipeline(t *testing.T) {
 				// Only let through blobs, so only the two LFS pointers remain.
 				return r.objectInfo.Type == "blob"
 			},
-			catfileObjectFilter: func(r catfileObjectResult) bool {
-				// This brings it down to a single LFS pointer.
-				return len(r.objectData) == 133
-			},
 			expectedResults: []catfileObjectResult{
 				{objectInfo: &catfile.ObjectInfo{Oid: lfsPointer1, Type: "blob", Size: 133}, objectName: []byte("files/lfs/lfs_object.iso")},
+				{objectInfo: &catfile.ObjectInfo{Oid: lfsPointer2, Type: "blob", Size: 127}, objectName: []byte("another.lfs")},
 			},
 		},
 		{
@@ -836,10 +741,6 @@ func TestPipeline(t *testing.T) {
 				require.Fail(t, "filter should not be invoked on errors")
 				return true
 			},
-			catfileObjectFilter: func(r catfileObjectResult) bool {
-				require.Fail(t, "filter should not be invoked on errors")
-				return true
-			},
 			expectedResults: []catfileObjectResult{
 				{err: errors.New("rev-list pipeline command: exit status 128")},
 			},
@@ -866,9 +767,6 @@ func TestPipeline(t *testing.T) {
 			}
 
 			catfileObjectChan := catfileObject(ctx, catfileProcess, catfileInfoChan)
-			if tc.catfileObjectFilter != nil {
-				catfileObjectChan = catfileObjectFilter(ctx, catfileObjectChan, tc.catfileObjectFilter)
-			}
 
 			var results []catfileObjectResult
 			for result := range catfileObjectChan {
@@ -879,11 +777,15 @@ func TestPipeline(t *testing.T) {
 				}
 
 				if result.err == nil {
-					// While we could also assert object data, let's not do this: it
-					// would just be too annoying.
-					require.NotNil(t, result.objectData)
-					require.Len(t, result.objectData, int(result.objectInfo.Size))
-					result.objectData = nil
+					// While we could also assert object data, let's not do
+					// this: it would just be too annoying.
+					require.NotNil(t, result.objectReader)
+
+					objectData, err := ioutil.ReadAll(result.objectReader)
+					require.NoError(t, err)
+					require.Len(t, objectData, int(result.objectInfo.Size))
+
+					result.objectReader = nil
 				}
 
 				results = append(results, result)
@@ -913,12 +815,14 @@ func TestPipeline(t *testing.T) {
 		catfileInfoChan := catfileInfo(childCtx, catfileProcess, revlistChan)
 		catfileInfoChan = catfileInfoFilter(childCtx, catfileInfoChan, func(catfileInfoResult) bool { return true })
 		catfileObjectChan := catfileObject(childCtx, catfileProcess, catfileInfoChan)
-		catfileObjectChan = catfileObjectFilter(childCtx, catfileObjectChan, func(catfileObjectResult) bool { return true })
 
 		i := 0
 		for result := range catfileObjectChan {
 			require.NoError(t, result.err)
 			i++
+
+			_, err := io.Copy(ioutil.Discard, result.objectReader)
+			require.NoError(t, err)
 
 			if i == 3 {
 				cancel()
@@ -929,5 +833,47 @@ func TestPipeline(t *testing.T) {
 		// the last pipeline step may already have queued up an additional result. We thus
 		// cannot assert the exact number of requests, but we know that it's bounded.
 		require.LessOrEqual(t, i, 4)
+	})
+
+	t.Run("interleaving object reads", func(t *testing.T) {
+		ctx, cancel := testhelper.Context()
+		defer cancel()
+
+		catfileCache := catfile.NewCache(cfg)
+		defer catfileCache.Stop()
+
+		catfileProcess, err := catfileCache.BatchProcess(ctx, repo)
+		require.NoError(t, err)
+
+		revlistChan := revlist(ctx, repo, []string{"--all"})
+		catfileInfoChan := catfileInfo(ctx, catfileProcess, revlistChan)
+		catfileObjectChan := catfileObject(ctx, catfileProcess, catfileInfoChan)
+
+		i := 0
+		var wg sync.WaitGroup
+		for result := range catfileObjectChan {
+			require.NoError(t, result.err)
+
+			wg.Add(1)
+			i++
+
+			// With the catfile package, one mustn't ever request a new object before
+			// the old object's reader was completely consumed. We cannot reliably test
+			// this given that the object channel, if it behaves correctly, will block
+			// until we've read the old object. Chances are high though that we'd
+			// eventually hit the race here in case we didn't correctly synchronize on
+			// the object reader.
+			go func(object catfileObjectResult) {
+				defer wg.Done()
+				_, err := io.Copy(ioutil.Discard, object.objectReader)
+				require.NoError(t, err)
+			}(result)
+		}
+
+		wg.Wait()
+
+		// We could in theory assert the exact amount of objects, but this would make it
+		// harder than necessary to change the test repo's contents.
+		require.Greater(t, i, 1000)
 	})
 }
