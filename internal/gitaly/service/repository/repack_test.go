@@ -20,6 +20,7 @@ import (
 )
 
 func TestRepackIncrementalSuccess(t *testing.T) {
+	t.Parallel()
 	_, repo, repoPath, client := setupRepositoryService(t)
 
 	packPath := filepath.Join(repoPath, "objects", "pack")
@@ -45,6 +46,7 @@ func TestRepackIncrementalSuccess(t *testing.T) {
 }
 
 func TestRepackIncrementalCollectLogStatistics(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -60,6 +62,7 @@ func TestRepackIncrementalCollectLogStatistics(t *testing.T) {
 }
 
 func TestRepackLocal(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryServiceWithWorktree(t)
 
 	commiterArgs := []string{"-c", "user.name=Scrooge McDuck", "-c", "user.email=scrooge@mcduck.com"}
@@ -92,6 +95,7 @@ func TestRepackLocal(t *testing.T) {
 }
 
 func TestRepackIncrementalFailure(t *testing.T) {
+	t.Parallel()
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	tests := []struct {
@@ -116,6 +120,7 @@ func TestRepackIncrementalFailure(t *testing.T) {
 }
 
 func TestRepackFullSuccess(t *testing.T) {
+	t.Parallel()
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	tests := []struct {
@@ -168,6 +173,7 @@ func TestRepackFullSuccess(t *testing.T) {
 }
 
 func TestRepackFullCollectLogStatistics(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -211,6 +217,7 @@ func doBitmapsContainHashCache(t *testing.T, bitmapPaths []string) {
 }
 
 func TestRepackFullFailure(t *testing.T) {
+	t.Parallel()
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	tests := []struct {
@@ -235,6 +242,7 @@ func TestRepackFullFailure(t *testing.T) {
 }
 
 func TestRepackFullDeltaIslands(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -247,6 +255,7 @@ func TestRepackFullDeltaIslands(t *testing.T) {
 }
 
 func TestLog2Threads(t *testing.T) {
+	t.Parallel()
 	for _, tt := range []struct {
 		cpus    int
 		threads string

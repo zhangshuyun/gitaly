@@ -21,6 +21,7 @@ import (
 )
 
 func TestMidxWrite(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -46,6 +47,7 @@ func TestMidxWrite(t *testing.T) {
 }
 
 func TestMidxRewrite(t *testing.T) {
+	t.Parallel()
 	_, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -73,6 +75,7 @@ func TestMidxRewrite(t *testing.T) {
 }
 
 func TestMidxRepack(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -112,6 +115,7 @@ func TestMidxRepack(t *testing.T) {
 }
 
 func TestMidxRepackExpire(t *testing.T) {
+	t.Parallel()
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	for _, packsAdded := range []int{3, 5, 11, 20} {

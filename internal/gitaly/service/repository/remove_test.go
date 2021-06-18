@@ -9,6 +9,7 @@ import (
 )
 
 func TestRemoveRepository(t *testing.T) {
+	t.Parallel()
 	_, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -21,6 +22,7 @@ func TestRemoveRepository(t *testing.T) {
 }
 
 func TestRemoveRepositoryDoesNotExist(t *testing.T) {
+	t.Parallel()
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	ctx, cancel := testhelper.Context()

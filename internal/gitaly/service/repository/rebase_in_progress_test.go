@@ -15,6 +15,7 @@ import (
 )
 
 func TestSuccessfulIsRebaseInProgressRequest(t *testing.T) {
+	t.Parallel()
 	cfg, repo1, repoPath1, client := setupRepositoryService(t)
 
 	gittest.Exec(t, cfg, "-C", repoPath1, "worktree", "add", "--detach", filepath.Join(repoPath1, worktreePrefix, fmt.Sprintf("%s-1", rebaseWorktreePrefix)), "master")
@@ -84,6 +85,7 @@ func TestSuccessfulIsRebaseInProgressRequest(t *testing.T) {
 }
 
 func TestFailedIsRebaseInProgressRequestDueToValidations(t *testing.T) {
+	t.Parallel()
 	_, client := setupRepositoryServiceWithoutRepo(t)
 
 	testCases := []struct {

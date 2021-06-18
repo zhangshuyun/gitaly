@@ -17,6 +17,7 @@ import (
 )
 
 func TestSuccessfullBackupCustomHooksRequest(t *testing.T) {
+	t.Parallel()
 	_, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -56,6 +57,7 @@ func TestSuccessfullBackupCustomHooksRequest(t *testing.T) {
 }
 
 func TestSuccessfullBackupCustomHooksSymlink(t *testing.T) {
+	t.Parallel()
 	_, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -85,6 +87,7 @@ func TestSuccessfullBackupCustomHooksSymlink(t *testing.T) {
 }
 
 func TestSuccessfullBackupCustomHooksRequestWithNoHooks(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()

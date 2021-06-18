@@ -14,6 +14,7 @@ import (
 const testRepoMinSizeKB = 10000
 
 func TestSuccessfulRepositorySizeRequest(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t)
 
 	request := &gitalypb.RepositorySizeRequest{Repository: repo}
@@ -30,6 +31,7 @@ func TestSuccessfulRepositorySizeRequest(t *testing.T) {
 }
 
 func TestFailedRepositorySizeRequest(t *testing.T) {
+	t.Parallel()
 	_, client := setupRepositoryServiceWithoutRepo(t)
 
 	testCases := []struct {
@@ -57,6 +59,7 @@ func TestFailedRepositorySizeRequest(t *testing.T) {
 }
 
 func TestSuccessfulGetObjectDirectorySizeRequest(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t)
 	repo.GitObjectDirectory = "objects/"
 

@@ -48,6 +48,7 @@ func testMain(m *testing.M) int {
 }
 
 func TestWithRubySidecar(t *testing.T) {
+	t.Parallel()
 	cfg := testcfg.Build(t)
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)

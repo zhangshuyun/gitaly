@@ -20,6 +20,7 @@ import (
 )
 
 func TestWriteCommitGraph_withExistingCommitGraphCreatedWithDefaults(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	commitGraphPath := filepath.Join(repoPath, CommitGraphRelPath)
@@ -57,6 +58,7 @@ func TestWriteCommitGraph_withExistingCommitGraphCreatedWithDefaults(t *testing.
 }
 
 func TestWriteCommitGraph_withExistingCommitGraphCreatedWithSplit(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	commitGraphPath := filepath.Join(repoPath, CommitGraphRelPath)
@@ -94,6 +96,7 @@ func TestWriteCommitGraph_withExistingCommitGraphCreatedWithSplit(t *testing.T) 
 }
 
 func TestWriteCommitGraph(t *testing.T) {
+	t.Parallel()
 	_, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -114,6 +117,7 @@ func TestWriteCommitGraph(t *testing.T) {
 }
 
 func TestWriteCommitGraph_validationChecks(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t, testserver.WithDisablePraefect())
 
 	ctx, cancel := testhelper.Context()
@@ -151,6 +155,7 @@ func TestWriteCommitGraph_validationChecks(t *testing.T) {
 }
 
 func TestUpdateCommitGraph(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -214,6 +219,7 @@ func requireBloomFilterUsed(t testing.TB, repoPath string) {
 }
 
 func TestIsMissingBloomFilters(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		desc   string
 		enable bool

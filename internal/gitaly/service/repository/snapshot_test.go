@@ -53,6 +53,7 @@ func touch(t *testing.T, format string, args ...interface{}) {
 }
 
 func TestGetSnapshotSuccess(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	// Ensure certain files exist in the test repo.
@@ -87,6 +88,7 @@ func TestGetSnapshotSuccess(t *testing.T) {
 }
 
 func TestGetSnapshotWithDedupe(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		desc              string
 		alternatePathFunc func(t *testing.T, storageDir, objDir string) string
@@ -167,6 +169,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 }
 
 func TestGetSnapshotWithDedupeSoftFailures(t *testing.T) {
+	t.Parallel()
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	testRepo, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
@@ -255,6 +258,7 @@ func copyRepoUsingSnapshot(t *testing.T, cfg config.Cfg, client gitalypb.Reposit
 }
 
 func TestGetSnapshotFailsIfRepositoryMissing(t *testing.T) {
+	t.Parallel()
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 	repo := &gitalypb.Repository{
 		StorageName:   cfg.Storages[0].Name,
@@ -270,6 +274,7 @@ func TestGetSnapshotFailsIfRepositoryMissing(t *testing.T) {
 }
 
 func TestGetSnapshotFailsIfRepositoryContainsSymlink(t *testing.T) {
+	t.Parallel()
 	_, repo, repoPath, client := setupRepositoryService(t)
 
 	// Make packed-refs into a symlink to break GetSnapshot()

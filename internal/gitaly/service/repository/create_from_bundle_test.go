@@ -33,6 +33,7 @@ import (
 )
 
 func TestServer_CreateRepositoryFromBundle_successful(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -201,6 +202,7 @@ func testServerCreateRepositoryFromBundleTransactional(t *testing.T, ctx context
 }
 
 func TestServer_CreateRepositoryFromBundle_failed_invalid_bundle(t *testing.T) {
+	t.Parallel()
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	ctx, cancel := testhelper.Context()
@@ -238,6 +240,7 @@ func TestServer_CreateRepositoryFromBundle_failed_invalid_bundle(t *testing.T) {
 }
 
 func TestServer_CreateRepositoryFromBundle_failed_validations(t *testing.T) {
+	t.Parallel()
 	_, client := setupRepositoryServiceWithoutRepo(t)
 
 	ctx, cancel := testhelper.Context()
@@ -253,6 +256,7 @@ func TestServer_CreateRepositoryFromBundle_failed_validations(t *testing.T) {
 }
 
 func TestServer_CreateRepositoryFromBundle_failed_existing_directory(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -270,6 +274,7 @@ func TestServer_CreateRepositoryFromBundle_failed_existing_directory(t *testing.
 }
 
 func TestSanitizedError(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		path     string
 		format   string

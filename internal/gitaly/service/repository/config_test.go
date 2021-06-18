@@ -28,6 +28,7 @@ import (
 )
 
 func TestGetConfig(t *testing.T) {
+	t.Parallel()
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	getConfig := func(
@@ -79,6 +80,7 @@ func TestGetConfig(t *testing.T) {
 }
 
 func TestDeleteConfig(t *testing.T) {
+	t.Parallel()
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	testcases := []struct {
@@ -135,6 +137,7 @@ func TestDeleteConfig(t *testing.T) {
 }
 
 func TestDeleteConfigTransactional(t *testing.T) {
+	t.Parallel()
 	var votes []voting.Vote
 	txManager := transaction.MockManager{
 		VoteFn: func(_ context.Context, _ txinfo.Transaction, vote voting.Vote) error {
