@@ -3,7 +3,7 @@
 /gitaly-backup
 /gitaly-blackbox
 /gitaly-debug
-/gitaly-git2go
+/gitaly-git2go-v*
 /gitaly-hooks
 /gitaly-lfs-smudge
 /gitaly-ssh
