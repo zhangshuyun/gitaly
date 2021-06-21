@@ -20,36 +20,6 @@ module GitalyServer
       Gitaly::UserUpdateBranchResponse.new(pre_receive_error: set_utf8!(ex.message))
     end
 
-    def user_revert(request, call)
-      repo = Gitlab::Git::Repository.from_gitaly(request.repository, call)
-      user = Gitlab::Git::User.from_gitaly(request.user)
-      commit = Gitlab::Git::Commit.new(repo, request.commit)
-      start_repository = Gitlab::Git::GitalyRemoteRepository.new(request.start_repository || request.repository, call)
-
-      result = repo.revert(
-        user: user,
-        commit: commit,
-        branch_name: request.branch_name,
-        message: request.message.dup,
-        start_branch_name: request.start_branch_name.presence,
-        start_repository: start_repository,
-        dry_run: request.dry_run,
-        timestamp: request.timestamp
-      )
-
-      branch_update = branch_update_result(result)
-      Gitaly::UserRevertResponse.new(branch_update: branch_update)
-    rescue Gitlab::Git::Repository::CreateTreeError => e
-      Gitaly::UserRevertResponse.new(
-        create_tree_error: set_utf8!(e.message),
-        create_tree_error_code: e.error.upcase
-      )
-    rescue Gitlab::Git::CommitError => e
-      Gitaly::UserRevertResponse.new(commit_error: set_utf8!(e.message))
-    rescue Gitlab::Git::PreReceiveError => e
-      Gitaly::UserRevertResponse.new(pre_receive_error: set_utf8!(e.message))
-    end
-
     # rubocop:disable Metrics/AbcSize
     def user_rebase_confirmable(session, call)
       Enumerator.new do |y|
