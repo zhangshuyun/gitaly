@@ -1,5 +1,71 @@
 # Gitaly changelog
 
+## 14.0.0 (2021-06-21)
+
+### Added (8 changes)
+
+- [remote: Allow for in-memory remotes in UpdateRemoteMirror](gitlab-org/gitaly@016625321a1c61c64fbd26655d0d8fb92f2f3bab) ([merge request](gitlab-org/gitaly!3566))
+- [coordinator: Add replication metrics for transactions](gitlab-org/gitaly@bdf5df69bf32c8e736bd33bc4920d57e5ee3261e) ([merge request](gitlab-org/gitaly!3519))
+- [remote: Vote when adding and removing remotes](gitlab-org/gitaly@bedf32172effabd52562fcf54df3600ff395d404) ([merge request](gitlab-org/gitaly!3507))
+- [transactions: Fail early if the threshold cannot be reached anymore](gitlab-org/gitaly@7584c40e29ea3c1f5d2835f7622838d7d1b2c82a) ([merge request](gitlab-org/gitaly!3530))
+- [featureflag: Remove LogCommandStats feature flag](gitlab-org/gitaly@745802f36733cf02d7195a3ccf8a7dfcac1a7296) ([merge request](gitlab-org/gitaly!3517))
+- [remote: Vote when adding and removing remotes](gitlab-org/gitaly@9cd4553caf38ba381ca598cde1ada9ea7be13a11) ([merge request](gitlab-org/gitaly!3508))
+- [repository: Enable transactional voting on the gitconfig](gitlab-org/gitaly@c3a9fd04c1c8ed3b3cb9c2d0b837c2e44b7cbb3c) ([merge request](gitlab-org/gitaly!3511))
+- [repository: Replicate gitconfig](gitlab-org/gitaly@c28412f83bfb074908189c8bd42e3ea632a06efb) ([merge request](gitlab-org/gitaly!3511))
+
+### Fixed (11 changes)
+
+- [Fix Unix socket address handling following gRPC upgrade](gitlab-org/gitaly@d7a8c3abbb87dd7544b8a824fbbe0447ed5d841d) ([merge request](gitlab-org/gitaly!3592))
+- [Do not track gRPC NotFound code as an error in Sentry for TreeEntry](gitlab-org/gitaly@49715b618e5cd3905ad743e152b88a5e1fe97190) ([merge request](gitlab-org/gitaly!3581))
+- [Fix incorrect branchCreated result when startBranchName is provided](gitlab-org/gitaly@1de9f5fc18bcd92e47401ec3785159ff635f89c6) ([merge request](gitlab-org/gitaly!3562))
+- [Don't create records in storage_repositories on generation increment](gitlab-org/gitaly@0134c6a540c90e3406848e7dd18b11739aea5ed6) ([merge request](gitlab-org/gitaly!3557))
+- [Don't run housekeeping in Cleanup RPC](gitlab-org/gitaly@0849bcfa5ce3d734d535eed63b38667844401739) ([merge request](gitlab-org/gitaly!3507))
+- [Disjoint request finalizer timeout from the RPC](gitlab-org/gitaly@be5fb6b267c1b0cae3ac18c707de39e48bf3624f) ([merge request](gitlab-org/gitaly!3515))
+- [Vote when reference transaction has been committed](gitlab-org/gitaly@480dec51c438c89d4d9d20ac47307ea3f4311d4d) ([merge request](gitlab-org/gitaly!3514))
+- [Consider primary modified only if a subtransaction was committed](gitlab-org/gitaly@d87747c82394e0ba0a2fd09a01e840dd9f6b6d27) ([merge request](gitlab-org/gitaly!3494))
+- [repository: Remove housekeeping from Cleanup RPC](gitlab-org/gitaly@7a1d224d0ee6208350df12279b0f7319e9e0070c) ([merge request](gitlab-org/gitaly!3502))
+- [Mark Repository service's Fsck as an accssor](gitlab-org/gitaly@c613e382f60ab261d7ce2b1c2ebf6531fd67641f) ([merge request](gitlab-org/gitaly!3499))
+- [Respect failover disabled config option with per_repository elector](gitlab-org/gitaly@43ddbc3937304e8a22a201cb0fa105bb0af27a83) ([merge request](gitlab-org/gitaly!3491))
+
+### Changed (17 changes)
+
+- [featureflag: Remove reference transactions feature flag](gitlab-org/gitaly@9f296b8c194d10b777905ad8073445529ef3a503) ([merge request](gitlab-org/gitaly!3575))
+- [Fix issues in tests](gitlab-org/gitaly@d32f88d89abe04a500ad64eabf8ea0d619f2259f) ([merge request](gitlab-org/gitaly!3403))
+- [featureflag: Enable tx_config and tx_remote by default](gitlab-org/gitaly@332c5354b7a2f141f627d4a917d1df43e98d939b) ([merge request](gitlab-org/gitaly!3572))
+- [operations: Skip precursory update of target ref in UserMergeToRef](gitlab-org/gitaly@907c03bf923e425274fd05129d3bf97ac7be33a4) ([merge request](gitlab-org/gitaly!3574))
+- [Makefile: Upgrade Git to v2.32.0](gitlab-org/gitaly@8d4884c01f52eb8e3678de2ec837e50ae366f17e) ([merge request](gitlab-org/gitaly!3573))
+- [Auto-resolve other conflict scenarios when AllowConflicts is true](gitlab-org/gitaly@8ea1987fd91810fe02bc3180f96729fddf5e74ee) ([merge request](gitlab-org/gitaly!3504))
+- [repository: Relax URL check when fetching remotes](gitlab-org/gitaly@dc1a10393a12ffbe1bb850c287e6835f6058a0c1) ([merge request](gitlab-org/gitaly!3568))
+- [UserRebaseConfirmable: Remove feature flag](gitlab-org/gitaly@8f55745792293c5fbe998c0794560a66a4db3766) ([merge request](gitlab-org/gitaly!3553))
+- [Remove on-by-default gitaly_go_user_update_branch feature flag](gitlab-org/gitaly@c2cedf6d1a6131062fc58a43a11f4e85b6151bfc) ([merge request](gitlab-org/gitaly!3475))
+- [Update default & secondary Go versions](gitlab-org/gitaly@a23fbc520eb1e82110a80ebe62c5e73712ff9fd5) ([merge request](gitlab-org/gitaly!3552))
+- [logging: Drop topLevelGroup field](gitlab-org/gitaly@a2ba4b7c2b8745bd55fee19b2b62eecb0dc87e5d) ([merge request](gitlab-org/gitaly!3556))
+- [Expand configuration of direct database connection](gitlab-org/gitaly@61e15d288450f6c8f4d242af496acc88a788a5ad) ([merge request](gitlab-org/gitaly!3495))
+- [nodes: Mention gitaly in 'ErrPrimaryNotHealthy'](gitlab-org/gitaly@7f7273e5ff35d99feefec87260495d22bfc7682d) ([merge request](gitlab-org/gitaly!3551))
+- [Do not fail over to outdated replicas](gitlab-org/gitaly@3309609bd8d38fb63a1c81638485af7725005618) ([merge request](gitlab-org/gitaly!3542))
+- [Remove gitaly feature flag gitaly_go_user_revert](gitlab-org/gitaly@fcc18f919bcf259fbf259fb1358227e5d497716e) ([merge request](gitlab-org/gitaly!3507))
+- [Cancel a vote associated with a node that stops waiting for a quorum](gitlab-org/gitaly@f58dd1af2f547ef959fe9dffa2f99e622f836936) ([merge request](gitlab-org/gitaly!3523))
+- [Remove gitaly feature flag gitaly_go_user_revert](gitlab-org/gitaly@8949536f07581509949e3b37b4307937fcd42508) ([merge request](gitlab-org/gitaly!3516))
+
+### Removed (2 changes)
+
+- [Remove GrpcTreeEntryNotFound feature flag](gitlab-org/gitaly@7e47739dbebbb083316fadcb8874f833bb6bcd74) ([merge request](gitlab-org/gitaly!3567))
+- [Prevent usage of other election strategies than per_repository](gitlab-org/gitaly@54948e21921527e0b455a56b601854d152e58ba2) ([merge request](gitlab-org/gitaly!3544))
+
+### Security (1 change)
+
+- [Update nokogiri from 1.11.1 to 1.11.5](gitlab-org/gitaly@4ad079594bd45eb51cc4ea3fc09a7cb8b2e2707d) ([merge request](gitlab-org/gitaly!3534))
+
+### Performance (3 changes)
+
+- [Avoid some allocations during diff parsing](gitlab-org/gitaly@f83247414d3ad4e3ec876644ea909328711c682e) ([merge request](gitlab-org/gitaly!3576))
+- [blob: Improve latency and memory consumption for LFS pointers](gitlab-org/gitaly@8452f3daf6fa6d436cfed38a09fa2f76a54aa7dc) ([merge request](gitlab-org/gitaly!3507))
+- [blob: Improve latency and memory consumption for LFS pointers](gitlab-org/gitaly@44678d2dfa47157c6a70594e66ba407f46e3a3b1) ([merge request](gitlab-org/gitaly!3483))
+
+### Other (1 change)
+
+- [Update gitlab-labkit to 0.17.1](gitlab-org/gitaly@904af72eb7c42124978370cef53681fa561b10f5) ([merge request](gitlab-org/gitaly!3395))
+
 ## 13.12.5 (2021-06-21)
 
 No changes.
