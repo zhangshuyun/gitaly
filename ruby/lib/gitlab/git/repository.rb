@@ -205,10 +205,6 @@ module Gitlab
         false
       end
 
-      def update_branch(branch_name, user:, newrev:, oldrev:, push_options: nil, transaction: nil)
-        OperationService.new(user, self).update_branch(branch_name, newrev, oldrev, push_options: push_options, transaction: transaction)
-      end
-
       def diff_exists?(sha1, sha2)
         rugged.diff(sha1, sha2).size.positive?
       end

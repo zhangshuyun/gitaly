@@ -45,7 +45,7 @@ describe GitalyServer::SentryInterceptor do
       let(:expected_tags) do
         call_metadata.merge(
           'system' => 'gitaly-ruby',
-          'gitaly-ruby.method' => 'GitalyServer::OperationsService#user_update_branch',
+          'gitaly-ruby.method' => 'Gitaly::OperationService::Service#user_update_branch',
           Labkit::Correlation::CorrelationId::LOG_KEY => anything
         )
       end
@@ -68,7 +68,7 @@ describe GitalyServer::SentryInterceptor do
         it 'sends the exception to Sentry' do
           expect(Raven).to receive(:capture_exception).with(
             ex,
-            fingerprint: ['gitaly-ruby', 'GitalyServer::OperationsService#user_update_branch', 'unknown encoding']
+            fingerprint: ['gitaly-ruby', 'Gitaly::OperationService::Service#user_update_branch', 'unknown encoding']
           )
 
           begin
