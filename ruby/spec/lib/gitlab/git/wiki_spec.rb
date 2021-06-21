@@ -132,6 +132,38 @@ describe Gitlab::Git::Wiki do
     end
   end
 
+  describe '#gollum_wiki' do
+    context 'when repository is empty' do
+      it 'instantiates the gollum wiki with the repo symbolic ref' do
+        repository.rugged.head = 'refs/heads/foo'
+
+        expect(Gollum::Wiki).to receive(:new).with(repository.path, hash_including(ref: 'foo'))
+
+        subject.gollum_wiki
+      end
+    end
+
+    context 'when repository is not empty' do
+      let(:repository) { gitlab_git_from_gitaly(new_mutable_git_test_repo) }
+
+      it 'instantiates the gollum wiki with the repo root_ref' do
+        expect(Gollum::Wiki).to receive(:new).with(repository.path, hash_including(ref: repository.root_ref))
+
+        subject.gollum_wiki
+      end
+    end
+
+    context 'when symbolic ref and root ref cannot be found' do
+      it 'instantiates the gollum wiki without any ref' do
+        allow(subject).to receive(:gollum_default_ref).and_return(nil)
+
+        expect(Gollum::Wiki).to receive(:new).with(repository.path, {})
+
+        subject.gollum_wiki
+      end
+    end
+  end
+
   def create_page(name, content)
     subject.write_page(name, :markdown, content, commit_details(name))
   end
