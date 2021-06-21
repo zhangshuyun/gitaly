@@ -13,7 +13,6 @@ import (
 	"github.com/sirupsen/logrus"
 	glerrors "gitlab.com/gitlab-org/gitaly/v14/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
@@ -38,12 +37,6 @@ type transactionsCondition func(context.Context) bool
 
 func transactionsEnabled(context.Context) bool  { return true }
 func transactionsDisabled(context.Context) bool { return false }
-
-func transactionsFlag(flag featureflag.FeatureFlag) transactionsCondition {
-	return func(ctx context.Context) bool {
-		return featureflag.IsEnabled(ctx, flag)
-	}
-}
 
 // transactionRPCs contains the list of repository-scoped mutating calls which may take part in
 // transactions. An optional feature flag can be added to conditionally enable transactional
@@ -79,17 +72,16 @@ var transactionRPCs = map[string]transactionsCondition{
 	"/gitaly.RepositoryService/CreateRepositoryFromBundle":   transactionsEnabled,
 	"/gitaly.RepositoryService/CreateRepositoryFromSnapshot": transactionsEnabled,
 	"/gitaly.RepositoryService/CreateRepositoryFromURL":      transactionsEnabled,
+	"/gitaly.RepositoryService/DeleteConfig":                 transactionsEnabled,
 	"/gitaly.RepositoryService/FetchRemote":                  transactionsEnabled,
 	"/gitaly.RepositoryService/FetchSourceBranch":            transactionsEnabled,
 	"/gitaly.RepositoryService/ReplicateRepository":          transactionsEnabled,
+	"/gitaly.RepositoryService/SetConfig":                    transactionsEnabled,
 	"/gitaly.RepositoryService/WriteRef":                     transactionsEnabled,
 	"/gitaly.SSHService/SSHReceivePack":                      transactionsEnabled,
 	"/gitaly.SmartHTTPService/PostReceivePack":               transactionsEnabled,
 	"/gitaly.WikiService/WikiUpdatePage":                     transactionsEnabled,
 	"/gitaly.WikiService/WikiWritePage":                      transactionsEnabled,
-
-	"/gitaly.RepositoryService/SetConfig":    transactionsFlag(featureflag.TxConfig),
-	"/gitaly.RepositoryService/DeleteConfig": transactionsFlag(featureflag.TxConfig),
 
 	// The following RPCs don't perform any reference updates and thus
 	// shouldn't use transactions.

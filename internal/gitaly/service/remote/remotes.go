@@ -12,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -139,10 +138,6 @@ func validateRemoveRemoteRequest(req *gitalypb.RemoveRemoteRequest) error {
 }
 
 func (s *server) voteOnRemote(ctx context.Context, repo *gitalypb.Repository, remoteName string) error {
-	if featureflag.IsDisabled(ctx, featureflag.TxRemote) {
-		return nil
-	}
-
 	return transaction.RunOnContext(ctx, func(tx txinfo.Transaction) error {
 		localrepo := s.localrepo(repo)
 

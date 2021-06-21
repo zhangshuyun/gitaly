@@ -12,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -133,10 +132,6 @@ func (s *server) SetConfig(ctx context.Context, req *gitalypb.SetConfigRequest) 
 }
 
 func (s *server) voteOnConfig(ctx context.Context, repo *gitalypb.Repository) error {
-	if featureflag.IsDisabled(ctx, featureflag.TxConfig) {
-		return nil
-	}
-
 	return transaction.RunOnContext(ctx, func(tx txinfo.Transaction) error {
 		repoPath, err := s.locator.GetPath(repo)
 		if err != nil {
