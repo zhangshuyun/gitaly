@@ -138,7 +138,7 @@ var commandDescriptions = map[string]commandDescription{
 	},
 	"receive-pack": {
 		flags: 0,
-		opts: []GlobalOption{
+		opts: append([]GlobalOption{
 			// In case the repository belongs to an object pool, we want to prevent
 			// Git from including the pool's refs in the ref advertisement. We do
 			// this by rigging core.alternateRefsCommand to produce no output.
@@ -161,17 +161,7 @@ var commandDescriptions = map[string]commandDescription{
 			// Make git-receive-pack(1) advertise the push options
 			// capability to clients.
 			ConfigPair{Key: "receive.advertisePushOptions", Value: "true"},
-
-			// Hide several reference spaces from being displayed on pushes. This has
-			// two outcomes: first, we reduce the initial ref advertisement and should
-			// speed up pushes for repos which have loads of merge requests, pipelines
-			// and environments. Second, this also prohibits clients to update or delete
-			// these refs.
-			ConfigPair{Key: "receive.hideRefs", Value: "refs/environments/"},
-			ConfigPair{Key: "receive.hideRefs", Value: "refs/keep-around/"},
-			ConfigPair{Key: "receive.hideRefs", Value: "refs/merge-requests/"},
-			ConfigPair{Key: "receive.hideRefs", Value: "refs/pipelines/"},
-		},
+		}, hiddenReceivePackRefPrefixes()...),
 	},
 	"remote": {
 		flags: scNoEndOfOptions,
@@ -336,4 +326,14 @@ func validatePositionalArg(arg string) error {
 		return fmt.Errorf("positional arg %q cannot start with dash '-': %w", arg, ErrInvalidArg)
 	}
 	return nil
+}
+
+func hiddenReceivePackRefPrefixes() []GlobalOption {
+	var cps []GlobalOption
+
+	for _, ns := range InternalRefPrefixes {
+		cps = append(cps, ConfigPair{Key: "receive.hideRefs", Value: ns})
+	}
+
+	return cps
 }
