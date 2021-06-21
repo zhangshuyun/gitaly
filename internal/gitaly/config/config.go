@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kelseyhightower/envconfig"
 	"github.com/pelletier/go-toml"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/auth"
@@ -155,10 +154,6 @@ func Load(file io.Reader) (Cfg, error) {
 
 	if err := toml.NewDecoder(file).Decode(&cfg); err != nil {
 		return Cfg{}, fmt.Errorf("load toml: %v", err)
-	}
-
-	if err := envconfig.Process("gitaly", &cfg); err != nil {
-		return Cfg{}, fmt.Errorf("envconfig: %v", err)
 	}
 
 	if err := cfg.setDefaults(); err != nil {
