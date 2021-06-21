@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/proto"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -52,7 +53,17 @@ func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobS
 		},
 	})
 
-	revlistChan := revlist(ctx, repo, req.GetRevisions())
+	gitVersion, err := git.CurrentVersion(ctx, s.gitCmdFactory)
+	if err != nil {
+		return helper.ErrInternalf("cannot determine Git version: %v", err)
+	}
+
+	var revlistOptions []revlistOption
+	if gitVersion.SupportsObjectTypeFilter() {
+		revlistOptions = append(revlistOptions, withObjectTypeFilter(objectTypeBlob))
+	}
+
+	revlistChan := revlist(ctx, repo, req.GetRevisions(), revlistOptions...)
 	catfileInfoChan := catfileInfo(ctx, catfileProcess, revlistChan)
 	catfileInfoChan = catfileInfoFilter(ctx, catfileInfoChan, func(r catfileInfoResult) bool {
 		return r.objectInfo.Type == "blob"
