@@ -468,6 +468,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 		}
 
 		for _, secondary := range route.Secondaries {
+			secondary := secondary
 			secondaryMsg, err := rewrittenRepositoryMessage(call.methodInfo, call.msg, secondary.Storage)
 			if err != nil {
 				return nil, err
