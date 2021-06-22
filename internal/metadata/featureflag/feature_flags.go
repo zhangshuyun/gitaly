@@ -19,6 +19,8 @@ var (
 	// LFSPointersPipeline enables the alternative pipeline implementation of LFS-pointer
 	// related RPCs.
 	LFSPointersPipeline = FeatureFlag{Name: "lfs_pointers_pipeline", OnByDefault: false}
+	// GoSetConfig enables git2go implementation of SetConfig.
+	GoSetConfig = FeatureFlag{Name: "go_set_config", OnByDefault: false}
 )
 
 // All includes all feature flags.
@@ -27,4 +29,5 @@ var All = []FeatureFlag{
 	FetchInternalRemoteErrors,
 	UserMergeToRefSkipPrecursorRefUpdate,
 	LFSPointersPipeline,
+	GoSetConfig,
 }

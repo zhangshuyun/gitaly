@@ -28,6 +28,7 @@ var subcommands = map[string]subcmd{
 	"revert":      &revertSubcommand{},
 	"resolve":     &resolveSubcommand{},
 	"submodule":   &submoduleSubcommand{},
+	"set_config":  &setConfigSubcommand{},
 }
 
 func fatalf(format string, args ...interface{}) {
