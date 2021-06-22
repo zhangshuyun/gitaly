@@ -2,6 +2,7 @@ package blackbox
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"time"
 
@@ -137,7 +138,25 @@ func (b Blackbox) Run() error {
 func (b Blackbox) runProbes() {
 	for ; ; time.Sleep(b.cfg.sleepDuration) {
 		for _, probe := range b.cfg.Probes {
-			b.doProbe(probe)
+			entry := log.WithFields(map[string]interface{}{
+				"probe": probe.Name,
+				"type":  probe.Type,
+			})
+
+			entry.Info("starting probe")
+
+			var err error
+			switch probe.Type {
+			case Fetch:
+				err = b.fetch(probe)
+			default:
+				err = fmt.Errorf("unsupported probe type: %q", probe.Type)
+			}
+			if err != nil {
+				entry.WithError(err).Error("probe failed")
+			}
+
+			entry.Info("finished probe")
 		}
 	}
 }
@@ -149,20 +168,14 @@ func servePrometheus(l net.Listener) error {
 	)
 }
 
-func (b Blackbox) doProbe(probe Probe) {
+func (b Blackbox) fetch(probe Probe) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	entry := log.WithField("probe", probe.Name)
-	entry.Info("starting probe")
-
 	clone, err := stats.PerformHTTPClone(ctx, probe.URL, probe.User, probe.Password, false)
 	if err != nil {
-		entry.WithError(err).Error("probe failed")
-		return
+		return err
 	}
-
-	entry.Info("finished probe")
 
 	setGauge := func(gv *prometheus.GaugeVec, value float64) {
 		gv.WithLabelValues(probe.Name).Set(value)
@@ -171,4 +184,6 @@ func (b Blackbox) doProbe(probe Probe) {
 	b.fetchReferenceDiscoveryMetrics.measure(probe.Name, clone.ReferenceDiscovery)
 	b.httpPostMetrics.measure(probe.Name, &clone.FetchPack)
 	setGauge(b.wantedRefs, float64(clone.FetchPack.RefsWanted()))
+
+	return nil
 }

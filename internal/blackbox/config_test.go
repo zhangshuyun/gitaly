@@ -49,8 +49,17 @@ func TestConfigParseFailures(t *testing.T) {
 			expectedErr: errors.New("missing prometheus_listen_addr"),
 		},
 		{
+			desc:        "invalid probe type",
+			in:          "prometheus_listen_addr = 'foo'\n[[probe]]\nname='foo'\nurl='http://foo/bar'\ntype='foo'",
+			expectedErr: errors.New("unsupported probe type: \"foo\""),
+		},
+		{
 			desc: "valid configuration",
 			in:   "prometheus_listen_addr = 'foo'\n[[probe]]\nname='foo'\nurl='http://foo/bar'\n",
+		},
+		{
+			desc: "valid configuration with explicit type",
+			in:   "prometheus_listen_addr = 'foo'\n[[probe]]\nname='foo'\nurl='http://foo/bar'\ntype='fetch'",
 		},
 	}
 

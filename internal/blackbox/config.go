@@ -24,11 +24,23 @@ type Config struct {
 	Probes []Probe `toml:"probe"`
 }
 
+// ProbeType is the type of the probe.
+type ProbeType string
+
+const (
+	// Fetch exercises the equivalent of git-fetch(1) with measurements for packfile negotiation
+	// and receiving the packfile.
+	Fetch = ProbeType("fetch")
+)
+
 // Probe is the configuration for a specific endpoint whose clone performance should be exercised.
 type Probe struct {
 	// Name is the name of the probe. This is used both for logging and for exported
 	// Prometheus metrics.
 	Name string `toml:"name"`
+	// Type is the type of the probe. See ProbeType for the supported types. Defaults to `Fetch`
+	// if no type was given.
+	Type ProbeType `toml:"type"`
 	// URL is the URL of the Git repository that should be probed. For now, only the
 	// HTTP transport is supported.
 	URL string `toml:"url"`
@@ -66,6 +78,13 @@ func ParseConfig(raw string) (Config, error) {
 	for _, probe := range config.Probes {
 		if len(probe.Name) == 0 {
 			return Config{}, fmt.Errorf("all probes must have a 'name' attribute")
+		}
+
+		switch probe.Type {
+		case "", Fetch:
+			probe.Type = Fetch
+		default:
+			return Config{}, fmt.Errorf("unsupported probe type: %q", probe.Type)
 		}
 
 		parsedURL, err := url.Parse(probe.URL)
