@@ -31,7 +31,28 @@ const (
 	// Fetch exercises the equivalent of git-fetch(1) with measurements for packfile negotiation
 	// and receiving the packfile.
 	Fetch = ProbeType("fetch")
+	// Push exercises the equivalent of git-push(1) with measurements for packfile negotiation
+	// and sending the packfile.
+	Push = ProbeType("push")
 )
+
+// PushCommand describes a command performed as part of the push.
+type PushCommand struct {
+	// OldOID is the old state of the reference that should be updated.
+	OldOID string `toml:"old_oid"`
+	// OldOID is the new target state of the reference that should be updated.
+	NewOID string `toml:"new_oid"`
+	// Reference is the name of the reference that should be updated.
+	Reference string `toml:"reference"`
+}
+
+// PushConfig is the configuration for a Push-type probe.
+type PushConfig struct {
+	// Commands is the list of commands which should be executed as part of the push.
+	Commands []PushCommand `toml:"commands"`
+	// Packfile is the path to the packfile that shall be sent as part of the push.
+	Packfile string `toml:"packfile"`
+}
 
 // Probe is the configuration for a specific endpoint whose clone performance should be exercised.
 type Probe struct {
@@ -49,6 +70,8 @@ type Probe struct {
 	// Password is the password to authenticate with when connecting to the repository.
 	// Note that this password may easily leak when connecting to a non-HTTPS URL.
 	Password string `toml:"password"`
+	// Push contains the configuration of a Push-type probe.
+	Push *PushConfig `toml:"push"`
 }
 
 // ParseConfig parses the provided TOML-formatted configuration string and either returns the
@@ -83,6 +106,17 @@ func ParseConfig(raw string) (Config, error) {
 		switch probe.Type {
 		case "", Fetch:
 			probe.Type = Fetch
+			if probe.Push != nil {
+				return Config{}, fmt.Errorf("fetch probe %q cannot have push configuration", probe.Name)
+			}
+		case Push:
+			if probe.Push == nil {
+				return Config{}, fmt.Errorf("push probe %q must have push configuration", probe.Name)
+			}
+
+			if len(probe.Push.Commands) == 0 {
+				return Config{}, fmt.Errorf("push probe %q must have at least one command", probe.Name)
+			}
 		default:
 			return Config{}, fmt.Errorf("unsupported probe type: %q", probe.Type)
 		}

@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/version"
 	"gitlab.com/gitlab-org/labkit/monitoring"
@@ -149,6 +151,8 @@ func (b Blackbox) runProbes() {
 			switch probe.Type {
 			case Fetch:
 				err = b.fetch(probe)
+			case Push:
+				err = b.push(probe)
 			default:
 				err = fmt.Errorf("unsupported probe type: %q", probe.Type)
 			}
@@ -184,6 +188,46 @@ func (b Blackbox) fetch(probe Probe) error {
 	b.fetchReferenceDiscoveryMetrics.measure(probe.Name, clone.ReferenceDiscovery)
 	b.httpPostMetrics.measure(probe.Name, &clone.FetchPack)
 	setGauge(b.wantedRefs, float64(clone.FetchPack.RefsWanted()))
+
+	return nil
+}
+
+func (b Blackbox) push(probe Probe) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	commands := make([]stats.PushCommand, len(probe.Push.Commands))
+	for i, command := range probe.Push.Commands {
+		oldOID, err := git.NewObjectIDFromHex(command.OldOID)
+		if err != nil {
+			return fmt.Errorf("invalid old object ID for probe %q: %w", probe.Name, err)
+		}
+
+		newOID, err := git.NewObjectIDFromHex(command.NewOID)
+		if err != nil {
+			return fmt.Errorf("invalid new object ID for probe %q: %w", probe.Name, err)
+		}
+
+		commands[i] = stats.PushCommand{
+			Reference: git.ReferenceName(command.Reference),
+			OldOID:    oldOID,
+			NewOID:    newOID,
+		}
+	}
+
+	packfile, err := os.Open(probe.Push.Packfile)
+	if err != nil {
+		return fmt.Errorf("opening packfile for probe %q: %w", probe.Name, err)
+	}
+	defer packfile.Close()
+
+	clone, err := stats.PerformHTTPPush(
+		ctx, probe.URL, probe.User, probe.Password, commands, packfile, false)
+	if err != nil {
+		return err
+	}
+
+	b.httpPostMetrics.measure(probe.Name, &clone.SendPack)
 
 	return nil
 }
