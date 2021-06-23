@@ -21,10 +21,11 @@ const (
 )
 
 type writeCommitConfig struct {
-	branch      string
-	parents     []git.ObjectID
-	message     string
-	treeEntries []TreeEntry
+	branch        string
+	parents       []git.ObjectID
+	committerName string
+	message       string
+	treeEntries   []TreeEntry
 }
 
 // WriteCommitOption is an option which can be passed to WriteCommit.
@@ -66,6 +67,13 @@ func WithTreeEntries(entries ...TreeEntry) WriteCommitOption {
 	}
 }
 
+// WithCommitterName is an option for WriteCommit which will set the committer name.
+func WithCommitterName(name string) WriteCommitOption {
+	return func(cfg *writeCommitConfig) {
+		cfg.committerName = name
+	}
+}
+
 // WriteCommit writes a new commit into the target repository.
 func WriteCommit(t testing.TB, cfg config.Cfg, repoPath string, opts ...WriteCommitOption) git.ObjectID {
 	t.Helper()
@@ -97,11 +105,15 @@ func WriteCommit(t testing.TB, cfg config.Cfg, repoPath string, opts ...WriteCom
 		tree = parents[0].String() + "^{tree}"
 	}
 
+	if writeCommitConfig.committerName == "" {
+		writeCommitConfig.committerName = committerName
+	}
+
 	// Use 'commit-tree' instead of 'commit' because we are in a bare
 	// repository. What we do here is the same as "commit -m message
 	// --allow-empty".
 	commitArgs := []string{
-		"-c", fmt.Sprintf("user.name=%s", committerName),
+		"-c", fmt.Sprintf("user.name=%s", writeCommitConfig.committerName),
 		"-c", fmt.Sprintf("user.email=%s", committerEmail),
 		"-C", repoPath,
 		"commit-tree", "-F", "-", tree,
