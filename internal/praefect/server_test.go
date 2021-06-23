@@ -247,7 +247,7 @@ func TestDiskStatistics(t *testing.T) {
 	for _, name := range []string{"gitaly-1", "gitaly-2"} {
 		gitalyCfg := testcfg.Build(t)
 
-		gitalyAddr := testserver.RunGitalyServer(t, gitalyCfg, nil, setup.RegisterAll)
+		gitalyAddr := testserver.RunGitalyServer(t, gitalyCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
 		praefectCfg.VirtualStorages[0].Nodes = append(praefectCfg.VirtualStorages[0].Nodes, &config.Node{
 			Storage: name,
@@ -463,7 +463,7 @@ func TestRemoveRepository(t *testing.T) {
 		cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages(name))
 		gitalyCfgs[i], repos[i] = cfgBuilder.BuildWithRepoAt(t, "test-repository")
 
-		gitalyAddr := testserver.RunGitalyServer(t, gitalyCfgs[i], nil, setup.RegisterAll)
+		gitalyAddr := testserver.RunGitalyServer(t, gitalyCfgs[i], nil, setup.RegisterAll, testserver.WithDisablePraefect())
 		gitalyCfgs[i].SocketPath = gitalyAddr
 
 		praefectCfg.VirtualStorages[0].Nodes = append(praefectCfg.VirtualStorages[0].Nodes, &config.Node{
@@ -554,7 +554,7 @@ func TestRenameRepository(t *testing.T) {
 			repo = repos[0]
 		}
 
-		gitalyAddr := testserver.RunGitalyServer(t, gitalyCfg, nil, setup.RegisterAll)
+		gitalyAddr := testserver.RunGitalyServer(t, gitalyCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
 		praefectCfg.VirtualStorages[0].Nodes = append(praefectCfg.VirtualStorages[0].Nodes, &config.Node{
 			Storage: storageName,
