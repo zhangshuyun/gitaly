@@ -93,6 +93,16 @@ func TestParseRawCommit(t *testing.T) {
 				},
 			},
 		},
+		{
+			desc: "huge",
+			in:   append([]byte("author "), bytes.Repeat([]byte("A"), 100000)...),
+			out: &gitalypb.GitCommit{
+				Id: info.Oid.String(),
+				Author: &gitalypb.CommitAuthor{
+					Name: bytes.Repeat([]byte("A"), 100000),
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
