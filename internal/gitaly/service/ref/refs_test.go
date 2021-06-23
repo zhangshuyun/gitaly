@@ -802,6 +802,31 @@ func TestSuccessfulFindLocalBranches(t *testing.T) {
 	}
 }
 
+func TestFindLocalBranches_huge_committer(t *testing.T) {
+	cfg, repo, repoPath, client := setupRefService(t)
+
+	gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithBranch("refs/heads/improve/awesome"),
+		gittest.WithCommitterName(strings.Repeat("A", 100000)),
+	)
+
+	rpcRequest := &gitalypb.FindLocalBranchesRequest{Repository: repo}
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	c, err := client.FindLocalBranches(ctx, rpcRequest)
+	require.NoError(t, err)
+
+	for {
+		_, err := c.Recv()
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err)
+	}
+}
+
 func TestFindLocalBranchesPagination(t *testing.T) {
 	_, repo, _, client := setupRefService(t)
 
