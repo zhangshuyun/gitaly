@@ -23,6 +23,9 @@ var (
 	// LFSPointersPipeline enables the alternative pipeline implementation of LFS-pointer
 	// related RPCs.
 	LFSPointersPipeline = FeatureFlag{Name: "lfs_pointers_pipeline", OnByDefault: false}
+	// CreateRepositoryFromBundleAtomicFetch will add the `--atomic` flag to git-fetch(1) in
+	// order to reduce the number of transactional votes.
+	CreateRepositoryFromBundleAtomicFetch = FeatureFlag{Name: "create_repository_from_bundle_atomic_fetch", OnByDefault: false}
 )
 
 // All includes all feature flags.
@@ -33,4 +36,5 @@ var All = []FeatureFlag{
 	TxRemote,
 	UserMergeToRefSkipPrecursorRefUpdate,
 	LFSPointersPipeline,
+	CreateRepositoryFromBundleAtomicFetch,
 }
