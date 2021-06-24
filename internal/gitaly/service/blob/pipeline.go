@@ -28,9 +28,19 @@ type revlistResult struct {
 	objectName []byte
 }
 
+type objectType string
+
+const (
+	objectTypeCommit = objectType("commit")
+	objectTypeBlob   = objectType("blob")
+	objectTypeTree   = objectType("tree")
+	objectTypeTag    = objectType("tag")
+)
+
 // revlistConfig is configuration for the revlist pipeline step.
 type revlistConfig struct {
-	blobLimit int
+	blobLimit  int
+	objectType objectType
 }
 
 // revlistOption is an option for the revlist pipeline step.
@@ -41,6 +51,16 @@ type revlistOption func(cfg *revlistConfig)
 func withBlobLimit(limit int) revlistOption {
 	return func(cfg *revlistConfig) {
 		cfg.blobLimit = limit
+	}
+}
+
+// withObjectTypeFilter will set up a `--filter=object:type=` filter for git-rev-list(1). This will
+// cause it to filter out any objects which do not match the given type. Because git-rev-list(1) by
+// default never filters provided arguments, this option also sets up the `--filter-provided` flag.
+// Note that this option is only supported starting with Git v2.32.0 or later.
+func withObjectTypeFilter(t objectType) revlistOption {
+	return func(cfg *revlistConfig) {
+		cfg.objectType = t
 	}
 }
 
@@ -80,6 +100,12 @@ func revlist(
 			flags = append(flags, git.Flag{
 				Name: fmt.Sprintf("--filter=blob:limit=%d", cfg.blobLimit),
 			})
+		}
+		if cfg.objectType != "" {
+			flags = append(flags,
+				git.Flag{Name: fmt.Sprintf("--filter=object:type=%s", cfg.objectType)},
+				git.Flag{Name: "--filter-provided-objects"},
+			)
 		}
 
 		revlist, err := repo.Exec(ctx, git.SubCmd{
