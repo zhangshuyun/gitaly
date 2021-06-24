@@ -152,6 +152,7 @@ TEST_OUTPUT_NAME ?= go-${GO_VERSION}-git-${GIT_VERSION}
 TEST_OUTPUT      ?= ${TEST_REPORT_DIR}/go-tests-output-${TEST_OUTPUT_NAME}.txt
 TEST_REPORT      ?= ${TEST_REPORT_DIR}/go-tests-report-${TEST_OUTPUT_NAME}.xml
 TEST_EXIT        ?= ${TEST_REPORT_DIR}/go-tests-exit-${TEST_OUTPUT_NAME}.txt
+TEST_TMP_DIR     ?=
 TEST_REPO_DIR    := ${BUILD_DIR}/testrepos
 TEST_REPO        := ${TEST_REPO_DIR}/gitlab-test.git
 TEST_REPO_GIT    := ${TEST_REPO_DIR}/gitlab-git-test.git
@@ -172,6 +173,7 @@ find_go_sources       = $(shell find ${SOURCE_DIR} -type d \( -name ruby -o -nam
 # TEST_PACKAGES: packages which shall be tested
 run_go_tests = PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}' \
     GIT_DIR=/dev/null \
+    TEST_TMP_DIR='${TEST_TMP_DIR}' \
     go test ${GO_LDFLAGS} -tags '${GO_BUILD_TAGS}' ${TEST_OPTIONS} ${TEST_PACKAGES}
 
 unexport GOROOT
