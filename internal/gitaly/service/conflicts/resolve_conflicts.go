@@ -196,11 +196,13 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		return err
 	}
 
-	if err := sourceRepo.UpdateRef(
+	if err := s.updater.UpdateReference(
 		ctx,
+		header.Repository,
+		header.User,
 		git.ReferenceName("refs/heads/"+string(header.GetSourceBranch())),
 		commitOID,
-		"",
+		git.ObjectID(header.OurCommitOid),
 	); err != nil {
 		return err
 	}
