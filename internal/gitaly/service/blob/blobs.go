@@ -94,13 +94,11 @@ func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobS
 			return helper.ErrInternal(err)
 		}
 	} else {
-		catfileObjectChan := gitpipe.CatfileObject(ctx, catfileProcess, catfileInfoIter)
+		catfileObjectIter := gitpipe.CatfileObject(ctx, catfileProcess, catfileInfoIter)
 
 		var i uint32
-		for blob := range catfileObjectChan {
-			if blob.Err != nil {
-				return helper.ErrInternal(blob.Err)
-			}
+		for catfileObjectIter.Next() {
+			blob := catfileObjectIter.Result()
 
 			headerSent := false
 			dataChunker := streamio.NewWriter(func(p []byte) error {
@@ -154,6 +152,10 @@ func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobS
 			if req.GetLimit() > 0 && i >= req.GetLimit() {
 				break
 			}
+		}
+
+		if err := catfileObjectIter.Err(); err != nil {
+			return helper.ErrInternal(err)
 		}
 	}
 

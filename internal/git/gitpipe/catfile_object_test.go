@@ -24,6 +24,7 @@ func TestCatfileObject(t *testing.T) {
 		desc              string
 		catfileInfoInputs []CatfileInfoResult
 		expectedResults   []CatfileObjectResult
+		expectedErr       error
 	}{
 		{
 			desc: "single blob",
@@ -65,18 +66,14 @@ func TestCatfileObject(t *testing.T) {
 			catfileInfoInputs: []CatfileInfoResult{
 				{ObjectInfo: &catfile.ObjectInfo{Oid: "invalidobjectid", Type: "blob"}},
 			},
-			expectedResults: []CatfileObjectResult{
-				{Err: errors.New("requesting object: object not found")},
-			},
+			expectedErr: errors.New("requesting object: object not found"),
 		},
 		{
 			desc: "invalid object type",
 			catfileInfoInputs: []CatfileInfoResult{
 				{ObjectInfo: &catfile.ObjectInfo{Oid: lfsPointer1, Type: "foobar"}},
 			},
-			expectedResults: []CatfileObjectResult{
-				{Err: errors.New("requesting object: unknown object type \"foobar\"")},
-			},
+			expectedErr: errors.New("requesting object: unknown object type \"foobar\""),
 		},
 		{
 			desc: "mixed valid and invalid revision",
@@ -87,8 +84,8 @@ func TestCatfileObject(t *testing.T) {
 			},
 			expectedResults: []CatfileObjectResult{
 				{ObjectInfo: &catfile.ObjectInfo{Oid: lfsPointer1, Type: "blob", Size: 133}},
-				{Err: errors.New("requesting object: unknown object type \"foobar\"")},
 			},
+			expectedErr: errors.New("requesting object: unknown object type \"foobar\""),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -101,31 +98,32 @@ func TestCatfileObject(t *testing.T) {
 			catfileProcess, err := catfileCache.BatchProcess(ctx, repo)
 			require.NoError(t, err)
 
-			resultChan := CatfileObject(ctx, catfileProcess, NewCatfileInfoIterator(tc.catfileInfoInputs))
+			it := CatfileObject(ctx, catfileProcess, NewCatfileInfoIterator(tc.catfileInfoInputs))
 
 			var results []CatfileObjectResult
-			for result := range resultChan {
-				// We're converting the error here to a plain un-nested error such
-				// that we don't have to replicate the complete error's structure.
-				if result.Err != nil {
-					result.Err = errors.New(result.Err.Error())
-				}
+			for it.Next() {
+				result := it.Result()
 
-				if result.Err == nil {
-					// While we could also assert object data, let's not do
-					// this: it would just be too annoying.
-					require.NotNil(t, result.ObjectReader)
+				// While we could also assert object data, let's not do
+				// this: it would just be too annoying.
+				require.NotNil(t, result.ObjectReader)
 
-					objectData, err := ioutil.ReadAll(result.ObjectReader)
-					require.NoError(t, err)
-					require.Len(t, objectData, int(result.ObjectInfo.Size))
+				objectData, err := ioutil.ReadAll(result.ObjectReader)
+				require.NoError(t, err)
+				require.Len(t, objectData, int(result.ObjectInfo.Size))
 
-					result.ObjectReader = nil
-				}
-
+				result.ObjectReader = nil
 				results = append(results, result)
 			}
 
+			// We're converting the error here to a plain un-nested error such
+			// that we don't have to replicate the complete error's structure.
+			err = it.Err()
+			if err != nil {
+				err = errors.New(err.Error())
+			}
+
+			require.Equal(t, tc.expectedErr, err)
 			require.Equal(t, tc.expectedResults, results)
 		})
 	}

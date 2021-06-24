@@ -12,8 +12,8 @@ import (
 
 // CatfileObjectResult is a result for the CatfileObject pipeline step.
 type CatfileObjectResult struct {
-	// Err is an error which occurred during execution of the pipeline.
-	Err error
+	// err is an error which occurred during execution of the pipeline.
+	err error
 
 	// ObjectName is the object name as received from the revlistResultChan.
 	ObjectName []byte
@@ -33,7 +33,7 @@ func CatfileObject(
 	ctx context.Context,
 	catfileProcess catfile.Batch,
 	it CatfileInfoIterator,
-) <-chan CatfileObjectResult {
+) CatfileObjectIterator {
 	resultChan := make(chan CatfileObjectResult)
 	go func() {
 		defer close(resultChan)
@@ -83,7 +83,7 @@ func CatfileObject(
 
 			if err != nil {
 				sendResult(CatfileObjectResult{
-					Err: fmt.Errorf("requesting object: %w", err),
+					err: fmt.Errorf("requesting object: %w", err),
 				})
 				return
 			}
@@ -103,12 +103,14 @@ func CatfileObject(
 		}
 
 		if err := it.Err(); err != nil {
-			sendResult(CatfileObjectResult{Err: err})
+			sendResult(CatfileObjectResult{err: err})
 			return
 		}
 	}()
 
-	return resultChan
+	return &catfileObjectIterator{
+		ch: resultChan,
+	}
 }
 
 type signallingReader struct {

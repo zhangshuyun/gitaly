@@ -89,9 +89,9 @@ func (s *server) ListLFSPointers(in *gitalypb.ListLFSPointersRequest, stream git
 		catfileInfoIter = gitpipe.CatfileInfoFilter(ctx, catfileInfoIter, func(r gitpipe.CatfileInfoResult) bool {
 			return r.ObjectInfo.Type == "blob" && r.ObjectInfo.Size <= lfsPointerMaxSize
 		})
-		catfileObjectChan := gitpipe.CatfileObject(ctx, catfileProcess, catfileInfoIter)
+		catfileObjectIter := gitpipe.CatfileObject(ctx, catfileProcess, catfileInfoIter)
 
-		if err := sendLFSPointers(chunker, catfileObjectChan, int(in.Limit)); err != nil {
+		if err := sendLFSPointers(chunker, catfileObjectIter, int(in.Limit)); err != nil {
 			return err
 		}
 	}
@@ -151,9 +151,9 @@ func (s *server) ListAllLFSPointers(in *gitalypb.ListAllLFSPointersRequest, stre
 		catfileInfoIter = gitpipe.CatfileInfoFilter(ctx, catfileInfoIter, func(r gitpipe.CatfileInfoResult) bool {
 			return r.ObjectInfo.Type == "blob" && r.ObjectInfo.Size <= lfsPointerMaxSize
 		})
-		catfileObjectChan := gitpipe.CatfileObject(ctx, catfileProcess, catfileInfoIter)
+		catfileObjectIter := gitpipe.CatfileObject(ctx, catfileProcess, catfileInfoIter)
 
-		if err := sendLFSPointers(chunker, catfileObjectChan, int(in.Limit)); err != nil {
+		if err := sendLFSPointers(chunker, catfileObjectIter, int(in.Limit)); err != nil {
 			return err
 		}
 	}
@@ -204,9 +204,9 @@ func (s *server) GetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gita
 		catfileInfoIter = gitpipe.CatfileInfoFilter(ctx, catfileInfoIter, func(r gitpipe.CatfileInfoResult) bool {
 			return r.ObjectInfo.Type == "blob" && r.ObjectInfo.Size <= lfsPointerMaxSize
 		})
-		catfileObjectChan := gitpipe.CatfileObject(ctx, catfileProcess, catfileInfoIter)
+		catfileObjectIter := gitpipe.CatfileObject(ctx, catfileProcess, catfileInfoIter)
 
-		if err := sendLFSPointers(chunker, catfileObjectChan, 0); err != nil {
+		if err := sendLFSPointers(chunker, catfileObjectIter, 0); err != nil {
 			return err
 		}
 	}
@@ -378,14 +378,12 @@ func (t *lfsPointerSender) Send() error {
 	return t.send(t.pointers)
 }
 
-func sendLFSPointers(chunker *chunk.Chunker, lfsPointers <-chan gitpipe.CatfileObjectResult, limit int) error {
+func sendLFSPointers(chunker *chunk.Chunker, iter gitpipe.CatfileObjectIterator, limit int) error {
 	buffer := bytes.NewBuffer(make([]byte, 0, lfsPointerMaxSize))
 
 	var i int
-	for lfsPointer := range lfsPointers {
-		if lfsPointer.Err != nil {
-			return helper.ErrInternal(lfsPointer.Err)
-		}
+	for iter.Next() {
+		lfsPointer := iter.Result()
 
 		// Avoid allocating bytes for an LFS pointer until we know the current blob really
 		// is an LFS pointer.
@@ -417,6 +415,10 @@ func sendLFSPointers(chunker *chunk.Chunker, lfsPointers <-chan gitpipe.CatfileO
 		if limit > 0 && i >= limit {
 			break
 		}
+	}
+
+	if err := iter.Err(); err != nil {
+		return helper.ErrInternal(err)
 	}
 
 	if err := chunker.Flush(); err != nil {

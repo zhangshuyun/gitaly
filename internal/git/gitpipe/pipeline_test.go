@@ -29,6 +29,7 @@ func TestPipeline(t *testing.T) {
 		revlistFilter     func(RevlistResult) bool
 		catfileInfoFilter func(CatfileInfoResult) bool
 		expectedResults   []CatfileObjectResult
+		expectedErr       error
 	}{
 		{
 			desc: "single blob",
@@ -128,9 +129,7 @@ func TestPipeline(t *testing.T) {
 			revisions: []string{
 				"doesnotexist",
 			},
-			expectedResults: []CatfileObjectResult{
-				{Err: errors.New("rev-list pipeline command: exit status 128")},
-			},
+			expectedErr: errors.New("rev-list pipeline command: exit status 128"),
 		},
 		{
 			desc: "mixed valid and invalid revision",
@@ -139,9 +138,7 @@ func TestPipeline(t *testing.T) {
 				"doesnotexist",
 				lfsPointer2,
 			},
-			expectedResults: []CatfileObjectResult{
-				{Err: errors.New("rev-list pipeline command: exit status 128")},
-			},
+			expectedErr: errors.New("rev-list pipeline command: exit status 128"),
 		},
 		{
 			desc: "invalid revision with all filters",
@@ -156,9 +153,7 @@ func TestPipeline(t *testing.T) {
 				require.Fail(t, "filter should not be invoked on errors")
 				return true
 			},
-			expectedResults: []CatfileObjectResult{
-				{Err: errors.New("rev-list pipeline command: exit status 128")},
-			},
+			expectedErr: errors.New("rev-list pipeline command: exit status 128"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -181,31 +176,33 @@ func TestPipeline(t *testing.T) {
 				catfileInfoIter = CatfileInfoFilter(ctx, catfileInfoIter, tc.catfileInfoFilter)
 			}
 
-			catfileObjectChan := CatfileObject(ctx, catfileProcess, catfileInfoIter)
+			catfileObjectIter := CatfileObject(ctx, catfileProcess, catfileInfoIter)
 
 			var results []CatfileObjectResult
-			for result := range catfileObjectChan {
-				// We're converting the error here to a plain un-nested error such
-				// that we don't have to replicate the complete error's structure.
-				if result.Err != nil {
-					result.Err = errors.New(result.Err.Error())
-				}
+			for catfileObjectIter.Next() {
+				result := catfileObjectIter.Result()
 
-				if result.Err == nil {
-					// While we could also assert object data, let's not do
-					// this: it would just be too annoying.
-					require.NotNil(t, result.ObjectReader)
+				// While we could also assert object data, let's not do
+				// this: it would just be too annoying.
+				require.NotNil(t, result.ObjectReader)
 
-					objectData, err := ioutil.ReadAll(result.ObjectReader)
-					require.NoError(t, err)
-					require.Len(t, objectData, int(result.ObjectInfo.Size))
+				objectData, err := ioutil.ReadAll(result.ObjectReader)
+				require.NoError(t, err)
+				require.Len(t, objectData, int(result.ObjectInfo.Size))
 
-					result.ObjectReader = nil
-				}
+				result.ObjectReader = nil
 
 				results = append(results, result)
 			}
 
+			// We're converting the error here to a plain un-nested error such that we
+			// don't have to replicate the complete error's structure.
+			err = catfileObjectIter.Err()
+			if err != nil {
+				err = errors.New(err.Error())
+			}
+
+			require.Equal(t, tc.expectedErr, err)
 			require.Equal(t, tc.expectedResults, results)
 		})
 	}
@@ -229,20 +226,21 @@ func TestPipeline(t *testing.T) {
 		revlistIter = RevlistFilter(childCtx, revlistIter, func(RevlistResult) bool { return true })
 		catfileInfoIter := CatfileInfo(childCtx, catfileProcess, revlistIter)
 		catfileInfoIter = CatfileInfoFilter(childCtx, catfileInfoIter, func(CatfileInfoResult) bool { return true })
-		catfileObjectChan := CatfileObject(childCtx, catfileProcess, catfileInfoIter)
+		catfileObjectIter := CatfileObject(childCtx, catfileProcess, catfileInfoIter)
 
 		i := 0
-		for result := range catfileObjectChan {
-			require.NoError(t, result.Err)
+		for catfileObjectIter.Next() {
 			i++
 
-			_, err := io.Copy(ioutil.Discard, result.ObjectReader)
+			_, err := io.Copy(ioutil.Discard, catfileObjectIter.Result().ObjectReader)
 			require.NoError(t, err)
 
 			if i == 3 {
 				cancel()
 			}
 		}
+
+		require.NoError(t, catfileObjectIter.Err())
 
 		// Context cancellation is timing sensitive: at the point of cancelling the context,
 		// the last pipeline step may already have queued up an additional result. We thus
@@ -262,13 +260,11 @@ func TestPipeline(t *testing.T) {
 
 		revlistIter := Revlist(ctx, repo, []string{"--all"})
 		catfileInfoIter := CatfileInfo(ctx, catfileProcess, revlistIter)
-		catfileObjectChan := CatfileObject(ctx, catfileProcess, catfileInfoIter)
+		catfileObjectIter := CatfileObject(ctx, catfileProcess, catfileInfoIter)
 
 		i := 0
 		var wg sync.WaitGroup
-		for result := range catfileObjectChan {
-			require.NoError(t, result.Err)
-
+		for catfileObjectIter.Next() {
 			wg.Add(1)
 			i++
 
@@ -282,9 +278,10 @@ func TestPipeline(t *testing.T) {
 				defer wg.Done()
 				_, err := io.Copy(ioutil.Discard, object.ObjectReader)
 				require.NoError(t, err)
-			}(result)
+			}(catfileObjectIter.Result())
 		}
 
+		require.NoError(t, catfileObjectIter.Err())
 		wg.Wait()
 
 		// We could in theory assert the exact amount of objects, but this would make it
