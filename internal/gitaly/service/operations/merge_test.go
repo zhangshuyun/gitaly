@@ -17,7 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -806,8 +805,6 @@ func TestConflictsOnUserMergeToRefRequest(t *testing.T) {
 	targetRef := git.Revision("refs/merge-requests/foo")
 
 	t.Run("failing merge does not update target reference if skipping precursor update-ref", func(t *testing.T) {
-		ctx := featureflag.OutgoingCtxWithFeatureFlags(ctx, featureflag.UserMergeToRefSkipPrecursorRefUpdate)
-
 		request := buildUserMergeToRefRequest(t, cfg, repoProto, repoPath, "1450cd639e0bc6721eb02800169e464f212cde06", "824be604a34828eb682305f0d963056cfac87b2d", t.Name())
 		request.TargetRef = []byte(targetRef)
 
@@ -817,27 +814,6 @@ func TestConflictsOnUserMergeToRefRequest(t *testing.T) {
 		hasRevision, err := repo.HasRevision(ctx, targetRef)
 		require.NoError(t, err)
 		require.False(t, hasRevision, "branch should not have been created")
-	})
-
-	t.Run("failing merge does update target reference if not skipping precursor update-ref", func(t *testing.T) {
-		ctx := featureflag.OutgoingCtxWithDisabledFeatureFlags(ctx, featureflag.UserMergeToRefSkipPrecursorRefUpdate)
-
-		request := buildUserMergeToRefRequest(t, cfg, repoProto, repoPath,
-			"1450cd639e0bc6721eb02800169e464f212cde06", "824be604a34828eb682305f0d963056cfac87b2d", t.Name())
-		request.TargetRef = []byte(targetRef)
-
-		_, err := client.UserMergeToRef(ctx, request)
-		testhelper.RequireGrpcError(t, err, codes.FailedPrecondition)
-
-		firstParentRevision, err := repo.ResolveRevision(ctx, git.Revision(request.FirstParentRef))
-		require.NoError(t, err)
-
-		// The previous implementation of UserMergeToRef would've written the first parent
-		// ref into the target reference before computing the merge. As a result, it exists
-		// even if the merge itself failed.
-		targetRevision, err := repo.ResolveRevision(ctx, targetRef)
-		require.NoError(t, err)
-		require.Equal(t, firstParentRevision, targetRevision)
 	})
 }
 
