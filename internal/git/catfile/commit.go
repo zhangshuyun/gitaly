@@ -25,7 +25,7 @@ func GetCommit(ctx context.Context, c Batch, revision git.Revision) (*gitalypb.G
 		return nil, err
 	}
 
-	return parseRawCommit(obj.Reader, &obj.ObjectInfo)
+	return ParseCommit(obj.Reader, &obj.ObjectInfo)
 }
 
 // GetCommitWithTrailers looks up a commit by revision using an existing Batch instance, and
@@ -81,7 +81,8 @@ func GetCommitMessage(ctx context.Context, c Batch, repo repository.GitRepo, rev
 	return body, nil
 }
 
-func parseRawCommit(r io.Reader, info *ObjectInfo) (*gitalypb.GitCommit, error) {
+// ParseCommit parses the commit data from the Reader.
+func ParseCommit(r io.Reader, info *ObjectInfo) (*gitalypb.GitCommit, error) {
 	header, body, err := splitRawCommit(r)
 	if err != nil {
 		return nil, err
