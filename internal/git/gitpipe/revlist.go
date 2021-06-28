@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
@@ -40,13 +41,14 @@ const (
 
 // revlistConfig is configuration for the revlist pipeline step.
 type revlistConfig struct {
-	blobLimit    int
-	objects      bool
-	objectType   ObjectType
-	order        Order
-	maxParents   uint
-	disabledWalk bool
-	firstParent  bool
+	blobLimit     int
+	objects       bool
+	objectType    ObjectType
+	order         Order
+	maxParents    uint
+	disabledWalk  bool
+	firstParent   bool
+	before, after time.Time
 }
 
 // RevlistOption is an option for the revlist pipeline step.
@@ -125,6 +127,20 @@ func WithFirstParent() RevlistOption {
 	}
 }
 
+// WithBefore will cause git-rev-list(1) to only show commits older than the specified time.
+func WithBefore(t time.Time) RevlistOption {
+	return func(cfg *revlistConfig) {
+		cfg.before = t
+	}
+}
+
+// WithAfter will cause git-rev-list(1) to only show commits newer than the specified time.
+func WithAfter(t time.Time) RevlistOption {
+	return func(cfg *revlistConfig) {
+		cfg.after = t
+	}
+}
+
 // Revlist runs git-rev-list(1) with objects and object names enabled. The returned channel will
 // contain all object IDs listed by this command. Cancelling the context will cause the pipeline to
 // be cancelled, too.
@@ -196,6 +212,18 @@ func Revlist(
 
 		if cfg.firstParent {
 			flags = append(flags, git.Flag{Name: "--first-parent"})
+		}
+
+		if !cfg.before.IsZero() {
+			flags = append(flags, git.Flag{
+				Name: fmt.Sprintf("--before=%s", cfg.before.String()),
+			})
+		}
+
+		if !cfg.after.IsZero() {
+			flags = append(flags, git.Flag{
+				Name: fmt.Sprintf("--after=%s", cfg.after.String()),
+			})
 		}
 
 		revlist, err := repo.Exec(ctx, git.SubCmd{

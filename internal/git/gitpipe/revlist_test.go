@@ -3,6 +3,7 @@ package gitpipe
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
@@ -220,6 +221,20 @@ func TestRevlist(t *testing.T) {
 				{OID: "4a24d82dbca5c11c61556f3b35ca472b7463187e"},
 				{OID: "b83d6e391c22777fca1ed3012fce84f633d7fed0"},
 				{OID: "498214de67004b1da3d820901307bed2a68a8ef6"},
+			},
+		},
+		{
+			desc: "revision range with dates",
+			revisions: []string{
+				"refs/heads/master",
+			},
+			options: []RevlistOption{
+				WithBefore(time.Date(2016, 6, 30, 18, 30, 0, 0, time.UTC)),
+				WithAfter(time.Date(2016, 6, 30, 18, 28, 0, 0, time.UTC)),
+			},
+			expectedResults: []RevlistResult{
+				{OID: "6907208d755b60ebeacb2e9dfea74c92c3449a1f"},
+				{OID: "c347ca2e140aa667b968e51ed0ffe055501fe4f4"},
 			},
 		},
 		{
