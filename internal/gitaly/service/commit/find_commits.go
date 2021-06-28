@@ -8,7 +8,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/golang/protobuf/proto"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
@@ -152,24 +151,16 @@ func (g *GetCommits) Commit(ctx context.Context, trailers bool) (*gitalypb.GitCo
 	return commit, nil
 }
 
-type findCommitsSender struct {
-	stream  gitalypb.CommitService_FindCommitsServer
-	commits []*gitalypb.GitCommit
-}
-
-func (s *findCommitsSender) Reset() { s.commits = nil }
-func (s *findCommitsSender) Append(m proto.Message) {
-	s.commits = append(s.commits, m.(*gitalypb.GitCommit))
-}
-
-func (s *findCommitsSender) Send() error {
-	return s.stream.Send(&gitalypb.FindCommitsResponse{Commits: s.commits})
-}
-
 func streamCommits(getCommits *GetCommits, stream gitalypb.CommitService_FindCommitsServer, trailers bool) error {
 	ctx := stream.Context()
 
-	chunker := chunk.New(&findCommitsSender{stream: stream})
+	chunker := chunk.New(&commitsSender{
+		send: func(commits []*gitalypb.GitCommit) error {
+			return stream.Send(&gitalypb.FindCommitsResponse{
+				Commits: commits,
+			})
+		},
+	})
 
 	for getCommits.Scan() {
 		commit, err := getCommits.Commit(ctx, trailers)
