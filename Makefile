@@ -381,9 +381,9 @@ ${SOURCE_DIR}/NOTICE: ${BUILD_DIR}/NOTICE
 ${BUILD_DIR}/NOTICE: ${GO_LICENSES} clean-ruby-vendor-go
 	${Q}rm -rf ${BUILD_DIR}/licenses
 	${Q}GOOS=linux GOFLAGS="-tags=${GO_BUILD_TAGS}" ${GO_LICENSES} save ./... --save_path=${BUILD_DIR}/licenses
-	# some projects may be copied from the Go module cache
-	# (GOPATH/pkg/mod) and retain strict permissions (444). These
-	# permissions are not desirable when removing and rebuilding:
+	${Q}# some projects may be copied from the Go module cache
+	${Q}# (GOPATH/pkg/mod) and retain strict permissions (444). These
+	${Q}# permissions are not desirable when removing and rebuilding:
 	${Q}find ${BUILD_DIR}/licenses -type d -exec chmod 0755 {} \;
 	${Q}find ${BUILD_DIR}/licenses -type f -exec chmod 0644 {} \;
 	${Q}go run ${SOURCE_DIR}/_support/noticegen/noticegen.go -source ${BUILD_DIR}/licenses -template ${SOURCE_DIR}/_support/noticegen/notice.template > ${BUILD_DIR}/NOTICE
