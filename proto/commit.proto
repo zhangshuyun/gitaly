@@ -20,6 +20,14 @@ service CommitService {
     };
   }
 
+  // ListAllCommits lists all commits present in the repository, including
+  // those not reachable by any reference.
+  rpc ListAllCommits(ListAllCommitsRequest) returns (stream ListAllCommitsResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
+
   rpc CommitIsAncestor(CommitIsAncestorRequest) returns (CommitIsAncestorResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -191,6 +199,23 @@ message ListCommitsRequest {
 
 // ListCommitsResponse is a response for the ListCommits RPC.
 message ListCommitsResponse {
+  // Commits is the list of commits found.
+  repeated GitCommit commits = 1;
+}
+
+// ListAllCommitsRequest is a request for the ListAllCommits RPC.
+message ListAllCommitsRequest {
+  // Repository is the repository in which commits should be searched for.
+  Repository repository = 1 [(target_repository)=true];
+
+  // PaginationParams allows implementation of pagination. The page token is
+  // the last commit OID that was sent. It's expected to be the full object ID
+  // to guard against ambigious OIDs.
+  PaginationParameter pagination_params = 2;
+}
+
+// ListAllCommitsResponse is a response for the ListAllCommits RPC.
+message ListAllCommitsResponse {
   // Commits is the list of commits found.
   repeated GitCommit commits = 1;
 }

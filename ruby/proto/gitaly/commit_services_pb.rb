@@ -19,6 +19,9 @@ module Gitaly
       # (except Follow is not yet supported) and CommitsBetweenRequest. Any
       # unknown revisions will cause the RPC to fail.
       rpc :ListCommits, Gitaly::ListCommitsRequest, stream(Gitaly::ListCommitsResponse)
+      # ListAllCommits lists all commits present in the repository, including
+      # those not reachable by any reference.
+      rpc :ListAllCommits, Gitaly::ListAllCommitsRequest, stream(Gitaly::ListAllCommitsResponse)
       rpc :CommitIsAncestor, Gitaly::CommitIsAncestorRequest, Gitaly::CommitIsAncestorResponse
       rpc :TreeEntry, Gitaly::TreeEntryRequest, stream(Gitaly::TreeEntryResponse)
       rpc :CommitsBetween, Gitaly::CommitsBetweenRequest, stream(Gitaly::CommitsBetweenResponse)

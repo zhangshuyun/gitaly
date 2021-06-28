@@ -28,6 +28,13 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     add_message "gitaly.ListCommitsResponse" do
       repeated :commits, :message, 1, "gitaly.GitCommit"
     end
+    add_message "gitaly.ListAllCommitsRequest" do
+      optional :repository, :message, 1, "gitaly.Repository"
+      optional :pagination_params, :message, 2, "gitaly.PaginationParameter"
+    end
+    add_message "gitaly.ListAllCommitsResponse" do
+      repeated :commits, :message, 1, "gitaly.GitCommit"
+    end
     add_message "gitaly.CommitStatsRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
       optional :revision, :bytes, 2
@@ -293,6 +300,8 @@ module Gitaly
   ListCommitsRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListCommitsRequest").msgclass
   ListCommitsRequest::Order = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListCommitsRequest.Order").enummodule
   ListCommitsResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListCommitsResponse").msgclass
+  ListAllCommitsRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListAllCommitsRequest").msgclass
+  ListAllCommitsResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListAllCommitsResponse").msgclass
   CommitStatsRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CommitStatsRequest").msgclass
   CommitStatsResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CommitStatsResponse").msgclass
   CommitIsAncestorRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CommitIsAncestorRequest").msgclass
