@@ -57,7 +57,7 @@ func hookErrorMessage(sout string, serr string, err error) string {
 	return sout
 }
 
-// NewUpdaterWithHooks creates a new instance of a class that will update a Git branch
+// NewUpdaterWithHooks creates a new instance of a struct that will update a Git reference.
 func NewUpdaterWithHooks(
 	cfg config.Cfg,
 	hookManager hook.Manager,
@@ -72,8 +72,8 @@ func NewUpdaterWithHooks(
 	}
 }
 
-// UpdateReferenceWithHooks updates a branch with a given commit ID using the Git hooks
-func (u *UpdaterWithHooks) UpdateReferenceWithHooks(
+// UpdateReference updates a branch with a given commit ID using the Git hooks
+func (u *UpdaterWithHooks) UpdateReference(
 	ctx context.Context,
 	repo *gitalypb.Repository,
 	user *gitalypb.User,
@@ -98,13 +98,13 @@ func (u *UpdaterWithHooks) UpdateReferenceWithHooks(
 	}
 
 	if reference == "" {
-		return helper.ErrInternalf("updateReferenceWithHooks: got no reference")
+		return helper.ErrInternalf("UpdateReference: got no reference")
 	}
 	if err := git.ValidateObjectID(oldrev.String()); err != nil {
-		return helper.ErrInternalf("updateReferenceWithHooks: got invalid old value: %w", err)
+		return helper.ErrInternalf("UpdateReference: got invalid old value: %w", err)
 	}
 	if err := git.ValidateObjectID(newrev.String()); err != nil {
-		return helper.ErrInternalf("updateReferenceWithHooks: got invalid new value: %w", err)
+		return helper.ErrInternalf("UpdateReference: got invalid new value: %w", err)
 	}
 
 	env := []string{
