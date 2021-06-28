@@ -14,75 +14,80 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 )
 
-// revlistResult is a result for the revlist pipeline step.
-type revlistResult struct {
-	// err is an error which occurred during execution of the pipeline.
-	err error
+// RevlistResult is a result for the revlist pipeline step.
+type RevlistResult struct {
+	// Err is an error which occurred during execution of the pipeline.
+	Err error
 
-	// oid is the object ID of an object printed by git-rev-list(1).
-	oid git.ObjectID
-	// objectName is the name of the object. This is typically the path of the object if it was
+	// OID is the object ID of an object printed by git-rev-list(1).
+	OID git.ObjectID
+	// ObjectName is the name of the object. This is typically the path of the object if it was
 	// traversed via either a tree or a commit. The path depends on the order in which objects
 	// are traversed: if e.g. two different trees refer to the same blob with different names,
 	// the blob's path depends on which of the trees was traversed first.
-	objectName []byte
+	ObjectName []byte
 }
 
-type objectType string
+// ObjectType is a Git object type used for filtering objects.
+type ObjectType string
 
 const (
-	objectTypeCommit = objectType("commit")
-	objectTypeBlob   = objectType("blob")
-	objectTypeTree   = objectType("tree")
-	objectTypeTag    = objectType("tag")
+	// ObjectTypeCommit is the type of a Git commit.
+	ObjectTypeCommit = ObjectType("commit")
+	// ObjectTypeBlob is the type of a Git blob.
+	ObjectTypeBlob = ObjectType("blob")
+	// ObjectTypeTree is the type of a Git tree.
+	ObjectTypeTree = ObjectType("tree")
+	// ObjectTypeTag is the type of a Git tag.
+	ObjectTypeTag = ObjectType("tag")
 )
 
 // revlistConfig is configuration for the revlist pipeline step.
 type revlistConfig struct {
 	blobLimit  int
-	objectType objectType
+	objectType ObjectType
 }
 
-// revlistOption is an option for the revlist pipeline step.
-type revlistOption func(cfg *revlistConfig)
+// RevlistOption is an option for the revlist pipeline step.
+type RevlistOption func(cfg *revlistConfig)
 
-// withBlobLimit sets up a size limit for blobs. Only blobs whose size is smaller than this limit
+// WithBlobLimit sets up a size limit for blobs. Only blobs whose size is smaller than this limit
 // will be returned by the pipeline step.
-func withBlobLimit(limit int) revlistOption {
+func WithBlobLimit(limit int) RevlistOption {
 	return func(cfg *revlistConfig) {
 		cfg.blobLimit = limit
 	}
 }
 
-// withObjectTypeFilter will set up a `--filter=object:type=` filter for git-rev-list(1). This will
+// WithObjectTypeFilter will set up a `--filter=object:type=` filter for git-rev-list(1). This will
 // cause it to filter out any objects which do not match the given type. Because git-rev-list(1) by
 // default never filters provided arguments, this option also sets up the `--filter-provided` flag.
 // Note that this option is only supported starting with Git v2.32.0 or later.
-func withObjectTypeFilter(t objectType) revlistOption {
+func WithObjectTypeFilter(t ObjectType) RevlistOption {
 	return func(cfg *revlistConfig) {
 		cfg.objectType = t
 	}
 }
 
-// revlist runs git-rev-list(1) with objects and object names enabled. The returned channel will
+// Revlist runs git-rev-list(1) with objects and object names enabled. The returned channel will
 // contain all object IDs listed by this command. Cancelling the context will cause the pipeline to
 // be cancelled, too.
-func revlist(
+func Revlist(
 	ctx context.Context,
 	repo *localrepo.Repo,
 	revisions []string,
-	options ...revlistOption,
-) <-chan revlistResult {
+	options ...RevlistOption,
+) <-chan RevlistResult {
 	var cfg revlistConfig
 	for _, option := range options {
 		option(&cfg)
 	}
 
-	resultChan := make(chan revlistResult)
+	resultChan := make(chan RevlistResult)
 	go func() {
 		defer close(resultChan)
 
-		sendResult := func(result revlistResult) bool {
+		sendResult := func(result RevlistResult) bool {
 			select {
 			case resultChan <- result:
 				return false
@@ -114,7 +119,7 @@ func revlist(
 			Args:  revisions,
 		})
 		if err != nil {
-			sendResult(revlistResult{err: err})
+			sendResult(RevlistResult{Err: err})
 			return
 		}
 
@@ -127,11 +132,11 @@ func revlist(
 
 			oidAndName := bytes.SplitN(line, []byte{' '}, 2)
 
-			result := revlistResult{
-				oid: git.ObjectID(oidAndName[0]),
+			result := RevlistResult{
+				OID: git.ObjectID(oidAndName[0]),
 			}
 			if len(oidAndName) == 2 && len(oidAndName[1]) > 0 {
-				result.objectName = oidAndName[1]
+				result.ObjectName = oidAndName[1]
 			}
 
 			if isDone := sendResult(result); isDone {
@@ -140,15 +145,15 @@ func revlist(
 		}
 
 		if err := scanner.Err(); err != nil {
-			sendResult(revlistResult{
-				err: fmt.Errorf("scanning rev-list output: %w", err),
+			sendResult(RevlistResult{
+				Err: fmt.Errorf("scanning rev-list output: %w", err),
 			})
 			return
 		}
 
 		if err := revlist.Wait(); err != nil {
-			sendResult(revlistResult{
-				err: fmt.Errorf("rev-list pipeline command: %w", err),
+			sendResult(RevlistResult{
+				Err: fmt.Errorf("rev-list pipeline command: %w", err),
 			})
 			return
 		}
@@ -157,16 +162,16 @@ func revlist(
 	return resultChan
 }
 
-// revlistFilter filters the revlistResults from the provided channel with the filter function: if
+// RevlistFilter filters the revlistResults from the provided channel with the filter function: if
 // the filter returns `false` for a given item, then it will be dropped from the pipeline. Errors
 // cannot be filtered and will always be passed through.
-func revlistFilter(ctx context.Context, c <-chan revlistResult, filter func(revlistResult) bool) <-chan revlistResult {
-	resultChan := make(chan revlistResult)
+func RevlistFilter(ctx context.Context, c <-chan RevlistResult, filter func(RevlistResult) bool) <-chan RevlistResult {
+	resultChan := make(chan RevlistResult)
 	go func() {
 		defer close(resultChan)
 
 		for result := range c {
-			if result.err != nil || filter(result) {
+			if result.Err != nil || filter(result) {
 				select {
 				case resultChan <- result:
 				case <-ctx.Done():
@@ -178,28 +183,28 @@ func revlistFilter(ctx context.Context, c <-chan revlistResult, filter func(revl
 	return resultChan
 }
 
-// catfileInfoResult is a result for the catfileInfo pipeline step.
-type catfileInfoResult struct {
-	// err is an error which occurred during execution of the pipeline.
-	err error
+// CatfileInfoResult is a result for the CatfileInfo pipeline step.
+type CatfileInfoResult struct {
+	// Err is an error which occurred during execution of the pipeline.
+	Err error
 
-	// objectName is the object name as received from the revlistResultChan.
-	objectName []byte
-	// objectInfo is the object info of the object.
-	objectInfo *catfile.ObjectInfo
+	// ObjectName is the object name as received from the revlistResultChan.
+	ObjectName []byte
+	// ObjectInfo is the object info of the object.
+	ObjectInfo *catfile.ObjectInfo
 }
 
-// catfileInfo processes revlistResults from the given channel and extracts object information via
+// CatfileInfo processes revlistResults from the given channel and extracts object information via
 // `git cat-file --batch-check`. The returned channel will contain all processed catfile info
 // results. Any error received via the channel or encountered in this step will cause the pipeline
 // to fail. Context cancellation will gracefully halt the pipeline.
-func catfileInfo(ctx context.Context, catfile catfile.Batch, revlistResultChan <-chan revlistResult) <-chan catfileInfoResult {
-	resultChan := make(chan catfileInfoResult)
+func CatfileInfo(ctx context.Context, catfile catfile.Batch, revlistResultChan <-chan RevlistResult) <-chan CatfileInfoResult {
+	resultChan := make(chan CatfileInfoResult)
 
 	go func() {
 		defer close(resultChan)
 
-		sendResult := func(result catfileInfoResult) bool {
+		sendResult := func(result CatfileInfoResult) bool {
 			select {
 			case resultChan <- result:
 				return false
@@ -209,22 +214,22 @@ func catfileInfo(ctx context.Context, catfile catfile.Batch, revlistResultChan <
 		}
 
 		for revlistResult := range revlistResultChan {
-			if revlistResult.err != nil {
-				sendResult(catfileInfoResult{err: revlistResult.err})
+			if revlistResult.Err != nil {
+				sendResult(CatfileInfoResult{Err: revlistResult.Err})
 				return
 			}
 
-			objectInfo, err := catfile.Info(ctx, revlistResult.oid.Revision())
+			objectInfo, err := catfile.Info(ctx, revlistResult.OID.Revision())
 			if err != nil {
-				sendResult(catfileInfoResult{
-					err: fmt.Errorf("retrieving object info for %q: %w", revlistResult.oid, err),
+				sendResult(CatfileInfoResult{
+					Err: fmt.Errorf("retrieving object info for %q: %w", revlistResult.OID, err),
 				})
 				return
 			}
 
-			if isDone := sendResult(catfileInfoResult{
-				objectName: revlistResult.objectName,
-				objectInfo: objectInfo,
+			if isDone := sendResult(CatfileInfoResult{
+				ObjectName: revlistResult.ObjectName,
+				ObjectInfo: objectInfo,
 			}); isDone {
 				return
 			}
@@ -234,18 +239,18 @@ func catfileInfo(ctx context.Context, catfile catfile.Batch, revlistResultChan <
 	return resultChan
 }
 
-// catfileInfoAllObjects enumerates all Git objects part of the repository's object directory and
+// CatfileInfoAllObjects enumerates all Git objects part of the repository's object directory and
 // extracts their object info via `git cat-file --batch-check`. The returned channel will contain
 // all processed results. Any error encountered during execution of this pipeline step will cause
 // the pipeline to fail. Context cancellation will gracefully halt the pipeline. Note that with this
 // pipeline step, the resulting catfileInfoResults will never have an object name.
-func catfileInfoAllObjects(ctx context.Context, repo *localrepo.Repo) <-chan catfileInfoResult {
-	resultChan := make(chan catfileInfoResult)
+func CatfileInfoAllObjects(ctx context.Context, repo *localrepo.Repo) <-chan CatfileInfoResult {
+	resultChan := make(chan CatfileInfoResult)
 
 	go func() {
 		defer close(resultChan)
 
-		sendResult := func(result catfileInfoResult) bool {
+		sendResult := func(result CatfileInfoResult) bool {
 			select {
 			case resultChan <- result:
 				return false
@@ -264,8 +269,8 @@ func catfileInfoAllObjects(ctx context.Context, repo *localrepo.Repo) <-chan cat
 			},
 		})
 		if err != nil {
-			sendResult(catfileInfoResult{
-				err: fmt.Errorf("spawning cat-file failed: %w", err),
+			sendResult(CatfileInfoResult{
+				Err: fmt.Errorf("spawning cat-file failed: %w", err),
 			})
 			return
 		}
@@ -278,22 +283,22 @@ func catfileInfoAllObjects(ctx context.Context, repo *localrepo.Repo) <-chan cat
 					break
 				}
 
-				sendResult(catfileInfoResult{
-					err: fmt.Errorf("parsing object info: %w", err),
+				sendResult(CatfileInfoResult{
+					Err: fmt.Errorf("parsing object info: %w", err),
 				})
 				return
 			}
 
-			if isDone := sendResult(catfileInfoResult{
-				objectInfo: objectInfo,
+			if isDone := sendResult(CatfileInfoResult{
+				ObjectInfo: objectInfo,
 			}); isDone {
 				return
 			}
 		}
 
 		if err := cmd.Wait(); err != nil {
-			sendResult(catfileInfoResult{
-				err: fmt.Errorf("cat-file failed: %w", err),
+			sendResult(CatfileInfoResult{
+				Err: fmt.Errorf("cat-file failed: %w", err),
 			})
 			return
 		}
@@ -302,16 +307,16 @@ func catfileInfoAllObjects(ctx context.Context, repo *localrepo.Repo) <-chan cat
 	return resultChan
 }
 
-// catfileInfoFilter filters the catfileInfoResults from the provided channel with the filter
+// CatfileInfoFilter filters the catfileInfoResults from the provided channel with the filter
 // function: if the filter returns `false` for a given item, then it will be dropped from the
 // pipeline. Errors cannot be filtered and will always be passed through.
-func catfileInfoFilter(ctx context.Context, c <-chan catfileInfoResult, filter func(catfileInfoResult) bool) <-chan catfileInfoResult {
-	resultChan := make(chan catfileInfoResult)
+func CatfileInfoFilter(ctx context.Context, c <-chan CatfileInfoResult, filter func(CatfileInfoResult) bool) <-chan CatfileInfoResult {
+	resultChan := make(chan CatfileInfoResult)
 	go func() {
 		defer close(resultChan)
 
 		for result := range c {
-			if result.err != nil || filter(result) {
+			if result.Err != nil || filter(result) {
 				select {
 				case resultChan <- result:
 				case <-ctx.Done():
@@ -323,18 +328,18 @@ func catfileInfoFilter(ctx context.Context, c <-chan catfileInfoResult, filter f
 	return resultChan
 }
 
-// catfileObjectResult is a result for the catfileObject pipeline step.
-type catfileObjectResult struct {
-	// err is an error which occurred during execution of the pipeline.
-	err error
+// CatfileObjectResult is a result for the CatfileObject pipeline step.
+type CatfileObjectResult struct {
+	// Err is an error which occurred during execution of the pipeline.
+	Err error
 
-	// objectName is the object name as received from the revlistResultChan.
-	objectName []byte
-	// objectInfo is the object info of the object.
-	objectInfo *catfile.ObjectInfo
+	// ObjectName is the object name as received from the revlistResultChan.
+	ObjectName []byte
+	// ObjectInfo is the object info of the object.
+	ObjectInfo *catfile.ObjectInfo
 	// obbjectReader is the reader for the raw object data. The reader must always be consumed
 	// by the caller.
-	objectReader io.Reader
+	ObjectReader io.Reader
 }
 
 type signallingReader struct {
@@ -353,21 +358,21 @@ func (r *signallingReader) Read(p []byte) (int, error) {
 	return n, err
 }
 
-// catfileObject processes catfileInfoResults from the given channel and reads associated objects
+// CatfileObject processes catfileInfoResults from the given channel and reads associated objects
 // into memory via `git cat-file --batch`. The returned channel will contain all processed objects.
 // Any error received via the channel or encountered in this step will cause the pipeline to fail.
 // Context cancellation will gracefully halt the pipeline. The returned object readers must always
 // be fully consumed by the caller.
-func catfileObject(
+func CatfileObject(
 	ctx context.Context,
 	catfileProcess catfile.Batch,
-	catfileInfoResultChan <-chan catfileInfoResult,
-) <-chan catfileObjectResult {
-	resultChan := make(chan catfileObjectResult)
+	catfileInfoResultChan <-chan CatfileInfoResult,
+) <-chan CatfileObjectResult {
+	resultChan := make(chan CatfileObjectResult)
 	go func() {
 		defer close(resultChan)
 
-		sendResult := func(result catfileObjectResult) bool {
+		sendResult := func(result CatfileObjectResult) bool {
 			select {
 			case resultChan <- result:
 				return false
@@ -379,8 +384,8 @@ func catfileObject(
 		var objectReader *signallingReader
 
 		for catfileInfoResult := range catfileInfoResultChan {
-			if catfileInfoResult.err != nil {
-				sendResult(catfileObjectResult{err: catfileInfoResult.err})
+			if catfileInfoResult.Err != nil {
+				sendResult(CatfileObjectResult{Err: catfileInfoResult.Err})
 				return
 			}
 
@@ -399,23 +404,23 @@ func catfileObject(
 			var object *catfile.Object
 			var err error
 
-			objectType := catfileInfoResult.objectInfo.Type
+			objectType := catfileInfoResult.ObjectInfo.Type
 			switch objectType {
 			case "tag":
-				object, err = catfileProcess.Tag(ctx, catfileInfoResult.objectInfo.Oid.Revision())
+				object, err = catfileProcess.Tag(ctx, catfileInfoResult.ObjectInfo.Oid.Revision())
 			case "commit":
-				object, err = catfileProcess.Commit(ctx, catfileInfoResult.objectInfo.Oid.Revision())
+				object, err = catfileProcess.Commit(ctx, catfileInfoResult.ObjectInfo.Oid.Revision())
 			case "tree":
-				object, err = catfileProcess.Tree(ctx, catfileInfoResult.objectInfo.Oid.Revision())
+				object, err = catfileProcess.Tree(ctx, catfileInfoResult.ObjectInfo.Oid.Revision())
 			case "blob":
-				object, err = catfileProcess.Blob(ctx, catfileInfoResult.objectInfo.Oid.Revision())
+				object, err = catfileProcess.Blob(ctx, catfileInfoResult.ObjectInfo.Oid.Revision())
 			default:
 				err = fmt.Errorf("unknown object type %q", objectType)
 			}
 
 			if err != nil {
-				sendResult(catfileObjectResult{
-					err: fmt.Errorf("requesting object: %w", err),
+				sendResult(CatfileObjectResult{
+					Err: fmt.Errorf("requesting object: %w", err),
 				})
 				return
 			}
@@ -425,10 +430,10 @@ func catfileObject(
 				doneCh: make(chan interface{}),
 			}
 
-			if isDone := sendResult(catfileObjectResult{
-				objectName:   catfileInfoResult.objectName,
-				objectInfo:   catfileInfoResult.objectInfo,
-				objectReader: objectReader,
+			if isDone := sendResult(CatfileObjectResult{
+				ObjectName:   catfileInfoResult.ObjectName,
+				ObjectInfo:   catfileInfoResult.ObjectInfo,
+				ObjectReader: objectReader,
 			}); isDone {
 				return
 			}

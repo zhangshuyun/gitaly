@@ -58,15 +58,15 @@ func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobS
 		return helper.ErrInternalf("cannot determine Git version: %v", err)
 	}
 
-	var revlistOptions []revlistOption
+	var revlistOptions []RevlistOption
 	if gitVersion.SupportsObjectTypeFilter() {
-		revlistOptions = append(revlistOptions, withObjectTypeFilter(objectTypeBlob))
+		revlistOptions = append(revlistOptions, WithObjectTypeFilter(ObjectTypeBlob))
 	}
 
-	revlistChan := revlist(ctx, repo, req.GetRevisions(), revlistOptions...)
-	catfileInfoChan := catfileInfo(ctx, catfileProcess, revlistChan)
-	catfileInfoChan = catfileInfoFilter(ctx, catfileInfoChan, func(r catfileInfoResult) bool {
-		return r.objectInfo.Type == "blob"
+	revlistChan := Revlist(ctx, repo, req.GetRevisions(), revlistOptions...)
+	catfileInfoChan := CatfileInfo(ctx, catfileProcess, revlistChan)
+	catfileInfoChan = CatfileInfoFilter(ctx, catfileInfoChan, func(r CatfileInfoResult) bool {
+		return r.ObjectInfo.Type == "blob"
 	})
 
 	// If we have a zero bytes limit, then the caller didn't request any blob contents at all.
@@ -74,13 +74,13 @@ func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobS
 	if req.GetBytesLimit() == 0 {
 		var i uint32
 		for blob := range catfileInfoChan {
-			if blob.err != nil {
-				return helper.ErrInternal(blob.err)
+			if blob.Err != nil {
+				return helper.ErrInternal(blob.Err)
 			}
 
 			if err := chunker.Send(&gitalypb.ListBlobsResponse_Blob{
-				Oid:  blob.objectInfo.Oid.String(),
-				Size: blob.objectInfo.Size,
+				Oid:  blob.ObjectInfo.Oid.String(),
+				Size: blob.ObjectInfo.Size,
 			}); err != nil {
 				return helper.ErrInternal(fmt.Errorf("sending blob chunk: %w", err))
 			}
@@ -91,12 +91,12 @@ func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobS
 			}
 		}
 	} else {
-		catfileObjectChan := catfileObject(ctx, catfileProcess, catfileInfoChan)
+		catfileObjectChan := CatfileObject(ctx, catfileProcess, catfileInfoChan)
 
 		var i uint32
 		for blob := range catfileObjectChan {
-			if blob.err != nil {
-				return helper.ErrInternal(blob.err)
+			if blob.Err != nil {
+				return helper.ErrInternal(blob.Err)
 			}
 
 			headerSent := false
@@ -106,8 +106,8 @@ func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobS
 				}
 
 				if !headerSent {
-					message.Oid = blob.objectInfo.Oid.String()
-					message.Size = blob.objectInfo.Size
+					message.Oid = blob.ObjectInfo.Oid.String()
+					message.Size = blob.ObjectInfo.Size
 					headerSent = true
 				}
 
@@ -120,17 +120,17 @@ func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobS
 
 			readLimit := req.GetBytesLimit()
 			if readLimit < 0 {
-				readLimit = blob.objectInfo.Size
+				readLimit = blob.ObjectInfo.Size
 			}
 
-			_, err := io.CopyN(dataChunker, blob.objectReader, readLimit)
+			_, err := io.CopyN(dataChunker, blob.ObjectReader, readLimit)
 			if err != nil && !errors.Is(err, io.EOF) {
 				return helper.ErrInternal(fmt.Errorf("sending blob data: %w", err))
 			}
 
 			// Discard trailing blob data in case the blob is bigger than the read
 			// limit.
-			_, err = io.Copy(ioutil.Discard, blob.objectReader)
+			_, err = io.Copy(ioutil.Discard, blob.ObjectReader)
 			if err != nil {
 				return helper.ErrInternal(fmt.Errorf("discarding blob data: %w", err))
 			}
@@ -140,8 +140,8 @@ func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobS
 			// header manually in that case.
 			if !headerSent {
 				if err := chunker.Send(&gitalypb.ListBlobsResponse_Blob{
-					Oid:  blob.objectInfo.Oid.String(),
-					Size: blob.objectInfo.Size,
+					Oid:  blob.ObjectInfo.Oid.String(),
+					Size: blob.ObjectInfo.Size,
 				}); err != nil {
 					return helper.ErrInternal(fmt.Errorf("sending blob chunk: %w", err))
 				}

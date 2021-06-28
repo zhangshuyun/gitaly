@@ -78,17 +78,17 @@ func (s *server) ListLFSPointers(in *gitalypb.ListLFSPointersRequest, stream git
 			return helper.ErrInternalf("cannot determine Git version: %v", err)
 		}
 
-		revlistOptions := []revlistOption{withBlobLimit(lfsPointerMaxSize)}
+		revlistOptions := []RevlistOption{WithBlobLimit(lfsPointerMaxSize)}
 		if gitVersion.SupportsObjectTypeFilter() {
-			revlistOptions = append(revlistOptions, withObjectTypeFilter(objectTypeBlob))
+			revlistOptions = append(revlistOptions, WithObjectTypeFilter(ObjectTypeBlob))
 		}
 
-		revlistChan := revlist(ctx, repo, in.GetRevisions(), revlistOptions...)
-		catfileInfoChan := catfileInfo(ctx, catfileProcess, revlistChan)
-		catfileInfoChan = catfileInfoFilter(ctx, catfileInfoChan, func(r catfileInfoResult) bool {
-			return r.objectInfo.Type == "blob" && r.objectInfo.Size <= lfsPointerMaxSize
+		revlistChan := Revlist(ctx, repo, in.GetRevisions(), revlistOptions...)
+		catfileInfoChan := CatfileInfo(ctx, catfileProcess, revlistChan)
+		catfileInfoChan = CatfileInfoFilter(ctx, catfileInfoChan, func(r CatfileInfoResult) bool {
+			return r.ObjectInfo.Type == "blob" && r.ObjectInfo.Size <= lfsPointerMaxSize
 		})
-		catfileObjectChan := catfileObject(ctx, catfileProcess, catfileInfoChan)
+		catfileObjectChan := CatfileObject(ctx, catfileProcess, catfileInfoChan)
 
 		if err := sendLFSPointers(chunker, catfileObjectChan, int(in.Limit)); err != nil {
 			return err
@@ -146,11 +146,11 @@ func (s *server) ListAllLFSPointers(in *gitalypb.ListAllLFSPointersRequest, stre
 			return helper.ErrInternal(fmt.Errorf("creating catfile process: %w", err))
 		}
 
-		catfileInfoChan := catfileInfoAllObjects(ctx, repo)
-		catfileInfoChan = catfileInfoFilter(ctx, catfileInfoChan, func(r catfileInfoResult) bool {
-			return r.objectInfo.Type == "blob" && r.objectInfo.Size <= lfsPointerMaxSize
+		catfileInfoChan := CatfileInfoAllObjects(ctx, repo)
+		catfileInfoChan = CatfileInfoFilter(ctx, catfileInfoChan, func(r CatfileInfoResult) bool {
+			return r.ObjectInfo.Type == "blob" && r.ObjectInfo.Size <= lfsPointerMaxSize
 		})
-		catfileObjectChan := catfileObject(ctx, catfileProcess, catfileInfoChan)
+		catfileObjectChan := CatfileObject(ctx, catfileProcess, catfileInfoChan)
 
 		if err := sendLFSPointers(chunker, catfileObjectChan, int(in.Limit)); err != nil {
 			return err
@@ -194,17 +194,17 @@ func (s *server) GetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gita
 			return helper.ErrInternal(fmt.Errorf("creating catfile process: %w", err))
 		}
 
-		objectChan := make(chan revlistResult, len(req.GetBlobIds()))
+		objectChan := make(chan RevlistResult, len(req.GetBlobIds()))
 		for _, blobID := range req.GetBlobIds() {
-			objectChan <- revlistResult{oid: git.ObjectID(blobID)}
+			objectChan <- RevlistResult{OID: git.ObjectID(blobID)}
 		}
 		close(objectChan)
 
-		catfileInfoChan := catfileInfo(ctx, catfileProcess, objectChan)
-		catfileInfoChan = catfileInfoFilter(ctx, catfileInfoChan, func(r catfileInfoResult) bool {
-			return r.objectInfo.Type == "blob" && r.objectInfo.Size <= lfsPointerMaxSize
+		catfileInfoChan := CatfileInfo(ctx, catfileProcess, objectChan)
+		catfileInfoChan = CatfileInfoFilter(ctx, catfileInfoChan, func(r CatfileInfoResult) bool {
+			return r.ObjectInfo.Type == "blob" && r.ObjectInfo.Size <= lfsPointerMaxSize
 		})
-		catfileObjectChan := catfileObject(ctx, catfileProcess, catfileInfoChan)
+		catfileObjectChan := CatfileObject(ctx, catfileProcess, catfileInfoChan)
 
 		if err := sendLFSPointers(chunker, catfileObjectChan, 0); err != nil {
 			return err
@@ -378,13 +378,13 @@ func (t *lfsPointerSender) Send() error {
 	return t.send(t.pointers)
 }
 
-func sendLFSPointers(chunker *chunk.Chunker, lfsPointers <-chan catfileObjectResult, limit int) error {
+func sendLFSPointers(chunker *chunk.Chunker, lfsPointers <-chan CatfileObjectResult, limit int) error {
 	buffer := bytes.NewBuffer(make([]byte, 0, lfsPointerMaxSize))
 
 	var i int
 	for lfsPointer := range lfsPointers {
-		if lfsPointer.err != nil {
-			return helper.ErrInternal(lfsPointer.err)
+		if lfsPointer.Err != nil {
+			return helper.ErrInternal(lfsPointer.Err)
 		}
 
 		// Avoid allocating bytes for an LFS pointer until we know the current blob really
@@ -394,7 +394,7 @@ func sendLFSPointers(chunker *chunk.Chunker, lfsPointers <-chan catfileObjectRes
 		// Given that we filter pipeline objects by size, the biggest object we may see here
 		// is 200 bytes in size. So it's not much of a problem to read this into memory
 		// completely.
-		if _, err := io.Copy(buffer, lfsPointer.objectReader); err != nil {
+		if _, err := io.Copy(buffer, lfsPointer.ObjectReader); err != nil {
 			return helper.ErrInternal(fmt.Errorf("reading LFS pointer data: %w", err))
 		}
 
@@ -408,7 +408,7 @@ func sendLFSPointers(chunker *chunk.Chunker, lfsPointers <-chan catfileObjectRes
 		if err := chunker.Send(&gitalypb.LFSPointer{
 			Data: objectData,
 			Size: int64(len(objectData)),
-			Oid:  lfsPointer.objectInfo.Oid.String(),
+			Oid:  lfsPointer.ObjectInfo.Oid.String(),
 		}); err != nil {
 			return helper.ErrInternal(fmt.Errorf("sending LFS pointer chunk: %w", err))
 		}
