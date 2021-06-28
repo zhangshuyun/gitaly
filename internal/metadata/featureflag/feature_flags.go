@@ -10,7 +10,7 @@ type FeatureFlag struct {
 // NOTE: if you add a new feature flag please add it to the `All` list defined below.
 var (
 	// GoUpdateRemoteMirror enables the Go implementation of UpdateRemoteMirror
-	GoUpdateRemoteMirror = FeatureFlag{Name: "go_update_remote_mirror", OnByDefault: false}
+	GoUpdateRemoteMirror = FeatureFlag{Name: "go_update_remote_mirror", OnByDefault: true}
 	// FetchInternalRemoteErrors makes FetchInternalRemote return actual errors instead of a boolean
 	FetchInternalRemoteErrors = FeatureFlag{Name: "fetch_internal_remote_errors", OnByDefault: false}
 	// LFSPointersPipeline enables the alternative pipeline implementation of LFS-pointer
