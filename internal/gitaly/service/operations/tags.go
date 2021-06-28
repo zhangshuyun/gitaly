@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -34,14 +35,14 @@ func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagR
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, git.ZeroOID, revision); err != nil {
-		var preReceiveError preReceiveError
+		var preReceiveError updateref.PreReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserDeleteTagResponse{
-				PreReceiveError: preReceiveError.message,
+				PreReceiveError: preReceiveError.Message,
 			}, nil
 		}
 
-		var updateRefError updateRefError
+		var updateRefError updateref.Error
 		if errors.As(err, &updateRefError) {
 			return nil, status.Error(codes.FailedPrecondition, err.Error())
 		}
@@ -191,14 +192,14 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 
 	referenceName := git.ReferenceName(fmt.Sprintf("refs/tags/%s", req.TagName))
 	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, refObjectID, git.ZeroOID); err != nil {
-		var preReceiveError preReceiveError
+		var preReceiveError updateref.PreReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserCreateTagResponse{
-				PreReceiveError: preReceiveError.message,
+				PreReceiveError: preReceiveError.Message,
 			}, nil
 		}
 
-		var updateRefError updateRefError
+		var updateRefError updateref.Error
 		if errors.As(err, &updateRefError) {
 			refNameOK, err := git.CheckRefFormat(ctx, s.gitCmdFactory, referenceName.String())
 			if refNameOK {

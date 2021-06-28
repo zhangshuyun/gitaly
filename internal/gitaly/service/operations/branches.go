@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -51,14 +52,14 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, startPointOID, git.ZeroOID); err != nil {
-		var preReceiveError preReceiveError
+		var preReceiveError updateref.PreReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserCreateBranchResponse{
-				PreReceiveError: preReceiveError.message,
+				PreReceiveError: preReceiveError.Message,
 			}, nil
 		}
 
-		var updateRefError updateRefError
+		var updateRefError updateref.Error
 		if errors.As(err, &updateRefError) {
 			return nil, status.Error(codes.FailedPrecondition, err.Error())
 		}
@@ -113,10 +114,10 @@ func (s *Server) UserUpdateBranch(ctx context.Context, req *gitalypb.UserUpdateB
 	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))
 
 	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, newOID, oldOID); err != nil {
-		var preReceiveError preReceiveError
+		var preReceiveError updateref.PreReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserUpdateBranchResponse{
-				PreReceiveError: preReceiveError.message,
+				PreReceiveError: preReceiveError.Message,
 			}, nil
 		}
 
@@ -152,14 +153,14 @@ func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteB
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, git.ZeroOID, referenceValue); err != nil {
-		var preReceiveError preReceiveError
+		var preReceiveError updateref.PreReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserDeleteBranchResponse{
-				PreReceiveError: preReceiveError.message,
+				PreReceiveError: preReceiveError.Message,
 			}, nil
 		}
 
-		var updateRefError updateRefError
+		var updateRefError updateref.Error
 		if errors.As(err, &updateRefError) {
 			return nil, status.Error(codes.FailedPrecondition, err.Error())
 		}

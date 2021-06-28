@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/remoterepo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitalyssh"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
@@ -68,7 +69,7 @@ func (s *Server) UserCommitFiles(stream gitalypb.OperationService_UserCommitFile
 		var (
 			response        gitalypb.UserCommitFilesResponse
 			indexError      git2go.IndexError
-			preReceiveError preReceiveError
+			preReceiveError updateref.PreReceiveError
 		)
 
 		switch {
@@ -322,7 +323,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, header.Repository, header.User, targetBranchName, commitID, oldRevision); err != nil {
-		if errors.As(err, &updateRefError{}) {
+		if errors.As(err, &updateref.Error{}) {
 			return status.Errorf(codes.FailedPrecondition, err.Error())
 		}
 

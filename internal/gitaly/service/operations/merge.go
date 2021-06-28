@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -103,12 +104,12 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, firstRequest.Repository, firstRequest.User, referenceName, mergeOID, revision); err != nil {
-		var preReceiveError preReceiveError
-		var updateRefError updateRefError
+		var preReceiveError updateref.PreReceiveError
+		var updateRefError updateref.Error
 
 		if errors.As(err, &preReceiveError) {
 			err = stream.Send(&gitalypb.UserMergeBranchResponse{
-				PreReceiveError: preReceiveError.message,
+				PreReceiveError: preReceiveError.Message,
 			})
 		} else if errors.As(err, &updateRefError) {
 			// When an error happens updating the reference, e.g. because of a race
@@ -176,14 +177,14 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, in.Repository, in.User, referenceName, commitID, revision); err != nil {
-		var preReceiveError preReceiveError
+		var preReceiveError updateref.PreReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserFFBranchResponse{
-				PreReceiveError: preReceiveError.message,
+				PreReceiveError: preReceiveError.Message,
 			}, nil
 		}
 
-		var updateRefError updateRefError
+		var updateRefError updateref.Error
 		if errors.As(err, &updateRefError) {
 			// When an error happens updating the reference, e.g. because of a race
 			// with another update, then Ruby code didn't send an error but just an
