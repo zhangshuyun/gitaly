@@ -160,6 +160,90 @@ var CommitsByID = map[string]*gitalypb.GitCommit{
 		BodySize:  11,
 		TreeId:    "91639b9835ff541f312fd2735f639a50bf35d472",
 	},
+	"1e292f8fedd741b75372e19097c76d327140c312": &gitalypb.GitCommit{
+		Id:        "1e292f8fedd741b75372e19097c76d327140c312",
+		Subject:   []byte("Merge branch 'cherry-pikc-ce369011' into 'master'"),
+		Body:      []byte("Merge branch 'cherry-pikc-ce369011' into 'master'\n\nAdd file with a _flattable_ path\n\n See merge request gitlab-org/gitlab-test!35\n"),
+		Author:    drewBlessing(1540830087),
+		Committer: drewBlessing(1540830087),
+		ParentIds: []string{
+			"79b06233d3dc769921576771a4e8bee4b439595d",
+			"c1c67abbaf91f624347bb3ae96eabe3a1b742478",
+		},
+		BodySize: 388,
+		TreeId:   "07f8147e8e73aab6c935c296e8cdc5194dee729b",
+	},
+	"60ecb67744cb56576c30214ff52294f8ce2def98": &gitalypb.GitCommit{
+		Id:        "60ecb67744cb56576c30214ff52294f8ce2def98",
+		Subject:   []byte("Merge branch 'lfs' into 'master'"),
+		Body:      []byte("Merge branch 'lfs' into 'master'\n\nAdd LFS tracking of \"*.lfs\" to .gitattributes\n\nSee merge request gitlab-org/gitlab-test!28"),
+		Author:    stanHu(1515740810),
+		Committer: stanHu(1515740810),
+		ParentIds: []string{
+			"e63f41fe459e62e1228fcef60d7189127aeba95a",
+			"55bc176024cfa3baaceb71db584c7e5df900ea65",
+		},
+		BodySize: 124,
+		TreeId:   "7e2f26d033ee47cd0745649d1a28277c56197921",
+	},
+	"e63f41fe459e62e1228fcef60d7189127aeba95a": &gitalypb.GitCommit{
+		Id:        "e63f41fe459e62e1228fcef60d7189127aeba95a",
+		Subject:   []byte("Merge branch 'gitlab-test-usage-dev-testing-docs' into 'master'"),
+		Body:      []byte("Merge branch 'gitlab-test-usage-dev-testing-docs' into 'master'\r\n\r\nUpdate README.md to include `Usage in testing and development`\r\n\r\nSee merge request !21"),
+		Author:    seanMcGivern(1491906794),
+		Committer: seanMcGivern(1491906794),
+		ParentIds: []string{
+			"b83d6e391c22777fca1ed3012fce84f633d7fed0",
+			"4a24d82dbca5c11c61556f3b35ca472b7463187e",
+		},
+		BodySize: 154,
+		TreeId:   "86ec18bfe87ad42a782fdabd8310f9b7ac750f51",
+	},
+	"55bc176024cfa3baaceb71db584c7e5df900ea65": &gitalypb.GitCommit{
+		Id:        "55bc176024cfa3baaceb71db584c7e5df900ea65",
+		Subject:   []byte("LFS tracks \"*.lfs\" through .gitattributes"),
+		Body:      []byte("LFS tracks \"*.lfs\" through .gitattributes\n"),
+		Author:    jamesEdwardsJones(1515687321),
+		Committer: jamesEdwardsJones(1515738427),
+		ParentIds: []string{
+			"b83d6e391c22777fca1ed3012fce84f633d7fed0",
+		},
+		BodySize: 42,
+		TreeId:   "1970c07e0e1ce7fcf82edc2e3792564bd8ea3744",
+	},
+	"4a24d82dbca5c11c61556f3b35ca472b7463187e": &gitalypb.GitCommit{
+		Id:        "4a24d82dbca5c11c61556f3b35ca472b7463187e",
+		Subject:   []byte("Update README.md to include `Usage in testing and development`"),
+		Body:      []byte("Update README.md to include `Usage in testing and development`"),
+		Author:    lukeBennett(1491905339),
+		Committer: lukeBennett(1491905339),
+		ParentIds: []string{
+			"b83d6e391c22777fca1ed3012fce84f633d7fed0",
+		},
+		BodySize: 62,
+		TreeId:   "86ec18bfe87ad42a782fdabd8310f9b7ac750f51",
+	},
+	"ce369011c189f62c815f5971d096b26759bab0d1": &gitalypb.GitCommit{
+		Id:        "ce369011c189f62c815f5971d096b26759bab0d1",
+		Subject:   []byte("Add file with a _flattable_ path"),
+		Body:      []byte("Add file with a _flattable_ path\n"),
+		Author:    alejandroRodriguez(1504382739),
+		Committer: alejandroRodriguez(1504397760),
+		ParentIds: []string{
+			"913c66a37b4a45b9769037c55c2d238bd0942d2e",
+		},
+		BodySize: 33,
+		TreeId:   "729bb692f55d49149609dd1ceaaf1febbdec7d0d",
+	},
+}
+
+func alejandroRodriguez(ts int64) *gitalypb.CommitAuthor {
+	return &gitalypb.CommitAuthor{
+		Name:     []byte("Alejandro Rodríguez"),
+		Email:    []byte("alejorro70@gmail.com"),
+		Date:     &timestamp.Timestamp{Seconds: ts},
+		Timezone: []byte("-0300"),
+	}
 }
 
 func ahmadSherif(ts int64) *gitalypb.CommitAuthor {
@@ -171,11 +255,56 @@ func ahmadSherif(ts int64) *gitalypb.CommitAuthor {
 	}
 }
 
+func drewBlessing(ts int64) *gitalypb.CommitAuthor {
+	return &gitalypb.CommitAuthor{
+		Name:     []byte("Drew Blessing"),
+		Email:    []byte("drew@blessing.io"),
+		Date:     &timestamp.Timestamp{Seconds: ts},
+		Timezone: []byte("+0000"),
+	}
+}
+
 func dmitriyZaporozhets(ts int64) *gitalypb.CommitAuthor {
 	return &gitalypb.CommitAuthor{
 		Name:     []byte("Dmitriy Zaporozhets"),
 		Email:    []byte("dmitriy.zaporozhets@gmail.com"),
 		Date:     &timestamp.Timestamp{Seconds: ts},
 		Timezone: []byte("-0800"),
+	}
+}
+
+func jamesEdwardsJones(ts int64) *gitalypb.CommitAuthor {
+	return &gitalypb.CommitAuthor{
+		Name:     []byte("James Edwards-Jones"),
+		Email:    []byte("jedwardsjones@gitlab.com"),
+		Date:     &timestamp.Timestamp{Seconds: ts},
+		Timezone: []byte("+0000"),
+	}
+}
+
+func lukeBennett(ts int64) *gitalypb.CommitAuthor {
+	return &gitalypb.CommitAuthor{
+		Name:     []byte("Luke \"Jared\" Bennett"),
+		Email:    []byte("lbennett@gitlab.com"),
+		Date:     &timestamp.Timestamp{Seconds: ts},
+		Timezone: []byte("+0000"),
+	}
+}
+
+func seanMcGivern(ts int64) *gitalypb.CommitAuthor {
+	return &gitalypb.CommitAuthor{
+		Name:     []byte("Sean McGivern"),
+		Email:    []byte("sean@mcgivern.me.uk"),
+		Date:     &timestamp.Timestamp{Seconds: ts},
+		Timezone: []byte("+0000"),
+	}
+}
+
+func stanHu(ts int64) *gitalypb.CommitAuthor {
+	return &gitalypb.CommitAuthor{
+		Name:     []byte("Stan Hu"),
+		Email:    []byte("stanhu@gmail.com"),
+		Date:     &timestamp.Timestamp{Seconds: ts},
+		Timezone: []byte("+0000"),
 	}
 }

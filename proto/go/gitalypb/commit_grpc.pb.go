@@ -18,6 +18,11 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CommitServiceClient interface {
+	// ListCommits lists all commits reachable via a set of references by doing a
+	// graph walk. This deprecates ListNewCommits, FindAllCommits, FindCommits
+	// (except Follow is not yet supported) and CommitsBetweenRequest. Any
+	// unknown revisions will cause the RPC to fail.
+	ListCommits(ctx context.Context, in *ListCommitsRequest, opts ...grpc.CallOption) (CommitService_ListCommitsClient, error)
 	CommitIsAncestor(ctx context.Context, in *CommitIsAncestorRequest, opts ...grpc.CallOption) (*CommitIsAncestorResponse, error)
 	TreeEntry(ctx context.Context, in *TreeEntryRequest, opts ...grpc.CallOption) (CommitService_TreeEntryClient, error)
 	CommitsBetween(ctx context.Context, in *CommitsBetweenRequest, opts ...grpc.CallOption) (CommitService_CommitsBetweenClient, error)
@@ -50,6 +55,38 @@ func NewCommitServiceClient(cc grpc.ClientConnInterface) CommitServiceClient {
 	return &commitServiceClient{cc}
 }
 
+func (c *commitServiceClient) ListCommits(ctx context.Context, in *ListCommitsRequest, opts ...grpc.CallOption) (CommitService_ListCommitsClient, error) {
+	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[0], "/gitaly.CommitService/ListCommits", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &commitServiceListCommitsClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type CommitService_ListCommitsClient interface {
+	Recv() (*ListCommitsResponse, error)
+	grpc.ClientStream
+}
+
+type commitServiceListCommitsClient struct {
+	grpc.ClientStream
+}
+
+func (x *commitServiceListCommitsClient) Recv() (*ListCommitsResponse, error) {
+	m := new(ListCommitsResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *commitServiceClient) CommitIsAncestor(ctx context.Context, in *CommitIsAncestorRequest, opts ...grpc.CallOption) (*CommitIsAncestorResponse, error) {
 	out := new(CommitIsAncestorResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.CommitService/CommitIsAncestor", in, out, opts...)
@@ -60,7 +97,7 @@ func (c *commitServiceClient) CommitIsAncestor(ctx context.Context, in *CommitIs
 }
 
 func (c *commitServiceClient) TreeEntry(ctx context.Context, in *TreeEntryRequest, opts ...grpc.CallOption) (CommitService_TreeEntryClient, error) {
-	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[0], "/gitaly.CommitService/TreeEntry", opts...)
+	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[1], "/gitaly.CommitService/TreeEntry", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +129,7 @@ func (x *commitServiceTreeEntryClient) Recv() (*TreeEntryResponse, error) {
 }
 
 func (c *commitServiceClient) CommitsBetween(ctx context.Context, in *CommitsBetweenRequest, opts ...grpc.CallOption) (CommitService_CommitsBetweenClient, error) {
-	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[1], "/gitaly.CommitService/CommitsBetween", opts...)
+	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[2], "/gitaly.CommitService/CommitsBetween", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +179,7 @@ func (c *commitServiceClient) CountDivergingCommits(ctx context.Context, in *Cou
 }
 
 func (c *commitServiceClient) GetTreeEntries(ctx context.Context, in *GetTreeEntriesRequest, opts ...grpc.CallOption) (CommitService_GetTreeEntriesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[2], "/gitaly.CommitService/GetTreeEntries", opts...)
+	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[3], "/gitaly.CommitService/GetTreeEntries", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +211,7 @@ func (x *commitServiceGetTreeEntriesClient) Recv() (*GetTreeEntriesResponse, err
 }
 
 func (c *commitServiceClient) ListFiles(ctx context.Context, in *ListFilesRequest, opts ...grpc.CallOption) (CommitService_ListFilesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[3], "/gitaly.CommitService/ListFiles", opts...)
+	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[4], "/gitaly.CommitService/ListFiles", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +261,7 @@ func (c *commitServiceClient) CommitStats(ctx context.Context, in *CommitStatsRe
 }
 
 func (c *commitServiceClient) FindAllCommits(ctx context.Context, in *FindAllCommitsRequest, opts ...grpc.CallOption) (CommitService_FindAllCommitsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[4], "/gitaly.CommitService/FindAllCommits", opts...)
+	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[5], "/gitaly.CommitService/FindAllCommits", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -256,7 +293,7 @@ func (x *commitServiceFindAllCommitsClient) Recv() (*FindAllCommitsResponse, err
 }
 
 func (c *commitServiceClient) FindCommits(ctx context.Context, in *FindCommitsRequest, opts ...grpc.CallOption) (CommitService_FindCommitsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[5], "/gitaly.CommitService/FindCommits", opts...)
+	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[6], "/gitaly.CommitService/FindCommits", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -297,7 +334,7 @@ func (c *commitServiceClient) CommitLanguages(ctx context.Context, in *CommitLan
 }
 
 func (c *commitServiceClient) RawBlame(ctx context.Context, in *RawBlameRequest, opts ...grpc.CallOption) (CommitService_RawBlameClient, error) {
-	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[6], "/gitaly.CommitService/RawBlame", opts...)
+	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[7], "/gitaly.CommitService/RawBlame", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -338,7 +375,7 @@ func (c *commitServiceClient) LastCommitForPath(ctx context.Context, in *LastCom
 }
 
 func (c *commitServiceClient) ListLastCommitsForTree(ctx context.Context, in *ListLastCommitsForTreeRequest, opts ...grpc.CallOption) (CommitService_ListLastCommitsForTreeClient, error) {
-	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[7], "/gitaly.CommitService/ListLastCommitsForTree", opts...)
+	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[8], "/gitaly.CommitService/ListLastCommitsForTree", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -370,7 +407,7 @@ func (x *commitServiceListLastCommitsForTreeClient) Recv() (*ListLastCommitsForT
 }
 
 func (c *commitServiceClient) CommitsByMessage(ctx context.Context, in *CommitsByMessageRequest, opts ...grpc.CallOption) (CommitService_CommitsByMessageClient, error) {
-	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[8], "/gitaly.CommitService/CommitsByMessage", opts...)
+	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[9], "/gitaly.CommitService/CommitsByMessage", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -402,7 +439,7 @@ func (x *commitServiceCommitsByMessageClient) Recv() (*CommitsByMessageResponse,
 }
 
 func (c *commitServiceClient) ListCommitsByOid(ctx context.Context, in *ListCommitsByOidRequest, opts ...grpc.CallOption) (CommitService_ListCommitsByOidClient, error) {
-	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[9], "/gitaly.CommitService/ListCommitsByOid", opts...)
+	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[10], "/gitaly.CommitService/ListCommitsByOid", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -434,7 +471,7 @@ func (x *commitServiceListCommitsByOidClient) Recv() (*ListCommitsByOidResponse,
 }
 
 func (c *commitServiceClient) ListCommitsByRefName(ctx context.Context, in *ListCommitsByRefNameRequest, opts ...grpc.CallOption) (CommitService_ListCommitsByRefNameClient, error) {
-	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[10], "/gitaly.CommitService/ListCommitsByRefName", opts...)
+	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[11], "/gitaly.CommitService/ListCommitsByRefName", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -466,7 +503,7 @@ func (x *commitServiceListCommitsByRefNameClient) Recv() (*ListCommitsByRefNameR
 }
 
 func (c *commitServiceClient) FilterShasWithSignatures(ctx context.Context, opts ...grpc.CallOption) (CommitService_FilterShasWithSignaturesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[11], "/gitaly.CommitService/FilterShasWithSignatures", opts...)
+	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[12], "/gitaly.CommitService/FilterShasWithSignatures", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -497,7 +534,7 @@ func (x *commitServiceFilterShasWithSignaturesClient) Recv() (*FilterShasWithSig
 }
 
 func (c *commitServiceClient) GetCommitSignatures(ctx context.Context, in *GetCommitSignaturesRequest, opts ...grpc.CallOption) (CommitService_GetCommitSignaturesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[12], "/gitaly.CommitService/GetCommitSignatures", opts...)
+	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[13], "/gitaly.CommitService/GetCommitSignatures", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -529,7 +566,7 @@ func (x *commitServiceGetCommitSignaturesClient) Recv() (*GetCommitSignaturesRes
 }
 
 func (c *commitServiceClient) GetCommitMessages(ctx context.Context, in *GetCommitMessagesRequest, opts ...grpc.CallOption) (CommitService_GetCommitMessagesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[13], "/gitaly.CommitService/GetCommitMessages", opts...)
+	stream, err := c.cc.NewStream(ctx, &CommitService_ServiceDesc.Streams[14], "/gitaly.CommitService/GetCommitMessages", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -564,6 +601,11 @@ func (x *commitServiceGetCommitMessagesClient) Recv() (*GetCommitMessagesRespons
 // All implementations must embed UnimplementedCommitServiceServer
 // for forward compatibility
 type CommitServiceServer interface {
+	// ListCommits lists all commits reachable via a set of references by doing a
+	// graph walk. This deprecates ListNewCommits, FindAllCommits, FindCommits
+	// (except Follow is not yet supported) and CommitsBetweenRequest. Any
+	// unknown revisions will cause the RPC to fail.
+	ListCommits(*ListCommitsRequest, CommitService_ListCommitsServer) error
 	CommitIsAncestor(context.Context, *CommitIsAncestorRequest) (*CommitIsAncestorResponse, error)
 	TreeEntry(*TreeEntryRequest, CommitService_TreeEntryServer) error
 	CommitsBetween(*CommitsBetweenRequest, CommitService_CommitsBetweenServer) error
@@ -593,6 +635,9 @@ type CommitServiceServer interface {
 type UnimplementedCommitServiceServer struct {
 }
 
+func (UnimplementedCommitServiceServer) ListCommits(*ListCommitsRequest, CommitService_ListCommitsServer) error {
+	return status.Errorf(codes.Unimplemented, "method ListCommits not implemented")
+}
 func (UnimplementedCommitServiceServer) CommitIsAncestor(context.Context, *CommitIsAncestorRequest) (*CommitIsAncestorResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CommitIsAncestor not implemented")
 }
@@ -667,6 +712,27 @@ type UnsafeCommitServiceServer interface {
 
 func RegisterCommitServiceServer(s grpc.ServiceRegistrar, srv CommitServiceServer) {
 	s.RegisterService(&CommitService_ServiceDesc, srv)
+}
+
+func _CommitService_ListCommits_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ListCommitsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(CommitServiceServer).ListCommits(m, &commitServiceListCommitsServer{stream})
+}
+
+type CommitService_ListCommitsServer interface {
+	Send(*ListCommitsResponse) error
+	grpc.ServerStream
+}
+
+type commitServiceListCommitsServer struct {
+	grpc.ServerStream
+}
+
+func (x *commitServiceListCommitsServer) Send(m *ListCommitsResponse) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 func _CommitService_CommitIsAncestor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1131,6 +1197,11 @@ var CommitService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "ListCommits",
+			Handler:       _CommitService_ListCommits_Handler,
+			ServerStreams: true,
+		},
 		{
 			StreamName:    "TreeEntry",
 			Handler:       _CommitService_TreeEntry_Handler,
