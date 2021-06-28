@@ -329,11 +329,6 @@ func (c *DiskCache) StartLease(repo *gitalypb.Repository) (LeaseEnder, error) {
 	}, nil
 }
 
-// LeaseEnder allows the caller to indicate when a lease is no longer needed
-type LeaseEnder interface {
-	EndLease(context.Context) error
-}
-
 type lease struct {
 	pendingPath string
 	repo        *gitalypb.Repository

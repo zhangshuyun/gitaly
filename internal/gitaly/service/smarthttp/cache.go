@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"sync"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -17,18 +16,11 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// streamer abstracts away the cache concrete type so that it can be override
-// in tests
-type streamer interface {
-	GetStream(ctx context.Context, repo *gitalypb.Repository, req proto.Message) (_ io.ReadCloser, err error)
-	PutStream(ctx context.Context, repo *gitalypb.Repository, req proto.Message, src io.Reader) error
-}
-
 type infoRefCache struct {
-	streamer streamer
+	streamer cache.Streamer
 }
 
-func newInfoRefCache(streamer streamer) infoRefCache {
+func newInfoRefCache(streamer cache.Streamer) infoRefCache {
 	return infoRefCache{
 		streamer: streamer,
 	}

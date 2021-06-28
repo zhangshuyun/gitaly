@@ -140,7 +140,7 @@ type mockCache struct {
 	}
 }
 
-func newMockCache() Invalidator {
+func newMockCache() diskcache.Invalidator {
 	return &mockCache{
 		endedLeases: &struct {
 			sync.RWMutex

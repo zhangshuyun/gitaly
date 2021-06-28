@@ -276,7 +276,7 @@ func assertGitRefAdvertisement(t *testing.T, rpc, responseBody string, firstLine
 }
 
 type mockStreamer struct {
-	streamer
+	cache.Streamer
 	putStream func(context.Context, *gitalypb.Repository, proto.Message, io.Reader) error
 }
 
@@ -284,7 +284,7 @@ func (ms mockStreamer) PutStream(ctx context.Context, repo *gitalypb.Repository,
 	if ms.putStream != nil {
 		return ms.putStream(ctx, repo, req, src)
 	}
-	return ms.streamer.PutStream(ctx, repo, req, src)
+	return ms.Streamer.PutStream(ctx, repo, req, src)
 }
 
 func TestCacheInfoRefsUploadPack(t *testing.T) {
@@ -364,7 +364,7 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 	happened := false
 
 	mockInfoRefCache := newInfoRefCache(mockStreamer{
-		streamer: cache,
+		Streamer: cache,
 		putStream: func(context.Context, *gitalypb.Repository, proto.Message, io.Reader) error {
 			happened = true
 			return errors.New("oopsie")
