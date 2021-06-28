@@ -143,6 +143,19 @@ func TestRevlist(t *testing.T) {
 			},
 		},
 		{
+			desc: "revision range without objects with at most one parent",
+			revisions: []string{
+				"^refs/heads/master~",
+				"refs/heads/master",
+			},
+			options: []RevlistOption{
+				WithMaxParents(1),
+			},
+			expectedResults: []RevlistResult{
+				{OID: "c1c67abbaf91f624347bb3ae96eabe3a1b742478"},
+			},
+		},
+		{
 			desc: "revision range with topo order",
 			revisions: []string{
 				// This is one of the smaller examples I've found which reproduces

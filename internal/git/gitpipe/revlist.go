@@ -44,6 +44,7 @@ type revlistConfig struct {
 	objects    bool
 	objectType ObjectType
 	order      Order
+	maxParents uint
 }
 
 // RevlistOption is an option for the revlist pipeline step.
@@ -94,6 +95,16 @@ const (
 func WithOrder(o Order) RevlistOption {
 	return func(cfg *revlistConfig) {
 		cfg.order = o
+	}
+}
+
+// WithMaxParents will cause git-rev-list(1) to list only commits with at most p parents. If set to
+// 1, then merge commits will be skipped. While the zero-value for git-rev-list(1) would cause it to
+// only print the root commit, we use it as the default value and simply print all commits in that
+// case.
+func WithMaxParents(p uint) RevlistOption {
+	return func(cfg *revlistConfig) {
+		cfg.maxParents = p
 	}
 }
 
@@ -154,6 +165,12 @@ func Revlist(
 			flags = append(flags, git.Flag{Name: "--topo-order"})
 		case OrderDate:
 			flags = append(flags, git.Flag{Name: "--date-order"})
+		}
+
+		if cfg.maxParents > 0 {
+			flags = append(flags, git.Flag{
+				Name: fmt.Sprintf("--max-parents=%d", cfg.maxParents)},
+			)
 		}
 
 		revlist, err := repo.Exec(ctx, git.SubCmd{
