@@ -46,6 +46,7 @@ type revlistConfig struct {
 	order        Order
 	maxParents   uint
 	disabledWalk bool
+	firstParent  bool
 }
 
 // RevlistOption is an option for the revlist pipeline step.
@@ -117,6 +118,13 @@ func WithDisabledWalk() RevlistOption {
 	}
 }
 
+// WithFirstParent will cause git-rev-list(1) to only walk down the first-parent chain of commits.
+func WithFirstParent() RevlistOption {
+	return func(cfg *revlistConfig) {
+		cfg.firstParent = true
+	}
+}
+
 // Revlist runs git-rev-list(1) with objects and object names enabled. The returned channel will
 // contain all object IDs listed by this command. Cancelling the context will cause the pipeline to
 // be cancelled, too.
@@ -184,6 +192,10 @@ func Revlist(
 
 		if cfg.disabledWalk {
 			flags = append(flags, git.Flag{Name: "--no-walk"})
+		}
+
+		if cfg.firstParent {
+			flags = append(flags, git.Flag{Name: "--first-parent"})
 		}
 
 		revlist, err := repo.Exec(ctx, git.SubCmd{

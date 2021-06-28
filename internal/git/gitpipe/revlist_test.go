@@ -223,6 +223,22 @@ func TestRevlist(t *testing.T) {
 			},
 		},
 		{
+			desc: "first parent chain",
+			revisions: []string{
+				"master",
+				"^master~4",
+			},
+			options: []RevlistOption{
+				WithFirstParent(),
+			},
+			expectedResults: []RevlistResult{
+				{OID: "1e292f8fedd741b75372e19097c76d327140c312"},
+				{OID: "7975be0116940bf2ad4321f79d02a55c5f7779aa"},
+				{OID: "60ecb67744cb56576c30214ff52294f8ce2def98"},
+				{OID: "e63f41fe459e62e1228fcef60d7189127aeba95a"},
+			},
+		},
+		{
 			// This is a tree object with multiple blobs. We cannot directly filter
 			// blobs given that Git will always print whatever's been provided on the
 			// command line. While we can already fix this with Git v2.32.0 via
