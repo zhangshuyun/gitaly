@@ -40,11 +40,12 @@ const (
 
 // revlistConfig is configuration for the revlist pipeline step.
 type revlistConfig struct {
-	blobLimit  int
-	objects    bool
-	objectType ObjectType
-	order      Order
-	maxParents uint
+	blobLimit    int
+	objects      bool
+	objectType   ObjectType
+	order        Order
+	maxParents   uint
+	disabledWalk bool
 }
 
 // RevlistOption is an option for the revlist pipeline step.
@@ -105,6 +106,14 @@ func WithOrder(o Order) RevlistOption {
 func WithMaxParents(p uint) RevlistOption {
 	return func(cfg *revlistConfig) {
 		cfg.maxParents = p
+	}
+}
+
+// WithDisabledWalk will cause git-rev-list(1) to not do a graph walk beyond the immediate specified
+// tips.
+func WithDisabledWalk() RevlistOption {
+	return func(cfg *revlistConfig) {
+		cfg.disabledWalk = true
 	}
 }
 
@@ -171,6 +180,10 @@ func Revlist(
 			flags = append(flags, git.Flag{
 				Name: fmt.Sprintf("--max-parents=%d", cfg.maxParents)},
 			)
+		}
+
+		if cfg.disabledWalk {
+			flags = append(flags, git.Flag{Name: "--no-walk"})
 		}
 
 		revlist, err := repo.Exec(ctx, git.SubCmd{

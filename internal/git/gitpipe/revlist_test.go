@@ -113,6 +113,18 @@ func TestRevlist(t *testing.T) {
 			expectedResults: nil,
 		},
 		{
+			desc: "revision without disabled walk",
+			revisions: []string{
+				"refs/heads/master",
+			},
+			options: []RevlistOption{
+				WithDisabledWalk(),
+			},
+			expectedResults: []RevlistResult{
+				{OID: "1e292f8fedd741b75372e19097c76d327140c312"},
+			},
+		},
+		{
 			desc: "revision range",
 			revisions: []string{
 				"^refs/heads/master~",
