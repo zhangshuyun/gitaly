@@ -32,7 +32,7 @@ type CatfileObjectResult struct {
 func CatfileObject(
 	ctx context.Context,
 	catfileProcess catfile.Batch,
-	catfileInfoResultChan <-chan CatfileInfoResult,
+	it CatfileInfoIterator,
 ) <-chan CatfileObjectResult {
 	resultChan := make(chan CatfileObjectResult)
 	go func() {
@@ -49,11 +49,8 @@ func CatfileObject(
 
 		var objectReader *signallingReader
 
-		for catfileInfoResult := range catfileInfoResultChan {
-			if catfileInfoResult.Err != nil {
-				sendResult(CatfileObjectResult{Err: catfileInfoResult.Err})
-				return
-			}
+		for it.Next() {
+			catfileInfoResult := it.Result()
 
 			// We mustn't try to read another object before reading the previous object
 			// has concluded. Given that this is not under our control but under the
@@ -103,6 +100,11 @@ func CatfileObject(
 			}); isDone {
 				return
 			}
+		}
+
+		if err := it.Err(); err != nil {
+			sendResult(CatfileObjectResult{Err: err})
+			return
 		}
 	}()
 

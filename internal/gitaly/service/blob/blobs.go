@@ -65,8 +65,8 @@ func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobS
 	}
 
 	revlistIter := gitpipe.Revlist(ctx, repo, req.GetRevisions(), revlistOptions...)
-	catfileInfoChan := gitpipe.CatfileInfo(ctx, catfileProcess, revlistIter)
-	catfileInfoChan = gitpipe.CatfileInfoFilter(ctx, catfileInfoChan, func(r gitpipe.CatfileInfoResult) bool {
+	catfileInfoIter := gitpipe.CatfileInfo(ctx, catfileProcess, revlistIter)
+	catfileInfoIter = gitpipe.CatfileInfoFilter(ctx, catfileInfoIter, func(r gitpipe.CatfileInfoResult) bool {
 		return r.ObjectInfo.Type == "blob"
 	})
 
@@ -74,10 +74,8 @@ func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobS
 	// We can thus skip reading blob contents completely.
 	if req.GetBytesLimit() == 0 {
 		var i uint32
-		for blob := range catfileInfoChan {
-			if blob.Err != nil {
-				return helper.ErrInternal(blob.Err)
-			}
+		for catfileInfoIter.Next() {
+			blob := catfileInfoIter.Result()
 
 			if err := chunker.Send(&gitalypb.ListBlobsResponse_Blob{
 				Oid:  blob.ObjectInfo.Oid.String(),
@@ -91,8 +89,12 @@ func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobS
 				break
 			}
 		}
+
+		if err := catfileInfoIter.Err(); err != nil {
+			return helper.ErrInternal(err)
+		}
 	} else {
-		catfileObjectChan := gitpipe.CatfileObject(ctx, catfileProcess, catfileInfoChan)
+		catfileObjectChan := gitpipe.CatfileObject(ctx, catfileProcess, catfileInfoIter)
 
 		var i uint32
 		for blob := range catfileObjectChan {

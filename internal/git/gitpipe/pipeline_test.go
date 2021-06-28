@@ -176,12 +176,12 @@ func TestPipeline(t *testing.T) {
 				revlistIter = RevlistFilter(ctx, revlistIter, tc.revlistFilter)
 			}
 
-			catfileInfoChan := CatfileInfo(ctx, catfileProcess, revlistIter)
+			catfileInfoIter := CatfileInfo(ctx, catfileProcess, revlistIter)
 			if tc.catfileInfoFilter != nil {
-				catfileInfoChan = CatfileInfoFilter(ctx, catfileInfoChan, tc.catfileInfoFilter)
+				catfileInfoIter = CatfileInfoFilter(ctx, catfileInfoIter, tc.catfileInfoFilter)
 			}
 
-			catfileObjectChan := CatfileObject(ctx, catfileProcess, catfileInfoChan)
+			catfileObjectChan := CatfileObject(ctx, catfileProcess, catfileInfoIter)
 
 			var results []CatfileObjectResult
 			for result := range catfileObjectChan {
@@ -227,9 +227,9 @@ func TestPipeline(t *testing.T) {
 
 		revlistIter := Revlist(childCtx, repo, []string{"--all"})
 		revlistIter = RevlistFilter(childCtx, revlistIter, func(RevlistResult) bool { return true })
-		catfileInfoChan := CatfileInfo(childCtx, catfileProcess, revlistIter)
-		catfileInfoChan = CatfileInfoFilter(childCtx, catfileInfoChan, func(CatfileInfoResult) bool { return true })
-		catfileObjectChan := CatfileObject(childCtx, catfileProcess, catfileInfoChan)
+		catfileInfoIter := CatfileInfo(childCtx, catfileProcess, revlistIter)
+		catfileInfoIter = CatfileInfoFilter(childCtx, catfileInfoIter, func(CatfileInfoResult) bool { return true })
+		catfileObjectChan := CatfileObject(childCtx, catfileProcess, catfileInfoIter)
 
 		i := 0
 		for result := range catfileObjectChan {
@@ -261,8 +261,8 @@ func TestPipeline(t *testing.T) {
 		require.NoError(t, err)
 
 		revlistIter := Revlist(ctx, repo, []string{"--all"})
-		catfileInfoChan := CatfileInfo(ctx, catfileProcess, revlistIter)
-		catfileObjectChan := CatfileObject(ctx, catfileProcess, catfileInfoChan)
+		catfileInfoIter := CatfileInfo(ctx, catfileProcess, revlistIter)
+		catfileObjectChan := CatfileObject(ctx, catfileProcess, catfileInfoIter)
 
 		i := 0
 		var wg sync.WaitGroup

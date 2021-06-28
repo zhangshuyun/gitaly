@@ -101,13 +101,7 @@ func TestCatfileObject(t *testing.T) {
 			catfileProcess, err := catfileCache.BatchProcess(ctx, repo)
 			require.NoError(t, err)
 
-			catfileInfoResultChan := make(chan CatfileInfoResult, len(tc.catfileInfoInputs))
-			for _, input := range tc.catfileInfoInputs {
-				catfileInfoResultChan <- input
-			}
-			close(catfileInfoResultChan)
-
-			resultChan := CatfileObject(ctx, catfileProcess, catfileInfoResultChan)
+			resultChan := CatfileObject(ctx, catfileProcess, NewCatfileInfoIterator(tc.catfileInfoInputs))
 
 			var results []CatfileObjectResult
 			for result := range resultChan {

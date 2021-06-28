@@ -30,6 +30,7 @@ func TestCatfileInfo(t *testing.T) {
 		desc            string
 		revlistInputs   []RevlistResult
 		expectedResults []CatfileInfoResult
+		expectedErr     error
 	}{
 		{
 			desc: "single blob",
@@ -71,9 +72,7 @@ func TestCatfileInfo(t *testing.T) {
 			revlistInputs: []RevlistResult{
 				{OID: "invalidobjectid"},
 			},
-			expectedResults: []CatfileInfoResult{
-				{Err: errors.New("retrieving object info for \"invalidobjectid\": object not found")},
-			},
+			expectedErr: errors.New("retrieving object info for \"invalidobjectid\": object not found"),
 		},
 		{
 			desc: "mixed valid and invalid revision",
@@ -84,8 +83,8 @@ func TestCatfileInfo(t *testing.T) {
 			},
 			expectedResults: []CatfileInfoResult{
 				{ObjectInfo: &catfile.ObjectInfo{Oid: lfsPointer1, Type: "blob", Size: 133}},
-				{Err: errors.New("retrieving object info for \"invalidobjectid\": object not found")},
 			},
+			expectedErr: errors.New("retrieving object info for \"invalidobjectid\": object not found"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -98,19 +97,21 @@ func TestCatfileInfo(t *testing.T) {
 			catfileProcess, err := catfileCache.BatchProcess(ctx, repo)
 			require.NoError(t, err)
 
-			resultChan := CatfileInfo(ctx, catfileProcess, NewRevlistIterator(tc.revlistInputs))
+			it := CatfileInfo(ctx, catfileProcess, NewRevlistIterator(tc.revlistInputs))
 
 			var results []CatfileInfoResult
-			for result := range resultChan {
-				// We're converting the error here to a plain un-nested error such
-				// that we don't have to replicate the complete error's structure.
-				if result.Err != nil {
-					result.Err = errors.New(result.Err.Error())
-				}
-
-				results = append(results, result)
+			for it.Next() {
+				results = append(results, it.Result())
 			}
 
+			// We're converting the error here to a plain un-nested error such
+			// that we don't have to replicate the complete error's structure.
+			err = it.Err()
+			if err != nil {
+				err = errors.New(err.Error())
+			}
+
+			require.Equal(t, tc.expectedErr, err)
 			require.Equal(t, tc.expectedResults, results)
 		})
 	}
@@ -133,13 +134,13 @@ func TestCatfileInfoAllObjects(t *testing.T) {
 	})
 	commit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
 
-	resultChan := CatfileInfoAllObjects(ctx, repo)
+	it := CatfileInfoAllObjects(ctx, repo)
 
 	var results []CatfileInfoResult
-	for result := range resultChan {
-		require.NoError(t, result.Err)
-		results = append(results, result)
+	for it.Next() {
+		results = append(results, it.Result())
 	}
+	require.NoError(t, it.Err())
 
 	require.ElementsMatch(t, []CatfileInfoResult{
 		{ObjectInfo: &catfile.ObjectInfo{Oid: blob1, Type: "blob", Size: 6}},
@@ -155,6 +156,7 @@ func TestCatfileInfoFilter(t *testing.T) {
 		input           []CatfileInfoResult
 		filter          func(CatfileInfoResult) bool
 		expectedResults []CatfileInfoResult
+		expectedErr     error
 	}{
 		{
 			desc: "all accepted",
@@ -188,15 +190,13 @@ func TestCatfileInfoFilter(t *testing.T) {
 			input: []CatfileInfoResult{
 				{ObjectName: []byte{'a'}},
 				{ObjectName: []byte{'b'}},
-				{Err: errors.New("foobar")},
+				{err: errors.New("foobar")},
 				{ObjectName: []byte{'c'}},
 			},
 			filter: func(CatfileInfoResult) bool {
 				return false
 			},
-			expectedResults: []CatfileInfoResult{
-				{Err: errors.New("foobar")},
-			},
+			expectedErr: errors.New("foobar"),
 		},
 		{
 			desc: "subset filtered",
@@ -217,17 +217,14 @@ func TestCatfileInfoFilter(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			inputChan := make(chan CatfileInfoResult, len(tc.input))
-			for _, input := range tc.input {
-				inputChan <- input
-			}
-			close(inputChan)
+			it := CatfileInfoFilter(ctx, NewCatfileInfoIterator(tc.input), tc.filter)
 
 			var results []CatfileInfoResult
-			for result := range CatfileInfoFilter(ctx, inputChan, tc.filter) {
-				results = append(results, result)
+			for it.Next() {
+				results = append(results, it.Result())
 			}
 
+			require.Equal(t, tc.expectedErr, it.Err())
 			require.Equal(t, tc.expectedResults, results)
 		})
 	}
