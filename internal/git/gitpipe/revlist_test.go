@@ -37,6 +37,7 @@ func TestRevlist(t *testing.T) {
 		revisions       []string
 		options         []RevlistOption
 		expectedResults []RevlistResult
+		expectedErr     error
 	}{
 		{
 			desc: "single blob",
@@ -224,9 +225,7 @@ func TestRevlist(t *testing.T) {
 			revisions: []string{
 				"refs/heads/does-not-exist",
 			},
-			expectedResults: []RevlistResult{
-				{Err: errors.New("rev-list pipeline command: exit status 128")},
-			},
+			expectedErr: errors.New("rev-list pipeline command: exit status 128"),
 		},
 		{
 			desc: "mixed valid and invalid revision",
@@ -234,9 +233,7 @@ func TestRevlist(t *testing.T) {
 				lfsPointer1,
 				"refs/heads/does-not-exist",
 			},
-			expectedResults: []RevlistResult{
-				{Err: errors.New("rev-list pipeline command: exit status 128")},
-			},
+			expectedErr: errors.New("rev-list pipeline command: exit status 128"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -247,19 +244,21 @@ func TestRevlist(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			resultChan := Revlist(ctx, repo, tc.revisions, tc.options...)
+			it := Revlist(ctx, repo, tc.revisions, tc.options...)
 
 			var results []RevlistResult
-			for result := range resultChan {
-				// We're converting the error here to a plain un-nested error such
-				// that we don't have to replicate the complete error's structure.
-				if result.Err != nil {
-					result.Err = errors.New(result.Err.Error())
-				}
-
-				results = append(results, result)
+			for it.Next() {
+				results = append(results, it.Result())
 			}
 
+			// We're converting the error here to a plain un-nested error such that we
+			// don't have to replicate the complete error's structure.
+			err := it.Err()
+			if err != nil {
+				err = errors.New(err.Error())
+			}
+
+			require.Equal(t, tc.expectedErr, err)
 			require.Equal(t, tc.expectedResults, results)
 		})
 	}
@@ -271,6 +270,7 @@ func TestRevlistFilter(t *testing.T) {
 		input           []RevlistResult
 		filter          func(RevlistResult) bool
 		expectedResults []RevlistResult
+		expectedErr     error
 	}{
 		{
 			desc: "all accepted",
@@ -305,15 +305,13 @@ func TestRevlistFilter(t *testing.T) {
 			input: []RevlistResult{
 				{OID: "a"},
 				{OID: "b"},
-				{Err: errors.New("foobar")},
+				{err: errors.New("foobar")},
 				{OID: "c"},
 			},
 			filter: func(RevlistResult) bool {
 				return false
 			},
-			expectedResults: []RevlistResult{
-				{Err: errors.New("foobar")},
-			},
+			expectedErr: errors.New("foobar"),
 		},
 		{
 			desc: "subset filtered",
@@ -334,17 +332,14 @@ func TestRevlistFilter(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			inputChan := make(chan RevlistResult, len(tc.input))
-			for _, input := range tc.input {
-				inputChan <- input
-			}
-			close(inputChan)
+			it := RevlistFilter(ctx, NewRevlistIterator(tc.input), tc.filter)
 
 			var results []RevlistResult
-			for result := range RevlistFilter(ctx, inputChan, tc.filter) {
-				results = append(results, result)
+			for it.Next() {
+				results = append(results, it.Result())
 			}
 
+			require.Equal(t, tc.expectedErr, it.Err())
 			require.Equal(t, tc.expectedResults, results)
 		})
 	}

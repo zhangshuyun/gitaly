@@ -12,8 +12,8 @@ import (
 
 // RevlistResult is a result for the revlist pipeline step.
 type RevlistResult struct {
-	// Err is an error which occurred during execution of the pipeline.
-	Err error
+	// err is an error which occurred during execution of the pipeline.
+	err error
 
 	// OID is the object ID of an object printed by git-rev-list(1).
 	OID git.ObjectID
@@ -73,7 +73,7 @@ func Revlist(
 	repo *localrepo.Repo,
 	revisions []string,
 	options ...RevlistOption,
-) <-chan RevlistResult {
+) RevlistIterator {
 	var cfg revlistConfig
 	for _, option := range options {
 		option(&cfg)
@@ -115,7 +115,7 @@ func Revlist(
 			Args:  revisions,
 		})
 		if err != nil {
-			sendResult(RevlistResult{Err: err})
+			sendResult(RevlistResult{err: err})
 			return
 		}
 
@@ -142,32 +142,36 @@ func Revlist(
 
 		if err := scanner.Err(); err != nil {
 			sendResult(RevlistResult{
-				Err: fmt.Errorf("scanning rev-list output: %w", err),
+				err: fmt.Errorf("scanning rev-list output: %w", err),
 			})
 			return
 		}
 
 		if err := revlist.Wait(); err != nil {
 			sendResult(RevlistResult{
-				Err: fmt.Errorf("rev-list pipeline command: %w", err),
+				err: fmt.Errorf("rev-list pipeline command: %w", err),
 			})
 			return
 		}
 	}()
 
-	return resultChan
+	return &revlistIterator{
+		ch: resultChan,
+	}
 }
 
-// RevlistFilter filters the revlistResults from the provided channel with the filter function: if
+// RevlistFilter filters the RevlistResults from the provided iterator with the filter function: if
 // the filter returns `false` for a given item, then it will be dropped from the pipeline. Errors
 // cannot be filtered and will always be passed through.
-func RevlistFilter(ctx context.Context, c <-chan RevlistResult, filter func(RevlistResult) bool) <-chan RevlistResult {
+func RevlistFilter(ctx context.Context, it RevlistIterator, filter func(RevlistResult) bool) RevlistIterator {
 	resultChan := make(chan RevlistResult)
+
 	go func() {
 		defer close(resultChan)
 
-		for result := range c {
-			if result.Err != nil || filter(result) {
+		for it.Next() {
+			result := it.Result()
+			if filter(result) {
 				select {
 				case resultChan <- result:
 				case <-ctx.Done():
@@ -175,6 +179,17 @@ func RevlistFilter(ctx context.Context, c <-chan RevlistResult, filter func(Revl
 				}
 			}
 		}
+
+		if err := it.Err(); err != nil {
+			select {
+			case resultChan <- RevlistResult{err: err}:
+			case <-ctx.Done():
+				return
+			}
+		}
 	}()
-	return resultChan
+
+	return &revlistIterator{
+		ch: resultChan,
+	}
 }

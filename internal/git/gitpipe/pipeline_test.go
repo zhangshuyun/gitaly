@@ -171,12 +171,12 @@ func TestPipeline(t *testing.T) {
 			catfileProcess, err := catfileCache.BatchProcess(ctx, repo)
 			require.NoError(t, err)
 
-			revlistChan := Revlist(ctx, repo, tc.revisions)
+			revlistIter := Revlist(ctx, repo, tc.revisions)
 			if tc.revlistFilter != nil {
-				revlistChan = RevlistFilter(ctx, revlistChan, tc.revlistFilter)
+				revlistIter = RevlistFilter(ctx, revlistIter, tc.revlistFilter)
 			}
 
-			catfileInfoChan := CatfileInfo(ctx, catfileProcess, revlistChan)
+			catfileInfoChan := CatfileInfo(ctx, catfileProcess, revlistIter)
 			if tc.catfileInfoFilter != nil {
 				catfileInfoChan = CatfileInfoFilter(ctx, catfileInfoChan, tc.catfileInfoFilter)
 			}
@@ -225,9 +225,9 @@ func TestPipeline(t *testing.T) {
 		childCtx, cancel := context.WithCancel(ctx)
 		defer cancel()
 
-		revlistChan := Revlist(childCtx, repo, []string{"--all"})
-		revlistChan = RevlistFilter(childCtx, revlistChan, func(RevlistResult) bool { return true })
-		catfileInfoChan := CatfileInfo(childCtx, catfileProcess, revlistChan)
+		revlistIter := Revlist(childCtx, repo, []string{"--all"})
+		revlistIter = RevlistFilter(childCtx, revlistIter, func(RevlistResult) bool { return true })
+		catfileInfoChan := CatfileInfo(childCtx, catfileProcess, revlistIter)
 		catfileInfoChan = CatfileInfoFilter(childCtx, catfileInfoChan, func(CatfileInfoResult) bool { return true })
 		catfileObjectChan := CatfileObject(childCtx, catfileProcess, catfileInfoChan)
 
@@ -260,8 +260,8 @@ func TestPipeline(t *testing.T) {
 		catfileProcess, err := catfileCache.BatchProcess(ctx, repo)
 		require.NoError(t, err)
 
-		revlistChan := Revlist(ctx, repo, []string{"--all"})
-		catfileInfoChan := CatfileInfo(ctx, catfileProcess, revlistChan)
+		revlistIter := Revlist(ctx, repo, []string{"--all"})
+		catfileInfoChan := CatfileInfo(ctx, catfileProcess, revlistIter)
 		catfileObjectChan := CatfileObject(ctx, catfileProcess, catfileInfoChan)
 
 		i := 0

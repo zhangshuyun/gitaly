@@ -84,8 +84,8 @@ func (s *server) ListLFSPointers(in *gitalypb.ListLFSPointersRequest, stream git
 			revlistOptions = append(revlistOptions, gitpipe.WithObjectTypeFilter(gitpipe.ObjectTypeBlob))
 		}
 
-		revlistChan := gitpipe.Revlist(ctx, repo, in.GetRevisions(), revlistOptions...)
-		catfileInfoChan := gitpipe.CatfileInfo(ctx, catfileProcess, revlistChan)
+		revlistIter := gitpipe.Revlist(ctx, repo, in.GetRevisions(), revlistOptions...)
+		catfileInfoChan := gitpipe.CatfileInfo(ctx, catfileProcess, revlistIter)
 		catfileInfoChan = gitpipe.CatfileInfoFilter(ctx, catfileInfoChan, func(r gitpipe.CatfileInfoResult) bool {
 			return r.ObjectInfo.Type == "blob" && r.ObjectInfo.Size <= lfsPointerMaxSize
 		})
@@ -195,13 +195,12 @@ func (s *server) GetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gita
 			return helper.ErrInternal(fmt.Errorf("creating catfile process: %w", err))
 		}
 
-		objectChan := make(chan gitpipe.RevlistResult, len(req.GetBlobIds()))
-		for _, blobID := range req.GetBlobIds() {
-			objectChan <- gitpipe.RevlistResult{OID: git.ObjectID(blobID)}
+		blobs := make([]gitpipe.RevlistResult, len(req.GetBlobIds()))
+		for i, blobID := range req.GetBlobIds() {
+			blobs[i] = gitpipe.RevlistResult{OID: git.ObjectID(blobID)}
 		}
-		close(objectChan)
 
-		catfileInfoChan := gitpipe.CatfileInfo(ctx, catfileProcess, objectChan)
+		catfileInfoChan := gitpipe.CatfileInfo(ctx, catfileProcess, gitpipe.NewRevlistIterator(blobs))
 		catfileInfoChan = gitpipe.CatfileInfoFilter(ctx, catfileInfoChan, func(r gitpipe.CatfileInfoResult) bool {
 			return r.ObjectInfo.Type == "blob" && r.ObjectInfo.Size <= lfsPointerMaxSize
 		})

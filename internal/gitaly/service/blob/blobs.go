@@ -64,8 +64,8 @@ func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobS
 		revlistOptions = append(revlistOptions, gitpipe.WithObjectTypeFilter(gitpipe.ObjectTypeBlob))
 	}
 
-	revlistChan := gitpipe.Revlist(ctx, repo, req.GetRevisions(), revlistOptions...)
-	catfileInfoChan := gitpipe.CatfileInfo(ctx, catfileProcess, revlistChan)
+	revlistIter := gitpipe.Revlist(ctx, repo, req.GetRevisions(), revlistOptions...)
+	catfileInfoChan := gitpipe.CatfileInfo(ctx, catfileProcess, revlistIter)
 	catfileInfoChan = gitpipe.CatfileInfoFilter(ctx, catfileInfoChan, func(r gitpipe.CatfileInfoResult) bool {
 		return r.ObjectInfo.Type == "blob"
 	})

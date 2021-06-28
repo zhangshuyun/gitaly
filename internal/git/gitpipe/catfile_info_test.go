@@ -98,13 +98,7 @@ func TestCatfileInfo(t *testing.T) {
 			catfileProcess, err := catfileCache.BatchProcess(ctx, repo)
 			require.NoError(t, err)
 
-			revlistResultChan := make(chan RevlistResult, len(tc.revlistInputs))
-			for _, input := range tc.revlistInputs {
-				revlistResultChan <- input
-			}
-			close(revlistResultChan)
-
-			resultChan := CatfileInfo(ctx, catfileProcess, revlistResultChan)
+			resultChan := CatfileInfo(ctx, catfileProcess, NewRevlistIterator(tc.revlistInputs))
 
 			var results []CatfileInfoResult
 			for result := range resultChan {
