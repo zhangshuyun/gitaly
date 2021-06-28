@@ -143,6 +143,61 @@ func TestRevlist(t *testing.T) {
 			},
 		},
 		{
+			desc: "revision range with topo order",
+			revisions: []string{
+				// This is one of the smaller examples I've found which reproduces
+				// different sorting orders between topo- and date-sorting. Expected
+				// results contain the same object for this and the next test case,
+				// but ordering is different.
+				"master",
+				"^master~5",
+				"flat-path",
+			},
+			options: []RevlistOption{
+				WithOrder(OrderTopo),
+			},
+			expectedResults: []RevlistResult{
+				{OID: "1e292f8fedd741b75372e19097c76d327140c312"},
+				{OID: "c1c67abbaf91f624347bb3ae96eabe3a1b742478"},
+				{OID: "7975be0116940bf2ad4321f79d02a55c5f7779aa"},
+				{OID: "c84ff944ff4529a70788a5e9003c2b7feae29047"},
+				{OID: "60ecb67744cb56576c30214ff52294f8ce2def98"},
+				{OID: "55bc176024cfa3baaceb71db584c7e5df900ea65"},
+				{OID: "e63f41fe459e62e1228fcef60d7189127aeba95a"},
+				{OID: "4a24d82dbca5c11c61556f3b35ca472b7463187e"},
+				{OID: "b83d6e391c22777fca1ed3012fce84f633d7fed0"},
+				{OID: "498214de67004b1da3d820901307bed2a68a8ef6"},
+				// The following commit is sorted differently in the next testcase.
+				{OID: "ce369011c189f62c815f5971d096b26759bab0d1"},
+			},
+		},
+		{
+			desc: "revision range with date order",
+			revisions: []string{
+				"master",
+				"^master~5",
+				"flat-path",
+			},
+			options: []RevlistOption{
+				WithOrder(OrderDate),
+			},
+			expectedResults: []RevlistResult{
+				{OID: "1e292f8fedd741b75372e19097c76d327140c312"},
+				{OID: "c1c67abbaf91f624347bb3ae96eabe3a1b742478"},
+				{OID: "7975be0116940bf2ad4321f79d02a55c5f7779aa"},
+				{OID: "c84ff944ff4529a70788a5e9003c2b7feae29047"},
+				{OID: "60ecb67744cb56576c30214ff52294f8ce2def98"},
+				{OID: "55bc176024cfa3baaceb71db584c7e5df900ea65"},
+				// The following commit is sorted differently in the previous
+				// testcase.
+				{OID: "ce369011c189f62c815f5971d096b26759bab0d1"},
+				{OID: "e63f41fe459e62e1228fcef60d7189127aeba95a"},
+				{OID: "4a24d82dbca5c11c61556f3b35ca472b7463187e"},
+				{OID: "b83d6e391c22777fca1ed3012fce84f633d7fed0"},
+				{OID: "498214de67004b1da3d820901307bed2a68a8ef6"},
+			},
+		},
+		{
 			// This is a tree object with multiple blobs. We cannot directly filter
 			// blobs given that Git will always print whatever's been provided on the
 			// command line. While we can already fix this with Git v2.32.0 via

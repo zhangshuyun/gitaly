@@ -43,6 +43,7 @@ type revlistConfig struct {
 	blobLimit  int
 	objects    bool
 	objectType ObjectType
+	order      Order
 }
 
 // RevlistOption is an option for the revlist pipeline step.
@@ -71,6 +72,28 @@ func WithBlobLimit(limit int) RevlistOption {
 func WithObjectTypeFilter(t ObjectType) RevlistOption {
 	return func(cfg *revlistConfig) {
 		cfg.objectType = t
+	}
+}
+
+// Order is the order in which objects are printed.
+type Order int
+
+const (
+	// OrderNone is the default ordering, which is reverse chronological order.
+	OrderNone = Order(iota)
+	// OrderTopo will cause no parents to be shown before all of its children are shown.
+	// Furthermore, multiple lines of history will not be intermixed.
+	OrderTopo
+	// OrderDate order will cause no parents to be shown before all of its children are shown.
+	// Otherwise, commits are shown in commit timestamp order. This can cause history to be
+	// shown intermixed.
+	OrderDate
+)
+
+// WithOrder will change the ordering of how objects are listed.
+func WithOrder(o Order) RevlistOption {
+	return func(cfg *revlistConfig) {
+		cfg.order = o
 	}
 }
 
@@ -122,6 +145,15 @@ func Revlist(
 				git.Flag{Name: fmt.Sprintf("--filter=object:type=%s", cfg.objectType)},
 				git.Flag{Name: "--filter-provided-objects"},
 			)
+		}
+
+		switch cfg.order {
+		case OrderNone:
+			// Default order, nothing to do.
+		case OrderTopo:
+			flags = append(flags, git.Flag{Name: "--topo-order"})
+		case OrderDate:
+			flags = append(flags, git.Flag{Name: "--date-order"})
 		}
 
 		revlist, err := repo.Exec(ctx, git.SubCmd{
