@@ -17,7 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
 )
 
-func (c *Cache) logWalkErr(err error, path, msg string) {
+func (c *DiskCache) logWalkErr(err error, path, msg string) {
 	c.walkerErrorTotal.Inc()
 	log.Default().
 		WithField("path", path).
@@ -25,7 +25,7 @@ func (c *Cache) logWalkErr(err error, path, msg string) {
 		Warn(msg)
 }
 
-func (c *Cache) cleanWalk(path string) error {
+func (c *DiskCache) cleanWalk(path string) error {
 	defer time.Sleep(100 * time.Microsecond) // relieve pressure
 
 	c.walkerCheckTotal.Inc()
@@ -91,7 +91,7 @@ func (c *Cache) cleanWalk(path string) error {
 
 const cleanWalkFrequency = 10 * time.Minute
 
-func (c *Cache) walkLoop(walkPath string) {
+func (c *DiskCache) walkLoop(walkPath string) {
 	logger := logrus.WithField("path", walkPath)
 	logger.Infof("Starting file walker for %s", walkPath)
 
@@ -104,7 +104,7 @@ func (c *Cache) walkLoop(walkPath string) {
 	})
 }
 
-func (c *Cache) startCleanWalker(storagePath string) {
+func (c *DiskCache) startCleanWalker(storagePath string) {
 	if c.cacheConfig.disableWalker {
 		return
 	}
@@ -115,7 +115,7 @@ func (c *Cache) startCleanWalker(storagePath string) {
 
 // moveAndClear will move the cache to the storage location's
 // temporary folder, and then remove its contents asynchronously
-func (c *Cache) moveAndClear(storagePath string) error {
+func (c *DiskCache) moveAndClear(storagePath string) error {
 	if c.cacheConfig.disableMoveAndClear {
 		return nil
 	}
@@ -161,7 +161,7 @@ func (c *Cache) moveAndClear(storagePath string) error {
 
 // StartWalkers starts the cache walker Goroutines. Initially, this function will try to clean up
 // any preexisting cache directories.
-func (c *Cache) StartWalkers() error {
+func (c *DiskCache) StartWalkers() error {
 	pathSet := map[string]struct{}{}
 	for _, storage := range c.storages {
 		pathSet[storage.Path] = struct{}{}

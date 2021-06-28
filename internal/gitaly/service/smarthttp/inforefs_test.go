@@ -392,7 +392,7 @@ func createInvalidRepo(t testing.TB, repoDir string) func() {
 	return func() { require.NoError(t, os.RemoveAll(repoDir)) }
 }
 
-func replaceCachedResponse(t testing.TB, ctx context.Context, cache *cache.Cache, req *gitalypb.InfoRefsRequest, newContents string) {
+func replaceCachedResponse(t testing.TB, ctx context.Context, cache *cache.DiskCache, req *gitalypb.InfoRefsRequest, newContents string) {
 	path := pathToCachedResponse(t, ctx, cache, req)
 	require.NoError(t, ioutil.WriteFile(path, []byte(newContents), 0644))
 }
@@ -401,7 +401,7 @@ func setInfoRefsUploadPackMethod(ctx context.Context) context.Context {
 	return testhelper.SetCtxGrpcMethod(ctx, "/gitaly.SmartHTTPService/InfoRefsUploadPack")
 }
 
-func pathToCachedResponse(t testing.TB, ctx context.Context, cache *cache.Cache, req *gitalypb.InfoRefsRequest) string {
+func pathToCachedResponse(t testing.TB, ctx context.Context, cache *cache.DiskCache, req *gitalypb.InfoRefsRequest) string {
 	ctx = setInfoRefsUploadPackMethod(ctx)
 	path, err := cache.KeyPath(ctx, req.GetRepository(), req)
 	require.NoError(t, err)

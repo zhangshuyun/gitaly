@@ -82,7 +82,7 @@ func TestDiskCacheInitialClear(t *testing.T) {
 	require.NoFileExists(t, canary)
 }
 
-func pollCountersUntil(t testing.TB, cache *Cache, expectRemovals int) {
+func pollCountersUntil(t testing.TB, cache *DiskCache, expectRemovals int) {
 	// poll injected mock prometheus counters until expected events occur
 	timeout := time.After(time.Second)
 	for {

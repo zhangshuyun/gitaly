@@ -278,7 +278,7 @@ type gitalyServerDeps struct {
 	linguist        *linguist.Instance
 	backchannelReg  *backchannel.Registry
 	catfileCache    catfile.Cache
-	diskCache       *cache.Cache
+	diskCache       *cache.DiskCache
 }
 
 func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server) *service.Dependencies {

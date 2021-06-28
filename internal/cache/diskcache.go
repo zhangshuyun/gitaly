@@ -71,8 +71,8 @@ func withDisabledWalker() Option {
 	}
 }
 
-// Cache stores and retrieves byte streams for repository related RPCs
-type Cache struct {
+// DiskCache stores and retrieves byte streams for repository related RPCs
+type DiskCache struct {
 	storages    []config.Storage
 	keyer       leaseKeyer
 	af          activeFiles
@@ -91,14 +91,14 @@ type Cache struct {
 	walkerEmptyDirRemovalTotal prometheus.Counter
 }
 
-// New will create a new Cache with the given Keyer.
-func New(cfg config.Cfg, locator storage.Locator, opts ...Option) *Cache {
+// New will create a new DiskCache with the given Keyer.
+func New(cfg config.Cfg, locator storage.Locator, opts ...Option) *DiskCache {
 	var cacheConfig cacheConfig
 	for _, opt := range opts {
 		opt(&cacheConfig)
 	}
 
-	cache := &Cache{
+	cache := &DiskCache{
 		storages: cfg.Storages,
 		af: activeFiles{
 			Mutex: &sync.Mutex{},
@@ -180,12 +180,12 @@ func New(cfg config.Cfg, locator storage.Locator, opts ...Option) *Cache {
 }
 
 // Describe is used to describe Prometheus metrics.
-func (c *Cache) Describe(descs chan<- *prometheus.Desc) {
+func (c *DiskCache) Describe(descs chan<- *prometheus.Desc) {
 	prometheus.DescribeByCollect(c, descs)
 }
 
 // Collect is used to collect Prometheus metrics.
-func (c *Cache) Collect(metrics chan<- prometheus.Metric) {
+func (c *DiskCache) Collect(metrics chan<- prometheus.Metric) {
 	c.requestTotals.Collect(metrics)
 	c.missTotals.Collect(metrics)
 	c.bytesStoredtotals.Collect(metrics)
@@ -198,7 +198,7 @@ func (c *Cache) Collect(metrics chan<- prometheus.Metric) {
 	c.walkerEmptyDirRemovalTotal.Collect(metrics)
 }
 
-func (c *Cache) countErr(err error) error {
+func (c *DiskCache) countErr(err error) error {
 	switch err {
 	case ErrMissingLeaseFile:
 		c.errTotal.WithLabelValues("ErrMissingLeaseFile").Inc()
@@ -213,7 +213,7 @@ var ErrReqNotFound = errors.New("request digest not found within repo namespace"
 
 // GetStream will fetch the cached stream for a request. It is the
 // responsibility of the caller to close the stream when done.
-func (c *Cache) GetStream(ctx context.Context, repo *gitalypb.Repository, req proto.Message) (_ io.ReadCloser, err error) {
+func (c *DiskCache) GetStream(ctx context.Context, repo *gitalypb.Repository, req proto.Message) (_ io.ReadCloser, err error) {
 	defer func() {
 		if err != nil {
 			c.missTotals.Inc()
@@ -265,7 +265,7 @@ func (irc instrumentedReadCloser) Read(p []byte) (n int, err error) {
 
 // PutStream will store a stream in a repo-namespace keyed by the digest of the
 // request protobuf message.
-func (c *Cache) PutStream(ctx context.Context, repo *gitalypb.Repository, req proto.Message, src io.Reader) error {
+func (c *DiskCache) PutStream(ctx context.Context, repo *gitalypb.Repository, req proto.Message, src io.Reader) error {
 	reqPath, err := c.KeyPath(ctx, repo, req)
 	if err != nil {
 		return err
@@ -308,14 +308,14 @@ func (c *Cache) PutStream(ctx context.Context, repo *gitalypb.Repository, req pr
 }
 
 // KeyPath returns the cache path for the given request.
-func (c *Cache) KeyPath(ctx context.Context, repo *gitalypb.Repository, req proto.Message) (string, error) {
+func (c *DiskCache) KeyPath(ctx context.Context, repo *gitalypb.Repository, req proto.Message) (string, error) {
 	return c.keyer.keyPath(ctx, repo, req)
 }
 
 // StartLease will mark the repository as being in an indeterministic state. This is typically used
 // when modifying the repo, since the cache is not stable until after the modification is complete.
 // A lease object will be returned that allows the caller to signal the end of the lease.
-func (c *Cache) StartLease(repo *gitalypb.Repository) (LeaseEnder, error) {
+func (c *DiskCache) StartLease(repo *gitalypb.Repository) (LeaseEnder, error) {
 	pendingPath, err := c.keyer.newPendingLease(repo)
 	if err != nil {
 		return lease{}, err
