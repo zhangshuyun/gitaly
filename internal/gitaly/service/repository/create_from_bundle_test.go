@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -18,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
@@ -93,6 +95,12 @@ func TestServer_CreateRepositoryFromBundle_successful(t *testing.T) {
 }
 
 func TestServer_CreateRepositoryFromBundle_transactional(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.CreateRepositoryFromBundleAtomicFetch,
+	}).Run(t, testServerCreateRepositoryFromBundleTransactional)
+}
+
+func testServerCreateRepositoryFromBundleTransactional(t *testing.T, ctx context.Context) {
 	var votes []voting.Vote
 	txManager := &transaction.MockManager{
 		VoteFn: func(ctx context.Context, tx txinfo.Transaction, vote voting.Vote) error {
@@ -104,8 +112,16 @@ func TestServer_CreateRepositoryFromBundle_transactional(t *testing.T) {
 	cfg, repoProto, repoPath, client := setupRepositoryService(t,
 		testserver.WithTransactionManager(txManager))
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	masterOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/master"))
+	featureOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/feature"))
+
+	// keep-around refs are not cloned in the initial step, but are added via the second call to
+	// git-fetch(1). We thus create some of them to exercise their behaviour with regards to
+	// transactional voting.
+	for _, keepAroundRef := range []string{"refs/keep-around/1", "refs/keep-around/2"} {
+		gittest.Exec(t, cfg, "-C", repoPath, "update-ref", keepAroundRef, masterOID)
+	}
+
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "primary", true)
 	require.NoError(t, err)
 	ctx = helper.IncomingToOutgoing(ctx)
@@ -120,7 +136,8 @@ func TestServer_CreateRepositoryFromBundle_transactional(t *testing.T) {
 		},
 	}))
 
-	bundle := gittest.Exec(t, cfg, "-C", repoPath, "bundle", "create", "-", "master", "feature")
+	bundle := gittest.Exec(t, cfg, "-C", repoPath, "bundle", "create", "-",
+		"refs/heads/master", "refs/heads/feature", "refs/keep-around/1", "refs/keep-around/2")
 	require.Greater(t, len(bundle), 100*1024)
 
 	_, err = io.Copy(streamio.NewWriter(func(p []byte) error {
@@ -134,25 +151,53 @@ func TestServer_CreateRepositoryFromBundle_transactional(t *testing.T) {
 	_, err = stream.CloseAndRecv()
 	require.NoError(t, err)
 
-	masterOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "master"))
-	featureOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "feature"))
+	var votingInput []string
 
-	// This accounts for the first two votes which first do a git-clone(1) followed by a fetch.
-	// Given that voting is done via git's reference-transaction hook, the format is `<oldrev>
-	// <newrev> <reference>`.
-	fetchInput := fmt.Sprintf("%s %s refs/heads/feature\n%s %s refs/heads/master\n",
-		git.ZeroOID, featureOID, git.ZeroOID, masterOID)
+	// This accounts for the first two votes via git-clone(1). Given that git-clone(1) creates
+	// all references in a single reference transaction, the hook is executed twice for all
+	// fetched references (once for "prepare", once for "commit").
+	votingInput = append(votingInput,
+		fmt.Sprintf("%s %s refs/heads/feature\n%s %s refs/heads/master\n", git.ZeroOID, featureOID, git.ZeroOID, masterOID),
+		fmt.Sprintf("%s %s refs/heads/feature\n%s %s refs/heads/master\n", git.ZeroOID, featureOID, git.ZeroOID, masterOID),
+	)
 
-	// And this accounts for the final vote in `Create()`, which does vote on all references in
-	// the target repo as listed by git-for-each-ref(1).
-	refsInput := fmt.Sprintf("%s commit\trefs/heads/feature\n%s commit\trefs/heads/master\n",
-		featureOID, masterOID)
+	// Keep-around references are not fetched via git-clone(1) because non-mirror clones only
+	// fetch branches and tags. These additional references are thus obtained via git-fetch(1).
+	// If the following feature flag is enabled, then we'll use the `--atomic` flag for
+	// git-fetch(1) and thus bundle all reference updates into a single transaction. Otherwise,
+	// the old behaviour will create one transaction per reference.
+	if featureflag.IsEnabled(ctx, featureflag.CreateRepositoryFromBundleAtomicFetch) {
+		votingInput = append(votingInput,
+			fmt.Sprintf("%s %s refs/keep-around/2\n%s %s refs/keep-around/1\n", git.ZeroOID, masterOID, git.ZeroOID, masterOID),
+			fmt.Sprintf("%s %s refs/keep-around/2\n%s %s refs/keep-around/1\n", git.ZeroOID, masterOID, git.ZeroOID, masterOID),
+		)
+	} else {
+		votingInput = append(votingInput,
+			fmt.Sprintf("%s %s refs/keep-around/2\n", git.ZeroOID, masterOID),
+			fmt.Sprintf("%s %s refs/keep-around/2\n", git.ZeroOID, masterOID),
+			fmt.Sprintf("%s %s refs/keep-around/1\n", git.ZeroOID, masterOID),
+			fmt.Sprintf("%s %s refs/keep-around/1\n", git.ZeroOID, masterOID),
+		)
+	}
 
-	require.Equal(t, []voting.Vote{
-		voting.VoteFromData([]byte(fetchInput)),
-		voting.VoteFromData([]byte(fetchInput)),
-		voting.VoteFromData([]byte(refsInput)),
-	}, votes)
+	// And this is the final vote in Create(), which does a git-for-each-ref(1) in the target
+	// repository and then manually invokes the hook. The format is thus different from above
+	// votes.
+	votingInput = append(votingInput,
+		strings.Join([]string{
+			featureOID + " commit\trefs/heads/feature",
+			masterOID + " commit\trefs/heads/master",
+			masterOID + " commit\trefs/keep-around/1",
+			masterOID + " commit\trefs/keep-around/2",
+		}, "\n")+"\n",
+	)
+
+	var expectedVotes []voting.Vote
+	for _, expectedVote := range votingInput {
+		expectedVotes = append(expectedVotes, voting.VoteFromData([]byte(expectedVote)))
+	}
+
+	require.Equal(t, votes, expectedVotes)
 }
 
 func TestServer_CreateRepositoryFromBundle_failed_invalid_bundle(t *testing.T) {
