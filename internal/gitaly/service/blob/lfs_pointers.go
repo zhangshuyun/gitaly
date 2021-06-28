@@ -79,7 +79,10 @@ func (s *server) ListLFSPointers(in *gitalypb.ListLFSPointersRequest, stream git
 			return helper.ErrInternalf("cannot determine Git version: %v", err)
 		}
 
-		revlistOptions := []gitpipe.RevlistOption{gitpipe.WithBlobLimit(lfsPointerMaxSize)}
+		revlistOptions := []gitpipe.RevlistOption{
+			gitpipe.WithObjects(),
+			gitpipe.WithBlobLimit(lfsPointerMaxSize),
+		}
 		if gitVersion.SupportsObjectTypeFilter() {
 			revlistOptions = append(revlistOptions, gitpipe.WithObjectTypeFilter(gitpipe.ObjectTypeBlob))
 		}

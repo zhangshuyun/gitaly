@@ -41,11 +41,20 @@ const (
 // revlistConfig is configuration for the revlist pipeline step.
 type revlistConfig struct {
 	blobLimit  int
+	objects    bool
 	objectType ObjectType
 }
 
 // RevlistOption is an option for the revlist pipeline step.
 type RevlistOption func(cfg *revlistConfig)
+
+// WithObjects will cause git-rev-list(1) to not only list commits, but also objects referenced by
+// those commits.
+func WithObjects() RevlistOption {
+	return func(cfg *revlistConfig) {
+		cfg.objects = true
+	}
+}
 
 // WithBlobLimit sets up a size limit for blobs. Only blobs whose size is smaller than this limit
 // will be returned by the pipeline step.
@@ -92,16 +101,22 @@ func Revlist(
 			}
 		}
 
-		flags := []git.Option{
-			git.Flag{Name: "--in-commit-order"},
-			git.Flag{Name: "--objects"},
-			git.Flag{Name: "--object-names"},
+		flags := []git.Option{}
+
+		if cfg.objects {
+			flags = append(flags,
+				git.Flag{Name: "--in-commit-order"},
+				git.Flag{Name: "--objects"},
+				git.Flag{Name: "--object-names"},
+			)
 		}
+
 		if cfg.blobLimit > 0 {
 			flags = append(flags, git.Flag{
 				Name: fmt.Sprintf("--filter=blob:limit=%d", cfg.blobLimit),
 			})
 		}
+
 		if cfg.objectType != "" {
 			flags = append(flags,
 				git.Flag{Name: fmt.Sprintf("--filter=object:type=%s", cfg.objectType)},

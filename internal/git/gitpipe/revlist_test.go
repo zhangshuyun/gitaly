@@ -44,6 +44,9 @@ func TestRevlist(t *testing.T) {
 			revisions: []string{
 				lfsPointer1,
 			},
+			options: []RevlistOption{
+				WithObjects(),
+			},
 			expectedResults: []RevlistResult{
 				{OID: lfsPointer1},
 			},
@@ -56,6 +59,9 @@ func TestRevlist(t *testing.T) {
 				lfsPointer3,
 				lfsPointer4,
 			},
+			options: []RevlistOption{
+				WithObjects(),
+			},
 			expectedResults: []RevlistResult{
 				{OID: lfsPointer1},
 				{OID: lfsPointer2},
@@ -64,10 +70,23 @@ func TestRevlist(t *testing.T) {
 			},
 		},
 		{
+			desc: "multiple blobs without objects",
+			revisions: []string{
+				lfsPointer1,
+				lfsPointer2,
+				lfsPointer3,
+				lfsPointer4,
+			},
+			expectedResults: nil,
+		},
+		{
 			desc: "duplicated blob prints blob once only",
 			revisions: []string{
 				lfsPointer1,
 				lfsPointer1,
+			},
+			options: []RevlistOption{
+				WithObjects(),
 			},
 			expectedResults: []RevlistResult{
 				{OID: lfsPointer1},
@@ -78,16 +97,29 @@ func TestRevlist(t *testing.T) {
 			revisions: []string{
 				"b95c0fad32f4361845f91d9ce4c1721b52b82793",
 			},
+			options: []RevlistOption{
+				WithObjects(),
+			},
 			expectedResults: []RevlistResult{
 				{OID: "b95c0fad32f4361845f91d9ce4c1721b52b82793"},
 				{OID: "93e123ac8a3e6a0b600953d7598af629dec7b735", ObjectName: []byte("branch-test.txt")},
 			},
 		},
 		{
+			desc: "tree without objects returns nothing",
+			revisions: []string{
+				"b95c0fad32f4361845f91d9ce4c1721b52b82793",
+			},
+			expectedResults: nil,
+		},
+		{
 			desc: "revision range",
 			revisions: []string{
 				"^refs/heads/master~",
 				"refs/heads/master",
+			},
+			options: []RevlistOption{
+				WithObjects(),
 			},
 			expectedResults: []RevlistResult{
 				{OID: "1e292f8fedd741b75372e19097c76d327140c312"},
@@ -96,6 +128,17 @@ func TestRevlist(t *testing.T) {
 				{OID: "2132d150328bd9334cc4e62a16a5d998a7e399b9", ObjectName: []byte("files/flat")},
 				{OID: "f3942dc8b824a2c9359e518d48e68f84461bd2f7", ObjectName: []byte("files/flat/path")},
 				{OID: "ea7249055466085d0a6c69951908ef47757e92f4", ObjectName: []byte("files/flat/path/correct")},
+				{OID: "c1c67abbaf91f624347bb3ae96eabe3a1b742478"},
+			},
+		},
+		{
+			desc: "revision range without objects",
+			revisions: []string{
+				"^refs/heads/master~",
+				"refs/heads/master",
+			},
+			expectedResults: []RevlistResult{
+				{OID: "1e292f8fedd741b75372e19097c76d327140c312"},
 				{OID: "c1c67abbaf91f624347bb3ae96eabe3a1b742478"},
 			},
 		},
@@ -109,6 +152,9 @@ func TestRevlist(t *testing.T) {
 			desc: "tree with multiple blobs without limit",
 			revisions: []string{
 				"79d5f98270ad677c86a7e1ab2baa922958565135",
+			},
+			options: []RevlistOption{
+				WithObjects(),
 			},
 			expectedResults: []RevlistResult{
 				{OID: "79d5f98270ad677c86a7e1ab2baa922958565135"},
@@ -131,6 +177,7 @@ func TestRevlist(t *testing.T) {
 				"79d5f98270ad677c86a7e1ab2baa922958565135",
 			},
 			options: []RevlistOption{
+				WithObjects(),
 				WithBlobLimit(10),
 			},
 			expectedResults: []RevlistResult{
@@ -147,6 +194,7 @@ func TestRevlist(t *testing.T) {
 				"79d5f98270ad677c86a7e1ab2baa922958565135",
 			},
 			options: []RevlistOption{
+				WithObjects(),
 				WithObjectTypeFilter(ObjectTypeBlob),
 			},
 			expectedResults: []RevlistResult{
@@ -168,6 +216,7 @@ func TestRevlist(t *testing.T) {
 				"--all",
 			},
 			options: []RevlistOption{
+				WithObjects(),
 				WithObjectTypeFilter(ObjectTypeTag),
 			},
 			expectedResults: []RevlistResult{
@@ -183,6 +232,7 @@ func TestRevlist(t *testing.T) {
 				"79d5f98270ad677c86a7e1ab2baa922958565135",
 			},
 			options: []RevlistOption{
+				WithObjects(),
 				WithObjectTypeFilter(ObjectTypeTree),
 			},
 			expectedResults: []RevlistResult{
@@ -197,6 +247,7 @@ func TestRevlist(t *testing.T) {
 				"refs/heads/master",
 			},
 			options: []RevlistOption{
+				WithObjects(),
 				WithObjectTypeFilter(ObjectTypeCommit),
 			},
 			expectedResults: []RevlistResult{
@@ -211,6 +262,7 @@ func TestRevlist(t *testing.T) {
 				"79d5f98270ad677c86a7e1ab2baa922958565135",
 			},
 			options: []RevlistOption{
+				WithObjects(),
 				WithBlobLimit(10),
 				WithObjectTypeFilter(ObjectTypeBlob),
 			},

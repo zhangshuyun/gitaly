@@ -59,7 +59,10 @@ func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobS
 		return helper.ErrInternalf("cannot determine Git version: %v", err)
 	}
 
-	var revlistOptions []gitpipe.RevlistOption
+	revlistOptions := []gitpipe.RevlistOption{
+		gitpipe.WithObjects(),
+	}
+
 	if gitVersion.SupportsObjectTypeFilter() {
 		revlistOptions = append(revlistOptions, gitpipe.WithObjectTypeFilter(gitpipe.ObjectTypeBlob))
 	}
