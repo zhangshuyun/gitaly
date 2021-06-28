@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gitpipe"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -58,14 +59,14 @@ func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobS
 		return helper.ErrInternalf("cannot determine Git version: %v", err)
 	}
 
-	var revlistOptions []RevlistOption
+	var revlistOptions []gitpipe.RevlistOption
 	if gitVersion.SupportsObjectTypeFilter() {
-		revlistOptions = append(revlistOptions, WithObjectTypeFilter(ObjectTypeBlob))
+		revlistOptions = append(revlistOptions, gitpipe.WithObjectTypeFilter(gitpipe.ObjectTypeBlob))
 	}
 
-	revlistChan := Revlist(ctx, repo, req.GetRevisions(), revlistOptions...)
-	catfileInfoChan := CatfileInfo(ctx, catfileProcess, revlistChan)
-	catfileInfoChan = CatfileInfoFilter(ctx, catfileInfoChan, func(r CatfileInfoResult) bool {
+	revlistChan := gitpipe.Revlist(ctx, repo, req.GetRevisions(), revlistOptions...)
+	catfileInfoChan := gitpipe.CatfileInfo(ctx, catfileProcess, revlistChan)
+	catfileInfoChan = gitpipe.CatfileInfoFilter(ctx, catfileInfoChan, func(r gitpipe.CatfileInfoResult) bool {
 		return r.ObjectInfo.Type == "blob"
 	})
 
@@ -91,7 +92,7 @@ func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobS
 			}
 		}
 	} else {
-		catfileObjectChan := CatfileObject(ctx, catfileProcess, catfileInfoChan)
+		catfileObjectChan := gitpipe.CatfileObject(ctx, catfileProcess, catfileInfoChan)
 
 		var i uint32
 		for blob := range catfileObjectChan {
