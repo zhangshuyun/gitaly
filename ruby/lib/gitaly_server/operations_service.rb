@@ -2,24 +2,6 @@ module GitalyServer
   class OperationsService < Gitaly::OperationService::Service
     include Utils
 
-    def user_update_branch(request, call)
-      repo = Gitlab::Git::Repository.from_gitaly(request.repository, call)
-      branch_name = get_param!(request, :branch_name)
-      newrev = get_param!(request, :newrev)
-      oldrev = get_param!(request, :oldrev)
-      gitaly_user = get_param!(request, :user)
-      transaction = Praefect::Transaction.from_metadata(call.metadata)
-
-      user = Gitlab::Git::User.from_gitaly(gitaly_user)
-      repo.update_branch(branch_name, user: user, newrev: newrev, oldrev: oldrev, transaction: transaction)
-
-      Gitaly::UserUpdateBranchResponse.new
-    rescue Gitlab::Git::Repository::InvalidRef, Gitlab::Git::CommitError => ex
-      raise GRPC::FailedPrecondition.new(ex.message)
-    rescue Gitlab::Git::PreReceiveError => ex
-      Gitaly::UserUpdateBranchResponse.new(pre_receive_error: set_utf8!(ex.message))
-    end
-
     # rubocop:disable Metrics/AbcSize
     def user_rebase_confirmable(session, call)
       Enumerator.new do |y|
