@@ -49,6 +49,7 @@ type revlistConfig struct {
 	disabledWalk  bool
 	firstParent   bool
 	before, after time.Time
+	author        []byte
 }
 
 // RevlistOption is an option for the revlist pipeline step.
@@ -141,6 +142,14 @@ func WithAfter(t time.Time) RevlistOption {
 	}
 }
 
+// WithAuthor will cause git-rev-list(1) to only show commits created by an author matching the
+// given pattern.
+func WithAuthor(author []byte) RevlistOption {
+	return func(cfg *revlistConfig) {
+		cfg.author = author
+	}
+}
+
 // Revlist runs git-rev-list(1) with objects and object names enabled. The returned channel will
 // contain all object IDs listed by this command. Cancelling the context will cause the pipeline to
 // be cancelled, too.
@@ -223,6 +232,12 @@ func Revlist(
 		if !cfg.after.IsZero() {
 			flags = append(flags, git.Flag{
 				Name: fmt.Sprintf("--after=%s", cfg.after.String()),
+			})
+		}
+
+		if len(cfg.author) > 0 {
+			flags = append(flags, git.Flag{
+				Name: fmt.Sprintf("--author=%s", string(cfg.author)),
 			})
 		}
 

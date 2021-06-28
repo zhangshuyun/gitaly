@@ -238,6 +238,18 @@ func TestRevlist(t *testing.T) {
 			},
 		},
 		{
+			desc: "revision range with author",
+			revisions: []string{
+				"refs/heads/master",
+			},
+			options: []RevlistOption{
+				WithAuthor([]byte("Sytse")),
+			},
+			expectedResults: []RevlistResult{
+				{OID: "e56497bb5f03a90a51293fc6d516788730953899"},
+			},
+		},
+		{
 			desc: "first parent chain",
 			revisions: []string{
 				"master",
