@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/metadatahandler"
@@ -1370,6 +1371,20 @@ func (s *mockOperationServer) UserCreateBranch(
 	return &gitalypb.UserCreateBranchResponse{}, s.err
 }
 
+type mockLeaseEnder struct{}
+
+func (e mockLeaseEnder) EndLease(context.Context) error {
+	return nil
+}
+
+type mockDiskCache struct {
+	cache.Cache
+}
+
+func (c *mockDiskCache) StartLease(*gitalypb.Repository) (cache.LeaseEnder, error) {
+	return mockLeaseEnder{}, nil
+}
+
 // TestCoordinator_grpcErrorHandling asserts that we correctly proxy errors in case any of the nodes
 // fails. Most importantly, we want to make sure to only ever forward errors from the primary and
 // never from the secondaries.
@@ -1436,9 +1451,10 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 					t:  t,
 					wg: &wg,
 				}
+
 				addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 					gitalypb.RegisterOperationServiceServer(srv, operationServer)
-				})
+				}, testserver.WithDiskCache(&mockDiskCache{}))
 
 				conn, err := client.DialContext(ctx, addr, []grpc.DialOption{
 					grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())),

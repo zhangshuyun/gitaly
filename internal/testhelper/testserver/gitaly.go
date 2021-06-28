@@ -412,3 +412,11 @@ func WithCatfileCache(catfileCache catfile.Cache) GitalyServerOpt {
 		return deps
 	}
 }
+
+// WithDiskCache sets the cache.Cache instance that will be used for gitaly services initialisation.
+func WithDiskCache(diskCache cache.Cache) GitalyServerOpt {
+	return func(deps gitalyServerDeps) gitalyServerDeps {
+		deps.diskCache = diskCache
+		return deps
+	}
+}
