@@ -6,6 +6,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
@@ -24,6 +25,7 @@ type Server struct {
 	git2go        git2go.Executor
 	gitCmdFactory git.CommandFactory
 	catfileCache  catfile.Cache
+	updater       *updateref.UpdaterWithHooks
 }
 
 // NewServer creates a new instance of a grpc OperationServiceServer
@@ -45,6 +47,7 @@ func NewServer(
 		git2go:        git2go.New(cfg.BinDir, cfg.Git.BinPath),
 		gitCmdFactory: gitCmdFactory,
 		catfileCache:  catfileCache,
+		updater:       updateref.NewUpdaterWithHooks(cfg, hookManager, gitCmdFactory, catfileCache),
 	}
 }
 

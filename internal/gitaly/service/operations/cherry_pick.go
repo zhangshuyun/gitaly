@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -106,7 +107,7 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, newrev, oldrev); err != nil {
-		if errors.As(err, &preReceiveError{}) {
+		if errors.As(err, &updateref.PreReceiveError{}) {
 			return &gitalypb.UserCherryPickResponse{
 				PreReceiveError: err.Error(),
 			}, nil

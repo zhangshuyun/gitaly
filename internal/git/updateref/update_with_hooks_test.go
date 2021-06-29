@@ -1,4 +1,4 @@
-package operations
+package updateref
 
 import (
 	"context"
@@ -48,7 +48,7 @@ func (m *mockHookManager) ReferenceTransactionHook(ctx context.Context, state ho
 	return m.referenceTransaction(m.t, ctx, state, env, stdin)
 }
 
-func TestUpdateReferenceWithHooks_invalidParameters(t *testing.T) {
+func TestUpdaterWithHooks_UpdateReference_invalidParameters(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -63,7 +63,7 @@ func TestUpdateReferenceWithHooks_invalidParameters(t *testing.T) {
 
 	revA, revB := git.ObjectID(strings.Repeat("a", 40)), git.ObjectID(strings.Repeat("b", 40))
 
-	server := NewServer(cfg, nil, &mockHookManager{}, nil, nil, nil, nil)
+	updater := NewUpdaterWithHooks(cfg, &mockHookManager{}, nil, nil)
 
 	testCases := []struct {
 		desc           string
@@ -107,13 +107,13 @@ func TestUpdateReferenceWithHooks_invalidParameters(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			err := server.updateReferenceWithHooks(ctx, repo, user, tc.ref, tc.newRev, tc.oldRev)
+			err := updater.UpdateReference(ctx, repo, user, tc.ref, tc.newRev, tc.oldRev)
 			require.Contains(t, err.Error(), tc.expectedErr)
 		})
 	}
 }
 
-func TestUpdateReferenceWithHooks(t *testing.T) {
+func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -275,9 +275,9 @@ func TestUpdateReferenceWithHooks(t *testing.T) {
 			}
 
 			gitCmdFactory := git.NewExecCommandFactory(cfg)
-			hookServer := NewServer(cfg, nil, hookManager, nil, nil, gitCmdFactory, nil)
+			updater := NewUpdaterWithHooks(cfg, hookManager, gitCmdFactory, nil)
 
-			err := hookServer.updateReferenceWithHooks(ctx, repo, user, git.ReferenceName("refs/heads/master"), git.ZeroOID, git.ObjectID(oldRev))
+			err := updater.UpdateReference(ctx, repo, user, git.ReferenceName("refs/heads/master"), git.ZeroOID, git.ObjectID(oldRev))
 			if tc.expectedErr == "" {
 				require.NoError(t, err)
 			} else {

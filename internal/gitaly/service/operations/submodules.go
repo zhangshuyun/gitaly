@@ -11,6 +11,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -150,14 +151,14 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 		commitID,
 		branchOID,
 	); err != nil {
-		var preReceiveError preReceiveError
+		var preReceiveError updateref.PreReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserUpdateSubmoduleResponse{
 				PreReceiveError: preReceiveError.Error(),
 			}, nil
 		}
 
-		var updateRefError updateRefError
+		var updateRefError updateref.Error
 		if errors.As(err, &updateRefError) {
 			return &gitalypb.UserUpdateSubmoduleResponse{
 				CommitError: err.Error(),
