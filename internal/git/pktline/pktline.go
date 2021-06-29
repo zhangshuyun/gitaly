@@ -161,13 +161,17 @@ type errNotSideband struct{ pkt string }
 
 func (err *errNotSideband) Error() string { return fmt.Sprintf("invalid sideband packet: %q", err.pkt) }
 
-// EachSidebandPacket iterates over a side-band-64k pktline stream. For
-// each packet, it will call fn with the band ID and the packet. Fn must
-// not retain the packet.
+// EachSidebandPacket iterates over a side-band-64k pktline stream until
+// it reaches a flush packet. For each packet, it will call fn with the
+// band ID and the packet. Fn must not retain the packet.
 func EachSidebandPacket(r io.Reader, fn func(byte, []byte) error) error {
 	scanner := NewScanner(r)
 
 	for scanner.Scan() {
+		if IsFlush(scanner.Bytes()) {
+			return nil
+		}
+
 		data := Data(scanner.Bytes())
 		if len(data) == 0 {
 			return &errNotSideband{scanner.Text()}
@@ -177,5 +181,9 @@ func EachSidebandPacket(r io.Reader, fn func(byte, []byte) error) error {
 		}
 	}
 
-	return scanner.Err()
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+
+	return io.ErrUnexpectedEOF
 }

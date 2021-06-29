@@ -204,6 +204,10 @@ func (s *server) runPackObjects(ctx context.Context, w io.Writer, repo *gitalypb
 		return fmt.Errorf("git-pack-objects: stderr: %q err: %w", stderrBuf.String(), err)
 	}
 
+	if err := pktline.WriteFlush(w); err != nil {
+		return err
+	}
+
 	return nil
 }
 

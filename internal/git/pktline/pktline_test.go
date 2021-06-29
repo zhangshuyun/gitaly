@@ -279,16 +279,23 @@ func TestEachSidebandPacket(t *testing.T) {
 	}{
 		{
 			desc: "empty",
+			in:   "0000",
 			out:  map[byte]string{},
 		},
 		{
 			desc:     "empty with failing callback: callback does not run",
+			in:       "0000",
 			out:      map[byte]string{},
 			callback: func(byte, []byte) error { panic("oh no") },
 		},
 		{
 			desc: "valid stream",
-			in:   "0008\x00foo0008\x01bar0008\xfequx0008\xffbaz",
+			in:   "0008\x00foo0008\x01bar0008\xfequx0008\xffbaz0000",
+			out:  map[byte]string{0: "foo", 1: "bar", 254: "qux", 255: "baz"},
+		},
+		{
+			desc: "valid stream trailing garbage",
+			in:   "0008\x00foo0008\x01bar0008\xfequx0008\xffbaz0000 garbage!!",
 			out:  map[byte]string{0: "foo", 1: "bar", 254: "qux", 255: "baz"},
 		},
 		{
@@ -296,6 +303,11 @@ func TestEachSidebandPacket(t *testing.T) {
 			in:       "0008\x00foo0008\x01bar0008\xfequx0008\xffbaz",
 			callback: func(byte, []byte) error { return callbackError },
 			err:      callbackError,
+		},
+		{
+			desc: "valid stream except missing flush",
+			in:   "0008\x00foo0008\x01bar0008\xfequx0008\xffbaz",
+			err:  io.ErrUnexpectedEOF,
 		},
 		{
 			desc: "interrupted stream",
