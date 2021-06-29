@@ -46,7 +46,7 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func SetupConflictsService(t testing.TB, bare bool, hookManager hook.Manager) (config.Cfg, *gitalypb.Repository, string, gitalypb.ConflictsServiceClient) {
+func SetupConfigAndRepo(t testing.TB, bare bool) (config.Cfg, *gitalypb.Repository, string) {
 	cfg := testcfg.Build(t)
 
 	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
@@ -62,11 +62,23 @@ func SetupConflictsService(t testing.TB, bare bool, hookManager hook.Manager) (c
 		t.Cleanup(cleanup)
 	}
 
-	serverSocketPath := runConflictsServer(t, cfg, hookManager)
+	return cfg, repo, repoPath
+}
+
+func SetupConflictsServiceWithConfig(t testing.TB, cfg *config.Cfg, hookManager hook.Manager) gitalypb.ConflictsServiceClient {
+	serverSocketPath := runConflictsServer(t, *cfg, hookManager)
 	cfg.SocketPath = serverSocketPath
 
 	client, conn := NewConflictsClient(t, serverSocketPath)
 	t.Cleanup(func() { conn.Close() })
+
+	return client
+}
+
+func SetupConflictsService(t testing.TB, bare bool, hookManager hook.Manager) (config.Cfg, *gitalypb.Repository, string, gitalypb.ConflictsServiceClient) {
+	cfg, repo, repoPath := SetupConfigAndRepo(t, bare)
+
+	client := SetupConflictsServiceWithConfig(t, &cfg, hookManager)
 
 	return cfg, repo, repoPath, client
 }

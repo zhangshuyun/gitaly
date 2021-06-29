@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -55,58 +56,15 @@ var (
 	}
 )
 
-type mockHookManager struct {
-	t                    *testing.T
-	preReceive           func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error
-	postReceive          func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error
-	update               func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error
-	referenceTransaction func(t *testing.T, ctx context.Context, state hook.ReferenceTransactionState, env []string, stdin io.Reader) error
-}
-
-func (m *mockHookManager) PreReceiveHook(ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
-	if m.preReceive == nil {
-		return nil
-	}
-
-	return m.preReceive(m.t, ctx, repo, pushOptions, env, stdin, stdout, stderr)
-}
-
-func (m *mockHookManager) PostReceiveHook(ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
-	if m.postReceive == nil {
-		return nil
-	}
-
-	return m.postReceive(m.t, ctx, repo, pushOptions, env, stdin, stdout, stderr)
-}
-
-func (m *mockHookManager) UpdateHook(ctx context.Context, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error {
-	if m.update == nil {
-		return nil
-	}
-
-	return m.update(m.t, ctx, repo, ref, oldValue, newValue, env, stdout, stderr)
-}
-
-func (m *mockHookManager) ReferenceTransactionHook(ctx context.Context, state hook.ReferenceTransactionState, env []string, stdin io.Reader) error {
-	if m.referenceTransaction == nil {
-		return nil
-	}
-
-	return m.referenceTransaction(m.t, ctx, state, env, stdin)
-}
-
 func TestSuccessfulResolveConflictsRequest(t *testing.T) {
-	hookManager := &mockHookManager{t: t}
-	cfg, repoProto, repoPath, client := SetupConflictsService(t, true, hookManager)
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.ResolveConflictsWithHooks,
+	}).Run(t, testSuccessfulResolveConflictsRequestHelper)
+}
 
+func testSuccessfulResolveConflictsRequestHelper(t *testing.T, ctx context.Context) {
+	cfg, repoProto, repoPath := SetupConfigAndRepo(t, true)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	mdGS := testhelper.GitalyServersMetadataFromCfg(t, cfg)
-	mdFF, _ := metadata.FromOutgoingContext(ctx)
-	ctx = metadata.NewOutgoingContext(ctx, metadata.Join(mdGS, mdFF))
 
 	missingAncestorPath := "files/missing_ancestor.txt"
 	files := []map[string]interface{}{
@@ -172,6 +130,7 @@ func TestSuccessfulResolveConflictsRequest(t *testing.T) {
 
 	ourCommitOID = commitConflict(ourCommitOID, sourceBranch, "content-1")
 	theirCommitOID = commitConflict(theirCommitOID, targetBranch, "content-2")
+	hookCount := 0
 
 	verifyFunc := func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 		changes, err := ioutil.ReadAll(stdin)
@@ -179,10 +138,16 @@ func TestSuccessfulResolveConflictsRequest(t *testing.T) {
 		pattern := fmt.Sprintf("%s .* refs/heads/%s\n", ourCommitOID, sourceBranch)
 		require.Regexp(t, regexp.MustCompile(pattern), string(changes))
 		require.Empty(t, pushOptions)
+		hookCount += 1
 		return nil
 	}
-	hookManager.preReceive = verifyFunc
-	hookManager.postReceive = verifyFunc
+
+	hookManager := hook.NewMockManager(t, verifyFunc, verifyFunc, hook.NopUpdate, hook.NopReferenceTransaction)
+	client := SetupConflictsServiceWithConfig(t, &cfg, hookManager)
+
+	mdGS := testhelper.GitalyServersMetadataFromCfg(t, cfg)
+	mdFF, _ := metadata.FromOutgoingContext(ctx)
+	ctx = metadata.NewOutgoingContext(ctx, metadata.Join(mdGS, mdFF))
 
 	headerRequest := &gitalypb.ResolveConflictsRequest{
 		ResolveConflictsRequestPayload: &gitalypb.ResolveConflictsRequest_Header{
@@ -226,10 +191,17 @@ func TestSuccessfulResolveConflictsRequest(t *testing.T) {
 	require.Equal(t, string(headCommit.Author.Email), "johndoe@gitlab.com")
 	require.Equal(t, string(headCommit.Committer.Email), "johndoe@gitlab.com")
 	require.Equal(t, string(headCommit.Subject), conflictResolutionCommitMessage)
+
+	if featureflag.IsEnabled(ctx, featureflag.ResolveConflictsWithHooks) {
+		require.Equal(t, 2, hookCount)
+	} else {
+		require.Equal(t, 0, hookCount)
+	}
 }
 
 func TestResolveConflictsWithRemoteRepo(t *testing.T) {
-	cfg, _, _, client := SetupConflictsService(t, true, &mockHookManager{})
+	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
+	cfg, _, _, client := SetupConflictsService(t, true, hookManager)
 
 	testhelper.ConfigureGitalySSHBin(t, cfg)
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
@@ -300,8 +272,8 @@ func TestResolveConflictsWithRemoteRepo(t *testing.T) {
 }
 
 func TestResolveConflictsLineEndings(t *testing.T) {
-	cfg, repo, repoPath, client := SetupConflictsService(t, true, &mockHookManager{})
-
+	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
+	cfg, repo, repoPath, client := SetupConflictsService(t, true, hookManager)
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
@@ -420,7 +392,8 @@ func TestResolveConflictsLineEndings(t *testing.T) {
 }
 
 func TestResolveConflictsNonOIDRequests(t *testing.T) {
-	cfg, repoProto, _, client := SetupConflictsService(t, true, &mockHookManager{})
+	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
+	cfg, repoProto, _, client := SetupConflictsService(t, true, hookManager)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -457,7 +430,8 @@ func TestResolveConflictsNonOIDRequests(t *testing.T) {
 }
 
 func TestResolveConflictsIdenticalContent(t *testing.T) {
-	cfg, repoProto, repoPath, client := SetupConflictsService(t, true, &mockHookManager{})
+	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
+	cfg, repoProto, repoPath, client := SetupConflictsService(t, true, hookManager)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -554,7 +528,8 @@ func TestResolveConflictsIdenticalContent(t *testing.T) {
 }
 
 func TestResolveConflictsStableID(t *testing.T) {
-	cfg, repoProto, _, client := SetupConflictsService(t, true, &mockHookManager{})
+	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
+	cfg, repoProto, _, client := SetupConflictsService(t, true, hookManager)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -623,7 +598,8 @@ func TestResolveConflictsStableID(t *testing.T) {
 }
 
 func TestFailedResolveConflictsRequestDueToResolutionError(t *testing.T) {
-	cfg, repo, _, client := SetupConflictsService(t, true, &mockHookManager{})
+	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
+	cfg, repo, _, client := SetupConflictsService(t, true, hookManager)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -680,7 +656,8 @@ func TestFailedResolveConflictsRequestDueToResolutionError(t *testing.T) {
 }
 
 func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
-	cfg, repo, _, client := SetupConflictsService(t, true, &mockHookManager{})
+	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
+	cfg, repo, _, client := SetupConflictsService(t, true, hookManager)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
