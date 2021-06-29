@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
@@ -299,6 +301,14 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		AllowConflicts: request.AllowConflicts,
 	}.Run(ctx, s.cfg)
 	if err != nil {
+		ctxlogrus.Extract(ctx).WithError(err).WithFields(
+			logrus.Fields{
+				"source_sha": sourceOID,
+				"target_sha": oid,
+				"target_ref": request.TargetRef,
+			},
+		).Error("unable to create merge commit")
+
 		if errors.Is(err, git2go.ErrInvalidArgument) {
 			return nil, helper.ErrInvalidArgument(err)
 		}
