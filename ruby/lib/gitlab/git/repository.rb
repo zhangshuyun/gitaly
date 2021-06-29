@@ -436,6 +436,14 @@ module Gitlab
         rugged&.close if defined?(@rugged)
       end
 
+      def head_symbolic_ref
+        message, status = run_git(%w[symbolic-ref HEAD])
+
+        return 'main' if status.nonzero?
+
+        Ref.extract_branch_name(message.squish)
+      end
+
       private
 
       def sparse_checkout_empty?(output)

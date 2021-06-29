@@ -470,6 +470,24 @@ describe Gitlab::Git::Repository do # rubocop:disable Metrics/BlockLength
     end
   end
 
+  describe '#head_symbolic_ref' do
+    subject { repository.head_symbolic_ref }
+
+    it 'returns the symbolic ref in HEAD' do
+      expect(subject).to eq('master')
+    end
+
+    context 'when repo is empty' do
+      let(:repository) { gitlab_git_from_gitaly(new_empty_test_repo) }
+
+      it 'returns the symbolic ref in HEAD' do
+        repository.rugged.head = 'refs/heads/foo'
+
+        expect(subject).to eq('foo')
+      end
+    end
+  end
+
   def create_remote_branch(remote_name, branch_name, source_branch_name)
     source_branch = repository.branches.find { |branch| branch.name == source_branch_name }
     repository_rugged.references.create("refs/remotes/#{remote_name}/#{branch_name}", source_branch.dereferenced_target.sha)
