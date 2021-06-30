@@ -305,7 +305,7 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 			logrus.Fields{
 				"source_sha": sourceOID,
 				"target_sha": oid,
-				"target_ref": request.TargetRef,
+				"target_ref": string(request.TargetRef),
 			},
 		).Error("unable to create merge commit")
 
