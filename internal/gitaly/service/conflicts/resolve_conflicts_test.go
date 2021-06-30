@@ -138,7 +138,7 @@ func testSuccessfulResolveConflictsRequestHelper(t *testing.T, ctx context.Conte
 		pattern := fmt.Sprintf("%s .* refs/heads/%s\n", ourCommitOID, sourceBranch)
 		require.Regexp(t, regexp.MustCompile(pattern), string(changes))
 		require.Empty(t, pushOptions)
-		hookCount += 1
+		hookCount++
 		return nil
 	}
 
