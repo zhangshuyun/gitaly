@@ -14,19 +14,15 @@
 // independent gRPC sessions on a single connection. This allows for dialing back to the client from
 // the server to establish another gRPC session where the server and client roles are switched.
 //
-// The server side supports clients that are unaware of the multiplexing. The server peeks the incoming
-// network stream to see if it starts with the magic bytes that indicate a multiplexing aware client.
-// If the magic bytes are present, the server initiates the multiplexing session and dials back to the client
-// over the already established network connection. If the magic bytes are not present, the server restores the
-// the bytes back into the original network stream and handles it without a multiplexing session.
+// The server side uses listenmux to support clients that are unaware of the multiplexing.
 //
 // Usage:
 // 1. Implement a ServerFactory, which is simply a function that returns a Server that can serve on the backchannel
 //    connection. Plug in the ClientHandshake to the Clientconn via grpc.WithTransportCredentials when dialing.
 //    This ensures all connections established by gRPC work with a multiplexing session and have a backchannel Server serving.
-// 2. Configure the ServerHandshake on the server side by passing it into the gRPC server via the grpc.Creds option.
-//    The ServerHandshake method is called on each newly established connection. It peeks the network stream to see if a
-//    multiplexing session should be initiated. If so, it also dials back to the client's backchannel server. Server
+// 2. Create a *listenmux.Mux and register a *ServerHandshaker with it.
+// 3. Pass the *listenmux.Mux into the grpc Server using grpc.Creds.
+//    The Handshake method is called on each newly established connection that presents the backchannel magic bytes. It dials back to the client's backchannel server. Server
 //    makes the backchannel connection's available later via the Registry's Backchannel method. The ID of the
 //    peer associated with the current RPC handler can be fetched via GetPeerID. The returned ID can be used
 //    to access the correct backchannel connection from the Registry.

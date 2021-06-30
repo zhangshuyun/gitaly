@@ -26,6 +26,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/listenmux"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/grpc-proxy/proxy"
@@ -57,8 +58,12 @@ func TestNewBackchannelServerFactory(t *testing.T) {
 
 	logger := testhelper.DiscardTestEntry(t)
 	registry := backchannel.NewRegistry()
+
+	lm := listenmux.New(insecure.NewCredentials())
+	lm.Register(backchannel.NewServerHandshaker(logger, registry, nil))
+
 	server := grpc.NewServer(
-		grpc.Creds(backchannel.NewServerHandshaker(logger, insecure.NewCredentials(), registry, nil)),
+		grpc.Creds(lm),
 		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
 			id, err := backchannel.GetPeerID(stream.Context())
 			if !assert.NoError(t, err) {

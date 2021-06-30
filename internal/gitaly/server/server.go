@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/server/auth"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/fieldextractors"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/listenmux"
 	gitalylog "gitlab.com/gitlab-org/gitaly/v14/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/logsanitizer"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/cache"
@@ -94,8 +95,15 @@ func New(
 		})
 	}
 
+	lm := listenmux.New(transportCredentials)
+	lm.Register(backchannel.NewServerHandshaker(
+		logrusEntry,
+		registry,
+		[]grpc.DialOption{client.UnaryInterceptor()},
+	))
+
 	opts := []grpc.ServerOption{
-		grpc.Creds(backchannel.NewServerHandshaker(logrusEntry, transportCredentials, registry, []grpc.DialOption{client.UnaryInterceptor()})),
+		grpc.Creds(lm),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_ctxtags.StreamServerInterceptor(ctxTagOpts...),
 			grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler
