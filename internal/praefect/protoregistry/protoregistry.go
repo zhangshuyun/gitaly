@@ -45,9 +45,9 @@ type Scope int
 
 const (
 	// ScopeUnknown is the default scope until determined otherwise
-	ScopeUnknown = iota
+	ScopeUnknown Scope = iota
 	// ScopeRepository indicates an RPC's scope is limited to a repository
-	ScopeRepository Scope = iota
+	ScopeRepository
 	// ScopeStorage indicates an RPC is scoped to an entire storage location
 	ScopeStorage
 )
