@@ -19,6 +19,7 @@ var (
 	// CreateRepositoryFromBundleAtomicFetch will add the `--atomic` flag to git-fetch(1) in
 	// order to reduce the number of transactional votes.
 	CreateRepositoryFromBundleAtomicFetch = FeatureFlag{Name: "create_repository_from_bundle_atomic_fetch", OnByDefault: false}
+	ResolveConflictsWithHooks             = FeatureFlag{Name: "resolve_conflicts_with_hooks", OnByDefault: false}
 )
 
 // All includes all feature flags.
@@ -27,4 +28,5 @@ var All = []FeatureFlag{
 	FetchInternalRemoteErrors,
 	LFSPointersPipeline,
 	CreateRepositoryFromBundleAtomicFetch,
+	ResolveConflictsWithHooks,
 }

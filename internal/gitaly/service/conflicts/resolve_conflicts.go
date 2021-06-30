@@ -21,6 +21,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitalyssh"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -196,13 +197,26 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		return err
 	}
 
-	if err := sourceRepo.UpdateRef(
-		ctx,
-		git.ReferenceName("refs/heads/"+string(header.GetSourceBranch())),
-		commitOID,
-		"",
-	); err != nil {
-		return err
+	if featureflag.IsEnabled(ctx, featureflag.ResolveConflictsWithHooks) {
+		if err := s.updater.UpdateReference(
+			ctx,
+			header.Repository,
+			header.User,
+			git.ReferenceName("refs/heads/"+string(header.GetSourceBranch())),
+			commitOID,
+			git.ObjectID(header.OurCommitOid),
+		); err != nil {
+			return err
+		}
+	} else {
+		if err := sourceRepo.UpdateRef(
+			ctx,
+			git.ReferenceName("refs/heads/"+string(header.GetSourceBranch())),
+			commitOID,
+			"",
+		); err != nil {
+			return err
+		}
 	}
 
 	return nil
