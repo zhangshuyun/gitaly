@@ -771,7 +771,7 @@ func TestProxyWrites(t *testing.T) {
 	)
 
 	server := grpc.NewServer(
-		grpc.CustomCodec(proxy.NewCodec()),
+		grpc.ForceServerCodec(proxy.NewCodec()),
 		grpc.UnknownServiceHandler(proxy.TransparentHandler(coordinator.StreamDirector)),
 	)
 
@@ -929,7 +929,7 @@ func TestErrorThreshold(t *testing.T) {
 			)
 
 			server := grpc.NewServer(
-				grpc.CustomCodec(proxy.NewCodec()),
+				grpc.ForceServerCodec(proxy.NewCodec()),
 				grpc.UnknownServiceHandler(proxy.TransparentHandler(coordinator.StreamDirector)),
 			)
 

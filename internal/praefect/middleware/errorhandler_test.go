@@ -70,7 +70,7 @@ func TestStreamInterceptor(t *testing.T) {
 	defer internalSrv.Stop()
 
 	srvOptions := []grpc.ServerOption{
-		grpc.CustomCodec(proxy.NewCodec()),
+		grpc.ForceServerCodec(proxy.NewCodec()),
 		grpc.UnknownServiceHandler(proxy.TransparentHandler(func(ctx context.Context,
 			fullMethodName string,
 			peeker proxy.StreamPeeker,

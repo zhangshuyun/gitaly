@@ -25,7 +25,7 @@ var (
 
 func ExampleRegisterService() {
 	// A gRPC server with the proxying codec enabled.
-	server := grpc.NewServer(grpc.CustomCodec(proxy.NewCodec()))
+	server := grpc.NewServer(grpc.ForceServerCodec(proxy.NewCodec()))
 	// Register a TestService with 4 of its methods explicitly.
 	proxy.RegisterService(server, director,
 		"mwitkow.testproto.TestService",
@@ -34,7 +34,7 @@ func ExampleRegisterService() {
 
 func ExampleTransparentHandler() {
 	grpc.NewServer(
-		grpc.CustomCodec(proxy.NewCodec()),
+		grpc.ForceServerCodec(proxy.NewCodec()),
 		grpc.UnknownServiceHandler(proxy.TransparentHandler(director)))
 }
 

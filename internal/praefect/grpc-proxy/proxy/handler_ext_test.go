@@ -261,7 +261,7 @@ func (s *ProxyHappySuite) SetupSuite() {
 	}
 
 	s.proxy = grpc.NewServer(
-		grpc.CustomCodec(proxy.NewCodec()),
+		grpc.ForceServerCodec(proxy.NewCodec()),
 		grpc.StreamInterceptor(
 			grpc_middleware.ChainStreamServer(
 				// context tags usage is required by sentryhandler.StreamLogHandler
@@ -416,7 +416,7 @@ func TestProxyErrorPropagation(t *testing.T) {
 			require.NoError(t, err)
 
 			proxyServer := grpc.NewServer(
-				grpc.CustomCodec(proxy.NewCodec()),
+				grpc.ForceServerCodec(proxy.NewCodec()),
 				grpc.UnknownServiceHandler(proxy.TransparentHandler(func(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
 					return proxy.NewStreamParameters(
 						proxy.Destination{
@@ -451,7 +451,7 @@ func TestRegisterStreamHandlers(t *testing.T) {
 	directorCalledError := errors.New("director was called")
 
 	server := grpc.NewServer(
-		grpc.CustomCodec(proxy.NewCodec()),
+		grpc.ForceServerCodec(proxy.NewCodec()),
 		grpc.UnknownServiceHandler(proxy.TransparentHandler(func(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
 			return nil, directorCalledError
 		})),

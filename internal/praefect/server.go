@@ -135,7 +135,7 @@ func NewGRPCServer(
 
 func proxyRequiredOpts(director proxy.StreamDirector) []grpc.ServerOption {
 	return []grpc.ServerOption{
-		grpc.CustomCodec(proxy.NewCodec()),
+		grpc.ForceServerCodec(proxy.NewCodec()),
 		grpc.UnknownServiceHandler(proxy.TransparentHandler(director)),
 	}
 }

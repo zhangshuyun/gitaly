@@ -738,9 +738,6 @@ issues:
       text: "package github.com/golang/protobuf/ptypes is deprecated"
     - linters:
         - staticcheck
-      text: "grpc.CustomCodec is deprecated"
-    - linters:
-        - staticcheck
       text: "proto.MessageName is deprecated"
     - linters:
         - staticcheck
