@@ -751,9 +751,6 @@ issues:
     - linters:
         - staticcheck
       text: "proto.MessageType is deprecated"
-    - linters:
-        - staticcheck
-      text: "proto.FileDescriptor is deprecated"
     ## END staticcheck exclusions
     # govet checks all struct initializations must be keyed by field names
     - linters:

@@ -1091,7 +1091,7 @@ func TestCoordinatorEnqueueFailure(t *testing.T) {
 		},
 	}
 
-	r, err := protoregistry.New(mustLoadProtoReg(t))
+	r, err := protoregistry.NewFromPaths("praefect/mock/mock.proto")
 	require.NoError(t, err)
 
 	cc, _, cleanup := runPraefectServer(t, conf, buildOptions{

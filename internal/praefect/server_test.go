@@ -901,11 +901,7 @@ func TestErrorThreshold(t *testing.T) {
 		},
 	}
 
-	gz := proto.FileDescriptor("praefect/mock/mock.proto")
-	fd, err := protoregistry.ExtractFileDescriptor(gz)
-	require.NoError(t, err)
-
-	registry, err := protoregistry.New(fd)
+	registry, err := protoregistry.NewFromPaths("praefect/mock/mock.proto")
 	require.NoError(t, err)
 
 	for _, tc := range testCases {

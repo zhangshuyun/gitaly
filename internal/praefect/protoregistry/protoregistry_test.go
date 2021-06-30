@@ -11,9 +11,6 @@ import (
 )
 
 func TestNewProtoRegistry(t *testing.T) {
-	r, err := protoregistry.New(protoregistry.GitalyProtoFileDescriptors...)
-	require.NoError(t, err)
-
 	expectedResults := map[string]map[string]protoregistry.OpType{
 		"BlobService": map[string]protoregistry.OpType{
 			"GetBlob":        protoregistry.OpAccessor,
@@ -170,12 +167,12 @@ func TestNewProtoRegistry(t *testing.T) {
 		for methodName, opType := range methods {
 			method := fmt.Sprintf("/gitaly.%s/%s", serviceName, methodName)
 
-			methodInfo, err := r.LookupMethod(method)
+			methodInfo, err := protoregistry.GitalyProtoPreregistered.LookupMethod(method)
 			require.NoError(t, err)
 
 			require.Equalf(t, opType, methodInfo.Operation, "expect %s:%s to have the correct op type", serviceName, methodName)
 			require.Equal(t, method, methodInfo.FullMethodName())
-			require.False(t, r.IsInterceptedMethod(method), method)
+			require.False(t, protoregistry.GitalyProtoPreregistered.IsInterceptedMethod(method), method)
 		}
 	}
 }
