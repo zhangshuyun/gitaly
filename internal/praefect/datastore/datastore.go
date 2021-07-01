@@ -8,6 +8,7 @@ package datastore
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 )
 
@@ -90,4 +91,20 @@ func (p Params) Value() (driver.Value, error) {
 		return nil, err
 	}
 	return string(data), nil
+}
+
+// GetBool returns the boolean parameter associated with the given key. Returns an error if either
+// the key does not exist, or if the value is not a bool.
+func (p Params) GetBool(key string) (bool, error) {
+	value, found := p[key]
+	if !found {
+		return false, errors.New("key does not exist")
+	}
+
+	booleanValue, ok := value.(bool)
+	if !ok {
+		return false, fmt.Errorf("value is of unexpected type %T", value)
+	}
+
+	return booleanValue, nil
 }

@@ -227,23 +227,21 @@ func (dr defaultReplicator) GarbageCollect(ctx context.Context, event datastore.
 		RelativePath: event.Job.RelativePath,
 	}
 
-	val, found := event.Job.Params["CreateBitmap"]
-	if !found {
-		return errors.New("no 'CreateBitmap' parameter for garbage collect")
-	}
-	createBitmap, ok := val.(bool)
-	if !ok {
-		return fmt.Errorf("parameter 'CreateBitmap' has unexpected type: %T", createBitmap)
+	createBitmap, err := event.Job.Params.GetBool("CreateBitmap")
+	if err != nil {
+		return fmt.Errorf("getting CreateBitmap parameter for GarbageCollect: %w", err)
 	}
 
 	repoSvcClient := gitalypb.NewRepositoryServiceClient(targetCC)
 
-	_, err := repoSvcClient.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{
+	if _, err := repoSvcClient.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{
 		Repository:   targetRepo,
 		CreateBitmap: createBitmap,
-	})
+	}); err != nil {
+		return err
+	}
 
-	return err
+	return nil
 }
 
 func (dr defaultReplicator) RepackIncremental(ctx context.Context, event datastore.ReplicationEvent, targetCC *grpc.ClientConn) error {
@@ -297,23 +295,21 @@ func (dr defaultReplicator) RepackFull(ctx context.Context, event datastore.Repl
 		RelativePath: event.Job.RelativePath,
 	}
 
-	val, found := event.Job.Params["CreateBitmap"]
-	if !found {
-		return errors.New("no 'CreateBitmap' parameter for repack full")
-	}
-	createBitmap, ok := val.(bool)
-	if !ok {
-		return fmt.Errorf("parameter 'CreateBitmap' has unexpected type: %T", createBitmap)
+	createBitmap, err := event.Job.Params.GetBool("CreateBitmap")
+	if err != nil {
+		return fmt.Errorf("getting CreateBitmap parameter for RepackFull: %w", err)
 	}
 
 	repoSvcClient := gitalypb.NewRepositoryServiceClient(targetCC)
 
-	_, err := repoSvcClient.RepackFull(ctx, &gitalypb.RepackFullRequest{
+	if _, err := repoSvcClient.RepackFull(ctx, &gitalypb.RepackFullRequest{
 		Repository:   targetRepo,
 		CreateBitmap: createBitmap,
-	})
+	}); err != nil {
+		return err
+	}
 
-	return err
+	return nil
 }
 
 // ReplMgr is a replication manager for handling replication jobs
