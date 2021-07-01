@@ -62,6 +62,8 @@ const (
 	PackRefs = ChangeType("pack_refs")
 	// WriteCommitGraph is when replication writes a commit graph
 	WriteCommitGraph = ChangeType("write_commit_graph")
+	// MidxRepack is when replication does a multi-pack-index repack
+	MidxRepack = ChangeType("midx_repack")
 )
 
 func (ct ChangeType) String() string {

@@ -396,6 +396,9 @@ func testReplicatorPropagateReplicationJob(
 	})
 	require.NoError(t, err)
 
+	_, err = repositoryClient.MidxRepack(ctx, &gitalypb.MidxRepackRequest{Repository: repository})
+	require.NoError(t, err)
+
 	_, err = refClient.PackRefs(ctx, &gitalypb.PackRefsRequest{
 		Repository: repository,
 		AllRefs:    true,
@@ -422,6 +425,9 @@ func testReplicatorPropagateReplicationJob(
 		Repository:    primaryRepository,
 		SplitStrategy: 1,
 	}
+	expectedPrimaryMidxRepack := &gitalypb.MidxRepackRequest{
+		Repository: primaryRepository,
+	}
 	expectedPrimaryPackRefs := &gitalypb.PackRefsRequest{
 		Repository: primaryRepository,
 		AllRefs:    true,
@@ -437,6 +443,7 @@ func testReplicatorPropagateReplicationJob(
 	waitForRequest(t, primaryServer.repackFullChan, expectedPrimaryRepackFullReq, 5*time.Second)
 	waitForRequest(t, primaryServer.cleanupChan, expectedPrimaryCleanup, 5*time.Second)
 	waitForRequest(t, primaryServer.writeCommitGraphChan, expectedPrimaryWriteCommitGraph, 5*time.Second)
+	waitForRequest(t, primaryServer.midxRepackChan, expectedPrimaryMidxRepack, 5*time.Second)
 	waitForRequest(t, primaryServer.packRefsChan, expectedPrimaryPackRefs, 5*time.Second)
 
 	secondaryRepository := &gitalypb.Repository{StorageName: secondaryStorage, RelativePath: repositoryRelativePath}
@@ -456,6 +463,9 @@ func testReplicatorPropagateReplicationJob(
 	expectedSecondaryWriteCommitGraph := expectedPrimaryWriteCommitGraph
 	expectedSecondaryWriteCommitGraph.Repository = secondaryRepository
 
+	expectedSecondaryMidxRepack := expectedPrimaryMidxRepack
+	expectedSecondaryMidxRepack.Repository = secondaryRepository
+
 	expectedSecondaryPackRefs := expectedPrimaryPackRefs
 	expectedSecondaryPackRefs.Repository = secondaryRepository
 
@@ -465,12 +475,13 @@ func testReplicatorPropagateReplicationJob(
 	waitForRequest(t, secondaryServer.repackFullChan, expectedSecondaryRepackFullReq, 5*time.Second)
 	waitForRequest(t, secondaryServer.cleanupChan, expectedSecondaryCleanup, 5*time.Second)
 	waitForRequest(t, secondaryServer.writeCommitGraphChan, expectedSecondaryWriteCommitGraph, 5*time.Second)
+	waitForRequest(t, secondaryServer.midxRepackChan, expectedSecondaryMidxRepack, 5*time.Second)
 	waitForRequest(t, secondaryServer.packRefsChan, expectedSecondaryPackRefs, 5*time.Second)
 	wg.Wait()
 }
 
 type mockServer struct {
-	gcChan, repackFullChan, repackIncrChan, cleanupChan, writeCommitGraphChan, packRefsChan chan proto.Message
+	gcChan, repackFullChan, repackIncrChan, cleanupChan, writeCommitGraphChan, midxRepackChan, packRefsChan chan proto.Message
 
 	gitalypb.UnimplementedRepositoryServiceServer
 	gitalypb.UnimplementedRefServiceServer
@@ -483,6 +494,7 @@ func newMockRepositoryServer() *mockServer {
 		repackIncrChan:       make(chan proto.Message),
 		cleanupChan:          make(chan proto.Message),
 		writeCommitGraphChan: make(chan proto.Message),
+		midxRepackChan:       make(chan proto.Message),
 		packRefsChan:         make(chan proto.Message),
 	}
 }
@@ -520,6 +532,13 @@ func (m *mockServer) WriteCommitGraph(ctx context.Context, in *gitalypb.WriteCom
 		m.writeCommitGraphChan <- in
 	}()
 	return &gitalypb.WriteCommitGraphResponse{}, nil
+}
+
+func (m *mockServer) MidxRepack(ctx context.Context, in *gitalypb.MidxRepackRequest) (*gitalypb.MidxRepackResponse, error) {
+	go func() {
+		m.midxRepackChan <- in
+	}()
+	return &gitalypb.MidxRepackResponse{}, nil
 }
 
 func (m *mockServer) PackRefs(ctx context.Context, in *gitalypb.PackRefsRequest) (*gitalypb.PackRefsResponse, error) {

@@ -213,6 +213,12 @@ func getReplicationDetails(methodName string, m proto.Message) (datastore.Change
 		return datastore.WriteCommitGraph, datastore.Params{
 			"SplitStrategy": req.GetSplitStrategy(),
 		}, nil
+	case "/gitaly.RepositoryService/MidxRepack":
+		req, ok := m.(*gitalypb.MidxRepackRequest)
+		if !ok {
+			return "", nil, fmt.Errorf("protocol changed: for method %q expected message type '%T', got '%T'", methodName, req, m)
+		}
+		return datastore.MidxRepack, nil, nil
 	case "/gitaly.RefService/PackRefs":
 		req, ok := m.(*gitalypb.PackRefsRequest)
 		if !ok {

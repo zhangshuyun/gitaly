@@ -41,6 +41,8 @@ type Replicator interface {
 	PackRefs(ctx context.Context, event datastore.ReplicationEvent, target *grpc.ClientConn) error
 	// WriteCommitGraph will optimize references on the target repository
 	WriteCommitGraph(ctx context.Context, event datastore.ReplicationEvent, target *grpc.ClientConn) error
+	// MidxRepack will optimize references on the target repository
+	MidxRepack(ctx context.Context, event datastore.ReplicationEvent, target *grpc.ClientConn) error
 }
 
 type defaultReplicator struct {
@@ -334,6 +336,23 @@ func (dr defaultReplicator) WriteCommitGraph(ctx context.Context, event datastor
 	if _, err := repoSvcClient.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
 		Repository:    targetRepo,
 		SplitStrategy: splitStrategy,
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (dr defaultReplicator) MidxRepack(ctx context.Context, event datastore.ReplicationEvent, targetCC *grpc.ClientConn) error {
+	targetRepo := &gitalypb.Repository{
+		StorageName:  event.Job.TargetNodeStorage,
+		RelativePath: event.Job.RelativePath,
+	}
+
+	repoSvcClient := gitalypb.NewRepositoryServiceClient(targetCC)
+
+	if _, err := repoSvcClient.MidxRepack(ctx, &gitalypb.MidxRepackRequest{
+		Repository: targetRepo,
 	}); err != nil {
 		return err
 	}
@@ -713,6 +732,8 @@ func (r ReplMgr) processReplicationEvent(ctx context.Context, event datastore.Re
 		err = r.replicator.PackRefs(ctx, event, targetCC)
 	case datastore.WriteCommitGraph:
 		err = r.replicator.WriteCommitGraph(ctx, event, targetCC)
+	case datastore.MidxRepack:
+		err = r.replicator.MidxRepack(ctx, event, targetCC)
 	default:
 		err = fmt.Errorf("unknown replication change type encountered: %q", event.Job.Change)
 	}
