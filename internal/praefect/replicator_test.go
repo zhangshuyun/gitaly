@@ -399,6 +399,9 @@ func testReplicatorPropagateReplicationJob(
 	_, err = repositoryClient.MidxRepack(ctx, &gitalypb.MidxRepackRequest{Repository: repository})
 	require.NoError(t, err)
 
+	_, err = repositoryClient.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: repository})
+	require.NoError(t, err)
+
 	_, err = refClient.PackRefs(ctx, &gitalypb.PackRefsRequest{
 		Repository: repository,
 		AllRefs:    true,
@@ -428,6 +431,9 @@ func testReplicatorPropagateReplicationJob(
 	expectedPrimaryMidxRepack := &gitalypb.MidxRepackRequest{
 		Repository: primaryRepository,
 	}
+	expectedPrimaryOptimizeRepository := &gitalypb.OptimizeRepositoryRequest{
+		Repository: primaryRepository,
+	}
 	expectedPrimaryPackRefs := &gitalypb.PackRefsRequest{
 		Repository: primaryRepository,
 		AllRefs:    true,
@@ -444,6 +450,7 @@ func testReplicatorPropagateReplicationJob(
 	waitForRequest(t, primaryServer.cleanupChan, expectedPrimaryCleanup, 5*time.Second)
 	waitForRequest(t, primaryServer.writeCommitGraphChan, expectedPrimaryWriteCommitGraph, 5*time.Second)
 	waitForRequest(t, primaryServer.midxRepackChan, expectedPrimaryMidxRepack, 5*time.Second)
+	waitForRequest(t, primaryServer.optimizeRepositoryChan, expectedPrimaryOptimizeRepository, 5*time.Second)
 	waitForRequest(t, primaryServer.packRefsChan, expectedPrimaryPackRefs, 5*time.Second)
 
 	secondaryRepository := &gitalypb.Repository{StorageName: secondaryStorage, RelativePath: repositoryRelativePath}
@@ -466,6 +473,9 @@ func testReplicatorPropagateReplicationJob(
 	expectedSecondaryMidxRepack := expectedPrimaryMidxRepack
 	expectedSecondaryMidxRepack.Repository = secondaryRepository
 
+	expectedSecondaryOptimizeRepository := expectedPrimaryOptimizeRepository
+	expectedSecondaryOptimizeRepository.Repository = secondaryRepository
+
 	expectedSecondaryPackRefs := expectedPrimaryPackRefs
 	expectedSecondaryPackRefs.Repository = secondaryRepository
 
@@ -476,12 +486,13 @@ func testReplicatorPropagateReplicationJob(
 	waitForRequest(t, secondaryServer.cleanupChan, expectedSecondaryCleanup, 5*time.Second)
 	waitForRequest(t, secondaryServer.writeCommitGraphChan, expectedSecondaryWriteCommitGraph, 5*time.Second)
 	waitForRequest(t, secondaryServer.midxRepackChan, expectedSecondaryMidxRepack, 5*time.Second)
+	waitForRequest(t, secondaryServer.optimizeRepositoryChan, expectedSecondaryOptimizeRepository, 5*time.Second)
 	waitForRequest(t, secondaryServer.packRefsChan, expectedSecondaryPackRefs, 5*time.Second)
 	wg.Wait()
 }
 
 type mockServer struct {
-	gcChan, repackFullChan, repackIncrChan, cleanupChan, writeCommitGraphChan, midxRepackChan, packRefsChan chan proto.Message
+	gcChan, repackFullChan, repackIncrChan, cleanupChan, writeCommitGraphChan, midxRepackChan, optimizeRepositoryChan, packRefsChan chan proto.Message
 
 	gitalypb.UnimplementedRepositoryServiceServer
 	gitalypb.UnimplementedRefServiceServer
@@ -489,13 +500,14 @@ type mockServer struct {
 
 func newMockRepositoryServer() *mockServer {
 	return &mockServer{
-		gcChan:               make(chan proto.Message),
-		repackFullChan:       make(chan proto.Message),
-		repackIncrChan:       make(chan proto.Message),
-		cleanupChan:          make(chan proto.Message),
-		writeCommitGraphChan: make(chan proto.Message),
-		midxRepackChan:       make(chan proto.Message),
-		packRefsChan:         make(chan proto.Message),
+		gcChan:                 make(chan proto.Message),
+		repackFullChan:         make(chan proto.Message),
+		repackIncrChan:         make(chan proto.Message),
+		cleanupChan:            make(chan proto.Message),
+		writeCommitGraphChan:   make(chan proto.Message),
+		midxRepackChan:         make(chan proto.Message),
+		optimizeRepositoryChan: make(chan proto.Message),
+		packRefsChan:           make(chan proto.Message),
 	}
 }
 
@@ -539,6 +551,13 @@ func (m *mockServer) MidxRepack(ctx context.Context, in *gitalypb.MidxRepackRequ
 		m.midxRepackChan <- in
 	}()
 	return &gitalypb.MidxRepackResponse{}, nil
+}
+
+func (m *mockServer) OptimizeRepository(ctx context.Context, in *gitalypb.OptimizeRepositoryRequest) (*gitalypb.OptimizeRepositoryResponse, error) {
+	go func() {
+		m.optimizeRepositoryChan <- in
+	}()
+	return &gitalypb.OptimizeRepositoryResponse{}, nil
 }
 
 func (m *mockServer) PackRefs(ctx context.Context, in *gitalypb.PackRefsRequest) (*gitalypb.PackRefsResponse, error) {

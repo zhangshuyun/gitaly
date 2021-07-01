@@ -219,6 +219,12 @@ func getReplicationDetails(methodName string, m proto.Message) (datastore.Change
 			return "", nil, fmt.Errorf("protocol changed: for method %q expected message type '%T', got '%T'", methodName, req, m)
 		}
 		return datastore.MidxRepack, nil, nil
+	case "/gitaly.RepositoryService/OptimizeRepository":
+		req, ok := m.(*gitalypb.OptimizeRepositoryRequest)
+		if !ok {
+			return "", nil, fmt.Errorf("protocol changed: for method %q expected message type '%T', got '%T'", methodName, req, m)
+		}
+		return datastore.OptimizeRepository, nil, nil
 	case "/gitaly.RefService/PackRefs":
 		req, ok := m.(*gitalypb.PackRefsRequest)
 		if !ok {
