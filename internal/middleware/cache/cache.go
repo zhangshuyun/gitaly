@@ -10,17 +10,8 @@ import (
 	"github.com/sirupsen/logrus"
 	diskcache "gitlab.com/gitlab-org/gitaly/v14/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/protoregistry"
-	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
-
-// Invalidator is able to invalidate parts of the cache pertinent to a
-// specific repository. Before a repo mutating operation, StartLease should
-// be called. Once the operation is complete, the returned LeaseEnder should
-// be invoked to end the lease.
-type Invalidator interface {
-	StartLease(repo *gitalypb.Repository) (diskcache.LeaseEnder, error)
-}
 
 func methodErrLogger(method string) func(error) {
 	return func(err error) {
@@ -35,7 +26,7 @@ func shouldIgnore(reg *protoregistry.Registry, fullMethod string) bool {
 
 // StreamInvalidator will invalidate any mutating RPC that targets a
 // repository in a gRPC stream based RPC
-func StreamInvalidator(ci Invalidator, reg *protoregistry.Registry) grpc.StreamServerInterceptor {
+func StreamInvalidator(ci diskcache.Invalidator, reg *protoregistry.Registry) grpc.StreamServerInterceptor {
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		if shouldIgnore(reg, info.FullMethod) {
 			return handler(srv, ss)
@@ -62,7 +53,7 @@ func StreamInvalidator(ci Invalidator, reg *protoregistry.Registry) grpc.StreamS
 
 // UnaryInvalidator will invalidate any mutating RPC that targets a
 // repository in a gRPC unary RPC
-func UnaryInvalidator(ci Invalidator, reg *protoregistry.Registry) grpc.UnaryServerInterceptor {
+func UnaryInvalidator(ci diskcache.Invalidator, reg *protoregistry.Registry) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 		if shouldIgnore(reg, info.FullMethod) {
 			return handler(ctx, req)
@@ -113,7 +104,7 @@ func UnaryInvalidator(ci Invalidator, reg *protoregistry.Registry) grpc.UnarySer
 
 type recvMsgCallback func(interface{}, error)
 
-func invalidateCache(ci Invalidator, mInfo protoregistry.MethodInfo, handler grpc.StreamHandler, errLogger func(error)) (grpc.StreamHandler, recvMsgCallback) {
+func invalidateCache(ci diskcache.Invalidator, mInfo protoregistry.MethodInfo, handler grpc.StreamHandler, errLogger func(error)) (grpc.StreamHandler, recvMsgCallback) {
 	var le struct {
 		sync.RWMutex
 		diskcache.LeaseEnder

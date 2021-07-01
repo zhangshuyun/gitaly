@@ -12,6 +12,7 @@ import (
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
+	diskcache "gitlab.com/gitlab-org/gitaly/v14/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/server/auth"
@@ -72,7 +73,7 @@ func New(
 	cfg config.Cfg,
 	logrusEntry *log.Entry,
 	registry *backchannel.Registry,
-	cacheInvalidator cache.Invalidator,
+	cacheInvalidator diskcache.Invalidator,
 ) (*grpc.Server, error) {
 	ctxTagOpts := []grpc_ctxtags.Option{
 		grpc_ctxtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor),
