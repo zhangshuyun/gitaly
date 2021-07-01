@@ -1,5 +1,15 @@
 # Gitaly changelog
 
+## 14.0.2 (2021-07-01)
+
+### Fixed (1 change)
+
+- [repository: Fix repo replication with transactions](gitlab-org/security/gitaly@4d3ac6e8c20d88be0befed3b3966cc122288098f)
+
+### Performance (1 change)
+
+- [repository: Fix excessive voting in CreateRepositoryFromBundle](gitlab-org/security/gitaly@66832663b337c761e1948fe8dc2b385641e24655)
+
 ## 14.0.1 (2021-06-24)
 
 No changes.
@@ -70,6 +80,10 @@ No changes.
 
 - [Update gitlab-labkit to 0.17.1](gitlab-org/gitaly@904af72eb7c42124978370cef53681fa561b10f5) ([merge request](gitlab-org/gitaly!3395))
 
+## 13.12.6 (2021-07-01)
+
+No changes.
+
 ## 13.12.5 (2021-06-21)
 
 No changes.
@@ -134,6 +148,10 @@ No changes.
 
 - Multiplex connections between Praefect and Gitaly by default. !3360
 
+
+## 13.11.6 (2021-07-01)
+
+No changes.
 
 ## 13.11.5 (2021-06-01)
 
