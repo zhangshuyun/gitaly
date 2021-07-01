@@ -386,7 +386,10 @@ func testReplicatorPropagateReplicationJob(
 	_, err = repositoryClient.Cleanup(ctx, &gitalypb.CleanupRequest{Repository: repository})
 	require.NoError(t, err)
 
-	_, err = refClient.PackRefs(ctx, &gitalypb.PackRefsRequest{Repository: repository})
+	_, err = refClient.PackRefs(ctx, &gitalypb.PackRefsRequest{
+		Repository: repository,
+		AllRefs:    true,
+	})
 	require.NoError(t, err)
 
 	primaryRepository := &gitalypb.Repository{StorageName: primaryStorage, RelativePath: repositoryRelativePath}
@@ -407,6 +410,7 @@ func testReplicatorPropagateReplicationJob(
 	}
 	expectedPrimaryPackRefs := &gitalypb.PackRefsRequest{
 		Repository: primaryRepository,
+		AllRefs:    true,
 	}
 
 	replCtx, cancel := testhelper.Context()

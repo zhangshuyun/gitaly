@@ -210,7 +210,9 @@ func getReplicationDetails(methodName string, m proto.Message) (datastore.Change
 		if !ok {
 			return "", nil, fmt.Errorf("protocol changed: for method %q expected message type '%T', got '%T'", methodName, req, m)
 		}
-		return datastore.PackRefs, nil, nil
+		return datastore.PackRefs, datastore.Params{
+			"AllRefs": req.GetAllRefs(),
+		}, nil
 	default:
 		return datastore.UpdateRepo, nil, nil
 	}

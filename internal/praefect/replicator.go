@@ -286,13 +286,21 @@ func (dr defaultReplicator) PackRefs(ctx context.Context, event datastore.Replic
 		RelativePath: event.Job.RelativePath,
 	}
 
+	allRefs, err := event.Job.Params.GetBool("AllRefs")
+	if err != nil {
+		return fmt.Errorf("getting AllRefs parameter for PackRefs: %w", err)
+	}
+
 	refSvcClient := gitalypb.NewRefServiceClient(targetCC)
 
-	_, err := refSvcClient.PackRefs(ctx, &gitalypb.PackRefsRequest{
+	if _, err := refSvcClient.PackRefs(ctx, &gitalypb.PackRefsRequest{
 		Repository: targetRepo,
-	})
+		AllRefs:    allRefs,
+	}); err != nil {
+		return err
+	}
 
-	return err
+	return nil
 }
 
 func (dr defaultReplicator) RepackFull(ctx context.Context, event datastore.ReplicationEvent, targetCC *grpc.ClientConn) error {
