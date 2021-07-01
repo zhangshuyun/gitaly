@@ -58,6 +58,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :name, :bytes, 2
       optional :email, :bytes, 3
       optional :gl_username, :string, 4
+      optional :timezone, :string, 5
     end
     add_message "gitaly.ObjectPool" do
       optional :repository, :message, 1, "gitaly.Repository"
