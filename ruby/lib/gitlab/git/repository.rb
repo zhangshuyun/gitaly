@@ -9,10 +9,6 @@ module Gitlab
       include Gitlab::EncodingHelper
       include Gitlab::Utils::StrongMemoize
 
-      # In https://gitlab.com/gitlab-org/gitaly/merge_requests/698
-      # We copied this prefix into gitaly-go, so don't change it
-      # or things will break! (REBASE_WORKTREE_PREFIX)
-      REBASE_WORKTREE_PREFIX = 'rebase'.freeze
       AM_WORKTREE_PREFIX = 'am'.freeze
       GITALY_INTERNAL_URL = 'ssh://gitaly/internal.git'.freeze
       AUTOCRLF_VALUES = { 'true' => true, 'false' => false, 'input' => :input }.freeze
@@ -208,39 +204,6 @@ module Gitlab
       def diff_exists?(sha1, sha2)
         rugged.diff(sha1, sha2).size.positive?
       end
-
-      # rubocop:disable Metrics/ParameterLists
-      def rebase(user, rebase_id, branch:, branch_sha:, remote_repository:, remote_branch:, push_options: nil, timestamp: nil, transaction: nil)
-        worktree = Gitlab::Git::Worktree.new(path, REBASE_WORKTREE_PREFIX, rebase_id)
-        env = user.git_env(timestamp)
-
-        with_repo_branch_commit(remote_repository, remote_branch) do |commit|
-          diff_range = "#{commit.sha}...#{branch}"
-          diff_files = begin
-                         run_git!(
-                           %W[diff --name-only #{diff_range}]
-                         ).chomp
-                       rescue GitError
-                         []
-                       end
-
-          with_worktree(worktree, branch, sparse_checkout_files: diff_files, env: env) do
-            run_git!(
-              %W[rebase #{commit.sha}],
-              chdir: worktree.path, env: env, include_stderr: true
-            )
-
-            rebase_sha = run_git!(%w[rev-parse HEAD], chdir: worktree.path, env: env).strip
-
-            yield rebase_sha if block_given?
-
-            update_branch(branch, user: user, newrev: rebase_sha, oldrev: branch_sha, push_options: push_options, transaction: transaction)
-
-            rebase_sha
-          end
-        end
-      end
-      # rubocop:enable Metrics/ParameterLists
 
       def commit_patches(start_point, patches, extra_env: {})
         worktree = Gitlab::Git::Worktree.new(path, AM_WORKTREE_PREFIX, SecureRandom.hex)
