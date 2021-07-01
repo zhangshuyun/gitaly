@@ -83,9 +83,10 @@ func TestSuccessfulUserUpdateSubmoduleRequest(t *testing.T) {
 
 			commit, err := repo.ReadCommit(ctx, git.Revision(response.BranchUpdate.CommitId))
 			require.NoError(t, err)
-			require.Equal(t, commit.Author.Email, gittest.TestUser.Email)
-			require.Equal(t, commit.Committer.Email, gittest.TestUser.Email)
-			require.Equal(t, commit.Subject, commitMessage)
+			require.Equal(t, gittest.TestUser.Email, commit.Author.Email)
+			require.Equal(t, gittest.TimezoneOffset, string(commit.Author.Timezone))
+			require.Equal(t, gittest.TestUser.Email, commit.Committer.Email)
+			require.Equal(t, commitMessage, commit.Subject)
 
 			entry := gittest.Exec(t, cfg, "-C", repoPath, "ls-tree", "-z", fmt.Sprintf("%s^{tree}:", response.BranchUpdate.CommitId), testCase.submodule)
 			parser := lstree.NewParser(bytes.NewReader(entry))
@@ -120,7 +121,7 @@ func TestUserUpdateSubmoduleStableID(t *testing.T) {
 	commit, err := repo.ReadCommit(ctx, git.Revision(response.BranchUpdate.CommitId))
 	require.NoError(t, err)
 	require.Equal(t, &gitalypb.GitCommit{
-		Id: "e7752dfc2105bc830f8fa59b19dd4f3e49c8c44e",
+		Id: "928a79b1c5bbe64759f540aad8b339d281719118",
 		ParentIds: []string{
 			"1e292f8fedd741b75372e19097c76d327140c312",
 		},
@@ -132,13 +133,13 @@ func TestUserUpdateSubmoduleStableID(t *testing.T) {
 			Name:     gittest.TestUser.Name,
 			Email:    gittest.TestUser.Email,
 			Date:     &timestamp.Timestamp{Seconds: 12345},
-			Timezone: []byte("+0000"),
+			Timezone: []byte(gittest.TimezoneOffset),
 		},
 		Committer: &gitalypb.CommitAuthor{
 			Name:     gittest.TestUser.Name,
 			Email:    gittest.TestUser.Email,
 			Date:     &timestamp.Timestamp{Seconds: 12345},
-			Timezone: []byte("+0000"),
+			Timezone: []byte(gittest.TimezoneOffset),
 		},
 	}, commit)
 }

@@ -5,9 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
@@ -62,12 +60,9 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		return err
 	}
 
-	authorDate := time.Now()
-	if firstRequest.Timestamp != nil {
-		authorDate, err = ptypes.Timestamp(firstRequest.Timestamp)
-		if err != nil {
-			return helper.ErrInvalidArgument(err)
-		}
+	authorDate, err := dateFromProto(firstRequest)
+	if err != nil {
+		return helper.ErrInvalidArgument(err)
 	}
 
 	merge, err := git2go.MergeCommand{
@@ -260,12 +255,9 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		return nil, helper.ErrInvalidArgument(errors.New("Invalid merge source"))
 	}
 
-	authorDate := time.Now()
-	if request.Timestamp != nil {
-		authorDate, err = ptypes.Timestamp(request.Timestamp)
-		if err != nil {
-			return nil, helper.ErrInvalidArgument(err)
-		}
+	authorDate, err := dateFromProto(request)
+	if err != nil {
+		return nil, helper.ErrInvalidArgument(err)
 	}
 
 	// Resolve the current state of the target reference. We do not care whether it
