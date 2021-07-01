@@ -60,6 +60,8 @@ const (
 	Cleanup = ChangeType("cleanup")
 	// PackRefs is when replication optimizes references in a repo
 	PackRefs = ChangeType("pack_refs")
+	// WriteCommitGraph is when replication writes a commit graph
+	WriteCommitGraph = ChangeType("write_commit_graph")
 )
 
 func (ct ChangeType) String() string {

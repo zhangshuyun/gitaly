@@ -39,6 +39,8 @@ type Replicator interface {
 	Cleanup(ctx context.Context, event datastore.ReplicationEvent, target *grpc.ClientConn) error
 	// PackRefs will optimize references on the target repository
 	PackRefs(ctx context.Context, event datastore.ReplicationEvent, target *grpc.ClientConn) error
+	// WriteCommitGraph will optimize references on the target repository
+	WriteCommitGraph(ctx context.Context, event datastore.ReplicationEvent, target *grpc.ClientConn) error
 }
 
 type defaultReplicator struct {
@@ -296,6 +298,42 @@ func (dr defaultReplicator) PackRefs(ctx context.Context, event datastore.Replic
 	if _, err := refSvcClient.PackRefs(ctx, &gitalypb.PackRefsRequest{
 		Repository: targetRepo,
 		AllRefs:    allRefs,
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (dr defaultReplicator) WriteCommitGraph(ctx context.Context, event datastore.ReplicationEvent, targetCC *grpc.ClientConn) error {
+	targetRepo := &gitalypb.Repository{
+		StorageName:  event.Job.TargetNodeStorage,
+		RelativePath: event.Job.RelativePath,
+	}
+
+	val, found := event.Job.Params["SplitStrategy"]
+	if !found {
+		return fmt.Errorf("no SplitStrategy parameter for WriteCommitGraph")
+	}
+
+	// While we store the parameter as the correct type in the in-memory replication queue, the
+	// Postgres queue will serialize parameters into a JSON structure. On deserialization, we'll
+	// thus get a float64 and need to cast it.
+	var splitStrategy gitalypb.WriteCommitGraphRequest_SplitStrategy
+	switch v := val.(type) {
+	case float64:
+		splitStrategy = gitalypb.WriteCommitGraphRequest_SplitStrategy(v)
+	case gitalypb.WriteCommitGraphRequest_SplitStrategy:
+		splitStrategy = v
+	default:
+		return fmt.Errorf("split strategy has wrong type %T", val)
+	}
+
+	repoSvcClient := gitalypb.NewRepositoryServiceClient(targetCC)
+
+	if _, err := repoSvcClient.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
+		Repository:    targetRepo,
+		SplitStrategy: splitStrategy,
 	}); err != nil {
 		return err
 	}
@@ -673,6 +711,8 @@ func (r ReplMgr) processReplicationEvent(ctx context.Context, event datastore.Re
 		err = r.replicator.Cleanup(ctx, event, targetCC)
 	case datastore.PackRefs:
 		err = r.replicator.PackRefs(ctx, event, targetCC)
+	case datastore.WriteCommitGraph:
+		err = r.replicator.WriteCommitGraph(ctx, event, targetCC)
 	default:
 		err = fmt.Errorf("unknown replication change type encountered: %q", event.Job.Change)
 	}
