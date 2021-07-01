@@ -14,7 +14,9 @@ var (
 	// CreateRepositoryFromBundleAtomicFetch will add the `--atomic` flag to git-fetch(1) in
 	// order to reduce the number of transactional votes.
 	CreateRepositoryFromBundleAtomicFetch = FeatureFlag{Name: "create_repository_from_bundle_atomic_fetch", OnByDefault: false}
-	ResolveConflictsWithHooks             = FeatureFlag{Name: "resolve_conflicts_with_hooks", OnByDefault: false}
+	// ResolveConflictsWithHooks will cause the ResolveConflicts RPC to run Git hooks after committing changes
+	// to the branch.
+	ResolveConflictsWithHooks = FeatureFlag{Name: "resolve_conflicts_with_hooks", OnByDefault: true}
 	// ReplicateRepositoryDirectFetch will cause the ReplicateRepository RPC to perform fetches
 	// via a direct call instead of doing an RPC call to its own server. This fixes calls of
 	// `ReplicateRepository()` in case it's invoked via Praefect with transactions enabled.
