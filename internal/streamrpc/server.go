@@ -19,6 +19,7 @@ var _ grpc.ServiceRegistrar = &Server{}
 type Server struct {
 	methods     map[string]*method
 	interceptor grpc.UnaryServerInterceptor
+	notFound    NotFoundHandler
 }
 
 type method struct {
@@ -40,6 +41,10 @@ func WithServerInterceptor(interceptor grpc.UnaryServerInterceptor) ServerOption
 func NewServer(opts ...ServerOption) *Server {
 	s := &Server{
 		methods: make(map[string]*method),
+		interceptor: func(ctx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+			return handler(ctx, req)
+		},
+		notFound: defaultNotFoundHandler{},
 	}
 	for _, o := range opts {
 		o(s)
@@ -87,13 +92,13 @@ func (s *Server) handleSession(session *serverSession, reqBytes []byte) error {
 		return err
 	}
 
-	method, ok := s.methods[req.Method]
-	if !ok {
-		return fmt.Errorf("method not found: %s", req.Method)
-	}
-
 	ctx, cancel := serverContext(session, req)
 	defer cancel()
+
+	method, ok := s.methods[req.Method]
+	if !ok {
+		return s.handleNotFound(ctx, req.Method, req.Message)
+	}
 
 	if _, err := method.Handler(
 		method.implementation,
@@ -105,6 +110,23 @@ func (s *Server) handleSession(session *serverSession, reqBytes []byte) error {
 	}
 
 	return nil
+}
+
+func (s *Server) handleNotFound(ctx context.Context, method string, reqBytes []byte) error {
+	msg, err := s.notFound.Decode(method, reqBytes)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.interceptor(
+		ctx,
+		msg,
+		&grpc.UnaryServerInfo{FullMethod: method},
+		func(ctx context.Context, req interface{}) (interface{}, error) {
+			return nil, s.notFound.Handle(ctx, method, req)
+		},
+	)
+	return err
 }
 
 func serverContext(session *serverSession, req *request) (context.Context, func()) {
@@ -163,4 +185,19 @@ func (ss *serverSession) reject(err error) error {
 	}
 
 	return sendFrame(ss.c, buf, ss.deadline)
+}
+
+type NotFoundHandler interface {
+	Decode(method string, buf []byte) (proto.Message, error)
+	Handle(ctx context.Context, method string, req interface{}) error
+}
+
+type defaultNotFoundHandler struct{}
+
+func (defaultNotFoundHandler) Decode(method string, _ []byte) (proto.Message, error) {
+	return nil, fmt.Errorf("method not found: %s", method)
+}
+
+func (defaultNotFoundHandler) Handle(context.Context, string, interface{}) error {
+	panic("never reached")
 }
