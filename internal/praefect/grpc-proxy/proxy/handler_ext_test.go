@@ -54,7 +54,7 @@ func TestMain(m *testing.M) {
 	cleanup := testhelper.Configure()
 	defer cleanup()
 
-	goleak.VerifyTestMain(m)
+	goleak.VerifyTestMain(m, goleak.IgnoreTopFunction("go.opencensus.io/stats/view.(*worker).start"))
 }
 
 // asserting service is implemented on the server side and serves as a handler for stuff
