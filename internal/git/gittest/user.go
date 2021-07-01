@@ -7,6 +7,11 @@ import (
 const (
 	// GlID is the ID of the default user.
 	GlID = "user-123"
+
+	// Timezone is the Timezone of the default user.
+	Timezone = "Asia/Shanghai"
+	// TimezoneOffset is ISO 8601-like format of the default user Timezone.
+	TimezoneOffset = "+0800"
 )
 
 var (
@@ -16,5 +21,6 @@ var (
 		Email:      []byte("janedoe@gitlab.com"),
 		GlId:       GlID,
 		GlUsername: "janedoe",
+		Timezone:   Timezone,
 	}
 )

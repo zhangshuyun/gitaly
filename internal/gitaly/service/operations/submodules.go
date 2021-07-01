@@ -6,9 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
@@ -88,12 +86,9 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 		return nil, fmt.Errorf("%s: locate repo: %w", userUpdateSubmoduleName, err)
 	}
 
-	authorDate := time.Now()
-	if req.Timestamp != nil {
-		authorDate, err = ptypes.Timestamp(req.Timestamp)
-		if err != nil {
-			return nil, helper.ErrInvalidArgument(err)
-		}
+	authorDate, err := dateFromProto(req)
+	if err != nil {
+		return nil, helper.ErrInvalidArgument(err)
 	}
 
 	result, err := git2go.SubmoduleCommand{

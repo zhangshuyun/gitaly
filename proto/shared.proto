@@ -117,6 +117,9 @@ message User {
   bytes name = 2;
   bytes email = 3;
   string gl_username = 4;
+  // Timezone is the timezone as configured by the user in the web interface. This
+  // timezone may be used when new commits are created via RPC calls.
+  string timezone = 5;
 }
 
 message ObjectPool {
