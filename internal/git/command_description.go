@@ -71,9 +71,11 @@ var commandDescriptions = map[string]commandDescription{
 
 		opts: []GlobalOption{
 			// When fetching objects from an untrusted source, we want to always assert
-			// that all objects are valid.
+			// that all objects are valid. Please refer to the receive-pack
+			// description with regards to why we ignore some checks.
 			ConfigPair{Key: "fetch.fsckObjects", Value: "true"},
 			ConfigPair{Key: "fetch.fsck.badTimezone", Value: "ignore"},
+			ConfigPair{Key: "fetch.fsck.missingSpaceBeforeDate", Value: "ignore"},
 		},
 	},
 	"for-each-ref": {
@@ -157,6 +159,13 @@ var commandDescriptions = map[string]commandDescription{
 			// a commit will be rejected. As this is a mostly harmless
 			// issue, we add the following flag to ignore this check.
 			ConfigPair{Key: "receive.fsck.badTimezone", Value: "ignore"},
+
+			// git-fsck(1) complains in case a signature does not have a space
+			// between mail and date. The most common case where this can be hit
+			// is in case the date is missing completely. This error is harmless
+			// enough and we cope just fine parsing such signatures, so we can
+			// ignore this error.
+			ConfigPair{Key: "receive.fsck.missingSpaceBeforeDate", Value: "ignore"},
 
 			// Make git-receive-pack(1) advertise the push options
 			// capability to clients.
