@@ -232,11 +232,17 @@ func (dr defaultReplicator) GarbageCollect(ctx context.Context, event datastore.
 		return fmt.Errorf("getting CreateBitmap parameter for GarbageCollect: %w", err)
 	}
 
+	prune, err := event.Job.Params.GetBool("Prune")
+	if err != nil {
+		return fmt.Errorf("getting Purge parameter for GarbageCollect: %w", err)
+	}
+
 	repoSvcClient := gitalypb.NewRepositoryServiceClient(targetCC)
 
 	if _, err := repoSvcClient.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{
 		Repository:   targetRepo,
 		CreateBitmap: createBitmap,
+		Prune:        prune,
 	}); err != nil {
 		return err
 	}

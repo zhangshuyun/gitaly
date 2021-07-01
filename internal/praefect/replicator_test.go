@@ -370,7 +370,11 @@ func testReplicatorPropagateReplicationJob(
 		RelativePath: repositoryRelativePath,
 	}
 
-	_, err = repositoryClient.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repository, CreateBitmap: true})
+	_, err = repositoryClient.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{
+		Repository:   repository,
+		CreateBitmap: true,
+		Prune:        true,
+	})
 	require.NoError(t, err)
 
 	_, err = repositoryClient.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: repository, CreateBitmap: false})
@@ -389,6 +393,7 @@ func testReplicatorPropagateReplicationJob(
 	expectedPrimaryGcReq := &gitalypb.GarbageCollectRequest{
 		Repository:   primaryRepository,
 		CreateBitmap: true,
+		Prune:        true,
 	}
 	expectedPrimaryRepackFullReq := &gitalypb.RepackFullRequest{
 		Repository:   primaryRepository,

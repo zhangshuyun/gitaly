@@ -183,7 +183,10 @@ func getReplicationDetails(methodName string, m proto.Message) (datastore.Change
 		if !ok {
 			return "", nil, fmt.Errorf("protocol changed: for method %q expected message type '%T', got '%T'", methodName, req, m)
 		}
-		return datastore.GarbageCollect, datastore.Params{"CreateBitmap": req.GetCreateBitmap()}, nil
+		return datastore.GarbageCollect, datastore.Params{
+			"CreateBitmap": req.GetCreateBitmap(),
+			"Prune":        req.GetPrune(),
+		}, nil
 	case "/gitaly.RepositoryService/RepackFull":
 		req, ok := m.(*gitalypb.RepackFullRequest)
 		if !ok {
