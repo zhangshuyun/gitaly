@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -402,6 +403,12 @@ func TestInvalidRepoFindDefaultBranchNameRequest(t *testing.T) {
 }
 
 func TestSuccessfulFindAllTagsRequest(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.FindAllTagsPipeline,
+	}).Run(t, testSuccessfulFindAllTagsRequest)
+}
+
+func testSuccessfulFindAllTagsRequest(t *testing.T, ctx context.Context) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 
 	repoProto, repoPath, cleanupFn := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
@@ -420,9 +427,6 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 	commitID := "6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9"
 
 	gitCommit := testhelper.GitLabTestCommit(commitID)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	bigCommitID := gittest.WriteCommit(t, cfg, repoPath,
 		gittest.WithBranch("local-big-commits"),
@@ -600,6 +604,12 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 }
 
 func TestFindAllTagNestedTags(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.FindAllTagsPipeline,
+	}).Run(t, testFindAllTagNestedTags)
+}
+
+func testFindAllTagNestedTags(t *testing.T, ctx context.Context) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 
 	repoProto, repoPath, cleanupFn := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
@@ -608,9 +618,6 @@ func TestFindAllTagNestedTags(t *testing.T) {
 
 	blobID := "faaf198af3a36dbf41961466703cc1d47c61d051"
 	commitID := "6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9"
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	testCases := []struct {
 		description string
@@ -672,8 +679,13 @@ func TestFindAllTagNestedTags(t *testing.T) {
 					},
 				}
 
-				// only expect the TargetCommit to be populated if it is a commit and if its less than 10 tags deep
-				if info.Type == "commit" && depth < catfile.MaxTagReferenceDepth {
+				// With the non-pipeline code, we used to manually peel tags
+				// recursively until we hit a non-tag object. This was hugely
+				// expensive: git can do this for us via `^{}`, which
+				// opportunistically peels any tag objects for us. This is a lot
+				// more efficient, and thus we don't have the previous limitations
+				// anymore with the new code which does use this.
+				if info.Type == "commit" && (depth < catfile.MaxTagReferenceDepth || featureflag.IsEnabled(ctx, featureflag.FindAllTagsPipeline)) {
 					commit, err := catfile.GetCommit(ctx, batch, git.Revision(tc.originalOid))
 					require.NoError(t, err)
 					expectedTag.TargetCommit = commit
@@ -706,6 +718,12 @@ func TestFindAllTagNestedTags(t *testing.T) {
 }
 
 func TestInvalidFindAllTagsRequest(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.FindAllTagsPipeline,
+	}).Run(t, testInvalidFindAllTagsRequest)
+}
+
+func testInvalidFindAllTagsRequest(t *testing.T, ctx context.Context) {
 	_, client := setupRefServiceWithoutRepo(t)
 
 	testCases := []struct {
@@ -729,8 +747,6 @@ func TestInvalidFindAllTagsRequest(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
 			c, err := client.FindAllTags(ctx, tc.request)
 			require.NoError(t, err)
 
