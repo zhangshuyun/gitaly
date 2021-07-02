@@ -277,9 +277,7 @@ func TestSetDefaultBranchRef(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			gitCmdFactory := git.NewExecCommandFactory(cfg)
-			err := SetDefaultBranchRef(ctx, gitCmdFactory, repoProto, tc.ref, cfg)
-			require.NoError(t, err)
+			require.NoError(t, SetDefaultBranchRef(ctx, repo, tc.ref, cfg))
 
 			newRef, err := DefaultBranchName(ctx, repo)
 			require.NoError(t, err)

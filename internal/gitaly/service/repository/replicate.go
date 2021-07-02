@@ -13,7 +13,9 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/remote"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/tempdir"
@@ -189,6 +191,16 @@ func (s *server) createFromSnapshot(ctx context.Context, in *gitalypb.ReplicateR
 }
 
 func (s *server) syncRepository(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) error {
+	if featureflag.IsEnabled(ctx, featureflag.ReplicateRepositoryDirectFetch) {
+		repo := s.localrepo(in.GetRepository())
+
+		if err := remote.FetchInternalRemote(ctx, s.cfg, s.conns, repo, in.GetSource()); err != nil {
+			return fmt.Errorf("fetch internal remote: %w", err)
+		}
+
+		return nil
+	}
+
 	remoteClient, err := s.newRemoteClient(ctx)
 	if err != nil {
 		return fmt.Errorf("new client: %w", err)

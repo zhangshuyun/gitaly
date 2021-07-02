@@ -213,15 +213,14 @@ func _headReference(ctx context.Context, repo git.RepositoryExecutor) ([]byte, e
 }
 
 // SetDefaultBranchRef overwrites the default branch ref for the repository
-func SetDefaultBranchRef(ctx context.Context, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository, ref string, cfg config.Cfg) error {
-	cmd, err := gitCmdFactory.New(ctx, repo, git.SubCmd{
+func SetDefaultBranchRef(ctx context.Context, repo git.RepositoryExecutor, ref string, cfg config.Cfg) error {
+	if err := repo.ExecAndWait(ctx, git.SubCmd{
 		Name: "symbolic-ref",
 		Args: []string{"HEAD", ref},
-	}, git.WithRefTxHook(ctx, repo, cfg))
-	if err != nil {
+	}, git.WithRefTxHook(ctx, repo, cfg)); err != nil {
 		return err
 	}
-	return cmd.Wait()
+	return nil
 }
 
 // DefaultBranchName looks up the name of the default branch given a repoPath
