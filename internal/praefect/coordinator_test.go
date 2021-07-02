@@ -1688,6 +1688,9 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			subtransactions:            1,
 			expectedPrimaryDirtied:     true,
 			expectedUpdated:            []string{"s1", "s2"},
+			expectedMetrics: map[string]int{
+				"updated": 2,
+			},
 		},
 		{
 			desc: "multiple committed nodes with primary err",
@@ -1725,6 +1728,7 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			expectedOutdated:           []string{"s1"},
 			expectedMetrics: map[string]int{
 				"node-failed": 1,
+				"updated":     1,
 			},
 		},
 		{
@@ -1744,6 +1748,7 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			expectedOutdated:           []string{"s1"},
 			expectedMetrics: map[string]int{
 				"node-not-committed": 1,
+				"updated":            1,
 			},
 		},
 		{
@@ -1800,6 +1805,7 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			expectedMetrics: map[string]int{
 				"node-not-committed": 1,
 				"outdated":           2,
+				"updated":            1,
 			},
 		},
 		{
