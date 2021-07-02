@@ -11,6 +11,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
@@ -92,12 +93,17 @@ func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_Cr
 		return status.Error(codes.Internal, cleanError)
 	}
 
+	fetchFlags := []git.Option{git.Flag{Name: "--quiet"}}
+	if featureflag.IsEnabled(ctx, featureflag.CreateRepositoryFromBundleAtomicFetch) {
+		fetchFlags = append(fetchFlags, git.Flag{Name: "--atomic"})
+	}
+
 	// We do a fetch to get all refs including keep-around refs
 	stderr.Reset()
 	cmd, err = s.gitCmdFactory.NewWithDir(ctx, repoPath,
 		git.SubCmd{
 			Name:  "fetch",
-			Flags: []git.Option{git.Flag{Name: "--quiet"}},
+			Flags: fetchFlags,
 			Args:  []string{bundlePath, "refs/*:refs/*"},
 		},
 		git.WithStderr(&stderr),
