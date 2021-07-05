@@ -11,8 +11,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 )
 
-// RevlistResult is a result for the revlist pipeline step.
-type RevlistResult struct {
+// RevisionResult is a result for the revlist pipeline step.
+type RevisionResult struct {
 	// err is an error which occurred during execution of the pipeline.
 	err error
 
@@ -158,17 +158,17 @@ func Revlist(
 	repo *localrepo.Repo,
 	revisions []string,
 	options ...RevlistOption,
-) RevlistIterator {
+) RevisionIterator {
 	var cfg revlistConfig
 	for _, option := range options {
 		option(&cfg)
 	}
 
-	resultChan := make(chan RevlistResult)
+	resultChan := make(chan RevisionResult)
 	go func() {
 		defer close(resultChan)
 
-		sendResult := func(result RevlistResult) bool {
+		sendResult := func(result RevisionResult) bool {
 			select {
 			case resultChan <- result:
 				return false
@@ -247,7 +247,7 @@ func Revlist(
 			Args:  revisions,
 		})
 		if err != nil {
-			sendResult(RevlistResult{err: err})
+			sendResult(RevisionResult{err: err})
 			return
 		}
 
@@ -260,7 +260,7 @@ func Revlist(
 
 			oidAndName := bytes.SplitN(line, []byte{' '}, 2)
 
-			result := RevlistResult{
+			result := RevisionResult{
 				OID: git.ObjectID(oidAndName[0]),
 			}
 			if len(oidAndName) == 2 && len(oidAndName[1]) > 0 {
@@ -273,30 +273,30 @@ func Revlist(
 		}
 
 		if err := scanner.Err(); err != nil {
-			sendResult(RevlistResult{
+			sendResult(RevisionResult{
 				err: fmt.Errorf("scanning rev-list output: %w", err),
 			})
 			return
 		}
 
 		if err := revlist.Wait(); err != nil {
-			sendResult(RevlistResult{
+			sendResult(RevisionResult{
 				err: fmt.Errorf("rev-list pipeline command: %w", err),
 			})
 			return
 		}
 	}()
 
-	return &revlistIterator{
+	return &revisionIterator{
 		ch: resultChan,
 	}
 }
 
-// RevlistFilter filters the RevlistResults from the provided iterator with the filter function: if
+// RevisionFilter filters the RevisionResult from the provided iterator with the filter function: if
 // the filter returns `false` for a given item, then it will be dropped from the pipeline. Errors
 // cannot be filtered and will always be passed through.
-func RevlistFilter(ctx context.Context, it RevlistIterator, filter func(RevlistResult) bool) RevlistIterator {
-	resultChan := make(chan RevlistResult)
+func RevisionFilter(ctx context.Context, it RevisionIterator, filter func(RevisionResult) bool) RevisionIterator {
+	resultChan := make(chan RevisionResult)
 
 	go func() {
 		defer close(resultChan)
@@ -314,14 +314,14 @@ func RevlistFilter(ctx context.Context, it RevlistIterator, filter func(RevlistR
 
 		if err := it.Err(); err != nil {
 			select {
-			case resultChan <- RevlistResult{err: err}:
+			case resultChan <- RevisionResult{err: err}:
 			case <-ctx.Done():
 				return
 			}
 		}
 	}()
 
-	return &revlistIterator{
+	return &revisionIterator{
 		ch: resultChan,
 	}
 }

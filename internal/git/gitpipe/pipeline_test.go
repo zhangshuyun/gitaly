@@ -27,7 +27,7 @@ func TestPipeline(t *testing.T) {
 		desc              string
 		revisions         []string
 		revlistOptions    []RevlistOption
-		revlistFilter     func(RevlistResult) bool
+		revisionFilter    func(RevisionResult) bool
 		catfileInfoFilter func(CatfileInfoResult) bool
 		expectedResults   []CatfileObjectResult
 		expectedErr       error
@@ -77,7 +77,7 @@ func TestPipeline(t *testing.T) {
 			revlistOptions: []RevlistOption{
 				WithObjects(),
 			},
-			revlistFilter: func(r RevlistResult) bool {
+			revisionFilter: func(r RevisionResult) bool {
 				return r.OID == lfsPointer2
 			},
 			expectedResults: []CatfileObjectResult{
@@ -157,7 +157,7 @@ func TestPipeline(t *testing.T) {
 			revlistOptions: []RevlistOption{
 				WithObjects(),
 			},
-			revlistFilter: func(r RevlistResult) bool {
+			revisionFilter: func(r RevisionResult) bool {
 				// Let through two LFS pointers and a tree.
 				return r.OID == "b95c0fad32f4361845f91d9ce4c1721b52b82793" ||
 					r.OID == lfsPointer1 || r.OID == lfsPointer2
@@ -192,7 +192,7 @@ func TestPipeline(t *testing.T) {
 			revisions: []string{
 				"doesnotexist",
 			},
-			revlistFilter: func(r RevlistResult) bool {
+			revisionFilter: func(r RevisionResult) bool {
 				require.Fail(t, "filter should not be invoked on errors")
 				return true
 			},
@@ -214,8 +214,8 @@ func TestPipeline(t *testing.T) {
 			require.NoError(t, err)
 
 			revlistIter := Revlist(ctx, repo, tc.revisions, tc.revlistOptions...)
-			if tc.revlistFilter != nil {
-				revlistIter = RevlistFilter(ctx, revlistIter, tc.revlistFilter)
+			if tc.revisionFilter != nil {
+				revlistIter = RevisionFilter(ctx, revlistIter, tc.revisionFilter)
 			}
 
 			catfileInfoIter := CatfileInfo(ctx, catfileProcess, revlistIter)
@@ -270,7 +270,7 @@ func TestPipeline(t *testing.T) {
 		defer cancel()
 
 		revlistIter := Revlist(childCtx, repo, []string{"--all"})
-		revlistIter = RevlistFilter(childCtx, revlistIter, func(RevlistResult) bool { return true })
+		revlistIter = RevisionFilter(childCtx, revlistIter, func(RevisionResult) bool { return true })
 		catfileInfoIter := CatfileInfo(childCtx, catfileProcess, revlistIter)
 		catfileInfoIter = CatfileInfoFilter(childCtx, catfileInfoIter, func(CatfileInfoResult) bool { return true })
 		catfileObjectIter := CatfileObject(childCtx, catfileProcess, catfileInfoIter)
