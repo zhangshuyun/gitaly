@@ -80,6 +80,16 @@ No changes.
 
 - [Update gitlab-labkit to 0.17.1](gitlab-org/gitaly@904af72eb7c42124978370cef53681fa561b10f5) ([merge request](gitlab-org/gitaly!3395))
 
+## 13.12.7 (2021-07-05)
+
+### Fixed (1 change)
+
+- [repository: Fix repo replication with transactions](gitlab-org/gitaly@74f3fd3902d7979845a063bb0bd6919316b58b4e) ([merge request](gitlab-org/gitaly!3632))
+
+### Performance (1 change)
+
+- [repository: Fix excessive voting in CreateRepositoryFromBundle](gitlab-org/gitaly@e324090114a8741ac966ef7b172463208463692c) ([merge request](gitlab-org/gitaly!3632))
+
 ## 13.12.6 (2021-07-01)
 
 No changes.
