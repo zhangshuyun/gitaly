@@ -439,6 +439,89 @@ func TestRevlist(t *testing.T) {
 	}
 }
 
+func TestForEachRef(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	readRefs := func(t *testing.T, repo *localrepo.Repo, patterns ...string) []RevisionResult {
+		it := ForEachRef(ctx, repo, patterns)
+
+		var results []RevisionResult
+		for it.Next() {
+			results = append(results, it.Result())
+		}
+		require.NoError(t, it.Err())
+
+		return results
+	}
+
+	cfg, repoProto, _ := testcfg.BuildWithRepo(t)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	revisions := make(map[string]git.ObjectID)
+	for _, reference := range []string{"refs/heads/master", "refs/heads/feature"} {
+		revision, err := repo.ResolveRevision(ctx, git.Revision(reference))
+		require.NoError(t, err)
+
+		revisions[reference] = revision
+	}
+
+	t.Run("single fully qualified branch", func(t *testing.T) {
+		require.Equal(t, []RevisionResult{
+			{
+				ObjectName: []byte("refs/heads/master"),
+				OID:        revisions["refs/heads/master"],
+			},
+		}, readRefs(t, repo, "refs/heads/master"))
+	})
+
+	t.Run("unqualified branch name", func(t *testing.T) {
+		require.Nil(t, readRefs(t, repo, "master"))
+	})
+
+	t.Run("multiple branches", func(t *testing.T) {
+		require.Equal(t, []RevisionResult{
+			{
+				ObjectName: []byte("refs/heads/feature"),
+				OID:        revisions["refs/heads/feature"],
+			},
+			{
+				ObjectName: []byte("refs/heads/master"),
+				OID:        revisions["refs/heads/master"],
+			},
+		}, readRefs(t, repo, "refs/heads/master", "refs/heads/feature"))
+	})
+
+	t.Run("branches pattern", func(t *testing.T) {
+		refs := readRefs(t, repo, "refs/heads/*")
+		require.Greater(t, len(refs), 90)
+
+		require.Subset(t, refs, []RevisionResult{
+			{
+				ObjectName: []byte("refs/heads/master"),
+				OID:        revisions["refs/heads/master"],
+			},
+			{
+				ObjectName: []byte("refs/heads/feature"),
+				OID:        revisions["refs/heads/feature"],
+			},
+		})
+	})
+
+	t.Run("multiple patterns", func(t *testing.T) {
+		refs := readRefs(t, repo, "refs/heads/*", "refs/tags/*")
+		require.Greater(t, len(refs), 90)
+	})
+
+	t.Run("nonexisting branch", func(t *testing.T) {
+		require.Nil(t, readRefs(t, repo, "refs/heads/idontexist"))
+	})
+
+	t.Run("nonexisting pattern", func(t *testing.T) {
+		require.Nil(t, readRefs(t, repo, "refs/idontexist/*"))
+	})
+}
+
 func TestRevisionFilter(t *testing.T) {
 	for _, tc := range []struct {
 		desc            string

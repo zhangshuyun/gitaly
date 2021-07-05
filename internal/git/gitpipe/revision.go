@@ -283,6 +283,78 @@ func Revlist(
 	}
 }
 
+// ForEachRef runs git-for-each-ref(1) with the given patterns and returns a RevisionIterator for
+// found references. Patterns must always refer to fully qualified reference names. Patterns for
+// which no branch is found do not result in an error. The iterator's object name is set to the
+// reference, while its object ID is the target object the reference points to. Cancelling the
+// context will cause the pipeline to be cancelled, too.
+func ForEachRef(
+	ctx context.Context,
+	repo *localrepo.Repo,
+	patterns []string,
+) RevisionIterator {
+	resultChan := make(chan RevisionResult)
+
+	go func() {
+		defer close(resultChan)
+
+		forEachRef, err := repo.Exec(ctx, git.SubCmd{
+			Name: "for-each-ref",
+			Flags: []git.Option{
+				// The default format also includes the object type, which requires
+				// us to read the referenced commit's object. It would thus be about
+				// 2-3x slower to use the default format, and instead we move the
+				// burden into the next pipeline step.
+				git.Flag{Name: "--format=%(objectname) %(refname)"},
+			},
+			Args: patterns,
+		})
+		if err != nil {
+			sendRevisionResult(ctx, resultChan, RevisionResult{err: err})
+			return
+		}
+
+		scanner := bufio.NewScanner(forEachRef)
+		for scanner.Scan() {
+			line := make([]byte, len(scanner.Bytes()))
+			copy(line, scanner.Bytes())
+
+			oidAndRef := bytes.SplitN(line, []byte{' '}, 2)
+			if len(oidAndRef) != 2 {
+				sendRevisionResult(ctx, resultChan, RevisionResult{
+					err: fmt.Errorf("invalid for-each-ref format: %q", line),
+				})
+				return
+			}
+
+			if isDone := sendRevisionResult(ctx, resultChan, RevisionResult{
+				OID:        git.ObjectID(oidAndRef[0]),
+				ObjectName: oidAndRef[1],
+			}); isDone {
+				return
+			}
+		}
+
+		if err := scanner.Err(); err != nil {
+			sendRevisionResult(ctx, resultChan, RevisionResult{
+				err: fmt.Errorf("scanning for-each-ref output: %w", err),
+			})
+			return
+		}
+
+		if err := forEachRef.Wait(); err != nil {
+			sendRevisionResult(ctx, resultChan, RevisionResult{
+				err: fmt.Errorf("for-each-ref pipeline command: %w", err),
+			})
+			return
+		}
+	}()
+
+	return &revisionIterator{
+		ch: resultChan,
+	}
+}
+
 // RevisionFilter filters the RevisionResult from the provided iterator with the filter function: if
 // the filter returns `false` for a given item, then it will be dropped from the pipeline. Errors
 // cannot be filtered and will always be passed through.
