@@ -3,6 +3,7 @@ package gitpipe
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
@@ -44,6 +45,9 @@ func TestRevlist(t *testing.T) {
 			revisions: []string{
 				lfsPointer1,
 			},
+			options: []RevlistOption{
+				WithObjects(),
+			},
 			expectedResults: []RevlistResult{
 				{OID: lfsPointer1},
 			},
@@ -56,6 +60,9 @@ func TestRevlist(t *testing.T) {
 				lfsPointer3,
 				lfsPointer4,
 			},
+			options: []RevlistOption{
+				WithObjects(),
+			},
 			expectedResults: []RevlistResult{
 				{OID: lfsPointer1},
 				{OID: lfsPointer2},
@@ -64,10 +71,23 @@ func TestRevlist(t *testing.T) {
 			},
 		},
 		{
+			desc: "multiple blobs without objects",
+			revisions: []string{
+				lfsPointer1,
+				lfsPointer2,
+				lfsPointer3,
+				lfsPointer4,
+			},
+			expectedResults: nil,
+		},
+		{
 			desc: "duplicated blob prints blob once only",
 			revisions: []string{
 				lfsPointer1,
 				lfsPointer1,
+			},
+			options: []RevlistOption{
+				WithObjects(),
 			},
 			expectedResults: []RevlistResult{
 				{OID: lfsPointer1},
@@ -78,9 +98,31 @@ func TestRevlist(t *testing.T) {
 			revisions: []string{
 				"b95c0fad32f4361845f91d9ce4c1721b52b82793",
 			},
+			options: []RevlistOption{
+				WithObjects(),
+			},
 			expectedResults: []RevlistResult{
 				{OID: "b95c0fad32f4361845f91d9ce4c1721b52b82793"},
 				{OID: "93e123ac8a3e6a0b600953d7598af629dec7b735", ObjectName: []byte("branch-test.txt")},
+			},
+		},
+		{
+			desc: "tree without objects returns nothing",
+			revisions: []string{
+				"b95c0fad32f4361845f91d9ce4c1721b52b82793",
+			},
+			expectedResults: nil,
+		},
+		{
+			desc: "revision without disabled walk",
+			revisions: []string{
+				"refs/heads/master",
+			},
+			options: []RevlistOption{
+				WithDisabledWalk(),
+			},
+			expectedResults: []RevlistResult{
+				{OID: "1e292f8fedd741b75372e19097c76d327140c312"},
 			},
 		},
 		{
@@ -88,6 +130,9 @@ func TestRevlist(t *testing.T) {
 			revisions: []string{
 				"^refs/heads/master~",
 				"refs/heads/master",
+			},
+			options: []RevlistOption{
+				WithObjects(),
 			},
 			expectedResults: []RevlistResult{
 				{OID: "1e292f8fedd741b75372e19097c76d327140c312"},
@@ -100,6 +145,127 @@ func TestRevlist(t *testing.T) {
 			},
 		},
 		{
+			desc: "revision range without objects",
+			revisions: []string{
+				"^refs/heads/master~",
+				"refs/heads/master",
+			},
+			expectedResults: []RevlistResult{
+				{OID: "1e292f8fedd741b75372e19097c76d327140c312"},
+				{OID: "c1c67abbaf91f624347bb3ae96eabe3a1b742478"},
+			},
+		},
+		{
+			desc: "revision range without objects with at most one parent",
+			revisions: []string{
+				"^refs/heads/master~",
+				"refs/heads/master",
+			},
+			options: []RevlistOption{
+				WithMaxParents(1),
+			},
+			expectedResults: []RevlistResult{
+				{OID: "c1c67abbaf91f624347bb3ae96eabe3a1b742478"},
+			},
+		},
+		{
+			desc: "revision range with topo order",
+			revisions: []string{
+				// This is one of the smaller examples I've found which reproduces
+				// different sorting orders between topo- and date-sorting. Expected
+				// results contain the same object for this and the next test case,
+				// but ordering is different.
+				"master",
+				"^master~5",
+				"flat-path",
+			},
+			options: []RevlistOption{
+				WithOrder(OrderTopo),
+			},
+			expectedResults: []RevlistResult{
+				{OID: "1e292f8fedd741b75372e19097c76d327140c312"},
+				{OID: "c1c67abbaf91f624347bb3ae96eabe3a1b742478"},
+				{OID: "7975be0116940bf2ad4321f79d02a55c5f7779aa"},
+				{OID: "c84ff944ff4529a70788a5e9003c2b7feae29047"},
+				{OID: "60ecb67744cb56576c30214ff52294f8ce2def98"},
+				{OID: "55bc176024cfa3baaceb71db584c7e5df900ea65"},
+				{OID: "e63f41fe459e62e1228fcef60d7189127aeba95a"},
+				{OID: "4a24d82dbca5c11c61556f3b35ca472b7463187e"},
+				{OID: "b83d6e391c22777fca1ed3012fce84f633d7fed0"},
+				{OID: "498214de67004b1da3d820901307bed2a68a8ef6"},
+				// The following commit is sorted differently in the next testcase.
+				{OID: "ce369011c189f62c815f5971d096b26759bab0d1"},
+			},
+		},
+		{
+			desc: "revision range with date order",
+			revisions: []string{
+				"master",
+				"^master~5",
+				"flat-path",
+			},
+			options: []RevlistOption{
+				WithOrder(OrderDate),
+			},
+			expectedResults: []RevlistResult{
+				{OID: "1e292f8fedd741b75372e19097c76d327140c312"},
+				{OID: "c1c67abbaf91f624347bb3ae96eabe3a1b742478"},
+				{OID: "7975be0116940bf2ad4321f79d02a55c5f7779aa"},
+				{OID: "c84ff944ff4529a70788a5e9003c2b7feae29047"},
+				{OID: "60ecb67744cb56576c30214ff52294f8ce2def98"},
+				{OID: "55bc176024cfa3baaceb71db584c7e5df900ea65"},
+				// The following commit is sorted differently in the previous
+				// testcase.
+				{OID: "ce369011c189f62c815f5971d096b26759bab0d1"},
+				{OID: "e63f41fe459e62e1228fcef60d7189127aeba95a"},
+				{OID: "4a24d82dbca5c11c61556f3b35ca472b7463187e"},
+				{OID: "b83d6e391c22777fca1ed3012fce84f633d7fed0"},
+				{OID: "498214de67004b1da3d820901307bed2a68a8ef6"},
+			},
+		},
+		{
+			desc: "revision range with dates",
+			revisions: []string{
+				"refs/heads/master",
+			},
+			options: []RevlistOption{
+				WithBefore(time.Date(2016, 6, 30, 18, 30, 0, 0, time.UTC)),
+				WithAfter(time.Date(2016, 6, 30, 18, 28, 0, 0, time.UTC)),
+			},
+			expectedResults: []RevlistResult{
+				{OID: "6907208d755b60ebeacb2e9dfea74c92c3449a1f"},
+				{OID: "c347ca2e140aa667b968e51ed0ffe055501fe4f4"},
+			},
+		},
+		{
+			desc: "revision range with author",
+			revisions: []string{
+				"refs/heads/master",
+			},
+			options: []RevlistOption{
+				WithAuthor([]byte("Sytse")),
+			},
+			expectedResults: []RevlistResult{
+				{OID: "e56497bb5f03a90a51293fc6d516788730953899"},
+			},
+		},
+		{
+			desc: "first parent chain",
+			revisions: []string{
+				"master",
+				"^master~4",
+			},
+			options: []RevlistOption{
+				WithFirstParent(),
+			},
+			expectedResults: []RevlistResult{
+				{OID: "1e292f8fedd741b75372e19097c76d327140c312"},
+				{OID: "7975be0116940bf2ad4321f79d02a55c5f7779aa"},
+				{OID: "60ecb67744cb56576c30214ff52294f8ce2def98"},
+				{OID: "e63f41fe459e62e1228fcef60d7189127aeba95a"},
+			},
+		},
+		{
 			// This is a tree object with multiple blobs. We cannot directly filter
 			// blobs given that Git will always print whatever's been provided on the
 			// command line. While we can already fix this with Git v2.32.0 via
@@ -109,6 +275,9 @@ func TestRevlist(t *testing.T) {
 			desc: "tree with multiple blobs without limit",
 			revisions: []string{
 				"79d5f98270ad677c86a7e1ab2baa922958565135",
+			},
+			options: []RevlistOption{
+				WithObjects(),
 			},
 			expectedResults: []RevlistResult{
 				{OID: "79d5f98270ad677c86a7e1ab2baa922958565135"},
@@ -131,6 +300,7 @@ func TestRevlist(t *testing.T) {
 				"79d5f98270ad677c86a7e1ab2baa922958565135",
 			},
 			options: []RevlistOption{
+				WithObjects(),
 				WithBlobLimit(10),
 			},
 			expectedResults: []RevlistResult{
@@ -147,6 +317,7 @@ func TestRevlist(t *testing.T) {
 				"79d5f98270ad677c86a7e1ab2baa922958565135",
 			},
 			options: []RevlistOption{
+				WithObjects(),
 				WithObjectTypeFilter(ObjectTypeBlob),
 			},
 			expectedResults: []RevlistResult{
@@ -168,6 +339,7 @@ func TestRevlist(t *testing.T) {
 				"--all",
 			},
 			options: []RevlistOption{
+				WithObjects(),
 				WithObjectTypeFilter(ObjectTypeTag),
 			},
 			expectedResults: []RevlistResult{
@@ -183,6 +355,7 @@ func TestRevlist(t *testing.T) {
 				"79d5f98270ad677c86a7e1ab2baa922958565135",
 			},
 			options: []RevlistOption{
+				WithObjects(),
 				WithObjectTypeFilter(ObjectTypeTree),
 			},
 			expectedResults: []RevlistResult{
@@ -197,6 +370,7 @@ func TestRevlist(t *testing.T) {
 				"refs/heads/master",
 			},
 			options: []RevlistOption{
+				WithObjects(),
 				WithObjectTypeFilter(ObjectTypeCommit),
 			},
 			expectedResults: []RevlistResult{
@@ -211,6 +385,7 @@ func TestRevlist(t *testing.T) {
 				"79d5f98270ad677c86a7e1ab2baa922958565135",
 			},
 			options: []RevlistOption{
+				WithObjects(),
 				WithBlobLimit(10),
 				WithObjectTypeFilter(ObjectTypeBlob),
 			},

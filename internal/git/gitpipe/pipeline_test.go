@@ -26,6 +26,7 @@ func TestPipeline(t *testing.T) {
 	for _, tc := range []struct {
 		desc              string
 		revisions         []string
+		revlistOptions    []RevlistOption
 		revlistFilter     func(RevlistResult) bool
 		catfileInfoFilter func(CatfileInfoResult) bool
 		expectedResults   []CatfileObjectResult
@@ -36,9 +37,19 @@ func TestPipeline(t *testing.T) {
 			revisions: []string{
 				lfsPointer1,
 			},
+			revlistOptions: []RevlistOption{
+				WithObjects(),
+			},
 			expectedResults: []CatfileObjectResult{
 				{ObjectInfo: &catfile.ObjectInfo{Oid: lfsPointer1, Type: "blob", Size: 133}},
 			},
+		},
+		{
+			desc: "single blob without objects",
+			revisions: []string{
+				lfsPointer1,
+			},
+			expectedResults: nil,
 		},
 		{
 			desc: "multiple blobs",
@@ -46,6 +57,9 @@ func TestPipeline(t *testing.T) {
 				lfsPointer1,
 				lfsPointer2,
 				lfsPointer3,
+			},
+			revlistOptions: []RevlistOption{
+				WithObjects(),
 			},
 			expectedResults: []CatfileObjectResult{
 				{ObjectInfo: &catfile.ObjectInfo{Oid: lfsPointer1, Type: "blob", Size: 133}},
@@ -60,6 +74,9 @@ func TestPipeline(t *testing.T) {
 				lfsPointer2,
 				lfsPointer3,
 			},
+			revlistOptions: []RevlistOption{
+				WithObjects(),
+			},
 			revlistFilter: func(r RevlistResult) bool {
 				return r.OID == lfsPointer2
 			},
@@ -72,15 +89,28 @@ func TestPipeline(t *testing.T) {
 			revisions: []string{
 				"b95c0fad32f4361845f91d9ce4c1721b52b82793",
 			},
+			revlistOptions: []RevlistOption{
+				WithObjects(),
+			},
 			expectedResults: []CatfileObjectResult{
 				{ObjectInfo: &catfile.ObjectInfo{Oid: "b95c0fad32f4361845f91d9ce4c1721b52b82793", Type: "tree", Size: 43}},
 				{ObjectInfo: &catfile.ObjectInfo{Oid: "93e123ac8a3e6a0b600953d7598af629dec7b735", Type: "blob", Size: 59}, ObjectName: []byte("branch-test.txt")},
 			},
 		},
 		{
+			desc: "tree without objects",
+			revisions: []string{
+				"b95c0fad32f4361845f91d9ce4c1721b52b82793",
+			},
+			expectedResults: nil,
+		},
+		{
 			desc: "tree with blob filter",
 			revisions: []string{
 				"b95c0fad32f4361845f91d9ce4c1721b52b82793",
+			},
+			revlistOptions: []RevlistOption{
+				WithObjects(),
 			},
 			catfileInfoFilter: func(r CatfileInfoResult) bool {
 				return r.ObjectInfo.Type == "blob"
@@ -95,6 +125,9 @@ func TestPipeline(t *testing.T) {
 				"^master~",
 				"master",
 			},
+			revlistOptions: []RevlistOption{
+				WithObjects(),
+			},
 			expectedResults: []CatfileObjectResult{
 				{ObjectInfo: &catfile.ObjectInfo{Oid: "1e292f8fedd741b75372e19097c76d327140c312", Type: "commit", Size: 388}},
 				{ObjectInfo: &catfile.ObjectInfo{Oid: "07f8147e8e73aab6c935c296e8cdc5194dee729b", Type: "tree", Size: 780}},
@@ -106,9 +139,23 @@ func TestPipeline(t *testing.T) {
 			},
 		},
 		{
+			desc: "revision range without objects",
+			revisions: []string{
+				"^master~",
+				"master",
+			},
+			expectedResults: []CatfileObjectResult{
+				{ObjectInfo: &catfile.ObjectInfo{Oid: "1e292f8fedd741b75372e19097c76d327140c312", Type: "commit", Size: 388}},
+				{ObjectInfo: &catfile.ObjectInfo{Oid: "c1c67abbaf91f624347bb3ae96eabe3a1b742478", Type: "commit", Size: 326}},
+			},
+		},
+		{
 			desc: "--all with all filters",
 			revisions: []string{
 				"--all",
+			},
+			revlistOptions: []RevlistOption{
+				WithObjects(),
 			},
 			revlistFilter: func(r RevlistResult) bool {
 				// Let through two LFS pointers and a tree.
@@ -166,7 +213,7 @@ func TestPipeline(t *testing.T) {
 			catfileProcess, err := catfileCache.BatchProcess(ctx, repo)
 			require.NoError(t, err)
 
-			revlistIter := Revlist(ctx, repo, tc.revisions)
+			revlistIter := Revlist(ctx, repo, tc.revisions, tc.revlistOptions...)
 			if tc.revlistFilter != nil {
 				revlistIter = RevlistFilter(ctx, revlistIter, tc.revlistFilter)
 			}
@@ -258,7 +305,7 @@ func TestPipeline(t *testing.T) {
 		catfileProcess, err := catfileCache.BatchProcess(ctx, repo)
 		require.NoError(t, err)
 
-		revlistIter := Revlist(ctx, repo, []string{"--all"})
+		revlistIter := Revlist(ctx, repo, []string{"--all"}, WithObjects())
 		catfileInfoIter := CatfileInfo(ctx, catfileProcess, revlistIter)
 		catfileObjectIter := CatfileObject(ctx, catfileProcess, catfileInfoIter)
 

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
@@ -40,12 +41,27 @@ const (
 
 // revlistConfig is configuration for the revlist pipeline step.
 type revlistConfig struct {
-	blobLimit  int
-	objectType ObjectType
+	blobLimit     int
+	objects       bool
+	objectType    ObjectType
+	order         Order
+	maxParents    uint
+	disabledWalk  bool
+	firstParent   bool
+	before, after time.Time
+	author        []byte
 }
 
 // RevlistOption is an option for the revlist pipeline step.
 type RevlistOption func(cfg *revlistConfig)
+
+// WithObjects will cause git-rev-list(1) to not only list commits, but also objects referenced by
+// those commits.
+func WithObjects() RevlistOption {
+	return func(cfg *revlistConfig) {
+		cfg.objects = true
+	}
+}
 
 // WithBlobLimit sets up a size limit for blobs. Only blobs whose size is smaller than this limit
 // will be returned by the pipeline step.
@@ -62,6 +78,75 @@ func WithBlobLimit(limit int) RevlistOption {
 func WithObjectTypeFilter(t ObjectType) RevlistOption {
 	return func(cfg *revlistConfig) {
 		cfg.objectType = t
+	}
+}
+
+// Order is the order in which objects are printed.
+type Order int
+
+const (
+	// OrderNone is the default ordering, which is reverse chronological order.
+	OrderNone = Order(iota)
+	// OrderTopo will cause no parents to be shown before all of its children are shown.
+	// Furthermore, multiple lines of history will not be intermixed.
+	OrderTopo
+	// OrderDate order will cause no parents to be shown before all of its children are shown.
+	// Otherwise, commits are shown in commit timestamp order. This can cause history to be
+	// shown intermixed.
+	OrderDate
+)
+
+// WithOrder will change the ordering of how objects are listed.
+func WithOrder(o Order) RevlistOption {
+	return func(cfg *revlistConfig) {
+		cfg.order = o
+	}
+}
+
+// WithMaxParents will cause git-rev-list(1) to list only commits with at most p parents. If set to
+// 1, then merge commits will be skipped. While the zero-value for git-rev-list(1) would cause it to
+// only print the root commit, we use it as the default value and simply print all commits in that
+// case.
+func WithMaxParents(p uint) RevlistOption {
+	return func(cfg *revlistConfig) {
+		cfg.maxParents = p
+	}
+}
+
+// WithDisabledWalk will cause git-rev-list(1) to not do a graph walk beyond the immediate specified
+// tips.
+func WithDisabledWalk() RevlistOption {
+	return func(cfg *revlistConfig) {
+		cfg.disabledWalk = true
+	}
+}
+
+// WithFirstParent will cause git-rev-list(1) to only walk down the first-parent chain of commits.
+func WithFirstParent() RevlistOption {
+	return func(cfg *revlistConfig) {
+		cfg.firstParent = true
+	}
+}
+
+// WithBefore will cause git-rev-list(1) to only show commits older than the specified time.
+func WithBefore(t time.Time) RevlistOption {
+	return func(cfg *revlistConfig) {
+		cfg.before = t
+	}
+}
+
+// WithAfter will cause git-rev-list(1) to only show commits newer than the specified time.
+func WithAfter(t time.Time) RevlistOption {
+	return func(cfg *revlistConfig) {
+		cfg.after = t
+	}
+}
+
+// WithAuthor will cause git-rev-list(1) to only show commits created by an author matching the
+// given pattern.
+func WithAuthor(author []byte) RevlistOption {
+	return func(cfg *revlistConfig) {
+		cfg.author = author
 	}
 }
 
@@ -92,21 +177,68 @@ func Revlist(
 			}
 		}
 
-		flags := []git.Option{
-			git.Flag{Name: "--in-commit-order"},
-			git.Flag{Name: "--objects"},
-			git.Flag{Name: "--object-names"},
+		flags := []git.Option{}
+
+		if cfg.objects {
+			flags = append(flags,
+				git.Flag{Name: "--in-commit-order"},
+				git.Flag{Name: "--objects"},
+				git.Flag{Name: "--object-names"},
+			)
 		}
+
 		if cfg.blobLimit > 0 {
 			flags = append(flags, git.Flag{
 				Name: fmt.Sprintf("--filter=blob:limit=%d", cfg.blobLimit),
 			})
 		}
+
 		if cfg.objectType != "" {
 			flags = append(flags,
 				git.Flag{Name: fmt.Sprintf("--filter=object:type=%s", cfg.objectType)},
 				git.Flag{Name: "--filter-provided-objects"},
 			)
+		}
+
+		switch cfg.order {
+		case OrderNone:
+			// Default order, nothing to do.
+		case OrderTopo:
+			flags = append(flags, git.Flag{Name: "--topo-order"})
+		case OrderDate:
+			flags = append(flags, git.Flag{Name: "--date-order"})
+		}
+
+		if cfg.maxParents > 0 {
+			flags = append(flags, git.Flag{
+				Name: fmt.Sprintf("--max-parents=%d", cfg.maxParents)},
+			)
+		}
+
+		if cfg.disabledWalk {
+			flags = append(flags, git.Flag{Name: "--no-walk"})
+		}
+
+		if cfg.firstParent {
+			flags = append(flags, git.Flag{Name: "--first-parent"})
+		}
+
+		if !cfg.before.IsZero() {
+			flags = append(flags, git.Flag{
+				Name: fmt.Sprintf("--before=%s", cfg.before.String()),
+			})
+		}
+
+		if !cfg.after.IsZero() {
+			flags = append(flags, git.Flag{
+				Name: fmt.Sprintf("--after=%s", cfg.after.String()),
+			})
+		}
+
+		if len(cfg.author) > 0 {
+			flags = append(flags, git.Flag{
+				Name: fmt.Sprintf("--author=%s", string(cfg.author)),
+			})
 		}
 
 		revlist, err := repo.Exec(ctx, git.SubCmd{

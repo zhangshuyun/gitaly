@@ -2,6 +2,7 @@ package gitpipe
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -92,6 +93,7 @@ func CatfileInfoAllObjects(ctx context.Context, repo *localrepo.Repo) CatfileInf
 			}
 		}
 
+		var stderr bytes.Buffer
 		cmd, err := repo.Exec(ctx, git.SubCmd{
 			Name: "cat-file",
 			Flags: []git.Option{
@@ -100,7 +102,7 @@ func CatfileInfoAllObjects(ctx context.Context, repo *localrepo.Repo) CatfileInf
 				git.Flag{Name: "--buffer"},
 				git.Flag{Name: "--unordered"},
 			},
-		})
+		}, git.WithStderr(&stderr))
 		if err != nil {
 			sendResult(CatfileInfoResult{
 				err: fmt.Errorf("spawning cat-file failed: %w", err),
@@ -131,7 +133,7 @@ func CatfileInfoAllObjects(ctx context.Context, repo *localrepo.Repo) CatfileInf
 
 		if err := cmd.Wait(); err != nil {
 			sendResult(CatfileInfoResult{
-				err: fmt.Errorf("cat-file failed: %w", err),
+				err: fmt.Errorf("cat-file failed: %w, stderr: %q", err, stderr),
 			})
 			return
 		}

@@ -9,6 +9,25 @@ import "shared.proto";
 import "google/protobuf/timestamp.proto";
 
 service CommitService {
+
+  // ListCommits lists all commits reachable via a set of references by doing a
+  // graph walk. This deprecates ListNewCommits, FindAllCommits, FindCommits
+  // (except Follow is not yet supported) and CommitsBetweenRequest. Any
+  // unknown revisions will cause the RPC to fail.
+  rpc ListCommits(ListCommitsRequest) returns (stream ListCommitsResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
+
+  // ListAllCommits lists all commits present in the repository, including
+  // those not reachable by any reference.
+  rpc ListAllCommits(ListAllCommitsRequest) returns (stream ListAllCommitsResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
+
   rpc CommitIsAncestor(CommitIsAncestorRequest) returns (CommitIsAncestorResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -100,6 +119,7 @@ service CommitService {
       op: ACCESSOR
     };
   }
+
   rpc FilterShasWithSignatures(stream FilterShasWithSignaturesRequest) returns (stream FilterShasWithSignaturesResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -116,6 +136,88 @@ service CommitService {
       op: ACCESSOR
     };
   }
+}
+
+// ListCommitsRequest is a request for the ListCommits RPC.
+message ListCommitsRequest {
+  // Order is the order in which commits shoud be traversed.
+  enum Order {
+    // NONE defaults to reverse chronological order.
+    NONE = 0;
+    // TOPO order will cause no parents to be shown before all of its children
+    // are shown. Furthermore, multiple lines of history will not be
+    // intermixed.
+    TOPO = 1;
+    // DATE order will cause no parents to be shown before all of its children
+    // are shown. Otherwise, commits are shown in commit timestamp order. This
+    // can cause history to be shown intermixed.
+    DATE = 2;
+  };
+
+  // Repository is the repository in which commits should be searched for.
+  Repository repository = 1 [(target_repository)=true];
+
+  // Revisions is the set of revisions which should be walked to enumerate
+  // commits. Accepts all notation as documented in gitrevisions(7) as well as
+  // the pseudo-revisions `--not` and `--all` as documented in git-rev-list(1).
+  // Must not be empty.
+  repeated string revisions = 2;
+
+  // PaginationParams allows implementation of pagination. The page token is
+  // the last commit OID that was sent. It's expected to be the full object ID
+  // to guard against ambigious OIDs.
+  PaginationParameter pagination_params = 3;
+
+  // Order is the order in which commits should be traversed. Please refer to
+  // the enum's documentation for further information.
+  Order order = 4;
+
+  // MaxParents will skip all commits which have more than the specified number
+  // of parents. If set to `0`, no filtering by parents will happen. If set to
+  // `1`, all merge commits will be omitted.
+  uint32 max_parents = 5;
+
+  // DisableWalk will disable walking the graph. As a result, only commits
+  // which are immediately referenced by Revisions will be returned.
+  bool disable_walk = 6;
+
+  // FirstParent will cause the graph walk to only go down the first-parent
+  // chain of commits. Merge commits will thus only cause the mainline to be
+  // enumerated.
+  bool first_parent = 7;
+
+  // After will only list commits which are more recent than the specified date.
+  google.protobuf.Timestamp after = 8;
+
+  // After will only list commits which are older than the specified date.
+  google.protobuf.Timestamp before = 9;
+
+  // Author will only list commits whose author matches the given pattern,
+  // which is a regular expression.
+  bytes author = 10;
+}
+
+// ListCommitsResponse is a response for the ListCommits RPC.
+message ListCommitsResponse {
+  // Commits is the list of commits found.
+  repeated GitCommit commits = 1;
+}
+
+// ListAllCommitsRequest is a request for the ListAllCommits RPC.
+message ListAllCommitsRequest {
+  // Repository is the repository in which commits should be searched for.
+  Repository repository = 1 [(target_repository)=true];
+
+  // PaginationParams allows implementation of pagination. The page token is
+  // the last commit OID that was sent. It's expected to be the full object ID
+  // to guard against ambigious OIDs.
+  PaginationParameter pagination_params = 2;
+}
+
+// ListAllCommitsResponse is a response for the ListAllCommits RPC.
+message ListAllCommitsResponse {
+  // Commits is the list of commits found.
+  repeated GitCommit commits = 1;
 }
 
 message CommitStatsRequest {

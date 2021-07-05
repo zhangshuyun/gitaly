@@ -3,7 +3,6 @@ package commit
 import (
 	"fmt"
 
-	"github.com/golang/protobuf/proto"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
@@ -12,20 +11,6 @@ import (
 
 // We declare this function in variables so that we can override them in our tests
 var _findBranchNamesFunc = ref.FindBranchNames
-
-type findAllCommitsSender struct {
-	stream  gitalypb.CommitService_FindAllCommitsServer
-	commits []*gitalypb.GitCommit
-}
-
-func (sender *findAllCommitsSender) Reset() { sender.commits = nil }
-func (sender *findAllCommitsSender) Append(m proto.Message) {
-	sender.commits = append(sender.commits, m.(*gitalypb.GitCommit))
-}
-
-func (sender *findAllCommitsSender) Send() error {
-	return sender.stream.Send(&gitalypb.FindAllCommitsResponse{Commits: sender.commits})
-}
 
 func (s *server) FindAllCommits(in *gitalypb.FindAllCommitsRequest, stream gitalypb.CommitService_FindAllCommitsServer) error {
 	if err := validateFindAllCommitsRequest(in); err != nil {
@@ -64,7 +49,13 @@ func validateFindAllCommitsRequest(in *gitalypb.FindAllCommitsRequest) error {
 }
 
 func (s *server) findAllCommits(repo git.RepositoryExecutor, in *gitalypb.FindAllCommitsRequest, stream gitalypb.CommitService_FindAllCommitsServer, revisions []string) error {
-	sender := &findAllCommitsSender{stream: stream}
+	sender := &commitsSender{
+		send: func(commits []*gitalypb.GitCommit) error {
+			return stream.Send(&gitalypb.FindAllCommitsResponse{
+				Commits: commits,
+			})
+		},
+	}
 
 	var gitLogExtraOptions []git.Option
 	if maxCount := in.GetMaxCount(); maxCount > 0 {

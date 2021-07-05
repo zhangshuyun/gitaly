@@ -12,7 +12,7 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-func TestParseRawCommit(t *testing.T) {
+func TestParseCommit(t *testing.T) {
 	info := &ObjectInfo{
 		Oid:  "a984dfa4dee018c6d5f5f57ffec0d0e22763df16",
 		Type: "commit",
@@ -98,7 +98,7 @@ func TestParseRawCommit(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			info.Size = int64(len(tc.in))
-			out, err := parseRawCommit(bytes.NewBuffer(tc.in), info)
+			out, err := ParseCommit(bytes.NewBuffer(tc.in), info)
 			require.NoError(t, err, "parse error")
 			require.Equal(t, tc.out, out)
 		})

@@ -8,6 +8,33 @@ require 'shared_pb'
 require 'google/protobuf/timestamp_pb'
 Google::Protobuf::DescriptorPool.generated_pool.build do
   add_file("commit.proto", :syntax => :proto3) do
+    add_message "gitaly.ListCommitsRequest" do
+      optional :repository, :message, 1, "gitaly.Repository"
+      repeated :revisions, :string, 2
+      optional :pagination_params, :message, 3, "gitaly.PaginationParameter"
+      optional :order, :enum, 4, "gitaly.ListCommitsRequest.Order"
+      optional :max_parents, :uint32, 5
+      optional :disable_walk, :bool, 6
+      optional :first_parent, :bool, 7
+      optional :after, :message, 8, "google.protobuf.Timestamp"
+      optional :before, :message, 9, "google.protobuf.Timestamp"
+      optional :author, :bytes, 10
+    end
+    add_enum "gitaly.ListCommitsRequest.Order" do
+      value :NONE, 0
+      value :TOPO, 1
+      value :DATE, 2
+    end
+    add_message "gitaly.ListCommitsResponse" do
+      repeated :commits, :message, 1, "gitaly.GitCommit"
+    end
+    add_message "gitaly.ListAllCommitsRequest" do
+      optional :repository, :message, 1, "gitaly.Repository"
+      optional :pagination_params, :message, 2, "gitaly.PaginationParameter"
+    end
+    add_message "gitaly.ListAllCommitsResponse" do
+      repeated :commits, :message, 1, "gitaly.GitCommit"
+    end
     add_message "gitaly.CommitStatsRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
       optional :revision, :bytes, 2
@@ -270,6 +297,11 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
 end
 
 module Gitaly
+  ListCommitsRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListCommitsRequest").msgclass
+  ListCommitsRequest::Order = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListCommitsRequest.Order").enummodule
+  ListCommitsResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListCommitsResponse").msgclass
+  ListAllCommitsRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListAllCommitsRequest").msgclass
+  ListAllCommitsResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListAllCommitsResponse").msgclass
   CommitStatsRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CommitStatsRequest").msgclass
   CommitStatsResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CommitStatsResponse").msgclass
   CommitIsAncestorRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CommitIsAncestorRequest").msgclass
