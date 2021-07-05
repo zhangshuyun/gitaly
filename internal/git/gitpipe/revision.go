@@ -168,15 +168,6 @@ func Revlist(
 	go func() {
 		defer close(resultChan)
 
-		sendResult := func(result RevisionResult) bool {
-			select {
-			case resultChan <- result:
-				return false
-			case <-ctx.Done():
-				return true
-			}
-		}
-
 		flags := []git.Option{}
 
 		if cfg.objects {
@@ -247,7 +238,7 @@ func Revlist(
 			Args:  revisions,
 		})
 		if err != nil {
-			sendResult(RevisionResult{err: err})
+			sendRevisionResult(ctx, resultChan, RevisionResult{err: err})
 			return
 		}
 
@@ -267,20 +258,20 @@ func Revlist(
 				result.ObjectName = oidAndName[1]
 			}
 
-			if isDone := sendResult(result); isDone {
+			if isDone := sendRevisionResult(ctx, resultChan, result); isDone {
 				return
 			}
 		}
 
 		if err := scanner.Err(); err != nil {
-			sendResult(RevisionResult{
+			sendRevisionResult(ctx, resultChan, RevisionResult{
 				err: fmt.Errorf("scanning rev-list output: %w", err),
 			})
 			return
 		}
 
 		if err := revlist.Wait(); err != nil {
-			sendResult(RevisionResult{
+			sendRevisionResult(ctx, resultChan, RevisionResult{
 				err: fmt.Errorf("rev-list pipeline command: %w", err),
 			})
 			return
@@ -304,18 +295,14 @@ func RevisionFilter(ctx context.Context, it RevisionIterator, filter func(Revisi
 		for it.Next() {
 			result := it.Result()
 			if filter(result) {
-				select {
-				case resultChan <- result:
-				case <-ctx.Done():
+				if sendRevisionResult(ctx, resultChan, result) {
 					return
 				}
 			}
 		}
 
 		if err := it.Err(); err != nil {
-			select {
-			case resultChan <- RevisionResult{err: err}:
-			case <-ctx.Done():
+			if sendRevisionResult(ctx, resultChan, RevisionResult{err: err}) {
 				return
 			}
 		}
@@ -323,5 +310,14 @@ func RevisionFilter(ctx context.Context, it RevisionIterator, filter func(Revisi
 
 	return &revisionIterator{
 		ch: resultChan,
+	}
+}
+
+func sendRevisionResult(ctx context.Context, ch chan<- RevisionResult, result RevisionResult) bool {
+	select {
+	case ch <- result:
+		return false
+	case <-ctx.Done():
+		return true
 	}
 }
