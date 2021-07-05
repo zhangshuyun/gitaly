@@ -287,15 +287,26 @@ func Revlist(
 // the filter returns `false` for a given item, then it will be dropped from the pipeline. Errors
 // cannot be filtered and will always be passed through.
 func RevisionFilter(ctx context.Context, it RevisionIterator, filter func(RevisionResult) bool) RevisionIterator {
+	return RevisionTransform(ctx, it, func(r RevisionResult) []RevisionResult {
+		if filter(r) {
+			return []RevisionResult{r}
+		}
+		return []RevisionResult{}
+	})
+}
+
+// RevisionTransform transforms each RevisionResult from the provided iterator with the transforming
+// function. Instead of sending the original RevisionResult, it will instead send transformed
+// results.
+func RevisionTransform(ctx context.Context, it RevisionIterator, transform func(RevisionResult) []RevisionResult) RevisionIterator {
 	resultChan := make(chan RevisionResult)
 
 	go func() {
 		defer close(resultChan)
 
 		for it.Next() {
-			result := it.Result()
-			if filter(result) {
-				if sendRevisionResult(ctx, resultChan, result) {
+			for _, transformed := range transform(it.Result()) {
+				if sendRevisionResult(ctx, resultChan, transformed) {
 					return
 				}
 			}

@@ -519,3 +519,118 @@ func TestRevisionFilter(t *testing.T) {
 		})
 	}
 }
+
+func TestRevisionTransform(t *testing.T) {
+	for _, tc := range []struct {
+		desc            string
+		input           []RevisionResult
+		transform       func(RevisionResult) []RevisionResult
+		expectedResults []RevisionResult
+		expectedErr     error
+	}{
+		{
+			desc: "identity mapping",
+			input: []RevisionResult{
+				{OID: "a"},
+				{OID: "b"},
+				{OID: "c"},
+			},
+			transform: func(r RevisionResult) []RevisionResult {
+				return []RevisionResult{r}
+			},
+			expectedResults: []RevisionResult{
+				{OID: "a"},
+				{OID: "b"},
+				{OID: "c"},
+			},
+		},
+		{
+			desc: "strip object",
+			input: []RevisionResult{
+				{OID: "a"},
+				{OID: "b"},
+				{OID: "c"},
+			},
+			transform: func(r RevisionResult) []RevisionResult {
+				if r.OID == "b" {
+					return []RevisionResult{}
+				}
+				return []RevisionResult{r}
+			},
+			expectedResults: []RevisionResult{
+				{OID: "a"},
+				{OID: "c"},
+			},
+		},
+		{
+			desc: "replace items",
+			input: []RevisionResult{
+				{OID: "a"},
+				{OID: "b"},
+				{OID: "c"},
+			},
+			transform: func(RevisionResult) []RevisionResult {
+				return []RevisionResult{{OID: "x"}}
+			},
+			expectedResults: []RevisionResult{
+				{OID: "x"},
+				{OID: "x"},
+				{OID: "x"},
+			},
+		},
+		{
+			desc: "add additional items",
+			input: []RevisionResult{
+				{OID: "a"},
+				{OID: "b"},
+				{OID: "c"},
+			},
+			transform: func(r RevisionResult) []RevisionResult {
+				return []RevisionResult{
+					r,
+					{OID: r.OID + "x"},
+				}
+			},
+			expectedResults: []RevisionResult{
+				{OID: "a"},
+				{OID: "ax"},
+				{OID: "b"},
+				{OID: "bx"},
+				{OID: "c"},
+				{OID: "cx"},
+			},
+		},
+		{
+			desc: "error handling",
+			input: []RevisionResult{
+				{OID: "a"},
+				{OID: "b"},
+				{err: errors.New("foobar")},
+				{OID: "c"},
+			},
+			transform: func(r RevisionResult) []RevisionResult {
+				return []RevisionResult{r}
+			},
+			expectedResults: []RevisionResult{
+				{OID: "a"},
+				{OID: "b"},
+			},
+			expectedErr: errors.New("foobar"),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			it := RevisionTransform(ctx, NewRevisionIterator(tc.input), tc.transform)
+
+			var results []RevisionResult
+			for it.Next() {
+				results = append(results, it.Result())
+			}
+
+			require.Equal(t, tc.expectedErr, it.Err())
+			require.Equal(t, tc.expectedResults, results)
+		})
+	}
+}
