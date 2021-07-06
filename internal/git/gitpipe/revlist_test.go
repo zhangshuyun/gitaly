@@ -169,6 +169,42 @@ func TestRevlist(t *testing.T) {
 			},
 		},
 		{
+			desc: "reverse revision range without objects",
+			revisions: []string{
+				"^refs/heads/master~",
+				"refs/heads/master",
+			},
+			options: []RevlistOption{
+				WithReverse(),
+			},
+			expectedResults: []RevlistResult{
+				{OID: "c1c67abbaf91f624347bb3ae96eabe3a1b742478"},
+				{OID: "1e292f8fedd741b75372e19097c76d327140c312"},
+			},
+		},
+		{
+			desc: "reverse revision range with objects",
+			revisions: []string{
+				"^refs/heads/master~",
+				"refs/heads/master",
+			},
+			options: []RevlistOption{
+				WithReverse(),
+				WithObjects(),
+			},
+			expectedResults: []RevlistResult{
+				// Note that only commits are listed in reverse,
+				// their referenced objects stay in the same order.
+				{OID: "c1c67abbaf91f624347bb3ae96eabe3a1b742478"},
+				{OID: "07f8147e8e73aab6c935c296e8cdc5194dee729b"},
+				{OID: "ceb102b8d3f9a95c2eb979213e49f7cc1b23d56e", ObjectName: []byte("files")},
+				{OID: "2132d150328bd9334cc4e62a16a5d998a7e399b9", ObjectName: []byte("files/flat")},
+				{OID: "f3942dc8b824a2c9359e518d48e68f84461bd2f7", ObjectName: []byte("files/flat/path")},
+				{OID: "ea7249055466085d0a6c69951908ef47757e92f4", ObjectName: []byte("files/flat/path/correct")},
+				{OID: "1e292f8fedd741b75372e19097c76d327140c312"},
+			},
+		},
+		{
 			desc: "revision range with topo order",
 			revisions: []string{
 				// This is one of the smaller examples I've found which reproduces
