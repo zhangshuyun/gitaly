@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -171,62 +172,67 @@ func TestDeleteConfigTransactional(t *testing.T) {
 }
 
 func testSetConfig(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	cfg, _, _, client := setupRepositoryServiceWithRuby(t, cfg, rubySrv)
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoSetConfig,
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		cfg, _, _, client := setupRepositoryServiceWithRuby(t, cfg, rubySrv)
 
-	testcases := []struct {
-		desc     string
-		entries  []*gitalypb.SetConfigRequest_Entry
-		expected []string
-		code     codes.Code
-	}{
-		{
-			desc: "empty request",
-		},
-		{
-			desc: "mix of different types",
-			entries: []*gitalypb.SetConfigRequest_Entry{
-				&gitalypb.SetConfigRequest_Entry{Key: "test.foo1", Value: &gitalypb.SetConfigRequest_Entry_ValueStr{"hello world"}},
-				&gitalypb.SetConfigRequest_Entry{Key: "test.foo2", Value: &gitalypb.SetConfigRequest_Entry_ValueInt32{1234}},
-				&gitalypb.SetConfigRequest_Entry{Key: "test.foo3", Value: &gitalypb.SetConfigRequest_Entry_ValueBool{true}},
+		testcases := []struct {
+			desc     string
+			entries  []*gitalypb.SetConfigRequest_Entry
+			expected []string
+			code     codes.Code
+		}{
+			{
+				desc: "empty request",
 			},
-			expected: []string{
-				"test.foo1=hello world",
-				"test.foo2=1234",
-				"test.foo3=true",
+			{
+				desc: "mix of different types",
+				entries: []*gitalypb.SetConfigRequest_Entry{
+					&gitalypb.SetConfigRequest_Entry{Key: "test.foo1", Value: &gitalypb.SetConfigRequest_Entry_ValueStr{"hello world"}},
+					&gitalypb.SetConfigRequest_Entry{Key: "test.foo2", Value: &gitalypb.SetConfigRequest_Entry_ValueInt32{1234}},
+					&gitalypb.SetConfigRequest_Entry{Key: "test.foo3", Value: &gitalypb.SetConfigRequest_Entry_ValueBool{true}},
+				},
+				expected: []string{
+					"test.foo1=hello world",
+					"test.foo2=1234",
+					"test.foo3=true",
+				},
 			},
-		},
-	}
+		}
 
-	for _, tc := range testcases {
-		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+		for _, tc := range testcases {
+			t.Run(tc.desc, func(t *testing.T) {
+				ctx, cancel := testhelper.Context()
+				defer cancel()
 
-			testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
-			defer cleanupFn()
+				testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
+				defer cleanupFn()
 
-			_, err := client.SetConfig(ctx, &gitalypb.SetConfigRequest{Repository: testRepo, Entries: tc.entries})
-			if tc.code == codes.OK {
+				_, err := client.SetConfig(ctx, &gitalypb.SetConfigRequest{Repository: testRepo, Entries: tc.entries})
+
+				if tc.code != codes.OK {
+					require.Equal(t, tc.code, status.Code(err), "expected grpc error code")
+					return
+				}
+
 				require.NoError(t, err)
-			} else {
-				require.Equal(t, tc.code, status.Code(err), "expected grpc error code")
-				return
-			}
 
-			actualConfigBytes := gittest.Exec(t, cfg, "-C", testRepoPath, "config", "--local", "-l")
-			scanner := bufio.NewScanner(bytes.NewReader(actualConfigBytes))
+				actualConfigBytes := gittest.Exec(t, cfg, "-C", testRepoPath, "config", "--local", "-l")
+				scanner := bufio.NewScanner(bytes.NewReader(actualConfigBytes))
 
-			var actualConfig []string
-			for scanner.Scan() {
-				actualConfig = append(actualConfig, scanner.Text())
-			}
-			require.NoError(t, scanner.Err())
+				var actualConfig []string
+				for scanner.Scan() {
+					actualConfig = append(actualConfig, scanner.Text())
+				}
+				require.NoError(t, scanner.Err())
 
-			for _, entry := range tc.expected {
-				require.Contains(t, actualConfig, entry)
-			}
-		})
-	}
+				for _, entry := range tc.expected {
+					require.Contains(t, actualConfig, entry)
+				}
+			})
+		}
+	})
 }
 
 func testSetConfigTransactional(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {

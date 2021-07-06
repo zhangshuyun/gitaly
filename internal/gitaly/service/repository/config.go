@@ -9,9 +9,11 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -97,10 +99,62 @@ func (s *server) DeleteConfig(ctx context.Context, req *gitalypb.DeleteConfigReq
 	return &gitalypb.DeleteConfigResponse{}, nil
 }
 
+func (s *server) setConfigGit2Go(ctx context.Context, req *gitalypb.SetConfigRequest) (*gitalypb.SetConfigResponse, error) {
+	reqRepo := req.GetRepository()
+	if reqRepo == nil {
+		return nil, status.Error(codes.InvalidArgument, "no repository")
+	}
+
+	path, err := s.locator.GetRepoPath(reqRepo)
+	if err != nil {
+		return nil, err
+	}
+
+	entries := make(map[string]git2go.ConfigEntry)
+
+	for _, el := range req.Entries {
+		switch el.GetValue().(type) {
+		case *gitalypb.SetConfigRequest_Entry_ValueStr:
+			entries[el.Key] = git2go.ConfigEntry{Value: el.GetValueStr()}
+		case *gitalypb.SetConfigRequest_Entry_ValueInt32:
+			entries[el.Key] = git2go.ConfigEntry{Value: el.GetValueInt32()}
+		case *gitalypb.SetConfigRequest_Entry_ValueBool:
+			entries[el.Key] = git2go.ConfigEntry{Value: el.GetValueBool()}
+		default:
+			return nil, status.Error(codes.InvalidArgument, "unknown entry type")
+		}
+	}
+
+	/*
+	 * We're voting twice, once on the preimage and once on the postimage. Please refer to the
+	 * comment in DeleteConfig() for the reason.
+	 */
+	if err := s.voteOnConfig(ctx, req.GetRepository()); err != nil {
+		return nil, helper.ErrInternalf("preimage vote on config: %v", err)
+	}
+
+	cmd := git2go.SetConfigCommand{Repository: path, Entries: entries}
+	if err := cmd.Run(ctx, s.cfg); err != nil {
+		return nil, status.Errorf(codes.Internal, "SetConfig git2go error")
+	}
+
+	if err := s.voteOnConfig(ctx, req.GetRepository()); err != nil {
+		return nil, helper.ErrInternalf("postimage vote on config: %v", err)
+	}
+
+	return &gitalypb.SetConfigResponse{}, nil
+}
+
 func (s *server) SetConfig(ctx context.Context, req *gitalypb.SetConfigRequest) (*gitalypb.SetConfigResponse, error) {
 	// We use gitaly-ruby here because in gitaly-ruby we can use Rugged, and
 	// Rugged lets us set config values without leaking secrets via 'ps'. We
 	// can't use `git config foo.bar secret` because that leaks secrets.
+	// Also we can use git2go implementation of SetConfig
+
+	if featureflag.IsEnabled(ctx, featureflag.GoSetConfig) {
+		return s.setConfigGit2Go(ctx, req)
+	}
+
 	client, err := s.ruby.RepositoryServiceClient(ctx)
 	if err != nil {
 		return nil, err
