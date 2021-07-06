@@ -2,7 +2,9 @@ package backup
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -52,6 +54,97 @@ func TestPipeline_Restore(t *testing.T) {
 func TestParallelCreatePipeline(t *testing.T) {
 	testPipelineCreate(t, func(strategy Strategy) CreatePipeline {
 		return NewParallelCreatePipeline(NewPipeline(logrus.StandardLogger(), strategy), 2)
+	})
+
+	t.Run("parallelism", func(t *testing.T) {
+		var calls int64
+		strategy := MockStrategy{
+			CreateFunc: func(ctx context.Context, req *CreateRequest) error {
+				currentCalls := atomic.AddInt64(&calls, 1)
+				assert.LessOrEqual(t, currentCalls, int64(2))
+
+				time.Sleep(time.Millisecond)
+				atomic.AddInt64(&calls, -1)
+				return nil
+			},
+		}
+		var p CreatePipeline
+		p = NewPipeline(logrus.StandardLogger(), strategy)
+		p = NewParallelCreatePipeline(p, 2)
+
+		ctx, cancel := testhelper.Context()
+		defer cancel()
+
+		for i := 0; i < 5; i++ {
+			p.Create(ctx, &CreateRequest{Repository: &gitalypb.Repository{StorageName: "default"}})
+		}
+		require.NoError(t, p.Done())
+	})
+
+	t.Run("context done", func(t *testing.T) {
+		var p CreatePipeline
+		p = NewPipeline(logrus.StandardLogger(), MockStrategy{})
+		p = NewParallelCreatePipeline(p, 0) // make sure worker channels always block
+
+		ctx, cancel := testhelper.Context()
+
+		cancel()
+		<-ctx.Done()
+
+		p.Create(ctx, &CreateRequest{Repository: &gitalypb.Repository{StorageName: "default"}})
+
+		err := p.Done()
+		require.EqualError(t, err, "pipeline: context canceled")
+	})
+}
+
+func TestParallelStorageCreatePipeline(t *testing.T) {
+	testPipelineCreate(t, func(strategy Strategy) CreatePipeline {
+		return NewParallelStorageCreatePipeline(NewPipeline(logrus.StandardLogger(), strategy), 2)
+	})
+
+	t.Run("parallelism", func(t *testing.T) {
+		var calls int64
+		strategy := MockStrategy{
+			CreateFunc: func(ctx context.Context, req *CreateRequest) error {
+				currentCalls := atomic.AddInt64(&calls, 1)
+				// 3 storages by max 2 parallel
+				assert.LessOrEqual(t, currentCalls, int64(3*2))
+
+				time.Sleep(time.Millisecond)
+				atomic.AddInt64(&calls, -1)
+				return nil
+			},
+		}
+		var p CreatePipeline
+		p = NewPipeline(logrus.StandardLogger(), strategy)
+		p = NewParallelStorageCreatePipeline(p, 2)
+
+		ctx, cancel := testhelper.Context()
+		defer cancel()
+
+		for i := 0; i < 3; i++ {
+			p.Create(ctx, &CreateRequest{Repository: &gitalypb.Repository{StorageName: "storage1"}})
+			p.Create(ctx, &CreateRequest{Repository: &gitalypb.Repository{StorageName: "storage2"}})
+			p.Create(ctx, &CreateRequest{Repository: &gitalypb.Repository{StorageName: "storage3"}})
+		}
+		require.NoError(t, p.Done())
+	})
+
+	t.Run("context done", func(t *testing.T) {
+		var p CreatePipeline
+		p = NewPipeline(logrus.StandardLogger(), MockStrategy{})
+		p = NewParallelStorageCreatePipeline(p, 0) // make sure worker channels always block
+
+		ctx, cancel := testhelper.Context()
+
+		cancel()
+		<-ctx.Done()
+
+		p.Create(ctx, &CreateRequest{Repository: &gitalypb.Repository{StorageName: "default"}})
+
+		err := p.Done()
+		require.EqualError(t, err, "pipeline: context canceled")
 	})
 }
 
