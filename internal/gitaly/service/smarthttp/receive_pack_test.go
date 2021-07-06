@@ -349,56 +349,94 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 	}
 }
 
-func TestInvalidTimezone(t *testing.T) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+func TestPostReceivePack_invalidObjects(t *testing.T) {
+	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	_, localRepoPath, localCleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	defer localCleanup()
 
-	head := text.ChompBytes(gittest.Exec(t, cfg, "-C", localRepoPath, "rev-parse", "HEAD"))
-	tree := text.ChompBytes(gittest.Exec(t, cfg, "-C", localRepoPath, "rev-parse", "HEAD^{tree}"))
-
-	buf := new(bytes.Buffer)
-	buf.WriteString("tree " + tree + "\n")
-	buf.WriteString("parent " + head + "\n")
-	buf.WriteString("author Au Thor <author@example.com> 1313584730 +051800\n")
-	buf.WriteString("committer Au Thor <author@example.com> 1313584730 +051800\n")
-	buf.WriteString("\n")
-	buf.WriteString("Commit message\n")
-	commit := text.ChompBytes(gittest.ExecStream(t, cfg, buf, "-C", localRepoPath, "hash-object", "-t", "commit", "--stdin", "-w"))
-
-	stdin := strings.NewReader(fmt.Sprintf("^%s\n%s\n", head, commit))
-	pack := gittest.ExecStream(t, cfg, stdin, "-C", localRepoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q")
-
-	pkt := fmt.Sprintf("%s %s refs/heads/master\x00 %s", head, commit, "report-status side-band-64k agent=git/2.12.0")
-	body := &bytes.Buffer{}
-	fmt.Fprintf(body, "%04x%s%s", len(pkt)+4, pkt, pktFlushStr)
-	body.Write(pack)
-
-	var cleanup func()
-	_, cleanup = gittest.CaptureHookEnv(t)
-	defer cleanup()
-
 	socket := runSmartHTTPServer(t, cfg)
+
+	_, cleanup := gittest.CaptureHookEnv(t)
+	defer cleanup()
 
 	client, conn := newSmartHTTPClient(t, socket, cfg.Auth.Token)
 	defer conn.Close()
 
+	head := text.ChompBytes(gittest.Exec(t, cfg, "-C", localRepoPath, "rev-parse", "HEAD"))
+	tree := text.ChompBytes(gittest.Exec(t, cfg, "-C", localRepoPath, "rev-parse", "HEAD^{tree}"))
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	stream, err := client.PostReceivePack(ctx)
-	require.NoError(t, err)
-	firstRequest := &gitalypb.PostReceivePackRequest{
-		Repository:   repo,
-		GlId:         "user-123",
-		GlRepository: "project-456",
-	}
-	response := doPush(t, stream, firstRequest, body)
+	for _, tc := range []struct {
+		desc             string
+		prepareCommit    func(t *testing.T, repoPath string) bytes.Buffer
+		expectedResponse string
+		expectObject     bool
+	}{
+		{
+			desc: "invalid timezone",
+			prepareCommit: func(t *testing.T, repoPath string) bytes.Buffer {
+				var buf bytes.Buffer
+				buf.WriteString("tree " + tree + "\n")
+				buf.WriteString("parent " + head + "\n")
+				buf.WriteString("author Au Thor <author@example.com> 1313584730 +051800\n")
+				buf.WriteString("committer Au Thor <author@example.com> 1313584730 +051800\n")
+				buf.WriteString("\n")
+				buf.WriteString("Commit message\n")
+				return buf
+			},
+			expectedResponse: "0030\x01000eunpack ok\n0019ok refs/heads/master\n00000000",
+			expectObject:     true,
+		},
+		{
+			desc: "missing author and committer date",
+			prepareCommit: func(t *testing.T, repoPath string) bytes.Buffer {
+				var buf bytes.Buffer
+				buf.WriteString("tree " + tree + "\n")
+				buf.WriteString("parent " + head + "\n")
+				buf.WriteString("author Au Thor <author@example.com>\n")
+				buf.WriteString("committer Au Thor <author@example.com>\n")
+				buf.WriteString("\n")
+				buf.WriteString("Commit message\n")
+				return buf
+			},
+			expectedResponse: "0030\x01000eunpack ok\n0019ok refs/heads/master\n00000000",
+			expectObject:     true,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			commitBuffer := tc.prepareCommit(t, repoPath)
+			commitID := text.ChompBytes(gittest.ExecStream(t, cfg, &commitBuffer, "-C", localRepoPath, "hash-object", "-t", "commit", "--stdin", "-w"))
 
-	expectedResponse := "0030\x01000eunpack ok\n0019ok refs/heads/master\n00000000"
-	require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
-	gittest.Exec(t, cfg, "-C", repoPath, "show", commit)
+			currentHead := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
+
+			stdin := strings.NewReader(fmt.Sprintf("^%s\n%s\n", currentHead, commitID))
+			pack := gittest.ExecStream(t, cfg, stdin, "-C", localRepoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q")
+
+			pkt := fmt.Sprintf("%s %s refs/heads/master\x00 %s", currentHead, commitID, "report-status side-band-64k agent=git/2.12.0")
+			body := &bytes.Buffer{}
+			fmt.Fprintf(body, "%04x%s%s", len(pkt)+4, pkt, pktFlushStr)
+			body.Write(pack)
+
+			stream, err := client.PostReceivePack(ctx)
+			require.NoError(t, err)
+			firstRequest := &gitalypb.PostReceivePackRequest{
+				Repository:   repoProto,
+				GlId:         "user-123",
+				GlRepository: "project-456",
+			}
+			response := doPush(t, stream, firstRequest, body)
+
+			require.Contains(t, string(response), tc.expectedResponse)
+
+			exists, err := repo.HasRevision(ctx, git.Revision(commitID+"^{commit}"))
+			require.NoError(t, err)
+			require.Equal(t, tc.expectObject, exists)
+		})
+	}
 }
 
 func TestReceivePackFsck(t *testing.T) {

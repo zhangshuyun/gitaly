@@ -129,6 +129,16 @@ func TestSplitRawTag(t *testing.T) {
 			body:        []byte("Hello world\n\nThis is a message"),
 			trimNewLine: true,
 		},
+		{
+			description: "tag with missing date and body",
+			tagContent:  "object 422081655f743e03b01ee29a2eaf26aab0ee7eda\ntype commit\ntag syslinux-3.11-pre6\ntagger hpa <hpa>\n",
+			header: tagHeader{
+				oid:     "422081655f743e03b01ee29a2eaf26aab0ee7eda",
+				tagType: "commit",
+				tag:     "syslinux-3.11-pre6",
+				tagger:  "hpa <hpa>",
+			},
+		},
 	}
 	for _, tc := range testCases {
 		header, body, err := splitRawTag(bytes.NewReader([]byte(tc.tagContent)), tc.trimNewLine)

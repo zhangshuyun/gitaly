@@ -3,13 +3,16 @@ package catfile
 import (
 	"bytes"
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestParseCommit(t *testing.T) {
@@ -170,4 +173,49 @@ func TestGetCommitWithTrailers(t *testing.T) {
 			Value: []byte("Dmitriy Zaporozhets <dmitriy.zaporozhets@gmail.com>"),
 		},
 	})
+}
+
+func TestParseCommitAuthor(t *testing.T) {
+	for _, tc := range []struct {
+		desc     string
+		author   string
+		expected *gitalypb.CommitAuthor
+	}{
+		{
+			desc:     "empty author",
+			author:   "",
+			expected: &gitalypb.CommitAuthor{},
+		},
+		{
+			desc:   "normal author",
+			author: "Au Thor <au.thor@example.com> 1625121079 +0000",
+			expected: &gitalypb.CommitAuthor{
+				Name:     []byte("Au Thor"),
+				Email:    []byte("au.thor@example.com"),
+				Date:     timestamppb.New(time.Unix(1625121079, 0)),
+				Timezone: []byte("+0000"),
+			},
+		},
+		{
+			desc:   "author with missing mail",
+			author: "Au Thor <> 1625121079 +0000",
+			expected: &gitalypb.CommitAuthor{
+				Name:     []byte("Au Thor"),
+				Date:     timestamppb.New(time.Unix(1625121079, 0)),
+				Timezone: []byte("+0000"),
+			},
+		},
+		{
+			desc:   "author with missing date",
+			author: "Au Thor <au.thor@example.com>",
+			expected: &gitalypb.CommitAuthor{
+				Name:  []byte("Au Thor"),
+				Email: []byte("au.thor@example.com"),
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			testassert.ProtoEqual(t, tc.expected, parseCommitAuthor(tc.author))
+		})
+	}
 }
