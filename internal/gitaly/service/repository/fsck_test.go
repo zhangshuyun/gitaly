@@ -13,6 +13,7 @@ import (
 )
 
 func TestFsckSuccess(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -25,6 +26,7 @@ func TestFsckSuccess(t *testing.T) {
 }
 
 func TestFsckFailureSeverelyBrokenRepo(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -44,6 +46,7 @@ func TestFsckFailureSeverelyBrokenRepo(t *testing.T) {
 }
 
 func TestFsckFailureSlightlyBrokenRepo(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 

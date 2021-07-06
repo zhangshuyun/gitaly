@@ -37,6 +37,8 @@ func (s *testTransactionServer) VoteTransaction(ctx context.Context, in *gitalyp
 }
 
 func TestSuccessfulCreateBranchRequest(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -114,6 +116,7 @@ func TestSuccessfulCreateBranchRequest(t *testing.T) {
 }
 
 func TestUserCreateBranchWithTransaction(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	transactionServer := &testTransactionServer{}
@@ -186,6 +189,8 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 }
 
 func TestSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -216,6 +221,7 @@ func TestSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T) {
 }
 
 func TestSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -289,6 +295,7 @@ func TestSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T) {
 }
 
 func TestFailedUserCreateBranchDueToHooks(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -314,6 +321,7 @@ func TestFailedUserCreateBranchDueToHooks(t *testing.T) {
 }
 
 func TestFailedUserCreateBranchRequest(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -374,6 +382,8 @@ func TestFailedUserCreateBranchRequest(t *testing.T) {
 }
 
 func TestSuccessfulUserDeleteBranchRequest(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -429,6 +439,7 @@ func TestSuccessfulUserDeleteBranchRequest(t *testing.T) {
 }
 
 func TestSuccessfulGitHooksForUserDeleteBranchRequest(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -458,6 +469,7 @@ func TestSuccessfulGitHooksForUserDeleteBranchRequest(t *testing.T) {
 }
 
 func TestUserDeleteBranch_transaction(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	// This creates a new branch "delete-me" which exists both in the packed-refs file and as a
@@ -510,6 +522,7 @@ func TestUserDeleteBranch_transaction(t *testing.T) {
 }
 
 func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -561,6 +574,7 @@ func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
 }
 
 func TestFailedUserDeleteBranchDueToHooks(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -592,6 +606,7 @@ func TestFailedUserDeleteBranchDueToHooks(t *testing.T) {
 }
 
 func TestBranchHookOutput(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 

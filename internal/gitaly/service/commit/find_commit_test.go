@@ -20,6 +20,7 @@ import (
 )
 
 func TestSuccessfulFindCommitRequest(t *testing.T) {
+	t.Parallel()
 	windows1251Message := testhelper.MustReadFile(t, "testdata/commit-c809470461118b7bcab850f6e9a7ca97ac42f8ea-message.txt")
 
 	cfg, repoProto, repoPath, client := setupCommitServiceWithRepo(t, true)
@@ -254,6 +255,7 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 }
 
 func TestFailedFindCommitRequest(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
@@ -332,6 +334,7 @@ func benchmarkFindCommit(withCache bool, b *testing.B) {
 }
 
 func TestFindCommitWithCache(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 

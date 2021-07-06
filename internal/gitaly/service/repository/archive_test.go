@@ -28,6 +28,7 @@ const (
 )
 
 func TestGetArchiveSuccess(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t)
 
 	formats := []gitalypb.GetArchiveRequest_Format{
@@ -167,6 +168,7 @@ func TestGetArchiveSuccess(t *testing.T) {
 }
 
 func TestGetArchiveWithLfsSuccess(t *testing.T) {
+	t.Parallel()
 	defaultOptions := testhelper.GitlabTestServerOptions{
 		SecretToken: secretToken,
 		LfsBody:     lfsBody,
@@ -278,6 +280,7 @@ func TestGetArchiveWithLfsSuccess(t *testing.T) {
 }
 
 func TestGetArchiveFailure(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t)
 
 	commitID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
@@ -405,6 +408,7 @@ func TestGetArchiveFailure(t *testing.T) {
 }
 
 func TestGetArchivePathInjection(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryServiceWithWorktree(t)
 
 	ctx, cancel := testhelper.Context()
@@ -470,6 +474,7 @@ func TestGetArchivePathInjection(t *testing.T) {
 }
 
 func TestGetArchiveEnv(t *testing.T) {
+	t.Parallel()
 	tmpFile, err := ioutil.TempFile("", "archive.sh")
 	require.NoError(t, err)
 	defer os.Remove(tmpFile.Name())

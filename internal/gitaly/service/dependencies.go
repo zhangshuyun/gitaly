@@ -28,7 +28,7 @@ type Dependencies struct {
 	BackchannelRegistry *backchannel.Registry
 	GitlabClient        gitlab.Client
 	CatfileCache        catfile.Cache
-	DiskCache           *cache.Cache
+	DiskCache           cache.Cache
 }
 
 // GetCfg returns service configuration.
@@ -87,6 +87,6 @@ func (dc *Dependencies) GetCatfileCache() catfile.Cache {
 }
 
 // GetDiskCache returns the disk cache.
-func (dc *Dependencies) GetDiskCache() *cache.Cache {
+func (dc *Dependencies) GetDiskCache() cache.Cache {
 	return dc.DiskCache
 }

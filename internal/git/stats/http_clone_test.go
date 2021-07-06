@@ -24,7 +24,7 @@ func TestClone(t *testing.T) {
 		require.NoError(t, stopGitServer())
 	}()
 
-	clone, err := PerformClone(ctx, fmt.Sprintf("http://localhost:%d/%s", serverPort, filepath.Base(repoPath)), "", "", false)
+	clone, err := PerformHTTPClone(ctx, fmt.Sprintf("http://localhost:%d/%s", serverPort, filepath.Base(repoPath)), "", "", false)
 	require.NoError(t, err, "perform analysis clone")
 
 	const expectedRequests = 90 // based on contents of _support/gitlab-test.git-packed-refs
@@ -100,7 +100,7 @@ func TestCloneWithAuth(t *testing.T) {
 		require.NoError(t, stopGitServer())
 	}()
 
-	_, err := PerformClone(
+	_, err := PerformHTTPClone(
 		ctx,
 		fmt.Sprintf("http://localhost:%d/%s", serverPort, filepath.Base(repoPath)),
 		user,

@@ -6,11 +6,10 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -87,12 +86,9 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 		return nil, fmt.Errorf("%s: locate repo: %w", userUpdateSubmoduleName, err)
 	}
 
-	authorDate := time.Now()
-	if req.Timestamp != nil {
-		authorDate, err = ptypes.Timestamp(req.Timestamp)
-		if err != nil {
-			return nil, helper.ErrInvalidArgument(err)
-		}
+	authorDate, err := dateFromProto(req)
+	if err != nil {
+		return nil, helper.ErrInvalidArgument(err)
 	}
 
 	result, err := git2go.SubmoduleCommand{
@@ -150,14 +146,14 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 		commitID,
 		branchOID,
 	); err != nil {
-		var preReceiveError preReceiveError
+		var preReceiveError updateref.PreReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserUpdateSubmoduleResponse{
 				PreReceiveError: preReceiveError.Error(),
 			}, nil
 		}
 
-		var updateRefError updateRefError
+		var updateRefError updateref.Error
 		if errors.As(err, &updateRefError) {
 			return &gitalypb.UserUpdateSubmoduleResponse{
 				CommitError: err.Error(),

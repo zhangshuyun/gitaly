@@ -11,6 +11,7 @@ import (
 )
 
 func TestGetConnectionByStorage(t *testing.T) {
+	t.Parallel()
 	connPool := client.NewPool()
 	defer connPool.Close()
 

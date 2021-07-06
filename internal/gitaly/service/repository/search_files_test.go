@@ -84,6 +84,7 @@ var (
 )
 
 func TestSearchFilesByContentSuccessful(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -149,6 +150,7 @@ func TestSearchFilesByContentSuccessful(t *testing.T) {
 }
 
 func TestSearchFilesByContentLargeFile(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -202,6 +204,7 @@ func TestSearchFilesByContentLargeFile(t *testing.T) {
 }
 
 func TestSearchFilesByContentFailure(t *testing.T) {
+	t.Parallel()
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 	gitCommandFactory := git.NewExecCommandFactory(cfg)
 
@@ -265,6 +268,7 @@ func TestSearchFilesByContentFailure(t *testing.T) {
 }
 
 func TestSearchFilesByNameSuccessful(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -323,6 +327,7 @@ func TestSearchFilesByNameSuccessful(t *testing.T) {
 }
 
 func TestSearchFilesByNameFailure(t *testing.T) {
+	t.Parallel()
 	cfg := testcfg.Build(t)
 	gitCommandFactory := git.NewExecCommandFactory(cfg)
 

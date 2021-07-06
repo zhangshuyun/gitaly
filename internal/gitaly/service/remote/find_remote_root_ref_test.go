@@ -14,6 +14,7 @@ import (
 )
 
 func TestFindRemoteRootRefSuccess(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath, client := setupRemoteService(t)
 
 	originURL := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "remote", "get-url", "origin"))
@@ -54,6 +55,7 @@ func TestFindRemoteRootRefSuccess(t *testing.T) {
 }
 
 func TestFindRemoteRootRefWithUnbornRemoteHead(t *testing.T) {
+	t.Parallel()
 	cfg, remoteRepo, remoteRepoPath, client := setupRemoteService(t)
 
 	// We're creating an empty repository. Empty repositories do have a HEAD set up, but they
@@ -77,6 +79,7 @@ func TestFindRemoteRootRefWithUnbornRemoteHead(t *testing.T) {
 }
 
 func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRemoteService(t)
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
@@ -145,6 +148,7 @@ func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 }
 
 func TestFindRemoteRootRefFailedDueToInvalidRemote(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRemoteService(t)
 
 	t.Run("invalid remote name", func(t *testing.T) {

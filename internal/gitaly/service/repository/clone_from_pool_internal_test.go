@@ -50,6 +50,7 @@ func getForkDestination(t *testing.T, storage config.Storage) (*gitalypb.Reposit
 }
 
 func TestCloneFromPoolInternal(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	ctxOuter, cancel := testhelper.Context()

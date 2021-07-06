@@ -30,6 +30,7 @@ var (
 )
 
 func TestUserCommitFiles(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -932,12 +933,16 @@ func TestUserCommitFiles(t *testing.T) {
 				require.Equal(t, step.branchCreated, resp.BranchUpdate.BranchCreated, "step %d", i+1)
 				require.Equal(t, step.repoCreated, resp.BranchUpdate.RepoCreated, "step %d", i+1)
 				gittest.RequireTree(t, cfg, repoPath, branch, step.treeEntries)
+
+				authorDate := gittest.Exec(t, cfg, "-C", repoPath, "log", "--pretty='format:%ai'", "-1")
+				require.Contains(t, string(authorDate), gittest.TimezoneOffset)
 			}
 		})
 	}
 }
 
 func TestUserCommitFilesStableCommitID(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -966,7 +971,7 @@ func TestUserCommitFilesStableCommitID(t *testing.T) {
 	resp, err := stream.CloseAndRecv()
 	require.NoError(t, err)
 
-	require.Equal(t, resp.BranchUpdate.CommitId, "4f0ca1fbf05e04dbd5f68d14677034e0afee58ff")
+	require.Equal(t, resp.BranchUpdate.CommitId, "23ec4ccd7fcc6ecf39431805bbff1cbcb6c23b9d")
 	require.True(t, resp.BranchUpdate.BranchCreated)
 	require.True(t, resp.BranchUpdate.RepoCreated)
 	gittest.RequireTree(t, cfg, repoPath, "refs/heads/master", []gittest.TreeEntry{
@@ -976,7 +981,7 @@ func TestUserCommitFilesStableCommitID(t *testing.T) {
 	commit, err := repo.ReadCommit(ctx, "refs/heads/master")
 	require.NoError(t, err)
 	require.Equal(t, &gitalypb.GitCommit{
-		Id:       "4f0ca1fbf05e04dbd5f68d14677034e0afee58ff",
+		Id:       "23ec4ccd7fcc6ecf39431805bbff1cbcb6c23b9d",
 		TreeId:   "541550ddcf8a29bcd80b0800a142a7d47890cfd6",
 		Subject:  []byte("commit message"),
 		Body:     []byte("commit message"),
@@ -985,18 +990,19 @@ func TestUserCommitFilesStableCommitID(t *testing.T) {
 			Name:     []byte("Author Name"),
 			Email:    []byte("author.email@example.com"),
 			Date:     &timestamp.Timestamp{Seconds: 12345},
-			Timezone: []byte("+0000"),
+			Timezone: []byte(gittest.TimezoneOffset),
 		},
 		Committer: &gitalypb.CommitAuthor{
 			Name:     gittest.TestUser.Name,
 			Email:    gittest.TestUser.Email,
 			Date:     &timestamp.Timestamp{Seconds: 12345},
-			Timezone: []byte("+0000"),
+			Timezone: []byte(gittest.TimezoneOffset),
 		},
 	}, commit)
 }
 
 func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -1107,6 +1113,7 @@ func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
 }
 
 func TestSuccessfulUserCommitFilesRequestMove(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -1164,6 +1171,7 @@ func TestSuccessfulUserCommitFilesRequestMove(t *testing.T) {
 }
 
 func TestSuccessfulUserCommitFilesRequestForceCommit(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -1209,6 +1217,7 @@ func TestSuccessfulUserCommitFilesRequestForceCommit(t *testing.T) {
 }
 
 func TestSuccessfulUserCommitFilesRequestStartSha(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -1242,12 +1251,14 @@ func TestSuccessfulUserCommitFilesRequestStartSha(t *testing.T) {
 }
 
 func TestSuccessfulUserCommitFilesRequestStartShaRemoteRepository(t *testing.T) {
+	t.Parallel()
 	testSuccessfulUserCommitFilesRemoteRepositoryRequest(func(header *gitalypb.UserCommitFilesRequest) {
 		setStartSha(header, "1e292f8fedd741b75372e19097c76d327140c312")
 	})
 }
 
 func TestSuccessfulUserCommitFilesRequestStartBranchRemoteRepository(t *testing.T) {
+	t.Parallel()
 	testSuccessfulUserCommitFilesRemoteRepositoryRequest(func(header *gitalypb.UserCommitFilesRequest) {
 		setStartBranchName(header, []byte("master"))
 	})
@@ -1296,6 +1307,7 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 }
 
 func TestSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -1348,6 +1360,7 @@ func TestSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 }
 
 func TestFailedUserCommitFilesRequestDueToHooks(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -1380,6 +1393,7 @@ func TestFailedUserCommitFilesRequestDueToHooks(t *testing.T) {
 }
 
 func TestFailedUserCommitFilesRequestDueToIndexError(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -1443,6 +1457,7 @@ func TestFailedUserCommitFilesRequestDueToIndexError(t *testing.T) {
 }
 
 func TestFailedUserCommitFilesRequest(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 

@@ -36,6 +36,7 @@ var rubyFilesCommit = []*gitalypb.GitCommit{
 }
 
 func TestSuccessfulCommitsByMessageRequest(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	commits := []*gitalypb.GitCommit{
@@ -157,6 +158,7 @@ func TestSuccessfulCommitsByMessageRequest(t *testing.T) {
 }
 
 func TestFailedCommitsByMessageRequest(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}

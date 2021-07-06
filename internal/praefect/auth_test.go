@@ -5,7 +5,6 @@ import (
 	"net"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
@@ -148,13 +147,6 @@ func runServer(t *testing.T, token string, required bool) (*grpc.Server, string,
 			},
 		},
 	}
-
-	gz := proto.FileDescriptor("praefect/mock/mock.proto")
-	fd, err := protoregistry.ExtractFileDescriptor(gz)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	logEntry := testhelper.DiscardTestEntry(t)
 	queue := datastore.NewMemoryReplicationEventQueue(conf)
 
@@ -163,7 +155,7 @@ func runServer(t *testing.T, token string, required bool) (*grpc.Server, string,
 
 	txMgr := transactions.NewManager(conf)
 
-	registry, err := protoregistry.New(fd)
+	registry, err := protoregistry.NewFromPaths("praefect/mock/mock.proto")
 	require.NoError(t, err)
 
 	coordinator := NewCoordinator(queue, nil, NewNodeManagerRouter(nodeMgr, nil), txMgr, conf, registry)

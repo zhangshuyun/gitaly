@@ -28,7 +28,7 @@ func TestSuccessfulListConflictFilesRequest(t *testing.T) {
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
-	_, repo, _, client := SetupConflictsService(t, false)
+	_, repo, _, client := SetupConflictsService(t, false, nil)
 
 	ourCommitOid := "1a35b5a77cf6af7edf6703f88e82f6aff613666f"
 	theirCommitOid := "8309e68585b28d61eb85b7e2834849dda6bf1733"
@@ -95,7 +95,7 @@ func TestSuccessfulListConflictFilesRequestWithAncestor(t *testing.T) {
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
-	_, repo, _, client := SetupConflictsService(t, true)
+	_, repo, _, client := SetupConflictsService(t, true, nil)
 
 	ourCommitOid := "824be604a34828eb682305f0d963056cfac87b2d"
 	theirCommitOid := "1450cd639e0bc6721eb02800169e464f212cde06"
@@ -142,7 +142,7 @@ func TestListConflictFilesHugeDiff(t *testing.T) {
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
-	cfg, repo, repoPath, client := SetupConflictsService(t, false)
+	cfg, repo, repoPath, client := SetupConflictsService(t, false, nil)
 
 	our := buildCommit(t, ctx, cfg, repo, repoPath, map[string][]byte{
 		"a": bytes.Repeat([]byte("a\n"), 128*1024),
@@ -203,7 +203,7 @@ func TestListConflictFilesFailedPrecondition(t *testing.T) {
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
-	_, repo, _, client := SetupConflictsService(t, true)
+	_, repo, _, client := SetupConflictsService(t, true, nil)
 
 	testCases := []struct {
 		desc           string
@@ -261,7 +261,7 @@ func TestFailedListConflictFilesRequestDueToValidation(t *testing.T) {
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
-	_, repo, _, client := SetupConflictsService(t, true)
+	_, repo, _, client := SetupConflictsService(t, true, nil)
 
 	ourCommitOid := "0b4bc9a49b562e85de7cc9e834518ea6828729b9"
 	theirCommitOid := "bb5206fee213d983da88c47f9cf4cc6caf9c66dc"

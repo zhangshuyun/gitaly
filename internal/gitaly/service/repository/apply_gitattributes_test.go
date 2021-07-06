@@ -28,6 +28,7 @@ import (
 )
 
 func TestApplyGitattributesSuccess(t *testing.T) {
+	t.Parallel()
 	cfg, repo, _, client := setupRepositoryService(t)
 
 	infoPath := filepath.Join(cfg.Storages[0].Path, repo.GetRelativePath(), "info")
@@ -85,6 +86,7 @@ func (s *testTransactionServer) VoteTransaction(ctx context.Context, in *gitalyp
 }
 
 func TestApplyGitattributesWithTransaction(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	transactionServer := &testTransactionServer{}
@@ -201,6 +203,7 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 }
 
 func TestApplyGitattributesFailure(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t)
 
 	tests := []struct {

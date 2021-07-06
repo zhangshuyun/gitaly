@@ -14,6 +14,7 @@ import (
 )
 
 func TestSuccessfulCountCommitsRequest(t *testing.T) {
+	t.Parallel()
 	cfg, repo1, _, client := setupCommitServiceWithRepo(t, true)
 
 	repo2, repo2Path, cleanupFn := gittest.InitRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
@@ -171,6 +172,7 @@ func TestSuccessfulCountCommitsRequest(t *testing.T) {
 }
 
 func TestFailedCountCommitsRequestDueToValidationError(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	revision := []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72")

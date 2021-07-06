@@ -146,6 +146,7 @@ func listenGitalySSHCalls(t *testing.T, conf config.Cfg) func() []GitalySSHParam
 }
 
 func TestSuccessfulFetchInternalRemote(t *testing.T) {
+	t.Parallel()
 	remoteCfg, remoteRepo, remoteRepoPath := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalyHooksBin(t, remoteCfg)
@@ -233,6 +234,7 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 }
 
 func TestFailedFetchInternalRemote(t *testing.T) {
+	t.Parallel()
 	cfg, repo, _, client := setupRemoteService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -263,6 +265,7 @@ func TestFailedFetchInternalRemote(t *testing.T) {
 }
 
 func TestFailedFetchInternalRemoteDueToValidations(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRemoteService(t)
 
 	ctx, cancel := testhelper.Context()

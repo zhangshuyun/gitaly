@@ -123,8 +123,30 @@ func TestVersion_IsSupported(t *testing.T) {
 		{"2.31.1", true},
 		{"3.0.0", true},
 	} {
-		version, err := parseVersion(tc.version)
-		require.NoError(t, err)
-		require.Equal(t, tc.expect, version.IsSupported())
+		t.Run(tc.version, func(t *testing.T) {
+			version, err := parseVersion(tc.version)
+			require.NoError(t, err)
+			require.Equal(t, tc.expect, version.IsSupported())
+		})
+	}
+}
+
+func TestVersion_SupportsObjectTypeFilter(t *testing.T) {
+	for _, tc := range []struct {
+		version string
+		expect  bool
+	}{
+		{"2.31.0", false},
+		{"2.31.0-rc0", false},
+		{"2.31.1", false},
+		{"2.32.0", true},
+		{"2.32.1", true},
+		{"3.0.0", true},
+	} {
+		t.Run(tc.version, func(t *testing.T) {
+			version, err := parseVersion(tc.version)
+			require.NoError(t, err)
+			require.Equal(t, tc.expect, version.SupportsObjectTypeFilter())
+		})
 	}
 }

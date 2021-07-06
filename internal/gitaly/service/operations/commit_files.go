@@ -8,14 +8,13 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/remoterepo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitalyssh"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
@@ -68,7 +67,7 @@ func (s *Server) UserCommitFiles(stream gitalypb.OperationService_UserCommitFile
 		var (
 			response        gitalypb.UserCommitFilesResponse
 			indexError      git2go.IndexError
-			preReceiveError preReceiveError
+			preReceiveError updateref.PreReceiveError
 		)
 
 		switch {
@@ -283,12 +282,9 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 		}
 	}
 
-	now := time.Now()
-	if header.Timestamp != nil {
-		now, err = ptypes.Timestamp(header.Timestamp)
-		if err != nil {
-			return helper.ErrInvalidArgument(err)
-		}
+	now, err := dateFromProto(header)
+	if err != nil {
+		return helper.ErrInvalidArgument(err)
 	}
 
 	committer := git2go.NewSignature(string(header.User.Name), string(header.User.Email), now)
@@ -322,7 +318,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, header.Repository, header.User, targetBranchName, commitID, oldRevision); err != nil {
-		if errors.As(err, &updateRefError{}) {
+		if errors.As(err, &updateref.Error{}) {
 			return status.Errorf(codes.FailedPrecondition, err.Error())
 		}
 

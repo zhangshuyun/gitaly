@@ -8,8 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	diskcache "gitlab.com/gitlab-org/gitaly/v14/internal/cache"
@@ -29,7 +27,7 @@ import (
 func TestInvalidators(t *testing.T) {
 	mCache := newMockCache()
 
-	reg, err := protoregistry.New(streamFileDesc(t))
+	reg, err := protoregistry.NewFromPaths("middleware/cache/testdata/stream.proto")
 	require.NoError(t, err)
 
 	srvr := grpc.NewServer(
@@ -140,7 +138,7 @@ type mockCache struct {
 	}
 }
 
-func newMockCache() Invalidator {
+func newMockCache() diskcache.Invalidator {
 	return &mockCache{
 		endedLeases: &struct {
 			sync.RWMutex
@@ -160,12 +158,6 @@ func (mc *mockCache) EndLease(_ context.Context) error {
 func (mc *mockCache) StartLease(repo *gitalypb.Repository) (diskcache.LeaseEnder, error) {
 	mc.invalidatedRepos = append(mc.invalidatedRepos, repo)
 	return mc, nil
-}
-
-func streamFileDesc(t testing.TB) *descriptor.FileDescriptorProto {
-	fdp, err := protoregistry.ExtractFileDescriptor(proto.FileDescriptor("middleware/cache/testdata/stream.proto"))
-	require.NoError(t, err)
-	return fdp
 }
 
 func newTestSvc(t testing.TB, ctx context.Context, srvr *grpc.Server, svc testdata.TestServiceServer) (testdata.TestServiceClient, *grpc.ClientConn, func()) {

@@ -119,6 +119,7 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 	gitalypb.RegisterWikiServiceServer(srv, wiki.NewServer(deps.GetRubyServer(), deps.GetLocator()))
 	gitalypb.RegisterConflictsServiceServer(srv, conflicts.NewServer(
 		deps.GetCfg(),
+		deps.GetHookManager(),
 		deps.GetLocator(),
 		deps.GetGitCmdFactory(),
 		deps.GetCatfileCache(),

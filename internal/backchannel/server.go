@@ -1,12 +1,9 @@
 package backchannel
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"net"
 
 	"github.com/hashicorp/yamux"
@@ -53,58 +50,27 @@ func WithID(authInfo credentials.AuthInfo, id ID) credentials.AuthInfo {
 type ServerHandshaker struct {
 	registry *Registry
 	logger   *logrus.Entry
-	credentials.TransportCredentials
 	dialOpts []grpc.DialOption
 }
+
+// Magic is used by listenmux to retrieve the magic string for
+// backchannel connections.
+func (s *ServerHandshaker) Magic() string { return string(magicBytes) }
 
 // NewServerHandshaker returns a new server side implementation of the backchannel. The provided TransportCredentials
 // are handshaked prior to initializing the multiplexing session. The Registry is used to store the backchannel connections.
 // DialOptions can be used to set custom dial options for the backchannel connections. They must not contain a dialer or
 // transport credentials as those set by the handshaker.
-func NewServerHandshaker(logger *logrus.Entry, tc credentials.TransportCredentials, reg *Registry, dialOpts []grpc.DialOption) credentials.TransportCredentials {
-	return ServerHandshaker{
-		TransportCredentials: tc,
-		registry:             reg,
-		logger:               logger,
-		dialOpts:             dialOpts,
-	}
+func NewServerHandshaker(logger *logrus.Entry, reg *Registry, dialOpts []grpc.DialOption) *ServerHandshaker {
+	return &ServerHandshaker{registry: reg, logger: logger, dialOpts: dialOpts}
 }
 
-// restoredConn allows for restoring the connection's stream after peeking it. If the connection
-// was not multiplexed, the peeked bytes are restored back into the stream.
-type restoredConn struct {
-	net.Conn
-	reader io.Reader
-}
-
-func (rc *restoredConn) Read(b []byte) (int, error) { return rc.reader.Read(b) }
-
-// ServerHandshake peeks the connection to determine whether the client supports establishing a
-// backchannel by multiplexing the network connection. If so, it establishes a gRPC ClientConn back
-// to the client and stores it's ID in the AuthInfo where it can be later accessed by the RPC handlers.
-// gRPC sets an IO timeout on the connection before calling ServerHandshake, so we don't have to handle
+// Handshake establishes a gRPC ClientConn back to the backchannel client
+// on the other side and stores its ID in the AuthInfo where it can be
+// later accessed by the RPC handlers. gRPC sets an IO timeout on the
+// connection before calling ServerHandshake, so we don't have to handle
 // timeouts separately.
-func (s ServerHandshaker) ServerHandshake(conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
-	conn, authInfo, err := s.TransportCredentials.ServerHandshake(conn)
-	if err != nil {
-		return nil, nil, fmt.Errorf("wrapped server handshake: %w", err)
-	}
-
-	peeked, err := ioutil.ReadAll(io.LimitReader(conn, int64(len(magicBytes))))
-	if err != nil {
-		return nil, nil, fmt.Errorf("peek network stream: %w", err)
-	}
-
-	if !bytes.Equal(peeked, magicBytes) {
-		// If the client connection is not multiplexed, restore the peeked bytes back into the stream.
-		// We also set a 0 peer ID in the authInfo to indicate that the server handshake was attempted
-		// but this was not a multiplexed connection.
-		return &restoredConn{
-			Conn:   conn,
-			reader: io.MultiReader(bytes.NewReader(peeked), conn),
-		}, authInfo, nil
-	}
-
+func (s *ServerHandshaker) Handshake(conn net.Conn, authInfo credentials.AuthInfo) (net.Conn, credentials.AuthInfo, error) {
 	// It is not necessary to clean up any of the multiplexing-related sessions on errors as the
 	// gRPC server closes the conn if there is an error, which closes the multiplexing
 	// session as well.

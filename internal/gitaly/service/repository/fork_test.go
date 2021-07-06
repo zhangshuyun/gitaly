@@ -40,6 +40,7 @@ import (
 )
 
 func TestSuccessfulCreateForkRequest(t *testing.T) {
+	t.Parallel()
 	for _, tt := range []struct {
 		name          string
 		secure        bool
@@ -136,6 +137,7 @@ func newSecureRepoClient(t testing.TB, addr, token string, pool *x509.CertPool) 
 }
 
 func TestFailedCreateForkRequestDueToExistingTarget(t *testing.T) {
+	t.Parallel()
 	cfg, repo, _, client := setupRepositoryService(t)
 
 	ctxOuter, cancel := testhelper.Context()

@@ -20,6 +20,7 @@ import (
 )
 
 func TestSuccessfulCreateRepositoryFromURLRequest(t *testing.T) {
+	t.Parallel()
 	cfg, _, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -59,6 +60,7 @@ func TestSuccessfulCreateRepositoryFromURLRequest(t *testing.T) {
 }
 
 func TestCloneRepositoryFromUrlCommand(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -82,6 +84,7 @@ func TestCloneRepositoryFromUrlCommand(t *testing.T) {
 }
 
 func TestFailedCreateRepositoryFromURLRequestDueToExistingTarget(t *testing.T) {
+	t.Parallel()
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	ctx, cancel := testhelper.Context()
@@ -131,6 +134,7 @@ func TestFailedCreateRepositoryFromURLRequestDueToExistingTarget(t *testing.T) {
 }
 
 func TestPreventingRedirect(t *testing.T) {
+	t.Parallel()
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	ctx, cancel := testhelper.Context()

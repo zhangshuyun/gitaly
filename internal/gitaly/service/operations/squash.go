@@ -11,9 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
@@ -383,21 +381,18 @@ func (s *Server) applyDiff(ctx context.Context, repo *gitalypb.Repository, req *
 		return "", fmt.Errorf("wait for 'git apply' for range %q: %w", diffRange, gitError{ErrMsg: applyStderr.String(), Err: err})
 	}
 
-	commitDate := time.Now()
-	if req.Timestamp != nil {
-		commitDate, err = ptypes.Timestamp(req.Timestamp)
-		if err != nil {
-			return "", helper.ErrInvalidArgument(err)
-		}
+	commitDate, err := dateFromProto(req)
+	if err != nil {
+		return "", helper.ErrInvalidArgument(err)
 	}
 
 	commitEnv := append(env,
 		"GIT_COMMITTER_NAME="+string(req.GetUser().Name),
 		"GIT_COMMITTER_EMAIL="+string(req.GetUser().Email),
-		fmt.Sprintf("GIT_COMMITTER_DATE=%d +0000", commitDate.Unix()),
+		fmt.Sprintf("GIT_COMMITTER_DATE=%d %s", commitDate.Unix(), commitDate.Format("-0700")),
 		"GIT_AUTHOR_NAME="+string(req.GetAuthor().Name),
 		"GIT_AUTHOR_EMAIL="+string(req.GetAuthor().Email),
-		fmt.Sprintf("GIT_AUTHOR_DATE=%d +0000", commitDate.Unix()),
+		fmt.Sprintf("GIT_AUTHOR_DATE=%d %s", commitDate.Unix(), commitDate.Format("-0700")),
 	)
 
 	var commitStderr bytes.Buffer

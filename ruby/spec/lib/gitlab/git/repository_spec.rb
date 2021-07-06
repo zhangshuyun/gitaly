@@ -328,43 +328,6 @@ describe Gitlab::Git::Repository do # rubocop:disable Metrics/BlockLength
     end
   end
 
-  describe '#rebase' do
-    let(:repository) { mutable_repository }
-    let(:rebase_id) { '2' }
-    let(:branch_name) { 'rd-add-file-larger-than-1-mb' }
-    let(:branch_sha) { 'c54ad072fabee9f7bf9b2c6c67089db97ebfbecd' }
-    let(:remote_branch) { 'master' }
-
-    subject do
-      opts = {
-        branch: branch_name,
-        branch_sha: branch_sha,
-        remote_repository: repository,
-        remote_branch: remote_branch
-      }
-
-      repository.rebase(user, rebase_id, **opts)
-    end
-
-    describe 'sparse checkout' do
-      let(:expected_files) { %w[files/images/emoji.png] }
-
-      it 'lists files modified in source branch in sparse-checkout' do
-        allow(repository).to receive(:with_worktree).and_wrap_original do |m, *args, **kwargs|
-          m.call(*args, **kwargs) do
-            worktree = args[0]
-            sparse = repository.path + "/worktrees/#{worktree.name}/info/sparse-checkout"
-            diff_files = IO.readlines(sparse, chomp: true)
-
-            expect(diff_files).to eq(expected_files)
-          end
-        end
-
-        subject
-      end
-    end
-  end
-
   describe '#cleanup' do
     context 'when Rugged has been called' do
       it 'calls close on Rugged::Repository' do
@@ -467,6 +430,24 @@ describe Gitlab::Git::Repository do # rubocop:disable Metrics/BlockLength
 
       expect(blob.id).not_to eq head_submodule_reference
       expect(blob.id).to eq new_oid
+    end
+  end
+
+  describe '#head_symbolic_ref' do
+    subject { repository.head_symbolic_ref }
+
+    it 'returns the symbolic ref in HEAD' do
+      expect(subject).to eq('master')
+    end
+
+    context 'when repo is empty' do
+      let(:repository) { gitlab_git_from_gitaly(new_empty_test_repo) }
+
+      it 'returns the symbolic ref in HEAD' do
+        repository.rugged.head = 'refs/heads/foo'
+
+        expect(subject).to eq('foo')
+      end
     end
   end
 

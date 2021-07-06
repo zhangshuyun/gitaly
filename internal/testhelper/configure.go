@@ -31,11 +31,7 @@ func Configure() func() {
 	configureOnce.Do(func() {
 		gitalylog.Configure(gitalylog.Loggers, "json", "panic")
 
-		var err error
-		testDirectory, err = ioutil.TempDir("", "gitaly-")
-		if err != nil {
-			log.Fatal(err)
-		}
+		testDirectory = getTestTmpDir()
 
 		for _, f := range []func() error{
 			ConfigureGit,
@@ -176,7 +172,7 @@ func buildBinary(t testing.TB, dstDir, name string) {
 		// another process is creating the binary at the moment, wait for it to complete (5s)
 		for i := 0; i < 50; i++ {
 			if _, err := os.Stat(binPath); err != nil {
-				if !errors.Is(err, os.ErrExist) {
+				if !errors.Is(err, os.ErrNotExist) {
 					require.NoError(t, err)
 				}
 				time.Sleep(100 * time.Millisecond)
@@ -211,4 +207,17 @@ func buildCommand(t testing.TB, outputDir, cmd string) {
 		fmt.Sprintf("gitlab.com/gitlab-org/gitaly/v14/cmd/%s", cmd),
 	}
 	MustRunCommand(t, nil, "go", goBuildArgs...)
+}
+
+func getTestTmpDir() string {
+	testTmpDir := os.Getenv("TEST_TMP_DIR")
+	if testTmpDir != "" {
+		return testTmpDir
+	}
+
+	testTmpDir, err := ioutil.TempDir("/tmp/", "gitaly-")
+	if err != nil {
+		log.Fatal(err)
+	}
+	return testTmpDir
 }

@@ -71,6 +71,7 @@ func createFromSnapshot(t *testing.T, req *gitalypb.CreateRepositoryFromSnapshot
 }
 
 func TestCreateRepositoryFromSnapshotSuccess(t *testing.T) {
+	t.Parallel()
 	cfg := testcfg.Build(t)
 	_, sourceRepoPath, cleanTestRepo := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 	t.Cleanup(cleanTestRepo)
@@ -116,6 +117,7 @@ func TestCreateRepositoryFromSnapshotSuccess(t *testing.T) {
 }
 
 func TestCreateRepositoryFromSnapshotFailsIfRepositoryExists(t *testing.T) {
+	t.Parallel()
 	cfg := testcfg.Build(t)
 	repo, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 	t.Cleanup(cleanupFn)
@@ -128,6 +130,7 @@ func TestCreateRepositoryFromSnapshotFailsIfRepositoryExists(t *testing.T) {
 }
 
 func TestCreateRepositoryFromSnapshotFailsIfBadURL(t *testing.T) {
+	t.Parallel()
 	cfg := testcfg.Build(t)
 	repo, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 	cleanupFn() // free up the destination dir for use
@@ -144,6 +147,7 @@ func TestCreateRepositoryFromSnapshotFailsIfBadURL(t *testing.T) {
 }
 
 func TestCreateRepositoryFromSnapshotBadRequests(t *testing.T) {
+	t.Parallel()
 	cfg := testcfg.Build(t)
 	repo, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 	cleanupFn() // free up the destination dir for use
@@ -199,6 +203,7 @@ func TestCreateRepositoryFromSnapshotBadRequests(t *testing.T) {
 }
 
 func TestCreateRepositoryFromSnapshotHandlesMalformedResponse(t *testing.T) {
+	t.Parallel()
 	cfg := testcfg.Build(t)
 	repo, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 	t.Cleanup(cleanupFn)

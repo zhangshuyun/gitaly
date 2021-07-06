@@ -12,10 +12,12 @@ import (
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
+	diskcache "gitlab.com/gitlab-org/gitaly/v14/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/server/auth"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/fieldextractors"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/listenmux"
 	gitalylog "gitlab.com/gitlab-org/gitaly/v14/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/logsanitizer"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/cache"
@@ -71,7 +73,7 @@ func New(
 	cfg config.Cfg,
 	logrusEntry *log.Entry,
 	registry *backchannel.Registry,
-	cacheInvalidator cache.Invalidator,
+	cacheInvalidator diskcache.Invalidator,
 ) (*grpc.Server, error) {
 	ctxTagOpts := []grpc_ctxtags.Option{
 		grpc_ctxtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor),
@@ -94,8 +96,15 @@ func New(
 		})
 	}
 
+	lm := listenmux.New(transportCredentials)
+	lm.Register(backchannel.NewServerHandshaker(
+		logrusEntry,
+		registry,
+		[]grpc.DialOption{client.UnaryInterceptor()},
+	))
+
 	opts := []grpc.ServerOption{
-		grpc.Creds(backchannel.NewServerHandshaker(logrusEntry, transportCredentials, registry, []grpc.DialOption{client.UnaryInterceptor()})),
+		grpc.Creds(lm),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_ctxtags.StreamServerInterceptor(ctxTagOpts...),
 			grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler

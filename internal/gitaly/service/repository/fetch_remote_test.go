@@ -47,6 +47,7 @@ func copyRepoWithNewRemote(t *testing.T, cfg config.Cfg, repo *gitalypb.Reposito
 }
 
 func TestFetchRemoteSuccess(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -75,6 +76,7 @@ func TestFetchRemoteSuccess(t *testing.T) {
 }
 
 func TestFetchRemote_sshCommand(t *testing.T) {
+	t.Parallel()
 	tempDir := testhelper.TempDir(t)
 
 	// We ain't got a nice way to intercept the SSH call, so we just write a custom git command
@@ -166,6 +168,7 @@ func TestFetchRemote_sshCommand(t *testing.T) {
 }
 
 func TestFetchRemote_withDefaultRefmaps(t *testing.T) {
+	t.Parallel()
 	cfg, sourceRepoProto, sourceRepoPath, client := setupRepositoryService(t)
 
 	sourceRepo := localrepo.NewTestRepo(t, cfg, sourceRepoProto)
@@ -214,6 +217,7 @@ func (m *mockTxManager) Vote(context.Context, txinfo.Transaction, voting.Vote) e
 }
 
 func TestFetchRemote_transaction(t *testing.T) {
+	t.Parallel()
 	sourceCfg, _, sourceRepoPath := testcfg.BuildWithRepo(t)
 
 	txManager := &mockTxManager{}
@@ -254,6 +258,7 @@ func TestFetchRemote_transaction(t *testing.T) {
 }
 
 func TestFetchRemote_prune(t *testing.T) {
+	t.Parallel()
 	cfg, sourceRepo, sourceRepoPath, client := setupRepositoryService(t)
 
 	port, stopGitServer := gittest.GitServer(t, cfg, sourceRepoPath, nil)
@@ -356,6 +361,7 @@ func TestFetchRemote_prune(t *testing.T) {
 }
 
 func TestFetchRemote_force(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -526,6 +532,7 @@ func TestFetchRemote_force(t *testing.T) {
 }
 
 func TestFetchRemoteFailure(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t)
 
 	const remoteName = "test-repo"
@@ -661,6 +668,7 @@ func getRefnames(t *testing.T, cfg config.Cfg, repoPath string) []string {
 }
 
 func TestFetchRemoteOverHTTP(t *testing.T) {
+	t.Parallel()
 	cfg, _, _, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -717,6 +725,7 @@ func TestFetchRemoteOverHTTP(t *testing.T) {
 }
 
 func TestFetchRemoteWithPath(t *testing.T) {
+	t.Parallel()
 	cfg, _, sourceRepoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -737,6 +746,7 @@ func TestFetchRemoteWithPath(t *testing.T) {
 }
 
 func TestFetchRemoteOverHTTPWithRedirect(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t)
 
 	s := httptest.NewServer(
@@ -762,6 +772,7 @@ func TestFetchRemoteOverHTTPWithRedirect(t *testing.T) {
 }
 
 func TestFetchRemoteOverHTTPWithTimeout(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t)
 
 	s := httptest.NewServer(

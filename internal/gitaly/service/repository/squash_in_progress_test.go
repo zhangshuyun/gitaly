@@ -12,6 +12,7 @@ import (
 )
 
 func TestSuccessfulIsSquashInProgressRequest(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	gittest.Exec(t, cfg, "-C", repoPath, "worktree", "add", "--detach", filepath.Join(repoPath, worktreePrefix, "squash-1"), "master")
@@ -56,6 +57,7 @@ func TestSuccessfulIsSquashInProgressRequest(t *testing.T) {
 }
 
 func TestFailedIsSquashInProgressRequestDueToValidations(t *testing.T) {
+	t.Parallel()
 	_, client := setupRepositoryServiceWithoutRepo(t)
 
 	testCases := []struct {

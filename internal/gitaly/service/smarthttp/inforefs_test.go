@@ -276,7 +276,7 @@ func assertGitRefAdvertisement(t *testing.T, rpc, responseBody string, firstLine
 }
 
 type mockStreamer struct {
-	streamer
+	cache.Streamer
 	putStream func(context.Context, *gitalypb.Repository, proto.Message, io.Reader) error
 }
 
@@ -284,7 +284,7 @@ func (ms mockStreamer) PutStream(ctx context.Context, repo *gitalypb.Repository,
 	if ms.putStream != nil {
 		return ms.putStream(ctx, repo, req, src)
 	}
-	return ms.streamer.PutStream(ctx, repo, req, src)
+	return ms.Streamer.PutStream(ctx, repo, req, src)
 }
 
 func TestCacheInfoRefsUploadPack(t *testing.T) {
@@ -364,7 +364,7 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 	happened := false
 
 	mockInfoRefCache := newInfoRefCache(mockStreamer{
-		streamer: cache,
+		Streamer: cache,
 		putStream: func(context.Context, *gitalypb.Repository, proto.Message, io.Reader) error {
 			happened = true
 			return errors.New("oopsie")
@@ -392,7 +392,7 @@ func createInvalidRepo(t testing.TB, repoDir string) func() {
 	return func() { require.NoError(t, os.RemoveAll(repoDir)) }
 }
 
-func replaceCachedResponse(t testing.TB, ctx context.Context, cache *cache.Cache, req *gitalypb.InfoRefsRequest, newContents string) {
+func replaceCachedResponse(t testing.TB, ctx context.Context, cache *cache.DiskCache, req *gitalypb.InfoRefsRequest, newContents string) {
 	path := pathToCachedResponse(t, ctx, cache, req)
 	require.NoError(t, ioutil.WriteFile(path, []byte(newContents), 0644))
 }
@@ -401,7 +401,7 @@ func setInfoRefsUploadPackMethod(ctx context.Context) context.Context {
 	return testhelper.SetCtxGrpcMethod(ctx, "/gitaly.SmartHTTPService/InfoRefsUploadPack")
 }
 
-func pathToCachedResponse(t testing.TB, ctx context.Context, cache *cache.Cache, req *gitalypb.InfoRefsRequest) string {
+func pathToCachedResponse(t testing.TB, ctx context.Context, cache *cache.DiskCache, req *gitalypb.InfoRefsRequest) string {
 	ctx = setInfoRefsUploadPackMethod(ctx)
 	path, err := cache.KeyPath(ctx, req.GetRepository(), req)
 	require.NoError(t, err)

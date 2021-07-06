@@ -39,6 +39,7 @@ func getNewestPackfileModtime(t *testing.T, repoPath string) time.Time {
 }
 
 func TestOptimizeRepository(t *testing.T) {
+	t.Parallel()
 	cfg, repoProto, repoPath, client := setupRepositoryService(t)
 
 	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-b")
@@ -140,6 +141,7 @@ func TestOptimizeRepository(t *testing.T) {
 }
 
 func TestOptimizeRepositoryValidation(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t)
 
 	testCases := []struct {

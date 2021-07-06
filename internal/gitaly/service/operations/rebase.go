@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -97,7 +98,7 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 		oldrev,
 		header.GitPushOptions...); err != nil {
 		switch {
-		case errors.As(err, &preReceiveError{}):
+		case errors.As(err, &updateref.PreReceiveError{}):
 			return stream.Send(&gitalypb.UserRebaseConfirmableResponse{
 				PreReceiveError: err.Error(),
 			})

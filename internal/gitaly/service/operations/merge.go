@@ -5,13 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
-	"github.com/golang/protobuf/ptypes"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -60,12 +60,9 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		return err
 	}
 
-	authorDate := time.Now()
-	if firstRequest.Timestamp != nil {
-		authorDate, err = ptypes.Timestamp(firstRequest.Timestamp)
-		if err != nil {
-			return helper.ErrInvalidArgument(err)
-		}
+	authorDate, err := dateFromProto(firstRequest)
+	if err != nil {
+		return helper.ErrInvalidArgument(err)
 	}
 
 	merge, err := git2go.MergeCommand{
@@ -104,12 +101,12 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, firstRequest.Repository, firstRequest.User, referenceName, mergeOID, revision); err != nil {
-		var preReceiveError preReceiveError
-		var updateRefError updateRefError
+		var preReceiveError updateref.PreReceiveError
+		var updateRefError updateref.Error
 
 		if errors.As(err, &preReceiveError) {
 			err = stream.Send(&gitalypb.UserMergeBranchResponse{
-				PreReceiveError: preReceiveError.message,
+				PreReceiveError: preReceiveError.Message,
 			})
 		} else if errors.As(err, &updateRefError) {
 			// When an error happens updating the reference, e.g. because of a race
@@ -177,14 +174,14 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, in.Repository, in.User, referenceName, commitID, revision); err != nil {
-		var preReceiveError preReceiveError
+		var preReceiveError updateref.PreReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserFFBranchResponse{
-				PreReceiveError: preReceiveError.message,
+				PreReceiveError: preReceiveError.Message,
 			}, nil
 		}
 
-		var updateRefError updateRefError
+		var updateRefError updateref.Error
 		if errors.As(err, &updateRefError) {
 			// When an error happens updating the reference, e.g. because of a race
 			// with another update, then Ruby code didn't send an error but just an
@@ -258,47 +255,30 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		return nil, helper.ErrInvalidArgument(errors.New("Invalid merge source"))
 	}
 
-	authorDate := time.Now()
-	if request.Timestamp != nil {
-		authorDate, err = ptypes.Timestamp(request.Timestamp)
-		if err != nil {
-			return nil, helper.ErrInvalidArgument(err)
-		}
+	authorDate, err := dateFromProto(request)
+	if err != nil {
+		return nil, helper.ErrInvalidArgument(err)
 	}
 
+	// Resolve the current state of the target reference. We do not care whether it
+	// exists or not, but what we do want to assert is that the target reference doesn't
+	// change while we compute the merge commit as a small protection against races.
 	var oldTargetOID git.ObjectID
-	if featureflag.IsEnabled(ctx, featureflag.UserMergeToRefSkipPrecursorRefUpdate) {
-		// Resolve the current state of the target reference. We do not care whether it
-		// exists or not, but what we do want to assert is that the target reference doesn't
-		// change while we compute the merge commit as a small protection against races.
-		targetRef, err := repo.GetReference(ctx, git.ReferenceName(request.TargetRef))
-		if err == nil {
-			if targetRef.IsSymbolic {
-				return nil, helper.ErrPreconditionFailedf("target reference is symbolic: %q", request.TargetRef)
-			}
-
-			oid, err := git.NewObjectIDFromHex(targetRef.Target)
-			if err != nil {
-				return nil, helper.ErrInternalf("invalid target revision: %v", err)
-			}
-
-			oldTargetOID = oid
-		} else if errors.Is(err, git.ErrReferenceNotFound) {
-			oldTargetOID = git.ZeroOID
-		} else {
-			return nil, helper.ErrInternalf("could not read target reference: %v", err)
+	if targetRef, err := repo.GetReference(ctx, git.ReferenceName(request.TargetRef)); err == nil {
+		if targetRef.IsSymbolic {
+			return nil, helper.ErrPreconditionFailedf("target reference is symbolic: %q", request.TargetRef)
 		}
-	} else {
-		// This is the old code path which always force-updated the target reference before
-		// computing the merge. As a result, even if the merge failed, we'd have updated the
-		// reference to point to the first parent ref. It does feel unexpected that the
-		// target reference changes even if the merge itself fails. Furthermore, this is
-		// causing problems with transactions: if the merge fails, we have already voted
-		// once to update the target reference and will thus trigger a replication job.
-		if err := repo.UpdateRef(ctx, git.ReferenceName(request.TargetRef), oid, ""); err != nil {
-			return nil, updateRefError{reference: string(request.TargetRef)}
+
+		oid, err := git.NewObjectIDFromHex(targetRef.Target)
+		if err != nil {
+			return nil, helper.ErrInternalf("invalid target revision: %v", err)
 		}
+
 		oldTargetOID = oid
+	} else if errors.Is(err, git.ErrReferenceNotFound) {
+		oldTargetOID = git.ZeroOID
+	} else {
+		return nil, helper.ErrInternalf("could not read target reference: %v", err)
 	}
 
 	// Now, we create the merge commit...
@@ -313,6 +293,14 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		AllowConflicts: request.AllowConflicts,
 	}.Run(ctx, s.cfg)
 	if err != nil {
+		ctxlogrus.Extract(ctx).WithError(err).WithFields(
+			logrus.Fields{
+				"source_sha": sourceOID,
+				"target_sha": oid,
+				"target_ref": string(request.TargetRef),
+			},
+		).Error("unable to create merge commit")
+
 		if errors.Is(err, git2go.ErrInvalidArgument) {
 			return nil, helper.ErrInvalidArgument(err)
 		}

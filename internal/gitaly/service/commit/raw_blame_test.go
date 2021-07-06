@@ -13,6 +13,7 @@ import (
 )
 
 func TestSuccessfulRawBlameRequest(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	testCases := []struct {
@@ -62,6 +63,7 @@ func TestSuccessfulRawBlameRequest(t *testing.T) {
 }
 
 func TestFailedRawBlameRequest(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}

@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/listenmux"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -21,8 +22,11 @@ func TestDial(t *testing.T) {
 
 	logger := testhelper.DiscardTestEntry(t)
 
+	lm := listenmux.New(insecure.NewCredentials())
+	lm.Register(backchannel.NewServerHandshaker(logger, backchannel.NewRegistry(), nil))
+
 	srv := grpc.NewServer(
-		grpc.Creds(backchannel.NewServerHandshaker(logger, insecure.NewCredentials(), backchannel.NewRegistry(), nil)),
+		grpc.Creds(lm),
 		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
 			_, err := backchannel.GetPeerID(stream.Context())
 			if err == backchannel.ErrNonMultiplexedConnection {

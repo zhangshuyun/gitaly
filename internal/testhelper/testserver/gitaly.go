@@ -278,7 +278,7 @@ type gitalyServerDeps struct {
 	linguist        *linguist.Instance
 	backchannelReg  *backchannel.Registry
 	catfileCache    catfile.Cache
-	diskCache       *cache.Cache
+	diskCache       cache.Cache
 }
 
 func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server) *service.Dependencies {
@@ -409,6 +409,14 @@ func WithBackchannelRegistry(backchannelReg *backchannel.Registry) GitalyServerO
 func WithCatfileCache(catfileCache catfile.Cache) GitalyServerOpt {
 	return func(deps gitalyServerDeps) gitalyServerDeps {
 		deps.catfileCache = catfileCache
+		return deps
+	}
+}
+
+// WithDiskCache sets the cache.Cache instance that will be used for gitaly services initialisation.
+func WithDiskCache(diskCache cache.Cache) GitalyServerOpt {
+	return func(deps gitalyServerDeps) gitalyServerDeps {
+		deps.diskCache = diskCache
 		return deps
 	}
 }

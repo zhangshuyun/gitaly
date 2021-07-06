@@ -4,12 +4,12 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/proto/go/internal"
 	_ "gitlab.com/gitlab-org/gitaly/v14/proto/go/internal/linter/testdata"
+	"google.golang.org/protobuf/reflect/protodesc"
+	protoreg "google.golang.org/protobuf/reflect/protoregistry"
 )
 
 func TestLintFile(t *testing.T) {
@@ -42,9 +42,10 @@ func TestLintFile(t *testing.T) {
 		},
 	} {
 		t.Run(tt.protoPath, func(t *testing.T) {
-			fdToCheck, err := internal.ExtractFile(proto.FileDescriptor(tt.protoPath))
+			fd, err := protoreg.GlobalFiles.FindFileByPath(tt.protoPath)
 			require.NoError(t, err)
 
+			fdToCheck := protodesc.ToFileDescriptorProto(fd)
 			req := &plugin.CodeGeneratorRequest{
 				ProtoFile: []*descriptor.FileDescriptorProto{fdToCheck},
 			}
@@ -57,9 +58,9 @@ func TestLintFile(t *testing.T) {
 				"lint.proto",
 				"shared.proto",
 			} {
-				fd, err := internal.ExtractFile(proto.FileDescriptor(protoPath))
+				fd, err := protoreg.GlobalFiles.FindFileByPath(protoPath)
 				require.NoError(t, err)
-				req.ProtoFile = append(req.ProtoFile, fd)
+				req.ProtoFile = append(req.ProtoFile, protodesc.ToFileDescriptorProto(fd))
 			}
 
 			errs := LintFile(fdToCheck, req)

@@ -60,10 +60,17 @@ module Gitlab
       end
 
       def gollum_wiki
-        @gollum_wiki ||= Gollum::Wiki.new(@repository.path)
+        options = {}
+        options[:ref] = gollum_default_ref if gollum_default_ref
+
+        @gollum_wiki ||= Gollum::Wiki.new(@repository.path, options)
       end
 
       private
+
+      def gollum_default_ref
+        @gollum_default_ref ||= @repository.root_ref || @repository.head_symbolic_ref
+      end
 
       def new_page(gollum_page)
         Gitlab::Git::WikiPage.new(gollum_page, new_version(gollum_page, gollum_page.version.id))

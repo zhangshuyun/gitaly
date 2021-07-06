@@ -24,8 +24,9 @@ import (
 
 var (
 	author = &gitalypb.User{
-		Name:  []byte("John Doe"),
-		Email: []byte("johndoe@gitlab.com"),
+		Name:     []byte("John Doe"),
+		Email:    []byte("johndoe@gitlab.com"),
+		Timezone: gittest.Timezone,
 	}
 	branchName    = "not-merged-branch"
 	startSha      = "b83d6e391c22777fca1ed3012fce84f633d7fed0"
@@ -34,6 +35,7 @@ var (
 )
 
 func TestSuccessfulUserSquashRequest(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -73,6 +75,8 @@ func testSuccessfulUserSquashRequest(t *testing.T, ctx context.Context, start, e
 	require.Equal(t, author.Email, commit.Author.Email)
 	require.Equal(t, gittest.TestUser.Name, commit.Committer.Name)
 	require.Equal(t, gittest.TestUser.Email, commit.Committer.Email)
+	require.Equal(t, gittest.TimezoneOffset, string(commit.Committer.Timezone))
+	require.Equal(t, gittest.TimezoneOffset, string(commit.Author.Timezone))
 	require.Equal(t, commitMessage, commit.Subject)
 
 	treeData := gittest.Exec(t, cfg, "-C", repoPath, "ls-tree", "--name-only", response.SquashSha)
@@ -81,6 +85,7 @@ func testSuccessfulUserSquashRequest(t *testing.T, ctx context.Context, start, e
 }
 
 func TestUserSquash_stableID(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -104,7 +109,7 @@ func TestUserSquash_stableID(t *testing.T) {
 	commit, err := repo.ReadCommit(ctx, git.Revision(response.SquashSha))
 	require.NoError(t, err)
 	require.Equal(t, &gitalypb.GitCommit{
-		Id:     "2773b7aee7d81ea96d2f48aa080cae08eaae26d5",
+		Id:     "c653dc8f98dba7f7a42c2e3c4b8d850d195e60b6",
 		TreeId: "324242f415a3cdbfc088103b496379fd91965854",
 		ParentIds: []string{
 			"b83d6e391c22777fca1ed3012fce84f633d7fed0",
@@ -116,13 +121,13 @@ func TestUserSquash_stableID(t *testing.T) {
 			Name:     author.Name,
 			Email:    author.Email,
 			Date:     &timestamp.Timestamp{Seconds: 1234512345},
-			Timezone: []byte("+0000"),
+			Timezone: []byte(gittest.TimezoneOffset),
 		},
 		Committer: &gitalypb.CommitAuthor{
 			Name:     gittest.TestUser.Name,
 			Email:    gittest.TestUser.Email,
 			Date:     &timestamp.Timestamp{Seconds: 1234512345},
-			Timezone: []byte("+0000"),
+			Timezone: []byte(gittest.TimezoneOffset),
 		},
 	}, commit)
 }
@@ -141,6 +146,7 @@ func ensureSplitIndexExists(t *testing.T, cfg config.Cfg, repoDir string) bool {
 }
 
 func TestSuccessfulUserSquashRequestWith3wayMerge(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -169,6 +175,8 @@ func TestSuccessfulUserSquashRequestWith3wayMerge(t *testing.T) {
 	require.Equal(t, author.Name, commit.Author.Name)
 	require.Equal(t, author.Email, commit.Author.Email)
 	require.Equal(t, gittest.TestUser.Name, commit.Committer.Name)
+	require.Equal(t, gittest.TimezoneOffset, string(commit.Committer.Timezone))
+	require.Equal(t, gittest.TimezoneOffset, string(commit.Author.Timezone))
 	require.Equal(t, gittest.TestUser.Email, commit.Committer.Email)
 	require.Equal(t, commitMessage, commit.Subject)
 
@@ -188,6 +196,7 @@ func TestSuccessfulUserSquashRequestWith3wayMerge(t *testing.T) {
 }
 
 func TestSplitIndex(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -212,6 +221,7 @@ func TestSplitIndex(t *testing.T) {
 }
 
 func TestSquashRequestWithRenamedFiles(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -266,10 +276,13 @@ func TestSquashRequestWithRenamedFiles(t *testing.T) {
 	require.Equal(t, author.Email, commit.Author.Email)
 	require.Equal(t, gittest.TestUser.Name, commit.Committer.Name)
 	require.Equal(t, gittest.TestUser.Email, commit.Committer.Email)
+	require.Equal(t, gittest.TimezoneOffset, string(commit.Committer.Timezone))
+	require.Equal(t, gittest.TimezoneOffset, string(commit.Author.Timezone))
 	require.Equal(t, commitMessage, commit.Subject)
 }
 
 func TestSuccessfulUserSquashRequestWithMissingFileOnTargetBranch(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -293,6 +306,7 @@ func TestSuccessfulUserSquashRequestWithMissingFileOnTargetBranch(t *testing.T) 
 }
 
 func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -419,6 +433,7 @@ func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
 }
 
 func TestUserSquashWithGitError(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 

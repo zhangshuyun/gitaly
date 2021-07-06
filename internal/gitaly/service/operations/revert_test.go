@@ -164,6 +164,8 @@ func TestServer_UserRevert_successful(t *testing.T) {
 			} else {
 				require.Equal(t, testCase.request.Message, headCommit.Subject)
 				require.Equal(t, masterHeadCommit.Id, headCommit.ParentIds[0])
+				require.Equal(t, gittest.TimezoneOffset, string(headCommit.Committer.Timezone))
+				require.Equal(t, gittest.TimezoneOffset, string(headCommit.Author.Timezone))
 			}
 		})
 	}
@@ -191,7 +193,7 @@ func TestServer_UserRevert_stableID(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, &gitalypb.OperationBranchUpdate{
-		CommitId: "9ebfd44039a9e36d88dcdfe11550399ec6a212f7",
+		CommitId: "9c15289b0a129c562dddf7b364eb979d41173b41",
 	}, response.BranchUpdate)
 	require.Empty(t, response.CreateTreeError)
 	require.Empty(t, response.CreateTreeErrorCode)
@@ -200,7 +202,7 @@ func TestServer_UserRevert_stableID(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, &gitalypb.GitCommit{
-		Id: "9ebfd44039a9e36d88dcdfe11550399ec6a212f7",
+		Id: "9c15289b0a129c562dddf7b364eb979d41173b41",
 		ParentIds: []string{
 			"1e292f8fedd741b75372e19097c76d327140c312",
 		},
@@ -212,13 +214,13 @@ func TestServer_UserRevert_stableID(t *testing.T) {
 			Name:     []byte("Jane Doe"),
 			Email:    []byte("janedoe@gitlab.com"),
 			Date:     &timestamp.Timestamp{Seconds: 12345},
-			Timezone: []byte("+0000"),
+			Timezone: []byte(gittest.TimezoneOffset),
 		},
 		Committer: &gitalypb.CommitAuthor{
 			Name:     []byte("Jane Doe"),
 			Email:    []byte("janedoe@gitlab.com"),
 			Date:     &timestamp.Timestamp{Seconds: 12345},
-			Timezone: []byte("+0000"),
+			Timezone: []byte(gittest.TimezoneOffset),
 		},
 	}, revertedCommit)
 }

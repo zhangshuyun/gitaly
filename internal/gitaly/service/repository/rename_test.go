@@ -14,6 +14,7 @@ import (
 )
 
 func TestRenameRepositorySuccess(t *testing.T) {
+	t.Parallel()
 	cfg, repo, _, client := setupRepositoryService(t)
 
 	req := &gitalypb.RenameRepositoryRequest{Repository: repo, RelativePath: "a-new-location"}
@@ -35,6 +36,7 @@ func TestRenameRepositorySuccess(t *testing.T) {
 }
 
 func TestRenameRepositoryDestinationExists(t *testing.T) {
+	t.Parallel()
 	cfg, repo, _, client := setupRepositoryService(t)
 
 	destinationRepo, destinationRepoPath, cleanupDestinationRepo := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "dst")
@@ -55,6 +57,7 @@ func TestRenameRepositoryDestinationExists(t *testing.T) {
 }
 
 func TestRenameRepositoryInvalidRequest(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()

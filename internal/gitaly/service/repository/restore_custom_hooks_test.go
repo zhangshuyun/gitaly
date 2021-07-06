@@ -14,6 +14,7 @@ import (
 )
 
 func TestSuccessfullRestoreCustomHooksRequest(t *testing.T) {
+	t.Parallel()
 	_, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -46,6 +47,7 @@ func TestSuccessfullRestoreCustomHooksRequest(t *testing.T) {
 }
 
 func TestFailedRestoreCustomHooksDueToValidations(t *testing.T) {
+	t.Parallel()
 	_, client := setupRepositoryServiceWithoutRepo(t)
 
 	ctx, cancel := testhelper.Context()
@@ -61,6 +63,7 @@ func TestFailedRestoreCustomHooksDueToValidations(t *testing.T) {
 }
 
 func TestFailedRestoreCustomHooksDueToBadTar(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()

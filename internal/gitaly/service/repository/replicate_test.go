@@ -9,13 +9,17 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -24,6 +28,7 @@ import (
 )
 
 func TestReplicateRepository(t *testing.T) {
+	t.Parallel()
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
 
@@ -94,7 +99,91 @@ func TestReplicateRepository(t *testing.T) {
 	gittest.Exec(t, cfg, "-C", targetRepoPath, "cat-file", "-p", blobID)
 }
 
+func TestReplicateRepository_transactional(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.ReplicateRepositoryDirectFetch,
+	}).Run(t, testReplicateRepositoryTransactional)
+}
+
+func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
+	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
+	cfg := cfgBuilder.Build(t)
+
+	testhelper.ConfigureGitalyHooksBin(t, cfg)
+	testhelper.ConfigureGitalySSHBin(t, cfg)
+
+	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil, testserver.WithDisablePraefect())
+	cfg.SocketPath = serverSocketPath
+
+	sourceRepo, sourceRepoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "source")
+	t.Cleanup(cleanup)
+
+	targetRepo := proto.Clone(sourceRepo).(*gitalypb.Repository)
+	targetRepo.StorageName = cfg.Storages[1].Name
+
+	votes := 0
+	txServer := testTransactionServer{
+		vote: func(request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
+			votes++
+			return &gitalypb.VoteTransactionResponse{
+				State: gitalypb.VoteTransactionResponse_COMMIT,
+			}, nil
+		},
+	}
+
+	ctx, err := txinfo.InjectTransaction(ctx, 1, "primary", true)
+	require.NoError(t, err)
+	ctx = helper.IncomingToOutgoing(ctx)
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
+
+	client := newMuxedRepositoryClient(t, ctx, cfg, serverSocketPath, backchannel.NewClientHandshaker(
+		testhelper.DiscardTestEntry(t),
+		func() backchannel.Server {
+			srv := grpc.NewServer()
+			gitalypb.RegisterRefTransactionServer(srv, &txServer)
+			return srv
+		},
+	))
+
+	// The first invocation creates the repository via a snapshot given that it doesn't yet
+	// exist.
+	_, err = client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
+		Repository: targetRepo,
+		Source:     sourceRepo,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, votes)
+
+	// We're now changing a reference in the source repository such that we can observe changes
+	// in the target repo.
+	gittest.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", "refs/heads/master", "refs/heads/master~")
+
+	votes = 0
+
+	// And the second invocation uses FetchInternalRemote.
+	_, err = client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
+		Repository: targetRepo,
+		Source:     sourceRepo,
+	})
+
+	if featureflag.IsEnabled(ctx, featureflag.ReplicateRepositoryDirectFetch) {
+		require.NoError(t, err)
+		require.Equal(t, 2, votes)
+	} else {
+		// This is failing because we do a nested mutating RPC in `ReplicateRepository()` to
+		// `FetchInternalRemote()`. Because we simply pass along the incoming context as an
+		// outgoing one, the server would try to vote on the backchannel. But given that the
+		// connection is not to Praefect but to Gitaly now, it's trying to cast votes on a
+		// non-multiplexed Gitaly connection instead of against the expected Praefect peer.
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "ref updates aborted by hook")
+		require.Equal(t, 0, votes)
+	}
+}
+
 func TestReplicateRepositoryInvalidArguments(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		description   string
 		input         *gitalypb.ReplicateRepositoryRequest
@@ -180,6 +269,7 @@ func TestReplicateRepositoryInvalidArguments(t *testing.T) {
 }
 
 func TestReplicateRepository_BadRepository(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		desc          string
 		invalidSource bool
@@ -266,6 +356,7 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 }
 
 func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
+	t.Parallel()
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
 

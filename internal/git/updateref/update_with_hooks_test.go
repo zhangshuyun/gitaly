@@ -1,4 +1,4 @@
-package operations
+package updateref
 
 import (
 	"context"
@@ -24,31 +24,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-type mockHookManager struct {
-	t                    *testing.T
-	preReceive           func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error
-	postReceive          func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error
-	update               func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error
-	referenceTransaction func(t *testing.T, ctx context.Context, state hook.ReferenceTransactionState, env []string, stdin io.Reader) error
-}
-
-func (m *mockHookManager) PreReceiveHook(ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
-	return m.preReceive(m.t, ctx, repo, pushOptions, env, stdin, stdout, stderr)
-}
-
-func (m *mockHookManager) PostReceiveHook(ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
-	return m.postReceive(m.t, ctx, repo, pushOptions, env, stdin, stdout, stderr)
-}
-
-func (m *mockHookManager) UpdateHook(ctx context.Context, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error {
-	return m.update(m.t, ctx, repo, ref, oldValue, newValue, env, stdout, stderr)
-}
-
-func (m *mockHookManager) ReferenceTransactionHook(ctx context.Context, state hook.ReferenceTransactionState, env []string, stdin io.Reader) error {
-	return m.referenceTransaction(m.t, ctx, state, env, stdin)
-}
-
-func TestUpdateReferenceWithHooks_invalidParameters(t *testing.T) {
+func TestUpdaterWithHooks_UpdateReference_invalidParameters(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -63,7 +39,7 @@ func TestUpdateReferenceWithHooks_invalidParameters(t *testing.T) {
 
 	revA, revB := git.ObjectID(strings.Repeat("a", 40)), git.ObjectID(strings.Repeat("b", 40))
 
-	server := NewServer(cfg, nil, &mockHookManager{}, nil, nil, nil, nil)
+	updater := NewUpdaterWithHooks(cfg, &hook.MockManager{}, nil, nil)
 
 	testCases := []struct {
 		desc           string
@@ -107,13 +83,13 @@ func TestUpdateReferenceWithHooks_invalidParameters(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			err := server.updateReferenceWithHooks(ctx, repo, user, tc.ref, tc.newRev, tc.oldRev)
+			err := updater.UpdateReference(ctx, repo, user, tc.ref, tc.newRev, tc.oldRev)
 			require.Contains(t, err.Error(), tc.expectedErr)
 		})
 	}
 }
 
-func TestUpdateReferenceWithHooks(t *testing.T) {
+func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -266,18 +242,12 @@ func TestUpdateReferenceWithHooks(t *testing.T) {
 	for _, tc := range testCases {
 		referenceTransactionCalls = 0
 		t.Run(tc.desc, func(t *testing.T) {
-			hookManager := &mockHookManager{
-				t:                    t,
-				preReceive:           tc.preReceive,
-				postReceive:          tc.postReceive,
-				update:               tc.update,
-				referenceTransaction: tc.referenceTransaction,
-			}
+			hookManager := hook.NewMockManager(t, tc.preReceive, tc.postReceive, tc.update, tc.referenceTransaction)
 
 			gitCmdFactory := git.NewExecCommandFactory(cfg)
-			hookServer := NewServer(cfg, nil, hookManager, nil, nil, gitCmdFactory, nil)
+			updater := NewUpdaterWithHooks(cfg, hookManager, gitCmdFactory, nil)
 
-			err := hookServer.updateReferenceWithHooks(ctx, repo, user, git.ReferenceName("refs/heads/master"), git.ZeroOID, git.ObjectID(oldRev))
+			err := updater.UpdateReference(ctx, repo, user, git.ReferenceName("refs/heads/master"), git.ZeroOID, git.ObjectID(oldRev))
 			if tc.expectedErr == "" {
 				require.NoError(t, err)
 			} else {
