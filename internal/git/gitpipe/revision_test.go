@@ -177,7 +177,7 @@ func TestRevlist(t *testing.T) {
 			options: []RevlistOption{
 				WithReverse(),
 			},
-			expectedResults: []RevlistResult{
+			expectedResults: []RevisionResult{
 				{OID: "c1c67abbaf91f624347bb3ae96eabe3a1b742478"},
 				{OID: "1e292f8fedd741b75372e19097c76d327140c312"},
 			},
@@ -192,7 +192,7 @@ func TestRevlist(t *testing.T) {
 				WithReverse(),
 				WithObjects(),
 			},
-			expectedResults: []RevlistResult{
+			expectedResults: []RevisionResult{
 				// Note that only commits are listed in reverse,
 				// their referenced objects stay in the same order.
 				{OID: "c1c67abbaf91f624347bb3ae96eabe3a1b742478"},
