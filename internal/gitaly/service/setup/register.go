@@ -21,7 +21,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/server"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/smarthttp"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ssh"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/teststream"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/wiki"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/streamrpc"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -145,4 +147,12 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 	healthpb.RegisterHealthServer(srv, health.NewServer())
 	reflection.Register(srv)
 	grpc_prometheus.Register(srv)
+}
+
+// RegisterStreamRPCall will register all the known gRPC services built on top
+// of StreamRPC Protocol. All the requests following StreamRPC protocol
+// eventually fail if they are handled by a normal Gitaly gRPC server.
+// Therefore, those services should not be registered using RegisterAll.
+func RegisterStreamRPCall(srv *streamrpc.Server) {
+	gitalypb.RegisterTestStreamServiceServer(srv, teststream.NewServer())
 }

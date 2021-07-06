@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/bootstrap/starter"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/streamrpc"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"google.golang.org/grpc"
@@ -86,7 +87,7 @@ func TestGitalyServerFactory(t *testing.T) {
 
 	t.Run("insecure", func(t *testing.T) {
 		cfg := testcfg.Build(t)
-		sf := NewGitalyServerFactory(cfg, testhelper.DiscardTestEntry(t), backchannel.NewRegistry(), cache.New(cfg, config.NewLocator(cfg)))
+		sf := NewGitalyServerFactory(cfg, testhelper.DiscardTestEntry(t), backchannel.NewRegistry(), cache.New(cfg, config.NewLocator(cfg)), streamrpc.NewServer())
 
 		checkHealth(t, sf, starter.TCP, "localhost:0")
 	})
@@ -99,7 +100,7 @@ func TestGitalyServerFactory(t *testing.T) {
 			KeyPath:  keyFile,
 		}}))
 
-		sf := NewGitalyServerFactory(cfg, testhelper.DiscardTestEntry(t), backchannel.NewRegistry(), cache.New(cfg, config.NewLocator(cfg)))
+		sf := NewGitalyServerFactory(cfg, testhelper.DiscardTestEntry(t), backchannel.NewRegistry(), cache.New(cfg, config.NewLocator(cfg)), streamrpc.NewServer())
 		t.Cleanup(sf.Stop)
 
 		checkHealth(t, sf, starter.TLS, "localhost:0")
@@ -107,7 +108,7 @@ func TestGitalyServerFactory(t *testing.T) {
 
 	t.Run("all services must be stopped", func(t *testing.T) {
 		cfg := testcfg.Build(t)
-		sf := NewGitalyServerFactory(cfg, testhelper.DiscardTestEntry(t), backchannel.NewRegistry(), cache.New(cfg, config.NewLocator(cfg)))
+		sf := NewGitalyServerFactory(cfg, testhelper.DiscardTestEntry(t), backchannel.NewRegistry(), cache.New(cfg, config.NewLocator(cfg)), streamrpc.NewServer())
 		t.Cleanup(sf.Stop)
 
 		tcpHealthClient := checkHealth(t, sf, starter.TCP, "localhost:0")
@@ -132,7 +133,7 @@ func TestGitalyServerFactory_closeOrder(t *testing.T) {
 	defer cancel()
 
 	cfg := testcfg.Build(t)
-	sf := NewGitalyServerFactory(cfg, testhelper.DiscardTestEntry(t), backchannel.NewRegistry(), cache.New(cfg, config.NewLocator(cfg)))
+	sf := NewGitalyServerFactory(cfg, testhelper.DiscardTestEntry(t), backchannel.NewRegistry(), cache.New(cfg, config.NewLocator(cfg)), streamrpc.NewServer())
 	defer sf.Stop()
 
 	errQuickRPC := status.Error(codes.Internal, "quick RPC")

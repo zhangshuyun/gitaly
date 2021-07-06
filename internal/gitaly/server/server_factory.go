@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/maintenance"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/cache"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/streamrpc"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
@@ -27,6 +28,7 @@ type GitalyServerFactory struct {
 	logger           *logrus.Entry
 	externalServers  []*grpc.Server
 	internalServers  []*grpc.Server
+	streamRPCServer  *streamrpc.Server
 }
 
 // NewGitalyServerFactory allows to create and start secure/insecure 'grpc.Server'-s with gitaly-ruby
@@ -36,12 +38,14 @@ func NewGitalyServerFactory(
 	logger *logrus.Entry,
 	registry *backchannel.Registry,
 	cacheInvalidator cache.Invalidator,
+	streamRPCServer *streamrpc.Server,
 ) *GitalyServerFactory {
 	return &GitalyServerFactory{
 		cfg:              cfg,
 		logger:           logger,
 		registry:         registry,
 		cacheInvalidator: cacheInvalidator,
+		streamRPCServer:  streamRPCServer,
 	}
 }
 
@@ -136,7 +140,7 @@ func (s *GitalyServerFactory) GracefulStop() {
 // CreateExternal creates a new external gRPC server. The external servers are closed
 // before the internal servers when gracefully shutting down.
 func (s *GitalyServerFactory) CreateExternal(secure bool) (*grpc.Server, error) {
-	server, err := New(secure, s.cfg, s.logger, s.registry, s.cacheInvalidator)
+	server, err := New(secure, s.cfg, s.logger, s.registry, s.cacheInvalidator, s.streamRPCServer)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +152,7 @@ func (s *GitalyServerFactory) CreateExternal(secure bool) (*grpc.Server, error) 
 // CreateInternal creates a new internal gRPC server. Internal servers are closed
 // after the external ones when gracefully shutting down.
 func (s *GitalyServerFactory) CreateInternal() (*grpc.Server, error) {
-	server, err := New(false, s.cfg, s.logger, s.registry, s.cacheInvalidator)
+	server, err := New(false, s.cfg, s.logger, s.registry, s.cacheInvalidator, s.streamRPCServer)
 	if err != nil {
 		return nil, err
 	}

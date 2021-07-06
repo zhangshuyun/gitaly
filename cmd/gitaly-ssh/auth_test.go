@@ -23,6 +23,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/streamrpc"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -152,7 +153,8 @@ func runServer(t *testing.T, secure bool, cfg config.Cfg, connectionType string,
 	hookManager := hook.NewManager(locator, txManager, gitlab.NewMockClient(), cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	diskCache := cache.New(cfg, locator)
-	srv, err := server.New(secure, cfg, testhelper.DiscardTestEntry(t), registry, diskCache)
+	streamRPCServer := streamrpc.NewServer()
+	srv, err := server.New(secure, cfg, testhelper.DiscardTestEntry(t), registry, diskCache, streamRPCServer)
 	require.NoError(t, err)
 	setup.RegisterAll(srv, &service.Dependencies{
 		Cfg:                cfg,

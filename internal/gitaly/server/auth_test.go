@@ -27,6 +27,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/streamrpc"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -201,8 +202,9 @@ func runServer(t *testing.T, cfg config.Cfg) string {
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	catfileCache := catfile.NewCache(cfg)
 	diskCache := cache.New(cfg, locator)
+	streamRPCServer := streamrpc.NewServer()
 
-	srv, err := New(false, cfg, testhelper.DiscardTestEntry(t), registry, diskCache)
+	srv, err := New(false, cfg, testhelper.DiscardTestEntry(t), registry, diskCache, streamRPCServer)
 	require.NoError(t, err)
 
 	setup.RegisterAll(srv, &service.Dependencies{
@@ -236,7 +238,7 @@ func runSecureServer(t *testing.T, cfg config.Cfg) string {
 	conns := client.NewPool()
 	t.Cleanup(func() { conns.Close() })
 
-	srv, err := New(true, cfg, testhelper.DiscardTestEntry(t), backchannel.NewRegistry(), cache.New(cfg, config.NewLocator(cfg)))
+	srv, err := New(true, cfg, testhelper.DiscardTestEntry(t), backchannel.NewRegistry(), cache.New(cfg, config.NewLocator(cfg)), streamrpc.NewServer())
 	require.NoError(t, err)
 
 	healthpb.RegisterHealthServer(srv, health.NewServer())

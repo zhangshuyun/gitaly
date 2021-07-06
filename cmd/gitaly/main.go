@@ -29,6 +29,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
 	glog "gitlab.com/gitlab-org/gitaly/v14/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/streamrpc"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/version"
 	"gitlab.com/gitlab-org/labkit/monitoring"
@@ -180,7 +181,10 @@ func run(cfg config.Cfg) error {
 		return fmt.Errorf("disk cache walkers: %w", err)
 	}
 
-	gitalyServerFactory := server.NewGitalyServerFactory(cfg, glog.Default(), registry, diskCache)
+	streamRPCServer := streamrpc.NewServer()
+	setup.RegisterStreamRPCall(streamRPCServer)
+
+	gitalyServerFactory := server.NewGitalyServerFactory(cfg, glog.Default(), registry, diskCache, streamRPCServer)
 	defer gitalyServerFactory.Stop()
 
 	ling, err := linguist.New(cfg)

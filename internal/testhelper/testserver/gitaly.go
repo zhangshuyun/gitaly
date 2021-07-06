@@ -31,6 +31,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
 	praefectconfig "gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/streamrpc"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -210,6 +211,7 @@ func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, regi
 		gsd.logger.WithField("test", t.Name()),
 		deps.GetBackchannelRegistry(),
 		deps.GetDiskCache(),
+		streamrpc.NewServer(),
 	).CreateExternal(cfg.TLS.CertPath != "" && cfg.TLS.KeyPath != "")
 	require.NoError(t, err)
 	t.Cleanup(srv.Stop)

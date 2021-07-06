@@ -27,6 +27,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/panichandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/sentryhandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/protoregistry"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/streamrpc"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
 	"google.golang.org/grpc"
@@ -73,6 +74,7 @@ func New(
 	logrusEntry *log.Entry,
 	registry *backchannel.Registry,
 	cacheInvalidator cache.Invalidator,
+	streamRPCServer *streamrpc.Server,
 ) (*grpc.Server, error) {
 	ctxTagOpts := []grpc_ctxtags.Option{
 		grpc_ctxtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor),
@@ -95,53 +97,60 @@ func New(
 		})
 	}
 
+	serverStreamInterceptorChain := grpc_middleware.ChainStreamServer(
+		grpc_ctxtags.StreamServerInterceptor(ctxTagOpts...),
+		grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler
+		metadatahandler.StreamInterceptor,
+		grpc_prometheus.StreamServerInterceptor,
+		commandstatshandler.StreamInterceptor,
+		grpc_logrus.StreamServerInterceptor(logrusEntry,
+			grpc_logrus.WithTimestampFormat(gitalylog.LogTimestampFormat),
+			grpc_logrus.WithMessageProducer(commandstatshandler.CommandStatsMessageProducer)),
+		sentryhandler.StreamLogHandler,
+		cancelhandler.Stream, // Should be below LogHandler
+		auth.StreamServerInterceptor(cfg.Auth),
+		lh.StreamInterceptor(), // Should be below auth handler to prevent v2 hmac tokens from timing out while queued
+		grpctracing.StreamServerTracingInterceptor(),
+		cache.StreamInvalidator(cacheInvalidator, protoregistry.GitalyProtoPreregistered),
+		// Panic handler should remain last so that application panics will be
+		// converted to errors and logged
+		panichandler.StreamPanicHandler,
+	)
+	serverUnaryInterceptorChain := grpc_middleware.ChainUnaryServer(
+		grpc_ctxtags.UnaryServerInterceptor(ctxTagOpts...),
+		grpccorrelation.UnaryServerCorrelationInterceptor(), // Must be above the metadata handler
+		metadatahandler.UnaryInterceptor,
+		grpc_prometheus.UnaryServerInterceptor,
+		commandstatshandler.UnaryInterceptor,
+		grpc_logrus.UnaryServerInterceptor(logrusEntry,
+			grpc_logrus.WithTimestampFormat(gitalylog.LogTimestampFormat),
+			grpc_logrus.WithMessageProducer(commandstatshandler.CommandStatsMessageProducer)),
+		sentryhandler.UnaryLogHandler,
+		cancelhandler.Unary, // Should be below LogHandler
+		auth.UnaryServerInterceptor(cfg.Auth),
+		lh.UnaryInterceptor(), // Should be below auth handler to prevent v2 hmac tokens from timing out while queued
+		grpctracing.UnaryServerTracingInterceptor(),
+		cache.UnaryInvalidator(cacheInvalidator, protoregistry.GitalyProtoPreregistered),
+		// Panic handler should remain last so that application panics will be
+		// converted to errors and logged
+		panichandler.UnaryPanicHandler,
+	)
+
 	lm := listenmux.New(transportCredentials)
 	lm.Register(backchannel.NewServerHandshaker(
 		logrusEntry,
 		registry,
 		[]grpc.DialOption{client.UnaryInterceptor()},
 	))
+	lm.Register(streamrpc.NewServerHandshaker(
+		streamRPCServer,
+		serverUnaryInterceptorChain,
+	))
 
 	opts := []grpc.ServerOption{
 		grpc.Creds(lm),
-		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
-			grpc_ctxtags.StreamServerInterceptor(ctxTagOpts...),
-			grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler
-			metadatahandler.StreamInterceptor,
-			grpc_prometheus.StreamServerInterceptor,
-			commandstatshandler.StreamInterceptor,
-			grpc_logrus.StreamServerInterceptor(logrusEntry,
-				grpc_logrus.WithTimestampFormat(gitalylog.LogTimestampFormat),
-				grpc_logrus.WithMessageProducer(commandstatshandler.CommandStatsMessageProducer)),
-			sentryhandler.StreamLogHandler,
-			cancelhandler.Stream, // Should be below LogHandler
-			auth.StreamServerInterceptor(cfg.Auth),
-			lh.StreamInterceptor(), // Should be below auth handler to prevent v2 hmac tokens from timing out while queued
-			grpctracing.StreamServerTracingInterceptor(),
-			cache.StreamInvalidator(cacheInvalidator, protoregistry.GitalyProtoPreregistered),
-			// Panic handler should remain last so that application panics will be
-			// converted to errors and logged
-			panichandler.StreamPanicHandler,
-		)),
-		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
-			grpc_ctxtags.UnaryServerInterceptor(ctxTagOpts...),
-			grpccorrelation.UnaryServerCorrelationInterceptor(), // Must be above the metadata handler
-			metadatahandler.UnaryInterceptor,
-			grpc_prometheus.UnaryServerInterceptor,
-			commandstatshandler.UnaryInterceptor,
-			grpc_logrus.UnaryServerInterceptor(logrusEntry,
-				grpc_logrus.WithTimestampFormat(gitalylog.LogTimestampFormat),
-				grpc_logrus.WithMessageProducer(commandstatshandler.CommandStatsMessageProducer)),
-			sentryhandler.UnaryLogHandler,
-			cancelhandler.Unary, // Should be below LogHandler
-			auth.UnaryServerInterceptor(cfg.Auth),
-			lh.UnaryInterceptor(), // Should be below auth handler to prevent v2 hmac tokens from timing out while queued
-			grpctracing.UnaryServerTracingInterceptor(),
-			cache.UnaryInvalidator(cacheInvalidator, protoregistry.GitalyProtoPreregistered),
-			// Panic handler should remain last so that application panics will be
-			// converted to errors and logged
-			panichandler.UnaryPanicHandler,
-		)),
+		grpc.StreamInterceptor(serverStreamInterceptorChain),
+		grpc.UnaryInterceptor(serverUnaryInterceptorChain),
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
 			MinTime:             20 * time.Second,
 			PermitWithoutStream: true,
