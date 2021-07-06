@@ -94,6 +94,22 @@ func TestListCommits(t *testing.T) {
 			},
 		},
 		{
+			desc: "reverse revision range",
+			request: &gitalypb.ListCommitsRequest{
+				Repository: repo,
+				Revisions: []string{
+					"^0031876facac3f2b2702a0e53a26e89939a42209~",
+					"0031876facac3f2b2702a0e53a26e89939a42209",
+				},
+				Reverse: true,
+			},
+			expectedCommits: []*gitalypb.GitCommit{
+				gittest.CommitsByID["335bc94d5b7369b10251e612158da2e4a4aaa2a5"],
+				gittest.CommitsByID["48ca272b947f49eee601639d743784a176574a09"],
+				gittest.CommitsByID["0031876facac3f2b2702a0e53a26e89939a42209"],
+			},
+		},
+		{
 			desc: "revisions with sort topo order",
 			request: &gitalypb.ListCommitsRequest{
 				Repository: repo,

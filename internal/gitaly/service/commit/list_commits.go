@@ -55,6 +55,10 @@ func (s *server) ListCommits(
 		revlistOptions = append(revlistOptions, gitpipe.WithOrder(gitpipe.OrderDate))
 	}
 
+	if request.GetReverse() {
+		revlistOptions = append(revlistOptions, gitpipe.WithReverse())
+	}
+
 	if request.GetMaxParents() > 0 {
 		revlistOptions = append(revlistOptions, gitpipe.WithMaxParents(uint(request.GetMaxParents())))
 	}
