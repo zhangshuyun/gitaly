@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -56,14 +55,9 @@ func TestStreamInterceptor(t *testing.T) {
 	lis, err := net.Listen("unix", internalServerSocketPath)
 	require.NoError(t, err)
 
-	gz := proto.FileDescriptor("praefect/mock/mock.proto")
-	fd, err := protoregistry.ExtractFileDescriptor(gz)
+	registry, err := protoregistry.NewFromPaths("praefect/mock/mock.proto")
 	require.NoError(t, err)
 
-	registry, err := protoregistry.New(fd)
-	require.NoError(t, err)
-
-	require.NoError(t, err)
 	mock.RegisterSimpleServiceServer(internalSrv, &simpleService{})
 
 	go internalSrv.Serve(lis)

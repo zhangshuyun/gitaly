@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
@@ -221,12 +219,6 @@ func runPraefectServer(t testing.TB, conf config.Config, opt buildOptions) (*grp
 	}
 
 	return cc, prf, cleanup
-}
-
-func mustLoadProtoReg(t testing.TB) *descriptor.FileDescriptorProto {
-	fd, err := protoregistry.ExtractFileDescriptor(proto.FileDescriptor("praefect/mock/mock.proto"))
-	require.NoError(t, err)
-	return fd
 }
 
 func listenAvailPort(tb testing.TB) (net.Listener, int) {

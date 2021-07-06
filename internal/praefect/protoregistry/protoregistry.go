@@ -1,10 +1,7 @@
 package protoregistry
 
 import (
-	"bytes"
-	"compress/gzip"
 	"fmt"
-	"io/ioutil"
 	"reflect"
 	"strings"
 
@@ -12,31 +9,20 @@ import (
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/protoutil"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"google.golang.org/protobuf/reflect/protodesc"
+	protoreg "google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/types/descriptorpb"
 )
 
-// GitalyProtoFileDescriptors is a slice of all gitaly registered file descriptors
 var (
-	// GitalyProtoFileDescriptors is a slice of all gitaly registered file
-	// descriptors
-	GitalyProtoFileDescriptors []*descriptor.FileDescriptorProto
 	// GitalyProtoPreregistered is a proto registry pre-registered with all
-	// GitalyProtoFileDescriptors file descriptor protos
+	// gitalypb.GitalyProtos proto files.
 	GitalyProtoPreregistered *Registry
 )
 
 func init() {
-	for _, protoName := range gitalypb.GitalyProtos {
-		gz := proto.FileDescriptor(protoName)
-		fd, err := ExtractFileDescriptor(gz)
-		if err != nil {
-			panic(err)
-		}
-
-		GitalyProtoFileDescriptors = append(GitalyProtoFileDescriptors, fd)
-	}
-
 	var err error
-	GitalyProtoPreregistered, err = New(GitalyProtoFileDescriptors...)
+	GitalyProtoPreregistered, err = NewFromPaths(gitalypb.GitalyProtos...)
 	if err != nil {
 		panic(err)
 	}
@@ -59,9 +45,9 @@ type Scope int
 
 const (
 	// ScopeUnknown is the default scope until determined otherwise
-	ScopeUnknown = iota
+	ScopeUnknown Scope = iota
 	// ScopeRepository indicates an RPC's scope is limited to a repository
-	ScopeRepository Scope = iota
+	ScopeRepository
 	// ScopeStorage indicates an RPC is scoped to an entire storage location
 	ScopeStorage
 )
@@ -212,6 +198,20 @@ func New(protos ...*descriptor.FileDescriptorProto) (*Registry, error) {
 	}, nil
 }
 
+// NewFromPaths returns a new Registry, initialized with the contents
+// of the provided files.
+func NewFromPaths(paths ...string) (*Registry, error) {
+	fds := make([]*descriptorpb.FileDescriptorProto, 0, len(paths))
+	for _, path := range paths {
+		fd, err := protoreg.GlobalFiles.FindFileByPath(path)
+		if err != nil {
+			return nil, err
+		}
+		fds = append(fds, protodesc.ToFileDescriptorProto(fd))
+	}
+	return New(fds...)
+}
+
 type protoFactory func([]byte) (proto.Message, error)
 
 func methodReqFactory(method *descriptor.MethodDescriptorProto) (protoFactory, error) {
@@ -336,10 +336,11 @@ func parseMethodInfo(
 }
 
 func getFileTypes(filename string) ([]*descriptor.DescriptorProto, error) {
-	sharedFD, err := ExtractFileDescriptor(proto.FileDescriptor(filename))
+	fd, err := protoreg.GlobalFiles.FindFileByPath(filename)
 	if err != nil {
 		return nil, err
 	}
+	sharedFD := protodesc.ToFileDescriptorProto(fd)
 
 	types := sharedFD.GetMessageType()
 
@@ -469,26 +470,4 @@ func (pr *Registry) Methods() []MethodInfo {
 func (pr *Registry) IsInterceptedMethod(fullMethodName string) bool {
 	_, ok := pr.interceptedMethods[fullMethodName]
 	return ok
-}
-
-// ExtractFileDescriptor extracts a FileDescriptorProto from a gzip'd buffer.
-// https://github.com/golang/protobuf/blob/9eb2c01ac278a5d89ce4b2be68fe4500955d8179/descriptor/descriptor.go#L50
-func ExtractFileDescriptor(gz []byte) (*descriptor.FileDescriptorProto, error) {
-	r, err := gzip.NewReader(bytes.NewReader(gz))
-	if err != nil {
-		return nil, fmt.Errorf("failed to open gzip reader: %v", err)
-	}
-	defer r.Close()
-
-	b, err := ioutil.ReadAll(r)
-	if err != nil {
-		return nil, fmt.Errorf("failed to uncompress descriptor: %v", err)
-	}
-
-	fd := &descriptor.FileDescriptorProto{}
-	if err := proto.Unmarshal(b, fd); err != nil {
-		return nil, fmt.Errorf("malformed FileDescriptorProto: %v", err)
-	}
-
-	return fd, nil
 }
