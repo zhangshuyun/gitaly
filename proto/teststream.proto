@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package gitaly;
+
+option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
+
+import "lint.proto";
+import "shared.proto";
+import "google/protobuf/empty.proto";
+
+service TestStreamService {
+  rpc TestStream(TestStreamRequest) returns (google.protobuf.Empty) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
+}
+
+message TestStreamRequest {
+  Repository repository = 1 [(target_repository)=true];
+  int64 size = 2;
+}

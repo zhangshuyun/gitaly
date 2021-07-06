@@ -622,7 +622,7 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 
 	refTransactionServer := &testTransactionServer{}
 
-	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterSmartHTTPServiceServer(srv, NewServer(
 			deps.GetCfg(),
 			deps.GetLocator(),

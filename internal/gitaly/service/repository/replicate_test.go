@@ -392,7 +392,7 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 }
 
 func runServerWithBadFetchInternalRemote(t *testing.T, cfg config.Cfg) string {
-	return testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	return testserver.RunGitalyServer(t, cfg, nil, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterRepositoryServiceServer(srv, NewServer(
 			deps.GetCfg(),
 			deps.GetRubyServer(),

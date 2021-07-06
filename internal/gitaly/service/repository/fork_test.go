@@ -28,6 +28,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ssh"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/streamrpc"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -217,7 +218,7 @@ func runSecureServer(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) s
 	registry := backchannel.NewRegistry()
 	locator := config.NewLocator(cfg)
 	cache := cache.New(cfg, locator)
-	server, err := gserver.New(true, cfg, testhelper.DiscardTestEntry(t), registry, cache)
+	server, err := gserver.New(true, cfg, testhelper.DiscardTestEntry(t), registry, cache, streamrpc.NewServer())
 	require.NoError(t, err)
 	listener, addr := testhelper.GetLocalhostListener(t)
 
@@ -239,7 +240,7 @@ func runSecureServer(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) s
 	// protected by the same TLS certificate.
 
 	cfg.TLS.KeyPath = ""
-	testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	testserver.RunGitalyServer(t, cfg, nil, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
 	})
 

@@ -221,7 +221,7 @@ func TestFetchRemote_transaction(t *testing.T) {
 	sourceCfg, _, sourceRepoPath := testcfg.BuildWithRepo(t)
 
 	txManager := &mockTxManager{}
-	addr := testserver.RunGitalyServer(t, sourceCfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	addr := testserver.RunGitalyServer(t, sourceCfg, nil, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterRepositoryServiceServer(srv, NewServer(
 			deps.GetCfg(),
 			deps.GetRubyServer(),

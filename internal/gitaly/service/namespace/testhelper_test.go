@@ -17,7 +17,7 @@ func setupNamespaceService(t testing.TB, opts ...testserver.GitalyServerOpt) (co
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "other"))
 	cfg := cfgBuilder.Build(t)
 
-	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterNamespaceServiceServer(srv, NewServer(deps.GetLocator()))
 	}, opts...)
 

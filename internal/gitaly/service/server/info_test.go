@@ -57,7 +57,7 @@ func TestGitalyServerInfo(t *testing.T) {
 }
 
 func runServer(t *testing.T, cfg config.Cfg, opts ...testserver.GitalyServerOpt) string {
-	return testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	return testserver.RunGitalyServer(t, cfg, nil, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterServerServiceServer(srv, NewServer(deps.GetGitCmdFactory(), deps.GetCfg().Storages))
 	}, opts...)
 }

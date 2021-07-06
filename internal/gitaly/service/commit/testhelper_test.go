@@ -66,7 +66,7 @@ func setupCommitServiceCreateRepo(
 
 func startTestServices(t testing.TB, cfg config.Cfg) string {
 	t.Helper()
-	return testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	return testserver.RunGitalyServer(t, cfg, nil, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterCommitServiceServer(srv, NewServer(
 			deps.GetCfg(),
 			deps.GetLocator(),
