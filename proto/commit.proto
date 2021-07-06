@@ -172,6 +172,9 @@ message ListCommitsRequest {
   // the enum's documentation for further information.
   Order order = 4;
 
+  // Reverse will cause all commits to be listed in reverse.
+  bool reverse = 11;
+
   // MaxParents will skip all commits which have more than the specified number
   // of parents. If set to `0`, no filtering by parents will happen. If set to
   // `1`, all merge commits will be omitted.

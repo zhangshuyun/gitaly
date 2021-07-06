@@ -13,6 +13,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       repeated :revisions, :string, 2
       optional :pagination_params, :message, 3, "gitaly.PaginationParameter"
       optional :order, :enum, 4, "gitaly.ListCommitsRequest.Order"
+      optional :reverse, :bool, 11
       optional :max_parents, :uint32, 5
       optional :disable_walk, :bool, 6
       optional :first_parent, :bool, 7

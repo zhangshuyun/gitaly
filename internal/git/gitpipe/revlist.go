@@ -45,6 +45,7 @@ type revlistConfig struct {
 	objects       bool
 	objectType    ObjectType
 	order         Order
+	reverse       bool
 	maxParents    uint
 	disabledWalk  bool
 	firstParent   bool
@@ -100,6 +101,13 @@ const (
 func WithOrder(o Order) RevlistOption {
 	return func(cfg *revlistConfig) {
 		cfg.order = o
+	}
+}
+
+// WithReverse will reverse the ordering of commits.
+func WithReverse() RevlistOption {
+	return func(cfg *revlistConfig) {
+		cfg.reverse = true
 	}
 }
 
@@ -207,6 +215,10 @@ func Revlist(
 			flags = append(flags, git.Flag{Name: "--topo-order"})
 		case OrderDate:
 			flags = append(flags, git.Flag{Name: "--date-order"})
+		}
+
+		if cfg.reverse {
+			flags = append(flags, git.Flag{Name: "--reverse"})
 		}
 
 		if cfg.maxParents > 0 {
