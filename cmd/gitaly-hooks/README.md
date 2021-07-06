@@ -33,13 +33,10 @@ hooks are built in ruby and then get shelled out to `gitaly-hooks`.
 
 ### git upload-pack (SSH & HTTP)
 
-Only when Gitaly's `gitaly_pack_objects_cache_enabled` option is enabled.
+Only when the pack-objects cache is enabled in Gitaly's configuration file.
 
-SSHUploadPack and PostUploadPack, when executing `git upload-pack`, set `uploadpack.packObjectsHook` to the path of the `gitaly-hooks` binary. Afterward, when `git upload-pack` requests packfile data, it calls `gitaly-hooks` binary instead of `git pack-objects`. [That happens here in `WithPackObjectsHookEnv`](https://gitlab.com/gitlab-org/gitaly/-/blob/master/internal/git/hooks_options.go#L54)
+SSHUploadPack and PostUploadPack, when executing `git upload-pack`, set `uploadpack.packObjectsHook` to the path of the `gitaly-hooks` binary. Afterward, when `git upload-pack` requests packfile data, it calls `gitaly-hooks` binary instead of `git pack-objects`. [That happens here in `WithPackObjectsHookEnv`](https://gitlab.com/gitlab-org/gitaly/-/blob/47164700a1ea086c5e8ca0d02feefe4e68bf4f81/internal/git/hooks_options.go#L54)
 
 ## What does gitaly-hooks do?
 
 `gitaly-hooks` will take the arguments and make an RPC call to `PreReceiveHook`, `UpdateHook`, `PostReceiveHook`, or `PackObjectsHook` accordingly.
-
-**Note:**
-Currently `gitaly-hooks` will only make an RPC call to `PreReceiveHook`, `UpdateHook`, or `PostReceiveHook` if a feature flag `gitaly_hook_rpc` is enabled. Otherwise, `gitaly-hooks` falls back to calling the ruby hooks directly.
