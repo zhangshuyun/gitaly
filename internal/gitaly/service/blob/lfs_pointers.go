@@ -198,12 +198,12 @@ func (s *server) GetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gita
 			return helper.ErrInternal(fmt.Errorf("creating catfile process: %w", err))
 		}
 
-		blobs := make([]gitpipe.RevlistResult, len(req.GetBlobIds()))
+		blobs := make([]gitpipe.RevisionResult, len(req.GetBlobIds()))
 		for i, blobID := range req.GetBlobIds() {
-			blobs[i] = gitpipe.RevlistResult{OID: git.ObjectID(blobID)}
+			blobs[i] = gitpipe.RevisionResult{OID: git.ObjectID(blobID)}
 		}
 
-		catfileInfoIter := gitpipe.CatfileInfo(ctx, catfileProcess, gitpipe.NewRevlistIterator(blobs))
+		catfileInfoIter := gitpipe.CatfileInfo(ctx, catfileProcess, gitpipe.NewRevisionIterator(blobs))
 		catfileInfoIter = gitpipe.CatfileInfoFilter(ctx, catfileInfoIter, func(r gitpipe.CatfileInfoResult) bool {
 			return r.ObjectInfo.Type == "blob" && r.ObjectInfo.Size <= lfsPointerMaxSize
 		})

@@ -26,6 +26,9 @@ var (
 	// via a direct call instead of doing an RPC call to its own server. This fixes calls of
 	// `ReplicateRepository()` in case it's invoked via Praefect with transactions enabled.
 	ReplicateRepositoryDirectFetch = FeatureFlag{Name: "replicate_repository_direct_fetch", OnByDefault: false}
+	// FindAllTagsPipeline enables the alternative pipeline implementation for finding
+	// tags via FindAllTags.
+	FindAllTagsPipeline = FeatureFlag{Name: "find_all_tags_pipeline", OnByDefault: false}
 )
 
 // All includes all feature flags.
@@ -37,4 +40,5 @@ var All = []FeatureFlag{
 	CreateRepositoryFromBundleAtomicFetch,
 	ResolveConflictsWithHooks,
 	ReplicateRepositoryDirectFetch,
+	FindAllTagsPipeline,
 }

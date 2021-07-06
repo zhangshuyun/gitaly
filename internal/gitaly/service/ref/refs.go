@@ -6,16 +6,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"math"
 	"strings"
 
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gitpipe"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/lines"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -135,9 +140,113 @@ func (s *server) FindAllTags(in *gitalypb.FindAllTagsRequest, stream gitalypb.Re
 
 	repo := s.localrepo(in.GetRepository())
 
-	if err := s.parseAndReturnTags(ctx, repo, stream); err != nil {
-		return helper.ErrInternal(err)
+	if featureflag.IsEnabled(ctx, featureflag.FindAllTagsPipeline) {
+		if err := s.findAllTags(ctx, repo, stream); err != nil {
+			return helper.ErrInternal(err)
+		}
+	} else {
+		if err := s.parseAndReturnTags(ctx, repo, stream); err != nil {
+			return helper.ErrInternal(err)
+		}
 	}
+
+	return nil
+}
+
+func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, stream gitalypb.RefService_FindAllTagsServer) error {
+	c, err := s.catfileCache.BatchProcess(ctx, repo)
+	if err != nil {
+		return fmt.Errorf("error creating catfile: %v", err)
+	}
+
+	forEachRefIter := gitpipe.ForEachRef(ctx, repo, []string{"refs/tags/*"})
+	forEachRefIter = gitpipe.RevisionTransform(ctx, forEachRefIter,
+		func(r gitpipe.RevisionResult) []gitpipe.RevisionResult {
+			// We transform the pipeline to include each tag-reference twice: once for
+			// the "normal" object, and once we opportunistically peel the object to a
+			// non-tag object. This is required such that we can efficiently parse the
+			// tagged object.
+			return []gitpipe.RevisionResult{
+				r,
+				{OID: r.OID + "^{}"},
+			}
+		},
+	)
+
+	catfileInfoIter := gitpipe.CatfileInfo(ctx, c, forEachRefIter)
+	catfileObjectsIter := gitpipe.CatfileObject(ctx, c, catfileInfoIter)
+
+	chunker := chunk.New(&tagSender{stream: stream})
+
+	for catfileObjectsIter.Next() {
+		tag := catfileObjectsIter.Result()
+
+		tagName := bytes.TrimPrefix(tag.ObjectName, []byte("refs/tags/"))
+
+		var result *gitalypb.Tag
+		switch tag.ObjectInfo.Type {
+		case "tag":
+			var err error
+			result, err = catfile.ParseTag(tag.ObjectReader, tag.ObjectInfo.Oid)
+			if err != nil {
+				return fmt.Errorf("parsing annotated tag: %w", err)
+			}
+		case "commit":
+			commit, err := catfile.ParseCommit(tag.ObjectReader, tag.ObjectInfo)
+			if err != nil {
+				return fmt.Errorf("parsing tagged commit: %w", err)
+			}
+
+			result = &gitalypb.Tag{
+				Id:           tag.ObjectInfo.Oid.String(),
+				Name:         tagName,
+				TargetCommit: commit,
+			}
+		default:
+			if _, err := io.Copy(ioutil.Discard, tag.ObjectReader); err != nil {
+				return fmt.Errorf("discarding tag object contents: %w", err)
+			}
+
+			result = &gitalypb.Tag{
+				Id:   tag.ObjectInfo.Oid.String(),
+				Name: tagName,
+			}
+		}
+
+		// For each tag, we expect both the tag itself as well as its potentially-peeled
+		// tagged object.
+		if !catfileObjectsIter.Next() {
+			return errors.New("expected peeled tag")
+		}
+
+		peeledTag := catfileObjectsIter.Result()
+
+		// We only need to parse the tagged object in case we have an annotated tag which
+		// refers to a commit object. Otherwise, we discard the object's contents.
+		if tag.ObjectInfo.Type == "tag" && peeledTag.ObjectInfo.Type == "commit" {
+			result.TargetCommit, err = catfile.ParseCommit(peeledTag.ObjectReader, peeledTag.ObjectInfo)
+			if err != nil {
+				return fmt.Errorf("parsing tagged commit: %w", err)
+			}
+		} else {
+			if _, err := io.Copy(ioutil.Discard, peeledTag.ObjectReader); err != nil {
+				return fmt.Errorf("discarding tagged object contents: %w", err)
+			}
+		}
+
+		if err := chunker.Send(result); err != nil {
+			return fmt.Errorf("sending tag: %w", err)
+		}
+	}
+
+	if err := catfileObjectsIter.Err(); err != nil {
+		return fmt.Errorf("iterating over tags: %w", err)
+	}
+
+	if err := chunker.Flush(); err != nil {
+		return fmt.Errorf("flushing chunker: %w", err)
+	}
+
 	return nil
 }
 

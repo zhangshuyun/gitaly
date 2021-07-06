@@ -28,13 +28,13 @@ func TestCatfileInfo(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc            string
-		revlistInputs   []RevlistResult
+		revlistInputs   []RevisionResult
 		expectedResults []CatfileInfoResult
 		expectedErr     error
 	}{
 		{
 			desc: "single blob",
-			revlistInputs: []RevlistResult{
+			revlistInputs: []RevisionResult{
 				{OID: lfsPointer1},
 			},
 			expectedResults: []CatfileInfoResult{
@@ -43,7 +43,7 @@ func TestCatfileInfo(t *testing.T) {
 		},
 		{
 			desc: "multiple blobs",
-			revlistInputs: []RevlistResult{
+			revlistInputs: []RevisionResult{
 				{OID: lfsPointer1},
 				{OID: lfsPointer2},
 				{OID: lfsPointer3},
@@ -58,7 +58,7 @@ func TestCatfileInfo(t *testing.T) {
 		},
 		{
 			desc: "object name",
-			revlistInputs: []RevlistResult{
+			revlistInputs: []RevisionResult{
 				{OID: "b95c0fad32f4361845f91d9ce4c1721b52b82793"},
 				{OID: "93e123ac8a3e6a0b600953d7598af629dec7b735", ObjectName: []byte("branch-test.txt")},
 			},
@@ -69,14 +69,14 @@ func TestCatfileInfo(t *testing.T) {
 		},
 		{
 			desc: "invalid object ID",
-			revlistInputs: []RevlistResult{
+			revlistInputs: []RevisionResult{
 				{OID: "invalidobjectid"},
 			},
 			expectedErr: errors.New("retrieving object info for \"invalidobjectid\": object not found"),
 		},
 		{
 			desc: "mixed valid and invalid revision",
-			revlistInputs: []RevlistResult{
+			revlistInputs: []RevisionResult{
 				{OID: lfsPointer1},
 				{OID: "invalidobjectid"},
 				{OID: lfsPointer2},
@@ -97,7 +97,7 @@ func TestCatfileInfo(t *testing.T) {
 			catfileProcess, err := catfileCache.BatchProcess(ctx, repo)
 			require.NoError(t, err)
 
-			it := CatfileInfo(ctx, catfileProcess, NewRevlistIterator(tc.revlistInputs))
+			it := CatfileInfo(ctx, catfileProcess, NewRevisionIterator(tc.revlistInputs))
 
 			var results []CatfileInfoResult
 			for it.Next() {

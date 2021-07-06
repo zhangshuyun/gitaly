@@ -11,8 +11,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 )
 
-// RevlistResult is a result for the revlist pipeline step.
-type RevlistResult struct {
+// RevisionResult is a result for the revlist pipeline step.
+type RevisionResult struct {
 	// err is an error which occurred during execution of the pipeline.
 	err error
 
@@ -166,24 +166,15 @@ func Revlist(
 	repo *localrepo.Repo,
 	revisions []string,
 	options ...RevlistOption,
-) RevlistIterator {
+) RevisionIterator {
 	var cfg revlistConfig
 	for _, option := range options {
 		option(&cfg)
 	}
 
-	resultChan := make(chan RevlistResult)
+	resultChan := make(chan RevisionResult)
 	go func() {
 		defer close(resultChan)
-
-		sendResult := func(result RevlistResult) bool {
-			select {
-			case resultChan <- result:
-				return false
-			case <-ctx.Done():
-				return true
-			}
-		}
 
 		flags := []git.Option{}
 
@@ -259,7 +250,7 @@ func Revlist(
 			Args:  revisions,
 		})
 		if err != nil {
-			sendResult(RevlistResult{err: err})
+			sendRevisionResult(ctx, resultChan, RevisionResult{err: err})
 			return
 		}
 
@@ -272,68 +263,156 @@ func Revlist(
 
 			oidAndName := bytes.SplitN(line, []byte{' '}, 2)
 
-			result := RevlistResult{
+			result := RevisionResult{
 				OID: git.ObjectID(oidAndName[0]),
 			}
 			if len(oidAndName) == 2 && len(oidAndName[1]) > 0 {
 				result.ObjectName = oidAndName[1]
 			}
 
-			if isDone := sendResult(result); isDone {
+			if isDone := sendRevisionResult(ctx, resultChan, result); isDone {
 				return
 			}
 		}
 
 		if err := scanner.Err(); err != nil {
-			sendResult(RevlistResult{
+			sendRevisionResult(ctx, resultChan, RevisionResult{
 				err: fmt.Errorf("scanning rev-list output: %w", err),
 			})
 			return
 		}
 
 		if err := revlist.Wait(); err != nil {
-			sendResult(RevlistResult{
+			sendRevisionResult(ctx, resultChan, RevisionResult{
 				err: fmt.Errorf("rev-list pipeline command: %w", err),
 			})
 			return
 		}
 	}()
 
-	return &revlistIterator{
+	return &revisionIterator{
 		ch: resultChan,
 	}
 }
 
-// RevlistFilter filters the RevlistResults from the provided iterator with the filter function: if
+// ForEachRef runs git-for-each-ref(1) with the given patterns and returns a RevisionIterator for
+// found references. Patterns must always refer to fully qualified reference names. Patterns for
+// which no branch is found do not result in an error. The iterator's object name is set to the
+// reference, while its object ID is the target object the reference points to. Cancelling the
+// context will cause the pipeline to be cancelled, too.
+func ForEachRef(
+	ctx context.Context,
+	repo *localrepo.Repo,
+	patterns []string,
+) RevisionIterator {
+	resultChan := make(chan RevisionResult)
+
+	go func() {
+		defer close(resultChan)
+
+		forEachRef, err := repo.Exec(ctx, git.SubCmd{
+			Name: "for-each-ref",
+			Flags: []git.Option{
+				// The default format also includes the object type, which requires
+				// us to read the referenced commit's object. It would thus be about
+				// 2-3x slower to use the default format, and instead we move the
+				// burden into the next pipeline step.
+				git.Flag{Name: "--format=%(objectname) %(refname)"},
+			},
+			Args: patterns,
+		})
+		if err != nil {
+			sendRevisionResult(ctx, resultChan, RevisionResult{err: err})
+			return
+		}
+
+		scanner := bufio.NewScanner(forEachRef)
+		for scanner.Scan() {
+			line := make([]byte, len(scanner.Bytes()))
+			copy(line, scanner.Bytes())
+
+			oidAndRef := bytes.SplitN(line, []byte{' '}, 2)
+			if len(oidAndRef) != 2 {
+				sendRevisionResult(ctx, resultChan, RevisionResult{
+					err: fmt.Errorf("invalid for-each-ref format: %q", line),
+				})
+				return
+			}
+
+			if isDone := sendRevisionResult(ctx, resultChan, RevisionResult{
+				OID:        git.ObjectID(oidAndRef[0]),
+				ObjectName: oidAndRef[1],
+			}); isDone {
+				return
+			}
+		}
+
+		if err := scanner.Err(); err != nil {
+			sendRevisionResult(ctx, resultChan, RevisionResult{
+				err: fmt.Errorf("scanning for-each-ref output: %w", err),
+			})
+			return
+		}
+
+		if err := forEachRef.Wait(); err != nil {
+			sendRevisionResult(ctx, resultChan, RevisionResult{
+				err: fmt.Errorf("for-each-ref pipeline command: %w", err),
+			})
+			return
+		}
+	}()
+
+	return &revisionIterator{
+		ch: resultChan,
+	}
+}
+
+// RevisionFilter filters the RevisionResult from the provided iterator with the filter function: if
 // the filter returns `false` for a given item, then it will be dropped from the pipeline. Errors
 // cannot be filtered and will always be passed through.
-func RevlistFilter(ctx context.Context, it RevlistIterator, filter func(RevlistResult) bool) RevlistIterator {
-	resultChan := make(chan RevlistResult)
+func RevisionFilter(ctx context.Context, it RevisionIterator, filter func(RevisionResult) bool) RevisionIterator {
+	return RevisionTransform(ctx, it, func(r RevisionResult) []RevisionResult {
+		if filter(r) {
+			return []RevisionResult{r}
+		}
+		return []RevisionResult{}
+	})
+}
+
+// RevisionTransform transforms each RevisionResult from the provided iterator with the transforming
+// function. Instead of sending the original RevisionResult, it will instead send transformed
+// results.
+func RevisionTransform(ctx context.Context, it RevisionIterator, transform func(RevisionResult) []RevisionResult) RevisionIterator {
+	resultChan := make(chan RevisionResult)
 
 	go func() {
 		defer close(resultChan)
 
 		for it.Next() {
-			result := it.Result()
-			if filter(result) {
-				select {
-				case resultChan <- result:
-				case <-ctx.Done():
+			for _, transformed := range transform(it.Result()) {
+				if sendRevisionResult(ctx, resultChan, transformed) {
 					return
 				}
 			}
 		}
 
 		if err := it.Err(); err != nil {
-			select {
-			case resultChan <- RevlistResult{err: err}:
-			case <-ctx.Done():
+			if sendRevisionResult(ctx, resultChan, RevisionResult{err: err}) {
 				return
 			}
 		}
 	}()
 
-	return &revlistIterator{
+	return &revisionIterator{
 		ch: resultChan,
+	}
+}
+
+func sendRevisionResult(ctx context.Context, ch chan<- RevisionResult, result RevisionResult) bool {
+	select {
+	case ch <- result:
+		return false
+	case <-ctx.Done():
+		return true
 	}
 }

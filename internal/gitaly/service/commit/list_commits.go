@@ -89,7 +89,7 @@ func (s *server) ListCommits(
 	// we've seen the token.
 	if token := request.GetPaginationParams().GetPageToken(); token != "" {
 		tokenSeen := false
-		revlistIter = gitpipe.RevlistFilter(ctx, revlistIter, func(r gitpipe.RevlistResult) bool {
+		revlistIter = gitpipe.RevisionFilter(ctx, revlistIter, func(r gitpipe.RevisionResult) bool {
 			if !tokenSeen {
 				tokenSeen = r.OID == git.ObjectID(token)
 				// We also skip the token itself, thus we always return `false`

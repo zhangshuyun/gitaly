@@ -37,7 +37,7 @@ func TestRevlist(t *testing.T) {
 		precondition    func(t *testing.T)
 		revisions       []string
 		options         []RevlistOption
-		expectedResults []RevlistResult
+		expectedResults []RevisionResult
 		expectedErr     error
 	}{
 		{
@@ -48,7 +48,7 @@ func TestRevlist(t *testing.T) {
 			options: []RevlistOption{
 				WithObjects(),
 			},
-			expectedResults: []RevlistResult{
+			expectedResults: []RevisionResult{
 				{OID: lfsPointer1},
 			},
 		},
@@ -63,7 +63,7 @@ func TestRevlist(t *testing.T) {
 			options: []RevlistOption{
 				WithObjects(),
 			},
-			expectedResults: []RevlistResult{
+			expectedResults: []RevisionResult{
 				{OID: lfsPointer1},
 				{OID: lfsPointer2},
 				{OID: lfsPointer3},
@@ -89,7 +89,7 @@ func TestRevlist(t *testing.T) {
 			options: []RevlistOption{
 				WithObjects(),
 			},
-			expectedResults: []RevlistResult{
+			expectedResults: []RevisionResult{
 				{OID: lfsPointer1},
 			},
 		},
@@ -101,7 +101,7 @@ func TestRevlist(t *testing.T) {
 			options: []RevlistOption{
 				WithObjects(),
 			},
-			expectedResults: []RevlistResult{
+			expectedResults: []RevisionResult{
 				{OID: "b95c0fad32f4361845f91d9ce4c1721b52b82793"},
 				{OID: "93e123ac8a3e6a0b600953d7598af629dec7b735", ObjectName: []byte("branch-test.txt")},
 			},
@@ -121,7 +121,7 @@ func TestRevlist(t *testing.T) {
 			options: []RevlistOption{
 				WithDisabledWalk(),
 			},
-			expectedResults: []RevlistResult{
+			expectedResults: []RevisionResult{
 				{OID: "1e292f8fedd741b75372e19097c76d327140c312"},
 			},
 		},
@@ -134,7 +134,7 @@ func TestRevlist(t *testing.T) {
 			options: []RevlistOption{
 				WithObjects(),
 			},
-			expectedResults: []RevlistResult{
+			expectedResults: []RevisionResult{
 				{OID: "1e292f8fedd741b75372e19097c76d327140c312"},
 				{OID: "07f8147e8e73aab6c935c296e8cdc5194dee729b"},
 				{OID: "ceb102b8d3f9a95c2eb979213e49f7cc1b23d56e", ObjectName: []byte("files")},
@@ -150,7 +150,7 @@ func TestRevlist(t *testing.T) {
 				"^refs/heads/master~",
 				"refs/heads/master",
 			},
-			expectedResults: []RevlistResult{
+			expectedResults: []RevisionResult{
 				{OID: "1e292f8fedd741b75372e19097c76d327140c312"},
 				{OID: "c1c67abbaf91f624347bb3ae96eabe3a1b742478"},
 			},
@@ -164,7 +164,7 @@ func TestRevlist(t *testing.T) {
 			options: []RevlistOption{
 				WithMaxParents(1),
 			},
-			expectedResults: []RevlistResult{
+			expectedResults: []RevisionResult{
 				{OID: "c1c67abbaf91f624347bb3ae96eabe3a1b742478"},
 			},
 		},
@@ -218,7 +218,7 @@ func TestRevlist(t *testing.T) {
 			options: []RevlistOption{
 				WithOrder(OrderTopo),
 			},
-			expectedResults: []RevlistResult{
+			expectedResults: []RevisionResult{
 				{OID: "1e292f8fedd741b75372e19097c76d327140c312"},
 				{OID: "c1c67abbaf91f624347bb3ae96eabe3a1b742478"},
 				{OID: "7975be0116940bf2ad4321f79d02a55c5f7779aa"},
@@ -243,7 +243,7 @@ func TestRevlist(t *testing.T) {
 			options: []RevlistOption{
 				WithOrder(OrderDate),
 			},
-			expectedResults: []RevlistResult{
+			expectedResults: []RevisionResult{
 				{OID: "1e292f8fedd741b75372e19097c76d327140c312"},
 				{OID: "c1c67abbaf91f624347bb3ae96eabe3a1b742478"},
 				{OID: "7975be0116940bf2ad4321f79d02a55c5f7779aa"},
@@ -268,7 +268,7 @@ func TestRevlist(t *testing.T) {
 				WithBefore(time.Date(2016, 6, 30, 18, 30, 0, 0, time.UTC)),
 				WithAfter(time.Date(2016, 6, 30, 18, 28, 0, 0, time.UTC)),
 			},
-			expectedResults: []RevlistResult{
+			expectedResults: []RevisionResult{
 				{OID: "6907208d755b60ebeacb2e9dfea74c92c3449a1f"},
 				{OID: "c347ca2e140aa667b968e51ed0ffe055501fe4f4"},
 			},
@@ -281,7 +281,7 @@ func TestRevlist(t *testing.T) {
 			options: []RevlistOption{
 				WithAuthor([]byte("Sytse")),
 			},
-			expectedResults: []RevlistResult{
+			expectedResults: []RevisionResult{
 				{OID: "e56497bb5f03a90a51293fc6d516788730953899"},
 			},
 		},
@@ -294,7 +294,7 @@ func TestRevlist(t *testing.T) {
 			options: []RevlistOption{
 				WithFirstParent(),
 			},
-			expectedResults: []RevlistResult{
+			expectedResults: []RevisionResult{
 				{OID: "1e292f8fedd741b75372e19097c76d327140c312"},
 				{OID: "7975be0116940bf2ad4321f79d02a55c5f7779aa"},
 				{OID: "60ecb67744cb56576c30214ff52294f8ce2def98"},
@@ -315,7 +315,7 @@ func TestRevlist(t *testing.T) {
 			options: []RevlistOption{
 				WithObjects(),
 			},
-			expectedResults: []RevlistResult{
+			expectedResults: []RevisionResult{
 				{OID: "79d5f98270ad677c86a7e1ab2baa922958565135"},
 				{OID: "8af7f880ce38649fc49f66e3f38857bfbec3f0b7", ObjectName: []byte("feature-1.txt")},
 				{OID: "16ca0b267f82cd2f5ca1157dd162dae98745eab8", ObjectName: []byte("feature-2.txt")},
@@ -339,7 +339,7 @@ func TestRevlist(t *testing.T) {
 				WithObjects(),
 				WithBlobLimit(10),
 			},
-			expectedResults: []RevlistResult{
+			expectedResults: []RevisionResult{
 				{OID: "79d5f98270ad677c86a7e1ab2baa922958565135"},
 				{OID: "0fb47f093f769008049a0b0976ac3fa6d6125033", ObjectName: []byte("hotfix-1.txt")},
 				{OID: "4ae6c5e14452a35d04156277ae63e8356eb17cae", ObjectName: []byte("hotfix-2.txt")},
@@ -356,7 +356,7 @@ func TestRevlist(t *testing.T) {
 				WithObjects(),
 				WithObjectTypeFilter(ObjectTypeBlob),
 			},
-			expectedResults: []RevlistResult{
+			expectedResults: []RevisionResult{
 				{OID: "8af7f880ce38649fc49f66e3f38857bfbec3f0b7", ObjectName: []byte("feature-1.txt")},
 				{OID: "16ca0b267f82cd2f5ca1157dd162dae98745eab8", ObjectName: []byte("feature-2.txt")},
 				{OID: "0fb47f093f769008049a0b0976ac3fa6d6125033", ObjectName: []byte("hotfix-1.txt")},
@@ -378,7 +378,7 @@ func TestRevlist(t *testing.T) {
 				WithObjects(),
 				WithObjectTypeFilter(ObjectTypeTag),
 			},
-			expectedResults: []RevlistResult{
+			expectedResults: []RevisionResult{
 				{OID: "f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8", ObjectName: []byte("v1.0.0")},
 				{OID: "8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b", ObjectName: []byte("v1.1.0")},
 				{OID: "8f03acbcd11c53d9c9468078f32a2622005a4841", ObjectName: []byte("v1.1.1")},
@@ -394,7 +394,7 @@ func TestRevlist(t *testing.T) {
 				WithObjects(),
 				WithObjectTypeFilter(ObjectTypeTree),
 			},
-			expectedResults: []RevlistResult{
+			expectedResults: []RevisionResult{
 				{OID: "79d5f98270ad677c86a7e1ab2baa922958565135"},
 			},
 		},
@@ -409,7 +409,7 @@ func TestRevlist(t *testing.T) {
 				WithObjects(),
 				WithObjectTypeFilter(ObjectTypeCommit),
 			},
-			expectedResults: []RevlistResult{
+			expectedResults: []RevisionResult{
 				{OID: "1e292f8fedd741b75372e19097c76d327140c312"},
 				{OID: "c1c67abbaf91f624347bb3ae96eabe3a1b742478"},
 			},
@@ -425,7 +425,7 @@ func TestRevlist(t *testing.T) {
 				WithBlobLimit(10),
 				WithObjectTypeFilter(ObjectTypeBlob),
 			},
-			expectedResults: []RevlistResult{
+			expectedResults: []RevisionResult{
 				{OID: "0fb47f093f769008049a0b0976ac3fa6d6125033", ObjectName: []byte("hotfix-1.txt")},
 				{OID: "4ae6c5e14452a35d04156277ae63e8356eb17cae", ObjectName: []byte("hotfix-2.txt")},
 				{OID: "b988ffed90cb6a9b7f98a3686a933edb3c5d70c0", ObjectName: []byte("iso8859.txt")},
@@ -457,7 +457,7 @@ func TestRevlist(t *testing.T) {
 
 			it := Revlist(ctx, repo, tc.revisions, tc.options...)
 
-			var results []RevlistResult
+			var results []RevisionResult
 			for it.Next() {
 				results = append(results, it.Result())
 			}
@@ -475,25 +475,108 @@ func TestRevlist(t *testing.T) {
 	}
 }
 
-func TestRevlistFilter(t *testing.T) {
+func TestForEachRef(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	readRefs := func(t *testing.T, repo *localrepo.Repo, patterns ...string) []RevisionResult {
+		it := ForEachRef(ctx, repo, patterns)
+
+		var results []RevisionResult
+		for it.Next() {
+			results = append(results, it.Result())
+		}
+		require.NoError(t, it.Err())
+
+		return results
+	}
+
+	cfg, repoProto, _ := testcfg.BuildWithRepo(t)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	revisions := make(map[string]git.ObjectID)
+	for _, reference := range []string{"refs/heads/master", "refs/heads/feature"} {
+		revision, err := repo.ResolveRevision(ctx, git.Revision(reference))
+		require.NoError(t, err)
+
+		revisions[reference] = revision
+	}
+
+	t.Run("single fully qualified branch", func(t *testing.T) {
+		require.Equal(t, []RevisionResult{
+			{
+				ObjectName: []byte("refs/heads/master"),
+				OID:        revisions["refs/heads/master"],
+			},
+		}, readRefs(t, repo, "refs/heads/master"))
+	})
+
+	t.Run("unqualified branch name", func(t *testing.T) {
+		require.Nil(t, readRefs(t, repo, "master"))
+	})
+
+	t.Run("multiple branches", func(t *testing.T) {
+		require.Equal(t, []RevisionResult{
+			{
+				ObjectName: []byte("refs/heads/feature"),
+				OID:        revisions["refs/heads/feature"],
+			},
+			{
+				ObjectName: []byte("refs/heads/master"),
+				OID:        revisions["refs/heads/master"],
+			},
+		}, readRefs(t, repo, "refs/heads/master", "refs/heads/feature"))
+	})
+
+	t.Run("branches pattern", func(t *testing.T) {
+		refs := readRefs(t, repo, "refs/heads/*")
+		require.Greater(t, len(refs), 90)
+
+		require.Subset(t, refs, []RevisionResult{
+			{
+				ObjectName: []byte("refs/heads/master"),
+				OID:        revisions["refs/heads/master"],
+			},
+			{
+				ObjectName: []byte("refs/heads/feature"),
+				OID:        revisions["refs/heads/feature"],
+			},
+		})
+	})
+
+	t.Run("multiple patterns", func(t *testing.T) {
+		refs := readRefs(t, repo, "refs/heads/*", "refs/tags/*")
+		require.Greater(t, len(refs), 90)
+	})
+
+	t.Run("nonexisting branch", func(t *testing.T) {
+		require.Nil(t, readRefs(t, repo, "refs/heads/idontexist"))
+	})
+
+	t.Run("nonexisting pattern", func(t *testing.T) {
+		require.Nil(t, readRefs(t, repo, "refs/idontexist/*"))
+	})
+}
+
+func TestRevisionFilter(t *testing.T) {
 	for _, tc := range []struct {
 		desc            string
-		input           []RevlistResult
-		filter          func(RevlistResult) bool
-		expectedResults []RevlistResult
+		input           []RevisionResult
+		filter          func(RevisionResult) bool
+		expectedResults []RevisionResult
 		expectedErr     error
 	}{
 		{
 			desc: "all accepted",
-			input: []RevlistResult{
+			input: []RevisionResult{
 				{OID: "a"},
 				{OID: "b"},
 				{OID: "c"},
 			},
-			filter: func(RevlistResult) bool {
+			filter: func(RevisionResult) bool {
 				return true
 			},
-			expectedResults: []RevlistResult{
+			expectedResults: []RevisionResult{
 				{OID: "a"},
 				{OID: "b"},
 				{OID: "c"},
@@ -501,40 +584,40 @@ func TestRevlistFilter(t *testing.T) {
 		},
 		{
 			desc: "all filtered",
-			input: []RevlistResult{
+			input: []RevisionResult{
 				{OID: "a"},
 				{OID: "b"},
 				{OID: "c"},
 			},
-			filter: func(RevlistResult) bool {
+			filter: func(RevisionResult) bool {
 				return false
 			},
 			expectedResults: nil,
 		},
 		{
 			desc: "errors always get through",
-			input: []RevlistResult{
+			input: []RevisionResult{
 				{OID: "a"},
 				{OID: "b"},
 				{err: errors.New("foobar")},
 				{OID: "c"},
 			},
-			filter: func(RevlistResult) bool {
+			filter: func(RevisionResult) bool {
 				return false
 			},
 			expectedErr: errors.New("foobar"),
 		},
 		{
 			desc: "subset filtered",
-			input: []RevlistResult{
+			input: []RevisionResult{
 				{OID: "a"},
 				{OID: "b"},
 				{OID: "c"},
 			},
-			filter: func(r RevlistResult) bool {
+			filter: func(r RevisionResult) bool {
 				return r.OID == "b"
 			},
-			expectedResults: []RevlistResult{
+			expectedResults: []RevisionResult{
 				{OID: "b"},
 			},
 		},
@@ -543,9 +626,124 @@ func TestRevlistFilter(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			it := RevlistFilter(ctx, NewRevlistIterator(tc.input), tc.filter)
+			it := RevisionFilter(ctx, NewRevisionIterator(tc.input), tc.filter)
 
-			var results []RevlistResult
+			var results []RevisionResult
+			for it.Next() {
+				results = append(results, it.Result())
+			}
+
+			require.Equal(t, tc.expectedErr, it.Err())
+			require.Equal(t, tc.expectedResults, results)
+		})
+	}
+}
+
+func TestRevisionTransform(t *testing.T) {
+	for _, tc := range []struct {
+		desc            string
+		input           []RevisionResult
+		transform       func(RevisionResult) []RevisionResult
+		expectedResults []RevisionResult
+		expectedErr     error
+	}{
+		{
+			desc: "identity mapping",
+			input: []RevisionResult{
+				{OID: "a"},
+				{OID: "b"},
+				{OID: "c"},
+			},
+			transform: func(r RevisionResult) []RevisionResult {
+				return []RevisionResult{r}
+			},
+			expectedResults: []RevisionResult{
+				{OID: "a"},
+				{OID: "b"},
+				{OID: "c"},
+			},
+		},
+		{
+			desc: "strip object",
+			input: []RevisionResult{
+				{OID: "a"},
+				{OID: "b"},
+				{OID: "c"},
+			},
+			transform: func(r RevisionResult) []RevisionResult {
+				if r.OID == "b" {
+					return []RevisionResult{}
+				}
+				return []RevisionResult{r}
+			},
+			expectedResults: []RevisionResult{
+				{OID: "a"},
+				{OID: "c"},
+			},
+		},
+		{
+			desc: "replace items",
+			input: []RevisionResult{
+				{OID: "a"},
+				{OID: "b"},
+				{OID: "c"},
+			},
+			transform: func(RevisionResult) []RevisionResult {
+				return []RevisionResult{{OID: "x"}}
+			},
+			expectedResults: []RevisionResult{
+				{OID: "x"},
+				{OID: "x"},
+				{OID: "x"},
+			},
+		},
+		{
+			desc: "add additional items",
+			input: []RevisionResult{
+				{OID: "a"},
+				{OID: "b"},
+				{OID: "c"},
+			},
+			transform: func(r RevisionResult) []RevisionResult {
+				return []RevisionResult{
+					r,
+					{OID: r.OID + "x"},
+				}
+			},
+			expectedResults: []RevisionResult{
+				{OID: "a"},
+				{OID: "ax"},
+				{OID: "b"},
+				{OID: "bx"},
+				{OID: "c"},
+				{OID: "cx"},
+			},
+		},
+		{
+			desc: "error handling",
+			input: []RevisionResult{
+				{OID: "a"},
+				{OID: "b"},
+				{err: errors.New("foobar")},
+				{OID: "c"},
+			},
+			transform: func(r RevisionResult) []RevisionResult {
+				return []RevisionResult{r}
+			},
+			expectedResults: []RevisionResult{
+				{OID: "a"},
+				{OID: "b"},
+			},
+			expectedErr: errors.New("foobar"),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			it := RevisionTransform(ctx, NewRevisionIterator(tc.input), tc.transform)
+
+			var results []RevisionResult
 			for it.Next() {
 				results = append(results, it.Result())
 			}
