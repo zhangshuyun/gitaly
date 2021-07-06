@@ -21,6 +21,7 @@ type treeEntry struct {
 }
 
 func TestSuccessfulTreeEntry(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	testCases := []struct {
@@ -150,6 +151,7 @@ func TestSuccessfulTreeEntry(t *testing.T) {
 }
 
 func TestFailedTreeEntry(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	revision := []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72")

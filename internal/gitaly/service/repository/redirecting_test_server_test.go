@@ -38,6 +38,7 @@ func StartRedirectingTestServer() (*RedirectingTestServerState, *httptest.Server
 }
 
 func TestRedirectingServerRedirects(t *testing.T) {
+	t.Parallel()
 	cfg := testcfg.Build(t)
 	dir := testhelper.TempDir(t)
 

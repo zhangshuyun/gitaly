@@ -16,6 +16,7 @@ import (
 )
 
 func TestRepositoryExists(t *testing.T) {
+	t.Parallel()
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "other", "broken"))
 	cfg := cfgBuilder.Build(t)
 
@@ -112,6 +113,7 @@ func TestRepositoryExists(t *testing.T) {
 }
 
 func TestSuccessfulHasLocalBranches(t *testing.T) {
+	t.Parallel()
 	cfg, repo, _, client := setupRepositoryService(t)
 
 	emptyRepoName := "empty-repo.git"
@@ -160,6 +162,7 @@ func TestSuccessfulHasLocalBranches(t *testing.T) {
 }
 
 func TestFailedHasLocalBranches(t *testing.T) {
+	t.Parallel()
 	_, client := setupRepositoryServiceWithoutRepo(t)
 
 	testCases := []struct {

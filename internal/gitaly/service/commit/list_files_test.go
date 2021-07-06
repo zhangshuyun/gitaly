@@ -134,6 +134,7 @@ func TestListFiles_success(t *testing.T) {
 }
 
 func TestListFiles_unbornBranch(t *testing.T) {
+	t.Parallel()
 	cfg, _, _, client := setupCommitServiceWithRepo(t, true)
 	repo, _, _ := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 
@@ -208,6 +209,7 @@ func TestListFiles_unbornBranch(t *testing.T) {
 }
 
 func TestListFiles_failure(t *testing.T) {
+	t.Parallel()
 	_, _, _, client := setupCommitServiceWithRepo(t, true)
 
 	tests := []struct {
@@ -262,6 +264,7 @@ func drainListFilesResponse(c gitalypb.CommitService_ListFilesClient) error {
 }
 
 func TestListFiles_invalidRevision(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	ctx, cancel := testhelper.Context()

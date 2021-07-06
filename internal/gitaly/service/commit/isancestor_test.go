@@ -14,6 +14,7 @@ import (
 )
 
 func TestCommitIsAncestorFailure(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	queries := []struct {
@@ -73,6 +74,7 @@ func TestCommitIsAncestorFailure(t *testing.T) {
 }
 
 func TestCommitIsAncestorSuccess(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	queries := []struct {
@@ -159,6 +161,7 @@ func TestCommitIsAncestorSuccess(t *testing.T) {
 }
 
 func TestSuccessfulIsAncestorRequestWithAltGitObjectDirs(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
 
 	committerName := "Scrooge McDuck"

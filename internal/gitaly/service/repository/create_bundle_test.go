@@ -19,6 +19,7 @@ import (
 )
 
 func TestSuccessfulCreateBundleRequest(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -62,6 +63,7 @@ func TestSuccessfulCreateBundleRequest(t *testing.T) {
 }
 
 func TestFailedCreateBundleRequestDueToValidations(t *testing.T) {
+	t.Parallel()
 	_, client := setupRepositoryServiceWithoutRepo(t)
 
 	testCases := []struct {

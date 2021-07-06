@@ -23,6 +23,7 @@ type commitInfo struct {
 }
 
 func TestSuccessfulListLastCommitsForTreeRequest(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	testCases := []struct {
@@ -212,6 +213,7 @@ func TestSuccessfulListLastCommitsForTreeRequest(t *testing.T) {
 }
 
 func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	invalidRepo := &gitalypb.Repository{StorageName: "broken", RelativePath: "path"}
@@ -320,6 +322,7 @@ func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 }
 
 func TestNonUtf8ListLastCommitsForTreeRequest(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
 
 	ctx, cancel := testhelper.Context()
@@ -351,6 +354,7 @@ func TestNonUtf8ListLastCommitsForTreeRequest(t *testing.T) {
 }
 
 func TestSuccessfulListLastCommitsForTreeRequestWithGlobCharacters(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
 
 	path := ":wq"

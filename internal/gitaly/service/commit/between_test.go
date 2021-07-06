@@ -11,6 +11,7 @@ import (
 )
 
 func TestSuccessfulCommitsBetween(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	from := []byte("498214de67004b1da3d820901307bed2a68a8ef6") // branch-merged
@@ -112,6 +113,7 @@ func TestSuccessfulCommitsBetween(t *testing.T) {
 }
 
 func TestFailedCommitsBetweenRequest(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}

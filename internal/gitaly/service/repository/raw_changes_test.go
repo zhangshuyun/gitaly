@@ -15,6 +15,7 @@ import (
 )
 
 func TestGetRawChanges(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t)
 
 	testCases := []struct {
@@ -117,6 +118,7 @@ func TestGetRawChanges(t *testing.T) {
 }
 
 func TestGetRawChangesSpecialCharacters(t *testing.T) {
+	t.Parallel()
 	// We know that 'git diff --raw' sometimes quotes "special characters" in
 	// paths, and that this can result in incorrect results from the
 	// GetRawChanges RPC, see
@@ -166,6 +168,7 @@ func collectChanges(t *testing.T, stream gitalypb.RepositoryService_GetRawChange
 }
 
 func TestGetRawChangesFailures(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t)
 
 	testCases := []struct {
@@ -221,6 +224,7 @@ func TestGetRawChangesFailures(t *testing.T) {
 }
 
 func TestGetRawChangesManyFiles(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -242,6 +246,7 @@ func TestGetRawChangesManyFiles(t *testing.T) {
 }
 
 func TestGetRawChangesMappingOperations(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -286,6 +291,7 @@ func TestGetRawChangesMappingOperations(t *testing.T) {
 }
 
 func TestGetRawChangesInvalidUTF8Paths(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	const (

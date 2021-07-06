@@ -151,6 +151,7 @@ func TestSuccessfulFindAllCommitsRequest(t *testing.T) {
 }
 
 func TestFailedFindAllCommitsRequest(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}

@@ -17,6 +17,7 @@ import (
 // TODO: replace emulated rebase RPC with actual
 // https://gitlab.com/gitlab-org/gitaly/issues/1750
 func TestCleanupDeletesStaleWorktrees(t *testing.T) {
+	t.Parallel()
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	testCases := []struct {
@@ -80,6 +81,7 @@ func TestCleanupDeletesStaleWorktrees(t *testing.T) {
 // TODO: replace emulated rebase RPC with actual
 // https://gitlab.com/gitlab-org/gitaly/issues/1750
 func TestCleanupDisconnectedWorktrees(t *testing.T) {
+	t.Parallel()
 	const (
 		worktreeName     = "test-worktree"
 		worktreeAdminDir = "worktrees"

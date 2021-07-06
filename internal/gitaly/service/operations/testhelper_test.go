@@ -51,6 +51,7 @@ func testMain(m *testing.M) int {
 }
 
 func TestWithRubySidecar(t *testing.T) {
+	t.Parallel()
 	cfg := testcfg.Build(t)
 
 	rubySrv := rubyserver.New(cfg)

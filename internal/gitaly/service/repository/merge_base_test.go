@@ -10,6 +10,7 @@ import (
 )
 
 func TestSuccessfulFindFindMergeBaseRequest(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t)
 
 	testCases := []struct {
@@ -79,6 +80,7 @@ func TestSuccessfulFindFindMergeBaseRequest(t *testing.T) {
 }
 
 func TestFailedFindMergeBaseRequestDueToValidations(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()

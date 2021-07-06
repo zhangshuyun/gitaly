@@ -28,6 +28,7 @@ import (
 )
 
 func TestReplicateRepository(t *testing.T) {
+	t.Parallel()
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
 
@@ -182,6 +183,7 @@ func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
 }
 
 func TestReplicateRepositoryInvalidArguments(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		description   string
 		input         *gitalypb.ReplicateRepositoryRequest
@@ -267,6 +269,7 @@ func TestReplicateRepositoryInvalidArguments(t *testing.T) {
 }
 
 func TestReplicateRepository_BadRepository(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		desc          string
 		invalidSource bool
@@ -353,6 +356,7 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 }
 
 func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
+	t.Parallel()
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
 

@@ -28,6 +28,7 @@ var (
 )
 
 func TestGarbageCollectCommitGraph(t *testing.T) {
+	t.Parallel()
 	_, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -42,6 +43,7 @@ func TestGarbageCollectCommitGraph(t *testing.T) {
 }
 
 func TestGarbageCollectSuccess(t *testing.T) {
+	t.Parallel()
 	cfg, repo, _, client := setupRepositoryService(t)
 
 	tests := []struct {
@@ -93,6 +95,7 @@ func TestGarbageCollectSuccess(t *testing.T) {
 }
 
 func TestGarbageCollectWithPrune(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -134,6 +137,7 @@ func TestGarbageCollectWithPrune(t *testing.T) {
 }
 
 func TestGarbageCollectLogStatistics(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -149,6 +153,7 @@ func TestGarbageCollectLogStatistics(t *testing.T) {
 }
 
 func TestGarbageCollectDeletesRefsLocks(t *testing.T) {
+	t.Parallel()
 	_, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -190,6 +195,7 @@ func TestGarbageCollectDeletesRefsLocks(t *testing.T) {
 }
 
 func TestGarbageCollectDeletesPackedRefsLock(t *testing.T) {
+	t.Parallel()
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	testCases := []struct {
@@ -256,6 +262,7 @@ func TestGarbageCollectDeletesPackedRefsLock(t *testing.T) {
 }
 
 func TestGarbageCollectDeletesFileLocks(t *testing.T) {
+	t.Parallel()
 	_, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -290,6 +297,7 @@ func TestGarbageCollectDeletesFileLocks(t *testing.T) {
 }
 
 func TestGarbageCollectDeletesPackedRefsNew(t *testing.T) {
+	t.Parallel()
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	testCases := []struct {
@@ -346,6 +354,7 @@ func TestGarbageCollectDeletesPackedRefsNew(t *testing.T) {
 }
 
 func TestGarbageCollectFailure(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t)
 
 	tests := []struct {
@@ -369,6 +378,7 @@ func TestGarbageCollectFailure(t *testing.T) {
 }
 
 func TestCleanupInvalidKeepAroundRefs(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	// Make the directory, so we can create random reflike things in it
@@ -460,6 +470,7 @@ func mustCreateFileWithTimes(t testing.TB, path string, mTime time.Time) {
 }
 
 func TestGarbageCollectDeltaIslands(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()

@@ -15,6 +15,7 @@ import (
 )
 
 func TestSuccessfulCalculateChecksum(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	// Force the refs database of testRepo into a known state
@@ -35,6 +36,7 @@ func TestSuccessfulCalculateChecksum(t *testing.T) {
 }
 
 func TestRefWhitelist(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		ref   string
 		match bool
@@ -65,6 +67,7 @@ func TestRefWhitelist(t *testing.T) {
 }
 
 func TestEmptyRepositoryCalculateChecksum(t *testing.T) {
+	t.Parallel()
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	repo, _, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
@@ -80,6 +83,7 @@ func TestEmptyRepositoryCalculateChecksum(t *testing.T) {
 }
 
 func TestBrokenRepositoryCalculateChecksum(t *testing.T) {
+	t.Parallel()
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	repo, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
@@ -97,6 +101,7 @@ func TestBrokenRepositoryCalculateChecksum(t *testing.T) {
 }
 
 func TestFailedCalculateChecksum(t *testing.T) {
+	t.Parallel()
 	_, client := setupRepositoryServiceWithoutRepo(t)
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
@@ -128,6 +133,7 @@ func TestFailedCalculateChecksum(t *testing.T) {
 }
 
 func TestInvalidRefsCalculateChecksum(t *testing.T) {
+	t.Parallel()
 	_, repo, repoPath, client := setupRepositoryService(t)
 
 	// Force the refs database of testRepo into a known state

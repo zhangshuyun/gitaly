@@ -14,6 +14,7 @@ import (
 )
 
 func TestGetInfoAttributesExisting(t *testing.T) {
+	t.Parallel()
 	_, repo, repoPath, client := setupRepositoryService(t)
 
 	infoPath := filepath.Join(repoPath, "info")
@@ -42,6 +43,7 @@ func TestGetInfoAttributesExisting(t *testing.T) {
 }
 
 func TestGetInfoAttributesNonExisting(t *testing.T) {
+	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t)
 
 	request := &gitalypb.GetInfoAttributesRequest{Repository: repo}

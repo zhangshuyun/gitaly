@@ -17,6 +17,7 @@ import (
 )
 
 func TestSuccessfulUserUpdateSubmoduleRequest(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -99,6 +100,7 @@ func TestSuccessfulUserUpdateSubmoduleRequest(t *testing.T) {
 }
 
 func TestUserUpdateSubmoduleStableID(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -145,6 +147,7 @@ func TestUserUpdateSubmoduleStableID(t *testing.T) {
 }
 
 func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -263,6 +266,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 }
 
 func TestFailedUserUpdateSubmoduleRequestDueToInvalidBranch(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -283,6 +287,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToInvalidBranch(t *testing.T) {
 }
 
 func TestFailedUserUpdateSubmoduleRequestDueToInvalidSubmodule(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -303,6 +308,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToInvalidSubmodule(t *testing.T) {
 }
 
 func TestFailedUserUpdateSubmoduleRequestDueToSameReference(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -326,6 +332,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToSameReference(t *testing.T) {
 }
 
 func TestFailedUserUpdateSubmoduleRequestDueToRepositoryEmpty(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 

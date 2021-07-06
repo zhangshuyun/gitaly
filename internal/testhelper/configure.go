@@ -172,7 +172,7 @@ func buildBinary(t testing.TB, dstDir, name string) {
 		// another process is creating the binary at the moment, wait for it to complete (5s)
 		for i := 0; i < 50; i++ {
 			if _, err := os.Stat(binPath); err != nil {
-				if !errors.Is(err, os.ErrExist) {
+				if !errors.Is(err, os.ErrNotExist) {
 					require.NoError(t, err)
 				}
 				time.Sleep(100 * time.Millisecond)
