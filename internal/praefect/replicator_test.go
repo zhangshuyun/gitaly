@@ -269,7 +269,20 @@ func TestReplicatorDowngradeAttempt(t *testing.T) {
 	}
 }
 
-func TestPropagateReplicationJob(t *testing.T) {
+func TestReplicator_PropagateReplicationJob_inmemory(t *testing.T) {
+	testReplicatorPropagateReplicationJob(t,
+		func(t *testing.T, cfg config.Config) datastore.ReplicationEventQueue {
+			return datastore.NewMemoryReplicationEventQueue(cfg)
+		},
+	)
+}
+
+// testReplicatorPropagateReplicationJob is used to drive both in-memory and Postgres
+// tests.
+func testReplicatorPropagateReplicationJob(
+	t *testing.T,
+	createReplicationQueue func(*testing.T, config.Config) datastore.ReplicationEventQueue,
+) {
 	primaryStorage, secondaryStorage := "internal-gitaly-0", "internal-gitaly-1"
 
 	primCfg := testcfg.Build(t, testcfg.WithStorages(primaryStorage))
@@ -303,7 +316,7 @@ func TestPropagateReplicationJob(t *testing.T) {
 	// unlinkat /tmp/gitaly-222007427/381349228/storages.d/internal-gitaly-1/+gitaly/state/path/to/repo: directory not empty
 	// By using WaitGroup we are sure the test cleanup will be started after all replication
 	// requests are completed, so no running cache IO operations happen.
-	queue := datastore.NewReplicationEventQueueInterceptor(datastore.NewMemoryReplicationEventQueue(conf))
+	queue := datastore.NewReplicationEventQueueInterceptor(createReplicationQueue(t, conf))
 	var wg sync.WaitGroup
 	queue.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
 		wg.Add(1)
