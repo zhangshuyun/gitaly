@@ -304,11 +304,11 @@ func run(cfgs []starter.Config, conf config.Config) error {
 	clientHandshaker := backchannel.NewClientHandshaker(logger, praefect.NewBackchannelServerFactory(logger, transaction.NewServer(transactionManager)))
 	assignmentStore := praefect.NewDisabledAssignmentStore(conf.StorageNames())
 	var (
-		nodeManager   nodes.Manager
-		healthChecker praefect.HealthChecker
-		nodeSet       praefect.NodeSet
-		router        praefect.Router
-		primaryGetter praefect.PrimaryGetter
+		nodeManager    nodes.Manager
+		healthChecker  praefect.HealthChecker
+		nodeSet        praefect.NodeSet
+		router         praefect.Router
+		primaryGetter  praefect.PrimaryGetter
 	)
 	if conf.Failover.ElectionStrategy == config.ElectionStrategyPerRepository {
 		nodeSet, err = praefect.DialNodes(ctx, conf.VirtualStorages, protoregistry.GitalyProtoPreregistered, errTracker, clientHandshaker)
@@ -381,6 +381,8 @@ func run(cfgs []starter.Config, conf config.Config) error {
 			protoregistry.GitalyProtoPreregistered,
 		)
 
+        streamRPCProxy = praefect.NewStreamRPCProxy(router)
+
 		repl = praefect.NewReplMgr(
 			logger,
 			conf.VirtualStorageNames(),
@@ -404,6 +406,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 			protoregistry.GitalyProtoPreregistered,
 			nodeSet.Connections(),
 			primaryGetter,
+            streamRPCProxy,
 		)
 	)
 	metricsCollectors = append(metricsCollectors, transactionManager, coordinator, repl)

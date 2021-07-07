@@ -15,6 +15,12 @@ import (
 
 var _ grpc.ServiceRegistrar = &Server{}
 
+type StreamRPCHandler interface {
+    SetInterceptor(grpc.UnaryServerInterceptor)
+    Interceptor() grpc.UnaryServerInterceptor
+    Handle(net.Conn)
+}
+
 // Server handles network connections and routes them to StreamRPC handlers.
 type Server struct {
 	methods     map[string]*method
@@ -28,11 +34,11 @@ type method struct {
 
 // ServerOption is an abstraction that lets you pass 0 or more server
 // options to NewServer.
-type ServerOption func(*Server)
+type ServerOption func(StreamRPCHandler)
 
 // WithServerInterceptor adds a unary gRPC server interceptor.
 func WithServerInterceptor(interceptor grpc.UnaryServerInterceptor) ServerOption {
-	return func(s *Server) { s.interceptor = interceptor }
+	return func(s StreamRPCHandler) { s.SetInterceptor(interceptor) }
 }
 
 // NewServer returns a new StreamRPC server. You can pass the result to
@@ -45,6 +51,14 @@ func NewServer(opts ...ServerOption) *Server {
 		o(s)
 	}
 	return s
+}
+
+func (s *Server) SetInterceptor(interceptor grpc.UnaryServerInterceptor) {
+    s.interceptor = interceptor;
+}
+
+func (s *Server) Interceptor() grpc.UnaryServerInterceptor {
+    return s.interceptor;
 }
 
 // RegisterService implements grpc.ServiceRegistrar. It makes it possible

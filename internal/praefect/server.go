@@ -30,10 +30,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/service/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/transactions"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/listenmux"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/streamrpc"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/credentials/insecure"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
 )
@@ -87,6 +90,7 @@ func NewGRPCServer(
 	assignmentStore AssignmentStore,
 	conns Connections,
 	primaryGetter PrimaryGetter,
+    streamRPCProxy *StreamRPCProxy,
 	grpcOpts ...grpc.ServerOption,
 ) *grpc.Server {
 	streamInterceptors := []grpc.StreamServerInterceptor{
@@ -105,21 +109,29 @@ func NewGRPCServer(
 		// converted to errors and logged
 		panichandler.StreamPanicHandler,
 	}
+    unaryInterceptors := grpc_middleware.ChainUnaryServer(
+        append(
+            commonUnaryServerInterceptors(logger),
+            middleware.MethodTypeUnaryInterceptor(registry),
+            auth.UnaryServerInterceptor(conf.Auth),
+        )...,
+    )
 
 	if conf.Failover.ElectionStrategy == config.ElectionStrategyPerRepository {
 		streamInterceptors = append(streamInterceptors, RepositoryExistsStreamInterceptor(rs))
 	}
 
+	lm := listenmux.New(insecure.NewCredentials())
+	lm.Register(streamrpc.NewServerHandshaker(
+		streamRPCProxy,
+		unaryInterceptors,
+	))
+
 	grpcOpts = append(grpcOpts, proxyRequiredOpts(director)...)
+    grpcOpts = append(grpcOpts, grpc.Creds(lm))
 	grpcOpts = append(grpcOpts, []grpc.ServerOption{
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streamInterceptors...)),
-		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
-			append(
-				commonUnaryServerInterceptors(logger),
-				middleware.MethodTypeUnaryInterceptor(registry),
-				auth.UnaryServerInterceptor(conf.Auth),
-			)...,
-		)),
+		grpc.UnaryInterceptor(unaryInterceptors),
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
 			MinTime:             20 * time.Second,
 			PermitWithoutStream: true,

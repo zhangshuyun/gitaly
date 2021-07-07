@@ -30,6 +30,7 @@ func NewServerFactory(
 	registry *protoregistry.Registry,
 	conns Connections,
 	primaryGetter PrimaryGetter,
+    streamRPCProxy *StreamRPCProxy,
 ) *ServerFactory {
 	return &ServerFactory{
 		conf:            conf,
@@ -43,6 +44,7 @@ func NewServerFactory(
 		registry:        registry,
 		conns:           conns,
 		primaryGetter:   primaryGetter,
+        streamRPCProxy: streamRPCProxy,
 	}
 }
 
@@ -61,6 +63,7 @@ type ServerFactory struct {
 	secure, insecure []*grpc.Server
 	conns            Connections
 	primaryGetter    PrimaryGetter
+	streamRPCProxy   *StreamRPCProxy
 }
 
 // Serve starts serving on the provided listener with newly created grpc.Server
@@ -132,6 +135,7 @@ func (s *ServerFactory) createGRPC(grpcOpts ...grpc.ServerOption) *grpc.Server {
 		s.assignmentStore,
 		s.conns,
 		s.primaryGetter,
+        s.streamRPCProxy,
 		grpcOpts...,
 	)
 }

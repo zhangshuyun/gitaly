@@ -14,11 +14,14 @@ type request struct {
 	Message  []byte
 	Metadata map[string][]string
 }
+type HandshakeRequest request // Should rename the above one. Clean up later
 
 type response struct{ Error string }
+type HandshakeResponse response // Should rename the above one. Clean up later
 
 const (
 	defaultHandshakeTimeout = 10 * time.Second
+    DefaultHandshakeTimeout = defaultHandshakeTimeout // Should rename the above one. Clean up later
 
 	// The frames exchanged during the handshake have a uint32 length prefix
 	// so their theoretical maximum size is 4GB. We don't want to allow that
@@ -30,6 +33,11 @@ const (
 var (
 	errFrameTooLarge = errors.New("frame too large")
 )
+
+// Should sendFrame. Clean up later
+func SendFrame(c net.Conn, frame []byte, deadline time.Time) error {
+    return sendFrame(c, frame, deadline)
+}
 
 func sendFrame(c net.Conn, frame []byte, deadline time.Time) error {
 	if len(frame) > maxFrameSize {
@@ -43,6 +51,11 @@ func sendFrame(c net.Conn, frame []byte, deadline time.Time) error {
 	}
 
 	return errAsync(deadline, func() (int, error) { return c.Write(frame) })
+}
+
+// Should recvFrame. Clean up later
+func RecvFrame(c net.Conn, deadline time.Time) ([]byte, error) {
+    return recvFrame(c, deadline)
 }
 
 func recvFrame(c net.Conn, deadline time.Time) ([]byte, error) {

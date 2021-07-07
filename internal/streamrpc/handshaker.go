@@ -88,14 +88,14 @@ func DialTLS(network, address string, cfg *tls.Config) DialFunc {
 
 // ServerHandshaker implements the server side handshake of the multiplexed connection.
 type ServerHandshaker struct {
-	server *Server
+	server StreamRPCHandler
 }
 
 // NewServerHandshaker returns an implementation of streamrpc server
 // handshaker. The provided TransportCredentials are handshaked prior to
 // initializing the multiplexing session. This handshaker Gitaly's unary server
 // interceptors into the interceptor chain of input StreamRPC server.
-func NewServerHandshaker(server *Server, interceptorChain grpc.UnaryServerInterceptor) *ServerHandshaker {
+func NewServerHandshaker(server StreamRPCHandler, interceptorChain grpc.UnaryServerInterceptor) *ServerHandshaker {
 	WithServerInterceptor(interceptorChain)(server)
 
 	return &ServerHandshaker{
