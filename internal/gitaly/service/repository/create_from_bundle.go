@@ -52,7 +52,7 @@ func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_Cr
 
 	ctx := stream.Context()
 
-	tmpDir, err := tempdir.New(ctx, repo, s.locator)
+	tmpDir, err := tempdir.New(ctx, repo.GetStorageName(), s.locator)
 	if err != nil {
 		cleanError := sanitizedError(tmpDir, "CreateRepositoryFromBundle: tmp dir failed: %v", err)
 		return status.Error(codes.Internal, cleanError)

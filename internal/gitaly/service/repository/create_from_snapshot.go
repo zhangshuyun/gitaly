@@ -88,7 +88,7 @@ func (s *server) CreateRepositoryFromSnapshot(ctx context.Context, in *gitalypb.
 	// Perform all operations against a temporary directory, only moving it to
 	// the canonical location if retrieving and unpacking the snapshot is a
 	// success
-	tempRepo, tempPath, err := tempdir.NewAsRepository(ctx, in.Repository, s.locator)
+	tempRepo, tempPath, err := tempdir.NewRepository(ctx, in.GetRepository().GetStorageName(), s.locator)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "couldn't create temporary directory: %v", err)
 	}

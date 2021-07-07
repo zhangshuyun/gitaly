@@ -11,22 +11,21 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
-	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
-func TestNewAsRepositorySuccess(t *testing.T) {
+func TestNewRepositorySuccess(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
 	locator := config.NewLocator(cfg)
-	tempRepo, tempDir, err := NewAsRepository(ctx, repo, locator)
-	require.NoError(t, err)
-	require.NotEqual(t, repo, tempRepo)
-	require.Equal(t, repo.StorageName, tempRepo.StorageName)
-	require.NotEqual(t, repo.RelativePath, tempRepo.RelativePath)
 
-	calculatedPath, err := locator.GetPath(tempRepo)
+	repo, tempDir, err := NewRepository(ctx, cfg.Storages[0].Name, locator)
+	require.NoError(t, err)
+	require.Equal(t, cfg.Storages[0].Name, repo.StorageName)
+	require.Contains(t, repo.RelativePath, tmpRootPrefix)
+
+	calculatedPath, err := locator.GetPath(repo)
 	require.NoError(t, err)
 	require.Equal(t, tempDir, calculatedPath)
 
@@ -50,6 +49,6 @@ func TestNewAsRepositorySuccess(t *testing.T) {
 func TestNewAsRepositoryFailStorageUnknown(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	_, err := New(ctx, &gitalypb.Repository{StorageName: "does-not-exist", RelativePath: "foobar.git"}, config.NewLocator(config.Cfg{}))
+	_, err := New(ctx, "does-not-exist", config.NewLocator(config.Cfg{}))
 	require.Error(t, err)
 }

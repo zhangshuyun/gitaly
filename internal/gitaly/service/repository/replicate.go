@@ -99,7 +99,7 @@ func validateReplicateRepository(in *gitalypb.ReplicateRepositoryRequest) error 
 func (s *server) create(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest, repoPath string) error {
 	// if the directory exists, remove it
 	if _, err := os.Stat(repoPath); err == nil {
-		tempDir, err := tempdir.ForDeleteAllRepositories(s.locator, in.GetRepository().GetStorageName())
+		tempDir, err := tempdir.NewWithoutContext(in.GetRepository().GetStorageName(), s.locator)
 		if err != nil {
 			return err
 		}
@@ -119,7 +119,7 @@ func (s *server) create(ctx context.Context, in *gitalypb.ReplicateRepositoryReq
 }
 
 func (s *server) createFromSnapshot(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) error {
-	tempRepo, tempPath, err := tempdir.NewAsRepository(ctx, in.GetRepository(), s.locator)
+	tempRepo, tempPath, err := tempdir.NewRepository(ctx, in.GetRepository().GetStorageName(), s.locator)
 	if err != nil {
 		return fmt.Errorf("create temporary directory: %w", err)
 	}

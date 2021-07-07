@@ -40,7 +40,7 @@ func TestServer_CreateRepositoryFromBundle_successful(t *testing.T) {
 	defer cancel()
 
 	locator := config.NewLocator(cfg)
-	tmpdir, err := tempdir.New(ctx, repo, locator)
+	tmpdir, err := tempdir.New(ctx, repo.GetStorageName(), locator)
 	require.NoError(t, err)
 	bundlePath := filepath.Join(tmpdir, "original.bundle")
 
