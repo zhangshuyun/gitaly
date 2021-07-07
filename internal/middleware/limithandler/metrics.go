@@ -19,7 +19,7 @@ var (
 			Namespace: "gitaly",
 			Subsystem: "rate_limiting",
 			Name:      "in_progress",
-			Help:      "Gauge of number of number of concurrent invocations currently in progress for this endpoint",
+			Help:      "Gauge of number of concurrent in-progress calls",
 		},
 		[]string{"system", "grpc_service", "grpc_method"},
 	)
@@ -29,7 +29,7 @@ var (
 			Namespace: "gitaly",
 			Subsystem: "rate_limiting",
 			Name:      "queued",
-			Help:      "Gauge of number of number of invocations currently queued for this endpoint",
+			Help:      "Gauge of number of queued calls",
 		},
 		[]string{"system", "grpc_service", "grpc_method"},
 	)
@@ -55,7 +55,7 @@ func EnableAcquireTimeHistogram(buckets []float64) {
 		Namespace: "gitaly",
 		Subsystem: "rate_limiting",
 		Name:      "acquiring_seconds",
-		Help:      "Histogram of lock acquisition latency (seconds) for endpoint rate limiting",
+		Help:      "Histogram of time calls are rate limited (in seconds)",
 		Buckets:   buckets,
 	}
 
