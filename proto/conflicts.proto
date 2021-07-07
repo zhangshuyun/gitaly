@@ -29,6 +29,10 @@ message ListConflictFilesRequest {
   Repository repository = 1 [(target_repository)=true];
   string our_commit_oid = 2;
   string their_commit_oid = 3;
+  // AllowTreeConflicts will not cause the request to fail in case there are
+  // tree conflicts. If set to true, then responses may contain conflict files
+  // where some of the paths are unset.
+  bool allow_tree_conflicts = 4;
 }
 
 message ConflictFileHeader {

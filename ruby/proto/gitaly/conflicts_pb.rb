@@ -12,6 +12,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :repository, :message, 1, "gitaly.Repository"
       optional :our_commit_oid, :string, 2
       optional :their_commit_oid, :string, 3
+      optional :allow_tree_conflicts, :bool, 4
     end
     add_message "gitaly.ConflictFileHeader" do
       optional :commit_oid, :string, 2

@@ -54,7 +54,7 @@ func (s *server) ListConflictFiles(request *gitalypb.ListConflictFilesRequest, s
 	msgSize := 0
 
 	for _, conflict := range conflicts.Conflicts {
-		if conflict.Their.Path == "" || conflict.Our.Path == "" {
+		if !request.AllowTreeConflicts && (conflict.Their.Path == "" || conflict.Our.Path == "") {
 			return helper.ErrPreconditionFailedf("conflict side missing")
 		}
 
