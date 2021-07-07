@@ -27,16 +27,16 @@ func TestNewRepositorySuccess(t *testing.T) {
 
 	calculatedPath, err := locator.GetPath(repo)
 	require.NoError(t, err)
-	require.Equal(t, tempDir, calculatedPath)
+	require.Equal(t, tempDir.Path(), calculatedPath)
 
-	err = ioutil.WriteFile(filepath.Join(tempDir, "test"), []byte("hello"), 0644)
+	err = ioutil.WriteFile(filepath.Join(tempDir.Path(), "test"), []byte("hello"), 0644)
 	require.NoError(t, err, "write file in tempdir")
 
 	cancel() // This should trigger async removal of the temporary directory
 
 	// Poll because the directory removal is async
 	for i := 0; i < 100; i++ {
-		_, err = os.Stat(tempDir)
+		_, err = os.Stat(tempDir.Path())
 		if err != nil {
 			break
 		}

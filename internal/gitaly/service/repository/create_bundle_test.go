@@ -49,7 +49,7 @@ func TestSuccessfulCreateBundleRequest(t *testing.T) {
 
 	dstDir, err := tempdir.New(ctx, repo.GetStorageName(), config.NewLocator(cfg))
 	require.NoError(t, err)
-	dstFile, err := ioutil.TempFile(dstDir, "")
+	dstFile, err := ioutil.TempFile(dstDir.Path(), "")
 	require.NoError(t, err)
 	defer dstFile.Close()
 	defer os.RemoveAll(dstFile.Name())

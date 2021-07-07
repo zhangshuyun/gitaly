@@ -54,20 +54,20 @@ func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_Cr
 
 	tmpDir, err := tempdir.New(ctx, repo.GetStorageName(), s.locator)
 	if err != nil {
-		cleanError := sanitizedError(tmpDir, "CreateRepositoryFromBundle: tmp dir failed: %v", err)
+		cleanError := sanitizedError(tmpDir.Path(), "CreateRepositoryFromBundle: tmp dir failed: %v", err)
 		return status.Error(codes.Internal, cleanError)
 	}
 
-	bundlePath := filepath.Join(tmpDir, "repo.bundle")
+	bundlePath := filepath.Join(tmpDir.Path(), "repo.bundle")
 	file, err := os.Create(bundlePath)
 	if err != nil {
-		cleanError := sanitizedError(tmpDir, "CreateRepositoryFromBundle: new bundle file failed: %v", err)
+		cleanError := sanitizedError(tmpDir.Path(), "CreateRepositoryFromBundle: new bundle file failed: %v", err)
 		return status.Error(codes.Internal, cleanError)
 	}
 
 	_, err = io.Copy(file, reader)
 	if err != nil {
-		cleanError := sanitizedError(tmpDir, "CreateRepositoryFromBundle: new bundle file failed: %v", err)
+		cleanError := sanitizedError(tmpDir.Path(), "CreateRepositoryFromBundle: new bundle file failed: %v", err)
 		return status.Error(codes.Internal, cleanError)
 	}
 

@@ -12,17 +12,27 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
+// Dir is a storage-scoped temporary directory.
+type Dir struct {
+	path string
+}
+
+// Path returns the absolute path of the temporary directory.
+func (d Dir) Path() string {
+	return d.path
+}
+
 // New returns the path of a new temporary directory for the given storage. The directory is removed
 // asynchronously with os.RemoveAll when the context expires.
-func New(ctx context.Context, storageName string, locator storage.Locator) (string, error) {
+func New(ctx context.Context, storageName string, locator storage.Locator) (Dir, error) {
 	dir, err := newDirectory(ctx, storageName, "repo", locator)
 	if err != nil {
-		return "", err
+		return Dir{}, err
 	}
 
 	go func() {
 		<-ctx.Done()
-		os.RemoveAll(dir)
+		os.RemoveAll(dir.Path())
 	}()
 
 	return dir, nil
@@ -31,48 +41,48 @@ func New(ctx context.Context, storageName string, locator storage.Locator) (stri
 // NewWithoutContext returns a temporary directory for the given storage suitable which is not
 // storage scoped. The temporary directory will thus not get cleaned up when the context expires,
 // but instead when the temporary directory is older than MaxAge.
-func NewWithoutContext(storageName string, locator storage.Locator) (string, error) {
+func NewWithoutContext(storageName string, locator storage.Locator) (Dir, error) {
 	prefix := fmt.Sprintf("%s-repositories.old.%d.", storageName, time.Now().Unix())
 	return newDirectory(context.Background(), storageName, prefix, locator)
 }
 
 // NewRepository is the same as New, but it returns a *gitalypb.Repository for the created directory
 // as well as the bare path as a string.
-func NewRepository(ctx context.Context, storageName string, locator storage.Locator) (*gitalypb.Repository, string, error) {
+func NewRepository(ctx context.Context, storageName string, locator storage.Locator) (*gitalypb.Repository, Dir, error) {
 	storagePath, err := locator.GetStorageByName(storageName)
 	if err != nil {
-		return nil, "", err
+		return nil, Dir{}, err
 	}
 
-	path, err := New(ctx, storageName, locator)
+	dir, err := New(ctx, storageName, locator)
 	if err != nil {
-		return nil, "", err
+		return nil, Dir{}, err
 	}
 
 	newRepo := &gitalypb.Repository{StorageName: storageName}
-	newRepo.RelativePath, err = filepath.Rel(storagePath, path)
+	newRepo.RelativePath, err = filepath.Rel(storagePath, dir.Path())
 	if err != nil {
-		return nil, "", err
+		return nil, Dir{}, err
 	}
 
-	return newRepo, path, nil
+	return newRepo, dir, nil
 }
 
-func newDirectory(ctx context.Context, storageName string, prefix string, loc storage.Locator) (string, error) {
+func newDirectory(ctx context.Context, storageName string, prefix string, loc storage.Locator) (Dir, error) {
 	storagePath, err := loc.GetStorageByName(storageName)
 	if err != nil {
-		return "", err
+		return Dir{}, err
 	}
 
 	root := AppendTempDir(storagePath)
 	if err := os.MkdirAll(root, 0700); err != nil {
-		return "", err
+		return Dir{}, err
 	}
 
 	tempDir, err := ioutil.TempDir(root, prefix)
 	if err != nil {
-		return "", err
+		return Dir{}, err
 	}
 
-	return tempDir, err
+	return Dir{path: tempDir}, err
 }
