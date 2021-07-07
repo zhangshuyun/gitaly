@@ -14,7 +14,8 @@ import (
 
 // Dir is a storage-scoped temporary directory.
 type Dir struct {
-	path string
+	path   string
+	doneCh chan struct{}
 }
 
 // Path returns the absolute path of the temporary directory.
@@ -30,10 +31,7 @@ func New(ctx context.Context, storageName string, locator storage.Locator) (Dir,
 		return Dir{}, err
 	}
 
-	go func() {
-		<-ctx.Done()
-		os.RemoveAll(dir.Path())
-	}()
+	go dir.cleanupOnDone(ctx)
 
 	return dir, nil
 }
@@ -84,5 +82,20 @@ func newDirectory(ctx context.Context, storageName string, prefix string, loc st
 		return Dir{}, err
 	}
 
-	return Dir{path: tempDir}, err
+	return Dir{
+		path:   tempDir,
+		doneCh: make(chan struct{}),
+	}, err
+}
+
+func (d Dir) cleanupOnDone(ctx context.Context) {
+	<-ctx.Done()
+	os.RemoveAll(d.Path())
+	close(d.doneCh)
+}
+
+// WaitForCleanup waits until the temporary directory got removed via the asynchronous cleanupOnDone
+// call. This is mainly intended for use in tests.
+func (d Dir) WaitForCleanup() {
+	<-d.doneCh
 }

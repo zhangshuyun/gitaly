@@ -2,10 +2,8 @@ package tempdir
 
 import (
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
@@ -29,21 +27,14 @@ func TestNewRepositorySuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, tempDir.Path(), calculatedPath)
 
-	err = ioutil.WriteFile(filepath.Join(tempDir.Path(), "test"), []byte("hello"), 0644)
-	require.NoError(t, err, "write file in tempdir")
+	require.NoError(t, ioutil.WriteFile(filepath.Join(tempDir.Path(), "test"), []byte("hello"), 0644))
+
+	require.DirExists(t, tempDir.Path())
 
 	cancel() // This should trigger async removal of the temporary directory
+	tempDir.WaitForCleanup()
 
-	// Poll because the directory removal is async
-	for i := 0; i < 100; i++ {
-		_, err = os.Stat(tempDir.Path())
-		if err != nil {
-			break
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-
-	require.True(t, os.IsNotExist(err), "expected directory to have been removed, got error %v", err)
+	require.NoDirExists(t, tempDir.Path())
 }
 
 func TestNewAsRepositoryFailStorageUnknown(t *testing.T) {
