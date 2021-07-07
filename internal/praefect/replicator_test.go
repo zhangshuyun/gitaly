@@ -269,7 +269,20 @@ func TestReplicatorDowngradeAttempt(t *testing.T) {
 	}
 }
 
-func TestPropagateReplicationJob(t *testing.T) {
+func TestReplicator_PropagateReplicationJob_inmemory(t *testing.T) {
+	testReplicatorPropagateReplicationJob(t,
+		func(t *testing.T, cfg config.Config) datastore.ReplicationEventQueue {
+			return datastore.NewMemoryReplicationEventQueue(cfg)
+		},
+	)
+}
+
+// testReplicatorPropagateReplicationJob is used to drive both in-memory and Postgres
+// tests.
+func testReplicatorPropagateReplicationJob(
+	t *testing.T,
+	createReplicationQueue func(*testing.T, config.Config) datastore.ReplicationEventQueue,
+) {
 	primaryStorage, secondaryStorage := "internal-gitaly-0", "internal-gitaly-1"
 
 	primCfg := testcfg.Build(t, testcfg.WithStorages(primaryStorage))
@@ -303,7 +316,7 @@ func TestPropagateReplicationJob(t *testing.T) {
 	// unlinkat /tmp/gitaly-222007427/381349228/storages.d/internal-gitaly-1/+gitaly/state/path/to/repo: directory not empty
 	// By using WaitGroup we are sure the test cleanup will be started after all replication
 	// requests are completed, so no running cache IO operations happen.
-	queue := datastore.NewReplicationEventQueueInterceptor(datastore.NewMemoryReplicationEventQueue(conf))
+	queue := datastore.NewReplicationEventQueueInterceptor(createReplicationQueue(t, conf))
 	var wg sync.WaitGroup
 	queue.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
 		wg.Add(1)
@@ -357,7 +370,11 @@ func TestPropagateReplicationJob(t *testing.T) {
 		RelativePath: repositoryRelativePath,
 	}
 
-	_, err = repositoryClient.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repository, CreateBitmap: true})
+	_, err = repositoryClient.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{
+		Repository:   repository,
+		CreateBitmap: true,
+		Prune:        true,
+	})
 	require.NoError(t, err)
 
 	_, err = repositoryClient.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: repository, CreateBitmap: false})
@@ -369,13 +386,33 @@ func TestPropagateReplicationJob(t *testing.T) {
 	_, err = repositoryClient.Cleanup(ctx, &gitalypb.CleanupRequest{Repository: repository})
 	require.NoError(t, err)
 
-	_, err = refClient.PackRefs(ctx, &gitalypb.PackRefsRequest{Repository: repository})
+	_, err = repositoryClient.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
+		Repository: repository,
+		// This is not a valid split strategy, but we currently only support a
+		// single default split strategy with value 0. So we just test with an
+		// invalid split strategy to check that a non-default value gets properly
+		// replicated.
+		SplitStrategy: 1,
+	})
+	require.NoError(t, err)
+
+	_, err = repositoryClient.MidxRepack(ctx, &gitalypb.MidxRepackRequest{Repository: repository})
+	require.NoError(t, err)
+
+	_, err = repositoryClient.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: repository})
+	require.NoError(t, err)
+
+	_, err = refClient.PackRefs(ctx, &gitalypb.PackRefsRequest{
+		Repository: repository,
+		AllRefs:    true,
+	})
 	require.NoError(t, err)
 
 	primaryRepository := &gitalypb.Repository{StorageName: primaryStorage, RelativePath: repositoryRelativePath}
 	expectedPrimaryGcReq := &gitalypb.GarbageCollectRequest{
 		Repository:   primaryRepository,
 		CreateBitmap: true,
+		Prune:        true,
 	}
 	expectedPrimaryRepackFullReq := &gitalypb.RepackFullRequest{
 		Repository:   primaryRepository,
@@ -387,8 +424,19 @@ func TestPropagateReplicationJob(t *testing.T) {
 	expectedPrimaryCleanup := &gitalypb.CleanupRequest{
 		Repository: primaryRepository,
 	}
+	expectedPrimaryWriteCommitGraph := &gitalypb.WriteCommitGraphRequest{
+		Repository:    primaryRepository,
+		SplitStrategy: 1,
+	}
+	expectedPrimaryMidxRepack := &gitalypb.MidxRepackRequest{
+		Repository: primaryRepository,
+	}
+	expectedPrimaryOptimizeRepository := &gitalypb.OptimizeRepositoryRequest{
+		Repository: primaryRepository,
+	}
 	expectedPrimaryPackRefs := &gitalypb.PackRefsRequest{
 		Repository: primaryRepository,
+		AllRefs:    true,
 	}
 
 	replCtx, cancel := testhelper.Context()
@@ -400,6 +448,9 @@ func TestPropagateReplicationJob(t *testing.T) {
 	waitForRequest(t, primaryServer.repackIncrChan, expectedPrimaryRepackIncrementalReq, 5*time.Second)
 	waitForRequest(t, primaryServer.repackFullChan, expectedPrimaryRepackFullReq, 5*time.Second)
 	waitForRequest(t, primaryServer.cleanupChan, expectedPrimaryCleanup, 5*time.Second)
+	waitForRequest(t, primaryServer.writeCommitGraphChan, expectedPrimaryWriteCommitGraph, 5*time.Second)
+	waitForRequest(t, primaryServer.midxRepackChan, expectedPrimaryMidxRepack, 5*time.Second)
+	waitForRequest(t, primaryServer.optimizeRepositoryChan, expectedPrimaryOptimizeRepository, 5*time.Second)
 	waitForRequest(t, primaryServer.packRefsChan, expectedPrimaryPackRefs, 5*time.Second)
 
 	secondaryRepository := &gitalypb.Repository{StorageName: secondaryStorage, RelativePath: repositoryRelativePath}
@@ -416,6 +467,15 @@ func TestPropagateReplicationJob(t *testing.T) {
 	expectedSecondaryCleanup := expectedPrimaryCleanup
 	expectedSecondaryCleanup.Repository = secondaryRepository
 
+	expectedSecondaryWriteCommitGraph := expectedPrimaryWriteCommitGraph
+	expectedSecondaryWriteCommitGraph.Repository = secondaryRepository
+
+	expectedSecondaryMidxRepack := expectedPrimaryMidxRepack
+	expectedSecondaryMidxRepack.Repository = secondaryRepository
+
+	expectedSecondaryOptimizeRepository := expectedPrimaryOptimizeRepository
+	expectedSecondaryOptimizeRepository.Repository = secondaryRepository
+
 	expectedSecondaryPackRefs := expectedPrimaryPackRefs
 	expectedSecondaryPackRefs.Repository = secondaryRepository
 
@@ -424,12 +484,15 @@ func TestPropagateReplicationJob(t *testing.T) {
 	waitForRequest(t, secondaryServer.repackIncrChan, expectedSecondaryRepackIncrementalReq, 5*time.Second)
 	waitForRequest(t, secondaryServer.repackFullChan, expectedSecondaryRepackFullReq, 5*time.Second)
 	waitForRequest(t, secondaryServer.cleanupChan, expectedSecondaryCleanup, 5*time.Second)
+	waitForRequest(t, secondaryServer.writeCommitGraphChan, expectedSecondaryWriteCommitGraph, 5*time.Second)
+	waitForRequest(t, secondaryServer.midxRepackChan, expectedSecondaryMidxRepack, 5*time.Second)
+	waitForRequest(t, secondaryServer.optimizeRepositoryChan, expectedSecondaryOptimizeRepository, 5*time.Second)
 	waitForRequest(t, secondaryServer.packRefsChan, expectedSecondaryPackRefs, 5*time.Second)
 	wg.Wait()
 }
 
 type mockServer struct {
-	gcChan, repackFullChan, repackIncrChan, cleanupChan, packRefsChan chan proto.Message
+	gcChan, repackFullChan, repackIncrChan, cleanupChan, writeCommitGraphChan, midxRepackChan, optimizeRepositoryChan, packRefsChan chan proto.Message
 
 	gitalypb.UnimplementedRepositoryServiceServer
 	gitalypb.UnimplementedRefServiceServer
@@ -437,11 +500,14 @@ type mockServer struct {
 
 func newMockRepositoryServer() *mockServer {
 	return &mockServer{
-		gcChan:         make(chan proto.Message),
-		repackFullChan: make(chan proto.Message),
-		repackIncrChan: make(chan proto.Message),
-		cleanupChan:    make(chan proto.Message),
-		packRefsChan:   make(chan proto.Message),
+		gcChan:                 make(chan proto.Message),
+		repackFullChan:         make(chan proto.Message),
+		repackIncrChan:         make(chan proto.Message),
+		cleanupChan:            make(chan proto.Message),
+		writeCommitGraphChan:   make(chan proto.Message),
+		midxRepackChan:         make(chan proto.Message),
+		optimizeRepositoryChan: make(chan proto.Message),
+		packRefsChan:           make(chan proto.Message),
 	}
 }
 
@@ -471,6 +537,27 @@ func (m *mockServer) Cleanup(ctx context.Context, in *gitalypb.CleanupRequest) (
 		m.cleanupChan <- in
 	}()
 	return &gitalypb.CleanupResponse{}, nil
+}
+
+func (m *mockServer) WriteCommitGraph(ctx context.Context, in *gitalypb.WriteCommitGraphRequest) (*gitalypb.WriteCommitGraphResponse, error) {
+	go func() {
+		m.writeCommitGraphChan <- in
+	}()
+	return &gitalypb.WriteCommitGraphResponse{}, nil
+}
+
+func (m *mockServer) MidxRepack(ctx context.Context, in *gitalypb.MidxRepackRequest) (*gitalypb.MidxRepackResponse, error) {
+	go func() {
+		m.midxRepackChan <- in
+	}()
+	return &gitalypb.MidxRepackResponse{}, nil
+}
+
+func (m *mockServer) OptimizeRepository(ctx context.Context, in *gitalypb.OptimizeRepositoryRequest) (*gitalypb.OptimizeRepositoryResponse, error) {
+	go func() {
+		m.optimizeRepositoryChan <- in
+	}()
+	return &gitalypb.OptimizeRepositoryResponse{}, nil
 }
 
 func (m *mockServer) PackRefs(ctx context.Context, in *gitalypb.PackRefsRequest) (*gitalypb.PackRefsResponse, error) {

@@ -183,7 +183,10 @@ func getReplicationDetails(methodName string, m proto.Message) (datastore.Change
 		if !ok {
 			return "", nil, fmt.Errorf("protocol changed: for method %q expected message type '%T', got '%T'", methodName, req, m)
 		}
-		return datastore.GarbageCollect, datastore.Params{"CreateBitmap": req.GetCreateBitmap()}, nil
+		return datastore.GarbageCollect, datastore.Params{
+			"CreateBitmap": req.GetCreateBitmap(),
+			"Prune":        req.GetPrune(),
+		}, nil
 	case "/gitaly.RepositoryService/RepackFull":
 		req, ok := m.(*gitalypb.RepackFullRequest)
 		if !ok {
@@ -202,12 +205,34 @@ func getReplicationDetails(methodName string, m proto.Message) (datastore.Change
 			return "", nil, fmt.Errorf("protocol changed: for method %q expected message type '%T', got '%T'", methodName, req, m)
 		}
 		return datastore.Cleanup, nil, nil
+	case "/gitaly.RepositoryService/WriteCommitGraph":
+		req, ok := m.(*gitalypb.WriteCommitGraphRequest)
+		if !ok {
+			return "", nil, fmt.Errorf("protocol changed: for method %q expected message type '%T', got '%T'", methodName, req, m)
+		}
+		return datastore.WriteCommitGraph, datastore.Params{
+			"SplitStrategy": req.GetSplitStrategy(),
+		}, nil
+	case "/gitaly.RepositoryService/MidxRepack":
+		req, ok := m.(*gitalypb.MidxRepackRequest)
+		if !ok {
+			return "", nil, fmt.Errorf("protocol changed: for method %q expected message type '%T', got '%T'", methodName, req, m)
+		}
+		return datastore.MidxRepack, nil, nil
+	case "/gitaly.RepositoryService/OptimizeRepository":
+		req, ok := m.(*gitalypb.OptimizeRepositoryRequest)
+		if !ok {
+			return "", nil, fmt.Errorf("protocol changed: for method %q expected message type '%T', got '%T'", methodName, req, m)
+		}
+		return datastore.OptimizeRepository, nil, nil
 	case "/gitaly.RefService/PackRefs":
 		req, ok := m.(*gitalypb.PackRefsRequest)
 		if !ok {
 			return "", nil, fmt.Errorf("protocol changed: for method %q expected message type '%T', got '%T'", methodName, req, m)
 		}
-		return datastore.PackRefs, nil, nil
+		return datastore.PackRefs, datastore.Params{
+			"AllRefs": req.GetAllRefs(),
+		}, nil
 	default:
 		return datastore.UpdateRepo, nil, nil
 	}

@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/repository"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -123,4 +124,12 @@ func TestReplicatorDestroy(t *testing.T) {
 			require.Equal(t, tc.exists, exists)
 		})
 	}
+}
+
+func TestReplicator_PropagateReplicationJob_postgres(t *testing.T) {
+	testReplicatorPropagateReplicationJob(t,
+		func(t *testing.T, cfg config.Config) datastore.ReplicationEventQueue {
+			return datastore.NewPostgresReplicationEventQueue(getDB(t))
+		},
+	)
 }
