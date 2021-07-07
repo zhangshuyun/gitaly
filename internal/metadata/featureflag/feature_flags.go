@@ -29,6 +29,8 @@ var (
 	// FindAllTagsPipeline enables the alternative pipeline implementation for finding
 	// tags via FindAllTags.
 	FindAllTagsPipeline = FeatureFlag{Name: "find_all_tags_pipeline", OnByDefault: false}
+	// TxRemoveRepository enables transactionsal voting for the RemoveRepository RPC.
+	TxRemoveRepository = FeatureFlag{Name: "tx_remove_repository", OnByDefault: false}
 )
 
 // All includes all feature flags.
@@ -41,4 +43,5 @@ var All = []FeatureFlag{
 	ResolveConflictsWithHooks,
 	ReplicateRepositoryDirectFetch,
 	FindAllTagsPipeline,
+	TxRemoveRepository,
 }

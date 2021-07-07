@@ -499,7 +499,24 @@ func TestRemoveRepository(t *testing.T) {
 		return queue.Acknowledge(ctx, state, ids)
 	})
 
-	cc, _, cleanup := runPraefectServer(t, praefectCfg, buildOptions{withQueue: queueInterceptor})
+	repoStore := defaultRepoStore(praefectCfg)
+	txMgr := defaultTxMgr(praefectCfg)
+	nodeMgr, err := nodes.NewManager(testhelper.DiscardTestEntry(t), praefectCfg, nil,
+		repoStore, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered,
+		nil, backchannel.NewClientHandshaker(
+			testhelper.DiscardTestEntry(t),
+			NewBackchannelServerFactory(testhelper.DiscardTestEntry(t), transaction.NewServer(txMgr)),
+		),
+	)
+	require.NoError(t, err)
+	nodeMgr.Start(0, time.Hour)
+
+	cc, _, cleanup := runPraefectServer(t, praefectCfg, buildOptions{
+		withQueue:     queueInterceptor,
+		withRepoStore: repoStore,
+		withNodeMgr:   nodeMgr,
+		withTxMgr:     txMgr,
+	})
 	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
@@ -508,7 +525,7 @@ func TestRemoveRepository(t *testing.T) {
 	virtualRepo := proto.Clone(repos[0][0]).(*gitalypb.Repository)
 	virtualRepo.StorageName = praefectCfg.VirtualStorages[0].Name
 
-	_, err := gitalypb.NewRepositoryServiceClient(cc).RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{
+	_, err = gitalypb.NewRepositoryServiceClient(cc).RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{
 		Repository: virtualRepo,
 	})
 	require.NoError(t, err)

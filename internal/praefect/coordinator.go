@@ -14,6 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 	glerrors "gitlab.com/gitlab-org/gitaly/v14/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
@@ -38,6 +39,12 @@ type transactionsCondition func(context.Context) bool
 
 func transactionsEnabled(context.Context) bool  { return true }
 func transactionsDisabled(context.Context) bool { return false }
+
+func transactionsFlag(flag featureflag.FeatureFlag) transactionsCondition {
+	return func(ctx context.Context) bool {
+		return featureflag.IsEnabled(ctx, flag)
+	}
+}
 
 // transactionRPCs contains the list of repository-scoped mutating calls which may take part in
 // transactions. An optional feature flag can be added to conditionally enable transactional
@@ -84,6 +91,8 @@ var transactionRPCs = map[string]transactionsCondition{
 	"/gitaly.WikiService/WikiUpdatePage":                     transactionsEnabled,
 	"/gitaly.WikiService/WikiWritePage":                      transactionsEnabled,
 
+	"/gitaly.RepositoryService/RemoveRepository": transactionsFlag(featureflag.TxRemoveRepository),
+
 	// The following RPCs currently aren't transactional, but we may consider making them
 	// transactional in the future if the need arises.
 	"/gitaly.ObjectPoolService/CreateObjectPool":               transactionsDisabled,
@@ -92,7 +101,6 @@ var transactionRPCs = map[string]transactionsCondition{
 	"/gitaly.ObjectPoolService/LinkRepositoryToObjectPool":     transactionsDisabled,
 	"/gitaly.ObjectPoolService/ReduplicateRepository":          transactionsDisabled,
 	"/gitaly.ObjectPoolService/UnlinkRepositoryFromObjectPool": transactionsDisabled,
-	"/gitaly.RepositoryService/RemoveRepository":               transactionsDisabled,
 	"/gitaly.RepositoryService/RenameRepository":               transactionsDisabled,
 
 	// The following list of RPCs are considered idempotent RPCs: while they write into the
