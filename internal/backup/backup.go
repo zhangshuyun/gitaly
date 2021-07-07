@@ -17,8 +17,11 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// ErrSkipped means the repository was skipped because there was nothing to backup
-var ErrSkipped = errors.New("repository skipped")
+var (
+	// ErrSkipped means the repository was skipped because there was nothing to backup
+	ErrSkipped     = errors.New("repository skipped")
+	ErrDoesntExist = errors.New("doesn't exist")
+)
 
 // Filesystem strategy for creating and restoring backups
 type Filesystem struct {
