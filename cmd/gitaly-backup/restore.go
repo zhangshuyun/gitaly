@@ -31,7 +31,7 @@ func (cmd *restoreSubcommand) Flags(fs *flag.FlagSet) {
 }
 
 func (cmd *restoreSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
-	fsBackup := backup.NewFilesystem(cmd.backupPath)
+	fsBackup := backup.NewManager(backup.NewFilesystemSink(cmd.backupPath))
 	pipeline := backup.NewPipeline(log.StandardLogger(), fsBackup)
 
 	decoder := json.NewDecoder(stdin)

@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -8,14 +9,21 @@ import (
 	"path/filepath"
 )
 
+// FilesystemSink is a sink for creating and restoring backups from the local filesystem.
+type FilesystemSink struct {
+	path string
+}
+
 // NewFilesystemSink returns a sink that uses a local filesystem to work with data.
-func NewFilesystemSink(path string) *Filesystem {
-	return &Filesystem{
+func NewFilesystemSink(path string) *FilesystemSink {
+	return &FilesystemSink{
 		path: path,
 	}
 }
 
-func (fs *Filesystem) Write(relativePath string, r io.Reader) (returnErr error) {
+// Write creates required file structure and stored data from r into relativePath location.
+// If created file is empty it will be removed.
+func (fs *FilesystemSink) Write(ctx context.Context, relativePath string, r io.Reader) (returnErr error) {
 	path := filepath.Join(fs.path, relativePath)
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0744); err != nil {
@@ -46,7 +54,8 @@ func (fs *Filesystem) Write(relativePath string, r io.Reader) (returnErr error) 
 
 // GetReader returns a reader of the requested file path.
 // It's the caller's responsibility to Close returned reader once it is not needed anymore.
-func (fs *Filesystem) GetReader(relativePath string) (io.ReadCloser, error) {
+// If relativePath doesn't exist the ErrDoesntExist is returned.
+func (fs *FilesystemSink) GetReader(ctx context.Context, relativePath string) (io.ReadCloser, error) {
 	path := filepath.Join(fs.path, relativePath)
 	f, err := os.Open(path)
 	if err != nil {
