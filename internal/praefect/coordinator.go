@@ -88,8 +88,9 @@ var transactionRPCs = map[string]transactionsCondition{
 	"/gitaly.WikiService/WikiUpdatePage":                     transactionsEnabled,
 	"/gitaly.WikiService/WikiWritePage":                      transactionsEnabled,
 
-	"/gitaly.RepositoryService/SetConfig":    transactionsFlag(featureflag.TxConfig),
-	"/gitaly.RepositoryService/DeleteConfig": transactionsFlag(featureflag.TxConfig),
+	"/gitaly.RepositoryService/SetConfig":        transactionsFlag(featureflag.TxConfig),
+	"/gitaly.RepositoryService/DeleteConfig":     transactionsFlag(featureflag.TxConfig),
+	"/gitaly.RepositoryService/RemoveRepository": transactionsFlag(featureflag.TxRemoveRepository),
 
 	// The following RPCs currently aren't transactional, but we may consider making them
 	// transactional in the future if the need arises.
@@ -99,7 +100,6 @@ var transactionRPCs = map[string]transactionsCondition{
 	"/gitaly.ObjectPoolService/LinkRepositoryToObjectPool":     transactionsDisabled,
 	"/gitaly.ObjectPoolService/ReduplicateRepository":          transactionsDisabled,
 	"/gitaly.ObjectPoolService/UnlinkRepositoryFromObjectPool": transactionsDisabled,
-	"/gitaly.RepositoryService/RemoveRepository":               transactionsDisabled,
 	"/gitaly.RepositoryService/RenameRepository":               transactionsDisabled,
 
 	// The following list of RPCs are considered idempotent RPCs: while they write into the

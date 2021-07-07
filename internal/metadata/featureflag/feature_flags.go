@@ -30,6 +30,8 @@ var (
 	// via a direct call instead of doing an RPC call to its own server. This fixes calls of
 	// `ReplicateRepository()` in case it's invoked via Praefect with transactions enabled.
 	ReplicateRepositoryDirectFetch = FeatureFlag{Name: "replicate_repository_direct_fetch", OnByDefault: false}
+	// TxRemoveRepository enables transactionsal voting for the RemoveRepository RPC.
+	TxRemoveRepository = FeatureFlag{Name: "tx_remove_repository", OnByDefault: false}
 )
 
 // All includes all feature flags.
@@ -42,4 +44,5 @@ var All = []FeatureFlag{
 	LFSPointersPipeline,
 	CreateRepositoryFromBundleAtomicFetch,
 	ReplicateRepositoryDirectFetch,
+	TxRemoveRepository,
 }
