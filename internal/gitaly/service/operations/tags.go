@@ -91,107 +91,25 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 		return nil, err
 	}
 
-	// Setup
-	repo := s.localrepo(req.GetRepository())
-	catFile, err := s.catfileCache.BatchProcess(ctx, repo)
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-
-	// We allow all ways to name a revision that cat-file
-	// supports, not just OID. Resolve it.
 	targetRevision := git.Revision(req.TargetRevision)
-	targetInfo, err := catFile.Info(ctx, targetRevision)
+
+	committerTime := time.Now()
+	if req.Timestamp != nil {
+		var err error
+		committerTime, err = ptypes.Timestamp(req.Timestamp)
+		if err != nil {
+			return nil, helper.ErrInvalidArgument(err)
+		}
+	}
+
+	repo := s.localrepo(req.GetRepository())
+	tag, tagID, err := s.createTag(ctx, repo, targetRevision, req.TagName, req.Message, req.User, committerTime)
 	if err != nil {
-		return nil, status.Errorf(codes.FailedPrecondition, "revspec '%s' not found", targetRevision)
-	}
-	targetObjectID, targetObjectType := targetInfo.Oid, targetInfo.Type
-
-	// Whether we have a "message" parameter tells us if we're
-	// making a lightweight tag or an annotated tag. Maybe we can
-	// use strings.TrimSpace() eventually, but as the tests show
-	// the Ruby idea of Unicode whitespace is different than its
-	// idea.
-	makingTag := regexp.MustCompile(`\S`).Match(req.Message)
-
-	// If we're creating a tag to another "tag" we'll need to peel
-	// (possibly recursively) all the way down to the
-	// non-tag. That'll be our returned TargetCommit if it's a
-	// commit (nil if tree or blob).
-	//
-	// If we're not pointing to a tag we pretend our "peeled" is
-	// the commit/tree/blob object itself in subsequent logic.
-	peeledTargetObjectID, peeledTargetObjectType := targetObjectID, targetObjectType
-	if targetObjectType == "tag" {
-		peeledTargetObjectInfo, err := catFile.Info(ctx, targetRevision+"^{}")
-		if err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
-		}
-		peeledTargetObjectID, peeledTargetObjectType = peeledTargetObjectInfo.Oid, peeledTargetObjectInfo.Type
-
-		// If we're not making an annotated tag ourselves and
-		// the user pointed to a "tag" we'll ignore what they
-		// asked for and point to what we found when peeling
-		// that tag.
-		if !makingTag {
-			targetObjectID = peeledTargetObjectID
-		}
-	}
-
-	// At this point we'll either be pointing to an object we were
-	// provided with, or creating a new tag object and pointing to
-	// that.
-	refObjectID := targetObjectID
-	var tagObject *gitalypb.Tag
-	if makingTag {
-		localRepo := s.localrepo(repo)
-
-		committerTime := time.Now()
-		if req.Timestamp != nil {
-			committerTime, err = ptypes.Timestamp(req.Timestamp)
-			if err != nil {
-				return nil, helper.ErrInvalidArgument(err)
-			}
-		}
-
-		tagObjectID, err := localRepo.WriteTag(ctx, targetObjectID, targetObjectType, req.TagName, req.User.Name, req.User.Email, req.Message, committerTime)
-		if err != nil {
-			var FormatTagError localrepo.FormatTagError
-			if errors.As(err, &FormatTagError) {
-				return nil, status.Errorf(codes.Unknown, "Rugged::InvalidError: failed to parse signature - expected prefix doesn't match actual")
-			}
-
-			var MktagError localrepo.MktagError
-			if errors.As(err, &MktagError) {
-				return nil, status.Errorf(codes.NotFound, "Gitlab::Git::CommitError: %s", err.Error())
-			}
-			return nil, status.Error(codes.Internal, err.Error())
-		}
-
-		createdTag, err := catfile.GetTag(ctx, catFile, tagObjectID.Revision(), string(req.TagName), false, false)
-		if err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
-		}
-
-		tagObject = &gitalypb.Tag{
-			Name:        req.TagName,
-			Id:          tagObjectID.String(),
-			Message:     createdTag.Message,
-			MessageSize: createdTag.MessageSize,
-			//TargetCommit: is filled in below if needed
-		}
-
-		refObjectID = tagObjectID
-	} else {
-		tagObject = &gitalypb.Tag{
-			Name: req.TagName,
-			Id:   peeledTargetObjectID.String(),
-			//TargetCommit: is filled in below if needed
-		}
+		return nil, err
 	}
 
 	referenceName := git.ReferenceName(fmt.Sprintf("refs/tags/%s", req.TagName))
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, nil, referenceName, refObjectID, git.ZeroOID); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, nil, referenceName, tagID, git.ZeroOID); err != nil {
 		var preReceiveError updateref.PreReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserCreateTagResponse{
@@ -246,17 +164,115 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 		}, status.Error(codes.Internal, err.Error())
 	}
 
+	return &gitalypb.UserCreateTagResponse{
+		Tag: tag,
+	}, nil
+}
+
+func (s *Server) createTag(
+	ctx context.Context,
+	repo *localrepo.Repo,
+	targetRevision git.Revision,
+	tagName []byte,
+	message []byte,
+	committer *gitalypb.User,
+	committerTime time.Time,
+) (*gitalypb.Tag, git.ObjectID, error) {
+	catFile, err := s.catfileCache.BatchProcess(ctx, repo)
+	if err != nil {
+		return nil, "", status.Error(codes.Internal, err.Error())
+	}
+
+	// We allow all ways to name a revision that cat-file
+	// supports, not just OID. Resolve it.
+	targetInfo, err := catFile.Info(ctx, targetRevision)
+	if err != nil {
+		return nil, "", status.Errorf(codes.FailedPrecondition, "revspec '%s' not found", targetRevision)
+	}
+	targetObjectID, targetObjectType := targetInfo.Oid, targetInfo.Type
+
+	// Whether we have a "message" parameter tells us if we're
+	// making a lightweight tag or an annotated tag. Maybe we can
+	// use strings.TrimSpace() eventually, but as the tests show
+	// the Ruby idea of Unicode whitespace is different than its
+	// idea.
+	makingTag := regexp.MustCompile(`\S`).Match(message)
+
+	// If we're creating a tag to another "tag" we'll need to peel
+	// (possibly recursively) all the way down to the
+	// non-tag. That'll be our returned TargetCommit if it's a
+	// commit (nil if tree or blob).
+	//
+	// If we're not pointing to a tag we pretend our "peeled" is
+	// the commit/tree/blob object itself in subsequent logic.
+	peeledTargetObjectID, peeledTargetObjectType := targetObjectID, targetObjectType
+	if targetObjectType == "tag" {
+		peeledTargetObjectInfo, err := catFile.Info(ctx, targetRevision+"^{}")
+		if err != nil {
+			return nil, "", status.Error(codes.Internal, err.Error())
+		}
+		peeledTargetObjectID, peeledTargetObjectType = peeledTargetObjectInfo.Oid, peeledTargetObjectInfo.Type
+
+		// If we're not making an annotated tag ourselves and
+		// the user pointed to a "tag" we'll ignore what they
+		// asked for and point to what we found when peeling
+		// that tag.
+		if !makingTag {
+			targetObjectID = peeledTargetObjectID
+		}
+	}
+
+	// At this point we'll either be pointing to an object we were
+	// provided with, or creating a new tag object and pointing to
+	// that.
+	refObjectID := targetObjectID
+	var tagObject *gitalypb.Tag
+	if makingTag {
+		tagObjectID, err := repo.WriteTag(ctx, targetObjectID, targetObjectType, tagName, committer.Name, committer.Email, message, committerTime)
+		if err != nil {
+			var FormatTagError localrepo.FormatTagError
+			if errors.As(err, &FormatTagError) {
+				return nil, "", status.Errorf(codes.Unknown, "Rugged::InvalidError: failed to parse signature - expected prefix doesn't match actual")
+			}
+
+			var MktagError localrepo.MktagError
+			if errors.As(err, &MktagError) {
+				return nil, "", status.Errorf(codes.NotFound, "Gitlab::Git::CommitError: %s", err.Error())
+			}
+			return nil, "", status.Error(codes.Internal, err.Error())
+		}
+
+		createdTag, err := catfile.GetTag(ctx, catFile, tagObjectID.Revision(), string(tagName), false, false)
+		if err != nil {
+			return nil, "", status.Error(codes.Internal, err.Error())
+		}
+
+		tagObject = &gitalypb.Tag{
+			Name:        tagName,
+			Id:          tagObjectID.String(),
+			Message:     createdTag.Message,
+			MessageSize: createdTag.MessageSize,
+			//TargetCommit: is filled in below if needed
+		}
+
+		refObjectID = tagObjectID
+	} else {
+		tagObject = &gitalypb.Tag{
+			Name: tagName,
+			Id:   peeledTargetObjectID.String(),
+			//TargetCommit: is filled in below if needed
+		}
+	}
+
 	// Save ourselves looking this up earlier in case update-ref
 	// died
 	if peeledTargetObjectType == "commit" {
 		peeledTargetCommit, err := catfile.GetCommit(ctx, catFile, peeledTargetObjectID.Revision())
 		if err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
+			return nil, "", status.Error(codes.Internal, err.Error())
 		}
 		tagObject.TargetCommit = peeledTargetCommit
 	}
 
-	return &gitalypb.UserCreateTagResponse{
-		Tag: tagObject,
-	}, nil
+	return tagObject, refObjectID, nil
 }
