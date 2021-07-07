@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 14.0.4 (2021-07-07)
+
+No changes.
+
 ## 14.0.3 (2021-07-06)
 
 ### Fixed (1 change)
@@ -90,6 +94,10 @@ No changes.
 
 - [Update gitlab-labkit to 0.17.1](gitlab-org/gitaly@904af72eb7c42124978370cef53681fa561b10f5) ([merge request](gitlab-org/gitaly!3395))
 
+## 13.12.8 (2021-07-07)
+
+No changes.
+
 ## 13.12.7 (2021-07-05)
 
 ### Fixed (1 change)
@@ -168,6 +176,10 @@ No changes.
 
 - Multiplex connections between Praefect and Gitaly by default. !3360
 
+
+## 13.11.7 (2021-07-07)
+
+No changes.
 
 ## 13.11.6 (2021-07-01)
 
