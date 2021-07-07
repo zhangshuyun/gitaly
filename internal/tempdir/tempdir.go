@@ -15,7 +15,17 @@ import (
 // New returns the path of a new temporary directory for the given storage. The directory is removed
 // asynchronously with os.RemoveAll when the context expires.
 func New(ctx context.Context, storageName string, locator storage.Locator) (string, error) {
-	return newDirectory(ctx, storageName, "repo", locator)
+	dir, err := newDirectory(ctx, storageName, "repo", locator)
+	if err != nil {
+		return "", err
+	}
+
+	go func() {
+		<-ctx.Done()
+		os.RemoveAll(dir)
+	}()
+
+	return dir, nil
 }
 
 // NewWithoutContext returns a temporary directory for the given storage suitable which is not
@@ -63,11 +73,6 @@ func newDirectory(ctx context.Context, storageName string, prefix string, loc st
 	if err != nil {
 		return "", err
 	}
-
-	go func() {
-		<-ctx.Done()
-		os.RemoveAll(tempDir)
-	}()
 
 	return tempDir, err
 }
