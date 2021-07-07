@@ -142,6 +142,7 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 		ctx,
 		req.GetRepository(),
 		req.GetUser(),
+		nil,
 		referenceName,
 		commitID,
 		branchOID,

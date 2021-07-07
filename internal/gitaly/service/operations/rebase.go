@@ -93,6 +93,7 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 		ctx,
 		header.Repository,
 		header.User,
+		nil,
 		branch,
 		newrev,
 		oldrev,

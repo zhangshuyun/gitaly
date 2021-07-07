@@ -317,7 +317,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 		oldRevision = targetBranchCommit
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, header.Repository, header.User, targetBranchName, commitID, oldRevision); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, header.Repository, header.User, nil, targetBranchName, commitID, oldRevision); err != nil {
 		if errors.As(err, &updateref.Error{}) {
 			return status.Errorf(codes.FailedPrecondition, err.Error())
 		}
