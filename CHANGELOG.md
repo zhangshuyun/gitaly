@@ -177,6 +177,10 @@ No changes.
 - Multiplex connections between Praefect and Gitaly by default. !3360
 
 
+## 13.11.7 (2021-07-07)
+
+No changes.
+
 ## 13.11.6 (2021-07-01)
 
 No changes.
