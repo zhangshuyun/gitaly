@@ -13,11 +13,14 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/quarantine"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	hookservice "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -83,7 +86,7 @@ func TestUpdaterWithHooks_UpdateReference_invalidParameters(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			err := updater.UpdateReference(ctx, repo, user, tc.ref, tc.newRev, tc.oldRev)
+			err := updater.UpdateReference(ctx, repo, user, nil, tc.ref, tc.newRev, tc.oldRev)
 			require.Contains(t, err.Error(), tc.expectedErr)
 		})
 	}
@@ -247,7 +250,7 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 			gitCmdFactory := git.NewExecCommandFactory(cfg)
 			updater := NewUpdaterWithHooks(cfg, hookManager, gitCmdFactory, nil)
 
-			err := updater.UpdateReference(ctx, repo, user, git.ReferenceName("refs/heads/master"), git.ZeroOID, git.ObjectID(oldRev))
+			err := updater.UpdateReference(ctx, repo, user, nil, git.ReferenceName("refs/heads/master"), git.ZeroOID, git.ObjectID(oldRev))
 			if tc.expectedErr == "" {
 				require.NoError(t, err)
 			} else {
@@ -266,4 +269,112 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestUpdaterWithHooks_quarantine(t *testing.T) {
+	cfg, repoProto, _ := testcfg.BuildWithRepo(t)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	locator := config.NewLocator(cfg)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	unquarantinedRepo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	quarantine, err := quarantine.New(ctx, repoProto, locator)
+	require.NoError(t, err)
+	quarantinedRepo := localrepo.NewTestRepo(t, cfg, quarantine.QuarantinedRepo())
+	blobID, err := quarantinedRepo.WriteBlob(ctx, "", strings.NewReader("1834298812398123"))
+	require.NoError(t, err)
+
+	expectQuarantined := func(t *testing.T, env []string, quarantined bool) {
+		t.Helper()
+
+		if env != nil {
+			payload, err := git.HooksPayloadFromEnv(env)
+			require.NoError(t, err)
+			if quarantined {
+				testassert.ProtoEqual(t, quarantine.QuarantinedRepo(), payload.Repo)
+			} else {
+				testassert.ProtoEqual(t, repoProto, payload.Repo)
+			}
+		}
+
+		exists, err := quarantinedRepo.HasRevision(ctx, blobID.Revision()+"^{blob}")
+		require.NoError(t, err)
+		require.Equal(t, quarantined, exists)
+
+		exists, err = unquarantinedRepo.HasRevision(ctx, blobID.Revision()+"^{blob}")
+		require.NoError(t, err)
+		require.Equal(t, !quarantined, exists)
+	}
+
+	hookExecutions := make(map[string]int)
+	hookManager := hook.NewMockManager(t,
+		// The pre-receive hook is not expected to have the object in the normal repo.
+		func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
+			expectQuarantined(t, env, true)
+			testassert.ProtoEqual(t, quarantine.QuarantinedRepo(), repo)
+			hookExecutions["prereceive"]++
+			return nil
+		},
+		// But the post-receive hook shall get the unquarantined repository as input, with
+		// objects already having been migrated into the target repo.
+		func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
+			expectQuarantined(t, env, false)
+			testassert.ProtoEqual(t, repoProto, repo)
+			hookExecutions["postreceive"]++
+			return nil
+		},
+		// The update hook gets executed between pre-receive hook and the first invocation
+		// of the reference-transaction and must thus be called with the quarantined repo.
+		func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error {
+			expectQuarantined(t, env, true)
+			testassert.ProtoEqual(t, quarantine.QuarantinedRepo(), repo)
+			hookExecutions["update"]++
+			return nil
+		},
+		// For the reference-transaction hook, it depends: in "prepare" state, we should see
+		// that the object is only part of the quarantine. In "commit" state, it must be
+		// part of the normal repo.
+		func(t *testing.T, ctx context.Context, state hook.ReferenceTransactionState, env []string, stdin io.Reader) error {
+			switch state {
+			case hook.ReferenceTransactionPrepared:
+				expectQuarantined(t, env, true)
+				hookExecutions["prepare"]++
+			case hook.ReferenceTransactionCommitted:
+				expectQuarantined(t, env, false)
+				hookExecutions["commit"]++
+			}
+
+			return nil
+		},
+	)
+
+	require.NoError(t, NewUpdaterWithHooks(cfg, hookManager, gitCmdFactory, nil).UpdateReference(
+		ctx,
+		repoProto,
+		&gitalypb.User{
+			GlId:       "1234",
+			GlUsername: "Username",
+			Name:       []byte("Name"),
+			Email:      []byte("mail@example.com"),
+		},
+		quarantine,
+		git.ReferenceName("refs/heads/master"),
+		git.ZeroOID,
+		git.ObjectID("1e292f8fedd741b75372e19097c76d327140c312"),
+	))
+
+	require.Equal(t, map[string]int{
+		"prereceive":  1,
+		"postreceive": 1,
+		"update":      1,
+		"prepare":     1,
+		"commit":      1,
+	}, hookExecutions)
+
+	contained, err := unquarantinedRepo.HasRevision(ctx, git.Revision("refs/heads/master"))
+	require.NoError(t, err)
+	require.False(t, contained, "branch should have been deleted")
 }

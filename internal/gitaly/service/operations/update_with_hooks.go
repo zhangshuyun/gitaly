@@ -15,5 +15,5 @@ func (s *Server) updateReferenceWithHooks(
 	newrev, oldrev git.ObjectID,
 	pushOptions ...string,
 ) error {
-	return s.updater.UpdateReference(ctx, repo, user, reference, newrev, oldrev, pushOptions...)
+	return s.updater.UpdateReference(ctx, repo, user, nil, reference, newrev, oldrev, pushOptions...)
 }
