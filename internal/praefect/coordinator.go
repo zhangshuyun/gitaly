@@ -14,6 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 	glerrors "gitlab.com/gitlab-org/gitaly/v14/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
@@ -38,6 +39,12 @@ type transactionsCondition func(context.Context) bool
 
 func transactionsEnabled(context.Context) bool  { return true }
 func transactionsDisabled(context.Context) bool { return false }
+
+func transactionsFlag(flag featureflag.FeatureFlag) transactionsCondition {
+	return func(ctx context.Context) bool {
+		return featureflag.IsEnabled(ctx, flag)
+	}
+}
 
 // transactionRPCs contains the list of repository-scoped mutating calls which may take part in
 // transactions. An optional feature flag can be added to conditionally enable transactional
@@ -84,28 +91,33 @@ var transactionRPCs = map[string]transactionsCondition{
 	"/gitaly.WikiService/WikiUpdatePage":                     transactionsEnabled,
 	"/gitaly.WikiService/WikiWritePage":                      transactionsEnabled,
 
-	// The following RPCs don't perform any reference updates and thus
-	// shouldn't use transactions.
+	"/gitaly.RepositoryService/RemoveRepository": transactionsFlag(featureflag.TxRemoveRepository),
+
+	// The following RPCs currently aren't transactional, but we may consider making them
+	// transactional in the future if the need arises.
 	"/gitaly.ObjectPoolService/CreateObjectPool":               transactionsDisabled,
 	"/gitaly.ObjectPoolService/DeleteObjectPool":               transactionsDisabled,
 	"/gitaly.ObjectPoolService/DisconnectGitAlternates":        transactionsDisabled,
 	"/gitaly.ObjectPoolService/LinkRepositoryToObjectPool":     transactionsDisabled,
 	"/gitaly.ObjectPoolService/ReduplicateRepository":          transactionsDisabled,
 	"/gitaly.ObjectPoolService/UnlinkRepositoryFromObjectPool": transactionsDisabled,
-	"/gitaly.RefService/PackRefs":                              transactionsDisabled,
-	"/gitaly.RepositoryService/Cleanup":                        transactionsDisabled,
-	"/gitaly.RepositoryService/GarbageCollect":                 transactionsDisabled,
-	"/gitaly.RepositoryService/MidxRepack":                     transactionsDisabled,
-	"/gitaly.RepositoryService/OptimizeRepository":             transactionsDisabled,
-	"/gitaly.RepositoryService/RemoveRepository":               transactionsDisabled,
 	"/gitaly.RepositoryService/RenameRepository":               transactionsDisabled,
-	"/gitaly.RepositoryService/RepackFull":                     transactionsDisabled,
-	"/gitaly.RepositoryService/RepackIncremental":              transactionsDisabled,
-	"/gitaly.RepositoryService/RestoreCustomHooks":             transactionsDisabled,
-	"/gitaly.RepositoryService/WriteCommitGraph":               transactionsDisabled,
 
-	// These shouldn't ever use transactions for the sake of not creating
-	// cyclic dependencies.
+	// The following list of RPCs are considered idempotent RPCs: while they write into the
+	// target repository, this shouldn't ever have any user-visible impact given that they're
+	// purely optimizations of the on-disk state. These RPCs are thus treated specially and
+	// shouldn't ever cause a repository generation bump.
+	"/gitaly.RefService/PackRefs":                  transactionsDisabled,
+	"/gitaly.RepositoryService/Cleanup":            transactionsDisabled,
+	"/gitaly.RepositoryService/GarbageCollect":     transactionsDisabled,
+	"/gitaly.RepositoryService/MidxRepack":         transactionsDisabled,
+	"/gitaly.RepositoryService/OptimizeRepository": transactionsDisabled,
+	"/gitaly.RepositoryService/RepackFull":         transactionsDisabled,
+	"/gitaly.RepositoryService/RepackIncremental":  transactionsDisabled,
+	"/gitaly.RepositoryService/RestoreCustomHooks": transactionsDisabled,
+	"/gitaly.RepositoryService/WriteCommitGraph":   transactionsDisabled,
+
+	// These shouldn't ever use transactions for the sake of not creating cyclic dependencies.
 	"/gitaly.RefTransaction/StopTransaction": transactionsDisabled,
 	"/gitaly.RefTransaction/VoteTransaction": transactionsDisabled,
 }

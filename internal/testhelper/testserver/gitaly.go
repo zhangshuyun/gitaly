@@ -50,6 +50,11 @@ func RunGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server
 	}
 
 	praefectAddr, _ := runPraefectProxy(t, cfg, gitalyAddr, praefectBinPath)
+
+	// In case we're running with a Praefect proxy, it will use Gitaly's health information to
+	// inform routing decisions. The Gitaly node thus must be healthy.
+	waitHealthy(t, cfg, gitalyAddr, 3, time.Second)
+
 	return praefectAddr
 }
 
@@ -104,16 +109,7 @@ func runPraefectProxy(t testing.TB, cfg config.Cfg, gitalyAddr, praefectBinPath 
 
 	require.NoError(t, cmd.Start())
 
-	grpcOpts := []grpc.DialOption{grpc.WithInsecure()}
-	if cfg.Auth.Token != "" {
-		grpcOpts = append(grpcOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)))
-	}
-
-	conn, err := grpc.Dial(praefectServerSocketPath, grpcOpts...)
-	require.NoError(t, err)
-	t.Cleanup(func() { conn.Close() })
-
-	waitHealthy(t, conn, 3, time.Second)
+	waitHealthy(t, cfg, praefectServerSocketPath, 3, time.Second)
 
 	t.Cleanup(func() { _ = cmd.Wait() })
 	shutdown := func() { _ = cmd.Process.Kill() }
@@ -163,7 +159,16 @@ func StartGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Serv
 // waitHealthy executes health check request `retries` times and awaits each `timeout` period to respond.
 // After `retries` unsuccessful attempts it returns an error.
 // Returns immediately without an error once get a successful health check response.
-func waitHealthy(t testing.TB, conn *grpc.ClientConn, retries int, timeout time.Duration) {
+func waitHealthy(t testing.TB, cfg config.Cfg, addr string, retries int, timeout time.Duration) {
+	grpcOpts := []grpc.DialOption{grpc.WithInsecure()}
+	if cfg.Auth.Token != "" {
+		grpcOpts = append(grpcOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)))
+	}
+
+	conn, err := grpc.Dial(addr, grpcOpts...)
+	require.NoError(t, err)
+	defer conn.Close()
+
 	for i := 0; i < retries; i++ {
 		if IsHealthy(conn, timeout) {
 			return

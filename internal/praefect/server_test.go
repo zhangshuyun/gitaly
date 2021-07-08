@@ -247,7 +247,7 @@ func TestDiskStatistics(t *testing.T) {
 	for _, name := range []string{"gitaly-1", "gitaly-2"} {
 		gitalyCfg := testcfg.Build(t)
 
-		gitalyAddr := testserver.RunGitalyServer(t, gitalyCfg, nil, setup.RegisterAll)
+		gitalyAddr := testserver.RunGitalyServer(t, gitalyCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
 		praefectCfg.VirtualStorages[0].Nodes = append(praefectCfg.VirtualStorages[0].Nodes, &config.Node{
 			Storage: name,
@@ -463,7 +463,7 @@ func TestRemoveRepository(t *testing.T) {
 		cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages(name))
 		gitalyCfgs[i], repos[i] = cfgBuilder.BuildWithRepoAt(t, "test-repository")
 
-		gitalyAddr := testserver.RunGitalyServer(t, gitalyCfgs[i], nil, setup.RegisterAll)
+		gitalyAddr := testserver.RunGitalyServer(t, gitalyCfgs[i], nil, setup.RegisterAll, testserver.WithDisablePraefect())
 		gitalyCfgs[i].SocketPath = gitalyAddr
 
 		praefectCfg.VirtualStorages[0].Nodes = append(praefectCfg.VirtualStorages[0].Nodes, &config.Node{
@@ -499,7 +499,24 @@ func TestRemoveRepository(t *testing.T) {
 		return queue.Acknowledge(ctx, state, ids)
 	})
 
-	cc, _, cleanup := runPraefectServer(t, praefectCfg, buildOptions{withQueue: queueInterceptor})
+	repoStore := defaultRepoStore(praefectCfg)
+	txMgr := defaultTxMgr(praefectCfg)
+	nodeMgr, err := nodes.NewManager(testhelper.DiscardTestEntry(t), praefectCfg, nil,
+		repoStore, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered,
+		nil, backchannel.NewClientHandshaker(
+			testhelper.DiscardTestEntry(t),
+			NewBackchannelServerFactory(testhelper.DiscardTestEntry(t), transaction.NewServer(txMgr)),
+		),
+	)
+	require.NoError(t, err)
+	nodeMgr.Start(0, time.Hour)
+
+	cc, _, cleanup := runPraefectServer(t, praefectCfg, buildOptions{
+		withQueue:     queueInterceptor,
+		withRepoStore: repoStore,
+		withNodeMgr:   nodeMgr,
+		withTxMgr:     txMgr,
+	})
 	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
@@ -508,7 +525,7 @@ func TestRemoveRepository(t *testing.T) {
 	virtualRepo := proto.Clone(repos[0][0]).(*gitalypb.Repository)
 	virtualRepo.StorageName = praefectCfg.VirtualStorages[0].Name
 
-	_, err := gitalypb.NewRepositoryServiceClient(cc).RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{
+	_, err = gitalypb.NewRepositoryServiceClient(cc).RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{
 		Repository: virtualRepo,
 	})
 	require.NoError(t, err)
@@ -554,7 +571,7 @@ func TestRenameRepository(t *testing.T) {
 			repo = repos[0]
 		}
 
-		gitalyAddr := testserver.RunGitalyServer(t, gitalyCfg, nil, setup.RegisterAll)
+		gitalyAddr := testserver.RunGitalyServer(t, gitalyCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
 		praefectCfg.VirtualStorages[0].Nodes = append(praefectCfg.VirtualStorages[0].Nodes, &config.Node{
 			Storage: storageName,
