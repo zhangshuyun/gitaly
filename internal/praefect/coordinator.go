@@ -792,11 +792,11 @@ func getUpdatedAndOutdatedSecondaries(
 		return false, nil, nil
 	}
 
-	// If there were subtransactions, we assume no changes were made if none of the
-	// subtransactions was committed. This can really only happen for the first subtransaction
-	// given that no new subtransactions are created if the first one wasn't committed. Same as
-	// above, we exit early in this case and notify the caller that the primary is not dirty.
-	if transaction.CountSubtransactions() != 0 && !transaction.DidCommitAnySubtransaction() {
+	// If there was a single subtransactions but the primary didn't cast a vote, then it means
+	// that the primary node has dropped out before secondaries were able to commit any changes
+	// to disk. Given that they cannot ever succeed without the primary, no change to disk
+	// should have happened.
+	if transaction.CountSubtransactions() == 1 && !transaction.DidVote(route.Primary.Storage) {
 		return false, nil, nil
 	}
 
