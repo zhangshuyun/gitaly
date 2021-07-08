@@ -163,7 +163,9 @@ func (dr defaultReplicator) Destroy(ctx context.Context, event datastore.Replica
 	var deleteFunc func(context.Context, string, string, string) error
 	switch event.Job.Change {
 	case datastore.DeleteRepo:
-		deleteFunc = dr.rs.DeleteRepository
+		deleteFunc = func(ctx context.Context, virtualStorage, relativePath, storage string) error {
+			return dr.rs.DeleteRepository(ctx, virtualStorage, relativePath, []string{storage})
+		}
 	case datastore.DeleteReplica:
 		deleteFunc = dr.rs.DeleteReplica
 	default:
