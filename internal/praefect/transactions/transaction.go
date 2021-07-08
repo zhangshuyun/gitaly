@@ -57,8 +57,6 @@ type Transaction interface {
 	CountSubtransactions() int
 	// State returns the state of each voter part of the transaction.
 	State() (map[string]VoteResult, error)
-	// DidCommitAnySubtransaction returns whether the transaction committed at least one subtransaction.
-	DidCommitAnySubtransaction() bool
 	// DidVote returns whether the given node has cast a vote.
 	DidVote(string) bool
 }
@@ -186,28 +184,6 @@ func (t *transaction) CountSubtransactions() int {
 	defer t.lock.Unlock()
 
 	return len(t.subtransactions)
-}
-
-// DidCommitSubtransaction returns whether the transaction committed at least one subtransaction.
-func (t *transaction) DidCommitAnySubtransaction() bool {
-	t.lock.Lock()
-	defer t.lock.Unlock()
-
-	if len(t.subtransactions) == 0 {
-		return false
-	}
-
-	// We only need to check the first subtransaction. If it failed, there would
-	// be no further subtransactions.
-	for _, result := range t.subtransactions[0].state() {
-		// It's sufficient to find a single commit in the subtransaction
-		// to say it was committed.
-		if result == VoteCommitted {
-			return true
-		}
-	}
-
-	return false
 }
 
 // DidVote determines whether the given node did cast a vote. If it's not possible to retrieve the
