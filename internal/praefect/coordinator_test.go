@@ -1509,6 +1509,7 @@ type mockTransaction struct {
 	nodeStates                 map[string]transactions.VoteResult
 	subtransactions            int
 	didCommitAnySubtransaction bool
+	didVote                    map[string]bool
 }
 
 func (t mockTransaction) ID() uint64 {
@@ -1521,6 +1522,10 @@ func (t mockTransaction) CountSubtransactions() int {
 
 func (t mockTransaction) DidCommitAnySubtransaction() bool {
 	return t.didCommitAnySubtransaction
+}
+
+func (t mockTransaction) DidVote(node string) bool {
+	return t.didVote[node]
 }
 
 func (t mockTransaction) State() (map[string]transactions.VoteResult, error) {
