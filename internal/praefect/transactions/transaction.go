@@ -166,12 +166,12 @@ func (t *transaction) State() (map[string]VoteResult, error) {
 		return results, nil
 	}
 
-	// Collect all subtransactions. As they are ordered by reverse recency, we can simply
-	// overwrite our own results.
-	for _, subtransaction := range t.subtransactions {
-		for voter, result := range subtransaction.state() {
-			results[voter] = result
-		}
+	// Collect voter results. Given that all subtransactions are created with all voters
+	// registered in the transaction, we can simply take results from the last subtransaction.
+	// Any nodes which didn't yet cast a vote in the last transaction will be in the default
+	// undecided state.
+	for voter, result := range t.subtransactions[len(t.subtransactions)-1].state() {
+		results[voter] = result
 	}
 
 	return results, nil
