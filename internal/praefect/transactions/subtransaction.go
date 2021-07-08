@@ -345,3 +345,21 @@ func (t *subtransaction) getResult(node string) (VoteResult, error) {
 
 	return voter.result, nil
 }
+
+func (t *subtransaction) getVote(node string) (*voting.Vote, error) {
+	t.lock.RLock()
+	defer t.lock.RUnlock()
+
+	voter, ok := t.votersByNode[node]
+	if !ok {
+		return nil, fmt.Errorf("invalid node for transaction: %q", node)
+	}
+
+	if voter.vote == nil {
+		return nil, nil
+	}
+
+	// Return a copy of the vote.
+	vote := *voter.vote
+	return &vote, nil
+}
