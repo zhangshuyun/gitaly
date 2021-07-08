@@ -1636,14 +1636,12 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			},
 		},
 		{
-			desc: "single failing node with replica",
+			desc: "single failing node with replica is not considered modified",
 			primary: node{
 				name:  "primary",
 				state: transactions.VoteFailed,
 			},
-			replicas:         []string{"replica"},
-			subtransactions:  1,
-			expectedOutdated: []string{"replica"},
+			subtransactions: 1,
 		},
 		{
 			desc: "single erred node with replica",

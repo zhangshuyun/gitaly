@@ -786,26 +786,25 @@ func getUpdatedAndOutdatedSecondaries(
 
 	primaryErr := nodeErrors.errByNode[route.Primary.Storage]
 
-	// If there were subtransactions, we only assume some changes were made if one of the subtransactions
-	// was committed.
-	//
-	// If there were no subtransactions, we assume changes were performed only if the primary successfully
-	// processed the RPC. This might be an RPC that is not correctly casting votes thus we replicate everywhere.
-	//
-	// If there were no subtransactions and the primary failed the RPC, we assume no changes have been made and
-	// the nodes simply failed before voting.
-	primaryDirtied = transaction.DidCommitAnySubtransaction() ||
-		(transaction.CountSubtransactions() == 0 && primaryErr == nil)
+	// If there were no subtransactions and the primary failed the RPC, we assume no changes
+	// have been made and the nodes simply failed before voting. We can thus return directly and
+	// notify the caller that the primary is not considered to be dirty.
+	if transaction.CountSubtransactions() == 0 && primaryErr != nil {
+		return false, nil, nil
+	}
+
+	// If there were subtransactions, we assume no changes were made if none of the
+	// subtransactions was committed. This can really only happen for the first subtransaction
+	// given that no new subtransactions are created if the first one wasn't committed. Same as
+	// above, we exit early in this case and notify the caller that the primary is not dirty.
+	if transaction.CountSubtransactions() != 0 && !transaction.DidCommitAnySubtransaction() {
+		return false, nil, nil
+	}
+
+	primaryDirtied = true
 
 	nodesByState := make(map[string][]string)
 	defer func() {
-		// If the primary wasn't dirtied, then we never replicate any changes and thus
-		// shouldn't log nodes as outdated here. While this is duplicates logic defined
-		// elsewhere, it's probably good enough given that we only talk about metrics here.
-		if !primaryDirtied {
-			return
-		}
-
 		ctxlogrus.Extract(ctx).
 			WithField("transaction.primary", route.Primary.Storage).
 			WithField("transaction.secondaries", nodesByState).
