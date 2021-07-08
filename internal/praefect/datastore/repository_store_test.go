@@ -410,10 +410,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		t.Run("delete non-existing", func(t *testing.T) {
 			rs, _ := newStore(t, nil)
 
-			require.Equal(t,
-				RepositoryNotExistsError{vs, repo, stor},
-				rs.DeleteRepository(ctx, vs, repo, stor),
-			)
+			require.Equal(t, ErrNoRowsAffected, rs.DeleteRepository(ctx, vs, repo, stor))
 		})
 
 		t.Run("delete existing", func(t *testing.T) {
@@ -493,10 +490,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		rs, requireState := newStore(t, nil)
 
 		t.Run("delete non-existing", func(t *testing.T) {
-			require.Equal(t,
-				RepositoryNotExistsError{"virtual-storage-1", "relative-path-1", "storage-1"},
-				rs.DeleteReplica(ctx, "virtual-storage-1", "relative-path-1", "storage-1"),
-			)
+			require.Equal(t, ErrNoRowsAffected, rs.DeleteReplica(ctx, "virtual-storage-1", "relative-path-1", "storage-1"))
 		})
 
 		t.Run("delete existing", func(t *testing.T) {

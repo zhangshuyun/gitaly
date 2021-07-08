@@ -77,6 +77,9 @@ func (err RepositoryExistsError) Error() string {
 	)
 }
 
+// ErrNoRowsAffected is returned when a query did not perform any changes.
+var ErrNoRowsAffected = errors.New("no rows were affected by the query")
+
 // RepositoryStore provides access to repository state.
 type RepositoryStore interface {
 	// GetGeneration gets the repository's generation on a given storage.
@@ -101,7 +104,7 @@ type RepositoryStore interface {
 	// secondaries are stored as the assigned hosts of the repository.
 	CreateRepository(ctx context.Context, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error
 	// DeleteRepository deletes the repository from the virtual storage and the storage. Returns
-	// RepositoryNotExistsError when trying to delete a repository which has no record in the virtual storage
+	// ErrNoRowsAffected when trying to delete a repository which has no record in the virtual storage
 	// or the storage.
 	DeleteRepository(ctx context.Context, virtualStorage, relativePath, storage string) error
 	// DeleteReplica deletes a replica of a repository from a storage without affecting other state in the virtual storage.
@@ -391,11 +394,7 @@ func (rs *PostgresRepositoryStore) delete(ctx context.Context, query, virtualSto
 	if n, err := result.RowsAffected(); err != nil {
 		return err
 	} else if n == 0 {
-		return RepositoryNotExistsError{
-			virtualStorage: virtualStorage,
-			relativePath:   relativePath,
-			storage:        storage,
-		}
+		return ErrNoRowsAffected
 	}
 
 	return nil

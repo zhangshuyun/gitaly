@@ -972,7 +972,7 @@ func (c *Coordinator) newRequestFinalizer(
 			// Ideally we would delete the record from the db first and schedule the repository for deletion later in order to avoid
 			// this problem. Client can reattempt this as deleting a repository is idempotent.
 			if err := c.rs.DeleteRepository(ctx, virtualStorage, targetRepo.GetRelativePath(), primary); err != nil {
-				if !errors.Is(err, datastore.RepositoryNotExistsError{}) {
+				if !errors.Is(err, datastore.ErrNoRowsAffected) {
 					return fmt.Errorf("delete repository: %w", err)
 				}
 
