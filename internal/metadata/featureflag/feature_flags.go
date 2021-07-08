@@ -24,6 +24,8 @@ var (
 	FindAllTagsPipeline = FeatureFlag{Name: "find_all_tags_pipeline", OnByDefault: false}
 	// TxRemoveRepository enables transactionsal voting for the RemoveRepository RPC.
 	TxRemoveRepository = FeatureFlag{Name: "tx_remove_repository", OnByDefault: false}
+	// QuarantinedUserCreateTag enables use of a quarantine object directory for UserCreateTag.
+	QuarantinedUserCreateTag = FeatureFlag{Name: "quarantined_user_create_tag", OnByDefault: false}
 )
 
 // All includes all feature flags.
@@ -36,4 +38,5 @@ var All = []FeatureFlag{
 	ReplicateRepositoryDirectFetch,
 	FindAllTagsPipeline,
 	TxRemoveRepository,
+	QuarantinedUserCreateTag,
 }

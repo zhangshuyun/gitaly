@@ -12,8 +12,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -102,14 +104,27 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 		}
 	}
 
-	repo := s.localrepo(req.GetRepository())
-	tag, tagID, err := s.createTag(ctx, repo, targetRevision, req.TagName, req.Message, req.User, committerTime)
+	var quarantineRepo *localrepo.Repo
+	var quarantineDir *quarantine.Dir
+	if featureflag.QuarantinedUserCreateTag.IsEnabled(ctx) {
+		var err error
+		quarantineDir, err = quarantine.New(ctx, req.GetRepository(), s.locator)
+		if err != nil {
+			return nil, helper.ErrInternalf("creating object quarantine: %w", err)
+		}
+
+		quarantineRepo = s.localrepo(quarantineDir.QuarantinedRepo())
+	} else {
+		quarantineRepo = s.localrepo(req.GetRepository())
+	}
+
+	tag, tagID, err := s.createTag(ctx, quarantineRepo, targetRevision, req.TagName, req.Message, req.User, committerTime)
 	if err != nil {
 		return nil, err
 	}
 
 	referenceName := git.ReferenceName(fmt.Sprintf("refs/tags/%s", req.TagName))
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, nil, referenceName, tagID, git.ZeroOID); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, quarantineDir, referenceName, tagID, git.ZeroOID); err != nil {
 		var preReceiveError updateref.PreReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserCreateTagResponse{
