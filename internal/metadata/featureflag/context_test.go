@@ -12,28 +12,28 @@ var mockFeatureFlag = FeatureFlag{"turn meow on", false}
 
 func TestIncomingCtxWithFeatureFlag(t *testing.T) {
 	ctx := context.Background()
-	require.False(t, IsEnabled(ctx, mockFeatureFlag))
+	require.False(t, mockFeatureFlag.IsEnabled(ctx))
 
 	ctx = IncomingCtxWithFeatureFlag(ctx, mockFeatureFlag)
-	require.True(t, IsEnabled(ctx, mockFeatureFlag))
+	require.True(t, mockFeatureFlag.IsEnabled(ctx))
 }
 
 func TestIncomingCtxWithDisabledFeatureFlag(t *testing.T) {
 	ctx := context.Background()
 
-	require.False(t, IsEnabled(ctx, mockFeatureFlag))
+	require.False(t, mockFeatureFlag.IsEnabled(ctx))
 
 	ctx = IncomingCtxWithDisabledFeatureFlag(ctx, mockFeatureFlag)
 
-	require.True(t, IsDisabled(ctx, mockFeatureFlag))
+	require.True(t, mockFeatureFlag.IsDisabled(ctx))
 }
 
 func TestOutgoingCtxWithFeatureFlag(t *testing.T) {
 	ctx := context.Background()
-	require.False(t, IsEnabled(ctx, mockFeatureFlag))
+	require.False(t, mockFeatureFlag.IsEnabled(ctx))
 
 	ctx = OutgoingCtxWithFeatureFlags(ctx, mockFeatureFlag)
-	require.False(t, IsEnabled(ctx, mockFeatureFlag))
+	require.False(t, mockFeatureFlag.IsEnabled(ctx))
 
 	// simulate an outgoing context leaving the process boundary and then
 	// becoming an incoming context in a new process boundary
@@ -41,5 +41,5 @@ func TestOutgoingCtxWithFeatureFlag(t *testing.T) {
 	require.True(t, ok)
 
 	ctx = metadata.NewIncomingContext(context.Background(), md)
-	require.True(t, IsEnabled(ctx, mockFeatureFlag))
+	require.True(t, mockFeatureFlag.IsEnabled(ctx))
 }
