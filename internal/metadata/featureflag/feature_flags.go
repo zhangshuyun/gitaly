@@ -15,7 +15,7 @@ var (
 	FetchInternalRemoteErrors = FeatureFlag{Name: "fetch_internal_remote_errors", OnByDefault: false}
 	// LFSPointersPipeline enables the alternative pipeline implementation of LFS-pointer
 	// related RPCs.
-	LFSPointersPipeline = FeatureFlag{Name: "lfs_pointers_pipeline", OnByDefault: false}
+	LFSPointersPipeline = FeatureFlag{Name: "lfs_pointers_pipeline", OnByDefault: true}
 	// GoSetConfig enables git2go implementation of SetConfig.
 	GoSetConfig = FeatureFlag{Name: "go_set_config", OnByDefault: false}
 	// CreateRepositoryFromBundleAtomicFetch will add the `--atomic` flag to git-fetch(1) in
