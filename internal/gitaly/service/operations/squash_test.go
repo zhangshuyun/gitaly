@@ -2,6 +2,7 @@ package operations
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -9,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
@@ -17,9 +17,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 var (
@@ -440,9 +440,10 @@ func TestUserSquashWithGitError(t *testing.T) {
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
-		desc     string
-		request  *gitalypb.UserSquashRequest
-		gitError string
+		desc             string
+		request          *gitalypb.UserSquashRequest
+		expectedErr      error
+		expectedResponse *gitalypb.UserSquashResponse
 	}{
 		{
 			desc: "not existing start SHA",
@@ -455,7 +456,9 @@ func TestUserSquashWithGitError(t *testing.T) {
 				StartSha:      "doesntexisting",
 				EndSha:        endSha,
 			},
-			gitError: "fatal: ambiguous argument 'doesntexisting...54cec5282aa9f21856362fe321c800c236a61615'",
+			expectedResponse: &gitalypb.UserSquashResponse{
+				GitError: "fatal: ambiguous argument 'doesntexisting...54cec5282aa9f21856362fe321c800c236a61615': unknown revision or path not in the working tree.\nUse '--' to separate paths from revisions, like this:\n'git <command> [<revision>...] -- [<file>...]'\n",
+			},
 		},
 		{
 			desc: "not existing end SHA",
@@ -468,7 +471,9 @@ func TestUserSquashWithGitError(t *testing.T) {
 				StartSha:      startSha,
 				EndSha:        "doesntexisting",
 			},
-			gitError: "fatal: ambiguous argument 'b83d6e391c22777fca1ed3012fce84f633d7fed0...doesntexisting'",
+			expectedResponse: &gitalypb.UserSquashResponse{
+				GitError: "fatal: ambiguous argument 'b83d6e391c22777fca1ed3012fce84f633d7fed0...doesntexisting': unknown revision or path not in the working tree.\nUse '--' to separate paths from revisions, like this:\n'git <command> [<revision>...] -- [<file>...]'\n",
+			},
 		},
 		{
 			desc: "user has no name set",
@@ -481,7 +486,9 @@ func TestUserSquashWithGitError(t *testing.T) {
 				StartSha:      startSha,
 				EndSha:        endSha,
 			},
-			gitError: "fatal: empty ident name (for <janedoe@gitlab.com>) not allowed",
+			expectedResponse: &gitalypb.UserSquashResponse{
+				GitError: "fatal: empty ident name (for <janedoe@gitlab.com>) not allowed\n",
+			},
 		},
 		{
 			desc: "author has no name set",
@@ -494,18 +501,22 @@ func TestUserSquashWithGitError(t *testing.T) {
 				StartSha:      startSha,
 				EndSha:        endSha,
 			},
-			gitError: "fatal: empty ident name (for <janedoe@gitlab.com>) not allowed",
+			expectedResponse: &gitalypb.UserSquashResponse{
+				GitError: "fatal: empty ident name (for <janedoe@gitlab.com>) not allowed\n",
+			},
 		},
 	}
 
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			resp, err := client.UserSquash(ctx, testCase.request)
-			s, ok := status.FromError(err)
-			require.True(t, ok)
-			assert.Equal(t, codes.OK, s.Code())
-			assert.Empty(t, resp.SquashSha)
-			assert.Contains(t, resp.GitError, testCase.gitError)
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			response, err := client.UserSquash(ctx, tc.request)
+			if err != nil {
+				// Flatten the error to make it easier to compare.
+				err = errors.New(err.Error())
+			}
+
+			require.Equal(t, tc.expectedErr, err)
+			testassert.ProtoEqual(t, tc.expectedResponse, response)
 		})
 	}
 }
