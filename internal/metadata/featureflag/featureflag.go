@@ -70,7 +70,7 @@ func getFlagVal(ctx context.Context, flag string) (string, bool) {
 		return "", false
 	}
 
-	val, ok := md[HeaderKey(flag)]
+	val, ok := md[headerKey(flag)]
 	if !ok {
 		return "", false
 	}

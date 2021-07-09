@@ -16,8 +16,8 @@ const (
 	ffPrefix = "gitaly-feature-"
 )
 
-// HeaderKey returns the feature flag key to be used in the metadata map
-func HeaderKey(flag string) string {
+// headerKey returns the feature flag key to be used in the metadata map
+func headerKey(flag string) string {
 	return ffPrefix + strings.ReplaceAll(flag, "_", "-")
 }
 
