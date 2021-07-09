@@ -1,7 +1,6 @@
 package gitpipe
 
 import (
-	"context"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -264,16 +263,11 @@ func TestPipeline(t *testing.T) {
 		catfileProcess, err := catfileCache.BatchProcess(ctx, repo)
 		require.NoError(t, err)
 
-		// We need to create a separate child context because otherwise we'd kill the batch
-		// process.
-		childCtx, cancel := context.WithCancel(ctx)
-		defer cancel()
-
-		revlistIter := Revlist(childCtx, repo, []string{"--all"})
-		revlistIter = RevisionFilter(childCtx, revlistIter, func(RevisionResult) bool { return true })
-		catfileInfoIter := CatfileInfo(childCtx, catfileProcess, revlistIter)
-		catfileInfoIter = CatfileInfoFilter(childCtx, catfileInfoIter, func(CatfileInfoResult) bool { return true })
-		catfileObjectIter := CatfileObject(childCtx, catfileProcess, catfileInfoIter)
+		revlistIter := Revlist(ctx, repo, []string{"--all"})
+		revlistIter = RevisionFilter(ctx, revlistIter, func(RevisionResult) bool { return true })
+		catfileInfoIter := CatfileInfo(ctx, catfileProcess, revlistIter)
+		catfileInfoIter = CatfileInfoFilter(ctx, catfileInfoIter, func(CatfileInfoResult) bool { return true })
+		catfileObjectIter := CatfileObject(ctx, catfileProcess, catfileInfoIter)
 
 		i := 0
 		for catfileObjectIter.Next() {

@@ -39,6 +39,18 @@ func CatfileObject(
 		defer close(resultChan)
 
 		sendResult := func(result CatfileObjectResult) bool {
+			// In case the context has been cancelled, we have a race between observing
+			// an error from the killed Git process and observing the context
+			// cancellation itself. But if we end up here because of cancellation of the
+			// Git process, we don't want to pass that one down the pipeline but instead
+			// just stop the pipeline gracefully. We thus have this check here up front
+			// to error messages from the Git process.
+			select {
+			case <-ctx.Done():
+				return true
+			default:
+			}
+
 			select {
 			case resultChan <- result:
 				return false

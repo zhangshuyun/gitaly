@@ -34,27 +34,18 @@ func CatfileInfo(ctx context.Context, catfile catfile.Batch, revisionIterator Re
 	go func() {
 		defer close(resultChan)
 
-		sendResult := func(result CatfileInfoResult) bool {
-			select {
-			case resultChan <- result:
-				return false
-			case <-ctx.Done():
-				return true
-			}
-		}
-
 		for revisionIterator.Next() {
 			revlistResult := revisionIterator.Result()
 
 			objectInfo, err := catfile.Info(ctx, revlistResult.OID.Revision())
 			if err != nil {
-				sendResult(CatfileInfoResult{
+				sendCatfileInfoResult(ctx, resultChan, CatfileInfoResult{
 					err: fmt.Errorf("retrieving object info for %q: %w", revlistResult.OID, err),
 				})
 				return
 			}
 
-			if isDone := sendResult(CatfileInfoResult{
+			if isDone := sendCatfileInfoResult(ctx, resultChan, CatfileInfoResult{
 				ObjectName: revlistResult.ObjectName,
 				ObjectInfo: objectInfo,
 			}); isDone {
@@ -63,7 +54,7 @@ func CatfileInfo(ctx context.Context, catfile catfile.Batch, revisionIterator Re
 		}
 
 		if err := revisionIterator.Err(); err != nil {
-			sendResult(CatfileInfoResult{err: err})
+			sendCatfileInfoResult(ctx, resultChan, CatfileInfoResult{err: err})
 			return
 		}
 	}()
@@ -84,15 +75,6 @@ func CatfileInfoAllObjects(ctx context.Context, repo *localrepo.Repo) CatfileInf
 	go func() {
 		defer close(resultChan)
 
-		sendResult := func(result CatfileInfoResult) bool {
-			select {
-			case resultChan <- result:
-				return false
-			case <-ctx.Done():
-				return true
-			}
-		}
-
 		var stderr bytes.Buffer
 		cmd, err := repo.Exec(ctx, git.SubCmd{
 			Name: "cat-file",
@@ -104,7 +86,7 @@ func CatfileInfoAllObjects(ctx context.Context, repo *localrepo.Repo) CatfileInf
 			},
 		}, git.WithStderr(&stderr))
 		if err != nil {
-			sendResult(CatfileInfoResult{
+			sendCatfileInfoResult(ctx, resultChan, CatfileInfoResult{
 				err: fmt.Errorf("spawning cat-file failed: %w", err),
 			})
 			return
@@ -118,13 +100,13 @@ func CatfileInfoAllObjects(ctx context.Context, repo *localrepo.Repo) CatfileInf
 					break
 				}
 
-				sendResult(CatfileInfoResult{
+				sendCatfileInfoResult(ctx, resultChan, CatfileInfoResult{
 					err: fmt.Errorf("parsing object info: %w", err),
 				})
 				return
 			}
 
-			if isDone := sendResult(CatfileInfoResult{
+			if isDone := sendCatfileInfoResult(ctx, resultChan, CatfileInfoResult{
 				ObjectInfo: objectInfo,
 			}); isDone {
 				return
@@ -132,7 +114,7 @@ func CatfileInfoAllObjects(ctx context.Context, repo *localrepo.Repo) CatfileInf
 		}
 
 		if err := cmd.Wait(); err != nil {
-			sendResult(CatfileInfoResult{
+			sendCatfileInfoResult(ctx, resultChan, CatfileInfoResult{
 				err: fmt.Errorf("cat-file failed: %w, stderr: %q", err, stderr),
 			})
 			return
@@ -156,18 +138,14 @@ func CatfileInfoFilter(ctx context.Context, it CatfileInfoIterator, filter func(
 		for it.Next() {
 			result := it.Result()
 			if filter(result) {
-				select {
-				case resultChan <- result:
-				case <-ctx.Done():
+				if sendCatfileInfoResult(ctx, resultChan, result) {
 					return
 				}
 			}
 		}
 
 		if err := it.Err(); err != nil {
-			select {
-			case resultChan <- CatfileInfoResult{err: err}:
-			case <-ctx.Done():
+			if sendCatfileInfoResult(ctx, resultChan, CatfileInfoResult{err: err}) {
 				return
 			}
 		}
@@ -175,5 +153,25 @@ func CatfileInfoFilter(ctx context.Context, it CatfileInfoIterator, filter func(
 
 	return &catfileInfoIterator{
 		ch: resultChan,
+	}
+}
+
+func sendCatfileInfoResult(ctx context.Context, ch chan<- CatfileInfoResult, result CatfileInfoResult) bool {
+	// In case the context has been cancelled, we have a race between observing an error from
+	// the killed Git process and observing the context cancellation itself. But if we end up
+	// here because of cancellation of the Git process, we don't want to pass that one down the
+	// pipeline but instead just stop the pipeline gracefully. We thus have this check here up
+	// front to error messages from the Git process.
+	select {
+	case <-ctx.Done():
+		return true
+	default:
+	}
+
+	select {
+	case ch <- result:
+		return false
+	case <-ctx.Done():
+		return true
 	}
 }
