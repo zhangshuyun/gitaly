@@ -107,7 +107,7 @@ func (s *server) FetchInternalRemote(ctx context.Context, req *gitalypb.FetchInt
 	if err := FetchInternalRemote(ctx, s.cfg, s.conns, repo, req.RemoteRepository); err != nil {
 		var fetchErr fetchFailedError
 
-		if featureflag.IsDisabled(ctx, featureflag.FetchInternalRemoteErrors) && errors.As(err, &fetchErr) {
+		if featureflag.FetchInternalRemoteErrors.IsDisabled(ctx) && errors.As(err, &fetchErr) {
 			// Design quirk: if the fetch fails, this RPC returns Result: false, but no error.
 			ctxlogrus.Extract(ctx).WithError(fetchErr.err).WithField("stderr", fetchErr.stderr).Warn("git fetch failed")
 			return &gitalypb.FetchInternalRemoteResponse{Result: false}, nil

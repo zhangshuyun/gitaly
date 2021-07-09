@@ -192,7 +192,7 @@ func testSuccessfulResolveConflictsRequestHelper(t *testing.T, ctx context.Conte
 	require.Equal(t, string(headCommit.Committer.Email), "johndoe@gitlab.com")
 	require.Equal(t, string(headCommit.Subject), conflictResolutionCommitMessage)
 
-	if featureflag.IsEnabled(ctx, featureflag.ResolveConflictsWithHooks) {
+	if featureflag.ResolveConflictsWithHooks.IsEnabled(ctx) {
 		require.Equal(t, 2, hookCount)
 	} else {
 		require.Equal(t, 0, hookCount)

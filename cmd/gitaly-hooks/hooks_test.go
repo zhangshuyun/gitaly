@@ -578,8 +578,8 @@ type featureFlagAsserter struct {
 }
 
 func (svc featureFlagAsserter) assertFlags(ctx context.Context) {
-	assert.True(svc.t, featureflag.IsEnabled(ctx, enabledFeatureFlag))
-	assert.True(svc.t, featureflag.IsDisabled(ctx, disabledFeatureFlag))
+	assert.True(svc.t, enabledFeatureFlag.IsEnabled(ctx))
+	assert.True(svc.t, disabledFeatureFlag.IsDisabled(ctx))
 }
 
 func (svc featureFlagAsserter) PreReceiveHook(stream gitalypb.HookService_PreReceiveHookServer) error {
