@@ -269,10 +269,6 @@ issues:
       text: "exported method `ManualTicker.Tick` should have comment or be unexported"
     - linters:
         - golint
-      path: "internal/metadata/featureflag/context.go"
-      text: "exported function `OutgoingCtxWithRubyFeatureFlags` should have comment or be unexported"
-    - linters:
-        - golint
       path: "internal/praefect/config/config.go"
       text: "exported type `Failover` should have comment or be unexported"
     - linters:

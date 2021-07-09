@@ -90,6 +90,8 @@ func incomingCtxWithFeatureFlagValue(ctx context.Context, key string, enabled bo
 	return metadata.NewIncomingContext(ctx, md)
 }
 
+// OutgoingCtxWithRubyFeatureFlags returns a new context populated with outgoing metadata that
+// has the given set of Ruby feature flags enabled.
 func OutgoingCtxWithRubyFeatureFlags(ctx context.Context, flags ...FeatureFlag) context.Context {
 	md, ok := metadata.FromOutgoingContext(ctx)
 	if !ok {
