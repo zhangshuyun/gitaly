@@ -793,8 +793,9 @@ func (c *Coordinator) createTransactionFinalizer(
 // - The node failed to be part of the quorum. As a special case, if the primary fails the vote, all
 //   nodes need to get replication jobs.
 //
-// - The node has errored. As a special case, if the primary fails all nodes need to get replication
-//   jobs.
+// - The node has a different error state than the primary. If both primary and secondary have
+//   returned the same error, then we assume they did the same thing and failed in the same
+//   controlled way.
 //
 // Note that this function cannot and should not fail: if anything goes wrong, we need to create
 // replication jobs to repair state.
@@ -851,13 +852,6 @@ func getUpdatedAndOutdatedSecondaries(
 	// for them.
 	markOutdated("outdated", route.ReplicationTargets)
 
-	// If the primary errored, then we need to assume that it has modified on-disk state and
-	// thus need to replicate those changes to secondaries.
-	if primaryErr != nil {
-		markOutdated("primary-failed", routerNodesToStorages(route.Secondaries))
-		return
-	}
-
 	// If no subtransaction happened, then the called RPC may not be aware of transactions or
 	// the nodes failed before casting any votes. If the primary failed the RPC, we assume
 	// no changes were done and the nodes hit an error prior to voting. If the primary processed
@@ -883,11 +877,12 @@ func getUpdatedAndOutdatedSecondaries(
 		return
 	}
 
-	// Now we finally got the potentially happy case: in case the secondary didn't run into an
-	// error and committed, it's considered up to date and thus does not need replication.
+	// Now we finally got the potentially happy case: when the secondary committed the
+	// transaction and has the same error state as the primary, then it's considered up to date
+	// and thus does not need replication.
 	for _, secondary := range route.Secondaries {
-		if nodeErrors.errByNode[secondary.Storage] != nil {
-			markOutdated("node-failed", []string{secondary.Storage})
+		if nodeErrors.errByNode[secondary.Storage] != primaryErr {
+			markOutdated("node-error-status", []string{secondary.Storage})
 			continue
 		}
 
