@@ -105,6 +105,22 @@ func (er gitError) Error() string {
 }
 
 func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest, env []string, repoPath string) (string, error) {
+	var stderr bytes.Buffer
+	if err := s.localrepo(req.GetRepository()).ExecAndWait(ctx, git.SubCmd{
+		Name: "merge-base",
+		Flags: []git.Option{
+			git.Flag{Name: "--is-ancestor"},
+		},
+		Args: []string{
+			req.GetStartSha(),
+			req.GetEndSha(),
+		},
+	}, git.WithStderr(&stderr)); err != nil {
+		err := errorWithStderr(fmt.Errorf("%s is not an ancestor of %s",
+			req.GetStartSha(), req.GetEndSha()), &stderr)
+		return "", helper.ErrPreconditionFailed(err)
+	}
+
 	sparseDiffFiles, err := s.diffFiles(ctx, env, repoPath, req)
 	if err != nil {
 		return "", fmt.Errorf("define diff files: %w", err)

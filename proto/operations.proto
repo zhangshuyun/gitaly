@@ -613,7 +613,7 @@ message UserSquashRequest {
   string squash_id = 3;
   reserved 4;
   // start_sha is the object ID of the start commit of the range which shall be
-  // squashed.
+  // squashed. Must be an ancestor of end_sha.
   string start_sha = 5;
   // end_sha is the object ID of the end commit of the range which shall be
   // squashed.

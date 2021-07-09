@@ -432,6 +432,35 @@ func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
 	}
 }
 
+func TestUserSquash_ancestry(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+
+	// We create two new commits which both branch off from the current HEAD commit. As a
+	// result, they are not ancestors of each other.
+	commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("1"))
+	commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("2"))
+
+	_, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
+		Repository:    repo,
+		SquashId:      "1",
+		User:          gittest.TestUser,
+		Author:        gittest.TestUser,
+		CommitMessage: commitMessage,
+		StartSha:      commit1.String(),
+		EndSha:        commit2.String(),
+	})
+
+	expectedErr := fmt.Sprintf("rpc error: code = FailedPrecondition desc = %s is not an ancestor of %s",
+		commit1.String(), commit2.String())
+	require.NotNil(t, err)
+	require.Equal(t, expectedErr, err.Error())
+}
+
 func TestUserSquashWithGitError(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := testhelper.Context()
@@ -456,9 +485,8 @@ func TestUserSquashWithGitError(t *testing.T) {
 				StartSha:      "doesntexisting",
 				EndSha:        endSha,
 			},
-			expectedResponse: &gitalypb.UserSquashResponse{
-				GitError: "fatal: ambiguous argument 'doesntexisting...54cec5282aa9f21856362fe321c800c236a61615': unknown revision or path not in the working tree.\nUse '--' to separate paths from revisions, like this:\n'git <command> [<revision>...] -- [<file>...]'\n",
-			},
+			expectedErr: fmt.Errorf("rpc error: code = FailedPrecondition desc = %s is not an ancestor of %s, stderr: %q",
+				"doesntexisting", endSha, "fatal: Not a valid object name doesntexisting\n"),
 		},
 		{
 			desc: "not existing end SHA",
@@ -471,9 +499,8 @@ func TestUserSquashWithGitError(t *testing.T) {
 				StartSha:      startSha,
 				EndSha:        "doesntexisting",
 			},
-			expectedResponse: &gitalypb.UserSquashResponse{
-				GitError: "fatal: ambiguous argument 'b83d6e391c22777fca1ed3012fce84f633d7fed0...doesntexisting': unknown revision or path not in the working tree.\nUse '--' to separate paths from revisions, like this:\n'git <command> [<revision>...] -- [<file>...]'\n",
-			},
+			expectedErr: fmt.Errorf("rpc error: code = FailedPrecondition desc = %s is not an ancestor of %s, stderr: %q",
+				startSha, "doesntexisting", "fatal: Not a valid object name doesntexisting\n"),
 		},
 		{
 			desc: "user has no name set",
