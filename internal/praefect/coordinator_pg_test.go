@@ -125,20 +125,15 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			},
 		},
 		{
-			// If the RPC fails without any subtransactions, the Gitalys would not have performed any changes yet.
-			// We don't have to consider the secondaries outdated.
-			desc:         "unstarted transaction doesn't create replication jobs if the primary fails",
+			desc:         "unstarted transaction does not create replication job",
 			primaryFails: true,
 			nodes: []node{
 				{primary: true, expectedGeneration: 0},
-				{primary: false, expectedGeneration: 0},
+				{primary: false, shouldGetRepl: false, expectedGeneration: 0},
 			},
 		},
 		{
-			// If there were no subtransactions and the RPC failed, the primary should not have performed any changes.
-			// We don't need to schedule replication jobs to replication targets either as they'd have jobs
-			// already scheduled by the earlier RPC that made them outdated or by the reconciler.
-			desc:         "unstarted transaction should not create replication jobs for outdated node if the primary fails",
+			desc:         "unstarted transaction should not create replication jobs for outdated node if the primary does not vote",
 			primaryFails: true,
 			nodes: []node{
 				{primary: true, shouldGetRepl: false, generation: 1, expectedGeneration: 1},
