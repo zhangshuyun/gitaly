@@ -410,10 +410,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		t.Run("delete non-existing", func(t *testing.T) {
 			rs, _ := newStore(t, nil)
 
-			require.Equal(t,
-				RepositoryNotExistsError{vs, repo, stor},
-				rs.DeleteRepository(ctx, vs, repo, stor),
-			)
+			require.Equal(t, ErrNoRowsAffected, rs.DeleteRepository(ctx, vs, repo, []string{stor}))
 		})
 
 		t.Run("delete existing", func(t *testing.T) {
@@ -463,9 +460,9 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 				},
 			)
 
-			require.NoError(t, rs.DeleteRepository(ctx, "deleted", "deleted", "deleted"))
-			require.NoError(t, rs.DeleteRepository(ctx, "virtual-storage-1", "other-storages-remain", "deleted-storage"))
-			require.NoError(t, rs.DeleteRepository(ctx, "virtual-storage-2", "deleted-repo", "deleted-storage"))
+			require.NoError(t, rs.DeleteRepository(ctx, "deleted", "deleted", []string{"deleted"}))
+			require.NoError(t, rs.DeleteRepository(ctx, "virtual-storage-1", "other-storages-remain", []string{"deleted-storage"}))
+			require.NoError(t, rs.DeleteRepository(ctx, "virtual-storage-2", "deleted-repo", []string{"deleted-storage"}))
 
 			requireState(t, ctx,
 				virtualStorageState{
@@ -487,16 +484,49 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 				},
 			)
 		})
+
+		t.Run("transactional delete", func(t *testing.T) {
+			rs, requireState := newStore(t, nil)
+			require.NoError(t, rs.SetGeneration(ctx, "virtual-storage-1", "repository-1", "replica-1", 0))
+			require.NoError(t, rs.SetGeneration(ctx, "virtual-storage-1", "repository-1", "replica-2", 0))
+			require.NoError(t, rs.SetGeneration(ctx, "virtual-storage-1", "repository-1", "replica-3", 0))
+
+			requireState(t, ctx,
+				virtualStorageState{
+					"virtual-storage-1": {
+						"repository-1": repositoryRecord{},
+					},
+				},
+				storageState{
+					"virtual-storage-1": {
+						"repository-1": {
+							"replica-1": 0,
+							"replica-2": 0,
+							"replica-3": 0,
+						},
+					},
+				},
+			)
+
+			require.NoError(t, rs.DeleteRepository(ctx, "virtual-storage-1", "repository-1", []string{"replica-1", "replica-2"}))
+			requireState(t, ctx,
+				virtualStorageState{},
+				storageState{
+					"virtual-storage-1": {
+						"repository-1": {
+							"replica-3": 0,
+						},
+					},
+				},
+			)
+		})
 	})
 
 	t.Run("DeleteReplica", func(t *testing.T) {
 		rs, requireState := newStore(t, nil)
 
 		t.Run("delete non-existing", func(t *testing.T) {
-			require.Equal(t,
-				RepositoryNotExistsError{"virtual-storage-1", "relative-path-1", "storage-1"},
-				rs.DeleteReplica(ctx, "virtual-storage-1", "relative-path-1", "storage-1"),
-			)
+			require.Equal(t, ErrNoRowsAffected, rs.DeleteReplica(ctx, "virtual-storage-1", "relative-path-1", "storage-1"))
 		})
 
 		t.Run("delete existing", func(t *testing.T) {
@@ -700,7 +730,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		})
 
 		t.Run("returns not found for deleted repositories", func(t *testing.T) {
-			require.NoError(t, rs.DeleteRepository(ctx, vs, repo, "primary"))
+			require.NoError(t, rs.DeleteRepository(ctx, vs, repo, []string{"primary"}))
 			requireState(t, ctx,
 				virtualStorageState{},
 				storageState{
@@ -762,7 +792,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		require.NoError(t, err)
 		require.True(t, exists)
 
-		require.NoError(t, rs.DeleteRepository(ctx, vs, repo, stor))
+		require.NoError(t, rs.DeleteRepository(ctx, vs, repo, []string{stor}))
 		exists, err = rs.RepositoryExists(ctx, vs, repo)
 		require.NoError(t, err)
 		require.False(t, exists)

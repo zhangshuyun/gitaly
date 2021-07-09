@@ -1921,7 +1921,7 @@ func TestNewRequestFinalizer_contextIsDisjointedFromTheRPC(t *testing.T) {
 							requireSuppressedCancellation(t, ctx)
 							return err
 						},
-						DeleteRepositoryFunc: func(ctx context.Context, _, _, _ string) error {
+						DeleteRepositoryFunc: func(ctx context.Context, _, _ string, _ []string) error {
 							requireSuppressedCancellation(t, ctx)
 							return err
 						},

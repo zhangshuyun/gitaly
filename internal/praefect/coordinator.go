@@ -971,8 +971,8 @@ func (c *Coordinator) newRequestFinalizer(
 			// If this fails, the repository was already deleted from the primary but we end up still having a record of it in the db.
 			// Ideally we would delete the record from the db first and schedule the repository for deletion later in order to avoid
 			// this problem. Client can reattempt this as deleting a repository is idempotent.
-			if err := c.rs.DeleteRepository(ctx, virtualStorage, targetRepo.GetRelativePath(), primary); err != nil {
-				if !errors.Is(err, datastore.RepositoryNotExistsError{}) {
+			if err := c.rs.DeleteRepository(ctx, virtualStorage, targetRepo.GetRelativePath(), append(updatedSecondaries, primary)); err != nil {
+				if !errors.Is(err, datastore.ErrNoRowsAffected) {
 					return fmt.Errorf("delete repository: %w", err)
 				}
 

@@ -77,6 +77,9 @@ func (err RepositoryExistsError) Error() string {
 	)
 }
 
+// ErrNoRowsAffected is returned when a query did not perform any changes.
+var ErrNoRowsAffected = errors.New("no rows were affected by the query")
+
 // RepositoryStore provides access to repository state.
 type RepositoryStore interface {
 	// GetGeneration gets the repository's generation on a given storage.
@@ -100,10 +103,10 @@ type RepositoryStore interface {
 	// storeAssignments should be set when variable replication factor is enabled. When set, the primary and the
 	// secondaries are stored as the assigned hosts of the repository.
 	CreateRepository(ctx context.Context, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error
-	// DeleteRepository deletes the repository from the virtual storage and the storage. Returns
-	// RepositoryNotExistsError when trying to delete a repository which has no record in the virtual storage
-	// or the storage.
-	DeleteRepository(ctx context.Context, virtualStorage, relativePath, storage string) error
+	// DeleteRepository deletes the repository's record from the virtual storage and the storages. Returns
+	// ErrNoRowsAffected when trying to delete a repository which has no record in the virtual storage
+	// or the storages.
+	DeleteRepository(ctx context.Context, virtualStorage, relativePath string, storages []string) error
 	// DeleteReplica deletes a replica of a repository from a storage without affecting other state in the virtual storage.
 	DeleteReplica(ctx context.Context, virtualStorage, relativePath, storage string) error
 	// RenameRepository updates a repository's relative path. It renames the virtual storage wide record as well
@@ -355,7 +358,7 @@ FROM (
 	return err
 }
 
-func (rs *PostgresRepositoryStore) DeleteRepository(ctx context.Context, virtualStorage, relativePath, storage string) error {
+func (rs *PostgresRepositoryStore) DeleteRepository(ctx context.Context, virtualStorage, relativePath string, storages []string) error {
 	return rs.delete(ctx, `
 WITH repo AS (
 	DELETE FROM repositories
@@ -366,24 +369,24 @@ WITH repo AS (
 DELETE FROM storage_repositories
 WHERE virtual_storage = $1
 AND relative_path = $2
-AND storage = $3
-		`, virtualStorage, relativePath, storage,
+AND storage = ANY($3::text[])
+		`, virtualStorage, relativePath, storages,
 	)
 }
 
 // DeleteReplica deletes a record from the `storage_repositories`. See the interface documentation for details.
-func (rs *PostgresRepositoryStore) DeleteReplica(ctx context.Context, virtualStorage, relativePath, storage string) error {
+func (rs *PostgresRepositoryStore) DeleteReplica(ctx context.Context, virtualStorage, relativePath string, storage string) error {
 	return rs.delete(ctx, `
 DELETE FROM storage_repositories
 WHERE virtual_storage = $1
 AND relative_path = $2
-AND storage = $3
-		`, virtualStorage, relativePath, storage,
+AND storage = ANY($3::text[])
+		`, virtualStorage, relativePath, []string{storage},
 	)
 }
 
-func (rs *PostgresRepositoryStore) delete(ctx context.Context, query, virtualStorage, relativePath, storage string) error {
-	result, err := rs.db.ExecContext(ctx, query, virtualStorage, relativePath, storage)
+func (rs *PostgresRepositoryStore) delete(ctx context.Context, query, virtualStorage, relativePath string, storages []string) error {
+	result, err := rs.db.ExecContext(ctx, query, virtualStorage, relativePath, pq.StringArray(storages))
 	if err != nil {
 		return err
 	}
@@ -391,11 +394,7 @@ func (rs *PostgresRepositoryStore) delete(ctx context.Context, query, virtualSto
 	if n, err := result.RowsAffected(); err != nil {
 		return err
 	} else if n == 0 {
-		return RepositoryNotExistsError{
-			virtualStorage: virtualStorage,
-			relativePath:   relativePath,
-			storage:        storage,
-		}
+		return ErrNoRowsAffected
 	}
 
 	return nil
