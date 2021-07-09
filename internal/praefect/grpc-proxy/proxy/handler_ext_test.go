@@ -13,7 +13,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -117,27 +116,18 @@ func (s *assertingService) PingStream(stream pb.TestService_PingStreamServer) er
 // ProxyHappySuite tests the "happy" path of handling: that everything works in absence of connection issues.
 type ProxyHappySuite struct {
 	suite.Suite
-
-	serverListener   net.Listener
+	ctx              context.Context
+	cancel           context.CancelFunc
 	server           *grpc.Server
-	proxyListener    net.Listener
 	proxy            *grpc.Server
-	serverClientConn *grpc.ClientConn
-
-	client         *grpc.ClientConn
-	testClient     pb.TestServiceClient
-	testClientConn *grpc.ClientConn
-}
-
-func (s *ProxyHappySuite) ctx() context.Context {
-	// Make all RPC calls last at most 1 sec, meaning all async issues or deadlock will not kill tests.
-	ctx, _ := context.WithTimeout(context.TODO(), 120*time.Second) // nolint: govet
-	return ctx
+	connProxy2Server *grpc.ClientConn
+	client           pb.TestServiceClient
+	connClient2Proxy *grpc.ClientConn
 }
 
 func (s *ProxyHappySuite) TestPingEmptyCarriesClientMetadata() {
-	ctx := metadata.NewOutgoingContext(s.ctx(), metadata.Pairs(clientMdKey, "true"))
-	out, err := s.testClient.PingEmpty(ctx, &pb.Empty{})
+	ctx := metadata.NewOutgoingContext(s.ctx, metadata.Pairs(clientMdKey, "true"))
+	out, err := s.client.PingEmpty(ctx, &pb.Empty{})
 	require.NoError(s.T(), err, "PingEmpty should succeed without errors")
 	testassert.ProtoEqual(s.T(), &pb.PingResponse{Value: pingDefaultValue, Counter: 42}, out)
 }
@@ -152,7 +142,7 @@ func (s *ProxyHappySuite) TestPingCarriesServerHeadersAndTrailers() {
 	headerMd := make(metadata.MD)
 	trailerMd := make(metadata.MD)
 	// This is an awkward calling convention... but meh.
-	out, err := s.testClient.Ping(s.ctx(), &pb.PingRequest{Value: "foo"}, grpc.Header(&headerMd), grpc.Trailer(&trailerMd))
+	out, err := s.client.Ping(s.ctx, &pb.PingRequest{Value: "foo"}, grpc.Header(&headerMd), grpc.Trailer(&trailerMd))
 	require.NoError(s.T(), err, "Ping should succeed without errors")
 	testassert.ProtoEqual(s.T(), &pb.PingResponse{Value: "foo", Counter: 42}, out)
 	assert.Contains(s.T(), headerMd, serverHeaderMdKey, "server response headers must contain server data")
@@ -180,7 +170,7 @@ func (s *ProxyHappySuite) TestPingErrorPropagatesAppError() {
 	sentry.CaptureEvent(sentry.NewEvent())
 	require.Equal(s.T(), 1, sentryTriggered, "sentry configured incorrectly")
 
-	_, err = s.testClient.PingError(s.ctx(), &pb.PingRequest{Value: "foo"})
+	_, err = s.client.PingError(s.ctx, &pb.PingRequest{Value: "foo"})
 	require.Error(s.T(), err, "PingError should never succeed")
 	assert.Equal(s.T(), codes.ResourceExhausted, status.Code(err))
 	assert.Equal(s.T(), "Userspace error.", status.Convert(err).Message())
@@ -189,15 +179,15 @@ func (s *ProxyHappySuite) TestPingErrorPropagatesAppError() {
 
 func (s *ProxyHappySuite) TestDirectorErrorIsPropagated() {
 	// See SetupSuite where the StreamDirector has a special case.
-	ctx := metadata.NewOutgoingContext(s.ctx(), metadata.Pairs(rejectingMdKey, "true"))
-	_, err := s.testClient.Ping(ctx, &pb.PingRequest{Value: "foo"})
+	ctx := metadata.NewOutgoingContext(s.ctx, metadata.Pairs(rejectingMdKey, "true"))
+	_, err := s.client.Ping(ctx, &pb.PingRequest{Value: "foo"})
 	require.Error(s.T(), err, "Director should reject this RPC")
 	assert.Equal(s.T(), codes.PermissionDenied, status.Code(err))
 	assert.Equal(s.T(), "testing rejection", status.Convert(err).Message())
 }
 
 func (s *ProxyHappySuite) TestPingStream_FullDuplexWorks() {
-	stream, err := s.testClient.PingStream(s.ctx())
+	stream, err := s.client.PingStream(s.ctx)
 	require.NoError(s.T(), err, "PingStream request should be successful.")
 
 	for i := 0; i < countListResponses; i++ {
@@ -230,18 +220,15 @@ func (s *ProxyHappySuite) TestPingStream_StressTest() {
 }
 
 func (s *ProxyHappySuite) SetupSuite() {
-	var err error
+	s.ctx, s.cancel = context.WithTimeout(context.Background(), 120*time.Second)
 
-	s.proxyListener, err = net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(s.T(), err, "must be able to allocate a port for proxyListener")
-	s.serverListener, err = net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(s.T(), err, "must be able to allocate a port for serverListener")
-
-	s.server = grpc.NewServer()
-	pb.RegisterTestServiceServer(s.server, &assertingService{t: s.T()})
+	listenerProxy, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(s.T(), err, "must be able to allocate a port for listenerProxy")
+	listenerServer, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(s.T(), err, "must be able to allocate a port for listenerServer")
 
 	// Setup of the proxy's Director.
-	s.serverClientConn, err = grpc.Dial(s.serverListener.Addr().String(), grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())))
+	s.connProxy2Server, err = grpc.Dial(listenerServer.Addr().String(), grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())))
 	require.NoError(s.T(), err, "must not error on deferred client Dial")
 	director := func(ctx context.Context, fullName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
 		payload, err := peeker.Peek()
@@ -257,9 +244,17 @@ func (s *ProxyHappySuite) SetupSuite() {
 		}
 
 		// Explicitly copy the metadata, otherwise the tests will fail.
-		return proxy.NewStreamParameters(proxy.Destination{Ctx: helper.IncomingToOutgoing(ctx), Conn: s.serverClientConn, Msg: payload}, nil, nil, nil), nil
+		return proxy.NewStreamParameters(proxy.Destination{Ctx: helper.IncomingToOutgoing(ctx), Conn: s.connProxy2Server, Msg: payload}, nil, nil, nil), nil
 	}
 
+	// Setup backend server for test suite
+	s.server = grpc.NewServer()
+	pb.RegisterTestServiceServer(s.server, &assertingService{t: s.T()})
+	go func() {
+		s.server.Serve(listenerServer)
+	}()
+
+	// Setup grpc-proxy server for test suite
 	s.proxy = grpc.NewServer(
 		grpc.ForceServerCodec(proxy.NewCodec()),
 		grpc.StreamInterceptor(
@@ -273,45 +268,34 @@ func (s *ProxyHappySuite) SetupSuite() {
 		grpc.UnknownServiceHandler(proxy.TransparentHandler(director)),
 	)
 	// Ping handler is handled as an explicit registration and not as a TransparentHandler.
-	proxy.RegisterService(s.proxy, director,
-		"mwitkow.testproto.TestService",
-		"Ping")
-
-	// Start the serving loops.
+	proxy.RegisterService(s.proxy, director, "mwitkow.testproto.TestService", "Ping")
 	go func() {
-		s.server.Serve(s.serverListener)
-	}()
-	go func() {
-		s.proxy.Serve(s.proxyListener)
+		s.proxy.Serve(listenerProxy)
 	}()
 
-	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+	// Setup client for test suite
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-
-	s.testClientConn, err = grpc.DialContext(ctx, strings.Replace(s.proxyListener.Addr().String(), "127.0.0.1", "localhost", 1), grpc.WithInsecure())
+	s.connClient2Proxy, err = grpc.DialContext(ctx, listenerProxy.Addr().String(), grpc.WithInsecure())
 	require.NoError(s.T(), err, "must not error on deferred client Dial")
-	s.testClient = pb.NewTestServiceClient(s.testClientConn)
+	s.client = pb.NewTestServiceClient(s.connClient2Proxy)
 }
 
 func (s *ProxyHappySuite) TearDownSuite() {
-	if s.client != nil {
-		s.client.Close()
+	if s.cancel != nil {
+		s.cancel()
 	}
-	if s.testClientConn != nil {
-		s.testClientConn.Close()
+	if s.connClient2Proxy != nil {
+		s.connClient2Proxy.Close()
 	}
-	if s.serverClientConn != nil {
-		s.serverClientConn.Close()
+	if s.connProxy2Server != nil {
+		s.connProxy2Server.Close()
 	}
-	// Close all transports so the logs don't get spammy.
-	time.Sleep(10 * time.Millisecond)
 	if s.proxy != nil {
 		s.proxy.Stop()
-		s.proxyListener.Close()
 	}
-	if s.serverListener != nil {
+	if s.server != nil {
 		s.server.Stop()
-		s.serverListener.Close()
 	}
 }
 
