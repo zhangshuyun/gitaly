@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -505,7 +506,7 @@ func TestCheckOK(t *testing.T) {
 	require.NoError(t, os.MkdirAll(gitlabShellDir, 0755))
 
 	gitlab.WriteShellSecretFile(t, gitlabShellDir, "the secret")
-	configPath, cleanup := testhelper.WriteTemporaryGitalyConfigFile(t, tempDir, serverURL, user, password, path.Join(gitlabShellDir, ".gitlab_shell_secret"))
+	configPath, cleanup := writeTemporaryGitalyConfigFile(t, tempDir, serverURL, user, password, path.Join(gitlabShellDir, ".gitlab_shell_secret"))
 	defer cleanup()
 
 	cfg := testcfg.Build(t)
@@ -549,7 +550,7 @@ func TestCheckBadCreds(t *testing.T) {
 	require.NoError(t, os.MkdirAll(gitlabShellDir, 0755))
 	gitlab.WriteShellSecretFile(t, gitlabShellDir, "the secret")
 
-	configPath, cleanup := testhelper.WriteTemporaryGitalyConfigFile(t, tempDir, serverURL, "wrong", password, path.Join(gitlabShellDir, ".gitlab_shell_secret"))
+	configPath, cleanup := writeTemporaryGitalyConfigFile(t, tempDir, serverURL, "wrong", password, path.Join(gitlabShellDir, ".gitlab_shell_secret"))
 	defer cleanup()
 
 	cfg := testcfg.Build(t)
@@ -729,5 +730,24 @@ func TestRequestedHooks(t *testing.T) {
 				require.Error(t, cmd.Run(), "hook should have run and failed due to incomplete setup")
 			})
 		})
+	}
+}
+
+// writeTemporaryGitalyConfigFile writes a gitaly toml file into a temporary directory. It returns the path to
+// the file as well as a cleanup function
+func writeTemporaryGitalyConfigFile(t testing.TB, tempDir, gitlabURL, user, password, secretFile string) (string, func()) {
+	path := filepath.Join(tempDir, "config.toml")
+	contents := fmt.Sprintf(`
+[gitlab]
+  url = "%s"
+  secret_file = "%s"
+  [gitlab.http-settings]
+    user = %q
+    password = %q
+`, gitlabURL, secretFile, user, password)
+
+	require.NoError(t, ioutil.WriteFile(path, []byte(contents), 0644))
+	return path, func() {
+		require.NoError(t, os.RemoveAll(path))
 	}
 }
