@@ -306,7 +306,7 @@ func TestAuthBeforeLimit(t *testing.T) {
 
 	config.ConfigureConcurrencyLimits(cfg)
 
-	gitlabURL, cleanup := testhelper.SetupAndStartGitlabServer(t, cfg.GitlabShell.Dir, &testhelper.GitlabTestServerOptions{
+	gitlabURL, cleanup := gitlab.SetupAndStartGitlabServer(t, cfg.GitlabShell.Dir, &gitlab.TestServerOptions{
 		SecretToken:                 "secretToken",
 		GLID:                        gittest.GlID,
 		GLRepository:                repo.GetGlRepository(),

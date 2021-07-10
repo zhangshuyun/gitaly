@@ -102,12 +102,12 @@ func TestPreReceiveHook_GitlabAPIAccess(t *testing.T) {
 
 	tmpDir := testhelper.TempDir(t)
 	secretFilePath := filepath.Join(tmpDir, ".gitlab_shell_secret")
-	testhelper.WriteShellSecretFile(t, tmpDir, secretToken)
+	gitlab.WriteShellSecretFile(t, tmpDir, secretToken)
 
 	repo.GitObjectDirectory = gitObjectDirRel
 	repo.GitAlternateObjectDirectories = gitAlternateObjectRelDirs
 
-	serverURL, cleanup := testhelper.NewGitlabTestServer(t, testhelper.GitlabTestServerOptions{
+	serverURL, cleanup := gitlab.NewTestServer(t, gitlab.TestServerOptions{
 		User:                        user,
 		Password:                    password,
 		SecretToken:                 secretToken,
@@ -233,7 +233,7 @@ func TestPreReceive_APIErrors(t *testing.T) {
 
 	tmpDir := testhelper.TempDir(t)
 	secretFilePath := filepath.Join(tmpDir, ".gitlab_shell_secret")
-	testhelper.WriteShellSecretFile(t, tmpDir, "token")
+	gitlab.WriteShellSecretFile(t, tmpDir, "token")
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -305,7 +305,7 @@ func TestPreReceiveHook_CustomHookErrors(t *testing.T) {
 
 	tmpDir := testhelper.TempDir(t)
 	secretFilePath := filepath.Join(tmpDir, ".gitlab_shell_secret")
-	testhelper.WriteShellSecretFile(t, tmpDir, "token")
+	gitlab.WriteShellSecretFile(t, tmpDir, "token")
 
 	customHookReturnCode := int32(128)
 	customHookReturnMsg := "custom hook error"
@@ -440,7 +440,7 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 			tmpDir := testhelper.TempDir(t)
 
 			secretFilePath := filepath.Join(tmpDir, ".gitlab_shell_secret")
-			testhelper.WriteShellSecretFile(t, tmpDir, "token")
+			gitlab.WriteShellSecretFile(t, tmpDir, "token")
 
 			gittest.WriteCustomHook(t, testRepoPath, "pre-receive", []byte(fmt.Sprintf("#!/bin/bash\nexit %d", tc.hookExitCode)))
 

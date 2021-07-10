@@ -21,6 +21,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/hook"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
@@ -505,7 +506,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 	cfg.GitlabShell.Dir = testhelper.TempDir(t)
 
 	cfg.Auth.Token = "abc123"
-	cfg.Gitlab.SecretFile = testhelper.WriteShellSecretFile(t, cfg.GitlabShell.Dir, secretToken)
+	cfg.Gitlab.SecretFile = gitlab.WriteShellSecretFile(t, cfg.GitlabShell.Dir, secretToken)
 
 	push := newTestPush(t, cfg, nil)
 	testRepoPath := filepath.Join(cfg.Storages[0].Path, repo.RelativePath)
@@ -513,7 +514,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 
 	changes := fmt.Sprintf("%s %s refs/heads/master\n", oldHead, push.newHead)
 
-	cfg.Gitlab.URL, cleanup = testhelper.NewGitlabTestServer(t, testhelper.GitlabTestServerOptions{
+	cfg.Gitlab.URL, cleanup = gitlab.NewTestServer(t, gitlab.TestServerOptions{
 		User:                        "",
 		Password:                    "",
 		SecretToken:                 secretToken,
@@ -565,7 +566,7 @@ func TestPostReceiveWithTransactionsViaPraefect(t *testing.T) {
 	gitlabUser := "gitlab_user-1234"
 	gitlabPassword := "gitlabsecret9887"
 
-	opts := testhelper.GitlabTestServerOptions{
+	opts := gitlab.TestServerOptions{
 		User:         gitlabUser,
 		Password:     gitlabPassword,
 		SecretToken:  secretToken,
@@ -574,7 +575,7 @@ func TestPostReceiveWithTransactionsViaPraefect(t *testing.T) {
 		RepoPath:     repoPath,
 	}
 
-	serverURL, cleanup := testhelper.NewGitlabTestServer(t, opts)
+	serverURL, cleanup := gitlab.NewTestServer(t, opts)
 	defer cleanup()
 
 	gitlabShellDir := testhelper.TempDir(t)
@@ -584,7 +585,7 @@ func TestPostReceiveWithTransactionsViaPraefect(t *testing.T) {
 	cfg.Gitlab.HTTPSettings.Password = gitlabPassword
 	cfg.Gitlab.SecretFile = filepath.Join(gitlabShellDir, ".gitlab_shell_secret")
 
-	testhelper.WriteShellSecretFile(t, gitlabShellDir, secretToken)
+	gitlab.WriteShellSecretFile(t, gitlabShellDir, secretToken)
 
 	addr := runSmartHTTPServer(t, cfg)
 
