@@ -410,14 +410,6 @@ func WithBackchannelRegistry(backchannelReg *backchannel.Registry) GitalyServerO
 	}
 }
 
-// WithCatfileCache sets catfile.Cache instance that will be used for gitaly services initialisation.
-func WithCatfileCache(catfileCache catfile.Cache) GitalyServerOpt {
-	return func(deps gitalyServerDeps) gitalyServerDeps {
-		deps.catfileCache = catfileCache
-		return deps
-	}
-}
-
 // WithDiskCache sets the cache.Cache instance that will be used for gitaly services initialisation.
 func WithDiskCache(diskCache cache.Cache) GitalyServerOpt {
 	return func(deps gitalyServerDeps) gitalyServerDeps {

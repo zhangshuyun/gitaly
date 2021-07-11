@@ -46,13 +46,6 @@ type MockStorageGauge struct {
 	*MockGauge
 }
 
-// NewMockStorageGauge returns an initialized mock storage gauge
-func NewMockStorageGauge() *MockStorageGauge {
-	return &MockStorageGauge{
-		&MockGauge{},
-	}
-}
-
 // Inc will track total calls to this method while ignoring params
 func (m *MockStorageGauge) Inc(_, _ string) {
 	m.MockGauge.Inc()

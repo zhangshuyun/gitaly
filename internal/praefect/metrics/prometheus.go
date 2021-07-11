@@ -78,14 +78,6 @@ var NodeLastHealthcheckGauge = promauto.NewGaugeVec(
 	}, []string{"gitaly_storage"},
 )
 
-var ChecksumMismatchCounter = promauto.NewCounterVec(
-	prometheus.CounterOpts{
-		Namespace: "gitaly",
-		Subsystem: "praefect",
-		Name:      "checksum_mismatch_total",
-	}, []string{"target", "source"},
-)
-
 // ReadDistribution counts how many read operations was routed to each storage.
 var ReadDistribution = promauto.NewCounterVec(
 	prometheus.CounterOpts{
