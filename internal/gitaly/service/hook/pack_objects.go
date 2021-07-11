@@ -258,7 +258,7 @@ type packObjectsArgs struct {
 func (p *packObjectsArgs) globals() []git.GlobalOption {
 	var globals []git.GlobalOption
 	if p.shallowFile {
-		globals = append(globals, git.ValueFlag{"--shallow-file", ""})
+		globals = append(globals, git.ValueFlag{Name: "--shallow-file", Value: ""})
 	}
 	return globals
 }
@@ -266,10 +266,10 @@ func (p *packObjectsArgs) globals() []git.GlobalOption {
 func (p *packObjectsArgs) subcmd() git.SubCmd {
 	sc := git.SubCmd{
 		Name:  "pack-objects",
-		Flags: []git.Option{git.Flag{"--stdout"}},
+		Flags: []git.Option{git.Flag{Name: "--stdout"}},
 	}
 	for _, f := range p.flags {
-		sc.Flags = append(sc.Flags, git.Flag{f})
+		sc.Flags = append(sc.Flags, git.Flag{Name: f})
 	}
 	return sc
 }

@@ -464,8 +464,8 @@ func TestResolveConflictsIdenticalContent(t *testing.T) {
 	err = repo.ExecAndWait(ctx, git.SubCmd{
 		Name: "merge-file",
 		Flags: []git.Option{
-			git.Flag{"--quiet"},
-			git.Flag{"--stdout"},
+			git.Flag{Name: "--quiet"},
+			git.Flag{Name: "--stdout"},
 			// We pass `-L` three times for each of the conflicting files.
 			git.ValueFlag{Name: "-L", Value: "files/ruby/popen.rb"},
 			git.ValueFlag{Name: "-L", Value: "files/ruby/popen.rb"},

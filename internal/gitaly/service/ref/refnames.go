@@ -59,7 +59,7 @@ func (s *server) listRefNames(ctx context.Context, chunker *chunk.Chunker, prefi
 	}
 
 	for _, arg := range extraArgs {
-		flags = append(flags, git.Flag{arg})
+		flags = append(flags, git.Flag{Name: arg})
 	}
 
 	cmd, err := s.gitCmdFactory.New(ctx, repo, git.SubCmd{

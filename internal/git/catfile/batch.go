@@ -132,7 +132,7 @@ type instrumentedBatch struct {
 }
 
 func (ib *instrumentedBatch) Info(ctx context.Context, revision git.Revision) (*ObjectInfo, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Info", opentracing.Tag{"revision", revision})
+	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Info", opentracing.Tag{Key: "revision", Value: revision})
 	defer span.Finish()
 
 	ib.catfileLookupCounter.WithLabelValues("info").Inc()
@@ -141,7 +141,7 @@ func (ib *instrumentedBatch) Info(ctx context.Context, revision git.Revision) (*
 }
 
 func (ib *instrumentedBatch) Tree(ctx context.Context, revision git.Revision) (*Object, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Tree", opentracing.Tag{"revision", revision})
+	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Tree", opentracing.Tag{Key: "revision", Value: revision})
 	defer span.Finish()
 
 	ib.catfileLookupCounter.WithLabelValues("tree").Inc()
@@ -150,7 +150,7 @@ func (ib *instrumentedBatch) Tree(ctx context.Context, revision git.Revision) (*
 }
 
 func (ib *instrumentedBatch) Commit(ctx context.Context, revision git.Revision) (*Object, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Commit", opentracing.Tag{"revision", revision})
+	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Commit", opentracing.Tag{Key: "revision", Value: revision})
 	defer span.Finish()
 
 	ib.catfileLookupCounter.WithLabelValues("commit").Inc()
@@ -159,7 +159,7 @@ func (ib *instrumentedBatch) Commit(ctx context.Context, revision git.Revision) 
 }
 
 func (ib *instrumentedBatch) Blob(ctx context.Context, revision git.Revision) (*Object, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Blob", opentracing.Tag{"revision", revision})
+	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Blob", opentracing.Tag{Key: "revision", Value: revision})
 	defer span.Finish()
 
 	ib.catfileLookupCounter.WithLabelValues("blob").Inc()
@@ -168,7 +168,7 @@ func (ib *instrumentedBatch) Blob(ctx context.Context, revision git.Revision) (*
 }
 
 func (ib *instrumentedBatch) Tag(ctx context.Context, revision git.Revision) (*Object, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Tag", opentracing.Tag{"revision", revision})
+	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Tag", opentracing.Tag{Key: "revision", Value: revision})
 	defer span.Finish()
 
 	ib.catfileLookupCounter.WithLabelValues("tag").Inc()

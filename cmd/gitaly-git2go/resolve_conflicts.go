@@ -199,7 +199,7 @@ func (cmd resolveSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) er
 	}
 
 	response := git2go.ResolveResult{
-		git2go.MergeResult{
+		MergeResult: git2go.MergeResult{
 			CommitID: commit.String(),
 		},
 	}

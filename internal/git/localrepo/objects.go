@@ -182,7 +182,7 @@ func (repo *Repo) ReadObject(ctx context.Context, oid git.ObjectID) ([]byte, err
 	cmd, err := repo.Exec(ctx,
 		git.SubCmd{
 			Name:  "cat-file",
-			Flags: []git.Option{git.Flag{"-p"}},
+			Flags: []git.Option{git.Flag{Name: "-p"}},
 			Args:  []string{oid.String()},
 		},
 		git.WithStdout(stdout),

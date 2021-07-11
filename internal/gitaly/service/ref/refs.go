@@ -93,7 +93,7 @@ func (s *server) parseAndReturnTags(ctx context.Context, repo git.RepositoryExec
 	tagsCmd, err := repo.Exec(ctx, git.SubCmd{
 		Name: "for-each-ref",
 		Flags: []git.Option{
-			git.ValueFlag{"--format", tagFormat},
+			git.ValueFlag{Name: "--format", Value: tagFormat},
 		},
 		Args: []string{"refs/tags/"},
 	})
@@ -454,7 +454,7 @@ func (s *server) findAllBranches(in *gitalypb.FindAllBranchesRequest, stream git
 			return err
 		}
 
-		args = append(args, git.Flag{fmt.Sprintf("--merged=%s", string(defaultBranchName))})
+		args = append(args, git.Flag{Name: fmt.Sprintf("--merged=%s", string(defaultBranchName))})
 
 		if len(in.MergedBranches) > 0 {
 			patterns = nil
@@ -533,7 +533,7 @@ func (s *server) findTag(ctx context.Context, repo git.RepositoryExecutor, tagNa
 		git.SubCmd{
 			Name: "tag",
 			Flags: []git.Option{
-				git.Flag{Name: "-l"}, git.ValueFlag{"--format", tagFormat},
+				git.Flag{Name: "-l"}, git.ValueFlag{Name: "--format", Value: tagFormat},
 			},
 			Args: []string{string(tagName)},
 		},
