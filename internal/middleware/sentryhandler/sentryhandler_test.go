@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -85,7 +85,7 @@ func Test_generateSentryEvent(t *testing.T) {
 				var result context.Context
 				ctx := context.Background()
 				// this is the only way how we could populate context with `tags` assembler
-				_, err := grpc_ctxtags.UnaryServerInterceptor()(ctx, nil, nil, func(ctx context.Context, req interface{}) (interface{}, error) {
+				_, err := grpcmwtags.UnaryServerInterceptor()(ctx, nil, nil, func(ctx context.Context, req interface{}) (interface{}, error) {
 					result = ctx
 					return nil, nil
 				})

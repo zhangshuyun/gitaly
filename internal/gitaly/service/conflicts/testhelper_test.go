@@ -13,7 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/commit"
-	hook_service "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/hook"
+	hookservice "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ssh"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -106,7 +106,7 @@ func runConflictsServer(t testing.TB, cfg config.Cfg, hookManager hook.Manager) 
 			deps.GetGitCmdFactory(),
 			deps.GetTxManager(),
 		))
-		gitalypb.RegisterHookServiceServer(srv, hook_service.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
 		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(
 			deps.GetCfg(),
 			deps.GetLocator(),

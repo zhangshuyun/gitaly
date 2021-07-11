@@ -11,7 +11,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
-	glerrors "gitlab.com/gitlab-org/gitaly/v14/internal/errors"
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v14/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/metadatahandler"
@@ -27,7 +27,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"golang.org/x/sync/errgroup"
-	grpc_metadata "google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/metadata"
 )
 
 // ErrRepositoryReadOnly is returned when the repository is in read-only mode. This happens
@@ -353,7 +353,7 @@ func shouldRouteRepositoryAccessorToPrimary(ctx context.Context, call grpcCall) 
 
 	// In case the call's metadata tells us to force-route to the primary, then we must abide
 	// and ignore what `forcePrimaryRPCs` says.
-	if md, ok := grpc_metadata.FromIncomingContext(ctx); ok {
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
 		header := md.Get(routeRepositoryAccessorPolicy)
 		if len(header) == 0 {
 			return forcePrimary
@@ -1025,13 +1025,13 @@ func (c *Coordinator) newRequestFinalizer(
 
 func (c *Coordinator) validateTargetRepo(repo *gitalypb.Repository) error {
 	if repo.GetStorageName() == "" || repo.GetRelativePath() == "" {
-		return glerrors.ErrInvalidRepository
+		return gitalyerrors.ErrInvalidRepository
 	}
 
 	if _, found := c.conf.StorageNames()[repo.StorageName]; !found {
 		// this needs to be nodes.ErrVirtualStorageNotExist error, but it will break
 		// existing API contract as praefect should be a transparent proxy of the gitaly
-		return glerrors.ErrInvalidRepository
+		return gitalyerrors.ErrInvalidRepository
 	}
 
 	return nil

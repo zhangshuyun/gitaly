@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/v14/internal/errors"
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v14/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
@@ -156,7 +156,7 @@ func didTagsChange(r io.Reader) bool {
 
 func (s *server) validateFetchRemoteRequest(req *gitalypb.FetchRemoteRequest) error {
 	if req.GetRepository() == nil {
-		return helper.ErrInvalidArgument(errors.ErrEmptyRepository)
+		return helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
 	}
 
 	params := req.GetRemoteParams()

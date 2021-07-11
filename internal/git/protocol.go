@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/log"
@@ -64,7 +64,7 @@ func gitProtocolEnv(ctx context.Context, req RequestWithGitProtocol) []string {
 }
 
 func methodFromContext(ctx context.Context) (service string, method string) {
-	tags := grpc_ctxtags.Extract(ctx)
+	tags := grpcmwtags.Extract(ctx)
 	ctxValue := tags.Values()["grpc.request.fullMethod"]
 	if ctxValue == nil {
 		return "", ""

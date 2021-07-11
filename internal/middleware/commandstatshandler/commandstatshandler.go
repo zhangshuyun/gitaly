@@ -3,7 +3,7 @@ package commandstatshandler
 import (
 	"context"
 
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
@@ -25,7 +25,7 @@ func StreamInterceptor(srv interface{}, stream grpc.ServerStream, info *grpc.Str
 	ctx := stream.Context()
 	ctx = command.InitContextStats(ctx)
 
-	wrapped := grpc_middleware.WrapServerStream(stream)
+	wrapped := grpcmw.WrapServerStream(stream)
 	wrapped.WrappedContext = ctx
 
 	err := handler(srv, wrapped)

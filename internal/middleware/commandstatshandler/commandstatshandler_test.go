@@ -7,8 +7,8 @@ import (
 	"net"
 	"testing"
 
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
@@ -30,17 +30,17 @@ func createNewServer(t *testing.T, cfg config.Cfg) *grpc.Server {
 	logrusEntry := logrus.NewEntry(logger).WithField("test", t.Name())
 
 	opts := []grpc.ServerOption{
-		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
+		grpc.StreamInterceptor(grpcmw.ChainStreamServer(
 			StreamInterceptor,
-			grpc_logrus.StreamServerInterceptor(logrusEntry,
-				grpc_logrus.WithTimestampFormat(log.LogTimestampFormat),
-				grpc_logrus.WithMessageProducer(CommandStatsMessageProducer)),
+			grpcmwlogrus.StreamServerInterceptor(logrusEntry,
+				grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat),
+				grpcmwlogrus.WithMessageProducer(CommandStatsMessageProducer)),
 		)),
-		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
+		grpc.UnaryInterceptor(grpcmw.ChainUnaryServer(
 			UnaryInterceptor,
-			grpc_logrus.UnaryServerInterceptor(logrusEntry,
-				grpc_logrus.WithTimestampFormat(log.LogTimestampFormat),
-				grpc_logrus.WithMessageProducer(CommandStatsMessageProducer)),
+			grpcmwlogrus.UnaryServerInterceptor(logrusEntry,
+				grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat),
+				grpcmwlogrus.WithMessageProducer(CommandStatsMessageProducer)),
 		)),
 	}
 

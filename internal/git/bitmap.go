@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/packfile"
@@ -82,7 +82,7 @@ func WarnIfTooManyBitmaps(ctx context.Context, locator storage.Locator, storageN
 	// repository. We don't want to spam our logs with that, so we count but
 	// not log it.
 
-	grpcMethod, ok := grpc_ctxtags.Extract(ctx).Values()["grpc.request.fullMethod"].(string)
+	grpcMethod, ok := grpcmwtags.Extract(ctx).Values()["grpc.request.fullMethod"].(string)
 	if !ok {
 		return
 	}

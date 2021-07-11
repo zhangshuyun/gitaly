@@ -12,7 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
-	gitaly_x509 "gitlab.com/gitlab-org/gitaly/v14/internal/x509"
+	gitalyx509 "gitlab.com/gitlab-org/gitaly/v14/internal/x509"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"gitlab.com/gitlab-org/labkit/tracing"
@@ -73,7 +73,7 @@ func commandEnv(ctx context.Context, cfg config.Cfg, storageName, command string
 		"GIT_SSH_VARIANT=simple",
 		// Pass through the SSL_CERT_* variables that indicate which
 		// system certs to trust
-		fmt.Sprintf("%s=%s", gitaly_x509.SSLCertDir, os.Getenv(gitaly_x509.SSLCertDir)),
-		fmt.Sprintf("%s=%s", gitaly_x509.SSLCertFile, os.Getenv(gitaly_x509.SSLCertFile)),
+		fmt.Sprintf("%s=%s", gitalyx509.SSLCertDir, os.Getenv(gitalyx509.SSLCertDir)),
+		fmt.Sprintf("%s=%s", gitalyx509.SSLCertFile, os.Getenv(gitalyx509.SSLCertFile)),
 	}, nil
 }

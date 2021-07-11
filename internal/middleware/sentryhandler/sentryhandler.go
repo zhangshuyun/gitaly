@@ -9,7 +9,7 @@ import (
 	"time"
 
 	sentry "github.com/getsentry/sentry-go"
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -90,7 +90,7 @@ func logErrorToSentry(ctx context.Context, method string, err error) (code codes
 		}
 	}
 
-	tags := grpc_ctxtags.Extract(ctx)
+	tags := grpcmwtags.Extract(ctx)
 	if tags.Has(skipSubmission) {
 		return code, true
 	}
@@ -104,7 +104,7 @@ func generateSentryEvent(ctx context.Context, method string, start time.Time, er
 		return nil
 	}
 
-	tags := grpc_ctxtags.Extract(ctx)
+	tags := grpcmwtags.Extract(ctx)
 	event := sentry.NewEvent()
 
 	for k, v := range stringMap(tags.Values()) {
@@ -162,6 +162,6 @@ func newException(err error, stacktrace *sentry.Stacktrace) sentry.Exception {
 
 // MarkToSkip propagate context with a special tag that signals to sentry handler that the error must not be reported.
 func MarkToSkip(ctx context.Context) {
-	tags := grpc_ctxtags.Extract(ctx)
+	tags := grpcmwtags.Extract(ctx)
 	tags.Set(skipSubmission, struct{}{})
 }

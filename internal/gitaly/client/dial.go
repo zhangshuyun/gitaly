@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"time"
 
-	gitaly_x509 "gitlab.com/gitlab-org/gitaly/v14/internal/x509"
+	gitalyx509 "gitlab.com/gitlab-org/gitaly/v14/internal/x509"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
 	"google.golang.org/grpc"
@@ -71,7 +71,7 @@ func Dial(ctx context.Context, rawAddress string, connOpts []grpc.DialOption, ha
 			return nil, fmt.Errorf("failed to extract host for 'tls' connection: %w", err)
 		}
 
-		certPool, err := gitaly_x509.SystemCertPool()
+		certPool, err := gitalyx509.SystemCertPool()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get system certificat pool for 'tls' connection: %w", err)
 		}
