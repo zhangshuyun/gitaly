@@ -157,14 +157,6 @@ func authorEqualIgnoringDate(t testing.TB, expected *gitalypb.CommitAuthor, actu
 	require.Equal(t, expected.GetEmail(), actual.GetEmail(), "author mail does not match")
 }
 
-// AuthorEqual tests if two `CommitAuthor`s are equal.
-func AuthorEqual(t testing.TB, expected *gitalypb.CommitAuthor, actual *gitalypb.CommitAuthor) {
-	t.Helper()
-	authorEqualIgnoringDate(t, expected, actual)
-	require.Equal(t, expected.GetDate().GetSeconds(), actual.GetDate().GetSeconds(),
-		"date does not match")
-}
-
 // CommitEqual tests if two `GitCommit`s are equal
 func CommitEqual(t testing.TB, expected, actual *gitalypb.GitCommit) {
 	t.Helper()

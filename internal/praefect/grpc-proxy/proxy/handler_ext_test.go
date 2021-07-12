@@ -17,8 +17,8 @@ import (
 	"time"
 
 	"github.com/getsentry/sentry-go"
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -258,9 +258,9 @@ func (s *ProxyHappySuite) SetupSuite() {
 	s.proxy = grpc.NewServer(
 		grpc.ForceServerCodec(proxy.NewCodec()),
 		grpc.StreamInterceptor(
-			grpc_middleware.ChainStreamServer(
+			grpcmw.ChainStreamServer(
 				// context tags usage is required by sentryhandler.StreamLogHandler
-				grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor)),
+				grpcmwtags.StreamServerInterceptor(grpcmwtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor)),
 				// sentry middleware to capture errors
 				sentryhandler.StreamLogHandler,
 			),

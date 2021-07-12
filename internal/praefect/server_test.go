@@ -49,7 +49,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health/grpc_health_v1"
-	grpc_metadata "google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -852,7 +852,7 @@ func TestErrorThreshold(t *testing.T) {
 	backendToken := ""
 	backend, cleanup := newMockDownstream(t, backendToken, &mockSvc{
 		repoMutatorUnary: func(ctx context.Context, req *mock.RepoRequest) (*empty.Empty, error) {
-			md, ok := grpc_metadata.FromIncomingContext(ctx)
+			md, ok := metadata.FromIncomingContext(ctx)
 			if !ok {
 				return &empty.Empty{}, errors.New("couldn't read metadata")
 			}
@@ -864,7 +864,7 @@ func TestErrorThreshold(t *testing.T) {
 			return &empty.Empty{}, nil
 		},
 		repoAccessorUnary: func(ctx context.Context, req *mock.RepoRequest) (*empty.Empty, error) {
-			md, ok := grpc_metadata.FromIncomingContext(ctx)
+			md, ok := metadata.FromIncomingContext(ctx)
 			if !ok {
 				return &empty.Empty{}, errors.New("couldn't read metadata")
 			}
@@ -976,7 +976,7 @@ func TestErrorThreshold(t *testing.T) {
 			}
 
 			for i := 0; i < 5; i++ {
-				ctx := grpc_metadata.AppendToOutgoingContext(ctx, "bad-header", "true")
+				ctx := metadata.AppendToOutgoingContext(ctx, "bad-header", "true")
 
 				handler := cli.RepoMutatorUnary
 				if tc.accessor {

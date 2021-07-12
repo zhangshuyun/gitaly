@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
@@ -254,15 +254,15 @@ func dialOptions() []grpc.DialOption {
 			return d.DialContext(ctx, "unix", addr)
 		}),
 		grpc.WithUnaryInterceptor(
-			grpc_middleware.ChainUnaryClient(
-				grpc_prometheus.UnaryClientInterceptor,
+			grpcmw.ChainUnaryClient(
+				grpcprometheus.UnaryClientInterceptor,
 				grpctracing.UnaryClientTracingInterceptor(),
 				grpccorrelation.UnaryClientCorrelationInterceptor(),
 			),
 		),
 		grpc.WithStreamInterceptor(
-			grpc_middleware.ChainStreamClient(
-				grpc_prometheus.StreamClientInterceptor,
+			grpcmw.ChainStreamClient(
+				grpcprometheus.StreamClientInterceptor,
 				grpctracing.StreamClientTracingInterceptor(),
 				grpccorrelation.StreamClientCorrelationInterceptor(),
 			),

@@ -4,11 +4,11 @@ import (
 	"context"
 	"time"
 
-	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
+	grpcmwauth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
-	internalauth "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/auth"
+	gitalycfgauth "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/auth"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -25,16 +25,16 @@ var (
 )
 
 // StreamServerInterceptor checks for Gitaly bearer tokens.
-func StreamServerInterceptor(conf internalauth.Config) grpc.StreamServerInterceptor {
-	return grpc_auth.StreamServerInterceptor(checkFunc(conf))
+func StreamServerInterceptor(conf gitalycfgauth.Config) grpc.StreamServerInterceptor {
+	return grpcmwauth.StreamServerInterceptor(checkFunc(conf))
 }
 
 // UnaryServerInterceptor checks for Gitaly bearer tokens.
-func UnaryServerInterceptor(conf internalauth.Config) grpc.UnaryServerInterceptor {
-	return grpc_auth.UnaryServerInterceptor(checkFunc(conf))
+func UnaryServerInterceptor(conf gitalycfgauth.Config) grpc.UnaryServerInterceptor {
+	return grpcmwauth.UnaryServerInterceptor(checkFunc(conf))
 }
 
-func checkFunc(conf internalauth.Config) func(ctx context.Context) (context.Context, error) {
+func checkFunc(conf gitalycfgauth.Config) func(ctx context.Context) (context.Context, error) {
 	return func(ctx context.Context) (context.Context, error) {
 		if len(conf.Token) == 0 {
 			countStatus("server disabled authentication", conf.Transitioning).Inc()

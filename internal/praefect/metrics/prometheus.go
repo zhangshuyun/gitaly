@@ -3,13 +3,13 @@ package metrics
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	promconfig "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/prometheus"
+	gitalycfgprom "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/prometheus/metrics"
 )
 
 // RegisterReplicationDelay creates and registers a prometheus histogram
 // to observe replication delay times
-func RegisterReplicationDelay(conf promconfig.Config) (metrics.HistogramVec, error) {
+func RegisterReplicationDelay(conf gitalycfgprom.Config) (metrics.HistogramVec, error) {
 	replicationDelay := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "gitaly",
@@ -25,7 +25,7 @@ func RegisterReplicationDelay(conf promconfig.Config) (metrics.HistogramVec, err
 
 // RegisterReplicationLatency creates and registers a prometheus histogram
 // to observe replication latency times
-func RegisterReplicationLatency(conf promconfig.Config) (metrics.HistogramVec, error) {
+func RegisterReplicationLatency(conf gitalycfgprom.Config) (metrics.HistogramVec, error) {
 	replicationLatency := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "gitaly",
@@ -41,7 +41,7 @@ func RegisterReplicationLatency(conf promconfig.Config) (metrics.HistogramVec, e
 
 // RegisterNodeLatency creates and registers a prometheus histogram to
 // observe internal node latency
-func RegisterNodeLatency(conf promconfig.Config) (metrics.HistogramVec, error) {
+func RegisterNodeLatency(conf gitalycfgprom.Config) (metrics.HistogramVec, error) {
 	nodeLatency := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "gitaly",
@@ -76,14 +76,6 @@ var NodeLastHealthcheckGauge = promauto.NewGaugeVec(
 		Subsystem: "praefect",
 		Name:      "node_last_healthcheck_up",
 	}, []string{"gitaly_storage"},
-)
-
-var ChecksumMismatchCounter = promauto.NewCounterVec(
-	prometheus.CounterOpts{
-		Namespace: "gitaly",
-		Subsystem: "praefect",
-		Name:      "checksum_mismatch_total",
-	}, []string{"target", "source"},
 )
 
 // ReadDistribution counts how many read operations was routed to each storage.

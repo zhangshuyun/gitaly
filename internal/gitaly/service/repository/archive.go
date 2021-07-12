@@ -215,7 +215,7 @@ func (s *server) handleArchive(p archiveParams) error {
 
 	archiveCommand, err := s.gitCmdFactory.New(p.ctx, p.in.GetRepository(), git.SubCmd{
 		Name:        "archive",
-		Flags:       []git.Option{git.ValueFlag{"--format", p.format}, git.ValueFlag{"--prefix", p.in.GetPrefix() + "/"}},
+		Flags:       []git.Option{git.ValueFlag{Name: "--format", Value: p.format}, git.ValueFlag{Name: "--prefix", Value: p.in.GetPrefix() + "/"}},
 		Args:        args,
 		PostSepArgs: pathspecs,
 	}, git.WithEnv(env...), git.WithConfig(config...))

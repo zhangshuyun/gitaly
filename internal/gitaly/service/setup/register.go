@@ -1,7 +1,7 @@
 package setup
 
 import (
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
@@ -144,5 +144,5 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 
 	healthpb.RegisterHealthServer(srv, health.NewServer())
 	reflection.Register(srv)
-	grpc_prometheus.Register(srv)
+	grpcprometheus.Register(srv)
 }

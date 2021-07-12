@@ -426,7 +426,7 @@ func consumeFilenameByContentChunked(stream gitalypb.RepositoryService_SearchFil
 func consumeFilenameByName(stream gitalypb.RepositoryService_SearchFilesByNameClient) ([][]byte, error) {
 	var ret [][]byte
 
-	for done := false; !done; {
+	for {
 		resp, err := stream.Recv()
 		if err == io.EOF {
 			break

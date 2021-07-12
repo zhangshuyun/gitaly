@@ -10,7 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
-	internalauth "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/auth"
+	gitalycfgauth "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/server/auth"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
@@ -251,7 +251,7 @@ func dialLocalPort(tb testing.TB, port int, backend bool) *grpc.ClientConn {
 }
 
 func newMockDownstream(tb testing.TB, token string, m mock.SimpleServiceServer) (string, func()) {
-	srv := grpc.NewServer(grpc.UnaryInterceptor(auth.UnaryServerInterceptor(internalauth.Config{Token: token})))
+	srv := grpc.NewServer(grpc.UnaryInterceptor(auth.UnaryServerInterceptor(gitalycfgauth.Config{Token: token})))
 	mock.RegisterSimpleServiceServer(srv, m)
 	healthpb.RegisterHealthServer(srv, health.NewServer())
 

@@ -189,9 +189,9 @@ func testSetConfig(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 			{
 				desc: "mix of different types",
 				entries: []*gitalypb.SetConfigRequest_Entry{
-					&gitalypb.SetConfigRequest_Entry{Key: "test.foo1", Value: &gitalypb.SetConfigRequest_Entry_ValueStr{"hello world"}},
-					&gitalypb.SetConfigRequest_Entry{Key: "test.foo2", Value: &gitalypb.SetConfigRequest_Entry_ValueInt32{1234}},
-					&gitalypb.SetConfigRequest_Entry{Key: "test.foo3", Value: &gitalypb.SetConfigRequest_Entry_ValueBool{true}},
+					&gitalypb.SetConfigRequest_Entry{Key: "test.foo1", Value: &gitalypb.SetConfigRequest_Entry_ValueStr{ValueStr: "hello world"}},
+					&gitalypb.SetConfigRequest_Entry{Key: "test.foo2", Value: &gitalypb.SetConfigRequest_Entry_ValueInt32{ValueInt32: 1234}},
+					&gitalypb.SetConfigRequest_Entry{Key: "test.foo3", Value: &gitalypb.SetConfigRequest_Entry_ValueBool{ValueBool: true}},
 				},
 				expected: []string{
 					"test.foo1=hello world",
@@ -261,7 +261,7 @@ func testSetConfigTransactional(t *testing.T, cfg config.Cfg, rubySrv *rubyserve
 			&gitalypb.SetConfigRequest_Entry{
 				Key: "set.me",
 				Value: &gitalypb.SetConfigRequest_Entry_ValueStr{
-					"something",
+					ValueStr: "something",
 				},
 			},
 		},

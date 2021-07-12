@@ -19,7 +19,7 @@ import (
 	proxytestdata "gitlab.com/gitlab-org/gitaly/v14/internal/praefect/grpc-proxy/testdata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
-	gitaly_x509 "gitlab.com/gitlab-org/gitaly/v14/internal/x509"
+	gitalyx509 "gitlab.com/gitlab-org/gitaly/v14/internal/x509"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
@@ -123,7 +123,7 @@ func TestDial(t *testing.T) {
 			}
 
 			if tt.envSSLCertFile != "" {
-				defer testhelper.ModifyEnvironment(t, gitaly_x509.SSLCertFile, tt.envSSLCertFile)()
+				defer testhelper.ModifyEnvironment(t, gitalyx509.SSLCertFile, tt.envSSLCertFile)()
 			}
 
 			ctx, cancel := testhelper.Context()

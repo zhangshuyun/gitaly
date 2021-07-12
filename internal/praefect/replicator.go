@@ -417,8 +417,6 @@ type ReplMgr struct {
 	replDelayMetric    prommetrics.HistogramVec
 	replJobTimeout     time.Duration
 	dequeueBatchSize   uint
-	// allowlist contains the project names of the repos we wish to replicate
-	allowlist map[string]struct{}
 }
 
 // ReplMgrOpt allows a replicator to be configured with additional options
@@ -451,7 +449,6 @@ func NewReplMgr(log *logrus.Entry, virtualStorages []string, queue datastore.Rep
 	r := ReplMgr{
 		log:             log.WithField("component", "replication_manager"),
 		queue:           queue,
-		allowlist:       map[string]struct{}{},
 		replicator:      defaultReplicator{rs: rs, log: log.WithField("component", "replicator")},
 		virtualStorages: virtualStorages,
 		hc:              hc,
@@ -480,22 +477,6 @@ func (r ReplMgr) Describe(ch chan<- *prometheus.Desc) {
 
 func (r ReplMgr) Collect(ch chan<- prometheus.Metric) {
 	r.replInFlightMetric.Collect(ch)
-}
-
-// WithAllowlist will configure a allowlist for repos to allow replication
-func WithAllowlist(allowlistedRepos []string) ReplMgrOpt {
-	return func(r *ReplMgr) {
-		for _, repo := range allowlistedRepos {
-			r.allowlist[repo] = struct{}{}
-		}
-	}
-}
-
-// WithReplicator overrides the default replicator
-func WithReplicator(r Replicator) ReplMgrOpt {
-	return func(rm *ReplMgr) {
-		rm.replicator = r
-	}
 }
 
 const (

@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/bootstrap/starter"
-	gitaly_auth "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/auth"
+	gitalycfgauth "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/server/auth"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"google.golang.org/grpc"
@@ -183,13 +183,13 @@ func runServerWithAddr(t *testing.T, creds, addr string) (*health.Server, string
 	var opts []grpc.ServerOption
 	if creds != "" {
 		opts = []grpc.ServerOption{
-			grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
-				auth.StreamServerInterceptor(gitaly_auth.Config{
+			grpc.StreamInterceptor(grpcmw.ChainStreamServer(
+				auth.StreamServerInterceptor(gitalycfgauth.Config{
 					Token: creds,
 				}),
 			)),
-			grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
-				auth.UnaryServerInterceptor(gitaly_auth.Config{
+			grpc.UnaryInterceptor(grpcmw.ChainUnaryServer(
+				auth.UnaryServerInterceptor(gitalycfgauth.Config{
 					Token: creds,
 				}),
 			)),

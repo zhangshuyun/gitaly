@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/client"
@@ -120,7 +120,7 @@ const dialTimeout = 10 * time.Second
 // Dial dials a node with the necessary interceptors configured.
 func Dial(ctx context.Context, node *config.Node, registry *protoregistry.Registry, errorTracker tracker.ErrorTracker, handshaker client.Handshaker) (*grpc.ClientConn, error) {
 	streamInterceptors := []grpc.StreamClientInterceptor{
-		grpc_prometheus.StreamClientInterceptor,
+		grpcprometheus.StreamClientInterceptor,
 	}
 
 	if errorTracker != nil {
@@ -131,7 +131,7 @@ func Dial(ctx context.Context, node *config.Node, registry *protoregistry.Regist
 		grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())),
 		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(node.Token)),
 		grpc.WithChainStreamInterceptor(streamInterceptors...),
-		grpc.WithChainUnaryInterceptor(grpc_prometheus.UnaryClientInterceptor),
+		grpc.WithChainUnaryInterceptor(grpcprometheus.UnaryClientInterceptor),
 	}
 
 	return client.Dial(ctx, node.Address, dialOpts, handshaker)

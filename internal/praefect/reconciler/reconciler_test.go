@@ -35,10 +35,6 @@ func getDB(tb testing.TB) glsql.DB {
 	return glsql.GetDB(tb, "reconciler")
 }
 
-func getStorageMethod(storage string) func() string {
-	return func() string { return storage }
-}
-
 func TestReconciler(t *testing.T) {
 	// repositories describes storage state as
 	// virtual storage -> relative path -> physical storage -> generation

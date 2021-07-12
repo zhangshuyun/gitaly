@@ -96,31 +96,3 @@ func Proxy(recvSend func() error) (err error) {
 type CloseSender interface {
 	CloseSend() error
 }
-
-// ProxyBidi works like Proxy but runs multiple callbacks simultaneously.
-// It returns immediately if proxying one of the callbacks fails. If the
-// response stream is done, ProxyBidi returns immediately without waiting
-// for the client stream to finish proxying.
-func ProxyBidi(requestFunc func() error, requestStream CloseSender, responseFunc func() error) error {
-	requestErr := make(chan error, 1)
-	go func() {
-		requestErr <- Proxy(requestFunc)
-	}()
-
-	responseErr := make(chan error, 1)
-	go func() {
-		responseErr <- Proxy(responseFunc)
-	}()
-
-	for {
-		select {
-		case err := <-requestErr:
-			if err != nil {
-				return err
-			}
-			requestStream.CloseSend()
-		case err := <-responseErr:
-			return err
-		}
-	}
-}

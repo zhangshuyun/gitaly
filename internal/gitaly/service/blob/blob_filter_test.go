@@ -26,8 +26,8 @@ func TestBlobFilter(t *testing.T) {
 	err := localRepo.ExecAndWait(ctx, git.SubCmd{
 		Name: "cat-file",
 		Flags: []git.Option{
-			git.Flag{"--batch-all-objects"},
-			git.Flag{"--batch-check=%(objecttype) %(objectsize) %(objectname)"},
+			git.Flag{Name: "--batch-all-objects"},
+			git.Flag{Name: "--batch-check=%(objecttype) %(objectsize) %(objectname)"},
 		},
 	}, git.WithStdout(&batchCheckOutput))
 	require.NoError(t, err)

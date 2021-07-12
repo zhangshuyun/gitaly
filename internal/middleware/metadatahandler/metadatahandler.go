@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
@@ -86,7 +86,7 @@ func addMetadataTags(ctx context.Context) metadataTags {
 		return metaTags
 	}
 
-	tags := grpc_ctxtags.Extract(ctx)
+	tags := grpcmwtags.Extract(ctx)
 
 	metadata := getFromMD(md, "call_site")
 	if metadata != "" {
@@ -167,7 +167,7 @@ func reportWithPrometheusLabels(metaTags metadataTags, fullMethod string, err er
 		grpcCode.String(),     // grpc_code
 		metaTags.deadlineType, // deadline_type
 	).Inc()
-	grpc_prometheus.WithConstLabels(prometheus.Labels{"deadline_type": metaTags.deadlineType})
+	grpcprometheus.WithConstLabels(prometheus.Labels{"deadline_type": metaTags.deadlineType})
 }
 
 // UnaryInterceptor returns a Unary Interceptor

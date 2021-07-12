@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
+	grpcmwauth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"google.golang.org/grpc/codes"
@@ -80,7 +80,7 @@ func CheckToken(ctx context.Context, secret string, targetTime time.Time) error 
 
 // ExtractAuthInfo returns an `AuthInfo` with the data extracted from `ctx`
 func ExtractAuthInfo(ctx context.Context) (*AuthInfo, error) {
-	token, err := grpc_auth.AuthFromMD(ctx, "bearer")
+	token, err := grpcmwauth.AuthFromMD(ctx, "bearer")
 
 	if err != nil {
 		return nil, err

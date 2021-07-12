@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/proto"
-	gitaly_errors "gitlab.com/gitlab-org/gitaly/v14/internal/errors"
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v14/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gitpipe"
@@ -219,7 +219,7 @@ func (s *server) GetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gita
 
 func validateGetLFSPointersRequest(req *gitalypb.GetLFSPointersRequest) error {
 	if req.GetRepository() == nil {
-		return gitaly_errors.ErrEmptyRepository
+		return gitalyerrors.ErrEmptyRepository
 	}
 
 	if len(req.GetBlobIds()) == 0 {

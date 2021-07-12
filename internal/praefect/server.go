@@ -5,10 +5,10 @@ package praefect
 import (
 	"time"
 
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/server/auth"
@@ -43,23 +43,23 @@ import (
 func NewBackchannelServerFactory(logger *logrus.Entry, svc gitalypb.RefTransactionServer) backchannel.ServerFactory {
 	return func() backchannel.Server {
 		srv := grpc.NewServer(
-			grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
+			grpc.UnaryInterceptor(grpcmw.ChainUnaryServer(
 				commonUnaryServerInterceptors(logger)...,
 			)),
 		)
 		gitalypb.RegisterRefTransactionServer(srv, svc)
-		grpc_prometheus.Register(srv)
+		grpcprometheus.Register(srv)
 		return srv
 	}
 }
 
 func commonUnaryServerInterceptors(logger *logrus.Entry) []grpc.UnaryServerInterceptor {
 	return []grpc.UnaryServerInterceptor{
-		grpc_ctxtags.UnaryServerInterceptor(ctxtagsInterceptorOption()),
+		grpcmwtags.UnaryServerInterceptor(ctxtagsInterceptorOption()),
 		grpccorrelation.UnaryServerCorrelationInterceptor(), // Must be above the metadata handler
 		metadatahandler.UnaryInterceptor,
-		grpc_prometheus.UnaryServerInterceptor,
-		grpc_logrus.UnaryServerInterceptor(logger, grpc_logrus.WithTimestampFormat(log.LogTimestampFormat)),
+		grpcprometheus.UnaryServerInterceptor,
+		grpcmwlogrus.UnaryServerInterceptor(logger, grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat)),
 		sentryhandler.UnaryLogHandler,
 		cancelhandler.Unary, // Should be below LogHandler
 		grpctracing.UnaryServerTracingInterceptor(),
@@ -69,8 +69,8 @@ func commonUnaryServerInterceptors(logger *logrus.Entry) []grpc.UnaryServerInter
 	}
 }
 
-func ctxtagsInterceptorOption() grpc_ctxtags.Option {
-	return grpc_ctxtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor)
+func ctxtagsInterceptorOption() grpcmwtags.Option {
+	return grpcmwtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor)
 }
 
 // NewGRPCServer returns gRPC server with registered proxy-handler and actual services praefect serves on its own.
@@ -90,13 +90,13 @@ func NewGRPCServer(
 	grpcOpts ...grpc.ServerOption,
 ) *grpc.Server {
 	streamInterceptors := []grpc.StreamServerInterceptor{
-		grpc_ctxtags.StreamServerInterceptor(ctxtagsInterceptorOption()),
+		grpcmwtags.StreamServerInterceptor(ctxtagsInterceptorOption()),
 		grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler
 		middleware.MethodTypeStreamInterceptor(registry),
 		metadatahandler.StreamInterceptor,
-		grpc_prometheus.StreamServerInterceptor,
-		grpc_logrus.StreamServerInterceptor(logger,
-			grpc_logrus.WithTimestampFormat(log.LogTimestampFormat)),
+		grpcprometheus.StreamServerInterceptor,
+		grpcmwlogrus.StreamServerInterceptor(logger,
+			grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat)),
 		sentryhandler.StreamLogHandler,
 		cancelhandler.Stream, // Should be below LogHandler
 		grpctracing.StreamServerTracingInterceptor(),
@@ -112,8 +112,8 @@ func NewGRPCServer(
 
 	grpcOpts = append(grpcOpts, proxyRequiredOpts(director)...)
 	grpcOpts = append(grpcOpts, []grpc.ServerOption{
-		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streamInterceptors...)),
-		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
+		grpc.StreamInterceptor(grpcmw.ChainStreamServer(streamInterceptors...)),
+		grpc.UnaryInterceptor(grpcmw.ChainUnaryServer(
 			append(
 				commonUnaryServerInterceptors(logger),
 				middleware.MethodTypeUnaryInterceptor(registry),
@@ -158,7 +158,7 @@ func registerServices(
 	gitalypb.RegisterRefTransactionServer(srv, transaction.NewServer(tm))
 	healthpb.RegisterHealthServer(srv, health.NewServer())
 
-	grpc_prometheus.Register(srv)
+	grpcprometheus.Register(srv)
 }
 
 func warnDupeAddrs(logger logrus.FieldLogger, conf config.Config) {

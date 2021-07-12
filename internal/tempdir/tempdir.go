@@ -49,9 +49,6 @@ func CacheDir(storage config.Storage) string { return AppendCacheDir(storage.Pat
 // provided
 func AppendCacheDir(storagePath string) string { return filepath.Join(storagePath, cachePrefix) }
 
-// StateDir returns the path to the state dir for a storage location
-func StateDir(storage config.Storage) string { return AppendStateDir(storage.Path) }
-
 // AppendStateDir will append the state directory convention to the storage path
 // provided
 func AppendStateDir(storagePath string) string { return filepath.Join(storagePath, statePrefix) }

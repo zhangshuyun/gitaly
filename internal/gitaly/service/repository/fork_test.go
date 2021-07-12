@@ -31,7 +31,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
-	gitaly_x509 "gitlab.com/gitlab-org/gitaly/v14/internal/x509"
+	gitalyx509 "gitlab.com/gitlab-org/gitaly/v14/internal/x509"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -201,7 +201,7 @@ func injectCustomCATestCerts(t *testing.T, cfg *config.Cfg) *x509.CertPool {
 	cfg.TLS.CertPath = certFile
 	cfg.TLS.KeyPath = keyFile
 
-	revertEnv := testhelper.ModifyEnvironment(t, gitaly_x509.SSLCertFile, certFile)
+	revertEnv := testhelper.ModifyEnvironment(t, gitalyx509.SSLCertFile, certFile)
 	t.Cleanup(revertEnv)
 
 	caPEMBytes := testhelper.MustReadFile(t, certFile)
