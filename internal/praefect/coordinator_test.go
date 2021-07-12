@@ -1522,9 +1522,9 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 }
 
 type mockTransaction struct {
-	nodeStates                 map[string]transactions.VoteResult
-	subtransactions            int
-	didCommitAnySubtransaction bool
+	nodeStates      map[string]transactions.VoteResult
+	subtransactions int
+	didVote         map[string]bool
 }
 
 func (t mockTransaction) ID() uint64 {
@@ -1535,8 +1535,8 @@ func (t mockTransaction) CountSubtransactions() int {
 	return t.subtransactions
 }
 
-func (t mockTransaction) DidCommitAnySubtransaction() bool {
-	return t.didCommitAnySubtransaction
+func (t mockTransaction) DidVote(node string) bool {
+	return t.didVote[node]
 }
 
 func (t mockTransaction) State() (map[string]transactions.VoteResult, error) {
@@ -1556,16 +1556,16 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 	anyErr := errors.New("arbitrary error")
 
 	for _, tc := range []struct {
-		desc                       string
-		primary                    node
-		secondaries                []node
-		replicas                   []string
-		subtransactions            int
-		didCommitAnySubtransaction bool
-		expectedPrimaryDirtied     bool
-		expectedOutdated           []string
-		expectedUpdated            []string
-		expectedMetrics            map[string]int
+		desc                   string
+		primary                node
+		secondaries            []node
+		replicas               []string
+		subtransactions        int
+		didVote                map[string]bool
+		expectedPrimaryDirtied bool
+		expectedOutdated       []string
+		expectedUpdated        []string
+		expectedMetrics        map[string]int
 	}{
 		{
 			desc: "single committed node",
@@ -1573,9 +1573,11 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 				name:  "primary",
 				state: transactions.VoteCommitted,
 			},
-			didCommitAnySubtransaction: true,
-			subtransactions:            1,
-			expectedPrimaryDirtied:     true,
+			didVote: map[string]bool{
+				"primary": true,
+			},
+			subtransactions:        1,
+			expectedPrimaryDirtied: true,
 		},
 		{
 			desc: "single failed node",
@@ -1606,24 +1608,24 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 				name:  "primary",
 				state: transactions.VoteCommitted,
 			},
-			replicas:                   []string{"replica"},
-			didCommitAnySubtransaction: true,
-			subtransactions:            1,
-			expectedPrimaryDirtied:     true,
-			expectedOutdated:           []string{"replica"},
+			replicas: []string{"replica"},
+			didVote: map[string]bool{
+				"primary": true,
+			},
+			subtransactions:        1,
+			expectedPrimaryDirtied: true,
+			expectedOutdated:       []string{"replica"},
 			expectedMetrics: map[string]int{
 				"outdated": 1,
 			},
 		},
 		{
-			desc: "single failing node with replica",
+			desc: "single failing node with replica is not considered modified",
 			primary: node{
 				name:  "primary",
 				state: transactions.VoteFailed,
 			},
-			replicas:         []string{"replica"},
-			subtransactions:  1,
-			expectedOutdated: []string{"replica"},
+			subtransactions: 1,
 		},
 		{
 			desc: "single erred node with replica",
@@ -1632,14 +1634,27 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 				state: transactions.VoteCommitted,
 				err:   anyErr,
 			},
-			replicas:                   []string{"replica"},
-			didCommitAnySubtransaction: true,
-			subtransactions:            1,
-			expectedPrimaryDirtied:     true,
-			expectedOutdated:           []string{"replica"},
+			replicas: []string{"replica"},
+			didVote: map[string]bool{
+				"primary": true,
+			},
+			subtransactions:        1,
+			expectedPrimaryDirtied: true,
+			expectedOutdated:       []string{"replica"},
 			expectedMetrics: map[string]int{
 				"outdated": 1,
 			},
+		},
+		{
+			desc: "single erred node without commit with replica",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteCommitted,
+				err:   anyErr,
+			},
+			replicas:               []string{"replica"},
+			subtransactions:        1,
+			expectedPrimaryDirtied: false,
 		},
 		{
 			desc: "single node without transaction with replica",
@@ -1664,10 +1679,15 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 				{name: "s1", state: transactions.VoteCommitted},
 				{name: "s2", state: transactions.VoteCommitted},
 			},
-			didCommitAnySubtransaction: true,
-			subtransactions:            1,
-			expectedPrimaryDirtied:     true,
-			expectedUpdated:            []string{"s1", "s2"},
+			didVote: map[string]bool{
+				"primary": true,
+			},
+			subtransactions:        1,
+			expectedPrimaryDirtied: true,
+			expectedUpdated:        []string{"s1", "s2"},
+			expectedMetrics: map[string]int{
+				"updated": 2,
+			},
 		},
 		{
 			desc: "multiple committed nodes with primary err",
@@ -1680,10 +1700,12 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 				{name: "s1", state: transactions.VoteCommitted},
 				{name: "s2", state: transactions.VoteCommitted},
 			},
-			didCommitAnySubtransaction: true,
-			subtransactions:            1,
-			expectedPrimaryDirtied:     true,
-			expectedOutdated:           []string{"s1", "s2"},
+			didVote: map[string]bool{
+				"primary": true,
+			},
+			subtransactions:        1,
+			expectedPrimaryDirtied: true,
+			expectedOutdated:       []string{"s1", "s2"},
 			expectedMetrics: map[string]int{
 				"primary-failed": 2,
 			},
@@ -1698,13 +1720,16 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 				{name: "s1", state: transactions.VoteCommitted, err: anyErr},
 				{name: "s2", state: transactions.VoteCommitted},
 			},
-			didCommitAnySubtransaction: true,
-			subtransactions:            1,
-			expectedPrimaryDirtied:     true,
-			expectedUpdated:            []string{"s2"},
-			expectedOutdated:           []string{"s1"},
+			didVote: map[string]bool{
+				"primary": true,
+			},
+			subtransactions:        1,
+			expectedPrimaryDirtied: true,
+			expectedUpdated:        []string{"s2"},
+			expectedOutdated:       []string{"s1"},
 			expectedMetrics: map[string]int{
 				"node-failed": 1,
+				"updated":     1,
 			},
 		},
 		{
@@ -1717,13 +1742,16 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 				{name: "s1", state: transactions.VoteFailed},
 				{name: "s2", state: transactions.VoteCommitted},
 			},
-			didCommitAnySubtransaction: true,
-			subtransactions:            1,
-			expectedPrimaryDirtied:     true,
-			expectedUpdated:            []string{"s2"},
-			expectedOutdated:           []string{"s1"},
+			didVote: map[string]bool{
+				"primary": true,
+			},
+			subtransactions:        1,
+			expectedPrimaryDirtied: true,
+			expectedUpdated:        []string{"s2"},
+			expectedOutdated:       []string{"s1"},
 			expectedMetrics: map[string]int{
 				"node-not-committed": 1,
+				"updated":            1,
 			},
 		},
 		{
@@ -1736,13 +1764,31 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 				{name: "s1", state: transactions.VoteFailed},
 				{name: "s2", state: transactions.VoteCommitted},
 			},
-			didCommitAnySubtransaction: true,
-			subtransactions:            1,
-			expectedPrimaryDirtied:     true,
-			expectedOutdated:           []string{"s1", "s2"},
+			didVote: map[string]bool{
+				"primary": true,
+			},
+			subtransactions:        1,
+			expectedPrimaryDirtied: true,
+			expectedOutdated:       []string{"s1", "s2"},
 			expectedMetrics: map[string]int{
 				"primary-not-committed": 2,
 			},
+		},
+		{
+			desc: "failure with no primary votes",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteFailed,
+			},
+			secondaries: []node{
+				{name: "s1", state: transactions.VoteFailed},
+				{name: "s2", state: transactions.VoteCommitted},
+			},
+			didVote: map[string]bool{
+				"s1": true,
+				"s2": true,
+			},
+			subtransactions: 1,
 		},
 		{
 			desc: "multiple nodes without subtransactions",
@@ -1771,15 +1817,18 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 				{name: "s1", state: transactions.VoteFailed},
 				{name: "s2", state: transactions.VoteCommitted},
 			},
-			replicas:                   []string{"r1", "r2"},
-			didCommitAnySubtransaction: true,
-			subtransactions:            1,
-			expectedPrimaryDirtied:     true,
-			expectedOutdated:           []string{"s1", "r1", "r2"},
-			expectedUpdated:            []string{"s2"},
+			replicas: []string{"r1", "r2"},
+			didVote: map[string]bool{
+				"primary": true,
+			},
+			subtransactions:        1,
+			expectedPrimaryDirtied: true,
+			expectedOutdated:       []string{"s1", "r1", "r2"},
+			expectedUpdated:        []string{"s2"},
 			expectedMetrics: map[string]int{
 				"node-not-committed": 1,
 				"outdated":           2,
+				"updated":            1,
 			},
 		},
 		{
@@ -1792,11 +1841,13 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 				{name: "s1", state: transactions.VoteFailed},
 				{name: "s2", state: transactions.VoteCommitted, err: anyErr},
 			},
-			replicas:                   []string{"r1", "r2"},
-			didCommitAnySubtransaction: true,
-			subtransactions:            1,
-			expectedPrimaryDirtied:     true,
-			expectedOutdated:           []string{"s1", "s2", "r1", "r2"},
+			replicas: []string{"r1", "r2"},
+			didVote: map[string]bool{
+				"primary": true,
+			},
+			subtransactions:        1,
+			expectedPrimaryDirtied: true,
+			expectedOutdated:       []string{"s1", "s2", "r1", "r2"},
 			expectedMetrics: map[string]int{
 				"node-failed":        1,
 				"node-not-committed": 1,
@@ -1823,9 +1874,9 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			}
 
 			transaction := mockTransaction{
-				nodeStates:                 states,
-				subtransactions:            tc.subtransactions,
-				didCommitAnySubtransaction: tc.didCommitAnySubtransaction,
+				nodeStates:      states,
+				subtransactions: tc.subtransactions,
+				didVote:         tc.didVote,
 			}
 
 			route := RepositoryMutatorRoute{
