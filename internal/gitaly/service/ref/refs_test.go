@@ -685,7 +685,7 @@ func testFindAllTagNestedTags(t *testing.T, ctx context.Context) {
 				// opportunistically peels any tag objects for us. This is a lot
 				// more efficient, and thus we don't have the previous limitations
 				// anymore with the new code which does use this.
-				if info.Type == "commit" && (depth < catfile.MaxTagReferenceDepth || featureflag.IsEnabled(ctx, featureflag.FindAllTagsPipeline)) {
+				if info.Type == "commit" && (depth < catfile.MaxTagReferenceDepth || featureflag.FindAllTagsPipeline.IsEnabled(ctx)) {
 					commit, err := catfile.GetCommit(ctx, batch, git.Revision(tc.originalOid))
 					require.NoError(t, err)
 					expectedTag.TargetCommit = commit

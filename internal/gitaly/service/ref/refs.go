@@ -140,7 +140,7 @@ func (s *server) FindAllTags(in *gitalypb.FindAllTagsRequest, stream gitalypb.Re
 
 	repo := s.localrepo(in.GetRepository())
 
-	if featureflag.IsEnabled(ctx, featureflag.FindAllTagsPipeline) {
+	if featureflag.FindAllTagsPipeline.IsEnabled(ctx) {
 		if err := s.findAllTags(ctx, repo, stream); err != nil {
 			return helper.ErrInternal(err)
 		}

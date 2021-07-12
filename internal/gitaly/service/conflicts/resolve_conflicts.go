@@ -197,7 +197,7 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		return err
 	}
 
-	if featureflag.IsEnabled(ctx, featureflag.ResolveConflictsWithHooks) {
+	if featureflag.ResolveConflictsWithHooks.IsEnabled(ctx) {
 		if err := s.updater.UpdateReference(
 			ctx,
 			header.Repository,

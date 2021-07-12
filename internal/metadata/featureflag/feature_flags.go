@@ -1,10 +1,5 @@
 package featureflag
 
-type FeatureFlag struct {
-	Name        string `json:"name"`
-	OnByDefault bool   `json:"on_by_default"`
-}
-
 // A set of feature flags used in Gitaly and Praefect.
 // In order to support coverage of combined features usage all feature flags should be marked as enabled for the test.
 // NOTE: if you add a new feature flag please add it to the `All` list defined below.

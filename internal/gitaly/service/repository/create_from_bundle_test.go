@@ -167,7 +167,7 @@ func testServerCreateRepositoryFromBundleTransactional(t *testing.T, ctx context
 	// If the following feature flag is enabled, then we'll use the `--atomic` flag for
 	// git-fetch(1) and thus bundle all reference updates into a single transaction. Otherwise,
 	// the old behaviour will create one transaction per reference.
-	if featureflag.IsEnabled(ctx, featureflag.CreateRepositoryFromBundleAtomicFetch) {
+	if featureflag.CreateRepositoryFromBundleAtomicFetch.IsEnabled(ctx) {
 		votingInput = append(votingInput,
 			fmt.Sprintf("%s %s refs/keep-around/2\n%s %s refs/keep-around/1\n", git.ZeroOID, masterOID, git.ZeroOID, masterOID),
 			fmt.Sprintf("%s %s refs/keep-around/2\n%s %s refs/keep-around/1\n", git.ZeroOID, masterOID, git.ZeroOID, masterOID),

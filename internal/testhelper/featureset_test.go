@@ -165,12 +165,12 @@ func TestFeatureSets_Run(t *testing.T) {
 		outgoingCtx := helper.OutgoingToIncoming(metadata.NewOutgoingContext(context.Background(), outgoingMD))
 
 		incomingFlags = append(incomingFlags, [2]bool{
-			ff.IsDisabled(incomingCtx, featureFlagB),
-			ff.IsDisabled(incomingCtx, featureFlagA),
+			featureFlagB.IsDisabled(incomingCtx),
+			featureFlagA.IsDisabled(incomingCtx),
 		})
 		outgoingFlags = append(outgoingFlags, [2]bool{
-			ff.IsDisabled(outgoingCtx, featureFlagB),
-			ff.IsDisabled(outgoingCtx, featureFlagA),
+			featureFlagB.IsDisabled(outgoingCtx),
+			featureFlagA.IsDisabled(outgoingCtx),
 		})
 	})
 

@@ -62,7 +62,7 @@ func (s *server) ListLFSPointers(in *gitalypb.ListLFSPointersRequest, stream git
 
 	repo := s.localrepo(in.GetRepository())
 
-	if featureflag.IsDisabled(ctx, featureflag.LFSPointersPipeline) {
+	if featureflag.LFSPointersPipeline.IsDisabled(ctx) {
 		if err := findLFSPointersByRevisions(ctx, repo, s.gitCmdFactory, chunker, int(in.Limit), in.Revisions...); err != nil {
 			if !errors.Is(err, errLimitReached) {
 				return err
@@ -121,7 +121,7 @@ func (s *server) ListAllLFSPointers(in *gitalypb.ListAllLFSPointersRequest, stre
 		},
 	})
 
-	if featureflag.IsDisabled(ctx, featureflag.LFSPointersPipeline) {
+	if featureflag.LFSPointersPipeline.IsDisabled(ctx) {
 		cmd, err := repo.Exec(ctx, git.SubCmd{
 			Name: "cat-file",
 			Flags: []git.Option{
@@ -184,7 +184,7 @@ func (s *server) GetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gita
 		},
 	})
 
-	if featureflag.IsDisabled(ctx, featureflag.LFSPointersPipeline) {
+	if featureflag.LFSPointersPipeline.IsDisabled(ctx) {
 		objectIDs := strings.Join(req.BlobIds, "\n")
 
 		if err := readLFSPointers(ctx, repo, chunker, strings.NewReader(objectIDs), 0); err != nil {

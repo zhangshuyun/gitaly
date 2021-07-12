@@ -192,7 +192,7 @@ func (s *server) createFromSnapshot(ctx context.Context, in *gitalypb.ReplicateR
 }
 
 func (s *server) syncRepository(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) error {
-	if featureflag.IsEnabled(ctx, featureflag.ReplicateRepositoryDirectFetch) {
+	if featureflag.ReplicateRepositoryDirectFetch.IsEnabled(ctx) {
 		repo := s.localrepo(in.GetRepository())
 
 		if err := remote.FetchInternalRemote(ctx, s.cfg, s.conns, repo, in.GetSource()); err != nil {

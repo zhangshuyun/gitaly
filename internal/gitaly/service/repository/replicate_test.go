@@ -167,7 +167,7 @@ func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
 		Source:     sourceRepo,
 	})
 
-	if featureflag.IsEnabled(ctx, featureflag.ReplicateRepositoryDirectFetch) {
+	if featureflag.ReplicateRepositoryDirectFetch.IsEnabled(ctx) {
 		require.NoError(t, err)
 		require.Equal(t, 2, votes)
 	} else {

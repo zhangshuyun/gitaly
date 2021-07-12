@@ -151,7 +151,7 @@ func (s *server) SetConfig(ctx context.Context, req *gitalypb.SetConfigRequest) 
 	// can't use `git config foo.bar secret` because that leaks secrets.
 	// Also we can use git2go implementation of SetConfig
 
-	if featureflag.IsEnabled(ctx, featureflag.GoSetConfig) {
+	if featureflag.GoSetConfig.IsEnabled(ctx) {
 		return s.setConfigGit2Go(ctx, req)
 	}
 

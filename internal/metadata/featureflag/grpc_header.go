@@ -3,85 +3,21 @@ package featureflag
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/env"
 	"google.golang.org/grpc/metadata"
 )
 
-var (
-	// featureFlagsOverride allows to enable all feature flags with a
-	// single environment variable. If the value of
-	// GITALY_TESTING_ENABLE_ALL_FEATURE_FLAGS is set to "true", then all
-	// feature flags will be enabled. This is only used for testing
-	// purposes such that we can run integration tests with feature flags.
-	featureFlagsOverride, _ = env.GetBool("GITALY_TESTING_ENABLE_ALL_FEATURE_FLAGS", false)
+const (
+	// Delim is a delimiter used between a feature flag name and its value.
+	Delim = ":"
 
-	flagChecks = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "gitaly_feature_flag_checks_total",
-			Help: "Number of enabled/disabled checks for Gitaly server side feature flags",
-		},
-		[]string{"flag", "enabled"},
-	)
+	// ffPrefix is the prefix used for Gitaly-scoped feature flags.
+	ffPrefix = "gitaly-feature-"
 )
 
-// Delim is a delimiter used between a feature flag name and its value.
-const Delim = ":"
-
-// IsEnabled checks if the feature flag is enabled for the passed context.
-// Only returns true if the metadata for the feature flag is set to "true"
-func IsEnabled(ctx context.Context, flag FeatureFlag) bool {
-	if featureFlagsOverride {
-		return true
-	}
-
-	val, ok := getFlagVal(ctx, flag.Name)
-	if !ok {
-		return flag.OnByDefault
-	}
-
-	enabled := val == "true"
-
-	flagChecks.WithLabelValues(flag.Name, strconv.FormatBool(enabled)).Inc()
-
-	return enabled
-}
-
-func getFlagVal(ctx context.Context, flag string) (string, bool) {
-	if flag == "" {
-		return "", false
-	}
-
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return "", false
-	}
-
-	val, ok := md[HeaderKey(flag)]
-	if !ok {
-		return "", false
-	}
-
-	if len(val) == 0 {
-		return "", false
-	}
-
-	return val[0], true
-}
-
-// IsDisabled is the inverse of IsEnabled
-func IsDisabled(ctx context.Context, flag FeatureFlag) bool {
-	return !IsEnabled(ctx, flag)
-}
-
-const ffPrefix = "gitaly-feature-"
-
-// HeaderKey returns the feature flag key to be used in the metadata map
-func HeaderKey(flag string) string {
+// headerKey returns the feature flag key to be used in the metadata map
+func headerKey(flag string) string {
 	return ffPrefix + strings.ReplaceAll(flag, "_", "-")
 }
 

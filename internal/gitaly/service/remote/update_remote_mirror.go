@@ -36,7 +36,7 @@ func (s *server) UpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 		return helper.ErrInvalidArgument(err)
 	}
 
-	if featureflag.IsEnabled(stream.Context(), featureflag.GoUpdateRemoteMirror) {
+	if featureflag.GoUpdateRemoteMirror.IsEnabled(stream.Context()) {
 		if err := s.goUpdateRemoteMirror(stream, firstRequest); err != nil {
 			return helper.ErrInternal(err)
 		}
@@ -337,7 +337,7 @@ func validateUpdateRemoteMirrorRequest(ctx context.Context, req *gitalypb.Update
 			return fmt.Errorf("remote is missing URL")
 		}
 
-		if featureflag.IsDisabled(ctx, featureflag.GoUpdateRemoteMirror) {
+		if featureflag.GoUpdateRemoteMirror.IsDisabled(ctx) {
 			return fmt.Errorf("in-memory remotes require `gitaly_go_update_remote_mirror` feature flag")
 		}
 	}

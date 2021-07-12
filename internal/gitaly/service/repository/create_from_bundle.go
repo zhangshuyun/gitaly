@@ -94,7 +94,7 @@ func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_Cr
 	}
 
 	fetchFlags := []git.Option{git.Flag{Name: "--quiet"}}
-	if featureflag.IsEnabled(ctx, featureflag.CreateRepositoryFromBundleAtomicFetch) {
+	if featureflag.CreateRepositoryFromBundleAtomicFetch.IsEnabled(ctx) {
 		fetchFlags = append(fetchFlags, git.Flag{Name: "--atomic"})
 	}
 

@@ -18,7 +18,7 @@ func OutgoingCtxWithFeatureFlags(ctx context.Context, flags ...FeatureFlag) cont
 	}
 
 	for _, flag := range flags {
-		md.Set(HeaderKey(flag.Name), "true")
+		md.Set(headerKey(flag.Name), "true")
 	}
 
 	return metadata.NewOutgoingContext(ctx, md)
@@ -35,7 +35,7 @@ func OutgoingCtxWithDisabledFeatureFlags(ctx context.Context, flags ...FeatureFl
 	}
 
 	for _, flag := range flags {
-		md.Set(HeaderKey(flag.Name), "false")
+		md.Set(headerKey(flag.Name), "false")
 	}
 
 	return metadata.NewOutgoingContext(ctx, md)
@@ -53,7 +53,7 @@ func OutgoingCtxWithFeatureFlagValue(ctx context.Context, flag FeatureFlag, val 
 		md = metadata.New(map[string]string{})
 	}
 
-	md.Set(HeaderKey(flag.Name), val)
+	md.Set(headerKey(flag.Name), val)
 
 	return metadata.NewOutgoingContext(ctx, md)
 }
@@ -62,12 +62,12 @@ func OutgoingCtxWithFeatureFlagValue(ctx context.Context, flag FeatureFlag, val 
 // context. This is NOT meant for use in clients that transfer the context
 // across process boundaries.
 func IncomingCtxWithFeatureFlag(ctx context.Context, flag FeatureFlag) context.Context {
-	return incomingCtxWithFeatureFlagValue(ctx, HeaderKey(flag.Name), true)
+	return incomingCtxWithFeatureFlagValue(ctx, headerKey(flag.Name), true)
 }
 
 // IncomingCtxWithDisabledFeatureFlag marks feature flag as disabled in the incoming context.
 func IncomingCtxWithDisabledFeatureFlag(ctx context.Context, flag FeatureFlag) context.Context {
-	return incomingCtxWithFeatureFlagValue(ctx, HeaderKey(flag.Name), false)
+	return incomingCtxWithFeatureFlagValue(ctx, headerKey(flag.Name), false)
 }
 
 // IncomingCtxWithRubyFeatureFlagValue sets the feature flags status in the context.
@@ -90,6 +90,8 @@ func incomingCtxWithFeatureFlagValue(ctx context.Context, key string, enabled bo
 	return metadata.NewIncomingContext(ctx, md)
 }
 
+// OutgoingCtxWithRubyFeatureFlags returns a new context populated with outgoing metadata that
+// has the given set of Ruby feature flags enabled.
 func OutgoingCtxWithRubyFeatureFlags(ctx context.Context, flags ...FeatureFlag) context.Context {
 	md, ok := metadata.FromOutgoingContext(ctx)
 	if !ok {

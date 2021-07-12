@@ -42,7 +42,7 @@ func transactionsDisabled(context.Context) bool { return false }
 
 func transactionsFlag(flag featureflag.FeatureFlag) transactionsCondition {
 	return func(ctx context.Context) bool {
-		return featureflag.IsEnabled(ctx, flag)
+		return flag.IsEnabled(ctx)
 	}
 }
 
