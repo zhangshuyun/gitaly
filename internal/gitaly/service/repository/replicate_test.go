@@ -177,7 +177,7 @@ func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
 		// connection is not to Praefect but to Gitaly now, it's trying to cast votes on a
 		// non-multiplexed Gitaly connection instead of against the expected Praefect peer.
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "ref updates aborted by hook")
+		require.Contains(t, err.Error(), "FetchInternalRemote failed")
 		require.Equal(t, 0, votes)
 	}
 }
