@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -53,17 +52,6 @@ func (s *reconcileSubcommand) Exec(flags *flag.FlagSet, conf config.Config) erro
 	}
 
 	return nil
-}
-
-func getNodeAddress(cfg config.Config) (string, error) {
-	switch {
-	case cfg.SocketPath != "":
-		return "unix:" + cfg.SocketPath, nil
-	case cfg.ListenAddr != "":
-		return "tcp://" + cfg.ListenAddr, nil
-	default:
-		return "", errors.New("no Praefect address configured")
-	}
 }
 
 func (nr nodeReconciler) reconcile() error {

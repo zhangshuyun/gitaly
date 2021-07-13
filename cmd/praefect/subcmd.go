@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -65,6 +66,17 @@ func subCommand(conf config.Config, arg0 string, argRest []string) int {
 	}
 
 	return 0
+}
+
+func getNodeAddress(cfg config.Config) (string, error) {
+	switch {
+	case cfg.SocketPath != "":
+		return "unix:" + cfg.SocketPath, nil
+	case cfg.ListenAddr != "":
+		return "tcp://" + cfg.ListenAddr, nil
+	default:
+		return "", errors.New("no Praefect address configured")
+	}
 }
 
 type sqlPingSubcommand struct{}
