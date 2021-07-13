@@ -94,7 +94,7 @@ func TestSetReplicationFactorSubcommand(t *testing.T) {
 			)
 
 			ln, clean := listenAndServe(t, []svcRegistrar{registerPraefectInfoServer(
-				info.NewServer(nil, config.Config{}, nil, nil, store, nil, nil),
+				info.NewServer(config.Config{}, nil, nil, store, nil, nil),
 			)})
 			defer clean()
 

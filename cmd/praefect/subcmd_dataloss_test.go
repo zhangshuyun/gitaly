@@ -86,7 +86,7 @@ func TestDatalossSubcommand(t *testing.T) {
 	require.NoError(t, gs.SetGeneration(ctx, "virtual-storage-1", "repository-2", "gitaly-3", 0))
 
 	ln, clean := listenAndServe(t, []svcRegistrar{
-		registerPraefectInfoServer(info.NewServer(nil, cfg, nil, gs, nil, nil, nil))})
+		registerPraefectInfoServer(info.NewServer(cfg, nil, gs, nil, nil, nil))})
 	defer clean()
 	for _, tc := range []struct {
 		desc            string

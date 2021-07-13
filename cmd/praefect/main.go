@@ -34,30 +34,6 @@
 //
 //     praefect -config PATH_TO_CONFIG dial-nodes
 //
-// Reconcile
-//
-// The subcommand "reconcile" performs a consistency check of a backend storage
-// against the primary or another storage in the same virtual storage group.
-//
-//     praefect -config PATH_TO_CONFIG reconcile -virtual <vstorage> -target
-//     <t-storage> [-reference <r-storage>] [-f]
-//
-// "-virtual" specifies which virtual storage the target and reference
-// belong to.
-//
-// "-target" specifies the storage name of the backend Gitaly you wish to
-// reconcile.
-//
-// "-reference" is an optional argument that specifies which storage location to
-// check the target against. If an inconsistency is found, the target will
-// attempt to repair itself using the reference as the source of truth. If the
-// reference storage is omitted, Praefect will perform the check against the
-// current primary. If the primary is the same as the target, an error will
-// occur.
-//
-// By default, a dry-run is performed where no replications are scheduled. When
-// the flag "-f" is provided, the replications will actually schedule.
-//
 // Dataloss
 //
 // The subcommand "dataloss" identifies Gitaly nodes which are missing data from the

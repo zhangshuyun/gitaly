@@ -6,7 +6,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/service"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
@@ -35,7 +34,6 @@ type PrimaryGetter interface {
 // Server is a InfoService server
 type Server struct {
 	gitalypb.UnimplementedPraefectInfoServiceServer
-	nodeMgr         nodes.Manager
 	conf            config.Config
 	queue           datastore.ReplicationEventQueue
 	rs              datastore.RepositoryStore
@@ -46,7 +44,6 @@ type Server struct {
 
 // NewServer creates a new instance of a grpc InfoServiceServer
 func NewServer(
-	nodeMgr nodes.Manager,
 	conf config.Config,
 	queue datastore.ReplicationEventQueue,
 	rs datastore.RepositoryStore,
@@ -55,7 +52,6 @@ func NewServer(
 	primaryGetter PrimaryGetter,
 ) gitalypb.PraefectInfoServiceServer {
 	return &Server{
-		nodeMgr:         nodeMgr,
 		conf:            conf,
 		queue:           queue,
 		rs:              rs,
