@@ -531,11 +531,13 @@ func diffRange(req *gitalypb.UserSquashRequest) string {
 }
 
 func newSquashWorktreePath(repoPath, squashID string) string {
-	prefix := []byte("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-	rand.Shuffle(len(prefix), func(i, j int) { prefix[i], prefix[j] = prefix[j], prefix[i] })
+	return newWorktreePath(repoPath, squashWorktreePrefix+"-"+squashID+"-")
+}
 
-	worktreeName := squashWorktreePrefix + "-" + squashID + "-" + string(prefix[:32])
-	return filepath.Join(repoPath, gitlabWorktreesSubDir, worktreeName)
+func newWorktreePath(repoPath, prefix string) string {
+	chars := []byte("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	rand.Shuffle(len(chars), func(i, j int) { chars[i], chars[j] = chars[j], chars[i] })
+	return filepath.Join(repoPath, gitlabWorktreesSubDir, prefix+string(chars[:32]))
 }
 
 func (s *Server) runCmd(ctx context.Context, repo *gitalypb.Repository, cmd string, opts []git.Option, args []string) error {
