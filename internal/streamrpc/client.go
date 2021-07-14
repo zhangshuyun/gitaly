@@ -44,7 +44,11 @@ func doCall(dial DialFunc, request []byte, callback func(net.Conn) error) error 
 		return &RequestRejectedError{resp.Error}
 	}
 
-	return callback(c)
+	if err := callback(c); err != nil {
+		return err
+	}
+
+	return c.Close()
 }
 
 // RequestRejectedError is returned by Call if the server explicitly
