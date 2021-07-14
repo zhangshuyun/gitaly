@@ -211,9 +211,10 @@ func testHooksPrePostReceive(t *testing.T, cfg config.Cfg, repo *gitalypb.Reposi
 
 			cmd.Dir = repoPath
 
-			require.NoError(t, cmd.Run())
-			require.Empty(t, stderr.String())
-			require.Empty(t, stdout.String())
+			err = cmd.Run()
+			assert.Empty(t, stderr.String())
+			assert.Empty(t, stdout.String())
+			require.NoError(t, err)
 
 			output := string(testhelper.MustReadFile(t, customHookOutputPath))
 			requireContainsOnce(t, output, "GL_USERNAME="+glUsername)
