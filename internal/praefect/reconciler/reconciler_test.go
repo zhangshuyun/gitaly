@@ -6,8 +6,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
-	"os"
 	"testing"
 
 	"github.com/lib/pq"
@@ -20,20 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
-
-func TestMain(m *testing.M) {
-	code := m.Run()
-
-	if err := glsql.Clean(); err != nil {
-		log.Fatalf("failed closing testing database: %v", err)
-	}
-
-	os.Exit(code)
-}
-
-func getDB(tb testing.TB) glsql.DB {
-	return glsql.GetDB(tb, "reconciler")
-}
 
 func TestReconciler(t *testing.T) {
 	// repositories describes storage state as
@@ -1078,7 +1062,7 @@ func TestReconciler(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			db := getDB(t)
+			db := glsql.GetDB(t)
 
 			// set up the repository generation records expected by the test case
 			rs := datastore.NewPostgresRepositoryStore(db, configuredStorages)

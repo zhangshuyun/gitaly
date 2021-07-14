@@ -2,6 +2,7 @@ package praefect
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha1"
 	"fmt"
 	"sync"
@@ -27,10 +28,10 @@ type voter struct {
 	shouldSucceed bool
 }
 
-func runPraefectServerAndTxMgr(t testing.TB) (*grpc.ClientConn, *transactions.Manager, testhelper.Cleanup) {
+func runPraefectServerAndTxMgr(t testing.TB, ctx context.Context) (*grpc.ClientConn, *transactions.Manager, testhelper.Cleanup) {
 	conf := testConfig(1)
 	txMgr := transactions.NewManager(conf)
-	cc, _, cleanup := runPraefectServer(t, conf, buildOptions{
+	cc, _, cleanup := runPraefectServer(t, ctx, conf, buildOptions{
 		withTxMgr:   txMgr,
 		withNodeMgr: nullNodeMgr{}, // to suppress node address issues
 	})
@@ -69,11 +70,11 @@ func verifyCounterMetrics(t *testing.T, manager *transactions.Manager, expected 
 }
 
 func TestTransactionSucceeds(t *testing.T) {
-	cc, txMgr, cleanup := runPraefectServerAndTxMgr(t)
-	defer cleanup()
-
 	ctx, cancel := testhelper.Context(testhelper.ContextWithTimeout(time.Second))
 	defer cancel()
+
+	cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
+	defer cleanup()
 
 	client := gitalypb.NewRefTransactionClient(cc)
 
@@ -169,10 +170,10 @@ func TestTransactionWithMultipleNodes(t *testing.T) {
 		},
 	}
 
-	cc, txMgr, cleanup := runPraefectServerAndTxMgr(t)
+	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
-	ctx, cleanup := testhelper.Context()
+	cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
 	defer cleanup()
 
 	client := gitalypb.NewRefTransactionClient(cc)
@@ -215,12 +216,13 @@ func TestTransactionWithMultipleNodes(t *testing.T) {
 }
 
 func TestTransactionWithContextCancellation(t *testing.T) {
-	cc, txMgr, cleanup := runPraefectServerAndTxMgr(t)
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
 	defer cleanup()
 
 	client := gitalypb.NewRefTransactionClient(cc)
-
-	ctx, cancel := testhelper.Context()
 
 	transaction, cancelTransaction, err := txMgr.RegisterTransaction(ctx, []transactions.Voter{
 		{Name: "voter", Votes: 1},
@@ -394,10 +396,10 @@ func TestTransactionReachesQuorum(t *testing.T) {
 		},
 	}
 
-	cc, txMgr, cleanup := runPraefectServerAndTxMgr(t)
+	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
-	ctx, cleanup := testhelper.Context()
+	cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
 	defer cleanup()
 
 	client := gitalypb.NewRefTransactionClient(cc)
@@ -500,10 +502,10 @@ func TestTransactionWithMultipleVotes(t *testing.T) {
 		},
 	}
 
-	cc, txMgr, cleanup := runPraefectServerAndTxMgr(t)
+	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
-	ctx, cleanup := testhelper.Context()
+	cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
 	defer cleanup()
 
 	client := gitalypb.NewRefTransactionClient(cc)
@@ -561,11 +563,11 @@ func TestTransactionWithMultipleVotes(t *testing.T) {
 }
 
 func TestTransactionFailures(t *testing.T) {
-	cc, txMgr, cleanup := runPraefectServerAndTxMgr(t)
-	defer cleanup()
-
 	ctx, cancel := testhelper.Context(testhelper.ContextWithTimeout(time.Second))
 	defer cancel()
+
+	cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
+	defer cleanup()
 
 	client := gitalypb.NewRefTransactionClient(cc)
 
@@ -631,11 +633,11 @@ func TestTransactionCancellation(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			cc, txMgr, cleanup := runPraefectServerAndTxMgr(t)
-			defer cleanup()
-
 			ctx, cancel := testhelper.Context(testhelper.ContextWithTimeout(time.Second))
 			defer cancel()
+
+			cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
+			defer cleanup()
 
 			client := gitalypb.NewRefTransactionClient(cc)
 
@@ -702,11 +704,11 @@ func TestStopTransaction(t *testing.T) {
 	hash := sha1.Sum([]byte("foo"))
 
 	t.Run("stopping nonexisting transaction fails", func(t *testing.T) {
-		cc, _, cleanup := runPraefectServerAndTxMgr(t)
-		defer cleanup()
-
 		ctx, cancel := testhelper.Context()
 		defer cancel()
+
+		cc, _, cleanup := runPraefectServerAndTxMgr(t, ctx)
+		defer cleanup()
 
 		client := gitalypb.NewRefTransactionClient(cc)
 
@@ -717,11 +719,11 @@ func TestStopTransaction(t *testing.T) {
 	})
 
 	t.Run("stopping transaction multiple times succeeds", func(t *testing.T) {
-		cc, txMgr, cleanup := runPraefectServerAndTxMgr(t)
-		defer cleanup()
-
 		ctx, cancel := testhelper.Context()
 		defer cancel()
+
+		cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
+		defer cleanup()
 
 		client := gitalypb.NewRefTransactionClient(cc)
 
@@ -750,11 +752,11 @@ func TestStopTransaction(t *testing.T) {
 	})
 
 	t.Run("stopping a single voter", func(t *testing.T) {
-		cc, txMgr, cleanup := runPraefectServerAndTxMgr(t)
-		defer cleanup()
-
 		ctx, cancel := testhelper.Context()
 		defer cancel()
+
+		cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
+		defer cleanup()
 
 		client := gitalypb.NewRefTransactionClient(cc)
 
@@ -792,11 +794,11 @@ func TestStopTransaction(t *testing.T) {
 	})
 
 	t.Run("stopping in-progress transaction", func(t *testing.T) {
-		cc, txMgr, cleanup := runPraefectServerAndTxMgr(t)
-		defer cleanup()
-
 		ctx, cancel := testhelper.Context()
 		defer cancel()
+
+		cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
+		defer cleanup()
 
 		client := gitalypb.NewRefTransactionClient(cc)
 
@@ -845,11 +847,11 @@ func TestStopTransaction(t *testing.T) {
 	})
 
 	t.Run("stopping cancelled transaction fails", func(t *testing.T) {
-		cc, txMgr, cleanup := runPraefectServerAndTxMgr(t)
-		defer cleanup()
-
 		ctx, cancel := testhelper.Context()
 		defer cancel()
+
+		cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
+		defer cleanup()
 
 		client := gitalypb.NewRefTransactionClient(cc)
 
@@ -871,11 +873,11 @@ func TestStopTransaction(t *testing.T) {
 	})
 
 	t.Run("stopping concurrent voter", func(t *testing.T) {
-		cc, txMgr, cleanup := runPraefectServerAndTxMgr(t)
-		defer cleanup()
-
 		ctx, cancel := testhelper.Context()
 		defer cancel()
+
+		cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
+		defer cleanup()
 
 		client := gitalypb.NewRefTransactionClient(cc)
 

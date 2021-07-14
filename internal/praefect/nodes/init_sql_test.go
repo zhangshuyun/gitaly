@@ -3,7 +3,6 @@
 package nodes
 
 import (
-	"log"
 	"os"
 	"testing"
 
@@ -19,16 +18,7 @@ func testMain(m *testing.M) (code int) {
 	defer testhelper.MustHaveNoChildProcess()
 	cleanup := testhelper.Configure()
 	defer cleanup()
-
-	// Clean closes connection to database once all tests are done
-	defer func() {
-		if err := glsql.Clean(); err != nil {
-			log.Println("database disconnection failure", err)
-			code = 1
-		}
-	}()
-
 	return m.Run()
 }
 
-func getDB(t testing.TB) glsql.DB { return glsql.GetDB(t, "nodes") }
+func getDB(t testing.TB) glsql.DB { return glsql.GetDB(t) }

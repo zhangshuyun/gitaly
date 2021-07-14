@@ -7,13 +7,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 )
 
 func TestMigrateStatus(t *testing.T) {
 	db := getDB(t)
 
 	config := config.Config{
-		DB: getDBConfig(t),
+		DB: glsql.GetDBConfig(t, db.Name),
 	}
 
 	_, err := db.Exec("INSERT INTO schema_migrations VALUES ('2020_01_01_test', NOW())")

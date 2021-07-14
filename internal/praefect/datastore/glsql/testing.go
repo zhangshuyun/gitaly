@@ -7,23 +7,25 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 
+	"github.com/google/uuid"
+	migrate "github.com/rubenv/sql-migrate"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 )
 
-var (
-	// testDB is a shared database connection pool that needs to be used only for testing.
-	// Initialization of it happens on the first call to GetDB and it remains open until call to Clean.
-	testDB         DB
-	testDBInitOnce sync.Once
+const (
+	advisoryLockIDDatabaseTemplate = 1627644550
+	praefectTemplateDatabase       = "praefect_template"
 )
 
 // DB is a helper struct that should be used only for testing purposes.
 type DB struct {
 	*sql.DB
+	// Name is a name of the database.
+	Name string
 }
 
 // Truncate removes all data from the list of tables and restarts identities for them.
@@ -78,27 +80,16 @@ func (db DB) Close() error {
 
 // GetDB returns a wrapper around the database connection pool.
 // Must be used only for testing.
-// The new `database` will be re-created for each package that uses this function.
-// Each call will also truncate all tables with their identities restarted if any.
-// The best place to call it is in individual testing functions.
+// The new database with empty relations will be created for each call of this function.
 // It uses env vars:
 //   PGHOST - required, URL/socket/dir
 //   PGPORT - required, binding port
 //   PGUSER - optional, user - `$ whoami` would be used if not provided
-func GetDB(t testing.TB, database string) DB {
+// Once the test is completed the database will be dropped on test cleanup execution.
+func GetDB(t testing.TB) DB {
 	t.Helper()
-
-	testDBInitOnce.Do(func() {
-		sqlDB := initGitalyTestDB(t, database)
-
-		_, mErr := Migrate(sqlDB, false)
-		require.NoError(t, mErr, "failed to run database migration")
-		testDB = DB{DB: sqlDB}
-	})
-
-	testDB.TruncateAll(t)
-
-	return testDB
+	database := "praefect_" + strings.ReplaceAll(uuid.New().String(), "-", "")
+	return DB{DB: initPraefectTestDB(t, database), Name: database}
 }
 
 // GetDBConfig returns the database configuration determined by
@@ -143,40 +134,125 @@ func GetDBConfig(t testing.TB, database string) config.DB {
 	return conf
 }
 
-func initGitalyTestDB(t testing.TB, database string) *sql.DB {
+func requireSQLOpen(t testing.TB, dbCfg config.DB, direct bool) *sql.DB {
+	t.Helper()
+	db, err := sql.Open("postgres", dbCfg.ToPQString(direct))
+	require.NoErrorf(t, err, "failed to connect to %q database", dbCfg.DBName)
+	if !assert.NoErrorf(t, db.Ping(), "failed to communicate with %q database", dbCfg.DBName) {
+		require.NoErrorf(t, db.Close(), "release connection to the %q database", dbCfg.DBName)
+	}
+	return db
+}
+
+func requireTerminateAllConnections(t testing.TB, db *sql.DB, database string) {
+	t.Helper()
+	_, err := db.Exec("SELECT PG_TERMINATE_BACKEND(pid) FROM PG_STAT_ACTIVITY WHERE datname = '" + database + "'")
+	require.NoError(t, err)
+}
+
+func initPraefectTestDB(t testing.TB, database string) *sql.DB {
 	t.Helper()
 
 	dbCfg := GetDBConfig(t, "postgres")
+	// We require a direct connection to the Postgres instance and not through the PgBouncer
+	// because we use transaction pool mood for it and it doesn't work well for system advisory locks.
+	postgresDB := requireSQLOpen(t, dbCfg, true)
+	defer func() { require.NoErrorf(t, postgresDB.Close(), "release connection to the %q database", dbCfg.DBName) }()
 
-	postgresDB, oErr := OpenDB(dbCfg)
-	require.NoError(t, oErr, "failed to connect to 'postgres' database")
-	defer func() { require.NoError(t, postgresDB.Close()) }()
+	// Acquire exclusive advisory lock to prevent other concurrent test from doing the same.
+	_, err := postgresDB.Exec(`SELECT pg_advisory_lock($1)`, advisoryLockIDDatabaseTemplate)
+	require.NoError(t, err, "not able to acquire lock for synchronisation")
+	var advisoryUnlock func()
+	advisoryUnlock = func() {
+		require.True(t, scanSingleBool(t, postgresDB, `SELECT pg_advisory_unlock($1)`, advisoryLockIDDatabaseTemplate), "release advisory lock")
+		advisoryUnlock = func() {}
+	}
+	defer func() { advisoryUnlock() }()
 
-	_, tErr := postgresDB.Exec("SELECT PG_TERMINATE_BACKEND(pid) FROM PG_STAT_ACTIVITY WHERE datname = '" + database + "'")
-	require.NoError(t, tErr)
+	templateDBExists := databaseExist(t, postgresDB, praefectTemplateDatabase)
+	if !templateDBExists {
+		_, err := postgresDB.Exec("CREATE DATABASE " + praefectTemplateDatabase + " WITH ENCODING 'UTF8'")
+		require.NoErrorf(t, err, "failed to create %q database", praefectTemplateDatabase)
+	}
 
-	_, dErr := postgresDB.Exec("DROP DATABASE IF EXISTS " + database)
-	require.NoErrorf(t, dErr, "failed to drop %q database", database)
+	templateDBConf := GetDBConfig(t, praefectTemplateDatabase)
+	templateDB := requireSQLOpen(t, templateDBConf, true)
+	defer func() {
+		require.NoErrorf(t, templateDB.Close(), "release connection to the %q database", templateDBConf.DBName)
+	}()
 
-	_, cErr := postgresDB.Exec("CREATE DATABASE " + database + " WITH ENCODING 'UTF8'")
-	require.NoErrorf(t, cErr, "failed to create %q database", database)
-	require.NoError(t, postgresDB.Close(), "error on closing connection to 'postgres' database")
+	if _, err := Migrate(templateDB, false); err != nil {
+		// If database has unknown migration we try to re-create template database with
+		// current migration. It may be caused by other code changes done in another branch.
+		if pErr := (*migrate.PlanError)(nil); errors.As(err, &pErr) {
+			if strings.EqualFold(pErr.ErrorMessage, "unknown migration in database") {
+				require.NoErrorf(t, templateDB.Close(), "release connection to the %q database", templateDBConf.DBName)
 
-	// connect to the testing database
+				_, err = postgresDB.Exec("DROP DATABASE " + praefectTemplateDatabase)
+				require.NoErrorf(t, err, "failed to drop %q database", praefectTemplateDatabase)
+				_, err = postgresDB.Exec("CREATE DATABASE " + praefectTemplateDatabase + " WITH ENCODING 'UTF8'")
+				require.NoErrorf(t, err, "failed to create %q database", praefectTemplateDatabase)
+
+				templateDB = requireSQLOpen(t, templateDBConf, true)
+				defer func() {
+					require.NoErrorf(t, templateDB.Close(), "release connection to the %q database", templateDBConf.DBName)
+				}()
+				_, err = Migrate(templateDB, false)
+				require.NoErrorf(t, err, "failed to run database migration on %q", praefectTemplateDatabase)
+			} else {
+				require.NoErrorf(t, err, "failed to run database migration on %q", praefectTemplateDatabase)
+			}
+		} else {
+			require.NoErrorf(t, err, "failed to run database migration on %q", praefectTemplateDatabase)
+		}
+	}
+
+	// Release advisory lock as soon as possible to unblock other tests from execution.
+	advisoryUnlock()
+
+	require.NoErrorf(t, templateDB.Close(), "release connection to the %q database", templateDBConf.DBName)
+
+	_, err = postgresDB.Exec(`CREATE DATABASE ` + database + ` TEMPLATE ` + praefectTemplateDatabase)
+	require.NoErrorf(t, err, "failed to create %q database", praefectTemplateDatabase)
+
+	t.Cleanup(func() {
+		dbCfg.DBName = "postgres"
+		postgresDB := requireSQLOpen(t, dbCfg, true)
+		defer func() { require.NoErrorf(t, postgresDB.Close(), "release connection to the %q database", dbCfg.DBName) }()
+
+		// We need to force-terminate open connections as for the tasks that use PgBouncer
+		// the actual client connected to the database is a PgBouncer and not a test that is
+		// running.
+		requireTerminateAllConnections(t, postgresDB, database)
+
+		_, err = postgresDB.Exec("DROP DATABASE " + database)
+		require.NoErrorf(t, err, "failed to drop %q database", database)
+	})
+
+	// Connect to the testing database with optional PgBouncer
 	dbCfg.DBName = database
-	gitalyTestDB, err := OpenDB(dbCfg)
-	require.NoErrorf(t, err, "failed to connect to %q database", database)
-	return gitalyTestDB
+	praefectTestDB := requireSQLOpen(t, dbCfg, false)
+	t.Cleanup(func() {
+		// This could should replace current implementation after drop support of Go 1.15
+		//if err := praefectTestDB.Close(); !errors.Is(err, net.ErrClosed) {
+		//	require.NoErrorf(t, err, "release connection to the %q database", dbCfg.DBName)
+		//}
+		if err := praefectTestDB.Close(); err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
+			require.NoErrorf(t, err, "release connection to the %q database", dbCfg.DBName)
+		}
+	})
+	return praefectTestDB
 }
 
-// Clean removes created schema if any and releases DB connection pool.
-// It needs to be called only once after all tests for package are done.
-// The best place to use it is TestMain(*testing.M) {...} after m.Run().
-func Clean() error {
-	if testDB.DB != nil {
-		return testDB.Close()
-	}
-	return nil
+func databaseExist(t testing.TB, db *sql.DB, database string) bool {
+	return scanSingleBool(t, db, `SELECT EXISTS(SELECT * FROM pg_database WHERE datname = $1)`, database)
+}
+
+func scanSingleBool(t testing.TB, db *sql.DB, query string, args ...interface{}) bool {
+	var flag bool
+	row := db.QueryRow(query, args...)
+	require.NoError(t, row.Scan(&flag))
+	return flag
 }
 
 func getEnvFromGDK(t testing.TB) {

@@ -26,7 +26,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/transactions"
@@ -48,12 +47,6 @@ func TestMain(m *testing.M) {
 }
 
 func testMain(m *testing.M) int {
-	defer func() {
-		if err := glsql.Clean(); err != nil {
-			logrus.Error(err)
-		}
-	}()
-
 	defer testhelper.MustHaveNoChildProcess()
 
 	cleanup := testhelper.Configure()
@@ -152,7 +145,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	logger := testhelper.DiscardTestLogger(t)
 	loggerHook := test.NewLocal(logger)
 
-	queue := datastore.NewReplicationEventQueueInterceptor(datastore.NewMemoryReplicationEventQueue(conf))
+	queue := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(getDB(t)))
 	queue.OnAcknowledge(func(ctx context.Context, state datastore.JobState, ids []uint64, queue datastore.ReplicationEventQueue) ([]uint64, error) {
 		cancel() // when it is called we know that replication is finished
 		return queue.Acknowledge(ctx, state, ids)
@@ -269,20 +262,7 @@ func TestReplicatorDowngradeAttempt(t *testing.T) {
 	}
 }
 
-func TestReplicator_PropagateReplicationJob_inmemory(t *testing.T) {
-	testReplicatorPropagateReplicationJob(t,
-		func(t *testing.T, cfg config.Config) datastore.ReplicationEventQueue {
-			return datastore.NewMemoryReplicationEventQueue(cfg)
-		},
-	)
-}
-
-// testReplicatorPropagateReplicationJob is used to drive both in-memory and Postgres
-// tests.
-func testReplicatorPropagateReplicationJob(
-	t *testing.T,
-	createReplicationQueue func(*testing.T, config.Config) datastore.ReplicationEventQueue,
-) {
+func TestReplicator_PropagateReplicationJob(t *testing.T) {
 	primaryStorage, secondaryStorage := "internal-gitaly-0", "internal-gitaly-1"
 
 	primCfg := testcfg.Build(t, testcfg.WithStorages(primaryStorage))
@@ -316,7 +296,7 @@ func testReplicatorPropagateReplicationJob(
 	// unlinkat /tmp/gitaly-222007427/381349228/storages.d/internal-gitaly-1/+gitaly/state/path/to/repo: directory not empty
 	// By using WaitGroup we are sure the test cleanup will be started after all replication
 	// requests are completed, so no running cache IO operations happen.
-	queue := datastore.NewReplicationEventQueueInterceptor(createReplicationQueue(t, conf))
+	queue := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(getDB(t)))
 	var wg sync.WaitGroup
 	queue.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
 		wg.Add(1)
@@ -684,7 +664,7 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewMemoryReplicationEventQueue(conf))
+	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(getDB(t)))
 	processed := make(chan struct{})
 
 	dequeues := 0
@@ -735,7 +715,7 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 
 	// this job checks flow for replication event that fails
 	failJob := okJob
-	failJob.SourceNodeStorage = "invalid-storage"
+	failJob.Change = "invalid-operation"
 	event2, err := queueInterceptor.Enqueue(ctx, datastore.ReplicationEvent{Job: failJob})
 	require.NoError(t, err)
 	require.Equal(t, uint64(2), event2.ID)
@@ -807,7 +787,7 @@ func TestProcessBacklog_Success(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewMemoryReplicationEventQueue(conf))
+	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(getDB(t)))
 
 	processed := make(chan struct{})
 	queueInterceptor.OnAcknowledge(func(ctx context.Context, state datastore.JobState, ids []uint64, queue datastore.ReplicationEventQueue) ([]uint64, error) {
@@ -928,7 +908,7 @@ func TestReplMgrProcessBacklog_OnlyHealthyNodes(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 
 	first := true
-	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewMemoryReplicationEventQueue(conf))
+	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(getDB(t)))
 	queueInterceptor.OnDequeue(func(_ context.Context, virtualStorageName string, storageName string, _ int, _ datastore.ReplicationEventQueue) ([]datastore.ReplicationEvent, error) {
 		select {
 		case <-ctx.Done():
@@ -1011,7 +991,7 @@ func TestProcessBacklog_ReplicatesToReadOnlyPrimary(t *testing.T) {
 		},
 	}
 
-	queue := datastore.NewMemoryReplicationEventQueue(conf)
+	queue := datastore.NewPostgresReplicationEventQueue(getDB(t))
 	_, err := queue.Enqueue(ctx, datastore.ReplicationEvent{
 		Job: datastore.ReplicationJob{
 			Change:            datastore.UpdateRepo,

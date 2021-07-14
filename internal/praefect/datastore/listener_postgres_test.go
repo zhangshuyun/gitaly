@@ -92,7 +92,7 @@ func TestPostgresListener_Listen(t *testing.T) {
 
 	newOpts := func() PostgresListenerOpts {
 		opts := DefaultPostgresListenerOpts
-		opts.Addr = getDBConfig(t).ToPQString(true)
+		opts.Addr = glsql.GetDBConfig(t, db.Name).ToPQString(true)
 		opts.MinReconnectInterval = time.Nanosecond
 		opts.MaxReconnectInterval = time.Minute
 		return opts
@@ -170,7 +170,7 @@ func TestPostgresListener_Listen(t *testing.T) {
 		t.Helper()
 
 		q := `SELECT PG_TERMINATE_BACKEND(pid) FROM PG_STAT_ACTIVITY WHERE datname = $1 AND query = $2`
-		res, err := db.Exec(q, databaseName, fmt.Sprintf("LISTEN %q", channelName))
+		res, err := db.Exec(q, db.Name, fmt.Sprintf("LISTEN %q", channelName))
 		if assert.NoError(t, err) {
 			affected, err := res.RowsAffected()
 			assert.NoError(t, err)
@@ -373,6 +373,7 @@ func TestPostgresListener_Listen_repositories_delete(t *testing.T) {
 
 	testListener(
 		t,
+		db.Name,
 		"repositories_updates",
 		func(t *testing.T) {
 			_, err := db.DB.Exec(`
@@ -404,6 +405,7 @@ func TestPostgresListener_Listen_storage_repositories_insert(t *testing.T) {
 
 	testListener(
 		t,
+		db.Name,
 		channel,
 		func(t *testing.T) {},
 		func(t *testing.T) {
@@ -428,6 +430,7 @@ func TestPostgresListener_Listen_storage_repositories_update(t *testing.T) {
 
 	testListener(
 		t,
+		db.Name,
 		channel,
 		func(t *testing.T) {
 			_, err := db.DB.Exec(`INSERT INTO storage_repositories VALUES ('praefect-1', '/path/to/repo', 'gitaly-1', 0)`)
@@ -451,6 +454,7 @@ func TestPostgresListener_Listen_storage_empty_notification(t *testing.T) {
 
 	testListener(
 		t,
+		db.Name,
 		channel,
 		func(t *testing.T) {},
 		func(t *testing.T) {
@@ -468,6 +472,7 @@ func TestPostgresListener_Listen_storage_repositories_delete(t *testing.T) {
 
 	testListener(
 		t,
+		db.Name,
 		channel,
 		func(t *testing.T) {
 			_, err := db.DB.Exec(`
@@ -487,7 +492,7 @@ func TestPostgresListener_Listen_storage_repositories_delete(t *testing.T) {
 	)
 }
 
-func testListener(t *testing.T, channel string, setup func(t *testing.T), trigger func(t *testing.T), verifier func(t *testing.T, notification glsql.Notification)) {
+func testListener(t *testing.T, dbName, channel string, setup func(t *testing.T), trigger func(t *testing.T), verifier func(t *testing.T, notification glsql.Notification)) {
 	setup(t)
 
 	readyChan := make(chan struct{})
@@ -505,7 +510,7 @@ func testListener(t *testing.T, channel string, setup func(t *testing.T), trigge
 	}
 
 	opts := DefaultPostgresListenerOpts
-	opts.Addr = getDBConfig(t).ToPQString(true)
+	opts.Addr = glsql.GetDBConfig(t, dbName).ToPQString(true)
 	opts.Channels = []string{channel}
 
 	handler := mockListenHandler{OnNotification: callback, OnConnected: func() { close(readyChan) }}

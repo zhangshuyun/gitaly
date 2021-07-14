@@ -99,7 +99,7 @@ func TestStreamDirectorReadOnlyEnforcement(t *testing.T) {
 			}
 
 			coordinator := NewCoordinator(
-				datastore.NewMemoryReplicationEventQueue(conf),
+				datastore.NewPostgresReplicationEventQueue(getDB(t)),
 				rs,
 				NewNodeManagerRouter(&nodes.MockManager{GetShardFunc: func(vs string) (nodes.Shard, error) {
 					require.Equal(t, virtualStorage, vs)
@@ -150,7 +150,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 
 	var replEventWait sync.WaitGroup
 
-	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewMemoryReplicationEventQueue(conf))
+	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(getDB(t)))
 	queueInterceptor.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
 		defer replEventWait.Done()
 		return queue.Enqueue(ctx, event)
@@ -281,7 +281,7 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 	txMgr := transactions.NewManager(conf)
 
 	coordinator := NewCoordinator(
-		datastore.NewMemoryReplicationEventQueue(conf),
+		datastore.NewPostgresReplicationEventQueue(getDB(t)),
 		rs,
 		NewNodeManagerRouter(nodeMgr, rs),
 		txMgr,
@@ -373,7 +373,7 @@ func TestStreamDirectorAccessor(t *testing.T) {
 		},
 	}
 
-	queue := datastore.NewMemoryReplicationEventQueue(conf)
+	queue := datastore.NewPostgresReplicationEventQueue(getDB(t))
 
 	targetRepo := gitalypb.Repository{
 		StorageName:  "praefect",
@@ -478,7 +478,7 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 		},
 	}
 
-	queue := datastore.NewMemoryReplicationEventQueue(conf)
+	queue := datastore.NewPostgresReplicationEventQueue(getDB(t))
 
 	targetRepo := gitalypb.Repository{
 		StorageName:  "praefect",
@@ -731,6 +731,10 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 }
 
 func TestStreamDirector_repo_creation(t *testing.T) {
+	// For the test-with-praefect execution we disable a special case when repository
+	// records need to be created in the database.
+	defer testhelper.ModifyEnvironment(t, "GITALY_TEST_PRAEFECT_BIN", "")()
+
 	for _, tc := range []struct {
 		desc              string
 		electionStrategy  config.ElectionStrategy
@@ -775,7 +779,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 			}
 
 			var replEventWait sync.WaitGroup
-			queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewMemoryReplicationEventQueue(conf))
+			queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(getDB(t)))
 			queueInterceptor.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
 				defer replEventWait.Done()
 				return queue.Enqueue(ctx, event)
@@ -1004,7 +1008,7 @@ func TestAbsentCorrelationID(t *testing.T) {
 
 	var replEventWait sync.WaitGroup
 
-	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewMemoryReplicationEventQueue(conf))
+	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(getDB(t)))
 	queueInterceptor.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
 		defer replEventWait.Done()
 		return queue.Enqueue(ctx, event)
@@ -1079,7 +1083,7 @@ func TestCoordinatorEnqueueFailure(t *testing.T) {
 		},
 	}
 
-	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewMemoryReplicationEventQueue(conf))
+	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(getDB(t)))
 	errQ := make(chan error, 1)
 	queueInterceptor.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
 		return datastore.ReplicationEvent{}, <-errQ
@@ -1094,7 +1098,10 @@ func TestCoordinatorEnqueueFailure(t *testing.T) {
 	r, err := protoregistry.NewFromPaths("praefect/mock/mock.proto")
 	require.NoError(t, err)
 
-	cc, _, cleanup := runPraefectServer(t, conf, buildOptions{
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	cc, _, cleanup := runPraefectServer(t, ctx, conf, buildOptions{
 		withAnnotations: r,
 		withQueue:       queueInterceptor,
 		withBackends: withMockBackends(t, map[string]mock.SimpleServiceServer{
@@ -1103,9 +1110,6 @@ func TestCoordinatorEnqueueFailure(t *testing.T) {
 		}),
 	})
 	defer cleanup()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	mcli := mock.NewSimpleServiceClient(cc)
 
@@ -1389,9 +1393,6 @@ func (c *mockDiskCache) StartLease(*gitalypb.Repository) (cache.LeaseEnder, erro
 // fails. Most importantly, we want to make sure to only ever forward errors from the primary and
 // never from the secondaries.
 func TestCoordinator_grpcErrorHandling(t *testing.T) {
-	ctx, cleanup := testhelper.Context()
-	defer cleanup()
-
 	praefectConfig := config.Config{
 		VirtualStorages: []*config.VirtualStorage{
 			&config.VirtualStorage{
@@ -1439,6 +1440,9 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cleanup := testhelper.Context()
+			defer cleanup()
+
 			var wg sync.WaitGroup
 			gitalies := make(map[string]gitalyNode)
 			for _, gitaly := range []string{"primary", "secondary-1", "secondary-2"} {
@@ -1476,7 +1480,7 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 				})
 			}
 
-			praefectConn, _, cleanup := runPraefectServer(t, praefectConfig, buildOptions{
+			praefectConn, _, cleanup := runPraefectServer(t, ctx, praefectConfig, buildOptions{
 				// Set up a mock manager which sets up primary/secondaries and pretends that all nodes are
 				// healthy. We need fixed roles and unhealthy nodes will not take part in transactions.
 				withNodeMgr: &nodes.MockManager{

@@ -56,19 +56,19 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 	// create a commit in the second replica so we can check that its checksum is different than the primary
 	gittest.WriteCommit(t, cfgs[1], filepath.Join(cfgs[1].Storages[0].Path, testRepo.GetRelativePath()), gittest.WithBranch("master"))
 
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	nodeManager, err := nodes.NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil)
 	require.NoError(t, err)
 	nodeManager.Start(0, time.Hour)
-	cc, _, cleanup := runPraefectServer(t, conf, buildOptions{
+	cc, _, cleanup := runPraefectServer(t, ctx, conf, buildOptions{
 		withPrimaryGetter: nodeManager,
 		withConnections:   NodeSetFromNodeManager(nodeManager).Connections(),
 	})
 	defer cleanup()
 
 	client := gitalypb.NewPraefectInfoServiceClient(cc)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	// CalculateChecksum through praefect will get the checksum of the primary
 	repoClient := gitalypb.NewRepositoryServiceClient(cc)

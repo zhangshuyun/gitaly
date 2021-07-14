@@ -1,5 +1,3 @@
-// +build postgres
-
 package praefect
 
 import (
@@ -27,11 +25,15 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func getDB(t *testing.T) glsql.DB {
-	return glsql.GetDB(t, "praefect")
+func getDB(t testing.TB) glsql.DB {
+	return glsql.GetDB(t)
 }
 
 func TestStreamDirectorMutator_Transaction(t *testing.T) {
+	// For the test-with-praefect execution we disable a special case when repository
+	// records need to be created in the database.
+	defer testhelper.ModifyEnvironment(t, "GITALY_TEST_PRAEFECT_BIN", "")()
+
 	type subtransactions []struct {
 		vote          string
 		shouldSucceed bool
@@ -176,14 +178,16 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			}
 
 			var replicationWaitGroup sync.WaitGroup
-			queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewMemoryReplicationEventQueue(conf))
+			db := getDB(t)
+			queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(db))
 			queueInterceptor.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
 				defer replicationWaitGroup.Done()
 				return queue.Enqueue(ctx, event)
 			})
 
+			virtualStorage := conf.VirtualStorages[0].Name
 			repo := gitalypb.Repository{
-				StorageName:  "praefect",
+				StorageName:  virtualStorage,
 				RelativePath: "/path/to/hashed/repository",
 			}
 
@@ -194,7 +198,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			require.NoError(t, err)
 			nodeMgr.Start(0, time.Hour)
 
-			shard, err := nodeMgr.GetShard(ctx, conf.VirtualStorages[0].Name)
+			shard, err := nodeMgr.GetShard(ctx, virtualStorage)
 			require.NoError(t, err)
 
 			for i := range tc.nodes {
@@ -206,7 +210,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			txMgr := transactions.NewManager(conf)
 
 			// set up the generations prior to transaction
-			rs := datastore.NewPostgresRepositoryStore(getDB(t), conf.StorageNames())
+			rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
 
 			repoCreated := false
 			for i, n := range tc.nodes {

@@ -17,7 +17,7 @@ import (
 )
 
 func getDB(t *testing.T) glsql.DB {
-	return glsql.GetDB(t, "cmd_praefect")
+	return glsql.GetDB(t)
 }
 
 func registerPraefectInfoServer(impl gitalypb.PraefectInfoServiceServer) svcRegistrar {
