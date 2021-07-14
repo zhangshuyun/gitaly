@@ -4,7 +4,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -28,63 +27,45 @@ func registerPraefectInfoServer(impl gitalypb.PraefectInfoServiceServer) svcRegi
 }
 
 func TestDatalossSubcommand(t *testing.T) {
-	for _, scope := range []struct {
-		desc             string
-		electionStrategy config.ElectionStrategy
-		primaries        map[string]string
-	}{
-		{
-			desc:             "sql elector",
-			electionStrategy: config.ElectionStrategySQL,
-			primaries: map[string]string{
-				"repository-1": "gitaly-1",
-				"repository-2": "gitaly-1",
-			},
-		},
-		{
-			desc:             "per_repository elector",
-			electionStrategy: config.ElectionStrategyPerRepository,
-			primaries: map[string]string{
-				"repository-1": "gitaly-1",
-				"repository-2": "gitaly-3",
-			},
-		},
-	} {
-		t.Run(scope.desc, func(t *testing.T) {
-			cfg := config.Config{
-				Failover: config.Failover{ElectionStrategy: scope.electionStrategy},
-				VirtualStorages: []*config.VirtualStorage{
-					{
-						Name: "virtual-storage-1",
-						Nodes: []*config.Node{
-							{Storage: "gitaly-1"},
-							{Storage: "gitaly-2"},
-							{Storage: "gitaly-3"},
-						},
-					},
-					{
-						Name: "virtual-storage-2",
-						Nodes: []*config.Node{
-							{Storage: "gitaly-4"},
-						},
-					},
+	cfg := config.Config{
+		VirtualStorages: []*config.VirtualStorage{
+			{
+				Name: "virtual-storage-1",
+				Nodes: []*config.Node{
+					{Storage: "gitaly-1"},
+					{Storage: "gitaly-2"},
+					{Storage: "gitaly-3"},
 				},
-			}
+			},
+			{
+				Name: "virtual-storage-2",
+				Nodes: []*config.Node{
+					{Storage: "gitaly-4"},
+				},
+			},
+		},
+	}
 
-			db := getDB(t)
-			gs := datastore.NewPostgresRepositoryStore(db, cfg.StorageNames())
+	tx, err := getDB(t).Begin()
+	require.NoError(t, err)
+	defer tx.Rollback()
 
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-			for _, q := range []string{
-				`
+	testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect-0": {
+		"virtual-storage-1": {"gitaly-1", "gitaly-3"},
+	}})
+	gs := datastore.NewPostgresRepositoryStore(tx, cfg.StorageNames())
+
+	for _, q := range []string{
+		`
 				INSERT INTO repositories (virtual_storage, relative_path, "primary")
 				VALUES
 					('virtual-storage-1', 'repository-1', 'gitaly-1'),
 					('virtual-storage-1', 'repository-2', 'gitaly-3')
 				`,
-				`
+		`
 				INSERT INTO repository_assignments (virtual_storage, relative_path, storage)
 				VALUES
 					('virtual-storage-1', 'repository-1', 'gitaly-1'),
@@ -92,128 +73,122 @@ func TestDatalossSubcommand(t *testing.T) {
 					('virtual-storage-1', 'repository-2', 'gitaly-1'),
 					('virtual-storage-1', 'repository-2', 'gitaly-3')
 				`,
-				`
-				INSERT INTO shard_primaries (shard_name, node_name, elected_by_praefect, elected_at)
-				VALUES ('virtual-storage-1', 'gitaly-1', 'ignored', now())
-				`,
-			} {
-				_, err := db.ExecContext(ctx, q)
-				require.NoError(t, err)
-			}
+	} {
+		_, err := tx.ExecContext(ctx, q)
+		require.NoError(t, err)
+	}
 
-			require.NoError(t, gs.SetGeneration(ctx, "virtual-storage-1", "repository-1", "gitaly-1", 1))
-			require.NoError(t, gs.SetGeneration(ctx, "virtual-storage-1", "repository-1", "gitaly-2", 0))
-			require.NoError(t, gs.SetGeneration(ctx, "virtual-storage-1", "repository-1", "gitaly-3", 0))
+	require.NoError(t, gs.SetGeneration(ctx, "virtual-storage-1", "repository-1", "gitaly-1", 1))
+	require.NoError(t, gs.SetGeneration(ctx, "virtual-storage-1", "repository-1", "gitaly-2", 0))
+	require.NoError(t, gs.SetGeneration(ctx, "virtual-storage-1", "repository-1", "gitaly-3", 0))
 
-			require.NoError(t, gs.SetGeneration(ctx, "virtual-storage-1", "repository-2", "gitaly-2", 1))
-			require.NoError(t, gs.SetGeneration(ctx, "virtual-storage-1", "repository-2", "gitaly-3", 0))
+	require.NoError(t, gs.SetGeneration(ctx, "virtual-storage-1", "repository-2", "gitaly-2", 1))
+	require.NoError(t, gs.SetGeneration(ctx, "virtual-storage-1", "repository-2", "gitaly-3", 0))
 
-			ln, clean := listenAndServe(t, []svcRegistrar{
-				registerPraefectInfoServer(info.NewServer(nil, cfg, nil, gs, nil, nil, nil))})
-			defer clean()
-			for _, tc := range []struct {
-				desc            string
-				args            []string
-				virtualStorages []*config.VirtualStorage
-				output          string
-				error           error
-			}{
-				{
-					desc:  "positional arguments",
-					args:  []string{"-virtual-storage=virtual-storage-1", "positional-arg"},
-					error: unexpectedPositionalArgsError{Command: "dataloss"},
-				},
-				{
-					desc: "data loss with read-only repositories",
-					args: []string{"-virtual-storage=virtual-storage-1"},
-					output: fmt.Sprintf(`Virtual storage: virtual-storage-1
-  Outdated repositories:
-    repository-2 (read-only):
-      Primary: %s
+	ln, clean := listenAndServe(t, []svcRegistrar{
+		registerPraefectInfoServer(info.NewServer(nil, cfg, nil, gs, nil, nil, nil))})
+	defer clean()
+	for _, tc := range []struct {
+		desc            string
+		args            []string
+		virtualStorages []*config.VirtualStorage
+		output          string
+		error           error
+	}{
+		{
+			desc:  "positional arguments",
+			args:  []string{"-virtual-storage=virtual-storage-1", "positional-arg"},
+			error: unexpectedPositionalArgsError{Command: "dataloss"},
+		},
+		{
+			desc: "data loss with unavailable repositories",
+			args: []string{"-virtual-storage=virtual-storage-1"},
+			output: `Virtual storage: virtual-storage-1
+  Repositories:
+    repository-2 (unavailable):
+      Primary: gitaly-3
       In-Sync Storages:
-        gitaly-2
+        gitaly-2, unhealthy
       Outdated Storages:
         gitaly-1 is behind by 2 changes or less, assigned host
         gitaly-3 is behind by 1 change or less, assigned host
-`, scope.primaries["repository-2"]),
-				},
-				{
-					desc: "data loss with partially replicated repositories",
-					args: []string{"-virtual-storage=virtual-storage-1", "-partially-replicated"},
-					output: fmt.Sprintf(`Virtual storage: virtual-storage-1
-  Outdated repositories:
-    repository-1 (writable):
-      Primary: %s
+`,
+		},
+		{
+			desc: "data loss with partially unavailable repositories",
+			args: []string{"-virtual-storage=virtual-storage-1", "-partially-unavailable"},
+			output: `Virtual storage: virtual-storage-1
+  Repositories:
+    repository-1:
+      Primary: gitaly-1
       In-Sync Storages:
         gitaly-1, assigned host
       Outdated Storages:
-        gitaly-2 is behind by 1 change or less, assigned host
+        gitaly-2 is behind by 1 change or less, assigned host, unhealthy
         gitaly-3 is behind by 1 change or less
-    repository-2 (read-only):
-      Primary: %s
+    repository-2 (unavailable):
+      Primary: gitaly-3
       In-Sync Storages:
-        gitaly-2
+        gitaly-2, unhealthy
       Outdated Storages:
         gitaly-1 is behind by 2 changes or less, assigned host
         gitaly-3 is behind by 1 change or less, assigned host
-`, scope.primaries["repository-1"], scope.primaries["repository-2"]),
-				},
-				{
-					desc:            "multiple virtual storages with read-only repositories",
-					virtualStorages: []*config.VirtualStorage{{Name: "virtual-storage-2"}, {Name: "virtual-storage-1"}},
-					output: fmt.Sprintf(`Virtual storage: virtual-storage-1
-  Outdated repositories:
-    repository-2 (read-only):
-      Primary: %s
+`,
+		},
+		{
+			desc:            "multiple virtual storages with unavailable repositories",
+			virtualStorages: []*config.VirtualStorage{{Name: "virtual-storage-2"}, {Name: "virtual-storage-1"}},
+			output: `Virtual storage: virtual-storage-1
+  Repositories:
+    repository-2 (unavailable):
+      Primary: gitaly-3
       In-Sync Storages:
-        gitaly-2
+        gitaly-2, unhealthy
       Outdated Storages:
         gitaly-1 is behind by 2 changes or less, assigned host
         gitaly-3 is behind by 1 change or less, assigned host
 Virtual storage: virtual-storage-2
-  All repositories are writable!
-`, scope.primaries["repository-2"]),
-				},
-				{
-					desc:            "multiple virtual storages with partially replicated repositories",
-					args:            []string{"-partially-replicated"},
-					virtualStorages: []*config.VirtualStorage{{Name: "virtual-storage-2"}, {Name: "virtual-storage-1"}},
-					output: fmt.Sprintf(`Virtual storage: virtual-storage-1
-  Outdated repositories:
-    repository-1 (writable):
-      Primary: %s
+  All repositories are available!
+`,
+		},
+		{
+			desc:            "multiple virtual storages with partially unavailable repositories",
+			args:            []string{"-partially-unavailable"},
+			virtualStorages: []*config.VirtualStorage{{Name: "virtual-storage-2"}, {Name: "virtual-storage-1"}},
+			output: `Virtual storage: virtual-storage-1
+  Repositories:
+    repository-1:
+      Primary: gitaly-1
       In-Sync Storages:
         gitaly-1, assigned host
       Outdated Storages:
-        gitaly-2 is behind by 1 change or less, assigned host
+        gitaly-2 is behind by 1 change or less, assigned host, unhealthy
         gitaly-3 is behind by 1 change or less
-    repository-2 (read-only):
-      Primary: %s
+    repository-2 (unavailable):
+      Primary: gitaly-3
       In-Sync Storages:
-        gitaly-2
+        gitaly-2, unhealthy
       Outdated Storages:
         gitaly-1 is behind by 2 changes or less, assigned host
         gitaly-3 is behind by 1 change or less, assigned host
 Virtual storage: virtual-storage-2
-  All repositories are up to date!
-`, scope.primaries["repository-1"], scope.primaries["repository-2"]),
-				},
-			} {
-				t.Run(tc.desc, func(t *testing.T) {
-					cmd := newDatalossSubcommand()
-					output := &bytes.Buffer{}
-					cmd.output = output
+  All repositories are fully available on all assigned storages!
+`,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			cmd := newDatalossSubcommand()
+			output := &bytes.Buffer{}
+			cmd.output = output
 
-					fs := cmd.FlagSet()
-					require.NoError(t, fs.Parse(tc.args))
-					err := cmd.Exec(fs, config.Config{
-						VirtualStorages: tc.virtualStorages,
-						SocketPath:      ln.Addr().String(),
-					})
-					require.Equal(t, tc.error, err, err)
-					require.Equal(t, tc.output, output.String())
-				})
-			}
+			fs := cmd.FlagSet()
+			require.NoError(t, fs.Parse(tc.args))
+			err := cmd.Exec(fs, config.Config{
+				VirtualStorages: tc.virtualStorages,
+				SocketPath:      ln.Addr().String(),
+			})
+			require.Equal(t, tc.error, err, err)
+			require.Equal(t, tc.output, output.String())
 		})
 	}
 }

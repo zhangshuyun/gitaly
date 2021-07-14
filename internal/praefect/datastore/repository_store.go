@@ -116,10 +116,9 @@ type RepositoryStore interface {
 	ConsistentStoragesGetter
 	// RepositoryExists returns whether the repository exists on a virtual storage.
 	RepositoryExists(ctx context.Context, virtualStorage, relativePath string) (bool, error)
-	// GetPartiallyReplicatedRepositories returns information on repositories which have an outdated copy on an assigned storage.
-	// By default, repository specific primaries are returned in the results. If useVirtualStoragePrimaries is set, virtual storage's
-	// primary is returned instead for each repository.
-	GetPartiallyReplicatedRepositories(ctx context.Context, virtualStorage string, virtualStoragePrimaries bool) ([]OutdatedRepository, error)
+	// GetPartiallyAvailableRepositories returns information on repositories which have assigned replicas which
+	// are not able to serve requests at the moment.
+	GetPartiallyAvailableRepositories(ctx context.Context, virtualStorage string) ([]PartiallyAvailableRepository, error)
 	// DeleteInvalidRepository is a method for deleting records of invalid repositories. It deletes a storage's
 	// record of the invalid repository. If the storage was the only storage with the repository, the repository's
 	// record on the virtual storage is also deleted.
@@ -519,36 +518,45 @@ AND NOT EXISTS (
 	return err
 }
 
-// OutdatedRepositoryStorageDetails represents a storage that contains or should contain a
+// StorageDetails represents a storage that contains or should contain a
 // copy of the repository.
-type OutdatedRepositoryStorageDetails struct {
+type StorageDetails struct {
 	// Name of the storage as configured.
 	Name string
 	// BehindBy indicates how many generations the storage's copy of the repository is missing at maximum.
 	BehindBy int
 	// Assigned indicates whether the storage is an assigned host of the repository.
 	Assigned bool
+	// Healthy indicates whether the replica is considered healthy by the consensus of Praefect nodes.
+	Healthy bool
+	// ValidPrimary indicates whether the replica is ready to serve as the primary if necessary.
+	ValidPrimary bool
 }
 
-// OutdatedRepository is a repository with one or more outdated assigned storages.
-type OutdatedRepository struct {
+// PartiallyAvailableRepository is a repository with one or more assigned replicas which are not
+// able to serve requests at the moment.
+type PartiallyAvailableRepository struct {
 	// RelativePath is the relative path of the repository.
 	RelativePath string
 	// Primary is the current primary of this repository.
 	Primary string
 	// Storages contains information of the repository on each storage that contains the repository
 	// or does not contain the repository but is assigned to host it.
-	Storages []OutdatedRepositoryStorageDetails
+	Storages []StorageDetails
 }
 
-func (rs *PostgresRepositoryStore) GetPartiallyReplicatedRepositories(ctx context.Context, virtualStorage string, useVirtualStoragePrimaries bool) ([]OutdatedRepository, error) {
+// GetPartiallyAvailableRepositories returns information on repositories which have assigned replicas which
+// are not able to serve requests at the moment.
+func (rs *PostgresRepositoryStore) GetPartiallyAvailableRepositories(ctx context.Context, virtualStorage string) ([]PartiallyAvailableRepository, error) {
 	configuredStorages, ok := rs.storages[virtualStorage]
 	if !ok {
 		return nil, fmt.Errorf("unknown virtual storage: %q", virtualStorage)
 	}
 
-	// The query below gets the generations and assignments of every repository
-	// which has one or more outdated assigned nodes. It works as follows:
+	// The query below gets the status of every repository which has one or more assigned replicas that
+	// are not able to serve requests at the moment. The status includes how many changes a replica is behind,
+	// whether the replica is assigned host or not, whether the replica is healthy and whether the replica is
+	// considered a valid primary candidate. It works as follows:
 	//
 	// 1. First we get all the storages which contain the repository from `storage_repositories`. We
 	//    list every copy of the repository as the latest generation could exist on an unassigned
@@ -569,13 +577,17 @@ func (rs *PostgresRepositoryStore) GetPartiallyReplicatedRepositories(ctx contex
 	//    and there can't be any assignments for deleted repositories, this is still needed as long as the
 	//    fallback behavior of no assignments is in place.
 	//
-	// 4. Finally we aggregate each repository's information in to a single row with a JSON object containing
+	// 4. We join the `healthy_storages` view to return the storages current health.
+	//
+	// 5. We join the `valid_primaries` view to return whether the storage is ready to act as a primary in case
+	//    of a failover.
+	//
+	// 6. Finally we aggregate each repository's information in to a single row with a JSON object containing
 	//    the information. This allows us to group the output already in the query and makes scanning easier
-	//    We filter out groups which do not have an outdated assigned storage as the replication factor on those
+	//    We filter out groups which do not have an assigned storage as the replication factor on those
 	//    is reached. Status of unassigned storages does not matter as long as they don't contain a later generation
 	//    than the assigned ones.
 	//
-	// If virtual storage scoped primaries are used, the primary is instead selected from the `shard_primaries` table.
 	rows, err := rs.db.QueryContext(ctx, `
 SELECT
 	json_build_object (
@@ -585,20 +597,21 @@ SELECT
 			json_build_object(
 				'Name', storage,
 				'BehindBy', behind_by,
-				'Assigned', assigned
+				'Assigned', assigned,
+				'Healthy', healthy,
+				'ValidPrimary', valid_primary
 			)
 		)
 	)
 FROM (
 	SELECT
 		relative_path,
-		CASE WHEN $3
-			THEN shard_primaries.node_name
-			ELSE repositories."primary"
-		END AS "primary",
+		repositories.primary,
 		storage,
-		max(storage_repositories.generation) OVER (PARTITION BY virtual_storage, relative_path) - COALESCE(storage_repositories.generation, -1) AS behind_by,
-		repository_assignments.storage IS NOT NULL AS assigned
+		repository_generations.generation - COALESCE(storage_repositories.generation, -1) AS behind_by,
+		repository_assignments.storage IS NOT NULL AS assigned,
+		healthy_storages.storage IS NOT NULL AS healthy,
+		valid_primaries.storage IS NOT NULL AS valid_primary
 	FROM storage_repositories
 	FULL JOIN (
 		SELECT virtual_storage, relative_path, storage
@@ -613,33 +626,35 @@ FROM (
 		)
 	) AS repository_assignments USING (virtual_storage, relative_path, storage)
 	JOIN repositories USING (virtual_storage, relative_path)
-	LEFT JOIN shard_primaries ON $3 AND shard_name = virtual_storage AND NOT demoted
+	JOIN repository_generations USING (virtual_storage, relative_path)
+	LEFT JOIN healthy_storages USING (virtual_storage, storage)
+	LEFT JOIN valid_primaries USING (virtual_storage, relative_path, storage)
 	WHERE virtual_storage = $1
 	ORDER BY relative_path, "primary", storage
 ) AS outdated_repositories
 GROUP BY relative_path, "primary"
-HAVING max(behind_by) FILTER(WHERE assigned) > 0
+HAVING bool_or(NOT valid_primary) FILTER(WHERE assigned)
 ORDER BY relative_path, "primary"
-	`, virtualStorage, pq.StringArray(configuredStorages), useVirtualStoragePrimaries)
+	`, virtualStorage, pq.StringArray(configuredStorages))
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
 	defer rows.Close()
 
-	var outdatedRepos []OutdatedRepository
+	var repos []PartiallyAvailableRepository
 	for rows.Next() {
 		var repositoryJSON string
 		if err := rows.Scan(&repositoryJSON); err != nil {
 			return nil, fmt.Errorf("scan: %w", err)
 		}
 
-		var outdatedRepo OutdatedRepository
-		if err := json.NewDecoder(strings.NewReader(repositoryJSON)).Decode(&outdatedRepo); err != nil {
+		var repo PartiallyAvailableRepository
+		if err := json.NewDecoder(strings.NewReader(repositoryJSON)).Decode(&repo); err != nil {
 			return nil, fmt.Errorf("decode json: %w", err)
 		}
 
-		outdatedRepos = append(outdatedRepos, outdatedRepo)
+		repos = append(repos, repo)
 	}
 
-	return outdatedRepos, rows.Err()
+	return repos, rows.Err()
 }
