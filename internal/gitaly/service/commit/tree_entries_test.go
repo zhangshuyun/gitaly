@@ -211,6 +211,11 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			CommitOid: commitID,
 		},
 	}
+
+	// Order: Tree, Blob, Submodules
+	sortedRootEntries := append(rootEntries[10:13], rootEntries[0:10]...)
+	sortedRootEntries = append(sortedRootEntries, rootEntries[13])
+
 	filesDirEntries := []*gitalypb.TreeEntry{
 		{
 			Oid:       "60d7a906c2fd9e4509aeb1187b98d0ea7ce827c9",
@@ -325,6 +330,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 		revision    []byte
 		path        []byte
 		recursive   bool
+		sortBy      gitalypb.GetTreeEntriesRequest_SortBy
 		entries     []*gitalypb.TreeEntry
 	}{
 		{
@@ -358,6 +364,13 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			path:        []byte("i-dont/exist"),
 			entries:     nil,
 		},
+		{
+			description: "with root path and sorted by trees first",
+			revision:    []byte(commitID),
+			path:        []byte("."),
+			entries:     sortedRootEntries,
+			sortBy:      gitalypb.GetTreeEntriesRequest_TREES_FIRST,
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -367,6 +380,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 				Revision:   testCase.revision,
 				Path:       testCase.path,
 				Recursive:  testCase.recursive,
+				Sort:       testCase.sortBy,
 			}
 
 			ctx, cancel := testhelper.Context()

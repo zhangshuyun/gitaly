@@ -352,6 +352,13 @@ message GetTreeEntriesRequest {
   bytes revision = 2;
   bytes path = 3;
   bool recursive = 4;
+
+  enum SortBy {
+    DEFAULT = 0; // Preserve order of git ls-tree
+    TREES_FIRST = 1; // trees, blobs, submodules
+  }
+
+  SortBy sort = 5;
 }
 
 message GetTreeEntriesResponse {

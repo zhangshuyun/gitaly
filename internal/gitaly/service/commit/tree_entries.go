@@ -3,12 +3,14 @@ package commit
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -53,13 +55,15 @@ func populateFlatPath(ctx context.Context, c catfile.Batch, entries []*gitalypb.
 	return nil
 }
 
-func sendTreeEntries(stream gitalypb.CommitService_GetTreeEntriesServer, c catfile.Batch, revision, path string, recursive bool) error {
+func sendTreeEntries(stream gitalypb.CommitService_GetTreeEntriesServer, c catfile.Batch, revision, path string, recursive bool, sort gitalypb.GetTreeEntriesRequest_SortBy) error {
 	ctx := stream.Context()
 
 	entries, err := treeEntries(ctx, c, revision, path, "", recursive)
 	if err != nil {
 		return err
 	}
+
+	entries = sortTrees(entries, sort)
 
 	if !recursive {
 		if err := populateFlatPath(ctx, c, entries); err != nil {
@@ -75,6 +79,35 @@ func sendTreeEntries(stream gitalypb.CommitService_GetTreeEntriesServer, c catfi
 	}
 
 	return sender.Flush()
+}
+
+func sortTrees(entries []*gitalypb.TreeEntry, sortBy gitalypb.GetTreeEntriesRequest_SortBy) []*gitalypb.TreeEntry {
+	if sortBy == gitalypb.GetTreeEntriesRequest_DEFAULT {
+		return entries
+	}
+
+	sort.SliceStable(entries, func(i, j int) bool {
+		a, _ := toLsTreeEnum(entries[i].Type)
+		b, _ := toLsTreeEnum(entries[j].Type)
+
+		return a < b
+	})
+
+	return entries
+}
+
+// This is used to match the sorting order given by getLSTreeEntries
+func toLsTreeEnum(input gitalypb.TreeEntry_EntryType) (lstree.ObjectType, error) {
+	switch input {
+	case gitalypb.TreeEntry_TREE:
+		return lstree.Tree, nil
+	case gitalypb.TreeEntry_COMMIT:
+		return lstree.Submodule, nil
+	case gitalypb.TreeEntry_BLOB:
+		return lstree.Blob, nil
+	default:
+		return -1, lstree.ErrParse
+	}
 }
 
 type treeEntriesSender struct {
@@ -108,5 +141,6 @@ func (s *server) GetTreeEntries(in *gitalypb.GetTreeEntriesRequest, stream gital
 
 	revision := string(in.GetRevision())
 	path := string(in.GetPath())
-	return sendTreeEntries(stream, c, revision, path, in.Recursive)
+	sort := in.GetSort()
+	return sendTreeEntries(stream, c, revision, path, in.Recursive, sort)
 }

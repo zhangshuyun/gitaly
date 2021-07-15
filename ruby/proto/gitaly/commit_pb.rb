@@ -125,6 +125,11 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :revision, :bytes, 2
       optional :path, :bytes, 3
       optional :recursive, :bool, 4
+      optional :sort, :enum, 5, "gitaly.GetTreeEntriesRequest.SortBy"
+    end
+    add_enum "gitaly.GetTreeEntriesRequest.SortBy" do
+      value :DEFAULT, 0
+      value :TREES_FIRST, 1
     end
     add_message "gitaly.GetTreeEntriesResponse" do
       repeated :entries, :message, 1, "gitaly.TreeEntry"
@@ -319,6 +324,7 @@ module Gitaly
   TreeEntry = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.TreeEntry").msgclass
   TreeEntry::EntryType = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.TreeEntry.EntryType").enummodule
   GetTreeEntriesRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GetTreeEntriesRequest").msgclass
+  GetTreeEntriesRequest::SortBy = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GetTreeEntriesRequest.SortBy").enummodule
   GetTreeEntriesResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GetTreeEntriesResponse").msgclass
   ListFilesRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListFilesRequest").msgclass
   ListFilesResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListFilesResponse").msgclass
