@@ -192,6 +192,10 @@ func (cfg *Cfg) Validate() error {
 }
 
 func (cfg *Cfg) setDefaults() error {
+	if cfg.Prometheus.GRPCLatencyBuckets == nil {
+		cfg.Prometheus.GRPCLatencyBuckets = prometheus.DefaultBuckets()
+	}
+
 	if cfg.GracefulRestartTimeout.Duration() == 0 {
 		cfg.GracefulRestartTimeout = Duration(time.Minute)
 	}

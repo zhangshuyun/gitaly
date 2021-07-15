@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/cgroups"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/sentry"
 )
 
@@ -32,6 +33,7 @@ func TestLoadEmptyConfig(t *testing.T) {
 	require.NoError(t, defaultConf.setDefaults())
 
 	assert.Equal(t, defaultConf, cfg)
+	assert.Equal(t, defaultConf.Prometheus.GRPCLatencyBuckets, prometheus.DefaultBuckets())
 }
 
 func TestLoadURLs(t *testing.T) {
@@ -140,12 +142,17 @@ ruby_sentry_dsn = "xyz456"`)
 }
 
 func TestLoadPrometheus(t *testing.T) {
-	tmpFile := strings.NewReader(`prometheus_listen_addr=":9236"`)
+	tmpFile := strings.NewReader(`
+		prometheus_listen_addr=":9236"
+		[prometheus]
+		grpc_latency_buckets = [0.0, 1.0, 2.0]
+	`)
 
 	cfg, err := Load(tmpFile)
 	require.NoError(t, err)
 
 	assert.Equal(t, ":9236", cfg.PrometheusListenAddr)
+	assert.Equal(t, []float64{0, 1, 2}, cfg.Prometheus.GRPCLatencyBuckets)
 }
 
 func TestLoadSocketPath(t *testing.T) {
