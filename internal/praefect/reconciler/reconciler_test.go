@@ -96,11 +96,12 @@ func TestReconciler(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		desc               string
-		healthyStorages    storages
-		repositories       repositories
-		existingJobs       existingJobs
-		reconciliationJobs jobs
+		desc                string
+		healthyStorages     storages
+		repositories        repositories
+		existingJobs        existingJobs
+		deletedRepositories map[string][]string
+		reconciliationJobs  jobs
 	}{
 		{
 			desc:               "no repositories",
@@ -984,6 +985,94 @@ func TestReconciler(t *testing.T) {
 				},
 			},
 		},
+		{
+			desc:            "orphan repositories replicas should be scheduled for deletion",
+			healthyStorages: configuredStoragesWithout("storage-3"),
+			repositories: repositories{
+				"virtual-storage-1": {
+					"relative-path-1": {
+						"storage-1": {generation: 1},
+						"storage-2": {generation: 1},
+					},
+					"relative-path-2": {
+						"storage-1": {generation: 1},
+						"storage-2": {generation: 1},
+					},
+					"relative-path-3": {
+						"storage-1": {generation: 1},
+						"storage-2": {generation: 1},
+					},
+				},
+			},
+			deletedRepositories: map[string][]string{"virtual-storage-1": {"relative-path-2", "relative-path-3"}},
+			reconciliationJobs: jobs{
+				{
+					Change:            datastore.DeleteReplica,
+					VirtualStorage:    "virtual-storage-1",
+					RelativePath:      "relative-path-2",
+					TargetNodeStorage: "storage-1",
+				},
+				{
+					Change:            datastore.DeleteReplica,
+					VirtualStorage:    "virtual-storage-1",
+					RelativePath:      "relative-path-3",
+					TargetNodeStorage: "storage-1",
+				},
+			},
+		},
+		{
+			desc:            "orphan repositories replicas should be scheduled for deletion (only for healthy nodes)",
+			healthyStorages: configuredStoragesWithout("storage-1"),
+			repositories: repositories{
+				"virtual-storage-1": {
+					"relative-path-1": {
+						"storage-1": {generation: 1},
+						"storage-2": {generation: 1},
+						"storage-3": {generation: 1},
+					},
+					"relative-path-2": {
+						"storage-1": {generation: 1},
+						"storage-2": {generation: 1},
+						"storage-3": {generation: 1},
+					},
+				},
+			},
+			deletedRepositories: map[string][]string{"virtual-storage-1": {"relative-path-2"}},
+			reconciliationJobs: jobs{
+				{
+					Change:            datastore.DeleteReplica,
+					VirtualStorage:    "virtual-storage-1",
+					RelativePath:      "relative-path-2",
+					TargetNodeStorage: "storage-2",
+				},
+			},
+		},
+		{
+			desc:            "orphan repositories replicas should not be scheduled if replication event already exists",
+			healthyStorages: configuredStorages,
+			repositories: repositories{
+				"virtual-storage-1": {
+					"relative-path-1": {
+						"storage-1": {generation: 1},
+						"storage-2": {generation: 1},
+						"storage-3": {generation: 1},
+					},
+				},
+			},
+			deletedRepositories: map[string][]string{"virtual-storage-1": {"relative-path-1"}},
+			existingJobs: []datastore.ReplicationEvent{
+				{
+					State: datastore.JobStateReady,
+					Job: datastore.ReplicationJob{
+						Change:            datastore.DeleteReplica,
+						VirtualStorage:    "virtual-storage-1",
+						TargetNodeStorage: "storage-1",
+						RelativePath:      "relative-path-1",
+					},
+				},
+			},
+			reconciliationJobs: nil,
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx, cancel := testhelper.Context()
@@ -1053,6 +1142,16 @@ func TestReconciler(t *testing.T) {
 				require.Equal(t, context.Canceled, reconciler.Run(runCtx, ticker))
 				require.True(t, stopped)
 				require.True(t, resetted)
+			}
+
+			for vs, repos := range tc.deletedRepositories {
+				for _, repo := range repos {
+					_, err := db.Exec(
+						"DELETE FROM repositories WHERE virtual_storage = $1 AND relative_path = $2",
+						vs, repo,
+					)
+					require.NoError(t, err)
+				}
 			}
 
 			// run reconcile in two concurrent transactions to ensure everything works
