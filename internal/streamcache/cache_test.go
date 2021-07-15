@@ -16,14 +16,23 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
+func newCache(dir string) Cache {
+	return New(config.StreamCacheConfig{
+		Enabled: true,
+		Dir:     dir,
+		MaxAge:  config.Duration(time.Hour),
+	}, log.Default())
+}
+
 func TestCache_writeOneReadMultiple(t *testing.T) {
 	tmp := testhelper.TempDir(t)
 
-	c := New(tmp, time.Minute, log.Default())
+	c := newCache(tmp)
 	defer c.Stop()
 
 	const (
@@ -53,7 +62,7 @@ func TestCache_writeOneReadMultiple(t *testing.T) {
 func TestCache_manyConcurrentWrites(t *testing.T) {
 	tmp := testhelper.TempDir(t)
 
-	c := New(tmp, time.Minute, log.Default())
+	c := newCache(tmp)
 	defer c.Stop()
 
 	const (
@@ -132,7 +141,7 @@ func requireCacheEntries(t *testing.T, _c Cache, n int) {
 func TestCache_deletedFile(t *testing.T) {
 	tmp := testhelper.TempDir(t)
 
-	c := New(tmp, time.Hour, log.Default())
+	c := newCache(tmp)
 	defer c.Stop()
 
 	const (
@@ -183,7 +192,7 @@ func TestCache_scope(t *testing.T) {
 
 	for i := 0; i < N; i++ {
 		input[i] = fmt.Sprintf("test content %d", i)
-		cache[i] = New(tmp, time.Minute, log.Default())
+		cache[i] = newCache(tmp)
 		defer func(i int) { cache[i].Stop() }(i)
 
 		var created bool
@@ -294,7 +303,7 @@ func TestCache_diskCleanup(t *testing.T) {
 func TestCache_failedWrite(t *testing.T) {
 	tmp := testhelper.TempDir(t)
 
-	c := New(tmp, time.Hour, log.Default())
+	c := newCache(tmp)
 	defer c.Stop()
 
 	testCases := []struct {
@@ -341,7 +350,7 @@ func TestCache_failedWrite(t *testing.T) {
 func TestCache_failCreateFile(t *testing.T) {
 	tmp := testhelper.TempDir(t)
 
-	c := New(tmp, time.Hour, log.Default())
+	c := newCache(tmp)
 	defer c.Stop()
 
 	createError := errors.New("cannot create file")
@@ -354,7 +363,7 @@ func TestCache_failCreateFile(t *testing.T) {
 func TestCache_unWriteableFile(t *testing.T) {
 	tmp := testhelper.TempDir(t)
 
-	c := New(tmp, time.Hour, log.Default())
+	c := newCache(tmp)
 	defer c.Stop()
 
 	c.(*cache).createFile = func() (namedWriteCloser, error) {
@@ -379,7 +388,7 @@ func TestCache_unWriteableFile(t *testing.T) {
 func TestCache_unCloseableFile(t *testing.T) {
 	tmp := testhelper.TempDir(t)
 
-	c := New(tmp, time.Hour, log.Default())
+	c := newCache(tmp)
 	defer c.Stop()
 
 	c.(*cache).createFile = func() (namedWriteCloser, error) {
@@ -405,7 +414,7 @@ func TestCache_unCloseableFile(t *testing.T) {
 func TestCache_cannotOpenFileForReading(t *testing.T) {
 	tmp := testhelper.TempDir(t)
 
-	c := New(tmp, time.Hour, log.Default())
+	c := newCache(tmp)
 	defer c.Stop()
 
 	c.(*cache).createFile = func() (namedWriteCloser, error) {

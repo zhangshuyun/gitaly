@@ -139,7 +139,12 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 		deps.GetGitCmdFactory(),
 		deps.GetCatfileCache(),
 	))
-	gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
+	gitalypb.RegisterHookServiceServer(srv, hook.NewServer(
+		deps.GetCfg(),
+		deps.GetHookManager(),
+		deps.GetGitCmdFactory(),
+		deps.GetPackObjectsCache(),
+	))
 	gitalypb.RegisterInternalGitalyServer(srv, internalgitaly.NewServer(deps.GetCfg().Storages))
 
 	healthpb.RegisterHealthServer(srv, health.NewServer())

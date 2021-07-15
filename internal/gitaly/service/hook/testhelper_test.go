@@ -60,6 +60,7 @@ func runHooksServer(t testing.TB, cfg config.Cfg, opts []serverOption, serverOpt
 			deps.GetCfg(),
 			gitalyhook.NewManager(deps.GetLocator(), deps.GetTxManager(), deps.GetGitlabClient(), deps.GetCfg()),
 			deps.GetGitCmdFactory(),
+			deps.GetPackObjectsCache(),
 		)
 		for _, opt := range opts {
 			opt(hookServer.(*server))

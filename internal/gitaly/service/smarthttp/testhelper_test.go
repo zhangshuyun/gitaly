@@ -44,7 +44,7 @@ func startSmartHTTPServer(t *testing.T, cfg config.Cfg, serverOpts ...ServerOpt)
 			deps.GetDiskCache(),
 			serverOpts...,
 		))
-		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
 	})
 }
 

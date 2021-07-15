@@ -8,7 +8,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/streamcache"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
@@ -32,24 +31,18 @@ type server struct {
 }
 
 // NewServer creates a new instance of a gRPC namespace server
-func NewServer(cfg config.Cfg, manager gitalyhook.Manager, gitCmdFactory git.CommandFactory) gitalypb.HookServiceServer {
+func NewServer(cfg config.Cfg, manager gitalyhook.Manager, gitCmdFactory git.CommandFactory, packObjectsCache streamcache.Cache) gitalypb.HookServiceServer {
 	srv := &server{
 		cfg:              cfg,
 		manager:          manager,
 		gitCmdFactory:    gitCmdFactory,
-		packObjectsCache: streamcache.NullCache{},
+		packObjectsCache: packObjectsCache,
 	}
 
 	if poc := cfg.PackObjectsCache; poc.Enabled {
-		maxAge := poc.MaxAge.Duration()
-		srv.packObjectsCache = streamcache.New(
-			poc.Dir,
-			maxAge,
-			log.Default(),
-		)
 		packObjectsCacheEnabled.WithLabelValues(
 			poc.Dir,
-			strconv.Itoa(int(maxAge.Seconds())),
+			strconv.Itoa(int(poc.MaxAge.Duration().Seconds())),
 		).Set(1)
 	}
 

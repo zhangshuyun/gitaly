@@ -1002,7 +1002,7 @@ path="/foobar"
 	testCases := []struct {
 		desc string
 		in   string
-		out  PackObjectsCache
+		out  StreamCacheConfig
 		err  error
 	}{
 		{desc: "empty"},
@@ -1011,7 +1011,7 @@ path="/foobar"
 			in: storageConfig + `[pack_objects_cache]
 enabled = true
 `,
-			out: PackObjectsCache{Enabled: true, MaxAge: Duration(5 * time.Minute), Dir: "/foobar/+gitaly/PackObjectsCache"},
+			out: StreamCacheConfig{Enabled: true, MaxAge: Duration(5 * time.Minute), Dir: "/foobar/+gitaly/PackObjectsCache"},
 		},
 		{
 			desc: "enabled with custom values",
@@ -1020,7 +1020,7 @@ enabled = true
 dir = "/bazqux"
 max_age = "10m"
 `,
-			out: PackObjectsCache{Enabled: true, MaxAge: Duration(10 * time.Minute), Dir: "/bazqux"},
+			out: StreamCacheConfig{Enabled: true, MaxAge: Duration(10 * time.Minute), Dir: "/bazqux"},
 		},
 		{
 			desc: "enabled with 0 storages",
