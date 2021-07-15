@@ -34,7 +34,7 @@ func (cmd *createSubcommand) Flags(fs *flag.FlagSet) {
 }
 
 func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
-	fsBackup := backup.NewFilesystem(cmd.backupPath)
+	fsBackup := backup.NewManager(backup.NewFilesystemSink(cmd.backupPath))
 
 	var pipeline backup.CreatePipeline
 	pipeline = backup.NewPipeline(log.StandardLogger(), fsBackup)

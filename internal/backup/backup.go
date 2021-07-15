@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -17,19 +16,32 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// ErrSkipped means the repository was skipped because there was nothing to backup
-var ErrSkipped = errors.New("repository skipped")
+var (
+	// ErrSkipped means the repository was skipped because there was nothing to backup
+	ErrSkipped = errors.New("repository skipped")
+	// ErrDoesntExist means that the data was not found.
+	ErrDoesntExist = errors.New("doesn't exist")
+)
 
-// Filesystem strategy for creating and restoring backups
-type Filesystem struct {
-	path  string
+// Sink is an abstraction over the real storage used for storing/restoring backups.
+type Sink interface {
+	// Write saves all the data from the r by relativePath.
+	Write(ctx context.Context, relativePath string, r io.Reader) error
+	// GetReader returns a reader that servers the data stored by relativePath.
+	// If relativePath doesn't exists the ErrDoesntExist will be returned.
+	GetReader(ctx context.Context, relativePath string) (io.ReadCloser, error)
+}
+
+// Manager manages process of the creating/restoring backups.
+type Manager struct {
+	sink  Sink
 	conns *client.Pool
 }
 
-// NewFilesystem creates a new Filesystem strategy
-func NewFilesystem(path string) *Filesystem {
-	return &Filesystem{
-		path:  path,
+// NewManager creates and returns initialized *Manager instance.
+func NewManager(sink Sink) *Manager {
+	return &Manager{
+		sink:  sink,
 		conns: client.NewPool(),
 	}
 }
@@ -40,26 +52,23 @@ type CreateRequest struct {
 	Repository *gitalypb.Repository
 }
 
-// Create creates a repository backup on a local filesystem
-func (fs *Filesystem) Create(ctx context.Context, req *CreateRequest) error {
-	if isEmpty, err := fs.isEmpty(ctx, req.Server, req.Repository); err != nil {
-		return fmt.Errorf("filesystem: %w", err)
+// Create creates a repository backup.
+func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
+	if isEmpty, err := mgr.isEmpty(ctx, req.Server, req.Repository); err != nil {
+		return fmt.Errorf("manager: %w", err)
 	} else if isEmpty {
 		return ErrSkipped
 	}
 
-	backupPath := strings.TrimSuffix(filepath.Join(fs.path, req.Repository.RelativePath), ".git")
+	backupPath := strings.TrimSuffix(req.Repository.RelativePath, ".git")
 	bundlePath := backupPath + ".bundle"
 	customHooksPath := filepath.Join(backupPath, "custom_hooks.tar")
 
-	if err := os.MkdirAll(backupPath, 0700); err != nil {
-		return fmt.Errorf("filesystem: %w", err)
+	if err := mgr.writeBundle(ctx, bundlePath, req.Server, req.Repository); err != nil {
+		return fmt.Errorf("manager: write bundle: %w", err)
 	}
-	if err := fs.writeBundle(ctx, bundlePath, req.Server, req.Repository); err != nil {
-		return fmt.Errorf("filesystem: write bundle: %w", err)
-	}
-	if err := fs.writeCustomHooks(ctx, customHooksPath, req.Server, req.Repository); err != nil {
-		return fmt.Errorf("filesystem: write custom hooks: %w", err)
+	if err := mgr.writeCustomHooks(ctx, customHooksPath, req.Server, req.Repository); err != nil {
+		return fmt.Errorf("manager: write custom hooks: %w", err)
 	}
 
 	return nil
@@ -72,37 +81,37 @@ type RestoreRequest struct {
 	AlwaysCreate bool
 }
 
-// Restore restores a repository from a backup on a local filesystem
-func (fs *Filesystem) Restore(ctx context.Context, req *RestoreRequest) error {
-	backupPath := strings.TrimSuffix(filepath.Join(fs.path, req.Repository.RelativePath), ".git")
+// Restore restores a repository from a backup.
+func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
+	backupPath := strings.TrimSuffix(req.Repository.RelativePath, ".git")
 	bundlePath := backupPath + ".bundle"
 	customHooksPath := filepath.Join(backupPath, "custom_hooks.tar")
 
-	if err := fs.removeRepository(ctx, req.Server, req.Repository); err != nil {
-		return fmt.Errorf("filesystem: %w", err)
+	if err := mgr.removeRepository(ctx, req.Server, req.Repository); err != nil {
+		return fmt.Errorf("manager: %w", err)
 	}
-	if err := fs.restoreBundle(ctx, bundlePath, req.Server, req.Repository); err != nil {
+	if err := mgr.restoreBundle(ctx, bundlePath, req.Server, req.Repository); err != nil {
 		// For compatibility with existing backups we need to always create the
 		// repository even if there's no bundle for project repositories
 		// (not wiki or snippet repositories).  Gitaly does not know which
 		// repository is which type so here we accept a parameter to tell us
 		// to employ this behaviour.
 		if req.AlwaysCreate && errors.Is(err, ErrSkipped) {
-			if err := fs.createRepository(ctx, req.Server, req.Repository); err != nil {
-				return fmt.Errorf("filesystem: %w", err)
+			if err := mgr.createRepository(ctx, req.Server, req.Repository); err != nil {
+				return fmt.Errorf("manager: %w", err)
 			}
 		} else {
-			return fmt.Errorf("filesystem: %w", err)
+			return fmt.Errorf("manager: %w", err)
 		}
 	}
-	if err := fs.restoreCustomHooks(ctx, customHooksPath, req.Server, req.Repository); err != nil {
-		return fmt.Errorf("filesystem: %w", err)
+	if err := mgr.restoreCustomHooks(ctx, customHooksPath, req.Server, req.Repository); err != nil {
+		return fmt.Errorf("manager: %w", err)
 	}
 	return nil
 }
 
-func (fs *Filesystem) isEmpty(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) (bool, error) {
-	repoClient, err := fs.newRepoClient(ctx, server)
+func (mgr *Manager) isEmpty(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) (bool, error) {
+	repoClient, err := mgr.newRepoClient(ctx, server)
 	if err != nil {
 		return false, fmt.Errorf("isEmpty: %w", err)
 	}
@@ -116,8 +125,8 @@ func (fs *Filesystem) isEmpty(ctx context.Context, server storage.ServerInfo, re
 	return !hasLocalBranches.GetValue(), nil
 }
 
-func (fs *Filesystem) removeRepository(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) error {
-	repoClient, err := fs.newRepoClient(ctx, server)
+func (mgr *Manager) removeRepository(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) error {
+	repoClient, err := mgr.newRepoClient(ctx, server)
 	if err != nil {
 		return fmt.Errorf("remove repository: %w", err)
 	}
@@ -127,8 +136,8 @@ func (fs *Filesystem) removeRepository(ctx context.Context, server storage.Serve
 	return nil
 }
 
-func (fs *Filesystem) createRepository(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) error {
-	repoClient, err := fs.newRepoClient(ctx, server)
+func (mgr *Manager) createRepository(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) error {
+	repoClient, err := mgr.newRepoClient(ctx, server)
 	if err != nil {
 		return fmt.Errorf("create repository: %w", err)
 	}
@@ -138,8 +147,8 @@ func (fs *Filesystem) createRepository(ctx context.Context, server storage.Serve
 	return nil
 }
 
-func (fs *Filesystem) writeBundle(ctx context.Context, path string, server storage.ServerInfo, repo *gitalypb.Repository) error {
-	repoClient, err := fs.newRepoClient(ctx, server)
+func (mgr *Manager) writeBundle(ctx context.Context, path string, server storage.ServerInfo, repo *gitalypb.Repository) error {
+	repoClient, err := mgr.newRepoClient(ctx, server)
 	if err != nil {
 		return err
 	}
@@ -151,20 +160,24 @@ func (fs *Filesystem) writeBundle(ctx context.Context, path string, server stora
 		resp, err := stream.Recv()
 		return resp.GetData(), err
 	})
-	return writeFile(path, bundle)
+
+	if err := mgr.sink.Write(ctx, path, bundle); err != nil {
+		return fmt.Errorf("%T write: %w", mgr.sink, err)
+	}
+	return nil
 }
 
-func (fs *Filesystem) restoreBundle(ctx context.Context, path string, server storage.ServerInfo, repo *gitalypb.Repository) error {
-	f, err := os.Open(path)
+func (mgr *Manager) restoreBundle(ctx context.Context, path string, server storage.ServerInfo, repo *gitalypb.Repository) error {
+	reader, err := mgr.sink.GetReader(ctx, path)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, ErrDoesntExist) {
 			return fmt.Errorf("%w: bundle does not exist: %q", ErrSkipped, path)
 		}
 		return fmt.Errorf("restore bundle: %w", err)
 	}
-	defer f.Close()
+	defer reader.Close()
 
-	repoClient, err := fs.newRepoClient(ctx, server)
+	repoClient, err := mgr.newRepoClient(ctx, server)
 	if err != nil {
 		return fmt.Errorf("restore bundle: %q: %w", path, err)
 	}
@@ -184,7 +197,7 @@ func (fs *Filesystem) restoreBundle(ctx context.Context, path string, server sto
 
 		return nil
 	})
-	if _, err := io.Copy(bundle, f); err != nil {
+	if _, err := io.Copy(bundle, reader); err != nil {
 		return fmt.Errorf("restore bundle: %q: %w", path, err)
 	}
 	if _, err = stream.CloseAndRecv(); err != nil {
@@ -193,8 +206,8 @@ func (fs *Filesystem) restoreBundle(ctx context.Context, path string, server sto
 	return nil
 }
 
-func (fs *Filesystem) writeCustomHooks(ctx context.Context, path string, server storage.ServerInfo, repo *gitalypb.Repository) error {
-	repoClient, err := fs.newRepoClient(ctx, server)
+func (mgr *Manager) writeCustomHooks(ctx context.Context, path string, server storage.ServerInfo, repo *gitalypb.Repository) error {
+	repoClient, err := mgr.newRepoClient(ctx, server)
 	if err != nil {
 		return err
 	}
@@ -206,23 +219,23 @@ func (fs *Filesystem) writeCustomHooks(ctx context.Context, path string, server 
 		resp, err := stream.Recv()
 		return resp.GetData(), err
 	})
-	if err := writeFile(path, hooks); err != nil {
-		return err
+	if err := mgr.sink.Write(ctx, path, hooks); err != nil {
+		return fmt.Errorf("%T write: %w", mgr.sink, err)
 	}
 	return nil
 }
 
-func (fs *Filesystem) restoreCustomHooks(ctx context.Context, path string, server storage.ServerInfo, repo *gitalypb.Repository) error {
-	f, err := os.Open(path)
+func (mgr *Manager) restoreCustomHooks(ctx context.Context, path string, server storage.ServerInfo, repo *gitalypb.Repository) error {
+	reader, err := mgr.sink.GetReader(ctx, path)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, ErrDoesntExist) {
 			return nil
 		}
 		return fmt.Errorf("restore custom hooks: %w", err)
 	}
-	defer f.Close()
+	defer reader.Close()
 
-	repoClient, err := fs.newRepoClient(ctx, server)
+	repoClient, err := mgr.newRepoClient(ctx, server)
 	if err != nil {
 		return fmt.Errorf("restore custom hooks, %q: %w", path, err)
 	}
@@ -243,7 +256,7 @@ func (fs *Filesystem) restoreCustomHooks(ctx context.Context, path string, serve
 
 		return nil
 	})
-	if _, err := io.Copy(bundle, f); err != nil {
+	if _, err := io.Copy(bundle, reader); err != nil {
 		return fmt.Errorf("restore custom hooks, %q: %w", path, err)
 	}
 	if _, err = stream.CloseAndRecv(); err != nil {
@@ -252,35 +265,11 @@ func (fs *Filesystem) restoreCustomHooks(ctx context.Context, path string, serve
 	return nil
 }
 
-func (fs *Filesystem) newRepoClient(ctx context.Context, server storage.ServerInfo) (gitalypb.RepositoryServiceClient, error) {
-	conn, err := fs.conns.Dial(ctx, server.Address, server.Token)
+func (mgr *Manager) newRepoClient(ctx context.Context, server storage.ServerInfo) (gitalypb.RepositoryServiceClient, error) {
+	conn, err := mgr.conns.Dial(ctx, server.Address, server.Token)
 	if err != nil {
 		return nil, err
 	}
 
 	return gitalypb.NewRepositoryServiceClient(conn), nil
-}
-
-func writeFile(path string, r io.Reader) (returnErr error) {
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
-	if err != nil {
-		return fmt.Errorf("write file: %w", err)
-	}
-	defer func() {
-		if err := f.Close(); err != nil && returnErr == nil {
-			returnErr = fmt.Errorf("write file: %w", err)
-		}
-	}()
-	size, err := io.Copy(f, r)
-	if err != nil {
-		return fmt.Errorf("write file %q: %w", path, err)
-	}
-	if size == 0 {
-		// If the file is empty means that we received an empty stream, we delete the file
-		if err := os.Remove(path); err != nil {
-			return fmt.Errorf("write file: %w", err)
-		}
-		return nil
-	}
-	return nil
 }

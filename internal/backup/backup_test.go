@@ -18,7 +18,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestFilesystem_Create(t *testing.T) {
+func TestManager_Create(t *testing.T) {
 	cfg := testcfg.Build(t)
 
 	gitalyAddr := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
@@ -76,7 +76,7 @@ func TestFilesystem_Create(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			fsBackup := NewFilesystem(path)
+			fsBackup := NewManager(NewFilesystemSink(path))
 			err := fsBackup.Create(ctx, &CreateRequest{
 				Server:     storage.ServerInfo{Address: gitalyAddr, Token: cfg.Auth.Token},
 				Repository: tc.repo,
@@ -113,7 +113,7 @@ func TestFilesystem_Create(t *testing.T) {
 	}
 }
 
-func TestFilesystem_Restore(t *testing.T) {
+func TestManager_Restore(t *testing.T) {
 	cfg := testcfg.Build(t)
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
@@ -178,7 +178,7 @@ func TestFilesystem_Restore(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			fsBackup := NewFilesystem(path)
+			fsBackup := NewManager(NewFilesystemSink(path))
 			err := fsBackup.Restore(ctx, &RestoreRequest{
 				Server:       storage.ServerInfo{Address: gitalyAddr, Token: cfg.Auth.Token},
 				Repository:   tc.repo,
