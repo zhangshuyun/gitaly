@@ -318,7 +318,7 @@ func ForEachRef(
 				// us to read the referenced commit's object. It would thus be about
 				// 2-3x slower to use the default format, and instead we move the
 				// burden into the next pipeline step.
-				git.Flag{Name: "--format=%(objectname) %(refname)"},
+				git.ValueFlag{Name: "--format", Value: "%(objectname) %(refname)"},
 			},
 			Args: patterns,
 		})
