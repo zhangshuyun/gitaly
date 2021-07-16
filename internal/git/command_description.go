@@ -46,7 +46,7 @@ var commandDescriptions = map[string]commandDescription{
 		flags: scNoEndOfOptions,
 	},
 	"clone": {
-		flags: scNoEndOfOptions | scGeneratesPackfiles,
+		flags: scGeneratesPackfiles,
 	},
 	"commit": {
 		flags: 0,

@@ -79,7 +79,7 @@ func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_Cr
 				git.Flag{Name: "--bare"},
 				git.Flag{Name: "--quiet"},
 			},
-			PostSepArgs: []string{bundlePath, repoPath},
+			Args: []string{bundlePath, repoPath},
 		},
 		git.WithStderr(&stderr),
 		git.WithRefTxHook(ctx, repo, s.cfg),
