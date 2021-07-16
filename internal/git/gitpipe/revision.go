@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
@@ -328,10 +329,9 @@ func ForEachRef(
 
 		scanner := bufio.NewScanner(forEachRef)
 		for scanner.Scan() {
-			line := make([]byte, len(scanner.Bytes()))
-			copy(line, scanner.Bytes())
+			line := scanner.Text()
 
-			oidAndRef := bytes.SplitN(line, []byte{' '}, 2)
+			oidAndRef := strings.SplitN(line, " ", 2)
 			if len(oidAndRef) != 2 {
 				sendRevisionResult(ctx, resultChan, RevisionResult{
 					err: fmt.Errorf("invalid for-each-ref format: %q", line),
@@ -341,7 +341,7 @@ func ForEachRef(
 
 			if isDone := sendRevisionResult(ctx, resultChan, RevisionResult{
 				OID:        git.ObjectID(oidAndRef[0]),
-				ObjectName: oidAndRef[1],
+				ObjectName: []byte(oidAndRef[1]),
 			}); isDone {
 				return
 			}
