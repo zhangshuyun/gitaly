@@ -10,6 +10,8 @@ import (
 	"io"
 	"strconv"
 	"sync"
+
+	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 )
 
 const (
@@ -186,4 +188,39 @@ func EachSidebandPacket(r io.Reader, fn func(byte, []byte) error) error {
 	}
 
 	return io.ErrUnexpectedEOF
+}
+
+// SingleBandReader unwraps a flush-terminated sideband-64k stream. It
+// expects a sequence of sideband packets all for the same band. The
+// returned reader will return EOF when it encounters a flush packet.
+// Anything else in the input stream will result in a read error.
+func SingleBandReader(r io.Reader, band byte) io.Reader {
+	scanner := NewScanner(r)
+
+	return streamio.NewReader(func() ([]byte, error) {
+		if !scanner.Scan() {
+			return nil, io.ErrUnexpectedEOF
+		}
+		data := scanner.Bytes()
+
+		if IsFlush(data) {
+			return nil, io.EOF
+		}
+
+		if len(data) < 5 {
+			return nil, &errNotSideband{string(data)}
+		}
+
+		if b := data[4]; b != band {
+			return nil, errUnexpectedSideband(b)
+		}
+
+		return data[5:], nil
+	})
+}
+
+type errUnexpectedSideband byte
+
+func (b errUnexpectedSideband) Error() string {
+	return fmt.Sprintf("unexpected band: %d", b)
 }
