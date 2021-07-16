@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
@@ -15,7 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
 
-func TestPipeline(t *testing.T) {
+func TestPipeline_revlist(t *testing.T) {
 	cfg := testcfg.Build(t)
 
 	repoProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
@@ -329,4 +330,69 @@ func TestPipeline(t *testing.T) {
 		// harder than necessary to change the test repo's contents.
 		require.Greater(t, i, 1000)
 	})
+}
+
+func TestPipeline_forEachRef(t *testing.T) {
+	cfg := testcfg.Build(t)
+
+	repoProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
+	defer cleanup()
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	catfileCache := catfile.NewCache(cfg)
+	defer catfileCache.Stop()
+
+	catfileProcess, err := catfileCache.BatchProcess(ctx, repo)
+	require.NoError(t, err)
+
+	forEachRefIter := ForEachRef(ctx, repo, nil)
+	catfileInfoIter := CatfileInfo(ctx, catfileProcess, forEachRefIter)
+	catfileObjectIter := CatfileObject(ctx, catfileProcess, catfileInfoIter)
+
+	type object struct {
+		oid     git.ObjectID
+		content []byte
+	}
+
+	objectsByRef := make(map[git.ReferenceName]object)
+	for catfileObjectIter.Next() {
+		result := catfileObjectIter.Result()
+
+		// While we could also assert object data, let's not do
+		// this: it would just be too annoying.
+		require.NotNil(t, result.ObjectReader)
+
+		objectData, err := ioutil.ReadAll(result.ObjectReader)
+		require.NoError(t, err)
+		require.Len(t, objectData, int(result.ObjectInfo.Size))
+
+		objectsByRef[git.ReferenceName(result.ObjectName)] = object{
+			oid:     result.ObjectInfo.Oid,
+			content: objectData,
+		}
+	}
+	require.NoError(t, catfileObjectIter.Err())
+	require.Greater(t, len(objectsByRef), 90)
+
+	// We certainly don't want to hard-code all the references, so we just cross-check with the
+	// localrepo implementation to verify that both return the same data.
+	refs, err := repo.GetReferences(ctx)
+	require.NoError(t, err)
+	require.Equal(t, len(refs), len(objectsByRef))
+
+	expectedObjectsByRef := make(map[git.ReferenceName]object)
+	for _, ref := range refs {
+		oid := git.ObjectID(ref.Target)
+		content, err := repo.ReadObject(ctx, oid)
+		require.NoError(t, err)
+
+		expectedObjectsByRef[ref.Name] = object{
+			oid:     oid,
+			content: content,
+		}
+	}
+	require.Equal(t, expectedObjectsByRef, objectsByRef)
 }
