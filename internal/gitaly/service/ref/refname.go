@@ -3,7 +3,6 @@ package ref
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -30,20 +29,15 @@ func (s *server) FindRefName(ctx context.Context, in *gitalypb.FindRefNameReques
 
 // We assume `repo` and `commitID` and `prefix` are non-empty
 func (s *server) findRefName(ctx context.Context, repo *gitalypb.Repository, commitID, prefix string) (string, error) {
-	flags := []git.Option{
-		git.Flag{Name: "--format=%(refname)"},
-		git.Flag{Name: "--count=1"},
-	}
-
-	subCmd := ForEachRefCmd{PostArgFlags: []git.Option{
-		git.ValueFlag{Name: "--contains", Value: commitID},
-	}}
-
-	subCmd.Name = "for-each-ref"
-	subCmd.Flags = flags
-	subCmd.Args = []string{prefix}
-
-	cmd, err := s.gitCmdFactory.New(ctx, repo, subCmd)
+	cmd, err := s.gitCmdFactory.New(ctx, repo, git.SubCmd{
+		Name: "for-each-ref",
+		Flags: []git.Option{
+			git.ValueFlag{Name: "--format", Value: "%(refname)"},
+			git.ValueFlag{Name: "--count", Value: "1"},
+			git.ValueFlag{Name: "--contains", Value: commitID},
+		},
+		Args: []string{prefix},
+	})
 	if err != nil {
 		return "", err
 	}
@@ -64,46 +58,4 @@ func (s *server) findRefName(ctx context.Context, repo *gitalypb.Repository, com
 	// Trailing spaces are not allowed per the documentation
 	//  https://www.kernel.org/pub/software/scm/git/docs/git-check-ref-format.html
 	return strings.TrimSpace(refName), nil
-}
-
-// ForEachRefCmd is a command specialized for for-each-ref
-type ForEachRefCmd struct {
-	git.SubCmd
-	PostArgFlags []git.Option
-}
-
-var (
-	// ErrOnlyForEachRefAllowed indicates a command other than for-each-ref is being used with ForEachRefCmd
-	ErrOnlyForEachRefAllowed = errors.New("only for-each-ref allowed")
-
-	// ErrNoPostSeparatorArgsAllowed indicates post separator args exist when none are allowed
-	ErrNoPostSeparatorArgsAllowed = errors.New("post separator args not allowed")
-)
-
-// CommandArgs validates and returns the flags and arguments for the for-each-ref command
-func (f ForEachRefCmd) CommandArgs() ([]string, error) {
-	if f.Name != "for-each-ref" {
-		return nil, ErrOnlyForEachRefAllowed
-	}
-
-	args, err := f.SubCmd.CommandArgs()
-	if err != nil {
-		return nil, err
-	}
-
-	var postArgFlags []string
-
-	for _, o := range f.PostArgFlags {
-		args, err := o.OptionArgs()
-		if err != nil {
-			return nil, err
-		}
-		postArgFlags = append(postArgFlags, args...)
-	}
-
-	if len(f.SubCmd.PostSepArgs) > 0 {
-		return nil, ErrNoPostSeparatorArgsAllowed
-	}
-
-	return append(args, postArgFlags...), nil
 }

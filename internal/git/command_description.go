@@ -82,7 +82,7 @@ var commandDescriptions = map[string]commandDescription{
 		},
 	},
 	"for-each-ref": {
-		flags: scNoRefUpdates | scNoEndOfOptions,
+		flags: scNoRefUpdates,
 	},
 	"format-patch": {
 		flags: scNoRefUpdates,

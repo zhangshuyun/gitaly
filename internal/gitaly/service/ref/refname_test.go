@@ -1,6 +1,7 @@
 package ref
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -126,59 +127,47 @@ func TestFindRefNameInvalidObject(t *testing.T) {
 func TestFindRefCmd(t *testing.T) {
 	testCases := []struct {
 		desc         string
-		cmd          ForEachRefCmd
+		cmd          git.Cmd
 		expectedErr  error
 		expectedArgs []string
 	}{
 		{
-			desc: "wrong command",
-			cmd: ForEachRefCmd{
-				SubCmd: git.SubCmd{
-					Name: "rev-list",
-				},
+			desc: "post separator args allowed",
+			cmd: git.SubCmd{
+				Name:        "for-each-ref",
+				PostSepArgs: []string{"a", "b", "c"},
 			},
-			expectedErr: ErrOnlyForEachRefAllowed,
-		},
-		{
-			desc: "post separator args not allowed",
-			cmd: ForEachRefCmd{
-				SubCmd: git.SubCmd{
-					Name:        "for-each-ref",
-					PostSepArgs: []string{"a", "b", "c"},
-				},
+			expectedArgs: []string{
+				"for-each-ref", "--end-of-options", "--", "a", "b", "c",
 			},
-			expectedErr: ErrNoPostSeparatorArgsAllowed,
 		},
 		{
 			desc: "valid for-each-ref command without post arg flags",
-			cmd: ForEachRefCmd{
-				SubCmd: git.SubCmd{
-					Name:  "for-each-ref",
-					Flags: []git.Option{git.Flag{Name: "--tcl"}},
-					Args:  []string{"master"},
-				},
+			cmd: git.SubCmd{
+				Name:  "for-each-ref",
+				Flags: []git.Option{git.Flag{Name: "--tcl"}},
+				Args:  []string{"master"},
 			},
-			expectedArgs: []string{"for-each-ref", "--tcl", "master"},
-			expectedErr:  nil,
+			expectedArgs: []string{
+				"for-each-ref", "--tcl", "--end-of-options", "master",
+			},
 		},
 		{
-			desc: "valid for-each-ref command with post arg flags",
-			cmd: ForEachRefCmd{
-				SubCmd: git.SubCmd{
-					Name:  "for-each-ref",
-					Flags: []git.Option{git.Flag{Name: "--tcl"}},
-					Args:  []string{"master"},
-				},
-				PostArgFlags: []git.Option{git.ValueFlag{Name: "--contains", Value: "blahblah"}},
+			desc: "invalid for-each-ref command with post arg flags",
+			cmd: git.SubCmd{
+				Name:  "for-each-ref",
+				Flags: []git.Option{git.Flag{Name: "--tcl"}},
+				Args:  []string{"master", "--contains=blahblah"},
 			},
-			expectedArgs: []string{"for-each-ref", "--tcl", "master", "--contains", "blahblah"},
-			expectedErr:  nil,
+			expectedErr: fmt.Errorf("positional arg %q cannot start with dash '-': %w", "--contains=blahblah", git.ErrInvalidArg),
 		},
 	}
 
 	for _, tc := range testCases {
-		args, err := tc.cmd.CommandArgs()
-		require.Equal(t, tc.expectedErr, err)
-		require.Equal(t, tc.expectedArgs, args)
+		t.Run(tc.desc, func(t *testing.T) {
+			args, err := tc.cmd.CommandArgs()
+			require.Equal(t, tc.expectedErr, err)
+			require.Equal(t, tc.expectedArgs, args)
+		})
 	}
 }
