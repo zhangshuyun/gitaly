@@ -63,7 +63,10 @@ func sendTreeEntries(stream gitalypb.CommitService_GetTreeEntriesServer, c catfi
 		return err
 	}
 
-	entries = sortTrees(entries, sort)
+	entries, err = sortTrees(entries, sort)
+	if err != nil {
+		return err
+	}
 
 	if !recursive {
 		if err := populateFlatPath(ctx, c, entries); err != nil {
@@ -81,19 +84,27 @@ func sendTreeEntries(stream gitalypb.CommitService_GetTreeEntriesServer, c catfi
 	return sender.Flush()
 }
 
-func sortTrees(entries []*gitalypb.TreeEntry, sortBy gitalypb.GetTreeEntriesRequest_SortBy) []*gitalypb.TreeEntry {
+func sortTrees(entries []*gitalypb.TreeEntry, sortBy gitalypb.GetTreeEntriesRequest_SortBy) ([]*gitalypb.TreeEntry, error) {
 	if sortBy == gitalypb.GetTreeEntriesRequest_DEFAULT {
-		return entries
+		return entries, nil
 	}
 
+	var err error
+
 	sort.SliceStable(entries, func(i, j int) bool {
-		a, _ := toLsTreeEnum(entries[i].Type)
-		b, _ := toLsTreeEnum(entries[j].Type)
+		a, firstError := toLsTreeEnum(entries[i].Type)
+		b, secondError := toLsTreeEnum(entries[j].Type)
+
+		if firstError != nil {
+			err = firstError
+		} else if secondError != nil {
+			err = secondError
+		}
 
 		return a < b
 	})
 
-	return entries
+	return entries, err
 }
 
 // This is used to match the sorting order given by getLSTreeEntries
