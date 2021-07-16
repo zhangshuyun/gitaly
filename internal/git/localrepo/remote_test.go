@@ -367,7 +367,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 
 		var stderr bytes.Buffer
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{Stderr: &stderr, Env: []string{"GIT_TRACE=1"}}))
-		require.Contains(t, stderr.String(), "trace: built-in: git fetch --quiet source --end-of-options")
+		require.Contains(t, stderr.String(), "trace: built-in: git fetch --quiet --end-of-options source")
 	})
 
 	t.Run("with globals", func(t *testing.T) {

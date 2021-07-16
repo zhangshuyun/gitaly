@@ -187,7 +187,9 @@ var commandDescriptions = map[string]commandDescription{
 		},
 	},
 	"rev-list": {
-		flags: scNoRefUpdates,
+		// We cannot use --end-of-options here because pseudo revisions like `--all`
+		// and `--not` count as options.
+		flags: scNoRefUpdates | scNoEndOfOptions,
 		validatePositionalArgs: func(args []string) error {
 			for _, arg := range args {
 				// git-rev-list(1) supports pseudo-revision arguments which can be
@@ -306,6 +308,10 @@ func (c commandDescription) args(flags []Option, args []string, postSepArgs []st
 		commandArgs = append(commandArgs, args...)
 	}
 
+	if c.supportsEndOfOptions() {
+		commandArgs = append(commandArgs, "--end-of-options")
+	}
+
 	if c.validatePositionalArgs != nil {
 		if err := c.validatePositionalArgs(args); err != nil {
 			return nil, err
@@ -318,10 +324,6 @@ func (c commandDescription) args(flags []Option, args []string, postSepArgs []st
 		}
 	}
 	commandArgs = append(commandArgs, args...)
-
-	if c.supportsEndOfOptions() {
-		commandArgs = append(commandArgs, "--end-of-options")
-	}
 
 	if len(postSepArgs) > 0 {
 		commandArgs = append(commandArgs, "--")
