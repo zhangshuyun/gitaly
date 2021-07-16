@@ -58,7 +58,7 @@ var commandDescriptions = map[string]commandDescription{
 		flags: scNoRefUpdates,
 	},
 	"config": {
-		flags: scNoRefUpdates | scNoEndOfOptions,
+		flags: scNoRefUpdates,
 	},
 	"count-objects": {
 		flags: scNoRefUpdates,
