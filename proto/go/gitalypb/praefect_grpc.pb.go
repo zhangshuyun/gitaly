@@ -19,11 +19,6 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type PraefectInfoServiceClient interface {
 	RepositoryReplicas(ctx context.Context, in *RepositoryReplicasRequest, opts ...grpc.CallOption) (*RepositoryReplicasResponse, error)
-	// ConsistencyCheck will perform a consistency check on the requested
-	// virtual storage backend. A stream of repository statuses will be sent
-	// back indicating which repos are consistent with the primary and which ones
-	// need repair.
-	ConsistencyCheck(ctx context.Context, in *ConsistencyCheckRequest, opts ...grpc.CallOption) (PraefectInfoService_ConsistencyCheckClient, error)
 	// DatalossCheck checks for unavailable repositories.
 	DatalossCheck(ctx context.Context, in *DatalossCheckRequest, opts ...grpc.CallOption) (*DatalossCheckResponse, error)
 	// SetAuthoritativeStorage sets the authoritative storage for a repository on a given virtual storage.
@@ -58,38 +53,6 @@ func (c *praefectInfoServiceClient) RepositoryReplicas(ctx context.Context, in *
 	return out, nil
 }
 
-func (c *praefectInfoServiceClient) ConsistencyCheck(ctx context.Context, in *ConsistencyCheckRequest, opts ...grpc.CallOption) (PraefectInfoService_ConsistencyCheckClient, error) {
-	stream, err := c.cc.NewStream(ctx, &PraefectInfoService_ServiceDesc.Streams[0], "/gitaly.PraefectInfoService/ConsistencyCheck", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &praefectInfoServiceConsistencyCheckClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type PraefectInfoService_ConsistencyCheckClient interface {
-	Recv() (*ConsistencyCheckResponse, error)
-	grpc.ClientStream
-}
-
-type praefectInfoServiceConsistencyCheckClient struct {
-	grpc.ClientStream
-}
-
-func (x *praefectInfoServiceConsistencyCheckClient) Recv() (*ConsistencyCheckResponse, error) {
-	m := new(ConsistencyCheckResponse)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 func (c *praefectInfoServiceClient) DatalossCheck(ctx context.Context, in *DatalossCheckRequest, opts ...grpc.CallOption) (*DatalossCheckResponse, error) {
 	out := new(DatalossCheckResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.PraefectInfoService/DatalossCheck", in, out, opts...)
@@ -122,11 +85,6 @@ func (c *praefectInfoServiceClient) SetReplicationFactor(ctx context.Context, in
 // for forward compatibility
 type PraefectInfoServiceServer interface {
 	RepositoryReplicas(context.Context, *RepositoryReplicasRequest) (*RepositoryReplicasResponse, error)
-	// ConsistencyCheck will perform a consistency check on the requested
-	// virtual storage backend. A stream of repository statuses will be sent
-	// back indicating which repos are consistent with the primary and which ones
-	// need repair.
-	ConsistencyCheck(*ConsistencyCheckRequest, PraefectInfoService_ConsistencyCheckServer) error
 	// DatalossCheck checks for unavailable repositories.
 	DatalossCheck(context.Context, *DatalossCheckRequest) (*DatalossCheckResponse, error)
 	// SetAuthoritativeStorage sets the authoritative storage for a repository on a given virtual storage.
@@ -151,9 +109,6 @@ type UnimplementedPraefectInfoServiceServer struct {
 
 func (UnimplementedPraefectInfoServiceServer) RepositoryReplicas(context.Context, *RepositoryReplicasRequest) (*RepositoryReplicasResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RepositoryReplicas not implemented")
-}
-func (UnimplementedPraefectInfoServiceServer) ConsistencyCheck(*ConsistencyCheckRequest, PraefectInfoService_ConsistencyCheckServer) error {
-	return status.Errorf(codes.Unimplemented, "method ConsistencyCheck not implemented")
 }
 func (UnimplementedPraefectInfoServiceServer) DatalossCheck(context.Context, *DatalossCheckRequest) (*DatalossCheckResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DatalossCheck not implemented")
@@ -193,27 +148,6 @@ func _PraefectInfoService_RepositoryReplicas_Handler(srv interface{}, ctx contex
 		return srv.(PraefectInfoServiceServer).RepositoryReplicas(ctx, req.(*RepositoryReplicasRequest))
 	}
 	return interceptor(ctx, in, info, handler)
-}
-
-func _PraefectInfoService_ConsistencyCheck_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(ConsistencyCheckRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(PraefectInfoServiceServer).ConsistencyCheck(m, &praefectInfoServiceConsistencyCheckServer{stream})
-}
-
-type PraefectInfoService_ConsistencyCheckServer interface {
-	Send(*ConsistencyCheckResponse) error
-	grpc.ServerStream
-}
-
-type praefectInfoServiceConsistencyCheckServer struct {
-	grpc.ServerStream
-}
-
-func (x *praefectInfoServiceConsistencyCheckServer) Send(m *ConsistencyCheckResponse) error {
-	return x.ServerStream.SendMsg(m)
 }
 
 func _PraefectInfoService_DatalossCheck_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -294,12 +228,6 @@ var PraefectInfoService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _PraefectInfoService_SetReplicationFactor_Handler,
 		},
 	},
-	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "ConsistencyCheck",
-			Handler:       _PraefectInfoService_ConsistencyCheck_Handler,
-			ServerStreams: true,
-		},
-	},
+	Streams:  []grpc.StreamDesc{},
 	Metadata: "praefect.proto",
 }

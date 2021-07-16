@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -27,7 +28,6 @@ var (
 		"sql-ping":               &sqlPingSubcommand{},
 		"sql-migrate":            &sqlMigrateSubcommand{},
 		"dial-nodes":             &dialNodesSubcommand{},
-		"reconcile":              &reconcileSubcommand{},
 		"sql-migrate-down":       &sqlMigrateDownSubcommand{},
 		"sql-migrate-status":     &sqlMigrateStatusSubcommand{},
 		"dataloss":               newDatalossSubcommand(),
@@ -65,6 +65,17 @@ func subCommand(conf config.Config, arg0 string, argRest []string) int {
 	}
 
 	return 0
+}
+
+func getNodeAddress(cfg config.Config) (string, error) {
+	switch {
+	case cfg.SocketPath != "":
+		return "unix:" + cfg.SocketPath, nil
+	case cfg.ListenAddr != "":
+		return "tcp://" + cfg.ListenAddr, nil
+	default:
+		return "", errors.New("no Praefect address configured")
+	}
 }
 
 type sqlPingSubcommand struct{}
