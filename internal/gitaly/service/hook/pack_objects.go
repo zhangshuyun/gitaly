@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -21,8 +22,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/streamrpc"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var (
@@ -59,7 +62,32 @@ func (s *server) PackObjectsHook(stream gitalypb.HookService_PackObjectsHookServ
 		return helper.ErrInvalidArgumentf("invalid pack-objects command: %v: %w", firstRequest.Args, err)
 	}
 
-	if err := s.packObjectsHook(stream, firstRequest, args); err != nil {
+	stdin := streamio.NewReader(func() ([]byte, error) {
+		resp, err := stream.Recv()
+		return resp.GetStdin(), err
+	})
+
+	output := func(r io.Reader) (int64, error) {
+		var n int64
+		err := pktline.EachSidebandPacket(r, func(band byte, data []byte) error {
+			resp := &gitalypb.PackObjectsHookResponse{}
+
+			switch band {
+			case bandStdout:
+				resp.Stdout = data
+			case bandStderr:
+				resp.Stderr = data
+			default:
+				return fmt.Errorf("invalid side band: %d", band)
+			}
+
+			n += int64(len(data))
+			return stream.Send(resp)
+		})
+		return n, err
+	}
+
+	if err := s.packObjectsHook(stream.Context(), firstRequest.Repository, firstRequest, args, stdin, output); err != nil {
 		return helper.ErrInternal(err)
 	}
 
@@ -67,19 +95,18 @@ func (s *server) PackObjectsHook(stream gitalypb.HookService_PackObjectsHookServ
 }
 
 const (
+	bandStdin  = 0
 	bandStdout = 1
 	bandStderr = 2
 )
 
-func (s *server) packObjectsHook(stream gitalypb.HookService_PackObjectsHookServer, firstRequest *gitalypb.PackObjectsHookRequest, args *packObjectsArgs) error {
-	ctx := stream.Context()
-
+func (s *server) packObjectsHook(ctx context.Context, repo *gitalypb.Repository, reqHash proto.Message, args *packObjectsArgs, stdinReader io.Reader, output func(io.Reader) (int64, error)) error {
 	h := sha256.New()
-	if err := (&jsonpb.Marshaler{}).Marshal(h, firstRequest); err != nil {
+	if err := (&jsonpb.Marshaler{}).Marshal(h, reqHash); err != nil {
 		return err
 	}
 
-	stdin, err := bufferStdin(stream, h)
+	stdin, err := bufferStdin(stdinReader, h)
 	if err != nil {
 		return err
 	}
@@ -99,7 +126,7 @@ func (s *server) packObjectsHook(stream gitalypb.HookService_PackObjectsHookServ
 	key := hex.EncodeToString(h.Sum(nil))
 
 	r, created, err := s.packObjectsCache.FindOrCreate(key, func(w io.Writer) error {
-		return s.runPackObjects(ctx, w, firstRequest.Repository, args, stdin, key)
+		return s.runPackObjects(ctx, w, repo, args, stdin, key)
 	})
 	if err != nil {
 		return err
@@ -122,21 +149,8 @@ func (s *server) packObjectsHook(stream gitalypb.HookService_PackObjectsHookServ
 		packObjectsServedBytes.Add(float64(servedBytes))
 	}()
 
-	if err := pktline.EachSidebandPacket(r, func(band byte, data []byte) error {
-		resp := &gitalypb.PackObjectsHookResponse{}
-
-		switch band {
-		case bandStdout:
-			resp.Stdout = data
-		case bandStderr:
-			resp.Stderr = data
-		default:
-			return fmt.Errorf("invalid side band: %d", band)
-		}
-
-		servedBytes += int64(len(data))
-		return stream.Send(resp)
-	}); err != nil {
+	servedBytes, err = output(r)
+	if err != nil {
 		return err
 	}
 
@@ -278,7 +292,7 @@ func (p *packObjectsArgs) subcmd() git.SubCmd {
 	return sc
 }
 
-func bufferStdin(stream gitalypb.HookService_PackObjectsHookServer, h hash.Hash) (_ io.ReadCloser, err error) {
+func bufferStdin(r io.Reader, h hash.Hash) (_ io.ReadCloser, err error) {
 	f, err := ioutil.TempFile("", "PackObjectsHook-stdin")
 	if err != nil {
 		return nil, err
@@ -293,15 +307,7 @@ func bufferStdin(stream gitalypb.HookService_PackObjectsHookServer, h hash.Hash)
 		return nil, err
 	}
 
-	stdin := io.TeeReader(
-		streamio.NewReader(func() ([]byte, error) {
-			resp, err := stream.Recv()
-			return resp.GetStdin(), err
-		}),
-		h,
-	)
-
-	_, err = io.Copy(f, stdin)
+	_, err = io.Copy(f, io.TeeReader(r, h))
 	if err != nil {
 		return nil, err
 	}
@@ -322,4 +328,24 @@ func (cw *countingWriter) Write(p []byte) (int, error) {
 	n, err := cw.W.Write(p)
 	cw.N += int64(n)
 	return n, err
+}
+
+func (s *server) PackObjectsHookStream(ctx context.Context, req *gitalypb.PackObjectsHookStreamRequest) (*emptypb.Empty, error) {
+	if req.GetRepository() == nil {
+		return nil, helper.ErrInvalidArgument(errors.New("repository is empty"))
+	}
+
+	args, err := parsePackObjectsArgs(req.Args)
+	if err != nil {
+		return nil, helper.ErrInvalidArgumentf("invalid pack-objects command: %v: %w", req.Args, err)
+	}
+
+	c, err := streamrpc.AcceptConnection(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	stdin := pktline.SingleBandReader(c, bandStdin)
+	output := func(r io.Reader) (int64, error) { return io.Copy(c, r) }
+	return nil, s.packObjectsHook(ctx, req.Repository, req, args, stdin, output)
 }
