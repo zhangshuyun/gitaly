@@ -22,23 +22,23 @@ func doCall(dial DialFunc, request []byte, callback func(net.Conn) error) error 
 
 	c, err := dial(time.Until(deadline))
 	if err != nil {
-		return fmt.Errorf("dial: %w", err)
+		return fmt.Errorf("streamrpc client: dial: %w", err)
 	}
 	defer c.Close()
 
 	if err := sendFrame(c, request, deadline); err != nil {
-		return fmt.Errorf("send request: %w", err)
+		return fmt.Errorf("streamrpc client: send handshake: %w", err)
 	}
 
 	responseBytes, err := recvFrame(c, deadline)
 	if err != nil {
-		return fmt.Errorf("receive response: %w", err)
+		return fmt.Errorf("streamrpc client: receive handshake: %w", err)
 	}
 
 	if len(responseBytes) > 0 {
 		var resp response
 		if err := json.Unmarshal(responseBytes, &resp); err != nil {
-			return fmt.Errorf("unmarshal response: %w", err)
+			return fmt.Errorf("streamrpc client: unmarshal handshake response: %w", err)
 		}
 
 		return &RequestRejectedError{resp.Error}
@@ -117,12 +117,12 @@ func Call(ctx context.Context, dial DialFunc, method string, msg proto.Message, 
 	invoke := func(ctx context.Context, method string, msg, _ interface{}, _ *grpc.ClientConn, _ ...grpc.CallOption) error {
 		ctx, err := callOpts.addCredentials(ctx)
 		if err != nil {
-			return err
+			return fmt.Errorf("streamrpc client: add credentials: %w", err)
 		}
 
 		msgBytes, err := proto.Marshal(msg.(proto.Message))
 		if err != nil {
-			return err
+			return fmt.Errorf("streamrpc client: marshal outgoing protobuf message: %w", err)
 		}
 
 		req := &request{
@@ -135,7 +135,7 @@ func Call(ctx context.Context, dial DialFunc, method string, msg proto.Message, 
 
 		reqBytes, err := json.Marshal(req)
 		if err != nil {
-			return err
+			return fmt.Errorf("streamrpc client: marshal request json: %w", err)
 		}
 
 		return doCall(dial, reqBytes, callback)
