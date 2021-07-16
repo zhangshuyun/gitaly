@@ -6,6 +6,7 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 
 import "lint.proto";
 import "shared.proto";
+import "google/protobuf/empty.proto";
 
 service HookService {
   rpc PreReceiveHook(stream PreReceiveHookRequest) returns (stream PreReceiveHookResponse) {
@@ -32,6 +33,11 @@ service HookService {
   // uploadpack.packObjectsHook mechanism. It generates a stream of packed
   // Git objects.
   rpc PackObjectsHook(stream PackObjectsHookRequest) returns (stream PackObjectsHookResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
+  rpc PackObjectsHookStream(PackObjectsHookStreamRequest) returns (google.protobuf.Empty) {
     option (op_type) = {
       op: ACCESSOR
     };
@@ -109,4 +115,10 @@ message PackObjectsHookResponse {
   bytes stdout = 1;
   // stderr contains progress messages (such as "Enumerating objects ...")
   bytes stderr = 2;
+}
+
+message PackObjectsHookStreamRequest {
+  Repository repository = 1 [(target_repository)=true];
+  // args contains the arguments passed to the pack-objects hook, without the leading "git"
+  repeated string args = 2;
 }

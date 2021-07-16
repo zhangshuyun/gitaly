@@ -5,6 +5,7 @@ require 'google/protobuf'
 
 require 'lint_pb'
 require 'shared_pb'
+require 'google/protobuf/empty_pb'
 Google::Protobuf::DescriptorPool.generated_pool.build do
   add_file("hook.proto", :syntax => :proto3) do
     add_message "gitaly.PreReceiveHookRequest" do
@@ -66,6 +67,10 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :stdout, :bytes, 1
       optional :stderr, :bytes, 2
     end
+    add_message "gitaly.PackObjectsHookStreamRequest" do
+      optional :repository, :message, 1, "gitaly.Repository"
+      repeated :args, :string, 2
+    end
   end
 end
 
@@ -81,4 +86,5 @@ module Gitaly
   ReferenceTransactionHookResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ReferenceTransactionHookResponse").msgclass
   PackObjectsHookRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.PackObjectsHookRequest").msgclass
   PackObjectsHookResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.PackObjectsHookResponse").msgclass
+  PackObjectsHookStreamRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.PackObjectsHookStreamRequest").msgclass
 end

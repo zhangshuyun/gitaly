@@ -22,6 +22,7 @@ module Gitaly
       # uploadpack.packObjectsHook mechanism. It generates a stream of packed
       # Git objects.
       rpc :PackObjectsHook, stream(Gitaly::PackObjectsHookRequest), stream(Gitaly::PackObjectsHookResponse)
+      rpc :PackObjectsHookStream, Gitaly::PackObjectsHookStreamRequest, Google::Protobuf::Empty
     end
 
     Stub = Service.rpc_stub_class
