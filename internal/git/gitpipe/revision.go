@@ -320,7 +320,7 @@ func ForEachRef(
 				// burden into the next pipeline step.
 				git.ValueFlag{Name: "--format", Value: "%(objectname) %(refname)"},
 			},
-			Args: patterns,
+			PostSepArgs: patterns,
 		})
 		if err != nil {
 			sendRevisionResult(ctx, resultChan, RevisionResult{err: err})
