@@ -49,11 +49,11 @@ func TestAccess_verifyParams(t *testing.T) {
 	}
 
 	tempDir := testhelper.TempDir(t)
-	testhelper.WriteShellSecretFile(t, tempDir, secretToken)
+	WriteShellSecretFile(t, tempDir, secretToken)
 
 	secretFilePath := filepath.Join(tempDir, ".gitlab_shell_secret")
 
-	serverURL, cleanup := testhelper.NewGitlabTestServer(t, testhelper.GitlabTestServerOptions{
+	serverURL, cleanup := NewTestServer(t, TestServerOptions{
 		User:                        user,
 		Password:                    password,
 		SecretToken:                 secretToken,
@@ -150,7 +150,7 @@ func TestAccess_escapedAndRelativeURLs(t *testing.T) {
 	}
 
 	tempDir := testhelper.TempDir(t)
-	testhelper.WriteShellSecretFile(t, tempDir, secretToken)
+	WriteShellSecretFile(t, tempDir, secretToken)
 
 	secretFilePath := filepath.Join(tempDir, ".gitlab_shell_secret")
 
@@ -185,7 +185,7 @@ func TestAccess_escapedAndRelativeURLs(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			serverURL, cleanup := testhelper.NewGitlabTestServer(t, testhelper.GitlabTestServerOptions{
+			serverURL, cleanup := NewTestServer(t, TestServerOptions{
 				User:                        user,
 				Password:                    password,
 				SecretToken:                 secretToken,
@@ -242,7 +242,7 @@ func TestAccess_allowedResponseHandling(t *testing.T) {
 	repo.GitAlternateObjectDirectories = []string{gitAltObjectDir}
 
 	tempDir := testhelper.TempDir(t)
-	testhelper.WriteShellSecretFile(t, tempDir, "secret_token")
+	WriteShellSecretFile(t, tempDir, "secret_token")
 
 	secretFilePath := filepath.Join(tempDir, ".gitlab_shell_secret")
 
@@ -389,7 +389,7 @@ func TestAccess_allowedResponseHandling(t *testing.T) {
 func TestAccess_preReceive(t *testing.T) {
 	tempDir := testhelper.TempDir(t)
 
-	testhelper.WriteShellSecretFile(t, tempDir, "secret_token")
+	WriteShellSecretFile(t, tempDir, "secret_token")
 
 	secretFilePath := filepath.Join(tempDir, ".gitlab_shell_secret")
 
@@ -484,7 +484,7 @@ func TestAccess_preReceive(t *testing.T) {
 func TestAccess_postReceive(t *testing.T) {
 	tempDir := testhelper.TempDir(t)
 
-	testhelper.WriteShellSecretFile(t, tempDir, "secret_token")
+	WriteShellSecretFile(t, tempDir, "secret_token")
 
 	secretFilePath := filepath.Join(tempDir, ".gitlab_shell_secret")
 	var receivedRequest postReceiveRequest

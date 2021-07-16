@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
@@ -37,7 +38,7 @@ size 177735`
 )
 
 var (
-	defaultOptions = testhelper.GitlabTestServerOptions{
+	defaultOptions = gitlab.TestServerOptions{
 		SecretToken:      secretToken,
 		LfsBody:          testData,
 		LfsOid:           lfsOid,
@@ -67,13 +68,13 @@ func (m *mapConfig) Get(key string) string {
 	return m.env[key]
 }
 
-func runTestServer(t *testing.T, options testhelper.GitlabTestServerOptions) (config.Gitlab, func()) {
+func runTestServer(t *testing.T, options gitlab.TestServerOptions) (config.Gitlab, func()) {
 	tempDir := testhelper.TempDir(t)
 
-	testhelper.WriteShellSecretFile(t, tempDir, secretToken)
+	gitlab.WriteShellSecretFile(t, tempDir, secretToken)
 	secretFilePath := filepath.Join(tempDir, ".gitlab_shell_secret")
 
-	serverURL, serverCleanup := testhelper.NewGitlabTestServer(t, options)
+	serverURL, serverCleanup := gitlab.NewTestServer(t, options)
 
 	c := config.Gitlab{URL: serverURL, SecretFile: secretFilePath, HTTPSettings: config.HTTPSettings{CAFile: certPath}}
 
@@ -151,7 +152,7 @@ func TestUnsuccessfulLfsSmudge(t *testing.T) {
 		missingEnv         string
 		tlsCfg             config.TLS
 		expectedError      bool
-		options            testhelper.GitlabTestServerOptions
+		options            gitlab.TestServerOptions
 		expectedLogMessage string
 		expectedGitalyTLS  string
 	}{
@@ -192,7 +193,7 @@ func TestUnsuccessfulLfsSmudge(t *testing.T) {
 		{
 			desc: "failed HTTP response",
 			data: lfsPointer,
-			options: testhelper.GitlabTestServerOptions{
+			options: gitlab.TestServerOptions{
 				SecretToken:   secretToken,
 				LfsBody:       testData,
 				LfsOid:        lfsOid,

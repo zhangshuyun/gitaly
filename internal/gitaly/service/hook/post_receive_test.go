@@ -39,11 +39,11 @@ func TestPostReceiveInvalidArgument(t *testing.T) {
 func TestHooksMissingStdin(t *testing.T) {
 	user, password, secretToken := "user", "password", "secret token"
 	tempDir := testhelper.TempDir(t)
-	testhelper.WriteShellSecretFile(t, tempDir, secretToken)
+	gitlab.WriteShellSecretFile(t, tempDir, secretToken)
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
-	c := testhelper.GitlabTestServerOptions{
+	c := gitlab.TestServerOptions{
 		User:                        user,
 		Password:                    password,
 		SecretToken:                 secretToken,
@@ -55,7 +55,7 @@ func TestHooksMissingStdin(t *testing.T) {
 		RepoPath:                    repoPath,
 	}
 
-	serverURL, cleanup := testhelper.NewGitlabTestServer(t, c)
+	serverURL, cleanup := gitlab.NewTestServer(t, c)
 	defer cleanup()
 
 	cfg.Gitlab = config.Gitlab{
@@ -184,11 +184,11 @@ To create a merge request for okay, visit:
 	user, password := "user", "password"
 
 	tempDir := testhelper.TempDir(t)
-	testhelper.WriteShellSecretFile(t, tempDir, secretToken)
+	gitlab.WriteShellSecretFile(t, tempDir, secretToken)
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			c := testhelper.GitlabTestServerOptions{
+			c := gitlab.TestServerOptions{
 				User:                        user,
 				Password:                    password,
 				SecretToken:                 secretToken,
@@ -202,7 +202,7 @@ To create a merge request for okay, visit:
 				RepoPath:                    repoPath,
 			}
 
-			serverURL, cleanup := testhelper.NewGitlabTestServer(t, c)
+			serverURL, cleanup := gitlab.NewTestServer(t, c)
 			defer cleanup()
 
 			cfg.Gitlab = config.Gitlab{

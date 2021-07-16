@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -169,12 +170,12 @@ func TestGetArchiveSuccess(t *testing.T) {
 
 func TestGetArchiveWithLfsSuccess(t *testing.T) {
 	t.Parallel()
-	defaultOptions := testhelper.GitlabTestServerOptions{
+	defaultOptions := gitlab.TestServerOptions{
 		SecretToken: secretToken,
 		LfsBody:     lfsBody,
 	}
 
-	url, cleanup := testhelper.NewGitlabTestServer(t, defaultOptions)
+	url, cleanup := gitlab.NewTestServer(t, defaultOptions)
 	t.Cleanup(cleanup)
 
 	shellDir := testhelper.TempDir(t)
@@ -183,7 +184,7 @@ func TestGetArchiveWithLfsSuccess(t *testing.T) {
 		GitlabShell: config.GitlabShell{Dir: shellDir},
 		Gitlab: config.Gitlab{
 			URL:        url,
-			SecretFile: testhelper.WriteShellSecretFile(t, shellDir, defaultOptions.SecretToken),
+			SecretFile: gitlab.WriteShellSecretFile(t, shellDir, defaultOptions.SecretToken),
 		},
 	}))
 
