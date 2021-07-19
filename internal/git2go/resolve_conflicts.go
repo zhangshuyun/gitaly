@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/conflict"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 )
 
 // ResolveCommand contains arguments to perform a merge commit and resolve any
@@ -22,8 +21,8 @@ type ResolveResult struct {
 	MergeResult
 }
 
-// Run will attempt merging and resolving conflicts for the provided request
-func (r ResolveCommand) Run(ctx context.Context, cfg config.Cfg) (ResolveResult, error) {
+// Resolve will attempt merging and resolving conflicts for the provided request
+func (b Executor) Resolve(ctx context.Context, r ResolveCommand) (ResolveResult, error) {
 	if err := r.verify(); err != nil {
 		return ResolveResult{}, fmt.Errorf("resolve: %w: %s", ErrInvalidArgument, err.Error())
 	}
@@ -33,7 +32,7 @@ func (r ResolveCommand) Run(ctx context.Context, cfg config.Cfg) (ResolveResult,
 		return ResolveResult{}, fmt.Errorf("resolve: %w", err)
 	}
 
-	stdout, err := run(ctx, BinaryPath(cfg.BinDir), input, "resolve")
+	stdout, err := run(ctx, b.binaryPath, input, "resolve")
 	if err != nil {
 		return ResolveResult{}, err
 	}
