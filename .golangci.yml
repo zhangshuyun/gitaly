@@ -105,18 +105,6 @@ issues:
       text: "exported function `InitContextStats` should have comment or be unexported"
     - linters:
         - golint
-      path: "internal/git2go/revert.go"
-      text: "exported type `RevertConflictError` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git2go/revert.go"
-      text: "exported type `RevertCommand` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git2go/revert.go"
-      text: "exported method `RevertCommand.Run` should have comment or be unexported"
-    - linters:
-        - golint
       path: "internal/gitaly/config/config.go"
       text: "exported function `SkipHooks` should have comment or be unexported"
     - linters:

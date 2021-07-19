@@ -19,6 +19,7 @@ import (
 func TestRevert_validation(t *testing.T) {
 	cfg, _, repoPath := testcfg.BuildWithRepo(t)
 	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+	executor := git2go.NewExecutor(cfg)
 
 	testcases := []struct {
 		desc        string
@@ -65,7 +66,7 @@ func TestRevert_validation(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			_, err := tc.request.Run(ctx, cfg)
+			_, err := executor.Revert(ctx, tc.request)
 			require.Error(t, err)
 			require.EqualError(t, err, tc.expectedErr)
 		})
@@ -170,6 +171,7 @@ func TestRevert_trees(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg, _, repoPath := testcfg.BuildWithRepo(t)
 			testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+			executor := git2go.NewExecutor(cfg)
 
 			ours, revert := tc.setupRepo(t, repoPath)
 
@@ -188,7 +190,7 @@ func TestRevert_trees(t *testing.T) {
 				Revert:     revert,
 			}
 
-			response, err := request.Run(ctx, cfg)
+			response, err := executor.Revert(ctx, request)
 
 			if tc.expectedErr != "" {
 				require.EqualError(t, err, tc.expectedErr)
