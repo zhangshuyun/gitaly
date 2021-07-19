@@ -1430,7 +1430,6 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 				gitaly := gitaly
 
 				cfg := testcfg.Build(t, testcfg.WithStorages(gitaly))
-				cfg.ListenAddr = ":0"
 
 				operationServer := &mockOperationServer{
 					t:  t,
