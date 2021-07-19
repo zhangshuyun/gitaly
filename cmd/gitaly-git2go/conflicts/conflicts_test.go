@@ -177,6 +177,7 @@ func TestConflicts(t *testing.T) {
 
 	for _, tc := range testcases {
 		cfg, _, repoPath := testcfg.BuildWithRepo(t)
+		executor := git2go.NewExecutor(cfg)
 
 		testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 
@@ -188,11 +189,11 @@ func TestConflicts(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			response, err := git2go.ConflictsCommand{
+			response, err := executor.Conflicts(ctx, git2go.ConflictsCommand{
 				Repository: repoPath,
 				Ours:       ours.String(),
 				Theirs:     theirs.String(),
-			}.Run(ctx, cfg)
+			})
 
 			require.NoError(t, err)
 			require.Equal(t, tc.conflicts, response.Conflicts)
