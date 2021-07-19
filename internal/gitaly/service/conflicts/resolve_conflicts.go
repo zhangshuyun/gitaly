@@ -202,6 +202,7 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 			ctx,
 			header.Repository,
 			header.User,
+			nil,
 			git.ReferenceName("refs/heads/"+string(header.GetSourceBranch())),
 			commitOID,
 			git.ObjectID(header.OurCommitOid),

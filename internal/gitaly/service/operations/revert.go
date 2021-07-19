@@ -99,7 +99,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 		}
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, newrev, oldrev); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, nil, referenceName, newrev, oldrev); err != nil {
 		var preReceiveError updateref.PreReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserRevertResponse{

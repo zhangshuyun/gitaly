@@ -99,12 +99,12 @@ func validateReplicateRepository(in *gitalypb.ReplicateRepositoryRequest) error 
 func (s *server) create(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest, repoPath string) error {
 	// if the directory exists, remove it
 	if _, err := os.Stat(repoPath); err == nil {
-		tempDir, err := tempdir.ForDeleteAllRepositories(s.locator, in.GetRepository().GetStorageName())
+		tempDir, err := tempdir.NewWithoutContext(in.GetRepository().GetStorageName(), s.locator)
 		if err != nil {
 			return err
 		}
 
-		if err = os.Rename(repoPath, filepath.Join(tempDir, filepath.Base(repoPath))); err != nil {
+		if err = os.Rename(repoPath, filepath.Join(tempDir.Path(), filepath.Base(repoPath))); err != nil {
 			return fmt.Errorf("error deleting invalid repo: %v", err)
 		}
 
@@ -119,7 +119,7 @@ func (s *server) create(ctx context.Context, in *gitalypb.ReplicateRepositoryReq
 }
 
 func (s *server) createFromSnapshot(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) error {
-	tempRepo, tempPath, err := tempdir.NewAsRepository(ctx, in.GetRepository(), s.locator)
+	tempRepo, tempDir, err := tempdir.NewRepository(ctx, in.GetRepository().GetStorageName(), s.locator)
 	if err != nil {
 		return fmt.Errorf("create temporary directory: %w", err)
 	}
@@ -166,7 +166,7 @@ func (s *server) createFromSnapshot(ctx context.Context, in *gitalypb.ReplicateR
 	)
 
 	stderr := &bytes.Buffer{}
-	cmd, err := command.New(ctx, exec.Command("tar", "-C", tempPath, "-xvf", "-"), snapshotReader, nil, stderr)
+	cmd, err := command.New(ctx, exec.Command("tar", "-C", tempDir.Path(), "-xvf", "-"), snapshotReader, nil, stderr)
 	if err != nil {
 		return fmt.Errorf("create tar command: %w", err)
 	}
@@ -184,7 +184,7 @@ func (s *server) createFromSnapshot(ctx context.Context, in *gitalypb.ReplicateR
 		return fmt.Errorf("create parent directories: %w", err)
 	}
 
-	if err := os.Rename(tempPath, targetPath); err != nil {
+	if err := os.Rename(tempDir.Path(), targetPath); err != nil {
 		return fmt.Errorf("move temporary directory to target path: %w", err)
 	}
 

@@ -138,10 +138,24 @@ func (m *GitLabHookManager) customHooksEnv(payload git.HooksPayload, pushOptions
 
 	customEnvs := append(command.AllowedEnvironment(envs), pushOptionsEnv(pushOptions)...)
 
-	for _, env := range envs {
-		if strings.HasPrefix(env, "GIT_OBJECT_DIRECTORY=") || strings.HasPrefix(env, "GIT_ALTERNATE_OBJECT_DIRECTORIES=") {
-			customEnvs = append(customEnvs, env)
+	objectDirectory := getEnvVar("GIT_OBJECT_DIRECTORY", envs)
+	if objectDirectory == "" && payload.Repo.GetGitObjectDirectory() != "" {
+		objectDirectory = filepath.Join(repoPath, payload.Repo.GetGitObjectDirectory())
+	}
+	if objectDirectory != "" {
+		customEnvs = append(customEnvs, "GIT_OBJECT_DIRECTORY="+objectDirectory)
+	}
+
+	alternateObjectDirectories := getEnvVar("GIT_ALTERNATE_OBJECT_DIRECTORIES", envs)
+	if alternateObjectDirectories == "" && len(payload.Repo.GetGitAlternateObjectDirectories()) != 0 {
+		var absolutePaths []string
+		for _, alternateObjectDirectory := range payload.Repo.GetGitAlternateObjectDirectories() {
+			absolutePaths = append(absolutePaths, filepath.Join(repoPath, alternateObjectDirectory))
 		}
+		alternateObjectDirectories = strings.Join(absolutePaths, ":")
+	}
+	if alternateObjectDirectories != "" {
+		customEnvs = append(customEnvs, "GIT_ALTERNATE_OBJECT_DIRECTORIES="+alternateObjectDirectories)
 	}
 
 	return append(customEnvs,
