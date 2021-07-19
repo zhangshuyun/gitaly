@@ -6,5 +6,5 @@ import (
 
 // OpenRepository opens the repository located at path as a Git2Go repository.
 func OpenRepository(path string) (*git.Repository, error) {
-	return git.OpenRepository(path)
+	return git.OpenRepositoryExtended(path, git.RepositoryOpenFromEnv, "")
 }
