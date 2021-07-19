@@ -73,11 +73,8 @@ func TestCall(t *testing.T) {
 			if _, err := io.Copy(c, bytes.NewReader(in)); err != nil {
 				return err
 			}
-			if err := <-errC; err != nil {
-				return err
-			}
 
-			return c.Close()
+			return <-errC
 		},
 	))
 
