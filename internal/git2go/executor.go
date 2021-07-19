@@ -1,15 +1,20 @@
 package git2go
 
+import (
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+)
+
 // Executor executes gitaly-git2go.
 type Executor struct {
 	binaryPath    string
 	gitBinaryPath string
 }
 
-// New returns a new gitaly-git2go executor using the provided binary.
-func New(binaryDirectory, gitBinaryPath string) Executor {
+// NewExecutor returns a new gitaly-git2go executor using binaries as configured in the given
+// configuration.
+func NewExecutor(cfg config.Cfg) Executor {
 	return Executor{
-		binaryPath:    BinaryPath(binaryDirectory),
-		gitBinaryPath: gitBinaryPath,
+		binaryPath:    BinaryPath(cfg.BinDir),
+		gitBinaryPath: cfg.Git.BinPath,
 	}
 }

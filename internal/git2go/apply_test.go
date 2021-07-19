@@ -22,7 +22,7 @@ func TestExecutor_Apply(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	executor := New(cfg.BinDir, cfg.Git.BinPath)
+	executor := NewExecutor(cfg)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
