@@ -9,7 +9,6 @@ import (
 	"reflect"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 )
 
 func init() {
@@ -96,13 +95,13 @@ func SerializableError(err error) error {
 
 // runWithGob runs the specified gitaly-git2go cmd with the request gob-encoded
 // as input and returns the commit ID as string or an error.
-func runWithGob(ctx context.Context, cfg config.Cfg, cmd string, request interface{}) (git.ObjectID, error) {
+func runWithGob(ctx context.Context, binaryPath string, cmd string, request interface{}) (git.ObjectID, error) {
 	input := &bytes.Buffer{}
 	if err := gob.NewEncoder(input).Encode(request); err != nil {
 		return "", fmt.Errorf("%s: %w", cmd, err)
 	}
 
-	output, err := run(ctx, BinaryPath(cfg.BinDir), input, cmd)
+	output, err := run(ctx, binaryPath, input, cmd)
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", cmd, err)
 	}

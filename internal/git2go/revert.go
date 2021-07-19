@@ -28,5 +28,5 @@ type RevertCommand struct {
 }
 
 func (r RevertCommand) Run(ctx context.Context, cfg config.Cfg) (git.ObjectID, error) {
-	return runWithGob(ctx, cfg, "revert", r)
+	return runWithGob(ctx, BinaryPath(cfg.BinDir), "revert", r)
 }
