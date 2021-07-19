@@ -12,10 +12,11 @@
 | `pre-receive`  | used as the git pre-receive hook                | none                                 | `<old-value>` SP `<new-value>` SP `<ref-name>` LF |
 | `update`       | used as the git update hook                     | `<ref-name>` `<old-object>` `<new-object>` | none
 | `post-receive` | used as the git post-receive hook               | none                                 | `<old-value>` SP `<new-value>` SP `<ref-name>` LF |
+| `git`          | used as the git pack-objects hook               | `pack-objects` `[--stdout]` `[--shallow-file]` | `<object-list>` |
 
 ## Where is it invoked from?
 
-There are two main code paths that call `gitaly-hooks`.
+There are three main code paths that call `gitaly-hooks`.
 
 ### git receive-pack (SSH & HTTP)
 
@@ -30,10 +31,12 @@ This is accomplished through the `with_hooks` method [here](https://gitlab.com/g
 called, which then calls the `gitaly-hooks` binary. This method doesn't rely on git to run the hooks. Instead, the arguments and input to the
 hooks are built in ruby and then get shelled out to `gitaly-hooks`.
 
+### git upload-pack (SSH & HTTP)
+
+Only when the pack-objects cache is enabled in Gitaly's configuration file.
+
+SSHUploadPack and PostUploadPack, when executing `git upload-pack`, set `uploadpack.packObjectsHook` to the path of the `gitaly-hooks` binary. Afterward, when `git upload-pack` requests packfile data, it calls `gitaly-hooks` binary instead of `git pack-objects`. [That happens here in `WithPackObjectsHookEnv`](https://gitlab.com/gitlab-org/gitaly/-/blob/47164700a1ea086c5e8ca0d02feefe4e68bf4f81/internal/git/hooks_options.go#L54)
+
 ## What does gitaly-hooks do?
 
-`gitaly-hooks` will take the arguments and make an RPC call to `PreReceiveHook`, `UpdateHook`, or `PostReceiveHook` accordingly.
-
-**Note:**
-Currently `gitaly-hooks` will only make an RPC call to `PreReceiveHook`, `UpdateHook`, or `PostReceiveHook` if a feature flag `gitaly_hook_rpc` is enabled. Otherwise, `gitaly-hooks` falls back to calling the ruby hooks directly.
-
+`gitaly-hooks` will take the arguments and make an RPC call to `PreReceiveHook`, `UpdateHook`, `PostReceiveHook`, or `PackObjectsHook` accordingly.

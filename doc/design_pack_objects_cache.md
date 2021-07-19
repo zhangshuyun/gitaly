@@ -6,6 +6,37 @@ The purpose of this document is to give more insight into the design choices we 
 
 Please read the [administrator documentation for the pack-objects cache](https://docs.gitlab.com/ee/administration/gitaly/configure_gitaly.html#pack-objects-cache) if you are not already familiar with what it does or what it is for.
 
+Please read [Pack-objects cache for CI Git clones epic](https://gitlab.com/groups/gitlab-com/gl-infra/-/epics/372) for more information about Pack-objects cache.
+
+## High-level architecture
+
+```
+Gitaly (PostUploadPack)  git-upload-pack  gitaly-hooks  Gitaly (PackObjectsHook)  git-pack-objects
+------------+----------  -------+-------  -----+------  -----------+------------  -------+--------
+            |  fetch request    |              |                   |                     |
+            +------------------>| pack request |                   |                     |
+            |                   +------------->|   gRPC request    |                     |
+            |                   |              +------------------>| pack request (miss) |
+            |                   |              |                   +-------------------->|
+            |                   |              |                   |                     |
+            |                   |              |                   |<--------------------+
+            |                   |              |<------------------+   packfile data     |
+            |                   |<-------------+   gRPC response   |                     |
+            |<------------------+ packfile data|                   |                     |
+            |   fetch response  |              |                   |                     |
+            |                   |              |                   |                     |
+------------+----------  -------+-------  -----+------  -----------+------------  -------+--------
+Gitaly (PostUploadPack)  git-upload-pack  gitaly-hooks  Gitaly (PackObjectsHook)  git-pack-objects
+```
+
+The whole pack-objects cache path depends on
+[uploadpack.packObjectsHook](https://git-scm.com/docs/git-config#Documentation/git-config.txt-uploadpackpackObjectsHook)
+option. When upload-pack would run git pack-objects to create a packfile for a
+client, it will run `gitaly-hooks` binary instead. The arguments when calling
+`gitaly-hooks` includes `git pack-objects` at the beginning. This pattern is
+similar to how Gitaly handles Git hooks during a push (such as `pre-preceive`
+and `post-receive`).
+
 ## Problem scope
 
 We designed this cache to solve a specific problem on GitLab.com: high
