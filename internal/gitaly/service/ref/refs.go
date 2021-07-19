@@ -76,7 +76,7 @@ type tagSender struct {
 }
 
 func (t *tagSender) Reset() {
-	t.tags = nil
+	t.tags = t.tags[:0]
 }
 
 func (t *tagSender) Append(m proto.Message) {
