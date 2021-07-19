@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 
 	git "github.com/libgit2/git2go/v31"
+	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/git2goutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 )
 
@@ -69,7 +70,7 @@ func (cmd *applySubcommand) Run(ctx context.Context, stdin io.Reader, stdout io.
 }
 
 func (cmd *applySubcommand) apply(ctx context.Context, params git2go.ApplyParams) (string, error) {
-	repo, err := git.OpenRepository(params.Repository)
+	repo, err := git2goutil.OpenRepository(params.Repository)
 	if err != nil {
 		return "", fmt.Errorf("open repository: %w", err)
 	}

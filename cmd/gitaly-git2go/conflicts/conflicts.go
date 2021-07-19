@@ -11,6 +11,7 @@ import (
 	"os"
 
 	git "github.com/libgit2/git2go/v31"
+	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/git2goutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"google.golang.org/grpc/codes"
@@ -104,7 +105,7 @@ func (cmd *Subcommand) Run(context.Context, io.Reader, io.Writer) error {
 		return err
 	}
 
-	repo, err := git.OpenRepository(request.Repository)
+	repo, err := git2goutil.OpenRepository(request.Repository)
 	if err != nil {
 		return fmt.Errorf("could not open repository: %w", err)
 	}

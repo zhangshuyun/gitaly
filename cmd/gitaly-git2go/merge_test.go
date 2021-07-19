@@ -10,6 +10,7 @@ import (
 	git "github.com/libgit2/git2go/v31"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/git2goutil"
 	cmdtesthelper "gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
@@ -211,7 +212,7 @@ func TestMergeTrees(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tc.expectedResponse, response)
 
-			repo, err := git.OpenRepository(repoPath)
+			repo, err := git2goutil.OpenRepository(repoPath)
 			require.NoError(t, err)
 			defer repo.Free()
 
@@ -325,7 +326,7 @@ func TestMerge_recursive(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	repo, err := git.OpenRepository(repoPath)
+	repo, err := git2goutil.OpenRepository(repoPath)
 	require.NoError(t, err)
 
 	commitOid, err := git.NewOid(response.CommitID)

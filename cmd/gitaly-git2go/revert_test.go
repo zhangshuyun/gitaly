@@ -10,6 +10,7 @@ import (
 	git "github.com/libgit2/git2go/v31"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/git2goutil"
 	cmdtesthelper "gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
@@ -205,7 +206,7 @@ func TestRevert_trees(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tc.expectedCommitID, response.String())
 
-			repo, err := git.OpenRepository(repoPath)
+			repo, err := git2goutil.OpenRepository(repoPath)
 			require.NoError(t, err)
 			defer repo.Free()
 

@@ -8,6 +8,7 @@ import (
 
 	git "github.com/libgit2/git2go/v31"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/git2goutil"
 	cmdtesthelper "gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
@@ -168,7 +169,7 @@ func TestRebase_rebase(t *testing.T) {
 			testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 			executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
 
-			repo, err := git.OpenRepository(repoPath)
+			repo, err := git2goutil.OpenRepository(repoPath)
 			require.NoError(t, err)
 
 			if tc.setupRepo != nil {

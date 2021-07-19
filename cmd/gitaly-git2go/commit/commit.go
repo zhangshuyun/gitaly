@@ -10,6 +10,7 @@ import (
 	"io"
 
 	git "github.com/libgit2/git2go/v31"
+	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/git2goutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 )
 
@@ -28,7 +29,7 @@ func Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
 }
 
 func commit(ctx context.Context, params git2go.CommitParams) (string, error) {
-	repo, err := git.OpenRepository(params.Repository)
+	repo, err := git2goutil.OpenRepository(params.Repository)
 	if err != nil {
 		return "", fmt.Errorf("open repository: %w", err)
 	}
