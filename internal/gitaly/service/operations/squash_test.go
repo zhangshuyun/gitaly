@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -36,16 +37,18 @@ var (
 
 func TestSuccessfulUserSquashRequest(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
-	t.Run("with sparse checkout", func(t *testing.T) {
-		testSuccessfulUserSquashRequest(t, ctx, startSha, endSha)
-	})
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UserSquashWithoutWorktree,
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		t.Run("with sparse checkout", func(t *testing.T) {
+			testSuccessfulUserSquashRequest(t, ctx, startSha, endSha)
+		})
 
-	t.Run("without sparse checkout", func(t *testing.T) {
-		// there are no files that could be used for sparse checkout for those two commits
-		testSuccessfulUserSquashRequest(t, ctx, "60ecb67744cb56576c30214ff52294f8ce2def98", "c84ff944ff4529a70788a5e9003c2b7feae29047")
+		t.Run("without sparse checkout", func(t *testing.T) {
+			// there are no files that could be used for sparse checkout for those two commits
+			testSuccessfulUserSquashRequest(t, ctx, "60ecb67744cb56576c30214ff52294f8ce2def98", "c84ff944ff4529a70788a5e9003c2b7feae29047")
+		})
 	})
 }
 
@@ -85,9 +88,13 @@ func testSuccessfulUserSquashRequest(t *testing.T, ctx context.Context, start, e
 }
 
 func TestUserSquash_stableID(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UserSquashWithoutWorktree,
+	}).Run(t, testUserSquashStableID)
+}
+
+func testUserSquashStableID(t *testing.T, ctx context.Context) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
@@ -146,9 +153,13 @@ func ensureSplitIndexExists(t *testing.T, cfg config.Cfg, repoDir string) bool {
 }
 
 func TestSuccessfulUserSquashRequestWith3wayMerge(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UserSquashWithoutWorktree,
+	}).Run(t, testSuccessfulUserSquashRequestWith3wayMerge)
+}
+
+func testSuccessfulUserSquashRequestWith3wayMerge(t *testing.T, ctx context.Context) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -184,21 +195,27 @@ func TestSuccessfulUserSquashRequestWith3wayMerge(t *testing.T) {
 	repoPath, err = filepath.EvalSymlinks(repoPath)
 	require.NoError(t, err)
 
-	// Ensure Git metadata is cleaned up
-	worktreeList := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "worktree", "list", "--porcelain"))
-	expectedOut := fmt.Sprintf("worktree %s\nbare\n", repoPath)
-	require.Equal(t, expectedOut, worktreeList)
+	if featureflag.UserSquashWithoutWorktree.IsDisabled(ctx) {
+		// Ensure Git metadata is cleaned up
+		worktreeList := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "worktree", "list", "--porcelain"))
+		expectedOut := fmt.Sprintf("worktree %s\nbare\n", repoPath)
+		require.Equal(t, expectedOut, worktreeList)
 
-	// Ensure actual worktree is removed
-	files, err := ioutil.ReadDir(filepath.Join(repoPath, "gitlab-worktree"))
-	require.NoError(t, err)
-	require.Equal(t, 0, len(files))
+		// Ensure actual worktree is removed
+		files, err := ioutil.ReadDir(filepath.Join(repoPath, "gitlab-worktree"))
+		require.NoError(t, err)
+		require.Equal(t, 0, len(files))
+	}
 }
 
 func TestSplitIndex(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UserSquashWithoutWorktree,
+	}).Run(t, testSplitIndex)
+}
+
+func testSplitIndex(t *testing.T, ctx context.Context) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -221,9 +238,13 @@ func TestSplitIndex(t *testing.T) {
 }
 
 func TestSquashRequestWithRenamedFiles(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UserSquashWithoutWorktree,
+	}).Run(t, testSquashRequestWithRenamedFiles)
+}
+
+func testSquashRequestWithRenamedFiles(t *testing.T, ctx context.Context) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
@@ -282,9 +303,13 @@ func TestSquashRequestWithRenamedFiles(t *testing.T) {
 }
 
 func TestSuccessfulUserSquashRequestWithMissingFileOnTargetBranch(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UserSquashWithoutWorktree,
+	}).Run(t, testSuccessfulUserSquashRequestWithMissingFileOnTargetBranch)
+}
+
+func testSuccessfulUserSquashRequestWithMissingFileOnTargetBranch(t *testing.T, ctx context.Context) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
@@ -306,9 +331,13 @@ func TestSuccessfulUserSquashRequestWithMissingFileOnTargetBranch(t *testing.T) 
 }
 
 func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UserSquashWithoutWorktree,
+	}).Run(t, testFailedUserSquashRequestDueToValidations)
+}
+
+func testFailedUserSquashRequestDueToValidations(t *testing.T, ctx context.Context) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
