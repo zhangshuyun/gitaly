@@ -71,7 +71,7 @@ func (b Executor) Merge(ctx context.Context, m MergeCommand) (MergeResult, error
 		return MergeResult{}, err
 	}
 
-	stdout, err := run(ctx, b.binaryPath, nil, "merge", "-request", serialized)
+	stdout, err := b.run(ctx, nil, "merge", "-request", serialized)
 	if err != nil {
 		return MergeResult{}, err
 	}

@@ -29,5 +29,5 @@ type RevertCommand struct {
 
 // Revert reverts a commit via gitaly-git2go.
 func (b Executor) Revert(ctx context.Context, r RevertCommand) (git.ObjectID, error) {
-	return runWithGob(ctx, b.binaryPath, "revert", r)
+	return b.runWithGob(ctx, "revert", r)
 }

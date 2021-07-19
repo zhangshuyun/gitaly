@@ -102,7 +102,7 @@ func (b Executor) Apply(ctx context.Context, params ApplyParams) (git.ObjectID, 
 	}()
 
 	var result Result
-	output, err := run(ctx, b.binaryPath, reader, "apply", "-git-binary-path", b.gitBinaryPath)
+	output, err := b.run(ctx, reader, "apply", "-git-binary-path", b.gitBinaryPath)
 	if err != nil {
 		return "", fmt.Errorf("run: %w", err)
 	}

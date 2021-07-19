@@ -32,7 +32,7 @@ func (b Executor) Resolve(ctx context.Context, r ResolveCommand) (ResolveResult,
 		return ResolveResult{}, fmt.Errorf("resolve: %w", err)
 	}
 
-	stdout, err := run(ctx, b.binaryPath, input, "resolve")
+	stdout, err := b.run(ctx, input, "resolve")
 	if err != nil {
 		return ResolveResult{}, err
 	}

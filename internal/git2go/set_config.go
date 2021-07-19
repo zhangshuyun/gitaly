@@ -33,7 +33,7 @@ func (b Executor) SetConfig(ctx context.Context, s SetConfigCommand) error {
 		return fmt.Errorf("resolve: %w", err)
 	}
 
-	stdout, err := run(ctx, b.binaryPath, input, "set_config")
+	stdout, err := b.run(ctx, input, "set_config")
 	if err != nil {
 		return err
 	}

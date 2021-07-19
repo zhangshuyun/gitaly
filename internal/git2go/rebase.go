@@ -20,5 +20,5 @@ type RebaseCommand struct {
 
 // Rebase performs the rebase via gitaly-git2go
 func (b Executor) Rebase(ctx context.Context, r RebaseCommand) (git.ObjectID, error) {
-	return runWithGob(ctx, b.binaryPath, "rebase", r)
+	return b.runWithGob(ctx, "rebase", r)
 }

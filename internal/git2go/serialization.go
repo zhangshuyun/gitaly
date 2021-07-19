@@ -1,18 +1,13 @@
 package git2go
 
 import (
-	"bytes"
-	"context"
 	"encoding/base64"
 	"encoding/gob"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"reflect"
 	"strings"
-
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 )
 
 func init() {
@@ -116,34 +111,4 @@ func serializeTo(writer io.Writer, v interface{}) error {
 	defer base64Encoder.Close()
 	jsonEncoder := json.NewEncoder(base64Encoder)
 	return jsonEncoder.Encode(v)
-}
-
-// runWithGob runs the specified gitaly-git2go cmd with the request gob-encoded
-// as input and returns the commit ID as string or an error.
-func runWithGob(ctx context.Context, binaryPath string, cmd string, request interface{}) (git.ObjectID, error) {
-	input := &bytes.Buffer{}
-	if err := gob.NewEncoder(input).Encode(request); err != nil {
-		return "", fmt.Errorf("%s: %w", cmd, err)
-	}
-
-	output, err := run(ctx, binaryPath, input, cmd)
-	if err != nil {
-		return "", fmt.Errorf("%s: %w", cmd, err)
-	}
-
-	var result Result
-	if err := gob.NewDecoder(output).Decode(&result); err != nil {
-		return "", fmt.Errorf("%s: %w", cmd, err)
-	}
-
-	if result.Error != nil {
-		return "", fmt.Errorf("%s: %w", cmd, result.Error)
-	}
-
-	commitID, err := git.NewObjectIDFromHex(result.CommitID)
-	if err != nil {
-		return "", fmt.Errorf("could not parse commit ID: %w", err)
-	}
-
-	return commitID, nil
 }

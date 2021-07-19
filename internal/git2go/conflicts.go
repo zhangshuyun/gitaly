@@ -86,7 +86,7 @@ func (b Executor) Conflicts(ctx context.Context, c ConflictsCommand) (ConflictsR
 		return ConflictsResult{}, err
 	}
 
-	stdout, err := run(ctx, b.binaryPath, nil, "conflicts", "-request", serialized)
+	stdout, err := b.run(ctx, nil, "conflicts", "-request", serialized)
 	if err != nil {
 		return ConflictsResult{}, err
 	}

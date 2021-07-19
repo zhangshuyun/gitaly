@@ -65,7 +65,7 @@ func (b Executor) Commit(ctx context.Context, params CommitParams) (git.ObjectID
 		return "", err
 	}
 
-	output, err := run(ctx, b.binaryPath, input, "commit")
+	output, err := b.run(ctx, input, "commit")
 	if err != nil {
 		return "", err
 	}

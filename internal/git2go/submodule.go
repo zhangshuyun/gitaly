@@ -72,7 +72,7 @@ func (b Executor) Submodule(ctx context.Context, s SubmoduleCommand) (SubmoduleR
 		return SubmoduleResult{}, err
 	}
 
-	stdout, err := run(ctx, b.binaryPath, nil, "submodule", "-request", serialized)
+	stdout, err := b.run(ctx, nil, "submodule", "-request", serialized)
 	if err != nil {
 		return SubmoduleResult{}, err
 	}
