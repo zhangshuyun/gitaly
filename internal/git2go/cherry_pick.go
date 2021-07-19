@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 )
 
 // CherryPickCommand contains parameters to perform a cherry pick.
@@ -28,7 +27,7 @@ type CherryPickCommand struct {
 	Mainline uint
 }
 
-// Run performs a cherry pick via gitaly-git2go.
-func (m CherryPickCommand) Run(ctx context.Context, cfg config.Cfg) (git.ObjectID, error) {
-	return runWithGob(ctx, BinaryPath(cfg.BinDir), "cherry-pick", m)
+// CherryPick performs a cherry pick via gitaly-git2go.
+func (b Executor) CherryPick(ctx context.Context, m CherryPickCommand) (git.ObjectID, error) {
+	return runWithGob(ctx, b.binaryPath, "cherry-pick", m)
 }

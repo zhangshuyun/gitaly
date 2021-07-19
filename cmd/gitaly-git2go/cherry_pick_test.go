@@ -19,6 +19,7 @@ import (
 func TestCherryPick_validation(t *testing.T) {
 	cfg, _, repoPath := testcfg.BuildWithRepo(t)
 	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+	executor := git2go.NewExecutor(cfg)
 
 	testcases := []struct {
 		desc        string
@@ -70,7 +71,7 @@ func TestCherryPick_validation(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			_, err := tc.request.Run(ctx, cfg)
+			_, err := executor.CherryPick(ctx, tc.request)
 			require.EqualError(t, err, tc.expectedErr)
 		})
 	}
@@ -146,6 +147,7 @@ func TestCherryPick(t *testing.T) {
 	for _, tc := range testcases {
 		cfg, _, repoPath := testcfg.BuildWithRepo(t)
 		testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+		executor := git2go.NewExecutor(cfg)
 
 		base := cmdtesthelper.BuildCommit(t, repoPath, []*git.Oid{nil}, tc.base)
 
@@ -167,7 +169,7 @@ func TestCherryPick(t *testing.T) {
 				When:  time.Date(2021, 1, 17, 14, 45, 51, 0, time.FixedZone("", +2*60*60)),
 			}
 
-			response, err := git2go.CherryPickCommand{
+			response, err := executor.CherryPick(ctx, git2go.CherryPickCommand{
 				Repository:    repoPath,
 				CommitterName: committer.Name,
 				CommitterMail: committer.Email,
@@ -175,7 +177,7 @@ func TestCherryPick(t *testing.T) {
 				Message:       "Foo",
 				Ours:          ours,
 				Commit:        commit,
-			}.Run(ctx, cfg)
+			})
 
 			if tc.expectedErrMsg != "" {
 				require.EqualError(t, err, tc.expectedErrMsg)
