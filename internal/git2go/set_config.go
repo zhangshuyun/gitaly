@@ -5,8 +5,6 @@ import (
 	"context"
 	"encoding/gob"
 	"fmt"
-
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 )
 
 // ConfigEntry interface value with defined type.
@@ -28,14 +26,14 @@ type SetConfingResult struct {
 	Error error `json:"error"`
 }
 
-// Run attempts to set all entries to config
-func (s SetConfigCommand) Run(ctx context.Context, cfg config.Cfg) error {
+// SetConfig attempts to set all entries to config
+func (b Executor) SetConfig(ctx context.Context, s SetConfigCommand) error {
 	input := &bytes.Buffer{}
 	if err := gob.NewEncoder(input).Encode(s); err != nil {
 		return fmt.Errorf("resolve: %w", err)
 	}
 
-	stdout, err := run(ctx, BinaryPath(cfg.BinDir), input, "set_config")
+	stdout, err := run(ctx, b.binaryPath, input, "set_config")
 	if err != nil {
 		return err
 	}
