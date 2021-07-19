@@ -90,13 +90,14 @@ func TestSubmodule(t *testing.T) {
 			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 			testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+			executor := git2go.NewExecutor(cfg)
 
 			tc.command.Repository = repoPath
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			response, err := tc.command.Run(ctx, cfg)
+			response, err := executor.Submodule(ctx, tc.command)
 			if tc.expectedStderr != "" {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tc.expectedStderr)

@@ -91,7 +91,7 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	result, err := git2go.SubmoduleCommand{
+	result, err := s.git2go.Submodule(ctx, git2go.SubmoduleCommand{
 		Repository: repoPath,
 		AuthorMail: string(req.GetUser().GetEmail()),
 		AuthorName: string(req.GetUser().GetName()),
@@ -100,7 +100,7 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 		CommitSHA:  req.GetCommitSha(),
 		Submodule:  string(req.GetSubmodule()),
 		Message:    string(req.GetCommitMessage()),
-	}.Run(ctx, s.cfg)
+	})
 	if err != nil {
 		errStr := strings.TrimPrefix(err.Error(), "submodule: ")
 		errStr = strings.TrimSpace(errStr)
