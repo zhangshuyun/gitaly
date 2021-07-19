@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	cmdtesthelper "gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
@@ -177,7 +178,7 @@ func TestConflicts(t *testing.T) {
 
 	for _, tc := range testcases {
 		cfg, repo, repoPath := testcfg.BuildWithRepo(t)
-		executor := git2go.NewExecutor(cfg)
+		executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
 
 		testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 

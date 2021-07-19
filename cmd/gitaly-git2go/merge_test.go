@@ -13,14 +13,14 @@ import (
 	cmdtesthelper "gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
-	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
 func TestMergeFailsWithMissingArguments(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
-	executor := git2go.NewExecutor(cfg)
+	executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
 
 	testcases := []struct {
 		desc        string
@@ -76,14 +76,14 @@ func TestMergeFailsWithMissingArguments(t *testing.T) {
 }
 
 func TestMergeFailsWithInvalidRepositoryPath(t *testing.T) {
-	cfg := testcfg.Build(t)
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
-	executor := git2go.NewExecutor(cfg)
+	executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, err := executor.Merge(ctx, &gitalypb.Repository{}, git2go.MergeCommand{
+	_, err := executor.Merge(ctx, repo, git2go.MergeCommand{
 		Repository: "/does/not/exist", AuthorName: "Foo", AuthorMail: "foo@example.com", Message: "Foo", Ours: "HEAD", Theirs: "HEAD",
 	})
 	require.Error(t, err)
@@ -180,7 +180,7 @@ func TestMergeTrees(t *testing.T) {
 	for _, tc := range testcases {
 		cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 		testhelper.ConfigureGitalyGit2GoBin(t, cfg)
-		executor := git2go.NewExecutor(cfg)
+		executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
 
 		base := cmdtesthelper.BuildCommit(t, repoPath, []*git.Oid{nil}, tc.base)
 		ours := cmdtesthelper.BuildCommit(t, repoPath, []*git.Oid{base}, tc.ours)
@@ -240,7 +240,7 @@ func TestMergeTrees(t *testing.T) {
 func TestMerge_recursive(t *testing.T) {
 	cfg := testcfg.Build(t)
 	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
-	executor := git2go.NewExecutor(cfg)
+	executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
 
 	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	defer cleanup()

@@ -11,6 +11,7 @@ import (
 	cmdtesthelper "gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
@@ -23,7 +24,7 @@ func TestRebase_validation(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 	committer := git2go.NewSignature("Foo", "foo@example.com", time.Now())
-	executor := git2go.NewExecutor(cfg)
+	executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
 
 	testcases := []struct {
 		desc        string
@@ -165,7 +166,7 @@ func TestRebase_rebase(t *testing.T) {
 
 			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 			testhelper.ConfigureGitalyGit2GoBin(t, cfg)
-			executor := git2go.NewExecutor(cfg)
+			executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
 
 			repo, err := git.OpenRepository(repoPath)
 			require.NoError(t, err)

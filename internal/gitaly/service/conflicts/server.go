@@ -39,7 +39,7 @@ func NewServer(cfg config.Cfg, hookManager hook.Manager, locator storage.Locator
 			client.WithDialOptions(client.FailOnNonTempDialError()...),
 		),
 		updater: updateref.NewUpdaterWithHooks(cfg, hookManager, gitCmdFactory, catfileCache),
-		git2go:  git2go.NewExecutor(cfg),
+		git2go:  git2go.NewExecutor(cfg, locator),
 	}
 }
 

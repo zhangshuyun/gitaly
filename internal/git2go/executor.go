@@ -13,8 +13,10 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/alternates"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/version"
 )
 
@@ -32,14 +34,16 @@ var (
 type Executor struct {
 	binaryPath    string
 	gitBinaryPath string
+	locator       storage.Locator
 }
 
 // NewExecutor returns a new gitaly-git2go executor using binaries as configured in the given
 // configuration.
-func NewExecutor(cfg config.Cfg) Executor {
+func NewExecutor(cfg config.Cfg, locator storage.Locator) Executor {
 	return Executor{
 		binaryPath:    BinaryPath(cfg.BinDir),
 		gitBinaryPath: cfg.Git.BinPath,
+		locator:       locator,
 	}
 }
 
@@ -55,8 +59,15 @@ func BinaryPath(binaryFolder string) string {
 }
 
 func (b Executor) run(ctx context.Context, repo repository.GitRepo, stdin io.Reader, args ...string) (*bytes.Buffer, error) {
+	repoPath, err := b.locator.GetRepoPath(repo)
+	if err != nil {
+		return nil, fmt.Errorf("gitaly-git2go: %w", err)
+	}
+
+	env := alternates.Env(repoPath, repo.GetGitObjectDirectory(), repo.GetGitAlternateObjectDirectories())
+
 	var stderr, stdout bytes.Buffer
-	cmd, err := command.New(ctx, exec.Command(b.binaryPath, args...), stdin, &stdout, &stderr)
+	cmd, err := command.New(ctx, exec.Command(b.binaryPath, args...), stdin, &stdout, &stderr, env...)
 	if err != nil {
 		return nil, err
 	}

@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
@@ -66,7 +67,7 @@ func TestExecutor_Commit(t *testing.T) {
 	updatedFile, err := repo.WriteBlob(ctx, "file", bytes.NewBufferString("updated"))
 	require.NoError(t, err)
 
-	executor := NewExecutor(cfg)
+	executor := NewExecutor(cfg, config.NewLocator(cfg))
 
 	for _, tc := range []struct {
 		desc  string

@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	cmdtesthelper "gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
@@ -19,7 +20,7 @@ import (
 func TestRevert_validation(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
-	executor := git2go.NewExecutor(cfg)
+	executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
 
 	testcases := []struct {
 		desc        string
@@ -171,7 +172,7 @@ func TestRevert_trees(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 			testhelper.ConfigureGitalyGit2GoBin(t, cfg)
-			executor := git2go.NewExecutor(cfg)
+			executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
 
 			ours, revert := tc.setupRepo(t, repoPath)
 

@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
@@ -22,7 +23,7 @@ func TestExecutor_Apply(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	executor := NewExecutor(cfg)
+	executor := NewExecutor(cfg, config.NewLocator(cfg))
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
