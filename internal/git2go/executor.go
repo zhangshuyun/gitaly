@@ -13,6 +13,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/version"
 )
@@ -53,7 +54,7 @@ func BinaryPath(binaryFolder string) string {
 	return path
 }
 
-func (b Executor) run(ctx context.Context, stdin io.Reader, args ...string) (*bytes.Buffer, error) {
+func (b Executor) run(ctx context.Context, repo repository.GitRepo, stdin io.Reader, args ...string) (*bytes.Buffer, error) {
 	var stderr, stdout bytes.Buffer
 	cmd, err := command.New(ctx, exec.Command(b.binaryPath, args...), stdin, &stdout, &stderr)
 	if err != nil {
@@ -72,13 +73,13 @@ func (b Executor) run(ctx context.Context, stdin io.Reader, args ...string) (*by
 
 // runWithGob runs the specified gitaly-git2go cmd with the request gob-encoded
 // as input and returns the commit ID as string or an error.
-func (b Executor) runWithGob(ctx context.Context, cmd string, request interface{}) (git.ObjectID, error) {
+func (b Executor) runWithGob(ctx context.Context, repo repository.GitRepo, cmd string, request interface{}) (git.ObjectID, error) {
 	input := &bytes.Buffer{}
 	if err := gob.NewEncoder(input).Encode(request); err != nil {
 		return "", fmt.Errorf("%s: %w", cmd, err)
 	}
 
-	output, err := b.run(ctx, input, cmd)
+	output, err := b.run(ctx, repo, input, cmd)
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", cmd, err)
 	}

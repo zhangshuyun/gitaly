@@ -20,7 +20,7 @@ var (
 )
 
 func TestRebase_validation(t *testing.T) {
-	cfg, _, repoPath := testcfg.BuildWithRepo(t)
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 	committer := git2go.NewSignature("Foo", "foo@example.com", time.Now())
 	executor := git2go.NewExecutor(cfg)
@@ -65,7 +65,7 @@ func TestRebase_validation(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			_, err := executor.Rebase(ctx, tc.request)
+			_, err := executor.Rebase(ctx, repo, tc.request)
 			require.EqualError(t, err, tc.expectedErr)
 		})
 	}
@@ -163,7 +163,7 @@ func TestRebase_rebase(t *testing.T) {
 				string(gittest.TestUser.Email),
 				time.Date(2021, 3, 1, 13, 45, 50, 0, time.FixedZone("", +2*60*60)))
 
-			cfg, _, repoPath := testcfg.BuildWithRepo(t)
+			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 			testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 			executor := git2go.NewExecutor(cfg)
 
@@ -181,7 +181,7 @@ func TestRebase_rebase(t *testing.T) {
 				UpstreamRevision: masterRevision,
 			}
 
-			response, err := executor.Rebase(ctx, request)
+			response, err := executor.Rebase(ctx, repoProto, request)
 			if tc.expectedErr != "" {
 				require.EqualError(t, err, tc.expectedErr)
 			} else {

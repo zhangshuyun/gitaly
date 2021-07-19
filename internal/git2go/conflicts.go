@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -76,7 +77,7 @@ func (m ConflictsResult) SerializeTo(writer io.Writer) error {
 }
 
 // Conflicts performs a merge via gitaly-git2go and returns all resulting conflicts.
-func (b Executor) Conflicts(ctx context.Context, c ConflictsCommand) (ConflictsResult, error) {
+func (b Executor) Conflicts(ctx context.Context, repo repository.GitRepo, c ConflictsCommand) (ConflictsResult, error) {
 	if err := c.verify(); err != nil {
 		return ConflictsResult{}, fmt.Errorf("conflicts: %w: %s", ErrInvalidArgument, err.Error())
 	}
@@ -86,7 +87,7 @@ func (b Executor) Conflicts(ctx context.Context, c ConflictsCommand) (ConflictsR
 		return ConflictsResult{}, err
 	}
 
-	stdout, err := b.run(ctx, nil, "conflicts", "-request", serialized)
+	stdout, err := b.run(ctx, repo, nil, "conflicts", "-request", serialized)
 	if err != nil {
 		return ConflictsResult{}, err
 	}

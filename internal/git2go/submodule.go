@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"time"
+
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 )
 
 // Error strings present in the legacy Ruby implementation
@@ -62,7 +64,7 @@ func (s SubmoduleResult) SerializeTo(w io.Writer) error {
 }
 
 // Submodule attempts to commit the request submodule change
-func (b Executor) Submodule(ctx context.Context, s SubmoduleCommand) (SubmoduleResult, error) {
+func (b Executor) Submodule(ctx context.Context, repo repository.GitRepo, s SubmoduleCommand) (SubmoduleResult, error) {
 	if err := s.verify(); err != nil {
 		return SubmoduleResult{}, fmt.Errorf("submodule: %w", err)
 	}
@@ -72,7 +74,7 @@ func (b Executor) Submodule(ctx context.Context, s SubmoduleCommand) (SubmoduleR
 		return SubmoduleResult{}, err
 	}
 
-	stdout, err := b.run(ctx, nil, "submodule", "-request", serialized)
+	stdout, err := b.run(ctx, repo, nil, "submodule", "-request", serialized)
 	if err != nil {
 		return SubmoduleResult{}, err
 	}

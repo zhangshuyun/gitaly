@@ -173,7 +173,7 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		return errors.New("Rugged::InvalidError: unable to parse OID - contains invalid characters")
 	}
 
-	result, err := s.git2go.Resolve(ctx, git2go.ResolveCommand{
+	result, err := s.git2go.Resolve(ctx, sourceRepo, git2go.ResolveCommand{
 		MergeCommand: git2go.MergeCommand{
 			Repository: repoPath,
 			AuthorName: string(header.User.Name),

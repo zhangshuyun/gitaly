@@ -60,7 +60,7 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 		}
 	}
 
-	newrev, err := s.git2go.Rebase(ctx, git2go.RebaseCommand{
+	newrev, err := s.git2go.Rebase(ctx, repo, git2go.RebaseCommand{
 		Repository:       repoPath,
 		Committer:        committer,
 		BranchName:       string(header.Branch),

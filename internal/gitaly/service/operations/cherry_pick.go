@@ -50,7 +50,7 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 		}
 	}
 
-	newrev, err := s.git2go.CherryPick(ctx, git2go.CherryPickCommand{
+	newrev, err := s.git2go.CherryPick(ctx, localRepo, git2go.CherryPickCommand{
 		Repository:    repoPath,
 		CommitterName: string(req.User.Name),
 		CommitterMail: string(req.User.Email),

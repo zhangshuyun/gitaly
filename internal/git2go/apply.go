@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 )
 
 // ErrMergeConflict is returned when there is a merge conflict.
@@ -72,7 +73,7 @@ func (iter *slicePatchIterator) Err() error { return nil }
 
 // Apply applies the provided patches and returns the OID of the commit with the patches
 // applied.
-func (b Executor) Apply(ctx context.Context, params ApplyParams) (git.ObjectID, error) {
+func (b Executor) Apply(ctx context.Context, repo repository.GitRepo, params ApplyParams) (git.ObjectID, error) {
 	reader, writer := io.Pipe()
 	defer writer.Close()
 
@@ -102,7 +103,7 @@ func (b Executor) Apply(ctx context.Context, params ApplyParams) (git.ObjectID, 
 	}()
 
 	var result Result
-	output, err := b.run(ctx, reader, "apply", "-git-binary-path", b.gitBinaryPath)
+	output, err := b.run(ctx, repo, reader, "apply", "-git-binary-path", b.gitBinaryPath)
 	if err != nil {
 		return "", fmt.Errorf("run: %w", err)
 	}

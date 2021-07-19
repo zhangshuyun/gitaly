@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"time"
+
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 )
 
 const (
@@ -61,7 +63,7 @@ func (m MergeResult) SerializeTo(w io.Writer) error {
 }
 
 // Merge performs a merge via gitaly-git2go.
-func (b Executor) Merge(ctx context.Context, m MergeCommand) (MergeResult, error) {
+func (b Executor) Merge(ctx context.Context, repo repository.GitRepo, m MergeCommand) (MergeResult, error) {
 	if err := m.verify(); err != nil {
 		return MergeResult{}, fmt.Errorf("merge: %w: %s", ErrInvalidArgument, err.Error())
 	}
@@ -71,7 +73,7 @@ func (b Executor) Merge(ctx context.Context, m MergeCommand) (MergeResult, error
 		return MergeResult{}, err
 	}
 
-	stdout, err := b.run(ctx, nil, "merge", "-request", serialized)
+	stdout, err := b.run(ctx, repo, nil, "merge", "-request", serialized)
 	if err != nil {
 		return MergeResult{}, err
 	}

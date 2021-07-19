@@ -97,7 +97,7 @@ func TestSubmodule(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			response, err := executor.Submodule(ctx, tc.command)
+			response, err := executor.Submodule(ctx, repo, tc.command)
 			if tc.expectedStderr != "" {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tc.expectedStderr)

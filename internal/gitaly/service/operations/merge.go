@@ -65,7 +65,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		return helper.ErrInvalidArgument(err)
 	}
 
-	merge, err := s.git2go.Merge(ctx, git2go.MergeCommand{
+	merge, err := s.git2go.Merge(ctx, repo, git2go.MergeCommand{
 		Repository: repoPath,
 		AuthorName: string(firstRequest.User.Name),
 		AuthorMail: string(firstRequest.User.Email),
@@ -282,7 +282,7 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 	}
 
 	// Now, we create the merge commit...
-	merge, err := s.git2go.Merge(ctx, git2go.MergeCommand{
+	merge, err := s.git2go.Merge(ctx, repo, git2go.MergeCommand{
 		Repository:     repoPath,
 		AuthorName:     string(request.User.Name),
 		AuthorMail:     string(request.User.Email),

@@ -17,7 +17,7 @@ import (
 )
 
 func TestCherryPick_validation(t *testing.T) {
-	cfg, _, repoPath := testcfg.BuildWithRepo(t)
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 	executor := git2go.NewExecutor(cfg)
 
@@ -71,7 +71,7 @@ func TestCherryPick_validation(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			_, err := executor.CherryPick(ctx, tc.request)
+			_, err := executor.CherryPick(ctx, repo, tc.request)
 			require.EqualError(t, err, tc.expectedErr)
 		})
 	}
@@ -145,7 +145,7 @@ func TestCherryPick(t *testing.T) {
 		},
 	}
 	for _, tc := range testcases {
-		cfg, _, repoPath := testcfg.BuildWithRepo(t)
+		cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 		testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 		executor := git2go.NewExecutor(cfg)
 
@@ -169,7 +169,7 @@ func TestCherryPick(t *testing.T) {
 				When:  time.Date(2021, 1, 17, 14, 45, 51, 0, time.FixedZone("", +2*60*60)),
 			}
 
-			response, err := executor.CherryPick(ctx, git2go.CherryPickCommand{
+			response, err := executor.CherryPick(ctx, repo, git2go.CherryPickCommand{
 				Repository:    repoPath,
 				CommitterName: committer.Name,
 				CommitterMail: committer.Email,

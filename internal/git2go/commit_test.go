@@ -468,7 +468,7 @@ func TestExecutor_Commit(t *testing.T) {
 			var parentCommit git.ObjectID
 			for i, step := range tc.steps {
 				message := fmt.Sprintf("commit %d", i+1)
-				commitID, err := executor.Commit(ctx, CommitParams{
+				commitID, err := executor.Commit(ctx, repo, CommitParams{
 					Repository: repoPath,
 					Author:     author,
 					Committer:  committer,

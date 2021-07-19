@@ -449,7 +449,7 @@ func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg confi
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			_, mirrorRepoPath, cleanMirrorRepo := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
+			mirrorRepoPb, mirrorRepoPath, cleanMirrorRepo := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 			defer cleanMirrorRepo()
 
 			sourceRepoPb, sourceRepoPath, cleanSourceRepo := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
@@ -464,16 +464,28 @@ func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg confi
 			executor := git2go.NewExecutor(cfg)
 
 			// construct the starting state of the repositories
-			for repoPath, references := range map[string]refs{
-				sourceRepoPath: tc.sourceRefs,
-				mirrorRepoPath: tc.mirrorRefs,
+			for _, c := range []struct {
+				repoProto  *gitalypb.Repository
+				repoPath   string
+				references refs
+			}{
+				{
+					repoProto:  sourceRepoPb,
+					repoPath:   sourceRepoPath,
+					references: tc.sourceRefs,
+				},
+				{
+					repoProto:  mirrorRepoPb,
+					repoPath:   mirrorRepoPath,
+					references: tc.mirrorRefs,
+				},
 			} {
-				for reference, commits := range references {
+				for reference, commits := range c.references {
 					var commitOID git.ObjectID
 					for _, commit := range commits {
 						var err error
-						commitOID, err = executor.Commit(ctx, git2go.CommitParams{
-							Repository: repoPath,
+						commitOID, err = executor.Commit(ctx, c.repoProto, git2go.CommitParams{
+							Repository: c.repoPath,
 							Author:     commitSignature,
 							Committer:  commitSignature,
 							Message:    commit,
@@ -482,7 +494,7 @@ func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg confi
 						require.NoError(t, err)
 					}
 
-					gittest.Exec(t, cfg, "-C", repoPath, "update-ref", reference, commitOID.String())
+					gittest.Exec(t, cfg, "-C", c.repoPath, "update-ref", reference, commitOID.String())
 				}
 			}
 			for repoPath, symRefs := range map[string]map[string]string{

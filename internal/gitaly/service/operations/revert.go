@@ -44,7 +44,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	newrev, err := s.git2go.Revert(ctx, git2go.RevertCommand{
+	newrev, err := s.git2go.Revert(ctx, localRepo, git2go.RevertCommand{
 		Repository: repoPath,
 		AuthorName: string(req.User.Name),
 		AuthorMail: string(req.User.Email),
