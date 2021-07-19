@@ -88,6 +88,16 @@ service RefService {
     };
   }
 
+  // GetTagSignatures returns signatures for annotated tags resolved from a set of revisions. Revisions
+  // which don't resolve to an annotated tag are silently discarded. Revisions which cannot be resolved
+  // result in an error. Tags which are annotated but not signed will return a TagSignature response
+  // which has no signature, but its unsigned contents will still be returned.
+  rpc GetTagSignatures(GetTagSignaturesRequest) returns (stream GetTagSignaturesResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
+
   rpc GetTagMessages(GetTagMessagesRequest) returns (stream GetTagMessagesResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -315,6 +325,37 @@ message ListTagNamesContainingCommitRequest {
 message ListTagNamesContainingCommitResponse {
   reserved 1;
   repeated bytes tag_names = 2;
+}
+
+// GetTagSignaturesRequest is a request for the GetTagSignatures RPC. 
+message GetTagSignaturesRequest {
+  // Repository is the repository in which tag signatures should be looked up.
+  Repository repository = 1 [(target_repository)=true];
+  // TagRevisions is the set of revisions which that should be looked up. Revisions
+  // supports the syntax as specified by gitrevisions(7). All revisions are expected
+  // to resolve to annotated tag objects. At least one revision must be provided.
+  repeated string tag_revisions = 2;
+}
+
+// GetTagSignaturesResponse is a response for a GetTagSignatures request. Each response
+// may contain multiple TagSignatures. In case TagSignatures don't fit into a single
+// response, signatures will be batched in multiple responses.
+message GetTagSignaturesResponse {
+  // TagSignature represents the signature of a signed tag.
+  message TagSignature {
+    // TagId is the resolved object ID of the tag.
+    string tag_id = 1;
+    // Signature contains the cryptographic signature of the tag. If the tag is not
+    // cryptographically signed, then the signature is unset.
+    bytes signature = 2;
+    // Content contains the contents which are signed by the signature. Contents
+    // include both the commit message, but also the commit metadata like author and
+    // subject.
+    bytes content = 3;
+  }
+
+  // Signatures is the set of signatures found.
+  repeated TagSignature signatures = 1;
 }
 
 message GetTagMessagesRequest {

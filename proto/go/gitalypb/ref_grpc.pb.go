@@ -36,6 +36,11 @@ type RefServiceClient interface {
 	DeleteRefs(ctx context.Context, in *DeleteRefsRequest, opts ...grpc.CallOption) (*DeleteRefsResponse, error)
 	ListBranchNamesContainingCommit(ctx context.Context, in *ListBranchNamesContainingCommitRequest, opts ...grpc.CallOption) (RefService_ListBranchNamesContainingCommitClient, error)
 	ListTagNamesContainingCommit(ctx context.Context, in *ListTagNamesContainingCommitRequest, opts ...grpc.CallOption) (RefService_ListTagNamesContainingCommitClient, error)
+	// GetTagSignatures returns signatures for annotated tags resolved from a set of revisions. Revisions
+	// which don't resolve to an annotated tag are silently discarded. Revisions which cannot be resolved
+	// result in an error. Tags which are annotated but not signed will return a TagSignature response
+	// which has no signature, but its unsigned contents will still be returned.
+	GetTagSignatures(ctx context.Context, in *GetTagSignaturesRequest, opts ...grpc.CallOption) (RefService_GetTagSignaturesClient, error)
 	GetTagMessages(ctx context.Context, in *GetTagMessagesRequest, opts ...grpc.CallOption) (RefService_GetTagMessagesClient, error)
 	// Returns commits that are only reachable from the ref passed
 	ListNewCommits(ctx context.Context, in *ListNewCommitsRequest, opts ...grpc.CallOption) (RefService_ListNewCommitsClient, error)
@@ -361,8 +366,40 @@ func (x *refServiceListTagNamesContainingCommitClient) Recv() (*ListTagNamesCont
 	return m, nil
 }
 
+func (c *refServiceClient) GetTagSignatures(ctx context.Context, in *GetTagSignaturesRequest, opts ...grpc.CallOption) (RefService_GetTagSignaturesClient, error) {
+	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[8], "/gitaly.RefService/GetTagSignatures", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &refServiceGetTagSignaturesClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type RefService_GetTagSignaturesClient interface {
+	Recv() (*GetTagSignaturesResponse, error)
+	grpc.ClientStream
+}
+
+type refServiceGetTagSignaturesClient struct {
+	grpc.ClientStream
+}
+
+func (x *refServiceGetTagSignaturesClient) Recv() (*GetTagSignaturesResponse, error) {
+	m := new(GetTagSignaturesResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *refServiceClient) GetTagMessages(ctx context.Context, in *GetTagMessagesRequest, opts ...grpc.CallOption) (RefService_GetTagMessagesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[8], "/gitaly.RefService/GetTagMessages", opts...)
+	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[9], "/gitaly.RefService/GetTagMessages", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -394,7 +431,7 @@ func (x *refServiceGetTagMessagesClient) Recv() (*GetTagMessagesResponse, error)
 }
 
 func (c *refServiceClient) ListNewCommits(ctx context.Context, in *ListNewCommitsRequest, opts ...grpc.CallOption) (RefService_ListNewCommitsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[9], "/gitaly.RefService/ListNewCommits", opts...)
+	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[10], "/gitaly.RefService/ListNewCommits", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -426,7 +463,7 @@ func (x *refServiceListNewCommitsClient) Recv() (*ListNewCommitsResponse, error)
 }
 
 func (c *refServiceClient) ListNewBlobs(ctx context.Context, in *ListNewBlobsRequest, opts ...grpc.CallOption) (RefService_ListNewBlobsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[10], "/gitaly.RefService/ListNewBlobs", opts...)
+	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[11], "/gitaly.RefService/ListNewBlobs", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -488,6 +525,11 @@ type RefServiceServer interface {
 	DeleteRefs(context.Context, *DeleteRefsRequest) (*DeleteRefsResponse, error)
 	ListBranchNamesContainingCommit(*ListBranchNamesContainingCommitRequest, RefService_ListBranchNamesContainingCommitServer) error
 	ListTagNamesContainingCommit(*ListTagNamesContainingCommitRequest, RefService_ListTagNamesContainingCommitServer) error
+	// GetTagSignatures returns signatures for annotated tags resolved from a set of revisions. Revisions
+	// which don't resolve to an annotated tag are silently discarded. Revisions which cannot be resolved
+	// result in an error. Tags which are annotated but not signed will return a TagSignature response
+	// which has no signature, but its unsigned contents will still be returned.
+	GetTagSignatures(*GetTagSignaturesRequest, RefService_GetTagSignaturesServer) error
 	GetTagMessages(*GetTagMessagesRequest, RefService_GetTagMessagesServer) error
 	// Returns commits that are only reachable from the ref passed
 	ListNewCommits(*ListNewCommitsRequest, RefService_ListNewCommitsServer) error
@@ -541,6 +583,9 @@ func (UnimplementedRefServiceServer) ListBranchNamesContainingCommit(*ListBranch
 }
 func (UnimplementedRefServiceServer) ListTagNamesContainingCommit(*ListTagNamesContainingCommitRequest, RefService_ListTagNamesContainingCommitServer) error {
 	return status.Errorf(codes.Unimplemented, "method ListTagNamesContainingCommit not implemented")
+}
+func (UnimplementedRefServiceServer) GetTagSignatures(*GetTagSignaturesRequest, RefService_GetTagSignaturesServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetTagSignatures not implemented")
 }
 func (UnimplementedRefServiceServer) GetTagMessages(*GetTagMessagesRequest, RefService_GetTagMessagesServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetTagMessages not implemented")
@@ -843,6 +888,27 @@ func (x *refServiceListTagNamesContainingCommitServer) Send(m *ListTagNamesConta
 	return x.ServerStream.SendMsg(m)
 }
 
+func _RefService_GetTagSignatures_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(GetTagSignaturesRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(RefServiceServer).GetTagSignatures(m, &refServiceGetTagSignaturesServer{stream})
+}
+
+type RefService_GetTagSignaturesServer interface {
+	Send(*GetTagSignaturesResponse) error
+	grpc.ServerStream
+}
+
+type refServiceGetTagSignaturesServer struct {
+	grpc.ServerStream
+}
+
+func (x *refServiceGetTagSignaturesServer) Send(m *GetTagSignaturesResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 func _RefService_GetTagMessages_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(GetTagMessagesRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -999,6 +1065,11 @@ var RefService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "ListTagNamesContainingCommit",
 			Handler:       _RefService_ListTagNamesContainingCommit_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "GetTagSignatures",
+			Handler:       _RefService_GetTagSignatures_Handler,
 			ServerStreams: true,
 		},
 		{

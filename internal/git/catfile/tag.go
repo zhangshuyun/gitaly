@@ -38,6 +38,19 @@ func GetTag(ctx context.Context, c Batch, tagID git.Revision, tagName string, tr
 	return tag, nil
 }
 
+// ExtractTagSignature extracts the signature from a content and returns both the signature
+// and the remaining content. If no signature is found, nil as the signature and the entire
+// content are returned. note: tags contain the signature block at the end of the message
+// https://github.com/git/git/blob/master/Documentation/technical/signature-format.txt#L12
+func ExtractTagSignature(content []byte) ([]byte, []byte) {
+	index := bytes.Index(content, []byte("-----BEGIN"))
+
+	if index > 0 {
+		return bytes.TrimSuffix(content[index:], []byte("\n")), content[:index]
+	}
+	return nil, content
+}
+
 type tagHeader struct {
 	oid     string
 	tagType string
@@ -116,15 +129,12 @@ func parseTag(r io.Reader, oid git.ObjectID, name []byte, trimLen, trimRightNewL
 		tag.Message = tag.Message[:max]
 	}
 
-	// tags contain the signature block in the message:
-	// https://github.com/git/git/blob/master/Documentation/technical/signature-format.txt#L12
-	index := bytes.Index(body, []byte("-----BEGIN"))
-
-	if index > 0 {
-		length := bytes.Index(body[index:], []byte("\n"))
+	signature, _ := ExtractTagSignature(body)
+	if signature != nil {
+		length := bytes.Index(signature, []byte("\n"))
 
 		if length > 0 {
-			signature := string(body[index : length+index])
+			signature := string(signature[:length])
 			tag.SignatureType = detectSignatureType(signature)
 		}
 	}
