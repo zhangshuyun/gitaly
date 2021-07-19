@@ -19,6 +19,7 @@ import (
 
 func TestMergeFailsWithMissingArguments(t *testing.T) {
 	cfg, _, repoPath := testcfg.BuildWithRepo(t)
+	executor := git2go.NewExecutor(cfg)
 
 	testcases := []struct {
 		desc        string
@@ -66,7 +67,7 @@ func TestMergeFailsWithMissingArguments(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			_, err := tc.request.Run(ctx, cfg)
+			_, err := executor.Merge(ctx, tc.request)
 			require.Error(t, err)
 			require.Equal(t, tc.expectedErr, err.Error())
 		})
@@ -76,13 +77,14 @@ func TestMergeFailsWithMissingArguments(t *testing.T) {
 func TestMergeFailsWithInvalidRepositoryPath(t *testing.T) {
 	cfg := testcfg.Build(t)
 	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+	executor := git2go.NewExecutor(cfg)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, err := git2go.MergeCommand{
+	_, err := executor.Merge(ctx, git2go.MergeCommand{
 		Repository: "/does/not/exist", AuthorName: "Foo", AuthorMail: "foo@example.com", Message: "Foo", Ours: "HEAD", Theirs: "HEAD",
-	}.Run(ctx, cfg)
+	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "merge: could not open repository")
 }
@@ -177,6 +179,7 @@ func TestMergeTrees(t *testing.T) {
 	for _, tc := range testcases {
 		cfg, _, repoPath := testcfg.BuildWithRepo(t)
 		testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+		executor := git2go.NewExecutor(cfg)
 
 		base := cmdtesthelper.BuildCommit(t, repoPath, []*git.Oid{nil}, tc.base)
 		ours := cmdtesthelper.BuildCommit(t, repoPath, []*git.Oid{base}, tc.ours)
@@ -188,7 +191,7 @@ func TestMergeTrees(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			response, err := git2go.MergeCommand{
+			response, err := executor.Merge(ctx, git2go.MergeCommand{
 				Repository: repoPath,
 				AuthorName: "John Doe",
 				AuthorMail: "john.doe@example.com",
@@ -196,7 +199,7 @@ func TestMergeTrees(t *testing.T) {
 				Message:    "Merge message",
 				Ours:       ours.String(),
 				Theirs:     theirs.String(),
-			}.Run(ctx, cfg)
+			})
 
 			if tc.expectedStderr != "" {
 				require.Error(t, err)
@@ -236,6 +239,7 @@ func TestMergeTrees(t *testing.T) {
 func TestMerge_recursive(t *testing.T) {
 	cfg := testcfg.Build(t)
 	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+	executor := git2go.NewExecutor(cfg)
 
 	_, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	defer cleanup()
@@ -294,7 +298,7 @@ func TestMerge_recursive(t *testing.T) {
 	// cases. We thus expect a merge conflict, which unfortunately
 	// demonstrates that restricting the recursion limit may cause us to
 	// fail resolution.
-	_, err := git2go.MergeCommand{
+	_, err := executor.Merge(ctx, git2go.MergeCommand{
 		Repository: repoPath,
 		AuthorName: "John Doe",
 		AuthorMail: "john.doe@example.com",
@@ -302,14 +306,14 @@ func TestMerge_recursive(t *testing.T) {
 		Message:    "Merge message",
 		Ours:       ours[len(ours)-1].String(),
 		Theirs:     theirs[len(theirs)-1].String(),
-	}.Run(ctx, cfg)
+	})
 	require.Error(t, err)
 	require.Equal(t, err.Error(), "merge: could not auto-merge due to conflicts\n")
 
 	// Otherwise, if we're merging an earlier criss-cross merge which has
 	// half of the limit many criss-cross patterns, we exactly hit the
 	// recursion limit and thus succeed.
-	response, err := git2go.MergeCommand{
+	response, err := executor.Merge(ctx, git2go.MergeCommand{
 		Repository: repoPath,
 		AuthorName: "John Doe",
 		AuthorMail: "john.doe@example.com",
@@ -317,7 +321,7 @@ func TestMerge_recursive(t *testing.T) {
 		Message:    "Merge message",
 		Ours:       ours[git2go.MergeRecursionLimit/2].String(),
 		Theirs:     theirs[git2go.MergeRecursionLimit/2].String(),
-	}.Run(ctx, cfg)
+	})
 	require.NoError(t, err)
 
 	repo, err := git.OpenRepository(repoPath)

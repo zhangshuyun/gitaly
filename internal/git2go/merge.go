@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io"
 	"time"
-
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 )
 
 const (
@@ -62,8 +60,8 @@ func (m MergeResult) SerializeTo(w io.Writer) error {
 	return serializeTo(w, m)
 }
 
-// Run performs a merge via gitaly-git2go.
-func (m MergeCommand) Run(ctx context.Context, cfg config.Cfg) (MergeResult, error) {
+// Merge performs a merge via gitaly-git2go.
+func (b Executor) Merge(ctx context.Context, m MergeCommand) (MergeResult, error) {
 	if err := m.verify(); err != nil {
 		return MergeResult{}, fmt.Errorf("merge: %w: %s", ErrInvalidArgument, err.Error())
 	}
@@ -73,7 +71,7 @@ func (m MergeCommand) Run(ctx context.Context, cfg config.Cfg) (MergeResult, err
 		return MergeResult{}, err
 	}
 
-	stdout, err := run(ctx, BinaryPath(cfg.BinDir), nil, "merge", "-request", serialized)
+	stdout, err := run(ctx, b.binaryPath, nil, "merge", "-request", serialized)
 	if err != nil {
 		return MergeResult{}, err
 	}
