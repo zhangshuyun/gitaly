@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/alternates"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -105,6 +106,92 @@ func (er gitError) Error() string {
 }
 
 func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest, env []string, repoPath string) (string, error) {
+	if featureflag.UserSquashWithoutWorktree.IsEnabled(ctx) {
+		repo := s.localrepo(req.GetRepository())
+
+		var stderr bytes.Buffer
+		if err := s.localrepo(req.GetRepository()).ExecAndWait(ctx, git.SubCmd{
+			Name: "merge-base",
+			Flags: []git.Option{
+				git.Flag{Name: "--is-ancestor"},
+			},
+			Args: []string{
+				req.GetStartSha(),
+				req.GetEndSha(),
+			},
+		}, git.WithStderr(&stderr)); err != nil {
+			err := errorWithStderr(fmt.Errorf("%s is not an ancestor of %s",
+				req.GetStartSha(), req.GetEndSha()), &stderr)
+			return "", helper.ErrPreconditionFailed(err)
+		}
+
+		// We need to retrieve the start commit such that we can create the new commit with
+		// all parents of the start commit.
+		startCommit, err := repo.ResolveRevision(ctx, git.Revision(req.GetStartSha()+"^{commit}"))
+		if err != nil {
+			return "", fmt.Errorf("cannot resolve start commit: %w", gitError{
+				// This error is simply for backwards compatibility. We should just
+				// return the plain error eventually.
+				Err:    err,
+				ErrMsg: fmt.Sprintf("fatal: ambiguous argument '%s...%s'", req.GetStartSha(), req.GetEndSha()),
+			})
+		}
+
+		// And we need to take the tree of the end commit. This tree already is the result
+		treeID, err := repo.ResolveRevision(ctx, git.Revision(req.GetEndSha()+"^{tree}"))
+		if err != nil {
+			return "", fmt.Errorf("cannot resolve end commit's tree: %w", gitError{
+				// This error is simply for backwards compatibility. We should just
+				// return the plain error eventually.
+				Err:    err,
+				ErrMsg: fmt.Sprintf("fatal: ambiguous argument '%s...%s'", req.GetStartSha(), req.GetEndSha()),
+			})
+		}
+
+		commitDate, err := dateFromProto(req)
+		if err != nil {
+			return "", helper.ErrInvalidArgument(err)
+		}
+
+		commitEnv := []string{
+			"GIT_COMMITTER_NAME=" + string(req.GetUser().Name),
+			"GIT_COMMITTER_EMAIL=" + string(req.GetUser().Email),
+			fmt.Sprintf("GIT_COMMITTER_DATE=%d %s", commitDate.Unix(), commitDate.Format("-0700")),
+			"GIT_AUTHOR_NAME=" + string(req.GetAuthor().Name),
+			"GIT_AUTHOR_EMAIL=" + string(req.GetAuthor().Email),
+			fmt.Sprintf("GIT_AUTHOR_DATE=%d %s", commitDate.Unix(), commitDate.Format("-0700")),
+		}
+
+		flags := []git.Option{
+			git.ValueFlag{
+				Name:  "-m",
+				Value: string(req.GetCommitMessage()),
+			},
+			git.ValueFlag{
+				Name:  "-p",
+				Value: startCommit.String(),
+			},
+		}
+
+		var stdout bytes.Buffer
+		stderr.Reset()
+
+		if err := repo.ExecAndWait(ctx, git.SubCmd{
+			Name:  "commit-tree",
+			Flags: flags,
+			Args: []string{
+				treeID.String(),
+			},
+		}, git.WithStdout(&stdout), git.WithStderr(&stderr), git.WithEnv(commitEnv...)); err != nil {
+			return "", fmt.Errorf("creating commit: %w", gitError{
+				Err:    err,
+				ErrMsg: stderr.String(),
+			})
+		}
+
+		return text.ChompBytes(stdout.Bytes()), nil
+	}
+
 	sparseDiffFiles, err := s.diffFiles(ctx, env, repoPath, req)
 	if err != nil {
 		return "", fmt.Errorf("define diff files: %w", err)
@@ -123,7 +210,6 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 	if err != nil {
 		return "", fmt.Errorf("with sparse diff: %w", err)
 	}
-
 	return sha, nil
 }
 

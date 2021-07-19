@@ -54,6 +54,9 @@ var commandDescriptions = map[string]commandDescription{
 	"commit-graph": {
 		flags: scNoRefUpdates,
 	},
+	"commit-tree": {
+		flags: scNoRefUpdates,
+	},
 	"config": {
 		flags: scNoRefUpdates | scNoEndOfOptions,
 	},

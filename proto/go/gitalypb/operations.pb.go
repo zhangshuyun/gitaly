@@ -2520,7 +2520,7 @@ type UserSquashRequest struct {
 	// two UserSquash RPCs may run with the same ID.
 	SquashId string `protobuf:"bytes,3,opt,name=squash_id,json=squashId,proto3" json:"squash_id,omitempty"`
 	// start_sha is the object ID of the start commit of the range which shall be
-	// squashed.
+	// squashed. Must be an ancestor of end_sha.
 	StartSha string `protobuf:"bytes,5,opt,name=start_sha,json=startSha,proto3" json:"start_sha,omitempty"`
 	// end_sha is the object ID of the end commit of the range which shall be
 	// squashed.

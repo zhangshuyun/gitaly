@@ -25,6 +25,10 @@ import (
 )
 
 func errorWithStderr(err error, stderr *bytes.Buffer) error {
+	if stderr.Len() == 0 {
+		return fmt.Errorf("%w", err)
+	}
+
 	return fmt.Errorf("%w, stderr: %q", err, stderr)
 }
 

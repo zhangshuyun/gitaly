@@ -26,6 +26,9 @@ var (
 	TxRemoveRepository = FeatureFlag{Name: "tx_remove_repository", OnByDefault: false}
 	// QuarantinedUserCreateTag enables use of a quarantine object directory for UserCreateTag.
 	QuarantinedUserCreateTag = FeatureFlag{Name: "quarantined_user_create_tag", OnByDefault: false}
+	// UserSquashWithoutWorktree enables the new implementation of UserSquash which does not
+	// require a worktree to compute the squash.
+	UserSquashWithoutWorktree = FeatureFlag{Name: "user_squash_without_worktree", OnByDefault: false}
 )
 
 // All includes all feature flags.
@@ -39,4 +42,5 @@ var All = []FeatureFlag{
 	FindAllTagsPipeline,
 	TxRemoveRepository,
 	QuarantinedUserCreateTag,
+	UserSquashWithoutWorktree,
 }

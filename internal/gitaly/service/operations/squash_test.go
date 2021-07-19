@@ -2,6 +2,7 @@ package operations
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -9,17 +10,17 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 var (
@@ -36,16 +37,18 @@ var (
 
 func TestSuccessfulUserSquashRequest(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
-	t.Run("with sparse checkout", func(t *testing.T) {
-		testSuccessfulUserSquashRequest(t, ctx, startSha, endSha)
-	})
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UserSquashWithoutWorktree,
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		t.Run("with sparse checkout", func(t *testing.T) {
+			testSuccessfulUserSquashRequest(t, ctx, startSha, endSha)
+		})
 
-	t.Run("without sparse checkout", func(t *testing.T) {
-		// there are no files that could be used for sparse checkout for those two commits
-		testSuccessfulUserSquashRequest(t, ctx, "60ecb67744cb56576c30214ff52294f8ce2def98", "c84ff944ff4529a70788a5e9003c2b7feae29047")
+		t.Run("without sparse checkout", func(t *testing.T) {
+			// there are no files that could be used for sparse checkout for those two commits
+			testSuccessfulUserSquashRequest(t, ctx, "60ecb67744cb56576c30214ff52294f8ce2def98", "c84ff944ff4529a70788a5e9003c2b7feae29047")
+		})
 	})
 }
 
@@ -85,9 +88,13 @@ func testSuccessfulUserSquashRequest(t *testing.T, ctx context.Context, start, e
 }
 
 func TestUserSquash_stableID(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UserSquashWithoutWorktree,
+	}).Run(t, testUserSquashStableID)
+}
+
+func testUserSquashStableID(t *testing.T, ctx context.Context) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
@@ -146,9 +153,13 @@ func ensureSplitIndexExists(t *testing.T, cfg config.Cfg, repoDir string) bool {
 }
 
 func TestSuccessfulUserSquashRequestWith3wayMerge(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UserSquashWithoutWorktree,
+	}).Run(t, testSuccessfulUserSquashRequestWith3wayMerge)
+}
+
+func testSuccessfulUserSquashRequestWith3wayMerge(t *testing.T, ctx context.Context) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -184,21 +195,27 @@ func TestSuccessfulUserSquashRequestWith3wayMerge(t *testing.T) {
 	repoPath, err = filepath.EvalSymlinks(repoPath)
 	require.NoError(t, err)
 
-	// Ensure Git metadata is cleaned up
-	worktreeList := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "worktree", "list", "--porcelain"))
-	expectedOut := fmt.Sprintf("worktree %s\nbare\n", repoPath)
-	require.Equal(t, expectedOut, worktreeList)
+	if featureflag.UserSquashWithoutWorktree.IsDisabled(ctx) {
+		// Ensure Git metadata is cleaned up
+		worktreeList := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "worktree", "list", "--porcelain"))
+		expectedOut := fmt.Sprintf("worktree %s\nbare\n", repoPath)
+		require.Equal(t, expectedOut, worktreeList)
 
-	// Ensure actual worktree is removed
-	files, err := ioutil.ReadDir(filepath.Join(repoPath, "gitlab-worktree"))
-	require.NoError(t, err)
-	require.Equal(t, 0, len(files))
+		// Ensure actual worktree is removed
+		files, err := ioutil.ReadDir(filepath.Join(repoPath, "gitlab-worktree"))
+		require.NoError(t, err)
+		require.Equal(t, 0, len(files))
+	}
 }
 
 func TestSplitIndex(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UserSquashWithoutWorktree,
+	}).Run(t, testSplitIndex)
+}
+
+func testSplitIndex(t *testing.T, ctx context.Context) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -221,9 +238,13 @@ func TestSplitIndex(t *testing.T) {
 }
 
 func TestSquashRequestWithRenamedFiles(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UserSquashWithoutWorktree,
+	}).Run(t, testSquashRequestWithRenamedFiles)
+}
+
+func testSquashRequestWithRenamedFiles(t *testing.T, ctx context.Context) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
@@ -282,9 +303,13 @@ func TestSquashRequestWithRenamedFiles(t *testing.T) {
 }
 
 func TestSuccessfulUserSquashRequestWithMissingFileOnTargetBranch(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UserSquashWithoutWorktree,
+	}).Run(t, testSuccessfulUserSquashRequestWithMissingFileOnTargetBranch)
+}
+
+func testSuccessfulUserSquashRequestWithMissingFileOnTargetBranch(t *testing.T, ctx context.Context) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
@@ -306,9 +331,13 @@ func TestSuccessfulUserSquashRequestWithMissingFileOnTargetBranch(t *testing.T) 
 }
 
 func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UserSquashWithoutWorktree,
+	}).Run(t, testFailedUserSquashRequestDueToValidations)
+}
+
+func testFailedUserSquashRequestDueToValidations(t *testing.T, ctx context.Context) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
@@ -432,6 +461,35 @@ func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
 	}
 }
 
+func TestUserSquash_ancestry(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+
+	// We create two new commits which both branch off from the current HEAD commit. As a
+	// result, they are not ancestors of each other.
+	commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("1"))
+	commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("2"))
+
+	_, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
+		Repository:    repo,
+		SquashId:      "1",
+		User:          gittest.TestUser,
+		Author:        gittest.TestUser,
+		CommitMessage: commitMessage,
+		StartSha:      commit1.String(),
+		EndSha:        commit2.String(),
+	})
+
+	expectedErr := fmt.Sprintf("rpc error: code = FailedPrecondition desc = %s is not an ancestor of %s",
+		commit1.String(), commit2.String())
+	require.NotNil(t, err)
+	require.Equal(t, expectedErr, err.Error())
+}
+
 func TestUserSquashWithGitError(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := testhelper.Context()
@@ -440,9 +498,10 @@ func TestUserSquashWithGitError(t *testing.T) {
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
-		desc     string
-		request  *gitalypb.UserSquashRequest
-		gitError string
+		desc             string
+		request          *gitalypb.UserSquashRequest
+		expectedErr      error
+		expectedResponse *gitalypb.UserSquashResponse
 	}{
 		{
 			desc: "not existing start SHA",
@@ -455,7 +514,8 @@ func TestUserSquashWithGitError(t *testing.T) {
 				StartSha:      "doesntexisting",
 				EndSha:        endSha,
 			},
-			gitError: "fatal: ambiguous argument 'doesntexisting...54cec5282aa9f21856362fe321c800c236a61615'",
+			expectedErr: fmt.Errorf("rpc error: code = FailedPrecondition desc = %s is not an ancestor of %s, stderr: %q",
+				"doesntexisting", endSha, "fatal: Not a valid object name doesntexisting\n"),
 		},
 		{
 			desc: "not existing end SHA",
@@ -468,7 +528,8 @@ func TestUserSquashWithGitError(t *testing.T) {
 				StartSha:      startSha,
 				EndSha:        "doesntexisting",
 			},
-			gitError: "fatal: ambiguous argument 'b83d6e391c22777fca1ed3012fce84f633d7fed0...doesntexisting'",
+			expectedErr: fmt.Errorf("rpc error: code = FailedPrecondition desc = %s is not an ancestor of %s, stderr: %q",
+				startSha, "doesntexisting", "fatal: Not a valid object name doesntexisting\n"),
 		},
 		{
 			desc: "user has no name set",
@@ -481,7 +542,9 @@ func TestUserSquashWithGitError(t *testing.T) {
 				StartSha:      startSha,
 				EndSha:        endSha,
 			},
-			gitError: "fatal: empty ident name (for <janedoe@gitlab.com>) not allowed",
+			expectedResponse: &gitalypb.UserSquashResponse{
+				GitError: "fatal: empty ident name (for <janedoe@gitlab.com>) not allowed\n",
+			},
 		},
 		{
 			desc: "author has no name set",
@@ -494,18 +557,22 @@ func TestUserSquashWithGitError(t *testing.T) {
 				StartSha:      startSha,
 				EndSha:        endSha,
 			},
-			gitError: "fatal: empty ident name (for <janedoe@gitlab.com>) not allowed",
+			expectedResponse: &gitalypb.UserSquashResponse{
+				GitError: "fatal: empty ident name (for <janedoe@gitlab.com>) not allowed\n",
+			},
 		},
 	}
 
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			resp, err := client.UserSquash(ctx, testCase.request)
-			s, ok := status.FromError(err)
-			require.True(t, ok)
-			assert.Equal(t, codes.OK, s.Code())
-			assert.Empty(t, resp.SquashSha)
-			assert.Contains(t, resp.GitError, testCase.gitError)
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			response, err := client.UserSquash(ctx, tc.request)
+			if err != nil {
+				// Flatten the error to make it easier to compare.
+				err = errors.New(err.Error())
+			}
+
+			require.Equal(t, tc.expectedErr, err)
+			testassert.ProtoEqual(t, tc.expectedResponse, response)
 		})
 	}
 }
