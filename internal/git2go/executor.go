@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"path/filepath"
 
@@ -20,14 +19,12 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/version"
 )
 
-const rawBinaryName = "gitaly-git2go"
-
 var (
 	// ErrInvalidArgument is returned in case the merge arguments are invalid.
 	ErrInvalidArgument = errors.New("invalid parameters")
 
 	// BinaryName is a binary name with version suffix .
-	BinaryName = rawBinaryName + "-" + version.GetModuleVersion()
+	BinaryName = "gitaly-git2go-" + version.GetModuleVersion()
 )
 
 // Executor executes gitaly-git2go.
@@ -41,21 +38,10 @@ type Executor struct {
 // configuration.
 func NewExecutor(cfg config.Cfg, locator storage.Locator) Executor {
 	return Executor{
-		binaryPath:    BinaryPath(cfg.BinDir),
+		binaryPath:    filepath.Join(cfg.BinDir, BinaryName),
 		gitBinaryPath: cfg.Git.BinPath,
 		locator:       locator,
 	}
-}
-
-// BinaryPath returns path to the executable binary.
-func BinaryPath(binaryFolder string) string {
-	// At first try to find the versioned binary
-	path := filepath.Join(binaryFolder, BinaryName)
-	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		// if not exist fall back to the old unversioned binary
-		path = filepath.Join(binaryFolder, rawBinaryName)
-	}
-	return path
 }
 
 func (b Executor) run(ctx context.Context, repo repository.GitRepo, stdin io.Reader, args ...string) (*bytes.Buffer, error) {
