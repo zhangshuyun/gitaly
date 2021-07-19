@@ -154,6 +154,18 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     add_message "gitaly.ListTagNamesContainingCommitResponse" do
       repeated :tag_names, :bytes, 2
     end
+    add_message "gitaly.GetTagSignaturesRequest" do
+      optional :repository, :message, 1, "gitaly.Repository"
+      repeated :tag_revisions, :string, 2
+    end
+    add_message "gitaly.GetTagSignaturesResponse" do
+      repeated :signatures, :message, 1, "gitaly.GetTagSignaturesResponse.TagSignature"
+    end
+    add_message "gitaly.GetTagSignaturesResponse.TagSignature" do
+      optional :tag_id, :string, 1
+      optional :signature, :bytes, 2
+      optional :content, :bytes, 3
+    end
     add_message "gitaly.GetTagMessagesRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
       repeated :tag_ids, :string, 3
@@ -223,6 +235,9 @@ module Gitaly
   ListBranchNamesContainingCommitResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListBranchNamesContainingCommitResponse").msgclass
   ListTagNamesContainingCommitRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListTagNamesContainingCommitRequest").msgclass
   ListTagNamesContainingCommitResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListTagNamesContainingCommitResponse").msgclass
+  GetTagSignaturesRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GetTagSignaturesRequest").msgclass
+  GetTagSignaturesResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GetTagSignaturesResponse").msgclass
+  GetTagSignaturesResponse::TagSignature = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GetTagSignaturesResponse.TagSignature").msgclass
   GetTagMessagesRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GetTagMessagesRequest").msgclass
   GetTagMessagesResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GetTagMessagesResponse").msgclass
   ListNewCommitsRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListNewCommitsRequest").msgclass

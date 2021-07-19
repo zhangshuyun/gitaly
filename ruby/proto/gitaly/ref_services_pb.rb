@@ -32,6 +32,11 @@ module Gitaly
       rpc :DeleteRefs, Gitaly::DeleteRefsRequest, Gitaly::DeleteRefsResponse
       rpc :ListBranchNamesContainingCommit, Gitaly::ListBranchNamesContainingCommitRequest, stream(Gitaly::ListBranchNamesContainingCommitResponse)
       rpc :ListTagNamesContainingCommit, Gitaly::ListTagNamesContainingCommitRequest, stream(Gitaly::ListTagNamesContainingCommitResponse)
+      # GetTagSignatures returns signatures for annotated tags resolved from a set of revisions. Revisions
+      # which don't resolve to an annotated tag are silently discarded. Revisions which cannot be resolved
+      # result in an error. Tags which are annotated but not signed will return a TagSignature response
+      # which has no signature, but its unsigned contents will still be returned.
+      rpc :GetTagSignatures, Gitaly::GetTagSignaturesRequest, stream(Gitaly::GetTagSignaturesResponse)
       rpc :GetTagMessages, Gitaly::GetTagMessagesRequest, stream(Gitaly::GetTagMessagesResponse)
       # Returns commits that are only reachable from the ref passed
       rpc :ListNewCommits, Gitaly::ListNewCommitsRequest, stream(Gitaly::ListNewCommitsResponse)
