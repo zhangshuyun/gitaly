@@ -34,10 +34,15 @@ func (cmd *createSubcommand) Flags(fs *flag.FlagSet) {
 }
 
 func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
-	fsBackup := backup.NewManager(backup.NewFilesystemSink(cmd.backupPath))
+	sink, err := backup.ResolveSink(ctx, cmd.backupPath)
+	if err != nil {
+		return fmt.Errorf("create: resolve sink: %w", err)
+	}
+
+	manager := backup.NewManager(sink)
 
 	var pipeline backup.CreatePipeline
-	pipeline = backup.NewPipeline(log.StandardLogger(), fsBackup)
+	pipeline = backup.NewPipeline(log.StandardLogger(), manager)
 	if cmd.parallel > 0 {
 		pipeline = backup.NewParallelCreatePipeline(pipeline, cmd.parallel)
 	}

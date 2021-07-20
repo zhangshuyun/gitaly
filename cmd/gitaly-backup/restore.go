@@ -31,8 +31,13 @@ func (cmd *restoreSubcommand) Flags(fs *flag.FlagSet) {
 }
 
 func (cmd *restoreSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
-	fsBackup := backup.NewManager(backup.NewFilesystemSink(cmd.backupPath))
-	pipeline := backup.NewPipeline(log.StandardLogger(), fsBackup)
+	sink, err := backup.ResolveSink(ctx, cmd.backupPath)
+	if err != nil {
+		return fmt.Errorf("restore: resolve sink: %w", err)
+	}
+
+	manager := backup.NewManager(sink)
+	pipeline := backup.NewPipeline(log.StandardLogger(), manager)
 
 	decoder := json.NewDecoder(stdin)
 	for {
