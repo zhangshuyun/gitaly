@@ -20,6 +20,8 @@ type storages map[string][]string
 // without a generation number.
 const GenerationUnknown = -1
 
+var errWriteToOutdatedNodes = errors.New("write to outdated nodes")
+
 // DowngradeAttemptedError is returned when attempting to get the replicated generation for a source repository
 // that does not upgrade the target repository.
 type DowngradeAttemptedError struct {
@@ -84,7 +86,7 @@ var ErrNoRowsAffected = errors.New("no rows were affected by the query")
 type RepositoryStore interface {
 	// GetGeneration gets the repository's generation on a given storage.
 	GetGeneration(ctx context.Context, virtualStorage, relativePath, storage string) (int, error)
-	// IncrementGeneration increments the primary's and the up to date secondaries' generations.
+	// IncrementGeneration increments the generations of up to date nodes.
 	IncrementGeneration(ctx context.Context, virtualStorage, relativePath, primary string, secondaries []string) error
 	// SetGeneration sets the repository's generation on the given storage. If the generation is higher
 	// than the virtual storage's generation, it is set to match as well to guarantee monotonic increments.
@@ -161,57 +163,53 @@ AND storage = $3
 }
 
 func (rs *PostgresRepositoryStore) IncrementGeneration(ctx context.Context, virtualStorage, relativePath, primary string, secondaries []string) error {
-	// The query works as follows:
-	//   1. `next_generation` CTE increments the latest generation by 1. If no previous records exists,
-	//      the generation starts from 0.
-	//   2. `base_generation` CTE gets the primary's current generation. A secondary has to be on the primary's
-	//      generation, otherwise its generation won't be incremented. This avoids any issues where a concurrent
-	//      reference transaction has failed and the secondary is no longer up to date when we are incrementing
-	//      the generations.
-	//   3. `eligible_secondaries` filters out secondaries which participated in a transaction but failed a
-	///     concurrent transaction.
-	//   4. `eligible_storages` CTE combines the primary and the up to date secondaries in a list of storages to
-	//      increment the generation for.
-	//   5. Finally, we update the records in 'storage_repositories' table to match the new generation for the
-	//      eligible storages.
-
 	const q = `
-WITH next_generation AS (
-	INSERT INTO repositories (
-		virtual_storage,
-		relative_path,
-		generation
-	) VALUES ($1, $2, 0)
-	ON CONFLICT (virtual_storage, relative_path) DO
-		UPDATE SET generation = COALESCE(repositories.generation, -1) + 1
-	RETURNING virtual_storage, relative_path, generation
-), base_generation AS (
-	SELECT virtual_storage, relative_path, generation
-	FROM storage_repositories
+WITH repository AS (
+	SELECT generation
+	FROM repositories
 	WHERE virtual_storage = $1
-	AND relative_path = $2
-	AND storage = $3
+	AND   relative_path   = $2
 	FOR UPDATE
-), eligible_secondaries AS (
-	SELECT storage
-	FROM storage_repositories
-	NATURAL JOIN base_generation
-	WHERE storage = ANY($4::text[])
-	FOR UPDATE
-), eligible_storages AS (
-	SELECT storage
-	FROM eligible_secondaries
-		UNION
-	SELECT $3
+),
+
+updated_replicas AS (
+	UPDATE storage_repositories
+	SET generation = generation + 1
+	WHERE virtual_storage = $1
+	AND   relative_path   = $2
+	AND   storage         = ANY($3)
+	AND   generation      = ( SELECT generation FROM repository )
+	RETURNING true AS updated
+),
+
+updated_repository AS (
+	UPDATE repositories
+	SET generation = generation + 1
+	WHERE virtual_storage = $1
+	AND   relative_path   = $2
+	AND   EXISTS ( SELECT FROM updated_replicas )
 )
 
-UPDATE storage_repositories AS sr
-SET generation = ng.generation
-FROM eligible_storages AS es, next_generation AS ng
-WHERE es.storage = sr.storage AND ng.virtual_storage = sr.virtual_storage AND ng.relative_path = sr.relative_path
+SELECT
+	EXISTS ( SELECT FROM repository ) AS repository_exists,
+	EXISTS ( SELECT FROM updated_replicas ) AS repository_updated
 `
-	_, err := rs.db.ExecContext(ctx, q, virtualStorage, relativePath, primary, pq.StringArray(secondaries))
-	return err
+	var repositoryExists, repositoryUpdated bool
+	if err := rs.db.QueryRowContext(
+		ctx, q, virtualStorage, relativePath, pq.StringArray(append(secondaries, primary)),
+	).Scan(&repositoryExists, &repositoryUpdated); err != nil {
+		return fmt.Errorf("scan: %w", err)
+	}
+
+	if !repositoryExists {
+		return commonerr.NewRepositoryNotFoundError(virtualStorage, relativePath)
+	}
+
+	if !repositoryUpdated {
+		return errWriteToOutdatedNodes
+	}
+
+	return nil
 }
 
 func (rs *PostgresRepositoryStore) SetGeneration(ctx context.Context, virtualStorage, relativePath, storage string, generation int) error {

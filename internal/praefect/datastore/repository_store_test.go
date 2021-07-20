@@ -118,25 +118,30 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 	)
 
 	t.Run("IncrementGeneration", func(t *testing.T) {
-		t.Run("doesn't create a new record for primary", func(t *testing.T) {
+		t.Run("doesn't create new records", func(t *testing.T) {
 			rs, requireState := newStore(t, nil)
 
-			require.NoError(t, rs.IncrementGeneration(ctx, vs, repo, "primary", []string{"secondary-1"}))
+			require.Equal(t,
+				rs.IncrementGeneration(ctx, vs, repo, "primary", []string{"secondary-1"}),
+				commonerr.NewRepositoryNotFoundError(vs, repo),
+			)
 			requireState(t, ctx,
-				virtualStorageState{
-					"virtual-storage-1": {
-						"repository-1": repositoryRecord{},
-					},
-				},
+				virtualStorageState{},
 				storageState{},
 			)
 		})
 
-		t.Run("increments existing record for primary", func(t *testing.T) {
+		t.Run("write to outdated nodes", func(t *testing.T) {
 			rs, requireState := newStore(t, nil)
 
-			require.NoError(t, rs.SetGeneration(ctx, vs, repo, "primary", 0))
-			require.NoError(t, rs.IncrementGeneration(ctx, vs, repo, "primary", []string{"secondary-1"}))
+			require.NoError(t, rs.SetGeneration(ctx, vs, repo, "latest-node", 1))
+			require.NoError(t, rs.SetGeneration(ctx, vs, repo, "outdated-primary", 0))
+			require.NoError(t, rs.SetGeneration(ctx, vs, repo, "outdated-secondary", 0))
+
+			require.Equal(t,
+				rs.IncrementGeneration(ctx, vs, repo, "outdated-primary", []string{"outdated-secondary"}),
+				errWriteToOutdatedNodes,
+			)
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
@@ -146,14 +151,16 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 				storageState{
 					"virtual-storage-1": {
 						"repository-1": {
-							"primary": 1,
+							"latest-node":        1,
+							"outdated-primary":   0,
+							"outdated-secondary": 0,
 						},
 					},
 				},
 			)
 		})
 
-		t.Run("increments existing for up to date secondary", func(t *testing.T) {
+		t.Run("increments generation for up to date nodes", func(t *testing.T) {
 			rs, requireState := newStore(t, nil)
 
 			require.NoError(t, rs.SetGeneration(ctx, vs, repo, "primary", 1))
