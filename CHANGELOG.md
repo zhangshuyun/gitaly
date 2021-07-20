@@ -1,5 +1,15 @@
 # Gitaly changelog
 
+## 14.0.6 (2021-07-20)
+
+### Added (1 change)
+
+- [repository: Support transactional voting in `RemoveRepository()`](gitlab-org/gitaly@aa09579c973f8565a473fee8fc05c896ba8b1a9d) ([merge request](gitlab-org/gitaly!3675))
+
+### Fixed (1 change)
+
+- [coordinator: Fix repo creation/removal race for up-to-date secondaries](gitlab-org/gitaly@22e386d7cdecbb8023918918f7224a1791e975c6) ([merge request](gitlab-org/gitaly!3675))
+
 ## 14.0.5 (2021-07-08)
 
 No changes.
