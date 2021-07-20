@@ -76,7 +76,7 @@ type tagSender struct {
 }
 
 func (t *tagSender) Reset() {
-	t.tags = nil
+	t.tags = t.tags[:0]
 }
 
 func (t *tagSender) Append(m proto.Message) {
@@ -192,7 +192,7 @@ func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, stream g
 				return fmt.Errorf("parsing annotated tag: %w", err)
 			}
 		case "commit":
-			commit, err := catfile.ParseCommit(tag.ObjectReader, tag.ObjectInfo)
+			commit, err := catfile.ParseCommit(tag.ObjectReader, tag.ObjectInfo.Oid)
 			if err != nil {
 				return fmt.Errorf("parsing tagged commit: %w", err)
 			}
@@ -224,7 +224,7 @@ func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, stream g
 		// We only need to parse the tagged object in case we have an annotated tag which
 		// refers to a commit object. Otherwise, we discard the object's contents.
 		if tag.ObjectInfo.Type == "tag" && peeledTag.ObjectInfo.Type == "commit" {
-			result.TargetCommit, err = catfile.ParseCommit(peeledTag.ObjectReader, peeledTag.ObjectInfo)
+			result.TargetCommit, err = catfile.ParseCommit(peeledTag.ObjectReader, peeledTag.ObjectInfo.Oid)
 			if err != nil {
 				return fmt.Errorf("parsing tagged commit: %w", err)
 			}

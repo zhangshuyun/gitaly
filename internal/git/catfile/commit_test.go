@@ -101,7 +101,7 @@ func TestParseCommit(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			info.Size = int64(len(tc.in))
-			out, err := ParseCommit(bytes.NewBuffer(tc.in), info)
+			out, err := ParseCommit(bytes.NewBuffer(tc.in), info.Oid)
 			require.NoError(t, err, "parse error")
 			require.Equal(t, tc.out, out)
 		})
