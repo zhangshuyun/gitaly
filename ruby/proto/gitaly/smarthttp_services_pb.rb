@@ -8,7 +8,7 @@ module Gitaly
   module SmartHTTPService
     class Service
 
-      include GRPC::GenericService
+      include ::GRPC::GenericService
 
       self.marshal_class_method = :encode
       self.unmarshal_class_method = :decode
@@ -17,15 +17,15 @@ module Gitaly
       # The response body for GET /info/refs?service=git-upload-pack
       # Will be invoked when the user executes a `git fetch`, meaning the server
       # will upload the packs to that user. The user doesn't upload new objects.
-      rpc :InfoRefsUploadPack, Gitaly::InfoRefsRequest, stream(Gitaly::InfoRefsResponse)
+      rpc :InfoRefsUploadPack, ::Gitaly::InfoRefsRequest, stream(::Gitaly::InfoRefsResponse)
       # The response body for GET /info/refs?service=git-receive-pack
       # Will be invoked when the user executes a `git push`, but only advertises
       # references to the user.
-      rpc :InfoRefsReceivePack, Gitaly::InfoRefsRequest, stream(Gitaly::InfoRefsResponse)
+      rpc :InfoRefsReceivePack, ::Gitaly::InfoRefsRequest, stream(::Gitaly::InfoRefsResponse)
       # Request and response body for POST /upload-pack
-      rpc :PostUploadPack, stream(Gitaly::PostUploadPackRequest), stream(Gitaly::PostUploadPackResponse)
+      rpc :PostUploadPack, stream(::Gitaly::PostUploadPackRequest), stream(::Gitaly::PostUploadPackResponse)
       # Request and response body for POST /receive-pack
-      rpc :PostReceivePack, stream(Gitaly::PostReceivePackRequest), stream(Gitaly::PostReceivePackResponse)
+      rpc :PostReceivePack, stream(::Gitaly::PostReceivePackRequest), stream(::Gitaly::PostReceivePackResponse)
     end
 
     Stub = Service.rpc_stub_class
