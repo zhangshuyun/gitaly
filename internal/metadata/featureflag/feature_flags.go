@@ -29,6 +29,8 @@ var (
 	// UserSquashWithoutWorktree enables the new implementation of UserSquash which does not
 	// require a worktree to compute the squash.
 	UserSquashWithoutWorktree = FeatureFlag{Name: "user_squash_without_worktree", OnByDefault: false}
+	// QuarantinedResolveCOnflicts enables use of a quarantine object directory for ResolveConflicts.
+	QuarantinedResolveConflicts = FeatureFlag{Name: "quarantined_resolve_conflicts", OnByDefault: false}
 )
 
 // All includes all feature flags.
@@ -43,4 +45,5 @@ var All = []FeatureFlag{
 	TxRemoveRepository,
 	QuarantinedUserCreateTag,
 	UserSquashWithoutWorktree,
+	QuarantinedResolveConflicts,
 }

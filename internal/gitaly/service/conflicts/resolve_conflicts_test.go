@@ -58,6 +58,7 @@ var (
 
 func TestSuccessfulResolveConflictsRequest(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.QuarantinedResolveConflicts,
 		featureflag.ResolveConflictsWithHooks,
 	}).Run(t, testSuccessfulResolveConflictsRequestHelper)
 }
@@ -200,6 +201,13 @@ func testSuccessfulResolveConflictsRequestHelper(t *testing.T, ctx context.Conte
 }
 
 func TestResolveConflictsWithRemoteRepo(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.QuarantinedResolveConflicts,
+		featureflag.ResolveConflictsWithHooks,
+	}).Run(t, testResolveConflictsWithRemoteRepo)
+}
+
+func testResolveConflictsWithRemoteRepo(t *testing.T, ctx context.Context) {
 	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
 	cfg, _, _, client := SetupConflictsService(t, true, hookManager)
 
@@ -226,8 +234,6 @@ func TestResolveConflictsWithRemoteRepo(t *testing.T) {
 	)
 	gittest.Exec(t, cfg, "-C", targetRepoPath, "update-ref", "refs/heads/target", targetCommitOID.String())
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
 
 	stream, err := client.ResolveConflicts(ctx)
@@ -272,10 +278,16 @@ func TestResolveConflictsWithRemoteRepo(t *testing.T) {
 }
 
 func TestResolveConflictsLineEndings(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.QuarantinedResolveConflicts,
+		featureflag.ResolveConflictsWithHooks,
+	}).Run(t, testResolveConflictsLineEndings)
+}
+
+func testResolveConflictsLineEndings(t *testing.T, ctx context.Context) {
 	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
 	cfg, repo, repoPath, client := SetupConflictsService(t, true, hookManager)
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
 
 	for _, tc := range []struct {
@@ -392,11 +404,16 @@ func TestResolveConflictsLineEndings(t *testing.T) {
 }
 
 func TestResolveConflictsNonOIDRequests(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.QuarantinedResolveConflicts,
+		featureflag.ResolveConflictsWithHooks,
+	}).Run(t, testResolveConflictsNonOIDRequests)
+}
+
+func testResolveConflictsNonOIDRequests(t *testing.T, ctx context.Context) {
 	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
 	cfg, repoProto, _, client := SetupConflictsService(t, true, hookManager)
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
 
 	stream, err := client.ResolveConflicts(ctx)
@@ -430,13 +447,17 @@ func TestResolveConflictsNonOIDRequests(t *testing.T) {
 }
 
 func TestResolveConflictsIdenticalContent(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.QuarantinedResolveConflicts,
+		featureflag.ResolveConflictsWithHooks,
+	}).Run(t, testResolveConflictsIdenticalContent)
+}
+
+func testResolveConflictsIdenticalContent(t *testing.T, ctx context.Context) {
 	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
 	cfg, repoProto, repoPath, client := SetupConflictsService(t, true, hookManager)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	sourceBranch := "conflict-resolvable"
 	sourceOID, err := repo.ResolveRevision(ctx, git.Revision(sourceBranch))
@@ -528,13 +549,17 @@ func TestResolveConflictsIdenticalContent(t *testing.T) {
 }
 
 func TestResolveConflictsStableID(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.QuarantinedResolveConflicts,
+		featureflag.ResolveConflictsWithHooks,
+	}).Run(t, testResolveConflictsStableID)
+}
+
+func testResolveConflictsStableID(t *testing.T, ctx context.Context) {
 	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
 	cfg, repoProto, _, client := SetupConflictsService(t, true, hookManager)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
@@ -598,11 +623,15 @@ func TestResolveConflictsStableID(t *testing.T) {
 }
 
 func TestFailedResolveConflictsRequestDueToResolutionError(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.QuarantinedResolveConflicts,
+		featureflag.ResolveConflictsWithHooks,
+	}).Run(t, testFailedResolveConflictsRequestDueToResolutionError)
+}
+
+func testFailedResolveConflictsRequestDueToResolutionError(t *testing.T, ctx context.Context) {
 	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
 	cfg, repo, _, client := SetupConflictsService(t, true, hookManager)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	mdGS := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	mdFF, _ := metadata.FromOutgoingContext(ctx)
@@ -656,11 +685,15 @@ func TestFailedResolveConflictsRequestDueToResolutionError(t *testing.T) {
 }
 
 func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.QuarantinedResolveConflicts,
+		featureflag.ResolveConflictsWithHooks,
+	}).Run(t, testFailedResolveConflictsRequestDueToValidation)
+}
+
+func testFailedResolveConflictsRequestDueToValidation(t *testing.T, ctx context.Context) {
 	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
 	cfg, repo, _, client := SetupConflictsService(t, true, hookManager)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	mdGS := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	ourCommitOid := "1450cd639e0bc6721eb02800169e464f212cde06"
@@ -820,4 +853,101 @@ func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
 			require.Contains(t, err.Error(), testCase.expectedErr)
 		})
 	}
+}
+
+func TestResolveConflictsQuarantine(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.QuarantinedResolveConflicts,
+	}).Run(t, testResolveConflictsQuarantine)
+}
+
+func testResolveConflictsQuarantine(t *testing.T, ctx context.Context) {
+	cfg, _, _, client := SetupConflictsService(t, true, nil)
+
+	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.ConfigureGitalyHooksBin(t, cfg)
+
+	sourceRepoProto, sourceRepoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "source")
+	t.Cleanup(cleanup)
+	sourceBlobOID := gittest.WriteBlob(t, cfg, sourceRepoPath, []byte("contents-1\n"))
+	sourceCommitOID := gittest.WriteCommit(t, cfg, sourceRepoPath,
+		gittest.WithTreeEntries(gittest.TreeEntry{
+			Path: "file.txt", OID: sourceBlobOID, Mode: "100644",
+		}),
+	)
+	gittest.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", "refs/heads/source", sourceCommitOID.String())
+
+	// We set up a custom "update" hook which simply prints the new commit to stdout and then
+	// exits with an error. Like this, we can both assert that the hook can see the quarantined
+	// tag, and it allows us to fail the RPC before we migrate quarantined objects.
+	script := fmt.Sprintf("#!/bin/sh\necho $3 && %s cat-file -p $3^{commit} && exit 1", cfg.Git.BinPath)
+	gittest.WriteCustomHook(t, sourceRepoPath, "update", []byte(script))
+
+	targetRepoProto, targetRepoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "target")
+	t.Cleanup(cleanup)
+	targetBlobOID := gittest.WriteBlob(t, cfg, targetRepoPath, []byte("contents-2\n"))
+	targetCommitOID := gittest.WriteCommit(t, cfg, targetRepoPath,
+		gittest.WithTreeEntries(gittest.TreeEntry{
+			Path: "file.txt", OID: targetBlobOID, Mode: "100644",
+		}),
+	)
+	gittest.Exec(t, cfg, "-C", targetRepoPath, "update-ref", "refs/heads/target", targetCommitOID.String())
+
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
+
+	stream, err := client.ResolveConflicts(ctx)
+	require.NoError(t, err)
+
+	filesJSON, err := json.Marshal([]map[string]interface{}{
+		{
+			"old_path": "file.txt",
+			"new_path": "file.txt",
+			"sections": map[string]string{
+				"5436437fa01a7d3e41d46741da54b451446774ca_1_1": "origin",
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, stream.Send(&gitalypb.ResolveConflictsRequest{
+		ResolveConflictsRequestPayload: &gitalypb.ResolveConflictsRequest_Header{
+			Header: &gitalypb.ResolveConflictsRequestHeader{
+				Repository:       sourceRepoProto,
+				TargetRepository: targetRepoProto,
+				CommitMessage:    []byte(conflictResolutionCommitMessage),
+				OurCommitOid:     sourceCommitOID.String(),
+				TheirCommitOid:   targetCommitOID.String(),
+				SourceBranch:     []byte("source"),
+				TargetBranch:     []byte("target"),
+				User:             user,
+				Timestamp:        &timestamp.Timestamp{Seconds: 12345},
+			},
+		},
+	}))
+	require.NoError(t, stream.Send(&gitalypb.ResolveConflictsRequest{
+		ResolveConflictsRequestPayload: &gitalypb.ResolveConflictsRequest_FilesJson{
+			FilesJson: filesJSON,
+		},
+	}))
+
+	response, err := stream.CloseAndRecv()
+	require.EqualError(t, err, `rpc error: code = Unknown desc = af339cb882d1e3cf8d6751651e58bbaff0265d6e
+tree 89fad81bbfa38070b90ca8f4c404625bf0999013
+parent 29449b1d52cd77fd060a083a1de691bbaf12d8af
+parent 26dac52be85c92742b2c0c19eb7303de9feccb63
+author John Doe <johndoe@gitlab.com> 12345 +0000
+committer John Doe <johndoe@gitlab.com> 12345 +0000
+
+Solve conflicts`)
+	require.Empty(t, response.GetResolutionError())
+
+	// The file shouldn't have been updated and is thus expected to still have the same old
+	// contents.
+	require.Equal(t, []byte("contents-1\n"), gittest.Exec(t, cfg, "-C", sourceRepoPath, "cat-file", "-p", "refs/heads/source:file.txt"))
+
+	// In case we use an object quarantine directory, the tag should not exist in the target
+	// repository because the RPC failed to update the revision.
+	exists, err := localrepo.NewTestRepo(t, cfg, sourceRepoProto).HasRevision(ctx, "af339cb882d1e3cf8d6751651e58bbaff0265d6e^{commit}")
+	require.NoError(t, err)
+	require.Equal(t, featureflag.QuarantinedResolveConflicts.IsDisabled(ctx), exists)
 }

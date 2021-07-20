@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/conflict"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
@@ -141,21 +142,34 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 	}
 
 	ctx := stream.Context()
-	sourceRepo := s.localrepo(header.GetRepository())
 	targetRepo, err := remoterepo.New(ctx, header.GetTargetRepository(), s.pool)
 	if err != nil {
 		return err
 	}
 
+	var quarantineRepo *localrepo.Repo
+	var quarantineDir *quarantine.Dir
+	if featureflag.QuarantinedResolveConflicts.IsEnabled(ctx) && featureflag.ResolveConflictsWithHooks.IsEnabled(ctx) {
+		var err error
+		quarantineDir, err = quarantine.New(ctx, header.GetRepository(), s.locator)
+		if err != nil {
+			return helper.ErrInternalf("creating object quarantine: %w", err)
+		}
+
+		quarantineRepo = s.localrepo(quarantineDir.QuarantinedRepo())
+	} else {
+		quarantineRepo = s.localrepo(header.GetRepository())
+	}
+
 	if err := s.repoWithBranchCommit(ctx,
-		sourceRepo,
+		quarantineRepo,
 		targetRepo,
 		header.TargetBranch,
 	); err != nil {
 		return err
 	}
 
-	repoPath, err := s.locator.GetRepoPath(sourceRepo)
+	repoPath, err := s.locator.GetRepoPath(quarantineRepo)
 	if err != nil {
 		return err
 	}
@@ -173,7 +187,7 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		return errors.New("Rugged::InvalidError: unable to parse OID - contains invalid characters")
 	}
 
-	result, err := s.git2go.Resolve(ctx, sourceRepo, git2go.ResolveCommand{
+	result, err := s.git2go.Resolve(ctx, quarantineRepo, git2go.ResolveCommand{
 		MergeCommand: git2go.MergeCommand{
 			Repository: repoPath,
 			AuthorName: string(header.User.Name),
@@ -202,7 +216,7 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 			ctx,
 			header.Repository,
 			header.User,
-			nil,
+			quarantineDir,
 			git.ReferenceName("refs/heads/"+string(header.GetSourceBranch())),
 			commitOID,
 			git.ObjectID(header.OurCommitOid),
@@ -210,6 +224,7 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 			return err
 		}
 	} else {
+		sourceRepo := s.localrepo(header.GetRepository())
 		if err := sourceRepo.UpdateRef(
 			ctx,
 			git.ReferenceName("refs/heads/"+string(header.GetSourceBranch())),
