@@ -9,7 +9,6 @@ import (
 
 	"github.com/opentracing/opentracing-go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/labkit/correlation"
 )
 
 // batchCheckProcess encapsulates a 'git cat-file --batch-check' process
@@ -25,10 +24,7 @@ func (bc *BatchCache) newBatchCheckProcess(ctx context.Context, repo git.Reposit
 	var stdinReader io.Reader
 	stdinReader, process.w = io.Pipe()
 
-	// batch processes are long-lived and reused across RPCs,
-	// so we de-correlate the process from the RPC
-	ctx = correlation.ContextWithCorrelation(ctx, "")
-	ctx = opentracing.ContextWithSpan(ctx, nil)
+	span, ctx := opentracing.StartSpanFromContext(ctx, "catfile.BatchCheckProcess")
 
 	batchCmd, err := repo.Exec(ctx,
 		git.SubCmd{
@@ -48,6 +44,7 @@ func (bc *BatchCache) newBatchCheckProcess(ctx context.Context, repo git.Reposit
 		<-ctx.Done()
 		// This is crucial to prevent leaking file descriptors.
 		process.w.Close()
+		span.Finish()
 	}()
 
 	if bc.injectSpawnErrors {

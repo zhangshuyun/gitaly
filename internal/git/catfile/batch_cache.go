@@ -178,11 +178,11 @@ func (bc *BatchCache) BatchProcess(ctx context.Context, repo git.RepositoryExecu
 
 	sessionID := metadata.GetValue(ctx, SessionIDField)
 	if sessionID == "" {
-		c, err := bc.newBatch(ctx, repo)
+		c, ctx, err := bc.newBatch(ctx, repo)
 		if err != nil {
 			return nil, err
 		}
-		return newInstrumentedBatch(c, bc.catfileLookupCounter), err
+		return newInstrumentedBatch(ctx, c, bc.catfileLookupCounter), err
 	}
 
 	cacheKey := newCacheKey(sessionID, repo)
@@ -190,13 +190,13 @@ func (bc *BatchCache) BatchProcess(ctx context.Context, repo git.RepositoryExecu
 
 	if c, ok := bc.checkout(cacheKey); ok {
 		go bc.returnWhenDone(requestDone, cacheKey, c)
-		return newInstrumentedBatch(c, bc.catfileLookupCounter), nil
+		return newInstrumentedBatch(ctx, c, bc.catfileLookupCounter), nil
 	}
 
 	// if we are using caching, create a fresh context for the new batch
 	// and initialize the new batch with a bc key and cancel function
 	cacheCtx, cacheCancel := context.WithCancel(context.Background())
-	c, err := bc.newBatch(cacheCtx, repo)
+	c, ctx, err := bc.newBatch(cacheCtx, repo)
 	if err != nil {
 		cacheCancel()
 		return nil, err
@@ -205,7 +205,7 @@ func (bc *BatchCache) BatchProcess(ctx context.Context, repo git.RepositoryExecu
 	c.cancel = cacheCancel
 	go bc.returnWhenDone(requestDone, cacheKey, c)
 
-	return newInstrumentedBatch(c, bc.catfileLookupCounter), nil
+	return newInstrumentedBatch(ctx, c, bc.catfileLookupCounter), nil
 }
 
 func (bc *BatchCache) returnWhenDone(done <-chan struct{}, cacheKey key, c *batch) {
