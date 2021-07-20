@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
@@ -33,6 +34,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type glHookValues struct {
@@ -567,8 +569,8 @@ func TestCheckBadCreds(t *testing.T) {
 	require.Regexp(t, `Checking GitLab API access: .* level=error msg="Internal API error" .* error="authorization failed" method=GET status=401 url="http://127.0.0.1:[0-9]+/api/v4/internal/check"\nFAIL`, stdout.String())
 }
 
-func runHookServiceServer(t *testing.T, cfg config.Cfg) {
-	runHookServiceWithGitlabClient(t, cfg, gitlab.NewMockClient())
+func runHookServiceServer(t *testing.T, cfg config.Cfg, serverOpts ...testserver.GitalyServerOpt) {
+	runHookServiceWithGitlabClient(t, cfg, gitlab.NewMockClient(), serverOpts...)
 }
 
 type featureFlagAsserter struct {
@@ -607,12 +609,18 @@ func (svc featureFlagAsserter) PackObjectsHook(stream gitalypb.HookService_PackO
 	return svc.wrapped.PackObjectsHook(stream)
 }
 
-func runHookServiceWithGitlabClient(t *testing.T, cfg config.Cfg, gitlabClient gitlab.Client) {
+func (svc featureFlagAsserter) PackObjectsHookStream(ctx context.Context, req *gitalypb.PackObjectsHookStreamRequest) (*emptypb.Empty, error) {
+	svc.assertFlags(ctx)
+	return svc.wrapped.PackObjectsHookStream(ctx, req)
+}
+
+func runHookServiceWithGitlabClient(t *testing.T, cfg config.Cfg, gitlabClient gitlab.Client, serverOpts ...testserver.GitalyServerOpt) {
+	serverOpts = append(serverOpts, testserver.WithGitLabClient(gitlabClient))
 	testserver.RunGitalyServer(t, cfg, nil, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterHookServiceServer(srv, featureFlagAsserter{
 			t: t, wrapped: hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()),
 		})
-	}, testserver.WithGitLabClient(gitlabClient))
+	}, serverOpts...)
 }
 
 func requireContainsOnce(t *testing.T, s string, contains string) {
@@ -666,25 +674,45 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 	testCases := []struct {
 		desc      string
 		extraArgs []string
+		extraEnv  []string
+		method    string
 	}{
-		{desc: "regular clone"},
-		{desc: "shallow clone", extraArgs: []string{"--depth=1"}},
-		{desc: "partial clone", extraArgs: []string{"--filter=blob:none"}},
+		{desc: "regular clone", method: "PackObjectsHook"},
+		{desc: "shallow clone", extraArgs: []string{"--depth=1"}, method: "PackObjectsHook"},
+		{desc: "partial clone", extraArgs: []string{"--filter=blob:none"}, method: "PackObjectsHook"},
+		{
+			desc:     "regular clone StreamRPC",
+			extraEnv: []string{"GITALY_HOOKS_PACK_OBJECTS_HOOK_STREAM=1"},
+			method:   "PackObjectsHookStream",
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			runHookServiceServer(t, cfg)
+			logger, hook := test.NewNullLogger()
+			runHookServiceServer(t, cfg, testserver.WithLogger(logger))
 
 			tempDir := testhelper.TempDir(t)
 
 			args := append(baseArgs[1:], tc.extraArgs...)
 			args = append(args, repoPath, tempDir)
 			cmd := exec.Command(baseArgs[0], args...)
-			cmd.Env = env
+			cmd.Env = append(env, tc.extraEnv...)
 			cmd.Stderr = os.Stderr
 
 			require.NoError(t, cmd.Run())
+
+			foundMethod := false
+			for _, e := range hook.AllEntries() {
+				t.Log(e.Data)
+				if e.Data["grpc.service"] != "gitaly.HookService" {
+					continue
+				}
+
+				require.Equal(t, tc.method, e.Data["grpc.method"])
+				foundMethod = true
+			}
+			require.True(t, foundMethod)
 		})
 	}
 }

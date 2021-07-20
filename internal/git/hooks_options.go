@@ -66,6 +66,10 @@ func WithPackObjectsHookEnv(ctx context.Context, repo *gitalypb.Repository, cfg 
 			Value: filepath.Join(cfg.BinDir, "gitaly-hooks"),
 		})
 
+		if featureflag.PackObjectsHookStream.IsEnabled(ctx) {
+			cc.env = append(cc.env, "GITALY_HOOKS_PACK_OBJECTS_HOOK_STREAM=1")
+		}
+
 		return nil
 	}
 }

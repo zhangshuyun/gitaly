@@ -24,6 +24,8 @@ var (
 	FindAllTagsPipeline = FeatureFlag{Name: "find_all_tags_pipeline", OnByDefault: false}
 	// TxRemoveRepository enables transactionsal voting for the RemoveRepository RPC.
 	TxRemoveRepository = FeatureFlag{Name: "tx_remove_repository", OnByDefault: false}
+	// GitalyHooksPackObjectsHookStream enables StreamRPC in 'gitaly-hooks git pack-objects'.
+	PackObjectsHookStream = FeatureFlag{Name: "pack_objects_hook_stream", OnByDefault: false}
 )
 
 // All includes all feature flags.
@@ -36,4 +38,5 @@ var All = []FeatureFlag{
 	ReplicateRepositoryDirectFetch,
 	FindAllTagsPipeline,
 	TxRemoveRepository,
+	PackObjectsHookStream,
 }

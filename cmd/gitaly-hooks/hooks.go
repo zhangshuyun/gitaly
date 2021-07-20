@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"os"
 	"strings"
 
@@ -13,6 +14,7 @@ import (
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
@@ -21,6 +23,7 @@ import (
 	gitalylog "gitlab.com/gitlab-org/gitaly/v14/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/stream"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/streamrpc"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 	"gitlab.com/gitlab-org/labkit/tracing"
@@ -339,9 +342,17 @@ func packObjectsHook(ctx context.Context, payload git.HooksPayload, hookClient g
 		fixedArgs = append(fixedArgs, fixFilterQuoteBug(a))
 	}
 
-	if err := handlePackObjects(ctx, hookClient, payload.Repo, fixedArgs); err != nil {
-		logger.Logger().WithFields(logrus.Fields{"args": args}).WithError(err).Error("PackObjectsHook RPC failed")
-		return 1, nil
+	switch os.Getenv("GITALY_HOOKS_PACK_OBJECTS_HOOK_STREAM") {
+	case "1":
+		if err := handlePackObjectsStream(ctx, payload, fixedArgs); err != nil {
+			logger.Logger().WithFields(logrus.Fields{"args": args}).WithError(err).Error("PackObjectsHookStream RPC failed")
+			return 1, nil
+		}
+	default:
+		if err := handlePackObjects(ctx, hookClient, payload.Repo, fixedArgs); err != nil {
+			logger.Logger().WithFields(logrus.Fields{"args": args}).WithError(err).Error("PackObjectsHook RPC failed")
+			return 1, nil
+		}
 	}
 
 	return 0, nil
@@ -406,3 +417,46 @@ type nopExitStatus struct {
 }
 
 func (nopExitStatus) GetExitStatus() *gitalypb.ExitStatus { return nil }
+
+func handlePackObjectsStream(ctx context.Context, payload git.HooksPayload, args []string) error {
+	req := &gitalypb.PackObjectsHookStreamRequest{
+		Repository: payload.Repo,
+		Args:       args,
+	}
+
+	callback := func(c net.Conn) error {
+		if _, err := io.Copy(
+			pktline.NewSidebandWriter(c).Writer(0),
+			os.Stdin,
+		); err != nil {
+			return err
+		}
+		if err := pktline.WriteFlush(c); err != nil {
+			return err
+		}
+
+		return pktline.EachSidebandPacket(c, func(band byte, data []byte) error {
+			var err error
+			switch band {
+			case 1:
+				_, err = os.Stdout.Write(data)
+			case 2:
+				_, err = os.Stderr.Write(data)
+			default:
+				err = fmt.Errorf("unexpected side band: %d", band)
+			}
+			return err
+		})
+	}
+
+	return streamrpc.Call(
+		ctx,
+		streamrpc.DialNet("unix://"+payload.InternalSocket),
+		"/gitaly.HookService/PackObjectsHookStream",
+		req,
+		callback,
+		streamrpc.WithCredentials(
+			gitalyauth.RPCCredentialsV2(payload.InternalSocketToken),
+		),
+	)
+}
