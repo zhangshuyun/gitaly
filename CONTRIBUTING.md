@@ -47,21 +47,34 @@ The Gitaly style guide is [documented in it's own file](STYLE.md).
 ## Changelog
 
 Gitaly keeps a [changelog](CHANGELOG.md) which is generated when a new release
-is created. The changelog is generated from entries that are included on each
-merge request. To generate an entry on your branch run:
-`_support/changelog "Change descriptions"`.
+is created. The changelog is generated from the commit messages where a specific marker is used.
+The marker should have the following format: `Changelog: added` where `added` is one of the allowed options.
+Other supported options are:
+- `added`
+- `fixed`
+- `changed`
+- `deprecated`
+- `removed`
+- `security`
+- `performance`
+- `other`
 
-After the merge request is created, the ID of the merge request needs to be set
-in the generated file. If you already know the merge request ID, run:
-`_support/changelog -m <ID> "Change descriptions"`.
+The commit title is used to generate a changelog entry.
+Please start your commit title with a specific RPC/component name.
 
-Any new merge request must contain either a new entry or a
-justification in the merge request description why no changelog entry is needed.
+As an example for the commit message:
 
-If a change is specific to an RPC, start the changelog line with the
-RPC name. So for a change to RPC `FooBar` you would get:
+```bash
+repository: Fix repo replication with transactions
 
-> FooBar: Add support for `fluffy_bunnies` parameter
+This would be the body of your commit containing some extra details.
+
+Changelog: fixed
+```
+
+The generated changelog entry would look like:
+
+> repository: Fix repo replication with transactions
 
 ## Gitaly Maintainers
 
