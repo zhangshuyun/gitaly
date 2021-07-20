@@ -106,24 +106,22 @@ func (er gitError) Error() string {
 }
 
 func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest, env []string, repoPath string) (string, error) {
-	if featureflag.UserSquashWithoutWorktree.IsEnabled(ctx) {
-		repo := s.localrepo(req.GetRepository())
+	// In case there is an error, we silently ignore it and assume that the commits do not have
+	// a simple parent-child relationship. Ignoring this error is fine igven that we then fall
+	// back to doing a squash with a worktree.
+	err := s.localrepo(req.GetRepository()).ExecAndWait(ctx, git.SubCmd{
+		Name: "merge-base",
+		Flags: []git.Option{
+			git.Flag{Name: "--is-ancestor"},
+		},
+		Args: []string{
+			req.GetStartSha(),
+			req.GetEndSha(),
+		},
+	})
 
-		var stderr bytes.Buffer
-		if err := s.localrepo(req.GetRepository()).ExecAndWait(ctx, git.SubCmd{
-			Name: "merge-base",
-			Flags: []git.Option{
-				git.Flag{Name: "--is-ancestor"},
-			},
-			Args: []string{
-				req.GetStartSha(),
-				req.GetEndSha(),
-			},
-		}, git.WithStderr(&stderr)); err != nil {
-			err := errorWithStderr(fmt.Errorf("%s is not an ancestor of %s",
-				req.GetStartSha(), req.GetEndSha()), &stderr)
-			return "", helper.ErrPreconditionFailed(err)
-		}
+	if err == nil && featureflag.UserSquashWithoutWorktree.IsEnabled(ctx) {
+		repo := s.localrepo(req.GetRepository())
 
 		// We need to retrieve the start commit such that we can create the new commit with
 		// all parents of the start commit.
@@ -173,9 +171,7 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 			},
 		}
 
-		var stdout bytes.Buffer
-		stderr.Reset()
-
+		var stdout, stderr bytes.Buffer
 		if err := repo.ExecAndWait(ctx, git.SubCmd{
 			Name:  "commit-tree",
 			Flags: flags,
