@@ -50,7 +50,7 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 		}
 	}
 
-	newrev, err := git2go.CherryPickCommand{
+	newrev, err := s.git2go.CherryPick(ctx, localRepo, git2go.CherryPickCommand{
 		Repository:    repoPath,
 		CommitterName: string(req.User.Name),
 		CommitterMail: string(req.User.Email),
@@ -59,7 +59,7 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 		Commit:        req.Commit.Id,
 		Ours:          startRevision.String(),
 		Mainline:      mainline,
-	}.Run(ctx, s.cfg)
+	})
 	if err != nil {
 		switch {
 		case errors.As(err, &git2go.HasConflictsError{}):

@@ -10,15 +10,18 @@ import (
 	git "github.com/libgit2/git2go/v31"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/git2goutil"
 	cmdtesthelper "gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
 
 func TestCherryPick_validation(t *testing.T) {
-	cfg, _, repoPath := testcfg.BuildWithRepo(t)
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+	executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
 
 	testcases := []struct {
 		desc        string
@@ -70,7 +73,7 @@ func TestCherryPick_validation(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			_, err := tc.request.Run(ctx, cfg)
+			_, err := executor.CherryPick(ctx, repo, tc.request)
 			require.EqualError(t, err, tc.expectedErr)
 		})
 	}
@@ -144,8 +147,9 @@ func TestCherryPick(t *testing.T) {
 		},
 	}
 	for _, tc := range testcases {
-		cfg, _, repoPath := testcfg.BuildWithRepo(t)
+		cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 		testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+		executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
 
 		base := cmdtesthelper.BuildCommit(t, repoPath, []*git.Oid{nil}, tc.base)
 
@@ -167,7 +171,7 @@ func TestCherryPick(t *testing.T) {
 				When:  time.Date(2021, 1, 17, 14, 45, 51, 0, time.FixedZone("", +2*60*60)),
 			}
 
-			response, err := git2go.CherryPickCommand{
+			response, err := executor.CherryPick(ctx, repo, git2go.CherryPickCommand{
 				Repository:    repoPath,
 				CommitterName: committer.Name,
 				CommitterMail: committer.Email,
@@ -175,7 +179,7 @@ func TestCherryPick(t *testing.T) {
 				Message:       "Foo",
 				Ours:          ours,
 				Commit:        commit,
-			}.Run(ctx, cfg)
+			})
 
 			if tc.expectedErrMsg != "" {
 				require.EqualError(t, err, tc.expectedErrMsg)
@@ -189,7 +193,7 @@ func TestCherryPick(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tc.expectedCommitID, response.String())
 
-			repo, err := git.OpenRepository(repoPath)
+			repo, err := git2goutil.OpenRepository(repoPath)
 			require.NoError(t, err)
 			defer repo.Free()
 

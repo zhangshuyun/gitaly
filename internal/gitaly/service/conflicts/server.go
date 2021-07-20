@@ -7,6 +7,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/storage"
@@ -22,6 +23,7 @@ type server struct {
 	pool          *client.Pool
 	hookManager   hook.Manager
 	updater       *updateref.UpdaterWithHooks
+	git2go        git2go.Executor
 }
 
 // NewServer creates a new instance of a grpc ConflictsServer
@@ -37,6 +39,7 @@ func NewServer(cfg config.Cfg, hookManager hook.Manager, locator storage.Locator
 			client.WithDialOptions(client.FailOnNonTempDialError()...),
 		),
 		updater: updateref.NewUpdaterWithHooks(cfg, hookManager, gitCmdFactory, catfileCache),
+		git2go:  git2go.NewExecutor(cfg, locator),
 	}
 }
 

@@ -10,15 +10,18 @@ import (
 	git "github.com/libgit2/git2go/v31"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/git2goutil"
 	cmdtesthelper "gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
 
 func TestRevert_validation(t *testing.T) {
-	cfg, _, repoPath := testcfg.BuildWithRepo(t)
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+	executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
 
 	testcases := []struct {
 		desc        string
@@ -65,7 +68,7 @@ func TestRevert_validation(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			_, err := tc.request.Run(ctx, cfg)
+			_, err := executor.Revert(ctx, repo, tc.request)
 			require.Error(t, err)
 			require.EqualError(t, err, tc.expectedErr)
 		})
@@ -168,8 +171,9 @@ func TestRevert_trees(t *testing.T) {
 	}
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg, _, repoPath := testcfg.BuildWithRepo(t)
+			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 			testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+			executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
 
 			ours, revert := tc.setupRepo(t, repoPath)
 
@@ -188,7 +192,7 @@ func TestRevert_trees(t *testing.T) {
 				Revert:     revert,
 			}
 
-			response, err := request.Run(ctx, cfg)
+			response, err := executor.Revert(ctx, repoProto, request)
 
 			if tc.expectedErr != "" {
 				require.EqualError(t, err, tc.expectedErr)
@@ -202,7 +206,7 @@ func TestRevert_trees(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tc.expectedCommitID, response.String())
 
-			repo, err := git.OpenRepository(repoPath)
+			repo, err := git2goutil.OpenRepository(repoPath)
 			require.NoError(t, err)
 			defer repo.Free()
 

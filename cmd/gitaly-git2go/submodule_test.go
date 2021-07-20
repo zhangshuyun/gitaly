@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
@@ -90,13 +91,14 @@ func TestSubmodule(t *testing.T) {
 			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 			testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+			executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
 
 			tc.command.Repository = repoPath
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			response, err := tc.command.Run(ctx, cfg)
+			response, err := executor.Submodule(ctx, repo, tc.command)
 			if tc.expectedStderr != "" {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tc.expectedStderr)

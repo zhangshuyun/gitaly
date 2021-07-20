@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"io"
 
-	git "github.com/libgit2/git2go/v31"
+	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/git2goutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 )
 
@@ -26,7 +26,7 @@ func (cmd setConfigSubcommand) setConfig(request git2go.SetConfigCommand) error 
 		return errors.New("missing repository")
 	}
 
-	git2goRepo, err := git.OpenRepository(request.Repository)
+	git2goRepo, err := git2goutil.OpenRepository(request.Repository)
 	if err != nil {
 		return fmt.Errorf("open repository: %w", err)
 	}

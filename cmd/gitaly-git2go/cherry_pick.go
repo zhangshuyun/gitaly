@@ -11,6 +11,7 @@ import (
 	"io"
 
 	git "github.com/libgit2/git2go/v31"
+	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/git2goutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 )
 
@@ -64,7 +65,7 @@ func (cmd *cherryPickSubcommand) cherryPick(ctx context.Context, r *git2go.Cherr
 		return "", err
 	}
 
-	repo, err := git.OpenRepository(r.Repository)
+	repo, err := git2goutil.OpenRepository(r.Repository)
 	if err != nil {
 		return "", fmt.Errorf("could not open repository: %w", err)
 	}

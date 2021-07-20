@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -41,6 +41,7 @@ type Conflict struct {
 	Content []byte `json:"content"`
 }
 
+// ConflictError is an error which happened during conflict resolution.
 type ConflictError struct {
 	// Code is the GRPC error code
 	Code codes.Code
@@ -75,8 +76,8 @@ func (m ConflictsResult) SerializeTo(writer io.Writer) error {
 	return serializeTo(writer, m)
 }
 
-// Run performs a merge via gitaly-git2go and returns all resulting conflicts.
-func (c ConflictsCommand) Run(ctx context.Context, cfg config.Cfg) (ConflictsResult, error) {
+// Conflicts performs a merge via gitaly-git2go and returns all resulting conflicts.
+func (b Executor) Conflicts(ctx context.Context, repo repository.GitRepo, c ConflictsCommand) (ConflictsResult, error) {
 	if err := c.verify(); err != nil {
 		return ConflictsResult{}, fmt.Errorf("conflicts: %w: %s", ErrInvalidArgument, err.Error())
 	}
@@ -86,7 +87,7 @@ func (c ConflictsCommand) Run(ctx context.Context, cfg config.Cfg) (ConflictsRes
 		return ConflictsResult{}, err
 	}
 
-	stdout, err := run(ctx, BinaryPath(cfg.BinDir), nil, "conflicts", "-request", serialized)
+	stdout, err := b.run(ctx, repo, nil, "conflicts", "-request", serialized)
 	if err != nil {
 		return ConflictsResult{}, err
 	}

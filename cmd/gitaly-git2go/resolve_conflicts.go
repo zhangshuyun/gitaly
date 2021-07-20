@@ -14,6 +14,7 @@ import (
 	"time"
 
 	git "github.com/libgit2/git2go/v31"
+	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/git2goutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/conflict"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 )
@@ -35,7 +36,7 @@ func (cmd resolveSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) er
 		request.AuthorDate = time.Now()
 	}
 
-	repo, err := git.OpenRepository(request.Repository)
+	repo, err := git2goutil.OpenRepository(request.Repository)
 	if err != nil {
 		return fmt.Errorf("could not open repository: %w", err)
 	}

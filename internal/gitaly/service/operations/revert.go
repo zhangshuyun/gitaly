@@ -44,7 +44,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	newrev, err := git2go.RevertCommand{
+	newrev, err := s.git2go.Revert(ctx, localRepo, git2go.RevertCommand{
 		Repository: repoPath,
 		AuthorName: string(req.User.Name),
 		AuthorMail: string(req.User.Email),
@@ -53,7 +53,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 		Ours:       startRevision.String(),
 		Revert:     req.Commit.Id,
 		Mainline:   mainline,
-	}.Run(ctx, s.cfg)
+	})
 	if err != nil {
 		if errors.As(err, &git2go.HasConflictsError{}) {
 			return &gitalypb.UserRevertResponse{

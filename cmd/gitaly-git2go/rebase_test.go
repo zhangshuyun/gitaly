@@ -8,9 +8,11 @@ import (
 
 	git "github.com/libgit2/git2go/v31"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/git2goutil"
 	cmdtesthelper "gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
@@ -20,9 +22,10 @@ var (
 )
 
 func TestRebase_validation(t *testing.T) {
-	cfg, _, repoPath := testcfg.BuildWithRepo(t)
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 	committer := git2go.NewSignature("Foo", "foo@example.com", time.Now())
+	executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
 
 	testcases := []struct {
 		desc        string
@@ -64,7 +67,7 @@ func TestRebase_validation(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			_, err := tc.request.Run(ctx, cfg)
+			_, err := executor.Rebase(ctx, repo, tc.request)
 			require.EqualError(t, err, tc.expectedErr)
 		})
 	}
@@ -162,10 +165,11 @@ func TestRebase_rebase(t *testing.T) {
 				string(gittest.TestUser.Email),
 				time.Date(2021, 3, 1, 13, 45, 50, 0, time.FixedZone("", +2*60*60)))
 
-			cfg, _, repoPath := testcfg.BuildWithRepo(t)
+			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 			testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+			executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
 
-			repo, err := git.OpenRepository(repoPath)
+			repo, err := git2goutil.OpenRepository(repoPath)
 			require.NoError(t, err)
 
 			if tc.setupRepo != nil {
@@ -179,7 +183,7 @@ func TestRebase_rebase(t *testing.T) {
 				UpstreamRevision: masterRevision,
 			}
 
-			response, err := request.Run(ctx, cfg)
+			response, err := executor.Rebase(ctx, repoProto, request)
 			if tc.expectedErr != "" {
 				require.EqualError(t, err, tc.expectedErr)
 			} else {

@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
@@ -22,7 +23,7 @@ func TestExecutor_Apply(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	executor := New(cfg.BinDir, cfg.Git.BinPath)
+	executor := NewExecutor(cfg, config.NewLocator(cfg))
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -39,7 +40,7 @@ func TestExecutor_Apply(t *testing.T) {
 	author := NewSignature("Test Author", "test.author@example.com", time.Now())
 	committer := NewSignature("Test Committer", "test.committer@example.com", time.Now())
 
-	parentCommitSHA, err := executor.Commit(ctx, CommitParams{
+	parentCommitSHA, err := executor.Commit(ctx, repo, CommitParams{
 		Repository: repoPath,
 		Author:     author,
 		Committer:  committer,
@@ -48,7 +49,7 @@ func TestExecutor_Apply(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	noCommonAncestor, err := executor.Commit(ctx, CommitParams{
+	noCommonAncestor, err := executor.Commit(ctx, repo, CommitParams{
 		Repository: repoPath,
 		Author:     author,
 		Committer:  committer,
@@ -57,7 +58,7 @@ func TestExecutor_Apply(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	updateToA, err := executor.Commit(ctx, CommitParams{
+	updateToA, err := executor.Commit(ctx, repo, CommitParams{
 		Repository: repoPath,
 		Author:     author,
 		Committer:  committer,
@@ -67,7 +68,7 @@ func TestExecutor_Apply(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	updateToB, err := executor.Commit(ctx, CommitParams{
+	updateToB, err := executor.Commit(ctx, repo, CommitParams{
 		Repository: repoPath,
 		Author:     author,
 		Committer:  committer,
@@ -77,7 +78,7 @@ func TestExecutor_Apply(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	updateFromAToB, err := executor.Commit(ctx, CommitParams{
+	updateFromAToB, err := executor.Commit(ctx, repo, CommitParams{
 		Repository: repoPath,
 		Author:     author,
 		Committer:  committer,
@@ -87,7 +88,7 @@ func TestExecutor_Apply(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	otherFile, err := executor.Commit(ctx, CommitParams{
+	otherFile, err := executor.Commit(ctx, repo, CommitParams{
 		Repository: repoPath,
 		Author:     author,
 		Committer:  committer,
@@ -196,7 +197,7 @@ func TestExecutor_Apply(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			commitID, err := executor.Apply(ctx, ApplyParams{
+			commitID, err := executor.Apply(ctx, repo, ApplyParams{
 				Repository:   repoPath,
 				Committer:    committer,
 				ParentCommit: parentCommitSHA.String(),

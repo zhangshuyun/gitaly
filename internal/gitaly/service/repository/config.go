@@ -133,8 +133,7 @@ func (s *server) setConfigGit2Go(ctx context.Context, req *gitalypb.SetConfigReq
 		return nil, helper.ErrInternalf("preimage vote on config: %v", err)
 	}
 
-	cmd := git2go.SetConfigCommand{Repository: path, Entries: entries}
-	if err := cmd.Run(ctx, s.cfg); err != nil {
+	if err := s.git2go.SetConfig(ctx, reqRepo, git2go.SetConfigCommand{Repository: path, Entries: entries}); err != nil {
 		return nil, status.Errorf(codes.Internal, "SetConfig git2go error")
 	}
 

@@ -44,7 +44,7 @@ func NewServer(
 		hookManager:   hookManager,
 		locator:       locator,
 		conns:         conns,
-		git2go:        git2go.New(cfg.BinDir, cfg.Git.BinPath),
+		git2go:        git2go.NewExecutor(cfg, locator),
 		gitCmdFactory: gitCmdFactory,
 		catfileCache:  catfileCache,
 		updater:       updateref.NewUpdaterWithHooks(cfg, hookManager, gitCmdFactory, catfileCache),

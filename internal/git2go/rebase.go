@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 )
 
 // RebaseCommand contains parameters to rebase a branch.
@@ -19,7 +19,7 @@ type RebaseCommand struct {
 	UpstreamRevision string
 }
 
-// Run performs the rebase via gitaly-git2go
-func (r RebaseCommand) Run(ctx context.Context, cfg config.Cfg) (git.ObjectID, error) {
-	return runWithGob(ctx, cfg, "rebase", r)
+// Rebase performs the rebase via gitaly-git2go
+func (b Executor) Rebase(ctx context.Context, repo repository.GitRepo, r RebaseCommand) (git.ObjectID, error) {
+	return b.runWithGob(ctx, repo, "rebase", r)
 }
