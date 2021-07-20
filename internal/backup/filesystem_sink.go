@@ -26,7 +26,7 @@ func NewFilesystemSink(path string) *FilesystemSink {
 func (fs *FilesystemSink) Write(ctx context.Context, relativePath string, r io.Reader) (returnErr error) {
 	path := filepath.Join(fs.path, relativePath)
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0744); err != nil {
+	if err := os.MkdirAll(dir, 0700); err != nil {
 		return fmt.Errorf("create directory structure %q: %w", dir, err)
 	}
 
