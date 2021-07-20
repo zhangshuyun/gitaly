@@ -469,12 +469,19 @@ func TestUserSquash_ancestry(t *testing.T) {
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	// We create two new commits which both branch off from the current HEAD commit. As a
-	// result, they are not ancestors of each other.
-	commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("1"))
-	commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("2"))
+	// We create an empty parent commit and two commits which both branch off from it. As a
+	// result, they are not direct ancestors of each other.
+	parent := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("p"), gittest.WithTreeEntries(), gittest.WithParents())
+	commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("1"),
+		gittest.WithTreeEntries(gittest.TreeEntry{Path: "a", Mode: "100644", Content: "a-content"}),
+		gittest.WithParents(parent),
+	)
+	commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("2"),
+		gittest.WithTreeEntries(gittest.TreeEntry{Path: "b", Mode: "100644", Content: "b-content"}),
+		gittest.WithParents(parent),
+	)
 
-	_, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
+	response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
 		Repository:    repo,
 		SquashId:      "1",
 		User:          gittest.TestUser,
@@ -482,12 +489,13 @@ func TestUserSquash_ancestry(t *testing.T) {
 		CommitMessage: commitMessage,
 		StartSha:      commit1.String(),
 		EndSha:        commit2.String(),
+		Timestamp:     &timestamp.Timestamp{Seconds: 1234512345},
 	})
 
-	expectedErr := fmt.Sprintf("rpc error: code = FailedPrecondition desc = %s is not an ancestor of %s",
-		commit1.String(), commit2.String())
-	require.NotNil(t, err)
-	require.Equal(t, expectedErr, err.Error())
+	require.Nil(t, err)
+	testassert.ProtoEqual(t, &gitalypb.UserSquashResponse{
+		SquashSha: "b277ddc0aafcba53f23f3d4d4a46dde42c9e7ad2",
+	}, response)
 }
 
 func TestUserSquashWithGitError(t *testing.T) {
@@ -514,8 +522,9 @@ func TestUserSquashWithGitError(t *testing.T) {
 				StartSha:      "doesntexisting",
 				EndSha:        endSha,
 			},
-			expectedErr: fmt.Errorf("rpc error: code = FailedPrecondition desc = %s is not an ancestor of %s, stderr: %q",
-				"doesntexisting", endSha, "fatal: Not a valid object name doesntexisting\n"),
+			expectedResponse: &gitalypb.UserSquashResponse{
+				GitError: "fatal: ambiguous argument 'doesntexisting...54cec5282aa9f21856362fe321c800c236a61615': unknown revision or path not in the working tree.\nUse '--' to separate paths from revisions, like this:\n'git <command> [<revision>...] -- [<file>...]'\n",
+			},
 		},
 		{
 			desc: "not existing end SHA",
@@ -528,8 +537,9 @@ func TestUserSquashWithGitError(t *testing.T) {
 				StartSha:      startSha,
 				EndSha:        "doesntexisting",
 			},
-			expectedErr: fmt.Errorf("rpc error: code = FailedPrecondition desc = %s is not an ancestor of %s, stderr: %q",
-				startSha, "doesntexisting", "fatal: Not a valid object name doesntexisting\n"),
+			expectedResponse: &gitalypb.UserSquashResponse{
+				GitError: "fatal: ambiguous argument 'b83d6e391c22777fca1ed3012fce84f633d7fed0...doesntexisting': unknown revision or path not in the working tree.\nUse '--' to separate paths from revisions, like this:\n'git <command> [<revision>...] -- [<file>...]'\n",
+			},
 		},
 		{
 			desc: "user has no name set",
