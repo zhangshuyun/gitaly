@@ -55,7 +55,7 @@ func populateFlatPath(ctx context.Context, c catfile.Batch, entries []*gitalypb.
 	return nil
 }
 
-func sendTreeEntries(stream gitalypb.CommitService_GetTreeEntriesServer, c catfile.Batch, revision, path string, recursive bool, sort gitalypb.GetTreeEntriesRequest_SortBy) error {
+func sendTreeEntries(stream gitalypb.CommitService_GetTreeEntriesServer, c catfile.Batch, revision, path string, recursive bool, sort gitalypb.GetTreeEntriesRequest_SortBy, p *gitalypb.PaginationParameter) error {
 	ctx := stream.Context()
 
 	entries, err := treeEntries(ctx, c, revision, path, "", recursive)
@@ -63,9 +63,18 @@ func sendTreeEntries(stream gitalypb.CommitService_GetTreeEntriesServer, c catfi
 		return err
 	}
 
+	// We sort before we paginate to ensure consistent results with ListLastCommitsForTree
 	entries, err = sortTrees(entries, sort)
 	if err != nil {
 		return err
+	}
+
+	cursor := ""
+	if p != nil {
+		entries, cursor, err = paginateTreeEntries(entries, p)
+		if err != nil {
+			return err
+		}
 	}
 
 	if !recursive {
@@ -74,7 +83,13 @@ func sendTreeEntries(stream gitalypb.CommitService_GetTreeEntriesServer, c catfi
 		}
 	}
 
-	sender := chunk.New(&treeEntriesSender{stream: stream})
+	treeSender := &treeEntriesSender{stream: stream}
+
+	if cursor != "" {
+		treeSender.SetPaginationCursor(cursor)
+	}
+
+	sender := chunk.New(treeSender)
 	for _, e := range entries {
 		if err := sender.Send(e); err != nil {
 			return err
@@ -122,16 +137,33 @@ func toLsTreeEnum(input gitalypb.TreeEntry_EntryType) (lstree.ObjectType, error)
 }
 
 type treeEntriesSender struct {
-	response *gitalypb.GetTreeEntriesResponse
-	stream   gitalypb.CommitService_GetTreeEntriesServer
+	response   *gitalypb.GetTreeEntriesResponse
+	stream     gitalypb.CommitService_GetTreeEntriesServer
+	cursor     string
+	sentCursor bool
 }
 
 func (c *treeEntriesSender) Append(m proto.Message) {
 	c.response.Entries = append(c.response.Entries, m.(*gitalypb.TreeEntry))
 }
 
-func (c *treeEntriesSender) Send() error { return c.stream.Send(c.response) }
-func (c *treeEntriesSender) Reset()      { c.response = &gitalypb.GetTreeEntriesResponse{} }
+func (c *treeEntriesSender) Send() error {
+	// To save bandwidth, we only send the cursor on the first response
+	if !c.sentCursor {
+		c.response.PaginationCursor = &gitalypb.PaginationCursor{NextCursor: c.cursor}
+		c.sentCursor = true
+	}
+
+	return c.stream.Send(c.response)
+}
+
+func (c *treeEntriesSender) Reset() {
+	c.response = &gitalypb.GetTreeEntriesResponse{}
+}
+
+func (c *treeEntriesSender) SetPaginationCursor(cursor string) {
+	c.cursor = cursor
+}
 
 func (s *server) GetTreeEntries(in *gitalypb.GetTreeEntriesRequest, stream gitalypb.CommitService_GetTreeEntriesServer) error {
 	ctxlogrus.Extract(stream.Context()).WithFields(log.Fields{
@@ -152,6 +184,38 @@ func (s *server) GetTreeEntries(in *gitalypb.GetTreeEntriesRequest, stream gital
 
 	revision := string(in.GetRevision())
 	path := string(in.GetPath())
-	sort := in.GetSort()
-	return sendTreeEntries(stream, c, revision, path, in.Recursive, sort)
+	return sendTreeEntries(stream, c, revision, path, in.Recursive, in.GetSort(), in.GetPaginationParams())
+}
+
+func paginateTreeEntries(entries []*gitalypb.TreeEntry, p *gitalypb.PaginationParameter) ([]*gitalypb.TreeEntry, string, error) {
+	limit := int(p.GetLimit())
+	start := p.GetPageToken()
+	index := -1
+
+	// No token means we should start from the top
+	if start == "" {
+		index = 0
+	} else {
+		for i, entry := range entries {
+			if entry.GetOid() == start {
+				index = i + 1
+				break
+			}
+		}
+	}
+
+	if index == -1 {
+		return nil, "", fmt.Errorf("could not find starting OID: %s", start)
+	}
+
+	if limit == 0 {
+		return nil, "", nil
+	}
+
+	if limit < 0 || (index+limit >= len(entries)) {
+		return entries[index:], "", nil
+	}
+
+	paginated := entries[index : index+limit]
+	return paginated, paginated[len(paginated)-1].GetOid(), nil
 }

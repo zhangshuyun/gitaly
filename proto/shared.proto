@@ -142,6 +142,12 @@ message PaginationParameter {
 	int32 limit = 2;
 }
 
+message PaginationCursor {
+  // To the caller, this is an opaque token to indicate what the caller
+  // should present as a page_token to get subsequent results.
+  string next_cursor = 1;
+}
+
 // https://git-scm.com/docs/git/#_options
 message GlobalOptions {
     // Treat pathspecs literally (i.e. no globbing, no pathspec magic)

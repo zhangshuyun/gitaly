@@ -126,6 +126,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :path, :bytes, 3
       optional :recursive, :bool, 4
       optional :sort, :enum, 5, "gitaly.GetTreeEntriesRequest.SortBy"
+      optional :pagination_params, :message, 6, "gitaly.PaginationParameter"
     end
     add_enum "gitaly.GetTreeEntriesRequest.SortBy" do
       value :DEFAULT, 0
@@ -133,6 +134,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     end
     add_message "gitaly.GetTreeEntriesResponse" do
       repeated :entries, :message, 1, "gitaly.TreeEntry"
+      optional :pagination_cursor, :message, 2, "gitaly.PaginationCursor"
     end
     add_message "gitaly.ListFilesRequest" do
       optional :repository, :message, 1, "gitaly.Repository"

@@ -69,7 +69,7 @@ func TestSuccessfulGetTreeEntriesWithCurlyBraces(t *testing.T) {
 			c, err := client.GetTreeEntries(ctx, request)
 			require.NoError(t, err)
 
-			fetchedEntries := getTreeEntriesFromTreeEntryClient(t, c)
+			fetchedEntries, _ := getTreeEntriesFromTreeEntryClient(t, c, nil)
 			require.Equal(t, 1, len(fetchedEntries))
 			require.Equal(t, testCase.filename, fetchedEntries[0].FlatPath)
 		})
@@ -215,6 +215,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 	// Order: Tree, Blob, Submodules
 	sortedRootEntries := append(rootEntries[10:13], rootEntries[0:10]...)
 	sortedRootEntries = append(sortedRootEntries, rootEntries[13])
+	sortedAndPaginated := []*gitalypb.TreeEntry{rootEntries[10], rootEntries[11], rootEntries[12], rootEntries[0]}
 
 	filesDirEntries := []*gitalypb.TreeEntry{
 		{
@@ -332,6 +333,9 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 		recursive   bool
 		sortBy      gitalypb.GetTreeEntriesRequest_SortBy
 		entries     []*gitalypb.TreeEntry
+		pageToken   string
+		pageLimit   int32
+		cursor      string
 	}{
 		{
 			description: "with root path",
@@ -371,6 +375,56 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			entries:     sortedRootEntries,
 			sortBy:      gitalypb.GetTreeEntriesRequest_TREES_FIRST,
 		},
+		{
+			description: "with root path and sorted by trees with pagination",
+			revision:    []byte(commitID),
+			path:        []byte("."),
+			entries:     sortedAndPaginated,
+			pageLimit:   4,
+			sortBy:      gitalypb.GetTreeEntriesRequest_TREES_FIRST,
+			cursor:      "fd90a3d2d21d6b4f9bec2c33fb7f49780c55f0d2",
+		},
+		{
+			description: "with pagination parameters",
+			revision:    []byte(commitID),
+			path:        []byte("."),
+			entries:     rootEntries[3:6],
+			pageToken:   "fdaada1754989978413d618ee1fb1c0469d6a664",
+			pageLimit:   3,
+			cursor:      rootEntries[5].Oid,
+		},
+		{
+			description: "with pagination parameters larger than length",
+			revision:    []byte(commitID),
+			path:        []byte("."),
+			entries:     rootEntries[12:],
+			pageToken:   "b4a3321157f6e80c42b031ecc9ba79f784c8a557",
+			pageLimit:   20,
+		},
+		{
+			description: "with pagination limit of -1",
+			revision:    []byte(commitID),
+			path:        []byte("."),
+			entries:     rootEntries[2:],
+			pageToken:   "470ad2fcf1e33798f1afc5781d08e60c40f51e7a",
+			pageLimit:   -1,
+		},
+		{
+			description: "with pagination limit of 0",
+			revision:    []byte(commitID),
+			path:        []byte("."),
+			pageToken:   "470ad2fcf1e33798f1afc5781d08e60c40f51e7a",
+			pageLimit:   0,
+		},
+		{
+			description: "with a blank pagination token",
+			revision:    []byte(commitID),
+			path:        []byte("."),
+			pageToken:   "",
+			entries:     rootEntries[0:2],
+			pageLimit:   2,
+			cursor:      rootEntries[1].Oid,
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -383,31 +437,106 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 				Sort:       testCase.sortBy,
 			}
 
+			if testCase.pageToken != "" || testCase.pageLimit > 0 {
+				request.PaginationParams = &gitalypb.PaginationParameter{
+					PageToken: testCase.pageToken,
+					Limit:     testCase.pageLimit,
+				}
+			}
+
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+			c, err := client.GetTreeEntries(ctx, request)
+
+			require.NoError(t, err)
+			fetchedEntries, cursor := getTreeEntriesFromTreeEntryClient(t, c, nil)
+			require.Equal(t, testCase.entries, fetchedEntries)
+
+			if testCase.pageLimit > 0 && len(testCase.entries) < len(rootEntries) {
+				require.NotNil(t, cursor)
+				require.Equal(t, testCase.cursor, cursor.NextCursor)
+			}
+		})
+	}
+}
+
+func TestUnsuccessfulGetTreeEntries(t *testing.T) {
+	commitID := "d25b6d94034242f3930dfcfeb6d8d9aac3583992"
+
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
+	testCases := []struct {
+		description   string
+		revision      []byte
+		path          []byte
+		pageToken     string
+		expectedError error
+	}{
+		{
+			description:   "with non-existent token",
+			revision:      []byte(commitID),
+			path:          []byte("."),
+			pageToken:     "non-existent",
+			expectedError: fmt.Errorf("could not get find starting OID: non-existent"),
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.description, func(t *testing.T) {
+			request := &gitalypb.GetTreeEntriesRequest{
+				Repository: repo,
+				Revision:   testCase.revision,
+				Path:       testCase.path,
+			}
+
+			if testCase.pageToken != "" {
+				request.PaginationParams = &gitalypb.PaginationParameter{
+					PageToken: testCase.pageToken,
+				}
+			}
+
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			c, err := client.GetTreeEntries(ctx, request)
 			require.NoError(t, err)
 
-			fetchedEntries := getTreeEntriesFromTreeEntryClient(t, c)
-			require.Equal(t, testCase.entries, fetchedEntries)
+			fetchedEntries, cursor := getTreeEntriesFromTreeEntryClient(t, c, testCase.expectedError)
+
+			require.Empty(t, fetchedEntries)
+			require.Nil(t, cursor)
 		})
 	}
 }
 
-func getTreeEntriesFromTreeEntryClient(t *testing.T, client gitalypb.CommitService_GetTreeEntriesClient) []*gitalypb.TreeEntry {
+func getTreeEntriesFromTreeEntryClient(t *testing.T, client gitalypb.CommitService_GetTreeEntriesClient, expectedError error) ([]*gitalypb.TreeEntry, *gitalypb.PaginationCursor) {
 	t.Helper()
 
 	var entries []*gitalypb.TreeEntry
+	var cursor *gitalypb.PaginationCursor
+	firstEntryReceived := false
+
 	for {
 		resp, err := client.Recv()
 		if err == io.EOF {
 			break
 		}
-		require.NoError(t, err)
 
-		entries = append(entries, resp.Entries...)
+		if expectedError == nil {
+			require.NoError(t, err)
+			entries = append(entries, resp.Entries...)
+
+			if !firstEntryReceived {
+				cursor = resp.PaginationCursor
+				firstEntryReceived = true
+			} else {
+				require.Equal(t, nil, resp.PaginationCursor)
+			}
+		} else {
+			require.Error(t, expectedError, err)
+			break
+		}
 	}
-	return entries
+	return entries, cursor
 }
 
 func TestSuccessfulGetTreeEntries_FlatPathMaxDeep_SingleFoldersStructure(t *testing.T) {
@@ -442,7 +571,7 @@ func TestSuccessfulGetTreeEntries_FlatPathMaxDeep_SingleFoldersStructure(t *test
 	entriesClient, err := client.GetTreeEntries(ctx, request)
 	require.NoError(t, err)
 
-	fetchedEntries := getTreeEntriesFromTreeEntryClient(t, entriesClient)
+	fetchedEntries, _ := getTreeEntriesFromTreeEntryClient(t, entriesClient, nil)
 	// We know that there is a directory "1/2/3/4/5/6/7/8/9/10/11/12"
 	// but here we only get back "1/2/3/4/5/6/7/8/9/10/11".
 	// This proves that FlatPath recursion is bounded, which is the point of this test.
