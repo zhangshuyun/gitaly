@@ -180,13 +180,14 @@ func TestRepo_WriteTag(t *testing.T) {
 	repo, repoPath := setupRepo(t, false)
 
 	for _, tc := range []struct {
-		desc       string
-		objectID   git.ObjectID
-		objectType string
-		tagName    []byte
-		tagBody    []byte
-		author     *gitalypb.User
-		authorDate time.Time
+		desc        string
+		objectID    git.ObjectID
+		objectType  string
+		tagName     []byte
+		tagBody     []byte
+		author      *gitalypb.User
+		authorDate  time.Time
+		expectedTag string
 	}{
 		// Just trivial tests here, most of this is tested in
 		// internal/gitaly/service/operations/tags_test.go
@@ -212,6 +213,28 @@ func TestRepo_WriteTag(t *testing.T) {
 				Email: []byte("root@localhost"),
 			},
 			authorDate: time.Unix(12345, 0),
+			expectedTag: `object c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd
+type commit
+tag tag-with-timestamp
+tagger root <root@localhost> 12345 +0000
+`,
+		},
+		{
+			desc:       "signature with time and timezone",
+			objectID:   "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd",
+			objectType: "commit",
+			tagName:    []byte("tag-with-timezone"),
+			tagBody:    []byte(""),
+			author: &gitalypb.User{
+				Name:  []byte("root"),
+				Email: []byte("root@localhost"),
+			},
+			authorDate: time.Unix(12345, 0).In(time.FixedZone("myzone", -60*60)),
+			expectedTag: `object c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd
+type commit
+tag tag-with-timezone
+tagger root <root@localhost> 12345 -0100
+`,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -220,6 +243,12 @@ func TestRepo_WriteTag(t *testing.T) {
 
 			repoTagObjID := gittest.Exec(t, repo.cfg, "-C", repoPath, "rev-parse", tagObjID.String())
 			require.Equal(t, text.ChompBytes(repoTagObjID), tagObjID.String())
+
+			if tc.expectedTag != "" {
+				tag := gittest.Exec(t, repo.cfg, "-C", repoPath, "cat-file",
+					"-p", tagObjID.String())
+				require.Equal(t, tc.expectedTag, text.ChompBytes(tag))
+			}
 		})
 	}
 }

@@ -96,8 +96,8 @@ func FormatTag(
 	tagHeaderFormat := "object %s\n" +
 		"type %s\n" +
 		"tag %s\n" +
-		"tagger %s <%s> %d +0000\n"
-	tagBuf := fmt.Sprintf(tagHeaderFormat, objectID.String(), objectType, tagName, committer.GetName(), committer.GetEmail(), committerDate.Unix())
+		"tagger %s <%s> %d %s\n"
+	tagBuf := fmt.Sprintf(tagHeaderFormat, objectID.String(), objectType, tagName, committer.GetName(), committer.GetEmail(), committerDate.Unix(), committerDate.Format("-0700"))
 
 	maxHeaderLines := 4
 	actualHeaderLines := strings.Count(tagBuf, "\n")

@@ -8,7 +8,6 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
@@ -95,13 +94,9 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 
 	targetRevision := git.Revision(req.TargetRevision)
 
-	committerTime := time.Now()
-	if req.Timestamp != nil {
-		var err error
-		committerTime, err = ptypes.Timestamp(req.Timestamp)
-		if err != nil {
-			return nil, helper.ErrInvalidArgument(err)
-		}
+	committerTime, err := dateFromProto(req)
+	if err != nil {
+		return nil, helper.ErrInvalidArgument(err)
 	}
 
 	var quarantineRepo *localrepo.Repo
