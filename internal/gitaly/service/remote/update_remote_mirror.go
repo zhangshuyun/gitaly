@@ -197,6 +197,7 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 		// we received in the original fetch. https://gitlab.com/gitlab-org/gitaly/-/issues/3505
 		if err := repo.Push(ctx, remoteName, batch, localrepo.PushOptions{
 			SSHCommand: sshCommand,
+			Force:      true,
 			Config:     remoteConfig,
 		}); err != nil {
 			return fmt.Errorf("push to mirror: %w", err)
