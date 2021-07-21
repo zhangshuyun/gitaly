@@ -4,8 +4,6 @@ package featureflag
 // In order to support coverage of combined features usage all feature flags should be marked as enabled for the test.
 // NOTE: if you add a new feature flag please add it to the `All` list defined below.
 var (
-	// GoUpdateRemoteMirror enables the Go implementation of UpdateRemoteMirror
-	GoUpdateRemoteMirror = FeatureFlag{Name: "go_update_remote_mirror", OnByDefault: true}
 	// GoSetConfig enables git2go implementation of SetConfig.
 	GoSetConfig = FeatureFlag{Name: "go_set_config", OnByDefault: false}
 	// CreateRepositoryFromBundleAtomicFetch will add the `--atomic` flag to git-fetch(1) in
@@ -34,7 +32,6 @@ var (
 
 // All includes all feature flags.
 var All = []FeatureFlag{
-	GoUpdateRemoteMirror,
 	GoSetConfig,
 	CreateRepositoryFromBundleAtomicFetch,
 	ResolveConflictsWithHooks,
