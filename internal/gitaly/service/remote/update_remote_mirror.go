@@ -191,13 +191,9 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 
 		refspecs = refspecs[len(batch):]
 
-		// The refs could have been modified on the mirror during after we fetched them.
-		// This could cause divergent refs to be force pushed over even with keep_divergent_refs set.
-		// This could be addressed by force pushing only if the current ref still matches what
-		// we received in the original fetch. https://gitlab.com/gitlab-org/gitaly/-/issues/3505
 		if err := repo.Push(ctx, remoteName, batch, localrepo.PushOptions{
 			SSHCommand: sshCommand,
-			Force:      true,
+			Force:      !firstRequest.KeepDivergentRefs,
 			Config:     remoteConfig,
 		}); err != nil {
 			return fmt.Errorf("push to mirror: %w", err)

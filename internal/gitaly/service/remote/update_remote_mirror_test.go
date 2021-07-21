@@ -300,6 +300,42 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			},
 		},
 		{
+			desc: "doesn't force push over refs that diverged after they were checked with KeepDivergentRefs",
+			sourceRefs: refs{
+				"refs/heads/diverging":     {"commit 1", "commit 2"},
+				"refs/heads/non-diverging": {"commit-3"},
+			},
+			mirrorRefs: refs{
+				"refs/heads/diverging":     {"commit 1"},
+				"refs/heads/non-diverging": {"commit-3"},
+			},
+			keepDivergentRefs: true,
+			wrapCommandFactory: func(t testing.TB, original git.CommandFactory) git.CommandFactory {
+				return commandFactoryWrapper{
+					CommandFactory: original,
+					newFunc: func(ctx context.Context, repo repository.GitRepo, sc git.Cmd, opts ...git.CmdOpt) (*command.Command, error) {
+						if sc.Subcommand() == "push" {
+							// Make the branch diverge on the remote before actually performing the pushes the RPC
+							// is attempting to perform to simulate a ref diverging after the RPC has performed
+							// its checks.
+							cmd, err := original.New(ctx, repo, git.SubCmd{
+								Name:  "push",
+								Flags: []git.Option{git.Flag{Name: "--force"}},
+								Args:  []string{"mirror", "refs/heads/non-diverging:refs/heads/diverging"},
+							})
+							if !assert.NoError(t, err) {
+								return nil, err
+							}
+							assert.NoError(t, cmd.Wait())
+						}
+
+						return original.New(ctx, repo, sc, opts...)
+					},
+				}
+			},
+			errorContains: "Updates were rejected because a pushed branch tip is behind its remote",
+		},
+		{
 			// https://gitlab.com/gitlab-org/gitaly/-/issues/3508
 			desc: "mirror is up to date with symbolic reference",
 			sourceRefs: refs{
