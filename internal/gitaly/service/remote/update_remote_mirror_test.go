@@ -193,14 +193,16 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			},
 		},
 		{
-			// https://gitlab.com/gitlab-org/gitaly/-/issues/3504
-			// Truncate error as either refs/heads/master or refs/tags/master may be returned
-			desc: "fails if tag and branch named the same",
+			desc: "works if tag and branch named the same",
 			sourceRefs: refs{
 				"refs/heads/master": {"commit 1"},
 				"refs/tags/master":  {"commit 1"},
 			},
-			errorContains: "rpc error: code = Internal desc = close stream to gitaly-ruby: rpc error: code = Unknown desc = Gitlab::Git::CommandError: error: src refspec refs/",
+			response: &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{
+				"refs/heads/master": "commit 1",
+				"refs/tags/master":  "commit 1",
+			},
 		},
 		{
 			desc: "only local branches are considered",
