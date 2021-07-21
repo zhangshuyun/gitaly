@@ -158,11 +158,6 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 			}
 		}
 
-		if localRef.Name == "refs/heads/tag" {
-			// https://gitlab.com/gitlab-org/gitaly/-/issues/3502
-			return errors.New("close stream to gitaly-ruby: rpc error: code = Unknown desc = Gitlab::Git::CommandError: fatal: tag shorthand without <tag>")
-		}
-
 		// the mirror's ref does not match ours, we should update it.
 		toUpdate[localRef.Name] = localRef.Target
 		delete(remoteRefs, localRef.Name)

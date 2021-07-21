@@ -180,15 +180,17 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			},
 		},
 		{
-			// https://gitlab.com/gitlab-org/gitaly/-/issues/3502
-			desc: "updating branch called tag fails",
+			desc: "updating branch called tag works",
 			sourceRefs: refs{
 				"refs/heads/tag": {"commit 1", "commit 2"},
 			},
 			mirrorRefs: refs{
 				"refs/heads/tag": {"commit 1"},
 			},
-			errorContains: "rpc error: code = Internal desc = close stream to gitaly-ruby: rpc error: code = Unknown desc = Gitlab::Git::CommandError: fatal: tag shorthand without <tag>",
+			response: &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{
+				"refs/heads/tag": "commit 2",
+			},
 		},
 		{
 			// https://gitlab.com/gitlab-org/gitaly/-/issues/3504
