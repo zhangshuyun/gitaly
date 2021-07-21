@@ -1,5 +1,69 @@
 # Gitaly changelog
 
+## 14.1.0 (2021-07-21)
+
+### Added (8 changes)
+
+- [repository: Support transactional voting in `RemoveRepository()`](gitlab-org/gitaly@74895a79a782887d9f113d1748328e19d3d885ee) ([merge request](gitlab-org/gitaly!3603))
+- [commit: Allow listing commits in reverse](gitlab-org/gitaly@e25c30d8b1a4e453209c08cae97871da300566a4) ([merge request](gitlab-org/gitaly!3650))
+- [commit: Implement new `ListAllCommits()` RPC](gitlab-org/gitaly@c3dfb4ecb6b4f439ea2ed7685e9e46a7a31ae955) ([merge request](gitlab-org/gitaly!3628))
+- [commit: Implement new `ListCommits()` RPC](gitlab-org/gitaly@a14bbcd6d026ba09d9277e49c7b380d95fe2fbbe) ([merge request](gitlab-org/gitaly!3628))
+- [blackbox: Implement support for "push" probes](gitlab-org/gitaly@67783f933b9d9a9d5c7788311c5526f61e1d3a36) ([merge request](gitlab-org/gitaly!3613))
+- [Retrieve ref from unborn HEAD for wikis](gitlab-org/gitaly@a1395884165c14f0dbaa21bb59209b026d60edf6) ([merge request](gitlab-org/gitaly!3610))
+- [Log details about merge commit errors](gitlab-org/gitaly@9ccd5948b94b1ea5fbbe077e26aa9094d3da5bf1) ([merge request](gitlab-org/gitaly!3618))
+- [blob: Implement new RPC to list blobs via revisions](gitlab-org/gitaly@ab1c4c6b67de7800d04c73beac02f916423b3e4d) ([merge request](gitlab-org/gitaly!3598))
+
+### Fixed (10 changes)
+
+- [coordinator: Create replication jobs if the primary cast a vote](gitlab-org/gitaly@cbf4ed8ffcb9e2600bdb20da420bc694c8523d8f) ([merge request](gitlab-org/gitaly!3642))
+- [coordinator: Fix repo creation/removal race for up-to-date secondaries](gitlab-org/gitaly@a22bb54cce526c870600f6e2d77f57aa951ffe7c) ([merge request](gitlab-org/gitaly!3603))
+- [replicator: Replicate `all_refs` parameter for PackRefs RPC](gitlab-org/gitaly@39fedeab73b9e1d9af25dfc867725388c5387c72) ([merge request](gitlab-org/gitaly!3638))
+- [replicator: Replicate `prune` parameter for GarbageCollect RPC](gitlab-org/gitaly@159d50fbf912945f9bce7e8c0d5a8f9847bc6c49) ([merge request](gitlab-org/gitaly!3638))
+- [fix: Set operations timezone by User](gitlab-org/gitaly@78c38deaa1c6d43c02c3d5ada735fcfd1296f8db) ([merge request](gitlab-org/gitaly!3586))
+- [repository: Fix repo replication with transactions](gitlab-org/gitaly@62ed25098036ea988d3592ede7b72ac4220029a1) ([merge request](gitlab-org/gitaly!3630))
+- [Fix ResolveConflicts RPC not calling Git hooks](gitlab-org/gitaly@11d8569fe62abcb19fdff014c6d1c142f430766a) ([merge request](gitlab-org/gitaly!3619))
+- [Use ForceServerCodec() instead of CustomCodec()](gitlab-org/gitaly@c8bf3820f427d4dbf145238ffb6b4d44b22864f9) ([merge request](gitlab-org/gitaly!3624))
+- [praefect: Fix incorrect error tracking for secondaries](gitlab-org/gitaly@b76154dd7dce4aa7b5d3fa7416d1697965b656d0) ([merge request](gitlab-org/gitaly!3620))
+- [Bump Shell dep to break the dependency on the old Gitaly package](gitlab-org/gitaly@55d79bed009b8b3ac14dc178145120e0d0990206) ([merge request](gitlab-org/gitaly!3570))
+
+### Changed (11 changes)
+
+- [Set default Prometheus buckets for Gitalys RPC instrumentation](gitlab-org/gitaly@7c2c4253864e6efc9425a7884c4eaf0894a54a86) ([merge request](gitlab-org/gitaly!3669))
+- [Support lazy failovers in `praefect dataloss`](gitlab-org/gitaly@e900df0947d188194f319b8afb9aa4fe857d357d) ([merge request](gitlab-org/gitaly!3549))
+- [Update ffi gem to 1.15.3](gitlab-org/gitaly@0ef432a6ba8ab72fbf638f722516fb65faeb58b9) ([merge request](gitlab-org/gitaly!3664))
+- [Bump actionpack, activesupport to 6.1](gitlab-org/gitaly@14084dc485cf798cfed3599463d4bc84ccfc3a0e) ([merge request](gitlab-org/gitaly!3661))
+- [Update google-protobuf to v3.17.1 and labkit-ruby to v0.20.0](gitlab-org/gitaly@2f691bf85adfd20e66c046b883e11c694ec0ccc9) ([merge request](gitlab-org/gitaly!3656))
+- [featureflag: Default-enable LFS pointers pipeline](gitlab-org/gitaly@5c43dfe6f4d8f97f0a7c33d6c8d9da0a0f2f3018) ([merge request](gitlab-org/gitaly!3653))
+- [ListConflictFiles: Allow tree conflicts when specified](gitlab-org/gitaly@c5fefbdb306d0957815a9e808fc9638f7a98e10e) ([merge request](gitlab-org/gitaly!3648))
+- [git: Accept commits and tags with malformed signatures](gitlab-org/gitaly@2da0b393998d394b743c70e7cf9cd0757a8f2733) ([merge request](gitlab-org/gitaly!3640))
+- [Bump labkit dependency to v1.5.0, compile in stackdriver trace support](gitlab-org/gitaly@4961a32f5e13ca7b6105c3573619cffccefce065) ([merge request](gitlab-org/gitaly!3637))
+- [Refactor update reference with hooks code](gitlab-org/gitaly@a17eb2f677f9710ee46ac4a9007b0cd828ca389a) ([merge request](gitlab-org/gitaly!3625))
+- [featureflag: Default-enable GoUpdateRemoteMirror](gitlab-org/gitaly@c5b8403b7e5c46b0d60a5417b6142582c0a91340) ([merge request](gitlab-org/gitaly!3616))
+
+### Removed (2 changes)
+
+- [Remove support for virtual storage scoped primaries in read-only metrics](gitlab-org/gitaly@77c84dd5b41ca2bd7d22aa5c6409bd043499f73e) ([merge request](gitlab-org/gitaly!3548))
+- [Remove support for virtual storage primaries in `praefect dataloss`](gitlab-org/gitaly@4d07d9b0fc94482ddd88a700624040a0005f031a) ([merge request](gitlab-org/gitaly!3549))
+
+### Performance (9 changes)
+
+- [Perform failovers lazily](gitlab-org/gitaly@3f09e462bd4dff39c54881acb1d8ce8e29cf2b21) ([merge request](gitlab-org/gitaly!3543))
+- [Implement optimized RSS monitor based on /proc/[pid]/statm](gitlab-org/gitaly@82065592c3acfb92bef7aaebc8a33c35fbd58114) ([merge request](gitlab-org/gitaly!3646))
+- [ref: Reimplement ListAllTags via object pipeline](gitlab-org/gitaly@77e9b5551ea01842218a5150dc9ec7292251f77f) ([merge request](gitlab-org/gitaly!3645))
+- [replicator: Special-case replication of OptimizeRepository](gitlab-org/gitaly@1d47a0abfe386c62f15d8f49d71f6275f143aa92) ([merge request](gitlab-org/gitaly!3638))
+- [replicator: Special-case replication of MidxRepack](gitlab-org/gitaly@45fcea2403eeb32987c84a7bf405a3a16d68bc32) ([merge request](gitlab-org/gitaly!3638))
+- [replicator: Special-case replication of WriteCommitGraph](gitlab-org/gitaly@6f1601eaefcc247c3c7df6ee0a8dfdf579b0eb45) ([merge request](gitlab-org/gitaly!3638))
+- [repository: Fix excessive voting in CreateRepositoryFromBundle](gitlab-org/gitaly@3d010219d28a5f5f49aeb60819e319d7101e99f1) ([merge request](gitlab-org/gitaly!3615))
+- [blob: Speed up blob search via object type filters](gitlab-org/gitaly@d1dd987d926674aaa73315a99fc2ffe32d227c20) ([merge request](gitlab-org/gitaly!3590))
+- [blob: Speed up LFS pointer search via object type filters](gitlab-org/gitaly@d2870b204c6801317a6e4c4fba09968fa6fd283d) ([merge request](gitlab-org/gitaly!3590))
+
+### Other (4 changes)
+
+- [Add StreamRPC library code](gitlab-org/gitaly@8a925b40a5e35848600600ee72441224f99af0fa) ([merge request](gitlab-org/gitaly!3601))
+- [Refine metrics descriptions](gitlab-org/gitaly@d89639edbd90e1f0ca23a3bc63d8e70d15139004) ([merge request](gitlab-org/gitaly!3652))
+- [Separate listenmux from backchannel](gitlab-org/gitaly@c95298c125a680a006153d5aca5d3dbb575ce352) ([merge request](gitlab-org/gitaly!3593))
+- [Use upstream implementation of insecure credentials](gitlab-org/gitaly@7453f84b0bb385a958943b5e0910b8f6bb3906bb) ([merge request](gitlab-org/gitaly!3591))
+
 ## 14.0.5 (2021-07-08)
 
 No changes.
