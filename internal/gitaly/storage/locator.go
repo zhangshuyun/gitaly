@@ -30,6 +30,13 @@ type Locator interface {
 	GetObjectDirectoryPath(repo repository.GitRepo) (string, error)
 	// InfoAlternatesPath finds the fully qualified path for the alternates file.
 	InfoAlternatesPath(repo repository.GitRepo) (string, error)
+
+	// CacheDir returns the path to the cache dir for a storage.
+	CacheDir(storageName string) (string, error)
+	// TempDir returns the path to the temp dir for a storage.
+	TempDir(storageName string) (string, error)
+	// StateDir returns the path to the state dir for a stogare.
+	StateDir(storageName string) (string, error)
 }
 
 var ErrRelativePathEscapesRoot = errors.New("relative path escapes root directory")

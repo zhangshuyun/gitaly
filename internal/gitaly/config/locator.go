@@ -10,6 +10,20 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+const (
+	// tmpRootPrefix is the directory in which we store temporary
+	// directories.
+	tmpRootPrefix = GitalyDataPrefix + "/tmp"
+
+	// cachePrefix is the directory where all cache data is stored on a
+	// storage location.
+	cachePrefix = GitalyDataPrefix + "/cache"
+
+	// statePrefix is the directory where all state data is stored on a
+	// storage location.
+	statePrefix = GitalyDataPrefix + "/state"
+)
+
 // NewLocator returns locator based on the provided configuration struct.
 // As it creates a shallow copy of the provided struct changes made into provided struct
 // may affect result of methods implemented by it.
@@ -116,4 +130,29 @@ func (l *configLocator) InfoAlternatesPath(repo repository.GitRepo) (string, err
 	}
 
 	return filepath.Join(repoPath, "objects", "info", "alternates"), nil
+}
+
+// CacheDir returns the path to the cache dir for a storage.
+func (l *configLocator) CacheDir(storageName string) (string, error) {
+	return l.getPath(storageName, cachePrefix)
+}
+
+// StateDir returns the path to the state dir for a storage.
+func (l *configLocator) StateDir(storageName string) (string, error) {
+	return l.getPath(storageName, statePrefix)
+}
+
+// TempDir returns the path to the temp dir for a storag.
+func (l *configLocator) TempDir(storageName string) (string, error) {
+	return l.getPath(storageName, tmpRootPrefix)
+}
+
+func (l *configLocator) getPath(storageName, prefix string) (string, error) {
+	storagePath, ok := l.conf.StoragePath(storageName)
+	if !ok {
+		return "", status.Errorf(codes.InvalidArgument, "%s dir: no such storage: %q",
+			filepath.Base(prefix), storageName)
+	}
+
+	return filepath.Join(storagePath, prefix), nil
 }
