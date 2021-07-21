@@ -17,47 +17,14 @@ import (
 )
 
 const (
-	// GitalyDataPrefix is the top-level directory we use to store system
-	// (non-user) data. We need to be careful that this path does not clash
-	// with any directory name that could be provided by a user. The '+'
-	// character is not allowed in GitLab namespaces or repositories.
-	GitalyDataPrefix = config.GitalyDataPrefix
+	// tmpRootPrefix is the directory in which we store temporary directories.
+	tmpRootPrefix = config.GitalyDataPrefix + "/tmp"
 
-	// tmpRootPrefix is the directory in which we store temporary
-	// directories.
-	tmpRootPrefix = GitalyDataPrefix + "/tmp"
-
-	// cachePrefix is the directory where all cache data is stored on a
-	// storage location.
-	cachePrefix = GitalyDataPrefix + "/cache"
-
-	// statePrefix is the directory where all state data is stored on a
-	// storage location.
-	statePrefix = GitalyDataPrefix + "/state"
-
-	// MaxAge is used by ForDeleteAllRepositories. It is also a fallback
-	// for the context-scoped temporary directories, to ensure they get
-	// cleaned up if the cleanup at the end of the context failed to run.
-	MaxAge = 7 * 24 * time.Hour
+	// maxAge is used by ForDeleteAllRepositories. It is also a fallback for the context-scoped
+	// temporary directories, to ensure they get cleaned up if the cleanup at the end of the
+	// context failed to run.
+	maxAge = 7 * 24 * time.Hour
 )
-
-// CacheDir returns the path to the cache dir for a storage location
-func CacheDir(storage config.Storage) string { return AppendCacheDir(storage.Path) }
-
-// AppendCacheDir will append the cache directory convention to the storage path
-// provided
-func AppendCacheDir(storagePath string) string { return filepath.Join(storagePath, cachePrefix) }
-
-// AppendStateDir will append the state directory convention to the storage path
-// provided
-func AppendStateDir(storagePath string) string { return filepath.Join(storagePath, statePrefix) }
-
-// TempDir returns the path to the temp dir for a storage location
-func TempDir(storage config.Storage) string { return AppendTempDir(storage.Path) }
-
-// AppendTempDir will append the temp directory convention to the storage path
-// provided
-func AppendTempDir(storagePath string) string { return filepath.Join(storagePath, tmpRootPrefix) }
 
 // StartCleaning starts tempdir cleanup in a goroutine.
 func StartCleaning(locator storage.Locator, storages []config.Storage, d time.Duration) {
@@ -112,7 +79,7 @@ func clean(locator storage.Locator, storage config.Storage) error {
 	}
 
 	for _, info := range entries {
-		if time.Since(info.ModTime()) < MaxAge {
+		if time.Since(info.ModTime()) < maxAge {
 			continue
 		}
 
