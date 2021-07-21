@@ -359,10 +359,15 @@ message GetTreeEntriesRequest {
   }
 
   SortBy sort = 5;
+  // The page token is the last commit OID that was sent. It's expected to be the
+  // full object ID to guard against ambigious OIDs.
+  PaginationParameter pagination_params = 6;
 }
 
 message GetTreeEntriesResponse {
   repeated TreeEntry entries = 1;
+
+  PaginationCursor pagination_cursor = 2;
 }
 
 message ListFilesRequest {
