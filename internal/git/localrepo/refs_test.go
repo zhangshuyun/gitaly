@@ -268,7 +268,7 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 			remote: repoPath,
 			expected: []git.Reference{
 				{Name: "refs/heads/master", Target: commit},
-				{Name: "refs/heads/symbolic", Target: commit},
+				{Name: "refs/heads/symbolic", Target: commit, IsSymbolic: true},
 				{Name: "refs/remote/remote-name/remote-branch", Target: commit},
 				{Name: "refs/tags/annotated-tag", Target: annotatedTagOID},
 				{Name: "refs/tags/lightweight-tag", Target: commit},
@@ -282,7 +282,7 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 			},
 			expected: []git.Reference{
 				{Name: "refs/heads/master", Target: commit},
-				{Name: "refs/heads/symbolic", Target: commit},
+				{Name: "refs/heads/symbolic", Target: commit, IsSymbolic: true},
 				{Name: "refs/tags/annotated-tag", Target: annotatedTagOID},
 				{Name: "refs/tags/lightweight-tag", Target: commit},
 			},
