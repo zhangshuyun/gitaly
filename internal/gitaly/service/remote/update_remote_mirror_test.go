@@ -336,25 +336,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			errorContains: "Updates were rejected because a pushed branch tip is behind its remote",
 		},
 		{
-			// https://gitlab.com/gitlab-org/gitaly/-/issues/3508
-			desc: "mirror is up to date with symbolic reference",
-			sourceRefs: refs{
-				"refs/heads/master": {"commit 1"},
-			},
-			sourceSymRefs: map[string]string{
-				"refs/heads/symbolic-reference": "refs/heads/master",
-			},
-			mirrorRefs: refs{
-				"refs/heads/master": {"commit 1"},
-			},
-			response: &gitalypb.UpdateRemoteMirrorResponse{},
-			expectedMirrorRefs: map[string]string{
-				"refs/heads/master": "commit 1",
-			},
-		},
-		{
-			// https://gitlab.com/gitlab-org/gitaly/-/issues/3508
-			desc: "updates branch pointed to by symbolic reference",
+			desc: "ignores symbolic references in source repo",
 			sourceRefs: refs{
 				"refs/heads/master": {"commit 1"},
 			},
@@ -363,16 +345,10 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			},
 			onlyBranchesMatching: []string{"symbolic-reference"},
 			response:             &gitalypb.UpdateRemoteMirrorResponse{},
-			expectedMirrorRefs: map[string]string{
-				"refs/heads/master": "commit 1",
-			},
+			expectedMirrorRefs:   map[string]string{},
 		},
 		{
-			// https://gitlab.com/gitlab-org/gitaly/-/issues/3508
-			//
-			// refs/heads/master gets removed but and a broken sym ref is left in
-			// refs/heads/symbolic-reference
-			desc: "removes symbolic ref target from mirror if not symbolic ref is not present locally",
+			desc: "ignores symbolic refs on the mirror",
 			sourceRefs: refs{
 				"refs/heads/master": {"commit 1"},
 			},
@@ -382,19 +358,27 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			mirrorSymRefs: map[string]string{
 				"refs/heads/symbolic-reference": "refs/heads/master",
 			},
-			response:           &gitalypb.UpdateRemoteMirrorResponse{},
-			expectedMirrorRefs: map[string]string{},
+			response: &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{
+				// If the symbolic reference was not ignored, master would get deleted
+				// as it's the branch pointed to by a symbolic ref not present in the source
+				// repo.
+				"refs/heads/master":             "commit 1",
+				"refs/heads/symbolic-reference": "commit 1",
+			},
 		},
 		{
-			// https://gitlab.com/gitlab-org/gitaly/-/issues/3508
-			desc: "fails with symbolic reference and target in the same push",
+			desc: "ignores symbolic refs and pushes the branch successfully",
 			sourceRefs: refs{
 				"refs/heads/master": {"commit 1"},
 			},
 			sourceSymRefs: map[string]string{
 				"refs/heads/symbolic-reference": "refs/heads/master",
 			},
-			errorContains: "remote: error: cannot lock ref 'refs/heads/master': reference already exists",
+			response: &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{
+				"refs/heads/master": "commit 1",
+			},
 		},
 		{
 			desc: "push batching works",

@@ -113,12 +113,22 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 
 	remoteRefs := make(map[git.ReferenceName]string, len(remoteRefsSlice))
 	for _, ref := range remoteRefsSlice {
+		if ref.IsSymbolic {
+			// There should be no symbolic refs in refs/heads/ or refs/tags, so we'll just ignore
+			// them if something has placed one there.
+			continue
+		}
+
 		remoteRefs[ref.Name] = ref.Target
 	}
 
 	var divergentRefs [][]byte
 	toUpdate := map[git.ReferenceName]string{}
 	for _, localRef := range localRefs {
+		if localRef.IsSymbolic {
+			continue
+		}
+
 		remoteTarget, ok := remoteRefs[localRef.Name]
 		if !ok {
 			// ref does not exist on the mirror, it should be created
