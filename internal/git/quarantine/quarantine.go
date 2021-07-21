@@ -37,7 +37,8 @@ func New(ctx context.Context, repo *gitalypb.Repository, locator storage.Locator
 		return nil, fmt.Errorf("creating quarantine: %w", err)
 	}
 
-	quarantineDir, err := tempdir.New(ctx, repo.GetStorageName(), locator)
+	quarantineDir, err := tempdir.NewWithPrefix(ctx, repo.GetStorageName(),
+		storage.QuarantineDirectoryPrefix(repo), locator)
 	if err != nil {
 		return nil, fmt.Errorf("creating quarantine: %w", err)
 	}

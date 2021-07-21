@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
 func TestValidateRelativePath(t *testing.T) {
@@ -34,4 +36,32 @@ func TestValidateRelativePath(t *testing.T) {
 			assert.Equal(t, tc.error, err)
 		})
 	}
+}
+
+func TestQuarantineDirectoryPrefix(t *testing.T) {
+	// An nil repository works alright, even if nonsensical.
+	require.Equal(t, "quarantine-0000000000000000-", QuarantineDirectoryPrefix(nil))
+
+	// A repository with only a relative path.
+	require.Equal(t, "quarantine-8843d7f92416211d-", QuarantineDirectoryPrefix(&gitalypb.Repository{
+		RelativePath: "foobar",
+	}))
+
+	// A different relative path has a different hash.
+	require.Equal(t, "quarantine-60518c1c11dc0452-", QuarantineDirectoryPrefix(&gitalypb.Repository{
+		RelativePath: "barfoo",
+	}))
+
+	// Only the relative path matters. The storage name doesn't matter either given that the
+	// temporary directory is per storage.
+	require.Equal(t, "quarantine-60518c1c11dc0452-", QuarantineDirectoryPrefix(&gitalypb.Repository{
+		StorageName:        "storage-name",
+		RelativePath:       "barfoo",
+		GitObjectDirectory: "object-directory",
+		GitAlternateObjectDirectories: []string{
+			"alternate",
+		},
+		GlRepository:  "gl-repo",
+		GlProjectPath: "gl/repo",
+	}))
 }

@@ -1,7 +1,9 @@
 package storage
 
 import (
+	"crypto/sha1"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -77,4 +79,17 @@ func IsGitDirectory(dir string) bool {
 	os.Stat(filepath.Join(dir, "packed-refs"))
 
 	return true
+}
+
+// QuarantineDirectoryPrefix returns a prefix for use in the temporary directory. The prefix is
+// based on the relative repository path and will stay stable for any given repository. This allows
+// us to verify that a given quarantine object directory indeed belongs to the repository at hand.
+// Ideally, this function would directly be located in the quarantine module, but this is not
+// possible due to cyclic dependencies.
+func QuarantineDirectoryPrefix(repo repository.GitRepo) string {
+	hash := [20]byte{}
+	if repo != nil {
+		hash = sha1.Sum([]byte(repo.GetRelativePath()))
+	}
+	return fmt.Sprintf("quarantine-%x-", hash[:8])
 }
