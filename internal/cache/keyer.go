@@ -19,7 +19,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/safe"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/version"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -184,12 +183,12 @@ func (keyer leaseKeyer) newPendingLease(repo *gitalypb.Repository) (string, erro
 
 // cacheDir is $STORAGE/+gitaly/cache
 func (keyer leaseKeyer) cacheDir(repo *gitalypb.Repository) (string, error) {
-	storagePath, err := keyer.locator.GetStorageByName(repo.StorageName)
+	cacheDir, err := keyer.locator.CacheDir(repo.StorageName)
 	if err != nil {
-		return "", fmt.Errorf("storage not found for %v", repo)
+		return "", fmt.Errorf("cache dir not found for %v", repo)
 	}
 
-	return tempdir.AppendCacheDir(storagePath), nil
+	return cacheDir, nil
 }
 
 func (keyer leaseKeyer) getRepoStatePath(repo *gitalypb.Repository) (string, error) {
@@ -198,7 +197,10 @@ func (keyer leaseKeyer) getRepoStatePath(repo *gitalypb.Repository) (string, err
 		return "", fmt.Errorf("getRepoStatePath: storage not found for %v", repo)
 	}
 
-	stateDir := tempdir.AppendStateDir(storagePath)
+	stateDir, err := keyer.locator.StateDir(repo.StorageName)
+	if err != nil {
+		return "", fmt.Errorf("getRepoStatePath: state dir not found for %v", repo)
+	}
 
 	relativePath := repo.GetRelativePath()
 	if len(relativePath) == 0 {

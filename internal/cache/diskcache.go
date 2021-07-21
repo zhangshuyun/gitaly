@@ -73,6 +73,7 @@ func withDisabledWalker() Option {
 
 // DiskCache stores and retrieves byte streams for repository related RPCs
 type DiskCache struct {
+	locator     storage.Locator
 	storages    []config.Storage
 	keyer       leaseKeyer
 	af          activeFiles
@@ -99,6 +100,7 @@ func New(cfg config.Cfg, locator storage.Locator, opts ...Option) *DiskCache {
 	}
 
 	cache := &DiskCache{
+		locator:  locator,
 		storages: cfg.Storages,
 		af: activeFiles{
 			Mutex: &sync.Mutex{},
