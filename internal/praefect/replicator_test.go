@@ -573,7 +573,7 @@ func runMockRepositoryServer(t *testing.T, cfg gconfig.Cfg) (*mockServer, string
 	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRepositoryServiceServer(srv, mockServer)
 		gitalypb.RegisterRefServiceServer(srv, mockServer)
-	})
+	}, testserver.WithDisablePraefect())
 	return mockServer, addr
 }
 

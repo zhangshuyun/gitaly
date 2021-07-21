@@ -1453,7 +1453,7 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 
 				addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 					gitalypb.RegisterOperationServiceServer(srv, operationServer)
-				}, testserver.WithDiskCache(&mockDiskCache{}))
+				}, testserver.WithDiskCache(&mockDiskCache{}), testserver.WithDisablePraefect())
 
 				conn, err := client.DialContext(ctx, addr, []grpc.DialOption{
 					grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())),
