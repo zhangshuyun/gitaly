@@ -168,7 +168,6 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 		toDelete = map[git.ReferenceName]string{}
 	}
 
-	seen := map[string]struct{}{}
 	var refspecs []string
 	for prefix, references := range map[string]map[git.ReferenceName]string{
 		"": toUpdate, ":": toDelete,
@@ -186,18 +185,6 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 				last := len(refspecs) - 1
 				refspecs[0], refspecs[last] = refspecs[last], refspecs[0]
 			}
-
-			// https://gitlab.com/gitlab-org/gitaly/-/issues/3504
-			name := strings.TrimPrefix(reference.String(), "refs/heads/")
-			if strings.HasPrefix(reference.String(), "refs/tags/") {
-				name = strings.TrimPrefix(reference.String(), "refs/tags/")
-			}
-
-			if _, ok := seen[name]; ok {
-				return errors.New("close stream to gitaly-ruby: rpc error: code = Unknown desc = Gitlab::Git::CommandError: error: src refspec master matches more than one")
-			}
-
-			seen[name] = struct{}{}
 		}
 	}
 
