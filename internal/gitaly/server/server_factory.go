@@ -22,12 +22,19 @@ import (
 
 // GitalyServerFactory is a factory of gitaly grpc servers
 type GitalyServerFactory struct {
-	registry         *backchannel.Registry
-	cacheInvalidator cache.Invalidator
-	cfg              config.Cfg
-	logger           *logrus.Entry
-	externalServers  []*grpc.Server
-	internalServers  []*grpc.Server
+	registry                 *backchannel.Registry
+	cacheInvalidator         cache.Invalidator
+	cfg                      config.Cfg
+	logger                   *logrus.Entry
+	externalServers          []stopper
+	externalStreamRPCServers []stopper
+	internalServers          []stopper
+	internalStreamRPCServers []stopper
+}
+
+type stopper interface {
+	Stop()
+	GracefulStop()
 }
 
 // NewGitalyServerFactory allows to create and start secure/insecure 'grpc.Server'-s with gitaly-ruby
@@ -101,9 +108,11 @@ func (s *GitalyServerFactory) StartWorkers(ctx context.Context, l logrus.FieldLo
 
 // Stop immediately stops all servers created by the GitalyServerFactory.
 func (s *GitalyServerFactory) Stop() {
-	for _, servers := range [][]*grpc.Server{
+	for _, servers := range [][]stopper{
 		s.externalServers,
+		s.externalStreamRPCServers,
 		s.internalServers,
+		s.internalStreamRPCServers,
 	} {
 		for _, server := range servers {
 			server.Stop()
@@ -116,15 +125,17 @@ func (s *GitalyServerFactory) Stop() {
 // can still complete their requests to the internal servers. This is important for hooks calling
 // back to Gitaly.
 func (s *GitalyServerFactory) GracefulStop() {
-	for _, servers := range [][]*grpc.Server{
+	for _, servers := range [][]stopper{
 		s.externalServers,
+		s.externalStreamRPCServers,
 		s.internalServers,
+		s.internalStreamRPCServers,
 	} {
 		var wg sync.WaitGroup
 
 		for _, server := range servers {
 			wg.Add(1)
-			go func(server *grpc.Server) {
+			go func(server stopper) {
 				defer wg.Done()
 				server.GracefulStop()
 			}(server)
@@ -144,6 +155,7 @@ func (s *GitalyServerFactory) CreateExternal(secure bool) (*grpc.Server, *stream
 	}
 
 	s.externalServers = append(s.externalServers, grpcServer)
+	s.externalStreamRPCServers = append(s.externalStreamRPCServers, streamRPCServer)
 
 	return grpcServer, streamRPCServer, nil
 }
@@ -158,6 +170,7 @@ func (s *GitalyServerFactory) CreateInternal() (*grpc.Server, *streamrpc.Server,
 	}
 
 	s.internalServers = append(s.internalServers, grpcServer)
+	s.internalStreamRPCServers = append(s.internalStreamRPCServers, streamRPCServer)
 
 	return grpcServer, streamRPCServer, nil
 }

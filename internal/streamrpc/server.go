@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -19,6 +20,10 @@ var _ grpc.ServiceRegistrar = &Server{}
 type Server struct {
 	methods     map[string]*method
 	interceptor grpc.UnaryServerInterceptor
+	stopped     bool
+	sessions    map[*serverSession]bool
+	handleMu    sync.Mutex
+	handleCond  *sync.Cond
 }
 
 type method struct {
@@ -34,8 +39,10 @@ type ServerOption func(*Server)
 // grpc-go RegisterFooServer functions.
 func NewServer(opts ...ServerOption) *Server {
 	s := &Server{
-		methods: make(map[string]*method),
+		methods:  make(map[string]*method),
+		sessions: make(map[*serverSession]bool),
 	}
+	s.handleCond = sync.NewCond(&s.handleMu)
 	for _, o := range opts {
 		o(s)
 	}
@@ -61,22 +68,81 @@ func (s *Server) UseInterceptor(interceptor grpc.UnaryServerInterceptor) {
 	s.interceptor = interceptor
 }
 
+func (s *Server) addSession(session *serverSession) error {
+	s.handleMu.Lock()
+	if s.stopped {
+		s.handleMu.Unlock()
+		return fmt.Errorf("streamrpc: server already stopped")
+	}
+	s.sessions[session] = true
+	s.handleMu.Unlock()
+
+	s.handleCond.Broadcast()
+
+	return nil
+}
+
+func (s *Server) removeSession(session *serverSession) {
+	s.handleMu.Lock()
+	session.C.Close()
+	delete(s.sessions, session)
+	s.handleMu.Unlock()
+
+	s.handleCond.Broadcast()
+}
+
+// Stop stops StreamRPC server. It immediately stops all in-flight sessions,
+// and prevents any further call in the future.
+func (s *Server) Stop() {
+	s.handleMu.Lock()
+	defer s.handleMu.Unlock()
+
+	if s.stopped {
+		return
+	}
+
+	for session := range s.sessions {
+		session.C.Close()
+		delete(s.sessions, session)
+	}
+	s.stopped = true
+}
+
+// GracefulStop stops StreamRPC server gracefully. It prevents the server from
+// accepting new calls, and blocks until all pending calls finish.
+func (s *Server) GracefulStop() {
+	s.handleMu.Lock()
+	defer s.handleMu.Unlock()
+
+	if s.stopped {
+		return
+	}
+
+	for len(s.sessions) > 0 {
+		s.handleCond.Wait()
+	}
+	s.stopped = true
+}
+
 // Handle handles an incoming network connection with the StreamRPC
 // protocol. It is intended to be called from a net.Listener.Accept loop
 // (or something equivalent).
 func (s *Server) Handle(c net.Conn) error {
-	defer c.Close()
-
 	deadline := time.Now().Add(defaultHandshakeTimeout)
+	session := &serverSession{
+		C:        c,
+		deadline: deadline,
+	}
+	if err := s.addSession(session); err != nil {
+		return err
+	}
+	defer s.removeSession(session)
+
 	req, err := recvFrame(c, deadline)
 	if err != nil {
 		return err
 	}
 
-	session := &serverSession{
-		c:        c,
-		deadline: deadline,
-	}
 	if err := s.handleSession(session, req); err != nil {
 		return session.reject(err)
 	}
@@ -133,7 +199,7 @@ func AcceptConnection(ctx context.Context) (net.Conn, error) {
 // serverSession wraps an incoming connection whose handshake has not
 // been completed yet.
 type serverSession struct {
-	c        net.Conn
+	C        net.Conn
 	accepted bool
 	deadline time.Time
 }
@@ -146,11 +212,11 @@ func (ss *serverSession) Accept() (net.Conn, error) {
 	}
 
 	ss.accepted = true
-	if err := sendFrame(ss.c, nil, ss.deadline); err != nil {
+	if err := sendFrame(ss.C, nil, ss.deadline); err != nil {
 		return nil, fmt.Errorf("accept session: %w", err)
 	}
 
-	return ss.c, nil
+	return ss.C, nil
 }
 
 func (ss *serverSession) reject(err error) error {
@@ -163,5 +229,5 @@ func (ss *serverSession) reject(err error) error {
 		return fmt.Errorf("mashal response: %w", err)
 	}
 
-	return sendFrame(ss.c, buf, ss.deadline)
+	return sendFrame(ss.C, buf, ss.deadline)
 }

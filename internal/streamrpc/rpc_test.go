@@ -290,11 +290,80 @@ func TestCall_credentials(t *testing.T) {
 	require.Equal(t, inputs, receivedValues)
 }
 
+func TestServer_Stop(t *testing.T) {
+	setup := func() (*Server, func() error, chan struct{}, chan struct{}) {
+		isBlocking := make(chan struct{})
+		releaseBlock := make(chan struct{})
+
+		handler := func(ctx context.Context, in *testpb.StreamRequest) (*emptypb.Empty, error) {
+			close(isBlocking)
+			_, err := AcceptConnection(ctx)
+			<-releaseBlock
+			return nil, err
+		}
+
+		streamRPCServer := NewServer()
+		testpb.RegisterTestServer(streamRPCServer, &server{testHandler: handler})
+		call := func() error {
+			return Call(
+				context.Background(),
+				startServer(t, streamRPCServer, nil),
+				"/test.streamrpc.Test/Stream",
+				&testpb.StreamRequest{},
+				func(c net.Conn) error {
+					return nil
+				},
+			)
+		}
+		return streamRPCServer, call, isBlocking, releaseBlock
+	}
+
+	t.Run("normal_stop", func(t *testing.T) {
+		streamRPCServer, call, isBlocking, releaseBlock := setup()
+
+		callErrors := make(chan error, 1)
+		go func() { callErrors <- call() }()
+
+		<-isBlocking
+		streamRPCServer.Stop()
+		close(releaseBlock)
+
+		require.Error(t, <-callErrors)
+		require.Error(t, call())
+	})
+
+	t.Run("graceful_stop", func(t *testing.T) {
+		streamRPCServer, call, isBlocking, releaseBlock := setup()
+
+		callErrors := make(chan error)
+		go func() { callErrors <- call() }()
+
+		<-isBlocking
+		shutdownFinished := make(chan struct{})
+		go func() {
+			streamRPCServer.GracefulStop()
+			close(shutdownFinished)
+		}()
+		close(releaseBlock)
+
+		require.NoError(t, <-callErrors)
+		<-shutdownFinished
+		require.Error(t, call())
+	})
+}
+
 func startServer(t *testing.T, s *Server, th testHandler) DialFunc {
 	t.Helper()
-	testpb.RegisterTestServer(s, &server{testHandler: th})
+	if th != nil {
+		testpb.RegisterTestServer(s, &server{testHandler: th})
+	}
 	client, server := socketPair(t)
 	go func() { _ = s.Handle(server) }()
+	t.Cleanup(func() {
+		client.Close()
+		server.Close()
+	})
+
 	return func(time.Duration) (net.Conn, error) { return client, nil }
 }
 

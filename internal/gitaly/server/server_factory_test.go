@@ -70,20 +70,28 @@ func TestGitalyServerFactory(t *testing.T) {
 		sf := NewGitalyServerFactory(cfg, testhelper.DiscardTestEntry(t), backchannel.NewRegistry(), cache.New(cfg, config.NewLocator(cfg)))
 		t.Cleanup(sf.Stop)
 
-		tcpHealthClient := check(t, ctx, sf, cfg, repo, starter.TCP, "localhost:0")
+		tcpHealthClient, tcpStreamRPCCall := check(t, ctx, sf, cfg, repo, starter.TCP, "localhost:0")
 
 		socket := testhelper.GetTemporaryGitalySocketFileName(t)
 		t.Cleanup(func() { require.NoError(t, os.RemoveAll(socket)) })
 
-		socketHealthClient := check(t, ctx, sf, cfg, repo, starter.Unix, socket)
+		socketHealthClient, socketStreamRPCCall := check(t, ctx, sf, cfg, repo, starter.Unix, socket)
 
 		sf.GracefulStop() // stops all started servers(listeners)
 
+		// gRPC requests should return errors
 		_, tcpErr := tcpHealthClient.Check(ctx, &healthpb.HealthCheckRequest{})
 		require.Equal(t, codes.Unavailable, status.Code(tcpErr))
 
 		_, socketErr := socketHealthClient.Check(ctx, &healthpb.HealthCheckRequest{})
 		require.Equal(t, codes.Unavailable, status.Code(socketErr))
+
+		// StreamRPC requests should return errors as well
+		_, _, err := tcpStreamRPCCall()
+		require.Error(t, err)
+
+		_, _, err = socketStreamRPCCall()
+		require.Error(t, err)
 	})
 }
 
@@ -107,6 +115,23 @@ func TestGitalyServerFactory_closeOrder(t *testing.T) {
 
 		require.Equal(t, errQuickRPC, err)
 	}
+	streamRPCCallQuick := func(dial streamrpc.DialFunc, shouldSucceed bool) {
+		err := streamrpc.Call(
+			ctx,
+			dial,
+			"/Service/Quick",
+			&gitalypb.TestStreamRequest{},
+			func(c net.Conn) error {
+				return nil
+			},
+		)
+		if !shouldSucceed {
+			require.Error(t, err)
+			return
+		}
+
+		require.EqualError(t, err, errQuickRPC.Error())
+	}
 
 	invokeBlocking := func(conn *grpc.ClientConn) chan struct{} {
 		rpcFinished := make(chan struct{})
@@ -122,6 +147,25 @@ func TestGitalyServerFactory_closeOrder(t *testing.T) {
 		return rpcFinished
 	}
 
+	streamRPCCallBlocking := func(dial streamrpc.DialFunc) chan struct{} {
+		streamFinished := make(chan struct{})
+
+		go func() {
+			defer close(streamFinished)
+			err := streamrpc.Call(
+				ctx,
+				dial,
+				"/Service/Blocking",
+				&gitalypb.TestStreamRequest{},
+				func(c net.Conn) error {
+					return nil
+				},
+			)
+			require.EqualError(t, err, errBlockingRPC.Error())
+		}()
+		return streamFinished
+	}
+
 	waitUntilFailure := func(conn *grpc.ClientConn) {
 		for {
 			err := conn.Invoke(ctx, "/Service/Quick", &healthpb.HealthCheckRequest{}, &healthpb.HealthCheckRequest{})
@@ -134,43 +178,84 @@ func TestGitalyServerFactory_closeOrder(t *testing.T) {
 		}
 	}
 
+	waitUntilStreamRPCFailure := func(dial streamrpc.DialFunc) {
+		for {
+			err := streamrpc.Call(
+				ctx,
+				dial,
+				"/Service/Quick",
+				&gitalypb.TestStreamRequest{},
+				func(c net.Conn) error {
+					return nil
+				},
+			)
+			if err != nil && err.Error() == errQuickRPC.Error() {
+				continue
+			}
+
+			require.Error(t, err)
+			break
+		}
+	}
+
 	var internalConn, externalConn *grpc.ClientConn
 	var internalIsBlocking, externalIsBlocking chan struct{}
+
+	var internalStreamRPCDial, externalStreamRPCDial streamrpc.DialFunc
+	var internalStreamRPCIsBlocking, externalStreamRPCIsBlocking chan struct{}
+
 	var releaseInternalBlock, releaseExternalBlock chan struct{}
+	var releaseInternalStreamRPCBlock, releaseExternalStreamRPCBlock chan struct{}
+
 	for _, builder := range []struct {
-		createServer func() *grpc.Server
-		conn         **grpc.ClientConn
-		isBlocking   *chan struct{}
-		releaseBlock *chan struct{}
+		createServer          func() (*grpc.Server, *streamrpc.Server)
+		conn                  **grpc.ClientConn
+		isBlocking            *chan struct{}
+		releaseBlock          *chan struct{}
+		streamRPCIsBlocking   *chan struct{}
+		streamRPCReleaseBlock *chan struct{}
+		streamRPCDial         *streamrpc.DialFunc
 	}{
 		{
-			createServer: func() *grpc.Server {
-				server, _, err := sf.CreateInternal()
+			createServer: func() (*grpc.Server, *streamrpc.Server) {
+				server, streamRPCServer, err := sf.CreateInternal()
 				require.NoError(t, err)
-				return server
+				return server, streamRPCServer
 			},
-			conn:         &internalConn,
-			isBlocking:   &internalIsBlocking,
-			releaseBlock: &releaseInternalBlock,
+			conn:                  &internalConn,
+			isBlocking:            &internalIsBlocking,
+			releaseBlock:          &releaseInternalBlock,
+			streamRPCIsBlocking:   &internalStreamRPCIsBlocking,
+			streamRPCReleaseBlock: &releaseInternalStreamRPCBlock,
+			streamRPCDial:         &internalStreamRPCDial,
 		},
 		{
-			createServer: func() *grpc.Server {
-				server, _, err := sf.CreateExternal(false)
+			createServer: func() (*grpc.Server, *streamrpc.Server) {
+				server, streamRPCServer, err := sf.CreateExternal(false)
 				require.NoError(t, err)
-				return server
+				return server, streamRPCServer
 			},
-			conn:         &externalConn,
-			isBlocking:   &externalIsBlocking,
-			releaseBlock: &releaseExternalBlock,
+			conn:                  &externalConn,
+			isBlocking:            &externalIsBlocking,
+			releaseBlock:          &releaseExternalBlock,
+			streamRPCIsBlocking:   &externalStreamRPCIsBlocking,
+			streamRPCReleaseBlock: &releaseExternalStreamRPCBlock,
+			streamRPCDial:         &externalStreamRPCDial,
 		},
 	} {
-		server := builder.createServer()
+		server, streamRPCServer := builder.createServer()
 
 		releaseBlock := make(chan struct{})
 		*builder.releaseBlock = releaseBlock
 
+		streamRPCReleaseBlock := make(chan struct{})
+		*builder.streamRPCReleaseBlock = streamRPCReleaseBlock
+
 		isBlocking := make(chan struct{})
 		*builder.isBlocking = isBlocking
+
+		streamRPCIsBlocking := make(chan struct{})
+		*builder.streamRPCIsBlocking = streamRPCIsBlocking
 
 		server.RegisterService(&grpc.ServiceDesc{
 			ServiceName: "Service",
@@ -193,6 +278,28 @@ func TestGitalyServerFactory_closeOrder(t *testing.T) {
 			HandlerType: (*interface{})(nil),
 		}, server)
 
+		streamRPCServer.RegisterService(&grpc.ServiceDesc{
+			ServiceName: "Service",
+			Methods: []grpc.MethodDesc{
+				{
+					MethodName: "Quick",
+					Handler: func(interface{}, context.Context, func(interface{}) error, grpc.UnaryServerInterceptor) (interface{}, error) {
+						return nil, errQuickRPC
+					},
+				},
+				{
+					MethodName: "Blocking",
+					Handler: func(interface{}, context.Context, func(interface{}) error, grpc.UnaryServerInterceptor) (interface{}, error) {
+						close(streamRPCIsBlocking)
+						_, _ = streamrpc.AcceptConnection(ctx)
+						<-streamRPCReleaseBlock
+						return nil, errBlockingRPC
+					},
+				},
+			},
+			HandlerType: (*interface{})(nil),
+		}, streamRPCServer)
+
 		ln, err := net.Listen("tcp", "localhost:0")
 		require.NoError(t, err)
 		defer ln.Close()
@@ -201,15 +308,21 @@ func TestGitalyServerFactory_closeOrder(t *testing.T) {
 
 		*builder.conn, err = grpc.DialContext(ctx, ln.Addr().String(), grpc.WithInsecure())
 		require.NoError(t, err)
+
+		*builder.streamRPCDial = streamrpc.DialNet("tcp://" + ln.Addr().String())
 	}
 
 	// both servers should be up and accepting RPCs
 	invokeQuick(externalConn, true)
 	invokeQuick(internalConn, true)
+	streamRPCCallQuick(internalStreamRPCDial, true)
+	streamRPCCallQuick(externalStreamRPCDial, true)
 
 	// invoke a blocking RPC on the external server to block the graceful shutdown
 	invokeBlocking(externalConn)
 	<-externalIsBlocking
+	streamRPCCallBlocking(externalStreamRPCDial)
+	<-externalStreamRPCIsBlocking
 
 	shutdownCompeleted := make(chan struct{})
 	go func() {
@@ -220,35 +333,45 @@ func TestGitalyServerFactory_closeOrder(t *testing.T) {
 	// wait until the graceful shutdown is in progress and new RPCs are no longer accepted on the
 	// external servers
 	waitUntilFailure(externalConn)
+	waitUntilStreamRPCFailure(externalStreamRPCDial)
 
 	// internal sockets should still accept RPCs even if external sockets are gracefully closing.
 	invokeQuick(internalConn, true)
+	streamRPCCallQuick(internalStreamRPCDial, true)
 
 	// block on the internal server
 	internalBlockingRPCFinished := invokeBlocking(internalConn)
 	<-internalIsBlocking
+	internalBlockingStreamRPCFinished := streamRPCCallBlocking(internalStreamRPCDial)
+	<-internalStreamRPCIsBlocking
 
 	// release the external server's blocking RPC so the graceful shutdown can complete and proceed to
 	// shutting down the internal servers.
 	close(releaseExternalBlock)
+	close(releaseExternalStreamRPCBlock)
 
 	// wait until the graceful shutdown is in progress and new RPCs are no longer accepted on the internal
 	// servers
 	waitUntilFailure(internalConn)
+	waitUntilStreamRPCFailure(externalStreamRPCDial)
 
 	// neither internal nor external servers should be accepting new RPCs anymore
 	invokeQuick(externalConn, false)
 	invokeQuick(internalConn, false)
+	streamRPCCallQuick(internalStreamRPCDial, false)
+	streamRPCCallQuick(externalStreamRPCDial, false)
 
 	// wait until the blocking rpc has successfully completed
 	close(releaseInternalBlock)
 	<-internalBlockingRPCFinished
+	close(releaseInternalStreamRPCBlock)
+	<-internalBlockingStreamRPCFinished
 
 	// wait until the graceful shutdown completes
 	<-shutdownCompeleted
 }
 
-func check(t *testing.T, ctx context.Context, sf *GitalyServerFactory, cfg config.Cfg, repo *gitalypb.Repository, schema, addr string) healthpb.HealthClient {
+func check(t *testing.T, ctx context.Context, sf *GitalyServerFactory, cfg config.Cfg, repo *gitalypb.Repository, schema, addr string) (healthpb.HealthClient, func() ([]byte, []byte, error)) {
 	t.Helper()
 
 	var grpcConn *grpc.ClientConn
@@ -308,11 +431,14 @@ func check(t *testing.T, ctx context.Context, sf *GitalyServerFactory, cfg confi
 	require.Equal(t, healthpb.HealthCheckResponse_SERVING, resp.Status)
 
 	// Make a streamRPC call
-	in, out, err := checkStreamRPC(t, streamRPCDial, repo)
+	streamRPCCall := func() ([]byte, []byte, error) {
+		return checkStreamRPC(t, streamRPCDial, repo)
+	}
+	in, out, err := streamRPCCall()
 	require.NoError(t, err)
 	require.Equal(t, in, out, "byte stream works")
 
-	return healthClient
+	return healthClient, streamRPCCall
 }
 
 func registerStreamRPCServers(t *testing.T, srv *streamrpc.Server, cfg config.Cfg) {
