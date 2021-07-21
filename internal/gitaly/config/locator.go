@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
@@ -111,8 +112,25 @@ func (l *configLocator) GetObjectDirectoryPath(repo repository.GitRepo) (string,
 		return "", status.Errorf(codes.InvalidArgument, "GetObjectDirectoryPath: empty directory")
 	}
 
-	if _, err = storage.ValidateRelativePath(repoPath, objectDirectoryPath); err != nil {
-		return "", status.Errorf(codes.InvalidArgument, "GetObjectDirectoryPath: %s", err)
+	// We need to check whether the relative object directory as given by the repository is
+	// a valid path. This may either be a path in the Git repository itself, where it may either
+	// point to the main object directory storage or to an object quarantine directory as
+	// created by git-receive-pack(1). Alternatively, if that is not the case, then it may be a
+	// manual object quarantine directory located in the storage's temporary directory. These
+	// have a repository-specific prefix which we must check in order to determine whether the
+	// quarantine directory does in fact belong to the repo at hand.
+	if _, origError := storage.ValidateRelativePath(repoPath, objectDirectoryPath); origError != nil {
+		tempDir, err := l.TempDir(repo.GetStorageName())
+		if err != nil {
+			return "", status.Errorf(codes.InvalidArgument, "GetObjectDirectoryPath: %s", err)
+		}
+
+		expectedQuarantinePrefix := filepath.Join(tempDir, storage.QuarantineDirectoryPrefix(repo))
+		absoluteObjectDirectoryPath := filepath.Join(repoPath, objectDirectoryPath)
+
+		if !strings.HasPrefix(absoluteObjectDirectoryPath, expectedQuarantinePrefix) {
+			return "", status.Errorf(codes.InvalidArgument, "GetObjectDirectoryPath: %s", origError)
+		}
 	}
 
 	fullPath := filepath.Join(repoPath, objectDirectoryPath)
