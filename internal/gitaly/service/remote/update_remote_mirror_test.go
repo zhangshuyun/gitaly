@@ -15,26 +15,16 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
-
-func testUpdateRemoteMirror(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoUpdateRemoteMirror,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testUpdateRemoteMirrorFeatured(t, ctx, cfg, rubySrv)
-	})
-}
 
 type commandFactoryWrapper struct {
 	git.CommandFactory
@@ -45,7 +35,11 @@ func (w commandFactoryWrapper) New(ctx context.Context, repo repository.GitRepo,
 	return w.newFunc(ctx, repo, sc, opts...)
 }
 
-func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
+func TestUpdateRemoteMirror(t *testing.T) {
+	t.Parallel()
+
+	cfg := testcfg.Build(t)
+
 	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 
 	type refs map[string][]string
@@ -449,6 +443,9 @@ func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg confi
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
 			mirrorRepoPb, mirrorRepoPath, cleanMirrorRepo := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 			defer cleanMirrorRepo()
 
@@ -506,7 +503,7 @@ func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg confi
 				}
 			}
 
-			addr := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
+			addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 				cmdFactory := deps.GetGitCmdFactory()
 				if tc.wrapCommandFactory != nil {
 					cmdFactory = tc.wrapCommandFactory(t, deps.GetGitCmdFactory())
@@ -570,16 +567,15 @@ func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg confi
 	}
 }
 
-func testSuccessfulUpdateRemoteMirrorRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoUpdateRemoteMirror,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testSuccessfulUpdateRemoteMirrorRequestFeatured(t, ctx, cfg, rubySrv)
-	})
-}
+func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
+	t.Parallel()
 
-func testSuccessfulUpdateRemoteMirrorRequestFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	serverSocketPath := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
+	cfg := testcfg.Build(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
 			deps.GetCfg(),
 			deps.GetRubyServer(),
@@ -677,16 +673,15 @@ func testSuccessfulUpdateRemoteMirrorRequestFeatured(t *testing.T, ctx context.C
 	require.NotContains(t, mirrorRefs, "refs/tags/v1.1.0")
 }
 
-func testSuccessfulUpdateRemoteMirrorRequestWithWildcards(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoUpdateRemoteMirror,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testSuccessfulUpdateRemoteMirrorRequestWithWildcardsFeatured(t, ctx, cfg, rubySrv)
-	})
-}
+func TestSuccessfulUpdateRemoteMirrorRequestWithWildcards(t *testing.T) {
+	t.Parallel()
 
-func testSuccessfulUpdateRemoteMirrorRequestWithWildcardsFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	serverSocketPath := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
+	cfg := testcfg.Build(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
 			deps.GetCfg(),
 			deps.GetRubyServer(),
@@ -768,8 +763,12 @@ func testSuccessfulUpdateRemoteMirrorRequestWithWildcardsFeatured(t *testing.T, 
 	require.NotContains(t, mirrorRefs, "refs/tags/v1.1.0")
 }
 
-func testUpdateRemoteMirrorInmemory(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	serverSocketPath := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
+func TestUpdateRemoteMirrorInmemory(t *testing.T) {
+	t.Parallel()
+
+	cfg := testcfg.Build(t)
+
+	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
 			deps.GetCfg(),
 			deps.GetRubyServer(),
@@ -793,56 +792,34 @@ func testUpdateRemoteMirrorInmemory(t *testing.T, cfg config.Cfg, rubySrv *rubys
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	t.Run("Ruby implementation fails gracefully", func(t *testing.T) {
-		ctx := featureflag.OutgoingCtxWithFeatureFlagValue(ctx, featureflag.GoUpdateRemoteMirror, "false")
+	stream, err := client.UpdateRemoteMirror(ctx)
+	require.NoError(t, err)
 
-		stream, err := client.UpdateRemoteMirror(ctx)
-		require.NoError(t, err)
+	require.NoError(t, stream.Send(&gitalypb.UpdateRemoteMirrorRequest{
+		Repository: localRepo,
+		Remote: &gitalypb.UpdateRemoteMirrorRequest_Remote{
+			Url: remotePath,
+		},
+	}))
 
-		require.NoError(t, stream.Send(&gitalypb.UpdateRemoteMirrorRequest{
-			Repository: localRepo,
-			Remote: &gitalypb.UpdateRemoteMirrorRequest_Remote{
-				Url: remotePath,
-			},
-		}))
+	response, err := stream.CloseAndRecv()
+	require.NoError(t, err)
+	testassert.ProtoEqual(t, &gitalypb.UpdateRemoteMirrorResponse{}, response)
 
-		_, err = stream.CloseAndRecv()
-		testassert.GrpcEqualErr(t, status.Error(codes.InvalidArgument, "in-memory remotes require `gitaly_go_update_remote_mirror` feature flag"), err)
-	})
-
-	t.Run("Go implementation succeeds", func(t *testing.T) {
-		ctx := featureflag.OutgoingCtxWithFeatureFlags(ctx, featureflag.GoUpdateRemoteMirror)
-
-		stream, err := client.UpdateRemoteMirror(ctx)
-		require.NoError(t, err)
-
-		require.NoError(t, stream.Send(&gitalypb.UpdateRemoteMirrorRequest{
-			Repository: localRepo,
-			Remote: &gitalypb.UpdateRemoteMirrorRequest_Remote{
-				Url: remotePath,
-			},
-		}))
-
-		response, err := stream.CloseAndRecv()
-		require.NoError(t, err)
-		testassert.ProtoEqual(t, &gitalypb.UpdateRemoteMirrorResponse{}, response)
-
-		localRefs := string(gittest.Exec(t, cfg, "-C", localPath, "for-each-ref"))
-		remoteRefs := string(gittest.Exec(t, cfg, "-C", remotePath, "for-each-ref"))
-		require.Equal(t, localRefs, remoteRefs)
-	})
+	localRefs := string(gittest.Exec(t, cfg, "-C", localPath, "for-each-ref"))
+	remoteRefs := string(gittest.Exec(t, cfg, "-C", remotePath, "for-each-ref"))
+	require.Equal(t, localRefs, remoteRefs)
 }
 
-func testSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoUpdateRemoteMirror,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefsFeatured(t, ctx, cfg, rubySrv)
-	})
-}
+func TestSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T) {
+	t.Parallel()
 
-func testSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefsFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	serverSocketPath := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
+	cfg := testcfg.Build(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
 			deps.GetCfg(),
 			deps.GetRubyServer(),
@@ -926,16 +903,15 @@ func testSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefsFeatured(t *tes
 	require.NotContains(t, mirrorRefs, "refs/heads/not-merged-branch")
 }
 
-func testFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoUpdateRemoteMirror,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testFailedUpdateRemoteMirrorRequestDueToValidationFeatured(t, ctx, cfg, rubySrv)
-	})
-}
+func TestFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T) {
+	t.Parallel()
 
-func testFailedUpdateRemoteMirrorRequestDueToValidationFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	serverSocketPath := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
+	cfg := testcfg.Build(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
 			deps.GetCfg(),
 			deps.GetRubyServer(),

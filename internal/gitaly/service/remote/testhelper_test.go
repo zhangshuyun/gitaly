@@ -40,14 +40,8 @@ func TestWithRubySidecar(t *testing.T) {
 	t.Cleanup(rubySrv.Stop)
 
 	fs := []func(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server){
-		testSuccessfulUpdateRemoteMirrorRequest,
-		testSuccessfulUpdateRemoteMirrorRequestWithWildcards,
-		testUpdateRemoteMirrorInmemory,
-		testSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs,
-		testFailedUpdateRemoteMirrorRequestDueToValidation,
 		testSuccessfulAddRemote,
 		testAddRemoteTransactional,
-		testUpdateRemoteMirror,
 	}
 
 	for _, f := range fs {
