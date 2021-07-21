@@ -9,7 +9,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -28,7 +27,11 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 		return nil, helper.ErrInvalidArgumentf("storage %v not found", repo.GetStorageName())
 	}
 
-	tempDir := tempdir.TempDir(storage)
+	tempDir, err := s.locator.TempDir(storage.Name)
+	if err != nil {
+		return nil, helper.ErrInternalf("temporary directory: %w", err)
+	}
+
 	if err := os.MkdirAll(tempDir, 0755); err != nil {
 		return nil, helper.ErrInternal(err)
 	}
