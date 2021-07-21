@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/quarantine"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -74,4 +76,23 @@ func TestSuccessfulGetObjectDirectorySizeRequest(t *testing.T) {
 		response.Size > testRepoMinSizeKB,
 		"repository size %d should be at least %d", response.Size, testRepoMinSizeKB,
 	)
+}
+
+func TestGetObjectDirectorySize_quarantine(t *testing.T) {
+	t.Parallel()
+
+	cfg, repo, _, client := setupRepositoryService(t)
+	locator := config.NewLocator(cfg)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	quarantine, err := quarantine.New(ctx, repo, locator)
+	require.NoError(t, err)
+
+	response, err := client.GetObjectDirectorySize(ctx, &gitalypb.GetObjectDirectorySizeRequest{
+		Repository: quarantine.QuarantinedRepo(),
+	})
+	require.EqualError(t, err, "rpc error: code = InvalidArgument desc = GetObjectDirectoryPath: relative path escapes root directory")
+	require.Nil(t, response)
 }
