@@ -688,7 +688,7 @@ func TestFindAllTags_duplicateAnnotatedTags(t *testing.T) {
 			TargetCommit: commit,
 		},
 		{
-			Name:        []byte("annotated"),
+			Name:        []byte("annotated-dup"),
 			Id:          tagID.String(),
 			Message:     []byte("message"),
 			MessageSize: 7,
