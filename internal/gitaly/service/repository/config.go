@@ -76,7 +76,8 @@ func (s *server) DeleteConfig(ctx context.Context, req *gitalypb.DeleteConfigReq
 		// We assume k does not contain any secrets; it is leaked via 'ps'.
 		cmd, err := s.gitCmdFactory.New(ctx, req.Repository, git.SubCmd{
 			Name:  "config",
-			Flags: []git.Option{git.ValueFlag{Name: "--unset-all", Value: k}},
+			Flags: []git.Option{git.Flag{Name: "--unset-all"}},
+			Args:  []string{k},
 		})
 		if err != nil {
 			return nil, err

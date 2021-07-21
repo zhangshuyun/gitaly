@@ -49,9 +49,9 @@ func (s *server) cloneFromURLCommand(ctx context.Context, repo *gitalypb.Reposit
 
 	return s.gitCmdFactory.NewWithoutRepo(ctx,
 		git.SubCmd{
-			Name:        "clone",
-			Flags:       cloneFlags,
-			PostSepArgs: []string{u.String(), repositoryFullPath},
+			Name:  "clone",
+			Flags: cloneFlags,
+			Args:  []string{u.String(), repositoryFullPath},
 		},
 		git.WithStderr(stderr),
 		git.WithRefTxHook(ctx, repo, s.cfg),

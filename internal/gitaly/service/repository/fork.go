@@ -60,7 +60,7 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 				git.Flag{Name: "--bare"},
 				git.Flag{Name: "--no-local"},
 			},
-			PostSepArgs: []string{
+			Args: []string{
 				fmt.Sprintf("%s:%s", gitalyssh.GitalyInternalURL, sourceRepository.RelativePath),
 				targetRepositoryFullPath,
 			},

@@ -28,9 +28,11 @@ var commandDescriptions = map[string]commandDescription{
 		flags: scNoRefUpdates,
 	},
 	"archive": {
+		// git-archive(1) does not support disambiguating options from paths from revisions.
 		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
 	"blame": {
+		// git-blame(1) does not support disambiguating options from paths from revisions.
 		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
 	"bundle": {
@@ -40,13 +42,17 @@ var commandDescriptions = map[string]commandDescription{
 		flags: scNoRefUpdates,
 	},
 	"check-ref-format": {
+		// git-check-ref-format(1) uses a hand-rolled option parser which doesn't support
+		// `--end-of-options`.
 		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
 	"checkout": {
+		// git-checkout(1) does not support disambiguating options from paths from
+		// revisions.
 		flags: scNoEndOfOptions,
 	},
 	"clone": {
-		flags: scNoEndOfOptions | scGeneratesPackfiles,
+		flags: scGeneratesPackfiles,
 	},
 	"commit": {
 		flags: 0,
@@ -58,7 +64,7 @@ var commandDescriptions = map[string]commandDescription{
 		flags: scNoRefUpdates,
 	},
 	"config": {
-		flags: scNoRefUpdates | scNoEndOfOptions,
+		flags: scNoRefUpdates,
 	},
 	"count-objects": {
 		flags: scNoRefUpdates,
@@ -82,7 +88,7 @@ var commandDescriptions = map[string]commandDescription{
 		},
 	},
 	"for-each-ref": {
-		flags: scNoRefUpdates | scNoEndOfOptions,
+		flags: scNoRefUpdates,
 	},
 	"format-patch": {
 		flags: scNoRefUpdates,
@@ -94,6 +100,8 @@ var commandDescriptions = map[string]commandDescription{
 		flags: scNoRefUpdates | scGeneratesPackfiles,
 	},
 	"grep": {
+		// git-grep(1) does not support disambiguating options from paths from
+		// revisions.
 		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
 	"hash-object": {
@@ -109,16 +117,17 @@ var commandDescriptions = map[string]commandDescription{
 		},
 	},
 	"linguist": {
+		// linguist is not a native Git command, so we cannot use --end-of-options.
 		flags: scNoEndOfOptions,
 	},
 	"log": {
 		flags: scNoRefUpdates,
 	},
 	"ls-remote": {
-		flags: scNoRefUpdates | scNoEndOfOptions,
+		flags: scNoRefUpdates,
 	},
 	"ls-tree": {
-		flags: scNoRefUpdates | scNoEndOfOptions,
+		flags: scNoRefUpdates,
 	},
 	"merge-base": {
 		flags: scNoRefUpdates,
@@ -127,7 +136,7 @@ var commandDescriptions = map[string]commandDescription{
 		flags: scNoRefUpdates,
 	},
 	"mktag": {
-		flags: scNoRefUpdates | scNoEndOfOptions,
+		flags: scNoRefUpdates,
 	},
 	"multi-pack-index": {
 		flags: scNoRefUpdates,
@@ -139,7 +148,7 @@ var commandDescriptions = map[string]commandDescription{
 		flags: scNoRefUpdates | scGeneratesPackfiles,
 	},
 	"push": {
-		flags: scNoRefUpdates | scNoEndOfOptions,
+		flags: scNoRefUpdates,
 	},
 	"receive-pack": {
 		flags: 0,
@@ -176,6 +185,8 @@ var commandDescriptions = map[string]commandDescription{
 		}, hiddenReceivePackRefPrefixes()...),
 	},
 	"remote": {
+		// While git-remote(1)'s `add` subcommand does support `--end-of-options`,
+		// `remove` doesn't.
 		flags: scNoEndOfOptions,
 	},
 	"repack": {
@@ -187,7 +198,9 @@ var commandDescriptions = map[string]commandDescription{
 		},
 	},
 	"rev-list": {
-		flags: scNoRefUpdates,
+		// We cannot use --end-of-options here because pseudo revisions like `--all`
+		// and `--not` count as options.
+		flags: scNoRefUpdates | scNoEndOfOptions,
 		validatePositionalArgs: func(args []string) error {
 			for _, arg := range args {
 				// git-rev-list(1) supports pseudo-revision arguments which can be
@@ -208,6 +221,8 @@ var commandDescriptions = map[string]commandDescription{
 		},
 	},
 	"rev-parse": {
+		// --end-of-options is echoed by git-rev-parse(1) if used without
+		// `--verify`.
 		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
 	"show": {
@@ -226,6 +241,8 @@ var commandDescriptions = map[string]commandDescription{
 		flags: 0,
 	},
 	"upload-archive": {
+		// git-upload-archive(1) has a handrolled parser which always interprets the
+		// first argument as directory, so we cannot use `--end-of-options`.
 		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
 	"upload-pack": {
@@ -238,7 +255,7 @@ var commandDescriptions = map[string]commandDescription{
 		},
 	},
 	"version": {
-		flags: scNoRefUpdates | scNoEndOfOptions,
+		flags: scNoRefUpdates,
 	},
 	"worktree": {
 		flags: 0,
@@ -306,6 +323,10 @@ func (c commandDescription) args(flags []Option, args []string, postSepArgs []st
 		commandArgs = append(commandArgs, args...)
 	}
 
+	if c.supportsEndOfOptions() {
+		commandArgs = append(commandArgs, "--end-of-options")
+	}
+
 	if c.validatePositionalArgs != nil {
 		if err := c.validatePositionalArgs(args); err != nil {
 			return nil, err
@@ -318,10 +339,6 @@ func (c commandDescription) args(flags []Option, args []string, postSepArgs []st
 		}
 	}
 	commandArgs = append(commandArgs, args...)
-
-	if c.supportsEndOfOptions() {
-		commandArgs = append(commandArgs, "--end-of-options")
-	}
 
 	if len(postSepArgs) > 0 {
 		commandArgs = append(commandArgs, "--")

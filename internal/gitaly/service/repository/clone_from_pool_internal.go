@@ -108,9 +108,9 @@ func (s *server) cloneFromPool(ctx context.Context, objectPoolRepo *gitalypb.Obj
 
 	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx,
 		git.SubCmd{
-			Name:        "clone",
-			Flags:       []git.Option{git.Flag{Name: "--bare"}, git.Flag{Name: "--shared"}},
-			PostSepArgs: []string{objectPoolPath, repositoryPath},
+			Name:  "clone",
+			Flags: []git.Option{git.Flag{Name: "--bare"}, git.Flag{Name: "--shared"}},
+			Args:  []string{objectPoolPath, repositoryPath},
 		},
 		git.WithRefTxHook(ctx, repo, s.cfg),
 	)
