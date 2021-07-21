@@ -59,12 +59,12 @@ func TestUpdateRemoteMirror(t *testing.T) {
 		expectedMirrorRefs   map[string]string
 	}{
 		{
-			// https://gitlab.com/gitlab-org/gitaly/-/issues/3503
-			desc: "empty mirror source fails",
+			desc: "empty mirror source works",
 			mirrorRefs: refs{
 				"refs/heads/tags": {"commit 1"},
 			},
-			errorContains: "rpc error: code = Internal desc = close stream to gitaly-ruby: rpc error: code = Unknown desc = NoMethodError: undefined method `id' for nil:NilClass",
+			response:           &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{},
 		},
 		{
 			desc:     "mirror is up to date",

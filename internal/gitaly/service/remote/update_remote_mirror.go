@@ -106,11 +106,6 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 		return fmt.Errorf("get local references: %w", err)
 	}
 
-	if len(localRefs) == 0 {
-		// https://gitlab.com/gitlab-org/gitaly/-/issues/3503
-		return errors.New("close stream to gitaly-ruby: rpc error: code = Unknown desc = NoMethodError: undefined method `id' for nil:NilClass")
-	}
-
 	defaultBranch, err := ref.DefaultBranchName(ctx, repo)
 	if err != nil {
 		return fmt.Errorf("get default branch: %w", err)
