@@ -2,9 +2,6 @@ package blob
 
 import (
 	"bytes"
-	"context"
-	"errors"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -12,17 +9,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -73,15 +66,10 @@ var (
 )
 
 func TestListLFSPointers(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.LFSPointersPipeline,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testListLFSPointers(t, ctx)
-	})
-}
-
-func testListLFSPointers(t *testing.T, ctx context.Context) {
 	_, repo, _, client := setup(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	for _, tc := range []struct {
 		desc             string
@@ -187,14 +175,9 @@ func testListLFSPointers(t *testing.T, ctx context.Context) {
 }
 
 func TestListAllLFSPointers(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.LFSPointersPipeline,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testListAllLFSPointers(t, ctx)
-	})
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testListAllLFSPointers(t *testing.T, ctx context.Context) {
 	receivePointers := func(t *testing.T, stream gitalypb.BlobService_ListAllLFSPointersClient) []*gitalypb.LFSPointer {
 		t.Helper()
 
@@ -306,15 +289,10 @@ size 12345`
 }
 
 func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.LFSPointersPipeline,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testSuccessfulGetLFSPointersRequest(t, ctx)
-	})
-}
-
-func testSuccessfulGetLFSPointersRequest(t *testing.T, ctx context.Context) {
 	_, repo, _, client := setup(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	lfsPointerIds := []string{
 		lfsPointer1,
@@ -356,15 +334,10 @@ func testSuccessfulGetLFSPointersRequest(t *testing.T, ctx context.Context) {
 }
 
 func TestFailedGetLFSPointersRequestDueToValidations(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.LFSPointersPipeline,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testFailedGetLFSPointersRequestDueToValidations(t, ctx)
-	})
-}
-
-func testFailedGetLFSPointersRequestDueToValidations(t *testing.T, ctx context.Context) {
 	_, repo, _, client := setup(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	testCases := []struct {
 		desc    string
@@ -401,294 +374,6 @@ func testFailedGetLFSPointersRequestDueToValidations(t *testing.T, ctx context.C
 	}
 }
 
-func TestFindLFSPointersByRevisions(t *testing.T) {
-	cfg := testcfg.Build(t)
-
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-
-	repoProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
-	t.Cleanup(cleanup)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	for _, tc := range []struct {
-		desc                string
-		revs                []string
-		limit               int
-		expectedErr         error
-		expectedLFSPointers []*gitalypb.LFSPointer
-	}{
-		{
-			desc: "--all",
-			revs: []string{"--all"},
-			expectedLFSPointers: []*gitalypb.LFSPointer{
-				lfsPointers[lfsPointer1],
-				lfsPointers[lfsPointer2],
-				lfsPointers[lfsPointer3],
-				lfsPointers[lfsPointer4],
-				lfsPointers[lfsPointer5],
-				lfsPointers[lfsPointer6],
-			},
-		},
-		{
-			desc:  "--all with high limit",
-			revs:  []string{"--all"},
-			limit: 7,
-			expectedLFSPointers: []*gitalypb.LFSPointer{
-				lfsPointers[lfsPointer1],
-				lfsPointers[lfsPointer2],
-				lfsPointers[lfsPointer3],
-				lfsPointers[lfsPointer4],
-				lfsPointers[lfsPointer5],
-				lfsPointers[lfsPointer6],
-			},
-		},
-		{
-			desc:  "--all with truncating limit",
-			revs:  []string{"--all"},
-			limit: 3,
-			expectedLFSPointers: []*gitalypb.LFSPointer{
-				lfsPointers[lfsPointer1],
-				lfsPointers[lfsPointer5],
-				lfsPointers[lfsPointer6],
-			},
-			expectedErr: errLimitReached,
-		},
-		{
-			desc: "--not --all",
-			revs: []string{"--not", "--all"},
-		},
-		{
-			desc: "initial commit",
-			revs: []string{"1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"},
-		},
-		{
-			desc: "master",
-			revs: []string{"master"},
-			expectedLFSPointers: []*gitalypb.LFSPointer{
-				lfsPointers[lfsPointer1],
-			},
-		},
-		{
-			desc: "multiple revisions",
-			revs: []string{"master", "moar-lfs-ptrs"},
-			expectedLFSPointers: []*gitalypb.LFSPointer{
-				lfsPointers[lfsPointer1],
-				lfsPointers[lfsPointer2],
-				lfsPointers[lfsPointer3],
-			},
-		},
-		{
-			desc:        "invalid revision",
-			revs:        []string{"does-not-exist"},
-			expectedErr: fmt.Errorf("fatal: ambiguous argument 'does-not-exist'"),
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			var collector lfsPointerCollector
-
-			err := findLFSPointersByRevisions(ctx, repo, gitCmdFactory,
-				collector.chunker(), tc.limit, tc.revs...)
-			if tc.expectedErr == nil {
-				require.NoError(t, err)
-			} else {
-				require.Contains(t, err.Error(), tc.expectedErr.Error())
-			}
-			lfsPointersEqual(t, tc.expectedLFSPointers, collector.pointers)
-		})
-	}
-}
-
-func BenchmarkFindLFSPointers(b *testing.B) {
-	cfg := testcfg.Build(b)
-
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-
-	repoProto, _, cleanup := gittest.CloneBenchRepo(b, cfg)
-	b.Cleanup(cleanup)
-	repo := localrepo.NewTestRepo(b, cfg, repoProto)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	b.Run("limitless", func(b *testing.B) {
-		var collector lfsPointerCollector
-		err := findLFSPointersByRevisions(ctx, repo, gitCmdFactory, collector.chunker(), 0, "--all")
-		require.NoError(b, err)
-	})
-
-	b.Run("limit", func(b *testing.B) {
-		var collector lfsPointerCollector
-		err := findLFSPointersByRevisions(ctx, repo, gitCmdFactory, collector.chunker(), 1, "--all")
-		require.NoError(b, err)
-		require.Len(b, collector.pointers, 1)
-	})
-}
-
-func BenchmarkReadLFSPointers(b *testing.B) {
-	cfg := testcfg.Build(b)
-
-	repoProto, path, cleanup := gittest.CloneBenchRepo(b, cfg)
-	b.Cleanup(cleanup)
-	repo := localrepo.NewTestRepo(b, cfg, repoProto)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	candidates := gittest.Exec(b, cfg, "-C", path, "rev-list", "--in-commit-order", "--objects", "--no-object-names", "--filter=blob:limit=200", "--all")
-
-	b.Run("limitless", func(b *testing.B) {
-		var collector lfsPointerCollector
-		err := readLFSPointers(ctx, repo, collector.chunker(), bytes.NewReader(candidates), 0)
-		require.NoError(b, err)
-	})
-
-	b.Run("limit", func(b *testing.B) {
-		var collector lfsPointerCollector
-		err := readLFSPointers(ctx, repo, collector.chunker(), bytes.NewReader(candidates), 1)
-		require.Equal(b, errLimitReached, err)
-		require.Equal(b, 1, len(collector.pointers))
-	})
-}
-
-func TestReadLFSPointers(t *testing.T) {
-	cfg, repo, _, _ := setup(t)
-
-	localRepo := localrepo.NewTestRepo(t, cfg, repo)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	for _, tc := range []struct {
-		desc                string
-		input               string
-		limit               int
-		expectedErr         error
-		expectedLFSPointers []*gitalypb.LFSPointer
-	}{
-		{
-			desc:  "single object ID",
-			input: strings.Join([]string{lfsPointer1}, "\n"),
-			expectedLFSPointers: []*gitalypb.LFSPointer{
-				lfsPointers[lfsPointer1],
-			},
-		},
-		{
-			desc: "multiple object IDs",
-			input: strings.Join([]string{
-				lfsPointer1,
-				lfsPointer2,
-				lfsPointer3,
-				lfsPointer4,
-				lfsPointer5,
-				lfsPointer6,
-			}, "\n"),
-			expectedLFSPointers: []*gitalypb.LFSPointer{
-				lfsPointers[lfsPointer1],
-				lfsPointers[lfsPointer2],
-				lfsPointers[lfsPointer3],
-				lfsPointers[lfsPointer4],
-				lfsPointers[lfsPointer5],
-				lfsPointers[lfsPointer6],
-			},
-		},
-		{
-			desc: "multiple object IDs with high limit",
-			input: strings.Join([]string{
-				lfsPointer1,
-				lfsPointer2,
-				lfsPointer3,
-				lfsPointer4,
-				lfsPointer5,
-				lfsPointer6,
-			}, "\n"),
-			limit: 7,
-			expectedLFSPointers: []*gitalypb.LFSPointer{
-				lfsPointers[lfsPointer1],
-				lfsPointers[lfsPointer2],
-				lfsPointers[lfsPointer3],
-				lfsPointers[lfsPointer4],
-				lfsPointers[lfsPointer5],
-				lfsPointers[lfsPointer6],
-			},
-		},
-		{
-			desc: "multiple object IDs with truncating limit",
-			input: strings.Join([]string{
-				lfsPointer1,
-				lfsPointer2,
-				lfsPointer3,
-				lfsPointer4,
-				lfsPointer5,
-				lfsPointer6,
-			}, "\n"),
-			limit: 3,
-			expectedLFSPointers: []*gitalypb.LFSPointer{
-				lfsPointers[lfsPointer1],
-				lfsPointers[lfsPointer2],
-				lfsPointers[lfsPointer3],
-			},
-			expectedErr: errLimitReached,
-		},
-		{
-			desc: "multiple object IDs with name filter",
-			input: strings.Join([]string{
-				lfsPointer1,
-				lfsPointer2,
-				lfsPointer3 + " x",
-				lfsPointer4,
-				lfsPointer5 + " z",
-				lfsPointer6 + " a",
-			}, "\n"),
-			expectedLFSPointers: []*gitalypb.LFSPointer{
-				lfsPointers[lfsPointer1],
-				lfsPointers[lfsPointer2],
-			},
-			expectedErr: errors.New("object not found"),
-		},
-		{
-			desc: "non-pointer object",
-			input: strings.Join([]string{
-				"60ecb67744cb56576c30214ff52294f8ce2def98",
-			}, "\n"),
-		},
-		{
-			desc: "mixed objects",
-			input: strings.Join([]string{
-				"60ecb67744cb56576c30214ff52294f8ce2def98",
-				lfsPointer2,
-			}, "\n"),
-			expectedLFSPointers: []*gitalypb.LFSPointer{
-				lfsPointers[lfsPointer2],
-			},
-		},
-		{
-			desc: "missing object",
-			input: strings.Join([]string{
-				"0101010101010101010101010101010101010101",
-			}, "\n"),
-			expectedErr: errors.New("object not found"),
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			reader := strings.NewReader(tc.input)
-
-			var collector lfsPointerCollector
-
-			err := readLFSPointers(ctx, localRepo, collector.chunker(), reader, tc.limit)
-			if tc.expectedErr == nil {
-				require.NoError(t, err)
-			} else {
-				require.Contains(t, err.Error(), tc.expectedErr.Error())
-			}
-
-			lfsPointersEqual(t, tc.expectedLFSPointers, collector.pointers)
-		})
-	}
-}
-
 func lfsPointersEqual(tb testing.TB, expected, actual []*gitalypb.LFSPointer) {
 	tb.Helper()
 
@@ -702,25 +387,4 @@ func lfsPointersEqual(tb testing.TB, expected, actual []*gitalypb.LFSPointer) {
 	for i := range expected {
 		testassert.ProtoEqual(tb, expected[i], actual[i])
 	}
-}
-
-type lfsPointerCollector struct {
-	pointers []*gitalypb.LFSPointer
-}
-
-func (c *lfsPointerCollector) Append(m proto.Message) {
-	c.pointers = append(c.pointers, m.(*gitalypb.LFSPointer))
-}
-
-func (c *lfsPointerCollector) Reset() {
-	// We don'c reset anything given that we want to collect all pointers.
-}
-
-func (c *lfsPointerCollector) Send() error {
-	// And neither do we anything here.
-	return nil
-}
-
-func (c *lfsPointerCollector) chunker() *chunk.Chunker {
-	return chunk.New(c)
 }

@@ -6,9 +6,6 @@ package featureflag
 var (
 	// GoUpdateRemoteMirror enables the Go implementation of UpdateRemoteMirror
 	GoUpdateRemoteMirror = FeatureFlag{Name: "go_update_remote_mirror", OnByDefault: true}
-	// LFSPointersPipeline enables the alternative pipeline implementation of LFS-pointer
-	// related RPCs.
-	LFSPointersPipeline = FeatureFlag{Name: "lfs_pointers_pipeline", OnByDefault: true}
 	// GoSetConfig enables git2go implementation of SetConfig.
 	GoSetConfig = FeatureFlag{Name: "go_set_config", OnByDefault: false}
 	// CreateRepositoryFromBundleAtomicFetch will add the `--atomic` flag to git-fetch(1) in
@@ -36,7 +33,6 @@ var (
 // All includes all feature flags.
 var All = []FeatureFlag{
 	GoUpdateRemoteMirror,
-	LFSPointersPipeline,
 	GoSetConfig,
 	CreateRepositoryFromBundleAtomicFetch,
 	ResolveConflictsWithHooks,

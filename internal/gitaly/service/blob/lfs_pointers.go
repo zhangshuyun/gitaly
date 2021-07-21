@@ -1,10 +1,7 @@
 package blob
 
 import (
-	"bufio"
 	"bytes"
-	"context"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -12,14 +9,10 @@ import (
 	"github.com/golang/protobuf/proto"
 	gitalyerrors "gitlab.com/gitlab-org/gitaly/v14/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gitpipe"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/chunk"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
-	"golang.org/x/text/transform"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -29,10 +22,6 @@ const (
 	// as a heuristic to filter blobs which can't be LFS pointers. The format of these pointers
 	// is described in https://github.com/git-lfs/git-lfs/blob/master/docs/spec.md#the-pointer.
 	lfsPointerMaxSize = 200
-)
-
-var (
-	errLimitReached = errors.New("limit reached")
 )
 
 // ListLFSPointers finds all LFS pointers which are transitively reachable via a graph walk of the
@@ -62,41 +51,33 @@ func (s *server) ListLFSPointers(in *gitalypb.ListLFSPointersRequest, stream git
 
 	repo := s.localrepo(in.GetRepository())
 
-	if featureflag.LFSPointersPipeline.IsDisabled(ctx) {
-		if err := findLFSPointersByRevisions(ctx, repo, s.gitCmdFactory, chunker, int(in.Limit), in.Revisions...); err != nil {
-			if !errors.Is(err, errLimitReached) {
-				return err
-			}
-		}
-	} else {
-		catfileProcess, err := s.catfileCache.BatchProcess(ctx, repo)
-		if err != nil {
-			return helper.ErrInternal(fmt.Errorf("creating catfile process: %w", err))
-		}
+	catfileProcess, err := s.catfileCache.BatchProcess(ctx, repo)
+	if err != nil {
+		return helper.ErrInternal(fmt.Errorf("creating catfile process: %w", err))
+	}
 
-		gitVersion, err := git.CurrentVersion(ctx, s.gitCmdFactory)
-		if err != nil {
-			return helper.ErrInternalf("cannot determine Git version: %v", err)
-		}
+	gitVersion, err := git.CurrentVersion(ctx, s.gitCmdFactory)
+	if err != nil {
+		return helper.ErrInternalf("cannot determine Git version: %v", err)
+	}
 
-		revlistOptions := []gitpipe.RevlistOption{
-			gitpipe.WithObjects(),
-			gitpipe.WithBlobLimit(lfsPointerMaxSize),
-		}
-		if gitVersion.SupportsObjectTypeFilter() {
-			revlistOptions = append(revlistOptions, gitpipe.WithObjectTypeFilter(gitpipe.ObjectTypeBlob))
-		}
+	revlistOptions := []gitpipe.RevlistOption{
+		gitpipe.WithObjects(),
+		gitpipe.WithBlobLimit(lfsPointerMaxSize),
+	}
+	if gitVersion.SupportsObjectTypeFilter() {
+		revlistOptions = append(revlistOptions, gitpipe.WithObjectTypeFilter(gitpipe.ObjectTypeBlob))
+	}
 
-		revlistIter := gitpipe.Revlist(ctx, repo, in.GetRevisions(), revlistOptions...)
-		catfileInfoIter := gitpipe.CatfileInfo(ctx, catfileProcess, revlistIter)
-		catfileInfoIter = gitpipe.CatfileInfoFilter(ctx, catfileInfoIter, func(r gitpipe.CatfileInfoResult) bool {
-			return r.ObjectInfo.Type == "blob" && r.ObjectInfo.Size <= lfsPointerMaxSize
-		})
-		catfileObjectIter := gitpipe.CatfileObject(ctx, catfileProcess, catfileInfoIter)
+	revlistIter := gitpipe.Revlist(ctx, repo, in.GetRevisions(), revlistOptions...)
+	catfileInfoIter := gitpipe.CatfileInfo(ctx, catfileProcess, revlistIter)
+	catfileInfoIter = gitpipe.CatfileInfoFilter(ctx, catfileInfoIter, func(r gitpipe.CatfileInfoResult) bool {
+		return r.ObjectInfo.Type == "blob" && r.ObjectInfo.Size <= lfsPointerMaxSize
+	})
+	catfileObjectIter := gitpipe.CatfileObject(ctx, catfileProcess, catfileInfoIter)
 
-		if err := sendLFSPointers(chunker, catfileObjectIter, int(in.Limit)); err != nil {
-			return err
-		}
+	if err := sendLFSPointers(chunker, catfileObjectIter, int(in.Limit)); err != nil {
+		return err
 	}
 
 	return nil
@@ -121,44 +102,19 @@ func (s *server) ListAllLFSPointers(in *gitalypb.ListAllLFSPointersRequest, stre
 		},
 	})
 
-	if featureflag.LFSPointersPipeline.IsDisabled(ctx) {
-		cmd, err := repo.Exec(ctx, git.SubCmd{
-			Name: "cat-file",
-			Flags: []git.Option{
-				git.Flag{Name: "--batch-all-objects"},
-				git.Flag{Name: "--batch-check=%(objecttype) %(objectsize) %(objectname)"},
-				git.Flag{Name: "--buffer"},
-				git.Flag{Name: "--unordered"},
-			},
-		})
-		if err != nil {
-			return status.Errorf(codes.Internal, "could not run batch-check: %v", err)
-		}
+	catfileProcess, err := s.catfileCache.BatchProcess(ctx, repo)
+	if err != nil {
+		return helper.ErrInternal(fmt.Errorf("creating catfile process: %w", err))
+	}
 
-		filteredReader := transform.NewReader(cmd, blobFilter{
-			maxSize: lfsPointerMaxSize,
-		})
+	catfileInfoIter := gitpipe.CatfileInfoAllObjects(ctx, repo)
+	catfileInfoIter = gitpipe.CatfileInfoFilter(ctx, catfileInfoIter, func(r gitpipe.CatfileInfoResult) bool {
+		return r.ObjectInfo.Type == "blob" && r.ObjectInfo.Size <= lfsPointerMaxSize
+	})
+	catfileObjectIter := gitpipe.CatfileObject(ctx, catfileProcess, catfileInfoIter)
 
-		if err := readLFSPointers(ctx, repo, chunker, filteredReader, int(in.Limit)); err != nil {
-			if !errors.Is(err, errLimitReached) {
-				return status.Errorf(codes.Internal, "could not read LFS pointers: %v", err)
-			}
-		}
-	} else {
-		catfileProcess, err := s.catfileCache.BatchProcess(ctx, repo)
-		if err != nil {
-			return helper.ErrInternal(fmt.Errorf("creating catfile process: %w", err))
-		}
-
-		catfileInfoIter := gitpipe.CatfileInfoAllObjects(ctx, repo)
-		catfileInfoIter = gitpipe.CatfileInfoFilter(ctx, catfileInfoIter, func(r gitpipe.CatfileInfoResult) bool {
-			return r.ObjectInfo.Type == "blob" && r.ObjectInfo.Size <= lfsPointerMaxSize
-		})
-		catfileObjectIter := gitpipe.CatfileObject(ctx, catfileProcess, catfileInfoIter)
-
-		if err := sendLFSPointers(chunker, catfileObjectIter, int(in.Limit)); err != nil {
-			return err
-		}
+	if err := sendLFSPointers(chunker, catfileObjectIter, int(in.Limit)); err != nil {
+		return err
 	}
 
 	return nil
@@ -184,34 +140,24 @@ func (s *server) GetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gita
 		},
 	})
 
-	if featureflag.LFSPointersPipeline.IsDisabled(ctx) {
-		objectIDs := strings.Join(req.BlobIds, "\n")
+	catfileProcess, err := s.catfileCache.BatchProcess(ctx, repo)
+	if err != nil {
+		return helper.ErrInternal(fmt.Errorf("creating catfile process: %w", err))
+	}
 
-		if err := readLFSPointers(ctx, repo, chunker, strings.NewReader(objectIDs), 0); err != nil {
-			if !errors.Is(err, errLimitReached) {
-				return err
-			}
-		}
-	} else {
-		catfileProcess, err := s.catfileCache.BatchProcess(ctx, repo)
-		if err != nil {
-			return helper.ErrInternal(fmt.Errorf("creating catfile process: %w", err))
-		}
+	blobs := make([]gitpipe.RevisionResult, len(req.GetBlobIds()))
+	for i, blobID := range req.GetBlobIds() {
+		blobs[i] = gitpipe.RevisionResult{OID: git.ObjectID(blobID)}
+	}
 
-		blobs := make([]gitpipe.RevisionResult, len(req.GetBlobIds()))
-		for i, blobID := range req.GetBlobIds() {
-			blobs[i] = gitpipe.RevisionResult{OID: git.ObjectID(blobID)}
-		}
+	catfileInfoIter := gitpipe.CatfileInfo(ctx, catfileProcess, gitpipe.NewRevisionIterator(blobs))
+	catfileInfoIter = gitpipe.CatfileInfoFilter(ctx, catfileInfoIter, func(r gitpipe.CatfileInfoResult) bool {
+		return r.ObjectInfo.Type == "blob" && r.ObjectInfo.Size <= lfsPointerMaxSize
+	})
+	catfileObjectIter := gitpipe.CatfileObject(ctx, catfileProcess, catfileInfoIter)
 
-		catfileInfoIter := gitpipe.CatfileInfo(ctx, catfileProcess, gitpipe.NewRevisionIterator(blobs))
-		catfileInfoIter = gitpipe.CatfileInfoFilter(ctx, catfileInfoIter, func(r gitpipe.CatfileInfoResult) bool {
-			return r.ObjectInfo.Type == "blob" && r.ObjectInfo.Size <= lfsPointerMaxSize
-		})
-		catfileObjectIter := gitpipe.CatfileObject(ctx, catfileProcess, catfileInfoIter)
-
-		if err := sendLFSPointers(chunker, catfileObjectIter, 0); err != nil {
-			return err
-		}
+	if err := sendLFSPointers(chunker, catfileObjectIter, 0); err != nil {
+		return err
 	}
 
 	return nil
@@ -224,141 +170,6 @@ func validateGetLFSPointersRequest(req *gitalypb.GetLFSPointersRequest) error {
 
 	if len(req.GetBlobIds()) == 0 {
 		return fmt.Errorf("empty BlobIds")
-	}
-
-	return nil
-}
-
-// findLFSPointersByRevisions will return all LFS objects reachable via the given set of revisions.
-// Revisions accept all syntax supported by git-rev-list(1).
-func findLFSPointersByRevisions(
-	ctx context.Context,
-	repo *localrepo.Repo,
-	gitCmdFactory git.CommandFactory,
-	chunker *chunk.Chunker,
-	limit int,
-	revisions ...string,
-) (returnErr error) {
-	// git-rev-list(1) currently does not have any way to list all reachable objects of a
-	// certain type.
-	var revListStderr bytes.Buffer
-	revlist, err := repo.Exec(ctx, git.SubCmd{
-		Name: "rev-list",
-		Flags: []git.Option{
-			git.Flag{Name: "--in-commit-order"},
-			git.Flag{Name: "--objects"},
-			git.Flag{Name: "--no-object-names"},
-			git.Flag{Name: fmt.Sprintf("--filter=blob:limit=%d", lfsPointerMaxSize)},
-		},
-		Args: revisions,
-	}, git.WithStderr(&revListStderr))
-	if err != nil {
-		return fmt.Errorf("could not execute rev-list: %w", err)
-	}
-
-	defer func() {
-		// There is no way to properly determine whether the process has exited because of
-		// us signalling the context or because of any other means. We can only approximate
-		// this by checking whether the process state is "signal: killed". Which again is
-		// awful, but given that `Signaled()` status is also not accessible to us,
-		// it's the best we could do.
-		//
-		// Let's not do any of this, it's awful. Instead, we can simply check whether we
-		// have reached the limit. If so, we found all LFS pointers which the user requested
-		// and needn't bother whether git-rev-list(1) may have failed. So let's instead just
-		// have the RPCcontext cancel the process.
-		if errors.Is(returnErr, errLimitReached) {
-			return
-		}
-
-		if err := revlist.Wait(); err != nil && returnErr == nil {
-			returnErr = fmt.Errorf("rev-list failed: %w, stderr: %q",
-				err, revListStderr.String())
-		}
-	}()
-
-	return readLFSPointers(ctx, repo, chunker, revlist, limit)
-}
-
-// readLFSPointers reads object IDs of potential LFS pointers from the given reader and for each of
-// them, it will determine whether the referenced object is an LFS pointer. Objects which are not a
-// valid LFS pointer will be ignored. Objects which do not exist result in an error.
-func readLFSPointers(
-	ctx context.Context,
-	repo *localrepo.Repo,
-	chunker *chunk.Chunker,
-	objectIDReader io.Reader,
-	limit int,
-) (returnErr error) {
-	defer func() {
-		if err := chunker.Flush(); err != nil && returnErr == nil {
-			returnErr = err
-		}
-	}()
-
-	catfileBatch, err := repo.Exec(ctx, git.SubCmd{
-		Name: "cat-file",
-		Flags: []git.Option{
-			git.Flag{Name: "--batch"},
-			git.Flag{Name: "--buffer"},
-		},
-	}, git.WithStdin(objectIDReader))
-	if err != nil {
-		return fmt.Errorf("could not execute cat-file: %w", err)
-	}
-
-	var pointersFound int
-	reader := bufio.NewReader(catfileBatch)
-	buf := &bytes.Buffer{}
-	for {
-		objectInfo, err := catfile.ParseObjectInfo(reader)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			return fmt.Errorf("could not get LFS pointer info: %w", err)
-		}
-
-		// Avoid allocating bytes for an LFS pointer until we know the current
-		// blob really is an LFS pointer.
-		buf.Reset()
-		if _, err := io.CopyN(buf, reader, objectInfo.Size+1); err != nil {
-			return fmt.Errorf("could not read LFS pointer candidate: %w", err)
-		}
-		tempData := buf.Bytes()[:buf.Len()-1]
-
-		if objectInfo.Type != "blob" || !git.IsLFSPointer(tempData) {
-			continue
-		}
-
-		// Now that we know this is an LFS pointer it is not a waste to allocate
-		// memory.
-		data := make([]byte, len(tempData))
-		copy(data, tempData)
-
-		if err := chunker.Send(&gitalypb.LFSPointer{
-			Data: data,
-			Size: int64(len(data)),
-			Oid:  objectInfo.Oid.String(),
-		}); err != nil {
-			return fmt.Errorf("sending LFS pointer chunk: %w", err)
-		}
-
-		pointersFound++
-
-		// Exit early in case we've got all LFS pointers. We want to do this here instead of
-		// just terminating the loop because we need to check git-cat-file(1)'s exit code in
-		// case the loop finishes successfully via an EOF. We don't want to do so here
-		// though: we don't care for successful termination of the command, we only care
-		// that we've got all pointers. The command is then getting cancelled via the
-		// parent's context.
-		if limit > 0 && pointersFound >= limit {
-			return errLimitReached
-		}
-	}
-
-	if err := catfileBatch.Wait(); err != nil {
-		return nil
 	}
 
 	return nil
