@@ -67,12 +67,11 @@ func NewRepository(ctx context.Context, storageName string, locator storage.Loca
 }
 
 func newDirectory(ctx context.Context, storageName string, prefix string, loc storage.Locator) (Dir, error) {
-	storagePath, err := loc.GetStorageByName(storageName)
+	root, err := loc.TempDir(storageName)
 	if err != nil {
-		return Dir{}, err
+		return Dir{}, fmt.Errorf("temp directory: %w", err)
 	}
 
-	root := AppendTempDir(storagePath)
 	if err := os.MkdirAll(root, 0700); err != nil {
 		return Dir{}, err
 	}

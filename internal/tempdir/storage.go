@@ -2,6 +2,7 @@ package tempdir
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/dontpanic"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 )
 
 const (
@@ -58,19 +60,19 @@ func TempDir(storage config.Storage) string { return AppendTempDir(storage.Path)
 func AppendTempDir(storagePath string) string { return filepath.Join(storagePath, tmpRootPrefix) }
 
 // StartCleaning starts tempdir cleanup in a goroutine.
-func StartCleaning(storages []config.Storage, d time.Duration) {
+func StartCleaning(locator storage.Locator, storages []config.Storage, d time.Duration) {
 	dontpanic.Go(func() {
 		for {
-			cleanTempDir(storages)
+			cleanTempDir(locator, storages)
 			time.Sleep(d)
 		}
 	})
 }
 
-func cleanTempDir(storages []config.Storage) {
+func cleanTempDir(locator storage.Locator, storages []config.Storage) {
 	for _, storage := range storages {
 		start := time.Now()
-		err := clean(TempDir(storage))
+		err := clean(locator, storage)
 
 		entry := logrus.WithFields(logrus.Fields{
 			"time_ms": time.Since(start).Milliseconds(),
@@ -85,9 +87,14 @@ func cleanTempDir(storages []config.Storage) {
 
 type invalidCleanRoot string
 
-func clean(dir string) error {
+func clean(locator storage.Locator, storage config.Storage) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	dir, err := locator.TempDir(storage.Name)
+	if err != nil {
+		return fmt.Errorf("temporary dir: %w", err)
+	}
 
 	// If we start "cleaning up" the wrong directory we may delete user data
 	// which is Really Bad.
