@@ -439,9 +439,7 @@ func testReplicatorPropagateReplicationJob(
 		AllRefs:    true,
 	}
 
-	replCtx, cancel := testhelper.Context()
-	defer cancel()
-	go replmgr.ProcessBacklog(replCtx, noopBackoffFunc)
+	replMgrDone := startProcessBacklog(ctx, replmgr)
 
 	// ensure primary gitaly server received the expected requests
 	waitForRequest(t, primaryServer.gcChan, expectedPrimaryGcReq, 5*time.Second)
@@ -489,6 +487,8 @@ func testReplicatorPropagateReplicationJob(
 	waitForRequest(t, secondaryServer.optimizeRepositoryChan, expectedSecondaryOptimizeRepository, 5*time.Second)
 	waitForRequest(t, secondaryServer.packRefsChan, expectedSecondaryPackRefs, 5*time.Second)
 	wg.Wait()
+	cancel()
+	<-replMgrDone
 }
 
 type mockServer struct {
@@ -754,10 +754,11 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 		nodeMgr,
 		NodeSetFromNodeManager(nodeMgr),
 	)
-	go replMgr.ProcessBacklog(ctx, noopBackoffFunc)
+	replMgrDone := startProcessBacklog(ctx, replMgr)
 
 	select {
 	case <-processed:
+		cancel()
 	case <-time.After(60 * time.Second):
 		// strongly depends on the processing capacity
 		t.Fatal("time limit expired for job to complete")
@@ -767,6 +768,7 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 	require.Equal(t, 2, failedAcks)
 	require.Equal(t, 1, deadAcks)
 	require.Equal(t, 1, completedAcks)
+	<-replMgrDone
 }
 
 func TestProcessBacklog_Success(t *testing.T) {
@@ -893,11 +895,12 @@ func TestProcessBacklog_Success(t *testing.T) {
 		nodeMgr,
 		NodeSetFromNodeManager(nodeMgr),
 	)
-	go replMgr.ProcessBacklog(ctx, noopBackoffFunc)
+	replMgrDone := startProcessBacklog(ctx, replMgr)
 
 	select {
 	case <-processed:
 		require.EqualValues(t, 1, atomic.LoadInt32(&healthUpdated), "health update should be called")
+		cancel()
 	case <-time.After(30 * time.Second):
 		// strongly depends on the processing capacity
 		t.Fatal("time limit expired for job to complete")
@@ -905,6 +908,7 @@ func TestProcessBacklog_Success(t *testing.T) {
 
 	require.NoDirExists(t, fullNewPath1, "repository must be moved from %q to the new location", fullNewPath1)
 	require.True(t, storage.IsGitDirectory(fullNewPath2), "repository must exist at new last RenameRepository location")
+	<-replMgrDone
 }
 
 func TestReplMgrProcessBacklog_OnlyHealthyNodes(t *testing.T) {
@@ -963,7 +967,7 @@ func TestReplMgrProcessBacklog_OnlyHealthyNodes(t *testing.T) {
 			},
 		},
 	)
-	go replMgr.ProcessBacklog(ctx, noopBackoffFunc)
+	replMgrDone := startProcessBacklog(ctx, replMgr)
 
 	select {
 	case <-ctx.Done():
@@ -972,6 +976,7 @@ func TestReplMgrProcessBacklog_OnlyHealthyNodes(t *testing.T) {
 		// strongly depends on the processing capacity
 		t.Fatal("time limit expired for job to complete")
 	}
+	<-replMgrDone
 }
 
 type mockReplicator struct {
@@ -1039,12 +1044,14 @@ func TestProcessBacklog_ReplicatesToReadOnlyPrimary(t *testing.T) {
 			return nil
 		},
 	}
-	go replMgr.ProcessBacklog(ctx, noopBackoffFunc)
+	replMgrDone := startProcessBacklog(ctx, replMgr)
 	select {
 	case <-processed:
+		cancel()
 	case <-time.After(5 * time.Second):
 		t.Fatalf("replication job targeting read-only primary was not processed before timeout")
 	}
+	<-replMgrDone
 }
 
 func TestBackoff(t *testing.T) {

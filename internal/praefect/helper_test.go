@@ -200,7 +200,7 @@ func runPraefectServer(t testing.TB, conf config.Config, opt buildOptions) (*grp
 	ctx, cancel := testhelper.Context()
 
 	go func() { errQ <- prf.Serve(listener) }()
-	go replmgr.ProcessBacklog(ctx, noopBackoffFunc)
+	replMgrDone := startProcessBacklog(ctx, replmgr)
 
 	// dial client to praefect
 	cc := dialLocalPort(t, port, false)
@@ -215,6 +215,7 @@ func runPraefectServer(t testing.TB, conf config.Config, opt buildOptions) (*grp
 		prf.Stop()
 
 		cancel()
+		<-replMgrDone
 		require.NoError(t, <-errQ)
 	}
 
@@ -276,4 +277,13 @@ func newMockDownstream(tb testing.TB, token string, m mock.SimpleServiceServer) 
 	}
 
 	return fmt.Sprintf("tcp://localhost:%d", port), cleanup
+}
+
+func startProcessBacklog(ctx context.Context, replMgr ReplMgr) <-chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		replMgr.ProcessBacklog(ctx, noopBackoffFunc)
+	}()
+	return done
 }
