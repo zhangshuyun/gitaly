@@ -120,7 +120,7 @@ func (r *Reconciler) reconcile(ctx context.Context) error {
 
 	for virtualStorage, healthyStorages := range r.hc.HealthyNodes() {
 		if len(healthyStorages) < 2 {
-			// minimum two healthy storages within a virtual stoage needed for valid
+			// minimum two healthy storages within a virtual storage needed for valid
 			// replication source and target
 			r.log.WithField("virtual_storage", virtualStorage).Info("reconciliation skipped for virtual storage due to not having enough healthy storages")
 			continue
@@ -190,6 +190,31 @@ delete_jobs AS (
 		AND job->>'relative_path' = relative_path
 		AND job->>'change' = 'delete_replica'
 	)
+	UNION ALL
+	-- Schedules repository removal operations for the storages where repository exists, but shouldn't.
+	-- That can happen when repository removal replication job failed on the secondaries and
+	-- repository remains on storage unused (because it doesn't exist in the 'repositories' table anymore).
+	SELECT * FROM (
+		SELECT DISTINCT ON (virtual_storage, relative_path)
+			virtual_storage,
+			relative_path,
+			storage
+		FROM storage_repositories
+		JOIN healthy_storages USING (virtual_storage, storage)
+		LEFT JOIN repositories USING (virtual_storage, relative_path)
+		WHERE repositories.virtual_storage IS NULL AND
+			NOT EXISTS (
+			-- Ensure there are no scheduled 'delete_replica' type jobs for the repository.
+			SELECT FROM replication_queue
+			WHERE state NOT IN ('completed', 'cancelled', 'dead')
+			AND job->>'virtual_storage' = virtual_storage
+			AND job->>'relative_path' = relative_path
+			AND job->>'change' = 'delete_replica'
+		)
+		-- this sorting is not required, but it simplifies testing and doesn't influence
+		-- performance as a noticeable degradation
+		ORDER BY virtual_storage, relative_path, storage
+	) orphans
 ),
 
 update_jobs AS (
