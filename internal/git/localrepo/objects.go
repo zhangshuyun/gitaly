@@ -85,7 +85,8 @@ func (e FormatTagError) Error() string {
 func FormatTag(
 	objectID git.ObjectID,
 	objectType string,
-	tagName, userName, userEmail, tagBody []byte,
+	tagName, tagBody []byte,
+	committer *gitalypb.User,
 	committerDate time.Time,
 ) (string, error) {
 	if committerDate.IsZero() {
@@ -96,7 +97,7 @@ func FormatTag(
 		"type %s\n" +
 		"tag %s\n" +
 		"tagger %s <%s> %d +0000\n"
-	tagBuf := fmt.Sprintf(tagHeaderFormat, objectID.String(), objectType, tagName, userName, userEmail, committerDate.Unix())
+	tagBuf := fmt.Sprintf(tagHeaderFormat, objectID.String(), objectType, tagName, committer.GetName(), committer.GetEmail(), committerDate.Unix())
 
 	maxHeaderLines := 4
 	actualHeaderLines := strings.Count(tagBuf, "\n")
@@ -130,13 +131,14 @@ func (repo *Repo) WriteTag(
 	ctx context.Context,
 	objectID git.ObjectID,
 	objectType string,
-	tagName, userName, userEmail, tagBody []byte,
+	tagName, tagBody []byte,
+	committer *gitalypb.User,
 	committerDate time.Time,
 ) (git.ObjectID, error) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
-	tagBuf, err := FormatTag(objectID, objectType, tagName, userName, userEmail, tagBody, committerDate)
+	tagBuf, err := FormatTag(objectID, objectType, tagName, tagBody, committer, committerDate)
 	if err != nil {
 		return "", err
 	}

@@ -243,7 +243,7 @@ func (s *Server) createTag(
 	refObjectID := targetObjectID
 	var tagObject *gitalypb.Tag
 	if makingTag {
-		tagObjectID, err := repo.WriteTag(ctx, targetObjectID, targetObjectType, tagName, committer.Name, committer.Email, message, committerTime)
+		tagObjectID, err := repo.WriteTag(ctx, targetObjectID, targetObjectType, tagName, message, committer, committerTime)
 		if err != nil {
 			var FormatTagError localrepo.FormatTagError
 			if errors.As(err, &FormatTagError) {
