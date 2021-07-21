@@ -26,7 +26,14 @@ func (d Dir) Path() string {
 // New returns the path of a new temporary directory for the given storage. The directory is removed
 // asynchronously with os.RemoveAll when the context expires.
 func New(ctx context.Context, storageName string, locator storage.Locator) (Dir, error) {
-	dir, err := newDirectory(ctx, storageName, "repo", locator)
+	return NewWithPrefix(ctx, storageName, "repo", locator)
+}
+
+// NewWithPrefix returns the path of a new temporary directory for the given storage with a specific
+// prefix used to create the temporary directory's name. The directory is removed asynchronously
+// with os.RemoveAll when the context expires.
+func NewWithPrefix(ctx context.Context, storageName, prefix string, locator storage.Locator) (Dir, error) {
+	dir, err := newDirectory(ctx, storageName, prefix, locator)
 	if err != nil {
 		return Dir{}, err
 	}
