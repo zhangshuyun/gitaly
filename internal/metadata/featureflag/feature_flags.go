@@ -28,6 +28,8 @@ var (
 	UserSquashWithoutWorktree = FeatureFlag{Name: "user_squash_without_worktree", OnByDefault: false}
 	// QuarantinedResolveCOnflicts enables use of a quarantine object directory for ResolveConflicts.
 	QuarantinedResolveConflicts = FeatureFlag{Name: "quarantined_resolve_conflicts", OnByDefault: false}
+	// GoUserApplyPatch enables the Go implementation of UserApplyPatch
+	GoUserApplyPatch = FeatureFlag{Name: "go_user_apply_patch", OnByDefault: false}
 )
 
 // All includes all feature flags.
@@ -41,4 +43,5 @@ var All = []FeatureFlag{
 	QuarantinedUserCreateTag,
 	UserSquashWithoutWorktree,
 	QuarantinedResolveConflicts,
+	GoUserApplyPatch,
 }

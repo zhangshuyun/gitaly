@@ -1,13 +1,27 @@
 package operations
 
 import (
+	"bytes"
+	"context"
+	"errors"
 	"fmt"
+	"path/filepath"
+	"time"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ref"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+var errNoDefaultBranch = errors.New("no default branch")
 
 func (s *Server) UserApplyPatch(stream gitalypb.OperationService_UserApplyPatchServer) error {
 	firstRequest, err := stream.Recv()
@@ -25,6 +39,22 @@ func (s *Server) UserApplyPatch(stream gitalypb.OperationService_UserApplyPatchS
 	}
 
 	requestCtx := stream.Context()
+
+	if featureflag.GoUserApplyPatch.IsEnabled(requestCtx) {
+		if err := s.userApplyPatch(requestCtx, header, stream); err != nil {
+			if errors.Is(err, errNoDefaultBranch) {
+				// This is here to match the behavior of the original Ruby implementation which failed with the error
+				// when attempting to apply a patch to a repository that had no branches. Once the Ruby port has been
+				// removed, we could return a more descriptive error or support creating the first branch in the repository.
+				return status.Error(codes.Unknown, "TypeError: no implicit conversion of nil into String")
+			}
+
+			return helper.ErrInternal(err)
+		}
+
+		return nil
+	}
+
 	rubyClient, err := s.ruby.OperationServiceClient(requestCtx)
 	if err != nil {
 		return err
@@ -61,6 +91,145 @@ func (s *Server) UserApplyPatch(stream gitalypb.OperationService_UserApplyPatchS
 	}
 
 	return stream.SendAndClose(response)
+}
+
+func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyPatchRequest_Header, stream gitalypb.OperationService_UserApplyPatchServer) error {
+	path, err := s.locator.GetRepoPath(header.Repository)
+	if err != nil {
+		return err
+	}
+
+	branchCreated := false
+	targetBranch := git.NewReferenceNameFromBranchName(string(header.TargetBranch))
+
+	repo := s.localrepo(header.Repository)
+	parentCommitID, err := repo.ResolveRevision(ctx, targetBranch.Revision()+"^{commit}")
+	if err != nil {
+		if !errors.Is(err, git.ErrReferenceNotFound) {
+			return fmt.Errorf("resolve target branch: %w", err)
+		}
+
+		defaultBranch, err := ref.DefaultBranchName(ctx, repo)
+		if err != nil {
+			return fmt.Errorf("default branch name: %w", err)
+		} else if defaultBranch == nil {
+			return errNoDefaultBranch
+		}
+
+		branchCreated = true
+		parentCommitID, err = repo.ResolveRevision(ctx, git.Revision(defaultBranch)+"^{commit}")
+		if err != nil {
+			return fmt.Errorf("resolve default branch commit: %w", err)
+		}
+	}
+
+	// This should be changed to consider timezones after the Ruby implementation is removed.
+	// https://gitlab.com/gitlab-org/gitaly/-/issues/3711
+	committerTime := time.Now()
+	if header.Timestamp != nil {
+		committerTime = header.Timestamp.AsTime()
+	}
+
+	worktreePath := newWorktreePath(path, "am-")
+	if err := s.addWorktree(ctx, header.Repository, worktreePath, parentCommitID.String()); err != nil {
+		return fmt.Errorf("add worktree: %w", err)
+	}
+
+	defer func() {
+		ctx, cancel := context.WithTimeout(helper.SuppressCancellation(ctx), 30*time.Second)
+		defer cancel()
+
+		worktreeName := filepath.Base(worktreePath)
+		if err := s.removeWorktree(ctx, header.Repository, worktreeName); err != nil {
+			ctxlogrus.Extract(ctx).WithField("worktree_name", worktreeName).WithError(err).Error("failed to remove worktree")
+		}
+	}()
+
+	var stdout, stderr bytes.Buffer
+	cmd, err := s.gitCmdFactory.NewWithDir(ctx, worktreePath,
+		git.SubCmd{
+			Name: "am",
+			Flags: []git.Option{
+				git.Flag{Name: "--quiet"},
+				git.Flag{Name: "--3way"},
+			},
+		},
+		git.WithEnv(
+			"GIT_COMMITTER_NAME="+string(header.GetUser().Name),
+			"GIT_COMMITTER_EMAIL="+string(header.GetUser().Email),
+			fmt.Sprintf("GIT_COMMITTER_DATE=%d %s", committerTime.Unix(), committerTime.Format("-0700")),
+		),
+		git.WithStdin(streamio.NewReader(func() ([]byte, error) {
+			req, err := stream.Recv()
+			return req.GetPatches(), err
+		})),
+		git.WithStdout(&stdout),
+		git.WithStderr(&stderr),
+		git.WithRefTxHook(ctx, header.Repository, s.cfg),
+	)
+
+	if err != nil {
+		return fmt.Errorf("create git am: %w", err)
+	}
+
+	if err := cmd.Wait(); err != nil {
+		// The Ruby implementation doesn't include stderr in errors, which makes
+		// it difficult to determine the cause of an error. This special cases the
+		// user facing patching error which is returned usually to maintain test
+		// compatibility but returns the error and stderr otherwise. Once the Ruby
+		// implementation is removed, this should probably be dropped.
+		if bytes.HasPrefix(stdout.Bytes(), []byte("Patch failed at")) {
+			return status.Error(codes.FailedPrecondition, stdout.String())
+		}
+
+		return fmt.Errorf("apply patch: %w, stderr: %q", err, &stderr)
+	}
+
+	var revParseStdout, revParseStderr bytes.Buffer
+	revParseCmd, err := s.gitCmdFactory.NewWithDir(ctx, worktreePath,
+		git.SubCmd{
+			Name: "rev-parse",
+			Flags: []git.Option{
+				git.Flag{Name: "--quiet"},
+				git.Flag{Name: "--verify"},
+			},
+			Args: []string{"HEAD^{commit}"},
+		},
+		git.WithStdout(&revParseStdout),
+		git.WithStderr(&revParseStderr),
+	)
+	if err != nil {
+		return fmt.Errorf("create git rev-parse: %w", gitError{ErrMsg: revParseStderr.String(), Err: err})
+	}
+
+	if err := revParseCmd.Wait(); err != nil {
+		return fmt.Errorf("get patched commit: %w", gitError{ErrMsg: revParseStderr.String(), Err: err})
+	}
+
+	patchedCommit, err := git.NewObjectIDFromHex(text.ChompBytes(revParseStdout.Bytes()))
+	if err != nil {
+		return fmt.Errorf("parse patched commit oid: %w", err)
+	}
+
+	currentCommit := parentCommitID
+	if branchCreated {
+		currentCommit = git.ZeroOID
+	}
+
+	if err := s.updateReferenceWithHooks(ctx, header.Repository, header.User, nil, targetBranch, patchedCommit, currentCommit); err != nil {
+		return fmt.Errorf("update reference: %w", err)
+	}
+
+	if err := stream.SendAndClose(&gitalypb.UserApplyPatchResponse{
+		BranchUpdate: &gitalypb.OperationBranchUpdate{
+			CommitId:      patchedCommit.String(),
+			BranchCreated: branchCreated,
+		},
+	}); err != nil {
+		return fmt.Errorf("send and close: %w", err)
+	}
+
+	return nil
 }
 
 func validateUserApplyPatchHeader(header *gitalypb.UserApplyPatchRequest_Header) error {

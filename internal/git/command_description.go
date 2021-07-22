@@ -24,6 +24,7 @@ type commandDescription struct {
 // commandDescriptions is a curated list of Git command descriptions for special
 // git.ExecCommandFactory validation logic
 var commandDescriptions = map[string]commandDescription{
+	"am": {},
 	"apply": {
 		flags: scNoRefUpdates,
 	},
