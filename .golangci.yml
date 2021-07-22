@@ -545,7 +545,7 @@ issues:
       text: "exported var `ErrNotFound` should have comment or be unexported"
     - linters:
         - golint
-      path: "internal/storage/locator.go"
+      path: "internal/gitaly/storage/locator.go"
       text: "exported var `ErrRelativePathEscapesRoot` should have comment or be unexported"
     - linters:
         - golint
@@ -657,7 +657,7 @@ issues:
       text: "Error return value of `stream.CloseSend` is not checked"
     - linters:
         - errcheck
-      path: "internal/storage/locator.go"
+      path: "internal/gitaly/storage/locator.go"
       text: "Error return value of `os.Stat` is not checked"
     - linters:
         - errcheck

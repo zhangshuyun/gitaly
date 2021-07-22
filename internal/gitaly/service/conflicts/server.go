@@ -10,7 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 

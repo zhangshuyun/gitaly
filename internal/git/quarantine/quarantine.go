@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"gitlab.com/gitlab-org/gitaly/v14/internal/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/protobuf/proto"

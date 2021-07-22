@@ -12,8 +12,8 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/safe"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 

@@ -10,9 +10,9 @@ import (
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/linguist"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/streamcache"
 )
 

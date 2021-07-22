@@ -11,7 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/packfile"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 )
 
 var badBitmapRequestCount = promauto.NewCounterVec(
