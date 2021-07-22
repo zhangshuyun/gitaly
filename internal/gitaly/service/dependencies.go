@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/streamcache"
 )
 
 // Dependencies assembles set of components required by different kinds of services.
@@ -29,6 +30,7 @@ type Dependencies struct {
 	GitlabClient        gitlab.Client
 	CatfileCache        catfile.Cache
 	DiskCache           cache.Cache
+	PackObjectsCache    streamcache.Cache
 }
 
 // GetCfg returns service configuration.
@@ -89,4 +91,9 @@ func (dc *Dependencies) GetCatfileCache() catfile.Cache {
 // GetDiskCache returns the disk cache.
 func (dc *Dependencies) GetDiskCache() cache.Cache {
 	return dc.DiskCache
+}
+
+// GetPackObjectsCache returns the pack-objects cache.
+func (dc *Dependencies) GetPackObjectsCache() streamcache.Cache {
+	return dc.PackObjectsCache
 }

@@ -629,7 +629,7 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 			deps.GetGitCmdFactory(),
 			deps.GetDiskCache(),
 		))
-		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
 	}, testserver.WithDisablePraefect())
 
 	ctx, cancel := testhelper.Context()

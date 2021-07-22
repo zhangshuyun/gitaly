@@ -67,7 +67,7 @@ type Cfg struct {
 	InternalSocketDir      string            `toml:"internal_socket_dir"`
 	DailyMaintenance       DailyJob          `toml:"daily_maintenance"`
 	Cgroups                cgroups.Config    `toml:"cgroups"`
-	PackObjectsCache       PackObjectsCache  `toml:"pack_objects_cache"`
+	PackObjectsCache       StreamCacheConfig `toml:"pack_objects_cache"`
 }
 
 // TLS configuration
@@ -140,8 +140,8 @@ type Concurrency struct {
 	MaxPerRepo int    `toml:"max_per_repo"`
 }
 
-// PackObjectsCache contains settings for the pack-objects cache.
-type PackObjectsCache struct {
+// StreamCacheConfig contains settings for a streamcache instance.
+type StreamCacheConfig struct {
 	Enabled bool     `toml:"enabled"` // Default: false
 	Dir     string   `toml:"dir"`     // Default: <FIRST STORAGE PATH>/+gitaly/PackObjectsCache
 	MaxAge  Duration `toml:"max_age"` // Default: 5m

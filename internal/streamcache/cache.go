@@ -36,6 +36,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/dontpanic"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 )
 
 var (
@@ -126,8 +127,12 @@ type cache struct {
 }
 
 // New returns a new cache instance.
-func New(dir string, maxAge time.Duration, logger logrus.FieldLogger) Cache {
-	return newCacheWithSleep(dir, maxAge, time.Sleep, logger)
+func New(cfg config.StreamCacheConfig, logger logrus.FieldLogger) Cache {
+	if cfg.Enabled {
+		return newCacheWithSleep(cfg.Dir, cfg.MaxAge.Duration(), time.Sleep, logger)
+	}
+
+	return NullCache{}
 }
 
 func newCacheWithSleep(dir string, maxAge time.Duration, sleep func(time.Duration), logger logrus.FieldLogger) Cache {

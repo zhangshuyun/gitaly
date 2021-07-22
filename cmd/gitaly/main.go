@@ -29,6 +29,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
 	glog "gitlab.com/gitlab-org/gitaly/v14/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/streamcache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/version"
 	"gitlab.com/gitlab-org/labkit/monitoring"
@@ -230,6 +231,7 @@ func run(cfg config.Cfg) error {
 			Linguist:           ling,
 			CatfileCache:       catfileCache,
 			DiskCache:          diskCache,
+			PackObjectsCache:   streamcache.New(cfg.PackObjectsCache, glog.Default()),
 		})
 		b.RegisterStarter(starter.New(c, srv))
 	}

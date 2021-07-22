@@ -31,6 +31,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
 	praefectconfig "gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/streamcache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -272,18 +273,19 @@ func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, regi
 }
 
 type gitalyServerDeps struct {
-	disablePraefect bool
-	logger          *logrus.Logger
-	conns           *client.Pool
-	locator         storage.Locator
-	txMgr           transaction.Manager
-	hookMgr         hook.Manager
-	gitlabClient    gitlab.Client
-	gitCmdFactory   git.CommandFactory
-	linguist        *linguist.Instance
-	backchannelReg  *backchannel.Registry
-	catfileCache    catfile.Cache
-	diskCache       cache.Cache
+	disablePraefect  bool
+	logger           *logrus.Logger
+	conns            *client.Pool
+	locator          storage.Locator
+	txMgr            transaction.Manager
+	hookMgr          hook.Manager
+	gitlabClient     gitlab.Client
+	gitCmdFactory    git.CommandFactory
+	linguist         *linguist.Instance
+	backchannelReg   *backchannel.Registry
+	catfileCache     catfile.Cache
+	diskCache        cache.Cache
+	packObjectsCache streamcache.Cache
 }
 
 func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server) *service.Dependencies {
@@ -335,6 +337,10 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 		gsd.diskCache = cache.New(cfg, gsd.locator)
 	}
 
+	if gsd.packObjectsCache == nil {
+		gsd.packObjectsCache = streamcache.New(cfg.PackObjectsCache, gsd.logger)
+	}
+
 	return &service.Dependencies{
 		Cfg:                 cfg,
 		RubyServer:          rubyServer,
@@ -348,6 +354,7 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 		GitlabClient:        gsd.gitlabClient,
 		CatfileCache:        gsd.catfileCache,
 		DiskCache:           gsd.diskCache,
+		PackObjectsCache:    gsd.packObjectsCache,
 	}
 }
 
