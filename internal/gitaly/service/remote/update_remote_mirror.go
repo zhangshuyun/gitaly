@@ -10,11 +10,9 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -36,14 +34,6 @@ func (s *server) UpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 		return helper.ErrInvalidArgument(err)
 	}
 
-	if featureflag.GoUpdateRemoteMirror.IsEnabled(stream.Context()) {
-		if err := s.goUpdateRemoteMirror(stream, firstRequest); err != nil {
-			return helper.ErrInternal(err)
-		}
-
-		return nil
-	}
-
 	if err := s.updateRemoteMirror(stream, firstRequest); err != nil {
 		return helper.ErrInternal(err)
 	}
@@ -51,55 +41,7 @@ func (s *server) UpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 	return nil
 }
 
-// updateRemoteMirror has lots of decorated errors to help us debug
-// https://gitlab.com/gitlab-org/gitaly/issues/2156.
 func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMirrorServer, firstRequest *gitalypb.UpdateRemoteMirrorRequest) error {
-	ctx := stream.Context()
-	client, err := s.ruby.RemoteServiceClient(ctx)
-	if err != nil {
-		return fmt.Errorf("get stub: %v", err)
-	}
-
-	clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, firstRequest.GetRepository())
-	if err != nil {
-		return fmt.Errorf("set headers: %v", err)
-	}
-
-	rubyStream, err := client.UpdateRemoteMirror(clientCtx)
-	if err != nil {
-		return fmt.Errorf("create client: %v", err)
-	}
-
-	if err := rubyStream.Send(firstRequest); err != nil {
-		return fmt.Errorf("first request to gitaly-ruby: %v", err)
-	}
-
-	err = rubyserver.Proxy(func() error {
-		// Do not wrap errors in this callback: we must faithfully relay io.EOF
-		request, err := stream.Recv()
-		if err != nil {
-			return err
-		}
-
-		return rubyStream.Send(request)
-	})
-	if err != nil {
-		return fmt.Errorf("proxy request to gitaly-ruby: %v", err)
-	}
-
-	response, err := rubyStream.CloseAndRecv()
-	if err != nil {
-		return fmt.Errorf("close stream to gitaly-ruby: %v", err)
-	}
-
-	if err := stream.SendAndClose(response); err != nil {
-		return fmt.Errorf("close stream to client: %v", err)
-	}
-
-	return nil
-}
-
-func (s *server) goUpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMirrorServer, firstRequest *gitalypb.UpdateRemoteMirrorRequest) error {
 	ctx := stream.Context()
 
 	branchMatchers := firstRequest.GetOnlyBranchesMatching()
@@ -335,10 +277,6 @@ func validateUpdateRemoteMirrorRequest(ctx context.Context, req *gitalypb.Update
 	if remote := req.GetRemote(); remote != nil {
 		if remote.GetUrl() == "" {
 			return fmt.Errorf("remote is missing URL")
-		}
-
-		if featureflag.GoUpdateRemoteMirror.IsDisabled(ctx) {
-			return fmt.Errorf("in-memory remotes require `gitaly_go_update_remote_mirror` feature flag")
 		}
 	}
 
