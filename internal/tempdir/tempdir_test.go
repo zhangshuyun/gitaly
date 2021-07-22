@@ -37,6 +37,19 @@ func TestNewRepositorySuccess(t *testing.T) {
 	require.NoDirExists(t, tempDir.Path())
 }
 
+func TestNewWithPrefix(t *testing.T) {
+	cfg := testcfg.Build(t)
+	locator := config.NewLocator(cfg)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	dir, err := NewWithPrefix(ctx, cfg.Storages[0].Name, "foobar-", locator)
+	require.NoError(t, err)
+
+	require.Contains(t, dir.Path(), "/foobar-")
+}
+
 func TestNewAsRepositoryFailStorageUnknown(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()

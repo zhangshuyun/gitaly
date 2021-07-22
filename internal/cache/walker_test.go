@@ -13,13 +13,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
 
 func TestDiskCacheObjectWalker(t *testing.T) {
 	cfg := testcfg.Build(t)
+	locator := config.NewLocator(cfg)
 
 	var shouldExist, shouldNotExist []string
 
@@ -33,7 +33,8 @@ func TestDiskCacheObjectWalker(t *testing.T) {
 		{"2b/ancient", 24 * time.Hour, true},
 		{"cd/baby", time.Second, false},
 	} {
-		cacheDir := tempdir.CacheDir(cfg.Storages[0])
+		cacheDir, err := locator.CacheDir(cfg.Storages[0].Name)
+		require.NoError(t, err)
 
 		path := filepath.Join(cacheDir, tt.name)
 		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0755))
@@ -51,7 +52,6 @@ func TestDiskCacheObjectWalker(t *testing.T) {
 		}
 	}
 
-	locator := config.NewLocator(cfg)
 	cache := New(cfg, locator, withDisabledMoveAndClear())
 	require.NoError(t, cache.StartWalkers())
 
@@ -68,14 +68,15 @@ func TestDiskCacheObjectWalker(t *testing.T) {
 
 func TestDiskCacheInitialClear(t *testing.T) {
 	cfg := testcfg.Build(t)
+	locator := config.NewLocator(cfg)
 
-	cacheDir := tempdir.CacheDir(cfg.Storages[0])
+	cacheDir, err := locator.CacheDir(cfg.Storages[0].Name)
+	require.NoError(t, err)
 
 	canary := filepath.Join(cacheDir, "canary.txt")
 	require.NoError(t, os.MkdirAll(filepath.Dir(canary), 0755))
 	require.NoError(t, ioutil.WriteFile(canary, []byte("chirp chirp"), 0755))
 
-	locator := config.NewLocator(cfg)
 	cache := New(cfg, locator, withDisabledWalker())
 	require.NoError(t, cache.StartWalkers())
 

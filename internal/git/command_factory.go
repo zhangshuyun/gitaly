@@ -12,7 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/alternates"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 )
 
 var (

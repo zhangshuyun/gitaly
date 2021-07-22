@@ -25,10 +25,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/server"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/setup"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
 	glog "gitlab.com/gitlab-org/gitaly/v14/internal/log"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/streamcache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/version"
@@ -130,8 +130,6 @@ func verifyGitVersion(cfg config.Cfg) error {
 }
 
 func run(cfg config.Cfg) error {
-	tempdir.StartCleaning(cfg.Storages, time.Hour)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -147,6 +145,8 @@ func run(cfg config.Cfg) error {
 	hookManager := hook.Manager(hook.DisabledManager{})
 
 	locator := config.NewLocator(cfg)
+
+	tempdir.StartCleaning(locator, cfg.Storages, time.Hour)
 
 	if config.SkipHooks() {
 		log.Warn("skipping GitLab API client creation since hooks are bypassed via GITALY_TESTING_NO_GIT_HOOKS")

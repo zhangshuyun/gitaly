@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/v14/internal/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -26,7 +26,14 @@ func (d Dir) Path() string {
 // New returns the path of a new temporary directory for the given storage. The directory is removed
 // asynchronously with os.RemoveAll when the context expires.
 func New(ctx context.Context, storageName string, locator storage.Locator) (Dir, error) {
-	dir, err := newDirectory(ctx, storageName, "repo", locator)
+	return NewWithPrefix(ctx, storageName, "repo", locator)
+}
+
+// NewWithPrefix returns the path of a new temporary directory for the given storage with a specific
+// prefix used to create the temporary directory's name. The directory is removed asynchronously
+// with os.RemoveAll when the context expires.
+func NewWithPrefix(ctx context.Context, storageName, prefix string, locator storage.Locator) (Dir, error) {
+	dir, err := newDirectory(ctx, storageName, prefix, locator)
 	if err != nil {
 		return Dir{}, err
 	}
@@ -67,12 +74,11 @@ func NewRepository(ctx context.Context, storageName string, locator storage.Loca
 }
 
 func newDirectory(ctx context.Context, storageName string, prefix string, loc storage.Locator) (Dir, error) {
-	storagePath, err := loc.GetStorageByName(storageName)
+	root, err := loc.TempDir(storageName)
 	if err != nil {
-		return Dir{}, err
+		return Dir{}, fmt.Errorf("temp directory: %w", err)
 	}
 
-	root := AppendTempDir(storagePath)
 	if err := os.MkdirAll(root, 0700); err != nil {
 		return Dir{}, err
 	}

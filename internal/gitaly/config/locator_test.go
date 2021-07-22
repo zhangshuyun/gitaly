@@ -1,49 +1,36 @@
-package config
+package config_test
 
 import (
-	"io/ioutil"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/quarantine"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestConfigLocator_GetObjectDirectoryPath(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "")
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	locator := config.NewLocator(cfg)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	quarantine, err := quarantine.New(ctx, repo, locator)
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	quarantinedRepo := quarantine.QuarantinedRepo()
 
-	repoPath := filepath.Join(tmpDir, "relative")
-	require.NoError(t, os.MkdirAll(repoPath, 0755))
-
-	cfg := Cfg{
-		Storages: []Storage{{
-			Name: "gitaly-1",
-			Path: filepath.Dir(repoPath),
-		}},
+	repoWithGitObjDir := func(repo *gitalypb.Repository, dir string) *gitalypb.Repository {
+		repo = proto.Clone(repo).(*gitalypb.Repository)
+		repo.GitObjectDirectory = dir
+		return repo
 	}
-	require.NoError(t, cfg.SetGitPath())
-	cmd := exec.Command(cfg.Git.BinPath, "init", "--bare", "--quiet")
-	cmd.Dir = repoPath
-	require.NoError(t, cmd.Run())
-
-	locator := NewLocator(cfg)
-
-	repoWithGitObjDir := func(dir string) *gitalypb.Repository {
-		return &gitalypb.Repository{
-			StorageName:        "gitaly-1",
-			RelativePath:       filepath.Base(repoPath),
-			GlRepository:       "gl_repo",
-			GitObjectDirectory: dir,
-		}
-	}
-
-	testRepo := repoWithGitObjDir("")
 
 	testCases := []struct {
 		desc string
@@ -53,42 +40,57 @@ func TestConfigLocator_GetObjectDirectoryPath(t *testing.T) {
 	}{
 		{
 			desc: "storages configured",
-			repo: repoWithGitObjDir("objects/"),
+			repo: repoWithGitObjDir(repo, "objects/"),
 			path: filepath.Join(repoPath, "objects/"),
 		},
 		{
 			desc: "no GitObjectDirectoryPath",
-			repo: testRepo,
+			repo: repo,
 			err:  codes.InvalidArgument,
 		},
 		{
 			desc: "with directory traversal",
-			repo: repoWithGitObjDir("../bazqux.git"),
+			repo: repoWithGitObjDir(repo, "../bazqux.git"),
 			err:  codes.InvalidArgument,
 		},
 		{
 			desc: "valid path but doesn't exist",
-			repo: repoWithGitObjDir("foo../bazqux.git"),
+			repo: repoWithGitObjDir(repo, "foo../bazqux.git"),
 			err:  codes.NotFound,
 		},
 		{
 			desc: "with sneaky directory traversal",
-			repo: repoWithGitObjDir("/../bazqux.git"),
+			repo: repoWithGitObjDir(repo, "/../bazqux.git"),
 			err:  codes.InvalidArgument,
 		},
 		{
 			desc: "with traversal outside repository",
-			repo: repoWithGitObjDir("objects/../.."),
+			repo: repoWithGitObjDir(repo, "objects/../.."),
 			err:  codes.InvalidArgument,
 		},
 		{
 			desc: "with traversal outside repository with trailing separator",
-			repo: repoWithGitObjDir("objects/../../"),
+			repo: repoWithGitObjDir(repo, "objects/../../"),
 			err:  codes.InvalidArgument,
 		},
 		{
 			desc: "with deep traversal at the end",
-			repo: repoWithGitObjDir("bazqux.git/../.."),
+			repo: repoWithGitObjDir(repo, "bazqux.git/../.."),
+			err:  codes.InvalidArgument,
+		},
+		{
+			desc: "quarantined repo",
+			repo: quarantinedRepo,
+			path: filepath.Join(repoPath, quarantinedRepo.GetGitObjectDirectory()),
+		},
+		{
+			desc: "quarantined repo with parent directory",
+			repo: repoWithGitObjDir(quarantinedRepo, quarantinedRepo.GetGitObjectDirectory()+"/.."),
+			err:  codes.InvalidArgument,
+		},
+		{
+			desc: "quarantined repo with directory traversal",
+			repo: repoWithGitObjDir(quarantinedRepo, quarantinedRepo.GetGitObjectDirectory()+"/../foobar.git"),
 			err:  codes.InvalidArgument,
 		},
 	}
