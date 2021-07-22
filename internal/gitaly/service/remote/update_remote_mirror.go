@@ -199,7 +199,7 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 			}
 
 			if _, ok := seen[name]; ok {
-				return errors.New("close stream to gitaly-ruby: rpc error: code = Unknown desc = Gitlab::Git::CommandError: error: src refspec master matches more than one")
+				return fmt.Errorf("close stream to gitaly-ruby: rpc error: code = Unknown desc = Gitlab::Git::CommandError: error: src refspec %v matches more than one", reference)
 			}
 
 			seen[name] = struct{}{}
