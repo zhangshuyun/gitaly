@@ -158,11 +158,8 @@ type instrumentedBatch struct {
 }
 
 func (ib *instrumentedBatch) Info(ctx context.Context, revision git.Revision) (*ObjectInfo, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Info", ib.revisionTag(revision))
-	defer span.Finish()
-
-	span2, _ := opentracing.StartSpanFromContext(ib.batchCtx, "Batch.Info", ib.revisionTag(revision), ib.correlationIDTag(ctx))
-	defer span2.Finish()
+	ctx, finish := ib.startSpan(ctx, "Batch.Info", revision)
+	defer finish()
 
 	ib.catfileLookupCounter.WithLabelValues("info").Inc()
 
@@ -170,11 +167,8 @@ func (ib *instrumentedBatch) Info(ctx context.Context, revision git.Revision) (*
 }
 
 func (ib *instrumentedBatch) Tree(ctx context.Context, revision git.Revision) (*Object, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Tree", ib.revisionTag(revision))
-	defer span.Finish()
-
-	span2, _ := opentracing.StartSpanFromContext(ib.batchCtx, "Batch.Tree", ib.revisionTag(revision), ib.correlationIDTag(ctx))
-	defer span2.Finish()
+	ctx, finish := ib.startSpan(ctx, "Batch.Tree", revision)
+	defer finish()
 
 	ib.catfileLookupCounter.WithLabelValues("tree").Inc()
 
@@ -182,11 +176,8 @@ func (ib *instrumentedBatch) Tree(ctx context.Context, revision git.Revision) (*
 }
 
 func (ib *instrumentedBatch) Commit(ctx context.Context, revision git.Revision) (*Object, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Commit", ib.revisionTag(revision))
-	defer span.Finish()
-
-	span2, _ := opentracing.StartSpanFromContext(ib.batchCtx, "Batch.Commit", ib.revisionTag(revision), ib.correlationIDTag(ctx))
-	defer span2.Finish()
+	ctx, finish := ib.startSpan(ctx, "Batch.Commit", revision)
+	defer finish()
 
 	ib.catfileLookupCounter.WithLabelValues("commit").Inc()
 
@@ -194,11 +185,8 @@ func (ib *instrumentedBatch) Commit(ctx context.Context, revision git.Revision) 
 }
 
 func (ib *instrumentedBatch) Blob(ctx context.Context, revision git.Revision) (*Object, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Blob", ib.revisionTag(revision))
-	defer span.Finish()
-
-	span2, _ := opentracing.StartSpanFromContext(ib.batchCtx, "Batch.Blob", ib.revisionTag(revision), ib.correlationIDTag(ctx))
-	defer span2.Finish()
+	ctx, finish := ib.startSpan(ctx, "Batch.Blob", revision)
+	defer finish()
 
 	ib.catfileLookupCounter.WithLabelValues("blob").Inc()
 
@@ -206,11 +194,8 @@ func (ib *instrumentedBatch) Blob(ctx context.Context, revision git.Revision) (*
 }
 
 func (ib *instrumentedBatch) Tag(ctx context.Context, revision git.Revision) (*Object, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Tag", ib.revisionTag(revision))
-	defer span.Finish()
-
-	span2, _ := opentracing.StartSpanFromContext(ib.batchCtx, "Batch.Tag", ib.revisionTag(revision), ib.correlationIDTag(ctx))
-	defer span2.Finish()
+	ctx, finish := ib.startSpan(ctx, "Batch.Tag", revision)
+	defer finish()
 
 	ib.catfileLookupCounter.WithLabelValues("tag").Inc()
 
@@ -223,4 +208,14 @@ func (ib *instrumentedBatch) revisionTag(revision git.Revision) opentracing.Tag 
 
 func (ib *instrumentedBatch) correlationIDTag(ctx context.Context) opentracing.Tag {
 	return opentracing.Tag{Key: "correlation_id", Value: correlation.ExtractFromContext(ctx)}
+}
+
+func (ib *instrumentedBatch) startSpan(ctx context.Context, methodName string, revision git.Revision) (context.Context, func()) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, methodName, ib.revisionTag(revision))
+	span2, _ := opentracing.StartSpanFromContext(ib.batchCtx, methodName, ib.revisionTag(revision), ib.correlationIDTag(ctx))
+
+	return ctx, func() {
+		span.Finish()
+		span2.Finish()
+	}
 }
