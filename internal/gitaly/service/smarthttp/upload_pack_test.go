@@ -350,8 +350,6 @@ func TestUploadPackRequestForPartialCloneSuccess(t *testing.T) {
 
 	requestBuffer.Reset()
 	gittest.WritePktlineString(t, &requestBuffer, fmt.Sprintf("want %s %s\n", newCommit, clientCapabilities))
-	// add filtering
-	gittest.WritePktlineFlush(t, &requestBuffer)
 	gittest.WritePktlineFlush(t, &requestBuffer)
 
 	_, err = makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, req, &requestBuffer)
