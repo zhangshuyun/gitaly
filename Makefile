@@ -256,7 +256,10 @@ prepare-test-repos: ${TEST_REPO} ${TEST_REPO_GIT}
 
 .PHONY: test
 ## Run Go and Ruby tests.
-test: test-go rspec
+test: test-go test-ruby
+
+.PHONY: test-ruby
+test-ruby: prepare-tests rspec
 
 .PHONY: test-go
 ## Run Go tests.
