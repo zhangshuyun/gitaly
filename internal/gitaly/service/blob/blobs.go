@@ -203,3 +203,68 @@ func (t *blobSender) Append(m proto.Message) {
 func (t *blobSender) Send() error {
 	return t.send(t.blobs)
 }
+
+// ListAllBlobs finds all blobs which exist in the repository, including those which are not
+// reachable via graph walks.
+func (s *server) ListAllBlobs(req *gitalypb.ListAllBlobsRequest, stream gitalypb.BlobService_ListAllBlobsServer) error {
+	ctx := stream.Context()
+
+	if req.GetRepository() == nil {
+		return helper.ErrInvalidArgumentf("empty repository")
+	}
+
+	repo := s.localrepo(req.GetRepository())
+
+	chunker := chunk.New(&allBlobsSender{
+		send: func(blobs []*gitalypb.ListAllBlobsResponse_Blob) error {
+			return stream.Send(&gitalypb.ListAllBlobsResponse{
+				Blobs: blobs,
+			})
+		},
+	})
+
+	catfileProcess, err := s.catfileCache.BatchProcess(ctx, repo)
+	if err != nil {
+		return helper.ErrInternal(fmt.Errorf("creating catfile process: %w", err))
+	}
+
+	catfileInfoIter := gitpipe.CatfileInfoAllObjects(ctx, repo)
+	catfileInfoIter = gitpipe.CatfileInfoFilter(ctx, catfileInfoIter, func(r gitpipe.CatfileInfoResult) bool {
+		return r.ObjectInfo.Type == "blob"
+	})
+
+	if err := processBlobs(ctx, catfileProcess, catfileInfoIter, req.GetLimit(), req.GetBytesLimit(),
+		func(oid string, size int64, contents []byte) error {
+			return chunker.Send(&gitalypb.ListAllBlobsResponse_Blob{
+				Oid:  oid,
+				Size: size,
+				Data: contents,
+			})
+		},
+	); err != nil {
+		return helper.ErrInternal(fmt.Errorf("processing blobs: %w", err))
+	}
+
+	if err := chunker.Flush(); err != nil {
+		return helper.ErrInternal(fmt.Errorf("flushing blobs: %w", err))
+	}
+
+	return nil
+}
+
+type allBlobsSender struct {
+	blobs []*gitalypb.ListAllBlobsResponse_Blob
+	send  func([]*gitalypb.ListAllBlobsResponse_Blob) error
+}
+
+func (t *allBlobsSender) Reset() {
+	t.blobs = t.blobs[:0]
+}
+
+func (t *allBlobsSender) Append(m proto.Message) {
+	t.blobs = append(t.blobs, m.(*gitalypb.ListAllBlobsResponse_Blob))
+}
+
+func (t *allBlobsSender) Send() error {
+	return t.send(t.blobs)
+}
