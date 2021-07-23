@@ -35,9 +35,7 @@ func TestSuccessfulUploadPackRequest(t *testing.T) {
 	_, localRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{WithWorktree: true})
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
-
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
-
 	serverSocketPath := runSmartHTTPServer(t, cfg, WithPackfileNegotiationMetrics(negotiationMetrics))
 
 	oldCommit, err := git.NewObjectIDFromHex("1e292f8fedd741b75372e19097c76d327140c312") // refs/heads/master
@@ -56,15 +54,12 @@ func TestSuccessfulUploadPackRequest(t *testing.T) {
 	responseBuffer, err := makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, req, requestBuffer)
 	require.NoError(t, err)
 
-	// There's no git command we can pass it this response and do the work for us (extracting pack file, ...),
-	// so we have to do it ourselves.
 	pack, version, entries := extractPackDataFromResponse(t, responseBuffer)
-	require.NotNil(t, pack, "Expected to find a pack file in response, found none")
+	require.NotEmpty(t, pack, "Expected to find a pack file in response, found none")
 
 	gittest.ExecStream(t, cfg, bytes.NewReader(pack), "-C", localRepoPath, "unpack-objects", fmt.Sprintf("--pack_header=%d,%d", version, entries))
 
-	// The fact that this command succeeds means that we got the commit correctly, no further checks should be needed.
-	gittest.Exec(t, cfg, "-C", localRepoPath, "show", newCommit.String())
+	gittest.GitObjectMustExist(t, cfg.Git.BinPath, localRepoPath, newCommit.String())
 
 	metric, err := negotiationMetrics.GetMetricWithLabelValues("have")
 	require.NoError(t, err)
@@ -123,28 +118,24 @@ func TestUploadPackRequestWithGitConfigOptions(t *testing.T) {
 func TestUploadPackRequestWithGitProtocol(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
-
 	readProto, cfg := gittest.EnableGitProtocolV2Support(t, cfg)
-
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 
+	// command=ls-refs does not exist in protocol v0, so if this succeeds, we're talking v2
 	requestBody := &bytes.Buffer{}
-
 	gittest.WritePktlineString(t, requestBody, "command=ls-refs\n")
 	gittest.WritePktlineDelim(t, requestBody)
 	gittest.WritePktlineString(t, requestBody, "peel\n")
 	gittest.WritePktlineString(t, requestBody, "symrefs\n")
 	gittest.WritePktlineFlush(t, requestBody)
 
-	// Only a Git server with v2 will recognize this request.
-	// Git v1 will throw a protocol error.
 	rpcRequest := &gitalypb.PostUploadPackRequest{
 		Repository:  repo,
 		GitProtocol: git.ProtocolV2,
 	}
 
-	// The ref is successfully requested as it is not hidden
 	_, err := makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest, requestBody)
 	require.NoError(t, err)
 
@@ -217,8 +208,8 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	cfg := testcfg.Build(t)
 
+	cfg := testcfg.Build(t)
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 
 	rpcRequests := []*gitalypb.PostUploadPackRequest{
@@ -311,9 +302,7 @@ func TestUploadPackRequestForPartialCloneSuccess(t *testing.T) {
 	_, localRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0], gittest.InitRepoOpts{WithWorktree: true})
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
-
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
-
 	serverSocketPath := runSmartHTTPServer(t, cfg, WithPackfileNegotiationMetrics(negotiationMetrics))
 
 	oldCommit, err := git.NewObjectIDFromHex("1e292f8fedd741b75372e19097c76d327140c312") // refs/heads/master
@@ -332,7 +321,7 @@ func TestUploadPackRequestForPartialCloneSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	pack, version, entries := extractPackDataFromResponse(t, responseBuffer)
-	require.NotNil(t, pack, "Expected to find a pack file in response, found none")
+	require.NotEmpty(t, pack, "Expected to find a pack file in response, found none")
 
 	gittest.ExecStream(t, cfg, bytes.NewReader(pack), "-C", localRepoPath, "unpack-objects", fmt.Sprintf("--pack_header=%d,%d", version, entries))
 
@@ -373,7 +362,7 @@ func TestServer_PostUploadPack_allowAnySHA1InWant(t *testing.T) {
 	require.NoError(t, err)
 
 	pack, version, entries := extractPackDataFromResponse(t, responseBuffer)
-	require.NotNil(t, pack, "Expected to find a pack file in response, found none")
+	require.NotEmpty(t, pack, "Expected to find a pack file in response, found none")
 
 	gittest.ExecStream(t, cfg, bytes.NewReader(pack), "-C", localRepoPath, "unpack-objects", fmt.Sprintf("--pack_header=%d,%d", version, entries))
 
