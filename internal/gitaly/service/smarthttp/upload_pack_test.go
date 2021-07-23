@@ -27,7 +27,7 @@ const (
 	clientCapabilities = `multi_ack_detailed no-done side-band-64k thin-pack include-tag ofs-delta deepen-since deepen-not filter agent=git/2.18.0`
 )
 
-func TestSuccessfulUploadPackRequest(t *testing.T) {
+func TestServer_PostUploadPack(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -66,7 +66,7 @@ func TestSuccessfulUploadPackRequest(t *testing.T) {
 	require.Equal(t, 1.0, promtest.ToFloat64(metric))
 }
 
-func TestUploadPackRequestWithGitConfigOptions(t *testing.T) {
+func TestServer_PostUploadPack_gitConfigOptions(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
@@ -115,7 +115,7 @@ func TestUploadPackRequestWithGitConfigOptions(t *testing.T) {
 	})
 }
 
-func TestUploadPackRequestWithGitProtocol(t *testing.T) {
+func TestServer_PostUploadPack_gitProtocol(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -146,7 +146,7 @@ func TestUploadPackRequestWithGitProtocol(t *testing.T) {
 // This test is here because git-upload-pack returns a non-zero exit code
 // on 'deepen' requests even though the request is being handled just
 // fine from the client perspective.
-func TestSuccessfulUploadPackDeepenRequest(t *testing.T) {
+func TestServer_PostUploadPack_suppressDeepenExitError(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
@@ -166,7 +166,7 @@ func TestSuccessfulUploadPackDeepenRequest(t *testing.T) {
 	assert.Equal(t, `0034shallow e63f41fe459e62e1228fcef60d7189127aeba95a0000`, response.String())
 }
 
-func TestUploadPackWithPackObjectsHook(t *testing.T) {
+func TestServer_PostUploadPack_usesPackObjectsHook(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 	cfg.BinDir = testhelper.TempDir(t)
 
@@ -205,7 +205,7 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	require.Equal(t, "I was invoked\n", string(contents))
 }
 
-func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
+func TestServer_PostUploadPack_validation(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -294,7 +294,7 @@ func extractPackDataFromResponse(t *testing.T, buf *bytes.Buffer) ([]byte, int, 
 	return pack, version, entries
 }
 
-func TestUploadPackRequestForPartialCloneSuccess(t *testing.T) {
+func TestServer_PostUploadPack_partialClone(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
