@@ -23,6 +23,9 @@ module Gitaly
       # doing a graph walk. It is not valid to pass revisions which do not resolve
       # to an existing object.
       rpc :ListBlobs, ::Gitaly::ListBlobsRequest, stream(::Gitaly::ListBlobsResponse)
+      # ListAllBlobs retrieves all blobs pointers in the repository, including
+      # those not reachable by any reference.
+      rpc :ListAllBlobs, ::Gitaly::ListAllBlobsRequest, stream(::Gitaly::ListAllBlobsResponse)
       # GetLFSPointers retrieves LFS pointers from a given set of object IDs.
       # This RPC filters all requested objects and only returns those which refer
       # to a valid LFS pointer.

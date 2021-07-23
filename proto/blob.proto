@@ -31,6 +31,14 @@ service BlobService {
     };
   }
 
+  // ListAllBlobs retrieves all blobs pointers in the repository, including
+  // those not reachable by any reference.
+  rpc ListAllBlobs(ListAllBlobsRequest) returns (stream ListAllBlobsResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
+
   // GetLFSPointers retrieves LFS pointers from a given set of object IDs.
   // This RPC filters all requested objects and only returns those which refer
   // to a valid LFS pointer.
@@ -128,6 +136,42 @@ message ListBlobsRequest {
 
 // ListBlobsResponse is a response for the ListBlobs RPC.
 message ListBlobsResponse {
+  // Blob represents a Git blob object.
+  message Blob {
+    // Oid is the object ID of the blob. Will only be set for the first
+    // message of each specific blob.
+    string oid = 1;
+    // Size is the size of the blob. Will only be set for the first message
+    // of each specific blob.
+    int64 size = 2;
+    // Data is the contents of the blob. This field is optional and depends on
+    // the BytesLimit in the original request.
+    bytes data = 3;
+  }
+
+  // Blobs is the blobs which have been found. In case blob contents were
+  // requested and contents of a blob exceed the maximum gRPC message size,
+  // then this blob will be split up into multiple blob messages which span
+  // across multiple responses. In that case, metadata of the blob will only be
+  // sent on the first such message for this specific blob.
+  repeated Blob blobs = 1;
+}
+
+// ListAllBlobsRequest is a request for the ListAllBlobs RPC.
+message ListAllBlobsRequest {
+  // Repository is the repository in which blobs should be enumerated.
+  Repository repository = 1 [(target_repository)=true];
+  // Limit is the maximum number of blobs to return. If set to its default
+  // (`0`), then all found blobs wll be returned.
+  uint32 limit = 2;
+  // BytesLimit is the maximum number of bytes to receive for each blob. If set
+  // to `0`, then no blob data will be sent. If `-1`, then all blob data will
+  // be sent without any limits.
+  int64 bytes_limit = 3;
+}
+
+// ListAllBlobsResponse is a response for the ListAllBlobs RPC.
+message ListAllBlobsResponse {
   // Blob represents a Git blob object.
   message Blob {
     // Oid is the object ID of the blob. Will only be set for the first
