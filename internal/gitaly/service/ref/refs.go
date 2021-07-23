@@ -181,8 +181,6 @@ func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, stream g
 	for catfileObjectsIter.Next() {
 		tag := catfileObjectsIter.Result()
 
-		tagName := bytes.TrimPrefix(tag.ObjectName, []byte("refs/tags/"))
-
 		var result *gitalypb.Tag
 		switch tag.ObjectInfo.Type {
 		case "tag":
@@ -199,7 +197,6 @@ func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, stream g
 
 			result = &gitalypb.Tag{
 				Id:           tag.ObjectInfo.Oid.String(),
-				Name:         tagName,
 				TargetCommit: commit,
 			}
 		default:
@@ -208,9 +205,16 @@ func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, stream g
 			}
 
 			result = &gitalypb.Tag{
-				Id:   tag.ObjectInfo.Oid.String(),
-				Name: tagName,
+				Id: tag.ObjectInfo.Oid.String(),
 			}
+		}
+
+		// In case we can deduce the tag name from the object name (which should typically
+		// be the case), we always want to return the tag name. While annotated tags do have
+		// their name encoded in the object itself, we instead want to default to the name
+		// of the reference such that we can discern multiple refs pointing to the same tag.
+		if tagName := bytes.TrimPrefix(tag.ObjectName, []byte("refs/tags/")); len(tagName) > 0 {
+			result.Name = tagName
 		}
 
 		// For each tag, we expect both the tag itself as well as its potentially-peeled

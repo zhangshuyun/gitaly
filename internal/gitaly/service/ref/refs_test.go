@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/assert"
@@ -25,6 +26,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func containsRef(refs [][]byte, ref string) bool {
@@ -618,6 +620,89 @@ func testSuccessfulFindAllTagsRequest(t *testing.T, ctx context.Context) {
 
 	require.Len(t, receivedTags, len(expectedTags))
 	require.ElementsMatch(t, expectedTags, receivedTags)
+}
+
+func TestFindAllTags_duplicateAnnotatedTags(t *testing.T) {
+	cfg, client := setupRefServiceWithoutRepo(t)
+
+	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
+	defer cleanup()
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
+	date := time.Unix(12345, 0)
+
+	tagID, err := repo.WriteTag(ctx, commitID, "commit", []byte("annotated"), []byte("message"),
+		gittest.TestUser, date)
+	require.NoError(t, err)
+
+	require.NoError(t, repo.UpdateRef(ctx, "refs/tags/annotated", tagID, git.ZeroOID))
+	require.NoError(t, repo.UpdateRef(ctx, "refs/tags/annotated-dup", tagID, git.ZeroOID))
+	require.NoError(t, repo.UpdateRef(ctx, "refs/tags/lightweight-1", commitID, git.ZeroOID))
+	require.NoError(t, repo.UpdateRef(ctx, "refs/tags/lightweight-2", commitID, git.ZeroOID))
+
+	c, err := client.FindAllTags(ctx, &gitalypb.FindAllTagsRequest{Repository: repoProto})
+	require.NoError(t, err)
+
+	var receivedTags []*gitalypb.Tag
+	for {
+		r, err := c.Recv()
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err)
+		receivedTags = append(receivedTags, r.GetTags()...)
+	}
+
+	commitAuthor := &gitalypb.CommitAuthor{
+		Name:     []byte("Scrooge McDuck"),
+		Email:    []byte("scrooge@mcduck.com"),
+		Date:     &timestamp.Timestamp{Seconds: 1572776879},
+		Timezone: []byte("+0100"),
+	}
+	commit := &gitalypb.GitCommit{
+		Id:        commitID.String(),
+		TreeId:    "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+		Body:      []byte("message"),
+		BodySize:  7,
+		Subject:   []byte("message"),
+		Author:    commitAuthor,
+		Committer: commitAuthor,
+	}
+
+	testassert.ProtoEqual(t, []*gitalypb.Tag{
+		{
+			Name:        []byte("annotated"),
+			Id:          tagID.String(),
+			Message:     []byte("message"),
+			MessageSize: 7,
+			Tagger: &gitalypb.CommitAuthor{
+				Name:     gittest.TestUser.Name,
+				Email:    gittest.TestUser.Email,
+				Date:     timestamppb.New(date),
+				Timezone: []byte("+0000"),
+			},
+			TargetCommit: commit,
+		},
+		{
+			Name:        []byte("annotated-dup"),
+			Id:          tagID.String(),
+			Message:     []byte("message"),
+			MessageSize: 7,
+			Tagger: &gitalypb.CommitAuthor{
+				Name:     gittest.TestUser.Name,
+				Email:    gittest.TestUser.Email,
+				Date:     timestamppb.New(date),
+				Timezone: []byte("+0000"),
+			},
+			TargetCommit: commit,
+		},
+		{Name: []byte("lightweight-1"), Id: commitID.String(), TargetCommit: commit},
+		{Name: []byte("lightweight-2"), Id: commitID.String(), TargetCommit: commit},
+	}, receivedTags)
 }
 
 func TestFindAllTagNestedTags(t *testing.T) {

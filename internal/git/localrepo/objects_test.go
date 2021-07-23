@@ -115,9 +115,8 @@ func TestFormatTag(t *testing.T) {
 		objectID   git.ObjectID
 		objectType string
 		tagName    []byte
-		userName   []byte
-		userEmail  []byte
 		tagBody    []byte
+		author     *gitalypb.User
 		authorDate time.Time
 		err        error
 	}{
@@ -128,33 +127,39 @@ func TestFormatTag(t *testing.T) {
 			objectID:   git.ZeroOID,
 			objectType: "commit",
 			tagName:    []byte("my-tag"),
-			userName:   []byte("root"),
-			userEmail:  []byte("root@localhost"),
-			tagBody:    []byte(""),
+			author: &gitalypb.User{
+				Name:  []byte("root"),
+				Email: []byte("root@localhost"),
+			},
+			tagBody: []byte(""),
 		},
 		{
 			desc:       "basic signature",
 			objectID:   git.ZeroOID,
 			objectType: "commit",
 			tagName:    []byte("my-tag\ninjection"),
-			userName:   []byte("root"),
-			userEmail:  []byte("root@localhost"),
 			tagBody:    []byte(""),
-			err:        FormatTagError{expectedLines: 4, actualLines: 5},
+			author: &gitalypb.User{
+				Name:  []byte("root"),
+				Email: []byte("root@localhost"),
+			},
+			err: FormatTagError{expectedLines: 4, actualLines: 5},
 		},
 		{
 			desc:       "signature with fixed time",
 			objectID:   git.ZeroOID,
 			objectType: "commit",
 			tagName:    []byte("my-tag"),
-			userName:   []byte("root"),
-			userEmail:  []byte("root@localhost"),
 			tagBody:    []byte(""),
+			author: &gitalypb.User{
+				Name:  []byte("root"),
+				Email: []byte("root@localhost"),
+			},
 			authorDate: time.Unix(12345, 0),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			signature, err := FormatTag(tc.objectID, tc.objectType, tc.tagName, tc.userName, tc.userEmail, tc.tagBody, tc.authorDate)
+			signature, err := FormatTag(tc.objectID, tc.objectType, tc.tagName, tc.tagBody, tc.author, tc.authorDate)
 			if err != nil {
 				require.Equal(t, tc.err, err)
 				require.Equal(t, "", signature)
@@ -175,14 +180,14 @@ func TestRepo_WriteTag(t *testing.T) {
 	repo, repoPath := setupRepo(t, false)
 
 	for _, tc := range []struct {
-		desc       string
-		objectID   git.ObjectID
-		objectType string
-		tagName    []byte
-		userName   []byte
-		userEmail  []byte
-		tagBody    []byte
-		authorDate time.Time
+		desc        string
+		objectID    git.ObjectID
+		objectType  string
+		tagName     []byte
+		tagBody     []byte
+		author      *gitalypb.User
+		authorDate  time.Time
+		expectedTag string
 	}{
 		// Just trivial tests here, most of this is tested in
 		// internal/gitaly/service/operations/tags_test.go
@@ -191,27 +196,59 @@ func TestRepo_WriteTag(t *testing.T) {
 			objectID:   "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd",
 			objectType: "commit",
 			tagName:    []byte("my-tag"),
-			userName:   []byte("root"),
-			userEmail:  []byte("root@localhost"),
 			tagBody:    []byte(""),
+			author: &gitalypb.User{
+				Name:  []byte("root"),
+				Email: []byte("root@localhost"),
+			},
 		},
 		{
 			desc:       "signature with time",
 			objectID:   "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd",
 			objectType: "commit",
 			tagName:    []byte("tag-with-timestamp"),
-			userName:   []byte("root"),
-			userEmail:  []byte("root@localhost"),
 			tagBody:    []byte(""),
+			author: &gitalypb.User{
+				Name:  []byte("root"),
+				Email: []byte("root@localhost"),
+			},
 			authorDate: time.Unix(12345, 0),
+			expectedTag: `object c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd
+type commit
+tag tag-with-timestamp
+tagger root <root@localhost> 12345 +0000
+`,
+		},
+		{
+			desc:       "signature with time and timezone",
+			objectID:   "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd",
+			objectType: "commit",
+			tagName:    []byte("tag-with-timezone"),
+			tagBody:    []byte(""),
+			author: &gitalypb.User{
+				Name:  []byte("root"),
+				Email: []byte("root@localhost"),
+			},
+			authorDate: time.Unix(12345, 0).In(time.FixedZone("myzone", -60*60)),
+			expectedTag: `object c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd
+type commit
+tag tag-with-timezone
+tagger root <root@localhost> 12345 -0100
+`,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			tagObjID, err := repo.WriteTag(ctx, tc.objectID, tc.objectType, tc.tagName, tc.userName, tc.userEmail, tc.tagBody, tc.authorDate)
+			tagObjID, err := repo.WriteTag(ctx, tc.objectID, tc.objectType, tc.tagName, tc.tagBody, tc.author, tc.authorDate)
 			require.NoError(t, err)
 
 			repoTagObjID := gittest.Exec(t, repo.cfg, "-C", repoPath, "rev-parse", tagObjID.String())
 			require.Equal(t, text.ChompBytes(repoTagObjID), tagObjID.String())
+
+			if tc.expectedTag != "" {
+				tag := gittest.Exec(t, repo.cfg, "-C", repoPath, "cat-file",
+					"-p", tagObjID.String())
+				require.Equal(t, tc.expectedTag, text.ChompBytes(tag))
+			}
 		})
 	}
 }

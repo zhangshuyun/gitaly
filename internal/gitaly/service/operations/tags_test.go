@@ -438,14 +438,14 @@ func testUserCreateTagQuarantine(t *testing.T, ctx context.Context) {
 		PreReceiveError: `object c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd
 type commit
 tag quarantined-tag
-tagger Jane Doe <janedoe@gitlab.com> 1600000000 +0000
+tagger Jane Doe <janedoe@gitlab.com> 1600000000 +0800
 
 message`,
 	}, response)
 
 	// In case we use an object quarantine directory, the tag should not exist in the target
 	// repository because the RPC failed to update the revision.
-	tagExists, err := repo.HasRevision(ctx, "1c656045788f7795f3806233916422af154705ee^{tag}")
+	tagExists, err := repo.HasRevision(ctx, "85d279b2cc85df37992e08f84707987321e8ef47^{tag}")
 	require.NoError(t, err)
 	require.Equal(t, featureflag.QuarantinedUserCreateTag.IsDisabled(ctx), tagExists)
 }
@@ -879,7 +879,7 @@ func TestUserCreateTagStableTagIDs(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, &gitalypb.Tag{
-		Id:          "c0dd712fb40073c287bc69a39ed5e6b6aa524c6c",
+		Id:          "123b02f05cc249a7da87aae583babb8e4871cd65",
 		Name:        []byte("happy-tag"),
 		Message:     []byte("my message"),
 		MessageSize: 10,
