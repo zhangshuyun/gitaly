@@ -7,6 +7,7 @@ import (
 	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/labkit/correlation"
 )
 
 const (
@@ -101,7 +102,15 @@ type simulatedBatchSpawnError struct{}
 
 func (simulatedBatchSpawnError) Error() string { return "simulated spawn error" }
 
-func (bc *BatchCache) newBatch(ctx context.Context, repo git.RepositoryExecutor) (_ *batch, err error) {
+func (bc *BatchCache) newBatch(ctx context.Context, repo git.RepositoryExecutor) (*batch, context.Context, error) {
+	var err error
+
+	// batch processes are long-lived and reused across RPCs,
+	// so we de-correlate the process from the RPC
+	ctx = correlation.ContextWithCorrelation(ctx, "")
+	ctx = opentracing.ContextWithSpan(ctx, nil)
+	span, ctx := opentracing.StartSpanFromContext(ctx, "catfile.Batch")
+
 	ctx, cancel := context.WithCancel(ctx)
 	defer func() {
 		if err != nil {
@@ -109,31 +118,48 @@ func (bc *BatchCache) newBatch(ctx context.Context, repo git.RepositoryExecutor)
 		}
 	}()
 
+	go func() {
+		<-ctx.Done()
+		span.Finish()
+	}()
+
 	batchProcess, err := bc.newBatchProcess(ctx, repo)
 	if err != nil {
-		return nil, err
+		return nil, ctx, err
 	}
 
 	batchCheckProcess, err := bc.newBatchCheckProcess(ctx, repo)
 	if err != nil {
-		return nil, err
+		return nil, ctx, err
 	}
 
-	return &batch{batchProcess: batchProcess, batchCheckProcess: batchCheckProcess}, nil
+	return &batch{batchProcess: batchProcess, batchCheckProcess: batchCheckProcess}, ctx, nil
 }
 
-func newInstrumentedBatch(c Batch, catfileLookupCounter *prometheus.CounterVec) Batch {
-	return &instrumentedBatch{c, catfileLookupCounter}
+func newInstrumentedBatch(ctx context.Context, c Batch, catfileLookupCounter *prometheus.CounterVec) Batch {
+	return &instrumentedBatch{
+		Batch:                c,
+		catfileLookupCounter: catfileLookupCounter,
+		batchCtx:             ctx,
+	}
 }
 
+// We maintain two contexts here: the one RPC-level one, and one batch-level one.
+//
+// The batchCtx tracks the lifetime of the long-running batch process, and is
+// de-correlated from the RPC, as it is shared between many RPCs.
+//
+// We perform double accounting and re-correlation to get stats and traces per
+// batch process.
 type instrumentedBatch struct {
 	Batch
 	catfileLookupCounter *prometheus.CounterVec
+	batchCtx             context.Context
 }
 
 func (ib *instrumentedBatch) Info(ctx context.Context, revision git.Revision) (*ObjectInfo, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Info", opentracing.Tag{Key: "revision", Value: revision})
-	defer span.Finish()
+	ctx, finish := ib.startSpan(ctx, "Batch.Info", revision)
+	defer finish()
 
 	ib.catfileLookupCounter.WithLabelValues("info").Inc()
 
@@ -141,8 +167,8 @@ func (ib *instrumentedBatch) Info(ctx context.Context, revision git.Revision) (*
 }
 
 func (ib *instrumentedBatch) Tree(ctx context.Context, revision git.Revision) (*Object, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Tree", opentracing.Tag{Key: "revision", Value: revision})
-	defer span.Finish()
+	ctx, finish := ib.startSpan(ctx, "Batch.Tree", revision)
+	defer finish()
 
 	ib.catfileLookupCounter.WithLabelValues("tree").Inc()
 
@@ -150,8 +176,8 @@ func (ib *instrumentedBatch) Tree(ctx context.Context, revision git.Revision) (*
 }
 
 func (ib *instrumentedBatch) Commit(ctx context.Context, revision git.Revision) (*Object, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Commit", opentracing.Tag{Key: "revision", Value: revision})
-	defer span.Finish()
+	ctx, finish := ib.startSpan(ctx, "Batch.Commit", revision)
+	defer finish()
 
 	ib.catfileLookupCounter.WithLabelValues("commit").Inc()
 
@@ -159,8 +185,8 @@ func (ib *instrumentedBatch) Commit(ctx context.Context, revision git.Revision) 
 }
 
 func (ib *instrumentedBatch) Blob(ctx context.Context, revision git.Revision) (*Object, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Blob", opentracing.Tag{Key: "revision", Value: revision})
-	defer span.Finish()
+	ctx, finish := ib.startSpan(ctx, "Batch.Blob", revision)
+	defer finish()
 
 	ib.catfileLookupCounter.WithLabelValues("blob").Inc()
 
@@ -168,10 +194,28 @@ func (ib *instrumentedBatch) Blob(ctx context.Context, revision git.Revision) (*
 }
 
 func (ib *instrumentedBatch) Tag(ctx context.Context, revision git.Revision) (*Object, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Tag", opentracing.Tag{Key: "revision", Value: revision})
-	defer span.Finish()
+	ctx, finish := ib.startSpan(ctx, "Batch.Tag", revision)
+	defer finish()
 
 	ib.catfileLookupCounter.WithLabelValues("tag").Inc()
 
 	return ib.Batch.Tag(ctx, revision)
+}
+
+func (ib *instrumentedBatch) revisionTag(revision git.Revision) opentracing.Tag {
+	return opentracing.Tag{Key: "revision", Value: revision}
+}
+
+func (ib *instrumentedBatch) correlationIDTag(ctx context.Context) opentracing.Tag {
+	return opentracing.Tag{Key: "correlation_id", Value: correlation.ExtractFromContext(ctx)}
+}
+
+func (ib *instrumentedBatch) startSpan(ctx context.Context, methodName string, revision git.Revision) (context.Context, func()) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, methodName, ib.revisionTag(revision))
+	span2, _ := opentracing.StartSpanFromContext(ib.batchCtx, methodName, ib.revisionTag(revision), ib.correlationIDTag(ctx))
+
+	return ctx, func() {
+		span.Finish()
+		span2.Finish()
+	}
 }
