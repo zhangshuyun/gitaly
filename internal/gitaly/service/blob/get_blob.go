@@ -9,8 +9,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (s *server) GetBlob(in *gitalypb.GetBlobRequest, stream gitalypb.BlobService_GetBlobServer) error {
@@ -19,20 +17,20 @@ func (s *server) GetBlob(in *gitalypb.GetBlobRequest, stream gitalypb.BlobServic
 	repo := s.localrepo(in.GetRepository())
 
 	if err := validateRequest(in); err != nil {
-		return status.Errorf(codes.InvalidArgument, "GetBlob: %v", err)
+		return helper.ErrInvalidArgumentf("GetBlob: %v", err)
 	}
 
 	c, err := s.catfileCache.BatchProcess(stream.Context(), repo)
 	if err != nil {
-		return status.Errorf(codes.Internal, "GetBlob: %v", err)
+		return helper.ErrInternalf("GetBlob: %v", err)
 	}
 
 	objectInfo, err := c.Info(ctx, git.Revision(in.Oid))
 	if err != nil && !catfile.IsNotFound(err) {
-		return status.Errorf(codes.Internal, "GetBlob: %v", err)
+		return helper.ErrInternalf("GetBlob: %v", err)
 	}
 	if catfile.IsNotFound(err) || objectInfo.Type != "blob" {
-		return helper.DecorateError(codes.Unavailable, stream.Send(&gitalypb.GetBlobResponse{}))
+		return helper.ErrUnavailable(stream.Send(&gitalypb.GetBlobResponse{}))
 	}
 
 	readLimit := objectInfo.Size
@@ -45,12 +43,12 @@ func (s *server) GetBlob(in *gitalypb.GetBlobRequest, stream gitalypb.BlobServic
 	}
 
 	if readLimit == 0 {
-		return helper.DecorateError(codes.Unavailable, stream.Send(firstMessage))
+		return helper.ErrUnavailable(stream.Send(firstMessage))
 	}
 
 	blobObj, err := c.Blob(ctx, git.Revision(objectInfo.Oid))
 	if err != nil {
-		return status.Errorf(codes.Internal, "GetBlob: %v", err)
+		return helper.ErrInternalf("GetBlob: %v", err)
 	}
 
 	sw := streamio.NewWriter(func(p []byte) error {
@@ -65,7 +63,7 @@ func (s *server) GetBlob(in *gitalypb.GetBlobRequest, stream gitalypb.BlobServic
 
 	_, err = io.CopyN(sw, blobObj.Reader, readLimit)
 	if err != nil {
-		return status.Errorf(codes.Unavailable, "GetBlob: send: %v", err)
+		return helper.ErrUnavailablef("GetBlob: send: %v", err)
 	}
 
 	return nil

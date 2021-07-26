@@ -1,7 +1,6 @@
 package commit
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/golang/protobuf/proto"
@@ -12,8 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.CommitService_ListFilesServer) error {
@@ -34,11 +31,11 @@ func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.Commit
 	if len(revision) == 0 {
 		defaultBranch, err := defaultBranchName(stream.Context(), repo)
 		if err != nil {
-			return helper.DecorateError(codes.NotFound, fmt.Errorf("revision not found %q", revision))
+			return helper.ErrNotFoundf("revision not found %q", revision)
 		}
 
 		if len(defaultBranch) == 0 {
-			return status.Errorf(codes.FailedPrecondition, "repository does not have a default branch")
+			return helper.ErrPreconditionFailedf("repository does not have a default branch")
 		}
 
 		revision = string(defaultBranch)

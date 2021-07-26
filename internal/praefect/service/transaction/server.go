@@ -8,7 +8,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/transactions"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
 )
 
 type Server struct {
@@ -36,7 +35,7 @@ func (s *Server) VoteTransaction(ctx context.Context, in *gitalypb.VoteTransacti
 		case errors.Is(err, transactions.ErrNotFound):
 			return nil, helper.ErrNotFound(err)
 		case errors.Is(err, transactions.ErrTransactionCanceled):
-			return nil, helper.DecorateError(codes.Canceled, err)
+			return nil, helper.ErrCanceled(err)
 		case errors.Is(err, transactions.ErrTransactionStopped):
 			return &gitalypb.VoteTransactionResponse{
 				State: gitalypb.VoteTransactionResponse_STOP,
@@ -65,7 +64,7 @@ func (s *Server) StopTransaction(ctx context.Context, in *gitalypb.StopTransacti
 		case errors.Is(err, transactions.ErrNotFound):
 			return nil, helper.ErrNotFound(err)
 		case errors.Is(err, transactions.ErrTransactionCanceled):
-			return nil, helper.DecorateError(codes.Canceled, err)
+			return nil, helper.ErrCanceled(err)
 		case errors.Is(err, transactions.ErrTransactionStopped):
 			return &gitalypb.StopTransactionResponse{}, nil
 		default:
