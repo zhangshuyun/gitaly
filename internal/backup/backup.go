@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"path/filepath"
 	"strings"
 
@@ -12,6 +13,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
+	"gocloud.dev/blob/azureblob"
+	"gocloud.dev/blob/gcsblob"
+	"gocloud.dev/blob/s3blob"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -30,6 +34,29 @@ type Sink interface {
 	// GetReader returns a reader that servers the data stored by relativePath.
 	// If relativePath doesn't exists the ErrDoesntExist will be returned.
 	GetReader(ctx context.Context, relativePath string) (io.ReadCloser, error)
+}
+
+// ResolveSink returns a sink implementation based on the provided path.
+func ResolveSink(ctx context.Context, path string) (Sink, error) {
+	parsed, err := url.Parse(path)
+	if err != nil {
+		return nil, err
+	}
+	scheme := parsed.Scheme
+	if i := strings.LastIndex(scheme, "+"); i > 0 {
+		// the url may include additional configuration options like service name
+		// we don't include it into the scheme definition as it will push us to create
+		// a full set of variations. Instead we trim it up to the service option only.
+		scheme = scheme[i+1:]
+	}
+
+	switch scheme {
+	case s3blob.Scheme, azureblob.Scheme, gcsblob.Scheme:
+		sink, err := NewStorageServiceSink(ctx, path)
+		return sink, err
+	default:
+		return NewFilesystemSink(path), nil
+	}
 }
 
 // Manager manages process of the creating/restoring backups.
