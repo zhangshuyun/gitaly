@@ -23,7 +23,7 @@ func (sw statusWrapper) Unwrap() error {
 // DecorateError unless it's already a grpc error.
 //  If given nil it will return nil.
 func DecorateError(code codes.Code, err error) error {
-	if err != nil && GrpcCode(err) == codes.Unknown {
+	if GrpcCode(err) == codes.Unknown {
 		return statusWrapper{err, status.New(code, err.Error())}
 	}
 	return err
