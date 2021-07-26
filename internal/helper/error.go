@@ -21,33 +21,33 @@ func (sw statusWrapper) Unwrap() error {
 	return sw.error
 }
 
-// DecorateError unless it's already a grpc error.
-//  If given nil it will return nil.
-func DecorateError(code codes.Code, err error) error {
+// ErrCanceled wraps err with codes.Canceled, unless err is already a gRPC error.
+func ErrCanceled(err error) error { return wrapError(codes.Canceled, err) }
+
+// ErrInternal wraps err with codes.Internal, unless err is already a gRPC error.
+func ErrInternal(err error) error { return wrapError(codes.Internal, err) }
+
+// ErrInvalidArgument wraps err with codes.InvalidArgument, unless err is already a gRPC error.
+func ErrInvalidArgument(err error) error { return wrapError(codes.InvalidArgument, err) }
+
+// ErrNotFound wraps error with codes.NotFound, unless err is already a gRPC error.
+func ErrNotFound(err error) error { return wrapError(codes.NotFound, err) }
+
+// ErrPreconditionFailed wraps err with codes.FailedPrecondition, unless err is already a gRPC
+// error.
+func ErrPreconditionFailed(err error) error { return wrapError(codes.FailedPrecondition, err) }
+
+// ErrUnavailable wraps err with codes.Unavailable, unless err is already a gRPC error.
+func ErrUnavailable(err error) error { return wrapError(codes.Unavailable, err) }
+
+// wrapError wraps the given error with the error code unless it's already a gRPC error. If given
+// nil it will return nil.
+func wrapError(code codes.Code, err error) error {
 	if GrpcCode(err) == codes.Unknown {
 		return statusWrapper{err, status.New(code, err.Error())}
 	}
 	return err
 }
-
-// ErrCanceled wraps err with codes.Canceled, unless err is already a gRPC error.
-func ErrCanceled(err error) error { return DecorateError(codes.Canceled, err) }
-
-// ErrInternal wraps err with codes.Internal, unless err is already a gRPC error.
-func ErrInternal(err error) error { return DecorateError(codes.Internal, err) }
-
-// ErrInvalidArgument wraps err with codes.InvalidArgument, unless err is already a gRPC error.
-func ErrInvalidArgument(err error) error { return DecorateError(codes.InvalidArgument, err) }
-
-// ErrNotFound wraps error with codes.NotFound, unless err is already a gRPC error.
-func ErrNotFound(err error) error { return DecorateError(codes.NotFound, err) }
-
-// ErrPreconditionFailed wraps err with codes.FailedPrecondition, unless err is already a gRPC
-// error.
-func ErrPreconditionFailed(err error) error { return DecorateError(codes.FailedPrecondition, err) }
-
-// ErrUnavailable wraps err with codes.Unavailable, unless err is already a gRPC error.
-func ErrUnavailable(err error) error { return DecorateError(codes.Unavailable, err) }
 
 // ErrInternalf wraps a formatted error with codes.Internal, unless the formatted error is a
 // wrapped gRPC error.
