@@ -32,29 +32,29 @@ func DecorateError(code codes.Code, err error) error {
 // ErrInternal wraps err with codes.Internal, unless err is already a grpc error
 func ErrInternal(err error) error { return DecorateError(codes.Internal, err) }
 
+// ErrInvalidArgument wraps err with codes.InvalidArgument, unless err is already a grpc error
+func ErrInvalidArgument(err error) error { return DecorateError(codes.InvalidArgument, err) }
+
+// ErrPreconditionFailed wraps err with codes.FailedPrecondition, unless err is already a grpc error
+func ErrPreconditionFailed(err error) error { return DecorateError(codes.FailedPrecondition, err) }
+
+// ErrNotFound wraps error with codes.NotFound, unless err is already a grpc error
+func ErrNotFound(err error) error { return DecorateError(codes.NotFound, err) }
+
 // ErrInternalf wrapps a formatted error with codes.Internal, clobbering any existing grpc error
 func ErrInternalf(format string, a ...interface{}) error {
 	return ErrInternal(fmt.Errorf(format, a...))
 }
-
-// ErrInvalidArgument wraps err with codes.InvalidArgument, unless err is already a grpc error
-func ErrInvalidArgument(err error) error { return DecorateError(codes.InvalidArgument, err) }
 
 // ErrInvalidArgumentf wraps a formatted error with codes.InvalidArgument, clobbering any existing grpc error
 func ErrInvalidArgumentf(format string, a ...interface{}) error {
 	return ErrInvalidArgument(fmt.Errorf(format, a...))
 }
 
-// ErrPreconditionFailed wraps err with codes.FailedPrecondition, unless err is already a grpc error
-func ErrPreconditionFailed(err error) error { return DecorateError(codes.FailedPrecondition, err) }
-
 // ErrPreconditionFailedf wraps a formatted error with codes.FailedPrecondition, clobbering any existing grpc error
 func ErrPreconditionFailedf(format string, a ...interface{}) error {
 	return ErrPreconditionFailed(fmt.Errorf(format, a...))
 }
-
-// ErrNotFound wraps error with codes.NotFound, unless err is already a grpc error
-func ErrNotFound(err error) error { return DecorateError(codes.NotFound, err) }
 
 // GrpcCode emulates the old grpc.Code function: it translates errors into codes.Code values.
 func GrpcCode(err error) codes.Code {
