@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package test.streamrpc;
+
+option go_package = "gitlab.com/gitlab-org/gitaly/v14/internal/streamrpc/testdata";
+
+import "streamrpc.proto";
+
+service Test {
+  rpc Stream(stream StreamRequest) returns (stream gitaly.StreamToken) {}
+}
+
+message StreamRequest {
+  bool fail = 1;
+  string string_field = 2;
+}

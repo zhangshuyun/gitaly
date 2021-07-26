@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package gitaly;
+
+option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
+
+import "lint.proto";
+
+message StreamToken {
+  string cookie = 1;
+  string token = 2;
+}
