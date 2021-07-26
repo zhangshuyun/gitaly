@@ -33,9 +33,9 @@ func ErrInvalidArgument(err error) error { return wrapError(codes.InvalidArgumen
 // ErrNotFound wraps error with codes.NotFound, unless err is already a gRPC error.
 func ErrNotFound(err error) error { return wrapError(codes.NotFound, err) }
 
-// ErrPreconditionFailed wraps err with codes.FailedPrecondition, unless err is already a gRPC
+// ErrFailedPrecondition wraps err with codes.FailedPrecondition, unless err is already a gRPC
 // error.
-func ErrPreconditionFailed(err error) error { return wrapError(codes.FailedPrecondition, err) }
+func ErrFailedPrecondition(err error) error { return wrapError(codes.FailedPrecondition, err) }
 
 // ErrUnavailable wraps err with codes.Unavailable, unless err is already a gRPC error.
 func ErrUnavailable(err error) error { return wrapError(codes.Unavailable, err) }
@@ -67,9 +67,9 @@ func ErrNotFoundf(format string, a ...interface{}) error {
 	return formatError(codes.NotFound, format, a...)
 }
 
-// ErrPreconditionFailedf wraps a formatted error with codes.FailedPrecondition, unless the
+// ErrFailedPreconditionf wraps a formatted error with codes.FailedPrecondition, unless the
 // formatted error is a wrapped gRPC error.
-func ErrPreconditionFailedf(format string, a ...interface{}) error {
+func ErrFailedPreconditionf(format string, a ...interface{}) error {
 	return formatError(codes.FailedPrecondition, format, a...)
 }
 

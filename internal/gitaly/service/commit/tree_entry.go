@@ -67,7 +67,7 @@ func sendTreeEntry(stream gitalypb.CommitService_TreeEntryServer, c catfile.Batc
 	dataLength := objectInfo.Size
 
 	if maxSize > 0 && dataLength > maxSize {
-		return helper.ErrPreconditionFailedf(
+		return helper.ErrFailedPreconditionf(
 			"TreeEntry: object size (%d) is bigger than the maximum allowed size (%d)",
 			dataLength, maxSize,
 		)

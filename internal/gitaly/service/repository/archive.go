@@ -151,7 +151,7 @@ func (s *server) validateGetArchivePrecondition(
 		if ok, err := findGetArchivePath(ctx, f, commitID, path); err != nil {
 			return err
 		} else if !ok {
-			return helper.ErrPreconditionFailedf("path doesn't exist")
+			return helper.ErrFailedPreconditionf("path doesn't exist")
 		}
 	}
 
@@ -159,7 +159,7 @@ func (s *server) validateGetArchivePrecondition(
 		if ok, err := findGetArchivePath(ctx, f, commitID, exclude); err != nil {
 			return err
 		} else if !ok {
-			return helper.ErrPreconditionFailedf("exclude[%d] doesn't exist", i)
+			return helper.ErrFailedPreconditionf("exclude[%d] doesn't exist", i)
 		}
 	}
 

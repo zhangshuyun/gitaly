@@ -38,8 +38,8 @@ func TestError(t *testing.T) {
 			code:   codes.InvalidArgument,
 		},
 		{
-			desc:   "PreconditionFailed",
-			errorf: ErrPreconditionFailed,
+			desc:   "FailedPrecondition",
+			errorf: ErrFailedPrecondition,
 			code:   codes.FailedPrecondition,
 		},
 		{
@@ -111,8 +111,8 @@ func testErrorfFormat(t *testing.T, errorFormat, errorFormatEqual string) {
 			code:   codes.InvalidArgument,
 		},
 		{
-			desc:   "PreconditionFailedf",
-			errorf: ErrPreconditionFailedf,
+			desc:   "FailedPreconditionf",
+			errorf: ErrFailedPreconditionf,
 			code:   codes.FailedPrecondition,
 		},
 		{

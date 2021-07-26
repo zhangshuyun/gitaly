@@ -2,7 +2,6 @@ package repository
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -36,7 +35,7 @@ func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_Cr
 	}
 
 	if !isDirEmpty(repoPath) {
-		return helper.ErrPreconditionFailed(errors.New("CreateRepositoryFromBundle: target directory is non-empty"))
+		return helper.ErrFailedPreconditionf("CreateRepositoryFromBundle: target directory is non-empty")
 	}
 
 	firstRead := false

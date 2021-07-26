@@ -35,7 +35,7 @@ func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.Commit
 		}
 
 		if len(defaultBranch) == 0 {
-			return helper.ErrPreconditionFailedf("repository does not have a default branch")
+			return helper.ErrFailedPreconditionf("repository does not have a default branch")
 		}
 
 		revision = string(defaultBranch)
