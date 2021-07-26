@@ -143,8 +143,8 @@ func testErrorfFormat(t *testing.T, errorFormat, errorFormatEqual string) {
 			errX := tc.errorf(errorFormat, inputGRPC)
 			require.Equal(t, errors.Is(errX, inputGRPC), isFormatW) // .True() for non-f
 			require.False(t, errors.Is(errX, input))
-			require.NotEqual(t, inputGRPCCode, status.Code(errX)) // .Equal() for non-f
-			require.NotEqual(t, tc.code, status.Code(inputGRPC))
+			require.Equal(t, tc.code, status.Code(errX))
+			require.Equal(t, inputGRPCCode, status.Code(inputGRPC))
 		})
 	}
 }
