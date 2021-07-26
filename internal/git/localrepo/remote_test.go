@@ -477,11 +477,33 @@ func TestRepo_Push(t *testing.T) {
 		return NewTestRepo(t, cfg, repoProto), repopath, nil
 	}
 
+	setupDivergedRepo := func(t testing.TB) (*Repo, string, []git.ConfigPair) {
+		repoProto, repoPath, _ := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
+		repo := NewTestRepo(t, cfg, repoProto)
+
+		// set up master as a divergin ref in push repo
+		sourceMaster, err := sourceRepo.GetReference(ctx, "refs/heads/master")
+		require.NoError(t, err)
+
+		require.NoError(t, sourceRepo.Push(ctx, repoPath, []string{"refs/*"}, PushOptions{}))
+		divergedMaster := gittest.WriteCommit(t, cfg, repoPath,
+			gittest.WithBranch("master"),
+			gittest.WithParents(git.ObjectID(sourceMaster.Target)),
+		)
+
+		master, err := repo.GetReference(ctx, "refs/heads/master")
+		require.NoError(t, err)
+		require.Equal(t, master.Target, divergedMaster.String())
+
+		return repo, repoPath, nil
+	}
+
 	for _, tc := range []struct {
 		desc           string
 		setupPushRepo  func(testing.TB) (*Repo, string, []git.ConfigPair)
 		config         []git.ConfigPair
 		sshCommand     string
+		force          bool
 		refspecs       []string
 		errorMessage   string
 		expectedFilter []string
@@ -504,28 +526,16 @@ func TestRepo_Push(t *testing.T) {
 			expectedFilter: []string{"refs/heads/master"},
 		},
 		{
-			desc:     "force pushes over diverged refs",
-			refspecs: []string{"refs/heads/master"},
-			setupPushRepo: func(t testing.TB) (*Repo, string, []git.ConfigPair) {
-				repoProto, repoPath, _ := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-				repo := NewTestRepo(t, cfg, repoProto)
-
-				// set up master as a divergin ref in push repo
-				sourceMaster, err := sourceRepo.GetReference(ctx, "refs/heads/master")
-				require.NoError(t, err)
-
-				require.NoError(t, sourceRepo.Push(ctx, repoPath, []string{"refs/*"}, PushOptions{}))
-				divergedMaster := gittest.WriteCommit(t, cfg, repoPath,
-					gittest.WithBranch("master"),
-					gittest.WithParents(git.ObjectID(sourceMaster.Target)),
-				)
-
-				master, err := repo.GetReference(ctx, "refs/heads/master")
-				require.NoError(t, err)
-				require.Equal(t, master.Target, divergedMaster.String())
-
-				return repo, repoPath, nil
-			},
+			desc:          "doesn't force push over diverged refs with Force unset",
+			refspecs:      []string{"refs/heads/master"},
+			setupPushRepo: setupDivergedRepo,
+			errorMessage:  "Updates were rejected because the remote contains work that you do",
+		},
+		{
+			desc:          "force pushes over diverged refs with Force set",
+			refspecs:      []string{"refs/heads/master"},
+			force:         true,
+			setupPushRepo: setupDivergedRepo,
 		},
 		{
 			desc:          "push all refs",
@@ -564,10 +574,11 @@ func TestRepo_Push(t *testing.T) {
 
 			err := sourceRepo.Push(ctx, remote, tc.refspecs, PushOptions{
 				SSHCommand: tc.sshCommand,
+				Force:      tc.force,
 				Config:     remoteConfig,
 			})
 			if tc.errorMessage != "" {
-				require.EqualError(t, err, tc.errorMessage)
+				require.Contains(t, err.Error(), tc.errorMessage)
 				return
 			}
 			require.NoError(t, err)

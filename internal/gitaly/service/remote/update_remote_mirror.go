@@ -106,11 +106,6 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 		return fmt.Errorf("get local references: %w", err)
 	}
 
-	if len(localRefs) == 0 {
-		// https://gitlab.com/gitlab-org/gitaly/-/issues/3503
-		return errors.New("close stream to gitaly-ruby: rpc error: code = Unknown desc = NoMethodError: undefined method `id' for nil:NilClass")
-	}
-
 	defaultBranch, err := ref.DefaultBranchName(ctx, repo)
 	if err != nil {
 		return fmt.Errorf("get default branch: %w", err)
@@ -118,12 +113,22 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 
 	remoteRefs := make(map[git.ReferenceName]string, len(remoteRefsSlice))
 	for _, ref := range remoteRefsSlice {
+		if ref.IsSymbolic {
+			// There should be no symbolic refs in refs/heads/ or refs/tags, so we'll just ignore
+			// them if something has placed one there.
+			continue
+		}
+
 		remoteRefs[ref.Name] = ref.Target
 	}
 
 	var divergentRefs [][]byte
 	toUpdate := map[git.ReferenceName]string{}
 	for _, localRef := range localRefs {
+		if localRef.IsSymbolic {
+			continue
+		}
+
 		remoteTarget, ok := remoteRefs[localRef.Name]
 		if !ok {
 			// ref does not exist on the mirror, it should be created
@@ -158,11 +163,6 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 			}
 		}
 
-		if localRef.Name == "refs/heads/tag" {
-			// https://gitlab.com/gitlab-org/gitaly/-/issues/3502
-			return errors.New("close stream to gitaly-ruby: rpc error: code = Unknown desc = Gitlab::Git::CommandError: fatal: tag shorthand without <tag>")
-		}
-
 		// the mirror's ref does not match ours, we should update it.
 		toUpdate[localRef.Name] = localRef.Target
 		delete(remoteRefs, localRef.Name)
@@ -173,7 +173,6 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 		toDelete = map[git.ReferenceName]string{}
 	}
 
-	seen := map[string]struct{}{}
 	var refspecs []string
 	for prefix, references := range map[string]map[git.ReferenceName]string{
 		"": toUpdate, ":": toDelete,
@@ -191,18 +190,6 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 				last := len(refspecs) - 1
 				refspecs[0], refspecs[last] = refspecs[last], refspecs[0]
 			}
-
-			// https://gitlab.com/gitlab-org/gitaly/-/issues/3504
-			name := strings.TrimPrefix(reference.String(), "refs/heads/")
-			if strings.HasPrefix(reference.String(), "refs/tags/") {
-				name = strings.TrimPrefix(reference.String(), "refs/tags/")
-			}
-
-			if _, ok := seen[name]; ok {
-				return fmt.Errorf("close stream to gitaly-ruby: rpc error: code = Unknown desc = Gitlab::Git::CommandError: error: src refspec %v matches more than one", reference)
-			}
-
-			seen[name] = struct{}{}
 		}
 	}
 
@@ -214,12 +201,9 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 
 		refspecs = refspecs[len(batch):]
 
-		// The refs could have been modified on the mirror during after we fetched them.
-		// This could cause divergent refs to be force pushed over even with keep_divergent_refs set.
-		// This could be addressed by force pushing only if the current ref still matches what
-		// we received in the original fetch. https://gitlab.com/gitlab-org/gitaly/-/issues/3505
 		if err := repo.Push(ctx, remoteName, batch, localrepo.PushOptions{
 			SSHCommand: sshCommand,
+			Force:      !firstRequest.KeepDivergentRefs,
 			Config:     remoteConfig,
 		}); err != nil {
 			return fmt.Errorf("push to mirror: %w", err)

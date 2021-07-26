@@ -192,8 +192,7 @@ func WithConfig(config ...git.ConfigPair) GetRemoteReferencesOption {
 	}
 }
 
-// GetRemoteReferences lists references of the remote. Symbolic references are dereferenced. Peeled
-// tags are not returned.
+// GetRemoteReferences lists references of the remote. Peeled tags are not returned.
 func (repo *Repo) GetRemoteReferences(ctx context.Context, remote string, opts ...GetRemoteReferencesOption) ([]git.Reference, error) {
 	var cfg getRemoteReferenceConfig
 	for _, opt := range opts {
@@ -212,6 +211,7 @@ func (repo *Repo) GetRemoteReferences(ctx context.Context, remote string, opts .
 			Name: "ls-remote",
 			Flags: []git.Option{
 				git.Flag{Name: "--refs"},
+				git.Flag{Name: "--symref"},
 			},
 			Args: append([]string{remote}, cfg.patterns...),
 		},
@@ -226,12 +226,42 @@ func (repo *Repo) GetRemoteReferences(ctx context.Context, remote string, opts .
 	var refs []git.Reference
 	scanner := bufio.NewScanner(stdout)
 	for scanner.Scan() {
-		split := strings.SplitN(string(scanner.Bytes()), "\t", 2)
+		split := strings.SplitN(scanner.Text(), "\t", 2)
 		if len(split) != 2 {
-			return nil, fmt.Errorf("invalid ls-remote output line: %q", scanner.Bytes())
+			return nil, fmt.Errorf("invalid ls-remote output line: %q", scanner.Text())
+		}
+
+		// Symbolic references are outputted as:
+		//	ref: refs/heads/master	refs/heads/symbolic-ref
+		//	0c9cf732b5774fa948348bbd6f273009bd66e04c	refs/heads/symbolic-ref
+		if strings.HasPrefix(split[0], "ref: ") {
+			symRef := split[1]
+			if !scanner.Scan() {
+				if err := scanner.Err(); err != nil {
+					return nil, fmt.Errorf("scan dereferenced symbolic ref: %w", err)
+				}
+
+				return nil, fmt.Errorf("missing dereferenced symbolic ref line for %q", symRef)
+			}
+
+			split = strings.SplitN(scanner.Text(), "\t", 2)
+			if len(split) != 2 {
+				return nil, fmt.Errorf("invalid dereferenced symbolic ref line: %q", scanner.Text())
+			}
+
+			if split[1] != symRef {
+				return nil, fmt.Errorf("expected dereferenced symbolic ref %q but got reference %q", symRef, split[1])
+			}
+
+			refs = append(refs, git.NewSymbolicReference(git.ReferenceName(symRef), split[0]))
+			continue
 		}
 
 		refs = append(refs, git.NewReference(git.ReferenceName(split[1]), split[0]))
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("scan: %w", err)
 	}
 
 	return refs, nil

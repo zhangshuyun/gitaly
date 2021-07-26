@@ -283,6 +283,8 @@ type PushOptions struct {
 	// SSHCommand is the command line to use for git's SSH invocation. The command line is used
 	// as is and must be verified by the caller to be safe.
 	SSHCommand string
+	// Force decides whether to force push all of the refspecs.
+	Force bool
 	// Config is the Git configuration which gets passed to the git-push(1) invocation.
 	// Configuration is set up via `WithConfigEnv()`, so potential credentials won't be leaked
 	// via the command line.
@@ -300,11 +302,16 @@ func (repo *Repo) Push(ctx context.Context, remote string, refspecs []string, op
 		env = append(env, envGitSSHCommand(options.SSHCommand))
 	}
 
+	var flags []git.Option
+	if options.Force {
+		flags = append(flags, git.Flag{Name: "--force"})
+	}
+
 	stderr := &bytes.Buffer{}
 	if err := repo.ExecAndWait(ctx,
 		git.SubCmd{
 			Name:  "push",
-			Flags: []git.Option{git.Flag{Name: "--force"}},
+			Flags: flags,
 			Args:  append([]string{remote}, refspecs...),
 		},
 		git.WithStderr(stderr),

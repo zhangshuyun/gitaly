@@ -59,12 +59,12 @@ func TestUpdateRemoteMirror(t *testing.T) {
 		expectedMirrorRefs   map[string]string
 	}{
 		{
-			// https://gitlab.com/gitlab-org/gitaly/-/issues/3503
-			desc: "empty mirror source fails",
+			desc: "empty mirror source works",
 			mirrorRefs: refs{
 				"refs/heads/tags": {"commit 1"},
 			},
-			errorContains: "rpc error: code = Internal desc = close stream to gitaly-ruby: rpc error: code = Unknown desc = NoMethodError: undefined method `id' for nil:NilClass",
+			response:           &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{},
 		},
 		{
 			desc:     "mirror is up to date",
@@ -180,25 +180,29 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			},
 		},
 		{
-			// https://gitlab.com/gitlab-org/gitaly/-/issues/3502
-			desc: "updating branch called tag fails",
+			desc: "updating branch called tag works",
 			sourceRefs: refs{
 				"refs/heads/tag": {"commit 1", "commit 2"},
 			},
 			mirrorRefs: refs{
 				"refs/heads/tag": {"commit 1"},
 			},
-			errorContains: "rpc error: code = Internal desc = close stream to gitaly-ruby: rpc error: code = Unknown desc = Gitlab::Git::CommandError: fatal: tag shorthand without <tag>",
+			response: &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{
+				"refs/heads/tag": "commit 2",
+			},
 		},
 		{
-			// https://gitlab.com/gitlab-org/gitaly/-/issues/3504
-			// Truncate error as either refs/heads/master or refs/tags/master may be returned
-			desc: "fails if tag and branch named the same",
+			desc: "works if tag and branch named the same",
 			sourceRefs: refs{
 				"refs/heads/master": {"commit 1"},
 				"refs/tags/master":  {"commit 1"},
 			},
-			errorContains: "rpc error: code = Internal desc = close stream to gitaly-ruby: rpc error: code = Unknown desc = Gitlab::Git::CommandError: error: src refspec refs/",
+			response: &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{
+				"refs/heads/master": "commit 1",
+				"refs/tags/master":  "commit 1",
+			},
 		},
 		{
 			desc: "only local branches are considered",
@@ -296,25 +300,43 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			},
 		},
 		{
-			// https://gitlab.com/gitlab-org/gitaly/-/issues/3508
-			desc: "mirror is up to date with symbolic reference",
+			desc: "doesn't force push over refs that diverged after they were checked with KeepDivergentRefs",
 			sourceRefs: refs{
-				"refs/heads/master": {"commit 1"},
-			},
-			sourceSymRefs: map[string]string{
-				"refs/heads/symbolic-reference": "refs/heads/master",
+				"refs/heads/diverging":     {"commit 1", "commit 2"},
+				"refs/heads/non-diverging": {"commit-3"},
 			},
 			mirrorRefs: refs{
-				"refs/heads/master": {"commit 1"},
+				"refs/heads/diverging":     {"commit 1"},
+				"refs/heads/non-diverging": {"commit-3"},
 			},
-			response: &gitalypb.UpdateRemoteMirrorResponse{},
-			expectedMirrorRefs: map[string]string{
-				"refs/heads/master": "commit 1",
+			keepDivergentRefs: true,
+			wrapCommandFactory: func(t testing.TB, original git.CommandFactory) git.CommandFactory {
+				return commandFactoryWrapper{
+					CommandFactory: original,
+					newFunc: func(ctx context.Context, repo repository.GitRepo, sc git.Cmd, opts ...git.CmdOpt) (*command.Command, error) {
+						if sc.Subcommand() == "push" {
+							// Make the branch diverge on the remote before actually performing the pushes the RPC
+							// is attempting to perform to simulate a ref diverging after the RPC has performed
+							// its checks.
+							cmd, err := original.New(ctx, repo, git.SubCmd{
+								Name:  "push",
+								Flags: []git.Option{git.Flag{Name: "--force"}},
+								Args:  []string{"mirror", "refs/heads/non-diverging:refs/heads/diverging"},
+							})
+							if !assert.NoError(t, err) {
+								return nil, err
+							}
+							assert.NoError(t, cmd.Wait())
+						}
+
+						return original.New(ctx, repo, sc, opts...)
+					},
+				}
 			},
+			errorContains: "Updates were rejected because a pushed branch tip is behind its remote",
 		},
 		{
-			// https://gitlab.com/gitlab-org/gitaly/-/issues/3508
-			desc: "updates branch pointed to by symbolic reference",
+			desc: "ignores symbolic references in source repo",
 			sourceRefs: refs{
 				"refs/heads/master": {"commit 1"},
 			},
@@ -323,16 +345,10 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			},
 			onlyBranchesMatching: []string{"symbolic-reference"},
 			response:             &gitalypb.UpdateRemoteMirrorResponse{},
-			expectedMirrorRefs: map[string]string{
-				"refs/heads/master": "commit 1",
-			},
+			expectedMirrorRefs:   map[string]string{},
 		},
 		{
-			// https://gitlab.com/gitlab-org/gitaly/-/issues/3508
-			//
-			// refs/heads/master gets removed but and a broken sym ref is left in
-			// refs/heads/symbolic-reference
-			desc: "removes symbolic ref target from mirror if not symbolic ref is not present locally",
+			desc: "ignores symbolic refs on the mirror",
 			sourceRefs: refs{
 				"refs/heads/master": {"commit 1"},
 			},
@@ -342,19 +358,27 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			mirrorSymRefs: map[string]string{
 				"refs/heads/symbolic-reference": "refs/heads/master",
 			},
-			response:           &gitalypb.UpdateRemoteMirrorResponse{},
-			expectedMirrorRefs: map[string]string{},
+			response: &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{
+				// If the symbolic reference was not ignored, master would get deleted
+				// as it's the branch pointed to by a symbolic ref not present in the source
+				// repo.
+				"refs/heads/master":             "commit 1",
+				"refs/heads/symbolic-reference": "commit 1",
+			},
 		},
 		{
-			// https://gitlab.com/gitlab-org/gitaly/-/issues/3508
-			desc: "fails with symbolic reference and target in the same push",
+			desc: "ignores symbolic refs and pushes the branch successfully",
 			sourceRefs: refs{
 				"refs/heads/master": {"commit 1"},
 			},
 			sourceSymRefs: map[string]string{
 				"refs/heads/symbolic-reference": "refs/heads/master",
 			},
-			errorContains: "remote: error: cannot lock ref 'refs/heads/master': reference already exists",
+			response: &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{
+				"refs/heads/master": "commit 1",
+			},
 		},
 		{
 			desc: "push batching works",
