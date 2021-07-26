@@ -239,6 +239,16 @@ service RepositoryService {
       op: MUTATOR
     };
   }
+
+  // SetFullPath writes the "gitlab.fullpath" configuration into the
+  // repository's gitconfig. This is mainly to help debugging purposes in case
+  // an admin inspects the repository's gitconfig such that he can easily see
+  // what the repository name is.
+  rpc SetFullPath(SetFullPathRequest) returns (SetFullPathResponse) {
+    option (op_type)  = {
+      op: MUTATOR
+    };
+  }
 }
 
 message RepositoryExistsRequest {
@@ -739,3 +749,14 @@ message OptimizeRepositoryRequest {
 }
 
 message OptimizeRepositoryResponse{}
+
+// SetFullPathRequest is a request for the SetFullPath RPC.
+message SetFullPathRequest {
+  // Repository is the repository whose gitconfig should be written to.
+  Repository repository = 1 [(target_repository)=true];
+  // Path is the path that shall be written into the "gitlab.fullpath" config key.
+  string path = 2;
+}
+
+// SetFullPathResponse is a response fqor the SetFullPath RPC.
+message SetFullPathResponse {}

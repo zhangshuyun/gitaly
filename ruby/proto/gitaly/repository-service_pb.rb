@@ -341,6 +341,12 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     end
     add_message "gitaly.OptimizeRepositoryResponse" do
     end
+    add_message "gitaly.SetFullPathRequest" do
+      optional :repository, :message, 1, "gitaly.Repository"
+      optional :path, :string, 2
+    end
+    add_message "gitaly.SetFullPathResponse" do
+    end
   end
 end
 
@@ -437,4 +443,6 @@ module Gitaly
   ReplicateRepositoryResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ReplicateRepositoryResponse").msgclass
   OptimizeRepositoryRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.OptimizeRepositoryRequest").msgclass
   OptimizeRepositoryResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.OptimizeRepositoryResponse").msgclass
+  SetFullPathRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.SetFullPathRequest").msgclass
+  SetFullPathResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.SetFullPathResponse").msgclass
 end

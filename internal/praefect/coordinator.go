@@ -84,6 +84,7 @@ var transactionRPCs = map[string]transactionsCondition{
 	"/gitaly.RepositoryService/FetchSourceBranch":            transactionsEnabled,
 	"/gitaly.RepositoryService/ReplicateRepository":          transactionsEnabled,
 	"/gitaly.RepositoryService/SetConfig":                    transactionsEnabled,
+	"/gitaly.RepositoryService/SetFullPath":                  transactionsEnabled,
 	"/gitaly.RepositoryService/WriteRef":                     transactionsEnabled,
 	"/gitaly.SSHService/SSHReceivePack":                      transactionsEnabled,
 	"/gitaly.SmartHTTPService/PostReceivePack":               transactionsEnabled,

@@ -70,6 +70,11 @@ type RepositoryServiceClient interface {
 	RenameRepository(ctx context.Context, in *RenameRepositoryRequest, opts ...grpc.CallOption) (*RenameRepositoryResponse, error)
 	ReplicateRepository(ctx context.Context, in *ReplicateRepositoryRequest, opts ...grpc.CallOption) (*ReplicateRepositoryResponse, error)
 	OptimizeRepository(ctx context.Context, in *OptimizeRepositoryRequest, opts ...grpc.CallOption) (*OptimizeRepositoryResponse, error)
+	// SetFullPath writes the "gitlab.fullpath" configuration into the
+	// repository's gitconfig. This is mainly to help debugging purposes in case
+	// an admin inspects the repository's gitconfig such that he can easily see
+	// what the repository name is.
+	SetFullPath(ctx context.Context, in *SetFullPathRequest, opts ...grpc.CallOption) (*SetFullPathResponse, error)
 }
 
 type repositoryServiceClient struct {
@@ -724,6 +729,15 @@ func (c *repositoryServiceClient) OptimizeRepository(ctx context.Context, in *Op
 	return out, nil
 }
 
+func (c *repositoryServiceClient) SetFullPath(ctx context.Context, in *SetFullPathRequest, opts ...grpc.CallOption) (*SetFullPathResponse, error) {
+	out := new(SetFullPathResponse)
+	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/SetFullPath", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RepositoryServiceServer is the server API for RepositoryService service.
 // All implementations must embed UnimplementedRepositoryServiceServer
 // for forward compatibility
@@ -780,6 +794,11 @@ type RepositoryServiceServer interface {
 	RenameRepository(context.Context, *RenameRepositoryRequest) (*RenameRepositoryResponse, error)
 	ReplicateRepository(context.Context, *ReplicateRepositoryRequest) (*ReplicateRepositoryResponse, error)
 	OptimizeRepository(context.Context, *OptimizeRepositoryRequest) (*OptimizeRepositoryResponse, error)
+	// SetFullPath writes the "gitlab.fullpath" configuration into the
+	// repository's gitconfig. This is mainly to help debugging purposes in case
+	// an admin inspects the repository's gitconfig such that he can easily see
+	// what the repository name is.
+	SetFullPath(context.Context, *SetFullPathRequest) (*SetFullPathResponse, error)
 	mustEmbedUnimplementedRepositoryServiceServer()
 }
 
@@ -915,6 +934,9 @@ func (UnimplementedRepositoryServiceServer) ReplicateRepository(context.Context,
 }
 func (UnimplementedRepositoryServiceServer) OptimizeRepository(context.Context, *OptimizeRepositoryRequest) (*OptimizeRepositoryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method OptimizeRepository not implemented")
+}
+func (UnimplementedRepositoryServiceServer) SetFullPath(context.Context, *SetFullPathRequest) (*SetFullPathResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetFullPath not implemented")
 }
 func (UnimplementedRepositoryServiceServer) mustEmbedUnimplementedRepositoryServiceServer() {}
 
@@ -1746,6 +1768,24 @@ func _RepositoryService_OptimizeRepository_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RepositoryService_SetFullPath_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetFullPathRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RepositoryServiceServer).SetFullPath(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gitaly.RepositoryService/SetFullPath",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RepositoryServiceServer).SetFullPath(ctx, req.(*SetFullPathRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RepositoryService_ServiceDesc is the grpc.ServiceDesc for RepositoryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1880,6 +1920,10 @@ var RepositoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "OptimizeRepository",
 			Handler:    _RepositoryService_OptimizeRepository_Handler,
+		},
+		{
+			MethodName: "SetFullPath",
+			Handler:    _RepositoryService_SetFullPath_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
