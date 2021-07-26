@@ -77,13 +77,6 @@ func TestErrorF_withWFormat(t *testing.T) {
 	testErrorfFormat(t, "expected %w", "expected %s")
 }
 
-// oldPreconditionFailedf shows ErrPreconditionFailedf looked like
-// before 777a12cfd. We're testing the nature of a regression in that
-// change.
-func oldPreconditionFailedf(format string, a ...interface{}) error {
-	return DecorateError(codes.FailedPrecondition, fmt.Errorf(format, a...))
-}
-
 func testErrorfFormat(t *testing.T, errorFormat, errorFormatEqual string) {
 	isFormatW := strings.Contains(errorFormat, "%w")
 	errorMessage := "sentinel error"
@@ -110,11 +103,6 @@ func testErrorfFormat(t *testing.T, errorFormat, errorFormatEqual string) {
 		{
 			desc:   "PreconditionFailedf",
 			errorf: ErrPreconditionFailedf,
-			code:   codes.FailedPrecondition,
-		},
-		{
-			desc:   "oldPreconditionFailedf",
-			errorf: oldPreconditionFailedf,
 			code:   codes.FailedPrecondition,
 		},
 	} {
