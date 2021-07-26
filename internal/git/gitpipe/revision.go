@@ -305,22 +305,28 @@ func ForEachRef(
 	ctx context.Context,
 	repo *localrepo.Repo,
 	patterns []string,
+	sortField string,
 ) RevisionIterator {
 	resultChan := make(chan RevisionResult)
 
 	go func() {
 		defer close(resultChan)
 
+		flags := []git.Option{
+			// The default format also includes the object type, which requires
+			// us to read the referenced commit's object. It would thus be about
+			// 2-3x slower to use the default format, and instead we move the
+			// burden into the next pipeline step.
+			git.ValueFlag{Name: "--format", Value: "%(objectname) %(refname)"},
+		}
+		if sortField != "" {
+			flags = append(flags, git.ValueFlag{Name: "--sort", Value: sortField})
+		}
+
 		forEachRef, err := repo.Exec(ctx, git.SubCmd{
-			Name: "for-each-ref",
-			Flags: []git.Option{
-				// The default format also includes the object type, which requires
-				// us to read the referenced commit's object. It would thus be about
-				// 2-3x slower to use the default format, and instead we move the
-				// burden into the next pipeline step.
-				git.ValueFlag{Name: "--format", Value: "%(objectname) %(refname)"},
-			},
-			Args: patterns,
+			Name:  "for-each-ref",
+			Flags: flags,
+			Args:  patterns,
 		})
 		if err != nil {
 			sendRevisionResult(ctx, resultChan, RevisionResult{err: err})

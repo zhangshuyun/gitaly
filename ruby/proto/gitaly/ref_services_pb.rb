@@ -22,6 +22,7 @@ module Gitaly
       # Return a stream so we can divide the response in chunks of branches
       rpc :FindLocalBranches, ::Gitaly::FindLocalBranchesRequest, stream(::Gitaly::FindLocalBranchesResponse)
       rpc :FindAllBranches, ::Gitaly::FindAllBranchesRequest, stream(::Gitaly::FindAllBranchesResponse)
+      # Returns a stream of tags repository has.
       rpc :FindAllTags, ::Gitaly::FindAllTagsRequest, stream(::Gitaly::FindAllTagsResponse)
       rpc :FindTag, ::Gitaly::FindTagRequest, ::Gitaly::FindTagResponse
       rpc :FindAllRemoteBranches, ::Gitaly::FindAllRemoteBranchesRequest, stream(::Gitaly::FindAllRemoteBranchesResponse)

@@ -480,7 +480,7 @@ func TestForEachRef(t *testing.T) {
 	defer cancel()
 
 	readRefs := func(t *testing.T, repo *localrepo.Repo, patterns ...string) []RevisionResult {
-		it := ForEachRef(ctx, repo, patterns)
+		it := ForEachRef(ctx, repo, patterns, "")
 
 		var results []RevisionResult
 		for it.Next() {

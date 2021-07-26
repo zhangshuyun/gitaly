@@ -26,6 +26,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -860,6 +861,129 @@ func testInvalidFindAllTagsRequest(t *testing.T, ctx context.Context) {
 			testhelper.RequireGrpcError(t, recvError, codes.InvalidArgument)
 		})
 	}
+}
+
+func TestFindAllTagsSorted(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.FindAllTagsPipeline,
+	}).Run(t, testFindAllTagsSorted)
+}
+
+func testFindAllTagsSorted(t *testing.T, ctx context.Context) {
+	cfg, client := setupRefServiceWithoutRepo(t)
+
+	repoProto, _, cleanupFn := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
+	defer cleanupFn()
+
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), catfile.NewCache(cfg), repoProto, cfg)
+	headCommit, err := repo.ReadCommit(ctx, "HEAD")
+	require.NoError(t, err)
+	annotatedTagID, err := repo.WriteTag(ctx, git.ObjectID(headCommit.Id), "commit", []byte("annotated"), []byte("message"), gittest.TestUser, time.Now())
+	require.NoError(t, err)
+	require.NoError(t, repo.UpdateRef(ctx, "refs/tags/annotated", annotatedTagID, git.ZeroOID))
+
+	require.NoError(t, repo.ExecAndWait(ctx, git.SubCmd{
+		Name: "tag",
+		Args: []string{"not-annotated", headCommit.Id},
+	}, git.WithDisabledHooks()))
+
+	for _, tc := range []struct {
+		desc   string
+		sortBy *gitalypb.FindAllTagsRequest_SortBy
+		exp    []string
+	}{
+		{
+			desc:   "by name",
+			sortBy: &gitalypb.FindAllTagsRequest_SortBy{Key: gitalypb.FindAllTagsRequest_SortBy_NAME},
+			exp: []string{
+				annotatedTagID.String(),
+				headCommit.Id,
+				"f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8",
+				"8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b",
+				"8f03acbcd11c53d9c9468078f32a2622005a4841",
+			},
+		},
+		{
+			desc:   "by updated in ascending order",
+			sortBy: &gitalypb.FindAllTagsRequest_SortBy{Key: gitalypb.FindAllTagsRequest_SortBy_UPDATED, Direction: gitalypb.SortDirection_ASCENDING},
+			exp: []string{
+				"f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8",
+				"8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b",
+				headCommit.Id,
+				"8f03acbcd11c53d9c9468078f32a2622005a4841",
+				annotatedTagID.String(),
+			},
+		},
+		{
+			desc:   "by updated in descending order",
+			sortBy: &gitalypb.FindAllTagsRequest_SortBy{Key: gitalypb.FindAllTagsRequest_SortBy_UPDATED, Direction: gitalypb.SortDirection_DESCENDING},
+			exp: []string{
+				annotatedTagID.String(),
+				"8f03acbcd11c53d9c9468078f32a2622005a4841",
+				headCommit.Id,
+				"8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b",
+				"f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8",
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			c, err := client.FindAllTags(ctx, &gitalypb.FindAllTagsRequest{
+				Repository: repoProto,
+				SortBy:     tc.sortBy,
+			})
+			require.NoError(t, err)
+
+			var tags []string
+			for {
+				r, err := c.Recv()
+				if err == io.EOF {
+					break
+				}
+				require.NoError(t, err)
+				for _, tag := range r.GetTags() {
+					tags = append(tags, tag.Id)
+				}
+			}
+
+			require.Equal(t, tc.exp, tags)
+		})
+	}
+
+	t.Run("by unsupported key", func(t *testing.T) {
+		c, err := client.FindAllTags(ctx, &gitalypb.FindAllTagsRequest{
+			Repository: repoProto,
+			SortBy:     &gitalypb.FindAllTagsRequest_SortBy{Key: gitalypb.FindAllTagsRequest_SortBy_Key(-1)},
+		})
+		require.NoError(t, err)
+		r, err := c.Recv()
+		testassert.GrpcEqualErr(t, status.Error(codes.InvalidArgument, "unsupported sorting key: -1"), err)
+		require.Nil(t, r)
+	})
+
+	t.Run("by unsupported direction", func(t *testing.T) {
+		c, err := client.FindAllTags(ctx, &gitalypb.FindAllTagsRequest{
+			Repository: repoProto,
+			SortBy:     &gitalypb.FindAllTagsRequest_SortBy{Key: gitalypb.FindAllTagsRequest_SortBy_NAME, Direction: gitalypb.SortDirection(-1)},
+		})
+		require.NoError(t, err)
+		r, err := c.Recv()
+		testassert.GrpcEqualErr(t, status.Error(codes.InvalidArgument, "unsupported sorting direction: -1"), err)
+		require.Nil(t, r)
+	})
+
+	t.Run("no tags", func(t *testing.T) {
+		repoProto, _, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
+		t.Cleanup(cleanup)
+		c, err := client.FindAllTags(ctx, &gitalypb.FindAllTagsRequest{
+			Repository: repoProto,
+			SortBy:     &gitalypb.FindAllTagsRequest_SortBy{Key: gitalypb.FindAllTagsRequest_SortBy_NAME},
+		})
+		require.NoError(t, err)
+
+		r, err := c.Recv()
+		require.Equal(t, io.EOF, err)
+		require.Nil(t, r)
+	})
 }
 
 func TestSuccessfulFindLocalBranches(t *testing.T) {

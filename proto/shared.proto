@@ -153,3 +153,11 @@ message GlobalOptions {
     // Treat pathspecs literally (i.e. no globbing, no pathspec magic)
     bool literal_pathspecs = 1;
 }
+
+// SortDirection defines the sort direction.
+enum SortDirection {
+  // ASCENDING sorts by the sort key in ascending order.
+  ASCENDING = 0;
+  // DESCENDING sorts by the sort key in descending order.
+  DESCENDING = 1;
+}

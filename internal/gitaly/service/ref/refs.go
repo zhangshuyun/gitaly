@@ -89,13 +89,17 @@ func (t *tagSender) Send() error {
 	})
 }
 
-func (s *server) parseAndReturnTags(ctx context.Context, repo git.RepositoryExecutor, stream gitalypb.RefService_FindAllTagsServer) error {
+func (s *server) parseAndReturnTags(ctx context.Context, repo git.RepositoryExecutor, sortField string, stream gitalypb.RefService_FindAllTagsServer) error {
+	flags := []git.Option{
+		git.ValueFlag{Name: "--format", Value: tagFormat},
+	}
+	if sortField != "" {
+		flags = append(flags, git.ValueFlag{Name: "--sort", Value: sortField})
+	}
 	tagsCmd, err := repo.Exec(ctx, git.SubCmd{
-		Name: "for-each-ref",
-		Flags: []git.Option{
-			git.ValueFlag{Name: "--format", Value: tagFormat},
-		},
-		Args: []string{"refs/tags/"},
+		Name:  "for-each-ref",
+		Flags: flags,
+		Args:  []string{"refs/tags/"},
 	})
 	if err != nil {
 		return fmt.Errorf("for-each-ref error: %v", err)
@@ -138,14 +142,19 @@ func (s *server) FindAllTags(in *gitalypb.FindAllTagsRequest, stream gitalypb.Re
 		return helper.ErrInvalidArgument(err)
 	}
 
+	sortField, err := getTagSortField(in.GetSortBy())
+	if err != nil {
+		return helper.ErrInvalidArgument(err)
+	}
+
 	repo := s.localrepo(in.GetRepository())
 
 	if featureflag.FindAllTagsPipeline.IsEnabled(ctx) {
-		if err := s.findAllTags(ctx, repo, stream); err != nil {
+		if err := s.findAllTags(ctx, repo, sortField, stream); err != nil {
 			return helper.ErrInternal(err)
 		}
 	} else {
-		if err := s.parseAndReturnTags(ctx, repo, stream); err != nil {
+		if err := s.parseAndReturnTags(ctx, repo, sortField, stream); err != nil {
 			return helper.ErrInternal(err)
 		}
 	}
@@ -153,13 +162,13 @@ func (s *server) FindAllTags(in *gitalypb.FindAllTagsRequest, stream gitalypb.Re
 	return nil
 }
 
-func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, stream gitalypb.RefService_FindAllTagsServer) error {
+func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, sortField string, stream gitalypb.RefService_FindAllTagsServer) error {
 	c, err := s.catfileCache.BatchProcess(ctx, repo)
 	if err != nil {
 		return fmt.Errorf("error creating catfile: %v", err)
 	}
 
-	forEachRefIter := gitpipe.ForEachRef(ctx, repo, []string{"refs/tags/*"})
+	forEachRefIter := gitpipe.ForEachRef(ctx, repo, []string{"refs/tags/*"}, sortField)
 	forEachRefIter = gitpipe.RevisionTransform(ctx, forEachRefIter,
 		func(r gitpipe.RevisionResult) []gitpipe.RevisionResult {
 			// We transform the pipeline to include each tag-reference twice: once for
@@ -610,4 +619,34 @@ func paginationParamsToOpts(p *gitalypb.PaginationParameter) *findRefsOpts {
 	}
 
 	return opts
+}
+
+// getTagSortField returns a field that needs to be used to sort the tags.
+// If sorting is not provided the default sorting is used: by refname.
+func getTagSortField(sortBy *gitalypb.FindAllTagsRequest_SortBy) (string, error) {
+	if sortBy == nil {
+		return "", nil
+	}
+
+	var dir string
+	switch sortBy.Direction {
+	case gitalypb.SortDirection_ASCENDING:
+		dir = ""
+	case gitalypb.SortDirection_DESCENDING:
+		dir = "-"
+	default:
+		return "", fmt.Errorf("unsupported sorting direction: %s", sortBy.Direction)
+	}
+
+	var key string
+	switch sortBy.Key {
+	case gitalypb.FindAllTagsRequest_SortBy_NAME:
+		key = "refname"
+	case gitalypb.FindAllTagsRequest_SortBy_UPDATED:
+		key = "creatordate"
+	default:
+		return "", fmt.Errorf("unsupported sorting key: %s", sortBy.Key)
+	}
+
+	return dir + key, nil
 }

@@ -348,7 +348,7 @@ func TestPipeline_forEachRef(t *testing.T) {
 	catfileProcess, err := catfileCache.BatchProcess(ctx, repo)
 	require.NoError(t, err)
 
-	forEachRefIter := ForEachRef(ctx, repo, nil)
+	forEachRefIter := ForEachRef(ctx, repo, nil, "")
 	catfileInfoIter := CatfileInfo(ctx, catfileProcess, forEachRefIter)
 	catfileObjectIter := CatfileObject(ctx, catfileProcess, catfileInfoIter)
 
