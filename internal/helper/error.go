@@ -30,17 +30,24 @@ func DecorateError(code codes.Code, err error) error {
 	return err
 }
 
-// ErrInternal wraps err with codes.Internal, unless err is already a grpc error
+// ErrCanceled wraps err with codes.Canceled, unless err is already a gRPC error.
+func ErrCanceled(err error) error { return DecorateError(codes.Canceled, err) }
+
+// ErrInternal wraps err with codes.Internal, unless err is already a gRPC error.
 func ErrInternal(err error) error { return DecorateError(codes.Internal, err) }
 
-// ErrInvalidArgument wraps err with codes.InvalidArgument, unless err is already a grpc error
+// ErrInvalidArgument wraps err with codes.InvalidArgument, unless err is already a gRPC error.
 func ErrInvalidArgument(err error) error { return DecorateError(codes.InvalidArgument, err) }
 
-// ErrPreconditionFailed wraps err with codes.FailedPrecondition, unless err is already a grpc error
+// ErrNotFound wraps error with codes.NotFound, unless err is already a gRPC error.
+func ErrNotFound(err error) error { return DecorateError(codes.NotFound, err) }
+
+// ErrPreconditionFailed wraps err with codes.FailedPrecondition, unless err is already a gRPC
+// error.
 func ErrPreconditionFailed(err error) error { return DecorateError(codes.FailedPrecondition, err) }
 
-// ErrNotFound wraps error with codes.NotFound, unless err is already a grpc error
-func ErrNotFound(err error) error { return DecorateError(codes.NotFound, err) }
+// ErrUnavailable wraps err with codes.Unavailable, unless err is already a gRPC error.
+func ErrUnavailable(err error) error { return DecorateError(codes.Unavailable, err) }
 
 // ErrInternalf wraps a formatted error with codes.Internal, unless the formatted error is a
 // wrapped gRPC error.
@@ -54,10 +61,22 @@ func ErrInvalidArgumentf(format string, a ...interface{}) error {
 	return formatError(codes.InvalidArgument, format, a...)
 }
 
+// ErrNotFoundf wraps a formatted error with codes.NotFound, unless the
+// formatted error is a wrapped gRPC error.
+func ErrNotFoundf(format string, a ...interface{}) error {
+	return formatError(codes.NotFound, format, a...)
+}
+
 // ErrPreconditionFailedf wraps a formatted error with codes.FailedPrecondition, unless the
 // formatted error is a wrapped gRPC error.
 func ErrPreconditionFailedf(format string, a ...interface{}) error {
 	return formatError(codes.FailedPrecondition, format, a...)
+}
+
+// ErrUnavailablef wraps a formatted error with codes.Unavailable, unless the
+// formatted error is a wrapped gRPC error.
+func ErrUnavailablef(format string, a ...interface{}) error {
+	return formatError(codes.Unavailable, format, a...)
 }
 
 // formatError will create a new error from the given format string. If the error string contains a

@@ -23,6 +23,11 @@ func TestError(t *testing.T) {
 		code   codes.Code
 	}{
 		{
+			desc:   "Canceled",
+			errorf: ErrCanceled,
+			code:   codes.Canceled,
+		},
+		{
 			desc:   "Internal",
 			errorf: ErrInternal,
 			code:   codes.Internal,
@@ -41,6 +46,11 @@ func TestError(t *testing.T) {
 			desc:   "NotFound",
 			errorf: ErrNotFound,
 			code:   codes.NotFound,
+		},
+		{
+			desc:   "Unavailable",
+			errorf: ErrUnavailable,
+			code:   codes.Unavailable,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -104,6 +114,16 @@ func testErrorfFormat(t *testing.T, errorFormat, errorFormatEqual string) {
 			desc:   "PreconditionFailedf",
 			errorf: ErrPreconditionFailedf,
 			code:   codes.FailedPrecondition,
+		},
+		{
+			desc:   "NotFoundf",
+			errorf: ErrNotFoundf,
+			code:   codes.NotFound,
+		},
+		{
+			desc:   "ErrUnavailablef",
+			errorf: ErrUnavailablef,
+			code:   codes.Unavailable,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
