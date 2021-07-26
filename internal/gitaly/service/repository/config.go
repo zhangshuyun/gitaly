@@ -192,19 +192,24 @@ func (s *server) voteOnConfig(ctx context.Context, repo *gitalypb.Repository) er
 			return fmt.Errorf("get repo path: %w", err)
 		}
 
+		var vote voting.Vote
+
 		config, err := os.Open(filepath.Join(repoPath, "config"))
-		if err != nil {
+		switch {
+		case err == nil:
+			hash := voting.NewVoteHash()
+			if _, err := io.Copy(hash, config); err != nil {
+				return fmt.Errorf("seeding vote: %w", err)
+			}
+
+			vote, err = hash.Vote()
+			if err != nil {
+				return fmt.Errorf("computing vote: %w", err)
+			}
+		case os.IsNotExist(err):
+			vote = voting.VoteFromData([]byte("notfound"))
+		default:
 			return fmt.Errorf("open repo config: %w", err)
-		}
-
-		hash := voting.NewVoteHash()
-		if _, err := io.Copy(hash, config); err != nil {
-			return fmt.Errorf("seeding vote: %w", err)
-		}
-
-		vote, err := hash.Vote()
-		if err != nil {
-			return fmt.Errorf("computing vote: %w", err)
 		}
 
 		if err := s.txManager.Vote(ctx, tx, vote); err != nil {
