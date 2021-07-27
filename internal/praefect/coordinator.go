@@ -456,7 +456,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 	var route RepositoryMutatorRoute
 	switch change {
 	case datastore.CreateRepo:
-		route, err = c.router.RouteRepositoryCreation(ctx, virtualStorage)
+		route, err = c.router.RouteRepositoryCreation(ctx, virtualStorage, targetRepo.RelativePath)
 		if err != nil {
 			return nil, fmt.Errorf("route repository creation: %w", err)
 		}

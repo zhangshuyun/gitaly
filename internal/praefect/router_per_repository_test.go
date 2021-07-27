@@ -557,7 +557,7 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 				nil,
 				nil,
 				map[string]int{"virtual-storage-1": tc.replicationFactor},
-			).RouteRepositoryCreation(ctx, tc.virtualStorage)
+			).RouteRepositoryCreation(ctx, tc.virtualStorage, "relative-path")
 			if tc.error != nil {
 				require.Equal(t, tc.error, err)
 				return

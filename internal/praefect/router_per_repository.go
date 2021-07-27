@@ -237,7 +237,7 @@ func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtua
 // RouteRepositoryCreation picks a random healthy node to act as the primary node and selects the secondary nodes
 // if assignments are enabled. Healthy secondaries take part in the transaction, unhealthy secondaries are set as
 // replication targets.
-func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtualStorage string) (RepositoryMutatorRoute, error) {
+func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtualStorage, relativePath string) (RepositoryMutatorRoute, error) {
 	healthyNodes, err := r.healthyNodes(virtualStorage)
 	if err != nil {
 		return RepositoryMutatorRoute{}, err
