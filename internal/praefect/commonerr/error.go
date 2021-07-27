@@ -3,7 +3,10 @@
 // due to cyclic imports.
 package commonerr
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 // RepositoryNotFoundError is returned when attempting to operate on a repository
 // that does not exist in the virtual storage.
@@ -21,3 +24,6 @@ func NewRepositoryNotFoundError(virtualStorage string, relativePath string) erro
 func (err RepositoryNotFoundError) Error() string {
 	return fmt.Sprintf("repository %q/%q not found", err.virtualStorage, err.relativePath)
 }
+
+// ErrRepositoryAlreadyExists is returned when attempting to create a repository that already exists.
+var ErrRepositoryAlreadyExists = errors.New("repository already exists")

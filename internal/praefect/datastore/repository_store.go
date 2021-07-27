@@ -127,6 +127,9 @@ type RepositoryStore interface {
 	// record of the invalid repository. If the storage was the only storage with the repository, the repository's
 	// record on the virtual storage is also deleted.
 	DeleteInvalidRepository(ctx context.Context, virtualStorage, relativePath, storage string) error
+	// ReserveRepositoryID reserves an ID for a repository that is about to be created and returns it. If a repository already
+	// exists with the given virtual storage and relative path combination, an error is returned.
+	ReserveRepositoryID(ctx context.Context, virtualStorage, relativePath string) (int64, error)
 }
 
 // PostgresRepositoryStore is a Postgres implementation of RepositoryStore.
@@ -690,4 +693,26 @@ ORDER BY relative_path, "primary"
 	}
 
 	return repos, rows.Err()
+}
+
+// ReserveRepositoryID reserves an ID for a repository that is about to be created and returns it. If a repository already
+// exists with the given virtual storage and relative path combination, an error is returned.
+func (rs *PostgresRepositoryStore) ReserveRepositoryID(ctx context.Context, virtualStorage, relativePath string) (int64, error) {
+	var id int64
+	if err := rs.db.QueryRowContext(ctx, `
+SELECT nextval('repositories_repository_id_seq')
+WHERE NOT EXISTS (
+	SELECT FROM repositories
+	WHERE virtual_storage = $1
+	AND   relative_path   = $2
+)
+	`, virtualStorage, relativePath).Scan(&id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, commonerr.ErrRepositoryAlreadyExists
+		}
+
+		return 0, fmt.Errorf("scan: %w", err)
+	}
+
+	return id, nil
 }

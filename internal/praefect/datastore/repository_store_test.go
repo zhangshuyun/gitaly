@@ -1020,6 +1020,28 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		require.NoError(t, err)
 		require.False(t, exists)
 	})
+
+	t.Run("ReserveRepositoryID", func(t *testing.T) {
+		rs, _ := newStore(t, nil)
+
+		id, err := rs.ReserveRepositoryID(ctx, vs, repo)
+		require.NoError(t, err)
+		require.Equal(t, int64(1), id)
+
+		id, err = rs.ReserveRepositoryID(ctx, vs, repo)
+		require.NoError(t, err)
+		require.Equal(t, int64(2), id)
+
+		require.NoError(t, rs.CreateRepository(ctx, vs, repo, stor, nil, nil, false, false))
+
+		id, err = rs.ReserveRepositoryID(ctx, vs, repo)
+		require.Equal(t, commonerr.ErrRepositoryAlreadyExists, err)
+		require.Equal(t, int64(0), id)
+
+		id, err = rs.ReserveRepositoryID(ctx, vs, repo+"-2")
+		require.NoError(t, err)
+		require.Equal(t, int64(4), id)
+	})
 }
 
 func TestPostgresRepositoryStore_GetPartiallyAvailableRepositories(t *testing.T) {
