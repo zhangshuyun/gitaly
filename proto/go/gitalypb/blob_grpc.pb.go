@@ -27,6 +27,9 @@ type BlobServiceClient interface {
 	// doing a graph walk. It is not valid to pass revisions which do not resolve
 	// to an existing object.
 	ListBlobs(ctx context.Context, in *ListBlobsRequest, opts ...grpc.CallOption) (BlobService_ListBlobsClient, error)
+	// ListAllBlobs retrieves all blobs pointers in the repository, including
+	// those not reachable by any reference.
+	ListAllBlobs(ctx context.Context, in *ListAllBlobsRequest, opts ...grpc.CallOption) (BlobService_ListAllBlobsClient, error)
 	// GetLFSPointers retrieves LFS pointers from a given set of object IDs.
 	// This RPC filters all requested objects and only returns those which refer
 	// to a valid LFS pointer.
@@ -147,8 +150,40 @@ func (x *blobServiceListBlobsClient) Recv() (*ListBlobsResponse, error) {
 	return m, nil
 }
 
+func (c *blobServiceClient) ListAllBlobs(ctx context.Context, in *ListAllBlobsRequest, opts ...grpc.CallOption) (BlobService_ListAllBlobsClient, error) {
+	stream, err := c.cc.NewStream(ctx, &BlobService_ServiceDesc.Streams[3], "/gitaly.BlobService/ListAllBlobs", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &blobServiceListAllBlobsClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type BlobService_ListAllBlobsClient interface {
+	Recv() (*ListAllBlobsResponse, error)
+	grpc.ClientStream
+}
+
+type blobServiceListAllBlobsClient struct {
+	grpc.ClientStream
+}
+
+func (x *blobServiceListAllBlobsClient) Recv() (*ListAllBlobsResponse, error) {
+	m := new(ListAllBlobsResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *blobServiceClient) GetLFSPointers(ctx context.Context, in *GetLFSPointersRequest, opts ...grpc.CallOption) (BlobService_GetLFSPointersClient, error) {
-	stream, err := c.cc.NewStream(ctx, &BlobService_ServiceDesc.Streams[3], "/gitaly.BlobService/GetLFSPointers", opts...)
+	stream, err := c.cc.NewStream(ctx, &BlobService_ServiceDesc.Streams[4], "/gitaly.BlobService/GetLFSPointers", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +215,7 @@ func (x *blobServiceGetLFSPointersClient) Recv() (*GetLFSPointersResponse, error
 }
 
 func (c *blobServiceClient) ListLFSPointers(ctx context.Context, in *ListLFSPointersRequest, opts ...grpc.CallOption) (BlobService_ListLFSPointersClient, error) {
-	stream, err := c.cc.NewStream(ctx, &BlobService_ServiceDesc.Streams[4], "/gitaly.BlobService/ListLFSPointers", opts...)
+	stream, err := c.cc.NewStream(ctx, &BlobService_ServiceDesc.Streams[5], "/gitaly.BlobService/ListLFSPointers", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +247,7 @@ func (x *blobServiceListLFSPointersClient) Recv() (*ListLFSPointersResponse, err
 }
 
 func (c *blobServiceClient) ListAllLFSPointers(ctx context.Context, in *ListAllLFSPointersRequest, opts ...grpc.CallOption) (BlobService_ListAllLFSPointersClient, error) {
-	stream, err := c.cc.NewStream(ctx, &BlobService_ServiceDesc.Streams[5], "/gitaly.BlobService/ListAllLFSPointers", opts...)
+	stream, err := c.cc.NewStream(ctx, &BlobService_ServiceDesc.Streams[6], "/gitaly.BlobService/ListAllLFSPointers", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -256,6 +291,9 @@ type BlobServiceServer interface {
 	// doing a graph walk. It is not valid to pass revisions which do not resolve
 	// to an existing object.
 	ListBlobs(*ListBlobsRequest, BlobService_ListBlobsServer) error
+	// ListAllBlobs retrieves all blobs pointers in the repository, including
+	// those not reachable by any reference.
+	ListAllBlobs(*ListAllBlobsRequest, BlobService_ListAllBlobsServer) error
 	// GetLFSPointers retrieves LFS pointers from a given set of object IDs.
 	// This RPC filters all requested objects and only returns those which refer
 	// to a valid LFS pointer.
@@ -285,6 +323,9 @@ func (UnimplementedBlobServiceServer) GetBlobs(*GetBlobsRequest, BlobService_Get
 }
 func (UnimplementedBlobServiceServer) ListBlobs(*ListBlobsRequest, BlobService_ListBlobsServer) error {
 	return status.Errorf(codes.Unimplemented, "method ListBlobs not implemented")
+}
+func (UnimplementedBlobServiceServer) ListAllBlobs(*ListAllBlobsRequest, BlobService_ListAllBlobsServer) error {
+	return status.Errorf(codes.Unimplemented, "method ListAllBlobs not implemented")
 }
 func (UnimplementedBlobServiceServer) GetLFSPointers(*GetLFSPointersRequest, BlobService_GetLFSPointersServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetLFSPointers not implemented")
@@ -368,6 +409,27 @@ type blobServiceListBlobsServer struct {
 }
 
 func (x *blobServiceListBlobsServer) Send(m *ListBlobsResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _BlobService_ListAllBlobs_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ListAllBlobsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(BlobServiceServer).ListAllBlobs(m, &blobServiceListAllBlobsServer{stream})
+}
+
+type BlobService_ListAllBlobsServer interface {
+	Send(*ListAllBlobsResponse) error
+	grpc.ServerStream
+}
+
+type blobServiceListAllBlobsServer struct {
+	grpc.ServerStream
+}
+
+func (x *blobServiceListAllBlobsServer) Send(m *ListAllBlobsResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -455,6 +517,11 @@ var BlobService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "ListBlobs",
 			Handler:       _BlobService_ListBlobs_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "ListAllBlobs",
+			Handler:       _BlobService_ListAllBlobs_Handler,
 			ServerStreams: true,
 		},
 		{
