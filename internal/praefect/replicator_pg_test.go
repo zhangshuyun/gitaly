@@ -87,7 +87,7 @@ func TestReplicatorDestroy(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			require.NoError(t, rs.CreateRepository(ctx, "virtual-storage-1", "relative-path-1", "storage-1", []string{"storage-2"}, nil, false, false))
+			require.NoError(t, rs.CreateRepository(ctx, 1, "virtual-storage-1", "relative-path-1", "storage-1", []string{"storage-2"}, nil, false, false))
 
 			ln, err := net.Listen("tcp", "localhost:0")
 			require.NoError(t, err)

@@ -803,8 +803,9 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 
 			var createRepositoryCalled int64
 			rs := datastore.MockRepositoryStore{
-				CreateRepositoryFunc: func(ctx context.Context, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error {
+				CreateRepositoryFunc: func(ctx context.Context, repoID int64, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error {
 					atomic.AddInt64(&createRepositoryCalled, 1)
+					assert.Equal(t, int64(0), repoID)
 					assert.Equal(t, targetRepo.StorageName, virtualStorage)
 					assert.Equal(t, targetRepo.RelativePath, relativePath)
 					assert.Equal(t, rewrittenStorage, primary)
@@ -2069,7 +2070,7 @@ func TestNewRequestFinalizer_contextIsDisjointedFromTheRPC(t *testing.T) {
 							requireSuppressedCancellation(t, ctx)
 							return err
 						},
-						CreateRepositoryFunc: func(ctx context.Context, _, _, _ string, _, _ []string, _, _ bool) error {
+						CreateRepositoryFunc: func(ctx context.Context, _ int64, _, _, _ string, _, _ []string, _, _ bool) error {
 							requireSuppressedCancellation(t, ctx)
 							return err
 						},
@@ -2080,6 +2081,7 @@ func TestNewRequestFinalizer_contextIsDisjointedFromTheRPC(t *testing.T) {
 					nil,
 				).newRequestFinalizer(
 					ctx,
+					0,
 					"virtual storage",
 					&gitalypb.Repository{},
 					"primary",

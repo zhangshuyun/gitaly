@@ -333,8 +333,13 @@ func (c *Coordinator) directRepositoryScopedMessage(ctx context.Context, call gr
 		// the repositories are created directly on the filesystem. There is no call for the
 		// CreateRepository that creates records in the database that is why we do it artificially
 		// before redirecting the calls.
-		if err := c.rs.CreateRepository(ctx, call.targetRepo.StorageName, call.targetRepo.RelativePath, call.targetRepo.StorageName, nil, nil, true, true); err != nil {
-			if !errors.Is(err, datastore.RepositoryExistsError{}) {
+		id, err := c.rs.ReserveRepositoryID(ctx, call.targetRepo.StorageName, call.targetRepo.RelativePath)
+		if err != nil {
+			if !errors.Is(err, commonerr.ErrRepositoryAlreadyExists) {
+				return nil, err
+			}
+		} else {
+			if err := c.rs.CreateRepository(ctx, id, call.targetRepo.StorageName, call.targetRepo.RelativePath, call.targetRepo.StorageName, nil, nil, true, true); err != nil {
 				return nil, err
 			}
 		}
@@ -552,6 +557,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 		finalizers = append(finalizers,
 			c.newRequestFinalizer(
 				ctx,
+				route.RepositoryID,
 				virtualStorage,
 				targetRepo,
 				route.Primary.Storage,
@@ -789,7 +795,7 @@ func (c *Coordinator) createTransactionFinalizer(
 		}
 
 		return c.newRequestFinalizer(
-			ctx, virtualStorage, targetRepo, route.Primary.Storage,
+			ctx, route.RepositoryID, virtualStorage, targetRepo, route.Primary.Storage,
 			updated, outdated, change, params, cause)()
 	}
 }
@@ -921,6 +927,7 @@ func routerNodesToStorages(nodes []RouterNode) []string {
 
 func (c *Coordinator) newRequestFinalizer(
 	ctx context.Context,
+	repositoryID int64,
 	virtualStorage string,
 	targetRepo *gitalypb.Repository,
 	primary string,
@@ -987,6 +994,7 @@ func (c *Coordinator) newRequestFinalizer(
 				c.conf.DefaultReplicationFactors()[virtualStorage] > 0
 
 			if err := c.rs.CreateRepository(ctx,
+				repositoryID,
 				virtualStorage,
 				targetRepo.GetRelativePath(),
 				primary,

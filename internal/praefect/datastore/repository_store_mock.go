@@ -9,7 +9,7 @@ type MockRepositoryStore struct {
 	IncrementGenerationFunc               func(ctx context.Context, virtualStorage, relativePath, primary string, secondaries []string) error
 	GetReplicatedGenerationFunc           func(ctx context.Context, virtualStorage, relativePath, source, target string) (int, error)
 	SetGenerationFunc                     func(ctx context.Context, virtualStorage, relativePath, storage string, generation int) error
-	CreateRepositoryFunc                  func(ctx context.Context, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error
+	CreateRepositoryFunc                  func(ctx context.Context, repositoryID int64, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error
 	SetAuthoritativeReplicaFunc           func(ctx context.Context, virtualStorage, relativePath, storage string) error
 	DeleteRepositoryFunc                  func(ctx context.Context, virtualStorage, relativePath string, storages []string) error
 	DeleteReplicaFunc                     func(ctx context.Context, virtualStorage, relativePath, storage string) error
@@ -55,12 +55,12 @@ func (m MockRepositoryStore) SetGeneration(ctx context.Context, virtualStorage, 
 }
 
 // CreateRepository calls the mocked function. If no mock has been provided, it returns a nil error.
-func (m MockRepositoryStore) CreateRepository(ctx context.Context, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error {
+func (m MockRepositoryStore) CreateRepository(ctx context.Context, repositoryID int64, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error {
 	if m.CreateRepositoryFunc == nil {
 		return nil
 	}
 
-	return m.CreateRepositoryFunc(ctx, virtualStorage, relativePath, primary, updatedSecondaries, outdatedSecondaries, storePrimary, storeAssignments)
+	return m.CreateRepositoryFunc(ctx, repositoryID, virtualStorage, relativePath, primary, updatedSecondaries, outdatedSecondaries, storePrimary, storeAssignments)
 }
 
 // SetAuthoritativeReplica calls the mocked function. If no mock has been provided, it returns a nil error.
