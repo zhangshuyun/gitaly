@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
@@ -16,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 const keepAroundNamespace = "refs/keep-around"
@@ -74,8 +74,7 @@ func TestVisibilityOfHiddenRefs(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			pbMarshaler := &jsonpb.Marshaler{}
-			payload, err := pbMarshaler.MarshalToString(&gitalypb.SSHUploadPackRequest{
+			payload, err := protojson.Marshal(&gitalypb.SSHUploadPackRequest{
 				Repository:       repo,
 				GitConfigOptions: test.GitConfigOptions,
 			})

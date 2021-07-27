@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/golang/protobuf/jsonpb"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 const (
@@ -20,7 +20,7 @@ const (
 
 func uploadPack(ctx context.Context, conn *grpc.ClientConn, req string) (int32, error) {
 	var request gitalypb.SSHUploadPackRequest
-	if err := jsonpb.UnmarshalString(req, &request); err != nil {
+	if err := protojson.Unmarshal([]byte(req), &request); err != nil {
 		return 0, fmt.Errorf("json unmarshal: %w", err)
 	}
 

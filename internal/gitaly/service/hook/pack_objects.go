@@ -13,7 +13,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -23,6 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 var (
@@ -74,8 +74,13 @@ const (
 func (s *server) packObjectsHook(stream gitalypb.HookService_PackObjectsHookServer, firstRequest *gitalypb.PackObjectsHookRequest, args *packObjectsArgs) error {
 	ctx := stream.Context()
 
+	data, err := protojson.Marshal(firstRequest)
+	if err != nil {
+		return err
+	}
+
 	h := sha256.New()
-	if err := (&jsonpb.Marshaler{}).Marshal(h, firstRequest); err != nil {
+	if _, err := h.Write(data); err != nil {
 		return err
 	}
 

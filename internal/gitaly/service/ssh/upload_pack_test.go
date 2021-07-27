@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/prometheus/client_golang/prometheus"
 	promtest "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
@@ -24,6 +23,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 type cloneCommand struct {
@@ -44,9 +44,7 @@ func (cmd cloneCommand) execute(t *testing.T) error {
 	if cmd.gitConfig != "" {
 		req.GitConfigOptions = strings.Split(cmd.gitConfig, " ")
 	}
-	pbMarshaler := &jsonpb.Marshaler{}
-	payload, err := pbMarshaler.MarshalToString(req)
-
+	payload, err := protojson.Marshal(req)
 	require.NoError(t, err)
 
 	var flagPairs []string
@@ -307,8 +305,7 @@ func TestUploadPackWithoutSideband(t *testing.T) {
 	request := &gitalypb.SSHUploadPackRequest{
 		Repository: repo,
 	}
-	marshaler := &jsonpb.Marshaler{}
-	payload, err := marshaler.MarshalToString(request)
+	payload, err := protojson.Marshal(request)
 	require.NoError(t, err)
 
 	// As we're not using the sideband, the remote process will write both to stdout and stderr.
