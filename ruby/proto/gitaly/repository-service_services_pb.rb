@@ -66,6 +66,11 @@ module Gitaly
       rpc :RenameRepository, ::Gitaly::RenameRepositoryRequest, ::Gitaly::RenameRepositoryResponse
       rpc :ReplicateRepository, ::Gitaly::ReplicateRepositoryRequest, ::Gitaly::ReplicateRepositoryResponse
       rpc :OptimizeRepository, ::Gitaly::OptimizeRepositoryRequest, ::Gitaly::OptimizeRepositoryResponse
+      # SetFullPath writes the "gitlab.fullpath" configuration into the
+      # repository's gitconfig. This is mainly to help debugging purposes in case
+      # an admin inspects the repository's gitconfig such that he can easily see
+      # what the repository name is.
+      rpc :SetFullPath, ::Gitaly::SetFullPathRequest, ::Gitaly::SetFullPathResponse
     end
 
     Stub = Service.rpc_stub_class
