@@ -627,6 +627,11 @@ func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string,
 			if errors.Is(err, nodes.ErrVirtualStorageNotExist) {
 				return nil, helper.ErrInvalidArgument(err)
 			}
+
+			if errors.Is(err, commonerr.ErrRepositoryAlreadyExists) {
+				return nil, helper.ErrAlreadyExists(err)
+			}
+
 			return nil, err
 		}
 		return sp, nil

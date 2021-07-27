@@ -873,6 +873,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 					},
 					nil,
 					nil,
+					rs,
 					conf.DefaultReplicationFactors(),
 				)
 			default:

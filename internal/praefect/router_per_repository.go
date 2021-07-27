@@ -63,11 +63,20 @@ type PerRepositoryRouter struct {
 	rand                      Random
 	hc                        HealthChecker
 	csg                       datastore.ConsistentStoragesGetter
+	rs                        datastore.RepositoryStore
 	defaultReplicationFactors map[string]int
 }
 
 // NewPerRepositoryRouter returns a new PerRepositoryRouter using the passed configuration.
-func NewPerRepositoryRouter(conns Connections, pg PrimaryGetter, hc HealthChecker, rand Random, csg datastore.ConsistentStoragesGetter, ag AssignmentGetter, defaultReplicationFactors map[string]int) *PerRepositoryRouter {
+func NewPerRepositoryRouter(
+	conns Connections,
+	pg PrimaryGetter,
+	hc HealthChecker,
+	rand Random,
+	csg datastore.ConsistentStoragesGetter,
+	ag AssignmentGetter,
+	rs datastore.RepositoryStore,
+	defaultReplicationFactors map[string]int) *PerRepositoryRouter {
 	return &PerRepositoryRouter{
 		conns:                     conns,
 		pg:                        pg,
@@ -75,6 +84,7 @@ func NewPerRepositoryRouter(conns Connections, pg PrimaryGetter, hc HealthChecke
 		hc:                        hc,
 		csg:                       csg,
 		ag:                        ag,
+		rs:                        rs,
 		defaultReplicationFactors: defaultReplicationFactors,
 	}
 }
@@ -248,9 +258,17 @@ func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtu
 		return RepositoryMutatorRoute{}, err
 	}
 
+	id, err := r.rs.ReserveRepositoryID(ctx, virtualStorage, relativePath)
+	if err != nil {
+		return RepositoryMutatorRoute{}, fmt.Errorf("reserve repository id: %w", err)
+	}
+
 	replicationFactor := r.defaultReplicationFactors[virtualStorage]
 	if replicationFactor == 1 {
-		return RepositoryMutatorRoute{Primary: primary}, nil
+		return RepositoryMutatorRoute{
+			RepositoryID: id,
+			Primary:      primary,
+		}, nil
 	}
 
 	var secondaryNodes []RouterNode
@@ -296,6 +314,7 @@ func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtu
 	}
 
 	return RepositoryMutatorRoute{
+		RepositoryID:       id,
 		Primary:            primary,
 		Secondaries:        secondaries,
 		ReplicationTargets: replicationTargets,

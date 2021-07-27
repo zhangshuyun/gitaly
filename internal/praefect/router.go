@@ -25,6 +25,8 @@ type StorageMutatorRoute struct {
 
 // RepositoryMutatorRoute describes how to route a repository scoped mutator call.
 type RepositoryMutatorRoute struct {
+	// RepositoryID is the repository's ID as Praefect identifies it.
+	RepositoryID int64
 	// Primary is the primary node of the transaction.
 	Primary RouterNode
 	// Secondaries are the secondary participating in a transaction.

@@ -312,6 +312,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 			praefect.NewLockedRandom(rand.New(rand.NewSource(time.Now().UnixNano()))),
 			csg,
 			assignmentStore,
+			rs,
 			conf.DefaultReplicationFactors(),
 		)
 	} else {
