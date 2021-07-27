@@ -724,7 +724,7 @@ func (m *mockSmartHTTP) Called(method string) int {
 }
 
 func newSmartHTTPGrpcServer(t *testing.T, cfg gconfig.Cfg, smartHTTPService gitalypb.SmartHTTPServiceServer) string {
-	return testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	return testserver.RunGitalyServer(t, cfg, nil, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterSmartHTTPServiceServer(srv, smartHTTPService)
 	}, testserver.WithDisablePraefect())
 }

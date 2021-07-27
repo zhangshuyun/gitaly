@@ -494,7 +494,7 @@ func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg confi
 				}
 			}
 
-			addr := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
+			addr := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 				cmdFactory := deps.GetGitCmdFactory()
 				if tc.wrapCommandFactory != nil {
 					cmdFactory = tc.wrapCommandFactory(t, deps.GetGitCmdFactory())
@@ -567,7 +567,7 @@ func testSuccessfulUpdateRemoteMirrorRequest(t *testing.T, cfg config.Cfg, rubyS
 }
 
 func testSuccessfulUpdateRemoteMirrorRequestFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	serverSocketPath := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
+	serverSocketPath := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
 			deps.GetCfg(),
 			deps.GetRubyServer(),
@@ -674,7 +674,7 @@ func testSuccessfulUpdateRemoteMirrorRequestWithWildcards(t *testing.T, cfg conf
 }
 
 func testSuccessfulUpdateRemoteMirrorRequestWithWildcardsFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	serverSocketPath := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
+	serverSocketPath := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
 			deps.GetCfg(),
 			deps.GetRubyServer(),
@@ -757,7 +757,7 @@ func testSuccessfulUpdateRemoteMirrorRequestWithWildcardsFeatured(t *testing.T, 
 }
 
 func testUpdateRemoteMirrorInmemory(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	serverSocketPath := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
+	serverSocketPath := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
 			deps.GetCfg(),
 			deps.GetRubyServer(),
@@ -830,7 +830,7 @@ func testSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T, 
 }
 
 func testSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefsFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	serverSocketPath := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
+	serverSocketPath := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
 			deps.GetCfg(),
 			deps.GetRubyServer(),
@@ -923,7 +923,7 @@ func testFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T, cfg config
 }
 
 func testFailedUpdateRemoteMirrorRequestDueToValidationFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	serverSocketPath := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
+	serverSocketPath := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
 			deps.GetCfg(),
 			deps.GetRubyServer(),

@@ -119,7 +119,7 @@ func assertModTimeAfter(t *testing.T, afterTime time.Time, paths ...string) bool
 }
 
 func runRepositoryServerWithConfig(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server, opts ...testserver.GitalyServerOpt) string {
-	return testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
+	return testserver.RunGitalyServer(t, cfg, rubySrv, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterRepositoryServiceServer(srv, NewServer(
 			cfg,
 			deps.GetRubyServer(),

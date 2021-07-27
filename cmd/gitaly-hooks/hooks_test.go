@@ -608,7 +608,7 @@ func (svc featureFlagAsserter) PackObjectsHook(stream gitalypb.HookService_PackO
 }
 
 func runHookServiceWithGitlabClient(t *testing.T, cfg config.Cfg, gitlabClient gitlab.Client) {
-	testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	testserver.RunGitalyServer(t, cfg, nil, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterHookServiceServer(srv, featureFlagAsserter{
 			t: t, wrapped: hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()),
 		})

@@ -52,7 +52,7 @@ var (
 )
 
 // RegisterAll will register all the known gRPC services on  the provided gRPC service instance.
-func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
+func RegisterAll(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 	gitalypb.RegisterBlobServiceServer(srv, blob.NewServer(
 		deps.GetCfg(),
 		deps.GetLocator(),
@@ -143,6 +143,9 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 	gitalypb.RegisterInternalGitalyServer(srv, internalgitaly.NewServer(deps.GetCfg().Storages))
 
 	healthpb.RegisterHealthServer(srv, health.NewServer())
-	reflection.Register(srv)
-	grpcprometheus.Register(srv)
+
+	if gs, ok := srv.(*grpc.Server); ok {
+		reflection.Register(gs)
+		grpcprometheus.Register(gs)
+	}
 }

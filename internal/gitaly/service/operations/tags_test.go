@@ -275,7 +275,7 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 	// runOperationServiceServer as it puts a Praefect server in between if
 	// running Praefect tests, which would break our test setup.
 	transactionServer := &testTransactionServer{}
-	testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	testserver.RunGitalyServer(t, cfg, nil, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterOperationServiceServer(srv, NewServer(
 			deps.GetCfg(),
 			nil,

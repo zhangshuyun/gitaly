@@ -103,7 +103,7 @@ func setupOperationsServiceWithRuby(
 func runOperationServiceServer(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server, options ...testserver.GitalyServerOpt) string {
 	t.Helper()
 
-	return testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
+	return testserver.RunGitalyServer(t, cfg, rubySrv, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterOperationServiceServer(srv, NewServer(
 			deps.GetCfg(),
 			deps.GetRubyServer(),
