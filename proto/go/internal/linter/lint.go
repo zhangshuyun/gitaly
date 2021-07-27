@@ -4,11 +4,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/protoutil"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"google.golang.org/protobuf/reflect/protoregistry"
 )
 
 // ensureMethodOpType will ensure that method includes the op_type option.
@@ -20,7 +20,7 @@ import (
 func ensureMethodOpType(fileDesc *descriptor.FileDescriptorProto, m *descriptor.MethodDescriptorProto, req *plugin.CodeGeneratorRequest) error {
 	opMsg, err := protoutil.GetOpExtension(m)
 	if err != nil {
-		if errors.Is(err, proto.ErrMissingExtension) {
+		if errors.Is(err, protoregistry.NotFound) {
 			return fmt.Errorf("missing op_type extension")
 		}
 
@@ -56,7 +56,7 @@ func validateMethod(file *descriptor.FileDescriptorProto, service *descriptor.Se
 		return fmt.Errorf("is intercepted service: %w", err)
 	} else if intercepted {
 		if _, err := protoutil.GetOpExtension(method); err != nil {
-			if errors.Is(err, proto.ErrMissingExtension) {
+			if errors.Is(err, protoregistry.NotFound) {
 				return nil
 			}
 

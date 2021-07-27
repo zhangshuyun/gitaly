@@ -1,7 +1,7 @@
 package chunk
 
 import (
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 // Sender encapsulates a gRPC response stream and the current chunk

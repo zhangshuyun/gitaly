@@ -7,10 +7,10 @@ import (
 	"net"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/proto"
 )
 
 // DialFunc is an abstraction that allows Call to transparently handle

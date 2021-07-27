@@ -4,8 +4,8 @@ import (
 	"context"
 	"io"
 
-	"github.com/golang/protobuf/proto"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"google.golang.org/protobuf/proto"
 )
 
 // Cache is a stream-oriented cache which stores RPC responses keyed by protobuf requests.
