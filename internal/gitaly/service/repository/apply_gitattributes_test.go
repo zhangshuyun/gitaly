@@ -90,7 +90,7 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	transactionServer := &testTransactionServer{}
-	testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	testserver.RunGitalyServer(t, cfg, nil, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterRepositoryServiceServer(srv, NewServer(
 			deps.GetCfg(),
 			deps.GetRubyServer(),

@@ -41,7 +41,7 @@ import (
 // It accepts addition Registrar to register all required service instead of
 // calling service.RegisterAll explicitly because it creates a circular dependency
 // when the function is used in on of internal/gitaly/service/... packages.
-func RunGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) string {
+func RunGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv grpc.ServiceRegistrar, deps *service.Dependencies), opts ...GitalyServerOpt) string {
 	_, gitalyAddr, disablePraefect := runGitaly(t, cfg, rubyServer, registrar, opts...)
 
 	praefectBinPath, ok := os.LookupEnv("GITALY_TEST_PRAEFECT_BIN")
@@ -135,7 +135,7 @@ func (gs GitalyServer) Address() string {
 }
 
 // StartGitalyServer creates and runs gitaly (and praefect as a proxy) server.
-func StartGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) GitalyServer {
+func StartGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv grpc.ServiceRegistrar, deps *service.Dependencies), opts ...GitalyServerOpt) GitalyServer {
 	gitalySrv, gitalyAddr, disablePraefect := runGitaly(t, cfg, rubyServer, registrar, opts...)
 
 	praefectBinPath, ok := os.LookupEnv("GITALY_TEST_PRAEFECT_BIN")
@@ -199,7 +199,7 @@ func IsHealthy(conn *grpc.ClientConn, timeout time.Duration) bool {
 	return true
 }
 
-func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) (*grpc.Server, string, bool) {
+func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv grpc.ServiceRegistrar, deps *service.Dependencies), opts ...GitalyServerOpt) (*grpc.Server, string, bool) {
 	t.Helper()
 
 	var gsd gitalyServerDeps
@@ -210,20 +210,21 @@ func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, regi
 	deps := gsd.createDependencies(t, cfg, rubyServer)
 	t.Cleanup(func() { gsd.conns.Close() })
 
-	srv, err := server.NewGitalyServerFactory(
+	grpcSrv, srpcSrv, err := server.NewGitalyServerFactory(
 		cfg,
 		gsd.logger.WithField("test", t.Name()),
 		deps.GetBackchannelRegistry(),
 		deps.GetDiskCache(),
 	).CreateExternal(cfg.TLS.CertPath != "" && cfg.TLS.KeyPath != "")
 	require.NoError(t, err)
-	t.Cleanup(srv.Stop)
+	t.Cleanup(grpcSrv.Stop)
 
-	registrar(srv, deps)
-	if _, found := srv.GetServiceInfo()["grpc.health.v1.Health"]; !found {
+	registrar(grpcSrv, deps)
+	registrar(srpcSrv, deps)
+	if _, found := grpcSrv.GetServiceInfo()["grpc.health.v1.Health"]; !found {
 		// we should register health service as it is used for the health checks
 		// praefect service executes periodically (and on the bootstrap step)
-		healthpb.RegisterHealthServer(srv, health.NewServer())
+		healthpb.RegisterHealthServer(grpcSrv, health.NewServer())
 	}
 
 	// listen on internal socket
@@ -243,7 +244,7 @@ func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, regi
 
 		internalListener, err := net.Listen("unix", cfg.GitalyInternalSocketPath())
 		require.NoError(t, err)
-		go srv.Serve(internalListener)
+		go grpcSrv.Serve(internalListener)
 	}
 
 	var listener net.Listener
@@ -266,9 +267,9 @@ func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, regi
 		addr = "unix://" + serverSocketPath
 	}
 
-	go srv.Serve(listener)
+	go grpcSrv.Serve(listener)
 
-	return srv, addr, gsd.disablePraefect
+	return grpcSrv, addr, gsd.disablePraefect
 }
 
 type gitalyServerDeps struct {

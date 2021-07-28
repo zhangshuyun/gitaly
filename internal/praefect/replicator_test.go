@@ -570,7 +570,7 @@ func (m *mockServer) PackRefs(ctx context.Context, in *gitalypb.PackRefsRequest)
 func runMockRepositoryServer(t *testing.T, cfg gconfig.Cfg) (*mockServer, string) {
 	mockServer := newMockRepositoryServer()
 
-	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterRepositoryServiceServer(srv, mockServer)
 		gitalypb.RegisterRefServiceServer(srv, mockServer)
 	})

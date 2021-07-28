@@ -84,7 +84,7 @@ func SetupConflictsService(t testing.TB, bare bool, hookManager hook.Manager) (c
 }
 
 func runConflictsServer(t testing.TB, cfg config.Cfg, hookManager hook.Manager) string {
-	return testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	return testserver.RunGitalyServer(t, cfg, nil, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterConflictsServiceServer(srv, NewServer(
 			deps.GetCfg(),
 			deps.GetHookManager(),

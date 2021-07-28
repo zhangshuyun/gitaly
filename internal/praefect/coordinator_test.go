@@ -1451,7 +1451,7 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 					wg: &wg,
 				}
 
-				addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+				addr := testserver.RunGitalyServer(t, cfg, nil, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 					gitalypb.RegisterOperationServiceServer(srv, operationServer)
 				}, testserver.WithDiskCache(&mockDiskCache{}))
 

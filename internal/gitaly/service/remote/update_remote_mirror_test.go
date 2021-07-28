@@ -503,7 +503,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 				}
 			}
 
-			addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+			addr := testserver.RunGitalyServer(t, cfg, nil, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 				cmdFactory := deps.GetGitCmdFactory()
 				if tc.wrapCommandFactory != nil {
 					cmdFactory = tc.wrapCommandFactory(t, deps.GetGitCmdFactory())
@@ -575,7 +575,7 @@ func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
 			deps.GetCfg(),
 			deps.GetRubyServer(),
@@ -681,7 +681,7 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithWildcards(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
 			deps.GetCfg(),
 			deps.GetRubyServer(),
@@ -768,7 +768,7 @@ func TestUpdateRemoteMirrorInmemory(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 
-	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
 			deps.GetCfg(),
 			deps.GetRubyServer(),
@@ -819,7 +819,7 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T) 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
 			deps.GetCfg(),
 			deps.GetRubyServer(),
@@ -911,7 +911,7 @@ func TestFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
 			deps.GetCfg(),
 			deps.GetRubyServer(),

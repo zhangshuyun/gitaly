@@ -25,7 +25,7 @@ func testMain(m *testing.M) int {
 }
 
 func setupInternalGitalyService(t *testing.T, cfg config.Cfg, internalService gitalypb.InternalGitalyServer) gitalypb.InternalGitalyClient {
-	add := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	add := testserver.RunGitalyServer(t, cfg, nil, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterInternalGitalyServer(srv, internalService)
 	}, testserver.WithDisablePraefect())
 	conn, err := grpc.Dial(add, grpc.WithInsecure())

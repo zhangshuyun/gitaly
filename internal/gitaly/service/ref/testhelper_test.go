@@ -70,7 +70,7 @@ func setupRefServiceWithoutRepo(t testing.TB) (config.Cfg, gitalypb.RefServiceCl
 }
 
 func runRefServiceServer(t testing.TB, cfg config.Cfg) string {
-	return testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	return testserver.RunGitalyServer(t, cfg, nil, func(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 		gitalypb.RegisterRefServiceServer(srv, NewServer(
 			deps.GetCfg(),
 			deps.GetLocator(),
