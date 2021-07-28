@@ -7,6 +7,10 @@ import (
 // Config represents 'config' sub-command.
 // https://git-scm.com/docs/git-config
 type Config interface {
+	// Set will set a configuration value. Any preexisting values will be overwritten with the
+	// new value.
+	Set(ctx context.Context, name, value string) error
+
 	// Add adds a new configuration value.
 	// WARNING: you can't ever use it for anything that contains secrets.
 	// https://git-scm.com/docs/git-config#Documentation/git-config.txt---add

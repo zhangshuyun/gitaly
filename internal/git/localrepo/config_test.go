@@ -29,6 +29,66 @@ func setupRepoConfig(t *testing.T) (Config, string) {
 	return repo.Config(), repoPath
 }
 
+func TestConfig_Set(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	repoConfig, repoPath := setupRepoConfig(t)
+
+	t.Run("setting a new value", func(t *testing.T) {
+		require.NoError(t, repoConfig.Set(ctx, "key.one", "1"))
+
+		actual := text.ChompBytes(gittest.Exec(t, repoConfig.repo.cfg, "-C", repoPath, "config", "key.one"))
+		require.Equal(t, "1", actual)
+	})
+
+	t.Run("overwriting an old value", func(t *testing.T) {
+		require.NoError(t, repoConfig.Set(ctx, "key.two", "2"))
+		require.NoError(t, repoConfig.Set(ctx, "key.two", "3"))
+
+		actual := text.ChompBytes(gittest.Exec(t, repoConfig.repo.cfg, "-C", repoPath, "config", "--get-all", "key.two"))
+		require.Equal(t, "3", actual)
+	})
+
+	t.Run("invalid argument", func(t *testing.T) {
+		for _, tc := range []struct {
+			desc   string
+			name   string
+			expErr error
+			expMsg string
+		}{
+			{
+				desc:   "empty name",
+				name:   "",
+				expErr: git.ErrInvalidArg,
+				expMsg: `"name" is blank or empty`,
+			},
+			{
+				desc:   "invalid name",
+				name:   "`.\n",
+				expErr: git.ErrInvalidArg,
+				expMsg: "bad section or name",
+			},
+			{
+				desc:   "no section or name",
+				name:   "missing",
+				expErr: git.ErrInvalidArg,
+				expMsg: "missing section or name",
+			},
+		} {
+			t.Run(tc.desc, func(t *testing.T) {
+				ctx, cancel := testhelper.Context()
+				defer cancel()
+
+				err := repoConfig.Set(ctx, tc.name, "some")
+				require.Error(t, err)
+				require.True(t, errors.Is(err, tc.expErr), err.Error())
+				require.Contains(t, err.Error(), tc.expMsg)
+			})
+		}
+	})
+}
+
 func TestBuildConfigAddOptsFlags(t *testing.T) {
 	for _, tc := range []struct {
 		desc string
