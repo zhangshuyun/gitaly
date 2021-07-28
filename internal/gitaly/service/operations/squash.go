@@ -20,8 +20,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 const (
@@ -31,7 +29,7 @@ const (
 
 func (s *Server) UserSquash(ctx context.Context, req *gitalypb.UserSquashRequest) (*gitalypb.UserSquashResponse, error) {
 	if err := validateUserSquashRequest(req); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "UserSquash: %v", err)
+		return nil, helper.ErrInvalidArgumentf("UserSquash: %v", err)
 	}
 
 	if strings.Contains(req.GetSquashId(), "/") {
@@ -64,31 +62,47 @@ func (s *Server) UserSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 
 func validateUserSquashRequest(req *gitalypb.UserSquashRequest) error {
 	if req.GetRepository() == nil {
-		return fmt.Errorf("empty Repository")
+		return errors.New("empty Repository")
 	}
 
 	if req.GetUser() == nil {
-		return fmt.Errorf("empty User")
+		return errors.New("empty User")
+	}
+
+	if len(req.GetUser().GetName()) == 0 {
+		return errors.New("empty user name")
+	}
+
+	if len(req.GetUser().GetEmail()) == 0 {
+		return errors.New("empty user email")
 	}
 
 	if req.GetSquashId() == "" {
-		return fmt.Errorf("empty SquashId")
+		return errors.New("empty SquashId")
 	}
 
 	if req.GetStartSha() == "" {
-		return fmt.Errorf("empty StartSha")
+		return errors.New("empty StartSha")
 	}
 
 	if req.GetEndSha() == "" {
-		return fmt.Errorf("empty EndSha")
+		return errors.New("empty EndSha")
 	}
 
 	if len(req.GetCommitMessage()) == 0 {
-		return fmt.Errorf("empty CommitMessage")
+		return errors.New("empty CommitMessage")
 	}
 
 	if req.GetAuthor() == nil {
-		return fmt.Errorf("empty Author")
+		return errors.New("empty Author")
+	}
+
+	if len(req.GetAuthor().GetName()) == 0 {
+		return errors.New("empty author name")
+	}
+
+	if len(req.GetAuthor().GetEmail()) == 0 {
+		return errors.New("empty auithor email")
 	}
 
 	return nil

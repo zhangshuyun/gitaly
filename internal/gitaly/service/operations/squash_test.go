@@ -2,7 +2,6 @@ package operations
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -15,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -552,9 +552,7 @@ func TestUserSquashWithGitError(t *testing.T) {
 				StartSha:      startSha,
 				EndSha:        endSha,
 			},
-			expectedResponse: &gitalypb.UserSquashResponse{
-				GitError: "fatal: empty ident name (for <janedoe@gitlab.com>) not allowed\n",
-			},
+			expectedErr: helper.ErrInvalidArgumentf("UserSquash: empty user name"),
 		},
 		{
 			desc: "author has no name set",
@@ -567,21 +565,14 @@ func TestUserSquashWithGitError(t *testing.T) {
 				StartSha:      startSha,
 				EndSha:        endSha,
 			},
-			expectedResponse: &gitalypb.UserSquashResponse{
-				GitError: "fatal: empty ident name (for <janedoe@gitlab.com>) not allowed\n",
-			},
+			expectedErr: helper.ErrInvalidArgumentf("UserSquash: empty author name"),
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			response, err := client.UserSquash(ctx, tc.request)
-			if err != nil {
-				// Flatten the error to make it easier to compare.
-				err = errors.New(err.Error())
-			}
-
-			require.Equal(t, tc.expectedErr, err)
+			testassert.GrpcEqualErr(t, tc.expectedErr, err)
 			testassert.ProtoEqual(t, tc.expectedResponse, response)
 		})
 	}
