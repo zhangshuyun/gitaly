@@ -5,12 +5,12 @@ import (
 	"io"
 	"testing"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestListCommits(t *testing.T) {
@@ -245,10 +245,10 @@ func TestListCommits(t *testing.T) {
 				Revisions: []string{
 					"0031876facac3f2b2702a0e53a26e89939a42209",
 				},
-				After: &timestamp.Timestamp{
+				After: &timestamppb.Timestamp{
 					Seconds: 1393488197,
 				},
-				Before: &timestamp.Timestamp{
+				Before: &timestamppb.Timestamp{
 					Seconds: 1393488199,
 				},
 			},

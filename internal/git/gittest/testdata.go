@@ -1,8 +1,8 @@
 package gittest
 
 import (
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // CommitsByID is a map of GitCommit structures by their respective IDs.
@@ -241,7 +241,7 @@ func alejandroRodriguez(ts int64) *gitalypb.CommitAuthor {
 	return &gitalypb.CommitAuthor{
 		Name:     []byte("Alejandro Rodríguez"),
 		Email:    []byte("alejorro70@gmail.com"),
-		Date:     &timestamp.Timestamp{Seconds: ts},
+		Date:     &timestamppb.Timestamp{Seconds: ts},
 		Timezone: []byte("-0300"),
 	}
 }
@@ -250,7 +250,7 @@ func ahmadSherif(ts int64) *gitalypb.CommitAuthor {
 	return &gitalypb.CommitAuthor{
 		Name:     []byte("Ahmad Sherif"),
 		Email:    []byte("ahmad+gitlab-test@gitlab.com"),
-		Date:     &timestamp.Timestamp{Seconds: ts},
+		Date:     &timestamppb.Timestamp{Seconds: ts},
 		Timezone: []byte("+0200"),
 	}
 }
@@ -259,7 +259,7 @@ func drewBlessing(ts int64) *gitalypb.CommitAuthor {
 	return &gitalypb.CommitAuthor{
 		Name:     []byte("Drew Blessing"),
 		Email:    []byte("drew@blessing.io"),
-		Date:     &timestamp.Timestamp{Seconds: ts},
+		Date:     &timestamppb.Timestamp{Seconds: ts},
 		Timezone: []byte("+0000"),
 	}
 }
@@ -268,7 +268,7 @@ func dmitriyZaporozhets(ts int64) *gitalypb.CommitAuthor {
 	return &gitalypb.CommitAuthor{
 		Name:     []byte("Dmitriy Zaporozhets"),
 		Email:    []byte("dmitriy.zaporozhets@gmail.com"),
-		Date:     &timestamp.Timestamp{Seconds: ts},
+		Date:     &timestamppb.Timestamp{Seconds: ts},
 		Timezone: []byte("-0800"),
 	}
 }
@@ -277,7 +277,7 @@ func jamesEdwardsJones(ts int64) *gitalypb.CommitAuthor {
 	return &gitalypb.CommitAuthor{
 		Name:     []byte("James Edwards-Jones"),
 		Email:    []byte("jedwardsjones@gitlab.com"),
-		Date:     &timestamp.Timestamp{Seconds: ts},
+		Date:     &timestamppb.Timestamp{Seconds: ts},
 		Timezone: []byte("+0000"),
 	}
 }
@@ -286,7 +286,7 @@ func lukeBennett(ts int64) *gitalypb.CommitAuthor {
 	return &gitalypb.CommitAuthor{
 		Name:     []byte("Luke \"Jared\" Bennett"),
 		Email:    []byte("lbennett@gitlab.com"),
-		Date:     &timestamp.Timestamp{Seconds: ts},
+		Date:     &timestamppb.Timestamp{Seconds: ts},
 		Timezone: []byte("+0000"),
 	}
 }
@@ -295,7 +295,7 @@ func seanMcGivern(ts int64) *gitalypb.CommitAuthor {
 	return &gitalypb.CommitAuthor{
 		Name:     []byte("Sean McGivern"),
 		Email:    []byte("sean@mcgivern.me.uk"),
-		Date:     &timestamp.Timestamp{Seconds: ts},
+		Date:     &timestamppb.Timestamp{Seconds: ts},
 		Timezone: []byte("+0000"),
 	}
 }
@@ -304,7 +304,7 @@ func stanHu(ts int64) *gitalypb.CommitAuthor {
 	return &gitalypb.CommitAuthor{
 		Name:     []byte("Stan Hu"),
 		Email:    []byte("stanhu@gmail.com"),
-		Date:     &timestamp.Timestamp{Seconds: ts},
+		Date:     &timestamppb.Timestamp{Seconds: ts},
 		Timezone: []byte("+0000"),
 	}
 }

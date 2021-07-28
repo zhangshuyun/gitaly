@@ -5,7 +5,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
@@ -15,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestMain(m *testing.M) {
@@ -94,7 +94,7 @@ func dummyCommitAuthor(ts int64) *gitalypb.CommitAuthor {
 	return &gitalypb.CommitAuthor{
 		Name:     []byte("Ahmad Sherif"),
 		Email:    []byte("ahmad+gitlab-test@gitlab.com"),
-		Date:     &timestamp.Timestamp{Seconds: ts},
+		Date:     &timestamppb.Timestamp{Seconds: ts},
 		Timezone: []byte("+0200"),
 	}
 }

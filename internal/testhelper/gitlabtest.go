@@ -1,8 +1,8 @@
 package testhelper
 
 import (
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
@@ -19,13 +19,13 @@ var (
 			Author: &gitalypb.CommitAuthor{
 				Name:     []byte("Job van der Voort"),
 				Email:    []byte("job@gitlab.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1474987066},
+				Date:     &timestamppb.Timestamp{Seconds: 1474987066},
 				Timezone: []byte("+0000"),
 			},
 			Committer: &gitalypb.CommitAuthor{
 				Name:     []byte("Job van der Voort"),
 				Email:    []byte("job@gitlab.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1474987066},
+				Date:     &timestamppb.Timestamp{Seconds: 1474987066},
 				Timezone: []byte("+0000"),
 			},
 			ParentIds: []string{
@@ -42,13 +42,13 @@ var (
 			Author: &gitalypb.CommitAuthor{
 				Name:     []byte("Sean McGivern"),
 				Email:    []byte("sean@mcgivern.me.uk"),
-				Date:     &timestamp.Timestamp{Seconds: 1491906794},
+				Date:     &timestamppb.Timestamp{Seconds: 1491906794},
 				Timezone: []byte("+0000"),
 			},
 			Committer: &gitalypb.CommitAuthor{
 				Name:     []byte("Sean McGivern"),
 				Email:    []byte("sean@mcgivern.me.uk"),
-				Date:     &timestamp.Timestamp{Seconds: 1491906794},
+				Date:     &timestamppb.Timestamp{Seconds: 1491906794},
 				Timezone: []byte("+0000"),
 			},
 			ParentIds: []string{
@@ -65,13 +65,13 @@ var (
 			Author: &gitalypb.CommitAuthor{
 				Name:     []byte("Luke \"Jared\" Bennett"),
 				Email:    []byte("lbennett@gitlab.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1491905339},
+				Date:     &timestamppb.Timestamp{Seconds: 1491905339},
 				Timezone: []byte("+0000"),
 			},
 			Committer: &gitalypb.CommitAuthor{
 				Name:     []byte("Luke \"Jared\" Bennett"),
 				Email:    []byte("lbennett@gitlab.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1491905339},
+				Date:     &timestamppb.Timestamp{Seconds: 1491905339},
 				Timezone: []byte("+0000"),
 			},
 			ParentIds: []string{"b83d6e391c22777fca1ed3012fce84f633d7fed0"},
@@ -86,13 +86,13 @@ var (
 				Name:  []byte("Alejandro Rodríguez"),
 				Email: []byte("alejorro70@gmail.com"),
 				// Not the actual commit date, but the biggest we can represent
-				Date:     &timestamp.Timestamp{Seconds: 9223371974719179007},
+				Date:     &timestamppb.Timestamp{Seconds: 9223371974719179007},
 				Timezone: []byte("+0000"),
 			},
 			Committer: &gitalypb.CommitAuthor{
 				Name:     []byte("Alejandro Rodríguez"),
 				Email:    []byte("alejorro70@gmail.com"),
-				Date:     &timestamp.Timestamp{Seconds: 9223371974719179007},
+				Date:     &timestamppb.Timestamp{Seconds: 9223371974719179007},
 				Timezone: []byte("+0000"),
 			},
 			ParentIds: []string{"e63f41fe459e62e1228fcef60d7189127aeba95a"},
@@ -106,13 +106,13 @@ var (
 			Author: &gitalypb.CommitAuthor{
 				Name:     []byte("tiagonbotelho"),
 				Email:    []byte("tiagonbotelho@hotmail.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1474470806},
+				Date:     &timestamppb.Timestamp{Seconds: 1474470806},
 				Timezone: []byte("+0100"),
 			},
 			Committer: &gitalypb.CommitAuthor{
 				Name:     []byte("tiagonbotelho"),
 				Email:    []byte("tiagonbotelho@hotmail.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1474470806},
+				Date:     &timestamppb.Timestamp{Seconds: 1474470806},
 				Timezone: []byte("+0100"),
 			},
 			ParentIds: []string{"1b12f15a11fc6e62177bef08f47bc7b5ce50b141"},
@@ -126,13 +126,13 @@ var (
 			Author: &gitalypb.CommitAuthor{
 				Name:     []byte("Dmitriy Zaporozhets"),
 				Email:    []byte("dmitriy.zaporozhets@gmail.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1393491261},
+				Date:     &timestamppb.Timestamp{Seconds: 1393491261},
 				Timezone: []byte("+0200"),
 			},
 			Committer: &gitalypb.CommitAuthor{
 				Name:     []byte("Dmitriy Zaporozhets"),
 				Email:    []byte("dmitriy.zaporozhets@gmail.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1393491261},
+				Date:     &timestamppb.Timestamp{Seconds: 1393491261},
 				Timezone: []byte("+0200"),
 			},
 			ParentIds:     []string{"d14d6c0abdd253381df51a723d58691b2ee1ab08"},
@@ -147,13 +147,13 @@ var (
 			Author: &gitalypb.CommitAuthor{
 				Name:     []byte("Dmitriy Zaporozhets"),
 				Email:    []byte("dmitriy.zaporozhets@gmail.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1393488198},
+				Date:     &timestamppb.Timestamp{Seconds: 1393488198},
 				Timezone: []byte("-0800"),
 			},
 			Committer: &gitalypb.CommitAuthor{
 				Name:     []byte("Dmitriy Zaporozhets"),
 				Email:    []byte("dmitriy.zaporozhets@gmail.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1393488198},
+				Date:     &timestamppb.Timestamp{Seconds: 1393488198},
 				Timezone: []byte("-0800"),
 			},
 			ParentIds: nil,
@@ -167,13 +167,13 @@ var (
 			Author: &gitalypb.CommitAuthor{
 				Name:     []byte("Ruben Davila"),
 				Email:    []byte("rdavila84@gmail.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1523247267},
+				Date:     &timestamppb.Timestamp{Seconds: 1523247267},
 				Timezone: []byte("-0500"),
 			},
 			Committer: &gitalypb.CommitAuthor{
 				Name:     []byte("Jacob Vosmaer"),
 				Email:    []byte("jacob@gitlab.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1527855450},
+				Date:     &timestamppb.Timestamp{Seconds: 1527855450},
 				Timezone: []byte("+0200"),
 			},
 			ParentIds: []string{"60ecb67744cb56576c30214ff52294f8ce2def98"},
@@ -187,13 +187,13 @@ var (
 			Author: &gitalypb.CommitAuthor{
 				Name:     []byte("Jacob Vosmaer"),
 				Email:    []byte("jacob@gitlab.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1517328273},
+				Date:     &timestamppb.Timestamp{Seconds: 1517328273},
 				Timezone: []byte("+0100"),
 			},
 			Committer: &gitalypb.CommitAuthor{
 				Name:     []byte("Jacob Vosmaer"),
 				Email:    []byte("jacob@gitlab.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1517328273},
+				Date:     &timestamppb.Timestamp{Seconds: 1517328273},
 				Timezone: []byte("+0100"),
 			},
 			ParentIds:     []string{"60ecb67744cb56576c30214ff52294f8ce2def98"},
@@ -208,13 +208,13 @@ var (
 			Author: &gitalypb.CommitAuthor{
 				Name:     []byte("Roger Meier"),
 				Email:    []byte("r.meier@siemens.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1570810009},
+				Date:     &timestamppb.Timestamp{Seconds: 1570810009},
 				Timezone: []byte("+0200"),
 			},
 			Committer: &gitalypb.CommitAuthor{
 				Name:     []byte("Roger Meier"),
 				Email:    []byte("r.meier@siemens.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1570810009},
+				Date:     &timestamppb.Timestamp{Seconds: 1570810009},
 				Timezone: []byte("+0200"),
 			},
 			ParentIds:     []string{"0ad583fecb2fb1eaaadaf77d5a33bc69ec1061c1"},
@@ -229,13 +229,13 @@ var (
 			Author: &gitalypb.CommitAuthor{
 				Name:     []byte("Dmitriy Zaporozhets"),
 				Email:    []byte("dmitriy.zaporozhets@gmail.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1393491451},
+				Date:     &timestamppb.Timestamp{Seconds: 1393491451},
 				Timezone: []byte("+0200"),
 			},
 			Committer: &gitalypb.CommitAuthor{
 				Name:     []byte("Dmitriy Zaporozhets"),
 				Email:    []byte("dmitriy.zaporozhets@gmail.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1393491451},
+				Date:     &timestamppb.Timestamp{Seconds: 1393491451},
 				Timezone: []byte("+0200"),
 			},
 			ParentIds:     []string{"6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9"},
@@ -250,13 +250,13 @@ var (
 			Author: &gitalypb.CommitAuthor{
 				Name:     []byte("Dmitriy Zaporozhets"),
 				Email:    []byte("dmitriy.zaporozhets@gmail.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1393491698},
+				Date:     &timestamppb.Timestamp{Seconds: 1393491698},
 				Timezone: []byte("+0200"),
 			},
 			Committer: &gitalypb.CommitAuthor{
 				Name:     []byte("Dmitriy Zaporozhets"),
 				Email:    []byte("dmitriy.zaporozhets@gmail.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1393491698},
+				Date:     &timestamppb.Timestamp{Seconds: 1393491698},
 				Timezone: []byte("+0200"),
 			},
 			ParentIds:     []string{"570e7b2abdd848b95f2f578043fc23bd6f6fd24d"},
@@ -273,13 +273,13 @@ var (
 			Author: &gitalypb.CommitAuthor{
 				Name:     []byte("Stan Hu"),
 				Email:    []byte("stanhu@gmail.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1471558878},
+				Date:     &timestamppb.Timestamp{Seconds: 1471558878},
 				Timezone: []byte("+0000"),
 			},
 			Committer: &gitalypb.CommitAuthor{
 				Name:     []byte("Stan Hu"),
 				Email:    []byte("stanhu@gmail.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1471558878},
+				Date:     &timestamppb.Timestamp{Seconds: 1471558878},
 				Timezone: []byte("+0000"),
 			},
 			TreeId: "23f60b6e4ff0c59039b42c8fc4d3f008abef3bee",
@@ -293,13 +293,13 @@ var (
 			Author: &gitalypb.CommitAuthor{
 				Name:     []byte("Sytse Sijbrandij"),
 				Email:    []byte("sytse@gitlab.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1420925009},
+				Date:     &timestamppb.Timestamp{Seconds: 1420925009},
 				Timezone: []byte("+0000"),
 			},
 			Committer: &gitalypb.CommitAuthor{
 				Name:     []byte("Sytse Sijbrandij"),
 				Email:    []byte("sytse@gitlab.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1420925009},
+				Date:     &timestamppb.Timestamp{Seconds: 1420925009},
 				Timezone: []byte("+0000"),
 			},
 			TreeId: "c56b5e763e885e1aed626da52a603ba740936ac2",

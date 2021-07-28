@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
@@ -27,6 +26,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
@@ -195,7 +195,7 @@ func TestUserRebaseConfirmableStableCommitIDs(t *testing.T) {
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
 
-	committerDate := &timestamp.Timestamp{Seconds: 100000000}
+	committerDate := &timestamppb.Timestamp{Seconds: 100000000}
 	parentSha := getBranchSha(t, cfg, repoPath, "master")
 
 	require.NoError(t, rebaseStream.Send(&gitalypb.UserRebaseConfirmableRequest{
@@ -240,7 +240,7 @@ func TestUserRebaseConfirmableStableCommitIDs(t *testing.T) {
 			Name:  []byte("Drew Blessing"),
 			Email: []byte("drew@gitlab.com"),
 			// Nanoseconds get ignored because commit timestamps aren't that granular.
-			Date:     &timestamp.Timestamp{Seconds: 1510610637},
+			Date:     &timestamppb.Timestamp{Seconds: 1510610637},
 			Timezone: []byte("-0600"),
 		},
 		Committer: &gitalypb.CommitAuthor{

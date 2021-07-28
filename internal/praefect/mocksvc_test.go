@@ -3,13 +3,13 @@ package praefect
 import (
 	"context"
 
-	"github.com/golang/protobuf/ptypes/empty"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/mock"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type (
-	repoAccessorUnaryFunc func(context.Context, *mock.RepoRequest) (*empty.Empty, error)
-	repoMutatorUnaryFunc  func(context.Context, *mock.RepoRequest) (*empty.Empty, error)
+	repoAccessorUnaryFunc func(context.Context, *mock.RepoRequest) (*emptypb.Empty, error)
+	repoMutatorUnaryFunc  func(context.Context, *mock.RepoRequest) (*emptypb.Empty, error)
 )
 
 // mockSvc is an implementation of mock.SimpleServer for testing purposes. The
@@ -21,11 +21,11 @@ type mockSvc struct {
 }
 
 // RepoAccessorUnary is implemented by a callback
-func (m *mockSvc) RepoAccessorUnary(ctx context.Context, req *mock.RepoRequest) (*empty.Empty, error) {
+func (m *mockSvc) RepoAccessorUnary(ctx context.Context, req *mock.RepoRequest) (*emptypb.Empty, error) {
 	return m.repoAccessorUnary(ctx, req)
 }
 
 // RepoMutatorUnary is implemented by a callback
-func (m *mockSvc) RepoMutatorUnary(ctx context.Context, req *mock.RepoRequest) (*empty.Empty, error) {
+func (m *mockSvc) RepoMutatorUnary(ctx context.Context, req *mock.RepoRequest) (*emptypb.Empty, error) {
 	return m.repoMutatorUnary(ctx, req)
 }

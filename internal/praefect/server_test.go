@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
@@ -51,6 +50,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func TestNewBackchannelServerFactory(t *testing.T) {
@@ -851,29 +851,29 @@ func TestProxyWrites(t *testing.T) {
 func TestErrorThreshold(t *testing.T) {
 	backendToken := ""
 	backend, cleanup := newMockDownstream(t, backendToken, &mockSvc{
-		repoMutatorUnary: func(ctx context.Context, req *mock.RepoRequest) (*empty.Empty, error) {
+		repoMutatorUnary: func(ctx context.Context, req *mock.RepoRequest) (*emptypb.Empty, error) {
 			md, ok := metadata.FromIncomingContext(ctx)
 			if !ok {
-				return &empty.Empty{}, errors.New("couldn't read metadata")
+				return &emptypb.Empty{}, errors.New("couldn't read metadata")
 			}
 
 			if md.Get("bad-header")[0] == "true" {
-				return &empty.Empty{}, helper.ErrInternalf("something went wrong")
+				return &emptypb.Empty{}, helper.ErrInternalf("something went wrong")
 			}
 
-			return &empty.Empty{}, nil
+			return &emptypb.Empty{}, nil
 		},
-		repoAccessorUnary: func(ctx context.Context, req *mock.RepoRequest) (*empty.Empty, error) {
+		repoAccessorUnary: func(ctx context.Context, req *mock.RepoRequest) (*emptypb.Empty, error) {
 			md, ok := metadata.FromIncomingContext(ctx)
 			if !ok {
-				return &empty.Empty{}, errors.New("couldn't read metadata")
+				return &emptypb.Empty{}, errors.New("couldn't read metadata")
 			}
 
 			if md.Get("bad-header")[0] == "true" {
-				return &empty.Empty{}, helper.ErrInternalf("something went wrong")
+				return &emptypb.Empty{}, helper.ErrInternalf("something went wrong")
 			}
 
-			return &empty.Empty{}, nil
+			return &emptypb.Empty{}, nil
 		},
 	})
 	defer cleanup()

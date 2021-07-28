@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/sirupsen/logrus"
@@ -46,6 +45,7 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var testLogger = logrus.New()
@@ -1086,8 +1086,8 @@ func TestCoordinatorEnqueueFailure(t *testing.T) {
 	})
 
 	ms := &mockSvc{
-		repoMutatorUnary: func(context.Context, *mock.RepoRequest) (*empty.Empty, error) {
-			return &empty.Empty{}, nil // always succeeds
+		repoMutatorUnary: func(context.Context, *mock.RepoRequest) (*emptypb.Empty, error) {
+			return &emptypb.Empty{}, nil // always succeeds
 		},
 	}
 

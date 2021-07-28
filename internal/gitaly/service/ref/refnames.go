@@ -4,11 +4,11 @@ import (
 	"bufio"
 	"context"
 
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // FindAllBranchNames creates a stream of ref names for all branches in the given repository
@@ -25,7 +25,7 @@ type findAllBranchNamesSender struct {
 
 func (ts *findAllBranchNamesSender) Reset() { ts.branchNames = nil }
 func (ts *findAllBranchNamesSender) Append(m proto.Message) {
-	ts.branchNames = append(ts.branchNames, []byte(m.(*wrappers.StringValue).Value))
+	ts.branchNames = append(ts.branchNames, []byte(m.(*wrapperspb.StringValue).Value))
 }
 
 func (ts *findAllBranchNamesSender) Send() error {
@@ -46,7 +46,7 @@ type findAllTagNamesSender struct {
 
 func (ts *findAllTagNamesSender) Reset() { ts.tagNames = nil }
 func (ts *findAllTagNamesSender) Append(m proto.Message) {
-	ts.tagNames = append(ts.tagNames, []byte(m.(*wrappers.StringValue).Value))
+	ts.tagNames = append(ts.tagNames, []byte(m.(*wrapperspb.StringValue).Value))
 }
 
 func (ts *findAllTagNamesSender) Send() error {
@@ -76,7 +76,7 @@ func (s *server) listRefNames(ctx context.Context, chunker *chunk.Chunker, prefi
 		// Important: don't use scanner.Bytes() because the slice will become
 		// invalid on the next loop iteration. Instead, use scanner.Text() to
 		// force a copy.
-		if err := chunker.Send(&wrappers.StringValue{Value: scanner.Text()}); err != nil {
+		if err := chunker.Send(&wrapperspb.StringValue{Value: scanner.Text()}); err != nil {
 			return err
 		}
 	}

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
@@ -13,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestServer_UserCherryPick_successful(t *testing.T) {
@@ -231,7 +231,7 @@ func TestServer_UserCherryPick_stableID(t *testing.T) {
 		Commit:     commitToPick,
 		BranchName: []byte(destinationBranch),
 		Message:    []byte("Cherry-picking " + commitToPick.Id),
-		Timestamp:  &timestamp.Timestamp{Seconds: 12345},
+		Timestamp:  &timestamppb.Timestamp{Seconds: 12345},
 	}
 
 	response, err := client.UserCherryPick(ctx, request)
@@ -251,7 +251,7 @@ func TestServer_UserCherryPick_stableID(t *testing.T) {
 		Author: &gitalypb.CommitAuthor{
 			Name:  []byte("Ahmad Sherif"),
 			Email: []byte("me@ahmadsherif.com"),
-			Date: &timestamp.Timestamp{
+			Date: &timestamppb.Timestamp{
 				Seconds: 1487337076,
 			},
 			Timezone: []byte("+0200"),
@@ -259,7 +259,7 @@ func TestServer_UserCherryPick_stableID(t *testing.T) {
 		Committer: &gitalypb.CommitAuthor{
 			Name:  gittest.TestUser.Name,
 			Email: gittest.TestUser.Email,
-			Date: &timestamp.Timestamp{
+			Date: &timestamppb.Timestamp{
 				Seconds: 12345,
 			},
 			Timezone: []byte("+0000"),

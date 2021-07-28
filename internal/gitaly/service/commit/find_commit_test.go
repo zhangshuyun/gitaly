@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
@@ -17,6 +16,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestSuccessfulFindCommitRequest(t *testing.T) {
@@ -60,13 +60,13 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 				Author: &gitalypb.CommitAuthor{
 					Name:     []byte("Dmitriy Zaporozhets"),
 					Email:    []byte("dmitriy.zaporozhets@gmail.com"),
-					Date:     &timestamp.Timestamp{Seconds: 1393491261},
+					Date:     &timestamppb.Timestamp{Seconds: 1393491261},
 					Timezone: []byte("+0200"),
 				},
 				Committer: &gitalypb.CommitAuthor{
 					Name:     []byte("Dmitriy Zaporozhets"),
 					Email:    []byte("dmitriy.zaporozhets@gmail.com"),
-					Date:     &timestamp.Timestamp{Seconds: 1393491261},
+					Date:     &timestamppb.Timestamp{Seconds: 1393491261},
 					Timezone: []byte("+0200"),
 				},
 				ParentIds:     []string{"d14d6c0abdd253381df51a723d58691b2ee1ab08"},
@@ -86,13 +86,13 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 				Author: &gitalypb.CommitAuthor{
 					Name:     []byte("Dmitriy Zaporozhets"),
 					Email:    []byte("dmitriy.zaporozhets@gmail.com"),
-					Date:     &timestamp.Timestamp{Seconds: 1393491261},
+					Date:     &timestamppb.Timestamp{Seconds: 1393491261},
 					Timezone: []byte("+0200"),
 				},
 				Committer: &gitalypb.CommitAuthor{
 					Name:     []byte("Dmitriy Zaporozhets"),
 					Email:    []byte("dmitriy.zaporozhets@gmail.com"),
-					Date:     &timestamp.Timestamp{Seconds: 1393491261},
+					Date:     &timestamppb.Timestamp{Seconds: 1393491261},
 					Timezone: []byte("+0200"),
 				},
 				ParentIds:     []string{"d14d6c0abdd253381df51a723d58691b2ee1ab08"},
@@ -128,13 +128,13 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 				Author: &gitalypb.CommitAuthor{
 					Name:     []byte("Dmitriy Zaporozhets"),
 					Email:    []byte("dmitriy.zaporozhets@gmail.com"),
-					Date:     &timestamp.Timestamp{Seconds: 1393491261},
+					Date:     &timestamppb.Timestamp{Seconds: 1393491261},
 					Timezone: []byte("+0200"),
 				},
 				Committer: &gitalypb.CommitAuthor{
 					Name:     []byte("Dmitriy Zaporozhets"),
 					Email:    []byte("dmitriy.zaporozhets@gmail.com"),
-					Date:     &timestamp.Timestamp{Seconds: 1393491261},
+					Date:     &timestamppb.Timestamp{Seconds: 1393491261},
 					Timezone: []byte("+0200"),
 				},
 				ParentIds:     []string{"d14d6c0abdd253381df51a723d58691b2ee1ab08"},
@@ -159,13 +159,13 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 				Author: &gitalypb.CommitAuthor{
 					Name:     []byte("Jacob Vosmaer"),
 					Email:    []byte("jacob@gitlab.com"),
-					Date:     &timestamp.Timestamp{Seconds: 1512132977},
+					Date:     &timestamppb.Timestamp{Seconds: 1512132977},
 					Timezone: []byte("+0100"),
 				},
 				Committer: &gitalypb.CommitAuthor{
 					Name:     []byte("Jacob Vosmaer"),
 					Email:    []byte("jacob@gitlab.com"),
-					Date:     &timestamp.Timestamp{Seconds: 1512132977},
+					Date:     &timestamppb.Timestamp{Seconds: 1512132977},
 					Timezone: []byte("+0100"),
 				},
 				ParentIds: []string{"e63f41fe459e62e1228fcef60d7189127aeba95a"},
@@ -183,13 +183,13 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 				Author: &gitalypb.CommitAuthor{
 					Name:     []byte("Jacob Vosmaer"),
 					Email:    []byte("jacob@gitlab.com"),
-					Date:     &timestamp.Timestamp{Seconds: 1517328273},
+					Date:     &timestamppb.Timestamp{Seconds: 1517328273},
 					Timezone: []byte("+0100"),
 				},
 				Committer: &gitalypb.CommitAuthor{
 					Name:     []byte("Jacob Vosmaer"),
 					Email:    []byte("jacob@gitlab.com"),
-					Date:     &timestamp.Timestamp{Seconds: 1517328273},
+					Date:     &timestamppb.Timestamp{Seconds: 1517328273},
 					Timezone: []byte("+0100"),
 				},
 				ParentIds: []string{"60ecb67744cb56576c30214ff52294f8ce2def98"},
@@ -206,13 +206,13 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 				Author: &gitalypb.CommitAuthor{
 					Name:     []byte("Scrooge McDuck"),
 					Email:    []byte("scrooge@mcduck.com"),
-					Date:     &timestamp.Timestamp{Seconds: bigCommit.Author.Date.Seconds},
+					Date:     &timestamppb.Timestamp{Seconds: bigCommit.Author.Date.Seconds},
 					Timezone: []byte("+0100"),
 				},
 				Committer: &gitalypb.CommitAuthor{
 					Name:     []byte("Scrooge McDuck"),
 					Email:    []byte("scrooge@mcduck.com"),
-					Date:     &timestamp.Timestamp{Seconds: bigCommit.Committer.Date.Seconds},
+					Date:     &timestamppb.Timestamp{Seconds: bigCommit.Committer.Date.Seconds},
 					Timezone: []byte("+0100"),
 				},
 				ParentIds: []string{"60ecb67744cb56576c30214ff52294f8ce2def98"},

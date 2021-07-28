@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
@@ -14,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestSuccessfulUserUpdateSubmoduleRequest(t *testing.T) {
@@ -114,7 +114,7 @@ func TestUserUpdateSubmoduleStableID(t *testing.T) {
 		CommitSha:     "41fa1bc9e0f0630ced6a8a211d60c2af425ecc2d",
 		Branch:        []byte("master"),
 		CommitMessage: []byte("Update Submodule message"),
-		Timestamp:     &timestamp.Timestamp{Seconds: 12345},
+		Timestamp:     &timestamppb.Timestamp{Seconds: 12345},
 	})
 	require.NoError(t, err)
 	require.Empty(t, response.GetCommitError())
@@ -134,13 +134,13 @@ func TestUserUpdateSubmoduleStableID(t *testing.T) {
 		Author: &gitalypb.CommitAuthor{
 			Name:     gittest.TestUser.Name,
 			Email:    gittest.TestUser.Email,
-			Date:     &timestamp.Timestamp{Seconds: 12345},
+			Date:     &timestamppb.Timestamp{Seconds: 12345},
 			Timezone: []byte(gittest.TimezoneOffset),
 		},
 		Committer: &gitalypb.CommitAuthor{
 			Name:     gittest.TestUser.Name,
 			Email:    gittest.TestUser.Email,
-			Date:     &timestamp.Timestamp{Seconds: 12345},
+			Date:     &timestamppb.Timestamp{Seconds: 12345},
 			Timezone: []byte(gittest.TimezoneOffset),
 		},
 	}, commit)
