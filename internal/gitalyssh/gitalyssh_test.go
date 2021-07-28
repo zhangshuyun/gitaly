@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -13,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func TestUploadPackEnv(t *testing.T) {
@@ -29,8 +29,7 @@ func TestUploadPackEnv(t *testing.T) {
 		Repository: repo,
 	}
 
-	var pbMarshaler jsonpb.Marshaler
-	expectedPayload, err := pbMarshaler.MarshalToString(&req)
+	expectedPayload, err := protojson.Marshal(&req)
 	require.NoError(t, err)
 
 	env, err := UploadPackEnv(ctx, config.Cfg{BinDir: "/path/bin"}, &req)

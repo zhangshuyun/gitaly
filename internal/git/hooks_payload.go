@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/golang/protobuf/jsonpb"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 const (
@@ -21,9 +21,6 @@ const (
 )
 
 var (
-	jsonpbMarshaller   = &jsonpb.Marshaler{}
-	jsonpbUnmarshaller = &jsonpb.Unmarshaler{}
-
 	// ErrPayloadNotFound is returned by HooksPayloadFromEnv if the given
 	// environment variables don't have a hooks payload.
 	ErrPayloadNotFound = errors.New("no hooks payload found in environment")
@@ -160,7 +157,7 @@ func HooksPayloadFromEnv(envs []string) (HooksPayload, error) {
 	}
 
 	var repo gitalypb.Repository
-	err = jsonpbUnmarshaller.Unmarshal(strings.NewReader(jsonPayload.Repo), &repo)
+	err = protojson.Unmarshal([]byte(jsonPayload.Repo), &repo)
 	if err != nil {
 		return HooksPayload{}, err
 	}
@@ -193,12 +190,12 @@ func HooksPayloadFromEnv(envs []string) (HooksPayload, error) {
 
 // Env encodes the given HooksPayload into an environment variable.
 func (p HooksPayload) Env() (string, error) {
-	repo, err := jsonpbMarshaller.MarshalToString(p.Repo)
+	repo, err := protojson.Marshal(p.Repo)
 	if err != nil {
 		return "", err
 	}
 
-	jsonPayload := jsonHooksPayload{p, repo}
+	jsonPayload := jsonHooksPayload{HooksPayload: p, Repo: string(repo)}
 	marshalled, err := json.Marshal(jsonPayload)
 	if err != nil {
 		return "", err

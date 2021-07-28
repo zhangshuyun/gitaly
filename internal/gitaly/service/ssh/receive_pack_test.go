@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
@@ -34,6 +33,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
@@ -568,8 +568,7 @@ func sshPush(t *testing.T, cfg config.Cfg, cloneDetails SSHCloneDetails, serverS
 		GlProjectPath: params.glProjectPath,
 		GlRepository:  params.glRepository,
 	}
-	pbMarshaler := &jsonpb.Marshaler{}
-	payload, err := pbMarshaler.MarshalToString(&gitalypb.SSHReceivePackRequest{
+	payload, err := protojson.Marshal(&gitalypb.SSHReceivePackRequest{
 		Repository:       pbTempRepo,
 		GlRepository:     params.glRepository,
 		GlId:             params.glID,

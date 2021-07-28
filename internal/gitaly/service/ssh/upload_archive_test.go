@@ -8,13 +8,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func TestFailedUploadArchiveRequestDueToTimeout(t *testing.T) {
@@ -117,8 +117,7 @@ func TestUploadArchiveSuccess(t *testing.T) {
 
 func testArchive(t *testing.T, cfg config.Cfg, serverSocketPath string, testRepo *gitalypb.Repository, cmd *exec.Cmd) error {
 	req := &gitalypb.SSHUploadArchiveRequest{Repository: testRepo}
-	pbMarshaler := &jsonpb.Marshaler{}
-	payload, err := pbMarshaler.MarshalToString(req)
+	payload, err := protojson.Marshal(req)
 
 	require.NoError(t, err)
 

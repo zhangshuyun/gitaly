@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
@@ -18,6 +16,8 @@ import (
 	"gitlab.com/gitlab-org/labkit/tracing"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -40,8 +40,7 @@ func UploadPackEnv(ctx context.Context, cfg config.Cfg, req *gitalypb.SSHUploadP
 }
 
 func commandEnv(ctx context.Context, cfg config.Cfg, storageName, command string, message proto.Message) ([]string, error) {
-	var pbMarshaler jsonpb.Marshaler
-	payload, err := pbMarshaler.MarshalToString(message)
+	payload, err := protojson.Marshal(message)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "commandEnv: marshalling payload failed: %v", err)
 	}
