@@ -103,6 +103,8 @@ type RepositoryStore interface {
 	// storeAssignments should be set when variable replication factor is enabled. When set, the primary and the
 	// secondaries are stored as the assigned hosts of the repository.
 	CreateRepository(ctx context.Context, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error
+	// SetAuthoritativeReplica sets the given replica of a repsitory as the authoritative one by setting its generation as the latest one.
+	SetAuthoritativeReplica(ctx context.Context, virtualStorage, relativePath, storage string) error
 	// DeleteRepository deletes the repository's record from the virtual storage and the storages. Returns
 	// ErrNoRowsAffected when trying to delete a repository which has no record in the virtual storage
 	// or the storages.
@@ -238,6 +240,36 @@ ON CONFLICT (virtual_storage, relative_path, storage) DO UPDATE SET
 
 	_, err := rs.db.ExecContext(ctx, q, virtualStorage, relativePath, storage, generation)
 	return err
+}
+
+// SetAuthoritativeReplica sets the given replica of a repsitory as the authoritative one by setting its generation as the latest one.
+func (rs *PostgresRepositoryStore) SetAuthoritativeReplica(ctx context.Context, virtualStorage, relativePath, storage string) error {
+	result, err := rs.db.ExecContext(ctx, `
+WITH updated_repository AS (
+	UPDATE repositories
+	SET generation = generation + 1
+	WHERE virtual_storage = $1
+	AND   relative_path   = $2
+	RETURNING virtual_storage, relative_path, generation
+)
+
+INSERT INTO storage_repositories
+SELECT virtual_storage, relative_path, $3, generation
+FROM updated_repository
+ON CONFLICT (virtual_storage, relative_path, storage) DO UPDATE
+	SET generation = EXCLUDED.generation
+	`, virtualStorage, relativePath, storage)
+	if err != nil {
+		return fmt.Errorf("exec: %w", err)
+	}
+
+	if rowsAffected, err := result.RowsAffected(); err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	} else if rowsAffected == 0 {
+		return commonerr.NewRepositoryNotFoundError(virtualStorage, relativePath)
+	}
+
+	return nil
 }
 
 func (rs *PostgresRepositoryStore) GetReplicatedGeneration(ctx context.Context, virtualStorage, relativePath, source, target string) (int, error) {

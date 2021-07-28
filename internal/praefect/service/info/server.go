@@ -2,8 +2,10 @@ package info
 
 import (
 	"context"
+	"errors"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/service"
@@ -79,14 +81,11 @@ func (s *Server) SetAuthoritativeStorage(ctx context.Context, req *gitalypb.SetA
 		return nil, helper.ErrInvalidArgumentf("unknown authoritative storage: %q", req.AuthoritativeStorage)
 	}
 
-	exists, err := s.rs.RepositoryExists(ctx, req.VirtualStorage, req.RelativePath)
-	if err != nil {
-		return nil, err
-	} else if !exists {
-		return nil, helper.ErrInvalidArgumentf("repository %q does not exist on virtual storage %q", req.RelativePath, req.VirtualStorage)
-	}
+	if err := s.rs.SetAuthoritativeReplica(ctx, req.VirtualStorage, req.RelativePath, req.AuthoritativeStorage); err != nil {
+		if errors.As(err, &commonerr.RepositoryNotFoundError{}) {
+			return nil, helper.ErrInvalidArgumentf("repository %q does not exist on virtual storage %q", req.RelativePath, req.VirtualStorage)
+		}
 
-	if err := s.rs.IncrementGeneration(ctx, req.VirtualStorage, req.RelativePath, req.AuthoritativeStorage, nil); err != nil {
 		return nil, helper.ErrInternal(err)
 	}
 

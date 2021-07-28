@@ -241,6 +241,54 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		})
 	})
 
+	t.Run("SetAuthoritativeReplica", func(t *testing.T) {
+		rs, requireState := newStore(t, nil)
+
+		t.Run("fails when repository doesnt exist", func(t *testing.T) {
+			require.Equal(t,
+				commonerr.NewRepositoryNotFoundError(vs, repo),
+				rs.SetAuthoritativeReplica(ctx, vs, repo, stor),
+			)
+		})
+
+		t.Run("sets the given replica as the latest", func(t *testing.T) {
+			require.NoError(t, rs.SetGeneration(ctx, vs, repo, "storage-1", 0))
+			require.NoError(t, rs.SetGeneration(ctx, vs, repo, "storage-2", 0))
+			requireState(t, ctx,
+				virtualStorageState{
+					"virtual-storage-1": {
+						"repository-1": repositoryRecord{},
+					},
+				},
+				storageState{
+					"virtual-storage-1": {
+						"repository-1": {
+							"storage-1": 0,
+							"storage-2": 0,
+						},
+					},
+				},
+			)
+
+			require.NoError(t, rs.SetAuthoritativeReplica(ctx, vs, repo, "storage-1"))
+			requireState(t, ctx,
+				virtualStorageState{
+					"virtual-storage-1": {
+						"repository-1": repositoryRecord{},
+					},
+				},
+				storageState{
+					"virtual-storage-1": {
+						"repository-1": {
+							"storage-1": 1,
+							"storage-2": 0,
+						},
+					},
+				},
+			)
+		})
+	})
+
 	t.Run("GetGeneration", func(t *testing.T) {
 		rs, _ := newStore(t, nil)
 
