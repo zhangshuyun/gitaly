@@ -17,16 +17,19 @@ type Config struct {
 	repo *Repo
 }
 
-// Add adds a new entry to the repository's configuration.
-func (cfg Config) Add(ctx context.Context, name, value string, opts git.ConfigAddOpts) error {
+// Set will set a configuration value. Any preexisting values will be overwritten with the new
+// value.
+func (cfg Config) Set(ctx context.Context, name, value string) error {
 	if err := validateNotBlank(name, "name"); err != nil {
 		return err
 	}
 
 	if err := cfg.repo.ExecAndWait(ctx, git.SubCmd{
-		Name:  "config",
-		Flags: append(buildConfigAddOptsFlags(opts), git.Flag{Name: "--add"}),
-		Args:  []string{name, value},
+		Name: "config",
+		Flags: []git.Option{
+			git.Flag{Name: "--replace-all"},
+		},
+		Args: []string{name, value},
 	}); err != nil {
 		// Please refer to https://git-scm.com/docs/git-config#_description
 		// on return codes.
@@ -43,15 +46,6 @@ func (cfg Config) Add(ctx context.Context, name, value string, opts git.ConfigAd
 	}
 
 	return nil
-}
-
-func buildConfigAddOptsFlags(opts git.ConfigAddOpts) []git.Option {
-	var flags []git.Option
-	if opts.Type != git.ConfigTypeDefault {
-		flags = append(flags, git.Flag{Name: opts.Type.String()})
-	}
-
-	return flags
 }
 
 // GetRegexp gets all config entries which whose keys match the given regexp.

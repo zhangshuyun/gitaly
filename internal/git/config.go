@@ -7,10 +7,9 @@ import (
 // Config represents 'config' sub-command.
 // https://git-scm.com/docs/git-config
 type Config interface {
-	// Add adds a new configuration value.
-	// WARNING: you can't ever use it for anything that contains secrets.
-	// https://git-scm.com/docs/git-config#Documentation/git-config.txt---add
-	Add(ctx context.Context, name, value string, opts ConfigAddOpts) error
+	// Set will set a configuration value. Any preexisting values will be overwritten with the
+	// new value.
+	Set(ctx context.Context, name, value string) error
 
 	// GetRegexp returns configurations matched to nameRegexp regular expression.
 	// https://git-scm.com/docs/git-config#Documentation/git-config.txt---get-regexp
@@ -46,12 +45,6 @@ var (
 	// https://git-scm.com/docs/git-config/2.6.7#Documentation/git-config.txt---path
 	ConfigTypePath = ConfigType("--path")
 )
-
-// ConfigAddOpts is used to configure invocation of the 'git config --add' command.
-type ConfigAddOpts struct {
-	// Type controls rules used to check the value.
-	Type ConfigType
-}
 
 // ConfigGetRegexpOpts is used to configure invocation of the 'git config --get-regexp' command.
 type ConfigGetRegexpOpts struct {

@@ -113,4 +113,40 @@ func TestSetFullPath(t *testing.T) {
 		fullPath := gittest.Exec(t, cfg, "-C", repoPath, "config", fullPathKey)
 		require.Equal(t, "foo/bar", text.ChompBytes(fullPath))
 	})
+
+	t.Run("multiple times", func(t *testing.T) {
+		repo, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
+		defer cleanup()
+
+		for i := 0; i < 5; i++ {
+			response, err := client.SetFullPath(ctx, &gitalypb.SetFullPathRequest{
+				Repository: repo,
+				Path:       fmt.Sprintf("foo/%d", i),
+			})
+			require.NoError(t, err)
+			testassert.ProtoEqual(t, &gitalypb.SetFullPathResponse{}, response)
+		}
+
+		fullPath := gittest.Exec(t, cfg, "-C", repoPath, "config", "--get-all", fullPathKey)
+		require.Equal(t, "foo/4", text.ChompBytes(fullPath))
+	})
+
+	t.Run("multiple preexisting paths", func(t *testing.T) {
+		repo, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
+		defer cleanup()
+
+		for i := 0; i < 5; i++ {
+			gittest.Exec(t, cfg, "-C", repoPath, "config", "--add", fullPathKey, fmt.Sprintf("foo/%d", i))
+		}
+
+		response, err := client.SetFullPath(ctx, &gitalypb.SetFullPathRequest{
+			Repository: repo,
+			Path:       "replace",
+		})
+		require.NoError(t, err)
+		testassert.ProtoEqual(t, &gitalypb.SetFullPathResponse{}, response)
+
+		fullPath := gittest.Exec(t, cfg, "-C", repoPath, "config", "--get-all", fullPathKey)
+		require.Equal(t, "replace", text.ChompBytes(fullPath))
+	})
 }

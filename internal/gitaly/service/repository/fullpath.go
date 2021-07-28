@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
@@ -31,7 +30,7 @@ func (s *server) SetFullPath(
 		return nil, helper.ErrInternal(fmt.Errorf("preimage vote on config: %w", err))
 	}
 
-	if err := repo.Config().Add(ctx, fullPathKey, request.GetPath(), git.ConfigAddOpts{}); err != nil {
+	if err := repo.Config().Set(ctx, fullPathKey, request.GetPath()); err != nil {
 		return nil, helper.ErrInternal(fmt.Errorf("writing config: %w", err))
 	}
 

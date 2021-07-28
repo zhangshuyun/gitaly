@@ -672,7 +672,7 @@ func TestPerform_UnsetConfiguration(t *testing.T) {
 		"http.something.else":     "untouched",
 		"totally.unrelated":       "untouched",
 	} {
-		require.NoError(t, repo.Config().Add(ctx, key, value, git.ConfigAddOpts{}))
+		require.NoError(t, repo.Config().Set(ctx, key, value))
 	}
 
 	opts, err := repo.Config().GetRegexp(ctx, ".*", git.ConfigGetRegexpOpts{})
