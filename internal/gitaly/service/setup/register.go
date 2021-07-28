@@ -21,6 +21,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/server"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/smarthttp"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ssh"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/teststream"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/wiki"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -51,8 +52,8 @@ var (
 	)
 )
 
-// RegisterAll will register all the known gRPC services on  the provided gRPC service instance.
-func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
+// RegisterAll will register all the known gRPC + StreamRPC services
+func RegisterAll(srv grpc.ServiceRegistrar, deps *service.Dependencies) {
 	gitalypb.RegisterBlobServiceServer(srv, blob.NewServer(
 		deps.GetCfg(),
 		deps.GetLocator(),
@@ -143,6 +144,13 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 	gitalypb.RegisterInternalGitalyServer(srv, internalgitaly.NewServer(deps.GetCfg().Storages))
 
 	healthpb.RegisterHealthServer(srv, health.NewServer())
-	reflection.Register(srv)
-	grpcprometheus.Register(srv)
+
+	gitalypb.RegisterTestStreamServiceServer(srv, teststream.NewServer(
+		deps.GetLocator(),
+	))
+
+	if gs, ok := srv.(*grpc.Server); ok {
+		reflection.Register(gs)
+		grpcprometheus.Register(gs)
+	}
 }

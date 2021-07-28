@@ -37,6 +37,8 @@ require 'gitaly/smarthttp_services_pb'
 
 require 'gitaly/ssh_services_pb'
 
+require 'gitaly/teststream_services_pb'
+
 require 'gitaly/transaction_services_pb'
 
 require 'gitaly/wiki_services_pb'

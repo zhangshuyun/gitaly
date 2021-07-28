@@ -185,18 +185,20 @@ func TestCall_serverMiddleware(t *testing.T) {
 	)
 
 	interceptorDone := make(chan struct{})
+	server := NewServer()
+	server.UseInterceptor(func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+		defer close(interceptorDone)
+		middlewareMethod = info.FullMethod
+		receivedField = req.(*testpb.StreamRequest).StringField
+		if md, ok := metadata.FromIncomingContext(ctx); ok {
+			receivedValues = md[testKey]
+		}
+		return handler(ctx, req)
+	})
 
 	dial := startServer(
 		t,
-		NewServer(WithServerInterceptor(func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
-			defer close(interceptorDone)
-			middlewareMethod = info.FullMethod
-			receivedField = req.(*testpb.StreamRequest).StringField
-			if md, ok := metadata.FromIncomingContext(ctx); ok {
-				receivedValues = md[testKey]
-			}
-			return handler(ctx, req)
-		})),
+		server,
 		func(ctx context.Context, in *testpb.StreamRequest) (*emptypb.Empty, error) {
 			_, err := AcceptConnection(ctx)
 			return nil, err
@@ -219,15 +221,11 @@ func TestCall_serverMiddleware(t *testing.T) {
 }
 
 func TestCall_serverMiddlewareReject(t *testing.T) {
-	dial := startServer(
-		t,
-		NewServer(WithServerInterceptor(func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
-			return nil, errors.New("middleware says no")
-		})),
-		func(ctx context.Context, in *testpb.StreamRequest) (*emptypb.Empty, error) {
-			panic("never reached")
-		},
-	)
+	server := NewServer()
+	server.UseInterceptor(func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+		return nil, errors.New("middleware says no")
+	})
+	dial := startServer(t, server, func(ctx context.Context, in *testpb.StreamRequest) (*emptypb.Empty, error) { panic("never reached") })
 
 	err := Call(
 		context.Background(),
