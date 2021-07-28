@@ -6,9 +6,6 @@ package featureflag
 var (
 	// GoSetConfig enables git2go implementation of SetConfig.
 	GoSetConfig = FeatureFlag{Name: "go_set_config", OnByDefault: false}
-	// CreateRepositoryFromBundleAtomicFetch will add the `--atomic` flag to git-fetch(1) in
-	// order to reduce the number of transactional votes.
-	CreateRepositoryFromBundleAtomicFetch = FeatureFlag{Name: "create_repository_from_bundle_atomic_fetch", OnByDefault: true}
 	// ResolveConflictsWithHooks will cause the ResolveConflicts RPC to run Git hooks after committing changes
 	// to the branch.
 	ResolveConflictsWithHooks = FeatureFlag{Name: "resolve_conflicts_with_hooks", OnByDefault: true}
@@ -35,7 +32,6 @@ var (
 // All includes all feature flags.
 var All = []FeatureFlag{
 	GoSetConfig,
-	CreateRepositoryFromBundleAtomicFetch,
 	ResolveConflictsWithHooks,
 	ReplicateRepositoryDirectFetch,
 	FindAllTagsPipeline,

@@ -19,7 +19,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
@@ -95,13 +94,7 @@ func TestServer_CreateRepositoryFromBundle_successful(t *testing.T) {
 	require.NotNil(t, commit)
 }
 
-func TestServer_CreateRepositoryFromBundle_transactional(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.CreateRepositoryFromBundleAtomicFetch,
-	}).Run(t, testServerCreateRepositoryFromBundleTransactional)
-}
-
-func testServerCreateRepositoryFromBundleTransactional(t *testing.T, ctx context.Context) {
+func TestServerCreateRepositoryFromBundleTransactional(t *testing.T) {
 	var votes []voting.Vote
 	txManager := &transaction.MockManager{
 		VoteFn: func(ctx context.Context, tx txinfo.Transaction, vote voting.Vote) error {
@@ -123,6 +116,8 @@ func testServerCreateRepositoryFromBundleTransactional(t *testing.T, ctx context
 		gittest.Exec(t, cfg, "-C", repoPath, "update-ref", keepAroundRef, masterOID)
 	}
 
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "primary", true)
 	require.NoError(t, err)
 	ctx = helper.IncomingToOutgoing(ctx)
@@ -164,22 +159,13 @@ func testServerCreateRepositoryFromBundleTransactional(t *testing.T, ctx context
 
 	// Keep-around references are not fetched via git-clone(1) because non-mirror clones only
 	// fetch branches and tags. These additional references are thus obtained via git-fetch(1).
-	// If the following feature flag is enabled, then we'll use the `--atomic` flag for
-	// git-fetch(1) and thus bundle all reference updates into a single transaction. Otherwise,
-	// the old behaviour will create one transaction per reference.
-	if featureflag.CreateRepositoryFromBundleAtomicFetch.IsEnabled(ctx) {
-		votingInput = append(votingInput,
-			fmt.Sprintf("%s %s refs/keep-around/2\n%s %s refs/keep-around/1\n", git.ZeroOID, masterOID, git.ZeroOID, masterOID),
-			fmt.Sprintf("%s %s refs/keep-around/2\n%s %s refs/keep-around/1\n", git.ZeroOID, masterOID, git.ZeroOID, masterOID),
-		)
-	} else {
-		votingInput = append(votingInput,
-			fmt.Sprintf("%s %s refs/keep-around/2\n", git.ZeroOID, masterOID),
-			fmt.Sprintf("%s %s refs/keep-around/2\n", git.ZeroOID, masterOID),
-			fmt.Sprintf("%s %s refs/keep-around/1\n", git.ZeroOID, masterOID),
-			fmt.Sprintf("%s %s refs/keep-around/1\n", git.ZeroOID, masterOID),
-		)
-	}
+	// Given that we use the `--atomic` flag for git-fetch(1), all reference updates will be in
+	// a single transaction and we thus expect exactly two votes (once for "prepare", once for
+	// "commit").
+	votingInput = append(votingInput,
+		fmt.Sprintf("%s %s refs/keep-around/2\n%s %s refs/keep-around/1\n", git.ZeroOID, masterOID, git.ZeroOID, masterOID),
+		fmt.Sprintf("%s %s refs/keep-around/2\n%s %s refs/keep-around/1\n", git.ZeroOID, masterOID, git.ZeroOID, masterOID),
+	)
 
 	// And this is the final vote in Create(), which does a git-for-each-ref(1) in the target
 	// repository and then manually invokes the hook. The format is thus different from above
