@@ -32,7 +32,7 @@ import (
 
 // ErrRepositoryReadOnly is returned when the repository is in read-only mode. This happens
 // if the primary does not have the latest changes.
-var ErrRepositoryReadOnly = helper.ErrPreconditionFailedf("repository is in read-only mode")
+var ErrRepositoryReadOnly = helper.ErrFailedPreconditionf("repository is in read-only mode")
 
 type transactionsCondition func(context.Context) bool
 

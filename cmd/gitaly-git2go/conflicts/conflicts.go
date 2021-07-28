@@ -55,7 +55,7 @@ func Merge(repo *git.Repository, conflict git.IndexConflict) (*git.MergeFileResu
 
 		blob, err := repo.LookupBlob(entry.Id)
 		if err != nil {
-			return nil, helper.ErrPreconditionFailedf("could not get conflicting blob: %w", err)
+			return nil, helper.ErrFailedPreconditionf("could not get conflicting blob: %w", err)
 		}
 
 		input.Path = entry.Path

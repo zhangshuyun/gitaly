@@ -25,12 +25,12 @@ func (s *server) ListConflictFiles(request *gitalypb.ListConflictFilesRequest, s
 
 	ours, err := repo.ResolveRevision(ctx, git.Revision(request.OurCommitOid+"^{commit}"))
 	if err != nil {
-		return helper.ErrPreconditionFailedf("could not lookup 'our' OID: %s", err)
+		return helper.ErrFailedPreconditionf("could not lookup 'our' OID: %s", err)
 	}
 
 	theirs, err := repo.ResolveRevision(ctx, git.Revision(request.TheirCommitOid+"^{commit}"))
 	if err != nil {
-		return helper.ErrPreconditionFailedf("could not lookup 'their' OID: %s", err)
+		return helper.ErrFailedPreconditionf("could not lookup 'their' OID: %s", err)
 	}
 
 	repoPath, err := s.locator.GetPath(request.Repository)
@@ -55,11 +55,11 @@ func (s *server) ListConflictFiles(request *gitalypb.ListConflictFilesRequest, s
 
 	for _, conflict := range conflicts.Conflicts {
 		if !request.AllowTreeConflicts && (conflict.Their.Path == "" || conflict.Our.Path == "") {
-			return helper.ErrPreconditionFailedf("conflict side missing")
+			return helper.ErrFailedPreconditionf("conflict side missing")
 		}
 
 		if !utf8.Valid(conflict.Content) {
-			return helper.ErrPreconditionFailed(errors.New("unsupported encoding"))
+			return helper.ErrFailedPrecondition(errors.New("unsupported encoding"))
 		}
 
 		conflictFiles = append(conflictFiles, &gitalypb.ConflictFile{
