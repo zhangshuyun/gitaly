@@ -705,22 +705,10 @@ issues:
     ## BEGIN staticcheck exclusions
     - linters:
         - staticcheck
-      text: "package github.com/golang/protobuf/ptypes is deprecated"
-    - linters:
-        - staticcheck
-      text: "proto.MessageName is deprecated"
-    - linters:
-        - staticcheck
-      text: "ptypes.Timestamp is deprecated"
-    - linters:
-        - staticcheck
       text: "resp.OldPath is deprecated"
     - linters:
         - staticcheck
       text: "resp.NewPath is deprecated"
-    - linters:
-        - staticcheck
-      text: "proto.MessageType is deprecated"
     ## END staticcheck exclusions
     # govet checks all struct initializations must be keyed by field names
     - linters:

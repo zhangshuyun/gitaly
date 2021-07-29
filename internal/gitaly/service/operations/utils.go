@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -45,11 +44,7 @@ func dateFromProto(p userTimestampProto) (time.Time, error) {
 	date := time.Now()
 
 	if timestamp := p.GetTimestamp(); timestamp != nil {
-		var err error
-		date, err = ptypes.Timestamp(timestamp)
-		if err != nil {
-			return time.Time{}, err
-		}
+		date = timestamp.AsTime()
 	}
 
 	if user := p.GetUser(); user != nil {

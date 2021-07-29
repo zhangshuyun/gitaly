@@ -6,12 +6,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/stretchr/testify/require"
 	test "gitlab.com/gitlab-org/gitaly/v14/internal/helper/chunk/testdata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func TestMain(m *testing.M) {
@@ -32,7 +32,7 @@ type testSender struct {
 
 func (ts *testSender) Reset() { ts.output = nil }
 func (ts *testSender) Append(m proto.Message) {
-	ts.output = append(ts.output, m.(*wrappers.BytesValue).Value)
+	ts.output = append(ts.output, m.(*wrapperspb.BytesValue).Value)
 }
 
 func (ts *testSender) Send() error {
@@ -73,7 +73,7 @@ func (s *server) StreamOutput(req *test.StreamOutputRequest, srv test.Test_Strea
 
 	c := New(&testSender{stream: srv})
 	for numBytes := 0; numBytes < int(req.GetBytesToReturn()); numBytes += kilobyte {
-		if err := c.Send(&wrappers.BytesValue{Value: make([]byte, kilobyte)}); err != nil {
+		if err := c.Send(&wrapperspb.BytesValue{Value: make([]byte, kilobyte)}); err != nil {
 			return err
 		}
 	}

@@ -10,12 +10,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/trailerparser"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // GetCommit looks up a commit by revision using an existing Batch instance.
@@ -181,7 +181,7 @@ func parseCommitAuthor(line string) *gitalypb.CommitAuthor {
 		sec = git.FallbackTimeValue.Unix()
 	}
 
-	author.Date = &timestamp.Timestamp{Seconds: sec}
+	author.Date = &timestamppb.Timestamp{Seconds: sec}
 
 	if len(secSplit) == 2 {
 		author.Timezone = []byte(secSplit[1])

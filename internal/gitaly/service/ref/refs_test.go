@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
@@ -501,7 +500,7 @@ func testSuccessfulFindAllTagsRequest(t *testing.T, ctx context.Context) {
 			Tagger: &gitalypb.CommitAuthor{
 				Name:     []byte("Scrooge McDuck"),
 				Email:    []byte("scrooge@mcduck.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1572776879},
+				Date:     &timestamppb.Timestamp{Seconds: 1572776879},
 				Timezone: []byte("+0100"),
 			},
 		},
@@ -514,7 +513,7 @@ func testSuccessfulFindAllTagsRequest(t *testing.T, ctx context.Context) {
 			Tagger: &gitalypb.CommitAuthor{
 				Name:     []byte("Scrooge McDuck"),
 				Email:    []byte("scrooge@mcduck.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1572776879},
+				Date:     &timestamppb.Timestamp{Seconds: 1572776879},
 				Timezone: []byte("+0100"),
 			},
 		},
@@ -527,7 +526,7 @@ func testSuccessfulFindAllTagsRequest(t *testing.T, ctx context.Context) {
 			Tagger: &gitalypb.CommitAuthor{
 				Name:     []byte("Dmitriy Zaporozhets"),
 				Email:    []byte("dmitriy.zaporozhets@gmail.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1393491299},
+				Date:     &timestamppb.Timestamp{Seconds: 1393491299},
 				Timezone: []byte("+0200"),
 			},
 		},
@@ -540,7 +539,7 @@ func testSuccessfulFindAllTagsRequest(t *testing.T, ctx context.Context) {
 			Tagger: &gitalypb.CommitAuthor{
 				Name:     []byte("Dmitriy Zaporozhets"),
 				Email:    []byte("dmitriy.zaporozhets@gmail.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1393505709},
+				Date:     &timestamppb.Timestamp{Seconds: 1393505709},
 				Timezone: []byte("+0200"),
 			},
 		},
@@ -553,7 +552,7 @@ func testSuccessfulFindAllTagsRequest(t *testing.T, ctx context.Context) {
 			Tagger: &gitalypb.CommitAuthor{
 				Name:     []byte("Roger Meier"),
 				Email:    []byte("r.meier@siemens.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1574261780},
+				Date:     &timestamppb.Timestamp{Seconds: 1574261780},
 				Timezone: []byte("+0100"),
 			},
 			SignatureType: gitalypb.SignatureType_X509,
@@ -567,7 +566,7 @@ func testSuccessfulFindAllTagsRequest(t *testing.T, ctx context.Context) {
 			Tagger: &gitalypb.CommitAuthor{
 				Name:     []byte("Scrooge McDuck"),
 				Email:    []byte("scrooge@mcduck.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1393491261},
+				Date:     &timestamppb.Timestamp{Seconds: 1393491261},
 				Timezone: []byte("+0100"),
 			},
 			SignatureType: gitalypb.SignatureType_PGP,
@@ -580,7 +579,7 @@ func testSuccessfulFindAllTagsRequest(t *testing.T, ctx context.Context) {
 			Tagger: &gitalypb.CommitAuthor{
 				Name:     []byte("Scrooge McDuck"),
 				Email:    []byte("scrooge@mcduck.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1572776879},
+				Date:     &timestamppb.Timestamp{Seconds: 1572776879},
 				Timezone: []byte("+0100"),
 			},
 		},
@@ -612,7 +611,7 @@ func testSuccessfulFindAllTagsRequest(t *testing.T, ctx context.Context) {
 			Tagger: &gitalypb.CommitAuthor{
 				Name:     []byte("Scrooge McDuck"),
 				Email:    []byte("scrooge@mcduck.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1572776879},
+				Date:     &timestamppb.Timestamp{Seconds: 1572776879},
 				Timezone: []byte("+0100"),
 			},
 		},
@@ -660,7 +659,7 @@ func TestFindAllTags_duplicateAnnotatedTags(t *testing.T) {
 	commitAuthor := &gitalypb.CommitAuthor{
 		Name:     []byte("Scrooge McDuck"),
 		Email:    []byte("scrooge@mcduck.com"),
-		Date:     &timestamp.Timestamp{Seconds: 1572776879},
+		Date:     &timestamppb.Timestamp{Seconds: 1572776879},
 		Timezone: []byte("+0100"),
 	}
 	commit := &gitalypb.GitCommit{
@@ -776,7 +775,7 @@ func testFindAllTagNestedTags(t *testing.T, ctx context.Context) {
 					Tagger: &gitalypb.CommitAuthor{
 						Name:     []byte("Scrooge McDuck"),
 						Email:    []byte("scrooge@mcduck.com"),
-						Date:     &timestamp.Timestamp{Seconds: 1572776879},
+						Date:     &timestamppb.Timestamp{Seconds: 1572776879},
 						Timezone: []byte("+0100"),
 					},
 				}
@@ -1061,13 +1060,13 @@ func TestSuccessfulFindAllBranchesRequest(t *testing.T) {
 			Author: &gitalypb.CommitAuthor{
 				Name:     []byte("Dmitriy Zaporozhets"),
 				Email:    []byte("dmitriy.zaporozhets@gmail.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1393488896},
+				Date:     &timestamppb.Timestamp{Seconds: 1393488896},
 				Timezone: []byte("+0200"),
 			},
 			Committer: &gitalypb.CommitAuthor{
 				Name:     []byte("Dmitriy Zaporozhets"),
 				Email:    []byte("dmitriy.zaporozhets@gmail.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1393488896},
+				Date:     &timestamppb.Timestamp{Seconds: 1393488896},
 				Timezone: []byte("+0200"),
 			},
 			SignatureType: gitalypb.SignatureType_PGP,
@@ -1449,7 +1448,7 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 			Tagger: &gitalypb.CommitAuthor{
 				Name:     []byte("Scrooge McDuck"),
 				Email:    []byte("scrooge@mcduck.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1572776879},
+				Date:     &timestamppb.Timestamp{Seconds: 1572776879},
 				Timezone: []byte("+0100"),
 			},
 		},
@@ -1462,7 +1461,7 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 			Tagger: &gitalypb.CommitAuthor{
 				Name:     []byte("Scrooge McDuck"),
 				Email:    []byte("scrooge@mcduck.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1572776879},
+				Date:     &timestamppb.Timestamp{Seconds: 1572776879},
 				Timezone: []byte("+0100"),
 			},
 		},
@@ -1475,7 +1474,7 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 			Tagger: &gitalypb.CommitAuthor{
 				Name:     []byte("Dmitriy Zaporozhets"),
 				Email:    []byte("dmitriy.zaporozhets@gmail.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1393491299},
+				Date:     &timestamppb.Timestamp{Seconds: 1393491299},
 				Timezone: []byte("+0200"),
 			},
 			SignatureType: gitalypb.SignatureType_NONE,
@@ -1489,7 +1488,7 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 			Tagger: &gitalypb.CommitAuthor{
 				Name:     []byte("Dmitriy Zaporozhets"),
 				Email:    []byte("dmitriy.zaporozhets@gmail.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1393505709},
+				Date:     &timestamppb.Timestamp{Seconds: 1393505709},
 				Timezone: []byte("+0200"),
 			},
 		},
@@ -1502,7 +1501,7 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 			Tagger: &gitalypb.CommitAuthor{
 				Name:     []byte("Roger Meier"),
 				Email:    []byte("r.meier@siemens.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1574261780},
+				Date:     &timestamppb.Timestamp{Seconds: 1574261780},
 				Timezone: []byte("+0100"),
 			},
 			SignatureType: gitalypb.SignatureType_X509,
@@ -1515,7 +1514,7 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 			Tagger: &gitalypb.CommitAuthor{
 				Name:     []byte("Scrooge McDuck"),
 				Email:    []byte("scrooge@mcduck.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1572776879},
+				Date:     &timestamppb.Timestamp{Seconds: 1572776879},
 				Timezone: []byte("+0100"),
 			},
 		},
@@ -1547,7 +1546,7 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 			Tagger: &gitalypb.CommitAuthor{
 				Name:     []byte("Scrooge McDuck"),
 				Email:    []byte("scrooge@mcduck.com"),
-				Date:     &timestamp.Timestamp{Seconds: 1572776879},
+				Date:     &timestamppb.Timestamp{Seconds: 1572776879},
 				Timezone: []byte("+0100"),
 			},
 		},
@@ -1631,7 +1630,7 @@ func TestFindTagNestedTag(t *testing.T) {
 				Tagger: &gitalypb.CommitAuthor{
 					Name:     []byte("Scrooge McDuck"),
 					Email:    []byte("scrooge@mcduck.com"),
-					Date:     &timestamp.Timestamp{Seconds: 1572776879},
+					Date:     &timestamppb.Timestamp{Seconds: 1572776879},
 					Timezone: []byte("+0100"),
 				},
 			}

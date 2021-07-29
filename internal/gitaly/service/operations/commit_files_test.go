@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
@@ -989,13 +988,13 @@ func TestUserCommitFilesStableCommitID(t *testing.T) {
 		Author: &gitalypb.CommitAuthor{
 			Name:     []byte("Author Name"),
 			Email:    []byte("author.email@example.com"),
-			Date:     &timestamp.Timestamp{Seconds: 12345},
+			Date:     &timestamppb.Timestamp{Seconds: 12345},
 			Timezone: []byte(gittest.TimezoneOffset),
 		},
 		Committer: &gitalypb.CommitAuthor{
 			Name:     gittest.TestUser.Name,
 			Email:    gittest.TestUser.Email,
-			Date:     &timestamp.Timestamp{Seconds: 12345},
+			Date:     &timestamppb.Timestamp{Seconds: 12345},
 			Timezone: []byte(gittest.TimezoneOffset),
 		},
 	}, commit)

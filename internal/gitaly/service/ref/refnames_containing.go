@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // ListBranchNamesContainingCommit returns a maximum of in.GetLimit() Branch names
@@ -48,7 +48,7 @@ type branchNamesContainingCommitSender struct {
 
 func (bs *branchNamesContainingCommitSender) Reset() { bs.branchNames = nil }
 func (bs *branchNamesContainingCommitSender) Append(m proto.Message) {
-	bs.branchNames = append(bs.branchNames, stripPrefix(m.(*wrappers.StringValue).Value, "refs/heads/"))
+	bs.branchNames = append(bs.branchNames, stripPrefix(m.(*wrapperspb.StringValue).Value, "refs/heads/"))
 }
 
 func (bs *branchNamesContainingCommitSender) Send() error {
@@ -78,7 +78,7 @@ type tagNamesContainingCommitSender struct {
 
 func (ts *tagNamesContainingCommitSender) Reset() { ts.tagNames = nil }
 func (ts *tagNamesContainingCommitSender) Append(m proto.Message) {
-	ts.tagNames = append(ts.tagNames, stripPrefix(m.(*wrappers.StringValue).Value, "refs/tags/"))
+	ts.tagNames = append(ts.tagNames, stripPrefix(m.(*wrapperspb.StringValue).Value, "refs/tags/"))
 }
 
 func (ts *tagNamesContainingCommitSender) Send() error {

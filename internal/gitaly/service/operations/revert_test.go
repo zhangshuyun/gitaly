@@ -3,7 +3,6 @@ package operations
 import (
 	"testing"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
@@ -11,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestServer_UserRevert_successful(t *testing.T) {
@@ -188,7 +188,7 @@ func TestServer_UserRevert_stableID(t *testing.T) {
 		Commit:     commitToRevert,
 		BranchName: []byte("master"),
 		Message:    []byte("Reverting commit"),
-		Timestamp:  &timestamp.Timestamp{Seconds: 12345},
+		Timestamp:  &timestamppb.Timestamp{Seconds: 12345},
 	})
 	require.NoError(t, err)
 
@@ -213,13 +213,13 @@ func TestServer_UserRevert_stableID(t *testing.T) {
 		Author: &gitalypb.CommitAuthor{
 			Name:     []byte("Jane Doe"),
 			Email:    []byte("janedoe@gitlab.com"),
-			Date:     &timestamp.Timestamp{Seconds: 12345},
+			Date:     &timestamppb.Timestamp{Seconds: 12345},
 			Timezone: []byte(gittest.TimezoneOffset),
 		},
 		Committer: &gitalypb.CommitAuthor{
 			Name:     []byte("Jane Doe"),
 			Email:    []byte("janedoe@gitlab.com"),
-			Date:     &timestamp.Timestamp{Seconds: 12345},
+			Date:     &timestamppb.Timestamp{Seconds: 12345},
 			Timezone: []byte(gittest.TimezoneOffset),
 		},
 	}, revertedCommit)

@@ -3,12 +3,12 @@ package commit
 import (
 	"testing"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var rubyFilesCommit = []*gitalypb.GitCommit{
@@ -19,13 +19,13 @@ var rubyFilesCommit = []*gitalypb.GitCommit{
 		Author: &gitalypb.CommitAuthor{
 			Name:     []byte("Dmitriy Zaporozhets"),
 			Email:    []byte("dmitriy.zaporozhets@gmail.com"),
-			Date:     &timestamp.Timestamp{Seconds: 1393488896},
+			Date:     &timestamppb.Timestamp{Seconds: 1393488896},
 			Timezone: []byte("+0200"),
 		},
 		Committer: &gitalypb.CommitAuthor{
 			Name:     []byte("Dmitriy Zaporozhets"),
 			Email:    []byte("dmitriy.zaporozhets@gmail.com"),
-			Date:     &timestamp.Timestamp{Seconds: 1393488896},
+			Date:     &timestamppb.Timestamp{Seconds: 1393488896},
 			Timezone: []byte("+0200"),
 		},
 		ParentIds:     []string{"cfe32cf61b73a0d5e9f13e774abde7ff789b1660"},

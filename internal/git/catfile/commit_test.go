@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -78,7 +77,7 @@ func TestParseCommit(t *testing.T) {
 				Author: &gitalypb.CommitAuthor{
 					Name:     []byte("Jane Doe"),
 					Email:    []byte("janedoe@example.com"),
-					Date:     &timestamp.Timestamp{Seconds: 9223371974719179007},
+					Date:     &timestamppb.Timestamp{Seconds: 9223371974719179007},
 					Timezone: []byte("+0200"),
 				},
 			},
@@ -91,7 +90,7 @@ func TestParseCommit(t *testing.T) {
 				Author: &gitalypb.CommitAuthor{
 					Name:     []byte("Jane Doe"),
 					Email:    []byte("janedoe@example.com"),
-					Date:     &timestamp.Timestamp{Seconds: 9223371974719179007},
+					Date:     &timestamppb.Timestamp{Seconds: 9223371974719179007},
 					Timezone: []byte("+0200"),
 				},
 			},

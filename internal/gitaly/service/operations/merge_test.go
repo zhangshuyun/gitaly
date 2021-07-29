@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
@@ -22,6 +21,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
@@ -133,7 +133,7 @@ func TestSuccessfulMerge_stableMergeIDs(t *testing.T) {
 		CommitId:   commitToMerge,
 		Branch:     []byte(mergeBranchName),
 		Message:    []byte("Merged by Gitaly"),
-		Timestamp:  &timestamp.Timestamp{Seconds: 12, Nanos: 34},
+		Timestamp:  &timestamppb.Timestamp{Seconds: 12, Nanos: 34},
 	}
 
 	// Because the timestamp is
@@ -170,14 +170,14 @@ func TestSuccessfulMerge_stableMergeIDs(t *testing.T) {
 			Name:  gittest.TestUser.Name,
 			Email: gittest.TestUser.Email,
 			// Nanoseconds get ignored because commit timestamps aren't that granular.
-			Date:     &timestamp.Timestamp{Seconds: 12},
+			Date:     &timestamppb.Timestamp{Seconds: 12},
 			Timezone: []byte(gittest.TimezoneOffset),
 		},
 		Committer: &gitalypb.CommitAuthor{
 			Name:  gittest.TestUser.Name,
 			Email: gittest.TestUser.Email,
 			// Nanoseconds get ignored because commit timestamps aren't that granular.
-			Date:     &timestamp.Timestamp{Seconds: 12},
+			Date:     &timestamppb.Timestamp{Seconds: 12},
 			Timezone: []byte(gittest.TimezoneOffset),
 		},
 	})
@@ -862,7 +862,7 @@ func TestUserMergeToRef_stableMergeID(t *testing.T) {
 		TargetRef:      []byte("refs/merge-requests/x/written"),
 		SourceSha:      "1450cd639e0bc6721eb02800169e464f212cde06",
 		Message:        []byte("Merge message"),
-		Timestamp:      &timestamp.Timestamp{Seconds: 12, Nanos: 34},
+		Timestamp:      &timestamppb.Timestamp{Seconds: 12, Nanos: 34},
 	})
 	require.NoError(t, err)
 	require.Equal(t, "c7b65194ce2da804557582408ab94713983d0b70", response.CommitId)
@@ -883,14 +883,14 @@ func TestUserMergeToRef_stableMergeID(t *testing.T) {
 			Name:  gittest.TestUser.Name,
 			Email: gittest.TestUser.Email,
 			// Nanoseconds get ignored because commit timestamps aren't that granular.
-			Date:     &timestamp.Timestamp{Seconds: 12},
+			Date:     &timestamppb.Timestamp{Seconds: 12},
 			Timezone: []byte(gittest.TimezoneOffset),
 		},
 		Committer: &gitalypb.CommitAuthor{
 			Name:  gittest.TestUser.Name,
 			Email: gittest.TestUser.Email,
 			// Nanoseconds get ignored because commit timestamps aren't that granular.
-			Date:     &timestamp.Timestamp{Seconds: 12},
+			Date:     &timestamppb.Timestamp{Seconds: 12},
 			Timezone: []byte(gittest.TimezoneOffset),
 		},
 	}, commit)

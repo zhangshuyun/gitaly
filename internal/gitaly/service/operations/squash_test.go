@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
@@ -21,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
@@ -108,7 +108,7 @@ func testUserSquashStableID(t *testing.T, ctx context.Context) {
 		CommitMessage: []byte("Squashed commit"),
 		StartSha:      startSha,
 		EndSha:        endSha,
-		Timestamp:     &timestamp.Timestamp{Seconds: 1234512345},
+		Timestamp:     &timestamppb.Timestamp{Seconds: 1234512345},
 	})
 	require.NoError(t, err)
 	require.Empty(t, response.GetGitError())
@@ -127,13 +127,13 @@ func testUserSquashStableID(t *testing.T, ctx context.Context) {
 		Author: &gitalypb.CommitAuthor{
 			Name:     author.Name,
 			Email:    author.Email,
-			Date:     &timestamp.Timestamp{Seconds: 1234512345},
+			Date:     &timestamppb.Timestamp{Seconds: 1234512345},
 			Timezone: []byte(gittest.TimezoneOffset),
 		},
 		Committer: &gitalypb.CommitAuthor{
 			Name:     gittest.TestUser.Name,
 			Email:    gittest.TestUser.Email,
-			Date:     &timestamp.Timestamp{Seconds: 1234512345},
+			Date:     &timestamppb.Timestamp{Seconds: 1234512345},
 			Timezone: []byte(gittest.TimezoneOffset),
 		},
 	}, commit)
@@ -489,7 +489,7 @@ func TestUserSquash_ancestry(t *testing.T) {
 		CommitMessage: commitMessage,
 		StartSha:      commit1.String(),
 		EndSha:        commit2.String(),
-		Timestamp:     &timestamp.Timestamp{Seconds: 1234512345},
+		Timestamp:     &timestamppb.Timestamp{Seconds: 1234512345},
 	})
 
 	require.Nil(t, err)

@@ -3,9 +3,9 @@ package ref
 import (
 	"testing"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestBuildLocalBranch(t *testing.T) {
@@ -23,13 +23,13 @@ func TestBuildLocalBranch(t *testing.T) {
 				Author: &gitalypb.CommitAuthor{
 					Name:     []byte("Job van der Voort"),
 					Email:    []byte("job@gitlab.com"),
-					Date:     &timestamp.Timestamp{Seconds: 1474987066},
+					Date:     &timestamppb.Timestamp{Seconds: 1474987066},
 					Timezone: []byte("+0200"),
 				},
 				Committer: &gitalypb.CommitAuthor{
 					Name:     []byte("Job van der Voort"),
 					Email:    []byte("job@gitlab.com"),
-					Date:     &timestamp.Timestamp{Seconds: 1474987066},
+					Date:     &timestamppb.Timestamp{Seconds: 1474987066},
 					Timezone: []byte("+0200"),
 				},
 				ParentIds: []string{
@@ -45,13 +45,13 @@ func TestBuildLocalBranch(t *testing.T) {
 				CommitAuthor: &gitalypb.FindLocalBranchCommitAuthor{
 					Name:     []byte("Job van der Voort"),
 					Email:    []byte("job@gitlab.com"),
-					Date:     &timestamp.Timestamp{Seconds: 1474987066},
+					Date:     &timestamppb.Timestamp{Seconds: 1474987066},
 					Timezone: []byte("+0200"),
 				},
 				CommitCommitter: &gitalypb.FindLocalBranchCommitAuthor{
 					Name:     []byte("Job van der Voort"),
 					Email:    []byte("job@gitlab.com"),
-					Date:     &timestamp.Timestamp{Seconds: 1474987066},
+					Date:     &timestamppb.Timestamp{Seconds: 1474987066},
 					Timezone: []byte("+0200"),
 				},
 				Commit: &gitalypb.GitCommit{
@@ -61,13 +61,13 @@ func TestBuildLocalBranch(t *testing.T) {
 					Author: &gitalypb.CommitAuthor{
 						Name:     []byte("Job van der Voort"),
 						Email:    []byte("job@gitlab.com"),
-						Date:     &timestamp.Timestamp{Seconds: 1474987066},
+						Date:     &timestamppb.Timestamp{Seconds: 1474987066},
 						Timezone: []byte("+0200"),
 					},
 					Committer: &gitalypb.CommitAuthor{
 						Name:     []byte("Job van der Voort"),
 						Email:    []byte("job@gitlab.com"),
-						Date:     &timestamp.Timestamp{Seconds: 1474987066},
+						Date:     &timestamppb.Timestamp{Seconds: 1474987066},
 						Timezone: []byte("+0200"),
 					},
 					ParentIds: []string{"1b12f15a11fc6e62177bef08f47bc7b5ce50b141", "498214de67004b1da3d820901307bed2a68a8ef6"},
@@ -84,7 +84,7 @@ func TestBuildLocalBranch(t *testing.T) {
 				Committer: &gitalypb.CommitAuthor{
 					Name:     []byte("Job van der Voort"),
 					Email:    []byte("job@gitlab.com"),
-					Date:     &timestamp.Timestamp{Seconds: 1474987066},
+					Date:     &timestamppb.Timestamp{Seconds: 1474987066},
 					Timezone: []byte("+0200"),
 				},
 				ParentIds: []string{
@@ -101,7 +101,7 @@ func TestBuildLocalBranch(t *testing.T) {
 				CommitCommitter: &gitalypb.FindLocalBranchCommitAuthor{
 					Name:     []byte("Job van der Voort"),
 					Email:    []byte("job@gitlab.com"),
-					Date:     &timestamp.Timestamp{Seconds: 1474987066},
+					Date:     &timestamppb.Timestamp{Seconds: 1474987066},
 					Timezone: []byte("+0200"),
 				},
 				Commit: &gitalypb.GitCommit{
@@ -111,7 +111,7 @@ func TestBuildLocalBranch(t *testing.T) {
 					Committer: &gitalypb.CommitAuthor{
 						Name:     []byte("Job van der Voort"),
 						Email:    []byte("job@gitlab.com"),
-						Date:     &timestamp.Timestamp{Seconds: 1474987066},
+						Date:     &timestamppb.Timestamp{Seconds: 1474987066},
 						Timezone: []byte("+0200"),
 					},
 					ParentIds: []string{"1b12f15a11fc6e62177bef08f47bc7b5ce50b141", "498214de67004b1da3d820901307bed2a68a8ef6"},
@@ -128,7 +128,7 @@ func TestBuildLocalBranch(t *testing.T) {
 				Author: &gitalypb.CommitAuthor{
 					Name:     []byte("Job van der Voort"),
 					Email:    []byte("job@gitlab.com"),
-					Date:     &timestamp.Timestamp{Seconds: 1474987066},
+					Date:     &timestamppb.Timestamp{Seconds: 1474987066},
 					Timezone: []byte("+0200"),
 				},
 				ParentIds: []string{
@@ -144,7 +144,7 @@ func TestBuildLocalBranch(t *testing.T) {
 				CommitAuthor: &gitalypb.FindLocalBranchCommitAuthor{
 					Name:     []byte("Job van der Voort"),
 					Email:    []byte("job@gitlab.com"),
-					Date:     &timestamp.Timestamp{Seconds: 1474987066},
+					Date:     &timestamppb.Timestamp{Seconds: 1474987066},
 					Timezone: []byte("+0200"),
 				},
 				CommitCommitter: nil,
@@ -155,7 +155,7 @@ func TestBuildLocalBranch(t *testing.T) {
 					Author: &gitalypb.CommitAuthor{
 						Name:     []byte("Job van der Voort"),
 						Email:    []byte("job@gitlab.com"),
-						Date:     &timestamp.Timestamp{Seconds: 1474987066},
+						Date:     &timestamppb.Timestamp{Seconds: 1474987066},
 						Timezone: []byte("+0200"),
 					},
 					ParentIds: []string{"1b12f15a11fc6e62177bef08f47bc7b5ce50b141", "498214de67004b1da3d820901307bed2a68a8ef6"},

@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
@@ -20,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func setupRepo(t *testing.T, bare bool) (*Repo, string) {
@@ -325,7 +325,7 @@ func TestRepo_ReadCommit(t *testing.T) {
 				Author: &gitalypb.CommitAuthor{
 					Name:  []byte("Drew Blessing"),
 					Email: []byte("drew@blessing.io"),
-					Date: &timestamp.Timestamp{
+					Date: &timestamppb.Timestamp{
 						Seconds: 1540830087,
 					},
 					Timezone: []byte("+0000"),
@@ -333,7 +333,7 @@ func TestRepo_ReadCommit(t *testing.T) {
 				Committer: &gitalypb.CommitAuthor{
 					Name:  []byte("Drew Blessing"),
 					Email: []byte("drew@blessing.io"),
-					Date: &timestamp.Timestamp{
+					Date: &timestamppb.Timestamp{
 						Seconds: 1540830087,
 					},
 					Timezone: []byte("+0000"),
@@ -355,7 +355,7 @@ func TestRepo_ReadCommit(t *testing.T) {
 				Author: &gitalypb.CommitAuthor{
 					Name:  []byte("Dmitriy Zaporozhets"),
 					Email: []byte("dmitriy.zaporozhets@gmail.com"),
-					Date: &timestamp.Timestamp{
+					Date: &timestamppb.Timestamp{
 						Seconds: 1393491698,
 					},
 					Timezone: []byte("+0200"),
@@ -363,7 +363,7 @@ func TestRepo_ReadCommit(t *testing.T) {
 				Committer: &gitalypb.CommitAuthor{
 					Name:  []byte("Dmitriy Zaporozhets"),
 					Email: []byte("dmitriy.zaporozhets@gmail.com"),
-					Date: &timestamp.Timestamp{
+					Date: &timestamppb.Timestamp{
 						Seconds: 1393491698,
 					},
 					Timezone: []byte("+0200"),
@@ -387,7 +387,7 @@ func TestRepo_ReadCommit(t *testing.T) {
 				Author: &gitalypb.CommitAuthor{
 					Name:  []byte("Dmitriy Zaporozhets"),
 					Email: []byte("dmitriy.zaporozhets@gmail.com"),
-					Date: &timestamp.Timestamp{
+					Date: &timestamppb.Timestamp{
 						Seconds: 1393491698,
 					},
 					Timezone: []byte("+0200"),
@@ -395,7 +395,7 @@ func TestRepo_ReadCommit(t *testing.T) {
 				Committer: &gitalypb.CommitAuthor{
 					Name:  []byte("Dmitriy Zaporozhets"),
 					Email: []byte("dmitriy.zaporozhets@gmail.com"),
-					Date: &timestamp.Timestamp{
+					Date: &timestamppb.Timestamp{
 						Seconds: 1393491698,
 					},
 					Timezone: []byte("+0200"),

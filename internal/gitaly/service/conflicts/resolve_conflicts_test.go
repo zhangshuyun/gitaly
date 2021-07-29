@@ -13,7 +13,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
@@ -26,6 +25,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
@@ -578,7 +578,7 @@ func testResolveConflictsStableID(t *testing.T, ctx context.Context) {
 				SourceBranch:     []byte("conflict-resolvable"),
 				TargetBranch:     []byte("conflict-start"),
 				User:             user,
-				Timestamp:        &timestamp.Timestamp{Seconds: 12345},
+				Timestamp:        &timestamppb.Timestamp{Seconds: 12345},
 			},
 		},
 	}))
@@ -610,13 +610,13 @@ func testResolveConflictsStableID(t *testing.T, ctx context.Context) {
 		Author: &gitalypb.CommitAuthor{
 			Name:     user.Name,
 			Email:    user.Email,
-			Date:     &timestamp.Timestamp{Seconds: 12345},
+			Date:     &timestamppb.Timestamp{Seconds: 12345},
 			Timezone: []byte("+0000"),
 		},
 		Committer: &gitalypb.CommitAuthor{
 			Name:     user.Name,
 			Email:    user.Email,
-			Date:     &timestamp.Timestamp{Seconds: 12345},
+			Date:     &timestamppb.Timestamp{Seconds: 12345},
 			Timezone: []byte("+0000"),
 		},
 	}, resolvedCommit)
@@ -920,7 +920,7 @@ func testResolveConflictsQuarantine(t *testing.T, ctx context.Context) {
 				SourceBranch:     []byte("source"),
 				TargetBranch:     []byte("target"),
 				User:             user,
-				Timestamp:        &timestamp.Timestamp{Seconds: 12345},
+				Timestamp:        &timestamppb.Timestamp{Seconds: 12345},
 			},
 		},
 	}))

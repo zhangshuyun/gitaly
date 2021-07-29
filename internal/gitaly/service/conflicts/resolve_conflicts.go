@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/conflict"
@@ -176,10 +175,7 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 
 	authorDate := time.Now()
 	if header.Timestamp != nil {
-		authorDate, err = ptypes.Timestamp(header.Timestamp)
-		if err != nil {
-			return helper.ErrInvalidArgument(err)
-		}
+		authorDate = header.Timestamp.AsTime()
 	}
 
 	if git.ValidateObjectID(header.GetOurCommitOid()) != nil ||

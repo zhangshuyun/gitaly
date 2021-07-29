@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
@@ -874,7 +873,7 @@ func TestUserCreateTagStableTagIDs(t *testing.T) {
 		TargetRevision: []byte("dfaa3f97ca337e20154a98ac9d0be76ddd1fcc82"),
 		Message:        []byte("my message"),
 		User:           gittest.TestUser,
-		Timestamp:      &timestamp.Timestamp{Seconds: 12345},
+		Timestamp:      &timestamppb.Timestamp{Seconds: 12345},
 	})
 	require.NoError(t, err)
 

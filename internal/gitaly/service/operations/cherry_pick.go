@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
@@ -44,10 +43,7 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 
 	committerDate := time.Now()
 	if req.Timestamp != nil {
-		committerDate, err = ptypes.Timestamp(req.Timestamp)
-		if err != nil {
-			return nil, err
-		}
+		committerDate = req.Timestamp.AsTime()
 	}
 
 	newrev, err := s.git2go.CherryPick(ctx, localRepo, git2go.CherryPickCommand{
