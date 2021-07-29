@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/git2goutil"
 	cmdtesthelper "gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/testhelper"
+	gitalygit "gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
@@ -60,6 +61,16 @@ func TestRebase_validation(t *testing.T) {
 			desc:        "missing upstream branch",
 			request:     git2go.RebaseCommand{Repository: repoPath, Committer: committer, BranchName: "feature"},
 			expectedErr: "rebase: missing upstream revision",
+		},
+		{
+			desc:        "both branch name and commit ID",
+			request:     git2go.RebaseCommand{Repository: repoPath, Committer: committer, BranchName: "feature", CommitID: "a"},
+			expectedErr: "rebase: both branch name and commit ID",
+		},
+		{
+			desc:        "both upstream revision and upstream commit ID",
+			request:     git2go.RebaseCommand{Repository: repoPath, Committer: committer, BranchName: "feature", UpstreamRevision: "a", UpstreamCommitID: "a"},
+			expectedErr: "rebase: both upstream revision and upstream commit ID",
 		},
 	}
 	for _, tc := range testcases {
@@ -176,31 +187,56 @@ func TestRebase_rebase(t *testing.T) {
 				tc.setupRepo(t, repo)
 			}
 
-			request := git2go.RebaseCommand{
-				Repository:       repoPath,
-				Committer:        committer,
-				BranchName:       tc.branch,
-				UpstreamRevision: masterRevision,
-			}
+			branchCommit, err := lookupCommit(repo, tc.branch)
+			require.NoError(t, err)
 
-			response, err := executor.Rebase(ctx, repoProto, request)
-			if tc.expectedErr != "" {
-				require.EqualError(t, err, tc.expectedErr)
-			} else {
-				require.NoError(t, err)
+			for desc, request := range map[string]git2go.RebaseCommand{
+				"with branch and upstream": {
+					Repository:       repoPath,
+					Committer:        committer,
+					BranchName:       tc.branch,
+					UpstreamRevision: masterRevision,
+				},
+				"with branch and upstream commit ID": {
+					Repository:       repoPath,
+					Committer:        committer,
+					BranchName:       tc.branch,
+					UpstreamCommitID: gitalygit.ObjectID(masterRevision),
+				},
+				"with commit ID and upstream": {
+					Repository:       repoPath,
+					Committer:        committer,
+					BranchName:       tc.branch,
+					UpstreamRevision: masterRevision,
+				},
+				"with commit ID and upstream commit ID": {
+					Repository:       repoPath,
+					Committer:        committer,
+					CommitID:         gitalygit.ObjectID(branchCommit.Id().String()),
+					UpstreamCommitID: gitalygit.ObjectID(masterRevision),
+				},
+			} {
+				t.Run(desc, func(t *testing.T) {
+					response, err := executor.Rebase(ctx, repoProto, request)
+					if tc.expectedErr != "" {
+						require.EqualError(t, err, tc.expectedErr)
+					} else {
+						require.NoError(t, err)
 
-				result := response.String()
-				require.Equal(t, tc.expected, result)
+						result := response.String()
+						require.Equal(t, tc.expected, result)
 
-				commit, err := lookupCommit(repo, result)
-				require.NoError(t, err)
+						commit, err := lookupCommit(repo, result)
+						require.NoError(t, err)
 
-				for i := tc.commitsAhead; i > 0; i-- {
-					commit = commit.Parent(0)
-				}
-				masterCommit, err := lookupCommit(repo, masterRevision)
-				require.NoError(t, err)
-				require.Equal(t, masterCommit, commit)
+						for i := tc.commitsAhead; i > 0; i-- {
+							commit = commit.Parent(0)
+						}
+						masterCommit, err := lookupCommit(repo, masterRevision)
+						require.NoError(t, err)
+						require.Equal(t, masterCommit, commit)
+					}
+				})
 			}
 		})
 	}

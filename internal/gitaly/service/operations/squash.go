@@ -16,22 +16,22 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/alternates"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 const (
 	squashWorktreePrefix  = "squash"
 	gitlabWorktreesSubDir = "gitlab-worktree"
+	ambiguousArgumentFmt  = "fatal: ambiguous argument '%s...%s': unknown revision or path not in the working tree.\nUse '--' to separate paths from revisions, like this:\n'git <command> [<revision>...] -- [<file>...]'\n"
 )
 
 func (s *Server) UserSquash(ctx context.Context, req *gitalypb.UserSquashRequest) (*gitalypb.UserSquashResponse, error) {
 	if err := validateUserSquashRequest(req); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "UserSquash: %v", err)
+		return nil, helper.ErrInvalidArgumentf("UserSquash: %v", err)
 	}
 
 	if strings.Contains(req.GetSquashId(), "/") {
@@ -64,31 +64,47 @@ func (s *Server) UserSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 
 func validateUserSquashRequest(req *gitalypb.UserSquashRequest) error {
 	if req.GetRepository() == nil {
-		return fmt.Errorf("empty Repository")
+		return errors.New("empty Repository")
 	}
 
 	if req.GetUser() == nil {
-		return fmt.Errorf("empty User")
+		return errors.New("empty User")
+	}
+
+	if len(req.GetUser().GetName()) == 0 {
+		return errors.New("empty user name")
+	}
+
+	if len(req.GetUser().GetEmail()) == 0 {
+		return errors.New("empty user email")
 	}
 
 	if req.GetSquashId() == "" {
-		return fmt.Errorf("empty SquashId")
+		return errors.New("empty SquashId")
 	}
 
 	if req.GetStartSha() == "" {
-		return fmt.Errorf("empty StartSha")
+		return errors.New("empty StartSha")
 	}
 
 	if req.GetEndSha() == "" {
-		return fmt.Errorf("empty EndSha")
+		return errors.New("empty EndSha")
 	}
 
 	if len(req.GetCommitMessage()) == 0 {
-		return fmt.Errorf("empty CommitMessage")
+		return errors.New("empty CommitMessage")
 	}
 
 	if req.GetAuthor() == nil {
-		return fmt.Errorf("empty Author")
+		return errors.New("empty Author")
+	}
+
+	if len(req.GetAuthor().GetName()) == 0 {
+		return errors.New("empty author name")
+	}
+
+	if len(req.GetAuthor().GetEmail()) == 0 {
+		return errors.New("empty auithor email")
 	}
 
 	return nil
@@ -106,22 +122,12 @@ func (er gitError) Error() string {
 }
 
 func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest, env []string, repoPath string) (string, error) {
-	// In case there is an error, we silently ignore it and assume that the commits do not have
-	// a simple parent-child relationship. Ignoring this error is fine igven that we then fall
-	// back to doing a squash with a worktree.
-	err := s.localrepo(req.GetRepository()).ExecAndWait(ctx, git.SubCmd{
-		Name: "merge-base",
-		Flags: []git.Option{
-			git.Flag{Name: "--is-ancestor"},
-		},
-		Args: []string{
-			req.GetStartSha(),
-			req.GetEndSha(),
-		},
-	})
-
-	if err == nil && featureflag.UserSquashWithoutWorktree.IsEnabled(ctx) {
+	if featureflag.UserSquashWithoutWorktree.IsEnabled(ctx) {
 		repo := s.localrepo(req.GetRepository())
+		repoPath, err := s.locator.GetRepoPath(repo)
+		if err != nil {
+			return "", helper.ErrInternalf("cannot resolve repo path: %w", err)
+		}
 
 		// We need to retrieve the start commit such that we can create the new commit with
 		// all parents of the start commit.
@@ -131,24 +137,43 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 				// This error is simply for backwards compatibility. We should just
 				// return the plain error eventually.
 				Err:    err,
-				ErrMsg: fmt.Sprintf("fatal: ambiguous argument '%s...%s'", req.GetStartSha(), req.GetEndSha()),
+				ErrMsg: fmt.Sprintf(ambiguousArgumentFmt, req.GetStartSha(), req.GetEndSha()),
 			})
 		}
 
 		// And we need to take the tree of the end commit. This tree already is the result
-		treeID, err := repo.ResolveRevision(ctx, git.Revision(req.GetEndSha()+"^{tree}"))
+		endCommit, err := repo.ResolveRevision(ctx, git.Revision(req.GetEndSha()+"^{commit}"))
 		if err != nil {
 			return "", fmt.Errorf("cannot resolve end commit's tree: %w", gitError{
 				// This error is simply for backwards compatibility. We should just
 				// return the plain error eventually.
 				Err:    err,
-				ErrMsg: fmt.Sprintf("fatal: ambiguous argument '%s...%s'", req.GetStartSha(), req.GetEndSha()),
+				ErrMsg: fmt.Sprintf(ambiguousArgumentFmt, req.GetStartSha(), req.GetEndSha()),
 			})
 		}
 
 		commitDate, err := dateFromProto(req)
 		if err != nil {
 			return "", helper.ErrInvalidArgument(err)
+		}
+
+		// We're now rebasing the end commit on top of the start commit. The resulting tree
+		// is then going to be the tree of the squashed commit.
+		rebasedCommitID, err := s.git2go.Rebase(ctx, repo, git2go.RebaseCommand{
+			Repository: repoPath,
+			Committer: git2go.NewSignature(
+				string(req.GetUser().Name), string(req.GetUser().Email), commitDate,
+			),
+			CommitID:         endCommit,
+			UpstreamCommitID: startCommit,
+		})
+		if err != nil {
+			return "", fmt.Errorf("rebasing end onto start commit: %w", err)
+		}
+
+		treeID, err := repo.ResolveRevision(ctx, rebasedCommitID.Revision()+"^{tree}")
+		if err != nil {
+			return "", fmt.Errorf("cannot resolve rebased tree: %w", err)
 		}
 
 		commitEnv := []string{
