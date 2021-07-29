@@ -212,7 +212,7 @@ func TestRepo_WriteTag(t *testing.T) {
 				Name:  []byte("root"),
 				Email: []byte("root@localhost"),
 			},
-			authorDate: time.Unix(12345, 0),
+			authorDate: time.Unix(12345, 0).UTC(),
 			expectedTag: `object c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd
 type commit
 tag tag-with-timestamp
