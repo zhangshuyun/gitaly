@@ -206,7 +206,18 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 
 			// set up the generations prior to transaction
 			rs := datastore.NewPostgresRepositoryStore(getDB(t), conf.StorageNames())
+
+			repoCreated := false
 			for i, n := range tc.nodes {
+				if n.generation == datastore.GenerationUnknown {
+					continue
+				}
+
+				if !repoCreated {
+					repoCreated = true
+					require.NoError(t, rs.CreateRepository(ctx, repo.StorageName, repo.RelativePath, storageNodes[i].Storage, nil, nil, false, false))
+				}
+
 				require.NoError(t, rs.SetGeneration(ctx, repo.StorageName, repo.RelativePath, storageNodes[i].Storage, n.generation))
 			}
 
