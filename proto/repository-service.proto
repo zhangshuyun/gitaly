@@ -115,11 +115,21 @@ service RepositoryService {
       op: MUTATOR
     };
   }
+
+  // CreateBundle creates a bundle from all refs
   rpc CreateBundle(CreateBundleRequest) returns (stream CreateBundleResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // CreateBundleFromRefList creates a bundle from a stream of ref patterns
+  rpc CreateBundleFromRefList(stream CreateBundleFromRefListRequest) returns (stream CreateBundleFromRefListResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
+
   rpc CreateRepositoryFromBundle(stream CreateRepositoryFromBundleRequest) returns (CreateRepositoryFromBundleResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -498,6 +508,15 @@ message CreateBundleRequest {
 }
 
 message CreateBundleResponse {
+  bytes data = 1;
+}
+
+message CreateBundleFromRefListRequest {
+  Repository repository = 1 [(target_repository)=true];
+  string pattern = 2;
+}
+
+message CreateBundleFromRefListResponse {
   bytes data = 1;
 }
 
