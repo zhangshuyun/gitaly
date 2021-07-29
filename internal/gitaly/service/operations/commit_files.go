@@ -17,20 +17,11 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitalyssh"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
-
-func errorWithStderr(err error, stderr *bytes.Buffer) error {
-	if stderr.Len() == 0 {
-		return fmt.Errorf("%w", err)
-	}
-
-	return fmt.Errorf("%w, stderr: %q", err, stderr)
-}
 
 // UserCommitFiles allows for committing from a set of actions. See the protobuf documentation
 // for details.
@@ -411,39 +402,14 @@ func (s *Server) fetchMissingCommit(
 			return fmt.Errorf("lookup parent commit: %w", err)
 		}
 
-		if err := s.fetchRemoteObject(ctx, localRepo, remoteRepo, commit); err != nil {
+		if err := localRepo.FetchInternal(
+			ctx,
+			remoteRepo,
+			[]string{commit.String()},
+			localrepo.FetchOpts{Tags: localrepo.FetchOptsTagsNone},
+		); err != nil {
 			return fmt.Errorf("fetch parent commit: %w", err)
 		}
-	}
-
-	return nil
-}
-
-func (s *Server) fetchRemoteObject(
-	ctx context.Context,
-	localRepo *localrepo.Repo,
-	remoteRepo *gitalypb.Repository,
-	oid git.ObjectID,
-) error {
-	env, err := gitalyssh.UploadPackEnv(ctx, s.cfg, &gitalypb.SSHUploadPackRequest{
-		Repository:       remoteRepo,
-		GitConfigOptions: []string{"uploadpack.allowAnySHA1InWant=true"},
-	})
-	if err != nil {
-		return fmt.Errorf("upload pack env: %w", err)
-	}
-
-	stderr := &bytes.Buffer{}
-	if err := localRepo.ExecAndWait(ctx, git.SubCmd{
-		Name:  "fetch",
-		Flags: []git.Option{git.Flag{Name: "--no-tags"}},
-		Args:  []string{"ssh://gitaly/internal.git", oid.String()},
-	},
-		git.WithEnv(env...),
-		git.WithStderr(stderr),
-		git.WithRefTxHook(ctx, localRepo, s.cfg),
-	); err != nil {
-		return errorWithStderr(err, stderr)
 	}
 
 	return nil

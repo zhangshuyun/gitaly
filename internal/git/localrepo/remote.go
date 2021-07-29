@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitalyssh"
+	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
 // Remote provides functionality of the 'remote' git sub-command.
@@ -259,6 +261,52 @@ func (repo *Repo) FetchRemote(ctx context.Context, remoteName string, opts Fetch
 	}
 
 	if err := cmd.Wait(); err != nil {
+		return ErrFetchFailed{errorWithStderr(err, stderr.Bytes())}
+	}
+
+	return nil
+}
+
+// FetchInternal performs a fetch from an internal Gitaly-hosted repository. Returns an
+// ErrFetchFailed error in case git-fetch(1) failed.
+func (repo *Repo) FetchInternal(
+	ctx context.Context,
+	remoteRepo *gitalypb.Repository,
+	refspecs []string,
+	opts FetchOpts,
+) error {
+	if len(refspecs) == 0 {
+		return fmt.Errorf("fetch internal called without refspecs")
+	}
+
+	env, err := gitalyssh.UploadPackEnv(ctx, repo.cfg, &gitalypb.SSHUploadPackRequest{
+		Repository:       remoteRepo,
+		GitConfigOptions: []string{"uploadpack.allowAnySHA1InWant=true"},
+	})
+	if err != nil {
+		return fmt.Errorf("fetch internal: %w", err)
+	}
+
+	var stderr bytes.Buffer
+	if opts.Stderr == nil {
+		opts.Stderr = &stderr
+	}
+
+	commandOptions := []git.CmdOpt{
+		git.WithEnv(append(env, opts.Env...)...),
+		git.WithStderr(opts.Stderr),
+		git.WithRefTxHook(ctx, repo, repo.cfg),
+	}
+	commandOptions = append(commandOptions, opts.CommandOptions...)
+
+	if err := repo.ExecAndWait(ctx,
+		git.SubCmd{
+			Name:  "fetch",
+			Flags: opts.buildFlags(),
+			Args:  append([]string{gitalyssh.GitalyInternalURL}, refspecs...),
+		},
+		commandOptions...,
+	); err != nil {
 		return ErrFetchFailed{errorWithStderr(err, stderr.Bytes())}
 	}
 
