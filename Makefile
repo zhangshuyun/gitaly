@@ -240,7 +240,7 @@ build: ${SOURCE_DIR}/.ruby-bundle libgit2
 	# We use version suffix for the gitaly-git2go binary to support compatibility contract between
 	# gitaly and gitaly-git2go during upgrade deployment.
 	# For more information refer to https://gitlab.com/gitlab-org/gitaly/-/issues/3647#note_599082033
-	cp ${BUILD_DIR}/bin/gitaly-git2go "${BUILD_DIR}/bin/gitaly-git2go-${MODULE_VERSION}"
+	mv ${BUILD_DIR}/bin/gitaly-git2go "${BUILD_DIR}/bin/gitaly-git2go-${MODULE_VERSION}"
 
 .PHONY: install
 ## Install Gitaly binaries. The target directory can be modified by setting PREFIX and DESTDIR.
