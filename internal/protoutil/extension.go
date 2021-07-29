@@ -4,9 +4,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/runtime/protoimpl"
 )
 
 // GetOpExtension gets the OperationMsg from a method descriptor
@@ -44,28 +46,23 @@ func GetAdditionalRepositoryExtension(m *descriptor.FieldDescriptorProto) (bool,
 	return getBoolExtension(m.GetOptions(), gitalypb.E_AdditionalRepository)
 }
 
-func getBoolExtension(options proto.Message, extension *proto.ExtensionDesc) (bool, error) {
+func getBoolExtension(options proto.Message, extension *protoimpl.ExtensionInfo) (bool, error) {
 	val, err := getExtension(options, extension)
 	if err != nil {
-		if errors.Is(err, proto.ErrMissingExtension) {
+		if errors.Is(err, protoregistry.NotFound) {
 			return false, nil
 		}
 
 		return false, err
 	}
 
-	return *val.(*bool), nil
+	return val.(bool), nil
 }
 
-func getExtension(options proto.Message, extension *proto.ExtensionDesc) (interface{}, error) {
+func getExtension(options proto.Message, extension *protoimpl.ExtensionInfo) (interface{}, error) {
 	if !proto.HasExtension(options, extension) {
-		return nil, fmt.Errorf("protoutil.getExtension %q: %w", extension.TypeDescriptor().FullName(), proto.ErrMissingExtension)
+		return nil, fmt.Errorf("protoutil.getExtension %q: %w", extension.TypeDescriptor().FullName(), protoregistry.NotFound)
 	}
 
-	ext, err := proto.GetExtension(options, extension)
-	if err != nil {
-		return nil, fmt.Errorf("protoutil.getExtension %q: %w", extension.TypeDescriptor().FullName(), err)
-	}
-
-	return ext, nil
+	return proto.GetExtension(options, extension), nil
 }

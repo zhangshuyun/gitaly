@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/golang/protobuf/proto"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/cleanup/internalrefs"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/cleanup/notifier"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
+	"google.golang.org/protobuf/proto"
 )
 
 type bfgStreamReader struct {

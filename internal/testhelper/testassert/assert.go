@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -16,7 +17,7 @@ import (
 // work.
 func ProtoEqual(t testing.TB, expected, actual interface{}) {
 	t.Helper()
-	require.Empty(t, cmp.Diff(expected, actual, protocmp.Transform()))
+	require.Empty(t, cmp.Diff(expected, actual, protocmp.Transform(), cmpopts.EquateErrors()))
 }
 
 // GrpcEqualErr asserts that expected and actual gRPC errors are equal.

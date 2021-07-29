@@ -62,9 +62,9 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/golang/protobuf/proto"
 	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/internal/linter"
+	"google.golang.org/protobuf/proto"
 )
 
 const (

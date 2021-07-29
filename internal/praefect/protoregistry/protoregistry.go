@@ -2,14 +2,14 @@ package protoregistry
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/protoutil"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	protoreg "google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
 )
@@ -104,7 +104,7 @@ func (mi MethodInfo) FullMethodName() string {
 }
 
 func (mi MethodInfo) getRepo(msg proto.Message, targetOid []int) (*gitalypb.Repository, error) {
-	if mi.requestName != proto.MessageName(msg) {
+	if mi.requestName != string(proto.MessageName(msg)) {
 		return nil, fmt.Errorf(
 			"proto message %s does not match expected RPC request message %s",
 			proto.MessageName(msg), mi.requestName,
@@ -127,7 +127,7 @@ func (mi MethodInfo) getRepo(msg proto.Message, targetOid []int) (*gitalypb.Repo
 
 // Storage returns the storage name for a protobuf message if it exists
 func (mi MethodInfo) Storage(msg proto.Message) (string, error) {
-	if mi.requestName != proto.MessageName(msg) {
+	if mi.requestName != string(proto.MessageName(msg)) {
 		return "", fmt.Errorf(
 			"proto message %s does not match expected RPC request message %s",
 			proto.MessageName(msg), mi.requestName,
@@ -139,7 +139,7 @@ func (mi MethodInfo) Storage(msg proto.Message) (string, error) {
 
 // SetStorage sets the storage name for a protobuf message
 func (mi MethodInfo) SetStorage(msg proto.Message, storage string) error {
-	if mi.requestName != proto.MessageName(msg) {
+	if mi.requestName != string(proto.MessageName(msg)) {
 		return fmt.Errorf(
 			"proto message %s does not match expected RPC request message %s",
 			proto.MessageName(msg), mi.requestName,
@@ -218,18 +218,13 @@ func methodReqFactory(method *descriptor.MethodDescriptorProto) (protoFactory, e
 	// for some reason, the descriptor prepends a dot not expected in Go
 	inputTypeName := strings.TrimPrefix(method.GetInputType(), ".")
 
-	inputType := proto.MessageType(inputTypeName)
-	if inputType == nil {
-		return nil, fmt.Errorf("no message type found for %s", inputType)
+	inputType, err := protoreg.GlobalTypes.FindMessageByName(protoreflect.FullName(inputTypeName))
+	if err != nil {
+		return nil, fmt.Errorf("no message type found for %w", err)
 	}
 
 	f := func(buf []byte) (proto.Message, error) {
-		v := reflect.New(inputType.Elem())
-		pb, ok := v.Interface().(proto.Message)
-		if !ok {
-			return nil, fmt.Errorf("factory function expected protobuf message but got %T", v.Interface())
-		}
-
+		pb := inputType.New().Interface()
 		if err := proto.Unmarshal(buf, pb); err != nil {
 			return nil, err
 		}

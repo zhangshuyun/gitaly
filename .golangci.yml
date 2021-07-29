@@ -705,9 +705,6 @@ issues:
     ## BEGIN staticcheck exclusions
     - linters:
         - staticcheck
-      text: "package github.com/golang/protobuf/proto is deprecated"
-    - linters:
-        - staticcheck
       text: "package github.com/golang/protobuf/ptypes is deprecated"
     - linters:
         - staticcheck

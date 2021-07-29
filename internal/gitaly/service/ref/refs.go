@@ -11,7 +11,6 @@ import (
 	"math"
 	"strings"
 
-	"github.com/golang/protobuf/proto"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gitpipe"
@@ -22,6 +21,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/lines"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"google.golang.org/protobuf/proto"
 )
 
 const (

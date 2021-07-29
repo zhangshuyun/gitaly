@@ -4,11 +4,11 @@ import (
 	"bufio"
 	"context"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"google.golang.org/protobuf/proto"
 )
 
 // FindAllBranchNames creates a stream of ref names for all branches in the given repository

@@ -6,7 +6,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/golang/protobuf/proto"
 	gitalyerrors "gitlab.com/gitlab-org/gitaly/v14/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gitpipe"
@@ -15,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
