@@ -98,8 +98,8 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :direction, :enum, 2, "gitaly.SortDirection"
     end
     add_enum "gitaly.FindAllTagsRequest.SortBy.Key" do
-      value :NAME, 0
-      value :UPDATED, 1
+      value :REFNAME, 0
+      value :CREATORDATE, 1
     end
     add_message "gitaly.FindAllTagsResponse" do
       repeated :tags, :message, 1, "gitaly.Tag"

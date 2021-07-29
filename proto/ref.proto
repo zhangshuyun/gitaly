@@ -240,8 +240,8 @@ message FindAllTagsRequest {
   message SortBy {
     // Key is a key used for sorting.
     enum Key {
-      NAME    = 0;
-      UPDATED = 1;
+      REFNAME     = 0;
+      CREATORDATE = 1;
     }
 
     Key           key       = 1;

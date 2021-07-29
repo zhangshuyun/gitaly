@@ -894,7 +894,7 @@ func testFindAllTagsSorted(t *testing.T, ctx context.Context) {
 	}{
 		{
 			desc:   "by name",
-			sortBy: &gitalypb.FindAllTagsRequest_SortBy{Key: gitalypb.FindAllTagsRequest_SortBy_NAME},
+			sortBy: &gitalypb.FindAllTagsRequest_SortBy{Key: gitalypb.FindAllTagsRequest_SortBy_REFNAME},
 			exp: []string{
 				annotatedTagID.String(),
 				headCommit.Id,
@@ -905,7 +905,7 @@ func testFindAllTagsSorted(t *testing.T, ctx context.Context) {
 		},
 		{
 			desc:   "by updated in ascending order",
-			sortBy: &gitalypb.FindAllTagsRequest_SortBy{Key: gitalypb.FindAllTagsRequest_SortBy_UPDATED, Direction: gitalypb.SortDirection_ASCENDING},
+			sortBy: &gitalypb.FindAllTagsRequest_SortBy{Key: gitalypb.FindAllTagsRequest_SortBy_CREATORDATE, Direction: gitalypb.SortDirection_ASCENDING},
 			exp: []string{
 				"f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8",
 				"8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b",
@@ -916,7 +916,7 @@ func testFindAllTagsSorted(t *testing.T, ctx context.Context) {
 		},
 		{
 			desc:   "by updated in descending order",
-			sortBy: &gitalypb.FindAllTagsRequest_SortBy{Key: gitalypb.FindAllTagsRequest_SortBy_UPDATED, Direction: gitalypb.SortDirection_DESCENDING},
+			sortBy: &gitalypb.FindAllTagsRequest_SortBy{Key: gitalypb.FindAllTagsRequest_SortBy_CREATORDATE, Direction: gitalypb.SortDirection_DESCENDING},
 			exp: []string{
 				annotatedTagID.String(),
 				"8f03acbcd11c53d9c9468078f32a2622005a4841",
@@ -963,7 +963,7 @@ func testFindAllTagsSorted(t *testing.T, ctx context.Context) {
 	t.Run("by unsupported direction", func(t *testing.T) {
 		c, err := client.FindAllTags(ctx, &gitalypb.FindAllTagsRequest{
 			Repository: repoProto,
-			SortBy:     &gitalypb.FindAllTagsRequest_SortBy{Key: gitalypb.FindAllTagsRequest_SortBy_NAME, Direction: gitalypb.SortDirection(-1)},
+			SortBy:     &gitalypb.FindAllTagsRequest_SortBy{Key: gitalypb.FindAllTagsRequest_SortBy_REFNAME, Direction: gitalypb.SortDirection(-1)},
 		})
 		require.NoError(t, err)
 		r, err := c.Recv()
@@ -976,7 +976,7 @@ func testFindAllTagsSorted(t *testing.T, ctx context.Context) {
 		t.Cleanup(cleanup)
 		c, err := client.FindAllTags(ctx, &gitalypb.FindAllTagsRequest{
 			Repository: repoProto,
-			SortBy:     &gitalypb.FindAllTagsRequest_SortBy{Key: gitalypb.FindAllTagsRequest_SortBy_NAME},
+			SortBy:     &gitalypb.FindAllTagsRequest_SortBy{Key: gitalypb.FindAllTagsRequest_SortBy_REFNAME},
 		})
 		require.NoError(t, err)
 
