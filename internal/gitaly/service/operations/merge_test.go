@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
@@ -403,6 +404,47 @@ func TestFailedMergeDueToHooks(t *testing.T) {
 			require.Equal(t, mergeBranchHeadBefore, text.ChompBytes(currentBranchHead), "branch head updated")
 		})
 	}
+}
+
+func TestUserMergeBranch_conflict(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+
+	const mergeIntoBranch = "mergeIntoBranch"
+	const mergeFromBranch = "mergeFromBranch"
+	const conflictingFile = "file"
+
+	baseCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(mergeIntoBranch), gittest.WithTreeEntries(gittest.TreeEntry{
+		Mode: "100644", Path: conflictingFile, Content: "data",
+	}))
+
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeFromBranch, baseCommit.String())
+
+	divergedInto := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(mergeIntoBranch), gittest.WithTreeEntries(gittest.TreeEntry{
+		Mode: "100644", Path: conflictingFile, Content: "data-1",
+	}))
+
+	divergedFrom := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(mergeFromBranch), gittest.WithTreeEntries(gittest.TreeEntry{
+		Mode: "100644", Path: conflictingFile, Content: "data-2",
+	}))
+
+	mergeBidi, err := client.UserMergeBranch(ctx)
+	require.NoError(t, err)
+
+	require.NoError(t, mergeBidi.Send(&gitalypb.UserMergeBranchRequest{
+		Repository: repoProto,
+		User:       gittest.TestUser,
+		Branch:     []byte(mergeIntoBranch),
+		CommitId:   divergedFrom.String(),
+		Message:    []byte("msg"),
+	}), "send first request")
+
+	firstResponse, err := mergeBidi.Recv()
+	testassert.GrpcEqualErr(t, helper.ErrFailedPreconditionf("Failed to merge for source_sha %s into target_sha %s", divergedFrom, divergedInto), err)
+	require.Nil(t, firstResponse)
 }
 
 func TestSuccessfulUserFFBranchRequest(t *testing.T) {

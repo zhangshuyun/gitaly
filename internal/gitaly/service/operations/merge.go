@@ -78,7 +78,12 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		if errors.Is(err, git2go.ErrInvalidArgument) {
 			return helper.ErrInvalidArgument(err)
 		}
-		return err
+
+		if strings.Contains(err.Error(), "could not auto-merge due to conflicts") {
+			return helper.ErrFailedPreconditionf("Failed to merge for source_sha %s into target_sha %s",
+				firstRequest.CommitId, revision.String())
+		}
+		return helper.ErrInternal(err)
 	}
 
 	mergeOID, err := git.NewObjectIDFromHex(merge.CommitID)
