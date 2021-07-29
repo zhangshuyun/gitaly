@@ -123,7 +123,7 @@ func (s AssignmentStore) SetReplicationFactor(ctx context.Context, virtualStorag
 	//    current assignments.
 	rows, err := s.db.QueryContext(ctx, `
 WITH repository AS (
-	SELECT virtual_storage, relative_path, "primary"
+	SELECT repository_id, virtual_storage, relative_path, "primary"
 	FROM repositories
 	WHERE virtual_storage = $1
 	AND   relative_path   = $2
@@ -139,7 +139,7 @@ existing_assignments AS (
 
 created_assignments AS (
 	INSERT INTO repository_assignments
-	SELECT virtual_storage, relative_path, storage
+	SELECT virtual_storage, relative_path, storage, repository_id
 	FROM repository
 	CROSS JOIN ( SELECT unnest($4::text[]) AS storage ) AS configured_storages
 	WHERE storage NOT IN ( SELECT storage FROM existing_assignments )
