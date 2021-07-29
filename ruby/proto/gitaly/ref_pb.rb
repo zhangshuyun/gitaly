@@ -91,6 +91,15 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     end
     add_message "gitaly.FindAllTagsRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
+      optional :sort_by, :message, 2, "gitaly.FindAllTagsRequest.SortBy"
+    end
+    add_message "gitaly.FindAllTagsRequest.SortBy" do
+      optional :key, :enum, 1, "gitaly.FindAllTagsRequest.SortBy.Key"
+      optional :direction, :enum, 2, "gitaly.SortDirection"
+    end
+    add_enum "gitaly.FindAllTagsRequest.SortBy.Key" do
+      value :REFNAME, 0
+      value :CREATORDATE, 1
     end
     add_message "gitaly.FindAllTagsResponse" do
       repeated :tags, :message, 1, "gitaly.Tag"
@@ -219,6 +228,8 @@ module Gitaly
   FindTagRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindTagRequest").msgclass
   FindTagResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindTagResponse").msgclass
   FindAllTagsRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindAllTagsRequest").msgclass
+  FindAllTagsRequest::SortBy = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindAllTagsRequest.SortBy").msgclass
+  FindAllTagsRequest::SortBy::Key = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindAllTagsRequest.SortBy.Key").enummodule
   FindAllTagsResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindAllTagsResponse").msgclass
   RefExistsRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.RefExistsRequest").msgclass
   RefExistsResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.RefExistsResponse").msgclass

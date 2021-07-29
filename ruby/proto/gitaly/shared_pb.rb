@@ -85,6 +85,10 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       value :PGP, 1
       value :X509, 2
     end
+    add_enum "gitaly.SortDirection" do
+      value :ASCENDING, 0
+      value :DESCENDING, 1
+    end
   end
 end
 
@@ -103,4 +107,5 @@ module Gitaly
   GlobalOptions = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GlobalOptions").msgclass
   ObjectType = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ObjectType").enummodule
   SignatureType = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.SignatureType").enummodule
+  SortDirection = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.SortDirection").enummodule
 end

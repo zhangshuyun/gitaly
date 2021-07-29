@@ -43,6 +43,7 @@ service RefService {
       op: ACCESSOR
     };
   }
+  // Returns a stream of tags repository has.
   rpc FindAllTags(FindAllTagsRequest) returns (stream FindAllTagsResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -235,6 +236,20 @@ message FindTagResponse {
 
 message FindAllTagsRequest {
   Repository repository = 1 [(target_repository)=true];
+  // SortBy allows to specify desired order of the elements.
+  message SortBy {
+    // Key is a key used for sorting.
+    enum Key {
+      REFNAME     = 0;
+      CREATORDATE = 1;
+    }
+
+    Key           key       = 1;
+    SortDirection direction = 2;
+  }
+
+  // SortBy allows to request tags in particular order.
+  SortBy sort_by = 2;
 }
 
 message FindAllTagsResponse {
@@ -327,7 +342,7 @@ message ListTagNamesContainingCommitResponse {
   repeated bytes tag_names = 2;
 }
 
-// GetTagSignaturesRequest is a request for the GetTagSignatures RPC. 
+// GetTagSignaturesRequest is a request for the GetTagSignatures RPC.
 message GetTagSignaturesRequest {
   // Repository is the repository in which tag signatures should be looked up.
   Repository repository = 1 [(target_repository)=true];

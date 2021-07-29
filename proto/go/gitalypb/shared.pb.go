@@ -125,6 +125,55 @@ func (SignatureType) EnumDescriptor() ([]byte, []int) {
 	return file_shared_proto_rawDescGZIP(), []int{1}
 }
 
+// SortDirection defines the sort direction.
+type SortDirection int32
+
+const (
+	// ASCENDING sorts by the sort key in ascending order.
+	SortDirection_ASCENDING SortDirection = 0
+	// DESCENDING sorts by the sort key in descending order.
+	SortDirection_DESCENDING SortDirection = 1
+)
+
+// Enum value maps for SortDirection.
+var (
+	SortDirection_name = map[int32]string{
+		0: "ASCENDING",
+		1: "DESCENDING",
+	}
+	SortDirection_value = map[string]int32{
+		"ASCENDING":  0,
+		"DESCENDING": 1,
+	}
+)
+
+func (x SortDirection) Enum() *SortDirection {
+	p := new(SortDirection)
+	*p = x
+	return p
+}
+
+func (x SortDirection) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SortDirection) Descriptor() protoreflect.EnumDescriptor {
+	return file_shared_proto_enumTypes[2].Descriptor()
+}
+
+func (SortDirection) Type() protoreflect.EnumType {
+	return &file_shared_proto_enumTypes[2]
+}
+
+func (x SortDirection) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SortDirection.Descriptor instead.
+func (SortDirection) EnumDescriptor() ([]byte, []int) {
+	return file_shared_proto_rawDescGZIP(), []int{2}
+}
+
 type Repository struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1094,7 +1143,10 @@ var file_shared_proto_rawDesc = []byte{
 	0x54, 0x52, 0x45, 0x45, 0x10, 0x03, 0x12, 0x07, 0x0a, 0x03, 0x54, 0x41, 0x47, 0x10, 0x04, 0x2a,
 	0x2c, 0x0a, 0x0d, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x54, 0x79, 0x70, 0x65,
 	0x12, 0x08, 0x0a, 0x04, 0x4e, 0x4f, 0x4e, 0x45, 0x10, 0x00, 0x12, 0x07, 0x0a, 0x03, 0x50, 0x47,
-	0x50, 0x10, 0x01, 0x12, 0x08, 0x0a, 0x04, 0x58, 0x35, 0x30, 0x39, 0x10, 0x02, 0x42, 0x34, 0x5a,
+	0x50, 0x10, 0x01, 0x12, 0x08, 0x0a, 0x04, 0x58, 0x35, 0x30, 0x39, 0x10, 0x02, 0x2a, 0x2e, 0x0a,
+	0x0d, 0x53, 0x6f, 0x72, 0x74, 0x44, 0x69, 0x72, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x0d,
+	0x0a, 0x09, 0x41, 0x53, 0x43, 0x45, 0x4e, 0x44, 0x49, 0x4e, 0x47, 0x10, 0x00, 0x12, 0x0e, 0x0a,
+	0x0a, 0x44, 0x45, 0x53, 0x43, 0x45, 0x4e, 0x44, 0x49, 0x4e, 0x47, 0x10, 0x01, 0x42, 0x34, 0x5a,
 	0x32, 0x67, 0x69, 0x74, 0x6c, 0x61, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x67, 0x69, 0x74, 0x6c,
 	0x61, 0x62, 0x2d, 0x6f, 0x72, 0x67, 0x2f, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2f, 0x76, 0x31,
 	0x34, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x67, 0x6f, 0x2f, 0x67, 0x69, 0x74, 0x61, 0x6c,
@@ -1113,36 +1165,37 @@ func file_shared_proto_rawDescGZIP() []byte {
 	return file_shared_proto_rawDescData
 }
 
-var file_shared_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_shared_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
 var file_shared_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_shared_proto_goTypes = []interface{}{
 	(ObjectType)(0),               // 0: gitaly.ObjectType
 	(SignatureType)(0),            // 1: gitaly.SignatureType
-	(*Repository)(nil),            // 2: gitaly.Repository
-	(*CommitTrailer)(nil),         // 3: gitaly.CommitTrailer
-	(*GitCommit)(nil),             // 4: gitaly.GitCommit
-	(*CommitAuthor)(nil),          // 5: gitaly.CommitAuthor
-	(*ExitStatus)(nil),            // 6: gitaly.ExitStatus
-	(*Branch)(nil),                // 7: gitaly.Branch
-	(*Tag)(nil),                   // 8: gitaly.Tag
-	(*User)(nil),                  // 9: gitaly.User
-	(*ObjectPool)(nil),            // 10: gitaly.ObjectPool
-	(*PaginationParameter)(nil),   // 11: gitaly.PaginationParameter
-	(*PaginationCursor)(nil),      // 12: gitaly.PaginationCursor
-	(*GlobalOptions)(nil),         // 13: gitaly.GlobalOptions
-	(*timestamppb.Timestamp)(nil), // 14: google.protobuf.Timestamp
+	(SortDirection)(0),            // 2: gitaly.SortDirection
+	(*Repository)(nil),            // 3: gitaly.Repository
+	(*CommitTrailer)(nil),         // 4: gitaly.CommitTrailer
+	(*GitCommit)(nil),             // 5: gitaly.GitCommit
+	(*CommitAuthor)(nil),          // 6: gitaly.CommitAuthor
+	(*ExitStatus)(nil),            // 7: gitaly.ExitStatus
+	(*Branch)(nil),                // 8: gitaly.Branch
+	(*Tag)(nil),                   // 9: gitaly.Tag
+	(*User)(nil),                  // 10: gitaly.User
+	(*ObjectPool)(nil),            // 11: gitaly.ObjectPool
+	(*PaginationParameter)(nil),   // 12: gitaly.PaginationParameter
+	(*PaginationCursor)(nil),      // 13: gitaly.PaginationCursor
+	(*GlobalOptions)(nil),         // 14: gitaly.GlobalOptions
+	(*timestamppb.Timestamp)(nil), // 15: google.protobuf.Timestamp
 }
 var file_shared_proto_depIdxs = []int32{
-	5,  // 0: gitaly.GitCommit.author:type_name -> gitaly.CommitAuthor
-	5,  // 1: gitaly.GitCommit.committer:type_name -> gitaly.CommitAuthor
+	6,  // 0: gitaly.GitCommit.author:type_name -> gitaly.CommitAuthor
+	6,  // 1: gitaly.GitCommit.committer:type_name -> gitaly.CommitAuthor
 	1,  // 2: gitaly.GitCommit.signature_type:type_name -> gitaly.SignatureType
-	3,  // 3: gitaly.GitCommit.trailers:type_name -> gitaly.CommitTrailer
-	14, // 4: gitaly.CommitAuthor.date:type_name -> google.protobuf.Timestamp
-	4,  // 5: gitaly.Branch.target_commit:type_name -> gitaly.GitCommit
-	4,  // 6: gitaly.Tag.target_commit:type_name -> gitaly.GitCommit
-	5,  // 7: gitaly.Tag.tagger:type_name -> gitaly.CommitAuthor
+	4,  // 3: gitaly.GitCommit.trailers:type_name -> gitaly.CommitTrailer
+	15, // 4: gitaly.CommitAuthor.date:type_name -> google.protobuf.Timestamp
+	5,  // 5: gitaly.Branch.target_commit:type_name -> gitaly.GitCommit
+	5,  // 6: gitaly.Tag.target_commit:type_name -> gitaly.GitCommit
+	6,  // 7: gitaly.Tag.tagger:type_name -> gitaly.CommitAuthor
 	1,  // 8: gitaly.Tag.signature_type:type_name -> gitaly.SignatureType
-	2,  // 9: gitaly.ObjectPool.repository:type_name -> gitaly.Repository
+	3,  // 9: gitaly.ObjectPool.repository:type_name -> gitaly.Repository
 	10, // [10:10] is the sub-list for method output_type
 	10, // [10:10] is the sub-list for method input_type
 	10, // [10:10] is the sub-list for extension type_name
@@ -1307,7 +1360,7 @@ func file_shared_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_shared_proto_rawDesc,
-			NumEnums:      2,
+			NumEnums:      3,
 			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   0,
