@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
@@ -154,7 +155,9 @@ func (s *Server) fetchStartRevision(ctx context.Context, req requestFetchingStar
 
 	_, err = localRepo.ResolveRevision(ctx, startRevision.Revision()+"^{commit}")
 	if errors.Is(err, git.ErrReferenceNotFound) {
-		if err := s.fetchRemoteObject(ctx, localRepo, req.GetStartRepository(), startRevision); err != nil {
+		if err := localRepo.FetchInternalObject(ctx, req.GetStartRepository(), startRevision, localrepo.FetchOpts{
+			Tags: localrepo.FetchOptsTagsNone,
+		}); err != nil {
 			return "", helper.ErrInternalf("fetch start: %w", err)
 		}
 	} else if err != nil {

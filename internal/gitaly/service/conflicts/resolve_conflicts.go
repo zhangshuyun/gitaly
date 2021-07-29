@@ -20,7 +20,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitalyssh"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -292,26 +291,10 @@ func (s *server) repoWithBranchCommit(ctx context.Context, sourceRepo *localrepo
 		return nil
 	}
 
-	env, err := gitalyssh.UploadPackEnv(ctx, s.cfg, &gitalypb.SSHUploadPackRequest{
-		Repository:       targetRepo.Repository,
-		GitConfigOptions: []string{"uploadpack.allowAnySHA1InWant=true"},
-	})
-	if err != nil {
-		return err
-	}
-
-	var stderr bytes.Buffer
-	if err := sourceRepo.ExecAndWait(ctx,
-		git.SubCmd{
-			Name:  "fetch",
-			Flags: []git.Option{git.Flag{Name: "--no-tags"}},
-			Args:  []string{gitalyssh.GitalyInternalURL, oid.String()},
-		},
-		git.WithStderr(&stderr),
-		git.WithEnv(env...),
-		git.WithRefTxHook(ctx, sourceRepo, s.cfg),
-	); err != nil {
-		return fmt.Errorf("could not fetch target commit: %w, stderr: %q", err, stderr.String())
+	if err := sourceRepo.FetchInternalObject(ctx, targetRepo.Repository, oid, localrepo.FetchOpts{
+		Tags: localrepo.FetchOptsTagsNone,
+	}); err != nil {
+		return fmt.Errorf("could not fetch target commit: %w", err)
 	}
 
 	return nil

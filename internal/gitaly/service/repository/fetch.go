@@ -6,8 +6,8 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/remoterepo"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitalyssh"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
@@ -70,29 +70,17 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 	// There's no need to perform the fetch if we already have the object
 	// available.
 	if !containsObject {
-		env, err := gitalyssh.UploadPackEnv(ctx, s.cfg, &gitalypb.SSHUploadPackRequest{Repository: req.SourceRepository})
-		if err != nil {
+		if err := targetRepo.FetchInternalObject(ctx, req.GetSourceRepository(), sourceOid, localrepo.FetchOpts{
+			Tags: localrepo.FetchOptsTagsNone,
+		}); err != nil {
+			if errors.As(err, &localrepo.FetchError{}) {
+				// Design quirk: if the fetch fails, this RPC returns Result: false, but no error.
+				ctxlogrus.Extract(ctx).
+					WithField("oid", sourceOid.String()).
+					WithError(err).Warn("git fetch failed")
+				return &gitalypb.FetchSourceBranchResponse{Result: false}, nil
+			}
 			return nil, err
-		}
-
-		cmd, err := s.gitCmdFactory.New(ctx, req.Repository,
-			git.SubCmd{
-				Name:  "fetch",
-				Args:  []string{gitalyssh.GitalyInternalURL, sourceOid.String()},
-				Flags: []git.Option{git.Flag{Name: "--no-tags"}, git.Flag{Name: "--quiet"}},
-			},
-			git.WithEnv(env...),
-			git.WithRefTxHook(ctx, req.Repository, s.cfg),
-		)
-		if err != nil {
-			return nil, err
-		}
-		if err := cmd.Wait(); err != nil {
-			// Design quirk: if the fetch fails, this RPC returns Result: false, but no error.
-			ctxlogrus.Extract(ctx).
-				WithField("oid", sourceOid.String()).
-				WithError(err).Warn("git fetch failed")
-			return &gitalypb.FetchSourceBranchResponse{Result: false}, nil
 		}
 	}
 
