@@ -16,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/remote"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -192,31 +191,10 @@ func (s *server) createFromSnapshot(ctx context.Context, in *gitalypb.ReplicateR
 }
 
 func (s *server) syncRepository(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) error {
-	if featureflag.ReplicateRepositoryDirectFetch.IsEnabled(ctx) {
-		repo := s.localrepo(in.GetRepository())
+	repo := s.localrepo(in.GetRepository())
 
-		if err := remote.FetchInternalRemote(ctx, s.cfg, s.conns, repo, in.GetSource()); err != nil {
-			return fmt.Errorf("fetch internal remote: %w", err)
-		}
-
-		return nil
-	}
-
-	remoteClient, err := s.newRemoteClient(ctx)
-	if err != nil {
-		return fmt.Errorf("new client: %w", err)
-	}
-
-	resp, err := remoteClient.FetchInternalRemote(ctx, &gitalypb.FetchInternalRemoteRequest{
-		Repository:       in.GetRepository(),
-		RemoteRepository: in.GetSource(),
-	})
-	if err != nil {
+	if err := remote.FetchInternalRemote(ctx, s.cfg, s.conns, repo, in.GetSource()); err != nil {
 		return fmt.Errorf("fetch internal remote: %w", err)
-	}
-
-	if !resp.Result {
-		return errors.New("FetchInternalRemote failed")
 	}
 
 	return nil
@@ -317,16 +295,6 @@ func writeFile(path string, mode os.FileMode, reader io.Reader) error {
 	}
 
 	return nil
-}
-
-// newRemoteClient creates a new RemoteClient that talks to the same gitaly server
-func (s *server) newRemoteClient(ctx context.Context) (gitalypb.RemoteServiceClient, error) {
-	conn, err := s.conns.Dial(ctx, fmt.Sprintf("unix:%s", s.cfg.GitalyInternalSocketPath()), s.cfg.Auth.Token)
-	if err != nil {
-		return nil, err
-	}
-
-	return gitalypb.NewRemoteServiceClient(conn), nil
 }
 
 // newRepoClient creates a new RepositoryClient that talks to the gitaly of the source repository

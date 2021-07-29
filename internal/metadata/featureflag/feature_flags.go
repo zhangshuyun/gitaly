@@ -9,10 +9,6 @@ var (
 	// ResolveConflictsWithHooks will cause the ResolveConflicts RPC to run Git hooks after committing changes
 	// to the branch.
 	ResolveConflictsWithHooks = FeatureFlag{Name: "resolve_conflicts_with_hooks", OnByDefault: true}
-	// ReplicateRepositoryDirectFetch will cause the ReplicateRepository RPC to perform fetches
-	// via a direct call instead of doing an RPC call to its own server. This fixes calls of
-	// `ReplicateRepository()` in case it's invoked via Praefect with transactions enabled.
-	ReplicateRepositoryDirectFetch = FeatureFlag{Name: "replicate_repository_direct_fetch", OnByDefault: false}
 	// FindAllTagsPipeline enables the alternative pipeline implementation for finding
 	// tags via FindAllTags.
 	FindAllTagsPipeline = FeatureFlag{Name: "find_all_tags_pipeline", OnByDefault: false}
@@ -33,7 +29,6 @@ var (
 var All = []FeatureFlag{
 	GoSetConfig,
 	ResolveConflictsWithHooks,
-	ReplicateRepositoryDirectFetch,
 	FindAllTagsPipeline,
 	TxRemoveRepository,
 	QuarantinedUserCreateTag,
