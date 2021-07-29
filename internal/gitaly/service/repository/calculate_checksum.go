@@ -1,11 +1,11 @@
 package repository
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"regexp"
 	"strings"
@@ -19,35 +19,35 @@ import (
 var refWhitelist = regexp.MustCompile(`HEAD|(refs/(heads|tags|keep-around|merge-requests|environments|notes)/)`)
 
 func (s *server) CalculateChecksum(ctx context.Context, in *gitalypb.CalculateChecksumRequest) (*gitalypb.CalculateChecksumResponse, error) {
-	repo := in.GetRepository()
-
-	repoPath, err := s.locator.GetRepoPath(repo)
+	repoPath, err := s.locator.GetRepoPath(in.GetRepository())
 	if err != nil {
 		return nil, err
 	}
 
-	cmd, err := s.gitCmdFactory.New(ctx, repo, git.SubCmd{Name: "show-ref", Flags: []git.Option{git.Flag{Name: "--head"}}})
+	repo := s.localrepo(in.GetRepository())
+
+	refs, err := repo.ShowRef(ctx)
 	if err != nil {
 		if _, ok := status.FromError(err); ok {
 			return nil, err
 		}
+		if s.isValidRepo(ctx, in.GetRepository()) {
+			return &gitalypb.CalculateChecksumResponse{Checksum: git.ZeroOID.String()}, nil
+		}
 
-		return nil, status.Errorf(codes.Internal, "CalculateChecksum: gitCommand: %v", err)
+		return nil, status.Errorf(codes.DataLoss, "CalculateChecksum: not a git repository '%s'", repoPath)
 	}
 
 	var checksum *big.Int
 
-	scanner := bufio.NewScanner(cmd)
-	for scanner.Scan() {
-		ref := scanner.Bytes()
-
-		if !refWhitelist.Match(ref) {
+	for _, ref := range refs {
+		if !refWhitelist.MatchString(ref.Name.String()) {
 			continue
 		}
 
 		h := sha1.New()
 		// hash.Hash will never return an error.
-		_, _ = h.Write(ref)
+		fmt.Fprintf(h, "%s %s", ref.Target, ref.Name.String())
 
 		hash := hex.EncodeToString(h.Sum(nil))
 		hashIntBase16, _ := (&big.Int{}).SetString(hash, 16)
@@ -59,12 +59,8 @@ func (s *server) CalculateChecksum(ctx context.Context, in *gitalypb.CalculateCh
 		}
 	}
 
-	if err := scanner.Err(); err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
-	}
-
-	if err := cmd.Wait(); checksum == nil || err != nil {
-		if s.isValidRepo(ctx, repo) {
+	if checksum == nil {
+		if s.isValidRepo(ctx, in.GetRepository()) {
 			return &gitalypb.CalculateChecksumResponse{Checksum: git.ZeroOID.String()}, nil
 		}
 

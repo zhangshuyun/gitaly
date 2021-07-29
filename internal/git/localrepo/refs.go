@@ -138,6 +138,39 @@ func (repo *Repo) GetBranches(ctx context.Context) ([]git.Reference, error) {
 	return repo.GetReferences(ctx, "refs/heads/")
 }
 
+// ShowRef returns all refs
+func (repo *Repo) ShowRef(ctx context.Context, patterns ...string) ([]git.Reference, error) {
+	cmd, err := repo.Exec(ctx, git.SubCmd{
+		Name:  "show-ref",
+		Flags: []git.Option{git.Flag{Name: "--head"}},
+		Args:  patterns,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	scanner := bufio.NewScanner(cmd)
+
+	var refs []git.Reference
+	for scanner.Scan() {
+		line := bytes.SplitN(scanner.Bytes(), []byte(" "), 2)
+		if len(line) != 2 {
+			return nil, errors.New("unexpected reference format")
+		}
+
+		refs = append(refs, git.NewReference(git.ReferenceName(line[1]), string(line[0])))
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("reading standard input: %v", err)
+	}
+	if err := cmd.Wait(); err != nil {
+		return nil, err
+	}
+
+	return refs, nil
+}
+
 // UpdateRef updates reference from oldValue to newValue. If oldValue is a
 // non-empty string, the update will fail it the reference is not currently at
 // that revision. If newValue is the ZeroOID, the reference will be deleted.
