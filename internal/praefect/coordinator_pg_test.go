@@ -47,9 +47,10 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 	}
 
 	testcases := []struct {
-		desc         string
-		primaryFails bool
-		nodes        []node
+		desc                                 string
+		primaryFails                         bool
+		nodes                                []node
+		expectedRequestFinalizerErrorMessage string
 	}{
 		{
 			desc: "successful vote should not create replication jobs",
@@ -109,11 +110,12 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			},
 		},
 		{
-			desc: "secondaries should not participate when primary's generation is unknown",
+			desc: "write is not acknowledged if it only targets outdated nodes",
 			nodes: []node{
-				{primary: true, subtransactions: subtransactions{{vote: "foobar", shouldSucceed: true}}, shouldParticipate: true, generation: datastore.GenerationUnknown, expectedGeneration: 0},
-				{shouldParticipate: false, shouldGetRepl: true, generation: datastore.GenerationUnknown, expectedGeneration: datastore.GenerationUnknown},
+				{primary: true, subtransactions: subtransactions{{vote: "foobar", shouldSucceed: true}}, shouldParticipate: true, generation: datastore.GenerationUnknown, expectedGeneration: datastore.GenerationUnknown},
+				{shouldParticipate: false, shouldGetRepl: false, generation: datastore.GenerationUnknown, expectedGeneration: datastore.GenerationUnknown},
 			},
+			expectedRequestFinalizerErrorMessage: `increment generation: repository "praefect"/"/path/to/hashed/repository" not found`,
 		},
 		{
 			// All transactional RPCs are expected to cast vote if they are successful. If they don't, something is wrong
@@ -284,7 +286,11 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			}
 
 			err = streamParams.RequestFinalizer()
-			require.NoError(t, err)
+			if tc.expectedRequestFinalizerErrorMessage != "" {
+				require.EqualError(t, err, tc.expectedRequestFinalizerErrorMessage)
+			} else {
+				require.NoError(t, err)
+			}
 
 			// Nodes that successfully committed should have their generations incremented.
 			// Nodes that did not successfully commit or did not participate should remain on their

@@ -215,14 +215,10 @@ SELECT
 func (rs *PostgresRepositoryStore) SetGeneration(ctx context.Context, virtualStorage, relativePath, storage string, generation int) error {
 	const q = `
 WITH repository AS (
-	INSERT INTO repositories (
-		virtual_storage,
-		relative_path,
-		generation
-	) VALUES ($1, $2, $4)
-	ON CONFLICT (virtual_storage, relative_path) DO
-		UPDATE SET generation = EXCLUDED.generation
-		WHERE COALESCE(repositories.generation, -1) < EXCLUDED.generation
+	UPDATE repositories SET generation = $4
+	WHERE virtual_storage = $1
+	AND   relative_path   = $2
+	AND   COALESCE(repositories.generation, -1) < $4
 )
 
 INSERT INTO storage_repositories (
