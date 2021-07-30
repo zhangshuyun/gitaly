@@ -10,6 +10,7 @@ type MockRepositoryStore struct {
 	GetReplicatedGenerationFunc           func(ctx context.Context, virtualStorage, relativePath, source, target string) (int, error)
 	SetGenerationFunc                     func(ctx context.Context, virtualStorage, relativePath, storage string, generation int) error
 	CreateRepositoryFunc                  func(ctx context.Context, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error
+	SetAuthoritativeReplicaFunc           func(ctx context.Context, virtualStorage, relativePath, storage string) error
 	DeleteRepositoryFunc                  func(ctx context.Context, virtualStorage, relativePath string, storages []string) error
 	DeleteReplicaFunc                     func(ctx context.Context, virtualStorage, relativePath, storage string) error
 	RenameRepositoryFunc                  func(ctx context.Context, virtualStorage, relativePath, storage, newRelativePath string) error
@@ -59,6 +60,15 @@ func (m MockRepositoryStore) CreateRepository(ctx context.Context, virtualStorag
 	}
 
 	return m.CreateRepositoryFunc(ctx, virtualStorage, relativePath, primary, updatedSecondaries, outdatedSecondaries, storePrimary, storeAssignments)
+}
+
+// SetAuthoritativeReplica calls the mocked function. If no mock has been provided, it returns a nil error.
+func (m MockRepositoryStore) SetAuthoritativeReplica(ctx context.Context, virtualStorage, relativePath, storage string) error {
+	if m.SetAuthoritativeReplicaFunc == nil {
+		return nil
+	}
+
+	return m.SetAuthoritativeReplicaFunc(ctx, virtualStorage, relativePath, storage)
 }
 
 func (m MockRepositoryStore) DeleteRepository(ctx context.Context, virtualStorage, relativePath string, storages []string) error {
