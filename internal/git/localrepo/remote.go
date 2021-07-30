@@ -302,7 +302,7 @@ func (repo *Repo) FetchInternal(
 	if err := repo.ExecAndWait(ctx,
 		git.SubCmd{
 			Name:  "fetch",
-			Flags: opts.buildFlags(),
+			Flags: append(opts.buildFlags(), git.Flag{Name: "--atomic"}),
 			Args:  append([]string{gitalyssh.GitalyInternalURL}, refspecs...),
 		},
 		commandOptions...,
