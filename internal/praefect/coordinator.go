@@ -12,7 +12,6 @@ import (
 	"github.com/sirupsen/logrus"
 	gitalyerrors "gitlab.com/gitlab-org/gitaly/v14/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
@@ -38,12 +37,6 @@ type transactionsCondition func(context.Context) bool
 
 func transactionsEnabled(context.Context) bool  { return true }
 func transactionsDisabled(context.Context) bool { return false }
-
-func transactionsFlag(flag featureflag.FeatureFlag) transactionsCondition {
-	return func(ctx context.Context) bool {
-		return flag.IsEnabled(ctx)
-	}
-}
 
 // transactionRPCs contains the list of repository-scoped mutating calls which may take part in
 // transactions. An optional feature flag can be added to conditionally enable transactional
@@ -82,6 +75,7 @@ var transactionRPCs = map[string]transactionsCondition{
 	"/gitaly.RepositoryService/DeleteConfig":                 transactionsEnabled,
 	"/gitaly.RepositoryService/FetchRemote":                  transactionsEnabled,
 	"/gitaly.RepositoryService/FetchSourceBranch":            transactionsEnabled,
+	"/gitaly.RepositoryService/RemoveRepository":             transactionsEnabled,
 	"/gitaly.RepositoryService/ReplicateRepository":          transactionsEnabled,
 	"/gitaly.RepositoryService/SetConfig":                    transactionsEnabled,
 	"/gitaly.RepositoryService/SetFullPath":                  transactionsEnabled,
@@ -90,8 +84,6 @@ var transactionRPCs = map[string]transactionsCondition{
 	"/gitaly.SmartHTTPService/PostReceivePack":               transactionsEnabled,
 	"/gitaly.WikiService/WikiUpdatePage":                     transactionsEnabled,
 	"/gitaly.WikiService/WikiWritePage":                      transactionsEnabled,
-
-	"/gitaly.RepositoryService/RemoveRepository": transactionsFlag(featureflag.TxRemoveRepository),
 
 	// The following RPCs currently aren't transactional, but we may consider making them
 	// transactional in the future if the need arises.
