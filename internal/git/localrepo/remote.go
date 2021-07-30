@@ -217,10 +217,26 @@ type FetchOpts struct {
 	Stderr io.Writer
 }
 
-// FetchRemote fetches changes from the specified remote.
+// ErrFetchFailed indicates that the fetch has failed.
+type ErrFetchFailed struct {
+	err error
+}
+
+// Error returns the error message.
+func (e ErrFetchFailed) Error() string {
+	return e.err.Error()
+}
+
+// FetchRemote fetches changes from the specified remote. Returns an ErrFetchFailed error in case
+// the fetch itself failed.
 func (repo *Repo) FetchRemote(ctx context.Context, remoteName string, opts FetchOpts) error {
 	if err := validateNotBlank(remoteName, "remoteName"); err != nil {
 		return err
+	}
+
+	var stderr bytes.Buffer
+	if opts.Stderr == nil {
+		opts.Stderr = &stderr
 	}
 
 	commandOptions := []git.CmdOpt{
@@ -242,7 +258,11 @@ func (repo *Repo) FetchRemote(ctx context.Context, remoteName string, opts Fetch
 		return err
 	}
 
-	return cmd.Wait()
+	if err := cmd.Wait(); err != nil {
+		return ErrFetchFailed{errorWithStderr(err, stderr.Bytes())}
+	}
+
+	return nil
 }
 
 func (opts FetchOpts) buildFlags() []git.Option {
