@@ -97,7 +97,7 @@ func New(
 	}
 
 	lm := listenmux.New(transportCredentials)
-	lm.Register(backchannel.NewServerHandshaker(
+	lm.Register(backchannel.NewGRPCHandshaker(
 		logrusEntry,
 		registry,
 		[]grpc.DialOption{client.UnaryInterceptor()},

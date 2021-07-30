@@ -23,7 +23,7 @@ func TestDial(t *testing.T) {
 	logger := testhelper.DiscardTestEntry(t)
 
 	lm := listenmux.New(insecure.NewCredentials())
-	lm.Register(backchannel.NewServerHandshaker(logger, backchannel.NewRegistry(), nil))
+	lm.Register(backchannel.NewGRPCHandshaker(logger, backchannel.NewRegistry(), nil))
 
 	srv := grpc.NewServer(
 		grpc.Creds(lm),

@@ -60,7 +60,7 @@ func TestNewBackchannelServerFactory(t *testing.T) {
 	registry := backchannel.NewRegistry()
 
 	lm := listenmux.New(insecure.NewCredentials())
-	lm.Register(backchannel.NewServerHandshaker(logger, registry, nil))
+	lm.Register(backchannel.NewGRPCHandshaker(logger, registry, nil))
 
 	server := grpc.NewServer(
 		grpc.Creds(lm),

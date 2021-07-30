@@ -41,7 +41,7 @@ func TestBackchannel_concurrentRequestsFromMultipleClients(t *testing.T) {
 	var interceptorInvoked int32
 	registry := NewRegistry()
 	lm := listenmux.New(insecure.NewCredentials())
-	lm.Register(NewServerHandshaker(
+	lm.Register(NewGRPCHandshaker(
 		newLogger(),
 		registry,
 		[]grpc.DialOption{
@@ -184,7 +184,7 @@ func Benchmark(b *testing.B) {
 					var serverOpts []grpc.ServerOption
 					if tc.multiplexed {
 						lm := listenmux.New(insecure.NewCredentials())
-						lm.Register(NewServerHandshaker(newLogger(), NewRegistry(), nil))
+						lm.Register(NewGRPCHandshaker(newLogger(), NewRegistry(), nil))
 						serverOpts = []grpc.ServerOption{
 							grpc.Creds(lm),
 						}

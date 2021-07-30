@@ -33,7 +33,7 @@ func Example() {
 	// the ServerHandshaker passes down the peer ID via the context. The peer ID identifies a
 	// backchannel connection.
 	lm := listenmux.New(insecure.NewCredentials())
-	lm.Register(backchannel.NewServerHandshaker(logger, registry, nil))
+	lm.Register(backchannel.NewGRPCHandshaker(logger, registry, nil))
 
 	// Create the server
 	srv := grpc.NewServer(
