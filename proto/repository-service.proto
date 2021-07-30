@@ -99,11 +99,6 @@ service RepositoryService {
       op: MUTATOR
     };
   }
-  rpc IsRebaseInProgress(IsRebaseInProgressRequest) returns (IsRebaseInProgressResponse) {
-    option (op_type) = {
-      op: ACCESSOR
-    };
-  }
   rpc IsSquashInProgress(IsSquashInProgressRequest) returns (IsSquashInProgressResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -477,15 +472,6 @@ message CreateForkRequest {
 }
 
 message CreateForkResponse {}
-
-message IsRebaseInProgressRequest {
-  Repository repository = 1 [(target_repository)=true];
-  string rebase_id = 2;
-}
-
-message IsRebaseInProgressResponse {
-  bool in_progress = 1;
-}
 
 message IsSquashInProgressRequest {
   Repository repository = 1 [(target_repository)=true];

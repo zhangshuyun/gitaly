@@ -39,7 +39,6 @@ type RepositoryServiceClient interface {
 	WriteRef(ctx context.Context, in *WriteRefRequest, opts ...grpc.CallOption) (*WriteRefResponse, error)
 	FindMergeBase(ctx context.Context, in *FindMergeBaseRequest, opts ...grpc.CallOption) (*FindMergeBaseResponse, error)
 	CreateFork(ctx context.Context, in *CreateForkRequest, opts ...grpc.CallOption) (*CreateForkResponse, error)
-	IsRebaseInProgress(ctx context.Context, in *IsRebaseInProgressRequest, opts ...grpc.CallOption) (*IsRebaseInProgressResponse, error)
 	IsSquashInProgress(ctx context.Context, in *IsSquashInProgressRequest, opts ...grpc.CallOption) (*IsSquashInProgressResponse, error)
 	CreateRepositoryFromURL(ctx context.Context, in *CreateRepositoryFromURLRequest, opts ...grpc.CallOption) (*CreateRepositoryFromURLResponse, error)
 	// CreateBundle creates a bundle from all refs
@@ -258,15 +257,6 @@ func (c *repositoryServiceClient) FindMergeBase(ctx context.Context, in *FindMer
 func (c *repositoryServiceClient) CreateFork(ctx context.Context, in *CreateForkRequest, opts ...grpc.CallOption) (*CreateForkResponse, error) {
 	out := new(CreateForkResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/CreateFork", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *repositoryServiceClient) IsRebaseInProgress(ctx context.Context, in *IsRebaseInProgressRequest, opts ...grpc.CallOption) (*IsRebaseInProgressResponse, error) {
-	out := new(IsRebaseInProgressResponse)
-	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/IsRebaseInProgress", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -797,7 +787,6 @@ type RepositoryServiceServer interface {
 	WriteRef(context.Context, *WriteRefRequest) (*WriteRefResponse, error)
 	FindMergeBase(context.Context, *FindMergeBaseRequest) (*FindMergeBaseResponse, error)
 	CreateFork(context.Context, *CreateForkRequest) (*CreateForkResponse, error)
-	IsRebaseInProgress(context.Context, *IsRebaseInProgressRequest) (*IsRebaseInProgressResponse, error)
 	IsSquashInProgress(context.Context, *IsSquashInProgressRequest) (*IsSquashInProgressResponse, error)
 	CreateRepositoryFromURL(context.Context, *CreateRepositoryFromURLRequest) (*CreateRepositoryFromURLResponse, error)
 	// CreateBundle creates a bundle from all refs
@@ -893,9 +882,6 @@ func (UnimplementedRepositoryServiceServer) FindMergeBase(context.Context, *Find
 }
 func (UnimplementedRepositoryServiceServer) CreateFork(context.Context, *CreateForkRequest) (*CreateForkResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateFork not implemented")
-}
-func (UnimplementedRepositoryServiceServer) IsRebaseInProgress(context.Context, *IsRebaseInProgressRequest) (*IsRebaseInProgressResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method IsRebaseInProgress not implemented")
 }
 func (UnimplementedRepositoryServiceServer) IsSquashInProgress(context.Context, *IsSquashInProgressRequest) (*IsSquashInProgressResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method IsSquashInProgress not implemented")
@@ -1296,24 +1282,6 @@ func _RepositoryService_CreateFork_Handler(srv interface{}, ctx context.Context,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RepositoryServiceServer).CreateFork(ctx, req.(*CreateForkRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RepositoryService_IsRebaseInProgress_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(IsRebaseInProgressRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RepositoryServiceServer).IsRebaseInProgress(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gitaly.RepositoryService/IsRebaseInProgress",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RepositoryServiceServer).IsRebaseInProgress(ctx, req.(*IsRebaseInProgressRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1922,10 +1890,6 @@ var RepositoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateFork",
 			Handler:    _RepositoryService_CreateFork_Handler,
-		},
-		{
-			MethodName: "IsRebaseInProgress",
-			Handler:    _RepositoryService_IsRebaseInProgress_Handler,
 		},
 		{
 			MethodName: "IsSquashInProgress",
