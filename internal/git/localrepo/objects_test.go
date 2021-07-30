@@ -62,7 +62,7 @@ func TestRepo_WriteBlob(t *testing.T) {
 		{
 			desc:  "error reading",
 			input: ReaderFunc(func([]byte) (int, error) { return 0, assert.AnError }),
-			error: fmt.Errorf("%w, stderr: %q", assert.AnError, []byte{}),
+			error: assert.AnError,
 		},
 		{
 			desc:    "successful empty blob",
