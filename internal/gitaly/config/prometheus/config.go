@@ -7,14 +7,16 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/limithandler"
 )
 
-// DefaultBuckets returns the default gRPC latency bucket configuration for Prometheus.
-func DefaultBuckets() []float64 {
-	return []float64{0.001, 0.005, 0.025, 0.1, 0.5, 1.0, 10.0, 30.0, 60.0, 300.0, 1500.0}
-}
-
 // Config contains additional configuration data for prometheus
 type Config struct {
 	GRPCLatencyBuckets []float64 `toml:"grpc_latency_buckets"`
+}
+
+// DefaultConfig returns a new config with default values set.
+func DefaultConfig() Config {
+	return Config{
+		GRPCLatencyBuckets: []float64{0.001, 0.005, 0.025, 0.1, 0.5, 1.0, 10.0, 30.0, 60.0, 300.0, 1500.0},
+	}
 }
 
 // Configure configures latency buckets for prometheus timing histograms

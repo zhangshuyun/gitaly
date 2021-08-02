@@ -322,6 +322,7 @@ func TestConfigParsing(t *testing.T) {
 					SchedulingInterval: 0,
 					HistogramBuckets:   []float64{1, 2, 3, 4, 5},
 				},
+				Prometheus:  prometheus.DefaultConfig(),
 				Replication: Replication{BatchSize: 1},
 				Failover: Failover{
 					Enabled:           false,
@@ -336,6 +337,7 @@ func TestConfigParsing(t *testing.T) {
 			filePath: "testdata/config.empty.toml",
 			expected: Config{
 				GracefulStopTimeout: config.Duration(time.Minute),
+				Prometheus:          prometheus.DefaultConfig(),
 				Reconciliation:      DefaultReconciliationConfig(),
 				Replication:         DefaultReplicationConfig(),
 				Failover: Failover{

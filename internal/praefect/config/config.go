@@ -149,6 +149,7 @@ func FromFile(filePath string) (Config, error) {
 	conf := &Config{
 		Reconciliation: DefaultReconciliationConfig(),
 		Replication:    DefaultReplicationConfig(),
+		Prometheus:     prometheus.DefaultConfig(),
 		// Sets the default Failover, to be overwritten when deserializing the TOML
 		Failover: Failover{Enabled: true, ElectionStrategy: ElectionStrategyPerRepository},
 	}

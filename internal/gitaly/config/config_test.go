@@ -29,11 +29,13 @@ func TestLoadEmptyConfig(t *testing.T) {
 	cfg, err := Load(strings.NewReader(``))
 	require.NoError(t, err)
 
-	defaultConf := Cfg{InternalSocketDir: cfg.InternalSocketDir}
+	defaultConf := Cfg{
+		Prometheus:        prometheus.DefaultConfig(),
+		InternalSocketDir: cfg.InternalSocketDir,
+	}
 	require.NoError(t, defaultConf.setDefaults())
 
 	assert.Equal(t, defaultConf, cfg)
-	assert.Equal(t, defaultConf.Prometheus.GRPCLatencyBuckets, prometheus.DefaultBuckets())
 }
 
 func TestLoadURLs(t *testing.T) {
