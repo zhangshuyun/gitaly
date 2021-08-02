@@ -81,15 +81,6 @@ func GetCommitMessage(ctx context.Context, c Batch, repo repository.GitRepo, rev
 	return body, nil
 }
 
-// ParseCommit parses the commit data from the Reader.
-func ParseCommit(r io.Reader, oid git.ObjectID) (*gitalypb.GitCommit, error) {
-	header, body, err := splitRawCommit(r)
-	if err != nil {
-		return nil, err
-	}
-	return buildCommit(header, body, oid)
-}
-
 func splitRawCommit(r io.Reader) ([]byte, []byte, error) {
 	raw, err := ioutil.ReadAll(r)
 	if err != nil {
@@ -107,23 +98,32 @@ func splitRawCommit(r io.Reader) ([]byte, []byte, error) {
 	return header, body, nil
 }
 
-func buildCommit(header, body []byte, oid git.ObjectID) (*gitalypb.GitCommit, error) {
-	commit := &gitalypb.GitCommit{
-		Id:       oid.String(),
-		BodySize: int64(len(body)),
-		Body:     body,
-		Subject:  subjectFromBody(body),
-	}
+// ParseCommit parses the commit data from the Reader.
+func ParseCommit(r io.Reader, oid git.ObjectID) (*gitalypb.GitCommit, error) {
+	commit := &gitalypb.GitCommit{Id: oid.String()}
 
-	if max := helper.MaxCommitOrTagMessageSize; len(body) > max {
-		commit.Body = commit.Body[:max]
-	}
+	var lastLine bool
+	b := bufio.NewReader(r)
 
-	scanner := bufio.NewScanner(bytes.NewReader(header))
-	for scanner.Scan() {
-		line := scanner.Text()
+	for !lastLine {
+		line, err := b.ReadString('\n')
+		if err == io.EOF {
+			lastLine = true
+		} else if err != nil {
+			return nil, fmt.Errorf("parse raw commit: header: %w", err)
+		}
+
 		if len(line) == 0 || line[0] == ' ' {
 			continue
+		}
+		// A blank line indicates the start of the commit body
+		if line == "\n" {
+			break
+		}
+
+		// There might not be a final line break if there was an EOF
+		if line[len(line)-1] == '\n' {
+			line = line[:len(line)-1]
 		}
 
 		headerSplit := strings.SplitN(line, " ", 2)
@@ -144,8 +144,19 @@ func buildCommit(header, body []byte, oid git.ObjectID) (*gitalypb.GitCommit, er
 			commit.TreeId = headerSplit[1]
 		}
 	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
+
+	body, err := ioutil.ReadAll(b)
+	if err != nil {
+		return nil, fmt.Errorf("parse raw commit: body: %w", err)
+	}
+
+	if len(body) > 0 {
+		commit.Subject = subjectFromBody(body)
+		commit.BodySize = int64(len(body))
+		commit.Body = body
+		if max := helper.MaxCommitOrTagMessageSize; len(body) > max {
+			commit.Body = commit.Body[:max]
+		}
 	}
 
 	return commit, nil
