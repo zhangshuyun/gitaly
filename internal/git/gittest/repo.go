@@ -96,12 +96,6 @@ func initRepoAt(t testing.TB, cfg config.Cfg, bare bool, storage config.Storage)
 	return repo, repoPath, func() { require.NoError(t, os.RemoveAll(repoPath)) }
 }
 
-// CloneRepoAtStorageRoot clones a new copy of test repository under a subdirectory in the storage root.
-func CloneRepoAtStorageRoot(t testing.TB, cfg config.Cfg, storageRoot, relativePath string) *gitalypb.Repository {
-	repo, _, _ := cloneRepo(t, cfg, storageRoot, relativePath, testRepo, true)
-	return repo
-}
-
 // CloneRepoAtStorage clones a new copy of test repository under a subdirectory in the storage root.
 func CloneRepoAtStorage(t testing.TB, cfg config.Cfg, storage config.Storage, relativePath string) (*gitalypb.Repository, string, testhelper.Cleanup) {
 	repo, repoPath, cleanup := cloneRepo(t, cfg, storage.Path, relativePath, testRepo, true)
