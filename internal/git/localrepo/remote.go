@@ -10,6 +10,9 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitalyssh"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
 // Remote provides functionality of the 'remote' git sub-command.
@@ -217,10 +220,26 @@ type FetchOpts struct {
 	Stderr io.Writer
 }
 
-// FetchRemote fetches changes from the specified remote.
+// ErrFetchFailed indicates that the fetch has failed.
+type ErrFetchFailed struct {
+	err error
+}
+
+// Error returns the error message.
+func (e ErrFetchFailed) Error() string {
+	return e.err.Error()
+}
+
+// FetchRemote fetches changes from the specified remote. Returns an ErrFetchFailed error in case
+// the fetch itself failed.
 func (repo *Repo) FetchRemote(ctx context.Context, remoteName string, opts FetchOpts) error {
 	if err := validateNotBlank(remoteName, "remoteName"); err != nil {
 		return err
+	}
+
+	var stderr bytes.Buffer
+	if opts.Stderr == nil {
+		opts.Stderr = &stderr
 	}
 
 	commandOptions := []git.CmdOpt{
@@ -242,7 +261,69 @@ func (repo *Repo) FetchRemote(ctx context.Context, remoteName string, opts Fetch
 		return err
 	}
 
-	return cmd.Wait()
+	if err := cmd.Wait(); err != nil {
+		return ErrFetchFailed{errorWithStderr(err, stderr.Bytes())}
+	}
+
+	return nil
+}
+
+// FetchInternal performs a fetch from an internal Gitaly-hosted repository. Returns an
+// ErrFetchFailed error in case git-fetch(1) failed.
+func (repo *Repo) FetchInternal(
+	ctx context.Context,
+	remoteRepo *gitalypb.Repository,
+	refspecs []string,
+	opts FetchOpts,
+) error {
+	if len(refspecs) == 0 {
+		return fmt.Errorf("fetch internal called without refspecs")
+	}
+
+	env, err := gitalyssh.UploadPackEnv(ctx, repo.cfg, &gitalypb.SSHUploadPackRequest{
+		Repository:       remoteRepo,
+		GitConfigOptions: []string{"uploadpack.allowAnySHA1InWant=true"},
+	})
+	if err != nil {
+		return fmt.Errorf("fetch internal: %w", err)
+	}
+
+	var stderr bytes.Buffer
+	if opts.Stderr == nil {
+		opts.Stderr = &stderr
+	}
+
+	commandOptions := []git.CmdOpt{
+		git.WithEnv(append(env, opts.Env...)...),
+		git.WithStderr(opts.Stderr),
+		git.WithRefTxHook(ctx, repo, repo.cfg),
+	}
+	commandOptions = append(commandOptions, opts.CommandOptions...)
+
+	// We've observed performance issues when fetching into big repositories part of an object
+	// pool. The root cause of this seems to be the connectivity check, which by default will
+	// also include references of any alternates. Given that object pools often have hundreds of
+	// thousands of references, this is quite expensive to compute. Below config entry will
+	// disable listing of alternate refs: they shouldn't even be included in the negotiation
+	// phase, so they aren't going to matter in the connectivity check either.
+	if featureflag.FetchInternalNoAlternateRefs.IsEnabled(ctx) {
+		commandOptions = append(commandOptions, git.WithConfig(
+			git.ConfigPair{Key: "core.alternateRefsCommand", Value: "exit 0 #"},
+		))
+	}
+
+	if err := repo.ExecAndWait(ctx,
+		git.SubCmd{
+			Name:  "fetch",
+			Flags: append(opts.buildFlags(), git.Flag{Name: "--atomic"}),
+			Args:  append([]string{gitalyssh.GitalyInternalURL}, refspecs...),
+		},
+		commandOptions...,
+	); err != nil {
+		return ErrFetchFailed{errorWithStderr(err, stderr.Bytes())}
+	}
+
+	return nil
 }
 
 func (opts FetchOpts) buildFlags() []git.Option {

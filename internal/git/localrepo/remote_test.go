@@ -436,6 +436,16 @@ func TestRepo_FetchRemote(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, containsTags)
 	})
+
+	t.Run("with invalid remote", func(t *testing.T) {
+		repo, _, cleanup := initBareWithRemote(t, "origin")
+		defer cleanup()
+
+		err := repo.FetchRemote(ctx, "doesnotexist", FetchOpts{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "fatal: 'doesnotexist' does not appear to be a git repository")
+		require.IsType(t, err, ErrFetchFailed{})
+	})
 }
 
 // captureGitSSHCommand returns a path to a script that wraps the git at the passed in path

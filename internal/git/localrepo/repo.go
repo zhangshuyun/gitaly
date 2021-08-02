@@ -73,5 +73,8 @@ func (repo *Repo) Remote() Remote {
 }
 
 func errorWithStderr(err error, stderr []byte) error {
+	if len(stderr) == 0 {
+		return err
+	}
 	return fmt.Errorf("%w, stderr: %q", err, stderr)
 }
