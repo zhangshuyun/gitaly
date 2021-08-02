@@ -168,7 +168,7 @@ func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, sortFiel
 		return fmt.Errorf("error creating catfile: %v", err)
 	}
 
-	forEachRefIter := gitpipe.ForEachRef(ctx, repo, []string{"refs/tags/*"}, sortField)
+	forEachRefIter := gitpipe.ForEachRef(ctx, repo, []string{"refs/tags/"}, sortField)
 	forEachRefIter = gitpipe.RevisionTransform(ctx, forEachRefIter,
 		func(r gitpipe.RevisionResult) []gitpipe.RevisionResult {
 			// We transform the pipeline to include each tag-reference twice: once for

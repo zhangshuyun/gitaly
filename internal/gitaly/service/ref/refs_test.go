@@ -643,45 +643,39 @@ func testFindAllTagsNestedTags(t *testing.T, ctx context.Context) {
 	stream, err := client.FindAllTags(ctx, &gitalypb.FindAllTagsRequest{Repository: repoProto})
 	require.NoError(t, err)
 
-	if featureflag.FindAllTagsPipeline.IsEnabled(ctx) {
-		response, err := stream.Recv()
-		require.Equal(t, io.EOF, err)
-		require.Nil(t, response)
-	} else {
-		response, err := stream.Recv()
-		require.NoError(t, err)
-		testassert.ProtoEqual(t, &gitalypb.FindAllTagsResponse{
-			Tags: []*gitalypb.Tag{
-				&gitalypb.Tag{
-					Name: []byte("my/nested/tag"),
-					Id:   tagID,
-					TargetCommit: &gitalypb.GitCommit{
-						Id:       commitID.String(),
-						Body:     []byte("message"),
-						BodySize: 7,
-						Subject:  []byte("message"),
-						TreeId:   git.EmptyTreeOID.String(),
-						Author: &gitalypb.CommitAuthor{
-							Name:     []byte("Scrooge McDuck"),
-							Email:    []byte("scrooge@mcduck.com"),
-							Date:     &timestamppb.Timestamp{Seconds: 1572776879},
-							Timezone: []byte("+0100"),
-						},
-						Committer: &gitalypb.CommitAuthor{
-							Name:     []byte("Scrooge McDuck"),
-							Email:    []byte("scrooge@mcduck.com"),
-							Date:     &timestamppb.Timestamp{Seconds: 1572776879},
-							Timezone: []byte("+0100"),
-						},
+	response, err := stream.Recv()
+	require.NoError(t, err)
+	testassert.ProtoEqual(t, &gitalypb.FindAllTagsResponse{
+		Tags: []*gitalypb.Tag{
+			&gitalypb.Tag{
+				Name: []byte("my/nested/tag"),
+				Id:   tagID,
+				TargetCommit: &gitalypb.GitCommit{
+					Id:       commitID.String(),
+					Body:     []byte("message"),
+					BodySize: 7,
+					Subject:  []byte("message"),
+					TreeId:   git.EmptyTreeOID.String(),
+					Author: &gitalypb.CommitAuthor{
+						Name:     []byte("Scrooge McDuck"),
+						Email:    []byte("scrooge@mcduck.com"),
+						Date:     &timestamppb.Timestamp{Seconds: 1572776879},
+						Timezone: []byte("+0100"),
+					},
+					Committer: &gitalypb.CommitAuthor{
+						Name:     []byte("Scrooge McDuck"),
+						Email:    []byte("scrooge@mcduck.com"),
+						Date:     &timestamppb.Timestamp{Seconds: 1572776879},
+						Timezone: []byte("+0100"),
 					},
 				},
 			},
-		}, response)
+		},
+	}, response)
 
-		response, err = stream.Recv()
-		require.Equal(t, io.EOF, err)
-		require.Nil(t, response)
-	}
+	response, err = stream.Recv()
+	require.Equal(t, io.EOF, err)
+	require.Nil(t, response)
 }
 
 func TestFindAllTags_duplicateAnnotatedTags(t *testing.T) {
