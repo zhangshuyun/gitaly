@@ -38,16 +38,6 @@ func InitRepoDir(t testing.TB, storagePath, relativePath string) *gitalypb.Repos
 	}
 }
 
-// InitBareRepoAt creates a new bare repository in the storage
-func InitBareRepoAt(t testing.TB, cfg config.Cfg, storage config.Storage) (*gitalypb.Repository, string, func()) {
-	return initRepoAt(t, cfg, true, storage)
-}
-
-// InitRepoWithWorktreeAtStorage creates a new repository with a worktree in the storage
-func InitRepoWithWorktreeAtStorage(t testing.TB, cfg config.Cfg, storage config.Storage) (*gitalypb.Repository, string, func()) {
-	return initRepoAt(t, cfg, false, storage)
-}
-
 // NewObjectPoolName returns a random pool repository name in format
 // '@pools/[0-9a-z]{2}/[0-9a-z]{2}/[0-9a-z]{64}.git'.
 func NewObjectPoolName(t testing.TB) string {
@@ -74,6 +64,16 @@ func newDiskHash(t testing.TB) string {
 	b, err := text.RandomHex(sha256.Size)
 	require.NoError(t, err)
 	return filepath.Join(b[0:2], b[2:4], b)
+}
+
+// InitBareRepoAt creates a new bare repository in the storage
+func InitBareRepoAt(t testing.TB, cfg config.Cfg, storage config.Storage) (*gitalypb.Repository, string, func()) {
+	return initRepoAt(t, cfg, true, storage)
+}
+
+// InitRepoWithWorktreeAtStorage creates a new repository with a worktree in the storage
+func InitRepoWithWorktreeAtStorage(t testing.TB, cfg config.Cfg, storage config.Storage) (*gitalypb.Repository, string, func()) {
+	return initRepoAt(t, cfg, false, storage)
 }
 
 func initRepoAt(t testing.TB, cfg config.Cfg, bare bool, storage config.Storage) (*gitalypb.Repository, string, func()) {
@@ -111,6 +111,29 @@ func CloneRepoWithWorktreeAtStorage(t testing.TB, cfg config.Cfg, storage config
 	return repo, repoPath, cleanup
 }
 
+// CloneBenchRepo creates a bare copy of the benchmarking test repository.
+func CloneBenchRepo(t testing.TB, cfg config.Cfg) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
+	return cloneRepo(t, cfg, testhelper.GitlabTestStoragePath(), NewRepositoryName(t, true),
+		"benchmark.git", true)
+}
+
+func cloneRepo(t testing.TB, cfg config.Cfg, storageRoot, relativePath, repoName string, bare bool) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
+	repoPath = filepath.Join(storageRoot, relativePath)
+
+	repo = InitRepoDir(t, storageRoot, relativePath)
+	args := []string{"clone", "--no-hardlinks", "--dissociate"}
+	if bare {
+		args = append(args, "--bare")
+	} else {
+		// For non-bare repos the relative path is the .git folder inside the path
+		repo.RelativePath = filepath.Join(relativePath, ".git")
+	}
+
+	Exec(t, cfg, append(args, testRepositoryPath(t, repoName), repoPath)...)
+
+	return repo, repoPath, func() { require.NoError(t, os.RemoveAll(repoPath)) }
+}
+
 // testRepositoryPath returns the absolute path of local 'gitlab-org/gitlab-test.git' clone.
 // It is cloned under the path by the test preparing step of make.
 func testRepositoryPath(t testing.TB, repo string) string {
@@ -137,29 +160,6 @@ func isValidRepoPath(absolutePath string) bool {
 	}
 
 	return true
-}
-
-func cloneRepo(t testing.TB, cfg config.Cfg, storageRoot, relativePath, repoName string, bare bool) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
-	repoPath = filepath.Join(storageRoot, relativePath)
-
-	repo = InitRepoDir(t, storageRoot, relativePath)
-	args := []string{"clone", "--no-hardlinks", "--dissociate"}
-	if bare {
-		args = append(args, "--bare")
-	} else {
-		// For non-bare repos the relative path is the .git folder inside the path
-		repo.RelativePath = filepath.Join(relativePath, ".git")
-	}
-
-	Exec(t, cfg, append(args, testRepositoryPath(t, repoName), repoPath)...)
-
-	return repo, repoPath, func() { require.NoError(t, os.RemoveAll(repoPath)) }
-}
-
-// CloneBenchRepo creates a bare copy of the benchmarking test repository.
-func CloneBenchRepo(t testing.TB, cfg config.Cfg) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
-	return cloneRepo(t, cfg, testhelper.GitlabTestStoragePath(), NewRepositoryName(t, true),
-		"benchmark.git", true)
 }
 
 // AddWorktreeArgs returns git command arguments for adding a worktree at the
