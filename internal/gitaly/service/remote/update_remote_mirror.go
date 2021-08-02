@@ -101,7 +101,7 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 		return fmt.Errorf("get remote references: %w", err)
 	}
 
-	localRefs, err := repo.GetReferences(ctx, "refs/heads/", "refs/tags/")
+	localRefs, err := repo.GetReferences(ctx, false, "refs/heads/", "refs/tags/")
 	if err != nil {
 		return fmt.Errorf("get local references: %w", err)
 	}

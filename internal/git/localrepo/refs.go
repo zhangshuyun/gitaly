@@ -64,7 +64,7 @@ func (repo *Repo) ResolveRevision(ctx context.Context, revision git.Revision) (g
 // GetReference looks up and returns the given reference. Returns a
 // ReferenceNotFound error if the reference was not found.
 func (repo *Repo) GetReference(ctx context.Context, reference git.ReferenceName) (git.Reference, error) {
-	refs, err := repo.getReferences(ctx, 1, reference.String())
+	refs, err := repo.getReferences(ctx, 1, false, reference.String())
 	if err != nil {
 		return git.Reference{}, err
 	}
@@ -82,17 +82,30 @@ func (repo *Repo) GetReference(ctx context.Context, reference git.ReferenceName)
 // HasBranches determines whether there is at least one branch in the
 // repository.
 func (repo *Repo) HasBranches(ctx context.Context) (bool, error) {
-	refs, err := repo.getReferences(ctx, 1, "refs/heads/")
+	refs, err := repo.getReferences(ctx, 1, false, "refs/heads/")
 	return len(refs) > 0, err
 }
 
 // GetReferences returns references matching any of the given patterns. If no patterns are given,
 // all references are returned.
-func (repo *Repo) GetReferences(ctx context.Context, patterns ...string) ([]git.Reference, error) {
-	return repo.getReferences(ctx, 0, patterns...)
+func (repo *Repo) GetReferences(ctx context.Context, head bool, patterns ...string) ([]git.Reference, error) {
+	return repo.getReferences(ctx, 0, head, patterns...)
 }
 
-func (repo *Repo) getReferences(ctx context.Context, limit uint, patterns ...string) ([]git.Reference, error) {
+func (repo *Repo) getReferences(ctx context.Context, limit uint, head bool, patterns ...string) ([]git.Reference, error) {
+	var refs []git.Reference
+	if head {
+		headOid, err := repo.ResolveRevision(ctx, git.Revision("HEAD"))
+		switch {
+		case errors.Is(err, git.ErrReferenceNotFound):
+			// ignore missing HEAD
+		case err != nil:
+			return nil, err
+		default:
+			refs = append(refs, git.NewReference("HEAD", headOid.String()))
+		}
+	}
+
 	flags := []git.Option{git.Flag{Name: "--format=%(refname)%00%(objectname)%00%(symref)"}}
 	if limit > 0 {
 		flags = append(flags, git.Flag{Name: fmt.Sprintf("--count=%d", limit)})
@@ -109,7 +122,6 @@ func (repo *Repo) getReferences(ctx context.Context, limit uint, patterns ...str
 
 	scanner := bufio.NewScanner(cmd)
 
-	var refs []git.Reference
 	for scanner.Scan() {
 		line := bytes.SplitN(scanner.Bytes(), []byte{0}, 3)
 		if len(line) != 3 {
@@ -135,7 +147,7 @@ func (repo *Repo) getReferences(ctx context.Context, limit uint, patterns ...str
 
 // GetBranches returns all branches.
 func (repo *Repo) GetBranches(ctx context.Context) ([]git.Reference, error) {
-	return repo.GetReferences(ctx, "refs/heads/")
+	return repo.GetReferences(ctx, false, "refs/heads/")
 }
 
 // UpdateRef updates reference from oldValue to newValue. If oldValue is a

@@ -600,10 +600,10 @@ func TestRepo_Push(t *testing.T) {
 
 			require.Equal(t, tc.sshCommand, string(gitSSHCommand))
 
-			actual, err := pushRepo.GetReferences(ctx)
+			actual, err := pushRepo.GetReferences(ctx, false)
 			require.NoError(t, err)
 
-			expected, err := sourceRepo.GetReferences(ctx, tc.expectedFilter...)
+			expected, err := sourceRepo.GetReferences(ctx, false, tc.expectedFilter...)
 			require.NoError(t, err)
 
 			require.Equal(t, expected, actual)

@@ -148,11 +148,17 @@ func TestRepo_GetReferences(t *testing.T) {
 
 	repo, _ := setupRepo(t, false)
 
+	headOid, err := repo.ResolveRevision(ctx, git.Revision("HEAD"))
+	require.NoError(t, err)
+
+	head := git.NewReference("HEAD", headOid.String())
+
 	masterBranch, err := repo.GetReference(ctx, "refs/heads/master")
 	require.NoError(t, err)
 
 	testcases := []struct {
 		desc     string
+		head     bool
 		patterns []string
 		match    func(t *testing.T, refs []git.Reference)
 	}{
@@ -200,11 +206,19 @@ func TestRepo_GetReferences(t *testing.T) {
 				require.Empty(t, refs)
 			},
 		},
+		{
+			desc:     "master branch with head",
+			head:     true,
+			patterns: []string{"refs/heads/master"},
+			match: func(t *testing.T, refs []git.Reference) {
+				require.Equal(t, []git.Reference{head, masterBranch}, refs)
+			},
+		},
 	}
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			refs, err := repo.GetReferences(ctx, tc.patterns...)
+			refs, err := repo.GetReferences(ctx, tc.head, tc.patterns...)
 			require.NoError(t, err)
 			tc.match(t, refs)
 		})

@@ -66,7 +66,7 @@ func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	// Ensure that the internal refs are gone, but the others still exist
-	refs, err := repo.GetReferences(ctx, "refs/")
+	refs, err := repo.GetReferences(ctx, false, "refs/")
 	require.NoError(t, err)
 
 	refNames := make([]string, len(refs))

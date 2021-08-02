@@ -86,7 +86,7 @@ func (s *server) refsToRemove(ctx context.Context, repo *localrepo.Repo, req *gi
 		prefixes[i] = string(prefix)
 	}
 
-	existingRefs, err := repo.GetReferences(ctx)
+	existingRefs, err := repo.GetReferences(ctx, false)
 	if err != nil {
 		return nil, err
 	}

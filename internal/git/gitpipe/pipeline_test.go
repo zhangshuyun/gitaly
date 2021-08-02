@@ -379,7 +379,7 @@ func TestPipeline_forEachRef(t *testing.T) {
 
 	// We certainly don't want to hard-code all the references, so we just cross-check with the
 	// localrepo implementation to verify that both return the same data.
-	refs, err := repo.GetReferences(ctx)
+	refs, err := repo.GetReferences(ctx, false)
 	require.NoError(t, err)
 	require.Equal(t, len(refs), len(objectsByRef))
 
