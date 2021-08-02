@@ -461,6 +461,54 @@ func testFailedUserSquashRequestDueToValidations(t *testing.T, ctx context.Conte
 	}
 }
 
+func TestUserSquashWithConflicts(t *testing.T) {
+	t.Parallel()
+
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UserSquashWithoutWorktree,
+	}).Run(t, testUserSquashWithConflicts)
+}
+
+func testUserSquashWithConflicts(t *testing.T, ctx context.Context) {
+	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+
+	base := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "a", Mode: "100644", Content: "unchanged"},
+		gittest.TreeEntry{Path: "b", Mode: "100644", Content: "base"},
+	))
+
+	ours := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(base), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "a", Mode: "100644", Content: "unchanged"},
+		gittest.TreeEntry{Path: "b", Mode: "100644", Content: "ours"},
+	))
+
+	theirs := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(base), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "a", Mode: "100644", Content: "unchanged"},
+		gittest.TreeEntry{Path: "b", Mode: "100644", Content: "theirs"},
+	))
+
+	response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
+		Repository:    repo,
+		SquashId:      "1",
+		User:          gittest.TestUser,
+		Author:        gittest.TestUser,
+		CommitMessage: commitMessage,
+		StartSha:      theirs.String(),
+		EndSha:        ours.String(),
+	})
+	require.NoError(t, err)
+
+	if featureflag.UserSquashWithoutWorktree.IsEnabled(ctx) {
+		testassert.ProtoEqual(t, &gitalypb.UserSquashResponse{
+			GitError: fmt.Sprintf("rebase: commit %q: conflicts have not been resolved", ours),
+		}, response)
+	} else {
+		require.NotNil(t, response)
+		// Error messages differ across Git versions, so we can't assert an exact match.
+		require.Contains(t, response.GitError, "Applied patch to 'b' with conflicts.")
+	}
+}
+
 func TestUserSquash_ancestry(t *testing.T) {
 	t.Parallel()
 

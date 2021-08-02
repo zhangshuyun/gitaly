@@ -168,7 +168,10 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 			UpstreamCommitID: startCommit,
 		})
 		if err != nil {
-			return "", fmt.Errorf("rebasing end onto start commit: %w", err)
+			return "", fmt.Errorf("rebasing end onto start commit: %w", gitError{
+				Err:    err,
+				ErrMsg: err.Error(),
+			})
 		}
 
 		treeID, err := repo.ResolveRevision(ctx, rebasedCommitID.Revision()+"^{tree}")
