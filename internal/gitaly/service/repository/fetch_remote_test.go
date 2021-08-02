@@ -731,8 +731,7 @@ func TestFetchRemoteWithPath(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	mirrorRepo, mirrorRepoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-	defer cleanup()
+	mirrorRepo, mirrorRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 	_, err := client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
 		Repository: mirrorRepo,

@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
-func createRepoWithDivergentBranches(t *testing.T, cfg config.Cfg, leftCommits, rightCommits int, leftBranchName, rightBranchName string) (*gitalypb.Repository, func()) {
+func createRepoWithDivergentBranches(t *testing.T, cfg config.Cfg, leftCommits, rightCommits int, leftBranchName, rightBranchName string) *gitalypb.Repository {
 	/* create a branch structure as follows
 	   	   a
 	   	   |
@@ -26,7 +26,9 @@ func createRepoWithDivergentBranches(t *testing.T, cfg config.Cfg, leftCommits, 
 		 f   h
 	*/
 
-	repo, worktreePath, cleanupFn := gittest.InitRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
+	repo, worktreePath := gittest.InitRepo(t, cfg, cfg.Storages[0], gittest.InitRepoOpts{
+		WithWorktree: true,
+	})
 	committerName := "Scrooge McDuck"
 	committerEmail := "scrooge@mcduck.com"
 
@@ -56,15 +58,14 @@ func createRepoWithDivergentBranches(t *testing.T, cfg config.Cfg, leftCommits, 
 			"commit", "--allow-empty", "-m", fmt.Sprintf("branch-2 Empty commit %d", i))
 	}
 
-	return repo, cleanupFn
+	return repo
 }
 
 func TestSuccessfulCountDivergentCommitsRequest(t *testing.T) {
 	t.Parallel()
 	cfg, client := setupCommitService(t)
 
-	testRepo, cleanupFn := createRepoWithDivergentBranches(t, cfg, 3, 3, "left", "right")
-	defer cleanupFn()
+	testRepo := createRepoWithDivergentBranches(t, cfg, 3, 3, "left", "right")
 
 	testCases := []struct {
 		leftRevision  string
@@ -138,8 +139,7 @@ func TestSuccessfulCountDivergentCommitsRequestWithMaxCount(t *testing.T) {
 	t.Parallel()
 	cfg, client := setupCommitService(t)
 
-	testRepo, cleanupFn := createRepoWithDivergentBranches(t, cfg, 4, 4, "left", "right")
-	defer cleanupFn()
+	testRepo := createRepoWithDivergentBranches(t, cfg, 4, 4, "left", "right")
 
 	testCases := []struct {
 		leftRevision  string

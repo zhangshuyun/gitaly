@@ -471,11 +471,9 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			mirrorRepoPb, mirrorRepoPath, cleanMirrorRepo := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-			defer cleanMirrorRepo()
+			mirrorRepoPb, mirrorRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
-			sourceRepoPb, sourceRepoPath, cleanSourceRepo := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-			defer cleanSourceRepo()
+			sourceRepoPb, sourceRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 			// configure the mirror repository as a remote in the source
 			gittest.Exec(t, cfg, "-C", sourceRepoPath, "remote", "add", "mirror", mirrorRepoPath)

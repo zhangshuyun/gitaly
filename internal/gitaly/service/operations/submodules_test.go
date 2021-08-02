@@ -338,8 +338,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToRepositoryEmpty(t *testing.T) {
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
-	repo, _, cleanup := gittest.InitRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
-	t.Cleanup(cleanup)
+	repo, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 	request := &gitalypb.UserUpdateSubmoduleRequest{
 		Repository:    repo,

@@ -263,8 +263,7 @@ To restore the original branch and stop patching, run "git am --abort".
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			repoPb, repoPath, cleanRepo := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-			defer cleanRepo()
+			repoPb, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 			repo := localrepo.New(git.NewExecCommandFactory(cfg), catfile.NewCache(cfg), repoPb, cfg)
 

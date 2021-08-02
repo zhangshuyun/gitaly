@@ -631,8 +631,7 @@ func TestFindAllTagsNestedTags(t *testing.T) {
 func testFindAllTagsNestedTags(t *testing.T, ctx context.Context) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 
-	repoProto, repoPath, cleanupFn := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-	defer cleanupFn()
+	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath,
 		gittest.WithParents(),
@@ -681,8 +680,7 @@ func testFindAllTagsNestedTags(t *testing.T, ctx context.Context) {
 func TestFindAllTags_duplicateAnnotatedTags(t *testing.T) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 
-	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-	defer cleanup()
+	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	ctx, cancel := testhelper.Context()
@@ -1027,8 +1025,7 @@ func testFindAllTagsSorted(t *testing.T, ctx context.Context) {
 	})
 
 	t.Run("no tags", func(t *testing.T) {
-		repoProto, _, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-		t.Cleanup(cleanup)
+		repoProto, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
 		c, err := client.FindAllTags(ctx, &gitalypb.FindAllTagsRequest{
 			Repository: repoProto,
 			SortBy:     &gitalypb.FindAllTagsRequest_SortBy{Key: gitalypb.FindAllTagsRequest_SortBy_REFNAME},

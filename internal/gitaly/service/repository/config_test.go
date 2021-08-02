@@ -59,8 +59,7 @@ func TestGetConfig(t *testing.T) {
 	}
 
 	t.Run("normal repo", func(t *testing.T) {
-		repo, _, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-		defer cleanup()
+		repo, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 		config, err := getConfig(t, client, repo)
 		require.NoError(t, err)
@@ -68,8 +67,7 @@ func TestGetConfig(t *testing.T) {
 	})
 
 	t.Run("missing config", func(t *testing.T) {
-		repo, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-		defer cleanup()
+		repo, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 		configPath := filepath.Join(repoPath, "config")
 		require.NoError(t, os.Remove(configPath))

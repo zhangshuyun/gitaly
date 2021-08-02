@@ -47,8 +47,7 @@ func TestUserCommitFiles(t *testing.T) {
 	// repository there on every test run. This allows us to use deterministic
 	// paths in the tests.
 
-	startRepo, startRepoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-	t.Cleanup(cleanup)
+	startRepo, startRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 	pathToStorage := strings.TrimSuffix(startRepoPath, startRepo.RelativePath)
 	repoPath := filepath.Join(pathToStorage, targetRelativePath)
@@ -947,8 +946,7 @@ func TestUserCommitFilesStableCommitID(t *testing.T) {
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
-	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-	defer cleanup()
+	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	for key, values := range testhelper.GitalyServersMetadataFromCfg(t, cfg) {
@@ -1007,8 +1005,7 @@ func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	newRepo, newRepoPath, newRepoCleanupFn := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-	defer newRepoCleanupFn()
+	newRepo, newRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 	filePath := "héllo/wörld"
 	authorName := []byte("Jane Doe")
@@ -1274,8 +1271,7 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-		newRepoProto, _, newRepoCleanupFn := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-		defer newRepoCleanupFn()
+		newRepoProto, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
 		newRepo := localrepo.NewTestRepo(t, cfg, newRepoProto)
 
 		targetBranchName := "new"
@@ -1312,8 +1308,7 @@ func TestSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
-	repoProto, _, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-	defer cleanup()
+	repoProto, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	targetBranchName := "master"

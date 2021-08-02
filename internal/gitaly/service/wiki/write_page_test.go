@@ -18,8 +18,7 @@ import (
 )
 
 func testSuccessfulWikiWritePageRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	wikiRepoProto, wikiRepoPath, cleanupFunc := setupWikiRepo(t, cfg)
-	defer cleanupFunc()
+	wikiRepoProto, wikiRepoPath := setupWikiRepo(t, cfg)
 	wikiRepo := localrepo.NewTestRepo(t, cfg, wikiRepoProto)
 
 	ctx, cancel := testhelper.Context()
@@ -117,8 +116,7 @@ func testSuccessfulWikiWritePageRequest(t *testing.T, cfg config.Cfg, rubySrv *r
 }
 
 func testFailedWikiWritePageDueToDuplicatePage(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	wikiRepo, _, cleanupFunc := setupWikiRepo(t, cfg)
-	defer cleanupFunc()
+	wikiRepo, _ := setupWikiRepo(t, cfg)
 
 	client := setupWikiService(t, cfg, rubySrv)
 
@@ -158,8 +156,7 @@ func testFailedWikiWritePageDueToDuplicatePage(t *testing.T, cfg config.Cfg, rub
 }
 
 func testFailedWikiWritePageInPathDueToDuplicatePage(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	wikiRepo, _, cleanupFunc := setupWikiRepo(t, cfg)
-	defer cleanupFunc()
+	wikiRepo, _ := setupWikiRepo(t, cfg)
 
 	client := setupWikiService(t, cfg, rubySrv)
 

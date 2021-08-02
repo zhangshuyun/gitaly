@@ -66,22 +66,28 @@ func newDiskHash(t testing.TB) string {
 	return filepath.Join(b[0:2], b[2:4], b)
 }
 
-// InitBareRepoAt creates a new bare repository in the storage
-func InitBareRepoAt(t testing.TB, cfg config.Cfg, storage config.Storage) (*gitalypb.Repository, string, func()) {
-	return initRepoAt(t, cfg, true, storage)
+// InitRepoOpts contains options for InitRepo.
+type InitRepoOpts struct {
+	// WithWorktree determines whether the resulting Git repository should have a worktree or
+	// not.
+	WithWorktree bool
 }
 
-// InitRepoWithWorktreeAtStorage creates a new repository with a worktree in the storage
-func InitRepoWithWorktreeAtStorage(t testing.TB, cfg config.Cfg, storage config.Storage) (*gitalypb.Repository, string, func()) {
-	return initRepoAt(t, cfg, false, storage)
-}
+// InitRepo creates a new empty repository in the given storage. You can either pass no or exactly
+// one InitRepoOpts.
+func InitRepo(t testing.TB, cfg config.Cfg, storage config.Storage, opts ...InitRepoOpts) (*gitalypb.Repository, string) {
+	require.Less(t, len(opts), 2, "you must either pass no or exactly one option")
 
-func initRepoAt(t testing.TB, cfg config.Cfg, bare bool, storage config.Storage) (*gitalypb.Repository, string, func()) {
-	relativePath := NewRepositoryName(t, bare)
+	opt := InitRepoOpts{}
+	if len(opts) == 1 {
+		opt = opts[0]
+	}
+
+	relativePath := NewRepositoryName(t, !opt.WithWorktree)
 	repoPath := filepath.Join(storage.Path, relativePath)
 
 	args := []string{"init"}
-	if bare {
+	if !opt.WithWorktree {
 		args = append(args, "--bare")
 	}
 
@@ -89,11 +95,13 @@ func initRepoAt(t testing.TB, cfg config.Cfg, bare bool, storage config.Storage)
 
 	repo := InitRepoDir(t, storage.Path, relativePath)
 	repo.StorageName = storage.Name
-	if !bare {
+	if opt.WithWorktree {
 		repo.RelativePath = filepath.Join(repo.RelativePath, ".git")
 	}
 
-	return repo, repoPath, func() { require.NoError(t, os.RemoveAll(repoPath)) }
+	t.Cleanup(func() { require.NoError(t, os.RemoveAll(repoPath)) })
+
+	return repo, repoPath
 }
 
 // CloneRepoAtStorage clones a new copy of test repository under a subdirectory in the storage root.
