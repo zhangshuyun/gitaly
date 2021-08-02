@@ -124,7 +124,6 @@ func TestNewProtoRegistry(t *testing.T) {
 			"WriteRef":                     protoregistry.OpMutator,
 			"FindMergeBase":                protoregistry.OpAccessor,
 			"CreateFork":                   protoregistry.OpMutator,
-			"IsRebaseInProgress":           protoregistry.OpAccessor,
 			"IsSquashInProgress":           protoregistry.OpAccessor,
 			"CreateRepositoryFromURL":      protoregistry.OpMutator,
 			"CreateBundle":                 protoregistry.OpAccessor,
