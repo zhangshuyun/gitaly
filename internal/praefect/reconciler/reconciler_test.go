@@ -1084,8 +1084,14 @@ func TestReconciler(t *testing.T) {
 			rs := datastore.NewPostgresRepositoryStore(db, configuredStorages)
 			for virtualStorage, relativePaths := range tc.repositories {
 				for relativePath, storages := range relativePaths {
+					repoCreated := false
 					for storage, repo := range storages {
 						if repo.generation >= 0 {
+							if !repoCreated {
+								repoCreated = true
+								require.NoError(t, rs.CreateRepository(ctx, virtualStorage, relativePath, storage, nil, nil, false, false))
+							}
+
 							require.NoError(t, rs.SetGeneration(ctx, virtualStorage, relativePath, storage, repo.generation))
 						}
 					}
