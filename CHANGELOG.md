@@ -74,6 +74,12 @@ No changes.
 - [Separate listenmux from backchannel](gitlab-org/gitaly@c95298c125a680a006153d5aca5d3dbb575ce352) ([merge request](gitlab-org/gitaly!3593))
 - [Use upstream implementation of insecure credentials](gitlab-org/gitaly@7453f84b0bb385a958943b5e0910b8f6bb3906bb) ([merge request](gitlab-org/gitaly!3591))
 
+## 14.0.7 (2021-08-03)
+
+### Security (1 change)
+
+- [catfile: Allow parsing of long git commit headers](gitlab-org/security/gitaly@f67249ab2dcd2b4c380d4dae5e889008229cd77c) ([merge request](gitlab-org/security/gitaly!37))
+
 ## 14.0.6 (2021-07-20)
 
 ### Added (1 change)
