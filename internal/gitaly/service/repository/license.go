@@ -87,7 +87,7 @@ type gitFiler struct {
 	foundLicense bool
 }
 
-func (f *gitFiler) ReadFile(path string) (content []byte, err error) {
+func (f *gitFiler) ReadFile(path string) ([]byte, error) {
 	var stdout, stderr bytes.Buffer
 	if err := f.repo.ExecAndWait(f.ctx, git.SubCmd{
 		Name: "cat-file",
