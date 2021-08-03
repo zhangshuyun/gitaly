@@ -1,13 +1,16 @@
 package operations
 
 import (
+	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -17,9 +20,13 @@ import (
 
 func TestServer_UserCherryPick_successful(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testServerUserCherryPickSuccessful)
+}
+
+func testServerUserCherryPickSuccessful(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -172,9 +179,13 @@ func TestServer_UserCherryPick_successful(t *testing.T) {
 
 func TestServer_UserCherryPick_successfulGitHooks(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testServerUserCherryPickSuccessfulGitHooks)
+}
+
+func testServerUserCherryPickSuccessfulGitHooks(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -211,9 +222,13 @@ func TestServer_UserCherryPick_successfulGitHooks(t *testing.T) {
 
 func TestServer_UserCherryPick_stableID(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testServerUserCherryPickStableID)
+}
+
+func testServerUserCherryPickStableID(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -268,9 +283,13 @@ func TestServer_UserCherryPick_stableID(t *testing.T) {
 
 func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testServerUserCherryPickFailedValidations)
+}
+
+func testServerUserCherryPickFailedValidations(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -341,9 +360,13 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 
 func TestServer_UserCherryPick_failedWithPreReceiveError(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testServerUserCherryPickFailedWithPreReceiveError)
+}
+
+func testServerUserCherryPickFailedWithPreReceiveError(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -377,9 +400,13 @@ func TestServer_UserCherryPick_failedWithPreReceiveError(t *testing.T) {
 
 func TestServer_UserCherryPick_failedWithCreateTreeError(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testServerUserCherryPickFailedWithCreateTreeError)
+}
+
+func testServerUserCherryPickFailedWithCreateTreeError(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -407,9 +434,13 @@ func TestServer_UserCherryPick_failedWithCreateTreeError(t *testing.T) {
 
 func TestServer_UserCherryPick_failedWithCommitError(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testServerUserCherryPickFailedWithCommitError)
+}
+
+func testServerUserCherryPickFailedWithCommitError(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -438,9 +469,13 @@ func TestServer_UserCherryPick_failedWithCommitError(t *testing.T) {
 
 func TestServer_UserCherryPick_failedWithConflict(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testServerUserCherryPickFailedWithConflict)
+}
+
+func testServerUserCherryPickFailedWithConflict(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -468,9 +503,13 @@ func TestServer_UserCherryPick_failedWithConflict(t *testing.T) {
 
 func TestServer_UserCherryPick_successfulWithGivenCommits(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testServerUserCherryPickSuccessfulWithGivenCommits)
+}
+
+func testServerUserCherryPickSuccessfulWithGivenCommits(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -520,4 +559,46 @@ func TestServer_UserCherryPick_successfulWithGivenCommits(t *testing.T) {
 			require.Equal(t, testCase.startRevision.String(), newHead.ParentIds[0])
 		})
 	}
+}
+
+func TestServer_UserCherryPick_quarantine(t *testing.T) {
+	t.Parallel()
+
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testServerUserCherryPickQuarantine)
+}
+
+func testServerUserCherryPickQuarantine(t *testing.T, ctx context.Context) {
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	// Set up a hook that parses the new object and then aborts the update. Like this, we can
+	// assert that the object does not end up in the main repository.
+	hookScript := fmt.Sprintf("#!/bin/sh\n%s rev-parse $3^{commit} && exit 1", cfg.Git.BinPath)
+	gittest.WriteCustomHook(t, repoPath, "update", []byte(hookScript))
+
+	commit, err := repo.ReadCommit(ctx, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
+	require.NoError(t, err)
+
+	request := &gitalypb.UserCherryPickRequest{
+		Repository: repoProto,
+		User:       gittest.TestUser,
+		Commit:     commit,
+		BranchName: []byte("refs/heads/master"),
+		Message:    []byte("Message"),
+	}
+
+	response, err := client.UserCherryPick(ctx, request)
+	require.NoError(t, err)
+	require.NotNil(t, response)
+
+	oid, err := git.NewObjectIDFromHex(strings.TrimSpace(response.PreReceiveError))
+	require.NoError(t, err)
+	exists, err := repo.HasRevision(ctx, oid.Revision()+"^{commit}")
+	require.NoError(t, err)
+
+	// The new commit will be in the target repository in case quarantines are disabled.
+	// Otherwise, it should've been discarded.
+	require.Equal(t, !featureflag.Quarantine.IsEnabled(ctx), exists)
 }

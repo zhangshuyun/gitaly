@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -20,19 +21,22 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 		return nil, status.Errorf(codes.InvalidArgument, "UserCherryPick: %v", err)
 	}
 
-	localRepo := s.localrepo(req.GetRepository())
-
-	startRevision, err := s.fetchStartRevision(ctx, localRepo, req)
+	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, req.GetRepository(), featureflag.Quarantine)
 	if err != nil {
 		return nil, err
 	}
 
-	repoHadBranches, err := localRepo.HasBranches(ctx)
+	startRevision, err := s.fetchStartRevision(ctx, quarantineRepo, req)
 	if err != nil {
 		return nil, err
 	}
 
-	repoPath, err := s.locator.GetPath(req.Repository)
+	repoHadBranches, err := quarantineRepo.HasBranches(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	repoPath, err := quarantineRepo.Path()
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +51,7 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 		committerDate = req.Timestamp.AsTime()
 	}
 
-	newrev, err := s.git2go.CherryPick(ctx, localRepo, git2go.CherryPickCommand{
+	newrev, err := s.git2go.CherryPick(ctx, quarantineRepo, git2go.CherryPickCommand{
 		Repository:    repoPath,
 		CommitterName: string(req.User.Name),
 		CommitterMail: string(req.User.Email),
@@ -79,7 +83,7 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))
 
 	branchCreated := false
-	oldrev, err := localRepo.ResolveRevision(ctx, referenceName.Revision()+"^{commit}")
+	oldrev, err := quarantineRepo.ResolveRevision(ctx, referenceName.Revision()+"^{commit}")
 	if errors.Is(err, git.ErrReferenceNotFound) {
 		branchCreated = true
 		oldrev = git.ZeroOID
@@ -92,7 +96,7 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 	}
 
 	if !branchCreated {
-		ancestor, err := localRepo.IsAncestor(ctx, oldrev.Revision(), newrev.Revision())
+		ancestor, err := quarantineRepo.IsAncestor(ctx, oldrev.Revision(), newrev.Revision())
 		if err != nil {
 			return nil, err
 		}
@@ -103,7 +107,7 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 		}
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, nil, referenceName, newrev, oldrev); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, req.GetRepository(), req.User, quarantineDir, referenceName, newrev, oldrev); err != nil {
 		if errors.As(err, &updateref.PreReceiveError{}) {
 			return &gitalypb.UserCherryPickResponse{
 				PreReceiveError: err.Error(),
