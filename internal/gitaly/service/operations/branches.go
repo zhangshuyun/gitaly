@@ -117,7 +117,12 @@ func (s *Server) UserUpdateBranch(ctx context.Context, req *gitalypb.UserUpdateB
 
 	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))
 
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, nil, referenceName, newOID, oldOID); err != nil {
+	quarantineDir, _, err := s.quarantinedRepo(ctx, req.GetRepository(), featureflag.Quarantine)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.updateReferenceWithHooks(ctx, req.GetRepository(), req.User, quarantineDir, referenceName, newOID, oldOID); err != nil {
 		var preReceiveError updateref.PreReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserUpdateBranchResponse{
