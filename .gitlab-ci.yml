@@ -261,12 +261,15 @@ praefect_sql_connect:
     - ./_build/bin/praefect -config config.praefect.toml sql-migrate
 
 praefect_sql_test:
+  # This job verifies all operations run without issues if PgBouncer is set in between service and PostgreSQL database.
   <<: *test_definition
   <<: *postgres_definition
   script:
     - make test-postgres
 
 backwards_compatibility_test:
+  # The job verifies the old version of the service could run its database migration on the database where the
+  # migration of the newest service version was already applied.
   <<: *test_definition
   <<: *postgres_definition
   rules:

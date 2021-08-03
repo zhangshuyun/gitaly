@@ -295,7 +295,6 @@ test-with-praefect: build prepare-tests
 
 .PHONY: test-postgres
 ## Run Go tests with Postgres.
-test-postgres: GO_BUILD_TAGS := ${GO_BUILD_TAGS},postgres
 test-postgres: TEST_PACKAGES := gitlab.com/gitlab-org/gitaly/v14/internal/praefect/...
 test-postgres: prepare-tests
 	${Q}$(call run_go_tests)
@@ -368,7 +367,6 @@ rubocop: ${SOURCE_DIR}/.ruby-bundle
 
 .PHONY: cover
 ## Generate coverage report via Go tests.
-cover: GO_BUILD_TAGS := ${GO_BUILD_TAGS},postgres
 cover: TEST_OPTIONS  := ${TEST_OPTIONS} -coverprofile "${COVERAGE_DIR}/all.merged"
 cover: prepare-tests libgit2 ${GOCOVER_COBERTURA}
 	${Q}echo "NOTE: make cover does not exit 1 on failure, don't use it to check for tests success!"
