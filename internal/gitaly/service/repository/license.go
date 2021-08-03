@@ -81,7 +81,7 @@ func (f *gitFiler) ReadFile(path string) (content []byte, err error) {
 	var stdout, stderr bytes.Buffer
 	if err := f.repo.ExecAndWait(f.ctx, git.SubCmd{
 		Name: "cat-file",
-		Args: []string{"blob", fmt.Sprintf(":%s", path)},
+		Args: []string{"blob", fmt.Sprintf("HEAD:%s", path)},
 	}, git.WithStdout(&stdout), git.WithStderr(&stderr)); err != nil {
 		return nil, fmt.Errorf("cat-file failed: %w, stderr: %q", err, stderr.String())
 	}

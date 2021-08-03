@@ -18,7 +18,7 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, rubySrv *rub
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoFindLicense,
 	}).Run(t, func(t *testing.T, ctx context.Context) {
-		_, repo, _, client := setupRepositoryWithWorkingtreeServiceWithRuby(t, cfg, rubySrv)
+		_, repo, _, client := setupRepositoryServiceWithRuby(t, cfg, rubySrv)
 
 		resp, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: repo})
 
