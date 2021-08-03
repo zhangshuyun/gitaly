@@ -47,6 +47,10 @@ type RefServiceClient interface {
 	ListNewCommits(ctx context.Context, in *ListNewCommitsRequest, opts ...grpc.CallOption) (RefService_ListNewCommitsClient, error)
 	ListNewBlobs(ctx context.Context, in *ListNewBlobsRequest, opts ...grpc.CallOption) (RefService_ListNewBlobsClient, error)
 	PackRefs(ctx context.Context, in *PackRefsRequest, opts ...grpc.CallOption) (*PackRefsResponse, error)
+	// ListRefs returns a stream of all references in the repository. By default, pseudo-revisions like HEAD
+	// will not be returned by this RPC. Any symbolic references will be resolved to the object ID it is
+	// pointing at.
+	ListRefs(ctx context.Context, in *ListRefsRequest, opts ...grpc.CallOption) (RefService_ListRefsClient, error)
 }
 
 type refServiceClient struct {
@@ -504,6 +508,38 @@ func (c *refServiceClient) PackRefs(ctx context.Context, in *PackRefsRequest, op
 	return out, nil
 }
 
+func (c *refServiceClient) ListRefs(ctx context.Context, in *ListRefsRequest, opts ...grpc.CallOption) (RefService_ListRefsClient, error) {
+	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[12], "/gitaly.RefService/ListRefs", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &refServiceListRefsClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type RefService_ListRefsClient interface {
+	Recv() (*ListRefsResponse, error)
+	grpc.ClientStream
+}
+
+type refServiceListRefsClient struct {
+	grpc.ClientStream
+}
+
+func (x *refServiceListRefsClient) Recv() (*ListRefsResponse, error) {
+	m := new(ListRefsResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // RefServiceServer is the server API for RefService service.
 // All implementations must embed UnimplementedRefServiceServer
 // for forward compatibility
@@ -537,6 +573,10 @@ type RefServiceServer interface {
 	ListNewCommits(*ListNewCommitsRequest, RefService_ListNewCommitsServer) error
 	ListNewBlobs(*ListNewBlobsRequest, RefService_ListNewBlobsServer) error
 	PackRefs(context.Context, *PackRefsRequest) (*PackRefsResponse, error)
+	// ListRefs returns a stream of all references in the repository. By default, pseudo-revisions like HEAD
+	// will not be returned by this RPC. Any symbolic references will be resolved to the object ID it is
+	// pointing at.
+	ListRefs(*ListRefsRequest, RefService_ListRefsServer) error
 	mustEmbedUnimplementedRefServiceServer()
 }
 
@@ -600,6 +640,9 @@ func (UnimplementedRefServiceServer) ListNewBlobs(*ListNewBlobsRequest, RefServi
 }
 func (UnimplementedRefServiceServer) PackRefs(context.Context, *PackRefsRequest) (*PackRefsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PackRefs not implemented")
+}
+func (UnimplementedRefServiceServer) ListRefs(*ListRefsRequest, RefService_ListRefsServer) error {
+	return status.Errorf(codes.Unimplemented, "method ListRefs not implemented")
 }
 func (UnimplementedRefServiceServer) mustEmbedUnimplementedRefServiceServer() {}
 
@@ -992,6 +1035,27 @@ func _RefService_PackRefs_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RefService_ListRefs_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ListRefsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(RefServiceServer).ListRefs(m, &refServiceListRefsServer{stream})
+}
+
+type RefService_ListRefsServer interface {
+	Send(*ListRefsResponse) error
+	grpc.ServerStream
+}
+
+type refServiceListRefsServer struct {
+	grpc.ServerStream
+}
+
+func (x *refServiceListRefsServer) Send(m *ListRefsResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // RefService_ServiceDesc is the grpc.ServiceDesc for RefService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1087,6 +1151,11 @@ var RefService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "ListNewBlobs",
 			Handler:       _RefService_ListNewBlobs_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "ListRefs",
+			Handler:       _RefService_ListRefs_Handler,
 			ServerStreams: true,
 		},
 	},
