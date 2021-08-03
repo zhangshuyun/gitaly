@@ -88,14 +88,14 @@ func testSuccessfulUserSquashRequest(t *testing.T, ctx context.Context, start, e
 }
 
 func TestUserSquash_stableID(t *testing.T) {
+	t.Parallel()
+
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.UserSquashWithoutWorktree,
 	}).Run(t, testUserSquashStableID)
 }
 
 func testUserSquashStableID(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -153,14 +153,14 @@ func ensureSplitIndexExists(t *testing.T, cfg config.Cfg, repoDir string) bool {
 }
 
 func TestSuccessfulUserSquashRequestWith3wayMerge(t *testing.T) {
+	t.Parallel()
+
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.UserSquashWithoutWorktree,
 	}).Run(t, testSuccessfulUserSquashRequestWith3wayMerge)
 }
 
 func testSuccessfulUserSquashRequestWith3wayMerge(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -209,14 +209,14 @@ func testSuccessfulUserSquashRequestWith3wayMerge(t *testing.T, ctx context.Cont
 }
 
 func TestSplitIndex(t *testing.T) {
+	t.Parallel()
+
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.UserSquashWithoutWorktree,
 	}).Run(t, testSplitIndex)
 }
 
 func testSplitIndex(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	require.False(t, ensureSplitIndexExists(t, cfg, repoPath))
@@ -238,14 +238,14 @@ func testSplitIndex(t *testing.T, ctx context.Context) {
 }
 
 func TestSquashRequestWithRenamedFiles(t *testing.T) {
+	t.Parallel()
+
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.UserSquashWithoutWorktree,
 	}).Run(t, testSquashRequestWithRenamedFiles)
 }
 
 func testSquashRequestWithRenamedFiles(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
 	repoProto, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
@@ -303,14 +303,14 @@ func testSquashRequestWithRenamedFiles(t *testing.T, ctx context.Context) {
 }
 
 func TestSuccessfulUserSquashRequestWithMissingFileOnTargetBranch(t *testing.T) {
+	t.Parallel()
+
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.UserSquashWithoutWorktree,
 	}).Run(t, testSuccessfulUserSquashRequestWithMissingFileOnTargetBranch)
 }
 
 func testSuccessfulUserSquashRequestWithMissingFileOnTargetBranch(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	conflictingStartSha := "bbd36ad238d14e1c03ece0f3358f545092dc9ca3"
@@ -331,14 +331,14 @@ func testSuccessfulUserSquashRequestWithMissingFileOnTargetBranch(t *testing.T, 
 }
 
 func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
+	t.Parallel()
+
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.UserSquashWithoutWorktree,
 	}).Run(t, testFailedUserSquashRequestDueToValidations)
 }
 
 func testFailedUserSquashRequestDueToValidations(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
@@ -458,6 +458,54 @@ func testFailedUserSquashRequestDueToValidations(t *testing.T, ctx context.Conte
 			testhelper.RequireGrpcError(t, err, testCase.code)
 			require.Contains(t, err.Error(), testCase.desc)
 		})
+	}
+}
+
+func TestUserSquashWithConflicts(t *testing.T) {
+	t.Parallel()
+
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UserSquashWithoutWorktree,
+	}).Run(t, testUserSquashWithConflicts)
+}
+
+func testUserSquashWithConflicts(t *testing.T, ctx context.Context) {
+	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+
+	base := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "a", Mode: "100644", Content: "unchanged"},
+		gittest.TreeEntry{Path: "b", Mode: "100644", Content: "base"},
+	))
+
+	ours := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(base), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "a", Mode: "100644", Content: "unchanged"},
+		gittest.TreeEntry{Path: "b", Mode: "100644", Content: "ours"},
+	))
+
+	theirs := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(base), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "a", Mode: "100644", Content: "unchanged"},
+		gittest.TreeEntry{Path: "b", Mode: "100644", Content: "theirs"},
+	))
+
+	response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
+		Repository:    repo,
+		SquashId:      "1",
+		User:          gittest.TestUser,
+		Author:        gittest.TestUser,
+		CommitMessage: commitMessage,
+		StartSha:      theirs.String(),
+		EndSha:        ours.String(),
+	})
+	require.NoError(t, err)
+
+	if featureflag.UserSquashWithoutWorktree.IsEnabled(ctx) {
+		testassert.ProtoEqual(t, &gitalypb.UserSquashResponse{
+			GitError: fmt.Sprintf("rebase: commit %q: conflicts have not been resolved", ours),
+		}, response)
+	} else {
+		require.NotNil(t, response)
+		// Error messages differ across Git versions, so we can't assert an exact match.
+		require.Contains(t, response.GitError, "Applied patch to 'b' with conflicts.")
 	}
 }
 
