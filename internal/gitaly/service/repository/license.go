@@ -36,7 +36,6 @@ func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseReque
 		}
 
 		repoFiler := &gitFiler{ctx, repo, false}
-		defer repoFiler.Close()
 
 		licenses, err := licensedb.Detect(repoFiler)
 		if err != nil {
