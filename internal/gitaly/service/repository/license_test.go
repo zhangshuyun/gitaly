@@ -21,10 +21,17 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, rubySrv *rub
 		featureflag.GoFindLicense,
 	}).Run(t, func(t *testing.T, ctx context.Context) {
 		for _, tc := range []struct {
-			desc            string
-			files           map[string]string
-			expectedLicense string
+			desc                  string
+			nonExistentRepository bool
+			files                 map[string]string
+			expectedLicense       string
+			errorContains         string
 		}{
+			{
+				desc:                  "repository does not exist",
+				nonExistentRepository: true,
+				errorContains:         "rpc error: code = NotFound desc = GetRepoPath: not a git repository",
+			},
 			{
 				desc: "empty if no license file in repo",
 				files: map[string]string{
@@ -83,7 +90,17 @@ SOFTWARE.`},
 
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithTreeEntries(treeEntries...), gittest.WithParents())
 
+				if tc.nonExistentRepository {
+					clean()
+				}
+
 				resp, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: repo})
+				if tc.errorContains != "" {
+					require.Error(t, err)
+					require.Contains(t, err.Error(), tc.errorContains)
+					return
+				}
+
 				require.NoError(t, err)
 				testassert.ProtoEqual(t, &gitalypb.FindLicenseResponse{
 					LicenseShortName: tc.expectedLicense,
