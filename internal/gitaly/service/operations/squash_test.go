@@ -88,14 +88,14 @@ func testSuccessfulUserSquashRequest(t *testing.T, ctx context.Context, start, e
 }
 
 func TestUserSquash_stableID(t *testing.T) {
+	t.Parallel()
+
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.UserSquashWithoutWorktree,
 	}).Run(t, testUserSquashStableID)
 }
 
 func testUserSquashStableID(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -153,14 +153,14 @@ func ensureSplitIndexExists(t *testing.T, cfg config.Cfg, repoDir string) bool {
 }
 
 func TestSuccessfulUserSquashRequestWith3wayMerge(t *testing.T) {
+	t.Parallel()
+
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.UserSquashWithoutWorktree,
 	}).Run(t, testSuccessfulUserSquashRequestWith3wayMerge)
 }
 
 func testSuccessfulUserSquashRequestWith3wayMerge(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -209,14 +209,14 @@ func testSuccessfulUserSquashRequestWith3wayMerge(t *testing.T, ctx context.Cont
 }
 
 func TestSplitIndex(t *testing.T) {
+	t.Parallel()
+
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.UserSquashWithoutWorktree,
 	}).Run(t, testSplitIndex)
 }
 
 func testSplitIndex(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	require.False(t, ensureSplitIndexExists(t, cfg, repoPath))
@@ -238,14 +238,14 @@ func testSplitIndex(t *testing.T, ctx context.Context) {
 }
 
 func TestSquashRequestWithRenamedFiles(t *testing.T) {
+	t.Parallel()
+
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.UserSquashWithoutWorktree,
 	}).Run(t, testSquashRequestWithRenamedFiles)
 }
 
 func testSquashRequestWithRenamedFiles(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
 	repoProto, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
@@ -303,14 +303,14 @@ func testSquashRequestWithRenamedFiles(t *testing.T, ctx context.Context) {
 }
 
 func TestSuccessfulUserSquashRequestWithMissingFileOnTargetBranch(t *testing.T) {
+	t.Parallel()
+
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.UserSquashWithoutWorktree,
 	}).Run(t, testSuccessfulUserSquashRequestWithMissingFileOnTargetBranch)
 }
 
 func testSuccessfulUserSquashRequestWithMissingFileOnTargetBranch(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	conflictingStartSha := "bbd36ad238d14e1c03ece0f3358f545092dc9ca3"
@@ -331,14 +331,14 @@ func testSuccessfulUserSquashRequestWithMissingFileOnTargetBranch(t *testing.T, 
 }
 
 func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
+	t.Parallel()
+
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.UserSquashWithoutWorktree,
 	}).Run(t, testFailedUserSquashRequestDueToValidations)
 }
 
 func testFailedUserSquashRequestDueToValidations(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
