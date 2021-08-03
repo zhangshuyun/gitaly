@@ -376,7 +376,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 	metricsCollectors = append(metricsCollectors, transactionManager, coordinator, repl)
 	if db != nil {
 		prometheus.MustRegister(
-			datastore.NewRepositoryStoreCollector(logger, conf.VirtualStorageNames(), db),
+			datastore.NewRepositoryStoreCollector(logger, conf.VirtualStorageNames(), db, conf.Prometheus.ScrapeTimeout),
 		)
 	}
 	prometheus.MustRegister(metricsCollectors...)
