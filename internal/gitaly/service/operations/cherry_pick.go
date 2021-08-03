@@ -20,12 +20,13 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 		return nil, status.Errorf(codes.InvalidArgument, "UserCherryPick: %v", err)
 	}
 
-	startRevision, err := s.fetchStartRevision(ctx, req)
+	localRepo := s.localrepo(req.GetRepository())
+
+	startRevision, err := s.fetchStartRevision(ctx, localRepo, req)
 	if err != nil {
 		return nil, err
 	}
 
-	localRepo := s.localrepo(req.GetRepository())
 	repoHadBranches, err := localRepo.HasBranches(ctx)
 	if err != nil {
 		return nil, err

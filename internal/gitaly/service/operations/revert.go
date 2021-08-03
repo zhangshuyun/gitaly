@@ -19,18 +19,19 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	startRevision, err := s.fetchStartRevision(ctx, req)
+	localRepo := s.localrepo(req.GetRepository())
+
+	startRevision, err := s.fetchStartRevision(ctx, localRepo, req)
 	if err != nil {
 		return nil, err
 	}
 
-	localRepo := s.localrepo(req.GetRepository())
 	repoHadBranches, err := localRepo.HasBranches(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	repoPath, err := s.locator.GetPath(req.Repository)
+	repoPath, err := localRepo.Path()
 	if err != nil {
 		return nil, helper.ErrInternalf("get path: %w", err)
 	}
@@ -121,28 +122,31 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 }
 
 type requestFetchingStartRevision interface {
-	GetRepository() *gitalypb.Repository
 	GetBranchName() []byte
 	GetStartRepository() *gitalypb.Repository
 	GetStartBranchName() []byte
 }
 
-func (s *Server) fetchStartRevision(ctx context.Context, req requestFetchingStartRevision) (git.ObjectID, error) {
+func (s *Server) fetchStartRevision(
+	ctx context.Context,
+	localRepo *localrepo.Repo,
+	req requestFetchingStartRevision,
+) (git.ObjectID, error) {
 	startBranchName := req.GetStartBranchName()
 	if len(startBranchName) == 0 {
 		startBranchName = req.GetBranchName()
 	}
 
-	startRepository := req.GetStartRepository()
-	if startRepository == nil {
-		startRepository = req.GetRepository()
+	var remoteRepo git.Repository = localRepo
+	if startRepository := req.GetStartRepository(); startRepository != nil {
+		var err error
+		remoteRepo, err = remoterepo.New(ctx, startRepository, s.conns)
+		if err != nil {
+			return "", helper.ErrInternal(err)
+		}
 	}
 
-	remote, err := remoterepo.New(ctx, startRepository, s.conns)
-	if err != nil {
-		return "", helper.ErrInternal(err)
-	}
-	startRevision, err := remote.ResolveRevision(ctx, git.Revision(fmt.Sprintf("%s^{commit}", startBranchName)))
+	startRevision, err := remoteRepo.ResolveRevision(ctx, git.Revision(fmt.Sprintf("%s^{commit}", startBranchName)))
 	if err != nil {
 		return "", helper.ErrInvalidArgumentf("resolve start ref: %w", err)
 	}
@@ -150,8 +154,6 @@ func (s *Server) fetchStartRevision(ctx context.Context, req requestFetchingStar
 	if req.GetStartRepository() == nil {
 		return startRevision, nil
 	}
-
-	localRepo := s.localrepo(req.GetRepository())
 
 	_, err = localRepo.ResolveRevision(ctx, startRevision.Revision()+"^{commit}")
 	if errors.Is(err, git.ErrReferenceNotFound) {
