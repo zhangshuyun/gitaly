@@ -188,6 +188,12 @@ No changes.
 
 - [Update gitlab-labkit to 0.17.1](gitlab-org/gitaly@904af72eb7c42124978370cef53681fa561b10f5) ([merge request](gitlab-org/gitaly!3395))
 
+## 13.12.9 (2021-08-03)
+
+### Security (1 change)
+
+- [catfile: Allow parsing of long git commit headers](gitlab-org/security/gitaly@ae22c42551963b5fde79f55fd4f89c136a3d8dbb) ([merge request](gitlab-org/security/gitaly!38))
+
 ## 13.12.8 (2021-07-07)
 
 No changes.
