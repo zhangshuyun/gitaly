@@ -88,7 +88,7 @@ func setupOperationsService(t testing.TB, ctx context.Context) (context.Context,
 func setupOperationsServiceWithRuby(
 	t testing.TB, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server, options ...testserver.GitalyServerOpt,
 ) (context.Context, config.Cfg, *gitalypb.Repository, string, gitalypb.OperationServiceClient) {
-	repo, repoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	testhelper.ConfigureGitalySSHBin(t, cfg)
 	testhelper.ConfigureGitalyGit2GoBin(t, cfg)

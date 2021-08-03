@@ -42,13 +42,13 @@ func TestWalkRepos(t *testing.T) {
 
 	// file walk happens lexicographically, so we delete repository in the middle
 	// of the seqeuence to ensure the walk proceeds normally
-	testRepo1, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+	testRepo1, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
 		RelativePath: "a",
 	})
-	deletedRepo, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+	deletedRepo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
 		RelativePath: "b",
 	})
-	testRepo2, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+	testRepo2, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
 		RelativePath: "c",
 	})
 

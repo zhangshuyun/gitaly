@@ -96,7 +96,7 @@ func setupRepositoryServiceWithRuby(t testing.TB, cfg config.Cfg, rubySrv *rubys
 	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 	cfg.SocketPath = serverSocketPath
 
-	repo, repoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	return cfg, repo, repoPath, client
 }
@@ -168,7 +168,7 @@ func runRepositoryService(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Serv
 
 func setupRepositoryService(t testing.TB, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
 	cfg, client := setupRepositoryServiceWithoutRepo(t, opts...)
-	repo, repoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	return cfg, repo, repoPath, client
 }
 
@@ -187,7 +187,7 @@ func setupRepositoryServiceWithoutRepo(t testing.TB, opts ...testserver.GitalySe
 func setupRepositoryServiceWithWorktree(t testing.TB) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	repo, repoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
 		WithWorktree: true,
 	})
 

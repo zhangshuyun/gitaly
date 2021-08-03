@@ -39,7 +39,7 @@ func TestReplicateRepository(t *testing.T) {
 
 	client := newRepositoryClient(t, cfg, serverSocketPath)
 
-	repo, repoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	// create a loose object to ensure snapshot replication is used
 	blobData, err := text.RandomHex(10)
@@ -107,7 +107,7 @@ func TestReplicateRepositoryTransactional(t *testing.T) {
 	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil, testserver.WithDisablePraefect())
 	cfg.SocketPath = serverSocketPath
 
-	sourceRepo, sourceRepoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	sourceRepo, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	targetRepo := proto.Clone(sourceRepo).(*gitalypb.Repository)
 	targetRepo.StorageName = cfg.Storages[1].Name
@@ -291,8 +291,8 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 
 			client := newRepositoryClient(t, cfg, serverSocketPath)
 
-			sourceRepo, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
-			targetRepo, targetRepoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[1], gittest.CloneRepoOpts{
+			sourceRepo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+			targetRepo, targetRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[1], gittest.CloneRepoOpts{
 				RelativePath: sourceRepo.RelativePath,
 			})
 
@@ -345,7 +345,7 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 
 	locator := config.NewLocator(cfg)
 
-	testRepo, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	testRepo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	repoClient := newRepositoryClient(t, cfg, cfg.SocketPath)
 

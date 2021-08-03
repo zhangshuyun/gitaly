@@ -214,7 +214,7 @@ func testResolveConflictsWithRemoteRepo(t *testing.T, ctx context.Context) {
 	testhelper.ConfigureGitalySSHBin(t, cfg)
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
-	sourceRepo, sourceRepoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	sourceRepo, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	sourceBlobOID := gittest.WriteBlob(t, cfg, sourceRepoPath, []byte("contents-1\n"))
 	sourceCommitOID := gittest.WriteCommit(t, cfg, sourceRepoPath,
 		gittest.WithTreeEntries(gittest.TreeEntry{
@@ -223,7 +223,7 @@ func testResolveConflictsWithRemoteRepo(t *testing.T, ctx context.Context) {
 	)
 	gittest.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", "refs/heads/source", sourceCommitOID.String())
 
-	targetRepo, targetRepoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	targetRepo, targetRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	targetBlobOID := gittest.WriteBlob(t, cfg, targetRepoPath, []byte("contents-2\n"))
 	targetCommitOID := gittest.WriteCommit(t, cfg, targetRepoPath,
 		gittest.WithTreeEntries(gittest.TreeEntry{
@@ -865,7 +865,7 @@ func testResolveConflictsQuarantine(t *testing.T, ctx context.Context) {
 	testhelper.ConfigureGitalySSHBin(t, cfg)
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
-	sourceRepoProto, sourceRepoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	sourceRepoProto, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	sourceBlobOID := gittest.WriteBlob(t, cfg, sourceRepoPath, []byte("contents-1\n"))
 	sourceCommitOID := gittest.WriteCommit(t, cfg, sourceRepoPath,
 		gittest.WithTreeEntries(gittest.TreeEntry{
@@ -880,7 +880,7 @@ func testResolveConflictsQuarantine(t *testing.T, ctx context.Context) {
 	script := fmt.Sprintf("#!/bin/sh\necho $3 && %s cat-file -p $3^{commit} && exit 1", cfg.Git.BinPath)
 	gittest.WriteCustomHook(t, sourceRepoPath, "update", []byte(script))
 
-	targetRepoProto, targetRepoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	targetRepoProto, targetRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	targetBlobOID := gittest.WriteBlob(t, cfg, targetRepoPath, []byte("contents-2\n"))
 	targetCommitOID := gittest.WriteCommit(t, cfg, targetRepoPath,
 		gittest.WithTreeEntries(gittest.TreeEntry{

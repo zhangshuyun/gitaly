@@ -263,7 +263,7 @@ type pushData struct {
 }
 
 func newTestPush(t *testing.T, cfg config.Cfg, fileContents []byte) *pushData {
-	_, repoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+	_, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
 		WithWorktree: true,
 	})
 
@@ -355,7 +355,7 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	_, localRepoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	_, localRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	socket := runSmartHTTPServer(t, cfg)
 
@@ -649,7 +649,7 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 		stream, err := client.PostReceivePack(ctx)
 		require.NoError(t, err)
 
-		repo, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+		repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 		request := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: "key-1234", GlRepository: "some_repo"}
 		response := doPush(t, stream, request, newTestPush(t, cfg, nil).body)
@@ -665,7 +665,7 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 		stream, err := client.PostReceivePack(ctx)
 		require.NoError(t, err)
 
-		repo, repoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+		repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 		// Create a new branch which we're about to delete. We also pack references because
 		// this used to generate two transactions: one for the packed-refs file and one for

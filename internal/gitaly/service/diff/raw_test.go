@@ -27,7 +27,7 @@ func TestSuccessfulRawDiffRequest(t *testing.T) {
 	c, err := client.RawDiff(ctx, rpcRequest)
 	require.NoError(t, err)
 
-	_, sandboxRepoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+	_, sandboxRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
 		WithWorktree: true,
 	})
 
@@ -118,7 +118,7 @@ func TestSuccessfulRawPatchRequest(t *testing.T) {
 		return response.GetData(), err
 	})
 
-	_, sandboxRepoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+	_, sandboxRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
 		WithWorktree: true,
 	})
 

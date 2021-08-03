@@ -270,7 +270,7 @@ func TestHooksUpdate(t *testing.T) {
 }
 
 func testHooksUpdate(t *testing.T, cfg config.Cfg, glValues glHookValues) {
-	repo, repoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	refval, oldval, newval := "refval", strings.Repeat("a", 40), strings.Repeat("b", 40)
 	updateHookPath, err := filepath.Abs("../../ruby/git-hooks/update")

@@ -34,7 +34,7 @@ func setupRepoRemote(t *testing.T, bare bool) (Remote, string) {
 	if bare {
 		repoProto, repoPath = gittest.InitRepo(t, cfg, cfg.Storages[0])
 	} else {
-		repoProto, repoPath = gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+		repoProto, repoPath = gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	}
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
@@ -96,7 +96,7 @@ func TestRemote_Add(t *testing.T) {
 
 	gittest.Exec(t, remote.repo.cfg, "-C", repoPath, "remote", "remove", "origin")
 
-	_, remoteRepoPath := gittest.CloneRepoAtStorage(t, remote.repo.cfg, remote.repo.cfg.Storages[0])
+	_, remoteRepoPath := gittest.CloneRepo(t, remote.repo.cfg, remote.repo.cfg.Storages[0])
 
 	t.Run("invalid argument", func(t *testing.T) {
 		for _, tc := range []struct {
@@ -354,8 +354,8 @@ func TestRepo_FetchRemote(t *testing.T) {
 	})
 
 	t.Run("with env", func(t *testing.T) {
-		_, sourceRepoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
-		testRepo, testRepoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+		_, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+		testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 		repo := New(remoteCmd.repo.gitCmdFactory, remoteCmd.repo.catfileCache, testRepo, cfg)
 		gittest.Exec(t, cfg, "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
@@ -366,8 +366,8 @@ func TestRepo_FetchRemote(t *testing.T) {
 	})
 
 	t.Run("with globals", func(t *testing.T) {
-		_, sourceRepoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
-		testRepo, testRepoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+		_, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+		testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 		repo := New(remoteCmd.repo.gitCmdFactory, remoteCmd.repo.catfileCache, testRepo, cfg)
 		gittest.Exec(t, cfg, "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
@@ -393,8 +393,8 @@ func TestRepo_FetchRemote(t *testing.T) {
 	})
 
 	t.Run("with prune", func(t *testing.T) {
-		_, sourceRepoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
-		testRepo, testRepoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+		_, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+		testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 		repo := New(remoteCmd.repo.gitCmdFactory, remoteCmd.repo.catfileCache, testRepo, cfg)
 

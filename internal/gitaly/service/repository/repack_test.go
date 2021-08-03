@@ -134,7 +134,7 @@ func TestRepackFullSuccess(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
 			var repoPath string
-			test.req.Repository, repoPath = gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+			test.req.Repository, repoPath = gittest.CloneRepo(t, cfg, cfg.Storages[0])
 			// Reset mtime to a long while ago since some filesystems don't have sub-second
 			// precision on `mtime`.
 			packPath := filepath.Join(repoPath, "objects", "pack")

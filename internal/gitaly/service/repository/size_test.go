@@ -90,7 +90,7 @@ func TestGetObjectDirectorySize_quarantine(t *testing.T) {
 	defer cancel()
 
 	t.Run("quarantined repo", func(t *testing.T) {
-		repo, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+		repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 		quarantine, err := quarantine.New(ctx, repo, locator)
 		require.NoError(t, err)
@@ -107,11 +107,11 @@ func TestGetObjectDirectorySize_quarantine(t *testing.T) {
 	})
 
 	t.Run("quarantined repo with different relative path", func(t *testing.T) {
-		repo1, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+		repo1, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 		quarantine1, err := quarantine.New(ctx, repo1, locator)
 		require.NoError(t, err)
 
-		repo2, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+		repo2, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 		quarantine2, err := quarantine.New(ctx, repo2, locator)
 		require.NoError(t, err)
 

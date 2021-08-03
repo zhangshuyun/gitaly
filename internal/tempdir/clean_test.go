@@ -56,7 +56,7 @@ func TestCleanTempDir(t *testing.T) {
 	cfg := testcfg.Build(t, testcfg.WithStorages("first", "second"))
 	locator := config.NewLocator(cfg)
 
-	gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	logrus.SetLevel(logrus.InfoLevel)
 	logrus.SetOutput(ioutil.Discard)

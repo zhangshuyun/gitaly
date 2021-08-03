@@ -89,7 +89,7 @@ func TestQuarantine_Migrate(t *testing.T) {
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
-		repo, repoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+		repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 		oldContents := listEntries(t, repoPath)
 
@@ -105,7 +105,7 @@ func TestQuarantine_Migrate(t *testing.T) {
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
-		repo, repoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+		repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 		oldContents := listEntries(t, repoPath)
 		require.NotContains(t, oldContents, "objects/file")

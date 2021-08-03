@@ -137,7 +137,7 @@ func (gc *GitalyCfgBuilder) BuildWithRepoAt(t testing.TB, relativePath string) (
 	// clone the test repo to the each storage
 	repos := make([]*gitalypb.Repository, len(cfg.Storages))
 	for i, gitalyStorage := range cfg.Storages {
-		repo, _ := gittest.CloneRepoAtStorage(t, cfg, gitalyStorage, gittest.CloneRepoOpts{
+		repo, _ := gittest.CloneRepo(t, cfg, gitalyStorage, gittest.CloneRepoOpts{
 			RelativePath: relativePath,
 		})
 

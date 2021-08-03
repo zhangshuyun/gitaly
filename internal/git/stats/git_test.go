@@ -23,8 +23,8 @@ import (
 func TestLogObjectInfo(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	repo1, repoPath1 := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
-	repo2, repoPath2 := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	repo1, repoPath1 := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	repo2, repoPath2 := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

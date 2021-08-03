@@ -41,7 +41,7 @@ func setupCommitServiceWithRepo(
 	t testing.TB, bare bool,
 ) (config.Cfg, *gitalypb.Repository, string, gitalypb.CommitServiceClient) {
 	return setupCommitServiceCreateRepo(t, func(tb testing.TB, cfg config.Cfg) (*gitalypb.Repository, string) {
-		return gittest.CloneRepoAtStorage(tb, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+		return gittest.CloneRepo(tb, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
 			WithWorktree: !bare,
 		})
 	})

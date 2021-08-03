@@ -51,7 +51,7 @@ func SetupConfigAndRepo(t testing.TB, bare bool) (config.Cfg, *gitalypb.Reposito
 
 	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 
-	repo, repoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
 		WithWorktree: !bare,
 	})
 

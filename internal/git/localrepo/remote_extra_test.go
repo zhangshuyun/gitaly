@@ -161,7 +161,7 @@ func TestRepo_FetchInternal(t *testing.T) {
 	t.Run("pruning", func(t *testing.T) {
 		ctx := testhelper.MergeIncomingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
 
-		repoProto, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+		repoProto, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		// Create a local reference. Given that it doesn't exist on the remote side, it

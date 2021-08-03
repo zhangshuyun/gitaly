@@ -36,7 +36,7 @@ func testRepositoryResolveRevision(t *testing.T, cfg config.Cfg, getRepository f
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pbRepo, _ := CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	pbRepo, _ := CloneRepo(t, cfg, cfg.Storages[0])
 
 	for _, tc := range []struct {
 		desc     string

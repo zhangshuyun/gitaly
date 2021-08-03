@@ -612,8 +612,8 @@ func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
-	_, mirrorPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	_, mirrorPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	remoteName := "remote_mirror_1"
 
@@ -715,9 +715,9 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithWildcards(t *testing.T) {
 	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
-	_, mirrorPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	_, mirrorPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	remoteName := "remote_mirror_2"
 
@@ -800,10 +800,10 @@ func TestUpdateRemoteMirrorInmemory(t *testing.T) {
 	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	localRepo, localPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	localRepo, localPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	gittest.WriteCommit(t, cfg, localPath)
 
-	_, remotePath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	_, remotePath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -849,8 +849,8 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T) 
 	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
-	_, mirrorPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	_, mirrorPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	remoteName := "remote_mirror_1"
 
@@ -938,7 +938,7 @@ func TestFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T) {
 	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	testRepo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	testCases := []struct {
 		desc    string

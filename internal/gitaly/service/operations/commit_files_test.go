@@ -1131,7 +1131,7 @@ func TestSuccessfulUserCommitFilesRequestMove(t *testing.T) {
 		{content: "foo", infer: true},
 	} {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			testRepo, testRepoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+			testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 			origFileContent := gittest.Exec(t, cfg, "-C", testRepoPath, "show", branchName+":"+previousFilePath)
 			headerRequest := headerRequest(testRepo, gittest.TestUser, branchName, commitFilesMessage, "")

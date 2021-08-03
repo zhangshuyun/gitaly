@@ -24,7 +24,7 @@ func TestRepositoryExists(t *testing.T) {
 
 	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil, testserver.WithDisablePraefect())
 
-	repo, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	client := newRepositoryClient(t, cfg, serverSocketPath)
 

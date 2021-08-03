@@ -73,7 +73,7 @@ func createFromSnapshot(t *testing.T, req *gitalypb.CreateRepositoryFromSnapshot
 func TestCreateRepositoryFromSnapshotSuccess(t *testing.T) {
 	t.Parallel()
 	cfg := testcfg.Build(t)
-	_, sourceRepoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	_, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	// Ensure these won't be in the archive
 	require.NoError(t, os.Remove(filepath.Join(sourceRepoPath, "config")))
@@ -118,7 +118,7 @@ func TestCreateRepositoryFromSnapshotSuccess(t *testing.T) {
 func TestCreateRepositoryFromSnapshotFailsIfRepositoryExists(t *testing.T) {
 	t.Parallel()
 	cfg := testcfg.Build(t)
-	repo, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	req := &gitalypb.CreateRepositoryFromSnapshotRequest{Repository: repo}
 	rsp, err := createFromSnapshot(t, req, cfg)
@@ -130,7 +130,7 @@ func TestCreateRepositoryFromSnapshotFailsIfRepositoryExists(t *testing.T) {
 func TestCreateRepositoryFromSnapshotFailsIfBadURL(t *testing.T) {
 	t.Parallel()
 	cfg := testcfg.Build(t)
-	repo, repoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	require.NoError(t, os.RemoveAll(repoPath))
 
 	req := &gitalypb.CreateRepositoryFromSnapshotRequest{
@@ -147,7 +147,7 @@ func TestCreateRepositoryFromSnapshotFailsIfBadURL(t *testing.T) {
 func TestCreateRepositoryFromSnapshotBadRequests(t *testing.T) {
 	t.Parallel()
 	cfg := testcfg.Build(t)
-	repo, repoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	require.NoError(t, os.RemoveAll(repoPath))
 
 	testCases := []struct {
@@ -203,7 +203,7 @@ func TestCreateRepositoryFromSnapshotBadRequests(t *testing.T) {
 func TestCreateRepositoryFromSnapshotHandlesMalformedResponse(t *testing.T) {
 	t.Parallel()
 	cfg := testcfg.Build(t)
-	repo, repoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	require.NoError(t, os.Remove(filepath.Join(repoPath, "config")))
 	require.NoError(t, os.RemoveAll(filepath.Join(repoPath, "hooks")))
