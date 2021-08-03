@@ -111,12 +111,7 @@ func (f *gitFiler) ReadFile(path string) ([]byte, error) {
 	return stdout.Bytes(), nil
 }
 
-func (f *gitFiler) ReadDir(path string) ([]filer.File, error) {
-	dotPath := path
-	if dotPath == "" {
-		dotPath = "."
-	}
-
+func (f *gitFiler) ReadDir(string) ([]filer.File, error) {
 	// We're doing a recursive listing returning all files at once such that we do not have to
 	// call git-ls-tree(1) multiple times.
 	var stderr bytes.Buffer
@@ -127,7 +122,7 @@ func (f *gitFiler) ReadDir(path string) ([]filer.File, error) {
 			git.Flag{Name: "-z"},
 			git.Flag{Name: "-r"},
 		},
-		Args: []string{"HEAD", dotPath},
+		Args: []string{"HEAD"},
 	}, git.WithStderr(&stderr))
 	if err != nil {
 		return nil, err
