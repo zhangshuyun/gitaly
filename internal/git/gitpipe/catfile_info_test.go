@@ -22,8 +22,7 @@ const (
 func TestCatfileInfo(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	repoProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
-	defer cleanup()
+	repoProto, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	for _, tc := range []struct {

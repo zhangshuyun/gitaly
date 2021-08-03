@@ -694,8 +694,7 @@ func TestFetchRemoteOverHTTP(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			forkedRepo, forkedRepoPath, forkedRepoCleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
-			defer forkedRepoCleanup()
+			forkedRepo, forkedRepoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
 
 			s, remoteURL := remoteHTTPServer(t, "my-repo", tc.httpToken)
 			defer s.Close()

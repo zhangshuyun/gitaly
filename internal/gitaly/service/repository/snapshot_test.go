@@ -158,8 +158,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 			_, err = c.Info(ctx, git.Revision(commitSha))
 			require.NoError(t, err)
 
-			_, repoCopyPath, cleanupCopy := copyRepoUsingSnapshot(t, cfg, client, repoProto)
-			defer cleanupCopy()
+			_, repoCopyPath := copyRepoUsingSnapshot(t, cfg, client, repoProto)
 
 			// ensure the sha committed to the alternates directory can be accessed
 			gittest.Exec(t, cfg, "-C", repoCopyPath, "cat-file", "-p", originalAlternatesCommit)
@@ -172,10 +171,9 @@ func TestGetSnapshotWithDedupeSoftFailures(t *testing.T) {
 	t.Parallel()
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	testRepo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+	testRepo, repoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
 		WithWorktree: true,
 	})
-	defer cleanup()
 
 	locator := config.NewLocator(cfg)
 
@@ -220,8 +218,7 @@ func TestGetSnapshotWithDedupeSoftFailures(t *testing.T) {
 
 	require.NoError(t, ioutil.WriteFile(alternatesPath, []byte(alternateObjPath), 0644))
 
-	_, repoCopyPath, cleanupCopy := copyRepoUsingSnapshot(t, cfg, client, testRepo)
-	defer cleanupCopy()
+	_, repoCopyPath := copyRepoUsingSnapshot(t, cfg, client, testRepo)
 
 	// ensure the sha committed to the alternates directory can be accessed
 	gittest.Exec(t, cfg, "-C", repoCopyPath, "cat-file", "-p", originalAlternatesCommit)
@@ -229,7 +226,7 @@ func TestGetSnapshotWithDedupeSoftFailures(t *testing.T) {
 }
 
 // copyRepoUsingSnapshot creates a tarball snapshot, then creates a new repository from that snapshot
-func copyRepoUsingSnapshot(t *testing.T, cfg config.Cfg, client gitalypb.RepositoryServiceClient, source *gitalypb.Repository) (*gitalypb.Repository, string, func()) {
+func copyRepoUsingSnapshot(t *testing.T, cfg config.Cfg, client gitalypb.RepositoryServiceClient, source *gitalypb.Repository) (*gitalypb.Repository, string) {
 	t.Helper()
 	// create the tar
 	req := &gitalypb.GetSnapshotRequest{Repository: source}
@@ -240,7 +237,7 @@ func copyRepoUsingSnapshot(t *testing.T, cfg config.Cfg, client gitalypb.Reposit
 	srv := httptest.NewServer(&tarTesthandler{tarData: bytes.NewBuffer(data), secret: secret})
 	defer srv.Close()
 
-	repoCopy, repoCopyPath, cleanupCopy := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
+	repoCopy, repoCopyPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
 
 	// Delete the repository so we can re-use the path
 	require.NoError(t, os.RemoveAll(repoCopyPath))
@@ -256,7 +253,7 @@ func copyRepoUsingSnapshot(t *testing.T, cfg config.Cfg, client gitalypb.Reposit
 	rsp, err := client.CreateRepositoryFromSnapshot(ctx, createRepoReq)
 	require.NoError(t, err)
 	testassert.ProtoEqual(t, rsp, &gitalypb.CreateRepositoryFromSnapshotResponse{})
-	return repoCopy, repoCopyPath, cleanupCopy
+	return repoCopy, repoCopyPath
 }
 
 func TestGetSnapshotFailsIfRepositoryMissing(t *testing.T) {

@@ -118,7 +118,7 @@ type CloneRepoOpts struct {
 
 // CloneRepoAtStorage clones a new copy of test repository under a subdirectory in the storage root.
 // You can either pass no or exactly one CloneRepoOpts.
-func CloneRepoAtStorage(t testing.TB, cfg config.Cfg, storage config.Storage, opts ...CloneRepoOpts) (*gitalypb.Repository, string, testhelper.Cleanup) {
+func CloneRepoAtStorage(t testing.TB, cfg config.Cfg, storage config.Storage, opts ...CloneRepoOpts) (*gitalypb.Repository, string) {
 	require.Less(t, len(opts), 2, "you must either pass no or exactly one option")
 
 	opt := CloneRepoOpts{}
@@ -150,7 +150,9 @@ func CloneRepoAtStorage(t testing.TB, cfg config.Cfg, storage config.Storage, op
 	absolutePath := filepath.Join(storage.Path, relativePath)
 	Exec(t, cfg, append(args, testRepositoryPath(t, sourceRepo), absolutePath)...)
 
-	return repo, absolutePath, func() { require.NoError(t, os.RemoveAll(absolutePath)) }
+	t.Cleanup(func() { require.NoError(t, os.RemoveAll(absolutePath)) })
+
+	return repo, absolutePath
 }
 
 // testRepositoryPath returns the absolute path of local 'gitlab-org/gitlab-test.git' clone.

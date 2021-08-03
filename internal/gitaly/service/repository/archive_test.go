@@ -191,8 +191,7 @@ func TestGetArchiveWithLfsSuccess(t *testing.T) {
 	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil)
 	client := newRepositoryClient(t, cfg, serverSocketPath)
 
-	repo, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
-	t.Cleanup(cleanup)
+	repo, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
 
 	testhelper.ConfigureGitalyLfsSmudge(t, cfg.BinDir)
 
@@ -503,8 +502,7 @@ env | grep -E "^GL_|CORRELATION|GITALY_"`))
 
 	client := newRepositoryClient(t, cfg, serverSocketPath)
 
-	repo, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
-	t.Cleanup(cleanup)
+	repo, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
 
 	commitID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
 

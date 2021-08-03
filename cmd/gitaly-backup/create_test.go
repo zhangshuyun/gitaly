@@ -28,7 +28,7 @@ func TestCreateSubcommand(t *testing.T) {
 
 	var repos []*gitalypb.Repository
 	for i := 0; i < 5; i++ {
-		repo, _, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+		repo, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
 			RelativePath: fmt.Sprintf("repo-%d", i),
 		})
 		repos = append(repos, repo)

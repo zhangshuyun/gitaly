@@ -39,8 +39,7 @@ func TestRenameRepositoryDestinationExists(t *testing.T) {
 	t.Parallel()
 	cfg, repo, _, client := setupRepositoryService(t)
 
-	destinationRepo, destinationRepoPath, cleanupDestinationRepo := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
-	t.Cleanup(cleanupDestinationRepo)
+	destinationRepo, destinationRepoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
 
 	sha := gittest.WriteCommit(t, cfg, destinationRepoPath)
 

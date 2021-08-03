@@ -32,9 +32,7 @@ func setupRepo(t *testing.T, bare bool) (*Repo, string) {
 	if bare {
 		repoProto, repoPath = gittest.InitRepo(t, cfg, cfg.Storages[0])
 	} else {
-		var repoCleanUp func()
-		repoProto, repoPath, repoCleanUp = gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
-		t.Cleanup(repoCleanUp)
+		repoProto, repoPath = gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
 	}
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)

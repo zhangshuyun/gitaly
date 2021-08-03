@@ -160,8 +160,7 @@ func TestCreateRepositoryTransactional(t *testing.T) {
 		called = 0
 		actualVote = voting.Vote{}
 
-		repo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
-		defer cleanup()
+		repo, repoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
 
 		_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
 			Repository: repo,

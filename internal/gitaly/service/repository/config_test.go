@@ -107,8 +107,7 @@ func TestDeleteConfig(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			repo, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
-			t.Cleanup(cleanupFn)
+			repo, repoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
 
 			for _, k := range tc.addKeys {
 				gittest.Exec(t, cfg, "-C", repoPath, "config", k, "blabla")
@@ -204,8 +203,7 @@ func testSetConfig(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 				ctx, cancel := testhelper.Context()
 				defer cancel()
 
-				testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
-				defer cleanupFn()
+				testRepo, testRepoPath := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
 
 				_, err := client.SetConfig(ctx, &gitalypb.SetConfigRequest{Repository: testRepo, Entries: tc.entries})
 
