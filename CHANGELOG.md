@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## 14.1.2 (2021-08-03)
+
+### Security (1 change)
+
+- [catfile: Allow parsing of long git commit headers](gitlab-org/security/gitaly@c870566d92cdd9158272d3d0d2cedcbe587095c0) ([merge request](gitlab-org/security/gitaly!40))
+
 ## 14.1.1 (2021-07-28)
 
 No changes.
