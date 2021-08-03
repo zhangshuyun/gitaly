@@ -161,7 +161,7 @@ func TestRepo_FetchInternal(t *testing.T) {
 	t.Run("pruning", func(t *testing.T) {
 		ctx := testhelper.MergeIncomingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
 
-		repoProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
+		repoProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
 		defer cleanup()
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 

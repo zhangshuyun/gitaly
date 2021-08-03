@@ -89,7 +89,7 @@ func TestQuarantine_Migrate(t *testing.T) {
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
-		repo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
+		repo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
 		defer cleanup()
 
 		oldContents := listEntries(t, repoPath)
@@ -106,7 +106,7 @@ func TestQuarantine_Migrate(t *testing.T) {
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
-		repo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
+		repo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
 		defer cleanup()
 
 		oldContents := listEntries(t, repoPath)

@@ -55,7 +55,7 @@ func SetupConfigAndRepo(t testing.TB, bare bool) (config.Cfg, *gitalypb.Reposito
 	var repoPath string
 	var cleanup testhelper.Cleanup
 	if bare {
-		repo, repoPath, cleanup = gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
+		repo, repoPath, cleanup = gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
 		t.Cleanup(cleanup)
 	} else {
 		repo, repoPath, cleanup = gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])

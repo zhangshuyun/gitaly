@@ -104,8 +104,28 @@ func InitRepo(t testing.TB, cfg config.Cfg, storage config.Storage, opts ...Init
 	return repo, repoPath
 }
 
+// CloneRepoOpts is an option for CloneRepoAtStorage.
+type CloneRepoOpts struct {
+	// RelativePath determines the relative path of newly created Git repository. If unset, the
+	// relative path is computed via NewRepositoryName.
+	RelativePath string
+}
+
 // CloneRepoAtStorage clones a new copy of test repository under a subdirectory in the storage root.
-func CloneRepoAtStorage(t testing.TB, cfg config.Cfg, storage config.Storage, relativePath string) (*gitalypb.Repository, string, testhelper.Cleanup) {
+// You can either pass no or exactly one CloneRepoOpts.
+func CloneRepoAtStorage(t testing.TB, cfg config.Cfg, storage config.Storage, opts ...CloneRepoOpts) (*gitalypb.Repository, string, testhelper.Cleanup) {
+	require.Less(t, len(opts), 2, "you must either pass no or exactly one option")
+
+	opt := CloneRepoOpts{}
+	if len(opts) == 1 {
+		opt = opts[0]
+	}
+
+	relativePath := opt.RelativePath
+	if relativePath == "" {
+		relativePath = NewRepositoryName(t, true)
+	}
+
 	repo, repoPath, cleanup := cloneRepo(t, cfg, storage.Path, relativePath, testRepo, true)
 	repo.StorageName = storage.Name
 	return repo, repoPath, cleanup

@@ -26,11 +26,15 @@ func TestManager_Create(t *testing.T) {
 
 	path := testhelper.TempDir(t)
 
-	hooksRepo, hooksRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "hooks")
+	hooksRepo, hooksRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+		RelativePath: "hooks",
+	})
 	require.NoError(t, os.Mkdir(filepath.Join(hooksRepoPath, "custom_hooks"), os.ModePerm))
 	require.NoError(t, ioutil.WriteFile(filepath.Join(hooksRepoPath, "custom_hooks/pre-commit.sample"), []byte("Some hooks"), os.ModePerm))
 
-	noHooksRepo, _, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "no-hooks")
+	noHooksRepo, _, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+		RelativePath: "no-hooks",
+	})
 	emptyRepo, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
 	nonexistentRepo := proto.Clone(emptyRepo).(*gitalypb.Repository)
 	nonexistentRepo.RelativePath = "nonexistent"
@@ -122,7 +126,9 @@ func TestManager_Restore(t *testing.T) {
 
 	path := testhelper.TempDir(t)
 
-	existingRepo, existRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "existing_repo")
+	existingRepo, existRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+		RelativePath: "existing_repo",
+	})
 	existingRepoPath := filepath.Join(path, existingRepo.RelativePath)
 	existingRepoBundlePath := existingRepoPath + ".bundle"
 	existingRepoCustomHooksPath := filepath.Join(existingRepoPath, "custom_hooks.tar")

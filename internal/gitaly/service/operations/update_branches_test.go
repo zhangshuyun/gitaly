@@ -174,7 +174,7 @@ func TestSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T) {
 
 	for _, hookName := range GitlabHooks {
 		t.Run(hookName, func(t *testing.T) {
-			testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "repo")
+			testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
 			defer cleanupFn()
 
 			hookOutputTempPath := gittest.WriteEnvToCustomHook(t, testRepoPath, hookName)

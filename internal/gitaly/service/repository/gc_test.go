@@ -222,7 +222,7 @@ func TestGarbageCollectDeletesPackedRefsLock(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			repo, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
+			repo, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
 			t.Cleanup(cleanupFn)
 
 			// Force the packed-refs file to have an old time to test that even
@@ -323,7 +323,7 @@ func TestGarbageCollectDeletesPackedRefsNew(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			repo, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
+			repo, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
 			t.Cleanup(cleanupFn)
 
 			req := &gitalypb.GarbageCollectRequest{Repository: repo}

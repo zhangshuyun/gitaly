@@ -596,7 +596,7 @@ func TestConfirmReplication(t *testing.T) {
 	cfg, testRepoA, testRepoAPath := testcfg.BuildWithRepo(t)
 	srvSocketPath := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
-	testRepoB, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "second")
+	testRepoB, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanupFn)
 
 	connOpts := []grpc.DialOption{
