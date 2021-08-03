@@ -271,6 +271,7 @@ func TestConfigParsing(t *testing.T) {
 					},
 				},
 				Prometheus: prometheus.Config{
+					ScrapeTimeout:      time.Second,
 					GRPCLatencyBuckets: []float64{0.1, 0.2, 0.3},
 				},
 				DB: DB{

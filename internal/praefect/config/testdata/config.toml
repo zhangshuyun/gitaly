@@ -42,7 +42,8 @@ default_replication_factor = 2
     storage = "praefect-internal-3"
 
 [prometheus]
-  grpc_latency_buckets = [0.1, 0.2, 0.3]
+scrape_timeout = "1s"
+grpc_latency_buckets = [0.1, 0.2, 0.3]
 
 [database]
 host = "1.2.3.4"
