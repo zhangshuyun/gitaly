@@ -30,7 +30,7 @@ type createSubcommand struct {
 func (cmd *createSubcommand) Flags(fs *flag.FlagSet) {
 	fs.StringVar(&cmd.backupPath, "path", "", "repository backup path")
 	fs.IntVar(&cmd.parallel, "parallel", runtime.NumCPU(), "maximum number of parallel backups")
-	fs.IntVar(&cmd.parallelStorage, "parallel-storage", 2, "maximum number of parallel backups per storage")
+	fs.IntVar(&cmd.parallelStorage, "parallel-storage", 2, "maximum number of parallel backups per storage. Note: actual parallelism when combined with `-parallel` depends on the order the repositories are received.")
 }
 
 func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
@@ -43,11 +43,8 @@ func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io
 
 	var pipeline backup.CreatePipeline
 	pipeline = backup.NewPipeline(log.StandardLogger(), manager)
-	if cmd.parallel > 0 {
-		pipeline = backup.NewParallelCreatePipeline(pipeline, cmd.parallel)
-	}
-	if cmd.parallelStorage > 0 {
-		pipeline = backup.NewParallelStorageCreatePipeline(pipeline, cmd.parallelStorage)
+	if cmd.parallel > 0 || cmd.parallelStorage > 0 {
+		pipeline = backup.NewParallelCreatePipeline(pipeline, cmd.parallel, cmd.parallelStorage)
 	}
 
 	decoder := json.NewDecoder(stdin)
