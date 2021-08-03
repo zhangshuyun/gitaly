@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -39,9 +40,12 @@ func (s *testTransactionServer) VoteTransaction(ctx context.Context, in *gitalyp
 func TestSuccessfulCreateBranchRequest(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testSuccessfulCreateBranchRequest)
+}
 
+func testSuccessfulCreateBranchRequest(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -117,6 +121,13 @@ func TestSuccessfulCreateBranchRequest(t *testing.T) {
 
 func TestUserCreateBranchWithTransaction(t *testing.T) {
 	t.Parallel()
+
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testUserCreateBranchWithTransaction)
+}
+
+func testUserCreateBranchWithTransaction(t *testing.T, ctx context.Context) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	transactionServer := &testTransactionServer{}
@@ -155,8 +166,6 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			defer gittest.Exec(t, cfg, "-C", repoPath, "branch", "-D", "new-branch")
 
-			ctx, cancel := testhelper.Context()
-			defer cancel()
 			ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 			require.NoError(t, err)
 			ctx = helper.IncomingToOutgoing(ctx)
@@ -191,9 +200,12 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 func TestSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testSuccessfulGitHooksForUserCreateBranchRequest)
+}
 
+func testSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T, ctx context.Context) {
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	branchName := "new-branch"
@@ -222,9 +234,13 @@ func TestSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T) {
 
 func TestSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testSuccessfulCreateBranchRequestWithStartPointRefPrefix)
+}
+
+func testSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -296,9 +312,13 @@ func TestSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T) {
 
 func TestFailedUserCreateBranchDueToHooks(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testFailedUserCreateBranchDueToHooks)
+}
+
+func testFailedUserCreateBranchDueToHooks(t *testing.T, ctx context.Context) {
 	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	request := &gitalypb.UserCreateBranchRequest{
@@ -322,9 +342,13 @@ func TestFailedUserCreateBranchDueToHooks(t *testing.T) {
 
 func TestFailedUserCreateBranchRequest(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testFailedUserCreateBranchRequest)
+}
+
+func testFailedUserCreateBranchRequest(t *testing.T, ctx context.Context) {
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
