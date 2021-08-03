@@ -58,6 +58,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.`},
 				expectedLicense: "mit",
 			},
+			{
+				desc: "unknown license",
+				files: map[string]string{
+					"LICENSE.md": "this doesn't match any known license",
+				},
+				expectedLicense: "other",
+			},
 		} {
 			t.Run(tc.desc, func(t *testing.T) {
 				client, _ := runRepositoryService(t, cfg, rubySrv)
