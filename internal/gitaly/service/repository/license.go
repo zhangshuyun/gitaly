@@ -25,6 +25,7 @@ func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseReque
 		if req.GetRepository() == nil {
 			return &gitalypb.FindLicenseResponse{}, nil
 		}
+
 		repo := localrepo.New(s.gitCmdFactory, s.catfileCache, req.GetRepository(), s.cfg)
 
 		hasHeadRevision, err := repo.HasRevision(ctx, "HEAD")
@@ -87,10 +88,6 @@ type gitFiler struct {
 }
 
 func (f *gitFiler) ReadFile(path string) (content []byte, err error) {
-	if path == "" {
-		return nil, licensedb.ErrNoLicenseFound
-	}
-
 	var stdout, stderr bytes.Buffer
 	if err := f.repo.ExecAndWait(f.ctx, git.SubCmd{
 		Name: "cat-file",
