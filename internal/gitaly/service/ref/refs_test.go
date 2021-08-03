@@ -622,6 +622,62 @@ func testSuccessfulFindAllTagsRequest(t *testing.T, ctx context.Context) {
 	require.ElementsMatch(t, expectedTags, receivedTags)
 }
 
+func TestFindAllTagsNestedTags(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.FindAllTagsPipeline,
+	}).Run(t, testFindAllTagsNestedTags)
+}
+
+func testFindAllTagsNestedTags(t *testing.T, ctx context.Context) {
+	cfg, client := setupRefServiceWithoutRepo(t)
+
+	repoProto, repoPath, cleanupFn := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
+	defer cleanupFn()
+
+	commitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(),
+	)
+
+	tagID := gittest.CreateTag(t, cfg, repoPath, "my/nested/tag", commitID.String(), nil)
+
+	stream, err := client.FindAllTags(ctx, &gitalypb.FindAllTagsRequest{Repository: repoProto})
+	require.NoError(t, err)
+
+	response, err := stream.Recv()
+	require.NoError(t, err)
+	testassert.ProtoEqual(t, &gitalypb.FindAllTagsResponse{
+		Tags: []*gitalypb.Tag{
+			&gitalypb.Tag{
+				Name: []byte("my/nested/tag"),
+				Id:   tagID,
+				TargetCommit: &gitalypb.GitCommit{
+					Id:       commitID.String(),
+					Body:     []byte("message"),
+					BodySize: 7,
+					Subject:  []byte("message"),
+					TreeId:   git.EmptyTreeOID.String(),
+					Author: &gitalypb.CommitAuthor{
+						Name:     []byte("Scrooge McDuck"),
+						Email:    []byte("scrooge@mcduck.com"),
+						Date:     &timestamppb.Timestamp{Seconds: 1572776879},
+						Timezone: []byte("+0100"),
+					},
+					Committer: &gitalypb.CommitAuthor{
+						Name:     []byte("Scrooge McDuck"),
+						Email:    []byte("scrooge@mcduck.com"),
+						Date:     &timestamppb.Timestamp{Seconds: 1572776879},
+						Timezone: []byte("+0100"),
+					},
+				},
+			},
+		},
+	}, response)
+
+	response, err = stream.Recv()
+	require.Equal(t, io.EOF, err)
+	require.Nil(t, response)
+}
+
 func TestFindAllTags_duplicateAnnotatedTags(t *testing.T) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 
