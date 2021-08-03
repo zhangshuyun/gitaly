@@ -503,7 +503,7 @@ env | grep -E "^GL_|CORRELATION|GITALY_"`))
 
 	client := newRepositoryClient(t, cfg, serverSocketPath)
 
-	repo, _, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
+	repo, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanup)
 
 	commitID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"

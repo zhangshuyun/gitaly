@@ -172,7 +172,9 @@ func TestGetSnapshotWithDedupeSoftFailures(t *testing.T) {
 	t.Parallel()
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	testRepo, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
+	testRepo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+		WithWorktree: true,
+	})
 	defer cleanup()
 
 	locator := config.NewLocator(cfg)

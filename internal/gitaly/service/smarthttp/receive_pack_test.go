@@ -263,7 +263,9 @@ type pushData struct {
 }
 
 func newTestPush(t *testing.T, cfg config.Cfg, fileContents []byte) *pushData {
-	_, repoPath, localCleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
+	_, repoPath, localCleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+		WithWorktree: true,
+	})
 	defer localCleanup()
 
 	oldHead, newHead := createCommit(t, cfg, repoPath, fileContents)
@@ -354,7 +356,7 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	_, localRepoPath, localCleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
+	_, localRepoPath, localCleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
 	defer localCleanup()
 
 	socket := runSmartHTTPServer(t, cfg)

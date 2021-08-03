@@ -109,6 +109,9 @@ type CloneRepoOpts struct {
 	// RelativePath determines the relative path of newly created Git repository. If unset, the
 	// relative path is computed via NewRepositoryName.
 	RelativePath string
+	// WithWorktree determines whether the resulting Git repository should have a worktree or
+	// not.
+	WithWorktree bool
 }
 
 // CloneRepoAtStorage clones a new copy of test repository under a subdirectory in the storage root.
@@ -123,18 +126,10 @@ func CloneRepoAtStorage(t testing.TB, cfg config.Cfg, storage config.Storage, op
 
 	relativePath := opt.RelativePath
 	if relativePath == "" {
-		relativePath = NewRepositoryName(t, true)
+		relativePath = NewRepositoryName(t, !opt.WithWorktree)
 	}
 
-	repo, repoPath, cleanup := cloneRepo(t, cfg, storage.Path, relativePath, testRepo, true)
-	repo.StorageName = storage.Name
-	return repo, repoPath, cleanup
-}
-
-// CloneRepoWithWorktreeAtStorage creates a copy of the test repository with a worktree at the storage you want.
-// This is allows you to run normal 'non-bare' Git commands.
-func CloneRepoWithWorktreeAtStorage(t testing.TB, cfg config.Cfg, storage config.Storage) (*gitalypb.Repository, string, testhelper.Cleanup) {
-	repo, repoPath, cleanup := cloneRepo(t, cfg, storage.Path, NewRepositoryName(t, false), testRepo, false)
+	repo, repoPath, cleanup := cloneRepo(t, cfg, storage.Path, relativePath, testRepo, !opt.WithWorktree)
 	repo.StorageName = storage.Name
 	return repo, repoPath, cleanup
 }

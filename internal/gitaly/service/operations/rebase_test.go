@@ -499,7 +499,9 @@ func TestRebaseRequestWithDeletedFile(t *testing.T) {
 	defer cancel()
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
-	repoProto, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
+	repoProto, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+		WithWorktree: true,
+	})
 	t.Cleanup(cleanup)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -554,7 +556,9 @@ func TestRebaseOntoRemoteBranch(t *testing.T) {
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	remoteRepo, remoteRepoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
+	remoteRepo, remoteRepoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+		WithWorktree: true,
+	})
 	defer cleanup()
 
 	localBranch := "master"

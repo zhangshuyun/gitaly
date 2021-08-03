@@ -430,7 +430,7 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 func testSuccessfulFindAllTagsRequest(t *testing.T, ctx context.Context) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 
-	repoProto, repoPath, cleanupFn := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
+	repoProto, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
 	defer cleanupFn()
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -768,7 +768,7 @@ func TestFindAllTagNestedTags(t *testing.T) {
 func testFindAllTagNestedTags(t *testing.T, ctx context.Context) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 
-	repoProto, repoPath, cleanupFn := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
+	repoProto, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
 	defer cleanupFn()
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -925,7 +925,7 @@ func TestFindAllTagsSorted(t *testing.T) {
 func testFindAllTagsSorted(t *testing.T, ctx context.Context) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 
-	repoProto, _, cleanupFn := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
+	repoProto, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
 	defer cleanupFn()
 
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), catfile.NewCache(cfg), repoProto, cfg)
@@ -1767,7 +1767,7 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 func TestFindTagNestedTag(t *testing.T) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 
-	repoProto, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
+	repoProto, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanup)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
