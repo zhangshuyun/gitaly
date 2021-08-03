@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -19,19 +20,22 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	localRepo := s.localrepo(req.GetRepository())
-
-	startRevision, err := s.fetchStartRevision(ctx, localRepo, req)
+	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, req.GetRepository(), featureflag.Quarantine)
 	if err != nil {
 		return nil, err
 	}
 
-	repoHadBranches, err := localRepo.HasBranches(ctx)
+	startRevision, err := s.fetchStartRevision(ctx, quarantineRepo, req)
 	if err != nil {
 		return nil, err
 	}
 
-	repoPath, err := localRepo.Path()
+	repoHadBranches, err := quarantineRepo.HasBranches(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	repoPath, err := quarantineRepo.Path()
 	if err != nil {
 		return nil, helper.ErrInternalf("get path: %w", err)
 	}
@@ -46,7 +50,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	newrev, err := s.git2go.Revert(ctx, localRepo, git2go.RevertCommand{
+	newrev, err := s.git2go.Revert(ctx, quarantineRepo, git2go.RevertCommand{
 		Repository: repoPath,
 		AuthorName: string(req.User.Name),
 		AuthorMail: string(req.User.Email),
@@ -77,7 +81,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))
 
 	branchCreated := false
-	oldrev, err := localRepo.ResolveRevision(ctx, referenceName.Revision()+"^{commit}")
+	oldrev, err := quarantineRepo.ResolveRevision(ctx, referenceName.Revision()+"^{commit}")
 	if errors.Is(err, git.ErrReferenceNotFound) {
 		branchCreated = true
 		oldrev = git.ZeroOID
@@ -90,7 +94,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 	}
 
 	if !branchCreated {
-		ancestor, err := localRepo.IsAncestor(ctx, oldrev.Revision(), newrev.Revision())
+		ancestor, err := quarantineRepo.IsAncestor(ctx, oldrev.Revision(), newrev.Revision())
 		if err != nil {
 			return nil, err
 		}
@@ -101,7 +105,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 		}
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, nil, referenceName, newrev, oldrev); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, req.GetRepository(), req.User, quarantineDir, referenceName, newrev, oldrev); err != nil {
 		var preReceiveError updateref.PreReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserRevertResponse{
