@@ -35,9 +35,13 @@ var (
 
 func TestSuccessfulMerge(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testSuccessfulMerge)
+}
+
+func testSuccessfulMerge(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -75,8 +79,14 @@ func TestSuccessfulMerge(t *testing.T) {
 	firstResponse, err := mergeBidi.Recv()
 	require.NoError(t, err, "receive first response")
 
+	// If we've got a quarantine directory, then we shouldn't be able to read the commit before
+	// we have applied the merge.
 	_, err = repo.ReadCommit(ctx, git.Revision(firstResponse.CommitId))
-	require.NoError(t, err, "look up git commit before merge is applied")
+	if featureflag.Quarantine.IsEnabled(ctx) {
+		require.EqualError(t, err, localrepo.ErrObjectNotFound.Error())
+	} else {
+		require.NoError(t, err, "look up git commit before merge is applied")
+	}
 
 	require.NoError(t, mergeBidi.Send(&gitalypb.UserMergeBranchRequest{Apply: true}), "apply merge")
 
@@ -116,11 +126,66 @@ func TestSuccessfulMerge(t *testing.T) {
 	}
 }
 
+func TestUserMergeBranch_quarantine(t *testing.T) {
+	t.Parallel()
+
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testUserMergeBranchQuarantine)
+}
+
+func testUserMergeBranchQuarantine(t *testing.T, ctx context.Context) {
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	// Set up a hook that parses the merge commit and then aborts the update. Like this, we
+	// can assert that the object does not end up in the main repository.
+	hookScript := fmt.Sprintf("#!/bin/sh\n%s rev-parse $3^{commit} && exit 1", cfg.Git.BinPath)
+	gittest.WriteCustomHook(t, repoPath, "update", []byte(hookScript))
+
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
+
+	stream, err := client.UserMergeBranch(ctx)
+	require.NoError(t, err)
+	require.NoError(t, stream.Send(&gitalypb.UserMergeBranchRequest{
+		Repository: repoProto,
+		User:       gittest.TestUser,
+		CommitId:   commitToMerge,
+		Branch:     []byte(mergeBranchName),
+		Message:    []byte("Merged by Gitaly"),
+		Timestamp:  &timestamppb.Timestamp{Seconds: 12, Nanos: 34},
+	}))
+
+	firstResponse, err := stream.Recv()
+	require.NoError(t, err, "receive first response")
+
+	require.NoError(t, stream.Send(&gitalypb.UserMergeBranchRequest{Apply: true}), "apply merge")
+	secondResponse, err := stream.Recv()
+	require.NoError(t, err, "receive second response")
+
+	testassert.ProtoEqual(t, &gitalypb.UserMergeBranchResponse{
+		PreReceiveError: firstResponse.CommitId + "\n",
+	}, secondResponse)
+
+	oid, err := git.NewObjectIDFromHex(strings.TrimSpace(firstResponse.CommitId))
+	require.NoError(t, err)
+	exists, err := repo.HasRevision(ctx, oid.Revision()+"^{commit}")
+	require.NoError(t, err)
+
+	// The new commit will be in the target repository in case quarantines are disabled.
+	// Otherwise, it should've been discarded.
+	require.Equal(t, !featureflag.Quarantine.IsEnabled(ctx), exists)
+}
+
 func TestSuccessfulMerge_stableMergeIDs(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testSuccessfulMergeStableMergeIDs)
+}
+
+func testSuccessfulMergeStableMergeIDs(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -188,9 +253,13 @@ func TestSuccessfulMerge_stableMergeIDs(t *testing.T) {
 
 func TestAbortedMerge(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testAbortedMerge)
+}
+
+func testAbortedMerge(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -252,9 +321,13 @@ func TestAbortedMerge(t *testing.T) {
 
 func TestFailedMergeConcurrentUpdate(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testFailedMergeConcurrentUpdate)
+}
+
+func testFailedMergeConcurrentUpdate(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -296,9 +369,13 @@ func TestFailedMergeConcurrentUpdate(t *testing.T) {
 
 func TestUserMergeBranch_ambiguousReference(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testUserMergeBranchAmbiguousReference)
+}
+
+func testUserMergeBranchAmbiguousReference(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -360,9 +437,13 @@ func TestUserMergeBranch_ambiguousReference(t *testing.T) {
 
 func TestFailedMergeDueToHooks(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testFailedMergeDueToHooks)
+}
+
+func testFailedMergeDueToHooks(t *testing.T, ctx context.Context) {
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
@@ -410,9 +491,13 @@ func TestFailedMergeDueToHooks(t *testing.T) {
 
 func TestUserMergeBranch_conflict(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testUserMergeBranchConflict)
+}
+
+func testUserMergeBranchConflict(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	const mergeIntoBranch = "mergeIntoBranch"

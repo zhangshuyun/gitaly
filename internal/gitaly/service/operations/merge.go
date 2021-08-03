@@ -48,15 +48,19 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		return helper.ErrInvalidArgument(err)
 	}
 
-	repo := firstRequest.Repository
-	repoPath, err := s.locator.GetPath(repo)
+	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, firstRequest.GetRepository(), featureflag.Quarantine)
+	if err != nil {
+		return err
+	}
+
+	repoPath, err := quarantineRepo.Path()
 	if err != nil {
 		return err
 	}
 
 	referenceName := git.NewReferenceNameFromBranchName(string(firstRequest.Branch))
 
-	revision, err := s.localrepo(repo).ResolveRevision(ctx, referenceName.Revision())
+	revision, err := quarantineRepo.ResolveRevision(ctx, referenceName.Revision())
 	if err != nil {
 		return err
 	}
@@ -66,7 +70,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		return helper.ErrInvalidArgument(err)
 	}
 
-	merge, err := s.git2go.Merge(ctx, repo, git2go.MergeCommand{
+	merge, err := s.git2go.Merge(ctx, quarantineRepo, git2go.MergeCommand{
 		Repository: repoPath,
 		AuthorName: string(firstRequest.User.Name),
 		AuthorMail: string(firstRequest.User.Email),
@@ -106,7 +110,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		return helper.ErrFailedPreconditionf("merge aborted by client")
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, firstRequest.Repository, firstRequest.User, nil, referenceName, mergeOID, revision); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, firstRequest.GetRepository(), firstRequest.User, quarantineDir, referenceName, mergeOID, revision); err != nil {
 		var preReceiveError updateref.PreReceiveError
 		var updateRefError updateref.Error
 
