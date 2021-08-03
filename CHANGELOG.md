@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## 14.1.2 (2021-08-03)
+
+### Security (1 change)
+
+- [catfile: Allow parsing of long git commit headers](gitlab-org/security/gitaly@c870566d92cdd9158272d3d0d2cedcbe587095c0) ([merge request](gitlab-org/security/gitaly!40))
+
 ## 14.1.1 (2021-07-28)
 
 No changes.
@@ -67,6 +73,12 @@ No changes.
 - [Refine metrics descriptions](gitlab-org/gitaly@d89639edbd90e1f0ca23a3bc63d8e70d15139004) ([merge request](gitlab-org/gitaly!3652))
 - [Separate listenmux from backchannel](gitlab-org/gitaly@c95298c125a680a006153d5aca5d3dbb575ce352) ([merge request](gitlab-org/gitaly!3593))
 - [Use upstream implementation of insecure credentials](gitlab-org/gitaly@7453f84b0bb385a958943b5e0910b8f6bb3906bb) ([merge request](gitlab-org/gitaly!3591))
+
+## 14.0.7 (2021-08-03)
+
+### Security (1 change)
+
+- [catfile: Allow parsing of long git commit headers](gitlab-org/security/gitaly@f67249ab2dcd2b4c380d4dae5e889008229cd77c) ([merge request](gitlab-org/security/gitaly!37))
 
 ## 14.0.6 (2021-07-20)
 
@@ -175,6 +187,12 @@ No changes.
 ### Other (1 change)
 
 - [Update gitlab-labkit to 0.17.1](gitlab-org/gitaly@904af72eb7c42124978370cef53681fa561b10f5) ([merge request](gitlab-org/gitaly!3395))
+
+## 13.12.9 (2021-08-03)
+
+### Security (1 change)
+
+- [catfile: Allow parsing of long git commit headers](gitlab-org/security/gitaly@ae22c42551963b5fde79f55fd4f89c136a3d8dbb) ([merge request](gitlab-org/security/gitaly!38))
 
 ## 13.12.8 (2021-07-07)
 
