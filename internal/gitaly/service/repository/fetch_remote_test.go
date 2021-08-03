@@ -34,7 +34,10 @@ import (
 )
 
 func copyRepoWithNewRemote(t *testing.T, cfg config.Cfg, repo *gitalypb.Repository, repoPath string, remote string) (*gitalypb.Repository, string) {
-	cloneRepo := &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "fetch-remote-clone.git"}
+	cloneRepo := &gitalypb.Repository{
+		StorageName:  repo.GetStorageName(),
+		RelativePath: filepath.Join(filepath.Dir(repo.GetRelativePath()), "fetch-remote-clone.git"),
+	}
 
 	clonePath := filepath.Join(filepath.Dir(repoPath), "fetch-remote-clone.git")
 	require.NoError(t, os.RemoveAll(clonePath))
