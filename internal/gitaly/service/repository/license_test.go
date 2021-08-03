@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -19,13 +20,22 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, rubySrv *rub
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoFindLicense,
 	}).Run(t, func(t *testing.T, ctx context.Context) {
-		_, repo, repoPath, client := setupRepositoryServiceWithRuby(t, cfg, rubySrv)
-
-		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"),
-			gittest.WithTreeEntries(gittest.TreeEntry{
-				Mode: "100644",
-				Path: "LICENSE",
-				Content: `MIT License
+		for _, tc := range []struct {
+			desc            string
+			files           map[string]string
+			expectedLicense string
+		}{
+			{
+				desc: "empty if no license file in repo",
+				files: map[string]string{
+					"README.md": "readme content",
+				},
+				expectedLicense: "",
+			},
+			{
+				desc: "high confidence mit result and less confident mit-0 result",
+				files: map[string]string{
+					"LICENSE": `MIT License
 
 Copyright (c) [year] [fullname]
 
@@ -45,13 +55,34 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.`,
-			}))
+SOFTWARE.`},
+				expectedLicense: "mit",
+			},
+		} {
+			t.Run(tc.desc, func(t *testing.T) {
+				client, _ := runRepositoryService(t, cfg, rubySrv)
 
-		resp, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: repo})
+				repo, repoPath, clean := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
+				defer clean()
 
-		require.NoError(t, err)
-		require.Equal(t, "mit", resp.GetLicenseShortName())
+				var treeEntries []gittest.TreeEntry
+				for file, content := range tc.files {
+					treeEntries = append(treeEntries, gittest.TreeEntry{
+						Mode:    "100644",
+						Path:    file,
+						Content: content,
+					})
+				}
+
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithTreeEntries(treeEntries...), gittest.WithParents())
+
+				resp, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: repo})
+				require.NoError(t, err)
+				testassert.ProtoEqual(t, &gitalypb.FindLicenseResponse{
+					LicenseShortName: tc.expectedLicense,
+				}, resp)
+			})
+		}
 	})
 }
 
