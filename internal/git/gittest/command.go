@@ -41,9 +41,10 @@ func run(t testing.TB, stdin io.Reader, cfg config.Cfg, args ...string) []byte {
 
 	output, err := cmd.Output()
 	if err != nil {
-		stderr := err.(*exec.ExitError).Stderr
 		t.Log(cfg.Git.BinPath, args)
-		t.Logf("%s: %s\n", stderr, output)
+		if ee, ok := err.(*exec.ExitError); ok {
+			t.Logf("%s: %s\n", ee.Stderr, output)
+		}
 		t.Fatal(err)
 	}
 
