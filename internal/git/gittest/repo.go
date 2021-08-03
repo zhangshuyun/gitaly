@@ -22,8 +22,6 @@ const (
 	// GlProjectPath is the default project path for newly created test
 	// repos.
 	GlProjectPath = "gitlab-org/gitlab-test"
-
-	testRepo = "gitlab-test.git"
 )
 
 // InitRepoDir creates a temporary directory for a repo, without initializing it
@@ -112,6 +110,10 @@ type CloneRepoOpts struct {
 	// WithWorktree determines whether the resulting Git repository should have a worktree or
 	// not.
 	WithWorktree bool
+	// SourceRepo determines the name of the source repository which shall be cloned. The source
+	// repository is assumed to be relative to "_build/testrepos". If unset, defaults to
+	// "gitlab-test.git".
+	SourceRepo string
 }
 
 // CloneRepoAtStorage clones a new copy of test repository under a subdirectory in the storage root.
@@ -129,32 +131,26 @@ func CloneRepoAtStorage(t testing.TB, cfg config.Cfg, storage config.Storage, op
 		relativePath = NewRepositoryName(t, !opt.WithWorktree)
 	}
 
-	repo, repoPath, cleanup := cloneRepo(t, cfg, storage.Path, relativePath, testRepo, !opt.WithWorktree)
+	sourceRepo := opt.SourceRepo
+	if sourceRepo == "" {
+		sourceRepo = "gitlab-test.git"
+	}
+
+	repo := InitRepoDir(t, storage.Path, relativePath)
 	repo.StorageName = storage.Name
-	return repo, repoPath, cleanup
-}
 
-// CloneBenchRepo creates a bare copy of the benchmarking test repository.
-func CloneBenchRepo(t testing.TB, cfg config.Cfg) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
-	return cloneRepo(t, cfg, testhelper.GitlabTestStoragePath(), NewRepositoryName(t, true),
-		"benchmark.git", true)
-}
-
-func cloneRepo(t testing.TB, cfg config.Cfg, storageRoot, relativePath, repoName string, bare bool) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
-	repoPath = filepath.Join(storageRoot, relativePath)
-
-	repo = InitRepoDir(t, storageRoot, relativePath)
 	args := []string{"clone", "--no-hardlinks", "--dissociate"}
-	if bare {
+	if !opt.WithWorktree {
 		args = append(args, "--bare")
 	} else {
 		// For non-bare repos the relative path is the .git folder inside the path
 		repo.RelativePath = filepath.Join(relativePath, ".git")
 	}
 
-	Exec(t, cfg, append(args, testRepositoryPath(t, repoName), repoPath)...)
+	absolutePath := filepath.Join(storage.Path, relativePath)
+	Exec(t, cfg, append(args, testRepositoryPath(t, sourceRepo), absolutePath)...)
 
-	return repo, repoPath, func() { require.NoError(t, os.RemoveAll(repoPath)) }
+	return repo, absolutePath, func() { require.NoError(t, os.RemoveAll(absolutePath)) }
 }
 
 // testRepositoryPath returns the absolute path of local 'gitlab-org/gitlab-test.git' clone.
