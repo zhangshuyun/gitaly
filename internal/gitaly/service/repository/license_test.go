@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
@@ -18,7 +19,34 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, rubySrv *rub
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoFindLicense,
 	}).Run(t, func(t *testing.T, ctx context.Context) {
-		_, repo, _, client := setupRepositoryServiceWithRuby(t, cfg, rubySrv)
+		_, repo, repoPath, client := setupRepositoryServiceWithRuby(t, cfg, rubySrv)
+
+		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"),
+			gittest.WithTreeEntries(gittest.TreeEntry{
+				Mode: "100644",
+				Path: "LICENSE",
+				Content: `MIT License
+
+Copyright (c) [year] [fullname]
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.`,
+			}))
 
 		resp, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: repo})
 

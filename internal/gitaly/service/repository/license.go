@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/go-enry/go-license-detector/v4/licensedb"
-	"github.com/go-enry/go-license-detector/v4/licensedb/api"
 	"github.com/go-enry/go-license-detector/v4/licensedb/filer"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
@@ -47,10 +46,11 @@ func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseReque
 		}
 
 		var result string
-		var best api.Match
+		var bestConfidence float32
 		for candidate, match := range licenses {
-			if match.Confidence > best.Confidence {
+			if match.Confidence > bestConfidence {
 				result = candidate
+				bestConfidence = match.Confidence
 			}
 		}
 
