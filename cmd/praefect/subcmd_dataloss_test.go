@@ -46,9 +46,8 @@ func TestDatalossSubcommand(t *testing.T) {
 		},
 	}
 
-	tx, err := getDB(t).Begin()
-	require.NoError(t, err)
-	defer tx.Rollback()
+	tx := getDB(t).Begin(t)
+	defer tx.Rollback(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

@@ -62,9 +62,10 @@ func TestGetPrimaryAndSecondaries(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	err = elector.checkNodes(ctx)
+	require.NoError(t, err)
 	db.RequireRowsInTable(t, "shard_primaries", 1)
 
-	elector.demotePrimary(ctx, db)
+	require.NoError(t, elector.demotePrimary(ctx, db))
 	shard, err := elector.GetShard(ctx)
 	db.RequireRowsInTable(t, "shard_primaries", 1)
 	require.Equal(t, ErrPrimaryNotHealthy, err)
@@ -219,9 +220,8 @@ func TestBasicFailover(t *testing.T) {
 func TestElectDemotedPrimary(t *testing.T) {
 	db := getDB(t)
 
-	tx, err := db.Begin()
-	require.NoError(t, err)
-	defer func() { require.NoError(t, tx.Commit()) }()
+	tx := getDB(t).Begin(t)
+	defer tx.Rollback(t)
 
 	node := config.Node{Storage: "gitaly-0"}
 	elector := newSQLElector(
@@ -236,7 +236,7 @@ func TestElectDemotedPrimary(t *testing.T) {
 	defer cancel()
 
 	candidates := []*sqlCandidate{{Node: &nodeStatus{node: node}}}
-	require.NoError(t, elector.electNewPrimary(ctx, tx, candidates))
+	require.NoError(t, elector.electNewPrimary(ctx, tx.Tx, candidates))
 
 	primary, err := elector.lookupPrimary(ctx, tx)
 	require.NoError(t, err)
@@ -250,7 +250,7 @@ func TestElectDemotedPrimary(t *testing.T) {
 
 	predateElection(t, ctx, tx, shardName, failoverTimeout+time.Microsecond)
 	require.NoError(t, err)
-	require.NoError(t, elector.electNewPrimary(ctx, tx, candidates))
+	require.NoError(t, elector.electNewPrimary(ctx, tx.Tx, candidates))
 
 	primary, err = elector.lookupPrimary(ctx, tx)
 	require.NoError(t, err)
@@ -399,11 +399,10 @@ func TestElectNewPrimary(t *testing.T) {
 		t.Run(testCase.desc, func(t *testing.T) {
 			db.TruncateAll(t)
 
-			tx, err := db.Begin()
-			require.NoError(t, err)
-			defer func() { require.NoError(t, tx.Commit()) }()
+			tx := getDB(t).Begin(t)
+			defer tx.Rollback(t)
 
-			_, err = tx.Exec(testCase.initialReplQueueInsert)
+			_, err := tx.Exec(testCase.initialReplQueueInsert)
 			require.NoError(t, err)
 
 			logger, hook := test.NewNullLogger()
@@ -413,7 +412,7 @@ func TestElectNewPrimary(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			require.NoError(t, elector.electNewPrimary(ctx, tx, candidates))
+			require.NoError(t, elector.electNewPrimary(ctx, tx.Tx, candidates))
 			primary, err := elector.lookupPrimary(ctx, tx)
 
 			require.NoError(t, err)
@@ -480,6 +479,7 @@ func TestConnectionMultiplexing(t *testing.T) {
 		nil,
 		backchannel.NewClientHandshaker(logger, func() backchannel.Server { return grpc.NewServer() }),
 	)
+	require.NoError(t, err)
 
 	// check the shard to get the primary in a healthy state
 	mgr.checkShards()

@@ -1020,9 +1020,8 @@ func TestPostgresRepositoryStore_GetPartiallyAvailableRepositories(t *testing.T)
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			tx, err := getDB(t).Begin()
-			require.NoError(t, err)
-			defer tx.Rollback()
+			tx := getDB(t).Begin(t)
+			defer tx.Rollback(t)
 
 			configuredStorages := map[string][]string{"virtual-storage": {"primary", "secondary-1"}}
 
@@ -1061,7 +1060,7 @@ func TestPostgresRepositoryStore_GetPartiallyAvailableRepositories(t *testing.T)
 				require.NoError(t, err)
 			}
 
-			_, err = tx.ExecContext(ctx, `
+			_, err := tx.ExecContext(ctx, `
 						INSERT INTO shard_primaries (shard_name, node_name, elected_by_praefect, elected_at)
 						VALUES ('virtual-storage', 'virtual-storage-primary', 'ignored', now())
 					`)

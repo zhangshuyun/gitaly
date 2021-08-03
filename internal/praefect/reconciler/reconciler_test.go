@@ -1146,25 +1146,23 @@ func TestReconciler(t *testing.T) {
 
 			// run reconcile in two concurrent transactions to ensure everything works
 			// as expected with multiple Praefect's reconciling at the same time
-			firstTx, err := db.Begin()
-			require.NoError(t, err)
-			defer firstTx.Rollback()
+			firstTx := db.Begin(t)
+			defer firstTx.Rollback(t)
 
-			secondTx, err := db.Begin()
-			require.NoError(t, err)
-			defer secondTx.Rollback()
+			secondTx := db.Begin(t)
+			defer secondTx.Rollback(t)
 
 			// the first reconcile acquires the reconciliation lock
-			runReconcile(firstTx)
+			runReconcile(firstTx.Tx)
 
 			// Concurrently reconcile from another transaction.
 			// secondTx should not block as it won't attempt any insertions
 			// as it failed to acquire the reconciliation lock.
-			runReconcile(secondTx)
-			require.NoError(t, secondTx.Commit())
+			runReconcile(secondTx.Tx)
+			secondTx.Commit(t)
 
 			// commit the transaction of the first reconciliation
-			require.NoError(t, firstTx.Commit())
+			firstTx.Commit(t)
 
 			rows, err := db.QueryContext(ctx, `
 				SELECT job, meta

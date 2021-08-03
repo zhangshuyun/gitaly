@@ -21,11 +21,46 @@ const (
 	praefectTemplateDatabase       = "praefect_template"
 )
 
+// TxWrapper is a simple wrapper around *sql.Tx.
+type TxWrapper struct {
+	*sql.Tx
+}
+
+// Rollback executes Rollback operation on the wrapped *sql.Tx if it is set.
+// After execution is sets Tx to nil to prevent errors on the repeated invocations (useful
+// for testing when Rollback is deferred).
+func (txw *TxWrapper) Rollback(t testing.TB) {
+	t.Helper()
+	if txw.Tx != nil {
+		require.NoError(t, txw.Tx.Rollback())
+		txw.Tx = nil
+	}
+}
+
+// Commit executes Commit operation on the wrapped *sql.Tx if it is set.
+// After execution is sets Tx to nil to prevent errors on the deferred invocations (useful
+// for testing when Rollback is deferred).
+func (txw *TxWrapper) Commit(t testing.TB) {
+	t.Helper()
+	if txw.Tx != nil {
+		require.NoError(t, txw.Tx.Commit())
+		txw.Tx = nil
+	}
+}
+
 // DB is a helper struct that should be used only for testing purposes.
 type DB struct {
 	*sql.DB
 	// Name is a name of the database.
 	Name string
+}
+
+// Begin starts a new transaction and returns it wrapped into TxWrapper.
+func (db DB) Begin(t testing.TB) *TxWrapper {
+	t.Helper()
+	tx, err := db.DB.Begin()
+	require.NoError(t, err)
+	return &TxWrapper{Tx: tx}
 }
 
 // Truncate removes all data from the list of tables and restarts identities for them.

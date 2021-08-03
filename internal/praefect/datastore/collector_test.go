@@ -146,9 +146,8 @@ func TestRepositoryStoreCollector(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			tx, err := getDB(t).Begin()
-			require.NoError(t, err)
-			defer tx.Rollback()
+			tx := getDB(t).Begin(t)
+			defer tx.Rollback(t)
 
 			testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{
 				"praefect-0": {"virtual-storage-1": tc.healthyNodes},
@@ -190,7 +189,7 @@ func TestRepositoryStoreCollector(t *testing.T) {
 
 			logger, hook := test.NewNullLogger()
 			c := NewRepositoryStoreCollector(logger, []string{"virtual-storage-1", "virtual-storage-2"}, tx, timeout)
-			err = testutil.CollectAndCompare(c, strings.NewReader(fmt.Sprintf(`
+			err := testutil.CollectAndCompare(c, strings.NewReader(fmt.Sprintf(`
 # HELP gitaly_praefect_read_only_repositories Number of repositories in read-only mode within a virtual storage.
 # TYPE gitaly_praefect_read_only_repositories gauge
 gitaly_praefect_read_only_repositories{virtual_storage="virtual-storage-1"} %d
