@@ -1,6 +1,7 @@
 package operations
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -17,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -449,9 +451,13 @@ func TestUserMergeBranch_conflict(t *testing.T) {
 
 func TestSuccessfulUserFFBranchRequest(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testSuccessfulUserFFBranchRequest)
+}
+
+func testSuccessfulUserFFBranchRequest(t *testing.T, ctx context.Context) {
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	commitID := "cfe32cf61b73a0d5e9f13e774abde7ff789b1660"
@@ -481,9 +487,13 @@ func TestSuccessfulUserFFBranchRequest(t *testing.T) {
 
 func TestFailedUserFFBranchRequest(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testFailedUserFFBranchRequest)
+}
+
+func testFailedUserFFBranchRequest(t *testing.T, ctx context.Context) {
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	commitID := "cfe32cf61b73a0d5e9f13e774abde7ff789b1660"
@@ -569,9 +579,13 @@ func TestFailedUserFFBranchRequest(t *testing.T) {
 
 func TestFailedUserFFBranchDueToHooks(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testFailedUserFFBranchDueToHooks)
+}
+
+func testFailedUserFFBranchDueToHooks(t *testing.T, ctx context.Context) {
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	commitID := "cfe32cf61b73a0d5e9f13e774abde7ff789b1660"
@@ -600,9 +614,13 @@ func TestFailedUserFFBranchDueToHooks(t *testing.T) {
 
 func TestUserFFBranch_ambiguousReference(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Quarantine,
+	}).Run(t, testUserFFBranchAmbiguousReference)
+}
+
+func testUserFFBranchAmbiguousReference(t *testing.T, ctx context.Context) {
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	branchName := "test-ff-target-branch"

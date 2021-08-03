@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -163,8 +164,15 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 
 	referenceName := git.NewReferenceNameFromBranchName(string(in.Branch))
 
-	repo := s.localrepo(in.GetRepository())
-	revision, err := repo.ResolveRevision(ctx, referenceName.Revision())
+	// While we're creating a quarantine directory, we know that it won't ever have any new
+	// objects given that we're doing a fast-forward merge. We still want to create one such
+	// that Rails can efficiently compute new objects.
+	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, in.GetRepository(), featureflag.Quarantine)
+	if err != nil {
+		return nil, err
+	}
+
+	revision, err := quarantineRepo.ResolveRevision(ctx, referenceName.Revision())
 	if err != nil {
 		return nil, helper.ErrInvalidArgument(err)
 	}
@@ -174,7 +182,7 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 		return nil, helper.ErrInvalidArgumentf("cannot parse commit ID: %w", err)
 	}
 
-	ancestor, err := repo.IsAncestor(ctx, revision.Revision(), commitID.Revision())
+	ancestor, err := quarantineRepo.IsAncestor(ctx, revision.Revision(), commitID.Revision())
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +190,7 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 		return nil, helper.ErrFailedPreconditionf("not fast forward")
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, in.Repository, in.User, nil, referenceName, commitID, revision); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, in.GetRepository(), in.User, quarantineDir, referenceName, commitID, revision); err != nil {
 		var preReceiveError updateref.PreReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserFFBranchResponse{
