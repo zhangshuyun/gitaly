@@ -15,11 +15,11 @@ func listBitmapPack(idxFile string) {
 	noError(idx.LabelObjectTypes())
 
 	out := bufio.NewWriter(os.Stdout)
-	defer out.Flush()
-	fmt.Fprintf(out, "# pack-%s\n", idx.ID)
+	defer flush(out)
+	fprintf(out, "# pack-%s\n", idx.ID)
 
 	for _, o := range idx.PackfileOrder {
-		fmt.Fprintln(out, o)
+		fprintln(out, o)
 	}
 }
 
@@ -30,10 +30,10 @@ func mapBitmapPack(idxFile string) {
 	noError(idx.LabelObjectTypes())
 
 	out := bufio.NewWriter(os.Stdout)
-	defer out.Flush()
-	fmt.Fprintf(out, "# pack-%s\n", idx.ID)
+	defer flush(out)
+	fprintf(out, "# pack-%s\n", idx.ID)
 	// Use a mix of lower and upper case that is easier to distinguish than all upper / all lower.
-	fmt.Fprintln(out, "# b: blob, C: commit, e: tree, T: tag")
+	fprintln(out, "# b: blob, C: commit, e: tree, T: tag")
 
 	for _, o := range idx.PackfileOrder {
 		c := ""
@@ -48,7 +48,7 @@ func mapBitmapPack(idxFile string) {
 			c = "T"
 		}
 
-		fmt.Fprint(out, c+" ")
+		fprint(out, c+" ")
 	}
 }
 
@@ -59,13 +59,13 @@ func listBitmapCommits(idxFile string) {
 	noError(idx.LabelObjectTypes())
 
 	out := bufio.NewWriter(os.Stdout)
-	defer out.Flush()
-	fmt.Fprintf(out, "# pack-%s\n", idx.ID)
+	defer flush(out)
+	fprintf(out, "# pack-%s\n", idx.ID)
 
 	for i := 0; i < idx.IndexBitmap.NumBitmapCommits(); i++ {
 		bc, err := idx.IndexBitmap.BitmapCommit(i)
 		noError(err)
-		fmt.Fprintln(out, bc.OID)
+		fprintln(out, bc.OID)
 	}
 }
 
@@ -90,10 +90,9 @@ func listBitmapReachable(idxFile string, commitID string) {
 	}
 
 	out := bufio.NewWriter(os.Stdout)
-	defer out.Flush()
-	fmt.Fprintf(out, "# pack-%s\n", idx.ID)
-
-	fmt.Fprintf(out, "# bitmap commit %s\n", bc.OID)
+	defer flush(out)
+	fprintf(out, "# pack-%s\n", idx.ID)
+	fprintf(out, "# bitmap commit %s\n", bc.OID)
 
 	noError(bc.Bitmap.Scan(func(i int) error {
 		_, err := fmt.Fprintln(out, idx.PackfileOrder[i])

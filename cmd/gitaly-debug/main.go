@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 )
 
@@ -112,4 +113,23 @@ func humanBytes(n int64) string {
 	}
 
 	return fmt.Sprintf("%d bytes", n)
+}
+
+func fprintf(writer io.Writer, format string, args ...interface{}) {
+	_, err := fmt.Fprintf(writer, format, args...)
+	noError(err)
+}
+
+func fprintln(writer io.Writer, args ...interface{}) {
+	_, err := fmt.Fprintln(writer, args...)
+	noError(err)
+}
+
+func fprint(w io.Writer, a ...interface{}) {
+	_, err := fmt.Fprint(w, a...)
+	noError(err)
+}
+
+func flush(out interface{ Flush() error }) {
+	noError(out.Flush())
 }
