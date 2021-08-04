@@ -72,18 +72,23 @@ func TestAccess_verifyParams(t *testing.T) {
 	})
 	defer cleanup()
 
-	c, err := NewHTTPClient(config.Gitlab{
-		URL:        serverURL,
-		SecretFile: secretFilePath,
-		HTTPSettings: config.HTTPSettings{
-			User:     user,
-			Password: password,
-			CAFile:   "testdata/certs/server.crt",
+	c, err := NewHTTPClient(
+		testhelper.NewTestLogger(t),
+		config.Gitlab{
+			URL:        serverURL,
+			SecretFile: secretFilePath,
+			HTTPSettings: config.HTTPSettings{
+				User:     user,
+				Password: password,
+				CAFile:   "testdata/certs/server.crt",
+			},
 		},
-	}, config.TLS{
-		CertPath: "testdata/certs/server.crt",
-		KeyPath:  "testdata/certs/server.key",
-	}, prometheus.Config{})
+		config.TLS{
+			CertPath: "testdata/certs/server.crt",
+			KeyPath:  "testdata/certs/server.key",
+		},
+		prometheus.Config{},
+	)
 	require.NoError(t, err)
 
 	badRepo := proto.Clone(repo).(*gitalypb.Repository)
@@ -207,15 +212,20 @@ func TestAccess_escapedAndRelativeURLs(t *testing.T) {
 				serverURL = url.PathEscape(serverURL)
 			}
 
-			c, err := NewHTTPClient(config.Gitlab{
-				URL:             serverURL,
-				RelativeURLRoot: tc.relativeURLRoot,
-				SecretFile:      secretFilePath,
-				HTTPSettings: config.HTTPSettings{
-					User:     user,
-					Password: password,
+			c, err := NewHTTPClient(
+				testhelper.NewTestLogger(t),
+				config.Gitlab{
+					URL:             serverURL,
+					RelativeURLRoot: tc.relativeURLRoot,
+					SecretFile:      secretFilePath,
+					HTTPSettings: config.HTTPSettings{
+						User:     user,
+						Password: password,
+					},
 				},
-			}, config.TLS{}, prometheus.Config{})
+				config.TLS{},
+				prometheus.Config{},
+			)
 			require.NoError(t, err)
 			allowed, _, err := c.Allowed(context.Background(), AllowedParams{
 				RepoPath:                      repo.RelativePath,
@@ -356,10 +366,15 @@ func TestAccess_allowedResponseHandling(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(tc.allowedHandler))
 			defer server.Close()
 
-			c, err := NewHTTPClient(config.Gitlab{
-				URL:        server.URL,
-				SecretFile: secretFilePath,
-			}, config.TLS{}, prometheus.Config{})
+			c, err := NewHTTPClient(
+				testhelper.NewTestLogger(t),
+				config.Gitlab{
+					URL:        server.URL,
+					SecretFile: secretFilePath,
+				},
+				config.TLS{},
+				prometheus.Config{},
+			)
 			require.NoError(t, err)
 
 			mockHistogramVec := promtest.NewMockHistogramVec()
@@ -461,10 +476,15 @@ func TestAccess_preReceive(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(tc.prereceiveHandler))
 			defer server.Close()
 
-			c, err := NewHTTPClient(config.Gitlab{
-				URL:        server.URL,
-				SecretFile: secretFilePath,
-			}, config.TLS{}, prometheus.Config{})
+			c, err := NewHTTPClient(
+				testhelper.NewTestLogger(t),
+				config.Gitlab{
+					URL:        server.URL,
+					SecretFile: secretFilePath,
+				},
+				config.TLS{},
+				prometheus.Config{},
+			)
 			require.NoError(t, err)
 
 			mockHistogramVec := promtest.NewMockHistogramVec()
@@ -544,10 +564,15 @@ func TestAccess_postReceive(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(tc.postReceiveHandler))
 			defer server.Close()
 
-			c, err := NewHTTPClient(config.Gitlab{
-				URL:        server.URL,
-				SecretFile: secretFilePath,
-			}, config.TLS{}, prometheus.Config{})
+			c, err := NewHTTPClient(
+				testhelper.NewTestLogger(t),
+				config.Gitlab{
+					URL:        server.URL,
+					SecretFile: secretFilePath,
+				},
+				config.TLS{},
+				prometheus.Config{},
+			)
 			require.NoError(t, err)
 
 			mockHistogramVec := promtest.NewMockHistogramVec()

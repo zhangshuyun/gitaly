@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	gitalycfgprom "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/prometheus/metrics"
@@ -26,10 +27,12 @@ var glIDRegex = regexp.MustCompile(`\A[0-9]+\z`)
 type HTTPClient struct {
 	*client.GitlabNetClient
 	latencyMetric metrics.HistogramVec
+	logger        logrus.FieldLogger
 }
 
 // NewHTTPClient creates an HTTP client to talk to the Rails internal API
 func NewHTTPClient(
+	logger logrus.FieldLogger,
 	gitlabCfg config.Gitlab,
 	tlsCfg config.TLS,
 	promCfg gitalycfgprom.Config,
@@ -83,6 +86,7 @@ func NewHTTPClient(
 			},
 			[]string{"endpoint"},
 		),
+		logger: logger.WithField("component", "gitlab_http_client"),
 	}, nil
 }
 
@@ -164,11 +168,7 @@ func (c *HTTPClient) Allowed(ctx context.Context, params AllowedParams) (bool, s
 	if err != nil {
 		return false, "", err
 	}
-
-	defer func() {
-		io.Copy(ioutil.Discard, resp.Body)
-		resp.Body.Close()
-	}()
+	defer c.finalizeResponse(resp)
 
 	var response allowedResponse
 
@@ -208,10 +208,7 @@ func (c *HTTPClient) PreReceive(ctx context.Context, glRepository string) (bool,
 		return false, fmt.Errorf("http post to gitlab api /pre_receive endpoint: %w", err)
 	}
 
-	defer func() {
-		io.Copy(ioutil.Discard, resp.Body)
-		resp.Body.Close()
-	}()
+	defer c.finalizeResponse(resp)
 
 	if resp.StatusCode != http.StatusOK {
 		return false, fmt.Errorf("pre-receive call failed with status: %d", resp.StatusCode)
@@ -250,10 +247,7 @@ func (c *HTTPClient) PostReceive(ctx context.Context, glRepository, glID, change
 		return false, nil, fmt.Errorf("http post to gitlab api /post_receive endpoint: %w", err)
 	}
 
-	defer func() {
-		io.Copy(ioutil.Discard, resp.Body)
-		resp.Body.Close()
-	}()
+	defer c.finalizeResponse(resp)
 
 	if resp.StatusCode != http.StatusOK {
 		return false, nil, fmt.Errorf("post-receive call failed with status: %d", resp.StatusCode)
@@ -288,10 +282,7 @@ func (c *HTTPClient) Check(ctx context.Context) (*CheckInfo, error) {
 		return nil, fmt.Errorf("HTTP GET to GitLab endpoint /check failed: %w", err)
 	}
 
-	defer func() {
-		io.Copy(ioutil.Discard, resp.Body)
-		resp.Body.Close()
-	}()
+	defer c.finalizeResponse(resp)
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("Check HTTP request failed with status: %d", resp.StatusCode)
@@ -303,6 +294,15 @@ func (c *HTTPClient) Check(ctx context.Context) (*CheckInfo, error) {
 	}
 
 	return &info, nil
+}
+
+func (c *HTTPClient) finalizeResponse(resp *http.Response) {
+	if _, err := io.Copy(ioutil.Discard, resp.Body); err != nil {
+		c.logger.WithError(err).Errorf("discard body error for the request %q", resp.Request.RequestURI)
+	}
+	if err := resp.Body.Close(); err != nil {
+		c.logger.WithError(err).Errorf("close body error for the request %q", resp.Request.RequestURI)
+	}
 }
 
 // marshallGitObjectDirs generates a json encoded string containing GIT_OBJECT_DIRECTORY_RELATIVE, and GIT_ALTERNATE_OBJECT_DIRECTORIES_RELATIVE

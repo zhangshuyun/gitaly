@@ -79,7 +79,7 @@ func handleSmudge(to io.Writer, from io.Reader, config configProvider) (io.Reade
 		WithField("gitaly_tls_config", tlsCfg).
 		Debug("loaded GitLab API config")
 
-	client, err := gitlab.NewHTTPClient(glCfg, tlsCfg, prometheus.Config{})
+	client, err := gitlab.NewHTTPClient(logger, glCfg, tlsCfg, prometheus.Config{})
 	if err != nil {
 		return contents, err
 	}

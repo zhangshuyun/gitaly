@@ -62,7 +62,7 @@ var (
 func main() {
 	logger = gitalylog.NewHookLogger()
 
-	returnCode, err := run(os.Args)
+	returnCode, err := run(os.Args, logger)
 	if err != nil {
 		logger.Fatalf("%s", err)
 	}
@@ -70,7 +70,7 @@ func main() {
 	os.Exit(returnCode)
 }
 
-func run(args []string) (int, error) {
+func run(args []string, logger *gitalylog.HookLogger) (int, error) {
 	if len(args) < 2 {
 		return 0, fmt.Errorf("requires hook name. args: %v", args)
 	}
@@ -86,7 +86,7 @@ func run(args []string) (int, error) {
 		configPath := args[2]
 		fmt.Print("Checking GitLab API access: ")
 
-		info, err := check(configPath)
+		info, err := check(logger.Logger(), configPath)
 		if err != nil {
 			fmt.Print("FAIL\n")
 			log.Fatal(err)
@@ -183,7 +183,7 @@ func sendFunc(reqWriter io.Writer, stream grpc.ClientStream, stdin io.Reader) fu
 	}
 }
 
-func check(configPath string) (*gitlab.CheckInfo, error) {
+func check(logger logrus.FieldLogger, configPath string) (*gitlab.CheckInfo, error) {
 	cfgFile, err := os.Open(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open config file: %w", err)
@@ -195,7 +195,7 @@ func check(configPath string) (*gitlab.CheckInfo, error) {
 		return nil, err
 	}
 
-	gitlabAPI, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS, prometheus.Config{})
+	gitlabAPI, err := gitlab.NewHTTPClient(logger, cfg.Gitlab, cfg.TLS, prometheus.Config{})
 	if err != nil {
 		return nil, err
 	}
