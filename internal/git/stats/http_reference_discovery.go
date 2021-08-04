@@ -84,8 +84,8 @@ func performHTTPReferenceDiscovery(
 		return HTTPReferenceDiscovery{}, err
 	}
 	defer func() {
-		io.Copy(ioutil.Discard, resp.Body)
-		resp.Body.Close()
+		_, _ = io.Copy(ioutil.Discard, resp.Body)
+		_ = resp.Body.Close()
 	}()
 
 	if code := resp.StatusCode; code < 200 || code >= 400 {

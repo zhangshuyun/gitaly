@@ -47,7 +47,7 @@ func ParsePackfileNegotiation(body io.Reader) (PackfileNegotiation, error) {
 // have <OID>
 // flush|done
 func (n *PackfileNegotiation) Parse(body io.Reader) error {
-	defer io.Copy(ioutil.Discard, body)
+	defer func() { _, _ = io.Copy(ioutil.Discard, body) }()
 
 	scanner := pktline.NewScanner(body)
 

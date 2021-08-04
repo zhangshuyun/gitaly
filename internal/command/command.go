@@ -270,7 +270,7 @@ func (c *Command) wait() {
 
 	if c.reader != nil {
 		// Prevent the command from blocking on writing to its stdout.
-		io.Copy(ioutil.Discard, c.reader)
+		_, _ = io.Copy(ioutil.Discard, c.reader)
 	}
 
 	c.waitError = c.cmd.Wait()
