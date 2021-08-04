@@ -1249,14 +1249,14 @@ func TestSuccessfulUserCommitFilesRequestStartShaRemoteRepository(t *testing.T) 
 	t.Parallel()
 	testSuccessfulUserCommitFilesRemoteRepositoryRequest(func(header *gitalypb.UserCommitFilesRequest) {
 		setStartSha(header, "1e292f8fedd741b75372e19097c76d327140c312")
-	})
+	})(t)
 }
 
 func TestSuccessfulUserCommitFilesRequestStartBranchRemoteRepository(t *testing.T) {
 	t.Parallel()
 	testSuccessfulUserCommitFilesRemoteRepositoryRequest(func(header *gitalypb.UserCommitFilesRequest) {
 		setStartBranchName(header, []byte("master"))
-	})
+	})(t)
 }
 
 func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header *gitalypb.UserCommitFilesRequest)) func(*testing.T) {
