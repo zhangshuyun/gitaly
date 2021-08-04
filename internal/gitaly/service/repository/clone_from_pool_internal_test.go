@@ -46,7 +46,7 @@ func getForkDestination(t *testing.T, storage config.Storage) (*gitalypb.Reposit
 	forkRepoPath := filepath.Join(storage.Path, folder)
 	forkedRepo := &gitalypb.Repository{StorageName: storage.Name, RelativePath: folder, GlRepository: "project-1"}
 
-	return forkedRepo, forkRepoPath, func() { os.RemoveAll(forkRepoPath) }
+	return forkedRepo, forkRepoPath, func() { require.NoError(t, os.RemoveAll(forkRepoPath)) }
 }
 
 func TestCloneFromPoolInternal(t *testing.T) {

@@ -50,8 +50,8 @@ func TestSuccessfulUploadPackRequest(t *testing.T) {
 	gittest.Exec(t, cfg, "clone", testRepoPath, remoteRepoPath)
 	// Make a bare clone of the test repo to act as a local one and to leave the original repo intact for other tests
 	gittest.Exec(t, cfg, "clone", "--bare", testRepoPath, localRepoPath)
-	defer os.RemoveAll(localRepoPath)
-	defer os.RemoveAll(remoteRepoPath)
+	defer func() { require.NoError(t, os.RemoveAll(localRepoPath)) }()
+	defer func() { require.NoError(t, os.RemoveAll(remoteRepoPath)) }()
 
 	commitMsg := fmt.Sprintf("Testing UploadPack RPC around %d", time.Now().Unix())
 	committerName := "Scrooge McDuck"
@@ -116,7 +116,7 @@ func TestUploadPackRequestWithGitConfigOptions(t *testing.T) {
 
 	// Make a clone of the test repo to modify
 	gittest.Exec(t, cfg, "clone", "--bare", testRepoPath, ourRepoPath)
-	defer os.RemoveAll(ourRepoPath)
+	defer func() { require.NoError(t, os.RemoveAll(ourRepoPath)) }()
 
 	// Remove remote-tracking branches that get in the way for this test
 	gittest.Exec(t, cfg, "-C", ourRepoPath, "remote", "remove", "origin")
@@ -375,8 +375,8 @@ func TestUploadPackRequestForPartialCloneSuccess(t *testing.T) {
 	// Make a bare clone of the test repo to act as a local one and to leave the original repo intact for other tests
 	gittest.Exec(t, cfg, "init", "--bare", localRepoPath)
 
-	defer os.RemoveAll(localRepoPath)
-	defer os.RemoveAll(remoteRepoPath)
+	defer func() { require.NoError(t, os.RemoveAll(localRepoPath)) }()
+	defer func() { require.NoError(t, os.RemoveAll(remoteRepoPath)) }()
 
 	commitMsg := fmt.Sprintf("Testing UploadPack RPC around %d", time.Now().Unix())
 	committerName := "Scrooge McDuck"

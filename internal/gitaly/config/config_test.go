@@ -337,7 +337,7 @@ func setupTempHookDirs(t *testing.T, m map[string]hookFileMode) (string, func())
 		}
 	}
 
-	return tempDir, func() { os.RemoveAll(tempDir) }
+	return tempDir, func() { require.NoError(t, os.RemoveAll(tempDir)) }
 }
 
 var (
@@ -540,7 +540,7 @@ func TestValidateShellPath(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "bin"), 0755))
 	tmpFile := filepath.Join(tmpDir, "my-file")
-	defer os.RemoveAll(tmpDir)
+	defer func() { require.NoError(t, os.RemoveAll(tmpDir)) }()
 	fp, err := os.Create(tmpFile)
 	require.NoError(t, err)
 	require.NoError(t, fp.Close())
@@ -588,7 +588,7 @@ func TestValidateShellPath(t *testing.T) {
 func TestConfigureRuby(t *testing.T) {
 	tmpDir, err := ioutil.TempDir("", "gitaly-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { require.NoError(t, os.RemoveAll(tmpDir)) }()
 
 	tmpFile := filepath.Join(tmpDir, "file")
 	require.NoError(t, ioutil.WriteFile(tmpFile, nil, 0644))
@@ -718,7 +718,7 @@ func TestValidateInternalSocketDir(t *testing.T) {
 	// create a valid socket directory
 	tempDir, err := ioutil.TempDir("", t.Name())
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { require.NoError(t, os.RemoveAll(tempDir)) }()
 
 	// create a symlinked socket directory
 	dirName := "internal_socket_dir"

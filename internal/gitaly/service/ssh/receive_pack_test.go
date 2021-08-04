@@ -556,8 +556,8 @@ func setupSSHClone(t *testing.T, cfg config.Cfg, storagePath string, testRepo *g
 			RemoteRepoPath: remoteRepoPath,
 			TempRepo:       tempRepo,
 		}, func() {
-			os.RemoveAll(remoteRepoPath)
-			os.RemoveAll(localRepoPath)
+			require.NoError(t, os.RemoveAll(remoteRepoPath))
+			require.NoError(t, os.RemoveAll(localRepoPath))
 		}
 }
 

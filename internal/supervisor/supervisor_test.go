@@ -38,7 +38,11 @@ func testMain(m *testing.M) int {
 		log.Error(err)
 		return 1
 	}
-	defer os.RemoveAll(testDir)
+	defer func() {
+		if err := os.RemoveAll(testDir); err != nil {
+			log.Error(err)
+		}
+	}()
 
 	scriptPath, err := filepath.Abs("test-scripts/pid-server.go")
 	if err != nil {

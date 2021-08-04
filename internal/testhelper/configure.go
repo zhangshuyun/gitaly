@@ -37,7 +37,9 @@ func Configure() func() {
 			ConfigureGit,
 		} {
 			if err := f(); err != nil {
-				os.RemoveAll(testDirectory)
+				if err := os.RemoveAll(testDirectory); err != nil {
+					log.Error(err)
+				}
 				log.Fatalf("error configuring tests: %v", err)
 			}
 		}

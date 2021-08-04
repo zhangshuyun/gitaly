@@ -46,7 +46,7 @@ func TestServer_CreateRepositoryFromBundle_successful(t *testing.T) {
 	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/custom-refs/ref1", "HEAD")
 
 	gittest.Exec(t, cfg, "-C", repoPath, "bundle", "create", bundlePath, "--all")
-	defer os.RemoveAll(bundlePath)
+	defer func() { require.NoError(t, os.RemoveAll(bundlePath)) }()
 
 	stream, err := client.CreateRepositoryFromBundle(ctx)
 	require.NoError(t, err)
@@ -58,7 +58,7 @@ func TestServer_CreateRepositoryFromBundle_successful(t *testing.T) {
 	importedRepo := localrepo.NewTestRepo(t, cfg, importedRepoProto)
 	importedRepoPath, err := locator.GetPath(importedRepoProto)
 	require.NoError(t, err)
-	defer os.RemoveAll(importedRepoPath)
+	defer func() { require.NoError(t, os.RemoveAll(importedRepoPath)) }()
 
 	request := &gitalypb.CreateRepositoryFromBundleRequest{Repository: importedRepoProto}
 	writer := streamio.NewWriter(func(p []byte) error {
@@ -202,7 +202,7 @@ func TestServer_CreateRepositoryFromBundle_failed_invalid_bundle(t *testing.T) {
 		RelativePath: "a-repo-from-bundle",
 	}
 	importedRepoPath := filepath.Join(cfg.Storages[0].Path, importedRepo.GetRelativePath())
-	defer os.RemoveAll(importedRepoPath)
+	defer func() { require.NoError(t, os.RemoveAll(importedRepoPath)) }()
 
 	request := &gitalypb.CreateRepositoryFromBundleRequest{Repository: importedRepo}
 	writer := streamio.NewWriter(func(p []byte) error {

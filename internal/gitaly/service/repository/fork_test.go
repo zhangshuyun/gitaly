@@ -182,7 +182,7 @@ func TestFailedCreateForkRequestDueToExistingTarget(t *testing.T) {
 			} else {
 				require.NoError(t, ioutil.WriteFile(forkedRepoPath, nil, 0644))
 			}
-			defer os.RemoveAll(forkedRepoPath)
+			defer func() { require.NoError(t, os.RemoveAll(forkedRepoPath)) }()
 
 			req := &gitalypb.CreateForkRequest{
 				Repository:       forkedRepo,
