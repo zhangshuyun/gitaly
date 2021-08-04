@@ -137,6 +137,10 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 }
 
 func validateFFRequest(in *gitalypb.UserFFBranchRequest) error {
+	if in.Repository == nil {
+		return fmt.Errorf("empty repository")
+	}
+
 	if len(in.Branch) == 0 {
 		return fmt.Errorf("empty branch name")
 	}
