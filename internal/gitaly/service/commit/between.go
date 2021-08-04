@@ -58,7 +58,9 @@ func normalizedCommitsBetweenParams(req *gitalypb.CommitsBetweenRequest) (string
 	var limit int32 = 2147483647
 
 	if req.PaginationParams != nil {
-		from = req.PaginationParams.GetPageToken() + "~"
+		if req.PaginationParams.GetPageToken() != "" {
+			from = req.PaginationParams.GetPageToken() + "~"
+		}
 
 		if req.PaginationParams.GetLimit() > 0 {
 			limit = req.PaginationParams.GetLimit()
