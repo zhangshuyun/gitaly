@@ -489,7 +489,7 @@ func trySocketCreation(dir string) error {
 	}
 
 	socketPath := filepath.Join(dir, fmt.Sprintf("test-%s.sock", b))
-	defer os.Remove(socketPath)
+	defer func() { _ = os.Remove(socketPath) }()
 
 	// Attempt to create an actual socket and not just a file to catch socket path length problems
 	l, err := net.Listen("unix", socketPath)

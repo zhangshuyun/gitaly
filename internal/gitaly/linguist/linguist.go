@@ -134,7 +134,7 @@ func openLanguagesJSON(cfg config.Cfg) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer os.Remove(linguistPathSymlink.Name())
+	defer func() { _ = os.Remove(linguistPathSymlink.Name()) }()
 
 	if err := linguistPathSymlink.Close(); err != nil {
 		return nil, err

@@ -111,7 +111,7 @@ func TestSpawnFailure(t *testing.T) {
 
 	notFoundExe := filepath.Join(testDir, "not-found")
 	require.NoError(t, os.RemoveAll(notFoundExe))
-	defer os.Remove(notFoundExe)
+	defer func() { require.NoError(t, os.Remove(notFoundExe)) }()
 
 	process, err := New(config, t.Name(), nil, []string{notFoundExe}, testDir, 0, nil, nil)
 	require.NoError(t, err)
