@@ -59,8 +59,7 @@ func TestGetConfig(t *testing.T) {
 	}
 
 	t.Run("normal repo", func(t *testing.T) {
-		repo, _, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-		defer cleanup()
+		repo, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 		config, err := getConfig(t, client, repo)
 		require.NoError(t, err)
@@ -68,8 +67,7 @@ func TestGetConfig(t *testing.T) {
 	})
 
 	t.Run("missing config", func(t *testing.T) {
-		repo, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-		defer cleanup()
+		repo, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 		configPath := filepath.Join(repoPath, "config")
 		require.NoError(t, os.Remove(configPath))
@@ -109,8 +107,7 @@ func TestDeleteConfig(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			repo, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
-			t.Cleanup(cleanupFn)
+			repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 			for _, k := range tc.addKeys {
 				gittest.Exec(t, cfg, "-C", repoPath, "config", k, "blabla")
@@ -206,8 +203,7 @@ func testSetConfig(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 				ctx, cancel := testhelper.Context()
 				defer cancel()
 
-				testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
-				defer cleanupFn()
+				testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 				_, err := client.SetConfig(ctx, &gitalypb.SetConfigRequest{Repository: testRepo, Entries: tc.entries})
 

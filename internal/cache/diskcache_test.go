@@ -22,8 +22,8 @@ import (
 func TestStreamDBNaiveKeyer(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	testRepo1, _, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "repository-1")
-	testRepo2, _, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "repository-2")
+	testRepo1, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	testRepo2, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	locator := config.NewLocator(cfg)
 

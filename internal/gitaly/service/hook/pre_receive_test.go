@@ -426,10 +426,9 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 		},
 	}
 
-	for i, tc := range testCases {
+	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], fmt.Sprintf("repo-%d", i))
-			defer cleanupFn()
+			testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 			mux := http.NewServeMux()
 			mux.Handle("/api/v4/internal/allowed", tc.allowedHandler)

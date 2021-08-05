@@ -16,8 +16,7 @@ import (
 )
 
 func testSuccessfulWikiUpdatePageRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	wikiRepoProto, wikiRepoPath, cleanupFunc := setupWikiRepo(t, cfg)
-	defer cleanupFunc()
+	wikiRepoProto, wikiRepoPath := setupWikiRepo(t, cfg)
 	wikiRepo := localrepo.NewTestRepo(t, cfg, wikiRepoProto)
 
 	ctx, cancel := testhelper.Context()
@@ -112,8 +111,7 @@ func testSuccessfulWikiUpdatePageRequest(t *testing.T, cfg config.Cfg, rubySrv *
 }
 
 func testFailedWikiUpdatePageDueToValidations(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	wikiRepo, _, cleanupFunc := setupWikiRepo(t, cfg)
-	defer cleanupFunc()
+	wikiRepo, _ := setupWikiRepo(t, cfg)
 
 	client := setupWikiService(t, cfg, rubySrv)
 

@@ -17,8 +17,7 @@ func testSuccessfulWikiListPagesRequest(t *testing.T, cfg config.Cfg, rubySrv *r
 
 	client := setupWikiService(t, cfg, rubySrv)
 
-	wikiRepo, wikiRepoPath, cleanupFunc := setupWikiRepo(t, cfg)
-	defer cleanupFunc()
+	wikiRepo, wikiRepoPath := setupWikiRepo(t, cfg)
 
 	expectedPages := createTestWikiPages(t, cfg, client, wikiRepo, wikiRepoPath)
 
@@ -70,8 +69,7 @@ func testWikiListPagesSorting(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.
 
 	client := setupWikiService(t, cfg, rubySrv)
 
-	wikiRepo, wikiRepoPath, cleanupFunc := setupWikiRepo(t, cfg)
-	defer cleanupFunc()
+	wikiRepo, wikiRepoPath := setupWikiRepo(t, cfg)
 
 	expectedPages := createTestWikiPages(t, cfg, client, wikiRepo, wikiRepoPath)
 

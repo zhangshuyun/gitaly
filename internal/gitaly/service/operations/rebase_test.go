@@ -44,8 +44,7 @@ func TestSuccessfulUserRebaseConfirmableRequest(t *testing.T) {
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	repoCopyProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "copy")
-	defer cleanup()
+	repoCopyProto, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	branchSha := getBranchSha(t, cfg, repoPath, rebaseBranchName)
 
@@ -259,8 +258,7 @@ func TestFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeader(t *testing.T
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	repoCopy, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "copy")
-	defer cleanup()
+	repoCopy, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	branchSha := getBranchSha(t, cfg, repoPath, rebaseBranchName)
 
@@ -332,11 +330,8 @@ func TestAbortedUserRebaseConfirmable(t *testing.T) {
 
 	for i, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			testRepo, testRepoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "repo")
-			defer cleanup()
-
-			testRepoCopy, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "copy")
-			defer cleanup()
+			testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+			testRepoCopy, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 			branchSha := getBranchSha(t, cfg, testRepoPath, rebaseBranchName)
 
@@ -382,8 +377,7 @@ func TestFailedUserRebaseConfirmableDueToApplyBeingFalse(t *testing.T) {
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	testRepoCopy, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "copy")
-	defer cleanup()
+	testRepoCopy, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	branchSha := getBranchSha(t, cfg, repoPath, rebaseBranchName)
 
@@ -419,8 +413,7 @@ func TestFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	repoCopyProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "copy")
-	defer cleanup()
+	repoCopyProto, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	branchSha := getBranchSha(t, cfg, repoPath, rebaseBranchName)
 
@@ -466,8 +459,7 @@ func TestFailedUserRebaseConfirmableDueToGitError(t *testing.T) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repoCopyProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "copy")
-	defer cleanup()
+	repoCopyProto, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	failedBranchName := "rebase-encoding-failure-trigger"
 	branchSha := getBranchSha(t, cfg, repoPath, failedBranchName)
@@ -499,13 +491,13 @@ func TestRebaseRequestWithDeletedFile(t *testing.T) {
 	defer cancel()
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
-	repoProto, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
-	t.Cleanup(cleanup)
+	repoProto, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+		WithWorktree: true,
+	})
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	repoCopyProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "copy")
-	defer cleanup()
+	repoCopyProto, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	branch := "rebase-delete-test"
 
@@ -554,8 +546,9 @@ func TestRebaseOntoRemoteBranch(t *testing.T) {
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	remoteRepo, remoteRepoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
-	defer cleanup()
+	remoteRepo, remoteRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+		WithWorktree: true,
+	})
 
 	localBranch := "master"
 	localBranchHash := getBranchSha(t, cfg, repoPath, localBranch)

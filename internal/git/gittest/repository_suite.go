@@ -36,7 +36,7 @@ func testRepositoryResolveRevision(t *testing.T, cfg config.Cfg, getRepository f
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pbRepo, _, _ := CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
+	pbRepo, _ := CloneRepo(t, cfg, cfg.Storages[0])
 
 	for _, tc := range []struct {
 		desc     string
@@ -89,8 +89,7 @@ func testRepositoryHasBranches(t *testing.T, cfg config.Cfg, getRepository func(
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pbRepo, repoPath, cleanup := InitBareRepoAt(t, cfg, cfg.Storages[0])
-	defer cleanup()
+	pbRepo, repoPath := InitRepo(t, cfg, cfg.Storages[0])
 
 	repo := getRepository(t, pbRepo)
 

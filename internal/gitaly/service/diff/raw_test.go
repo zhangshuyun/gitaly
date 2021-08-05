@@ -27,8 +27,9 @@ func TestSuccessfulRawDiffRequest(t *testing.T) {
 	c, err := client.RawDiff(ctx, rpcRequest)
 	require.NoError(t, err)
 
-	_, sandboxRepoPath, cleanupFn := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
-	defer cleanupFn()
+	_, sandboxRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+		WithWorktree: true,
+	})
 
 	reader := streamio.NewReader(func() ([]byte, error) {
 		response, err := c.Recv()
@@ -117,8 +118,9 @@ func TestSuccessfulRawPatchRequest(t *testing.T) {
 		return response.GetData(), err
 	})
 
-	_, sandboxRepoPath, cleanupFn := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
-	defer cleanupFn()
+	_, sandboxRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+		WithWorktree: true,
+	})
 
 	gittest.Exec(t, cfg, "-C", sandboxRepoPath, "reset", "--hard", leftCommit)
 

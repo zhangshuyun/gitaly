@@ -92,8 +92,7 @@ func TestDisconnectGitAlternatesUnexpectedAlternates(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			repo, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
-			defer cleanupFn()
+			repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 			altPath, err := locator.InfoAlternatesPath(repo)
 			require.NoError(t, err, "find info/alternates")

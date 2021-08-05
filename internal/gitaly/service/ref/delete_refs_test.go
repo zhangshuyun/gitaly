@@ -45,8 +45,7 @@ func TestSuccessfulDeleteRefs(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			repo, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], testCase.desc)
-			defer cleanupFn()
+			repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/delete/a", "b83d6e391c22777fca1ed3012fce84f633d7fed0")
 			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/also-delete/b", "1b12f15a11fc6e62177bef08f47bc7b5ce50b141")
@@ -135,8 +134,7 @@ func TestDeleteRefs_transaction(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			votes = 0
 
-			repo, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], tc.desc)
-			t.Cleanup(cleanup)
+			repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 			tc.request.Repository = repo
 
 			response, err := client.DeleteRefs(ctx, tc.request)

@@ -70,8 +70,7 @@ func TestEmptyRepositoryCalculateChecksum(t *testing.T) {
 	t.Parallel()
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	repo, _, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-	t.Cleanup(cleanup)
+	repo, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 	request := &gitalypb.CalculateChecksumRequest{Repository: repo}
 	testCtx, cancelCtx := testhelper.Context()
@@ -86,8 +85,7 @@ func TestBrokenRepositoryCalculateChecksum(t *testing.T) {
 	t.Parallel()
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	repo, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-	t.Cleanup(cleanup)
+	repo, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 	// Force an empty HEAD file
 	require.NoError(t, os.Truncate(filepath.Join(repoPath, "HEAD"), 0))

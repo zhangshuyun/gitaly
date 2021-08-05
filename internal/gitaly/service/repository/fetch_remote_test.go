@@ -34,7 +34,10 @@ import (
 )
 
 func copyRepoWithNewRemote(t *testing.T, cfg config.Cfg, repo *gitalypb.Repository, repoPath string, remote string) (*gitalypb.Repository, string) {
-	cloneRepo := &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "fetch-remote-clone.git"}
+	cloneRepo := &gitalypb.Repository{
+		StorageName:  repo.GetStorageName(),
+		RelativePath: filepath.Join(filepath.Dir(repo.GetRelativePath()), "fetch-remote-clone.git"),
+	}
 
 	clonePath := filepath.Join(filepath.Dir(repoPath), "fetch-remote-clone.git")
 	require.NoError(t, os.RemoveAll(clonePath))
@@ -691,8 +694,7 @@ func TestFetchRemoteOverHTTP(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			forkedRepo, forkedRepoPath, forkedRepoCleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
-			defer forkedRepoCleanup()
+			forkedRepo, forkedRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 			s, remoteURL := remoteHTTPServer(t, "my-repo", tc.httpToken)
 			defer s.Close()
@@ -731,8 +733,7 @@ func TestFetchRemoteWithPath(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	mirrorRepo, mirrorRepoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-	defer cleanup()
+	mirrorRepo, mirrorRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 	_, err := client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
 		Repository: mirrorRepo,

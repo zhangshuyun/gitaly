@@ -44,8 +44,7 @@ func TestCleanupDeletesStaleWorktrees(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			repo, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
-			t.Cleanup(cleanupFn)
+			repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 			req := &gitalypb.CleanupRequest{Repository: repo}
 

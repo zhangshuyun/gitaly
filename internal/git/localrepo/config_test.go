@@ -20,8 +20,7 @@ func setupRepoConfig(t *testing.T) (Config, string) {
 
 	cfg := testcfg.Build(t)
 
-	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-	t.Cleanup(cleanup)
+	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	repo := New(gitCmdFactory, catfile.NewCache(cfg), repoProto, cfg)

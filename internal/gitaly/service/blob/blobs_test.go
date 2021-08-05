@@ -258,11 +258,9 @@ func TestListAllBlobs(t *testing.T) {
 	quarantineRepoWithoutAlternates := proto.Clone(quarantine.QuarantinedRepo()).(*gitalypb.Repository)
 	quarantineRepoWithoutAlternates.GitAlternateObjectDirectories = []string{}
 
-	emptyRepo, _, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-	defer cleanup()
+	emptyRepo, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
-	singleBlobRepo, singleBlobRepoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-	defer cleanup()
+	singleBlobRepo, singleBlobRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 	blobID := gittest.WriteBlob(t, cfg, singleBlobRepoPath, []byte("foobar"))
 
 	for _, tc := range []struct {

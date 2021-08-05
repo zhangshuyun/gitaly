@@ -471,11 +471,9 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			mirrorRepoPb, mirrorRepoPath, cleanMirrorRepo := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-			defer cleanMirrorRepo()
+			mirrorRepoPb, mirrorRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
-			sourceRepoPb, sourceRepoPath, cleanSourceRepo := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-			defer cleanSourceRepo()
+			sourceRepoPb, sourceRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 			// configure the mirror repository as a remote in the source
 			gittest.Exec(t, cfg, "-C", sourceRepoPath, "remote", "add", "mirror", mirrorRepoPath)
@@ -614,11 +612,8 @@ func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "source")
-	defer cleanupFn()
-
-	_, mirrorPath, mirrorCleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "mirror")
-	defer mirrorCleanupFn()
+	testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	_, mirrorPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	remoteName := "remote_mirror_1"
 
@@ -720,11 +715,9 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithWildcards(t *testing.T) {
 	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "source")
-	defer cleanupFn()
+	testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
-	_, mirrorPath, mirrorCleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "mirror")
-	defer mirrorCleanupFn()
+	_, mirrorPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	remoteName := "remote_mirror_2"
 
@@ -807,12 +800,10 @@ func TestUpdateRemoteMirrorInmemory(t *testing.T) {
 	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	localRepo, localPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "local")
-	defer cleanup()
+	localRepo, localPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	gittest.WriteCommit(t, cfg, localPath)
 
-	_, remotePath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "remote")
-	defer cleanup()
+	_, remotePath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -858,11 +849,8 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T) 
 	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "source")
-	defer cleanupFn()
-
-	_, mirrorPath, mirrorCleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "mirror")
-	defer mirrorCleanupFn()
+	testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	_, mirrorPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	remoteName := "remote_mirror_1"
 
@@ -950,8 +938,7 @@ func TestFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T) {
 	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
-	defer cleanupFn()
+	testRepo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	testCases := []struct {
 		desc    string

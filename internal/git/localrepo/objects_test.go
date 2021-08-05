@@ -29,13 +29,11 @@ func setupRepo(t *testing.T, bare bool) (*Repo, string) {
 
 	var repoProto *gitalypb.Repository
 	var repoPath string
-	var repoCleanUp func()
 	if bare {
-		repoProto, repoPath, repoCleanUp = gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
+		repoProto, repoPath = gittest.InitRepo(t, cfg, cfg.Storages[0])
 	} else {
-		repoProto, repoPath, repoCleanUp = gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
+		repoProto, repoPath = gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	}
-	t.Cleanup(repoCleanUp)
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	return New(gitCmdFactory, catfile.NewCache(cfg), repoProto, cfg), repoPath

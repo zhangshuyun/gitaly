@@ -248,8 +248,9 @@ func TestSquashRequestWithRenamedFiles(t *testing.T) {
 func testSquashRequestWithRenamedFiles(t *testing.T, ctx context.Context) {
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
-	repoProto, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
-	t.Cleanup(cleanup)
+	repoProto, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+		WithWorktree: true,
+	})
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 

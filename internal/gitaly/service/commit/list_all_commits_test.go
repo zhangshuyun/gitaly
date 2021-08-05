@@ -42,8 +42,7 @@ func TestListAllCommits(t *testing.T) {
 	t.Run("empty repo", func(t *testing.T) {
 		cfg, client := setupCommitService(t)
 
-		repo, _, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-		defer cleanup()
+		repo, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 		stream, err := client.ListAllCommits(ctx, &gitalypb.ListAllCommitsRequest{
 			Repository: repo,

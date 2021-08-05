@@ -31,13 +31,11 @@ func setupRepoRemote(t *testing.T, bare bool) (Remote, string) {
 
 	var repoProto *gitalypb.Repository
 	var repoPath string
-	var repoCleanUp func()
 	if bare {
-		repoProto, repoPath, repoCleanUp = gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
+		repoProto, repoPath = gittest.InitRepo(t, cfg, cfg.Storages[0])
 	} else {
-		repoProto, repoPath, repoCleanUp = gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
+		repoProto, repoPath = gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	}
-	t.Cleanup(repoCleanUp)
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	return New(gitCmdFactory, catfile.NewCache(cfg), repoProto, cfg).Remote(), repoPath
@@ -98,8 +96,7 @@ func TestRemote_Add(t *testing.T) {
 
 	gittest.Exec(t, remote.repo.cfg, "-C", repoPath, "remote", "remove", "origin")
 
-	_, remoteRepoPath, cleanup := gittest.CloneRepoAtStorage(t, remote.repo.cfg, remote.repo.cfg.Storages[0], "repository")
-	defer cleanup()
+	_, remoteRepoPath := gittest.CloneRepo(t, remote.repo.cfg, remote.repo.cfg.Storages[0])
 
 	t.Run("invalid argument", func(t *testing.T) {
 		for _, tc := range []struct {
@@ -307,19 +304,18 @@ func TestRepo_FetchRemote(t *testing.T) {
 	remoteCmd, remoteRepoPath := setupRepoRemote(t, false)
 	cfg := remoteCmd.repo.cfg
 
-	initBareWithRemote := func(t *testing.T, remote string) (*Repo, string, testhelper.Cleanup) {
+	initBareWithRemote := func(t *testing.T, remote string) (*Repo, string) {
 		t.Helper()
 
-		testRepo, testRepoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
+		testRepo, testRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 		cmd := exec.Command(cfg.Git.BinPath, "-C", testRepoPath, "remote", "add", remote, remoteRepoPath)
 		err := cmd.Run()
 		if err != nil {
-			cleanup()
 			require.NoError(t, err)
 		}
 
-		return New(remoteCmd.repo.gitCmdFactory, remoteCmd.repo.catfileCache, testRepo, cfg), testRepoPath, cleanup
+		return New(remoteCmd.repo.gitCmdFactory, remoteCmd.repo.catfileCache, testRepo, cfg), testRepoPath
 	}
 
 	t.Run("invalid name", func(t *testing.T) {
@@ -339,8 +335,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 	})
 
 	t.Run("ok", func(t *testing.T) {
-		repo, testRepoPath, cleanup := initBareWithRemote(t, "origin")
-		defer cleanup()
+		repo, testRepoPath := initBareWithRemote(t, "origin")
 
 		var stderr bytes.Buffer
 		require.NoError(t, repo.FetchRemote(ctx, "origin", FetchOpts{Stderr: &stderr}))
@@ -359,8 +354,8 @@ func TestRepo_FetchRemote(t *testing.T) {
 	})
 
 	t.Run("with env", func(t *testing.T) {
-		_, sourceRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name()+"-1")
-		testRepo, testRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name()+"-2")
+		_, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+		testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 		repo := New(remoteCmd.repo.gitCmdFactory, remoteCmd.repo.catfileCache, testRepo, cfg)
 		gittest.Exec(t, cfg, "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
@@ -371,8 +366,8 @@ func TestRepo_FetchRemote(t *testing.T) {
 	})
 
 	t.Run("with globals", func(t *testing.T) {
-		_, sourceRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name()+"-1")
-		testRepo, testRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name()+"-2")
+		_, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+		testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 		repo := New(remoteCmd.repo.gitCmdFactory, remoteCmd.repo.catfileCache, testRepo, cfg)
 		gittest.Exec(t, cfg, "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
@@ -398,8 +393,8 @@ func TestRepo_FetchRemote(t *testing.T) {
 	})
 
 	t.Run("with prune", func(t *testing.T) {
-		_, sourceRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name()+"-1")
-		testRepo, testRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name()+"-2")
+		_, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+		testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 		repo := New(remoteCmd.repo.gitCmdFactory, remoteCmd.repo.catfileCache, testRepo, cfg)
 
@@ -417,8 +412,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 	})
 
 	t.Run("with no tags", func(t *testing.T) {
-		repo, testRepoPath, cleanup := initBareWithRemote(t, "origin")
-		defer cleanup()
+		repo, testRepoPath := initBareWithRemote(t, "origin")
 
 		tagsBefore := gittest.Exec(t, cfg, "-C", testRepoPath, "tag", "--list")
 		require.Empty(t, tagsBefore)
@@ -438,8 +432,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 	})
 
 	t.Run("with invalid remote", func(t *testing.T) {
-		repo, _, cleanup := initBareWithRemote(t, "origin")
-		defer cleanup()
+		repo, _ := initBareWithRemote(t, "origin")
 
 		err := repo.FetchRemote(ctx, "doesnotexist", FetchOpts{})
 		require.Error(t, err)
@@ -483,12 +476,12 @@ func TestRepo_Push(t *testing.T) {
 	sourceRepo := NewTestRepo(t, cfg, sourceRepoPb)
 
 	setupPushRepo := func(t testing.TB) (*Repo, string, []git.ConfigPair) {
-		repoProto, repopath, _ := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
+		repoProto, repopath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 		return NewTestRepo(t, cfg, repoProto), repopath, nil
 	}
 
 	setupDivergedRepo := func(t testing.TB) (*Repo, string, []git.ConfigPair) {
-		repoProto, repoPath, _ := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
+		repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 		repo := NewTestRepo(t, cfg, repoProto)
 
 		// set up master as a divergin ref in push repo
@@ -561,7 +554,7 @@ func TestRepo_Push(t *testing.T) {
 		{
 			desc: "invalid remote",
 			setupPushRepo: func(t testing.TB) (*Repo, string, []git.ConfigPair) {
-				repoProto, _, _ := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
+				repoProto, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
 				return NewTestRepo(t, cfg, repoProto), "", nil
 			},
 			refspecs:     []string{"refs/heads/master"},
@@ -570,7 +563,7 @@ func TestRepo_Push(t *testing.T) {
 		{
 			desc: "in-memory remote",
 			setupPushRepo: func(testing.TB) (*Repo, string, []git.ConfigPair) {
-				repoProto, repoPath, _ := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
+				repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 				return NewTestRepo(t, cfg, repoProto), "inmemory", []git.ConfigPair{
 					{Key: "remote.inmemory.url", Value: repoPath},
 				}

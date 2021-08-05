@@ -60,10 +60,8 @@ func TestFindRemoteRootRefWithUnbornRemoteHead(t *testing.T) {
 
 	// We're creating an empty repository. Empty repositories do have a HEAD set up, but they
 	// point to an unborn branch because the default branch hasn't yet been created.
-	_, clientRepoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-	defer cleanup()
-	gittest.Exec(t, cfg, "-C", remoteRepoPath, "remote", "add",
-		"foo", "file://"+clientRepoPath)
+	_, clientRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+	gittest.Exec(t, cfg, "-C", remoteRepoPath, "remote", "add", "foo", "file://"+clientRepoPath)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

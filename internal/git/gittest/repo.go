@@ -22,8 +22,6 @@ const (
 	// GlProjectPath is the default project path for newly created test
 	// repos.
 	GlProjectPath = "gitlab-org/gitlab-test"
-
-	testRepo = "gitlab-test.git"
 )
 
 // InitRepoDir creates a temporary directory for a repo, without initializing it
@@ -36,16 +34,6 @@ func InitRepoDir(t testing.TB, storagePath, relativePath string) *gitalypb.Repos
 		GlRepository:  GlRepository,
 		GlProjectPath: GlProjectPath,
 	}
-}
-
-// InitBareRepoAt creates a new bare repository in the storage
-func InitBareRepoAt(t testing.TB, cfg config.Cfg, storage config.Storage) (*gitalypb.Repository, string, func()) {
-	return initRepoAt(t, cfg, true, storage)
-}
-
-// InitRepoWithWorktreeAtStorage creates a new repository with a worktree in the storage
-func InitRepoWithWorktreeAtStorage(t testing.TB, cfg config.Cfg, storage config.Storage) (*gitalypb.Repository, string, func()) {
-	return initRepoAt(t, cfg, false, storage)
 }
 
 // NewObjectPoolName returns a random pool repository name in format
@@ -76,12 +64,28 @@ func newDiskHash(t testing.TB) string {
 	return filepath.Join(b[0:2], b[2:4], b)
 }
 
-func initRepoAt(t testing.TB, cfg config.Cfg, bare bool, storage config.Storage) (*gitalypb.Repository, string, func()) {
-	relativePath := NewRepositoryName(t, bare)
+// InitRepoOpts contains options for InitRepo.
+type InitRepoOpts struct {
+	// WithWorktree determines whether the resulting Git repository should have a worktree or
+	// not.
+	WithWorktree bool
+}
+
+// InitRepo creates a new empty repository in the given storage. You can either pass no or exactly
+// one InitRepoOpts.
+func InitRepo(t testing.TB, cfg config.Cfg, storage config.Storage, opts ...InitRepoOpts) (*gitalypb.Repository, string) {
+	require.Less(t, len(opts), 2, "you must either pass no or exactly one option")
+
+	opt := InitRepoOpts{}
+	if len(opts) == 1 {
+		opt = opts[0]
+	}
+
+	relativePath := NewRepositoryName(t, !opt.WithWorktree)
 	repoPath := filepath.Join(storage.Path, relativePath)
 
 	args := []string{"init"}
-	if bare {
+	if !opt.WithWorktree {
 		args = append(args, "--bare")
 	}
 
@@ -89,32 +93,66 @@ func initRepoAt(t testing.TB, cfg config.Cfg, bare bool, storage config.Storage)
 
 	repo := InitRepoDir(t, storage.Path, relativePath)
 	repo.StorageName = storage.Name
-	if !bare {
+	if opt.WithWorktree {
 		repo.RelativePath = filepath.Join(repo.RelativePath, ".git")
 	}
 
-	return repo, repoPath, func() { require.NoError(t, os.RemoveAll(repoPath)) }
+	t.Cleanup(func() { require.NoError(t, os.RemoveAll(repoPath)) })
+
+	return repo, repoPath
 }
 
-// CloneRepoAtStorageRoot clones a new copy of test repository under a subdirectory in the storage root.
-func CloneRepoAtStorageRoot(t testing.TB, cfg config.Cfg, storageRoot, relativePath string) *gitalypb.Repository {
-	repo, _, _ := cloneRepo(t, cfg, storageRoot, relativePath, testRepo, true)
-	return repo
+// CloneRepoOpts is an option for CloneRepo.
+type CloneRepoOpts struct {
+	// RelativePath determines the relative path of newly created Git repository. If unset, the
+	// relative path is computed via NewRepositoryName.
+	RelativePath string
+	// WithWorktree determines whether the resulting Git repository should have a worktree or
+	// not.
+	WithWorktree bool
+	// SourceRepo determines the name of the source repository which shall be cloned. The source
+	// repository is assumed to be relative to "_build/testrepos". If unset, defaults to
+	// "gitlab-test.git".
+	SourceRepo string
 }
 
-// CloneRepoAtStorage clones a new copy of test repository under a subdirectory in the storage root.
-func CloneRepoAtStorage(t testing.TB, cfg config.Cfg, storage config.Storage, relativePath string) (*gitalypb.Repository, string, testhelper.Cleanup) {
-	repo, repoPath, cleanup := cloneRepo(t, cfg, storage.Path, relativePath, testRepo, true)
+// CloneRepo clones a new copy of test repository under a subdirectory in the storage root. You can
+// either pass no or exactly one CloneRepoOpts.
+func CloneRepo(t testing.TB, cfg config.Cfg, storage config.Storage, opts ...CloneRepoOpts) (*gitalypb.Repository, string) {
+	require.Less(t, len(opts), 2, "you must either pass no or exactly one option")
+
+	opt := CloneRepoOpts{}
+	if len(opts) == 1 {
+		opt = opts[0]
+	}
+
+	relativePath := opt.RelativePath
+	if relativePath == "" {
+		relativePath = NewRepositoryName(t, !opt.WithWorktree)
+	}
+
+	sourceRepo := opt.SourceRepo
+	if sourceRepo == "" {
+		sourceRepo = "gitlab-test.git"
+	}
+
+	repo := InitRepoDir(t, storage.Path, relativePath)
 	repo.StorageName = storage.Name
-	return repo, repoPath, cleanup
-}
 
-// CloneRepoWithWorktreeAtStorage creates a copy of the test repository with a worktree at the storage you want.
-// This is allows you to run normal 'non-bare' Git commands.
-func CloneRepoWithWorktreeAtStorage(t testing.TB, cfg config.Cfg, storage config.Storage) (*gitalypb.Repository, string, testhelper.Cleanup) {
-	repo, repoPath, cleanup := cloneRepo(t, cfg, storage.Path, NewRepositoryName(t, false), testRepo, false)
-	repo.StorageName = storage.Name
-	return repo, repoPath, cleanup
+	args := []string{"clone", "--no-hardlinks", "--dissociate"}
+	if !opt.WithWorktree {
+		args = append(args, "--bare")
+	} else {
+		// For non-bare repos the relative path is the .git folder inside the path
+		repo.RelativePath = filepath.Join(relativePath, ".git")
+	}
+
+	absolutePath := filepath.Join(storage.Path, relativePath)
+	Exec(t, cfg, append(args, testRepositoryPath(t, sourceRepo), absolutePath)...)
+
+	t.Cleanup(func() { require.NoError(t, os.RemoveAll(absolutePath)) })
+
+	return repo, absolutePath
 }
 
 // testRepositoryPath returns the absolute path of local 'gitlab-org/gitlab-test.git' clone.
@@ -143,29 +181,6 @@ func isValidRepoPath(absolutePath string) bool {
 	}
 
 	return true
-}
-
-func cloneRepo(t testing.TB, cfg config.Cfg, storageRoot, relativePath, repoName string, bare bool) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
-	repoPath = filepath.Join(storageRoot, relativePath)
-
-	repo = InitRepoDir(t, storageRoot, relativePath)
-	args := []string{"clone", "--no-hardlinks", "--dissociate"}
-	if bare {
-		args = append(args, "--bare")
-	} else {
-		// For non-bare repos the relative path is the .git folder inside the path
-		repo.RelativePath = filepath.Join(relativePath, ".git")
-	}
-
-	Exec(t, cfg, append(args, testRepositoryPath(t, repoName), repoPath)...)
-
-	return repo, repoPath, func() { require.NoError(t, os.RemoveAll(repoPath)) }
-}
-
-// CloneBenchRepo creates a bare copy of the benchmarking test repository.
-func CloneBenchRepo(t testing.TB, cfg config.Cfg) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
-	return cloneRepo(t, cfg, testhelper.GitlabTestStoragePath(), NewRepositoryName(t, true),
-		"benchmark.git", true)
 }
 
 // AddWorktreeArgs returns git command arguments for adding a worktree at the

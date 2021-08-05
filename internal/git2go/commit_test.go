@@ -56,8 +56,7 @@ func TestExecutor_Commit(t *testing.T) {
 	cfg := testcfg.Build(t)
 	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 
-	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-	t.Cleanup(cleanup)
+	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 

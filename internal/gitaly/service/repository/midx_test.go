@@ -121,8 +121,7 @@ func TestMidxRepackExpire(t *testing.T) {
 	for _, packsAdded := range []int{3, 5, 11, 20} {
 		t.Run(fmt.Sprintf("Test repack expire with %d added packs", packsAdded),
 			func(t *testing.T) {
-				repo, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
-				t.Cleanup(cleanupFn)
+				repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 				ctx, cancel := testhelper.Context()
 				defer cancel()

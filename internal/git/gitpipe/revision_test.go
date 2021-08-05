@@ -16,8 +16,7 @@ import (
 func TestRevlist(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	repoProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
-	defer cleanup()
+	repoProto, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	needsObjectTypeFilters := func(t *testing.T) {

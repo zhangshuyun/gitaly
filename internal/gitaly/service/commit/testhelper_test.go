@@ -30,8 +30,8 @@ func testMain(m *testing.M) int {
 
 // setupCommitService makes a basic configuration and starts the service with the client.
 func setupCommitService(t testing.TB) (config.Cfg, gitalypb.CommitServiceClient) {
-	cfg, _, _, client := setupCommitServiceCreateRepo(t, func(tb testing.TB, cfg config.Cfg) (*gitalypb.Repository, string, testhelper.Cleanup) {
-		return nil, "", func() {}
+	cfg, _, _, client := setupCommitServiceCreateRepo(t, func(tb testing.TB, cfg config.Cfg) (*gitalypb.Repository, string) {
+		return nil, ""
 	})
 	return cfg, client
 }
@@ -40,22 +40,20 @@ func setupCommitService(t testing.TB) (config.Cfg, gitalypb.CommitServiceClient)
 func setupCommitServiceWithRepo(
 	t testing.TB, bare bool,
 ) (config.Cfg, *gitalypb.Repository, string, gitalypb.CommitServiceClient) {
-	return setupCommitServiceCreateRepo(t, func(tb testing.TB, cfg config.Cfg) (*gitalypb.Repository, string, testhelper.Cleanup) {
-		if bare {
-			return gittest.CloneRepoAtStorage(tb, cfg, cfg.Storages[0], t.Name())
-		}
-		return gittest.CloneRepoWithWorktreeAtStorage(tb, cfg, cfg.Storages[0])
+	return setupCommitServiceCreateRepo(t, func(tb testing.TB, cfg config.Cfg) (*gitalypb.Repository, string) {
+		return gittest.CloneRepo(tb, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+			WithWorktree: !bare,
+		})
 	})
 }
 
 func setupCommitServiceCreateRepo(
 	t testing.TB,
-	createRepo func(testing.TB, config.Cfg) (*gitalypb.Repository, string, testhelper.Cleanup),
+	createRepo func(testing.TB, config.Cfg) (*gitalypb.Repository, string),
 ) (config.Cfg, *gitalypb.Repository, string, gitalypb.CommitServiceClient) {
 	cfg := testcfg.Build(t)
 
-	repo, repoPath, cleanup := createRepo(t, cfg)
-	t.Cleanup(cleanup)
+	repo, repoPath := createRepo(t, cfg)
 
 	serverSocketPath := startTestServices(t, cfg)
 

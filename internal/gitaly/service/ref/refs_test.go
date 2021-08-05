@@ -430,8 +430,7 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 func testSuccessfulFindAllTagsRequest(t *testing.T, ctx context.Context) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 
-	repoProto, repoPath, cleanupFn := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
-	defer cleanupFn()
+	repoProto, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	// reconstruct the v1.1.2 tag from patches to test truncated tag message
@@ -631,8 +630,7 @@ func TestFindAllTagsNestedTags(t *testing.T) {
 func testFindAllTagsNestedTags(t *testing.T, ctx context.Context) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 
-	repoProto, repoPath, cleanupFn := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-	defer cleanupFn()
+	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath,
 		gittest.WithParents(),
@@ -681,8 +679,7 @@ func testFindAllTagsNestedTags(t *testing.T, ctx context.Context) {
 func TestFindAllTags_duplicateAnnotatedTags(t *testing.T) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 
-	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-	defer cleanup()
+	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	ctx, cancel := testhelper.Context()
@@ -770,8 +767,7 @@ func TestFindAllTagNestedTags(t *testing.T) {
 func testFindAllTagNestedTags(t *testing.T, ctx context.Context) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 
-	repoProto, repoPath, cleanupFn := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
-	defer cleanupFn()
+	repoProto, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	blobID := "faaf198af3a36dbf41961466703cc1d47c61d051"
@@ -927,8 +923,7 @@ func TestFindAllTagsSorted(t *testing.T) {
 func testFindAllTagsSorted(t *testing.T, ctx context.Context) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 
-	repoProto, _, cleanupFn := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
-	defer cleanupFn()
+	repoProto, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), catfile.NewCache(cfg), repoProto, cfg)
 	headCommit, err := repo.ReadCommit(ctx, "HEAD")
@@ -1027,8 +1022,7 @@ func testFindAllTagsSorted(t *testing.T, ctx context.Context) {
 	})
 
 	t.Run("no tags", func(t *testing.T) {
-		repoProto, _, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-		t.Cleanup(cleanup)
+		repoProto, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
 		c, err := client.FindAllTags(ctx, &gitalypb.FindAllTagsRequest{
 			Repository: repoProto,
 			SortBy:     &gitalypb.FindAllTagsRequest_SortBy{Key: gitalypb.FindAllTagsRequest_SortBy_REFNAME},
@@ -1770,8 +1764,7 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 func TestFindTagNestedTag(t *testing.T) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 
-	repoProto, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
-	t.Cleanup(cleanup)
+	repoProto, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	blobID := "faaf198af3a36dbf41961466703cc1d47c61d051"

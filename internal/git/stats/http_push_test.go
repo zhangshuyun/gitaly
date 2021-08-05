@@ -41,8 +41,7 @@ func TestPerformHTTPPush(t *testing.T) {
 		{
 			desc: "single revision",
 			preparePush: func(t *testing.T, cfg config.Cfg) ([]PushCommand, io.Reader) {
-				_, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "source.git")
-				defer cleanup()
+				_, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 				commit := gittest.WriteCommit(t, cfg, repoPath)
 				revisions := strings.NewReader(commit.String())
@@ -74,8 +73,7 @@ func TestPerformHTTPPush(t *testing.T) {
 		{
 			desc: "many revisions",
 			preparePush: func(t *testing.T, cfg config.Cfg) ([]PushCommand, io.Reader) {
-				_, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "source.git")
-				defer cleanup()
+				_, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 				commands := make([]PushCommand, 1000)
 				commits := make([]string, len(commands))

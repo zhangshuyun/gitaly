@@ -229,8 +229,7 @@ func TestIsMissingBloomFilters(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg := testcfg.Build(t)
-			_, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
-			t.Cleanup(cleanup)
+			_, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 			args := []string{"-C", repoPath, "commit-graph", "write", "--reachable", "--split"}
 			if tc.enable {

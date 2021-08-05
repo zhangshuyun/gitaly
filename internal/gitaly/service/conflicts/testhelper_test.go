@@ -51,16 +51,9 @@ func SetupConfigAndRepo(t testing.TB, bare bool) (config.Cfg, *gitalypb.Reposito
 
 	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 
-	var repo *gitalypb.Repository
-	var repoPath string
-	var cleanup testhelper.Cleanup
-	if bare {
-		repo, repoPath, cleanup = gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
-		t.Cleanup(cleanup)
-	} else {
-		repo, repoPath, cleanup = gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
-		t.Cleanup(cleanup)
-	}
+	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+		WithWorktree: !bare,
+	})
 
 	return cfg, repo, repoPath
 }
