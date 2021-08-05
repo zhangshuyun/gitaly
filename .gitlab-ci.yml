@@ -16,6 +16,7 @@ variables:
   GIT_VERSION: "v2.32.0"
   GO_VERSION: "1.16"
   RUBY_VERSION: "2.7"
+  POSTGRES_VERSION: "12.6-alpine"
 
 include:
   - template: Workflows/MergeRequest-Pipelines.gitlab-ci.yml
@@ -74,7 +75,7 @@ danger-review:
 .postgres_template: &postgres_definition
   image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.31-pgbouncer-1.14
   services:
-    - postgres:11.8
+    - postgres:${POSTGRES_VERSION}
   variables:
     PGHOST: postgres
     PGPORT: "5432"
@@ -148,7 +149,7 @@ test:
   <<: *test_definition
   image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.31
   services:
-    - postgres:11.8
+    - postgres:${POSTGRES_VERSION}
   variables:
     PGHOST: postgres
     PGPORT: "5432"
@@ -247,7 +248,7 @@ secret_detection:
 praefect_sql_connect:
   <<: *test_definition
   services:
-    - postgres:11.8
+    - postgres:${POSTGRES_VERSION}
   variables:
     POSTGRES_DB: praefect_test
     POSTGRES_USER: praefect
