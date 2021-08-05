@@ -150,7 +150,9 @@ type StreamCacheConfig struct {
 // Load initializes the Config variable from file and the environment.
 //  Environment variables take precedence over the file.
 func Load(file io.Reader) (Cfg, error) {
-	var cfg Cfg
+	cfg := Cfg{
+		Prometheus: prometheus.DefaultConfig(),
+	}
 
 	if err := toml.NewDecoder(file).Decode(&cfg); err != nil {
 		return Cfg{}, fmt.Errorf("load toml: %v", err)
@@ -192,10 +194,6 @@ func (cfg *Cfg) Validate() error {
 }
 
 func (cfg *Cfg) setDefaults() error {
-	if cfg.Prometheus.GRPCLatencyBuckets == nil {
-		cfg.Prometheus.GRPCLatencyBuckets = prometheus.DefaultBuckets()
-	}
-
 	if cfg.GracefulRestartTimeout.Duration() == 0 {
 		cfg.GracefulRestartTimeout = Duration(time.Minute)
 	}

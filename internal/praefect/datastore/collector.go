@@ -3,6 +3,7 @@ package datastore
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus"
@@ -32,14 +33,16 @@ type RepositoryStoreCollector struct {
 	log             logrus.FieldLogger
 	db              glsql.Querier
 	virtualStorages []string
+	timeout         time.Duration
 }
 
 // NewRepositoryStoreCollector returns a new collector.
-func NewRepositoryStoreCollector(log logrus.FieldLogger, virtualStorages []string, db glsql.Querier) *RepositoryStoreCollector {
+func NewRepositoryStoreCollector(log logrus.FieldLogger, virtualStorages []string, db glsql.Querier, timeout time.Duration) *RepositoryStoreCollector {
 	return &RepositoryStoreCollector{
 		log:             log.WithField("component", "RepositoryStoreCollector"),
 		db:              db,
 		virtualStorages: virtualStorages,
+		timeout:         timeout,
 	}
 }
 
@@ -48,7 +51,10 @@ func (c *RepositoryStoreCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (c *RepositoryStoreCollector) Collect(ch chan<- prometheus.Metric) {
-	unavailableCounts, err := c.queryMetrics(context.TODO())
+	ctx, cancel := context.WithTimeout(context.TODO(), c.timeout)
+	defer cancel()
+
+	unavailableCounts, err := c.queryMetrics(ctx)
 	if err != nil {
 		c.log.WithError(err).Error("failed collecting read-only repository count metric")
 		return

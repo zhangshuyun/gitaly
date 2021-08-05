@@ -29,11 +29,13 @@ func TestLoadEmptyConfig(t *testing.T) {
 	cfg, err := Load(strings.NewReader(``))
 	require.NoError(t, err)
 
-	defaultConf := Cfg{InternalSocketDir: cfg.InternalSocketDir}
+	defaultConf := Cfg{
+		Prometheus:        prometheus.DefaultConfig(),
+		InternalSocketDir: cfg.InternalSocketDir,
+	}
 	require.NoError(t, defaultConf.setDefaults())
 
 	assert.Equal(t, defaultConf, cfg)
-	assert.Equal(t, defaultConf.Prometheus.GRPCLatencyBuckets, prometheus.DefaultBuckets())
 }
 
 func TestLoadURLs(t *testing.T) {
@@ -145,6 +147,7 @@ func TestLoadPrometheus(t *testing.T) {
 	tmpFile := strings.NewReader(`
 		prometheus_listen_addr=":9236"
 		[prometheus]
+		scrape_timeout       = "1s"
 		grpc_latency_buckets = [0.0, 1.0, 2.0]
 	`)
 
@@ -152,7 +155,10 @@ func TestLoadPrometheus(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, ":9236", cfg.PrometheusListenAddr)
-	assert.Equal(t, []float64{0, 1, 2}, cfg.Prometheus.GRPCLatencyBuckets)
+	assert.Equal(t, prometheus.Config{
+		ScrapeTimeout:      time.Second,
+		GRPCLatencyBuckets: []float64{0, 1, 2},
+	}, cfg.Prometheus)
 }
 
 func TestLoadSocketPath(t *testing.T) {

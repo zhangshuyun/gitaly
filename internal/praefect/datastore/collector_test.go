@@ -3,12 +3,15 @@
 package datastore
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
@@ -32,7 +35,9 @@ func TestRepositoryStoreCollector(t *testing.T) {
 		desc         string
 		healthyNodes []string
 		repositories repositories
+		timeout      bool
 		count        int
+		error        error
 	}{
 		{
 			desc: "no repositories",
@@ -134,6 +139,11 @@ func TestRepositoryStoreCollector(t *testing.T) {
 			},
 			count: 2,
 		},
+		{
+			desc:    "query timeout",
+			timeout: true,
+			error:   fmt.Errorf("query: %w", context.DeadlineExceeded),
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			tx, err := getDB(t).Begin()
@@ -173,8 +183,14 @@ func TestRepositoryStoreCollector(t *testing.T) {
 				}
 			}
 
-			c := NewRepositoryStoreCollector(logrus.New(), []string{"virtual-storage-1", "virtual-storage-2"}, tx)
-			require.NoError(t, testutil.CollectAndCompare(c, strings.NewReader(fmt.Sprintf(`
+			timeout := time.Hour
+			if tc.timeout {
+				timeout = 0
+			}
+
+			logger, hook := test.NewNullLogger()
+			c := NewRepositoryStoreCollector(logger, []string{"virtual-storage-1", "virtual-storage-2"}, tx, timeout)
+			err = testutil.CollectAndCompare(c, strings.NewReader(fmt.Sprintf(`
 # HELP gitaly_praefect_read_only_repositories Number of repositories in read-only mode within a virtual storage.
 # TYPE gitaly_praefect_read_only_repositories gauge
 gitaly_praefect_read_only_repositories{virtual_storage="virtual-storage-1"} %d
@@ -183,7 +199,14 @@ gitaly_praefect_read_only_repositories{virtual_storage="virtual-storage-2"} 0
 # TYPE gitaly_praefect_unavailable_repositories gauge
 gitaly_praefect_unavailable_repositories{virtual_storage="virtual-storage-1"} %d
 gitaly_praefect_unavailable_repositories{virtual_storage="virtual-storage-2"} 0
-			`, tc.count, tc.count))))
+			`, tc.count, tc.count)))
+			if tc.error != nil {
+				require.Equal(t, "failed collecting read-only repository count metric", hook.Entries[0].Message)
+				require.Equal(t, logrus.Fields{"error": tc.error, "component": "RepositoryStoreCollector"}, hook.Entries[0].Data)
+				return
+			}
+
+			require.NoError(t, err)
 		})
 	}
 }
