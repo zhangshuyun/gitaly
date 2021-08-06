@@ -103,7 +103,7 @@ func TestAddMetadataTags(t *testing.T) {
 				ctx, cancel = context.WithDeadline(ctx, time.Now().Add(50*time.Millisecond))
 				defer cancel()
 			}
-			require.Equal(t, testCase.expectedMetatags, addMetadataTags(ctx))
+			require.Equal(t, testCase.expectedMetatags, addMetadataTags(ctx, "unary"))
 		})
 	}
 }
@@ -113,7 +113,7 @@ func verifyHandler(ctx context.Context, req interface{}) (interface{}, error) {
 	if !ok {
 		return nil, fmt.Errorf("unexpected type conversion failure")
 	}
-	metaTags := addMetadataTags(ctx)
+	metaTags := addMetadataTags(ctx, "unary")
 	require.Equal(clientName, metaTags.clientName)
 
 	tags := grpcmwtags.Extract(ctx)
