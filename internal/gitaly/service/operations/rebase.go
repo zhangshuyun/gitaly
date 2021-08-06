@@ -32,9 +32,9 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 	}
 
 	ctx := stream.Context()
+	repo := s.localrepo(header.GetRepository())
 
-	repo := header.Repository
-	repoPath, err := s.locator.GetPath(repo)
+	repoPath, err := repo.Path()
 	if err != nil {
 		return err
 	}
@@ -46,7 +46,7 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 	}
 
 	remoteFetch := rebaseRemoteFetch{header: header}
-	startRevision, err := s.fetchStartRevision(ctx, remoteFetch)
+	startRevision, err := s.fetchStartRevision(ctx, repo, remoteFetch)
 	if err != nil {
 		return status.Error(codes.Internal, err.Error())
 	}
@@ -87,7 +87,7 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 
 	if err := s.updateReferenceWithHooks(
 		ctx,
-		header.Repository,
+		header.GetRepository(),
 		header.User,
 		nil,
 		branch,

@@ -6,6 +6,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -24,7 +25,10 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 		return nil, status.Errorf(codes.InvalidArgument, "empty start point")
 	}
 
-	repo := s.localrepo(req.GetRepository())
+	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, req.GetRepository(), featureflag.Quarantine)
+	if err != nil {
+		return nil, err
+	}
 
 	// BEGIN TODO: Uncomment if StartPoint started behaving sensibly
 	// like BranchName. See
@@ -32,7 +36,7 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 	//
 	// startPointReference, err := s.localrepo(req.GetRepository()).GetReference(ctx, "refs/heads/"+string(req.StartPoint))
 	// startPointCommit, err := log.GetCommit(ctx, req.Repository, startPointReference.Target)
-	startPointCommit, err := repo.ReadCommit(ctx, git.Revision(req.StartPoint))
+	startPointCommit, err := quarantineRepo.ReadCommit(ctx, git.Revision(req.StartPoint))
 	// END TODO
 	if err != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "revspec '%s' not found", req.StartPoint)
@@ -44,14 +48,14 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 	}
 
 	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))
-	_, err = repo.GetReference(ctx, referenceName)
+	_, err = quarantineRepo.GetReference(ctx, referenceName)
 	if err == nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "Could not update %s. Please refresh and try again.", req.BranchName)
 	} else if !errors.Is(err, git.ErrReferenceNotFound) {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, nil, referenceName, startPointOID, git.ZeroOID); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, req.GetRepository(), req.User, quarantineDir, referenceName, startPointOID, git.ZeroOID); err != nil {
 		var preReceiveError updateref.PreReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserCreateBranchResponse{
@@ -113,7 +117,12 @@ func (s *Server) UserUpdateBranch(ctx context.Context, req *gitalypb.UserUpdateB
 
 	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))
 
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, nil, referenceName, newOID, oldOID); err != nil {
+	quarantineDir, _, err := s.quarantinedRepo(ctx, req.GetRepository(), featureflag.Quarantine)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.updateReferenceWithHooks(ctx, req.GetRepository(), req.User, quarantineDir, referenceName, newOID, oldOID); err != nil {
 		var preReceiveError updateref.PreReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserUpdateBranchResponse{

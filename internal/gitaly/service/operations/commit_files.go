@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -118,7 +119,12 @@ func validatePath(rootPath, relPath string) (string, error) {
 }
 
 func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommitFilesRequestHeader, stream gitalypb.OperationService_UserCommitFilesServer) error {
-	repoPath, err := s.locator.GetRepoPath(header.Repository)
+	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, header.GetRepository(), featureflag.Quarantine)
+	if err != nil {
+		return err
+	}
+
+	repoPath, err := quarantineRepo.Path()
 	if err != nil {
 		return fmt.Errorf("get repo path: %w", err)
 	}
@@ -132,10 +138,8 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 		remoteRepo = nil
 	}
 
-	localRepo := s.localrepo(header.GetRepository())
-
 	targetBranchName := git.NewReferenceNameFromBranchName(string(header.BranchName))
-	targetBranchCommit, err := localRepo.ResolveRevision(ctx, targetBranchName.Revision()+"^{commit}")
+	targetBranchCommit, err := quarantineRepo.ResolveRevision(ctx, targetBranchName.Revision()+"^{commit}")
 	if err != nil {
 		if !errors.Is(err, git.ErrReferenceNotFound) {
 			return fmt.Errorf("resolve target branch commit: %w", err)
@@ -148,7 +152,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 	if header.StartSha == "" {
 		parentCommitOID, err = s.resolveParentCommit(
 			ctx,
-			localRepo,
+			quarantineRepo,
 			remoteRepo,
 			targetBranchName,
 			targetBranchCommit,
@@ -165,7 +169,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 	}
 
 	if parentCommitOID != targetBranchCommit {
-		if err := s.fetchMissingCommit(ctx, localRepo, remoteRepo, parentCommitOID); err != nil {
+		if err := s.fetchMissingCommit(ctx, quarantineRepo, remoteRepo, parentCommitOID); err != nil {
 			return fmt.Errorf("fetch missing commit: %w", err)
 		}
 	}
@@ -221,7 +225,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 
 		switch pbAction.header.Action {
 		case gitalypb.UserCommitFilesActionHeader_CREATE:
-			blobID, err := localRepo.WriteBlob(ctx, path, content)
+			blobID, err := quarantineRepo.WriteBlob(ctx, path, content)
 			if err != nil {
 				return fmt.Errorf("write created blob: %w", err)
 			}
@@ -245,7 +249,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 			var oid git.ObjectID
 			if !pbAction.header.InferContent {
 				var err error
-				oid, err = localRepo.WriteBlob(ctx, path, content)
+				oid, err = quarantineRepo.WriteBlob(ctx, path, content)
 				if err != nil {
 					return err
 				}
@@ -257,7 +261,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 				OID:     oid.String(),
 			})
 		case gitalypb.UserCommitFilesActionHeader_UPDATE:
-			oid, err := localRepo.WriteBlob(ctx, path, content)
+			oid, err := quarantineRepo.WriteBlob(ctx, path, content)
 			if err != nil {
 				return fmt.Errorf("write updated blob: %w", err)
 			}
@@ -288,7 +292,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 		author = git2go.NewSignature(string(header.CommitAuthorName), string(header.CommitAuthorEmail), now)
 	}
 
-	commitID, err := s.git2go.Commit(ctx, localRepo, git2go.CommitParams{
+	commitID, err := s.git2go.Commit(ctx, quarantineRepo, git2go.CommitParams{
 		Repository: repoPath,
 		Author:     author,
 		Committer:  committer,
@@ -300,7 +304,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 		return fmt.Errorf("commit: %w", err)
 	}
 
-	hasBranches, err := localRepo.HasBranches(ctx)
+	hasBranches, err := quarantineRepo.HasBranches(ctx)
 	if err != nil {
 		return fmt.Errorf("was repo created: %w", err)
 	}
@@ -312,7 +316,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 		oldRevision = targetBranchCommit
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, header.Repository, header.User, nil, targetBranchName, commitID, oldRevision); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, header.GetRepository(), header.User, quarantineDir, targetBranchName, commitID, oldRevision); err != nil {
 		if errors.As(err, &updateref.Error{}) {
 			return status.Errorf(codes.FailedPrecondition, err.Error())
 		}

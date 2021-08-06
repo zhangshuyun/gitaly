@@ -1,10 +1,13 @@
 package operations
 
 import (
+	"context"
+
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
@@ -12,6 +15,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -53,4 +58,21 @@ func NewServer(
 
 func (s *Server) localrepo(repo repository.GitRepo) *localrepo.Repo {
 	return localrepo.New(s.gitCmdFactory, s.catfileCache, repo, s.cfg)
+}
+
+func (s *Server) quarantinedRepo(
+	ctx context.Context, repo *gitalypb.Repository, flag featureflag.FeatureFlag,
+) (*quarantine.Dir, *localrepo.Repo, error) {
+	if flag.IsEnabled(ctx) {
+		quarantineDir, err := quarantine.New(ctx, repo, s.locator)
+		if err != nil {
+			return nil, nil, helper.ErrInternalf("creating object quarantine: %w", err)
+		}
+
+		quarantineRepo := s.localrepo(quarantineDir.QuarantinedRepo())
+
+		return quarantineDir, quarantineRepo, nil
+	}
+
+	return nil, s.localrepo(repo), nil
 }

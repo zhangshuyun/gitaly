@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -60,8 +61,12 @@ func validateUserUpdateSubmoduleRequest(req *gitalypb.UserUpdateSubmoduleRequest
 }
 
 func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpdateSubmoduleRequest) (*gitalypb.UserUpdateSubmoduleResponse, error) {
-	repo := s.localrepo(req.GetRepository())
-	branches, err := repo.GetBranches(ctx)
+	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, req.GetRepository(), featureflag.Quarantine)
+	if err != nil {
+		return nil, err
+	}
+
+	branches, err := quarantineRepo.GetBranches(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("%s: get branches: %w", userUpdateSubmoduleName, err)
 	}
@@ -73,7 +78,7 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 
 	referenceName := git.NewReferenceNameFromBranchName(string(req.GetBranch()))
 
-	branchOID, err := repo.ResolveRevision(ctx, referenceName.Revision())
+	branchOID, err := quarantineRepo.ResolveRevision(ctx, referenceName.Revision())
 	if err != nil {
 		if errors.Is(err, git.ErrReferenceNotFound) {
 			return nil, helper.ErrInvalidArgumentf("Cannot find branch")
@@ -81,7 +86,7 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 		return nil, fmt.Errorf("%s: get branch: %w", userUpdateSubmoduleName, err)
 	}
 
-	repoPath, err := s.locator.GetRepoPath(req.GetRepository())
+	repoPath, err := quarantineRepo.Path()
 	if err != nil {
 		return nil, fmt.Errorf("%s: locate repo: %w", userUpdateSubmoduleName, err)
 	}
@@ -91,7 +96,7 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	result, err := s.git2go.Submodule(ctx, repo, git2go.SubmoduleCommand{
+	result, err := s.git2go.Submodule(ctx, quarantineRepo, git2go.SubmoduleCommand{
 		Repository: repoPath,
 		AuthorMail: string(req.GetUser().GetEmail()),
 		AuthorName: string(req.GetUser().GetName()),
@@ -142,7 +147,7 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 		ctx,
 		req.GetRepository(),
 		req.GetUser(),
-		nil,
+		quarantineDir,
 		referenceName,
 		commitID,
 		branchOID,

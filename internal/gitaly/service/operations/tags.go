@@ -11,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
@@ -99,18 +98,9 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	var quarantineRepo *localrepo.Repo
-	var quarantineDir *quarantine.Dir
-	if featureflag.QuarantinedUserCreateTag.IsEnabled(ctx) {
-		var err error
-		quarantineDir, err = quarantine.New(ctx, req.GetRepository(), s.locator)
-		if err != nil {
-			return nil, helper.ErrInternalf("creating object quarantine: %w", err)
-		}
-
-		quarantineRepo = s.localrepo(quarantineDir.QuarantinedRepo())
-	} else {
-		quarantineRepo = s.localrepo(req.GetRepository())
+	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, req.GetRepository(), featureflag.QuarantinedUserCreateTag)
+	if err != nil {
+		return nil, err
 	}
 
 	tag, tagID, err := s.createTag(ctx, quarantineRepo, targetRevision, req.TagName, req.Message, req.User, committerTime)

@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -47,15 +48,19 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		return helper.ErrInvalidArgument(err)
 	}
 
-	repo := firstRequest.Repository
-	repoPath, err := s.locator.GetPath(repo)
+	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, firstRequest.GetRepository(), featureflag.Quarantine)
+	if err != nil {
+		return err
+	}
+
+	repoPath, err := quarantineRepo.Path()
 	if err != nil {
 		return err
 	}
 
 	referenceName := git.NewReferenceNameFromBranchName(string(firstRequest.Branch))
 
-	revision, err := s.localrepo(repo).ResolveRevision(ctx, referenceName.Revision())
+	revision, err := quarantineRepo.ResolveRevision(ctx, referenceName.Revision())
 	if err != nil {
 		return err
 	}
@@ -65,7 +70,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		return helper.ErrInvalidArgument(err)
 	}
 
-	merge, err := s.git2go.Merge(ctx, repo, git2go.MergeCommand{
+	merge, err := s.git2go.Merge(ctx, quarantineRepo, git2go.MergeCommand{
 		Repository: repoPath,
 		AuthorName: string(firstRequest.User.Name),
 		AuthorMail: string(firstRequest.User.Email),
@@ -105,7 +110,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		return helper.ErrFailedPreconditionf("merge aborted by client")
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, firstRequest.Repository, firstRequest.User, nil, referenceName, mergeOID, revision); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, firstRequest.GetRepository(), firstRequest.User, quarantineDir, referenceName, mergeOID, revision); err != nil {
 		var preReceiveError updateref.PreReceiveError
 		var updateRefError updateref.Error
 
@@ -137,6 +142,10 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 }
 
 func validateFFRequest(in *gitalypb.UserFFBranchRequest) error {
+	if in.Repository == nil {
+		return fmt.Errorf("empty repository")
+	}
+
 	if len(in.Branch) == 0 {
 		return fmt.Errorf("empty branch name")
 	}
@@ -159,8 +168,15 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 
 	referenceName := git.NewReferenceNameFromBranchName(string(in.Branch))
 
-	repo := s.localrepo(in.GetRepository())
-	revision, err := repo.ResolveRevision(ctx, referenceName.Revision())
+	// While we're creating a quarantine directory, we know that it won't ever have any new
+	// objects given that we're doing a fast-forward merge. We still want to create one such
+	// that Rails can efficiently compute new objects.
+	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, in.GetRepository(), featureflag.Quarantine)
+	if err != nil {
+		return nil, err
+	}
+
+	revision, err := quarantineRepo.ResolveRevision(ctx, referenceName.Revision())
 	if err != nil {
 		return nil, helper.ErrInvalidArgument(err)
 	}
@@ -170,7 +186,7 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 		return nil, helper.ErrInvalidArgumentf("cannot parse commit ID: %w", err)
 	}
 
-	ancestor, err := repo.IsAncestor(ctx, revision.Revision(), commitID.Revision())
+	ancestor, err := quarantineRepo.IsAncestor(ctx, revision.Revision(), commitID.Revision())
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +194,7 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 		return nil, helper.ErrFailedPreconditionf("not fast forward")
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, in.Repository, in.User, nil, referenceName, commitID, revision); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, in.GetRepository(), in.User, quarantineDir, referenceName, commitID, revision); err != nil {
 		var preReceiveError updateref.PreReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserFFBranchResponse{

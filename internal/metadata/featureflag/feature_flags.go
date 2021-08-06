@@ -23,6 +23,8 @@ var (
 	GoUserApplyPatch = FeatureFlag{Name: "go_user_apply_patch", OnByDefault: false}
 	// FetchInternalNoAlternateRefs disables use of alternate refs in internal fetches.
 	FetchInternalNoAlternateRefs = FeatureFlag{Name: "fetch_internal_no_alternate_refs", OnByDefault: false}
+	// Quarantine enables the use of quarantine directories.
+	Quarantine = FeatureFlag{Name: "quarantine", OnByDefault: false}
 )
 
 // All includes all feature flags.
@@ -35,4 +37,5 @@ var All = []FeatureFlag{
 	QuarantinedResolveConflicts,
 	GoUserApplyPatch,
 	FetchInternalNoAlternateRefs,
+	Quarantine,
 }
