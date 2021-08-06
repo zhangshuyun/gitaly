@@ -89,6 +89,26 @@ func TestSuccessfulCommitsBetween(t *testing.T) {
 			},
 			expectedCommits: expectedCommits[1:4],
 		},
+		{
+			description: "using pagination to get first page by hash",
+			from:        from,
+			to:          to,
+			paginationParams: &gitalypb.PaginationParameter{
+				Limit:     2,
+				PageToken: "",
+			},
+			expectedCommits: expectedCommits[2:4],
+		},
+		{
+			description: "using pagination to get first page by ref",
+			from:        []byte("branch-merged"),
+			to:          []byte("gitaly-test-ref"),
+			paginationParams: &gitalypb.PaginationParameter{
+				Limit:     2,
+				PageToken: "",
+			},
+			expectedCommits: expectedCommits[1:3],
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
