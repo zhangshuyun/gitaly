@@ -74,7 +74,7 @@ func (cmd cloneCommand) execute(t *testing.T) error {
 func (cmd cloneCommand) test(t *testing.T, cfg config.Cfg, repoPath string, localRepoPath string) (string, string, string, string) {
 	t.Helper()
 
-	defer os.RemoveAll(localRepoPath)
+	defer func() { require.NoError(t, os.RemoveAll(localRepoPath)) }()
 
 	err := cmd.execute(t)
 	require.NoError(t, err)
@@ -376,7 +376,7 @@ func TestUploadPackCloneWithPartialCloneFilter(t *testing.T) {
 				cfg:        cfg,
 			}
 			err := cmd.execute(t)
-			defer os.RemoveAll(localPath)
+			defer func() { require.NoError(t, os.RemoveAll(localPath)) }()
 			require.NoError(t, err, "clone failed")
 
 			gittest.GitObjectMustExist(t, cfg.Git.BinPath, localPath, blobLessThanLimit)

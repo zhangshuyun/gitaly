@@ -149,7 +149,7 @@ func TestGetArchiveSuccess(t *testing.T) {
 
 				archiveFile, err := ioutil.TempFile("", "")
 				require.NoError(t, err)
-				defer os.Remove(archiveFile.Name())
+				defer func() { require.NoError(t, os.Remove(archiveFile.Name())) }()
 
 				_, err = archiveFile.Write(data)
 				require.NoError(t, err)
@@ -477,7 +477,7 @@ func TestGetArchiveEnv(t *testing.T) {
 	t.Parallel()
 	tmpFile, err := ioutil.TempFile("", "archive.sh")
 	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
+	defer func() { require.NoError(t, os.Remove(tmpFile.Name())) }()
 
 	err = tmpFile.Chmod(0755)
 	require.NoError(t, err)

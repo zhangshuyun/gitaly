@@ -42,7 +42,9 @@ func (h *tarTesthandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case redirectPath:
 		http.Redirect(w, r, tarPath, http.StatusFound)
 	case tarPath:
-		io.Copy(w, h.tarData)
+		if _, err := io.Copy(w, h.tarData); err != nil {
+			panic(err)
+		}
 	default:
 		http.Error(w, "Not found", 404)
 	}

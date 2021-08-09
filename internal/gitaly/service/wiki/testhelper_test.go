@@ -48,7 +48,11 @@ func testMain(m *testing.M) int {
 		log.Error(err)
 		return 1
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			log.Error(err)
+		}
+	}()
 
 	hooks.Override = tempDir + "/hooks"
 

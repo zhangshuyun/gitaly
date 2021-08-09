@@ -2,9 +2,7 @@ package praefect
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -23,9 +21,7 @@ func TestDialNodes(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	tmp, err := ioutil.TempDir("", "praefect")
-	require.NoError(t, err)
-	defer os.RemoveAll(tmp)
+	tmp := testhelper.TempDir(t)
 
 	type nodeAssertion struct {
 		storage string

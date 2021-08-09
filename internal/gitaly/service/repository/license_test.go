@@ -35,7 +35,7 @@ func testFindLicenseRequestEmptyRepo(t *testing.T, cfg config.Cfg, rubySrv *ruby
 		StorageName:  cfg.Storages[0].Name,
 	}
 	emptyRepoPath := filepath.Join(cfg.Storages[0].Path, emptyRepo.GetRelativePath())
-	defer os.RemoveAll(emptyRepoPath)
+	defer func() { require.NoError(t, os.RemoveAll(emptyRepoPath)) }()
 
 	_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: emptyRepo})
 	require.NoError(t, err)

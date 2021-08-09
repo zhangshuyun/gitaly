@@ -197,7 +197,7 @@ func (cmd *applySubcommand) buildFakeAncestor(ctx context.Context, repo *git.Rep
 	if err != nil {
 		return nil, fmt.Errorf("create temporary directory: %w", err)
 	}
-	defer os.RemoveAll(dir)
+	defer func() { _ = os.RemoveAll(dir) }()
 
 	file := filepath.Join(dir, "patch-merge-index")
 	gitCmd := exec.CommandContext(ctx, cmd.gitBinaryPath, "--git-dir", repo.Path(), "apply", "--build-fake-ancestor", file)

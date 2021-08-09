@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
@@ -96,7 +97,9 @@ func newDirectory(ctx context.Context, storageName string, prefix string, loc st
 
 func (d Dir) cleanupOnDone(ctx context.Context) {
 	<-ctx.Done()
-	os.RemoveAll(d.Path())
+	if err := os.RemoveAll(d.Path()); err != nil {
+		ctxlogrus.Extract(ctx).WithError(err).Errorf("failed to cleanup temp dir %q", d.path)
+	}
 	close(d.doneCh)
 }
 

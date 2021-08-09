@@ -120,7 +120,7 @@ func TestFailedCreateRepositoryFromURLRequestDueToExistingTarget(t *testing.T) {
 			} else {
 				require.NoError(t, ioutil.WriteFile(importedRepoPath, nil, 0644))
 			}
-			t.Cleanup(func() { os.RemoveAll(importedRepoPath) })
+			t.Cleanup(func() { require.NoError(t, os.RemoveAll(importedRepoPath)) })
 
 			req := &gitalypb.CreateRepositoryFromURLRequest{
 				Repository: importedRepo,

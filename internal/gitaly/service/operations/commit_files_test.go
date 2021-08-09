@@ -885,7 +885,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			defer os.RemoveAll(repoPath)
+			defer func() { require.NoError(t, os.RemoveAll(repoPath)) }()
 			gittest.Exec(t, cfg, "init", "--bare", repoPath)
 
 			const branch = "master"

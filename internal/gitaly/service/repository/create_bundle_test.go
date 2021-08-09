@@ -52,7 +52,7 @@ func TestSuccessfulCreateBundleRequest(t *testing.T) {
 	dstFile, err := ioutil.TempFile(dstDir.Path(), "")
 	require.NoError(t, err)
 	defer dstFile.Close()
-	defer os.RemoveAll(dstFile.Name())
+	defer func() { require.NoError(t, os.RemoveAll(dstFile.Name())) }()
 
 	_, err = io.Copy(dstFile, reader)
 	require.NoError(t, err)

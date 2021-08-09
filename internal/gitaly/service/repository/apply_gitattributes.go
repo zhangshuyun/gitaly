@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
@@ -62,7 +63,11 @@ func (s *server) applyGitattributes(ctx context.Context, c catfile.Batch, repoPa
 	if err != nil {
 		return status.Errorf(codes.Internal, "ApplyGitAttributes: creating temp file: %v", err)
 	}
-	defer os.Remove(tempFile.Name())
+	defer func() {
+		if err := os.Remove(tempFile.Name()); err != nil && !errors.Is(err, os.ErrNotExist) {
+			ctxlogrus.Extract(ctx).WithError(err).Errorf("failed to remove tmp file %q", tempFile.Name())
+		}
+	}()
 
 	blobObj, err := c.Blob(ctx, git.Revision(blobInfo.Oid))
 	if err != nil {

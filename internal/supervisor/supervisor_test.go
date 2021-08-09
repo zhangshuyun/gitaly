@@ -38,7 +38,11 @@ func testMain(m *testing.M) int {
 		log.Error(err)
 		return 1
 	}
-	defer os.RemoveAll(testDir)
+	defer func() {
+		if err := os.RemoveAll(testDir); err != nil {
+			log.Error(err)
+		}
+	}()
 
 	scriptPath, err := filepath.Abs("test-scripts/pid-server.go")
 	if err != nil {
@@ -107,7 +111,7 @@ func TestSpawnFailure(t *testing.T) {
 
 	notFoundExe := filepath.Join(testDir, "not-found")
 	require.NoError(t, os.RemoveAll(notFoundExe))
-	defer os.Remove(notFoundExe)
+	defer func() { require.NoError(t, os.Remove(notFoundExe)) }()
 
 	process, err := New(config, t.Name(), nil, []string{notFoundExe}, testDir, 0, nil, nil)
 	require.NoError(t, err)

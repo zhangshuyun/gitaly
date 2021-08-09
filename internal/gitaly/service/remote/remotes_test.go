@@ -275,7 +275,8 @@ func TestFindRemoteRepository(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		infoRefs := testhelper.MustReadFile(t, "testdata/lsremotedata.txt")
 		w.Header().Set("Content-Type", "application/x-git-upload-pack-advertisement")
-		io.Copy(w, bytes.NewReader(infoRefs))
+		_, err := io.Copy(w, bytes.NewReader(infoRefs))
+		require.NoError(t, err)
 	}))
 	defer ts.Close()
 

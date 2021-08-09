@@ -21,7 +21,7 @@ func TestStolenPid(t *testing.T) {
 
 	pidFile, err := ioutil.TempFile("", "pidfile")
 	require.NoError(t, err)
-	defer os.Remove(pidFile.Name())
+	defer func() { require.NoError(t, os.Remove(pidFile.Name())) }()
 
 	require.NoError(t, os.Setenv(bootstrap.EnvPidFile, pidFile.Name()))
 

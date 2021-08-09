@@ -60,7 +60,7 @@ func shardCheck(shardPath string) (readable bool, writeable bool) {
 	if err := ioutil.WriteFile(testPath, content, 0644); err == nil {
 		writeable = true
 	}
-	os.Remove(testPath)
+	_ = os.Remove(testPath)
 
 	return
 }

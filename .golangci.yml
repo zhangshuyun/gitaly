@@ -571,9 +571,6 @@ issues:
     - linters:
         - errcheck
       text: "Error return value of `[^`]+.(Close|Serve)` is not checked"
-    - linters:
-        - errcheck
-      text: "Error return value of `(io\\.Copy|out\\.Flush|os\\.Remove(All)?)` is not checked"
     ## errcheck: Specific issues in non-*_test.go files
     - linters:
         - errcheck

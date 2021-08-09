@@ -57,7 +57,7 @@ func testSuccessfulMerge(t *testing.T, ctx context.Context) {
 		outputFile, err := ioutil.TempFile("", "")
 		require.NoError(t, err)
 		require.NoError(t, outputFile.Close())
-		defer os.Remove(outputFile.Name())
+		defer func() { require.NoError(t, os.Remove(outputFile.Name())) }()
 
 		script := fmt.Sprintf("#!/bin/sh\n(cat && env) >%s \n", outputFile.Name())
 		gittest.WriteCustomHook(t, repoPath, hook, []byte(script))

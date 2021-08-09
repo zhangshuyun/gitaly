@@ -428,7 +428,7 @@ func writeCustomHook(t *testing.T, hookName, dir string, content []byte) func() 
 	require.NoError(t, ioutil.WriteFile(filepath.Join(dir, hookName), content, 0755))
 
 	return func() {
-		os.RemoveAll(dir)
+		require.NoError(t, os.RemoveAll(dir))
 	}
 }
 

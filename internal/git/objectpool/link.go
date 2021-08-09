@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
@@ -41,7 +42,11 @@ func (o *ObjectPool) Link(ctx context.Context, repo *gitalypb.Repository) error 
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tmp.Name())
+	defer func() {
+		if err := os.Remove(tmp.Name()); err != nil && !errors.Is(err, os.ErrNotExist) {
+			ctxlogrus.Extract(ctx).WithError(err).Errorf("failed to remove tmp file %q", tmp.Name())
+		}
+	}()
 
 	if _, err := io.WriteString(tmp, expectedRelPath); err != nil {
 		return err
