@@ -147,7 +147,7 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 
 	var quarantineRepo *localrepo.Repo
 	var quarantineDir *quarantine.Dir
-	if featureflag.QuarantinedResolveConflicts.IsEnabled(ctx) && featureflag.ResolveConflictsWithHooks.IsEnabled(ctx) {
+	if featureflag.QuarantinedResolveConflicts.IsEnabled(ctx) {
 		var err error
 		quarantineDir, err = quarantine.New(ctx, header.GetRepository(), s.locator)
 		if err != nil {
@@ -206,28 +206,16 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		return err
 	}
 
-	if featureflag.ResolveConflictsWithHooks.IsEnabled(ctx) {
-		if err := s.updater.UpdateReference(
-			ctx,
-			header.Repository,
-			header.User,
-			quarantineDir,
-			git.ReferenceName("refs/heads/"+string(header.GetSourceBranch())),
-			commitOID,
-			git.ObjectID(header.OurCommitOid),
-		); err != nil {
-			return err
-		}
-	} else {
-		sourceRepo := s.localrepo(header.GetRepository())
-		if err := sourceRepo.UpdateRef(
-			ctx,
-			git.ReferenceName("refs/heads/"+string(header.GetSourceBranch())),
-			commitOID,
-			"",
-		); err != nil {
-			return err
-		}
+	if err := s.updater.UpdateReference(
+		ctx,
+		header.Repository,
+		header.User,
+		quarantineDir,
+		git.ReferenceName("refs/heads/"+string(header.GetSourceBranch())),
+		commitOID,
+		git.ObjectID(header.OurCommitOid),
+	); err != nil {
+		return err
 	}
 
 	return nil

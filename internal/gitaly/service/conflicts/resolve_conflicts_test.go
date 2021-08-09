@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -56,16 +55,12 @@ var (
 	}
 )
 
-func TestSuccessfulResolveConflictsRequest(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.QuarantinedResolveConflicts,
-		featureflag.ResolveConflictsWithHooks,
-	}).Run(t, testSuccessfulResolveConflictsRequestHelper)
-}
-
-func testSuccessfulResolveConflictsRequestHelper(t *testing.T, ctx context.Context) {
+func TestSuccessfulResolveConflictsRequestHelper(t *testing.T) {
 	cfg, repoProto, repoPath := SetupConfigAndRepo(t, true)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	missingAncestorPath := "files/missing_ancestor.txt"
 	files := []map[string]interface{}{
@@ -193,23 +188,15 @@ func testSuccessfulResolveConflictsRequestHelper(t *testing.T, ctx context.Conte
 	require.Equal(t, string(headCommit.Committer.Email), "johndoe@gitlab.com")
 	require.Equal(t, string(headCommit.Subject), conflictResolutionCommitMessage)
 
-	if featureflag.ResolveConflictsWithHooks.IsEnabled(ctx) {
-		require.Equal(t, 2, hookCount)
-	} else {
-		require.Equal(t, 0, hookCount)
-	}
+	require.Equal(t, 2, hookCount)
 }
 
 func TestResolveConflictsWithRemoteRepo(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.QuarantinedResolveConflicts,
-		featureflag.ResolveConflictsWithHooks,
-	}).Run(t, testResolveConflictsWithRemoteRepo)
-}
-
-func testResolveConflictsWithRemoteRepo(t *testing.T, ctx context.Context) {
 	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
 	cfg, _, _, client := SetupConflictsService(t, true, hookManager)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	testhelper.ConfigureGitalySSHBin(t, cfg)
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
@@ -276,16 +263,11 @@ func testResolveConflictsWithRemoteRepo(t *testing.T, ctx context.Context) {
 }
 
 func TestResolveConflictsLineEndings(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.QuarantinedResolveConflicts,
-		featureflag.ResolveConflictsWithHooks,
-	}).Run(t, testResolveConflictsLineEndings)
-}
-
-func testResolveConflictsLineEndings(t *testing.T, ctx context.Context) {
 	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
 	cfg, repo, repoPath, client := SetupConflictsService(t, true, hookManager)
 
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
 
 	for _, tc := range []struct {
@@ -402,16 +384,11 @@ func testResolveConflictsLineEndings(t *testing.T, ctx context.Context) {
 }
 
 func TestResolveConflictsNonOIDRequests(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.QuarantinedResolveConflicts,
-		featureflag.ResolveConflictsWithHooks,
-	}).Run(t, testResolveConflictsNonOIDRequests)
-}
-
-func testResolveConflictsNonOIDRequests(t *testing.T, ctx context.Context) {
 	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
 	cfg, repoProto, _, client := SetupConflictsService(t, true, hookManager)
 
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
 
 	stream, err := client.ResolveConflicts(ctx)
@@ -445,17 +422,13 @@ func testResolveConflictsNonOIDRequests(t *testing.T, ctx context.Context) {
 }
 
 func TestResolveConflictsIdenticalContent(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.QuarantinedResolveConflicts,
-		featureflag.ResolveConflictsWithHooks,
-	}).Run(t, testResolveConflictsIdenticalContent)
-}
-
-func testResolveConflictsIdenticalContent(t *testing.T, ctx context.Context) {
 	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
 	cfg, repoProto, repoPath, client := SetupConflictsService(t, true, hookManager)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	sourceBranch := "conflict-resolvable"
 	sourceOID, err := repo.ResolveRevision(ctx, git.Revision(sourceBranch))
@@ -547,18 +520,13 @@ func testResolveConflictsIdenticalContent(t *testing.T, ctx context.Context) {
 }
 
 func TestResolveConflictsStableID(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.QuarantinedResolveConflicts,
-		featureflag.ResolveConflictsWithHooks,
-	}).Run(t, testResolveConflictsStableID)
-}
-
-func testResolveConflictsStableID(t *testing.T, ctx context.Context) {
 	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
 	cfg, repoProto, _, client := SetupConflictsService(t, true, hookManager)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
@@ -621,16 +589,11 @@ func testResolveConflictsStableID(t *testing.T, ctx context.Context) {
 }
 
 func TestFailedResolveConflictsRequestDueToResolutionError(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.QuarantinedResolveConflicts,
-		featureflag.ResolveConflictsWithHooks,
-	}).Run(t, testFailedResolveConflictsRequestDueToResolutionError)
-}
-
-func testFailedResolveConflictsRequestDueToResolutionError(t *testing.T, ctx context.Context) {
 	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
 	cfg, repo, _, client := SetupConflictsService(t, true, hookManager)
 
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 	mdGS := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	mdFF, _ := metadata.FromOutgoingContext(ctx)
 	ctx = metadata.NewOutgoingContext(ctx, metadata.Join(mdGS, mdFF))
@@ -683,15 +646,11 @@ func testFailedResolveConflictsRequestDueToResolutionError(t *testing.T, ctx con
 }
 
 func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.QuarantinedResolveConflicts,
-		featureflag.ResolveConflictsWithHooks,
-	}).Run(t, testFailedResolveConflictsRequestDueToValidation)
-}
-
-func testFailedResolveConflictsRequestDueToValidation(t *testing.T, ctx context.Context) {
 	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
 	cfg, repo, _, client := SetupConflictsService(t, true, hookManager)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	mdGS := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	ourCommitOid := "1450cd639e0bc6721eb02800169e464f212cde06"
@@ -854,13 +813,10 @@ func testFailedResolveConflictsRequestDueToValidation(t *testing.T, ctx context.
 }
 
 func TestResolveConflictsQuarantine(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.QuarantinedResolveConflicts,
-	}).Run(t, testResolveConflictsQuarantine)
-}
-
-func testResolveConflictsQuarantine(t *testing.T, ctx context.Context) {
 	cfg, _, _, client := SetupConflictsService(t, true, nil)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	testhelper.ConfigureGitalySSHBin(t, cfg)
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
@@ -945,5 +901,5 @@ Solve conflicts`)
 	// repository because the RPC failed to update the revision.
 	exists, err := localrepo.NewTestRepo(t, cfg, sourceRepoProto).HasRevision(ctx, "af339cb882d1e3cf8d6751651e58bbaff0265d6e^{commit}")
 	require.NoError(t, err)
-	require.Equal(t, featureflag.QuarantinedResolveConflicts.IsDisabled(ctx), exists)
+	require.False(t, exists, "object should have not been migrated")
 }
