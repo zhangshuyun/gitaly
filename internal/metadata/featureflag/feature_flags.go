@@ -6,9 +6,6 @@ package featureflag
 var (
 	// GoSetConfig enables git2go implementation of SetConfig.
 	GoSetConfig = FeatureFlag{Name: "go_set_config", OnByDefault: false}
-	// ResolveConflictsWithHooks will cause the ResolveConflicts RPC to run Git hooks after committing changes
-	// to the branch.
-	ResolveConflictsWithHooks = FeatureFlag{Name: "resolve_conflicts_with_hooks", OnByDefault: true}
 	// FindAllTagsPipeline enables the alternative pipeline implementation for finding
 	// tags via FindAllTags.
 	FindAllTagsPipeline = FeatureFlag{Name: "find_all_tags_pipeline", OnByDefault: false}
@@ -30,7 +27,6 @@ var (
 // All includes all feature flags.
 var All = []FeatureFlag{
 	GoSetConfig,
-	ResolveConflictsWithHooks,
 	FindAllTagsPipeline,
 	QuarantinedUserCreateTag,
 	UserSquashWithoutWorktree,

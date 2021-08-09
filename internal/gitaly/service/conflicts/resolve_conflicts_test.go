@@ -59,7 +59,6 @@ var (
 func TestSuccessfulResolveConflictsRequest(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.QuarantinedResolveConflicts,
-		featureflag.ResolveConflictsWithHooks,
 	}).Run(t, testSuccessfulResolveConflictsRequestHelper)
 }
 
@@ -193,17 +192,12 @@ func testSuccessfulResolveConflictsRequestHelper(t *testing.T, ctx context.Conte
 	require.Equal(t, string(headCommit.Committer.Email), "johndoe@gitlab.com")
 	require.Equal(t, string(headCommit.Subject), conflictResolutionCommitMessage)
 
-	if featureflag.ResolveConflictsWithHooks.IsEnabled(ctx) {
-		require.Equal(t, 2, hookCount)
-	} else {
-		require.Equal(t, 0, hookCount)
-	}
+	require.Equal(t, 2, hookCount)
 }
 
 func TestResolveConflictsWithRemoteRepo(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.QuarantinedResolveConflicts,
-		featureflag.ResolveConflictsWithHooks,
 	}).Run(t, testResolveConflictsWithRemoteRepo)
 }
 
@@ -278,7 +272,6 @@ func testResolveConflictsWithRemoteRepo(t *testing.T, ctx context.Context) {
 func TestResolveConflictsLineEndings(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.QuarantinedResolveConflicts,
-		featureflag.ResolveConflictsWithHooks,
 	}).Run(t, testResolveConflictsLineEndings)
 }
 
@@ -404,7 +397,6 @@ func testResolveConflictsLineEndings(t *testing.T, ctx context.Context) {
 func TestResolveConflictsNonOIDRequests(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.QuarantinedResolveConflicts,
-		featureflag.ResolveConflictsWithHooks,
 	}).Run(t, testResolveConflictsNonOIDRequests)
 }
 
@@ -447,7 +439,6 @@ func testResolveConflictsNonOIDRequests(t *testing.T, ctx context.Context) {
 func TestResolveConflictsIdenticalContent(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.QuarantinedResolveConflicts,
-		featureflag.ResolveConflictsWithHooks,
 	}).Run(t, testResolveConflictsIdenticalContent)
 }
 
@@ -549,7 +540,6 @@ func testResolveConflictsIdenticalContent(t *testing.T, ctx context.Context) {
 func TestResolveConflictsStableID(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.QuarantinedResolveConflicts,
-		featureflag.ResolveConflictsWithHooks,
 	}).Run(t, testResolveConflictsStableID)
 }
 
@@ -623,7 +613,6 @@ func testResolveConflictsStableID(t *testing.T, ctx context.Context) {
 func TestFailedResolveConflictsRequestDueToResolutionError(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.QuarantinedResolveConflicts,
-		featureflag.ResolveConflictsWithHooks,
 	}).Run(t, testFailedResolveConflictsRequestDueToResolutionError)
 }
 
@@ -685,7 +674,6 @@ func testFailedResolveConflictsRequestDueToResolutionError(t *testing.T, ctx con
 func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.QuarantinedResolveConflicts,
-		featureflag.ResolveConflictsWithHooks,
 	}).Run(t, testFailedResolveConflictsRequestDueToValidation)
 }
 
