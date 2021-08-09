@@ -203,6 +203,18 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     end
     add_message "gitaly.PackRefsResponse" do
     end
+    add_message "gitaly.ListRefsRequest" do
+      optional :repository, :message, 1, "gitaly.Repository"
+      repeated :patterns, :bytes, 2
+      optional :head, :bool, 3
+    end
+    add_message "gitaly.ListRefsResponse" do
+      repeated :references, :message, 1, "gitaly.ListRefsResponse.Reference"
+    end
+    add_message "gitaly.ListRefsResponse.Reference" do
+      optional :name, :bytes, 1
+      optional :target, :string, 2
+    end
   end
 end
 
@@ -257,4 +269,7 @@ module Gitaly
   FindAllRemoteBranchesResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindAllRemoteBranchesResponse").msgclass
   PackRefsRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.PackRefsRequest").msgclass
   PackRefsResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.PackRefsResponse").msgclass
+  ListRefsRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListRefsRequest").msgclass
+  ListRefsResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListRefsResponse").msgclass
+  ListRefsResponse::Reference = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListRefsResponse.Reference").msgclass
 end

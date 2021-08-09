@@ -122,6 +122,15 @@ service RefService {
       op: MUTATOR
     };
   }
+
+  // ListRefs returns a stream of all references in the repository. By default, pseudo-revisions like HEAD
+  // will not be returned by this RPC. Any symbolic references will be resolved to the object ID it is
+  // pointing at.
+  rpc ListRefs(ListRefsRequest) returns (stream ListRefsResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
 }
 
 message ListNewBlobsRequest {
@@ -414,3 +423,31 @@ message PackRefsRequest {
 }
 
 message PackRefsResponse{}
+
+// ListRefsRequest is a request for the ListRefs RPC.
+message ListRefsRequest {
+  // Repository is the repository in which references should be listed in.
+  Repository repository = 1 [(target_repository)=true];
+  // Patterns contains all patterns which shall be listed. Patterns should be in the format
+  // accepted by git-for-each-ref(1). At least one pattern must be given, otherwise an error
+  // is returned. Patterns which don't match any reference will be silently ignored.
+  repeated bytes patterns = 2;
+  // Head determines whether the RPC should also return the HEAD reference. By default,
+  // pseudo-refs are not included in the response.
+  bool head = 3;
+}
+
+// ListRefsResponse is a response for the ListRefs RPC. The RPC can return multiple responses
+// in case there are more references than fit into a single gRPC message.
+message ListRefsResponse{
+  // Reference is a direct Git reference. No symbolic references will ever be returned by this RPC.
+  message Reference {
+    // Name is the fully qualified name of the reference.
+    bytes name = 1;
+    // Target is the object ID the reference points to.
+    string target = 2;
+  }
+
+  // References is the set of references returned by the RPC.
+  repeated Reference references = 1;
+}
