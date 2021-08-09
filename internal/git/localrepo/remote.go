@@ -11,7 +11,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitalyssh"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -297,20 +296,16 @@ func (repo *Repo) FetchInternal(
 		git.WithEnv(append(env, opts.Env...)...),
 		git.WithStderr(opts.Stderr),
 		git.WithRefTxHook(ctx, repo, repo.cfg),
+		// We've observed performance issues when fetching into big repositories part of an
+		// object pool. The root cause of this seems to be the connectivity check, which by
+		// default will also include references of any alternates. Given that object pools
+		// often have hundreds of thousands of references, this is quite expensive to
+		// compute. Below config entry will disable listing of alternate refs: they
+		// shouldn't even be included in the negotiation phase, so they aren't going to
+		// matter in the connectivity check either.
+		git.WithConfig(git.ConfigPair{Key: "core.alternateRefsCommand", Value: "exit 0 #"}),
 	}
 	commandOptions = append(commandOptions, opts.CommandOptions...)
-
-	// We've observed performance issues when fetching into big repositories part of an object
-	// pool. The root cause of this seems to be the connectivity check, which by default will
-	// also include references of any alternates. Given that object pools often have hundreds of
-	// thousands of references, this is quite expensive to compute. Below config entry will
-	// disable listing of alternate refs: they shouldn't even be included in the negotiation
-	// phase, so they aren't going to matter in the connectivity check either.
-	if featureflag.FetchInternalNoAlternateRefs.IsEnabled(ctx) {
-		commandOptions = append(commandOptions, git.WithConfig(
-			git.ConfigPair{Key: "core.alternateRefsCommand", Value: "exit 0 #"},
-		))
-	}
 
 	if err := repo.ExecAndWait(ctx,
 		git.SubCmd{
