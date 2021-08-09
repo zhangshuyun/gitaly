@@ -165,7 +165,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     end
     add_message "gitaly.CreateBundleFromRefListRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
-      optional :pattern, :string, 2
+      repeated :patterns, :bytes, 2
     end
     add_message "gitaly.CreateBundleFromRefListResponse" do
       optional :data, :bytes, 1
