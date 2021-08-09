@@ -1,7 +1,6 @@
 package operations
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -19,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -398,14 +396,11 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 	}
 }
 
-func TestUserCreateTag_quarantine(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.QuarantinedUserCreateTag,
-	}).Run(t, testUserCreateTagQuarantine)
-}
-
-func testUserCreateTagQuarantine(t *testing.T, ctx context.Context) {
+func TestUserCreateTagQuarantine(t *testing.T) {
 	t.Parallel()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -446,7 +441,7 @@ message`,
 	// repository because the RPC failed to update the revision.
 	tagExists, err := repo.HasRevision(ctx, "85d279b2cc85df37992e08f84707987321e8ef47^{tag}")
 	require.NoError(t, err)
-	require.Equal(t, featureflag.QuarantinedUserCreateTag.IsDisabled(ctx), tagExists)
+	require.False(t, tagExists, "tag should not have been migrated")
 }
 
 func TestSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *testing.T) {

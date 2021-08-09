@@ -61,18 +61,20 @@ func (s *Server) localrepo(repo repository.GitRepo) *localrepo.Repo {
 }
 
 func (s *Server) quarantinedRepo(
-	ctx context.Context, repo *gitalypb.Repository, flag featureflag.FeatureFlag,
+	ctx context.Context, repo *gitalypb.Repository, flags ...featureflag.FeatureFlag,
 ) (*quarantine.Dir, *localrepo.Repo, error) {
-	if flag.IsEnabled(ctx) {
-		quarantineDir, err := quarantine.New(ctx, repo, s.locator)
-		if err != nil {
-			return nil, nil, helper.ErrInternalf("creating object quarantine: %w", err)
+	for _, flag := range flags {
+		if flag.IsDisabled(ctx) {
+			return nil, s.localrepo(repo), nil
 		}
-
-		quarantineRepo := s.localrepo(quarantineDir.QuarantinedRepo())
-
-		return quarantineDir, quarantineRepo, nil
 	}
 
-	return nil, s.localrepo(repo), nil
+	quarantineDir, err := quarantine.New(ctx, repo, s.locator)
+	if err != nil {
+		return nil, nil, helper.ErrInternalf("creating object quarantine: %w", err)
+	}
+
+	quarantineRepo := s.localrepo(quarantineDir.QuarantinedRepo())
+
+	return quarantineDir, quarantineRepo, nil
 }
