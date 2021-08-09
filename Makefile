@@ -113,7 +113,7 @@ ifndef GIT_PATCHES
     # Before adding custom patches, please read doc/PROCESS.md#Patching-git
     # first to make sure your patches meet our acceptance criteria. Patches
     # must be put into `_support/git-patches`.
-    #GIT_PATCHES +=
+    GIT_PATCHES += 0001-fetch-pack-speed-up-loading-of-refs-via-commit-graph.patch
 endif
 
 ifndef GIT_BUILD_OPTIONS

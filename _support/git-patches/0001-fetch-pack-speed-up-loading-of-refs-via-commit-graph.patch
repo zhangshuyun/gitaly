@@ -1,0 +1,65 @@
+From 08519b8ab6f395cffbcd5e530bfba6aaf64241a2 Mon Sep 17 00:00:00 2001
+Message-Id: <08519b8ab6f395cffbcd5e530bfba6aaf64241a2.1628144240.git.ps@pks.im>
+From: Patrick Steinhardt <ps@pks.im>
+Date: Wed, 4 Aug 2021 15:04:25 +0200
+Subject: [PATCH] fetch-pack: speed up loading of refs via commit graph
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+When doing reference negotiation, git-fetch-pack(1) is loading all refs
+from disk in order to determine which commits it has in common with the
+remote repository. This can be quite expensive in repositories with many
+references though: in a real-world repository with around 2.2 million
+refs, fetching a single commit by its ID takes around 44 seconds.
+
+Dominating the loading time is decompression and parsing of the objects
+which are referenced by commits. Given the fact that we only care about
+commits (or tags which can be peeled to one) in this context, there is
+thus an easy performance win by switching the parsing logic to make use
+of the commit graph in case we have one available. Like this, we avoid
+hitting the object database to parse these commits but instead only load
+them from the commit-graph. This results in a significant performance
+boost when executing git-fetch in said repository with 2.2 million refs:
+
+    Benchmark #1: HEAD~: git fetch $remote $commit
+      Time (mean ± σ):     44.168 s ±  0.341 s    [User: 42.985 s, System: 1.106 s]
+      Range (min … max):   43.565 s … 44.577 s    10 runs
+
+    Benchmark #2: HEAD: git fetch $remote $commit
+      Time (mean ± σ):     19.498 s ±  0.724 s    [User: 18.751 s, System: 0.690 s]
+      Range (min … max):   18.629 s … 20.454 s    10 runs
+
+    Summary
+      'HEAD: git fetch $remote $commit' ran
+        2.27 ± 0.09 times faster than 'HEAD~: git fetch $remote $commit'
+
+Signed-off-by: Patrick Steinhardt <ps@pks.im>
+---
+ fetch-pack.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/fetch-pack.c b/fetch-pack.c
+index b0c7be717c..0bf7ed7e47 100644
+--- a/fetch-pack.c
++++ b/fetch-pack.c
+@@ -137,8 +137,14 @@ static struct commit *deref_without_lazy_fetch(const struct object_id *oid,
+ 			break;
+ 		}
+ 	}
+-	if (type == OBJ_COMMIT)
+-		return (struct commit *) parse_object(the_repository, oid);
++
++	if (type == OBJ_COMMIT) {
++		struct commit *commit = lookup_commit(the_repository, oid);
++		if (!commit || repo_parse_commit(the_repository, commit))
++			return NULL;
++		return commit;
++	}
++
+ 	return NULL;
+ }
+ 
+-- 
+2.32.0
+
