@@ -42,8 +42,13 @@ func TestCreateBundleFromRefList_success(t *testing.T) {
 	c, err := client.CreateBundleFromRefList(ctx)
 	require.NoError(t, err)
 
-	require.NoError(t, c.Send(&gitalypb.CreateBundleFromRefListRequest{Repository: repo, Pattern: "master"}))
-	require.NoError(t, c.Send(&gitalypb.CreateBundleFromRefListRequest{Repository: repo, Pattern: "^master~1"}))
+	require.NoError(t, c.Send(&gitalypb.CreateBundleFromRefListRequest{
+		Repository: repo,
+		Patterns: [][]byte{
+			[]byte("master"),
+			[]byte("^master~1"),
+		},
+	}))
 	require.NoError(t, c.CloseSend())
 
 	reader := streamio.NewReader(func() ([]byte, error) {
@@ -76,7 +81,7 @@ func TestCreateBundleFromRefList_validations(t *testing.T) {
 	}{
 		{
 			desc:    "empty repository",
-			request: &gitalypb.CreateBundleFromRefListRequest{Pattern: "master"},
+			request: &gitalypb.CreateBundleFromRefListRequest{Patterns: [][]byte{[]byte("master")}},
 			code:    codes.InvalidArgument,
 		},
 	}

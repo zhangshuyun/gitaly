@@ -498,8 +498,13 @@ message CreateBundleResponse {
 }
 
 message CreateBundleFromRefListRequest {
+  // Repository is the repository that the bundle is created from.
   Repository repository = 1 [(target_repository)=true];
-  string pattern = 2;
+
+  // Patterns contains all patterns which shall be bundled. Patterns should be
+  // in the format accepted by git-rev-list(1). Patterns which don't match any
+  // reference will be silently ignored.
+  repeated bytes patterns = 2;
 }
 
 message CreateBundleFromRefListResponse {

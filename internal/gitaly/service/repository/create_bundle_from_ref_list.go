@@ -2,7 +2,6 @@ package repository
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
@@ -30,13 +29,18 @@ func (s *server) CreateBundleFromRefList(stream gitalypb.RepositoryService_Creat
 
 	firstRead := true
 	reader := streamio.NewReader(func() ([]byte, error) {
+		var request *gitalypb.CreateBundleFromRefListRequest
 		if firstRead {
 			firstRead = false
-			return []byte(fmt.Sprintln(firstRequest.GetPattern())), nil
+			request = firstRequest
+		} else {
+			var err error
+			request, err = stream.Recv()
+			if err != nil {
+				return nil, err
+			}
 		}
-
-		request, err := stream.Recv()
-		return []byte(fmt.Sprintln(request.GetPattern())), err
+		return append(bytes.Join(request.GetPatterns(), []byte("\n")), '\n'), nil
 	})
 
 	var stderr bytes.Buffer
