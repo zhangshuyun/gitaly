@@ -21,8 +21,6 @@ var (
 	QuarantinedResolveConflicts = FeatureFlag{Name: "quarantined_resolve_conflicts", OnByDefault: false}
 	// GoUserApplyPatch enables the Go implementation of UserApplyPatch
 	GoUserApplyPatch = FeatureFlag{Name: "go_user_apply_patch", OnByDefault: false}
-	// FetchInternalNoAlternateRefs disables use of alternate refs in internal fetches.
-	FetchInternalNoAlternateRefs = FeatureFlag{Name: "fetch_internal_no_alternate_refs", OnByDefault: false}
 	// Quarantine enables the use of quarantine directories.
 	Quarantine = FeatureFlag{Name: "quarantine", OnByDefault: false}
 )
@@ -36,6 +34,5 @@ var All = []FeatureFlag{
 	UserSquashWithoutWorktree,
 	QuarantinedResolveConflicts,
 	GoUserApplyPatch,
-	FetchInternalNoAlternateRefs,
 	Quarantine,
 }
