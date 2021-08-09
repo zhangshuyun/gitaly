@@ -1083,10 +1083,16 @@ func TestCoordinatorEnqueueFailure(t *testing.T) {
 		},
 	}
 
-	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(getDB(t)))
+	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(nil)
 	errQ := make(chan error, 1)
 	queueInterceptor.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
 		return datastore.ReplicationEvent{}, <-errQ
+	})
+	queueInterceptor.OnDequeue(func(context.Context, string, string, int, datastore.ReplicationEventQueue) ([]datastore.ReplicationEvent, error) {
+		return nil, nil
+	})
+	queueInterceptor.OnAcknowledge(func(context.Context, datastore.JobState, []uint64, datastore.ReplicationEventQueue) ([]uint64, error) {
+		return nil, nil
 	})
 
 	ms := &mockSvc{
