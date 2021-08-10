@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -130,6 +131,20 @@ func TestServer_PackObjectsHook(t *testing.T) {
 					require.Greater(t, entry.Data["bytes"], int64(0))
 				})
 			}
+
+			t.Run("pack file compression statistic", func(t *testing.T) {
+				var entry *logrus.Entry
+				for _, e := range hook.AllEntries() {
+					if e.Message == "pack file compression statistic" {
+						entry = e
+					}
+				}
+
+				require.NotNil(t, entry)
+				total := entry.Data["pack.stat"].(string)
+				require.True(t, strings.HasPrefix(total, "Total "))
+				require.False(t, strings.Contains(total, "\n"))
+			})
 		})
 	}
 }

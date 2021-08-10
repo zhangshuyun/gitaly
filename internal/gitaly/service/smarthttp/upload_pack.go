@@ -10,7 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/inspect"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 	"google.golang.org/grpc/codes"
@@ -42,15 +41,10 @@ func (s *server) PostUploadPack(stream gitalypb.SmartHTTPService_PostUploadPackS
 
 	var respBytes int64
 
-	stdoutWriter := streamio.NewWriter(func(p []byte) error {
+	stdout := streamio.NewWriter(func(p []byte) error {
 		respBytes += int64(len(p))
 		return stream.Send(&gitalypb.PostUploadPackResponse{Data: p})
 	})
-
-	// TODO: it is first step of the https://gitlab.com/gitlab-org/gitaly/issues/1519
-	// needs to be removed after we get some statistics on this
-	stdout := inspect.NewWriter(stdoutWriter, inspect.LogPackInfoStatistic(ctx))
-	defer stdout.Close()
 
 	repoPath, err := s.locator.GetRepoPath(req.Repository)
 	if err != nil {

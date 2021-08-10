@@ -12,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/inspect"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
@@ -59,13 +58,9 @@ func (s *server) sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, r
 	// synchronize writing stdout and stderrr.
 	var m sync.Mutex
 
-	stdoutWriter := streamio.NewSyncWriter(&m, func(p []byte) error {
+	stdout := streamio.NewSyncWriter(&m, func(p []byte) error {
 		return stream.Send(&gitalypb.SSHUploadPackResponse{Stdout: p})
 	})
-	// TODO: it is first step of the https://gitlab.com/gitlab-org/gitaly/issues/1519
-	// needs to be removed after we get some statistics on this
-	stdout := inspect.NewWriter(stdoutWriter, inspect.LogPackInfoStatistic(ctx))
-	defer stdout.Close()
 
 	stderr := streamio.NewSyncWriter(&m, func(p []byte) error {
 		return stream.Send(&gitalypb.SSHUploadPackResponse{Stderr: p})
