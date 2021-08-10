@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 13.12.10 (2021-08-10)
+
+No changes.
+
 ## 13.12.9 (2021-08-03)
 
 ### Security (1 change)
