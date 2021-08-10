@@ -88,9 +88,17 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 	}
 
 	backupPath := strings.TrimSuffix(req.Repository.RelativePath, ".git")
+	refsPath := backupPath + ".refs"
 	bundlePath := backupPath + ".bundle"
 	customHooksPath := filepath.Join(backupPath, "custom_hooks.tar")
 
+	refs, err := mgr.listRefs(ctx, req.Server, req.Repository)
+	if err != nil {
+		return fmt.Errorf("manager: %w", err)
+	}
+	if err := mgr.writeRefs(ctx, refsPath, refs); err != nil {
+		return fmt.Errorf("manager: %w", err)
+	}
 	if err := mgr.writeBundle(ctx, bundlePath, req.Server, req.Repository); err != nil {
 		return fmt.Errorf("manager: write bundle: %w", err)
 	}
@@ -292,6 +300,61 @@ func (mgr *Manager) restoreCustomHooks(ctx context.Context, path string, server 
 	return nil
 }
 
+// listRefs fetches the full set of refs and targets for the repository
+func (mgr *Manager) listRefs(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) ([]*gitalypb.ListRefsResponse_Reference, error) {
+	refClient, err := mgr.newRefClient(ctx, server)
+	if err != nil {
+		return nil, fmt.Errorf("list refs: %w", err)
+	}
+	stream, err := refClient.ListRefs(ctx, &gitalypb.ListRefsRequest{
+		Repository: repo,
+		Head:       true,
+		Patterns:   [][]byte{[]byte("refs/")},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list refs: %w", err)
+	}
+
+	var refs []*gitalypb.ListRefsResponse_Reference
+
+	for {
+		resp, err := stream.Recv()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, fmt.Errorf("list refs: %w", err)
+		}
+		refs = append(refs, resp.GetReferences()...)
+	}
+
+	return refs, nil
+}
+
+// writeRefs writes the previously fetched list of refs in the same output
+// format as `git-show-ref(1)`
+func (mgr *Manager) writeRefs(ctx context.Context, path string, refs []*gitalypb.ListRefsResponse_Reference) error {
+	r, w := io.Pipe()
+	go func() {
+		var err error
+		defer func() {
+			_ = w.CloseWithError(err) // io.PipeWriter.Close* does not return an error
+		}()
+		for _, ref := range refs {
+			_, err = fmt.Fprintf(w, "%s %s\n", ref.GetTarget(), ref.GetName())
+			if err != nil {
+				return
+			}
+		}
+	}()
+
+	err := mgr.sink.Write(ctx, path, r)
+	if err != nil {
+		return fmt.Errorf("write refs: %w", err)
+	}
+
+	return nil
+}
+
 func (mgr *Manager) newRepoClient(ctx context.Context, server storage.ServerInfo) (gitalypb.RepositoryServiceClient, error) {
 	conn, err := mgr.conns.Dial(ctx, server.Address, server.Token)
 	if err != nil {
@@ -299,4 +362,13 @@ func (mgr *Manager) newRepoClient(ctx context.Context, server storage.ServerInfo
 	}
 
 	return gitalypb.NewRepositoryServiceClient(conn), nil
+}
+
+func (mgr *Manager) newRefClient(ctx context.Context, server storage.ServerInfo) (gitalypb.RefServiceClient, error) {
+	conn, err := mgr.conns.Dial(ctx, server.Address, server.Token)
+	if err != nil {
+		return nil, err
+	}
+
+	return gitalypb.NewRefServiceClient(conn), nil
 }
