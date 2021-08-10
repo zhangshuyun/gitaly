@@ -32,7 +32,7 @@ func TestServer_PostUploadPack(t *testing.T) {
 	defer cancel()
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
-	_, localRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{WithWorktree: true})
+	_, localRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
@@ -299,7 +299,7 @@ func TestServer_PostUploadPack_partialClone(t *testing.T) {
 	defer cancel()
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
-	_, localRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0], gittest.InitRepoOpts{WithWorktree: true})
+	_, localRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
@@ -345,7 +345,7 @@ func TestServer_PostUploadPack_allowAnySHA1InWant(t *testing.T) {
 	defer cancel()
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
-	_, localRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0], gittest.InitRepoOpts{WithWorktree: true})
+	_, localRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 	serverSocketPath := runSmartHTTPServer(t, cfg)
