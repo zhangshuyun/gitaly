@@ -70,11 +70,15 @@ func verifyCounterMetrics(t *testing.T, manager *transactions.Manager, expected 
 }
 
 func TestTransactionSucceeds(t *testing.T) {
-	ctx, cancel := testhelper.Context(testhelper.ContextWithTimeout(time.Second))
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
 	defer cleanup()
+
+	// setup timeout only after praefect setup as db migration may require some time
+	ctx, cancel = context.WithTimeout(ctx, time.Second)
+	defer cancel()
 
 	client := gitalypb.NewRefTransactionClient(cc)
 
@@ -563,11 +567,15 @@ func TestTransactionWithMultipleVotes(t *testing.T) {
 }
 
 func TestTransactionFailures(t *testing.T) {
-	ctx, cancel := testhelper.Context(testhelper.ContextWithTimeout(time.Second))
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
 	defer cleanup()
+
+	// setup timeout only after praefect setup as db migration may require some time
+	ctx, cancel = context.WithTimeout(ctx, time.Second)
+	defer cancel()
 
 	client := gitalypb.NewRefTransactionClient(cc)
 
@@ -633,11 +641,15 @@ func TestTransactionCancellation(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context(testhelper.ContextWithTimeout(time.Second))
+			ctx, cancel := testhelper.Context()
 			defer cancel()
 
 			cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
 			defer cleanup()
+
+			// setup timeout only after praefect setup as db migration may require some time
+			ctx, cancel = context.WithTimeout(ctx, time.Second)
+			defer cancel()
 
 			client := gitalypb.NewRefTransactionClient(cc)
 
