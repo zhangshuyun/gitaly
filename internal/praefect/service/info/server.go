@@ -89,25 +89,5 @@ func (s *Server) SetAuthoritativeStorage(ctx context.Context, req *gitalypb.SetA
 		return nil, helper.ErrInternal(err)
 	}
 
-	// Schedule replication jobs to other physical storages to get them consistent with the
-	// new authoritative repository.
-	for _, storage := range storages {
-		if storage == req.AuthoritativeStorage {
-			continue
-		}
-
-		if _, err := s.queue.Enqueue(ctx, datastore.ReplicationEvent{
-			Job: datastore.ReplicationJob{
-				Change:            datastore.UpdateRepo,
-				VirtualStorage:    req.VirtualStorage,
-				RelativePath:      req.RelativePath,
-				SourceNodeStorage: req.AuthoritativeStorage,
-				TargetNodeStorage: storage,
-			},
-		}); err != nil {
-			return nil, helper.ErrInternal(err)
-		}
-	}
-
 	return &gitalypb.SetAuthoritativeStorageResponse{}, nil
 }

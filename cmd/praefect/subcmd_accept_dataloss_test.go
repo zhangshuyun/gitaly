@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -51,22 +50,7 @@ func TestAcceptDatalossSubcommand(t *testing.T) {
 		require.NoError(t, rs.SetGeneration(ctx, vs, repo, storage, generation))
 	}
 
-	q := &datastore.MockReplicationEventQueue{
-		EnqueueFunc: func(ctx context.Context, event datastore.ReplicationEvent) (datastore.ReplicationEvent, error) {
-			if event.Job.TargetNodeStorage == st2 {
-				return event, fmt.Errorf("replication event scheduled for authoritative storage %q", st2)
-			}
-
-			generation, err := rs.GetGeneration(ctx, event.Job.VirtualStorage, event.Job.RelativePath, event.Job.SourceNodeStorage)
-			if err != nil {
-				return event, err
-			}
-
-			return event, rs.SetGeneration(ctx, event.Job.VirtualStorage, event.Job.RelativePath, event.Job.TargetNodeStorage, generation)
-		},
-	}
-
-	ln, clean := listenAndServe(t, []svcRegistrar{registerPraefectInfoServer(info.NewServer(conf, q, rs, nil, nil, nil))})
+	ln, clean := listenAndServe(t, []svcRegistrar{registerPraefectInfoServer(info.NewServer(conf, nil, rs, nil, nil, nil))})
 	defer clean()
 
 	conf.SocketPath = ln.Addr().String()
@@ -149,7 +133,7 @@ func TestAcceptDatalossSubcommand(t *testing.T) {
 			desc:                "success",
 			args:                []string{"-virtual-storage=test-virtual-storage-1", "-repository=test-repository-1", "-authoritative-storage=test-physical-storage-2"},
 			matchError:          matchNoError(),
-			expectedGenerations: map[string]int{st1: 2, st2: 2, st3: 2},
+			expectedGenerations: map[string]int{st1: 1, st2: 2, st3: datastore.GenerationUnknown},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
