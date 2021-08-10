@@ -86,6 +86,14 @@ var commandDescriptions = map[string]commandDescription{
 			ConfigPair{Key: "fetch.fsckObjects", Value: "true"},
 			ConfigPair{Key: "fetch.fsck.badTimezone", Value: "ignore"},
 			ConfigPair{Key: "fetch.fsck.missingSpaceBeforeDate", Value: "ignore"},
+			// While git-fetch(1) by default won't write commit graphs, both CNG and
+			// Omnibus set this value to true. This has caused performance issues when
+			// doing internal fetches, and furthermore it's not encouraged to run such
+			// maintenance tasks on "normal" Git operations. Instead, writing commit
+			// graphs should be done in our housekeeping RPCs, which already know to do
+			// so. So let's disable writing commit graphs on fetches -- if it really is
+			// required, we can enable it on a case-by-case basis.
+			ConfigPair{Key: "fetch.writeCommitGraph", Value: "false"},
 		},
 	},
 	"for-each-ref": {
