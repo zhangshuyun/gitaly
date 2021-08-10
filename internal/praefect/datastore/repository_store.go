@@ -235,13 +235,17 @@ WITH repository AS (
 )
 
 INSERT INTO storage_repositories (
+	repository_id,
 	virtual_storage,
 	relative_path,
 	storage,
 	generation
 )
-VALUES ($1, $2, $3, $4)
+SELECT
+	(SELECT repository_id FROM repositories WHERE virtual_storage = $1 AND relative_path = $2),
+	$1, $2, $3, $4
 ON CONFLICT (virtual_storage, relative_path, storage) DO UPDATE SET
+	repository_id = EXCLUDED.repository_id,
 	generation = EXCLUDED.generation
 `
 

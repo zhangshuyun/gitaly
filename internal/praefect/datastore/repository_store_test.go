@@ -917,7 +917,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 					"repository-1": {
 						"primary":                {repositoryID: 1, generation: 1},
 						"consistent-secondary":   {repositoryID: 1, generation: 1},
-						"inconsistent-secondary": {generation: 0},
+						"inconsistent-secondary": {repositoryID: 1, generation: 0},
 					},
 				},
 			},
@@ -949,10 +949,10 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 				storageState{
 					"virtual-storage-1": {
 						"repository-1": {
-							"unknown":                {generation: 2},
+							"unknown":                {repositoryID: 1, generation: 2},
 							"primary":                {repositoryID: 1, generation: 1},
 							"consistent-secondary":   {repositoryID: 1, generation: 1},
-							"inconsistent-secondary": {generation: 0},
+							"inconsistent-secondary": {repositoryID: 1, generation: 0},
 						},
 					},
 				},

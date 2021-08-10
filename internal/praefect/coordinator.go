@@ -1018,6 +1018,7 @@ func (c *Coordinator) newRequestFinalizer(
 		for _, secondary := range outdatedSecondaries {
 			event := datastore.ReplicationEvent{
 				Job: datastore.ReplicationJob{
+					RepositoryID:      repositoryID,
 					Change:            change,
 					RelativePath:      targetRepo.GetRelativePath(),
 					VirtualStorage:    virtualStorage,
