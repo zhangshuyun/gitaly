@@ -11,6 +11,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 	"gocloud.dev/blob/azureblob"
@@ -18,6 +19,7 @@ import (
 	"gocloud.dev/blob/s3blob"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -99,7 +101,8 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 	if err := mgr.writeRefs(ctx, refsPath, refs); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
-	if err := mgr.writeBundle(ctx, bundlePath, req.Server, req.Repository); err != nil {
+	patterns := mgr.generatePatterns(refs)
+	if err := mgr.writeBundle(ctx, bundlePath, req.Server, req.Repository, patterns); err != nil {
 		return fmt.Errorf("manager: write bundle: %w", err)
 	}
 	if err := mgr.writeCustomHooks(ctx, customHooksPath, req.Server, req.Repository); err != nil {
@@ -182,13 +185,30 @@ func (mgr *Manager) createRepository(ctx context.Context, server storage.ServerI
 	return nil
 }
 
-func (mgr *Manager) writeBundle(ctx context.Context, path string, server storage.ServerInfo, repo *gitalypb.Repository) error {
+func (mgr *Manager) writeBundle(ctx context.Context, path string, server storage.ServerInfo, repo *gitalypb.Repository, patterns [][]byte) error {
 	repoClient, err := mgr.newRepoClient(ctx, server)
 	if err != nil {
 		return err
 	}
-	stream, err := repoClient.CreateBundle(ctx, &gitalypb.CreateBundleRequest{Repository: repo})
+	stream, err := repoClient.CreateBundleFromRefList(ctx)
 	if err != nil {
+		return err
+	}
+	c := chunk.New(&createBundleFromRefListSender{
+		stream: stream,
+	})
+	for _, pattern := range patterns {
+		if err := c.Send(&gitalypb.CreateBundleFromRefListRequest{
+			Repository: repo,
+			Patterns:   [][]byte{pattern},
+		}); err != nil {
+			return err
+		}
+	}
+	if err := c.Flush(); err != nil {
+		return err
+	}
+	if err := stream.CloseSend(); err != nil {
 		return err
 	}
 	bundle := streamio.NewReader(func() ([]byte, error) {
@@ -200,6 +220,28 @@ func (mgr *Manager) writeBundle(ctx context.Context, path string, server storage
 		return fmt.Errorf("%T write: %w", mgr.sink, err)
 	}
 	return nil
+}
+
+type createBundleFromRefListSender struct {
+	stream gitalypb.RepositoryService_CreateBundleFromRefListClient
+	chunk  gitalypb.CreateBundleFromRefListRequest
+}
+
+// Reset should create a fresh response message.
+func (s *createBundleFromRefListSender) Reset() {
+	s.chunk = gitalypb.CreateBundleFromRefListRequest{}
+}
+
+// Append should append the given item to the slice in the current response message
+func (s *createBundleFromRefListSender) Append(msg proto.Message) {
+	req := msg.(*gitalypb.CreateBundleFromRefListRequest)
+	s.chunk.Repository = req.GetRepository()
+	s.chunk.Patterns = append(s.chunk.Patterns, req.Patterns...)
+}
+
+// Send should send the current response message
+func (s *createBundleFromRefListSender) Send() error {
+	return s.stream.Send(&s.chunk)
 }
 
 func (mgr *Manager) restoreBundle(ctx context.Context, path string, server storage.ServerInfo, repo *gitalypb.Repository) error {
@@ -353,6 +395,14 @@ func (mgr *Manager) writeRefs(ctx context.Context, path string, refs []*gitalypb
 	}
 
 	return nil
+}
+
+func (mgr *Manager) generatePatterns(refs []*gitalypb.ListRefsResponse_Reference) [][]byte {
+	var patterns [][]byte
+	for _, ref := range refs {
+		patterns = append(patterns, ref.GetName())
+	}
+	return patterns
 }
 
 func (mgr *Manager) newRepoClient(ctx context.Context, server storage.ServerInfo) (gitalypb.RepositoryServiceClient, error) {
