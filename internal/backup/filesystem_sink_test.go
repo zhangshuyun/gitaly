@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -108,4 +109,33 @@ func TestFilesystemSink_Write(t *testing.T) {
 		err := fsSink.Write(ctx, relativePath, strings.NewReader("test"))
 		require.EqualError(t, err, fmt.Sprintf(`create directory structure %[1]q: mkdir %[1]s: not a directory`, filepath.Join(dir, "nested")))
 	})
+}
+
+func TestFilesystemSink_List(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	dir := testhelper.TempDir(t)
+	fsSink := NewFilesystemSink(dir)
+
+	data := []byte("test")
+
+	for _, relativePath := range []string{
+		"a/a_pineapple",
+		"b/a_apple",
+		"b/a_carrot",
+		"b/a_cucumber",
+	} {
+		require.NoError(t, fsSink.Write(ctx, relativePath, bytes.NewReader(data)))
+	}
+
+	expectedPaths := []string{
+		"b/a_carrot",
+		"b/a_cucumber",
+	}
+
+	paths, err := fsSink.List(ctx, "b/a_c")
+	require.NoError(t, err)
+
+	require.ElementsMatch(t, expectedPaths, paths)
 }

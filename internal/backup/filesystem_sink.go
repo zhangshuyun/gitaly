@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // FilesystemSink is a sink for creating and restoring backups from the local filesystem.
@@ -65,4 +66,41 @@ func (fs *FilesystemSink) GetReader(ctx context.Context, relativePath string) (i
 		return nil, fmt.Errorf("open %q: %w", path, err)
 	}
 	return f, nil
+}
+
+// List returns the relative path for each data where the relative path matches
+// the given prefix
+func (fs *FilesystemSink) List(ctx context.Context, prefix string) ([]string, error) {
+	var relativePaths []string
+	prefixDir := filepath.Dir(prefix)
+	err := filepath.Walk(filepath.Join(fs.path, prefixDir), func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		relativePath, err := filepath.Rel(fs.path, path)
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() {
+			// skip directories when they have no possibility of matching the prefix
+			if len(relativePath) > len(prefix) && !strings.HasPrefix(relativePath, prefix) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		if !strings.HasPrefix(relativePath, prefix) {
+			return nil
+		}
+
+		relativePaths = append(relativePaths, relativePath)
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list: %w", err)
+	}
+	return relativePaths, nil
 }
