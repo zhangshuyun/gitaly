@@ -55,7 +55,9 @@ func buildBinary(t testing.TB, dstDir, name string) {
 		if !t.Failed() {
 			// copy compiled binary to the destination folder
 			require.NoError(t, os.MkdirAll(dstDir, os.ModePerm))
-			MustRunCommand(t, nil, "cp", binPath, dstDir)
+			targetPath := filepath.Join(dstDir, name)
+			CopyFile(t, binPath, targetPath)
+			require.NoError(t, os.Chmod(targetPath, 0777))
 		}
 	}()
 
