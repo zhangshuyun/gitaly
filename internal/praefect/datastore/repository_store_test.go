@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"testing"
+	"time"
 
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
@@ -111,6 +112,136 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 			requireState(t, ctx, db, vss, ss)
 		}
 	})
+}
+
+func TestRepositoryStore_incrementGenerationConcurrently(t *testing.T) {
+	db := glsql.NewDB(t)
+
+	type call struct {
+		primary     string
+		secondaries []string
+	}
+
+	for _, tc := range []struct {
+		desc   string
+		first  call
+		second call
+		error  error
+		state  storageState
+	}{
+		{
+			desc: "both successful",
+			first: call{
+				primary:     "primary",
+				secondaries: []string{"secondary"},
+			},
+			second: call{
+				primary:     "primary",
+				secondaries: []string{"secondary"},
+			},
+			state: storageState{
+				"virtual-storage": {
+					"relative-path": {
+						"primary":   2,
+						"secondary": 2,
+					},
+				},
+			},
+		},
+		{
+			desc: "second write targeted outdated and up to date nodes",
+			first: call{
+				primary: "primary",
+			},
+			second: call{
+				primary:     "primary",
+				secondaries: []string{"secondary"},
+			},
+			state: storageState{
+				"virtual-storage": {
+					"relative-path": {
+						"primary":   2,
+						"secondary": 0,
+					},
+				},
+			},
+		},
+		{
+			desc: "second write targeted only outdated nodes",
+			first: call{
+				primary: "primary",
+			},
+			second: call{
+				primary: "secondary",
+			},
+			error: errWriteToOutdatedNodes,
+			state: storageState{
+				"virtual-storage": {
+					"relative-path": {
+						"primary":   1,
+						"secondary": 0,
+					},
+				},
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			db.TruncateAll(t)
+
+			require.NoError(t, NewPostgresRepositoryStore(db, nil).CreateRepository(ctx, "virtual-storage", "relative-path", "primary", []string{"secondary"}, nil, false, false))
+
+			firstTx := db.Begin(t)
+			secondTx := db.Begin(t)
+
+			err := NewPostgresRepositoryStore(firstTx, nil).IncrementGeneration(ctx, "virtual-storage", "relative-path", tc.first.primary, tc.first.secondaries)
+			require.NoError(t, err)
+
+			go func() {
+				waitForQueries(t, ctx, db, "WITH updated_replicas AS (", 2)
+				firstTx.Commit(t)
+			}()
+
+			err = NewPostgresRepositoryStore(secondTx, nil).IncrementGeneration(ctx, "virtual-storage", "relative-path", tc.second.primary, tc.second.secondaries)
+			require.Equal(t, tc.error, err)
+			secondTx.Commit(t)
+
+			requireState(t, ctx, db,
+				virtualStorageState{"virtual-storage": {"relative-path": {}}},
+				tc.state,
+			)
+		})
+	}
+}
+
+// waitForQuery is a helper that waits until a certain number of queries matching the prefix are present in the
+// database. This is useful for ensuring multiple transactions are executing the query when testing concurrent
+// execution.
+func waitForQueries(t testing.TB, ctx context.Context, db glsql.Querier, queryPrefix string, count int) {
+	t.Helper()
+
+	for {
+		var queriesPresent bool
+		require.NoError(t, db.QueryRowContext(ctx, `
+			SELECT COUNT(*) = $2
+			FROM pg_stat_activity
+			WHERE TRIM(e'\n' FROM query) LIKE $1
+		`, queryPrefix+"%", count).Scan(&queriesPresent))
+
+		if queriesPresent {
+			return
+		}
+
+		retry := time.NewTimer(time.Millisecond)
+		select {
+		case <-ctx.Done():
+			retry.Stop()
+			return
+		case <-retry.C:
+		}
+	}
 }
 
 func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
