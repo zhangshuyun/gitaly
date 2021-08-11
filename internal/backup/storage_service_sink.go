@@ -82,3 +82,27 @@ func (s *StorageServiceSink) GetReader(ctx context.Context, relativePath string)
 	}
 	return reader, nil
 }
+
+// List returns the relative path for each data where the relative path matches
+// the given prefix
+func (s *StorageServiceSink) List(ctx context.Context, prefix string) ([]string, error) {
+	var relativePaths []string
+	iter := s.bucket.List(&blob.ListOptions{
+		Prefix:    prefix,
+		Delimiter: "/",
+	})
+	for {
+		obj, err := iter.Next(ctx)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("storage service sink: %w", err)
+		}
+		if obj.IsDir {
+			continue
+		}
+		relativePaths = append(relativePaths, obj.Key)
+	}
+	return relativePaths, nil
+}

@@ -40,4 +40,27 @@ func TestStorageServiceSink(t *testing.T) {
 		require.Equal(t, fmt.Errorf(`storage service sink: new reader for "not-existing": %w`, ErrDoesntExist), err)
 		require.Nil(t, reader)
 	})
+
+	t.Run("List", func(t *testing.T) {
+		data := []byte("test")
+
+		for _, relativePath := range []string{
+			"a/a_pineapple",
+			"b/a_apple",
+			"b/a_carrot",
+			"b/a_cucumber",
+		} {
+			require.NoError(t, sss.Write(ctx, relativePath, bytes.NewReader(data)))
+		}
+
+		expectedPaths := []string{
+			"b/a_carrot",
+			"b/a_cucumber",
+		}
+
+		paths, err := sss.List(ctx, "b/a_c")
+		require.NoError(t, err)
+
+		require.ElementsMatch(t, expectedPaths, paths)
+	})
 }
