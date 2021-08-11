@@ -36,6 +36,9 @@ type Sink interface {
 	// GetReader returns a reader that servers the data stored by relativePath.
 	// If relativePath doesn't exists the ErrDoesntExist will be returned.
 	GetReader(ctx context.Context, relativePath string) (io.ReadCloser, error)
+	// List returns the relative path for each data where the relative path
+	// matches the given prefix
+	List(ctx context.Context, prefix string) ([]string, error)
 }
 
 // ResolveSink returns a sink implementation based on the provided path.
