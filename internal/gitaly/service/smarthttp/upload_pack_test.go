@@ -87,33 +87,37 @@ func TestUploadPackRequestWithGitConfigOptions(t *testing.T) {
 	have := "6ff234d2889b27d91c3442924ef6a100b1fc6f2b" // refs/heads/csv~1
 
 	requestBody := &bytes.Buffer{}
-	requestBodyCopy := &bytes.Buffer{}
-	tee := io.MultiWriter(requestBody, requestBodyCopy)
 
-	gittest.WritePktlineString(t, tee, fmt.Sprintf("want %s %s\n", want, clientCapabilities))
-	gittest.WritePktlineFlush(t, tee)
-	gittest.WritePktlineString(t, tee, fmt.Sprintf("have %s\n", have))
-	gittest.WritePktlineFlush(t, tee)
+	gittest.WritePktlineString(t, requestBody, fmt.Sprintf("want %s %s\n", want, clientCapabilities))
+	gittest.WritePktlineFlush(t, requestBody)
+	gittest.WritePktlineString(t, requestBody, fmt.Sprintf("have %s\n", have))
+	gittest.WritePktlineFlush(t, requestBody)
 
-	rpcRequest := &gitalypb.PostUploadPackRequest{Repository: repo}
+	t.Run("sanity check: ref exists and can be fetched", func(t *testing.T) {
+		rpcRequest := &gitalypb.PostUploadPackRequest{Repository: repo}
 
-	// The ref is successfully requested as it is not hidden
-	response, err := makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest, requestBody)
-	require.NoError(t, err)
-	_, _, count := extractPackDataFromResponse(t, response)
-	assert.Equal(t, 5, count, "pack should have 5 entries")
+		response, err := makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest, bytes.NewReader(requestBody.Bytes()))
+		require.NoError(t, err)
+		_, _, count := extractPackDataFromResponse(t, response)
+		require.Equal(t, 5, count, "pack should have 5 entries")
+	})
 
-	// Now the ref is hidden, no packfile will be received. The git process
-	// dies with an error message: `git upload-pack: not our ref ...` but the
-	// client just sees a grpc unavailable error
-	// we need to set uploadpack.allowAnySHA1InWant=false, because if it's true then we won't encounter an error from setting
-	// uploadpack.hideRefs=refs/hidden. We are setting uploadpack.allowAnySHA1InWant=true in the RPC to enable partial clones
-	rpcRequest.GitConfigOptions = []string{"uploadpack.hideRefs=refs/hidden", "uploadpack.allowAnySHA1InWant=false"}
-	response, err = makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest, requestBodyCopy)
-	testhelper.RequireGrpcError(t, err, codes.Unavailable)
+	t.Run("failing request because of hidden ref config", func(t *testing.T) {
+		rpcRequest := &gitalypb.PostUploadPackRequest{
+			Repository: repo,
+			GitConfigOptions: []string{
+				"uploadpack.hideRefs=refs/hidden",
+				"uploadpack.allowAnySHA1InWant=false",
+			},
+		}
+		response, err := makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest, bytes.NewReader(requestBody.Bytes()))
+		testhelper.RequireGrpcError(t, err, codes.Unavailable)
 
-	expected := fmt.Sprintf("0049ERR upload-pack: not our ref %v", want)
-	assert.Equal(t, expected, response.String(), "Ref is hidden, expected error message did not appear")
+		// The failure message proves that upload-pack failed because of
+		// GitConfigOptions, and that proves that passing GitConfigOptions works.
+		expected := fmt.Sprintf("0049ERR upload-pack: not our ref %v", want)
+		require.Equal(t, expected, response.String(), "Ref is hidden, expected error message did not appear")
+	})
 }
 
 func TestUploadPackRequestWithGitProtocol(t *testing.T) {
