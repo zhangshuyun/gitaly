@@ -193,7 +193,7 @@ func TestGetArchiveWithLfsSuccess(t *testing.T) {
 
 	repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
-	testhelper.ConfigureGitalyLfsSmudge(t, cfg.BinDir)
+	testhelper.BuildGitalyLFSSmudge(t, cfg)
 
 	// lfs-moar branch SHA
 	sha := "46abbb087fcc0fd02c340f0f2f052bd2c7708da3"

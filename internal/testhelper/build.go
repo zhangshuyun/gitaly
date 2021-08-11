@@ -27,9 +27,10 @@ func BuildGitalyGit2Go(t testing.TB, cfg config.Cfg) {
 	}
 }
 
-// ConfigureGitalyLfsSmudge configures the gitaly-lfs-smudge command for tests
-func ConfigureGitalyLfsSmudge(t *testing.T, outputDir string) {
-	buildCommand(t, outputDir, "gitaly-lfs-smudge")
+// BuildGitalyLFSSmudge builds the gitaly-lfs-smudge command and installs it into the binary
+// directory.
+func BuildGitalyLFSSmudge(t *testing.T, cfg config.Cfg) {
+	buildBinary(t, cfg.BinDir, "gitaly-lfs-smudge")
 }
 
 // ConfigureGitalyHooksBin builds gitaly-hooks command for tests for the cfg.
