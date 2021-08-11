@@ -342,20 +342,36 @@ func TestUploadPackRequestForPartialCloneSuccess(t *testing.T) {
 	gittest.GitObjectMustExist(t, cfg.Git.BinPath, repoPath, blobGreaterThanLimit)
 	gittest.GitObjectMustNotExist(t, cfg.Git.BinPath, localRepoPath, blobGreaterThanLimit)
 
-	newBranch := "new-branch"
-	newCommit = gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(newBranch))
-
-	// after we delete the branch, we have a dangling commit
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", "-D", newBranch)
-
-	requestBuffer.Reset()
-	gittest.WritePktlineString(t, &requestBuffer, fmt.Sprintf("want %s %s\n", newCommit, clientCapabilities))
-	gittest.WritePktlineFlush(t, &requestBuffer)
-
-	_, err = makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, req, &requestBuffer)
-	require.NoError(t, err)
-
 	metric, err := negotiationMetrics.GetMetricWithLabelValues("filter")
 	require.NoError(t, err)
 	require.Equal(t, 1.0, promtest.ToFloat64(metric))
+}
+
+func TestServer_PostUploadPack_allowAnySHA1InWant(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	_, localRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0], gittest.InitRepoOpts{WithWorktree: true})
+
+	testhelper.ConfigureGitalyHooksBin(t, cfg)
+	serverSocketPath := runSmartHTTPServer(t, cfg)
+	newCommit := gittest.WriteCommit(t, cfg, repoPath)
+
+	var requestBuffer bytes.Buffer
+	gittest.WritePktlineString(t, &requestBuffer, fmt.Sprintf("want %s %s\n", newCommit, clientCapabilities))
+	gittest.WritePktlineFlush(t, &requestBuffer)
+	gittest.WritePktlineString(t, &requestBuffer, "done\n")
+	gittest.WritePktlineFlush(t, &requestBuffer)
+
+	req := &gitalypb.PostUploadPackRequest{Repository: repo}
+	responseBuffer, err := makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, req, &requestBuffer)
+	require.NoError(t, err)
+
+	pack, version, entries := extractPackDataFromResponse(t, responseBuffer)
+	require.NotNil(t, pack, "Expected to find a pack file in response, found none")
+
+	gittest.ExecStream(t, cfg, bytes.NewReader(pack), "-C", localRepoPath, "unpack-objects", fmt.Sprintf("--pack_header=%d,%d", version, entries))
+
+	gittest.GitObjectMustExist(t, cfg.Git.BinPath, localRepoPath, newCommit.String())
 }
