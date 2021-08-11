@@ -21,31 +21,35 @@ const (
 )
 
 func (s *server) InfoRefsUploadPack(in *gitalypb.InfoRefsRequest, stream gitalypb.SmartHTTPService_InfoRefsUploadPackServer) error {
+	repoPath, err := s.locator.GetRepoPath(in.GetRepository())
+	if err != nil {
+		return err
+	}
+
 	w := streamio.NewWriter(func(p []byte) error {
 		return stream.Send(&gitalypb.InfoRefsResponse{Data: p})
 	})
 
 	return s.infoRefCache.tryCache(stream.Context(), in, w, func(w io.Writer) error {
-		return s.handleInfoRefs(stream.Context(), uploadPackSvc, in, w)
+		return s.handleInfoRefs(stream.Context(), uploadPackSvc, repoPath, in, w)
 	})
 }
 
 func (s *server) InfoRefsReceivePack(in *gitalypb.InfoRefsRequest, stream gitalypb.SmartHTTPService_InfoRefsReceivePackServer) error {
-	w := streamio.NewWriter(func(p []byte) error {
-		return stream.Send(&gitalypb.InfoRefsResponse{Data: p})
-	})
-	return s.handleInfoRefs(stream.Context(), receivePackSvc, in, w)
-}
-
-func (s *server) handleInfoRefs(ctx context.Context, service string, req *gitalypb.InfoRefsRequest, w io.Writer) error {
-	ctxlogrus.Extract(ctx).WithFields(log.Fields{
-		"service": service,
-	}).Debug("handleInfoRefs")
-
-	repoPath, err := s.locator.GetRepoPath(req.Repository)
+	repoPath, err := s.locator.GetRepoPath(in.GetRepository())
 	if err != nil {
 		return err
 	}
+	w := streamio.NewWriter(func(p []byte) error {
+		return stream.Send(&gitalypb.InfoRefsResponse{Data: p})
+	})
+	return s.handleInfoRefs(stream.Context(), receivePackSvc, repoPath, in, w)
+}
+
+func (s *server) handleInfoRefs(ctx context.Context, service, repoPath string, req *gitalypb.InfoRefsRequest, w io.Writer) error {
+	ctxlogrus.Extract(ctx).WithFields(log.Fields{
+		"service": service,
+	}).Debug("handleInfoRefs")
 
 	cmdOpts := []git.CmdOpt{git.WithGitProtocol(ctx, req)}
 	if service == "receive-pack" {

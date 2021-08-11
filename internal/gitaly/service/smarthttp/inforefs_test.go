@@ -20,7 +20,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
@@ -44,6 +46,23 @@ func TestSuccessfulInfoRefsUploadPack(t *testing.T) {
 		"003ef4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8 refs/tags/v1.0.0",
 		"00416f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9 refs/tags/v1.0.0^{}",
 	})
+}
+
+func TestInfoRefsUploadPack_repositoryDoesntExist(t *testing.T) {
+	cfg := testcfg.Build(t)
+
+	serverSocketPath := runSmartHTTPServer(t, cfg)
+
+	rpcRequest := &gitalypb.InfoRefsRequest{Repository: &gitalypb.Repository{
+		StorageName:  cfg.Storages[0].Name,
+		RelativePath: "doesnt/exist",
+	}}
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	_, err := makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest)
+	testassert.GrpcEqualErr(t, helper.ErrNotFoundf(`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/doesnt/exist"`), err)
 }
 
 func TestSuccessfulInfoRefsUploadWithPartialClone(t *testing.T) {
@@ -143,20 +162,12 @@ func TestSuccessfulInfoRefsReceivePack(t *testing.T) {
 
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 
-	client, conn := newSmartHTTPClient(t, serverSocketPath, cfg.Auth.Token)
-	defer conn.Close()
-
 	rpcRequest := &gitalypb.InfoRefsRequest{Repository: repo}
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	c, err := client.InfoRefsReceivePack(ctx, rpcRequest)
-	require.NoError(t, err)
 
-	response, err := ioutil.ReadAll(streamio.NewReader(func() ([]byte, error) {
-		resp, err := c.Recv()
-		return resp.GetData(), err
-	}))
+	response, err := makeInfoRefsReceivePackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest)
 	require.NoError(t, err)
 
 	assertGitRefAdvertisement(t, "InfoRefsReceivePack", string(response), "001f# service=git-receive-pack", "0000", []string{
@@ -171,9 +182,6 @@ func TestObjectPoolRefAdvertisementHiding(t *testing.T) {
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
 	serverSocketPath := runSmartHTTPServer(t, cfg)
-
-	client, conn := newSmartHTTPClient(t, serverSocketPath, cfg.Auth.Token)
-	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -199,14 +207,7 @@ func TestObjectPoolRefAdvertisementHiding(t *testing.T) {
 
 	rpcRequest := &gitalypb.InfoRefsRequest{Repository: repo}
 
-	c, err := client.InfoRefsReceivePack(ctx, rpcRequest)
-	require.NoError(t, err)
-
-	response, err := ioutil.ReadAll(streamio.NewReader(func() ([]byte, error) {
-		resp, err := c.Recv()
-		return resp.GetData(), err
-	}))
-
+	response, err := makeInfoRefsReceivePackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest)
 	require.NoError(t, err)
 	require.NotContains(t, string(response), commitID+" .have")
 }
@@ -216,22 +217,14 @@ func TestFailureRepoNotFoundInfoRefsReceivePack(t *testing.T) {
 
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 
-	client, conn := newSmartHTTPClient(t, serverSocketPath, cfg.Auth.Token)
-	defer conn.Close()
 	repo := &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "testdata/scratch/another_repo"}
 	rpcRequest := &gitalypb.InfoRefsRequest{Repository: repo}
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	c, err := client.InfoRefsReceivePack(ctx, rpcRequest)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for err == nil {
-		_, err = c.Recv()
-	}
-	testhelper.RequireGrpcError(t, err, codes.NotFound)
+	_, err := makeInfoRefsReceivePackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest)
+	msg := `GetRepoPath: not a git repository: "` + cfg.Storages[0].Path + "/" + repo.RelativePath + `"`
+	testassert.GrpcEqualErr(t, helper.ErrNotFoundf(msg), err)
 }
 
 func TestFailureRepoNotSetInfoRefsReceivePack(t *testing.T) {
@@ -239,21 +232,31 @@ func TestFailureRepoNotSetInfoRefsReceivePack(t *testing.T) {
 
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 
-	client, conn := newSmartHTTPClient(t, serverSocketPath, cfg.Auth.Token)
-	defer conn.Close()
 	rpcRequest := &gitalypb.InfoRefsRequest{}
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	c, err := client.InfoRefsReceivePack(ctx, rpcRequest)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for err == nil {
-		_, err = c.Recv()
-	}
+	_, err := makeInfoRefsReceivePackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest)
 	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+}
+
+func makeInfoRefsReceivePackRequest(ctx context.Context, t *testing.T, serverSocketPath, token string, rpcRequest *gitalypb.InfoRefsRequest) ([]byte, error) {
+	t.Helper()
+
+	client, conn := newSmartHTTPClient(t, serverSocketPath, token)
+	defer conn.Close()
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	c, err := client.InfoRefsReceivePack(ctx, rpcRequest)
+	require.NoError(t, err)
+
+	response, err := ioutil.ReadAll(streamio.NewReader(func() ([]byte, error) {
+		resp, err := c.Recv()
+		return resp.GetData(), err
+	}))
+
+	return response, err
 }
 
 func assertGitRefAdvertisement(t *testing.T, rpc, responseBody string, firstLine, lastLine string, middleLines []string) {
