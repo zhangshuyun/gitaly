@@ -20,7 +20,7 @@ import (
 
 func TestRevert_validation(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
-	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+	testhelper.BuildGitalyGit2Go(t, cfg)
 	executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
 
 	testcases := []struct {
@@ -172,7 +172,7 @@ func TestRevert_trees(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
-			testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+			testhelper.BuildGitalyGit2Go(t, cfg)
 			executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
 
 			ours, revert := tc.setupRepo(t, repoPath)

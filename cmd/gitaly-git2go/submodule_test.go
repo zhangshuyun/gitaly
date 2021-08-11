@@ -89,7 +89,7 @@ func TestSubmodule(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
-			testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+			testhelper.BuildGitalyGit2Go(t, cfg)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 			executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
 

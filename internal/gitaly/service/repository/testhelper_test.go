@@ -93,7 +93,7 @@ func newMuxedRepositoryClient(t *testing.T, ctx context.Context, cfg config.Cfg,
 
 func setupRepositoryServiceWithRuby(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
 	client, serverSocketPath := runRepositoryService(t, cfg, rubySrv, opts...)
-	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+	testhelper.BuildGitalyGit2Go(t, cfg)
 	cfg.SocketPath = serverSocketPath
 
 	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])

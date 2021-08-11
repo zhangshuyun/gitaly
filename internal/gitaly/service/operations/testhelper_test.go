@@ -91,7 +91,7 @@ func setupOperationsServiceWithRuby(
 	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	testhelper.ConfigureGitalySSHBin(t, cfg)
-	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+	testhelper.BuildGitalyGit2Go(t, cfg)
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
 	serverSocketPath := runOperationServiceServer(t, cfg, rubySrv, options...)

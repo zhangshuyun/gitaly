@@ -14,8 +14,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/version"
 )
 
-// ConfigureGitalyGit2GoBin configures the gitaly-git2go command for tests
-func ConfigureGitalyGit2GoBin(t testing.TB, cfg config.Cfg) {
+// BuildGitalyGit2Go builds the gitaly-git2go command and installs it into the binary directory.
+func BuildGitalyGit2Go(t testing.TB, cfg config.Cfg) {
 	buildBinary(t, cfg.BinDir, "gitaly-git2go")
 	// The link is needed because gitaly uses version-named binary.
 	// Please check out https://gitlab.com/gitlab-org/gitaly/-/issues/3647 for more info.
