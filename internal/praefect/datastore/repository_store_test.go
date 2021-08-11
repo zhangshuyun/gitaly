@@ -26,18 +26,14 @@ type virtualStorageState map[string]map[string]repositoryRecord
 // It structured as virtual-storage->relative_path->storage->generation.
 type storageState map[string]map[string]map[string]int
 
-type requireState func(t *testing.T, ctx context.Context, vss virtualStorageState, ss storageState)
-type repositoryStoreFactory func(t *testing.T, storages map[string][]string) (RepositoryStore, requireState)
+type requireStateFunc func(t *testing.T, ctx context.Context, vss virtualStorageState, ss storageState)
+type repositoryStoreFactory func(t *testing.T, storages map[string][]string) (RepositoryStore, requireStateFunc)
 
-func TestRepositoryStore_Postgres(t *testing.T) {
-	t.Parallel()
-	db := glsql.NewDB(t)
-	testRepositoryStore(t, func(t *testing.T, storages map[string][]string) (RepositoryStore, requireState) {
-		db.TruncateAll(t)
-		gs := NewPostgresRepositoryStore(db, storages)
+func requireState(t testing.TB, ctx context.Context, db glsql.Querier, vss virtualStorageState, ss storageState) {
+	t.Helper()
 
-		requireVirtualStorageState := func(t *testing.T, ctx context.Context, exp virtualStorageState) {
-			rows, err := db.QueryContext(ctx, `
+	requireVirtualStorageState := func(t testing.TB, ctx context.Context, exp virtualStorageState) {
+		rows, err := db.QueryContext(ctx, `
 SELECT virtual_storage, relative_path, "primary", assigned_storages
 FROM repositories
 LEFT JOIN (
@@ -47,63 +43,72 @@ LEFT JOIN (
 ) AS repository_assignments USING (virtual_storage, relative_path)
 
 				`)
-			require.NoError(t, err)
-			defer rows.Close()
+		require.NoError(t, err)
+		defer rows.Close()
 
-			act := make(virtualStorageState)
-			for rows.Next() {
-				var (
-					virtualStorage, relativePath string
-					primary                      sql.NullString
-					assignments                  pq.StringArray
-				)
-				require.NoError(t, rows.Scan(&virtualStorage, &relativePath, &primary, &assignments))
-				if act[virtualStorage] == nil {
-					act[virtualStorage] = make(map[string]repositoryRecord)
-				}
-
-				act[virtualStorage][relativePath] = repositoryRecord{
-					primary:     primary.String,
-					assignments: assignments,
-				}
+		act := make(virtualStorageState)
+		for rows.Next() {
+			var (
+				virtualStorage, relativePath string
+				primary                      sql.NullString
+				assignments                  pq.StringArray
+			)
+			require.NoError(t, rows.Scan(&virtualStorage, &relativePath, &primary, &assignments))
+			if act[virtualStorage] == nil {
+				act[virtualStorage] = make(map[string]repositoryRecord)
 			}
 
-			require.NoError(t, rows.Err())
-			require.Equal(t, exp, act)
+			act[virtualStorage][relativePath] = repositoryRecord{
+				primary:     primary.String,
+				assignments: assignments,
+			}
 		}
 
-		requireStorageState := func(t *testing.T, ctx context.Context, exp storageState) {
-			rows, err := db.QueryContext(ctx, `
+		require.NoError(t, rows.Err())
+		require.Equal(t, exp, act)
+	}
+
+	requireStorageState := func(t testing.TB, ctx context.Context, exp storageState) {
+		rows, err := db.QueryContext(ctx, `
 SELECT virtual_storage, relative_path, storage, generation
 FROM storage_repositories
 	`)
-			require.NoError(t, err)
-			defer rows.Close()
+		require.NoError(t, err)
+		defer rows.Close()
 
-			act := make(storageState)
-			for rows.Next() {
-				var vs, rel, storage string
-				var gen int
-				require.NoError(t, rows.Scan(&vs, &rel, &storage, &gen))
+		act := make(storageState)
+		for rows.Next() {
+			var vs, rel, storage string
+			var gen int
+			require.NoError(t, rows.Scan(&vs, &rel, &storage, &gen))
 
-				if act[vs] == nil {
-					act[vs] = make(map[string]map[string]int)
-				}
-				if act[vs][rel] == nil {
-					act[vs][rel] = make(map[string]int)
-				}
-
-				act[vs][rel][storage] = gen
+			if act[vs] == nil {
+				act[vs] = make(map[string]map[string]int)
+			}
+			if act[vs][rel] == nil {
+				act[vs][rel] = make(map[string]int)
 			}
 
-			require.NoError(t, rows.Err())
-			require.Equal(t, exp, act)
+			act[vs][rel][storage] = gen
 		}
+
+		require.NoError(t, rows.Err())
+		require.Equal(t, exp, act)
+	}
+
+	requireVirtualStorageState(t, ctx, vss)
+	requireStorageState(t, ctx, ss)
+}
+
+func TestRepositoryStore_Postgres(t *testing.T) {
+	db := glsql.NewDB(t)
+	testRepositoryStore(t, func(t *testing.T, storages map[string][]string) (RepositoryStore, requireStateFunc) {
+		db.TruncateAll(t)
+		gs := NewPostgresRepositoryStore(db, storages)
 
 		return gs, func(t *testing.T, ctx context.Context, vss virtualStorageState, ss storageState) {
 			t.Helper()
-			requireVirtualStorageState(t, ctx, vss)
-			requireStorageState(t, ctx, ss)
+			requireState(t, ctx, db, vss, ss)
 		}
 	})
 }
