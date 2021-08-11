@@ -198,7 +198,7 @@ func TestResolveConflictsWithRemoteRepo(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
 	testhelper.BuildGitalyHooks(t, cfg)
 
 	sourceRepo, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
@@ -818,7 +818,7 @@ func TestResolveConflictsQuarantine(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
 	testhelper.BuildGitalyHooks(t, cfg)
 
 	sourceRepoProto, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])

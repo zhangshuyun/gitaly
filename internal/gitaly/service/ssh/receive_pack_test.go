@@ -93,7 +93,7 @@ func TestReceivePackPushSuccess(t *testing.T) {
 
 	cfg.GitlabShell.Dir = "/foo/bar/gitlab-shell"
 
-	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
 
 	hookOutputFile, cleanup := gittest.CaptureHookEnv(t)
 	defer cleanup()
@@ -148,7 +148,7 @@ func TestReceivePackPushSuccess(t *testing.T) {
 func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
 	testhelper.BuildGitalyHooks(t, cfg)
 
 	readProto, cfg := gittest.EnableGitProtocolV2Support(t, cfg)
@@ -184,7 +184,7 @@ func TestReceivePackPushFailure(t *testing.T) {
 func TestReceivePackPushHookFailure(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
 
 	serverSocketPath := runSSHServer(t, cfg)
 
@@ -470,7 +470,7 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	testhelper.BuildGitalyHooks(t, cfg)
-	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
 
 	const (
 		secretToken  = "secret token"

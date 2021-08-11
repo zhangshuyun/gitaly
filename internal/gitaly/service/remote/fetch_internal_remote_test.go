@@ -174,7 +174,7 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 	localCfg, localRepos := localCfgBuilder.BuildWithRepoAt(t, "stub")
 	localRepo := localRepos[0]
 
-	testhelper.ConfigureGitalySSHBin(t, localCfg)
+	testhelper.BuildGitalySSH(t, localCfg)
 	testhelper.BuildGitalyHooks(t, localCfg)
 
 	getGitalySSHInvocationParams := listenGitalySSHCalls(t, localCfg)

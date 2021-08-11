@@ -176,7 +176,7 @@ func setupRepositoryServiceWithoutRepo(t testing.TB, opts ...testserver.GitalySe
 	cfg := testcfg.Build(t)
 
 	testhelper.BuildGitalyHooks(t, cfg)
-	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
 
 	client, serverSocketPath := runRepositoryService(t, cfg, nil, opts...)
 	cfg.SocketPath = serverSocketPath

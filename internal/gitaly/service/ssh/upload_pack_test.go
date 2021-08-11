@@ -198,7 +198,7 @@ func TestUploadPackCloneSuccess(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	testhelper.BuildGitalyHooks(t, cfg)
-	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
 
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
 
@@ -253,7 +253,7 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	cfg.BinDir = filterDir
 
 	testhelper.BuildGitalyHooks(t, cfg)
-	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
 
 	hookScript := fmt.Sprintf(
 		`#!/bin/sh
@@ -288,7 +288,7 @@ exec '%s' "$@"
 func TestUploadPackWithoutSideband(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
 	testhelper.BuildGitalyHooks(t, cfg)
 
 	serverSocketPath := runSSHServer(t, cfg)
@@ -331,7 +331,7 @@ func TestUploadPackWithoutSideband(t *testing.T) {
 func TestUploadPackCloneWithPartialCloneFilter(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
 	testhelper.BuildGitalyHooks(t, cfg)
 
 	serverSocketPath := runSSHServer(t, cfg)
@@ -388,7 +388,7 @@ func TestUploadPackCloneWithPartialCloneFilter(t *testing.T) {
 func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
-	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
 	testhelper.BuildGitalyHooks(t, cfg)
 
 	localRepoPath := testhelper.TempDir(t)
@@ -433,7 +433,7 @@ func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
 func TestUploadPackCloneHideTags(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
-	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
 	testhelper.BuildGitalyHooks(t, cfg)
 
 	serverSocketPath := runSSHServer(t, cfg)

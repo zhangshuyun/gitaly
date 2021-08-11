@@ -38,8 +38,8 @@ func BuildGitalyHooks(t testing.TB, cfg config.Cfg) {
 	buildBinary(t, cfg.BinDir, "gitaly-hooks")
 }
 
-// ConfigureGitalySSHBin builds gitaly-ssh command for tests for the cfg.
-func ConfigureGitalySSHBin(t testing.TB, cfg config.Cfg) {
+// BuildGitalySSH builds the gitaly-ssh command and installs it into the binary directory.
+func BuildGitalySSH(t testing.TB, cfg config.Cfg) {
 	buildBinary(t, cfg.BinDir, "gitaly-ssh")
 }
 
