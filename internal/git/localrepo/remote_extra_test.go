@@ -60,6 +60,8 @@ func TestRepo_FetchInternal(t *testing.T) {
 		repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
+		require.NoError(t, repo.Config().Set(ctx, "fetch.writeCommitGraph", "true"))
+
 		require.NoError(t, repo.FetchInternal(
 			ctx, remoteRepoProto, []string{"refs/heads/master:refs/heads/master"},
 			localrepo.FetchOpts{},
@@ -74,6 +76,11 @@ func TestRepo_FetchInternal(t *testing.T) {
 		oid, err := repo.ResolveRevision(ctx, git.Revision("refs/heads/master"))
 		require.NoError(t, err, "the object from remote should exists in local after fetch done")
 		require.Equal(t, remoteOID, oid)
+
+		// Even if the gitconfig says we should write a commit graph, Gitaly should refuse
+		// to do so.
+		require.NoFileExists(t, filepath.Join(repoPath, "objects/info/commit-graph"))
+		require.NoDirExists(t, filepath.Join(repoPath, "objects/info/commit-graphs"))
 	})
 
 	t.Run("refspec without tags", func(t *testing.T) {
