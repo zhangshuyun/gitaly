@@ -130,6 +130,9 @@ type RepositoryStore interface {
 	// ReserveRepositoryID reserves an ID for a repository that is about to be created and returns it. If a repository already
 	// exists with the given virtual storage and relative path combination, an error is returned.
 	ReserveRepositoryID(ctx context.Context, virtualStorage, relativePath string) (int64, error)
+	// GetRepositoryID gets the ID of the repository identified via the given virtual storage and relative path. Returns a
+	// RepositoryNotFoundError if the repository doesn't exist.
+	GetRepositoryID(ctx context.Context, virtualStorage, relativePath string) (int64, error)
 }
 
 // PostgresRepositoryStore is a Postgres implementation of RepositoryStore.
@@ -709,6 +712,26 @@ WHERE NOT EXISTS (
 	`, virtualStorage, relativePath).Scan(&id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return 0, commonerr.ErrRepositoryAlreadyExists
+		}
+
+		return 0, fmt.Errorf("scan: %w", err)
+	}
+
+	return id, nil
+}
+
+// GetRepositoryID gets the ID of the repository identified via the given virtual storage and relative path. Returns a
+// RepositoryNotFoundError if the repository doesn't exist.
+func (rs *PostgresRepositoryStore) GetRepositoryID(ctx context.Context, virtualStorage, relativePath string) (int64, error) {
+	var id int64
+	if err := rs.db.QueryRowContext(ctx, `
+SELECT repository_id
+FROM repositories
+WHERE virtual_storage = $1
+AND   relative_path   = $2
+	`, virtualStorage, relativePath).Scan(&id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, commonerr.NewRepositoryNotFoundError(virtualStorage, relativePath)
 		}
 
 		return 0, fmt.Errorf("scan: %w", err)

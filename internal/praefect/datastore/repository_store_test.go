@@ -1042,6 +1042,20 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		require.NoError(t, err)
 		require.Equal(t, int64(4), id)
 	})
+
+	t.Run("GetRepositoryID", func(t *testing.T) {
+		rs, _ := newStore(t, nil)
+
+		id, err := rs.GetRepositoryID(ctx, vs, repo)
+		require.Equal(t, commonerr.NewRepositoryNotFoundError(vs, repo), err)
+		require.Equal(t, int64(0), id)
+
+		require.NoError(t, rs.CreateRepository(ctx, vs, repo, stor, nil, nil, false, false))
+
+		id, err = rs.GetRepositoryID(ctx, vs, repo)
+		require.Nil(t, err)
+		require.Equal(t, int64(1), id)
+	})
 }
 
 func TestPostgresRepositoryStore_GetPartiallyAvailableRepositories(t *testing.T) {

@@ -19,6 +19,7 @@ type MockRepositoryStore struct {
 	DeleteInvalidRepositoryFunc           func(ctx context.Context, virtualStorage, relativePath, storage string) error
 	RepositoryExistsFunc                  func(ctx context.Context, virtualStorage, relativePath string) (bool, error)
 	ReserveRepositoryIDFunc               func(ctx context.Context, virtualStorage, relativePath string) (int64, error)
+	GetRepositoryIDFunc                   func(ctx context.Context, virtualStorage, relativePath string) (int64, error)
 }
 
 func (m MockRepositoryStore) GetGeneration(ctx context.Context, virtualStorage, relativePath, storage string) (int, error) {
@@ -137,4 +138,13 @@ func (m MockRepositoryStore) ReserveRepositoryID(ctx context.Context, virtualSto
 	}
 
 	return m.ReserveRepositoryIDFunc(ctx, virtualStorage, relativePath)
+}
+
+// GetRepositoryID returns the result of GetRepositoryIDFunc or 0 if it is unset.
+func (m MockRepositoryStore) GetRepositoryID(ctx context.Context, virtualStorage, relativePath string) (int64, error) {
+	if m.GetRepositoryIDFunc == nil {
+		return 0, nil
+	}
+
+	return m.GetRepositoryIDFunc(ctx, virtualStorage, relativePath)
 }
