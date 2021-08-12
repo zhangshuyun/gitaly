@@ -146,7 +146,7 @@ GEM
       ffi (>= 1.0.6)
       msgpack (>= 0.4.3)
       optimist (>= 3.0.0)
-    rdoc (6.2.0)
+    rdoc (6.3.2)
     redis (4.2.5)
     regexp_parser (1.8.1)
     reverse_markdown (1.4.0)
