@@ -14,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
@@ -48,19 +49,19 @@ type proxyValues struct {
 var enabledFeatureFlag = featureflag.FeatureFlag{Name: "enabled-feature-flag", OnByDefault: false}
 var disabledFeatureFlag = featureflag.FeatureFlag{Name: "disabled-feature-flag", OnByDefault: true}
 
-func rawFeatureFlags() featureflag.Raw {
-	ctx := featureflag.IncomingCtxWithFeatureFlag(context.Background(), enabledFeatureFlag)
+func rawFeatureFlags(ctx context.Context) featureflag.Raw {
+	ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, enabledFeatureFlag)
 	ctx = featureflag.IncomingCtxWithDisabledFeatureFlag(ctx, disabledFeatureFlag)
 	return featureflag.RawFromContext(ctx)
 }
 
 // envForHooks generates a set of environment variables for gitaly hooks
-func envForHooks(t testing.TB, cfg config.Cfg, repo *gitalypb.Repository, glHookValues glHookValues, proxyValues proxyValues, gitPushOptions ...string) []string {
+func envForHooks(t testing.TB, ctx context.Context, cfg config.Cfg, repo *gitalypb.Repository, glHookValues glHookValues, proxyValues proxyValues, gitPushOptions ...string) []string {
 	payload, err := git.NewHooksPayload(cfg, repo, nil, &git.ReceiveHooksPayload{
 		UserID:   glHookValues.GLID,
 		Username: glHookValues.GLUsername,
 		Protocol: glHookValues.GLProtocol,
-	}, git.AllHooks, rawFeatureFlags()).Env()
+	}, git.AllHooks, rawFeatureFlags(ctx)).Env()
 	require.NoError(t, err)
 
 	env := append(os.Environ(), []string{
@@ -190,6 +191,7 @@ func testHooksPrePostReceive(t *testing.T, cfg config.Cfg, repo *gitalypb.Reposi
 			cmd.Stdin = stdin
 			cmd.Env = envForHooks(
 				t,
+				context.Background(),
 				cfg,
 				repo,
 				glHookValues{
@@ -280,7 +282,7 @@ func testHooksUpdate(t *testing.T, cfg config.Cfg, glValues glHookValues) {
 	updateHookPath, err := filepath.Abs("../../ruby/git-hooks/update")
 	require.NoError(t, err)
 	cmd := exec.Command(updateHookPath, refval, oldval, newval)
-	cmd.Env = envForHooks(t, cfg, repo, glValues, proxyValues{})
+	cmd.Env = envForHooks(t, context.Background(), cfg, repo, glValues, proxyValues{})
 	cmd.Dir = repoPath
 
 	tempDir := testhelper.TempDir(t)
@@ -415,11 +417,11 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 					Protocol: glProtocol,
 				},
 				git.PostReceiveHook,
-				rawFeatureFlags(),
+				rawFeatureFlags(context.Background()),
 			).Env()
 			require.NoError(t, err)
 
-			env := envForHooks(t, cfg, repo, glHookValues{}, proxyValues{})
+			env := envForHooks(t, context.Background(), cfg, repo, glHookValues{}, proxyValues{})
 			env = append(env, hooksPayload)
 
 			cmd := exec.Command(postReceiveHookPath)
@@ -479,7 +481,7 @@ func TestHooksNotAllowed(t *testing.T) {
 	cmd.Stderr = &stderr
 	cmd.Stdout = &stdout
 	cmd.Stdin = strings.NewReader(changes)
-	cmd.Env = envForHooks(t, cfg, repo,
+	cmd.Env = envForHooks(t, context.Background(), cfg, repo,
 		glHookValues{
 			GLID:       glID,
 			GLUsername: glUsername,
@@ -577,8 +579,8 @@ func TestCheckBadCreds(t *testing.T) {
 	require.Regexp(t, `Checking GitLab API access: .* level=error msg="Internal API error" .* error="authorization failed" method=GET status=401 url="http://127.0.0.1:[0-9]+/api/v4/internal/check"\nFAIL`, stdout.String())
 }
 
-func runHookServiceServer(t *testing.T, cfg config.Cfg) {
-	runHookServiceWithGitlabClient(t, cfg, gitlab.NewMockClient())
+func runHookServiceServer(t *testing.T, cfg config.Cfg, serverOpts ...testserver.GitalyServerOpt) {
+	runHookServiceWithGitlabClient(t, cfg, gitlab.NewMockClient(), serverOpts...)
 }
 
 type featureFlagAsserter struct {
@@ -617,12 +619,17 @@ func (svc featureFlagAsserter) PackObjectsHook(stream gitalypb.HookService_PackO
 	return svc.wrapped.PackObjectsHook(stream)
 }
 
-func runHookServiceWithGitlabClient(t *testing.T, cfg config.Cfg, gitlabClient gitlab.Client) {
+func (svc featureFlagAsserter) PackObjectsHookWithSidechannel(ctx context.Context, req *gitalypb.PackObjectsHookWithSidechannelRequest) (*gitalypb.PackObjectsHookWithSidechannelResponse, error) {
+	svc.assertFlags(ctx)
+	return svc.wrapped.PackObjectsHookWithSidechannel(ctx, req)
+}
+
+func runHookServiceWithGitlabClient(t *testing.T, cfg config.Cfg, gitlabClient gitlab.Client, serverOpts ...testserver.GitalyServerOpt) {
 	testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterHookServiceServer(srv, featureFlagAsserter{
 			t: t, wrapped: hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()),
 		})
-	}, testserver.WithGitLabClient(gitlabClient))
+	}, append(serverOpts, testserver.WithGitLabClient(gitlabClient))...)
 }
 
 func requireContainsOnce(t *testing.T, s string, contains string) {
@@ -661,8 +668,6 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 	testhelper.BuildGitalyHooks(t, cfg)
 	testhelper.BuildGitalySSH(t, cfg)
 
-	env := envForHooks(t, cfg, repo, glHookValues{}, proxyValues{})
-
 	baseArgs := []string{
 		cfg.Git.BinPath,
 		"clone",
@@ -675,26 +680,48 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 
 	testCases := []struct {
 		desc      string
+		ctx       context.Context
 		extraArgs []string
+		method    string
 	}{
-		{desc: "regular clone"},
-		{desc: "shallow clone", extraArgs: []string{"--depth=1"}},
-		{desc: "partial clone", extraArgs: []string{"--filter=blob:none"}},
+		{desc: "regular clone", method: "PackObjectsHook"},
+		{desc: "shallow clone", extraArgs: []string{"--depth=1"}, method: "PackObjectsHook"},
+		{desc: "partial clone", extraArgs: []string{"--filter=blob:none"}, method: "PackObjectsHook"},
+		{
+			desc:   "regular clone PackObjectsHookWithSidechannel",
+			ctx:    featureflag.IncomingCtxWithFeatureFlag(context.Background(), featureflag.PackObjectsHookWithSidechannel),
+			method: "PackObjectsHookWithSidechannel",
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			runHookServiceServer(t, cfg)
+			ctx := context.Background()
+			if tc.ctx != nil {
+				ctx = tc.ctx
+			}
+
+			logger, hook := test.NewNullLogger()
+			runHookServiceServer(t, cfg, testserver.WithLogger(logger))
 
 			tempDir := testhelper.TempDir(t)
 
 			args := append(baseArgs[1:], tc.extraArgs...)
 			args = append(args, repoPath, tempDir)
 			cmd := exec.Command(baseArgs[0], args...)
-			cmd.Env = env
+			cmd.Env = envForHooks(t, ctx, cfg, repo, glHookValues{}, proxyValues{})
 			cmd.Stderr = os.Stderr
 
 			require.NoError(t, cmd.Run())
+
+			foundMethod := false
+			for _, e := range hook.AllEntries() {
+				if e.Data["grpc.service"] == "gitaly.HookService" {
+					require.Equal(t, tc.method, e.Data["grpc.method"])
+					foundMethod = true
+				}
+			}
+			require.True(t, foundMethod)
 		})
 	}
 }
