@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -1078,7 +1079,11 @@ func TestReconciler(t *testing.T) {
 						if repo.generation >= 0 {
 							if !repoCreated {
 								repoCreated = true
-								require.NoError(t, rs.CreateRepository(ctx, virtualStorage, relativePath, storage, nil, nil, false, false))
+
+								id, err := rs.ReserveRepositoryID(ctx, virtualStorage, relativePath)
+								require.NoError(t, err)
+
+								require.NoError(t, rs.CreateRepository(ctx, id, virtualStorage, relativePath, storage, nil, nil, false, false))
 							}
 
 							require.NoError(t, rs.SetGeneration(ctx, virtualStorage, relativePath, storage, repo.generation))
@@ -1147,6 +1152,16 @@ func TestReconciler(t *testing.T) {
 					)
 					require.NoError(t, err)
 				}
+			}
+
+			// Fill the expected reconciliation jobs with generated repository IDs.
+			for i, job := range tc.reconciliationJobs {
+				id, err := rs.GetRepositoryID(ctx, job.VirtualStorage, job.RelativePath)
+				if err != nil {
+					require.Equal(t, commonerr.NewRepositoryNotFoundError(job.VirtualStorage, job.RelativePath), err)
+				}
+
+				tc.reconciliationJobs[i].RepositoryID = id
 			}
 
 			// run reconcile in two concurrent transactions to ensure everything works

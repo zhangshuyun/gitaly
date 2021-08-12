@@ -84,6 +84,7 @@ func (r *Reconciler) Run(ctx context.Context, ticker helper.Ticker) error {
 
 // job is an internal type for formatting log messages
 type job struct {
+	RepositoryID   int64   `json:"repository_id"`
 	Change         string  `json:"change"`
 	CorrelationID  string  `json:"correlation_id"`
 	VirtualStorage string  `json:"virtual_storage"`
@@ -148,10 +149,12 @@ healthy_storages AS (
 
 delete_jobs AS (
 	SELECT DISTINCT ON (virtual_storage, relative_path)
+		repositories.repository_id,
 		virtual_storage,
 		relative_path,
 		storage
 	FROM storage_repositories
+	JOIN repositories USING (virtual_storage, relative_path)
 	JOIN healthy_storages USING (virtual_storage, storage)
 	WHERE (
 		-- Only unassigned repositories should be targeted for deletion. If no assignment exists,
@@ -161,7 +164,7 @@ delete_jobs AS (
 		WHERE virtual_storage = storage_repositories.virtual_storage
 		AND   relative_path   = storage_repositories.relative_path
 	)
-	AND generation <= (
+	AND storage_repositories.generation <= (
 		-- Check whether the replica's generation is equal or lower than the generation of every assigned
 		-- replica of the repository. If so, then it is eligible for deletion.
 		SELECT MIN(COALESCE(generation, -1))
@@ -196,6 +199,7 @@ delete_jobs AS (
 	-- repository remains on storage unused (because it doesn't exist in the 'repositories' table anymore).
 	SELECT * FROM (
 		SELECT DISTINCT ON (virtual_storage, relative_path)
+			0 AS repository_id,
 			virtual_storage,
 			relative_path,
 			storage
@@ -219,12 +223,13 @@ delete_jobs AS (
 
 update_jobs AS (
 	SELECT DISTINCT ON (virtual_storage, relative_path, target_node_storage)
+		repository_id,
 		virtual_storage,
 		relative_path,
 		source_node_storage,
 		target_node_storage
 	FROM (
-		SELECT virtual_storage, relative_path, storage AS target_node_storage
+		SELECT repositories.repository_id, virtual_storage, relative_path, storage AS target_node_storage
 		FROM repositories
 		JOIN healthy_storages USING (virtual_storage)
 		LEFT JOIN storage_repositories USING (virtual_storage, relative_path, storage)
@@ -273,6 +278,7 @@ reconciliation_jobs AS (
 		jsonb_build_object('correlation_id', encode(random()::text::bytea, 'base64'))
 	FROM (
 		SELECT
+			COALESCE(repository_id, 0) AS repository_id,
 			virtual_storage,
 			relative_path,
 			source_node_storage,
@@ -281,6 +287,7 @@ reconciliation_jobs AS (
 		FROM update_jobs
 			UNION ALL
 		SELECT
+			COALESCE(repository_id, 0) AS repository_id,
 			virtual_storage,
 			relative_path,
 			NULL AS source_node_storage,
@@ -303,6 +310,7 @@ create_locks AS (
 
 SELECT
 	meta->>'correlation_id',
+	job->>'repository_id',
 	job->>'change',
 	job->>'virtual_storage',
 	job->>'relative_path',
@@ -326,6 +334,7 @@ FROM reconciliation_jobs
 		var j job
 		if err := rows.Scan(
 			&j.CorrelationID,
+			&j.RepositoryID,
 			&j.Change,
 			&j.VirtualStorage,
 			&j.RelativePath,
