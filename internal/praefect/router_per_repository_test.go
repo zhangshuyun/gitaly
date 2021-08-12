@@ -371,7 +371,11 @@ func TestPerRepositoryRouter_RouteRepositoryMutator(t *testing.T) {
 					},
 				},
 				tc.assignedNodes,
-				datastore.MockRepositoryStore{},
+				datastore.MockRepositoryStore{
+					GetRepositoryIDFunc: func(ctx context.Context, virtualStorage, relativePath string) (int64, error) {
+						return 1, nil
+					},
+				},
 				nil,
 			)
 
@@ -387,6 +391,7 @@ func TestPerRepositoryRouter_RouteRepositoryMutator(t *testing.T) {
 				}
 
 				require.Equal(t, RepositoryMutatorRoute{
+					RepositoryID: 1,
 					Primary: RouterNode{
 						Storage:    "primary",
 						Connection: conns[tc.virtualStorage]["primary"],

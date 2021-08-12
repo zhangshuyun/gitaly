@@ -214,7 +214,12 @@ func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtua
 		return RepositoryMutatorRoute{}, fmt.Errorf("get host assignments: %w", err)
 	}
 
-	var route RepositoryMutatorRoute
+	repositoryID, err := r.rs.GetRepositoryID(ctx, virtualStorage, relativePath)
+	if err != nil {
+		return RepositoryMutatorRoute{}, fmt.Errorf("get repository id: %w", err)
+	}
+
+	route := RepositoryMutatorRoute{RepositoryID: repositoryID}
 	for _, assigned := range assignedStorages {
 		node, healthy := healthySet[assigned]
 		if assigned == primary {
