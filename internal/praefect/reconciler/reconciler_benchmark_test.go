@@ -1,5 +1,3 @@
-// +build postgres
-
 package reconciler
 
 import (
@@ -9,6 +7,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
@@ -32,7 +31,7 @@ func benchmarkReconcile(b *testing.B, numRepositories int, worstCase bool) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	db := getDB(b)
+	db := glsql.GetDB(b)
 
 	behind := 0
 	if worstCase {

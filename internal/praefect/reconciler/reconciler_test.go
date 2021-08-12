@@ -1,13 +1,9 @@
-// +build postgres
-
 package reconciler
 
 import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
-	"os"
 	"testing"
 
 	"github.com/lib/pq"
@@ -20,20 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
-
-func TestMain(m *testing.M) {
-	code := m.Run()
-
-	if err := glsql.Clean(); err != nil {
-		log.Fatalf("failed closing testing database: %v", err)
-	}
-
-	os.Exit(code)
-}
-
-func getDB(tb testing.TB) glsql.DB {
-	return glsql.GetDB(tb, "reconciler")
-}
 
 func TestReconciler(t *testing.T) {
 	// repositories describes storage state as
@@ -1078,7 +1060,7 @@ func TestReconciler(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			db := getDB(t)
+			db := glsql.GetDB(t)
 
 			// set up the repository generation records expected by the test case
 			rs := datastore.NewPostgresRepositoryStore(db, configuredStorages)
@@ -1162,25 +1144,23 @@ func TestReconciler(t *testing.T) {
 
 			// run reconcile in two concurrent transactions to ensure everything works
 			// as expected with multiple Praefect's reconciling at the same time
-			firstTx, err := db.Begin()
-			require.NoError(t, err)
-			defer firstTx.Rollback()
+			firstTx := db.Begin(t)
+			defer firstTx.Rollback(t)
 
-			secondTx, err := db.Begin()
-			require.NoError(t, err)
-			defer secondTx.Rollback()
+			secondTx := db.Begin(t)
+			defer secondTx.Rollback(t)
 
 			// the first reconcile acquires the reconciliation lock
-			runReconcile(firstTx)
+			runReconcile(firstTx.Tx)
 
 			// Concurrently reconcile from another transaction.
 			// secondTx should not block as it won't attempt any insertions
 			// as it failed to acquire the reconciliation lock.
-			runReconcile(secondTx)
-			require.NoError(t, secondTx.Commit())
+			runReconcile(secondTx.Tx)
+			secondTx.Commit(t)
 
 			// commit the transaction of the first reconciliation
-			require.NoError(t, firstTx.Commit())
+			firstTx.Commit(t)
 
 			rows, err := db.QueryContext(ctx, `
 				SELECT job, meta

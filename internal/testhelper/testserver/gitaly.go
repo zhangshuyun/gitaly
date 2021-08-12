@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -31,6 +32,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
 	praefectconfig "gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/streamcache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"google.golang.org/grpc"
@@ -59,10 +61,22 @@ func RunGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server
 	return praefectAddr
 }
 
+// createDatabase create a new database with randomly generated name and returns it back to the caller.
+func createDatabase(t testing.TB) string {
+	db := glsql.GetDB(t)
+	return db.Name
+}
+
 func runPraefectProxy(t testing.TB, cfg config.Cfg, gitalyAddr, praefectBinPath string) (string, func()) {
 	tempDir := testhelper.TempDir(t)
 
 	praefectServerSocketPath := "unix://" + testhelper.GetTemporaryGitalySocketFileName(t)
+
+	pgport := os.Getenv("PGPORT")
+	port, err := strconv.Atoi(pgport)
+	require.NoError(t, err)
+
+	dbName := createDatabase(t)
 
 	conf := praefectconfig.Config{
 		AllowLegacyElectors: true,
@@ -70,7 +84,13 @@ func runPraefectProxy(t testing.TB, cfg config.Cfg, gitalyAddr, praefectBinPath 
 		Auth: auth.Config{
 			Token: cfg.Auth.Token,
 		},
-		MemoryQueueEnabled: true,
+		DB: praefectconfig.DB{
+			Host:    os.Getenv("PGHOST"),
+			Port:    port,
+			User:    os.Getenv("PGUSER"),
+			DBName:  dbName,
+			SSLMode: "disable",
+		},
 		Failover: praefectconfig.Failover{
 			Enabled:           true,
 			ElectionStrategy:  praefectconfig.ElectionStrategyLocal,

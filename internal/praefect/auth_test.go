@@ -148,7 +148,7 @@ func runServer(t *testing.T, token string, required bool) (*grpc.Server, string,
 		},
 	}
 	logEntry := testhelper.DiscardTestEntry(t)
-	queue := datastore.NewMemoryReplicationEventQueue(conf)
+	queue := datastore.NewPostgresReplicationEventQueue(getDB(t))
 
 	nodeMgr, err := nodes.NewManager(logEntry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil)
 	require.NoError(t, err)

@@ -1,5 +1,3 @@
-// +build postgres
-
 package main
 
 import (
@@ -17,7 +15,7 @@ import (
 )
 
 func getDB(t *testing.T) glsql.DB {
-	return glsql.GetDB(t, "cmd_praefect")
+	return glsql.GetDB(t)
 }
 
 func registerPraefectInfoServer(impl gitalypb.PraefectInfoServiceServer) svcRegistrar {
@@ -46,9 +44,8 @@ func TestDatalossSubcommand(t *testing.T) {
 		},
 	}
 
-	tx, err := getDB(t).Begin()
-	require.NoError(t, err)
-	defer tx.Rollback()
+	tx := getDB(t).Begin(t)
+	defer tx.Rollback(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

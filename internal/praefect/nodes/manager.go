@@ -97,7 +97,6 @@ type Node interface {
 type Mgr struct {
 	// strategies is a map of strategies keyed on virtual storage name
 	strategies map[string]leaderElectionStrategy
-	db         *sql.DB
 	// nodes contains nodes by their virtual storages
 	nodes map[string][]Node
 	csg   datastore.ConsistentStoragesGetter
@@ -187,7 +186,6 @@ func NewManager(
 	}
 
 	return &Mgr{
-		db:         db,
 		strategies: strategies,
 		nodes:      nodes,
 		csg:        csg,

@@ -181,6 +181,16 @@ Generally, you should always write new tests in Go even when testing Ruby code,
 since we're planning to gradually rewrite everything in Go and want to avoid
 having to rewrite the tests as well.
 
+Because praefect lives in the same repository we need to provide database connection
+information in order to run tests for it successfully. To get more info check out
+[glsql](../internal/praefect/datastore/glsql/doc.go) package documentation.
+The easiest way to set up a Postgres database instance is to run it as a Docker container.
+You can do it using command:
+```bash
+docker rm -f $(docker ps -q --all -f name=praefect-pg) > /dev/null 2>1; \
+docker run --name praefect-pg -p 5432:5432 -e POSTGRES_HOST_AUTH_METHOD=trust -d postgres:12.6
+```
+
 To run the full test suite, use `make test`.
 You'll need some [test repositories](test_repos.md), you can set these up with `make prepare-tests`.
 

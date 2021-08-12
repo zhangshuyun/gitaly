@@ -1,5 +1,3 @@
-// +build postgres
-
 package nodes
 
 import (
@@ -486,7 +484,7 @@ func TestHealthManager(t *testing.T) {
 					clients := make(HealthClients, len(hc.LocalStatus))
 					for virtualStorage, nodeHealths := range hc.LocalStatus {
 						clients[virtualStorage] = make(map[string]grpc_health_v1.HealthClient, len(nodeHealths))
-						for node, _ := range nodeHealths {
+						for node := range nodeHealths {
 							virtualStorage, node := virtualStorage, node
 							clients[virtualStorage][node] = mockHealthClient{
 								CheckFunc: func(context.Context, *grpc_health_v1.HealthCheckRequest, ...grpc.CallOption) (*grpc_health_v1.HealthCheckResponse, error) {

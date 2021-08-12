@@ -1,5 +1,3 @@
-// +build postgres
-
 package datastore
 
 import (
@@ -568,11 +566,9 @@ func TestPostgresReplicationEventQueue_DequeueSameStorageOtherRepository(t *test
 		},
 	}
 
-	var eventsType1 []ReplicationEvent
 	for i := 0; i < 2; i++ {
-		event, err := queue.Enqueue(ctx, eventType1)
+		_, err := queue.Enqueue(ctx, eventType1)
 		require.NoError(t, err, "failed to fill in event queue")
-		eventsType1 = append(eventsType1, event)
 	}
 
 	dequeuedEvents1, err := queue.Dequeue(ctx, "praefect", "gitaly-1", 1)
@@ -584,11 +580,9 @@ func TestPostgresReplicationEventQueue_DequeueSameStorageOtherRepository(t *test
 	})
 	requireJobLocks(t, ctx, db, []JobLockRow{{JobID: 1, LockID: "praefect|gitaly-1|/project/path-1"}})
 
-	var eventsType2 []ReplicationEvent
 	for i := 0; i < 2; i++ {
-		event, err := queue.Enqueue(ctx, eventType2)
+		_, err := queue.Enqueue(ctx, eventType2)
 		require.NoError(t, err, "failed to fill in event queue")
-		eventsType2 = append(eventsType2, event)
 	}
 
 	dequeuedEvents2, err := queue.Dequeue(ctx, "praefect", "gitaly-1", 1)

@@ -114,8 +114,8 @@ func withMockBackends(t testing.TB, backends map[string]mock.SimpleServiceServer
 	}
 }
 
-func defaultQueue(conf config.Config) datastore.ReplicationEventQueue {
-	return datastore.NewMemoryReplicationEventQueue(conf)
+func defaultQueue(t testing.TB) datastore.ReplicationEventQueue {
+	return datastore.NewPostgresReplicationEventQueue(getDB(t))
 }
 
 func defaultTxMgr(conf config.Config) *transactions.Manager {
@@ -133,11 +133,11 @@ func defaultRepoStore(conf config.Config) datastore.RepositoryStore {
 	return datastore.MockRepositoryStore{}
 }
 
-func runPraefectServer(t testing.TB, conf config.Config, opt buildOptions) (*grpc.ClientConn, *grpc.Server, testhelper.Cleanup) {
+func runPraefectServer(t testing.TB, ctx context.Context, conf config.Config, opt buildOptions) (*grpc.ClientConn, *grpc.Server, testhelper.Cleanup) {
 	var cleanups []testhelper.Cleanup
 
 	if opt.withQueue == nil {
-		opt.withQueue = defaultQueue(conf)
+		opt.withQueue = defaultQueue(t)
 	}
 	if opt.withRepoStore == nil {
 		opt.withRepoStore = defaultRepoStore(conf)
@@ -197,10 +197,10 @@ func runPraefectServer(t testing.TB, conf config.Config, opt buildOptions) (*grp
 	listener, port := listenAvailPort(t)
 
 	errQ := make(chan error)
-	ctx, cancel := testhelper.Context()
+	ctx, cancel := context.WithCancel(ctx)
 
 	go func() { errQ <- prf.Serve(listener) }()
-	go replmgr.ProcessBacklog(ctx, noopBackoffFunc)
+	replMgrDone := startProcessBacklog(ctx, replmgr)
 
 	// dial client to praefect
 	cc := dialLocalPort(t, port, false)
@@ -215,6 +215,7 @@ func runPraefectServer(t testing.TB, conf config.Config, opt buildOptions) (*grp
 		prf.Stop()
 
 		cancel()
+		<-replMgrDone
 		require.NoError(t, <-errQ)
 	}
 
@@ -276,4 +277,13 @@ func newMockDownstream(tb testing.TB, token string, m mock.SimpleServiceServer) 
 	}
 
 	return fmt.Sprintf("tcp://localhost:%d", port), cleanup
+}
+
+func startProcessBacklog(ctx context.Context, replMgr ReplMgr) <-chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		replMgr.ProcessBacklog(ctx, noopBackoffFunc)
+	}()
+	return done
 }

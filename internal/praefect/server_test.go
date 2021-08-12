@@ -144,7 +144,7 @@ func TestGitalyServerInfo(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(nodeSet.Close)
 
-		cc, _, cleanup := runPraefectServer(t, conf, buildOptions{
+		cc, _, cleanup := runPraefectServer(t, ctx, conf, buildOptions{
 			withConnections: nodeSet.Connections(),
 		})
 		t.Cleanup(cleanup)
@@ -192,7 +192,7 @@ func TestGitalyServerInfo(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(nodeSet.Close)
 
-		cc, _, cleanup := runPraefectServer(t, conf, buildOptions{
+		cc, _, cleanup := runPraefectServer(t, ctx, conf, buildOptions{
 			withConnections: nodeSet.Connections(),
 		})
 		t.Cleanup(cleanup)
@@ -230,7 +230,7 @@ func TestGitalyServerInfoBadNode(t *testing.T) {
 	require.NoError(t, err)
 	defer nodes.Close()
 
-	cc, _, cleanup := runPraefectServer(t, conf, buildOptions{
+	cc, _, cleanup := runPraefectServer(t, ctx, conf, buildOptions{
 		withConnections: nodes.Connections(),
 	})
 	defer cleanup()
@@ -263,7 +263,7 @@ func TestDiskStatistics(t *testing.T) {
 	require.NoError(t, err)
 	defer nodes.Close()
 
-	cc, _, cleanup := runPraefectServer(t, praefectCfg, buildOptions{
+	cc, _, cleanup := runPraefectServer(t, ctx, praefectCfg, buildOptions{
 		withConnections: nodes.Connections(),
 	})
 	defer cleanup()
@@ -280,7 +280,10 @@ func TestDiskStatistics(t *testing.T) {
 }
 
 func TestHealthCheck(t *testing.T) {
-	cc, _, cleanup := runPraefectServer(t, config.Config{VirtualStorages: []*config.VirtualStorage{
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	cc, _, cleanup := runPraefectServer(t, ctx, config.Config{VirtualStorages: []*config.VirtualStorage{
 		{
 			Name:  "praefect",
 			Nodes: []*config.Node{{Storage: "stub", Address: "unix:///stub-address", Token: ""}},
@@ -288,7 +291,8 @@ func TestHealthCheck(t *testing.T) {
 	}}, buildOptions{})
 	defer cleanup()
 
-	ctx, cancel := testhelper.Context(testhelper.ContextWithTimeout(time.Second))
+	// setup timeout only after praefect setup as db migration may require some time
+	ctx, cancel = context.WithTimeout(ctx, time.Second)
 	defer cancel()
 
 	client := grpc_health_v1.NewHealthClient(cc)
@@ -311,11 +315,11 @@ func TestRejectBadStorage(t *testing.T) {
 		},
 	}
 
-	cc, _, cleanup := runPraefectServer(t, conf, buildOptions{})
-	defer cleanup()
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
+
+	cc, _, cleanup := runPraefectServer(t, ctx, conf, buildOptions{})
+	defer cleanup()
 
 	req := &gitalypb.GarbageCollectRequest{
 		Repository: &gitalypb.Repository{
@@ -360,10 +364,13 @@ func TestWarnDuplicateAddrs(t *testing.T) {
 		},
 	}
 
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	tLogger, hook := test.NewNullLogger()
 
 	// instantiate a praefect server and trigger warning
-	_, _, cleanup := runPraefectServer(t, conf, buildOptions{
+	_, _, cleanup := runPraefectServer(t, ctx, conf, buildOptions{
 		withLogger:  logrus.NewEntry(tLogger),
 		withNodeMgr: nullNodeMgr{}, // to suppress node address issues
 	})
@@ -394,7 +401,7 @@ func TestWarnDuplicateAddrs(t *testing.T) {
 	tLogger, hook = test.NewNullLogger()
 
 	// instantiate a praefect server and trigger warning
-	_, _, cleanup = runPraefectServer(t, conf, buildOptions{
+	_, _, cleanup = runPraefectServer(t, ctx, conf, buildOptions{
 		withLogger:  logrus.NewEntry(tLogger),
 		withNodeMgr: nullNodeMgr{}, // to suppress node address issues
 	})
@@ -443,7 +450,7 @@ func TestWarnDuplicateAddrs(t *testing.T) {
 	tLogger, hook = test.NewNullLogger()
 
 	// instantiate a praefect server and trigger warning
-	_, _, cleanup = runPraefectServer(t, conf, buildOptions{
+	_, _, cleanup = runPraefectServer(t, ctx, conf, buildOptions{
 		withLogger:  logrus.NewEntry(tLogger),
 		withNodeMgr: nullNodeMgr{}, // to suppress node address issues
 	})
@@ -487,7 +494,7 @@ func TestRemoveRepository(t *testing.T) {
 
 	// TODO: once https://gitlab.com/gitlab-org/gitaly/-/issues/2703 is done and the replication manager supports
 	// graceful shutdown, we can remove this code that waits for jobs to be complete
-	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewMemoryReplicationEventQueue(praefectCfg))
+	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(getDB(t)))
 	jobsDoneCh := make(chan struct{}, 2)
 	queueInterceptor.OnAcknowledge(func(ctx context.Context, state datastore.JobState, ids []uint64, queue datastore.ReplicationEventQueue) ([]uint64, error) {
 		defer func() {
@@ -511,16 +518,16 @@ func TestRemoveRepository(t *testing.T) {
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Hour)
 
-	cc, _, cleanup := runPraefectServer(t, praefectCfg, buildOptions{
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	cc, _, cleanup := runPraefectServer(t, ctx, praefectCfg, buildOptions{
 		withQueue:     queueInterceptor,
 		withRepoStore: repoStore,
 		withNodeMgr:   nodeMgr,
 		withTxMgr:     txMgr,
 	})
 	defer cleanup()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	virtualRepo := proto.Clone(repos[0][0]).(*gitalypb.Repository)
 	virtualRepo.StorageName = praefectCfg.VirtualStorages[0].Name
@@ -585,7 +592,7 @@ func TestRenameRepository(t *testing.T) {
 	var canCheckRepo sync.WaitGroup
 	canCheckRepo.Add(2)
 
-	evq := datastore.NewReplicationEventQueueInterceptor(datastore.NewMemoryReplicationEventQueue(praefectCfg))
+	evq := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(getDB(t)))
 	evq.OnAcknowledge(func(ctx context.Context, state datastore.JobState, ids []uint64, queue datastore.ReplicationEventQueue) ([]uint64, error) {
 		defer canCheckRepo.Done()
 		return queue.Acknowledge(ctx, state, ids)
@@ -594,7 +601,7 @@ func TestRenameRepository(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	cc, _, cleanup := runPraefectServer(t, praefectCfg, buildOptions{withQueue: evq})
+	cc, _, cleanup := runPraefectServer(t, ctx, praefectCfg, buildOptions{withQueue: evq})
 	defer cleanup()
 
 	// virtualRepo is a virtual repository all requests to it would be applied to the underline Gitaly nodes behind it
@@ -765,7 +772,7 @@ func TestProxyWrites(t *testing.T) {
 		},
 	}
 
-	queue := datastore.NewMemoryReplicationEventQueue(conf)
+	queue := datastore.NewPostgresReplicationEventQueue(getDB(t))
 	entry := testhelper.DiscardTestEntry(t)
 
 	nodeMgr, err := nodes.NewManager(entry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil)
@@ -899,7 +906,7 @@ func TestErrorThreshold(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	queue := datastore.NewMemoryReplicationEventQueue(conf)
+	queue := datastore.NewPostgresReplicationEventQueue(getDB(t))
 	entry := testhelper.DiscardTestEntry(t)
 
 	testCases := []struct {

@@ -1,9 +1,6 @@
-// +build postgres
-
 package nodes
 
 import (
-	"database/sql"
 	"testing"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
@@ -12,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
@@ -518,7 +516,7 @@ func TestPerRepositoryElector(t *testing.T) {
 
 			previousPrimary := ""
 			for _, step := range tc.steps {
-				runElection := func(tx *sql.Tx) (string, *logrus.Entry) {
+				runElection := func(tx *glsql.TxWrapper) (string, *logrus.Entry) {
 					testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect-0": step.healthyNodes})
 
 					logger, hook := test.NewNullLogger()
@@ -534,7 +532,7 @@ func TestPerRepositoryElector(t *testing.T) {
 						entry = &hook.Entries[0]
 					}
 
-					require.NoError(t, tx.Commit())
+					tx.Commit(t)
 
 					return primary, entry
 				}
@@ -546,13 +544,11 @@ func TestPerRepositoryElector(t *testing.T) {
 				// To verify concurrent election runs do not elect the primary multiple times, we assert
 				// the second transaction performed no changes and the primary is what the first run elected
 				// it to be.
-				txFirst, err := db.Begin()
-				require.NoError(t, err)
-				defer txFirst.Rollback()
+				txFirst := db.Begin(t)
+				defer txFirst.Rollback(t)
 
-				txSecond, err := db.Begin()
-				require.NoError(t, err)
-				defer txSecond.Rollback()
+				txSecond := db.Begin(t)
+				defer txSecond.Rollback(t)
 
 				primary, logEntry := runElection(txFirst)
 				step.primary(t, primary)

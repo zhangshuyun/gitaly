@@ -5,12 +5,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/bootstrap/starter"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
@@ -19,12 +17,6 @@ func TestMain(m *testing.M) {
 }
 
 func testMain(m *testing.M) int {
-	defer func() {
-		if err := glsql.Clean(); err != nil {
-			logrus.Error(err)
-		}
-	}()
-
 	defer testhelper.MustHaveNoChildProcess()
 	cleanup := testhelper.Configure()
 	defer cleanup()
