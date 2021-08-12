@@ -6,10 +6,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	promtest "github.com/prometheus/client_golang/prometheus/testutil"
@@ -29,174 +27,116 @@ const (
 	clientCapabilities = `multi_ack_detailed no-done side-band-64k thin-pack include-tag ofs-delta deepen-since deepen-not filter agent=git/2.18.0`
 )
 
-func TestSuccessfulUploadPackRequest(t *testing.T) {
+func TestServer_PostUploadPack(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	_, localRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
-
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
-
 	serverSocketPath := runSmartHTTPServer(t, cfg, WithPackfileNegotiationMetrics(negotiationMetrics))
 
-	storagePath := cfg.Storages[0].Path
-	remoteRepoRelativePath := "gitlab-test-remote"
-	localRepoRelativePath := "gitlab-test-local"
-	remoteRepoPath := filepath.Join(storagePath, remoteRepoRelativePath)
-	localRepoPath := filepath.Join(storagePath, localRepoRelativePath)
-	testRepoPath := filepath.Join(storagePath, repo.RelativePath)
-	// Make a non-bare clone of the test repo to act as a remote one
-	gittest.Exec(t, cfg, "clone", testRepoPath, remoteRepoPath)
-	// Make a bare clone of the test repo to act as a local one and to leave the original repo intact for other tests
-	gittest.Exec(t, cfg, "clone", "--bare", testRepoPath, localRepoPath)
-	defer func() { require.NoError(t, os.RemoveAll(localRepoPath)) }()
-	defer func() { require.NoError(t, os.RemoveAll(remoteRepoPath)) }()
-
-	commitMsg := fmt.Sprintf("Testing UploadPack RPC around %d", time.Now().Unix())
-	committerName := "Scrooge McDuck"
-	committerEmail := "scrooge@mcduck.com"
-
-	// The latest commit ID on the local repo
-	oldHead := bytes.TrimSpace(gittest.Exec(t, cfg, "-C", remoteRepoPath, "rev-parse", "master"))
-
-	gittest.Exec(t, cfg, "-C", remoteRepoPath,
-		"-c", fmt.Sprintf("user.name=%s", committerName),
-		"-c", fmt.Sprintf("user.email=%s", committerEmail),
-		"commit", "--allow-empty", "-m", commitMsg)
-
-	// The commit ID we want to pull from the remote repo
-	newHead := bytes.TrimSpace(gittest.Exec(t, cfg, "-C", remoteRepoPath, "rev-parse", "master"))
+	oldCommit, err := git.NewObjectIDFromHex("1e292f8fedd741b75372e19097c76d327140c312") // refs/heads/master
+	require.NoError(t, err)
+	newCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(oldCommit))
 
 	// UploadPack request is a "want" packet line followed by a packet flush, then many "have" packets followed by a packet flush.
 	// This is explained a bit in https://git-scm.com/book/en/v2/Git-Internals-Transfer-Protocols#_downloading_data
 	requestBuffer := &bytes.Buffer{}
-	gittest.WritePktlineString(t, requestBuffer, fmt.Sprintf("want %s %s\n", newHead, clientCapabilities))
+	gittest.WritePktlineString(t, requestBuffer, fmt.Sprintf("want %s %s\n", newCommit, clientCapabilities))
 	gittest.WritePktlineFlush(t, requestBuffer)
-	gittest.WritePktlineString(t, requestBuffer, fmt.Sprintf("have %s\n", oldHead))
+	gittest.WritePktlineString(t, requestBuffer, fmt.Sprintf("have %s\n", oldCommit))
 	gittest.WritePktlineFlush(t, requestBuffer)
 
-	req := &gitalypb.PostUploadPackRequest{
-		Repository: &gitalypb.Repository{
-			StorageName:  cfg.Storages[0].Name,
-			RelativePath: filepath.Join(remoteRepoRelativePath, ".git"),
-		},
-	}
+	req := &gitalypb.PostUploadPackRequest{Repository: repo}
 	responseBuffer, err := makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, req, requestBuffer)
 	require.NoError(t, err)
 
-	// There's no git command we can pass it this response and do the work for us (extracting pack file, ...),
-	// so we have to do it ourselves.
 	pack, version, entries := extractPackDataFromResponse(t, responseBuffer)
-	require.NotNil(t, pack, "Expected to find a pack file in response, found none")
+	require.NotEmpty(t, pack, "Expected to find a pack file in response, found none")
 
 	gittest.ExecStream(t, cfg, bytes.NewReader(pack), "-C", localRepoPath, "unpack-objects", fmt.Sprintf("--pack_header=%d,%d", version, entries))
 
-	// The fact that this command succeeds means that we got the commit correctly, no further checks should be needed.
-	gittest.Exec(t, cfg, "-C", localRepoPath, "show", string(newHead))
+	gittest.GitObjectMustExist(t, cfg.Git.BinPath, localRepoPath, newCommit.String())
 
 	metric, err := negotiationMetrics.GetMetricWithLabelValues("have")
 	require.NoError(t, err)
 	require.Equal(t, 1.0, promtest.ToFloat64(metric))
 }
 
-func TestUploadPackRequestWithGitConfigOptions(t *testing.T) {
+func TestServer_PostUploadPack_gitConfigOptions(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 
-	storagePath := cfg.Storages[0].Path
-	ourRepoRelativePath := "gitlab-test-remote"
-	ourRepoPath := filepath.Join(storagePath, ourRepoRelativePath)
-	testRepoPath := filepath.Join(storagePath, repo.RelativePath)
+	want := "3dd08961455abf80ef9115f4afdc1c6f968b503c" // refs/heads/csv
+	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/hidden/csv", want)
+	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "-d", "refs/heads/csv")
 
-	// Make a clone of the test repo to modify
-	gittest.Exec(t, cfg, "clone", "--bare", testRepoPath, ourRepoPath)
-	defer func() { require.NoError(t, os.RemoveAll(ourRepoPath)) }()
-
-	// Remove remote-tracking branches that get in the way for this test
-	gittest.Exec(t, cfg, "-C", ourRepoPath, "remote", "remove", "origin")
-
-	// Turn the csv branch into a hidden ref
-	want := string(bytes.TrimSpace(gittest.Exec(t, cfg, "-C", ourRepoPath, "rev-parse", "refs/heads/csv")))
-	gittest.Exec(t, cfg, "-C", ourRepoPath, "update-ref", "refs/hidden/csv", want)
-	gittest.Exec(t, cfg, "-C", ourRepoPath, "update-ref", "-d", "refs/heads/csv")
-
-	have := string(bytes.TrimSpace(gittest.Exec(t, cfg, "-C", ourRepoPath, "rev-parse", want+"~1")))
+	have := "6ff234d2889b27d91c3442924ef6a100b1fc6f2b" // refs/heads/csv~1
 
 	requestBody := &bytes.Buffer{}
-	requestBodyCopy := &bytes.Buffer{}
-	tee := io.MultiWriter(requestBody, requestBodyCopy)
 
-	gittest.WritePktlineString(t, tee, fmt.Sprintf("want %s %s\n", want, clientCapabilities))
-	gittest.WritePktlineFlush(t, tee)
-	gittest.WritePktlineString(t, tee, fmt.Sprintf("have %s\n", have))
-	gittest.WritePktlineFlush(t, tee)
+	gittest.WritePktlineString(t, requestBody, fmt.Sprintf("want %s %s\n", want, clientCapabilities))
+	gittest.WritePktlineFlush(t, requestBody)
+	gittest.WritePktlineString(t, requestBody, fmt.Sprintf("have %s\n", have))
+	gittest.WritePktlineFlush(t, requestBody)
 
-	rpcRequest := &gitalypb.PostUploadPackRequest{
-		Repository: &gitalypb.Repository{
-			StorageName:  cfg.Storages[0].Name,
-			RelativePath: ourRepoRelativePath,
-		},
-	}
+	t.Run("sanity check: ref exists and can be fetched", func(t *testing.T) {
+		rpcRequest := &gitalypb.PostUploadPackRequest{Repository: repo}
 
-	// The ref is successfully requested as it is not hidden
-	response, err := makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest, requestBody)
-	require.NoError(t, err)
-	_, _, count := extractPackDataFromResponse(t, response)
-	assert.Equal(t, 5, count, "pack should have 5 entries")
+		response, err := makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest, bytes.NewReader(requestBody.Bytes()))
+		require.NoError(t, err)
+		_, _, count := extractPackDataFromResponse(t, response)
+		require.Equal(t, 5, count, "pack should have 5 entries")
+	})
 
-	// Now the ref is hidden, no packfile will be received. The git process
-	// dies with an error message: `git upload-pack: not our ref ...` but the
-	// client just sees a grpc unavailable error
-	// we need to set uploadpack.allowAnySHA1InWant=false, because if it's true then we won't encounter an error from setting
-	// uploadpack.hideRefs=refs/hidden. We are setting uploadpack.allowAnySHA1InWant=true in the RPC to enable partial clones
-	rpcRequest.GitConfigOptions = []string{"uploadpack.hideRefs=refs/hidden", "uploadpack.allowAnySHA1InWant=false"}
-	response, err = makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest, requestBodyCopy)
-	testhelper.RequireGrpcError(t, err, codes.Unavailable)
+	t.Run("failing request because of hidden ref config", func(t *testing.T) {
+		rpcRequest := &gitalypb.PostUploadPackRequest{
+			Repository: repo,
+			GitConfigOptions: []string{
+				"uploadpack.hideRefs=refs/hidden",
+				"uploadpack.allowAnySHA1InWant=false",
+			},
+		}
+		response, err := makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest, bytes.NewReader(requestBody.Bytes()))
+		testhelper.RequireGrpcError(t, err, codes.Unavailable)
 
-	expected := fmt.Sprintf("0049ERR upload-pack: not our ref %v", want)
-	assert.Equal(t, expected, response.String(), "Ref is hidden, expected error message did not appear")
+		// The failure message proves that upload-pack failed because of
+		// GitConfigOptions, and that proves that passing GitConfigOptions works.
+		expected := fmt.Sprintf("0049ERR upload-pack: not our ref %v", want)
+		require.Equal(t, expected, response.String(), "Ref is hidden, expected error message did not appear")
+	})
 }
 
-func TestUploadPackRequestWithGitProtocol(t *testing.T) {
+func TestServer_PostUploadPack_gitProtocol(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
-
 	readProto, cfg := gittest.EnableGitProtocolV2Support(t, cfg)
-
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 
-	storagePath := cfg.Storages[0].Path
-	testRepoPath := filepath.Join(storagePath, repo.RelativePath)
-	relativePath, err := filepath.Rel(storagePath, testRepoPath)
-	require.NoError(t, err)
-
+	// command=ls-refs does not exist in protocol v0, so if this succeeds, we're talking v2
 	requestBody := &bytes.Buffer{}
-
 	gittest.WritePktlineString(t, requestBody, "command=ls-refs\n")
 	gittest.WritePktlineDelim(t, requestBody)
 	gittest.WritePktlineString(t, requestBody, "peel\n")
 	gittest.WritePktlineString(t, requestBody, "symrefs\n")
 	gittest.WritePktlineFlush(t, requestBody)
 
-	// Only a Git server with v2 will recognize this request.
-	// Git v1 will throw a protocol error.
 	rpcRequest := &gitalypb.PostUploadPackRequest{
-		Repository: &gitalypb.Repository{
-			StorageName:  cfg.Storages[0].Name,
-			RelativePath: relativePath,
-		},
+		Repository:  repo,
 		GitProtocol: git.ProtocolV2,
 	}
 
-	// The ref is successfully requested as it is not hidden
-	_, err = makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest, requestBody)
+	_, err := makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest, requestBody)
 	require.NoError(t, err)
 
 	envData := readProto()
@@ -206,7 +146,7 @@ func TestUploadPackRequestWithGitProtocol(t *testing.T) {
 // This test is here because git-upload-pack returns a non-zero exit code
 // on 'deepen' requests even though the request is being handled just
 // fine from the client perspective.
-func TestSuccessfulUploadPackDeepenRequest(t *testing.T) {
+func TestServer_PostUploadPack_suppressDeepenExitError(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
@@ -226,7 +166,7 @@ func TestSuccessfulUploadPackDeepenRequest(t *testing.T) {
 	assert.Equal(t, `0034shallow e63f41fe459e62e1228fcef60d7189127aeba95a0000`, response.String())
 }
 
-func TestUploadPackWithPackObjectsHook(t *testing.T) {
+func TestServer_PostUploadPack_usesPackObjectsHook(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 	cfg.BinDir = testhelper.TempDir(t)
 
@@ -265,11 +205,11 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	require.Equal(t, "I was invoked\n", string(contents))
 }
 
-func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
+func TestServer_PostUploadPack_validation(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	cfg := testcfg.Build(t)
 
+	cfg := testcfg.Build(t)
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 
 	rpcRequests := []*gitalypb.PostUploadPackRequest{
@@ -354,65 +294,34 @@ func extractPackDataFromResponse(t *testing.T, buf *bytes.Buffer) ([]byte, int, 
 	return pack, version, entries
 }
 
-func TestUploadPackRequestForPartialCloneSuccess(t *testing.T) {
+func TestServer_PostUploadPack_partialClone(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	cfg, _, repoPath := testcfg.BuildWithRepo(t)
+
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	_, localRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
-
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
-
 	serverSocketPath := runSmartHTTPServer(t, cfg, WithPackfileNegotiationMetrics(negotiationMetrics))
 
-	storagePath := cfg.Storages[0].Path
-	remoteRepoRelativePath := "gitlab-test-remote"
-	localRepoRelativePath := "gitlab-test-local"
-	remoteRepoPath := filepath.Join(storagePath, remoteRepoRelativePath)
-	localRepoPath := filepath.Join(storagePath, localRepoRelativePath)
-	// Make a non-bare clone of the test repo to act as a remote one
-	gittest.Exec(t, cfg, "clone", repoPath, remoteRepoPath)
-	// Make a bare clone of the test repo to act as a local one and to leave the original repo intact for other tests
-	gittest.Exec(t, cfg, "init", "--bare", localRepoPath)
-
-	defer func() { require.NoError(t, os.RemoveAll(localRepoPath)) }()
-	defer func() { require.NoError(t, os.RemoveAll(remoteRepoPath)) }()
-
-	commitMsg := fmt.Sprintf("Testing UploadPack RPC around %d", time.Now().Unix())
-	committerName := "Scrooge McDuck"
-	committerEmail := "scrooge@mcduck.com"
-
-	gittest.Exec(t, cfg, "-C", remoteRepoPath,
-		"-c", fmt.Sprintf("user.name=%s", committerName),
-		"-c", fmt.Sprintf("user.email=%s", committerEmail),
-		"commit", "--allow-empty", "-m", commitMsg)
-
-	// The commit ID we want to pull from the remote repo
-	newHead := bytes.TrimSpace(gittest.Exec(t, cfg, "-C", remoteRepoPath, "rev-parse", "master"))
-	// The commit ID we want to pull from the remote repo
-
-	// UploadPack request is a "want" packet line followed by a packet flush, then many "have" packets followed by a packet flush.
-	// This is explained a bit in https://git-scm.com/book/en/v2/Git-Internals-Transfer-Protocols#_downloading_data
+	oldCommit, err := git.NewObjectIDFromHex("1e292f8fedd741b75372e19097c76d327140c312") // refs/heads/master
+	require.NoError(t, err)
+	newCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(oldCommit))
 
 	var requestBuffer bytes.Buffer
-	gittest.WritePktlineString(t, &requestBuffer, fmt.Sprintf("want %s %s\n", newHead, clientCapabilities))
+	gittest.WritePktlineString(t, &requestBuffer, fmt.Sprintf("want %s %s\n", newCommit, clientCapabilities))
 	gittest.WritePktlineString(t, &requestBuffer, fmt.Sprintf("filter %s\n", "blob:limit=200"))
 	gittest.WritePktlineFlush(t, &requestBuffer)
 	gittest.WritePktlineString(t, &requestBuffer, "done\n")
 	gittest.WritePktlineFlush(t, &requestBuffer)
 
-	req := &gitalypb.PostUploadPackRequest{
-		Repository: &gitalypb.Repository{
-			StorageName:  cfg.Storages[0].Name,
-			RelativePath: filepath.Join(remoteRepoRelativePath, ".git"),
-		},
-	}
-
+	req := &gitalypb.PostUploadPackRequest{Repository: repo}
 	responseBuffer, err := makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, req, &requestBuffer)
 	require.NoError(t, err)
 
 	pack, version, entries := extractPackDataFromResponse(t, responseBuffer)
-	require.NotNil(t, pack, "Expected to find a pack file in response, found none")
+	require.NotEmpty(t, pack, "Expected to find a pack file in response, found none")
 
 	gittest.ExecStream(t, cfg, bytes.NewReader(pack), "-C", localRepoPath, "unpack-objects", fmt.Sprintf("--pack_header=%d,%d", version, entries))
 
@@ -423,25 +332,39 @@ func TestUploadPackRequestForPartialCloneSuccess(t *testing.T) {
 	blobGreaterThanLimit := "c1788657b95998a2f177a4f86d68a60f2a80117f"
 
 	gittest.GitObjectMustExist(t, cfg.Git.BinPath, localRepoPath, blobLessThanLimit)
-	gittest.GitObjectMustExist(t, cfg.Git.BinPath, remoteRepoPath, blobGreaterThanLimit)
+	gittest.GitObjectMustExist(t, cfg.Git.BinPath, repoPath, blobGreaterThanLimit)
 	gittest.GitObjectMustNotExist(t, cfg.Git.BinPath, localRepoPath, blobGreaterThanLimit)
-
-	newBranch := "new-branch"
-	newHead = []byte(gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch(newBranch)))
-
-	// after we delete the branch, we have a dangling commit
-	gittest.Exec(t, cfg, "-C", remoteRepoPath, "branch", "-D", newBranch)
-
-	requestBuffer.Reset()
-	gittest.WritePktlineString(t, &requestBuffer, fmt.Sprintf("want %s %s\n", string(newHead), clientCapabilities))
-	// add filtering
-	gittest.WritePktlineFlush(t, &requestBuffer)
-	gittest.WritePktlineFlush(t, &requestBuffer)
-
-	_, err = makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, req, &requestBuffer)
-	require.NoError(t, err)
 
 	metric, err := negotiationMetrics.GetMetricWithLabelValues("filter")
 	require.NoError(t, err)
 	require.Equal(t, 1.0, promtest.ToFloat64(metric))
+}
+
+func TestServer_PostUploadPack_allowAnySHA1InWant(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	_, localRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+
+	testhelper.ConfigureGitalyHooksBin(t, cfg)
+	serverSocketPath := runSmartHTTPServer(t, cfg)
+	newCommit := gittest.WriteCommit(t, cfg, repoPath)
+
+	var requestBuffer bytes.Buffer
+	gittest.WritePktlineString(t, &requestBuffer, fmt.Sprintf("want %s %s\n", newCommit, clientCapabilities))
+	gittest.WritePktlineFlush(t, &requestBuffer)
+	gittest.WritePktlineString(t, &requestBuffer, "done\n")
+	gittest.WritePktlineFlush(t, &requestBuffer)
+
+	req := &gitalypb.PostUploadPackRequest{Repository: repo}
+	responseBuffer, err := makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, req, &requestBuffer)
+	require.NoError(t, err)
+
+	pack, version, entries := extractPackDataFromResponse(t, responseBuffer)
+	require.NotEmpty(t, pack, "Expected to find a pack file in response, found none")
+
+	gittest.ExecStream(t, cfg, bytes.NewReader(pack), "-C", localRepoPath, "unpack-objects", fmt.Sprintf("--pack_header=%d,%d", version, entries))
+
+	gittest.GitObjectMustExist(t, cfg.Git.BinPath, localRepoPath, newCommit.String())
 }
