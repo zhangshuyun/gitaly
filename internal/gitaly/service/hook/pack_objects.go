@@ -19,10 +19,12 @@ import (
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/pktline"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -41,10 +43,6 @@ var (
 )
 
 func (s *server) PackObjectsHook(stream gitalypb.HookService_PackObjectsHookServer) error {
-	if s.packObjectsCache == nil {
-		return helper.ErrInternalf("packObjectsCache is not available")
-	}
-
 	firstRequest, err := stream.Recv()
 	if err != nil {
 		return helper.ErrInternal(err)
@@ -59,7 +57,32 @@ func (s *server) PackObjectsHook(stream gitalypb.HookService_PackObjectsHookServ
 		return helper.ErrInvalidArgumentf("invalid pack-objects command: %v: %w", firstRequest.Args, err)
 	}
 
-	if err := s.packObjectsHook(stream, firstRequest, args); err != nil {
+	stdin := streamio.NewReader(func() ([]byte, error) {
+		resp, err := stream.Recv()
+		return resp.GetStdin(), err
+	})
+
+	output := func(r io.Reader) (int64, error) {
+		var n int64
+		err := pktline.EachSidebandPacket(r, func(band byte, data []byte) error {
+			resp := &gitalypb.PackObjectsHookResponse{}
+
+			switch band {
+			case bandStdout:
+				resp.Stdout = data
+			case bandStderr:
+				resp.Stderr = data
+			default:
+				return fmt.Errorf("invalid side band: %d", band)
+			}
+
+			n += int64(len(data))
+			return stream.Send(resp)
+		})
+		return n, err
+	}
+
+	if err := s.packObjectsHook(stream.Context(), firstRequest.Repository, firstRequest, args, stdin, output); err != nil {
 		return helper.ErrInternal(err)
 	}
 
@@ -71,10 +94,8 @@ const (
 	bandStderr = 2
 )
 
-func (s *server) packObjectsHook(stream gitalypb.HookService_PackObjectsHookServer, firstRequest *gitalypb.PackObjectsHookRequest, args *packObjectsArgs) error {
-	ctx := stream.Context()
-
-	data, err := protojson.Marshal(firstRequest)
+func (s *server) packObjectsHook(ctx context.Context, repo *gitalypb.Repository, reqHash proto.Message, args *packObjectsArgs, stdinReader io.Reader, output func(io.Reader) (int64, error)) error {
+	data, err := protojson.Marshal(reqHash)
 	if err != nil {
 		return err
 	}
@@ -84,7 +105,7 @@ func (s *server) packObjectsHook(stream gitalypb.HookService_PackObjectsHookServ
 		return err
 	}
 
-	stdin, err := bufferStdin(stream, h)
+	stdin, err := bufferStdin(stdinReader, h)
 	if err != nil {
 		return err
 	}
@@ -104,7 +125,7 @@ func (s *server) packObjectsHook(stream gitalypb.HookService_PackObjectsHookServ
 	key := hex.EncodeToString(h.Sum(nil))
 
 	r, created, err := s.packObjectsCache.FindOrCreate(key, func(w io.Writer) error {
-		return s.runPackObjects(ctx, w, firstRequest.Repository, args, stdin, key)
+		return s.runPackObjects(ctx, w, repo, args, stdin, key)
 	})
 	if err != nil {
 		return err
@@ -127,21 +148,8 @@ func (s *server) packObjectsHook(stream gitalypb.HookService_PackObjectsHookServ
 		packObjectsServedBytes.Add(float64(servedBytes))
 	}()
 
-	if err := pktline.EachSidebandPacket(r, func(band byte, data []byte) error {
-		resp := &gitalypb.PackObjectsHookResponse{}
-
-		switch band {
-		case bandStdout:
-			resp.Stdout = data
-		case bandStderr:
-			resp.Stderr = data
-		default:
-			return fmt.Errorf("invalid side band: %d", band)
-		}
-
-		servedBytes += int64(len(data))
-		return stream.Send(resp)
-	}); err != nil {
+	servedBytes, err = output(r)
+	if err != nil {
 		return err
 	}
 
@@ -298,7 +306,7 @@ func (p *packObjectsArgs) subcmd() git.SubCmd {
 	return sc
 }
 
-func bufferStdin(stream gitalypb.HookService_PackObjectsHookServer, h hash.Hash) (_ io.ReadCloser, err error) {
+func bufferStdin(r io.Reader, h hash.Hash) (_ io.ReadCloser, err error) {
 	f, err := ioutil.TempFile("", "PackObjectsHook-stdin")
 	if err != nil {
 		return nil, err
@@ -313,15 +321,7 @@ func bufferStdin(stream gitalypb.HookService_PackObjectsHookServer, h hash.Hash)
 		return nil, err
 	}
 
-	stdin := io.TeeReader(
-		streamio.NewReader(func() ([]byte, error) {
-			resp, err := stream.Recv()
-			return resp.GetStdin(), err
-		}),
-		h,
-	)
-
-	_, err = io.Copy(f, stdin)
+	_, err = io.Copy(f, io.TeeReader(r, h))
 	if err != nil {
 		return nil, err
 	}
@@ -342,4 +342,32 @@ func (cw *countingWriter) Write(p []byte) (int, error) {
 	n, err := cw.W.Write(p)
 	cw.N += int64(n)
 	return n, err
+}
+
+func (s *server) PackObjectsHookWithSidechannel(ctx context.Context, req *gitalypb.PackObjectsHookWithSidechannelRequest) (*gitalypb.PackObjectsHookWithSidechannelResponse, error) {
+	if req.GetRepository() == nil {
+		return nil, helper.ErrInvalidArgument(errors.New("repository is empty"))
+	}
+
+	args, err := parsePackObjectsArgs(req.Args)
+	if err != nil {
+		return nil, helper.ErrInvalidArgumentf("invalid pack-objects command: %v: %w", req.Args, err)
+	}
+
+	c, err := hook.GetSidechannel(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer c.Close()
+
+	output := func(r io.Reader) (int64, error) { return io.Copy(c, r) }
+	if err := s.packObjectsHook(ctx, req.Repository, req, args, c, output); err != nil {
+		return nil, err
+	}
+
+	if err := c.Close(); err != nil {
+		return nil, err
+	}
+
+	return &gitalypb.PackObjectsHookWithSidechannelResponse{}, nil
 }
