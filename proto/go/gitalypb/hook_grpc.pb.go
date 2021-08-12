@@ -26,6 +26,9 @@ type HookServiceClient interface {
 	// uploadpack.packObjectsHook mechanism. It generates a stream of packed
 	// Git objects.
 	PackObjectsHook(ctx context.Context, opts ...grpc.CallOption) (HookService_PackObjectsHookClient, error)
+	// PackObjectsHookWithSidechannel is an optimized version of PackObjectsHook that uses
+	// a unix socket side channel.
+	PackObjectsHookWithSidechannel(ctx context.Context, in *PackObjectsHookWithSidechannelRequest, opts ...grpc.CallOption) (*PackObjectsHookWithSidechannelResponse, error)
 }
 
 type hookServiceClient struct {
@@ -192,6 +195,15 @@ func (x *hookServicePackObjectsHookClient) Recv() (*PackObjectsHookResponse, err
 	return m, nil
 }
 
+func (c *hookServiceClient) PackObjectsHookWithSidechannel(ctx context.Context, in *PackObjectsHookWithSidechannelRequest, opts ...grpc.CallOption) (*PackObjectsHookWithSidechannelResponse, error) {
+	out := new(PackObjectsHookWithSidechannelResponse)
+	err := c.cc.Invoke(ctx, "/gitaly.HookService/PackObjectsHookWithSidechannel", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // HookServiceServer is the server API for HookService service.
 // All implementations must embed UnimplementedHookServiceServer
 // for forward compatibility
@@ -204,6 +216,9 @@ type HookServiceServer interface {
 	// uploadpack.packObjectsHook mechanism. It generates a stream of packed
 	// Git objects.
 	PackObjectsHook(HookService_PackObjectsHookServer) error
+	// PackObjectsHookWithSidechannel is an optimized version of PackObjectsHook that uses
+	// a unix socket side channel.
+	PackObjectsHookWithSidechannel(context.Context, *PackObjectsHookWithSidechannelRequest) (*PackObjectsHookWithSidechannelResponse, error)
 	mustEmbedUnimplementedHookServiceServer()
 }
 
@@ -225,6 +240,9 @@ func (UnimplementedHookServiceServer) ReferenceTransactionHook(HookService_Refer
 }
 func (UnimplementedHookServiceServer) PackObjectsHook(HookService_PackObjectsHookServer) error {
 	return status.Errorf(codes.Unimplemented, "method PackObjectsHook not implemented")
+}
+func (UnimplementedHookServiceServer) PackObjectsHookWithSidechannel(context.Context, *PackObjectsHookWithSidechannelRequest) (*PackObjectsHookWithSidechannelResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PackObjectsHookWithSidechannel not implemented")
 }
 func (UnimplementedHookServiceServer) mustEmbedUnimplementedHookServiceServer() {}
 
@@ -364,13 +382,36 @@ func (x *hookServicePackObjectsHookServer) Recv() (*PackObjectsHookRequest, erro
 	return m, nil
 }
 
+func _HookService_PackObjectsHookWithSidechannel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PackObjectsHookWithSidechannelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HookServiceServer).PackObjectsHookWithSidechannel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gitaly.HookService/PackObjectsHookWithSidechannel",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HookServiceServer).PackObjectsHookWithSidechannel(ctx, req.(*PackObjectsHookWithSidechannelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // HookService_ServiceDesc is the grpc.ServiceDesc for HookService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var HookService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "gitaly.HookService",
 	HandlerType: (*HookServiceServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "PackObjectsHookWithSidechannel",
+			Handler:    _HookService_PackObjectsHookWithSidechannel_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "PreReceiveHook",
