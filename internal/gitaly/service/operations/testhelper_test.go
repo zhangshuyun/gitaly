@@ -92,7 +92,7 @@ func setupOperationsServiceWithRuby(
 
 	testhelper.ConfigureGitalySSHBin(t, cfg)
 	testhelper.BuildGitalyGit2Go(t, cfg)
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
+	testhelper.BuildGitalyHooks(t, cfg)
 
 	serverSocketPath := runOperationServiceServer(t, cfg, rubySrv, options...)
 	cfg.SocketPath = serverSocketPath

@@ -33,8 +33,8 @@ func BuildGitalyLFSSmudge(t *testing.T, cfg config.Cfg) {
 	buildBinary(t, cfg.BinDir, "gitaly-lfs-smudge")
 }
 
-// ConfigureGitalyHooksBin builds gitaly-hooks command for tests for the cfg.
-func ConfigureGitalyHooksBin(t testing.TB, cfg config.Cfg) {
+// BuildGitalyHooks builds the gitaly-hooks command and installs it into the binary directory.
+func BuildGitalyHooks(t testing.TB, cfg config.Cfg) {
 	buildBinary(t, cfg.BinDir, "gitaly-hooks")
 }
 

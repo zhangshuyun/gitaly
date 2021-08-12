@@ -80,7 +80,7 @@ func TestSuccessfulDeleteRefs(t *testing.T) {
 func TestDeleteRefs_transaction(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
+	testhelper.BuildGitalyHooks(t, cfg)
 
 	var votes int
 	txManager := &transaction.MockManager{

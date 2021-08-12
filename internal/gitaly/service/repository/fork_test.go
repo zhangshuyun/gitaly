@@ -63,7 +63,7 @@ func TestSuccessfulCreateForkRequest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-			testhelper.ConfigureGitalyHooksBin(t, cfg)
+			testhelper.BuildGitalyHooks(t, cfg)
 			testhelper.ConfigureGitalySSHBin(t, cfg)
 
 			var (

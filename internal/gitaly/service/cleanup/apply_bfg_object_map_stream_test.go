@@ -20,7 +20,7 @@ import (
 func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
 	cfg, protoRepo, repoPath, client := setupCleanupService(t)
 
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
+	testhelper.BuildGitalyHooks(t, cfg)
 
 	repo := localrepo.NewTestRepo(t, cfg, protoRepo)
 

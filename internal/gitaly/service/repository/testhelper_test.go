@@ -51,7 +51,7 @@ func TestWithRubySidecar(t *testing.T) {
 	t.Parallel()
 	cfg := testcfg.Build(t)
 
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
+	testhelper.BuildGitalyHooks(t, cfg)
 
 	rubySrv := rubyserver.New(cfg)
 	require.NoError(t, rubySrv.Start())
@@ -175,7 +175,7 @@ func setupRepositoryService(t testing.TB, opts ...testserver.GitalyServerOpt) (c
 func setupRepositoryServiceWithoutRepo(t testing.TB, opts ...testserver.GitalyServerOpt) (config.Cfg, gitalypb.RepositoryServiceClient) {
 	cfg := testcfg.Build(t)
 
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
+	testhelper.BuildGitalyHooks(t, cfg)
 	testhelper.ConfigureGitalySSHBin(t, cfg)
 
 	client, serverSocketPath := runRepositoryService(t, cfg, nil, opts...)

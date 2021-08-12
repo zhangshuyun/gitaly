@@ -123,7 +123,7 @@ func TestFetchIntoObjectPool_hooks(t *testing.T) {
 func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
+	testhelper.BuildGitalyHooks(t, cfg)
 
 	locator := config.NewLocator(cfg)
 	logBuffer := &bytes.Buffer{}

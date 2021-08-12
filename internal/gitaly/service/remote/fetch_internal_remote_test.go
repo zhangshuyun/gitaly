@@ -148,7 +148,7 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 	t.Parallel()
 	remoteCfg, remoteRepo, remoteRepoPath := testcfg.BuildWithRepo(t)
 
-	testhelper.ConfigureGitalyHooksBin(t, remoteCfg)
+	testhelper.BuildGitalyHooks(t, remoteCfg)
 
 	remoteAddr := testserver.RunGitalyServer(t, remoteCfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
@@ -175,7 +175,7 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 	localRepo := localRepos[0]
 
 	testhelper.ConfigureGitalySSHBin(t, localCfg)
-	testhelper.ConfigureGitalyHooksBin(t, localCfg)
+	testhelper.BuildGitalyHooks(t, localCfg)
 
 	getGitalySSHInvocationParams := listenGitalySSHCalls(t, localCfg)
 

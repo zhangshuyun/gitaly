@@ -34,7 +34,7 @@ func TestConnectivity(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalySSHBin(t, cfg)
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
+	testhelper.BuildGitalyHooks(t, cfg)
 
 	cwd, err := os.Getwd()
 	require.NoError(t, err)
