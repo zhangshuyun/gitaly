@@ -194,8 +194,7 @@ func allowedHandler(t *testing.T, allowed bool) http.HandlerFunc {
 			_, err := res.Write([]byte(`{"status": true}`))
 			require.NoError(t, err)
 		} else {
-			res.WriteHeader(http.StatusUnauthorized)
-			_, err := res.Write([]byte(`{"message":"not allowed"}`))
+			_, err := res.Write([]byte(`{"message":"not allowed","status":false}`))
 			require.NoError(t, err)
 		}
 	}
@@ -212,16 +211,20 @@ func TestPreReceive_APIErrors(t *testing.T) {
 		expectedStderr     string
 	}{
 		{
-			desc: "/allowed endpoint returns 401",
+			desc: "allowed fails",
 			allowedHandler: http.HandlerFunc(
 				func(res http.ResponseWriter, req *http.Request) {
 					res.Header().Set("Content-Type", "application/json")
 					res.WriteHeader(http.StatusUnauthorized)
-					_, err := res.Write([]byte(`{"message":"not allowed"}`))
-					require.NoError(t, err)
 				}),
 			expectedExitStatus: 1,
-			expectedStderr:     "GitLab: not allowed",
+			expectedStderr:     "invoking access checks: Internal API error (401)",
+		},
+		{
+			desc:               "allowed rejects",
+			allowedHandler:     allowedHandler(t, false),
+			expectedExitStatus: 1,
+			expectedStderr:     "not allowed",
 		},
 		{
 			desc:               "/pre_receive endpoint fails to increase reference coutner",
@@ -385,7 +388,7 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 			primary:            true,
 			allowedHandler:     allowedHandler(t, false),
 			expectedExitStatus: 1,
-			expectedStderr:     "GitLab: not allowed",
+			expectedStderr:     "not allowed",
 		},
 		{
 			desc:               "secondary checks for permissions",

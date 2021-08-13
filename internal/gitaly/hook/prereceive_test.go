@@ -312,7 +312,7 @@ func TestPrereceive_gitlab(t *testing.T) {
 				return false, "", errors.New("oops")
 			},
 			expectHookCall: false,
-			expectedErr:    NotAllowedError{Message: "GitLab: oops"},
+			expectedErr:    fmt.Errorf("invoking access checks: %w", errors.New("oops")),
 		},
 		{
 			desc:    "prereceive rejects",

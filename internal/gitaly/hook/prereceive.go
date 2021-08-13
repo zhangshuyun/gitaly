@@ -129,7 +129,7 @@ func (m *GitLabHookManager) preReceiveHook(ctx context.Context, payload git.Hook
 
 	allowed, message, err := m.gitlabClient.Allowed(ctx, params)
 	if err != nil {
-		return NotAllowedError{Message: fmt.Sprintf("GitLab: %v", err)}
+		return fmt.Errorf("invoking access checks: %w", err)
 	}
 	if !allowed {
 		return NotAllowedError{Message: message}
