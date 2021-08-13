@@ -105,7 +105,7 @@ func TestFailedUploadArchiveRequestDueToValidationError(t *testing.T) {
 func TestUploadArchiveSuccess(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
 
 	serverSocketPath := runSSHServer(t, cfg)
 

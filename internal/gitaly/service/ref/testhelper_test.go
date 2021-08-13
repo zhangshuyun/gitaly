@@ -49,7 +49,7 @@ func setupRefService(t testing.TB) (config.Cfg, *gitalypb.Repository, string, gi
 
 	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
+	testhelper.BuildGitalyHooks(t, cfg)
 
 	return cfg, repo, repoPath, client
 }
@@ -57,7 +57,7 @@ func setupRefService(t testing.TB) (config.Cfg, *gitalypb.Repository, string, gi
 func setupRefServiceWithoutRepo(t testing.TB) (config.Cfg, gitalypb.RefServiceClient) {
 	cfg := testcfg.Build(t)
 
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
+	testhelper.BuildGitalyHooks(t, cfg)
 
 	serverSocketPath := runRefServiceServer(t, cfg)
 	cfg.SocketPath = serverSocketPath

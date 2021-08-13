@@ -40,7 +40,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 
-	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+	testhelper.BuildGitalyGit2Go(t, cfg)
 
 	type refs map[string][]string
 

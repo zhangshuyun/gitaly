@@ -78,7 +78,7 @@ func TestMergeFailsWithMissingArguments(t *testing.T) {
 
 func TestMergeFailsWithInvalidRepositoryPath(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
-	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+	testhelper.BuildGitalyGit2Go(t, cfg)
 	executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
 
 	ctx, cancel := testhelper.Context()
@@ -180,7 +180,7 @@ func TestMergeTrees(t *testing.T) {
 
 	for _, tc := range testcases {
 		cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
-		testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+		testhelper.BuildGitalyGit2Go(t, cfg)
 		executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
 
 		base := cmdtesthelper.BuildCommit(t, repoPath, []*git.Oid{nil}, tc.base)
@@ -240,7 +240,7 @@ func TestMergeTrees(t *testing.T) {
 
 func TestMerge_recursive(t *testing.T) {
 	cfg := testcfg.Build(t)
-	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+	testhelper.BuildGitalyGit2Go(t, cfg)
 	executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
 
 	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])

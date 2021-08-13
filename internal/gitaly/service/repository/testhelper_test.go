@@ -51,7 +51,7 @@ func TestWithRubySidecar(t *testing.T) {
 	t.Parallel()
 	cfg := testcfg.Build(t)
 
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
+	testhelper.BuildGitalyHooks(t, cfg)
 
 	rubySrv := rubyserver.New(cfg)
 	require.NoError(t, rubySrv.Start())
@@ -93,7 +93,7 @@ func newMuxedRepositoryClient(t *testing.T, ctx context.Context, cfg config.Cfg,
 
 func setupRepositoryServiceWithRuby(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
 	client, serverSocketPath := runRepositoryService(t, cfg, rubySrv, opts...)
-	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+	testhelper.BuildGitalyGit2Go(t, cfg)
 	cfg.SocketPath = serverSocketPath
 
 	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
@@ -175,8 +175,8 @@ func setupRepositoryService(t testing.TB, opts ...testserver.GitalyServerOpt) (c
 func setupRepositoryServiceWithoutRepo(t testing.TB, opts ...testserver.GitalyServerOpt) (config.Cfg, gitalypb.RepositoryServiceClient) {
 	cfg := testcfg.Build(t)
 
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
-	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.BuildGitalyHooks(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
 
 	client, serverSocketPath := runRepositoryService(t, cfg, nil, opts...)
 	cfg.SocketPath = serverSocketPath

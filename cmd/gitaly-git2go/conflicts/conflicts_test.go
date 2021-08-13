@@ -180,7 +180,7 @@ func TestConflicts(t *testing.T) {
 		cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 		executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
 
-		testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+		testhelper.BuildGitalyGit2Go(t, cfg)
 
 		base := cmdtesthelper.BuildCommit(t, repoPath, nil, tc.base)
 		ours := cmdtesthelper.BuildCommit(t, repoPath, []*git.Oid{base}, tc.ours)

@@ -25,8 +25,8 @@ func TestVisibilityOfHiddenRefs(t *testing.T) {
 	defer cancel()
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
-	testhelper.ConfigureGitalySSHBin(t, cfg)
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
+	testhelper.BuildGitalyHooks(t, cfg)
 
 	socketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 

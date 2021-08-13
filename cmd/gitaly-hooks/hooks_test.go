@@ -108,8 +108,8 @@ func TestHooksPrePostWithSymlinkedStoragePath(t *testing.T) {
 	tempDir := testhelper.TempDir(t)
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
-	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.BuildGitalyHooks(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
 
 	originalStoragePath := cfg.Storages[0].Path
 	symlinkedStoragePath := filepath.Join(tempDir, "storage")
@@ -121,8 +121,8 @@ func TestHooksPrePostWithSymlinkedStoragePath(t *testing.T) {
 
 func TestHooksPrePostReceive(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
-	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.BuildGitalyHooks(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
 	testHooksPrePostReceive(t, cfg, repo, repoPath)
 }
 
@@ -257,8 +257,8 @@ func TestHooksUpdate(t *testing.T) {
 		Auth:  auth.Config{Token: "abc123"},
 		Hooks: config.Hooks{CustomHooksDir: customHooksDir},
 	}))
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
-	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.BuildGitalyHooks(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
 
 	require.NoError(t, os.Symlink(filepath.Join(cfg.GitlabShell.Dir, "config.yml"), filepath.Join(cfg.GitlabShell.Dir, "config.yml")))
 
@@ -332,8 +332,8 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 	logger = gitalylog.NewHookLogger()
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t, testcfg.WithBase(config.Cfg{Auth: auth.Config{Token: "abc123"}}))
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
-	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.BuildGitalyHooks(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
 
 	// By setting the last parameter to false, the post-receive API call will
 	// send back {"reference_counter_increased": false}, indicating something went wrong
@@ -445,8 +445,8 @@ func TestHooksNotAllowed(t *testing.T) {
 	logger = gitalylog.NewHookLogger()
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t, testcfg.WithBase(config.Cfg{Auth: auth.Config{Token: "abc123"}}))
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
-	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.BuildGitalyHooks(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
 
 	c := gitlab.TestServerOptions{
 		User:                        "",
@@ -519,8 +519,8 @@ func TestCheckOK(t *testing.T) {
 	defer cleanup()
 
 	cfg := testcfg.Build(t)
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
-	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.BuildGitalyHooks(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
 
 	cmd := exec.Command(filepath.Join(cfg.BinDir, "gitaly-hooks"), "check", configPath)
 
@@ -563,8 +563,8 @@ func TestCheckBadCreds(t *testing.T) {
 	defer cleanup()
 
 	cfg := testcfg.Build(t)
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
-	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.BuildGitalyHooks(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
 
 	cmd := exec.Command(filepath.Join(cfg.BinDir, "gitaly-hooks"), "check", configPath)
 
@@ -658,8 +658,8 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 		Logging: config.Logging{Config: internallog.Config{Dir: logDir}},
 	}))
 
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
-	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.BuildGitalyHooks(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
 
 	env := envForHooks(t, cfg, repo, glHookValues{}, proxyValues{})
 
@@ -710,8 +710,8 @@ func TestRequestedHooks(t *testing.T) {
 		t.Run(hookName, func(t *testing.T) {
 			t.Run("unrequested hook is ignored", func(t *testing.T) {
 				cfg := testcfg.Build(t)
-				testhelper.ConfigureGitalyHooksBin(t, cfg)
-				testhelper.ConfigureGitalySSHBin(t, cfg)
+				testhelper.BuildGitalyHooks(t, cfg)
+				testhelper.BuildGitalySSH(t, cfg)
 
 				payload, err := git.NewHooksPayload(cfg, &gitalypb.Repository{}, nil, nil, git.AllHooks&^hook, nil).Env()
 				require.NoError(t, err)
@@ -723,8 +723,8 @@ func TestRequestedHooks(t *testing.T) {
 
 			t.Run("requested hook runs", func(t *testing.T) {
 				cfg := testcfg.Build(t)
-				testhelper.ConfigureGitalyHooksBin(t, cfg)
-				testhelper.ConfigureGitalySSHBin(t, cfg)
+				testhelper.BuildGitalyHooks(t, cfg)
+				testhelper.BuildGitalySSH(t, cfg)
 
 				payload, err := git.NewHooksPayload(cfg, &gitalypb.Repository{}, nil, nil, hook, nil).Env()
 				require.NoError(t, err)

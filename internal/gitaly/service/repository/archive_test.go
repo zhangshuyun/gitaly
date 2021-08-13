@@ -193,7 +193,7 @@ func TestGetArchiveWithLfsSuccess(t *testing.T) {
 
 	repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
-	testhelper.ConfigureGitalyLfsSmudge(t, cfg.BinDir)
+	testhelper.BuildGitalyLFSSmudge(t, cfg)
 
 	// lfs-moar branch SHA
 	sha := "46abbb087fcc0fd02c340f0f2f052bd2c7708da3"
@@ -489,7 +489,7 @@ env | grep -E "^GL_|CORRELATION|GITALY_"`))
 
 	cfg := testcfg.Build(t)
 
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
+	testhelper.BuildGitalyHooks(t, cfg)
 
 	// We re-define path to the git executable to catch parameters used to call it.
 	// This replacement only needs to be done for the configuration used to invoke git commands.

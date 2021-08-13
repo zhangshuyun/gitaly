@@ -54,7 +54,7 @@ func TestExecutor_Commit(t *testing.T) {
 	defer cancel()
 
 	cfg := testcfg.Build(t)
-	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+	testhelper.BuildGitalyGit2Go(t, cfg)
 
 	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 

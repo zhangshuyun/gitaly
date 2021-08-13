@@ -31,8 +31,8 @@ func TestReplicateRepository(t *testing.T) {
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
 
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
-	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.BuildGitalyHooks(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
 
 	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil, testserver.WithDisablePraefect())
 	cfg.SocketPath = serverSocketPath
@@ -101,8 +101,8 @@ func TestReplicateRepositoryTransactional(t *testing.T) {
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
 
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
-	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.BuildGitalyHooks(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
 
 	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil, testserver.WithDisablePraefect())
 	cfg.SocketPath = serverSocketPath
@@ -283,8 +283,8 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 			cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "target"))
 			cfg := cfgBuilder.Build(t)
 
-			testhelper.ConfigureGitalyHooksBin(t, cfg)
-			testhelper.ConfigureGitalySSHBin(t, cfg)
+			testhelper.BuildGitalyHooks(t, cfg)
+			testhelper.BuildGitalySSH(t, cfg)
 
 			serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil, testserver.WithDisablePraefect())
 			cfg.SocketPath = serverSocketPath

@@ -17,7 +17,7 @@ import (
 
 func TestExecutor_Apply(t *testing.T) {
 	cfg := testcfg.Build(t)
-	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+	testhelper.BuildGitalyGit2Go(t, cfg)
 
 	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 

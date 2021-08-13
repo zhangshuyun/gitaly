@@ -90,9 +90,9 @@ func setupOperationsServiceWithRuby(
 ) (context.Context, config.Cfg, *gitalypb.Repository, string, gitalypb.OperationServiceClient) {
 	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
-	testhelper.ConfigureGitalySSHBin(t, cfg)
-	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
+	testhelper.BuildGitalyGit2Go(t, cfg)
+	testhelper.BuildGitalyHooks(t, cfg)
 
 	serverSocketPath := runOperationServiceServer(t, cfg, rubySrv, options...)
 	cfg.SocketPath = serverSocketPath
