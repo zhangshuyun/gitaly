@@ -72,6 +72,114 @@ index 0000000000000000000000000000000000000000..3be11c69355948412925fa5e073d76d5
 	require.Equal(t, expectedDiffs, diffs)
 }
 
+func TestDiffParserWithIgnoreWhitespaceChangeAndFirstPatchEmpty(t *testing.T) {
+	rawDiff := `:100644 100644 3be11c69355948412925fa5e073d76d58ff3afd2 2b3087b18e944130456ac0a6857e36b70cd33c79 M	file-00.txt
+:100644 100644 3be11c69355948412925fa5e073d76d58ff3afd2 20c4507e1acc7c7ddfd1fc995cfaf4c80a7c2d42 M	file-01.txt
+
+diff --git a/file-01.txt b/file-01.txt
+index 3be11c69355948412925fa5e073d76d58ff3afd2..20c4507e1acc7c7ddfd1fc995cfaf4c80a7c2d42 100644
+--- a/file-01.txt
++++ b/file-01.txt
+@@ -1 +1,2 @@
+ Lorem ipsum
++Lorem ipsum
+`
+	limits := Limits{
+		EnforceLimits: true,
+		SafeMaxFiles:  3,
+		SafeMaxBytes:  200,
+		SafeMaxLines:  200,
+		MaxFiles:      5,
+		MaxBytes:      10000000,
+		MaxLines:      10000000,
+		MaxPatchBytes: 100000,
+		CollapseDiffs: false,
+	}
+
+	diffs := getDiffs(t, rawDiff, limits)
+	expectedDiffs := []*Diff{
+		{
+			OldMode:   0o100644,
+			NewMode:   0o100644,
+			FromID:    "3be11c69355948412925fa5e073d76d58ff3afd2",
+			ToID:      "2b3087b18e944130456ac0a6857e36b70cd33c79",
+			FromPath:  []byte("file-00.txt"),
+			ToPath:    []byte("file-00.txt"),
+			Status:    'M',
+			Collapsed: false,
+			lineCount: 0,
+		},
+		{
+			OldMode:   0o100644,
+			NewMode:   0o100644,
+			FromID:    "3be11c69355948412925fa5e073d76d58ff3afd2",
+			ToID:      "20c4507e1acc7c7ddfd1fc995cfaf4c80a7c2d42",
+			FromPath:  []byte("file-01.txt"),
+			ToPath:    []byte("file-01.txt"),
+			Status:    'M',
+			Collapsed: false,
+			Patch:     []byte("@@ -1 +1,2 @@\n Lorem ipsum\n+Lorem ipsum\n"),
+			lineCount: 2,
+		},
+	}
+
+	require.Equal(t, expectedDiffs, diffs)
+}
+
+func TestDiffParserWithIgnoreWhitespaceChangeAndLastPatchEmpty(t *testing.T) {
+	rawDiff := `:100644 100644 3be11c69355948412925fa5e073d76d58ff3afd2 20c4507e1acc7c7ddfd1fc995cfaf4c80a7c2d42 M	file-00.txt
+:100644 100644 3be11c69355948412925fa5e073d76d58ff3afd2 2b3087b18e944130456ac0a6857e36b70cd33c79 M	file-01.txt
+
+diff --git a/file-00.txt b/file-00.txt
+index 3be11c69355948412925fa5e073d76d58ff3afd2..20c4507e1acc7c7ddfd1fc995cfaf4c80a7c2d42 100644
+--- a/file-00.txt
++++ b/file-00.txt
+@@ -1 +1,2 @@
+ Lorem ipsum
++Lorem ipsum
+`
+	limits := Limits{
+		EnforceLimits: true,
+		SafeMaxFiles:  3,
+		SafeMaxBytes:  200,
+		SafeMaxLines:  200,
+		MaxFiles:      5,
+		MaxBytes:      10000000,
+		MaxLines:      10000000,
+		MaxPatchBytes: 100000,
+		CollapseDiffs: false,
+	}
+
+	diffs := getDiffs(t, rawDiff, limits)
+	expectedDiffs := []*Diff{
+		{
+			OldMode:   0o100644,
+			NewMode:   0o100644,
+			FromID:    "3be11c69355948412925fa5e073d76d58ff3afd2",
+			ToID:      "20c4507e1acc7c7ddfd1fc995cfaf4c80a7c2d42",
+			FromPath:  []byte("file-00.txt"),
+			ToPath:    []byte("file-00.txt"),
+			Status:    'M',
+			Collapsed: false,
+			Patch:     []byte("@@ -1 +1,2 @@\n Lorem ipsum\n+Lorem ipsum\n"),
+			lineCount: 2,
+		},
+		{
+			OldMode:   0o100644,
+			NewMode:   0o100644,
+			FromID:    "3be11c69355948412925fa5e073d76d58ff3afd2",
+			ToID:      "2b3087b18e944130456ac0a6857e36b70cd33c79",
+			FromPath:  []byte("file-01.txt"),
+			ToPath:    []byte("file-01.txt"),
+			Status:    'M',
+			Collapsed: false,
+			lineCount: 0,
+		},
+	}
+
+	require.Equal(t, expectedDiffs, diffs)
+}
+
 func TestDiffParserWithWordDiff(t *testing.T) {
 	rawDiff := `:000000 100644 0000000000000000000000000000000000000000 4cc7061661b8f52891bc1b39feb4d856b21a1067 A	big.txt
 
