@@ -6,6 +6,8 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type statusWrapper struct {
@@ -100,6 +102,30 @@ func formatError(code codes.Code, format string, a ...interface{}) error {
 	}
 
 	return statusWrapper{err, status.New(code, err.Error())}
+}
+
+// ErrWithDetails adds the given details to the error if it is a gRPC status whose code is not OK.
+func ErrWithDetails(err error, details ...proto.Message) (error, error) {
+	if GrpcCode(err) == codes.OK {
+		return nil, fmt.Errorf("no error given")
+	}
+
+	st, ok := status.FromError(err)
+	if !ok {
+		return nil, fmt.Errorf("error is not a gRPC status")
+	}
+
+	proto := st.Proto()
+	for _, detail := range details {
+		marshaled, err := anypb.New(detail)
+		if err != nil {
+			return nil, err
+		}
+
+		proto.Details = append(proto.Details, marshaled)
+	}
+
+	return statusWrapper{err, status.FromProto(proto)}, nil
 }
 
 // GrpcCode emulates the old grpc.Code function: it translates errors into codes.Code values.
