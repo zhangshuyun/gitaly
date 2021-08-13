@@ -75,6 +75,7 @@ func TestManager_Create(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			repoPath := filepath.Join(cfg.Storages[0].Path, tc.repo.RelativePath)
+			refsPath := filepath.Join(path, tc.repo.RelativePath+".refs")
 			bundlePath := filepath.Join(path, tc.repo.RelativePath+".bundle")
 			customHooksPath := filepath.Join(path, tc.repo.RelativePath, "custom_hooks.tar")
 
@@ -93,6 +94,7 @@ func TestManager_Create(t *testing.T) {
 			}
 
 			if tc.createsBundle {
+				require.FileExists(t, refsPath)
 				require.FileExists(t, bundlePath)
 
 				dirInfo, err := os.Stat(filepath.Dir(bundlePath))
@@ -105,6 +107,10 @@ func TestManager_Create(t *testing.T) {
 
 				output := gittest.Exec(t, cfg, "-C", repoPath, "bundle", "verify", bundlePath)
 				require.Contains(t, string(output), "The bundle records a complete history")
+
+				expectedRefs := gittest.Exec(t, cfg, "-C", repoPath, "show-ref", "--head")
+				actualRefs := testhelper.MustReadFile(t, refsPath)
+				require.Equal(t, string(expectedRefs), string(actualRefs))
 			} else {
 				require.NoFileExists(t, bundlePath)
 			}
