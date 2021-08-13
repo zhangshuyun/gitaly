@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -32,9 +33,13 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 	}
 
 	ctx := stream.Context()
-	repo := s.localrepo(header.GetRepository())
 
-	repoPath, err := repo.Path()
+	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, header.GetRepository(), featureflag.Quarantine)
+	if err != nil {
+		return helper.ErrInternalf("creating repo quarantine: %w", err)
+	}
+
+	repoPath, err := quarantineRepo.Path()
 	if err != nil {
 		return err
 	}
@@ -46,7 +51,7 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 	}
 
 	remoteFetch := rebaseRemoteFetch{header: header}
-	startRevision, err := s.fetchStartRevision(ctx, repo, remoteFetch)
+	startRevision, err := s.fetchStartRevision(ctx, quarantineRepo, remoteFetch)
 	if err != nil {
 		return status.Error(codes.Internal, err.Error())
 	}
@@ -56,7 +61,7 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 		committer.When = header.Timestamp.AsTime()
 	}
 
-	newrev, err := s.git2go.Rebase(ctx, repo, git2go.RebaseCommand{
+	newrev, err := s.git2go.Rebase(ctx, quarantineRepo, git2go.RebaseCommand{
 		Repository:       repoPath,
 		Committer:        committer,
 		BranchName:       string(header.Branch),
@@ -89,7 +94,7 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 		ctx,
 		header.GetRepository(),
 		header.User,
-		nil,
+		quarantineDir,
 		branch,
 		newrev,
 		oldrev,
