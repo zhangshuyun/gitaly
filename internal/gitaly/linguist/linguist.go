@@ -54,20 +54,24 @@ func New(cfg config.Cfg) (*Instance, error) {
 func (inst *Instance) Stats(ctx context.Context, cfg config.Cfg, repoPath string, commitID string) (ByteCountPerLanguage, error) {
 	cmd, err := startGitLinguist(ctx, cfg, repoPath, commitID, "stats")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("starting linguist: %w", err)
 	}
 
 	data, err := ioutil.ReadAll(cmd)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("reading linguist output: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("waiting for linguist: %w", err)
 	}
 
 	stats := make(ByteCountPerLanguage)
-	return stats, json.Unmarshal(data, &stats)
+	if err := json.Unmarshal(data, &stats); err != nil {
+		return nil, fmt.Errorf("unmarshaling stats: %w", err)
+	}
+
+	return stats, nil
 }
 
 // Color returns the color Linguist has assigned to language.
@@ -83,7 +87,7 @@ func (inst *Instance) Color(language string) string {
 func startGitLinguist(ctx context.Context, cfg config.Cfg, repoPath string, commitID string, linguistCommand string) (*command.Command, error) {
 	bundle, err := exec.LookPath("bundle")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("finding bundle executable: %w", err)
 	}
 
 	args := []string{
@@ -116,7 +120,7 @@ func startGitLinguist(ctx context.Context, cfg config.Cfg, repoPath string, comm
 
 	internalCmd, err := command.New(ctx, cmd, nil, nil, nil, exportEnvironment()...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating command: %w", err)
 	}
 
 	return internalCmd, nil
