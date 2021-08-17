@@ -9,9 +9,6 @@ var (
 	// FindAllTagsPipeline enables the alternative pipeline implementation for finding
 	// tags via FindAllTags.
 	FindAllTagsPipeline = FeatureFlag{Name: "find_all_tags_pipeline", OnByDefault: false}
-	// UserSquashWithoutWorktree enables the new implementation of UserSquash which does not
-	// require a worktree to compute the squash.
-	UserSquashWithoutWorktree = FeatureFlag{Name: "user_squash_without_worktree", OnByDefault: false}
 	// QuarantinedResolveCOnflicts enables use of a quarantine object directory for ResolveConflicts.
 	QuarantinedResolveConflicts = FeatureFlag{Name: "quarantined_resolve_conflicts", OnByDefault: false}
 	// GoUserApplyPatch enables the Go implementation of UserApplyPatch
@@ -24,7 +21,6 @@ var (
 var All = []FeatureFlag{
 	GoSetConfig,
 	FindAllTagsPipeline,
-	UserSquashWithoutWorktree,
 	QuarantinedResolveConflicts,
 	GoUserApplyPatch,
 	Quarantine,

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"path/filepath"
 	"time"
 
@@ -243,6 +244,82 @@ func validateUserApplyPatchHeader(header *gitalypb.UserApplyPatchRequest_Header)
 
 	if len(header.GetTargetBranch()) == 0 {
 		return fmt.Errorf("missing Branch")
+	}
+
+	return nil
+}
+
+func (s *Server) addWorktree(ctx context.Context, repo *gitalypb.Repository, worktreePath string, committish string) error {
+	if err := s.runCmd(ctx, repo, "config", []git.Option{git.ConfigPair{Key: "core.splitIndex", Value: "false"}}, nil); err != nil {
+		return fmt.Errorf("on 'git config core.splitIndex false': %w", err)
+	}
+
+	args := []string{worktreePath}
+	flags := []git.Option{git.Flag{Name: "--detach"}}
+	if committish != "" {
+		args = append(args, committish)
+	} else {
+		flags = append(flags, git.Flag{Name: "--no-checkout"})
+	}
+
+	var stderr bytes.Buffer
+	cmd, err := s.gitCmdFactory.New(ctx, repo,
+		git.SubSubCmd{
+			Name:   "worktree",
+			Action: "add",
+			Flags:  flags,
+			Args:   args,
+		},
+		git.WithStderr(&stderr),
+		git.WithRefTxHook(ctx, repo, s.cfg),
+	)
+	if err != nil {
+		return fmt.Errorf("creation of 'git worktree add': %w", gitError{ErrMsg: stderr.String(), Err: err})
+	}
+
+	if err := cmd.Wait(); err != nil {
+		return fmt.Errorf("wait for 'git worktree add': %w", gitError{ErrMsg: stderr.String(), Err: err})
+	}
+
+	return nil
+}
+
+func (s *Server) removeWorktree(ctx context.Context, repo *gitalypb.Repository, worktreeName string) error {
+	cmd, err := s.gitCmdFactory.New(ctx, repo,
+		git.SubSubCmd{
+			Name:   "worktree",
+			Action: "remove",
+			Flags:  []git.Option{git.Flag{Name: "--force"}},
+			Args:   []string{worktreeName},
+		},
+		git.WithRefTxHook(ctx, repo, s.cfg),
+	)
+	if err != nil {
+		return fmt.Errorf("creation of 'worktree remove': %w", err)
+	}
+
+	if err := cmd.Wait(); err != nil {
+		return fmt.Errorf("wait for 'worktree remove': %w", err)
+	}
+
+	return nil
+}
+
+func newWorktreePath(repoPath, prefix string) string {
+	chars := []byte("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	rand.Shuffle(len(chars), func(i, j int) { chars[i], chars[j] = chars[j], chars[i] })
+	return filepath.Join(repoPath, gitlabWorktreesSubDir, prefix+string(chars[:32]))
+}
+
+func (s *Server) runCmd(ctx context.Context, repo *gitalypb.Repository, cmd string, opts []git.Option, args []string) error {
+	var stderr bytes.Buffer
+	safeCmd, err := s.gitCmdFactory.New(ctx, repo, git.SubCmd{Name: cmd, Flags: opts, Args: args}, git.WithStderr(&stderr))
+	if err != nil {
+		return fmt.Errorf("create safe cmd %q: %w", cmd, gitError{ErrMsg: stderr.String(), Err: err})
+	}
+
+	if err := safeCmd.Wait(); err != nil {
+		return fmt.Errorf("wait safe cmd %q: %w", cmd, gitError{ErrMsg: stderr.String(), Err: err})
 	}
 
 	return nil
