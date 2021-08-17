@@ -40,6 +40,9 @@ func ErrFailedPrecondition(err error) error { return wrapError(codes.FailedPreco
 // ErrUnavailable wraps err with codes.Unavailable, unless err is already a gRPC error.
 func ErrUnavailable(err error) error { return wrapError(codes.Unavailable, err) }
 
+// ErrPermissionDenied wraps err with codes.PermissionDenied, unless err is already a gRPC error.
+func ErrPermissionDenied(err error) error { return wrapError(codes.PermissionDenied, err) }
+
 // wrapError wraps the given error with the error code unless it's already a gRPC error. If given
 // nil it will return nil.
 func wrapError(code codes.Code, err error) error {
@@ -77,6 +80,12 @@ func ErrFailedPreconditionf(format string, a ...interface{}) error {
 // formatted error is a wrapped gRPC error.
 func ErrUnavailablef(format string, a ...interface{}) error {
 	return formatError(codes.Unavailable, format, a...)
+}
+
+// ErrPermissionDeniedf wraps a formatted error with codes.PermissionDenied, unless the formatted
+// error is a wrapped gRPC error.
+func ErrPermissionDeniedf(format string, a ...interface{}) error {
+	return formatError(codes.PermissionDenied, format, a...)
 }
 
 // formatError will create a new error from the given format string. If the error string contains a
