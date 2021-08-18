@@ -33,55 +33,62 @@ var (
 	commitMessage = []byte("Squash message")
 )
 
-func TestSuccessfulUserSquashRequest(t *testing.T) {
+func TestUserSquash_successful(t *testing.T) {
 	t.Parallel()
 
-	t.Run("with sparse checkout", func(t *testing.T) {
-		testSuccessfulUserSquashRequest(t, startSha, endSha)
-	})
+	for _, tc := range []struct {
+		desc             string
+		startOID, endOID string
+	}{
+		{
+			desc:     "with sparse checkout",
+			startOID: startSha,
+			endOID:   endSha,
+		},
+		{
+			desc:     "without sparse checkout",
+			startOID: "60ecb67744cb56576c30214ff52294f8ce2def98",
+			endOID:   "c84ff944ff4529a70788a5e9003c2b7feae29047",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
 
-	t.Run("without sparse checkout", func(t *testing.T) {
-		// there are no files that could be used for sparse checkout for those two commits
-		testSuccessfulUserSquashRequest(t, "60ecb67744cb56576c30214ff52294f8ce2def98", "c84ff944ff4529a70788a5e9003c2b7feae29047")
-	})
-}
+			ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-func testSuccessfulUserSquashRequest(t *testing.T, start, end string) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+			request := &gitalypb.UserSquashRequest{
+				Repository:    repoProto,
+				User:          gittest.TestUser,
+				SquashId:      "1",
+				Author:        author,
+				CommitMessage: commitMessage,
+				StartSha:      tc.startOID,
+				EndSha:        tc.endOID,
+			}
 
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+			response, err := client.UserSquash(ctx, request)
+			require.NoError(t, err)
+			require.Empty(t, response.GetGitError())
 
-	request := &gitalypb.UserSquashRequest{
-		Repository:    repoProto,
-		User:          gittest.TestUser,
-		SquashId:      "1",
-		Author:        author,
-		CommitMessage: commitMessage,
-		StartSha:      start,
-		EndSha:        end,
+			commit, err := repo.ReadCommit(ctx, git.Revision(response.SquashSha))
+			require.NoError(t, err)
+			require.Equal(t, []string{tc.startOID}, commit.ParentIds)
+			require.Equal(t, author.Name, commit.Author.Name)
+			require.Equal(t, author.Email, commit.Author.Email)
+			require.Equal(t, gittest.TestUser.Name, commit.Committer.Name)
+			require.Equal(t, gittest.TestUser.Email, commit.Committer.Email)
+			require.Equal(t, gittest.TimezoneOffset, string(commit.Committer.Timezone))
+			require.Equal(t, gittest.TimezoneOffset, string(commit.Author.Timezone))
+			require.Equal(t, commitMessage, commit.Subject)
+
+			treeData := gittest.Exec(t, cfg, "-C", repoPath, "ls-tree", "--name-only", response.SquashSha)
+			files := strings.Fields(text.ChompBytes(treeData))
+			require.Subset(t, files, []string{"VERSION", "README", "files", ".gitattributes"}, "ensure the files remain on their places")
+		})
 	}
-
-	response, err := client.UserSquash(ctx, request)
-	require.NoError(t, err)
-	require.Empty(t, response.GetGitError())
-
-	commit, err := repo.ReadCommit(ctx, git.Revision(response.SquashSha))
-	require.NoError(t, err)
-	require.Equal(t, []string{start}, commit.ParentIds)
-	require.Equal(t, author.Name, commit.Author.Name)
-	require.Equal(t, author.Email, commit.Author.Email)
-	require.Equal(t, gittest.TestUser.Name, commit.Committer.Name)
-	require.Equal(t, gittest.TestUser.Email, commit.Committer.Email)
-	require.Equal(t, gittest.TimezoneOffset, string(commit.Committer.Timezone))
-	require.Equal(t, gittest.TimezoneOffset, string(commit.Author.Timezone))
-	require.Equal(t, commitMessage, commit.Subject)
-
-	treeData := gittest.Exec(t, cfg, "-C", repoPath, "ls-tree", "--name-only", response.SquashSha)
-	files := strings.Fields(text.ChompBytes(treeData))
-	require.Subset(t, files, []string{"VERSION", "README", "files", ".gitattributes"}, "ensure the files remain on their places")
 }
 
 func TestUserSquash_stableID(t *testing.T) {
