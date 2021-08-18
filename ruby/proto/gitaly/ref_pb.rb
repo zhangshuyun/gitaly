@@ -35,14 +35,6 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     add_message "gitaly.FindAllTagNamesResponse" do
       repeated :names, :bytes, 1
     end
-    add_message "gitaly.FindRefNameRequest" do
-      optional :repository, :message, 1, "gitaly.Repository"
-      optional :commit_id, :string, 2
-      optional :prefix, :bytes, 3
-    end
-    add_message "gitaly.FindRefNameResponse" do
-      optional :name, :bytes, 1
-    end
     add_message "gitaly.FindLocalBranchesRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
       optional :sort_by, :enum, 2, "gitaly.FindLocalBranchesRequest.SortBy"
@@ -227,8 +219,6 @@ module Gitaly
   FindAllBranchNamesResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindAllBranchNamesResponse").msgclass
   FindAllTagNamesRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindAllTagNamesRequest").msgclass
   FindAllTagNamesResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindAllTagNamesResponse").msgclass
-  FindRefNameRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindRefNameRequest").msgclass
-  FindRefNameResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindRefNameResponse").msgclass
   FindLocalBranchesRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindLocalBranchesRequest").msgclass
   FindLocalBranchesRequest::SortBy = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindLocalBranchesRequest.SortBy").enummodule
   FindLocalBranchesResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindLocalBranchesResponse").msgclass

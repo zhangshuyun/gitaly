@@ -85,7 +85,6 @@ func TestNewProtoRegistry(t *testing.T) {
 			"FindDefaultBranchName":           protoregistry.OpAccessor,
 			"FindAllBranchNames":              protoregistry.OpAccessor,
 			"FindAllTagNames":                 protoregistry.OpAccessor,
-			"FindRefName":                     protoregistry.OpAccessor,
 			"FindLocalBranches":               protoregistry.OpAccessor,
 			"FindAllBranches":                 protoregistry.OpAccessor,
 			"FindAllTags":                     protoregistry.OpAccessor,

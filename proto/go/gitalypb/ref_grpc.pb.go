@@ -21,8 +21,6 @@ type RefServiceClient interface {
 	FindDefaultBranchName(ctx context.Context, in *FindDefaultBranchNameRequest, opts ...grpc.CallOption) (*FindDefaultBranchNameResponse, error)
 	FindAllBranchNames(ctx context.Context, in *FindAllBranchNamesRequest, opts ...grpc.CallOption) (RefService_FindAllBranchNamesClient, error)
 	FindAllTagNames(ctx context.Context, in *FindAllTagNamesRequest, opts ...grpc.CallOption) (RefService_FindAllTagNamesClient, error)
-	// Find a Ref matching the given constraints. Response may be empty.
-	FindRefName(ctx context.Context, in *FindRefNameRequest, opts ...grpc.CallOption) (*FindRefNameResponse, error)
 	// Return a stream so we can divide the response in chunks of branches
 	FindLocalBranches(ctx context.Context, in *FindLocalBranchesRequest, opts ...grpc.CallOption) (RefService_FindLocalBranchesClient, error)
 	FindAllBranches(ctx context.Context, in *FindAllBranchesRequest, opts ...grpc.CallOption) (RefService_FindAllBranchesClient, error)
@@ -132,15 +130,6 @@ func (x *refServiceFindAllTagNamesClient) Recv() (*FindAllTagNamesResponse, erro
 		return nil, err
 	}
 	return m, nil
-}
-
-func (c *refServiceClient) FindRefName(ctx context.Context, in *FindRefNameRequest, opts ...grpc.CallOption) (*FindRefNameResponse, error) {
-	out := new(FindRefNameResponse)
-	err := c.cc.Invoke(ctx, "/gitaly.RefService/FindRefName", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *refServiceClient) FindLocalBranches(ctx context.Context, in *FindLocalBranchesRequest, opts ...grpc.CallOption) (RefService_FindLocalBranchesClient, error) {
@@ -547,8 +536,6 @@ type RefServiceServer interface {
 	FindDefaultBranchName(context.Context, *FindDefaultBranchNameRequest) (*FindDefaultBranchNameResponse, error)
 	FindAllBranchNames(*FindAllBranchNamesRequest, RefService_FindAllBranchNamesServer) error
 	FindAllTagNames(*FindAllTagNamesRequest, RefService_FindAllTagNamesServer) error
-	// Find a Ref matching the given constraints. Response may be empty.
-	FindRefName(context.Context, *FindRefNameRequest) (*FindRefNameResponse, error)
 	// Return a stream so we can divide the response in chunks of branches
 	FindLocalBranches(*FindLocalBranchesRequest, RefService_FindLocalBranchesServer) error
 	FindAllBranches(*FindAllBranchesRequest, RefService_FindAllBranchesServer) error
@@ -592,9 +579,6 @@ func (UnimplementedRefServiceServer) FindAllBranchNames(*FindAllBranchNamesReque
 }
 func (UnimplementedRefServiceServer) FindAllTagNames(*FindAllTagNamesRequest, RefService_FindAllTagNamesServer) error {
 	return status.Errorf(codes.Unimplemented, "method FindAllTagNames not implemented")
-}
-func (UnimplementedRefServiceServer) FindRefName(context.Context, *FindRefNameRequest) (*FindRefNameResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method FindRefName not implemented")
 }
 func (UnimplementedRefServiceServer) FindLocalBranches(*FindLocalBranchesRequest, RefService_FindLocalBranchesServer) error {
 	return status.Errorf(codes.Unimplemented, "method FindLocalBranches not implemented")
@@ -715,24 +699,6 @@ type refServiceFindAllTagNamesServer struct {
 
 func (x *refServiceFindAllTagNamesServer) Send(m *FindAllTagNamesResponse) error {
 	return x.ServerStream.SendMsg(m)
-}
-
-func _RefService_FindRefName_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FindRefNameRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RefServiceServer).FindRefName(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gitaly.RefService/FindRefName",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RefServiceServer).FindRefName(ctx, req.(*FindRefNameRequest))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _RefService_FindLocalBranches_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -1066,10 +1032,6 @@ var RefService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FindDefaultBranchName",
 			Handler:    _RefService_FindDefaultBranchName_Handler,
-		},
-		{
-			MethodName: "FindRefName",
-			Handler:    _RefService_FindRefName_Handler,
 		},
 		{
 			MethodName: "FindTag",

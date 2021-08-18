@@ -17,8 +17,6 @@ module Gitaly
       rpc :FindDefaultBranchName, ::Gitaly::FindDefaultBranchNameRequest, ::Gitaly::FindDefaultBranchNameResponse
       rpc :FindAllBranchNames, ::Gitaly::FindAllBranchNamesRequest, stream(::Gitaly::FindAllBranchNamesResponse)
       rpc :FindAllTagNames, ::Gitaly::FindAllTagNamesRequest, stream(::Gitaly::FindAllTagNamesResponse)
-      # Find a Ref matching the given constraints. Response may be empty.
-      rpc :FindRefName, ::Gitaly::FindRefNameRequest, ::Gitaly::FindRefNameResponse
       # Return a stream so we can divide the response in chunks of branches
       rpc :FindLocalBranches, ::Gitaly::FindLocalBranchesRequest, stream(::Gitaly::FindLocalBranchesResponse)
       rpc :FindAllBranches, ::Gitaly::FindAllBranchesRequest, stream(::Gitaly::FindAllBranchesResponse)
