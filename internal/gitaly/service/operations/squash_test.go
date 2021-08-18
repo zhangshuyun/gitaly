@@ -303,6 +303,114 @@ func TestUserSquash_missingFileOnTargetBranch(t *testing.T) {
 	require.Empty(t, response.GetGitError())
 }
 
+func TestUserSquash_emptyCommit(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	// Set up history with two diverging lines of branches, where both sides have implemented
+	// the same changes. During rebase, the diff will thus become empty.
+	base := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(), gittest.WithTreeEntries(
+			gittest.TreeEntry{Path: "a", Content: "base", Mode: "100644"},
+		),
+	)
+	theirs := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("theirs"),
+		gittest.WithParents(base), gittest.WithTreeEntries(
+			gittest.TreeEntry{Path: "a", Content: "changed", Mode: "100644"},
+		),
+	)
+	ours := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("ours"),
+		gittest.WithParents(base), gittest.WithTreeEntries(
+			gittest.TreeEntry{Path: "a", Content: "changed", Mode: "100644"},
+		),
+	)
+	oursWithAdditionalChanges := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("ours"),
+		gittest.WithParents(ours), gittest.WithTreeEntries(
+			gittest.TreeEntry{Path: "a", Content: "changed", Mode: "100644"},
+			gittest.TreeEntry{Path: "ours", Content: "ours", Mode: "100644"},
+		),
+	)
+
+	for _, tc := range []struct {
+		desc                      string
+		ours, theirs, expectedOID git.ObjectID
+		expectedTreeEntries       []gittest.TreeEntry
+		expectedCommit            *gitalypb.GitCommit
+	}{
+		{
+			desc:        "ours becomes completely empty",
+			ours:        ours,
+			theirs:      theirs,
+			expectedOID: "0c097018ea50a9c036ba7e98db2b12495e912884",
+			expectedTreeEntries: []gittest.TreeEntry{
+				{Path: "a", Content: "changed", Mode: "100644"},
+			},
+			expectedCommit: &gitalypb.GitCommit{
+				Id:     "0c097018ea50a9c036ba7e98db2b12495e912884",
+				TreeId: "dcec1f671540174251d228f3b1292cc4f84cd964",
+				ParentIds: []string{
+					theirs.String(),
+				},
+				Subject:   []byte("squashed"),
+				Body:      []byte("squashed\n"),
+				BodySize:  9,
+				Author:    authorFromUser(author, 1234512345),
+				Committer: authorFromUser(gittest.TestUser, 1234512345),
+			},
+		},
+		{
+			desc:        "parts of ours become empty",
+			ours:        oursWithAdditionalChanges,
+			theirs:      theirs,
+			expectedOID: "1589b6ee8b29e193b6648f75b7289d95e90dbce1",
+			expectedTreeEntries: []gittest.TreeEntry{
+				{Path: "a", Content: "changed", Mode: "100644"},
+				{Path: "ours", Content: "ours", Mode: "100644"},
+			},
+			expectedCommit: &gitalypb.GitCommit{
+				Id:     "1589b6ee8b29e193b6648f75b7289d95e90dbce1",
+				TreeId: "b39ebc91ea635e7469c406329bcf00be4ebe0e50",
+				ParentIds: []string{
+					theirs.String(),
+				},
+				Subject:   []byte("squashed"),
+				Body:      []byte("squashed\n"),
+				BodySize:  9,
+				Author:    authorFromUser(author, 1234512345),
+				Committer: authorFromUser(gittest.TestUser, 1234512345),
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
+				Repository:    repoProto,
+				User:          gittest.TestUser,
+				SquashId:      "1",
+				Author:        author,
+				CommitMessage: []byte("squashed"),
+				StartSha:      tc.theirs.String(),
+				EndSha:        tc.ours.String(),
+				Timestamp:     &timestamppb.Timestamp{Seconds: 1234512345},
+			})
+			require.NoError(t, err)
+			testassert.ProtoEqual(t, &gitalypb.UserSquashResponse{
+				SquashSha: tc.expectedOID.String(),
+			}, response)
+
+			gittest.RequireTree(t, cfg, repoPath, tc.expectedOID.String(), tc.expectedTreeEntries)
+
+			commit, err := repo.ReadCommit(ctx, tc.expectedOID.Revision())
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedCommit, commit)
+		})
+	}
+}
+
 func TestUserSquash_validation(t *testing.T) {
 	t.Parallel()
 
