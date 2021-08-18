@@ -153,7 +153,7 @@ func ensureSplitIndexExists(t *testing.T, cfg config.Cfg, repoDir string) bool {
 	return false
 }
 
-func TestSuccessfulUserSquashRequestWith3wayMerge(t *testing.T) {
+func TestUserSquash_threeWayMerge(t *testing.T) {
 	t.Parallel()
 
 	ctx, cancel := testhelper.Context()
@@ -190,7 +190,7 @@ func TestSuccessfulUserSquashRequestWith3wayMerge(t *testing.T) {
 	require.Equal(t, commitMessage, commit.Subject)
 }
 
-func TestSplitIndex(t *testing.T) {
+func TestUserSquash_splitIndex(t *testing.T) {
 	t.Parallel()
 
 	ctx, cancel := testhelper.Context()
@@ -216,7 +216,7 @@ func TestSplitIndex(t *testing.T) {
 	require.False(t, ensureSplitIndexExists(t, cfg, repoPath))
 }
 
-func TestSquashRequestWithRenamedFiles(t *testing.T) {
+func TestUserSquash_renames(t *testing.T) {
 	t.Parallel()
 
 	ctx, cancel := testhelper.Context()
@@ -279,7 +279,7 @@ func TestSquashRequestWithRenamedFiles(t *testing.T) {
 	require.Equal(t, commitMessage, commit.Subject)
 }
 
-func TestSuccessfulUserSquashRequestWithMissingFileOnTargetBranch(t *testing.T) {
+func TestUserSquash_missingFileOnTargetBranch(t *testing.T) {
 	t.Parallel()
 
 	ctx, cancel := testhelper.Context()
@@ -304,7 +304,7 @@ func TestSuccessfulUserSquashRequestWithMissingFileOnTargetBranch(t *testing.T) 
 	require.Empty(t, response.GetGitError())
 }
 
-func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
+func TestUserSquash_validation(t *testing.T) {
 	t.Parallel()
 
 	ctx, cancel := testhelper.Context()
@@ -432,7 +432,7 @@ func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
 	}
 }
 
-func TestUserSquashWithConflicts(t *testing.T) {
+func TestUserSquash_conflicts(t *testing.T) {
 	t.Parallel()
 
 	ctx, cancel := testhelper.Context()
@@ -508,7 +508,7 @@ func TestUserSquash_ancestry(t *testing.T) {
 	}, response)
 }
 
-func TestUserSquashWithGitError(t *testing.T) {
+func TestUserSquash_gitError(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
