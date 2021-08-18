@@ -3,6 +3,7 @@
 package main
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -238,6 +239,66 @@ func TestRebase_rebase(t *testing.T) {
 					}
 				})
 			}
+		})
+	}
+}
+
+func TestRebase_skipEmptyCommit(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+	testhelper.BuildGitalyGit2Go(t, cfg)
+
+	// Set up history with two diverging lines of branches, where both sides have implemented
+	// the same changes. During rebase, the diff will thus become empty.
+	base := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(), gittest.WithTreeEntries(gittest.TreeEntry{
+			Path: "a", Content: "base", Mode: "100644",
+		}),
+	)
+	theirs := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("theirs"),
+		gittest.WithParents(base), gittest.WithTreeEntries(gittest.TreeEntry{
+			Path: "a", Content: "changed", Mode: "100644",
+		}),
+	)
+	ours := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("ours"),
+		gittest.WithParents(base), gittest.WithTreeEntries(gittest.TreeEntry{
+			Path: "a", Content: "changed", Mode: "100644",
+		}),
+	)
+
+	for _, tc := range []struct {
+		desc             string
+		skipEmptyCommits bool
+		expectedErr      string
+		expectedResponse gitalygit.ObjectID
+	}{
+		{
+			desc:             "do not skip empty commit",
+			skipEmptyCommits: false,
+			expectedErr:      fmt.Sprintf("rebase: commit %q: this patch has already been applied", ours),
+		},
+		{
+			desc:             "skip empty commit",
+			skipEmptyCommits: true,
+			expectedResponse: theirs,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			response, err := git2go.NewExecutor(cfg, config.NewLocator(cfg)).Rebase(ctx, repoProto, git2go.RebaseCommand{
+				Repository:       repoPath,
+				Committer:        git2go.NewSignature("Foo", "foo@example.com", time.Now()),
+				CommitID:         ours,
+				UpstreamCommitID: theirs,
+				SkipEmptyCommits: tc.skipEmptyCommits,
+			})
+			if tc.expectedErr == "" {
+				require.NoError(t, err)
+			} else {
+				require.EqualError(t, err, tc.expectedErr)
+			}
+			require.Equal(t, tc.expectedResponse, response)
 		})
 	}
 }

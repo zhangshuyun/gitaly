@@ -148,11 +148,17 @@ func (cmd *rebaseSubcommand) rebase(ctx context.Context, request *git2go.RebaseC
 			return "", fmt.Errorf("lookup commit: %w", err)
 		}
 
-		oid = op.Id.Copy()
-		err = rebase.Commit(oid, nil, &committer, commit.Message())
-		if err != nil {
+		if err := rebase.Commit(op.Id, nil, &committer, commit.Message()); err != nil {
+			// If the commit has already been applied on the target branch then we can
+			// skip it if we were told to.
+			if request.SkipEmptyCommits && git.IsErrorCode(err, git.ErrApplied) {
+				continue
+			}
+
 			return "", fmt.Errorf("commit %q: %w", op.Id.String(), err)
 		}
+
+		oid = op.Id.Copy()
 	}
 
 	// When the OID is unset here, then we didn't have to rebase any commits at all. We can
