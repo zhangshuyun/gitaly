@@ -296,8 +296,7 @@ test-with-praefect: build prepare-tests
 .PHONY: test-postgres
 ## Run Go tests with Postgres.
 test-postgres: TEST_PACKAGES := gitlab.com/gitlab-org/gitaly/v14/internal/praefect/...
-test-postgres: prepare-tests
-	${Q}$(call run_go_tests)
+test-postgres: test-go
 
 .PHONY: race-go
 ## Run Go tests with race detection enabled.
