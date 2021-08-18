@@ -122,22 +122,21 @@ func TestUserSquash_stableID(t *testing.T) {
 		ParentIds: []string{
 			"b83d6e391c22777fca1ed3012fce84f633d7fed0",
 		},
-		Subject:  []byte("Squashed commit"),
-		Body:     []byte("Squashed commit\n"),
-		BodySize: 16,
-		Author: &gitalypb.CommitAuthor{
-			Name:     author.Name,
-			Email:    author.Email,
-			Date:     &timestamppb.Timestamp{Seconds: 1234512345},
-			Timezone: []byte(gittest.TimezoneOffset),
-		},
-		Committer: &gitalypb.CommitAuthor{
-			Name:     gittest.TestUser.Name,
-			Email:    gittest.TestUser.Email,
-			Date:     &timestamppb.Timestamp{Seconds: 1234512345},
-			Timezone: []byte(gittest.TimezoneOffset),
-		},
+		Subject:   []byte("Squashed commit"),
+		Body:      []byte("Squashed commit\n"),
+		BodySize:  16,
+		Author:    authorFromUser(author, 1234512345),
+		Committer: authorFromUser(gittest.TestUser, 1234512345),
 	}, commit)
+}
+
+func authorFromUser(user *gitalypb.User, seconds int64) *gitalypb.CommitAuthor {
+	return &gitalypb.CommitAuthor{
+		Name:     user.Name,
+		Email:    user.Email,
+		Date:     &timestamppb.Timestamp{Seconds: seconds},
+		Timezone: []byte(gittest.TimezoneOffset),
+	}
 }
 
 func ensureSplitIndexExists(t *testing.T, cfg config.Cfg, repoDir string) bool {
