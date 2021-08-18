@@ -155,8 +155,11 @@ func (cmd *rebaseSubcommand) rebase(ctx context.Context, request *git2go.RebaseC
 		}
 	}
 
+	// When the OID is unset here, then we didn't have to rebase any commits at all. We can
+	// thus return the upstream commit directly: rebasing nothing onto the upstream commit is
+	// the same as the upstream commit itself.
 	if oid == nil {
-		return commit.Id().String(), nil
+		return upstreamCommit.Id().String(), nil
 	}
 
 	if err = rebase.Finish(); err != nil {
