@@ -292,7 +292,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": repositoryRecord{repositoryID: 1},
+						"repository-1": {repositoryID: 1},
 					},
 				},
 				storageState{
@@ -420,7 +420,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": repositoryRecord{repositoryID: 1},
+						"repository-1": {repositoryID: 1},
 					},
 				},
 				storageState{
@@ -449,7 +449,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": repositoryRecord{repositoryID: 1},
+						"repository-1": {repositoryID: 1},
 					},
 				},
 				storageState{
@@ -466,7 +466,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": repositoryRecord{repositoryID: 1},
+						"repository-1": {repositoryID: 1},
 					},
 				},
 				storageState{
@@ -623,7 +623,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 					requireState(t, ctx,
 						virtualStorageState{
 							vs: {
-								repo: repositoryRecord{
+								repo: {
 									repositoryID: 1,
 									primary:      tc.expectedPrimary,
 									assignments:  tc.expectedAssignments,
@@ -665,14 +665,14 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"deleted": {
-						"deleted": repositoryRecord{repositoryID: 1},
+						"deleted": {repositoryID: 1},
 					},
 					"virtual-storage-1": {
-						"other-storages-remain": repositoryRecord{repositoryID: 2},
+						"other-storages-remain": {repositoryID: 2},
 					},
 					"virtual-storage-2": {
 						"deleted-repo":       repositoryRecord{repositoryID: 3},
-						"other-repo-remains": repositoryRecord{repositoryID: 4},
+						"other-repo-remains": {repositoryID: 4},
 					},
 				},
 				storageState{
@@ -705,7 +705,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-2": {
-						"other-repo-remains": repositoryRecord{repositoryID: 4},
+						"other-repo-remains": {repositoryID: 4},
 					},
 				},
 				storageState{
@@ -730,7 +730,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": repositoryRecord{repositoryID: 1},
+						"repository-1": {repositoryID: 1},
 					},
 				},
 				storageState{
@@ -773,11 +773,11 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"relative-path-1": repositoryRecord{repositoryID: 1},
-						"relative-path-2": repositoryRecord{repositoryID: 2},
+						"relative-path-1": {repositoryID: 1},
+						"relative-path-2": {repositoryID: 2},
 					},
 					"virtual-storage-2": {
-						"relative-path-1": repositoryRecord{repositoryID: 3},
+						"relative-path-1": {repositoryID: 3},
 					},
 				},
 				storageState{
@@ -803,11 +803,11 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"relative-path-1": repositoryRecord{repositoryID: 1},
-						"relative-path-2": repositoryRecord{repositoryID: 2},
+						"relative-path-1": {repositoryID: 1},
+						"relative-path-2": {repositoryID: 2},
 					},
 					"virtual-storage-2": {
-						"relative-path-1": repositoryRecord{repositoryID: 3},
+						"relative-path-1": {repositoryID: 3},
 					},
 				},
 				storageState{
@@ -849,7 +849,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 				virtualStorageState{
 					"virtual-storage-1": {
 						"renamed-all":  repositoryRecord{repositoryID: 1},
-						"renamed-some": repositoryRecord{repositoryID: 2},
+						"renamed-some": {repositoryID: 2},
 					},
 				},
 				storageState{
@@ -872,7 +872,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 				virtualStorageState{
 					"virtual-storage-1": {
 						"renamed-all-new":  repositoryRecord{repositoryID: 1},
-						"renamed-some-new": repositoryRecord{repositoryID: 2},
+						"renamed-some-new": {repositoryID: 2},
 					},
 				},
 				storageState{
@@ -909,7 +909,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		requireState(t, ctx,
 			virtualStorageState{
 				"virtual-storage-1": {
-					"repository-1": repositoryRecord{repositoryID: 1},
+					"repository-1": {repositoryID: 1},
 				},
 			},
 			storageState{
@@ -943,7 +943,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": repositoryRecord{repositoryID: 1},
+						"repository-1": {repositoryID: 1},
 					},
 				},
 				storageState{
@@ -999,7 +999,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": repositoryRecord{repositoryID: 1},
+						"repository-1": {repositoryID: 1},
 					},
 				},
 				storageState{
