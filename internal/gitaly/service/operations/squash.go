@@ -150,6 +150,7 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 		),
 		CommitID:         endCommit,
 		UpstreamCommitID: startCommit,
+		SkipEmptyCommits: true,
 	})
 	if err != nil {
 		return "", fmt.Errorf("rebasing end onto start commit: %w", gitError{

@@ -26,6 +26,10 @@ type RebaseCommand struct {
 	// commit, and which commits should be rebased, which is the commit range
 	// upstream..commit. Deprecates the UpstreamRevision.
 	UpstreamCommitID git.ObjectID
+	// SkipEmptyCommits will cause commits which have already been applied on the target branch
+	// and which are thus empty to be skipped. If unset, empty commits will cause the rebase to
+	// fail.
+	SkipEmptyCommits bool
 }
 
 // Rebase performs the rebase via gitaly-git2go
