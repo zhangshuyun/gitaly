@@ -37,6 +37,8 @@ func TestHealthManager(t *testing.T) {
 		HealthConsensus map[string][]string
 	}
 
+	db := getDB(t)
+
 	for _, tc := range []struct {
 		desc         string
 		healthChecks HealthChecks
@@ -470,7 +472,7 @@ func TestHealthManager(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			db := getDB(t)
+			db.TruncateAll(t)
 
 			healthStatus := map[string]grpc_health_v1.HealthCheckResponse_ServingStatus{}
 			// healthManagers are cached in order to keep the internal state intact between different

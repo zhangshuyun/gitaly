@@ -22,6 +22,7 @@ import (
 func TestRepositoryExistsStreamInterceptor(t *testing.T) {
 	errServedByGitaly := status.Error(codes.Unknown, "request passed to Gitaly")
 
+	db := getDB(t)
 	for _, tc := range []struct {
 		desc          string
 		routeToGitaly bool
@@ -65,7 +66,7 @@ func TestRepositoryExistsStreamInterceptor(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			db := getDB(t)
+			db.TruncateAll(t)
 			rs := datastore.NewPostgresRepositoryStore(db, map[string][]string{"virtual-storage": {"storage"}})
 
 			ctx, cancel := testhelper.Context()

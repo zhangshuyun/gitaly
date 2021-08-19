@@ -14,6 +14,8 @@ func TestAssignmentStore_GetHostAssignments(t *testing.T) {
 		storage        string
 	}
 
+	db := getDB(t)
+
 	configuredStorages := []string{"storage-1", "storage-2", "storage-3"}
 	for _, tc := range []struct {
 		desc                string
@@ -71,7 +73,7 @@ func TestAssignmentStore_GetHostAssignments(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			db := getDB(t)
+			db.TruncateAll(t)
 
 			for _, assignment := range tc.existingAssignments {
 				_, err := db.ExecContext(ctx, `
@@ -113,6 +115,8 @@ func TestAssignmentStore_SetReplicationFactor(t *testing.T) {
 			require.Contains(t, expecteds, actual)
 		}
 	}
+
+	db := getDB(t)
 
 	for _, tc := range []struct {
 		desc                  string
@@ -191,7 +195,7 @@ func TestAssignmentStore_SetReplicationFactor(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			db := getDB(t)
+			db.TruncateAll(t)
 
 			configuredStorages := map[string][]string{"virtual-storage": {"primary", "secondary-1", "secondary-2"}}
 

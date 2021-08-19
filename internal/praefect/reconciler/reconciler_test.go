@@ -77,6 +77,8 @@ func TestReconciler(t *testing.T) {
 		return out
 	}
 
+	db := glsql.GetDB(t)
+
 	for _, tc := range []struct {
 		desc                string
 		healthyStorages     storages
@@ -1060,7 +1062,7 @@ func TestReconciler(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			db := glsql.GetDB(t)
+			db.TruncateAll(t)
 
 			// set up the repository generation records expected by the test case
 			rs := datastore.NewPostgresRepositoryStore(db, configuredStorages)

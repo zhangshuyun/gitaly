@@ -29,8 +29,9 @@ type requireState func(t *testing.T, ctx context.Context, vss virtualStorageStat
 type repositoryStoreFactory func(t *testing.T, storages map[string][]string) (RepositoryStore, requireState)
 
 func TestRepositoryStore_Postgres(t *testing.T) {
+	db := getDB(t)
 	testRepositoryStore(t, func(t *testing.T, storages map[string][]string) (RepositoryStore, requireState) {
-		db := getDB(t)
+		db.TruncateAll(t)
 		gs := NewPostgresRepositoryStore(db, storages)
 
 		requireVirtualStorageState := func(t *testing.T, ctx context.Context, exp virtualStorageState) {
@@ -840,6 +841,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 }
 
 func TestPostgresRepositoryStore_GetPartiallyAvailableRepositories(t *testing.T) {
+	db := getDB(t)
 	for _, tc := range []struct {
 		desc                  string
 		nonExistentRepository bool
@@ -1018,7 +1020,7 @@ func TestPostgresRepositoryStore_GetPartiallyAvailableRepositories(t *testing.T)
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			tx := getDB(t).Begin(t)
+			tx := db.Begin(t)
 			defer tx.Rollback(t)
 
 			configuredStorages := map[string][]string{"virtual-storage": {"primary", "secondary-1"}}

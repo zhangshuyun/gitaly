@@ -66,6 +66,7 @@ func TestReplicatorInvalidSourceRepository(t *testing.T) {
 }
 
 func TestReplicatorDestroy(t *testing.T) {
+	db := getDB(t)
 	for _, tc := range []struct {
 		change datastore.ChangeType
 		exists bool
@@ -76,7 +77,7 @@ func TestReplicatorDestroy(t *testing.T) {
 		{change: "invalid-type", exists: true, error: errors.New(`unknown change type: "invalid-type"`)},
 	} {
 		t.Run(string(tc.change), func(t *testing.T) {
-			db := getDB(t)
+			db.TruncateAll(t)
 
 			rs := datastore.NewPostgresRepositoryStore(db, nil)
 

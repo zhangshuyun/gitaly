@@ -29,6 +29,8 @@ func TestRepositoryStoreCollector(t *testing.T) {
 		replicas     replicas
 	}
 
+	db := getDB(t)
+
 	for _, tc := range []struct {
 		desc         string
 		healthyNodes []string
@@ -144,7 +146,7 @@ func TestRepositoryStoreCollector(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			tx := getDB(t).Begin(t)
+			tx := db.Begin(t)
 			defer tx.Rollback(t)
 
 			testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{

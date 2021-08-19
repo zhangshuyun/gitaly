@@ -59,6 +59,7 @@ func TestSecondaryRotation(t *testing.T) {
 }
 
 func TestStreamDirectorReadOnlyEnforcement(t *testing.T) {
+	db := getDB(t)
 	for _, tc := range []struct {
 		desc     string
 		readOnly bool
@@ -67,6 +68,8 @@ func TestStreamDirectorReadOnlyEnforcement(t *testing.T) {
 		{desc: "read-only", readOnly: true},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			db.TruncateAll(t)
+
 			const (
 				virtualStorage = "test-virtual-storage"
 				relativePath   = "test-repository"
@@ -99,7 +102,7 @@ func TestStreamDirectorReadOnlyEnforcement(t *testing.T) {
 			}
 
 			coordinator := NewCoordinator(
-				datastore.NewPostgresReplicationEventQueue(getDB(t)),
+				datastore.NewPostgresReplicationEventQueue(db),
 				rs,
 				NewNodeManagerRouter(&nodes.MockManager{GetShardFunc: func(vs string) (nodes.Shard, error) {
 					require.Equal(t, virtualStorage, vs)
@@ -735,6 +738,8 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 	// records need to be created in the database.
 	defer testhelper.ModifyEnvironment(t, "GITALY_TEST_PRAEFECT_BIN", "")()
 
+	db := getDB(t)
+
 	for _, tc := range []struct {
 		desc              string
 		electionStrategy  config.ElectionStrategy
@@ -764,6 +769,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			db.TruncateAll(t)
 			primaryNode := &config.Node{Storage: "praefect-internal-1"}
 			healthySecondaryNode := &config.Node{Storage: "praefect-internal-2"}
 			unhealthySecondaryNode := &config.Node{Storage: "praefect-internal-3"}
@@ -779,7 +785,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 			}
 
 			var replEventWait sync.WaitGroup
-			queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(getDB(t)))
+			queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(db))
 			queueInterceptor.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
 				defer replEventWait.Done()
 				return queue.Enqueue(ctx, event)

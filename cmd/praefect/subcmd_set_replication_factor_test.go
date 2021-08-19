@@ -16,6 +16,8 @@ import (
 )
 
 func TestSetReplicationFactorSubcommand(t *testing.T) {
+	db := getDB(t)
+
 	for _, tc := range []struct {
 		desc   string
 		args   []string
@@ -79,7 +81,7 @@ func TestSetReplicationFactorSubcommand(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			db := getDB(t)
+			db.TruncateAll(t)
 
 			store := tc.store
 			if tc.store == nil {

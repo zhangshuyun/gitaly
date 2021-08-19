@@ -216,8 +216,6 @@ func TestBasicFailover(t *testing.T) {
 }
 
 func TestElectDemotedPrimary(t *testing.T) {
-	db := getDB(t)
-
 	tx := getDB(t).Begin(t)
 	defer tx.Rollback(t)
 
@@ -225,7 +223,7 @@ func TestElectDemotedPrimary(t *testing.T) {
 	elector := newSQLElector(
 		shardName,
 		config.Config{},
-		db.DB,
+		nil,
 		testhelper.DiscardTestLogger(t),
 		[]*nodeStatus{{node: node}},
 	)
@@ -395,9 +393,7 @@ func TestElectNewPrimary(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			db.TruncateAll(t)
-
-			tx := getDB(t).Begin(t)
+			tx := db.Begin(t)
 			defer tx.Rollback(t)
 
 			_, err := tx.Exec(testCase.initialReplQueueInsert)
@@ -453,6 +449,7 @@ func TestConnectionMultiplexing(t *testing.T) {
 
 	go srv.Serve(ln)
 
+	db := getDB(t)
 	mgr, err := NewManager(
 		testhelper.DiscardTestEntry(t),
 		config.Config{
@@ -470,7 +467,7 @@ func TestConnectionMultiplexing(t *testing.T) {
 				},
 			},
 		},
-		getDB(t).DB,
+		db.DB,
 		nil,
 		promtest.NewMockHistogramVec(),
 		protoregistry.GitalyProtoPreregistered,

@@ -13,6 +13,7 @@ import (
 )
 
 func TestPostgresReplicationEventQueue_DeleteReplicaUniqueIndex(t *testing.T) {
+	db := getDB(t)
 	for _, tc := range []struct {
 		desc        string
 		existingJob *ReplicationEvent
@@ -117,7 +118,7 @@ func TestPostgresReplicationEventQueue_DeleteReplicaUniqueIndex(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			db := getDB(t)
+			db.TruncateAll(t)
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
@@ -830,6 +831,8 @@ func TestPostgresReplicationEventQueue_StartHealthUpdate(t *testing.T) {
 	eventType4 := eventType1
 	eventType4.Job.TargetNodeStorage = "s-2"
 
+	db := getDB(t)
+
 	t.Run("no events is valid", func(t *testing.T) {
 		// 'qc' is not initialized, so the test will fail if there will be an attempt to make SQL operation
 		queue := NewPostgresReplicationEventQueue(nil)
@@ -851,7 +854,7 @@ func TestPostgresReplicationEventQueue_StartHealthUpdate(t *testing.T) {
 	})
 
 	t.Run("stops after first error", func(t *testing.T) {
-		db := getDB(t)
+		db.TruncateAll(t)
 
 		ctx, cancel := testhelper.Context()
 		defer cancel()
@@ -870,7 +873,7 @@ func TestPostgresReplicationEventQueue_StartHealthUpdate(t *testing.T) {
 	})
 
 	t.Run("stops if nothing to update (extended coverage)", func(t *testing.T) {
-		db := getDB(t)
+		db.TruncateAll(t)
 
 		ctx, cancel := testhelper.Context()
 		defer cancel()
@@ -894,7 +897,7 @@ func TestPostgresReplicationEventQueue_StartHealthUpdate(t *testing.T) {
 	})
 
 	t.Run("triggers all passed in events", func(t *testing.T) {
-		db := getDB(t)
+		db.TruncateAll(t)
 
 		var wg sync.WaitGroup
 		ctx, cancel := testhelper.Context()
@@ -974,8 +977,10 @@ func TestPostgresReplicationEventQueue_AcknowledgeStale(t *testing.T) {
 	eventType4 := eventType3
 	eventType4.Job.TargetNodeStorage = "gitaly-3"
 
+	db := getDB(t)
+
 	t.Run("no stale jobs yet", func(t *testing.T) {
-		db := getDB(t)
+		db.TruncateAll(t)
 		source := NewPostgresReplicationEventQueue(db)
 
 		event, err := source.Enqueue(ctx, eventType1)
@@ -990,7 +995,7 @@ func TestPostgresReplicationEventQueue_AcknowledgeStale(t *testing.T) {
 	})
 
 	t.Run("jobs considered stale only at 'in_progress' state", func(t *testing.T) {
-		db := getDB(t)
+		db.TruncateAll(t)
 		source := NewPostgresReplicationEventQueue(db)
 
 		// move event to 'ready' state
@@ -1029,7 +1034,7 @@ func TestPostgresReplicationEventQueue_AcknowledgeStale(t *testing.T) {
 	})
 
 	t.Run("stale jobs updated for all virtual storages and storages at once", func(t *testing.T) {
-		db := getDB(t)
+		db.TruncateAll(t)
 		source := NewPostgresReplicationEventQueue(db)
 
 		var exp []ReplicationEvent

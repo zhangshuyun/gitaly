@@ -158,8 +158,12 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 		},
 	}
 
+	db := getDB(t)
+
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
+			db.TruncateAll(t)
+
 			storageNodes := make([]*config.Node, 0, len(tc.nodes))
 			for i := range tc.nodes {
 				socket := testhelper.GetTemporaryGitalySocketFileName(t)
@@ -178,7 +182,6 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			}
 
 			var replicationWaitGroup sync.WaitGroup
-			db := getDB(t)
 			queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(db))
 			queueInterceptor.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
 				defer replicationWaitGroup.Done()

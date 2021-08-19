@@ -45,6 +45,8 @@ func TestPerRepositoryElector(t *testing.T) {
 		primary      matcher
 	}
 
+	db := getDB(t)
+
 	for _, tc := range []struct {
 		desc         string
 		state        state
@@ -482,7 +484,7 @@ func TestPerRepositoryElector(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			db := getDB(t)
+			db.TruncateAll(t)
 
 			rs := datastore.NewPostgresRepositoryStore(db, nil)
 			for virtualStorage, relativePaths := range tc.state {
