@@ -4,7 +4,6 @@ import (
 	"os"
 	"testing"
 
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
@@ -18,5 +17,3 @@ func testMain(m *testing.M) (code int) {
 	defer cleanup()
 	return m.Run()
 }
-
-func getDB(t testing.TB) glsql.DB { return glsql.GetDB(t) }

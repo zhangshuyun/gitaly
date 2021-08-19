@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
@@ -29,7 +30,7 @@ func TestRepositoryStoreCollector(t *testing.T) {
 		replicas     replicas
 	}
 
-	db := getDB(t)
+	db := glsql.GetDB(t)
 
 	for _, tc := range []struct {
 		desc         string

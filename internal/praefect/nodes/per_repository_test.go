@@ -45,7 +45,7 @@ func TestPerRepositoryElector(t *testing.T) {
 		primary      matcher
 	}
 
-	db := getDB(t)
+	db := glsql.GetDB(t)
 
 	for _, tc := range []struct {
 		desc         string

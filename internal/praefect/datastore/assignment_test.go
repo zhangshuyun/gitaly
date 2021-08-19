@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
@@ -14,7 +15,7 @@ func TestAssignmentStore_GetHostAssignments(t *testing.T) {
 		storage        string
 	}
 
-	db := getDB(t)
+	db := glsql.GetDB(t)
 
 	configuredStorages := []string{"storage-1", "storage-2", "storage-3"}
 	for _, tc := range []struct {
@@ -116,7 +117,7 @@ func TestAssignmentStore_SetReplicationFactor(t *testing.T) {
 		}
 	}
 
-	db := getDB(t)
+	db := glsql.GetDB(t)
 
 	for _, tc := range []struct {
 		desc                  string

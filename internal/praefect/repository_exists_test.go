@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/grpc-proxy/proxy"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -22,7 +23,7 @@ import (
 func TestRepositoryExistsStreamInterceptor(t *testing.T) {
 	errServedByGitaly := status.Error(codes.Unknown, "request passed to Gitaly")
 
-	db := getDB(t)
+	db := glsql.GetDB(t)
 	for _, tc := range []struct {
 		desc          string
 		routeToGitaly bool

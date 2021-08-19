@@ -8,6 +8,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
@@ -29,7 +30,7 @@ type requireState func(t *testing.T, ctx context.Context, vss virtualStorageStat
 type repositoryStoreFactory func(t *testing.T, storages map[string][]string) (RepositoryStore, requireState)
 
 func TestRepositoryStore_Postgres(t *testing.T) {
-	db := getDB(t)
+	db := glsql.GetDB(t)
 	testRepositoryStore(t, func(t *testing.T, storages map[string][]string) (RepositoryStore, requireState) {
 		db.TruncateAll(t)
 		gs := NewPostgresRepositoryStore(db, storages)
@@ -841,7 +842,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 }
 
 func TestPostgresRepositoryStore_GetPartiallyAvailableRepositories(t *testing.T) {
-	db := getDB(t)
+	db := glsql.GetDB(t)
 	for _, tc := range []struct {
 		desc                  string
 		nonExistentRepository bool

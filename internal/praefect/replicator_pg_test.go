@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -47,7 +48,7 @@ func TestReplicatorInvalidSourceRepository(t *testing.T) {
 	targetCC, err := client.Dial(ln.Addr().Network()+":"+ln.Addr().String(), nil)
 	require.NoError(t, err)
 
-	rs := datastore.NewPostgresRepositoryStore(getDB(t), nil)
+	rs := datastore.NewPostgresRepositoryStore(glsql.GetDB(t), nil)
 	require.NoError(t, rs.SetGeneration(ctx, "virtual-storage-1", "relative-path-1", "gitaly-1", 0))
 
 	r := &defaultReplicator{rs: rs, log: testhelper.DiscardTestLogger(t)}
@@ -66,7 +67,7 @@ func TestReplicatorInvalidSourceRepository(t *testing.T) {
 }
 
 func TestReplicatorDestroy(t *testing.T) {
-	db := getDB(t)
+	db := glsql.GetDB(t)
 	for _, tc := range []struct {
 		change datastore.ChangeType
 		exists bool

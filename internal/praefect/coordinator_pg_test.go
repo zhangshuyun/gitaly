@@ -25,10 +25,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func getDB(t testing.TB) glsql.DB {
-	return glsql.GetDB(t)
-}
-
 func TestStreamDirectorMutator_Transaction(t *testing.T) {
 	// For the test-with-praefect execution we disable a special case when repository
 	// records need to be created in the database.
@@ -158,7 +154,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 		},
 	}
 
-	db := getDB(t)
+	db := glsql.GetDB(t)
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {

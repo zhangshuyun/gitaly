@@ -28,7 +28,7 @@ import (
 var shardName string = "test-shard-0"
 
 func TestGetPrimaryAndSecondaries(t *testing.T) {
-	db := getDB(t)
+	db := glsql.GetDB(t)
 
 	logger := testhelper.NewTestLogger(t).WithField("test", t.Name())
 	praefectSocket := testhelper.GetTemporaryGitalySocketFileName(t)
@@ -71,7 +71,7 @@ func TestGetPrimaryAndSecondaries(t *testing.T) {
 }
 
 func TestSqlElector_slow_execution(t *testing.T) {
-	db := getDB(t)
+	db := glsql.GetDB(t)
 
 	praefectSocket := "unix://" + testhelper.GetTemporaryGitalySocketFileName(t)
 	logger := testhelper.NewTestLogger(t).WithField("test", t.Name())
@@ -108,7 +108,7 @@ func TestSqlElector_slow_execution(t *testing.T) {
 }
 
 func TestBasicFailover(t *testing.T) {
-	db := getDB(t)
+	db := glsql.GetDB(t)
 
 	logger := testhelper.NewTestLogger(t).WithField("test", t.Name())
 	praefectSocket := testhelper.GetTemporaryGitalySocketFileName(t)
@@ -216,7 +216,7 @@ func TestBasicFailover(t *testing.T) {
 }
 
 func TestElectDemotedPrimary(t *testing.T) {
-	tx := getDB(t).Begin(t)
+	tx := glsql.GetDB(t).Begin(t)
 	defer tx.Rollback(t)
 
 	node := config.Node{Storage: "gitaly-0"}
@@ -281,7 +281,7 @@ func predateElection(t testing.TB, ctx context.Context, db glsql.Querier, shardN
 }
 
 func TestElectNewPrimary(t *testing.T) {
-	db := getDB(t)
+	db := glsql.GetDB(t)
 
 	ns := []*nodeStatus{{
 		node: config.Node{
@@ -449,7 +449,7 @@ func TestConnectionMultiplexing(t *testing.T) {
 
 	go srv.Serve(ln)
 
-	db := getDB(t)
+	db := glsql.GetDB(t)
 	mgr, err := NewManager(
 		testhelper.DiscardTestEntry(t),
 		config.Config{
