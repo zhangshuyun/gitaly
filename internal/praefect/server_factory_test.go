@@ -33,6 +33,7 @@ import (
 )
 
 func TestServerFactory(t *testing.T) {
+	t.Parallel()
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 	gitalyAddr := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 

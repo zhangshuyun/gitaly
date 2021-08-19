@@ -21,6 +21,7 @@ func registerPraefectInfoServer(impl gitalypb.PraefectInfoServiceServer) svcRegi
 }
 
 func TestDatalossSubcommand(t *testing.T) {
+	t.Parallel()
 	cfg := config.Config{
 		VirtualStorages: []*config.VirtualStorage{
 			{

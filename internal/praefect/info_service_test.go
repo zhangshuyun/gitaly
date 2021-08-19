@@ -22,6 +22,7 @@ import (
 )
 
 func TestInfoService_RepositoryReplicas(t *testing.T) {
+	t.Parallel()
 	var cfgs []gconfig.Cfg
 	var cfgNodes []*config.Node
 	var testRepo *gitalypb.Repository

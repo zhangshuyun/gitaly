@@ -24,6 +24,7 @@ func (m mockHealthClient) Check(ctx context.Context, r *grpc_health_v1.HealthChe
 }
 
 func TestHealthManager(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 

@@ -9,6 +9,7 @@ import (
 )
 
 func TestMigrateStatus(t *testing.T) {
+	t.Parallel()
 	db := glsql.NewDB(t)
 
 	config := config.Config{

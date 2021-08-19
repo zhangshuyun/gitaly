@@ -30,6 +30,7 @@ type requireState func(t *testing.T, ctx context.Context, vss virtualStorageStat
 type repositoryStoreFactory func(t *testing.T, storages map[string][]string) (RepositoryStore, requireState)
 
 func TestRepositoryStore_Postgres(t *testing.T) {
+	t.Parallel()
 	db := glsql.NewDB(t)
 	testRepositoryStore(t, func(t *testing.T, storages map[string][]string) (RepositoryStore, requireState) {
 		db.TruncateAll(t)
@@ -842,6 +843,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 }
 
 func TestPostgresRepositoryStore_GetPartiallyAvailableRepositories(t *testing.T) {
+	t.Parallel()
 	db := glsql.NewDB(t)
 	for _, tc := range []struct {
 		desc                  string

@@ -84,6 +84,7 @@ func (mlh mockListenHandler) Connected() {
 }
 
 func TestPostgresListener_Listen(t *testing.T) {
+	t.Parallel()
 	db := glsql.NewDB(t)
 
 	logger := testhelper.NewTestLogger(t)
@@ -365,6 +366,7 @@ func requireEqualNotificationEntries(t *testing.T, d string, entries []notificat
 }
 
 func TestPostgresListener_Listen_repositories_delete(t *testing.T) {
+	t.Parallel()
 	db := glsql.NewDB(t)
 
 	const channel = "repositories_updates"
@@ -397,6 +399,7 @@ func TestPostgresListener_Listen_repositories_delete(t *testing.T) {
 }
 
 func TestPostgresListener_Listen_storage_repositories_insert(t *testing.T) {
+	t.Parallel()
 	db := glsql.NewDB(t)
 
 	const channel = "storage_repositories_updates"
@@ -422,6 +425,7 @@ func TestPostgresListener_Listen_storage_repositories_insert(t *testing.T) {
 }
 
 func TestPostgresListener_Listen_storage_repositories_update(t *testing.T) {
+	t.Parallel()
 	db := glsql.NewDB(t)
 
 	const channel = "storage_repositories_updates"
@@ -446,6 +450,7 @@ func TestPostgresListener_Listen_storage_repositories_update(t *testing.T) {
 }
 
 func TestPostgresListener_Listen_storage_empty_notification(t *testing.T) {
+	t.Parallel()
 	db := glsql.NewDB(t)
 
 	const channel = "storage_repositories_updates"
@@ -464,6 +469,7 @@ func TestPostgresListener_Listen_storage_empty_notification(t *testing.T) {
 }
 
 func TestPostgresListener_Listen_storage_repositories_delete(t *testing.T) {
+	t.Parallel()
 	db := glsql.NewDB(t)
 
 	const channel = "storage_repositories_updates"

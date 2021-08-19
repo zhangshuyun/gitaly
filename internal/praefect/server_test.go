@@ -113,6 +113,7 @@ func TestNewBackchannelServerFactory(t *testing.T) {
 }
 
 func TestGitalyServerInfo(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -206,6 +207,7 @@ func TestGitalyServerInfo(t *testing.T) {
 }
 
 func TestGitalyServerInfoBadNode(t *testing.T) {
+	t.Parallel()
 	gitalySocket := testhelper.GetTemporaryGitalySocketFileName(t)
 	healthSrv := testhelper.NewServerWithHealth(t, gitalySocket)
 	healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_UNKNOWN)
@@ -244,6 +246,7 @@ func TestGitalyServerInfoBadNode(t *testing.T) {
 }
 
 func TestDiskStatistics(t *testing.T) {
+	t.Parallel()
 	praefectCfg := config.Config{VirtualStorages: []*config.VirtualStorage{{Name: "praefect"}}}
 	for _, name := range []string{"gitaly-1", "gitaly-2"} {
 		gitalyCfg := testcfg.Build(t)
@@ -281,6 +284,7 @@ func TestDiskStatistics(t *testing.T) {
 }
 
 func TestHealthCheck(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -302,6 +306,7 @@ func TestHealthCheck(t *testing.T) {
 }
 
 func TestRejectBadStorage(t *testing.T) {
+	t.Parallel()
 	conf := config.Config{
 		VirtualStorages: []*config.VirtualStorage{
 			{
@@ -334,6 +339,7 @@ func TestRejectBadStorage(t *testing.T) {
 }
 
 func TestWarnDuplicateAddrs(t *testing.T) {
+	t.Parallel()
 	conf := config.Config{
 		VirtualStorages: []*config.VirtualStorage{
 			&config.VirtualStorage{
@@ -463,6 +469,7 @@ func TestWarnDuplicateAddrs(t *testing.T) {
 }
 
 func TestRemoveRepository(t *testing.T) {
+	t.Parallel()
 	gitalyCfgs := make([]gconfig.Cfg, 3)
 	repos := make([][]*gitalypb.Repository, 3)
 	praefectCfg := config.Config{VirtualStorages: []*config.VirtualStorage{{Name: "praefect"}}}
@@ -562,6 +569,7 @@ func pollUntilRemoved(t testing.TB, path string, deadline <-chan time.Time) {
 }
 
 func TestRenameRepository(t *testing.T) {
+	t.Parallel()
 	gitalyStorages := []string{"gitaly-1", "gitaly-2", "gitaly-3"}
 	repoPaths := make([]string, len(gitalyStorages))
 	praefectCfg := config.Config{
@@ -738,6 +746,7 @@ func newSmartHTTPGrpcServer(t *testing.T, cfg gconfig.Cfg, smartHTTPService gita
 }
 
 func TestProxyWrites(t *testing.T) {
+	t.Parallel()
 	txMgr := transactions.NewManager(config.Config{})
 
 	smartHTTP0, smartHTTP1, smartHTTP2 := &mockSmartHTTP{txMgr: txMgr}, &mockSmartHTTP{txMgr: txMgr}, &mockSmartHTTP{txMgr: txMgr}
@@ -857,6 +866,7 @@ func TestProxyWrites(t *testing.T) {
 }
 
 func TestErrorThreshold(t *testing.T) {
+	t.Parallel()
 	backendToken := ""
 	backend, cleanup := newMockDownstream(t, backendToken, &mockSvc{
 		repoMutatorUnary: func(ctx context.Context, req *mock.RepoRequest) (*emptypb.Empty, error) {

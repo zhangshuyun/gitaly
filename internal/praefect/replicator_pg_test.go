@@ -27,6 +27,7 @@ func (m *mockRepositoryService) ReplicateRepository(ctx context.Context, r *gita
 }
 
 func TestReplicatorInvalidSourceRepository(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -67,6 +68,7 @@ func TestReplicatorInvalidSourceRepository(t *testing.T) {
 }
 
 func TestReplicatorDestroy(t *testing.T) {
+	t.Parallel()
 	db := glsql.NewDB(t)
 	for _, tc := range []struct {
 		change datastore.ChangeType

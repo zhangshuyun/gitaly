@@ -17,6 +17,7 @@ import (
 )
 
 func TestSetReplicationFactorSubcommand(t *testing.T) {
+	t.Parallel()
 	db := glsql.NewDB(t)
 
 	for _, tc := range []struct {

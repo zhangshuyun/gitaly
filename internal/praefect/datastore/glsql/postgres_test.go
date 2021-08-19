@@ -61,6 +61,7 @@ func TestUint64Provider(t *testing.T) {
 }
 
 func TestScanAll(t *testing.T) {
+	t.Parallel()
 	db := NewDB(t)
 
 	var ids Uint64Provider

@@ -21,6 +21,7 @@ import (
 )
 
 func TestRepositoryExistsStreamInterceptor(t *testing.T) {
+	t.Parallel()
 	errServedByGitaly := status.Error(codes.Unknown, "request passed to Gitaly")
 
 	db := glsql.NewDB(t)

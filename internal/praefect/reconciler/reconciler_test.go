@@ -18,6 +18,7 @@ import (
 )
 
 func TestReconciler(t *testing.T) {
+	t.Parallel()
 	// repositories describes storage state as
 	// virtual storage -> relative path -> physical storage -> generation
 

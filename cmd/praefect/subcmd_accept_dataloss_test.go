@@ -15,6 +15,7 @@ import (
 )
 
 func TestAcceptDatalossSubcommand(t *testing.T) {
+	t.Parallel()
 	const (
 		vs   = "test-virtual-storage-1"
 		repo = "test-repository-1"

@@ -28,6 +28,7 @@ import (
 var shardName string = "test-shard-0"
 
 func TestGetPrimaryAndSecondaries(t *testing.T) {
+	t.Parallel()
 	db := glsql.NewDB(t)
 
 	logger := testhelper.NewTestLogger(t).WithField("test", t.Name())
@@ -71,6 +72,7 @@ func TestGetPrimaryAndSecondaries(t *testing.T) {
 }
 
 func TestSqlElector_slow_execution(t *testing.T) {
+	t.Parallel()
 	db := glsql.NewDB(t)
 
 	praefectSocket := "unix://" + testhelper.GetTemporaryGitalySocketFileName(t)
@@ -108,6 +110,7 @@ func TestSqlElector_slow_execution(t *testing.T) {
 }
 
 func TestBasicFailover(t *testing.T) {
+	t.Parallel()
 	db := glsql.NewDB(t)
 
 	logger := testhelper.NewTestLogger(t).WithField("test", t.Name())
@@ -216,6 +219,7 @@ func TestBasicFailover(t *testing.T) {
 }
 
 func TestElectDemotedPrimary(t *testing.T) {
+	t.Parallel()
 	tx := glsql.NewDB(t).Begin(t)
 	defer tx.Rollback(t)
 
@@ -281,6 +285,7 @@ func predateElection(t testing.TB, ctx context.Context, db glsql.Querier, shardN
 }
 
 func TestElectNewPrimary(t *testing.T) {
+	t.Parallel()
 	db := glsql.NewDB(t)
 
 	ns := []*nodeStatus{{
@@ -419,6 +424,7 @@ func TestElectNewPrimary(t *testing.T) {
 }
 
 func TestConnectionMultiplexing(t *testing.T) {
+	t.Parallel()
 	errNonMuxed := status.Error(codes.Internal, "non-muxed connection")
 	errMuxed := status.Error(codes.Internal, "muxed connection")
 

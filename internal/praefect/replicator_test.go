@@ -57,6 +57,7 @@ func testMain(m *testing.M) int {
 }
 
 func TestReplMgr_ProcessBacklog(t *testing.T) {
+	t.Parallel()
 	primaryCfg, testRepo, testRepoPath := testcfg.BuildWithRepo(t, testcfg.WithStorages("primary"))
 	primaryCfg.SocketPath = testserver.RunGitalyServer(t, primaryCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 	testhelper.BuildGitalySSH(t, primaryCfg)
@@ -264,6 +265,7 @@ func TestReplicatorDowngradeAttempt(t *testing.T) {
 }
 
 func TestReplicator_PropagateReplicationJob(t *testing.T) {
+	t.Parallel()
 	primaryStorage, secondaryStorage := "internal-gitaly-0", "internal-gitaly-1"
 
 	primCfg := testcfg.Build(t, testcfg.WithStorages(primaryStorage))
@@ -632,6 +634,7 @@ func getChecksumFunc(ctx context.Context, client gitalypb.RepositoryServiceClien
 }
 
 func TestProcessBacklog_FailedJobs(t *testing.T) {
+	t.Parallel()
 	primaryCfg, testRepo, _ := testcfg.BuildWithRepo(t, testcfg.WithStorages("default"))
 	primaryAddr := testserver.RunGitalyServer(t, primaryCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
@@ -753,6 +756,7 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 }
 
 func TestProcessBacklog_Success(t *testing.T) {
+	t.Parallel()
 	primaryCfg, testRepo, _ := testcfg.BuildWithRepo(t, testcfg.WithStorages("primary"))
 	primaryCfg.SocketPath = testserver.RunGitalyServer(t, primaryCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 	testhelper.BuildGitalySSH(t, primaryCfg)
@@ -893,6 +897,7 @@ func TestProcessBacklog_Success(t *testing.T) {
 }
 
 func TestReplMgrProcessBacklog_OnlyHealthyNodes(t *testing.T) {
+	t.Parallel()
 	conf := config.Config{
 		VirtualStorages: []*config.VirtualStorage{
 			{
@@ -970,6 +975,7 @@ func (m mockReplicator) Replicate(ctx context.Context, event datastore.Replicati
 }
 
 func TestProcessBacklog_ReplicatesToReadOnlyPrimary(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 

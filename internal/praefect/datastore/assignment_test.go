@@ -9,6 +9,7 @@ import (
 )
 
 func TestAssignmentStore_GetHostAssignments(t *testing.T) {
+	t.Parallel()
 	type assignment struct {
 		virtualStorage string
 		relativePath   string
@@ -101,6 +102,7 @@ func TestAssignmentStore_GetHostAssignments(t *testing.T) {
 }
 
 func TestAssignmentStore_SetReplicationFactor(t *testing.T) {
+	t.Parallel()
 	type matcher func(testing.TB, []string)
 
 	equal := func(expected []string) matcher {
