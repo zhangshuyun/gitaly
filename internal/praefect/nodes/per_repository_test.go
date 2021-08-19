@@ -14,6 +14,7 @@ import (
 )
 
 func TestPerRepositoryElector(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -44,6 +45,8 @@ func TestPerRepositoryElector(t *testing.T) {
 		error        error
 		primary      matcher
 	}
+
+	db := glsql.NewDB(t)
 
 	for _, tc := range []struct {
 		desc         string
@@ -482,7 +485,7 @@ func TestPerRepositoryElector(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			db := getDB(t)
+			db.TruncateAll(t)
 
 			rs := datastore.NewPostgresRepositoryStore(db, nil)
 			for virtualStorage, relativePaths := range tc.state {

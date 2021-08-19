@@ -18,6 +18,7 @@ import (
 )
 
 func TestReconciler(t *testing.T) {
+	t.Parallel()
 	// repositories describes storage state as
 	// virtual storage -> relative path -> physical storage -> generation
 
@@ -76,6 +77,8 @@ func TestReconciler(t *testing.T) {
 
 		return out
 	}
+
+	db := glsql.NewDB(t)
 
 	for _, tc := range []struct {
 		desc                string
@@ -1060,7 +1063,7 @@ func TestReconciler(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			db := glsql.GetDB(t)
+			db.TruncateAll(t)
 
 			// set up the repository generation records expected by the test case
 			rs := datastore.NewPostgresRepositoryStore(db, configuredStorages)

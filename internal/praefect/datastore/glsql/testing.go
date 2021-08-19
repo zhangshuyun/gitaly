@@ -113,7 +113,7 @@ func (db DB) Close() error {
 	return nil
 }
 
-// GetDB returns a wrapper around the database connection pool.
+// NewDB returns a wrapper around the database connection pool.
 // Must be used only for testing.
 // The new database with empty relations will be created for each call of this function.
 // It uses env vars:
@@ -121,14 +121,14 @@ func (db DB) Close() error {
 //   PGPORT - required, binding port
 //   PGUSER - optional, user - `$ whoami` would be used if not provided
 // Once the test is completed the database will be dropped on test cleanup execution.
-func GetDB(t testing.TB) DB {
+func NewDB(t testing.TB) DB {
 	t.Helper()
 	database := "praefect_" + strings.ReplaceAll(uuid.New().String(), "-", "")
 	return DB{DB: initPraefectTestDB(t, database), Name: database}
 }
 
 // GetDBConfig returns the database configuration determined by
-// environment variables.  See GetDB() for the list of variables.
+// environment variables.  See NewDB() for the list of variables.
 func GetDBConfig(t testing.TB, database string) config.DB {
 	getEnvFromGDK(t)
 

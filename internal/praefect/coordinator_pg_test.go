@@ -25,11 +25,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func getDB(t testing.TB) glsql.DB {
-	return glsql.GetDB(t)
-}
-
 func TestStreamDirectorMutator_Transaction(t *testing.T) {
+	t.Parallel()
 	// For the test-with-praefect execution we disable a special case when repository
 	// records need to be created in the database.
 	defer testhelper.ModifyEnvironment(t, "GITALY_TEST_PRAEFECT_BIN", "")()
@@ -158,8 +155,12 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 		},
 	}
 
+	db := glsql.NewDB(t)
+
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
+			db.TruncateAll(t)
+
 			storageNodes := make([]*config.Node, 0, len(tc.nodes))
 			for i := range tc.nodes {
 				socket := testhelper.GetTemporaryGitalySocketFileName(t)
@@ -178,7 +179,6 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			}
 
 			var replicationWaitGroup sync.WaitGroup
-			db := getDB(t)
 			queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(db))
 			queueInterceptor.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
 				defer replicationWaitGroup.Done()

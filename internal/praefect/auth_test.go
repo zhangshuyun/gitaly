@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/mock"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/protoregistry"
@@ -148,7 +149,7 @@ func runServer(t *testing.T, token string, required bool) (*grpc.Server, string,
 		},
 	}
 	logEntry := testhelper.DiscardTestEntry(t)
-	queue := datastore.NewPostgresReplicationEventQueue(getDB(t))
+	queue := datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t))
 
 	nodeMgr, err := nodes.NewManager(logEntry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil)
 	require.NoError(t, err)

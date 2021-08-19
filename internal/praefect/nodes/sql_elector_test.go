@@ -28,7 +28,8 @@ import (
 var shardName string = "test-shard-0"
 
 func TestGetPrimaryAndSecondaries(t *testing.T) {
-	db := getDB(t)
+	t.Parallel()
+	db := glsql.NewDB(t)
 
 	logger := testhelper.NewTestLogger(t).WithField("test", t.Name())
 	praefectSocket := testhelper.GetTemporaryGitalySocketFileName(t)
@@ -71,7 +72,8 @@ func TestGetPrimaryAndSecondaries(t *testing.T) {
 }
 
 func TestSqlElector_slow_execution(t *testing.T) {
-	db := getDB(t)
+	t.Parallel()
+	db := glsql.NewDB(t)
 
 	praefectSocket := "unix://" + testhelper.GetTemporaryGitalySocketFileName(t)
 	logger := testhelper.NewTestLogger(t).WithField("test", t.Name())
@@ -108,7 +110,8 @@ func TestSqlElector_slow_execution(t *testing.T) {
 }
 
 func TestBasicFailover(t *testing.T) {
-	db := getDB(t)
+	t.Parallel()
+	db := glsql.NewDB(t)
 
 	logger := testhelper.NewTestLogger(t).WithField("test", t.Name())
 	praefectSocket := testhelper.GetTemporaryGitalySocketFileName(t)
@@ -216,16 +219,15 @@ func TestBasicFailover(t *testing.T) {
 }
 
 func TestElectDemotedPrimary(t *testing.T) {
-	db := getDB(t)
-
-	tx := getDB(t).Begin(t)
+	t.Parallel()
+	tx := glsql.NewDB(t).Begin(t)
 	defer tx.Rollback(t)
 
 	node := config.Node{Storage: "gitaly-0"}
 	elector := newSQLElector(
 		shardName,
 		config.Config{},
-		db.DB,
+		nil,
 		testhelper.DiscardTestLogger(t),
 		[]*nodeStatus{{node: node}},
 	)
@@ -283,7 +285,8 @@ func predateElection(t testing.TB, ctx context.Context, db glsql.Querier, shardN
 }
 
 func TestElectNewPrimary(t *testing.T) {
-	db := getDB(t)
+	t.Parallel()
+	db := glsql.NewDB(t)
 
 	ns := []*nodeStatus{{
 		node: config.Node{
@@ -395,9 +398,7 @@ func TestElectNewPrimary(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			db.TruncateAll(t)
-
-			tx := getDB(t).Begin(t)
+			tx := db.Begin(t)
 			defer tx.Rollback(t)
 
 			_, err := tx.Exec(testCase.initialReplQueueInsert)
@@ -423,6 +424,7 @@ func TestElectNewPrimary(t *testing.T) {
 }
 
 func TestConnectionMultiplexing(t *testing.T) {
+	t.Parallel()
 	errNonMuxed := status.Error(codes.Internal, "non-muxed connection")
 	errMuxed := status.Error(codes.Internal, "muxed connection")
 
@@ -453,6 +455,7 @@ func TestConnectionMultiplexing(t *testing.T) {
 
 	go srv.Serve(ln)
 
+	db := glsql.NewDB(t)
 	mgr, err := NewManager(
 		testhelper.DiscardTestEntry(t),
 		config.Config{
@@ -470,7 +473,7 @@ func TestConnectionMultiplexing(t *testing.T) {
 				},
 			},
 		},
-		getDB(t).DB,
+		db.DB,
 		nil,
 		promtest.NewMockHistogramVec(),
 		protoregistry.GitalyProtoPreregistered,

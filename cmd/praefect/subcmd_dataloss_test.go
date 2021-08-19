@@ -14,10 +14,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-func getDB(t *testing.T) glsql.DB {
-	return glsql.GetDB(t)
-}
-
 func registerPraefectInfoServer(impl gitalypb.PraefectInfoServiceServer) svcRegistrar {
 	return func(srv *grpc.Server) {
 		gitalypb.RegisterPraefectInfoServiceServer(srv, impl)
@@ -25,6 +21,7 @@ func registerPraefectInfoServer(impl gitalypb.PraefectInfoServiceServer) svcRegi
 }
 
 func TestDatalossSubcommand(t *testing.T) {
+	t.Parallel()
 	cfg := config.Config{
 		VirtualStorages: []*config.VirtualStorage{
 			{
@@ -44,7 +41,7 @@ func TestDatalossSubcommand(t *testing.T) {
 		},
 	}
 
-	tx := getDB(t).Begin(t)
+	tx := glsql.NewDB(t).Begin(t)
 	defer tx.Rollback(t)
 
 	ctx, cancel := testhelper.Context()

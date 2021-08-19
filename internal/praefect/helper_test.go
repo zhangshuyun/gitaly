@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/grpc-proxy/proxy"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/mock"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
@@ -115,7 +116,7 @@ func withMockBackends(t testing.TB, backends map[string]mock.SimpleServiceServer
 }
 
 func defaultQueue(t testing.TB) datastore.ReplicationEventQueue {
-	return datastore.NewPostgresReplicationEventQueue(getDB(t))
+	return datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t))
 }
 
 func defaultTxMgr(conf config.Config) *transactions.Manager {

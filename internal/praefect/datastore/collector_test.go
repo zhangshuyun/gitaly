@@ -11,10 +11,12 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
 func TestRepositoryStoreCollector(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -28,6 +30,8 @@ func TestRepositoryStoreCollector(t *testing.T) {
 		relativePath string
 		replicas     replicas
 	}
+
+	db := glsql.NewDB(t)
 
 	for _, tc := range []struct {
 		desc         string
@@ -144,7 +148,7 @@ func TestRepositoryStoreCollector(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			tx := getDB(t).Begin(t)
+			tx := db.Begin(t)
 			defer tx.Rollback(t)
 
 			testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{

@@ -24,6 +24,7 @@ func (m mockHealthClient) Check(ctx context.Context, r *grpc_health_v1.HealthChe
 }
 
 func TestHealthManager(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -36,6 +37,8 @@ func TestHealthManager(t *testing.T) {
 		Updated         bool
 		HealthConsensus map[string][]string
 	}
+
+	db := glsql.NewDB(t)
 
 	for _, tc := range []struct {
 		desc         string
@@ -470,7 +473,7 @@ func TestHealthManager(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			db := getDB(t)
+			db.TruncateAll(t)
 
 			healthStatus := map[string]grpc_health_v1.HealthCheckResponse_ServingStatus{}
 			// healthManagers are cached in order to keep the internal state intact between different

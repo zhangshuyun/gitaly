@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
@@ -37,7 +38,7 @@ func BenchmarkPostgresRepositoryStore_GetConsistentStorages(b *testing.B) {
 }
 
 func benchmarkGetConsistentStorages(b *testing.B, nstorages, nrepositories int) {
-	db := getDB(b)
+	db := glsql.NewDB(b)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

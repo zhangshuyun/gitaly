@@ -70,6 +70,7 @@ func verifyCounterMetrics(t *testing.T, manager *transactions.Manager, expected 
 }
 
 func TestTransactionSucceeds(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -110,6 +111,7 @@ func TestTransactionSucceeds(t *testing.T) {
 }
 
 func TestTransactionWithMultipleNodes(t *testing.T) {
+	t.Parallel()
 	testcases := []struct {
 		desc          string
 		nodes         []string
@@ -220,6 +222,7 @@ func TestTransactionWithMultipleNodes(t *testing.T) {
 }
 
 func TestTransactionWithContextCancellation(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -330,6 +333,7 @@ func TestTransactionRegistrationWithInvalidThresholdFails(t *testing.T) {
 }
 
 func TestTransactionReachesQuorum(t *testing.T) {
+	t.Parallel()
 	tc := []struct {
 		desc      string
 		voters    []voter
@@ -459,6 +463,7 @@ func TestTransactionReachesQuorum(t *testing.T) {
 }
 
 func TestTransactionWithMultipleVotes(t *testing.T) {
+	t.Parallel()
 	type multiVoter struct {
 		voteCount      uint
 		votes          []string
@@ -567,6 +572,7 @@ func TestTransactionWithMultipleVotes(t *testing.T) {
 }
 
 func TestTransactionFailures(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -595,6 +601,7 @@ func TestTransactionFailures(t *testing.T) {
 }
 
 func TestTransactionCancellation(t *testing.T) {
+	t.Parallel()
 	testcases := []struct {
 		desc            string
 		voters          []voter
@@ -713,6 +720,7 @@ func TestTransactionCancellation(t *testing.T) {
 }
 
 func TestStopTransaction(t *testing.T) {
+	t.Parallel()
 	hash := sha1.Sum([]byte("foo"))
 
 	t.Run("stopping nonexisting transaction fails", func(t *testing.T) {

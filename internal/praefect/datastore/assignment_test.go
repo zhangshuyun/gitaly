@@ -4,15 +4,19 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
 func TestAssignmentStore_GetHostAssignments(t *testing.T) {
+	t.Parallel()
 	type assignment struct {
 		virtualStorage string
 		relativePath   string
 		storage        string
 	}
+
+	db := glsql.NewDB(t)
 
 	configuredStorages := []string{"storage-1", "storage-2", "storage-3"}
 	for _, tc := range []struct {
@@ -71,7 +75,7 @@ func TestAssignmentStore_GetHostAssignments(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			db := getDB(t)
+			db.TruncateAll(t)
 
 			for _, assignment := range tc.existingAssignments {
 				_, err := db.ExecContext(ctx, `
@@ -98,6 +102,7 @@ func TestAssignmentStore_GetHostAssignments(t *testing.T) {
 }
 
 func TestAssignmentStore_SetReplicationFactor(t *testing.T) {
+	t.Parallel()
 	type matcher func(testing.TB, []string)
 
 	equal := func(expected []string) matcher {
@@ -113,6 +118,8 @@ func TestAssignmentStore_SetReplicationFactor(t *testing.T) {
 			require.Contains(t, expecteds, actual)
 		}
 	}
+
+	db := glsql.NewDB(t)
 
 	for _, tc := range []struct {
 		desc                  string
@@ -191,7 +198,7 @@ func TestAssignmentStore_SetReplicationFactor(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			db := getDB(t)
+			db.TruncateAll(t)
 
 			configuredStorages := map[string][]string{"virtual-storage": {"primary", "secondary-1", "secondary-2"}}
 

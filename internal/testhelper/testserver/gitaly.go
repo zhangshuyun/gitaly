@@ -63,7 +63,7 @@ func RunGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server
 
 // createDatabase create a new database with randomly generated name and returns it back to the caller.
 func createDatabase(t testing.TB) string {
-	db := glsql.GetDB(t)
+	db := glsql.NewDB(t)
 	return db.Name
 }
 

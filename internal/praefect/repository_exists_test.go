@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/grpc-proxy/proxy"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -20,8 +21,10 @@ import (
 )
 
 func TestRepositoryExistsStreamInterceptor(t *testing.T) {
+	t.Parallel()
 	errServedByGitaly := status.Error(codes.Unknown, "request passed to Gitaly")
 
+	db := glsql.NewDB(t)
 	for _, tc := range []struct {
 		desc          string
 		routeToGitaly bool
@@ -65,7 +68,7 @@ func TestRepositoryExistsStreamInterceptor(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			db := getDB(t)
+			db.TruncateAll(t)
 			rs := datastore.NewPostgresRepositoryStore(db, map[string][]string{"virtual-storage": {"storage"}})
 
 			ctx, cancel := testhelper.Context()
