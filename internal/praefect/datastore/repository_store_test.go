@@ -168,13 +168,26 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		t.Run("increments generation for up to date nodes", func(t *testing.T) {
 			rs, requireState := newStore(t, nil)
 
-			require.NoError(t, rs.CreateRepository(ctx, vs, repo, "primary", []string{"up-to-date-secondary"}, nil, false, false))
+			for _, pair := range []struct{ virtualStorage, relativePath string }{
+				{vs, repo},
+				// create records that don't get modified to ensure the query is correctly scoped by virtual storage
+				// and relative path
+				{vs, "other-relative-path"},
+				{"other-virtual-storage", repo},
+			} {
+				require.NoError(t, rs.CreateRepository(ctx, pair.virtualStorage, pair.relativePath, "primary", []string{"up-to-date-secondary", "outdated-secondary"}, nil, false, false))
+			}
+
 			require.NoError(t, rs.IncrementGeneration(ctx, vs, repo, "primary", []string{"up-to-date-secondary"}))
-			require.NoError(t, rs.SetGeneration(ctx, vs, repo, "outdated-secondary", 0))
+
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": repositoryRecord{},
+						"repository-1":        repositoryRecord{},
+						"other-relative-path": {},
+					},
+					"other-virtual-storage": {
+						"repository-1": {},
 					},
 				},
 				storageState{
@@ -182,6 +195,18 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 						"repository-1": {
 							"primary":              1,
 							"up-to-date-secondary": 1,
+							"outdated-secondary":   0,
+						},
+						"other-relative-path": {
+							"primary":              0,
+							"up-to-date-secondary": 0,
+							"outdated-secondary":   0,
+						},
+					},
+					"other-virtual-storage": {
+						"repository-1": {
+							"primary":              0,
+							"up-to-date-secondary": 0,
 							"outdated-secondary":   0,
 						},
 					},
@@ -193,7 +218,11 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": repositoryRecord{},
+						"repository-1":        repositoryRecord{},
+						"other-relative-path": {},
+					},
+					"other-virtual-storage": {
+						"repository-1": {},
 					},
 				},
 				storageState{
@@ -201,6 +230,18 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 						"repository-1": {
 							"primary":              2,
 							"up-to-date-secondary": 2,
+							"outdated-secondary":   0,
+						},
+						"other-relative-path": {
+							"primary":              0,
+							"up-to-date-secondary": 0,
+							"outdated-secondary":   0,
+						},
+					},
+					"other-virtual-storage": {
+						"repository-1": {
+							"primary":              0,
+							"up-to-date-secondary": 0,
 							"outdated-secondary":   0,
 						},
 					},
