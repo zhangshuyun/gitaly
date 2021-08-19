@@ -37,7 +37,7 @@ func TestHealthManager(t *testing.T) {
 		HealthConsensus map[string][]string
 	}
 
-	db := glsql.GetDB(t)
+	db := glsql.NewDB(t)
 
 	for _, tc := range []struct {
 		desc         string

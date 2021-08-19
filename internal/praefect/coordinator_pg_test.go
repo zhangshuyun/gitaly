@@ -154,7 +154,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 		},
 	}
 
-	db := glsql.GetDB(t)
+	db := glsql.NewDB(t)
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {

@@ -23,7 +23,7 @@ import (
 func TestRepositoryExistsStreamInterceptor(t *testing.T) {
 	errServedByGitaly := status.Error(codes.Unknown, "request passed to Gitaly")
 
-	db := glsql.GetDB(t)
+	db := glsql.NewDB(t)
 	for _, tc := range []struct {
 		desc          string
 		routeToGitaly bool

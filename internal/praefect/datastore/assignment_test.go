@@ -15,7 +15,7 @@ func TestAssignmentStore_GetHostAssignments(t *testing.T) {
 		storage        string
 	}
 
-	db := glsql.GetDB(t)
+	db := glsql.NewDB(t)
 
 	configuredStorages := []string{"storage-1", "storage-2", "storage-3"}
 	for _, tc := range []struct {
@@ -117,7 +117,7 @@ func TestAssignmentStore_SetReplicationFactor(t *testing.T) {
 		}
 	}
 
-	db := glsql.GetDB(t)
+	db := glsql.NewDB(t)
 
 	for _, tc := range []struct {
 		desc                  string

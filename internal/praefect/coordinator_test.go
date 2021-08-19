@@ -60,7 +60,7 @@ func TestSecondaryRotation(t *testing.T) {
 }
 
 func TestStreamDirectorReadOnlyEnforcement(t *testing.T) {
-	db := glsql.GetDB(t)
+	db := glsql.NewDB(t)
 	for _, tc := range []struct {
 		desc     string
 		readOnly bool
@@ -154,7 +154,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 
 	var replEventWait sync.WaitGroup
 
-	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(glsql.GetDB(t)))
+	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t)))
 	queueInterceptor.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
 		defer replEventWait.Done()
 		return queue.Enqueue(ctx, event)
@@ -285,7 +285,7 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 	txMgr := transactions.NewManager(conf)
 
 	coordinator := NewCoordinator(
-		datastore.NewPostgresReplicationEventQueue(glsql.GetDB(t)),
+		datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t)),
 		rs,
 		NewNodeManagerRouter(nodeMgr, rs),
 		txMgr,
@@ -377,7 +377,7 @@ func TestStreamDirectorAccessor(t *testing.T) {
 		},
 	}
 
-	queue := datastore.NewPostgresReplicationEventQueue(glsql.GetDB(t))
+	queue := datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t))
 
 	targetRepo := gitalypb.Repository{
 		StorageName:  "praefect",
@@ -482,7 +482,7 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 		},
 	}
 
-	queue := datastore.NewPostgresReplicationEventQueue(glsql.GetDB(t))
+	queue := datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t))
 
 	targetRepo := gitalypb.Repository{
 		StorageName:  "praefect",
@@ -739,7 +739,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 	// records need to be created in the database.
 	defer testhelper.ModifyEnvironment(t, "GITALY_TEST_PRAEFECT_BIN", "")()
 
-	db := glsql.GetDB(t)
+	db := glsql.NewDB(t)
 
 	for _, tc := range []struct {
 		desc              string
@@ -1015,7 +1015,7 @@ func TestAbsentCorrelationID(t *testing.T) {
 
 	var replEventWait sync.WaitGroup
 
-	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(glsql.GetDB(t)))
+	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t)))
 	queueInterceptor.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
 		defer replEventWait.Done()
 		return queue.Enqueue(ctx, event)

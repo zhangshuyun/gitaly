@@ -30,7 +30,7 @@ func TestRepositoryStoreCollector(t *testing.T) {
 		replicas     replicas
 	}
 
-	db := glsql.GetDB(t)
+	db := glsql.NewDB(t)
 
 	for _, tc := range []struct {
 		desc         string

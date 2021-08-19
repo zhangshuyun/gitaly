@@ -9,7 +9,7 @@ import (
 )
 
 func TestMigrateStatus(t *testing.T) {
-	db := glsql.GetDB(t)
+	db := glsql.NewDB(t)
 
 	config := config.Config{
 		DB: glsql.GetDBConfig(t, db.Name),

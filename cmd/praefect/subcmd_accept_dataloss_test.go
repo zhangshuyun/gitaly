@@ -35,7 +35,7 @@ func TestAcceptDatalossSubcommand(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	db := glsql.GetDB(t)
+	db := glsql.NewDB(t)
 	rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
 	startingGenerations := map[string]int{st1: 1, st2: 0, st3: datastore.GenerationUnknown}
 

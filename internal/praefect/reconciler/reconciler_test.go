@@ -77,7 +77,7 @@ func TestReconciler(t *testing.T) {
 		return out
 	}
 
-	db := glsql.GetDB(t)
+	db := glsql.NewDB(t)
 
 	for _, tc := range []struct {
 		desc                string

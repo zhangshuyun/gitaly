@@ -17,7 +17,7 @@ import (
 )
 
 func TestSetReplicationFactorSubcommand(t *testing.T) {
-	db := glsql.GetDB(t)
+	db := glsql.NewDB(t)
 
 	for _, tc := range []struct {
 		desc   string

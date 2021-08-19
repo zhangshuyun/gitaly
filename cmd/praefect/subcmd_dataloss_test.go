@@ -40,7 +40,7 @@ func TestDatalossSubcommand(t *testing.T) {
 		},
 	}
 
-	tx := glsql.GetDB(t).Begin(t)
+	tx := glsql.NewDB(t).Begin(t)
 	defer tx.Rollback(t)
 
 	ctx, cancel := testhelper.Context()

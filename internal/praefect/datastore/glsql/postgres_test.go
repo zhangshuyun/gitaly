@@ -61,7 +61,7 @@ func TestUint64Provider(t *testing.T) {
 }
 
 func TestScanAll(t *testing.T) {
-	db := GetDB(t)
+	db := NewDB(t)
 
 	var ids Uint64Provider
 	notEmptyRows, err := db.Query("SELECT id FROM (VALUES (1), (200), (300500)) AS t(id)")

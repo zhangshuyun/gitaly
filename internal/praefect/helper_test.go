@@ -116,7 +116,7 @@ func withMockBackends(t testing.TB, backends map[string]mock.SimpleServiceServer
 }
 
 func defaultQueue(t testing.TB) datastore.ReplicationEventQueue {
-	return datastore.NewPostgresReplicationEventQueue(glsql.GetDB(t))
+	return datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t))
 }
 
 func defaultTxMgr(conf config.Config) *transactions.Manager {
