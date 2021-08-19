@@ -37,7 +37,6 @@ type PrimaryGetter interface {
 type Server struct {
 	gitalypb.UnimplementedPraefectInfoServiceServer
 	conf            config.Config
-	queue           datastore.ReplicationEventQueue
 	rs              datastore.RepositoryStore
 	assignmentStore AssignmentStore
 	conns           service.Connections
@@ -47,7 +46,6 @@ type Server struct {
 // NewServer creates a new instance of a grpc InfoServiceServer
 func NewServer(
 	conf config.Config,
-	queue datastore.ReplicationEventQueue,
 	rs datastore.RepositoryStore,
 	assignmentStore AssignmentStore,
 	conns service.Connections,
@@ -55,7 +53,6 @@ func NewServer(
 ) gitalypb.PraefectInfoServiceServer {
 	return &Server{
 		conf:            conf,
-		queue:           queue,
 		rs:              rs,
 		assignmentStore: assignmentStore,
 		conns:           conns,
