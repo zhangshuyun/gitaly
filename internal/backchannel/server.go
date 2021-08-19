@@ -19,11 +19,13 @@ var ErrNonMultiplexedConnection = errors.New("non-multiplexed connection")
 
 // authInfoWrapper is used to pass the peer id through the context to the RPC handlers.
 type authInfoWrapper struct {
-	id ID
+	id      ID
+	session *yamux.Session
 	credentials.AuthInfo
 }
 
-func (w authInfoWrapper) peerID() ID { return w.id }
+func (w authInfoWrapper) peerID() ID                   { return w.id }
+func (w authInfoWrapper) yamuxSession() *yamux.Session { return w.session }
 
 // GetPeerID gets the ID of the current peer connection.
 func GetPeerID(ctx context.Context) (ID, error) {
@@ -40,10 +42,23 @@ func GetPeerID(ctx context.Context) (ID, error) {
 	return wrapper.peerID(), nil
 }
 
-// WithID stores the ID in the provided AuthInfo so it can be later accessed by the RPC handler.
-// This is exported to facilitate testing.
-func WithID(authInfo credentials.AuthInfo, id ID) credentials.AuthInfo {
-	return authInfoWrapper{id: id, AuthInfo: authInfo}
+// GetYamuxSession gets the yamux session of the current peer connection.
+func GetYamuxSession(ctx context.Context) (*yamux.Session, error) {
+	peerInfo, ok := peer.FromContext(ctx)
+	if !ok {
+		return nil, errors.New("no peer info in context")
+	}
+
+	wrapper, ok := peerInfo.AuthInfo.(interface{ yamuxSession() *yamux.Session })
+	if !ok {
+		return nil, ErrNonMultiplexedConnection
+	}
+
+	return wrapper.yamuxSession(), nil
+}
+
+func withSessionInfo(authInfo credentials.AuthInfo, id ID, muxSession *yamux.Session) credentials.AuthInfo {
+	return authInfoWrapper{id: id, AuthInfo: authInfo, session: muxSession}
 }
 
 // ServerHandshaker implements the server side handshake of the multiplexed connection.
@@ -119,6 +134,6 @@ func (s *ServerHandshaker) Handshake(conn net.Conn, authInfo credentials.AuthInf
 				return nil
 			},
 		},
-		WithID(authInfo, id),
+		withSessionInfo(authInfo, id, muxSession),
 		nil
 }
