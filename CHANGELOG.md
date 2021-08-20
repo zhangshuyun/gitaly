@@ -1,5 +1,109 @@
 # Gitaly changelog
 
+## 14.2.0 (2021-08-20)
+
+### Added (8 changes)
+
+- [Add ListRef RPC to list all refs](gitlab-org/gitaly@cb8c7392b544ece7c27fdd2467b2afcab7c0b400) ([merge request](gitlab-org/gitaly!3731))
+- [gitaly: Sort the tags returned by FindAllTags RPC](gitlab-org/gitaly@1a79647c0140fb94387859b8b042cedc312af7da) ([merge request](gitlab-org/gitaly!3707))
+- [gitaly: Sort the tags returned by FindAllTags RPC](gitlab-org/gitaly@241290c104d58ebb88d01bc9704fd94d4e705ab2) ([merge request](gitlab-org/gitaly!3707))
+- [Add CreateBundleFromRefList RPC](gitlab-org/gitaly@dae23dd0dbe37d4e1997fb9b1dfbea554be25f64) ([merge request](gitlab-org/gitaly!3594))
+- [repository: Implement new `SetFullPath()` RPC](gitlab-org/gitaly@e7fa825668f2c57885d29f8ea77bd8a92102c0e0) ([merge request](gitlab-org/gitaly!3706))
+- [backup: support of the Cloud storages](gitlab-org/gitaly@a9801375db1253f7413449e9dbc9a12b7325cf31) ([merge request](gitlab-org/gitaly!3687))
+- [Add pagination to GetTreeEntries RPC](gitlab-org/gitaly@b458bbc55c56011d9e7b1df1092b9c008cea575f) ([merge request](gitlab-org/gitaly!3611))
+- [Add sort capability for GetTreeEntries](gitlab-org/gitaly@09739e1096c078646fb5f1d2982b4d662d902907) ([merge request](gitlab-org/gitaly!3671))
+
+### Fixed (23 changes)
+
+- [conflicts: Always resolve conflicts with hooks](gitlab-org/gitaly@2dbee32be724c00d376c6ef44da429af1c7cd12f) ([merge request](gitlab-org/gitaly!3743))
+- [Accept array of patterns in CreateBundleFromRefList](gitlab-org/gitaly@87b298809f40895437cdcdeec965b3fcd643a443) ([merge request](gitlab-org/gitaly!3742))
+- [Correct the first page when paginating CommitService.CommitsBetween](gitlab-org/gitaly@be8444d9cac37544c52581faca3e2f7eadf25520) ([merge request](gitlab-org/gitaly!3737))
+- [Set a timeout for Praefect's SQL metrics](gitlab-org/gitaly@ea7a08a8fc1c65fd0e360106c69327b6362207a8) ([merge request](gitlab-org/gitaly!3730))
+- [operations: Fix error when rebase in UserSquash fails](gitlab-org/gitaly@682c59143e598c041b02a0100beac16c23bb5e4a) ([merge request](gitlab-org/gitaly!3727))
+- [Fix create backup parallelism](gitlab-org/gitaly@ef7e85412b244326ddae77e5ccea1d37bf300eea) ([merge request](gitlab-org/gitaly!3690))
+- [ref: Fix FindAllTags' pipeline code not returning nested tags](gitlab-org/gitaly@7344791e72998f36eef9d754a53c9ebdef0f4438) ([merge request](gitlab-org/gitaly!3728))
+- [featureflag: Unconditionally enable transactional removal of repos](gitlab-org/gitaly@bd8740dae59716e5ecb1ae934243562901a01fa9) ([merge request](gitlab-org/gitaly!3725))
+- [Increment generations of up to date storages only](gitlab-org/gitaly@dcd7dcfadd91de1039b84ee997c1daa4227b5ad5) ([merge request](gitlab-org/gitaly!3689))
+- [repository: Remove feature flag for direct fetches](gitlab-org/gitaly@6490360d504c39bf6ebe9bf5414ba91ed4b7f6c5) ([merge request](gitlab-org/gitaly!3716))
+- [repository: Fix SetFullPath writing multiple entries](gitlab-org/gitaly@0622b256ea3bdef6a0a52cf66ce9d3ecca08b338) ([merge request](gitlab-org/gitaly!3712))
+- [repository: Allow voting on missing config](gitlab-org/gitaly@0663898ba5ba01894c7cbbdc38609edc02ed320b) ([merge request](gitlab-org/gitaly!3706))
+- [Ignore symbolic refs in UpdateRemoteMirror](gitlab-org/gitaly@cb29419829d2af90cf8b24eac90d0ec18ec4b5d8) ([merge request](gitlab-org/gitaly!3699))
+- [Fix UpdateRemoteMirror force pushing over diverged refs due to a race](gitlab-org/gitaly@dd160399735126da6a1757bf9ff3818059848c35) ([merge request](gitlab-org/gitaly!3699))
+- [Fix mirroring empty repository in UpdateRemoteMirror](gitlab-org/gitaly@55488e5c3ac398359edf64aec613b6a31ca623c8) ([merge request](gitlab-org/gitaly!3699))
+- [Fix mirroring branch and tag of same name in UpdateRemoteMirror](gitlab-org/gitaly@bdb785c8d2d7361d31a3f3649ca25cfae56b153c) ([merge request](gitlab-org/gitaly!3699))
+- [Fix mirroring branch called 'tag' in UpdateRemoteMirror](gitlab-org/gitaly@6e2d217dd7c6720c22a65abe9a18b39216801fae) ([merge request](gitlab-org/gitaly!3699))
+- [remote: Remove hardcoded branch name from error](gitlab-org/gitaly@ba882c2c9320ba354cd880983eb2f011b3086b4e) ([merge request](gitlab-org/gitaly!3701))
+- [quarantine: Fix calling RPCs with manual object quarantine environments](gitlab-org/gitaly@e491f9266d25c43ac33f324cf1bc662254668f93) ([merge request](gitlab-org/gitaly!3697))
+- [Remove orphan repository replicas](gitlab-org/gitaly@943fdd846af8ccb755b104dceb65bd8926f960b4) ([merge request](gitlab-org/gitaly!3674))
+- [ref: Fix FindAllTags returning tag names instead of ref names](gitlab-org/gitaly@3ad398c3ef00869989f1eea38bc676dab9bf9f56) ([merge request](gitlab-org/gitaly!3694))
+- [operations: Squash via patches if commits are not directly related](gitlab-org/gitaly@0cbd9335b99d97cdafd13a64bfc41476541713a4) ([merge request](gitlab-org/gitaly!3685))
+- [Set restrictive permissions on backup directories](gitlab-org/gitaly@49cfca5e02964d48a1e3750f0bdce140bfeb7966) ([merge request](gitlab-org/gitaly!3677))
+
+### Changed (12 changes)
+
+- [Write ref list when taking backups](gitlab-org/gitaly@ed2445a6975f0b300b287e710f4b2710cea7068f) ([merge request](gitlab-org/gitaly!3747))
+- [Share default prometheus configuration between Gitaly and Praefect](gitlab-org/gitaly@9d66dfdf91c77a6e75eeb49c8b78e6a0e9443abb) ([merge request](gitlab-org/gitaly!3730))
+- [operations: Make UserMergeBranch return PreconditionFailed on conflicts](gitlab-org/gitaly@766e37dc7cc02a61225ee65bbd2ebe16c91e9663) ([merge request](gitlab-org/gitaly!3700))
+- [featureflag: Enable CreateRepositoryFromBundleAtomicFetch by default](gitlab-org/gitaly@87b3e2aa402516ae92a976be7ea25e113eb2110b) ([merge request](gitlab-org/gitaly!3696))
+- [operations: Fix UserCreateTag not respecting timezone](gitlab-org/gitaly@b9f35d555d6866380c3d433dc9eab21052b9e711) ([merge request](gitlab-org/gitaly!3694))
+- [Bump gitlab-shell dependency](gitlab-org/gitaly@eaa96cecf20a08b3e95131b73b98be01acf14d8f) ([merge request](gitlab-org/gitaly!3695))
+- [blob: Remove LFSPointersPipeline feature flag](gitlab-org/gitaly@e2dd22c4d58593f7e02febfb3113e18b6b07434d) ([merge request](gitlab-org/gitaly!3692))
+- [Enable ResolveConflictsWithHooks feature flag by default](gitlab-org/gitaly@2211513fecbb62b0e42f8dffffcffa8618e3a443) ([merge request](gitlab-org/gitaly!3639))
+- [Improve tracing instrumentation of catfile.Batch](gitlab-org/gitaly@a93d5db5daa89cf060eb1ec41e56c0cad88d406d) ([merge request](gitlab-org/gitaly!3688))
+- [Bump grpc and grpc-tools to 1.38.0](gitlab-org/gitaly@5c2d0d08b9a788ab96e34060509e8f6ef51223df) ([merge request](gitlab-org/gitaly!3659))
+- [operations: Use object quarantine directories in UserCreateTags](gitlab-org/gitaly@eca4b3c241ef5596501fc0a8eb7697c98c39b580) ([merge request](gitlab-org/gitaly!3655))
+- [HEAD: default to main for new repositories](gitlab-org/gitaly@553513b4d65d4f1203ef1b0b3b71a0d5287df1c6) ([merge request](gitlab-org/gitaly!3537))
+
+### Removed (3 changes)
+
+- [proto: Remove the IsRebaseInProgress RPC](gitlab-org/gitaly@8ef37f161d6ddf5344e46e24bf4e00644e07b659) ([merge request](gitlab-org/gitaly!3724))
+- [Remove the repository importer](gitlab-org/gitaly@dcc71730c2422d5a949979e2517a3207460d5582) ([merge request](gitlab-org/gitaly!3721))
+- [Remove UpdateRemoteMirror Go port's feature flag](gitlab-org/gitaly@8a5e40ddae82af307f68b73aefa4c141316a6f48) ([merge request](gitlab-org/gitaly!3693))
+
+### Security (2 changes)
+
+- [Updates rdoc version](gitlab-org/gitaly@2470ed7a73b354e20709699d4bdef57f2787a8a0) ([merge request](gitlab-org/gitaly!3760))
+- [catfile: Allow parsing of long git commit headers](gitlab-org/gitaly@b3e664dc0094a7fa25e8547a223607b9045e0030)
+
+### Performance (14 changes)
+
+- [operations: Support object quarantine in UserRebaseConfirmable](gitlab-org/gitaly@02976eb66065800455d12bd041d211f8a4f9059d) ([merge request](gitlab-org/gitaly!3753))
+- [ref: Skip loading of peeled non-tag objects in FindAllTags](gitlab-org/gitaly@bf6e98c3646711d22a573df4a8eb85d8982a344e) ([merge request](gitlab-org/gitaly!3750))
+- [git: Do not write commit graphs on fetches](gitlab-org/gitaly@863e5b0e57fb7ad1cb0b73abbcd411a2d1bbf59b) ([merge request](gitlab-org/gitaly!3748))
+- [Enable Go port of UserApplyPatch](gitlab-org/gitaly@9d3f0698aabc2f8941e6fb91f90ffc413a2944dd) ([merge request](gitlab-org/gitaly!3745))
+- [operations: Always use quarantine in UserCreateTag](gitlab-org/gitaly@3d6d75846bd5d3f0e03eacb06bbf461b01b5fc97) ([merge request](gitlab-org/gitaly!3744))
+- [conflicts: Always use object quarantine for ResolveConflicts](gitlab-org/gitaly@7ddff642768fe71c9c9c21d144260ba7a1c8995b) ([merge request](gitlab-org/gitaly!3743))
+- [localrepo: Always disable use of alternate refs in internal fetches](gitlab-org/gitaly@d5db37ec4eac68a2e635c80ef01b274fddc61ddf) ([merge request](gitlab-org/gitaly!3740))
+- [git: Speed up fetches in repos with many refs](gitlab-org/gitaly@caf2cfabc79b21e8b4c5e0245eb4fbf5e7f7a493) ([merge request](gitlab-org/gitaly!3739))
+- [localrepo: Speed up connectivity check when fetching into pooled repos](gitlab-org/gitaly@ddfe6e8191d8b24f0bcdd2da1ea1de071704cc3e) ([merge request](gitlab-org/gitaly!3720))
+- [operations: Support worktreeless squashing for non-fast-forward merges](gitlab-org/gitaly@007b43e561f7851cbaa96dfa75a21eabd2508539) ([merge request](gitlab-org/gitaly!3714))
+- [repository: Remove feature flag for atomic repo creation from bundles](gitlab-org/gitaly@c425e05bfeac31763ffecfbbacd93798f39a7186) ([merge request](gitlab-org/gitaly!3717))
+- [conflitcs: Implement object quarantine for ResolveConflicts](gitlab-org/gitaly@7c1143da4de8fd0c4e120b9a2c7d24381f8d400e) ([merge request](gitlab-org/gitaly!3680))
+- [operations: Implement squashing without worktrees](gitlab-org/gitaly@640b4de0970bd302cf178393755375b410985c7b) ([merge request](gitlab-org/gitaly!3657))
+- [coordinator: Only schedule replication for differing error states](gitlab-org/gitaly@73839029f79d4ebdbc8d96475cf9bd0e2a599b2b) ([merge request](gitlab-org/gitaly!3660))
+
+### Other (7 changes)
+
+- [PostUploadPack tests: conform to test name style guide](gitlab-org/gitaly@9351b4ac62e01a81ddd892c617e3033ebde523b1) ([merge request](gitlab-org/gitaly!3704))
+- [Move pack.stat logging to PackObjectsHook](gitlab-org/gitaly@84a84e95ab791803b9ea3f57bb48982f4359abcc) ([merge request](gitlab-org/gitaly!3749))
+- [gitaly-git2go: cleanup backwards compatibility code](gitlab-org/gitaly@335e3d74b2a67d79f7dcb9bc668ca84178686de6) ([merge request](gitlab-org/gitaly!3683))
+- [Improve streamrpc error messages](gitlab-org/gitaly@29bd70ca2e4d334645ccc7675bb5d1bc6aa7564a) ([merge request](gitlab-org/gitaly!3673))
+- [Use service.Dependencies to inject pack-objects cache](gitlab-org/gitaly@5cc7430e77ec6c2d27b7c1ac60e7edc5dea5b9a6) ([merge request](gitlab-org/gitaly!3672))
+- [Return close error in streamrpc.Call](gitlab-org/gitaly@ed0a0115476b1f0ec4748d04be7adfdbd6fb58ed) ([merge request](gitlab-org/gitaly!3670))
+- [Add documentation for pack-object cache](gitlab-org/gitaly@4d6d21999ed4e70c84f8e754adacb4f6204ca0b0) ([merge request](gitlab-org/gitaly!3636))
+
+### bug (1 change)
+
+- [operations: Always enable squashing without worktrees](gitlab-org/gitaly@6e5bf3a4d062e1eb5d8e15784139f05a754a4a53) ([merge request](gitlab-org/gitaly!3766))
+
+### feature (1 change)
+
+- [blob: Implement new ListAllBlobs RPC](gitlab-org/gitaly@598fb165eff266513b9788ebcdc6aa900a65f083) ([merge request](gitlab-org/gitaly!3703))
+
+### removal (1 change)
+
+- [Remove `praefect reconcile` subcommand](gitlab-org/gitaly@0c48ca9e3f368f03d0d78de0a31540d2fe248242) ([merge request](gitlab-org/gitaly!3667))
+
 ## 14.1.3 (2021-08-17)
 
 No changes.
