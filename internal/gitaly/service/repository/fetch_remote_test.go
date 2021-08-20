@@ -33,7 +33,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func copyRepoWithNewRemote(t *testing.T, cfg config.Cfg, repo *gitalypb.Repository, repoPath string, remote string) (*gitalypb.Repository, string) {
+func copyRepo(t *testing.T, cfg config.Cfg, repo *gitalypb.Repository, repoPath string) *gitalypb.Repository {
 	cloneRepo := &gitalypb.Repository{
 		StorageName:  repo.GetStorageName(),
 		RelativePath: filepath.Join(filepath.Dir(repo.GetRelativePath()), "fetch-remote-clone.git"),
@@ -44,9 +44,7 @@ func copyRepoWithNewRemote(t *testing.T, cfg config.Cfg, repo *gitalypb.Reposito
 
 	gittest.Exec(t, cfg, "clone", "--bare", repoPath, clonePath)
 
-	gittest.Exec(t, cfg, "-C", clonePath, "remote", "add", remote, repoPath)
-
-	return cloneRepo, clonePath
+	return cloneRepo
 }
 
 func TestFetchRemoteSuccess(t *testing.T) {
@@ -56,15 +54,14 @@ func TestFetchRemoteSuccess(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	cloneRepo, cloneRepoPath := copyRepoWithNewRemote(t, cfg, repo, repoPath, "my-remote")
-	defer func() {
-		require.NoError(t, os.RemoveAll(cloneRepoPath))
-	}()
+	cloneRepo := copyRepo(t, cfg, repo, repoPath)
 
 	// Ensure there's a new tag to fetch
 	gittest.CreateTag(t, cfg, repoPath, "testtag", "master", nil)
 
-	req := &gitalypb.FetchRemoteRequest{Repository: cloneRepo, Remote: "my-remote", Timeout: 120, CheckTagsChanged: true}
+	req := &gitalypb.FetchRemoteRequest{Repository: cloneRepo, RemoteParams: &gitalypb.Remote{
+		Url: repoPath,
+	}, Timeout: 120, CheckTagsChanged: true}
 	resp, err := client.FetchRemote(ctx, req)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -119,23 +116,6 @@ func TestFetchRemote_sshCommand(t *testing.T) {
 		expectedOutput string
 	}{
 		{
-			desc: "remote name without SSH key",
-			request: &gitalypb.FetchRemoteRequest{
-				Repository: repo,
-				Remote:     "my-remote",
-			},
-			expectedOutput: "ssh\n",
-		},
-		{
-			desc: "remote name with SSH key",
-			request: &gitalypb.FetchRemoteRequest{
-				Repository: repo,
-				Remote:     "my-remote",
-				SshKey:     "mykey",
-			},
-			expectedOutput: "ssh\n-oIdentitiesOnly=yes\nmykey",
-		},
-		{
 			desc: "remote parameters without SSH key",
 			request: &gitalypb.FetchRemoteRequest{
 				Repository: repo,
@@ -176,10 +156,7 @@ func TestFetchRemote_withDefaultRefmaps(t *testing.T) {
 
 	sourceRepo := localrepo.NewTestRepo(t, cfg, sourceRepoProto)
 
-	targetRepoProto, targetRepoPath := copyRepoWithNewRemote(t, cfg, sourceRepoProto, sourceRepoPath, "my-remote")
-	defer func() {
-		require.NoError(t, os.RemoveAll(targetRepoPath))
-	}()
+	targetRepoProto := copyRepo(t, cfg, sourceRepoProto, sourceRepoPath)
 	targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
 
 	port, stopGitServer := gittest.GitServer(t, cfg, sourceRepoPath, nil)
@@ -276,33 +253,6 @@ func TestFetchRemote_prune(t *testing.T) {
 		shouldExist bool
 	}{
 		{
-			desc: "NoPrune=true should not delete reference matching remote's refspec",
-			request: &gitalypb.FetchRemoteRequest{
-				Remote:  "my-remote",
-				NoPrune: true,
-			},
-			ref:         "refs/remotes/my-remote/nonexistent",
-			shouldExist: true,
-		},
-		{
-			desc: "NoPrune=false should delete reference matching remote's refspec",
-			request: &gitalypb.FetchRemoteRequest{
-				Remote:  "my-remote",
-				NoPrune: false,
-			},
-			ref:         "refs/remotes/my-remote/nonexistent",
-			shouldExist: false,
-		},
-		{
-			desc: "NoPrune=false should not delete ref outside of remote's refspec",
-			request: &gitalypb.FetchRemoteRequest{
-				Remote:  "my-remote",
-				NoPrune: false,
-			},
-			ref:         "refs/heads/nonexistent",
-			shouldExist: true,
-		},
-		{
 			desc: "NoPrune=true with explicit Remote should not delete reference",
 			request: &gitalypb.FetchRemoteRequest{
 				RemoteParams: &gitalypb.Remote{
@@ -340,10 +290,7 @@ func TestFetchRemote_prune(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			targetRepoProto, targetRepoPath := copyRepoWithNewRemote(t, cfg, sourceRepo, sourceRepoPath, "my-remote")
-			defer func() {
-				require.NoError(t, os.RemoveAll(targetRepoPath))
-			}()
+			targetRepoProto := copyRepo(t, cfg, sourceRepo, sourceRepoPath)
 			targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
 
 			ctx, cancel := testhelper.Context()
@@ -392,31 +339,6 @@ func TestFetchRemote_force(t *testing.T) {
 		expectedErr  error
 		expectedRefs map[git.ReferenceName]git.ObjectID
 	}{
-		{
-			desc: "remote without force fails with diverging refs",
-			request: &gitalypb.FetchRemoteRequest{
-				Remote: "my-remote",
-			},
-			expectedErr: status.Error(codes.Unknown, "fetch remote: exit status 1"),
-			expectedRefs: map[git.ReferenceName]git.ObjectID{
-				"refs/heads/master": branchOID,
-				"refs/tags/v1.0.0":  tagOID,
-			},
-		},
-		{
-			desc: "remote with force updates diverging refs",
-			request: &gitalypb.FetchRemoteRequest{
-				Remote: "my-remote",
-				Force:  true,
-			},
-			// We're fetching from `my-remote` here, which is set up to have a default
-			// refspec of "+refs/heads/*:refs/remotes/foobar/*". As such, no normal
-			// branches would get updated.
-			expectedRefs: map[git.ReferenceName]git.ObjectID{
-				"refs/heads/master": branchOID,
-				"refs/tags/v1.0.0":  divergingTagOID,
-			},
-		},
 		{
 			desc: "remote params without force fails with diverging refs",
 			request: &gitalypb.FetchRemoteRequest{
@@ -496,10 +418,7 @@ func TestFetchRemote_force(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			targetRepoProto, targetRepoPath := copyRepoWithNewRemote(t, cfg, sourceRepoProto, sourceRepoPath, "my-remote")
-			defer func() {
-				require.NoError(t, os.RemoveAll(targetRepoPath))
-			}()
+			targetRepoProto := copyRepo(t, cfg, sourceRepoProto, sourceRepoPath)
 
 			targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
 
@@ -555,8 +474,10 @@ func TestFetchRemoteFailure(t *testing.T) {
 			desc: "no repository",
 			req: &gitalypb.FetchRemoteRequest{
 				Repository: nil,
-				Remote:     remoteName,
-				Timeout:    1000,
+				RemoteParams: &gitalypb.Remote{
+					Url: remoteName,
+				},
+				Timeout: 1000,
 			},
 			code:   codes.InvalidArgument,
 			errMsg: "empty Repository",
@@ -568,7 +489,9 @@ func TestFetchRemoteFailure(t *testing.T) {
 					StorageName:  "invalid",
 					RelativePath: "foobar.git",
 				},
-				Remote:  remoteName,
+				RemoteParams: &gitalypb.Remote{
+					Url: remoteName,
+				},
 				Timeout: 1000,
 			},
 			// the error text is shortened to only a single word as requests to gitaly done via praefect returns different error messages
@@ -576,14 +499,13 @@ func TestFetchRemoteFailure(t *testing.T) {
 			errMsg: "invalid",
 		},
 		{
-			desc: "invalid remote",
+			desc: "missing remote",
 			req: &gitalypb.FetchRemoteRequest{
 				Repository: repo,
-				Remote:     "",
 				Timeout:    1000,
 			},
 			code:   codes.InvalidArgument,
-			errMsg: `blank or empty "remote"`,
+			errMsg: "missing remote params",
 		},
 		{
 			desc: "invalid remote url",

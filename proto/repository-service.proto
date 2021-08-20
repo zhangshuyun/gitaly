@@ -334,10 +334,6 @@ message ApplyGitattributesResponse {}
 
 message FetchRemoteRequest {
   Repository repository = 1 [(target_repository)=true];
-  // remote is the name of the remote that shall be fetched. This remote must
-  // exist in the repository's configuration already. This parameter is
-  // deprecated in favor of remote_params.
-  string remote = 2;
   // force determines if references should be force-updated in case they have
   // diverged.
   bool force = 3;
@@ -358,6 +354,9 @@ message FetchRemoteRequest {
   // tags were modified, returning the result in the tags_changed field of
   // FetchRemoteResponse
   bool check_tags_changed = 11;
+
+  reserved 2;
+  reserved "remote";
 }
 
 message FetchRemoteResponse {
