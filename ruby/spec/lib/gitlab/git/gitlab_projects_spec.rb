@@ -94,34 +94,4 @@ describe Gitlab::Git::GitlabProjects do
       end
     end
   end
-
-  describe '#delete_remote_branches' do
-    let(:remote_name) { 'remote-name' }
-    let(:branch_names) { 20.times.map { |i| "branch#{i}" } }
-    let(:env) { { 'GIT_SSH_COMMAND' => 'foo-command bar' } }
-    let(:cmd1) do
-      %W(#{Gitlab.config.git.bin_path} push -- #{remote_name}) +
-        branch_names[0, 10].map { |b| ':' + b }
-    end
-    let(:cmd2) do
-      %W(#{Gitlab.config.git.bin_path} push -- #{remote_name}) +
-        branch_names[10, 10].map { |b| ':' + b }
-    end
-
-    subject { gl_projects.delete_remote_branches(remote_name, branch_names, env: env) }
-
-    it 'executes the command' do
-      stub_unlimited_spawn(cmd1, tmp_repo_path, env, success: true)
-      stub_unlimited_spawn(cmd2, tmp_repo_path, env, success: true)
-
-      is_expected.to be_truthy
-    end
-
-    it 'fails' do
-      stub_unlimited_spawn(cmd1, tmp_repo_path, env, success: true)
-      stub_unlimited_spawn(cmd2, tmp_repo_path, env, success: false)
-
-      is_expected.to be_falsy
-    end
-  end
 end

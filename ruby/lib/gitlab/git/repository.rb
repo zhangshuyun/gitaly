@@ -4,7 +4,6 @@ module Gitlab
   module Git
     # These are monkey patches on top of the vendored version of Repository.
     class Repository
-      include Gitlab::Git::RepositoryMirroring
       include Gitlab::Git::Popen
       include Gitlab::EncodingHelper
       include Gitlab::Utils::StrongMemoize
@@ -126,10 +125,6 @@ module Gitlab
         branches_filter
       end
 
-      def local_branches(sort_by: nil)
-        branches_filter(filter: :local, sort_by: sort_by)
-      end
-
       # Git repository can contains some hidden refs like:
       #   /refs/notes/*
       #   /refs/git-as-svn/*
@@ -191,14 +186,6 @@ module Gitlab
         else
           names[0]
         end
-      end
-
-      def ancestor?(from, to)
-        return false if from.nil? || to.nil?
-
-        merge_base(from, to) == from
-      rescue Rugged::OdbError
-        false
       end
 
       def diff_exists?(sha1, sha2)

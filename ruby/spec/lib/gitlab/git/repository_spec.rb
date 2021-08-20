@@ -175,20 +175,6 @@ describe Gitlab::Git::Repository do # rubocop:disable Metrics/BlockLength
     end
   end
 
-  describe '#local_branches' do
-    let(:repository) { mutable_repository }
-
-    before do
-      create_remote_branch('joe', 'remote_branch', 'master')
-      create_branch(repository, 'local_branch', 'master')
-    end
-
-    it 'returns the local branches' do
-      expect(repository.local_branches.any? { |branch| branch.name == 'remote_branch' }).to eq(false)
-      expect(repository.local_branches.any? { |branch| branch.name == 'local_branch' }).to eq(true)
-    end
-  end
-
   describe '#with_repo_branch_commit' do
     let(:start_repository) { Gitlab::Git::RemoteRepository.new(source_repository) }
     let(:start_commit) { source_repository.commit }
