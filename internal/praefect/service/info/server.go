@@ -37,7 +37,6 @@ type PrimaryGetter interface {
 type Server struct {
 	gitalypb.UnimplementedPraefectInfoServiceServer
 	conf            config.Config
-	queue           datastore.ReplicationEventQueue
 	rs              datastore.RepositoryStore
 	assignmentStore AssignmentStore
 	conns           service.Connections
@@ -47,7 +46,6 @@ type Server struct {
 // NewServer creates a new instance of a grpc InfoServiceServer
 func NewServer(
 	conf config.Config,
-	queue datastore.ReplicationEventQueue,
 	rs datastore.RepositoryStore,
 	assignmentStore AssignmentStore,
 	conns service.Connections,
@@ -55,7 +53,6 @@ func NewServer(
 ) gitalypb.PraefectInfoServiceServer {
 	return &Server{
 		conf:            conf,
-		queue:           queue,
 		rs:              rs,
 		assignmentStore: assignmentStore,
 		conns:           conns,
@@ -87,26 +84,6 @@ func (s *Server) SetAuthoritativeStorage(ctx context.Context, req *gitalypb.SetA
 		}
 
 		return nil, helper.ErrInternal(err)
-	}
-
-	// Schedule replication jobs to other physical storages to get them consistent with the
-	// new authoritative repository.
-	for _, storage := range storages {
-		if storage == req.AuthoritativeStorage {
-			continue
-		}
-
-		if _, err := s.queue.Enqueue(ctx, datastore.ReplicationEvent{
-			Job: datastore.ReplicationJob{
-				Change:            datastore.UpdateRepo,
-				VirtualStorage:    req.VirtualStorage,
-				RelativePath:      req.RelativePath,
-				SourceNodeStorage: req.AuthoritativeStorage,
-				TargetNodeStorage: storage,
-			},
-		}); err != nil {
-			return nil, helper.ErrInternal(err)
-		}
 	}
 
 	return &gitalypb.SetAuthoritativeStorageResponse{}, nil
