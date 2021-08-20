@@ -607,10 +607,10 @@ message UserSquashRequest {
   Repository repository = 1 [(target_repository)=true];
   // user is used for authorization checks.
   User user = 2;
-  // squash_id is used as a unique identifier for the squash. Internally, this
-  // is used to identify the worktree in which the squash shall be computed. No
-  // two UserSquash RPCs may run with the same ID.
-  string squash_id = 3;
+  // SquashId used to identify the path where the worktree was created. Given
+  // that Gitaly does in-memory squashes now, this is useless and will be
+  // ignored. There is no replacement for this.
+  string squash_id = 3 [deprecated=true];
   reserved 4;
   // start_sha is the object ID of the start commit of the range which shall be
   // squashed. Must be an ancestor of end_sha.
