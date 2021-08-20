@@ -130,17 +130,3 @@ message FindRemoteRootRefResponse {
   // Ref is the name of the remote root reference.
   string ref = 1;
 }
-
-message ListRemotesRequest {
-   Repository repository = 1 [(target_repository)=true];
-}
-
-message ListRemotesResponse {
-  message Remote {
-    string name = 1;
-    string fetch_url = 2;
-    string push_url = 3;
-  }
-
-  repeated Remote remotes = 1;
-}

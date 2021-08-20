@@ -64,7 +64,7 @@ func TestFindRemoteRootRefWithUnbornRemoteHead(t *testing.T) {
 
 	response, err := client.FindRemoteRootRef(ctx, &gitalypb.FindRemoteRootRefRequest{
 		Repository: remoteRepo,
-		RemoteUrl: "file://" + clientRepoPath},
+		RemoteUrl:  "file://" + clientRepoPath},
 	)
 	testassert.GrpcEqualErr(t, status.Error(codes.NotFound, "no remote HEAD found"), err)
 	require.Nil(t, response)
@@ -85,7 +85,7 @@ func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 			desc: "Invalid repository",
 			request: &gitalypb.FindRemoteRootRefRequest{
 				Repository: invalidRepo,
-				RemoteUrl:     "remote-url",
+				RemoteUrl:  "remote-url",
 			},
 			expectedErr: []error{
 				status.Error(codes.InvalidArgument, "GetStorageByName: no such storage: \"fake\""),
@@ -95,7 +95,7 @@ func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 		{
 			desc: "Repository is nil",
 			request: &gitalypb.FindRemoteRootRefRequest{
-				RemoteUrl:     "remote-url",
+				RemoteUrl: "remote-url",
 			},
 			expectedErr: []error{
 				status.Error(codes.InvalidArgument, "missing repository"),

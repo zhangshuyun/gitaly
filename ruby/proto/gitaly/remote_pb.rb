@@ -44,17 +44,6 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     add_message "gitaly.FindRemoteRootRefResponse" do
       optional :ref, :string, 1
     end
-    add_message "gitaly.ListRemotesRequest" do
-      optional :repository, :message, 1, "gitaly.Repository"
-    end
-    add_message "gitaly.ListRemotesResponse" do
-      repeated :remotes, :message, 1, "gitaly.ListRemotesResponse.Remote"
-    end
-    add_message "gitaly.ListRemotesResponse.Remote" do
-      optional :name, :string, 1
-      optional :fetch_url, :string, 2
-      optional :push_url, :string, 3
-    end
   end
 end
 
@@ -68,7 +57,4 @@ module Gitaly
   FindRemoteRepositoryResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindRemoteRepositoryResponse").msgclass
   FindRemoteRootRefRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindRemoteRootRefRequest").msgclass
   FindRemoteRootRefResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindRemoteRootRefResponse").msgclass
-  ListRemotesRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListRemotesRequest").msgclass
-  ListRemotesResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListRemotesResponse").msgclass
-  ListRemotesResponse::Remote = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListRemotesResponse.Remote").msgclass
 end
