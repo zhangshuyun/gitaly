@@ -475,7 +475,7 @@ func (rq PostgresReplicationEventQueue) StartHealthUpdate(ctx context.Context, t
 func (rq PostgresReplicationEventQueue) AcknowledgeStale(ctx context.Context, staleAfter time.Duration) error {
 	query := `
 		WITH stale_job_lock AS (
-			DELETE FROM replication_queue_job_lock WHERE triggered_at < NOW() - INTERVAL '1 MILLISECOND' * $1
+			DELETE FROM replication_queue_job_lock WHERE triggered_at < NOW() AT TIME ZONE 'UTC' - INTERVAL '1 MILLISECOND' * $1
 			RETURNING job_id, lock_id
 		)
 		, update_job AS (
