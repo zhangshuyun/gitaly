@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
@@ -23,10 +22,6 @@ const (
 func (s *Server) UserSquash(ctx context.Context, req *gitalypb.UserSquashRequest) (*gitalypb.UserSquashResponse, error) {
 	if err := validateUserSquashRequest(req); err != nil {
 		return nil, helper.ErrInvalidArgumentf("UserSquash: %v", err)
-	}
-
-	if strings.Contains(req.GetSquashId(), "/") {
-		return nil, helper.ErrInvalidArgument(errors.New("worktree id can't contain slashes"))
 	}
 
 	sha, err := s.userSquash(ctx, req)
@@ -61,10 +56,6 @@ func validateUserSquashRequest(req *gitalypb.UserSquashRequest) error {
 
 	if len(req.GetUser().GetEmail()) == 0 {
 		return errors.New("empty user email")
-	}
-
-	if req.GetSquashId() == "" {
-		return errors.New("empty SquashId")
 	}
 
 	if req.GetStartSha() == "" {

@@ -62,7 +62,6 @@ func TestUserSquash_successful(t *testing.T) {
 			request := &gitalypb.UserSquashRequest{
 				Repository:    repoProto,
 				User:          gittest.TestUser,
-				SquashId:      "1",
 				Author:        author,
 				CommitMessage: commitMessage,
 				StartSha:      tc.startOID,
@@ -104,7 +103,6 @@ func TestUserSquash_stableID(t *testing.T) {
 	response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
 		Repository:    repoProto,
 		User:          gittest.TestUser,
-		SquashId:      "1",
 		Author:        author,
 		CommitMessage: []byte("Squashed commit"),
 		StartSha:      startSha,
@@ -165,7 +163,6 @@ func TestUserSquash_threeWayMerge(t *testing.T) {
 	request := &gitalypb.UserSquashRequest{
 		Repository:    repoProto,
 		User:          gittest.TestUser,
-		SquashId:      "1",
 		Author:        author,
 		CommitMessage: commitMessage,
 		// The diff between two of these commits results in some changes to files/ruby/popen.rb
@@ -202,7 +199,6 @@ func TestUserSquash_splitIndex(t *testing.T) {
 	request := &gitalypb.UserSquashRequest{
 		Repository:    repo,
 		User:          gittest.TestUser,
-		SquashId:      "1",
 		Author:        author,
 		CommitMessage: commitMessage,
 		StartSha:      startSha,
@@ -255,7 +251,6 @@ func TestUserSquash_renames(t *testing.T) {
 	request := &gitalypb.UserSquashRequest{
 		Repository:    repoProto,
 		User:          gittest.TestUser,
-		SquashId:      "1",
 		Author:        author,
 		CommitMessage: commitMessage,
 		StartSha:      startCommitID,
@@ -291,7 +286,6 @@ func TestUserSquash_missingFileOnTargetBranch(t *testing.T) {
 	request := &gitalypb.UserSquashRequest{
 		Repository:    repo,
 		User:          gittest.TestUser,
-		SquashId:      "1",
 		Author:        author,
 		CommitMessage: commitMessage,
 		StartSha:      conflictingStartSha,
@@ -390,7 +384,6 @@ func TestUserSquash_emptyCommit(t *testing.T) {
 			response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
 				Repository:    repoProto,
 				User:          gittest.TestUser,
-				SquashId:      "1",
 				Author:        author,
 				CommitMessage: []byte("squashed"),
 				StartSha:      tc.theirs.String(),
@@ -429,7 +422,6 @@ func TestUserSquash_validation(t *testing.T) {
 			request: &gitalypb.UserSquashRequest{
 				Repository:    nil,
 				User:          gittest.TestUser,
-				SquashId:      "1",
 				Author:        gittest.TestUser,
 				CommitMessage: commitMessage,
 				StartSha:      startSha,
@@ -442,20 +434,6 @@ func TestUserSquash_validation(t *testing.T) {
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
 				User:          nil,
-				SquashId:      "1",
-				Author:        gittest.TestUser,
-				CommitMessage: commitMessage,
-				StartSha:      startSha,
-				EndSha:        endSha,
-			},
-			code: codes.InvalidArgument,
-		},
-		{
-			desc: "empty SquashId",
-			request: &gitalypb.UserSquashRequest{
-				Repository:    repo,
-				User:          gittest.TestUser,
-				SquashId:      "",
 				Author:        gittest.TestUser,
 				CommitMessage: commitMessage,
 				StartSha:      startSha,
@@ -468,7 +446,6 @@ func TestUserSquash_validation(t *testing.T) {
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
 				User:          gittest.TestUser,
-				SquashId:      "1",
 				Author:        gittest.TestUser,
 				CommitMessage: commitMessage,
 				StartSha:      "",
@@ -481,7 +458,6 @@ func TestUserSquash_validation(t *testing.T) {
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
 				User:          gittest.TestUser,
-				SquashId:      "1",
 				Author:        gittest.TestUser,
 				CommitMessage: commitMessage,
 				StartSha:      startSha,
@@ -494,7 +470,6 @@ func TestUserSquash_validation(t *testing.T) {
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
 				User:          gittest.TestUser,
-				SquashId:      "1",
 				Author:        nil,
 				CommitMessage: commitMessage,
 				StartSha:      startSha,
@@ -507,22 +482,8 @@ func TestUserSquash_validation(t *testing.T) {
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
 				User:          gittest.TestUser,
-				SquashId:      "1",
 				Author:        gittest.TestUser,
 				CommitMessage: nil,
-				StartSha:      startSha,
-				EndSha:        endSha,
-			},
-			code: codes.InvalidArgument,
-		},
-		{
-			desc: "worktree id can't contain slashes",
-			request: &gitalypb.UserSquashRequest{
-				Repository:    repo,
-				User:          gittest.TestUser,
-				SquashId:      "1/2",
-				Author:        gittest.TestUser,
-				CommitMessage: commitMessage,
 				StartSha:      startSha,
 				EndSha:        endSha,
 			},
@@ -564,7 +525,6 @@ func TestUserSquash_conflicts(t *testing.T) {
 
 	response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
 		Repository:    repo,
-		SquashId:      "1",
 		User:          gittest.TestUser,
 		Author:        gittest.TestUser,
 		CommitMessage: commitMessage,
@@ -600,7 +560,6 @@ func TestUserSquash_ancestry(t *testing.T) {
 
 	response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
 		Repository:    repo,
-		SquashId:      "1",
 		User:          gittest.TestUser,
 		Author:        gittest.TestUser,
 		CommitMessage: commitMessage,
@@ -632,7 +591,6 @@ func TestUserSquash_gitError(t *testing.T) {
 			desc: "not existing start SHA",
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
-				SquashId:      "1",
 				User:          gittest.TestUser,
 				Author:        gittest.TestUser,
 				CommitMessage: commitMessage,
@@ -647,7 +605,6 @@ func TestUserSquash_gitError(t *testing.T) {
 			desc: "not existing end SHA",
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
-				SquashId:      "1",
 				User:          gittest.TestUser,
 				Author:        gittest.TestUser,
 				CommitMessage: commitMessage,
@@ -662,7 +619,6 @@ func TestUserSquash_gitError(t *testing.T) {
 			desc: "user has no name set",
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
-				SquashId:      "1",
 				User:          &gitalypb.User{Email: gittest.TestUser.Email},
 				Author:        gittest.TestUser,
 				CommitMessage: commitMessage,
@@ -675,7 +631,6 @@ func TestUserSquash_gitError(t *testing.T) {
 			desc: "author has no name set",
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
-				SquashId:      "1",
 				User:          gittest.TestUser,
 				Author:        &gitalypb.User{Email: gittest.TestUser.Email},
 				CommitMessage: commitMessage,
