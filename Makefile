@@ -46,7 +46,7 @@ GIT_PREFIX       ?= ${GIT_INSTALL_DIR}
 # Tools
 GIT               := $(shell which git)
 GOIMPORTS         := ${TOOLS_DIR}/goimports
-GITALYFMT         := ${TOOLS_DIR}/gitalyfmt
+GOFUMPT           := ${TOOLS_DIR}/gofumpt
 GOLANGCI_LINT     := ${TOOLS_DIR}/golangci-lint
 GO_LICENSES       := ${TOOLS_DIR}/go-licenses
 PROTOC            := ${TOOLS_DIR}/protoc/bin/protoc
@@ -71,6 +71,7 @@ GO_BUILD_TAGS     := tracer_static,tracer_static_jaeger,tracer_static_stackdrive
 # Dependency versions
 GOLANGCI_LINT_VERSION     ?= 1.42.0
 GOCOVER_COBERTURA_VERSION ?= aaee18c8195c3f2d90e5ef80ca918d265463842a
+GOFUMPT_VERSION           ?= 0.1.1
 GOIMPORTS_VERSION         ?= 2538eef75904eff384a2551359968e40c207d9d2
 GO_JUNIT_REPORT_VERSION   ?= 984a47ca6b0a7d704c4b589852051b4d7865aa17
 GO_LICENSES_VERSION       ?= 73411c8fa237ccc6a75af79d0a5bc021c9487aad
@@ -328,15 +329,15 @@ lint-strict: lint
 	${Q}GOLANGCI_LINT_CONFIG=$(SOURCE_DIR)/.golangci-strict.yml $(MAKE) lint
 
 .PHONY: check-formatting
-check-formatting: ${GOIMPORTS} ${GITALYFMT}
+check-formatting: ${GOIMPORTS} ${GOFUMPT}
 	${Q}${GOIMPORTS} -l $(call find_go_sources) | awk '{ print } END { if(NR>0) { print "goimports error, run make format"; exit(1) } }'
-	${Q}${GITALYFMT} $(call find_go_sources) | awk '{ print } END { if(NR>0) { print "Formatting error, run make format"; exit(1) } }'
+	${Q}${GOFUMPT} -l $(call find_go_sources) | awk '{ print } END { if(NR>0) { print "Formatting error, run make format"; exit(1) } }'
 
 .PHONY: format
 ## Run Go formatter and adjust imports.
-format: ${GOIMPORTS} ${GITALYFMT}
+format: ${GOIMPORTS} ${GOFUMPT}
 	${Q}${GOIMPORTS} -w -l $(call find_go_sources)
-	${Q}${GITALYFMT} -w $(call find_go_sources)
+	${Q}${GOFUMPT} -w $(call find_go_sources)
 	${Q}${GOIMPORTS} -w -l $(call find_go_sources)
 
 .PHONY: notice-up-to-date
@@ -519,16 +520,14 @@ ${TOOLS_DIR}/%: GOBIN = ${TOOLS_DIR}
 ${TOOLS_DIR}/%: ${TOOLS_DIR}/%.version ${TOOLS_DIR}/.%/go.mod
 	${Q}cd ${TOOLS_DIR}/.$* && go get ${TOOL_PACKAGE}@${TOOL_VERSION}
 
-# Tools hosted by Gitaly itself
-${GITALYFMT}: | ${TOOLS_DIR}
-	${Q}go build -o $@ ${SOURCE_DIR}/internal/cmd/gitalyfmt
-
 ${PROTOC_GEN_GITALY}: proto | ${TOOLS_DIR}
 	${Q}go build -o $@ ${SOURCE_DIR}/proto/go/internal/cmd/protoc-gen-gitaly
 
 # External tools
 ${GOCOVER_COBERTURA}: TOOL_PACKAGE = github.com/t-yuki/gocover-cobertura
 ${GOCOVER_COBERTURA}: TOOL_VERSION = ${GOCOVER_COBERTURA_VERSION}
+${GOFUMPT}:           TOOL_PACKAGE = mvdan.cc/gofumpt
+${GOFUMPT}:           TOOL_VERSION = v${GOFUMPT_VERSION}
 ${GOIMPORTS}:         TOOL_PACKAGE = golang.org/x/tools/cmd/goimports
 ${GOIMPORTS}:         TOOL_VERSION = ${GOIMPORTS_VERSION}
 ${GOLANGCI_LINT}:     TOOL_PACKAGE = github.com/golangci/golangci-lint/cmd/golangci-lint
