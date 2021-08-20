@@ -63,9 +63,6 @@ message UpdateRemoteMirrorRequest {
 
   // Repository is the repository whose mirror repository to update.
   Repository repository = 1 [(target_repository)=true];
-  // RefName is actually the remote to update. Deprecated in favor of the
-  // Remote field.
-  string ref_name = 2;
   // Remote contains parameters required to connect to the remote repository.
   // This allows Gitaly to use an in-memory remote and does not require any
   // on-disk remote configuration.
@@ -86,6 +83,9 @@ message UpdateRemoteMirrorRequest {
   // KeepDivergentRefs specifies whether or not to update diverged references
   // in the mirror repository.
   bool keep_divergent_refs = 6;
+
+  reserved 2;
+  reserved "ref_name";
 }
 
 message UpdateRemoteMirrorResponse {
