@@ -26,12 +26,6 @@ service RefService {
       op: ACCESSOR
     };
   }
-  // Find a Ref matching the given constraints. Response may be empty.
-  rpc FindRefName(FindRefNameRequest) returns (FindRefNameResponse) {
-    option (op_type) = {
-      op: ACCESSOR
-    };
-  }
   // Return a stream so we can divide the response in chunks of branches
   rpc FindLocalBranches(FindLocalBranchesRequest) returns (stream FindLocalBranchesResponse) {
     option (op_type) = {
@@ -167,19 +161,6 @@ message FindAllTagNamesRequest {
 
 message FindAllTagNamesResponse {
   repeated bytes names = 1;
-}
-
-message FindRefNameRequest {
-  Repository repository = 1 [(target_repository)=true];
-  // Require that the resulting ref contains this commit as an ancestor
-  string commit_id = 2;
-  // Example prefix: "refs/heads/". Type bytes because that is the type of ref names.
-  bytes prefix = 3;
-}
-
-message FindRefNameResponse {
-  // Example name: "refs/heads/master". Cannot assume UTF8, so the type is bytes.
-  bytes name = 1;
 }
 
 message FindLocalBranchesRequest {
