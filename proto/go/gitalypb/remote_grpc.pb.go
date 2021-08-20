@@ -20,7 +20,6 @@ const _ = grpc.SupportPackageIsVersion7
 type RemoteServiceClient interface {
 	AddRemote(ctx context.Context, in *AddRemoteRequest, opts ...grpc.CallOption) (*AddRemoteResponse, error)
 	FetchInternalRemote(ctx context.Context, in *FetchInternalRemoteRequest, opts ...grpc.CallOption) (*FetchInternalRemoteResponse, error)
-	RemoveRemote(ctx context.Context, in *RemoveRemoteRequest, opts ...grpc.CallOption) (*RemoveRemoteResponse, error)
 	// UpdateRemoteMirror compares the references in the target repository and its remote mirror
 	// repository. Any differences in the references are then addressed by pushing the differing
 	// references to the mirror. Created and modified references are updated, removed references are
@@ -56,15 +55,6 @@ func (c *remoteServiceClient) AddRemote(ctx context.Context, in *AddRemoteReques
 func (c *remoteServiceClient) FetchInternalRemote(ctx context.Context, in *FetchInternalRemoteRequest, opts ...grpc.CallOption) (*FetchInternalRemoteResponse, error) {
 	out := new(FetchInternalRemoteResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RemoteService/FetchInternalRemote", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *remoteServiceClient) RemoveRemote(ctx context.Context, in *RemoveRemoteRequest, opts ...grpc.CallOption) (*RemoveRemoteResponse, error) {
-	out := new(RemoveRemoteResponse)
-	err := c.cc.Invoke(ctx, "/gitaly.RemoteService/RemoveRemote", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +119,6 @@ func (c *remoteServiceClient) FindRemoteRootRef(ctx context.Context, in *FindRem
 type RemoteServiceServer interface {
 	AddRemote(context.Context, *AddRemoteRequest) (*AddRemoteResponse, error)
 	FetchInternalRemote(context.Context, *FetchInternalRemoteRequest) (*FetchInternalRemoteResponse, error)
-	RemoveRemote(context.Context, *RemoveRemoteRequest) (*RemoveRemoteResponse, error)
 	// UpdateRemoteMirror compares the references in the target repository and its remote mirror
 	// repository. Any differences in the references are then addressed by pushing the differing
 	// references to the mirror. Created and modified references are updated, removed references are
@@ -155,9 +144,6 @@ func (UnimplementedRemoteServiceServer) AddRemote(context.Context, *AddRemoteReq
 }
 func (UnimplementedRemoteServiceServer) FetchInternalRemote(context.Context, *FetchInternalRemoteRequest) (*FetchInternalRemoteResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FetchInternalRemote not implemented")
-}
-func (UnimplementedRemoteServiceServer) RemoveRemote(context.Context, *RemoveRemoteRequest) (*RemoveRemoteResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RemoveRemote not implemented")
 }
 func (UnimplementedRemoteServiceServer) UpdateRemoteMirror(RemoteService_UpdateRemoteMirrorServer) error {
 	return status.Errorf(codes.Unimplemented, "method UpdateRemoteMirror not implemented")
@@ -213,24 +199,6 @@ func _RemoteService_FetchInternalRemote_Handler(srv interface{}, ctx context.Con
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RemoteServiceServer).FetchInternalRemote(ctx, req.(*FetchInternalRemoteRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RemoteService_RemoveRemote_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RemoveRemoteRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RemoteServiceServer).RemoveRemote(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gitaly.RemoteService/RemoveRemote",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RemoteServiceServer).RemoveRemote(ctx, req.(*RemoveRemoteRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -311,10 +279,6 @@ var RemoteService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FetchInternalRemote",
 			Handler:    _RemoteService_FetchInternalRemote_Handler,
-		},
-		{
-			MethodName: "RemoveRemote",
-			Handler:    _RemoteService_RemoveRemote_Handler,
 		},
 		{
 			MethodName: "FindRemoteRepository",

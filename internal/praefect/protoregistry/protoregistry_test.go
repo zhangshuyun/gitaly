@@ -102,7 +102,6 @@ func TestNewProtoRegistry(t *testing.T) {
 		"RemoteService": map[string]protoregistry.OpType{
 			"AddRemote":            protoregistry.OpMutator,
 			"FetchInternalRemote":  protoregistry.OpMutator,
-			"RemoveRemote":         protoregistry.OpMutator,
 			"UpdateRemoteMirror":   protoregistry.OpAccessor,
 			"FindRemoteRepository": protoregistry.OpAccessor,
 			"FindRemoteRootRef":    protoregistry.OpAccessor,

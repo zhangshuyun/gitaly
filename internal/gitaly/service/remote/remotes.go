@@ -62,37 +62,6 @@ func validateAddRemoteRequest(req *gitalypb.AddRemoteRequest) error {
 	return nil
 }
 
-// RemoveRemote removes the given remote
-func (s *server) RemoveRemote(ctx context.Context, req *gitalypb.RemoveRemoteRequest) (*gitalypb.RemoveRemoteResponse, error) {
-	if err := validateRemoveRemoteRequest(req); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "RemoveRemote: %v", err)
-	}
-
-	remote := s.localrepo(req.GetRepository()).Remote()
-
-	hasRemote, err := remote.Exists(ctx, req.Name)
-	if err != nil {
-		return nil, err
-	}
-	if !hasRemote {
-		return &gitalypb.RemoveRemoteResponse{Result: false}, nil
-	}
-
-	if err := s.voteOnRemote(ctx, req.GetRepository(), req.GetName()); err != nil {
-		return nil, helper.ErrInternalf("preimage vote on remote: %v", err)
-	}
-
-	if err := remote.Remove(ctx, req.Name); err != nil {
-		return nil, err
-	}
-
-	if err := s.voteOnRemote(ctx, req.GetRepository(), req.GetName()); err != nil {
-		return nil, helper.ErrInternalf("postimage vote on remote: %v", err)
-	}
-
-	return &gitalypb.RemoveRemoteResponse{Result: true}, nil
-}
-
 func (s *server) FindRemoteRepository(ctx context.Context, req *gitalypb.FindRemoteRepositoryRequest) (*gitalypb.FindRemoteRepositoryResponse, error) {
 	if req.GetRemote() == "" {
 		return nil, status.Error(codes.InvalidArgument, "FindRemoteRepository: empty remote can't be checked.")
@@ -127,14 +96,6 @@ func (s *server) FindRemoteRepository(ctx context.Context, req *gitalypb.FindRem
 	match := len(fields) == 2 && len(fields[0]) == 40 && string(fields[1]) == "HEAD"
 
 	return &gitalypb.FindRemoteRepositoryResponse{Exists: match}, nil
-}
-
-func validateRemoveRemoteRequest(req *gitalypb.RemoveRemoteRequest) error {
-	if req.GetName() == "" {
-		return fmt.Errorf("empty remote name")
-	}
-
-	return nil
 }
 
 func (s *server) voteOnRemote(ctx context.Context, repo *gitalypb.Repository, remoteName string) error {

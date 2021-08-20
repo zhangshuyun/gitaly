@@ -18,11 +18,6 @@ service RemoteService {
         op: MUTATOR
       };
     }
-    rpc RemoveRemote(RemoveRemoteRequest) returns (RemoveRemoteResponse) {
-      option (op_type) = {
-        op: MUTATOR
-      };
-    }
 
     // UpdateRemoteMirror compares the references in the target repository and its remote mirror
     // repository. Any differences in the references are then addressed by pushing the differing
@@ -65,15 +60,6 @@ message AddRemoteRequest {
 }
 
 message AddRemoteResponse {}
-
-message RemoveRemoteRequest {
-  Repository repository = 1 [(target_repository)=true];
-  string name = 2;
-}
-
-message RemoveRemoteResponse {
-  bool result = 1;
-}
 
 message FetchInternalRemoteRequest {
   Repository repository = 1 [(target_repository)=true];

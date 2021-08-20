@@ -15,13 +15,6 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     end
     add_message "gitaly.AddRemoteResponse" do
     end
-    add_message "gitaly.RemoveRemoteRequest" do
-      optional :repository, :message, 1, "gitaly.Repository"
-      optional :name, :string, 2
-    end
-    add_message "gitaly.RemoveRemoteResponse" do
-      optional :result, :bool, 1
-    end
     add_message "gitaly.FetchInternalRemoteRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
       optional :remote_repository, :message, 2, "gitaly.Repository"
@@ -78,8 +71,6 @@ end
 module Gitaly
   AddRemoteRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.AddRemoteRequest").msgclass
   AddRemoteResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.AddRemoteResponse").msgclass
-  RemoveRemoteRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.RemoveRemoteRequest").msgclass
-  RemoveRemoteResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.RemoveRemoteResponse").msgclass
   FetchInternalRemoteRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FetchInternalRemoteRequest").msgclass
   FetchInternalRemoteResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FetchInternalRemoteResponse").msgclass
   UpdateRemoteMirrorRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.UpdateRemoteMirrorRequest").msgclass
