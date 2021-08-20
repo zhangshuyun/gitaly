@@ -38,7 +38,6 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     end
     add_message "gitaly.FindRemoteRootRefRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
-      optional :remote, :string, 2
       optional :remote_url, :string, 3
       optional :http_authorization_header, :string, 4
     end

@@ -16,28 +16,22 @@ import (
 const headPrefix = "HEAD branch: "
 
 func (s *server) findRemoteRootRef(ctx context.Context, request *gitalypb.FindRemoteRootRefRequest) (string, error) {
-	remoteName := request.Remote // nolint:staticcheck
-	var config []git.ConfigPair
+	config := []git.ConfigPair{
+		{Key: "remote.inmemory.url", Value: request.RemoteUrl},
+	}
 
-	if request.RemoteUrl != "" {
-		remoteName = "inmemory"
-		config = []git.ConfigPair{
-			{Key: "remote.inmemory.url", Value: request.RemoteUrl},
-		}
-
-		if authHeader := request.GetHttpAuthorizationHeader(); authHeader != "" {
-			config = append(config, git.ConfigPair{
-				Key:   fmt.Sprintf("http.%s.extraHeader", request.RemoteUrl),
-				Value: "Authorization: " + authHeader,
-			})
-		}
+	if authHeader := request.GetHttpAuthorizationHeader(); authHeader != "" {
+		config = append(config, git.ConfigPair{
+			Key:   fmt.Sprintf("http.%s.extraHeader", request.RemoteUrl),
+			Value: "Authorization: " + authHeader,
+		})
 	}
 
 	cmd, err := s.gitCmdFactory.New(ctx, request.Repository,
 		git.SubSubCmd{
 			Name:   "remote",
 			Action: "show",
-			Args:   []string{remoteName},
+			Args:   []string{"inmemory"},
 		},
 		git.WithRefTxHook(ctx, request.Repository, s.cfg),
 		git.WithConfigEnv(config...),
@@ -72,13 +66,8 @@ func (s *server) findRemoteRootRef(ctx context.Context, request *gitalypb.FindRe
 
 // FindRemoteRootRef queries the remote to determine its HEAD
 func (s *server) FindRemoteRootRef(ctx context.Context, in *gitalypb.FindRemoteRootRefRequest) (*gitalypb.FindRemoteRootRefResponse, error) {
-	//nolint:staticcheck // GetRemote() is deprecated
-	if in.GetRemote() == "" && in.GetRemoteUrl() == "" {
-		return nil, status.Error(codes.InvalidArgument, "got neither remote name nor URL")
-	}
-	//nolint:staticcheck // GetRemote() is deprecated
-	if in.GetRemote() != "" && in.GetRemoteUrl() != "" {
-		return nil, status.Error(codes.InvalidArgument, "got remote name and URL")
+	if in.GetRemoteUrl() == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing remote URL")
 	}
 	if in.Repository == nil {
 		return nil, status.Error(codes.InvalidArgument, "missing repository")
