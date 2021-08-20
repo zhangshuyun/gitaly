@@ -18,7 +18,6 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RemoteServiceClient interface {
-	AddRemote(ctx context.Context, in *AddRemoteRequest, opts ...grpc.CallOption) (*AddRemoteResponse, error)
 	FetchInternalRemote(ctx context.Context, in *FetchInternalRemoteRequest, opts ...grpc.CallOption) (*FetchInternalRemoteResponse, error)
 	// UpdateRemoteMirror compares the references in the target repository and its remote mirror
 	// repository. Any differences in the references are then addressed by pushing the differing
@@ -41,15 +40,6 @@ type remoteServiceClient struct {
 
 func NewRemoteServiceClient(cc grpc.ClientConnInterface) RemoteServiceClient {
 	return &remoteServiceClient{cc}
-}
-
-func (c *remoteServiceClient) AddRemote(ctx context.Context, in *AddRemoteRequest, opts ...grpc.CallOption) (*AddRemoteResponse, error) {
-	out := new(AddRemoteResponse)
-	err := c.cc.Invoke(ctx, "/gitaly.RemoteService/AddRemote", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *remoteServiceClient) FetchInternalRemote(ctx context.Context, in *FetchInternalRemoteRequest, opts ...grpc.CallOption) (*FetchInternalRemoteResponse, error) {
@@ -117,7 +107,6 @@ func (c *remoteServiceClient) FindRemoteRootRef(ctx context.Context, in *FindRem
 // All implementations must embed UnimplementedRemoteServiceServer
 // for forward compatibility
 type RemoteServiceServer interface {
-	AddRemote(context.Context, *AddRemoteRequest) (*AddRemoteResponse, error)
 	FetchInternalRemote(context.Context, *FetchInternalRemoteRequest) (*FetchInternalRemoteResponse, error)
 	// UpdateRemoteMirror compares the references in the target repository and its remote mirror
 	// repository. Any differences in the references are then addressed by pushing the differing
@@ -139,9 +128,6 @@ type RemoteServiceServer interface {
 type UnimplementedRemoteServiceServer struct {
 }
 
-func (UnimplementedRemoteServiceServer) AddRemote(context.Context, *AddRemoteRequest) (*AddRemoteResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method AddRemote not implemented")
-}
 func (UnimplementedRemoteServiceServer) FetchInternalRemote(context.Context, *FetchInternalRemoteRequest) (*FetchInternalRemoteResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FetchInternalRemote not implemented")
 }
@@ -165,24 +151,6 @@ type UnsafeRemoteServiceServer interface {
 
 func RegisterRemoteServiceServer(s grpc.ServiceRegistrar, srv RemoteServiceServer) {
 	s.RegisterService(&RemoteService_ServiceDesc, srv)
-}
-
-func _RemoteService_AddRemote_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AddRemoteRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RemoteServiceServer).AddRemote(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gitaly.RemoteService/AddRemote",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RemoteServiceServer).AddRemote(ctx, req.(*AddRemoteRequest))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _RemoteService_FetchInternalRemote_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -272,10 +240,6 @@ var RemoteService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "gitaly.RemoteService",
 	HandlerType: (*RemoteServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "AddRemote",
-			Handler:    _RemoteService_AddRemote_Handler,
-		},
 		{
 			MethodName: "FetchInternalRemote",
 			Handler:    _RemoteService_FetchInternalRemote_Handler,

@@ -63,21 +63,5 @@ module GitalyServer
     def sanitize_url(str)
       str.gsub(URL_HOST_PATTERN, '\1[FILTERED]@\3\4')
     end
-
-    def parse_refmaps(refmaps)
-      return unless refmaps.present?
-
-      parsed_refmaps = refmaps.select(&:present?).map do |refmap|
-        refmap_spec = refmap.to_sym
-
-        if Gitlab::Git::RepositoryMirroring::REFMAPS.key?(refmap_spec)
-          refmap_spec
-        else
-          refmap
-        end
-      end
-
-      parsed_refmaps.presence
-    end
   end
 end

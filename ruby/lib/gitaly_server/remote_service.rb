@@ -5,16 +5,6 @@ module GitalyServer
     # Maximum number of divergent refs to return in UpdateRemoteMirrorResponse
     DIVERGENT_REF_LIMIT = 100
 
-    def add_remote(request, call)
-      repo = Gitlab::Git::Repository.from_gitaly(request.repository, call)
-
-      mirror_refmap = parse_refmaps(request.mirror_refmaps)
-
-      repo.add_remote(request.name, request.url, mirror_refmap: mirror_refmap)
-
-      Gitaly::AddRemoteResponse.new
-    end
-
     def update_remote_mirror(call)
       request_enum = call.each_remote_read
       first_request = request_enum.next

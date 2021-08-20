@@ -40,13 +40,6 @@ module Gitlab
         success || gitlab_projects_error
       end
 
-      def set_remote_as_mirror(remote_name, refmap: :all_refs)
-        set_remote_refmap(remote_name, refmap)
-
-        rugged.config["remote.#{remote_name}.mirror"] = true
-        rugged.config["remote.#{remote_name}.prune"] = true
-      end
-
       def remote_tags(remote, env: {})
         # Each line has this format: "dc872e9fa6963f8f03da6c8f6f264d0845d6b092\trefs/tags/v1.10.0\n"
         # We want to convert it to: [{ 'v1.10.0' => 'dc872e9fa6963f8f03da6c8f6f264d0845d6b092' }, ...]
@@ -74,20 +67,6 @@ module Gitlab
       end
 
       private
-
-      def set_remote_refmap(remote_name, refmap)
-        Array(refmap).each_with_index do |refspec, i|
-          refspec = REFMAPS[refspec] || refspec
-
-          # We need multiple `fetch` entries, but Rugged only allows replacing a config, not adding to it.
-          # To make sure we start from scratch, we set the first using rugged, and use `git` for any others
-          if i == 0
-            rugged.config["remote.#{remote_name}.fetch"] = refspec
-          else
-            run_git(%W[config --add remote.#{remote_name}.fetch #{refspec}])
-          end
-        end
-      end
 
       def list_remote_refs(remote, env:)
         @list_remote_refs ||= {}

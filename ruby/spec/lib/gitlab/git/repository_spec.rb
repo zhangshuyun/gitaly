@@ -304,30 +304,6 @@ describe Gitlab::Git::Repository do # rubocop:disable Metrics/BlockLength
     end
   end
 
-  describe 'remotes' do
-    let(:repository) { mutable_repository }
-    let(:remote_name) { 'my-remote' }
-    let(:url) { 'http://my-repo.git' }
-
-    describe '#add_remote' do
-      let(:mirror_refmap) { '+refs/*:refs/*' }
-
-      it 'added the remote' do
-        begin
-          repository_rugged.remotes.delete(remote_name)
-        rescue Rugged::ConfigError # rubocop:disable Lint/HandleExceptions
-        end
-
-        repository.add_remote(remote_name, url, mirror_refmap: mirror_refmap)
-
-        expect(repository_rugged.remotes[remote_name]).not_to be_nil
-        expect(repository_rugged.config["remote.#{remote_name}.mirror"]).to eq('true')
-        expect(repository_rugged.config["remote.#{remote_name}.prune"]).to eq('true')
-        expect(repository_rugged.config["remote.#{remote_name}.fetch"]).to eq(mirror_refmap)
-      end
-    end
-  end
-
   describe '#cleanup' do
     context 'when Rugged has been called' do
       it 'calls close on Rugged::Repository' do

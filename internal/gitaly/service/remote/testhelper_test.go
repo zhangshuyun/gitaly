@@ -2,11 +2,8 @@ package remote
 
 import (
 	"os"
-	"reflect"
-	"runtime"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
@@ -29,26 +26,6 @@ func testMain(m *testing.M) int {
 	defer cleanup()
 
 	return m.Run()
-}
-
-func TestWithRubySidecar(t *testing.T) {
-	t.Parallel()
-	cfg := testcfg.Build(t)
-
-	rubySrv := rubyserver.New(cfg)
-	require.NoError(t, rubySrv.Start())
-	t.Cleanup(rubySrv.Stop)
-
-	fs := []func(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server){
-		testSuccessfulAddRemote,
-		testAddRemoteTransactional,
-	}
-
-	for _, f := range fs {
-		t.Run(runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(), func(t *testing.T) {
-			f(t, cfg, rubySrv)
-		})
-	}
 }
 
 func setupRemoteServiceWithRuby(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RemoteServiceClient) {

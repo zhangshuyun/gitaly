@@ -354,24 +354,6 @@ module Gitlab
         Ref.dereference_object(obj)
       end
 
-      def add_remote(remote_name, url, mirror_refmap: nil)
-        rugged.remotes.create(remote_name, url)
-
-        set_remote_as_mirror(remote_name, refmap: mirror_refmap) if mirror_refmap
-      rescue Rugged::ConfigError
-        remote_update(remote_name, url: url)
-      end
-
-      # Update the specified remote using the values in the +options+ hash
-      #
-      # Example
-      # repo.update_remote("origin", url: "path/to/repo")
-      def remote_update(remote_name, url:)
-        # TODO: Implement other remote options
-        rugged.remotes.set_url(remote_name, url)
-        nil
-      end
-
       def commit(ref = nil)
         ref ||= root_ref
         Gitlab::Git::Commit.find(self, ref)

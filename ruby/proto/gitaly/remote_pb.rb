@@ -7,14 +7,6 @@ require 'lint_pb'
 require 'shared_pb'
 Google::Protobuf::DescriptorPool.generated_pool.build do
   add_file("remote.proto", :syntax => :proto3) do
-    add_message "gitaly.AddRemoteRequest" do
-      optional :repository, :message, 1, "gitaly.Repository"
-      optional :name, :string, 2
-      optional :url, :string, 3
-      repeated :mirror_refmaps, :string, 5
-    end
-    add_message "gitaly.AddRemoteResponse" do
-    end
     add_message "gitaly.FetchInternalRemoteRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
       optional :remote_repository, :message, 2, "gitaly.Repository"
@@ -69,8 +61,6 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
 end
 
 module Gitaly
-  AddRemoteRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.AddRemoteRequest").msgclass
-  AddRemoteResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.AddRemoteResponse").msgclass
   FetchInternalRemoteRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FetchInternalRemoteRequest").msgclass
   FetchInternalRemoteResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FetchInternalRemoteResponse").msgclass
   UpdateRemoteMirrorRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.UpdateRemoteMirrorRequest").msgclass

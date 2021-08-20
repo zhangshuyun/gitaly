@@ -8,11 +8,6 @@ import "lint.proto";
 import "shared.proto";
 
 service RemoteService {
-    rpc AddRemote(AddRemoteRequest) returns (AddRemoteResponse) {
-      option (op_type) = {
-        op: MUTATOR
-      };
-    }
     rpc FetchInternalRemote(FetchInternalRemoteRequest) returns (FetchInternalRemoteResponse) {
       option (op_type) = {
         op: MUTATOR
@@ -47,19 +42,6 @@ service RemoteService {
       };
     }
 }
-
-message AddRemoteRequest {
-  Repository repository = 1 [(target_repository)=true];
-  string name = 2;
-  string url = 3;
-  // DEPRECATED: https://gitlab.com/gitlab-org/gitaly/proto/merge_requests/137
-  reserved 4;
-  reserved "mirror_refmap";
-  // If any, the remote is configured as a mirror with those mappings
-  repeated string mirror_refmaps = 5;
-}
-
-message AddRemoteResponse {}
 
 message FetchInternalRemoteRequest {
   Repository repository = 1 [(target_repository)=true];

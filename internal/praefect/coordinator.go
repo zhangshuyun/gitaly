@@ -62,7 +62,6 @@ var transactionRPCs = map[string]transactionsCondition{
 	"/gitaly.OperationService/UserUpdateBranch":              transactionsEnabled,
 	"/gitaly.OperationService/UserUpdateSubmodule":           transactionsEnabled,
 	"/gitaly.RefService/DeleteRefs":                          transactionsEnabled,
-	"/gitaly.RemoteService/AddRemote":                        transactionsEnabled,
 	"/gitaly.RemoteService/FetchInternalRemote":              transactionsEnabled,
 	"/gitaly.RepositoryService/ApplyGitattributes":           transactionsEnabled,
 	"/gitaly.RepositoryService/CloneFromPool":                transactionsEnabled,
