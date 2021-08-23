@@ -19,7 +19,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/lines"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/protobuf/proto"
 )
@@ -89,52 +88,6 @@ func (t *tagSender) Send() error {
 	})
 }
 
-func (s *server) parseAndReturnTags(ctx context.Context, repo git.RepositoryExecutor, sortField string, stream gitalypb.RefService_FindAllTagsServer) error {
-	flags := []git.Option{
-		git.ValueFlag{Name: "--format", Value: tagFormat},
-	}
-	if sortField != "" {
-		flags = append(flags, git.ValueFlag{Name: "--sort", Value: sortField})
-	}
-	tagsCmd, err := repo.Exec(ctx, git.SubCmd{
-		Name:  "for-each-ref",
-		Flags: flags,
-		Args:  []string{"refs/tags/"},
-	})
-	if err != nil {
-		return fmt.Errorf("for-each-ref error: %v", err)
-	}
-
-	c, err := s.catfileCache.BatchProcess(ctx, repo)
-	if err != nil {
-		return fmt.Errorf("error creating catfile: %v", err)
-	}
-
-	tagChunker := chunk.New(&tagSender{stream: stream})
-
-	scanner := bufio.NewScanner(tagsCmd)
-	for scanner.Scan() {
-		tag, err := parseTagLine(ctx, c, scanner.Text())
-		if err != nil {
-			return fmt.Errorf("parsing tag: %v", err)
-		}
-
-		if err := tagChunker.Send(tag); err != nil {
-			return fmt.Errorf("sending to chunker: %v", err)
-		}
-	}
-
-	if err := tagsCmd.Wait(); err != nil {
-		return fmt.Errorf("tag command: %v", err)
-	}
-
-	if err := tagChunker.Flush(); err != nil {
-		return fmt.Errorf("flushing chunker: %v", err)
-	}
-
-	return nil
-}
-
 func (s *server) FindAllTags(in *gitalypb.FindAllTagsRequest, stream gitalypb.RefService_FindAllTagsServer) error {
 	ctx := stream.Context()
 
@@ -149,14 +102,8 @@ func (s *server) FindAllTags(in *gitalypb.FindAllTagsRequest, stream gitalypb.Re
 
 	repo := s.localrepo(in.GetRepository())
 
-	if featureflag.FindAllTagsPipeline.IsEnabled(ctx) {
-		if err := s.findAllTags(ctx, repo, sortField, stream); err != nil {
-			return helper.ErrInternal(err)
-		}
-	} else {
-		if err := s.parseAndReturnTags(ctx, repo, sortField, stream); err != nil {
-			return helper.ErrInternal(err)
-		}
+	if err := s.findAllTags(ctx, repo, sortField, stream); err != nil {
+		return helper.ErrInternal(err)
 	}
 
 	return nil
