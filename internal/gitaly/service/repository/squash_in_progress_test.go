@@ -47,6 +47,7 @@ func TestSuccessfulIsSquashInProgressRequest(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
+			//nolint:staticcheck
 			response, err := client.IsSquashInProgress(ctx, testCase.request)
 			require.NoError(t, err)
 
@@ -81,6 +82,7 @@ func TestFailedIsSquashInProgressRequestDueToValidations(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
+			//nolint:staticcheck
 			_, err := client.IsSquashInProgress(ctx, testCase.request)
 			testhelper.RequireGrpcError(t, err, testCase.code)
 		})

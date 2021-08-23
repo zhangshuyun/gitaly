@@ -99,7 +99,10 @@ service RepositoryService {
       op: MUTATOR
     };
   }
+
+  // IsSquashInProgress is deprecated and will always return false.
   rpc IsSquashInProgress(IsSquashInProgressRequest) returns (IsSquashInProgressResponse) {
+    option deprecated = true;
     option (op_type) = {
       op: ACCESSOR
     };
