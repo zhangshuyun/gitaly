@@ -1,6 +1,8 @@
 package backup
 
 import (
+	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -40,6 +42,63 @@ func TestLegacyLocator(t *testing.T) {
 			BundlePath:      repo.RelativePath + ".bundle",
 			RefPath:         repo.RelativePath + ".refs",
 			CustomHooksPath: filepath.Join(repo.RelativePath, "custom_hooks.tar"),
+		}
+
+		full, err := l.FindLatestFull(ctx, repo)
+		require.NoError(t, err)
+
+		assert.Equal(t, expected, full)
+	})
+}
+
+func TestPointerLocator(t *testing.T) {
+	_, repo, _ := testcfg.BuildWithRepo(t)
+
+	t.Run("Begin/Commit Full", func(t *testing.T) {
+		backupPath := testhelper.TempDir(t)
+		var l Locator = PointerLocator{
+			Sink: NewFilesystemSink(backupPath),
+		}
+
+		ctx, cancel := testhelper.Context()
+		defer cancel()
+
+		const backupID = "abc123"
+
+		expected := &Full{
+			BundlePath:      filepath.Join(repo.RelativePath, backupID, "full.bundle"),
+			RefPath:         filepath.Join(repo.RelativePath, backupID, "full.refs"),
+			CustomHooksPath: filepath.Join(repo.RelativePath, backupID, "custom_hooks.tar"),
+		}
+
+		full, err := l.BeginFull(ctx, repo, backupID)
+		require.NoError(t, err)
+
+		assert.Equal(t, expected, full)
+
+		require.NoError(t, l.CommitFull(ctx, full))
+
+		pointer := testhelper.MustReadFile(t, filepath.Join(backupPath, repo.RelativePath, "LATEST"))
+		require.Equal(t, backupID, string(pointer))
+	})
+
+	t.Run("FindLatestFull", func(t *testing.T) {
+		backupPath := testhelper.TempDir(t)
+		var l Locator = PointerLocator{
+			Sink: NewFilesystemSink(backupPath),
+		}
+
+		ctx, cancel := testhelper.Context()
+		defer cancel()
+
+		const backupID = "abc123"
+
+		require.NoError(t, os.MkdirAll(filepath.Join(backupPath, repo.RelativePath), 0755))
+		require.NoError(t, ioutil.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte(backupID), 0644))
+		expected := &Full{
+			BundlePath:      filepath.Join(repo.RelativePath, backupID, "full.bundle"),
+			RefPath:         filepath.Join(repo.RelativePath, backupID, "full.refs"),
+			CustomHooksPath: filepath.Join(repo.RelativePath, backupID, "custom_hooks.tar"),
 		}
 
 		full, err := l.FindLatestFull(ctx, repo)
