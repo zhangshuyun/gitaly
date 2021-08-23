@@ -64,7 +64,6 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     end
     add_message "gitaly.FetchRemoteRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
-      optional :remote, :string, 2
       optional :force, :bool, 3
       optional :no_tags, :bool, 4
       optional :timeout, :int32, 5

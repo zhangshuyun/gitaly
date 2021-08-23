@@ -8,17 +8,7 @@ import "lint.proto";
 import "shared.proto";
 
 service RemoteService {
-    rpc AddRemote(AddRemoteRequest) returns (AddRemoteResponse) {
-      option (op_type) = {
-        op: MUTATOR
-      };
-    }
     rpc FetchInternalRemote(FetchInternalRemoteRequest) returns (FetchInternalRemoteResponse) {
-      option (op_type) = {
-        op: MUTATOR
-      };
-    }
-    rpc RemoveRemote(RemoveRemoteRequest) returns (RemoveRemoteResponse) {
       option (op_type) = {
         op: MUTATOR
       };
@@ -53,28 +43,6 @@ service RemoteService {
     }
 }
 
-message AddRemoteRequest {
-  Repository repository = 1 [(target_repository)=true];
-  string name = 2;
-  string url = 3;
-  // DEPRECATED: https://gitlab.com/gitlab-org/gitaly/proto/merge_requests/137
-  reserved 4;
-  reserved "mirror_refmap";
-  // If any, the remote is configured as a mirror with those mappings
-  repeated string mirror_refmaps = 5;
-}
-
-message AddRemoteResponse {}
-
-message RemoveRemoteRequest {
-  Repository repository = 1 [(target_repository)=true];
-  string name = 2;
-}
-
-message RemoveRemoteResponse {
-  bool result = 1;
-}
-
 message FetchInternalRemoteRequest {
   Repository repository = 1 [(target_repository)=true];
   Repository remote_repository = 2;
@@ -95,9 +63,6 @@ message UpdateRemoteMirrorRequest {
 
   // Repository is the repository whose mirror repository to update.
   Repository repository = 1 [(target_repository)=true];
-  // RefName is actually the remote to update. Deprecated in favor of the
-  // Remote field.
-  string ref_name = 2;
   // Remote contains parameters required to connect to the remote repository.
   // This allows Gitaly to use an in-memory remote and does not require any
   // on-disk remote configuration.
@@ -118,6 +83,9 @@ message UpdateRemoteMirrorRequest {
   // KeepDivergentRefs specifies whether or not to update diverged references
   // in the mirror repository.
   bool keep_divergent_refs = 6;
+
+  reserved 2;
+  reserved "ref_name";
 }
 
 message UpdateRemoteMirrorResponse {
@@ -146,16 +114,14 @@ message FindRemoteRootRefRequest {
   // a remote name is given, then this is the repository in which the remote
   // will be looked up.
   Repository repository = 1 [(target_repository)=true];
-  // Remote is the name of the remote of which the root reference shall be
-  // looked up. The remote must have been created before this call. This
-  // parameter is deprecated in favor of `RemoteUrl`, see
-  // https://gitlab.com/gitlab-org/gitaly/-/issues/1773.
-  string remote = 2 [deprecated=true];
   // RemoteUrl specifies the remote repository URL which should be fetched from.
   string remote_url = 3;
   // HttpAuthorizationHeader is the HTTP header which should be added to the
   // request in order to authenticate against the repository.
   string http_authorization_header = 4;
+
+  reserved 2;
+  reserved "remote";
 }
 
 // FindRemoteRootRefResponse represents the response for the FindRemoteRootRef
@@ -163,18 +129,4 @@ message FindRemoteRootRefRequest {
 message FindRemoteRootRefResponse {
   // Ref is the name of the remote root reference.
   string ref = 1;
-}
-
-message ListRemotesRequest {
-   Repository repository = 1 [(target_repository)=true];
-}
-
-message ListRemotesResponse {
-  message Remote {
-    string name = 1;
-    string fetch_url = 2;
-    string push_url = 3;
-  }
-
-  repeated Remote remotes = 1;
 }

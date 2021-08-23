@@ -64,26 +64,23 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 	}
 
 	repo := s.localrepo(firstRequest.GetRepository())
-	remoteName := firstRequest.GetRefName()
-	var remoteConfig []git.ConfigPair
+	remote := firstRequest.GetRemote()
 
-	if remote := firstRequest.GetRemote(); remote != nil {
-		remoteSuffix, err := text.RandomHex(8)
-		if err != nil {
-			return fmt.Errorf("generating remote suffix: %w", err)
-		}
-		remoteName = "inmemory-" + remoteSuffix
+	remoteSuffix, err := text.RandomHex(8)
+	if err != nil {
+		return fmt.Errorf("generating remote suffix: %w", err)
+	}
+	remoteName := "inmemory-" + remoteSuffix
 
+	remoteConfig := []git.ConfigPair{
+		{Key: fmt.Sprintf("remote.%s.url", remoteName), Value: remote.GetUrl()},
+	}
+
+	if authHeader := remote.GetHttpAuthorizationHeader(); authHeader != "" {
 		remoteConfig = append(remoteConfig, git.ConfigPair{
-			Key: fmt.Sprintf("remote.%s.url", remoteName), Value: remote.GetUrl(),
+			Key:   fmt.Sprintf("http.%s.extraHeader", remote.GetUrl()),
+			Value: "Authorization: " + authHeader,
 		})
-
-		if authHeader := remote.GetHttpAuthorizationHeader(); authHeader != "" {
-			remoteConfig = append(remoteConfig, git.ConfigPair{
-				Key:   fmt.Sprintf("http.%s.extraHeader", remote.GetUrl()),
-				Value: "Authorization: " + authHeader,
-			})
-		}
 	}
 
 	sshCommand, clean, err := git.BuildSSHInvocation(ctx, firstRequest.GetSshKey(), firstRequest.GetKnownHosts())
@@ -250,18 +247,12 @@ func validateUpdateRemoteMirrorRequest(ctx context.Context, req *gitalypb.Update
 		return fmt.Errorf("empty Repository")
 	}
 
-	if req.GetRefName() == "" && req.GetRemote() == nil {
-		return fmt.Errorf("empty RefName")
+	if req.GetRemote() == nil {
+		return fmt.Errorf("missing Remote")
 	}
 
-	if req.GetRefName() != "" && req.GetRemote() != nil {
-		return fmt.Errorf("both remote name and remote parameters set")
-	}
-
-	if remote := req.GetRemote(); remote != nil {
-		if remote.GetUrl() == "" {
-			return fmt.Errorf("remote is missing URL")
-		}
+	if req.GetRemote().GetUrl() == "" {
+		return fmt.Errorf("remote is missing URL")
 	}
 
 	return nil

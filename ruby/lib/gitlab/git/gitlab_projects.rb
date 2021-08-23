@@ -76,22 +76,6 @@ module Gitlab
         true
       end
 
-      def delete_remote_branches(remote_name, branch_names, env: {})
-        branch_names.each_slice(BRANCHES_PER_PUSH) do |branches|
-          logger.info "Pushing #{branches.count} deleted branches from #{repository_absolute_path} to remote #{remote_name}"
-
-          cmd = %W(#{Gitlab.config.git.bin_path} push -- #{remote_name})
-          branches.each { |branch| cmd << ":#{branch}" }
-
-          unless run(cmd, repository_absolute_path, env)
-            logger.error("Pushing deleted branches to remote #{remote_name} failed.")
-            return false
-          end
-        end
-
-        true
-      end
-
       protected
 
       def run(*args)

@@ -175,20 +175,6 @@ describe Gitlab::Git::Repository do # rubocop:disable Metrics/BlockLength
     end
   end
 
-  describe '#local_branches' do
-    let(:repository) { mutable_repository }
-
-    before do
-      create_remote_branch('joe', 'remote_branch', 'master')
-      create_branch(repository, 'local_branch', 'master')
-    end
-
-    it 'returns the local branches' do
-      expect(repository.local_branches.any? { |branch| branch.name == 'remote_branch' }).to eq(false)
-      expect(repository.local_branches.any? { |branch| branch.name == 'local_branch' }).to eq(true)
-    end
-  end
-
   describe '#with_repo_branch_commit' do
     let(:start_repository) { Gitlab::Git::RemoteRepository.new(source_repository) }
     let(:start_commit) { source_repository.commit }
@@ -301,30 +287,6 @@ describe Gitlab::Git::Repository do # rubocop:disable Metrics/BlockLength
       expect do
         repository.fetch_sha(source_repository, sha)
       end.to raise_error(Gitlab::Git::CommandError, 'error')
-    end
-  end
-
-  describe 'remotes' do
-    let(:repository) { mutable_repository }
-    let(:remote_name) { 'my-remote' }
-    let(:url) { 'http://my-repo.git' }
-
-    describe '#add_remote' do
-      let(:mirror_refmap) { '+refs/*:refs/*' }
-
-      it 'added the remote' do
-        begin
-          repository_rugged.remotes.delete(remote_name)
-        rescue Rugged::ConfigError # rubocop:disable Lint/HandleExceptions
-        end
-
-        repository.add_remote(remote_name, url, mirror_refmap: mirror_refmap)
-
-        expect(repository_rugged.remotes[remote_name]).not_to be_nil
-        expect(repository_rugged.config["remote.#{remote_name}.mirror"]).to eq('true')
-        expect(repository_rugged.config["remote.#{remote_name}.prune"]).to eq('true')
-        expect(repository_rugged.config["remote.#{remote_name}.fetch"]).to eq(mirror_refmap)
-      end
     end
   end
 

@@ -21,10 +21,8 @@ dir = __dir__
 # Some later requires are order-sensitive. Manually require whatever we need.
 require_relative "#{dir}/encoding_helper.rb"
 require_relative "#{dir}/utils/strong_memoize.rb"
-require_relative "#{dir}/ref_matcher.rb"
 require_relative "#{dir}/git/remote_repository.rb"
 require_relative "#{dir}/git/popen.rb"
-require_relative "#{dir}/git/repository_mirroring.rb"
 
 # Require all .rb files we can find in the gitlab lib directory
 Dir["#{dir}/**/*.rb"].sort.each do |ruby_file|

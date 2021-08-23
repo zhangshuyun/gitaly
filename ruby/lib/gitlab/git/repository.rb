@@ -4,7 +4,6 @@ module Gitlab
   module Git
     # These are monkey patches on top of the vendored version of Repository.
     class Repository
-      include Gitlab::Git::RepositoryMirroring
       include Gitlab::Git::Popen
       include Gitlab::EncodingHelper
       include Gitlab::Utils::StrongMemoize
@@ -126,10 +125,6 @@ module Gitlab
         branches_filter
       end
 
-      def local_branches(sort_by: nil)
-        branches_filter(filter: :local, sort_by: sort_by)
-      end
-
       # Git repository can contains some hidden refs like:
       #   /refs/notes/*
       #   /refs/git-as-svn/*
@@ -191,14 +186,6 @@ module Gitlab
         else
           names[0]
         end
-      end
-
-      def ancestor?(from, to)
-        return false if from.nil? || to.nil?
-
-        merge_base(from, to) == from
-      rescue Rugged::OdbError
-        false
       end
 
       def diff_exists?(sha1, sha2)
@@ -352,24 +339,6 @@ module Gitlab
       def rev_parse_target(revspec)
         obj = rugged.rev_parse(revspec)
         Ref.dereference_object(obj)
-      end
-
-      def add_remote(remote_name, url, mirror_refmap: nil)
-        rugged.remotes.create(remote_name, url)
-
-        set_remote_as_mirror(remote_name, refmap: mirror_refmap) if mirror_refmap
-      rescue Rugged::ConfigError
-        remote_update(remote_name, url: url)
-      end
-
-      # Update the specified remote using the values in the +options+ hash
-      #
-      # Example
-      # repo.update_remote("origin", url: "path/to/repo")
-      def remote_update(remote_name, url:)
-        # TODO: Implement other remote options
-        rugged.remotes.set_url(remote_name, url)
-        nil
       end
 
       def commit(ref = nil)

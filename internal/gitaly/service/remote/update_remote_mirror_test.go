@@ -315,14 +315,25 @@ func TestUpdateRemoteMirror(t *testing.T) {
 					CommandFactory: original,
 					newFunc: func(ctx context.Context, repo repository.GitRepo, sc git.Cmd, opts ...git.CmdOpt) (*command.Command, error) {
 						if sc.Subcommand() == "push" {
+							subCmd, ok := sc.(git.SubCmd)
+							require.True(t, ok)
+
+							// This is really hacky: we extract the
+							// remote name from the subcommands
+							// arguments. But honestly, the whole way of
+							// how we hijack the command factory is kind
+							// of hacky in the first place.
+							remoteName := subCmd.Args[0]
+							require.Contains(t, remoteName, "inmemory-")
+
 							// Make the branch diverge on the remote before actually performing the pushes the RPC
 							// is attempting to perform to simulate a ref diverging after the RPC has performed
 							// its checks.
 							cmd, err := original.New(ctx, repo, git.SubCmd{
 								Name:  "push",
 								Flags: []git.Option{git.Flag{Name: "--force"}},
-								Args:  []string{"mirror", "refs/heads/non-diverging:refs/heads/diverging"},
-							})
+								Args:  []string{remoteName, "refs/heads/non-diverging:refs/heads/diverging"},
+							}, opts...)
 							if !assert.NoError(t, err) {
 								return nil, err
 							}
@@ -475,9 +486,6 @@ func TestUpdateRemoteMirror(t *testing.T) {
 
 			sourceRepoPb, sourceRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
-			// configure the mirror repository as a remote in the source
-			gittest.Exec(t, cfg, "-C", sourceRepoPath, "remote", "add", "mirror", mirrorRepoPath)
-
 			// create identical commits in both repositories so we can use them for
 			// the references
 			commitSignature := git2go.NewSignature("Test Author", "author@example.com", time.Now())
@@ -534,7 +542,6 @@ func TestUpdateRemoteMirror(t *testing.T) {
 
 				gitalypb.RegisterRemoteServiceServer(srv, NewServer(
 					deps.GetCfg(),
-					deps.GetRubyServer(),
 					deps.GetLocator(),
 					cmdFactory,
 					deps.GetCatfileCache(),
@@ -549,8 +556,10 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			require.NoError(t, err)
 
 			require.NoError(t, stream.Send(&gitalypb.UpdateRemoteMirrorRequest{
-				Repository:        sourceRepoPb,
-				RefName:           "mirror",
+				Repository: sourceRepoPb,
+				Remote: &gitalypb.UpdateRemoteMirrorRequest_Remote{
+					Url: mirrorRepoPath,
+				},
 				KeepDivergentRefs: tc.keepDivergentRefs,
 			}))
 
@@ -601,7 +610,6 @@ func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
 			deps.GetCfg(),
-			deps.GetRubyServer(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
@@ -615,8 +623,6 @@ func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 	testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	_, mirrorPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
-	remoteName := "remote_mirror_1"
-
 	gittest.CreateTag(t, cfg, mirrorPath, "v0.0.1", "master", nil) // I needed another tag for the tests
 	gittest.CreateTag(t, cfg, testRepoPath, "new-tag", "60ecb67744cb56576c30214ff52294f8ce2def98", nil)
 	gittest.CreateTag(t, cfg, testRepoPath, "v1.0.0", "0b4bc9a49b562e85de7cc9e834518ea6828729b9", &gittest.CreateTagOpts{
@@ -629,7 +635,6 @@ func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 	setupCommands := [][]string{
 		// Preconditions
 		{"config", "user.email", "gitalytest@example.com"},
-		{"remote", "add", remoteName, mirrorPath},
 		// Updates
 		{"branch", "new-branch", "60ecb67744cb56576c30214ff52294f8ce2def98"},                  // Add branch
 		{"branch", "ignored-branch", "60ecb67744cb56576c30214ff52294f8ce2def98"},              // Add branch not matching branch list
@@ -654,8 +659,10 @@ func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 	require.NotEqual(t, newTagOid, "f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8") // Sanity check that the tag did in fact change
 
 	firstRequest := &gitalypb.UpdateRemoteMirrorRequest{
-		Repository:           testRepo,
-		RefName:              remoteName,
+		Repository: testRepo,
+		Remote: &gitalypb.UpdateRemoteMirrorRequest_Remote{
+			Url: mirrorPath,
+		},
 		OnlyBranchesMatching: nil,
 	}
 	matchingRequest1 := &gitalypb.UpdateRemoteMirrorRequest{
@@ -704,7 +711,6 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithWildcards(t *testing.T) {
 	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
 			deps.GetCfg(),
-			deps.GetRubyServer(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
@@ -719,12 +725,9 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithWildcards(t *testing.T) {
 
 	_, mirrorPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
-	remoteName := "remote_mirror_2"
-
 	setupCommands := [][]string{
 		// Preconditions
 		{"config", "user.email", "gitalytest@example.com"},
-		{"remote", "add", remoteName, mirrorPath},
 		// Updates
 		{"branch", "11-0-stable", "60ecb67744cb56576c30214ff52294f8ce2def98"},
 		{"branch", "11-1-stable", "60ecb67744cb56576c30214ff52294f8ce2def98"},                // Add branch
@@ -754,8 +757,10 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithWildcards(t *testing.T) {
 	newTagOid = strings.TrimSpace(newTagOid)
 	require.NotEqual(t, newTagOid, "f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8") // Sanity check that the tag did in fact change
 	firstRequest := &gitalypb.UpdateRemoteMirrorRequest{
-		Repository:           testRepo,
-		RefName:              remoteName,
+		Repository: testRepo,
+		Remote: &gitalypb.UpdateRemoteMirrorRequest_Remote{
+			Url: mirrorPath,
+		},
 		OnlyBranchesMatching: [][]byte{[]byte("*-stable"), []byte("feature")},
 	}
 
@@ -789,7 +794,6 @@ func TestUpdateRemoteMirrorInmemory(t *testing.T) {
 	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
 			deps.GetCfg(),
-			deps.GetRubyServer(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
@@ -838,7 +842,6 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T) 
 	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
 			deps.GetCfg(),
-			deps.GetRubyServer(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
@@ -852,14 +855,11 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T) 
 	testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	_, mirrorPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
-	remoteName := "remote_mirror_1"
-
 	gittest.CreateTag(t, cfg, mirrorPath, "v2.0.0", "master", nil)
 
 	setupCommands := [][]string{
 		// Preconditions
 		{"config", "user.email", "gitalytest@example.com"},
-		{"remote", "add", remoteName, mirrorPath},
 
 		// Create a divergence by moving `master` to the HEAD of another branch
 		// ba3faa7d only exists on `after-create-delete-modify-move`
@@ -875,8 +875,10 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T) 
 		gittest.Exec(t, cfg, gitArgs...)
 	}
 	firstRequest := &gitalypb.UpdateRemoteMirrorRequest{
-		Repository:        testRepo,
-		RefName:           remoteName,
+		Repository: testRepo,
+		Remote: &gitalypb.UpdateRemoteMirrorRequest_Remote{
+			Url: mirrorPath,
+		},
 		KeepDivergentRefs: true,
 	}
 
@@ -927,7 +929,6 @@ func TestFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T) {
 	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
 			deps.GetCfg(),
-			deps.GetRubyServer(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
@@ -948,14 +949,9 @@ func TestFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T) {
 			desc: "empty Repository",
 			request: &gitalypb.UpdateRemoteMirrorRequest{
 				Repository: nil,
-				RefName:    "remote_mirror_1",
-			},
-		},
-		{
-			desc: "empty RefName",
-			request: &gitalypb.UpdateRemoteMirrorRequest{
-				Repository: testRepo,
-				RefName:    "",
+				Remote: &gitalypb.UpdateRemoteMirrorRequest_Remote{
+					Url: "something",
+				},
 			},
 		},
 		{
@@ -965,14 +961,6 @@ func TestFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T) {
 				Remote: &gitalypb.UpdateRemoteMirrorRequest_Remote{
 					Url: "",
 				},
-			},
-		},
-		{
-			desc: "both remote name and remote parameters set",
-			request: &gitalypb.UpdateRemoteMirrorRequest{
-				Repository: testRepo,
-				RefName:    "foobar",
-				Remote:     &gitalypb.UpdateRemoteMirrorRequest_Remote{},
 			},
 		},
 	}

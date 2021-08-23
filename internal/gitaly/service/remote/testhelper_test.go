@@ -2,14 +2,10 @@ package remote
 
 import (
 	"os"
-	"reflect"
-	"runtime"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -31,35 +27,16 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func TestWithRubySidecar(t *testing.T) {
-	t.Parallel()
-	cfg := testcfg.Build(t)
-
-	rubySrv := rubyserver.New(cfg)
-	require.NoError(t, rubySrv.Start())
-	t.Cleanup(rubySrv.Stop)
-
-	fs := []func(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server){
-		testSuccessfulAddRemote,
-		testAddRemoteTransactional,
-	}
-
-	for _, f := range fs {
-		t.Run(runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(), func(t *testing.T) {
-			f(t, cfg, rubySrv)
-		})
-	}
-}
-
-func setupRemoteServiceWithRuby(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RemoteServiceClient) {
+func setupRemoteService(t *testing.T, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RemoteServiceClient) {
 	t.Helper()
+
+	cfg := testcfg.Build(t)
 
 	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
-	addr := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
+	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
 			deps.GetCfg(),
-			deps.GetRubyServer(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
@@ -72,13 +49,6 @@ func setupRemoteServiceWithRuby(t *testing.T, cfg config.Cfg, rubySrv *rubyserve
 	t.Cleanup(func() { conn.Close() })
 
 	return cfg, repo, repoPath, client
-}
-
-func setupRemoteService(t *testing.T, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RemoteServiceClient) {
-	t.Helper()
-
-	cfg := testcfg.Build(t)
-	return setupRemoteServiceWithRuby(t, cfg, nil, opts...)
 }
 
 func newRemoteClient(t *testing.T, serverSocketPath string) (gitalypb.RemoteServiceClient, *grpc.ClientConn) {

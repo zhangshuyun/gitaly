@@ -14,9 +14,7 @@ module Gitaly
       self.unmarshal_class_method = :decode
       self.service_name = 'gitaly.RemoteService'
 
-      rpc :AddRemote, ::Gitaly::AddRemoteRequest, ::Gitaly::AddRemoteResponse
       rpc :FetchInternalRemote, ::Gitaly::FetchInternalRemoteRequest, ::Gitaly::FetchInternalRemoteResponse
-      rpc :RemoveRemote, ::Gitaly::RemoveRemoteRequest, ::Gitaly::RemoveRemoteResponse
       # UpdateRemoteMirror compares the references in the target repository and its remote mirror
       # repository. Any differences in the references are then addressed by pushing the differing
       # references to the mirror. Created and modified references are updated, removed references are
