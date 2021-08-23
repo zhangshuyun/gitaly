@@ -83,6 +83,20 @@ func ResolveSink(ctx context.Context, path string) (Sink, error) {
 	}
 }
 
+// ResolveLocator returns a locator implementation based on a locator identifier.
+func ResolveLocator(locator string, sink Sink) (Locator, error) {
+	switch locator {
+	case "legacy":
+		return LegacyLocator{}, nil
+	case "pointer":
+		return PointerLocator{
+			Sink: sink,
+		}, nil
+	default:
+		return nil, fmt.Errorf("unknown locator: %q", locator)
+	}
+}
+
 // Manager manages process of the creating/restoring backups.
 type Manager struct {
 	sink    Sink
@@ -96,11 +110,11 @@ type Manager struct {
 }
 
 // NewManager creates and returns initialized *Manager instance.
-func NewManager(sink Sink) *Manager {
+func NewManager(sink Sink, locator Locator) *Manager {
 	return &Manager{
 		sink:     sink,
 		conns:    client.NewPool(),
-		locator:  LegacyLocator{},
+		locator:  locator,
 		backupID: time.Now().UTC().Format("20060102150405"),
 	}
 }

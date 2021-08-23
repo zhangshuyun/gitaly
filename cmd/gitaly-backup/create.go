@@ -25,12 +25,14 @@ type createSubcommand struct {
 	backupPath      string
 	parallel        int
 	parallelStorage int
+	locator         string
 }
 
 func (cmd *createSubcommand) Flags(fs *flag.FlagSet) {
 	fs.StringVar(&cmd.backupPath, "path", "", "repository backup path")
 	fs.IntVar(&cmd.parallel, "parallel", runtime.NumCPU(), "maximum number of parallel backups")
 	fs.IntVar(&cmd.parallelStorage, "parallel-storage", 2, "maximum number of parallel backups per storage. Note: actual parallelism when combined with `-parallel` depends on the order the repositories are received.")
+	fs.StringVar(&cmd.locator, "locator", "legacy", "determines how backup files are located. One of legacy, pointer. Note: The feature is not ready for production use.")
 }
 
 func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
@@ -39,7 +41,12 @@ func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io
 		return fmt.Errorf("create: resolve sink: %w", err)
 	}
 
-	manager := backup.NewManager(sink)
+	locator, err := backup.ResolveLocator(cmd.locator, sink)
+	if err != nil {
+		return fmt.Errorf("create: resolve locator: %w", err)
+	}
+
+	manager := backup.NewManager(sink, locator)
 
 	var pipeline backup.CreatePipeline
 	pipeline = backup.NewPipeline(log.StandardLogger(), manager)

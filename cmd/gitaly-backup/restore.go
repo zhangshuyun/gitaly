@@ -24,10 +24,12 @@ type restoreRequest struct {
 
 type restoreSubcommand struct {
 	backupPath string
+	locator    string
 }
 
 func (cmd *restoreSubcommand) Flags(fs *flag.FlagSet) {
 	fs.StringVar(&cmd.backupPath, "path", "", "repository backup path")
+	fs.StringVar(&cmd.locator, "locator", "legacy", "determines how backup files are located. One of legacy, pointer. Note: The feature is not ready for production use.")
 }
 
 func (cmd *restoreSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
@@ -36,7 +38,12 @@ func (cmd *restoreSubcommand) Run(ctx context.Context, stdin io.Reader, stdout i
 		return fmt.Errorf("restore: resolve sink: %w", err)
 	}
 
-	manager := backup.NewManager(sink)
+	locator, err := backup.ResolveLocator(cmd.locator, sink)
+	if err != nil {
+		return fmt.Errorf("restore: resolve locator: %w", err)
+	}
+
+	manager := backup.NewManager(sink, locator)
 	pipeline := backup.NewPipeline(log.StandardLogger(), manager)
 
 	decoder := json.NewDecoder(stdin)

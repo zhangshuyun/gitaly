@@ -82,7 +82,7 @@ func TestManager_Create(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			fsBackup := NewManager(NewFilesystemSink(path))
+			fsBackup := NewManager(NewFilesystemSink(path), LegacyLocator{})
 			err := fsBackup.Create(ctx, &CreateRequest{
 				Server:     storage.ServerInfo{Address: gitalyAddr, Token: cfg.Auth.Token},
 				Repository: tc.repo,
@@ -191,7 +191,7 @@ func TestManager_Restore(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			fsBackup := NewManager(NewFilesystemSink(path))
+			fsBackup := NewManager(NewFilesystemSink(path), LegacyLocator{})
 			err := fsBackup.Restore(ctx, &RestoreRequest{
 				Server:       storage.ServerInfo{Address: gitalyAddr, Token: cfg.Auth.Token},
 				Repository:   tc.repo,
@@ -303,6 +303,33 @@ func TestResolveSink(t *testing.T) {
 				return
 			}
 			tc.verify(t, sink)
+		})
+	}
+}
+
+func TestResolveLocator(t *testing.T) {
+	for _, tc := range []struct {
+		locator     string
+		expectedErr string
+	}{
+		{locator: "legacy"},
+		{locator: "pointer"},
+		{
+			locator:     "unknown",
+			expectedErr: "unknown locator: \"unknown\"",
+		},
+	} {
+		t.Run(tc.locator, func(t *testing.T) {
+			l, err := ResolveLocator(tc.locator, nil)
+
+			if tc.expectedErr == "" {
+				require.NoError(t, err)
+			} else {
+				require.EqualError(t, err, tc.expectedErr)
+				return
+			}
+
+			require.NotNil(t, l)
 		})
 	}
 }
