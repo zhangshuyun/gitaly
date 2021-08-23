@@ -6,9 +6,6 @@ package featureflag
 var (
 	// GoSetConfig enables git2go implementation of SetConfig.
 	GoSetConfig = FeatureFlag{Name: "go_set_config", OnByDefault: true}
-	// FindAllTagsPipeline enables the alternative pipeline implementation for finding
-	// tags via FindAllTags.
-	FindAllTagsPipeline = FeatureFlag{Name: "find_all_tags_pipeline", OnByDefault: false}
 	// QuarantinedResolveCOnflicts enables use of a quarantine object directory for ResolveConflicts.
 	QuarantinedResolveConflicts = FeatureFlag{Name: "quarantined_resolve_conflicts", OnByDefault: false}
 	// GoUserApplyPatch enables the Go implementation of UserApplyPatch
@@ -20,7 +17,6 @@ var (
 // All includes all feature flags.
 var All = []FeatureFlag{
 	GoSetConfig,
-	FindAllTagsPipeline,
 	QuarantinedResolveConflicts,
 	GoUserApplyPatch,
 	Quarantine,
