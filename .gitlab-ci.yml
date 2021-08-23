@@ -164,7 +164,6 @@ binaries:
   parallel:
     matrix:
       - GO_VERSION: [ "1.15", "1.16" ]
-        GIT_VERSION: "v2.32.0"
 
 test:
   <<: *test_definition
@@ -188,7 +187,6 @@ test:
         GIT_VERSION: [ "v2.31.1", "v2.32.0" ]
         TARGET: test
       - GO_VERSION: "1.16"
-        GIT_VERSION: "v2.32.0"
         TARGET: [ test-with-proxies, test-with-praefect, race-go ]
 
 nightly:git:
