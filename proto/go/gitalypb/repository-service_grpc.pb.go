@@ -39,6 +39,8 @@ type RepositoryServiceClient interface {
 	WriteRef(ctx context.Context, in *WriteRefRequest, opts ...grpc.CallOption) (*WriteRefResponse, error)
 	FindMergeBase(ctx context.Context, in *FindMergeBaseRequest, opts ...grpc.CallOption) (*FindMergeBaseResponse, error)
 	CreateFork(ctx context.Context, in *CreateForkRequest, opts ...grpc.CallOption) (*CreateForkResponse, error)
+	// Deprecated: Do not use.
+	// IsSquashInProgress is deprecated and will always return false.
 	IsSquashInProgress(ctx context.Context, in *IsSquashInProgressRequest, opts ...grpc.CallOption) (*IsSquashInProgressResponse, error)
 	CreateRepositoryFromURL(ctx context.Context, in *CreateRepositoryFromURLRequest, opts ...grpc.CallOption) (*CreateRepositoryFromURLResponse, error)
 	// CreateBundle creates a bundle from all refs
@@ -263,6 +265,7 @@ func (c *repositoryServiceClient) CreateFork(ctx context.Context, in *CreateFork
 	return out, nil
 }
 
+// Deprecated: Do not use.
 func (c *repositoryServiceClient) IsSquashInProgress(ctx context.Context, in *IsSquashInProgressRequest, opts ...grpc.CallOption) (*IsSquashInProgressResponse, error) {
 	out := new(IsSquashInProgressResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/IsSquashInProgress", in, out, opts...)
@@ -787,6 +790,8 @@ type RepositoryServiceServer interface {
 	WriteRef(context.Context, *WriteRefRequest) (*WriteRefResponse, error)
 	FindMergeBase(context.Context, *FindMergeBaseRequest) (*FindMergeBaseResponse, error)
 	CreateFork(context.Context, *CreateForkRequest) (*CreateForkResponse, error)
+	// Deprecated: Do not use.
+	// IsSquashInProgress is deprecated and will always return false.
 	IsSquashInProgress(context.Context, *IsSquashInProgressRequest) (*IsSquashInProgressResponse, error)
 	CreateRepositoryFromURL(context.Context, *CreateRepositoryFromURLRequest) (*CreateRepositoryFromURLResponse, error)
 	// CreateBundle creates a bundle from all refs
