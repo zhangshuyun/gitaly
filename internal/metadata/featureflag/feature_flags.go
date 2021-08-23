@@ -5,7 +5,7 @@ package featureflag
 // NOTE: if you add a new feature flag please add it to the `All` list defined below.
 var (
 	// GoSetConfig enables git2go implementation of SetConfig.
-	GoSetConfig = FeatureFlag{Name: "go_set_config", OnByDefault: false}
+	GoSetConfig = FeatureFlag{Name: "go_set_config", OnByDefault: true}
 	// FindAllTagsPipeline enables the alternative pipeline implementation for finding
 	// tags via FindAllTags.
 	FindAllTagsPipeline = FeatureFlag{Name: "find_all_tags_pipeline", OnByDefault: false}
