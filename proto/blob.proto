@@ -132,6 +132,10 @@ message ListBlobsRequest {
   // to `0`, then no blob data will be sent. If `-1`, then all blob data will
   // be sent without any limits.
   int64 bytes_limit = 4;
+  // WithPaths determines whether paths of blobs should be returned. When
+  // set to `true`, paths are returned on a best-effort basis: a path will only
+  // exist if the blob was traversed via a tree.
+  bool with_paths = 5;
 }
 
 // ListBlobsResponse is a response for the ListBlobs RPC.
@@ -147,6 +151,9 @@ message ListBlobsResponse {
     // Data is the contents of the blob. This field is optional and depends on
     // the BytesLimit in the original request.
     bytes data = 3;
+    // Path is the path of the blob. May be unset depending on how the blob had
+    // been traversed.
+    bytes path = 4;
   }
 
   // Blobs is the blobs which have been found. In case blob contents were

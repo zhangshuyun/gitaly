@@ -50,6 +50,7 @@ func TestListBlobs(t *testing.T) {
 		revisions     []string
 		limit         uint32
 		bytesLimit    int64
+		withPaths     bool
 		expectedErr   error
 		expectedBlobs []*gitalypb.ListBlobsResponse_Blob
 	}{
@@ -75,6 +76,18 @@ func TestListBlobs(t *testing.T) {
 			},
 		},
 		{
+			desc: "single blob with paths",
+			revisions: []string{
+				lfsPointer1,
+			},
+			withPaths: true,
+			// When iterating blobs directly, we cannot deduce a path and thus don't get
+			// any as response.
+			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
+				{Oid: lfsPointer1, Size: lfsPointers[lfsPointer1].Size},
+			},
+		},
+		{
 			desc: "multiple blobs",
 			revisions: []string{
 				lfsPointer1,
@@ -94,6 +107,16 @@ func TestListBlobs(t *testing.T) {
 			},
 			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
 				{Oid: "93e123ac8a3e6a0b600953d7598af629dec7b735", Size: 59},
+			},
+		},
+		{
+			desc: "tree with paths",
+			revisions: []string{
+				"b95c0fad32f4361845f91d9ce4c1721b52b82793",
+			},
+			withPaths: true,
+			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
+				{Oid: "93e123ac8a3e6a0b600953d7598af629dec7b735", Size: 59, Path: []byte("branch-test.txt")},
 			},
 		},
 		{
@@ -124,6 +147,18 @@ func TestListBlobs(t *testing.T) {
 			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
 				{Oid: gitattributesOID, Size: gitattributesSize},
 				{Oid: gitignoreOID, Size: gitignoreSize},
+			},
+		},
+		{
+			desc: "revision with limit and path",
+			revisions: []string{
+				"master",
+			},
+			limit:     2,
+			withPaths: true,
+			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
+				{Oid: gitattributesOID, Size: gitattributesSize, Path: []byte(".gitattributes")},
+				{Oid: gitignoreOID, Size: gitignoreSize, Path: []byte(".gitignore")},
 			},
 		},
 		{
@@ -225,6 +260,7 @@ func TestListBlobs(t *testing.T) {
 				Revisions:  tc.revisions,
 				Limit:      tc.limit,
 				BytesLimit: tc.bytesLimit,
+				WithPaths:  tc.withPaths,
 			})
 			require.NoError(t, err)
 
