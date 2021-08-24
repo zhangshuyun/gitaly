@@ -1,7 +1,6 @@
 package operations
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -18,7 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -36,12 +34,9 @@ var (
 func TestSuccessfulMerge(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testSuccessfulMerge)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulMerge(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -79,14 +74,8 @@ func testSuccessfulMerge(t *testing.T, ctx context.Context) {
 	firstResponse, err := mergeBidi.Recv()
 	require.NoError(t, err, "receive first response")
 
-	// If we've got a quarantine directory, then we shouldn't be able to read the commit before
-	// we have applied the merge.
 	_, err = repo.ReadCommit(ctx, git.Revision(firstResponse.CommitId))
-	if featureflag.Quarantine.IsEnabled(ctx) {
-		require.EqualError(t, err, localrepo.ErrObjectNotFound.Error())
-	} else {
-		require.NoError(t, err, "look up git commit before merge is applied")
-	}
+	require.Equal(t, localrepo.ErrObjectNotFound, err, "commit should not exist in the normal repo given that it is quarantined")
 
 	require.NoError(t, mergeBidi.Send(&gitalypb.UserMergeBranchRequest{Apply: true}), "apply merge")
 
@@ -129,12 +118,9 @@ func testSuccessfulMerge(t *testing.T, ctx context.Context) {
 func TestUserMergeBranch_quarantine(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testUserMergeBranchQuarantine)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserMergeBranchQuarantine(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -172,20 +158,15 @@ func testUserMergeBranchQuarantine(t *testing.T, ctx context.Context) {
 	exists, err := repo.HasRevision(ctx, oid.Revision()+"^{commit}")
 	require.NoError(t, err)
 
-	// The new commit will be in the target repository in case quarantines are disabled.
-	// Otherwise, it should've been discarded.
-	require.Equal(t, !featureflag.Quarantine.IsEnabled(ctx), exists)
+	require.False(t, exists, "quarantined commit should have been discarded")
 }
 
 func TestSuccessfulMerge_stableMergeIDs(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testSuccessfulMergeStableMergeIDs)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulMergeStableMergeIDs(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -254,12 +235,9 @@ func testSuccessfulMergeStableMergeIDs(t *testing.T, ctx context.Context) {
 func TestAbortedMerge(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testAbortedMerge)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testAbortedMerge(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -322,12 +300,9 @@ func testAbortedMerge(t *testing.T, ctx context.Context) {
 func TestFailedMergeConcurrentUpdate(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testFailedMergeConcurrentUpdate)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testFailedMergeConcurrentUpdate(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -370,12 +345,9 @@ func testFailedMergeConcurrentUpdate(t *testing.T, ctx context.Context) {
 func TestUserMergeBranch_ambiguousReference(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testUserMergeBranchAmbiguousReference)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserMergeBranchAmbiguousReference(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -438,12 +410,9 @@ func testUserMergeBranchAmbiguousReference(t *testing.T, ctx context.Context) {
 func TestFailedMergeDueToHooks(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testFailedMergeDueToHooks)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testFailedMergeDueToHooks(t *testing.T, ctx context.Context) {
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
@@ -492,12 +461,9 @@ func testFailedMergeDueToHooks(t *testing.T, ctx context.Context) {
 func TestUserMergeBranch_conflict(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testUserMergeBranchConflict)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserMergeBranchConflict(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	const mergeIntoBranch = "mergeIntoBranch"
@@ -537,12 +503,9 @@ func testUserMergeBranchConflict(t *testing.T, ctx context.Context) {
 func TestSuccessfulUserFFBranchRequest(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testSuccessfulUserFFBranchRequest)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulUserFFBranchRequest(t *testing.T, ctx context.Context) {
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	commitID := "cfe32cf61b73a0d5e9f13e774abde7ff789b1660"
@@ -573,12 +536,9 @@ func testSuccessfulUserFFBranchRequest(t *testing.T, ctx context.Context) {
 func TestFailedUserFFBranchRequest(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testFailedUserFFBranchRequest)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testFailedUserFFBranchRequest(t *testing.T, ctx context.Context) {
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	commitID := "cfe32cf61b73a0d5e9f13e774abde7ff789b1660"
@@ -665,12 +625,9 @@ func testFailedUserFFBranchRequest(t *testing.T, ctx context.Context) {
 func TestFailedUserFFBranchDueToHooks(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testFailedUserFFBranchDueToHooks)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testFailedUserFFBranchDueToHooks(t *testing.T, ctx context.Context) {
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	commitID := "cfe32cf61b73a0d5e9f13e774abde7ff789b1660"
@@ -700,12 +657,9 @@ func testFailedUserFFBranchDueToHooks(t *testing.T, ctx context.Context) {
 func TestUserFFBranch_ambiguousReference(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testUserFFBranchAmbiguousReference)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserFFBranchAmbiguousReference(t *testing.T, ctx context.Context) {
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	branchName := "test-ff-target-branch"
@@ -748,8 +702,9 @@ func testUserFFBranchAmbiguousReference(t *testing.T, ctx context.Context) {
 
 func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
 	t.Parallel()
-	ctx, cleanup := testhelper.Context()
-	defer cleanup()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -854,6 +809,7 @@ func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
 
 func TestConflictsOnUserMergeToRefRequest(t *testing.T) {
 	t.Parallel()
+
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
@@ -991,6 +947,7 @@ func buildUserMergeToRefRequest(t testing.TB, cfg config.Cfg, repo *gitalypb.Rep
 
 func TestUserMergeToRef_stableMergeID(t *testing.T) {
 	t.Parallel()
+
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
@@ -1043,6 +1000,7 @@ func TestUserMergeToRef_stableMergeID(t *testing.T) {
 
 func TestFailedUserMergeToRefRequest(t *testing.T) {
 	t.Parallel()
+
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
@@ -1139,6 +1097,7 @@ func TestFailedUserMergeToRefRequest(t *testing.T) {
 
 func TestUserMergeToRefIgnoreHooksRequest(t *testing.T) {
 	t.Parallel()
+
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 

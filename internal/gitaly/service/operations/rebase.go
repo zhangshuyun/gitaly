@@ -11,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -34,7 +33,7 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 
 	ctx := stream.Context()
 
-	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, header.GetRepository(), featureflag.Quarantine)
+	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, header.GetRepository())
 	if err != nil {
 		return helper.ErrInternalf("creating repo quarantine: %w", err)
 	}

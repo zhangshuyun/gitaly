@@ -16,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -33,12 +32,9 @@ var (
 func TestUserCommitFiles(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testUserCommitFiles)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserCommitFiles(t *testing.T, ctx context.Context) {
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
 	const (
@@ -948,12 +944,9 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 func TestUserCommitFilesStableCommitID(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testUserCommitFilesStableCommitID)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserCommitFilesStableCommitID(t *testing.T, ctx context.Context) {
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
 	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
@@ -1011,12 +1004,9 @@ func testUserCommitFilesStableCommitID(t *testing.T, ctx context.Context) {
 func TestUserCommitFilesQuarantine(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testUserCommitFilesQuarantine)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserCommitFilesQuarantine(t *testing.T, ctx context.Context) {
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
 	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
@@ -1047,20 +1037,15 @@ func testUserCommitFilesQuarantine(t *testing.T, ctx context.Context) {
 	exists, err := repo.HasRevision(ctx, oid.Revision()+"^{commit}")
 	require.NoError(t, err)
 
-	// The new commit will be in the target repository in case quarantines are disabled.
-	// Otherwise, it should've been discarded.
-	require.Equal(t, !featureflag.Quarantine.IsEnabled(ctx), exists)
+	require.False(t, exists, "quarantined commit should have been discarded")
 }
 
 func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testSuccessfulUserCommitFilesRequest)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	newRepo, newRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
@@ -1169,12 +1154,9 @@ func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 func TestSuccessfulUserCommitFilesRequestMove(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testSuccessfulUserCommitFilesRequestMove)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulUserCommitFilesRequestMove(t *testing.T, ctx context.Context) {
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
 	branchName := "master"
@@ -1230,12 +1212,9 @@ func testSuccessfulUserCommitFilesRequestMove(t *testing.T, ctx context.Context)
 func TestSuccessfulUserCommitFilesRequestForceCommit(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testSuccessfulUserCommitFilesRequestForceCommit)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulUserCommitFilesRequestForceCommit(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -1280,12 +1259,9 @@ func testSuccessfulUserCommitFilesRequestForceCommit(t *testing.T, ctx context.C
 func TestSuccessfulUserCommitFilesRequestStartSha(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testSuccessfulUserCommitFilesRequestStartSha)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulUserCommitFilesRequestStartSha(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -1318,21 +1294,17 @@ func testSuccessfulUserCommitFilesRequestStartSha(t *testing.T, ctx context.Cont
 func TestSuccessfulUserCommitFilesRequestStartShaRemoteRepository(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testSuccessfulUserCommitFilesRemoteRepositoryRequest(func(header *gitalypb.UserCommitFilesRequest) {
+	testSuccessfulUserCommitFilesRemoteRepositoryRequest(func(header *gitalypb.UserCommitFilesRequest) {
 		setStartSha(header, "1e292f8fedd741b75372e19097c76d327140c312")
-	}))
+	})
 }
 
 func TestSuccessfulUserCommitFilesRequestStartBranchRemoteRepository(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testSuccessfulUserCommitFilesRemoteRepositoryRequest(func(header *gitalypb.UserCommitFilesRequest) {
+	testSuccessfulUserCommitFilesRemoteRepositoryRequest(func(header *gitalypb.UserCommitFilesRequest) {
 		setStartBranchName(header, []byte("master"))
-	}))
+	})
 }
 
 func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header *gitalypb.UserCommitFilesRequest)) func(*testing.T, context.Context) {
@@ -1376,12 +1348,9 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 func TestSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *testing.T, ctx context.Context) {
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
 	repoProto, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
@@ -1432,12 +1401,9 @@ func testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 func TestFailedUserCommitFilesRequestDueToHooks(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testFailedUserCommitFilesRequestDueToHooks)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testFailedUserCommitFilesRequestDueToHooks(t *testing.T, ctx context.Context) {
 	ctx, _, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	branchName := "feature"
@@ -1469,12 +1435,9 @@ func testFailedUserCommitFilesRequestDueToHooks(t *testing.T, ctx context.Contex
 func TestFailedUserCommitFilesRequestDueToIndexError(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testFailedUserCommitFilesRequestDueToIndexError)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testFailedUserCommitFilesRequestDueToIndexError(t *testing.T, ctx context.Context) {
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
@@ -1537,12 +1500,9 @@ func testFailedUserCommitFilesRequestDueToIndexError(t *testing.T, ctx context.C
 func TestFailedUserCommitFilesRequest(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testFailedUserCommitFilesRequest)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testFailedUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	branchName := "feature"
