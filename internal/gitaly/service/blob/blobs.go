@@ -77,10 +77,15 @@ func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobS
 
 	if err := processBlobs(ctx, catfileProcess, catfileInfoIter, req.GetLimit(), req.GetBytesLimit(),
 		func(oid string, size int64, contents []byte, path []byte) error {
+			if !req.GetWithPaths() {
+				path = nil
+			}
+
 			return chunker.Send(&gitalypb.ListBlobsResponse_Blob{
 				Oid:  oid,
 				Size: size,
 				Data: contents,
+				Path: path,
 			})
 		},
 	); err != nil {

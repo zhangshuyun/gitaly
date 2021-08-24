@@ -41,6 +41,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       repeated :revisions, :string, 2
       optional :limit, :uint32, 3
       optional :bytes_limit, :int64, 4
+      optional :with_paths, :bool, 5
     end
     add_message "gitaly.ListBlobsResponse" do
       repeated :blobs, :message, 1, "gitaly.ListBlobsResponse.Blob"
@@ -49,6 +50,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :oid, :string, 1
       optional :size, :int64, 2
       optional :data, :bytes, 3
+      optional :path, :bytes, 4
     end
     add_message "gitaly.ListAllBlobsRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
