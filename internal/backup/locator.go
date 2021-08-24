@@ -2,6 +2,7 @@ package backup
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -59,7 +60,8 @@ func (l LegacyLocator) newFull(repo *gitalypb.Repository) *Full {
 //   <repo relative path>/<backup id>/custom_hooks.tar
 //   <repo relative path>/LATEST
 type PointerLocator struct {
-	Sink Sink
+	Sink     Sink
+	Fallback Locator
 }
 
 // BeginFull returns paths for a new full backup
@@ -81,12 +83,17 @@ func (l PointerLocator) CommitFull(ctx context.Context, full *Full) error {
 	return l.commitLatestID(ctx, backupPath, backupID)
 }
 
-// FindLatestFull returns the paths committed by the latest call to CommitFull
+// FindLatestFull returns the paths committed by the latest call to CommitFull.
+//
+// If there is no `LATEST` file, the result of the `Fallback` is used.
 func (l PointerLocator) FindLatestFull(ctx context.Context, repo *gitalypb.Repository) (*Full, error) {
 	backupPath := strings.TrimSuffix(repo.RelativePath, ".git")
 
 	latest, err := l.findLatestID(ctx, backupPath)
 	if err != nil {
+		if l.Fallback != nil && errors.Is(err, ErrDoesntExist) {
+			return l.Fallback.FindLatestFull(ctx, repo)
+		}
 		return nil, fmt.Errorf("pointer locator: %w", err)
 	}
 

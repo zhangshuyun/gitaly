@@ -85,12 +85,14 @@ func ResolveSink(ctx context.Context, path string) (Sink, error) {
 
 // ResolveLocator returns a locator implementation based on a locator identifier.
 func ResolveLocator(locator string, sink Sink) (Locator, error) {
+	legacy := LegacyLocator{}
 	switch locator {
 	case "legacy":
-		return LegacyLocator{}, nil
+		return legacy, nil
 	case "pointer":
 		return PointerLocator{
-			Sink: sink,
+			Sink:     sink,
+			Fallback: legacy,
 		}, nil
 	default:
 		return nil, fmt.Errorf("unknown locator: %q", locator)
