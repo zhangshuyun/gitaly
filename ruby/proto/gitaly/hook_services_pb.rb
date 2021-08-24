@@ -22,6 +22,9 @@ module Gitaly
       # uploadpack.packObjectsHook mechanism. It generates a stream of packed
       # Git objects.
       rpc :PackObjectsHook, stream(::Gitaly::PackObjectsHookRequest), stream(::Gitaly::PackObjectsHookResponse)
+      # PackObjectsHookWithSidechannel is an optimized version of PackObjectsHook that uses
+      # a unix socket side channel.
+      rpc :PackObjectsHookWithSidechannel, ::Gitaly::PackObjectsHookWithSidechannelRequest, ::Gitaly::PackObjectsHookWithSidechannelResponse
     end
 
     Stub = Service.rpc_stub_class

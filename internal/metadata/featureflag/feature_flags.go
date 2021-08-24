@@ -8,6 +8,8 @@ var (
 	GoSetConfig = FeatureFlag{Name: "go_set_config", OnByDefault: true}
 	// GoUserApplyPatch enables the Go implementation of UserApplyPatch
 	GoUserApplyPatch = FeatureFlag{Name: "go_user_apply_patch", OnByDefault: true}
+	// PackObjectsHookWithSidechannel enables Unix socket sidechannels in 'gitaly-hooks git pack-objects'.
+	PackObjectsHookWithSidechannel = FeatureFlag{Name: "pack_objects_hook_with_sidechannel", OnByDefault: false}
 )
 
 // All includes all feature flags.

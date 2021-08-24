@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"os"
 	"strings"
 
@@ -13,10 +14,12 @@ import (
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/env"
 	gitalylog "gitlab.com/gitlab-org/gitaly/v14/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
@@ -339,8 +342,20 @@ func packObjectsHook(ctx context.Context, payload git.HooksPayload, hookClient g
 		fixedArgs = append(fixedArgs, fixFilterQuoteBug(a))
 	}
 
-	if err := handlePackObjects(ctx, hookClient, payload.Repo, fixedArgs); err != nil {
-		logger.Logger().WithFields(logrus.Fields{"args": args}).WithError(err).Error("PackObjectsHook RPC failed")
+	var rpc string
+	var err error
+	if featureflag.PackObjectsHookWithSidechannel.IsEnabled(helper.OutgoingToIncoming(ctx)) {
+		rpc = "PackObjectsHookWithSidechannel"
+		err = handlePackObjectsWithSidechannel(ctx, hookClient, payload.Repo, fixedArgs)
+	} else {
+		rpc = "PackObjectsHook"
+		err = handlePackObjects(ctx, hookClient, payload.Repo, fixedArgs)
+	}
+	if err != nil {
+		logger.Logger().WithFields(logrus.Fields{
+			"args": args,
+			"rpc":  rpc,
+		}).WithError(err).Error("RPC failed")
 		return 1, nil
 	}
 
@@ -406,3 +421,49 @@ type nopExitStatus struct {
 }
 
 func (nopExitStatus) GetExitStatus() *gitalypb.ExitStatus { return nil }
+
+func handlePackObjectsWithSidechannel(ctx context.Context, hookClient gitalypb.HookServiceClient, repo *gitalypb.Repository, args []string) error {
+	ctx, wt, err := hook.SetupSidechannel(ctx, func(c *net.UnixConn) error {
+		// We don't have to worry about concurrent reads and writes and
+		// deadlocks, because we're connected to git-upload-pack which follows
+		// the sequence: (1) write to stdin of pack-objects, (2) close stdin of
+		// pack-objects, (3) concurrently read from stdout and stderr of
+		// pack-objects.
+		if _, err := io.Copy(c, os.Stdin); err != nil {
+			return fmt.Errorf("copy stdin: %w", err)
+		}
+		if err := c.CloseWrite(); err != nil {
+			return fmt.Errorf("close write: %w", err)
+		}
+
+		if err := pktline.EachSidebandPacket(c, func(band byte, data []byte) error {
+			var err error
+			switch band {
+			case 1:
+				_, err = os.Stdout.Write(data)
+			case 2:
+				_, err = os.Stderr.Write(data)
+			default:
+				err = fmt.Errorf("unexpected side band: %d", band)
+			}
+			return err
+		}); err != nil {
+			return fmt.Errorf("demux response: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("SetupSidechannel: %w", err)
+	}
+	defer wt.Close()
+
+	if _, err := hookClient.PackObjectsHookWithSidechannel(
+		ctx,
+		&gitalypb.PackObjectsHookWithSidechannelRequest{Repository: repo, Args: args},
+	); err != nil {
+		return fmt.Errorf("call PackObjectsHookWithSidechannel: %w", err)
+	}
+
+	return wt.Wait()
+}

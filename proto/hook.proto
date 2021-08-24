@@ -36,6 +36,13 @@ service HookService {
       op: ACCESSOR
     };
   }
+  // PackObjectsHookWithSidechannel is an optimized version of PackObjectsHook that uses
+  // a unix socket side channel.
+  rpc PackObjectsHookWithSidechannel(PackObjectsHookWithSidechannelRequest) returns (PackObjectsHookWithSidechannelResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
 }
 
 message PreReceiveHookRequest {
@@ -110,3 +117,11 @@ message PackObjectsHookResponse {
   // stderr contains progress messages (such as "Enumerating objects ...")
   bytes stderr = 2;
 }
+
+message PackObjectsHookWithSidechannelRequest {
+  Repository repository = 1 [(target_repository)=true];
+  // args contains the arguments passed to the pack-objects hook, without the leading "git"
+  repeated string args = 2;
+}
+
+message PackObjectsHookWithSidechannelResponse {}

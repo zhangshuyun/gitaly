@@ -66,6 +66,12 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :stdout, :bytes, 1
       optional :stderr, :bytes, 2
     end
+    add_message "gitaly.PackObjectsHookWithSidechannelRequest" do
+      optional :repository, :message, 1, "gitaly.Repository"
+      repeated :args, :string, 2
+    end
+    add_message "gitaly.PackObjectsHookWithSidechannelResponse" do
+    end
   end
 end
 
@@ -81,4 +87,6 @@ module Gitaly
   ReferenceTransactionHookResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ReferenceTransactionHookResponse").msgclass
   PackObjectsHookRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.PackObjectsHookRequest").msgclass
   PackObjectsHookResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.PackObjectsHookResponse").msgclass
+  PackObjectsHookWithSidechannelRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.PackObjectsHookWithSidechannelRequest").msgclass
+  PackObjectsHookWithSidechannelResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.PackObjectsHookWithSidechannelResponse").msgclass
 end
