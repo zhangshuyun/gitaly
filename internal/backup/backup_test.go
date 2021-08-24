@@ -3,6 +3,7 @@ package backup
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -63,14 +64,14 @@ func TestManager_Create(t *testing.T) {
 			repo:               emptyRepo,
 			createsBundle:      false,
 			createsCustomHooks: false,
-			err:                ErrSkipped,
+			err:                fmt.Errorf("manager: repository empty: %w", ErrSkipped),
 		},
 		{
 			desc:               "nonexistent repo",
 			repo:               nonexistentRepo,
 			createsBundle:      false,
 			createsCustomHooks: false,
-			err:                ErrSkipped,
+			err:                fmt.Errorf("manager: repository empty: %w", ErrSkipped),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

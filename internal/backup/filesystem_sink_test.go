@@ -40,8 +40,8 @@ func TestFilesystemSink_GetReader(t *testing.T) {
 		require.NoError(t, err)
 
 		fsSink := NewFilesystemSink(dir)
-		reader, err := fsSink.GetReader(ctx, "non-existing.dat")
-		require.Equal(t, ErrDoesntExist, err)
+		reader, err := fsSink.GetReader(ctx, "not-existing")
+		require.Equal(t, fmt.Errorf(`filesystem sink: get reader for "not-existing": %w`, ErrDoesntExist), err)
 		require.Nil(t, reader)
 	})
 }
