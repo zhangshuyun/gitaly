@@ -76,7 +76,7 @@ func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobS
 	})
 
 	if err := processBlobs(ctx, catfileProcess, catfileInfoIter, req.GetLimit(), req.GetBytesLimit(),
-		func(oid string, size int64, contents []byte) error {
+		func(oid string, size int64, contents []byte, path []byte) error {
 			return chunker.Send(&gitalypb.ListBlobsResponse_Blob{
 				Oid:  oid,
 				Size: size,
@@ -100,7 +100,7 @@ func processBlobs(
 	catfileInfoIter gitpipe.CatfileInfoIterator,
 	blobsLimit uint32,
 	bytesLimit int64,
-	callback func(oid string, size int64, contents []byte) error,
+	callback func(oid string, size int64, contents []byte, path []byte) error,
 ) error {
 	// If we have a zero bytes limit, then the caller didn't request any blob contents at all.
 	// We can thus skip reading blob contents completely.
@@ -109,7 +109,12 @@ func processBlobs(
 		for catfileInfoIter.Next() {
 			blob := catfileInfoIter.Result()
 
-			if err := callback(blob.ObjectInfo.Oid.String(), blob.ObjectInfo.Size, nil); err != nil {
+			if err := callback(
+				blob.ObjectInfo.Oid.String(),
+				blob.ObjectInfo.Size,
+				nil,
+				blob.ObjectName,
+			); err != nil {
 				return helper.ErrInternal(fmt.Errorf("sending blob chunk: %w", err))
 			}
 
@@ -140,7 +145,7 @@ func processBlobs(
 					headerSent = true
 				}
 
-				if err := callback(oid, size, p); err != nil {
+				if err := callback(oid, size, p, blob.ObjectName); err != nil {
 					return helper.ErrInternal(fmt.Errorf("sending blob chunk: %w", err))
 				}
 
@@ -168,7 +173,12 @@ func processBlobs(
 			// itself didn't contain any data. Let's be prepared and send out the blob
 			// header manually in that case.
 			if !headerSent {
-				if err := callback(blob.ObjectInfo.Oid.String(), blob.ObjectInfo.Size, nil); err != nil {
+				if err := callback(
+					blob.ObjectInfo.Oid.String(),
+					blob.ObjectInfo.Size,
+					nil,
+					blob.ObjectName,
+				); err != nil {
 					return helper.ErrInternal(fmt.Errorf("sending blob chunk: %w", err))
 				}
 			}
@@ -234,7 +244,7 @@ func (s *server) ListAllBlobs(req *gitalypb.ListAllBlobsRequest, stream gitalypb
 	})
 
 	if err := processBlobs(ctx, catfileProcess, catfileInfoIter, req.GetLimit(), req.GetBytesLimit(),
-		func(oid string, size int64, contents []byte) error {
+		func(oid string, size int64, contents []byte, path []byte) error {
 			return chunker.Send(&gitalypb.ListAllBlobsResponse_Blob{
 				Oid:  oid,
 				Size: size,
