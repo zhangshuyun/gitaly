@@ -12,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -48,7 +47,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		return helper.ErrInvalidArgument(err)
 	}
 
-	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, firstRequest.GetRepository(), featureflag.Quarantine)
+	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, firstRequest.GetRepository())
 	if err != nil {
 		return err
 	}
@@ -171,7 +170,7 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 	// While we're creating a quarantine directory, we know that it won't ever have any new
 	// objects given that we're doing a fast-forward merge. We still want to create one such
 	// that Rails can efficiently compute new objects.
-	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, in.GetRepository(), featureflag.Quarantine)
+	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, in.GetRepository())
 	if err != nil {
 		return nil, err
 	}

@@ -2,7 +2,6 @@ package operations
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -12,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/lstree"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -22,12 +20,9 @@ import (
 func TestSuccessfulUserUpdateSubmoduleRequest(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testSuccessfulUserUpdateSubmoduleRequest)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulUserUpdateSubmoduleRequest(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -109,12 +104,9 @@ func testSuccessfulUserUpdateSubmoduleRequest(t *testing.T, ctx context.Context)
 func TestUserUpdateSubmoduleStableID(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testUserUpdateSubmoduleStableID)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserUpdateSubmoduleStableID(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -160,12 +152,9 @@ func testUserUpdateSubmoduleStableID(t *testing.T, ctx context.Context) {
 func TestUserUpdateSubmoduleQuarantine(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testUserUpdateSubmoduleQuarantine)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserUpdateSubmoduleQuarantine(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -192,20 +181,15 @@ func testUserUpdateSubmoduleQuarantine(t *testing.T, ctx context.Context) {
 	exists, err := repo.HasRevision(ctx, oid.Revision()+"^{commit}")
 	require.NoError(t, err)
 
-	// The new commit will be in the target repository in case quarantines are disabled.
-	// Otherwise, it should've been discarded.
-	require.Equal(t, !featureflag.Quarantine.IsEnabled(ctx), exists)
+	require.False(t, exists, "quarantined commit should have been discarded")
 }
 
 func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testFailedUserUpdateSubmoduleRequestDueToValidations)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T, ctx context.Context) {
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
@@ -323,12 +307,9 @@ func testFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T, ctx cont
 func TestFailedUserUpdateSubmoduleRequestDueToInvalidBranch(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testFailedUserUpdateSubmoduleRequestDueToInvalidBranch)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testFailedUserUpdateSubmoduleRequestDueToInvalidBranch(t *testing.T, ctx context.Context) {
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	request := &gitalypb.UserUpdateSubmoduleRequest{
@@ -348,12 +329,9 @@ func testFailedUserUpdateSubmoduleRequestDueToInvalidBranch(t *testing.T, ctx co
 func TestFailedUserUpdateSubmoduleRequestDueToInvalidSubmodule(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testFailedUserUpdateSubmoduleRequestDueToInvalidSubmodule)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testFailedUserUpdateSubmoduleRequestDueToInvalidSubmodule(t *testing.T, ctx context.Context) {
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	request := &gitalypb.UserUpdateSubmoduleRequest{
@@ -373,12 +351,9 @@ func testFailedUserUpdateSubmoduleRequestDueToInvalidSubmodule(t *testing.T, ctx
 func TestFailedUserUpdateSubmoduleRequestDueToSameReference(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testFailedUserUpdateSubmoduleRequestDueToSameReference)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testFailedUserUpdateSubmoduleRequestDueToSameReference(t *testing.T, ctx context.Context) {
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	request := &gitalypb.UserUpdateSubmoduleRequest{
@@ -401,12 +376,9 @@ func testFailedUserUpdateSubmoduleRequestDueToSameReference(t *testing.T, ctx co
 func TestFailedUserUpdateSubmoduleRequestDueToRepositoryEmpty(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testFailedUserUpdateSubmoduleRequestDueToRepositoryEmpty)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testFailedUserUpdateSubmoduleRequestDueToRepositoryEmpty(t *testing.T, ctx context.Context) {
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
 	repo, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])

@@ -20,7 +20,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -145,19 +144,11 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		return err
 	}
 
-	var quarantineRepo *localrepo.Repo
-	var quarantineDir *quarantine.Dir
-	if featureflag.QuarantinedResolveConflicts.IsEnabled(ctx) {
-		var err error
-		quarantineDir, err = quarantine.New(ctx, header.GetRepository(), s.locator)
-		if err != nil {
-			return helper.ErrInternalf("creating object quarantine: %w", err)
-		}
-
-		quarantineRepo = s.localrepo(quarantineDir.QuarantinedRepo())
-	} else {
-		quarantineRepo = s.localrepo(header.GetRepository())
+	quarantineDir, err := quarantine.New(ctx, header.GetRepository(), s.locator)
+	if err != nil {
+		return helper.ErrInternalf("creating object quarantine: %w", err)
 	}
+	quarantineRepo := s.localrepo(quarantineDir.QuarantinedRepo())
 
 	if err := s.repoWithBranchCommit(ctx,
 		quarantineRepo,

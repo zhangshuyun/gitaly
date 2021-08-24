@@ -17,7 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -37,12 +36,9 @@ var (
 func TestSuccessfulUserRebaseConfirmableRequest(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testSuccessfulUserRebaseConfirmableRequest)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulUserRebaseConfirmableRequest(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	pushOptions := []string{"ci.skip", "test=value"}
@@ -68,11 +64,7 @@ func testSuccessfulUserRebaseConfirmableRequest(t *testing.T, ctx context.Contex
 	require.NoError(t, err, "receive first response")
 
 	_, err = repo.ReadCommit(ctx, git.Revision(firstResponse.GetRebaseSha()))
-	if featureflag.Quarantine.IsEnabled(ctx) {
-		require.Equal(t, localrepo.ErrObjectNotFound, err)
-	} else {
-		require.NoError(t, err, "look up git commit before rebase is applied")
-	}
+	require.Equal(t, localrepo.ErrObjectNotFound, err, "commit should not exist in the normal repo given that it is quarantined")
 
 	applyRequest := buildApplyRequest(true)
 	require.NoError(t, rebaseStream.Send(applyRequest), "apply rebase")
@@ -104,12 +96,9 @@ func testSuccessfulUserRebaseConfirmableRequest(t *testing.T, ctx context.Contex
 func TestUserRebaseConfirmableTransaction(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testUserRebaseConfirmableTransaction)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserRebaseConfirmableTransaction(t *testing.T, ctx context.Context) {
 	var voteCount int
 	txManager := &transaction.MockManager{
 		VoteFn: func(context.Context, txinfo.Transaction, voting.Vote) error {
@@ -203,12 +192,9 @@ func testUserRebaseConfirmableTransaction(t *testing.T, ctx context.Context) {
 func TestUserRebaseConfirmableStableCommitIDs(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testUserRebaseConfirmableStableCommitIDs)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserRebaseConfirmableStableCommitIDs(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	cfg.Gitlab.URL = setupAndStartGitlabServer(t, gittest.GlID, "project-1", cfg)
 
@@ -278,12 +264,9 @@ func testUserRebaseConfirmableStableCommitIDs(t *testing.T, ctx context.Context)
 func TestFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeader(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeader)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeader(t *testing.T, ctx context.Context) {
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	repoCopy, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
@@ -342,12 +325,9 @@ func testFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeader(t *testing.T
 func TestAbortedUserRebaseConfirmable(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testAbortedUserRebaseConfirmable)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testAbortedUserRebaseConfirmable(t *testing.T, ctx context.Context) {
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
@@ -405,12 +385,9 @@ func testAbortedUserRebaseConfirmable(t *testing.T, ctx context.Context) {
 func TestFailedUserRebaseConfirmableDueToApplyBeingFalse(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testFailedUserRebaseConfirmableDueToApplyBeingFalse)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testFailedUserRebaseConfirmableDueToApplyBeingFalse(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -429,11 +406,7 @@ func testFailedUserRebaseConfirmableDueToApplyBeingFalse(t *testing.T, ctx conte
 	require.NoError(t, err, "receive first response")
 
 	_, err = repo.ReadCommit(ctx, git.Revision(firstResponse.GetRebaseSha()))
-	if featureflag.Quarantine.IsEnabled(ctx) {
-		require.Equal(t, localrepo.ErrObjectNotFound, err)
-	} else {
-		require.NoError(t, err, "look up git commit before rebase is applied")
-	}
+	require.Equal(t, localrepo.ErrObjectNotFound, err, "commit should not exist in the normal repo given that it is quarantined")
 
 	applyRequest := buildApplyRequest(false)
 	require.NoError(t, rebaseStream.Send(applyRequest), "apply rebase")
@@ -444,11 +417,7 @@ func testFailedUserRebaseConfirmableDueToApplyBeingFalse(t *testing.T, ctx conte
 	require.False(t, secondResponse.GetRebaseApplied(), "the second rebase is not applied")
 
 	_, err = repo.ReadCommit(ctx, git.Revision(firstResponse.GetRebaseSha()))
-	if featureflag.Quarantine.IsEnabled(ctx) {
-		require.Equal(t, localrepo.ErrObjectNotFound, err)
-	} else {
-		require.NoError(t, err, "look up git commit before rebase is applied")
-	}
+	require.Equal(t, localrepo.ErrObjectNotFound, err, "commit should have been discarded")
 
 	newBranchSha := getBranchSha(t, cfg, repoPath, rebaseBranchName)
 	require.Equal(t, branchSha, newBranchSha, "branch should not change when the rebase is not applied")
@@ -458,12 +427,9 @@ func testFailedUserRebaseConfirmableDueToApplyBeingFalse(t *testing.T, ctx conte
 func TestFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testFailedUserRebaseConfirmableRequestDueToPreReceiveError)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -487,11 +453,7 @@ func testFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T, ct
 			require.NoError(t, err, "receive first response")
 
 			_, err = repo.ReadCommit(ctx, git.Revision(firstResponse.GetRebaseSha()))
-			if featureflag.Quarantine.IsEnabled(ctx) {
-				require.Equal(t, localrepo.ErrObjectNotFound, err)
-			} else {
-				require.NoError(t, err, "look up git commit before rebase is applied")
-			}
+			require.Equal(t, localrepo.ErrObjectNotFound, err, "commit should not exist in the normal repo given that it is quarantined")
 
 			applyRequest := buildApplyRequest(true)
 			require.NoError(t, rebaseStream.Send(applyRequest), "apply rebase")
@@ -505,11 +467,7 @@ func testFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T, ct
 			require.Equal(t, io.EOF, err)
 
 			_, err = repo.ReadCommit(ctx, git.Revision(firstResponse.GetRebaseSha()))
-			if featureflag.Quarantine.IsEnabled(ctx) {
-				require.Equal(t, localrepo.ErrObjectNotFound, err)
-			} else {
-				require.NoError(t, err, "look up git commit after rebase is applied")
-			}
+			require.Equal(t, localrepo.ErrObjectNotFound, err, "commit should have been discarded")
 
 			newBranchSha := getBranchSha(t, cfg, repoPath, rebaseBranchName)
 			require.Equal(t, branchSha, newBranchSha, "branch should not change when the rebase fails due to PreReceiveError")
@@ -521,12 +479,9 @@ func testFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T, ct
 func TestFailedUserRebaseConfirmableDueToGitError(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testFailedUserRebaseConfirmableDueToGitError)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testFailedUserRebaseConfirmableDueToGitError(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repoCopyProto, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
@@ -559,12 +514,9 @@ func getBranchSha(t *testing.T, cfg config.Cfg, repoPath string, branchName stri
 func TestRebaseRequestWithDeletedFile(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testRebaseRequestWithDeletedFile)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testRebaseRequestWithDeletedFile(t *testing.T, ctx context.Context) {
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
 		WithWorktree: true,
@@ -594,11 +546,7 @@ func testRebaseRequestWithDeletedFile(t *testing.T, ctx context.Context) {
 	require.NoError(t, err, "receive first response")
 
 	_, err = repo.ReadCommit(ctx, git.Revision(firstResponse.GetRebaseSha()))
-	if featureflag.Quarantine.IsEnabled(ctx) {
-		require.Equal(t, err, localrepo.ErrObjectNotFound)
-	} else {
-		require.NoError(t, err, "look up git commit before rebase is applied")
-	}
+	require.Equal(t, localrepo.ErrObjectNotFound, err, "commit should not exist in the normal repo given that it is quarantined")
 
 	applyRequest := buildApplyRequest(true)
 	require.NoError(t, rebaseStream.Send(applyRequest), "apply rebase")
@@ -623,12 +571,9 @@ func testRebaseRequestWithDeletedFile(t *testing.T, ctx context.Context) {
 func TestRebaseOntoRemoteBranch(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testRebaseOntoRemoteBranch)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testRebaseOntoRemoteBranch(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -661,11 +606,7 @@ func testRebaseOntoRemoteBranch(t *testing.T, ctx context.Context) {
 	require.NoError(t, err, "receive first response")
 
 	_, err = repo.ReadCommit(ctx, git.Revision(remoteBranchHash))
-	if featureflag.Quarantine.IsEnabled(ctx) {
-		require.Equal(t, localrepo.ErrObjectNotFound, err)
-	} else {
-		require.NoError(t, err, "remote commit does now exist in local repository")
-	}
+	require.Equal(t, localrepo.ErrObjectNotFound, err, "commit should not exist in the normal repo given that it is quarantined")
 
 	applyRequest := buildApplyRequest(true)
 	require.NoError(t, rebaseStream.Send(applyRequest), "apply rebase")
@@ -690,12 +631,9 @@ func testRebaseOntoRemoteBranch(t *testing.T, ctx context.Context) {
 func TestRebaseFailedWithCode(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testRebaseFailedWithCode)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testRebaseFailedWithCode(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	branchSha := getBranchSha(t, cfg, repoPath, rebaseBranchName)

@@ -1,7 +1,6 @@
 package operations
 
 import (
-	"context"
 	"crypto/sha1"
 	"fmt"
 	"testing"
@@ -10,7 +9,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -27,12 +25,9 @@ var (
 func TestSuccessfulUserUpdateBranchRequest(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testSuccessfulUserUpdateBranchRequest)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -107,12 +102,9 @@ func testSuccessfulUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
 func TestSuccessfulUserUpdateBranchRequestToDelete(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testSuccessfulUserUpdateBranchRequestToDelete)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulUserUpdateBranchRequestToDelete(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -181,12 +173,9 @@ func testSuccessfulUserUpdateBranchRequestToDelete(t *testing.T, ctx context.Con
 func TestSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testSuccessfulGitHooksForUserUpdateBranchRequest)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
 	for _, hookName := range GitlabHooks {
@@ -218,12 +207,9 @@ func testSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T, ctx context.
 func TestFailedUserUpdateBranchDueToHooks(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testFailedUserUpdateBranchDueToHooks)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testFailedUserUpdateBranchDueToHooks(t *testing.T, ctx context.Context) {
 	ctx, _, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	request := &gitalypb.UserUpdateBranchRequest{
@@ -255,12 +241,9 @@ func testFailedUserUpdateBranchDueToHooks(t *testing.T, ctx context.Context) {
 func TestFailedUserUpdateBranchRequest(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testFailedUserUpdateBranchRequest)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testFailedUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
 	revDoesntExist := fmt.Sprintf("%x", sha1.Sum([]byte("we need a non existent sha")))

@@ -1,7 +1,6 @@
 package operations
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -10,7 +9,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -20,12 +18,9 @@ import (
 func TestServer_UserRevert_successful(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testServerUserRevertSuccessful)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertSuccessful(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -182,12 +177,9 @@ func testServerUserRevertSuccessful(t *testing.T, ctx context.Context) {
 func TestServer_UserRevert_quarantine(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testServerUserRevertQuarantine)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertQuarantine(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -216,20 +208,15 @@ func testServerUserRevertQuarantine(t *testing.T, ctx context.Context) {
 	exists, err := repo.HasRevision(ctx, oid.Revision()+"^{commit}")
 	require.NoError(t, err)
 
-	// The new commit will be in the target repository in case quarantines are disabled.
-	// Otherwise, it should've been discarded.
-	require.Equal(t, !featureflag.Quarantine.IsEnabled(ctx), exists)
+	require.False(t, exists, "quarantined commit should have been discarded")
 }
 
 func TestServer_UserRevert_stableID(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testServerUserRevertStableID)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertStableID(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -283,12 +270,9 @@ func testServerUserRevertStableID(t *testing.T, ctx context.Context) {
 func TestServer_UserRevert_successfulIntoEmptyRepo(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testServerUserRevertSuccessfulIntoEmptyRepo)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertSuccessfulIntoEmptyRepo(t *testing.T, ctx context.Context) {
 	ctx, cfg, startRepoProto, _, client := setupOperationsService(t, ctx)
 
 	startRepo := localrepo.NewTestRepo(t, cfg, startRepoProto)
@@ -334,12 +318,9 @@ func testServerUserRevertSuccessfulIntoEmptyRepo(t *testing.T, ctx context.Conte
 func TestServer_UserRevert_successfulGitHooks(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testServerUserRevertSuccessfulGitHooks)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertSuccessfulGitHooks(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -377,12 +358,9 @@ func testServerUserRevertSuccessfulGitHooks(t *testing.T, ctx context.Context) {
 func TestServer_UserRevert_failuedDueToValidations(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testServerUserRevertFailuedDueToValidations)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertFailuedDueToValidations(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -454,12 +432,9 @@ func testServerUserRevertFailuedDueToValidations(t *testing.T, ctx context.Conte
 func TestServer_UserRevert_failedDueToPreReceiveError(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testServerUserRevertFailedDueToPreReceiveError)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertFailedDueToPreReceiveError(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -494,12 +469,9 @@ func testServerUserRevertFailedDueToPreReceiveError(t *testing.T, ctx context.Co
 func TestServer_UserRevert_failedDueToCreateTreeErrorConflict(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testServerUserRevertFailedDueToCreateTreeErrorConflict)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertFailedDueToCreateTreeErrorConflict(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -528,12 +500,9 @@ func testServerUserRevertFailedDueToCreateTreeErrorConflict(t *testing.T, ctx co
 func TestServer_UserRevert_failedDueToCreateTreeErrorEmpty(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testServerUserRevertFailedDueToCreateTreeErrorEmpty)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertFailedDueToCreateTreeErrorEmpty(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -566,12 +535,9 @@ func testServerUserRevertFailedDueToCreateTreeErrorEmpty(t *testing.T, ctx conte
 func TestServer_UserRevert_failedDueToCommitError(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testServerUserRevertFailedDueToCommitError)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertFailedDueToCommitError(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)

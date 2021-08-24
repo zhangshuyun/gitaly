@@ -13,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -40,12 +39,9 @@ func (s *testTransactionServer) VoteTransaction(ctx context.Context, in *gitalyp
 func TestSuccessfulCreateBranchRequest(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testSuccessfulCreateBranchRequest)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulCreateBranchRequest(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -122,12 +118,9 @@ func testSuccessfulCreateBranchRequest(t *testing.T, ctx context.Context) {
 func TestUserCreateBranchWithTransaction(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testUserCreateBranchWithTransaction)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserCreateBranchWithTransaction(t *testing.T, ctx context.Context) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	transactionServer := &testTransactionServer{}
@@ -200,12 +193,9 @@ func testUserCreateBranchWithTransaction(t *testing.T, ctx context.Context) {
 func TestSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testSuccessfulGitHooksForUserCreateBranchRequest)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T, ctx context.Context) {
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	branchName := "new-branch"
@@ -235,12 +225,9 @@ func testSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T, ctx context.
 func TestSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testSuccessfulCreateBranchRequestWithStartPointRefPrefix)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -313,12 +300,9 @@ func testSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T, ctx 
 func TestFailedUserCreateBranchDueToHooks(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testFailedUserCreateBranchDueToHooks)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testFailedUserCreateBranchDueToHooks(t *testing.T, ctx context.Context) {
 	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	request := &gitalypb.UserCreateBranchRequest{
@@ -343,12 +327,9 @@ func testFailedUserCreateBranchDueToHooks(t *testing.T, ctx context.Context) {
 func TestFailedUserCreateBranchRequest(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Quarantine,
-	}).Run(t, testFailedUserCreateBranchRequest)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testFailedUserCreateBranchRequest(t *testing.T, ctx context.Context) {
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {

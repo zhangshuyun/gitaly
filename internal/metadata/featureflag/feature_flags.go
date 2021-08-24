@@ -6,18 +6,12 @@ package featureflag
 var (
 	// GoSetConfig enables git2go implementation of SetConfig.
 	GoSetConfig = FeatureFlag{Name: "go_set_config", OnByDefault: true}
-	// QuarantinedResolveCOnflicts enables use of a quarantine object directory for ResolveConflicts.
-	QuarantinedResolveConflicts = FeatureFlag{Name: "quarantined_resolve_conflicts", OnByDefault: false}
 	// GoUserApplyPatch enables the Go implementation of UserApplyPatch
 	GoUserApplyPatch = FeatureFlag{Name: "go_user_apply_patch", OnByDefault: true}
-	// Quarantine enables the use of quarantine directories.
-	Quarantine = FeatureFlag{Name: "quarantine", OnByDefault: false}
 )
 
 // All includes all feature flags.
 var All = []FeatureFlag{
 	GoSetConfig,
-	QuarantinedResolveConflicts,
 	GoUserApplyPatch,
-	Quarantine,
 }
