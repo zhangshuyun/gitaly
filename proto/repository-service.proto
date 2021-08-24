@@ -142,13 +142,23 @@ service RepositoryService {
     };
   }
 
+  // SetConfig writes a set of config entries into the target repository's
+  // gitconfig. This RPC is deprecated with no general replacement: modifying
+  // the on-disk gitconfig is not supported anymore. The only usecase that is
+  // still supported is writing "gitlab.fullpath" via the new `SetFullPath()`
+  // RPC.
   rpc SetConfig(SetConfigRequest) returns (SetConfigResponse) {
+    option deprecated = true;
     option (op_type) = {
       op: MUTATOR
     };
   }
 
+  // DeleteConfig deletes a set of config entries from the target repository's
+  // gitconfig. This RPC is deprecated with no replacement: modifying the
+  // on-disk gitconfig is not supported anymore.
   rpc DeleteConfig(DeleteConfigRequest) returns (DeleteConfigResponse) {
+    option deprecated = true;
     option (op_type) = {
       op: MUTATOR
     };

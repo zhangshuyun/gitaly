@@ -113,6 +113,7 @@ func TestDeleteConfig(t *testing.T) {
 				gittest.Exec(t, cfg, "-C", repoPath, "config", k, "blabla")
 			}
 
+			//nolint:staticcheck
 			_, err := client.DeleteConfig(ctx, &gitalypb.DeleteConfigRequest{Repository: repo, Keys: tc.reqKeys})
 			if tc.code == codes.OK {
 				require.NoError(t, err)
@@ -156,6 +157,7 @@ func TestDeleteConfigTransactional(t *testing.T) {
 	gittest.Exec(t, cfg, "-C", repoPath, "config", "delete.me", "now")
 	modifiedContents := testhelper.MustReadFile(t, filepath.Join(repoPath, "config"))
 
+	//nolint:staticcheck
 	_, err = client.DeleteConfig(ctx, &gitalypb.DeleteConfigRequest{
 		Repository: repo,
 		Keys:       []string{"delete.me"},
@@ -205,6 +207,7 @@ func testSetConfig(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 
 				testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
+				//nolint:staticcheck
 				_, err := client.SetConfig(ctx, &gitalypb.SetConfigRequest{Repository: testRepo, Entries: tc.entries})
 
 				if tc.code != codes.OK {
@@ -251,6 +254,7 @@ func testSetConfigTransactional(t *testing.T, cfg config.Cfg, rubySrv *rubyserve
 
 	unmodifiedContents := testhelper.MustReadFile(t, filepath.Join(repoPath, "config"))
 
+	//nolint:staticcheck
 	_, err = client.SetConfig(ctx, &gitalypb.SetConfigRequest{
 		Repository: repo,
 		Entries: []*gitalypb.SetConfigRequest_Entry{

@@ -173,6 +173,7 @@ func (s *server) SetConfig(ctx context.Context, req *gitalypb.SetConfigRequest) 
 		return nil, helper.ErrInternalf("preimage vote on config: %v", err)
 	}
 
+	//nolint:staticcheck
 	response, err := client.SetConfig(clientCtx, req)
 	if err != nil {
 		return nil, err
