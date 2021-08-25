@@ -156,8 +156,8 @@ type contextCommand struct {
 	Context context.Context
 }
 
-// ParallelCreatePipeline is a pipeline that executes commands in parallel
-type ParallelCreatePipeline struct {
+// ParallelPipeline is a pipeline that executes commands in parallel
+type ParallelPipeline struct {
 	next            Pipeline
 	parallel        int
 	parallelStorage int
@@ -171,16 +171,16 @@ type ParallelCreatePipeline struct {
 	err      error
 }
 
-// NewParallelCreatePipeline creates a new ParallelCreatePipeline where all
-// commands are passed onto `next` to be processed, `parallel` is the maximum
-// number of parallel backups that will run and `parallelStorage` is the
-// maximum number of parallel backups that will run per storage. Since the
-// number of storages is unknown at initialisation, workers are created lazily
-// as new storage names are encountered.
+// NewParallelPipeline creates a new ParallelPipeline where all commands are
+// passed onto `next` to be processed, `parallel` is the maximum number of
+// parallel backups that will run and `parallelStorage` is the maximum number
+// of parallel backups that will run per storage. Since the number of storages
+// is unknown at initialisation, workers are created lazily as new storage
+// names are encountered.
 //
 // Note: When both `parallel` and `parallelStorage` are zero or less no workers
 // are created and the pipeline will block forever.
-func NewParallelCreatePipeline(next Pipeline, parallel, parallelStorage int) *ParallelCreatePipeline {
+func NewParallelPipeline(next Pipeline, parallel, parallelStorage int) *ParallelPipeline {
 	var workerSlots chan struct{}
 	if parallel > 0 && parallelStorage > 0 {
 		// workerSlots allows the total number of parallel jobs to be
@@ -188,7 +188,7 @@ func NewParallelCreatePipeline(next Pipeline, parallel, parallelStorage int) *Pa
 		// each storage, while still limiting the absolute parallelism.
 		workerSlots = make(chan struct{}, parallel)
 	}
-	return &ParallelCreatePipeline{
+	return &ParallelPipeline{
 		next:            next,
 		parallel:        parallel,
 		parallelStorage: parallelStorage,
@@ -200,7 +200,7 @@ func NewParallelCreatePipeline(next Pipeline, parallel, parallelStorage int) *Pa
 
 // Handle queues a request to create a backup. Commands are processed by
 // n-workers per storage.
-func (p *ParallelCreatePipeline) Handle(ctx context.Context, cmd Command) {
+func (p *ParallelPipeline) Handle(ctx context.Context, cmd Command) {
 	ch := p.getStorage(cmd.Repository().StorageName)
 
 	select {
@@ -215,7 +215,7 @@ func (p *ParallelCreatePipeline) Handle(ctx context.Context, cmd Command) {
 
 // Done waits for any in progress calls to `next` to complete then reports any
 // accumulated errors
-func (p *ParallelCreatePipeline) Done() error {
+func (p *ParallelPipeline) Done() error {
 	close(p.done)
 	p.wg.Wait()
 	if err := p.next.Done(); err != nil {
@@ -228,8 +228,8 @@ func (p *ParallelCreatePipeline) Done() error {
 }
 
 // getStorage finds the channel associated with a storage. When no channel is
-// found, one is created and n-workers are started to process commands.
-func (p *ParallelCreatePipeline) getStorage(storage string) chan<- *contextCommand {
+// found, one is created and n-workers are started to process requests.
+func (p *ParallelPipeline) getStorage(storage string) chan<- *contextCommand {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -254,7 +254,7 @@ func (p *ParallelCreatePipeline) getStorage(storage string) chan<- *contextComma
 	return ch
 }
 
-func (p *ParallelCreatePipeline) worker(ch <-chan *contextCommand) {
+func (p *ParallelPipeline) worker(ch <-chan *contextCommand) {
 	defer p.wg.Done()
 	for {
 		select {
@@ -266,14 +266,14 @@ func (p *ParallelCreatePipeline) worker(ch <-chan *contextCommand) {
 	}
 }
 
-func (p *ParallelCreatePipeline) processCommand(ctx context.Context, cmd Command) {
+func (p *ParallelPipeline) processCommand(ctx context.Context, cmd Command) {
 	p.acquireWorkerSlot()
 	defer p.releaseWorkerSlot()
 
 	p.next.Handle(ctx, cmd)
 }
 
-func (p *ParallelCreatePipeline) setErr(err error) {
+func (p *ParallelPipeline) setErr(err error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.err != nil {
@@ -284,7 +284,7 @@ func (p *ParallelCreatePipeline) setErr(err error) {
 
 // acquireWorkerSlot queues the worker until a slot is available.
 // It never blocks if `parallel` or `parallelStorage` are 0
-func (p *ParallelCreatePipeline) acquireWorkerSlot() {
+func (p *ParallelPipeline) acquireWorkerSlot() {
 	if p.workerSlots == nil {
 		return
 	}
@@ -292,7 +292,7 @@ func (p *ParallelCreatePipeline) acquireWorkerSlot() {
 }
 
 // releaseWorkerSlot releases the worker slot.
-func (p *ParallelCreatePipeline) releaseWorkerSlot() {
+func (p *ParallelPipeline) releaseWorkerSlot() {
 	if p.workerSlots == nil {
 		return
 	}

@@ -23,7 +23,7 @@ func TestLoggingPipeline(t *testing.T) {
 
 func TestParallelPipeline(t *testing.T) {
 	testPipeline(t, func() Pipeline {
-		return NewParallelCreatePipeline(NewLoggingPipeline(logrus.StandardLogger()), 2, 0)
+		return NewParallelPipeline(NewLoggingPipeline(logrus.StandardLogger()), 2, 0)
 	})
 
 	t.Run("parallelism", func(t *testing.T) {
@@ -63,7 +63,7 @@ func TestParallelPipeline(t *testing.T) {
 				}
 				var p Pipeline
 				p = NewLoggingPipeline(logrus.StandardLogger())
-				p = NewParallelCreatePipeline(p, tc.parallel, tc.parallelStorage)
+				p = NewParallelPipeline(p, tc.parallel, tc.parallelStorage)
 
 				ctx, cancel := testhelper.Context()
 				defer cancel()
@@ -81,7 +81,7 @@ func TestParallelPipeline(t *testing.T) {
 		var strategy MockStrategy
 		var p Pipeline
 		p = NewLoggingPipeline(logrus.StandardLogger())
-		p = NewParallelCreatePipeline(p, 0, 0) // make sure worker channels always block
+		p = NewParallelPipeline(p, 0, 0) // make sure worker channels always block
 
 		ctx, cancel := testhelper.Context()
 

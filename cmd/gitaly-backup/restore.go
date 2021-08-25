@@ -53,7 +53,7 @@ func (cmd *restoreSubcommand) Run(ctx context.Context, stdin io.Reader, stdout i
 	var pipeline backup.Pipeline
 	pipeline = backup.NewLoggingPipeline(log.StandardLogger())
 	if cmd.parallel > 0 || cmd.parallelStorage > 0 {
-		pipeline = backup.NewParallelCreatePipeline(pipeline, cmd.parallel, cmd.parallelStorage)
+		pipeline = backup.NewParallelPipeline(pipeline, cmd.parallel, cmd.parallelStorage)
 	}
 
 	decoder := json.NewDecoder(stdin)
