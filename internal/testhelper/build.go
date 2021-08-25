@@ -18,6 +18,7 @@ var (
 	buildGitalyLFSSmudgeOnce sync.Once
 	buildGitalyHooksOnce     sync.Once
 	buildGitalySSHOnce       sync.Once
+	buildPraefectOnce        sync.Once
 )
 
 // BuildGitalyGit2Go builds the gitaly-git2go command and installs it into the binary directory.
@@ -47,6 +48,11 @@ func BuildGitalyHooks(t testing.TB, cfg config.Cfg) {
 // BuildGitalySSH builds the gitaly-ssh command and installs it into the binary directory.
 func BuildGitalySSH(t testing.TB, cfg config.Cfg) {
 	buildBinary(t, cfg.BinDir, "gitaly-ssh", &buildGitalySSHOnce)
+}
+
+// BuildPraefect builds the praefect command and installs it into the binary directory.
+func BuildPraefect(t testing.TB, cfg config.Cfg) {
+	buildBinary(t, cfg.BinDir, "praefect", &buildPraefectOnce)
 }
 
 func buildBinary(t testing.TB, dstDir, name string, buildOnce *sync.Once) {
