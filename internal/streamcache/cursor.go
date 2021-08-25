@@ -13,7 +13,6 @@ type cursor struct {
 	subscribers []*notifier
 	m           sync.RWMutex
 	doneChan    chan struct{}
-	done        bool
 }
 
 func newCursor() *cursor { return &cursor{doneChan: make(chan struct{})} }
@@ -38,9 +37,12 @@ func (c *cursor) Unsubscribe(n *notifier) {
 		}
 	}
 
-	if len(c.subscribers) == 0 && !c.done {
-		c.done = true
-		close(c.doneChan)
+	if len(c.subscribers) == 0 {
+		select {
+		case <-c.doneChan:
+		default:
+			close(c.doneChan)
+		}
 	}
 }
 
