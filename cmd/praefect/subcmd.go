@@ -38,7 +38,7 @@ var (
 
 // subCommand returns an exit code, to be fed into os.Exit.
 func subCommand(conf config.Config, arg0 string, argRest []string) int {
-	interrupt := make(chan os.Signal)
+	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
 	go func() {

@@ -324,8 +324,8 @@ AND storage = ANY($3)
 	return sourceGeneration, nil
 }
 
-//nolint:stylecheck
-//nolint:golint
+// CreateRepository creates a new repository and assigns it to the given primary and secondary
+// nodes.
 func (rs *PostgresRepositoryStore) CreateRepository(ctx context.Context, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error {
 	const q = `
 WITH repo AS (

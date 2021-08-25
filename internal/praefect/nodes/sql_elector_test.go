@@ -25,7 +25,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var shardName string = "test-shard-0"
+var shardName = "test-shard-0"
 
 func TestGetPrimaryAndSecondaries(t *testing.T) {
 	t.Parallel()

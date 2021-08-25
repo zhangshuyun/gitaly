@@ -14,7 +14,7 @@ import (
 // passed in nodes are the only ones considered healthy after the function. As the healthy nodes are determined by the time of
 // the last successful health check, this should be run in the same transastion as the tested query to prevent flakiness.
 //
-//nolint:golint
+//nolint:revive
 func SetHealthyNodes(t testing.TB, ctx context.Context, db glsql.Querier, healthyNodes map[string]map[string][]string) {
 	t.Helper()
 

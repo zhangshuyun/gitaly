@@ -52,8 +52,7 @@ func (m MockRepositoryStore) SetGeneration(ctx context.Context, virtualStorage, 
 	return m.SetGenerationFunc(ctx, virtualStorage, relativePath, storage, generation)
 }
 
-//nolint:stylecheck
-//nolint:golint
+// CreateRepository calls the mocked function. If no mock has been provided, it returns a nil error.
 func (m MockRepositoryStore) CreateRepository(ctx context.Context, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error {
 	if m.CreateRepositoryFunc == nil {
 		return nil
