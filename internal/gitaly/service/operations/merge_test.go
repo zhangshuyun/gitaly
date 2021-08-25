@@ -33,15 +33,15 @@ var (
 	mergeBranchHeadBefore = "281d3a76f31c812dbf48abce82ccf6860adedd81"
 )
 
-func TestSuccessfulMerge(t *testing.T) {
+func TestUserMergeBranch_successful(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.Git2GoMergeGob,
-	}).Run(t, testSuccessfulMerge)
+	}).Run(t, testUserMergeBranchSuccessful)
 }
 
-func testSuccessfulMerge(t *testing.T, ctx context.Context) {
+func testUserMergeBranchSuccessful(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -169,15 +169,15 @@ func testUserMergeBranchQuarantine(t *testing.T, ctx context.Context) {
 	require.False(t, exists, "quarantined commit should have been discarded")
 }
 
-func TestSuccessfulMerge_stableMergeIDs(t *testing.T) {
+func TestUserMergeBranch_stableMergeIDs(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.Git2GoMergeGob,
-	}).Run(t, testSuccessfulMergeStableMergeIDs)
+	}).Run(t, testUserMergeBranchStableMergeIDs)
 }
 
-func testSuccessfulMergeStableMergeIDs(t *testing.T, ctx context.Context) {
+func testUserMergeBranchStableMergeIDs(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -243,15 +243,15 @@ func testSuccessfulMergeStableMergeIDs(t *testing.T, ctx context.Context) {
 	})
 }
 
-func TestAbortedMerge(t *testing.T) {
+func TestUserMergeBranch_abort(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.Git2GoMergeGob,
-	}).Run(t, testAbortedMerge)
+	}).Run(t, testUserMergeBranchAbort)
 }
 
-func testAbortedMerge(t *testing.T, ctx context.Context) {
+func testUserMergeBranchAbort(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -311,15 +311,15 @@ func testAbortedMerge(t *testing.T, ctx context.Context) {
 	}
 }
 
-func TestFailedMergeConcurrentUpdate(t *testing.T) {
+func TestUserMergeBranch_concurrentUpdate(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.Git2GoMergeGob,
-	}).Run(t, testFailedMergeConcurrentUpdate)
+	}).Run(t, testUserMergeBranchConcurrentUpdate)
 }
 
-func testFailedMergeConcurrentUpdate(t *testing.T, ctx context.Context) {
+func testUserMergeBranchConcurrentUpdate(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -427,15 +427,15 @@ func testUserMergeBranchAmbiguousReference(t *testing.T, ctx context.Context) {
 	require.Equal(t, []string{mergeBranchHeadBefore, commitToMerge}, commit.ParentIds)
 }
 
-func TestFailedMergeDueToHooks(t *testing.T) {
+func TestUserMergeBranch_failingHooks(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.Git2GoMergeGob,
-	}).Run(t, testFailedMergeDueToHooks)
+	}).Run(t, testUserMergeBranchFailingHooks)
 }
 
-func testFailedMergeDueToHooks(t *testing.T, ctx context.Context) {
+func testUserMergeBranchFailingHooks(t *testing.T, ctx context.Context) {
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
@@ -526,7 +526,7 @@ func testUserMergeBranchConflict(t *testing.T, ctx context.Context) {
 	require.Nil(t, firstResponse)
 }
 
-func TestSuccessfulUserFFBranchRequest(t *testing.T) {
+func TestUserFFBranch_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx, cancel := testhelper.Context()
@@ -559,7 +559,7 @@ func TestSuccessfulUserFFBranchRequest(t *testing.T) {
 	require.Equal(t, commitID, text.ChompBytes(newBranchHead), "branch head not updated")
 }
 
-func TestFailedUserFFBranchRequest(t *testing.T) {
+func TestUserFFBranch_failure(t *testing.T) {
 	t.Parallel()
 
 	ctx, cancel := testhelper.Context()
@@ -648,7 +648,7 @@ func TestFailedUserFFBranchRequest(t *testing.T) {
 	}
 }
 
-func TestFailedUserFFBranchDueToHooks(t *testing.T) {
+func TestUserFFBranch_failingHooks(t *testing.T) {
 	t.Parallel()
 
 	ctx, cancel := testhelper.Context()
@@ -726,15 +726,15 @@ func TestUserFFBranch_ambiguousReference(t *testing.T) {
 	require.Equal(t, commitID, text.ChompBytes(newBranchHead), "branch head not updated")
 }
 
-func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
+func TestUserMergeToRef_successful(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.Git2GoMergeGob,
-	}).Run(t, testSuccessfulUserMergeToRefRequest)
+	}).Run(t, testUserMergeToRefSuccessful)
 }
 
-func testSuccessfulUserMergeToRefRequest(t *testing.T, ctx context.Context) {
+func testUserMergeToRefSuccessful(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -836,15 +836,15 @@ func testSuccessfulUserMergeToRefRequest(t *testing.T, ctx context.Context) {
 	}
 }
 
-func TestConflictsOnUserMergeToRefRequest(t *testing.T) {
+func TestUserMergeToRef_conflicts(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.Git2GoMergeGob,
-	}).Run(t, testConflictsOnUserMergeToRefRequest)
+	}).Run(t, testUserMergeToRefConflicts)
 }
 
-func testConflictsOnUserMergeToRefRequest(t *testing.T, ctx context.Context) {
+func testUserMergeToRefConflicts(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -1033,15 +1033,15 @@ func testUserMergeToRefStableMergeID(t *testing.T, ctx context.Context) {
 	}, commit)
 }
 
-func TestFailedUserMergeToRefRequest(t *testing.T) {
+func TestUserMergeToRef_failure(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.Git2GoMergeGob,
-	}).Run(t, testFailedUserMergeToRefRequest)
+	}).Run(t, testUserMergeToRefFailure)
 }
 
-func testFailedUserMergeToRefRequest(t *testing.T, ctx context.Context) {
+func testUserMergeToRefFailure(t *testing.T, ctx context.Context) {
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
@@ -1133,7 +1133,7 @@ func testFailedUserMergeToRefRequest(t *testing.T, ctx context.Context) {
 	}
 }
 
-func TestUserMergeToRefIgnoreHooksRequest(t *testing.T) {
+func TestUserMergeToRef_ignoreHooksRequest(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
