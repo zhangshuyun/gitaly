@@ -86,7 +86,7 @@ LIBGIT2_VERSION           ?= v1.1.0
 # Support both vX.Y.Z and X.Y.Z version patterns, since callers across
 # GitLab use both.
 ifndef GIT_VERSION
-  GIT_VERSION := v2.32.0
+  GIT_VERSION := v2.33.0
 else
   GIT_VERSION := $(shell echo ${GIT_VERSION} | awk '/^[0-9]\.[0-9]+\.[0-9]+$$/ { printf "v" } { print $$1 }')
 endif
