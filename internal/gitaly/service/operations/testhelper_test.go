@@ -3,8 +3,6 @@ package operations
 import (
 	"context"
 	"os"
-	"reflect"
-	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -20,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ssh"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -50,31 +47,6 @@ func testMain(m *testing.M) int {
 	defer cleanup()
 
 	return m.Run()
-}
-
-func TestWithRubySidecar(t *testing.T) {
-	t.Parallel()
-	cfg := testcfg.Build(t)
-
-	rubySrv := rubyserver.New(cfg)
-	require.NoError(t, rubySrv.Start())
-	t.Cleanup(rubySrv.Stop)
-
-	fs := []func(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server){
-		testSuccessfulUserApplyPatch,
-		testUserApplyPatchStableID,
-		testFailedPatchApplyPatch,
-		testUserApplyPatch,
-	}
-	for _, f := range fs {
-		t.Run(runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(), func(t *testing.T) {
-			testhelper.NewFeatureSets(
-				[]featureflag.FeatureFlag{featureflag.GoUserApplyPatch},
-			).Run(t, func(t *testing.T, ctx context.Context) {
-				f(t, ctx, cfg, rubySrv)
-			})
-		})
-	}
 }
 
 func setupOperationsService(t testing.TB, ctx context.Context) (context.Context, config.Cfg, *gitalypb.Repository, string, gitalypb.OperationServiceClient) {
