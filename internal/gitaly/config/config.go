@@ -219,6 +219,11 @@ func (cfg *Cfg) setDefaults() error {
 		cfg.InternalSocketDir = tmpDir
 	}
 
+	// The GRPC dialer requires an absolute path, so convert relative paths
+	if !filepath.IsAbs(cfg.InternalSocketDir) {
+		cfg.InternalSocketDir = filepath.Abs(cfg.InternalSocketDir)
+	}
+
 	if reflect.DeepEqual(cfg.DailyMaintenance, DailyJob{}) {
 		cfg.DailyMaintenance = defaultMaintenanceWindow(cfg.Storages)
 	}
