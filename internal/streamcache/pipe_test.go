@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func createPipe(t *testing.T) (io.ReadCloser, *pipe) {
+func createPipe(t *testing.T) (*pipeReader, *pipe) {
 	t.Helper()
 
 	f, err := ioutil.TempFile("", "gitaly-streamcache-test")
