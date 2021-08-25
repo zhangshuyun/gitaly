@@ -38,13 +38,6 @@ func (s *Server) UserApplyPatch(stream gitalypb.OperationService_UserApplyPatchS
 	}
 
 	if err := s.userApplyPatch(stream.Context(), header, stream); err != nil {
-		if errors.Is(err, errNoDefaultBranch) {
-			// This is here to match the behavior of the original Ruby implementation which failed with the error
-			// when attempting to apply a patch to a repository that had no branches. Once the Ruby port has been
-			// removed, we could return a more descriptive error or support creating the first branch in the repository.
-			return status.Error(codes.Unknown, "TypeError: no implicit conversion of nil into String")
-		}
-
 		return helper.ErrInternal(err)
 	}
 
