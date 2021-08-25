@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -17,88 +18,147 @@ type Strategy interface {
 	Restore(context.Context, *RestoreRequest) error
 }
 
-// CreatePipeline is a pipeline that only handles creating backups
-type CreatePipeline interface {
-	Create(context.Context, *CreateRequest)
+// Command handles a specific backup operation
+type Command interface {
+	Repository() *gitalypb.Repository
+	Name() string
+	Execute(context.Context) error
+}
+
+// Pipeline executes a series of commands and encapsulates error handling for
+// the caller.
+type Pipeline interface {
+	Handle(context.Context, Command)
 	Done() error
 }
 
-// Pipeline handles a series of requests to create/restore backups. Pipeline
-// encapsulates error handling for the caller.
-type Pipeline struct {
-	log      logrus.FieldLogger
-	strategy Strategy
-	failed   int64
+// CreateCommand creates a backup for a repository
+type CreateCommand struct {
+	strategy   Strategy
+	server     storage.ServerInfo
+	repository *gitalypb.Repository
 }
 
-// NewPipeline creates a new pipeline
-func NewPipeline(log logrus.FieldLogger, strategy Strategy) *Pipeline {
-	return &Pipeline{
-		log:      log,
-		strategy: strategy,
+// NewCreateCommand builds a CreateCommand
+func NewCreateCommand(strategy Strategy, server storage.ServerInfo, repo *gitalypb.Repository) *CreateCommand {
+	return &CreateCommand{
+		strategy:   strategy,
+		server:     server,
+		repository: repo,
 	}
 }
 
-// Create requests that a repository backup be created
-func (p *Pipeline) Create(ctx context.Context, req *CreateRequest) {
-	repoLog := p.repoLogger(req.Repository)
-	repoLog.Info("started backup")
+// Repository is the repository that will be acted on
+func (cmd CreateCommand) Repository() *gitalypb.Repository {
+	return cmd.repository
+}
 
-	if err := p.strategy.Create(ctx, req); err != nil {
+// Name is the name of the command
+func (cmd CreateCommand) Name() string {
+	return "create"
+}
+
+// Execute performs the backup
+func (cmd CreateCommand) Execute(ctx context.Context) error {
+	return cmd.strategy.Create(ctx, &CreateRequest{
+		Server:     cmd.server,
+		Repository: cmd.repository,
+	})
+}
+
+// RestoreCommand restores a backup for a repository
+type RestoreCommand struct {
+	strategy     Strategy
+	server       storage.ServerInfo
+	repository   *gitalypb.Repository
+	alwaysCreate bool
+}
+
+// NewRestoreCommand builds a RestoreCommand
+func NewRestoreCommand(strategy Strategy, server storage.ServerInfo, repo *gitalypb.Repository, alwaysCreate bool) *RestoreCommand {
+	return &RestoreCommand{
+		strategy:     strategy,
+		server:       server,
+		repository:   repo,
+		alwaysCreate: alwaysCreate,
+	}
+}
+
+// Repository is the repository that will be acted on
+func (cmd RestoreCommand) Repository() *gitalypb.Repository {
+	return cmd.repository
+}
+
+// Name is the name of the command
+func (cmd RestoreCommand) Name() string {
+	return "restore"
+}
+
+// Execute performs the restore
+func (cmd RestoreCommand) Execute(ctx context.Context) error {
+	return cmd.strategy.Restore(ctx, &RestoreRequest{
+		Server:       cmd.server,
+		Repository:   cmd.repository,
+		AlwaysCreate: cmd.alwaysCreate,
+	})
+}
+
+// LoggingPipeline outputs logging for each command executed
+type LoggingPipeline struct {
+	log    logrus.FieldLogger
+	failed int64
+}
+
+// NewLoggingPipeline creates a new logging pipeline
+func NewLoggingPipeline(log logrus.FieldLogger) *LoggingPipeline {
+	return &LoggingPipeline{
+		log: log,
+	}
+}
+
+// Handle takes a command to process. Commands are logged and executed immediately.
+func (p *LoggingPipeline) Handle(ctx context.Context, cmd Command) {
+	log := p.cmdLogger(cmd)
+	log.Infof("started %s", cmd.Name())
+
+	if err := cmd.Execute(ctx); err != nil {
 		if errors.Is(err, ErrSkipped) {
-			repoLog.WithError(err).Warn("skipped backup")
+			log.WithError(err).Warnf("skipped %s", cmd.Name())
 		} else {
-			repoLog.WithError(err).Error("backup failed")
+			log.WithError(err).Errorf("%s failed", cmd.Name())
 			atomic.AddInt64(&p.failed, 1)
 		}
 		return
 	}
 
-	repoLog.Info("completed backup")
-}
-
-// Restore requests that a repository be restored from backup
-func (p *Pipeline) Restore(ctx context.Context, req *RestoreRequest) {
-	repoLog := p.repoLogger(req.Repository)
-	repoLog.Info("started restore")
-
-	if err := p.strategy.Restore(ctx, req); err != nil {
-		if errors.Is(err, ErrSkipped) {
-			repoLog.WithError(err).Warn("skipped restore")
-		} else {
-			repoLog.WithError(err).Error("restore failed")
-			atomic.AddInt64(&p.failed, 1)
-		}
-		return
-	}
-
-	repoLog.Info("completed restore")
+	log.Infof("completed %s", cmd.Name())
 }
 
 // Done indicates that the pipeline is complete and returns any accumulated errors
-func (p *Pipeline) Done() error {
+func (p *LoggingPipeline) Done() error {
 	if p.failed > 0 {
 		return fmt.Errorf("pipeline: %d failures encountered", p.failed)
 	}
 	return nil
 }
 
-func (p *Pipeline) repoLogger(repo *gitalypb.Repository) logrus.FieldLogger {
+func (p *LoggingPipeline) cmdLogger(cmd Command) logrus.FieldLogger {
 	return p.log.WithFields(logrus.Fields{
-		"storage_name":    repo.StorageName,
-		"relative_path":   repo.RelativePath,
-		"gl_project_path": repo.GlProjectPath,
+		"command":         cmd.Name(),
+		"storage_name":    cmd.Repository().StorageName,
+		"relative_path":   cmd.Repository().RelativePath,
+		"gl_project_path": cmd.Repository().GlProjectPath,
 	})
 }
 
-type contextCreateRequest struct {
-	CreateRequest
+type contextCommand struct {
+	Command Command
 	Context context.Context
 }
 
-// ParallelCreatePipeline is a pipeline that creates backups in parallel
+// ParallelCreatePipeline is a pipeline that executes commands in parallel
 type ParallelCreatePipeline struct {
-	next            CreatePipeline
+	next            Pipeline
 	parallel        int
 	parallelStorage int
 
@@ -107,20 +167,20 @@ type ParallelCreatePipeline struct {
 	done        chan struct{}
 
 	mu       sync.Mutex
-	requests map[string]chan *contextCreateRequest
+	requests map[string]chan *contextCommand
 	err      error
 }
 
-// NewParallelCreatePipeline creates a new ParallelCreatePipeline
-// where `next` is the pipeline called to create the backups, `parallel` is the
-// maximum number of parallel backups that will run and `parallelStorage` is
-// the maximum number of parallel backups that will run per storage. Since the
+// NewParallelCreatePipeline creates a new ParallelCreatePipeline where all
+// commands are passed onto `next` to be processed, `parallel` is the maximum
+// number of parallel backups that will run and `parallelStorage` is the
+// maximum number of parallel backups that will run per storage. Since the
 // number of storages is unknown at initialisation, workers are created lazily
 // as new storage names are encountered.
 //
 // Note: When both `parallel` and `parallelStorage` are zero or less no workers
 // are created and the pipeline will block forever.
-func NewParallelCreatePipeline(next CreatePipeline, parallel, parallelStorage int) *ParallelCreatePipeline {
+func NewParallelCreatePipeline(next Pipeline, parallel, parallelStorage int) *ParallelCreatePipeline {
 	var workerSlots chan struct{}
 	if parallel > 0 && parallelStorage > 0 {
 		// workerSlots allows the total number of parallel jobs to be
@@ -134,26 +194,27 @@ func NewParallelCreatePipeline(next CreatePipeline, parallel, parallelStorage in
 		parallelStorage: parallelStorage,
 		workerSlots:     workerSlots,
 		done:            make(chan struct{}),
-		requests:        make(map[string]chan *contextCreateRequest),
+		requests:        make(map[string]chan *contextCommand),
 	}
 }
 
-// Create queues a request to create a backup. Requests are processed by
+// Handle queues a request to create a backup. Commands are processed by
 // n-workers per storage.
-func (p *ParallelCreatePipeline) Create(ctx context.Context, req *CreateRequest) {
-	ch := p.getStorage(req.Repository.StorageName)
+func (p *ParallelCreatePipeline) Handle(ctx context.Context, cmd Command) {
+	ch := p.getStorage(cmd.Repository().StorageName)
 
 	select {
 	case <-ctx.Done():
 		p.setErr(ctx.Err())
-	case ch <- &contextCreateRequest{
-		CreateRequest: *req,
-		Context:       ctx,
+	case ch <- &contextCommand{
+		Command: cmd,
+		Context: ctx,
 	}:
 	}
 }
 
-// Done waits for any in progress calls to `Create` to complete then reports any accumulated errors
+// Done waits for any in progress calls to `next` to complete then reports any
+// accumulated errors
 func (p *ParallelCreatePipeline) Done() error {
 	close(p.done)
 	p.wg.Wait()
@@ -167,8 +228,8 @@ func (p *ParallelCreatePipeline) Done() error {
 }
 
 // getStorage finds the channel associated with a storage. When no channel is
-// found, one is created and n-workers are started to process requests.
-func (p *ParallelCreatePipeline) getStorage(storage string) chan<- *contextCreateRequest {
+// found, one is created and n-workers are started to process commands.
+func (p *ParallelCreatePipeline) getStorage(storage string) chan<- *contextCommand {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -182,7 +243,7 @@ func (p *ParallelCreatePipeline) getStorage(storage string) chan<- *contextCreat
 
 	ch, ok := p.requests[storage]
 	if !ok {
-		ch = make(chan *contextCreateRequest)
+		ch = make(chan *contextCommand)
 		p.requests[storage] = ch
 
 		for i := 0; i < workers; i++ {
@@ -193,23 +254,23 @@ func (p *ParallelCreatePipeline) getStorage(storage string) chan<- *contextCreat
 	return ch
 }
 
-func (p *ParallelCreatePipeline) worker(ch <-chan *contextCreateRequest) {
+func (p *ParallelCreatePipeline) worker(ch <-chan *contextCommand) {
 	defer p.wg.Done()
 	for {
 		select {
 		case <-p.done:
 			return
-		case req := <-ch:
-			p.processRequest(req.Context, &req.CreateRequest)
+		case cmd := <-ch:
+			p.processCommand(cmd.Context, cmd.Command)
 		}
 	}
 }
 
-func (p *ParallelCreatePipeline) processRequest(ctx context.Context, req *CreateRequest) {
+func (p *ParallelCreatePipeline) processCommand(ctx context.Context, cmd Command) {
 	p.acquireWorkerSlot()
 	defer p.releaseWorkerSlot()
 
-	p.next.Create(ctx, req)
+	p.next.Handle(ctx, cmd)
 }
 
 func (p *ParallelCreatePipeline) setErr(err error) {

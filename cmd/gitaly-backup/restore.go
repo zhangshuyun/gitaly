@@ -44,7 +44,7 @@ func (cmd *restoreSubcommand) Run(ctx context.Context, stdin io.Reader, stdout i
 	}
 
 	manager := backup.NewManager(sink, locator)
-	pipeline := backup.NewPipeline(log.StandardLogger(), manager)
+	pipeline := backup.NewLoggingPipeline(log.StandardLogger())
 
 	decoder := json.NewDecoder(stdin)
 	for {
@@ -60,11 +60,7 @@ func (cmd *restoreSubcommand) Run(ctx context.Context, stdin io.Reader, stdout i
 			RelativePath:  req.RelativePath,
 			GlProjectPath: req.GlProjectPath,
 		}
-		pipeline.Restore(ctx, &backup.RestoreRequest{
-			Server:       req.ServerInfo,
-			Repository:   &repo,
-			AlwaysCreate: req.AlwaysCreate,
-		})
+		pipeline.Handle(ctx, backup.NewRestoreCommand(manager, req.ServerInfo, &repo, req.AlwaysCreate))
 	}
 
 	if err := pipeline.Done(); err != nil {

@@ -48,8 +48,8 @@ func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io
 
 	manager := backup.NewManager(sink, locator)
 
-	var pipeline backup.CreatePipeline
-	pipeline = backup.NewPipeline(log.StandardLogger(), manager)
+	var pipeline backup.Pipeline
+	pipeline = backup.NewLoggingPipeline(log.StandardLogger())
 	if cmd.parallel > 0 || cmd.parallelStorage > 0 {
 		pipeline = backup.NewParallelCreatePipeline(pipeline, cmd.parallel, cmd.parallelStorage)
 	}
@@ -67,10 +67,7 @@ func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io
 			RelativePath:  sr.RelativePath,
 			GlProjectPath: sr.GlProjectPath,
 		}
-		pipeline.Create(ctx, &backup.CreateRequest{
-			Server:     sr.ServerInfo,
-			Repository: &repo,
-		})
+		pipeline.Handle(ctx, backup.NewCreateCommand(manager, sr.ServerInfo, &repo))
 	}
 
 	if err := pipeline.Done(); err != nil {
