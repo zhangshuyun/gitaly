@@ -186,6 +186,10 @@ No changes.
 - [Separate listenmux from backchannel](gitlab-org/gitaly@c95298c125a680a006153d5aca5d3dbb575ce352) ([merge request](gitlab-org/gitaly!3593))
 - [Use upstream implementation of insecure credentials](gitlab-org/gitaly@7453f84b0bb385a958943b5e0910b8f6bb3906bb) ([merge request](gitlab-org/gitaly!3591))
 
+## 14.0.8 (2021-08-25)
+
+No changes.
+
 ## 14.0.7 (2021-08-03)
 
 ### Security (1 change)
