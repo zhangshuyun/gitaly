@@ -40,14 +40,6 @@ func (rr *receiveReader) Read(p []byte) (int, error) {
 	return n, nil
 }
 
-// wrapReader hides WriteTo to prevent inifinite recursion
-type wrapReader struct{ io.Reader }
-
-func (wr *wrapReader) Read(p []byte) (int, error) { return wr.Reader.Read(p) }
-
-// Deprecated: will be removed in v14. Use io.Copy instead.
-func (rr *receiveReader) WriteTo(w io.Writer) (int64, error) { return io.Copy(w, &wrapReader{rr}) }
-
 // NewWriter turns sender into an io.Writer. The sender callback will
 // receive []byte arguments of length at most WriteBufferSize.
 func NewWriter(sender func(p []byte) error) io.Writer {
@@ -95,11 +87,3 @@ func (sw *sendWriter) Write(p []byte) (int, error) {
 
 	return sent, nil
 }
-
-// wrapWriter hides ReadFrom to prevent inifinite recursion
-type wrapWriter struct{ io.Writer }
-
-func (ww *wrapWriter) Write(p []byte) (int, error) { return ww.Writer.Write(p) }
-
-// Deprecated: will be removed in v14. Use io.Copy instead.
-func (sw *sendWriter) ReadFrom(r io.Reader) (int64, error) { return io.Copy(&wrapWriter{sw}, r) }
