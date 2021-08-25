@@ -18,6 +18,7 @@ var (
 	buildGitalyLFSSmudgeOnce sync.Once
 	buildGitalyHooksOnce     sync.Once
 	buildGitalySSHOnce       sync.Once
+	buildPraefectOnce        sync.Once
 )
 
 // BuildGitalyGit2Go builds the gitaly-git2go command and installs it into the binary directory.
@@ -49,6 +50,11 @@ func BuildGitalySSH(t testing.TB, cfg config.Cfg) {
 	buildBinary(t, cfg.BinDir, "gitaly-ssh", &buildGitalySSHOnce)
 }
 
+// BuildPraefect builds the praefect command and installs it into the binary directory.
+func BuildPraefect(t testing.TB, cfg config.Cfg) {
+	buildBinary(t, cfg.BinDir, "praefect", &buildPraefectOnce)
+}
+
 func buildBinary(t testing.TB, dstDir, name string, buildOnce *sync.Once) {
 	require.NotEmpty(t, testDirectory, "you must call testhelper.Configure() first")
 
@@ -58,13 +64,21 @@ func buildBinary(t testing.TB, dstDir, name string, buildOnce *sync.Once) {
 	binPath := filepath.Join(binsPath, name)
 
 	defer func() {
-		if !t.Failed() {
-			// copy compiled binary to the destination folder
-			require.NoError(t, os.MkdirAll(dstDir, os.ModePerm))
-			targetPath := filepath.Join(dstDir, name)
-			CopyFile(t, binPath, targetPath)
-			require.NoError(t, os.Chmod(targetPath, 0777))
+		if t.Failed() {
+			return
 		}
+
+		targetPath := filepath.Join(dstDir, name)
+
+		// Exit early if the file exists.
+		if _, err := os.Stat(targetPath); err == nil {
+			return
+		}
+
+		// copy compiled binary to the destination folder
+		require.NoError(t, os.MkdirAll(dstDir, os.ModePerm))
+		CopyFile(t, binPath, targetPath)
+		require.NoError(t, os.Chmod(targetPath, 0777))
 	}()
 
 	buildOnce.Do(func() {

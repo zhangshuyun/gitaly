@@ -27,9 +27,6 @@ import (
 
 func TestStreamDirectorMutator_Transaction(t *testing.T) {
 	t.Parallel()
-	// For the test-with-praefect execution we disable a special case when repository
-	// records need to be created in the database.
-	defer testhelper.ModifyEnvironment(t, "GITALY_TEST_PRAEFECT_BIN", "")()
 
 	type subtransactions []struct {
 		vote          string

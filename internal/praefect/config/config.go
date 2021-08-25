@@ -125,6 +125,11 @@ type Config struct {
 	FailoverEnabled     bool            `toml:"failover_enabled"`
 	MemoryQueueEnabled  bool            `toml:"memory_queue_enabled"`
 	GracefulStopTimeout config.Duration `toml:"graceful_stop_timeout"`
+
+	// ForceCreateRepositories will enable force-creation of repositories in the
+	// coordinator when routing repository-scoped mutators. This must never be used
+	// outside of tests.
+	ForceCreateRepositories bool `toml:"force_create_repositories_for_testing_purposes"`
 }
 
 // VirtualStorage represents a set of nodes for a storage

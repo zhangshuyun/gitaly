@@ -47,12 +47,13 @@ import (
 func RunGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) string {
 	_, gitalyAddr, disablePraefect := runGitaly(t, cfg, rubyServer, registrar, opts...)
 
-	praefectBinPath, ok := os.LookupEnv("GITALY_TEST_PRAEFECT_BIN")
-	if !ok || disablePraefect {
+	if !isPraefectEnabled() || disablePraefect {
 		return gitalyAddr
 	}
 
-	praefectAddr, _ := runPraefectProxy(t, cfg, gitalyAddr, praefectBinPath)
+	testhelper.BuildPraefect(t, cfg)
+
+	praefectAddr, _ := runPraefectProxy(t, cfg, gitalyAddr, filepath.Join(cfg.BinDir, "praefect"))
 
 	// In case we're running with a Praefect proxy, it will use Gitaly's health information to
 	// inform routing decisions. The Gitaly node thus must be healthy.
@@ -102,6 +103,7 @@ func runPraefectProxy(t testing.TB, cfg config.Cfg, gitalyAddr, praefectBinPath 
 			Format: "json",
 			Level:  "panic",
 		},
+		ForceCreateRepositories: true,
 	}
 
 	// Only single storage will be served by the praefect instance.
@@ -159,15 +161,16 @@ func (gs GitalyServer) Address() string {
 func StartGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) GitalyServer {
 	gitalySrv, gitalyAddr, disablePraefect := runGitaly(t, cfg, rubyServer, registrar, opts...)
 
-	praefectBinPath, ok := os.LookupEnv("GITALY_TEST_PRAEFECT_BIN")
-	if !ok || disablePraefect {
+	if !isPraefectEnabled() || disablePraefect {
 		return GitalyServer{
 			shutdown: gitalySrv.Stop,
 			address:  gitalyAddr,
 		}
 	}
 
-	praefectAddr, shutdownPraefect := runPraefectProxy(t, cfg, gitalyAddr, praefectBinPath)
+	testhelper.BuildPraefect(t, cfg)
+
+	praefectAddr, shutdownPraefect := runPraefectProxy(t, cfg, gitalyAddr, filepath.Join(cfg.BinDir, "praefect"))
 	return GitalyServer{
 		shutdown: func() {
 			shutdownPraefect()
@@ -443,4 +446,9 @@ func WithDiskCache(diskCache cache.Cache) GitalyServerOpt {
 		deps.diskCache = diskCache
 		return deps
 	}
+}
+
+func isPraefectEnabled() bool {
+	_, ok := os.LookupEnv("GITALY_TEST_WITH_PRAEFECT")
+	return ok
 }

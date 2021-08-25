@@ -290,8 +290,8 @@ test-with-proxies: prepare-tests
 
 .PHONY: test-with-praefect
 ## Run Go tests with Praefect.
-test-with-praefect: build prepare-tests
-	${Q}GITALY_TEST_PRAEFECT_BIN=${BUILD_DIR}/bin/praefect $(call run_go_tests)
+test-with-praefect: prepare-tests
+	${Q}GITALY_TEST_WITH_PRAEFECT=YesPlease $(call run_go_tests)
 
 .PHONY: test-postgres
 ## Run Go tests with Postgres.
