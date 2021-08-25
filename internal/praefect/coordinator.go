@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
@@ -261,6 +260,10 @@ type Coordinator struct {
 	conf                     config.Config
 	votersMetric             *prometheus.HistogramVec
 	txReplicationCountMetric *prometheus.CounterVec
+
+	// forceCreateRepositories will enable force-creation of repositories when routing
+	// repository-scoped mutators. This must never be used outside of tests.
+	forceCreateRepositories bool
 }
 
 // NewCoordinator returns a new Coordinator that utilizes the provided logger
@@ -301,6 +304,7 @@ func NewCoordinator(
 			},
 			[]string{"reason"},
 		),
+		forceCreateRepositories: conf.ForceCreateRepositories,
 	}
 
 	return coordinator
@@ -324,7 +328,7 @@ func (c *Coordinator) directRepositoryScopedMessage(ctx context.Context, call gr
 	var err error
 	var ps *proxy.StreamParameters
 
-	if os.Getenv("GITALY_TEST_PRAEFECT_BIN") != "" {
+	if c.forceCreateRepositories {
 		// This is a hack for the tests: during execution of the gitaly tests under praefect proxy
 		// the repositories are created directly on the filesystem. There is no call for the
 		// CreateRepository that creates records in the database that is why we do it artificially

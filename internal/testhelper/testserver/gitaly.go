@@ -102,6 +102,7 @@ func runPraefectProxy(t testing.TB, cfg config.Cfg, gitalyAddr, praefectBinPath 
 			Format: "json",
 			Level:  "panic",
 		},
+		ForceCreateRepositories: true,
 	}
 
 	// Only single storage will be served by the praefect instance.
