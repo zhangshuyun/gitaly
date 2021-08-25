@@ -28,13 +28,27 @@ type UpdaterWithHooks struct {
 	catfileCache  catfile.Cache
 }
 
-// PreReceiveError contains an error message for a git pre-receive failure
-type PreReceiveError struct {
-	Message string
+// HookError contains an error message when executing a hook.
+type HookError struct {
+	err    error
+	stdout string
+	stderr string
 }
 
-func (e PreReceiveError) Error() string {
-	return e.Message
+// Error returns an error message.
+func (e HookError) Error() string {
+	if len(strings.TrimSpace(e.stderr)) > 0 {
+		return fmt.Sprintf("%v, stderr: %q", e.err.Error(), e.stderr)
+	}
+	if len(strings.TrimSpace(e.stdout)) > 0 {
+		return fmt.Sprintf("%v, stdout: %q", e.err.Error(), e.stdout)
+	}
+	return e.err.Error()
+}
+
+// Unwrap will return the embedded error.
+func (e HookError) Unwrap() error {
+	return e.err
 }
 
 // Error reports an error in git update-ref
@@ -44,18 +58,6 @@ type Error struct {
 
 func (e Error) Error() string {
 	return fmt.Sprintf("Could not update %s. Please refresh and try again.", e.reference)
-}
-
-func hookErrorMessage(sout string, serr string, err error) string {
-	if err != nil && errors.As(err, &hook.NotAllowedError{}) {
-		return err.Error()
-	}
-
-	if len(strings.TrimSpace(serr)) > 0 {
-		return serr
-	}
-
-	return sout
 }
 
 // NewUpdaterWithHooks creates a new instance of a struct that will update a Git reference.
@@ -129,17 +131,15 @@ func (u *UpdaterWithHooks) UpdateReference(
 
 	var stdout, stderr bytes.Buffer
 	if err := u.hookManager.PreReceiveHook(ctx, quarantinedRepo, pushOptions, []string{hooksPayload}, strings.NewReader(changes), &stdout, &stderr); err != nil {
-		msg := hookErrorMessage(stdout.String(), stderr.String(), err)
-		return PreReceiveError{Message: msg}
+		return HookError{err: err, stdout: stdout.String(), stderr: stderr.String()}
 	}
 
 	if err := u.hookManager.UpdateHook(ctx, quarantinedRepo, reference.String(), oldrev.String(), newrev.String(), []string{hooksPayload}, &stdout, &stderr); err != nil {
-		msg := hookErrorMessage(stdout.String(), stderr.String(), err)
-		return PreReceiveError{Message: msg}
+		return HookError{err: err, stdout: stdout.String(), stderr: stderr.String()}
 	}
 
 	if err := u.hookManager.ReferenceTransactionHook(ctx, hook.ReferenceTransactionPrepared, []string{hooksPayload}, strings.NewReader(changes)); err != nil {
-		return PreReceiveError{Message: err.Error()}
+		return HookError{err: err, stdout: stdout.String(), stderr: stderr.String()}
 	}
 
 	// Now that Rails has told us that the change is okay via the pre-receive hook and where
@@ -183,12 +183,11 @@ func (u *UpdaterWithHooks) UpdateReference(
 	}
 
 	if err := u.hookManager.ReferenceTransactionHook(ctx, hook.ReferenceTransactionCommitted, []string{hooksPayload}, strings.NewReader(changes)); err != nil {
-		return PreReceiveError{Message: err.Error()}
+		return HookError{err: err}
 	}
 
 	if err := u.hookManager.PostReceiveHook(ctx, repo, pushOptions, []string{hooksPayload}, strings.NewReader(changes), &stdout, &stderr); err != nil {
-		msg := hookErrorMessage(stdout.String(), stderr.String(), err)
-		return PreReceiveError{Message: msg}
+		return HookError{err: err, stdout: stdout.String(), stderr: stderr.String()}
 	}
 
 	return nil

@@ -1014,9 +1014,11 @@ func TestUserCommitFilesQuarantine(t *testing.T) {
 
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
 
+	outputPath := filepath.Join(testhelper.TempDir(t), "output")
+
 	// Set up a hook that parses the new object and then aborts the update. Like this, we can
 	// assert that the object does not end up in the main repository.
-	hookScript := fmt.Sprintf("#!/bin/sh\n%s rev-parse $3^{commit} && exit 1", cfg.Git.BinPath)
+	hookScript := fmt.Sprintf("#!/bin/sh\n%s rev-parse $3^{commit} >%s && exit 1", cfg.Git.BinPath, outputPath)
 	gittest.WriteCustomHook(t, repoPath, "update", []byte(hookScript))
 
 	stream, err := client.UserCommitFiles(ctx)
@@ -1029,10 +1031,11 @@ func TestUserCommitFilesQuarantine(t *testing.T) {
 
 	require.NoError(t, stream.Send(createFileHeaderRequest("file.txt")))
 	require.NoError(t, stream.Send(actionContentRequest("content")))
-	response, err := stream.CloseAndRecv()
+	_, err = stream.CloseAndRecv()
 	require.NoError(t, err)
 
-	oid, err := git.NewObjectIDFromHex(strings.TrimSpace(response.PreReceiveError))
+	hookOutput := testhelper.MustReadFile(t, outputPath)
+	oid, err := git.NewObjectIDFromHex(text.ChompBytes(hookOutput))
 	require.NoError(t, err)
 	exists, err := repo.HasRevision(ctx, oid.Revision()+"^{commit}")
 	require.NoError(t, err)

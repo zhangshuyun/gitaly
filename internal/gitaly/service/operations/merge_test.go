@@ -158,7 +158,7 @@ func testUserMergeBranchQuarantine(t *testing.T, ctx context.Context) {
 	require.NoError(t, err, "receive second response")
 
 	testassert.ProtoEqual(t, &gitalypb.UserMergeBranchResponse{
-		PreReceiveError: firstResponse.CommitId + "\n",
+		PreReceiveError: fmt.Sprintf("executing custom hooks: exit status 1, stdout: %q", firstResponse.CommitId+"\n"),
 	}, secondResponse)
 
 	oid, err := git.NewObjectIDFromHex(strings.TrimSpace(firstResponse.CommitId))

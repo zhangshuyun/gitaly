@@ -2,13 +2,14 @@ package operations
 
 import (
 	"fmt"
-	"strings"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -543,7 +544,8 @@ func TestServer_UserCherryPick_quarantine(t *testing.T) {
 
 	// Set up a hook that parses the new object and then aborts the update. Like this, we can
 	// assert that the object does not end up in the main repository.
-	hookScript := fmt.Sprintf("#!/bin/sh\n%s rev-parse $3^{commit} && exit 1", cfg.Git.BinPath)
+	outputPath := filepath.Join(testhelper.TempDir(t), "output")
+	hookScript := fmt.Sprintf("#!/bin/sh\n%s rev-parse $3^{commit} >%s && exit 1", cfg.Git.BinPath, outputPath)
 	gittest.WriteCustomHook(t, repoPath, "update", []byte(hookScript))
 
 	commit, err := repo.ReadCommit(ctx, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
@@ -561,7 +563,8 @@ func TestServer_UserCherryPick_quarantine(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, response)
 
-	oid, err := git.NewObjectIDFromHex(strings.TrimSpace(response.PreReceiveError))
+	hookOutput := testhelper.MustReadFile(t, outputPath)
+	oid, err := git.NewObjectIDFromHex(text.ChompBytes(hookOutput))
 	require.NoError(t, err)
 	exists, err := repo.HasRevision(ctx, oid.Revision()+"^{commit}")
 	require.NoError(t, err)

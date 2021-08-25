@@ -110,12 +110,12 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, firstRequest.GetRepository(), firstRequest.User, quarantineDir, referenceName, mergeOID, revision); err != nil {
-		var preReceiveError updateref.PreReceiveError
+		var hookError updateref.HookError
 		var updateRefError updateref.Error
 
-		if errors.As(err, &preReceiveError) {
+		if errors.As(err, &hookError) {
 			err = stream.Send(&gitalypb.UserMergeBranchResponse{
-				PreReceiveError: preReceiveError.Message,
+				PreReceiveError: hookError.Error(),
 			})
 		} else if errors.As(err, &updateRefError) {
 			// When an error happens updating the reference, e.g. because of a race
@@ -194,10 +194,10 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, in.GetRepository(), in.User, quarantineDir, referenceName, commitID, revision); err != nil {
-		var preReceiveError updateref.PreReceiveError
-		if errors.As(err, &preReceiveError) {
+		var hookError updateref.HookError
+		if errors.As(err, &hookError) {
 			return &gitalypb.UserFFBranchResponse{
-				PreReceiveError: preReceiveError.Message,
+				PreReceiveError: hookError.Error(),
 			}, nil
 		}
 

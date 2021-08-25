@@ -429,12 +429,13 @@ func TestUserCreateTagQuarantine(t *testing.T) {
 	// Conveniently, the pre-receive error will now contain output from our custom hook and thus
 	// the tag's contents.
 	testassert.ProtoEqual(t, &gitalypb.UserCreateTagResponse{
-		PreReceiveError: `object c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd
+		PreReceiveError: fmt.Sprintf("executing custom hooks: exit status 1, stdout: %q",
+			`object c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd
 type commit
 tag quarantined-tag
 tagger Jane Doe <janedoe@gitlab.com> 1600000000 +0800
 
-message`,
+message`),
 	}, response)
 
 	// In case we use an object quarantine directory, the tag should not exist in the target
@@ -1337,32 +1338,32 @@ func TestTagHookOutput(t *testing.T) {
 		{
 			desc:        "empty stdout and empty stderr",
 			hookContent: "#!/bin/sh\nexit 1",
-			output:      "",
+			output:      "executing custom hooks: exit status 1",
 		},
 		{
 			desc:        "empty stdout and some stderr",
 			hookContent: "#!/bin/sh\necho stderr >&2\nexit 1",
-			output:      "stderr\n",
+			output:      "executing custom hooks: exit status 1, stderr: \"stderr\\n\"",
 		},
 		{
 			desc:        "some stdout and empty stderr",
 			hookContent: "#!/bin/sh\necho stdout\nexit 1",
-			output:      "stdout\n",
+			output:      "executing custom hooks: exit status 1, stdout: \"stdout\\n\"",
 		},
 		{
 			desc:        "some stdout and some stderr",
 			hookContent: "#!/bin/sh\necho stdout\necho stderr >&2\nexit 1",
-			output:      "stderr\n",
+			output:      "executing custom hooks: exit status 1, stderr: \"stderr\\n\"",
 		},
 		{
 			desc:        "whitespace stdout and some stderr",
 			hookContent: "#!/bin/sh\necho '   '\necho stderr >&2\nexit 1",
-			output:      "stderr\n",
+			output:      "executing custom hooks: exit status 1, stderr: \"stderr\\n\"",
 		},
 		{
 			desc:        "some stdout and whitespace stderr",
 			hookContent: "#!/bin/sh\necho stdout\necho '   ' >&2\nexit 1",
-			output:      "stdout\n",
+			output:      "executing custom hooks: exit status 1, stdout: \"stdout\\n\"",
 		},
 	}
 
