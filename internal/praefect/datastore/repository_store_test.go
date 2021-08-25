@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"testing"
+	"time"
 
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
@@ -26,18 +27,14 @@ type virtualStorageState map[string]map[string]repositoryRecord
 // It structured as virtual-storage->relative_path->storage->generation.
 type storageState map[string]map[string]map[string]int
 
-type requireState func(t *testing.T, ctx context.Context, vss virtualStorageState, ss storageState)
-type repositoryStoreFactory func(t *testing.T, storages map[string][]string) (RepositoryStore, requireState)
+type requireStateFunc func(t *testing.T, ctx context.Context, vss virtualStorageState, ss storageState)
+type repositoryStoreFactory func(t *testing.T, storages map[string][]string) (RepositoryStore, requireStateFunc)
 
-func TestRepositoryStore_Postgres(t *testing.T) {
-	t.Parallel()
-	db := glsql.NewDB(t)
-	testRepositoryStore(t, func(t *testing.T, storages map[string][]string) (RepositoryStore, requireState) {
-		db.TruncateAll(t)
-		gs := NewPostgresRepositoryStore(db, storages)
+func requireState(t testing.TB, ctx context.Context, db glsql.Querier, vss virtualStorageState, ss storageState) {
+	t.Helper()
 
-		requireVirtualStorageState := func(t *testing.T, ctx context.Context, exp virtualStorageState) {
-			rows, err := db.QueryContext(ctx, `
+	requireVirtualStorageState := func(t testing.TB, ctx context.Context, exp virtualStorageState) {
+		rows, err := db.QueryContext(ctx, `
 SELECT virtual_storage, relative_path, "primary", assigned_storages
 FROM repositories
 LEFT JOIN (
@@ -47,65 +44,204 @@ LEFT JOIN (
 ) AS repository_assignments USING (virtual_storage, relative_path)
 
 				`)
-			require.NoError(t, err)
-			defer rows.Close()
+		require.NoError(t, err)
+		defer rows.Close()
 
-			act := make(virtualStorageState)
-			for rows.Next() {
-				var (
-					virtualStorage, relativePath string
-					primary                      sql.NullString
-					assignments                  pq.StringArray
-				)
-				require.NoError(t, rows.Scan(&virtualStorage, &relativePath, &primary, &assignments))
-				if act[virtualStorage] == nil {
-					act[virtualStorage] = make(map[string]repositoryRecord)
-				}
-
-				act[virtualStorage][relativePath] = repositoryRecord{
-					primary:     primary.String,
-					assignments: assignments,
-				}
+		act := make(virtualStorageState)
+		for rows.Next() {
+			var (
+				virtualStorage, relativePath string
+				primary                      sql.NullString
+				assignments                  pq.StringArray
+			)
+			require.NoError(t, rows.Scan(&virtualStorage, &relativePath, &primary, &assignments))
+			if act[virtualStorage] == nil {
+				act[virtualStorage] = make(map[string]repositoryRecord)
 			}
 
-			require.NoError(t, rows.Err())
-			require.Equal(t, exp, act)
+			act[virtualStorage][relativePath] = repositoryRecord{
+				primary:     primary.String,
+				assignments: assignments,
+			}
 		}
 
-		requireStorageState := func(t *testing.T, ctx context.Context, exp storageState) {
-			rows, err := db.QueryContext(ctx, `
+		require.NoError(t, rows.Err())
+		require.Equal(t, exp, act)
+	}
+
+	requireStorageState := func(t testing.TB, ctx context.Context, exp storageState) {
+		rows, err := db.QueryContext(ctx, `
 SELECT virtual_storage, relative_path, storage, generation
 FROM storage_repositories
 	`)
-			require.NoError(t, err)
-			defer rows.Close()
+		require.NoError(t, err)
+		defer rows.Close()
 
-			act := make(storageState)
-			for rows.Next() {
-				var vs, rel, storage string
-				var gen int
-				require.NoError(t, rows.Scan(&vs, &rel, &storage, &gen))
+		act := make(storageState)
+		for rows.Next() {
+			var vs, rel, storage string
+			var gen int
+			require.NoError(t, rows.Scan(&vs, &rel, &storage, &gen))
 
-				if act[vs] == nil {
-					act[vs] = make(map[string]map[string]int)
-				}
-				if act[vs][rel] == nil {
-					act[vs][rel] = make(map[string]int)
-				}
-
-				act[vs][rel][storage] = gen
+			if act[vs] == nil {
+				act[vs] = make(map[string]map[string]int)
+			}
+			if act[vs][rel] == nil {
+				act[vs][rel] = make(map[string]int)
 			}
 
-			require.NoError(t, rows.Err())
-			require.Equal(t, exp, act)
+			act[vs][rel][storage] = gen
 		}
+
+		require.NoError(t, rows.Err())
+		require.Equal(t, exp, act)
+	}
+
+	requireVirtualStorageState(t, ctx, vss)
+	requireStorageState(t, ctx, ss)
+}
+
+func TestRepositoryStore_Postgres(t *testing.T) {
+	db := glsql.NewDB(t)
+	testRepositoryStore(t, func(t *testing.T, storages map[string][]string) (RepositoryStore, requireStateFunc) {
+		db.TruncateAll(t)
+		gs := NewPostgresRepositoryStore(db, storages)
 
 		return gs, func(t *testing.T, ctx context.Context, vss virtualStorageState, ss storageState) {
 			t.Helper()
-			requireVirtualStorageState(t, ctx, vss)
-			requireStorageState(t, ctx, ss)
+			requireState(t, ctx, db, vss, ss)
 		}
 	})
+}
+
+func TestRepositoryStore_incrementGenerationConcurrently(t *testing.T) {
+	db := glsql.NewDB(t)
+
+	type call struct {
+		primary     string
+		secondaries []string
+	}
+
+	for _, tc := range []struct {
+		desc   string
+		first  call
+		second call
+		error  error
+		state  storageState
+	}{
+		{
+			desc: "both successful",
+			first: call{
+				primary:     "primary",
+				secondaries: []string{"secondary"},
+			},
+			second: call{
+				primary:     "primary",
+				secondaries: []string{"secondary"},
+			},
+			state: storageState{
+				"virtual-storage": {
+					"relative-path": {
+						"primary":   2,
+						"secondary": 2,
+					},
+				},
+			},
+		},
+		{
+			desc: "second write targeted outdated and up to date nodes",
+			first: call{
+				primary: "primary",
+			},
+			second: call{
+				primary:     "primary",
+				secondaries: []string{"secondary"},
+			},
+			state: storageState{
+				"virtual-storage": {
+					"relative-path": {
+						"primary":   2,
+						"secondary": 0,
+					},
+				},
+			},
+		},
+		{
+			desc: "second write targeted only outdated nodes",
+			first: call{
+				primary: "primary",
+			},
+			second: call{
+				primary: "secondary",
+			},
+			error: errWriteToOutdatedNodes,
+			state: storageState{
+				"virtual-storage": {
+					"relative-path": {
+						"primary":   1,
+						"secondary": 0,
+					},
+				},
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			db.TruncateAll(t)
+
+			require.NoError(t, NewPostgresRepositoryStore(db, nil).CreateRepository(ctx, "virtual-storage", "relative-path", "primary", []string{"secondary"}, nil, false, false))
+
+			firstTx := db.Begin(t)
+			secondTx := db.Begin(t)
+
+			err := NewPostgresRepositoryStore(firstTx, nil).IncrementGeneration(ctx, "virtual-storage", "relative-path", tc.first.primary, tc.first.secondaries)
+			require.NoError(t, err)
+
+			go func() {
+				waitForQueries(t, ctx, db, "WITH updated_replicas AS (", 2)
+				firstTx.Commit(t)
+			}()
+
+			err = NewPostgresRepositoryStore(secondTx, nil).IncrementGeneration(ctx, "virtual-storage", "relative-path", tc.second.primary, tc.second.secondaries)
+			require.Equal(t, tc.error, err)
+			secondTx.Commit(t)
+
+			requireState(t, ctx, db,
+				virtualStorageState{"virtual-storage": {"relative-path": {}}},
+				tc.state,
+			)
+		})
+	}
+}
+
+// waitForQuery is a helper that waits until a certain number of queries matching the prefix are present in the
+// database. This is useful for ensuring multiple transactions are executing the query when testing concurrent
+// execution.
+func waitForQueries(t testing.TB, ctx context.Context, db glsql.Querier, queryPrefix string, count int) {
+	t.Helper()
+
+	for {
+		var queriesPresent bool
+		require.NoError(t, db.QueryRowContext(ctx, `
+			SELECT COUNT(*) = $2
+			FROM pg_stat_activity
+			WHERE TRIM(e'\n' FROM query) LIKE $1
+		`, queryPrefix+"%", count).Scan(&queriesPresent))
+
+		if queriesPresent {
+			return
+		}
+
+		retry := time.NewTimer(time.Millisecond)
+		select {
+		case <-ctx.Done():
+			retry.Stop()
+			return
+		case <-retry.C:
+		}
+	}
 }
 
 func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
@@ -163,13 +299,26 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		t.Run("increments generation for up to date nodes", func(t *testing.T) {
 			rs, requireState := newStore(t, nil)
 
-			require.NoError(t, rs.CreateRepository(ctx, vs, repo, "primary", []string{"up-to-date-secondary"}, nil, false, false))
+			for _, pair := range []struct{ virtualStorage, relativePath string }{
+				{vs, repo},
+				// create records that don't get modified to ensure the query is correctly scoped by virtual storage
+				// and relative path
+				{vs, "other-relative-path"},
+				{"other-virtual-storage", repo},
+			} {
+				require.NoError(t, rs.CreateRepository(ctx, pair.virtualStorage, pair.relativePath, "primary", []string{"up-to-date-secondary", "outdated-secondary"}, nil, false, false))
+			}
+
 			require.NoError(t, rs.IncrementGeneration(ctx, vs, repo, "primary", []string{"up-to-date-secondary"}))
-			require.NoError(t, rs.SetGeneration(ctx, vs, repo, "outdated-secondary", 0))
+
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": repositoryRecord{},
+						"repository-1":        repositoryRecord{},
+						"other-relative-path": {},
+					},
+					"other-virtual-storage": {
+						"repository-1": {},
 					},
 				},
 				storageState{
@@ -177,6 +326,18 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 						"repository-1": {
 							"primary":              1,
 							"up-to-date-secondary": 1,
+							"outdated-secondary":   0,
+						},
+						"other-relative-path": {
+							"primary":              0,
+							"up-to-date-secondary": 0,
+							"outdated-secondary":   0,
+						},
+					},
+					"other-virtual-storage": {
+						"repository-1": {
+							"primary":              0,
+							"up-to-date-secondary": 0,
 							"outdated-secondary":   0,
 						},
 					},
@@ -188,7 +349,11 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": repositoryRecord{},
+						"repository-1":        repositoryRecord{},
+						"other-relative-path": {},
+					},
+					"other-virtual-storage": {
+						"repository-1": {},
 					},
 				},
 				storageState{
@@ -196,6 +361,18 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 						"repository-1": {
 							"primary":              2,
 							"up-to-date-secondary": 2,
+							"outdated-secondary":   0,
+						},
+						"other-relative-path": {
+							"primary":              0,
+							"up-to-date-secondary": 0,
+							"outdated-secondary":   0,
+						},
+					},
+					"other-virtual-storage": {
+						"repository-1": {
+							"primary":              0,
+							"up-to-date-secondary": 0,
 							"outdated-secondary":   0,
 						},
 					},

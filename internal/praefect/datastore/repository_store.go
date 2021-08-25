@@ -164,34 +164,41 @@ AND storage = $3
 
 func (rs *PostgresRepositoryStore) IncrementGeneration(ctx context.Context, virtualStorage, relativePath, primary string, secondaries []string) error {
 	const q = `
-WITH repository AS (
-	SELECT generation
-	FROM repositories
-	WHERE virtual_storage = $1
-	AND   relative_path   = $2
-	FOR UPDATE
-),
-
-updated_replicas AS (
+WITH updated_replicas AS (
 	UPDATE storage_repositories
 	SET generation = generation + 1
-	WHERE virtual_storage = $1
-	AND   relative_path   = $2
-	AND   storage         = ANY($3)
-	AND   generation      = ( SELECT generation FROM repository )
-	RETURNING true AS updated
+	FROM (
+		SELECT virtual_storage, relative_path, storage
+		FROM repositories
+		JOIN storage_repositories USING (virtual_storage, relative_path, generation)
+		WHERE virtual_storage = $1
+		AND   relative_path   = $2
+		AND   storage         = ANY($3)
+		FOR UPDATE
+	) AS to_update
+	WHERE storage_repositories.virtual_storage = to_update.virtual_storage
+	AND   storage_repositories.relative_path   = to_update.relative_path
+	AND   storage_repositories.storage         = to_update.storage
+	RETURNING storage_repositories.virtual_storage, storage_repositories.relative_path
 ),
 
 updated_repository AS (
 	UPDATE repositories
 	SET generation = generation + 1
-	WHERE virtual_storage = $1
-	AND   relative_path   = $2
-	AND   EXISTS ( SELECT FROM updated_replicas )
+	FROM (
+		SELECT DISTINCT virtual_storage, relative_path
+		FROM updated_replicas
+	) AS updated_repositories
+	WHERE repositories.virtual_storage = updated_repositories.virtual_storage
+	AND   repositories.relative_path   = updated_repositories.relative_path
 )
 
 SELECT
-	EXISTS ( SELECT FROM repository ) AS repository_exists,
+	EXISTS (
+		SELECT FROM repositories
+		WHERE virtual_storage = $1
+		AND   relative_path   = $2
+	) AS repository_exists,
 	EXISTS ( SELECT FROM updated_replicas ) AS repository_updated
 `
 	var repositoryExists, repositoryUpdated bool
