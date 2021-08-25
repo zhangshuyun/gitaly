@@ -14,6 +14,8 @@ require (
 	github.com/containerd/cgroups v0.0.0-20201118023556-2819c83ced99
 	github.com/getsentry/sentry-go v0.10.0
 	github.com/git-lfs/git-lfs v1.5.1-0.20210304194248-2e1d981afbe3
+	github.com/go-enry/go-license-detector/v4 v4.3.0
+	github.com/go-git/go-git/v5 v5.3.0 // indirect
 	github.com/golang/protobuf v1.5.2
 	github.com/google/go-cmp v0.5.5
 	github.com/google/uuid v1.2.0
@@ -37,6 +39,7 @@ require (
 	gitlab.com/gitlab-org/labkit v1.5.0
 	go.uber.org/goleak v1.1.10
 	gocloud.dev v0.23.0
+	golang.org/x/exp v0.0.0-20200331195152-e8c3332aa8e5 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/sys v0.0.0-20210503173754-0981d6026fa6
 	google.golang.org/grpc v1.38.0
