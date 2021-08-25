@@ -11,11 +11,9 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 	"google.golang.org/grpc/codes"
@@ -39,59 +37,11 @@ func (s *Server) UserApplyPatch(stream gitalypb.OperationService_UserApplyPatchS
 		return status.Errorf(codes.InvalidArgument, "UserApplyPatch: %v", err)
 	}
 
-	requestCtx := stream.Context()
-
-	if featureflag.GoUserApplyPatch.IsEnabled(requestCtx) {
-		if err := s.userApplyPatch(requestCtx, header, stream); err != nil {
-			if errors.Is(err, errNoDefaultBranch) {
-				// This is here to match the behavior of the original Ruby implementation which failed with the error
-				// when attempting to apply a patch to a repository that had no branches. Once the Ruby port has been
-				// removed, we could return a more descriptive error or support creating the first branch in the repository.
-				return status.Error(codes.Unknown, "TypeError: no implicit conversion of nil into String")
-			}
-
-			return helper.ErrInternal(err)
-		}
-
-		return nil
+	if err := s.userApplyPatch(stream.Context(), header, stream); err != nil {
+		return helper.ErrInternal(err)
 	}
 
-	rubyClient, err := s.ruby.OperationServiceClient(requestCtx)
-	if err != nil {
-		return err
-	}
-
-	clientCtx, err := rubyserver.SetHeaders(requestCtx, s.locator, header.GetRepository())
-	if err != nil {
-		return err
-	}
-
-	rubyStream, err := rubyClient.UserApplyPatch(clientCtx)
-	if err != nil {
-		return err
-	}
-
-	if err := rubyStream.Send(firstRequest); err != nil {
-		return err
-	}
-
-	err = rubyserver.Proxy(func() error {
-		request, err := stream.Recv()
-		if err != nil {
-			return err
-		}
-		return rubyStream.Send(request)
-	})
-	if err != nil {
-		return err
-	}
-
-	response, err := rubyStream.CloseAndRecv()
-	if err != nil {
-		return err
-	}
-
-	return stream.SendAndClose(response)
+	return nil
 }
 
 func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyPatchRequest_Header, stream gitalypb.OperationService_UserApplyPatchServer) error {

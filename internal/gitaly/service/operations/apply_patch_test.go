@@ -1,7 +1,6 @@
 package operations
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -17,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -28,7 +26,14 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func testUserApplyPatch(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
+func TestUserApplyPatch(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
+
 	type actionFunc func(testing.TB, *localrepo.Repo) git2go.Action
 
 	createFile := func(filepath string, content string) actionFunc {
@@ -63,8 +68,6 @@ func testUserApplyPatch(t *testing.T, ctx context.Context, cfg config.Cfg, rubyS
 
 	// commitActions represents actions taken to build a commit.
 	type commitActions []actionFunc
-
-	ctx, cfg, _, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
 	errPatchingFailed := status.Error(
 		codes.FailedPrecondition,
@@ -114,7 +117,7 @@ To restore the original branch and stop patching, run "git am --abort".
 					createFile("file", "base-content"),
 				},
 			},
-			error: status.Error(codes.Unknown, "TypeError: no implicit conversion of nil into String"),
+			error: status.Error(codes.Internal, "no default branch"),
 		},
 		{
 			desc:          "creating a new branch from HEAD works",
@@ -428,8 +431,13 @@ To restore the original branch and stop patching, run "git am --abort".
 	}
 }
 
-func testSuccessfulUserApplyPatch(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+func TestSuccessfulUserApplyPatch(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -534,8 +542,13 @@ func testSuccessfulUserApplyPatch(t *testing.T, ctx context.Context, cfg config.
 	}
 }
 
-func testUserApplyPatchStableID(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+func TestUserApplyPatchStableID(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -590,8 +603,13 @@ func testUserApplyPatchStableID(t *testing.T, ctx context.Context, cfg config.Cf
 	}, patchedCommit)
 }
 
-func testFailedPatchApplyPatch(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, _, repo, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+func TestFailedPatchApplyPatch(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	testPatch := testhelper.MustReadFile(t, "testdata/0001-This-does-not-apply-to-the-feature-branch.patch")
 
