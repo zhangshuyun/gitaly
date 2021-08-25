@@ -37,7 +37,7 @@ var (
 	hitMissTotals = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "gitaly_inforef_cache_hit_miss_total",
-			Help: "Total number of smarthttp info-ref RPCs accessing the cache",
+			Help: "Total number of smarthttp info-ref RPC hit/miss/err cache accesses",
 		},
 		[]string{"type"},
 	)
