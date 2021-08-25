@@ -148,7 +148,9 @@ func runServer(t *testing.T, secure bool, cfg config.Cfg, connectionType string,
 	locator := config.NewLocator(cfg)
 	registry := backchannel.NewRegistry()
 	txManager := transaction.NewManager(cfg, registry)
-	hookManager := hook.NewManager(locator, txManager, gitlab.NewMockClient(), cfg)
+	hookManager := hook.NewManager(locator, txManager, gitlab.NewMockClient(
+		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
+	), cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	diskCache := cache.New(cfg, locator)
 	srv, err := server.New(secure, cfg, testhelper.DiscardTestEntry(t), registry, diskCache)

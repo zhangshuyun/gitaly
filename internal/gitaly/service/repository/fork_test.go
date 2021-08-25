@@ -222,7 +222,9 @@ func runSecureServer(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) s
 	listener, addr := testhelper.GetLocalhostListener(t)
 
 	txManager := transaction.NewManager(cfg, registry)
-	hookManager := hook.NewManager(locator, txManager, gitlab.NewMockClient(), cfg)
+	hookManager := hook.NewManager(locator, txManager, gitlab.NewMockClient(
+		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
+	), cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	catfileCache := catfile.NewCache(cfg)
 
