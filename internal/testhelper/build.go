@@ -58,13 +58,21 @@ func buildBinary(t testing.TB, dstDir, name string, buildOnce *sync.Once) {
 	binPath := filepath.Join(binsPath, name)
 
 	defer func() {
-		if !t.Failed() {
-			// copy compiled binary to the destination folder
-			require.NoError(t, os.MkdirAll(dstDir, os.ModePerm))
-			targetPath := filepath.Join(dstDir, name)
-			CopyFile(t, binPath, targetPath)
-			require.NoError(t, os.Chmod(targetPath, 0777))
+		if t.Failed() {
+			return
 		}
+
+		targetPath := filepath.Join(dstDir, name)
+
+		// Exit early if the file exists.
+		if _, err := os.Stat(targetPath); err == nil {
+			return
+		}
+
+		// copy compiled binary to the destination folder
+		require.NoError(t, os.MkdirAll(dstDir, os.ModePerm))
+		CopyFile(t, binPath, targetPath)
+		require.NoError(t, os.Chmod(targetPath, 0777))
 	}()
 
 	buildOnce.Do(func() {
