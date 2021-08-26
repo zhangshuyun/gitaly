@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"encoding/gob"
 	"errors"
 	"flag"
 	"fmt"
@@ -26,8 +27,16 @@ func (cmd *mergeSubcommand) Flags() *flag.FlagSet {
 	return flags
 }
 
-func (cmd *mergeSubcommand) Run(_ context.Context, _ io.Reader, w io.Writer) error {
-	request, err := git2go.MergeCommandFromSerialized(cmd.request)
+func (cmd *mergeSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) error {
+	useGob := cmd.request == ""
+
+	var err error
+	var request git2go.MergeCommand
+	if useGob {
+		err = gob.NewDecoder(r).Decode(&request)
+	} else {
+		request, err = git2go.MergeCommandFromSerialized(cmd.request)
+	}
 	if err != nil {
 		return err
 	}
@@ -37,6 +46,13 @@ func (cmd *mergeSubcommand) Run(_ context.Context, _ io.Reader, w io.Writer) err
 	}
 
 	commitID, err := merge(request)
+	if useGob {
+		return gob.NewEncoder(w).Encode(git2go.Result{
+			CommitID: commitID,
+			Error:    git2go.SerializableError(err),
+		})
+	}
+
 	if err != nil {
 		return err
 	}
