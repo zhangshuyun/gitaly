@@ -37,57 +37,13 @@ func (cmd *mergeSubcommand) Run(context.Context, io.Reader, io.Writer) error {
 		request.AuthorDate = time.Now()
 	}
 
-	repo, err := git2goutil.OpenRepository(request.Repository)
+	commitID, err := merge(request)
 	if err != nil {
-		return fmt.Errorf("could not open repository: %w", err)
-	}
-	defer repo.Free()
-
-	ours, err := lookupCommit(repo, request.Ours)
-	if err != nil {
-		return fmt.Errorf("ours commit lookup: %w", err)
-	}
-
-	theirs, err := lookupCommit(repo, request.Theirs)
-	if err != nil {
-		return fmt.Errorf("theirs commit lookup: %w", err)
-	}
-
-	mergeOpts, err := git.DefaultMergeOptions()
-	if err != nil {
-		return fmt.Errorf("could not create merge options: %w", err)
-	}
-	mergeOpts.RecursionLimit = git2go.MergeRecursionLimit
-
-	index, err := repo.MergeCommits(ours, theirs, &mergeOpts)
-	if err != nil {
-		return fmt.Errorf("could not merge commits: %w", err)
-	}
-	defer index.Free()
-
-	if index.HasConflicts() {
-		if !request.AllowConflicts {
-			return errors.New("could not auto-merge due to conflicts")
-		}
-
-		if err := resolveConflicts(repo, index); err != nil {
-			return fmt.Errorf("could not resolve conflicts: %w", err)
-		}
-	}
-
-	tree, err := index.WriteTreeTo(repo)
-	if err != nil {
-		return fmt.Errorf("could not write tree: %w", err)
-	}
-
-	committer := git.Signature(git2go.NewSignature(request.AuthorName, request.AuthorMail, request.AuthorDate))
-	commit, err := repo.CreateCommitFromIds("", &committer, &committer, request.Message, tree, ours.Id(), theirs.Id())
-	if err != nil {
-		return fmt.Errorf("could not create merge commit: %w", err)
+		return err
 	}
 
 	response := git2go.MergeResult{
-		CommitID: commit.String(),
+		CommitID: commitID,
 	}
 
 	if err := response.SerializeTo(os.Stdout); err != nil {
@@ -95,6 +51,59 @@ func (cmd *mergeSubcommand) Run(context.Context, io.Reader, io.Writer) error {
 	}
 
 	return nil
+}
+
+func merge(request git2go.MergeCommand) (string, error) {
+	repo, err := git2goutil.OpenRepository(request.Repository)
+	if err != nil {
+		return "", fmt.Errorf("could not open repository: %w", err)
+	}
+	defer repo.Free()
+
+	ours, err := lookupCommit(repo, request.Ours)
+	if err != nil {
+		return "", fmt.Errorf("ours commit lookup: %w", err)
+	}
+
+	theirs, err := lookupCommit(repo, request.Theirs)
+	if err != nil {
+		return "", fmt.Errorf("theirs commit lookup: %w", err)
+	}
+
+	mergeOpts, err := git.DefaultMergeOptions()
+	if err != nil {
+		return "", fmt.Errorf("could not create merge options: %w", err)
+	}
+	mergeOpts.RecursionLimit = git2go.MergeRecursionLimit
+
+	index, err := repo.MergeCommits(ours, theirs, &mergeOpts)
+	if err != nil {
+		return "", fmt.Errorf("could not merge commits: %w", err)
+	}
+	defer index.Free()
+
+	if index.HasConflicts() {
+		if !request.AllowConflicts {
+			return "", errors.New("could not auto-merge due to conflicts")
+		}
+
+		if err := resolveConflicts(repo, index); err != nil {
+			return "", fmt.Errorf("could not resolve conflicts: %w", err)
+		}
+	}
+
+	tree, err := index.WriteTreeTo(repo)
+	if err != nil {
+		return "", fmt.Errorf("could not write tree: %w", err)
+	}
+
+	committer := git.Signature(git2go.NewSignature(request.AuthorName, request.AuthorMail, request.AuthorDate))
+	commit, err := repo.CreateCommitFromIds("", &committer, &committer, request.Message, tree, ours.Id(), theirs.Id())
+	if err != nil {
+		return "", fmt.Errorf("could not create merge commit: %w", err)
+	}
+
+	return commit.String(), nil
 }
 
 func resolveConflicts(repo *git.Repository, index *git.Index) error {
