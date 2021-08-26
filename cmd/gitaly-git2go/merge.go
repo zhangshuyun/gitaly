@@ -8,7 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"os"
 	"time"
 
 	git "github.com/libgit2/git2go/v31"
@@ -27,7 +26,7 @@ func (cmd *mergeSubcommand) Flags() *flag.FlagSet {
 	return flags
 }
 
-func (cmd *mergeSubcommand) Run(context.Context, io.Reader, io.Writer) error {
+func (cmd *mergeSubcommand) Run(_ context.Context, _ io.Reader, w io.Writer) error {
 	request, err := git2go.MergeCommandFromSerialized(cmd.request)
 	if err != nil {
 		return err
@@ -46,7 +45,7 @@ func (cmd *mergeSubcommand) Run(context.Context, io.Reader, io.Writer) error {
 		CommitID: commitID,
 	}
 
-	if err := response.SerializeTo(os.Stdout); err != nil {
+	if err := response.SerializeTo(w); err != nil {
 		return err
 	}
 
