@@ -1,3 +1,4 @@
+//go:build darwin || dragonfly || freebsd
 // +build darwin dragonfly freebsd
 
 package fstype
