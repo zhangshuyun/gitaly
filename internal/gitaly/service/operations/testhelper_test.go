@@ -49,10 +49,10 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func setupOperationsService(t testing.TB, ctx context.Context) (context.Context, config.Cfg, *gitalypb.Repository, string, gitalypb.OperationServiceClient) {
+func setupOperationsService(t testing.TB, ctx context.Context, options ...testserver.GitalyServerOpt) (context.Context, config.Cfg, *gitalypb.Repository, string, gitalypb.OperationServiceClient) {
 	cfg := testcfg.Build(t)
 
-	ctx, cfg, repo, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, nil)
+	ctx, cfg, repo, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, nil, options...)
 
 	return ctx, cfg, repo, repoPath, client
 }
