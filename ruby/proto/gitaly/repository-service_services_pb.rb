@@ -40,6 +40,10 @@ module Gitaly
       rpc :CreateBundle, Gitaly::CreateBundleRequest, stream(Gitaly::CreateBundleResponse)
       # CreateBundleFromRefList creates a bundle from a stream of ref patterns
       rpc :CreateBundleFromRefList, stream(Gitaly::CreateBundleFromRefListRequest), stream(Gitaly::CreateBundleFromRefListResponse)
+      # FetchBundle fetches references from a bundle into the local repository.
+      # Refs will be mirrored to the target repository with the refspec
+      # "+refs/*:refs/*" and refs that do not exist in the bundle will be removed.
+      rpc :FetchBundle, stream(Gitaly::FetchBundleRequest), Gitaly::FetchBundleResponse
       rpc :CreateRepositoryFromBundle, stream(Gitaly::CreateRepositoryFromBundleRequest), Gitaly::CreateRepositoryFromBundleResponse
       # GetConfig reads the target repository's gitconfig and streams its contents
       # back. Returns a NotFound error in case no gitconfig was found.
