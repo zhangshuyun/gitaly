@@ -190,7 +190,9 @@ func testMergeTrees(t *testing.T, ctx context.Context) {
 			theirs: map[string]string{
 				"1": "qux",
 			},
-			expectedErr: fmt.Errorf("merge: %w", git2go.SerializableError(errors.New("could not auto-merge due to conflicts"))),
+			expectedErr: fmt.Errorf("merge: %w", git2go.ConflictingFilesError{
+				ConflictingFiles: []string{"1"},
+			}),
 			//nolint:revive
 			expectedErrWithoutGob: errors.New("merge: could not auto-merge due to conflicts\n"),
 		},
@@ -330,7 +332,9 @@ func testMergeRecursive(t *testing.T, ctx context.Context) {
 		Theirs:     theirs[len(theirs)-1].String(),
 	})
 	if featureflag.Git2GoMergeGob.IsEnabled(ctx) {
-		require.Equal(t, fmt.Errorf("merge: %w", git2go.SerializableError(errors.New("could not auto-merge due to conflicts"))), err)
+		require.Equal(t, fmt.Errorf("merge: %w", git2go.ConflictingFilesError{
+			ConflictingFiles: []string{"theirs"},
+		}), err)
 	} else {
 		//nolint:revive
 		require.Equal(t, errors.New("merge: could not auto-merge due to conflicts\n"), err)

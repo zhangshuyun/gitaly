@@ -29,6 +29,7 @@ var registeredTypes = map[reflect.Type]struct{}{
 	reflect.TypeOf(FileNotFoundError("")):    {},
 	reflect.TypeOf(InvalidArgumentError("")): {},
 	reflect.TypeOf(HasConflictsError{}):      {},
+	reflect.TypeOf(ConflictingFilesError{}):  {},
 	reflect.TypeOf(EmptyError{}):             {},
 	reflect.TypeOf(IndexError("")):           {},
 }
@@ -59,6 +60,16 @@ type HasConflictsError struct{}
 
 func (err HasConflictsError) Error() string {
 	return "could not apply due to conflicts"
+}
+
+// ConflictingFilesError is an error raised when there are conflicting files.
+type ConflictingFilesError struct {
+	// ConflictingFiles is the set of files which have conflicts.
+	ConflictingFiles []string
+}
+
+func (err ConflictingFilesError) Error() string {
+	return "there are conflicting files"
 }
 
 // EmptyError indicates the command, for example cherry-pick, did result in no
