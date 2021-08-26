@@ -42,7 +42,7 @@ type FeatureFlag struct {
 // NewFeatureFlag creates a new feature flag and adds it to the array of all existing feature flags.
 func NewFeatureFlag(name string, onByDefault bool) FeatureFlag {
 	featureFlag := FeatureFlag{
-		Name: name,
+		Name:        name,
 		OnByDefault: onByDefault,
 	}
 	All = append(All, featureFlag)
