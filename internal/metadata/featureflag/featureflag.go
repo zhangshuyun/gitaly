@@ -25,6 +25,9 @@ var (
 		},
 		[]string{"flag", "enabled"},
 	)
+
+	// All is the list of all registered feature flags.
+	All = []FeatureFlag{}
 )
 
 // FeatureFlag gates the implementation of new or changed functionality.
@@ -34,6 +37,16 @@ type FeatureFlag struct {
 	// OnByDefault is the default value if the feature flag is not explicitly set in
 	// the incoming context.
 	OnByDefault bool `json:"on_by_default"`
+}
+
+// NewFeatureFlag creates a new feature flag and adds it to the array of all existing feature flags.
+func NewFeatureFlag(name string, onByDefault bool) FeatureFlag {
+	featureFlag := FeatureFlag{
+		Name: name,
+		OnByDefault: onByDefault,
+	}
+	All = append(All, featureFlag)
+	return featureFlag
 }
 
 // IsEnabled checks if the feature flag is enabled for the passed context.

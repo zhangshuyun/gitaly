@@ -5,12 +5,7 @@ package featureflag
 // NOTE: if you add a new feature flag please add it to the `All` list defined below.
 var (
 	// GoSetConfig enables git2go implementation of SetConfig.
-	GoSetConfig = FeatureFlag{Name: "go_set_config", OnByDefault: true}
+	GoSetConfig = NewFeatureFlag("go_set_config", true)
 	// PackObjectsHookWithSidechannel enables Unix socket sidechannels in 'gitaly-hooks git pack-objects'.
-	PackObjectsHookWithSidechannel = FeatureFlag{Name: "pack_objects_hook_with_sidechannel", OnByDefault: false}
+	PackObjectsHookWithSidechannel = NewFeatureFlag("pack_objects_hook_with_sidechannel", false)
 )
-
-// All includes all feature flags.
-var All = []FeatureFlag{
-	GoSetConfig,
-}
