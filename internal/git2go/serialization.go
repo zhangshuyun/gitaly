@@ -11,26 +11,26 @@ import (
 )
 
 func init() {
-	for typee := range registeredTypes {
-		gob.Register(typee)
+	for typeToRegister := range registeredTypes {
+		gob.Register(reflect.Zero(typeToRegister).Interface())
 	}
 }
 
-var registeredTypes = map[interface{}]struct{}{
-	ChangeFileMode{}:         {},
-	CreateDirectory{}:        {},
-	CreateFile{}:             {},
-	DeleteFile{}:             {},
-	MoveFile{}:               {},
-	UpdateFile{}:             {},
-	wrapError{}:              {},
-	DirectoryExistsError(""): {},
-	FileExistsError(""):      {},
-	FileNotFoundError(""):    {},
-	InvalidArgumentError(""): {},
-	HasConflictsError{}:      {},
-	EmptyError{}:             {},
-	IndexError(""):           {},
+var registeredTypes = map[reflect.Type]struct{}{
+	reflect.TypeOf(ChangeFileMode{}):         {},
+	reflect.TypeOf(CreateDirectory{}):        {},
+	reflect.TypeOf(CreateFile{}):             {},
+	reflect.TypeOf(DeleteFile{}):             {},
+	reflect.TypeOf(MoveFile{}):               {},
+	reflect.TypeOf(UpdateFile{}):             {},
+	reflect.TypeOf(wrapError{}):              {},
+	reflect.TypeOf(DirectoryExistsError("")): {},
+	reflect.TypeOf(FileExistsError("")):      {},
+	reflect.TypeOf(FileNotFoundError("")):    {},
+	reflect.TypeOf(InvalidArgumentError("")): {},
+	reflect.TypeOf(HasConflictsError{}):      {},
+	reflect.TypeOf(EmptyError{}):             {},
+	reflect.TypeOf(IndexError("")):           {},
 }
 
 // Result is the serialized result.
@@ -85,7 +85,7 @@ func SerializableError(err error) error {
 		}
 	}
 
-	if _, ok := registeredTypes[reflect.Zero(reflect.TypeOf(err)).Interface()]; !ok {
+	if _, ok := registeredTypes[reflect.TypeOf(err)]; !ok {
 		return wrapError{Message: err.Error()}
 	}
 
