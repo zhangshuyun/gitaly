@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/inspect"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 )
@@ -106,7 +107,10 @@ func (s *server) sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, r
 	commandOpts := []git.CmdOpt{
 		git.WithGitProtocol(ctx, req),
 		git.WithConfig(config...),
-		git.WithPackObjectsHookEnv(ctx, req.Repository, s.cfg),
+	}
+
+	if featureflag.IsEnabled(ctx, featureflag.UploadPackGitalyHooks) {
+		commandOpts = append(commandOpts, git.WithPackObjectsHookEnv(ctx, req.Repository, s.cfg))
 	}
 
 	cmd, monitor, err := monitorStdinCommand(ctx, s.gitCmdFactory, stdin, stdout, stderr, git.SubCmd{

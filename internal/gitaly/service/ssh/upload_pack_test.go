@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -224,6 +225,22 @@ func TestUploadPackCloneSuccess(t *testing.T) {
 			desc:   "shallow clone",
 			deepen: 1,
 		},
+		{
+			cmd:    exec.Command(cfg.Git.BinPath, "clone", "git@localhost:test/test.git", localRepoPath),
+			desc:   "full clone with hook",
+			deepen: 0,
+			featureFlags: []string{
+				featureflag.UploadPackGitalyHooks.Name,
+			},
+		},
+		{
+			cmd:    exec.Command(cfg.Git.BinPath, "clone", "--depth", "1", "git@localhost:test/test.git", localRepoPath),
+			desc:   "shallow clone with hook",
+			deepen: 1,
+			featureFlags: []string{
+				featureflag.UploadPackGitalyHooks.Name,
+			},
+		},
 	}
 
 	for _, tc := range tests {
@@ -279,8 +296,11 @@ exec '%s' "$@"
 	err := cloneCommand{
 		repository: repo,
 		command:    exec.Command(cfg.Git.BinPath, "clone", "git@localhost:test/test.git", localRepoPath),
-		server:     serverSocketPath,
-		cfg:        cfg,
+		featureFlags: []string{
+			featureflag.UploadPackGitalyHooks.Name,
+		},
+		server: serverSocketPath,
+		cfg:    cfg,
 	}.execute(t)
 	require.NoError(t, err)
 
@@ -291,7 +311,6 @@ func TestUploadPackWithoutSideband(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalySSHBin(t, cfg)
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
 	serverSocketPath := runSSHServer(t, cfg)
 
@@ -335,7 +354,6 @@ func TestUploadPackCloneWithPartialCloneFilter(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalySSHBin(t, cfg)
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
 	serverSocketPath := runSSHServer(t, cfg)
 
@@ -392,7 +410,6 @@ func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalySSHBin(t, cfg)
-	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
 	localRepoPath := testhelper.TempDir(t)
 

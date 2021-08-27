@@ -19,6 +19,8 @@ var (
 	GoUserRebaseConfirmable = FeatureFlag{Name: "go_user_rebase_confirmable", OnByDefault: true}
 	// GoUserRevert enables the Go implementation of UserRevert
 	GoUserRevert = FeatureFlag{Name: "go_user_revert", OnByDefault: true}
+	// UploadPackGitalyHooks enables the Go implementation of PackObjectsHook
+	UploadPackGitalyHooks = FeatureFlag{Name: "upload_pack_gitaly_hooks", OnByDefault: false}
 	// GoUpdateRemoteMirror enables the Go implementation of UpdateRemoteMirror
 	GoUpdateRemoteMirror = FeatureFlag{Name: "go_update_remote_mirror", OnByDefault: false}
 	// GrpcTreeEntryNotFound makes the TreeEntry gRPC call return NotFound instead of an empty blob
@@ -46,4 +48,5 @@ var All = []FeatureFlag{
 	FetchInternalRemoteErrors,
 	CreateRepositoryFromBundleAtomicFetch,
 	ReplicateRepositoryDirectFetch,
+	UploadPackGitalyHooks,
 }

@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -30,8 +31,12 @@ const (
 )
 
 func TestSuccessfulUploadPackRequest(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UploadPackGitalyHooks,
+	}).Run(t, testSuccessfulUploadPackRequest)
+}
+
+func testSuccessfulUploadPackRequest(t *testing.T, ctx context.Context) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
@@ -101,8 +106,12 @@ func TestSuccessfulUploadPackRequest(t *testing.T) {
 }
 
 func TestUploadPackRequestWithGitConfigOptions(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UploadPackGitalyHooks,
+	}).Run(t, testUploadPackRequestWithGitConfigOptions)
+}
+
+func testUploadPackRequestWithGitConfigOptions(t *testing.T, ctx context.Context) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
@@ -164,8 +173,12 @@ func TestUploadPackRequestWithGitConfigOptions(t *testing.T) {
 }
 
 func TestUploadPackRequestWithGitProtocol(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UploadPackGitalyHooks,
+	}).Run(t, testUploadPackRequestWithGitProtocol)
+}
+
+func testUploadPackRequestWithGitProtocol(t *testing.T, ctx context.Context) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	readProto, cfg := gittest.EnableGitProtocolV2Support(t, cfg)
@@ -207,8 +220,12 @@ func TestUploadPackRequestWithGitProtocol(t *testing.T) {
 // on 'deepen' requests even though the request is being handled just
 // fine from the client perspective.
 func TestSuccessfulUploadPackDeepenRequest(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UploadPackGitalyHooks,
+	}).Run(t, testSuccessfulUploadPackDeepenRequest)
+}
+
+func testSuccessfulUploadPackDeepenRequest(t *testing.T, ctx context.Context) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	serverSocketPath := runSmartHTTPServer(t, cfg)
@@ -266,8 +283,12 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 }
 
 func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UploadPackGitalyHooks,
+	}).Run(t, testFailedUploadPackRequestDueToValidationError)
+}
+
+func testFailedUploadPackRequestDueToValidationError(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
 
 	serverSocketPath := runSmartHTTPServer(t, cfg)
@@ -355,8 +376,12 @@ func extractPackDataFromResponse(t *testing.T, buf *bytes.Buffer) ([]byte, int, 
 }
 
 func TestUploadPackRequestForPartialCloneSuccess(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UploadPackGitalyHooks,
+	}).Run(t, testUploadPackRequestForPartialCloneSuccess)
+}
+
+func testUploadPackRequestForPartialCloneSuccess(t *testing.T, ctx context.Context) {
 	cfg, _, repoPath := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
