@@ -116,6 +116,9 @@ build:
     - go version
     - make all git
     - _support/test-boot .
+  artifacts:
+    paths:
+    - _build/bin
   parallel:
     matrix:
       - GO_VERSION: [ "1.15", "1.16" ]
