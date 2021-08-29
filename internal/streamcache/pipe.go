@@ -79,7 +79,7 @@ type pipe struct {
 	wnotifier *notifier
 }
 
-func newPipe(w namedWriteCloser) (io.ReadCloser, *pipe, error) {
+func newPipe(w namedWriteCloser) (*pipeReader, *pipe, error) {
 	p := &pipe{
 		name:    w.Name(),
 		w:       w,
@@ -98,17 +98,13 @@ func newPipe(w namedWriteCloser) (io.ReadCloser, *pipe, error) {
 
 func (p *pipe) Write(b []byte) (int, error) {
 	// Loop (block) until at least one reader catches up with our last write.
-	for done := false; !done && p.wcursor.Position() > p.rcursor.Position(); {
+	for p.wcursor.Position() > p.rcursor.Position() {
 		select {
 		case <-p.wcursor.Done():
-			done = true
+			// Prevent writing bytes no-one will read
+			return 0, errWrongCloseOrder
 		case <-p.wnotifier.C:
 		}
-	}
-
-	// Prevent writing bytes no-one will read
-	if p.wcursor.IsDone() {
-		return 0, errWrongCloseOrder
 	}
 
 	n, err := p.w.Write(b)
@@ -146,7 +142,7 @@ func (p *pipe) Close() error {
 
 func (p *pipe) RemoveFile() error { return os.Remove(p.name) }
 
-func (p *pipe) OpenReader() (io.ReadCloser, error) {
+func (p *pipe) OpenReader() (*pipeReader, error) {
 	p.m.Lock()
 	defer p.m.Unlock()
 
@@ -183,6 +179,12 @@ type pipeReader struct {
 	reader   io.ReadCloser
 	position int64
 	notifier *notifier
+
+	// golangci-lint does not like this struct field because it is only used
+	// on Linux. On macOS, it complains the field is unused. On Linux, it
+	// complains that "nolint:unused" is unused. So we need "unused" for
+	// platforms other than Linux, and "nolintlint" for Linux.
+	sendfileCalledSuccessfully bool //nolint:unused,nolintlint
 }
 
 func (pr *pipeReader) Close() error {
@@ -190,26 +192,35 @@ func (pr *pipeReader) Close() error {
 	return pr.reader.Close()
 }
 
-func (pr *pipeReader) Read(b []byte) (int, error) {
+func (pr *pipeReader) waitReadable() bool {
 	// Block until there is data for us to read. Note that it can actually
-	// happen that r.position > pr.pipe.wcursor, so we really want >= here, not
+	// happen that pr.position > pr.pipe.wcursor, so we really want >= here, not
 	// ==. There is a race between the moment the write end finishes writing
 	// a chunk of data to the file and the moment pr.pipe.wcursor gets
 	// updated.
-	for done := false; !done && pr.position >= pr.pipe.wcursor.Position(); {
+wait:
+	for pr.position >= pr.pipe.wcursor.Position() {
 		select {
 		case <-pr.pipe.rcursor.Done():
-			done = true
+			break wait
 		case <-pr.notifier.C:
 		}
 	}
 
-	n, err := pr.reader.Read(b)
+	return pr.position < pr.pipe.wcursor.Position()
+}
+
+func (pr *pipeReader) advancePosition(n int) {
 	pr.position += int64(n)
 
 	// The writer is subscribed to changes in pr.pipe.rcursor. If it is
 	// currently blocked, this call to SetPosition() will unblock it.
 	pr.pipe.rcursor.SetPosition(pr.position)
+}
 
+func (pr *pipeReader) Read(b []byte) (int, error) {
+	pr.waitReadable()
+	n, err := pr.reader.Read(b)
+	pr.advancePosition(n)
 	return n, err
 }

@@ -109,7 +109,7 @@ func (NullCache) FindOrCreate(key string, create func(io.Writer) error) (s *Stre
 	pr, pw := io.Pipe()
 	w := newWaiter()
 	go func() { w.SetError(runCreate(pw, create)) }()
-	return &Stream{reader: pr, waiter: w}, true, nil
+	return &Stream{ReadCloser: pr, waiter: w}, true, nil
 }
 
 // Stop is a no-op.
@@ -233,18 +233,22 @@ type entry struct {
 // Wait()). Callers must always call Close() to prevent resource leaks.
 type Stream struct {
 	waiter *waiter
-	reader io.ReadCloser
+	io.ReadCloser
 }
 
 // Wait returns the error value of the Stream. If ctx is canceled,
 // Wait unblocks and returns early.
 func (s *Stream) Wait(ctx context.Context) error { return s.waiter.Wait(ctx) }
 
-// Read reads from the underlying stream of the stream.
-func (s *Stream) Read(p []byte) (int, error) { return s.reader.Read(p) }
+// WriteTo implements io.WriterTo. For some w on some platforms, this
+// uses sendfile to make copying data more efficient.
+func (s *Stream) WriteTo(w io.Writer) (int64, error) {
+	if wt, ok := s.ReadCloser.(io.WriterTo); ok {
+		return wt.WriteTo(w)
+	}
 
-// Close releases the underlying resources of the stream.
-func (s *Stream) Close() error { return s.reader.Close() }
+	return io.Copy(w, s.ReadCloser)
+}
 
 func (c *cache) newEntry(key string, create func(io.Writer) error) (_ *Stream, _ *entry, err error) {
 	e := &entry{
@@ -296,7 +300,7 @@ func (c *cache) newEntry(key string, create func(io.Writer) error) (_ *Stream, _
 }
 
 func (e *entry) wrapReadCloser(r io.ReadCloser) *Stream {
-	return &Stream{reader: r, waiter: e.waiter}
+	return &Stream{ReadCloser: r, waiter: e.waiter}
 }
 
 func runCreate(w io.WriteCloser, create func(io.Writer) error) (err error) {
