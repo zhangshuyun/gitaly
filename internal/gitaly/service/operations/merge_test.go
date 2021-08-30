@@ -2,6 +2,7 @@ package operations
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -12,15 +13,21 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -524,6 +531,92 @@ func testUserMergeBranchConflict(t *testing.T, ctx context.Context) {
 	firstResponse, err := mergeBidi.Recv()
 	testassert.GrpcEqualErr(t, helper.ErrFailedPreconditionf("Failed to merge for source_sha %s into target_sha %s", divergedFrom, divergedInto), err)
 	require.Nil(t, firstResponse)
+}
+
+func TestUserMergeBranch_allowed(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	mergeBranchHeadAfter := "ff0ac4dfa30d6b26fd14aa83a75650355270bf76"
+
+	for _, tc := range []struct {
+		desc             string
+		allowed          bool
+		allowedMessage   string
+		allowedErr       error
+		expectedResponse *gitalypb.UserMergeBranchResponse
+	}{
+		{
+			desc:    "allowed",
+			allowed: true,
+			expectedResponse: &gitalypb.UserMergeBranchResponse{
+				BranchUpdate: &gitalypb.OperationBranchUpdate{
+					CommitId: mergeBranchHeadAfter,
+				},
+			},
+		},
+		{
+			desc:           "disallowed",
+			allowed:        false,
+			allowedMessage: "you shall not pass",
+			expectedResponse: &gitalypb.UserMergeBranchResponse{
+				PreReceiveError: "you shall not pass",
+			},
+		},
+		{
+			desc:       "failing",
+			allowedErr: errors.New("failure"),
+			expectedResponse: &gitalypb.UserMergeBranchResponse{
+				PreReceiveError: "invoking access checks: failure",
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			cfg := testcfg.Build(t)
+			backchannelRegistry := backchannel.NewRegistry()
+			txManager := transaction.NewManager(cfg, backchannelRegistry)
+			hookManager := hook.NewManager(config.NewLocator(cfg), txManager, gitlab.NewMockClient(
+				t,
+				func(context.Context, gitlab.AllowedParams) (bool, string, error) {
+					return tc.allowed, tc.allowedMessage, tc.allowedErr
+				},
+				gitlab.MockPreReceive,
+				gitlab.MockPostReceive,
+			), cfg)
+
+			ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(
+				t, ctx, cfg, nil,
+				testserver.WithBackchannelRegistry(backchannelRegistry),
+				testserver.WithTransactionManager(txManager),
+				testserver.WithHookManager(hookManager),
+			)
+
+			gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
+
+			stream, err := client.UserMergeBranch(ctx)
+			require.NoError(t, err)
+			require.NoError(t, stream.Send(&gitalypb.UserMergeBranchRequest{
+				Repository: repoProto,
+				User:       gittest.TestUser,
+				CommitId:   commitToMerge,
+				Branch:     []byte(mergeBranchName),
+				Message:    []byte("message"),
+				Timestamp:  &timestamppb.Timestamp{Seconds: 12, Nanos: 34},
+			}))
+
+			require.NoError(t, stream.Send(&gitalypb.UserMergeBranchRequest{
+				Apply: true,
+			}))
+			_, err = stream.Recv()
+			require.NoError(t, err)
+
+			response, err := stream.Recv()
+			require.NoError(t, err)
+			testassert.ProtoEqual(t, tc.expectedResponse, response)
+		})
+	}
 }
 
 func TestUserFFBranch_successful(t *testing.T) {
