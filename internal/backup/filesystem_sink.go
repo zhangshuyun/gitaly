@@ -60,9 +60,9 @@ func (fs *FilesystemSink) GetReader(ctx context.Context, relativePath string) (i
 	f, err := os.Open(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return nil, ErrDoesntExist
+			err = ErrDoesntExist
 		}
-		return nil, fmt.Errorf("open %q: %w", path, err)
+		return nil, fmt.Errorf("filesystem sink: get reader for %q: %w", relativePath, err)
 	}
 	return f, nil
 }

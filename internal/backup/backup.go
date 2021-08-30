@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"path/filepath"
 	"strings"
+	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
@@ -38,6 +38,28 @@ type Sink interface {
 	GetReader(ctx context.Context, relativePath string) (io.ReadCloser, error)
 }
 
+// Full represents all paths required for a full backup
+type Full struct {
+	// BundlePath is the path of the bundle
+	BundlePath string
+	// RefPath is the path of the ref file
+	RefPath string
+	// CustomHooksPath is the path of the custom hooks archive
+	CustomHooksPath string
+}
+
+// Locator finds sink backup paths for repositories
+type Locator interface {
+	// BeginFull returns paths for a new full backup
+	BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Full
+
+	// CommitFull persists the paths for a new backup so that it can be looked up by FindLatestFull
+	CommitFull(ctx context.Context, full *Full) error
+
+	// FindLatestFull returns the paths committed by the latest call to CommitFull
+	FindLatestFull(ctx context.Context, repo *gitalypb.Repository) (*Full, error)
+}
+
 // ResolveSink returns a sink implementation based on the provided path.
 func ResolveSink(ctx context.Context, path string) (Sink, error) {
 	parsed, err := url.Parse(path)
@@ -61,17 +83,41 @@ func ResolveSink(ctx context.Context, path string) (Sink, error) {
 	}
 }
 
+// ResolveLocator returns a locator implementation based on a locator identifier.
+func ResolveLocator(locator string, sink Sink) (Locator, error) {
+	legacy := LegacyLocator{}
+	switch locator {
+	case "legacy":
+		return legacy, nil
+	case "pointer":
+		return PointerLocator{
+			Sink:     sink,
+			Fallback: legacy,
+		}, nil
+	default:
+		return nil, fmt.Errorf("unknown locator: %q", locator)
+	}
+}
+
 // Manager manages process of the creating/restoring backups.
 type Manager struct {
-	sink  Sink
-	conns *client.Pool
+	sink    Sink
+	conns   *client.Pool
+	locator Locator
+
+	// backupID allows setting the same full backup ID for every repository at
+	// once. We may use this to make it easier to specify a backup to restore
+	// from, rather than always selecting the latest.
+	backupID string
 }
 
 // NewManager creates and returns initialized *Manager instance.
-func NewManager(sink Sink) *Manager {
+func NewManager(sink Sink, locator Locator) *Manager {
 	return &Manager{
-		sink:  sink,
-		conns: client.NewPool(),
+		sink:     sink,
+		conns:    client.NewPool(),
+		locator:  locator,
+		backupID: time.Now().UTC().Format("20060102150405"),
 	}
 }
 
@@ -86,27 +132,28 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 	if isEmpty, err := mgr.isEmpty(ctx, req.Server, req.Repository); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	} else if isEmpty {
-		return ErrSkipped
+		return fmt.Errorf("manager: repository empty: %w", ErrSkipped)
 	}
 
-	backupPath := strings.TrimSuffix(req.Repository.RelativePath, ".git")
-	refsPath := backupPath + ".refs"
-	bundlePath := backupPath + ".bundle"
-	customHooksPath := filepath.Join(backupPath, "custom_hooks.tar")
+	full := mgr.locator.BeginFull(ctx, req.Repository, mgr.backupID)
 
 	refs, err := mgr.listRefs(ctx, req.Server, req.Repository)
 	if err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
-	if err := mgr.writeRefs(ctx, refsPath, refs); err != nil {
+	if err := mgr.writeRefs(ctx, full.RefPath, refs); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
 	patterns := mgr.generatePatterns(refs)
-	if err := mgr.writeBundle(ctx, bundlePath, req.Server, req.Repository, patterns); err != nil {
+	if err := mgr.writeBundle(ctx, full.BundlePath, req.Server, req.Repository, patterns); err != nil {
 		return fmt.Errorf("manager: write bundle: %w", err)
 	}
-	if err := mgr.writeCustomHooks(ctx, customHooksPath, req.Server, req.Repository); err != nil {
+	if err := mgr.writeCustomHooks(ctx, full.CustomHooksPath, req.Server, req.Repository); err != nil {
 		return fmt.Errorf("manager: write custom hooks: %w", err)
+	}
+
+	if err := mgr.locator.CommitFull(ctx, full); err != nil {
+		return fmt.Errorf("manager: %w", err)
 	}
 
 	return nil
@@ -121,31 +168,42 @@ type RestoreRequest struct {
 
 // Restore restores a repository from a backup.
 func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
-	backupPath := strings.TrimSuffix(req.Repository.RelativePath, ".git")
-	bundlePath := backupPath + ".bundle"
-	customHooksPath := filepath.Join(backupPath, "custom_hooks.tar")
-
 	if err := mgr.removeRepository(ctx, req.Server, req.Repository); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
-	if err := mgr.restoreBundle(ctx, bundlePath, req.Server, req.Repository); err != nil {
+
+	full, err := mgr.locator.FindLatestFull(ctx, req.Repository)
+	if err != nil {
+		return mgr.checkRestoreSkip(ctx, err, req)
+	}
+
+	if err := mgr.restoreBundle(ctx, full.BundlePath, req.Server, req.Repository); err != nil {
+		return mgr.checkRestoreSkip(ctx, err, req)
+	}
+	if err := mgr.restoreCustomHooks(ctx, full.CustomHooksPath, req.Server, req.Repository); err != nil {
+		return fmt.Errorf("manager: %w", err)
+	}
+	return nil
+}
+
+func (mgr *Manager) checkRestoreSkip(ctx context.Context, err error, req *RestoreRequest) error {
+	if errors.Is(err, ErrDoesntExist) {
 		// For compatibility with existing backups we need to always create the
 		// repository even if there's no bundle for project repositories
 		// (not wiki or snippet repositories).  Gitaly does not know which
 		// repository is which type so here we accept a parameter to tell us
 		// to employ this behaviour.
-		if req.AlwaysCreate && errors.Is(err, ErrSkipped) {
+		if req.AlwaysCreate {
 			if err := mgr.createRepository(ctx, req.Server, req.Repository); err != nil {
 				return fmt.Errorf("manager: %w", err)
 			}
-		} else {
-			return fmt.Errorf("manager: %w", err)
+			return nil
 		}
+
+		return fmt.Errorf("manager: %w: %s", ErrSkipped, err.Error())
 	}
-	if err := mgr.restoreCustomHooks(ctx, customHooksPath, req.Server, req.Repository); err != nil {
-		return fmt.Errorf("manager: %w", err)
-	}
-	return nil
+
+	return fmt.Errorf("manager: %w", err)
 }
 
 func (mgr *Manager) isEmpty(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) (bool, error) {
@@ -247,9 +305,6 @@ func (s *createBundleFromRefListSender) Send() error {
 func (mgr *Manager) restoreBundle(ctx context.Context, path string, server storage.ServerInfo, repo *gitalypb.Repository) error {
 	reader, err := mgr.sink.GetReader(ctx, path)
 	if err != nil {
-		if errors.Is(err, ErrDoesntExist) {
-			return fmt.Errorf("%w: bundle does not exist: %q", ErrSkipped, path)
-		}
 		return fmt.Errorf("restore bundle: %w", err)
 	}
 	defer reader.Close()
