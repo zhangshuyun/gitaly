@@ -26,8 +26,8 @@ type LegacyLocator struct {
 }
 
 // BeginFull returns the static paths for a legacy repository backup
-func (l LegacyLocator) BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) (*Full, error) {
-	return l.newFull(repo), nil
+func (l LegacyLocator) BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Full {
+	return l.newFull(repo)
 }
 
 // CommitFull is unused as the locations are static
@@ -65,14 +65,14 @@ type PointerLocator struct {
 }
 
 // BeginFull returns paths for a new full backup
-func (l PointerLocator) BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) (*Full, error) {
+func (l PointerLocator) BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Full {
 	backupPath := strings.TrimSuffix(repo.RelativePath, ".git")
 
 	return &Full{
 		BundlePath:      filepath.Join(backupPath, backupID, "full.bundle"),
 		RefPath:         filepath.Join(backupPath, backupID, "full.refs"),
 		CustomHooksPath: filepath.Join(backupPath, backupID, "custom_hooks.tar"),
-	}, nil
+	}
 }
 
 // CommitFull persists the paths for a new backup so that it can be looked up by FindLatestFull

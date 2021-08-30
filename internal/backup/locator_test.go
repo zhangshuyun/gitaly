@@ -26,9 +26,7 @@ func TestLegacyLocator(t *testing.T) {
 			CustomHooksPath: filepath.Join(repo.RelativePath, "custom_hooks.tar"),
 		}
 
-		full, err := l.BeginFull(ctx, repo, "abc123")
-		require.NoError(t, err)
-
+		full := l.BeginFull(ctx, repo, "abc123")
 		assert.Equal(t, expected, full)
 
 		require.NoError(t, l.CommitFull(ctx, full))
@@ -71,9 +69,7 @@ func TestPointerLocator(t *testing.T) {
 			CustomHooksPath: filepath.Join(repo.RelativePath, backupID, "custom_hooks.tar"),
 		}
 
-		full, err := l.BeginFull(ctx, repo, backupID)
-		require.NoError(t, err)
-
+		full := l.BeginFull(ctx, repo, backupID)
 		assert.Equal(t, expected, full)
 
 		require.NoError(t, l.CommitFull(ctx, full))

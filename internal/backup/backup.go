@@ -51,7 +51,7 @@ type Full struct {
 // Locator finds sink backup paths for repositories
 type Locator interface {
 	// BeginFull returns paths for a new full backup
-	BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) (*Full, error)
+	BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Full
 
 	// CommitFull persists the paths for a new backup so that it can be looked up by FindLatestFull
 	CommitFull(ctx context.Context, full *Full) error
@@ -135,10 +135,7 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 		return fmt.Errorf("manager: repository empty: %w", ErrSkipped)
 	}
 
-	full, err := mgr.locator.BeginFull(ctx, req.Repository, mgr.backupID)
-	if err != nil {
-		return fmt.Errorf("manager: %w", err)
-	}
+	full := mgr.locator.BeginFull(ctx, req.Repository, mgr.backupID)
 
 	refs, err := mgr.listRefs(ctx, req.Server, req.Repository)
 	if err != nil {
