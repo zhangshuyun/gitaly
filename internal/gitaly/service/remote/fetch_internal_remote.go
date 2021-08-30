@@ -61,12 +61,12 @@ func FetchInternalRemote(
 		return status.Errorf(codes.Internal, "FetchInternalRemote: remote default branch: %v", err)
 	}
 
-	defaultBranch, err := ref.DefaultBranchName(ctx, repo)
+	defaultBranch, err := repo.GetDefaultBranch(ctx, nil)
 	if err != nil {
 		return status.Errorf(codes.Internal, "FetchInternalRemote: default branch: %v", err)
 	}
 
-	if !bytes.Equal(defaultBranch, remoteDefaultBranch) {
+	if defaultBranch.Name.String() != string(remoteDefaultBranch) {
 		if err := ref.SetDefaultBranchRef(ctx, repo, string(remoteDefaultBranch), cfg); err != nil {
 			return status.Errorf(codes.Internal, "FetchInternalRemote: set default branch: %v", err)
 		}
