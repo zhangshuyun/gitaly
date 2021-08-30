@@ -134,65 +134,16 @@ func SetDefaultBranchRef(ctx context.Context, repo git.RepositoryExecutor, ref s
 	return nil
 }
 
-// DefaultBranchName looks up the name of the default branch given a repoPath
-func DefaultBranchName(ctx context.Context, repo git.RepositoryExecutor) ([]byte, error) {
-	branches, err := FindBranchNames(ctx, repo)
-	if err != nil {
-		return nil, err
-	}
-
-	// Return empty ref name if there are no branches
-	if len(branches) == 0 {
-		return nil, nil
-	}
-
-	// Return first branch name if there's only one
-	if len(branches) == 1 {
-		return branches[0], nil
-	}
-
-	hasDefaultRef, hasLegacyDefaultRef := false, false
-	headRef, err := headReference(ctx, repo)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, branch := range branches {
-		// Return HEAD if it exists and corresponds to a branch
-		if headRef != nil && bytes.Equal(headRef, branch) {
-			return headRef, nil
-		}
-
-		if bytes.Equal(branch, git.DefaultRef) {
-			hasDefaultRef = true
-		}
-
-		hasLegacyDefaultRef = hasLegacyDefaultRef || bytes.Equal(branch, git.LegacyDefaultRef)
-	}
-
-	// Return the default ref if it exists
-	if hasDefaultRef {
-		return git.DefaultRef, nil
-	}
-
-	if hasLegacyDefaultRef {
-		return git.LegacyDefaultRef, nil
-	}
-
-	// If all else fails, return the first branch name
-	return branches[0], nil
-}
-
 // FindDefaultBranchName returns the default branch name for the given repository
 func (s *server) FindDefaultBranchName(ctx context.Context, in *gitalypb.FindDefaultBranchNameRequest) (*gitalypb.FindDefaultBranchNameResponse, error) {
 	repo := s.localrepo(in.GetRepository())
 
-	defaultBranchName, err := DefaultBranchName(ctx, repo)
+	defaultBranch, err := repo.GetDefaultBranch(ctx, nil)
 	if err != nil {
 		return nil, helper.ErrInternal(err)
 	}
 
-	return &gitalypb.FindDefaultBranchNameResponse{Name: defaultBranchName}, nil
+	return &gitalypb.FindDefaultBranchNameResponse{Name: []byte(defaultBranch.Name)}, nil
 }
 
 func parseSortKey(sortKey gitalypb.FindLocalBranchesRequest_SortBy) string {
@@ -256,12 +207,12 @@ func (s *server) findAllBranches(in *gitalypb.FindAllBranchesRequest, stream git
 	patterns := []string{"refs/heads", "refs/remotes"}
 
 	if in.MergedOnly {
-		defaultBranchName, err := DefaultBranchName(stream.Context(), repo)
+		defaultBranch, err := repo.GetDefaultBranch(stream.Context(), nil)
 		if err != nil {
 			return err
 		}
 
-		args = append(args, git.Flag{Name: fmt.Sprintf("--merged=%s", string(defaultBranchName))})
+		args = append(args, git.Flag{Name: fmt.Sprintf("--merged=%s", defaultBranch.Name.String())})
 
 		if len(in.MergedBranches) > 0 {
 			patterns = nil
