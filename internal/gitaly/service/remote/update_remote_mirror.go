@@ -10,7 +10,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -103,7 +102,7 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 		return fmt.Errorf("get local references: %w", err)
 	}
 
-	defaultBranch, err := ref.DefaultBranchName(ctx, repo)
+	defaultBranch, err := repo.GetDefaultBranch(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("get default branch: %w", err)
 	}
@@ -195,7 +194,7 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 			}
 
 			refspecs = append(refspecs, prefix+reference.String())
-			if reference == git.ReferenceName(defaultBranch) {
+			if reference == defaultBranch.Name {
 				// The default branch needs to be pushed in the first batch of refspecs as some features
 				// depend on it existing in the repository. The default branch may not exist in the repo
 				// yet if this is the first mirroring push.
