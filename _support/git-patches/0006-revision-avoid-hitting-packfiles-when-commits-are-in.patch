@@ -1,0 +1,138 @@
+From f559d6d45e7e58ae1f922213948723de77ea77bd Mon Sep 17 00:00:00 2001
+Message-Id: <f559d6d45e7e58ae1f922213948723de77ea77bd.1630319075.git.ps@pks.im>
+In-Reply-To: <29ef1f27fed21b5b7d3c996a01f1364e7e841917.1630319075.git.ps@pks.im>
+References: <29ef1f27fed21b5b7d3c996a01f1364e7e841917.1630319075.git.ps@pks.im>
+From: Patrick Steinhardt <ps@pks.im>
+Date: Mon, 9 Aug 2021 10:12:03 +0200
+Subject: [PATCH 6/6] revision: avoid hitting packfiles when commits are in
+ commit-graph
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+When queueing references in git-rev-list(1), we try to optimize parsing
+of commits via the commit-graph. To do so, we first look up the object's
+type, and if it is a commit we call `repo_parse_commit()` instead of
+`parse_object()`. This is quite inefficient though given that we're
+always uncompressing the object header in order to determine the type.
+Instead, we can opportunistically search the commit-graph for the object
+ID: in case it's found, we know it's a commit and can directly fill in
+the commit object without having to uncompress the object header.
+
+Expose a new function `lookup_commit_in_graph()`, which tries to find a
+commit in the commit-graph by ID, and convert `get_reference()` to use
+this function. This provides a big performance win in cases where we
+load references in a repository with lots of references pointing to
+commits. The following has been executed in a real-world repository with
+about 2.2 million refs:
+
+    Benchmark #1: HEAD~: rev-list --unsorted-input --objects --quiet --not --all --not $newrev
+      Time (mean ± σ):      4.458 s ±  0.044 s    [User: 4.115 s, System: 0.342 s]
+      Range (min … max):    4.409 s …  4.534 s    10 runs
+
+    Benchmark #2: HEAD: rev-list --unsorted-input --objects --quiet --not --all --not $newrev
+      Time (mean ± σ):      3.089 s ±  0.015 s    [User: 2.768 s, System: 0.321 s]
+      Range (min … max):    3.061 s …  3.105 s    10 runs
+
+    Summary
+      'HEAD: rev-list --unsorted-input --objects --quiet --not --all --not $newrev' ran
+        1.44 ± 0.02 times faster than 'HEAD~: rev-list --unsorted-input --objects --quiet --not --all --not $newrev'
+
+Signed-off-by: Patrick Steinhardt <ps@pks.im>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+---
+ commit-graph.c | 24 ++++++++++++++++++++++++
+ commit-graph.h |  8 ++++++++
+ revision.c     | 18 ++++++++----------
+ 3 files changed, 40 insertions(+), 10 deletions(-)
+
+diff --git a/commit-graph.c b/commit-graph.c
+index 8c4c7262c8..00614acd65 100644
+--- a/commit-graph.c
++++ b/commit-graph.c
+@@ -891,6 +891,30 @@ static int find_commit_pos_in_graph(struct commit *item, struct commit_graph *g,
+ 	}
+ }
+ 
++struct commit *lookup_commit_in_graph(struct repository *repo, const struct object_id *id)
++{
++	struct commit *commit;
++	uint32_t pos;
++
++	if (!repo->objects->commit_graph)
++		return NULL;
++	if (!search_commit_pos_in_graph(id, repo->objects->commit_graph, &pos))
++		return NULL;
++	if (!repo_has_object_file(repo, id))
++		return NULL;
++
++	commit = lookup_commit(repo, id);
++	if (!commit)
++		return NULL;
++	if (commit->object.parsed)
++		return commit;
++
++	if (!fill_commit_in_graph(repo, commit, repo->objects->commit_graph, pos))
++		return NULL;
++
++	return commit;
++}
++
+ static int parse_commit_in_graph_one(struct repository *r,
+ 				     struct commit_graph *g,
+ 				     struct commit *item)
+diff --git a/commit-graph.h b/commit-graph.h
+index 96c24fb577..04a94e1830 100644
+--- a/commit-graph.h
++++ b/commit-graph.h
+@@ -40,6 +40,14 @@ int open_commit_graph(const char *graph_file, int *fd, struct stat *st);
+  */
+ int parse_commit_in_graph(struct repository *r, struct commit *item);
+ 
++/*
++ * Look up the given commit ID in the commit-graph. This will only return a
++ * commit if the ID exists both in the graph and in the object database such
++ * that we don't return commits whose object has been pruned. Otherwise, this
++ * function returns `NULL`.
++ */
++struct commit *lookup_commit_in_graph(struct repository *repo, const struct object_id *id);
++
+ /*
+  * It is possible that we loaded commit contents from the commit buffer,
+  * but we also want to ensure the commit-graph content is correctly
+diff --git a/revision.c b/revision.c
+index 80a59896b9..0dabb5a0bc 100644
+--- a/revision.c
++++ b/revision.c
+@@ -360,20 +360,18 @@ static struct object *get_reference(struct rev_info *revs, const char *name,
+ 				    unsigned int flags)
+ {
+ 	struct object *object;
++	struct commit *commit;
+ 
+ 	/*
+-	 * If the repository has commit graphs, repo_parse_commit() avoids
+-	 * reading the object buffer, so use it whenever possible.
++	 * If the repository has commit graphs, we try to opportunistically
++	 * look up the object ID in those graphs. Like this, we can avoid
++	 * parsing commit data from disk.
+ 	 */
+-	if (oid_object_info(revs->repo, oid, NULL) == OBJ_COMMIT) {
+-		struct commit *c = lookup_commit(revs->repo, oid);
+-		if (!repo_parse_commit(revs->repo, c))
+-			object = (struct object *) c;
+-		else
+-			object = NULL;
+-	} else {
++	commit = lookup_commit_in_graph(revs->repo, oid);
++	if (commit)
++		object = &commit->object;
++	else
+ 		object = parse_object(revs->repo, oid);
+-	}
+ 
+ 	if (!object) {
+ 		if (revs->ignore_missing)
+-- 
+2.33.0
+

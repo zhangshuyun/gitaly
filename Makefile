@@ -114,6 +114,11 @@ ifndef GIT_PATCHES
     # first to make sure your patches meet our acceptance criteria. Patches
     # must be put into `_support/git-patches`.
     GIT_PATCHES += 0001-fetch-pack-speed-up-loading-of-refs-via-commit-graph.patch
+    GIT_PATCHES += 0002-revision-separate-walk-and-unsorted-flags.patch
+    GIT_PATCHES += 0003-connected-do-not-sort-input-revisions.patch
+    GIT_PATCHES += 0004-revision-stop-retrieving-reference-twice.patch
+    GIT_PATCHES += 0005-commit-graph-split-out-function-to-search-commit-pos.patch
+    GIT_PATCHES += 0006-revision-avoid-hitting-packfiles-when-commits-are-in.patch
 endif
 
 ifndef GIT_BUILD_OPTIONS
