@@ -53,12 +53,11 @@ func (s *server) commitsByMessage(in *gitalypb.CommitsByMessageRequest, stream g
 
 	revision := in.GetRevision()
 	if len(revision) == 0 {
-		var err error
-
-		revision, err = defaultBranchName(ctx, repo)
+		defaultBranch, err := repo.GetDefaultBranch(ctx, nil)
 		if err != nil {
 			return err
 		}
+		revision = []byte(defaultBranch.Name)
 	}
 
 	var paths []string
