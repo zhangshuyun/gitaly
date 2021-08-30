@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 )
 
 const (
@@ -66,6 +67,17 @@ func (m MergeResult) SerializeTo(w io.Writer) error {
 func (b Executor) Merge(ctx context.Context, repo repository.GitRepo, m MergeCommand) (MergeResult, error) {
 	if err := m.verify(); err != nil {
 		return MergeResult{}, fmt.Errorf("merge: %w: %s", ErrInvalidArgument, err.Error())
+	}
+
+	if featureflag.Git2GoMergeGob.IsEnabled(ctx) {
+		commitID, err := b.runWithGob(ctx, repo, "merge", m)
+		if err != nil {
+			return MergeResult{}, err
+		}
+
+		return MergeResult{
+			CommitID: commitID.String(),
+		}, nil
 	}
 
 	serialized, err := serialize(m)

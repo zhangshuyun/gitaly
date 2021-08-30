@@ -83,7 +83,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 			return helper.ErrInvalidArgument(err)
 		}
 
-		if strings.Contains(err.Error(), "could not auto-merge due to conflicts") {
+		if strings.Contains(err.Error(), "could not auto-merge due to conflicts") || errors.As(err, &git2go.ConflictingFilesError{}) {
 			return helper.ErrFailedPreconditionf("Failed to merge for source_sha %s into target_sha %s",
 				firstRequest.CommitId, revision.String())
 		}

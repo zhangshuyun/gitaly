@@ -4,11 +4,11 @@ package main
 
 import (
 	"context"
+	"encoding/gob"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
-	"os"
 	"time"
 
 	git "github.com/libgit2/git2go/v31"
@@ -27,8 +27,16 @@ func (cmd *mergeSubcommand) Flags() *flag.FlagSet {
 	return flags
 }
 
-func (cmd *mergeSubcommand) Run(context.Context, io.Reader, io.Writer) error {
-	request, err := git2go.MergeCommandFromSerialized(cmd.request)
+func (cmd *mergeSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) error {
+	useGob := cmd.request == ""
+
+	var err error
+	var request git2go.MergeCommand
+	if useGob {
+		err = gob.NewDecoder(r).Decode(&request)
+	} else {
+		request, err = git2go.MergeCommandFromSerialized(cmd.request)
+	}
 	if err != nil {
 		return err
 	}
@@ -37,67 +45,94 @@ func (cmd *mergeSubcommand) Run(context.Context, io.Reader, io.Writer) error {
 		request.AuthorDate = time.Now()
 	}
 
-	repo, err := git2goutil.OpenRepository(request.Repository)
-	if err != nil {
-		return fmt.Errorf("could not open repository: %w", err)
-	}
-	defer repo.Free()
-
-	ours, err := lookupCommit(repo, request.Ours)
-	if err != nil {
-		return fmt.Errorf("ours commit lookup: %w", err)
+	commitID, err := merge(request, useGob)
+	if useGob {
+		return gob.NewEncoder(w).Encode(git2go.Result{
+			CommitID: commitID,
+			Error:    git2go.SerializableError(err),
+		})
 	}
 
-	theirs, err := lookupCommit(repo, request.Theirs)
 	if err != nil {
-		return fmt.Errorf("theirs commit lookup: %w", err)
-	}
-
-	mergeOpts, err := git.DefaultMergeOptions()
-	if err != nil {
-		return fmt.Errorf("could not create merge options: %w", err)
-	}
-	mergeOpts.RecursionLimit = git2go.MergeRecursionLimit
-
-	index, err := repo.MergeCommits(ours, theirs, &mergeOpts)
-	if err != nil {
-		return fmt.Errorf("could not merge commits: %w", err)
-	}
-	defer index.Free()
-
-	if index.HasConflicts() {
-		if !request.AllowConflicts {
-			return errors.New("could not auto-merge due to conflicts")
-		}
-
-		if err := resolveConflicts(repo, index); err != nil {
-			return fmt.Errorf("could not resolve conflicts: %w", err)
-		}
-	}
-
-	tree, err := index.WriteTreeTo(repo)
-	if err != nil {
-		return fmt.Errorf("could not write tree: %w", err)
-	}
-
-	committer := git.Signature(git2go.NewSignature(request.AuthorName, request.AuthorMail, request.AuthorDate))
-	commit, err := repo.CreateCommitFromIds("", &committer, &committer, request.Message, tree, ours.Id(), theirs.Id())
-	if err != nil {
-		return fmt.Errorf("could not create merge commit: %w", err)
+		return err
 	}
 
 	response := git2go.MergeResult{
-		CommitID: commit.String(),
+		CommitID: commitID,
 	}
 
-	if err := response.SerializeTo(os.Stdout); err != nil {
+	if err := response.SerializeTo(w); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func resolveConflicts(repo *git.Repository, index *git.Index) error {
+func merge(request git2go.MergeCommand, useStructuredErrors bool) (string, error) {
+	repo, err := git2goutil.OpenRepository(request.Repository)
+	if err != nil {
+		return "", fmt.Errorf("could not open repository: %w", err)
+	}
+	defer repo.Free()
+
+	ours, err := lookupCommit(repo, request.Ours)
+	if err != nil {
+		return "", fmt.Errorf("ours commit lookup: %w", err)
+	}
+
+	theirs, err := lookupCommit(repo, request.Theirs)
+	if err != nil {
+		return "", fmt.Errorf("theirs commit lookup: %w", err)
+	}
+
+	mergeOpts, err := git.DefaultMergeOptions()
+	if err != nil {
+		return "", fmt.Errorf("could not create merge options: %w", err)
+	}
+	mergeOpts.RecursionLimit = git2go.MergeRecursionLimit
+
+	index, err := repo.MergeCommits(ours, theirs, &mergeOpts)
+	if err != nil {
+		return "", fmt.Errorf("could not merge commits: %w", err)
+	}
+	defer index.Free()
+
+	if index.HasConflicts() {
+		if !request.AllowConflicts {
+			if useStructuredErrors {
+				conflictingFiles, err := getConflictingFiles(index)
+				if err != nil {
+					return "", fmt.Errorf("getting conflicting files: %w", err)
+				}
+
+				return "", git2go.ConflictingFilesError{
+					ConflictingFiles: conflictingFiles,
+				}
+			}
+
+			return "", errors.New("could not auto-merge due to conflicts")
+		}
+
+		if err := resolveConflicts(repo, index, useStructuredErrors); err != nil {
+			return "", fmt.Errorf("could not resolve conflicts: %w", err)
+		}
+	}
+
+	tree, err := index.WriteTreeTo(repo)
+	if err != nil {
+		return "", fmt.Errorf("could not write tree: %w", err)
+	}
+
+	committer := git.Signature(git2go.NewSignature(request.AuthorName, request.AuthorMail, request.AuthorDate))
+	commit, err := repo.CreateCommitFromIds("", &committer, &committer, request.Message, tree, ours.Id(), theirs.Id())
+	if err != nil {
+		return "", fmt.Errorf("could not create merge commit: %w", err)
+	}
+
+	return commit.String(), nil
+}
+
+func resolveConflicts(repo *git.Repository, index *git.Index, useStructuredErrors bool) error {
 	// We need to get all conflicts up front as resolving conflicts as we
 	// iterate breaks the iterator.
 	indexConflicts, err := getConflicts(index)
@@ -158,10 +193,44 @@ func resolveConflicts(repo *git.Repository, index *git.Index) error {
 	}
 
 	if index.HasConflicts() {
+		if useStructuredErrors {
+			conflictingFiles, err := getConflictingFiles(index)
+			if err != nil {
+				return fmt.Errorf("getting conflicting files: %w", err)
+			}
+
+			return git2go.ConflictingFilesError{
+				ConflictingFiles: conflictingFiles,
+			}
+		}
+
 		return errors.New("index still has conflicts")
 	}
 
 	return nil
+}
+
+func getConflictingFiles(index *git.Index) ([]string, error) {
+	conflicts, err := getConflicts(index)
+	if err != nil {
+		return nil, fmt.Errorf("getting conflicts: %w", err)
+	}
+
+	conflictingFiles := make([]string, 0, len(conflicts))
+	for _, conflict := range conflicts {
+		switch {
+		case conflict.Our != nil:
+			conflictingFiles = append(conflictingFiles, conflict.Our.Path)
+		case conflict.Ancestor != nil:
+			conflictingFiles = append(conflictingFiles, conflict.Ancestor.Path)
+		case conflict.Their != nil:
+			conflictingFiles = append(conflictingFiles, conflict.Their.Path)
+		default:
+			return nil, errors.New("invalid conflict")
+		}
+	}
+
+	return conflictingFiles, nil
 }
 
 func isConflictMergeable(conflict git.IndexConflict) bool {
