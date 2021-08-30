@@ -62,9 +62,9 @@ import (
 	"strings"
 	"text/template"
 
-	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/internal/linter"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/pluginpb"
 )
 
 const (
@@ -78,7 +78,7 @@ func main() {
 		log.Fatalf("reading input: %s", err)
 	}
 
-	req := &plugin.CodeGeneratorRequest{}
+	req := &pluginpb.CodeGeneratorRequest{}
 
 	if err := proto.Unmarshal(data, req); err != nil {
 		log.Fatalf("parsing input proto: %s", err)
@@ -110,7 +110,7 @@ func parseArgs(argString string) (gitalyProtoDir string, gitalypbDir string) {
 	return gitalyProtoDir, gitalypbDir
 }
 
-func lintProtos(req *plugin.CodeGeneratorRequest) error {
+func lintProtos(req *pluginpb.CodeGeneratorRequest) error {
 	var errMsgs []string
 	for _, pf := range req.GetProtoFile() {
 		errs := linter.LintFile(pf, req)
@@ -119,7 +119,7 @@ func lintProtos(req *plugin.CodeGeneratorRequest) error {
 		}
 	}
 
-	resp := &plugin.CodeGeneratorResponse{}
+	resp := &pluginpb.CodeGeneratorResponse{}
 
 	if len(errMsgs) > 0 {
 		errMsg := strings.Join(errMsgs, "\n\t")
@@ -139,7 +139,7 @@ func lintProtos(req *plugin.CodeGeneratorRequest) error {
 	return nil
 }
 
-func generateProtolistGo(req *plugin.CodeGeneratorRequest) error {
+func generateProtolistGo(req *pluginpb.CodeGeneratorRequest) error {
 	var err error
 	gitalyProtoDir, gitalypbDir := parseArgs(req.GetParameter())
 

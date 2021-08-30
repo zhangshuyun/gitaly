@@ -5,16 +5,16 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/golang/protobuf/protoc-gen-go/descriptor"
-	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/protoutil"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"google.golang.org/protobuf/types/descriptorpb"
+	"google.golang.org/protobuf/types/pluginpb"
 )
 
 type methodLinter struct {
-	req        *plugin.CodeGeneratorRequest
-	fileDesc   *descriptor.FileDescriptorProto
-	methodDesc *descriptor.MethodDescriptorProto
+	req        *pluginpb.CodeGeneratorRequest
+	fileDesc   *descriptorpb.FileDescriptorProto
+	methodDesc *descriptorpb.MethodDescriptorProto
 	opMsg      *gitalypb.OperationMsg
 }
 
@@ -128,8 +128,8 @@ func (ml methodLinter) ensureValidTargetRepository(expected int) error {
 	return nil
 }
 
-func (ml methodLinter) getTopLevelMsgs() (map[string]*descriptor.DescriptorProto, error) {
-	topLevelMsgs := map[string]*descriptor.DescriptorProto{}
+func (ml methodLinter) getTopLevelMsgs() (map[string]*descriptorpb.DescriptorProto, error) {
+	topLevelMsgs := map[string]*descriptorpb.DescriptorProto{}
 
 	types, err := getFileTypes(ml.fileDesc.GetName(), ml.req)
 	if err != nil {
@@ -142,13 +142,13 @@ func (ml methodLinter) getTopLevelMsgs() (map[string]*descriptor.DescriptorProto
 }
 
 type matcher struct {
-	match        func(*descriptor.FieldDescriptorProto) (bool, error)
-	subMatch     func(*descriptor.FieldDescriptorProto) (bool, error)
+	match        func(*descriptorpb.FieldDescriptorProto) (bool, error)
+	subMatch     func(*descriptorpb.FieldDescriptorProto) (bool, error)
 	expectedType string
-	topLevelMsgs map[string]*descriptor.DescriptorProto
+	topLevelMsgs map[string]*descriptorpb.DescriptorProto
 }
 
-func (m matcher) findMatchingFields(prefix string, t *descriptor.DescriptorProto) ([]string, error) {
+func (m matcher) findMatchingFields(prefix string, t *descriptorpb.DescriptorProto) ([]string, error) {
 	var storageFields []string
 	for _, f := range t.GetField() {
 		subMatcher := m
@@ -188,8 +188,8 @@ func (m matcher) findMatchingFields(prefix string, t *descriptor.DescriptorProto
 	return storageFields, nil
 }
 
-func findChildMsg(topLevelMsgs map[string]*descriptor.DescriptorProto, t *descriptor.DescriptorProto, f *descriptor.FieldDescriptorProto) (*descriptor.DescriptorProto, error) {
-	var childType *descriptor.DescriptorProto
+func findChildMsg(topLevelMsgs map[string]*descriptorpb.DescriptorProto, t *descriptorpb.DescriptorProto, f *descriptorpb.FieldDescriptorProto) (*descriptorpb.DescriptorProto, error) {
+	var childType *descriptorpb.DescriptorProto
 	const msgPrimitive = "TYPE_MESSAGE"
 	if primitive := f.GetType().String(); primitive != msgPrimitive {
 		return nil, nil
@@ -213,9 +213,9 @@ func findChildMsg(topLevelMsgs map[string]*descriptor.DescriptorProto, t *descri
 	return nil, fmt.Errorf("could not find message type %q", msgName)
 }
 
-func getFileTypes(filename string, req *plugin.CodeGeneratorRequest) ([]*descriptor.DescriptorProto, error) {
-	var types []*descriptor.DescriptorProto
-	var protoFile *descriptor.FileDescriptorProto
+func getFileTypes(filename string, req *pluginpb.CodeGeneratorRequest) ([]*descriptorpb.DescriptorProto, error) {
+	var types []*descriptorpb.DescriptorProto
+	var protoFile *descriptorpb.FileDescriptorProto
 	for _, pf := range req.ProtoFile {
 		if pf.Name != nil && *pf.Name == filename {
 			types = pf.GetMessageType()
