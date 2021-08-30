@@ -16,7 +16,6 @@ require (
 	github.com/git-lfs/git-lfs v1.5.1-0.20210304194248-2e1d981afbe3
 	github.com/go-enry/go-license-detector/v4 v4.3.0
 	github.com/go-git/go-git/v5 v5.3.0 // indirect
-	github.com/golang/protobuf v1.5.2
 	github.com/google/go-cmp v0.5.5
 	github.com/google/uuid v1.2.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
