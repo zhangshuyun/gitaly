@@ -491,7 +491,7 @@ func TestHooksNotAllowed(t *testing.T) {
 	cmd.Dir = repoPath
 
 	require.Error(t, cmd.Run())
-	require.Equal(t, "GitLab: 401 Unauthorized\n", stderr.String())
+	require.Equal(t, "invoking access checks: 401 Unauthorized\n", stderr.String())
 	require.Equal(t, "", stdout.String())
 	require.NoFileExists(t, customHookOutputPath)
 }
@@ -580,7 +580,9 @@ func TestCheckBadCreds(t *testing.T) {
 }
 
 func runHookServiceServer(t *testing.T, cfg config.Cfg, serverOpts ...testserver.GitalyServerOpt) {
-	runHookServiceWithGitlabClient(t, cfg, gitlab.NewMockClient(), serverOpts...)
+	runHookServiceWithGitlabClient(t, cfg, gitlab.NewMockClient(
+		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
+	), serverOpts...)
 }
 
 type featureFlagAsserter struct {

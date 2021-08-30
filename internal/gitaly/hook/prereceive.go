@@ -20,7 +20,14 @@ import (
 // NotAllowedError is needed to report internal API errors that
 // are made by the pre-receive hook.
 type NotAllowedError struct {
+	// Message is the error message returned by Rails.
 	Message string
+	// Protocol is the protocol used.
+	Protocol string
+	// userID is the ID of the user as whom we have performed access checks.
+	UserID string
+	// Changes is the changes we have requested.
+	Changes []byte
 }
 
 func (e NotAllowedError) Error() string {
@@ -129,10 +136,15 @@ func (m *GitLabHookManager) preReceiveHook(ctx context.Context, payload git.Hook
 
 	allowed, message, err := m.gitlabClient.Allowed(ctx, params)
 	if err != nil {
-		return NotAllowedError{Message: fmt.Sprintf("GitLab: %v", err)}
+		return fmt.Errorf("invoking access checks: %w", err)
 	}
 	if !allowed {
-		return NotAllowedError{Message: message}
+		return NotAllowedError{
+			Message:  message,
+			UserID:   payload.ReceiveHooksPayload.UserID,
+			Protocol: payload.ReceiveHooksPayload.Protocol,
+			Changes:  changes,
+		}
 	}
 
 	executor, err := m.newCustomHooksExecutor(repo, "pre-receive")

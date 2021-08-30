@@ -5,6 +5,7 @@ require 'google/protobuf'
 
 require 'lint_pb'
 require 'shared_pb'
+require 'errors_pb'
 require 'google/protobuf/timestamp_pb'
 Google::Protobuf::DescriptorPool.generated_pool.build do
   add_file("operations.proto", :syntax => :proto3) do
@@ -70,6 +71,11 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :commit_id, :string, 1
       optional :branch_update, :message, 3, "gitaly.OperationBranchUpdate"
       optional :pre_receive_error, :string, 4
+    end
+    add_message "gitaly.UserMergeBranchError" do
+      oneof :error do
+        optional :access_check, :message, 1, "gitaly.AccessCheckError"
+      end
     end
     add_message "gitaly.UserMergeToRefRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
@@ -277,6 +283,7 @@ module Gitaly
   UserCreateTagResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.UserCreateTagResponse").msgclass
   UserMergeBranchRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.UserMergeBranchRequest").msgclass
   UserMergeBranchResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.UserMergeBranchResponse").msgclass
+  UserMergeBranchError = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.UserMergeBranchError").msgclass
   UserMergeToRefRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.UserMergeToRefRequest").msgclass
   UserMergeToRefResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.UserMergeToRefResponse").msgclass
   OperationBranchUpdate = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.OperationBranchUpdate").msgclass

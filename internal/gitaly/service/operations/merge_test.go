@@ -2,6 +2,7 @@ package operations
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -12,18 +13,25 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -33,15 +41,15 @@ var (
 	mergeBranchHeadBefore = "281d3a76f31c812dbf48abce82ccf6860adedd81"
 )
 
-func TestSuccessfulMerge(t *testing.T) {
+func TestUserMergeBranch_successful(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.Git2GoMergeGob,
-	}).Run(t, testSuccessfulMerge)
+	}).Run(t, testUserMergeBranchSuccessful)
 }
 
-func testSuccessfulMerge(t *testing.T, ctx context.Context) {
+func testUserMergeBranchSuccessful(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -124,6 +132,7 @@ func TestUserMergeBranch_quarantine(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UserMergeBranchAccessError,
 		featureflag.Git2GoMergeGob,
 	}).Run(t, testUserMergeBranchQuarantine)
 }
@@ -155,11 +164,15 @@ func testUserMergeBranchQuarantine(t *testing.T, ctx context.Context) {
 
 	require.NoError(t, stream.Send(&gitalypb.UserMergeBranchRequest{Apply: true}), "apply merge")
 	secondResponse, err := stream.Recv()
-	require.NoError(t, err, "receive second response")
-
-	testassert.ProtoEqual(t, &gitalypb.UserMergeBranchResponse{
-		PreReceiveError: firstResponse.CommitId + "\n",
-	}, secondResponse)
+	if featureflag.UserMergeBranchAccessError.IsEnabled(ctx) {
+		testassert.GrpcEqualErr(t, helper.ErrInternalf("executing custom hooks: exit status 1, stdout: \"%s\\n\"", firstResponse.CommitId), err)
+		require.Nil(t, secondResponse)
+	} else {
+		require.NoError(t, err, "receive second response")
+		testassert.ProtoEqual(t, &gitalypb.UserMergeBranchResponse{
+			PreReceiveError: fmt.Sprintf("executing custom hooks: exit status 1, stdout: %q", firstResponse.CommitId+"\n"),
+		}, secondResponse)
+	}
 
 	oid, err := git.NewObjectIDFromHex(strings.TrimSpace(firstResponse.CommitId))
 	require.NoError(t, err)
@@ -169,15 +182,15 @@ func testUserMergeBranchQuarantine(t *testing.T, ctx context.Context) {
 	require.False(t, exists, "quarantined commit should have been discarded")
 }
 
-func TestSuccessfulMerge_stableMergeIDs(t *testing.T) {
+func TestUserMergeBranch_stableMergeIDs(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.Git2GoMergeGob,
-	}).Run(t, testSuccessfulMergeStableMergeIDs)
+	}).Run(t, testUserMergeBranchStableMergeIDs)
 }
 
-func testSuccessfulMergeStableMergeIDs(t *testing.T, ctx context.Context) {
+func testUserMergeBranchStableMergeIDs(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -243,15 +256,15 @@ func testSuccessfulMergeStableMergeIDs(t *testing.T, ctx context.Context) {
 	})
 }
 
-func TestAbortedMerge(t *testing.T) {
+func TestUserMergeBranch_abort(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.Git2GoMergeGob,
-	}).Run(t, testAbortedMerge)
+	}).Run(t, testUserMergeBranchAbort)
 }
 
-func testAbortedMerge(t *testing.T, ctx context.Context) {
+func testUserMergeBranchAbort(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -311,15 +324,16 @@ func testAbortedMerge(t *testing.T, ctx context.Context) {
 	}
 }
 
-func TestFailedMergeConcurrentUpdate(t *testing.T) {
+func TestUserMergeBranch_concurrentUpdate(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UserMergeBranchAccessError,
 		featureflag.Git2GoMergeGob,
-	}).Run(t, testFailedMergeConcurrentUpdate)
+	}).Run(t, testUserMergeBranchConcurrentUpdate)
 }
 
-func testFailedMergeConcurrentUpdate(t *testing.T, ctx context.Context) {
+func testUserMergeBranchConcurrentUpdate(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -351,8 +365,13 @@ func testFailedMergeConcurrentUpdate(t *testing.T, ctx context.Context) {
 	require.NoError(t, mergeBidi.CloseSend(), "close send")
 
 	secondResponse, err := mergeBidi.Recv()
-	require.NoError(t, err, "receive second response")
-	testassert.ProtoEqual(t, secondResponse, &gitalypb.UserMergeBranchResponse{})
+	if featureflag.UserMergeBranchAccessError.IsEnabled(ctx) {
+		testassert.GrpcEqualErr(t, helper.ErrFailedPreconditionf("Could not update refs/heads/gitaly-merge-test-branch. Please refresh and try again."), err)
+		require.Nil(t, secondResponse)
+	} else {
+		require.NoError(t, err, "receive second response")
+		testassert.ProtoEqual(t, secondResponse, &gitalypb.UserMergeBranchResponse{})
+	}
 
 	commit, err := repo.ReadCommit(ctx, git.Revision(mergeBranchName))
 	require.NoError(t, err, "get commit after RPC finished")
@@ -427,15 +446,16 @@ func testUserMergeBranchAmbiguousReference(t *testing.T, ctx context.Context) {
 	require.Equal(t, []string{mergeBranchHeadBefore, commitToMerge}, commit.ParentIds)
 }
 
-func TestFailedMergeDueToHooks(t *testing.T) {
+func TestUserMergeBranch_failingHooks(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UserMergeBranchAccessError,
 		featureflag.Git2GoMergeGob,
-	}).Run(t, testFailedMergeDueToHooks)
+	}).Run(t, testUserMergeBranchFailingHooks)
 }
 
-func testFailedMergeDueToHooks(t *testing.T, ctx context.Context) {
+func testUserMergeBranchFailingHooks(t *testing.T, ctx context.Context) {
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
@@ -467,13 +487,18 @@ func testFailedMergeDueToHooks(t *testing.T, ctx context.Context) {
 			require.NoError(t, mergeBidi.CloseSend(), "close send")
 
 			secondResponse, err := mergeBidi.Recv()
-			require.NoError(t, err, "receive second response")
-			require.Contains(t, secondResponse.PreReceiveError, "failure")
+			if featureflag.UserMergeBranchAccessError.IsEnabled(ctx) {
+				testassert.GrpcEqualErr(t, helper.ErrInternalf("executing custom hooks: exit status 1, stdout: \"failure\\n\""), err)
+				require.Nil(t, secondResponse)
+			} else {
+				require.NoError(t, err, "receive second response")
+				require.Contains(t, secondResponse.PreReceiveError, "failure")
 
-			testhelper.ReceiveEOFWithTimeout(t, func() error {
-				_, err = mergeBidi.Recv()
-				return err
-			})
+				testhelper.ReceiveEOFWithTimeout(t, func() error {
+					_, err = mergeBidi.Recv()
+					return err
+				})
+			}
 
 			currentBranchHead := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", mergeBranchName)
 			require.Equal(t, mergeBranchHeadBefore, text.ChompBytes(currentBranchHead), "branch head updated")
@@ -526,7 +551,128 @@ func testUserMergeBranchConflict(t *testing.T, ctx context.Context) {
 	require.Nil(t, firstResponse)
 }
 
-func TestSuccessfulUserFFBranchRequest(t *testing.T) {
+func TestUserMergeBranch_allowed(t *testing.T) {
+	t.Parallel()
+
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UserMergeBranchAccessError,
+	}).Run(t, testUserMergeBranchAllowed)
+}
+
+func testUserMergeBranchAllowed(t *testing.T, ctx context.Context) {
+	mergeBranchHeadAfter := "ff0ac4dfa30d6b26fd14aa83a75650355270bf76"
+
+	for _, tc := range []struct {
+		desc                      string
+		allowed                   bool
+		allowedMessage            string
+		allowedErr                error
+		expectedErr               error
+		expectedResponse          *gitalypb.UserMergeBranchResponse
+		expectedResponseWithoutFF *gitalypb.UserMergeBranchResponse
+	}{
+		{
+			desc:    "allowed",
+			allowed: true,
+			expectedResponse: &gitalypb.UserMergeBranchResponse{
+				BranchUpdate: &gitalypb.OperationBranchUpdate{
+					CommitId: mergeBranchHeadAfter,
+				},
+			},
+			expectedResponseWithoutFF: &gitalypb.UserMergeBranchResponse{
+				BranchUpdate: &gitalypb.OperationBranchUpdate{
+					CommitId: mergeBranchHeadAfter,
+				},
+			},
+		},
+		{
+			desc:           "disallowed",
+			allowed:        false,
+			allowedMessage: "you shall not pass",
+			expectedErr: errWithDetails(t,
+				helper.ErrPermissionDeniedf("you shall not pass"),
+				&gitalypb.UserMergeBranchError{
+					Error: &gitalypb.UserMergeBranchError_AccessCheck{
+						AccessCheck: &gitalypb.AccessCheckError{
+							ErrorMessage: "you shall not pass",
+							Protocol:     "web",
+							UserId:       gittest.GlID,
+							Changes:      []byte(fmt.Sprintf("%s %s refs/heads/%s\n", mergeBranchHeadBefore, mergeBranchHeadAfter, mergeBranchName)),
+						},
+					},
+				},
+			),
+			expectedResponseWithoutFF: &gitalypb.UserMergeBranchResponse{
+				PreReceiveError: "you shall not pass",
+			},
+		},
+		{
+			desc:        "failing",
+			allowedErr:  errors.New("failure"),
+			expectedErr: helper.ErrInternalf("invoking access checks: failure"),
+			expectedResponseWithoutFF: &gitalypb.UserMergeBranchResponse{
+				PreReceiveError: "invoking access checks: failure",
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			cfg := testcfg.Build(t)
+			backchannelRegistry := backchannel.NewRegistry()
+			txManager := transaction.NewManager(cfg, backchannelRegistry)
+			hookManager := hook.NewManager(config.NewLocator(cfg), txManager, gitlab.NewMockClient(
+				t,
+				func(context.Context, gitlab.AllowedParams) (bool, string, error) {
+					return tc.allowed, tc.allowedMessage, tc.allowedErr
+				},
+				gitlab.MockPreReceive,
+				gitlab.MockPostReceive,
+			), cfg)
+
+			ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(
+				t, ctx, cfg, nil,
+				testserver.WithBackchannelRegistry(backchannelRegistry),
+				testserver.WithTransactionManager(txManager),
+				testserver.WithHookManager(hookManager),
+			)
+
+			gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
+
+			stream, err := client.UserMergeBranch(ctx)
+			require.NoError(t, err)
+			require.NoError(t, stream.Send(&gitalypb.UserMergeBranchRequest{
+				Repository: repoProto,
+				User:       gittest.TestUser,
+				CommitId:   commitToMerge,
+				Branch:     []byte(mergeBranchName),
+				Message:    []byte("message"),
+				Timestamp:  &timestamppb.Timestamp{Seconds: 12, Nanos: 34},
+			}))
+
+			require.NoError(t, stream.Send(&gitalypb.UserMergeBranchRequest{
+				Apply: true,
+			}))
+			_, err = stream.Recv()
+			require.NoError(t, err)
+
+			response, err := stream.Recv()
+			if featureflag.UserMergeBranchAccessError.IsEnabled(ctx) {
+				testassert.GrpcEqualErr(t, tc.expectedErr, err)
+				testassert.ProtoEqual(t, tc.expectedResponse, response)
+			} else {
+				require.NoError(t, err)
+				testassert.ProtoEqual(t, tc.expectedResponseWithoutFF, response)
+			}
+		})
+	}
+}
+
+func errWithDetails(tb testing.TB, err error, details ...proto.Message) error {
+	detailedErr, err := helper.ErrWithDetails(err, details...)
+	require.NoError(tb, err)
+	return detailedErr
+}
+
+func TestUserFFBranch_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx, cancel := testhelper.Context()
@@ -559,7 +705,7 @@ func TestSuccessfulUserFFBranchRequest(t *testing.T) {
 	require.Equal(t, commitID, text.ChompBytes(newBranchHead), "branch head not updated")
 }
 
-func TestFailedUserFFBranchRequest(t *testing.T) {
+func TestUserFFBranch_failure(t *testing.T) {
 	t.Parallel()
 
 	ctx, cancel := testhelper.Context()
@@ -648,7 +794,7 @@ func TestFailedUserFFBranchRequest(t *testing.T) {
 	}
 }
 
-func TestFailedUserFFBranchDueToHooks(t *testing.T) {
+func TestUserFFBranch_failingHooks(t *testing.T) {
 	t.Parallel()
 
 	ctx, cancel := testhelper.Context()
@@ -726,15 +872,15 @@ func TestUserFFBranch_ambiguousReference(t *testing.T) {
 	require.Equal(t, commitID, text.ChompBytes(newBranchHead), "branch head not updated")
 }
 
-func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
+func TestUserMergeToRef_successful(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.Git2GoMergeGob,
-	}).Run(t, testSuccessfulUserMergeToRefRequest)
+	}).Run(t, testUserMergeToRefSuccessful)
 }
 
-func testSuccessfulUserMergeToRefRequest(t *testing.T, ctx context.Context) {
+func testUserMergeToRefSuccessful(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -836,15 +982,15 @@ func testSuccessfulUserMergeToRefRequest(t *testing.T, ctx context.Context) {
 	}
 }
 
-func TestConflictsOnUserMergeToRefRequest(t *testing.T) {
+func TestUserMergeToRef_conflicts(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.Git2GoMergeGob,
-	}).Run(t, testConflictsOnUserMergeToRefRequest)
+	}).Run(t, testUserMergeToRefConflicts)
 }
 
-func testConflictsOnUserMergeToRefRequest(t *testing.T, ctx context.Context) {
+func testUserMergeToRefConflicts(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -1033,15 +1179,15 @@ func testUserMergeToRefStableMergeID(t *testing.T, ctx context.Context) {
 	}, commit)
 }
 
-func TestFailedUserMergeToRefRequest(t *testing.T) {
+func TestUserMergeToRef_failure(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.Git2GoMergeGob,
-	}).Run(t, testFailedUserMergeToRefRequest)
+	}).Run(t, testUserMergeToRefFailure)
 }
 
-func testFailedUserMergeToRefRequest(t *testing.T, ctx context.Context) {
+func testUserMergeToRefFailure(t *testing.T, ctx context.Context) {
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
@@ -1133,7 +1279,7 @@ func testFailedUserMergeToRefRequest(t *testing.T, ctx context.Context) {
 	}
 }
 
-func TestUserMergeToRefIgnoreHooksRequest(t *testing.T) {
+func TestUserMergeToRef_ignoreHooksRequest(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{

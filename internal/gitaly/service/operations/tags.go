@@ -34,10 +34,10 @@ func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagR
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, nil, referenceName, git.ZeroOID, revision); err != nil {
-		var preReceiveError updateref.PreReceiveError
-		if errors.As(err, &preReceiveError) {
+		var hookError updateref.HookError
+		if errors.As(err, &hookError) {
 			return &gitalypb.UserDeleteTagResponse{
-				PreReceiveError: preReceiveError.Message,
+				PreReceiveError: hookError.Error(),
 			}, nil
 		}
 
@@ -109,10 +109,10 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 
 	referenceName := git.ReferenceName(fmt.Sprintf("refs/tags/%s", req.TagName))
 	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, quarantineDir, referenceName, tagID, git.ZeroOID); err != nil {
-		var preReceiveError updateref.PreReceiveError
-		if errors.As(err, &preReceiveError) {
+		var hookError updateref.HookError
+		if errors.As(err, &hookError) {
 			return &gitalypb.UserCreateTagResponse{
-				PreReceiveError: preReceiveError.Message,
+				PreReceiveError: hookError.Error(),
 			}, nil
 		}
 

@@ -625,32 +625,32 @@ func TestBranchHookOutput(t *testing.T) {
 		{
 			desc:        "empty stdout and empty stderr",
 			hookContent: "#!/bin/sh\nexit 1",
-			output:      "",
+			output:      "executing custom hooks: exit status 1",
 		},
 		{
 			desc:        "empty stdout and some stderr",
 			hookContent: "#!/bin/sh\necho stderr >&2\nexit 1",
-			output:      "stderr\n",
+			output:      "executing custom hooks: exit status 1, stderr: \"stderr\\n\"",
 		},
 		{
 			desc:        "some stdout and empty stderr",
 			hookContent: "#!/bin/sh\necho stdout\nexit 1",
-			output:      "stdout\n",
+			output:      "executing custom hooks: exit status 1, stdout: \"stdout\\n\"",
 		},
 		{
 			desc:        "some stdout and some stderr",
 			hookContent: "#!/bin/sh\necho stdout\necho stderr >&2\nexit 1",
-			output:      "stderr\n",
+			output:      "executing custom hooks: exit status 1, stderr: \"stderr\\n\"",
 		},
 		{
 			desc:        "whitespace stdout and some stderr",
 			hookContent: "#!/bin/sh\necho '   '\necho stderr >&2\nexit 1",
-			output:      "stderr\n",
+			output:      "executing custom hooks: exit status 1, stderr: \"stderr\\n\"",
 		},
 		{
 			desc:        "some stdout and whitespace stderr",
 			hookContent: "#!/bin/sh\necho stdout\necho '   ' >&2\nexit 1",
-			output:      "stdout\n",
+			output:      "executing custom hooks: exit status 1, stdout: \"stdout\\n\"",
 		},
 	}
 

@@ -99,7 +99,7 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 		oldrev,
 		header.GitPushOptions...); err != nil {
 		switch {
-		case errors.As(err, &updateref.PreReceiveError{}):
+		case errors.As(err, &updateref.HookError{}):
 			return stream.Send(&gitalypb.UserRebaseConfirmableResponse{
 				PreReceiveError: err.Error(),
 			})

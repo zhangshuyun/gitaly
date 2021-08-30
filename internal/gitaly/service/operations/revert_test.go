@@ -2,13 +2,14 @@ package operations
 
 import (
 	"fmt"
-	"strings"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -185,7 +186,8 @@ func TestServer_UserRevert_quarantine(t *testing.T) {
 
 	// Set up a hook that parses the new object and then aborts the update. Like this, we can
 	// assert that the object does not end up in the main repository.
-	hookScript := fmt.Sprintf("#!/bin/sh\n%s rev-parse $3^{commit} && exit 1", cfg.Git.BinPath)
+	outputPath := filepath.Join(testhelper.TempDir(t), "output")
+	hookScript := fmt.Sprintf("#!/bin/sh\n%s rev-parse $3^{commit} >%s && exit 1", cfg.Git.BinPath, outputPath)
 	gittest.WriteCustomHook(t, repoPath, "update", []byte(hookScript))
 
 	commitToRevert, err := repo.ReadCommit(ctx, "d59c60028b053793cecfb4022de34602e1a9218e")
@@ -203,7 +205,8 @@ func TestServer_UserRevert_quarantine(t *testing.T) {
 	require.NotNil(t, response)
 	require.NotEmpty(t, response.PreReceiveError)
 
-	oid, err := git.NewObjectIDFromHex(strings.TrimSpace(response.PreReceiveError))
+	hookOutput := testhelper.MustReadFile(t, outputPath)
+	oid, err := git.NewObjectIDFromHex(text.ChompBytes(hookOutput))
 	require.NoError(t, err)
 	exists, err := repo.HasRevision(ctx, oid.Revision()+"^{commit}")
 	require.NoError(t, err)

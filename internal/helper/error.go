@@ -6,6 +6,8 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type statusWrapper struct {
@@ -39,6 +41,9 @@ func ErrFailedPrecondition(err error) error { return wrapError(codes.FailedPreco
 
 // ErrUnavailable wraps err with codes.Unavailable, unless err is already a gRPC error.
 func ErrUnavailable(err error) error { return wrapError(codes.Unavailable, err) }
+
+// ErrPermissionDenied wraps err with codes.PermissionDenied, unless err is already a gRPC error.
+func ErrPermissionDenied(err error) error { return wrapError(codes.PermissionDenied, err) }
 
 // wrapError wraps the given error with the error code unless it's already a gRPC error. If given
 // nil it will return nil.
@@ -79,6 +84,12 @@ func ErrUnavailablef(format string, a ...interface{}) error {
 	return formatError(codes.Unavailable, format, a...)
 }
 
+// ErrPermissionDeniedf wraps a formatted error with codes.PermissionDenied, unless the formatted
+// error is a wrapped gRPC error.
+func ErrPermissionDeniedf(format string, a ...interface{}) error {
+	return formatError(codes.PermissionDenied, format, a...)
+}
+
 // formatError will create a new error from the given format string. If the error string contains a
 // %w verb and its corresponding error has a gRPC error code, then the returned error will keep this
 // gRPC error code instead of using the one provided as an argument.
@@ -91,6 +102,30 @@ func formatError(code codes.Code, format string, a ...interface{}) error {
 	}
 
 	return statusWrapper{err, status.New(code, err.Error())}
+}
+
+// ErrWithDetails adds the given details to the error if it is a gRPC status whose code is not OK.
+func ErrWithDetails(err error, details ...proto.Message) (error, error) {
+	if GrpcCode(err) == codes.OK {
+		return nil, fmt.Errorf("no error given")
+	}
+
+	st, ok := status.FromError(err)
+	if !ok {
+		return nil, fmt.Errorf("error is not a gRPC status")
+	}
+
+	proto := st.Proto()
+	for _, detail := range details {
+		marshaled, err := anypb.New(detail)
+		if err != nil {
+			return nil, err
+		}
+
+		proto.Details = append(proto.Details, marshaled)
+	}
+
+	return statusWrapper{err, status.FromProto(proto)}, nil
 }
 
 // GrpcCode emulates the old grpc.Code function: it translates errors into codes.Code values.

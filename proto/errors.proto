@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package gitaly;
+
+option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
+
+// AccessCheckError is an error returned by GitLab's `/internal/allowed`
+// endpoint.
+message AccessCheckError {
+  // ErrorMessage is the error message as returned by the endpoint.
+  string error_message = 1;
+  // Protocol is the protocol used.
+  string protocol = 2;
+  // UserId is the user ID as which changes had been pushed.
+  string user_id = 3;
+  // Changes is the set of changes which have failed the access check.
+  bytes changes = 4;
+}

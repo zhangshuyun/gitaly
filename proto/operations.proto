@@ -6,6 +6,7 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 
 import "lint.proto";
 import "shared.proto";
+import "errors.proto";
 import "google/protobuf/timestamp.proto";
 
 // OperationService provides an interface for performing mutating git
@@ -248,6 +249,15 @@ message UserMergeBranchResponse {
   // If set, the merge has been applied to the branch.
   OperationBranchUpdate branch_update = 3;
   string pre_receive_error = 4;
+}
+
+// UserMergeBranchError includes error descriptions which may be set as error
+// details in case UserMergeBranch fails.
+message UserMergeBranchError {
+  oneof error {
+    // AccessCheckError is set if the RPC failed because `/internal/allowed` failed.
+    AccessCheckError access_check = 1;
+  }
 }
 
 message UserMergeToRefRequest {

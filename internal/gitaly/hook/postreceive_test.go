@@ -69,7 +69,9 @@ func TestPrintAlert(t *testing.T) {
 func TestPostReceive_customHook(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
-	hookManager := NewManager(config.NewLocator(cfg), transaction.NewManager(cfg, backchannel.NewRegistry()), gitlab.NewMockClient(), cfg)
+	hookManager := NewManager(config.NewLocator(cfg), transaction.NewManager(cfg, backchannel.NewRegistry()), gitlab.NewMockClient(
+		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
+	), cfg)
 
 	receiveHooksPayload := &git.ReceiveHooksPayload{
 		UserID:   "1234",
@@ -371,7 +373,9 @@ func TestPostReceive_quarantine(t *testing.T) {
 	blobID, err := quarantinedRepo.WriteBlob(ctx, "", strings.NewReader("allyourbasearebelongtous"))
 	require.NoError(t, err)
 
-	hookManager := NewManager(config.NewLocator(cfg), nil, gitlab.NewMockClient(), cfg)
+	hookManager := NewManager(config.NewLocator(cfg), nil, gitlab.NewMockClient(
+		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
+	), cfg)
 
 	script := fmt.Sprintf("#!/bin/sh\n%s cat-file -p '%s' || true\n",
 		cfg.Git.BinPath, blobID.String())

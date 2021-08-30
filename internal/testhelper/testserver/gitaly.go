@@ -325,7 +325,9 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 	}
 
 	if gsd.gitlabClient == nil {
-		gsd.gitlabClient = gitlab.NewMockClient()
+		gsd.gitlabClient = gitlab.NewMockClient(
+			t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
+		)
 	}
 
 	if gsd.backchannelReg == nil {
