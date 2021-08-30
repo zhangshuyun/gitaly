@@ -306,7 +306,12 @@ func TestPrereceive_gitlab(t *testing.T) {
 				return false, "you shall not pass", nil
 			},
 			expectHookCall: false,
-			expectedErr:    NotAllowedError{Message: "you shall not pass"},
+			expectedErr: NotAllowedError{
+				Message:  "you shall not pass",
+				Protocol: "web",
+				UserID:   "1234",
+				Changes:  []byte("changes\n"),
+			},
 		},
 		{
 			desc:    "allowed returns error",

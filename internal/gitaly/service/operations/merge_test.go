@@ -31,6 +31,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -131,6 +132,7 @@ func TestUserMergeBranch_quarantine(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UserMergeBranchAccessError,
 		featureflag.Git2GoMergeGob,
 	}).Run(t, testUserMergeBranchQuarantine)
 }
@@ -162,11 +164,15 @@ func testUserMergeBranchQuarantine(t *testing.T, ctx context.Context) {
 
 	require.NoError(t, stream.Send(&gitalypb.UserMergeBranchRequest{Apply: true}), "apply merge")
 	secondResponse, err := stream.Recv()
-	require.NoError(t, err, "receive second response")
-
-	testassert.ProtoEqual(t, &gitalypb.UserMergeBranchResponse{
-		PreReceiveError: fmt.Sprintf("executing custom hooks: exit status 1, stdout: %q", firstResponse.CommitId+"\n"),
-	}, secondResponse)
+	if featureflag.UserMergeBranchAccessError.IsEnabled(ctx) {
+		testassert.GrpcEqualErr(t, helper.ErrInternalf("executing custom hooks: exit status 1, stdout: \"%s\\n\"", firstResponse.CommitId), err)
+		require.Nil(t, secondResponse)
+	} else {
+		require.NoError(t, err, "receive second response")
+		testassert.ProtoEqual(t, &gitalypb.UserMergeBranchResponse{
+			PreReceiveError: fmt.Sprintf("executing custom hooks: exit status 1, stdout: %q", firstResponse.CommitId+"\n"),
+		}, secondResponse)
+	}
 
 	oid, err := git.NewObjectIDFromHex(strings.TrimSpace(firstResponse.CommitId))
 	require.NoError(t, err)
@@ -322,6 +328,7 @@ func TestUserMergeBranch_concurrentUpdate(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UserMergeBranchAccessError,
 		featureflag.Git2GoMergeGob,
 	}).Run(t, testUserMergeBranchConcurrentUpdate)
 }
@@ -358,8 +365,13 @@ func testUserMergeBranchConcurrentUpdate(t *testing.T, ctx context.Context) {
 	require.NoError(t, mergeBidi.CloseSend(), "close send")
 
 	secondResponse, err := mergeBidi.Recv()
-	require.NoError(t, err, "receive second response")
-	testassert.ProtoEqual(t, secondResponse, &gitalypb.UserMergeBranchResponse{})
+	if featureflag.UserMergeBranchAccessError.IsEnabled(ctx) {
+		testassert.GrpcEqualErr(t, helper.ErrFailedPreconditionf("Could not update refs/heads/gitaly-merge-test-branch. Please refresh and try again."), err)
+		require.Nil(t, secondResponse)
+	} else {
+		require.NoError(t, err, "receive second response")
+		testassert.ProtoEqual(t, secondResponse, &gitalypb.UserMergeBranchResponse{})
+	}
 
 	commit, err := repo.ReadCommit(ctx, git.Revision(mergeBranchName))
 	require.NoError(t, err, "get commit after RPC finished")
@@ -438,6 +450,7 @@ func TestUserMergeBranch_failingHooks(t *testing.T) {
 	t.Parallel()
 
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UserMergeBranchAccessError,
 		featureflag.Git2GoMergeGob,
 	}).Run(t, testUserMergeBranchFailingHooks)
 }
@@ -474,13 +487,18 @@ func testUserMergeBranchFailingHooks(t *testing.T, ctx context.Context) {
 			require.NoError(t, mergeBidi.CloseSend(), "close send")
 
 			secondResponse, err := mergeBidi.Recv()
-			require.NoError(t, err, "receive second response")
-			require.Contains(t, secondResponse.PreReceiveError, "failure")
+			if featureflag.UserMergeBranchAccessError.IsEnabled(ctx) {
+				testassert.GrpcEqualErr(t, helper.ErrInternalf("executing custom hooks: exit status 1, stdout: \"failure\\n\""), err)
+				require.Nil(t, secondResponse)
+			} else {
+				require.NoError(t, err, "receive second response")
+				require.Contains(t, secondResponse.PreReceiveError, "failure")
 
-			testhelper.ReceiveEOFWithTimeout(t, func() error {
-				_, err = mergeBidi.Recv()
-				return err
-			})
+				testhelper.ReceiveEOFWithTimeout(t, func() error {
+					_, err = mergeBidi.Recv()
+					return err
+				})
+			}
 
 			currentBranchHead := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", mergeBranchName)
 			require.Equal(t, mergeBranchHeadBefore, text.ChompBytes(currentBranchHead), "branch head updated")
@@ -536,17 +554,22 @@ func testUserMergeBranchConflict(t *testing.T, ctx context.Context) {
 func TestUserMergeBranch_allowed(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UserMergeBranchAccessError,
+	}).Run(t, testUserMergeBranchAllowed)
+}
 
+func testUserMergeBranchAllowed(t *testing.T, ctx context.Context) {
 	mergeBranchHeadAfter := "ff0ac4dfa30d6b26fd14aa83a75650355270bf76"
 
 	for _, tc := range []struct {
-		desc             string
-		allowed          bool
-		allowedMessage   string
-		allowedErr       error
-		expectedResponse *gitalypb.UserMergeBranchResponse
+		desc                      string
+		allowed                   bool
+		allowedMessage            string
+		allowedErr                error
+		expectedErr               error
+		expectedResponse          *gitalypb.UserMergeBranchResponse
+		expectedResponseWithoutFF *gitalypb.UserMergeBranchResponse
 	}{
 		{
 			desc:    "allowed",
@@ -556,19 +579,38 @@ func TestUserMergeBranch_allowed(t *testing.T) {
 					CommitId: mergeBranchHeadAfter,
 				},
 			},
+			expectedResponseWithoutFF: &gitalypb.UserMergeBranchResponse{
+				BranchUpdate: &gitalypb.OperationBranchUpdate{
+					CommitId: mergeBranchHeadAfter,
+				},
+			},
 		},
 		{
 			desc:           "disallowed",
 			allowed:        false,
 			allowedMessage: "you shall not pass",
-			expectedResponse: &gitalypb.UserMergeBranchResponse{
+			expectedErr: errWithDetails(t,
+				helper.ErrPermissionDeniedf("you shall not pass"),
+				&gitalypb.UserMergeBranchError{
+					Error: &gitalypb.UserMergeBranchError_AccessCheck{
+						AccessCheck: &gitalypb.AccessCheckError{
+							ErrorMessage: "you shall not pass",
+							Protocol:     "web",
+							UserId:       gittest.GlID,
+							Changes:      []byte(fmt.Sprintf("%s %s refs/heads/%s\n", mergeBranchHeadBefore, mergeBranchHeadAfter, mergeBranchName)),
+						},
+					},
+				},
+			),
+			expectedResponseWithoutFF: &gitalypb.UserMergeBranchResponse{
 				PreReceiveError: "you shall not pass",
 			},
 		},
 		{
-			desc:       "failing",
-			allowedErr: errors.New("failure"),
-			expectedResponse: &gitalypb.UserMergeBranchResponse{
+			desc:        "failing",
+			allowedErr:  errors.New("failure"),
+			expectedErr: helper.ErrInternalf("invoking access checks: failure"),
+			expectedResponseWithoutFF: &gitalypb.UserMergeBranchResponse{
 				PreReceiveError: "invoking access checks: failure",
 			},
 		},
@@ -613,10 +655,21 @@ func TestUserMergeBranch_allowed(t *testing.T) {
 			require.NoError(t, err)
 
 			response, err := stream.Recv()
-			require.NoError(t, err)
-			testassert.ProtoEqual(t, tc.expectedResponse, response)
+			if featureflag.UserMergeBranchAccessError.IsEnabled(ctx) {
+				testassert.GrpcEqualErr(t, tc.expectedErr, err)
+				testassert.ProtoEqual(t, tc.expectedResponse, response)
+			} else {
+				require.NoError(t, err)
+				testassert.ProtoEqual(t, tc.expectedResponseWithoutFF, response)
+			}
 		})
 	}
+}
+
+func errWithDetails(tb testing.TB, err error, details ...proto.Message) error {
+	detailedErr, err := helper.ErrWithDetails(err, details...)
+	require.NoError(tb, err)
+	return detailedErr
 }
 
 func TestUserFFBranch_successful(t *testing.T) {
