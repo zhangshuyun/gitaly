@@ -266,3 +266,94 @@ func (repo *Repo) GetRemoteReferences(ctx context.Context, remote string, opts .
 
 	return refs, nil
 }
+
+// GetDefaultBranchOptions are options passed to GetDefaultBranch
+type GetDefaultBranchOptions struct {
+	// HeadReference allows specifying the HEAD symbolic reference instead of
+	// looking it up if it is already known
+	HeadReference git.ReferenceName
+}
+
+// GetDefaultBranch determines the default branch name
+func (repo *Repo) GetDefaultBranch(ctx context.Context, opts *GetDefaultBranchOptions) (git.Reference, error) {
+	if opts == nil {
+		opts = &GetDefaultBranchOptions{}
+	}
+
+	branches, err := repo.GetBranches(ctx)
+	if err != nil {
+		return git.Reference{}, err
+	}
+	switch len(branches) {
+	case 0:
+		return git.Reference{}, nil
+	case 1:
+		return branches[0], nil
+	}
+
+	if len(opts.HeadReference) == 0 {
+		var err error
+		opts.HeadReference, err = repo.headReference(ctx)
+		if err != nil {
+			return git.Reference{}, err
+		}
+	}
+
+	var defaultRef, legacyDefaultRef git.Reference
+	for _, branch := range branches {
+		if len(opts.HeadReference) != 0 && opts.HeadReference == branch.Name {
+			return branch, nil
+		}
+
+		if string(git.DefaultRef) == branch.Name.String() {
+			defaultRef = branch
+		}
+
+		if string(git.LegacyDefaultRef) == branch.Name.String() {
+			legacyDefaultRef = branch
+		}
+	}
+
+	if len(defaultRef.Name) != 0 {
+		return defaultRef, nil
+	}
+
+	if len(legacyDefaultRef.Name) != 0 {
+		return legacyDefaultRef, nil
+	}
+
+	// If all else fails, return the first branch name
+	return branches[0], nil
+}
+
+func (repo *Repo) headReference(ctx context.Context) (git.ReferenceName, error) {
+	var headRef []byte
+
+	cmd, err := repo.Exec(ctx, git.SubCmd{
+		Name:  "rev-parse",
+		Flags: []git.Option{git.Flag{Name: "--symbolic-full-name"}},
+		Args:  []string{"HEAD"},
+	})
+	if err != nil {
+		return "", err
+	}
+
+	scanner := bufio.NewScanner(cmd)
+	scanner.Scan()
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+	headRef = scanner.Bytes()
+
+	if err := cmd.Wait(); err != nil {
+		// If the ref pointed at by HEAD doesn't exist, the rev-parse fails
+		// returning the string `"HEAD"`, so we return `nil` without error.
+		if bytes.Equal(headRef, []byte("HEAD")) {
+			return "", nil
+		}
+
+		return "", err
+	}
+
+	return git.ReferenceName(headRef), nil
+}
