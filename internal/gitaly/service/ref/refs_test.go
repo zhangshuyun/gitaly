@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strings"
 	"testing"
 
@@ -216,37 +215,6 @@ func TestInvalidRepoFindAllTagNamesRequest(t *testing.T) {
 
 	if helper.GrpcCode(recvError) != codes.NotFound {
 		t.Fatal(recvError)
-	}
-}
-
-func TestHeadReference(t *testing.T) {
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	headRef, err := headReference(ctx, localrepo.NewTestRepo(t, cfg, repo))
-	require.NoError(t, err)
-
-	require.Equal(t, git.LegacyDefaultRef, headRef)
-}
-
-func TestHeadReferenceWithNonExistingHead(t *testing.T) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
-
-	// Write bad HEAD
-	require.NoError(t, ioutil.WriteFile(repoPath+"/HEAD", []byte("ref: refs/heads/nonexisting"), 0o644))
-	defer func() {
-		// Restore HEAD
-		require.NoError(t, ioutil.WriteFile(repoPath+"/HEAD", []byte("ref: refs/heads/master"), 0o644))
-	}()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-	headRef, err := headReference(ctx, localrepo.NewTestRepo(t, cfg, repo))
-	require.NoError(t, err)
-	if headRef != nil {
-		t.Fatal("Expected HEAD reference to be nil, got '", string(headRef), "'")
 	}
 }
 

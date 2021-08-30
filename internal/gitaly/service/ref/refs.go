@@ -22,8 +22,7 @@ const (
 )
 
 var (
-	// We declare the following functions in variables so that we can override them in our tests
-	headReference = _headReference
+	// We declare the following function in variables so that we can override them in our tests
 	// FindBranchNames is exported to be used in other packages
 	FindBranchNames = _findBranchNames
 )
@@ -89,38 +88,6 @@ func _findBranchNames(ctx context.Context, repo git.RepositoryExecutor) ([][]byt
 	}
 
 	return names, nil
-}
-
-func _headReference(ctx context.Context, repo git.RepositoryExecutor) ([]byte, error) {
-	var headRef []byte
-
-	cmd, err := repo.Exec(ctx, git.SubCmd{
-		Name:  "rev-parse",
-		Flags: []git.Option{git.Flag{Name: "--symbolic-full-name"}},
-		Args:  []string{"HEAD"},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	scanner := bufio.NewScanner(cmd)
-	scanner.Scan()
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-	headRef = scanner.Bytes()
-
-	if err := cmd.Wait(); err != nil {
-		// If the ref pointed at by HEAD doesn't exist, the rev-parse fails
-		// returning the string `"HEAD"`, so we return `nil` without error.
-		if bytes.Equal(headRef, []byte("HEAD")) {
-			return nil, nil
-		}
-
-		return nil, err
-	}
-
-	return headRef, nil
 }
 
 // SetDefaultBranchRef overwrites the default branch ref for the repository
