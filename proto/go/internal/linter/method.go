@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"strings"
 
-	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/protoutil"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/protobuf/types/descriptorpb"
+	"google.golang.org/protobuf/types/pluginpb"
 )
 
 type methodLinter struct {
-	req        *plugin.CodeGeneratorRequest
+	req        *pluginpb.CodeGeneratorRequest
 	fileDesc   *descriptorpb.FileDescriptorProto
 	methodDesc *descriptorpb.MethodDescriptorProto
 	opMsg      *gitalypb.OperationMsg
@@ -213,7 +213,7 @@ func findChildMsg(topLevelMsgs map[string]*descriptorpb.DescriptorProto, t *desc
 	return nil, fmt.Errorf("could not find message type %q", msgName)
 }
 
-func getFileTypes(filename string, req *plugin.CodeGeneratorRequest) ([]*descriptorpb.DescriptorProto, error) {
+func getFileTypes(filename string, req *pluginpb.CodeGeneratorRequest) ([]*descriptorpb.DescriptorProto, error) {
 	var types []*descriptorpb.DescriptorProto
 	var protoFile *descriptorpb.FileDescriptorProto
 	for _, pf := range req.ProtoFile {

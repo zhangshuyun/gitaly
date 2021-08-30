@@ -4,11 +4,11 @@ import (
 	"errors"
 	"fmt"
 
-	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/protoutil"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
+	"google.golang.org/protobuf/types/pluginpb"
 )
 
 // ensureMethodOpType will ensure that method includes the op_type option.
@@ -17,7 +17,7 @@ import (
 //  rpc ExampleMethod(ExampleMethodRequest) returns (ExampleMethodResponse) {
 //     option (op_type).op = ACCESSOR;
 //   }
-func ensureMethodOpType(fileDesc *descriptorpb.FileDescriptorProto, m *descriptorpb.MethodDescriptorProto, req *plugin.CodeGeneratorRequest) error {
+func ensureMethodOpType(fileDesc *descriptorpb.FileDescriptorProto, m *descriptorpb.MethodDescriptorProto, req *pluginpb.CodeGeneratorRequest) error {
 	opMsg, err := protoutil.GetOpExtension(m)
 	if err != nil {
 		if errors.Is(err, protoregistry.NotFound) {
@@ -51,7 +51,7 @@ func ensureMethodOpType(fileDesc *descriptorpb.FileDescriptorProto, m *descripto
 	}
 }
 
-func validateMethod(file *descriptorpb.FileDescriptorProto, service *descriptorpb.ServiceDescriptorProto, method *descriptorpb.MethodDescriptorProto, req *plugin.CodeGeneratorRequest) error {
+func validateMethod(file *descriptorpb.FileDescriptorProto, service *descriptorpb.ServiceDescriptorProto, method *descriptorpb.MethodDescriptorProto, req *pluginpb.CodeGeneratorRequest) error {
 	if intercepted, err := protoutil.IsInterceptedService(service); err != nil {
 		return fmt.Errorf("is intercepted service: %w", err)
 	} else if intercepted {
@@ -72,7 +72,7 @@ func validateMethod(file *descriptorpb.FileDescriptorProto, service *descriptorp
 // LintFile ensures the file described meets Gitaly required processes.
 // Currently, this is limited to validating if request messages contain
 // a mandatory operation code.
-func LintFile(file *descriptorpb.FileDescriptorProto, req *plugin.CodeGeneratorRequest) []error {
+func LintFile(file *descriptorpb.FileDescriptorProto, req *pluginpb.CodeGeneratorRequest) []error {
 	var errs []error
 
 	for _, service := range file.GetService() {
