@@ -4,11 +4,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/protoutil"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/types/descriptorpb"
 )
 
 // ensureMethodOpType will ensure that method includes the op_type option.
@@ -17,7 +17,7 @@ import (
 //  rpc ExampleMethod(ExampleMethodRequest) returns (ExampleMethodResponse) {
 //     option (op_type).op = ACCESSOR;
 //   }
-func ensureMethodOpType(fileDesc *descriptor.FileDescriptorProto, m *descriptor.MethodDescriptorProto, req *plugin.CodeGeneratorRequest) error {
+func ensureMethodOpType(fileDesc *descriptorpb.FileDescriptorProto, m *descriptorpb.MethodDescriptorProto, req *plugin.CodeGeneratorRequest) error {
 	opMsg, err := protoutil.GetOpExtension(m)
 	if err != nil {
 		if errors.Is(err, protoregistry.NotFound) {
@@ -51,7 +51,7 @@ func ensureMethodOpType(fileDesc *descriptor.FileDescriptorProto, m *descriptor.
 	}
 }
 
-func validateMethod(file *descriptor.FileDescriptorProto, service *descriptor.ServiceDescriptorProto, method *descriptor.MethodDescriptorProto, req *plugin.CodeGeneratorRequest) error {
+func validateMethod(file *descriptorpb.FileDescriptorProto, service *descriptorpb.ServiceDescriptorProto, method *descriptorpb.MethodDescriptorProto, req *plugin.CodeGeneratorRequest) error {
 	if intercepted, err := protoutil.IsInterceptedService(service); err != nil {
 		return fmt.Errorf("is intercepted service: %w", err)
 	} else if intercepted {
@@ -72,7 +72,7 @@ func validateMethod(file *descriptor.FileDescriptorProto, service *descriptor.Se
 // LintFile ensures the file described meets Gitaly required processes.
 // Currently, this is limited to validating if request messages contain
 // a mandatory operation code.
-func LintFile(file *descriptor.FileDescriptorProto, req *plugin.CodeGeneratorRequest) []error {
+func LintFile(file *descriptorpb.FileDescriptorProto, req *plugin.CodeGeneratorRequest) []error {
 	var errs []error
 
 	for _, service := range file.GetService() {

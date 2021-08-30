@@ -4,12 +4,12 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
 	"github.com/stretchr/testify/require"
 	_ "gitlab.com/gitlab-org/gitaly/v14/proto/go/internal/linter/testdata"
 	"google.golang.org/protobuf/reflect/protodesc"
 	protoreg "google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/types/descriptorpb"
 )
 
 func TestLintFile(t *testing.T) {
@@ -47,7 +47,7 @@ func TestLintFile(t *testing.T) {
 
 			fdToCheck := protodesc.ToFileDescriptorProto(fd)
 			req := &plugin.CodeGeneratorRequest{
-				ProtoFile: []*descriptor.FileDescriptorProto{fdToCheck},
+				ProtoFile: []*descriptorpb.FileDescriptorProto{fdToCheck},
 			}
 
 			for _, protoPath := range []string{
