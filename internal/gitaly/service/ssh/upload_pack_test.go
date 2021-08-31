@@ -36,6 +36,16 @@ type cloneCommand struct {
 	cfg          config.Cfg
 }
 
+func runTestWithAndWithoutConfigOptions(t *testing.T, tf func(t *testing.T, opts ...testcfg.Option), opts ...testcfg.Option) {
+	t.Run("no config options", func(t *testing.T) { tf(t) })
+
+	if len(opts) > 0 {
+		t.Run("with config options", func(t *testing.T) {
+			tf(t, opts...)
+		})
+	}
+}
+
 func (cmd cloneCommand) execute(t *testing.T) error {
 	req := &gitalypb.SSHUploadPackRequest{
 		Repository:  cmd.repository,
@@ -89,7 +99,11 @@ func (cmd cloneCommand) test(t *testing.T, cfg config.Cfg, repoPath string, loca
 }
 
 func TestFailedUploadPackRequestDueToTimeout(t *testing.T) {
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	runTestWithAndWithoutConfigOptions(t, testFailedUploadPackRequestDueToTimeout, testcfg.WithPackObjectsCacheEnabled())
+}
+
+func testFailedUploadPackRequestDueToTimeout(t *testing.T, opts ...testcfg.Option) {
+	cfg, repo, _ := testcfg.BuildWithRepo(t, opts...)
 
 	serverSocketPath := runSSHServerWithOptions(t, cfg, []ServerOpt{WithUploadPackRequestTimeout(10 * time.Microsecond)})
 
@@ -195,7 +209,11 @@ func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 }
 
 func TestUploadPackCloneSuccess(t *testing.T) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	runTestWithAndWithoutConfigOptions(t, testUploadPackCloneSuccess, testcfg.WithPackObjectsCacheEnabled())
+}
+
+func testUploadPackCloneSuccess(t *testing.T, opts ...testcfg.Option) {
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t, opts...)
 
 	testhelper.BuildGitalyHooks(t, cfg)
 	testhelper.BuildGitalySSH(t, cfg)
@@ -207,10 +225,9 @@ func TestUploadPackCloneSuccess(t *testing.T) {
 	localRepoPath := testhelper.TempDir(t)
 
 	tests := []struct {
-		cmd          *exec.Cmd
-		desc         string
-		deepen       float64
-		featureFlags []string
+		cmd    *exec.Cmd
+		desc   string
+		deepen float64
 	}{
 		{
 			cmd:    exec.Command(cfg.Git.BinPath, "clone", "git@localhost:test/test.git", localRepoPath),
@@ -229,11 +246,10 @@ func TestUploadPackCloneSuccess(t *testing.T) {
 			negotiationMetrics.Reset()
 
 			cmd := cloneCommand{
-				repository:   repo,
-				command:      tc.cmd,
-				featureFlags: tc.featureFlags,
-				server:       serverSocketPath,
-				cfg:          cfg,
+				repository: repo,
+				command:    tc.cmd,
+				server:     serverSocketPath,
+				cfg:        cfg,
 			}
 			lHead, rHead, _, _ := cmd.test(t, cfg, repoPath, localRepoPath)
 			require.Equal(t, lHead, rHead, "local and remote head not equal")
@@ -246,7 +262,7 @@ func TestUploadPackCloneSuccess(t *testing.T) {
 }
 
 func TestUploadPackWithPackObjectsHook(t *testing.T) {
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg, repo, _ := testcfg.BuildWithRepo(t, testcfg.WithPackObjectsCacheEnabled())
 
 	filterDir := testhelper.TempDir(t)
 	outputPath := filepath.Join(filterDir, "output")
@@ -286,7 +302,11 @@ exec '%s' "$@"
 }
 
 func TestUploadPackWithoutSideband(t *testing.T) {
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	runTestWithAndWithoutConfigOptions(t, testUploadPackWithoutSideband, testcfg.WithPackObjectsCacheEnabled())
+}
+
+func testUploadPackWithoutSideband(t *testing.T, opts ...testcfg.Option) {
+	cfg, repo, _ := testcfg.BuildWithRepo(t, opts...)
 
 	testhelper.BuildGitalySSH(t, cfg)
 	testhelper.BuildGitalyHooks(t, cfg)
@@ -329,7 +349,11 @@ func TestUploadPackWithoutSideband(t *testing.T) {
 }
 
 func TestUploadPackCloneWithPartialCloneFilter(t *testing.T) {
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	runTestWithAndWithoutConfigOptions(t, testUploadPackCloneWithPartialCloneFilter, testcfg.WithPackObjectsCacheEnabled())
+}
+
+func testUploadPackCloneWithPartialCloneFilter(t *testing.T, opts ...testcfg.Option) {
+	cfg, repo, _ := testcfg.BuildWithRepo(t, opts...)
 
 	testhelper.BuildGitalySSH(t, cfg)
 	testhelper.BuildGitalyHooks(t, cfg)
@@ -386,7 +410,11 @@ func TestUploadPackCloneWithPartialCloneFilter(t *testing.T) {
 }
 
 func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	runTestWithAndWithoutConfigOptions(t, testUploadPackCloneSuccessWithGitProtocol, testcfg.WithPackObjectsCacheEnabled())
+}
+
+func testUploadPackCloneSuccessWithGitProtocol(t *testing.T, opts ...testcfg.Option) {
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t, opts...)
 
 	testhelper.BuildGitalySSH(t, cfg)
 	testhelper.BuildGitalyHooks(t, cfg)

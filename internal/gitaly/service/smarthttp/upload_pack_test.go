@@ -27,11 +27,25 @@ const (
 	clientCapabilities = `multi_ack_detailed no-done side-band-64k thin-pack include-tag ofs-delta deepen-since deepen-not filter agent=git/2.18.0`
 )
 
-func TestServer_PostUploadPack(t *testing.T) {
+func runTestWithAndWithoutConfigOptions(t *testing.T, tf func(t *testing.T, ctx context.Context, opts ...testcfg.Option), opts ...testcfg.Option) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	t.Run("no config options", func(t *testing.T) { tf(t, ctx) })
+
+	if len(opts) > 0 {
+		t.Run("with config options", func(t *testing.T) {
+			tf(t, ctx, opts...)
+		})
+	}
+}
+
+func TestServer_PostUpload(t *testing.T) {
+	runTestWithAndWithoutConfigOptions(t, testServerPostUpload, testcfg.WithPackObjectsCacheEnabled())
+}
+
+func testServerPostUpload(t *testing.T, ctx context.Context, opts ...testcfg.Option) {
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t, opts...)
 	_, localRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	testhelper.BuildGitalyHooks(t, cfg)
@@ -67,10 +81,11 @@ func TestServer_PostUploadPack(t *testing.T) {
 }
 
 func TestServer_PostUploadPack_gitConfigOptions(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackGitConfigOptions, testcfg.WithPackObjectsCacheEnabled())
+}
 
+func testServerPostUploadPackGitConfigOptions(t *testing.T, ctx context.Context, opts ...testcfg.Option) {
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t, opts...)
 	testhelper.BuildGitalyHooks(t, cfg)
 
 	serverSocketPath := runSmartHTTPServer(t, cfg)
@@ -116,10 +131,11 @@ func TestServer_PostUploadPack_gitConfigOptions(t *testing.T) {
 }
 
 func TestServer_PostUploadPack_gitProtocol(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackGitProtocol, testcfg.WithPackObjectsCacheEnabled())
+}
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+func testServerPostUploadPackGitProtocol(t *testing.T, ctx context.Context, opts ...testcfg.Option) {
+	cfg, repo, _ := testcfg.BuildWithRepo(t, opts...)
 	readProto, cfg := gittest.EnableGitProtocolV2Support(t, cfg)
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 
@@ -147,10 +163,11 @@ func TestServer_PostUploadPack_gitProtocol(t *testing.T) {
 // on 'deepen' requests even though the request is being handled just
 // fine from the client perspective.
 func TestServer_PostUploadPack_suppressDeepenExitError(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackSuppressDeepenExitError, testcfg.WithPackObjectsCacheEnabled())
+}
 
+func testServerPostUploadPackSuppressDeepenExitError(t *testing.T, ctx context.Context, opts ...testcfg.Option) {
+	cfg, repo, _ := testcfg.BuildWithRepo(t, opts...)
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 
 	requestBody := &bytes.Buffer{}
@@ -167,7 +184,7 @@ func TestServer_PostUploadPack_suppressDeepenExitError(t *testing.T) {
 }
 
 func TestServer_PostUploadPack_usesPackObjectsHook(t *testing.T) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t, testcfg.WithPackObjectsCacheEnabled())
 	cfg.BinDir = testhelper.TempDir(t)
 
 	outputPath := filepath.Join(cfg.BinDir, "output")
@@ -206,10 +223,11 @@ func TestServer_PostUploadPack_usesPackObjectsHook(t *testing.T) {
 }
 
 func TestServer_PostUploadPack_validation(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackValidation, testcfg.WithPackObjectsCacheEnabled())
+}
 
-	cfg := testcfg.Build(t)
+func testServerPostUploadPackValidation(t *testing.T, ctx context.Context, opts ...testcfg.Option) {
+	cfg := testcfg.Build(t, opts...)
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 
 	rpcRequests := []*gitalypb.PostUploadPackRequest{
@@ -295,10 +313,11 @@ func extractPackDataFromResponse(t *testing.T, buf *bytes.Buffer) ([]byte, int, 
 }
 
 func TestServer_PostUploadPack_partialClone(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackPartialClone, testcfg.WithPackObjectsCacheEnabled())
+}
 
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+func testServerPostUploadPackPartialClone(t *testing.T, ctx context.Context, opts ...testcfg.Option) {
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t, opts...)
 	_, localRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 	testhelper.BuildGitalyHooks(t, cfg)
