@@ -311,7 +311,7 @@ rspec: build prepare-tests
 
 .PHONY: verify
 ## Verify that various files conform to our expectations.
-verify: check-mod-tidy check-formatting notice-up-to-date check-proto rubocop
+verify: check-mod-tidy notice-up-to-date check-proto rubocop lint
 
 .PHONY: check-mod-tidy
 check-mod-tidy:
@@ -327,11 +327,6 @@ lint: ${GOLANGCI_LINT} libgit2
 .PHONY: lint-strict
 lint-strict: lint
 	${Q}GOLANGCI_LINT_CONFIG=$(SOURCE_DIR)/.golangci-strict.yml $(MAKE) lint
-
-.PHONY: check-formatting
-check-formatting: ${GOIMPORTS} ${GOFUMPT}
-	${Q}${GOIMPORTS} -l $(call find_go_sources) | awk '{ print } END { if(NR>0) { print "goimports error, run make format"; exit(1) } }'
-	${Q}${GOFUMPT} -l $(call find_go_sources) | awk '{ print } END { if(NR>0) { print "Formatting error, run make format"; exit(1) } }'
 
 .PHONY: format
 ## Run Go formatter and adjust imports.
