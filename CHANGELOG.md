@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## 14.2.2 (2021-08-31)
+
+### Fixed (1 change)
+
+- [Downgrade grpc from 1.38.0 to 1.30.2](gitlab-org/security/gitaly@d8ccb23140704d941daca6a69ee3953997ac2cac)
+
 ## 14.2.1 (2021-08-23)
 
 No changes.
@@ -108,6 +114,10 @@ No changes.
 
 - [Remove `praefect reconcile` subcommand](gitlab-org/gitaly@0c48ca9e3f368f03d0d78de0a31540d2fe248242) ([merge request](gitlab-org/gitaly!3667))
 
+## 14.1.4 (2021-08-31)
+
+No changes.
+
 ## 14.1.3 (2021-08-17)
 
 No changes.
@@ -185,6 +195,10 @@ No changes.
 - [Refine metrics descriptions](gitlab-org/gitaly@d89639edbd90e1f0ca23a3bc63d8e70d15139004) ([merge request](gitlab-org/gitaly!3652))
 - [Separate listenmux from backchannel](gitlab-org/gitaly@c95298c125a680a006153d5aca5d3dbb575ce352) ([merge request](gitlab-org/gitaly!3593))
 - [Use upstream implementation of insecure credentials](gitlab-org/gitaly@7453f84b0bb385a958943b5e0910b8f6bb3906bb) ([merge request](gitlab-org/gitaly!3591))
+
+## 14.0.9 (2021-08-31)
+
+No changes.
 
 ## 14.0.8 (2021-08-25)
 
