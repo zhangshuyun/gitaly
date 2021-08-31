@@ -14,7 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
-func TestFile(t *testing.T) {
+func TestFileWriter_successful(t *testing.T) {
 	dir := testhelper.TempDir(t)
 
 	filePath := filepath.Join(dir, "test_file_contents")
@@ -38,7 +38,7 @@ func TestFile(t *testing.T) {
 	require.Equal(t, filepath.Base(filePath), filesInTempDir[0].Name())
 }
 
-func TestFileRace(t *testing.T) {
+func TestFileWriter_race(t *testing.T) {
 	dir := testhelper.TempDir(t)
 
 	filePath := filepath.Join(dir, "test_file_contents")
@@ -64,7 +64,7 @@ func TestFileRace(t *testing.T) {
 	require.Len(t, filesInTempDir, 1, "make sure no other files were written")
 }
 
-func TestFileCloseBeforeCommit(t *testing.T) {
+func TestFileWriter_closeBeforeCommit(t *testing.T) {
 	dir := testhelper.TempDir(t)
 
 	dstPath := filepath.Join(dir, "safety_meow")
@@ -82,7 +82,7 @@ func TestFileCloseBeforeCommit(t *testing.T) {
 	require.Equal(t, safe.ErrAlreadyDone, sf.Commit())
 }
 
-func TestFileCommitBeforeClose(t *testing.T) {
+func TestFileWriter_commitBeforeClose(t *testing.T) {
 	dir := testhelper.TempDir(t)
 
 	dstPath := filepath.Join(dir, "safety_meow")
