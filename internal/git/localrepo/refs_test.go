@@ -471,7 +471,7 @@ func TestGetDefaultBranch(t *testing.T) {
 				gittest.WriteCommit(t, repo.cfg, repoPath, gittest.WithParents(oid), gittest.WithBranch("main"))
 				return repo
 			},
-			expectedName: git.ReferenceName(git.DefaultRef),
+			expectedName: git.DefaultRef,
 		},
 		{
 			desc: "legacy default ref",
@@ -481,7 +481,7 @@ func TestGetDefaultBranch(t *testing.T) {
 				gittest.WriteCommit(t, repo.cfg, repoPath, gittest.WithParents(oid), gittest.WithBranch("master"))
 				return repo
 			},
-			expectedName: git.ReferenceName(git.LegacyDefaultRef),
+			expectedName: git.LegacyDefaultRef,
 		},
 		{
 			desc: "no branches",
@@ -505,7 +505,7 @@ func TestGetDefaultBranch(t *testing.T) {
 				repo, _ := setupRepo(t, false)
 				return repo
 			},
-			expectedName: git.ReferenceName(git.LegacyDefaultRef),
+			expectedName: git.LegacyDefaultRef,
 		},
 		{
 			desc: "test repo HEAD set",

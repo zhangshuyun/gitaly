@@ -283,22 +283,20 @@ func (repo *Repo) GetDefaultBranch(ctx context.Context) (git.ReferenceName, erro
 		// If the ref pointed at by HEAD doesn't exist, the rev-parse fails
 		// returning the string `"HEAD"`
 		if headRef == "HEAD" {
-			defaultRef := git.ReferenceName(git.DefaultRef)
-			ok, err := repo.HasRevision(ctx, defaultRef.Revision())
+			ok, err := repo.HasRevision(ctx, git.DefaultRef.Revision())
 			if err != nil {
 				return "", err
 			}
 			if ok {
-				return defaultRef, nil
+				return git.DefaultRef, nil
 			}
 
-			legacyDefaultRef := git.ReferenceName(git.LegacyDefaultRef)
-			ok, err = repo.HasRevision(ctx, legacyDefaultRef.Revision())
+			ok, err = repo.HasRevision(ctx, git.LegacyDefaultRef.Revision())
 			if err != nil {
 				return "", err
 			}
 			if ok {
-				return legacyDefaultRef, nil
+				return git.LegacyDefaultRef, nil
 			}
 
 			return "", nil
