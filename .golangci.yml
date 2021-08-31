@@ -12,6 +12,7 @@ linters:
     - errcheck
     - exportloopref
     - gci
+    - gofumpt
     - goimports
     - gosimple
     - govet
