@@ -59,15 +59,15 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 			return fmt.Errorf("resolve target branch: %w", err)
 		}
 
-		defaultBranch, err := repo.GetDefaultBranch(ctx, nil)
+		defaultBranch, err := repo.GetDefaultBranch(ctx)
 		if err != nil {
 			return fmt.Errorf("default branch name: %w", err)
-		} else if len(defaultBranch.Name) == 0 {
+		} else if len(defaultBranch) == 0 {
 			return errNoDefaultBranch
 		}
 
 		branchCreated = true
-		parentCommitID, err = repo.ResolveRevision(ctx, defaultBranch.Name.Revision()+"^{commit}")
+		parentCommitID, err = repo.ResolveRevision(ctx, defaultBranch.Revision()+"^{commit}")
 		if err != nil {
 			return fmt.Errorf("resolve default branch commit: %w", err)
 		}

@@ -29,11 +29,11 @@ func (s *server) FindCommits(req *gitalypb.FindCommitsRequest, stream gitalypb.C
 	// Use Gitaly's default branch lookup function because that is already
 	// migrated.
 	if revision := req.Revision; len(revision) == 0 && !req.GetAll() {
-		defaultBranch, err := repo.GetDefaultBranch(ctx, nil)
+		defaultBranch, err := repo.GetDefaultBranch(ctx)
 		if err != nil {
 			return helper.ErrInternal(fmt.Errorf("defaultBranchName: %v", err))
 		}
-		req.Revision = []byte(defaultBranch.Name)
+		req.Revision = []byte(defaultBranch)
 	}
 	// Clients might send empty paths. That is an error
 	for _, path := range req.Paths {

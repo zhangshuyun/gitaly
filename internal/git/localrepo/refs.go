@@ -267,63 +267,49 @@ func (repo *Repo) GetRemoteReferences(ctx context.Context, remote string, opts .
 	return refs, nil
 }
 
-// GetDefaultBranchOptions are options passed to GetDefaultBranch
-type GetDefaultBranchOptions struct {
-	// HeadReference allows specifying the HEAD symbolic reference instead of
-	// looking it up if it is already known
-	HeadReference git.ReferenceName
-}
-
 // GetDefaultBranch determines the default branch name
-func (repo *Repo) GetDefaultBranch(ctx context.Context, opts *GetDefaultBranchOptions) (git.Reference, error) {
-	if opts == nil {
-		opts = &GetDefaultBranchOptions{}
-	}
-
+func (repo *Repo) GetDefaultBranch(ctx context.Context) (git.ReferenceName, error) {
 	branches, err := repo.GetBranches(ctx)
 	if err != nil {
-		return git.Reference{}, err
+		return "", err
 	}
 	switch len(branches) {
 	case 0:
-		return git.Reference{}, nil
+		return "", nil
 	case 1:
-		return branches[0], nil
+		return branches[0].Name, nil
 	}
 
-	if len(opts.HeadReference) == 0 {
-		var err error
-		opts.HeadReference, err = repo.headReference(ctx)
-		if err != nil {
-			return git.Reference{}, err
-		}
+	headReference, err := repo.headReference(ctx)
+	if err != nil {
+		return "", err
 	}
 
-	var defaultRef, legacyDefaultRef git.Reference
+	var defaultRef, legacyDefaultRef git.ReferenceName
 	for _, branch := range branches {
-		if len(opts.HeadReference) != 0 && opts.HeadReference == branch.Name {
-			return branch, nil
+		if len(headReference) != 0 && headReference == branch.Name {
+			return branch.Name, nil
 		}
 
 		if string(git.DefaultRef) == branch.Name.String() {
-			defaultRef = branch
+			defaultRef = branch.Name
 		}
 
 		if string(git.LegacyDefaultRef) == branch.Name.String() {
-			legacyDefaultRef = branch
+			legacyDefaultRef = branch.Name
 		}
 	}
 
-	if len(defaultRef.Name) != 0 {
+	if len(defaultRef) != 0 {
 		return defaultRef, nil
 	}
 
-	if len(legacyDefaultRef.Name) != 0 {
+	if len(legacyDefaultRef) != 0 {
 		return legacyDefaultRef, nil
 	}
 
 	// If all else fails, return the first branch name
-	return branches[0], nil
+	return branches[0].Name, nil
 }
 
 func (repo *Repo) headReference(ctx context.Context) (git.ReferenceName, error) {
