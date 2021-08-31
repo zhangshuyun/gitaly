@@ -41,6 +41,13 @@ func WithRealLinguist() Option {
 	}
 }
 
+// WithPackObjectsCacheEnabled enables the pack object cache.
+func WithPackObjectsCacheEnabled() Option {
+	return func(builder *GitalyCfgBuilder) {
+		builder.packObjectsCacheEnabled = true
+	}
+}
+
 // NewGitalyCfgBuilder returns gitaly configuration builder with configured set of options.
 func NewGitalyCfgBuilder(opts ...Option) GitalyCfgBuilder {
 	cfgBuilder := GitalyCfgBuilder{}
@@ -56,8 +63,9 @@ func NewGitalyCfgBuilder(opts ...Option) GitalyCfgBuilder {
 type GitalyCfgBuilder struct {
 	cfg config.Cfg
 
-	storages     []string
-	realLinguist bool
+	storages                []string
+	realLinguist            bool
+	packObjectsCacheEnabled bool
 }
 
 // Build setups required filesystem structure, creates and returns configuration of the gitaly service.
@@ -120,6 +128,8 @@ func (gc *GitalyCfgBuilder) Build(t testing.TB) config.Cfg {
 			require.NoError(t, ioutil.WriteFile(cfg.Ruby.LinguistLanguagesPath, []byte(`{}`), 0655))
 		}
 	}
+
+	cfg.PackObjectsCache.Enabled = gc.packObjectsCacheEnabled
 
 	require.NoError(t, testhelper.ConfigureRuby(&cfg))
 	require.NoError(t, cfg.Validate())
