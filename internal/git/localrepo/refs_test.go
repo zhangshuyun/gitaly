@@ -491,15 +491,6 @@ func TestGetDefaultBranch(t *testing.T) {
 			},
 		},
 		{
-			desc: "one branch",
-			repo: func(t *testing.T) *Repo {
-				repo, repoPath := setupRepo(t, true)
-				gittest.WriteCommit(t, repo.cfg, repoPath, gittest.WithParents(), gittest.WithBranch("apple"))
-				return repo
-			},
-			expectedName: git.NewReferenceNameFromBranchName("apple"),
-		},
-		{
 			desc: "no default branches",
 			repo: func(t *testing.T) *Repo {
 				repo, repoPath := setupRepo(t, true)
@@ -507,7 +498,6 @@ func TestGetDefaultBranch(t *testing.T) {
 				gittest.WriteCommit(t, repo.cfg, repoPath, gittest.WithParents(oid), gittest.WithBranch("banana"))
 				return repo
 			},
-			expectedName: git.NewReferenceNameFromBranchName("apple"),
 		},
 		{
 			desc: "test repo default",

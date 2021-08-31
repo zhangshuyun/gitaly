@@ -294,6 +294,11 @@ To restore the original branch and stop patching, run "git am --abort".
 
 			if baseCommit != "" {
 				require.NoError(t, repo.UpdateRef(ctx, tc.baseReference, baseCommit, git.ZeroOID))
+
+				// Now that the repo has a ref, setup the default branch
+				if _, ok := tc.baseReference.Branch(); ok {
+					gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", tc.baseReference.String())
+				}
 			}
 
 			if tc.extraBranches != nil {
