@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"runtime"
 
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backup"
@@ -23,12 +24,16 @@ type restoreRequest struct {
 }
 
 type restoreSubcommand struct {
-	backupPath string
-	locator    string
+	backupPath      string
+	parallel        int
+	parallelStorage int
+	locator         string
 }
 
 func (cmd *restoreSubcommand) Flags(fs *flag.FlagSet) {
 	fs.StringVar(&cmd.backupPath, "path", "", "repository backup path")
+	fs.IntVar(&cmd.parallel, "parallel", runtime.NumCPU(), "maximum number of parallel restores")
+	fs.IntVar(&cmd.parallelStorage, "parallel-storage", 2, "maximum number of parallel restores per storage. Note: actual parallelism when combined with `-parallel` depends on the order the repositories are received.")
 	fs.StringVar(&cmd.locator, "locator", "legacy", "determines how backup files are located. One of legacy, pointer. Note: The feature is not ready for production use.")
 }
 
@@ -44,7 +49,12 @@ func (cmd *restoreSubcommand) Run(ctx context.Context, stdin io.Reader, stdout i
 	}
 
 	manager := backup.NewManager(sink, locator)
-	pipeline := backup.NewPipeline(log.StandardLogger(), manager)
+
+	var pipeline backup.Pipeline
+	pipeline = backup.NewLoggingPipeline(log.StandardLogger())
+	if cmd.parallel > 0 || cmd.parallelStorage > 0 {
+		pipeline = backup.NewParallelPipeline(pipeline, cmd.parallel, cmd.parallelStorage)
+	}
 
 	decoder := json.NewDecoder(stdin)
 	for {
@@ -60,11 +70,7 @@ func (cmd *restoreSubcommand) Run(ctx context.Context, stdin io.Reader, stdout i
 			RelativePath:  req.RelativePath,
 			GlProjectPath: req.GlProjectPath,
 		}
-		pipeline.Restore(ctx, &backup.RestoreRequest{
-			Server:       req.ServerInfo,
-			Repository:   &repo,
-			AlwaysCreate: req.AlwaysCreate,
-		})
+		pipeline.Handle(ctx, backup.NewRestoreCommand(manager, req.ServerInfo, &repo, req.AlwaysCreate))
 	}
 
 	if err := pipeline.Done(); err != nil {
