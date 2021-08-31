@@ -299,7 +299,7 @@ func (repo *Repo) GetDefaultBranch(ctx context.Context) (git.ReferenceName, erro
 				return git.LegacyDefaultRef, nil
 			}
 
-			return "", nil
+			return "", git.ErrNoDefaultBranch
 		}
 		return "", err
 	}

@@ -462,6 +462,7 @@ func TestGetDefaultBranch(t *testing.T) {
 		desc         string
 		repo         func(t *testing.T) *Repo
 		expectedName git.ReferenceName
+		expectedErr  error
 	}{
 		{
 			desc: "default ref",
@@ -489,6 +490,7 @@ func TestGetDefaultBranch(t *testing.T) {
 				repo, _ := setupRepo(t, true)
 				return repo
 			},
+			expectedErr: git.ErrNoDefaultBranch,
 		},
 		{
 			desc: "no default branches",
@@ -498,6 +500,7 @@ func TestGetDefaultBranch(t *testing.T) {
 				gittest.WriteCommit(t, repo.cfg, repoPath, gittest.WithParents(oid), gittest.WithBranch("banana"))
 				return repo
 			},
+			expectedErr: git.ErrNoDefaultBranch,
 		},
 		{
 			desc: "test repo default",
@@ -523,6 +526,11 @@ func TestGetDefaultBranch(t *testing.T) {
 			defer cancel()
 
 			name, err := tc.repo(t).GetDefaultBranch(ctx)
+			if tc.expectedErr != nil {
+				require.Equal(t, tc.expectedErr, err)
+				return
+			}
+
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedName, name)
 		})

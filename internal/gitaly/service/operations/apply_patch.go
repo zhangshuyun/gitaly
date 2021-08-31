@@ -19,8 +19,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var errNoDefaultBranch = errors.New("no default branch")
-
 func (s *Server) UserApplyPatch(stream gitalypb.OperationService_UserApplyPatchServer) error {
 	firstRequest, err := stream.Recv()
 	if err != nil {
@@ -62,8 +60,6 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 		defaultBranch, err := repo.GetDefaultBranch(ctx)
 		if err != nil {
 			return fmt.Errorf("default branch name: %w", err)
-		} else if len(defaultBranch) == 0 {
-			return errNoDefaultBranch
 		}
 
 		branchCreated = true

@@ -8,6 +8,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ref"
@@ -62,7 +63,7 @@ func FetchInternalRemote(
 	}
 
 	defaultBranch, err := repo.GetDefaultBranch(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, git.ErrNoDefaultBranch) {
 		return status.Errorf(codes.Internal, "FetchInternalRemote: default branch: %v", err)
 	}
 

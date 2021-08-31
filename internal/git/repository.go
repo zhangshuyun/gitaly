@@ -32,6 +32,9 @@ var (
 	ErrAlreadyExists = errors.New("already exists")
 	// ErrNotFound represents an error when the resource can't be found.
 	ErrNotFound = errors.New("not found")
+	// ErrNoDefaultBranch represents an error when the repository has no
+	// default branch
+	ErrNoDefaultBranch = errors.New("no default branch")
 )
 
 // Repository is the common interface of different repository implementations.

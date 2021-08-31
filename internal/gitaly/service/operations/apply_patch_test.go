@@ -117,7 +117,7 @@ To restore the original branch and stop patching, run "git am --abort".
 					createFile("file", "base-content"),
 				},
 			},
-			error: status.Error(codes.Internal, "no default branch"),
+			error: status.Error(codes.Internal, "default branch name: no default branch"),
 		},
 		{
 			desc:          "creating a new branch from HEAD works",

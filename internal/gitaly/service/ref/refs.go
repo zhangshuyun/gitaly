@@ -308,7 +308,7 @@ func (s *server) FindDefaultBranchName(ctx context.Context, in *gitalypb.FindDef
 	repo := s.localrepo(in.GetRepository())
 
 	defaultBranch, err := repo.GetDefaultBranch(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, git.ErrNoDefaultBranch) {
 		return nil, helper.ErrInternal(err)
 	}
 

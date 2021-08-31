@@ -103,7 +103,7 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 	}
 
 	defaultBranch, err := repo.GetDefaultBranch(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, git.ErrNoDefaultBranch) {
 		return fmt.Errorf("get default branch: %w", err)
 	}
 
