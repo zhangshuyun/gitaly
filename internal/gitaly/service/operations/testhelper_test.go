@@ -82,7 +82,7 @@ func runOperationServiceServer(t testing.TB, cfg config.Cfg, rubySrv *rubyserver
 	t.Helper()
 
 	return testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterOperationServiceServer(srv, NewServer(
+		operationServer := NewServer(
 			deps.GetCfg(),
 			deps.GetRubyServer(),
 			deps.GetHookManager(),
@@ -90,7 +90,10 @@ func runOperationServiceServer(t testing.TB, cfg config.Cfg, rubySrv *rubyserver
 			deps.GetConnsPool(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
-		))
+		)
+		operationServer.enableUserMergeBranchStructuredErrors = true
+
+		gitalypb.RegisterOperationServiceServer(srv, operationServer)
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(cfg, deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
 			deps.GetCfg(),
