@@ -402,6 +402,10 @@ FROM (
 
 	var pqerr *pq.Error
 	if errors.As(err, &pqerr) && pqerr.Code.Name() == "unique_violation" {
+		if pqerr.Constraint == "repositories_pkey" {
+			return fmt.Errorf("repository id %d already in use", repositoryID)
+		}
+
 		return RepositoryExistsError{
 			virtualStorage: virtualStorage,
 			relativePath:   relativePath,

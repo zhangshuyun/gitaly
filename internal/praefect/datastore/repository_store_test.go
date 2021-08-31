@@ -3,6 +3,7 @@ package datastore
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -636,13 +637,23 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			}
 		})
 
-		t.Run("conflict", func(t *testing.T) {
+		t.Run("conflict due to virtual storage and relative path", func(t *testing.T) {
 			rs, _ := newStore(t, nil)
 
 			require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, stor, nil, nil, false, false))
 			require.Equal(t,
 				RepositoryExistsError{vs, repo, stor},
-				rs.CreateRepository(ctx, 1, vs, repo, stor, nil, nil, false, false),
+				rs.CreateRepository(ctx, 2, vs, repo, stor, nil, nil, false, false),
+			)
+		})
+
+		t.Run("conflict due to repository id", func(t *testing.T) {
+			rs, _ := newStore(t, nil)
+
+			require.NoError(t, rs.CreateRepository(ctx, 1, "virtual-storage-1", "relative-path-1", "storage-1", nil, nil, false, false))
+			require.Equal(t,
+				fmt.Errorf("repository id 1 already in use"),
+				rs.CreateRepository(ctx, 1, "virtual-storage-2", "relative-path-2", "storage-2", nil, nil, false, false),
 			)
 		})
 	})
