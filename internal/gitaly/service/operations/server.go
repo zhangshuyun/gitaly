@@ -30,6 +30,10 @@ type Server struct {
 	gitCmdFactory git.CommandFactory
 	catfileCache  catfile.Cache
 	updater       *updateref.UpdaterWithHooks
+
+	// enableUserMergeBranchStructuredErrors enables the use of structured errors in
+	// UserMergeBranch. This flag only exists for testing purposes.
+	enableUserMergeBranchStructuredErrors bool
 }
 
 // NewServer creates a new instance of a grpc OperationServiceServer
