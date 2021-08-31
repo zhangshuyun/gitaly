@@ -25,8 +25,8 @@ func TestSuccessfulGetTreeEntriesWithCurlyBraces(t *testing.T) {
 	normalFolder := filepath.Join(repoPath, normalFolderName)
 	curlyFolder := filepath.Join(repoPath, curlyFolderName)
 
-	require.NoError(t, os.MkdirAll(normalFolder, 0755))
-	require.NoError(t, os.MkdirAll(curlyFolder, 0755))
+	require.NoError(t, os.MkdirAll(normalFolder, 0o755))
+	require.NoError(t, os.MkdirAll(curlyFolder, 0o755))
 
 	testhelper.MustRunCommand(t, nil, "touch", filepath.Join(normalFolder, "/test1.txt"))
 	testhelper.MustRunCommand(t, nil, "touch", filepath.Join(curlyFolder, "/test2.txt"))
@@ -90,7 +90,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			Path:      []byte(".DS_Store"),
 			FlatPath:  []byte(".DS_Store"),
 			Type:      gitalypb.TreeEntry_BLOB,
-			Mode:      0100644,
+			Mode:      0o100644,
 			CommitOid: commitID,
 		},
 		{
@@ -99,7 +99,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			Path:      []byte(".gitignore"),
 			FlatPath:  []byte(".gitignore"),
 			Type:      gitalypb.TreeEntry_BLOB,
-			Mode:      0100644,
+			Mode:      0o100644,
 			CommitOid: commitID,
 		},
 		{
@@ -108,7 +108,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			Path:      []byte(".gitmodules"),
 			FlatPath:  []byte(".gitmodules"),
 			Type:      gitalypb.TreeEntry_BLOB,
-			Mode:      0100644,
+			Mode:      0o100644,
 			CommitOid: commitID,
 		},
 		{
@@ -117,7 +117,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			Path:      []byte("CHANGELOG"),
 			FlatPath:  []byte("CHANGELOG"),
 			Type:      gitalypb.TreeEntry_BLOB,
-			Mode:      0100644,
+			Mode:      0o100644,
 			CommitOid: commitID,
 		},
 		{
@@ -126,7 +126,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			Path:      []byte("CONTRIBUTING.md"),
 			FlatPath:  []byte("CONTRIBUTING.md"),
 			Type:      gitalypb.TreeEntry_BLOB,
-			Mode:      0100644,
+			Mode:      0o100644,
 			CommitOid: commitID,
 		},
 		{
@@ -135,7 +135,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			Path:      []byte("LICENSE"),
 			FlatPath:  []byte("LICENSE"),
 			Type:      gitalypb.TreeEntry_BLOB,
-			Mode:      0100644,
+			Mode:      0o100644,
 			CommitOid: commitID,
 		},
 		{
@@ -144,7 +144,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			Path:      []byte("MAINTENANCE.md"),
 			FlatPath:  []byte("MAINTENANCE.md"),
 			Type:      gitalypb.TreeEntry_BLOB,
-			Mode:      0100644,
+			Mode:      0o100644,
 			CommitOid: commitID,
 		},
 		{
@@ -153,7 +153,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			Path:      []byte("PROCESS.md"),
 			FlatPath:  []byte("PROCESS.md"),
 			Type:      gitalypb.TreeEntry_BLOB,
-			Mode:      0100644,
+			Mode:      0o100644,
 			CommitOid: commitID,
 		},
 		{
@@ -162,7 +162,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			Path:      []byte("README.md"),
 			FlatPath:  []byte("README.md"),
 			Type:      gitalypb.TreeEntry_BLOB,
-			Mode:      0100644,
+			Mode:      0o100644,
 			CommitOid: commitID,
 		},
 		{
@@ -171,7 +171,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			Path:      []byte("VERSION"),
 			FlatPath:  []byte("VERSION"),
 			Type:      gitalypb.TreeEntry_BLOB,
-			Mode:      0100644,
+			Mode:      0o100644,
 			CommitOid: commitID,
 		},
 		{
@@ -180,7 +180,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			Path:      []byte("encoding"),
 			FlatPath:  []byte("encoding"),
 			Type:      gitalypb.TreeEntry_TREE,
-			Mode:      040000,
+			Mode:      0o40000,
 			CommitOid: commitID,
 		},
 		{
@@ -189,7 +189,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			Path:      []byte("files"),
 			FlatPath:  []byte("files"),
 			Type:      gitalypb.TreeEntry_TREE,
-			Mode:      040000,
+			Mode:      0o40000,
 			CommitOid: commitID,
 		},
 		{
@@ -198,7 +198,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			Path:      []byte("level-0"),
 			FlatPath:  []byte("level-0"),
 			Type:      gitalypb.TreeEntry_TREE,
-			Mode:      040000,
+			Mode:      0o40000,
 			CommitOid: commitID,
 		},
 		{
@@ -207,7 +207,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			Path:      []byte("six"),
 			FlatPath:  []byte("six"),
 			Type:      gitalypb.TreeEntry_COMMIT,
-			Mode:      0160000,
+			Mode:      0o160000,
 			CommitOid: commitID,
 		},
 	}
@@ -224,7 +224,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			Path:      []byte("files/.DS_Store"),
 			FlatPath:  []byte("files/.DS_Store"),
 			Type:      gitalypb.TreeEntry_BLOB,
-			Mode:      0100644,
+			Mode:      0o100644,
 			CommitOid: commitID,
 		},
 		{
@@ -233,7 +233,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			Path:      []byte("files/flat"),
 			FlatPath:  []byte("files/flat/path/correct"),
 			Type:      gitalypb.TreeEntry_TREE,
-			Mode:      040000,
+			Mode:      0o40000,
 			CommitOid: commitID,
 		},
 		{
@@ -242,7 +242,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			Path:      []byte("files/html"),
 			FlatPath:  []byte("files/html"),
 			Type:      gitalypb.TreeEntry_TREE,
-			Mode:      040000,
+			Mode:      0o40000,
 			CommitOid: commitID,
 		},
 		{
@@ -251,7 +251,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			Path:      []byte("files/images"),
 			FlatPath:  []byte("files/images"),
 			Type:      gitalypb.TreeEntry_TREE,
-			Mode:      040000,
+			Mode:      0o40000,
 			CommitOid: commitID,
 		},
 		{
@@ -260,7 +260,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			Path:      []byte("files/js"),
 			FlatPath:  []byte("files/js"),
 			Type:      gitalypb.TreeEntry_TREE,
-			Mode:      040000,
+			Mode:      0o40000,
 			CommitOid: commitID,
 		},
 		{
@@ -269,7 +269,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			Path:      []byte("files/markdown"),
 			FlatPath:  []byte("files/markdown"),
 			Type:      gitalypb.TreeEntry_TREE,
-			Mode:      040000,
+			Mode:      0o40000,
 			CommitOid: commitID,
 		},
 		{
@@ -278,7 +278,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			Path:      []byte("files/ruby"),
 			FlatPath:  []byte("files/ruby"),
 			Type:      gitalypb.TreeEntry_TREE,
-			Mode:      040000,
+			Mode:      0o40000,
 			CommitOid: commitID,
 		},
 	}
@@ -289,7 +289,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			RootOid:   rootOid,
 			Path:      []byte("level-0/level-1-1"),
 			Type:      gitalypb.TreeEntry_TREE,
-			Mode:      040000,
+			Mode:      0o40000,
 			CommitOid: commitID,
 		},
 		{
@@ -297,7 +297,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			RootOid:   rootOid,
 			Path:      []byte("level-0/level-1-1/.gitkeep"),
 			Type:      gitalypb.TreeEntry_BLOB,
-			Mode:      0100644,
+			Mode:      0o100644,
 			CommitOid: commitID,
 		},
 		{
@@ -305,7 +305,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			RootOid:   rootOid,
 			Path:      []byte("level-0/level-1-2"),
 			Type:      gitalypb.TreeEntry_TREE,
-			Mode:      040000,
+			Mode:      0o40000,
 			CommitOid: commitID,
 		},
 		{
@@ -313,7 +313,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			RootOid:   rootOid,
 			Path:      []byte("level-0/level-1-2/level-2"),
 			Type:      gitalypb.TreeEntry_TREE,
-			Mode:      040000,
+			Mode:      0o40000,
 			CommitOid: commitID,
 		},
 		{
@@ -321,7 +321,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			RootOid:   rootOid,
 			Path:      []byte("level-0/level-1-2/level-2/.gitkeep"),
 			Type:      gitalypb.TreeEntry_BLOB,
-			Mode:      0100644,
+			Mode:      0o100644,
 			CommitOid: commitID,
 		},
 	}
@@ -547,7 +547,7 @@ func TestSuccessfulGetTreeEntries_FlatPathMaxDeep_SingleFoldersStructure(t *test
 	require.GreaterOrEqual(t, strings.Count(strings.Trim(folderName, "/"), "/"), defaultFlatTreeRecursion, "sanity check: construct folder deeper than default recursion value")
 
 	nestedFolder := filepath.Join(repoPath, folderName)
-	require.NoError(t, os.MkdirAll(nestedFolder, 0755))
+	require.NoError(t, os.MkdirAll(nestedFolder, 0o755))
 	// put single file into the deepest directory
 	testhelper.MustRunCommand(t, nil, "touch", filepath.Join(nestedFolder, ".gitkeep"))
 	gittest.Exec(t, cfg, "-C", repoPath, "add", "--all")
@@ -581,7 +581,7 @@ func TestSuccessfulGetTreeEntries_FlatPathMaxDeep_SingleFoldersStructure(t *test
 		Path:      []byte("1/2"),
 		FlatPath:  []byte("1/2/3/4/5/6/7/8/9/10/11"),
 		Type:      gitalypb.TreeEntry_TREE,
-		Mode:      040000,
+		Mode:      0o40000,
 		CommitOid: commitID,
 	}}, fetchedEntries)
 }

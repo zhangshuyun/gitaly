@@ -56,7 +56,7 @@ func TestSuccessfulCreateForkRequest(t *testing.T) {
 		{
 			name: "existing empty directory target",
 			beforeRequest: func(repoPath string) {
-				require.NoError(t, os.MkdirAll(repoPath, 0755))
+				require.NoError(t, os.MkdirAll(repoPath, 0o755))
 			},
 		},
 	} {
@@ -173,14 +173,14 @@ func TestFailedCreateForkRequestDueToExistingTarget(t *testing.T) {
 			forkedRepoPath := filepath.Join(cfg.Storages[0].Path, forkedRepo.GetRelativePath())
 
 			if testCase.isDir {
-				require.NoError(t, os.MkdirAll(forkedRepoPath, 0770))
+				require.NoError(t, os.MkdirAll(forkedRepoPath, 0o770))
 				require.NoError(t, ioutil.WriteFile(
 					filepath.Join(forkedRepoPath, "config"),
 					nil,
-					0644,
+					0o644,
 				))
 			} else {
-				require.NoError(t, ioutil.WriteFile(forkedRepoPath, nil, 0644))
+				require.NoError(t, ioutil.WriteFile(forkedRepoPath, nil, 0o644))
 			}
 			defer func() { require.NoError(t, os.RemoveAll(forkedRepoPath)) }()
 

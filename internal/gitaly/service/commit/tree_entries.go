@@ -39,7 +39,6 @@ func populateFlatPath(ctx context.Context, c catfile.Batch, entries []*gitalypb.
 
 		for i := 1; i < defaultFlatTreeRecursion; i++ {
 			subEntries, err := treeEntries(ctx, c, entry.CommitOid, string(entry.FlatPath), "", false)
-
 			if err != nil {
 				return err
 			}

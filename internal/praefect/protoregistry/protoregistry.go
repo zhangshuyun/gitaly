@@ -14,11 +14,9 @@ import (
 	"google.golang.org/protobuf/types/descriptorpb"
 )
 
-var (
-	// GitalyProtoPreregistered is a proto registry pre-registered with all
-	// gitalypb.GitalyProtos proto files.
-	GitalyProtoPreregistered *Registry
-)
+// GitalyProtoPreregistered is a proto registry pre-registered with all
+// gitalypb.GitalyProtos proto files.
+var GitalyProtoPreregistered *Registry
 
 func init() {
 	var err error

@@ -43,7 +43,7 @@ func (s *server) filterShasWithSignatures(bidi gitalypb.CommitService_FilterShas
 		return err
 	}
 
-	var request = firstRequest
+	request := firstRequest
 	for {
 		shas, err := filterCommitShasWithSignatures(ctx, c, request.GetShas())
 		if err != nil {

@@ -209,7 +209,7 @@ func TestFailedDeleteRefsDueToValidation(t *testing.T) {
 			desc: "Empty prefix",
 			request: &gitalypb.DeleteRefsRequest{
 				Repository:       repo,
-				ExceptWithPrefix: [][]byte{[]byte("exclude-this"), []byte{}},
+				ExceptWithPrefix: [][]byte{[]byte("exclude-this"), {}},
 			},
 			code: codes.InvalidArgument,
 		},
@@ -217,7 +217,7 @@ func TestFailedDeleteRefsDueToValidation(t *testing.T) {
 			desc: "Empty ref",
 			request: &gitalypb.DeleteRefsRequest{
 				Repository: repo,
-				Refs:       [][]byte{[]byte("delete-this"), []byte{}},
+				Refs:       [][]byte{[]byte("delete-this"), {}},
 			},
 			code: codes.InvalidArgument,
 		},

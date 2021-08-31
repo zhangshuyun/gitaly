@@ -97,7 +97,7 @@ func TestDisconnectGitAlternatesUnexpectedAlternates(t *testing.T) {
 			altPath, err := locator.InfoAlternatesPath(repo)
 			require.NoError(t, err, "find info/alternates")
 
-			require.NoError(t, ioutil.WriteFile(altPath, []byte(tc.altContent), 0644))
+			require.NoError(t, ioutil.WriteFile(altPath, []byte(tc.altContent), 0o644))
 
 			_, err = client.DisconnectGitAlternates(ctx, &gitalypb.DisconnectGitAlternatesRequest{Repository: repo})
 			require.Error(t, err, "call DisconnectGitAlternates on repository with unexpected objects/info/alternates")
@@ -117,7 +117,7 @@ func TestRemoveAlternatesIfOk(t *testing.T) {
 	altPath, err := locator.InfoAlternatesPath(repo)
 	require.NoError(t, err, "find info/alternates")
 	altContent := "/var/empty\n"
-	require.NoError(t, ioutil.WriteFile(altPath, []byte(altContent), 0644), "write alternates file")
+	require.NoError(t, ioutil.WriteFile(altPath, []byte(altContent), 0o644), "write alternates file")
 
 	// Intentionally break the repository, so that 'git fsck' will fail later.
 	testhelper.MustRunCommand(t, nil, "sh", "-c", fmt.Sprintf("rm %s/objects/pack/*.pack", repoPath))

@@ -426,7 +426,7 @@ func TestGetArchivePathInjection(t *testing.T) {
 
 	// Create the directory on the repository
 	repoExploitPath := filepath.Join(repoPath, "--output=", authorizedKeysPath)
-	require.NoError(t, os.MkdirAll(repoExploitPath, os.ModeDir|0755))
+	require.NoError(t, os.MkdirAll(repoExploitPath, os.ModeDir|0o755))
 
 	f, err := os.Create(filepath.Join(repoExploitPath, "id_12345.pub"))
 	require.NoError(t, err)
@@ -479,7 +479,7 @@ func TestGetArchiveEnv(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { require.NoError(t, os.Remove(tmpFile.Name())) }()
 
-	err = tmpFile.Chmod(0755)
+	err = tmpFile.Chmod(0o755)
 	require.NoError(t, err)
 
 	_, err = tmpFile.Write([]byte(`#!/bin/sh

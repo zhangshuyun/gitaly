@@ -239,10 +239,10 @@ func TestHeadReferenceWithNonExistingHead(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	// Write bad HEAD
-	require.NoError(t, ioutil.WriteFile(repoPath+"/HEAD", []byte("ref: refs/heads/nonexisting"), 0644))
+	require.NoError(t, ioutil.WriteFile(repoPath+"/HEAD", []byte("ref: refs/heads/nonexisting"), 0o644))
 	defer func() {
 		// Restore HEAD
-		require.NoError(t, ioutil.WriteFile(repoPath+"/HEAD", []byte("ref: refs/heads/master"), 0644))
+		require.NoError(t, ioutil.WriteFile(repoPath+"/HEAD", []byte("ref: refs/heads/master"), 0o644))
 	}()
 
 	ctx, cancel := testhelper.Context()
@@ -638,7 +638,7 @@ func TestFindAllTagsNestedTags(t *testing.T) {
 	require.NoError(t, err)
 	testassert.ProtoEqual(t, &gitalypb.FindAllTagsResponse{
 		Tags: []*gitalypb.Tag{
-			&gitalypb.Tag{
+			{
 				Name: []byte("my/nested/tag"),
 				Id:   tagID,
 				TargetCommit: &gitalypb.GitCommit{

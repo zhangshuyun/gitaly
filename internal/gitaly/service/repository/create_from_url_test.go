@@ -77,7 +77,7 @@ func TestCloneRepositoryFromUrlCommand(t *testing.T) {
 	expectedBasicAuthHeader := fmt.Sprintf("Authorization: Basic %s", base64.StdEncoding.EncodeToString([]byte("user:pass!?@")))
 	expectedHeader := fmt.Sprintf("http.extraHeader=%s", expectedBasicAuthHeader)
 
-	var args = cmd.Args()
+	args := cmd.Args()
 	require.Contains(t, args, expectedScrubbedURL)
 	require.Contains(t, args, expectedHeader)
 	require.NotContains(t, args, userInfo)
@@ -116,9 +116,9 @@ func TestFailedCreateRepositoryFromURLRequestDueToExistingTarget(t *testing.T) {
 			importedRepoPath := filepath.Join(cfg.Storages[0].Path, importedRepo.GetRelativePath())
 
 			if testCase.isDir {
-				require.NoError(t, os.MkdirAll(importedRepoPath, 0770))
+				require.NoError(t, os.MkdirAll(importedRepoPath, 0o770))
 			} else {
-				require.NoError(t, ioutil.WriteFile(importedRepoPath, nil, 0644))
+				require.NoError(t, ioutil.WriteFile(importedRepoPath, nil, 0o644))
 			}
 			t.Cleanup(func() { require.NoError(t, os.RemoveAll(importedRepoPath)) })
 

@@ -12,9 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 )
 
-var (
-	errDeadAckedAsFailed = errors.New("job acknowledged as failed with no attempts left, should be 'dead'")
-)
+var errDeadAckedAsFailed = errors.New("job acknowledged as failed with no attempts left, should be 'dead'")
 
 // NewMemoryReplicationEventQueue return in-memory implementation of the ReplicationEventQueue.
 func NewMemoryReplicationEventQueue(conf config.Config) ReplicationEventQueue {

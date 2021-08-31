@@ -131,7 +131,7 @@ func TestLinkNoClobber(t *testing.T) {
 	require.NoFileExists(t, alternatesFile)
 
 	contentBefore := "mock/objects\n"
-	require.NoError(t, ioutil.WriteFile(alternatesFile, []byte(contentBefore), 0644))
+	require.NoError(t, ioutil.WriteFile(alternatesFile, []byte(contentBefore), 0o644))
 
 	request := &gitalypb.LinkRepositoryToObjectPoolRequest{
 		Repository: repo,

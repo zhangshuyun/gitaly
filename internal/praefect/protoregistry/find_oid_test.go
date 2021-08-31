@@ -13,7 +13,7 @@ import (
 
 func TestProtoRegistryTargetRepo(t *testing.T) {
 	testRepos := []*gitalypb.Repository{
-		&gitalypb.Repository{
+		{
 			GitAlternateObjectDirectories: []string{"a", "b", "c"},
 			GitObjectDirectory:            "d",
 			GlProjectPath:                 "e",
@@ -21,7 +21,7 @@ func TestProtoRegistryTargetRepo(t *testing.T) {
 			RelativePath:                  "g",
 			StorageName:                   "h",
 		},
-		&gitalypb.Repository{
+		{
 			GitAlternateObjectDirectories: []string{"1", "2", "3"},
 			GitObjectDirectory:            "4",
 			GlProjectPath:                 "5",

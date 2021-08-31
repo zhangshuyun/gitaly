@@ -644,7 +644,7 @@ func TestPostgresReplicationEventQueue_Acknowledge(t *testing.T) {
 	event.Attempt = 2
 	// events acknowledged with 'completed' or 'dead' states expected to be removed
 	db.RequireRowsInTable(t, "replication_queue", 0)
-	//all associated with acknowledged event tracking bindings between lock and event must be removed
+	// all associated with acknowledged event tracking bindings between lock and event must be removed
 	db.RequireRowsInTable(t, "replication_queue_job_lock", 0)
 	// lock must be released as the event was acknowledged and there are no other events left protected under this lock
 	requireLocks(t, ctx, db, []LockRow{{ID: event.LockID, Acquired: false}})

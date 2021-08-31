@@ -12,14 +12,12 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
-var (
-	packObjectsCacheEnabled = promauto.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "gitaly_pack_objects_cache_enabled",
-			Help: "If set to 1, indicates that the cache for PackObjectsHook has been enabled in this process",
-		},
-		[]string{"dir", "max_age"},
-	)
+var packObjectsCacheEnabled = promauto.NewGaugeVec(
+	prometheus.GaugeOpts{
+		Name: "gitaly_pack_objects_cache_enabled",
+		Help: "If set to 1, indicates that the cache for PackObjectsHook has been enabled in this process",
+	},
+	[]string{"dir", "max_age"},
 )
 
 type server struct {

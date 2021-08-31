@@ -27,10 +27,8 @@ import (
 	"google.golang.org/grpc"
 )
 
-var (
-	// ConnectTimeout is the timeout for establishing a connection to the gitaly-ruby process.
-	ConnectTimeout = 40 * time.Second
-)
+// ConnectTimeout is the timeout for establishing a connection to the gitaly-ruby process.
+var ConnectTimeout = 40 * time.Second
 
 func init() {
 	timeout, err := env.GetInt("GITALY_RUBY_CONNECT_TIMEOUT", 0)

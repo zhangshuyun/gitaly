@@ -136,10 +136,10 @@ func runServer(t *testing.T, token string, required bool) (*grpc.Server, string,
 	conf := config.Config{
 		Auth: auth.Config{Token: token, Transitioning: !required},
 		VirtualStorages: []*config.VirtualStorage{
-			&config.VirtualStorage{
+			{
 				Name: "praefect",
 				Nodes: []*config.Node{
-					&config.Node{
+					{
 						Storage: "praefect-internal-0",
 						Address: backend,
 						Token:   backendToken,

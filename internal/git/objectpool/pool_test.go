@@ -75,12 +75,12 @@ func TestNewFromRepoNoObjectPool(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, os.MkdirAll(filepath.Join(testRepoPath, "objects", "info"), 0755))
+	require.NoError(t, os.MkdirAll(filepath.Join(testRepoPath, "objects", "info"), 0o755))
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			alternateFilePath := filepath.Join(testRepoPath, "objects", "info", "alternates")
-			require.NoError(t, ioutil.WriteFile(alternateFilePath, tc.fileContent, 0644))
+			require.NoError(t, ioutil.WriteFile(alternateFilePath, tc.fileContent, 0o644))
 			poolFromRepo, err := FromRepo(pool.cfg, pool.locator, pool.gitCmdFactory, nil, testRepo)
 			require.Equal(t, tc.expectedErr, err)
 			require.Nil(t, poolFromRepo)

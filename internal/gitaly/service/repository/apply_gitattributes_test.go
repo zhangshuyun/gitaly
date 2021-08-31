@@ -66,8 +66,8 @@ func TestApplyGitattributesSuccess(t *testing.T) {
 			assertGitattributesApplied(t, client, repo, attributesPath, test.revision, test.contents)
 
 			// Test when a git attributes file already exists
-			require.NoError(t, os.MkdirAll(infoPath, 0755))
-			require.NoError(t, ioutil.WriteFile(attributesPath, []byte("*.docx diff=word"), 0644))
+			require.NoError(t, os.MkdirAll(infoPath, 0o755))
+			require.NoError(t, ioutil.WriteFile(attributesPath, []byte("*.docx diff=word"), 0o644))
 			assertGitattributesApplied(t, client, repo, attributesPath, test.revision, test.contents)
 		})
 	}

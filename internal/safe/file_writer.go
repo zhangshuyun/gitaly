@@ -9,11 +9,9 @@ import (
 	"sync"
 )
 
-var (
-	// ErrAlreadyDone is returned when the safe file has already been closed
-	// or committed
-	ErrAlreadyDone = errors.New("safe file was already committed or closed")
-)
+// ErrAlreadyDone is returned when the safe file has already been closed
+// or committed
+var ErrAlreadyDone = errors.New("safe file was already committed or closed")
 
 // FileWriter is a thread safe writer that does an atomic write to the target file. It allows one
 // writer at a time to acquire a lock, write the file, and atomically replace the contents of the target file.

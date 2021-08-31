@@ -26,9 +26,7 @@ import (
 	"google.golang.org/grpc/resolver"
 )
 
-var (
-	lbBuilder = newBuilder()
-)
+var lbBuilder = newBuilder()
 
 func init() {
 	resolver.Register(lbBuilder)

@@ -8,9 +8,7 @@ import (
 	"path/filepath"
 )
 
-var (
-	errIterOver = errors.New("random walker at end")
-)
+var errIterOver = errors.New("random walker at end")
 
 type stackFrame struct {
 	name    string

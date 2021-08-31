@@ -26,11 +26,11 @@ func NewFilesystemSink(path string) *FilesystemSink {
 func (fs *FilesystemSink) Write(ctx context.Context, relativePath string, r io.Reader) (returnErr error) {
 	path := filepath.Join(fs.path, relativePath)
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0700); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("create directory structure %q: %w", dir, err)
 	}
 
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return fmt.Errorf("write file %q: %w", path, err)
 	}

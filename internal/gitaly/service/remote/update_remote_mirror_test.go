@@ -626,7 +626,8 @@ func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 	gittest.CreateTag(t, cfg, mirrorPath, "v0.0.1", "master", nil) // I needed another tag for the tests
 	gittest.CreateTag(t, cfg, testRepoPath, "new-tag", "60ecb67744cb56576c30214ff52294f8ce2def98", nil)
 	gittest.CreateTag(t, cfg, testRepoPath, "v1.0.0", "0b4bc9a49b562e85de7cc9e834518ea6828729b9", &gittest.CreateTagOpts{
-		Message: "Overriding tag", Force: true})
+		Message: "Overriding tag", Force: true,
+	})
 
 	// Create a commit that only exists in the mirror
 	mirrorOnlyCommitOid := gittest.WriteCommit(t, cfg, mirrorPath, gittest.WithBranch("master"))

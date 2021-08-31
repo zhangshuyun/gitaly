@@ -27,7 +27,7 @@ func TestNewRepositorySuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, tempDir.Path(), calculatedPath)
 
-	require.NoError(t, ioutil.WriteFile(filepath.Join(tempDir.Path(), "test"), []byte("hello"), 0644))
+	require.NoError(t, ioutil.WriteFile(filepath.Join(tempDir.Path(), "test"), []byte("hello"), 0o644))
 
 	require.DirExists(t, tempDir.Path())
 

@@ -30,40 +30,38 @@ const (
 	lfsPointer6 = "ff0ab3afd1616ff78d0331865d922df103b64cf0"
 )
 
-var (
-	lfsPointers = map[string]*gitalypb.LFSPointer{
-		lfsPointer1: &gitalypb.LFSPointer{
-			Size: 133,
-			Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:91eff75a492a3ed0dfcb544d7f31326bc4014c8551849c192fd1e48d4dd2c897\nsize 1575078\n\n"),
-			Oid:  lfsPointer1,
-		},
-		lfsPointer2: &gitalypb.LFSPointer{
-			Size: 127,
-			Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:f2b0a1e7550e9b718dafc9b525a04879a766de62e4fbdfc46593d47f7ab74636\nsize 20\n"),
-			Oid:  lfsPointer2,
-		},
-		lfsPointer3: &gitalypb.LFSPointer{
-			Size: 127,
-			Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:bad71f905b60729f502ca339f7c9f001281a3d12c68a5da7f15de8009f4bd63d\nsize 18\n"),
-			Oid:  lfsPointer3,
-		},
-		lfsPointer4: &gitalypb.LFSPointer{
-			Size: 129,
-			Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:47997ea7ecff33be61e3ca1cc287ee72a2125161518f1a169f2893a5a82e9d95\nsize 7501\n"),
-			Oid:  lfsPointer4,
-		},
-		lfsPointer5: &gitalypb.LFSPointer{
-			Size: 129,
-			Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:8c1e8de917525f83104736f6c64d32f0e2a02f5bf2ee57843a54f222cba8c813\nsize 2797\n"),
-			Oid:  lfsPointer5,
-		},
-		lfsPointer6: &gitalypb.LFSPointer{
-			Size: 132,
-			Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:96f74c6fe7a2979eefb9ec74a5dfc6888fb25543cf99b77586b79afea1da6f97\nsize 1219696\n"),
-			Oid:  lfsPointer6,
-		},
-	}
-)
+var lfsPointers = map[string]*gitalypb.LFSPointer{
+	lfsPointer1: {
+		Size: 133,
+		Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:91eff75a492a3ed0dfcb544d7f31326bc4014c8551849c192fd1e48d4dd2c897\nsize 1575078\n\n"),
+		Oid:  lfsPointer1,
+	},
+	lfsPointer2: {
+		Size: 127,
+		Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:f2b0a1e7550e9b718dafc9b525a04879a766de62e4fbdfc46593d47f7ab74636\nsize 20\n"),
+		Oid:  lfsPointer2,
+	},
+	lfsPointer3: {
+		Size: 127,
+		Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:bad71f905b60729f502ca339f7c9f001281a3d12c68a5da7f15de8009f4bd63d\nsize 18\n"),
+		Oid:  lfsPointer3,
+	},
+	lfsPointer4: {
+		Size: 129,
+		Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:47997ea7ecff33be61e3ca1cc287ee72a2125161518f1a169f2893a5a82e9d95\nsize 7501\n"),
+		Oid:  lfsPointer4,
+	},
+	lfsPointer5: {
+		Size: 129,
+		Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:8c1e8de917525f83104736f6c64d32f0e2a02f5bf2ee57843a54f222cba8c813\nsize 2797\n"),
+		Oid:  lfsPointer5,
+	},
+	lfsPointer6: {
+		Size: 132,
+		Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:96f74c6fe7a2979eefb9ec74a5dfc6888fb25543cf99b77586b79afea1da6f97\nsize 1219696\n"),
+		Oid:  lfsPointer6,
+	},
+}
 
 func TestListLFSPointers(t *testing.T) {
 	_, repo, _, client := setup(t)
@@ -224,7 +222,7 @@ size 12345`
 		})
 		require.NoError(t, err)
 		lfsPointersEqual(t, []*gitalypb.LFSPointer{
-			&gitalypb.LFSPointer{
+			{
 				Oid:  lfsPointerOID,
 				Data: []byte(lfsPointerContents),
 				Size: int64(len(lfsPointerContents)),
@@ -246,7 +244,7 @@ size 12345`
 		// may want to inspect all newly pushed objects, denoted by a repository proto
 		// message which only has its object directory set to the quarantine directory.
 		quarantineDir := "objects/incoming-123456"
-		require.NoError(t, os.Mkdir(filepath.Join(repoPath, quarantineDir), 0777))
+		require.NoError(t, os.Mkdir(filepath.Join(repoPath, quarantineDir), 0o777))
 		repoProto.GitObjectDirectory = quarantineDir
 		repoProto.GitAlternateObjectDirectories = nil
 
@@ -279,7 +277,7 @@ size 12345`
 		// We only expect to find a single LFS pointer, which is the one we've just written
 		// into the quarantine directory.
 		lfsPointersEqual(t, []*gitalypb.LFSPointer{
-			&gitalypb.LFSPointer{
+			{
 				Oid:  text.ChompBytes(buffer.Bytes()),
 				Data: []byte(lfsPointerContents),
 				Size: int64(len(lfsPointerContents)),

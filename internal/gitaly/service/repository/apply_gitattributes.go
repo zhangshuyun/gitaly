@@ -19,7 +19,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-const attributesFileMode os.FileMode = 0644
+const attributesFileMode os.FileMode = 0o644
 
 func (s *server) applyGitattributes(ctx context.Context, c catfile.Batch, repoPath string, revision []byte) error {
 	infoPath := filepath.Join(repoPath, "info")
@@ -55,7 +55,7 @@ func (s *server) applyGitattributes(ctx context.Context, c catfile.Batch, repoPa
 	}
 
 	// Create  /info folder if it doesn't exist
-	if err := os.MkdirAll(infoPath, 0755); err != nil {
+	if err := os.MkdirAll(infoPath, 0o755); err != nil {
 		return err
 	}
 

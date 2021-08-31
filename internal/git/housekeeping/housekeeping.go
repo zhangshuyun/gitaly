@@ -22,7 +22,7 @@ const (
 	emptyRefsGracePeriod             = 24 * time.Hour
 	deleteTempFilesOlderThanDuration = 7 * 24 * time.Hour
 	brokenRefsGracePeriod            = 24 * time.Hour
-	minimumDirPerm                   = 0700
+	minimumDirPerm                   = 0o700
 	lockfileGracePeriod              = 15 * time.Minute
 	referenceLockfileGracePeriod     = 1 * time.Hour
 	packedRefsLockGracePeriod        = 1 * time.Hour

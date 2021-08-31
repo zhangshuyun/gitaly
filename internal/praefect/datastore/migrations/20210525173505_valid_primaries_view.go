@@ -5,7 +5,8 @@ import migrate "github.com/rubenv/sql-migrate"
 func init() {
 	m := &migrate.Migration{
 		Id: "20210525173505_valid_primaries_view",
-		Up: []string{`
+		Up: []string{
+			`
 CREATE VIEW repository_generations AS
 	SELECT virtual_storage, relative_path, MAX(generation) AS generation
 	FROM storage_repositories
@@ -42,7 +43,8 @@ CREATE VIEW valid_primaries AS
 			AND assigned_candidates.relative_path   = candidates.relative_path
 		)
 	)
-						`},
+						`,
+		},
 		Down: []string{
 			"DROP VIEW valid_primaries",
 			"DROP VIEW repository_generations",

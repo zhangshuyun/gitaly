@@ -264,7 +264,8 @@ func TestUnaryNoAuth(t *testing.T) {
 		Repository: &gitalypb.Repository{
 			StorageName:  cfg.Storages[0].Name,
 			RelativePath: "new/project/path",
-		}},
+		},
+	},
 	)
 
 	testhelper.RequireGrpcError(t, err, codes.Unauthenticated)
@@ -286,7 +287,8 @@ func TestStreamingNoAuth(t *testing.T) {
 		Repository: &gitalypb.Repository{
 			StorageName:  cfg.Storages[0].Name,
 			RelativePath: "new/project/path",
-		}},
+		},
+	},
 	)
 	require.NoError(t, err)
 
@@ -303,7 +305,8 @@ func TestAuthBeforeLimit(t *testing.T) {
 		Concurrency: []config.Concurrency{{
 			RPC:        "/gitaly.OperationService/UserCreateTag",
 			MaxPerRepo: 1,
-		}}},
+		}},
+	},
 	))
 
 	config.ConfigureConcurrencyLimits(cfg)

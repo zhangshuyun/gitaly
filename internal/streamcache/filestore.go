@@ -103,11 +103,11 @@ func (fs *filestore) Create() (namedWriteCloser, error) {
 	)
 
 	path := filepath.Join(fs.dir, fmt.Sprintf("%02x", uint8(fileID)), name)
-	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return nil, fmt.Errorf("Create: mkdir: %w", err)
 	}
 
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
 		return nil, fmt.Errorf("Create: %w", err)
 	}

@@ -21,7 +21,7 @@ func TestSuccessfulCalculateChecksum(t *testing.T) {
 	// Force the refs database of testRepo into a known state
 	require.NoError(t, os.RemoveAll(filepath.Join(repoPath, "refs")))
 	for _, d := range []string{"refs/heads", "refs/tags", "refs/notes"} {
-		require.NoError(t, os.MkdirAll(filepath.Join(repoPath, d), 0755))
+		require.NoError(t, os.MkdirAll(filepath.Join(repoPath, d), 0o755))
 	}
 	require.NoError(t, exec.Command("cp", "testdata/checksum-test-packed-refs", filepath.Join(repoPath, "packed-refs")).Run())
 	require.NoError(t, exec.Command(cfg.Git.BinPath, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/feature").Run())
@@ -137,7 +137,7 @@ func TestInvalidRefsCalculateChecksum(t *testing.T) {
 	// Force the refs database of testRepo into a known state
 	require.NoError(t, os.RemoveAll(filepath.Join(repoPath, "refs")))
 	for _, d := range []string{"refs/heads", "refs/tags", "refs/notes"} {
-		require.NoError(t, os.MkdirAll(filepath.Join(repoPath, d), 0755))
+		require.NoError(t, os.MkdirAll(filepath.Join(repoPath, d), 0o755))
 	}
 	require.NoError(t, exec.Command("cp", "testdata/checksum-test-invalid-refs", filepath.Join(repoPath, "packed-refs")).Run())
 

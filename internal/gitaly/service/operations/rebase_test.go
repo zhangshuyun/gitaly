@@ -29,9 +29,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-var (
-	rebaseBranchName = "many_files"
-)
+var rebaseBranchName = "many_files"
 
 func TestSuccessfulUserRebaseConfirmableRequest(t *testing.T) {
 	t.Parallel()

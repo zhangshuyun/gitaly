@@ -126,7 +126,8 @@ func (ch clientHandshake) serve(ctx context.Context, conn net.Conn) (net.Conn, e
 			// Serve returns a non-nil error if it returned before Stop was called. If the error
 			// is non-nil, it indicates a serving failure prior to calling Stop.
 			return <-serveErr
-		}}, nil
+		},
+	}, nil
 }
 
 func (ch clientHandshake) Clone() credentials.TransportCredentials {

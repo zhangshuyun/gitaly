@@ -14,14 +14,12 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var (
-	authCount = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "gitaly_authentications_total",
-			Help: "Counts of of Gitaly request authentication attempts",
-		},
-		[]string{"enforced", "status"},
-	)
+var authCount = promauto.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "gitaly_authentications_total",
+		Help: "Counts of of Gitaly request authentication attempts",
+	},
+	[]string{"enforced", "status"},
 )
 
 // StreamServerInterceptor checks for Gitaly bearer tokens.

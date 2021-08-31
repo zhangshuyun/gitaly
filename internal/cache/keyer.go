@@ -62,7 +62,7 @@ func (keyer leaseKeyer) updateLatest(ctx context.Context, repo *gitalypb.Reposit
 	}
 
 	lPath := latestPath(repoStatePath)
-	if err := os.MkdirAll(filepath.Dir(lPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(lPath), 0o755); err != nil {
 		return "", err
 	}
 
@@ -164,7 +164,7 @@ func (keyer leaseKeyer) newPendingLease(repo *gitalypb.Repository) (string, erro
 	}
 
 	pDir := pendingDir(repoStatePath)
-	if err := os.MkdirAll(pDir, 0755); err != nil {
+	if err := os.MkdirAll(pDir, 0o755); err != nil {
 		return "", err
 	}
 
@@ -252,7 +252,7 @@ func (keyer leaseKeyer) currentGenID(ctx context.Context, repo *gitalypb.Reposit
 	}
 }
 
-//func stateDir(repoDir string) string   { return filepath.Join(repoDir, "state") }
+// func stateDir(repoDir string) string   { return filepath.Join(repoDir, "state") }
 func pendingDir(repoStateDir string) string { return filepath.Join(repoStateDir, "pending") }
 func latestPath(repoStateDir string) string { return filepath.Join(repoStateDir, "latest") }
 

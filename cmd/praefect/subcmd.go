@@ -23,18 +23,16 @@ type subcmd interface {
 	Exec(flags *flag.FlagSet, config config.Config) error
 }
 
-var (
-	subcommands = map[string]subcmd{
-		"sql-ping":               &sqlPingSubcommand{},
-		"sql-migrate":            &sqlMigrateSubcommand{},
-		"dial-nodes":             &dialNodesSubcommand{},
-		"sql-migrate-down":       &sqlMigrateDownSubcommand{},
-		"sql-migrate-status":     &sqlMigrateStatusSubcommand{},
-		"dataloss":               newDatalossSubcommand(),
-		"accept-dataloss":        &acceptDatalossSubcommand{},
-		"set-replication-factor": newSetReplicatioFactorSubcommand(os.Stdout),
-	}
-)
+var subcommands = map[string]subcmd{
+	"sql-ping":               &sqlPingSubcommand{},
+	"sql-migrate":            &sqlMigrateSubcommand{},
+	"dial-nodes":             &dialNodesSubcommand{},
+	"sql-migrate-down":       &sqlMigrateDownSubcommand{},
+	"sql-migrate-status":     &sqlMigrateStatusSubcommand{},
+	"dataloss":               newDatalossSubcommand(),
+	"accept-dataloss":        &acceptDatalossSubcommand{},
+	"set-replication-factor": newSetReplicatioFactorSubcommand(os.Stdout),
+}
 
 // subCommand returns an exit code, to be fed into os.Exit.
 func subCommand(conf config.Config, arg0 string, argRest []string) int {

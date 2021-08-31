@@ -49,7 +49,7 @@ func TestReplicateRepository(t *testing.T) {
 	// write info attributes
 	attrFilePath := filepath.Join(repoPath, "info", "attributes")
 	attrData := []byte("*.pbxproj binary\n")
-	require.NoError(t, ioutil.WriteFile(attrFilePath, attrData, 0644))
+	require.NoError(t, ioutil.WriteFile(attrFilePath, attrData, 0o644))
 
 	// Write a modified gitconfig
 	gittest.Exec(t, cfg, "-C", repoPath, "config", "please.replicate", "me")
@@ -355,7 +355,7 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 	targetRepoPath, err := locator.GetPath(targetRepo)
 	require.NoError(t, err)
 
-	require.NoError(t, os.MkdirAll(targetRepoPath, 0755))
+	require.NoError(t, os.MkdirAll(targetRepoPath, 0o755))
 	testhelper.MustRunCommand(t, nil, "touch", filepath.Join(targetRepoPath, "invalid_git_repo"))
 
 	ctx, cancel := testhelper.Context()

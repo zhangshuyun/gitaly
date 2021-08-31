@@ -55,13 +55,13 @@ func CaptureHookEnv(t testing.TB) (string, func()) {
 	hooks.Override = filepath.Join(tempDir, "hooks")
 	hookOutputFile := filepath.Join(tempDir, "hook.env")
 
-	require.NoError(t, os.MkdirAll(hooks.Override, 0755))
+	require.NoError(t, os.MkdirAll(hooks.Override, 0o755))
 
 	script := []byte(`
 #!/bin/sh
 env | grep -e ^GIT -e ^GL_ > ` + hookOutputFile + "\n")
 
-	require.NoError(t, ioutil.WriteFile(filepath.Join(hooks.Override, "update"), script, 0755))
+	require.NoError(t, ioutil.WriteFile(filepath.Join(hooks.Override, "update"), script, 0o755))
 
 	return hookOutputFile, func() {
 		hooks.Override = oldOverride

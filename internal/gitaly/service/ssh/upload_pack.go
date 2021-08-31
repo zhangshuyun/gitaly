@@ -108,7 +108,6 @@ func (s *server) sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, r
 		Name: "upload-pack",
 		Args: []string{repoPath},
 	}, commandOpts...)
-
 	if err != nil {
 		return err
 	}

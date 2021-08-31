@@ -81,7 +81,6 @@ func CheckToken(ctx context.Context, secret string, targetTime time.Time) error 
 // ExtractAuthInfo returns an `AuthInfo` with the data extracted from `ctx`
 func ExtractAuthInfo(ctx context.Context) (*AuthInfo, error) {
 	token, err := grpcmwauth.AuthFromMD(ctx, "bearer")
-
 	if err != nil {
 		return nil, err
 	}

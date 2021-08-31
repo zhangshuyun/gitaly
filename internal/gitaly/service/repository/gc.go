@@ -66,7 +66,6 @@ func (s *server) gc(ctx context.Context, in *gitalypb.GarbageCollectRequest) err
 		git.SubCmd{Name: "gc", Flags: flags},
 		git.WithConfig(config...),
 	)
-
 	if err != nil {
 		if git.IsInvalidArgErr(err) {
 			return helper.ErrInvalidArgumentf("GarbageCollect: gitCommand: %v", err)

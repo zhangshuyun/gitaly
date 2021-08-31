@@ -168,7 +168,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 
 			conf := config.Config{
 				VirtualStorages: []*config.VirtualStorage{
-					&config.VirtualStorage{
+					{
 						Name:  "praefect",
 						Nodes: storageNodes,
 					},

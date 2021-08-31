@@ -117,7 +117,7 @@ end`, cfg.Git.BinPath)
 	dir := testhelper.TempDir(t)
 	hookPath := filepath.Join(dir, "pre-receive")
 
-	require.NoError(t, ioutil.WriteFile(hookPath, []byte(hook), 0755))
+	require.NoError(t, ioutil.WriteFile(hookPath, []byte(hook), 0o755))
 
 	return hookPath
 }
@@ -150,7 +150,7 @@ end`, cfg.Git.BinPath)
 	dir := testhelper.TempDir(t)
 	hookPath := filepath.Join(dir, "pre-receive")
 
-	require.NoError(t, ioutil.WriteFile(hookPath, []byte(hook), 0755))
+	require.NoError(t, ioutil.WriteFile(hookPath, []byte(hook), 0o755))
 
 	return hookPath
 }
@@ -201,7 +201,7 @@ func TestSuccessfulUserCreateTagRequest(t *testing.T) {
 			message:        "This is an annotated tag",
 			expectedTag: &gitalypb.Tag{
 				Name: []byte(inputTagName),
-				//Id: is a new object, filled in below
+				// Id: is a new object, filled in below
 				TargetCommit: targetRevisionCommit,
 				Message:      []byte("This is an annotated tag"),
 				MessageSize:  24,
@@ -665,7 +665,7 @@ func TestSuccessfulUserCreateTagRequestToNonCommit(t *testing.T) {
 			message:        "This is an annotated tag",
 			expectedTag: &gitalypb.Tag{
 				Name: []byte(inputTagName),
-				//Id: is a new object, filled in below
+				// Id: is a new object, filled in below
 				TargetCommit: nil,
 				Message:      []byte("This is an annotated tag"),
 				MessageSize:  24,
@@ -679,7 +679,7 @@ func TestSuccessfulUserCreateTagRequestToNonCommit(t *testing.T) {
 			message:        "This is an annotated tag",
 			expectedTag: &gitalypb.Tag{
 				Name: []byte(inputTagName),
-				//Id: is a new object, filled in below
+				// Id: is a new object, filled in below
 				TargetCommit: nil,
 				Message:      []byte("This is an annotated tag"),
 				MessageSize:  24,
@@ -800,7 +800,7 @@ func TestSuccessfulUserCreateTagNestedTags(t *testing.T) {
 					Tag: &gitalypb.Tag{
 						Name: request.TagName,
 						Id:   createdIDStr,
-						//TargetCommit: is dymamically determined, filled in below
+						// TargetCommit: is dymamically determined, filled in below
 						Message:     request.Message,
 						MessageSize: int64(len(request.Message)),
 					},

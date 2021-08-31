@@ -32,7 +32,7 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 		return nil, helper.ErrInternalf("temporary directory: %w", err)
 	}
 
-	if err := os.MkdirAll(tempDir, 0755); err != nil {
+	if err := os.MkdirAll(tempDir, 0o755); err != nil {
 		return nil, helper.ErrInternal(err)
 	}
 

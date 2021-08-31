@@ -81,7 +81,6 @@ func (s *server) midxWrite(ctx context.Context, repo repository.GitRepo) error {
 			Action: "write",
 		},
 	)
-
 	if err != nil {
 		return err
 	}

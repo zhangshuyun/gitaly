@@ -19,9 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
 
-var (
-	masterRevision = "1e292f8fedd741b75372e19097c76d327140c312"
-)
+var masterRevision = "1e292f8fedd741b75372e19097c76d327140c312"
 
 func TestRebase_validation(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)

@@ -44,7 +44,7 @@ func testConfig(backends int) config.Config {
 	}
 	cfg := config.Config{
 		VirtualStorages: []*config.VirtualStorage{
-			&config.VirtualStorage{
+			{
 				Name:  "praefect",
 				Nodes: nodes,
 			},

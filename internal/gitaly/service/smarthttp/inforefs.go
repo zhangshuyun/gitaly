@@ -67,7 +67,6 @@ func (s *server) handleInfoRefs(ctx context.Context, service, repoPath string, r
 		Flags: []git.Option{git.Flag{Name: "--stateless-rpc"}, git.Flag{Name: "--advertise-refs"}},
 		Args:  []string{repoPath},
 	}, cmdOpts...)
-
 	if err != nil {
 		if _, ok := status.FromError(err); ok {
 			return err

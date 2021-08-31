@@ -35,7 +35,7 @@ func TestNamespaceExists(t *testing.T) {
 	defer cancel()
 
 	const existingNamespace = "existing"
-	require.NoError(t, os.MkdirAll(filepath.Join(existingStorage.Path, existingNamespace), 0755))
+	require.NoError(t, os.MkdirAll(filepath.Join(existingStorage.Path, existingNamespace), 0o755))
 
 	queries := []struct {
 		desc      string
@@ -170,7 +170,7 @@ func TestRemoveNamespace(t *testing.T) {
 	defer cancel()
 
 	const existingNamespace = "created"
-	require.NoError(t, os.MkdirAll(filepath.Join(existingStorage.Path, existingNamespace), 0755), "test setup")
+	require.NoError(t, os.MkdirAll(filepath.Join(existingStorage.Path, existingNamespace), 0o755), "test setup")
 
 	queries := []struct {
 		desc      string
@@ -224,7 +224,7 @@ func TestRenameNamespace(t *testing.T) {
 	defer cancel()
 
 	const existingNamespace = "existing"
-	require.NoError(t, os.MkdirAll(filepath.Join(existingStorage.Path, existingNamespace), 0755))
+	require.NoError(t, os.MkdirAll(filepath.Join(existingStorage.Path, existingNamespace), 0o755))
 
 	queries := []struct {
 		desc      string

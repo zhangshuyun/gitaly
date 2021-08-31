@@ -315,7 +315,8 @@ func TestElectNewPrimary(t *testing.T) {
 					Storage: "gitaly-2",
 				},
 			},
-		}}
+		},
+	}
 
 	testCases := []struct {
 		desc                   string

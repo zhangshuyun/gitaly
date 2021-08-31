@@ -216,7 +216,7 @@ func TestWithConfig(t *testing.T) {
 		{
 			desc: "single entry",
 			configPairs: []ConfigPair{
-				ConfigPair{Key: "foo.bar", Value: "baz"},
+				{Key: "foo.bar", Value: "baz"},
 			},
 			expectedValues: map[string]string{
 				"foo.bar": "baz",
@@ -225,9 +225,9 @@ func TestWithConfig(t *testing.T) {
 		{
 			desc: "multiple entries",
 			configPairs: []ConfigPair{
-				ConfigPair{Key: "entry.one", Value: "1"},
-				ConfigPair{Key: "entry.two", Value: "2"},
-				ConfigPair{Key: "entry.three", Value: "3"},
+				{Key: "entry.one", Value: "1"},
+				{Key: "entry.two", Value: "2"},
+				{Key: "entry.three", Value: "3"},
 			},
 			expectedValues: map[string]string{
 				"entry.one":   "1",
@@ -238,9 +238,9 @@ func TestWithConfig(t *testing.T) {
 		{
 			desc: "later entries override previous ones",
 			configPairs: []ConfigPair{
-				ConfigPair{Key: "override.me", Value: "old value"},
-				ConfigPair{Key: "unrelated.entry", Value: "unrelated value"},
-				ConfigPair{Key: "override.me", Value: "new value"},
+				{Key: "override.me", Value: "old value"},
+				{Key: "unrelated.entry", Value: "unrelated value"},
+				{Key: "override.me", Value: "new value"},
 			},
 			expectedValues: map[string]string{
 				"unrelated.entry": "unrelated value",
@@ -317,7 +317,7 @@ func TestWithConfigEnv(t *testing.T) {
 		{
 			desc: "single entry",
 			configPairs: []ConfigPair{
-				ConfigPair{Key: "foo.bar", Value: "baz"},
+				{Key: "foo.bar", Value: "baz"},
 			},
 			expectedEnv: []string{
 				"GIT_CONFIG_KEY_0=foo.bar",
@@ -331,9 +331,9 @@ func TestWithConfigEnv(t *testing.T) {
 		{
 			desc: "multiple entries",
 			configPairs: []ConfigPair{
-				ConfigPair{Key: "entry.one", Value: "1"},
-				ConfigPair{Key: "entry.two", Value: "2"},
-				ConfigPair{Key: "entry.three", Value: "3"},
+				{Key: "entry.one", Value: "1"},
+				{Key: "entry.two", Value: "2"},
+				{Key: "entry.three", Value: "3"},
 			},
 			expectedEnv: []string{
 				"GIT_CONFIG_KEY_0=entry.one",
@@ -353,9 +353,9 @@ func TestWithConfigEnv(t *testing.T) {
 		{
 			desc: "later entries override previous ones",
 			configPairs: []ConfigPair{
-				ConfigPair{Key: "override.me", Value: "old value"},
-				ConfigPair{Key: "unrelated.entry", Value: "unrelated value"},
-				ConfigPair{Key: "override.me", Value: "new value"},
+				{Key: "override.me", Value: "old value"},
+				{Key: "unrelated.entry", Value: "unrelated value"},
+				{Key: "override.me", Value: "new value"},
 			},
 			expectedEnv: []string{
 				"GIT_CONFIG_KEY_0=override.me",

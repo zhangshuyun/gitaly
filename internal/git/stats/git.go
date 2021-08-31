@@ -21,7 +21,6 @@ func LogObjectsInfo(ctx context.Context, gitCmdFactory git.CommandFactory, repo 
 		Name:  "count-objects",
 		Flags: []git.Option{git.Flag{Name: "--verbose"}},
 	})
-
 	if err != nil {
 		logger.WithError(err).Warn("failed on bootstrapping to gather object statistic")
 		return

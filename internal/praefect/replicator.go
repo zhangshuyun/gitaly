@@ -485,8 +485,10 @@ const (
 	logWithVirtualStorage = "virtual_storage"
 )
 
-type backoff func() time.Duration
-type backoffReset func()
+type (
+	backoff      func() time.Duration
+	backoffReset func()
+)
 
 // BackoffFunc is a function that n turn provides a pair of functions backoff and backoffReset
 type BackoffFunc func() (backoff, backoffReset)

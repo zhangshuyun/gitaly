@@ -20,9 +20,7 @@ const (
 	InvalidUTF8PathPlaceholder = "ENCODING ERROR gitaly#1547"
 )
 
-var (
-	maxNumStatBatchSize = 10
-)
+var maxNumStatBatchSize = 10
 
 func (s *server) ListLastCommitsForTree(in *gitalypb.ListLastCommitsForTreeRequest, stream gitalypb.CommitService_ListLastCommitsForTreeServer) error {
 	if err := validateListLastCommitsForTreeRequest(in); err != nil {

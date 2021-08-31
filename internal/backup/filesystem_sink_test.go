@@ -19,7 +19,7 @@ func TestFilesystemSink_GetReader(t *testing.T) {
 
 		dir := testhelper.TempDir(t)
 		const relativePath = "test.dat"
-		require.NoError(t, ioutil.WriteFile(filepath.Join(dir, relativePath), []byte("test"), 0644))
+		require.NoError(t, ioutil.WriteFile(filepath.Join(dir, relativePath), []byte("test"), 0o644))
 
 		fsSink := NewFilesystemSink(dir)
 		reader, err := fsSink.GetReader(ctx, relativePath)
@@ -84,8 +84,8 @@ func TestFilesystemSink_Write(t *testing.T) {
 		const relativePath = "nested/dir/test.dat"
 		fullPath := filepath.Join(dir, relativePath)
 
-		require.NoError(t, os.MkdirAll(filepath.Dir(fullPath), 0755))
-		require.NoError(t, ioutil.WriteFile(fullPath, []byte("initial"), 0655))
+		require.NoError(t, os.MkdirAll(filepath.Dir(fullPath), 0o755))
+		require.NoError(t, ioutil.WriteFile(fullPath, []byte("initial"), 0o655))
 
 		fsSink := NewFilesystemSink(dir)
 		require.NoError(t, fsSink.Write(ctx, relativePath, strings.NewReader("test")))

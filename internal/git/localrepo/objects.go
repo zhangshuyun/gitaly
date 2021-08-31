@@ -16,10 +16,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
-var (
-	// ErrObjectNotFound is returned in case an object could not be found.
-	ErrObjectNotFound = errors.New("object not found")
-)
+// ErrObjectNotFound is returned in case an object could not be found.
+var ErrObjectNotFound = errors.New("object not found")
 
 // WriteBlob writes a blob to the repository's object database and
 // returns its object ID. Path is used by git to decide which filters to

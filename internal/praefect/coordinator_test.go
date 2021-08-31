@@ -79,10 +79,10 @@ func TestStreamDirectorReadOnlyEnforcement(t *testing.T) {
 			)
 			conf := config.Config{
 				VirtualStorages: []*config.VirtualStorage{
-					&config.VirtualStorage{
+					{
 						Name: virtualStorage,
 						Nodes: []*config.Node{
-							&config.Node{
+							{
 								Address: "tcp://gitaly-primary.example.com",
 								Storage: storage,
 							},
@@ -147,7 +147,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 	secondaryNode := &config.Node{Address: secondaryAddress, Storage: "praefect-internal-2"}
 	conf := config.Config{
 		VirtualStorages: []*config.VirtualStorage{
-			&config.VirtualStorage{
+			{
 				Name:  "praefect",
 				Nodes: []*config.Node{primaryNode, secondaryNode},
 			},
@@ -248,11 +248,11 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 
 	conf := config.Config{
 		VirtualStorages: []*config.VirtualStorage{
-			&config.VirtualStorage{
+			{
 				Name: "praefect",
 				Nodes: []*config.Node{
-					&config.Node{Address: "unix://" + socket, Storage: "primary"},
-					&config.Node{Address: "unix://" + socket, Storage: "secondary"},
+					{Address: "unix://" + socket, Storage: "primary"},
+					{Address: "unix://" + socket, Storage: "secondary"},
 				},
 			},
 		},
@@ -780,7 +780,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 			conf := config.Config{
 				Failover: config.Failover{ElectionStrategy: tc.electionStrategy},
 				VirtualStorages: []*config.VirtualStorage{
-					&config.VirtualStorage{
+					{
 						Name:                     "praefect",
 						DefaultReplicationFactor: tc.replicationFactor,
 						Nodes:                    []*config.Node{primaryNode, healthySecondaryNode, unhealthySecondaryNode},
@@ -1001,14 +1001,14 @@ func TestAbsentCorrelationID(t *testing.T) {
 	primaryAddress, secondaryAddress := "unix://"+gitalySocket0, "unix://"+gitalySocket1
 	conf := config.Config{
 		VirtualStorages: []*config.VirtualStorage{
-			&config.VirtualStorage{
+			{
 				Name: "praefect",
 				Nodes: []*config.Node{
-					&config.Node{
+					{
 						Address: primaryAddress,
 						Storage: "praefect-internal-1",
 					},
-					&config.Node{
+					{
 						Address: secondaryAddress,
 						Storage: "praefect-internal-2",
 					},
@@ -1080,17 +1080,18 @@ func TestCoordinatorEnqueueFailure(t *testing.T) {
 	t.Parallel()
 	conf := config.Config{
 		VirtualStorages: []*config.VirtualStorage{
-			&config.VirtualStorage{
+			{
 				Name: "praefect",
 				Nodes: []*config.Node{
-					&config.Node{
+					{
 						Address: "unix:///woof",
 						Storage: "praefect-internal-1",
 					},
-					&config.Node{
+					{
 						Address: "unix:///meow",
 						Storage: "praefect-internal-2",
-					}},
+					},
+				},
 			},
 		},
 	}
@@ -1162,7 +1163,8 @@ func TestStreamDirectorStorageScope(t *testing.T) {
 		VirtualStorages: []*config.VirtualStorage{{
 			Name:  "praefect",
 			Nodes: []*config.Node{primaryGitaly, secondaryGitaly},
-		}}}
+		}},
+	}
 
 	rs := datastore.MockRepositoryStore{}
 
@@ -1414,7 +1416,7 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 	t.Parallel()
 	praefectConfig := config.Config{
 		VirtualStorages: []*config.VirtualStorage{
-			&config.VirtualStorage{
+			{
 				Name: testhelper.DefaultStorageName,
 			},
 		},

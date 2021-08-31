@@ -24,7 +24,7 @@ func NewHookLogger() *HookLogger {
 		return &HookLogger{logger: logger}
 	}
 
-	logFile, err := os.OpenFile(filepath.Join(logDir, "gitaly_hooks.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	logFile, err := os.OpenFile(filepath.Join(logDir, "gitaly_hooks.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		logger.SetOutput(ioutil.Discard)
 	} else {

@@ -5,7 +5,8 @@ import migrate "github.com/rubenv/sql-migrate"
 func init() {
 	m := &migrate.Migration{
 		Id: "20201126165633_repository_assignments_table",
-		Up: []string{`
+		Up: []string{
+			`
 			CREATE TABLE repository_assignments (
 				virtual_storage TEXT,
 				relative_path TEXT,

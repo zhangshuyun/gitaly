@@ -274,8 +274,8 @@ type Cleanup func()
 func WriteExecutable(t testing.TB, path string, content []byte) {
 	dir := filepath.Dir(path)
 
-	require.NoError(t, os.MkdirAll(dir, 0755))
-	require.NoError(t, ioutil.WriteFile(path, content, 0755))
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, ioutil.WriteFile(path, content, 0o755))
 
 	t.Cleanup(func() {
 		assert.NoError(t, os.RemoveAll(dir))

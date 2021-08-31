@@ -14,13 +14,11 @@ const (
 	TimezoneOffset = "+0800"
 )
 
-var (
-	// TestUser is the default user for tests.
-	TestUser = &gitalypb.User{
-		Name:       []byte("Jane Doe"),
-		Email:      []byte("janedoe@gitlab.com"),
-		GlId:       GlID,
-		GlUsername: "janedoe",
-		Timezone:   Timezone,
-	}
-)
+// TestUser is the default user for tests.
+var TestUser = &gitalypb.User{
+	Name:       []byte("Jane Doe"),
+	Email:      []byte("janedoe@gitlab.com"),
+	GlId:       GlID,
+	GlUsername: "janedoe",
+	Timezone:   Timezone,
+}

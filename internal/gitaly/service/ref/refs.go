@@ -274,7 +274,8 @@ func _findBranchNames(ctx context.Context, repo git.RepositoryExecutor) ([][]byt
 	cmd, err := repo.Exec(ctx, git.SubCmd{
 		Name:  "for-each-ref",
 		Flags: []git.Option{git.Flag{Name: "--format=%(refname)"}},
-		Args:  []string{"refs/heads"}},
+		Args:  []string{"refs/heads"},
+	},
 	)
 	if err != nil {
 		return nil, err
@@ -341,7 +342,6 @@ func SetDefaultBranchRef(ctx context.Context, repo git.RepositoryExecutor, ref s
 // DefaultBranchName looks up the name of the default branch given a repoPath
 func DefaultBranchName(ctx context.Context, repo git.RepositoryExecutor) ([]byte, error) {
 	branches, err := FindBranchNames(ctx, repo)
-
 	if err != nil {
 		return nil, err
 	}
@@ -356,7 +356,7 @@ func DefaultBranchName(ctx context.Context, repo git.RepositoryExecutor) ([]byte
 		return branches[0], nil
 	}
 
-	var hasDefaultRef, hasLegacyDefaultRef = false, false
+	hasDefaultRef, hasLegacyDefaultRef := false, false
 	headRef, err := headReference(ctx, repo)
 	if err != nil {
 		return nil, err

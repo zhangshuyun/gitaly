@@ -189,7 +189,6 @@ func (s *server) CommitDelta(in *gitalypb.CommitDeltaRequest, stream gitalypb.Di
 
 		return nil
 	})
-
 	if err != nil {
 		return err
 	}

@@ -86,7 +86,7 @@ func (s *server) disconnectAlternates(ctx context.Context, repo *gitalypb.Reposi
 		source := filepath.Join(altDir, path)
 		target := filepath.Join(repoPath, "objects", path)
 
-		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return err
 		}
 

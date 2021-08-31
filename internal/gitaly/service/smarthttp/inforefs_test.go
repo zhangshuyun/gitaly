@@ -390,14 +390,14 @@ func withInfoRefCache(cache infoRefCache) ServerOpt {
 
 func createInvalidRepo(t testing.TB, repoDir string) func() {
 	for _, subDir := range []string{"objects", "refs", "HEAD"} {
-		require.NoError(t, os.MkdirAll(filepath.Join(repoDir, subDir), 0755))
+		require.NoError(t, os.MkdirAll(filepath.Join(repoDir, subDir), 0o755))
 	}
 	return func() { require.NoError(t, os.RemoveAll(repoDir)) }
 }
 
 func replaceCachedResponse(t testing.TB, ctx context.Context, cache *cache.DiskCache, req *gitalypb.InfoRefsRequest, newContents string) {
 	path := pathToCachedResponse(t, ctx, cache, req)
-	require.NoError(t, ioutil.WriteFile(path, []byte(newContents), 0644))
+	require.NoError(t, ioutil.WriteFile(path, []byte(newContents), 0o644))
 }
 
 func setInfoRefsUploadPackMethod(ctx context.Context) context.Context {

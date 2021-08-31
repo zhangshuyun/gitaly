@@ -100,7 +100,7 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 				SignatureType: gitalypb.SignatureType_PGP,
 				TreeId:        "70d69cce111b0e1f54f7e5438bbbba9511a8e23c",
 				Trailers: []*gitalypb.CommitTrailer{
-					&gitalypb.CommitTrailer{
+					{
 						Key:   []byte("Signed-off-by"),
 						Value: []byte("Dmitriy Zaporozhets <dmitriy.zaporozhets@gmail.com>"),
 					},
@@ -142,7 +142,7 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 				SignatureType: gitalypb.SignatureType_PGP,
 				TreeId:        "70d69cce111b0e1f54f7e5438bbbba9511a8e23c",
 				Trailers: []*gitalypb.CommitTrailer{
-					&gitalypb.CommitTrailer{
+					{
 						Key:   []byte("Signed-off-by"),
 						Value: []byte("Dmitriy Zaporozhets <dmitriy.zaporozhets@gmail.com>"),
 					},

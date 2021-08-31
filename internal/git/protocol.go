@@ -16,14 +16,12 @@ const (
 	ProtocolV2 = "version=2"
 )
 
-var (
-	gitProtocolRequests = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "gitaly_git_protocol_requests_total",
-			Help: "Counter of Git protocol requests",
-		},
-		[]string{"grpc_service", "grpc_method", "git_protocol"},
-	)
+var gitProtocolRequests = promauto.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "gitaly_git_protocol_requests_total",
+		Help: "Counter of Git protocol requests",
+	},
+	[]string{"grpc_service", "grpc_method", "git_protocol"},
 )
 
 // RequestWithGitProtocol holds requests that respond to GitProtocol

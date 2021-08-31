@@ -7,14 +7,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-var (
-	connTotal = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "gitaly_connections_total",
-			Help: "Total number of connections accepted by this Gitaly process",
-		},
-		[]string{"type"},
-	)
+var connTotal = promauto.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "gitaly_connections_total",
+		Help: "Total number of connections accepted by this Gitaly process",
+	},
+	[]string{"type"},
 )
 
 // New returns a listener which increments a prometheus counter on each

@@ -215,7 +215,8 @@ func Revlist(
 
 		if cfg.maxParents > 0 {
 			flags = append(flags, git.Flag{
-				Name: fmt.Sprintf("--max-parents=%d", cfg.maxParents)},
+				Name: fmt.Sprintf("--max-parents=%d", cfg.maxParents),
+			},
 			)
 		}
 

@@ -64,7 +64,8 @@ func TestFindRemoteRootRefWithUnbornRemoteHead(t *testing.T) {
 
 	response, err := client.FindRemoteRootRef(ctx, &gitalypb.FindRemoteRootRefRequest{
 		Repository: remoteRepo,
-		RemoteUrl:  "file://" + clientRepoPath},
+		RemoteUrl:  "file://" + clientRepoPath,
+	},
 	)
 	testassert.GrpcEqualErr(t, status.Error(codes.NotFound, "no remote HEAD found"), err)
 	require.Nil(t, response)

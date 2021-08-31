@@ -107,7 +107,7 @@ func TestOptimizeRepository(t *testing.T) {
 
 	mrRefs := filepath.Join(testRepoPath, "refs/merge-requests")
 	emptyRef := filepath.Join(mrRefs, "1")
-	require.NoError(t, os.MkdirAll(emptyRef, 0755))
+	require.NoError(t, os.MkdirAll(emptyRef, 0o755))
 	require.DirExists(t, emptyRef, "sanity check for empty ref dir existence")
 
 	// optimize repository on a repository without a bitmap should call repack full

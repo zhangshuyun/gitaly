@@ -40,7 +40,7 @@ type fileEntry struct {
 
 func (f *fileEntry) create(t *testing.T, parent string) {
 	filename := filepath.Join(parent, f.name)
-	ff, err := os.OpenFile(filename, os.O_RDONLY|os.O_CREATE, 0700)
+	ff, err := os.OpenFile(filename, os.O_RDONLY|os.O_CREATE, 0o700)
 	assert.NoError(t, err, "file creation failed: %v", filename)
 	err = ff.Close()
 	assert.NoError(t, err, "file close failed: %v", filename)
@@ -83,7 +83,7 @@ type dirEntry struct {
 func (d *dirEntry) create(t *testing.T, parent string) {
 	dirname := filepath.Join(parent, d.name)
 
-	if err := os.Mkdir(dirname, 0700); err != nil {
+	if err := os.Mkdir(dirname, 0o700); err != nil {
 		require.True(t, os.IsExist(err), "mkdir failed: %v", dirname)
 	}
 
@@ -121,46 +121,46 @@ func TestPerform(t *testing.T) {
 		{
 			name: "clean",
 			entries: []entry{
-				d("objects", 0700, 240*time.Hour, Keep, []entry{
-					f("a", 0700, 24*time.Hour, Keep),
-					f("b", 0700, 24*time.Hour, Keep),
-					f("c", 0700, 24*time.Hour, Keep),
+				d("objects", 0o700, 240*time.Hour, Keep, []entry{
+					f("a", 0o700, 24*time.Hour, Keep),
+					f("b", 0o700, 24*time.Hour, Keep),
+					f("c", 0o700, 24*time.Hour, Keep),
 				}),
 			},
 		},
 		{
 			name: "emptyperms",
 			entries: []entry{
-				d("objects", 0700, 240*time.Hour, Keep, []entry{
-					f("b", 0700, 24*time.Hour, Keep),
-					f("tmp_a", 0000, 2*time.Hour, Keep),
+				d("objects", 0o700, 240*time.Hour, Keep, []entry{
+					f("b", 0o700, 24*time.Hour, Keep),
+					f("tmp_a", 0o000, 2*time.Hour, Keep),
 				}),
 			},
 		},
 		{
 			name: "emptytempdir",
 			entries: []entry{
-				d("objects", 0700, 240*time.Hour, Keep, []entry{
-					d("tmp_d", 0000, 240*time.Hour, Keep, []entry{}),
-					f("b", 0700, 24*time.Hour, Keep),
+				d("objects", 0o700, 240*time.Hour, Keep, []entry{
+					d("tmp_d", 0o000, 240*time.Hour, Keep, []entry{}),
+					f("b", 0o700, 24*time.Hour, Keep),
 				}),
 			},
 		},
 		{
 			name: "oldtempfile",
 			entries: []entry{
-				d("objects", 0700, 240*time.Hour, Keep, []entry{
-					f("tmp_a", 0770, 240*time.Hour, Delete),
-					f("b", 0700, 24*time.Hour, Keep),
+				d("objects", 0o700, 240*time.Hour, Keep, []entry{
+					f("tmp_a", 0o770, 240*time.Hour, Delete),
+					f("b", 0o700, 24*time.Hour, Keep),
 				}),
 			},
 		},
 		{
 			name: "subdir temp file",
 			entries: []entry{
-				d("objects", 0700, 240*time.Hour, Keep, []entry{
-					d("a", 0770, 240*time.Hour, Keep, []entry{
-						f("tmp_b", 0700, 240*time.Hour, Delete),
+				d("objects", 0o700, 240*time.Hour, Keep, []entry{
+					d("a", 0o770, 240*time.Hour, Keep, []entry{
+						f("tmp_b", 0o700, 240*time.Hour, Delete),
 					}),
 				}),
 			},
@@ -168,9 +168,9 @@ func TestPerform(t *testing.T) {
 		{
 			name: "inaccessible tmp directory",
 			entries: []entry{
-				d("objects", 0700, 240*time.Hour, Keep, []entry{
-					d("tmp_a", 0000, 240*time.Hour, Keep, []entry{
-						f("tmp_b", 0700, 240*time.Hour, Delete),
+				d("objects", 0o700, 240*time.Hour, Keep, []entry{
+					d("tmp_a", 0o000, 240*time.Hour, Keep, []entry{
+						f("tmp_b", 0o700, 240*time.Hour, Delete),
 					}),
 				}),
 			},
@@ -178,10 +178,10 @@ func TestPerform(t *testing.T) {
 		{
 			name: "deeply nested inaccessible tmp directory",
 			entries: []entry{
-				d("objects", 0700, 240*time.Hour, Keep, []entry{
-					d("tmp_a", 0700, 240*time.Hour, Keep, []entry{
-						d("tmp_a", 0700, 24*time.Hour, Keep, []entry{
-							f("tmp_b", 0000, 240*time.Hour, Delete),
+				d("objects", 0o700, 240*time.Hour, Keep, []entry{
+					d("tmp_a", 0o700, 240*time.Hour, Keep, []entry{
+						d("tmp_a", 0o700, 24*time.Hour, Keep, []entry{
+							f("tmp_b", 0o000, 240*time.Hour, Delete),
 						}),
 					}),
 				}),
@@ -190,9 +190,9 @@ func TestPerform(t *testing.T) {
 		{
 			name: "files outside of object database",
 			entries: []entry{
-				f("tmp_a", 0770, 240*time.Hour, Keep),
-				d("info", 0700, 240*time.Hour, Keep, []entry{
-					f("tmp_a", 0770, 240*time.Hour, Keep),
+				f("tmp_a", 0o770, 240*time.Hour, Keep),
+				d("info", 0o700, 240*time.Hour, Keep, []entry{
+					f("tmp_a", 0o770, 240*time.Hour, Keep),
 				}),
 			},
 		},
@@ -294,8 +294,8 @@ func TestPerform_references(t *testing.T) {
 			for _, ref := range tc.refs {
 				path := filepath.Join(repoPath, ref.name)
 
-				require.NoError(t, os.MkdirAll(filepath.Dir(path), 0755))
-				require.NoError(t, ioutil.WriteFile(path, bytes.Repeat([]byte{0}, ref.size), 0644))
+				require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+				require.NoError(t, ioutil.WriteFile(path, bytes.Repeat([]byte{0}, ref.size), 0o644))
 				filetime := time.Now().Add(-ref.age)
 				require.NoError(t, os.Chtimes(path, filetime, filetime))
 			}
@@ -328,39 +328,39 @@ func TestPerform_emptyRefDirs(t *testing.T) {
 		{
 			name: "unrelated empty directories",
 			entries: []entry{
-				d("objects", 0700, 240*time.Hour, Keep, []entry{
-					d("empty", 0700, 240*time.Hour, Keep, []entry{}),
+				d("objects", 0o700, 240*time.Hour, Keep, []entry{
+					d("empty", 0o700, 240*time.Hour, Keep, []entry{}),
 				}),
 			},
 		},
 		{
 			name: "empty ref dir gets retained",
 			entries: []entry{
-				d("refs", 0700, 240*time.Hour, Keep, []entry{}),
+				d("refs", 0o700, 240*time.Hour, Keep, []entry{}),
 			},
 		},
 		{
 			name: "empty nested non-stale ref dir gets kept",
 			entries: []entry{
-				d("refs", 0700, 240*time.Hour, Keep, []entry{
-					d("nested", 0700, 23*time.Hour, Keep, []entry{}),
+				d("refs", 0o700, 240*time.Hour, Keep, []entry{
+					d("nested", 0o700, 23*time.Hour, Keep, []entry{}),
 				}),
 			},
 		},
 		{
 			name: "empty nested stale ref dir gets pruned",
 			entries: []entry{
-				d("refs", 0700, 240*time.Hour, Keep, []entry{
-					d("nested", 0700, 240*time.Hour, Delete, []entry{}),
+				d("refs", 0o700, 240*time.Hour, Keep, []entry{
+					d("nested", 0o700, 240*time.Hour, Delete, []entry{}),
 				}),
 			},
 		},
 		{
 			name: "hierarchy of nested stale ref dirs gets pruned",
 			entries: []entry{
-				d("refs", 0700, 240*time.Hour, Keep, []entry{
-					d("first", 0700, 240*time.Hour, Delete, []entry{
-						d("second", 0700, 240*time.Hour, Delete, []entry{}),
+				d("refs", 0o700, 240*time.Hour, Keep, []entry{
+					d("first", 0o700, 240*time.Hour, Delete, []entry{
+						d("second", 0o700, 240*time.Hour, Delete, []entry{}),
 					}),
 				}),
 			},
@@ -368,10 +368,10 @@ func TestPerform_emptyRefDirs(t *testing.T) {
 		{
 			name: "hierarchy with intermediate non-stale ref dir gets kept",
 			entries: []entry{
-				d("refs", 0700, 240*time.Hour, Keep, []entry{
-					d("first", 0700, 240*time.Hour, Keep, []entry{
-						d("second", 0700, 1*time.Hour, Keep, []entry{
-							d("third", 0700, 24*time.Hour, Delete, []entry{}),
+				d("refs", 0o700, 240*time.Hour, Keep, []entry{
+					d("first", 0o700, 240*time.Hour, Keep, []entry{
+						d("second", 0o700, 1*time.Hour, Keep, []entry{
+							d("third", 0o700, 24*time.Hour, Delete, []entry{}),
 						}),
 					}),
 				}),
@@ -380,13 +380,13 @@ func TestPerform_emptyRefDirs(t *testing.T) {
 		{
 			name: "stale hierrachy with refs gets partially retained",
 			entries: []entry{
-				d("refs", 0700, 240*time.Hour, Keep, []entry{
-					d("first", 0700, 240*time.Hour, Keep, []entry{
-						d("second", 0700, 240*time.Hour, Delete, []entry{
-							d("third", 0700, 24*time.Hour, Delete, []entry{}),
+				d("refs", 0o700, 240*time.Hour, Keep, []entry{
+					d("first", 0o700, 240*time.Hour, Keep, []entry{
+						d("second", 0o700, 240*time.Hour, Delete, []entry{
+							d("third", 0o700, 24*time.Hour, Delete, []entry{}),
 						}),
-						d("other", 0700, 240*time.Hour, Keep, []entry{
-							f("ref", 0700, 1*time.Hour, Keep),
+						d("other", 0o700, 240*time.Hour, Keep, []entry{
+							f("ref", 0o700, 1*time.Hour, Keep),
 						}),
 					}),
 				}),
@@ -441,21 +441,21 @@ func testPerformWithSpecificFile(t *testing.T, file string, finder staleFileFind
 		{
 			desc: fmt.Sprintf("fresh %s is kept", file),
 			entries: []entry{
-				f(file, 0700, 10*time.Minute, Keep),
+				f(file, 0o700, 10*time.Minute, Keep),
 			},
 		},
 		{
 			desc: fmt.Sprintf("stale %s in subdir is kept", file),
 			entries: []entry{
-				d("subdir", 0700, 240*time.Hour, Keep, []entry{
-					f(file, 0700, 24*time.Hour, Keep),
+				d("subdir", 0o700, 240*time.Hour, Keep, []entry{
+					f(file, 0o700, 24*time.Hour, Keep),
 				}),
 			},
 		},
 		{
 			desc: fmt.Sprintf("stale %s is deleted", file),
 			entries: []entry{
-				f(file, 0700, 61*time.Minute, Delete),
+				f(file, 0o700, 61*time.Minute, Delete),
 			},
 			expectedFiles: []string{
 				filepath.Join(repoPath, file),
@@ -464,9 +464,9 @@ func testPerformWithSpecificFile(t *testing.T, file string, finder staleFileFind
 		{
 			desc: fmt.Sprintf("variations of %s are kept", file),
 			entries: []entry{
-				f(file[:len(file)-1], 0700, 61*time.Minute, Keep),
-				f("~"+file, 0700, 61*time.Minute, Keep),
-				f(file+"~", 0700, 61*time.Minute, Keep),
+				f(file[:len(file)-1], 0o700, 61*time.Minute, Keep),
+				f("~"+file, 0o700, 61*time.Minute, Keep),
+				f(file+"~", 0o700, 61*time.Minute, Keep),
 			},
 		},
 	} {
@@ -500,18 +500,18 @@ func TestPerform_referenceLocks(t *testing.T) {
 		{
 			desc: "fresh lock is kept",
 			entries: []entry{
-				d("refs", 0755, 0*time.Hour, Keep, []entry{
-					f("main", 0755, 10*time.Minute, Keep),
-					f("main.lock", 0755, 10*time.Minute, Keep),
+				d("refs", 0o755, 0*time.Hour, Keep, []entry{
+					f("main", 0o755, 10*time.Minute, Keep),
+					f("main.lock", 0o755, 10*time.Minute, Keep),
 				}),
 			},
 		},
 		{
 			desc: "stale lock is deleted",
 			entries: []entry{
-				d("refs", 0755, 0*time.Hour, Keep, []entry{
-					f("main", 0755, 1*time.Hour, Keep),
-					f("main.lock", 0755, 1*time.Hour, Delete),
+				d("refs", 0o755, 0*time.Hour, Keep, []entry{
+					f("main", 0o755, 1*time.Hour, Keep),
+					f("main.lock", 0o755, 1*time.Hour, Delete),
 				}),
 			},
 			expectedReferenceLocks: []string{
@@ -521,18 +521,18 @@ func TestPerform_referenceLocks(t *testing.T) {
 		{
 			desc: "nested reference locks are deleted",
 			entries: []entry{
-				d("refs", 0755, 0*time.Hour, Keep, []entry{
-					d("tags", 0755, 0*time.Hour, Keep, []entry{
-						f("main", 0755, 1*time.Hour, Keep),
-						f("main.lock", 0755, 1*time.Hour, Delete),
+				d("refs", 0o755, 0*time.Hour, Keep, []entry{
+					d("tags", 0o755, 0*time.Hour, Keep, []entry{
+						f("main", 0o755, 1*time.Hour, Keep),
+						f("main.lock", 0o755, 1*time.Hour, Delete),
 					}),
-					d("heads", 0755, 0*time.Hour, Keep, []entry{
-						f("main", 0755, 1*time.Hour, Keep),
-						f("main.lock", 0755, 1*time.Hour, Delete),
+					d("heads", 0o755, 0*time.Hour, Keep, []entry{
+						f("main", 0o755, 1*time.Hour, Keep),
+						f("main.lock", 0o755, 1*time.Hour, Delete),
 					}),
-					d("foobar", 0755, 0*time.Hour, Keep, []entry{
-						f("main", 0755, 1*time.Hour, Keep),
-						f("main.lock", 0755, 1*time.Hour, Delete),
+					d("foobar", 0o755, 0*time.Hour, Keep, []entry{
+						f("main", 0o755, 1*time.Hour, Keep),
+						f("main.lock", 0o755, 1*time.Hour, Delete),
 					}),
 				}),
 			},
@@ -588,7 +588,7 @@ func TestShouldRemoveTemporaryObject(t *testing.T) {
 			args: args{
 				path:    "/tmp/objects",
 				modTime: time.Now().Add(-1 * time.Hour),
-				mode:    0700,
+				mode:    0o700,
 			},
 			want: false,
 		},
@@ -597,7 +597,7 @@ func TestShouldRemoveTemporaryObject(t *testing.T) {
 			args: args{
 				path:    "/tmp/",
 				modTime: time.Now().Add(-1 * time.Hour),
-				mode:    0770,
+				mode:    0o770,
 			},
 			want: false,
 		},
@@ -606,7 +606,7 @@ func TestShouldRemoveTemporaryObject(t *testing.T) {
 			args: args{
 				path:    "/tmp/tmp_DELETEME",
 				modTime: time.Now().Add(-1 * time.Hour),
-				mode:    0600,
+				mode:    0o600,
 			},
 			want: false,
 		},
@@ -615,7 +615,7 @@ func TestShouldRemoveTemporaryObject(t *testing.T) {
 			args: args{
 				path:    "/tmp/tmp_DELETEME",
 				modTime: time.Now().Add(-8 * 24 * time.Hour),
-				mode:    0600,
+				mode:    0o600,
 			},
 			want: true,
 		},
@@ -624,7 +624,7 @@ func TestShouldRemoveTemporaryObject(t *testing.T) {
 			args: args{
 				path:    "/tmp/tmp_DELETEME",
 				modTime: time.Now().Add(-1 * time.Hour),
-				mode:    0000,
+				mode:    0o000,
 			},
 			want: false,
 		},
@@ -633,7 +633,7 @@ func TestShouldRemoveTemporaryObject(t *testing.T) {
 			args: args{
 				path:    "/tmp/tmp_DELETEME",
 				modTime: time.Now().Add(-1 * time.Hour),
-				mode:    0000,
+				mode:    0o000,
 			},
 			want: false,
 		},

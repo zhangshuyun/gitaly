@@ -414,8 +414,7 @@ func TestDial_Tracing(t *testing.T) {
 }
 
 // healthServer provide a basic GRPC health service endpoint for testing purposes
-type healthServer struct {
-}
+type healthServer struct{}
 
 func (*healthServer) Check(context.Context, *healthpb.HealthCheckRequest) (*healthpb.HealthCheckResponse, error) {
 	return &healthpb.HealthCheckResponse{Status: healthpb.HealthCheckResponse_SERVING}, nil
