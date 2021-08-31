@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -36,6 +37,29 @@ func TestFileWriter_successful(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, filesInTempDir, 1)
 	require.Equal(t, filepath.Base(filePath), filesInTempDir[0].Name())
+}
+
+func TestFileWriter_multipleConfigs(t *testing.T) {
+	_, err := safe.NewFileWriter("something", safe.FileWriterConfig{},
+		safe.FileWriterConfig{})
+	require.Equal(t, fmt.Errorf("file writer created with more than one config"), err)
+}
+
+func TestFileWriter_mode(t *testing.T) {
+	dir := testhelper.TempDir(t)
+
+	target := filepath.Join(dir, "file")
+	require.NoError(t, ioutil.WriteFile(target, []byte("contents"), 0o600))
+
+	writer, err := safe.NewFileWriter(target, safe.FileWriterConfig{
+		FileMode: 0o060,
+	})
+	require.NoError(t, err)
+	require.NoError(t, writer.Commit())
+
+	fi, err := os.Stat(target)
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o060), fi.Mode())
 }
 
 func TestFileWriter_race(t *testing.T) {

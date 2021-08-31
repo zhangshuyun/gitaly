@@ -21,8 +21,23 @@ type FileWriter struct {
 	commitOrClose sync.Once
 }
 
-// NewFileWriter takes path as an absolute path of the target file and creates a new FileWriter by attempting to create a tempfile
-func NewFileWriter(path string) (*FileWriter, error) {
+// FileWriterConfig contains configuration for the `NewFileWriter()` function.
+type FileWriterConfig struct {
+	// FileMode is the desired file mode of the committed target file. If left at its default
+	// value, then no file mode will be explicitly set for the file.
+	FileMode os.FileMode
+}
+
+// NewFileWriter takes path as an absolute path of the target file and creates a new FileWriter by
+// attempting to create a tempfile. This function either takes no FileWriterConfig or exactly one.
+func NewFileWriter(path string, optionalCfg ...FileWriterConfig) (*FileWriter, error) {
+	var cfg FileWriterConfig
+	if len(optionalCfg) == 1 {
+		cfg = optionalCfg[0]
+	} else if len(optionalCfg) > 1 {
+		return nil, fmt.Errorf("file writer created with more than one config")
+	}
+
 	writer := &FileWriter{path: path}
 
 	directory := filepath.Dir(path)
@@ -30,6 +45,13 @@ func NewFileWriter(path string) (*FileWriter, error) {
 	tmpFile, err := ioutil.TempFile(directory, filepath.Base(path))
 	if err != nil {
 		return nil, err
+	}
+
+	if cfg.FileMode != 0 {
+		if err := tmpFile.Chmod(cfg.FileMode); err != nil {
+			_ = writer.Close()
+			return nil, err
+		}
 	}
 
 	writer.tmpFile = tmpFile
