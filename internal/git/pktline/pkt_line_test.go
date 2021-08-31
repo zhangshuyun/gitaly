@@ -181,19 +181,19 @@ func TestSidebandWriter_boundaries(t *testing.T) {
 		},
 		{
 			desc: "65514 bytes",
-			in:   strings.Repeat("x", 65514),
+			in:   strings.Repeat("x", MaxSidebandData-1),
 			band: 255,
 			out:  "ffef\xff" + strings.Repeat("x", 65514),
 		},
 		{
 			desc: "65515 bytes: max per sideband packets",
-			in:   strings.Repeat("x", 65515),
+			in:   strings.Repeat("x", MaxSidebandData),
 			band: 254,
 			out:  "fff0\xfe" + strings.Repeat("x", 65515),
 		},
 		{
 			desc: "65516 bytes: split across two packets",
-			in:   strings.Repeat("x", 65516),
+			in:   strings.Repeat("x", MaxSidebandData+1),
 			band: 253,
 			out:  "fff0\xfd" + strings.Repeat("x", 65515) + "0006\xfdx",
 		},

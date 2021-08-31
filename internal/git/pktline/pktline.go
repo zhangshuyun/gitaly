@@ -13,6 +13,10 @@ import (
 )
 
 const (
+	// MaxSidebandData is the maximum number of bytes that fits into one Git
+	// pktline side-band-64k packet.
+	MaxSidebandData = maxPktSize - 5
+
 	maxPktSize = 65520 // https://gitlab.com/gitlab-org/git/-/blob/v2.30.0/pkt-line.h#L216
 	pktDelim   = "0001"
 )

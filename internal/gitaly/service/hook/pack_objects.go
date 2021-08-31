@@ -1,6 +1,7 @@
 package hook
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -190,7 +191,8 @@ func (s *server) runPackObjects(ctx context.Context, w io.Writer, repo *gitalypb
 	defer stdin.Close()
 
 	sw := pktline.NewSidebandWriter(w)
-	stdout := &countingWriter{W: sw.Writer(bandStdout)}
+	stdoutBufWriter := bufio.NewWriterSize(sw.Writer(bandStdout), pktline.MaxSidebandData)
+	stdout := &countingWriter{W: stdoutBufWriter}
 	stderrBuf := &bytes.Buffer{}
 	stderr := &countingWriter{W: io.MultiWriter(sw.Writer(bandStderr), stderrBuf)}
 
@@ -217,11 +219,12 @@ func (s *server) runPackObjects(ctx context.Context, w io.Writer, repo *gitalypb
 	if err != nil {
 		return err
 	}
-
 	if err := cmd.Wait(); err != nil {
 		return fmt.Errorf("git-pack-objects: stderr: %q err: %w", stderrBuf.String(), err)
 	}
-
+	if err := stdoutBufWriter.Flush(); err != nil {
+		return fmt.Errorf("flush stdout: %w", err)
+	}
 	return nil
 }
 
