@@ -27,12 +27,6 @@ const (
 	tagFormat = "%(objectname) %(objecttype) %(refname:lstrip=2)"
 )
 
-var (
-	// We declare the following function in variables so that we can override them in our tests
-	// FindBranchNames is exported to be used in other packages
-	FindBranchNames = _findBranchNames
-)
-
 type findRefsOpts struct {
 	cmdArgs []git.Option
 	delim   byte
@@ -267,7 +261,10 @@ func (s *server) validateFindAllTagsRequest(request *gitalypb.FindAllTagsRequest
 	return nil
 }
 
-func _findBranchNames(ctx context.Context, repo git.RepositoryExecutor) ([][]byte, error) {
+// FindBranchNames returns all branch names.
+//
+// Deprecated: Use localrepo.Repo.GetBranches instead.
+func FindBranchNames(ctx context.Context, repo git.RepositoryExecutor) ([][]byte, error) {
 	var names [][]byte
 
 	cmd, err := repo.Exec(ctx, git.SubCmd{
