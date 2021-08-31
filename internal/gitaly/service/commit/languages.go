@@ -26,11 +26,11 @@ func (s *server) CommitLanguages(ctx context.Context, req *gitalypb.CommitLangua
 
 	revision := string(req.Revision)
 	if revision == "" {
-		defaultBranch, err := repo.GetDefaultBranch(ctx, nil)
+		defaultBranch, err := repo.GetDefaultBranch(ctx)
 		if err != nil {
 			return nil, err
 		}
-		revision = defaultBranch.Name.String()
+		revision = defaultBranch.String()
 	}
 
 	commitID, err := s.lookupRevision(ctx, repo, revision)

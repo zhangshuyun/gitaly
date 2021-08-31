@@ -102,7 +102,7 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 		return fmt.Errorf("get local references: %w", err)
 	}
 
-	defaultBranch, err := repo.GetDefaultBranch(ctx, nil)
+	defaultBranch, err := repo.GetDefaultBranch(ctx)
 	if err != nil {
 		return fmt.Errorf("get default branch: %w", err)
 	}
@@ -194,7 +194,7 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 			}
 
 			refspecs = append(refspecs, prefix+reference.String())
-			if reference == defaultBranch.Name {
+			if reference == defaultBranch {
 				// The default branch needs to be pushed in the first batch of refspecs as some features
 				// depend on it existing in the repository. The default branch may not exist in the repo
 				// yet if this is the first mirroring push.

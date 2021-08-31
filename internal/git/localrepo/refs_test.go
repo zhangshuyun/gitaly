@@ -459,11 +459,9 @@ func TestGetDefaultBranch(t *testing.T) {
 	const testOID = "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
 
 	for _, tc := range []struct {
-		desc           string
-		repo           func(t *testing.T) *Repo
-		opts           *GetDefaultBranchOptions
-		expectedName   git.ReferenceName
-		expectedTarget string
+		desc         string
+		repo         func(t *testing.T) *Repo
+		expectedName git.ReferenceName
 	}{
 		{
 			desc: "default ref",
@@ -527,39 +525,16 @@ func TestGetDefaultBranch(t *testing.T) {
 				gittest.Exec(t, repo.cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
 				return repo
 			},
-			expectedName:   git.NewReferenceNameFromBranchName("feature"),
-			expectedTarget: testOID,
-		},
-		{
-			desc: "test repo HEAD provided",
-			repo: func(t *testing.T) *Repo {
-				repo, repoPath := setupRepo(t, false)
-				gittest.Exec(t, repo.cfg, "-C", repoPath, "update-ref", "refs/heads/feature", testOID)
-				return repo
-			},
-			opts: &GetDefaultBranchOptions{
-				HeadReference: "refs/heads/feature",
-			},
-			expectedName:   git.NewReferenceNameFromBranchName("feature"),
-			expectedTarget: testOID,
+			expectedName: git.NewReferenceNameFromBranchName("feature"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			branch, err := tc.repo(t).GetDefaultBranch(ctx, tc.opts)
+			name, err := tc.repo(t).GetDefaultBranch(ctx)
 			require.NoError(t, err)
-			if len(tc.expectedName) != 0 {
-				require.Equal(t, tc.expectedName, branch.Name)
-			}
-			if len(tc.expectedTarget) != 0 {
-				require.Equal(t, tc.expectedTarget, branch.Target)
-			}
-			if len(tc.expectedName) == 0 && len(tc.expectedTarget) == 0 {
-				require.Empty(t, branch.Name)
-				require.Empty(t, branch.Target)
-			}
+			require.Equal(t, tc.expectedName, name)
 		})
 	}
 }

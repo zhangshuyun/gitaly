@@ -246,10 +246,10 @@ func TestSetDefaultBranchRef(t *testing.T) {
 
 			require.NoError(t, SetDefaultBranchRef(ctx, repo, tc.ref, cfg))
 
-			newRef, err := repo.GetDefaultBranch(ctx, nil)
+			newRef, err := repo.GetDefaultBranch(ctx)
 			require.NoError(t, err)
 
-			require.Equal(t, tc.expectedRef, newRef.Name.String())
+			require.Equal(t, tc.expectedRef, newRef.String())
 		})
 	}
 }

@@ -102,12 +102,12 @@ func SetDefaultBranchRef(ctx context.Context, repo git.RepositoryExecutor, ref s
 func (s *server) FindDefaultBranchName(ctx context.Context, in *gitalypb.FindDefaultBranchNameRequest) (*gitalypb.FindDefaultBranchNameResponse, error) {
 	repo := s.localrepo(in.GetRepository())
 
-	defaultBranch, err := repo.GetDefaultBranch(ctx, nil)
+	defaultBranch, err := repo.GetDefaultBranch(ctx)
 	if err != nil {
 		return nil, helper.ErrInternal(err)
 	}
 
-	return &gitalypb.FindDefaultBranchNameResponse{Name: []byte(defaultBranch.Name)}, nil
+	return &gitalypb.FindDefaultBranchNameResponse{Name: []byte(defaultBranch)}, nil
 }
 
 func parseSortKey(sortKey gitalypb.FindLocalBranchesRequest_SortBy) string {
@@ -171,12 +171,12 @@ func (s *server) findAllBranches(in *gitalypb.FindAllBranchesRequest, stream git
 	patterns := []string{"refs/heads", "refs/remotes"}
 
 	if in.MergedOnly {
-		defaultBranch, err := repo.GetDefaultBranch(stream.Context(), nil)
+		defaultBranch, err := repo.GetDefaultBranch(stream.Context())
 		if err != nil {
 			return err
 		}
 
-		args = append(args, git.Flag{Name: fmt.Sprintf("--merged=%s", defaultBranch.Name.String())})
+		args = append(args, git.Flag{Name: fmt.Sprintf("--merged=%s", defaultBranch.String())})
 
 		if len(in.MergedBranches) > 0 {
 			patterns = nil
