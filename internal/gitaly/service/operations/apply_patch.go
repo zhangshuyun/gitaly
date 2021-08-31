@@ -118,7 +118,6 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 		git.WithStderr(&stderr),
 		git.WithRefTxHook(ctx, header.Repository, s.cfg),
 	)
-
 	if err != nil {
 		return fmt.Errorf("create git am: %w", err)
 	}

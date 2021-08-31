@@ -60,12 +60,12 @@ func TestPerformHTTPPush(t *testing.T) {
 					packets:           2,
 					largestPacketSize: 44,
 					multiband: map[string]*bandInfo{
-						"pack": &bandInfo{
+						"pack": {
 							packets: 1,
 							size:    44,
 						},
-						"progress": &bandInfo{},
-						"error":    &bandInfo{},
+						"progress": {},
+						"error":    {},
 					},
 				},
 			},
@@ -101,12 +101,12 @@ func TestPerformHTTPPush(t *testing.T) {
 					packets:           2,
 					largestPacketSize: 28909,
 					multiband: map[string]*bandInfo{
-						"pack": &bandInfo{
+						"pack": {
 							packets: 1,
 							size:    28909,
 						},
-						"progress": &bandInfo{},
-						"error":    &bandInfo{},
+						"progress": {},
+						"error":    {},
 					},
 				},
 			},
@@ -130,12 +130,12 @@ func TestPerformHTTPPush(t *testing.T) {
 					packets:           2,
 					largestPacketSize: 45,
 					multiband: map[string]*bandInfo{
-						"pack": &bandInfo{
+						"pack": {
 							packets: 1,
 							size:    45,
 						},
-						"progress": &bandInfo{},
-						"error":    &bandInfo{},
+						"progress": {},
+						"error":    {},
 					},
 				},
 			},

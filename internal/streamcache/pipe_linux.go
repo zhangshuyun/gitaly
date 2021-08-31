@@ -9,13 +9,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-var (
-	sendfileCounter = promauto.NewCounter(
-		prometheus.CounterOpts{
-			Name: "gitaly_streamcache_sendfile_bytes_total",
-			Help: "Number of bytes sent using sendfile",
-		},
-	)
+var sendfileCounter = promauto.NewCounter(
+	prometheus.CounterOpts{
+		Name: "gitaly_streamcache_sendfile_bytes_total",
+		Help: "Number of bytes sent using sendfile",
+	},
 )
 
 func (pr *pipeReader) WriteTo(w io.Writer) (int64, error) {

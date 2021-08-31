@@ -50,7 +50,7 @@ func TestGetSidechannel(t *testing.T) {
 		t.Run(tc, func(t *testing.T) {
 			ctx := metadata.NewIncomingContext(
 				context.Background(),
-				map[string][]string{sidechannelHeader: []string{tc}},
+				map[string][]string{sidechannelHeader: {tc}},
 			)
 			_, err := GetSidechannel(ctx)
 			require.Error(t, err)

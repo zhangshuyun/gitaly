@@ -22,7 +22,7 @@ func (s *server) CreateRepository(ctx context.Context, req *gitalypb.CreateRepos
 		return nil, helper.ErrInvalidArgumentf("locate repository: %w", err)
 	}
 
-	if err := os.MkdirAll(diskPath, 0770); err != nil {
+	if err := os.MkdirAll(diskPath, 0o770); err != nil {
 		return nil, helper.ErrInternalf("create directories: %w", err)
 	}
 

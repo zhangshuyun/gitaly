@@ -46,8 +46,8 @@ func (s *server) SearchFilesByContent(req *gitalypb.SearchFilesByContentRequest,
 			git.ValueFlag{Name: "--before-context", Value: surroundContext},
 			git.ValueFlag{Name: "--after-context", Value: surroundContext},
 			git.Flag{Name: "--perl-regexp"},
-			git.Flag{Name: "-e"}}, Args: []string{req.GetQuery(), string(req.GetRef())}})
-
+			git.Flag{Name: "-e"},
+		}, Args: []string{req.GetQuery(), string(req.GetRef())}})
 	if err != nil {
 		return helper.ErrInternalf("SearchFilesByContent: cmd start failed: %v", err)
 	}
@@ -130,7 +130,8 @@ func (s *server) SearchFilesByName(req *gitalypb.SearchFilesByNameRequest, strea
 		git.SubCmd{Name: "ls-tree", Flags: []git.Option{
 			git.Flag{Name: "--full-tree"},
 			git.Flag{Name: "--name-status"},
-			git.Flag{Name: "-r"}}, Args: []string{string(req.GetRef()), req.GetQuery()}})
+			git.Flag{Name: "-r"},
+		}, Args: []string{string(req.GetRef()), req.GetQuery()}})
 	if err != nil {
 		return helper.ErrInternalf("SearchFilesByName: cmd start failed: %v", err)
 	}

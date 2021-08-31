@@ -83,7 +83,7 @@ func listenGitalySSHCalls(t *testing.T, conf config.Cfg) func() []GitalySSHParam
 		exit $?`,
 		tmpDir, envPrefix, argsPrefix, updatedPath)
 
-	require.NoError(t, ioutil.WriteFile(initialPath, []byte(script), 0755))
+	require.NoError(t, ioutil.WriteFile(initialPath, []byte(script), 0o755))
 
 	getSSHParams := func() []GitalySSHParams {
 		var gitalySSHParams []GitalySSHParams

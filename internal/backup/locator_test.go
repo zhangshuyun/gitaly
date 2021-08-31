@@ -91,8 +91,8 @@ func TestPointerLocator(t *testing.T) {
 			_, err := l.FindLatestFull(ctx, repo)
 			require.ErrorIs(t, err, ErrDoesntExist)
 
-			require.NoError(t, os.MkdirAll(filepath.Join(backupPath, repo.RelativePath), 0755))
-			require.NoError(t, ioutil.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte(backupID), 0644))
+			require.NoError(t, os.MkdirAll(filepath.Join(backupPath, repo.RelativePath), 0o755))
+			require.NoError(t, ioutil.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte(backupID), 0o644))
 			expected := &Full{
 				BundlePath:      filepath.Join(repo.RelativePath, backupID, "full.bundle"),
 				RefPath:         filepath.Join(repo.RelativePath, backupID, "full.refs"),
@@ -124,8 +124,8 @@ func TestPointerLocator(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, expectedFallback, fallbackFull)
 
-			require.NoError(t, os.MkdirAll(filepath.Join(backupPath, repo.RelativePath), 0755))
-			require.NoError(t, ioutil.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte(backupID), 0644))
+			require.NoError(t, os.MkdirAll(filepath.Join(backupPath, repo.RelativePath), 0o755))
+			require.NoError(t, ioutil.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte(backupID), 0o644))
 			expected := &Full{
 				BundlePath:      filepath.Join(repo.RelativePath, backupID, "full.bundle"),
 				RefPath:         filepath.Join(repo.RelativePath, backupID, "full.refs"),

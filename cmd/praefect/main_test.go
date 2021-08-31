@@ -62,15 +62,15 @@ func TestFlattenNodes(t *testing.T) {
 				},
 			},
 			expect: map[string]*nodePing{
-				"tcp://example.com": &nodePing{
+				"tcp://example.com": {
 					address: "tcp://example.com",
 					storages: map[gitalyStorage][]virtualStorage{
-						"foo": []virtualStorage{"meow"},
-						"bar": []virtualStorage{"woof"},
+						"foo": {"meow"},
+						"bar": {"woof"},
 					},
 					vStorages: map[virtualStorage]struct{}{
-						"meow": struct{}{},
-						"woof": struct{}{},
+						"meow": {},
+						"woof": {},
 					},
 					token: "abc",
 				},

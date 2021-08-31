@@ -113,7 +113,6 @@ func (s *server) checkRevision(ctx context.Context, repo git.RepositoryExecutor,
 		git.WithStdout(&stdout),
 		git.WithStderr(&stderr),
 	)
-
 	if err != nil {
 		return "", err
 	}
@@ -136,7 +135,6 @@ func (s *server) disambiguateRevision(ctx context.Context, repo git.RepositoryEx
 		Flags: []git.Option{git.Flag{Name: "--format=%(refname)"}},
 		Args:  []string{"**/" + revision},
 	})
-
 	if err != nil {
 		return "", err
 	}

@@ -29,7 +29,7 @@ func TestCreateBundleFromRefList_success(t *testing.T) {
 	// clean this up before creating the bundle.
 	sha := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
 
-	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "gitlab-worktree"), 0755))
+	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "gitlab-worktree"), 0o755))
 
 	gittest.Exec(t, cfg, "-C", repoPath, "worktree", "add", "gitlab-worktree/worktree1", sha.String())
 	require.NoError(t, os.Chtimes(filepath.Join(repoPath, "gitlab-worktree", "worktree1"), time.Now().Add(-7*time.Hour), time.Now().Add(-7*time.Hour)))

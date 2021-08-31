@@ -35,8 +35,8 @@ func TestGetRawChanges(t *testing.T) {
 					OldPath:      "README.md",
 					OldPathBytes: []byte("README.md"),
 					Operation:    gitalypb.GetRawChangesResponse_RawChange_MODIFIED,
-					OldMode:      0100644,
-					NewMode:      0100644,
+					OldMode:      0o100644,
+					NewMode:      0o100644,
 				},
 				{
 					BlobId:       "723c2c3f4c8a2a1e957f878c8813acfc08cda2b6",
@@ -44,7 +44,7 @@ func TestGetRawChanges(t *testing.T) {
 					NewPath:      "files/images/emoji.png",
 					NewPathBytes: []byte("files/images/emoji.png"),
 					Operation:    gitalypb.GetRawChangesResponse_RawChange_ADDED,
-					NewMode:      0100644,
+					NewMode:      0o100644,
 				},
 			},
 		},
@@ -58,7 +58,7 @@ func TestGetRawChanges(t *testing.T) {
 					NewPath:      ".gitignore",
 					NewPathBytes: []byte(".gitignore"),
 					Operation:    gitalypb.GetRawChangesResponse_RawChange_ADDED,
-					NewMode:      0100644,
+					NewMode:      0o100644,
 				},
 				{
 					BlobId:       "50b27c6518be44c42c4d87966ae2481ce895624c",
@@ -66,7 +66,7 @@ func TestGetRawChanges(t *testing.T) {
 					NewPath:      "LICENSE",
 					NewPathBytes: []byte("LICENSE"),
 					Operation:    gitalypb.GetRawChangesResponse_RawChange_ADDED,
-					NewMode:      0100644,
+					NewMode:      0o100644,
 				},
 				{
 					BlobId:       "faaf198af3a36dbf41961466703cc1d47c61d051",
@@ -74,7 +74,7 @@ func TestGetRawChanges(t *testing.T) {
 					NewPath:      "README.md",
 					NewPathBytes: []byte("README.md"),
 					Operation:    gitalypb.GetRawChangesResponse_RawChange_ADDED,
-					NewMode:      0100644,
+					NewMode:      0o100644,
 				},
 			},
 		},
@@ -90,8 +90,8 @@ func TestGetRawChanges(t *testing.T) {
 					OldPath:      "files/executables/ls",
 					OldPathBytes: []byte("files/executables/ls"),
 					Operation:    gitalypb.GetRawChangesResponse_RawChange_MODIFIED,
-					OldMode:      0100755,
-					NewMode:      0100644,
+					OldMode:      0o100755,
+					NewMode:      0o100644,
 				},
 			},
 		},
@@ -282,8 +282,8 @@ func TestGetRawChangesMappingOperations(t *testing.T) {
 		OldPath:      "CHANGELOG",
 		OldPathBytes: []byte("CHANGELOG"),
 		Operation:    gitalypb.GetRawChangesResponse_RawChange_RENAMED,
-		OldMode:      0100644,
-		NewMode:      0100644,
+		OldMode:      0o100644,
+		NewMode:      0o100644,
 	}
 
 	require.Equal(t, firstChange, msg.GetRawChanges()[0])

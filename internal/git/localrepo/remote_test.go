@@ -521,7 +521,8 @@ func TestRepo_Push(t *testing.T) {
 			setupPushRepo:  setupPushRepo,
 			refspecs:       []string{"refs/heads/master", "refs/heads/feature"},
 			expectedFilter: []string{"refs/heads/master", "refs/heads/feature"},
-		}, {
+		},
+		{
 			desc:           "push with custom ssh command",
 			setupPushRepo:  setupPushRepo,
 			sshCommand:     "custom --ssh-command",

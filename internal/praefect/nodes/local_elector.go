@@ -64,7 +64,6 @@ func (s *localElector) monitor(d time.Duration) {
 		<-ticker.C
 
 		err := s.checkNodes(ctx)
-
 		if err != nil {
 			s.log.WithError(err).Warn("error checking nodes")
 		}

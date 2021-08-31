@@ -46,8 +46,10 @@ type proxyValues struct {
 	HTTPProxy, HTTPSProxy, NoProxy string
 }
 
-var enabledFeatureFlag = featureflag.FeatureFlag{Name: "enabled-feature-flag", OnByDefault: false}
-var disabledFeatureFlag = featureflag.FeatureFlag{Name: "disabled-feature-flag", OnByDefault: true}
+var (
+	enabledFeatureFlag  = featureflag.FeatureFlag{Name: "enabled-feature-flag", OnByDefault: false}
+	disabledFeatureFlag = featureflag.FeatureFlag{Name: "disabled-feature-flag", OnByDefault: true}
+)
 
 func rawFeatureFlags(ctx context.Context) featureflag.Raw {
 	ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, enabledFeatureFlag)
@@ -514,7 +516,7 @@ func TestCheckOK(t *testing.T) {
 	tempDir := testhelper.TempDir(t)
 
 	gitlabShellDir := filepath.Join(tempDir, "gitlab-shell")
-	require.NoError(t, os.MkdirAll(gitlabShellDir, 0755))
+	require.NoError(t, os.MkdirAll(gitlabShellDir, 0o755))
 
 	gitlab.WriteShellSecretFile(t, gitlabShellDir, "the secret")
 	configPath, cleanup := writeTemporaryGitalyConfigFile(t, tempDir, serverURL, user, password, path.Join(gitlabShellDir, ".gitlab_shell_secret"))
@@ -558,7 +560,7 @@ func TestCheckBadCreds(t *testing.T) {
 	tempDir := testhelper.TempDir(t)
 
 	gitlabShellDir := filepath.Join(tempDir, "gitlab-shell")
-	require.NoError(t, os.MkdirAll(gitlabShellDir, 0755))
+	require.NoError(t, os.MkdirAll(gitlabShellDir, 0o755))
 	gitlab.WriteShellSecretFile(t, gitlabShellDir, "the secret")
 
 	configPath, cleanup := writeTemporaryGitalyConfigFile(t, tempDir, serverURL, "wrong", password, path.Join(gitlabShellDir, ".gitlab_shell_secret"))
@@ -660,7 +662,7 @@ func TestFixFilterQuoteBug(t *testing.T) {
 func TestGitalyHooksPackObjects(t *testing.T) {
 	logDir, err := filepath.Abs("testdata")
 	require.NoError(t, err)
-	require.NoError(t, os.MkdirAll(logDir, 0755))
+	require.NoError(t, os.MkdirAll(logDir, 0o755))
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t, testcfg.WithBase(config.Cfg{
 		Auth:    auth.Config{Token: "abc123"},
@@ -784,7 +786,7 @@ func writeTemporaryGitalyConfigFile(t testing.TB, tempDir, gitlabURL, user, pass
     password = %q
 `, gitlabURL, secretFile, user, password)
 
-	require.NoError(t, ioutil.WriteFile(path, []byte(contents), 0644))
+	require.NoError(t, ioutil.WriteFile(path, []byte(contents), 0o644))
 	return path, func() {
 		require.NoError(t, os.RemoveAll(path))
 	}

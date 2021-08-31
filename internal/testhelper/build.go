@@ -78,7 +78,7 @@ func buildBinary(t testing.TB, dstDir, name string, buildOnce *sync.Once) {
 		// copy compiled binary to the destination folder
 		require.NoError(t, os.MkdirAll(dstDir, os.ModePerm))
 		CopyFile(t, binPath, targetPath)
-		require.NoError(t, os.Chmod(targetPath, 0777))
+		require.NoError(t, os.Chmod(targetPath, 0o777))
 	}()
 
 	buildOnce.Do(func() {

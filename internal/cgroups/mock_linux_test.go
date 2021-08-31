@@ -42,7 +42,7 @@ func newMock(t *testing.T) *mockCgroup {
 	require.NoError(t, err)
 
 	for _, s := range subsystems {
-		require.NoError(t, os.MkdirAll(filepath.Join(root, string(s.Name())), os.FileMode(0755)))
+		require.NoError(t, os.MkdirAll(filepath.Join(root, string(s.Name())), os.FileMode(0o755)))
 	}
 
 	return &mockCgroup{

@@ -26,9 +26,7 @@ const (
 	GitalyInternalURL = "ssh://gitaly/internal.git"
 )
 
-var (
-	envInjector = tracing.NewEnvInjector()
-)
+var envInjector = tracing.NewEnvInjector()
 
 // UploadPackEnv returns a list of the key=val pairs required to set proper configuration options for upload-pack command.
 func UploadPackEnv(ctx context.Context, cfg config.Cfg, req *gitalypb.SSHUploadPackRequest) ([]string, error) {

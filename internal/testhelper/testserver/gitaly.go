@@ -256,7 +256,7 @@ func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, regi
 		sds, err := os.Stat(internalSocketDir)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				require.NoError(t, os.MkdirAll(internalSocketDir, 0700))
+				require.NoError(t, os.MkdirAll(internalSocketDir, 0o700))
 				t.Cleanup(func() { require.NoError(t, os.RemoveAll(internalSocketDir)) })
 			} else {
 				require.FailNow(t, err.Error())

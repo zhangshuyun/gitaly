@@ -58,9 +58,11 @@ func TestWalkRepos(t *testing.T) {
 	// the first repo 'a' is being streamed to the client.
 	deleteOnce := sync.Once{}
 	srv := NewServer([]config.Storage{{Name: storageName, Path: storageRoot}})
-	wsrv := &serverWrapper{srv,
+	wsrv := &serverWrapper{
+		srv,
 		func(r *gitalypb.WalkReposRequest, s gitalypb.InternalGitaly_WalkReposServer) error {
-			return srv.WalkRepos(r, &streamWrapper{s,
+			return srv.WalkRepos(r, &streamWrapper{
+				s,
 				func(resp *gitalypb.WalkReposResponse) error {
 					deleteOnce.Do(func() {
 						require.NoError(t, os.RemoveAll(filepath.Join(storageRoot, deletedRepo.RelativePath)))

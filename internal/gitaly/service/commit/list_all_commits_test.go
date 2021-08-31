@@ -104,7 +104,7 @@ func TestListAllCommits(t *testing.T) {
 		cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
 
 		quarantineDir := filepath.Join("objects", "incoming-123456")
-		require.NoError(t, os.Mkdir(filepath.Join(repoPath, quarantineDir), 0777))
+		require.NoError(t, os.Mkdir(filepath.Join(repoPath, quarantineDir), 0o777))
 
 		repo.GitObjectDirectory = quarantineDir
 		repo.GitAlternateObjectDirectories = nil

@@ -111,7 +111,7 @@ we can both agree on this line though
 		t.Run(tt.name, func(t *testing.T) {
 			entry := Entry{
 				Path:     tt.path,
-				Mode:     0644,
+				Mode:     0o644,
 				Contents: []byte("something-with-trailing-newline\n"),
 			}
 

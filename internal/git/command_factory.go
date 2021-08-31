@@ -15,23 +15,21 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 )
 
-var (
-	globalOptions = []GlobalOption{
-		// Synchronize object files to lessen the likelihood of
-		// repository corruption in case the server crashes.
-		ConfigPair{Key: "core.fsyncObjectFiles", Value: "true"},
+var globalOptions = []GlobalOption{
+	// Synchronize object files to lessen the likelihood of
+	// repository corruption in case the server crashes.
+	ConfigPair{Key: "core.fsyncObjectFiles", Value: "true"},
 
-		// Disable automatic garbage collection as we handle scheduling
-		// of it ourselves.
-		ConfigPair{Key: "gc.auto", Value: "0"},
+	// Disable automatic garbage collection as we handle scheduling
+	// of it ourselves.
+	ConfigPair{Key: "gc.auto", Value: "0"},
 
-		// CRLF line endings will get replaced with LF line endings
-		// when writing blobs to the object database. No conversion is
-		// done when reading blobs from the object database. This is
-		// required for the web editor.
-		ConfigPair{Key: "core.autocrlf", Value: "input"},
-	}
-)
+	// CRLF line endings will get replaced with LF line endings
+	// when writing blobs to the object database. No conversion is
+	// done when reading blobs from the object database. This is
+	// required for the web editor.
+	ConfigPair{Key: "core.autocrlf", Value: "input"},
+}
 
 // CommandFactory is designed to create and run git commands in a protected and fully managed manner.
 type CommandFactory interface {

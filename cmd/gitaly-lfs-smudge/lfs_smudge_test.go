@@ -37,17 +37,15 @@ size 177735`
 	keyPath      = "../../internal/gitlab/testdata/certs/server.key"
 )
 
-var (
-	defaultOptions = gitlab.TestServerOptions{
-		SecretToken:      secretToken,
-		LfsBody:          testData,
-		LfsOid:           lfsOid,
-		GlRepository:     glRepository,
-		ClientCACertPath: certPath,
-		ServerCertPath:   certPath,
-		ServerKeyPath:    keyPath,
-	}
-)
+var defaultOptions = gitlab.TestServerOptions{
+	SecretToken:      secretToken,
+	LfsBody:          testData,
+	LfsOid:           lfsOid,
+	GlRepository:     glRepository,
+	ClientCACertPath: certPath,
+	ServerCertPath:   certPath,
+	ServerKeyPath:    keyPath,
+}
 
 type mapConfig struct {
 	env map[string]string

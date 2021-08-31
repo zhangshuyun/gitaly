@@ -121,7 +121,7 @@ func readCgroupFile(t *testing.T, path string) []byte {
 	// The cgroups package defaults to permission 0 as it expects the file to be existing (the kernel creates the file)
 	// and its testing override the permission private variable to something sensible, hence we have to chmod ourselves
 	// so we can read the file.
-	require.NoError(t, os.Chmod(path, 0666))
+	require.NoError(t, os.Chmod(path, 0o666))
 
 	return testhelper.MustReadFile(t, path)
 }

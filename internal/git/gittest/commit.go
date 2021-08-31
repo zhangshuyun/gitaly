@@ -145,7 +145,7 @@ func CreateCommitInAlternateObjectDirectory(t testing.TB, gitBin, repoPath, altO
 		fmt.Sprintf("GIT_OBJECT_DIRECTORY=%s", altObjectsPath),
 		fmt.Sprintf("GIT_ALTERNATE_OBJECT_DIRECTORIES=%s", filepath.Join(gitPath, "objects")),
 	}
-	require.NoError(t, os.MkdirAll(altObjectsPath, 0755))
+	require.NoError(t, os.MkdirAll(altObjectsPath, 0o755))
 
 	// Because we set 'gitObjectEnv', the new objects created by this command
 	// will go into 'find-commits-alt-test-repo/.git/alt-objects'.

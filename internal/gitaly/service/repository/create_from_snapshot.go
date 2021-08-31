@@ -109,7 +109,7 @@ func (s *server) CreateRepositoryFromSnapshot(ctx context.Context, in *gitalypb.
 		return nil, err
 	}
 
-	if err = os.MkdirAll(filepath.Dir(realPath), 0755); err != nil {
+	if err = os.MkdirAll(filepath.Dir(realPath), 0o755); err != nil {
 		return nil, fmt.Errorf("create directory hierarchy: %w", err)
 	}
 

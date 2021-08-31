@@ -241,15 +241,17 @@ func TestReconciler(t *testing.T) {
 					},
 				},
 			},
-			existingJobs: existingJobs{{
-				State: datastore.JobStateReady,
-				Job: datastore.ReplicationJob{
-					Change:            datastore.UpdateRepo,
-					VirtualStorage:    "virtual-storage-1",
-					RelativePath:      "relative-path-1",
-					SourceNodeStorage: "storage-1",
-					TargetNodeStorage: "storage-3",
-				}},
+			existingJobs: existingJobs{
+				{
+					State: datastore.JobStateReady,
+					Job: datastore.ReplicationJob{
+						Change:            datastore.UpdateRepo,
+						VirtualStorage:    "virtual-storage-1",
+						RelativePath:      "relative-path-1",
+						SourceNodeStorage: "storage-1",
+						TargetNodeStorage: "storage-3",
+					},
+				},
 			},
 			reconciliationJobs: jobs{{
 				Change:            datastore.UpdateRepo,
@@ -270,14 +272,16 @@ func TestReconciler(t *testing.T) {
 					},
 				},
 			},
-			existingJobs: existingJobs{{
-				State: datastore.JobStateReady,
-				Job: datastore.ReplicationJob{
-					Change:            datastore.DeleteReplica,
-					VirtualStorage:    "virtual-storage-1",
-					RelativePath:      "relative-path-1",
-					TargetNodeStorage: "storage-1",
-				}},
+			existingJobs: existingJobs{
+				{
+					State: datastore.JobStateReady,
+					Job: datastore.ReplicationJob{
+						Change:            datastore.DeleteReplica,
+						VirtualStorage:    "virtual-storage-1",
+						RelativePath:      "relative-path-1",
+						TargetNodeStorage: "storage-1",
+					},
+				},
 			},
 		},
 		{

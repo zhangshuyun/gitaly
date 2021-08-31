@@ -10,9 +10,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var (
-	maxNumStatBatchSize = 1000
-)
+var maxNumStatBatchSize = 1000
 
 func (s *server) DiffStats(in *gitalypb.DiffStatsRequest, stream gitalypb.DiffService_DiffStatsServer) error {
 	if err := s.validateDiffStatsRequestParams(in); err != nil {
@@ -25,7 +23,6 @@ func (s *server) DiffStats(in *gitalypb.DiffStatsRequest, stream gitalypb.DiffSe
 		Flags: []git.Option{git.Flag{Name: "--numstat"}, git.Flag{Name: "-z"}},
 		Args:  []string{in.LeftCommitId, in.RightCommitId},
 	})
-
 	if err != nil {
 		if _, ok := status.FromError(err); ok {
 			return err

@@ -24,7 +24,7 @@ func TestCleanSuccess(t *testing.T) {
 	cleanRoot, err := locator.TempDir(cfg.Storages[0].Name)
 	require.NoError(t, err)
 
-	require.NoError(t, os.MkdirAll(cleanRoot, 0755), "create clean root before setup")
+	require.NoError(t, os.MkdirAll(cleanRoot, 0o755), "create clean root before setup")
 	testhelper.MustRunCommand(t, nil, "chmod", "-R", "0700", cleanRoot)
 	require.NoError(t, os.RemoveAll(cleanRoot), "clean up test clean root")
 
@@ -138,7 +138,7 @@ func makeFile(t *testing.T, locator storage.Locator, storage config.Storage, fil
 	require.NoError(t, err)
 
 	fullPath := filepath.Join(root, filePath)
-	require.NoError(t, ioutil.WriteFile(fullPath, nil, 0644))
+	require.NoError(t, ioutil.WriteFile(fullPath, nil, 0o644))
 	require.NoError(t, os.Chtimes(fullPath, mtime, mtime))
 }
 
@@ -147,6 +147,6 @@ func makeDir(t *testing.T, locator storage.Locator, storage config.Storage, dirP
 	require.NoError(t, err)
 
 	fullPath := filepath.Join(root, dirPath)
-	require.NoError(t, os.MkdirAll(fullPath, 0700))
+	require.NoError(t, os.MkdirAll(fullPath, 0o700))
 	require.NoError(t, os.Chtimes(fullPath, mtime, mtime))
 }

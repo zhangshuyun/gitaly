@@ -41,7 +41,6 @@ var (
 func UnaryLogHandler(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	start := time.Now()
 	resp, err := handler(ctx, req)
-
 	if err != nil {
 		logGrpcErrorToSentry(ctx, info.FullMethod, start, err)
 	}
@@ -53,7 +52,6 @@ func UnaryLogHandler(ctx context.Context, req interface{}, info *grpc.UnaryServe
 func StreamLogHandler(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	start := time.Now()
 	err := handler(srv, stream)
-
 	if err != nil {
 		logGrpcErrorToSentry(stream.Context(), info.FullMethod, start, err)
 	}

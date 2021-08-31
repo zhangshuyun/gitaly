@@ -29,7 +29,7 @@ func TestRepackIncrementalSuccess(t *testing.T) {
 	// precision on `mtime`.
 	// Stamp taken from https://golang.org/pkg/time/#pkg-constants
 	testhelper.MustRunCommand(t, nil, "touch", "-t", testTimeString, filepath.Join(packPath, "*"))
-	testTime := time.Date(2006, 01, 02, 15, 04, 05, 0, time.UTC)
+	testTime := time.Date(2006, 0o1, 0o2, 15, 0o4, 0o5, 0, time.UTC)
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	c, err := client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: repo})
@@ -139,7 +139,7 @@ func TestRepackFullSuccess(t *testing.T) {
 			// precision on `mtime`.
 			packPath := filepath.Join(repoPath, "objects", "pack")
 			testhelper.MustRunCommand(t, nil, "touch", "-t", testTimeString, packPath)
-			testTime := time.Date(2006, 01, 02, 15, 04, 05, 0, time.UTC)
+			testTime := time.Date(2006, 0o1, 0o2, 15, 0o4, 0o5, 0, time.UTC)
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			c, err := client.RepackFull(ctx, test.req)

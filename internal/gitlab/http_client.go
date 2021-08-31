@@ -311,7 +311,6 @@ func marshallGitObjectDirs(gitObjectDirRel string, gitAltObjectDirsRel []string)
 		"GIT_OBJECT_DIRECTORY_RELATIVE":             gitObjectDirRel,
 		"GIT_ALTERNATE_OBJECT_DIRECTORIES_RELATIVE": gitAltObjectDirsRel,
 	})
-
 	if err != nil {
 		return "", err
 	}

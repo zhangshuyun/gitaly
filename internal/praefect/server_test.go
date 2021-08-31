@@ -214,9 +214,9 @@ func TestGitalyServerInfoBadNode(t *testing.T) {
 
 	conf := config.Config{
 		VirtualStorages: []*config.VirtualStorage{
-			&config.VirtualStorage{
+			{
 				Nodes: []*config.Node{
-					&config.Node{
+					{
 						Storage: "praefect-internal-1",
 						Address: "unix://" + gitalySocket,
 						Token:   "abc",
@@ -342,27 +342,27 @@ func TestWarnDuplicateAddrs(t *testing.T) {
 	t.Parallel()
 	conf := config.Config{
 		VirtualStorages: []*config.VirtualStorage{
-			&config.VirtualStorage{
+			{
 				Name: "default",
 				Nodes: []*config.Node{
-					&config.Node{
+					{
 						Storage: "praefect-internal-0",
 						Address: "tcp://abc",
 					},
-					&config.Node{
+					{
 						Storage: "praefect-internal-1",
 						Address: "tcp://xyz",
 					},
 				},
 			},
-			&config.VirtualStorage{
+			{
 				Name: "praefect",
 				Nodes: []*config.Node{
-					&config.Node{
+					{
 						Storage: "praefect-internal-0",
 						Address: "tcp://abc",
 					},
-					&config.Node{
+					{
 						Storage: "praefect-internal-1",
 						Address: "tcp://xyz",
 					},
@@ -389,14 +389,14 @@ func TestWarnDuplicateAddrs(t *testing.T) {
 
 	conf = config.Config{
 		VirtualStorages: []*config.VirtualStorage{
-			&config.VirtualStorage{
+			{
 				Name: "praefect",
 				Nodes: []*config.Node{
-					&config.Node{
+					{
 						Storage: "praefect-internal-0",
 						Address: "tcp::/samesies",
 					},
-					&config.Node{
+					{
 						Storage: "praefect-internal-1",
 						Address: "tcp::/samesies",
 					},
@@ -425,27 +425,27 @@ func TestWarnDuplicateAddrs(t *testing.T) {
 
 	conf = config.Config{
 		VirtualStorages: []*config.VirtualStorage{
-			&config.VirtualStorage{
+			{
 				Name: "default",
 				Nodes: []*config.Node{
-					&config.Node{
+					{
 						Storage: "praefect-internal-0",
 						Address: "tcp://abc",
 					},
-					&config.Node{
+					{
 						Storage: "praefect-internal-1",
 						Address: "tcp://xyz",
 					},
 				},
 			},
-			&config.VirtualStorage{
+			{
 				Name: "praefect",
 				Nodes: []*config.Node{
-					&config.Node{
+					{
 						Storage: "praefect-internal-0",
 						Address: "tcp://abc",
 					},
-					&config.Node{
+					{
 						Storage: "praefect-internal-2",
 						Address: "tcp://xyz",
 					},

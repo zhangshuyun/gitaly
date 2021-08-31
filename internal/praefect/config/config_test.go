@@ -251,11 +251,11 @@ func TestConfigParsing(t *testing.T) {
 					Environment: "production",
 				},
 				VirtualStorages: []*VirtualStorage{
-					&VirtualStorage{
+					{
 						Name:                     "praefect",
 						DefaultReplicationFactor: 2,
 						Nodes: []*Node{
-							&Node{
+							{
 								Address: "tcp://gitaly-internal-1.example.com",
 								Storage: "praefect-internal-1",
 							},
@@ -375,7 +375,8 @@ func TestStorageNames(t *testing.T) {
 		VirtualStorages: []*VirtualStorage{
 			{Name: "virtual-storage-1", Nodes: []*Node{{Storage: "gitaly-1"}, {Storage: "gitaly-2"}}},
 			{Name: "virtual-storage-2", Nodes: []*Node{{Storage: "gitaly-3"}, {Storage: "gitaly-4"}}},
-		}}
+		},
+	}
 	require.Equal(t, map[string][]string{
 		"virtual-storage-1": {"gitaly-1", "gitaly-2"},
 		"virtual-storage-2": {"gitaly-3", "gitaly-4"},

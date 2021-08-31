@@ -179,7 +179,7 @@ func (s *server) createFromSnapshot(ctx context.Context, in *gitalypb.ReplicateR
 		return fmt.Errorf("locate repository: %w", err)
 	}
 
-	if err = os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+	if err = os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
 		return fmt.Errorf("create parent directories: %w", err)
 	}
 
@@ -226,7 +226,7 @@ func (s *server) syncGitconfig(ctx context.Context, in *gitalypb.ReplicateReposi
 		}
 
 		configPath := filepath.Join(repoPath, "config")
-		if err := writeFile(configPath, 0644, streamio.NewReader(func() ([]byte, error) {
+		if err := writeFile(configPath, 0o644, streamio.NewReader(func() ([]byte, error) {
 			resp, err := stream.Recv()
 			return resp.GetData(), err
 		})); err != nil {
@@ -272,7 +272,7 @@ func (s *server) syncInfoAttributes(ctx context.Context, in *gitalypb.ReplicateR
 
 func writeFile(path string, mode os.FileMode, reader io.Reader) error {
 	parentDir := filepath.Dir(path)
-	if err := os.MkdirAll(parentDir, 0755); err != nil {
+	if err := os.MkdirAll(parentDir, 0o755); err != nil {
 		return err
 	}
 

@@ -65,7 +65,7 @@ end
 		{
 			Header: &gitalypb.ConflictFileHeader{
 				CommitOid: ourCommitOid,
-				OurMode:   int32(0100644),
+				OurMode:   int32(0o100644),
 				OurPath:   []byte("encoding/codagé"),
 				TheirPath: []byte("encoding/codagé"),
 			},
@@ -74,7 +74,7 @@ end
 		{
 			Header: &gitalypb.ConflictFileHeader{
 				CommitOid: ourCommitOid,
-				OurMode:   int32(0100644),
+				OurMode:   int32(0o100644),
 				OurPath:   []byte("files/ruby/feature.rb"),
 				TheirPath: []byte("files/ruby/feature.rb"),
 			},
@@ -113,7 +113,7 @@ func TestSuccessfulListConflictFilesRequestWithAncestor(t *testing.T) {
 		{
 			Header: &gitalypb.ConflictFileHeader{
 				CommitOid:    ourCommitOid,
-				OurMode:      int32(0100644),
+				OurMode:      int32(0o100644),
 				OurPath:      []byte("files/ruby/popen.rb"),
 				TheirPath:    []byte("files/ruby/popen.rb"),
 				AncestorPath: []byte("files/ruby/popen.rb"),
@@ -122,7 +122,7 @@ func TestSuccessfulListConflictFilesRequestWithAncestor(t *testing.T) {
 		{
 			Header: &gitalypb.ConflictFileHeader{
 				CommitOid:    ourCommitOid,
-				OurMode:      int32(0100644),
+				OurMode:      int32(0o100644),
 				OurPath:      []byte("files/ruby/regex.rb"),
 				TheirPath:    []byte("files/ruby/regex.rb"),
 				AncestorPath: []byte("files/ruby/regex.rb"),
@@ -167,14 +167,14 @@ func TestListConflictFilesHugeDiff(t *testing.T) {
 	require.Len(t, receivedFiles, 2)
 	testassert.ProtoEqual(t, &gitalypb.ConflictFileHeader{
 		CommitOid: our,
-		OurMode:   int32(0100644),
+		OurMode:   int32(0o100644),
 		OurPath:   []byte("a"),
 		TheirPath: []byte("a"),
 	}, receivedFiles[0].Header)
 
 	testassert.ProtoEqual(t, &gitalypb.ConflictFileHeader{
 		CommitOid: our,
-		OurMode:   int32(0100644),
+		OurMode:   int32(0o100644),
 		OurPath:   []byte("b"),
 		TheirPath: []byte("b"),
 	}, receivedFiles[1].Header)
@@ -185,7 +185,7 @@ func buildCommit(t *testing.T, ctx context.Context, cfg config.Cfg, repo *gitaly
 
 	for file, contents := range files {
 		filePath := filepath.Join(repoPath, file)
-		require.NoError(t, ioutil.WriteFile(filePath, contents, 0666))
+		require.NoError(t, ioutil.WriteFile(filePath, contents, 0o666))
 		gittest.Exec(t, cfg, "-C", repoPath, "add", filePath)
 	}
 
@@ -340,7 +340,7 @@ end
 			Header: &gitalypb.ConflictFileHeader{
 				AncestorPath: []byte("files/ruby/version_info.rb"),
 				CommitOid:    ourCommitOid,
-				OurMode:      int32(0100644),
+				OurMode:      int32(0o100644),
 				OurPath:      []byte("files/ruby/version_info.rb"),
 			},
 			Content: []byte(conflictContent),

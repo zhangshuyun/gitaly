@@ -12,11 +12,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 )
 
-var (
-	// forceDeletionPrefix is the prefix of a queued reference transaction which deletes a
-	// reference without checking its current value.
-	forceDeletionPrefix = fmt.Sprintf("%[1]s %[1]s ", git.ZeroOID.String())
-)
+// forceDeletionPrefix is the prefix of a queued reference transaction which deletes a
+// reference without checking its current value.
+var forceDeletionPrefix = fmt.Sprintf("%[1]s %[1]s ", git.ZeroOID.String())
 
 func (m *GitLabHookManager) ReferenceTransactionHook(ctx context.Context, state ReferenceTransactionState, env []string, stdin io.Reader) error {
 	payload, err := git.HooksPayloadFromEnv(env)

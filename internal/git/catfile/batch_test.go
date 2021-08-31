@@ -429,7 +429,6 @@ func waitTrue(callback func() bool) bool {
 
 func numGitChildren(t *testing.T) int {
 	out, err := exec.Command("pgrep", "-x", "-P", strconv.Itoa(os.Getpid()), "git").Output()
-
 	if err != nil {
 		if code, ok := command.ExitStatus(err); ok && code == 1 {
 			// pgrep exit code 1 means: no processes found

@@ -8,21 +8,19 @@ import (
 	"strings"
 )
 
-var (
-	// minimumVersion is the minimum required Git version. If updating this version, be sure to
-	// also update the following locations:
-	// - https://gitlab.com/gitlab-org/gitaly/blob/master/README.md#installation
-	// - https://gitlab.com/gitlab-org/gitaly/blob/master/.gitlab-ci.yml
-	// - https://gitlab.com/gitlab-org/gitlab-foss/blob/master/.gitlab-ci.yml
-	// - https://gitlab.com/gitlab-org/gitlab-foss/blob/master/lib/system_check/app/git_version_check.rb
-	minimumVersion = Version{
-		versionString: "2.31.0",
-		major:         2,
-		minor:         31,
-		patch:         0,
-		rc:            false,
-	}
-)
+// minimumVersion is the minimum required Git version. If updating this version, be sure to
+// also update the following locations:
+// - https://gitlab.com/gitlab-org/gitaly/blob/master/README.md#installation
+// - https://gitlab.com/gitlab-org/gitaly/blob/master/.gitlab-ci.yml
+// - https://gitlab.com/gitlab-org/gitlab-foss/blob/master/.gitlab-ci.yml
+// - https://gitlab.com/gitlab-org/gitlab-foss/blob/master/lib/system_check/app/git_version_check.rb
+var minimumVersion = Version{
+	versionString: "2.31.0",
+	major:         2,
+	minor:         31,
+	patch:         0,
+	rc:            false,
+}
 
 // Version represents the version of git itself.
 type Version struct {

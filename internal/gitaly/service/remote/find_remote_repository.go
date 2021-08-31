@@ -25,7 +25,6 @@ func (s *server) FindRemoteRepository(ctx context.Context, req *gitalypb.FindRem
 			},
 		},
 	)
-
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "error executing git command: %s", err)
 	}

@@ -17,11 +17,9 @@ const (
 	TransactionMetadataKey = "gitaly-reference-transaction"
 )
 
-var (
-	// ErrTransactionNotFound indicates the transaction metadata could not
-	// be found
-	ErrTransactionNotFound = errors.New("transaction not found")
-)
+// ErrTransactionNotFound indicates the transaction metadata could not
+// be found
+var ErrTransactionNotFound = errors.New("transaction not found")
 
 // Transaction stores parameters required to identify a reference
 // transaction.

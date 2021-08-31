@@ -400,7 +400,7 @@ func TestRepo_ReadCommit(t *testing.T) {
 				},
 				SignatureType: gitalypb.SignatureType_PGP,
 				Trailers: []*gitalypb.CommitTrailer{
-					&gitalypb.CommitTrailer{
+					{
 						Key:   []byte("Signed-off-by"),
 						Value: []byte("Dmitriy Zaporozhets <dmitriy.zaporozhets@gmail.com>"),
 					},

@@ -22,8 +22,7 @@ import (
 //   <repo relative path>.bundle
 //   <repo relative path>.refs
 //   <repo relative path>/custom_hooks.tar
-type LegacyLocator struct {
-}
+type LegacyLocator struct{}
 
 // BeginFull returns the static paths for a legacy repository backup
 func (l LegacyLocator) BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Full {

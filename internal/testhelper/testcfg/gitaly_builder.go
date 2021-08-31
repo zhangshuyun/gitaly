@@ -73,22 +73,22 @@ func (gc *GitalyCfgBuilder) Build(t testing.TB) config.Cfg {
 
 	if cfg.BinDir == "" {
 		cfg.BinDir = filepath.Join(root, "bin.d")
-		require.NoError(t, os.Mkdir(cfg.BinDir, 0755))
+		require.NoError(t, os.Mkdir(cfg.BinDir, 0o755))
 	}
 
 	if cfg.Logging.Dir == "" {
 		cfg.Logging.Dir = filepath.Join(root, "log.d")
-		require.NoError(t, os.Mkdir(cfg.Logging.Dir, 0755))
+		require.NoError(t, os.Mkdir(cfg.Logging.Dir, 0o755))
 	}
 
 	if cfg.GitlabShell.Dir == "" {
 		cfg.GitlabShell.Dir = filepath.Join(root, "shell.d")
-		require.NoError(t, os.Mkdir(cfg.GitlabShell.Dir, 0755))
+		require.NoError(t, os.Mkdir(cfg.GitlabShell.Dir, 0o755))
 	}
 
 	if cfg.InternalSocketDir == "" {
 		cfg.InternalSocketDir = filepath.Join(root, "internal_socks.d")
-		require.NoError(t, os.Mkdir(cfg.InternalSocketDir, 0755))
+		require.NoError(t, os.Mkdir(cfg.InternalSocketDir, 0o755))
 	}
 
 	if len(cfg.Storages) != 0 && len(gc.storages) != 0 {
@@ -97,7 +97,7 @@ func (gc *GitalyCfgBuilder) Build(t testing.TB) config.Cfg {
 
 	if len(cfg.Storages) == 0 {
 		storagesDir := filepath.Join(root, "storages.d")
-		require.NoError(t, os.Mkdir(storagesDir, 0755))
+		require.NoError(t, os.Mkdir(storagesDir, 0o755))
 
 		if len(gc.storages) == 0 {
 			gc.storages = []string{"default"}
@@ -107,7 +107,7 @@ func (gc *GitalyCfgBuilder) Build(t testing.TB) config.Cfg {
 		cfg.Storages = make([]config.Storage, len(gc.storages))
 		for i, storageName := range gc.storages {
 			storagePath := filepath.Join(storagesDir, storageName)
-			require.NoError(t, os.MkdirAll(storagePath, 0755))
+			require.NoError(t, os.MkdirAll(storagePath, 0o755))
 			cfg.Storages[i].Name = storageName
 			cfg.Storages[i].Path = storagePath
 		}
@@ -117,7 +117,7 @@ func (gc *GitalyCfgBuilder) Build(t testing.TB) config.Cfg {
 		if cfg.Ruby.LinguistLanguagesPath == "" {
 			// set a stub to prevent a long ruby process to run where it is not needed
 			cfg.Ruby.LinguistLanguagesPath = filepath.Join(root, "linguist_languages.json")
-			require.NoError(t, ioutil.WriteFile(cfg.Ruby.LinguistLanguagesPath, []byte(`{}`), 0655))
+			require.NoError(t, ioutil.WriteFile(cfg.Ruby.LinguistLanguagesPath, []byte(`{}`), 0o655))
 		}
 	}
 

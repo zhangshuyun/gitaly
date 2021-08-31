@@ -14,32 +14,30 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
-var (
-	defaultFiles = [][]byte{
-		[]byte(".gitattributes"), []byte(".gitignore"), []byte(".gitmodules"),
-		[]byte("CHANGELOG"), []byte("CONTRIBUTING.md"), []byte("Gemfile.zip"),
-		[]byte("LICENSE"), []byte("MAINTENANCE.md"), []byte("PROCESS.md"),
-		[]byte("README"), []byte("README.md"), []byte("VERSION"),
-		[]byte("bar/branch-test.txt"), []byte("custom-highlighting/test.gitlab-custom"),
-		[]byte("encoding/feature-1.txt"), []byte("encoding/feature-2.txt"),
-		[]byte("encoding/hotfix-1.txt"), []byte("encoding/hotfix-2.txt"),
-		[]byte("encoding/iso8859.txt"), []byte("encoding/russian.rb"),
-		[]byte("encoding/test.txt"), []byte("encoding/テスト.txt"), []byte("encoding/テスト.xls"),
-		[]byte("files/html/500.html"), []byte("files/images/6049019_460s.jpg"),
-		[]byte("files/images/logo-black.png"), []byte("files/images/logo-white.png"),
-		[]byte("files/images/wm.svg"), []byte("files/js/application.js"),
-		[]byte("files/js/commit.coffee"), []byte("files/lfs/lfs_object.iso"),
-		[]byte("files/markdown/ruby-style-guide.md"), []byte("files/ruby/popen.rb"),
-		[]byte("files/ruby/regex.rb"), []byte("files/ruby/version_info.rb"),
-		[]byte("files/whitespace"), []byte("foo/bar/.gitkeep"),
-		[]byte("gitaly/file-with-multiple-chunks"), []byte("gitaly/logo-white.png"),
-		[]byte("gitaly/mode-file"), []byte("gitaly/mode-file-with-mods"),
-		[]byte("gitaly/no-newline-at-the-end"), []byte("gitaly/renamed-file"),
-		[]byte("gitaly/renamed-file-with-mods"), []byte("gitaly/symlink-to-be-regular"),
-		[]byte("gitaly/tab\tnewline\n file"), []byte("gitaly/テスト.txt"),
-		[]byte("with space/README.md"),
-	}
-)
+var defaultFiles = [][]byte{
+	[]byte(".gitattributes"), []byte(".gitignore"), []byte(".gitmodules"),
+	[]byte("CHANGELOG"), []byte("CONTRIBUTING.md"), []byte("Gemfile.zip"),
+	[]byte("LICENSE"), []byte("MAINTENANCE.md"), []byte("PROCESS.md"),
+	[]byte("README"), []byte("README.md"), []byte("VERSION"),
+	[]byte("bar/branch-test.txt"), []byte("custom-highlighting/test.gitlab-custom"),
+	[]byte("encoding/feature-1.txt"), []byte("encoding/feature-2.txt"),
+	[]byte("encoding/hotfix-1.txt"), []byte("encoding/hotfix-2.txt"),
+	[]byte("encoding/iso8859.txt"), []byte("encoding/russian.rb"),
+	[]byte("encoding/test.txt"), []byte("encoding/テスト.txt"), []byte("encoding/テスト.xls"),
+	[]byte("files/html/500.html"), []byte("files/images/6049019_460s.jpg"),
+	[]byte("files/images/logo-black.png"), []byte("files/images/logo-white.png"),
+	[]byte("files/images/wm.svg"), []byte("files/js/application.js"),
+	[]byte("files/js/commit.coffee"), []byte("files/lfs/lfs_object.iso"),
+	[]byte("files/markdown/ruby-style-guide.md"), []byte("files/ruby/popen.rb"),
+	[]byte("files/ruby/regex.rb"), []byte("files/ruby/version_info.rb"),
+	[]byte("files/whitespace"), []byte("foo/bar/.gitkeep"),
+	[]byte("gitaly/file-with-multiple-chunks"), []byte("gitaly/logo-white.png"),
+	[]byte("gitaly/mode-file"), []byte("gitaly/mode-file-with-mods"),
+	[]byte("gitaly/no-newline-at-the-end"), []byte("gitaly/renamed-file"),
+	[]byte("gitaly/renamed-file-with-mods"), []byte("gitaly/symlink-to-be-regular"),
+	[]byte("gitaly/tab\tnewline\n file"), []byte("gitaly/テスト.txt"),
+	[]byte("with space/README.md"),
+}
 
 func TestListFiles_success(t *testing.T) {
 	defaultBranchName = func(context.Context, git.RepositoryExecutor) ([]byte, error) {

@@ -37,23 +37,23 @@ type hookCommand struct {
 
 var (
 	hooksBySubcommand = map[string]hookCommand{
-		"update": hookCommand{
+		"update": {
 			exec:     updateHook,
 			hookType: git.UpdateHook,
 		},
-		"pre-receive": hookCommand{
+		"pre-receive": {
 			exec:     preReceiveHook,
 			hookType: git.PreReceiveHook,
 		},
-		"post-receive": hookCommand{
+		"post-receive": {
 			exec:     postReceiveHook,
 			hookType: git.PostReceiveHook,
 		},
-		"reference-transaction": hookCommand{
+		"reference-transaction": {
 			exec:     referenceTransactionHook,
 			hookType: git.ReferenceTransactionHook,
 		},
-		"git": hookCommand{
+		"git": {
 			exec:     packObjectsHook,
 			hookType: git.PackObjectsHook,
 		},

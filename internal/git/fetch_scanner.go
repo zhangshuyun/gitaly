@@ -59,17 +59,15 @@ const (
 	RefUpdateTypeUnchanged RefUpdateType = '='
 )
 
-var (
-	validRefUpdateTypes = map[RefUpdateType]struct{}{
-		RefUpdateTypeFastForwardUpdate: {},
-		RefUpdateTypeForcedUpdate:      {},
-		RefUpdateTypePruned:            {},
-		RefUpdateTypeTagUpdate:         {},
-		RefUpdateTypeFetched:           {},
-		RefUpdateTypeUpdateFailed:      {},
-		RefUpdateTypeUnchanged:         {},
-	}
-)
+var validRefUpdateTypes = map[RefUpdateType]struct{}{
+	RefUpdateTypeFastForwardUpdate: {},
+	RefUpdateTypeForcedUpdate:      {},
+	RefUpdateTypePruned:            {},
+	RefUpdateTypeTagUpdate:         {},
+	RefUpdateTypeFetched:           {},
+	RefUpdateTypeUpdateFailed:      {},
+	RefUpdateTypeUnchanged:         {},
+}
 
 // IsTagAdded returns true if this status line indicates a new tag was added
 func (f FetchStatusLine) IsTagAdded() bool {

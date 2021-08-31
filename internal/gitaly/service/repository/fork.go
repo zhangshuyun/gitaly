@@ -44,7 +44,7 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 		}
 	}
 
-	if err := os.MkdirAll(targetRepositoryFullPath, 0770); err != nil {
+	if err := os.MkdirAll(targetRepositoryFullPath, 0o770); err != nil {
 		return nil, status.Errorf(codes.Internal, "CreateFork: create dest dir: %v", err)
 	}
 

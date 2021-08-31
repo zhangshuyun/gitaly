@@ -129,7 +129,7 @@ func (c *DiskCache) moveAndClear(storage config.Storage) error {
 		return fmt.Errorf("temp dir: %w", err)
 	}
 
-	if err := os.MkdirAll(tempPath, 0755); err != nil {
+	if err := os.MkdirAll(tempPath, 0o755); err != nil {
 		return err
 	}
 

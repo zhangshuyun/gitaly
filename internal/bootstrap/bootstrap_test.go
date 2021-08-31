@@ -68,7 +68,7 @@ func TestCreateUnixListener(t *testing.T) {
 	}
 
 	// simulate a dangling socket
-	require.NoError(t, ioutil.WriteFile(socketPath, nil, 0755))
+	require.NoError(t, ioutil.WriteFile(socketPath, nil, 0o755))
 
 	listen := func(network, addr string) (net.Listener, error) {
 		require.Equal(t, "unix", network)

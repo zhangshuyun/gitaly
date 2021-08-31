@@ -32,7 +32,6 @@ func GetCommit(ctx context.Context, c Batch, revision git.Revision) (*gitalypb.G
 // includes Git trailers in the returned commit.
 func GetCommitWithTrailers(ctx context.Context, gitCmdFactory git.CommandFactory, repo repository.GitRepo, c Batch, revision git.Revision) (*gitalypb.GitCommit, error) {
 	commit, err := GetCommit(ctx, c, revision)
-
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +46,6 @@ func GetCommitWithTrailers(ctx context.Context, gitCmdFactory git.CommandFactory
 			git.Flag{Name: "--no-patch"},
 		},
 	})
-
 	if err != nil {
 		return nil, fmt.Errorf("error when creating git show command: %w", err)
 	}

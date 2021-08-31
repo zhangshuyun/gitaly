@@ -54,7 +54,7 @@ func TestRepo_Path(t *testing.T) {
 		// Recreate the repository as a simple empty directory to simulate
 		// that the repository is in a partially-created state.
 		require.NoError(t, os.RemoveAll(repoPath))
-		require.NoError(t, os.MkdirAll(repoPath, 0777))
+		require.NoError(t, os.MkdirAll(repoPath, 0o777))
 
 		_, err := repo.Path()
 		require.Equal(t, codes.NotFound, helper.GrpcCode(err))

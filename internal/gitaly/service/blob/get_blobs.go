@@ -17,7 +17,8 @@ import (
 var treeEntryToObjectType = map[gitalypb.TreeEntry_EntryType]gitalypb.ObjectType{
 	gitalypb.TreeEntry_BLOB:   gitalypb.ObjectType_BLOB,
 	gitalypb.TreeEntry_TREE:   gitalypb.ObjectType_TREE,
-	gitalypb.TreeEntry_COMMIT: gitalypb.ObjectType_COMMIT}
+	gitalypb.TreeEntry_COMMIT: gitalypb.ObjectType_COMMIT,
+}
 
 func sendGetBlobsResponse(req *gitalypb.GetBlobsRequest, stream gitalypb.BlobService_GetBlobsServer, c catfile.Batch) error {
 	ctx := stream.Context()

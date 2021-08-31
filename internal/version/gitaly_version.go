@@ -4,9 +4,11 @@ import (
 	"fmt"
 )
 
-var version string
-var buildtime string
-var moduleVersion string
+var (
+	version       string
+	buildtime     string
+	moduleVersion string
+)
 
 // GetVersionString returns a standard version header
 func GetVersionString() string {

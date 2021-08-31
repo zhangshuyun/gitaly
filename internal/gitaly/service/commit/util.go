@@ -20,9 +20,9 @@ func newTreeEntry(commitOid, rootOid, rootPath string, filename, oidBytes, modeB
 
 	// Based on https://github.com/git/git/blob/v2.13.1/builtin/ls-tree.c#L67-L87
 	switch mode & 0xf000 {
-	case 0160000:
+	case 0o160000:
 		objectType = gitalypb.TreeEntry_COMMIT
-	case 040000:
+	case 0o40000:
 		objectType = gitalypb.TreeEntry_TREE
 	default:
 		objectType = gitalypb.TreeEntry_BLOB

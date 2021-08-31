@@ -358,7 +358,7 @@ func TestSuccessfulListLastCommitsForTreeRequestWithGlobCharacters(t *testing.T)
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
 
 	path := ":wq"
-	err := os.Mkdir(filepath.Join(repoPath, path), 0755)
+	err := os.Mkdir(filepath.Join(repoPath, path), 0o755)
 	require.NoError(t, err)
 
 	gittest.Exec(t, cfg, "-C", repoPath, "mv", "README.md", path)

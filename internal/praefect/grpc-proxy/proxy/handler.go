@@ -20,12 +20,10 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var (
-	clientStreamDescForProxying = &grpc.StreamDesc{
-		ServerStreams: true,
-		ClientStreams: true,
-	}
-)
+var clientStreamDescForProxying = &grpc.StreamDesc{
+	ServerStreams: true,
+	ClientStreams: true,
+}
 
 // RegisterStreamHandlers sets up stream handlers for a set of gRPC methods for a given service.
 // streamers is a map of method to grpc.StreamHandler eg:

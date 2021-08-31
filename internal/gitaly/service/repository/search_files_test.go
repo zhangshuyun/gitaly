@@ -181,7 +181,7 @@ func TestSearchFilesByContentLargeFile(t *testing.T) {
 
 	for _, largeFile := range largeFiles {
 		t.Run(largeFile.filename, func(t *testing.T) {
-			require.NoError(t, ioutil.WriteFile(filepath.Join(repoPath, largeFile.filename), bytes.Repeat([]byte(largeFile.line), largeFile.repeated), 0644))
+			require.NoError(t, ioutil.WriteFile(filepath.Join(repoPath, largeFile.filename), bytes.Repeat([]byte(largeFile.line), largeFile.repeated), 0o644))
 			gittest.Exec(t, cfg, "-C", repoPath, "add", ".")
 			gittest.Exec(t, cfg, "-C", repoPath,
 				"-c", fmt.Sprintf("user.name=%s", committerName),

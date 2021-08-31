@@ -56,7 +56,7 @@ func TestObjectDirsOutsideStorage(t *testing.T) {
 	repoPath := filepath.Join(storageRoot, "repo")
 	alternatesFile := filepath.Join(repoPath, "objects", "info", "alternates")
 	altObjDir := filepath.Join(tmp, "outside-storage-sibling", "objects")
-	require.NoError(t, os.MkdirAll(filepath.Dir(alternatesFile), 0700))
+	require.NoError(t, os.MkdirAll(filepath.Dir(alternatesFile), 0o700))
 	expectedErr := alternateOutsideStorageError(altObjDir)
 
 	for _, tc := range []struct {
@@ -76,7 +76,7 @@ func TestObjectDirsOutsideStorage(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			require.NoError(t, ioutil.WriteFile(alternatesFile, []byte(tc.alternates), 0600))
+			require.NoError(t, ioutil.WriteFile(alternatesFile, []byte(tc.alternates), 0o600))
 			out, err := ObjectDirectories(ctx, storageRoot, repoPath)
 			require.Equal(t, expectedErr, err)
 			require.Nil(t, out)

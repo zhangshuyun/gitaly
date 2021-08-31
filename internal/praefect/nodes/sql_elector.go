@@ -118,7 +118,6 @@ func newSQLElector(name string, c config.Config, db *sql.DB, log logrus.FieldLog
 // determining a quorum.
 func GeneratePraefectName(c config.Config, log logrus.FieldLogger) string {
 	name, err := os.Hostname()
-
 	if err != nil {
 		name = uuid.New().String()
 		log.WithError(err).WithField("praefectName", name).Warn("unable to determine Praefect hostname, using randomly generated UUID")
@@ -254,7 +253,6 @@ last_contact_attempt_at = NOW()`
 	}
 
 	_, err := tx.ExecContext(ctx, q, s.praefectName, s.shardName, node.GetStorage())
-
 	if err != nil {
 		s.log.Errorf("Error updating node: %s", err)
 	}
@@ -439,7 +437,6 @@ func (s *sqlElector) electNewPrimary(ctx context.Context, tx *sql.Tx, candidates
 
 func (s *sqlElector) validateAndUpdatePrimary(ctx context.Context, tx *sql.Tx) error {
 	quorumCount, err := s.getQuorumCount(ctx, tx)
-
 	if err != nil {
 		return err
 	}

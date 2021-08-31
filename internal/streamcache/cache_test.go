@@ -155,7 +155,7 @@ func TestCache_deletedFile(t *testing.T) {
 	require.True(t, created)
 
 	require.NoError(t, os.RemoveAll(tmp), "wipe out underlying files of cache")
-	require.NoError(t, os.MkdirAll(tmp, 0755))
+	require.NoError(t, os.MkdirAll(tmp, 0o755))
 
 	// File is gone from filesystem but not from cache
 	requireCacheFiles(t, tmp, 0)
@@ -367,7 +367,7 @@ func TestCache_unWriteableFile(t *testing.T) {
 	defer c.Stop()
 
 	c.(*cache).createFile = func() (namedWriteCloser, error) {
-		return os.OpenFile(filepath.Join(tmp, "unwriteable"), os.O_RDONLY|os.O_CREATE|os.O_EXCL, 0644)
+		return os.OpenFile(filepath.Join(tmp, "unwriteable"), os.O_RDONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	}
 
 	r, created, err := c.FindOrCreate("key", func(w io.Writer) error {
@@ -392,7 +392,7 @@ func TestCache_unCloseableFile(t *testing.T) {
 	defer c.Stop()
 
 	c.(*cache).createFile = func() (namedWriteCloser, error) {
-		f, err := os.OpenFile(filepath.Join(tmp, "uncloseable"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+		f, err := os.OpenFile(filepath.Join(tmp, "uncloseable"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 		if err != nil {
 			return nil, err
 		}
@@ -418,7 +418,7 @@ func TestCache_cannotOpenFileForReading(t *testing.T) {
 	defer c.Stop()
 
 	c.(*cache).createFile = func() (namedWriteCloser, error) {
-		f, err := os.OpenFile(filepath.Join(tmp, "unopenable"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+		f, err := os.OpenFile(filepath.Join(tmp, "unopenable"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 		if err != nil {
 			return nil, err
 		}

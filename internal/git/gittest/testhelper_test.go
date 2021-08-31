@@ -39,13 +39,13 @@ func setup(t testing.TB) (config.Cfg, *gitalypb.Repository, string) {
 			Path: filepath.Join(rootDir, "storage.d"),
 		},
 	}
-	require.NoError(t, os.Mkdir(cfg.Storages[0].Path, 0755))
+	require.NoError(t, os.Mkdir(cfg.Storages[0].Path, 0o755))
 
 	cfg.GitlabShell.Dir = filepath.Join(rootDir, "shell.d")
-	require.NoError(t, os.Mkdir(cfg.GitlabShell.Dir, 0755))
+	require.NoError(t, os.Mkdir(cfg.GitlabShell.Dir, 0o755))
 
 	cfg.BinDir = filepath.Join(rootDir, "bin.d")
-	require.NoError(t, os.Mkdir(cfg.BinDir, 0755))
+	require.NoError(t, os.Mkdir(cfg.BinDir, 0o755))
 
 	require.NoError(t, testhelper.ConfigureRuby(&cfg))
 	require.NoError(t, cfg.Validate())

@@ -38,9 +38,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-var (
-	flagVersion = flag.Bool("version", false, "Print version and exit")
-)
+var flagVersion = flag.Bool("version", false, "Print version and exit")
 
 func loadConfig(configPath string) (config.Cfg, error) {
 	cfgFile, err := os.Open(configPath)

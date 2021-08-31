@@ -27,7 +27,7 @@ const (
 // InitRepoDir creates a temporary directory for a repo, without initializing it
 func InitRepoDir(t testing.TB, storagePath, relativePath string) *gitalypb.Repository {
 	repoPath := filepath.Join(storagePath, relativePath, "..")
-	require.NoError(t, os.MkdirAll(repoPath, 0755), "making repo parent dir")
+	require.NoError(t, os.MkdirAll(repoPath, 0o755), "making repo parent dir")
 	return &gitalypb.Repository{
 		StorageName:   "default",
 		RelativePath:  relativePath,

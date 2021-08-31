@@ -39,14 +39,12 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 )
 
-var (
-	cacheIndexSize = promauto.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "gitaly_streamcache_index_entries",
-			Help: "Number of index entries in streamcache",
-		},
-		[]string{"dir"},
-	)
+var cacheIndexSize = promauto.NewGaugeVec(
+	prometheus.GaugeOpts{
+		Name: "gitaly_streamcache_index_entries",
+		Help: "Number of index entries in streamcache",
+	},
+	[]string{"dir"},
 )
 
 // Cache is a cache for large byte streams.

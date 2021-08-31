@@ -9,8 +9,10 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var _ grpc.UnaryServerInterceptor = UnaryPanicHandler
-var _ grpc.StreamServerInterceptor = StreamPanicHandler
+var (
+	_ grpc.UnaryServerInterceptor  = UnaryPanicHandler
+	_ grpc.StreamServerInterceptor = StreamPanicHandler
+)
 
 // PanicHandler is a handler that will be called on a grpc panic
 type PanicHandler func(methodName string, error interface{})

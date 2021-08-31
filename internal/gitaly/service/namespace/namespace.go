@@ -47,7 +47,7 @@ func (s *server) AddNamespace(ctx context.Context, in *gitalypb.AddNamespaceRequ
 		return nil, noNameError
 	}
 
-	if err = os.MkdirAll(namespacePath(storagePath, name), 0770); err != nil {
+	if err = os.MkdirAll(namespacePath(storagePath, name), 0o770); err != nil {
 		return nil, status.Errorf(codes.Internal, "create directory: %v", err)
 	}
 
@@ -84,7 +84,7 @@ func (s *server) RenameNamespace(ctx context.Context, in *gitalypb.RenameNamespa
 	targetPath := namespacePath(storagePath, in.GetTo())
 
 	// Create the parent directory.
-	if err = os.MkdirAll(filepath.Dir(targetPath), 0775); err != nil {
+	if err = os.MkdirAll(filepath.Dir(targetPath), 0o775); err != nil {
 		return nil, helper.ErrInternalf("create directory: %v", err)
 	}
 

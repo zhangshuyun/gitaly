@@ -5,7 +5,8 @@ import migrate "github.com/rubenv/sql-migrate"
 func init() {
 	m := &migrate.Migration{
 		Id: "20210223130233_delete_replica_unique_index",
-		Up: []string{`
+		Up: []string{
+			`
 CREATE UNIQUE INDEX CONCURRENTLY delete_replica_unique_index
 ON replication_queue (
 	(job->>'virtual_storage'),

@@ -448,7 +448,7 @@ func TestResolveConflictsIdenticalContent(t *testing.T) {
 	} {
 		contents := gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-p", rev+":files/ruby/popen.rb")
 		path := filepath.Join(tempDir, rev)
-		require.NoError(t, ioutil.WriteFile(path, contents, 0644))
+		require.NoError(t, ioutil.WriteFile(path, contents, 0o644))
 		conflictingPaths = append(conflictingPaths, path)
 	}
 

@@ -100,11 +100,11 @@ func TestManager_Create(t *testing.T) {
 
 				dirInfo, err := os.Stat(filepath.Dir(bundlePath))
 				require.NoError(t, err)
-				require.Equal(t, os.FileMode(0700), dirInfo.Mode().Perm(), "expecting restricted directory permissions")
+				require.Equal(t, os.FileMode(0o700), dirInfo.Mode().Perm(), "expecting restricted directory permissions")
 
 				bundleInfo, err := os.Stat(bundlePath)
 				require.NoError(t, err)
-				require.Equal(t, os.FileMode(0600), bundleInfo.Mode().Perm(), "expecting restricted file permissions")
+				require.Equal(t, os.FileMode(0o600), bundleInfo.Mode().Perm(), "expecting restricted file permissions")
 
 				output := gittest.Exec(t, cfg, "-C", repoPath, "bundle", "verify", bundlePath)
 				require.Contains(t, string(output), "The bundle records a complete history")
@@ -244,7 +244,7 @@ func TestResolveSink(t *testing.T) {
   "token_uri": "https://accounts.google.com/o/oauth2/token",
   "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
   "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/303724477529-compute%40developer.gserviceaccount.com"
-}`), 0655))
+}`), 0o655))
 
 	for _, tc := range []struct {
 		desc   string

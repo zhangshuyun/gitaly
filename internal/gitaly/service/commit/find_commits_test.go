@@ -116,7 +116,7 @@ func TestFindCommitsFields(t *testing.T) {
 				SignatureType: gitalypb.SignatureType_PGP,
 				TreeId:        "a6973545d42361b28bfba5ced3b75dba5848b955",
 				Trailers: []*gitalypb.CommitTrailer{
-					&gitalypb.CommitTrailer{
+					{
 						Key:   []byte("Signed-off-by"),
 						Value: []byte("Dmitriy Zaporozhets <dmitriy.zaporozhets@gmail.com>"),
 					},
@@ -225,7 +225,8 @@ func TestSuccessfulFindCommitsRequest(t *testing.T) {
 				Revision:    []byte("0031876facac3f2b2702a0e53a26e89939a42209"),
 				DisableWalk: true,
 			},
-		}, {
+		},
+		{
 			desc: "revision and paths",
 			request: &gitalypb.FindCommitsRequest{
 				Repository: repo,

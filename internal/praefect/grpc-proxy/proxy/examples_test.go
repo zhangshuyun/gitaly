@@ -19,9 +19,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var (
-	director proxy.StreamDirector
-)
+var director proxy.StreamDirector
 
 func ExampleRegisterService() {
 	// A gRPC server with the proxying codec enabled.

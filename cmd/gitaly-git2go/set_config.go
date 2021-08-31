@@ -14,8 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 )
 
-type setConfigSubcommand struct {
-}
+type setConfigSubcommand struct{}
 
 func (cmd *setConfigSubcommand) Flags() *flag.FlagSet {
 	return flag.NewFlagSet("set_config", flag.ExitOnError)

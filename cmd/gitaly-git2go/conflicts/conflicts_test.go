@@ -60,9 +60,9 @@ func TestConflicts(t *testing.T) {
 			},
 			conflicts: []git2go.Conflict{
 				{
-					Ancestor: git2go.ConflictEntry{Path: "file", Mode: 0100644},
-					Our:      git2go.ConflictEntry{Path: "file", Mode: 0100644},
-					Their:    git2go.ConflictEntry{Path: "file", Mode: 0100644},
+					Ancestor: git2go.ConflictEntry{Path: "file", Mode: 0o100644},
+					Our:      git2go.ConflictEntry{Path: "file", Mode: 0o100644},
+					Their:    git2go.ConflictEntry{Path: "file", Mode: 0o100644},
 					Content:  []byte("<<<<<<< file\nb\n=======\nc\n>>>>>>> file\n"),
 				},
 			},
@@ -83,9 +83,9 @@ func TestConflicts(t *testing.T) {
 			},
 			conflicts: []git2go.Conflict{
 				{
-					Ancestor: git2go.ConflictEntry{Path: "file-2", Mode: 0100644},
-					Our:      git2go.ConflictEntry{Path: "file-2", Mode: 0100644},
-					Their:    git2go.ConflictEntry{Path: "file-2", Mode: 0100644},
+					Ancestor: git2go.ConflictEntry{Path: "file-2", Mode: 0o100644},
+					Our:      git2go.ConflictEntry{Path: "file-2", Mode: 0o100644},
+					Their:    git2go.ConflictEntry{Path: "file-2", Mode: 0o100644},
 					Content:  []byte("<<<<<<< file-2\nb\n=======\nc\n>>>>>>> file-2\n"),
 				},
 			},
@@ -106,15 +106,15 @@ func TestConflicts(t *testing.T) {
 			},
 			conflicts: []git2go.Conflict{
 				{
-					Ancestor: git2go.ConflictEntry{Path: "file-1", Mode: 0100644},
-					Our:      git2go.ConflictEntry{Path: "file-1", Mode: 0100644},
-					Their:    git2go.ConflictEntry{Path: "file-1", Mode: 0100644},
+					Ancestor: git2go.ConflictEntry{Path: "file-1", Mode: 0o100644},
+					Our:      git2go.ConflictEntry{Path: "file-1", Mode: 0o100644},
+					Their:    git2go.ConflictEntry{Path: "file-1", Mode: 0o100644},
 					Content:  []byte("<<<<<<< file-1\nb\n=======\nc\n>>>>>>> file-1\n"),
 				},
 				{
-					Ancestor: git2go.ConflictEntry{Path: "file-2", Mode: 0100644},
-					Our:      git2go.ConflictEntry{Path: "file-2", Mode: 0100644},
-					Their:    git2go.ConflictEntry{Path: "file-2", Mode: 0100644},
+					Ancestor: git2go.ConflictEntry{Path: "file-2", Mode: 0o100644},
+					Our:      git2go.ConflictEntry{Path: "file-2", Mode: 0o100644},
+					Their:    git2go.ConflictEntry{Path: "file-2", Mode: 0o100644},
 					Content:  []byte("<<<<<<< file-2\nb\n=======\nc\n>>>>>>> file-2\n"),
 				},
 			},
@@ -132,8 +132,8 @@ func TestConflicts(t *testing.T) {
 			},
 			conflicts: []git2go.Conflict{
 				{
-					Ancestor: git2go.ConflictEntry{Path: "file", Mode: 0100644},
-					Our:      git2go.ConflictEntry{Path: "file", Mode: 0100644},
+					Ancestor: git2go.ConflictEntry{Path: "file", Mode: 0o100644},
+					Our:      git2go.ConflictEntry{Path: "file", Mode: 0o100644},
 					Their:    git2go.ConflictEntry{},
 					Content:  []byte("<<<<<<< file\nchanged\n=======\n>>>>>>> \n"),
 				},
@@ -155,21 +155,21 @@ func TestConflicts(t *testing.T) {
 			},
 			conflicts: []git2go.Conflict{
 				{
-					Ancestor: git2go.ConflictEntry{Path: "file", Mode: 0100644},
+					Ancestor: git2go.ConflictEntry{Path: "file", Mode: 0o100644},
 					Our:      git2go.ConflictEntry{},
 					Their:    git2go.ConflictEntry{},
 					Content:  []byte{},
 				},
 				{
 					Ancestor: git2go.ConflictEntry{},
-					Our:      git2go.ConflictEntry{Path: "renamed-1", Mode: 0100644},
+					Our:      git2go.ConflictEntry{Path: "renamed-1", Mode: 0o100644},
 					Their:    git2go.ConflictEntry{},
 					Content:  []byte("a\nb\nc\nd\ne\nf\ng\n"),
 				},
 				{
 					Ancestor: git2go.ConflictEntry{},
 					Our:      git2go.ConflictEntry{},
-					Their:    git2go.ConflictEntry{Path: "renamed-2", Mode: 0100644},
+					Their:    git2go.ConflictEntry{Path: "renamed-2", Mode: 0o100644},
 					Content:  []byte("a\nb\nc\nd\ne\nf\ng\n"),
 				},
 			},

@@ -153,7 +153,7 @@ func TestCherryPick(t *testing.T) {
 
 		base := cmdtesthelper.BuildCommit(t, repoPath, []*git.Oid{nil}, tc.base)
 
-		var ours, commit = "nonexistent", "nonexistent"
+		ours, commit := "nonexistent", "nonexistent"
 		if len(tc.ours) > 0 {
 			ours = cmdtesthelper.BuildCommit(t, repoPath, []*git.Oid{base}, tc.ours).String()
 		}

@@ -12,14 +12,12 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/supervisor"
 )
 
-var (
-	terminationCounter = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "gitaly_ruby_memory_terminations_total",
-			Help: "Number of times gitaly-ruby has been terminated because of excessive memory use.",
-		},
-		[]string{"name"},
-	)
+var terminationCounter = promauto.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "gitaly_ruby_memory_terminations_total",
+		Help: "Number of times gitaly-ruby has been terminated because of excessive memory use.",
+	},
+	[]string{"name"},
 )
 
 // worker observes the event stream of a supervised process and restarts

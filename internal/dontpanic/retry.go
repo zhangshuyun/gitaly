@@ -30,7 +30,7 @@ var logger = log.Default()
 func catchAndLog(fn func()) bool {
 	var id *sentry.EventID
 	var recovered interface{}
-	var normal = true
+	normal := true
 
 	func() {
 		defer func() {

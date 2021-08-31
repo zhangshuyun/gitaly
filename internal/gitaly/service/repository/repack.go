@@ -15,14 +15,12 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var (
-	repackCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "gitaly_repack_total",
-			Help: "Counter of Git repack operations",
-		},
-		[]string{"bitmap"},
-	)
+var repackCounter = prometheus.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "gitaly_repack_total",
+		Help: "Counter of Git repack operations",
+	},
+	[]string{"bitmap"},
 )
 
 func init() {
@@ -87,10 +85,10 @@ func (s *server) repackCommand(ctx context.Context, repo repository.GitRepo, bit
 
 func repackConfig(ctx context.Context, bitmap bool) []git.ConfigPair {
 	config := []git.ConfigPair{
-		git.ConfigPair{Key: "pack.island", Value: "r(e)fs/heads"},
-		git.ConfigPair{Key: "pack.island", Value: "r(e)fs/tags"},
-		git.ConfigPair{Key: "pack.islandCore", Value: "e"},
-		git.ConfigPair{Key: "repack.useDeltaIslands", Value: "true"},
+		{Key: "pack.island", Value: "r(e)fs/heads"},
+		{Key: "pack.island", Value: "r(e)fs/tags"},
+		{Key: "pack.islandCore", Value: "e"},
+		{Key: "repack.useDeltaIslands", Value: "true"},
 	}
 
 	if bitmap {

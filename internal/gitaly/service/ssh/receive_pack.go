@@ -81,7 +81,6 @@ func (s *server) sshReceivePack(stream gitalypb.SSHService_SSHReceivePackServer,
 		git.WithGitProtocol(ctx, req),
 		git.WithConfig(config...),
 	)
-
 	if err != nil {
 		return fmt.Errorf("start cmd: %v", err)
 	}

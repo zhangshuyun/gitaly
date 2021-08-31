@@ -9,8 +9,6 @@ type StaticOption struct {
 // returns an error.
 func (sa StaticOption) OptionArgs() ([]string, error) { return []string{sa.value}, nil }
 
-var (
-	// OutputToStdout is used indicate the output should be sent to STDOUT
-	// Seen in: git bundle create
-	OutputToStdout = StaticOption{value: "-"}
-)
+// OutputToStdout is used indicate the output should be sent to STDOUT
+// Seen in: git bundle create
+var OutputToStdout = StaticOption{value: "-"}

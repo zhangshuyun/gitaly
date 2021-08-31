@@ -133,7 +133,7 @@ func isMissingBloomFilters(repoPath string) (bool, error) {
 		reader := bufio.NewReader(graphFile)
 		// https://github.com/git/git/blob/a43a2e6/Documentation/technical/commit-graph-format.txt#L123
 		header := []byte{
-			0, 0, 0, 0, //4-byte signature: The signature is: {'C', 'G', 'P', 'H'}
+			0, 0, 0, 0, // 4-byte signature: The signature is: {'C', 'G', 'P', 'H'}
 			0, // 1-byte version number: Currently, the only valid version is 1.
 			0, // 1-byte Hash Version
 			0, // 1-byte number (C) of "chunks"

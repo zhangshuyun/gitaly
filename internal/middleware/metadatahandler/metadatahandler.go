@@ -15,16 +15,14 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-var (
-	requests = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: "gitaly",
-			Subsystem: "service",
-			Name:      "client_requests_total",
-			Help:      "Counter of client requests received by client, call_site, auth version, response code and deadline_type",
-		},
-		[]string{"client_name", "grpc_service", "call_site", "auth_version", "grpc_code", "deadline_type"},
-	)
+var requests = promauto.NewCounterVec(
+	prometheus.CounterOpts{
+		Namespace: "gitaly",
+		Subsystem: "service",
+		Name:      "client_requests_total",
+		Help:      "Counter of client requests received by client, call_site, auth version, response code and deadline_type",
+	},
+	[]string{"client_name", "grpc_service", "call_site", "auth_version", "grpc_code", "deadline_type"},
 )
 
 type metadataTags struct {

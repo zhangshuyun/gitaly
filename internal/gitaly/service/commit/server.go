@@ -21,9 +21,7 @@ type server struct {
 	catfileCache  catfile.Cache
 }
 
-var (
-	defaultBranchName = ref.DefaultBranchName
-)
+var defaultBranchName = ref.DefaultBranchName
 
 // NewServer creates a new instance of a grpc CommitServiceServer
 func NewServer(

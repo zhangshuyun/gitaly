@@ -12,9 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var (
-	largestString = strings.Repeat("z", 65516)
-)
+var largestString = strings.Repeat("z", 65516)
 
 func TestScanner(t *testing.T) {
 	largestPacket := "fff0" + largestString

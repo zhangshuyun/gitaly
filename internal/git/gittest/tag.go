@@ -33,7 +33,8 @@ func CreateTag(t testing.TB, cfg config.Cfg, repoPath, tagName, targetID string,
 	// message can be very large, passing it directly in args would blow things up!
 	stdin := bytes.NewBufferString(message)
 
-	args := []string{"-C", repoPath,
+	args := []string{
+		"-C", repoPath,
 		"-c", fmt.Sprintf("user.name=%s", committerName),
 		"-c", fmt.Sprintf("user.email=%s", committerEmail),
 		"tag",

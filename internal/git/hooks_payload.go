@@ -20,11 +20,9 @@ const (
 	EnvHooksPayload = "GITALY_HOOKS_PAYLOAD"
 )
 
-var (
-	// ErrPayloadNotFound is returned by HooksPayloadFromEnv if the given
-	// environment variables don't have a hooks payload.
-	ErrPayloadNotFound = errors.New("no hooks payload found in environment")
-)
+// ErrPayloadNotFound is returned by HooksPayloadFromEnv if the given
+// environment variables don't have a hooks payload.
+var ErrPayloadNotFound = errors.New("no hooks payload found in environment")
 
 // Hook represents a git hook. See githooks(5) for more information about
 // existing hooks.

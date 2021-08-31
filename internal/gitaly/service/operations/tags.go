@@ -251,7 +251,7 @@ func (s *Server) createTag(
 			Id:          tagObjectID.String(),
 			Message:     createdTag.Message,
 			MessageSize: createdTag.MessageSize,
-			//TargetCommit: is filled in below if needed
+			// TargetCommit: is filled in below if needed
 		}
 
 		refObjectID = tagObjectID
@@ -259,7 +259,7 @@ func (s *Server) createTag(
 		tagObject = &gitalypb.Tag{
 			Name: tagName,
 			Id:   peeledTargetObjectID.String(),
-			//TargetCommit: is filled in below if needed
+			// TargetCommit: is filled in below if needed
 		}
 	}
 

@@ -327,12 +327,12 @@ func setupTempHookDirs(t *testing.T, m map[string]hookFileMode) (string, func())
 	for hookName, mode := range m {
 		if mode&hookFileExists > 0 {
 			path := filepath.Join(tempDir, hookName)
-			require.NoError(t, os.MkdirAll(filepath.Dir(path), 0755))
+			require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
 
-			require.NoError(t, ioutil.WriteFile(filepath.Join(tempDir, hookName), nil, 0644))
+			require.NoError(t, ioutil.WriteFile(filepath.Join(tempDir, hookName), nil, 0o644))
 
 			if mode&hookFileExecutable > 0 {
-				require.NoError(t, os.Chmod(filepath.Join(tempDir, hookName), 0755))
+				require.NoError(t, os.Chmod(filepath.Join(tempDir, hookName), 0o755))
 			}
 		}
 	}
@@ -538,7 +538,7 @@ func TestValidateGitConfig(t *testing.T) {
 func TestValidateShellPath(t *testing.T) {
 	tmpDir, err := ioutil.TempDir("", "gitaly-tests-")
 	require.NoError(t, err)
-	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "bin"), 0755))
+	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "bin"), 0o755))
 	tmpFile := filepath.Join(tmpDir, "my-file")
 	defer func() { require.NoError(t, os.RemoveAll(tmpDir)) }()
 	fp, err := os.Create(tmpFile)
@@ -591,7 +591,7 @@ func TestConfigureRuby(t *testing.T) {
 	defer func() { require.NoError(t, os.RemoveAll(tmpDir)) }()
 
 	tmpFile := filepath.Join(tmpDir, "file")
-	require.NoError(t, ioutil.WriteFile(tmpFile, nil, 0644))
+	require.NoError(t, ioutil.WriteFile(tmpFile, nil, 0o644))
 
 	testCases := []struct {
 		dir  string
@@ -821,7 +821,8 @@ func TestLoadDailyMaintenance(t *testing.T) {
 				Hour: 24,
 			},
 			validateErr: errors.New("daily maintenance specified hour '24' outside range (0-23)"),
-		}, {
+		},
+		{
 			rawCfg: `[daily_maintenance]
 			start_hour = 60`,
 			expect: DailyJob{
@@ -834,7 +835,8 @@ func TestLoadDailyMaintenance(t *testing.T) {
 			duration = "meow"`,
 			expect:  DailyJob{},
 			loadErr: errors.New("load toml: (2, 4): unmarshal text: time: invalid duration"),
-		}, {
+		},
+		{
 			rawCfg: `[daily_maintenance]
 			storages = ["default"]`,
 			expect: DailyJob{
@@ -912,7 +914,8 @@ func TestValidateCgroups(t *testing.T) {
 					Shares:  512,
 				},
 			},
-		}, {
+		},
+		{
 			name: "disabled success",
 			rawCfg: `[cgroups]
 			count = 0`,
@@ -929,7 +932,8 @@ func TestValidateCgroups(t *testing.T) {
 				Mountpoint: "",
 			},
 			validateErr: errors.New("cgroups mountpoint cannot be empty"),
-		}, {
+		},
+		{
 			rawCfg: `[cgroups]
 			count = 10
 			mountpoint = "/sys/fs/cgroup"
@@ -940,7 +944,8 @@ func TestValidateCgroups(t *testing.T) {
 				HierarchyRoot: "",
 			},
 			validateErr: errors.New("cgroups hierarchy root cannot be empty"),
-		}, {
+		},
+		{
 			rawCfg: `[cgroups]
 			count = 10
 			mountpoint = "/sys/fs/cgroup"
@@ -958,7 +963,8 @@ func TestValidateCgroups(t *testing.T) {
 				},
 			},
 			validateErr: errors.New("cgroups CPU shares has to be greater than zero"),
-		}, {
+		},
+		{
 			rawCfg: `[cgroups]
 			count = 10
 			mountpoint = "/sys/fs/cgroup"
@@ -976,7 +982,8 @@ func TestValidateCgroups(t *testing.T) {
 				},
 			},
 			validateErr: errors.New("cgroups memory limit has to be greater than zero or equal to -1"),
-		}, {
+		},
+		{
 			rawCfg: `[cgroups]
 			count = 10
 			mountpoint = "/sys/fs/cgroup"

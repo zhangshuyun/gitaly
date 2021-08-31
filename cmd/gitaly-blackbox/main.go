@@ -13,9 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/version"
 )
 
-var (
-	flagVersion = flag.Bool("version", false, "Print version and exit")
-)
+var flagVersion = flag.Bool("version", false, "Print version and exit")
 
 func flagUsage() {
 	fmt.Println(version.GetVersionString())

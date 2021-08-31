@@ -86,9 +86,9 @@ func TestConflictsResult_Serialization(t *testing.T) {
 			serialized: serializeResult(t, ConflictsResult{
 				Conflicts: []Conflict{
 					{
-						Ancestor: ConflictEntry{Path: "dir/ancestor", Mode: 0100644},
-						Our:      ConflictEntry{Path: "dir/our", Mode: 0100644},
-						Their:    ConflictEntry{Path: "dir/their", Mode: 0100644},
+						Ancestor: ConflictEntry{Path: "dir/ancestor", Mode: 0o100644},
+						Our:      ConflictEntry{Path: "dir/our", Mode: 0o100644},
+						Their:    ConflictEntry{Path: "dir/their", Mode: 0o100644},
 						Content:  []byte("content"),
 					},
 				},
@@ -96,9 +96,9 @@ func TestConflictsResult_Serialization(t *testing.T) {
 			expected: ConflictsResult{
 				Conflicts: []Conflict{
 					{
-						Ancestor: ConflictEntry{Path: "dir/ancestor", Mode: 0100644},
-						Our:      ConflictEntry{Path: "dir/our", Mode: 0100644},
-						Their:    ConflictEntry{Path: "dir/their", Mode: 0100644},
+						Ancestor: ConflictEntry{Path: "dir/ancestor", Mode: 0o100644},
+						Our:      ConflictEntry{Path: "dir/our", Mode: 0o100644},
+						Their:    ConflictEntry{Path: "dir/their", Mode: 0o100644},
 						Content:  []byte("content"),
 					},
 				},

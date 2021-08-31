@@ -19,8 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 )
 
-type resolveSubcommand struct {
-}
+type resolveSubcommand struct{}
 
 func (cmd *resolveSubcommand) Flags() *flag.FlagSet {
 	return flag.NewFlagSet("resolve", flag.ExitOnError)

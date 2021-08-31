@@ -25,9 +25,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-var (
-	commitFilesMessage = []byte("Change files")
-)
+var commitFilesMessage = []byte("Change files")
 
 func TestUserCommitFiles(t *testing.T) {
 	t.Parallel()

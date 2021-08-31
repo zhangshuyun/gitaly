@@ -29,8 +29,8 @@ func TestListNewBlobs(t *testing.T) {
 		{
 			revision: oid,
 			blobs: []gitalypb.NewBlobObject{
-				gitalypb.NewBlobObject{Oid: "389c7a36a6e133268b0d36b00e7ffc0f3a5b6651", Path: []byte("gitaly/file-with-pluses.txt"), Size: 20},
-				gitalypb.NewBlobObject{Oid: "b1e67221afe8461efd244b487afca22d46b95eb8", Path: []byte("z-short-diff"), Size: 6},
+				{Oid: "389c7a36a6e133268b0d36b00e7ffc0f3a5b6651", Path: []byte("gitaly/file-with-pluses.txt"), Size: 20},
+				{Oid: "b1e67221afe8461efd244b487afca22d46b95eb8", Path: []byte("z-short-diff"), Size: 6},
 			},
 		},
 		{

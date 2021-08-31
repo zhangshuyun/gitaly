@@ -59,7 +59,6 @@ func (s *server) PostReceivePack(stream gitalypb.SmartHTTPService_PostReceivePac
 		git.WithGitProtocol(ctx, req),
 		git.WithConfig(config...),
 	)
-
 	if err != nil {
 		return status.Errorf(codes.Unavailable, "PostReceivePack: %v", err)
 	}
