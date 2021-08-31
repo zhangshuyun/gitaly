@@ -53,6 +53,10 @@ func WithRefTxHook(ctx context.Context, repo repository.GitRepo, cfg config.Cfg)
 // WithPackObjectsHookEnv provides metadata for gitaly-hooks so it can act as a pack-objects hook.
 func WithPackObjectsHookEnv(ctx context.Context, repo *gitalypb.Repository, cfg config.Cfg) CmdOpt {
 	return func(cc *cmdCfg) error {
+		if !cfg.PackObjectsCache.Enabled {
+			return nil
+		}
+
 		if repo == nil {
 			return fmt.Errorf("missing repo: %w", ErrInvalidArg)
 		}
