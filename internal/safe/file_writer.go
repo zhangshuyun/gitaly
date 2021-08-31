@@ -21,8 +21,8 @@ type FileWriter struct {
 	commitOrClose sync.Once
 }
 
-// CreateFileWriter takes path as an absolute path of the target file and creates a new FileWriter by attempting to create a tempfile
-func CreateFileWriter(path string) (*FileWriter, error) {
+// NewFileWriter takes path as an absolute path of the target file and creates a new FileWriter by attempting to create a tempfile
+func NewFileWriter(path string) (*FileWriter, error) {
 	writer := &FileWriter{path: path}
 
 	directory := filepath.Dir(path)

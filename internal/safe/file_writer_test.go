@@ -19,7 +19,7 @@ func TestFile(t *testing.T) {
 
 	filePath := filepath.Join(dir, "test_file_contents")
 	fileContents := "very important contents"
-	file, err := safe.CreateFileWriter(filePath)
+	file, err := safe.NewFileWriter(filePath)
 	require.NoError(t, err)
 
 	_, err = io.Copy(file, bytes.NewBufferString(fileContents))
@@ -48,7 +48,7 @@ func TestFileRace(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func(i int) {
-			w, err := safe.CreateFileWriter(filePath)
+			w, err := safe.NewFileWriter(filePath)
 			require.NoError(t, err)
 			_, err = w.Write([]byte(fmt.Sprintf("message # %d", i)))
 			require.NoError(t, err)
@@ -68,7 +68,7 @@ func TestFileCloseBeforeCommit(t *testing.T) {
 	dir := testhelper.TempDir(t)
 
 	dstPath := filepath.Join(dir, "safety_meow")
-	sf, err := safe.CreateFileWriter(dstPath)
+	sf, err := safe.NewFileWriter(dstPath)
 	require.NoError(t, err)
 
 	require.True(t, !dirEmpty(t, dir), "should contain something")
@@ -86,7 +86,7 @@ func TestFileCommitBeforeClose(t *testing.T) {
 	dir := testhelper.TempDir(t)
 
 	dstPath := filepath.Join(dir, "safety_meow")
-	sf, err := safe.CreateFileWriter(dstPath)
+	sf, err := safe.NewFileWriter(dstPath)
 	require.NoError(t, err)
 
 	require.False(t, dirEmpty(t, dir), "should contain something")
