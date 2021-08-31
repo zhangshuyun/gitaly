@@ -74,7 +74,7 @@ func TestSetFullPath(t *testing.T) {
 
 		require.Nil(t, response)
 
-		expectedErr := fmt.Sprintf("rpc error: code = Internal desc = writing config: rpc "+
+		expectedErr := fmt.Sprintf("rpc error: code = NotFound desc = writing config: rpc "+
 			"error: code = NotFound desc = GetRepoPath: not a git repository: %q", repoPath)
 		require.EqualError(t, err, expectedErr)
 	})
