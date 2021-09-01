@@ -97,6 +97,7 @@ func (db DB) TruncateAll(t testing.TB) {
 		"repositories",
 		"virtual_storages",
 		"repository_assignments",
+		"storage_cleanups",
 	)
 }
 
