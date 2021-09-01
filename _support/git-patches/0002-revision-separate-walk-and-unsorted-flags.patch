@@ -1,0 +1,114 @@
+From 29ef1f27fed21b5b7d3c996a01f1364e7e841917 Mon Sep 17 00:00:00 2001
+Message-Id: <29ef1f27fed21b5b7d3c996a01f1364e7e841917.1630319075.git.ps@pks.im>
+From: Patrick Steinhardt <ps@pks.im>
+Date: Thu, 5 Aug 2021 13:25:24 +0200
+Subject: [PATCH 2/6] revision: separate walk and unsorted flags
+
+The `--no-walk` flag supports two modes: either it sorts the revisions
+given as input input or it doesn't. This is reflected in a single
+`no_walk` flag, which reflects one of the three states "walk", "don't
+walk but without sorting" and "don't walk but with sorting".
+
+Split up the flag into two separate bits, one indicating whether we
+should walk or not and one indicating whether the input should be sorted
+or not. This will allow us to more easily introduce a new flag
+`--unsorted-input`, which only impacts the sorting bit.
+
+Signed-off-by: Patrick Steinhardt <ps@pks.im>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+---
+ builtin/log.c    | 2 +-
+ builtin/revert.c | 3 ++-
+ revision.c       | 9 +++++----
+ revision.h       | 7 ++-----
+ 4 files changed, 10 insertions(+), 11 deletions(-)
+
+diff --git a/builtin/log.c b/builtin/log.c
+index 3d7717ba5c..f75d87e8d7 100644
+--- a/builtin/log.c
++++ b/builtin/log.c
+@@ -637,7 +637,7 @@ int cmd_show(int argc, const char **argv, const char *prefix)
+ 	repo_init_revisions(the_repository, &rev, prefix);
+ 	rev.diff = 1;
+ 	rev.always_show_header = 1;
+-	rev.no_walk = REVISION_WALK_NO_WALK_SORTED;
++	rev.no_walk = 1;
+ 	rev.diffopt.stat_width = -1; 	/* Scale to real terminal size */
+ 
+ 	memset(&opt, 0, sizeof(opt));
+diff --git a/builtin/revert.c b/builtin/revert.c
+index 237f2f18d4..2e13660e4b 100644
+--- a/builtin/revert.c
++++ b/builtin/revert.c
+@@ -191,7 +191,8 @@ static int run_sequencer(int argc, const char **argv, struct replay_opts *opts)
+ 		struct setup_revision_opt s_r_opt;
+ 		opts->revs = xmalloc(sizeof(*opts->revs));
+ 		repo_init_revisions(the_repository, opts->revs, NULL);
+-		opts->revs->no_walk = REVISION_WALK_NO_WALK_UNSORTED;
++		opts->revs->no_walk = 1;
++		opts->revs->unsorted_input = 1;
+ 		if (argc < 2)
+ 			usage_with_options(usage_str, options);
+ 		if (!strcmp(argv[1], "-"))
+diff --git a/revision.c b/revision.c
+index cddd0542a6..86bbcd10d2 100644
+--- a/revision.c
++++ b/revision.c
+@@ -2651,16 +2651,17 @@ static int handle_revision_pseudo_opt(const char *submodule,
+ 	} else if (!strcmp(arg, "--not")) {
+ 		*flags ^= UNINTERESTING | BOTTOM;
+ 	} else if (!strcmp(arg, "--no-walk")) {
+-		revs->no_walk = REVISION_WALK_NO_WALK_SORTED;
++		revs->no_walk = 1;
+ 	} else if (skip_prefix(arg, "--no-walk=", &optarg)) {
+ 		/*
+ 		 * Detached form ("--no-walk X" as opposed to "--no-walk=X")
+ 		 * not allowed, since the argument is optional.
+ 		 */
++		revs->no_walk = 1;
+ 		if (!strcmp(optarg, "sorted"))
+-			revs->no_walk = REVISION_WALK_NO_WALK_SORTED;
++			revs->unsorted_input = 0;
+ 		else if (!strcmp(optarg, "unsorted"))
+-			revs->no_walk = REVISION_WALK_NO_WALK_UNSORTED;
++			revs->unsorted_input = 1;
+ 		else
+ 			return error("invalid argument to --no-walk");
+ 	} else if (!strcmp(arg, "--do-walk")) {
+@@ -3584,7 +3585,7 @@ int prepare_revision_walk(struct rev_info *revs)
+ 
+ 	if (!revs->reflog_info)
+ 		prepare_to_use_bloom_filter(revs);
+-	if (revs->no_walk != REVISION_WALK_NO_WALK_UNSORTED)
++	if (!revs->unsorted_input)
+ 		commit_list_sort_by_date(&revs->commits);
+ 	if (revs->no_walk)
+ 		return 0;
+diff --git a/revision.h b/revision.h
+index fbb068da9f..0c65a760ee 100644
+--- a/revision.h
++++ b/revision.h
+@@ -79,10 +79,6 @@ struct rev_cmdline_info {
+ 	} *rev;
+ };
+ 
+-#define REVISION_WALK_WALK 0
+-#define REVISION_WALK_NO_WALK_SORTED 1
+-#define REVISION_WALK_NO_WALK_UNSORTED 2
+-
+ struct oidset;
+ struct topo_walk_info;
+ 
+@@ -129,7 +125,8 @@ struct rev_info {
+ 	/* Traversal flags */
+ 	unsigned int	dense:1,
+ 			prune:1,
+-			no_walk:2,
++			no_walk:1,
++			unsorted_input:1,
+ 			remove_empty_trees:1,
+ 			simplify_history:1,
+ 			show_pulls:1,
+-- 
+2.33.0
+
