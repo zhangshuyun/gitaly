@@ -3,6 +3,7 @@ package datastore
 import (
 	"testing"
 
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -204,15 +205,15 @@ func TestAssignmentStore_SetReplicationFactor(t *testing.T) {
 
 			if !tc.nonExistentRepository {
 				_, err := db.ExecContext(ctx, `
-					INSERT INTO repositories (virtual_storage, relative_path, "primary")
-					VALUES ('virtual-storage', 'relative-path', 'primary')
+					INSERT INTO repositories (virtual_storage, relative_path, "primary", repository_id)
+					VALUES ('virtual-storage', 'relative-path', 'primary', 1)
 				`)
 				require.NoError(t, err)
 			}
 
 			for _, storage := range tc.existingAssignments {
 				_, err := db.ExecContext(ctx, `
-					INSERT INTO repository_assignments VALUES ('virtual-storage', 'relative-path', $1)
+					INSERT INTO repository_assignments VALUES ('virtual-storage', 'relative-path', $1, 1)
 				`, storage)
 				require.NoError(t, err)
 			}
@@ -230,6 +231,14 @@ func TestAssignmentStore_SetReplicationFactor(t *testing.T) {
 			assignedStorages, err := store.GetHostAssignments(ctx, "virtual-storage", "relative-path")
 			require.NoError(t, err)
 			tc.requireStorages(t, assignedStorages)
+
+			var storagesWithIncorrectRepositoryID pq.StringArray
+			require.NoError(t, db.QueryRowContext(ctx, `
+				SELECT array_agg(storage)
+				FROM repository_assignments
+				WHERE COALESCE(repository_id != 1, true)
+			`).Scan(&storagesWithIncorrectRepositoryID))
+			require.Empty(t, storagesWithIncorrectRepositoryID)
 		})
 	}
 }

@@ -49,6 +49,10 @@ func allowToAck(state JobState) error {
 
 // ReplicationJob is a persistent representation of the replication job.
 type ReplicationJob struct {
+	// RepositoryID is the ID of the repository this job relates to. RepositoryID
+	// may be 0 if the job doesn't relate to any known repository. This can happen
+	// for example when the job is deleting an orphaned replica of a deleted repository.
+	RepositoryID      int64      `json:"repository_id"`
 	Change            ChangeType `json:"change"`
 	RelativePath      string     `json:"relative_path"`
 	TargetNodeStorage string     `json:"target_node_storage"`

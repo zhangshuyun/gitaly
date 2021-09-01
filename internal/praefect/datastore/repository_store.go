@@ -104,7 +104,7 @@ type RepositoryStore interface {
 	//
 	// storeAssignments should be set when variable replication factor is enabled. When set, the primary and the
 	// secondaries are stored as the assigned hosts of the repository.
-	CreateRepository(ctx context.Context, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error
+	CreateRepository(ctx context.Context, repositoryID int64, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error
 	// SetAuthoritativeReplica sets the given replica of a repsitory as the authoritative one by setting its generation as the latest one.
 	SetAuthoritativeReplica(ctx context.Context, virtualStorage, relativePath, storage string) error
 	// DeleteRepository deletes the repository's record from the virtual storage and the storages. Returns
@@ -127,6 +127,12 @@ type RepositoryStore interface {
 	// record of the invalid repository. If the storage was the only storage with the repository, the repository's
 	// record on the virtual storage is also deleted.
 	DeleteInvalidRepository(ctx context.Context, virtualStorage, relativePath, storage string) error
+	// ReserveRepositoryID reserves an ID for a repository that is about to be created and returns it. If a repository already
+	// exists with the given virtual storage and relative path combination, an error is returned.
+	ReserveRepositoryID(ctx context.Context, virtualStorage, relativePath string) (int64, error)
+	// GetRepositoryID gets the ID of the repository identified via the given virtual storage and relative path. Returns a
+	// RepositoryNotFoundError if the repository doesn't exist.
+	GetRepositoryID(ctx context.Context, virtualStorage, relativePath string) (int64, error)
 }
 
 // PostgresRepositoryStore is a Postgres implementation of RepositoryStore.
@@ -229,13 +235,17 @@ WITH repository AS (
 )
 
 INSERT INTO storage_repositories (
+	repository_id,
 	virtual_storage,
 	relative_path,
 	storage,
 	generation
 )
-VALUES ($1, $2, $3, $4)
+SELECT
+	(SELECT repository_id FROM repositories WHERE virtual_storage = $1 AND relative_path = $2),
+	$1, $2, $3, $4
 ON CONFLICT (virtual_storage, relative_path, storage) DO UPDATE SET
+	repository_id = EXCLUDED.repository_id,
 	generation = EXCLUDED.generation
 `
 
@@ -324,26 +334,36 @@ AND storage = ANY($3)
 	return sourceGeneration, nil
 }
 
-// CreateRepository creates a new repository and assigns it to the given primary and secondary
-// nodes.
-func (rs *PostgresRepositoryStore) CreateRepository(ctx context.Context, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error {
+// CreateRepository creates a record for a repository in the specified virtual storage and relative path.
+// Primary is the storage the repository was created on. UpdatedSecondaries are secondaries that participated
+// and successfully completed the transaction. OutdatedSecondaries are secondaries that were outdated or failed
+// the transaction. Returns RepositoryExistsError when trying to create a repository which already exists in the store.
+//
+// storePrimary should be set when repository specific primaries are enabled. When set, the primary is stored as
+// the repository's primary.
+//
+// storeAssignments should be set when variable replication factor is enabled. When set, the primary and the
+// secondaries are stored as the assigned hosts of the repository.
+func (rs *PostgresRepositoryStore) CreateRepository(ctx context.Context, repositoryID int64, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error {
 	const q = `
 WITH repo AS (
 	INSERT INTO repositories (
+		repository_id,
 		virtual_storage,
 		relative_path,
 		generation,
 		"primary"
-	) VALUES ($1, $2, 0, CASE WHEN $4 THEN $3 END)
+	) VALUES ($8, $1, $2, 0, CASE WHEN $4 THEN $3 END)
 ),
 
 assignments AS (
 	INSERT INTO repository_assignments (
+		repository_id,
 		virtual_storage,
 		relative_path,
 		storage
 	)
-	SELECT $1, $2, storage
+	SELECT $8, $1, $2, storage
 	FROM (
 		SELECT $3 AS storage
 		UNION
@@ -355,12 +375,13 @@ assignments AS (
 )
 
 INSERT INTO storage_repositories (
+	repository_id,
 	virtual_storage,
 	relative_path,
 	storage,
 	generation
 )
-SELECT $1, $2, storage, 0
+SELECT $8, $1, $2, storage, 0
 FROM (
 	SELECT $3 AS storage
 	UNION
@@ -376,10 +397,15 @@ FROM (
 		pq.StringArray(updatedSecondaries),
 		pq.StringArray(outdatedSecondaries),
 		storeAssignments,
+		repositoryID,
 	)
 
 	var pqerr *pq.Error
 	if errors.As(err, &pqerr) && pqerr.Code.Name() == "unique_violation" {
+		if pqerr.Constraint == "repositories_pkey" {
+			return fmt.Errorf("repository id %d already in use", repositoryID)
+		}
+
 		return RepositoryExistsError{
 			virtualStorage: virtualStorage,
 			relativePath:   relativePath,
@@ -690,4 +716,46 @@ ORDER BY relative_path, "primary"
 	}
 
 	return repos, rows.Err()
+}
+
+// ReserveRepositoryID reserves an ID for a repository that is about to be created and returns it. If a repository already
+// exists with the given virtual storage and relative path combination, an error is returned.
+func (rs *PostgresRepositoryStore) ReserveRepositoryID(ctx context.Context, virtualStorage, relativePath string) (int64, error) {
+	var id int64
+	if err := rs.db.QueryRowContext(ctx, `
+SELECT nextval('repositories_repository_id_seq')
+WHERE NOT EXISTS (
+	SELECT FROM repositories
+	WHERE virtual_storage = $1
+	AND   relative_path   = $2
+)
+	`, virtualStorage, relativePath).Scan(&id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, commonerr.ErrRepositoryAlreadyExists
+		}
+
+		return 0, fmt.Errorf("scan: %w", err)
+	}
+
+	return id, nil
+}
+
+// GetRepositoryID gets the ID of the repository identified via the given virtual storage and relative path. Returns a
+// RepositoryNotFoundError if the repository doesn't exist.
+func (rs *PostgresRepositoryStore) GetRepositoryID(ctx context.Context, virtualStorage, relativePath string) (int64, error) {
+	var id int64
+	if err := rs.db.QueryRowContext(ctx, `
+SELECT repository_id
+FROM repositories
+WHERE virtual_storage = $1
+AND   relative_path   = $2
+	`, virtualStorage, relativePath).Scan(&id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, commonerr.NewRepositoryNotFoundError(virtualStorage, relativePath)
+		}
+
+		return 0, fmt.Errorf("scan: %w", err)
+	}
+
+	return id, nil
 }

@@ -47,7 +47,7 @@ func TestAcceptDatalossSubcommand(t *testing.T) {
 
 		if !repoCreated {
 			repoCreated = true
-			require.NoError(t, rs.CreateRepository(ctx, vs, repo, storage, nil, nil, false, false))
+			require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, storage, nil, nil, false, false))
 		}
 
 		require.NoError(t, rs.SetGeneration(ctx, vs, repo, storage, generation))

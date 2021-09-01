@@ -3,6 +3,7 @@ package datastore
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -15,17 +16,23 @@ import (
 
 // repositoryRecord represents Praefect's records related to a repository.
 type repositoryRecord struct {
-	primary     string
-	assignments []string
+	repositoryID int64
+	primary      string
+	assignments  []string
 }
 
 // virtualStorageStates represents the virtual storage's view of which repositories should exist.
 // It's structured as virtual-storage->relative_path.
 type virtualStorageState map[string]map[string]repositoryRecord
 
+type replicaRecord struct {
+	repositoryID int64
+	generation   int
+}
+
 // storageState contains individual storage's repository states.
-// It structured as virtual-storage->relative_path->storage->generation.
-type storageState map[string]map[string]map[string]int
+// It structured as virtual-storage->relative_path->storage->replicaRecord
+type storageState map[string]map[string]map[string]replicaRecord
 
 type (
 	requireStateFunc       func(t *testing.T, ctx context.Context, vss virtualStorageState, ss storageState)
@@ -37,13 +44,13 @@ func requireState(t testing.TB, ctx context.Context, db glsql.Querier, vss virtu
 
 	requireVirtualStorageState := func(t testing.TB, ctx context.Context, exp virtualStorageState) {
 		rows, err := db.QueryContext(ctx, `
-SELECT virtual_storage, relative_path, "primary", assigned_storages
+SELECT repository_id, virtual_storage, relative_path, "primary", assigned_storages
 FROM repositories
 LEFT JOIN (
-	SELECT virtual_storage, relative_path, array_agg(storage ORDER BY storage) AS assigned_storages
+	SELECT repository_id, virtual_storage, relative_path, array_agg(storage ORDER BY storage) AS assigned_storages
 	FROM repository_assignments
-	GROUP BY virtual_storage, relative_path
-) AS repository_assignments USING (virtual_storage, relative_path)
+	GROUP BY repository_id, virtual_storage, relative_path
+) AS repository_assignments USING (repository_id, virtual_storage, relative_path)
 
 				`)
 		require.NoError(t, err)
@@ -52,18 +59,20 @@ LEFT JOIN (
 		act := make(virtualStorageState)
 		for rows.Next() {
 			var (
+				repositoryID                 sql.NullInt64
 				virtualStorage, relativePath string
 				primary                      sql.NullString
 				assignments                  pq.StringArray
 			)
-			require.NoError(t, rows.Scan(&virtualStorage, &relativePath, &primary, &assignments))
+			require.NoError(t, rows.Scan(&repositoryID, &virtualStorage, &relativePath, &primary, &assignments))
 			if act[virtualStorage] == nil {
 				act[virtualStorage] = make(map[string]repositoryRecord)
 			}
 
 			act[virtualStorage][relativePath] = repositoryRecord{
-				primary:     primary.String,
-				assignments: assignments,
+				repositoryID: repositoryID.Int64,
+				primary:      primary.String,
+				assignments:  assignments,
 			}
 		}
 
@@ -73,7 +82,7 @@ LEFT JOIN (
 
 	requireStorageState := func(t testing.TB, ctx context.Context, exp storageState) {
 		rows, err := db.QueryContext(ctx, `
-SELECT virtual_storage, relative_path, storage, generation
+SELECT repository_id, virtual_storage, relative_path, storage, generation
 FROM storage_repositories
 	`)
 		require.NoError(t, err)
@@ -81,18 +90,19 @@ FROM storage_repositories
 
 		act := make(storageState)
 		for rows.Next() {
+			var repositoryID sql.NullInt64
 			var vs, rel, storage string
 			var gen int
-			require.NoError(t, rows.Scan(&vs, &rel, &storage, &gen))
+			require.NoError(t, rows.Scan(&repositoryID, &vs, &rel, &storage, &gen))
 
 			if act[vs] == nil {
-				act[vs] = make(map[string]map[string]int)
+				act[vs] = make(map[string]map[string]replicaRecord)
 			}
 			if act[vs][rel] == nil {
-				act[vs][rel] = make(map[string]int)
+				act[vs][rel] = make(map[string]replicaRecord)
 			}
 
-			act[vs][rel][storage] = gen
+			act[vs][rel][storage] = replicaRecord{repositoryID: repositoryID.Int64, generation: gen}
 		}
 
 		require.NoError(t, rows.Err())
@@ -144,8 +154,8 @@ func TestRepositoryStore_incrementGenerationConcurrently(t *testing.T) {
 			state: storageState{
 				"virtual-storage": {
 					"relative-path": {
-						"primary":   2,
-						"secondary": 2,
+						"primary":   {repositoryID: 1, generation: 2},
+						"secondary": {repositoryID: 1, generation: 2},
 					},
 				},
 			},
@@ -162,8 +172,8 @@ func TestRepositoryStore_incrementGenerationConcurrently(t *testing.T) {
 			state: storageState{
 				"virtual-storage": {
 					"relative-path": {
-						"primary":   2,
-						"secondary": 0,
+						"primary":   {repositoryID: 1, generation: 2},
+						"secondary": {repositoryID: 1, generation: 0},
 					},
 				},
 			},
@@ -180,8 +190,8 @@ func TestRepositoryStore_incrementGenerationConcurrently(t *testing.T) {
 			state: storageState{
 				"virtual-storage": {
 					"relative-path": {
-						"primary":   1,
-						"secondary": 0,
+						"primary":   {repositoryID: 1, generation: 1},
+						"secondary": {repositoryID: 1, generation: 0},
 					},
 				},
 			},
@@ -193,7 +203,7 @@ func TestRepositoryStore_incrementGenerationConcurrently(t *testing.T) {
 
 			db.TruncateAll(t)
 
-			require.NoError(t, NewPostgresRepositoryStore(db, nil).CreateRepository(ctx, "virtual-storage", "relative-path", "primary", []string{"secondary"}, nil, false, false))
+			require.NoError(t, NewPostgresRepositoryStore(db, nil).CreateRepository(ctx, 1, "virtual-storage", "relative-path", "primary", []string{"secondary"}, nil, false, false))
 
 			firstTx := db.Begin(t)
 			secondTx := db.Begin(t)
@@ -211,7 +221,7 @@ func TestRepositoryStore_incrementGenerationConcurrently(t *testing.T) {
 			secondTx.Commit(t)
 
 			requireState(t, ctx, db,
-				virtualStorageState{"virtual-storage": {"relative-path": {}}},
+				virtualStorageState{"virtual-storage": {"relative-path": {repositoryID: 1}}},
 				tc.state,
 			)
 		})
@@ -273,7 +283,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		t.Run("write to outdated nodes", func(t *testing.T) {
 			rs, requireState := newStore(t, nil)
 
-			require.NoError(t, rs.CreateRepository(ctx, vs, repo, "latest-node", []string{"outdated-primary", "outdated-secondary"}, nil, false, false))
+			require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, "latest-node", []string{"outdated-primary", "outdated-secondary"}, nil, false, false))
 			require.NoError(t, rs.SetGeneration(ctx, vs, repo, "latest-node", 1))
 
 			require.Equal(t,
@@ -283,15 +293,15 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": repositoryRecord{},
+						"repository-1": {repositoryID: 1},
 					},
 				},
 				storageState{
 					"virtual-storage-1": {
 						"repository-1": {
-							"latest-node":        1,
-							"outdated-primary":   0,
-							"outdated-secondary": 0,
+							"latest-node":        {repositoryID: 1, generation: 1},
+							"outdated-primary":   {repositoryID: 1, generation: 0},
+							"outdated-secondary": {repositoryID: 1, generation: 0},
 						},
 					},
 				},
@@ -301,14 +311,14 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		t.Run("increments generation for up to date nodes", func(t *testing.T) {
 			rs, requireState := newStore(t, nil)
 
-			for _, pair := range []struct{ virtualStorage, relativePath string }{
+			for id, pair := range []struct{ virtualStorage, relativePath string }{
 				{vs, repo},
 				// create records that don't get modified to ensure the query is correctly scoped by virtual storage
 				// and relative path
 				{vs, "other-relative-path"},
 				{"other-virtual-storage", repo},
 			} {
-				require.NoError(t, rs.CreateRepository(ctx, pair.virtualStorage, pair.relativePath, "primary", []string{"up-to-date-secondary", "outdated-secondary"}, nil, false, false))
+				require.NoError(t, rs.CreateRepository(ctx, int64(id+1), pair.virtualStorage, pair.relativePath, "primary", []string{"up-to-date-secondary", "outdated-secondary"}, nil, false, false))
 			}
 
 			require.NoError(t, rs.IncrementGeneration(ctx, vs, repo, "primary", []string{"up-to-date-secondary"}))
@@ -316,31 +326,31 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1":        repositoryRecord{},
-						"other-relative-path": {},
+						"repository-1":        {repositoryID: 1},
+						"other-relative-path": {repositoryID: 2},
 					},
 					"other-virtual-storage": {
-						"repository-1": {},
+						"repository-1": {repositoryID: 3},
 					},
 				},
 				storageState{
 					"virtual-storage-1": {
 						"repository-1": {
-							"primary":              1,
-							"up-to-date-secondary": 1,
-							"outdated-secondary":   0,
+							"primary":              {repositoryID: 1, generation: 1},
+							"up-to-date-secondary": {repositoryID: 1, generation: 1},
+							"outdated-secondary":   {repositoryID: 1, generation: 0},
 						},
 						"other-relative-path": {
-							"primary":              0,
-							"up-to-date-secondary": 0,
-							"outdated-secondary":   0,
+							"primary":              {repositoryID: 2},
+							"up-to-date-secondary": {repositoryID: 2},
+							"outdated-secondary":   {repositoryID: 2},
 						},
 					},
 					"other-virtual-storage": {
 						"repository-1": {
-							"primary":              0,
-							"up-to-date-secondary": 0,
-							"outdated-secondary":   0,
+							"primary":              {repositoryID: 3},
+							"up-to-date-secondary": {repositoryID: 3},
+							"outdated-secondary":   {repositoryID: 3},
 						},
 					},
 				},
@@ -352,31 +362,31 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1":        repositoryRecord{},
-						"other-relative-path": {},
+						"repository-1":        {repositoryID: 1},
+						"other-relative-path": {repositoryID: 2},
 					},
 					"other-virtual-storage": {
-						"repository-1": {},
+						"repository-1": {repositoryID: 3},
 					},
 				},
 				storageState{
 					"virtual-storage-1": {
 						"repository-1": {
-							"primary":              2,
-							"up-to-date-secondary": 2,
-							"outdated-secondary":   0,
+							"primary":              {repositoryID: 1, generation: 2},
+							"up-to-date-secondary": {repositoryID: 1, generation: 2},
+							"outdated-secondary":   {repositoryID: 1, generation: 0},
 						},
 						"other-relative-path": {
-							"primary":              0,
-							"up-to-date-secondary": 0,
-							"outdated-secondary":   0,
+							"primary":              {repositoryID: 2},
+							"up-to-date-secondary": {repositoryID: 2},
+							"outdated-secondary":   {repositoryID: 2},
 						},
 					},
 					"other-virtual-storage": {
 						"repository-1": {
-							"primary":              0,
-							"up-to-date-secondary": 0,
-							"outdated-secondary":   0,
+							"primary":              {repositoryID: 3},
+							"up-to-date-secondary": {repositoryID: 3},
+							"outdated-secondary":   {repositoryID: 3},
 						},
 					},
 				},
@@ -395,7 +405,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 				storageState{
 					"virtual-storage-1": {
 						"repository-1": {
-							"storage-1": 1,
+							"storage-1": {repositoryID: 0, generation: 1},
 						},
 					},
 				},
@@ -405,19 +415,19 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		t.Run("updates existing record", func(t *testing.T) {
 			rs, requireState := newStore(t, nil)
 
-			require.NoError(t, rs.CreateRepository(ctx, vs, repo, "storage-1", nil, nil, false, false))
+			require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, "storage-1", nil, nil, false, false))
 			require.NoError(t, rs.SetGeneration(ctx, vs, repo, stor, 1))
 			require.NoError(t, rs.SetGeneration(ctx, vs, repo, stor, 0))
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": repositoryRecord{},
+						"repository-1": {repositoryID: 1},
 					},
 				},
 				storageState{
 					"virtual-storage-1": {
 						"repository-1": {
-							"storage-1": 0,
+							"storage-1": {repositoryID: 1, generation: 0},
 						},
 					},
 				},
@@ -436,18 +446,18 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		})
 
 		t.Run("sets the given replica as the latest", func(t *testing.T) {
-			require.NoError(t, rs.CreateRepository(ctx, vs, repo, "storage-1", []string{"storage-2"}, nil, false, false))
+			require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, "storage-1", []string{"storage-2"}, nil, false, false))
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": repositoryRecord{},
+						"repository-1": {repositoryID: 1},
 					},
 				},
 				storageState{
 					"virtual-storage-1": {
 						"repository-1": {
-							"storage-1": 0,
-							"storage-2": 0,
+							"storage-1": {repositoryID: 1, generation: 0},
+							"storage-2": {repositoryID: 1, generation: 0},
 						},
 					},
 				},
@@ -457,14 +467,14 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": repositoryRecord{},
+						"repository-1": {repositoryID: 1},
 					},
 				},
 				storageState{
 					"virtual-storage-1": {
 						"repository-1": {
-							"storage-1": 1,
-							"storage-2": 0,
+							"storage-1": {repositoryID: 1, generation: 1},
+							"storage-2": {repositoryID: 1, generation: 0},
 						},
 					},
 				},
@@ -597,26 +607,27 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 				t.Run(tc.desc, func(t *testing.T) {
 					rs, requireState := newStore(t, nil)
 
-					require.NoError(t, rs.CreateRepository(ctx, vs, repo, "primary", tc.updatedSecondaries, tc.outdatedSecondaries, tc.storePrimary, tc.storeAssignments))
+					require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, "primary", tc.updatedSecondaries, tc.outdatedSecondaries, tc.storePrimary, tc.storeAssignments))
 
 					expectedStorageState := storageState{
 						vs: {
 							repo: {
-								"primary": 0,
+								"primary": {repositoryID: 1, generation: 0},
 							},
 						},
 					}
 
 					for _, updatedSecondary := range tc.updatedSecondaries {
-						expectedStorageState[vs][repo][updatedSecondary] = 0
+						expectedStorageState[vs][repo][updatedSecondary] = replicaRecord{repositoryID: 1, generation: 0}
 					}
 
 					requireState(t, ctx,
 						virtualStorageState{
 							vs: {
-								repo: repositoryRecord{
-									primary:     tc.expectedPrimary,
-									assignments: tc.expectedAssignments,
+								repo: {
+									repositoryID: 1,
+									primary:      tc.expectedPrimary,
+									assignments:  tc.expectedAssignments,
 								},
 							},
 						},
@@ -626,13 +637,23 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			}
 		})
 
-		t.Run("conflict", func(t *testing.T) {
+		t.Run("conflict due to virtual storage and relative path", func(t *testing.T) {
 			rs, _ := newStore(t, nil)
 
-			require.NoError(t, rs.CreateRepository(ctx, vs, repo, stor, nil, nil, false, false))
+			require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, stor, nil, nil, false, false))
 			require.Equal(t,
 				RepositoryExistsError{vs, repo, stor},
-				rs.CreateRepository(ctx, vs, repo, stor, nil, nil, false, false),
+				rs.CreateRepository(ctx, 2, vs, repo, stor, nil, nil, false, false),
+			)
+		})
+
+		t.Run("conflict due to repository id", func(t *testing.T) {
+			rs, _ := newStore(t, nil)
+
+			require.NoError(t, rs.CreateRepository(ctx, 1, "virtual-storage-1", "relative-path-1", "storage-1", nil, nil, false, false))
+			require.Equal(t,
+				fmt.Errorf("repository id 1 already in use"),
+				rs.CreateRepository(ctx, 1, "virtual-storage-2", "relative-path-2", "storage-2", nil, nil, false, false),
 			)
 		})
 	})
@@ -647,42 +668,42 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		t.Run("delete existing", func(t *testing.T) {
 			rs, requireState := newStore(t, nil)
 
-			require.NoError(t, rs.CreateRepository(ctx, "deleted", "deleted", "deleted", nil, nil, false, false))
-			require.NoError(t, rs.CreateRepository(ctx, "virtual-storage-1", "other-storages-remain", "deleted-storage", []string{"remaining-storage"}, nil, false, false))
-			require.NoError(t, rs.CreateRepository(ctx, "virtual-storage-2", "deleted-repo", "deleted-storage", nil, nil, false, false))
-			require.NoError(t, rs.CreateRepository(ctx, "virtual-storage-2", "other-repo-remains", "remaining-storage", nil, nil, false, false))
+			require.NoError(t, rs.CreateRepository(ctx, 1, "deleted", "deleted", "deleted", nil, nil, false, false))
+			require.NoError(t, rs.CreateRepository(ctx, 2, "virtual-storage-1", "other-storages-remain", "deleted-storage", []string{"remaining-storage"}, nil, false, false))
+			require.NoError(t, rs.CreateRepository(ctx, 3, "virtual-storage-2", "deleted-repo", "deleted-storage", nil, nil, false, false))
+			require.NoError(t, rs.CreateRepository(ctx, 4, "virtual-storage-2", "other-repo-remains", "remaining-storage", nil, nil, false, false))
 
 			requireState(t, ctx,
 				virtualStorageState{
 					"deleted": {
-						"deleted": repositoryRecord{},
+						"deleted": {repositoryID: 1},
 					},
 					"virtual-storage-1": {
-						"other-storages-remain": repositoryRecord{},
+						"other-storages-remain": {repositoryID: 2},
 					},
 					"virtual-storage-2": {
-						"deleted-repo":       repositoryRecord{},
-						"other-repo-remains": repositoryRecord{},
+						"deleted-repo":       repositoryRecord{repositoryID: 3},
+						"other-repo-remains": {repositoryID: 4},
 					},
 				},
 				storageState{
 					"deleted": {
 						"deleted": {
-							"deleted": 0,
+							"deleted": {repositoryID: 1, generation: 0},
 						},
 					},
 					"virtual-storage-1": {
 						"other-storages-remain": {
-							"deleted-storage":   0,
-							"remaining-storage": 0,
+							"deleted-storage":   {repositoryID: 2, generation: 0},
+							"remaining-storage": {repositoryID: 2, generation: 0},
 						},
 					},
 					"virtual-storage-2": {
 						"deleted-repo": {
-							"deleted-storage": 0,
+							"deleted-storage": {repositoryID: 3, generation: 0},
 						},
 						"other-repo-remains": {
-							"remaining-storage": 0,
+							"remaining-storage": {repositoryID: 4, generation: 0},
 						},
 					},
 				},
@@ -695,18 +716,18 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-2": {
-						"other-repo-remains": repositoryRecord{},
+						"other-repo-remains": {repositoryID: 4},
 					},
 				},
 				storageState{
 					"virtual-storage-1": {
 						"other-storages-remain": {
-							"remaining-storage": 0,
+							"remaining-storage": {generation: 0},
 						},
 					},
 					"virtual-storage-2": {
 						"other-repo-remains": {
-							"remaining-storage": 0,
+							"remaining-storage": {repositoryID: 4, generation: 0},
 						},
 					},
 				},
@@ -715,20 +736,20 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 
 		t.Run("transactional delete", func(t *testing.T) {
 			rs, requireState := newStore(t, nil)
-			require.NoError(t, rs.CreateRepository(ctx, "virtual-storage-1", "repository-1", "replica-1", []string{"replica-2", "replica-3"}, nil, false, false))
+			require.NoError(t, rs.CreateRepository(ctx, 1, "virtual-storage-1", "repository-1", "replica-1", []string{"replica-2", "replica-3"}, nil, false, false))
 
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": repositoryRecord{},
+						"repository-1": {repositoryID: 1},
 					},
 				},
 				storageState{
 					"virtual-storage-1": {
 						"repository-1": {
-							"replica-1": 0,
-							"replica-2": 0,
-							"replica-3": 0,
+							"replica-1": {repositoryID: 1, generation: 0},
+							"replica-2": {repositoryID: 1, generation: 0},
+							"replica-3": {repositoryID: 1, generation: 0},
 						},
 					},
 				},
@@ -740,7 +761,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 				storageState{
 					"virtual-storage-1": {
 						"repository-1": {
-							"replica-3": 0,
+							"replica-3": {generation: 0},
 						},
 					},
 				},
@@ -756,33 +777,33 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		})
 
 		t.Run("delete existing", func(t *testing.T) {
-			require.NoError(t, rs.CreateRepository(ctx, "virtual-storage-1", "relative-path-1", "storage-1", []string{"storage-2"}, nil, false, false))
-			require.NoError(t, rs.CreateRepository(ctx, "virtual-storage-1", "relative-path-2", "storage-1", nil, nil, false, false))
-			require.NoError(t, rs.CreateRepository(ctx, "virtual-storage-2", "relative-path-1", "storage-1", nil, nil, false, false))
+			require.NoError(t, rs.CreateRepository(ctx, 1, "virtual-storage-1", "relative-path-1", "storage-1", []string{"storage-2"}, nil, false, false))
+			require.NoError(t, rs.CreateRepository(ctx, 2, "virtual-storage-1", "relative-path-2", "storage-1", nil, nil, false, false))
+			require.NoError(t, rs.CreateRepository(ctx, 3, "virtual-storage-2", "relative-path-1", "storage-1", nil, nil, false, false))
 
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"relative-path-1": repositoryRecord{},
-						"relative-path-2": repositoryRecord{},
+						"relative-path-1": {repositoryID: 1},
+						"relative-path-2": {repositoryID: 2},
 					},
 					"virtual-storage-2": {
-						"relative-path-1": repositoryRecord{},
+						"relative-path-1": {repositoryID: 3},
 					},
 				},
 				storageState{
 					"virtual-storage-1": {
 						"relative-path-1": {
-							"storage-1": 0,
-							"storage-2": 0,
+							"storage-1": {repositoryID: 1, generation: 0},
+							"storage-2": {repositoryID: 1, generation: 0},
 						},
 						"relative-path-2": {
-							"storage-1": 0,
+							"storage-1": {repositoryID: 2, generation: 0},
 						},
 					},
 					"virtual-storage-2": {
 						"relative-path-1": {
-							"storage-1": 0,
+							"storage-1": {repositoryID: 3, generation: 0},
 						},
 					},
 				},
@@ -793,25 +814,25 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"relative-path-1": repositoryRecord{},
-						"relative-path-2": repositoryRecord{},
+						"relative-path-1": {repositoryID: 1},
+						"relative-path-2": {repositoryID: 2},
 					},
 					"virtual-storage-2": {
-						"relative-path-1": repositoryRecord{},
+						"relative-path-1": {repositoryID: 3},
 					},
 				},
 				storageState{
 					"virtual-storage-1": {
 						"relative-path-1": {
-							"storage-2": 0,
+							"storage-2": {repositoryID: 1, generation: 0},
 						},
 						"relative-path-2": {
-							"storage-1": 0,
+							"storage-1": {repositoryID: 2, generation: 0},
 						},
 					},
 					"virtual-storage-2": {
 						"relative-path-1": {
-							"storage-1": 0,
+							"storage-1": {repositoryID: 3, generation: 0},
 						},
 					},
 				},
@@ -832,24 +853,24 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		t.Run("rename existing", func(t *testing.T) {
 			rs, requireState := newStore(t, nil)
 
-			require.NoError(t, rs.CreateRepository(ctx, vs, "renamed-all", "storage-1", nil, nil, false, false))
-			require.NoError(t, rs.CreateRepository(ctx, vs, "renamed-some", "storage-1", []string{"storage-2"}, nil, false, false))
+			require.NoError(t, rs.CreateRepository(ctx, 1, vs, "renamed-all", "storage-1", nil, nil, false, false))
+			require.NoError(t, rs.CreateRepository(ctx, 2, vs, "renamed-some", "storage-1", []string{"storage-2"}, nil, false, false))
 
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"renamed-all":  repositoryRecord{},
-						"renamed-some": repositoryRecord{},
+						"renamed-all":  repositoryRecord{repositoryID: 1},
+						"renamed-some": {repositoryID: 2},
 					},
 				},
 				storageState{
 					"virtual-storage-1": {
 						"renamed-all": {
-							"storage-1": 0,
+							"storage-1": {repositoryID: 1, generation: 0},
 						},
 						"renamed-some": {
-							"storage-1": 0,
-							"storage-2": 0,
+							"storage-1": {repositoryID: 2, generation: 0},
+							"storage-2": {repositoryID: 2, generation: 0},
 						},
 					},
 				},
@@ -861,20 +882,20 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"renamed-all-new":  repositoryRecord{},
-						"renamed-some-new": repositoryRecord{},
+						"renamed-all-new":  repositoryRecord{repositoryID: 1},
+						"renamed-some-new": {repositoryID: 2},
 					},
 				},
 				storageState{
 					"virtual-storage-1": {
 						"renamed-all-new": {
-							"storage-1": 0,
+							"storage-1": {repositoryID: 1, generation: 0},
 						},
 						"renamed-some-new": {
-							"storage-1": 0,
+							"storage-1": {repositoryID: 2, generation: 0},
 						},
 						"renamed-some": {
-							"storage-2": 0,
+							"storage-2": {repositoryID: 2, generation: 0},
 						},
 					},
 				},
@@ -893,21 +914,21 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			require.Empty(t, secondaries)
 		})
 
-		require.NoError(t, rs.CreateRepository(ctx, vs, repo, "primary", []string{"consistent-secondary"}, nil, false, false))
+		require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, "primary", []string{"consistent-secondary"}, nil, false, false))
 		require.NoError(t, rs.IncrementGeneration(ctx, vs, repo, "primary", []string{"consistent-secondary"}))
 		require.NoError(t, rs.SetGeneration(ctx, vs, repo, "inconsistent-secondary", 0))
 		requireState(t, ctx,
 			virtualStorageState{
 				"virtual-storage-1": {
-					"repository-1": repositoryRecord{},
+					"repository-1": {repositoryID: 1},
 				},
 			},
 			storageState{
 				"virtual-storage-1": {
 					"repository-1": {
-						"primary":                1,
-						"consistent-secondary":   1,
-						"inconsistent-secondary": 0,
+						"primary":                {repositoryID: 1, generation: 1},
+						"consistent-secondary":   {repositoryID: 1, generation: 1},
+						"inconsistent-secondary": {repositoryID: 1, generation: 0},
 					},
 				},
 			},
@@ -933,16 +954,16 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": repositoryRecord{},
+						"repository-1": {repositoryID: 1},
 					},
 				},
 				storageState{
 					"virtual-storage-1": {
 						"repository-1": {
-							"unknown":                2,
-							"primary":                1,
-							"consistent-secondary":   1,
-							"inconsistent-secondary": 0,
+							"unknown":                {repositoryID: 1, generation: 2},
+							"primary":                {repositoryID: 1, generation: 1},
+							"consistent-secondary":   {repositoryID: 1, generation: 1},
+							"inconsistent-secondary": {repositoryID: 1, generation: 0},
 						},
 					},
 				},
@@ -960,9 +981,9 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 				storageState{
 					"virtual-storage-1": {
 						"repository-1": {
-							"unknown":                2,
-							"consistent-secondary":   1,
-							"inconsistent-secondary": 0,
+							"unknown":                {generation: 2},
+							"consistent-secondary":   {generation: 1},
+							"inconsistent-secondary": {generation: 0},
 						},
 					},
 				},
@@ -977,25 +998,25 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 	t.Run("DeleteInvalidRepository", func(t *testing.T) {
 		t.Run("only replica", func(t *testing.T) {
 			rs, requireState := newStore(t, nil)
-			require.NoError(t, rs.CreateRepository(ctx, vs, repo, "invalid-storage", nil, nil, false, false))
+			require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, "invalid-storage", nil, nil, false, false))
 			require.NoError(t, rs.DeleteInvalidRepository(ctx, vs, repo, "invalid-storage"))
 			requireState(t, ctx, virtualStorageState{}, storageState{})
 		})
 
 		t.Run("another replica", func(t *testing.T) {
 			rs, requireState := newStore(t, nil)
-			require.NoError(t, rs.CreateRepository(ctx, vs, repo, "invalid-storage", []string{"other-storage"}, nil, false, false))
+			require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, "invalid-storage", []string{"other-storage"}, nil, false, false))
 			require.NoError(t, rs.DeleteInvalidRepository(ctx, vs, repo, "invalid-storage"))
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": repositoryRecord{},
+						"repository-1": {repositoryID: 1},
 					},
 				},
 				storageState{
 					"virtual-storage-1": {
 						"repository-1": {
-							"other-storage": 0,
+							"other-storage": {repositoryID: 1, generation: 0},
 						},
 					},
 				},
@@ -1010,7 +1031,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		require.NoError(t, err)
 		require.False(t, exists)
 
-		require.NoError(t, rs.CreateRepository(ctx, vs, repo, stor, nil, nil, false, false))
+		require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, stor, nil, nil, false, false))
 		exists, err = rs.RepositoryExists(ctx, vs, repo)
 		require.NoError(t, err)
 		require.True(t, exists)
@@ -1019,6 +1040,42 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		exists, err = rs.RepositoryExists(ctx, vs, repo)
 		require.NoError(t, err)
 		require.False(t, exists)
+	})
+
+	t.Run("ReserveRepositoryID", func(t *testing.T) {
+		rs, _ := newStore(t, nil)
+
+		id, err := rs.ReserveRepositoryID(ctx, vs, repo)
+		require.NoError(t, err)
+		require.Equal(t, int64(1), id)
+
+		id, err = rs.ReserveRepositoryID(ctx, vs, repo)
+		require.NoError(t, err)
+		require.Equal(t, int64(2), id)
+
+		require.NoError(t, rs.CreateRepository(ctx, id, vs, repo, stor, nil, nil, false, false))
+
+		id, err = rs.ReserveRepositoryID(ctx, vs, repo)
+		require.Equal(t, commonerr.ErrRepositoryAlreadyExists, err)
+		require.Equal(t, int64(0), id)
+
+		id, err = rs.ReserveRepositoryID(ctx, vs, repo+"-2")
+		require.NoError(t, err)
+		require.Equal(t, int64(3), id)
+	})
+
+	t.Run("GetRepositoryID", func(t *testing.T) {
+		rs, _ := newStore(t, nil)
+
+		id, err := rs.GetRepositoryID(ctx, vs, repo)
+		require.Equal(t, commonerr.NewRepositoryNotFoundError(vs, repo), err)
+		require.Equal(t, int64(0), id)
+
+		require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, stor, nil, nil, false, false))
+
+		id, err = rs.GetRepositoryID(ctx, vs, repo)
+		require.Nil(t, err)
+		require.Equal(t, int64(1), id)
 	})
 }
 

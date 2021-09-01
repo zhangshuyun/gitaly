@@ -92,7 +92,7 @@ func TestSetReplicationFactorSubcommand(t *testing.T) {
 
 			// create a repository record
 			require.NoError(t,
-				datastore.NewPostgresRepositoryStore(db, nil).CreateRepository(ctx, "virtual-storage", "relative-path", "primary", nil, nil, false, false),
+				datastore.NewPostgresRepositoryStore(db, nil).CreateRepository(ctx, 1, "virtual-storage", "relative-path", "primary", nil, nil, false, false),
 			)
 
 			ln, clean := listenAndServe(t, []svcRegistrar{registerPraefectInfoServer(

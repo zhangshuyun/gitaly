@@ -25,6 +25,8 @@ type StorageMutatorRoute struct {
 
 // RepositoryMutatorRoute describes how to route a repository scoped mutator call.
 type RepositoryMutatorRoute struct {
+	// RepositoryID is the repository's ID as Praefect identifies it.
+	RepositoryID int64
 	// Primary is the primary node of the transaction.
 	Primary RouterNode
 	// Secondaries are the secondary participating in a transaction.
@@ -50,5 +52,5 @@ type Router interface {
 	RouteRepositoryMutator(ctx context.Context, virtualStorage, relativePath string) (RepositoryMutatorRoute, error)
 	// RouteRepositoryCreation decides returns the primary and secondaries that should handle the repository creation
 	// request. It is up to the caller to store the assignments and primary information after finishing the RPC.
-	RouteRepositoryCreation(ctx context.Context, virtualStorage string) (RepositoryMutatorRoute, error)
+	RouteRepositoryCreation(ctx context.Context, virtualStorage, relativePath string) (RepositoryMutatorRoute, error)
 }

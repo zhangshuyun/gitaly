@@ -2,10 +2,12 @@ package praefect
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -95,6 +97,7 @@ func TestPerRepositoryRouter_RouteStorageAccessor(t *testing.T) {
 				},
 				nil,
 				nil,
+				datastore.MockRepositoryStore{},
 				nil,
 			)
 
@@ -226,6 +229,7 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 					},
 				},
 				nil,
+				datastore.MockRepositoryStore{},
 				nil,
 			)
 
@@ -367,6 +371,11 @@ func TestPerRepositoryRouter_RouteRepositoryMutator(t *testing.T) {
 					},
 				},
 				tc.assignedNodes,
+				datastore.MockRepositoryStore{
+					GetRepositoryIDFunc: func(ctx context.Context, virtualStorage, relativePath string) (int64, error) {
+						return 1, nil
+					},
+				},
 				nil,
 			)
 
@@ -382,6 +391,7 @@ func TestPerRepositoryRouter_RouteRepositoryMutator(t *testing.T) {
 				}
 
 				require.Equal(t, RepositoryMutatorRoute{
+					RepositoryID: 1,
 					Primary: RouterNode{
 						Storage:    "primary",
 						Connection: conns[tc.virtualStorage]["primary"],
@@ -423,6 +433,7 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 		primaryCandidates   int
 		primaryPick         int
 		secondaryCandidates int
+		repositoryExists    bool
 		matchRoute          matcher
 		error               error
 	}{
@@ -445,6 +456,7 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 			primaryPick:       0,
 			matchRoute: requireOneOf(
 				RepositoryMutatorRoute{
+					RepositoryID:       1,
 					Primary:            RouterNode{Storage: "primary", Connection: primaryConn},
 					ReplicationTargets: []string{"secondary-1", "secondary-2"},
 				},
@@ -458,7 +470,8 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 			primaryPick:       0,
 			matchRoute: requireOneOf(
 				RepositoryMutatorRoute{
-					Primary: RouterNode{Storage: "primary", Connection: primaryConn},
+					RepositoryID: 1,
+					Primary:      RouterNode{Storage: "primary", Connection: primaryConn},
 					Secondaries: []RouterNode{
 						{Storage: "secondary-1", Connection: secondary1Conn},
 						{Storage: "secondary-2", Connection: secondary2Conn},
@@ -474,7 +487,8 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 			primaryPick:       0,
 			matchRoute: requireOneOf(
 				RepositoryMutatorRoute{
-					Primary: RouterNode{Storage: "primary", Connection: primaryConn},
+					RepositoryID: 1,
+					Primary:      RouterNode{Storage: "primary", Connection: primaryConn},
 					Secondaries: []RouterNode{
 						{Storage: "secondary-1", Connection: secondary1Conn},
 					},
@@ -491,7 +505,8 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 			primaryPick:       0,
 			matchRoute: requireOneOf(
 				RepositoryMutatorRoute{
-					Primary: RouterNode{Storage: "primary", Connection: primaryConn},
+					RepositoryID: 1,
+					Primary:      RouterNode{Storage: "primary", Connection: primaryConn},
 				},
 			),
 		},
@@ -505,12 +520,14 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 			secondaryCandidates: 2,
 			matchRoute: requireOneOf(
 				RepositoryMutatorRoute{
-					Primary:     RouterNode{Storage: "primary", Connection: primaryConn},
-					Secondaries: []RouterNode{{Storage: "secondary-1", Connection: secondary1Conn}},
+					RepositoryID: 1,
+					Primary:      RouterNode{Storage: "primary", Connection: primaryConn},
+					Secondaries:  []RouterNode{{Storage: "secondary-1", Connection: secondary1Conn}},
 				},
 				RepositoryMutatorRoute{
-					Primary:     RouterNode{Storage: "primary", Connection: primaryConn},
-					Secondaries: []RouterNode{{Storage: "secondary-2", Connection: secondary1Conn}},
+					RepositoryID: 1,
+					Primary:      RouterNode{Storage: "primary", Connection: primaryConn},
+					Secondaries:  []RouterNode{{Storage: "secondary-2", Connection: secondary1Conn}},
 				},
 			),
 		},
@@ -524,11 +541,21 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 			secondaryCandidates: 2,
 			matchRoute: requireOneOf(
 				RepositoryMutatorRoute{
+					RepositoryID:       1,
 					Primary:            RouterNode{Storage: "primary", Connection: primaryConn},
 					Secondaries:        []RouterNode{{Storage: "secondary-1", Connection: secondary1Conn}},
 					ReplicationTargets: []string{"secondary-2"},
 				},
 			),
+		},
+		{
+			desc:              "repository already exists",
+			virtualStorage:    "virtual-storage-1",
+			healthyNodes:      StaticHealthChecker(configuredNodes),
+			primaryCandidates: 3,
+			primaryPick:       0,
+			repositoryExists:  true,
+			error:             fmt.Errorf("reserve repository id: %w", commonerr.ErrRepositoryAlreadyExists),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -556,8 +583,17 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 				},
 				nil,
 				nil,
+				datastore.MockRepositoryStore{
+					ReserveRepositoryIDFunc: func(ctx context.Context, virtualStorage, relativePath string) (int64, error) {
+						if tc.repositoryExists {
+							return 0, commonerr.ErrRepositoryAlreadyExists
+						}
+
+						return 1, nil
+					},
+				},
 				map[string]int{"virtual-storage-1": tc.replicationFactor},
-			).RouteRepositoryCreation(ctx, tc.virtualStorage)
+			).RouteRepositoryCreation(ctx, tc.virtualStorage, "relative-path")
 			if tc.error != nil {
 				require.Equal(t, tc.error, err)
 				return
