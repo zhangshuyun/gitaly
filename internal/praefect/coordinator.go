@@ -340,7 +340,9 @@ func (c *Coordinator) directRepositoryScopedMessage(ctx context.Context, call gr
 			}
 		} else {
 			if err := c.rs.CreateRepository(ctx, id, call.targetRepo.StorageName, call.targetRepo.RelativePath, call.targetRepo.StorageName, nil, nil, true, true); err != nil {
-				return nil, err
+				if !errors.As(err, &datastore.RepositoryExistsError{}) {
+					return nil, err
+				}
 			}
 		}
 	}
