@@ -299,16 +299,6 @@ lint:
     - go version
     - make lint
 
-lint-strict:
-  allow_failure: true
-  stage: test
-  retry: 2
-  script:
-    - go version
-    - make lint-strict
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
-
 objectinfo_fuzz_test:
   extends: .fuzz_base
   stage: test
