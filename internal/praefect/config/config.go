@@ -36,6 +36,9 @@ const (
 	ElectionStrategySQL ElectionStrategy = "sql"
 	// ElectionStrategyPerRepository configures an SQL based strategy that elects different primaries per repository.
 	ElectionStrategyPerRepository ElectionStrategy = "per_repository"
+
+	minimalSyncCheckInterval = time.Minute
+	minimalSyncRunInterval   = time.Minute
 )
 
 type Failover struct {
@@ -122,10 +125,10 @@ type Config struct {
 	DB                   `toml:"database"`
 	Failover             Failover `toml:"failover"`
 	// Keep for legacy reasons: remove after Omnibus has switched
-	FailoverEnabled     bool            `toml:"failover_enabled"`
-	MemoryQueueEnabled  bool            `toml:"memory_queue_enabled"`
-	GracefulStopTimeout config.Duration `toml:"graceful_stop_timeout"`
-
+	FailoverEnabled     bool                `toml:"failover_enabled"`
+	MemoryQueueEnabled  bool                `toml:"memory_queue_enabled"`
+	GracefulStopTimeout config.Duration     `toml:"graceful_stop_timeout"`
+	RepositoriesCleanup RepositoriesCleanup `toml:"repositories_cleanup"`
 	// ForceCreateRepositories will enable force-creation of repositories in the
 	// coordinator when routing repository-scoped mutators. This must never be used
 	// outside of tests.
@@ -156,7 +159,8 @@ func FromFile(filePath string) (Config, error) {
 		Replication:    DefaultReplicationConfig(),
 		Prometheus:     prometheus.DefaultConfig(),
 		// Sets the default Failover, to be overwritten when deserializing the TOML
-		Failover: Failover{Enabled: true, ElectionStrategy: ElectionStrategyPerRepository},
+		Failover:            Failover{Enabled: true, ElectionStrategy: ElectionStrategyPerRepository},
+		RepositoriesCleanup: DefaultRepositoriesCleanup(),
 	}
 	if err := toml.Unmarshal(b, conf); err != nil {
 		return Config{}, err
@@ -246,6 +250,15 @@ func (c *Config) Validate() error {
 				"virtual storage %q has a default replication factor (%d) which is higher than the number of storages (%d)",
 				virtualStorage.Name, virtualStorage.DefaultReplicationFactor, len(virtualStorage.Nodes),
 			)
+		}
+	}
+
+	if c.RepositoriesCleanup.RunInterval.Duration() > 0 {
+		if c.RepositoriesCleanup.CheckInterval.Duration() < minimalSyncCheckInterval {
+			return fmt.Errorf("repositories_cleanup.check_interval is less then %s, which could lead to a database performance problem", minimalSyncCheckInterval.String())
+		}
+		if c.RepositoriesCleanup.RunInterval.Duration() < minimalSyncRunInterval {
+			return fmt.Errorf("repositories_cleanup.run_interval is less then %s, which could lead to a database performance problem", minimalSyncRunInterval.String())
 		}
 	}
 
@@ -415,4 +428,25 @@ func (db DB) ToPQString(direct bool) string {
 	}
 
 	return strings.Join(fields, " ")
+}
+
+// RepositoriesCleanup configures repository synchronisation.
+type RepositoriesCleanup struct {
+	// CheckInterval is a time period used to check if operation should be executed.
+	// It is recommended to keep it less than run_interval configuration as some
+	// nodes may be out of service, so they can be stale for too long.
+	CheckInterval config.Duration `toml:"check_interval"`
+	// RunInterval: the check runs if the previous operation was done at least RunInterval before.
+	RunInterval config.Duration `toml:"run_interval"`
+	// RepositoriesInBatch is the number of repositories to pass as a batch for processing.
+	RepositoriesInBatch int `toml:"repositories_in_batch"`
+}
+
+// DefaultRepositoriesCleanup contains default configuration values for the RepositoriesCleanup.
+func DefaultRepositoriesCleanup() RepositoriesCleanup {
+	return RepositoriesCleanup{
+		CheckInterval:       config.Duration(30 * time.Minute),
+		RunInterval:         config.Duration(24 * time.Hour),
+		RepositoriesInBatch: 16,
+	}
 }
