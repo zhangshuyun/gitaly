@@ -33,6 +33,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes/tracker"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/protoregistry"
+	serversvc "gitlab.com/gitlab-org/gitaly/v14/internal/praefect/service/server"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/service/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/transactions"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -158,7 +159,13 @@ func TestGitalyServerInfo(t *testing.T) {
 			ServerVersion: version.GetVersion(),
 			GitVersion:    gitVersion.String(),
 			StorageStatuses: []*gitalypb.ServerInfoResponse_StorageStatus{
-				{StorageName: conf.VirtualStorages[0].Name, Readable: true, Writeable: true, ReplicationFactor: 2},
+				{
+					StorageName:       conf.VirtualStorages[0].Name,
+					FilesystemId:      serversvc.DeriveFilesystemID(conf.VirtualStorages[0].Name).String(),
+					Readable:          true,
+					Writeable:         true,
+					ReplicationFactor: 2,
+				},
 			},
 		}
 
@@ -167,7 +174,6 @@ func TestGitalyServerInfo(t *testing.T) {
 		require.NoError(t, err)
 		for _, ss := range actual.StorageStatuses {
 			ss.FsType = ""
-			ss.FilesystemId = ""
 		}
 		require.True(t, proto.Equal(expected, actual), "expected: %v, got: %v", expected, actual)
 	})
