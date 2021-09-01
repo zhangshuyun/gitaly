@@ -324,10 +324,6 @@ check-mod-tidy:
 lint: ${GOLANGCI_LINT} libgit2
 	${Q}${GOLANGCI_LINT} run --build-tags "${GO_BUILD_TAGS}" --out-format tab --config ${GOLANGCI_LINT_CONFIG} ${GOLANGCI_LINT_OPTIONS}
 
-.PHONY: lint-strict
-lint-strict: lint
-	${Q}GOLANGCI_LINT_CONFIG=$(SOURCE_DIR)/.golangci-strict.yml $(MAKE) lint
-
 .PHONY: format
 ## Run Go formatter and adjust imports.
 format: ${GOIMPORTS} ${GOFUMPT}
