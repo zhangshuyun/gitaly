@@ -455,3 +455,32 @@ func TestServer_PackObjectsHookWithSidechannel_invalidArgument(t *testing.T) {
 		})
 	}
 }
+
+func TestServer_PackObjectsHookWithSidechannel_Canceled(t *testing.T) {
+	cfg, repo, _ := cfgWithCache(t)
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	ctx, wt, err := hookPkg.SetupSidechannel(
+		ctx,
+		func(c *net.UnixConn) error {
+			// Simulate a client that successfully initiates a request, but hangs up
+			// before fully consuming the response.
+			_, err := io.WriteString(c, "3dd08961455abf80ef9115f4afdc1c6f968b503c\n--not\n\n")
+			return err
+		},
+	)
+	require.NoError(t, err)
+	defer wt.Close()
+
+	client, conn := newHooksClient(t, runHooksServer(t, cfg, nil))
+	defer conn.Close()
+
+	_, err = client.PackObjectsHookWithSidechannel(ctx, &gitalypb.PackObjectsHookWithSidechannelRequest{
+		Repository: repo,
+		Args:       []string{"pack-objects", "--revs", "--thin", "--stdout", "--progress", "--delta-base-offset"},
+	})
+	testhelper.RequireGrpcError(t, err, codes.Canceled)
+
+	require.NoError(t, wt.Wait())
+}

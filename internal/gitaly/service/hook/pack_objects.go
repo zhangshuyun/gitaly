@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"syscall"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
@@ -365,6 +366,12 @@ func (s *server) PackObjectsHookWithSidechannel(ctx context.Context, req *gitaly
 
 	output := func(r io.Reader) (int64, error) { return io.Copy(c, r) }
 	if err := s.packObjectsHook(ctx, req.Repository, req, args, c, output); err != nil {
+		if errors.Is(err, syscall.EPIPE) {
+			// EPIPE is the error we get if we try to write to c after the client has
+			// closed its side of the connection. By convention, we label server side
+			// errors caused by the client disconnecting with the Canceled gRPC code.
+			err = helper.ErrCanceled(err)
+		}
 		return nil, err
 	}
 
