@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"google.golang.org/grpc"
@@ -112,6 +113,10 @@ func TestPerRepositoryRouter_RouteStorageAccessor(t *testing.T) {
 }
 
 func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
+	t.Parallel()
+
+	db := glsql.NewDB(t)
+
 	for _, tc := range []struct {
 		desc           string
 		virtualStorage string
@@ -167,7 +172,7 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 			desc:           "no suitable nodes",
 			virtualStorage: "virtual-storage-1",
 			healthyNodes: map[string][]string{
-				"virtual-storage-1": {"inconistent-secondary"},
+				"virtual-storage-1": {"inconsistent-secondary"},
 			},
 			error: ErrNoSuitableNode,
 		},
@@ -198,21 +203,34 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 
 			conns := Connections{
 				"virtual-storage-1": {
-					"primary":               &grpc.ClientConn{},
-					"consistent-secondary":  &grpc.ClientConn{},
-					"inconistent-secondary": &grpc.ClientConn{},
-					"unhealthy-secondary":   &grpc.ClientConn{},
+					"primary":                &grpc.ClientConn{},
+					"consistent-secondary":   &grpc.ClientConn{},
+					"inconsistent-secondary": &grpc.ClientConn{},
+					"unhealthy-secondary":    &grpc.ClientConn{},
 				},
 			}
 
+			tx := db.Begin(t)
+			defer tx.Rollback(t)
+
+			testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": {
+				"virtual-storage-1": {"primary", "consistent-secondary", "inconsistent-secondary"},
+			}})
+
+			rs := datastore.NewPostgresRepositoryStore(tx, nil)
+			repositoryID, err := rs.ReserveRepositoryID(ctx, "virtual-storage-1", "repository")
+			require.NoError(t, err)
+			require.NoError(t,
+				rs.CreateRepository(ctx, repositoryID, "virtual-storage-1", "repository", "primary",
+					[]string{"consistent-secondary", "unhealthy-secondary", "inconsistent-secondary"}, nil, true, true),
+			)
+			require.NoError(t,
+				rs.IncrementGeneration(ctx, "virtual-storage-1", "repository", "primary", []string{"consistent-secondary", "unhealthy-secondary"}),
+			)
+
 			router := NewPerRepositoryRouter(
 				conns,
-				PrimaryGetterFunc(func(ctx context.Context, virtualStorage, relativePath string) (string, error) {
-					t.Helper()
-					require.Equal(t, tc.virtualStorage, virtualStorage)
-					require.Equal(t, "repository", relativePath)
-					return "primary", nil
-				}),
+				nodes.NewPerRepositoryElector(tx),
 				tc.healthyNodes,
 				mockRandom{
 					intnFunc: func(n int) int {
@@ -220,16 +238,9 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 						return tc.pickCandidate
 					},
 				},
-				datastore.MockRepositoryStore{
-					GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
-						t.Helper()
-						require.Equal(t, tc.virtualStorage, virtualStorage)
-						require.Equal(t, "repository", relativePath)
-						return map[string]struct{}{"primary": {}, "consistent-secondary": {}}, nil
-					},
-				},
+				rs,
 				nil,
-				datastore.MockRepositoryStore{},
+				rs,
 				nil,
 			)
 
