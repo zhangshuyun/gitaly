@@ -12,7 +12,10 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -58,6 +61,31 @@ func (s *server) applyGitattributes(ctx context.Context, c catfile.Batch, repoPa
 		return err
 	}
 
+	blobObj, err := c.Blob(ctx, git.Revision(blobInfo.Oid))
+	if err != nil {
+		return err
+	}
+
+	if featureflag.TxFileLocking.IsEnabled(ctx) {
+		writer, err := safe.NewLockingFileWriter(attributesPath, safe.LockingFileWriterConfig{
+			FileWriterConfig: safe.FileWriterConfig{FileMode: attributesFileMode},
+		})
+		if err != nil {
+			return fmt.Errorf("creating gitattributes writer: %w", err)
+		}
+		defer writer.Close()
+
+		if _, err := io.CopyN(writer, blobObj.Reader, blobInfo.Size); err != nil {
+			return err
+		}
+
+		if err := transaction.CommitLockedFile(ctx, s.txManager, writer); err != nil {
+			return fmt.Errorf("committing gitattributes: %w", err)
+		}
+
+		return nil
+	}
+
 	tempFile, err := ioutil.TempFile(infoPath, "attributes")
 	if err != nil {
 		return helper.ErrInternalf("creating temporary gitattributes file: %w", err)
@@ -67,11 +95,6 @@ func (s *server) applyGitattributes(ctx context.Context, c catfile.Batch, repoPa
 			ctxlogrus.Extract(ctx).WithError(err).Errorf("failed to remove tmp file %q", tempFile.Name())
 		}
 	}()
-
-	blobObj, err := c.Blob(ctx, git.Revision(blobInfo.Oid))
-	if err != nil {
-		return err
-	}
 
 	// Write attributes to temp file
 	if _, err := io.CopyN(tempFile, blobObj.Reader, blobInfo.Size); err != nil {
