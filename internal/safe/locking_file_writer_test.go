@@ -101,28 +101,6 @@ func TestLockingFileWriter_stateCleanup(t *testing.T) {
 	})
 }
 
-func TestLockingFileWriter_parallelWriters(t *testing.T) {
-	t.Parallel()
-
-	file := filepath.Join(testhelper.TempDir(t), "file")
-
-	first, err := safe.NewLockingFileWriter(file)
-	require.NoError(t, err)
-	_, err = first.Write([]byte("first"))
-	require.NoError(t, err)
-
-	second, err := safe.NewLockingFileWriter(file)
-	require.NoError(t, err)
-	_, err = second.Write([]byte("second"))
-	require.NoError(t, err)
-
-	require.NoError(t, first.Lock())
-	require.Equal(t, fmt.Errorf("file already locked"), second.Lock())
-	require.NoError(t, first.Commit())
-
-	require.Equal(t, []byte("first"), testhelper.MustReadFile(t, file))
-}
-
 func TestLockingFileWriter_createsNewFiles(t *testing.T) {
 	t.Parallel()
 
@@ -266,6 +244,28 @@ func TestLockingFileWriter_concurrentModification(t *testing.T) {
 	require.Equal(t, fmt.Errorf("file concurrently modified"), writer.Lock())
 
 	require.Equal(t, []byte("concurrent"), testhelper.MustReadFile(t, target))
+}
+
+func TestLockingFileWriter_concurrentLocking(t *testing.T) {
+	t.Parallel()
+
+	file := filepath.Join(testhelper.TempDir(t), "file")
+
+	first, err := safe.NewLockingFileWriter(file)
+	require.NoError(t, err)
+	_, err = first.Write([]byte("first"))
+	require.NoError(t, err)
+
+	second, err := safe.NewLockingFileWriter(file)
+	require.NoError(t, err)
+	_, err = second.Write([]byte("second"))
+	require.NoError(t, err)
+
+	require.NoError(t, first.Lock())
+	require.Equal(t, fmt.Errorf("file already locked"), second.Lock())
+	require.NoError(t, first.Commit())
+
+	require.Equal(t, []byte("first"), testhelper.MustReadFile(t, file))
 }
 
 func TestLockingFileWriter_locked(t *testing.T) {
