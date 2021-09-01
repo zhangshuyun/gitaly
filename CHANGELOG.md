@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## 14.2.3 (2021-09-01)
+
+### Performance (1 change)
+
+- [Only activate Git pack-objects hook if cache is enabled](gitlab-org/gitaly@11e725e16c2f6c1fc93ceb3cc250ec25c6276f00) ([merge request](gitlab-org/gitaly!3815))
+
 ## 14.2.2 (2021-08-31)
 
 ### Fixed (1 change)
