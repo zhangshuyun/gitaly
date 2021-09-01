@@ -25,5 +25,11 @@ func (err RepositoryNotFoundError) Error() string {
 	return fmt.Sprintf("repository %q/%q not found", err.virtualStorage, err.relativePath)
 }
 
+// ErrRepositoryNotFound is returned when operating on a repository that doesn't exist.
+//
+// This somewhat duplicates the above RepositoryNotFoundError but doesn't specify which repository was not found.
+// With repository IDs in use, the virtual storage and relative path won't be available everywhere anymore.
+var ErrRepositoryNotFound = errors.New("repository not found")
+
 // ErrRepositoryAlreadyExists is returned when attempting to create a repository that already exists.
 var ErrRepositoryAlreadyExists = errors.New("repository already exists")

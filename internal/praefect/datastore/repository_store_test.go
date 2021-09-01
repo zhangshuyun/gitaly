@@ -210,7 +210,7 @@ func TestRepositoryStore_incrementGenerationConcurrently(t *testing.T) {
 			firstTx := db.Begin(t)
 			secondTx := db.Begin(t)
 
-			err := NewPostgresRepositoryStore(firstTx, nil).IncrementGeneration(ctx, "virtual-storage", "relative-path", tc.first.primary, tc.first.secondaries)
+			err := NewPostgresRepositoryStore(firstTx, nil).IncrementGeneration(ctx, 1, tc.first.primary, tc.first.secondaries)
 			require.NoError(t, err)
 
 			go func() {
@@ -218,7 +218,7 @@ func TestRepositoryStore_incrementGenerationConcurrently(t *testing.T) {
 				firstTx.Commit(t)
 			}()
 
-			err = NewPostgresRepositoryStore(secondTx, nil).IncrementGeneration(ctx, "virtual-storage", "relative-path", tc.second.primary, tc.second.secondaries)
+			err = NewPostgresRepositoryStore(secondTx, nil).IncrementGeneration(ctx, 1, tc.second.primary, tc.second.secondaries)
 			require.Equal(t, tc.error, err)
 			secondTx.Commit(t)
 
@@ -273,8 +273,8 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			rs, requireState := newStore(t, nil)
 
 			require.Equal(t,
-				rs.IncrementGeneration(ctx, vs, repo, "primary", []string{"secondary-1"}),
-				commonerr.NewRepositoryNotFoundError(vs, repo),
+				rs.IncrementGeneration(ctx, 1, "primary", []string{"secondary-1"}),
+				commonerr.ErrRepositoryNotFound,
 			)
 			requireState(t, ctx,
 				virtualStorageState{},
@@ -289,7 +289,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			require.NoError(t, rs.SetGeneration(ctx, vs, repo, "latest-node", 1))
 
 			require.Equal(t,
-				rs.IncrementGeneration(ctx, vs, repo, "outdated-primary", []string{"outdated-secondary"}),
+				rs.IncrementGeneration(ctx, 1, "outdated-primary", []string{"outdated-secondary"}),
 				errWriteToOutdatedNodes,
 			)
 			requireState(t, ctx,
@@ -323,7 +323,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 				require.NoError(t, rs.CreateRepository(ctx, int64(id+1), pair.virtualStorage, pair.relativePath, "primary", []string{"up-to-date-secondary", "outdated-secondary"}, nil, false, false))
 			}
 
-			require.NoError(t, rs.IncrementGeneration(ctx, vs, repo, "primary", []string{"up-to-date-secondary"}))
+			require.NoError(t, rs.IncrementGeneration(ctx, 1, "primary", []string{"up-to-date-secondary"}))
 
 			requireState(t, ctx,
 				virtualStorageState{
@@ -358,7 +358,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 				},
 			)
 
-			require.NoError(t, rs.IncrementGeneration(ctx, vs, repo, "primary", []string{
+			require.NoError(t, rs.IncrementGeneration(ctx, 1, "primary", []string{
 				"up-to-date-secondary", "outdated-secondary", "non-existing-secondary",
 			}))
 			requireState(t, ctx,
@@ -957,7 +957,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		})
 
 		require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, "primary", []string{"consistent-secondary"}, nil, false, false))
-		require.NoError(t, rs.IncrementGeneration(ctx, vs, repo, "primary", []string{"consistent-secondary"}))
+		require.NoError(t, rs.IncrementGeneration(ctx, 1, "primary", []string{"consistent-secondary"}))
 		require.NoError(t, rs.SetGeneration(ctx, vs, repo, "inconsistent-secondary", 0))
 		requireState(t, ctx,
 			virtualStorageState{

@@ -87,7 +87,7 @@ type RepositoryStore interface {
 	// GetGeneration gets the repository's generation on a given storage.
 	GetGeneration(ctx context.Context, virtualStorage, relativePath, storage string) (int, error)
 	// IncrementGeneration increments the generations of up to date nodes.
-	IncrementGeneration(ctx context.Context, virtualStorage, relativePath, primary string, secondaries []string) error
+	IncrementGeneration(ctx context.Context, repositoryID int64, primary string, secondaries []string) error
 	// SetGeneration sets the repository's generation on the given storage. If the generation is higher
 	// than the virtual storage's generation, it is set to match as well to guarantee monotonic increments.
 	SetGeneration(ctx context.Context, virtualStorage, relativePath, storage string, generation int) error
@@ -168,54 +168,50 @@ AND storage = $3
 	return gen, nil
 }
 
-func (rs *PostgresRepositoryStore) IncrementGeneration(ctx context.Context, virtualStorage, relativePath, primary string, secondaries []string) error {
+func (rs *PostgresRepositoryStore) IncrementGeneration(ctx context.Context, repositoryID int64, primary string, secondaries []string) error {
 	const q = `
 WITH updated_replicas AS (
 	UPDATE storage_repositories
 	SET generation = generation + 1
 	FROM (
-		SELECT virtual_storage, relative_path, storage
+		SELECT repository_id, storage
 		FROM repositories
-		JOIN storage_repositories USING (virtual_storage, relative_path, generation)
-		WHERE virtual_storage = $1
-		AND   relative_path   = $2
-		AND   storage         = ANY($3)
+		JOIN storage_repositories USING (repository_id, generation)
+		WHERE repository_id = $1
+		AND   storage       = ANY($2)
 		FOR UPDATE
 	) AS to_update
-	WHERE storage_repositories.virtual_storage = to_update.virtual_storage
-	AND   storage_repositories.relative_path   = to_update.relative_path
-	AND   storage_repositories.storage         = to_update.storage
-	RETURNING storage_repositories.virtual_storage, storage_repositories.relative_path
+	WHERE storage_repositories.repository_id = to_update.repository_id
+	AND   storage_repositories.storage       = to_update.storage
+	RETURNING storage_repositories.repository_id
 ),
 
 updated_repository AS (
 	UPDATE repositories
 	SET generation = generation + 1
 	FROM (
-		SELECT DISTINCT virtual_storage, relative_path
+		SELECT DISTINCT repository_id
 		FROM updated_replicas
 	) AS updated_repositories
-	WHERE repositories.virtual_storage = updated_repositories.virtual_storage
-	AND   repositories.relative_path   = updated_repositories.relative_path
+	WHERE repositories.repository_id = updated_repositories.repository_id
 )
 
 SELECT
 	EXISTS (
 		SELECT FROM repositories
-		WHERE virtual_storage = $1
-		AND   relative_path   = $2
+		WHERE repository_id = $1
 	) AS repository_exists,
 	EXISTS ( SELECT FROM updated_replicas ) AS repository_updated
 `
 	var repositoryExists, repositoryUpdated bool
 	if err := rs.db.QueryRowContext(
-		ctx, q, virtualStorage, relativePath, pq.StringArray(append(secondaries, primary)),
+		ctx, q, repositoryID, pq.StringArray(append(secondaries, primary)),
 	).Scan(&repositoryExists, &repositoryUpdated); err != nil {
 		return fmt.Errorf("scan: %w", err)
 	}
 
 	if !repositoryExists {
-		return commonerr.NewRepositoryNotFoundError(virtualStorage, relativePath)
+		return commonerr.ErrRepositoryNotFound
 	}
 
 	if !repositoryUpdated {

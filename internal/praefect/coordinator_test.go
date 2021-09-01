@@ -2102,7 +2102,7 @@ func TestNewRequestFinalizer_contextIsDisjointedFromTheRPC(t *testing.T) {
 						},
 					},
 					datastore.MockRepositoryStore{
-						IncrementGenerationFunc: func(ctx context.Context, _, _, _ string, _ []string) error {
+						IncrementGenerationFunc: func(ctx context.Context, _ int64, _ string, _ []string) error {
 							requireSuppressedCancellation(t, ctx)
 							return err
 						},
