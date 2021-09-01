@@ -416,6 +416,8 @@ func TestPerRepositoryRouter_RouteRepositoryMutator(t *testing.T) {
 }
 
 func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
+	t.Parallel()
+
 	configuredNodes := map[string][]string{
 		"virtual-storage-1": {"primary", "secondary-1", "secondary-2"},
 	}
@@ -435,6 +437,8 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 	primaryConn := &grpc.ClientConn{}
 	secondary1Conn := &grpc.ClientConn{}
 	secondary2Conn := &grpc.ClientConn{}
+
+	db := glsql.NewDB(t)
 
 	for _, tc := range []struct {
 		desc                string
@@ -573,6 +577,15 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
+			db.TruncateAll(t)
+
+			rs := datastore.NewPostgresRepositoryStore(db, nil)
+			if tc.repositoryExists {
+				require.NoError(t,
+					rs.CreateRepository(ctx, 1, "virtual-storage-1", "relative-path", "primary", nil, nil, true, true),
+				)
+			}
+
 			route, err := NewPerRepositoryRouter(
 				Connections{
 					"virtual-storage-1": {
@@ -594,15 +607,7 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 				},
 				nil,
 				nil,
-				datastore.MockRepositoryStore{
-					ReserveRepositoryIDFunc: func(ctx context.Context, virtualStorage, relativePath string) (int64, error) {
-						if tc.repositoryExists {
-							return 0, commonerr.ErrRepositoryAlreadyExists
-						}
-
-						return 1, nil
-					},
-				},
+				rs,
 				map[string]int{"virtual-storage-1": tc.replicationFactor},
 			).RouteRepositoryCreation(ctx, tc.virtualStorage, "relative-path")
 			if tc.error != nil {
