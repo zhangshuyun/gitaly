@@ -166,8 +166,23 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 	}
 
 	toDelete := remoteRefs
-	if firstRequest.GetKeepDivergentRefs() {
+	if len(defaultBranch) == 0 || firstRequest.GetKeepDivergentRefs() {
 		toDelete = map[git.ReferenceName]string{}
+	}
+
+	for remoteRef, remoteCommitOID := range toDelete {
+		isAncestor, err := repo.IsAncestor(ctx, git.Revision(remoteCommitOID), git.Revision(defaultBranch))
+		if err != nil && !errors.Is(err, localrepo.InvalidCommitError(remoteCommitOID)) {
+			return fmt.Errorf("is ancestor: %w", err)
+		}
+
+		if isAncestor {
+			continue
+		}
+
+		// The commit in the extra branch in the remote repositoy has not been merged in to the
+		// local repository's default branch. Keep it to avoid losing work.
+		delete(toDelete, remoteRef)
 	}
 
 	var refspecs []string

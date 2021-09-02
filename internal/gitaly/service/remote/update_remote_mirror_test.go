@@ -63,8 +63,10 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			mirrorRefs: refs{
 				"refs/heads/tags": {"commit 1"},
 			},
-			response:           &gitalypb.UpdateRemoteMirrorResponse{},
-			expectedMirrorRefs: map[string]string{},
+			response: &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{
+				"refs/heads/tags": "commit 1",
+			},
 		},
 		{
 			desc:     "mirror is up to date",
@@ -123,6 +125,22 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			response: &gitalypb.UpdateRemoteMirrorResponse{},
 			expectedMirrorRefs: map[string]string{
 				"refs/heads/master": "commit 1",
+			},
+		},
+		{
+			desc: "keeps extra branches in remote not merged in local default branch",
+			sourceRefs: refs{
+				"refs/heads/master": {"commit 1"},
+			},
+			mirrorRefs: refs{
+				"refs/heads/master":     {"commit 1"},
+				"refs/heads/merged":     {"commit 1"},
+				"refs/heads/not-merged": {"commit 1", "commit 2"},
+			},
+			response: &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{
+				"refs/heads/master":     "commit 1",
+				"refs/heads/not-merged": "commit 2",
 			},
 		},
 		{
