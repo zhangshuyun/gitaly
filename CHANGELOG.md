@@ -1,5 +1,12 @@
 # Gitaly changelog
 
+## 14.1.5 (2021-09-02)
+
+### Performance (2 changes)
+
+- [coordinator: Only schedule replication for differing error states](gitlab-org/gitaly@ed5ab9bbd043bddbc3a5b029a999ba74133a8a29) ([merge request](gitlab-org/gitaly!3823))
+- [Only activate Git pack-objects hook if cache is enabled](gitlab-org/gitaly@9ff461ac2ba1386f6e923be07175135cb700c3d3) ([merge request](gitlab-org/gitaly!3814))
+
 ## 14.1.4 (2021-08-31)
 
 No changes.
