@@ -76,23 +76,24 @@ func New(ctx context.Context, conf config.Cfg, repo git.RepositoryExecutor, opts
 	return &Updater{repo: repo, cmd: cmd, stderr: &stderr}, nil
 }
 
-// Create commands the reference to be created with the sha specified in value
-func (u *Updater) Create(reference git.ReferenceName, value string) error {
-	_, err := fmt.Fprintf(u.cmd, "create %s\x00%s\x00", reference.String(), value)
-	return err
-}
-
-// Update commands the reference to be updated to point at the sha specified in
-// newvalue
+// Update commands the reference to be updated to point at the object ID specified in newvalue. If
+// newvalue is the zero OID, then the branch will be deleted. If oldvalue is a non-empty string,
+// then the reference will only be updated if its current value matches the old value. If the old
+// value is the zero OID, then the branch must not exist.
 func (u *Updater) Update(reference git.ReferenceName, newvalue, oldvalue string) error {
 	_, err := fmt.Fprintf(u.cmd, "update %s\x00%s\x00%s\x00", reference.String(), newvalue, oldvalue)
 	return err
 }
 
-// Delete commands the reference to be removed from the repository
+// Create commands the reference to be created with the given object ID. The ref must not exist.
+func (u *Updater) Create(reference git.ReferenceName, value string) error {
+	return u.Update(reference, value, git.ZeroOID.String())
+}
+
+// Delete commands the reference to be removed from the repository. This command will ignore any old
+// state of the reference and just force-remove it.
 func (u *Updater) Delete(reference git.ReferenceName) error {
-	_, err := fmt.Fprintf(u.cmd, "delete %s\x00\x00", reference.String())
-	return err
+	return u.Update(reference, git.ZeroOID.String(), "")
 }
 
 // Prepare prepares the reference transaction by locking all references and determining their
