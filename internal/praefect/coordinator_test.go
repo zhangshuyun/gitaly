@@ -1707,7 +1707,51 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			expectedPrimaryDirtied: true,
 			expectedOutdated:       []string{"s1", "s2"},
 			expectedMetrics: map[string]int{
-				"primary-failed": 2,
+				"node-error-status": 2,
+			},
+		},
+		{
+			desc: "multiple committed nodes with same error as primary",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteCommitted,
+				err:   anyErr,
+			},
+			secondaries: []node{
+				{name: "s1", state: transactions.VoteCommitted, err: anyErr},
+				{name: "s2", state: transactions.VoteCommitted, err: anyErr},
+			},
+			didVote: map[string]bool{
+				"primary": true,
+			},
+			subtransactions:        1,
+			expectedPrimaryDirtied: true,
+			expectedUpdated:        []string{"s1", "s2"},
+			expectedMetrics: map[string]int{
+				"updated": 2,
+			},
+		},
+		{
+			desc: "multiple committed nodes with different error as primary",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteCommitted,
+				err:   anyErr,
+			},
+			secondaries: []node{
+				{name: "s1", state: transactions.VoteCommitted, err: errors.New("somethingsomething")},
+				{name: "s2", state: transactions.VoteCommitted, err: anyErr},
+			},
+			didVote: map[string]bool{
+				"primary": true,
+			},
+			subtransactions:        1,
+			expectedPrimaryDirtied: true,
+			expectedUpdated:        []string{"s2"},
+			expectedOutdated:       []string{"s1"},
+			expectedMetrics: map[string]int{
+				"node-error-status": 1,
+				"updated":           1,
 			},
 		},
 		{
@@ -1728,8 +1772,31 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			expectedUpdated:        []string{"s2"},
 			expectedOutdated:       []string{"s1"},
 			expectedMetrics: map[string]int{
-				"node-failed": 1,
-				"updated":     1,
+				"node-error-status": 1,
+				"updated":           1,
+			},
+		},
+		{
+			desc: "multiple committed nodes with primary and missing secondary err",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteCommitted,
+				err:   anyErr,
+			},
+			secondaries: []node{
+				{name: "s1", state: transactions.VoteCommitted, err: anyErr},
+				{name: "s2", state: transactions.VoteCommitted},
+			},
+			didVote: map[string]bool{
+				"primary": true,
+			},
+			subtransactions:        1,
+			expectedPrimaryDirtied: true,
+			expectedUpdated:        []string{"s1"},
+			expectedOutdated:       []string{"s2"},
+			expectedMetrics: map[string]int{
+				"node-error-status": 1,
+				"updated":           1,
 			},
 		},
 		{
@@ -1849,7 +1916,7 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			expectedPrimaryDirtied: true,
 			expectedOutdated:       []string{"s1", "s2", "r1", "r2"},
 			expectedMetrics: map[string]int{
-				"node-failed":        1,
+				"node-error-status":  1,
 				"node-not-committed": 1,
 				"outdated":           2,
 			},
