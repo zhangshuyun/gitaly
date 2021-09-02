@@ -31,7 +31,7 @@ type NotAllowedError struct {
 }
 
 func (e NotAllowedError) Error() string {
-	return e.Message
+	return fmt.Sprintf("GitLab: %s", e.Message)
 }
 
 func getRelativeObjectDirs(repoPath, gitObjectDir, gitAlternateObjectDirs string) (string, []string, error) {
@@ -136,8 +136,22 @@ func (m *GitLabHookManager) preReceiveHook(ctx context.Context, payload git.Hook
 
 	allowed, message, err := m.gitlabClient.Allowed(ctx, params)
 	if err != nil {
-		return fmt.Errorf("invoking access checks: %w", err)
+		// This logic is broken because we just return every potential error to the
+		// caller, even though we cannot tell whether the error message stems from
+		// the API or if it is a generic error. Ideally, we'd be able to able to
+		// tell whether the error was a PermissionDenied error and only then return
+		// the error message as GitLab message. But this will require upstream
+		// changes in gitlab-shell first.
+		return NotAllowedError{
+			Message:  err.Error(),
+			UserID:   payload.ReceiveHooksPayload.UserID,
+			Protocol: payload.ReceiveHooksPayload.Protocol,
+			Changes:  changes,
+		}
 	}
+	// Due to above comment, it means that this code won't ever be executed: when there
+	// was an access error, then we would see an HTTP code which doesn't indicate
+	// success and thus get an error from `Allowed()`.
 	if !allowed {
 		return NotAllowedError{
 			Message:  message,

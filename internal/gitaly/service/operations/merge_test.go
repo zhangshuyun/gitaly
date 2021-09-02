@@ -590,7 +590,7 @@ func testUserMergeBranchAllowed(t *testing.T, ctx context.Context) {
 			allowed:        false,
 			allowedMessage: "you shall not pass",
 			expectedErr: errWithDetails(t,
-				helper.ErrPermissionDeniedf("you shall not pass"),
+				helper.ErrPermissionDeniedf("GitLab: you shall not pass"),
 				&gitalypb.UserMergeBranchError{
 					Error: &gitalypb.UserMergeBranchError_AccessCheck{
 						AccessCheck: &gitalypb.AccessCheckError{
@@ -603,15 +603,27 @@ func testUserMergeBranchAllowed(t *testing.T, ctx context.Context) {
 				},
 			),
 			expectedResponseWithoutFF: &gitalypb.UserMergeBranchResponse{
-				PreReceiveError: "you shall not pass",
+				PreReceiveError: "GitLab: you shall not pass",
 			},
 		},
 		{
-			desc:        "failing",
-			allowedErr:  errors.New("failure"),
-			expectedErr: helper.ErrInternalf("invoking access checks: failure"),
+			desc:       "failing",
+			allowedErr: errors.New("failure"),
+			expectedErr: errWithDetails(t,
+				helper.ErrPermissionDeniedf("GitLab: failure"),
+				&gitalypb.UserMergeBranchError{
+					Error: &gitalypb.UserMergeBranchError_AccessCheck{
+						AccessCheck: &gitalypb.AccessCheckError{
+							ErrorMessage: "failure",
+							Protocol:     "web",
+							UserId:       gittest.GlID,
+							Changes:      []byte(fmt.Sprintf("%s %s refs/heads/%s\n", mergeBranchHeadBefore, mergeBranchHeadAfter, mergeBranchName)),
+						},
+					},
+				},
+			),
 			expectedResponseWithoutFF: &gitalypb.UserMergeBranchResponse{
-				PreReceiveError: "invoking access checks: failure",
+				PreReceiveError: "GitLab: failure",
 			},
 		},
 	} {
