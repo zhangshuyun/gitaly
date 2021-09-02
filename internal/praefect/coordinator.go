@@ -479,6 +479,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 		}
 
 		for _, secondary := range route.Secondaries {
+			secondary := secondary
 			secondaryMsg, err := rewrittenRepositoryMessage(call.methodInfo, call.msg, secondary.Storage)
 			if err != nil {
 				return nil, err
@@ -767,8 +768,9 @@ func (c *Coordinator) createTransactionFinalizer(
 // - The node failed to be part of the quorum. As a special case, if the primary fails the vote, all
 //   nodes need to get replication jobs.
 //
-// - The node has errored. As a special case, if the primary fails all nodes need to get replication
-//   jobs.
+// - The node has a different error state than the primary. If both primary and secondary have
+//   returned the same error, then we assume they did the same thing and failed in the same
+//   controlled way.
 //
 // Note that this function cannot and should not fail: if anything goes wrong, we need to create
 // replication jobs to repair state.
@@ -784,49 +786,53 @@ func getUpdatedAndOutdatedSecondaries(
 
 	primaryErr := nodeErrors.errByNode[route.Primary.Storage]
 
-	// If there were subtransactions, we only assume some changes were made if one of the subtransactions
-	// was committed.
-	//
-	// If there were no subtransactions, we assume changes were performed only if the primary successfully
-	// processed the RPC. This might be an RPC that is not correctly casting votes thus we replicate everywhere.
-	//
-	// If there were no subtransactions and the primary failed the RPC, we assume no changes have been made and
-	// the nodes simply failed before voting.
-	primaryDirtied = transaction.DidCommitAnySubtransaction() ||
-		(transaction.CountSubtransactions() == 0 && primaryErr == nil)
+	// If there were no subtransactions and the primary failed the RPC, we assume no changes
+	// have been made and the nodes simply failed before voting. We can thus return directly and
+	// notify the caller that the primary is not considered to be dirty.
+	if transaction.CountSubtransactions() == 0 && primaryErr != nil {
+		return false, nil, nil
+	}
 
-	recordReplication := func(reason string, replicationCount int) {
-		// If the primary wasn't dirtied, then we never replicate any changes. While this is
-		// duplicates logic defined elsewhere, it's probably good enough given that we only
-		// talk about metrics here.
-		if primaryDirtied && replicationCount > 0 {
-			replicationCountMetric.WithLabelValues(reason).Add(float64(replicationCount))
+	// If there was a single subtransactions but the primary didn't cast a vote, then it means
+	// that the primary node has dropped out before secondaries were able to commit any changes
+	// to disk. Given that they cannot ever succeed without the primary, no change to disk
+	// should have happened.
+	if transaction.CountSubtransactions() == 1 && !transaction.DidVote(route.Primary.Storage) {
+		return false, nil, nil
+	}
+
+	primaryDirtied = true
+
+	nodesByState := make(map[string][]string)
+	defer func() {
+		ctxlogrus.Extract(ctx).
+			WithField("transaction.primary", route.Primary.Storage).
+			WithField("transaction.secondaries", nodesByState).
+			Info("transactional node states")
+
+		for reason, nodes := range nodesByState {
+			replicationCountMetric.WithLabelValues(reason).Add(float64(len(nodes)))
+		}
+	}()
+
+	markOutdated := func(reason string, nodes []string) {
+		if len(nodes) != 0 {
+			outdated = append(outdated, nodes...)
+			nodesByState[reason] = append(nodesByState[reason], nodes...)
 		}
 	}
 
 	// Replication targets were not added to the transaction, most likely because they are
 	// either not healthy or out of date. We thus need to make sure to create replication jobs
 	// for them.
-	outdated = append(outdated, route.ReplicationTargets...)
-	recordReplication("outdated", len(route.ReplicationTargets))
-
-	// If the primary errored, then we need to assume that it has modified on-disk state and
-	// thus need to replicate those changes to secondaries.
-	if primaryErr != nil {
-		ctxlogrus.Extract(ctx).WithError(primaryErr).Info("primary failed transaction")
-		outdated = append(outdated, routerNodesToStorages(route.Secondaries)...)
-		recordReplication("primary-failed", len(route.Secondaries))
-		return
-	}
+	markOutdated("outdated", route.ReplicationTargets)
 
 	// If no subtransaction happened, then the called RPC may not be aware of transactions or
 	// the nodes failed before casting any votes. If the primary failed the RPC, we assume
 	// no changes were done and the nodes hit an error prior to voting. If the primary processed
 	// the RPC successfully, we assume the RPC is not correctly voting and replicate everywhere.
 	if transaction.CountSubtransactions() == 0 {
-		ctxlogrus.Extract(ctx).Info("transaction did not create subtransactions")
-		outdated = append(outdated, routerNodesToStorages(route.Secondaries)...)
-		recordReplication("no-votes", len(route.Secondaries))
+		markOutdated("no-votes", routerNodesToStorages(route.Secondaries))
 		return
 	}
 
@@ -834,9 +840,7 @@ func getUpdatedAndOutdatedSecondaries(
 	// safe route and just replicate to all secondaries.
 	nodeStates, err := transaction.State()
 	if err != nil {
-		ctxlogrus.Extract(ctx).WithError(err).Error("could not get transaction state")
-		outdated = append(outdated, routerNodesToStorages(route.Secondaries)...)
-		recordReplication("missing-tx-state", len(route.Secondaries))
+		markOutdated("missing-tx-state", routerNodesToStorages(route.Secondaries))
 		return
 	}
 
@@ -844,30 +848,26 @@ func getUpdatedAndOutdatedSecondaries(
 	// then we must assume that it dirtied on-disk state. This modified state may not be what we want,
 	// but it's what we got. So in order to ensure a consistent state, we need to replicate.
 	if state := nodeStates[route.Primary.Storage]; state != transactions.VoteCommitted {
-		if state == transactions.VoteFailed {
-			ctxlogrus.Extract(ctx).Error("transaction: primary failed vote")
-		}
-		outdated = append(outdated, routerNodesToStorages(route.Secondaries)...)
-		recordReplication("primary-not-committed", len(route.Secondaries))
+		markOutdated("primary-not-committed", routerNodesToStorages(route.Secondaries))
 		return
 	}
 
-	// Now we finally got the potentially happy case: in case the secondary didn't run into an
-	// error and committed, it's considered up to date and thus does not need replication.
+	// Now we finally got the potentially happy case: when the secondary committed the
+	// transaction and has the same error state as the primary, then it's considered up to date
+	// and thus does not need replication.
 	for _, secondary := range route.Secondaries {
-		if nodeErrors.errByNode[secondary.Storage] != nil {
-			outdated = append(outdated, secondary.Storage)
-			recordReplication("node-failed", 1)
+		if nodeErrors.errByNode[secondary.Storage] != primaryErr {
+			markOutdated("node-error-status", []string{secondary.Storage})
 			continue
 		}
 
 		if nodeStates[secondary.Storage] != transactions.VoteCommitted {
-			outdated = append(outdated, secondary.Storage)
-			recordReplication("node-not-committed", 1)
+			markOutdated("node-not-committed", []string{secondary.Storage})
 			continue
 		}
 
 		updated = append(updated, secondary.Storage)
+		nodesByState["updated"] = append(nodesByState["updated"], secondary.Storage)
 	}
 
 	return
