@@ -57,6 +57,8 @@ type Transaction interface {
 	CountSubtransactions() int
 	// State returns the state of each voter part of the transaction.
 	State() (map[string]VoteResult, error)
+	// DidVote returns whether the given node has cast a vote.
+	DidVote(string) bool
 }
 
 // transaction is a session where a set of voters votes on one or more
@@ -182,6 +184,28 @@ func (t *transaction) CountSubtransactions() int {
 	defer t.lock.Unlock()
 
 	return len(t.subtransactions)
+}
+
+// DidVote determines whether the given node did cast a vote. If it's not possible to retrieve the
+// vote, then the node by definition didn't cast a vote.
+func (t *transaction) DidVote(node string) bool {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	// If there are no subtransactions, then no vote could've been cast by the given node.
+	if len(t.subtransactions) == 0 {
+		return false
+	}
+
+	// It's sufficient to take a look at the first transaction.
+	vote, err := t.subtransactions[0].getVote(node)
+	if err != nil {
+		// If it's not possible to retrieve the vote, then we consider the note to not have
+		// cast a vote.
+		return false
+	}
+
+	return vote != nil
 }
 
 // getOrCreateSubtransaction gets an ongoing subtransaction on which the given
