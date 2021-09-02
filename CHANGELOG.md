@@ -1,5 +1,22 @@
 # Gitaly changelog
 
+## 13.12.11 (2021-09-02)
+
+### Added (1 change)
+
+- [coordinator: Add replication metrics for transactions](gitlab-org/gitaly@bae452e8eb49f211acdf510cdd6c505bace34e5c) ([merge request](gitlab-org/gitaly!3825))
+
+### Fixed (3 changes)
+
+- [coordinator: Create replication jobs if the primary cast a vote](gitlab-org/gitaly@eb16bd967deda87f31f83150b7404aa2afa28a93) ([merge request](gitlab-org/gitaly!3825))
+- [praefect: Fix incorrect error tracking for secondaries](gitlab-org/gitaly@ee820fe9b2e6c0575fcde871dec73fb0ddad726b) by @blanet ([merge request](gitlab-org/gitaly!3825))
+- [Consider primary modified only if a subtransaction was committed](gitlab-org/gitaly@ca4b8f5116d44a38abf94e377918d78e864506cc) ([merge request](gitlab-org/gitaly!3825))
+
+### Performance (2 changes)
+
+- [coordinator: Only schedule replication for differing error states](gitlab-org/gitaly@23d7161a4a80bb18d9e0b0b304f2d5bd3cd6d467) ([merge request](gitlab-org/gitaly!3825))
+- [Only activate Git pack-objects hook if cache is enabled](gitlab-org/gitaly@622896c7424cfb578f3735f885a2c9ac2431e357) ([merge request](gitlab-org/gitaly!3807))
+
 ## 13.12.10 (2021-08-10)
 
 No changes.
