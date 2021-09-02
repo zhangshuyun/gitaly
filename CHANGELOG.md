@@ -1,5 +1,17 @@
 # Gitaly changelog
 
+## 14.0.10 (2021-09-02)
+
+### Fixed (2 changes)
+
+- [coordinator: Create replication jobs if the primary cast a vote](gitlab-org/gitaly@abfc3f01704c0fdbda7b92777de926ec624ef64b) ([merge request](gitlab-org/gitaly!3824))
+- [praefect: Fix incorrect error tracking for secondaries](gitlab-org/gitaly@31f12fbe6988afc35ec3f5ffebd361ed037ba1b0) by @blanet ([merge request](gitlab-org/gitaly!3824))
+
+### Performance (2 changes)
+
+- [coordinator: Only schedule replication for differing error states](gitlab-org/gitaly@eea44e79647aa314bf36782b23b9070f97f0835a) ([merge request](gitlab-org/gitaly!3824))
+- [Only activate Git pack-objects hook if cache is enabled](gitlab-org/gitaly@b2abe5ae4b7aabe2b89ddc9aa31ce65ae5b92bce) ([merge request](gitlab-org/gitaly!3813))
+
 ## 14.0.9 (2021-08-31)
 
 No changes.
