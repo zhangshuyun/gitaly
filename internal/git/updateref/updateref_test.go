@@ -181,6 +181,33 @@ func TestContextCancelAbortsRefChanges(t *testing.T) {
 	require.Equal(t, localrepo.ErrObjectNotFound, err, "expected 'not found' error got %v", err)
 }
 
+func TestUpdater_cancel(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	cfg, repo, updater := setupUpdater(t, ctx)
+
+	require.NoError(t, updater.Delete(git.ReferenceName("refs/heads/master")))
+	require.NoError(t, updater.Prepare())
+
+	// A concurrent update shouldn't be allowed.
+	concurrentUpdater, err := New(ctx, cfg, repo)
+	require.NoError(t, err)
+	require.NoError(t, concurrentUpdater.Delete(git.ReferenceName("refs/heads/master")))
+	err = concurrentUpdater.Commit()
+	require.NotNil(t, err)
+	require.Contains(t, err.Error(), "fatal: commit: cannot lock ref 'refs/heads/master'")
+
+	// We now cancel the initial updater. Afterwards, it should be possible again to update the
+	// ref because locks should have been released.
+	require.NoError(t, updater.Cancel())
+
+	concurrentUpdater, err = New(ctx, cfg, repo)
+	require.NoError(t, err)
+	require.NoError(t, concurrentUpdater.Delete(git.ReferenceName("refs/heads/master")))
+	require.NoError(t, concurrentUpdater.Commit())
+}
+
 func TestUpdater_closingStdinAbortsChanges(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()

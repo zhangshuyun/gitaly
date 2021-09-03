@@ -115,3 +115,12 @@ func (u *Updater) Commit() error {
 
 	return nil
 }
+
+// Cancel aborts the transaction. No changes will be written to disk, all lockfiles will be cleaned
+// up and the process will exit.
+func (u *Updater) Cancel() error {
+	if err := u.cmd.Wait(); err != nil {
+		return fmt.Errorf("canceling update: %w", err)
+	}
+	return nil
+}
