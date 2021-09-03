@@ -20,6 +20,9 @@ var minimumVersion = Version{
 	minor:         31,
 	patch:         0,
 	rc:            false,
+
+	// gl is the GitLab patch level.
+	gl: 0,
 }
 
 // Version represents the version of git itself.
@@ -31,6 +34,7 @@ type Version struct {
 	versionString       string
 	major, minor, patch uint32
 	rc                  bool
+	gl                  uint32
 }
 
 // CurrentVersion returns the used git version.
@@ -101,6 +105,11 @@ func (v Version) LessThan(other Version) bool {
 	case !v.rc && other.rc:
 		return false
 
+	case v.gl < other.gl:
+		return true
+	case v.gl > other.gl:
+		return false
+
 	default:
 		// this should only be reachable when versions are equal
 		return false
@@ -145,6 +154,15 @@ func parseVersion(versionStr string) (Version, error) {
 	if len(versionSplit) == 4 {
 		if strings.HasPrefix(versionSplit[3], "rc") {
 			ver.rc = true
+		} else if strings.HasPrefix(versionSplit[3], "gl") {
+			gitlabPatchLevel := versionSplit[3][2:]
+
+			gl, err := strconv.ParseUint(gitlabPatchLevel, 10, 32)
+			if err != nil {
+				return Version{}, err
+			}
+
+			ver.gl = uint32(gl)
 		}
 	}
 

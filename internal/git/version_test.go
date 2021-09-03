@@ -61,6 +61,11 @@ func TestVersion_LessThan(t *testing.T) {
 
 		{"1.1.GIT", "1.1.1"},
 		{"1.0.0", "1.1.GIT"},
+
+		{"1.1.1", "1.1.1.gl1"},
+		{"1.1.1.gl0", "1.1.1.gl1"},
+		{"1.1.1.gl1", "1.1.1.gl2"},
+		{"1.1.1.gl1", "1.1.2"},
 	} {
 		t.Run(fmt.Sprintf("%s < %s", tc.smaller, tc.larger), func(t *testing.T) {
 			smaller, err := parseVersion(tc.smaller)
@@ -104,8 +109,11 @@ func TestVersion_IsSupported(t *testing.T) {
 		{"2.30.0", false},
 		{"2.31.0-rc0", false},
 		{"2.31.0", true},
+		{"2.31.0.gl0", true},
+		{"2.31.0.gl1", true},
 		{"2.31.1", true},
 		{"3.0.0", true},
+		{"3.0.0.gl5", true},
 	} {
 		t.Run(tc.version, func(t *testing.T) {
 			version, err := parseVersion(tc.version)
@@ -124,8 +132,11 @@ func TestVersion_SupportsObjectTypeFilter(t *testing.T) {
 		{"2.31.0-rc0", false},
 		{"2.31.1", false},
 		{"2.32.0", true},
+		{"2.32.0.gl0", true},
+		{"2.32.0.gl1", true},
 		{"2.32.1", true},
 		{"3.0.0", true},
+		{"3.0.0.gl5", true},
 	} {
 		t.Run(tc.version, func(t *testing.T) {
 			version, err := parseVersion(tc.version)
