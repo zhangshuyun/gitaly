@@ -10,7 +10,6 @@ GITALY_TEAM = %w[
   proglottis
   samihiltunen
   toon
-  zj-gitlab
 ]
 
 gitlab_dangerfiles = Gitlab::Dangerfiles::Engine.new(self)
