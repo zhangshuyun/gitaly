@@ -84,7 +84,6 @@ The generated changelog entry would look like:
 |@pks-t|
 |@proglottis|
 |@samihiltunen|
-|@zj-gitlab|
 |@toon|
 
 ## Development Process
