@@ -32,8 +32,9 @@ type batch struct {
 	sync.Mutex
 	*batchCheckProcess
 	*batchProcess
-	cancel func()
-	closed bool
+	cancel   func()
+	closed   bool
+	batchCtx context.Context
 }
 
 // Info returns an ObjectInfo if spec exists. If the revision does not exist
@@ -112,9 +113,9 @@ func (bc *BatchCache) newBatch(ctx context.Context, repo git.RepositoryExecutor)
 
 	// batch processes are long-lived and reused across RPCs,
 	// so we de-correlate the process from the RPC
-	ctx = correlation.ContextWithCorrelation(ctx, "")
-	ctx = opentracing.ContextWithSpan(ctx, nil)
-	span2, ctx := opentracing.StartSpanFromContext(ctx, "catfile.Batch")
+	batchCtx := correlation.ContextWithCorrelation(ctx, "")
+	batchCtx = opentracing.ContextWithSpan(batchCtx, nil)
+	span2, batchCtx := opentracing.StartSpanFromContext(batchCtx, "catfile.Batch")
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer func() {
@@ -138,7 +139,7 @@ func (bc *BatchCache) newBatch(ctx context.Context, repo git.RepositoryExecutor)
 		return nil, ctx, err
 	}
 
-	return &batch{batchProcess: batchProcess, batchCheckProcess: batchCheckProcess}, ctx, nil
+	return &batch{batchProcess: batchProcess, batchCheckProcess: batchCheckProcess, batchCtx: batchCtx}, ctx, nil
 }
 
 func newInstrumentedBatch(ctx context.Context, c Batch, catfileLookupCounter *prometheus.CounterVec) Batch {
