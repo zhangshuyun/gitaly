@@ -35,7 +35,7 @@ func WithDisabledTransactions() UpdaterOpt {
 }
 
 // New returns a new bulk updater, wrapping a `git update-ref` process. Call the
-// various methods to enqueue updates, then call Wait() to attempt to apply all
+// various methods to enqueue updates, then call Commit() to attempt to apply all
 // the updates at once.
 //
 // It is important that ctx gets canceled somewhere. If it doesn't, the process
@@ -97,14 +97,14 @@ func (u *Updater) Delete(reference git.ReferenceName) error {
 
 // Prepare prepares the reference transaction by locking all references and determining their
 // current values. The updates are not yet committed and will be rolled back in case there is no
-// call to `Wait()`. This call is optional.
+// call to `Commit()`. This call is optional.
 func (u *Updater) Prepare() error {
 	_, err := fmt.Fprintf(u.cmd, "prepare\x00")
 	return err
 }
 
-// Wait applies the commands specified in other calls to the Updater
-func (u *Updater) Wait() error {
+// Commit applies the commands specified in other calls to the Updater
+func (u *Updater) Commit() error {
 	if _, err := u.cmd.Write([]byte("commit\x00")); err != nil {
 		return err
 	}

@@ -178,7 +178,7 @@ func (u *UpdaterWithHooks) UpdateReference(
 		return err
 	}
 
-	if err := updater.Wait(); err != nil {
+	if err := updater.Commit(); err != nil {
 		return Error{reference: reference.String()}
 	}
 

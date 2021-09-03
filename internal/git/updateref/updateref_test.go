@@ -54,7 +54,7 @@ func TestCreate(t *testing.T) {
 	sha := headCommit.Id
 
 	require.NoError(t, updater.Create(ref, sha))
-	require.NoError(t, updater.Wait())
+	require.NoError(t, updater.Commit())
 
 	// check the ref was created
 	commit, logErr := repo.ReadCommit(ctx, ref.Revision())
@@ -81,7 +81,7 @@ func TestUpdate(t *testing.T) {
 
 	require.NoError(t, updater.Update(ref, sha, ""))
 	require.NoError(t, updater.Prepare())
-	require.NoError(t, updater.Wait())
+	require.NoError(t, updater.Commit())
 
 	// check the ref was updated
 	commit, logErr = repo.ReadCommit(ctx, ref.Revision())
@@ -108,7 +108,7 @@ func TestDelete(t *testing.T) {
 	ref := git.ReferenceName("refs/heads/feature")
 
 	require.NoError(t, updater.Delete(ref))
-	require.NoError(t, updater.Wait())
+	require.NoError(t, updater.Commit())
 
 	// check the ref was removed
 	_, err := repo.ReadCommit(ctx, ref.Revision())
@@ -128,7 +128,7 @@ func TestUpdater_prepareLocksTransaction(t *testing.T) {
 	require.NoError(t, updater.Prepare())
 	require.NoError(t, updater.Update("refs/heads/feature", commit.Id, ""))
 
-	err := updater.Wait()
+	err := updater.Commit()
 	require.Error(t, err, "cannot update after prepare")
 	require.Contains(t, err.Error(), "fatal: prepared transactions can only be closed")
 }
@@ -147,7 +147,7 @@ func TestBulkOperation(t *testing.T) {
 		require.NoError(t, updater.Create(git.ReferenceName(ref), headCommit.Id), "Failed to create ref %d", i)
 	}
 
-	require.NoError(t, updater.Wait())
+	require.NoError(t, updater.Commit())
 
 	refs, err := repo.GetReferences(ctx, "refs/")
 	require.NoError(t, err)
@@ -174,7 +174,7 @@ func TestContextCancelAbortsRefChanges(t *testing.T) {
 
 	// Force the update-ref process to terminate early
 	childCancel()
-	require.Error(t, updater.Wait())
+	require.Error(t, updater.Commit())
 
 	// check the ref doesn't exist
 	_, err = repo.ReadCommit(ctx, ref.Revision())
@@ -223,7 +223,7 @@ func TestUpdater_capturesStderr(t *testing.T) {
 		"\"fatal: commit: cannot update ref '%s': "+
 		"trying to write ref '%s' with nonexistent object %s\\n\"", ref, ref, newValue)
 
-	err := updater.Wait()
+	err := updater.Commit()
 	require.NotNil(t, err)
 	require.Equal(t, err.Error(), expectedErr)
 }
