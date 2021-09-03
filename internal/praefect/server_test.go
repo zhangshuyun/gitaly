@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -37,6 +38,7 @@ import (
 	serversvc "gitlab.com/gitlab-org/gitaly/v14/internal/praefect/service/server"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/service/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/transactions"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/promtest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
@@ -123,8 +125,21 @@ func TestGitalyServerInfo(t *testing.T) {
 		secondCfg := testcfg.Build(t, testcfg.WithStorages("praefect-internal-2"))
 		secondCfg.SocketPath = testserver.RunGitalyServer(t, secondCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
+		require.NoError(t, storage.WriteMetadataFile(firstCfg.Storages[0].Path))
+		firstMetadata, err := storage.ReadMetadataFile(firstCfg.Storages[0].Path)
+		require.NoError(t, err)
+
 		conf := config.Config{
 			VirtualStorages: []*config.VirtualStorage{
+				{
+					Name: "passthrough-filesystem-id",
+					Nodes: []*config.Node{
+						{
+							Storage: firstCfg.Storages[0].Name,
+							Address: firstCfg.SocketPath,
+						},
+					},
+				},
 				{
 					Name: "virtual-storage",
 					Nodes: []*config.Node{
@@ -159,7 +174,14 @@ func TestGitalyServerInfo(t *testing.T) {
 			StorageStatuses: []*gitalypb.ServerInfoResponse_StorageStatus{
 				{
 					StorageName:       conf.VirtualStorages[0].Name,
-					FilesystemId:      serversvc.DeriveFilesystemID(conf.VirtualStorages[0].Name).String(),
+					FilesystemId:      firstMetadata.GitalyFilesystemID,
+					Readable:          true,
+					Writeable:         true,
+					ReplicationFactor: 1,
+				},
+				{
+					StorageName:       conf.VirtualStorages[1].Name,
+					FilesystemId:      serversvc.DeriveFilesystemID(conf.VirtualStorages[1].Name).String(),
 					Readable:          true,
 					Writeable:         true,
 					ReplicationFactor: 2,
@@ -173,6 +195,12 @@ func TestGitalyServerInfo(t *testing.T) {
 		for _, ss := range actual.StorageStatuses {
 			ss.FsType = ""
 		}
+
+		// sort the storages by name so they match the expected
+		sort.Slice(actual.StorageStatuses, func(i, j int) bool {
+			return actual.StorageStatuses[i].StorageName < actual.StorageStatuses[j].StorageName
+		})
+
 		require.True(t, proto.Equal(expected, actual), "expected: %v, got: %v", expected, actual)
 	})
 
