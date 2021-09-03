@@ -120,6 +120,14 @@ ifndef GIT_PATCHES
     GIT_PATCHES += 0004-revision-stop-retrieving-reference-twice.patch
     GIT_PATCHES += 0005-commit-graph-split-out-function-to-search-commit-pos.patch
     GIT_PATCHES += 0006-revision-avoid-hitting-packfiles-when-commits-are-in.patch
+
+    # This extra version has two intentions: first, it allows us to detect
+    # capabilities of the command at runtime. Second, it helps admins to
+    # discover which version is currently in use. As such, this version must be
+    # incremented whenever a new patch is added above. When no patches exist,
+    # then this should be undefined. Otherwise, it must be set to at least
+    # `gl1` given that `0` is the "default" GitLab patch level.
+    GIT_EXTRA_VERSION = gl1
 endif
 
 ifndef GIT_BUILD_OPTIONS
@@ -465,7 +473,7 @@ ${DEPENDENCY_DIR}: | ${BUILD_DIR}
 ${DEPENDENCY_DIR}/libgit2.version: dependency-version | ${DEPENDENCY_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${LIBGIT2_VERSION} ${LIBGIT2_BUILD_OPTIONS}" ] || >$@ echo -n "${LIBGIT2_VERSION} ${LIBGIT2_BUILD_OPTIONS}"
 ${DEPENDENCY_DIR}/git.version: dependency-version | ${DEPENDENCY_DIR}
-	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${GIT_VERSION} ${GIT_BUILD_OPTIONS} ${GIT_PATCHES}" ] || >$@ echo -n "${GIT_VERSION} ${GIT_BUILD_OPTIONS} ${GIT_PATCHES}"
+	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${GIT_VERSION}.${GIT_EXTRA_VERSION} ${GIT_BUILD_OPTIONS} ${GIT_PATCHES}" ] || >$@ echo -n "${GIT_VERSION}.${GIT_EXTRA_VERSION} ${GIT_BUILD_OPTIONS} ${GIT_PATCHES}"
 ${TOOLS_DIR}/%.version: dependency-version | ${TOOLS_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${TOOL_VERSION}" ] || >$@ echo -n "${TOOL_VERSION}"
 
@@ -490,6 +498,14 @@ ${GIT_INSTALL_DIR}/bin/git: ${DEPENDENCY_DIR}/git.version
 	${Q}${GIT} -C "${GIT_SOURCE_DIR}" checkout ${GIT_QUIET} --detach FETCH_HEAD
 ifneq (${GIT_PATCHES},)
 	${Q}${GIT} -C "${GIT_SOURCE_DIR}" apply $(addprefix "${SOURCE_DIR}"/_support/git-patches/,${GIT_PATCHES})
+endif
+	# We're writing the version into the "version" file in Git's own source
+	# directory. If it exists, Git's Makefile will pick it up and use it as
+	# the version instead of auto-detecting via git-describe(1).
+ifneq (${GIT_EXTRA_VERSION},0)
+	${Q}echo ${GIT_VERSION}.${GIT_EXTRA_VERSION} >"${GIT_SOURCE_DIR}"/version
+else
+	${Q}rm -f "${GIT_SOURCE_DIR}"/version
 endif
 	${Q}rm -rf ${GIT_INSTALL_DIR}
 	${Q}mkdir -p ${GIT_INSTALL_DIR}
