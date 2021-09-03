@@ -65,15 +65,21 @@ func New(ctx context.Context, conf config.Cfg, repo git.RepositoryExecutor, opts
 		return nil, err
 	}
 
+	updater := &Updater{
+		repo:   repo,
+		cmd:    cmd,
+		stderr: &stderr,
+	}
+
 	// By writing an explicit "start" to the command, we enable
 	// transactional behaviour. Which effectively means that without an
 	// explicit "commit", no changes will be inadvertently committed to
 	// disk.
-	if _, err := cmd.Write([]byte("start\x00")); err != nil {
+	if err := updater.setState("start"); err != nil {
 		return nil, err
 	}
 
-	return &Updater{repo: repo, cmd: cmd, stderr: &stderr}, nil
+	return updater, nil
 }
 
 // Update commands the reference to be updated to point at the object ID specified in newvalue. If
@@ -100,13 +106,12 @@ func (u *Updater) Delete(reference git.ReferenceName) error {
 // current values. The updates are not yet committed and will be rolled back in case there is no
 // call to `Commit()`. This call is optional.
 func (u *Updater) Prepare() error {
-	_, err := fmt.Fprintf(u.cmd, "prepare\x00")
-	return err
+	return u.setState("prepare")
 }
 
 // Commit applies the commands specified in other calls to the Updater
 func (u *Updater) Commit() error {
-	if _, err := u.cmd.Write([]byte("commit\x00")); err != nil {
+	if err := u.setState("commit"); err != nil {
 		return err
 	}
 
@@ -123,5 +128,22 @@ func (u *Updater) Cancel() error {
 	if err := u.cmd.Wait(); err != nil {
 		return fmt.Errorf("canceling update: %w", err)
 	}
+	return nil
+}
+
+func (u *Updater) setState(state string) error {
+	_, err := fmt.Fprintf(u.cmd, "%s\x00", state)
+	if err != nil {
+		return fmt.Errorf("updating state to %s: %w", state, err)
+	}
+
+	// For each state-changing command, git-update-ref(1) will report successful execution via
+	// "<command>: ok" lines printed to its stdout. Ideally, we should thus verify here whether
+	// the command was successfully executed by checking for exactly this line, otherwise we
+	// cannot be sure whether the command has correctly been processed by Git or if an error was
+	// raised. Unfortunately, Git won't flush the output though, and as such we would be left
+	// waiting for the message to appear here. This needs to be fixed upstream first, and after
+	// this we should adapt this function to assert commands.
+
 	return nil
 }
