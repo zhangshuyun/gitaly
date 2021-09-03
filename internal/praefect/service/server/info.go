@@ -77,9 +77,6 @@ func (s *Server) ServerInfo(ctx context.Context, in *gitalypb.ServerInfoRequest)
 			for _, storageStatus := range resp.GetStorageStatuses() {
 				if storageStatus.StorageName == storage {
 					storageStatuses[i] = storageStatus
-					// Each of the Gitaly nodes have a different filesystem ID they've generated. To have a stable filesystem
-					// ID for a given virtual storage, the filesystem ID is generated from the virtual storage's name.
-					storageStatuses[i].FilesystemId = DeriveFilesystemID(virtualStorage).String()
 					// the storage name in the response needs to be rewritten to be the virtual storage name
 					// because the praefect client has no concept of internal gitaly nodes that are behind praefect.
 					// From the perspective of the praefect client, the primary internal gitaly node's storage status is equivalent
@@ -87,6 +84,17 @@ func (s *Server) ServerInfo(ctx context.Context, in *gitalypb.ServerInfoRequest)
 					storageStatuses[i].StorageName = virtualStorage
 					storageStatuses[i].Writeable = storageStatus.Writeable
 					storageStatuses[i].ReplicationFactor = uint32(len(storages))
+
+					// Rails tests configure Praefect in front of tests that drive the direct git access with Rugged patches.
+					// This is not a real world scenario and would not work. The tests only configure a single Gitaly node,
+					// so as a workaround for these tests, we only override the filesystem id if we have more than one Gitaly node.
+					// The filesystem ID and this workaround can be removed once the Rugged patches and NFS are gone in 15.0.
+					if len(storages) > 1 {
+						// Each of the Gitaly nodes have a different filesystem ID they've generated. To have a stable filesystem
+						// ID for a given virtual storage, the filesystem ID is generated from the virtual storage's name.
+						storageStatuses[i].FilesystemId = DeriveFilesystemID(storageStatus.StorageName).String()
+					}
+
 					break
 				}
 			}
