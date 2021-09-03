@@ -9,103 +9,87 @@ import (
 
 func TestVersion_LessThan(t *testing.T) {
 	for _, tc := range []struct {
-		v1, v2 string
-		expect bool
+		smaller, larger string
 	}{
-		// v1 < v2 == expect
-		{"0.0.0", "0.0.0", false},
-		{"0.0.0", "0.0.1", true},
-		{"0.0.0", "0.1.0", true},
-		{"0.0.0", "0.1.1", true},
-		{"0.0.0", "1.0.0", true},
-		{"0.0.0", "1.0.1", true},
-		{"0.0.0", "1.1.0", true},
-		{"0.0.0", "1.1.1", true},
+		{"0.0.0", "0.0.0"},
+		{"0.0.0", "0.0.1"},
+		{"0.0.0", "0.1.0"},
+		{"0.0.0", "0.1.1"},
+		{"0.0.0", "1.0.0"},
+		{"0.0.0", "1.0.1"},
+		{"0.0.0", "1.1.0"},
+		{"0.0.0", "1.1.1"},
 
-		{"0.0.1", "0.0.0", false},
-		{"0.0.1", "0.0.1", false},
-		{"0.0.1", "0.1.0", true},
-		{"0.0.1", "0.1.1", true},
-		{"0.0.1", "1.0.0", true},
-		{"0.0.1", "1.0.1", true},
-		{"0.0.1", "1.1.0", true},
-		{"0.0.1", "1.1.1", true},
+		{"0.0.1", "0.0.1"},
+		{"0.0.1", "0.1.0"},
+		{"0.0.1", "0.1.1"},
+		{"0.0.1", "1.0.0"},
+		{"0.0.1", "1.0.1"},
+		{"0.0.1", "1.1.0"},
+		{"0.0.1", "1.1.1"},
 
-		{"0.1.0", "0.0.0", false},
-		{"0.1.0", "0.0.1", false},
-		{"0.1.0", "0.1.0", false},
-		{"0.1.0", "0.1.1", true},
-		{"0.1.0", "1.0.0", true},
-		{"0.1.0", "1.0.1", true},
-		{"0.1.0", "1.1.0", true},
-		{"0.1.0", "1.1.1", true},
+		{"0.1.0", "0.1.0"},
+		{"0.1.0", "0.1.1"},
+		{"0.1.0", "1.0.0"},
+		{"0.1.0", "1.0.1"},
+		{"0.1.0", "1.1.0"},
+		{"0.1.0", "1.1.1"},
 
-		{"0.1.1", "0.0.0", false},
-		{"0.1.1", "0.0.1", false},
-		{"0.1.1", "0.1.0", false},
-		{"0.1.1", "0.1.1", false},
-		{"0.1.1", "1.0.0", true},
-		{"0.1.1", "1.0.1", true},
-		{"0.1.1", "1.1.0", true},
-		{"0.1.1", "1.1.1", true},
+		{"0.1.1", "0.1.1"},
+		{"0.1.1", "1.0.0"},
+		{"0.1.1", "1.0.1"},
+		{"0.1.1", "1.1.0"},
+		{"0.1.1", "1.1.1"},
 
-		{"1.0.0", "0.0.0", false},
-		{"1.0.0", "0.0.1", false},
-		{"1.0.0", "0.1.0", false},
-		{"1.0.0", "0.1.1", false},
-		{"1.0.0", "1.0.0", false},
-		{"1.0.0", "1.0.1", true},
-		{"1.0.0", "1.1.0", true},
-		{"1.0.0", "1.1.1", true},
+		{"1.0.0", "1.0.0"},
+		{"1.0.0", "1.0.1"},
+		{"1.0.0", "1.1.0"},
+		{"1.0.0", "1.1.1"},
 
-		{"1.0.1", "0.0.0", false},
-		{"1.0.1", "0.0.1", false},
-		{"1.0.1", "0.1.0", false},
-		{"1.0.1", "0.1.1", false},
-		{"1.0.1", "1.0.0", false},
-		{"1.0.1", "1.0.1", false},
-		{"1.0.1", "1.1.0", true},
-		{"1.0.1", "1.1.1", true},
+		{"1.0.1", "1.0.1"},
+		{"1.0.1", "1.1.0"},
+		{"1.0.1", "1.1.1"},
 
-		{"1.1.0", "0.0.0", false},
-		{"1.1.0", "0.0.1", false},
-		{"1.1.0", "0.1.0", false},
-		{"1.1.0", "0.1.1", false},
-		{"1.1.0", "1.0.0", false},
-		{"1.1.0", "1.0.1", false},
-		{"1.1.0", "1.1.0", false},
-		{"1.1.0", "1.1.1", true},
+		{"1.1.0", "1.1.0"},
+		{"1.1.0", "1.1.1"},
 
-		{"1.1.1", "0.0.0", false},
-		{"1.1.1", "0.0.1", false},
-		{"1.1.1", "0.1.0", false},
-		{"1.1.1", "0.1.1", false},
-		{"1.1.1", "1.0.0", false},
-		{"1.1.1", "1.0.1", false},
-		{"1.1.1", "1.1.0", false},
-		{"1.1.1", "1.1.1", false},
+		{"1.1.1", "1.1.1"},
 
-		{"1.1.1.rc0", "1.1.1", true},
-		{"1.1.1.rc0", "1.1.1.rc0", false},
-		{"1.1.1.rc0", "1.1.0", false},
-		{"1.1.1-rc0", "1.1.1-rc0", false},
-		{"1.1.1-rc0", "1.1.1", true},
-		{"1.1.1", "1.1.1-rc0", false},
+		{"1.1.1.rc0", "1.1.1.rc0"},
+		{"1.1.1.rc0", "1.1.1"},
+		{"1.1.0", "1.1.1.rc0"},
 
-		{"1.1.GIT", "1.1.1", true},
-		{"1.1.GIT", "1.1.0", false},
-		{"1.1.GIT", "1.0.0", false},
+		{"1.1.GIT", "1.1.1"},
+		{"1.0.0", "1.1.GIT"},
 	} {
-		t.Run(fmt.Sprintf("%s < %s", tc.v1, tc.v2), func(t *testing.T) {
-			v1, err := parseVersion(tc.v1)
+		t.Run(fmt.Sprintf("%s < %s", tc.smaller, tc.larger), func(t *testing.T) {
+			smaller, err := parseVersion(tc.smaller)
 			require.NoError(t, err)
 
-			v2, err := parseVersion(tc.v2)
+			larger, err := parseVersion(tc.larger)
 			require.NoError(t, err)
 
-			require.Equal(t, tc.expect, v1.LessThan(v2))
+			if tc.smaller == tc.larger {
+				require.False(t, smaller.LessThan(larger))
+				require.False(t, larger.LessThan(smaller))
+			} else {
+				require.True(t, smaller.LessThan(larger))
+				require.False(t, larger.LessThan(smaller))
+			}
 		})
 	}
+
+	t.Run("1.1.GIT == 1.1.0", func(t *testing.T) {
+		first, err := parseVersion("1.1.GIT")
+		require.NoError(t, err)
+
+		second, err := parseVersion("1.1.0")
+		require.NoError(t, err)
+
+		// This is a special case: "GIT" is treated the same as "0".
+		require.False(t, first.LessThan(second))
+		require.False(t, second.LessThan(first))
+	})
 }
 
 func TestVersion_IsSupported(t *testing.T) {
