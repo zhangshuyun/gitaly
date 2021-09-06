@@ -16,7 +16,7 @@ type MockRepositoryStore struct {
 	RenameRepositoryFunc                  func(ctx context.Context, virtualStorage, relativePath, storage, newRelativePath string) error
 	GetConsistentStoragesFunc             func(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error)
 	GetPartiallyAvailableRepositoriesFunc func(ctx context.Context, virtualStorage string) ([]PartiallyAvailableRepository, error)
-	DeleteInvalidRepositoryFunc           func(ctx context.Context, virtualStorage, relativePath, storage string) error
+	DeleteInvalidRepositoryFunc           func(ctx context.Context, repositoryID int64, storage string) error
 	RepositoryExistsFunc                  func(ctx context.Context, virtualStorage, relativePath string) (bool, error)
 	ReserveRepositoryIDFunc               func(ctx context.Context, virtualStorage, relativePath string) (int64, error)
 	GetRepositoryIDFunc                   func(ctx context.Context, virtualStorage, relativePath string) (int64, error)
@@ -115,12 +115,12 @@ func (m MockRepositoryStore) GetPartiallyAvailableRepositories(ctx context.Conte
 	return m.GetPartiallyAvailableRepositoriesFunc(ctx, virtualStorage)
 }
 
-func (m MockRepositoryStore) DeleteInvalidRepository(ctx context.Context, virtualStorage, relativePath, storage string) error {
+func (m MockRepositoryStore) DeleteInvalidRepository(ctx context.Context, repositoryID int64, storage string) error {
 	if m.DeleteInvalidRepositoryFunc == nil {
 		return nil
 	}
 
-	return m.DeleteInvalidRepositoryFunc(ctx, virtualStorage, relativePath, storage)
+	return m.DeleteInvalidRepositoryFunc(ctx, repositoryID, storage)
 }
 
 func (m MockRepositoryStore) RepositoryExists(ctx context.Context, virtualStorage, relativePath string) (bool, error) {

@@ -96,11 +96,7 @@ func (dr defaultReplicator) Replicate(ctx context.Context, event datastore.Repli
 		Repository: targetRepository,
 	}); err != nil {
 		if errors.Is(err, repository.ErrInvalidSourceRepository) {
-			if err := dr.rs.DeleteInvalidRepository(ctx,
-				event.Job.VirtualStorage,
-				event.Job.RelativePath,
-				event.Job.SourceNodeStorage,
-			); err != nil {
+			if err := dr.rs.DeleteInvalidRepository(ctx, event.Job.RepositoryID, event.Job.SourceNodeStorage); err != nil {
 				return fmt.Errorf("delete invalid repository: %w", err)
 			}
 

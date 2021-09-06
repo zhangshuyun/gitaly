@@ -1041,14 +1041,14 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		t.Run("only replica", func(t *testing.T) {
 			rs, requireState := newStore(t, nil)
 			require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, "invalid-storage", nil, nil, false, false))
-			require.NoError(t, rs.DeleteInvalidRepository(ctx, vs, repo, "invalid-storage"))
+			require.NoError(t, rs.DeleteInvalidRepository(ctx, 1, "invalid-storage"))
 			requireState(t, ctx, virtualStorageState{}, storageState{})
 		})
 
 		t.Run("another replica", func(t *testing.T) {
 			rs, requireState := newStore(t, nil)
 			require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, "invalid-storage", []string{"other-storage"}, nil, false, false))
-			require.NoError(t, rs.DeleteInvalidRepository(ctx, vs, repo, "invalid-storage"))
+			require.NoError(t, rs.DeleteInvalidRepository(ctx, 1, "invalid-storage"))
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {

@@ -126,7 +126,7 @@ type RepositoryStore interface {
 	// DeleteInvalidRepository is a method for deleting records of invalid repositories. It deletes a storage's
 	// record of the invalid repository. If the storage was the only storage with the repository, the repository's
 	// record on the virtual storage is also deleted.
-	DeleteInvalidRepository(ctx context.Context, virtualStorage, relativePath, storage string) error
+	DeleteInvalidRepository(ctx context.Context, repositoryID int64, storage string) error
 	// ReserveRepositoryID reserves an ID for a repository that is about to be created and returns it. If a repository already
 	// exists with the given virtual storage and relative path combination, an error is returned.
 	ReserveRepositoryID(ctx context.Context, virtualStorage, relativePath string) (int64, error)
@@ -553,26 +553,23 @@ AND relative_path = $2
 	return exists, nil
 }
 
-func (rs *PostgresRepositoryStore) DeleteInvalidRepository(ctx context.Context, virtualStorage, relativePath, storage string) error {
+func (rs *PostgresRepositoryStore) DeleteInvalidRepository(ctx context.Context, repositoryID int64, storage string) error {
 	_, err := rs.db.ExecContext(ctx, `
 WITH invalid_repository AS (
 	DELETE FROM storage_repositories
-	WHERE virtual_storage = $1
-	AND   relative_path = $2
-	AND   storage = $3
+	WHERE repository_id = $1
+	AND   storage = $2
 )
 
 DELETE FROM repositories
-WHERE virtual_storage = $1
-AND relative_path = $2
+WHERE repository_id = $1
 AND NOT EXISTS (
 	SELECT 1
 	FROM storage_repositories
-	WHERE virtual_storage = $1
-	AND relative_path = $2
-	AND storage != $3
+	WHERE repository_id = $1
+	AND storage != $2
 )
-	`, virtualStorage, relativePath, storage)
+	`, repositoryID, storage)
 	return err
 }
 
