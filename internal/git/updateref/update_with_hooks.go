@@ -134,17 +134,10 @@ func (u *UpdaterWithHooks) UpdateReference(
 		return HookError{err: err, stdout: stdout.String(), stderr: stderr.String()}
 	}
 
-	if err := u.hookManager.UpdateHook(ctx, quarantinedRepo, reference.String(), oldrev.String(), newrev.String(), []string{hooksPayload}, &stdout, &stderr); err != nil {
-		return HookError{err: err, stdout: stdout.String(), stderr: stderr.String()}
-	}
-
-	if err := u.hookManager.ReferenceTransactionHook(ctx, hook.ReferenceTransactionPrepared, []string{hooksPayload}, strings.NewReader(changes)); err != nil {
-		return HookError{err: err, stdout: stdout.String(), stderr: stderr.String()}
-	}
-
-	// Now that Rails has told us that the change is okay via the pre-receive hook and where
-	// transactional voting via the reference-transaction hook also passed, we can migrate any
-	// potentially quarantined objects into the main repository.
+	// Now that Rails has told us that the change is okay via the pre-receive hook, we can
+	// migrate any potentially quarantined objects into the main repository. This must happen
+	// before we start updating the refs because git-update-ref(1) will verify that it got all
+	// referenced objects available.
 	if quarantineDir != nil {
 		if err := quarantineDir.Migrate(); err != nil {
 			return fmt.Errorf("migrating quarantined objects: %w", err)
@@ -157,6 +150,14 @@ func (u *UpdaterWithHooks) UpdateReference(
 		if err != nil {
 			return err
 		}
+	}
+
+	if err := u.hookManager.UpdateHook(ctx, quarantinedRepo, reference.String(), oldrev.String(), newrev.String(), []string{hooksPayload}, &stdout, &stderr); err != nil {
+		return HookError{err: err, stdout: stdout.String(), stderr: stderr.String()}
+	}
+
+	if err := u.hookManager.ReferenceTransactionHook(ctx, hook.ReferenceTransactionPrepared, []string{hooksPayload}, strings.NewReader(changes)); err != nil {
+		return HookError{err: err, stdout: stdout.String(), stderr: stderr.String()}
 	}
 
 	// We are already manually invoking the reference-transaction hook, so there is no need to

@@ -545,8 +545,8 @@ func TestServer_UserCherryPick_quarantine(t *testing.T) {
 	// Set up a hook that parses the new object and then aborts the update. Like this, we can
 	// assert that the object does not end up in the main repository.
 	outputPath := filepath.Join(testhelper.TempDir(t), "output")
-	hookScript := fmt.Sprintf("#!/bin/sh\n%s rev-parse $3^{commit} >%s && exit 1", cfg.Git.BinPath, outputPath)
-	gittest.WriteCustomHook(t, repoPath, "update", []byte(hookScript))
+	hookScript := fmt.Sprintf("#!/bin/sh\nread oldval newval ref && %s rev-parse $newval^{commit} >%s && exit 1", cfg.Git.BinPath, outputPath)
+	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(hookScript))
 
 	commit, err := repo.ReadCommit(ctx, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
 	require.NoError(t, err)

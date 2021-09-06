@@ -405,16 +405,17 @@ func TestUserCreateTagQuarantine(t *testing.T) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	// We set up a custom "update" hook which simply prints the new tag to stdout and then exits
-	// with an error. Like this, we can both assert that the hook can see the quarantined tag,
-	// and it allows us to fail the RPC before we migrate quarantined objects. Furthermore, we
-	// also try whether we can print the tag's tagged object to assert that we can see objects
-	// which are not part of the object quarantine.
+	// We set up a custom "pre-receive" hook which simply prints the new tag to stdout and then
+	// exits with an error. Like this, we can both assert that the hook can see the quarantined
+	// tag, and it allows us to fail the RPC before we migrate quarantined objects. Furthermore,
+	// we also try whether we can print the tag's tagged object to assert that we can see
+	// objects which are not part of the object quarantine.
 	script := fmt.Sprintf(`#!/bin/sh
-	%s cat-file -p $3^{commit} >/dev/null &&
-	%s cat-file -p $3^{tag} &&
+	read oldval newval ref &&
+	%s cat-file -p $newval^{commit} >/dev/null &&
+	%s cat-file -p $newval^{tag} &&
 	exit 1`, cfg.Git.BinPath, cfg.Git.BinPath)
-	gittest.WriteCustomHook(t, repoPath, "update", []byte(script))
+	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(script))
 
 	response, err := client.UserCreateTag(ctx, &gitalypb.UserCreateTagRequest{
 		Repository:     repoProto,
