@@ -351,9 +351,10 @@ WITH repo AS (
 		repository_id,
 		virtual_storage,
 		relative_path,
+		replica_path,
 		generation,
 		"primary"
-	) VALUES ($8, $1, $2, 0, CASE WHEN $4 THEN $3 END)
+	) VALUES ($8, $1, $2, $2, 0, CASE WHEN $4 THEN $3 END)
 ),
 
 assignments AS (
@@ -462,7 +463,8 @@ func (rs *PostgresRepositoryStore) RenameRepository(ctx context.Context, virtual
 	const q = `
 WITH repo AS (
 	UPDATE repositories
-	SET relative_path = $4
+	SET relative_path = $4,
+	    replica_path  = $4
 	WHERE virtual_storage = $1
 	AND relative_path = $2
 )
