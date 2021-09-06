@@ -235,7 +235,7 @@ func (cfg *Cfg) validateListeners() error {
 
 func (cfg *Cfg) validateShell() error {
 	if len(cfg.GitlabShell.Dir) == 0 {
-		return fmt.Errorf("gitlab-shell.dir is not set")
+		return fmt.Errorf("gitlab-shell.dir: is not set")
 	}
 
 	return validateIsDirectory(cfg.GitlabShell.Dir, "gitlab-shell.dir")
@@ -293,14 +293,16 @@ func (cfg *Cfg) validateHooks() error {
 func validateIsDirectory(path, name string) error {
 	s, err := os.Stat(path)
 	if err != nil {
-		return err
+		if errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("%s: path doesn't exist: %q", name, path)
+		}
+		return fmt.Errorf("%s: %w", name, err)
 	}
 	if !s.IsDir() {
-		return fmt.Errorf("not a directory: %q", path)
+		return fmt.Errorf("%s: not a directory: %q", name, path)
 	}
 
-	log.WithField("dir", path).
-		Debugf("%s set", name)
+	log.WithField("dir", path).Debugf("%s set", name)
 
 	return nil
 }

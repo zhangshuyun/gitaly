@@ -573,27 +573,27 @@ func TestValidateShellPath(t *testing.T) {
 	testCases := []struct {
 		desc      string
 		path      string
-		shouldErr bool
+		expErrMsg string
 	}{
 		{
 			desc:      "When no Shell Path set",
 			path:      "",
-			shouldErr: true,
+			expErrMsg: "gitlab-shell.dir: is not set",
 		},
 		{
 			desc:      "When Shell Path set to non-existing path",
 			path:      "/non/existing/path",
-			shouldErr: true,
+			expErrMsg: `gitlab-shell.dir: path doesn't exist: "/non/existing/path"`,
 		},
 		{
 			desc:      "When Shell Path set to non-dir path",
 			path:      tmpFile,
-			shouldErr: true,
+			expErrMsg: fmt.Sprintf(`gitlab-shell.dir: not a directory: %q`, tmpFile),
 		},
 		{
 			desc:      "When Shell Path set to a valid directory",
 			path:      tmpDir,
-			shouldErr: false,
+			expErrMsg: "",
 		},
 	}
 
@@ -601,8 +601,8 @@ func TestValidateShellPath(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg := Cfg{GitlabShell: GitlabShell{Dir: tc.path}}
 			err := cfg.validateShell()
-			if tc.shouldErr {
-				assert.Error(t, err)
+			if tc.expErrMsg != "" {
+				assert.EqualError(t, err, tc.expErrMsg)
 			} else {
 				assert.NoError(t, err)
 			}
