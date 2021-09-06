@@ -312,20 +312,23 @@ func (cfg *Cfg) validateStorages() error {
 
 	for i, storage := range cfg.Storages {
 		if storage.Name == "" {
-			return fmt.Errorf("empty storage name in %+v", storage)
+			return fmt.Errorf("empty storage name at declaration %d", i+1)
 		}
 
 		if storage.Path == "" {
-			return fmt.Errorf("empty storage path in %+v", storage)
+			return fmt.Errorf("empty storage path for storage %q", storage.Name)
 		}
 
 		fs, err := os.Stat(storage.Path)
 		if err != nil {
-			return fmt.Errorf("storage %+v path must exist: %w", storage, err)
+			if errors.Is(err, os.ErrNotExist) {
+				return fmt.Errorf("storage path %q for storage %q doesn't exist", storage.Path, storage.Name)
+			}
+			return fmt.Errorf("storage %q: %w", storage.Name, err)
 		}
 
 		if !fs.IsDir() {
-			return fmt.Errorf("storage %+v path must be a dir", storage)
+			return fmt.Errorf("storage path %q for storage %q is not a dir", storage.Path, storage.Name)
 		}
 
 		for _, other := range cfg.Storages[:i] {

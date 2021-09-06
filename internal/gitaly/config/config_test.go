@@ -180,19 +180,26 @@ func TestLoadListenAddr(t *testing.T) {
 }
 
 func TestValidateStorages(t *testing.T) {
-	repositories, err := filepath.Abs("testdata/repositories")
+	repositories := tempDir(t)
+	repositories2 := tempDir(t)
+	nestedRepositories := filepath.Join(repositories, "nested")
+	require.NoError(t, os.MkdirAll(nestedRepositories, os.ModePerm))
+	f, err := ioutil.TempFile("", "")
 	require.NoError(t, err)
-
-	repositories2, err := filepath.Abs("testdata/repositories2")
-	require.NoError(t, err)
+	require.NoError(t, f.Close())
+	filePath := f.Name()
 
 	invalidDir := filepath.Join(repositories, t.Name())
 
 	testCases := []struct {
-		desc     string
-		storages []Storage
-		invalid  bool
+		desc      string
+		storages  []Storage
+		expErrMsg string
 	}{
+		{
+			desc:      "no storages",
+			expErrMsg: "no storage configurations found. Are you using the right format? https://gitlab.com/gitlab-org/gitaly/issues/397",
+		},
 		{
 			desc: "just 1 storage",
 			storages: []Storage{
@@ -217,20 +224,20 @@ func TestValidateStorages(t *testing.T) {
 		{
 			desc: "nested paths 1",
 			storages: []Storage{
-				{Name: "default", Path: "/home/git/repositories"},
-				{Name: "other", Path: "/home/git/repositories"},
-				{Name: "third", Path: "/home/git/repositories/third"},
+				{Name: "default", Path: repositories},
+				{Name: "other", Path: repositories},
+				{Name: "third", Path: nestedRepositories},
 			},
-			invalid: true,
+			expErrMsg: `storage paths may not nest: "third" and "default"`,
 		},
 		{
 			desc: "nested paths 2",
 			storages: []Storage{
-				{Name: "default", Path: "/home/git/repositories/default"},
-				{Name: "other", Path: "/home/git/repositories"},
-				{Name: "third", Path: "/home/git/repositories"},
+				{Name: "default", Path: nestedRepositories},
+				{Name: "other", Path: repositories},
+				{Name: "third", Path: repositories},
 			},
-			invalid: true,
+			expErrMsg: `storage paths may not nest: "other" and "default"`,
 		},
 		{
 			desc: "duplicate definition",
@@ -238,7 +245,7 @@ func TestValidateStorages(t *testing.T) {
 				{Name: "default", Path: repositories},
 				{Name: "default", Path: repositories},
 			},
-			invalid: true,
+			expErrMsg: `storage "default" is defined more than once`,
 		},
 		{
 			desc: "re-definition",
@@ -246,21 +253,23 @@ func TestValidateStorages(t *testing.T) {
 				{Name: "default", Path: repositories},
 				{Name: "default", Path: repositories2},
 			},
-			invalid: true,
+			expErrMsg: `storage "default" is defined more than once`,
 		},
 		{
 			desc: "empty name",
 			storages: []Storage{
+				{Name: "some", Path: repositories},
 				{Name: "", Path: repositories},
 			},
-			invalid: true,
+			expErrMsg: `empty storage name at declaration 2`,
 		},
 		{
 			desc: "empty path",
 			storages: []Storage{
+				{Name: "some", Path: repositories},
 				{Name: "default", Path: ""},
 			},
-			invalid: true,
+			expErrMsg: `empty storage path for storage "default"`,
 		},
 		{
 			desc: "non existing directory",
@@ -268,7 +277,15 @@ func TestValidateStorages(t *testing.T) {
 				{Name: "default", Path: repositories},
 				{Name: "nope", Path: invalidDir},
 			},
-			invalid: true,
+			expErrMsg: fmt.Sprintf(`storage path %q for storage "nope" doesn't exist`, invalidDir),
+		},
+		{
+			desc: "path points to the regular file",
+			storages: []Storage{
+				{Name: "default", Path: repositories},
+				{Name: "is_file", Path: filePath},
+			},
+			expErrMsg: fmt.Sprintf(`storage path %q for storage "is_file" is not a dir`, filePath),
 		},
 	}
 
@@ -277,8 +294,8 @@ func TestValidateStorages(t *testing.T) {
 			cfg := Cfg{Storages: tc.storages}
 
 			err := cfg.validateStorages()
-			if tc.invalid {
-				assert.Error(t, err, "%+v", tc.storages)
+			if tc.expErrMsg != "" {
+				assert.EqualError(t, err, tc.expErrMsg, "%+v", tc.storages)
 				return
 			}
 
@@ -1082,4 +1099,15 @@ dir = "foobar"
 			require.Equal(t, tc.out, cfg.PackObjectsCache)
 		})
 	}
+}
+
+func tempDir(t *testing.T) string {
+	tmpdir, err := ioutil.TempDir("", "")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		if err := os.RemoveAll(tmpdir); err != nil && !errors.Is(err, os.ErrNotExist) {
+			require.NoError(t, err)
+		}
+	})
+	return tmpdir
 }
