@@ -373,7 +373,9 @@ func (cfg *Cfg) SetGitPath() error {
 
 	resolvedPath, err := exec.LookPath("git")
 	if err != nil {
-		return err
+		if errors.Is(err, exec.ErrNotFound) {
+			return fmt.Errorf(`"git" executable not found, set path to it in the configuration file or add it to the PATH`)
+		}
 	}
 
 	log.WithFields(log.Fields{

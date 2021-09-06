@@ -450,39 +450,46 @@ value = "second-value"
 }
 
 func TestSetGitPath(t *testing.T) {
-	var resolvedGitPath string
-	if path, ok := os.LookupEnv("GITALY_TESTING_GIT_BINARY"); ok {
-		resolvedGitPath = path
+	// Clean up env so each test case can set it individually
+	val, set := os.LookupEnv("GITALY_TESTING_GIT_BINARY")
+	require.NoError(t, os.Unsetenv("GITALY_TESTING_GIT_BINARY"))
+	if set {
+		defer func() { require.NoError(t, os.Setenv("GITALY_TESTING_GIT_BINARY", val)) }()
 	} else {
-		path, err := exec.LookPath("git")
+		defer func() { require.NoError(t, os.Unsetenv("GITALY_TESTING_GIT_BINARY")) }()
+	}
+
+	t.Run("set in config", func(t *testing.T) {
+		cfg := Cfg{Git: Git{BinPath: "/path/to/myGit"}}
+		require.NoError(t, cfg.SetGitPath())
+		assert.Equal(t, "/path/to/myGit", cfg.Git.BinPath)
+	})
+
+	t.Run("set using env var", func(t *testing.T) {
+		require.NoError(t, os.Setenv("GITALY_TESTING_GIT_BINARY", "/path/to/env_git"))
+		defer func() { require.NoError(t, os.Unsetenv("GITALY_TESTING_GIT_BINARY")) }()
+		cfg := Cfg{Git: Git{}}
+		require.NoError(t, cfg.SetGitPath())
+		assert.Equal(t, "/path/to/env_git", cfg.Git.BinPath)
+	})
+
+	t.Run("not set, get from system", func(t *testing.T) {
+		resolvedPath, err := exec.LookPath("git")
 		require.NoError(t, err)
-		resolvedGitPath = path
-	}
+		cfg := Cfg{Git: Git{}}
+		require.NoError(t, cfg.SetGitPath())
+		assert.Equal(t, resolvedPath, cfg.Git.BinPath)
+	})
 
-	testCases := []struct {
-		desc       string
-		gitBinPath string
-		expected   string
-	}{
-		{
-			desc:       "With a Git Path set through the settings",
-			gitBinPath: "/path/to/myGit",
-			expected:   "/path/to/myGit",
-		},
-		{
-			desc:       "When a git path hasn't been set",
-			gitBinPath: "",
-			expected:   resolvedGitPath,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			cfg := Cfg{Git: Git{BinPath: tc.gitBinPath}}
-			require.NoError(t, cfg.SetGitPath())
-			assert.Equal(t, tc.expected, cfg.Git.BinPath, tc.desc)
-		})
-	}
+	t.Run("doesn't exist in the system", func(t *testing.T) {
+		val, set := os.LookupEnv("PATH")
+		require.NoError(t, os.Unsetenv("PATH"))
+		if set {
+			defer func() { require.NoError(t, os.Setenv("PATH", val)) }()
+		}
+		cfg := Cfg{Git: Git{}}
+		assert.EqualError(t, cfg.SetGitPath(), `"git" executable not found, set path to it in the configuration file or add it to the PATH`)
+	})
 }
 
 func TestValidateGitConfig(t *testing.T) {
