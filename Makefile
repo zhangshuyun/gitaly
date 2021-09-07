@@ -86,7 +86,7 @@ LIBGIT2_VERSION           ?= v1.1.0
 
 # Support both vX.Y.Z and X.Y.Z version patterns, since callers across
 # GitLab use both.
-ifndef GIT_VERSION
+ifeq ($(origin GIT_VERSION),undefined)
   GIT_VERSION := v2.33.0
 else
   GIT_VERSION := $(shell echo ${GIT_VERSION} | awk '/^[0-9]\.[0-9]+\.[0-9]+$$/ { printf "v" } { print $$1 }')
@@ -110,7 +110,7 @@ ifeq (${Q},@)
 	GIT_QUIET = --quiet
 endif
 
-ifndef GIT_PATCHES
+ifeq ($(origin GIT_PATCHES),undefined)
     # Before adding custom patches, please read doc/PROCESS.md#Patching-git
     # first to make sure your patches meet our acceptance criteria. Patches
     # must be put into `_support/git-patches`.
@@ -127,10 +127,10 @@ ifndef GIT_PATCHES
     # incremented whenever a new patch is added above. When no patches exist,
     # then this should be undefined. Otherwise, it must be set to at least
     # `gl1` given that `0` is the "default" GitLab patch level.
-    GIT_EXTRA_VERSION = gl1
+    GIT_EXTRA_VERSION := gl1
 endif
 
-ifndef GIT_BUILD_OPTIONS
+ifeq ($(origin GIT_BUILD_OPTIONS),undefined)
     ## Build options for Git.
     GIT_BUILD_OPTIONS ?=
     # activate developer checks
@@ -152,7 +152,7 @@ LIBGIT2_SOURCE_DIR  ?= ${DEPENDENCY_DIR}/libgit2/source
 LIBGIT2_BUILD_DIR   ?= ${DEPENDENCY_DIR}/libgit2/build
 LIBGIT2_INSTALL_DIR ?= ${DEPENDENCY_DIR}/libgit2/install
 
-ifndef LIBGIT2_BUILD_OPTIONS
+ifeq ($(origin LIBGIT2_BUILD_OPTIONS),undefined)
     ## Build options for libgit2.
     LIBGIT2_BUILD_OPTIONS ?=
     LIBGIT2_BUILD_OPTIONS += -DTHREADSAFE=ON
@@ -496,13 +496,13 @@ ${GIT_INSTALL_DIR}/bin/git: ${DEPENDENCY_DIR}/git.version
 	${Q}${GIT} -C "${GIT_SOURCE_DIR}" fetch --depth 1 ${GIT_QUIET} origin ${GIT_VERSION}
 	${Q}${GIT} -C "${GIT_SOURCE_DIR}" reset --hard
 	${Q}${GIT} -C "${GIT_SOURCE_DIR}" checkout ${GIT_QUIET} --detach FETCH_HEAD
-ifneq (${GIT_PATCHES},)
+ifdef GIT_PATCHES
 	${Q}${GIT} -C "${GIT_SOURCE_DIR}" apply $(addprefix "${SOURCE_DIR}"/_support/git-patches/,${GIT_PATCHES})
 endif
 	${Q}# We're writing the version into the "version" file in Git's own source
 	${Q}# directory. If it exists, Git's Makefile will pick it up and use it as
 	${Q}# the version instead of auto-detecting via git-describe(1).
-ifneq (${GIT_EXTRA_VERSION},0)
+ifdef GIT_EXTRA_VERSION
 	${Q}echo ${GIT_VERSION}.${GIT_EXTRA_VERSION} >"${GIT_SOURCE_DIR}"/version
 else
 	${Q}rm -f "${GIT_SOURCE_DIR}"/version
