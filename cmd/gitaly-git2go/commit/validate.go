@@ -22,6 +22,16 @@ func validateFileExists(index *git.Index, path string) error {
 	return nil
 }
 
+func validatePathDoesNotExist(index *git.Index, path string) error {
+	if err := validateFileDoesNotExist(index, path); err != nil {
+		return err
+	}
+	if err := validateDirectoryDoesNotExist(index, path); err != nil {
+		return err
+	}
+	return nil
+}
+
 func validateFileDoesNotExist(index *git.Index, path string) error {
 	_, err := index.Find(path)
 	if err == nil {

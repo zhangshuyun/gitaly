@@ -9,7 +9,7 @@ import (
 )
 
 func applyCreateFile(action git2go.CreateFile, index *git.Index) error {
-	if err := validateFileDoesNotExist(index, action.Path); err != nil {
+	if err := validatePathDoesNotExist(index, action.Path); err != nil {
 		return err
 	}
 
