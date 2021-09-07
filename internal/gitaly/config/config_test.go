@@ -993,6 +993,7 @@ func TestValidateCgroups(t *testing.T) {
 			},
 		},
 		{
+			name: "empty mount point",
 			rawCfg: `[cgroups]
 			count = 10
 			mountpoint = ""`,
@@ -1000,9 +1001,10 @@ func TestValidateCgroups(t *testing.T) {
 				Count:      10,
 				Mountpoint: "",
 			},
-			validateErr: errors.New("cgroups mountpoint cannot be empty"),
+			validateErr: errors.New("cgroups.mountpoint: cannot be empty"),
 		},
 		{
+			name: "empty hierarchy_root",
 			rawCfg: `[cgroups]
 			count = 10
 			mountpoint = "/sys/fs/cgroup"
@@ -1012,9 +1014,10 @@ func TestValidateCgroups(t *testing.T) {
 				Mountpoint:    "/sys/fs/cgroup",
 				HierarchyRoot: "",
 			},
-			validateErr: errors.New("cgroups hierarchy root cannot be empty"),
+			validateErr: errors.New("cgroups.hierarchy_root: cannot be empty"),
 		},
 		{
+			name: "invalid cpu shares",
 			rawCfg: `[cgroups]
 			count = 10
 			mountpoint = "/sys/fs/cgroup"
@@ -1031,9 +1034,10 @@ func TestValidateCgroups(t *testing.T) {
 					Shares:  0,
 				},
 			},
-			validateErr: errors.New("cgroups CPU shares has to be greater than zero"),
+			validateErr: errors.New("cgroups.cpu.shares: has to be greater than zero"),
 		},
 		{
+			name: "invalid memory limit - zero",
 			rawCfg: `[cgroups]
 			count = 10
 			mountpoint = "/sys/fs/cgroup"
@@ -1050,9 +1054,10 @@ func TestValidateCgroups(t *testing.T) {
 					Limit:   0,
 				},
 			},
-			validateErr: errors.New("cgroups memory limit has to be greater than zero or equal to -1"),
+			validateErr: errors.New("cgroups.memory.limit: has to be greater than zero or equal to -1"),
 		},
 		{
+			name: "invalid memory limit - negative",
 			rawCfg: `[cgroups]
 			count = 10
 			mountpoint = "/sys/fs/cgroup"
@@ -1069,7 +1074,7 @@ func TestValidateCgroups(t *testing.T) {
 					Limit:   -5,
 				},
 			},
-			validateErr: errors.New("cgroups memory limit has to be greater than zero or equal to -1"),
+			validateErr: errors.New("cgroups.memory.limit: has to be greater than zero or equal to -1"),
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

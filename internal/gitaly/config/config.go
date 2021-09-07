@@ -557,19 +557,19 @@ func (cfg *Cfg) validateCgroups() error {
 	}
 
 	if cg.Mountpoint == "" {
-		return fmt.Errorf("cgroups mountpoint cannot be empty")
+		return fmt.Errorf("cgroups.mountpoint: cannot be empty")
 	}
 
 	if cg.HierarchyRoot == "" {
-		return fmt.Errorf("cgroups hierarchy root cannot be empty")
+		return fmt.Errorf("cgroups.hierarchy_root: cannot be empty")
 	}
 
 	if cg.CPU.Enabled && cg.CPU.Shares == 0 {
-		return fmt.Errorf("cgroups CPU shares has to be greater than zero")
+		return fmt.Errorf("cgroups.cpu.shares: has to be greater than zero")
 	}
 
 	if cg.Memory.Enabled && (cg.Memory.Limit == 0 || cg.Memory.Limit < -1) {
-		return fmt.Errorf("cgroups memory limit has to be greater than zero or equal to -1")
+		return fmt.Errorf("cgroups.memory.limit: has to be greater than zero or equal to -1")
 	}
 
 	return nil
