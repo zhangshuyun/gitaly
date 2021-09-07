@@ -30,7 +30,7 @@ func IsMissingBloomFilters(repoPath string) (bool, error) {
 	commitGraphsData, err := ioutil.ReadFile(commitGraphsPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return false, nil
+			return true, nil
 		}
 		return false, err
 	}

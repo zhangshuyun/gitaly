@@ -12,24 +12,36 @@ func TestIsMissingBloomFilters(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
 		desc   string
-		enable bool
+		args   []string
+		result bool
 	}{
-		{desc: "no Bloom filter", enable: false},
-		{desc: "with Bloom filter", enable: true},
+		{
+			desc:   "no commit graph filter",
+			args:   nil,
+			result: true,
+		},
+		{
+			desc:   "commit graph without Bloom filter",
+			args:   []string{"commit-graph", "write", "--reachable", "--split"},
+			result: true,
+		},
+		{
+			desc:   "commit graph with Bloom filter",
+			args:   []string{"commit-graph", "write", "--reachable", "--split", "--changed-paths"},
+			result: false,
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg := testcfg.Build(t)
 			_, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
-			args := []string{"-C", repoPath, "commit-graph", "write", "--reachable", "--split"}
-			if tc.enable {
-				args = append(args, "--changed-paths")
+			if len(tc.args) > 0 {
+				gittest.Exec(t, cfg, append([]string{"-C", repoPath}, tc.args...)...)
 			}
-			gittest.Exec(t, cfg, args...)
 
-			ok, err := IsMissingBloomFilters(repoPath)
+			result, err := IsMissingBloomFilters(repoPath)
 			require.NoError(t, err)
-			require.Equal(t, tc.enable, !ok)
+			require.Equal(t, tc.result, result)
 		})
 	}
 }
