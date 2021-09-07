@@ -879,6 +879,28 @@ func TestLoadDailyMaintenance(t *testing.T) {
 		},
 		{
 			rawCfg: `[daily_maintenance]
+			start_hour = 0
+			start_minute = 61`,
+			expect: DailyJob{
+				Hour:   0,
+				Minute: 61,
+			},
+			validateErr: errors.New("daily maintenance specified minute '61' outside range (0-59)"),
+		},
+		{
+			rawCfg: `[daily_maintenance]
+			start_hour = 0
+			start_minute = 59
+			duration = "86401s"`,
+			expect: DailyJob{
+				Hour:     0,
+				Minute:   59,
+				Duration: Duration(24*time.Hour + time.Second),
+			},
+			validateErr: errors.New("daily maintenance specified duration 24h0m1s must be less than 24 hours"),
+		},
+		{
+			rawCfg: `[daily_maintenance]
 			duration = "meow"`,
 			expect:  DailyJob{},
 			loadErr: errors.New("load toml: (2, 4): unmarshal text: time: invalid duration"),
