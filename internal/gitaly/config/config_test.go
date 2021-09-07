@@ -761,14 +761,11 @@ dir = '%s'`, gitlabShellDir))
 
 func TestValidateInternalSocketDir(t *testing.T) {
 	// create a valid socket directory
-	tempDir, err := ioutil.TempDir("", t.Name())
-	require.NoError(t, err)
-	defer func() { require.NoError(t, os.RemoveAll(tempDir)) }()
-
+	tmpDir := tempDir(t)
 	// create a symlinked socket directory
 	dirName := "internal_socket_dir"
-	validSocketDirSymlink := filepath.Join(tempDir, dirName)
-	tmpSocketDir, err := ioutil.TempDir(tempDir, "")
+	validSocketDirSymlink := filepath.Join(tmpDir, dirName)
+	tmpSocketDir, err := ioutil.TempDir(tmpDir, "")
 	require.NoError(t, err)
 	tmpSocketDir, err = filepath.Abs(tmpSocketDir)
 	require.NoError(t, err)
@@ -776,49 +773,54 @@ func TestValidateInternalSocketDir(t *testing.T) {
 
 	// create a broken symlink
 	dirName = "internal_socket_dir_broken"
-	brokenSocketDirSymlink := filepath.Join(tempDir, dirName)
+	brokenSocketDirSymlink := filepath.Join(tmpDir, dirName)
 	require.NoError(t, os.Symlink("/does/not/exist", brokenSocketDirSymlink))
+
+	pathTooLongForSocket := filepath.Join(tmpDir, strings.Repeat("/nested_directory", 10))
+	require.NoError(t, os.MkdirAll(pathTooLongForSocket, os.ModePerm))
 
 	testCases := []struct {
 		desc              string
 		internalSocketDir string
-		shouldError       bool
+		expErrMsgRegexp   string
 	}{
 		{
 			desc:              "empty socket dir",
 			internalSocketDir: "",
-			shouldError:       false,
 		},
 		{
 			desc:              "non existing directory",
 			internalSocketDir: "/tmp/relative/path/to/nowhere",
-			shouldError:       true,
+			expErrMsgRegexp:   `internal_socket_dir: path doesn't exist: "/tmp/relative/path/to/nowhere"`,
 		},
 		{
 			desc:              "valid socket directory",
-			internalSocketDir: tempDir,
-			shouldError:       false,
+			internalSocketDir: tmpDir,
 		},
 		{
 			desc:              "valid symlinked directory",
 			internalSocketDir: validSocketDirSymlink,
-			shouldError:       false,
 		},
 		{
 			desc:              "broken symlinked directory",
 			internalSocketDir: brokenSocketDirSymlink,
-			shouldError:       true,
+			expErrMsgRegexp:   fmt.Sprintf(`internal_socket_dir: path doesn't exist: %q`, brokenSocketDirSymlink),
+		},
+		{
+			desc:              "socket can't be created",
+			internalSocketDir: pathTooLongForSocket,
+			expErrMsgRegexp:   `internal_socket_dir: try create socket: socket could not be created in .*\/test-.{8}\.sock: bind: invalid argument`,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg := Cfg{InternalSocketDir: tc.internalSocketDir}
-			if tc.shouldError {
-				assert.Error(t, cfg.validateInternalSocketDir())
-				return
+			err := (&Cfg{InternalSocketDir: tc.internalSocketDir}).validateInternalSocketDir()
+			if tc.expErrMsgRegexp != "" {
+				assert.Regexp(t, tc.expErrMsgRegexp, err)
+			} else {
+				assert.NoError(t, err)
 			}
-			assert.NoError(t, cfg.validateInternalSocketDir())
 		})
 	}
 }

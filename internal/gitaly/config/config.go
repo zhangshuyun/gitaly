@@ -476,17 +476,14 @@ func (cfg *Cfg) validateInternalSocketDir() error {
 		return nil
 	}
 
-	dir := cfg.InternalSocketDir
-
-	f, err := os.Stat(dir)
-	switch {
-	case err != nil:
-		return fmt.Errorf("InternalSocketDir: %s", err)
-	case !f.IsDir():
-		return fmt.Errorf("InternalSocketDir %s is not a directory", dir)
+	if err := validateIsDirectory(cfg.InternalSocketDir, "internal_socket_dir"); err != nil {
+		return err
 	}
 
-	return trySocketCreation(dir)
+	if err := trySocketCreation(cfg.InternalSocketDir); err != nil {
+		return fmt.Errorf("internal_socket_dir: try create socket: %w", err)
+	}
+	return nil
 }
 
 func trySocketCreation(dir string) error {
