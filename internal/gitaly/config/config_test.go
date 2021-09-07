@@ -672,21 +672,23 @@ func TestValidateListeners(t *testing.T) {
 	testCases := []struct {
 		desc string
 		Cfg
-		ok bool
+		expErrMsg string
 	}{
-		{desc: "empty"},
-		{desc: "socket only", Cfg: Cfg{SocketPath: "/foo/bar"}, ok: true},
-		{desc: "tcp only", Cfg: Cfg{ListenAddr: "a.b.c.d:1234"}, ok: true},
-		{desc: "both socket and tcp", Cfg: Cfg{SocketPath: "/foo/bar", ListenAddr: "a.b.c.d:1234"}, ok: true},
+		{desc: "empty", expErrMsg: `at least one of socket_path, listen_addr or tls_listen_addr must be set`},
+		{desc: "socket only", Cfg: Cfg{SocketPath: "/foo/bar"}},
+		{desc: "tcp only", Cfg: Cfg{ListenAddr: "a.b.c.d:1234"}},
+		{desc: "tls only", Cfg: Cfg{TLSListenAddr: "a.b.c.d:1234"}},
+		{desc: "both socket and tcp", Cfg: Cfg{SocketPath: "/foo/bar", ListenAddr: "a.b.c.d:1234"}},
+		{desc: "all addresses", Cfg: Cfg{SocketPath: "/foo/bar", ListenAddr: "a.b.c.d:1234", TLSListenAddr: "a.b.c.d:1234"}},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			err := tc.Cfg.validateListeners()
-			if tc.ok {
-				require.NoError(t, err)
+			if tc.expErrMsg != "" {
+				require.EqualError(t, err, tc.expErrMsg)
 			} else {
-				require.Error(t, err)
+				require.NoError(t, err)
 			}
 		})
 	}

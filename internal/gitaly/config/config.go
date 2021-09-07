@@ -227,8 +227,8 @@ func (cfg *Cfg) setDefaults() error {
 }
 
 func (cfg *Cfg) validateListeners() error {
-	if len(cfg.SocketPath) == 0 && len(cfg.ListenAddr) == 0 {
-		return fmt.Errorf("invalid listener config: at least one of socket_path and listen_addr must be set")
+	if len(cfg.SocketPath) == 0 && len(cfg.ListenAddr) == 0 && len(cfg.TLSListenAddr) == 0 {
+		return fmt.Errorf("at least one of socket_path, listen_addr or tls_listen_addr must be set")
 	}
 	return nil
 }
