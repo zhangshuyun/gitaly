@@ -412,8 +412,11 @@ func (cfg *Cfg) GitalyInternalSocketPath() string {
 }
 
 func (cfg *Cfg) validateBinDir() error {
+	if len(cfg.BinDir) == 0 {
+		return fmt.Errorf("bin_dir: is not set")
+	}
+
 	if err := validateIsDirectory(cfg.BinDir, "bin_dir"); err != nil {
-		log.WithError(err).Warn("Gitaly bin directory is not configured")
 		return err
 	}
 

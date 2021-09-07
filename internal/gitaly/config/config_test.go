@@ -1136,6 +1136,49 @@ func TestValidateToken(t *testing.T) {
 	require.NoError(t, (&Cfg{Auth: auth.Config{Transitioning: true, Token: "secret"}}).validateToken())
 }
 
+func TestValidateBinDir(t *testing.T) {
+	tmpDir := tempDir(t)
+	tmpFile := filepath.Join(tmpDir, "file")
+	fp, err := os.Create(tmpFile)
+	require.NoError(t, err)
+	require.NoError(t, fp.Close())
+
+	for _, tc := range []struct {
+		desc      string
+		binDir    string
+		expErrMsg string
+	}{
+		{
+			desc:   "ok",
+			binDir: tmpDir,
+		},
+		{
+			desc:      "empty",
+			binDir:    "",
+			expErrMsg: "bin_dir: is not set",
+		},
+		{
+			desc:      "path doesn't exist",
+			binDir:    "/not/exists",
+			expErrMsg: `bin_dir: path doesn't exist: "/not/exists"`,
+		},
+		{
+			desc:      "is not a directory",
+			binDir:    tmpFile,
+			expErrMsg: fmt.Sprintf(`bin_dir: not a directory: %q`, tmpFile),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			err := (&Cfg{BinDir: tc.binDir}).validateBinDir()
+			if tc.expErrMsg == "" {
+				require.NoError(t, err)
+			} else {
+				require.EqualError(t, err, tc.expErrMsg)
+			}
+		})
+	}
+}
+
 func tempDir(t *testing.T) string {
 	tmpdir, err := ioutil.TempDir("", "")
 	require.NoError(t, err)
