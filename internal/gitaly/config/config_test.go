@@ -619,15 +619,33 @@ func TestConfigureRuby(t *testing.T) {
 	require.NoError(t, ioutil.WriteFile(tmpFile, nil, 0o644))
 
 	testCases := []struct {
-		dir  string
-		ok   bool
-		desc string
+		desc      string
+		dir       string
+		expErrMsg string
 	}{
-		{dir: "", desc: "empty"},
-		{dir: "/does/not/exist", desc: "does not exist"},
-		{dir: tmpFile, desc: "exists but is not a directory"},
-		{dir: ".", ok: true, desc: "relative path"},
-		{dir: tmpDir, ok: true, desc: "ok"},
+		{
+			desc: "relative path",
+			dir:  ".",
+		},
+		{
+			desc: "ok",
+			dir:  tmpDir,
+		},
+		{
+			desc:      "empty",
+			dir:       "",
+			expErrMsg: "gitaly-ruby.dir: is not set",
+		},
+		{
+			desc:      "does not exist",
+			dir:       "/does/not/exist",
+			expErrMsg: `gitaly-ruby.dir: path doesn't exist: "/does/not/exist"`,
+		},
+		{
+			desc:      "exists but is not a directory",
+			dir:       tmpFile,
+			expErrMsg: fmt.Sprintf(`gitaly-ruby.dir: not a directory: %q`, tmpFile),
+		},
 	}
 
 	for _, tc := range testCases {
@@ -635,8 +653,8 @@ func TestConfigureRuby(t *testing.T) {
 			cfg := Cfg{Ruby: Ruby{Dir: tc.dir}}
 
 			err := cfg.ConfigureRuby()
-			if !tc.ok {
-				require.Error(t, err)
+			if tc.expErrMsg != "" {
+				require.EqualError(t, err, tc.expErrMsg)
 				return
 			}
 
