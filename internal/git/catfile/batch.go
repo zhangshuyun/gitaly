@@ -31,7 +31,7 @@ type Batch interface {
 type batch struct {
 	sync.Mutex
 	*batchCheckProcess
-	*batchProcess
+	*objectReader
 	cancel func()
 	closed bool
 }
@@ -47,7 +47,7 @@ func (c *batch) Info(ctx context.Context, revision git.Revision) (*ObjectInfo, e
 // the object type. Caller must consume the Reader before making another call
 // on C.
 func (c *batch) Tree(ctx context.Context, revision git.Revision) (*Object, error) {
-	return c.batchProcess.reader(revision, "tree")
+	return c.objectReader.reader(revision, "tree")
 }
 
 // Commit returns a raw commit object. It is an error if the revision does not
@@ -55,7 +55,7 @@ func (c *batch) Tree(ctx context.Context, revision git.Revision) (*Object, error
 // check the object type. Caller must consume the Reader before making another
 // call on C.
 func (c *batch) Commit(ctx context.Context, revision git.Revision) (*Object, error) {
-	return c.batchProcess.reader(revision, "commit")
+	return c.objectReader.reader(revision, "commit")
 }
 
 // Blob returns a reader for the requested blob. The entire blob must be
@@ -64,16 +64,16 @@ func (c *batch) Commit(ctx context.Context, revision git.Revision) (*Object, err
 // It is an error if the revision does not point to a blob. To prevent this,
 // use Info to resolve the revision and check the object type.
 func (c *batch) Blob(ctx context.Context, revision git.Revision) (*Object, error) {
-	return c.batchProcess.reader(revision, "blob")
+	return c.objectReader.reader(revision, "blob")
 }
 
 // Tag returns a raw tag object. Caller must consume the Reader before
 // making another call on C.
 func (c *batch) Tag(ctx context.Context, revision git.Revision) (*Object, error) {
-	return c.batchProcess.reader(revision, "tag")
+	return c.objectReader.reader(revision, "tag")
 }
 
-// Close closes the writers for batchCheckProcess and batchProcess. This is only used for cached
+// Close closes the writers for batchCheckProcess and objectReader. This is only used for cached
 // Batches
 func (c *batch) Close() {
 	c.Lock()
@@ -85,7 +85,7 @@ func (c *batch) Close() {
 
 	c.closed = true
 	if c.cancel != nil {
-		// both c.batchProcess and c.batchCheckProcess have goroutines that listen on
+		// both c.objectReader and c.batchCheckProcess have goroutines that listen on
 		// ctx.Done() when this is cancelled, it will cause those goroutines to close both
 		// writers
 		c.cancel()
@@ -123,7 +123,7 @@ func (bc *BatchCache) newBatch(ctx context.Context, repo git.RepositoryExecutor)
 		span.Finish()
 	}()
 
-	batchProcess, err := bc.newBatchProcess(ctx, repo)
+	objectReader, err := bc.newObjectReader(ctx, repo)
 	if err != nil {
 		return nil, ctx, err
 	}
@@ -133,7 +133,7 @@ func (bc *BatchCache) newBatch(ctx context.Context, repo git.RepositoryExecutor)
 		return nil, ctx, err
 	}
 
-	return &batch{batchProcess: batchProcess, batchCheckProcess: batchCheckProcess}, ctx, nil
+	return &batch{objectReader: objectReader, batchCheckProcess: batchCheckProcess}, ctx, nil
 }
 
 func newInstrumentedBatch(ctx context.Context, c Batch, catfileLookupCounter *prometheus.CounterVec) Batch {

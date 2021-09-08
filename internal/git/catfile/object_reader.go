@@ -12,8 +12,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 )
 
-// batch encapsulates a 'git cat-file --batch' process
-type batchProcess struct {
+// objectReader is a reader for Git objects. Reading is implemented via a long-lived `git cat-file
+// --batch` process such that we do not have to spawn a new process for each object we are about to
+// read.
+type objectReader struct {
 	r *bufio.Reader
 	w io.WriteCloser
 
@@ -31,14 +33,14 @@ type batchProcess struct {
 	sync.Mutex
 }
 
-func (bc *BatchCache) newBatchProcess(ctx context.Context, repo git.RepositoryExecutor) (*batchProcess, error) {
+func (bc *BatchCache) newObjectReader(ctx context.Context, repo git.RepositoryExecutor) (*objectReader, error) {
 	bc.totalCatfileProcesses.Inc()
-	b := &batchProcess{}
+	objectReader := &objectReader{}
 
 	var stdinReader io.Reader
-	stdinReader, b.w = io.Pipe()
+	stdinReader, objectReader.w = io.Pipe()
 
-	span, ctx := opentracing.StartSpanFromContext(ctx, "catfile.BatchProcess")
+	span, ctx := opentracing.StartSpanFromContext(ctx, "catfile.ObjectReader")
 
 	batchCmd, err := repo.Exec(ctx,
 		git.SubCmd{
@@ -53,13 +55,13 @@ func (bc *BatchCache) newBatchProcess(ctx context.Context, repo git.RepositoryEx
 		return nil, err
 	}
 
-	b.r = bufio.NewReader(batchCmd)
+	objectReader.r = bufio.NewReader(batchCmd)
 
 	bc.currentCatfileProcesses.Inc()
 	go func() {
 		<-ctx.Done()
 		// This Close() is crucial to prevent leaking file descriptors.
-		b.w.Close()
+		objectReader.w.Close()
 		bc.currentCatfileProcesses.Dec()
 		span.Finish()
 	}()
@@ -69,80 +71,80 @@ func (bc *BatchCache) newBatchProcess(ctx context.Context, repo git.RepositoryEx
 		return nil, &simulatedBatchSpawnError{}
 	}
 
-	return b, nil
+	return objectReader, nil
 }
 
-func (b *batchProcess) reader(revision git.Revision, expectedType string) (*Object, error) {
-	b.Lock()
-	defer b.Unlock()
+func (o *objectReader) reader(revision git.Revision, expectedType string) (*Object, error) {
+	o.Lock()
+	defer o.Unlock()
 
-	if b.n == 1 {
+	if o.n == 1 {
 		// Consume linefeed
-		if _, err := b.r.ReadByte(); err != nil {
+		if _, err := o.r.ReadByte(); err != nil {
 			return nil, err
 		}
-		b.n--
+		o.n--
 	}
 
-	if b.n != 0 {
-		return nil, fmt.Errorf("cannot create new Object: batch contains %d unread bytes", b.n)
+	if o.n != 0 {
+		return nil, fmt.Errorf("cannot create new Object: batch contains %d unread bytes", o.n)
 	}
 
-	if _, err := fmt.Fprintln(b.w, revision.String()); err != nil {
+	if _, err := fmt.Fprintln(o.w, revision.String()); err != nil {
 		return nil, err
 	}
 
-	oi, err := ParseObjectInfo(b.r)
+	oi, err := ParseObjectInfo(o.r)
 	if err != nil {
 		return nil, err
 	}
 
-	b.n = oi.Size + 1
+	o.n = oi.Size + 1
 
 	if oi.Type != expectedType {
 		// This is a programmer error and it should never happen. But if it does,
 		// we need to leave the cat-file process in a good state
-		if _, err := io.CopyN(ioutil.Discard, b.r, b.n); err != nil {
+		if _, err := io.CopyN(ioutil.Discard, o.r, o.n); err != nil {
 			return nil, err
 		}
-		b.n = 0
+		o.n = 0
 
 		return nil, NotFoundError{error: fmt.Errorf("expected %s to be a %s, got %s", oi.Oid, expectedType, oi.Type)}
 	}
 
 	return &Object{
 		ObjectInfo: *oi,
-		Reader: &batchReader{
-			batchProcess: b,
-			r:            io.LimitReader(b.r, oi.Size),
+		Reader: &objectDataReader{
+			objectReader: o,
+			r:            io.LimitReader(o.r, oi.Size),
 		},
 	}, nil
 }
 
-func (b *batchProcess) consume(nBytes int) {
-	b.n -= int64(nBytes)
-	if b.n < 1 {
+func (o *objectReader) consume(nBytes int) {
+	o.n -= int64(nBytes)
+	if o.n < 1 {
 		panic("too many bytes read from batch")
 	}
 }
 
-func (b *batchProcess) hasUnreadData() bool {
-	b.Lock()
-	defer b.Unlock()
+func (o *objectReader) hasUnreadData() bool {
+	o.Lock()
+	defer o.Unlock()
 
-	return b.n > 1
+	return o.n > 1
 }
 
-type batchReader struct {
-	*batchProcess
+type objectDataReader struct {
+	*objectReader
 	r io.Reader
 }
 
-func (br *batchReader) Read(p []byte) (int, error) {
-	br.batchProcess.Lock()
-	defer br.batchProcess.Unlock()
+func (o *objectDataReader) Read(p []byte) (int, error) {
+	o.objectReader.Lock()
+	defer o.objectReader.Unlock()
 
-	n, err := br.r.Read(p)
-	br.batchProcess.consume(n)
+	n, err := o.r.Read(p)
+	o.objectReader.consume(n)
 	return n, err
 }
