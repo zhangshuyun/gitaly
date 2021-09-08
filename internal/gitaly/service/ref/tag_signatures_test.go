@@ -78,11 +78,11 @@ func TestGetTagSignatures(t *testing.T) {
 		{
 			desc: "single tag signature",
 			revisions: []string{
-				tag1ID,
+				tag1ID.String(),
 			},
 			expectedSignatures: []*gitalypb.GetTagSignaturesResponse_TagSignature{
 				{
-					TagId:     tag1ID,
+					TagId:     tag1ID.String(),
 					Signature: []byte(signature1),
 					Content:   []byte(content1),
 				},
@@ -91,11 +91,11 @@ func TestGetTagSignatures(t *testing.T) {
 		{
 			desc: "single tag signature by short SHA",
 			revisions: []string{
-				tag1ID[:7],
+				tag1ID.String()[:7],
 			},
 			expectedSignatures: []*gitalypb.GetTagSignaturesResponse_TagSignature{
 				{
-					TagId:     tag1ID,
+					TagId:     tag1ID.String(),
 					Signature: []byte(signature1),
 					Content:   []byte(content1),
 				},
@@ -108,7 +108,7 @@ func TestGetTagSignatures(t *testing.T) {
 			},
 			expectedSignatures: []*gitalypb.GetTagSignaturesResponse_TagSignature{
 				{
-					TagId:     tag1ID,
+					TagId:     tag1ID.String(),
 					Signature: []byte(signature1),
 					Content:   []byte(content1),
 				},
@@ -117,17 +117,17 @@ func TestGetTagSignatures(t *testing.T) {
 		{
 			desc: "multiple tag signatures",
 			revisions: []string{
-				tag1ID,
-				tag2ID,
+				tag1ID.String(),
+				tag2ID.String(),
 			},
 			expectedSignatures: []*gitalypb.GetTagSignaturesResponse_TagSignature{
 				{
-					TagId:     tag1ID,
+					TagId:     tag1ID.String(),
 					Signature: []byte(signature1),
 					Content:   []byte(content1),
 				},
 				{
-					TagId:     tag2ID,
+					TagId:     tag2ID.String(),
 					Signature: []byte(signature2),
 					Content:   []byte(content2),
 				},
@@ -136,11 +136,11 @@ func TestGetTagSignatures(t *testing.T) {
 		{
 			desc: "tag without signature",
 			revisions: []string{
-				tag3ID,
+				tag3ID.String(),
 			},
 			expectedSignatures: []*gitalypb.GetTagSignaturesResponse_TagSignature{
 				{
-					TagId:     tag3ID,
+					TagId:     tag3ID.String(),
 					Signature: []byte(""),
 					Content:   []byte(content3),
 				},

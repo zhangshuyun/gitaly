@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 )
@@ -23,7 +24,14 @@ type WriteTagConfig struct {
 // an annotated tag was created, or otherwise the target object ID when a lightweight tag was
 // created. Takes either no WriteTagConfig, in which case the default values will be used, or
 // exactly one.
-func WriteTag(t testing.TB, cfg config.Cfg, repoPath, tagName, targetID string, optionalConfig ...WriteTagConfig) string {
+func WriteTag(
+	t testing.TB,
+	cfg config.Cfg,
+	repoPath string,
+	tagName string,
+	targetRevision git.Revision,
+	optionalConfig ...WriteTagConfig,
+) git.ObjectID {
 	require.Less(t, len(optionalConfig), 2, "only a single config may be passed")
 
 	var config WriteTagConfig
@@ -50,10 +58,14 @@ func WriteTag(t testing.TB, cfg config.Cfg, repoPath, tagName, targetID string, 
 	if config.Message != "" {
 		args = append(args, "-F", "-")
 	}
-	args = append(args, tagName, targetID)
+	args = append(args, tagName, targetRevision.String())
 
 	ExecStream(t, cfg, stdin, args...)
 
 	tagID := Exec(t, cfg, "-C", repoPath, "show-ref", "-s", tagName)
-	return text.ChompBytes(tagID)
+
+	objectID, err := git.NewObjectIDFromHex(text.ChompBytes(tagID))
+	require.NoError(t, err)
+
+	return objectID
 }

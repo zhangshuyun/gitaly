@@ -28,16 +28,16 @@ func TestSuccessfulGetTagMessagesRequest(t *testing.T) {
 
 	request := &gitalypb.GetTagMessagesRequest{
 		Repository: repo,
-		TagIds:     []string{tag1ID, tag2ID},
+		TagIds:     []string{tag1ID.String(), tag2ID.String()},
 	}
 
 	expectedMessages := []*gitalypb.GetTagMessagesResponse{
 		{
-			TagId:   tag1ID,
+			TagId:   tag1ID.String(),
 			Message: []byte(message1 + "\n"),
 		},
 		{
-			TagId:   tag2ID,
+			TagId:   tag2ID.String(),
 			Message: []byte(message2 + "\n"),
 		},
 	}

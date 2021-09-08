@@ -875,10 +875,10 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	blobID := "faaf198af3a36dbf41961466703cc1d47c61d051"
-	commitID := "6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9"
+	blobID := git.ObjectID("faaf198af3a36dbf41961466703cc1d47c61d051")
+	commitID := git.ObjectID("6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9")
 
-	gitCommit := testhelper.GitLabTestCommit(commitID)
+	gitCommit := testhelper.GitLabTestCommit(commitID.String())
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -891,31 +891,31 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 	bigCommit, err := repo.ReadCommit(ctx, git.Revision(bigCommitID))
 	require.NoError(t, err)
 
-	annotatedTagID := gittest.WriteTag(t, cfg, repoPath, "v1.2.0", blobID, gittest.WriteTagConfig{Message: "Blob tag"})
+	annotatedTagID := gittest.WriteTag(t, cfg, repoPath, "v1.2.0", blobID.Revision(), gittest.WriteTagConfig{Message: "Blob tag"})
 
-	gittest.WriteTag(t, cfg, repoPath, "v1.3.0", commitID)
-	gittest.WriteTag(t, cfg, repoPath, "v1.4.0", blobID)
+	gittest.WriteTag(t, cfg, repoPath, "v1.3.0", commitID.Revision())
+	gittest.WriteTag(t, cfg, repoPath, "v1.4.0", blobID.Revision())
 
 	// To test recursive resolving to a commit
 	gittest.WriteTag(t, cfg, repoPath, "v1.5.0", "v1.3.0")
 
 	// A tag to commit with a big message
-	gittest.WriteTag(t, cfg, repoPath, "v1.6.0", bigCommitID.String())
+	gittest.WriteTag(t, cfg, repoPath, "v1.6.0", bigCommitID.Revision())
 
 	// A tag with a big message
 	bigMessage := strings.Repeat("a", 11*1024)
-	bigMessageTag1ID := gittest.WriteTag(t, cfg, repoPath, "v1.7.0", commitID, gittest.WriteTagConfig{Message: bigMessage})
+	bigMessageTag1ID := gittest.WriteTag(t, cfg, repoPath, "v1.7.0", commitID.Revision(), gittest.WriteTagConfig{Message: bigMessage})
 
 	// A tag with a commit id as its name
-	commitTagID := gittest.WriteTag(t, cfg, repoPath, commitID, commitID, gittest.WriteTagConfig{Message: "commit tag with a commit sha as the name"})
+	commitTagID := gittest.WriteTag(t, cfg, repoPath, commitID.String(), commitID.Revision(), gittest.WriteTagConfig{Message: "commit tag with a commit sha as the name"})
 
 	// a tag of a tag
-	tagOfTagID := gittest.WriteTag(t, cfg, repoPath, "tag-of-tag", commitTagID, gittest.WriteTagConfig{Message: "tag of a tag"})
+	tagOfTagID := gittest.WriteTag(t, cfg, repoPath, "tag-of-tag", commitTagID.Revision(), gittest.WriteTagConfig{Message: "tag of a tag"})
 
 	expectedTags := []*gitalypb.Tag{
 		{
 			Name:         []byte(commitID),
-			Id:           commitTagID,
+			Id:           commitTagID.String(),
 			TargetCommit: gitCommit,
 			Message:      []byte("commit tag with a commit sha as the name"),
 			MessageSize:  40,
@@ -928,7 +928,7 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 		},
 		{
 			Name:         []byte("tag-of-tag"),
-			Id:           tagOfTagID,
+			Id:           tagOfTagID.String(),
 			TargetCommit: gitCommit,
 			Message:      []byte("tag of a tag"),
 			MessageSize:  12,
@@ -982,7 +982,7 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 		},
 		{
 			Name:        []byte("v1.2.0"),
-			Id:          annotatedTagID,
+			Id:          annotatedTagID.String(),
 			Message:     []byte("Blob tag"),
 			MessageSize: 8,
 			Tagger: &gitalypb.CommitAuthor{
@@ -994,16 +994,16 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 		},
 		{
 			Name:         []byte("v1.3.0"),
-			Id:           commitID,
+			Id:           commitID.String(),
 			TargetCommit: gitCommit,
 		},
 		{
 			Name: []byte("v1.4.0"),
-			Id:   blobID,
+			Id:   blobID.String(),
 		},
 		{
 			Name:         []byte("v1.5.0"),
-			Id:           commitID,
+			Id:           commitID.String(),
 			TargetCommit: gitCommit,
 		},
 		{
@@ -1013,7 +1013,7 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 		},
 		{
 			Name:         []byte("v1.7.0"),
-			Id:           bigMessageTag1ID,
+			Id:           bigMessageTag1ID.String(),
 			Message:      []byte(bigMessage[:helper.MaxCommitOrTagMessageSize]),
 			MessageSize:  int64(len(bigMessage)),
 			TargetCommit: gitCommit,
@@ -1042,8 +1042,8 @@ func TestFindTagNestedTag(t *testing.T) {
 	repoProto, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	blobID := "faaf198af3a36dbf41961466703cc1d47c61d051"
-	commitID := "6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9"
+	blobID := git.ObjectID("faaf198af3a36dbf41961466703cc1d47c61d051")
+	commitID := git.ObjectID("6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9")
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -1051,7 +1051,7 @@ func TestFindTagNestedTag(t *testing.T) {
 	testCases := []struct {
 		description string
 		depth       int
-		originalOid string
+		originalOid git.ObjectID
 	}{
 		{
 			description: "nested 1 deep, points to a commit",
@@ -1093,11 +1093,11 @@ func TestFindTagNestedTag(t *testing.T) {
 			for depth := 0; depth < tc.depth; depth++ {
 				tagName = fmt.Sprintf("tag-depth-%d", depth)
 				tagMessage = fmt.Sprintf("a commit %d deep", depth)
-				tagID = gittest.WriteTag(t, cfg, repoPath, tagName, tagID, gittest.WriteTagConfig{Message: tagMessage})
+				tagID = gittest.WriteTag(t, cfg, repoPath, tagName, tagID.Revision(), gittest.WriteTagConfig{Message: tagMessage})
 			}
 			expectedTag := &gitalypb.Tag{
 				Name:        []byte(tagName),
-				Id:          tagID,
+				Id:          tagID.String(),
 				Message:     []byte(tagMessage),
 				MessageSize: int64(len([]byte(tagMessage))),
 				Tagger: &gitalypb.CommitAuthor{

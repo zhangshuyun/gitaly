@@ -27,7 +27,7 @@ func TestGetTag(t *testing.T) {
 
 	testCases := []struct {
 		tagName string
-		rev     string
+		rev     git.Revision
 		message string
 		trim    bool
 	}{
