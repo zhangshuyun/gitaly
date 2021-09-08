@@ -218,13 +218,13 @@ func TestPreReceive_APIErrors(t *testing.T) {
 					res.WriteHeader(http.StatusUnauthorized)
 				}),
 			expectedExitStatus: 1,
-			expectedStderr:     "invoking access checks: Internal API error (401)",
+			expectedStderr:     "GitLab: Internal API error (401)",
 		},
 		{
 			desc:               "allowed rejects",
 			allowedHandler:     allowedHandler(t, false),
 			expectedExitStatus: 1,
-			expectedStderr:     "not allowed",
+			expectedStderr:     "GitLab: not allowed",
 		},
 		{
 			desc:               "/pre_receive endpoint fails to increase reference coutner",
@@ -388,7 +388,7 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 			primary:            true,
 			allowedHandler:     allowedHandler(t, false),
 			expectedExitStatus: 1,
-			expectedStderr:     "not allowed",
+			expectedStderr:     "GitLab: not allowed",
 		},
 		{
 			desc:               "secondary checks for permissions",

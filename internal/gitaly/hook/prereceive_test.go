@@ -321,7 +321,14 @@ func TestPrereceive_gitlab(t *testing.T) {
 				return false, "", errors.New("oops")
 			},
 			expectHookCall: false,
-			expectedErr:    fmt.Errorf("invoking access checks: %w", errors.New("oops")),
+			// This really is wrong, but we cannot fix it without adapting gitlab-shell
+			// to return proper errors from its GitlabNetClient.
+			expectedErr: NotAllowedError{
+				Message:  "oops",
+				Protocol: "web",
+				UserID:   "1234",
+				Changes:  []byte("changes\n"),
+			},
 		},
 		{
 			desc:    "prereceive rejects",
