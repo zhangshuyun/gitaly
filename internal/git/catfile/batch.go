@@ -30,7 +30,7 @@ type Batch interface {
 
 type batch struct {
 	sync.Mutex
-	*batchCheckProcess
+	*objectInfoReader
 	*objectReader
 	cancel func()
 	closed bool
@@ -39,7 +39,7 @@ type batch struct {
 // Info returns an ObjectInfo if spec exists. If the revision does not exist
 // the error is of type NotFoundError.
 func (c *batch) Info(ctx context.Context, revision git.Revision) (*ObjectInfo, error) {
-	return c.batchCheckProcess.info(revision)
+	return c.objectInfoReader.info(revision)
 }
 
 // Tree returns a raw tree object. It is an error if the revision does not
@@ -73,7 +73,7 @@ func (c *batch) Tag(ctx context.Context, revision git.Revision) (*Object, error)
 	return c.objectReader.reader(revision, "tag")
 }
 
-// Close closes the writers for batchCheckProcess and objectReader. This is only used for cached
+// Close closes the writers for objectInfoReader and objectReader. This is only used for cached
 // Batches
 func (c *batch) Close() {
 	c.Lock()
@@ -85,7 +85,7 @@ func (c *batch) Close() {
 
 	c.closed = true
 	if c.cancel != nil {
-		// both c.objectReader and c.batchCheckProcess have goroutines that listen on
+		// both c.objectReader and c.objectInfoReader have goroutines that listen on
 		// ctx.Done() when this is cancelled, it will cause those goroutines to close both
 		// writers
 		c.cancel()
@@ -128,12 +128,12 @@ func (bc *BatchCache) newBatch(ctx context.Context, repo git.RepositoryExecutor)
 		return nil, ctx, err
 	}
 
-	batchCheckProcess, err := bc.newBatchCheckProcess(ctx, repo)
+	objectInfoReader, err := bc.newObjectInfoReader(ctx, repo)
 	if err != nil {
 		return nil, ctx, err
 	}
 
-	return &batch{objectReader: objectReader, batchCheckProcess: batchCheckProcess}, ctx, nil
+	return &batch{objectReader: objectReader, objectInfoReader: objectInfoReader}, ctx, nil
 }
 
 func newInstrumentedBatch(ctx context.Context, c Batch, catfileLookupCounter *prometheus.CounterVec) Batch {
