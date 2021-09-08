@@ -8,23 +8,23 @@ module Gitaly
   module HookService
     class Service
 
-      include GRPC::GenericService
+      include ::GRPC::GenericService
 
       self.marshal_class_method = :encode
       self.unmarshal_class_method = :decode
       self.service_name = 'gitaly.HookService'
 
-      rpc :PreReceiveHook, stream(Gitaly::PreReceiveHookRequest), stream(Gitaly::PreReceiveHookResponse)
-      rpc :PostReceiveHook, stream(Gitaly::PostReceiveHookRequest), stream(Gitaly::PostReceiveHookResponse)
-      rpc :UpdateHook, Gitaly::UpdateHookRequest, stream(Gitaly::UpdateHookResponse)
-      rpc :ReferenceTransactionHook, stream(Gitaly::ReferenceTransactionHookRequest), stream(Gitaly::ReferenceTransactionHookResponse)
+      rpc :PreReceiveHook, stream(::Gitaly::PreReceiveHookRequest), stream(::Gitaly::PreReceiveHookResponse)
+      rpc :PostReceiveHook, stream(::Gitaly::PostReceiveHookRequest), stream(::Gitaly::PostReceiveHookResponse)
+      rpc :UpdateHook, ::Gitaly::UpdateHookRequest, stream(::Gitaly::UpdateHookResponse)
+      rpc :ReferenceTransactionHook, stream(::Gitaly::ReferenceTransactionHookRequest), stream(::Gitaly::ReferenceTransactionHookResponse)
       # PackObjectsHook is meant to be called by git-upload-pack via the
       # uploadpack.packObjectsHook mechanism. It generates a stream of packed
       # Git objects.
-      rpc :PackObjectsHook, stream(Gitaly::PackObjectsHookRequest), stream(Gitaly::PackObjectsHookResponse)
+      rpc :PackObjectsHook, stream(::Gitaly::PackObjectsHookRequest), stream(::Gitaly::PackObjectsHookResponse)
       # PackObjectsHookWithSidechannel is an optimized version of PackObjectsHook that uses
       # a unix socket side channel.
-      rpc :PackObjectsHookWithSidechannel, Gitaly::PackObjectsHookWithSidechannelRequest, Gitaly::PackObjectsHookWithSidechannelResponse
+      rpc :PackObjectsHookWithSidechannel, ::Gitaly::PackObjectsHookWithSidechannelRequest, ::Gitaly::PackObjectsHookWithSidechannelResponse
     end
 
     Stub = Service.rpc_stub_class

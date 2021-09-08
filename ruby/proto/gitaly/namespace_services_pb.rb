@@ -8,16 +8,16 @@ module Gitaly
   module NamespaceService
     class Service
 
-      include GRPC::GenericService
+      include ::GRPC::GenericService
 
       self.marshal_class_method = :encode
       self.unmarshal_class_method = :decode
       self.service_name = 'gitaly.NamespaceService'
 
-      rpc :AddNamespace, Gitaly::AddNamespaceRequest, Gitaly::AddNamespaceResponse
-      rpc :RemoveNamespace, Gitaly::RemoveNamespaceRequest, Gitaly::RemoveNamespaceResponse
-      rpc :RenameNamespace, Gitaly::RenameNamespaceRequest, Gitaly::RenameNamespaceResponse
-      rpc :NamespaceExists, Gitaly::NamespaceExistsRequest, Gitaly::NamespaceExistsResponse
+      rpc :AddNamespace, ::Gitaly::AddNamespaceRequest, ::Gitaly::AddNamespaceResponse
+      rpc :RemoveNamespace, ::Gitaly::RemoveNamespaceRequest, ::Gitaly::RemoveNamespaceResponse
+      rpc :RenameNamespace, ::Gitaly::RenameNamespaceRequest, ::Gitaly::RenameNamespaceResponse
+      rpc :NamespaceExists, ::Gitaly::NamespaceExistsRequest, ::Gitaly::NamespaceExistsResponse
     end
 
     Stub = Service.rpc_stub_class

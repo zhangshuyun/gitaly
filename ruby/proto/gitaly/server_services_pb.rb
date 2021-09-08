@@ -8,14 +8,14 @@ module Gitaly
   module ServerService
     class Service
 
-      include GRPC::GenericService
+      include ::GRPC::GenericService
 
       self.marshal_class_method = :encode
       self.unmarshal_class_method = :decode
       self.service_name = 'gitaly.ServerService'
 
-      rpc :ServerInfo, Gitaly::ServerInfoRequest, Gitaly::ServerInfoResponse
-      rpc :DiskStatistics, Gitaly::DiskStatisticsRequest, Gitaly::DiskStatisticsResponse
+      rpc :ServerInfo, ::Gitaly::ServerInfoRequest, ::Gitaly::ServerInfoResponse
+      rpc :DiskStatistics, ::Gitaly::DiskStatisticsRequest, ::Gitaly::DiskStatisticsResponse
     end
 
     Stub = Service.rpc_stub_class
