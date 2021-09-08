@@ -32,14 +32,18 @@ type Cache interface {
 	Evict()
 }
 
-func newCacheKey(sessionID string, repo repository.GitRepo) key {
+func newCacheKey(sessionID string, repo repository.GitRepo) (key, bool) {
+	if sessionID == "" {
+		return key{}, false
+	}
+
 	return key{
 		sessionID:   sessionID,
 		repoStorage: repo.GetStorageName(),
 		repoRelPath: repo.GetRelativePath(),
 		repoObjDir:  repo.GetGitObjectDirectory(),
 		repoAltDir:  strings.Join(repo.GetGitAlternateObjectDirectories(), ","),
-	}
+	}, true
 }
 
 type key struct {
@@ -173,39 +177,51 @@ func (bc *BatchCache) monitor() {
 }
 
 // BatchProcess creates a new Batch process for the given repository.
-func (bc *BatchCache) BatchProcess(ctx context.Context, repo git.RepositoryExecutor) (Batch, error) {
-	if ctx.Done() == nil {
+func (bc *BatchCache) BatchProcess(ctx context.Context, repo git.RepositoryExecutor) (_ Batch, returnedErr error) {
+	requestDone := ctx.Done()
+	if requestDone == nil {
 		panic("empty ctx.Done() in catfile.Batch.New()")
 	}
 
-	sessionID := metadata.GetValue(ctx, SessionIDField)
-	if sessionID == "" {
-		c, ctx, err := bc.newBatch(ctx, repo)
-		if err != nil {
-			return nil, err
+	cacheKey, isCacheable := newCacheKey(metadata.GetValue(ctx, SessionIDField), repo)
+	if isCacheable {
+		// We only try to look up cached batch processes in case it is cacheable, which
+		// requires a session ID. This is mostly done such that git-cat-file(1) processes
+		// from one user cannot interfer with those from another user. The main intent is to
+		// disallow trivial denial of service attacks against other users in case it is
+		// possible to poison the cache with broken git-cat-file(1) processes.
+
+		if c, ok := bc.checkout(cacheKey); ok {
+			go bc.returnWhenDone(requestDone, cacheKey, c)
+			return newInstrumentedBatch(ctx, c, bc.catfileLookupCounter), nil
 		}
-		return newInstrumentedBatch(ctx, c, bc.catfileLookupCounter), err
+
+		// We have not found any cached process, so we need to create a new one. In this
+		// case, we need to detach the process from the current context such that it does
+		// not get killed when the current context is done.
+		ctx = context.Background()
 	}
 
-	cacheKey := newCacheKey(sessionID, repo)
-	requestDone := ctx.Done()
+	ctx, cancel := context.WithCancel(ctx)
+	defer func() {
+		// If creation of the process fails, then we want to manually cancel the context
+		// such that any potentially created processes get killed immediately.
+		if returnedErr != nil {
+			cancel()
+		}
+	}()
 
-	if c, ok := bc.checkout(cacheKey); ok {
-		go bc.returnWhenDone(requestDone, cacheKey, c)
-		return newInstrumentedBatch(ctx, c, bc.catfileLookupCounter), nil
-	}
-
-	// if we are using caching, create a fresh context for the new batch
-	// and initialize the new batch with a bc key and cancel function
-	cacheCtx, cacheCancel := context.WithCancel(context.Background())
-	c, ctx, err := bc.newBatch(cacheCtx, repo)
+	c, ctx, err := bc.newBatch(ctx, repo)
 	if err != nil {
-		cacheCancel()
 		return nil, err
 	}
+	c.cancel = cancel
 
-	c.cancel = cacheCancel
-	go bc.returnWhenDone(requestDone, cacheKey, c)
+	if isCacheable {
+		// If the process is cacheable, then we want to put the process into the cache when
+		// the current outer context is done.
+		go bc.returnWhenDone(requestDone, cacheKey, c)
+	}
 
 	return newInstrumentedBatch(ctx, c, bc.catfileLookupCounter), nil
 }
