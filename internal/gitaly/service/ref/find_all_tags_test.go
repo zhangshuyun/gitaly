@@ -53,26 +53,26 @@ func TestFindAllTags_successful(t *testing.T) {
 	bigCommit, err := repo.ReadCommit(ctx, git.Revision(bigCommitID))
 	require.NoError(t, err)
 
-	annotatedTagID := gittest.CreateTag(t, cfg, repoPath, "v1.2.0", blobID, &gittest.CreateTagOpts{Message: "Blob tag"})
+	annotatedTagID := gittest.WriteTag(t, cfg, repoPath, "v1.2.0", blobID, &gittest.WriteTagOpts{Message: "Blob tag"})
 
-	gittest.CreateTag(t, cfg, repoPath, "v1.3.0", commitID, nil)
-	gittest.CreateTag(t, cfg, repoPath, "v1.4.0", blobID, nil)
+	gittest.WriteTag(t, cfg, repoPath, "v1.3.0", commitID, nil)
+	gittest.WriteTag(t, cfg, repoPath, "v1.4.0", blobID, nil)
 
 	// To test recursive resolving to a commit
-	gittest.CreateTag(t, cfg, repoPath, "v1.5.0", "v1.3.0", nil)
+	gittest.WriteTag(t, cfg, repoPath, "v1.5.0", "v1.3.0", nil)
 
 	// A tag to commit with a big message
-	gittest.CreateTag(t, cfg, repoPath, "v1.6.0", bigCommitID.String(), nil)
+	gittest.WriteTag(t, cfg, repoPath, "v1.6.0", bigCommitID.String(), nil)
 
 	// A tag with a big message
 	bigMessage := strings.Repeat("a", 11*1024)
-	bigMessageTag1ID := gittest.CreateTag(t, cfg, repoPath, "v1.7.0", commitID, &gittest.CreateTagOpts{Message: bigMessage})
+	bigMessageTag1ID := gittest.WriteTag(t, cfg, repoPath, "v1.7.0", commitID, &gittest.WriteTagOpts{Message: bigMessage})
 
 	// A tag with a commit id as its name
-	commitTagID := gittest.CreateTag(t, cfg, repoPath, commitID, commitID, &gittest.CreateTagOpts{Message: "commit tag with a commit sha as the name"})
+	commitTagID := gittest.WriteTag(t, cfg, repoPath, commitID, commitID, &gittest.WriteTagOpts{Message: "commit tag with a commit sha as the name"})
 
 	// a tag of a tag
-	tagOfTagID := gittest.CreateTag(t, cfg, repoPath, "tag-of-tag", commitTagID, &gittest.CreateTagOpts{Message: "tag of a tag"})
+	tagOfTagID := gittest.WriteTag(t, cfg, repoPath, "tag-of-tag", commitTagID, &gittest.WriteTagOpts{Message: "tag of a tag"})
 
 	rpcRequest := &gitalypb.FindAllTagsRequest{Repository: repoProto}
 
@@ -232,7 +232,7 @@ func TestFindAllTags_simpleNestedTags(t *testing.T) {
 		gittest.WithParents(),
 	)
 
-	tagID := gittest.CreateTag(t, cfg, repoPath, "my/nested/tag", commitID.String(), nil)
+	tagID := gittest.WriteTag(t, cfg, repoPath, "my/nested/tag", commitID.String(), nil)
 
 	stream, err := client.FindAllTags(ctx, &gitalypb.FindAllTagsRequest{Repository: repoProto})
 	require.NoError(t, err)
@@ -411,7 +411,7 @@ func TestFindAllTags_nestedTags(t *testing.T) {
 			for depth := 0; depth < tc.depth; depth++ {
 				tagName := fmt.Sprintf("tag-depth-%d", depth)
 				tagMessage := fmt.Sprintf("a commit %d deep", depth)
-				tagID = gittest.CreateTag(t, cfg, repoPath, tagName, tagID, &gittest.CreateTagOpts{Message: tagMessage})
+				tagID = gittest.WriteTag(t, cfg, repoPath, tagName, tagID, &gittest.WriteTagOpts{Message: tagMessage})
 
 				expectedTag := &gitalypb.Tag{
 					Name:        []byte(tagName),

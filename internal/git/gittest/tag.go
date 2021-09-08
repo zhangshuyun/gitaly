@@ -9,14 +9,16 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 )
 
-// CreateTagOpts holds extra options for CreateTag.
-type CreateTagOpts struct {
+// WriteTagOpts holds extra options for WriteTag.
+type WriteTagOpts struct {
 	Message string
 	Force   bool
 }
 
-// CreateTag creates a new tag.
-func CreateTag(t testing.TB, cfg config.Cfg, repoPath, tagName, targetID string, opts *CreateTagOpts) string {
+// WriteTag writes a new tag into the repository. This function either returns the tag ID in case
+// an annotated tag was created, or otherwise the target object ID when a lightweight tag was
+// created.
+func WriteTag(t testing.TB, cfg config.Cfg, repoPath, tagName, targetID string, opts *WriteTagOpts) string {
 	var message string
 	force := false
 
