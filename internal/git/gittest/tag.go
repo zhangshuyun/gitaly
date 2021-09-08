@@ -5,35 +5,34 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 )
 
-// WriteTagOpts holds extra options for WriteTag.
-type WriteTagOpts struct {
+// WriteTagConfig holds extra options for WriteTag.
+type WriteTagConfig struct {
+	// Message is the message of an annotated tag. If left empty, then a lightweight tag will
+	// be created.
 	Message string
-	Force   bool
+	// Force indicates whether existing tags with the same name shall be overwritten.
+	Force bool
 }
 
 // WriteTag writes a new tag into the repository. This function either returns the tag ID in case
 // an annotated tag was created, or otherwise the target object ID when a lightweight tag was
-// created.
-func WriteTag(t testing.TB, cfg config.Cfg, repoPath, tagName, targetID string, opts *WriteTagOpts) string {
-	var message string
-	force := false
+// created. Takes either no WriteTagConfig, in which case the default values will be used, or
+// exactly one.
+func WriteTag(t testing.TB, cfg config.Cfg, repoPath, tagName, targetID string, optionalConfig ...WriteTagConfig) string {
+	require.Less(t, len(optionalConfig), 2, "only a single config may be passed")
 
-	if opts != nil {
-		if opts.Message != "" {
-			message = opts.Message
-		}
-		force = opts.Force
+	var config WriteTagConfig
+	if len(optionalConfig) == 1 {
+		config = optionalConfig[0]
 	}
 
 	committerName := "Scrooge McDuck"
 	committerEmail := "scrooge@mcduck.com"
-
-	// message can be very large, passing it directly in args would blow things up!
-	stdin := bytes.NewBufferString(message)
 
 	args := []string{
 		"-C", repoPath,
@@ -42,11 +41,13 @@ func WriteTag(t testing.TB, cfg config.Cfg, repoPath, tagName, targetID string, 
 		"tag",
 	}
 
-	if force {
+	if config.Force {
 		args = append(args, "-f")
 	}
 
-	if message != "" {
+	// The message can be very large, passing it directly in args would blow things up.
+	stdin := bytes.NewBufferString(config.Message)
+	if config.Message != "" {
 		args = append(args, "-F", "-")
 	}
 	args = append(args, tagName, targetID)

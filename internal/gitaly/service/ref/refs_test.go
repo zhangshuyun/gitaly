@@ -891,26 +891,26 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 	bigCommit, err := repo.ReadCommit(ctx, git.Revision(bigCommitID))
 	require.NoError(t, err)
 
-	annotatedTagID := gittest.WriteTag(t, cfg, repoPath, "v1.2.0", blobID, &gittest.WriteTagOpts{Message: "Blob tag"})
+	annotatedTagID := gittest.WriteTag(t, cfg, repoPath, "v1.2.0", blobID, gittest.WriteTagConfig{Message: "Blob tag"})
 
-	gittest.WriteTag(t, cfg, repoPath, "v1.3.0", commitID, nil)
-	gittest.WriteTag(t, cfg, repoPath, "v1.4.0", blobID, nil)
+	gittest.WriteTag(t, cfg, repoPath, "v1.3.0", commitID)
+	gittest.WriteTag(t, cfg, repoPath, "v1.4.0", blobID)
 
 	// To test recursive resolving to a commit
-	gittest.WriteTag(t, cfg, repoPath, "v1.5.0", "v1.3.0", nil)
+	gittest.WriteTag(t, cfg, repoPath, "v1.5.0", "v1.3.0")
 
 	// A tag to commit with a big message
-	gittest.WriteTag(t, cfg, repoPath, "v1.6.0", bigCommitID.String(), nil)
+	gittest.WriteTag(t, cfg, repoPath, "v1.6.0", bigCommitID.String())
 
 	// A tag with a big message
 	bigMessage := strings.Repeat("a", 11*1024)
-	bigMessageTag1ID := gittest.WriteTag(t, cfg, repoPath, "v1.7.0", commitID, &gittest.WriteTagOpts{Message: bigMessage})
+	bigMessageTag1ID := gittest.WriteTag(t, cfg, repoPath, "v1.7.0", commitID, gittest.WriteTagConfig{Message: bigMessage})
 
 	// A tag with a commit id as its name
-	commitTagID := gittest.WriteTag(t, cfg, repoPath, commitID, commitID, &gittest.WriteTagOpts{Message: "commit tag with a commit sha as the name"})
+	commitTagID := gittest.WriteTag(t, cfg, repoPath, commitID, commitID, gittest.WriteTagConfig{Message: "commit tag with a commit sha as the name"})
 
 	// a tag of a tag
-	tagOfTagID := gittest.WriteTag(t, cfg, repoPath, "tag-of-tag", commitTagID, &gittest.WriteTagOpts{Message: "tag of a tag"})
+	tagOfTagID := gittest.WriteTag(t, cfg, repoPath, "tag-of-tag", commitTagID, gittest.WriteTagConfig{Message: "tag of a tag"})
 
 	expectedTags := []*gitalypb.Tag{
 		{
@@ -1093,7 +1093,7 @@ func TestFindTagNestedTag(t *testing.T) {
 			for depth := 0; depth < tc.depth; depth++ {
 				tagName = fmt.Sprintf("tag-depth-%d", depth)
 				tagMessage = fmt.Sprintf("a commit %d deep", depth)
-				tagID = gittest.WriteTag(t, cfg, repoPath, tagName, tagID, &gittest.WriteTagOpts{Message: tagMessage})
+				tagID = gittest.WriteTag(t, cfg, repoPath, tagName, tagID, gittest.WriteTagConfig{Message: tagMessage})
 			}
 			expectedTag := &gitalypb.Tag{
 				Name:        []byte(tagName),

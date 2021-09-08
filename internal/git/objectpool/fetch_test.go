@@ -51,7 +51,7 @@ func TestFetchFromOriginDangling(t *testing.T) {
 
 	// A tag with random hex characters in its name should be unique.
 	newTagName := "tag-" + nonce
-	newTag := gittest.WriteTag(t, pool.cfg, pool.FullPath(), newTagName, existingCommit, &gittest.WriteTagOpts{
+	newTag := gittest.WriteTag(t, pool.cfg, pool.FullPath(), newTagName, existingCommit, gittest.WriteTagConfig{
 		Message: "msg",
 	})
 

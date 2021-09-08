@@ -53,7 +53,7 @@ func TestGetTag(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.tagName, func(t *testing.T) {
-			tagID := gittest.WriteTag(t, cfg, testRepoPath, testCase.tagName, testCase.rev, &gittest.WriteTagOpts{Message: testCase.message})
+			tagID := gittest.WriteTag(t, cfg, testRepoPath, testCase.tagName, testCase.rev, gittest.WriteTagConfig{Message: testCase.message})
 
 			tag, err := GetTag(ctx, c, git.Revision(tagID), testCase.tagName, testCase.trim, true)
 			require.NoError(t, err)
