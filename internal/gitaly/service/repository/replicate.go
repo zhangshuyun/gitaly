@@ -276,7 +276,7 @@ func writeFile(path string, mode os.FileMode, reader io.Reader) error {
 		return err
 	}
 
-	fw, err := safe.CreateFileWriter(path)
+	fw, err := safe.NewFileWriter(path)
 	if err != nil {
 		return err
 	}
