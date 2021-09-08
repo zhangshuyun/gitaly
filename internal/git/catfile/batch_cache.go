@@ -6,11 +6,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
+	"gitlab.com/gitlab-org/labkit/correlation"
 )
 
 const (
@@ -200,6 +202,10 @@ func (bc *BatchCache) BatchProcess(ctx context.Context, repo git.RepositoryExecu
 		// case, we need to detach the process from the current context such that it does
 		// not get killed when the current context is done.
 		ctx = context.Background()
+		// We have to decorrelate the process from the current context given that it
+		// may potentially be reused across different RPC calls.
+		ctx = correlation.ContextWithCorrelation(ctx, "")
+		ctx = opentracing.ContextWithSpan(ctx, nil)
 	}
 
 	ctx, cancel := context.WithCancel(ctx)

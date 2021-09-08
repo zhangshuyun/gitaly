@@ -210,9 +210,7 @@ func TestCache_BatchProcess(t *testing.T) {
 		require.True(t, ok, "expected instrumented batch")
 
 		correlation := correlation.ExtractFromContext(instrumentedBatch.batchCtx)
-		// This is a bug: the context for uncacheable processes should not
-		// be decorrelated.
-		require.Empty(t, correlation)
+		require.Equal(t, "1", correlation)
 
 		cancel()
 

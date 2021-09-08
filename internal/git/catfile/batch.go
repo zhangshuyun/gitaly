@@ -101,10 +101,6 @@ func (c *batch) isClosed() bool {
 func newBatch(ctx context.Context, repo git.RepositoryExecutor) (*batch, context.Context, error) {
 	var err error
 
-	// batch processes are long-lived and reused across RPCs,
-	// so we de-correlate the process from the RPC
-	ctx = correlation.ContextWithCorrelation(ctx, "")
-	ctx = opentracing.ContextWithSpan(ctx, nil)
 	span, ctx := opentracing.StartSpanFromContext(ctx, "catfile.Batch")
 
 	ctx, cancel := context.WithCancel(ctx)
