@@ -53,7 +53,7 @@ func updateRef(ctx context.Context, cfg config.Cfg, repo *localrepo.Repo, req *g
 	if err = u.Update(git.ReferenceName(req.GetRef()), string(req.GetRevision()), string(req.GetOldRevision())); err != nil {
 		return fmt.Errorf("error when creating update-ref command: %v", err)
 	}
-	if err = u.Wait(); err != nil {
+	if err = u.Commit(); err != nil {
 		return fmt.Errorf("error when running update-ref command: %v", err)
 	}
 	return nil

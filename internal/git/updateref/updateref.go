@@ -35,7 +35,7 @@ func WithDisabledTransactions() UpdaterOpt {
 }
 
 // New returns a new bulk updater, wrapping a `git update-ref` process. Call the
-// various methods to enqueue updates, then call Wait() to attempt to apply all
+// various methods to enqueue updates, then call Commit() to attempt to apply all
 // the updates at once.
 //
 // It is important that ctx gets canceled somewhere. If it doesn't, the process
@@ -65,53 +65,85 @@ func New(ctx context.Context, conf config.Cfg, repo git.RepositoryExecutor, opts
 		return nil, err
 	}
 
+	updater := &Updater{
+		repo:   repo,
+		cmd:    cmd,
+		stderr: &stderr,
+	}
+
 	// By writing an explicit "start" to the command, we enable
 	// transactional behaviour. Which effectively means that without an
 	// explicit "commit", no changes will be inadvertently committed to
 	// disk.
-	if _, err := cmd.Write([]byte("start\x00")); err != nil {
+	if err := updater.setState("start"); err != nil {
 		return nil, err
 	}
 
-	return &Updater{repo: repo, cmd: cmd, stderr: &stderr}, nil
+	return updater, nil
 }
 
-// Create commands the reference to be created with the sha specified in value
-func (u *Updater) Create(reference git.ReferenceName, value string) error {
-	_, err := fmt.Fprintf(u.cmd, "create %s\x00%s\x00", reference.String(), value)
-	return err
-}
-
-// Update commands the reference to be updated to point at the sha specified in
-// newvalue
+// Update commands the reference to be updated to point at the object ID specified in newvalue. If
+// newvalue is the zero OID, then the branch will be deleted. If oldvalue is a non-empty string,
+// then the reference will only be updated if its current value matches the old value. If the old
+// value is the zero OID, then the branch must not exist.
 func (u *Updater) Update(reference git.ReferenceName, newvalue, oldvalue string) error {
 	_, err := fmt.Fprintf(u.cmd, "update %s\x00%s\x00%s\x00", reference.String(), newvalue, oldvalue)
 	return err
 }
 
-// Delete commands the reference to be removed from the repository
+// Create commands the reference to be created with the given object ID. The ref must not exist.
+func (u *Updater) Create(reference git.ReferenceName, value string) error {
+	return u.Update(reference, value, git.ZeroOID.String())
+}
+
+// Delete commands the reference to be removed from the repository. This command will ignore any old
+// state of the reference and just force-remove it.
 func (u *Updater) Delete(reference git.ReferenceName) error {
-	_, err := fmt.Fprintf(u.cmd, "delete %s\x00\x00", reference.String())
-	return err
+	return u.Update(reference, git.ZeroOID.String(), "")
 }
 
 // Prepare prepares the reference transaction by locking all references and determining their
 // current values. The updates are not yet committed and will be rolled back in case there is no
-// call to `Wait()`. This call is optional.
+// call to `Commit()`. This call is optional.
 func (u *Updater) Prepare() error {
-	_, err := fmt.Fprintf(u.cmd, "prepare\x00")
-	return err
+	return u.setState("prepare")
 }
 
-// Wait applies the commands specified in other calls to the Updater
-func (u *Updater) Wait() error {
-	if _, err := u.cmd.Write([]byte("commit\x00")); err != nil {
+// Commit applies the commands specified in other calls to the Updater
+func (u *Updater) Commit() error {
+	if err := u.setState("commit"); err != nil {
 		return err
 	}
 
 	if err := u.cmd.Wait(); err != nil {
 		return fmt.Errorf("git update-ref: %v, stderr: %q", err, u.stderr)
 	}
+
+	return nil
+}
+
+// Cancel aborts the transaction. No changes will be written to disk, all lockfiles will be cleaned
+// up and the process will exit.
+func (u *Updater) Cancel() error {
+	if err := u.cmd.Wait(); err != nil {
+		return fmt.Errorf("canceling update: %w", err)
+	}
+	return nil
+}
+
+func (u *Updater) setState(state string) error {
+	_, err := fmt.Fprintf(u.cmd, "%s\x00", state)
+	if err != nil {
+		return fmt.Errorf("updating state to %s: %w", state, err)
+	}
+
+	// For each state-changing command, git-update-ref(1) will report successful execution via
+	// "<command>: ok" lines printed to its stdout. Ideally, we should thus verify here whether
+	// the command was successfully executed by checking for exactly this line, otherwise we
+	// cannot be sure whether the command has correctly been processed by Git or if an error was
+	// raised. Unfortunately, Git won't flush the output though, and as such we would be left
+	// waiting for the message to appear here. This needs to be fixed upstream first, and after
+	// this we should adapt this function to assert commands.
 
 	return nil
 }

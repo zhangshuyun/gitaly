@@ -143,8 +143,8 @@ func testUserMergeBranchQuarantine(t *testing.T, ctx context.Context) {
 
 	// Set up a hook that parses the merge commit and then aborts the update. Like this, we
 	// can assert that the object does not end up in the main repository.
-	hookScript := fmt.Sprintf("#!/bin/sh\n%s rev-parse $3^{commit} && exit 1", cfg.Git.BinPath)
-	gittest.WriteCustomHook(t, repoPath, "update", []byte(hookScript))
+	hookScript := fmt.Sprintf("#!/bin/sh\nread oldval newval ref && %s rev-parse $newval^{commit} && exit 1", cfg.Git.BinPath)
+	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(hookScript))
 
 	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 

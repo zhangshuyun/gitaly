@@ -86,7 +86,7 @@ func (c *Cleaner) ApplyObjectMap(ctx context.Context, reader io.Reader) error {
 		}
 	}
 
-	return c.updater.Wait()
+	return c.updater.Commit()
 }
 
 func (c *Cleaner) processEntry(ctx context.Context, oldSHA, newSHA string) error {

@@ -65,7 +65,7 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 		return nil, helper.ErrInternal(err)
 	}
 
-	if err := updater.Wait(); err != nil {
+	if err := updater.Commit(); err != nil {
 		return &gitalypb.DeleteRefsResponse{GitError: fmt.Sprintf("unable to delete refs: %s", err.Error())}, nil
 	}
 

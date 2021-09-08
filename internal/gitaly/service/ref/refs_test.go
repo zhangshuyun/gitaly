@@ -91,7 +91,7 @@ func TestFindAllBranchNamesVeryLargeResponse(t *testing.T) {
 		testRefs = append(testRefs, refName)
 	}
 
-	require.NoError(t, updater.Wait())
+	require.NoError(t, updater.Commit())
 
 	rpcRequest := &gitalypb.FindAllBranchNamesRequest{Repository: repoProto}
 

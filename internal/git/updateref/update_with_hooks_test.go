@@ -326,27 +326,27 @@ func TestUpdaterWithHooks_quarantine(t *testing.T) {
 			hookExecutions["postreceive"]++
 			return nil
 		},
-		// The update hook gets executed between pre-receive hook and the first invocation
-		// of the reference-transaction and must thus be called with the quarantined repo.
+		// The update hook gets executed after the pre-receive hook and will be executed for
+		// each reference that we're updating. As it is called immediately before the ref
+		// gets queued for update, objects must have already been migrated or otherwise
+		// updating the refs will fail due to missing objects.
 		func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error {
-			expectQuarantined(t, env, true)
+			expectQuarantined(t, env, false)
 			testassert.ProtoEqual(t, quarantine.QuarantinedRepo(), repo)
 			hookExecutions["update"]++
 			return nil
 		},
-		// For the reference-transaction hook, it depends: in "prepare" state, we should see
-		// that the object is only part of the quarantine. In "commit" state, it must be
-		// part of the normal repo.
+		// The reference-transaction hook is called as we're queueing refs for update, so
+		// the objects must be part of the main object database or otherwise the update will
+		// fail due to missing objects.
 		func(t *testing.T, ctx context.Context, state hook.ReferenceTransactionState, env []string, stdin io.Reader) error {
+			expectQuarantined(t, env, false)
 			switch state {
 			case hook.ReferenceTransactionPrepared:
-				expectQuarantined(t, env, true)
 				hookExecutions["prepare"]++
 			case hook.ReferenceTransactionCommitted:
-				expectQuarantined(t, env, false)
 				hookExecutions["commit"]++
 			}
-
 			return nil
 		},
 	)

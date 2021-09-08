@@ -134,17 +134,10 @@ func (u *UpdaterWithHooks) UpdateReference(
 		return HookError{err: err, stdout: stdout.String(), stderr: stderr.String()}
 	}
 
-	if err := u.hookManager.UpdateHook(ctx, quarantinedRepo, reference.String(), oldrev.String(), newrev.String(), []string{hooksPayload}, &stdout, &stderr); err != nil {
-		return HookError{err: err, stdout: stdout.String(), stderr: stderr.String()}
-	}
-
-	if err := u.hookManager.ReferenceTransactionHook(ctx, hook.ReferenceTransactionPrepared, []string{hooksPayload}, strings.NewReader(changes)); err != nil {
-		return HookError{err: err, stdout: stdout.String(), stderr: stderr.String()}
-	}
-
-	// Now that Rails has told us that the change is okay via the pre-receive hook and where
-	// transactional voting via the reference-transaction hook also passed, we can migrate any
-	// potentially quarantined objects into the main repository.
+	// Now that Rails has told us that the change is okay via the pre-receive hook, we can
+	// migrate any potentially quarantined objects into the main repository. This must happen
+	// before we start updating the refs because git-update-ref(1) will verify that it got all
+	// referenced objects available.
 	if quarantineDir != nil {
 		if err := quarantineDir.Migrate(); err != nil {
 			return fmt.Errorf("migrating quarantined objects: %w", err)
@@ -159,6 +152,10 @@ func (u *UpdaterWithHooks) UpdateReference(
 		}
 	}
 
+	if err := u.hookManager.UpdateHook(ctx, quarantinedRepo, reference.String(), oldrev.String(), newrev.String(), []string{hooksPayload}, &stdout, &stderr); err != nil {
+		return HookError{err: err, stdout: stdout.String(), stderr: stderr.String()}
+	}
+
 	// We are already manually invoking the reference-transaction hook, so there is no need to
 	// set up hooks again here. One could argue that it would be easier to just have git handle
 	// execution of the reference-transaction hook. But unfortunately, it has proven to be
@@ -171,14 +168,27 @@ func (u *UpdaterWithHooks) UpdateReference(
 	// this problem.
 	updater, err := New(ctx, u.cfg, u.localrepo(repo), WithDisabledTransactions())
 	if err != nil {
-		return err
+		return fmt.Errorf("creating updater: %w", err)
 	}
 
 	if err := updater.Update(reference, newrev.String(), oldrev.String()); err != nil {
-		return err
+		return fmt.Errorf("queueing ref update: %w", err)
 	}
 
-	if err := updater.Wait(); err != nil {
+	// We need to lock the reference before executing the reference-transaction hook such that
+	// there cannot be any concurrent modification.
+	if err := updater.Prepare(); err != nil {
+		return fmt.Errorf("preparing ref update: %w", err)
+	}
+	// We need to explicitly cancel the update here such that we release the lock when this
+	// function exits if there is any error between locking and committing.
+	defer func() { _ = updater.Cancel() }()
+
+	if err := u.hookManager.ReferenceTransactionHook(ctx, hook.ReferenceTransactionPrepared, []string{hooksPayload}, strings.NewReader(changes)); err != nil {
+		return HookError{err: err, stdout: stdout.String(), stderr: stderr.String()}
+	}
+
+	if err := updater.Commit(); err != nil {
 		return Error{reference: reference.String()}
 	}
 
