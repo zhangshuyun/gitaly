@@ -65,9 +65,6 @@ type BatchCache struct {
 	maxLen int
 	// ttl is the fixed ttl for cache entries
 	ttl time.Duration
-	// injectSpawnErrors is used for testing purposes only. If set to true, then spawned batch
-	// processes will simulate spawn errors.
-	injectSpawnErrors bool
 	// monitorTicker is the ticker used for the monitoring Goroutine.
 	monitorTicker *time.Ticker
 	monitorDone   chan interface{}

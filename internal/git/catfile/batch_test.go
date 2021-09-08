@@ -3,6 +3,7 @@ package catfile
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -327,6 +328,14 @@ func TestRepeatedCalls(t *testing.T) {
 	require.Equal(t, string(treeBytes), string(tree2))
 }
 
+type failingTestRepoExecutor struct {
+	git.RepositoryExecutor
+}
+
+func (e failingTestRepoExecutor) Exec(context.Context, git.Cmd, ...git.CmdOpt) (*command.Command, error) {
+	return nil, fmt.Errorf("simulated error")
+}
+
 func TestSpawnFailure(t *testing.T) {
 	cfg, testRepo, _ := testcfg.BuildWithRepo(t)
 	testRepoExecutor := &repoExecutor{
@@ -372,10 +381,12 @@ func TestSpawnFailure(t *testing.T) {
 	ctx2, cancel2 := testhelper.Context()
 	defer cancel2()
 
-	cache.injectSpawnErrors = true
-	_, err = catfileWithFreshSessionID(ctx2, cache, testRepoExecutor)
+	failingTestRepoExecutor := failingTestRepoExecutor{
+		RepositoryExecutor: testRepoExecutor,
+	}
+	_, err = catfileWithFreshSessionID(ctx2, cache, failingTestRepoExecutor)
 	require.Error(t, err, "expect simulated error")
-	require.IsType(t, &simulatedBatchSpawnError{}, err)
+	require.EqualError(t, err, "simulated error")
 
 	require.True(
 		t,

@@ -98,10 +98,6 @@ func (c *batch) isClosed() bool {
 	return c.closed
 }
 
-type simulatedBatchSpawnError struct{}
-
-func (simulatedBatchSpawnError) Error() string { return "simulated spawn error" }
-
 func (bc *BatchCache) newBatch(ctx context.Context, repo git.RepositoryExecutor) (*batch, context.Context, error) {
 	var err error
 

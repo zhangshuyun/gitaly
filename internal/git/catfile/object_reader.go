@@ -66,11 +66,6 @@ func (bc *BatchCache) newObjectReader(ctx context.Context, repo git.RepositoryEx
 		span.Finish()
 	}()
 
-	if bc.injectSpawnErrors {
-		// Testing only: intentionally leak process
-		return nil, &simulatedBatchSpawnError{}
-	}
-
 	return objectReader, nil
 }
 
