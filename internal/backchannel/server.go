@@ -42,6 +42,13 @@ func GetPeerID(ctx context.Context) (ID, error) {
 	return wrapper.peerID(), nil
 }
 
+// WithID stores the ID in the provided AuthInfo so it can be later accessed by the RPC handler.
+// GetYamuxSession gets the yamux session of the current peer connection.
+// This is exported to facilitate testing.
+func WithID(authInfo credentials.AuthInfo, id ID) credentials.AuthInfo {
+	return authInfoWrapper{id: id, AuthInfo: authInfo}
+}
+
 // GetYamuxSession gets the yamux session of the current peer connection.
 func GetYamuxSession(ctx context.Context) (*yamux.Session, error) {
 	peerInfo, ok := peer.FromContext(ctx)
