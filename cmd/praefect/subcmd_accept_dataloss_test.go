@@ -50,7 +50,7 @@ func TestAcceptDatalossSubcommand(t *testing.T) {
 			require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, storage, nil, nil, false, false))
 		}
 
-		require.NoError(t, rs.SetGeneration(ctx, vs, repo, storage, generation))
+		require.NoError(t, rs.SetGeneration(ctx, 1, storage, generation))
 	}
 
 	ln, clean := listenAndServe(t, []svcRegistrar{registerPraefectInfoServer(info.NewServer(conf, rs, nil, nil, nil))})

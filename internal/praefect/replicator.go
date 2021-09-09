@@ -133,8 +133,7 @@ func (dr defaultReplicator) Replicate(ctx context.Context, event datastore.Repli
 
 	if generation != datastore.GenerationUnknown {
 		return dr.rs.SetGeneration(ctx,
-			event.Job.VirtualStorage,
-			event.Job.RelativePath,
+			event.Job.RepositoryID,
 			event.Job.TargetNodeStorage,
 			generation,
 		)

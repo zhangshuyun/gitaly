@@ -88,7 +88,7 @@ type RepositoryStore interface {
 	IncrementGeneration(ctx context.Context, repositoryID int64, primary string, secondaries []string) error
 	// SetGeneration sets the repository's generation on the given storage. If the generation is higher
 	// than the virtual storage's generation, it is set to match as well to guarantee monotonic increments.
-	SetGeneration(ctx context.Context, virtualStorage, relativePath, storage string, generation int) error
+	SetGeneration(ctx context.Context, repositoryID int64, storage string, generation int) error
 	// GetReplicatedGeneration returns the generation propagated by applying the replication. If the generation would
 	// downgrade, a DowngradeAttemptedError is returned.
 	GetReplicatedGeneration(ctx context.Context, repositoryID int64, source, target string) (int, error)
@@ -218,13 +218,12 @@ SELECT
 	return nil
 }
 
-func (rs *PostgresRepositoryStore) SetGeneration(ctx context.Context, virtualStorage, relativePath, storage string, generation int) error {
+func (rs *PostgresRepositoryStore) SetGeneration(ctx context.Context, repositoryID int64, storage string, generation int) error {
 	const q = `
 WITH repository AS (
-	UPDATE repositories SET generation = $4
-	WHERE virtual_storage = $1
-	AND   relative_path   = $2
-	AND   COALESCE(repositories.generation, -1) < $4
+	UPDATE repositories SET generation = $3
+	WHERE repository_id = $1
+	AND   COALESCE(repositories.generation, -1) < $3
 )
 
 INSERT INTO storage_repositories (
@@ -235,14 +234,18 @@ INSERT INTO storage_repositories (
 	generation
 )
 SELECT
-	(SELECT repository_id FROM repositories WHERE virtual_storage = $1 AND relative_path = $2),
-	$1, $2, $3, $4
+	repository_id,
+	virtual_storage,
+	relative_path,
+	$2,
+	$3
+FROM repositories
+WHERE repository_id = $1
 ON CONFLICT (virtual_storage, relative_path, storage) DO UPDATE SET
-	repository_id = EXCLUDED.repository_id,
 	generation = EXCLUDED.generation
 `
 
-	_, err := rs.db.ExecContext(ctx, q, virtualStorage, relativePath, storage, generation)
+	_, err := rs.db.ExecContext(ctx, q, repositoryID, storage, generation)
 	return err
 }
 

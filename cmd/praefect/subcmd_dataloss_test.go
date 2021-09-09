@@ -54,30 +54,30 @@ func TestDatalossSubcommand(t *testing.T) {
 
 	for _, q := range []string{
 		`
-				INSERT INTO repositories (virtual_storage, relative_path, "primary")
+				INSERT INTO repositories (repository_id, virtual_storage, relative_path, "primary")
 				VALUES
-					('virtual-storage-1', 'repository-1', 'gitaly-1'),
-					('virtual-storage-1', 'repository-2', 'gitaly-3')
+					(1, 'virtual-storage-1', 'repository-1', 'gitaly-1'),
+					(2, 'virtual-storage-1', 'repository-2', 'gitaly-3')
 				`,
 		`
-				INSERT INTO repository_assignments (virtual_storage, relative_path, storage)
+				INSERT INTO repository_assignments (repository_id, virtual_storage, relative_path, storage)
 				VALUES
-					('virtual-storage-1', 'repository-1', 'gitaly-1'),
-					('virtual-storage-1', 'repository-1', 'gitaly-2'),
-					('virtual-storage-1', 'repository-2', 'gitaly-1'),
-					('virtual-storage-1', 'repository-2', 'gitaly-3')
+					(1, 'virtual-storage-1', 'repository-1', 'gitaly-1'),
+					(1, 'virtual-storage-1', 'repository-1', 'gitaly-2'),
+					(2, 'virtual-storage-1', 'repository-2', 'gitaly-1'),
+					(2, 'virtual-storage-1', 'repository-2', 'gitaly-3')
 				`,
 	} {
 		_, err := tx.ExecContext(ctx, q)
 		require.NoError(t, err)
 	}
 
-	require.NoError(t, gs.SetGeneration(ctx, "virtual-storage-1", "repository-1", "gitaly-1", 1))
-	require.NoError(t, gs.SetGeneration(ctx, "virtual-storage-1", "repository-1", "gitaly-2", 0))
-	require.NoError(t, gs.SetGeneration(ctx, "virtual-storage-1", "repository-1", "gitaly-3", 0))
+	require.NoError(t, gs.SetGeneration(ctx, 1, "gitaly-1", 1))
+	require.NoError(t, gs.SetGeneration(ctx, 1, "gitaly-2", 0))
+	require.NoError(t, gs.SetGeneration(ctx, 1, "gitaly-3", 0))
 
-	require.NoError(t, gs.SetGeneration(ctx, "virtual-storage-1", "repository-2", "gitaly-2", 1))
-	require.NoError(t, gs.SetGeneration(ctx, "virtual-storage-1", "repository-2", "gitaly-3", 0))
+	require.NoError(t, gs.SetGeneration(ctx, 2, "gitaly-2", 1))
+	require.NoError(t, gs.SetGeneration(ctx, 2, "gitaly-3", 0))
 
 	ln, clean := listenAndServe(t, []svcRegistrar{
 		registerPraefectInfoServer(info.NewServer(cfg, gs, nil, nil, nil)),

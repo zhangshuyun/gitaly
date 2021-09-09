@@ -490,19 +490,22 @@ func TestPerRepositoryElector(t *testing.T) {
 			rs := datastore.NewPostgresRepositoryStore(db, nil)
 			for virtualStorage, relativePaths := range tc.state {
 				for relativePath, storages := range relativePaths {
-					_, err := db.ExecContext(ctx,
-						`INSERT INTO repositories (virtual_storage, relative_path) VALUES ($1, $2)`,
-						virtualStorage, relativePath,
-					)
+					repositoryID, err := rs.ReserveRepositoryID(ctx, virtualStorage, relativePath)
 					require.NoError(t, err)
 
+					repoCreated := false
 					for storage, record := range storages {
-						require.NoError(t, rs.SetGeneration(ctx, virtualStorage, relativePath, storage, record.generation))
+						if !repoCreated {
+							repoCreated = true
+							require.NoError(t, rs.CreateRepository(ctx, repositoryID, virtualStorage, relativePath, storage, nil, nil, false, false))
+						}
+
+						require.NoError(t, rs.SetGeneration(ctx, repositoryID, storage, record.generation))
 
 						if record.assigned {
 							_, err := db.ExecContext(ctx, `
-								INSERT INTO repository_assignments VALUES ($1, $2, $3)
-							`, virtualStorage, relativePath, storage)
+								INSERT INTO repository_assignments VALUES ($1, $2, $3, $4)
+							`, virtualStorage, relativePath, storage, repositoryID)
 							require.NoError(t, err)
 						}
 					}
