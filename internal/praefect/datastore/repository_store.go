@@ -25,16 +25,14 @@ var errWriteToOutdatedNodes = errors.New("write to outdated nodes")
 // DowngradeAttemptedError is returned when attempting to get the replicated generation for a source repository
 // that does not upgrade the target repository.
 type DowngradeAttemptedError struct {
-	VirtualStorage      string
-	RelativePath        string
 	Storage             string
 	CurrentGeneration   int
 	AttemptedGeneration int
 }
 
 func (err DowngradeAttemptedError) Error() string {
-	return fmt.Sprintf("attempted downgrading %q -> %q -> %q from generation %d to %d",
-		err.VirtualStorage, err.RelativePath, err.Storage, err.CurrentGeneration, err.AttemptedGeneration,
+	return fmt.Sprintf("attempted downgrading storage %q from generation %d to %d",
+		err.Storage, err.CurrentGeneration, err.AttemptedGeneration,
 	)
 }
 
@@ -93,7 +91,7 @@ type RepositoryStore interface {
 	SetGeneration(ctx context.Context, virtualStorage, relativePath, storage string, generation int) error
 	// GetReplicatedGeneration returns the generation propagated by applying the replication. If the generation would
 	// downgrade, a DowngradeAttemptedError is returned.
-	GetReplicatedGeneration(ctx context.Context, virtualStorage, relativePath, source, target string) (int, error)
+	GetReplicatedGeneration(ctx context.Context, repositoryID int64, source, target string) (int, error)
 	// CreateRepository creates a record for a repository in the specified virtual storage and relative path.
 	// Primary is the storage the repository was created on. UpdatedSecondaries are secondaries that participated
 	// and successfully completed the transaction. OutdatedSecondaries are secondaries that were outdated or failed
@@ -280,16 +278,15 @@ ON CONFLICT (virtual_storage, relative_path, storage) DO UPDATE
 	return nil
 }
 
-func (rs *PostgresRepositoryStore) GetReplicatedGeneration(ctx context.Context, virtualStorage, relativePath, source, target string) (int, error) {
+func (rs *PostgresRepositoryStore) GetReplicatedGeneration(ctx context.Context, repositoryID int64, source, target string) (int, error) {
 	const q = `
 SELECT storage, generation
 FROM storage_repositories
-WHERE virtual_storage = $1
-AND relative_path = $2
-AND storage = ANY($3)
+WHERE repository_id = $1
+AND storage = ANY($2)
 `
 
-	rows, err := rs.db.QueryContext(ctx, q, virtualStorage, relativePath, pq.StringArray([]string{source, target}))
+	rows, err := rs.db.QueryContext(ctx, q, repositoryID, pq.StringArray([]string{source, target}))
 	if err != nil {
 		return 0, err
 	}
@@ -320,8 +317,6 @@ AND storage = ANY($3)
 
 	if targetGeneration != GenerationUnknown && targetGeneration >= sourceGeneration {
 		return 0, DowngradeAttemptedError{
-			VirtualStorage:      virtualStorage,
-			RelativePath:        relativePath,
 			Storage:             target,
 			CurrentGeneration:   targetGeneration,
 			AttemptedGeneration: sourceGeneration,

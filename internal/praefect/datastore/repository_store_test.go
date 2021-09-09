@@ -541,12 +541,12 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		t.Run("no previous record allowed", func(t *testing.T) {
 			rs, _ := newStore(t, nil)
 
-			gen, err := rs.GetReplicatedGeneration(ctx, vs, repo, "source", "target")
+			gen, err := rs.GetReplicatedGeneration(ctx, 1, "source", "target")
 			require.NoError(t, err)
 			require.Equal(t, GenerationUnknown, gen)
 
-			require.NoError(t, rs.SetGeneration(ctx, vs, repo, "source", 0))
-			gen, err = rs.GetReplicatedGeneration(ctx, vs, repo, "source", "target")
+			require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, "source", nil, nil, false, false))
+			gen, err = rs.GetReplicatedGeneration(ctx, 1, "source", "target")
 			require.NoError(t, err)
 			require.Equal(t, 0, gen)
 		})
@@ -554,13 +554,15 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		t.Run("upgrade allowed", func(t *testing.T) {
 			rs, _ := newStore(t, nil)
 
-			require.NoError(t, rs.SetGeneration(ctx, vs, repo, "source", 1))
-			gen, err := rs.GetReplicatedGeneration(ctx, vs, repo, "source", "target")
+			require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, "source", nil, nil, false, false))
+			require.NoError(t, rs.IncrementGeneration(ctx, 1, "source", nil))
+
+			gen, err := rs.GetReplicatedGeneration(ctx, 1, "source", "target")
 			require.NoError(t, err)
 			require.Equal(t, 1, gen)
 
 			require.NoError(t, rs.SetGeneration(ctx, vs, repo, "target", 0))
-			gen, err = rs.GetReplicatedGeneration(ctx, vs, repo, "source", "target")
+			gen, err = rs.GetReplicatedGeneration(ctx, 1, "source", "target")
 			require.NoError(t, err)
 			require.Equal(t, 1, gen)
 		})
@@ -568,18 +570,19 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		t.Run("downgrade prevented", func(t *testing.T) {
 			rs, _ := newStore(t, nil)
 
-			require.NoError(t, rs.SetGeneration(ctx, vs, repo, "target", 1))
+			require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, "target", nil, nil, false, false))
+			require.NoError(t, rs.IncrementGeneration(ctx, 1, "target", nil))
 
-			_, err := rs.GetReplicatedGeneration(ctx, vs, repo, "source", "target")
-			require.Equal(t, DowngradeAttemptedError{vs, repo, "target", 1, GenerationUnknown}, err)
+			_, err := rs.GetReplicatedGeneration(ctx, 1, "source", "target")
+			require.Equal(t, DowngradeAttemptedError{"target", 1, GenerationUnknown}, err)
 
 			require.NoError(t, rs.SetGeneration(ctx, vs, repo, "source", 1))
-			_, err = rs.GetReplicatedGeneration(ctx, vs, repo, "source", "target")
-			require.Equal(t, DowngradeAttemptedError{vs, repo, "target", 1, 1}, err)
+			_, err = rs.GetReplicatedGeneration(ctx, 1, "source", "target")
+			require.Equal(t, DowngradeAttemptedError{"target", 1, 1}, err)
 
 			require.NoError(t, rs.SetGeneration(ctx, vs, repo, "source", 0))
-			_, err = rs.GetReplicatedGeneration(ctx, vs, repo, "source", "target")
-			require.Equal(t, DowngradeAttemptedError{vs, repo, "target", 1, 0}, err)
+			_, err = rs.GetReplicatedGeneration(ctx, 1, "source", "target")
+			require.Equal(t, DowngradeAttemptedError{"target", 1, 0}, err)
 		})
 	})
 
