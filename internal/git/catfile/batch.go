@@ -28,11 +28,11 @@ type Batch interface {
 }
 
 type batch struct {
-	sync.Mutex
 	*objectInfoReader
 	*objectReader
-	cancel func()
-	closed bool
+
+	closedMutex sync.Mutex
+	closed      bool
 }
 
 // Info returns an ObjectInfo if spec exists. If the revision does not exist
@@ -75,25 +75,21 @@ func (c *batch) Tag(ctx context.Context, revision git.Revision) (*Object, error)
 // Close closes the writers for objectInfoReader and objectReader. This is only used for cached
 // Batches
 func (c *batch) Close() {
-	c.Lock()
-	defer c.Unlock()
+	c.closedMutex.Lock()
+	defer c.closedMutex.Unlock()
 
 	if c.closed {
 		return
 	}
 
 	c.closed = true
-	if c.cancel != nil {
-		// both c.objectReader and c.objectInfoReader have goroutines that listen on
-		// ctx.Done() when this is cancelled, it will cause those goroutines to close both
-		// writers
-		c.cancel()
-	}
+	c.objectReader.Close()
+	c.objectInfoReader.Close()
 }
 
 func (c *batch) isClosed() bool {
-	c.Lock()
-	defer c.Unlock()
+	c.closedMutex.Lock()
+	defer c.closedMutex.Unlock()
 	return c.closed
 }
 
@@ -101,18 +97,8 @@ func newBatch(
 	ctx context.Context,
 	repo git.RepositoryExecutor,
 	counter *prometheus.CounterVec,
-) (*batch, context.Context, error) {
-	var err error
-
+) (_ *batch, _ context.Context, returnedErr error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "catfile.Batch")
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer func() {
-		if err != nil {
-			cancel()
-		}
-	}()
-
 	go func() {
 		<-ctx.Done()
 		span.Finish()
@@ -122,6 +108,13 @@ func newBatch(
 	if err != nil {
 		return nil, ctx, err
 	}
+	defer func() {
+		// If creation of the ObjectInfoReader fails, then we do not want to leak the
+		// ObjectReader process.
+		if returnedErr != nil {
+			objectReader.Close()
+		}
+	}()
 
 	objectInfoReader, err := newObjectInfoReader(ctx, repo, counter)
 	if err != nil {

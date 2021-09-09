@@ -10,6 +10,7 @@ import (
 
 	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 )
 
@@ -17,8 +18,8 @@ import (
 // --batch` process such that we do not have to spawn a new process for each object we are about to
 // read.
 type objectReader struct {
-	r *bufio.Reader
-	w io.WriteCloser
+	cmd    *command.Command
+	stdout *bufio.Reader
 
 	// n is a state machine that tracks how much data we still have to read
 	// from r. Legal states are: n==0, this means we can do a new request on
@@ -47,7 +48,6 @@ func newObjectReader(
 ) (*objectReader, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "catfile.ObjectReader")
 
-	stdinReader, stdinWriter := io.Pipe()
 	batchCmd, err := repo.Exec(ctx,
 		git.SubCmd{
 			Name: "cat-file",
@@ -55,25 +55,29 @@ func newObjectReader(
 				git.Flag{Name: "--batch"},
 			},
 		},
-		git.WithStdin(stdinReader),
+		git.WithStdin(command.SetupStdin),
 	)
 	if err != nil {
 		return nil, err
 	}
 
+	objectReader := &objectReader{
+		cmd:         batchCmd,
+		stdout:      bufio.NewReader(batchCmd),
+		creationCtx: ctx,
+		counter:     counter,
+	}
 	go func() {
 		<-ctx.Done()
-		// This Close() is crucial to prevent leaking file descriptors.
-		stdinWriter.Close()
+		objectReader.Close()
 		span.Finish()
 	}()
 
-	return &objectReader{
-		w:           stdinWriter,
-		r:           bufio.NewReader(batchCmd),
-		creationCtx: ctx,
-		counter:     counter,
-	}, nil
+	return objectReader, nil
+}
+
+func (o *objectReader) Close() {
+	_ = o.cmd.Wait()
 }
 
 func (o *objectReader) reader(
@@ -93,7 +97,7 @@ func (o *objectReader) reader(
 
 	if o.n == 1 {
 		// Consume linefeed
-		if _, err := o.r.ReadByte(); err != nil {
+		if _, err := o.stdout.ReadByte(); err != nil {
 			return nil, err
 		}
 		o.n--
@@ -103,11 +107,11 @@ func (o *objectReader) reader(
 		return nil, fmt.Errorf("cannot create new Object: batch contains %d unread bytes", o.n)
 	}
 
-	if _, err := fmt.Fprintln(o.w, revision.String()); err != nil {
+	if _, err := fmt.Fprintln(o.cmd, revision.String()); err != nil {
 		return nil, err
 	}
 
-	oi, err := ParseObjectInfo(o.r)
+	oi, err := ParseObjectInfo(o.stdout)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +121,7 @@ func (o *objectReader) reader(
 	if oi.Type != expectedType {
 		// This is a programmer error and it should never happen. But if it does,
 		// we need to leave the cat-file process in a good state
-		if _, err := io.CopyN(ioutil.Discard, o.r, o.n); err != nil {
+		if _, err := io.CopyN(ioutil.Discard, o.stdout, o.n); err != nil {
 			return nil, err
 		}
 		o.n = 0
@@ -129,7 +133,7 @@ func (o *objectReader) reader(
 		ObjectInfo: *oi,
 		Reader: &objectDataReader{
 			objectReader: o,
-			r:            io.LimitReader(o.r, oi.Size),
+			r:            io.LimitReader(o.stdout, oi.Size),
 		},
 	}, nil
 }

@@ -200,28 +200,34 @@ func (bc *BatchCache) BatchProcess(ctx context.Context, repo git.RepositoryExecu
 
 		// We have not found any cached process, so we need to create a new one. In this
 		// case, we need to detach the process from the current context such that it does
-		// not get killed when the current context is done.
-		ctx = context.Background()
+		// not get killed when the current context is done. Note that while we explicitly
+		// `Close()` processes in case this function fails, we must have a cancellable
+		// context or otherwise our `command` package will panic.
+		var cancel func()
+		ctx, cancel = context.WithCancel(context.Background())
+		defer func() {
+			if returnedErr != nil {
+				cancel()
+			}
+		}()
+
 		// We have to decorrelate the process from the current context given that it
 		// may potentially be reused across different RPC calls.
 		ctx = correlation.ContextWithCorrelation(ctx, "")
 		ctx = opentracing.ContextWithSpan(ctx, nil)
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer func() {
-		// If creation of the process fails, then we want to manually cancel the context
-		// such that any potentially created processes get killed immediately.
-		if returnedErr != nil {
-			cancel()
-		}
-	}()
-
 	c, ctx, err := newBatch(ctx, repo, bc.catfileLookupCounter)
 	if err != nil {
 		return nil, err
 	}
-	c.cancel = cancel
+	defer func() {
+		// If we somehow fail after creating a new Batch process, then we want to kill
+		// spawned processes right away.
+		if returnedErr != nil {
+			c.Close()
+		}
+	}()
 
 	bc.totalCatfileProcesses.Inc()
 	bc.currentCatfileProcesses.Inc()

@@ -4,11 +4,11 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"sync"
 
 	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 )
 
@@ -16,8 +16,8 @@ import (
 // long-lived  `git cat-file --batch-check` process such that we do not have to spawn a separate
 // process per object info we're about to read.
 type objectInfoReader struct {
-	r *bufio.Reader
-	w io.WriteCloser
+	cmd    *command.Command
+	stdout *bufio.Reader
 	sync.Mutex
 
 	// creationCtx is the context in which this reader has been created. This context may
@@ -34,7 +34,6 @@ func newObjectInfoReader(
 ) (*objectInfoReader, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "catfile.ObjectInfoReader")
 
-	stdinReader, stdinWriter := io.Pipe()
 	batchCmd, err := repo.Exec(ctx,
 		git.SubCmd{
 			Name: "cat-file",
@@ -42,25 +41,30 @@ func newObjectInfoReader(
 				git.Flag{Name: "--batch-check"},
 			},
 		},
-		git.WithStdin(stdinReader),
+		git.WithStdin(command.SetupStdin),
 	)
 	if err != nil {
 		return nil, err
 	}
 
+	objectInfoReader := &objectInfoReader{
+		cmd:         batchCmd,
+		stdout:      bufio.NewReader(batchCmd),
+		creationCtx: ctx,
+		counter:     counter,
+	}
 	go func() {
 		<-ctx.Done()
 		// This is crucial to prevent leaking file descriptors.
-		stdinWriter.Close()
+		objectInfoReader.Close()
 		span.Finish()
 	}()
 
-	return &objectInfoReader{
-		w:           stdinWriter,
-		r:           bufio.NewReader(batchCmd),
-		creationCtx: ctx,
-		counter:     counter,
-	}, nil
+	return objectInfoReader, nil
+}
+
+func (o *objectInfoReader) Close() {
+	_ = o.cmd.Wait()
 }
 
 func (o *objectInfoReader) info(ctx context.Context, revision git.Revision) (*ObjectInfo, error) {
@@ -74,9 +78,9 @@ func (o *objectInfoReader) info(ctx context.Context, revision git.Revision) (*Ob
 	o.Lock()
 	defer o.Unlock()
 
-	if _, err := fmt.Fprintln(o.w, revision.String()); err != nil {
+	if _, err := fmt.Fprintln(o.cmd, revision.String()); err != nil {
 		return nil, err
 	}
 
-	return ParseObjectInfo(o.r)
+	return ParseObjectInfo(o.stdout)
 }

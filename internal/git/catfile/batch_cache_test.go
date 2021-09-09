@@ -217,7 +217,7 @@ func TestCache_BatchProcess(t *testing.T) {
 		// We're cheating a bit here to avoid creating a racy test by reaching into the
 		// batch processes and trying to read from their stdout. If the cancel did kill the
 		// process as expected, then the stdout should be closed and we'll get an EOF.
-		for _, reader := range []io.Reader{batch.objectInfoReader.r, batch.objectReader.r} {
+		for _, reader := range []io.Reader{batch.objectInfoReader.cmd, batch.objectReader.cmd} {
 			output, err := ioutil.ReadAll(reader)
 			if err != nil {
 				require.True(t, errors.Is(err, os.ErrClosed))
@@ -302,7 +302,7 @@ func TestCache_BatchProcess(t *testing.T) {
 
 		// The process should be killed now.
 		_, err = batchProcess.Info(ctx, "refs/heads/master")
-		require.True(t, errors.Is(err, io.EOF) || errors.Is(err, io.ErrClosedPipe) || errors.Is(err, os.ErrClosed))
+		require.True(t, errors.Is(err, os.ErrClosed))
 	})
 
 	t.Run("closed process does not get cached", func(t *testing.T) {
