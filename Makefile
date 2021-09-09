@@ -114,6 +114,10 @@ ifeq ($(origin GIT_PATCHES),undefined)
     # Before adding custom patches, please read doc/PROCESS.md#Patching-git
     # first to make sure your patches meet our acceptance criteria. Patches
     # must be put into `_support/git-patches`.
+
+    # The following set of patches speeds up connectivity checks and thus
+    # pushes into Gitaly. They have been merged into next via a5619d4f8d (Merge
+    # branch 'ps/connectivity-optim', 2021-09-03)
     GIT_PATCHES += 0001-fetch-pack-speed-up-loading-of-refs-via-commit-graph.patch
     GIT_PATCHES += 0002-revision-separate-walk-and-unsorted-flags.patch
     GIT_PATCHES += 0003-connected-do-not-sort-input-revisions.patch
