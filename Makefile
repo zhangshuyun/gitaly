@@ -86,7 +86,7 @@ LIBGIT2_VERSION           ?= v1.1.0
 
 # Support both vX.Y.Z and X.Y.Z version patterns, since callers across
 # GitLab use both.
-ifndef GIT_VERSION
+ifeq ($(origin GIT_VERSION),undefined)
   GIT_VERSION := v2.33.0
 else
   GIT_VERSION := $(shell echo ${GIT_VERSION} | awk '/^[0-9]\.[0-9]+\.[0-9]+$$/ { printf "v" } { print $$1 }')
@@ -110,7 +110,7 @@ ifeq (${Q},@)
 	GIT_QUIET = --quiet
 endif
 
-ifndef GIT_PATCHES
+ifeq ($(origin GIT_PATCHES),undefined)
     # Before adding custom patches, please read doc/PROCESS.md#Patching-git
     # first to make sure your patches meet our acceptance criteria. Patches
     # must be put into `_support/git-patches`.
@@ -127,10 +127,10 @@ ifndef GIT_PATCHES
     # incremented whenever a new patch is added above. When no patches exist,
     # then this should be undefined. Otherwise, it must be set to at least
     # `gl1` given that `0` is the "default" GitLab patch level.
-    GIT_EXTRA_VERSION = gl1
+    GIT_EXTRA_VERSION := gl1
 endif
 
-ifndef GIT_BUILD_OPTIONS
+ifeq ($(origin GIT_BUILD_OPTIONS),undefined)
     ## Build options for Git.
     GIT_BUILD_OPTIONS ?=
     # activate developer checks
@@ -152,7 +152,7 @@ LIBGIT2_SOURCE_DIR  ?= ${DEPENDENCY_DIR}/libgit2/source
 LIBGIT2_BUILD_DIR   ?= ${DEPENDENCY_DIR}/libgit2/build
 LIBGIT2_INSTALL_DIR ?= ${DEPENDENCY_DIR}/libgit2/install
 
-ifndef LIBGIT2_BUILD_OPTIONS
+ifeq ($(origin LIBGIT2_BUILD_OPTIONS),undefined)
     ## Build options for libgit2.
     LIBGIT2_BUILD_OPTIONS ?=
     LIBGIT2_BUILD_OPTIONS += -DTHREADSAFE=ON
@@ -258,10 +258,10 @@ help:
 ## Build Go binaries and install required Ruby Gems.
 build: ${SOURCE_DIR}/.ruby-bundle libgit2
 	go install ${GO_LDFLAGS} -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, $(call find_commands))
-	# We use version suffix for the gitaly-git2go binary to support compatibility contract between
-	# gitaly and gitaly-git2go during upgrade deployment.
-	# For more information refer to https://gitlab.com/gitlab-org/gitaly/-/issues/3647#note_599082033
-	mv ${BUILD_DIR}/bin/gitaly-git2go "${BUILD_DIR}/bin/gitaly-git2go-${MODULE_VERSION}"
+	${Q}# We use version suffix for the gitaly-git2go binary to support compatibility contract between
+	${Q}# gitaly and gitaly-git2go during upgrade deployment.
+	${Q}# For more information refer to https://gitlab.com/gitlab-org/gitaly/-/issues/3647#note_599082033
+	${Q}mv ${BUILD_DIR}/bin/gitaly-git2go "${BUILD_DIR}/bin/gitaly-git2go-${MODULE_VERSION}"
 
 .PHONY: install
 ## Install Gitaly binaries. The target directory can be modified by setting PREFIX and DESTDIR.
@@ -496,13 +496,13 @@ ${GIT_INSTALL_DIR}/bin/git: ${DEPENDENCY_DIR}/git.version
 	${Q}${GIT} -C "${GIT_SOURCE_DIR}" fetch --depth 1 ${GIT_QUIET} origin ${GIT_VERSION}
 	${Q}${GIT} -C "${GIT_SOURCE_DIR}" reset --hard
 	${Q}${GIT} -C "${GIT_SOURCE_DIR}" checkout ${GIT_QUIET} --detach FETCH_HEAD
-ifneq (${GIT_PATCHES},)
+ifdef GIT_PATCHES
 	${Q}${GIT} -C "${GIT_SOURCE_DIR}" apply $(addprefix "${SOURCE_DIR}"/_support/git-patches/,${GIT_PATCHES})
 endif
-	# We're writing the version into the "version" file in Git's own source
-	# directory. If it exists, Git's Makefile will pick it up and use it as
-	# the version instead of auto-detecting via git-describe(1).
-ifneq (${GIT_EXTRA_VERSION},0)
+	${Q}# We're writing the version into the "version" file in Git's own source
+	${Q}# directory. If it exists, Git's Makefile will pick it up and use it as
+	${Q}# the version instead of auto-detecting via git-describe(1).
+ifdef GIT_EXTRA_VERSION
 	${Q}echo ${GIT_VERSION}.${GIT_EXTRA_VERSION} >"${GIT_SOURCE_DIR}"/version
 else
 	${Q}rm -f "${GIT_SOURCE_DIR}"/version
@@ -555,19 +555,19 @@ ${PROTOC_GEN_GO_GRPC}:TOOL_VERSION = v${PROTOC_GEN_GO_GRPC_VERSION}
 
 ${TEST_REPO}:
 	${GIT} clone --bare ${GIT_QUIET} https://gitlab.com/gitlab-org/gitlab-test.git $@
-	# Git notes aren't fetched by default with git clone
-	${GIT} -C $@ fetch origin refs/notes/*:refs/notes/*
-	rm -rf $@/refs
-	mkdir -p $@/refs/heads $@/refs/tags
-	cp ${SOURCE_DIR}/_support/gitlab-test.git-packed-refs $@/packed-refs
-	${GIT} -C $@ fsck --no-progress
+	${Q}# Git notes aren't fetched by default with git clone
+	${GIT} -C $@ fetch ${GIT_QUIET} origin refs/notes/*:refs/notes/*
+	${Q}rm -rf $@/refs
+	${Q}mkdir -p $@/refs/heads $@/refs/tags
+	${Q}cp ${SOURCE_DIR}/_support/gitlab-test.git-packed-refs $@/packed-refs
+	${Q}${GIT} -C $@ fsck --no-progress
 
 ${TEST_REPO_GIT}:
 	${GIT} clone --bare ${GIT_QUIET} https://gitlab.com/gitlab-org/gitlab-git-test.git $@
-	rm -rf $@/refs
-	mkdir -p $@/refs/heads $@/refs/tags
-	cp ${SOURCE_DIR}/_support/gitlab-git-test.git-packed-refs $@/packed-refs
-	${GIT} -C $@ fsck --no-progress
+	${Q}rm -rf $@/refs
+	${Q}mkdir -p $@/refs/heads $@/refs/tags
+	${Q}cp ${SOURCE_DIR}/_support/gitlab-git-test.git-packed-refs $@/packed-refs
+	${Q}${GIT} -C $@ fsck --no-progress
 
 ${BENCHMARK_REPO}:
 	${GIT} clone --bare ${GIT_QUIET} https://gitlab.com/gitlab-org/gitlab.git $@
