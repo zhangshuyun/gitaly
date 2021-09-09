@@ -1,0 +1,61 @@
+From 62b5a35a33ad6a4537e2ae75a49036e4173fcc87 Mon Sep 17 00:00:00 2001
+Message-Id: <62b5a35a33ad6a4537e2ae75a49036e4173fcc87.1631166322.git.ps@pks.im>
+In-Reply-To: <fe7df03a9a2fa434ebce38b2cd5e6da42f8b2692.1631166322.git.ps@pks.im>
+References: <fe7df03a9a2fa434ebce38b2cd5e6da42f8b2692.1631166322.git.ps@pks.im>
+From: Patrick Steinhardt <ps@pks.im>
+Date: Wed, 1 Sep 2021 15:09:54 +0200
+Subject: [PATCH 11/14] fetch-pack: optimize loading of refs via commit graph
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+In order to negotiate a packfile, we need to dereference refs to see
+which commits we have in common with the remote. To do so, we first look
+up the object's type -- if it's a tag, we peel until we hit a non-tag
+object. If we hit a commit eventually, then we return that commit.
+
+In case the object ID points to a commit directly, we can avoid the
+initial lookup of the object type by opportunistically looking up the
+commit via the commit-graph, if available, which gives us a slight speed
+bump of about 2% in a huge repository with about 2.3M refs:
+
+    Benchmark #1: HEAD~: git-fetch
+      Time (mean ± σ):     31.634 s ±  0.258 s    [User: 28.400 s, System: 5.090 s]
+      Range (min … max):   31.280 s … 31.896 s    5 runs
+
+    Benchmark #2: HEAD: git-fetch
+      Time (mean ± σ):     31.129 s ±  0.543 s    [User: 27.976 s, System: 5.056 s]
+      Range (min … max):   30.172 s … 31.479 s    5 runs
+
+    Summary
+      'HEAD: git-fetch' ran
+        1.02 ± 0.02 times faster than 'HEAD~: git-fetch'
+
+In case this fails, we fall back to the old code which peels the
+objects to a commit.
+
+Signed-off-by: Patrick Steinhardt <ps@pks.im>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+---
+ fetch-pack.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/fetch-pack.c b/fetch-pack.c
+index e6ec79f81a..a9604f35a3 100644
+--- a/fetch-pack.c
++++ b/fetch-pack.c
+@@ -119,6 +119,11 @@ static struct commit *deref_without_lazy_fetch(const struct object_id *oid,
+ {
+ 	enum object_type type;
+ 	struct object_info info = { .typep = &type };
++	struct commit *commit;
++
++	commit = lookup_commit_in_graph(the_repository, oid);
++	if (commit)
++		return commit;
+ 
+ 	while (1) {
+ 		if (oid_object_info_extended(the_repository, oid, &info,
+-- 
+2.33.0
+

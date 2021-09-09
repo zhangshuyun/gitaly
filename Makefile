@@ -125,13 +125,30 @@ ifeq ($(origin GIT_PATCHES),undefined)
     GIT_PATCHES += 0005-commit-graph-split-out-function-to-search-commit-pos.patch
     GIT_PATCHES += 0006-revision-avoid-hitting-packfiles-when-commits-are-in.patch
 
+    # Due to a bug, fetches with `--quiet` were slower than those without
+    # because Git formatted each reference into the output buffer even though
+    # it wasn't used. This has been merged into next via 2440a8a2aa (Merge
+    # branch 'ps/fetch-omit-formatting-under-quiet' into next, 2021-09-01)
+    GIT_PATCHES += 0007-fetch-skip-formatting-updated-refs-with-quiet.patch
+
+    # This patch set speeds up fetches, most importantly by making better use
+    # of the commit graph. They have been merged into next via 99f865125d
+    # (Merge branch 'ps/fetch-optim' into next, 2021-09-08).
+    GIT_PATCHES += 0008-fetch-speed-up-lookup-of-want-refs-via-commit-graph.patch
+    GIT_PATCHES += 0009-fetch-avoid-unpacking-headers-in-object-existence-ch.patch
+    GIT_PATCHES += 0010-connected-refactor-iterator-to-return-next-object-ID.patch
+    GIT_PATCHES += 0011-fetch-pack-optimize-loading-of-refs-via-commit-graph.patch
+    GIT_PATCHES += 0012-fetch-refactor-fetch-refs-to-be-more-extendable.patch
+    GIT_PATCHES += 0013-fetch-merge-fetching-and-consuming-refs.patch
+    GIT_PATCHES += 0014-fetch-avoid-second-connectivity-check-if-we-already-.patch
+
     # This extra version has two intentions: first, it allows us to detect
     # capabilities of the command at runtime. Second, it helps admins to
     # discover which version is currently in use. As such, this version must be
     # incremented whenever a new patch is added above. When no patches exist,
     # then this should be undefined. Otherwise, it must be set to at least
     # `gl1` given that `0` is the "default" GitLab patch level.
-    GIT_EXTRA_VERSION := gl1
+    GIT_EXTRA_VERSION := gl2
 endif
 
 ifeq ($(origin GIT_BUILD_OPTIONS),undefined)
