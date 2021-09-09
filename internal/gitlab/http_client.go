@@ -14,18 +14,18 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v14/gitlabnet"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	gitalycfgprom "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/prometheus/metrics"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/version"
-	"gitlab.com/gitlab-org/gitlab-shell/client"
 )
 
 var glIDRegex = regexp.MustCompile(`\A[0-9]+\z`)
 
 // HTTPClient is an HTTP client used to talk to the internal GitLab Rails API.
 type HTTPClient struct {
-	*client.GitlabNetClient
+	*gitlabnet.GitlabNetClient
 	latencyMetric metrics.HistogramVec
 	logger        logrus.FieldLogger
 }
@@ -42,12 +42,12 @@ func NewHTTPClient(
 		return nil, err
 	}
 
-	var opts []client.HTTPClientOpt
+	var opts []gitlabnet.HTTPClientOpt
 	if tlsCfg.CertPath != "" && tlsCfg.KeyPath != "" {
-		opts = append(opts, client.WithClientCert(tlsCfg.CertPath, tlsCfg.KeyPath))
+		opts = append(opts, gitlabnet.WithClientCert(tlsCfg.CertPath, tlsCfg.KeyPath))
 	}
 
-	httpClient, err := client.NewHTTPClientWithOpts(
+	httpClient, err := gitlabnet.NewHTTPClientWithOpts(
 		url,
 		gitlabCfg.RelativeURLRoot,
 		gitlabCfg.HTTPSettings.CAFile,
@@ -69,7 +69,7 @@ func NewHTTPClient(
 		return nil, fmt.Errorf("reading secret file: %w", err)
 	}
 
-	gitlabnetClient, err := client.NewGitlabNetClient(gitlabCfg.HTTPSettings.User, gitlabCfg.HTTPSettings.Password, string(secret), httpClient)
+	gitlabnetClient, err := gitlabnet.NewGitlabNetClient(gitlabCfg.HTTPSettings.User, gitlabCfg.HTTPSettings.Password, string(secret), httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("instantiating gitlab net client: %w", err)
 	}
