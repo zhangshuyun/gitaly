@@ -526,13 +526,13 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 	t.Run("GetGeneration", func(t *testing.T) {
 		rs, _ := newStore(t, nil)
 
-		generation, err := rs.GetGeneration(ctx, vs, repo, stor)
+		generation, err := rs.GetGeneration(ctx, 1, stor)
 		require.NoError(t, err)
 		require.Equal(t, GenerationUnknown, generation)
 
-		require.NoError(t, rs.SetGeneration(ctx, vs, repo, stor, 0))
+		require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, stor, nil, nil, false, false))
 
-		generation, err = rs.GetGeneration(ctx, vs, repo, stor)
+		generation, err = rs.GetGeneration(ctx, 1, stor)
 		require.NoError(t, err)
 		require.Equal(t, 0, generation)
 	})

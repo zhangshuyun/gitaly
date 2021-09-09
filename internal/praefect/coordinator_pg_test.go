@@ -312,7 +312,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			// Nodes that did not successfully commit or did not participate should remain on their
 			// existing generation.
 			for i, n := range tc.nodes {
-				gen, err := rs.GetGeneration(ctx, repo.StorageName, repo.RelativePath, storageNodes[i].Storage)
+				gen, err := rs.GetGeneration(ctx, 1, storageNodes[i].Storage)
 				require.NoError(t, err)
 				require.Equal(t, n.expectedGeneration, gen, "node %d has wrong generation", i)
 			}

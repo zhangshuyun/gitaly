@@ -145,7 +145,7 @@ func TestAcceptDatalossSubcommand(t *testing.T) {
 			require.NoError(t, fs.Parse(tc.args))
 			tc.matchError(t, cmd.Exec(fs, conf))
 			for storage, expected := range tc.expectedGenerations {
-				actual, err := rs.GetGeneration(ctx, vs, repo, storage)
+				actual, err := rs.GetGeneration(ctx, 1, storage)
 				require.NoError(t, err)
 				require.Equal(t, expected, actual, storage)
 			}

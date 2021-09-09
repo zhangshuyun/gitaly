@@ -5,7 +5,7 @@ import "context"
 // MockRepositoryStore allows for mocking a RepositoryStore by parametrizing its behavior. All methods
 // default to what could be considered success if not set.
 type MockRepositoryStore struct {
-	GetGenerationFunc                     func(ctx context.Context, virtualStorage, relativePath, storage string) (int, error)
+	GetGenerationFunc                     func(ctx context.Context, repositoryID int64, storage string) (int, error)
 	IncrementGenerationFunc               func(ctx context.Context, repositoryID int64, primary string, secondaries []string) error
 	GetReplicatedGenerationFunc           func(ctx context.Context, repositoryID int64, source, target string) (int, error)
 	SetGenerationFunc                     func(ctx context.Context, virtualStorage, relativePath, storage string, generation int) error
@@ -22,12 +22,12 @@ type MockRepositoryStore struct {
 	GetRepositoryIDFunc                   func(ctx context.Context, virtualStorage, relativePath string) (int64, error)
 }
 
-func (m MockRepositoryStore) GetGeneration(ctx context.Context, virtualStorage, relativePath, storage string) (int, error) {
+func (m MockRepositoryStore) GetGeneration(ctx context.Context, repositoryID int64, storage string) (int, error) {
 	if m.GetGenerationFunc == nil {
 		return GenerationUnknown, nil
 	}
 
-	return m.GetGenerationFunc(ctx, virtualStorage, relativePath, storage)
+	return m.GetGenerationFunc(ctx, repositoryID, storage)
 }
 
 func (m MockRepositoryStore) IncrementGeneration(ctx context.Context, repositoryID int64, primary string, secondaries []string) error {

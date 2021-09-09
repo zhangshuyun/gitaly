@@ -83,7 +83,7 @@ var ErrNoRowsAffected = errors.New("no rows were affected by the query")
 // RepositoryStore provides access to repository state.
 type RepositoryStore interface {
 	// GetGeneration gets the repository's generation on a given storage.
-	GetGeneration(ctx context.Context, virtualStorage, relativePath, storage string) (int, error)
+	GetGeneration(ctx context.Context, repositoryID int64, storage string) (int, error)
 	// IncrementGeneration increments the generations of up to date nodes.
 	IncrementGeneration(ctx context.Context, repositoryID int64, primary string, secondaries []string) error
 	// SetGeneration sets the repository's generation on the given storage. If the generation is higher
@@ -145,17 +145,16 @@ func NewPostgresRepositoryStore(db glsql.Querier, configuredStorages map[string]
 	return &PostgresRepositoryStore{db: db, storages: storages(configuredStorages)}
 }
 
-func (rs *PostgresRepositoryStore) GetGeneration(ctx context.Context, virtualStorage, relativePath, storage string) (int, error) {
+func (rs *PostgresRepositoryStore) GetGeneration(ctx context.Context, repositoryID int64, storage string) (int, error) {
 	const q = `
 SELECT generation
 FROM storage_repositories
-WHERE virtual_storage = $1
-AND relative_path = $2
-AND storage = $3
+WHERE repository_id = $1
+AND storage = $2
 `
 
 	var gen int
-	if err := rs.db.QueryRowContext(ctx, q, virtualStorage, relativePath, storage).Scan(&gen); err != nil {
+	if err := rs.db.QueryRowContext(ctx, q, repositoryID, storage).Scan(&gen); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return GenerationUnknown, nil
 		}
