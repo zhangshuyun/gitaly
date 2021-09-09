@@ -3,6 +3,7 @@ package ref
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -426,6 +428,47 @@ func TestFindLocalBranchesPagination(t *testing.T) {
 		Commit: target,
 	}
 	assertContainsLocalBranch(t, branches, branch)
+}
+
+func TestFindLocalBranchesPaginationWithIncorrectToken(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.ExactPaginationTokenMatch,
+	}).Run(t, testFindLocalBranchesPaginationWithIncorrectToken)
+}
+
+func testFindLocalBranchesPaginationWithIncorrectToken(t *testing.T, ctx context.Context) {
+	_, repo, _, client := setupRefService(t)
+
+	limit := 1
+	rpcRequest := &gitalypb.FindLocalBranchesRequest{
+		Repository: repo,
+		PaginationParams: &gitalypb.PaginationParameter{
+			Limit:     int32(limit),
+			PageToken: "refs/heads/random-unknown-branch",
+		},
+	}
+	c, err := client.FindLocalBranches(ctx, rpcRequest)
+	require.NoError(t, err)
+
+	if featureflag.ExactPaginationTokenMatch.IsEnabled(ctx) {
+		_, err = c.Recv()
+		require.NotEqual(t, err, io.EOF)
+		testhelper.RequireGrpcError(t, err, codes.Internal)
+	} else {
+		require.NoError(t, err)
+
+		var branches []*gitalypb.FindLocalBranchResponse
+		for {
+			r, err := c.Recv()
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+			branches = append(branches, r.GetBranches()...)
+		}
+
+		require.NotEmpty(t, branches)
+	}
 }
 
 // Test that `s` contains the elements in `relativeOrder` in that order

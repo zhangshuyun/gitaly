@@ -3,6 +3,7 @@ package lines
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 	"regexp"
 )
@@ -23,6 +24,9 @@ type SenderOpts struct {
 	// will	be called with an empty slice previous to sending the first line
 	// in order to allow sending everything right from the beginning.
 	IsPageToken func([]byte) bool
+	// When PageTokenError is true than Sender will return an error when provided
+	// PageToken is not found.
+	PageTokenError bool
 	// Filter limits sent results to those that pass the filter. The zero
 	// value (nil) disables filtering.
 	Filter *regexp.Regexp
@@ -130,6 +134,10 @@ func (w *writer) consume(r io.Reader) error {
 		if err := w.addLine(line); err != nil {
 			return err
 		}
+	}
+
+	if !pastPageToken && w.options.PageTokenError {
+		return fmt.Errorf("could not find page token")
 	}
 
 	return w.flush()
