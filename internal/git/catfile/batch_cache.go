@@ -80,6 +80,11 @@ type BatchCache struct {
 
 	entriesMutex sync.Mutex
 	entries      []*entry
+
+	// cachedProcessDone is a condition that gets signalled whenever a process is being
+	// considered to be returned to the cache. This field is optional and must only be used in
+	// tests.
+	cachedProcessDone *sync.Cond
 }
 
 // NewCache creates a new catfile process cache.
@@ -210,6 +215,12 @@ func (bc *BatchCache) BatchProcess(ctx context.Context, repo git.RepositoryExecu
 
 func (bc *BatchCache) returnWhenDone(done <-chan struct{}, cacheKey key, c *batch) {
 	<-done
+
+	if bc.cachedProcessDone != nil {
+		defer func() {
+			bc.cachedProcessDone.Broadcast()
+		}()
+	}
 
 	if c == nil || c.isClosed() {
 		return

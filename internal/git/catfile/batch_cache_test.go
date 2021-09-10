@@ -1,6 +1,12 @@
 package catfile
 
 import (
+	"context"
+	"errors"
+	"io"
+	"io/ioutil"
+	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -9,6 +15,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/labkit/correlation"
+	"google.golang.org/grpc/metadata"
 )
 
 func TestCache_add(t *testing.T) {
@@ -169,6 +177,169 @@ func TestCache_autoExpiry(t *testing.T) {
 
 	require.Empty(t, keys(t, bc), "key should no longer be in map")
 	require.True(t, value0.isClosed(), "value should be closed after eviction")
+}
+
+func TestCache_BatchProcess(t *testing.T) {
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	repoExecutor := newRepoExecutor(t, cfg, repo)
+
+	cache := newCache(time.Hour, 10, time.Hour)
+	defer cache.Evict()
+	cache.cachedProcessDone = sync.NewCond(&sync.Mutex{})
+
+	t.Run("uncancellable", func(t *testing.T) {
+		ctx := context.Background()
+
+		require.PanicsWithValue(t, "empty ctx.Done() in catfile.Batch.New()", func() {
+			_, _ = cache.BatchProcess(ctx, repoExecutor)
+		})
+	})
+
+	t.Run("uncacheable", func(t *testing.T) {
+		ctx, cancel := testhelper.Context()
+		defer cancel()
+		ctx = correlation.ContextWithCorrelation(ctx, "1")
+
+		// The context doesn't carry a session ID and is thus uncacheable.
+		// The process should never get returned to the cache and must be
+		// killed on context cancellation.
+		batchProcess, err := cache.BatchProcess(ctx, repoExecutor)
+		require.NoError(t, err)
+
+		instrumentedBatch, ok := batchProcess.(*instrumentedBatch)
+		require.True(t, ok, "expected instrumented batch")
+
+		correlation := correlation.ExtractFromContext(instrumentedBatch.batchCtx)
+		// This is a bug: the context for uncacheable processes should not
+		// be decorrelated.
+		require.Empty(t, correlation)
+
+		cancel()
+
+		batch, ok := instrumentedBatch.Batch.(*batch)
+		require.True(t, ok, "expected batch")
+
+		// We're cheating a bit here to avoid creating a racy test by reaching into the
+		// batch processes and trying to read from their stdout. If the cancel did kill the
+		// process as expected, then the stdout should be closed and we'll get an EOF.
+		for _, reader := range []io.Reader{batch.objectInfoReader.r, batch.objectReader.r} {
+			output, err := ioutil.ReadAll(reader)
+			if err != nil {
+				require.True(t, errors.Is(err, os.ErrClosed))
+			} else {
+				require.NoError(t, err)
+			}
+			require.Empty(t, output)
+		}
+
+		// This is another bug: while we do not have any resource leaks because processes
+		// got killed as expected, the batch itself is not considered to have been closed.
+		require.False(t, batch.isClosed())
+
+		require.Empty(t, keys(t, cache))
+	})
+
+	t.Run("cacheable", func(t *testing.T) {
+		defer cache.Evict()
+
+		ctx, cancel := testhelper.Context()
+		defer cancel()
+		ctx = correlation.ContextWithCorrelation(ctx, "1")
+		ctx = testhelper.MergeIncomingMetadata(ctx,
+			metadata.Pairs(SessionIDField, "1"),
+		)
+
+		batchProcess, err := cache.BatchProcess(ctx, repoExecutor)
+		require.NoError(t, err)
+
+		instrumentedBatch, ok := batchProcess.(*instrumentedBatch)
+		require.True(t, ok, "expected instrumented batch")
+
+		// The correlation ID must be empty given that this will be a cached long-running
+		// processes that can be reused across multpile RPC calls.
+		correlation := correlation.ExtractFromContext(instrumentedBatch.batchCtx)
+		require.Empty(t, correlation)
+
+		// Cancel the context such that the process will be considered for return to the
+		// cache and wait for the cache to collect it.
+		cache.cachedProcessDone.L.Lock()
+		cancel()
+		defer cache.cachedProcessDone.L.Unlock()
+		cache.cachedProcessDone.Wait()
+
+		keys := keys(t, cache)
+		require.Equal(t, []key{{
+			sessionID:   "1",
+			repoStorage: repo.GetStorageName(),
+			repoRelPath: repo.GetRelativePath(),
+		}}, keys)
+
+		// Assert that we can still read from the cached process.
+		_, err = batchProcess.Info(ctx, "refs/heads/master")
+		require.NoError(t, err)
+	})
+
+	t.Run("dirty process does not get cached", func(t *testing.T) {
+		defer cache.Evict()
+
+		ctx, cancel := testhelper.Context()
+		defer cancel()
+		ctx = testhelper.MergeIncomingMetadata(ctx,
+			metadata.Pairs(SessionIDField, "1"),
+		)
+
+		batchProcess, err := cache.BatchProcess(ctx, repoExecutor)
+		require.NoError(t, err)
+
+		// While we request object data, we do not consume it at all. The reader is thus
+		// dirty and cannot be reused and shouldn't be returned to the cache.
+		_, err = batchProcess.Commit(ctx, "refs/heads/master")
+		require.NoError(t, err)
+
+		// Cancel the context such that the process will be considered for return to the
+		// cache and wait for the cache to collect it.
+		cache.cachedProcessDone.L.Lock()
+		cancel()
+		defer cache.cachedProcessDone.L.Unlock()
+		cache.cachedProcessDone.Wait()
+
+		require.Empty(t, keys(t, cache))
+
+		// The process should be killed now.
+		_, err = batchProcess.Info(ctx, "refs/heads/master")
+		require.True(t, errors.Is(err, io.EOF) || errors.Is(err, io.ErrClosedPipe) || errors.Is(err, os.ErrClosed))
+	})
+
+	t.Run("closed process does not get cached", func(t *testing.T) {
+		defer cache.Evict()
+
+		ctx, cancel := testhelper.Context()
+		defer cancel()
+		ctx = testhelper.MergeIncomingMetadata(ctx,
+			metadata.Pairs(SessionIDField, "1"),
+		)
+
+		batchProcess, err := cache.BatchProcess(ctx, repoExecutor)
+		require.NoError(t, err)
+
+		instrumentedBatch, ok := batchProcess.(*instrumentedBatch)
+		require.True(t, ok, "expected instrumented batch")
+		batch, ok := instrumentedBatch.Batch.(*batch)
+		require.True(t, ok, "expected batch")
+
+		// Closed processes naturally cannot be reused anymore and thus shouldn't ever get
+		// cached.
+		batch.Close()
+
+		// Cancel the context such that the process will be considered for return to the
+		// cache and wait for the cache to collect it.
+		cache.cachedProcessDone.L.Lock()
+		cancel()
+		defer cache.cachedProcessDone.L.Unlock()
+		cache.cachedProcessDone.Wait()
+
+		require.Empty(t, keys(t, cache))
+	})
 }
 
 func requireCacheValid(t *testing.T, bc *BatchCache) {
