@@ -43,6 +43,7 @@ func TestOptimizeRepository(t *testing.T) {
 	cfg, repoProto, repoPath, client := setupRepositoryService(t)
 
 	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-b")
+	gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--size-multiple", "4", "--split", "replace", "--reachable", "--changed-paths")
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -50,6 +51,10 @@ func TestOptimizeRepository(t *testing.T) {
 	hasBitmap, err := stats.HasBitmap(repoPath)
 	require.NoError(t, err)
 	require.True(t, hasBitmap, "expect a bitmap since we just repacked with -b")
+
+	missingBloomFilters, err := stats.IsMissingBloomFilters(repoPath)
+	require.NoError(t, err)
+	require.False(t, missingBloomFilters)
 
 	// get timestamp of latest packfile
 	newestsPackfileTime := getNewestPackfileModtime(t, repoPath)
@@ -117,6 +122,10 @@ func TestOptimizeRepository(t *testing.T) {
 	bitmaps, err = filepath.Glob(filepath.Join(testRepoPath, "objects", "pack", "*.bitmap"))
 	require.NoError(t, err)
 	require.NotEmpty(t, bitmaps)
+
+	missingBloomFilters, err = stats.IsMissingBloomFilters(testRepoPath)
+	require.NoError(t, err)
+	require.False(t, missingBloomFilters)
 
 	// Empty directories should exist because they're too recent.
 	require.DirExists(t, emptyRef)
