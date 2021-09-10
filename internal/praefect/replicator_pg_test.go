@@ -2,7 +2,6 @@ package praefect
 
 import (
 	"context"
-	"errors"
 	"net"
 	"path/filepath"
 	"testing"
@@ -79,12 +78,10 @@ func TestReplicatorDestroy(t *testing.T) {
 	db := glsql.NewDB(t)
 	for _, tc := range []struct {
 		change datastore.ChangeType
-		exists bool
 		error  error
 	}{
-		{change: datastore.DeleteReplica, exists: true},
-		{change: datastore.DeleteRepo, exists: false},
-		{change: "invalid-type", exists: true, error: errors.New(`unknown change type: "invalid-type"`)},
+		{change: datastore.DeleteReplica},
+		{change: datastore.DeleteRepo},
 	} {
 		t.Run(string(tc.change), func(t *testing.T) {
 			db.TruncateAll(t)
@@ -128,7 +125,7 @@ func TestReplicatorDestroy(t *testing.T) {
 
 			exists, err := rs.RepositoryExists(ctx, "virtual-storage-1", "relative-path-1")
 			require.NoError(t, err)
-			require.Equal(t, tc.exists, exists)
+			require.True(t, exists)
 		})
 	}
 }
