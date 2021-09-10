@@ -97,7 +97,7 @@ func newBatch(
 	ctx context.Context,
 	repo git.RepositoryExecutor,
 	counter *prometheus.CounterVec,
-) (_ *batch, _ context.Context, returnedErr error) {
+) (_ *batch, returnedErr error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "catfile.Batch")
 	go func() {
 		<-ctx.Done()
@@ -106,7 +106,7 @@ func newBatch(
 
 	objectReader, err := newObjectReader(ctx, repo, counter)
 	if err != nil {
-		return nil, ctx, err
+		return nil, err
 	}
 	defer func() {
 		// If creation of the ObjectInfoReader fails, then we do not want to leak the
@@ -118,8 +118,8 @@ func newBatch(
 
 	objectInfoReader, err := newObjectInfoReader(ctx, repo, counter)
 	if err != nil {
-		return nil, ctx, err
+		return nil, err
 	}
 
-	return &batch{objectReader: objectReader, objectInfoReader: objectInfoReader}, ctx, nil
+	return &batch{objectReader: objectReader, objectInfoReader: objectInfoReader}, nil
 }

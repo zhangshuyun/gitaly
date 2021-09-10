@@ -217,7 +217,7 @@ func (bc *BatchCache) BatchProcess(ctx context.Context, repo git.RepositoryExecu
 		ctx = opentracing.ContextWithSpan(ctx, nil)
 	}
 
-	c, ctx, err := newBatch(ctx, repo, bc.catfileLookupCounter)
+	c, err := newBatch(ctx, repo, bc.catfileLookupCounter)
 	if err != nil {
 		return nil, err
 	}

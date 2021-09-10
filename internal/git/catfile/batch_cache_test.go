@@ -351,7 +351,7 @@ func mustCreateBatch(t *testing.T, cfg config.Cfg, repo repository.GitRepo) *bat
 	ctx, cancel := testhelper.Context()
 	t.Cleanup(cancel)
 
-	batch, _, err := newBatch(ctx, newRepoExecutor(t, cfg, repo), nil)
+	batch, err := newBatch(ctx, newRepoExecutor(t, cfg, repo), nil)
 	require.NoError(t, err)
 
 	return batch
