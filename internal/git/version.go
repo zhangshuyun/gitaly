@@ -1,9 +1,9 @@
 package git
 
 import (
-	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
 	"strconv"
 	"strings"
 )
@@ -39,22 +39,26 @@ type Version struct {
 
 // CurrentVersion returns the used git version.
 func CurrentVersion(ctx context.Context, gitCmdFactory CommandFactory) (Version, error) {
-	var buf bytes.Buffer
 	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, SubCmd{
 		Name: "version",
-	}, WithStdout(&buf))
+	})
 	if err != nil {
 		return Version{}, err
+	}
+
+	versionOutput, err := ioutil.ReadAll(cmd)
+	if err != nil {
+		return Version{}, fmt.Errorf("reading version output: %w", err)
 	}
 
 	if err = cmd.Wait(); err != nil {
 		return Version{}, err
 	}
 
-	out := strings.Trim(buf.String(), " \n")
+	out := strings.Trim(string(versionOutput), " \n")
 	versionString := strings.SplitN(out, " ", 3)
 	if len(versionString) != 3 {
-		return Version{}, fmt.Errorf("invalid version format: %q", buf.String())
+		return Version{}, fmt.Errorf("invalid version format: %q", string(versionOutput))
 	}
 
 	version, err := parseVersion(versionString[2])
