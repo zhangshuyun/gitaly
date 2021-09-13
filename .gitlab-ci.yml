@@ -329,10 +329,10 @@ objectinfo_fuzz_test:
     - ./gitlab-cov-fuzz run -- ./objectinfo_fuzzer -max_total_time=300
 
 code_navigation:
+  image: sourcegraph/lsif-go:v1
   allow_failure: true
   script:
-    - go get github.com/sourcegraph/lsif-go/cmd/lsif-go@v1.3.1
-    - ~/go/bin/lsif-go
+    - lsif-go
   artifacts:
     reports:
       lsif: dump.lsif
