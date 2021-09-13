@@ -1007,8 +1007,9 @@ func TestReconciler(t *testing.T) {
 					for storage, repo := range storages {
 						if repo.assigned {
 							_, err := db.ExecContext(ctx, `
-							INSERT INTO repository_assignments VALUES ($1, $2, $3)
-						`, virtualStorage, relativePath, storage)
+							INSERT INTO repository_assignments (repository_id, virtual_storage, relative_path, storage)
+							VALUES ($1, $2, $3, $4)
+						`, repositoryID, virtualStorage, relativePath, storage)
 							require.NoError(t, err)
 						}
 					}
@@ -1018,6 +1019,12 @@ func TestReconciler(t *testing.T) {
 			// create the existing replication jobs the test expects
 			var existingJobIDs []int64
 			for _, existing := range tc.existingJobs {
+				var err error
+				existing.Job.RepositoryID, err = rs.GetRepositoryID(ctx, existing.Job.VirtualStorage, existing.Job.RelativePath)
+				if err != nil {
+					require.Equal(t, commonerr.NewRepositoryNotFoundError(existing.Job.VirtualStorage, existing.Job.RelativePath), err)
+				}
+
 				var id int64
 				require.NoError(t, db.QueryRowContext(ctx, `
 					INSERT INTO replication_queue (state, job)
