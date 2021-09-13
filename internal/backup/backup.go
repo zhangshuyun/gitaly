@@ -226,7 +226,11 @@ func (mgr *Manager) removeRepository(ctx context.Context, server storage.ServerI
 	if err != nil {
 		return fmt.Errorf("remove repository: %w", err)
 	}
-	if _, err := repoClient.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{Repository: repo}); err != nil {
+	_, err = repoClient.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{Repository: repo})
+	switch {
+	case status.Code(err) == codes.NotFound:
+		return nil
+	case err != nil:
 		return fmt.Errorf("remove repository: %w", err)
 	}
 	return nil

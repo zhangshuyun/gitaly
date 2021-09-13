@@ -155,6 +155,12 @@ func CloneRepo(t testing.TB, cfg config.Cfg, storage config.Storage, opts ...Clo
 	return repo, absolutePath
 }
 
+// BundleTestRepo creates a bundle of a local test repo. E.g. `gitlab-test.git`
+func BundleTestRepo(t testing.TB, cfg config.Cfg, sourceRepo, bundlePath string) {
+	repoPath := testRepositoryPath(t, sourceRepo)
+	Exec(t, cfg, "-C", repoPath, "bundle", "create", bundlePath, "--all")
+}
+
 // testRepositoryPath returns the absolute path of local 'gitlab-org/gitlab-test.git' clone.
 // It is cloned under the path by the test preparing step of make.
 func testRepositoryPath(t testing.TB, repo string) string {
