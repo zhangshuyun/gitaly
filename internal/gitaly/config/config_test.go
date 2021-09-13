@@ -14,6 +14,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/sentry"
@@ -180,19 +181,26 @@ func TestLoadListenAddr(t *testing.T) {
 }
 
 func TestValidateStorages(t *testing.T) {
-	repositories, err := filepath.Abs("testdata/repositories")
+	repositories := tempDir(t)
+	repositories2 := tempDir(t)
+	nestedRepositories := filepath.Join(repositories, "nested")
+	require.NoError(t, os.MkdirAll(nestedRepositories, os.ModePerm))
+	f, err := ioutil.TempFile("", "")
 	require.NoError(t, err)
-
-	repositories2, err := filepath.Abs("testdata/repositories2")
-	require.NoError(t, err)
+	require.NoError(t, f.Close())
+	filePath := f.Name()
 
 	invalidDir := filepath.Join(repositories, t.Name())
 
 	testCases := []struct {
-		desc     string
-		storages []Storage
-		invalid  bool
+		desc      string
+		storages  []Storage
+		expErrMsg string
 	}{
+		{
+			desc:      "no storages",
+			expErrMsg: "no storage configurations found. Are you using the right format? https://gitlab.com/gitlab-org/gitaly/issues/397",
+		},
 		{
 			desc: "just 1 storage",
 			storages: []Storage{
@@ -217,20 +225,20 @@ func TestValidateStorages(t *testing.T) {
 		{
 			desc: "nested paths 1",
 			storages: []Storage{
-				{Name: "default", Path: "/home/git/repositories"},
-				{Name: "other", Path: "/home/git/repositories"},
-				{Name: "third", Path: "/home/git/repositories/third"},
+				{Name: "default", Path: repositories},
+				{Name: "other", Path: repositories},
+				{Name: "third", Path: nestedRepositories},
 			},
-			invalid: true,
+			expErrMsg: `storage paths may not nest: "third" and "default"`,
 		},
 		{
 			desc: "nested paths 2",
 			storages: []Storage{
-				{Name: "default", Path: "/home/git/repositories/default"},
-				{Name: "other", Path: "/home/git/repositories"},
-				{Name: "third", Path: "/home/git/repositories"},
+				{Name: "default", Path: nestedRepositories},
+				{Name: "other", Path: repositories},
+				{Name: "third", Path: repositories},
 			},
-			invalid: true,
+			expErrMsg: `storage paths may not nest: "other" and "default"`,
 		},
 		{
 			desc: "duplicate definition",
@@ -238,7 +246,7 @@ func TestValidateStorages(t *testing.T) {
 				{Name: "default", Path: repositories},
 				{Name: "default", Path: repositories},
 			},
-			invalid: true,
+			expErrMsg: `storage "default" is defined more than once`,
 		},
 		{
 			desc: "re-definition",
@@ -246,21 +254,23 @@ func TestValidateStorages(t *testing.T) {
 				{Name: "default", Path: repositories},
 				{Name: "default", Path: repositories2},
 			},
-			invalid: true,
+			expErrMsg: `storage "default" is defined more than once`,
 		},
 		{
 			desc: "empty name",
 			storages: []Storage{
+				{Name: "some", Path: repositories},
 				{Name: "", Path: repositories},
 			},
-			invalid: true,
+			expErrMsg: `empty storage name at declaration 2`,
 		},
 		{
 			desc: "empty path",
 			storages: []Storage{
+				{Name: "some", Path: repositories},
 				{Name: "default", Path: ""},
 			},
-			invalid: true,
+			expErrMsg: `empty storage path for storage "default"`,
 		},
 		{
 			desc: "non existing directory",
@@ -268,7 +278,15 @@ func TestValidateStorages(t *testing.T) {
 				{Name: "default", Path: repositories},
 				{Name: "nope", Path: invalidDir},
 			},
-			invalid: true,
+			expErrMsg: fmt.Sprintf(`storage path %q for storage "nope" doesn't exist`, invalidDir),
+		},
+		{
+			desc: "path points to the regular file",
+			storages: []Storage{
+				{Name: "default", Path: repositories},
+				{Name: "is_file", Path: filePath},
+			},
+			expErrMsg: fmt.Sprintf(`storage path %q for storage "is_file" is not a dir`, filePath),
 		},
 	}
 
@@ -277,8 +295,8 @@ func TestValidateStorages(t *testing.T) {
 			cfg := Cfg{Storages: tc.storages}
 
 			err := cfg.validateStorages()
-			if tc.invalid {
-				assert.Error(t, err, "%+v", tc.storages)
+			if tc.expErrMsg != "" {
+				assert.EqualError(t, err, tc.expErrMsg, "%+v", tc.storages)
 				return
 			}
 
@@ -432,39 +450,46 @@ value = "second-value"
 }
 
 func TestSetGitPath(t *testing.T) {
-	var resolvedGitPath string
-	if path, ok := os.LookupEnv("GITALY_TESTING_GIT_BINARY"); ok {
-		resolvedGitPath = path
+	// Clean up env so each test case can set it individually
+	val, set := os.LookupEnv("GITALY_TESTING_GIT_BINARY")
+	require.NoError(t, os.Unsetenv("GITALY_TESTING_GIT_BINARY"))
+	if set {
+		defer func() { require.NoError(t, os.Setenv("GITALY_TESTING_GIT_BINARY", val)) }()
 	} else {
-		path, err := exec.LookPath("git")
+		defer func() { require.NoError(t, os.Unsetenv("GITALY_TESTING_GIT_BINARY")) }()
+	}
+
+	t.Run("set in config", func(t *testing.T) {
+		cfg := Cfg{Git: Git{BinPath: "/path/to/myGit"}}
+		require.NoError(t, cfg.SetGitPath())
+		assert.Equal(t, "/path/to/myGit", cfg.Git.BinPath)
+	})
+
+	t.Run("set using env var", func(t *testing.T) {
+		require.NoError(t, os.Setenv("GITALY_TESTING_GIT_BINARY", "/path/to/env_git"))
+		defer func() { require.NoError(t, os.Unsetenv("GITALY_TESTING_GIT_BINARY")) }()
+		cfg := Cfg{Git: Git{}}
+		require.NoError(t, cfg.SetGitPath())
+		assert.Equal(t, "/path/to/env_git", cfg.Git.BinPath)
+	})
+
+	t.Run("not set, get from system", func(t *testing.T) {
+		resolvedPath, err := exec.LookPath("git")
 		require.NoError(t, err)
-		resolvedGitPath = path
-	}
+		cfg := Cfg{Git: Git{}}
+		require.NoError(t, cfg.SetGitPath())
+		assert.Equal(t, resolvedPath, cfg.Git.BinPath)
+	})
 
-	testCases := []struct {
-		desc       string
-		gitBinPath string
-		expected   string
-	}{
-		{
-			desc:       "With a Git Path set through the settings",
-			gitBinPath: "/path/to/myGit",
-			expected:   "/path/to/myGit",
-		},
-		{
-			desc:       "When a git path hasn't been set",
-			gitBinPath: "",
-			expected:   resolvedGitPath,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			cfg := Cfg{Git: Git{BinPath: tc.gitBinPath}}
-			require.NoError(t, cfg.SetGitPath())
-			assert.Equal(t, tc.expected, cfg.Git.BinPath, tc.desc)
-		})
-	}
+	t.Run("doesn't exist in the system", func(t *testing.T) {
+		val, set := os.LookupEnv("PATH")
+		require.NoError(t, os.Unsetenv("PATH"))
+		if set {
+			defer func() { require.NoError(t, os.Setenv("PATH", val)) }()
+		}
+		cfg := Cfg{Git: Git{}}
+		assert.EqualError(t, cfg.SetGitPath(), `"git" executable not found, set path to it in the configuration file or add it to the PATH`)
+	})
 }
 
 func TestValidateGitConfig(t *testing.T) {
@@ -548,27 +573,27 @@ func TestValidateShellPath(t *testing.T) {
 	testCases := []struct {
 		desc      string
 		path      string
-		shouldErr bool
+		expErrMsg string
 	}{
 		{
 			desc:      "When no Shell Path set",
 			path:      "",
-			shouldErr: true,
+			expErrMsg: "gitlab-shell.dir: is not set",
 		},
 		{
 			desc:      "When Shell Path set to non-existing path",
 			path:      "/non/existing/path",
-			shouldErr: true,
+			expErrMsg: `gitlab-shell.dir: path doesn't exist: "/non/existing/path"`,
 		},
 		{
 			desc:      "When Shell Path set to non-dir path",
 			path:      tmpFile,
-			shouldErr: true,
+			expErrMsg: fmt.Sprintf(`gitlab-shell.dir: not a directory: %q`, tmpFile),
 		},
 		{
 			desc:      "When Shell Path set to a valid directory",
 			path:      tmpDir,
-			shouldErr: false,
+			expErrMsg: "",
 		},
 	}
 
@@ -576,8 +601,8 @@ func TestValidateShellPath(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg := Cfg{GitlabShell: GitlabShell{Dir: tc.path}}
 			err := cfg.validateShell()
-			if tc.shouldErr {
-				assert.Error(t, err)
+			if tc.expErrMsg != "" {
+				assert.EqualError(t, err, tc.expErrMsg)
 			} else {
 				assert.NoError(t, err)
 			}
@@ -594,15 +619,33 @@ func TestConfigureRuby(t *testing.T) {
 	require.NoError(t, ioutil.WriteFile(tmpFile, nil, 0o644))
 
 	testCases := []struct {
-		dir  string
-		ok   bool
-		desc string
+		desc      string
+		dir       string
+		expErrMsg string
 	}{
-		{dir: "", desc: "empty"},
-		{dir: "/does/not/exist", desc: "does not exist"},
-		{dir: tmpFile, desc: "exists but is not a directory"},
-		{dir: ".", ok: true, desc: "relative path"},
-		{dir: tmpDir, ok: true, desc: "ok"},
+		{
+			desc: "relative path",
+			dir:  ".",
+		},
+		{
+			desc: "ok",
+			dir:  tmpDir,
+		},
+		{
+			desc:      "empty",
+			dir:       "",
+			expErrMsg: "gitaly-ruby.dir: is not set",
+		},
+		{
+			desc:      "does not exist",
+			dir:       "/does/not/exist",
+			expErrMsg: `gitaly-ruby.dir: path doesn't exist: "/does/not/exist"`,
+		},
+		{
+			desc:      "exists but is not a directory",
+			dir:       tmpFile,
+			expErrMsg: fmt.Sprintf(`gitaly-ruby.dir: not a directory: %q`, tmpFile),
+		},
 	}
 
 	for _, tc := range testCases {
@@ -610,8 +653,8 @@ func TestConfigureRuby(t *testing.T) {
 			cfg := Cfg{Ruby: Ruby{Dir: tc.dir}}
 
 			err := cfg.ConfigureRuby()
-			if !tc.ok {
-				require.Error(t, err)
+			if tc.expErrMsg != "" {
+				require.EqualError(t, err, tc.expErrMsg)
 				return
 			}
 
@@ -647,21 +690,23 @@ func TestValidateListeners(t *testing.T) {
 	testCases := []struct {
 		desc string
 		Cfg
-		ok bool
+		expErrMsg string
 	}{
-		{desc: "empty"},
-		{desc: "socket only", Cfg: Cfg{SocketPath: "/foo/bar"}, ok: true},
-		{desc: "tcp only", Cfg: Cfg{ListenAddr: "a.b.c.d:1234"}, ok: true},
-		{desc: "both socket and tcp", Cfg: Cfg{SocketPath: "/foo/bar", ListenAddr: "a.b.c.d:1234"}, ok: true},
+		{desc: "empty", expErrMsg: `at least one of socket_path, listen_addr or tls_listen_addr must be set`},
+		{desc: "socket only", Cfg: Cfg{SocketPath: "/foo/bar"}},
+		{desc: "tcp only", Cfg: Cfg{ListenAddr: "a.b.c.d:1234"}},
+		{desc: "tls only", Cfg: Cfg{TLSListenAddr: "a.b.c.d:1234"}},
+		{desc: "both socket and tcp", Cfg: Cfg{SocketPath: "/foo/bar", ListenAddr: "a.b.c.d:1234"}},
+		{desc: "all addresses", Cfg: Cfg{SocketPath: "/foo/bar", ListenAddr: "a.b.c.d:1234", TLSListenAddr: "a.b.c.d:1234"}},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			err := tc.Cfg.validateListeners()
-			if tc.ok {
-				require.NoError(t, err)
+			if tc.expErrMsg != "" {
+				require.EqualError(t, err, tc.expErrMsg)
 			} else {
-				require.Error(t, err)
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -716,14 +761,11 @@ dir = '%s'`, gitlabShellDir))
 
 func TestValidateInternalSocketDir(t *testing.T) {
 	// create a valid socket directory
-	tempDir, err := ioutil.TempDir("", t.Name())
-	require.NoError(t, err)
-	defer func() { require.NoError(t, os.RemoveAll(tempDir)) }()
-
+	tmpDir := tempDir(t)
 	// create a symlinked socket directory
 	dirName := "internal_socket_dir"
-	validSocketDirSymlink := filepath.Join(tempDir, dirName)
-	tmpSocketDir, err := ioutil.TempDir(tempDir, "")
+	validSocketDirSymlink := filepath.Join(tmpDir, dirName)
+	tmpSocketDir, err := ioutil.TempDir(tmpDir, "")
 	require.NoError(t, err)
 	tmpSocketDir, err = filepath.Abs(tmpSocketDir)
 	require.NoError(t, err)
@@ -731,49 +773,54 @@ func TestValidateInternalSocketDir(t *testing.T) {
 
 	// create a broken symlink
 	dirName = "internal_socket_dir_broken"
-	brokenSocketDirSymlink := filepath.Join(tempDir, dirName)
+	brokenSocketDirSymlink := filepath.Join(tmpDir, dirName)
 	require.NoError(t, os.Symlink("/does/not/exist", brokenSocketDirSymlink))
+
+	pathTooLongForSocket := filepath.Join(tmpDir, strings.Repeat("/nested_directory", 10))
+	require.NoError(t, os.MkdirAll(pathTooLongForSocket, os.ModePerm))
 
 	testCases := []struct {
 		desc              string
 		internalSocketDir string
-		shouldError       bool
+		expErrMsgRegexp   string
 	}{
 		{
 			desc:              "empty socket dir",
 			internalSocketDir: "",
-			shouldError:       false,
 		},
 		{
 			desc:              "non existing directory",
 			internalSocketDir: "/tmp/relative/path/to/nowhere",
-			shouldError:       true,
+			expErrMsgRegexp:   `internal_socket_dir: path doesn't exist: "/tmp/relative/path/to/nowhere"`,
 		},
 		{
 			desc:              "valid socket directory",
-			internalSocketDir: tempDir,
-			shouldError:       false,
+			internalSocketDir: tmpDir,
 		},
 		{
 			desc:              "valid symlinked directory",
 			internalSocketDir: validSocketDirSymlink,
-			shouldError:       false,
 		},
 		{
 			desc:              "broken symlinked directory",
 			internalSocketDir: brokenSocketDirSymlink,
-			shouldError:       true,
+			expErrMsgRegexp:   fmt.Sprintf(`internal_socket_dir: path doesn't exist: %q`, brokenSocketDirSymlink),
+		},
+		{
+			desc:              "socket can't be created",
+			internalSocketDir: pathTooLongForSocket,
+			expErrMsgRegexp:   `internal_socket_dir: try create socket: socket could not be created in .*\/test-.{8}\.sock: bind: invalid argument`,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg := Cfg{InternalSocketDir: tc.internalSocketDir}
-			if tc.shouldError {
-				assert.Error(t, cfg.validateInternalSocketDir())
-				return
+			err := (&Cfg{InternalSocketDir: tc.internalSocketDir}).validateInternalSocketDir()
+			if tc.expErrMsgRegexp != "" {
+				assert.Regexp(t, tc.expErrMsgRegexp, err)
+			} else {
+				assert.NoError(t, err)
 			}
-			assert.NoError(t, cfg.validateInternalSocketDir())
 		})
 	}
 }
@@ -829,6 +876,28 @@ func TestLoadDailyMaintenance(t *testing.T) {
 				Hour: 60,
 			},
 			validateErr: errors.New("daily maintenance specified hour '60' outside range (0-23)"),
+		},
+		{
+			rawCfg: `[daily_maintenance]
+			start_hour = 0
+			start_minute = 61`,
+			expect: DailyJob{
+				Hour:   0,
+				Minute: 61,
+			},
+			validateErr: errors.New("daily maintenance specified minute '61' outside range (0-59)"),
+		},
+		{
+			rawCfg: `[daily_maintenance]
+			start_hour = 0
+			start_minute = 59
+			duration = "86401s"`,
+			expect: DailyJob{
+				Hour:     0,
+				Minute:   59,
+				Duration: Duration(24*time.Hour + time.Second),
+			},
+			validateErr: errors.New("daily maintenance specified duration 24h0m1s must be less than 24 hours"),
 		},
 		{
 			rawCfg: `[daily_maintenance]
@@ -924,6 +993,7 @@ func TestValidateCgroups(t *testing.T) {
 			},
 		},
 		{
+			name: "empty mount point",
 			rawCfg: `[cgroups]
 			count = 10
 			mountpoint = ""`,
@@ -931,9 +1001,10 @@ func TestValidateCgroups(t *testing.T) {
 				Count:      10,
 				Mountpoint: "",
 			},
-			validateErr: errors.New("cgroups mountpoint cannot be empty"),
+			validateErr: errors.New("cgroups.mountpoint: cannot be empty"),
 		},
 		{
+			name: "empty hierarchy_root",
 			rawCfg: `[cgroups]
 			count = 10
 			mountpoint = "/sys/fs/cgroup"
@@ -943,9 +1014,10 @@ func TestValidateCgroups(t *testing.T) {
 				Mountpoint:    "/sys/fs/cgroup",
 				HierarchyRoot: "",
 			},
-			validateErr: errors.New("cgroups hierarchy root cannot be empty"),
+			validateErr: errors.New("cgroups.hierarchy_root: cannot be empty"),
 		},
 		{
+			name: "invalid cpu shares",
 			rawCfg: `[cgroups]
 			count = 10
 			mountpoint = "/sys/fs/cgroup"
@@ -962,9 +1034,10 @@ func TestValidateCgroups(t *testing.T) {
 					Shares:  0,
 				},
 			},
-			validateErr: errors.New("cgroups CPU shares has to be greater than zero"),
+			validateErr: errors.New("cgroups.cpu.shares: has to be greater than zero"),
 		},
 		{
+			name: "invalid memory limit - zero",
 			rawCfg: `[cgroups]
 			count = 10
 			mountpoint = "/sys/fs/cgroup"
@@ -981,9 +1054,10 @@ func TestValidateCgroups(t *testing.T) {
 					Limit:   0,
 				},
 			},
-			validateErr: errors.New("cgroups memory limit has to be greater than zero or equal to -1"),
+			validateErr: errors.New("cgroups.memory.limit: has to be greater than zero or equal to -1"),
 		},
 		{
+			name: "invalid memory limit - negative",
 			rawCfg: `[cgroups]
 			count = 10
 			mountpoint = "/sys/fs/cgroup"
@@ -1000,7 +1074,7 @@ func TestValidateCgroups(t *testing.T) {
 					Limit:   -5,
 				},
 			},
-			validateErr: errors.New("cgroups memory limit has to be greater than zero or equal to -1"),
+			validateErr: errors.New("cgroups.memory.limit: has to be greater than zero or equal to -1"),
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1082,4 +1156,65 @@ dir = "foobar"
 			require.Equal(t, tc.out, cfg.PackObjectsCache)
 		})
 	}
+}
+
+func TestValidateToken(t *testing.T) {
+	require.NoError(t, (&Cfg{Auth: auth.Config{}}).validateToken())
+	require.NoError(t, (&Cfg{Auth: auth.Config{Token: ""}}).validateToken())
+	require.NoError(t, (&Cfg{Auth: auth.Config{Token: "secret"}}).validateToken())
+	require.NoError(t, (&Cfg{Auth: auth.Config{Transitioning: true, Token: "secret"}}).validateToken())
+}
+
+func TestValidateBinDir(t *testing.T) {
+	tmpDir := tempDir(t)
+	tmpFile := filepath.Join(tmpDir, "file")
+	fp, err := os.Create(tmpFile)
+	require.NoError(t, err)
+	require.NoError(t, fp.Close())
+
+	for _, tc := range []struct {
+		desc      string
+		binDir    string
+		expErrMsg string
+	}{
+		{
+			desc:   "ok",
+			binDir: tmpDir,
+		},
+		{
+			desc:      "empty",
+			binDir:    "",
+			expErrMsg: "bin_dir: is not set",
+		},
+		{
+			desc:      "path doesn't exist",
+			binDir:    "/not/exists",
+			expErrMsg: `bin_dir: path doesn't exist: "/not/exists"`,
+		},
+		{
+			desc:      "is not a directory",
+			binDir:    tmpFile,
+			expErrMsg: fmt.Sprintf(`bin_dir: not a directory: %q`, tmpFile),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			err := (&Cfg{BinDir: tc.binDir}).validateBinDir()
+			if tc.expErrMsg == "" {
+				require.NoError(t, err)
+			} else {
+				require.EqualError(t, err, tc.expErrMsg)
+			}
+		})
+	}
+}
+
+func tempDir(t *testing.T) string {
+	tmpdir, err := ioutil.TempDir("", "")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		if err := os.RemoveAll(tmpdir); err != nil && !errors.Is(err, os.ErrNotExist) {
+			require.NoError(t, err)
+		}
+	})
+	return tmpdir
 }
