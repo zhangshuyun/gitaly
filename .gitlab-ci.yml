@@ -174,6 +174,15 @@ binaries:
     matrix:
       - GO_VERSION: [ "1.15", "1.16", "1.17" ]
 
+test-script-sections:
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.31
+  script:
+    - echo "hello"
+    - sleep 10
+    - sleep 5
+  tags:
+    - prm
+
 test:
   <<: *test_definition
   <<: *postgres_definition
