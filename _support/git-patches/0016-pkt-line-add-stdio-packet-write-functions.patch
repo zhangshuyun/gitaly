@@ -1,0 +1,126 @@
+From c7e2dd1a100170e1dbd204be68d54c0e230113df Mon Sep 17 00:00:00 2001
+From: Jacob Vosmaer <jacob@gitlab.com>
+Date: Wed, 1 Sep 2021 14:54:41 +0200
+Subject: [PATCH 16/17] pkt-line: add stdio packet write functions
+
+This adds three new functions to pkt-line.c: packet_fwrite,
+packet_fwrite_fmt and packet_fflush. Besides writing a pktline flush
+packet, packet_fflush also flushes the stdio buffer of the stream.
+
+Helped-by: Patrick Steinhardt <ps@pks.im>
+Helped-by: Jeff King <peff@peff.net>
+Signed-off-by: Jacob Vosmaer <jacob@gitlab.com>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+---
+ cache.h        |  2 ++
+ pkt-line.c     | 37 +++++++++++++++++++++++++++++++++++++
+ pkt-line.h     | 11 +++++++++++
+ write-or-die.c | 12 ++++++++++++
+ 4 files changed, 62 insertions(+)
+
+diff --git a/cache.h b/cache.h
+index bd4869beee..dcf2454c3b 100644
+--- a/cache.h
++++ b/cache.h
+@@ -1736,6 +1736,8 @@ extern const char *git_mailmap_blob;
+ void maybe_flush_or_die(FILE *, const char *);
+ __attribute__((format (printf, 2, 3)))
+ void fprintf_or_die(FILE *, const char *fmt, ...);
++void fwrite_or_die(FILE *f, const void *buf, size_t count);
++void fflush_or_die(FILE *f);
+ 
+ #define COPY_READ_ERROR (-2)
+ #define COPY_WRITE_ERROR (-3)
+diff --git a/pkt-line.c b/pkt-line.c
+index 9f63eae2e6..de4a94b437 100644
+--- a/pkt-line.c
++++ b/pkt-line.c
+@@ -243,6 +243,43 @@ void packet_write(int fd_out, const char *buf, size_t size)
+ 		die("%s", err.buf);
+ }
+ 
++void packet_fwrite(FILE *f, const char *buf, size_t size)
++{
++	size_t packet_size;
++	char header[4];
++
++	if (size > LARGE_PACKET_DATA_MAX)
++		die(_("packet write failed - data exceeds max packet size"));
++
++	packet_trace(buf, size, 1);
++	packet_size = size + 4;
++
++	set_packet_header(header, packet_size);
++	fwrite_or_die(f, header, 4);
++	fwrite_or_die(f, buf, size);
++}
++
++void packet_fwrite_fmt(FILE *fh, const char *fmt, ...)
++{
++       static struct strbuf buf = STRBUF_INIT;
++       va_list args;
++
++       strbuf_reset(&buf);
++
++       va_start(args, fmt);
++       format_packet(&buf, "", fmt, args);
++       va_end(args);
++
++       fwrite_or_die(fh, buf.buf, buf.len);
++}
++
++void packet_fflush(FILE *f)
++{
++	packet_trace("0000", 4, 1);
++	fwrite_or_die(f, "0000", 4);
++	fflush_or_die(f);
++}
++
+ void packet_buf_write(struct strbuf *buf, const char *fmt, ...)
+ {
+ 	va_list args;
+diff --git a/pkt-line.h b/pkt-line.h
+index 5af5f45687..82b95e4bdd 100644
+--- a/pkt-line.h
++++ b/pkt-line.h
+@@ -35,6 +35,17 @@ int packet_write_fmt_gently(int fd, const char *fmt, ...) __attribute__((format
+ int write_packetized_from_fd_no_flush(int fd_in, int fd_out);
+ int write_packetized_from_buf_no_flush(const char *src_in, size_t len, int fd_out);
+ 
++/*
++ * Stdio versions of packet_write functions. When mixing these with fd
++ * based functions, take care to call fflush(3) before doing fd writes or
++ * closing the fd.
++ */
++void packet_fwrite(FILE *f, const char *buf, size_t size);
++void packet_fwrite_fmt(FILE *f, const char *fmt, ...) __attribute__((format (printf, 2, 3)));
++
++/* packet_fflush writes a flush packet and flushes the stdio buffer of f */
++void packet_fflush(FILE *f);
++
+ /*
+  * Read a packetized line into the buffer, which must be at least size bytes
+  * long. The return value specifies the number of bytes read into the buffer.
+diff --git a/write-or-die.c b/write-or-die.c
+index d33e68f6ab..0b1ec8190b 100644
+--- a/write-or-die.c
++++ b/write-or-die.c
+@@ -70,3 +70,15 @@ void write_or_die(int fd, const void *buf, size_t count)
+ 		die_errno("write error");
+ 	}
+ }
++
++void fwrite_or_die(FILE *f, const void *buf, size_t count)
++{
++	if (fwrite(buf, 1, count, f) != count)
++		die_errno("fwrite error");
++}
++
++void fflush_or_die(FILE *f)
++{
++	if (fflush(f))
++		die_errno("fflush error");
++}
+-- 
+2.32.0
+
