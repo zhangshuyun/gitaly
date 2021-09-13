@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"strconv"
 	"strings"
+
+	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 )
 
 // minimumVersion is the minimum required Git version. If updating this version, be sure to
@@ -43,20 +45,24 @@ func CurrentVersion(ctx context.Context, gitCmdFactory CommandFactory) (Version,
 		Name: "version",
 	})
 	if err != nil {
-		return Version{}, err
+		return Version{}, fmt.Errorf("spawning version command: %w", err)
 	}
 
+	return parseVersionFromCommand(cmd)
+}
+
+func parseVersionFromCommand(cmd *command.Command) (Version, error) {
 	versionOutput, err := ioutil.ReadAll(cmd)
 	if err != nil {
 		return Version{}, fmt.Errorf("reading version output: %w", err)
 	}
 
-	if err = cmd.Wait(); err != nil {
-		return Version{}, err
+	if err := cmd.Wait(); err != nil {
+		return Version{}, fmt.Errorf("waiting for version command: %w", err)
 	}
 
-	out := strings.Trim(string(versionOutput), " \n")
-	versionString := strings.SplitN(out, " ", 3)
+	trimmedVersionOutput := strings.Trim(string(versionOutput), " \n")
+	versionString := strings.SplitN(trimmedVersionOutput, " ", 3)
 	if len(versionString) != 3 {
 		return Version{}, fmt.Errorf("invalid version format: %q", string(versionOutput))
 	}
