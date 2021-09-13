@@ -57,7 +57,7 @@ func TestFetchRemoteSuccess(t *testing.T) {
 	cloneRepo := copyRepo(t, cfg, repo, repoPath)
 
 	// Ensure there's a new tag to fetch
-	gittest.CreateTag(t, cfg, repoPath, "testtag", "master", nil)
+	gittest.WriteTag(t, cfg, repoPath, "testtag", "master")
 
 	req := &gitalypb.FetchRemoteRequest{Repository: cloneRepo, RemoteParams: &gitalypb.Remote{
 		Url: repoPath,

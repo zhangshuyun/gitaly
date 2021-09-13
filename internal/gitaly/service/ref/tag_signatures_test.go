@@ -24,16 +24,16 @@ func TestGetTagSignatures(t *testing.T) {
 
 	message1 := strings.Repeat("a", helper.MaxCommitOrTagMessageSize) + "\n"
 	signature1 := string(testhelper.MustReadFile(t, "testdata/tag-1e292f8fedd741b75372e19097c76d327140c312-signature"))
-	tag1ID := gittest.CreateTag(t, cfg, repoPath, "big-tag-1", "master", &gittest.CreateTagOpts{Message: message1 + signature1})
+	tag1ID := gittest.WriteTag(t, cfg, repoPath, "big-tag-1", "master", gittest.WriteTagConfig{Message: message1 + signature1})
 	content1 := "object 1e292f8fedd741b75372e19097c76d327140c312\ntype commit\ntag big-tag-1\ntagger Scrooge McDuck <scrooge@mcduck.com> 1572776879 +0100\n\n" + message1
 
 	message2 := strings.Repeat("b", helper.MaxCommitOrTagMessageSize) + "\n"
 	signature2 := string(testhelper.MustReadFile(t, "testdata/tag-7975be0116940bf2ad4321f79d02a55c5f7779aa-signature"))
-	tag2ID := gittest.CreateTag(t, cfg, repoPath, "big-tag-2", "master~", &gittest.CreateTagOpts{Message: message2 + signature2})
+	tag2ID := gittest.WriteTag(t, cfg, repoPath, "big-tag-2", "master~", gittest.WriteTagConfig{Message: message2 + signature2})
 	content2 := "object 7975be0116940bf2ad4321f79d02a55c5f7779aa\ntype commit\ntag big-tag-2\ntagger Scrooge McDuck <scrooge@mcduck.com> 1572776879 +0100\n\n" + message2
 
 	message3 := "tag message\n"
-	tag3ID := gittest.CreateTag(t, cfg, repoPath, "tag-3", "master~~", &gittest.CreateTagOpts{Message: message3})
+	tag3ID := gittest.WriteTag(t, cfg, repoPath, "tag-3", "master~~", gittest.WriteTagConfig{Message: message3})
 	content3 := "object 60ecb67744cb56576c30214ff52294f8ce2def98\ntype commit\ntag tag-3\ntagger Scrooge McDuck <scrooge@mcduck.com> 1572776879 +0100\n\n" + message3
 
 	for _, tc := range []struct {
@@ -78,11 +78,11 @@ func TestGetTagSignatures(t *testing.T) {
 		{
 			desc: "single tag signature",
 			revisions: []string{
-				tag1ID,
+				tag1ID.String(),
 			},
 			expectedSignatures: []*gitalypb.GetTagSignaturesResponse_TagSignature{
 				{
-					TagId:     tag1ID,
+					TagId:     tag1ID.String(),
 					Signature: []byte(signature1),
 					Content:   []byte(content1),
 				},
@@ -91,11 +91,11 @@ func TestGetTagSignatures(t *testing.T) {
 		{
 			desc: "single tag signature by short SHA",
 			revisions: []string{
-				tag1ID[:7],
+				tag1ID.String()[:7],
 			},
 			expectedSignatures: []*gitalypb.GetTagSignaturesResponse_TagSignature{
 				{
-					TagId:     tag1ID,
+					TagId:     tag1ID.String(),
 					Signature: []byte(signature1),
 					Content:   []byte(content1),
 				},
@@ -108,7 +108,7 @@ func TestGetTagSignatures(t *testing.T) {
 			},
 			expectedSignatures: []*gitalypb.GetTagSignaturesResponse_TagSignature{
 				{
-					TagId:     tag1ID,
+					TagId:     tag1ID.String(),
 					Signature: []byte(signature1),
 					Content:   []byte(content1),
 				},
@@ -117,17 +117,17 @@ func TestGetTagSignatures(t *testing.T) {
 		{
 			desc: "multiple tag signatures",
 			revisions: []string{
-				tag1ID,
-				tag2ID,
+				tag1ID.String(),
+				tag2ID.String(),
 			},
 			expectedSignatures: []*gitalypb.GetTagSignaturesResponse_TagSignature{
 				{
-					TagId:     tag1ID,
+					TagId:     tag1ID.String(),
 					Signature: []byte(signature1),
 					Content:   []byte(content1),
 				},
 				{
-					TagId:     tag2ID,
+					TagId:     tag2ID.String(),
 					Signature: []byte(signature2),
 					Content:   []byte(content2),
 				},
@@ -136,11 +136,11 @@ func TestGetTagSignatures(t *testing.T) {
 		{
 			desc: "tag without signature",
 			revisions: []string{
-				tag3ID,
+				tag3ID.String(),
 			},
 			expectedSignatures: []*gitalypb.GetTagSignaturesResponse_TagSignature{
 				{
-					TagId:     tag3ID,
+					TagId:     tag3ID.String(),
 					Signature: []byte(""),
 					Content:   []byte(content3),
 				},
