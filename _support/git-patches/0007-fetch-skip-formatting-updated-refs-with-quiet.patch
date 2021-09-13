@@ -1,0 +1,107 @@
+From f6bb64df82ddd050894ca8a2a0bfbd1997602500 Mon Sep 17 00:00:00 2001
+Message-Id: <f6bb64df82ddd050894ca8a2a0bfbd1997602500.1631166264.git.ps@pks.im>
+From: Patrick Steinhardt <ps@pks.im>
+Date: Mon, 30 Aug 2021 12:54:26 +0200
+Subject: [PATCH] fetch: skip formatting updated refs with `--quiet`
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+When fetching, Git will by default print a list of all updated refs in a
+nicely formatted table. In order to come up with this table, Git needs
+to iterate refs twice: first to determine the maximum column width, and
+a second time to actually format these changed refs.
+
+While this table will not be printed in case the user passes `--quiet`,
+we still go out of our way and do all these steps. In fact, we even do
+more work compared to not passing `--quiet`: without the flag, we will
+skip all references in the column width computation which have not been
+updated, but if it is set we will now compute widths for all refs.
+
+Fix this issue by completely skipping both preparation of the format and
+formatting data for display in case the user passes `--quiet`, improving
+performance especially with many refs. The following benchmark shows a
+nice speedup for a quiet mirror-fetch in a repository with 2.3M refs:
+
+    Benchmark #1: HEAD~: git-fetch
+      Time (mean ± σ):     26.929 s ±  0.145 s    [User: 24.194 s, System: 4.656 s]
+      Range (min … max):   26.692 s … 27.068 s    5 runs
+
+    Benchmark #2: HEAD: git-fetch
+      Time (mean ± σ):     25.189 s ±  0.094 s    [User: 22.556 s, System: 4.606 s]
+      Range (min … max):   25.070 s … 25.314 s    5 runs
+
+    Summary
+      'HEAD: git-fetch' ran
+        1.07 ± 0.01 times faster than 'HEAD~: git-fetch'
+
+While at it, this patch also fixes `adjust_refcol_width()` such that it
+skips unchanged refs in case the user passed `--quiet`, where verbosity
+will be negative. While this function won't be called anymore if so,
+this brings the comment in line with actual code. Furthermore, needless
+`verbosity >= 0` checks are now removed in `store_updated_refs()`: we
+never print to the `note` buffer anymore in case `verbosity < 0`, so we
+won't end up in that code block anyway.
+
+Signed-off-by: Patrick Steinhardt <ps@pks.im>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+---
+ builtin/fetch.c | 17 ++++++++++++-----
+ 1 file changed, 12 insertions(+), 5 deletions(-)
+
+diff --git a/builtin/fetch.c b/builtin/fetch.c
+index 25740c13df..334bc7efa6 100644
+--- a/builtin/fetch.c
++++ b/builtin/fetch.c
+@@ -712,7 +712,7 @@ static void adjust_refcol_width(const struct ref *ref)
+ 	int max, rlen, llen, len;
+ 
+ 	/* uptodate lines are only shown on high verbosity level */
+-	if (!verbosity && oideq(&ref->peer_ref->old_oid, &ref->old_oid))
++	if (verbosity <= 0 && oideq(&ref->peer_ref->old_oid, &ref->old_oid))
+ 		return;
+ 
+ 	max    = term_columns();
+@@ -748,6 +748,9 @@ static void prepare_format_display(struct ref *ref_map)
+ 	struct ref *rm;
+ 	const char *format = "full";
+ 
++	if (verbosity < 0)
++		return;
++
+ 	git_config_get_string_tmp("fetch.output", &format);
+ 	if (!strcasecmp(format, "full"))
+ 		compact_format = 0;
+@@ -827,7 +830,12 @@ static void format_display(struct strbuf *display, char code,
+ 			   const char *remote, const char *local,
+ 			   int summary_width)
+ {
+-	int width = (summary_width + strlen(summary) - gettext_width(summary));
++	int width;
++
++	if (verbosity < 0)
++		return;
++
++	width = (summary_width + strlen(summary) - gettext_width(summary));
+ 
+ 	strbuf_addf(display, "%c %-*s ", code, width, summary);
+ 	if (!compact_format)
+@@ -1202,13 +1210,12 @@ static int store_updated_refs(const char *raw_url, const char *remote_name,
+ 					       "FETCH_HEAD", summary_width);
+ 			}
+ 			if (note.len) {
+-				if (verbosity >= 0 && !shown_url) {
++				if (!shown_url) {
+ 					fprintf(stderr, _("From %.*s\n"),
+ 							url_len, url);
+ 					shown_url = 1;
+ 				}
+-				if (verbosity >= 0)
+-					fprintf(stderr, " %s\n", note.buf);
++				fprintf(stderr, " %s\n", note.buf);
+ 			}
+ 		}
+ 	}
+-- 
+2.33.0
+
