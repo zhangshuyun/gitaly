@@ -51,6 +51,18 @@ func CurrentVersion(ctx context.Context, gitCmdFactory CommandFactory) (Version,
 	return parseVersionFromCommand(cmd)
 }
 
+// CurrentVersionForExecutor returns the git version used by the given executor.
+func CurrentVersionForExecutor(ctx context.Context, executor RepositoryExecutor) (Version, error) {
+	cmd, err := executor.Exec(ctx, SubCmd{
+		Name: "version",
+	})
+	if err != nil {
+		return Version{}, fmt.Errorf("spawning version command: %w", err)
+	}
+
+	return parseVersionFromCommand(cmd)
+}
+
 func parseVersionFromCommand(cmd *command.Command) (Version, error) {
 	versionOutput, err := ioutil.ReadAll(cmd)
 	if err != nil {

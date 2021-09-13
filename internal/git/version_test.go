@@ -39,6 +39,34 @@ func (f *versionGitCommandFactory) NewWithoutRepo(ctx context.Context, subcmd Cm
 	return cmd, nil
 }
 
+type versionRepositoryExecutor struct {
+	RepositoryExecutor
+
+	t       *testing.T
+	version string
+}
+
+func newVersionRepositoryExecutor(t *testing.T, version string) *versionRepositoryExecutor {
+	return &versionRepositoryExecutor{
+		t:       t,
+		version: version,
+	}
+}
+
+func (e *versionRepositoryExecutor) Exec(ctx context.Context, subcmd Cmd, opts ...CmdOpt) (*command.Command, error) {
+	e.t.Helper()
+
+	require.Equal(e.t, SubCmd{
+		Name: "version",
+	}, subcmd)
+	require.Len(e.t, opts, 0)
+
+	cmd, err := command.New(ctx, exec.Command("/usr/bin/env", "echo", e.version), nil, nil, nil)
+	require.NoError(e.t, err)
+
+	return cmd, nil
+}
+
 func TestCurrentVersion(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -75,13 +103,25 @@ func TestCurrentVersion(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			actualVersion, err := CurrentVersion(ctx, newVersionGitCommandFactory(t, tc.versionString))
-			if tc.expectedErr == "" {
-				require.NoError(t, err)
-			} else {
-				require.EqualError(t, err, tc.expectedErr)
-			}
-			require.Equal(t, tc.expectedVersion, actualVersion)
+			t.Run("command factory", func(t *testing.T) {
+				actualVersion, err := CurrentVersion(ctx, newVersionGitCommandFactory(t, tc.versionString))
+				if tc.expectedErr == "" {
+					require.NoError(t, err)
+				} else {
+					require.EqualError(t, err, tc.expectedErr)
+				}
+				require.Equal(t, tc.expectedVersion, actualVersion)
+			})
+
+			t.Run("repository executor", func(t *testing.T) {
+				actualVersion, err := CurrentVersionForExecutor(ctx, newVersionRepositoryExecutor(t, tc.versionString))
+				if tc.expectedErr == "" {
+					require.NoError(t, err)
+				} else {
+					require.EqualError(t, err, tc.expectedErr)
+				}
+				require.Equal(t, tc.expectedVersion, actualVersion)
+			})
 		})
 	}
 }
