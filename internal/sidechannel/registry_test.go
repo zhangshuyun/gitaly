@@ -17,11 +17,10 @@ func TestRegistry(t *testing.T) {
 
 	t.Run("waiter removed from the registry right after connection received", func(t *testing.T) {
 		triggerCallback := make(chan struct{})
-		waiter, err := registry.Register(func(conn net.Conn) error {
+		waiter := registry.Register(func(conn net.Conn) error {
 			<-triggerCallback
 			return nil
 		})
-		require.NoError(t, err)
 		defer waiter.Close()
 
 		require.Equal(t, 1, registry.waiting())
@@ -46,11 +45,10 @@ func TestRegistry(t *testing.T) {
 
 			wg.Add(1)
 			go func(i int) {
-				waiter, err := registry.Register(func(conn net.Conn) error {
+				waiter := registry.Register(func(conn net.Conn) error {
 					_, err := fmt.Fprintf(conn, "%d", i)
 					return err
 				})
-				require.NoError(t, err)
 				defer waiter.Close()
 
 				require.NoError(t, registry.receive(waiter.id, client))
@@ -79,8 +77,7 @@ func TestRegistry(t *testing.T) {
 	})
 
 	t.Run("pre-maturely close the waiter", func(t *testing.T) {
-		waiter, err := registry.Register(func(conn net.Conn) error { panic("never execute") })
-		require.NoError(t, err)
+		waiter := registry.Register(func(conn net.Conn) error { panic("never execute") })
 		require.NoError(t, waiter.Close())
 		require.Equal(t, 0, registry.waiting())
 	})

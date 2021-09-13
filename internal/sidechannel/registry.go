@@ -40,7 +40,7 @@ func NewRegistry() *Registry {
 // connection arrives, the callback function is executed with arrived
 // connection in a new goroutine.  The caller receives execution result via
 // waiter.Wait().
-func (s *Registry) Register(callback func(net.Conn) error) (*Waiter, error) {
+func (s *Registry) Register(callback func(net.Conn) error) *Waiter {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -55,7 +55,7 @@ func (s *Registry) Register(callback func(net.Conn) error) (*Waiter, error) {
 
 	go waiter.run()
 	s.waiters[waiter.id] = waiter
-	return waiter, nil
+	return waiter
 }
 
 // receive looks into the registry for a waiter with the given ID. If

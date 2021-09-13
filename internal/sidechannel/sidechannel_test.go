@@ -191,11 +191,8 @@ func dial(t *testing.T, addr string) (*grpc.ClientConn, *Registry) {
 func call(ctx context.Context, conn *grpc.ClientConn, registry *Registry, handler func(net.Conn) error) error {
 	client := healthpb.NewHealthClient(conn)
 
-	ctxOut, waiter, err := RegisterSidechannel(ctx, registry, handler)
+	ctxOut, waiter := RegisterSidechannel(ctx, registry, handler)
 	defer waiter.Close()
-	if err != nil {
-		return err
-	}
 
 	if _, err := client.Check(ctxOut, &healthpb.HealthCheckRequest{}); err != nil {
 		return err
