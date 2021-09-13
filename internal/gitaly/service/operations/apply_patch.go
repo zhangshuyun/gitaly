@@ -11,7 +11,6 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -19,8 +18,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
-
-var errNoDefaultBranch = errors.New("no default branch")
 
 func (s *Server) UserApplyPatch(stream gitalypb.OperationService_UserApplyPatchServer) error {
 	firstRequest, err := stream.Recv()
@@ -60,15 +57,13 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 			return fmt.Errorf("resolve target branch: %w", err)
 		}
 
-		defaultBranch, err := ref.DefaultBranchName(ctx, repo)
+		defaultBranch, err := repo.GetDefaultBranch(ctx)
 		if err != nil {
 			return fmt.Errorf("default branch name: %w", err)
-		} else if defaultBranch == nil {
-			return errNoDefaultBranch
 		}
 
 		branchCreated = true
-		parentCommitID, err = repo.ResolveRevision(ctx, git.Revision(defaultBranch)+"^{commit}")
+		parentCommitID, err = repo.ResolveRevision(ctx, defaultBranch.Revision()+"^{commit}")
 		if err != nil {
 			return fmt.Errorf("resolve default branch commit: %w", err)
 		}

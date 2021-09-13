@@ -266,3 +266,43 @@ func (repo *Repo) GetRemoteReferences(ctx context.Context, remote string, opts .
 
 	return refs, nil
 }
+
+// GetDefaultBranch determines the default branch name
+func (repo *Repo) GetDefaultBranch(ctx context.Context) (git.ReferenceName, error) {
+	var stdout bytes.Buffer
+	err := repo.ExecAndWait(ctx,
+		git.SubCmd{
+			Name:  "rev-parse",
+			Flags: []git.Option{git.Flag{Name: "--symbolic-full-name"}},
+			Args:  []string{"HEAD"},
+		},
+		git.WithStdout(&stdout),
+	)
+	headRef := strings.TrimSpace(stdout.String())
+	if err != nil {
+		// If the ref pointed at by HEAD doesn't exist, the rev-parse fails
+		// returning the string `"HEAD"`
+		if headRef == "HEAD" {
+			ok, err := repo.HasRevision(ctx, git.DefaultRef.Revision())
+			if err != nil {
+				return "", err
+			}
+			if ok {
+				return git.DefaultRef, nil
+			}
+
+			ok, err = repo.HasRevision(ctx, git.LegacyDefaultRef.Revision())
+			if err != nil {
+				return "", err
+			}
+			if ok {
+				return git.LegacyDefaultRef, nil
+			}
+
+			return "", git.ErrNoDefaultBranch
+		}
+		return "", err
+	}
+
+	return git.ReferenceName(headRef), nil
+}

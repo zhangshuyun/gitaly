@@ -3,10 +3,8 @@ package ref
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strings"
 	"testing"
 	"time"
@@ -223,37 +221,6 @@ func TestInvalidRepoFindAllTagNamesRequest(t *testing.T) {
 	}
 }
 
-func TestHeadReference(t *testing.T) {
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	headRef, err := headReference(ctx, localrepo.NewTestRepo(t, cfg, repo))
-	require.NoError(t, err)
-
-	require.Equal(t, git.LegacyDefaultRef, headRef)
-}
-
-func TestHeadReferenceWithNonExistingHead(t *testing.T) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
-
-	// Write bad HEAD
-	require.NoError(t, ioutil.WriteFile(repoPath+"/HEAD", []byte("ref: refs/heads/nonexisting"), 0o644))
-	defer func() {
-		// Restore HEAD
-		require.NoError(t, ioutil.WriteFile(repoPath+"/HEAD", []byte("ref: refs/heads/master"), 0o644))
-	}()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-	headRef, err := headReference(ctx, localrepo.NewTestRepo(t, cfg, repo))
-	require.NoError(t, err)
-	if headRef != nil {
-		t.Fatal("Expected HEAD reference to be nil, got '", string(headRef), "'")
-	}
-}
-
 func TestSetDefaultBranchRef(t *testing.T) {
 	cfg, repoProto, _ := testcfg.BuildWithRepo(t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -271,7 +238,7 @@ func TestSetDefaultBranchRef(t *testing.T) {
 		{
 			desc:        "unknown ref",
 			ref:         "refs/heads/non_existent_ref",
-			expectedRef: string(git.LegacyDefaultRef),
+			expectedRef: git.LegacyDefaultRef.String(),
 		},
 	}
 
@@ -282,85 +249,11 @@ func TestSetDefaultBranchRef(t *testing.T) {
 
 			require.NoError(t, SetDefaultBranchRef(ctx, repo, tc.ref, cfg))
 
-			newRef, err := DefaultBranchName(ctx, repo)
+			newRef, err := repo.GetDefaultBranch(ctx)
 			require.NoError(t, err)
 
-			require.Equal(t, tc.expectedRef, string(newRef))
+			require.Equal(t, tc.expectedRef, newRef.String())
 		})
-	}
-}
-
-func TestDefaultBranchName(t *testing.T) {
-	// We are going to override these functions during this test. Restore them after we're done
-	defer func() {
-		FindBranchNames = _findBranchNames
-		headReference = _headReference
-	}()
-
-	cfg, repoProto, _ := testcfg.BuildWithRepo(t)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	testCases := []struct {
-		desc            string
-		findBranchNames func(context.Context, git.RepositoryExecutor) ([][]byte, error)
-		headReference   func(context.Context, git.RepositoryExecutor) ([]byte, error)
-		expected        []byte
-	}{
-		{
-			desc:     "Get first branch when only one branch exists",
-			expected: []byte("refs/heads/foo"),
-			findBranchNames: func(context.Context, git.RepositoryExecutor) ([][]byte, error) {
-				return [][]byte{[]byte("refs/heads/foo")}, nil
-			},
-			headReference: func(context.Context, git.RepositoryExecutor) ([]byte, error) { return nil, nil },
-		},
-		{
-			desc:     "Get empy ref if no branches exists",
-			expected: nil,
-			findBranchNames: func(context.Context, git.RepositoryExecutor) ([][]byte, error) {
-				return [][]byte{}, nil
-			},
-			headReference: func(context.Context, git.RepositoryExecutor) ([]byte, error) { return nil, nil },
-		},
-		{
-			desc:     "Get the name of the head reference when more than one branch exists",
-			expected: []byte("refs/heads/bar"),
-			findBranchNames: func(context.Context, git.RepositoryExecutor) ([][]byte, error) {
-				return [][]byte{[]byte("refs/heads/foo"), []byte("refs/heads/bar")}, nil
-			},
-			headReference: func(context.Context, git.RepositoryExecutor) ([]byte, error) {
-				return []byte("refs/heads/bar"), nil
-			},
-		},
-		{
-			desc:     "Get `ref/heads/master` when several branches exist",
-			expected: git.LegacyDefaultRef,
-			findBranchNames: func(context.Context, git.RepositoryExecutor) ([][]byte, error) {
-				return [][]byte{[]byte("refs/heads/foo"), []byte("refs/heads/master"), []byte("refs/heads/bar")}, nil
-			},
-			headReference: func(context.Context, git.RepositoryExecutor) ([]byte, error) { return nil, nil },
-		},
-		{
-			desc:     "Get the name of the first branch when several branches exists and no other conditions are met",
-			expected: []byte("refs/heads/foo"),
-			findBranchNames: func(context.Context, git.RepositoryExecutor) ([][]byte, error) {
-				return [][]byte{[]byte("refs/heads/foo"), []byte("refs/heads/bar"), []byte("refs/heads/baz")}, nil
-			},
-			headReference: func(context.Context, git.RepositoryExecutor) ([]byte, error) { return nil, nil },
-		},
-	}
-
-	for _, testCase := range testCases {
-		FindBranchNames = testCase.findBranchNames
-		headReference = testCase.headReference
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
-		defaultBranch, err := DefaultBranchName(ctx, repo)
-		require.NoError(t, err)
-		if !bytes.Equal(defaultBranch, testCase.expected) {
-			t.Fatalf("%s: expected %s, got %s instead", testCase.desc, testCase.expected, defaultBranch)
-		}
 	}
 }
 
@@ -378,7 +271,7 @@ func TestSuccessfulFindDefaultBranchName(t *testing.T) {
 	r, err := client.FindDefaultBranchName(ctx, rpcRequest)
 	require.NoError(t, err)
 
-	require.Equal(t, r.GetName(), git.DefaultRef)
+	require.Equal(t, r.GetName(), []byte(git.DefaultRef))
 }
 
 func TestSuccessfulFindDefaultBranchNameLegacy(t *testing.T) {
@@ -390,7 +283,7 @@ func TestSuccessfulFindDefaultBranchNameLegacy(t *testing.T) {
 	r, err := client.FindDefaultBranchName(ctx, rpcRequest)
 	require.NoError(t, err)
 
-	require.Equal(t, r.GetName(), git.LegacyDefaultRef)
+	require.Equal(t, r.GetName(), []byte(git.LegacyDefaultRef))
 }
 
 func TestEmptyFindDefaultBranchNameRequest(t *testing.T) {
