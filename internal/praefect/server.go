@@ -127,11 +127,9 @@ func NewGRPCServer(
 	srv := grpc.NewServer(grpcOpts...)
 	registerServices(srv, nodeMgr, txMgr, conf, queue, rs, assignmentStore, service.Connections(conns), primaryGetter)
 
-	if conf.Failover.ElectionStrategy == config.ElectionStrategyPerRepository {
-		proxy.RegisterStreamHandlers(srv, "gitaly.RepositoryService", map[string]grpc.StreamHandler{
-			"RepositoryExists": RepositoryExistsHandler(rs),
-		})
-	}
+	proxy.RegisterStreamHandlers(srv, "gitaly.RepositoryService", map[string]grpc.StreamHandler{
+		"RepositoryExists": RepositoryExistsHandler(rs),
+	})
 
 	return srv
 }
