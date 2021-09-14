@@ -25,7 +25,7 @@ type Waiter struct {
 	registry *Registry
 	errC     chan error
 	accept   chan net.Conn
-	callback func(net.Conn) error
+	callback func(*ClientConn) error
 }
 
 // NewRegistry returns a new Registry instance
@@ -40,7 +40,7 @@ func NewRegistry() *Registry {
 // connection arrives, the callback function is executed with arrived
 // connection in a new goroutine.  The caller receives execution result via
 // waiter.Wait().
-func (s *Registry) Register(callback func(net.Conn) error) *Waiter {
+func (s *Registry) Register(callback func(*ClientConn) error) *Waiter {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -104,7 +104,7 @@ func (w *Waiter) run() {
 
 	if conn := <-w.accept; conn != nil {
 		defer conn.Close()
-		w.errC <- w.callback(conn)
+		w.errC <- w.callback(newClientConn(conn))
 	}
 }
 

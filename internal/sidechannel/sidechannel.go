@@ -26,7 +26,7 @@ const (
 
 // OpenSidechannel opens a sidechannel connection from the stream opener
 // extracted from the current peer connection.
-func OpenSidechannel(ctx context.Context) (_ net.Conn, err error) {
+func OpenSidechannel(ctx context.Context) (_ *ServerConn, err error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return nil, fmt.Errorf("sidechannel: failed to extract incoming metadata")
@@ -68,7 +68,7 @@ func OpenSidechannel(ctx context.Context) (_ net.Conn, err error) {
 		return nil, err
 	}
 
-	return stream, nil
+	return newServerConn(stream), nil
 }
 
 // RegisterSidechannel registers the caller into the waiting list of the
@@ -76,7 +76,7 @@ func OpenSidechannel(ctx context.Context) (_ net.Conn, err error) {
 // The caller is expected to establish the request with the returned context. The
 // callback is executed automatically when the sidechannel connection arrives.
 // The result is pushed to the error channel of the returned waiter.
-func RegisterSidechannel(ctx context.Context, registry *Registry, callback func(net.Conn) error) (context.Context, *Waiter) {
+func RegisterSidechannel(ctx context.Context, registry *Registry, callback func(*ClientConn) error) (context.Context, *Waiter) {
 	waiter := registry.Register(callback)
 	ctxOut := metadata.AppendToOutgoingContext(ctx, sidechannelMetadataKey, fmt.Sprintf("%d", waiter.id))
 	return ctxOut, waiter
