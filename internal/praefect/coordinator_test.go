@@ -173,88 +173,113 @@ func TestStreamDirectorMutator(t *testing.T) {
 
 	txMgr := transactions.NewManager(conf)
 
-	tx := glsql.NewDB(t).Begin(t)
-	defer tx.Rollback(t)
-
 	nodeSet, err := DialNodes(ctx, conf.VirtualStorages, protoregistry.GitalyProtoPreregistered, nil, nil)
 	require.NoError(t, err)
 	defer nodeSet.Close()
 
-	rs := datastore.NewPostgresRepositoryStore(tx, conf.StorageNames())
-	require.NoError(t, rs.CreateRepository(ctx, 1, targetRepo.StorageName, targetRepo.RelativePath, primaryNode.Storage, []string{secondaryNode.Storage}, nil, true, true))
-
-	testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": conf.StorageNames()})
-
-	coordinator := NewCoordinator(
-		queueInterceptor,
-		rs,
-		NewPerRepositoryRouter(
-			nodeSet.Connections(),
-			nodes.NewPerRepositoryElector(tx),
-			StaticHealthChecker(conf.StorageNames()),
-			NewLockedRandom(rand.New(rand.NewSource(0))),
-			rs,
-			datastore.NewAssignmentStore(tx, conf.StorageNames()),
-			rs,
-			nil,
-		),
-		txMgr,
-		conf,
-		protoregistry.GitalyProtoPreregistered,
-	)
-
-	frame, err := proto.Marshal(&gitalypb.CreateObjectPoolRequest{
-		Origin:     &targetRepo,
-		ObjectPool: &gitalypb.ObjectPool{Repository: &targetRepo},
-	})
-	require.NoError(t, err)
-
-	require.NoError(t, err)
-
-	fullMethod := "/gitaly.ObjectPoolService/CreateObjectPool"
-
-	peeker := &mockPeeker{frame}
-	streamParams, err := coordinator.StreamDirector(correlation.ContextWithCorrelation(ctx, "my-correlation-id"), fullMethod, peeker)
-	require.NoError(t, err)
-	require.Equal(t, primaryAddress, streamParams.Primary().Conn.Target())
-
-	mi, err := coordinator.registry.LookupMethod(fullMethod)
-	require.NoError(t, err)
-
-	m, err := mi.UnmarshalRequestProto(streamParams.Primary().Msg)
-	require.NoError(t, err)
-
-	rewrittenTargetRepo, err := mi.TargetRepo(m)
-	require.NoError(t, err)
-	require.Equal(t, "praefect-internal-1", rewrittenTargetRepo.GetStorageName(), "stream director should have rewritten the storage name")
-
-	replEventWait.Add(1) // expected only one event to be created
-	// this call creates new events in the queue and simulates usual flow of the update operation
-	require.NoError(t, streamParams.RequestFinalizer())
-
-	replEventWait.Wait() // wait until event persisted (async operation)
-	events, err := queueInterceptor.Dequeue(ctx, "praefect", "praefect-internal-2", 10)
-	require.NoError(t, err)
-	require.Len(t, events, 1)
-
-	expectedEvent := datastore.ReplicationEvent{
-		ID:        1,
-		State:     datastore.JobStateInProgress,
-		Attempt:   2,
-		LockID:    "praefect|praefect-internal-2|/path/to/hashed/storage",
-		CreatedAt: events[0].CreatedAt,
-		UpdatedAt: events[0].UpdatedAt,
-		Job: datastore.ReplicationJob{
-			RepositoryID:      1,
-			Change:            datastore.UpdateRepo,
-			VirtualStorage:    conf.VirtualStorages[0].Name,
-			RelativePath:      targetRepo.RelativePath,
-			TargetNodeStorage: secondaryNode.Storage,
-			SourceNodeStorage: primaryNode.Storage,
+	for _, tc := range []struct {
+		desc             string
+		repositoryExists bool
+		error            error
+	}{
+		{
+			desc:             "succcessful",
+			repositoryExists: true,
 		},
-		Meta: datastore.Params{metadatahandler.CorrelationIDKey: "my-correlation-id"},
+		{
+			desc:  "repository not found",
+			error: helper.ErrNotFound(fmt.Errorf("mutator call: route repository mutator: %w", fmt.Errorf("get primary: %w", commonerr.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath)))),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			tx := glsql.NewDB(t).Begin(t)
+			defer tx.Rollback(t)
+
+			rs := datastore.NewPostgresRepositoryStore(tx, conf.StorageNames())
+
+			if tc.repositoryExists {
+				require.NoError(t, rs.CreateRepository(ctx, 1, targetRepo.StorageName, targetRepo.RelativePath, primaryNode.Storage, []string{secondaryNode.Storage}, nil, true, true))
+			}
+
+			testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": conf.StorageNames()})
+
+			coordinator := NewCoordinator(
+				queueInterceptor,
+				rs,
+				NewPerRepositoryRouter(
+					nodeSet.Connections(),
+					nodes.NewPerRepositoryElector(tx),
+					StaticHealthChecker(conf.StorageNames()),
+					NewLockedRandom(rand.New(rand.NewSource(0))),
+					rs,
+					datastore.NewAssignmentStore(tx, conf.StorageNames()),
+					rs,
+					nil,
+				),
+				txMgr,
+				conf,
+				protoregistry.GitalyProtoPreregistered,
+			)
+
+			frame, err := proto.Marshal(&gitalypb.CreateObjectPoolRequest{
+				Origin:     &targetRepo,
+				ObjectPool: &gitalypb.ObjectPool{Repository: &targetRepo},
+			})
+			require.NoError(t, err)
+
+			require.NoError(t, err)
+
+			fullMethod := "/gitaly.ObjectPoolService/CreateObjectPool"
+
+			peeker := &mockPeeker{frame}
+			streamParams, err := coordinator.StreamDirector(correlation.ContextWithCorrelation(ctx, "my-correlation-id"), fullMethod, peeker)
+			if tc.error != nil {
+				require.Equal(t, tc.error, err)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, primaryAddress, streamParams.Primary().Conn.Target())
+
+			mi, err := coordinator.registry.LookupMethod(fullMethod)
+			require.NoError(t, err)
+
+			m, err := mi.UnmarshalRequestProto(streamParams.Primary().Msg)
+			require.NoError(t, err)
+
+			rewrittenTargetRepo, err := mi.TargetRepo(m)
+			require.NoError(t, err)
+			require.Equal(t, "praefect-internal-1", rewrittenTargetRepo.GetStorageName(), "stream director should have rewritten the storage name")
+
+			replEventWait.Add(1) // expected only one event to be created
+			// this call creates new events in the queue and simulates usual flow of the update operation
+			require.NoError(t, streamParams.RequestFinalizer())
+
+			replEventWait.Wait() // wait until event persisted (async operation)
+			events, err := queueInterceptor.Dequeue(ctx, "praefect", "praefect-internal-2", 10)
+			require.NoError(t, err)
+			require.Len(t, events, 1)
+
+			expectedEvent := datastore.ReplicationEvent{
+				ID:        1,
+				State:     datastore.JobStateInProgress,
+				Attempt:   2,
+				LockID:    "praefect|praefect-internal-2|/path/to/hashed/storage",
+				CreatedAt: events[0].CreatedAt,
+				UpdatedAt: events[0].UpdatedAt,
+				Job: datastore.ReplicationJob{
+					RepositoryID:      1,
+					Change:            datastore.UpdateRepo,
+					VirtualStorage:    conf.VirtualStorages[0].Name,
+					RelativePath:      targetRepo.RelativePath,
+					TargetNodeStorage: secondaryNode.Storage,
+					SourceNodeStorage: primaryNode.Storage,
+				},
+				Meta: datastore.Params{metadatahandler.CorrelationIDKey: "my-correlation-id"},
+			}
+			require.Equal(t, expectedEvent, events[0], "ensure replication job created by stream director is correct")
+		})
 	}
-	require.Equal(t, expectedEvent, events[0], "ensure replication job created by stream director is correct")
 }
 
 func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
@@ -432,7 +457,7 @@ func TestStreamDirectorAccessor(t *testing.T) {
 					return RouterNode{}, commonerr.NewRepositoryNotFoundError(virtualStorage, relativePath)
 				},
 			},
-			error: helper.ErrNotFound(commonerr.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath)),
+			error: helper.ErrNotFound(fmt.Errorf("accessor call: route repository accessor: %w", commonerr.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath))),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
