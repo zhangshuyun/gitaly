@@ -16,7 +16,6 @@ import (
 
 func TestSuccessfulFindAllCommitsRequest(t *testing.T) {
 	defer func() {
-		//nolint:staticcheck // FindBranchNames is deprecated but the tests are difficult to refactor
 		_findBranchNamesFunc = ref.FindBranchNames
 	}()
 
