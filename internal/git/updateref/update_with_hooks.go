@@ -178,7 +178,7 @@ func (u *UpdaterWithHooks) UpdateReference(
 	// We need to lock the reference before executing the reference-transaction hook such that
 	// there cannot be any concurrent modification.
 	if err := updater.Prepare(); err != nil {
-		return fmt.Errorf("preparing ref update: %w", err)
+		return Error{reference: reference.String()}
 	}
 	// We need to explicitly cancel the update here such that we release the lock when this
 	// function exits if there is any error between locking and committing.
