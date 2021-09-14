@@ -8,11 +8,10 @@ As we collaborate on resolution of this issue, the Gitaly team will attempt to u
 
 -->
 
-_As these support requests will naturally contain customer information, they will by default be marked as `confidential` to allow only internal GitLab team members access. This can be disabled on a case by case basis._
+_The goal is to keep these requests public. However, if customer information is required to the support request, please be sure to mark this issue as confidential.__
 
 ## Customer Information
 
-**Customer Name:**
 **Salesforce Link:**
 **Installation Size:**
 **Architecture Information:**
