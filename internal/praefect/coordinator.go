@@ -357,6 +357,10 @@ func (c *Coordinator) directRepositoryScopedMessage(ctx context.Context, call gr
 	}
 
 	if err != nil {
+		if errors.As(err, new(commonerr.RepositoryNotFoundError)) {
+			return nil, helper.ErrNotFound(err)
+		}
+
 		return nil, err
 	}
 
@@ -390,10 +394,6 @@ func (c *Coordinator) accessorStreamParameters(ctx context.Context, call grpcCal
 		ctx, virtualStorage, repoPath, shouldRouteRepositoryAccessorToPrimary(ctx, call),
 	)
 	if err != nil {
-		if errors.As(err, new(commonerr.RepositoryNotFoundError)) {
-			return nil, helper.ErrNotFound(err)
-		}
-
 		return nil, fmt.Errorf("accessor call: route repository accessor: %w", err)
 	}
 
