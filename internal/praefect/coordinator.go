@@ -406,7 +406,7 @@ func (c *Coordinator) accessorStreamParameters(ctx context.Context, call grpcCal
 	metrics.ReadDistribution.WithLabelValues(virtualStorage, node.Storage).Inc()
 
 	return proxy.NewStreamParameters(proxy.Destination{
-		Ctx:  metadata.IncomingToOutgoing(ctx),
+		Ctx:  streamParametersContext(ctx),
 		Conn: node.Connection,
 		Msg:  b,
 	}, nil, nil, nil), nil
@@ -487,7 +487,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 	var finalizers []func() error
 
 	primaryDest := proxy.Destination{
-		Ctx:  metadata.IncomingToOutgoing(ctx),
+		Ctx:  streamParametersContext(ctx),
 		Conn: route.Primary.Connection,
 		Msg:  primaryMessage,
 	}
@@ -511,7 +511,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 		if err != nil {
 			return nil, err
 		}
-		primaryDest.Ctx = metadata.IncomingToOutgoing(injectedCtx)
+		primaryDest.Ctx = streamParametersContext(injectedCtx)
 		primaryDest.ErrHandler = func(err error) error {
 			nodeErrors.Lock()
 			defer nodeErrors.Unlock()
@@ -532,7 +532,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 			}
 
 			secondaryDests = append(secondaryDests, proxy.Destination{
-				Ctx:  metadata.IncomingToOutgoing(injectedCtx),
+				Ctx:  streamParametersContext(injectedCtx),
 				Conn: secondary.Connection,
 				Msg:  secondaryMsg,
 				ErrHandler: func(err error) error {
@@ -593,6 +593,12 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 		return firstErr
 	}
 	return proxy.NewStreamParameters(primaryDest, secondaryDests, reqFinalizer, nil), nil
+}
+
+// streamParametersContexts converts the contexts with incoming metadata into a context that is
+// usable by peer Gitaly nodes.
+func streamParametersContext(ctx context.Context) context.Context {
+	return metadata.IncomingToOutgoing(ctx)
 }
 
 // StreamDirector determines which downstream servers receive requests

@@ -21,6 +21,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	gitaly_metadata "gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
@@ -2134,6 +2136,176 @@ func TestNewRequestFinalizer_contextIsDisjointedFromTheRPC(t *testing.T) {
 				)(),
 				tc.errMsg,
 			)
+		})
+	}
+}
+
+func TestStreamParametersContext(t *testing.T) {
+	// Because we're using NewFeatureFlag, they'll end up in the All array.
+	enabledFF := featureflag.NewFeatureFlag("default-enabled", true)
+	disabledFF := featureflag.NewFeatureFlag("default-disabled", false)
+
+	type expectedFlag struct {
+		flag    featureflag.FeatureFlag
+		enabled bool
+	}
+
+	expectedFlags := func(overrides ...expectedFlag) []expectedFlag {
+		flagValues := map[featureflag.FeatureFlag]bool{}
+		for _, flag := range featureflag.All {
+			flagValues[flag] = flag.OnByDefault
+		}
+		for _, override := range overrides {
+			flagValues[override.flag] = override.enabled
+		}
+
+		expectedFlags := make([]expectedFlag, 0, len(flagValues))
+		for flag, value := range flagValues {
+			expectedFlags = append(expectedFlags, expectedFlag{
+				flag: flag, enabled: value,
+			})
+		}
+
+		return expectedFlags
+	}
+
+	for _, tc := range []struct {
+		desc               string
+		setupContext       func() context.Context
+		expectedIncomingMD metadata.MD
+		expectedOutgoingMD metadata.MD
+		expectedFlags   []expectedFlag
+	}{
+		{
+			desc: "no metadata",
+			setupContext: func() context.Context {
+				return context.Background()
+			},
+			expectedFlags: expectedFlags(),
+		},
+		{
+			desc: "with incoming metadata",
+			setupContext: func() context.Context {
+				ctx := context.Background()
+				ctx = metadata.NewIncomingContext(ctx, metadata.Pairs("key", "value"))
+				return ctx
+			},
+			expectedIncomingMD: metadata.Pairs("key", "value"),
+			expectedOutgoingMD: metadata.Pairs("key", "value"),
+			expectedFlags:   expectedFlags(),
+		},
+		{
+			desc: "with outgoing metadata",
+			setupContext: func() context.Context {
+				ctx := context.Background()
+				ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("key", "value"))
+				return ctx
+			},
+			expectedOutgoingMD: metadata.Pairs("key", "value"),
+			expectedFlags:   expectedFlags(),
+		},
+		{
+			desc: "with incoming and outgoing metadata",
+			setupContext: func() context.Context {
+				ctx := context.Background()
+				ctx = metadata.NewIncomingContext(ctx, metadata.Pairs("incoming", "value"))
+				ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("outgoing", "value"))
+				return ctx
+			},
+			// This behaviour is quite subtle: in the previous test case where we only
+			// have outgoing metadata, we retain it. But in case we have both incoming
+			// and outgoing we'd discard the outgoing metadata altogether. It is
+			// debatable whether this is a bug or feature, so I'll just document this
+			// weird edge case here for now.
+			expectedIncomingMD: metadata.Pairs("incoming", "value"),
+			expectedOutgoingMD: metadata.Pairs("incoming", "value"),
+			expectedFlags:   expectedFlags(),
+		},
+		{
+			desc: "with flags set to their default values",
+			setupContext: func() context.Context {
+				ctx := context.Background()
+				ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, enabledFF)
+				ctx = featureflag.IncomingCtxWithDisabledFeatureFlag(ctx, disabledFF)
+				return ctx
+			},
+			expectedIncomingMD: metadata.Pairs(
+				enabledFF.MetadataKey(), "true",
+				disabledFF.MetadataKey(), "false",
+			),
+			expectedOutgoingMD: metadata.Pairs(
+				enabledFF.MetadataKey(), "true",
+				disabledFF.MetadataKey(), "false",
+			),
+			expectedFlags: expectedFlags(),
+		},
+		{
+			desc: "with flags set to their reverse default values",
+			setupContext: func() context.Context {
+				ctx := context.Background()
+				ctx = featureflag.IncomingCtxWithDisabledFeatureFlag(ctx, enabledFF)
+				ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, disabledFF)
+				return ctx
+			},
+			expectedIncomingMD: metadata.Pairs(
+				enabledFF.MetadataKey(), "false",
+				disabledFF.MetadataKey(), "true",
+			),
+			expectedOutgoingMD: metadata.Pairs(
+				enabledFF.MetadataKey(), "false",
+				disabledFF.MetadataKey(), "true",
+			),
+			expectedFlags: expectedFlags(
+				expectedFlag{flag: enabledFF, enabled: false},
+				expectedFlag{flag: disabledFF, enabled: true},
+			),
+		},
+		{
+			desc: "mixed flags and metadata",
+			setupContext: func() context.Context {
+				ctx := context.Background()
+				ctx = metadata.NewIncomingContext(ctx, metadata.Pairs(
+					disabledFF.MetadataKey(), "true",
+					"incoming", "value"),
+				)
+				return ctx
+			},
+			expectedIncomingMD: metadata.Pairs(
+				disabledFF.MetadataKey(), "true",
+				"incoming", "value",
+			),
+			expectedOutgoingMD: metadata.Pairs(
+				disabledFF.MetadataKey(), "true",
+				"incoming", "value",
+			),
+			expectedFlags: expectedFlags(
+				expectedFlag{flag: disabledFF, enabled: true},
+			),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx := streamParametersContext(tc.setupContext())
+
+			incomingMD, ok := metadata.FromIncomingContext(ctx)
+			if tc.expectedIncomingMD == nil {
+				require.False(t, ok)
+			} else {
+				require.True(t, ok)
+			}
+			require.Equal(t, tc.expectedIncomingMD, incomingMD)
+
+			outgoingMD, ok := metadata.FromOutgoingContext(ctx)
+			if tc.expectedOutgoingMD == nil {
+				require.False(t, ok)
+			} else {
+				require.True(t, ok)
+			}
+			require.Equal(t, tc.expectedOutgoingMD, outgoingMD)
+
+			incomingCtx := gitaly_metadata.OutgoingToIncoming(ctx)
+			for _, expectedFlag := range tc.expectedFlags {
+				require.Equal(t, expectedFlag.enabled, expectedFlag.flag.IsEnabled(incomingCtx))
+			}
 		})
 	}
 }
