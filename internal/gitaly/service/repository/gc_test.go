@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -38,7 +39,7 @@ func TestGarbageCollectCommitGraph(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, c)
 
-	chainPath := filepath.Join(repoPath, CommitGraphChainRelPath)
+	chainPath := filepath.Join(repoPath, stats.CommitGraphChainRelPath)
 	require.FileExists(t, chainPath, "pre-computed commit-graph should exist after running garbage collect")
 }
 

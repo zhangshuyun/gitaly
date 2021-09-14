@@ -11,9 +11,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
-// repackIfNoBitmap uses the bitmap index as a heuristic to determine whether the repository needs a
-// full repack. So only if there is none will the full repack be started.
-func (s *server) repackIfNoBitmap(ctx context.Context, repository *gitalypb.Repository) error {
+// repackIfNeeded uses a set of heuristics to determine whether the repository needs a
+// full repack and, if so, repacks it.
+func (s *server) repackIfNeeded(ctx context.Context, repository *gitalypb.Repository) error {
 	repoPath, err := s.locator.GetRepoPath(repository)
 	if err != nil {
 		return err
@@ -23,7 +23,13 @@ func (s *server) repackIfNoBitmap(ctx context.Context, repository *gitalypb.Repo
 	if err != nil {
 		return helper.ErrInternal(err)
 	}
-	if hasBitmap {
+
+	missingBloomFilters, err := stats.IsMissingBloomFilters(repoPath)
+	if err != nil {
+		return helper.ErrInternal(err)
+	}
+
+	if hasBitmap && !missingBloomFilters {
 		return nil
 	}
 
@@ -32,15 +38,17 @@ func (s *server) repackIfNoBitmap(ctx context.Context, repository *gitalypb.Repo
 		return helper.ErrInternal(err)
 	}
 
-	// repositories with alternates should never have a bitmap, as Git will otherwise complain about
+	// Repositories with alternates should never have a bitmap, as Git will otherwise complain about
 	// multiple bitmaps being present in parent and alternate repository.
-	if _, err = os.Stat(altFile); !os.IsNotExist(err) {
-		return nil
+	// In case of an error it still tries it is best to optimise the repository.
+	createBitMap := false
+	if _, err := os.Stat(altFile); os.IsNotExist(err) {
+		createBitMap = true
 	}
 
 	if _, err = s.RepackFull(ctx, &gitalypb.RepackFullRequest{
 		Repository:   repository,
-		CreateBitmap: true,
+		CreateBitmap: createBitMap,
 	}); err != nil {
 		return err
 	}
@@ -49,7 +57,7 @@ func (s *server) repackIfNoBitmap(ctx context.Context, repository *gitalypb.Repo
 }
 
 func (s *server) optimizeRepository(ctx context.Context, repository *gitalypb.Repository) error {
-	if err := s.repackIfNoBitmap(ctx, repository); err != nil {
+	if err := s.repackIfNeeded(ctx, repository); err != nil {
 		return fmt.Errorf("could not repack: %w", err)
 	}
 
