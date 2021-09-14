@@ -14,6 +14,14 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 )
 
+// Object represents data returned by `git cat-file --batch`
+type Object struct {
+	// ObjectInfo represents main information about object
+	ObjectInfo
+	// Reader provides raw data about object. It differs for each type of object(tag, commit, tree, log, etc.)
+	io.Reader
+}
+
 // objectReader is a reader for Git objects. Reading is implemented via a long-lived `git cat-file
 // --batch` process such that we do not have to spawn a new process for each object we are about to
 // read.

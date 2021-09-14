@@ -95,15 +95,6 @@ func NewCache(cfg config.Cfg) *BatchCache {
 	return newCache(defaultBatchfileTTL, cfg.Git.CatfileCacheSize, defaultEvictionInterval)
 }
 
-// Stop stops the monitoring Goroutine and evicts all cached processes. This must only be called
-// once.
-func (bc *BatchCache) Stop() {
-	bc.monitorTicker.Stop()
-	bc.monitorDone <- struct{}{}
-	<-bc.monitorDone
-	bc.Evict()
-}
-
 func newCache(ttl time.Duration, maxLen int, refreshInterval time.Duration) *BatchCache {
 	if maxLen <= 0 {
 		maxLen = defaultMaxLen
@@ -176,6 +167,15 @@ func (bc *BatchCache) monitor() {
 			return
 		}
 	}
+}
+
+// Stop stops the monitoring Goroutine and evicts all cached processes. This must only be called
+// once.
+func (bc *BatchCache) Stop() {
+	bc.monitorTicker.Stop()
+	bc.monitorDone <- struct{}{}
+	<-bc.monitorDone
+	bc.Evict()
 }
 
 // BatchProcess creates a new Batch process for the given repository.
