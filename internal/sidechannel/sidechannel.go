@@ -76,14 +76,10 @@ func OpenSidechannel(ctx context.Context) (_ net.Conn, err error) {
 // The caller is expected to establish the request with the returned context. The
 // callback is executed automatically when the sidechannel connection arrives.
 // The result is pushed to the error channel of the returned waiter.
-func RegisterSidechannel(ctx context.Context, registry *Registry, callback func(net.Conn) error) (context.Context, *Waiter, error) {
-	waiter, err := registry.Register(callback)
-	if err != nil {
-		return ctx, nil, err
-	}
-
+func RegisterSidechannel(ctx context.Context, registry *Registry, callback func(net.Conn) error) (context.Context, *Waiter) {
+	waiter := registry.Register(callback)
 	ctxOut := metadata.AppendToOutgoingContext(ctx, sidechannelMetadataKey, fmt.Sprintf("%d", waiter.id))
-	return ctxOut, waiter, nil
+	return ctxOut, waiter
 }
 
 // ServerHandshaker implements the server-side sidechannel handshake.
