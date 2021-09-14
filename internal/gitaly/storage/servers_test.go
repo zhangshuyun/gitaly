@@ -1,4 +1,4 @@
-package helper
+package storage_test
 
 import (
 	"context"
@@ -49,7 +49,7 @@ func TestExtractGitalyServers(t *testing.T) {
 		t.Run(testCase.desc, func(t *testing.T) {
 			ctx := metadata.NewIncomingContext(ctxOuter, testCase.metadata)
 
-			info, err := ExtractGitalyServers(ctx)
+			info, err := storage.ExtractGitalyServers(ctx)
 			if testCase.info == nil {
 				require.Error(t, err)
 			} else {
@@ -64,7 +64,7 @@ func TestInjectGitalyServers(t *testing.T) {
 	check := func(t *testing.T, ctx context.Context) {
 		t.Helper()
 
-		newCtx, err := InjectGitalyServers(ctx, "gitaly-1", "1.1.1.1", "secret")
+		newCtx, err := storage.InjectGitalyServers(ctx, "gitaly-1", "1.1.1.1", "secret")
 		require.NoError(t, err)
 
 		md, found := metadata.FromOutgoingContext(newCtx)

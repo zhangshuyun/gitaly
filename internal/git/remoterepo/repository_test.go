@@ -11,7 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/commit"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/repository"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -44,7 +44,7 @@ func TestRepository(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	ctx, err := helper.InjectGitalyServers(ctx, "default", serverSocketPath, cfg.Auth.Token)
+	ctx, err := storage.InjectGitalyServers(ctx, "default", serverSocketPath, cfg.Auth.Token)
 	require.NoError(t, err)
 
 	pool := client.NewPool()
