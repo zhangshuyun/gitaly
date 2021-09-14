@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -170,19 +171,33 @@ func TestStreamDirectorMutator(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	entry := testhelper.DiscardTestEntry(t)
-
-	nodeMgr, err := nodes.NewManager(entry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil)
-	require.NoError(t, err)
-	nodeMgr.Start(0, time.Hour)
-
 	txMgr := transactions.NewManager(conf)
-	rs := datastore.MockRepositoryStore{}
+
+	tx := glsql.NewDB(t).Begin(t)
+	defer tx.Rollback(t)
+
+	nodeSet, err := DialNodes(ctx, conf.VirtualStorages, protoregistry.GitalyProtoPreregistered, nil, nil)
+	require.NoError(t, err)
+	defer nodeSet.Close()
+
+	rs := datastore.NewPostgresRepositoryStore(tx, conf.StorageNames())
+	require.NoError(t, rs.CreateRepository(ctx, 1, targetRepo.StorageName, targetRepo.RelativePath, primaryNode.Storage, []string{secondaryNode.Storage}, nil, true, true))
+
+	testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": conf.StorageNames()})
 
 	coordinator := NewCoordinator(
 		queueInterceptor,
 		rs,
-		NewNodeManagerRouter(nodeMgr, rs),
+		NewPerRepositoryRouter(
+			nodeSet.Connections(),
+			nodes.NewPerRepositoryElector(tx),
+			StaticHealthChecker(conf.StorageNames()),
+			NewLockedRandom(rand.New(rand.NewSource(0))),
+			rs,
+			datastore.NewAssignmentStore(tx, conf.StorageNames()),
+			rs,
+			nil,
+		),
 		txMgr,
 		conf,
 		protoregistry.GitalyProtoPreregistered,
@@ -230,6 +245,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 		CreatedAt: events[0].CreatedAt,
 		UpdatedAt: events[0].UpdatedAt,
 		Job: datastore.ReplicationJob{
+			RepositoryID:      1,
 			Change:            datastore.UpdateRepo,
 			VirtualStorage:    conf.VirtualStorages[0].Name,
 			RelativePath:      targetRepo.RelativePath,
