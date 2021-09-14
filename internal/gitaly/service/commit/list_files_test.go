@@ -1,11 +1,14 @@
 package commit
 
 import (
+	"context"
 	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -37,9 +40,14 @@ var defaultFiles = [][]byte{
 }
 
 func TestListFiles_success(t *testing.T) {
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
+	defaultBranchName = func(context.Context, git.RepositoryExecutor) ([]byte, error) {
+		return []byte("test-do-not-touch"), nil
+	}
+	defer func() {
+		defaultBranchName = ref.DefaultBranchName
+	}()
 
-	gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/test-do-not-touch")
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	tests := []struct {
 		desc     string

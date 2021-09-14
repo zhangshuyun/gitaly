@@ -1,7 +1,6 @@
 package commit
 
 import (
-	"errors"
 	"io"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
@@ -30,14 +29,16 @@ func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.Commit
 
 	revision := string(in.GetRevision())
 	if len(revision) == 0 {
-		defaultBranch, err := repo.GetDefaultBranch(stream.Context())
-		if errors.Is(err, git.ErrNoDefaultBranch) {
-			return helper.ErrFailedPreconditionf("repository does not have a default branch")
-		} else if err != nil {
+		defaultBranch, err := defaultBranchName(stream.Context(), repo)
+		if err != nil {
 			return helper.ErrNotFoundf("revision not found %q", revision)
 		}
 
-		revision = defaultBranch.String()
+		if len(defaultBranch) == 0 {
+			return helper.ErrFailedPreconditionf("repository does not have a default branch")
+		}
+
+		revision = string(defaultBranch)
 	}
 
 	contained, err := s.localrepo(repo).HasRevision(stream.Context(), git.Revision(revision))
