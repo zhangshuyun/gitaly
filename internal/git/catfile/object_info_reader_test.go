@@ -39,8 +39,6 @@ func TestObjectInfoReader(t *testing.T) {
 		}
 	}
 
-	cache := NewCache(cfg)
-
 	for _, tc := range []struct {
 		desc         string
 		revision     git.Revision
@@ -79,7 +77,7 @@ func TestObjectInfoReader(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			reader, err := cache.newObjectInfoReader(ctx, newRepoExecutor(t, cfg, repoProto))
+			reader, err := newObjectInfoReader(ctx, newRepoExecutor(t, cfg, repoProto))
 			require.NoError(t, err)
 
 			info, err := reader.info(tc.revision)

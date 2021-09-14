@@ -211,11 +211,18 @@ func (bc *BatchCache) BatchProcess(ctx context.Context, repo git.RepositoryExecu
 		}
 	}()
 
-	c, ctx, err := bc.newBatch(ctx, repo)
+	c, ctx, err := newBatch(ctx, repo)
 	if err != nil {
 		return nil, err
 	}
 	c.cancel = cancel
+
+	bc.totalCatfileProcesses.Inc()
+	bc.currentCatfileProcesses.Inc()
+	go func() {
+		<-ctx.Done()
+		bc.currentCatfileProcesses.Dec()
+	}()
 
 	if isCacheable {
 		// If the process is cacheable, then we want to put the process into the cache when

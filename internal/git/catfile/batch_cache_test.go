@@ -26,22 +26,22 @@ func TestCache_add(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	key0 := mustCreateKey(t, "0", repo)
-	value0 := mustCreateBatch(t, cfg, bc, repo)
+	value0 := mustCreateBatch(t, cfg, repo)
 	bc.add(key0, value0)
 	requireCacheValid(t, bc)
 
 	key1 := mustCreateKey(t, "1", repo)
-	bc.add(key1, mustCreateBatch(t, cfg, bc, repo))
+	bc.add(key1, mustCreateBatch(t, cfg, repo))
 	requireCacheValid(t, bc)
 
 	key2 := mustCreateKey(t, "2", repo)
-	bc.add(key2, mustCreateBatch(t, cfg, bc, repo))
+	bc.add(key2, mustCreateBatch(t, cfg, repo))
 	requireCacheValid(t, bc)
 
 	// Because maxLen is 3, and key0 is oldest, we expect that adding key3
 	// will kick out key0.
 	key3 := mustCreateKey(t, "3", repo)
-	bc.add(key3, mustCreateBatch(t, cfg, bc, repo))
+	bc.add(key3, mustCreateBatch(t, cfg, repo))
 	requireCacheValid(t, bc)
 
 	require.Equal(t, maxLen, bc.len(), "length should be maxLen")
@@ -55,18 +55,18 @@ func TestCache_addTwice(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	key0 := mustCreateKey(t, "0", repo)
-	value0 := mustCreateBatch(t, cfg, bc, repo)
+	value0 := mustCreateBatch(t, cfg, repo)
 	bc.add(key0, value0)
 	requireCacheValid(t, bc)
 
 	key1 := mustCreateKey(t, "1", repo)
-	value1 := mustCreateBatch(t, cfg, bc, repo)
+	value1 := mustCreateBatch(t, cfg, repo)
 	bc.add(key1, value1)
 	requireCacheValid(t, bc)
 
 	require.Equal(t, key0, bc.head().key, "key0 should be oldest key")
 
-	value2 := mustCreateBatch(t, cfg, bc, repo)
+	value2 := mustCreateBatch(t, cfg, repo)
 	bc.add(key0, value2)
 	requireCacheValid(t, bc)
 
@@ -82,7 +82,7 @@ func TestCache_checkout(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	key0 := mustCreateKey(t, "0", repo)
-	value0 := mustCreateBatch(t, cfg, bc, repo)
+	value0 := mustCreateBatch(t, cfg, repo)
 	bc.add(key0, value0)
 
 	v, ok := bc.checkout(key{sessionID: "foo"})
@@ -112,12 +112,12 @@ func TestCache_enforceTTL(t *testing.T) {
 	sleep := func() { time.Sleep(2 * time.Millisecond) }
 
 	key0 := mustCreateKey(t, "0", repo)
-	value0 := mustCreateBatch(t, cfg, bc, repo)
+	value0 := mustCreateBatch(t, cfg, repo)
 	bc.add(key0, value0)
 	sleep()
 
 	key1 := mustCreateKey(t, "1", repo)
-	value1 := mustCreateBatch(t, cfg, bc, repo)
+	value1 := mustCreateBatch(t, cfg, repo)
 	bc.add(key1, value1)
 	sleep()
 
@@ -125,11 +125,11 @@ func TestCache_enforceTTL(t *testing.T) {
 	sleep()
 
 	key2 := mustCreateKey(t, "2", repo)
-	bc.add(key2, mustCreateBatch(t, cfg, bc, repo))
+	bc.add(key2, mustCreateBatch(t, cfg, repo))
 	sleep()
 
 	key3 := mustCreateKey(t, "3", repo)
-	bc.add(key3, mustCreateBatch(t, cfg, bc, repo))
+	bc.add(key3, mustCreateBatch(t, cfg, repo))
 	sleep()
 
 	requireCacheValid(t, bc)
@@ -159,7 +159,7 @@ func TestCache_autoExpiry(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	key0 := mustCreateKey(t, "0", repo)
-	value0 := mustCreateBatch(t, cfg, bc, repo)
+	value0 := mustCreateBatch(t, cfg, repo)
 	bc.add(key0, value0)
 	requireCacheValid(t, bc)
 
@@ -352,13 +352,13 @@ func requireCacheValid(t *testing.T, bc *BatchCache) {
 	}
 }
 
-func mustCreateBatch(t *testing.T, cfg config.Cfg, bc *BatchCache, repo repository.GitRepo) *batch {
+func mustCreateBatch(t *testing.T, cfg config.Cfg, repo repository.GitRepo) *batch {
 	t.Helper()
 
 	ctx, cancel := testhelper.Context()
 	t.Cleanup(cancel)
 
-	batch, _, err := bc.newBatch(ctx, newRepoExecutor(t, cfg, repo))
+	batch, _, err := newBatch(ctx, newRepoExecutor(t, cfg, repo))
 	require.NoError(t, err)
 
 	return batch

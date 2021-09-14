@@ -24,10 +24,8 @@ func TestObjectReader_reader(t *testing.T) {
 	require.NoError(t, err)
 	commitContents := gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-p", "refs/heads/master")
 
-	cache := NewCache(cfg)
-
 	t.Run("read existing object by ref", func(t *testing.T) {
-		reader, err := cache.newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto))
+		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto))
 		require.NoError(t, err)
 
 		object, err := reader.reader("refs/heads/master", "commit")
@@ -39,7 +37,7 @@ func TestObjectReader_reader(t *testing.T) {
 	})
 
 	t.Run("read existing object by object ID", func(t *testing.T) {
-		reader, err := cache.newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto))
+		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto))
 		require.NoError(t, err)
 
 		object, err := reader.reader(commitID.Revision(), "commit")
@@ -52,7 +50,7 @@ func TestObjectReader_reader(t *testing.T) {
 	})
 
 	t.Run("read commit with wrong type", func(t *testing.T) {
-		reader, err := cache.newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto))
+		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto))
 		require.NoError(t, err)
 
 		_, err = reader.reader(commitID.Revision(), "tag")
@@ -69,7 +67,7 @@ func TestObjectReader_reader(t *testing.T) {
 	})
 
 	t.Run("read missing ref", func(t *testing.T) {
-		reader, err := cache.newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto))
+		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto))
 		require.NoError(t, err)
 
 		_, err = reader.reader("refs/heads/does-not-exist", "commit")
@@ -86,7 +84,7 @@ func TestObjectReader_reader(t *testing.T) {
 	})
 
 	t.Run("read fails when not consuming previous object", func(t *testing.T) {
-		reader, err := cache.newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto))
+		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto))
 		require.NoError(t, err)
 
 		_, err = reader.reader(commitID.Revision(), "commit")
@@ -98,7 +96,7 @@ func TestObjectReader_reader(t *testing.T) {
 	})
 
 	t.Run("read fails when partially consuming previous object", func(t *testing.T) {
-		reader, err := cache.newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto))
+		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto))
 		require.NoError(t, err)
 
 		object, err := reader.reader(commitID.Revision(), "commit")

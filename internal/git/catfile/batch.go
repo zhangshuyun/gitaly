@@ -98,7 +98,7 @@ func (c *batch) isClosed() bool {
 	return c.closed
 }
 
-func (bc *BatchCache) newBatch(ctx context.Context, repo git.RepositoryExecutor) (*batch, context.Context, error) {
+func newBatch(ctx context.Context, repo git.RepositoryExecutor) (*batch, context.Context, error) {
 	var err error
 
 	// batch processes are long-lived and reused across RPCs,
@@ -119,12 +119,12 @@ func (bc *BatchCache) newBatch(ctx context.Context, repo git.RepositoryExecutor)
 		span.Finish()
 	}()
 
-	objectReader, err := bc.newObjectReader(ctx, repo)
+	objectReader, err := newObjectReader(ctx, repo)
 	if err != nil {
 		return nil, ctx, err
 	}
 
-	objectInfoReader, err := bc.newObjectInfoReader(ctx, repo)
+	objectInfoReader, err := newObjectInfoReader(ctx, repo)
 	if err != nil {
 		return nil, ctx, err
 	}

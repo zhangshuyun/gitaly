@@ -20,7 +20,7 @@ type objectInfoReader struct {
 	sync.Mutex
 }
 
-func (bc *BatchCache) newObjectInfoReader(ctx context.Context, repo git.RepositoryExecutor) (*objectInfoReader, error) {
+func newObjectInfoReader(ctx context.Context, repo git.RepositoryExecutor) (*objectInfoReader, error) {
 	objectInfoReader := &objectInfoReader{}
 
 	var stdinReader io.Reader

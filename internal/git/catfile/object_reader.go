@@ -33,8 +33,7 @@ type objectReader struct {
 	sync.Mutex
 }
 
-func (bc *BatchCache) newObjectReader(ctx context.Context, repo git.RepositoryExecutor) (*objectReader, error) {
-	bc.totalCatfileProcesses.Inc()
+func newObjectReader(ctx context.Context, repo git.RepositoryExecutor) (*objectReader, error) {
 	objectReader := &objectReader{}
 
 	var stdinReader io.Reader
@@ -57,12 +56,10 @@ func (bc *BatchCache) newObjectReader(ctx context.Context, repo git.RepositoryEx
 
 	objectReader.r = bufio.NewReader(batchCmd)
 
-	bc.currentCatfileProcesses.Inc()
 	go func() {
 		<-ctx.Done()
 		// This Close() is crucial to prevent leaking file descriptors.
 		objectReader.w.Close()
-		bc.currentCatfileProcesses.Dec()
 		span.Finish()
 	}()
 
