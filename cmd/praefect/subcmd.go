@@ -32,6 +32,7 @@ var subcommands = map[string]subcmd{
 	"dataloss":               newDatalossSubcommand(),
 	"accept-dataloss":        &acceptDatalossSubcommand{},
 	"set-replication-factor": newSetReplicatioFactorSubcommand(os.Stdout),
+	removeRepositoryCmdName:  newRemoveRepository(logger),
 }
 
 // subCommand returns an exit code, to be fed into os.Exit.
@@ -71,6 +72,8 @@ func getNodeAddress(cfg config.Config) (string, error) {
 		return "unix:" + cfg.SocketPath, nil
 	case cfg.ListenAddr != "":
 		return "tcp://" + cfg.ListenAddr, nil
+	case cfg.TLSListenAddr != "":
+		return "tls://" + cfg.TLSListenAddr, nil
 	default:
 		return "", errors.New("no Praefect address configured")
 	}
