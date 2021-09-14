@@ -144,7 +144,8 @@ func (parser *Parser) Parse() bool {
 		// We cannot use bufio.Scanner because the line may be very long.
 		line, err := parser.patchReader.Peek(10)
 		if err == io.EOF {
-			parser.finished = true
+			// If the last diff has an empty patch (e.g. --ignore-space-change),
+			// patchReader will read EOF, but Parser not finished.
 			currentPatchDone = true
 		} else if err != nil {
 			parser.err = fmt.Errorf("peek diff line: %v", err)
