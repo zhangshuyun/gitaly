@@ -203,6 +203,7 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 	ctx, err := helper.InjectGitalyServers(ctx, remoteRepo.GetStorageName(), remoteAddr, "")
 	require.NoError(t, err)
 
+	//nolint:staticcheck
 	c, err := client.FetchInternalRemote(ctx, &gitalypb.FetchInternalRemoteRequest{
 		Repository:       localRepo,
 		RemoteRepository: remoteRepo,
@@ -248,6 +249,7 @@ func TestFailedFetchInternalRemote(t *testing.T) {
 		RemoteRepository: remoteRepo,
 	}
 
+	//nolint:staticcheck
 	c, err := client.FetchInternalRemote(ctx, request)
 	require.NoError(t, err, "FetchInternalRemote is not supposed to return an error when 'git fetch' fails")
 	require.False(t, c.GetResult())
@@ -276,6 +278,7 @@ func TestFailedFetchInternalRemoteDueToValidations(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
+			//nolint:staticcheck
 			_, err := client.FetchInternalRemote(ctx, tc.request)
 
 			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
