@@ -438,16 +438,18 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 	})
 
 	t.Run("SetAuthoritativeReplica", func(t *testing.T) {
-		rs, requireState := newStore(t, nil)
-
 		t.Run("fails when repository doesnt exist", func(t *testing.T) {
+			rs, _ := newStore(t, nil)
+
 			require.Equal(t,
 				commonerr.NewRepositoryNotFoundError(vs, repo),
 				rs.SetAuthoritativeReplica(ctx, vs, repo, stor),
 			)
 		})
 
-		t.Run("sets the given replica as the latest", func(t *testing.T) {
+		t.Run("sets an existing replica as the latest", func(t *testing.T) {
+			rs, requireState := newStore(t, nil)
+
 			require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, "storage-1", []string{"storage-2"}, nil, false, false))
 			requireState(t, ctx,
 				virtualStorageState{
@@ -477,6 +479,43 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 						"repository-1": {
 							"storage-1": {repositoryID: 1, generation: 1},
 							"storage-2": {repositoryID: 1, generation: 0},
+						},
+					},
+				},
+			)
+		})
+
+		t.Run("sets a new replica as the latest", func(t *testing.T) {
+			rs, requireState := newStore(t, nil)
+
+			require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, "storage-1", nil, nil, false, false))
+			requireState(t, ctx,
+				virtualStorageState{
+					"virtual-storage-1": {
+						"repository-1": {repositoryID: 1, replicaPath: "repository-1"},
+					},
+				},
+				storageState{
+					"virtual-storage-1": {
+						"repository-1": {
+							"storage-1": {repositoryID: 1, generation: 0},
+						},
+					},
+				},
+			)
+
+			require.NoError(t, rs.SetAuthoritativeReplica(ctx, vs, repo, "storage-2"))
+			requireState(t, ctx,
+				virtualStorageState{
+					"virtual-storage-1": {
+						"repository-1": {repositoryID: 1, replicaPath: "repository-1"},
+					},
+				},
+				storageState{
+					"virtual-storage-1": {
+						"repository-1": {
+							"storage-1": {repositoryID: 1, generation: 0},
+							"storage-2": {repositoryID: 1, generation: 1},
 						},
 					},
 				},
