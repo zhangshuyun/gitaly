@@ -26,7 +26,7 @@ func OutgoingCtxWithFeatureFlags(ctx context.Context, flags ...FeatureFlag) cont
 	}
 
 	for _, flag := range flags {
-		md.Set(headerKey(flag.Name), "true")
+		md.Set(flag.MetadataKey(), "true")
 	}
 
 	return metadata.NewOutgoingContext(ctx, md)
@@ -43,7 +43,7 @@ func OutgoingCtxWithDisabledFeatureFlags(ctx context.Context, flags ...FeatureFl
 	}
 
 	for _, flag := range flags {
-		md.Set(headerKey(flag.Name), "false")
+		md.Set(flag.MetadataKey(), "false")
 	}
 
 	return metadata.NewOutgoingContext(ctx, md)
@@ -61,7 +61,7 @@ func OutgoingCtxWithFeatureFlagValue(ctx context.Context, flag FeatureFlag, val 
 		md = metadata.New(map[string]string{})
 	}
 
-	md.Set(headerKey(flag.Name), val)
+	md.Set(flag.MetadataKey(), val)
 
 	return metadata.NewOutgoingContext(ctx, md)
 }
@@ -70,12 +70,12 @@ func OutgoingCtxWithFeatureFlagValue(ctx context.Context, flag FeatureFlag, val 
 // context. This is NOT meant for use in clients that transfer the context
 // across process boundaries.
 func IncomingCtxWithFeatureFlag(ctx context.Context, flag FeatureFlag) context.Context {
-	return incomingCtxWithFeatureFlagValue(ctx, headerKey(flag.Name), true)
+	return incomingCtxWithFeatureFlagValue(ctx, flag.MetadataKey(), true)
 }
 
 // IncomingCtxWithDisabledFeatureFlag marks feature flag as disabled in the incoming context.
 func IncomingCtxWithDisabledFeatureFlag(ctx context.Context, flag FeatureFlag) context.Context {
-	return incomingCtxWithFeatureFlagValue(ctx, headerKey(flag.Name), false)
+	return incomingCtxWithFeatureFlagValue(ctx, flag.MetadataKey(), false)
 }
 
 // IncomingCtxWithRubyFeatureFlagValue sets the feature flags status in the context.
@@ -165,11 +165,6 @@ func OutgoingWithRaw(ctx context.Context, flags Raw) context.Context {
 	}
 
 	return ctx
-}
-
-// headerKey returns the feature flag key to be used in the metadata map
-func headerKey(flag string) string {
-	return ffPrefix + strings.ReplaceAll(flag, "_", "-")
 }
 
 func rubyHeaderKey(flag string) string {
