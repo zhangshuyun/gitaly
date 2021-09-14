@@ -7,7 +7,6 @@ import (
 	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/labkit/correlation"
 )
 
 const (
@@ -39,7 +38,7 @@ type batch struct {
 // Info returns an ObjectInfo if spec exists. If the revision does not exist
 // the error is of type NotFoundError.
 func (c *batch) Info(ctx context.Context, revision git.Revision) (*ObjectInfo, error) {
-	return c.objectInfoReader.info(revision)
+	return c.objectInfoReader.info(ctx, revision)
 }
 
 // Tree returns a raw tree object. It is an error if the revision does not
@@ -47,7 +46,7 @@ func (c *batch) Info(ctx context.Context, revision git.Revision) (*ObjectInfo, e
 // the object type. Caller must consume the Reader before making another call
 // on C.
 func (c *batch) Tree(ctx context.Context, revision git.Revision) (*Object, error) {
-	return c.objectReader.reader(revision, "tree")
+	return c.objectReader.reader(ctx, revision, "tree")
 }
 
 // Commit returns a raw commit object. It is an error if the revision does not
@@ -55,7 +54,7 @@ func (c *batch) Tree(ctx context.Context, revision git.Revision) (*Object, error
 // check the object type. Caller must consume the Reader before making another
 // call on C.
 func (c *batch) Commit(ctx context.Context, revision git.Revision) (*Object, error) {
-	return c.objectReader.reader(revision, "commit")
+	return c.objectReader.reader(ctx, revision, "commit")
 }
 
 // Blob returns a reader for the requested blob. The entire blob must be
@@ -64,13 +63,13 @@ func (c *batch) Commit(ctx context.Context, revision git.Revision) (*Object, err
 // It is an error if the revision does not point to a blob. To prevent this,
 // use Info to resolve the revision and check the object type.
 func (c *batch) Blob(ctx context.Context, revision git.Revision) (*Object, error) {
-	return c.objectReader.reader(revision, "blob")
+	return c.objectReader.reader(ctx, revision, "blob")
 }
 
 // Tag returns a raw tag object. Caller must consume the Reader before
 // making another call on C.
 func (c *batch) Tag(ctx context.Context, revision git.Revision) (*Object, error) {
-	return c.objectReader.reader(revision, "tag")
+	return c.objectReader.reader(ctx, revision, "tag")
 }
 
 // Close closes the writers for objectInfoReader and objectReader. This is only used for cached
@@ -98,7 +97,11 @@ func (c *batch) isClosed() bool {
 	return c.closed
 }
 
-func newBatch(ctx context.Context, repo git.RepositoryExecutor) (*batch, context.Context, error) {
+func newBatch(
+	ctx context.Context,
+	repo git.RepositoryExecutor,
+	counter *prometheus.CounterVec,
+) (*batch, context.Context, error) {
 	var err error
 
 	span, ctx := opentracing.StartSpanFromContext(ctx, "catfile.Batch")
@@ -115,99 +118,15 @@ func newBatch(ctx context.Context, repo git.RepositoryExecutor) (*batch, context
 		span.Finish()
 	}()
 
-	objectReader, err := newObjectReader(ctx, repo)
+	objectReader, err := newObjectReader(ctx, repo, counter)
 	if err != nil {
 		return nil, ctx, err
 	}
 
-	objectInfoReader, err := newObjectInfoReader(ctx, repo)
+	objectInfoReader, err := newObjectInfoReader(ctx, repo, counter)
 	if err != nil {
 		return nil, ctx, err
 	}
 
 	return &batch{objectReader: objectReader, objectInfoReader: objectInfoReader}, ctx, nil
-}
-
-func newInstrumentedBatch(ctx context.Context, c Batch, catfileLookupCounter *prometheus.CounterVec) Batch {
-	return &instrumentedBatch{
-		Batch:                c,
-		catfileLookupCounter: catfileLookupCounter,
-		batchCtx:             ctx,
-	}
-}
-
-// We maintain two contexts here: the one RPC-level one, and one batch-level one.
-//
-// The batchCtx tracks the lifetime of the long-running batch process, and is
-// de-correlated from the RPC, as it is shared between many RPCs.
-//
-// We perform double accounting and re-correlation to get stats and traces per
-// batch process.
-type instrumentedBatch struct {
-	Batch
-	catfileLookupCounter *prometheus.CounterVec
-	batchCtx             context.Context
-}
-
-func (ib *instrumentedBatch) Info(ctx context.Context, revision git.Revision) (*ObjectInfo, error) {
-	ctx, finish := ib.startSpan(ctx, "Batch.Info", revision)
-	defer finish()
-
-	ib.catfileLookupCounter.WithLabelValues("info").Inc()
-
-	return ib.Batch.Info(ctx, revision)
-}
-
-func (ib *instrumentedBatch) Tree(ctx context.Context, revision git.Revision) (*Object, error) {
-	ctx, finish := ib.startSpan(ctx, "Batch.Tree", revision)
-	defer finish()
-
-	ib.catfileLookupCounter.WithLabelValues("tree").Inc()
-
-	return ib.Batch.Tree(ctx, revision)
-}
-
-func (ib *instrumentedBatch) Commit(ctx context.Context, revision git.Revision) (*Object, error) {
-	ctx, finish := ib.startSpan(ctx, "Batch.Commit", revision)
-	defer finish()
-
-	ib.catfileLookupCounter.WithLabelValues("commit").Inc()
-
-	return ib.Batch.Commit(ctx, revision)
-}
-
-func (ib *instrumentedBatch) Blob(ctx context.Context, revision git.Revision) (*Object, error) {
-	ctx, finish := ib.startSpan(ctx, "Batch.Blob", revision)
-	defer finish()
-
-	ib.catfileLookupCounter.WithLabelValues("blob").Inc()
-
-	return ib.Batch.Blob(ctx, revision)
-}
-
-func (ib *instrumentedBatch) Tag(ctx context.Context, revision git.Revision) (*Object, error) {
-	ctx, finish := ib.startSpan(ctx, "Batch.Tag", revision)
-	defer finish()
-
-	ib.catfileLookupCounter.WithLabelValues("tag").Inc()
-
-	return ib.Batch.Tag(ctx, revision)
-}
-
-func (ib *instrumentedBatch) revisionTag(revision git.Revision) opentracing.Tag {
-	return opentracing.Tag{Key: "revision", Value: revision}
-}
-
-func (ib *instrumentedBatch) correlationIDTag(ctx context.Context) opentracing.Tag {
-	return opentracing.Tag{Key: "correlation_id", Value: correlation.ExtractFromContext(ctx)}
-}
-
-func (ib *instrumentedBatch) startSpan(ctx context.Context, methodName string, revision git.Revision) (context.Context, func()) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, methodName, ib.revisionTag(revision))
-	span2, _ := opentracing.StartSpanFromContext(ib.batchCtx, methodName, ib.revisionTag(revision), ib.correlationIDTag(ctx))
-
-	return ctx, func() {
-		span.Finish()
-		span2.Finish()
-	}
 }

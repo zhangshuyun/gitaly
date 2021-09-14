@@ -195,7 +195,7 @@ func (bc *BatchCache) BatchProcess(ctx context.Context, repo git.RepositoryExecu
 
 		if c, ok := bc.checkout(cacheKey); ok {
 			go bc.returnWhenDone(requestDone, cacheKey, c)
-			return newInstrumentedBatch(ctx, c, bc.catfileLookupCounter), nil
+			return c, nil
 		}
 
 		// We have not found any cached process, so we need to create a new one. In this
@@ -217,7 +217,7 @@ func (bc *BatchCache) BatchProcess(ctx context.Context, repo git.RepositoryExecu
 		}
 	}()
 
-	c, ctx, err := newBatch(ctx, repo)
+	c, ctx, err := newBatch(ctx, repo, bc.catfileLookupCounter)
 	if err != nil {
 		return nil, err
 	}
@@ -236,7 +236,7 @@ func (bc *BatchCache) BatchProcess(ctx context.Context, repo git.RepositoryExecu
 		go bc.returnWhenDone(requestDone, cacheKey, c)
 	}
 
-	return newInstrumentedBatch(ctx, c, bc.catfileLookupCounter), nil
+	return c, nil
 }
 
 func (bc *BatchCache) returnWhenDone(done <-chan struct{}, cacheKey key, c *batch) {

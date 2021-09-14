@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/opentracing/opentracing-go"
+	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 )
 
@@ -31,16 +32,22 @@ type objectReader struct {
 	// instead of doing unsafe memory writes (to n) and failing in some
 	// unpredictable way.
 	sync.Mutex
+
+	// creationCtx is the context in which this reader has been created. This context may
+	// potentially be decorrelated from the "real" RPC context in case the reader is going to be
+	// cached.
+	creationCtx context.Context
+	counter     *prometheus.CounterVec
 }
 
-func newObjectReader(ctx context.Context, repo git.RepositoryExecutor) (*objectReader, error) {
-	objectReader := &objectReader{}
-
-	var stdinReader io.Reader
-	stdinReader, objectReader.w = io.Pipe()
-
+func newObjectReader(
+	ctx context.Context,
+	repo git.RepositoryExecutor,
+	counter *prometheus.CounterVec,
+) (*objectReader, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "catfile.ObjectReader")
 
+	stdinReader, stdinWriter := io.Pipe()
 	batchCmd, err := repo.Exec(ctx,
 		git.SubCmd{
 			Name: "cat-file",
@@ -54,19 +61,33 @@ func newObjectReader(ctx context.Context, repo git.RepositoryExecutor) (*objectR
 		return nil, err
 	}
 
-	objectReader.r = bufio.NewReader(batchCmd)
-
 	go func() {
 		<-ctx.Done()
 		// This Close() is crucial to prevent leaking file descriptors.
-		objectReader.w.Close()
+		stdinWriter.Close()
 		span.Finish()
 	}()
 
-	return objectReader, nil
+	return &objectReader{
+		w:           stdinWriter,
+		r:           bufio.NewReader(batchCmd),
+		creationCtx: ctx,
+		counter:     counter,
+	}, nil
 }
 
-func (o *objectReader) reader(revision git.Revision, expectedType string) (*Object, error) {
+func (o *objectReader) reader(
+	ctx context.Context,
+	revision git.Revision,
+	expectedType string,
+) (*Object, error) {
+	finish := startSpan(o.creationCtx, ctx, fmt.Sprintf("Batch.Object(%s)", expectedType), revision)
+	defer finish()
+
+	if o.counter != nil {
+		o.counter.WithLabelValues(expectedType).Inc()
+	}
+
 	o.Lock()
 	defer o.Unlock()
 

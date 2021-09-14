@@ -206,16 +206,13 @@ func TestCache_BatchProcess(t *testing.T) {
 		batchProcess, err := cache.BatchProcess(ctx, repoExecutor)
 		require.NoError(t, err)
 
-		instrumentedBatch, ok := batchProcess.(*instrumentedBatch)
-		require.True(t, ok, "expected instrumented batch")
+		batch, ok := batchProcess.(*batch)
+		require.True(t, ok, "expected batch")
 
-		correlation := correlation.ExtractFromContext(instrumentedBatch.batchCtx)
+		correlation := correlation.ExtractFromContext(batch.objectReader.creationCtx)
 		require.Equal(t, "1", correlation)
 
 		cancel()
-
-		batch, ok := instrumentedBatch.Batch.(*batch)
-		require.True(t, ok, "expected batch")
 
 		// We're cheating a bit here to avoid creating a racy test by reaching into the
 		// batch processes and trying to read from their stdout. If the cancel did kill the
@@ -250,12 +247,12 @@ func TestCache_BatchProcess(t *testing.T) {
 		batchProcess, err := cache.BatchProcess(ctx, repoExecutor)
 		require.NoError(t, err)
 
-		instrumentedBatch, ok := batchProcess.(*instrumentedBatch)
+		batch, ok := batchProcess.(*batch)
 		require.True(t, ok, "expected instrumented batch")
 
 		// The correlation ID must be empty given that this will be a cached long-running
 		// processes that can be reused across multpile RPC calls.
-		correlation := correlation.ExtractFromContext(instrumentedBatch.batchCtx)
+		correlation := correlation.ExtractFromContext(batch.objectReader.creationCtx)
 		require.Empty(t, correlation)
 
 		// Cancel the context such that the process will be considered for return to the
@@ -320,9 +317,7 @@ func TestCache_BatchProcess(t *testing.T) {
 		batchProcess, err := cache.BatchProcess(ctx, repoExecutor)
 		require.NoError(t, err)
 
-		instrumentedBatch, ok := batchProcess.(*instrumentedBatch)
-		require.True(t, ok, "expected instrumented batch")
-		batch, ok := instrumentedBatch.Batch.(*batch)
+		batch, ok := batchProcess.(*batch)
 		require.True(t, ok, "expected batch")
 
 		// Closed processes naturally cannot be reused anymore and thus shouldn't ever get
@@ -356,7 +351,7 @@ func mustCreateBatch(t *testing.T, cfg config.Cfg, repo repository.GitRepo) *bat
 	ctx, cancel := testhelper.Context()
 	t.Cleanup(cancel)
 
-	batch, _, err := newBatch(ctx, newRepoExecutor(t, cfg, repo))
+	batch, _, err := newBatch(ctx, newRepoExecutor(t, cfg, repo), nil)
 	require.NoError(t, err)
 
 	return batch

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
@@ -77,17 +79,25 @@ func TestObjectInfoReader(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			reader, err := newObjectInfoReader(ctx, newRepoExecutor(t, cfg, repoProto))
+			counter := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"type"})
+
+			reader, err := newObjectInfoReader(ctx, newRepoExecutor(t, cfg, repoProto), counter)
 			require.NoError(t, err)
 
-			info, err := reader.info(tc.revision)
+			require.Equal(t, float64(0), testutil.ToFloat64(counter.WithLabelValues("info")))
+
+			info, err := reader.info(ctx, tc.revision)
 			require.Equal(t, tc.expectedErr, err)
 			require.Equal(t, tc.expectedInfo, info)
 
+			require.Equal(t, float64(1), testutil.ToFloat64(counter.WithLabelValues("info")))
+
 			// Verify that we do another request no matter whether the previous call
 			// succeeded or failed.
-			_, err = reader.info("refs/heads/master")
+			_, err = reader.info(ctx, "refs/heads/master")
 			require.NoError(t, err)
+
+			require.Equal(t, float64(2), testutil.ToFloat64(counter.WithLabelValues("info")))
 		})
 	}
 }
