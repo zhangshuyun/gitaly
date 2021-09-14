@@ -5,33 +5,42 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 )
 
-// CreateTagOpts holds extra options for CreateTag.
-type CreateTagOpts struct {
+// WriteTagConfig holds extra options for WriteTag.
+type WriteTagConfig struct {
+	// Message is the message of an annotated tag. If left empty, then a lightweight tag will
+	// be created.
 	Message string
-	Force   bool
+	// Force indicates whether existing tags with the same name shall be overwritten.
+	Force bool
 }
 
-// CreateTag creates a new tag.
-func CreateTag(t testing.TB, cfg config.Cfg, repoPath, tagName, targetID string, opts *CreateTagOpts) string {
-	var message string
-	force := false
+// WriteTag writes a new tag into the repository. This function either returns the tag ID in case
+// an annotated tag was created, or otherwise the target object ID when a lightweight tag was
+// created. Takes either no WriteTagConfig, in which case the default values will be used, or
+// exactly one.
+func WriteTag(
+	t testing.TB,
+	cfg config.Cfg,
+	repoPath string,
+	tagName string,
+	targetRevision git.Revision,
+	optionalConfig ...WriteTagConfig,
+) git.ObjectID {
+	require.Less(t, len(optionalConfig), 2, "only a single config may be passed")
 
-	if opts != nil {
-		if opts.Message != "" {
-			message = opts.Message
-		}
-		force = opts.Force
+	var config WriteTagConfig
+	if len(optionalConfig) == 1 {
+		config = optionalConfig[0]
 	}
 
 	committerName := "Scrooge McDuck"
 	committerEmail := "scrooge@mcduck.com"
-
-	// message can be very large, passing it directly in args would blow things up!
-	stdin := bytes.NewBufferString(message)
 
 	args := []string{
 		"-C", repoPath,
@@ -40,17 +49,23 @@ func CreateTag(t testing.TB, cfg config.Cfg, repoPath, tagName, targetID string,
 		"tag",
 	}
 
-	if force {
+	if config.Force {
 		args = append(args, "-f")
 	}
 
-	if message != "" {
+	// The message can be very large, passing it directly in args would blow things up.
+	stdin := bytes.NewBufferString(config.Message)
+	if config.Message != "" {
 		args = append(args, "-F", "-")
 	}
-	args = append(args, tagName, targetID)
+	args = append(args, tagName, targetRevision.String())
 
 	ExecStream(t, cfg, stdin, args...)
 
 	tagID := Exec(t, cfg, "-C", repoPath, "show-ref", "-s", tagName)
-	return text.ChompBytes(tagID)
+
+	objectID, err := git.NewObjectIDFromHex(text.ChompBytes(tagID))
+	require.NoError(t, err)
+
+	return objectID
 }

@@ -830,11 +830,11 @@ func TestResolveConflictsQuarantine(t *testing.T) {
 	)
 	gittest.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", "refs/heads/source", sourceCommitOID.String())
 
-	// We set up a custom "update" hook which simply prints the new commit to stdout and then
-	// exits with an error. Like this, we can both assert that the hook can see the quarantined
-	// tag, and it allows us to fail the RPC before we migrate quarantined objects.
-	script := fmt.Sprintf("#!/bin/sh\necho $3 && %s cat-file -p $3^{commit} && exit 1", cfg.Git.BinPath)
-	gittest.WriteCustomHook(t, sourceRepoPath, "update", []byte(script))
+	// We set up a custom "pre-receive" hook which simply prints the new commit to stdout and
+	// then exits with an error. Like this, we can both assert that the hook can see the
+	// quarantined tag, and it allows us to fail the RPC before we migrate quarantined objects.
+	script := fmt.Sprintf("#!/bin/sh\nread oldval newval ref && echo $newval && %s cat-file -p $newval^{commit} && exit 1", cfg.Git.BinPath)
+	gittest.WriteCustomHook(t, sourceRepoPath, "pre-receive", []byte(script))
 
 	targetRepoProto, targetRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	targetBlobOID := gittest.WriteBlob(t, cfg, targetRepoPath, []byte("contents-2\n"))

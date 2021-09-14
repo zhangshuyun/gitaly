@@ -125,7 +125,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 					&gitalypb.UserMergeBranchError{
 						Error: &gitalypb.UserMergeBranchError_AccessCheck{
 							AccessCheck: &gitalypb.AccessCheckError{
-								ErrorMessage: notAllowedError.Error(),
+								ErrorMessage: notAllowedError.Message,
 								UserId:       notAllowedError.UserID,
 								Protocol:     notAllowedError.Protocol,
 								Changes:      notAllowedError.Changes,

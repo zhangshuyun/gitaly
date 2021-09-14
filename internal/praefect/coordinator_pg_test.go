@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,7 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/transactions"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/promtest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -44,6 +43,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 	testcases := []struct {
 		desc                                 string
 		primaryFails                         bool
+		concurrentWrite                      bool
 		nodes                                []node
 		expectedRequestFinalizerErrorMessage string
 	}{
@@ -105,12 +105,13 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			},
 		},
 		{
-			desc: "write is not acknowledged if it only targets outdated nodes",
+			desc:            "write is not acknowledged if it only targets outdated nodes",
+			concurrentWrite: true,
 			nodes: []node{
-				{subtransactions: subtransactions{{vote: "foobar", shouldSucceed: true}}, shouldParticipate: true, generation: datastore.GenerationUnknown, expectedGeneration: datastore.GenerationUnknown},
-				{shouldParticipate: false, shouldGetRepl: false, generation: datastore.GenerationUnknown, expectedGeneration: datastore.GenerationUnknown},
+				{subtransactions: subtransactions{{vote: "foobar", shouldSucceed: true}}, shouldParticipate: true, generation: 0, expectedGeneration: 0},
+				{shouldParticipate: false, shouldGetRepl: false, generation: 0, expectedGeneration: 0},
 			},
-			expectedRequestFinalizerErrorMessage: `increment generation: repository "praefect"/"/path/to/hashed/repository" not found`,
+			expectedRequestFinalizerErrorMessage: "increment generation: write to outdated nodes",
 		},
 		{
 			// All transactional RPCs are expected to cast vote if they are successful. If they don't, something is wrong
@@ -161,7 +162,6 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			storageNodes := make([]*config.Node, 0, len(tc.nodes))
 			for i := range tc.nodes {
 				socket := testhelper.GetTemporaryGitalySocketFileName(t)
-				testhelper.NewServerWithHealth(t, socket)
 				node := &config.Node{Address: "unix://" + socket, Storage: fmt.Sprintf("node-%d", i)}
 				storageNodes = append(storageNodes, node)
 			}
@@ -191,23 +191,13 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			nodeMgr, err := nodes.NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil)
-			require.NoError(t, err)
-			nodeMgr.Start(0, time.Hour)
-
-			shard, err := nodeMgr.GetShard(ctx, virtualStorage)
-			require.NoError(t, err)
-
-			for i := range tc.nodes {
-				node, err := shard.GetNode(fmt.Sprintf("node-%d", i))
-				require.NoError(t, err)
-				waitNodeToChangeHealthStatus(ctx, t, node, true)
-			}
-
 			txMgr := transactions.NewManager(conf)
 
+			tx := db.Begin(t)
+			defer tx.Rollback(t)
+
 			// set up the generations prior to transaction
-			rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
+			rs := datastore.NewPostgresRepositoryStore(tx, conf.StorageNames())
 
 			repoCreated := false
 			for i, n := range tc.nodes {
@@ -217,16 +207,37 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 
 				if !repoCreated {
 					repoCreated = true
-					require.NoError(t, rs.CreateRepository(ctx, 1, repo.StorageName, repo.RelativePath, storageNodes[i].Storage, nil, nil, false, false))
+					require.NoError(t, rs.CreateRepository(ctx, 1, repo.StorageName, repo.RelativePath, storageNodes[i].Storage, nil, nil, true, false))
 				}
 
 				require.NoError(t, rs.SetGeneration(ctx, repo.StorageName, repo.RelativePath, storageNodes[i].Storage, n.generation))
 			}
 
+			testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": conf.StorageNames()})
+
+			nodeSet, err := DialNodes(
+				ctx,
+				conf.VirtualStorages,
+				protoregistry.GitalyProtoPreregistered,
+				nil,
+				nil,
+			)
+			require.NoError(t, err)
+			defer nodeSet.Close()
+
 			coordinator := NewCoordinator(
 				queueInterceptor,
 				rs,
-				NewNodeManagerRouter(nodeMgr, rs),
+				NewPerRepositoryRouter(
+					nodeSet.Connections(),
+					nodes.NewPerRepositoryElector(tx),
+					StaticHealthChecker(conf.StorageNames()),
+					NewLockedRandom(rand.New(rand.NewSource(0))),
+					rs,
+					datastore.NewAssignmentStore(tx, conf.StorageNames()),
+					rs,
+					nil,
+				),
 				txMgr,
 				conf,
 				protoregistry.GitalyProtoPreregistered,
@@ -285,6 +296,10 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 				require.Error(t, streamParams.Primary().ErrHandler(errors.New("rpc failure")))
 			}
 
+			if tc.concurrentWrite {
+				require.NoError(t, rs.SetGeneration(ctx, repo.StorageName, repo.RelativePath, "non-participating-storage", 2))
+			}
+
 			err = streamParams.RequestFinalizer()
 			if tc.expectedRequestFinalizerErrorMessage != "" {
 				require.EqualError(t, err, tc.expectedRequestFinalizerErrorMessage)
@@ -300,6 +315,8 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, n.expectedGeneration, gen, "node %d has wrong generation", i)
 			}
+
+			tx.Commit(t)
 
 			replicationWaitGroup.Wait()
 

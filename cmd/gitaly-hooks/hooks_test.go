@@ -493,7 +493,7 @@ func TestHooksNotAllowed(t *testing.T) {
 	cmd.Dir = repoPath
 
 	require.Error(t, cmd.Run())
-	require.Equal(t, "invoking access checks: 401 Unauthorized\n", stderr.String())
+	require.Equal(t, "GitLab: 401 Unauthorized\n", stderr.String())
 	require.Equal(t, "", stdout.String())
 	require.NoFileExists(t, customHookOutputPath)
 }

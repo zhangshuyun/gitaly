@@ -1,0 +1,78 @@
+From caff8b73402d4b5edb2c6c755506c5a90351b69a Mon Sep 17 00:00:00 2001
+Message-Id: <caff8b73402d4b5edb2c6c755506c5a90351b69a.1631166322.git.ps@pks.im>
+In-Reply-To: <fe7df03a9a2fa434ebce38b2cd5e6da42f8b2692.1631166322.git.ps@pks.im>
+References: <fe7df03a9a2fa434ebce38b2cd5e6da42f8b2692.1631166322.git.ps@pks.im>
+From: Patrick Steinhardt <ps@pks.im>
+Date: Wed, 1 Sep 2021 15:10:06 +0200
+Subject: [PATCH 14/14] fetch: avoid second connectivity check if we already
+ have all objects
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+When fetching refs, we are doing two connectivity checks:
+
+    - The first one is done such that we can skip fetching refs in the
+      case where we already have all objects referenced by the updated
+      set of refs.
+
+    - The second one verifies that we have all objects after we have
+      fetched objects.
+
+We always execute both connectivity checks, but this is wasteful in case
+the first connectivity check already notices that we have all objects
+locally available.
+
+Skip the second connectivity check in case we already had all objects
+available. This gives us a nice speedup when doing a mirror-fetch in a
+repository with about 2.3M refs where the fetching repo already has all
+objects:
+
+    Benchmark #1: HEAD~: git-fetch
+      Time (mean ± σ):     30.025 s ±  0.081 s    [User: 27.070 s, System: 4.933 s]
+      Range (min … max):   29.900 s … 30.111 s    5 runs
+
+    Benchmark #2: HEAD: git-fetch
+      Time (mean ± σ):     25.574 s ±  0.177 s    [User: 22.855 s, System: 4.683 s]
+      Range (min … max):   25.399 s … 25.765 s    5 runs
+
+    Summary
+      'HEAD: git-fetch' ran
+        1.17 ± 0.01 times faster than 'HEAD~: git-fetch'
+
+Signed-off-by: Patrick Steinhardt <ps@pks.im>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+---
+ builtin/fetch.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/builtin/fetch.c b/builtin/fetch.c
+index a1e17edd8b..e2c952ec67 100644
+--- a/builtin/fetch.c
++++ b/builtin/fetch.c
+@@ -1293,7 +1293,7 @@ static int check_exist_and_connected(struct ref *ref_map)
+ 
+ static int fetch_and_consume_refs(struct transport *transport, struct ref *ref_map)
+ {
+-	int connectivity_checked;
++	int connectivity_checked = 1;
+ 	int ret;
+ 
+ 	/*
+@@ -1307,11 +1307,10 @@ static int fetch_and_consume_refs(struct transport *transport, struct ref *ref_m
+ 		trace2_region_leave("fetch", "fetch_refs", the_repository);
+ 		if (ret)
+ 			goto out;
++		connectivity_checked = transport->smart_options ?
++			transport->smart_options->connectivity_checked : 0;
+ 	}
+ 
+-	connectivity_checked = transport->smart_options
+-		? transport->smart_options->connectivity_checked : 0;
+-
+ 	trace2_region_enter("fetch", "consume_refs", the_repository);
+ 	ret = store_updated_refs(transport->url,
+ 				 transport->remote->name,
+-- 
+2.33.0
+

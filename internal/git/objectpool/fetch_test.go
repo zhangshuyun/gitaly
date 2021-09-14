@@ -51,7 +51,7 @@ func TestFetchFromOriginDangling(t *testing.T) {
 
 	// A tag with random hex characters in its name should be unique.
 	newTagName := "tag-" + nonce
-	newTag := gittest.CreateTag(t, pool.cfg, pool.FullPath(), newTagName, existingCommit, &gittest.CreateTagOpts{
+	newTag := gittest.WriteTag(t, pool.cfg, pool.FullPath(), newTagName, existingCommit, gittest.WriteTagConfig{
 		Message: "msg",
 	})
 
@@ -77,7 +77,7 @@ func TestFetchFromOriginDangling(t *testing.T) {
 
 	refsAfter := gittest.Exec(t, pool.cfg, "-C", pool.FullPath(), "for-each-ref", "--format=%(refname) %(objectname)")
 	refsAfterLines := strings.Split(string(refsAfter), "\n")
-	for _, id := range []string{newBlob.String(), newTree.String(), newCommit.String(), newTag} {
+	for _, id := range []git.ObjectID{newBlob, newTree, newCommit, newTag} {
 		require.Contains(t, refsAfterLines, fmt.Sprintf("refs/dangling/%s %s", id, id))
 	}
 }

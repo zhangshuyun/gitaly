@@ -465,7 +465,11 @@ func TestFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T) {
 			require.Equal(t, io.EOF, err)
 
 			_, err = repo.ReadCommit(ctx, git.Revision(firstResponse.GetRebaseSha()))
-			require.Equal(t, localrepo.ErrObjectNotFound, err, "commit should have been discarded")
+			if hookName == "pre-receive" {
+				require.Equal(t, localrepo.ErrObjectNotFound, err, "commit should have been discarded")
+			} else {
+				require.NoError(t, err)
+			}
 
 			newBranchSha := getBranchSha(t, cfg, repoPath, rebaseBranchName)
 			require.Equal(t, branchSha, newBranchSha, "branch should not change when the rebase fails due to PreReceiveError")

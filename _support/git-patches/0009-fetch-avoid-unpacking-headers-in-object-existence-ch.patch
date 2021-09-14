@@ -1,0 +1,67 @@
+From 47c61004c7cfbb8662b13fac813b45e3fd214665 Mon Sep 17 00:00:00 2001
+Message-Id: <47c61004c7cfbb8662b13fac813b45e3fd214665.1631166322.git.ps@pks.im>
+In-Reply-To: <fe7df03a9a2fa434ebce38b2cd5e6da42f8b2692.1631166322.git.ps@pks.im>
+References: <fe7df03a9a2fa434ebce38b2cd5e6da42f8b2692.1631166322.git.ps@pks.im>
+From: Patrick Steinhardt <ps@pks.im>
+Date: Wed, 1 Sep 2021 15:09:45 +0200
+Subject: [PATCH 09/14] fetch: avoid unpacking headers in object existence
+ check
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+When updating local refs after the fetch has transferred all objects, we
+do an object existence test as a safety guard to avoid updating a ref to
+an object which we don't have. We do so via `oid_object_info()`: if it
+returns an error, then we know the object does not exist.
+
+One side effect of `oid_object_info()` is that it parses the object's
+type, and to do so it must unpack the object header. This is completely
+pointless: we don't care for the type, but only want to assert that the
+object exists.
+
+Refactor the code to use `repo_has_object_file()`, which both makes the
+code's intent clearer and is also faster because it does not unpack
+object headers. In a real-world repo with 2.3M refs, this results in a
+small speedup when doing a mirror-fetch:
+
+    Benchmark #1: HEAD~: git-fetch
+      Time (mean ± σ):     33.686 s ±  0.176 s    [User: 30.119 s, System: 5.262 s]
+      Range (min … max):   33.512 s … 33.944 s    5 runs
+
+    Benchmark #2: HEAD: git-fetch
+      Time (mean ± σ):     31.247 s ±  0.195 s    [User: 28.135 s, System: 5.066 s]
+      Range (min … max):   30.948 s … 31.472 s    5 runs
+
+    Summary
+      'HEAD: git-fetch' ran
+        1.08 ± 0.01 times faster than 'HEAD~: git-fetch'
+
+Signed-off-by: Patrick Steinhardt <ps@pks.im>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+---
+ builtin/fetch.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/builtin/fetch.c b/builtin/fetch.c
+index 91d1301613..01513e6aea 100644
+--- a/builtin/fetch.c
++++ b/builtin/fetch.c
+@@ -846,13 +846,11 @@ static int update_local_ref(struct ref *ref,
+ 			    int summary_width)
+ {
+ 	struct commit *current = NULL, *updated;
+-	enum object_type type;
+ 	struct branch *current_branch = branch_get(NULL);
+ 	const char *pretty_ref = prettify_refname(ref->name);
+ 	int fast_forward = 0;
+ 
+-	type = oid_object_info(the_repository, &ref->new_oid, NULL);
+-	if (type < 0)
++	if (!repo_has_object_file(the_repository, &ref->new_oid))
+ 		die(_("object %s not found"), oid_to_hex(&ref->new_oid));
+ 
+ 	if (oideq(&ref->old_oid, &ref->new_oid)) {
+-- 
+2.33.0
+

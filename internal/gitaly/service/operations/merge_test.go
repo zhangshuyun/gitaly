@@ -143,8 +143,8 @@ func testUserMergeBranchQuarantine(t *testing.T, ctx context.Context) {
 
 	// Set up a hook that parses the merge commit and then aborts the update. Like this, we
 	// can assert that the object does not end up in the main repository.
-	hookScript := fmt.Sprintf("#!/bin/sh\n%s rev-parse $3^{commit} && exit 1", cfg.Git.BinPath)
-	gittest.WriteCustomHook(t, repoPath, "update", []byte(hookScript))
+	hookScript := fmt.Sprintf("#!/bin/sh\nread oldval newval ref && %s rev-parse $newval^{commit} && exit 1", cfg.Git.BinPath)
+	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(hookScript))
 
 	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
@@ -590,7 +590,7 @@ func testUserMergeBranchAllowed(t *testing.T, ctx context.Context) {
 			allowed:        false,
 			allowedMessage: "you shall not pass",
 			expectedErr: errWithDetails(t,
-				helper.ErrPermissionDeniedf("you shall not pass"),
+				helper.ErrPermissionDeniedf("GitLab: you shall not pass"),
 				&gitalypb.UserMergeBranchError{
 					Error: &gitalypb.UserMergeBranchError_AccessCheck{
 						AccessCheck: &gitalypb.AccessCheckError{
@@ -603,15 +603,27 @@ func testUserMergeBranchAllowed(t *testing.T, ctx context.Context) {
 				},
 			),
 			expectedResponseWithoutFF: &gitalypb.UserMergeBranchResponse{
-				PreReceiveError: "you shall not pass",
+				PreReceiveError: "GitLab: you shall not pass",
 			},
 		},
 		{
-			desc:        "failing",
-			allowedErr:  errors.New("failure"),
-			expectedErr: helper.ErrInternalf("invoking access checks: failure"),
+			desc:       "failing",
+			allowedErr: errors.New("failure"),
+			expectedErr: errWithDetails(t,
+				helper.ErrPermissionDeniedf("GitLab: failure"),
+				&gitalypb.UserMergeBranchError{
+					Error: &gitalypb.UserMergeBranchError_AccessCheck{
+						AccessCheck: &gitalypb.AccessCheckError{
+							ErrorMessage: "failure",
+							Protocol:     "web",
+							UserId:       gittest.GlID,
+							Changes:      []byte(fmt.Sprintf("%s %s refs/heads/%s\n", mergeBranchHeadBefore, mergeBranchHeadAfter, mergeBranchName)),
+						},
+					},
+				},
+			),
 			expectedResponseWithoutFF: &gitalypb.UserMergeBranchResponse{
-				PreReceiveError: "invoking access checks: failure",
+				PreReceiveError: "GitLab: failure",
 			},
 		},
 	} {

@@ -54,7 +54,7 @@ func (cfg *Cfg) ConfigureRuby() error {
 	}
 
 	if len(cfg.Ruby.Dir) == 0 {
-		return fmt.Errorf("gitaly-ruby.dir is not set")
+		return fmt.Errorf("gitaly-ruby.dir: is not set")
 	}
 
 	minWorkers := 2

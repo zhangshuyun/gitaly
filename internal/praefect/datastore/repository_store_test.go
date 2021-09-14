@@ -17,6 +17,7 @@ import (
 // repositoryRecord represents Praefect's records related to a repository.
 type repositoryRecord struct {
 	repositoryID int64
+	replicaPath  string
 	primary      string
 	assignments  []string
 }
@@ -44,7 +45,7 @@ func requireState(t testing.TB, ctx context.Context, db glsql.Querier, vss virtu
 
 	requireVirtualStorageState := func(t testing.TB, ctx context.Context, exp virtualStorageState) {
 		rows, err := db.QueryContext(ctx, `
-SELECT repository_id, virtual_storage, relative_path, "primary", assigned_storages
+SELECT repository_id, virtual_storage, relative_path, replica_path, "primary", assigned_storages
 FROM repositories
 LEFT JOIN (
 	SELECT repository_id, virtual_storage, relative_path, array_agg(storage ORDER BY storage) AS assigned_storages
@@ -59,18 +60,19 @@ LEFT JOIN (
 		act := make(virtualStorageState)
 		for rows.Next() {
 			var (
-				repositoryID                 sql.NullInt64
-				virtualStorage, relativePath string
-				primary                      sql.NullString
-				assignments                  pq.StringArray
+				repositoryID                              sql.NullInt64
+				virtualStorage, relativePath, replicaPath string
+				primary                                   sql.NullString
+				assignments                               pq.StringArray
 			)
-			require.NoError(t, rows.Scan(&repositoryID, &virtualStorage, &relativePath, &primary, &assignments))
+			require.NoError(t, rows.Scan(&repositoryID, &virtualStorage, &relativePath, &replicaPath, &primary, &assignments))
 			if act[virtualStorage] == nil {
 				act[virtualStorage] = make(map[string]repositoryRecord)
 			}
 
 			act[virtualStorage][relativePath] = repositoryRecord{
 				repositoryID: repositoryID.Int64,
+				replicaPath:  replicaPath,
 				primary:      primary.String,
 				assignments:  assignments,
 			}
@@ -221,7 +223,7 @@ func TestRepositoryStore_incrementGenerationConcurrently(t *testing.T) {
 			secondTx.Commit(t)
 
 			requireState(t, ctx, db,
-				virtualStorageState{"virtual-storage": {"relative-path": {repositoryID: 1}}},
+				virtualStorageState{"virtual-storage": {"relative-path": {repositoryID: 1, replicaPath: "relative-path"}}},
 				tc.state,
 			)
 		})
@@ -293,7 +295,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": {repositoryID: 1},
+						"repository-1": {repositoryID: 1, replicaPath: "repository-1"},
 					},
 				},
 				storageState{
@@ -326,11 +328,11 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1":        {repositoryID: 1},
-						"other-relative-path": {repositoryID: 2},
+						"repository-1":        {repositoryID: 1, replicaPath: "repository-1"},
+						"other-relative-path": {repositoryID: 2, replicaPath: "other-relative-path"},
 					},
 					"other-virtual-storage": {
-						"repository-1": {repositoryID: 3},
+						"repository-1": {repositoryID: 3, replicaPath: "repository-1"},
 					},
 				},
 				storageState{
@@ -362,11 +364,11 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1":        {repositoryID: 1},
-						"other-relative-path": {repositoryID: 2},
+						"repository-1":        {repositoryID: 1, replicaPath: "repository-1"},
+						"other-relative-path": {repositoryID: 2, replicaPath: "other-relative-path"},
 					},
 					"other-virtual-storage": {
-						"repository-1": {repositoryID: 3},
+						"repository-1": {repositoryID: 3, replicaPath: "repository-1"},
 					},
 				},
 				storageState{
@@ -421,7 +423,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": {repositoryID: 1},
+						"repository-1": {repositoryID: 1, replicaPath: "repository-1"},
 					},
 				},
 				storageState{
@@ -436,21 +438,23 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 	})
 
 	t.Run("SetAuthoritativeReplica", func(t *testing.T) {
-		rs, requireState := newStore(t, nil)
-
 		t.Run("fails when repository doesnt exist", func(t *testing.T) {
+			rs, _ := newStore(t, nil)
+
 			require.Equal(t,
 				commonerr.NewRepositoryNotFoundError(vs, repo),
 				rs.SetAuthoritativeReplica(ctx, vs, repo, stor),
 			)
 		})
 
-		t.Run("sets the given replica as the latest", func(t *testing.T) {
+		t.Run("sets an existing replica as the latest", func(t *testing.T) {
+			rs, requireState := newStore(t, nil)
+
 			require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, "storage-1", []string{"storage-2"}, nil, false, false))
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": {repositoryID: 1},
+						"repository-1": {repositoryID: 1, replicaPath: "repository-1"},
 					},
 				},
 				storageState{
@@ -467,7 +471,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": {repositoryID: 1},
+						"repository-1": {repositoryID: 1, replicaPath: "repository-1"},
 					},
 				},
 				storageState{
@@ -475,6 +479,43 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 						"repository-1": {
 							"storage-1": {repositoryID: 1, generation: 1},
 							"storage-2": {repositoryID: 1, generation: 0},
+						},
+					},
+				},
+			)
+		})
+
+		t.Run("sets a new replica as the latest", func(t *testing.T) {
+			rs, requireState := newStore(t, nil)
+
+			require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, "storage-1", nil, nil, false, false))
+			requireState(t, ctx,
+				virtualStorageState{
+					"virtual-storage-1": {
+						"repository-1": {repositoryID: 1, replicaPath: "repository-1"},
+					},
+				},
+				storageState{
+					"virtual-storage-1": {
+						"repository-1": {
+							"storage-1": {repositoryID: 1, generation: 0},
+						},
+					},
+				},
+			)
+
+			require.NoError(t, rs.SetAuthoritativeReplica(ctx, vs, repo, "storage-2"))
+			requireState(t, ctx,
+				virtualStorageState{
+					"virtual-storage-1": {
+						"repository-1": {repositoryID: 1, replicaPath: "repository-1"},
+					},
+				},
+				storageState{
+					"virtual-storage-1": {
+						"repository-1": {
+							"storage-1": {repositoryID: 1, generation: 0},
+							"storage-2": {repositoryID: 1, generation: 1},
 						},
 					},
 				},
@@ -626,6 +667,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 							vs: {
 								repo: {
 									repositoryID: 1,
+									replicaPath:  repo,
 									primary:      tc.expectedPrimary,
 									assignments:  tc.expectedAssignments,
 								},
@@ -676,14 +718,14 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"deleted": {
-						"deleted": {repositoryID: 1},
+						"deleted": {repositoryID: 1, replicaPath: "deleted"},
 					},
 					"virtual-storage-1": {
-						"other-storages-remain": {repositoryID: 2},
+						"other-storages-remain": {repositoryID: 2, replicaPath: "other-storages-remain"},
 					},
 					"virtual-storage-2": {
-						"deleted-repo":       repositoryRecord{repositoryID: 3},
-						"other-repo-remains": {repositoryID: 4},
+						"deleted-repo":       {repositoryID: 3, replicaPath: "deleted-repo"},
+						"other-repo-remains": {repositoryID: 4, replicaPath: "other-repo-remains"},
 					},
 				},
 				storageState{
@@ -716,7 +758,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-2": {
-						"other-repo-remains": {repositoryID: 4},
+						"other-repo-remains": {repositoryID: 4, replicaPath: "other-repo-remains"},
 					},
 				},
 				storageState{
@@ -741,7 +783,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": {repositoryID: 1},
+						"repository-1": {repositoryID: 1, replicaPath: "repository-1"},
 					},
 				},
 				storageState{
@@ -784,11 +826,11 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"relative-path-1": {repositoryID: 1},
-						"relative-path-2": {repositoryID: 2},
+						"relative-path-1": {repositoryID: 1, replicaPath: "relative-path-1"},
+						"relative-path-2": {repositoryID: 2, replicaPath: "relative-path-2"},
 					},
 					"virtual-storage-2": {
-						"relative-path-1": {repositoryID: 3},
+						"relative-path-1": {repositoryID: 3, replicaPath: "relative-path-1"},
 					},
 				},
 				storageState{
@@ -814,11 +856,11 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"relative-path-1": {repositoryID: 1},
-						"relative-path-2": {repositoryID: 2},
+						"relative-path-1": {repositoryID: 1, replicaPath: "relative-path-1"},
+						"relative-path-2": {repositoryID: 2, replicaPath: "relative-path-2"},
 					},
 					"virtual-storage-2": {
-						"relative-path-1": {repositoryID: 3},
+						"relative-path-1": {repositoryID: 3, replicaPath: "relative-path-1"},
 					},
 				},
 				storageState{
@@ -859,8 +901,8 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"renamed-all":  repositoryRecord{repositoryID: 1},
-						"renamed-some": {repositoryID: 2},
+						"renamed-all":  {repositoryID: 1, replicaPath: "renamed-all"},
+						"renamed-some": {repositoryID: 2, replicaPath: "renamed-some"},
 					},
 				},
 				storageState{
@@ -882,8 +924,8 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"renamed-all-new":  repositoryRecord{repositoryID: 1},
-						"renamed-some-new": {repositoryID: 2},
+						"renamed-all-new":  {repositoryID: 1, replicaPath: "renamed-all-new"},
+						"renamed-some-new": {repositoryID: 2, replicaPath: "renamed-some-new"},
 					},
 				},
 				storageState{
@@ -920,7 +962,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		requireState(t, ctx,
 			virtualStorageState{
 				"virtual-storage-1": {
-					"repository-1": {repositoryID: 1},
+					"repository-1": {repositoryID: 1, replicaPath: "repository-1"},
 				},
 			},
 			storageState{
@@ -954,7 +996,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": {repositoryID: 1},
+						"repository-1": {repositoryID: 1, replicaPath: "repository-1"},
 					},
 				},
 				storageState{
@@ -1010,7 +1052,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": {repositoryID: 1},
+						"repository-1": {repositoryID: 1, replicaPath: "repository-1"},
 					},
 				},
 				storageState{

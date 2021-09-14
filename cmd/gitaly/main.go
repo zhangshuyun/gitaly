@@ -53,7 +53,7 @@ func loadConfig(configPath string) (config.Cfg, error) {
 	}
 
 	if err := cfg.Validate(); err != nil {
-		return config.Cfg{}, err
+		return config.Cfg{}, fmt.Errorf("invalid config: %w", err)
 	}
 
 	return cfg, nil

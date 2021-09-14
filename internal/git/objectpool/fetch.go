@@ -148,7 +148,7 @@ func (o *ObjectPool) rescueDanglingObjects(ctx context.Context) error {
 		return fmt.Errorf("git fsck: %v", err)
 	}
 
-	return updater.Wait()
+	return updater.Commit()
 }
 
 func (o *ObjectPool) repackPool(ctx context.Context, pool repository.GitRepo) error {

@@ -1016,8 +1016,8 @@ func TestUserCommitFilesQuarantine(t *testing.T) {
 
 	// Set up a hook that parses the new object and then aborts the update. Like this, we can
 	// assert that the object does not end up in the main repository.
-	hookScript := fmt.Sprintf("#!/bin/sh\n%s rev-parse $3^{commit} >%s && exit 1", cfg.Git.BinPath, outputPath)
-	gittest.WriteCustomHook(t, repoPath, "update", []byte(hookScript))
+	hookScript := fmt.Sprintf("#!/bin/sh\nread oldval newval ref && %s rev-parse $newval^{commit} >%s && exit 1", cfg.Git.BinPath, outputPath)
+	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(hookScript))
 
 	stream, err := client.UserCommitFiles(ctx)
 	require.NoError(t, err)
