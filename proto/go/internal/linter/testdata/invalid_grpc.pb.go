@@ -133,6 +133,8 @@ type InvalidServiceClient interface {
 	InvalidMethod13(ctx context.Context, in *InvalidTargetType, opts ...grpc.CallOption) (*InvalidMethodResponse, error)
 	// should fail if multiple storage is specified for storage scoped RPC
 	InvalidMethod14(ctx context.Context, in *RequestWithMultipleNestedStorage, opts ...grpc.CallOption) (*InvalidMethodResponse, error)
+	// Intercepted methods must not have operation type annotations.
+	InvalidMethod15(ctx context.Context, in *RequestWithStorageAndRepo, opts ...grpc.CallOption) (*InvalidMethodResponse, error)
 }
 
 type invalidServiceClient struct {
@@ -260,6 +262,15 @@ func (c *invalidServiceClient) InvalidMethod14(ctx context.Context, in *RequestW
 	return out, nil
 }
 
+func (c *invalidServiceClient) InvalidMethod15(ctx context.Context, in *RequestWithStorageAndRepo, opts ...grpc.CallOption) (*InvalidMethodResponse, error) {
+	out := new(InvalidMethodResponse)
+	err := c.cc.Invoke(ctx, "/test.InvalidService/InvalidMethod15", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // InvalidServiceServer is the server API for InvalidService service.
 // All implementations must embed UnimplementedInvalidServiceServer
 // for forward compatibility
@@ -290,6 +301,8 @@ type InvalidServiceServer interface {
 	InvalidMethod13(context.Context, *InvalidTargetType) (*InvalidMethodResponse, error)
 	// should fail if multiple storage is specified for storage scoped RPC
 	InvalidMethod14(context.Context, *RequestWithMultipleNestedStorage) (*InvalidMethodResponse, error)
+	// Intercepted methods must not have operation type annotations.
+	InvalidMethod15(context.Context, *RequestWithStorageAndRepo) (*InvalidMethodResponse, error)
 	mustEmbedUnimplementedInvalidServiceServer()
 }
 
@@ -335,6 +348,9 @@ func (UnimplementedInvalidServiceServer) InvalidMethod13(context.Context, *Inval
 }
 func (UnimplementedInvalidServiceServer) InvalidMethod14(context.Context, *RequestWithMultipleNestedStorage) (*InvalidMethodResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InvalidMethod14 not implemented")
+}
+func (UnimplementedInvalidServiceServer) InvalidMethod15(context.Context, *RequestWithStorageAndRepo) (*InvalidMethodResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InvalidMethod15 not implemented")
 }
 func (UnimplementedInvalidServiceServer) mustEmbedUnimplementedInvalidServiceServer() {}
 
@@ -583,6 +599,24 @@ func _InvalidService_InvalidMethod14_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _InvalidService_InvalidMethod15_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RequestWithStorageAndRepo)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InvalidServiceServer).InvalidMethod15(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/test.InvalidService/InvalidMethod15",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InvalidServiceServer).InvalidMethod15(ctx, req.(*RequestWithStorageAndRepo))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // InvalidService_ServiceDesc is the grpc.ServiceDesc for InvalidService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -641,6 +675,10 @@ var InvalidService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "InvalidMethod14",
 			Handler:    _InvalidService_InvalidMethod14_Handler,
+		},
+		{
+			MethodName: "InvalidMethod15",
+			Handler:    _InvalidService_InvalidMethod15_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

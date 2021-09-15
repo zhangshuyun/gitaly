@@ -106,10 +106,6 @@ func NewGRPCServer(
 		panichandler.StreamPanicHandler,
 	}
 
-	if conf.Failover.ElectionStrategy == config.ElectionStrategyPerRepository {
-		streamInterceptors = append(streamInterceptors, RepositoryExistsStreamInterceptor(rs))
-	}
-
 	grpcOpts = append(grpcOpts, proxyRequiredOpts(director)...)
 	grpcOpts = append(grpcOpts, []grpc.ServerOption{
 		grpc.StreamInterceptor(grpcmw.ChainStreamServer(streamInterceptors...)),
@@ -130,6 +126,11 @@ func NewGRPCServer(
 
 	srv := grpc.NewServer(grpcOpts...)
 	registerServices(srv, nodeMgr, txMgr, conf, queue, rs, assignmentStore, service.Connections(conns), primaryGetter)
+
+	proxy.RegisterStreamHandlers(srv, "gitaly.RepositoryService", map[string]grpc.StreamHandler{
+		"RepositoryExists": RepositoryExistsHandler(rs),
+	})
+
 	return srv
 }
 
