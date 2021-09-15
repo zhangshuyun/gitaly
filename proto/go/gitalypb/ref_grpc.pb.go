@@ -43,6 +43,9 @@ type RefServiceClient interface {
 	GetTagMessages(ctx context.Context, in *GetTagMessagesRequest, opts ...grpc.CallOption) (RefService_GetTagMessagesClient, error)
 	// Returns commits that are only reachable from the ref passed
 	ListNewCommits(ctx context.Context, in *ListNewCommitsRequest, opts ...grpc.CallOption) (RefService_ListNewCommitsClient, error)
+	// Deprecated: Do not use.
+	// ListNewBlobs is equivalent to ListBlobs with `["--not", "--all", "--not",
+	// commit_id]`. This RPC call will be removed in v14.4.
 	ListNewBlobs(ctx context.Context, in *ListNewBlobsRequest, opts ...grpc.CallOption) (RefService_ListNewBlobsClient, error)
 	PackRefs(ctx context.Context, in *PackRefsRequest, opts ...grpc.CallOption) (*PackRefsResponse, error)
 	// ListRefs returns a stream of all references in the repository. By default, pseudo-revisions like HEAD
@@ -456,6 +459,7 @@ func (x *refServiceListNewCommitsClient) Recv() (*ListNewCommitsResponse, error)
 	return m, nil
 }
 
+// Deprecated: Do not use.
 func (c *refServiceClient) ListNewBlobs(ctx context.Context, in *ListNewBlobsRequest, opts ...grpc.CallOption) (RefService_ListNewBlobsClient, error) {
 	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[11], "/gitaly.RefService/ListNewBlobs", opts...)
 	if err != nil {
@@ -558,6 +562,9 @@ type RefServiceServer interface {
 	GetTagMessages(*GetTagMessagesRequest, RefService_GetTagMessagesServer) error
 	// Returns commits that are only reachable from the ref passed
 	ListNewCommits(*ListNewCommitsRequest, RefService_ListNewCommitsServer) error
+	// Deprecated: Do not use.
+	// ListNewBlobs is equivalent to ListBlobs with `["--not", "--all", "--not",
+	// commit_id]`. This RPC call will be removed in v14.4.
 	ListNewBlobs(*ListNewBlobsRequest, RefService_ListNewBlobsServer) error
 	PackRefs(context.Context, *PackRefsRequest) (*PackRefsResponse, error)
 	// ListRefs returns a stream of all references in the repository. By default, pseudo-revisions like HEAD
