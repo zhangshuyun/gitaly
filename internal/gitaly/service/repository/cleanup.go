@@ -1,7 +1,9 @@
 package repository
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -68,13 +70,17 @@ func (s *server) cleanStaleWorktrees(ctx context.Context, repo *localrepo.Repo, 
 		}
 
 		if info.ModTime().Before(threshold) {
+			var stderr bytes.Buffer
 			if err := repo.ExecAndWait(ctx, git.SubSubCmd{
 				Name:   "worktree",
 				Action: "remove",
 				Flags:  []git.Option{git.Flag{Name: "--force"}},
 				Args:   []string{info.Name()},
-			}, git.WithRefTxHook(ctx, repo, s.cfg)); err != nil {
-				return err
+			},
+				git.WithRefTxHook(ctx, repo, s.cfg),
+				git.WithStderr(&stderr),
+			); err != nil {
+				return fmt.Errorf("worktree remove: %w, stderr: %q", err, stderr.String())
 			}
 		}
 	}
