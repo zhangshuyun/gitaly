@@ -281,6 +281,7 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 			deps.GetCfg(),
 			nil,
 			deps.GetHookManager(),
+			deps.GetTxManager(),
 			deps.GetLocator(),
 			deps.GetConnsPool(),
 			deps.GetGitCmdFactory(),

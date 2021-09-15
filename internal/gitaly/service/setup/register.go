@@ -82,6 +82,7 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 		deps.GetCfg(),
 		deps.GetRubyServer(),
 		deps.GetHookManager(),
+		deps.GetTxManager(),
 		deps.GetLocator(),
 		deps.GetConnsPool(),
 		deps.GetGitCmdFactory(),
