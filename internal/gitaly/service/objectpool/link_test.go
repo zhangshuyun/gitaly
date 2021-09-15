@@ -266,6 +266,7 @@ func TestUnlink(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
+			//nolint:staticcheck
 			_, err := client.UnlinkRepositoryFromObjectPool(ctx, tc.req)
 
 			if tc.code != codes.OK {
@@ -300,9 +301,11 @@ func TestUnlinkIdempotent(t *testing.T) {
 		ObjectPool: pool.ToProto(),
 	}
 
+	//nolint:staticcheck
 	_, err = client.UnlinkRepositoryFromObjectPool(ctx, request)
 	require.NoError(t, err)
 
+	//nolint:staticcheck
 	_, err = client.UnlinkRepositoryFromObjectPool(ctx, request)
 	require.NoError(t, err)
 }
