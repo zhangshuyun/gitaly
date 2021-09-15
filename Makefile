@@ -152,13 +152,18 @@ ifeq ($(origin GIT_PATCHES),undefined)
     # 'ps/update-ref-batch-flush' into next, 2021-09-10).
     GIT_PATCHES += 0015-update-ref-fix-streaming-of-status-updates.patch
 
+    # Buffer ref advertisement writes in upload-pack. Merged into next via
+    # c31d871c (Merge branch 'jv/pkt-line-batch' into next, 2021-09-10).
+    GIT_PATCHES += 0016-pkt-line-add-stdio-packet-write-functions.patch
+    GIT_PATCHES += 0017-upload-pack-use-stdio-in-send_ref-callbacks.patch
+
     # This extra version has two intentions: first, it allows us to detect
     # capabilities of the command at runtime. Second, it helps admins to
     # discover which version is currently in use. As such, this version must be
     # incremented whenever a new patch is added above. When no patches exist,
     # then this should be undefined. Otherwise, it must be set to at least
     # `gl1` given that `0` is the "default" GitLab patch level.
-    GIT_EXTRA_VERSION := gl3
+    GIT_EXTRA_VERSION := gl4
 endif
 
 ifeq ($(origin GIT_BUILD_OPTIONS),undefined)
