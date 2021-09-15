@@ -7,9 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -17,20 +15,19 @@ import (
 )
 
 func TestCreate(t *testing.T) {
-	cfg, repo, _, locator, client := setup(t)
+	cfg, repo, _, _, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), nil, repo.GetStorageName(), gittest.NewObjectPoolName(t))
-	require.NoError(t, err)
+	pool := initObjectPool(t, cfg, cfg.Storages[0])
 
 	poolReq := &gitalypb.CreateObjectPoolRequest{
 		ObjectPool: pool.ToProto(),
 		Origin:     repo,
 	}
 
-	_, err = client.CreateObjectPool(ctx, poolReq)
+	_, err := client.CreateObjectPool(ctx, poolReq)
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, pool.Remove(ctx))
@@ -53,18 +50,14 @@ func TestCreate(t *testing.T) {
 }
 
 func TestUnsuccessfulCreate(t *testing.T) {
-	cfg, repo, _, locator, client := setup(t, testserver.WithDisablePraefect())
+	cfg, repo, _, _, client := setup(t, testserver.WithDisablePraefect())
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	validPoolPath := gittest.NewObjectPoolName(t)
 	storageName := repo.GetStorageName()
-	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), nil, storageName, validPoolPath)
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, pool.Remove(ctx))
-	}()
+	pool := initObjectPool(t, cfg, cfg.Storages[0])
+	validPoolPath := pool.GetRelativePath()
 
 	testCases := []struct {
 		desc    string
@@ -148,14 +141,13 @@ func TestUnsuccessfulCreate(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	cfg, repo, _, locator, client := setup(t)
+	cfg, repo, _, _, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	validPoolPath := gittest.NewObjectPoolName(t)
-	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), nil, repo.GetStorageName(), validPoolPath)
-	require.NoError(t, err)
+	pool := initObjectPool(t, cfg, cfg.Storages[0])
+	validPoolPath := pool.GetRelativePath()
 	require.NoError(t, pool.Create(ctx, repo))
 
 	for _, tc := range []struct {

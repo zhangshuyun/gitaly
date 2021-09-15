@@ -2,10 +2,15 @@ package objectpool
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	hookservice "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/hook"
@@ -60,4 +65,27 @@ func runObjectPoolServer(t *testing.T, cfg config.Cfg, locator storage.Locator, 
 			deps.GetPackObjectsCache(),
 		))
 	}, append(opts, testserver.WithLocator(locator), testserver.WithLogger(logger))...)
+}
+
+// initObjectPool creates a new empty object pool in the given storage.
+func initObjectPool(t testing.TB, cfg config.Cfg, storage config.Storage) *objectpool.ObjectPool {
+	t.Helper()
+
+	relativePath := gittest.NewObjectPoolName(t)
+	gittest.InitRepoDir(t, storage.Path, relativePath)
+
+	pool, err := objectpool.NewObjectPool(
+		cfg,
+		config.NewLocator(cfg),
+		git.NewExecCommandFactory(cfg),
+		catfile.NewCache(cfg),
+		storage.Name,
+		relativePath,
+	)
+	require.NoError(t, err)
+
+	poolPath := filepath.Join(storage.Path, relativePath)
+	t.Cleanup(func() { require.NoError(t, os.RemoveAll(poolPath)) })
+
+	return pool
 }
