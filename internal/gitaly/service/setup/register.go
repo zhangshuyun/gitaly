@@ -137,6 +137,7 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 		deps.GetLocator(),
 		deps.GetGitCmdFactory(),
 		deps.GetCatfileCache(),
+		deps.GetTxManager(),
 	))
 	gitalypb.RegisterHookServiceServer(srv, hook.NewServer(
 		deps.GetCfg(),

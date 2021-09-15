@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/objectpool"
@@ -23,6 +24,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
@@ -86,7 +88,15 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 
 	// create object pool on the source
 	objectPoolPath := gittest.NewObjectPoolName(t)
-	pool, err := objectpool.NewObjectPool(primaryCfg, gconfig.NewLocator(primaryCfg), git.NewExecCommandFactory(primaryCfg), nil, testRepo.GetStorageName(), objectPoolPath)
+	pool, err := objectpool.NewObjectPool(
+		primaryCfg,
+		gconfig.NewLocator(primaryCfg),
+		git.NewExecCommandFactory(primaryCfg),
+		nil,
+		transaction.NewManager(primaryCfg, backchannel.NewRegistry()),
+		testRepo.GetStorageName(),
+		objectPoolPath,
+	)
 	require.NoError(t, err)
 
 	poolCtx, cancel := testhelper.Context()

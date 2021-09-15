@@ -14,11 +14,13 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -161,7 +163,13 @@ func TestFetchIntoObjectPool_Failure(t *testing.T) {
 
 	locator := config.NewLocator(cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	server := NewServer(cfg, locator, gitCmdFactory, catfile.NewCache(cfg))
+	server := NewServer(
+		cfg,
+		locator,
+		gitCmdFactory,
+		catfile.NewCache(cfg),
+		transaction.NewManager(cfg, backchannel.NewRegistry()),
+	)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
