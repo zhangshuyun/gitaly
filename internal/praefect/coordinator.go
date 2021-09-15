@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	gitalyerrors "gitlab.com/gitlab-org/gitaly/v14/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
@@ -598,7 +600,44 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 // streamParametersContexts converts the contexts with incoming metadata into a context that is
 // usable by peer Gitaly nodes.
 func streamParametersContext(ctx context.Context) context.Context {
-	return metadata.IncomingToOutgoing(ctx)
+	outgoingCtx := metadata.IncomingToOutgoing(ctx)
+
+	// When upgrading Gitaly nodes where the upgrade contains feature flag default changes, then
+	// there will be a window where a subset of Gitaly nodes has a different understanding of
+	// the current default value. If the feature flag wasn't set explicitly on upgrade by
+	// outside callers, then these Gitaly nodes will thus see different default values and run
+	// different code. This is something we want to avoid: all Gitalies should have the same
+	// world view of which features are enabled and which ones aren't and ideally do the same
+	// thing.
+	//
+	// This problem isn't solveable on Gitaly side, but Praefect is in a perfect position to do
+	// so. While it may have the same problem in a load-balanced multi-Praefect setup, this is
+	// much less of a problem: the most important thing is that the view on feature flags is
+	// consistent for a single RPC call, and that will always be the case regardless of which
+	// Praefect is proxying the call. The worst case scenario is that we'll execute the RPC once
+	// with a feature flag enabled, and once with it disabled, which shouldn't typically be an
+	// issue.
+	//
+	// To fix this scenario, we thus inject all known feature flags with their current default
+	// value as seen by Praefect into Gitaly's context if they haven't explicitly been set by
+	// the caller. Like this, Gitalies will never even consider the default value in a cluster
+	// setup, except when it is being introduced for the first time when Gitaly restarts before
+	// Praefect. But given that feature flags should be introduced with a default value of
+	// `false` to account for zero-dodwntime upgrades, the view would also be consistent in that
+	// case.
+	rawFeatureFlags := featureflag.RawFromContext(ctx)
+	if rawFeatureFlags == nil {
+		rawFeatureFlags = map[string]string{}
+	}
+
+	for _, ff := range featureflag.All {
+		if _, ok := rawFeatureFlags[ff.MetadataKey()]; !ok {
+			rawFeatureFlags[ff.MetadataKey()] = strconv.FormatBool(ff.OnByDefault)
+		}
+	}
+	outgoingCtx = featureflag.OutgoingWithRaw(outgoingCtx, rawFeatureFlags)
+
+	return outgoingCtx
 }
 
 // StreamDirector determines which downstream servers receive requests

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -2169,19 +2170,28 @@ func TestStreamParametersContext(t *testing.T) {
 		return expectedFlags
 	}
 
+	metadataForFlags := func(flags []expectedFlag) metadata.MD {
+		pairs := []string{}
+		for _, flag := range flags {
+			pairs = append(pairs, flag.flag.MetadataKey(), strconv.FormatBool(flag.enabled))
+		}
+		return metadata.Pairs(pairs...)
+	}
+
 	for _, tc := range []struct {
 		desc               string
 		setupContext       func() context.Context
 		expectedIncomingMD metadata.MD
 		expectedOutgoingMD metadata.MD
-		expectedFlags   []expectedFlag
+		expectedFlags      []expectedFlag
 	}{
 		{
 			desc: "no metadata",
 			setupContext: func() context.Context {
 				return context.Background()
 			},
-			expectedFlags: expectedFlags(),
+			expectedFlags:      expectedFlags(),
+			expectedOutgoingMD: metadataForFlags(expectedFlags()),
 		},
 		{
 			desc: "with incoming metadata",
@@ -2191,8 +2201,11 @@ func TestStreamParametersContext(t *testing.T) {
 				return ctx
 			},
 			expectedIncomingMD: metadata.Pairs("key", "value"),
-			expectedOutgoingMD: metadata.Pairs("key", "value"),
-			expectedFlags:   expectedFlags(),
+			expectedOutgoingMD: metadata.Join(
+				metadata.Pairs("key", "value"),
+				metadataForFlags(expectedFlags()),
+			),
+			expectedFlags: expectedFlags(),
 		},
 		{
 			desc: "with outgoing metadata",
@@ -2201,8 +2214,11 @@ func TestStreamParametersContext(t *testing.T) {
 				ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("key", "value"))
 				return ctx
 			},
-			expectedOutgoingMD: metadata.Pairs("key", "value"),
-			expectedFlags:   expectedFlags(),
+			expectedOutgoingMD: metadata.Join(
+				metadata.Pairs("key", "value"),
+				metadataForFlags(expectedFlags()),
+			),
+			expectedFlags: expectedFlags(),
 		},
 		{
 			desc: "with incoming and outgoing metadata",
@@ -2218,8 +2234,11 @@ func TestStreamParametersContext(t *testing.T) {
 			// debatable whether this is a bug or feature, so I'll just document this
 			// weird edge case here for now.
 			expectedIncomingMD: metadata.Pairs("incoming", "value"),
-			expectedOutgoingMD: metadata.Pairs("incoming", "value"),
-			expectedFlags:   expectedFlags(),
+			expectedOutgoingMD: metadata.Join(
+				metadata.Pairs("incoming", "value"),
+				metadataForFlags(expectedFlags()),
+			),
+			expectedFlags: expectedFlags(),
 		},
 		{
 			desc: "with flags set to their default values",
@@ -2233,9 +2252,12 @@ func TestStreamParametersContext(t *testing.T) {
 				enabledFF.MetadataKey(), "true",
 				disabledFF.MetadataKey(), "false",
 			),
-			expectedOutgoingMD: metadata.Pairs(
-				enabledFF.MetadataKey(), "true",
-				disabledFF.MetadataKey(), "false",
+			expectedOutgoingMD: metadata.Join(
+				metadataForFlags(expectedFlags()),
+				metadata.Pairs(
+					enabledFF.MetadataKey(), "true",
+					disabledFF.MetadataKey(), "false",
+				),
 			),
 			expectedFlags: expectedFlags(),
 		},
@@ -2251,9 +2273,15 @@ func TestStreamParametersContext(t *testing.T) {
 				enabledFF.MetadataKey(), "false",
 				disabledFF.MetadataKey(), "true",
 			),
-			expectedOutgoingMD: metadata.Pairs(
-				enabledFF.MetadataKey(), "false",
-				disabledFF.MetadataKey(), "true",
+			expectedOutgoingMD: metadata.Join(
+				metadataForFlags(expectedFlags(
+					expectedFlag{flag: enabledFF, enabled: false},
+					expectedFlag{flag: disabledFF, enabled: true},
+				)),
+				metadata.Pairs(
+					enabledFF.MetadataKey(), "false",
+					disabledFF.MetadataKey(), "true",
+				),
 			),
 			expectedFlags: expectedFlags(
 				expectedFlag{flag: enabledFF, enabled: false},
@@ -2274,9 +2302,14 @@ func TestStreamParametersContext(t *testing.T) {
 				disabledFF.MetadataKey(), "true",
 				"incoming", "value",
 			),
-			expectedOutgoingMD: metadata.Pairs(
-				disabledFF.MetadataKey(), "true",
-				"incoming", "value",
+			expectedOutgoingMD: metadata.Join(
+				metadataForFlags(expectedFlags(
+					expectedFlag{flag: disabledFF, enabled: true},
+				)),
+				metadata.Pairs(
+					disabledFF.MetadataKey(), "true",
+					"incoming", "value",
+				),
 			),
 			expectedFlags: expectedFlags(
 				expectedFlag{flag: disabledFF, enabled: true},
