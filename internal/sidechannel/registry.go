@@ -105,6 +105,9 @@ func (s *Registry) waiting() int {
 	return len(s.waiters)
 }
 
+// ErrCallbackDidNotRun indicates that a sidechannel callback was
+// de-registered without having run. This can happen if the server chose
+// not to use the sidechannel.
 var ErrCallbackDidNotRun = errors.New("sidechannel: callback de-registered without having run")
 
 func (w *Waiter) run() error {
