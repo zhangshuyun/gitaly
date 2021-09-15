@@ -106,7 +106,10 @@ service RefService {
     };
   }
 
+  // ListNewBlobs is equivalent to ListBlobs with `["--not", "--all", "--not",
+  // commit_id]`. This RPC call will be removed in v14.4.
   rpc ListNewBlobs(ListNewBlobsRequest) returns (stream ListNewBlobsResponse) {
+    option deprecated = true;
     option (op_type) = {
       op: ACCESSOR
     };

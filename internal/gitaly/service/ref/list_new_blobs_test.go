@@ -49,6 +49,7 @@ func TestListNewBlobs(t *testing.T) {
 	for _, tc := range testCases {
 		request := &gitalypb.ListNewBlobsRequest{Repository: repo, CommitId: tc.revision, Limit: 0}
 
+		//nolint: staticcheck
 		stream, err := client.ListNewBlobs(ctx, request)
 		require.NoError(t, err)
 
