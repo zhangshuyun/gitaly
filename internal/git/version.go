@@ -1,11 +1,13 @@
 package git
 
 import (
-	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
 	"strconv"
 	"strings"
+
+	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 )
 
 // minimumVersion is the minimum required Git version. If updating this version, be sure to
@@ -39,22 +41,42 @@ type Version struct {
 
 // CurrentVersion returns the used git version.
 func CurrentVersion(ctx context.Context, gitCmdFactory CommandFactory) (Version, error) {
-	var buf bytes.Buffer
 	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, SubCmd{
 		Name: "version",
-	}, WithStdout(&buf))
+	})
 	if err != nil {
-		return Version{}, err
+		return Version{}, fmt.Errorf("spawning version command: %w", err)
 	}
 
-	if err = cmd.Wait(); err != nil {
-		return Version{}, err
+	return parseVersionFromCommand(cmd)
+}
+
+// CurrentVersionForExecutor returns the git version used by the given executor.
+func CurrentVersionForExecutor(ctx context.Context, executor RepositoryExecutor) (Version, error) {
+	cmd, err := executor.Exec(ctx, SubCmd{
+		Name: "version",
+	})
+	if err != nil {
+		return Version{}, fmt.Errorf("spawning version command: %w", err)
 	}
 
-	out := strings.Trim(buf.String(), " \n")
-	versionString := strings.SplitN(out, " ", 3)
+	return parseVersionFromCommand(cmd)
+}
+
+func parseVersionFromCommand(cmd *command.Command) (Version, error) {
+	versionOutput, err := ioutil.ReadAll(cmd)
+	if err != nil {
+		return Version{}, fmt.Errorf("reading version output: %w", err)
+	}
+
+	if err := cmd.Wait(); err != nil {
+		return Version{}, fmt.Errorf("waiting for version command: %w", err)
+	}
+
+	trimmedVersionOutput := strings.Trim(string(versionOutput), " \n")
+	versionString := strings.SplitN(trimmedVersionOutput, " ", 3)
 	if len(versionString) != 3 {
-		return Version{}, fmt.Errorf("invalid version format: %q", buf.String())
+		return Version{}, fmt.Errorf("invalid version format: %q", string(versionOutput))
 	}
 
 	version, err := parseVersion(versionString[2])
@@ -80,6 +102,23 @@ func (v Version) IsSupported() bool {
 // type filters.
 func (v Version) SupportsObjectTypeFilter() bool {
 	return !v.LessThan(Version{major: 2, minor: 32, patch: 0})
+}
+
+// FlushesUpdaterefStatus determines whether the given Git version properly flushes status messages
+// in git-update-ref(1).
+func (v Version) FlushesUpdaterefStatus() bool {
+	// We need to be a bit more careful here given that this comes in via a custom patch. The
+	// fix will be released as part of v2.34, so it's either in v2.33 with at least patch level
+	// 3, or it's greater than or equal to v2.34.
+	switch {
+	case v.major == 2 && v.minor == 33 && v.gl >= 3:
+		return true
+	case v.major == 2 && v.minor >= 34:
+		return true
+	case v.major >= 3:
+		return true
+	}
+	return false
 }
 
 // LessThan determines whether the version is older than another version.

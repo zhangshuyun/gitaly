@@ -142,13 +142,23 @@ ifeq ($(origin GIT_PATCHES),undefined)
     GIT_PATCHES += 0013-fetch-merge-fetching-and-consuming-refs.patch
     GIT_PATCHES += 0014-fetch-avoid-second-connectivity-check-if-we-already-.patch
 
+    # git-update-ref(1) allows us to explicitly manage transactional state via
+    # a set of verbs "start", "prepare" and "commit", which we use in the
+    # git/updateref package. Due to a missing flush in git, the confirmation
+    # message that the state change has been executed couldn't be read by us
+    # though and thus we were not in a position to verify the transition. This
+    # is fixed by the following patch, which adds the missing flushes. This has
+    # been merged into next via 4ae19a5f34 (Merge branch
+    # 'ps/update-ref-batch-flush' into next, 2021-09-10).
+    GIT_PATCHES += 0015-update-ref-fix-streaming-of-status-updates.patch
+
     # This extra version has two intentions: first, it allows us to detect
     # capabilities of the command at runtime. Second, it helps admins to
     # discover which version is currently in use. As such, this version must be
     # incremented whenever a new patch is added above. When no patches exist,
     # then this should be undefined. Otherwise, it must be set to at least
     # `gl1` given that `0` is the "default" GitLab patch level.
-    GIT_EXTRA_VERSION := gl2
+    GIT_EXTRA_VERSION := gl3
 endif
 
 ifeq ($(origin GIT_BUILD_OPTIONS),undefined)

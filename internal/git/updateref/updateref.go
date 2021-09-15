@@ -1,6 +1,7 @@
 package updateref
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 )
 
 // Updater wraps a `git update-ref --stdin` process, presenting an interface
@@ -16,7 +18,12 @@ import (
 type Updater struct {
 	repo   git.RepositoryExecutor
 	cmd    *command.Command
+	stdout *bufio.Reader
 	stderr *bytes.Buffer
+
+	// withStatusFlushing determines whether the Git version used supports proper flushing of
+	// status messages.
+	withStatusFlushing bool
 }
 
 // UpdaterOpt is a type representing options for the Updater.
@@ -65,10 +72,22 @@ func New(ctx context.Context, conf config.Cfg, repo git.RepositoryExecutor, opts
 		return nil, err
 	}
 
+	withStatusFlushing := false
+	if featureflag.UpdaterefVerifyStateChanges.IsEnabled(ctx) {
+		gitVersion, err := git.CurrentVersionForExecutor(ctx, repo)
+		if err != nil {
+			return nil, fmt.Errorf("determining git version: %w", err)
+		}
+
+		withStatusFlushing = gitVersion.FlushesUpdaterefStatus()
+	}
+
 	updater := &Updater{
-		repo:   repo,
-		cmd:    cmd,
-		stderr: &stderr,
+		repo:               repo,
+		cmd:                cmd,
+		stderr:             &stderr,
+		stdout:             bufio.NewReader(cmd),
+		withStatusFlushing: withStatusFlushing,
 	}
 
 	// By writing an explicit "start" to the command, we enable
@@ -134,16 +153,30 @@ func (u *Updater) Cancel() error {
 func (u *Updater) setState(state string) error {
 	_, err := fmt.Fprintf(u.cmd, "%s\x00", state)
 	if err != nil {
-		return fmt.Errorf("updating state to %s: %w", state, err)
+		return fmt.Errorf("updating state to %q: %w", state, err)
 	}
 
 	// For each state-changing command, git-update-ref(1) will report successful execution via
 	// "<command>: ok" lines printed to its stdout. Ideally, we should thus verify here whether
 	// the command was successfully executed by checking for exactly this line, otherwise we
 	// cannot be sure whether the command has correctly been processed by Git or if an error was
-	// raised. Unfortunately, Git won't flush the output though, and as such we would be left
-	// waiting for the message to appear here. This needs to be fixed upstream first, and after
-	// this we should adapt this function to assert commands.
+	// raised. Unfortunately, Git only knows to flush these reports either starting with v2.34.0
+	// or with our backported version v2.33.0.gl3.
+	if u.withStatusFlushing {
+		line, err := u.stdout.ReadString('\n')
+		if err != nil {
+			// We need to explicitly cancel the command here and wait for it to
+			// terminate such that we can retrieve the command's stderr in a race-free
+			// manner.
+			_ = u.Cancel()
+
+			return fmt.Errorf("state update to %q failed: %w, stderr: %q", state, err, u.stderr)
+		}
+
+		if line != fmt.Sprintf("%s: ok\n", state) {
+			return fmt.Errorf("state update to %q not successful: expected ok, got %q", state, line)
+		}
+	}
 
 	return nil
 }
