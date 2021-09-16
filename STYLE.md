@@ -466,6 +466,24 @@ you're implementing a new feature "X" for subsystem "Y", your commit message
 would be "Y: Implement new feature X". This makes it easier to quickly sift
 through relevant commits by simply inspecting this prefix.
 
+### Use more direct and imperative wording
+
+Prefer less verbose and more direct wording to unambiguously describe
+the same ideas.
+
+In the commit subjects, preferring the imperative mood can help with
+generally summarizing the patch and understanding its intent.
+
+The same goes for summarizing data in the form of bullet points or a
+formatted table in the commit message body, instead of in relatively
+verbose prose. Get to the point.
+
+For example about using the imperative mood, use
+`Y: Implement new feature X` instead of
+`Y: [This patch] implements new feature X` or
+`Y: [I] implemented new feature X`, as if
+you are giving orders to the codebase to change its behavior.
+
 ### Keep the commit subject short
 
 As commit subjects are displayed in various command line tools by default, it is
