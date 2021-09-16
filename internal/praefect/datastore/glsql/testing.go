@@ -3,6 +3,7 @@ package glsql
 import (
 	"database/sql"
 	"errors"
+	"net"
 	"os"
 	"os/exec"
 	"strconv"
@@ -268,11 +269,7 @@ func initPraefectTestDB(t testing.TB, database string) *sql.DB {
 	dbCfg.DBName = database
 	praefectTestDB := requireSQLOpen(t, dbCfg, false)
 	t.Cleanup(func() {
-		// This could should replace current implementation after drop support of Go 1.15
-		//if err := praefectTestDB.Close(); !errors.Is(err, net.ErrClosed) {
-		//	require.NoErrorf(t, err, "release connection to the %q database", dbCfg.DBName)
-		//}
-		if err := praefectTestDB.Close(); err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
+		if err := praefectTestDB.Close(); !errors.Is(err, net.ErrClosed) {
 			require.NoErrorf(t, err, "release connection to the %q database", dbCfg.DBName)
 		}
 	})
