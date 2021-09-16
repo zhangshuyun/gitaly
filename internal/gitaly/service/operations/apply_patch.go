@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 	"google.golang.org/grpc/codes"
@@ -199,8 +200,16 @@ func validateUserApplyPatchHeader(header *gitalypb.UserApplyPatchRequest_Header)
 }
 
 func (s *Server) addWorktree(ctx context.Context, repo *gitalypb.Repository, worktreePath string, committish string) error {
-	if err := s.runCmd(ctx, repo, "config", []git.Option{git.ConfigPair{Key: "core.splitIndex", Value: "false"}}, nil); err != nil {
-		return fmt.Errorf("on 'git config core.splitIndex false': %w", err)
+	if featureflag.TxExtendedFileLocking.IsEnabled(ctx) {
+		repo := s.localrepo(repo)
+
+		if err := repo.SetConfig(ctx, "core.splitIndex", "false", s.txManager); err != nil {
+			return fmt.Errorf("on 'git config core.splitIndex false': %w", err)
+		}
+	} else {
+		if err := s.runCmd(ctx, repo, "config", []git.Option{git.ConfigPair{Key: "core.splitIndex", Value: "false"}}, nil); err != nil {
+			return fmt.Errorf("on 'git config core.splitIndex false': %w", err)
+		}
 	}
 
 	args := []string{worktreePath}
