@@ -2,7 +2,6 @@ package testhelper
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -121,7 +120,7 @@ func getTestTmpDir() string {
 		return testTmpDir
 	}
 
-	testTmpDir, err := ioutil.TempDir("/tmp/", "gitaly-")
+	testTmpDir, err := os.MkdirTemp("/tmp/", "gitaly-")
 	if err != nil {
 		log.Fatal(err)
 	}

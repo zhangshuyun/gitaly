@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -208,11 +207,11 @@ func (cfg *Cfg) setDefaults() error {
 
 	if cfg.InternalSocketDir == "" {
 		// The socket path must be short-ish because listen(2) fails on long
-		// socket paths. We hope/expect that ioutil.TempDir creates a directory
+		// socket paths. We hope/expect that os.MkdirTemp creates a directory
 		// that is not too deep. We need a directory, not a tempfile, because we
 		// will later want to set its permissions to 0700
 
-		tmpDir, err := ioutil.TempDir("", "gitaly-internal")
+		tmpDir, err := os.MkdirTemp("", "gitaly-internal")
 		if err != nil {
 			return fmt.Errorf("create internal socket directory: %w", err)
 		}

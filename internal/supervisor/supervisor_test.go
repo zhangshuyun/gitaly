@@ -3,7 +3,6 @@ package supervisor
 import (
 	"context"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -34,7 +33,7 @@ func testMain(m *testing.M) int {
 	defer cleanup()
 
 	var err error
-	testDir, err = ioutil.TempDir("", "gitaly-supervisor-test")
+	testDir, err = os.MkdirTemp("", "gitaly-supervisor-test")
 	if err != nil {
 		log.Error(err)
 		return 1

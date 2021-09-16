@@ -133,7 +133,7 @@ func (c *DiskCache) moveAndClear(storage config.Storage) error {
 		return err
 	}
 
-	tmpDir, err := ioutil.TempDir(tempPath, "diskcache")
+	tmpDir, err := os.MkdirTemp(tempPath, "diskcache")
 	if err != nil {
 		return err
 	}

@@ -19,7 +19,7 @@ func BuildSSHInvocation(ctx context.Context, sshKey, knownHosts string) (string,
 		return sshCommand, func() {}, nil
 	}
 
-	tmpDir, err := ioutil.TempDir("", "gitaly-ssh-invocation")
+	tmpDir, err := os.MkdirTemp("", "gitaly-ssh-invocation")
 	if err != nil {
 		return "", func() {}, fmt.Errorf("create temporary directory: %w", err)
 	}

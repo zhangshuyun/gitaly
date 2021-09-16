@@ -339,7 +339,7 @@ const (
 )
 
 func setupTempHookDirs(t *testing.T, m map[string]hookFileMode) (string, func()) {
-	tempDir, err := ioutil.TempDir("", "hooks")
+	tempDir, err := os.MkdirTemp("", "hooks")
 	require.NoError(t, err)
 
 	for hookName, mode := range m {
@@ -561,7 +561,7 @@ func TestValidateGitConfig(t *testing.T) {
 }
 
 func TestValidateShellPath(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "gitaly-tests-")
+	tmpDir, err := os.MkdirTemp("", "gitaly-tests-")
 	require.NoError(t, err)
 	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "bin"), 0o755))
 	tmpFile := filepath.Join(tmpDir, "my-file")
@@ -611,7 +611,7 @@ func TestValidateShellPath(t *testing.T) {
 }
 
 func TestConfigureRuby(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "gitaly-test")
+	tmpDir, err := os.MkdirTemp("", "gitaly-test")
 	require.NoError(t, err)
 	defer func() { require.NoError(t, os.RemoveAll(tmpDir)) }()
 
@@ -765,7 +765,7 @@ func TestValidateInternalSocketDir(t *testing.T) {
 	// create a symlinked socket directory
 	dirName := "internal_socket_dir"
 	validSocketDirSymlink := filepath.Join(tmpDir, dirName)
-	tmpSocketDir, err := ioutil.TempDir(tmpDir, "")
+	tmpSocketDir, err := os.MkdirTemp(tmpDir, "")
 	require.NoError(t, err)
 	tmpSocketDir, err = filepath.Abs(tmpSocketDir)
 	require.NoError(t, err)
@@ -1209,7 +1209,7 @@ func TestValidateBinDir(t *testing.T) {
 }
 
 func tempDir(t *testing.T) string {
-	tmpdir, err := ioutil.TempDir("", "")
+	tmpdir, err := os.MkdirTemp("", "")
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		if err := os.RemoveAll(tmpdir); err != nil && !errors.Is(err, os.ErrNotExist) {
