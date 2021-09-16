@@ -3,7 +3,7 @@ package remote
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -29,7 +29,7 @@ func (s *server) FindRemoteRepository(ctx context.Context, req *gitalypb.FindRem
 		return nil, status.Errorf(codes.Internal, "error executing git command: %s", err)
 	}
 
-	output, err := ioutil.ReadAll(cmd)
+	output, err := io.ReadAll(cmd)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "unable to read stdout: %s", err)
 	}

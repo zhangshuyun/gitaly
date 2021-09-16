@@ -128,7 +128,7 @@ func TestPipe_WriteTo_EAGAIN(t *testing.T) {
 		}()
 	}()
 
-	out, err := ioutil.ReadAll(fr)
+	out, err := io.ReadAll(fr)
 	require.NoError(t, err)
 	// Don't use require.Equal because we don't want a 10MB error message.
 	require.True(t, bytes.Equal(data, out))

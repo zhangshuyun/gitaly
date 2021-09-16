@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -263,7 +264,7 @@ func TestGetArchiveWithLfsSuccess(t *testing.T) {
 					require.NoError(t, err)
 					defer fc.Close()
 
-					data, err := ioutil.ReadAll(fc)
+					data, err := io.ReadAll(fc)
 					require.NoError(t, err)
 
 					if tc.includeLfsBlobs {
@@ -464,7 +465,7 @@ func TestGetArchivePathInjection(t *testing.T) {
 	require.NoError(t, err)
 	defer authorizedKeysFile.Close()
 
-	authorizedKeysFileBytes, err := ioutil.ReadAll(authorizedKeysFile)
+	authorizedKeysFileBytes, err := io.ReadAll(authorizedKeysFile)
 	require.NoError(t, err)
 	authorizedKeysFileStat, err := authorizedKeysFile.Stat()
 	require.NoError(t, err)
@@ -557,5 +558,5 @@ func consumeArchive(stream gitalypb.RepositoryService_GetArchiveClient) ([]byte,
 		return response.GetData(), err
 	})
 
-	return ioutil.ReadAll(reader)
+	return io.ReadAll(reader)
 }

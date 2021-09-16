@@ -57,7 +57,7 @@ func (m *GitLabHookManager) newCustomHooksExecutor(repo *gitalypb.Repository, ho
 	return func(ctx context.Context, args, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 		var stdinBytes []byte
 		if stdin != nil {
-			stdinBytes, err = ioutil.ReadAll(stdin)
+			stdinBytes, err = io.ReadAll(stdin)
 			if err != nil {
 				return err
 			}

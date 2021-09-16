@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"os"
 	"testing"
@@ -292,7 +292,7 @@ func TestStreamingNoAuth(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	_, err = ioutil.ReadAll(streamio.NewReader(func() ([]byte, error) {
+	_, err = io.ReadAll(streamio.NewReader(func() ([]byte, error) {
 		_, err = stream.Recv()
 		return nil, err
 	}))

@@ -73,7 +73,7 @@ const (
 )
 
 func main() {
-	data, err := ioutil.ReadAll(os.Stdin)
+	data, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		log.Fatalf("reading input: %s", err)
 	}

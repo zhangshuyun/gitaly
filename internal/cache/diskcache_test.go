@@ -3,7 +3,6 @@ package cache
 import (
 	"context"
 	"io"
-	"io/ioutil"
 	"strings"
 	"sync"
 	"testing"
@@ -49,7 +48,7 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 	expectGetHit := func(expectStr string, req *gitalypb.InfoRefsRequest) {
 		actualStream, err := cache.GetStream(ctx, req.Repository, req)
 		require.NoError(t, err)
-		actualBytes, err := ioutil.ReadAll(actualStream)
+		actualBytes, err := io.ReadAll(actualStream)
 		require.NoError(t, err)
 		require.Equal(t, expectStr, string(actualBytes))
 	}

@@ -3,7 +3,7 @@ package ref
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
@@ -77,7 +77,7 @@ func (s *server) GetTagSignatures(req *gitalypb.GetTagSignaturesRequest, stream 
 	for catfileObjectIter.Next() {
 		tag := catfileObjectIter.Result()
 
-		raw, err := ioutil.ReadAll(tag.ObjectReader)
+		raw, err := io.ReadAll(tag.ObjectReader)
 		if err != nil {
 			return helper.ErrInternal(err)
 		}

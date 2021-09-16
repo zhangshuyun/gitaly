@@ -2,7 +2,7 @@ package diff
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"regexp"
 	"testing"
 
@@ -197,7 +197,7 @@ func TestRawPatchContainsGitLabSignature(t *testing.T) {
 		return response.GetData(), err
 	})
 
-	patch, err := ioutil.ReadAll(reader)
+	patch, err := io.ReadAll(reader)
 	require.NoError(t, err)
 
 	require.Regexp(t, regexp.MustCompile(`\n-- \nGitLab\s+$`), string(patch))

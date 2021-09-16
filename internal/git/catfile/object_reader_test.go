@@ -3,7 +3,6 @@ package catfile
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -33,7 +32,7 @@ func TestObjectReader_reader(t *testing.T) {
 		object, err := reader.reader(ctx, "refs/heads/master", "commit")
 		require.NoError(t, err)
 
-		data, err := ioutil.ReadAll(object)
+		data, err := io.ReadAll(object)
 		require.NoError(t, err)
 		require.Equal(t, commitContents, data)
 	})
@@ -45,7 +44,7 @@ func TestObjectReader_reader(t *testing.T) {
 		object, err := reader.reader(ctx, commitID.Revision(), "commit")
 		require.NoError(t, err)
 
-		data, err := ioutil.ReadAll(object)
+		data, err := io.ReadAll(object)
 		require.NoError(t, err)
 
 		require.Contains(t, string(data), "Merge branch 'cherry-pick-ce369011' into 'master'\n")
@@ -62,7 +61,7 @@ func TestObjectReader_reader(t *testing.T) {
 		object, err := reader.reader(ctx, commitID.Revision(), "commit")
 		require.NoError(t, err)
 
-		data, err := ioutil.ReadAll(object)
+		data, err := io.ReadAll(object)
 		require.NoError(t, err)
 
 		require.Equal(t, commitContents, data)
@@ -79,7 +78,7 @@ func TestObjectReader_reader(t *testing.T) {
 		object, err := reader.reader(ctx, commitID.Revision(), "commit")
 		require.NoError(t, err)
 
-		data, err := ioutil.ReadAll(object)
+		data, err := io.ReadAll(object)
 		require.NoError(t, err)
 
 		require.Equal(t, commitContents, data)

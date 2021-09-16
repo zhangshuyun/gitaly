@@ -55,7 +55,7 @@ func (inst *Instance) Stats(ctx context.Context, cfg config.Cfg, repoPath string
 		return nil, fmt.Errorf("starting linguist: %w", err)
 	}
 
-	data, err := ioutil.ReadAll(cmd)
+	data, err := io.ReadAll(cmd)
 	if err != nil {
 		return nil, fmt.Errorf("reading linguist output: %w", err)
 	}

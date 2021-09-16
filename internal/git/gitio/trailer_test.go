@@ -1,7 +1,7 @@
 package gitio
 
 import (
-	"io/ioutil"
+	"io"
 	"strings"
 	"testing"
 
@@ -42,7 +42,7 @@ func TestTrailerReaderSuccess(t *testing.T) {
 			tr := NewTrailerReader(strings.NewReader(tc.in), trailerLen)
 			require.Len(t, tc.trailer, trailerLen, "test case trailer sanity check")
 
-			out, err := ioutil.ReadAll(tr)
+			out, err := io.ReadAll(tr)
 			require.NoError(t, err, "read all")
 			require.Equal(t, tc.out, string(out), "compare output")
 
@@ -63,7 +63,7 @@ func TestTrailerReaderFail(t *testing.T) {
 	_, err := tr.Trailer()
 	require.Error(t, err, "Trailer() should fail when called too early")
 
-	out, err := ioutil.ReadAll(tr)
+	out, err := io.ReadAll(tr)
 	require.NoError(t, err, "read")
 	require.Empty(t, out, "read output")
 

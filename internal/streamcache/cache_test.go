@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -49,7 +48,7 @@ func TestCache_writeOneReadMultiple(t *testing.T) {
 
 			require.Equal(t, i == 0, created, "all calls except the first one should be cache hits")
 
-			out, err := ioutil.ReadAll(r)
+			out, err := io.ReadAll(r)
 			require.NoError(t, err)
 			require.NoError(t, r.Wait(context.Background()))
 			require.Equal(t, content(0), string(out), "expect cache hits for all i > 0")
@@ -89,7 +88,7 @@ func TestCache_manyConcurrentWrites(t *testing.T) {
 				}
 				defer r.Close()
 
-				out, err := ioutil.ReadAll(r)
+				out, err := io.ReadAll(r)
 				if err != nil {
 					return err
 				}
@@ -166,11 +165,11 @@ func TestCache_deletedFile(t *testing.T) {
 	defer r2.Close()
 	require.True(t, created, "because the first file is gone, cache is forced to create a new entry")
 
-	out1, err := ioutil.ReadAll(r1)
+	out1, err := io.ReadAll(r1)
 	require.NoError(t, err)
 	require.Equal(t, content(1), string(out1), "r1 should still see its original pre-wipe contents")
 
-	out2, err := ioutil.ReadAll(r2)
+	out2, err := io.ReadAll(r2)
 	require.NoError(t, err)
 	require.Equal(t, content(2), string(out2), "r2 should see the new post-wipe contents")
 }
@@ -214,7 +213,7 @@ func TestCache_scope(t *testing.T) {
 	for i := 0; i < N; i++ {
 		r, content := reader[i], input[i]
 
-		out, err := ioutil.ReadAll(r)
+		out, err := io.ReadAll(r)
 		require.NoError(t, err)
 		require.NoError(t, r.Wait(context.Background()))
 
@@ -269,7 +268,7 @@ func TestCache_diskCleanup(t *testing.T) {
 	defer r1.Close()
 	require.True(t, created)
 
-	out1, err := ioutil.ReadAll(r1)
+	out1, err := io.ReadAll(r1)
 	require.NoError(t, err)
 	require.Equal(t, content(1), string(out1))
 	require.NoError(t, r1.Wait(context.Background()))
@@ -292,7 +291,7 @@ func TestCache_diskCleanup(t *testing.T) {
 	defer r2.Close()
 	require.True(t, created)
 
-	out2, err := ioutil.ReadAll(r2)
+	out2, err := io.ReadAll(r2)
 	require.NoError(t, err)
 	require.NoError(t, r2.Wait(context.Background()))
 
@@ -339,7 +338,7 @@ func TestCache_failedWrite(t *testing.T) {
 			defer r2.Close()
 			require.True(t, created, "because the previous entry failed, a new one should have been created")
 
-			out, err := ioutil.ReadAll(r2)
+			out, err := io.ReadAll(r2)
 			require.NoError(t, err)
 			require.NoError(t, r2.Wait(context.Background()))
 			require.Equal(t, happy, string(out))
@@ -377,7 +376,7 @@ func TestCache_unWriteableFile(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, created)
 
-	_, err = ioutil.ReadAll(r)
+	_, err = io.ReadAll(r)
 	require.NoError(t, err)
 
 	err = r.Wait(context.Background())
@@ -403,7 +402,7 @@ func TestCache_unCloseableFile(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, created)
 
-	_, err = ioutil.ReadAll(r)
+	_, err = io.ReadAll(r)
 	require.NoError(t, err)
 
 	err = r.Wait(context.Background())
@@ -494,7 +493,7 @@ func TestNullCache(t *testing.T) {
 					return errors.New("created should be true")
 				}
 
-				output, err := ioutil.ReadAll(s)
+				output, err := io.ReadAll(s)
 				if err != nil {
 					return err
 				}

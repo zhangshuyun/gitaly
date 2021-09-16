@@ -2,6 +2,7 @@ package repository
 
 import (
 	"bytes"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -33,7 +34,7 @@ func TestGetInfoAttributesExisting(t *testing.T) {
 	stream, err := client.GetInfoAttributes(testCtx, request)
 	require.NoError(t, err)
 
-	receivedData, err := ioutil.ReadAll(streamio.NewReader(func() ([]byte, error) {
+	receivedData, err := io.ReadAll(streamio.NewReader(func() ([]byte, error) {
 		response, err := stream.Recv()
 		return response.GetAttributes(), err
 	}))

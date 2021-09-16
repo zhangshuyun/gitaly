@@ -2,6 +2,7 @@ package supervisor
 
 import (
 	"context"
+	"io"
 	"io/ioutil"
 	"net"
 	"os"
@@ -188,7 +189,7 @@ func getPid(ctx context.Context, socket string) (int, error) {
 	}
 	defer conn.Close()
 
-	response, err := ioutil.ReadAll(conn)
+	response, err := io.ReadAll(conn)
 	if err != nil {
 		return 0, err
 	}

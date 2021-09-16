@@ -2,7 +2,7 @@ package repository
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
@@ -34,7 +34,7 @@ func (s *server) FindMergeBase(ctx context.Context, req *gitalypb.FindMergeBaseR
 		return nil, status.Errorf(codes.Internal, "FindMergeBase: cmd: %v", err)
 	}
 
-	mergeBase, err := ioutil.ReadAll(cmd)
+	mergeBase, err := io.ReadAll(cmd)
 	if err != nil {
 		return nil, err
 	}

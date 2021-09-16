@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strconv"
@@ -123,7 +122,7 @@ func TestBlob(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tc.objInfo, blobObj.ObjectInfo)
 
-			contents, err := ioutil.ReadAll(blobObj.Reader)
+			contents, err := io.ReadAll(blobObj.Reader)
 			require.NoError(t, err)
 			require.Equal(t, tc.content, contents)
 		})
@@ -155,7 +154,7 @@ func TestCommit(t *testing.T) {
 			commitReader, err := c.Commit(ctx, git.Revision(tc.revision))
 			require.NoError(t, err)
 
-			contents, err := ioutil.ReadAll(commitReader)
+			contents, err := io.ReadAll(commitReader)
 			require.NoError(t, err)
 
 			require.Equal(t, tc.output, string(contents))
@@ -218,7 +217,7 @@ func TestTag(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tc.objInfo, tagObj.ObjectInfo)
 
-			contents, err := ioutil.ReadAll(tagObj.Reader)
+			contents, err := io.ReadAll(tagObj.Reader)
 			require.NoError(t, err)
 			require.Equal(t, tc.content, contents)
 		})
@@ -280,7 +279,7 @@ func TestTree(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tc.objInfo, treeObj.ObjectInfo)
 
-			contents, err := ioutil.ReadAll(treeObj.Reader)
+			contents, err := io.ReadAll(treeObj.Reader)
 			require.NoError(t, err)
 			require.Equal(t, tc.content, contents)
 		})
@@ -299,7 +298,7 @@ func TestRepeatedCalls(t *testing.T) {
 	tree1Obj, err := c.Tree(ctx, treeOid)
 	require.NoError(t, err)
 
-	tree1, err := ioutil.ReadAll(tree1Obj.Reader)
+	tree1, err := io.ReadAll(tree1Obj.Reader)
 	require.NoError(t, err)
 
 	require.Equal(t, string(treeBytes), string(tree1))
@@ -322,7 +321,7 @@ func TestRepeatedCalls(t *testing.T) {
 	tree2Obj, err := c.Tree(ctx, treeOid)
 	require.NoError(t, err)
 
-	tree2, err := ioutil.ReadAll(tree2Obj.Reader)
+	tree2, err := io.ReadAll(tree2Obj.Reader)
 	require.NoError(t, err, "request should succeed because blob was consumed")
 
 	require.Equal(t, string(treeBytes), string(tree2))

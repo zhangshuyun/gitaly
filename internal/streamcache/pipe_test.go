@@ -98,7 +98,7 @@ func TestPipe_readAfterClose(t *testing.T) {
 	werr := make(chan error, 1)
 	go func() { werr <- writeBytes(p, []byte(input), nil) }()
 
-	out1, err := ioutil.ReadAll(pr1)
+	out1, err := io.ReadAll(pr1)
 	require.NoError(t, err)
 	require.Equal(t, input, string(out1))
 
@@ -109,7 +109,7 @@ func TestPipe_readAfterClose(t *testing.T) {
 	require.NoError(t, err)
 	defer pr2.Close()
 
-	out2, err := ioutil.ReadAll(pr2)
+	out2, err := io.ReadAll(pr2)
 	require.NoError(t, err)
 	require.Equal(t, input, string(out2))
 }
@@ -140,7 +140,7 @@ func TestPipe_backpressure(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 	require.Equal(t, int64(3), atomic.LoadInt64(&wprogress), "writer should be blocked after having advanced 1 byte")
 
-	rest, err := ioutil.ReadAll(pr)
+	rest, err := io.ReadAll(pr)
 	require.NoError(t, err)
 	output = append(output, rest...)
 	require.Equal(t, input, string(output))
@@ -251,7 +251,7 @@ func TestPipe_closeOrderHappy(t *testing.T) {
 	require.NoError(t, p.Close())
 	require.True(t, cs.closed)
 
-	out1, err := ioutil.ReadAll(pr1)
+	out1, err := io.ReadAll(pr1)
 	require.NoError(t, err)
 	require.Empty(t, out1)
 
@@ -259,7 +259,7 @@ func TestPipe_closeOrderHappy(t *testing.T) {
 	require.NoError(t, err, "opening reader after normal close should succeed")
 	defer pr2.Close()
 
-	out2, err := ioutil.ReadAll(pr2)
+	out2, err := io.ReadAll(pr2)
 	require.NoError(t, err)
 	require.Empty(t, out2)
 }

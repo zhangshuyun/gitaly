@@ -151,7 +151,7 @@ func makeInfoRefsUploadPackRequest(ctx context.Context, t *testing.T, serverSock
 	c, err := client.InfoRefsUploadPack(ctx, rpcRequest)
 	require.NoError(t, err)
 
-	response, err := ioutil.ReadAll(streamio.NewReader(func() ([]byte, error) {
+	response, err := io.ReadAll(streamio.NewReader(func() ([]byte, error) {
 		resp, err := c.Recv()
 		return resp.GetData(), err
 	}))
@@ -254,7 +254,7 @@ func makeInfoRefsReceivePackRequest(ctx context.Context, t *testing.T, serverSoc
 	c, err := client.InfoRefsReceivePack(ctx, rpcRequest)
 	require.NoError(t, err)
 
-	response, err := ioutil.ReadAll(streamio.NewReader(func() ([]byte, error) {
+	response, err := io.ReadAll(streamio.NewReader(func() ([]byte, error) {
 		resp, err := c.Recv()
 		return resp.GetData(), err
 	}))

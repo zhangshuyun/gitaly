@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strconv"
 	"strings"
 
@@ -80,7 +79,7 @@ func GetCommitMessage(ctx context.Context, c Batch, repo repository.GitRepo, rev
 }
 
 func splitRawCommit(r io.Reader) ([]byte, []byte, error) {
-	raw, err := ioutil.ReadAll(r)
+	raw, err := io.ReadAll(r)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -143,7 +142,7 @@ func ParseCommit(r io.Reader, oid git.ObjectID) (*gitalypb.GitCommit, error) {
 		}
 	}
 
-	body, err := ioutil.ReadAll(b)
+	body, err := io.ReadAll(b)
 	if err != nil {
 		return nil, fmt.Errorf("parse raw commit: body: %w", err)
 	}

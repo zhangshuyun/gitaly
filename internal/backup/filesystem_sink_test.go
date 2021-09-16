@@ -2,6 +2,7 @@ package backup
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -27,7 +28,7 @@ func TestFilesystemSink_GetReader(t *testing.T) {
 
 		defer func() { require.NoError(t, reader.Close()) }()
 
-		data, err := ioutil.ReadAll(reader)
+		data, err := io.ReadAll(reader)
 		require.NoError(t, err)
 		require.Equal(t, []byte("test"), data)
 	})

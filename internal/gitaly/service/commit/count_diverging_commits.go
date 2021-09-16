@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strconv"
 	"strings"
 
@@ -65,7 +65,7 @@ func (s *server) findLeftRightCount(ctx context.Context, repo *gitalypb.Reposito
 	}
 
 	var leftCount, rightCount int64
-	countStr, err := ioutil.ReadAll(cmd)
+	countStr, err := io.ReadAll(cmd)
 	if err != nil {
 		return 0, 0, fmt.Errorf("git rev-list error: %v", err)
 	}

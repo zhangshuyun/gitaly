@@ -3,7 +3,6 @@ package gitpipe
 import (
 	"errors"
 	"io"
-	"io/ioutil"
 	"sync"
 	"testing"
 
@@ -232,7 +231,7 @@ func TestPipeline_revlist(t *testing.T) {
 				// this: it would just be too annoying.
 				require.NotNil(t, result.ObjectReader)
 
-				objectData, err := ioutil.ReadAll(result.ObjectReader)
+				objectData, err := io.ReadAll(result.ObjectReader)
 				require.NoError(t, err)
 				require.Len(t, objectData, int(result.ObjectInfo.Size))
 
@@ -363,7 +362,7 @@ func TestPipeline_forEachRef(t *testing.T) {
 		// this: it would just be too annoying.
 		require.NotNil(t, result.ObjectReader)
 
-		objectData, err := ioutil.ReadAll(result.ObjectReader)
+		objectData, err := io.ReadAll(result.ObjectReader)
 		require.NoError(t, err)
 		require.Len(t, objectData, int(result.ObjectInfo.Size))
 

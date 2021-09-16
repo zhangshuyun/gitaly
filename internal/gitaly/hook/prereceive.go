@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"path/filepath"
 	"strings"
 
@@ -68,7 +67,7 @@ func (m *GitLabHookManager) PreReceiveHook(ctx context.Context, repo *gitalypb.R
 		return helper.ErrInternalf("extracting hooks payload: %w", err)
 	}
 
-	changes, err := ioutil.ReadAll(stdin)
+	changes, err := io.ReadAll(stdin)
 	if err != nil {
 		return helper.ErrInternalf("reading stdin from request: %w", err)
 	}

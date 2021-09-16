@@ -129,7 +129,7 @@ func TestSuccessfulResolveConflictsRequestHelper(t *testing.T) {
 	hookCount := 0
 
 	verifyFunc := func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
-		changes, err := ioutil.ReadAll(stdin)
+		changes, err := io.ReadAll(stdin)
 		require.NoError(t, err)
 		pattern := fmt.Sprintf("%s .* refs/heads/%s\n", ourCommitOID, sourceBranch)
 		require.Regexp(t, regexp.MustCompile(pattern), string(changes))

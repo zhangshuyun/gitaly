@@ -3,7 +3,6 @@ package hook
 import (
 	"context"
 	"io"
-	"io/ioutil"
 	"net"
 	"testing"
 
@@ -30,7 +29,7 @@ func TestSidechannel(t *testing.T) {
 	require.NoError(t, err)
 	defer c.Close()
 
-	buf, err := ioutil.ReadAll(c)
+	buf, err := io.ReadAll(c)
 	require.NoError(t, err)
 	require.Equal(t, "ping", string(buf))
 

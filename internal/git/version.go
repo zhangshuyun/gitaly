@@ -3,7 +3,7 @@ package git
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strconv"
 	"strings"
 
@@ -64,7 +64,7 @@ func CurrentVersionForExecutor(ctx context.Context, executor RepositoryExecutor)
 }
 
 func parseVersionFromCommand(cmd *command.Command) (Version, error) {
-	versionOutput, err := ioutil.ReadAll(cmd)
+	versionOutput, err := io.ReadAll(cmd)
 	if err != nil {
 		return Version{}, fmt.Errorf("reading version output: %w", err)
 	}

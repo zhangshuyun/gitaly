@@ -3,7 +3,7 @@ package backup
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -30,7 +30,7 @@ func TestStorageServiceSink(t *testing.T) {
 		require.NoError(t, err)
 		defer func() { require.NoError(t, reader.Close()) }()
 
-		retrieved, err := ioutil.ReadAll(reader)
+		retrieved, err := io.ReadAll(reader)
 		require.NoError(t, err)
 		require.Equal(t, data, retrieved)
 	})
