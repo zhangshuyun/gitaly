@@ -27,7 +27,7 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
-func TestRepoNoAuth(t *testing.T) {
+func TestCreateRepository_missingAuth(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t, testcfg.WithBase(config.Cfg{Auth: auth.Config{Token: "some"}}))
 
 	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil)
@@ -41,7 +41,7 @@ func TestRepoNoAuth(t *testing.T) {
 	testhelper.RequireGrpcError(t, err, codes.Unauthenticated)
 }
 
-func TestCreateRepositorySuccess(t *testing.T) {
+func TestCreateRepository_successful(t *testing.T) {
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	ctx, cancel := testhelper.Context()
@@ -73,7 +73,7 @@ func TestCreateRepositorySuccess(t *testing.T) {
 	require.Equal(t, symRef, []byte(fmt.Sprintf("ref: %s\n", git.DefaultRef)))
 }
 
-func TestCreateRepositoryFailure(t *testing.T) {
+func TestCreateRepository_failure(t *testing.T) {
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	ctx, cancel := testhelper.Context()
@@ -92,7 +92,7 @@ func TestCreateRepositoryFailure(t *testing.T) {
 	testhelper.RequireGrpcError(t, err, codes.Internal)
 }
 
-func TestCreateRepositoryFailureInvalidArgs(t *testing.T) {
+func TestCreateRepository_invalidArguments(t *testing.T) {
 	_, client := setupRepositoryServiceWithoutRepo(t)
 
 	ctx, cancel := testhelper.Context()
@@ -118,7 +118,7 @@ func TestCreateRepositoryFailureInvalidArgs(t *testing.T) {
 	}
 }
 
-func TestCreateRepositoryTransactional(t *testing.T) {
+func TestCreateRepository_transactional(t *testing.T) {
 	var actualVote voting.Vote
 	var called int
 
@@ -175,7 +175,7 @@ func TestCreateRepositoryTransactional(t *testing.T) {
 	})
 }
 
-func TestCreateRepositoryIdempotent(t *testing.T) {
+func TestCreateRepository_idempotent(t *testing.T) {
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
