@@ -72,7 +72,7 @@ func createFromSnapshot(t *testing.T, req *gitalypb.CreateRepositoryFromSnapshot
 	return client.CreateRepositoryFromSnapshot(ctx, req)
 }
 
-func TestCreateRepositoryFromSnapshotSuccess(t *testing.T) {
+func TestCreateRepositoryFromSnapshot_success(t *testing.T) {
 	t.Parallel()
 	cfg := testcfg.Build(t)
 	_, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
@@ -117,7 +117,7 @@ func TestCreateRepositoryFromSnapshotSuccess(t *testing.T) {
 	require.FileExists(t, filepath.Join(repoAbsolutePath, "config"), "Config file not created")
 }
 
-func TestCreateRepositoryFromSnapshotFailsIfRepositoryExists(t *testing.T) {
+func TestCreateRepositoryFromSnapshot_repositoryExists(t *testing.T) {
 	t.Parallel()
 	cfg := testcfg.Build(t)
 	repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
@@ -129,7 +129,7 @@ func TestCreateRepositoryFromSnapshotFailsIfRepositoryExists(t *testing.T) {
 	require.Nil(t, rsp)
 }
 
-func TestCreateRepositoryFromSnapshotFailsIfBadURL(t *testing.T) {
+func TestCreateRepositoryFromSnapshot_badURL(t *testing.T) {
 	t.Parallel()
 	cfg := testcfg.Build(t)
 	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
@@ -146,7 +146,7 @@ func TestCreateRepositoryFromSnapshotFailsIfBadURL(t *testing.T) {
 	require.Nil(t, rsp)
 }
 
-func TestCreateRepositoryFromSnapshotBadRequests(t *testing.T) {
+func TestCreateRepositoryFromSnapshot_invalidArguments(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
@@ -203,7 +203,7 @@ func TestCreateRepositoryFromSnapshotBadRequests(t *testing.T) {
 	}
 }
 
-func TestCreateRepositoryFromSnapshotHandlesMalformedResponse(t *testing.T) {
+func TestCreateRepositoryFromSnapshot_malformedResponse(t *testing.T) {
 	t.Parallel()
 	cfg := testcfg.Build(t)
 	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
