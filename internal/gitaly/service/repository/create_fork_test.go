@@ -38,7 +38,7 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-func TestSuccessfulCreateForkRequest(t *testing.T) {
+func TestCreateFork_successful(t *testing.T) {
 	t.Parallel()
 	for _, tt := range []struct {
 		name          string
@@ -134,7 +134,7 @@ func newSecureRepoClient(t testing.TB, addr, token string, pool *x509.CertPool) 
 	return gitalypb.NewRepositoryServiceClient(conn), conn
 }
 
-func TestFailedCreateForkRequestDueToExistingTarget(t *testing.T) {
+func TestCreateFork_targetExists(t *testing.T) {
 	t.Parallel()
 	cfg, repo, _, client := setupRepositoryService(t)
 
