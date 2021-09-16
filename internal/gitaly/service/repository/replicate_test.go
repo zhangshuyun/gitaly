@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -98,6 +99,12 @@ func TestReplicateRepository(t *testing.T) {
 }
 
 func TestReplicateRepositoryTransactional(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.TxExtendedFileLocking,
+	}).Run(t, testReplicateRepositoryTransactional)
+}
+
+func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
 
@@ -122,8 +129,6 @@ func TestReplicateRepositoryTransactional(t *testing.T) {
 		},
 	}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "primary", true)
 	require.NoError(t, err)
 	ctx = helper.IncomingToOutgoing(ctx)
@@ -146,7 +151,11 @@ func TestReplicateRepositoryTransactional(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, 1, votes)
+	if featureflag.TxExtendedFileLocking.IsEnabled(ctx) {
+		require.Equal(t, 5, votes)
+	} else {
+		require.Equal(t, 1, votes)
+	}
 
 	// We're now changing a reference in the source repository such that we can observe changes
 	// in the target repo.
@@ -161,7 +170,11 @@ func TestReplicateRepositoryTransactional(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, 2, votes)
+	if featureflag.TxExtendedFileLocking.IsEnabled(ctx) {
+		require.Equal(t, 6, votes)
+	} else {
+		require.Equal(t, 2, votes)
+	}
 }
 
 func TestReplicateRepositoryInvalidArguments(t *testing.T) {

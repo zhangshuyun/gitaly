@@ -15,7 +15,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/remote"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -226,7 +228,7 @@ func (s *server) syncGitconfig(ctx context.Context, in *gitalypb.ReplicateReposi
 		}
 
 		configPath := filepath.Join(repoPath, "config")
-		if err := writeFile(configPath, 0o644, streamio.NewReader(func() ([]byte, error) {
+		if err := s.writeFile(ctx, configPath, 0o644, streamio.NewReader(func() ([]byte, error) {
 			resp, err := stream.Recv()
 			return resp.GetData(), err
 		})); err != nil {
@@ -260,7 +262,7 @@ func (s *server) syncInfoAttributes(ctx context.Context, in *gitalypb.ReplicateR
 	}
 
 	attributesPath := filepath.Join(repoPath, "info", "attributes")
-	if err := writeFile(attributesPath, attributesFileMode, streamio.NewReader(func() ([]byte, error) {
+	if err := s.writeFile(ctx, attributesPath, attributesFileMode, streamio.NewReader(func() ([]byte, error) {
 		resp, err := stream.Recv()
 		return resp.GetAttributes(), err
 	})); err != nil {
@@ -270,28 +272,52 @@ func (s *server) syncInfoAttributes(ctx context.Context, in *gitalypb.ReplicateR
 	return nil
 }
 
-func writeFile(path string, mode os.FileMode, reader io.Reader) error {
+func (s *server) writeFile(ctx context.Context, path string, mode os.FileMode, reader io.Reader) (returnedErr error) {
 	parentDir := filepath.Dir(path)
 	if err := os.MkdirAll(parentDir, 0o755); err != nil {
 		return err
 	}
 
-	fw, err := safe.NewFileWriter(path)
-	if err != nil {
-		return err
-	}
-	defer fw.Close()
+	if featureflag.TxExtendedFileLocking.IsEnabled(ctx) {
+		lockedFile, err := safe.NewLockingFileWriter(path, safe.LockingFileWriterConfig{
+			FileWriterConfig: safe.FileWriterConfig{
+				FileMode: mode,
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("creating file writer: %w", err)
+		}
+		defer func() {
+			if err := lockedFile.Close(); err != nil && returnedErr == nil {
+				returnedErr = fmt.Errorf("closing file writer: %w", err)
+			}
+		}()
 
-	if _, err := io.Copy(fw, reader); err != nil {
-		return err
-	}
+		if _, err := io.Copy(lockedFile, reader); err != nil {
+			return fmt.Errorf("writing contents: %w", err)
+		}
 
-	if err = fw.Commit(); err != nil {
-		return err
-	}
+		if err := transaction.CommitLockedFile(ctx, s.txManager, lockedFile); err != nil {
+			return fmt.Errorf("committing file: %w", err)
+		}
+	} else {
+		fw, err := safe.NewFileWriter(path)
+		if err != nil {
+			return err
+		}
+		defer fw.Close()
 
-	if err := os.Chmod(path, mode); err != nil {
-		return err
+		if _, err := io.Copy(fw, reader); err != nil {
+			return err
+		}
+
+		if err = fw.Commit(); err != nil {
+			return err
+		}
+
+		if err := os.Chmod(path, mode); err != nil {
+			return err
+		}
 	}
 
 	return nil
