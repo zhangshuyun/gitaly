@@ -6,10 +6,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/safe"
 )
 
 // Config provides functionality of the 'config' git sub-command.
@@ -207,4 +210,52 @@ func isExitWithCode(err error, code int) bool {
 	}
 
 	return code == actual
+}
+
+// SetConfig will set a configuration value. Any preexisting values will be overwritten with the new
+// value. The change will use transactional semantics.
+func (repo *Repo) SetConfig(ctx context.Context, key, value string, txManager transaction.Manager) (returnedErr error) {
+	repoPath, err := repo.Path()
+	if err != nil {
+		return err
+	}
+	configPath := filepath.Join(repoPath, "config")
+
+	writer, err := safe.NewLockingFileWriter(configPath, safe.LockingFileWriterConfig{
+		SeedContents: true,
+	})
+	if err != nil {
+		return fmt.Errorf("creating config writer: %w", err)
+	}
+	defer func() {
+		if err := writer.Close(); err != nil && returnedErr == nil {
+			returnedErr = fmt.Errorf("closing config writer: %w", err)
+		}
+	}()
+
+	if err := repo.ExecAndWait(ctx, git.SubCmd{
+		Name: "config",
+		Flags: []git.Option{
+			git.Flag{Name: "--replace-all"},
+			git.ValueFlag{Name: "--file", Value: writer.Path()},
+		},
+		Args: []string{key, value},
+	}); err != nil {
+		// Please refer to https://git-scm.com/docs/git-config#_description
+		// on return codes.
+		switch {
+		case isExitWithCode(err, 1):
+			// section or key is invalid
+			return fmt.Errorf("%w: bad section or name", git.ErrInvalidArg)
+		case isExitWithCode(err, 2):
+			// no section or name was provided
+			return fmt.Errorf("%w: missing section or name", git.ErrInvalidArg)
+		}
+	}
+
+	if err := transaction.CommitLockedFile(ctx, txManager, writer); err != nil {
+		return fmt.Errorf("committing config: %w", err)
+	}
+
+	return nil
 }
