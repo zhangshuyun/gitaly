@@ -558,15 +558,9 @@ ${PROTOC}: ${TOOLS_DIR}/protoc.zip
 	${Q}rm -rf ${TOOLS_DIR}/protoc
 	${Q}unzip -DD -q -d ${TOOLS_DIR}/protoc ${TOOLS_DIR}/protoc.zip
 
-# We're using per-tool go.mod files in order to avoid conflicts in the graph in
-# case we used a single go.mod file for all tools.
-${TOOLS_DIR}/%/go.mod: | ${TOOLS_DIR}
-	${Q}mkdir -p $(dir $@)
-	${Q}cd $(dir $@) && go mod init _build
-
 ${TOOLS_DIR}/%: GOBIN = ${TOOLS_DIR}
-${TOOLS_DIR}/%: ${TOOLS_DIR}/%.version ${TOOLS_DIR}/.%/go.mod
-	${Q}cd ${TOOLS_DIR}/.$* && go get ${TOOL_PACKAGE}@${TOOL_VERSION}
+${TOOLS_DIR}/%: ${TOOLS_DIR}/%.version
+	${Q}go install ${TOOL_PACKAGE}@${TOOL_VERSION}
 
 ${PROTOC_GEN_GITALY}: proto | ${TOOLS_DIR}
 	${Q}go build -o $@ ${SOURCE_DIR}/proto/go/internal/cmd/protoc-gen-gitaly
