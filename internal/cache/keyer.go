@@ -1,5 +1,6 @@
 package cache
 
+//nolint:depguard
 import (
 	"context"
 	"crypto/sha256"

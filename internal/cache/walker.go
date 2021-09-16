@@ -5,6 +5,7 @@
 // worker will walk the cache directory every ten minutes.
 package cache
 
+//nolint:depguard
 import (
 	"fmt"
 	"io/ioutil"
