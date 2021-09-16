@@ -5,7 +5,7 @@ stages:
   - qa
 
 default:
-  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-2.7-golang-1.15-git-2.31
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-2.7-golang-1.16-git-2.31
   tags:
     - gitlab-org
 
@@ -143,13 +143,13 @@ build:
       # These definitions are for the non-default Git versions. We do not want
       # to apply any additional Git patches on top of those given that they may
       # not cleanly apply and thus set GIT_PATCHES="".
-      - GO_VERSION: [ "1.15", "1.16", "1.17" ]
+      - GO_VERSION: [ "1.16", "1.17" ]
         GIT_VERSION: [ "v2.31.1", "v2.32.0" ]
         GIT_PATCHES: [ "" ]
         RUBY_VERSION: [ "2.7" ]
       # These definitions are for the default Git version where we want to
       # apply our default set of Git patches.
-      - GO_VERSION: [ "1.15", "1.16", "1.17" ]
+      - GO_VERSION: [ "1.16", "1.17" ]
         GIT_VERSION: [ "v2.33.0" ]
         RUBY_VERSION: [ "2.7" ]
 
@@ -172,7 +172,7 @@ binaries:
     expire_in: 6 months
   parallel:
     matrix:
-      - GO_VERSION: [ "1.15", "1.16", "1.17" ]
+      - GO_VERSION: [ "1.16", "1.17" ]
 
 test:
   <<: *test_definition
@@ -195,13 +195,13 @@ test:
       # These definitions are for the non-default Git versions. We do not want
       # to apply any additional Git patches on top of those given that they may
       # not cleanly apply and thus set GIT_PATCHES="".
-      - GO_VERSION: [ "1.15", "1.16", "1.17" ]
+      - GO_VERSION: [ "1.16", "1.17" ]
         GIT_VERSION: [ "v2.31.1", "v2.32.0" ]
         GIT_PATCHES: [ "" ]
         TARGET: test
       # These definitions are for the default Git version where we want to
       # apply our default set of Git patches.
-      - GO_VERSION: [ "1.15", "1.16", "1.17" ]
+      - GO_VERSION: [ "1.16", "1.17" ]
         GIT_VERSION: [ "v2.33.0" ]
         TARGET: test
       - GO_VERSION: "1.17"
