@@ -14,7 +14,7 @@ func SystemCertPool() (*x509.CertPool, error) {
 	var certPem []byte
 
 	if f := os.Getenv(SSLCertFile); len(f) > 0 {
-		pem, err := ioutil.ReadFile(f)
+		pem, err := os.ReadFile(f)
 		if err != nil {
 			return nil, err
 		}
@@ -34,7 +34,7 @@ func SystemCertPool() (*x509.CertPool, error) {
 				continue
 			}
 
-			pem, err := ioutil.ReadFile(filepath.Join(d, entry.Name()))
+			pem, err := os.ReadFile(filepath.Join(d, entry.Name()))
 			if err != nil {
 				return nil, err
 			}

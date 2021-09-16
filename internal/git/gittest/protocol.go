@@ -2,7 +2,7 @@ package gittest
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -30,7 +30,7 @@ exec "%s" "$@"
 	cfg.Git.BinPath = gitPath
 
 	return func() string {
-		data, err := ioutil.ReadFile(envPath)
+		data, err := os.ReadFile(envPath)
 		require.NoError(t, err)
 		return string(data)
 	}, cfg

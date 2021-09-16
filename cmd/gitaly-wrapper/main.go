@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -144,7 +143,7 @@ func forwardSignals(gitaly *os.Process, log *logrus.Entry) {
 }
 
 func getPid() (int, error) {
-	data, err := ioutil.ReadFile(pidFile())
+	data, err := os.ReadFile(pidFile())
 	if err != nil {
 		return 0, err
 	}

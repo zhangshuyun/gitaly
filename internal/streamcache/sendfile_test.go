@@ -83,7 +83,7 @@ func TestPipe_WriteTo(t *testing.T) {
 			require.NoError(t, outW.Close())
 			require.NoError(t, <-errC)
 
-			outBytes, err := ioutil.ReadFile(outW.Name())
+			outBytes, err := os.ReadFile(outW.Name())
 			require.NoError(t, err)
 			// Don't use require.Equal because we don't want a 10MB error message.
 			require.True(t, bytes.Equal(data, outBytes))

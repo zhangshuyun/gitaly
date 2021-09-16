@@ -587,7 +587,7 @@ func TestRepo_Push(t *testing.T) {
 			}
 			require.NoError(t, err)
 
-			gitSSHCommand, err := ioutil.ReadFile(gitSSHCommandFile)
+			gitSSHCommand, err := os.ReadFile(gitSSHCommandFile)
 			if !os.IsNotExist(err) {
 				require.NoError(t, err)
 			}

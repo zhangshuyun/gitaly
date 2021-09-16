@@ -240,7 +240,7 @@ func (keyer leaseKeyer) currentGenID(ctx context.Context, repo *gitalypb.Reposit
 		return "", err
 	}
 
-	latestBytes, err := ioutil.ReadFile(latestPath(repoStatePath))
+	latestBytes, err := os.ReadFile(latestPath(repoStatePath))
 	switch {
 	case os.IsNotExist(err):
 		// latest file doesn't exist, so create one

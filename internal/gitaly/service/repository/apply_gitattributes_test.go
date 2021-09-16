@@ -302,7 +302,7 @@ func assertGitattributesApplied(t *testing.T, ctx context.Context, client gitaly
 	assert.NoError(t, err)
 	assert.NotNil(t, c)
 
-	contents, err := ioutil.ReadFile(attributesPath)
+	contents, err := os.ReadFile(attributesPath)
 	if expectedContents == nil {
 		if !os.IsNotExist(err) {
 			t.Error(err)

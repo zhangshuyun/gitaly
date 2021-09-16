@@ -74,7 +74,7 @@ func NewTestServer(t testing.TB, options TestServerOptions) (url string, cleanup
 
 	var tlsCfg *tls.Config
 	if options.ClientCACertPath != "" {
-		caCertPEM, err := ioutil.ReadFile(options.ClientCACertPath)
+		caCertPEM, err := os.ReadFile(options.ClientCACertPath)
 		require.NoError(t, err)
 
 		certPool := x509.NewCertPool()

@@ -1,7 +1,6 @@
 package localrepo
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -319,7 +318,7 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tc.expected, refs)
 
-			gitSSHCommand, err := ioutil.ReadFile(gitSSHCommandFile)
+			gitSSHCommand, err := os.ReadFile(gitSSHCommandFile)
 			if !os.IsNotExist(err) {
 				require.NoError(t, err)
 			}

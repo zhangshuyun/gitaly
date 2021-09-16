@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 )
@@ -27,7 +26,7 @@ func IsMissingBloomFilters(repoPath string) (bool, error) {
 	const chunkTableEntrySize = 12
 
 	commitGraphsPath := filepath.Join(repoPath, CommitGraphChainRelPath)
-	commitGraphsData, err := ioutil.ReadFile(commitGraphsPath)
+	commitGraphsData, err := os.ReadFile(commitGraphsPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return true, nil

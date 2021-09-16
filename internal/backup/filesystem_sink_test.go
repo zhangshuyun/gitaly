@@ -59,7 +59,7 @@ func TestFilesystemSink_Write(t *testing.T) {
 		require.NoError(t, fsSink.Write(ctx, relativePath, strings.NewReader("test")))
 
 		require.FileExists(t, filepath.Join(dir, relativePath))
-		data, err := ioutil.ReadFile(filepath.Join(dir, relativePath))
+		data, err := os.ReadFile(filepath.Join(dir, relativePath))
 		require.NoError(t, err)
 		require.Equal(t, []byte("test"), data)
 	})
@@ -92,7 +92,7 @@ func TestFilesystemSink_Write(t *testing.T) {
 		require.NoError(t, fsSink.Write(ctx, relativePath, strings.NewReader("test")))
 
 		require.FileExists(t, fullPath)
-		data, err := ioutil.ReadFile(fullPath)
+		data, err := os.ReadFile(fullPath)
 		require.NoError(t, err)
 		require.Equal(t, []byte("test"), data)
 	})

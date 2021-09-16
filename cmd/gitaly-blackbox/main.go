@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -42,7 +41,7 @@ func main() {
 }
 
 func run(configPath string) error {
-	configRaw, err := ioutil.ReadFile(configPath)
+	configRaw, err := os.ReadFile(configPath)
 	if err != nil {
 		return err
 	}
