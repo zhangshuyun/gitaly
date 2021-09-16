@@ -38,7 +38,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 		return err
 	}
 
-	if err := housekeeping.Perform(ctx, o.poolRepo); err != nil {
+	if err := housekeeping.Perform(ctx, o.poolRepo, o.txManager); err != nil {
 		return err
 	}
 

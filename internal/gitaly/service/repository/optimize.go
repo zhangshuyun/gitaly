@@ -63,7 +63,7 @@ func (s *server) optimizeRepository(ctx context.Context, repository *gitalypb.Re
 
 	repo := s.localrepo(repository)
 
-	if err := housekeeping.Perform(ctx, repo); err != nil {
+	if err := housekeeping.Perform(ctx, repo, s.txManager); err != nil {
 		return fmt.Errorf("could not execute houskeeping: %w", err)
 	}
 

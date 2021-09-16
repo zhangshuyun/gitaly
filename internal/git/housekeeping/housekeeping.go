@@ -2,6 +2,7 @@ package housekeeping
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -14,7 +15,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"google.golang.org/grpc/codes"
 )
 
@@ -53,7 +56,7 @@ func init() {
 type staleFileFinderFn func(context.Context, string) ([]string, error)
 
 // Perform will perform housekeeping duties on a repository
-func Perform(ctx context.Context, repo *localrepo.Repo) error {
+func Perform(ctx context.Context, repo *localrepo.Repo, txManager transaction.Manager) error {
 	repoPath, err := repo.Path()
 	if err != nil {
 		myLogger(ctx).WithError(err).Warn("housekeeping failed to get repo path")
@@ -106,8 +109,16 @@ func Perform(ctx context.Context, repo *localrepo.Repo) error {
 
 	// TODO: https://gitlab.com/gitlab-org/gitaly/-/issues/3138
 	// This is a temporary code and needs to be removed once it will be run on all repositories at least once.
-	if err := unsetAllConfigsByRegexp(ctx, repo, "^http\\..+\\.extraHeader$"); err != nil {
-		return fmt.Errorf("housekeeping could not unset extreHeaders: %w", err)
+	if featureflag.TxExtendedFileLocking.IsEnabled(ctx) {
+		if err := repo.UnsetMatchingConfig(ctx, "^http\\..+\\.extraHeader$", txManager); err != nil {
+			if !errors.Is(err, git.ErrNotFound) {
+				return fmt.Errorf("housekeeping could not unset extreHeaders: %w", err)
+			}
+		}
+	} else {
+		if err := unsetAllConfigsByRegexp(ctx, repo, "^http\\..+\\.extraHeader$"); err != nil {
+			return fmt.Errorf("housekeeping could not unset extreHeaders: %w", err)
+		}
 	}
 
 	return nil
