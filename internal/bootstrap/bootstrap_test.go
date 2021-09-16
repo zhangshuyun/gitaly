@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -113,7 +114,7 @@ func TestImmediateTerminationOnSocketError(t *testing.T) {
 
 	err := waitWithTimeout(t, waitCh, 1*time.Second)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "use of closed network connection")
+	require.True(t, errors.Is(err, net.ErrClosed), "expected closed connection error, got %T: %q", err, err)
 }
 
 func TestImmediateTerminationOnSignal(t *testing.T) {
