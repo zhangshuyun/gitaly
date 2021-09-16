@@ -30,7 +30,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func TestServer_CreateRepositoryFromBundle_successful(t *testing.T) {
+func TestCreateRepositoryFromBundle_successful(t *testing.T) {
 	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
@@ -92,7 +92,9 @@ func TestServer_CreateRepositoryFromBundle_successful(t *testing.T) {
 	require.NotNil(t, commit)
 }
 
-func TestServerCreateRepositoryFromBundleTransactional(t *testing.T) {
+func TestCreateRepositoryFromBundle_transactional(t *testing.T) {
+	t.Parallel()
+
 	var votes []voting.Vote
 	txManager := &transaction.MockManager{
 		VoteFn: func(ctx context.Context, tx txinfo.Transaction, vote voting.Vote) error {
@@ -173,8 +175,9 @@ func TestServerCreateRepositoryFromBundleTransactional(t *testing.T) {
 	require.Equal(t, votes, expectedVotes)
 }
 
-func TestServer_CreateRepositoryFromBundle_failed_invalid_bundle(t *testing.T) {
+func TestCreateRepositoryFromBundle_invalidBundle(t *testing.T) {
 	t.Parallel()
+
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	ctx, cancel := testhelper.Context()
@@ -211,7 +214,7 @@ func TestServer_CreateRepositoryFromBundle_failed_invalid_bundle(t *testing.T) {
 	require.Contains(t, err.Error(), "invalid gitfile format")
 }
 
-func TestServer_CreateRepositoryFromBundle_failed_validations(t *testing.T) {
+func TestCreateRepositoryFromBundle_invalidArgument(t *testing.T) {
 	t.Parallel()
 	_, client := setupRepositoryServiceWithoutRepo(t)
 
@@ -227,7 +230,7 @@ func TestServer_CreateRepositoryFromBundle_failed_validations(t *testing.T) {
 	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 }
 
-func TestServer_CreateRepositoryFromBundle_failed_existing_directory(t *testing.T) {
+func TestCreateRepositoryFromBundle_existingRepository(t *testing.T) {
 	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t)
 
