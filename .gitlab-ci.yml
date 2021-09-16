@@ -332,6 +332,8 @@ code_navigation:
   image: sourcegraph/lsif-go:v1
   allow_failure: true
   script:
+    - apt-get update && apt-get install -y cmake
+    - make libgit2
     - lsif-go
   artifacts:
     reports:
