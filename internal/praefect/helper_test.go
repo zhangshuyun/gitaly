@@ -200,7 +200,10 @@ func runPraefectServer(t testing.TB, ctx context.Context, conf config.Config, op
 	errQ := make(chan error)
 	ctx, cancel := context.WithCancel(ctx)
 
-	go func() { errQ <- prf.Serve(listener) }()
+	go func() {
+		errQ <- prf.Serve(listener)
+		close(errQ)
+	}()
 	replMgrDone := startProcessBacklog(ctx, replmgr)
 
 	// dial client to praefect
