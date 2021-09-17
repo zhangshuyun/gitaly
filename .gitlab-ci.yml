@@ -328,15 +328,6 @@ objectinfo_fuzz_test:
     - clang-7 -fsanitize=fuzzer objectinfo_fuzzer.a -o objectinfo_fuzzer
     - ./gitlab-cov-fuzz run -- ./objectinfo_fuzzer -max_total_time=300
 
-code_navigation:
-  allow_failure: true
-  script:
-    - go get github.com/sourcegraph/lsif-go/cmd/lsif-go@v1.3.1
-    - ~/go/bin/lsif-go
-  artifacts:
-    reports:
-      lsif: dump.lsif
-
 trigger-qa:
   stage: qa
   when: manual
