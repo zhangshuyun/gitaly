@@ -3,7 +3,6 @@ package smarthttp
 import (
 	"context"
 	"io"
-	"io/ioutil"
 	"sync"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
@@ -92,7 +91,7 @@ func (c infoRefCache) tryCache(ctx context.Context, in *gitalypb.InfoRefsRequest
 
 				// discard remaining bytes if caching stream
 				// failed so that tee reader is not blocked
-				_, err = io.Copy(ioutil.Discard, tr)
+				_, err = io.Copy(io.Discard, tr)
 				if err != nil {
 					logger.WithError(err).
 						Error("unable to discard remaining InfoRefsUploadPack cache stream")

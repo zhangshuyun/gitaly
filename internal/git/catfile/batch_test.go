@@ -310,13 +310,13 @@ func TestRepeatedCalls(t *testing.T) {
 	_, err = c.Tree(ctx, treeOid)
 	require.Error(t, err, "request should fail because of unconsumed blob data")
 
-	_, err = io.CopyN(ioutil.Discard, blobReader, 10)
+	_, err = io.CopyN(io.Discard, blobReader, 10)
 	require.NoError(t, err)
 
 	_, err = c.Tree(ctx, treeOid)
 	require.Error(t, err, "request should fail because of unconsumed blob data")
 
-	_, err = io.Copy(ioutil.Discard, blobReader)
+	_, err = io.Copy(io.Discard, blobReader)
 	require.NoError(t, err, "blob reading should still work")
 
 	tree2Obj, err := c.Tree(ctx, treeOid)

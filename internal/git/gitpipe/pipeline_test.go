@@ -273,7 +273,7 @@ func TestPipeline_revlist(t *testing.T) {
 		for catfileObjectIter.Next() {
 			i++
 
-			_, err := io.Copy(ioutil.Discard, catfileObjectIter.Result().ObjectReader)
+			_, err := io.Copy(io.Discard, catfileObjectIter.Result().ObjectReader)
 			require.NoError(t, err)
 
 			if i == 3 {
@@ -317,7 +317,7 @@ func TestPipeline_revlist(t *testing.T) {
 			// the object reader.
 			go func(object CatfileObjectResult) {
 				defer wg.Done()
-				_, err := io.Copy(ioutil.Discard, object.ObjectReader)
+				_, err := io.Copy(io.Discard, object.ObjectReader)
 				require.NoError(t, err)
 			}(catfileObjectIter.Result())
 		}

@@ -1,6 +1,7 @@
 package tempdir
 
 import (
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -59,7 +60,7 @@ func TestCleanTempDir(t *testing.T) {
 	gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	logrus.SetLevel(logrus.InfoLevel)
-	logrus.SetOutput(ioutil.Discard)
+	logrus.SetOutput(io.Discard)
 
 	hook := test.NewGlobal()
 

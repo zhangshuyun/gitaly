@@ -104,7 +104,7 @@ func TestObjectReader_reader(t *testing.T) {
 		object, err := reader.reader(ctx, commitID.Revision(), "commit")
 		require.NoError(t, err)
 
-		_, err = io.CopyN(ioutil.Discard, object, 100)
+		_, err = io.CopyN(io.Discard, object, 100)
 		require.NoError(t, err)
 
 		// We haven't yet consumed the previous object, so this must now fail.
@@ -131,7 +131,7 @@ func TestObjectReader_reader(t *testing.T) {
 
 			require.Equal(t, float64(1), testutil.ToFloat64(counter.WithLabelValues(objectType)))
 
-			_, err = io.Copy(ioutil.Discard, object)
+			_, err = io.Copy(io.Discard, object)
 			require.NoError(t, err)
 		}
 	})

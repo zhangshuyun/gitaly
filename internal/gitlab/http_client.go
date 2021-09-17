@@ -297,7 +297,7 @@ func (c *HTTPClient) Check(ctx context.Context) (*CheckInfo, error) {
 }
 
 func (c *HTTPClient) finalizeResponse(resp *http.Response) {
-	if _, err := io.Copy(ioutil.Discard, resp.Body); err != nil {
+	if _, err := io.Copy(io.Discard, resp.Body); err != nil {
 		c.logger.WithError(err).Errorf("discard body error for the request %q", resp.Request.RequestURI)
 	}
 	if err := resp.Body.Close(); err != nil {

@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"regexp"
 	"strconv"
 
@@ -120,7 +119,7 @@ func NewDiffParser(src io.Reader, limits Limits) *Parser {
 func (parser *Parser) Parse() bool {
 	if parser.finished || len(parser.rawLines) == 0 {
 		// In case we didn't consume the whole output due to reaching limitations
-		_, _ = io.Copy(ioutil.Discard, parser.patchReader)
+		_, _ = io.Copy(io.Discard, parser.patchReader)
 		return false
 	}
 

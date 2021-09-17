@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -47,7 +46,7 @@ func ParsePackfileNegotiation(body io.Reader) (PackfileNegotiation, error) {
 // have <OID>
 // flush|done
 func (n *PackfileNegotiation) Parse(body io.Reader) error {
-	defer func() { _, _ = io.Copy(ioutil.Discard, body) }()
+	defer func() { _, _ = io.Copy(io.Discard, body) }()
 
 	scanner := pktline.NewScanner(body)
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"strings"
 	"sync"
@@ -53,7 +53,7 @@ import (
 var testLogger = logrus.New()
 
 func init() {
-	testLogger.SetOutput(ioutil.Discard)
+	testLogger.SetOutput(io.Discard)
 }
 
 func TestSecondaryRotation(t *testing.T) {

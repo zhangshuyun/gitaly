@@ -6,7 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
@@ -43,7 +43,7 @@ func (repo *Repo) ResolveRevision(ctx context.Context, revision git.Revision) (g
 			Flags: []git.Option{git.Flag{Name: "--verify"}},
 			Args:  []string{revision.String()},
 		},
-		git.WithStderr(ioutil.Discard),
+		git.WithStderr(io.Discard),
 		git.WithStdout(&stdout),
 	); err != nil {
 		if _, ok := command.ExitStatus(err); ok {

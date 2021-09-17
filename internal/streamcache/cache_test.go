@@ -326,7 +326,7 @@ func TestCache_failedWrite(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, created)
 
-			_, err = io.Copy(ioutil.Discard, r1)
+			_, err = io.Copy(io.Discard, r1)
 			require.NoError(t, err, "errors on the write end are not propagated via Read()")
 			require.NoError(t, r1.Close(), "errors on the write end are not propagated via Close()")
 			require.Error(t, r1.Wait(context.Background()), "error propagation happens via Wait()")

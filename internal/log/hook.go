@@ -2,7 +2,7 @@ package log
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -20,13 +20,13 @@ func NewHookLogger() *HookLogger {
 
 	logDir := os.Getenv(GitalyLogDirEnvKey)
 	if logDir == "" {
-		logger.SetOutput(ioutil.Discard)
+		logger.SetOutput(io.Discard)
 		return &HookLogger{logger: logger}
 	}
 
 	logFile, err := os.OpenFile(filepath.Join(logDir, "gitaly_hooks.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
-		logger.SetOutput(ioutil.Discard)
+		logger.SetOutput(io.Discard)
 	} else {
 		logger.SetOutput(logFile)
 	}
