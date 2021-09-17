@@ -1,7 +1,5 @@
 package operations
 
-//lint:file-ignore SA1019 due to planned removal in issue https://gitlab.com/gitlab-org/gitaly/issues/1628
-
 import (
 	"context"
 	"fmt"
