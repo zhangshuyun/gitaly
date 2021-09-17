@@ -152,12 +152,33 @@ func (s *server) createFromSnapshot(ctx context.Context, in *gitalypb.ReplicateR
 		return fmt.Errorf("create repository: %w", err)
 	}
 
-	repoClient, err := s.newRepoClient(ctx, in.GetSource().GetStorageName())
+	if err := s.extractSnapshot(ctx, in.GetSource(), tempRepo); err != nil {
+		return fmt.Errorf("extracting snapshot: %w", err)
+	}
+
+	targetPath, err := s.locator.GetPath(in.GetRepository())
+	if err != nil {
+		return fmt.Errorf("locate repository: %w", err)
+	}
+
+	if err = os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+		return fmt.Errorf("create parent directories: %w", err)
+	}
+
+	if err := os.Rename(tempDir.Path(), targetPath); err != nil {
+		return fmt.Errorf("move temporary directory to target path: %w", err)
+	}
+
+	return nil
+}
+
+func (s *server) extractSnapshot(ctx context.Context, source, target *gitalypb.Repository) error {
+	repoClient, err := s.newRepoClient(ctx, source.GetStorageName())
 	if err != nil {
 		return fmt.Errorf("new client: %w", err)
 	}
 
-	stream, err := repoClient.GetSnapshot(ctx, &gitalypb.GetSnapshotRequest{Repository: in.GetSource()})
+	stream, err := repoClient.GetSnapshot(ctx, &gitalypb.GetSnapshotRequest{Repository: source})
 	if err != nil {
 		return fmt.Errorf("get snapshot: %w", err)
 	}
@@ -187,27 +208,19 @@ func (s *server) createFromSnapshot(ctx context.Context, in *gitalypb.ReplicateR
 		}),
 	)
 
+	targetPath, err := s.locator.GetPath(target)
+	if err != nil {
+		return fmt.Errorf("target path: %w", err)
+	}
+
 	stderr := &bytes.Buffer{}
-	cmd, err := command.New(ctx, exec.Command("tar", "-C", tempDir.Path(), "-xvf", "-"), snapshotReader, nil, stderr)
+	cmd, err := command.New(ctx, exec.Command("tar", "-C", targetPath, "-xvf", "-"), snapshotReader, nil, stderr)
 	if err != nil {
 		return fmt.Errorf("create tar command: %w", err)
 	}
 
 	if err = cmd.Wait(); err != nil {
 		return fmt.Errorf("wait for tar, stderr: %q, err: %w", stderr, err)
-	}
-
-	targetPath, err := s.locator.GetPath(in.GetRepository())
-	if err != nil {
-		return fmt.Errorf("locate repository: %w", err)
-	}
-
-	if err = os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
-		return fmt.Errorf("create parent directories: %w", err)
-	}
-
-	if err := os.Rename(tempDir.Path(), targetPath); err != nil {
-		return fmt.Errorf("move temporary directory to target path: %w", err)
 	}
 
 	return nil
