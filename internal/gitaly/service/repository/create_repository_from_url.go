@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"io"
 	"net/url"
 	"os"
 
@@ -13,12 +12,17 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-func (s *server) cloneFromURLCommand(ctx context.Context, repo *gitalypb.Repository, repoURL, repositoryFullPath string, stderr io.Writer) (*command.Command, error) {
+func (s *server) cloneFromURLCommand(
+	ctx context.Context,
+	repoURL, repositoryFullPath string,
+	opts ...git.CmdOpt,
+) (*command.Command, error) {
 	u, err := url.Parse(repoURL)
 	if err != nil {
 		return nil, helper.ErrInternal(err)
@@ -54,15 +58,47 @@ func (s *server) cloneFromURLCommand(ctx context.Context, repo *gitalypb.Reposit
 			Flags: cloneFlags,
 			Args:  []string{u.String(), repositoryFullPath},
 		},
-		git.WithStderr(stderr),
-		git.WithRefTxHook(ctx, repo, s.cfg),
-		git.WithConfig(config...),
+		append(opts, git.WithConfig(config...))...,
 	)
 }
 
 func (s *server) CreateRepositoryFromURL(ctx context.Context, req *gitalypb.CreateRepositoryFromURLRequest) (*gitalypb.CreateRepositoryFromURLResponse, error) {
 	if err := validateCreateRepositoryFromURLRequest(req); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "CreateRepositoryFromURL: %v", err)
+	}
+
+	if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
+		if err := s.createRepository(ctx, req.GetRepository(), func(repo *gitalypb.Repository) error {
+			targetPath, err := s.locator.GetPath(repo)
+			if err != nil {
+				return fmt.Errorf("getting temporary repository path: %w", err)
+			}
+
+			// We need to remove the target path first so git-clone(1) doesn't complain.
+			if err := os.RemoveAll(targetPath); err != nil {
+				return fmt.Errorf("removing temporary repository: %w", err)
+			}
+
+			var stderr bytes.Buffer
+			cmd, err := s.cloneFromURLCommand(ctx, req.GetUrl(), targetPath, git.WithStderr(&stderr), git.WithDisabledHooks())
+			if err != nil {
+				return fmt.Errorf("starting clone: %w", err)
+			}
+
+			if err := cmd.Wait(); err != nil {
+				return fmt.Errorf("cloning repository: %w, stderr: %q", err, stderr.String())
+			}
+
+			if err := s.removeOriginInRepo(ctx, repo); err != nil {
+				return fmt.Errorf("removing origin remote: %w", err)
+			}
+
+			return nil
+		}); err != nil {
+			return nil, helper.ErrInternalf("creating repository: %w", err)
+		}
+
+		return &gitalypb.CreateRepositoryFromURLResponse{}, nil
 	}
 
 	repository := req.Repository
@@ -77,7 +113,7 @@ func (s *server) CreateRepositoryFromURL(ctx context.Context, req *gitalypb.Crea
 	}
 
 	stderr := bytes.Buffer{}
-	cmd, err := s.cloneFromURLCommand(ctx, repository, req.GetUrl(), repositoryFullPath, &stderr)
+	cmd, err := s.cloneFromURLCommand(ctx, req.GetUrl(), repositoryFullPath, git.WithStderr(&stderr), git.WithRefTxHook(ctx, repository, s.cfg))
 	if err != nil {
 		return nil, helper.ErrInternal(err)
 	}

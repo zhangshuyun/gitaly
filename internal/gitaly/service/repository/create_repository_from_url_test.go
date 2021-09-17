@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -20,10 +22,11 @@ import (
 
 func TestCreateRepotitoryFromURL_successful(t *testing.T) {
 	t.Parallel()
-	cfg, _, repoPath, client := setupRepositoryService(t)
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepotitoryFromURLSuccessful)
+}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+func testCreateRepotitoryFromURLSuccessful(t *testing.T, ctx context.Context) {
+	cfg, _, repoPath, client := setupRepositoryService(t)
 
 	importedRepo := &gitalypb.Repository{
 		RelativePath: "imports/test-repo-imported.git",
@@ -59,10 +62,11 @@ func TestCreateRepotitoryFromURL_successful(t *testing.T) {
 
 func TestCreateRepositoryFromURL_existingTarget(t *testing.T) {
 	t.Parallel()
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepositoryFromURLExistingTarget)
+}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+func testCreateRepositoryFromURLExistingTarget(t *testing.T, ctx context.Context) {
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	testCases := []struct {
 		desc     string
@@ -102,17 +106,21 @@ func TestCreateRepositoryFromURL_existingTarget(t *testing.T) {
 			}
 
 			_, err := client.CreateRepositoryFromURL(ctx, req)
-			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+			if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
+				testhelper.RequireGrpcError(t, err, codes.AlreadyExists)
+			} else {
+				testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+			}
 		})
 	}
 }
 
 func TestCreateRepositoryFromURL_redirect(t *testing.T) {
-	t.Parallel()
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepositoryFromURLRedirect)
+}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+func testCreateRepositoryFromURLRedirect(t *testing.T, ctx context.Context) {
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	importedRepo := &gitalypb.Repository{
 		RelativePath: "imports/test-repo-imported.git",
@@ -147,7 +155,7 @@ func TestCloneRepositoryFromUrlCommand(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 	s := server{cfg: cfg, gitCmdFactory: git.NewExecCommandFactory(cfg)}
-	cmd, err := s.cloneFromURLCommand(ctx, &gitalypb.Repository{}, url, repositoryFullPath, nil)
+	cmd, err := s.cloneFromURLCommand(ctx, url, repositoryFullPath, git.WithDisabledHooks())
 	require.NoError(t, err)
 
 	expectedScrubbedURL := "https://www.example.com/secretrepo.git"
