@@ -106,6 +106,7 @@ func TestNewProtoRegistry(t *testing.T) {
 			"FindRemoteRootRef":    protoregistry.OpAccessor,
 		},
 		"RepositoryService": {
+			"RepositoryExists":             protoregistry.OpAccessor,
 			"RepackIncremental":            protoregistry.OpMutator,
 			"RepackFull":                   protoregistry.OpMutator,
 			"GarbageCollect":               protoregistry.OpMutator,
@@ -199,13 +200,13 @@ func TestNewProtoRegistry_IsInterceptedMethod(t *testing.T) {
 }
 
 func TestRequestFactory(t *testing.T) {
-	mInfo, err := protoregistry.GitalyProtoPreregistered.LookupMethod("/gitaly.RepositoryService/GarbageCollect")
+	mInfo, err := protoregistry.GitalyProtoPreregistered.LookupMethod("/gitaly.RepositoryService/RepositoryExists")
 	require.NoError(t, err)
 
 	pb, err := mInfo.UnmarshalRequestProto([]byte{})
 	require.NoError(t, err)
 
-	testassert.ProtoEqual(t, &gitalypb.GarbageCollectRequest{}, pb)
+	testassert.ProtoEqual(t, &gitalypb.RepositoryExistsRequest{}, pb)
 }
 
 func TestMethodInfoScope(t *testing.T) {
@@ -214,7 +215,7 @@ func TestMethodInfoScope(t *testing.T) {
 		scope  protoregistry.Scope
 	}{
 		{
-			method: "/gitaly.RepositoryService/GarbageCollect",
+			method: "/gitaly.RepositoryService/RepositoryExists",
 			scope:  protoregistry.ScopeRepository,
 		},
 	} {
