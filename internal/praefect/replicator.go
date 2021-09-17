@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
@@ -569,10 +570,14 @@ func (r ReplMgr) processBacklog(ctx context.Context, b BackoffFunc, virtualStora
 
 	logger.Info("processing started")
 
+	// We should make a graceful shutdown of the processing loop and don't want to interrupt
+	// in-flight operations. That is why we suppress cancellation on the provided context.
+	appCtx := ctx
+	ctx = helper.SuppressCancellation(ctx)
 	for {
 		select {
-		case <-ctx.Done():
-			logger.WithError(ctx.Err()).Info("processing stopped")
+		case <-appCtx.Done():
+			logger.WithError(appCtx.Err()).Info("processing stopped")
 			return // processing must be stopped
 		default:
 			// proceed with processing
@@ -593,8 +598,8 @@ func (r ReplMgr) processBacklog(ctx context.Context, b BackoffFunc, virtualStora
 			select {
 			case <-time.After(backoff()):
 				continue
-			case <-ctx.Done():
-				logger.WithError(ctx.Err()).Info("processing stopped")
+			case <-appCtx.Done():
+				logger.WithError(appCtx.Err()).Info("processing stopped")
 				return
 			}
 		}
