@@ -188,7 +188,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			tx := glsql.NewDB(t).Begin(t)
+			tx := db.Begin(t)
 			defer tx.Rollback(t)
 
 			rs := datastore.NewPostgresRepositoryStore(tx, conf.StorageNames())
