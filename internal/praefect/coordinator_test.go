@@ -157,14 +157,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 			},
 		},
 	}
-
-	var replEventWait sync.WaitGroup
-
-	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t)))
-	queueInterceptor.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
-		defer replEventWait.Done()
-		return queue.Enqueue(ctx, event)
-	})
+	db := glsql.NewDB(t)
 
 	targetRepo := gitalypb.Repository{
 		StorageName:  "praefect",
@@ -205,6 +198,11 @@ func TestStreamDirectorMutator(t *testing.T) {
 			}
 
 			testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": conf.StorageNames()})
+			queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(db))
+			queueInterceptor.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
+				assert.True(t, len(queueInterceptor.GetEnqueued()) < 2, "expected only one event to be created")
+				return queue.Enqueue(ctx, event)
+			})
 
 			coordinator := NewCoordinator(
 				queueInterceptor,
@@ -254,11 +252,14 @@ func TestStreamDirectorMutator(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, "praefect-internal-1", rewrittenTargetRepo.GetStorageName(), "stream director should have rewritten the storage name")
 
-			replEventWait.Add(1) // expected only one event to be created
 			// this call creates new events in the queue and simulates usual flow of the update operation
 			require.NoError(t, streamParams.RequestFinalizer())
 
-			replEventWait.Wait() // wait until event persisted (async operation)
+			// wait until event persisted (async operation)
+			require.NoError(t, queueInterceptor.Wait(time.Minute, func(i *datastore.ReplicationEventQueueInterceptor) bool {
+				return len(i.GetEnqueuedResult()) == 1
+			}))
+
 			events, err := queueInterceptor.Dequeue(ctx, "praefect", "praefect-internal-2", 10)
 			require.NoError(t, err)
 			require.Len(t, events, 1)
@@ -832,13 +833,6 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 				},
 			}
 
-			var replEventWait sync.WaitGroup
-			queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(db))
-			queueInterceptor.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
-				defer replEventWait.Done()
-				return queue.Enqueue(ctx, event)
-			})
-
 			rewrittenStorage := primaryNode.Storage
 			targetRepo := gitalypb.Repository{
 				StorageName:  "praefect",
@@ -926,6 +920,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 			}
 
 			txMgr := transactions.NewManager(conf)
+			queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(db))
 
 			coordinator := NewCoordinator(
 				queueInterceptor,
@@ -967,8 +962,6 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, rewrittenStorage, rewrittenTargetRepo.GetStorageName(), "stream director should have rewritten the storage name")
 
-			replEventWait.Add(1)
-
 			vote := voting.VoteFromData([]byte{})
 			require.NoError(t, txMgr.VoteTransaction(ctx, 1, "praefect-internal-1", vote))
 			require.NoError(t, txMgr.VoteTransaction(ctx, 1, "praefect-internal-2", vote))
@@ -977,7 +970,10 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 			err = streamParams.RequestFinalizer()
 			require.NoError(t, err)
 
-			replEventWait.Wait() // wait until event persisted (async operation)
+			// wait until event persisted (async operation)
+			require.NoError(t, queueInterceptor.Wait(time.Minute, func(i *datastore.ReplicationEventQueueInterceptor) bool {
+				return len(i.GetEnqueuedResult()) == 1
+			}))
 
 			var expectedEvents, actualEvents []datastore.ReplicationEvent
 			for _, target := range []string{unhealthySecondaryNode.Storage} {
@@ -1063,14 +1059,11 @@ func TestAbsentCorrelationID(t *testing.T) {
 		},
 	}
 
-	var replEventWait sync.WaitGroup
-
 	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t)))
 	queueInterceptor.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
-		defer replEventWait.Done()
+		assert.True(t, len(queueInterceptor.GetEnqueued()) < 2, "expected only one event to be created")
 		return queue.Enqueue(ctx, event)
 	})
-
 	targetRepo := gitalypb.Repository{
 		StorageName:  "praefect",
 		RelativePath: "/path/to/hashed/storage",
@@ -1109,11 +1102,12 @@ func TestAbsentCorrelationID(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, primaryAddress, streamParams.Primary().Conn.Target())
 
-	replEventWait.Add(1) // expected only one event to be created
 	// must be run as it adds replication events to the queue
 	require.NoError(t, streamParams.RequestFinalizer())
 
-	replEventWait.Wait() // wait until event persisted (async operation)
+	require.NoError(t, queueInterceptor.Wait(time.Minute, func(i *datastore.ReplicationEventQueueInterceptor) bool {
+		return len(i.GetEnqueuedResult()) == 1
+	}))
 	jobs, err := queueInterceptor.Dequeue(ctx, conf.VirtualStorages[0].Name, conf.VirtualStorages[0].Nodes[1].Storage, 1)
 	require.NoError(t, err)
 	require.Len(t, jobs, 1)
