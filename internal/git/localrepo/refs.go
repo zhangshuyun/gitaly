@@ -285,6 +285,8 @@ func (repo *Repo) GetDefaultBranch(ctx context.Context) (git.ReferenceName, erro
 		return "", err
 	}
 
+	// Ideally we would only use HEAD to determine the default branch, but
+	// gitlab-rails depends on the branch being determined like this.
 	var defaultRef, legacyDefaultRef git.ReferenceName
 	for _, branch := range branches {
 		if len(headReference) != 0 && headReference == branch.Name {
