@@ -43,7 +43,7 @@ func TestOptimizeRepository(t *testing.T) {
 	cfg, repoProto, repoPath, client := setupRepositoryService(t)
 
 	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-b")
-	gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--size-multiple", "4", "--split", "replace", "--reachable", "--changed-paths")
+	gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--size-multiple=4", "--split=replace", "--reachable", "--changed-paths")
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
