@@ -10,6 +10,7 @@ import (
 )
 
 // We declare this function in variables so that we can override them in our tests
+//nolint:staticcheck // FindBranchNames is deprecated but the tests are difficult to refactor
 var _findBranchNamesFunc = ref.FindBranchNames
 
 func (s *server) FindAllCommits(in *gitalypb.FindAllCommitsRequest, stream gitalypb.CommitService_FindAllCommitsServer) error {

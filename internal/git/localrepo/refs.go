@@ -266,3 +266,82 @@ func (repo *Repo) GetRemoteReferences(ctx context.Context, remote string, opts .
 
 	return refs, nil
 }
+
+// GetDefaultBranch determines the default branch name
+func (repo *Repo) GetDefaultBranch(ctx context.Context) (git.ReferenceName, error) {
+	branches, err := repo.GetBranches(ctx)
+	if err != nil {
+		return "", err
+	}
+	switch len(branches) {
+	case 0:
+		return "", nil
+	case 1:
+		return branches[0].Name, nil
+	}
+
+	headReference, err := repo.headReference(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	// Ideally we would only use HEAD to determine the default branch, but
+	// gitlab-rails depends on the branch being determined like this.
+	var defaultRef, legacyDefaultRef git.ReferenceName
+	for _, branch := range branches {
+		if len(headReference) != 0 && headReference == branch.Name {
+			return branch.Name, nil
+		}
+
+		if string(git.DefaultRef) == branch.Name.String() {
+			defaultRef = branch.Name
+		}
+
+		if string(git.LegacyDefaultRef) == branch.Name.String() {
+			legacyDefaultRef = branch.Name
+		}
+	}
+
+	if len(defaultRef) != 0 {
+		return defaultRef, nil
+	}
+
+	if len(legacyDefaultRef) != 0 {
+		return legacyDefaultRef, nil
+	}
+
+	// If all else fails, return the first branch name
+	return branches[0].Name, nil
+}
+
+func (repo *Repo) headReference(ctx context.Context) (git.ReferenceName, error) {
+	var headRef []byte
+
+	cmd, err := repo.Exec(ctx, git.SubCmd{
+		Name:  "rev-parse",
+		Flags: []git.Option{git.Flag{Name: "--symbolic-full-name"}},
+		Args:  []string{"HEAD"},
+	})
+	if err != nil {
+		return "", err
+	}
+
+	scanner := bufio.NewScanner(cmd)
+	scanner.Scan()
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+	headRef = scanner.Bytes()
+
+	if err := cmd.Wait(); err != nil {
+		// If the ref pointed at by HEAD doesn't exist, the rev-parse fails
+		// returning the string `"HEAD"`, so we return `nil` without error.
+		if bytes.Equal(headRef, []byte("HEAD")) {
+			return "", nil
+		}
+
+		return "", err
+	}
+
+	return git.ReferenceName(headRef), nil
+}

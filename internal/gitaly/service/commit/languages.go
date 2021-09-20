@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -27,11 +26,11 @@ func (s *server) CommitLanguages(ctx context.Context, req *gitalypb.CommitLangua
 
 	revision := string(req.Revision)
 	if revision == "" {
-		defaultBranch, err := ref.DefaultBranchName(ctx, repo)
+		defaultBranch, err := repo.GetDefaultBranch(ctx)
 		if err != nil {
 			return nil, err
 		}
-		revision = string(defaultBranch)
+		revision = defaultBranch.String()
 	}
 
 	commitID, err := s.lookupRevision(ctx, repo, revision)
