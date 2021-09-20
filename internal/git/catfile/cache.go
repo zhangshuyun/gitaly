@@ -315,13 +315,14 @@ func (c *ProcessCache) Evict() {
 func (c *ProcessCache) returnWhenDone(done <-chan struct{}, s *stack, cacheKey key, value cacheable, cancel func()) {
 	<-done
 
-	defer c.reportCacheMembers()
-
-	if c.cachedProcessDone != nil {
-		defer func() {
-			c.cachedProcessDone.Broadcast()
-		}()
-	}
+	defer func() {
+		c.reportCacheMembers()
+		if c.cachedProcessDone != nil {
+			defer func() {
+				c.cachedProcessDone.Broadcast()
+			}()
+		}
+	}()
 
 	if value == nil || value.isClosed() {
 		cancel()
