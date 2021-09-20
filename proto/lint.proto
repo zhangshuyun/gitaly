@@ -40,6 +40,9 @@ extend google.protobuf.ServiceOptions {
 extend google.protobuf.MethodOptions {
   // Random high number..
   OperationMsg op_type = 82303;
+  // intercepted_method indicates whether the proxy intercepts and handles the method call
+  // instead of proxying. Intercepted methods do not require operation type annotations.
+  bool intercepted_method = 82304;
 }
 
 extend google.protobuf.FieldOptions {
