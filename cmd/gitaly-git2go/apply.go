@@ -11,7 +11,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -194,7 +193,7 @@ func (cmd *applySubcommand) threeWayMerge(
 }
 
 func (cmd *applySubcommand) buildFakeAncestor(ctx context.Context, repo *git.Repository, diff []byte) (*git.Tree, error) {
-	dir, err := ioutil.TempDir("", "gitaly-git2go")
+	dir, err := os.MkdirTemp("", "gitaly-git2go")
 	if err != nil {
 		return nil, fmt.Errorf("create temporary directory: %w", err)
 	}

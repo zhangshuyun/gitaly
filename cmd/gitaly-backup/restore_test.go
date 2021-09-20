@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"path/filepath"
 	"testing"
 
@@ -66,7 +66,7 @@ func TestRestoreSubcommand(t *testing.T) {
 
 	require.NoError(t, fs.Parse([]string{"-path", path}))
 	require.EqualError(t,
-		cmd.Run(context.Background(), &stdin, ioutil.Discard),
+		cmd.Run(context.Background(), &stdin, io.Discard),
 		"restore: pipeline: 1 failures encountered")
 
 	for _, repo := range repos {

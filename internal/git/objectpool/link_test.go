@@ -2,7 +2,7 @@ package objectpool
 
 import (
 	"context"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -115,7 +115,7 @@ func TestLinkRemoveBitmap(t *testing.T) {
 }
 
 func listBitmaps(t *testing.T, repoPath string) []string {
-	entries, err := ioutil.ReadDir(filepath.Join(repoPath, "objects/pack"))
+	entries, err := os.ReadDir(filepath.Join(repoPath, "objects/pack"))
 	require.NoError(t, err)
 
 	var bitmaps []string
@@ -161,7 +161,7 @@ func TestLinkAbsoluteLinkExists(t *testing.T) {
 
 	fullPath := filepath.Join(pool.FullPath(), "objects")
 
-	require.NoError(t, ioutil.WriteFile(altPath, []byte(fullPath), 0o644))
+	require.NoError(t, os.WriteFile(altPath, []byte(fullPath), 0o644))
 
 	require.NoError(t, pool.Link(ctx, testRepo), "we expect this call to change the absolute link to a relative link")
 

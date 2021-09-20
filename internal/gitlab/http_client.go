@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 
@@ -64,7 +64,7 @@ func NewHTTPClient(
 		return nil, fmt.Errorf("%s is not a valid url", gitlabCfg.URL)
 	}
 
-	secret, err := ioutil.ReadFile(gitlabCfg.SecretFile)
+	secret, err := os.ReadFile(gitlabCfg.SecretFile)
 	if err != nil {
 		return nil, fmt.Errorf("reading secret file: %w", err)
 	}
@@ -297,7 +297,7 @@ func (c *HTTPClient) Check(ctx context.Context) (*CheckInfo, error) {
 }
 
 func (c *HTTPClient) finalizeResponse(resp *http.Response) {
-	if _, err := io.Copy(ioutil.Discard, resp.Body); err != nil {
+	if _, err := io.Copy(io.Discard, resp.Body); err != nil {
 		c.logger.WithError(err).Errorf("discard body error for the request %q", resp.Request.RequestURI)
 	}
 	if err := resp.Body.Close(); err != nil {

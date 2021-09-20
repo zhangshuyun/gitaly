@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -269,7 +268,7 @@ func (c *Command) wait() {
 
 	if c.reader != nil {
 		// Prevent the command from blocking on writing to its stdout.
-		_, _ = io.Copy(ioutil.Discard, c.reader)
+		_, _ = io.Copy(io.Discard, c.reader)
 	}
 
 	c.waitError = c.cmd.Wait()

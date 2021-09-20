@@ -3,7 +3,6 @@ package repository
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -56,7 +55,7 @@ func TestCreateBundleFromRefList_success(t *testing.T) {
 		return response.GetData(), err
 	})
 
-	bundle, err := ioutil.TempFile("", "bundle")
+	bundle, err := os.CreateTemp("", "bundle")
 	require.NoError(t, err)
 	defer func() { require.NoError(t, os.Remove(bundle.Name())) }()
 

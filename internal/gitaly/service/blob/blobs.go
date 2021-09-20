@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
@@ -169,7 +168,7 @@ func processBlobs(
 
 			// Discard trailing blob data in case the blob is bigger than the read
 			// limit.
-			_, err = io.Copy(ioutil.Discard, blob.ObjectReader)
+			_, err = io.Copy(io.Discard, blob.ObjectReader)
 			if err != nil {
 				return helper.ErrInternal(fmt.Errorf("discarding blob data: %w", err))
 			}

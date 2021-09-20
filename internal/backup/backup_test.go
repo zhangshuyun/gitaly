@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -39,7 +38,7 @@ func TestManager_Create(t *testing.T) {
 		RelativePath: "hooks",
 	})
 	require.NoError(t, os.Mkdir(filepath.Join(hooksRepoPath, "custom_hooks"), os.ModePerm))
-	require.NoError(t, ioutil.WriteFile(filepath.Join(hooksRepoPath, "custom_hooks/pre-commit.sample"), []byte("Some hooks"), os.ModePerm))
+	require.NoError(t, os.WriteFile(filepath.Join(hooksRepoPath, "custom_hooks/pre-commit.sample"), []byte("Some hooks"), os.ModePerm))
 
 	noHooksRepo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
 		RelativePath: "no-hooks",
@@ -336,7 +335,7 @@ func TestResolveSink(t *testing.T) {
 
 	tmpDir := testhelper.TempDir(t)
 	gsCreds := filepath.Join(tmpDir, "gs.creds")
-	require.NoError(t, ioutil.WriteFile(gsCreds, []byte(`
+	require.NoError(t, os.WriteFile(gsCreds, []byte(`
 {
   "type": "service_account",
   "project_id": "hostfactory-179005",

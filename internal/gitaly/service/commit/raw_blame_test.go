@@ -2,7 +2,7 @@ package commit
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -54,7 +54,7 @@ func TestSuccessfulRawBlameRequest(t *testing.T) {
 				return response.GetData(), err
 			})
 
-			blame, err := ioutil.ReadAll(sr)
+			blame, err := io.ReadAll(sr)
 			require.NoError(t, err)
 
 			require.Equal(t, testCase.data, blame, "blame data mismatched")

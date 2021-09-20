@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -54,7 +54,7 @@ func TestGetConfig(t *testing.T) {
 			return bytes, err
 		})
 
-		contents, err := ioutil.ReadAll(reader)
+		contents, err := io.ReadAll(reader)
 		return string(contents), err
 	}
 

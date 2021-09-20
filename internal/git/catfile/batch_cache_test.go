@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"io/ioutil"
 	"os"
 	"sync"
 	"testing"
@@ -218,7 +217,7 @@ func TestCache_BatchProcess(t *testing.T) {
 		// batch processes and trying to read from their stdout. If the cancel did kill the
 		// process as expected, then the stdout should be closed and we'll get an EOF.
 		for _, reader := range []io.Reader{batch.objectInfoReader.cmd, batch.objectReader.cmd} {
-			output, err := ioutil.ReadAll(reader)
+			output, err := io.ReadAll(reader)
 			if err != nil {
 				require.True(t, errors.Is(err, os.ErrClosed))
 			} else {

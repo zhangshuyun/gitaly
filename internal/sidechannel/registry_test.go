@@ -2,7 +2,7 @@ package sidechannel
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"strconv"
 	"sync"
@@ -60,7 +60,7 @@ func TestRegistry(t *testing.T) {
 		}
 
 		for i := 0; i < N; i++ {
-			out, err := ioutil.ReadAll(servers[i])
+			out, err := io.ReadAll(servers[i])
 			require.NoError(t, err)
 			require.Equal(t, strconv.Itoa(i), string(out))
 		}

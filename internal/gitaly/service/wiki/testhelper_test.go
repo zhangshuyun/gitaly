@@ -2,7 +2,6 @@ package wiki
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"reflect"
 	"runtime"
@@ -43,7 +42,7 @@ func testMain(m *testing.M) int {
 	cleanup := testhelper.Configure()
 	defer cleanup()
 
-	tempDir, err := ioutil.TempDir("", "gitaly")
+	tempDir, err := os.MkdirTemp("", "gitaly")
 	if err != nil {
 		log.Error(err)
 		return 1

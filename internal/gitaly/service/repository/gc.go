@@ -1,5 +1,6 @@
 package repository
 
+//nolint:depguard
 import (
 	"context"
 	"errors"

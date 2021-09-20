@@ -2,7 +2,7 @@ package supervisor
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -33,7 +33,7 @@ func testMain(m *testing.M) int {
 	defer cleanup()
 
 	var err error
-	testDir, err = ioutil.TempDir("", "gitaly-supervisor-test")
+	testDir, err = os.MkdirTemp("", "gitaly-supervisor-test")
 	if err != nil {
 		log.Error(err)
 		return 1
@@ -188,7 +188,7 @@ func getPid(ctx context.Context, socket string) (int, error) {
 	}
 	defer conn.Close()
 
-	response, err := ioutil.ReadAll(conn)
+	response, err := io.ReadAll(conn)
 	if err != nil {
 		return 0, err
 	}

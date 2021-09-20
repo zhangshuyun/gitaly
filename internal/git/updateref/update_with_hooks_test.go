@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strings"
 	"testing"
 
@@ -137,7 +136,7 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 		{
 			desc: "successful update",
 			preReceive: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
-				changes, err := ioutil.ReadAll(stdin)
+				changes, err := io.ReadAll(stdin)
 				require.NoError(t, err)
 				require.Equal(t, fmt.Sprintf("%s %s refs/heads/master\n", oldRev, git.ZeroOID.String()), string(changes))
 				require.Empty(t, pushOptions)
@@ -152,7 +151,7 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 				return nil
 			},
 			postReceive: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
-				changes, err := ioutil.ReadAll(stdin)
+				changes, err := io.ReadAll(stdin)
 				require.NoError(t, err)
 				require.Equal(t, fmt.Sprintf("%s %s refs/heads/master\n", oldRev, git.ZeroOID.String()), string(changes))
 				require.Equal(t, env, expectedEnv)
@@ -160,7 +159,7 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 				return nil
 			},
 			referenceTransaction: func(t *testing.T, ctx context.Context, state hook.ReferenceTransactionState, env []string, stdin io.Reader) error {
-				changes, err := ioutil.ReadAll(stdin)
+				changes, err := io.ReadAll(stdin)
 				require.NoError(t, err)
 				require.Equal(t, fmt.Sprintf("%s %s refs/heads/master\n", oldRev, git.ZeroOID.String()), string(changes))
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"path/filepath"
 	"strings"
 
@@ -110,7 +110,7 @@ func (l PointerLocator) findLatestID(ctx context.Context, backupPath string) (st
 	}
 	defer r.Close()
 
-	latest, err := ioutil.ReadAll(r)
+	latest, err := io.ReadAll(r)
 	if err != nil {
 		return "", fmt.Errorf("find latest ID: %w", err)
 	}

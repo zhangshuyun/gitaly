@@ -3,7 +3,6 @@ package repository
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -50,7 +49,7 @@ func TestReplicateRepository(t *testing.T) {
 	// write info attributes
 	attrFilePath := filepath.Join(repoPath, "info", "attributes")
 	attrData := []byte("*.pbxproj binary\n")
-	require.NoError(t, ioutil.WriteFile(attrFilePath, attrData, 0o644))
+	require.NoError(t, os.WriteFile(attrFilePath, attrData, 0o644))
 
 	// Write a modified gitconfig
 	gittest.Exec(t, cfg, "-C", repoPath, "config", "please.replicate", "me")

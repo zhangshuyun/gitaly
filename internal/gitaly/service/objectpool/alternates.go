@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -50,7 +49,7 @@ func (s *server) disconnectAlternates(ctx context.Context, repo *gitalypb.Reposi
 		return err
 	}
 
-	altContents, err := ioutil.ReadFile(altFile)
+	altContents, err := os.ReadFile(altFile)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil

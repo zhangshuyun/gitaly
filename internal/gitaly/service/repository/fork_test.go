@@ -3,7 +3,6 @@ package repository
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -174,13 +173,13 @@ func TestFailedCreateForkRequestDueToExistingTarget(t *testing.T) {
 
 			if testCase.isDir {
 				require.NoError(t, os.MkdirAll(forkedRepoPath, 0o770))
-				require.NoError(t, ioutil.WriteFile(
+				require.NoError(t, os.WriteFile(
 					filepath.Join(forkedRepoPath, "config"),
 					nil,
 					0o644,
 				))
 			} else {
-				require.NoError(t, ioutil.WriteFile(forkedRepoPath, nil, 0o644))
+				require.NoError(t, os.WriteFile(forkedRepoPath, nil, 0o644))
 			}
 			defer func() { require.NoError(t, os.RemoveAll(forkedRepoPath)) }()
 

@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
@@ -59,7 +58,7 @@ type tagHeader struct {
 }
 
 func splitRawTag(r io.Reader, trimRightNewLine bool) (*tagHeader, []byte, error) {
-	raw, err := ioutil.ReadAll(r)
+	raw, err := io.ReadAll(r)
 	if err != nil {
 		return nil, nil, err
 	}

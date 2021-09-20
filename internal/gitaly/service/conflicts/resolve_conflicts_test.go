@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -129,7 +129,7 @@ func TestSuccessfulResolveConflictsRequestHelper(t *testing.T) {
 	hookCount := 0
 
 	verifyFunc := func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
-		changes, err := ioutil.ReadAll(stdin)
+		changes, err := io.ReadAll(stdin)
 		require.NoError(t, err)
 		pattern := fmt.Sprintf("%s .* refs/heads/%s\n", ourCommitOID, sourceBranch)
 		require.Regexp(t, regexp.MustCompile(pattern), string(changes))
@@ -448,7 +448,7 @@ func TestResolveConflictsIdenticalContent(t *testing.T) {
 	} {
 		contents := gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-p", rev+":files/ruby/popen.rb")
 		path := filepath.Join(tempDir, rev)
-		require.NoError(t, ioutil.WriteFile(path, contents, 0o644))
+		require.NoError(t, os.WriteFile(path, contents, 0o644))
 		conflictingPaths = append(conflictingPaths, path)
 	}
 

@@ -2,7 +2,6 @@ package repository
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -49,7 +48,7 @@ func TestSuccessfulCreateBundleRequest(t *testing.T) {
 
 	dstDir, err := tempdir.New(ctx, repo.GetStorageName(), config.NewLocator(cfg))
 	require.NoError(t, err)
-	dstFile, err := ioutil.TempFile(dstDir.Path(), "")
+	dstFile, err := os.CreateTemp(dstDir.Path(), "")
 	require.NoError(t, err)
 	defer dstFile.Close()
 	defer func() { require.NoError(t, os.RemoveAll(dstFile.Name())) }()

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gitpipe"
@@ -137,7 +136,7 @@ func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, sortFiel
 					return fmt.Errorf("parsing tagged commit: %w", err)
 				}
 			} else {
-				if _, err := io.Copy(ioutil.Discard, peeledTag.ObjectReader); err != nil {
+				if _, err := io.Copy(io.Discard, peeledTag.ObjectReader); err != nil {
 					return fmt.Errorf("discarding tagged object contents: %w", err)
 				}
 			}
@@ -152,7 +151,7 @@ func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, sortFiel
 				TargetCommit: commit,
 			}
 		default:
-			if _, err := io.Copy(ioutil.Discard, tag.ObjectReader); err != nil {
+			if _, err := io.Copy(io.Discard, tag.ObjectReader); err != nil {
 				return fmt.Errorf("discarding tag object contents: %w", err)
 			}
 

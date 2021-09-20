@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -83,7 +82,7 @@ func listenGitalySSHCalls(t *testing.T, conf config.Cfg) func() []GitalySSHParam
 		exit $?`,
 		tmpDir, envPrefix, argsPrefix, updatedPath)
 
-	require.NoError(t, ioutil.WriteFile(initialPath, []byte(script), 0o755))
+	require.NoError(t, os.WriteFile(initialPath, []byte(script), 0o755))
 
 	getSSHParams := func() []GitalySSHParams {
 		var gitalySSHParams []GitalySSHParams
@@ -110,7 +109,7 @@ func listenGitalySSHCalls(t *testing.T, conf config.Cfg) func() []GitalySSHParam
 					gitalySSHParams = tmp
 				}
 
-				data, err := ioutil.ReadFile(path)
+				data, err := os.ReadFile(path)
 				if err != nil {
 					return err
 				}

@@ -3,7 +3,6 @@ package tempdir
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -84,7 +83,7 @@ func newDirectory(ctx context.Context, storageName string, prefix string, loc st
 		return Dir{}, err
 	}
 
-	tempDir, err := ioutil.TempDir(root, prefix)
+	tempDir, err := os.MkdirTemp(root, prefix)
 	if err != nil {
 		return Dir{}, err
 	}

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strconv"
 	"time"
 
@@ -54,7 +54,7 @@ func (s *server) CountCommits(ctx context.Context, in *gitalypb.CountCommitsRequ
 	}
 
 	var count int64
-	countStr, readAllErr := ioutil.ReadAll(cmd)
+	countStr, readAllErr := io.ReadAll(cmd)
 	if readAllErr != nil {
 		ctxlogrus.Extract(ctx).WithError(err).Info("ignoring git rev-list error")
 	}

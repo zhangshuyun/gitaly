@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"io/ioutil"
 	"os"
 	"time"
 )
@@ -77,6 +76,6 @@ func (m *ReadMonitor) Monitor(pkt []byte, timeout time.Duration, cancelFn func()
 	}
 
 	// Complete the read loop, then signal completion on pr by closing pw
-	_, _ = io.Copy(ioutil.Discard, teeReader)
+	_, _ = io.Copy(io.Discard, teeReader)
 	_ = m.pw.Close()
 }

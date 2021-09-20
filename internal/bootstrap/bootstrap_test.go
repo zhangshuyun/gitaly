@@ -2,8 +2,8 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -68,7 +68,7 @@ func TestCreateUnixListener(t *testing.T) {
 	}
 
 	// simulate a dangling socket
-	require.NoError(t, ioutil.WriteFile(socketPath, nil, 0o755))
+	require.NoError(t, os.WriteFile(socketPath, nil, 0o755))
 
 	listen := func(network, addr string) (net.Listener, error) {
 		require.Equal(t, "unix", network)
@@ -113,7 +113,7 @@ func TestImmediateTerminationOnSocketError(t *testing.T) {
 
 	err := waitWithTimeout(t, waitCh, 1*time.Second)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "use of closed network connection")
+	require.True(t, errors.Is(err, net.ErrClosed), "expected closed connection error, got %T: %q", err, err)
 }
 
 func TestImmediateTerminationOnSignal(t *testing.T) {

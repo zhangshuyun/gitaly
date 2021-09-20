@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -151,7 +150,7 @@ func makeInfoRefsUploadPackRequest(ctx context.Context, t *testing.T, serverSock
 	c, err := client.InfoRefsUploadPack(ctx, rpcRequest)
 	require.NoError(t, err)
 
-	response, err := ioutil.ReadAll(streamio.NewReader(func() ([]byte, error) {
+	response, err := io.ReadAll(streamio.NewReader(func() ([]byte, error) {
 		resp, err := c.Recv()
 		return resp.GetData(), err
 	}))
@@ -254,7 +253,7 @@ func makeInfoRefsReceivePackRequest(ctx context.Context, t *testing.T, serverSoc
 	c, err := client.InfoRefsReceivePack(ctx, rpcRequest)
 	require.NoError(t, err)
 
-	response, err := ioutil.ReadAll(streamio.NewReader(func() ([]byte, error) {
+	response, err := io.ReadAll(streamio.NewReader(func() ([]byte, error) {
 		resp, err := c.Recv()
 		return resp.GetData(), err
 	}))
@@ -400,7 +399,7 @@ func createInvalidRepo(t testing.TB, repoDir string) func() {
 
 func replaceCachedResponse(t testing.TB, ctx context.Context, cache *cache.DiskCache, req *gitalypb.InfoRefsRequest, newContents string) {
 	path := pathToCachedResponse(t, ctx, cache, req)
-	require.NoError(t, ioutil.WriteFile(path, []byte(newContents), 0o644))
+	require.NoError(t, os.WriteFile(path, []byte(newContents), 0o644))
 }
 
 func setInfoRefsUploadPackMethod(ctx context.Context) context.Context {

@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -216,7 +215,7 @@ func TestReceivePackPushHookFailure(t *testing.T) {
 	require.NoError(t, os.MkdirAll(hooks.Path(cfg), 0o755))
 
 	hookContent := []byte("#!/bin/sh\nexit 1")
-	require.NoError(t, ioutil.WriteFile(filepath.Join(hooks.Path(cfg), "pre-receive"), hookContent, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(hooks.Path(cfg), "pre-receive"), hookContent, 0o755))
 
 	_, _, err := testCloneAndPush(t, cfg, cfg.Storages[0].Path, serverSocketPath, repo, pushParams{storageName: cfg.Storages[0].Name, glID: "1"})
 	require.Error(t, err)
@@ -642,7 +641,7 @@ func makeCommit(t *testing.T, cfg config.Cfg, localRepoPath string) ([]byte, []b
 	newFilePath := localRepoPath + "/foo.txt"
 
 	// Create a tiny file and add it to the index
-	require.NoError(t, ioutil.WriteFile(newFilePath, []byte("foo bar"), 0o644))
+	require.NoError(t, os.WriteFile(newFilePath, []byte("foo bar"), 0o644))
 	gittest.Exec(t, cfg, "-C", localRepoPath, "add", ".")
 
 	// The latest commit ID on the remote repo

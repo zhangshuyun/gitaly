@@ -3,7 +3,6 @@ package git
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,7 +18,7 @@ func BuildSSHInvocation(ctx context.Context, sshKey, knownHosts string) (string,
 		return sshCommand, func() {}, nil
 	}
 
-	tmpDir, err := ioutil.TempDir("", "gitaly-ssh-invocation")
+	tmpDir, err := os.MkdirTemp("", "gitaly-ssh-invocation")
 	if err != nil {
 		return "", func() {}, fmt.Errorf("create temporary directory: %w", err)
 	}
@@ -33,7 +32,7 @@ func BuildSSHInvocation(ctx context.Context, sshKey, knownHosts string) (string,
 	args := []string{sshCommand}
 	if sshKey != "" {
 		sshKeyFile := filepath.Join(tmpDir, "ssh-key")
-		if err := ioutil.WriteFile(sshKeyFile, []byte(sshKey), 0o400); err != nil {
+		if err := os.WriteFile(sshKeyFile, []byte(sshKey), 0o400); err != nil {
 			cleanup()
 			return "", nil, fmt.Errorf("create ssh key file: %w", err)
 		}
@@ -43,7 +42,7 @@ func BuildSSHInvocation(ctx context.Context, sshKey, knownHosts string) (string,
 
 	if knownHosts != "" {
 		knownHostsFile := filepath.Join(tmpDir, "known-hosts")
-		if err := ioutil.WriteFile(knownHostsFile, []byte(knownHosts), 0o400); err != nil {
+		if err := os.WriteFile(knownHostsFile, []byte(knownHosts), 0o400); err != nil {
 			cleanup()
 			return "", nil, fmt.Errorf("create known hosts file: %w", err)
 		}

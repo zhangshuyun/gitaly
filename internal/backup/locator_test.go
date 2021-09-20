@@ -1,7 +1,6 @@
 package backup
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -92,7 +91,7 @@ func TestPointerLocator(t *testing.T) {
 			require.ErrorIs(t, err, ErrDoesntExist)
 
 			require.NoError(t, os.MkdirAll(filepath.Join(backupPath, repo.RelativePath), 0o755))
-			require.NoError(t, ioutil.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte(backupID), 0o644))
+			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte(backupID), 0o644))
 			expected := &Full{
 				BundlePath:      filepath.Join(repo.RelativePath, backupID, "full.bundle"),
 				RefPath:         filepath.Join(repo.RelativePath, backupID, "full.refs"),
@@ -125,7 +124,7 @@ func TestPointerLocator(t *testing.T) {
 			require.Equal(t, expectedFallback, fallbackFull)
 
 			require.NoError(t, os.MkdirAll(filepath.Join(backupPath, repo.RelativePath), 0o755))
-			require.NoError(t, ioutil.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte(backupID), 0o644))
+			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte(backupID), 0o644))
 			expected := &Full{
 				BundlePath:      filepath.Join(repo.RelativePath, backupID, "full.bundle"),
 				RefPath:         filepath.Join(repo.RelativePath, backupID, "full.refs"),

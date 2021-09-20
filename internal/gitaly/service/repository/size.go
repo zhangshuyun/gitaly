@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os/exec"
 	"strconv"
 
@@ -38,7 +38,7 @@ func getPathSize(ctx context.Context, path string) int64 {
 		return 0
 	}
 
-	sizeLine, err := ioutil.ReadAll(cmd)
+	sizeLine, err := io.ReadAll(cmd)
 	if err != nil {
 		ctxlogrus.Extract(ctx).WithError(err).Warn("ignoring command read error")
 		return 0

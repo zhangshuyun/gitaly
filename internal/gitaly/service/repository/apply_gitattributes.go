@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -86,7 +85,7 @@ func (s *server) applyGitattributes(ctx context.Context, c catfile.Batch, repoPa
 		return nil
 	}
 
-	tempFile, err := ioutil.TempFile(infoPath, "attributes")
+	tempFile, err := os.CreateTemp(infoPath, "attributes")
 	if err != nil {
 		return helper.ErrInternalf("creating temporary gitattributes file: %w", err)
 	}

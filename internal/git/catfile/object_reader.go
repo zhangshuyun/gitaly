@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"sync"
 
 	"github.com/opentracing/opentracing-go"
@@ -129,7 +128,7 @@ func (o *objectReader) reader(
 	if oi.Type != expectedType {
 		// This is a programmer error and it should never happen. But if it does,
 		// we need to leave the cat-file process in a good state
-		if _, err := io.CopyN(ioutil.Discard, o.stdout, o.n); err != nil {
+		if _, err := io.CopyN(io.Discard, o.stdout, o.n); err != nil {
 			return nil, err
 		}
 		o.n = 0

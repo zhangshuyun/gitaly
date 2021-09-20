@@ -1,7 +1,6 @@
 package objectpool
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -120,7 +119,7 @@ func TestLinkNoClobber(t *testing.T) {
 	require.NoFileExists(t, alternatesFile)
 
 	contentBefore := "mock/objects\n"
-	require.NoError(t, ioutil.WriteFile(alternatesFile, []byte(contentBefore), 0o644))
+	require.NoError(t, os.WriteFile(alternatesFile, []byte(contentBefore), 0o644))
 
 	request := &gitalypb.LinkRepositoryToObjectPoolRequest{
 		Repository: repo,

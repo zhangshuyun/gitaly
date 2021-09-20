@@ -3,7 +3,6 @@ package catfile
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -33,7 +32,7 @@ func TestObjectReader_reader(t *testing.T) {
 		object, err := reader.reader(ctx, "refs/heads/master", "commit")
 		require.NoError(t, err)
 
-		data, err := ioutil.ReadAll(object)
+		data, err := io.ReadAll(object)
 		require.NoError(t, err)
 		require.Equal(t, commitContents, data)
 	})
@@ -45,7 +44,7 @@ func TestObjectReader_reader(t *testing.T) {
 		object, err := reader.reader(ctx, commitID.Revision(), "commit")
 		require.NoError(t, err)
 
-		data, err := ioutil.ReadAll(object)
+		data, err := io.ReadAll(object)
 		require.NoError(t, err)
 
 		require.Contains(t, string(data), "Merge branch 'cherry-pick-ce369011' into 'master'\n")
@@ -62,7 +61,7 @@ func TestObjectReader_reader(t *testing.T) {
 		object, err := reader.reader(ctx, commitID.Revision(), "commit")
 		require.NoError(t, err)
 
-		data, err := ioutil.ReadAll(object)
+		data, err := io.ReadAll(object)
 		require.NoError(t, err)
 
 		require.Equal(t, commitContents, data)
@@ -79,7 +78,7 @@ func TestObjectReader_reader(t *testing.T) {
 		object, err := reader.reader(ctx, commitID.Revision(), "commit")
 		require.NoError(t, err)
 
-		data, err := ioutil.ReadAll(object)
+		data, err := io.ReadAll(object)
 		require.NoError(t, err)
 
 		require.Equal(t, commitContents, data)
@@ -104,7 +103,7 @@ func TestObjectReader_reader(t *testing.T) {
 		object, err := reader.reader(ctx, commitID.Revision(), "commit")
 		require.NoError(t, err)
 
-		_, err = io.CopyN(ioutil.Discard, object, 100)
+		_, err = io.CopyN(io.Discard, object, 100)
 		require.NoError(t, err)
 
 		// We haven't yet consumed the previous object, so this must now fail.
@@ -131,7 +130,7 @@ func TestObjectReader_reader(t *testing.T) {
 
 			require.Equal(t, float64(1), testutil.ToFloat64(counter.WithLabelValues(objectType)))
 
-			_, err = io.Copy(ioutil.Discard, object)
+			_, err = io.Copy(io.Discard, object)
 			require.NoError(t, err)
 		}
 	})

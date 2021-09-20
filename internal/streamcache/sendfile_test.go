@@ -6,7 +6,6 @@ package streamcache
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"testing"
@@ -34,7 +33,7 @@ func TestPipe_WriteTo(t *testing.T) {
 		{
 			desc: "os.File",
 			create: func(t *testing.T) namedWriteCloser {
-				f, err := ioutil.TempFile("", "pipe write to")
+				f, err := os.CreateTemp("", "pipe write to")
 				require.NoError(t, err)
 				t.Cleanup(func() { require.NoError(t, os.Remove(f.Name())) })
 				return f
@@ -44,7 +43,7 @@ func TestPipe_WriteTo(t *testing.T) {
 		{
 			desc: "non-file writer",
 			create: func(t *testing.T) namedWriteCloser {
-				f, err := ioutil.TempFile("", "pipe write to")
+				f, err := os.CreateTemp("", "pipe write to")
 				require.NoError(t, err)
 				t.Cleanup(func() { require.NoError(t, os.Remove(f.Name())) })
 				return &wrappedFile{f}
@@ -83,7 +82,7 @@ func TestPipe_WriteTo(t *testing.T) {
 			require.NoError(t, outW.Close())
 			require.NoError(t, <-errC)
 
-			outBytes, err := ioutil.ReadFile(outW.Name())
+			outBytes, err := os.ReadFile(outW.Name())
 			require.NoError(t, err)
 			// Don't use require.Equal because we don't want a 10MB error message.
 			require.True(t, bytes.Equal(data, outBytes))
@@ -128,7 +127,7 @@ func TestPipe_WriteTo_EAGAIN(t *testing.T) {
 		}()
 	}()
 
-	out, err := ioutil.ReadAll(fr)
+	out, err := io.ReadAll(fr)
 	require.NoError(t, err)
 	// Don't use require.Equal because we don't want a 10MB error message.
 	require.True(t, bytes.Equal(data, out))

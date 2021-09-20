@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net"
 	"sync"
@@ -52,7 +51,7 @@ func TestSidechannel(t *testing.T) {
 			errC := make(chan error, 1)
 			go func() {
 				var err error
-				out, err = ioutil.ReadAll(conn)
+				out, err = io.ReadAll(conn)
 				errC <- err
 			}()
 
@@ -118,7 +117,7 @@ func TestSidechannelConcurrency(t *testing.T) {
 					errC := make(chan error, 1)
 					go func() {
 						var err error
-						outs[i], err = ioutil.ReadAll(conn)
+						outs[i], err = io.ReadAll(conn)
 						errC <- err
 					}()
 

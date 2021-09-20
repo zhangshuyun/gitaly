@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -425,7 +424,7 @@ type customHookResults struct {
 
 func writeCustomHook(t *testing.T, hookName, dir string, content []byte) func() {
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	require.NoError(t, ioutil.WriteFile(filepath.Join(dir, hookName), content, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, hookName), content, 0o755))
 
 	return func() {
 		require.NoError(t, os.RemoveAll(dir))

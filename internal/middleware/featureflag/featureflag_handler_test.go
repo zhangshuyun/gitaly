@@ -2,7 +2,7 @@ package featureflag
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"testing"
 
 	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -73,7 +73,7 @@ func setup() (context.Context, *test.Hook) {
 func setupContext() (context.Context, *test.Hook) {
 	ctx := context.Background()
 	logger := logrus.New()
-	logger.SetOutput(ioutil.Discard)
+	logger.SetOutput(io.Discard)
 
 	hook := test.NewLocal(logger)
 	ctx = ctxlogrus.ToContext(ctx, logrus.NewEntry(logger))

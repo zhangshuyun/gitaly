@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -449,7 +448,7 @@ func captureGitSSHCommand(t testing.TB, gitBinaryPath string) (string, string) {
 
 	gitPath := filepath.Join(tmpDir, "git-hook")
 	envPath := filepath.Join(tmpDir, "GIT_SSH_PATH")
-	require.NoError(t, ioutil.WriteFile(
+	require.NoError(t, os.WriteFile(
 		gitPath,
 		[]byte(fmt.Sprintf(
 			`#!/usr/bin/env bash
@@ -587,7 +586,7 @@ func TestRepo_Push(t *testing.T) {
 			}
 			require.NoError(t, err)
 
-			gitSSHCommand, err := ioutil.ReadFile(gitSSHCommandFile)
+			gitSSHCommand, err := os.ReadFile(gitSSHCommandFile)
 			if !os.IsNotExist(err) {
 				require.NoError(t, err)
 			}

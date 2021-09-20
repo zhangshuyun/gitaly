@@ -2,7 +2,7 @@ package backup
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,7 +19,7 @@ func TestFilesystemSink_GetReader(t *testing.T) {
 
 		dir := testhelper.TempDir(t)
 		const relativePath = "test.dat"
-		require.NoError(t, ioutil.WriteFile(filepath.Join(dir, relativePath), []byte("test"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, relativePath), []byte("test"), 0o644))
 
 		fsSink := NewFilesystemSink(dir)
 		reader, err := fsSink.GetReader(ctx, relativePath)
@@ -27,7 +27,7 @@ func TestFilesystemSink_GetReader(t *testing.T) {
 
 		defer func() { require.NoError(t, reader.Close()) }()
 
-		data, err := ioutil.ReadAll(reader)
+		data, err := io.ReadAll(reader)
 		require.NoError(t, err)
 		require.Equal(t, []byte("test"), data)
 	})
@@ -58,7 +58,7 @@ func TestFilesystemSink_Write(t *testing.T) {
 		require.NoError(t, fsSink.Write(ctx, relativePath, strings.NewReader("test")))
 
 		require.FileExists(t, filepath.Join(dir, relativePath))
-		data, err := ioutil.ReadFile(filepath.Join(dir, relativePath))
+		data, err := os.ReadFile(filepath.Join(dir, relativePath))
 		require.NoError(t, err)
 		require.Equal(t, []byte("test"), data)
 	})
@@ -85,13 +85,13 @@ func TestFilesystemSink_Write(t *testing.T) {
 		fullPath := filepath.Join(dir, relativePath)
 
 		require.NoError(t, os.MkdirAll(filepath.Dir(fullPath), 0o755))
-		require.NoError(t, ioutil.WriteFile(fullPath, []byte("initial"), 0o655))
+		require.NoError(t, os.WriteFile(fullPath, []byte("initial"), 0o655))
 
 		fsSink := NewFilesystemSink(dir)
 		require.NoError(t, fsSink.Write(ctx, relativePath, strings.NewReader("test")))
 
 		require.FileExists(t, fullPath)
-		data, err := ioutil.ReadFile(fullPath)
+		data, err := os.ReadFile(fullPath)
 		require.NoError(t, err)
 		require.Equal(t, []byte("test"), data)
 	})
@@ -102,7 +102,7 @@ func TestFilesystemSink_Write(t *testing.T) {
 
 		dir := testhelper.TempDir(t)
 		const relativePath = "nested/test.dat"
-		require.NoError(t, ioutil.WriteFile(filepath.Join(dir, "nested"), []byte("lock"), os.ModePerm))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "nested"), []byte("lock"), os.ModePerm))
 
 		fsSink := NewFilesystemSink(dir)
 		err := fsSink.Write(ctx, relativePath, strings.NewReader("test"))

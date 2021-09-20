@@ -1,7 +1,7 @@
 package gitio
 
 import (
-	"io/ioutil"
+	"io"
 	"strings"
 	"testing"
 
@@ -42,7 +42,7 @@ func TestHashfileReader(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			r := NewHashfileReader(strings.NewReader(tc.in))
-			out, err := ioutil.ReadAll(r)
+			out, err := io.ReadAll(r)
 			if tc.fail {
 				require.Error(t, err, "invalid input should cause error")
 				return

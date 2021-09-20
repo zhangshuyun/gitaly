@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -185,7 +185,7 @@ func buildCommit(t *testing.T, ctx context.Context, cfg config.Cfg, repo *gitaly
 
 	for file, contents := range files {
 		filePath := filepath.Join(repoPath, file)
-		require.NoError(t, ioutil.WriteFile(filePath, contents, 0o666))
+		require.NoError(t, os.WriteFile(filePath, contents, 0o666))
 		gittest.Exec(t, cfg, "-C", repoPath, "add", filePath)
 	}
 

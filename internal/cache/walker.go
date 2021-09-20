@@ -5,6 +5,7 @@
 // worker will walk the cache directory every ten minutes.
 package cache
 
+//nolint:depguard
 import (
 	"fmt"
 	"io/ioutil"
@@ -65,7 +66,7 @@ func (c *DiskCache) cleanWalk(path string) error {
 		c.walkerRemovalTotal.Inc()
 	}
 
-	files, err := ioutil.ReadDir(path)
+	files, err := os.ReadDir(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
@@ -133,7 +134,7 @@ func (c *DiskCache) moveAndClear(storage config.Storage) error {
 		return err
 	}
 
-	tmpDir, err := ioutil.TempDir(tempPath, "diskcache")
+	tmpDir, err := os.MkdirTemp(tempPath, "diskcache")
 	if err != nil {
 		return err
 	}
