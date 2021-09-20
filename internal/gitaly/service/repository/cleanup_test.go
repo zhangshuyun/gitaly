@@ -74,8 +74,8 @@ func TestCleanupDeletesStaleWorktrees(t *testing.T) {
 				assert.NoError(t, err)
 				assert.NotNil(t, c)
 
-				require.NoFileExists(t, worktreeCheckoutPath)
-				require.NoFileExists(t, worktreePath)
+				require.NoDirExists(t, worktreeCheckoutPath)
+				require.NoDirExists(t, worktreePath)
 			}
 		})
 	}
@@ -141,7 +141,7 @@ func TestCleanupDisconnectedWorktrees(t *testing.T) {
 	// cleanup should prune the disconnected worktree administrative files
 	_, err = client.Cleanup(ctx, req)
 	require.NoError(t, err)
-	require.NoFileExists(t, worktreeAdminPath)
+	require.NoDirExists(t, worktreeAdminPath)
 
 	// if the worktree administrative files are pruned, then we should be able
 	// to checkout another worktree at the same path
