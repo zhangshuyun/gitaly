@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/hooks"
@@ -224,6 +225,7 @@ func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 		config.NewLocator(cfg),
 		git.NewExecCommandFactory(cfg),
 		nil,
+		transaction.NewManager(cfg, backchannel.NewRegistry()),
 		repo.GetStorageName(),
 		gittest.NewObjectPoolName(t),
 	)

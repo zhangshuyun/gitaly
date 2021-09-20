@@ -82,6 +82,7 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 		deps.GetCfg(),
 		deps.GetRubyServer(),
 		deps.GetHookManager(),
+		deps.GetTxManager(),
 		deps.GetLocator(),
 		deps.GetConnsPool(),
 		deps.GetGitCmdFactory(),
@@ -137,6 +138,7 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 		deps.GetLocator(),
 		deps.GetGitCmdFactory(),
 		deps.GetCatfileCache(),
+		deps.GetTxManager(),
 	))
 	gitalypb.RegisterHookServiceServer(srv, hook.NewServer(
 		deps.GetCfg(),

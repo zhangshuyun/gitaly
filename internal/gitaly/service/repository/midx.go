@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -21,14 +22,21 @@ const (
 )
 
 func (s *server) MidxRepack(ctx context.Context, in *gitalypb.MidxRepackRequest) (*gitalypb.MidxRepackResponse, error) {
-	repo := in.GetRepository()
+	repoProto := in.GetRepository()
+	repo := s.localrepo(repoProto)
 
-	if err := s.midxSetConfig(ctx, repo); err != nil {
-		return nil, err
+	if featureflag.TxExtendedFileLocking.IsEnabled(ctx) {
+		if err := repo.SetConfig(ctx, "core.multiPackIndex", "true", s.txManager); err != nil {
+			return nil, helper.ErrInternalf("setting config: %w", err)
+		}
+	} else {
+		if err := s.midxSetConfig(ctx, repo); err != nil {
+			return nil, err
+		}
 	}
 
 	for _, cmd := range []midxSubCommand{s.midxWrite, s.midxExpire, s.midxRepack} {
-		if err := s.safeMidxCommand(ctx, repo, cmd); err != nil {
+		if err := s.safeMidxCommand(ctx, repoProto, cmd); err != nil {
 			if git.IsInvalidArgErr(err) {
 				return nil, helper.ErrInvalidArgumentf("MidxRepack: %w", err)
 			}

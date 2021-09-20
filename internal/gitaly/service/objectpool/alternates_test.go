@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
@@ -21,12 +20,7 @@ func TestDisconnectGitAlternates(t *testing.T) {
 	defer cancel()
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	pool, err := objectpool.NewObjectPool(cfg, locator, gitCmdFactory, nil, repo.GetStorageName(), gittest.NewObjectPoolName(t))
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, pool.Remove(ctx))
-	}()
-
+	pool := initObjectPool(t, cfg, cfg.Storages[0])
 	require.NoError(t, pool.Create(ctx, repo))
 	require.NoError(t, pool.Link(ctx, repo))
 	gittest.Exec(t, cfg, "-C", repoPath, "gc")

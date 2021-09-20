@@ -37,7 +37,7 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 	}
 
 	// Perform housekeeping to cleanup stale lockfiles that may block GC
-	if err := housekeeping.Perform(ctx, repo); err != nil {
+	if err := housekeeping.Perform(ctx, repo, s.txManager); err != nil {
 		ctxlogger.WithError(err).Warn("Pre gc housekeeping failed")
 	}
 

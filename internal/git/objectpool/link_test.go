@@ -1,14 +1,21 @@
 package objectpool
 
 import (
+	"context"
 	"io/ioutil"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
+	"google.golang.org/grpc/peer"
 )
 
 func TestLink(t *testing.T) {
@@ -37,6 +44,43 @@ func TestLink(t *testing.T) {
 	require.Equal(t, content, newContent)
 
 	require.False(t, gittest.RemoteExists(t, pool.cfg, pool.FullPath(), testRepo.GetGlRepository()), "pool remotes should not include %v", testRepo)
+}
+
+func TestLink_transactional(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.TxExtendedFileLocking,
+	}).Run(t, testLinkTransactional)
+}
+
+func testLinkTransactional(t *testing.T, ctx context.Context) {
+	pool, poolMember := setupObjectPool(t)
+	require.NoError(t, pool.Create(ctx, poolMember))
+
+	votes := 0
+	pool.txManager = &transaction.MockManager{
+		VoteFn: func(context.Context, txinfo.Transaction, voting.Vote) error {
+			votes++
+			return nil
+		},
+	}
+
+	alternatesPath, err := pool.locator.InfoAlternatesPath(poolMember)
+	require.NoError(t, err)
+	require.NoFileExists(t, alternatesPath)
+
+	ctx, err = txinfo.InjectTransaction(ctx, 1, "node", true)
+	require.NoError(t, err)
+	ctx = peer.NewContext(ctx, &peer.Peer{
+		AuthInfo: backchannel.WithID(nil, 1234),
+	})
+
+	require.NoError(t, pool.Link(ctx, poolMember))
+
+	if featureflag.TxExtendedFileLocking.IsEnabled(ctx) {
+		require.Equal(t, 2, votes)
+	} else {
+		require.Equal(t, 0, votes)
+	}
 }
 
 func TestLinkRemoveBitmap(t *testing.T) {

@@ -86,6 +86,7 @@ func runOperationServiceServer(t testing.TB, cfg config.Cfg, rubySrv *rubyserver
 			deps.GetCfg(),
 			deps.GetRubyServer(),
 			deps.GetHookManager(),
+			deps.GetTxManager(),
 			deps.GetLocator(),
 			deps.GetConnsPool(),
 			deps.GetGitCmdFactory(),

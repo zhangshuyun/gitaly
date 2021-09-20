@@ -82,7 +82,7 @@ func testSetFullPath(t *testing.T, ctx context.Context) {
 		expectedErr := fmt.Sprintf("rpc error: code = NotFound desc = writing config: rpc "+
 			"error: code = NotFound desc = GetRepoPath: not a git repository: %q", repoPath)
 		if featureflag.TxFileLocking.IsEnabled(ctx) {
-			expectedErr = fmt.Sprintf("rpc error: code = NotFound desc = getting repository path: rpc "+
+			expectedErr = fmt.Sprintf("rpc error: code = NotFound desc = setting config: rpc "+
 				"error: code = NotFound desc = GetRepoPath: not a git repository: %q", repoPath)
 		}
 		require.EqualError(t, err, expectedErr)

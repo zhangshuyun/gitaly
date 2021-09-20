@@ -7,20 +7,15 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
 func TestGetObjectPoolSuccess(t *testing.T) {
-	cfg, repo, _, locator, client := setup(t)
+	cfg, repo, _, _, client := setup(t)
 
-	relativePoolPath := gittest.NewObjectPoolName(t)
-
-	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), nil, repo.GetStorageName(), relativePoolPath)
-	require.NoError(t, err)
+	pool := initObjectPool(t, cfg, cfg.Storages[0])
+	relativePoolPath := pool.GetRelativePath()
 
 	poolCtx, cancel := testhelper.Context()
 	defer cancel()

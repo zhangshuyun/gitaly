@@ -12,13 +12,16 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
-// Link will write the relative path to the object pool from the repository that
-// is to join the pool. This does not trigger deduplication, which is the
-// responsibility of the caller.
-func (o *ObjectPool) Link(ctx context.Context, repo *gitalypb.Repository) error {
+// Link will link the given repository to the object pool. This is done by writing the object pool's
+// path relative to the repository into the repository's "alternates" file. This does not trigger
+// deduplication, which is the responsibility of the caller.
+func (o *ObjectPool) Link(ctx context.Context, repo *gitalypb.Repository) (returnedErr error) {
 	altPath, err := o.locator.InfoAlternatesPath(repo)
 	if err != nil {
 		return err
@@ -38,26 +41,46 @@ func (o *ObjectPool) Link(ctx context.Context, repo *gitalypb.Repository) error 
 		return nil
 	}
 
-	tmp, err := ioutil.TempFile(filepath.Dir(altPath), "alternates")
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := os.Remove(tmp.Name()); err != nil && !errors.Is(err, os.ErrNotExist) {
-			ctxlogrus.Extract(ctx).WithError(err).Errorf("failed to remove tmp file %q", tmp.Name())
+	if featureflag.TxExtendedFileLocking.IsEnabled(ctx) {
+		alternatesWriter, err := safe.NewLockingFileWriter(altPath)
+		if err != nil {
+			return fmt.Errorf("creating alternates writer: %w", err)
 		}
-	}()
+		defer func() {
+			if err := alternatesWriter.Close(); err != nil && returnedErr == nil {
+				returnedErr = fmt.Errorf("closing alternates writer: %w", err)
+			}
+		}()
 
-	if _, err := io.WriteString(tmp, expectedRelPath); err != nil {
-		return err
-	}
+		if _, err := io.WriteString(alternatesWriter, expectedRelPath); err != nil {
+			return fmt.Errorf("writing alternates: %w", err)
+		}
 
-	if err := tmp.Close(); err != nil {
-		return err
-	}
+		if err := transaction.CommitLockedFile(ctx, o.txManager, alternatesWriter); err != nil {
+			return fmt.Errorf("committing alternates: %w", err)
+		}
+	} else {
+		tmp, err := ioutil.TempFile(filepath.Dir(altPath), "alternates")
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := os.Remove(tmp.Name()); err != nil && !errors.Is(err, os.ErrNotExist) {
+				ctxlogrus.Extract(ctx).WithError(err).Errorf("failed to remove tmp file %q", tmp.Name())
+			}
+		}()
 
-	if err := os.Rename(tmp.Name(), altPath); err != nil {
-		return err
+		if _, err := io.WriteString(tmp, expectedRelPath); err != nil {
+			return err
+		}
+
+		if err := tmp.Close(); err != nil {
+			return err
+		}
+
+		if err := os.Rename(tmp.Name(), altPath); err != nil {
+			return err
+		}
 	}
 
 	return o.removeMemberBitmaps(repo)

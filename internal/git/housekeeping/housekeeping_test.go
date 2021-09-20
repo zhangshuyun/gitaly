@@ -2,6 +2,7 @@ package housekeeping
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -12,10 +13,17 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
+	"google.golang.org/grpc/peer"
 )
 
 type entryFinalState int
@@ -216,7 +224,7 @@ func TestPerform(t *testing.T) {
 				e.create(t, repoPath)
 			}
 
-			require.NoError(t, Perform(ctx, repo))
+			require.NoError(t, Perform(ctx, repo, nil))
 
 			for _, e := range tc.entries {
 				e.validate(t, repoPath)
@@ -303,7 +311,7 @@ func TestPerform_references(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			require.NoError(t, Perform(ctx, repo))
+			require.NoError(t, Perform(ctx, repo, nil))
 
 			var actual []string
 			require.NoError(t, filepath.Walk(filepath.Join(repoPath, "refs"), func(path string, info os.FileInfo, _ error) error {
@@ -406,7 +414,7 @@ func TestPerform_emptyRefDirs(t *testing.T) {
 				e.create(t, repoPath)
 			}
 
-			require.NoError(t, Perform(ctx, repo))
+			require.NoError(t, Perform(ctx, repo, nil))
 
 			for _, e := range tc.entries {
 				e.validate(t, repoPath)
@@ -479,7 +487,7 @@ func testPerformWithSpecificFile(t *testing.T, file string, finder staleFileFind
 			require.NoError(t, err)
 			require.ElementsMatch(t, tc.expectedFiles, staleFiles)
 
-			require.NoError(t, Perform(ctx, repo))
+			require.NoError(t, Perform(ctx, repo, nil))
 
 			for _, e := range tc.entries {
 				e.validate(t, repoPath)
@@ -563,7 +571,7 @@ func TestPerform_referenceLocks(t *testing.T) {
 			require.NoError(t, err)
 			require.ElementsMatch(t, expectedReferenceLocks, staleLockfiles)
 
-			require.NoError(t, Perform(ctx, repo))
+			require.NoError(t, Perform(ctx, repo, nil))
 
 			for _, e := range tc.entries {
 				e.validate(t, repoPath)
@@ -655,7 +663,7 @@ func TestPerformRepoDoesNotExist(t *testing.T) {
 
 	require.NoError(t, os.RemoveAll(repoPath))
 
-	require.NoError(t, Perform(ctx, repo))
+	require.NoError(t, Perform(ctx, repo, nil))
 }
 
 func TestPerform_UnsetConfiguration(t *testing.T) {
@@ -686,9 +694,48 @@ func TestPerform_UnsetConfiguration(t *testing.T) {
 		}
 	}
 
-	require.NoError(t, Perform(ctx, repo))
+	require.NoError(t, Perform(ctx, repo, nil))
 
 	opts, err = repo.Config().GetRegexp(ctx, ".*", git.ConfigGetRegexpOpts{})
 	require.NoError(t, err)
 	require.Equal(t, filteredOpts, opts)
+}
+
+func TestPerform_UnsetConfiguration_transactional(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.TxExtendedFileLocking,
+	}).Run(t, testPerformUnsetConfigurationTransactional)
+}
+
+func testPerformUnsetConfigurationTransactional(t *testing.T, ctx context.Context) {
+	cfg := testcfg.Build(t)
+	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	require.NoError(t, repo.Config().Set(ctx, "http.some.extraHeader", "value"))
+
+	votes := 0
+	txManager := &transaction.MockManager{
+		VoteFn: func(context.Context, txinfo.Transaction, voting.Vote) error {
+			votes++
+			return nil
+		},
+	}
+
+	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
+	require.NoError(t, err)
+	ctx = peer.NewContext(ctx, &peer.Peer{
+		AuthInfo: backchannel.WithID(nil, 1234),
+	})
+
+	require.NoError(t, Perform(ctx, repo, txManager))
+
+	if featureflag.TxExtendedFileLocking.IsEnabled(ctx) {
+		require.Equal(t, 2, votes)
+	} else {
+		require.Equal(t, 0, votes)
+	}
+
+	configKeys := gittest.Exec(t, cfg, "-C", repoPath, "config", "--list", "--local", "--name-only")
+	require.Equal(t, "core.repositoryformatversion\ncore.filemode\ncore.bare\n", string(configKeys))
 }

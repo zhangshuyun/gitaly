@@ -32,7 +32,7 @@ func (s *server) CloneFromPool(ctx context.Context, req *gitalypb.CloneFromPoolR
 		return nil, helper.ErrInternalf("fetch http remote: %v", err)
 	}
 
-	objectPool, err := objectpool.FromProto(s.cfg, s.locator, s.gitCmdFactory, s.catfileCache, req.GetPool())
+	objectPool, err := objectpool.FromProto(s.cfg, s.locator, s.gitCmdFactory, s.catfileCache, s.txManager, req.GetPool())
 	if err != nil {
 		return nil, helper.ErrInternalf("get object pool from request: %v", err)
 	}
@@ -54,7 +54,7 @@ func (s *server) validateCloneFromPoolRequestRepositoryState(req *gitalypb.Clone
 		return errors.New("target reopsitory already exists")
 	}
 
-	objectPool, err := objectpool.FromProto(s.cfg, s.locator, s.gitCmdFactory, s.catfileCache, req.GetPool())
+	objectPool, err := objectpool.FromProto(s.cfg, s.locator, s.gitCmdFactory, s.catfileCache, s.txManager, req.GetPool())
 	if err != nil {
 		return fmt.Errorf("getting object pool from repository: %v", err)
 	}
