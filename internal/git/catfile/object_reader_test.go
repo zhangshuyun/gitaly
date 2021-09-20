@@ -29,7 +29,7 @@ func TestObjectReader_reader(t *testing.T) {
 		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
 
-		object, err := reader.reader(ctx, "refs/heads/master")
+		object, err := reader.Object(ctx, "refs/heads/master")
 		require.NoError(t, err)
 
 		data, err := io.ReadAll(object)
@@ -41,7 +41,7 @@ func TestObjectReader_reader(t *testing.T) {
 		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
 
-		object, err := reader.reader(ctx, commitID.Revision())
+		object, err := reader.Object(ctx, commitID.Revision())
 		require.NoError(t, err)
 
 		data, err := io.ReadAll(object)
@@ -54,11 +54,11 @@ func TestObjectReader_reader(t *testing.T) {
 		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
 
-		_, err = reader.reader(ctx, "refs/heads/does-not-exist")
+		_, err = reader.Object(ctx, "refs/heads/does-not-exist")
 		require.EqualError(t, err, "object not found")
 
 		// Verify that we're still able to read a commit after the previous read has failed.
-		object, err := reader.reader(ctx, commitID.Revision())
+		object, err := reader.Object(ctx, commitID.Revision())
 		require.NoError(t, err)
 
 		data, err := io.ReadAll(object)
@@ -71,11 +71,11 @@ func TestObjectReader_reader(t *testing.T) {
 		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
 
-		_, err = reader.reader(ctx, commitID.Revision())
+		_, err = reader.Object(ctx, commitID.Revision())
 		require.NoError(t, err)
 
 		// We haven't yet consumed the previous object, so this must now fail.
-		_, err = reader.reader(ctx, commitID.Revision())
+		_, err = reader.Object(ctx, commitID.Revision())
 		require.EqualError(t, err, fmt.Sprintf("cannot create new Object: batch contains %d unread bytes", len(commitContents)+1))
 	})
 
@@ -83,14 +83,14 @@ func TestObjectReader_reader(t *testing.T) {
 		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
 
-		object, err := reader.reader(ctx, commitID.Revision())
+		object, err := reader.Object(ctx, commitID.Revision())
 		require.NoError(t, err)
 
 		_, err = io.CopyN(io.Discard, object, 100)
 		require.NoError(t, err)
 
 		// We haven't yet consumed the previous object, so this must now fail.
-		_, err = reader.reader(ctx, commitID.Revision())
+		_, err = reader.Object(ctx, commitID.Revision())
 		require.EqualError(t, err, fmt.Sprintf("cannot create new Object: batch contains %d unread bytes", len(commitContents)-100+1))
 	})
 
@@ -108,7 +108,7 @@ func TestObjectReader_reader(t *testing.T) {
 		} {
 			require.Equal(t, float64(0), testutil.ToFloat64(counter.WithLabelValues(objectType)))
 
-			object, err := reader.reader(ctx, revision)
+			object, err := reader.Object(ctx, revision)
 			require.NoError(t, err)
 
 			require.Equal(t, float64(1), testutil.ToFloat64(counter.WithLabelValues(objectType)))

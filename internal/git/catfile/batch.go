@@ -127,7 +127,7 @@ func (c *batch) Tag(ctx context.Context, revision git.Revision) (*Object, error)
 }
 
 func (c *batch) typedObjectReader(ctx context.Context, revision git.Revision, expectedType string) (*Object, error) {
-	object, err := c.objectReader.reader(ctx, revision)
+	object, err := c.objectReader.Object(ctx, revision)
 	if err != nil {
 		return nil, err
 	}

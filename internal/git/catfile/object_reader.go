@@ -21,6 +21,15 @@ type Object struct {
 	io.Reader
 }
 
+// ObjectReader is a reader for Git objects.
+type ObjectReader interface {
+	cacheable
+
+	// Reader returns a new Object for the given revision. The Object must be fully consumed
+	// before another object is requested.
+	Object(_ context.Context, _ git.Revision) (*Object, error)
+}
+
 // objectReader is a reader for Git objects. Reading is implemented via a long-lived `git cat-file
 // --batch` process such that we do not have to spawn a new process for each object we are about to
 // read.
@@ -40,6 +49,8 @@ type objectReader struct {
 	// instead of doing unsafe memory writes (to n) and failing in some
 	// unpredictable way.
 	sync.Mutex
+
+	closed bool
 
 	// creationCtx is the context in which this reader has been created. This context may
 	// potentially be decorrelated from the "real" RPC context in case the reader is going to be
@@ -84,10 +95,21 @@ func newObjectReader(
 }
 
 func (o *objectReader) close() {
+	o.Lock()
+	defer o.Unlock()
+
 	_ = o.cmd.Wait()
+
+	o.closed = true
 }
 
-func (o *objectReader) reader(
+func (o *objectReader) isClosed() bool {
+	o.Lock()
+	defer o.Unlock()
+	return o.closed
+}
+
+func (o *objectReader) Object(
 	ctx context.Context,
 	revision git.Revision,
 ) (*Object, error) {

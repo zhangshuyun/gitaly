@@ -31,6 +31,9 @@ type Cache interface {
 	// BatchProcess either creates a new git-cat-file(1) process or returns a cached one for
 	// the given repository.
 	BatchProcess(context.Context, git.RepositoryExecutor) (Batch, error)
+	// ObjectReader either creates a new object reader or returns a cached one for the given
+	// repository.
+	ObjectReader(context.Context, git.RepositoryExecutor) (ObjectReader, error)
 	// Evict evicts all cached processes from the cache.
 	Evict()
 }
@@ -53,6 +56,7 @@ type ProcessCache struct {
 	monitorDone   chan interface{}
 
 	batchProcesses stack
+	objectReaders  stack
 
 	catfileCacheCounter     *prometheus.CounterVec
 	currentCatfileProcesses prometheus.Gauge
@@ -79,6 +83,9 @@ func newCache(ttl time.Duration, maxLen int, refreshInterval time.Duration) *Pro
 	processCache := &ProcessCache{
 		ttl: ttl,
 		batchProcesses: stack{
+			maxLen: maxLen,
+		},
+		objectReaders: stack{
 			maxLen: maxLen,
 		},
 		catfileCacheCounter: prometheus.NewCounterVec(
@@ -141,6 +148,7 @@ func (c *ProcessCache) monitor() {
 		select {
 		case <-c.monitorTicker.C:
 			c.batchProcesses.EnforceTTL(time.Now())
+			c.objectReaders.EnforceTTL(time.Now())
 		case <-c.monitorDone:
 			close(c.monitorDone)
 			return
@@ -174,6 +182,23 @@ func (c *ProcessCache) BatchProcess(ctx context.Context, repo git.RepositoryExec
 	}
 
 	return batch, nil
+}
+
+// ObjectReader creates a new ObjectReader process for the given repository.
+func (c *ProcessCache) ObjectReader(ctx context.Context, repo git.RepositoryExecutor) (ObjectReader, error) {
+	cacheable, err := c.getOrCreateProcess(ctx, repo, &c.objectReaders, func(ctx context.Context) (cacheable, error) {
+		return newObjectReader(ctx, repo, c.catfileLookupCounter)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	objectReader, ok := cacheable.(ObjectReader)
+	if !ok {
+		return nil, fmt.Errorf("expected object reader, got %T", objectReader)
+	}
+
+	return objectReader, nil
 }
 
 func (c *ProcessCache) getOrCreateProcess(
@@ -254,11 +279,13 @@ func (c *ProcessCache) getOrCreateProcess(
 
 func (c *ProcessCache) reportCacheMembers() {
 	c.catfileCacheMembers.WithLabelValues("batch").Set(float64(c.batchProcesses.EntryCount()))
+	c.catfileCacheMembers.WithLabelValues("object_reader").Set(float64(c.objectReaders.EntryCount()))
 }
 
 // Evict evicts all cached processes from the cache.
 func (c *ProcessCache) Evict() {
 	c.batchProcesses.Evict()
+	c.objectReaders.Evict()
 }
 
 func (c *ProcessCache) returnWhenDone(done <-chan struct{}, s *stack, cacheKey key, value cacheable, cancel func()) {
