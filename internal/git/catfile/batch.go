@@ -83,6 +83,10 @@ func (c *batch) close() {
 	c.objectInfoReader.close()
 }
 
+func (c *batch) isDirty() bool {
+	return c.objectReader.isDirty() || c.objectInfoReader.isDirty()
+}
+
 func (c *batch) isClosed() bool {
 	c.closedMutex.Lock()
 	defer c.closedMutex.Unlock()
@@ -92,7 +96,7 @@ func (c *batch) isClosed() bool {
 // Info returns an ObjectInfo if spec exists. If the revision does not exist
 // the error is of type NotFoundError.
 func (c *batch) Info(ctx context.Context, revision git.Revision) (*ObjectInfo, error) {
-	return c.objectInfoReader.info(ctx, revision)
+	return c.objectInfoReader.Info(ctx, revision)
 }
 
 // Tree returns a raw tree object. It is an error if the revision does not

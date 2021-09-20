@@ -476,6 +476,111 @@ func TestCache_ObjectReader(t *testing.T) {
 	})
 }
 
+func TestCache_ObjectInfoReader(t *testing.T) {
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	repoExecutor := newRepoExecutor(t, cfg, repo)
+
+	cache := newCache(time.Hour, 10, time.Hour)
+	defer cache.Stop()
+	cache.cachedProcessDone = sync.NewCond(&sync.Mutex{})
+
+	t.Run("uncancellable", func(t *testing.T) {
+		ctx := context.Background()
+
+		require.PanicsWithValue(t, "empty ctx.Done() in catfile.Batch.New()", func() {
+			_, _ = cache.ObjectInfoReader(ctx, repoExecutor)
+		})
+	})
+
+	t.Run("uncacheable", func(t *testing.T) {
+		ctx, cancel := testhelper.Context()
+		defer cancel()
+
+		// The context doesn't carry a session ID and is thus uncacheable.
+		// The process should never get returned to the cache and must be
+		// killed on context cancellation.
+		reader, err := cache.ObjectInfoReader(ctx, repoExecutor)
+		require.NoError(t, err)
+
+		objectInfoReaderImpl, ok := reader.(*objectInfoReader)
+		require.True(t, ok, "expected object reader")
+
+		cancel()
+
+		// We're cheating a bit here to avoid creating a racy test by reaching into the
+		// process and trying to read from its stdout. If the cancel did kill the process as
+		// expected, then the stdout should be closed and we'll get an EOF.
+		output, err := io.ReadAll(objectInfoReaderImpl.stdout)
+		if err != nil {
+			require.True(t, errors.Is(err, os.ErrClosed))
+		} else {
+			require.NoError(t, err)
+		}
+		require.Empty(t, output)
+
+		require.True(t, reader.isClosed())
+		require.Empty(t, keys(t, &cache.objectInfoReaders))
+	})
+
+	t.Run("cacheable", func(t *testing.T) {
+		defer cache.Evict()
+
+		ctx, cancel := testhelper.Context()
+		defer cancel()
+		ctx = correlation.ContextWithCorrelation(ctx, "1")
+		ctx = testhelper.MergeIncomingMetadata(ctx,
+			metadata.Pairs(SessionIDField, "1"),
+		)
+
+		reader, err := cache.ObjectInfoReader(ctx, repoExecutor)
+		require.NoError(t, err)
+
+		// Cancel the context such that the process will be considered for return to the
+		// cache and wait for the cache to collect it.
+		cache.cachedProcessDone.L.Lock()
+		cancel()
+		defer cache.cachedProcessDone.L.Unlock()
+		cache.cachedProcessDone.Wait()
+
+		keys := keys(t, &cache.objectInfoReaders)
+		require.Equal(t, []key{{
+			sessionID:   "1",
+			repoStorage: repo.GetStorageName(),
+			repoRelPath: repo.GetRelativePath(),
+		}}, keys)
+
+		// Assert that we can still read from the cached process.
+		_, err = reader.Info(ctx, "refs/heads/master")
+		require.NoError(t, err)
+	})
+
+	t.Run("closed process does not get cached", func(t *testing.T) {
+		defer cache.Evict()
+
+		ctx, cancel := testhelper.Context()
+		defer cancel()
+		ctx = testhelper.MergeIncomingMetadata(ctx,
+			metadata.Pairs(SessionIDField, "1"),
+		)
+
+		reader, err := cache.ObjectInfoReader(ctx, repoExecutor)
+		require.NoError(t, err)
+
+		// Closed processes naturally cannot be reused anymore and thus shouldn't ever get
+		// cached.
+		reader.close()
+
+		// Cancel the context such that the process will be considered for return to the
+		// cache and wait for the cache to collect it.
+		cache.cachedProcessDone.L.Lock()
+		cancel()
+		defer cache.cachedProcessDone.L.Unlock()
+		cache.cachedProcessDone.Wait()
+
+		require.Empty(t, keys(t, &cache.objectInfoReaders))
+	})
+}
+
 func requireStackValid(t *testing.T, s *stack) {
 	s.entriesMutex.Lock()
 	defer s.entriesMutex.Unlock()
