@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/commit"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -52,7 +53,7 @@ func TestRepository(t *testing.T) {
 	gittest.TestRepository(t, cfg, func(t testing.TB, pbRepo *gitalypb.Repository) git.Repository {
 		t.Helper()
 
-		r, err := remoterepo.New(helper.OutgoingToIncoming(ctx), pbRepo, pool)
+		r, err := remoterepo.New(metadata.OutgoingToIncoming(ctx), pbRepo, pool)
 		require.NoError(t, err)
 		return r
 	})

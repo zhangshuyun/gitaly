@@ -22,8 +22,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
@@ -637,7 +637,7 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 
 	ctx, err := txinfo.InjectTransaction(ctx, 1234, "primary", true)
 	require.NoError(t, err)
-	ctx = helper.IncomingToOutgoing(ctx)
+	ctx = metadata.IncomingToOutgoing(ctx)
 
 	client := newMuxedSmartHTTPClient(t, ctx, addr, cfg.Auth.Token, func() backchannel.Server {
 		srv := grpc.NewServer()

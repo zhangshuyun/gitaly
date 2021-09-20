@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
@@ -57,7 +58,7 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 	// may still modify the repository even though the local side has
 	// returned already.
 	g, _ := errgroup.WithContext(ctx)
-	outgoingCtx := helper.IncomingToOutgoing(ctx)
+	outgoingCtx := metadata.IncomingToOutgoing(ctx)
 
 	syncFuncs := []func(context.Context, *gitalypb.ReplicateRepositoryRequest) error{
 		s.syncGitconfig,

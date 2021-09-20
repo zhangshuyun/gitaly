@@ -1,21 +1,17 @@
 // Copyright 2017 Michal Witkowski. All Rights Reserved.
 // See LICENSE for licensing terms.
 
-// TODO: remove the following linter override when the deprecations are fixed
-// in issue https://gitlab.com/gitlab-org/gitaly/issues/1663
-//lint:file-ignore SA1019 Ignore all gRPC deprecations until issue #1663
-
 package proxy_test
 
 import (
 	"context"
 	"strings"
 
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/grpc-proxy/proxy"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
+	grpc_metadata "google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -44,16 +40,22 @@ func ExampleStreamDirector() {
 		if strings.HasPrefix(fullMethodName, "/com.example.internal.") {
 			return nil, status.Errorf(codes.Unimplemented, "Unknown method")
 		}
-		md, ok := metadata.FromIncomingContext(ctx)
+		md, ok := grpc_metadata.FromIncomingContext(ctx)
 		if ok {
 			// Decide on which backend to dial
 			if val, exists := md[":authority"]; exists && val[0] == "staging.api.example.com" {
 				// Make sure we use DialContext so the dialing can be cancelled/time out together with the context.
 				conn, err := grpc.DialContext(ctx, "api-service.staging.svc.local", grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())))
-				return proxy.NewStreamParameters(proxy.Destination{Conn: conn, Ctx: helper.IncomingToOutgoing(ctx)}, nil, nil, nil), err
+				return proxy.NewStreamParameters(proxy.Destination{
+					Conn: conn,
+					Ctx:  metadata.IncomingToOutgoing(ctx),
+				}, nil, nil, nil), err
 			} else if val, exists := md[":authority"]; exists && val[0] == "api.example.com" {
 				conn, err := grpc.DialContext(ctx, "api-service.prod.svc.local", grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())))
-				return proxy.NewStreamParameters(proxy.Destination{Conn: conn, Ctx: helper.IncomingToOutgoing(ctx)}, nil, nil, nil), err
+				return proxy.NewStreamParameters(proxy.Destination{
+					Conn: conn,
+					Ctx:  metadata.IncomingToOutgoing(ctx),
+				}, nil, nil, nil), err
 			}
 		}
 		return nil, status.Errorf(codes.Unimplemented, "Unknown method")

@@ -97,19 +97,3 @@ func TestInjectGitalyServers(t *testing.T) {
 		require.Equal(t, []string{"bar"}, md["foo"])
 	})
 }
-
-func TestOutgoingToIncoming(t *testing.T) {
-	ctx := context.Background()
-	ctx, err := InjectGitalyServers(ctx, "a", "b", "c")
-	require.NoError(t, err)
-
-	_, err = ExtractGitalyServer(ctx, "a")
-	require.Equal(t, ErrEmptyMetadata, err,
-		"server should not be found in the incoming context")
-
-	ctx = OutgoingToIncoming(ctx)
-
-	info, err := ExtractGitalyServer(ctx, "a")
-	require.NoError(t, err)
-	require.Equal(t, storage.ServerInfo{Address: "b", Token: "c"}, info)
-}

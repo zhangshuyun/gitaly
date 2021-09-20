@@ -20,8 +20,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
@@ -641,7 +641,7 @@ func testUserApplyPatchTransactional(t *testing.T, ctx context.Context) {
 	ctx = peer.NewContext(ctx, &peer.Peer{
 		AuthInfo: backchannel.WithID(nil, 1234),
 	})
-	ctx = helper.IncomingToOutgoing(ctx)
+	ctx = metadata.IncomingToOutgoing(ctx)
 
 	patch := testhelper.MustReadFile(t, "testdata/0001-A-commit-from-a-patch.patch")
 

@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 	gitalyerrors "gitlab.com/gitlab-org/gitaly/v14/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
@@ -25,7 +26,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc/metadata"
+	grpc_metadata "google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -372,7 +373,7 @@ func shouldRouteRepositoryAccessorToPrimary(ctx context.Context, call grpcCall) 
 
 	// In case the call's metadata tells us to force-route to the primary, then we must abide
 	// and ignore what `forcePrimaryRPCs` says.
-	if md, ok := metadata.FromIncomingContext(ctx); ok {
+	if md, ok := grpc_metadata.FromIncomingContext(ctx); ok {
 		header := md.Get(routeRepositoryAccessorPolicy)
 		if len(header) == 0 {
 			return forcePrimary
@@ -405,7 +406,7 @@ func (c *Coordinator) accessorStreamParameters(ctx context.Context, call grpcCal
 	metrics.ReadDistribution.WithLabelValues(virtualStorage, node.Storage).Inc()
 
 	return proxy.NewStreamParameters(proxy.Destination{
-		Ctx:  helper.IncomingToOutgoing(ctx),
+		Ctx:  metadata.IncomingToOutgoing(ctx),
 		Conn: node.Connection,
 		Msg:  b,
 	}, nil, nil, nil), nil
@@ -486,7 +487,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 	var finalizers []func() error
 
 	primaryDest := proxy.Destination{
-		Ctx:  helper.IncomingToOutgoing(ctx),
+		Ctx:  metadata.IncomingToOutgoing(ctx),
 		Conn: route.Primary.Connection,
 		Msg:  primaryMessage,
 	}
@@ -510,7 +511,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 		if err != nil {
 			return nil, err
 		}
-		primaryDest.Ctx = helper.IncomingToOutgoing(injectedCtx)
+		primaryDest.Ctx = metadata.IncomingToOutgoing(injectedCtx)
 		primaryDest.ErrHandler = func(err error) error {
 			nodeErrors.Lock()
 			defer nodeErrors.Unlock()
@@ -531,7 +532,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 			}
 
 			secondaryDests = append(secondaryDests, proxy.Destination{
-				Ctx:  helper.IncomingToOutgoing(injectedCtx),
+				Ctx:  metadata.IncomingToOutgoing(injectedCtx),
 				Conn: secondary.Connection,
 				Msg:  secondaryMsg,
 				ErrHandler: func(err error) error {

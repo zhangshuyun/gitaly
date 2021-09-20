@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/grpc-proxy/proxy"
 	testservice "gitlab.com/gitlab-org/gitaly/v14/internal/praefect/grpc-proxy/testdata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -37,7 +37,7 @@ func TestStreamPeeking(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, proto.Equal(pingReqSent, peekedRequest), "expected to be the same")
 
-		return proxy.NewStreamParameters(proxy.Destination{Ctx: helper.IncomingToOutgoing(ctx), Conn: backendCC, Msg: peekedMsg}, nil, nil, nil), nil
+		return proxy.NewStreamParameters(proxy.Destination{Ctx: metadata.IncomingToOutgoing(ctx), Conn: backendCC, Msg: peekedMsg}, nil, nil, nil), nil
 	}
 
 	pingResp := &testservice.PingResponse{
@@ -100,7 +100,7 @@ func TestStreamInjecting(t *testing.T) {
 		newPayload, err := proto.Marshal(peekedRequest)
 		require.NoError(t, err)
 
-		return proxy.NewStreamParameters(proxy.Destination{Ctx: helper.IncomingToOutgoing(ctx), Conn: backendCC, Msg: newPayload}, nil, nil, nil), nil
+		return proxy.NewStreamParameters(proxy.Destination{Ctx: metadata.IncomingToOutgoing(ctx), Conn: backendCC, Msg: newPayload}, nil, nil, nil), nil
 	}
 
 	pingResp := &testservice.PingResponse{

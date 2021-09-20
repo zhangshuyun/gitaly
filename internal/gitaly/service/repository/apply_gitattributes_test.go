@@ -15,7 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
@@ -208,7 +208,7 @@ func testApplyGitattributesWithTransaction(t *testing.T, ctx context.Context) {
 
 			ctx, err := txinfo.InjectTransaction(ctx, 1, "primary", true)
 			require.NoError(t, err)
-			ctx = helper.IncomingToOutgoing(ctx)
+			ctx = metadata.IncomingToOutgoing(ctx)
 
 			transactionServer.vote = func(request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
 				return tc.voteFn(t, request)
