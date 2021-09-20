@@ -15,7 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
@@ -151,7 +151,7 @@ func TestDeleteConfigTransactional(t *testing.T) {
 	defer cancel()
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
-	ctx = helper.IncomingToOutgoing(ctx)
+	ctx = metadata.IncomingToOutgoing(ctx)
 
 	unmodifiedContents := testhelper.MustReadFile(t, filepath.Join(repoPath, "config"))
 	gittest.Exec(t, cfg, "-C", repoPath, "config", "delete.me", "now")
@@ -250,7 +250,7 @@ func testSetConfigTransactional(t *testing.T, cfg config.Cfg, rubySrv *rubyserve
 	defer cancel()
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
-	ctx = helper.IncomingToOutgoing(ctx)
+	ctx = metadata.IncomingToOutgoing(ctx)
 
 	unmodifiedContents := testhelper.MustReadFile(t, filepath.Join(repoPath, "config"))
 

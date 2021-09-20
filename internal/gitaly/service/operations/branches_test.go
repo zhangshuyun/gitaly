@@ -12,7 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/hook"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -162,7 +162,7 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 
 			ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 			require.NoError(t, err)
-			ctx = helper.IncomingToOutgoing(ctx)
+			ctx = metadata.IncomingToOutgoing(ctx)
 
 			client := newMuxedOperationClient(t, ctx, tc.address, cfg.Auth.Token,
 				backchannel.NewClientHandshaker(
@@ -506,7 +506,7 @@ func TestUserDeleteBranch_transaction(t *testing.T) {
 	defer cancel()
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
-	ctx = helper.IncomingToOutgoing(ctx)
+	ctx = metadata.IncomingToOutgoing(ctx)
 
 	client := newMuxedOperationClient(t, ctx, fmt.Sprintf("unix://"+cfg.GitalyInternalSocketPath()), cfg.Auth.Token,
 		backchannel.NewClientHandshaker(

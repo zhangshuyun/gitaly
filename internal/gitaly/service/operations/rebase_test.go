@@ -16,7 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -149,12 +149,12 @@ func TestUserRebaseConfirmableTransaction(t *testing.T) {
 
 			ctx := ctx
 			if tc.withTransaction {
-				ctx = helper.OutgoingToIncoming(ctx)
+				ctx = metadata.OutgoingToIncoming(ctx)
 
 				var err error
 				ctx, err = txinfo.InjectTransaction(ctx, 1, "node", tc.primary)
 				require.NoError(t, err)
-				ctx = helper.IncomingToOutgoing(ctx)
+				ctx = metadata.IncomingToOutgoing(ctx)
 			}
 
 			branchSha, err := repo.ResolveRevision(ctx, git.Revision(rebaseBranchName))

@@ -11,7 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ref"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -100,7 +100,7 @@ func (s *server) FetchInternalRemote(ctx context.Context, req *gitalypb.FetchInt
 
 // getRemoteDefaultBranch gets the default branch of a repository hosted on another Gitaly node.
 func getRemoteDefaultBranch(ctx context.Context, repo *gitalypb.Repository, conns *client.Pool) ([]byte, error) {
-	serverInfo, err := helper.ExtractGitalyServer(ctx, repo.StorageName)
+	serverInfo, err := storage.ExtractGitalyServer(ctx, repo.StorageName)
 	if err != nil {
 		return nil, fmt.Errorf("getRemoteDefaultBranch: %w", err)
 	}

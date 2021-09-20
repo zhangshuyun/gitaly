@@ -3,6 +3,7 @@ package featureflag
 import (
 	"context"
 	"strconv"
+	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -56,7 +57,7 @@ func (ff FeatureFlag) IsEnabled(ctx context.Context) bool {
 		return true
 	}
 
-	val, ok := getFlagVal(ctx, ff.Name)
+	val, ok := ff.valueFromContext(ctx)
 	if !ok {
 		return ff.OnByDefault
 	}
@@ -73,17 +74,18 @@ func (ff FeatureFlag) IsDisabled(ctx context.Context) bool {
 	return !ff.IsEnabled(ctx)
 }
 
-func getFlagVal(ctx context.Context, flag string) (string, bool) {
-	if flag == "" {
-		return "", false
-	}
+// MetadataKey returns the key of the feature flag as it is present in the metadata map.
+func (ff FeatureFlag) MetadataKey() string {
+	return ffPrefix + strings.ReplaceAll(ff.Name, "_", "-")
+}
 
+func (ff FeatureFlag) valueFromContext(ctx context.Context) (string, bool) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return "", false
 	}
 
-	val, ok := md[headerKey(flag)]
+	val, ok := md[ff.MetadataKey()]
 	if !ok {
 		return "", false
 	}

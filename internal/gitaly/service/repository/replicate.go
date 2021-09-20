@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
@@ -57,7 +58,7 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 	// may still modify the repository even though the local side has
 	// returned already.
 	g, _ := errgroup.WithContext(ctx)
-	outgoingCtx := helper.IncomingToOutgoing(ctx)
+	outgoingCtx := metadata.IncomingToOutgoing(ctx)
 
 	syncFuncs := []func(context.Context, *gitalypb.ReplicateRepositoryRequest) error{
 		s.syncGitconfig,
@@ -325,7 +326,7 @@ func (s *server) writeFile(ctx context.Context, path string, mode os.FileMode, r
 
 // newRepoClient creates a new RepositoryClient that talks to the gitaly of the source repository
 func (s *server) newRepoClient(ctx context.Context, storageName string) (gitalypb.RepositoryServiceClient, error) {
-	gitalyServerInfo, err := helper.ExtractGitalyServer(ctx, storageName)
+	gitalyServerInfo, err := storage.ExtractGitalyServer(ctx, storageName)
 	if err != nil {
 		return nil, err
 	}

@@ -23,8 +23,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -104,12 +105,24 @@ func TestReceivePackPushSuccess(t *testing.T) {
 	glRepository := "project-456"
 	glProjectPath := "project/path"
 
+	// We're explicitly injecting feature flags here because if we didn't, then Praefect would
+	// do so for us and inject them all with their default value. As a result, we'd see
+	// different flag values depending on whether this test runs with Gitaly or with Praefect
+	// when deserializing the HooksPayload. By setting all flags to `true` explicitly, we both
+	// verify that gitaly-ssh picks up feature flags correctly and fix the test to behave the
+	// same with and without Praefect.
+	featureFlags := map[featureflag.FeatureFlag]bool{}
+	for _, featureFlag := range featureflag.All {
+		featureFlags[featureFlag] = true
+	}
+
 	lHead, rHead, err := testCloneAndPush(t, cfg, cfg.Storages[0].Path, serverSocketPath, repo, pushParams{
 		storageName:   cfg.Storages[0].Name,
 		glID:          "123",
 		glUsername:    "user",
 		glRepository:  glRepository,
 		glProjectPath: glProjectPath,
+		featureFlags:  featureFlags,
 	})
 	require.NoError(t, err)
 	require.Equal(t, lHead, rHead, "local and remote head not equal. push failed")
@@ -132,6 +145,11 @@ func TestReceivePackPushSuccess(t *testing.T) {
 	// figuring out their actual contents. So let's just remove it, too.
 	payload.Transaction = nil
 
+	expectedFeatureFlags := featureflag.Raw{}
+	for _, feature := range featureflag.All {
+		expectedFeatureFlags[feature.MetadataKey()] = "true"
+	}
+
 	require.Equal(t, git.HooksPayload{
 		BinDir:              cfg.BinDir,
 		GitPath:             cfg.Git.BinPath,
@@ -143,6 +161,7 @@ func TestReceivePackPushSuccess(t *testing.T) {
 			Protocol: "ssh",
 		},
 		RequestedHooks: git.ReceivePackHooks,
+		FeatureFlags:   expectedFeatureFlags,
 	}, payload)
 }
 
@@ -282,7 +301,7 @@ func TestReceivePackTransactional(t *testing.T) {
 	defer cancel()
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
-	ctx = helper.IncomingToOutgoing(ctx)
+	ctx = metadata.IncomingToOutgoing(ctx)
 
 	masterOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath,
 		"rev-parse", "refs/heads/master"))
@@ -580,11 +599,17 @@ func sshPush(t *testing.T, cfg config.Cfg, cloneDetails SSHCloneDetails, serverS
 	})
 	require.NoError(t, err)
 
+	featureFlags := []string{}
+	for flag, value := range params.featureFlags {
+		featureFlags = append(featureFlags, fmt.Sprintf("%s:%v", flag.Name, value))
+	}
+
 	cmd := exec.Command(cfg.Git.BinPath, "-C", cloneDetails.LocalRepoPath, "push", "-v", "git@localhost:test/test.git", "master")
 	cmd.Env = []string{
 		fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
 		fmt.Sprintf("GITALY_ADDRESS=%s", serverSocketPath),
-		fmt.Sprintf(`GIT_SSH_COMMAND=%s receive-pack`, filepath.Join(cfg.BinDir, "gitaly-ssh")),
+		fmt.Sprintf("GITALY_FEATUREFLAGS=%s", strings.Join(featureFlags, ",")),
+		fmt.Sprintf("GIT_SSH_COMMAND=%s receive-pack", filepath.Join(cfg.BinDir, "gitaly-ssh")),
 	}
 
 	out, err := cmd.CombinedOutput()
@@ -653,4 +678,5 @@ type pushParams struct {
 	glProjectPath    string
 	gitConfigOptions []string
 	gitProtocol      string
+	featureFlags     map[featureflag.FeatureFlag]bool
 }

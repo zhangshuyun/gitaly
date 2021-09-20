@@ -19,9 +19,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/env"
 	gitalylog "gitlab.com/gitlab-org/gitaly/v14/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/stream"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -344,7 +344,7 @@ func packObjectsHook(ctx context.Context, payload git.HooksPayload, hookClient g
 
 	var rpc string
 	var err error
-	if featureflag.PackObjectsHookWithSidechannel.IsEnabled(helper.OutgoingToIncoming(ctx)) {
+	if featureflag.PackObjectsHookWithSidechannel.IsEnabled(metadata.OutgoingToIncoming(ctx)) {
 		rpc = "PackObjectsHookWithSidechannel"
 		err = handlePackObjectsWithSidechannel(ctx, hookClient, payload.Repo, fixedArgs)
 	} else {

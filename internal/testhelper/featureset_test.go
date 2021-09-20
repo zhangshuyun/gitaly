@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	ff "gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
-	"google.golang.org/grpc/metadata"
+	grpc_metadata "google.golang.org/grpc/metadata"
 )
 
 var (
@@ -155,14 +155,14 @@ func TestFeatureSets_Run(t *testing.T) {
 	NewFeatureSets([]ff.FeatureFlag{
 		featureFlagB, featureFlagA,
 	}).Run(t, func(t *testing.T, ctx context.Context) {
-		incomingMD, ok := metadata.FromIncomingContext(ctx)
+		incomingMD, ok := grpc_metadata.FromIncomingContext(ctx)
 		require.True(t, ok)
 
-		outgoingMD, ok := metadata.FromOutgoingContext(ctx)
+		outgoingMD, ok := grpc_metadata.FromOutgoingContext(ctx)
 		require.True(t, ok)
 
-		incomingCtx := metadata.NewIncomingContext(context.Background(), incomingMD)
-		outgoingCtx := helper.OutgoingToIncoming(metadata.NewOutgoingContext(context.Background(), outgoingMD))
+		incomingCtx := grpc_metadata.NewIncomingContext(context.Background(), incomingMD)
+		outgoingCtx := metadata.OutgoingToIncoming(grpc_metadata.NewOutgoingContext(context.Background(), outgoingMD))
 
 		incomingFlags = append(incomingFlags, [2]bool{
 			featureFlagB.IsDisabled(incomingCtx),
