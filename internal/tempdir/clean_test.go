@@ -2,7 +2,6 @@ package tempdir
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -124,7 +123,7 @@ func assertEntries(t *testing.T, locator storage.Locator, storage config.Storage
 	root, err := locator.TempDir(storage.Name)
 	require.NoError(t, err)
 
-	foundEntries, err := ioutil.ReadDir(root)
+	foundEntries, err := os.ReadDir(root)
 	require.NoError(t, err)
 
 	require.Len(t, foundEntries, len(entries))

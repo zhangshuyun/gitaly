@@ -2,7 +2,7 @@ package objectpool
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -138,7 +138,7 @@ func TestFetchFromOriginBitmapHashCache(t *testing.T) {
 	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "seed pool")
 
 	packDir := filepath.Join(pool.FullPath(), "objects/pack")
-	packEntries, err := ioutil.ReadDir(packDir)
+	packEntries, err := os.ReadDir(packDir)
 	require.NoError(t, err)
 
 	var bitmap string

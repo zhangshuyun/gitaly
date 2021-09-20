@@ -2,7 +2,6 @@ package operations
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -141,7 +140,7 @@ func authorFromUser(user *gitalypb.User, seconds int64) *gitalypb.CommitAuthor {
 func ensureSplitIndexExists(t *testing.T, cfg config.Cfg, repoDir string) bool {
 	gittest.Exec(t, cfg, "-C", repoDir, "update-index", "--add")
 
-	fis, err := ioutil.ReadDir(repoDir)
+	fis, err := os.ReadDir(repoDir)
 	require.NoError(t, err)
 	for _, fi := range fis {
 		if strings.HasPrefix(fi.Name(), "sharedindex") {

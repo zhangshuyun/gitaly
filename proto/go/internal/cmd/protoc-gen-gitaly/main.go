@@ -55,7 +55,6 @@ import (
 	"fmt"
 	"go/format"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -156,7 +155,7 @@ func generateProtolistGo(req *pluginpb.CodeGeneratorRequest) error {
 		return fmt.Errorf("failed to get absolute path for %s: %v", gitalyProtoDir, err)
 	}
 
-	files, err := ioutil.ReadDir(gitalyProtoDir)
+	files, err := os.ReadDir(gitalyProtoDir)
 	if err != nil {
 		return fmt.Errorf("failed to read %s: %v", gitalyProtoDir, err)
 	}

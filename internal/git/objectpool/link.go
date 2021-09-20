@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -134,7 +133,7 @@ func (o *ObjectPool) removeMemberBitmaps(repo repository.GitRepo) error {
 
 func getBitmaps(repoPath string) ([]string, error) {
 	packDir := filepath.Join(repoPath, "objects/pack")
-	entries, err := ioutil.ReadDir(packDir)
+	entries, err := os.ReadDir(packDir)
 	if err != nil {
 		return nil, err
 	}

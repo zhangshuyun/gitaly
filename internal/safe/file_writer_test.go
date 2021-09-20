@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -33,7 +32,7 @@ func TestFileWriter_successful(t *testing.T) {
 	writtenContents := testhelper.MustReadFile(t, filePath)
 	require.Equal(t, fileContents, string(writtenContents))
 
-	filesInTempDir, err := ioutil.ReadDir(dir)
+	filesInTempDir, err := os.ReadDir(dir)
 	require.NoError(t, err)
 	require.Len(t, filesInTempDir, 1)
 	require.Equal(t, filepath.Base(filePath), filesInTempDir[0].Name())
@@ -83,7 +82,7 @@ func TestFileWriter_race(t *testing.T) {
 	wg.Wait()
 
 	require.FileExists(t, filePath)
-	filesInTempDir, err := ioutil.ReadDir(dir)
+	filesInTempDir, err := os.ReadDir(dir)
 	require.NoError(t, err)
 	require.Len(t, filesInTempDir, 1, "make sure no other files were written")
 }
@@ -128,7 +127,7 @@ func TestFileWriter_commitBeforeClose(t *testing.T) {
 }
 
 func dirEmpty(t testing.TB, dirPath string) bool {
-	infos, err := ioutil.ReadDir(dirPath)
+	infos, err := os.ReadDir(dirPath)
 	require.NoError(t, err)
 	return len(infos) == 0
 }

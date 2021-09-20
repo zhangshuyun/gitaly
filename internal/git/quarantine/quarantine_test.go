@@ -372,12 +372,12 @@ func TestFinalizeObjectFile(t *testing.T) {
 	})
 }
 
-type mockFileInfo struct {
-	os.FileInfo
+type mockDirEntry struct {
+	os.DirEntry
 	name string
 }
 
-func (e mockFileInfo) Name() string {
+func (e mockDirEntry) Name() string {
 	return e.name
 }
 
@@ -486,14 +486,14 @@ func TestSortEntries(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			var actualEntries []os.FileInfo
+			var actualEntries []os.DirEntry
 			for _, entry := range tc.entries {
-				actualEntries = append(actualEntries, mockFileInfo{name: entry})
+				actualEntries = append(actualEntries, mockDirEntry{name: entry})
 			}
 
-			var expectedEntries []os.FileInfo
+			var expectedEntries []os.DirEntry
 			for _, entry := range tc.expected {
-				expectedEntries = append(expectedEntries, mockFileInfo{name: entry})
+				expectedEntries = append(expectedEntries, mockDirEntry{name: entry})
 			}
 
 			sortEntries(actualEntries)

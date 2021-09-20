@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -87,7 +86,7 @@ func (d *Dir) Migrate() error {
 }
 
 func migrate(sourcePath, targetPath string) error {
-	entries, err := ioutil.ReadDir(sourcePath)
+	entries, err := os.ReadDir(sourcePath)
 	if err != nil {
 		return fmt.Errorf("reading directory: %w", err)
 	}
@@ -157,7 +156,7 @@ func finalizeObjectFile(sourcePath, targetPath string) error {
 
 // sortEntries sorts packfiles and their associated metafiles such that we copy them over in the
 // correct order.
-func sortEntries(entries []os.FileInfo) {
+func sortEntries(entries []os.DirEntry) {
 	sort.SliceStable(entries, func(i, j int) bool {
 		return packCopyPriority(entries[i].Name()) < packCopyPriority(entries[j].Name())
 	})

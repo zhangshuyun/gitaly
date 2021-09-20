@@ -3,7 +3,6 @@ package x509
 import (
 	"crypto/x509"
 	"errors"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 )
@@ -24,7 +23,7 @@ func SystemCertPool() (*x509.CertPool, error) {
 	}
 
 	if d := os.Getenv(SSLCertDir); len(d) > 0 {
-		entries, err := ioutil.ReadDir(d)
+		entries, err := os.ReadDir(d)
 		if err != nil {
 			return nil, err
 		}

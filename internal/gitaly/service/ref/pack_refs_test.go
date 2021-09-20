@@ -3,7 +3,6 @@ package ref
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -38,7 +37,7 @@ func TestPackRefsSuccessfulRequest(t *testing.T) {
 	_, err := client.PackRefs(ctx, &gitalypb.PackRefsRequest{Repository: repoProto})
 	require.NoError(t, err)
 
-	files, err := ioutil.ReadDir(filepath.Join(repoPath, "refs/heads"))
+	files, err := os.ReadDir(filepath.Join(repoPath, "refs/heads"))
 	require.NoError(t, err)
 	assert.Len(t, files, 0, "git pack-refs --all should have packed all refs in refs/heads")
 	assert.Equal(t, packedRefs+newBranches, linesInPackfile(t, repoPath), fmt.Sprintf("should have added %d new lines to the packfile", newBranches))

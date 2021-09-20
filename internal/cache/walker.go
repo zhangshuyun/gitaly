@@ -65,7 +65,7 @@ func (c *DiskCache) cleanWalk(path string) error {
 		c.walkerRemovalTotal.Inc()
 	}
 
-	files, err := ioutil.ReadDir(path)
+	files, err := os.ReadDir(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil

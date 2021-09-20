@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -321,7 +320,7 @@ func removeRefEmptyDirs(ctx context.Context, repository *localrepo.Repo) error {
 
 	// we never want to delete the actual "refs" directory, so we start the
 	// recursive functions for each subdirectory
-	entries, err := ioutil.ReadDir(repoRefsPath)
+	entries, err := os.ReadDir(repoRefsPath)
 	if err != nil {
 		return err
 	}
@@ -356,7 +355,7 @@ func removeEmptyDirs(ctx context.Context, target string) error {
 		return err
 	}
 
-	entries, err := ioutil.ReadDir(target)
+	entries, err := os.ReadDir(target)
 	switch {
 	case os.IsNotExist(err):
 		return nil // race condition: someone else deleted it first
@@ -382,7 +381,7 @@ func removeEmptyDirs(ctx context.Context, target string) error {
 	}
 
 	// recheck entries now that we have potentially removed some dirs
-	entries, err = ioutil.ReadDir(target)
+	entries, err = os.ReadDir(target)
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
