@@ -608,7 +608,7 @@ func TestRenameRepository(t *testing.T) {
 	repoPaths := make([]string, len(gitalyStorages))
 	praefectCfg := config.Config{
 		VirtualStorages: []*config.VirtualStorage{{Name: "praefect"}},
-		Failover:        config.Failover{Enabled: true},
+		Failover:        config.Failover{Enabled: true, ElectionStrategy: config.ElectionStrategyPerRepository},
 	}
 
 	var repo *gitalypb.Repository

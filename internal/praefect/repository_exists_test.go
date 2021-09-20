@@ -61,6 +61,11 @@ func TestRepositoryExistsStreamInterceptor(t *testing.T) {
 			repository: &gitalypb.Repository{StorageName: "virtual-storage", RelativePath: "relative-path"},
 			response:   &gitalypb.RepositoryExistsResponse{Exists: true},
 		},
+		{
+			desc:          "routed to gitaly",
+			routeToGitaly: true,
+			error:         errServedByGitaly,
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			db.TruncateAll(t)
@@ -76,8 +81,13 @@ func TestRepositoryExistsStreamInterceptor(t *testing.T) {
 			ln, err := net.Listen("unix", filepath.Join(tmp, "praefect"))
 			require.NoError(t, err)
 
+			electionStrategy := config.ElectionStrategyPerRepository
+			if tc.routeToGitaly {
+				electionStrategy = config.ElectionStrategySQL
+			}
+
 			srv := NewGRPCServer(
-				config.Config{},
+				config.Config{Failover: config.Failover{ElectionStrategy: electionStrategy}},
 				testhelper.DiscardTestEntry(t),
 				protoregistry.GitalyProtoPreregistered,
 				func(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
