@@ -3,6 +3,7 @@ package objectpool
 import (
 	"context"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -161,7 +162,7 @@ func TestLinkAbsoluteLinkExists(t *testing.T) {
 
 	fullPath := filepath.Join(pool.FullPath(), "objects")
 
-	require.NoError(t, ioutil.WriteFile(altPath, []byte(fullPath), 0o644))
+	require.NoError(t, os.WriteFile(altPath, []byte(fullPath), 0o644))
 
 	require.NoError(t, pool.Link(ctx, testRepo), "we expect this call to change the absolute link to a relative link")
 

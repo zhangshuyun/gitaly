@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -303,7 +302,7 @@ func TestPerform_references(t *testing.T) {
 				path := filepath.Join(repoPath, ref.name)
 
 				require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
-				require.NoError(t, ioutil.WriteFile(path, bytes.Repeat([]byte{0}, ref.size), 0o644))
+				require.NoError(t, os.WriteFile(path, bytes.Repeat([]byte{0}, ref.size), 0o644))
 				filetime := time.Now().Add(-ref.age)
 				require.NoError(t, os.Chtimes(path, filetime, filetime))
 			}

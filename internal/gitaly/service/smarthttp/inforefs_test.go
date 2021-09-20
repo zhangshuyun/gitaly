@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -400,7 +399,7 @@ func createInvalidRepo(t testing.TB, repoDir string) func() {
 
 func replaceCachedResponse(t testing.TB, ctx context.Context, cache *cache.DiskCache, req *gitalypb.InfoRefsRequest, newContents string) {
 	path := pathToCachedResponse(t, ctx, cache, req)
-	require.NoError(t, ioutil.WriteFile(path, []byte(newContents), 0o644))
+	require.NoError(t, os.WriteFile(path, []byte(newContents), 0o644))
 }
 
 func setInfoRefsUploadPackMethod(ctx context.Context) context.Context {

@@ -3,7 +3,7 @@ package transaction
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -198,7 +198,7 @@ func TestCommitLockedFile(t *testing.T) {
 			VoteFn: func(context.Context, txinfo.Transaction, voting.Vote) error {
 				// This shouldn't typically happen given that the file is locked,
 				// but we concurrently update the file after our first vote.
-				require.NoError(t, ioutil.WriteFile(file, []byte("something"),
+				require.NoError(t, os.WriteFile(file, []byte("something"),
 					0o666))
 				return nil
 			},

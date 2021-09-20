@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -31,7 +30,7 @@ func WriteShellSecretFile(t testing.TB, dir, secretToken string) string {
 
 	require.NoError(t, os.MkdirAll(dir, os.ModeDir))
 	filePath := filepath.Join(dir, ".gitlab_shell_secret")
-	require.NoError(t, ioutil.WriteFile(filePath, []byte(secretToken), 0o644))
+	require.NoError(t, os.WriteFile(filePath, []byte(secretToken), 0o644))
 	return filePath
 }
 

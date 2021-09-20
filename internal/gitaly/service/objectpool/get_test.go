@@ -1,7 +1,6 @@
 package objectpool
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -55,7 +54,7 @@ func TestGetObjectPoolBadFile(t *testing.T) {
 
 	alternatesFilePath := filepath.Join(repoPath, "objects", "info", "alternates")
 	require.NoError(t, os.MkdirAll(filepath.Dir(alternatesFilePath), 0o755))
-	require.NoError(t, ioutil.WriteFile(alternatesFilePath, []byte("not-a-directory"), 0o644))
+	require.NoError(t, os.WriteFile(alternatesFilePath, []byte("not-a-directory"), 0o644))
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

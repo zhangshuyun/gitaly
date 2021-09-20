@@ -4,11 +4,11 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/cgi"
 	"net/http/httptest"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
@@ -67,7 +67,7 @@ func RemoteUploadPackServer(ctx context.Context, t *testing.T, gitPath, repoName
 // repository is prepared such that git-http-backend(1) will serve it by
 // creating the "git-daemon-export-ok" magic file.
 func GitServer(t testing.TB, cfg config.Cfg, repoPath string, middleware func(http.ResponseWriter, *http.Request, http.Handler)) (int, func() error) {
-	require.NoError(t, ioutil.WriteFile(filepath.Join(repoPath, "git-daemon-export-ok"), nil, 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(repoPath, "git-daemon-export-ok"), nil, 0o644))
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)

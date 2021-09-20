@@ -1,7 +1,6 @@
 package git
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -76,7 +75,7 @@ func TestObjectDirsOutsideStorage(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			require.NoError(t, ioutil.WriteFile(alternatesFile, []byte(tc.alternates), 0o600))
+			require.NoError(t, os.WriteFile(alternatesFile, []byte(tc.alternates), 0o600))
 			out, err := ObjectDirectories(ctx, storageRoot, repoPath)
 			require.Equal(t, expectedErr, err)
 			require.Nil(t, out)

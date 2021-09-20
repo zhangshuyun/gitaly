@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -786,7 +785,7 @@ func writeTemporaryGitalyConfigFile(t testing.TB, tempDir, gitlabURL, user, pass
     password = %q
 `, gitlabURL, secretFile, user, password)
 
-	require.NoError(t, ioutil.WriteFile(path, []byte(contents), 0o644))
+	require.NoError(t, os.WriteFile(path, []byte(contents), 0o644))
 	return path, func() {
 		require.NoError(t, os.RemoveAll(path))
 	}

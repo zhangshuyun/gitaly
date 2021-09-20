@@ -3,7 +3,6 @@ package objectpool
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -71,7 +70,7 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 	require.NoError(t, err)
 	brokenRef := filepath.Join(poolPath, "refs", "heads", "broken")
 	require.NoError(t, os.MkdirAll(filepath.Dir(brokenRef), 0o755))
-	require.NoError(t, ioutil.WriteFile(brokenRef, []byte{}, 0o777))
+	require.NoError(t, os.WriteFile(brokenRef, []byte{}, 0o777))
 
 	oldTime := time.Now().Add(-25 * time.Hour)
 	require.NoError(t, os.Chtimes(brokenRef, oldTime, oldTime))
@@ -100,7 +99,7 @@ func TestFetchIntoObjectPool_hooks(t *testing.T) {
 
 	// Set up a custom reference-transaction hook which simply exits failure. This asserts that
 	// the RPC doesn't invoke any reference-transaction.
-	require.NoError(t, ioutil.WriteFile(filepath.Join(hookDir, "reference-transaction"), []byte("#!/bin/sh\nexit 1\n"), 0o777))
+	require.NoError(t, os.WriteFile(filepath.Join(hookDir, "reference-transaction"), []byte("#!/bin/sh\nexit 1\n"), 0o777))
 
 	req := &gitalypb.FetchIntoObjectPoolRequest{
 		ObjectPool: pool.ToProto(),

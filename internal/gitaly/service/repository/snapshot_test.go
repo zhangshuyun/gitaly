@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http/httptest"
 	"os"
 	"os/exec"
@@ -49,7 +48,7 @@ func getSnapshot(client gitalypb.RepositoryServiceClient, req *gitalypb.GetSnaps
 
 func touch(t *testing.T, format string, args ...interface{}) {
 	path := fmt.Sprintf(format, args...)
-	require.NoError(t, ioutil.WriteFile(path, nil, 0o644))
+	require.NoError(t, os.WriteFile(path, nil, 0o644))
 }
 
 func TestGetSnapshotSuccess(t *testing.T) {
@@ -144,7 +143,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 			// write alternates file to point to alt objects folder
 			alternatesPath, err := locator.InfoAlternatesPath(repoProto)
 			require.NoError(t, err)
-			require.NoError(t, ioutil.WriteFile(alternatesPath, []byte(filepath.Join(repoPath, ".git", fmt.Sprintf("%s\n", alternateObjDir))), 0o644))
+			require.NoError(t, os.WriteFile(alternatesPath, []byte(filepath.Join(repoPath, ".git", fmt.Sprintf("%s\n", alternateObjDir))), 0o644))
 
 			// write another commit and ensure we can find it
 			cmd = exec.Command(cfg.Git.BinPath, "-C", repoPath,
@@ -182,7 +181,7 @@ func TestGetSnapshotWithDedupeSoftFailures(t *testing.T) {
 	alternateObjPath := filepath.Join(repoPath, ".git", alternateObjDir)
 	alternatesPath, err := locator.InfoAlternatesPath(testRepo)
 	require.NoError(t, err)
-	require.NoError(t, ioutil.WriteFile(alternatesPath, []byte(fmt.Sprintf("%s\n", alternateObjPath)), 0o644))
+	require.NoError(t, os.WriteFile(alternatesPath, []byte(fmt.Sprintf("%s\n", alternateObjPath)), 0o644))
 
 	req := &gitalypb.GetSnapshotRequest{Repository: testRepo}
 	_, err = getSnapshot(client, req)
@@ -192,14 +191,14 @@ func TestGetSnapshotWithDedupeSoftFailures(t *testing.T) {
 	// write alternates file to point outside storage root
 	storageRoot, err := locator.GetStorageByName(testRepo.GetStorageName())
 	require.NoError(t, err)
-	require.NoError(t, ioutil.WriteFile(alternatesPath, []byte(filepath.Join(storageRoot, "..")), 0o600))
+	require.NoError(t, os.WriteFile(alternatesPath, []byte(filepath.Join(storageRoot, "..")), 0o600))
 
 	_, err = getSnapshot(client, &gitalypb.GetSnapshotRequest{Repository: testRepo})
 	assert.NoError(t, err)
 	require.NoError(t, os.Remove(alternatesPath))
 
 	// write alternates file with bad permissions
-	require.NoError(t, ioutil.WriteFile(alternatesPath, []byte(fmt.Sprintf("%s\n", alternateObjPath)), 0o000))
+	require.NoError(t, os.WriteFile(alternatesPath, []byte(fmt.Sprintf("%s\n", alternateObjPath)), 0o000))
 	_, err = getSnapshot(client, req)
 	assert.NoError(t, err)
 	require.NoError(t, os.Remove(alternatesPath))
@@ -216,7 +215,7 @@ func TestGetSnapshotWithDedupeSoftFailures(t *testing.T) {
 	commitSha := gittest.CreateCommitInAlternateObjectDirectory(t, cfg.Git.BinPath, repoPath, alternateObjDir, cmd)
 	originalAlternatesCommit := string(commitSha)
 
-	require.NoError(t, ioutil.WriteFile(alternatesPath, []byte(alternateObjPath), 0o644))
+	require.NoError(t, os.WriteFile(alternatesPath, []byte(alternateObjPath), 0o644))
 
 	_, repoCopyPath := copyRepoUsingSnapshot(t, cfg, client, testRepo)
 

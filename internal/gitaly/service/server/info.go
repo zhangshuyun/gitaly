@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -57,7 +56,7 @@ func shardCheck(shardPath string) (readable bool, writeable bool) {
 	testPath := filepath.Join(shardPath, "+testWrite")
 
 	content := []byte("testWrite")
-	if err := ioutil.WriteFile(testPath, content, 0o644); err == nil {
+	if err := os.WriteFile(testPath, content, 0o644); err == nil {
 		writeable = true
 	}
 	_ = os.Remove(testPath)

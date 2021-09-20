@@ -1,7 +1,6 @@
 package testcfg
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -125,7 +124,7 @@ func (gc *GitalyCfgBuilder) Build(t testing.TB) config.Cfg {
 		if cfg.Ruby.LinguistLanguagesPath == "" {
 			// set a stub to prevent a long ruby process to run where it is not needed
 			cfg.Ruby.LinguistLanguagesPath = filepath.Join(root, "linguist_languages.json")
-			require.NoError(t, ioutil.WriteFile(cfg.Ruby.LinguistLanguagesPath, []byte(`{}`), 0o655))
+			require.NoError(t, os.WriteFile(cfg.Ruby.LinguistLanguagesPath, []byte(`{}`), 0o655))
 		}
 	}
 

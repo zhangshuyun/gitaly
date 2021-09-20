@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -347,7 +346,7 @@ func setupTempHookDirs(t *testing.T, m map[string]hookFileMode) (string, func())
 			path := filepath.Join(tempDir, hookName)
 			require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
 
-			require.NoError(t, ioutil.WriteFile(filepath.Join(tempDir, hookName), nil, 0o644))
+			require.NoError(t, os.WriteFile(filepath.Join(tempDir, hookName), nil, 0o644))
 
 			if mode&hookFileExecutable > 0 {
 				require.NoError(t, os.Chmod(filepath.Join(tempDir, hookName), 0o755))
@@ -616,7 +615,7 @@ func TestConfigureRuby(t *testing.T) {
 	defer func() { require.NoError(t, os.RemoveAll(tmpDir)) }()
 
 	tmpFile := filepath.Join(tmpDir, "file")
-	require.NoError(t, ioutil.WriteFile(tmpFile, nil, 0o644))
+	require.NoError(t, os.WriteFile(tmpFile, nil, 0o644))
 
 	testCases := []struct {
 		desc      string

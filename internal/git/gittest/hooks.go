@@ -2,7 +2,6 @@ package gittest
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -61,7 +60,7 @@ func CaptureHookEnv(t testing.TB) (string, func()) {
 #!/bin/sh
 env | grep -e ^GIT -e ^GL_ > ` + hookOutputFile + "\n")
 
-	require.NoError(t, ioutil.WriteFile(filepath.Join(hooks.Override, "update"), script, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(hooks.Override, "update"), script, 0o755))
 
 	return hookOutputFile, func() {
 		hooks.Override = oldOverride

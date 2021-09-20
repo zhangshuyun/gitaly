@@ -3,6 +3,7 @@ package operations
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -229,7 +230,7 @@ func TestUserSquash_renames(t *testing.T) {
 	renamedFilename := "renamed-file.txt"
 
 	gittest.Exec(t, cfg, "-C", repoPath, "checkout", "-b", "squash-rename-test", "master")
-	require.NoError(t, ioutil.WriteFile(filepath.Join(repoPath, originalFilename), []byte("This is a test"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(repoPath, originalFilename), []byte("This is a test"), 0o644))
 	gittest.Exec(t, cfg, "-C", repoPath, "add", ".")
 	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-m", "test file")
 
@@ -240,10 +241,10 @@ func TestUserSquash_renames(t *testing.T) {
 
 	// Modify the original file in another branch
 	gittest.Exec(t, cfg, "-C", repoPath, "checkout", "-b", "squash-rename-branch", startCommitID)
-	require.NoError(t, ioutil.WriteFile(filepath.Join(repoPath, originalFilename), []byte("This is a change"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(repoPath, originalFilename), []byte("This is a change"), 0o644))
 	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-a", "-m", "test")
 
-	require.NoError(t, ioutil.WriteFile(filepath.Join(repoPath, originalFilename), []byte("This is another change"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(repoPath, originalFilename), []byte("This is another change"), 0o644))
 	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-a", "-m", "test")
 
 	endCommitID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))

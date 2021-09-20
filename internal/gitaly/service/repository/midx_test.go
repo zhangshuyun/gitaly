@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -66,7 +65,7 @@ func TestMidxRewrite(t *testing.T) {
 
 	// Create an invalid multi-pack-index file
 	// with mtime update being the basis for comparison
-	require.NoError(t, ioutil.WriteFile(midxPath, nil, 0o644))
+	require.NoError(t, os.WriteFile(midxPath, nil, 0o644))
 	require.NoError(t, os.Chtimes(midxPath, time.Time{}, time.Time{}))
 	info, err := os.Stat(midxPath)
 	require.NoError(t, err)

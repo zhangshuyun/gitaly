@@ -2,7 +2,6 @@ package operations
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -117,7 +116,7 @@ end`, cfg.Git.BinPath)
 	dir := testhelper.TempDir(t)
 	hookPath := filepath.Join(dir, "pre-receive")
 
-	require.NoError(t, ioutil.WriteFile(hookPath, []byte(hook), 0o755))
+	require.NoError(t, os.WriteFile(hookPath, []byte(hook), 0o755))
 
 	return hookPath
 }
@@ -150,7 +149,7 @@ end`, cfg.Git.BinPath)
 	dir := testhelper.TempDir(t)
 	hookPath := filepath.Join(dir, "pre-receive")
 
-	require.NoError(t, ioutil.WriteFile(hookPath, []byte(hook), 0o755))
+	require.NoError(t, os.WriteFile(hookPath, []byte(hook), 0o755))
 
 	return hookPath
 }
