@@ -156,10 +156,4 @@ service InvalidService {
       scope_level: STORAGE
     };
   }
-
-  // Intercepted methods must not have operation type annotations.
-  rpc InvalidMethod15(RequestWithStorageAndRepo) returns (InvalidMethodResponse) {
-      option (gitaly.intercepted_method) = true;
-      option (gitaly.op_type) = {};
-  };
 }

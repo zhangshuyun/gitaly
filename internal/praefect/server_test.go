@@ -644,10 +644,7 @@ func TestRenameRepository(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	cc, _, cleanup := runPraefectServer(t, ctx, praefectCfg, buildOptions{
-		withQueue:     evq,
-		withRepoStore: datastore.NewPostgresRepositoryStore(glsql.NewDB(t), nil),
-	})
+	cc, _, cleanup := runPraefectServer(t, ctx, praefectCfg, buildOptions{withQueue: evq})
 	defer cleanup()
 
 	// virtualRepo is a virtual repository all requests to it would be applied to the underline Gitaly nodes behind it

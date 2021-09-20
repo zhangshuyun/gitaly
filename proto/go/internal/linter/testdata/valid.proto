@@ -107,9 +107,4 @@ service ValidService {
       scope_level: STORAGE
     };
   }
-
-  // Intercepted methods do not need operation type annotations.
-  rpc TestMethod10(ValidStorageRequest) returns (ValidResponse) {
-    option (gitaly.intercepted_method) = true;
-  }
 }

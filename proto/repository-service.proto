@@ -9,7 +9,9 @@ import "shared.proto";
 
 service RepositoryService {
   rpc RepositoryExists(RepositoryExistsRequest) returns (RepositoryExistsResponse) {
-    option (intercepted_method) = true;
+    option (op_type) = {
+      op: ACCESSOR
+    };
   }
   rpc RepackIncremental(RepackIncrementalRequest) returns (RepackIncrementalResponse) {
     option (op_type) = {
