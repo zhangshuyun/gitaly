@@ -20,7 +20,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func TestRepositoryExistsStreamInterceptor(t *testing.T) {
+func TestRepositoryExistsHandler(t *testing.T) {
 	t.Parallel()
 	errServedByGitaly := status.Error(codes.Unknown, "request passed to Gitaly")
 
