@@ -141,7 +141,7 @@ func CopyFile(t testing.TB, src, dst string) {
 func GetTemporaryGitalySocketFileName(t testing.TB) string {
 	require.NotEmpty(t, testDirectory, "you must call testhelper.Configure() before GetTemporaryGitalySocketFileName()")
 
-	tmpfile, err := ioutil.TempFile(testDirectory, "gitaly.socket.")
+	tmpfile, err := os.CreateTemp(testDirectory, "gitaly.socket.")
 	require.NoError(t, err)
 
 	name := tmpfile.Name()
@@ -330,7 +330,7 @@ func GenerateCerts(t *testing.T) (string, string) {
 	entityCert, err := x509.CreateCertificate(rand.Reader, rootCA, entityX509, &entityKey.PublicKey, caKey)
 	require.NoError(t, err)
 
-	certFile, err := ioutil.TempFile(testDirectory, "")
+	certFile, err := os.CreateTemp(testDirectory, "")
 	require.NoError(t, err)
 	defer MustClose(t, certFile)
 	t.Cleanup(func() {
@@ -347,7 +347,7 @@ func GenerateCerts(t *testing.T) (string, string) {
 		)
 	}
 
-	keyFile, err := ioutil.TempFile(testDirectory, "")
+	keyFile, err := os.CreateTemp(testDirectory, "")
 	require.NoError(t, err)
 	defer MustClose(t, keyFile)
 	t.Cleanup(func() {

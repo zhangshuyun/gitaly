@@ -185,7 +185,7 @@ func TestValidateStorages(t *testing.T) {
 	repositories2 := tempDir(t)
 	nestedRepositories := filepath.Join(repositories, "nested")
 	require.NoError(t, os.MkdirAll(nestedRepositories, os.ModePerm))
-	f, err := ioutil.TempFile("", "")
+	f, err := os.CreateTemp("", "")
 	require.NoError(t, err)
 	require.NoError(t, f.Close())
 	filePath := f.Name()

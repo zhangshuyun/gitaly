@@ -83,7 +83,7 @@ type namedWriteCloser interface {
 	io.WriteCloser
 }
 
-// Create creates a new tempfile. It does not use ioutil.TempFile because
+// Create creates a new tempfile. It does not use os.CreateTemp because
 // the documentation of TempFile makes no promises about reusing tempfile
 // names after a file has been deleted. By using a very large (uint64)
 // counter, Create makes it clear / explicit how unlikely reuse is.

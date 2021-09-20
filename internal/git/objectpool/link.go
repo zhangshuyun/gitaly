@@ -60,7 +60,7 @@ func (o *ObjectPool) Link(ctx context.Context, repo *gitalypb.Repository) (retur
 			return fmt.Errorf("committing alternates: %w", err)
 		}
 	} else {
-		tmp, err := ioutil.TempFile(filepath.Dir(altPath), "alternates")
+		tmp, err := os.CreateTemp(filepath.Dir(altPath), "alternates")
 		if err != nil {
 			return err
 		}

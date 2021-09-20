@@ -3,7 +3,6 @@ package safe
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -42,7 +41,7 @@ func NewFileWriter(path string, optionalCfg ...FileWriterConfig) (*FileWriter, e
 
 	directory := filepath.Dir(path)
 
-	tmpFile, err := ioutil.TempFile(directory, filepath.Base(path))
+	tmpFile, err := os.CreateTemp(directory, filepath.Base(path))
 	if err != nil {
 		return nil, err
 	}

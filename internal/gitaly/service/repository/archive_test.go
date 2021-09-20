@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -148,7 +147,7 @@ func TestGetArchiveSuccess(t *testing.T) {
 				data, err := consumeArchive(stream)
 				require.NoError(t, err)
 
-				archiveFile, err := ioutil.TempFile("", "")
+				archiveFile, err := os.CreateTemp("", "")
 				require.NoError(t, err)
 				defer func() { require.NoError(t, os.Remove(archiveFile.Name())) }()
 
@@ -476,7 +475,7 @@ func TestGetArchivePathInjection(t *testing.T) {
 
 func TestGetArchiveEnv(t *testing.T) {
 	t.Parallel()
-	tmpFile, err := ioutil.TempFile("", "archive.sh")
+	tmpFile, err := os.CreateTemp("", "archive.sh")
 	require.NoError(t, err)
 	defer func() { require.NoError(t, os.Remove(tmpFile.Name())) }()
 

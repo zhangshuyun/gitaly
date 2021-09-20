@@ -3,8 +3,8 @@ package streamcache
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"math/rand"
+	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -16,7 +16,7 @@ import (
 func createPipe(t *testing.T) (*pipeReader, *pipe) {
 	t.Helper()
 
-	f, err := ioutil.TempFile("", "gitaly-streamcache-test")
+	f, err := os.CreateTemp("", "gitaly-streamcache-test")
 	require.NoError(t, err)
 
 	pr, p, err := newPipe(f)
@@ -200,7 +200,7 @@ func (cs *closeSpy) Close() error {
 // Closing the last reader _before_ closing the writer is a failure
 // condition. After this happens, opening new readers should fail.
 func TestPipe_closeWrongOrder(t *testing.T) {
-	f, err := ioutil.TempFile("", "gitaly-streamcache-test")
+	f, err := os.CreateTemp("", "gitaly-streamcache-test")
 	require.NoError(t, err)
 	cs := &closeSpy{namedWriteCloser: f}
 
@@ -233,7 +233,7 @@ func TestPipe_closeWrongOrder(t *testing.T) {
 // Closing last reader after closing the writer is the happy path. After
 // this happens, opening new readers should work.
 func TestPipe_closeOrderHappy(t *testing.T) {
-	f, err := ioutil.TempFile("", "gitaly-streamcache-test")
+	f, err := os.CreateTemp("", "gitaly-streamcache-test")
 	require.NoError(t, err)
 	cs := &closeSpy{namedWriteCloser: f}
 

@@ -6,7 +6,6 @@ package streamcache
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"testing"
@@ -34,7 +33,7 @@ func TestPipe_WriteTo(t *testing.T) {
 		{
 			desc: "os.File",
 			create: func(t *testing.T) namedWriteCloser {
-				f, err := ioutil.TempFile("", "pipe write to")
+				f, err := os.CreateTemp("", "pipe write to")
 				require.NoError(t, err)
 				t.Cleanup(func() { require.NoError(t, os.Remove(f.Name())) })
 				return f
@@ -44,7 +43,7 @@ func TestPipe_WriteTo(t *testing.T) {
 		{
 			desc: "non-file writer",
 			create: func(t *testing.T) namedWriteCloser {
-				f, err := ioutil.TempFile("", "pipe write to")
+				f, err := os.CreateTemp("", "pipe write to")
 				require.NoError(t, err)
 				t.Cleanup(func() { require.NoError(t, os.Remove(f.Name())) })
 				return &wrappedFile{f}

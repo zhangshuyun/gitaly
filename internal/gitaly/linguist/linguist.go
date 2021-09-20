@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -132,7 +131,7 @@ func openLanguagesJSON(cfg config.Cfg) (io.ReadCloser, error) {
 		return os.Open(jsonPath)
 	}
 
-	linguistPathSymlink, err := ioutil.TempFile("", "gitaly-linguist-path")
+	linguistPathSymlink, err := os.CreateTemp("", "gitaly-linguist-path")
 	if err != nil {
 		return nil, err
 	}

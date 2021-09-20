@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"regexp"
@@ -62,7 +61,7 @@ func testUserMergeBranchSuccessful(t *testing.T, ctx context.Context) {
 	hooks := GitlabHooks
 	hookTempfiles := make([]string, len(hooks))
 	for i, hook := range hooks {
-		outputFile, err := ioutil.TempFile("", "")
+		outputFile, err := os.CreateTemp("", "")
 		require.NoError(t, err)
 		require.NoError(t, outputFile.Close())
 		defer func() { require.NoError(t, os.Remove(outputFile.Name())) }()

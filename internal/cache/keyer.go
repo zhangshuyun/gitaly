@@ -168,7 +168,7 @@ func (keyer leaseKeyer) newPendingLease(repo *gitalypb.Repository) (string, erro
 		return "", err
 	}
 
-	f, err := ioutil.TempFile(pDir, "")
+	f, err := os.CreateTemp(pDir, "")
 	if err != nil {
 		err = fmt.Errorf("creating pending lease failed: %w", err)
 		return "", err

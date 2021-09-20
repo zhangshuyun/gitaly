@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strconv"
@@ -19,7 +18,7 @@ func TestStolenPid(t *testing.T) {
 		require.NoError(t, os.Setenv(bootstrap.EnvPidFile, oldValue))
 	}(os.Getenv(bootstrap.EnvPidFile))
 
-	pidFile, err := ioutil.TempFile("", "pidfile")
+	pidFile, err := os.CreateTemp("", "pidfile")
 	require.NoError(t, err)
 	defer func() { require.NoError(t, os.Remove(pidFile.Name())) }()
 
