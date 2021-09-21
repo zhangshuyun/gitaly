@@ -2,6 +2,8 @@ package catfile
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"sync"
 
 	"github.com/opentracing/opentracing-go"
@@ -98,7 +100,7 @@ func (c *batch) Info(ctx context.Context, revision git.Revision) (*ObjectInfo, e
 // the object type. Caller must consume the Reader before making another call
 // on C.
 func (c *batch) Tree(ctx context.Context, revision git.Revision) (*Object, error) {
-	return c.objectReader.reader(ctx, revision, "tree")
+	return c.typedObjectReader(ctx, revision, "tree")
 }
 
 // Commit returns a raw commit object. It is an error if the revision does not
@@ -106,7 +108,7 @@ func (c *batch) Tree(ctx context.Context, revision git.Revision) (*Object, error
 // check the object type. Caller must consume the Reader before making another
 // call on C.
 func (c *batch) Commit(ctx context.Context, revision git.Revision) (*Object, error) {
-	return c.objectReader.reader(ctx, revision, "commit")
+	return c.typedObjectReader(ctx, revision, "commit")
 }
 
 // Blob returns a reader for the requested blob. The entire blob must be
@@ -115,11 +117,30 @@ func (c *batch) Commit(ctx context.Context, revision git.Revision) (*Object, err
 // It is an error if the revision does not point to a blob. To prevent this,
 // use Info to resolve the revision and check the object type.
 func (c *batch) Blob(ctx context.Context, revision git.Revision) (*Object, error) {
-	return c.objectReader.reader(ctx, revision, "blob")
+	return c.typedObjectReader(ctx, revision, "blob")
 }
 
 // Tag returns a raw tag object. Caller must consume the Reader before
 // making another call on C.
 func (c *batch) Tag(ctx context.Context, revision git.Revision) (*Object, error) {
-	return c.objectReader.reader(ctx, revision, "tag")
+	return c.typedObjectReader(ctx, revision, "tag")
+}
+
+func (c *batch) typedObjectReader(ctx context.Context, revision git.Revision, expectedType string) (*Object, error) {
+	object, err := c.objectReader.reader(ctx, revision)
+	if err != nil {
+		return nil, err
+	}
+
+	if object.Type != expectedType {
+		if _, err := io.Copy(io.Discard, object); err != nil {
+			return nil, fmt.Errorf("discarding object: %w", err)
+		}
+
+		return nil, NotFoundError{
+			error: fmt.Errorf("expected %s to be a %s, got %s", object.Oid, expectedType, object.Type),
+		}
+	}
+
+	return object, nil
 }

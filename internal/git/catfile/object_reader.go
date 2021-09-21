@@ -90,14 +90,9 @@ func (o *objectReader) close() {
 func (o *objectReader) reader(
 	ctx context.Context,
 	revision git.Revision,
-	expectedType string,
 ) (*Object, error) {
-	finish := startSpan(o.creationCtx, ctx, fmt.Sprintf("Batch.Object(%s)", expectedType), revision)
+	finish := startSpan(o.creationCtx, ctx, "Batch.Object", revision)
 	defer finish()
-
-	if o.counter != nil {
-		o.counter.WithLabelValues(expectedType).Inc()
-	}
 
 	o.Lock()
 	defer o.Unlock()
@@ -123,18 +118,11 @@ func (o *objectReader) reader(
 		return nil, err
 	}
 
-	o.n = oi.Size + 1
-
-	if oi.Type != expectedType {
-		// This is a programmer error and it should never happen. But if it does,
-		// we need to leave the cat-file process in a good state
-		if _, err := io.CopyN(io.Discard, o.stdout, o.n); err != nil {
-			return nil, err
-		}
-		o.n = 0
-
-		return nil, NotFoundError{error: fmt.Errorf("expected %s to be a %s, got %s", oi.Oid, expectedType, oi.Type)}
+	if o.counter != nil {
+		o.counter.WithLabelValues(oi.Type).Inc()
 	}
+
+	o.n = oi.Size + 1
 
 	return &Object{
 		ObjectInfo: *oi,
