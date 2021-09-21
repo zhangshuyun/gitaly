@@ -428,6 +428,12 @@ No changes.
 
 - [Update gitlab-labkit to 0.17.1](gitlab-org/gitaly@904af72eb7c42124978370cef53681fa561b10f5) ([merge request](gitlab-org/gitaly!3395))
 
+## 13.12.12 (2021-09-21)
+
+### Fixed (1 change)
+
+- [Derive virtual storage's filesystem id from its name](gitlab-org/gitaly@af62b5b5b2357419c3cde2412106b5013c2f1060) ([merge request](gitlab-org/gitaly!3833))
+
 ## 13.12.11 (2021-09-02)
 
 ### Added (1 change)
