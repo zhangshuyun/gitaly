@@ -169,7 +169,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 
 	replMgr := NewReplMgr(
 		loggerEntry,
-		conf.VirtualStorageNames(),
+		conf.StorageNames(),
 		queue,
 		datastore.MockRepositoryStore{},
 		nodeMgr,
@@ -339,7 +339,7 @@ func TestReplicator_PropagateReplicationJob(t *testing.T) {
 		protoregistry.GitalyProtoPreregistered,
 	)
 
-	replmgr := NewReplMgr(logEntry, conf.VirtualStorageNames(), queue, rs, nodeMgr, NodeSetFromNodeManager(nodeMgr))
+	replmgr := NewReplMgr(logEntry, conf.StorageNames(), queue, rs, nodeMgr, NodeSetFromNodeManager(nodeMgr))
 
 	prf := NewGRPCServer(conf, logEntry, protoregistry.GitalyProtoPreregistered, coordinator.StreamDirector, nodeMgr, txMgr, queue, rs, nil, nil, nil)
 
@@ -707,7 +707,7 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 
 	replMgr := NewReplMgr(
 		logEntry,
-		conf.VirtualStorageNames(),
+		conf.StorageNames(),
 		queueInterceptor,
 		datastore.MockRepositoryStore{},
 		nodeMgr,
@@ -857,7 +857,7 @@ func TestProcessBacklog_Success(t *testing.T) {
 
 	replMgr := NewReplMgr(
 		logEntry,
-		conf.VirtualStorageNames(),
+		conf.StorageNames(),
 		queueInterceptor,
 		datastore.MockRepositoryStore{},
 		nodeMgr,
@@ -896,23 +896,22 @@ func TestReplMgrProcessBacklog_OnlyHealthyNodes(t *testing.T) {
 
 	ctx, cancel := testhelper.Context()
 
-	first := true
+	var mtx sync.Mutex
+	expStorages := map[string]bool{conf.VirtualStorages[0].Nodes[0].Storage: true, conf.VirtualStorages[0].Nodes[2].Storage: true}
 	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t)))
 	queueInterceptor.OnDequeue(func(_ context.Context, virtualStorageName string, storageName string, _ int, _ datastore.ReplicationEventQueue) ([]datastore.ReplicationEvent, error) {
 		select {
 		case <-ctx.Done():
 			return nil, nil
 		default:
-			if first {
-				first = false
-				require.Equal(t, conf.VirtualStorages[0].Name, virtualStorageName)
-				require.Equal(t, conf.VirtualStorages[0].Nodes[0].Storage, storageName)
-				return nil, nil
-			}
-
+			mtx.Lock()
+			defer mtx.Unlock()
 			assert.Equal(t, conf.VirtualStorages[0].Name, virtualStorageName)
-			assert.Equal(t, conf.VirtualStorages[0].Nodes[2].Storage, storageName)
-			cancel()
+			assert.True(t, expStorages[storageName], storageName, storageName)
+			delete(expStorages, storageName)
+			if len(expStorages) == 0 {
+				cancel()
+			}
 			return nil, nil
 		}
 	})
@@ -924,7 +923,7 @@ func TestReplMgrProcessBacklog_OnlyHealthyNodes(t *testing.T) {
 
 	replMgr := NewReplMgr(
 		testhelper.DiscardTestEntry(t),
-		conf.VirtualStorageNames(),
+		conf.StorageNames(),
 		queueInterceptor,
 		nil,
 		StaticHealthChecker{virtualStorage: {node1.Storage, node3.Storage}},
@@ -936,7 +935,11 @@ func TestReplMgrProcessBacklog_OnlyHealthyNodes(t *testing.T) {
 			},
 		},
 	)
-	replMgrDone := startProcessBacklog(ctx, replMgr)
+	replMgrDone := make(chan struct{})
+	go func() {
+		defer close(replMgrDone)
+		replMgr.ProcessBacklog(ctx, ExpBackoffFactory{Start: time.Minute, Max: time.Minute})
+	}()
 
 	select {
 	case <-ctx.Done():
@@ -995,7 +998,7 @@ func TestProcessBacklog_ReplicatesToReadOnlyPrimary(t *testing.T) {
 
 	replMgr := NewReplMgr(
 		testhelper.DiscardTestEntry(t),
-		conf.VirtualStorageNames(),
+		conf.StorageNames(),
 		queue,
 		datastore.MockRepositoryStore{},
 		StaticHealthChecker{virtualStorage: {primaryStorage, secondaryStorage}},

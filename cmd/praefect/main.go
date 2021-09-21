@@ -356,7 +356,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 
 		repl = praefect.NewReplMgr(
 			logger,
-			conf.VirtualStorageNames(),
+			conf.StorageNames(),
 			queue,
 			rs,
 			healthChecker,

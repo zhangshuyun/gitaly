@@ -407,17 +407,17 @@ func (dr defaultReplicator) RepackFull(ctx context.Context, event datastore.Repl
 
 // ReplMgr is a replication manager for handling replication jobs
 type ReplMgr struct {
-	log                *logrus.Entry
-	queue              datastore.ReplicationEventQueue
-	hc                 HealthChecker
-	nodes              NodeSet
-	virtualStorages    []string   // replicas this replicator is responsible for
-	replicator         Replicator // does the actual replication logic
-	replInFlightMetric *prometheus.GaugeVec
-	replLatencyMetric  prommetrics.HistogramVec
-	replDelayMetric    prommetrics.HistogramVec
-	replJobTimeout     time.Duration
-	dequeueBatchSize   uint
+	log                          *logrus.Entry
+	queue                        datastore.ReplicationEventQueue
+	hc                           HealthChecker
+	nodes                        NodeSet
+	storageNamesByVirtualStorage map[string][]string // replicas this replicator is responsible for
+	replicator                   Replicator          // does the actual replication logic
+	replInFlightMetric           *prometheus.GaugeVec
+	replLatencyMetric            prommetrics.HistogramVec
+	replDelayMetric              prommetrics.HistogramVec
+	replJobTimeout               time.Duration
+	dequeueBatchSize             uint
 }
 
 // ReplMgrOpt allows a replicator to be configured with additional options
@@ -446,14 +446,14 @@ func WithDequeueBatchSize(size uint) func(*ReplMgr) {
 
 // NewReplMgr initializes a replication manager with the provided dependencies
 // and options
-func NewReplMgr(log *logrus.Entry, virtualStorages []string, queue datastore.ReplicationEventQueue, rs datastore.RepositoryStore, hc HealthChecker, nodes NodeSet, opts ...ReplMgrOpt) ReplMgr {
+func NewReplMgr(log *logrus.Entry, storageNames map[string][]string, queue datastore.ReplicationEventQueue, rs datastore.RepositoryStore, hc HealthChecker, nodes NodeSet, opts ...ReplMgrOpt) ReplMgr {
 	r := ReplMgr{
-		log:             log.WithField("component", "replication_manager"),
-		queue:           queue,
-		replicator:      defaultReplicator{rs: rs, log: log.WithField("component", "replicator")},
-		virtualStorages: virtualStorages,
-		hc:              hc,
-		nodes:           nodes,
+		log:                          log.WithField("component", "replication_manager"),
+		queue:                        queue,
+		replicator:                   defaultReplicator{rs: rs, log: log.WithField("component", "replicator")},
+		storageNamesByVirtualStorage: storageNames,
+		hc:                           hc,
+		nodes:                        nodes,
 		replInFlightMetric: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "gitaly_praefect_replication_jobs",
@@ -535,16 +535,15 @@ type BackoffFactory interface {
 // blocks until all backlog processing goroutines have returned
 func (r ReplMgr) ProcessBacklog(ctx context.Context, b BackoffFactory) {
 	var wg sync.WaitGroup
+	defer wg.Wait()
 
-	for _, virtualStorage := range r.virtualStorages {
+	for virtualStorage := range r.storageNamesByVirtualStorage {
 		wg.Add(1)
 		go func(virtualStorage string) {
 			defer wg.Done()
 			r.processBacklog(ctx, b, virtualStorage)
 		}(virtualStorage)
 	}
-
-	wg.Wait()
 }
 
 // ProcessStale starts a background process to acknowledge stale replication jobs.
@@ -573,46 +572,64 @@ func (r ReplMgr) ProcessStale(ctx context.Context, checkPeriod, staleAfter time.
 }
 
 func (r ReplMgr) processBacklog(ctx context.Context, b BackoffFactory, virtualStorage string) {
-	logger := r.log.WithField(logWithVirtualStorage, virtualStorage)
-	backoff, reset := b.Create()
+	var wg sync.WaitGroup
+	defer wg.Wait()
 
+	logger := r.log.WithField(logWithVirtualStorage, virtualStorage)
 	logger.Info("processing started")
 
 	// We should make a graceful shutdown of the processing loop and don't want to interrupt
 	// in-flight operations. That is why we suppress cancellation on the provided context.
 	appCtx := ctx
 	ctx = helper.SuppressCancellation(ctx)
-	for {
-		select {
-		case <-appCtx.Done():
-			logger.WithError(appCtx.Err()).Info("processing stopped")
-			return // processing must be stopped
-		default:
-			// proceed with processing
-		}
 
-		var totalEvents int
-		for _, storage := range r.hc.HealthyNodes()[virtualStorage] {
-			target, ok := r.nodes[virtualStorage][storage]
-			if !ok {
-				logger.WithField("storage", storage).Error("no connection to target storage")
-				continue
+	for _, storageName := range r.storageNamesByVirtualStorage[virtualStorage] {
+		wg.Add(1)
+		go func(storageName string) {
+			defer wg.Done()
+
+			for backoff, reset := b.Create(); ; {
+				select {
+				case <-appCtx.Done():
+					logger.WithError(appCtx.Err()).Info("processing stopped")
+					return // processing must be stopped
+				default:
+					// proceed with processing
+				}
+
+				healthyStorages := r.hc.HealthyNodes()[virtualStorage]
+				healthy := false
+				for _, healthyStorageName := range healthyStorages {
+					if healthyStorageName != storageName {
+						continue
+					}
+					healthy = true
+					break
+				}
+
+				var processedEvents int
+				if healthy {
+					target, ok := r.nodes[virtualStorage][storageName]
+					if !ok {
+						logger.WithField("storage", storageName).Error("no connection to target storage")
+					} else {
+						processedEvents = r.handleNode(ctx, virtualStorage, target)
+					}
+				}
+
+				if processedEvents == 0 {
+					select {
+					case <-time.After(backoff()):
+						continue
+					case <-appCtx.Done():
+						logger.WithError(appCtx.Err()).Info("processing stopped")
+						return
+					}
+				}
+
+				reset()
 			}
-
-			totalEvents += r.handleNode(ctx, virtualStorage, target)
-		}
-
-		if totalEvents == 0 {
-			select {
-			case <-time.After(backoff()):
-				continue
-			case <-appCtx.Done():
-				logger.WithError(appCtx.Err()).Info("processing stopped")
-				return
-			}
-		}
-
-		reset()
+		}(storageName)
 	}
 }
 
