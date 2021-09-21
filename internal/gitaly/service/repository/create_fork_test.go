@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"os"
@@ -30,6 +31,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -43,6 +45,18 @@ import (
 func TestCreateFork_successful(t *testing.T) {
 	t.Parallel()
 
+	// We need to inject this once across all tests given that crypto/x509 only initializes
+	// certificates once. Changing injected certs during our tests is thus not going to fly well
+	// and would cause failure. We should eventually address this and provide better testing
+	// utilities around this, but now's not the time.
+	certPool, tlsConfig := injectCustomCATestCerts(t)
+
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, func(t *testing.T, ctx context.Context) {
+		testCreateForkSuccessful(t, ctx, certPool, tlsConfig)
+	})
+}
+
+func testCreateForkSuccessful(t *testing.T, ctx context.Context, certPool *x509.CertPool, tlsConfig config.TLS) {
 	for _, tt := range []struct {
 		name   string
 		secure bool
@@ -67,16 +81,14 @@ func TestCreateFork_successful(t *testing.T) {
 			)
 
 			if tt.secure {
-				testPool := injectCustomCATestCerts(t, &cfg)
+				cfg.TLS = tlsConfig
 				cfg.TLSListenAddr = runSecureServer(t, cfg, nil)
-				client, conn = newSecureRepoClient(t, cfg.TLSListenAddr, cfg.Auth.Token, testPool)
+				client, conn = newSecureRepoClient(t, cfg.TLSListenAddr, cfg.Auth.Token, certPool)
 				defer conn.Close()
 			} else {
 				client, cfg.SocketPath = runRepositoryService(t, cfg, nil)
 			}
 
-			ctx, cancel := testhelper.Context()
-			defer cancel()
 			ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 			forkedRepo := &gitalypb.Repository{
@@ -104,6 +116,10 @@ func TestCreateFork_successful(t *testing.T) {
 func TestCreateFork_refs(t *testing.T) {
 	t.Parallel()
 
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateForkRefs)
+}
+
+func testCreateForkRefs(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
@@ -126,8 +142,6 @@ func TestCreateFork_refs(t *testing.T) {
 	client, socketPath := runRepositoryService(t, cfg, nil)
 	cfg.SocketPath = socketPath
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 	targetRepo := &gitalypb.Repository{
@@ -160,22 +174,26 @@ func TestCreateFork_refs(t *testing.T) {
 func TestCreateFork_targetExists(t *testing.T) {
 	t.Parallel()
 
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateForkTargetExists)
+}
+
+func testCreateForkTargetExists(t *testing.T, ctx context.Context) {
 	cfg, repo, _, client := setupRepositoryService(t)
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 	for _, tc := range []struct {
-		desc        string
-		seed        func(t *testing.T, targetPath string)
-		expectedErr error
+		desc                          string
+		seed                          func(t *testing.T, targetPath string)
+		expectedErr                   error
+		expectedErrWithAtomicCreation error
 	}{
 		{
 			desc: "empty target directory",
 			seed: func(t *testing.T, targetPath string) {
 				require.NoError(t, os.MkdirAll(targetPath, 0o770))
 			},
+			expectedErrWithAtomicCreation: helper.ErrAlreadyExistsf("creating fork: repository exists already"),
 		},
 		{
 			desc: "non-empty target directory",
@@ -187,7 +205,8 @@ func TestCreateFork_targetExists(t *testing.T) {
 					0o644,
 				))
 			},
-			expectedErr: helper.ErrInvalidArgumentf("CreateFork: destination directory is not empty"),
+			expectedErr:                   helper.ErrInvalidArgumentf("CreateFork: destination directory is not empty"),
+			expectedErrWithAtomicCreation: helper.ErrAlreadyExistsf("creating fork: repository exists already"),
 		},
 		{
 			desc: "target file",
@@ -195,7 +214,8 @@ func TestCreateFork_targetExists(t *testing.T) {
 				require.NoError(t, os.MkdirAll(filepath.Dir(targetPath), 0o770))
 				require.NoError(t, os.WriteFile(targetPath, nil, 0o644))
 			},
-			expectedErr: helper.ErrInvalidArgumentf("CreateFork: destination path exists"),
+			expectedErr:                   helper.ErrInvalidArgumentf("CreateFork: destination path exists"),
+			expectedErrWithAtomicCreation: helper.ErrAlreadyExistsf("creating fork: repository exists already"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -210,16 +230,17 @@ func TestCreateFork_targetExists(t *testing.T) {
 				Repository:       forkedRepo,
 				SourceRepository: repo,
 			})
-			testassert.GrpcEqualErr(t, tc.expectedErr, err)
+			if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
+				testassert.GrpcEqualErr(t, tc.expectedErrWithAtomicCreation, err)
+			} else {
+				testassert.GrpcEqualErr(t, tc.expectedErr, err)
+			}
 		})
 	}
 }
 
-func injectCustomCATestCerts(t *testing.T, cfg *config.Cfg) *x509.CertPool {
+func injectCustomCATestCerts(t *testing.T) (*x509.CertPool, config.TLS) {
 	certFile, keyFile := testhelper.GenerateCerts(t)
-
-	cfg.TLS.CertPath = certFile
-	cfg.TLS.KeyPath = keyFile
 
 	revertEnv := testhelper.ModifyEnvironment(t, gitalyx509.SSLCertFile, certFile)
 	t.Cleanup(revertEnv)
@@ -228,7 +249,7 @@ func injectCustomCATestCerts(t *testing.T, cfg *config.Cfg) *x509.CertPool {
 	pool := x509.NewCertPool()
 	require.True(t, pool.AppendCertsFromPEM(caPEMBytes))
 
-	return pool
+	return pool, config.TLS{CertPath: certFile, KeyPath: keyFile}
 }
 
 func runSecureServer(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) string {

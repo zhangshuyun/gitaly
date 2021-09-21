@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -20,6 +21,18 @@ func (s *server) CreateRepository(ctx context.Context, req *gitalypb.CreateRepos
 	diskPath, err := s.locator.GetPath(req.GetRepository())
 	if err != nil {
 		return nil, helper.ErrInvalidArgumentf("locate repository: %w", err)
+	}
+
+	if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
+		if err := s.createRepository(ctx, req.GetRepository(), func(repo *gitalypb.Repository) error {
+			// We do not want to seed the repository with any contents, so we just
+			// return directly.
+			return nil
+		}); err != nil {
+			return nil, helper.ErrInternalf("creating repository: %w", err)
+		}
+
+		return &gitalypb.CreateRepositoryResponse{}, nil
 	}
 
 	if err := os.MkdirAll(diskPath, 0o770); err != nil {

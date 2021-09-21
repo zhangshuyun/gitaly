@@ -17,7 +17,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
@@ -25,16 +27,20 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"golang.org/x/sys/unix"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestCreateRepository_missingAuth(t *testing.T) {
+	t.Parallel()
+
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepositoryMissingAuth)
+}
+
+func testCreateRepositoryMissingAuth(t *testing.T, ctx context.Context) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t, testcfg.WithBase(config.Cfg{Auth: auth.Config{Token: "some"}}))
 
 	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil)
 	client := newRepositoryClient(t, config.Cfg{Auth: auth.Config{Token: ""}}, serverSocketPath)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: repo})
 
@@ -42,10 +48,13 @@ func TestCreateRepository_missingAuth(t *testing.T) {
 }
 
 func TestCreateRepository_successful(t *testing.T) {
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	t.Parallel()
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepositorySuccessful)
+}
+
+func testCreateRepositorySuccessful(t *testing.T, ctx context.Context) {
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	relativePath := "create-repository-test.git"
 	repoDir := filepath.Join(cfg.Storages[0].Path, relativePath)
@@ -74,10 +83,13 @@ func TestCreateRepository_successful(t *testing.T) {
 }
 
 func TestCreateRepository_failure(t *testing.T) {
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	t.Parallel()
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepositoryFailure)
+}
+
+func testCreateRepositoryFailure(t *testing.T, ctx context.Context) {
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	storagePath := cfg.Storages[0].Path
 	fullPath := filepath.Join(storagePath, "foo.git")
@@ -89,14 +101,21 @@ func TestCreateRepository_failure(t *testing.T) {
 		Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "foo.git"},
 	})
 
-	testhelper.RequireGrpcError(t, err, codes.Internal)
+	if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
+		testhelper.RequireGrpcError(t, err, codes.AlreadyExists)
+	} else {
+		testhelper.RequireGrpcError(t, err, codes.Internal)
+	}
 }
 
 func TestCreateRepository_invalidArguments(t *testing.T) {
-	_, client := setupRepositoryServiceWithoutRepo(t)
+	t.Parallel()
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepositoryInvalidArguments)
+}
+
+func testCreateRepositoryInvalidArguments(t *testing.T, ctx context.Context) {
+	_, client := setupRepositoryServiceWithoutRepo(t)
 
 	testCases := []struct {
 		repo *gitalypb.Repository
@@ -119,6 +138,12 @@ func TestCreateRepository_invalidArguments(t *testing.T) {
 }
 
 func TestCreateRepository_transactional(t *testing.T) {
+	t.Parallel()
+
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepositoryTransactional)
+}
+
+func testCreateRepositoryTransactional(t *testing.T, ctx context.Context) {
 	var actualVote voting.Vote
 	var called int
 
@@ -131,9 +156,6 @@ func TestCreateRepository_transactional(t *testing.T) {
 	}
 
 	cfg, client := setupRepositoryServiceWithoutRepo(t, testserver.WithTransactionManager(&mockTxManager))
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
@@ -152,8 +174,12 @@ func TestCreateRepository_transactional(t *testing.T) {
 		require.NoError(t, err)
 
 		require.DirExists(t, filepath.Join(cfg.Storages[0].Path, "repo.git"))
-		require.Equal(t, 1, called, "expected transactional vote")
-		require.Equal(t, voting.VoteFromData([]byte{}), actualVote)
+		if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
+			require.Equal(t, 2, called, "expected transactional vote")
+		} else {
+			require.Equal(t, 1, called, "expected transactional vote")
+			require.Equal(t, voting.VoteFromData([]byte{}), actualVote)
+		}
 	})
 
 	t.Run("idempotent creation with preexisting refs", func(t *testing.T) {
@@ -165,6 +191,12 @@ func TestCreateRepository_transactional(t *testing.T) {
 		_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
 			Repository: repo,
 		})
+
+		if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
+			testassert.ProtoEqual(t, status.Error(codes.AlreadyExists, "creating repository: repository exists already"), err)
+			return
+		}
+
 		require.NoError(t, err)
 
 		refs := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref")
@@ -176,15 +208,24 @@ func TestCreateRepository_transactional(t *testing.T) {
 }
 
 func TestCreateRepository_idempotent(t *testing.T) {
-	cfg, repo, repoPath, client := setupRepositoryService(t)
+	t.Parallel()
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepositoryIdempotent)
+}
+
+func testCreateRepositoryIdempotent(t *testing.T, ctx context.Context) {
+	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	refsBefore := strings.Split(string(gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref")), "\n")
 
 	req := &gitalypb.CreateRepositoryRequest{Repository: repo}
 	_, err := client.CreateRepository(ctx, req)
+
+	if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
+		testassert.ProtoEqual(t, status.Error(codes.AlreadyExists, "creating repository: repository exists already"), err)
+		return
+	}
+
 	require.NoError(t, err)
 
 	refsAfter := strings.Split(string(gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref")), "\n")
