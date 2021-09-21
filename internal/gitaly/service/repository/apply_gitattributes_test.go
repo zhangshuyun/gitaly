@@ -12,10 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -29,13 +27,11 @@ import (
 )
 
 func TestApplyGitattributesSuccess(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.TxFileLocking,
-	}).Run(t, testApplyGitattributesSuccess)
-}
-
-func testApplyGitattributesSuccess(t *testing.T, ctx context.Context) {
 	t.Parallel()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	cfg, repo, _, client := setupRepositoryService(t)
 
 	infoPath := filepath.Join(cfg.Storages[0].Path, repo.GetRelativePath(), "info")
@@ -93,13 +89,11 @@ func (s *testTransactionServer) VoteTransaction(ctx context.Context, in *gitalyp
 }
 
 func TestApplyGitattributesWithTransaction(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.TxFileLocking,
-	}).Run(t, testApplyGitattributesWithTransaction)
-}
-
-func testApplyGitattributesWithTransaction(t *testing.T, ctx context.Context) {
 	t.Parallel()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	transactionServer := &testTransactionServer{}
@@ -138,16 +132,8 @@ func testApplyGitattributesWithTransaction(t *testing.T, ctx context.Context) {
 			desc:     "successful vote writes gitattributes",
 			revision: []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"),
 			voteFn: func(t *testing.T, request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
-				var expectedHash []byte
-				if featureflag.TxFileLocking.IsEnabled(ctx) {
-					vote := voting.VoteFromData([]byte("/custom-highlighting/*.gitlab-custom gitlab-language=ruby\n"))
-					expectedHash = vote.Bytes()
-				} else {
-					oid, err := git.NewObjectIDFromHex("36814a3da051159a1683479e7a1487120309db8f")
-					require.NoError(t, err)
-					expectedHash, err = oid.Bytes()
-					require.NoError(t, err)
-				}
+				vote := voting.VoteFromData([]byte("/custom-highlighting/*.gitlab-custom gitlab-language=ruby\n"))
+				expectedHash := vote.Bytes()
 
 				require.Equal(t, expectedHash, request.ReferenceUpdatesHash)
 				return &gitalypb.VoteTransactionResponse{
@@ -166,11 +152,7 @@ func testApplyGitattributesWithTransaction(t *testing.T, ctx context.Context) {
 			},
 			shouldExist: false,
 			expectedErr: func() error {
-				if featureflag.TxFileLocking.IsEnabled(ctx) {
-					return status.Error(codes.Unknown, "committing gitattributes: voting on locked file: preimage vote: transaction was aborted")
-				}
-
-				return status.Error(codes.Unknown, "could not commit gitattributes: vote failed: transaction was aborted")
+				return status.Error(codes.Unknown, "committing gitattributes: voting on locked file: preimage vote: transaction was aborted")
 			}(),
 		},
 		{
@@ -180,13 +162,8 @@ func testApplyGitattributesWithTransaction(t *testing.T, ctx context.Context) {
 				return nil, errors.New("foobar")
 			},
 			shouldExist: false,
-
 			expectedErr: func() error {
-				if featureflag.TxFileLocking.IsEnabled(ctx) {
-					return status.Error(codes.Unknown, "committing gitattributes: voting on locked file: preimage vote: rpc error: code = Unknown desc = foobar")
-				}
-
-				return status.Error(codes.Unknown, "could not commit gitattributes: vote failed: rpc error: code = Unknown desc = foobar")
+				return status.Error(codes.Unknown, "committing gitattributes: voting on locked file: preimage vote: rpc error: code = Unknown desc = foobar")
 			}(),
 		},
 		{
@@ -232,13 +209,11 @@ func testApplyGitattributesWithTransaction(t *testing.T, ctx context.Context) {
 }
 
 func TestApplyGitattributesFailure(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.TxFileLocking,
-	}).Run(t, testApplyGitattributesFailure)
-}
-
-func testApplyGitattributesFailure(t *testing.T, ctx context.Context) {
 	t.Parallel()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	_, repo, _, client := setupRepositoryService(t)
 
 	tests := []struct {

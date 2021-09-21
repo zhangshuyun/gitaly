@@ -8,12 +8,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
@@ -65,57 +63,23 @@ func (s *server) applyGitattributes(ctx context.Context, c catfile.Batch, repoPa
 		return err
 	}
 
-	if featureflag.TxFileLocking.IsEnabled(ctx) {
-		writer, err := safe.NewLockingFileWriter(attributesPath, safe.LockingFileWriterConfig{
-			FileWriterConfig: safe.FileWriterConfig{FileMode: attributesFileMode},
-		})
-		if err != nil {
-			return fmt.Errorf("creating gitattributes writer: %w", err)
-		}
-		defer writer.Close()
-
-		if _, err := io.CopyN(writer, blobObj.Reader, blobInfo.Size); err != nil {
-			return err
-		}
-
-		if err := transaction.CommitLockedFile(ctx, s.txManager, writer); err != nil {
-			return fmt.Errorf("committing gitattributes: %w", err)
-		}
-
-		return nil
-	}
-
-	tempFile, err := os.CreateTemp(infoPath, "attributes")
+	writer, err := safe.NewLockingFileWriter(attributesPath, safe.LockingFileWriterConfig{
+		FileWriterConfig: safe.FileWriterConfig{FileMode: attributesFileMode},
+	})
 	if err != nil {
-		return helper.ErrInternalf("creating temporary gitattributes file: %w", err)
+		return fmt.Errorf("creating gitattributes writer: %w", err)
 	}
-	defer func() {
-		if err := os.Remove(tempFile.Name()); err != nil && !errors.Is(err, os.ErrNotExist) {
-			ctxlogrus.Extract(ctx).WithError(err).Errorf("failed to remove tmp file %q", tempFile.Name())
-		}
-	}()
+	defer writer.Close()
 
-	// Write attributes to temp file
-	if _, err := io.CopyN(tempFile, blobObj.Reader, blobInfo.Size); err != nil {
+	if _, err := io.CopyN(writer, blobObj.Reader, blobInfo.Size); err != nil {
 		return err
 	}
 
-	if err := tempFile.Close(); err != nil {
-		return err
+	if err := transaction.CommitLockedFile(ctx, s.txManager, writer); err != nil {
+		return fmt.Errorf("committing gitattributes: %w", err)
 	}
 
-	// Change the permission of tempFile as the permission of file attributesPath
-	if err := os.Chmod(tempFile.Name(), attributesFileMode); err != nil {
-		return err
-	}
-
-	// Vote on the contents of the newly written gitattributes file.
-	if err := s.vote(ctx, blobInfo.Oid); err != nil {
-		return fmt.Errorf("could not commit gitattributes: %w", err)
-	}
-
-	// Rename temp file and return the result
-	return os.Rename(tempFile.Name(), attributesPath)
+	return nil
 }
 
 func (s *server) vote(ctx context.Context, oid git.ObjectID) error {
