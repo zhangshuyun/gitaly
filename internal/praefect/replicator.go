@@ -486,33 +486,35 @@ const (
 	logWithVirtualStorage = "virtual_storage"
 )
 
-type (
-	backoff      func() time.Duration
-	backoffReset func()
-)
-
-// BackoffFunc is a function that n turn provides a pair of functions backoff and backoffReset
-type BackoffFunc func() (backoff, backoffReset)
-
-// ExpBackoffFunc generates a backoffFunc based off of start and max time durations
-func ExpBackoffFunc(start time.Duration, max time.Duration) BackoffFunc {
-	return func() (backoff, backoffReset) {
-		const factor = 2
-		duration := start
-
-		return func() time.Duration {
-				defer func() {
-					duration *= time.Duration(factor)
-					if (duration) >= max {
-						duration = max
-					}
-				}()
-				return duration
-			}, func() {
-				duration = start
-			}
-	}
+// ExpBackoffFactory creates exponentially growing durations.
+type ExpBackoffFactory struct {
+	Start, Max time.Duration
 }
+
+// Create returns a backoff function based on Start and Max time durations.
+func (b ExpBackoffFactory) Create() (Backoff, BackoffReset) {
+	const factor = 2
+	duration := b.Start
+
+	return func() time.Duration {
+			defer func() {
+				duration *= time.Duration(factor)
+				if (duration) >= b.Max {
+					duration = b.Max
+				}
+			}()
+			return duration
+		}, func() {
+			duration = b.Start
+		}
+}
+
+type (
+	// Backoff returns next backoff.
+	Backoff func() time.Duration
+	// BackoffReset resets backoff provider.
+	BackoffReset func()
+)
 
 func getCorrelationID(params datastore.Params) string {
 	correlationID := ""
@@ -522,10 +524,16 @@ func getCorrelationID(params datastore.Params) string {
 	return correlationID
 }
 
+// BackoffFactory creates backoff function and a reset pair for it.
+type BackoffFactory interface {
+	// Create return new backoff provider and a reset function for it.
+	Create() (Backoff, BackoffReset)
+}
+
 // ProcessBacklog starts processing of queued jobs.
 // It will be processing jobs until ctx is Done. ProcessBacklog
 // blocks until all backlog processing goroutines have returned
-func (r ReplMgr) ProcessBacklog(ctx context.Context, b BackoffFunc) {
+func (r ReplMgr) ProcessBacklog(ctx context.Context, b BackoffFactory) {
 	var wg sync.WaitGroup
 
 	for _, virtualStorage := range r.virtualStorages {
@@ -564,9 +572,9 @@ func (r ReplMgr) ProcessStale(ctx context.Context, checkPeriod, staleAfter time.
 	return done
 }
 
-func (r ReplMgr) processBacklog(ctx context.Context, b BackoffFunc, virtualStorage string) {
+func (r ReplMgr) processBacklog(ctx context.Context, b BackoffFactory, virtualStorage string) {
 	logger := r.log.WithField(logWithVirtualStorage, virtualStorage)
-	backoff, reset := b()
+	backoff, reset := b.Create()
 
 	logger.Info("processing started")
 

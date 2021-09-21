@@ -54,7 +54,9 @@ func testConfig(backends int) config.Config {
 	return cfg
 }
 
-func noopBackoffFunc() (backoff, backoffReset) {
+type noopBackoffFactory struct{}
+
+func (noopBackoffFactory) Create() (Backoff, BackoffReset) {
 	return func() time.Duration {
 		return 0
 	}, func() {}
@@ -287,7 +289,7 @@ func startProcessBacklog(ctx context.Context, replMgr ReplMgr) <-chan struct{} {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		replMgr.ProcessBacklog(ctx, noopBackoffFunc)
+		replMgr.ProcessBacklog(ctx, noopBackoffFactory{})
 	}()
 	return done
 }

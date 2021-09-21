@@ -178,7 +178,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 		WithDelayMetric(&mockReplicationDelayHistogramVec),
 	)
 
-	replMgr.ProcessBacklog(ctx, ExpBackoffFunc(time.Hour, 0))
+	replMgr.ProcessBacklog(ctx, ExpBackoffFactory{Start: time.Hour, Max: 0})
 
 	logEntries := loggerHook.AllEntries()
 	require.True(t, len(logEntries) > 3, "expected at least 4 log entries to be present")
@@ -1024,7 +1024,7 @@ func TestProcessBacklog_ReplicatesToReadOnlyPrimary(t *testing.T) {
 	<-replMgrDone
 }
 
-func TestBackoff(t *testing.T) {
+func TestBackoffFactory(t *testing.T) {
 	start := 1 * time.Microsecond
 	max := 6 * time.Microsecond
 	expectedBackoffs := []time.Duration{
@@ -1035,7 +1035,7 @@ func TestBackoff(t *testing.T) {
 		6 * time.Microsecond,
 		6 * time.Microsecond,
 	}
-	b, reset := ExpBackoffFunc(start, max)()
+	b, reset := ExpBackoffFactory{Start: start, Max: max}.Create()
 	for _, expectedBackoff := range expectedBackoffs {
 		require.Equal(t, expectedBackoff, b())
 	}
