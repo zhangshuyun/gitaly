@@ -666,7 +666,7 @@ func TestPerformRepoDoesNotExist(t *testing.T) {
 }
 
 func TestPerform_UnsetConfiguration(t *testing.T) {
-	cfg, repoProto, _ := testcfg.BuildWithRepo(t)
+	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	ctx, cancel := testhelper.Context()
@@ -679,7 +679,7 @@ func TestPerform_UnsetConfiguration(t *testing.T) {
 		"http.something.else":     "untouched",
 		"totally.unrelated":       "untouched",
 	} {
-		require.NoError(t, repo.Config().Set(ctx, key, value))
+		gittest.Exec(t, cfg, "-C", repoPath, "config", key, value)
 	}
 
 	opts, err := repo.Config().GetRegexp(ctx, ".*", git.ConfigGetRegexpOpts{})
@@ -711,7 +711,7 @@ func testPerformUnsetConfigurationTransactional(t *testing.T, ctx context.Contex
 	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	require.NoError(t, repo.Config().Set(ctx, "http.some.extraHeader", "value"))
+	gittest.Exec(t, cfg, "-C", repoPath, "config", "http.some.extraHeader", "value")
 
 	votes := 0
 	txManager := &transaction.MockManager{
