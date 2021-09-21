@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"sync"
 
 	"github.com/opentracing/opentracing-go"
@@ -102,7 +101,7 @@ func (b *batchProcess) reader(revision git.Revision, expectedType string) (*Obje
 	if oi.Type != expectedType {
 		// This is a programmer error and it should never happen. But if it does,
 		// we need to leave the cat-file process in a good state
-		if _, err := io.CopyN(ioutil.Discard, b.r, b.n); err != nil {
+		if _, err := io.CopyN(io.Discard, b.r, b.n); err != nil {
 			return nil, err
 		}
 		b.n = 0
