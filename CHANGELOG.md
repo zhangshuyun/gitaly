@@ -1,5 +1,84 @@
 # Gitaly changelog
 
+## 14.3.0 (2021-09-21)
+
+### Added (6 changes)
+
+- [repack: Create commit graph with Bloom filters](gitlab-org/gitaly@4603da423f849347b038bcfd4d1e64587f58fbbe) ([merge request](gitlab-org/gitaly!3852))
+- [remove-repository: A new sub-command for the praefect to remove repository](gitlab-org/gitaly@ee6b638882f9aae601a2c37821e0e82e9d6e333f) ([merge request](gitlab-org/gitaly!3767))
+- [Implement sidechannel as a sub protocol of backchannel](gitlab-org/gitaly@fd80520b100eb0d0af17054eae1623129fb966bc) ([merge request](gitlab-org/gitaly!3768))
+- [Makefile: Build Git with extra GitLab patch level version](gitlab-org/gitaly@184deb2a6af21ca3923a67b1fae5f2de8e38430c) ([merge request](gitlab-org/gitaly!3831))
+- [Implement pointer backup file locator](gitlab-org/gitaly@69923a3ae4e9b03913c899c5d6fefed3d833047d) ([merge request](gitlab-org/gitaly!3788))
+- [blob: Allow listing paths in `ListBlobs()`](gitlab-org/gitaly@972a8a7fa60219a2917e63e5022afed4c809af50) ([merge request](gitlab-org/gitaly!3795))
+
+### Fixed (20 changes)
+
+- [commit-graph: Fix bug in IsMissingBloomFilters function](gitlab-org/gitaly@025ef35e07ffaaa88189b9a7f7cce965d522b20a) ([merge request](gitlab-org/gitaly!3852))
+- [Return NotFound code for mutators targeting non-existent repositories](gitlab-org/gitaly@b04aa750d115162ca8f468244aeb2810b6be8c10) ([merge request](gitlab-org/gitaly!3869))
+- [fix diff file disappear when diff with ignore whitespace change and last patch empty.](gitlab-org/gitaly@03418a05665e904b1803de7c715929f4fc36cf38) by @ceshiyixiaba ([merge request](gitlab-org/gitaly!3761))
+- [updateref: Fix indeterminate state when locking refs](gitlab-org/gitaly@4abf27024d6411d535d2e71526b9f682526e9c68) ([merge request](gitlab-org/gitaly!3856))
+- [repository: Use proper locking semantics to update gitconfig](gitlab-org/gitaly@b3ab3bfa5914d889c5c00e2c79fd03b4957a5a5a) ([merge request](gitlab-org/gitaly!3821))
+- [repository: Use proper locking semantics to update gitattributes](gitlab-org/gitaly@8b2e73ee1fe8f69f47872f8616fa133d4901b3bd) ([merge request](gitlab-org/gitaly!3821))
+- [updateref: Lock refs before voting on updates](gitlab-org/gitaly@1657adcdd9b6c4b753ec4b1989558180809c019e) ([merge request](gitlab-org/gitaly!3829))
+- [updateref: Fix quarantine directory being migrated too late](gitlab-org/gitaly@5f158e12d32c0bd8d29329120c3614bf2af9e392) ([merge request](gitlab-org/gitaly!3829))
+- [Don't delete unmerged branches in UpdateRemoteMirror](gitlab-org/gitaly@5092ff1535f62c4ff8697f6ca8a045af61d5ec59) ([merge request](gitlab-org/gitaly!3827))
+- [hook: Fix allowed errors not propagating correctly anymore](gitlab-org/gitaly@395c6725f72db5db294ef7bfc477c170c6ab9a7f) ([merge request](gitlab-org/gitaly!3826))
+- [PackObjectsHookWithSidechannel: return Canceled when client hangs up](gitlab-org/gitaly@c5cd9794f47b081090a51e4dbad5f5c0e9e9b62c) ([merge request](gitlab-org/gitaly!3811))
+- [Derive virtual storage's filesystem id from its name](gitlab-org/gitaly@b22ff45e1de56ee71c2b99665db5c7201e7edbbc) ([merge request](gitlab-org/gitaly!3820))
+- [hook: Fix prereceive returning AllowedError for generic errors](gitlab-org/gitaly@773668f55279f89f5f9439064329866608e9b35a) ([merge request](gitlab-org/gitaly!3705))
+- [Fix metric help string](gitlab-org/gitaly@954cf6f8fd7c654915e4eb6876daa996d9ce689b) ([merge request](gitlab-org/gitaly!3799))
+- [Return a better error message when a repository has no default branch](gitlab-org/gitaly@e26fb40a2673849f091f5fc5adef8aefc5101878) ([merge request](gitlab-org/gitaly!3798))
+- [Downgrade grpc from 1.38.0 to 1.30.2](gitlab-org/gitaly@ce2484a9e13173951b1cb5b0538aa75f86169437) ([merge request](gitlab-org/gitaly!3793))
+- [Fix concurrent generation increments failing](gitlab-org/gitaly@fc4c36a74b9be39b5e39380379087b2d4908d031) ([merge request](gitlab-org/gitaly!3757))
+- [datastore: Fix acknowledgement of stale jobs considering timezones](gitlab-org/gitaly@4a2ac0ed486f088fd34fdbeddef0c73cdec77e12) ([merge request](gitlab-org/gitaly!3784))
+- [Don't schedule replication jobs in SetAuthoritativeStorage](gitlab-org/gitaly@73eb0f44c0484f4730ca334c9b27e8cd0ad9ec86) ([merge request](gitlab-org/gitaly!3776))
+- [operations: Fix squashing commit ranges which contain empty commits](gitlab-org/gitaly@2e69c4d5d28a96159f393179fd1b8baa3f32cf8e) ([merge request](gitlab-org/gitaly!3769))
+
+### Changed (6 changes)
+
+- [Only use HEAD to determine default branch](gitlab-org/gitaly@ca7d181569f43d422ce3b1930fbbdecbe8f6ddbe) ([merge request](gitlab-org/gitaly!3817))
+- [Restore backups concurrently](gitlab-org/gitaly@dfb6159289e75d72806586d86b5eb37cff14f292) ([merge request](gitlab-org/gitaly!3796))
+- [operations: Implement rich errors for UserMergeBranch access checks](gitlab-org/gitaly@e542a7d87461c7a8c83c17640b37b53387040bb0) ([merge request](gitlab-org/gitaly!3705))
+- [Makefile: Upgrade default Git version to v2.33.0](gitlab-org/gitaly@7c6ee208af018c212222dd1ba208a4697585e014) ([merge request](gitlab-org/gitaly!3791))
+- [Update Ruby to 2.7.4](gitlab-org/gitaly@f3667ba1230531dd289958a969a5f563d4677d23) ([merge request](gitlab-org/gitaly!3771))
+- [Update Nokogiri to v1.11.7](gitlab-org/gitaly@4b96270ae26a40a32f119964177483de0e96fff1) ([merge request](gitlab-org/gitaly!3765))
+
+### Deprecated (2 changes)
+
+- [repository: Deprecate `IsSquashInProgress()`](gitlab-org/gitaly@9f867555e38bd5336e73391f2681aeb9c8682db6) ([merge request](gitlab-org/gitaly!3785))
+- [operations: Deprecate `SquashId`](gitlab-org/gitaly@112d747200156995466dc914f3d656b15075804b) ([merge request](gitlab-org/gitaly!3785))
+
+### Removed (8 changes)
+
+- [Remove UserApplyPatch Go port's feature flag](gitlab-org/gitaly@0dbc96a960c6574ce8538ca06e2bef040731c06a) ([merge request](gitlab-org/gitaly!3798))
+- [repository: Remove support for on-disk remotes in FetchRemote](gitlab-org/gitaly@d570abf84c882ab4beb51b916aec41455956c1bd) ([merge request](gitlab-org/gitaly!3779))
+- [remote: Remove support for on-disk remotes in FindRemoteRootRef](gitlab-org/gitaly@9f217d2ba58cc4e39f6e51b4c175ea914245a625) ([merge request](gitlab-org/gitaly!3779))
+- [remote: Remove support for on-disk remotes in UpdateRemoteMirror](gitlab-org/gitaly@75f19520594f9e637e81559b59df610c1b57c4ac) ([merge request](gitlab-org/gitaly!3779))
+- [remote: Remove `AddRemote()` RPC](gitlab-org/gitaly@0a66dab35f1790de5050e4857edf6d7811863217) ([merge request](gitlab-org/gitaly!3779))
+- [remote: Remove `RemoveRemote()` RPC](gitlab-org/gitaly@bdc2cabd484908225327a6ea2337055bb5a3487a) ([merge request](gitlab-org/gitaly!3779))
+- [Remove streamrpc implementation](gitlab-org/gitaly@db8ae21c59532c182f8f538c171cc28f300e00fb) ([merge request](gitlab-org/gitaly!3781))
+- [Remove streamio ReaderFrom and WriterTo](gitlab-org/gitaly@94af784102bbc4b6cbadf515756ed73b2a3e7a06) ([merge request](gitlab-org/gitaly!3777))
+
+### Performance (7 changes)
+
+- [Makefile: Apply Git patches to speed up fetches](gitlab-org/gitaly@6ebcf23f1aa77d21c98789a9823a6fde362a09c4) ([merge request](gitlab-org/gitaly!3848))
+- [Only activate Git pack-objects hook if cache is enabled](gitlab-org/gitaly@61b5836b382c2e4741398eeea198e0f377ec8af2) ([merge request](gitlab-org/gitaly!3816))
+- [PackObjectsHookWithSidechannel: buffer stdout data](gitlab-org/gitaly@46fdfcf62676f758d51fd4fd44fc80f4119e3445) ([merge request](gitlab-org/gitaly!3812))
+- [git: Speed up connectivity checks](gitlab-org/gitaly@94003d7d1a67ebc185feb0f7954707ad2866a035) ([merge request](gitlab-org/gitaly!3810))
+- [Add sendfile(2) support to streamcache](gitlab-org/gitaly@070c69dc5f0f5b5aedbc1020ee5d3db8ce13127b) ([merge request](gitlab-org/gitaly!3759))
+- [FindLicense: Implement license finding in Go](gitlab-org/gitaly@dcffcc4967033ba819a3d131096ea60bfb503618) ([merge request](gitlab-org/gitaly!3797))
+- [quarantine: Always enable use of quarantine directories](gitlab-org/gitaly@7db733a65560bd1aae8c21e6746c3b4ffde02918) ([merge request](gitlab-org/gitaly!3783))
+
+### Other (2 changes)
+
+- [sidechannel: remove error return value](gitlab-org/gitaly@61dd302d9a0172c2169172266d022fb1f858e159) ([merge request](gitlab-org/gitaly!3859))
+- [Add PackObjectsHookWithSidechannel support to gitaly-hooks](gitlab-org/gitaly@5a90518fe53d7a4bb043070c7d1d17d076912790) ([merge request](gitlab-org/gitaly!3758))
+
+### deprecation (2 changes)
+
+- [remote: Deprecate FetchInternalRemote RPC](gitlab-org/gitaly@c5fc4a035e8c6cd2e7b0847e5b9a10a67a762965) ([merge request](gitlab-org/gitaly!3860))
+- [repository: Deprecate `SetConfig()` RPC](gitlab-org/gitaly@4d1c5cc7f927a3da7a997f48b996fbdf9579b047) ([merge request](gitlab-org/gitaly!3790))
+
 ## 14.2.4 (2021-09-17)
 
 ### Fixed (1 change)
