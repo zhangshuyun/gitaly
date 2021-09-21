@@ -11,16 +11,13 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	promtest "github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/listenmux"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -471,14 +468,9 @@ func makePostUploadPackRequest(ctx context.Context, t *testing.T, serverSocketPa
 }
 
 func dialSmartHTTPServerWithSidechannel(t *testing.T, serverSocketPath, token string, registry *sidechannel.Registry) *grpc.ClientConn {
-	logger := logrus.NewEntry(logrus.New())
+	t.Helper()
 
-	factory := func() backchannel.Server {
-		lm := listenmux.New(insecure.NewCredentials())
-		lm.Register(sidechannel.NewServerHandshaker(registry))
-		return grpc.NewServer(grpc.Creds(lm))
-	}
-	clientHandshaker := backchannel.NewClientHandshaker(logger, factory)
+	clientHandshaker := sidechannel.NewClientHandshaker(testhelper.DiscardTestEntry(t), registry)
 	connOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(clientHandshaker.ClientHandshake(insecure.NewCredentials())),
 		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(token)),

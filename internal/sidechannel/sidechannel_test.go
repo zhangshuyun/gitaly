@@ -166,13 +166,7 @@ func startServer(t *testing.T, th testHandler, opts ...grpc.ServerOption) string
 
 func dial(t *testing.T, addr string) (*grpc.ClientConn, *Registry) {
 	registry := NewRegistry()
-	factory := func() backchannel.Server {
-		lm := listenmux.New(insecure.NewCredentials())
-		lm.Register(NewServerHandshaker(registry))
-		return grpc.NewServer(grpc.Creds(lm))
-	}
-
-	clientHandshaker := backchannel.NewClientHandshaker(newLogger(), factory)
+	clientHandshaker := NewClientHandshaker(newLogger(), registry)
 	dialOpt := grpc.WithTransportCredentials(clientHandshaker.ClientHandshake(insecure.NewCredentials()))
 
 	conn, err := grpc.Dial(addr, dialOpt)
