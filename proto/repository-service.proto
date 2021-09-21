@@ -142,28 +142,6 @@ service RepositoryService {
     };
   }
 
-  // SetConfig writes a set of config entries into the target repository's
-  // gitconfig. This RPC is deprecated with no general replacement: modifying
-  // the on-disk gitconfig is not supported anymore. The only usecase that is
-  // still supported is writing "gitlab.fullpath" via the new `SetFullPath()`
-  // RPC.
-  rpc SetConfig(SetConfigRequest) returns (SetConfigResponse) {
-    option deprecated = true;
-    option (op_type) = {
-      op: MUTATOR
-    };
-  }
-
-  // DeleteConfig deletes a set of config entries from the target repository's
-  // gitconfig. This RPC is deprecated with no replacement: modifying the
-  // on-disk gitconfig is not supported anymore.
-  rpc DeleteConfig(DeleteConfigRequest) returns (DeleteConfigResponse) {
-    option deprecated = true;
-    option (op_type) = {
-      op: MUTATOR
-    };
-  }
-
   rpc FindLicense(FindLicenseRequest) returns (FindLicenseResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -535,28 +513,6 @@ message GetConfigResponse {
   // Data contains contents of the gitconfig.
   bytes data = 1;
 }
-
-message SetConfigRequest {
-  Repository repository = 1 [(target_repository)=true];
-  message Entry {
-    string key = 1;
-    oneof value {
-      string value_str = 2;
-      int32 value_int32 = 3;
-      bool value_bool = 4;
-    }
-  }
-  repeated Entry entries = 2;
-}
-
-message SetConfigResponse {}
-
-message DeleteConfigRequest {
-  Repository repository = 1 [(target_repository)=true];
-  repeated string keys = 2;
-}
-
-message DeleteConfigResponse {}
 
 message  RestoreCustomHooksRequest {
   Repository repository = 1 [(target_repository)=true];

@@ -46,16 +46,6 @@ module Gitaly
       # GetConfig reads the target repository's gitconfig and streams its contents
       # back. Returns a NotFound error in case no gitconfig was found.
       rpc :GetConfig, Gitaly::GetConfigRequest, stream(Gitaly::GetConfigResponse)
-      # SetConfig writes a set of config entries into the target repository's
-      # gitconfig. This RPC is deprecated with no general replacement: modifying
-      # the on-disk gitconfig is not supported anymore. The only usecase that is
-      # still supported is writing "gitlab.fullpath" via the new `SetFullPath()`
-      # RPC.
-      rpc :SetConfig, Gitaly::SetConfigRequest, Gitaly::SetConfigResponse
-      # DeleteConfig deletes a set of config entries from the target repository's
-      # gitconfig. This RPC is deprecated with no replacement: modifying the
-      # on-disk gitconfig is not supported anymore.
-      rpc :DeleteConfig, Gitaly::DeleteConfigRequest, Gitaly::DeleteConfigResponse
       rpc :FindLicense, Gitaly::FindLicenseRequest, Gitaly::FindLicenseResponse
       rpc :GetInfoAttributes, Gitaly::GetInfoAttributesRequest, stream(Gitaly::GetInfoAttributesResponse)
       rpc :CalculateChecksum, Gitaly::CalculateChecksumRequest, Gitaly::CalculateChecksumResponse
