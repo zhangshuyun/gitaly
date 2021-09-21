@@ -44,6 +44,8 @@ type Repository interface {
 	ResolveRevision(ctx context.Context, revision Revision) (ObjectID, error)
 	// HasBranches returns whether the repository has branches.
 	HasBranches(ctx context.Context) (bool, error)
+	// GetDefaultBranch returns the default branch of the repository.
+	GetDefaultBranch(ctx context.Context) (ReferenceName, error)
 }
 
 // RepositoryExecutor is an interface which allows execution of Git commands in a specific

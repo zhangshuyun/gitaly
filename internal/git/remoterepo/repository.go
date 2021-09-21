@@ -70,3 +70,16 @@ func (rr *Repo) HasBranches(ctx context.Context) (bool, error) {
 
 	return resp.Value, nil
 }
+
+// GetDefaultBranch returns the default branch for the remote repository. It does so by invoking
+// `FindDefaultBranchName()`, which itself is a wrapper around `localrepo.GetDefaultBranch()`.
+// Semantics of this function thus match the localrepo semantics.
+func (rr *Repo) GetDefaultBranch(ctx context.Context) (git.ReferenceName, error) {
+	resp, err := gitalypb.NewRefServiceClient(rr.conn).FindDefaultBranchName(
+		ctx, &gitalypb.FindDefaultBranchNameRequest{Repository: rr.Repository})
+	if err != nil {
+		return "", err
+	}
+
+	return git.ReferenceName(resp.Name), nil
+}

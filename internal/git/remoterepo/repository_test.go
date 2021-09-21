@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/commit"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
@@ -37,6 +38,13 @@ func TestRepository(t *testing.T) {
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetLinguist(),
+			deps.GetCatfileCache(),
+		))
+		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(
+			deps.GetCfg(),
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			deps.GetTxManager(),
 			deps.GetCatfileCache(),
 		))
 	})
