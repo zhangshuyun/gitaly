@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -118,10 +119,10 @@ func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
 	targetRepo := proto.Clone(sourceRepo).(*gitalypb.Repository)
 	targetRepo.StorageName = cfg.Storages[1].Name
 
-	votes := 0
+	votes := int32(0)
 	txServer := testTransactionServer{
 		vote: func(request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
-			votes++
+			atomic.AddInt32(&votes, 1)
 			return &gitalypb.VoteTransactionResponse{
 				State: gitalypb.VoteTransactionResponse_COMMIT,
 			}, nil
@@ -151,16 +152,16 @@ func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
 
 	require.NoError(t, err)
 	if featureflag.TxExtendedFileLocking.IsEnabled(ctx) {
-		require.Equal(t, 5, votes)
+		require.EqualValues(t, 5, atomic.LoadInt32(&votes))
 	} else {
-		require.Equal(t, 1, votes)
+		require.EqualValues(t, 1, atomic.LoadInt32(&votes))
 	}
 
 	// We're now changing a reference in the source repository such that we can observe changes
 	// in the target repo.
 	gittest.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", "refs/heads/master", "refs/heads/master~")
 
-	votes = 0
+	atomic.StoreInt32(&votes, 0)
 
 	// And the second invocation uses FetchInternalRemote.
 	_, err = client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
@@ -170,9 +171,9 @@ func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
 
 	require.NoError(t, err)
 	if featureflag.TxExtendedFileLocking.IsEnabled(ctx) {
-		require.Equal(t, 6, votes)
+		require.EqualValues(t, 6, atomic.LoadInt32(&votes))
 	} else {
-		require.Equal(t, 2, votes)
+		require.EqualValues(t, 2, atomic.LoadInt32(&votes))
 	}
 }
 
