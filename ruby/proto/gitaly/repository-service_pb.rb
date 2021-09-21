@@ -143,13 +143,6 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     end
     add_message "gitaly.CreateForkResponse" do
     end
-    add_message "gitaly.IsSquashInProgressRequest" do
-      optional :repository, :message, 1, "gitaly.Repository"
-      optional :squash_id, :string, 2
-    end
-    add_message "gitaly.IsSquashInProgressResponse" do
-      optional :in_progress, :bool, 1
-    end
     add_message "gitaly.CreateRepositoryFromURLRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
       optional :url, :string, 2
@@ -368,8 +361,6 @@ module Gitaly
   FindMergeBaseResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindMergeBaseResponse").msgclass
   CreateForkRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CreateForkRequest").msgclass
   CreateForkResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CreateForkResponse").msgclass
-  IsSquashInProgressRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.IsSquashInProgressRequest").msgclass
-  IsSquashInProgressResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.IsSquashInProgressResponse").msgclass
   CreateRepositoryFromURLRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CreateRepositoryFromURLRequest").msgclass
   CreateRepositoryFromURLResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CreateRepositoryFromURLResponse").msgclass
   CreateBundleRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CreateBundleRequest").msgclass

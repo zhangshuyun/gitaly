@@ -17,6 +17,10 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+const (
+	worktreePrefix = "gitlab-worktree"
+)
+
 func (s *server) Cleanup(ctx context.Context, in *gitalypb.CleanupRequest) (*gitalypb.CleanupResponse, error) {
 	repo := s.localrepo(in.GetRepository())
 

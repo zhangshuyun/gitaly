@@ -39,9 +39,6 @@ type RepositoryServiceClient interface {
 	WriteRef(ctx context.Context, in *WriteRefRequest, opts ...grpc.CallOption) (*WriteRefResponse, error)
 	FindMergeBase(ctx context.Context, in *FindMergeBaseRequest, opts ...grpc.CallOption) (*FindMergeBaseResponse, error)
 	CreateFork(ctx context.Context, in *CreateForkRequest, opts ...grpc.CallOption) (*CreateForkResponse, error)
-	// Deprecated: Do not use.
-	// IsSquashInProgress is deprecated and will always return false.
-	IsSquashInProgress(ctx context.Context, in *IsSquashInProgressRequest, opts ...grpc.CallOption) (*IsSquashInProgressResponse, error)
 	CreateRepositoryFromURL(ctx context.Context, in *CreateRepositoryFromURLRequest, opts ...grpc.CallOption) (*CreateRepositoryFromURLResponse, error)
 	// CreateBundle creates a bundle from all refs
 	CreateBundle(ctx context.Context, in *CreateBundleRequest, opts ...grpc.CallOption) (RepositoryService_CreateBundleClient, error)
@@ -257,16 +254,6 @@ func (c *repositoryServiceClient) FindMergeBase(ctx context.Context, in *FindMer
 func (c *repositoryServiceClient) CreateFork(ctx context.Context, in *CreateForkRequest, opts ...grpc.CallOption) (*CreateForkResponse, error) {
 	out := new(CreateForkResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/CreateFork", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// Deprecated: Do not use.
-func (c *repositoryServiceClient) IsSquashInProgress(ctx context.Context, in *IsSquashInProgressRequest, opts ...grpc.CallOption) (*IsSquashInProgressResponse, error) {
-	out := new(IsSquashInProgressResponse)
-	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/IsSquashInProgress", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -770,9 +757,6 @@ type RepositoryServiceServer interface {
 	WriteRef(context.Context, *WriteRefRequest) (*WriteRefResponse, error)
 	FindMergeBase(context.Context, *FindMergeBaseRequest) (*FindMergeBaseResponse, error)
 	CreateFork(context.Context, *CreateForkRequest) (*CreateForkResponse, error)
-	// Deprecated: Do not use.
-	// IsSquashInProgress is deprecated and will always return false.
-	IsSquashInProgress(context.Context, *IsSquashInProgressRequest) (*IsSquashInProgressResponse, error)
 	CreateRepositoryFromURL(context.Context, *CreateRepositoryFromURLRequest) (*CreateRepositoryFromURLResponse, error)
 	// CreateBundle creates a bundle from all refs
 	CreateBundle(*CreateBundleRequest, RepositoryService_CreateBundleServer) error
@@ -865,9 +849,6 @@ func (UnimplementedRepositoryServiceServer) FindMergeBase(context.Context, *Find
 }
 func (UnimplementedRepositoryServiceServer) CreateFork(context.Context, *CreateForkRequest) (*CreateForkResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateFork not implemented")
-}
-func (UnimplementedRepositoryServiceServer) IsSquashInProgress(context.Context, *IsSquashInProgressRequest) (*IsSquashInProgressResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method IsSquashInProgress not implemented")
 }
 func (UnimplementedRepositoryServiceServer) CreateRepositoryFromURL(context.Context, *CreateRepositoryFromURLRequest) (*CreateRepositoryFromURLResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateRepositoryFromURL not implemented")
@@ -1259,24 +1240,6 @@ func _RepositoryService_CreateFork_Handler(srv interface{}, ctx context.Context,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RepositoryServiceServer).CreateFork(ctx, req.(*CreateForkRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RepositoryService_IsSquashInProgress_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(IsSquashInProgressRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RepositoryServiceServer).IsSquashInProgress(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gitaly.RepositoryService/IsSquashInProgress",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RepositoryServiceServer).IsSquashInProgress(ctx, req.(*IsSquashInProgressRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1831,10 +1794,6 @@ var RepositoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateFork",
 			Handler:    _RepositoryService_CreateFork_Handler,
-		},
-		{
-			MethodName: "IsSquashInProgress",
-			Handler:    _RepositoryService_IsSquashInProgress_Handler,
 		},
 		{
 			MethodName: "CreateRepositoryFromURL",

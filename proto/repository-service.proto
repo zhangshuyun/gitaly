@@ -100,14 +100,6 @@ service RepositoryService {
     };
   }
 
-  // IsSquashInProgress is deprecated and will always return false.
-  rpc IsSquashInProgress(IsSquashInProgressRequest) returns (IsSquashInProgressResponse) {
-    option deprecated = true;
-    option (op_type) = {
-      op: ACCESSOR
-    };
-  }
-
   rpc CreateRepositoryFromURL(CreateRepositoryFromURLRequest) returns (CreateRepositoryFromURLResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -462,15 +454,6 @@ message CreateForkRequest {
 }
 
 message CreateForkResponse {}
-
-message IsSquashInProgressRequest {
-  Repository repository = 1 [(target_repository)=true];
-  string squash_id = 2;
-}
-
-message IsSquashInProgressResponse {
-  bool in_progress = 1;
-}
 
 message CreateRepositoryFromURLRequest {
   Repository repository = 1 [(target_repository)=true];

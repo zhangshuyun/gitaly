@@ -35,8 +35,6 @@ module Gitaly
       rpc :WriteRef, Gitaly::WriteRefRequest, Gitaly::WriteRefResponse
       rpc :FindMergeBase, Gitaly::FindMergeBaseRequest, Gitaly::FindMergeBaseResponse
       rpc :CreateFork, Gitaly::CreateForkRequest, Gitaly::CreateForkResponse
-      # IsSquashInProgress is deprecated and will always return false.
-      rpc :IsSquashInProgress, Gitaly::IsSquashInProgressRequest, Gitaly::IsSquashInProgressResponse
       rpc :CreateRepositoryFromURL, Gitaly::CreateRepositoryFromURLRequest, Gitaly::CreateRepositoryFromURLResponse
       # CreateBundle creates a bundle from all refs
       rpc :CreateBundle, Gitaly::CreateBundleRequest, stream(Gitaly::CreateBundleResponse)
