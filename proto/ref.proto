@@ -106,14 +106,6 @@ service RefService {
     };
   }
 
-  // ListNewBlobs is equivalent to ListBlobs with `["--not", "--all", "--not",
-  // commit_id]`. This RPC call will be removed in v14.4.
-  rpc ListNewBlobs(ListNewBlobsRequest) returns (stream ListNewBlobsResponse) {
-    option deprecated = true;
-    option (op_type) = {
-      op: ACCESSOR
-    };
-  }
   rpc PackRefs(PackRefsRequest) returns (PackRefsResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -128,18 +120,6 @@ service RefService {
       op: ACCESSOR
     };
   }
-}
-
-message ListNewBlobsRequest {
-  Repository repository = 1 [(target_repository)=true];
-  string commit_id = 2;
-  // Limit the number of revs to be returned fro mgit-rev-list
-  // If the limit is set to zero, all items will be returned
-  uint32 limit = 3;
-}
-
-message ListNewBlobsResponse {
-  repeated NewBlobObject new_blob_objects = 1;
 }
 
 message FindDefaultBranchNameRequest {
