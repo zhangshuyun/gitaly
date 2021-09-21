@@ -189,12 +189,6 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     end
     add_message "gitaly.SetConfigResponse" do
     end
-    add_message "gitaly.DeleteConfigRequest" do
-      optional :repository, :message, 1, "gitaly.Repository"
-      repeated :keys, :string, 2
-    end
-    add_message "gitaly.DeleteConfigResponse" do
-    end
     add_message "gitaly.RestoreCustomHooksRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
       optional :data, :bytes, 2
@@ -401,8 +395,6 @@ module Gitaly
   SetConfigRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.SetConfigRequest").msgclass
   SetConfigRequest::Entry = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.SetConfigRequest.Entry").msgclass
   SetConfigResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.SetConfigResponse").msgclass
-  DeleteConfigRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.DeleteConfigRequest").msgclass
-  DeleteConfigResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.DeleteConfigResponse").msgclass
   RestoreCustomHooksRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.RestoreCustomHooksRequest").msgclass
   RestoreCustomHooksResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.RestoreCustomHooksResponse").msgclass
   BackupCustomHooksRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.BackupCustomHooksRequest").msgclass

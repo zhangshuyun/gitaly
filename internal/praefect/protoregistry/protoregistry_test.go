@@ -126,7 +126,6 @@ func TestNewProtoRegistry(t *testing.T) {
 			"CreateBundle":                 protoregistry.OpAccessor,
 			"CreateRepositoryFromBundle":   protoregistry.OpMutator,
 			"SetConfig":                    protoregistry.OpMutator,
-			"DeleteConfig":                 protoregistry.OpMutator,
 			"FindLicense":                  protoregistry.OpAccessor,
 			"GetInfoAttributes":            protoregistry.OpAccessor,
 			"CalculateChecksum":            protoregistry.OpAccessor,

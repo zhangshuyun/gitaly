@@ -7,8 +7,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
@@ -53,51 +51,6 @@ func (s *server) GetConfig(
 	}
 
 	return nil
-}
-
-func (s *server) DeleteConfig(ctx context.Context, req *gitalypb.DeleteConfigRequest) (*gitalypb.DeleteConfigResponse, error) {
-	/*
-	 * We need to vote both before and after the change because we don't have proper commit
-	 * semantics: it's not easily feasible to lock the config manually, vote on it and only
-	 * commit the change if the vote was successful. Git automatically does this for us for ref
-	 * updates via the reference-transaction hook, but here we'll need to use an approximation.
-	 *
-	 * As an approximation, we thus vote both before and after the change. Praefect requires the
-	 * vote up front because if an RPC failed and no vote exists, it assumes no change was
-	 * performed, and that's bad for us if we fail _after_ the modification but _before_ the
-	 * vote on changed data. And the second vote is required such that we can assert that all
-	 * Gitaly nodes actually did perform the same change.
-	 */
-	if err := s.voteOnConfig(ctx, req.GetRepository()); err != nil {
-		return nil, helper.ErrInternal(fmt.Errorf("preimage vote on config: %w", err))
-	}
-
-	for _, k := range req.Keys {
-		// We assume k does not contain any secrets; it is leaked via 'ps'.
-		cmd, err := s.gitCmdFactory.New(ctx, req.Repository, git.SubCmd{
-			Name:  "config",
-			Flags: []git.Option{git.Flag{Name: "--unset-all"}},
-			Args:  []string{k},
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		if err := cmd.Wait(); err != nil {
-			if code, ok := command.ExitStatus(err); ok && code == 5 {
-				// Status code 5 means 'key not in config', see 'git help config'
-				continue
-			}
-
-			return nil, status.Errorf(codes.Internal, "command failed: %v", err)
-		}
-	}
-
-	if err := s.voteOnConfig(ctx, req.GetRepository()); err != nil {
-		return nil, helper.ErrInternal(fmt.Errorf("postimage vote on config: %w", err))
-	}
-
-	return &gitalypb.DeleteConfigResponse{}, nil
 }
 
 func (s *server) setConfigGit2Go(ctx context.Context, req *gitalypb.SetConfigRequest) (*gitalypb.SetConfigResponse, error) {

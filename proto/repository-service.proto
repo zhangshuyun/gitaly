@@ -154,16 +154,6 @@ service RepositoryService {
     };
   }
 
-  // DeleteConfig deletes a set of config entries from the target repository's
-  // gitconfig. This RPC is deprecated with no replacement: modifying the
-  // on-disk gitconfig is not supported anymore.
-  rpc DeleteConfig(DeleteConfigRequest) returns (DeleteConfigResponse) {
-    option deprecated = true;
-    option (op_type) = {
-      op: MUTATOR
-    };
-  }
-
   rpc FindLicense(FindLicenseRequest) returns (FindLicenseResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -550,13 +540,6 @@ message SetConfigRequest {
 }
 
 message SetConfigResponse {}
-
-message DeleteConfigRequest {
-  Repository repository = 1 [(target_repository)=true];
-  repeated string keys = 2;
-}
-
-message DeleteConfigResponse {}
 
 message  RestoreCustomHooksRequest {
   Repository repository = 1 [(target_repository)=true];
