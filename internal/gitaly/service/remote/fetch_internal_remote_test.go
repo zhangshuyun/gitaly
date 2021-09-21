@@ -12,7 +12,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
@@ -20,12 +22,12 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ssh"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 )
 
 // GitalySSHParams contains parameters used to exec 'gitaly-ssh' binary.
@@ -159,21 +161,17 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 		))
 	}, testserver.WithDisablePraefect())
 
-	localCfg, localRepo, localRepoPath := testcfg.BuildWithRepo(t)
+	localCfg, localRepoProto, localRepoPath := testcfg.BuildWithRepo(t)
+	localRepo := localrepo.NewTestRepo(t, localCfg, localRepoProto)
 	testhelper.BuildGitalySSH(t, localCfg)
 	testhelper.BuildGitalyHooks(t, localCfg)
 	gittest.Exec(t, remoteCfg, "-C", localRepoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
 
 	referenceTransactionHookCalled := 0
 
-	localAddr := testserver.RunGitalyServer(t, localCfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
-			deps.GetCfg(),
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-			deps.GetTxManager(),
-		))
+	// We do not require the server's address, but it needs to be around regardless such that
+	// `FetchInternalRemote` can reach the hook service which is injected via the config.
+	testserver.RunGitalyServer(t, localCfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(
 			deps.GetCfg(),
 			deps.GetHookManager(),
@@ -185,21 +183,16 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 		return nil
 	})), testserver.WithDisablePraefect())
 
-	client, conn := newRemoteClient(t, localAddr)
-	t.Cleanup(func() { conn.Close() })
-
 	ctx, err := storage.InjectGitalyServers(ctx, remoteRepo.GetStorageName(), remoteAddr, "")
 	require.NoError(t, err)
+	ctx = metadata.OutgoingToIncoming(ctx)
 
 	getGitalySSHInvocationParams := listenGitalySSHCalls(t, localCfg)
 
-	//nolint:staticcheck
-	c, err := client.FetchInternalRemote(ctx, &gitalypb.FetchInternalRemoteRequest{
-		Repository:       localRepo,
-		RemoteRepository: remoteRepo,
-	})
-	require.NoError(t, err)
-	require.True(t, c.GetResult())
+	connsPool := client.NewPool()
+	defer connsPool.Close()
+
+	require.NoError(t, FetchInternalRemote(ctx, localCfg, connsPool, localRepo, remoteRepo))
 
 	require.Equal(t,
 		string(gittest.Exec(t, remoteCfg, "-C", remoteRepoPath, "show-ref", "--head")),
@@ -225,55 +218,20 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 func TestFetchInternalRemote_failure(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, _, client := setupRemoteService(t)
+	cfg, repoProto, _, _ := setupRemoteService(t)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
+	ctx = testhelper.MergeIncomingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
 
-	// Non-existing remote repo
-	remoteRepo := &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "fake.git"}
+	connsPool := client.NewPool()
+	defer connsPool.Close()
 
-	request := &gitalypb.FetchInternalRemoteRequest{
-		Repository:       repo,
-		RemoteRepository: remoteRepo,
-	}
-
-	//nolint:staticcheck
-	c, err := client.FetchInternalRemote(ctx, request)
-	require.NoError(t, err, "FetchInternalRemote is not supposed to return an error when 'git fetch' fails")
-	require.False(t, c.GetResult())
-}
-
-func TestFetchInternalRemote_validation(t *testing.T) {
-	t.Parallel()
-
-	_, repo, _, client := setupRemoteService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	testCases := []struct {
-		desc    string
-		request *gitalypb.FetchInternalRemoteRequest
-	}{
-		{
-			desc:    "empty Repository",
-			request: &gitalypb.FetchInternalRemoteRequest{RemoteRepository: repo},
-		},
-		{
-			desc:    "empty Remote Repository",
-			request: &gitalypb.FetchInternalRemoteRequest{Repository: repo},
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			//nolint:staticcheck
-			_, err := client.FetchInternalRemote(ctx, tc.request)
-
-			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
-			require.Contains(t, err.Error(), tc.desc)
-		})
-	}
+	err := FetchInternalRemote(ctx, cfg, connsPool, repo, &gitalypb.Repository{
+		StorageName:  repoProto.GetStorageName(),
+		RelativePath: "does-not-exist.git",
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "fatal: Could not read from remote repository")
 }
