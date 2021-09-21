@@ -3,7 +3,7 @@ package logsanitizer
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
@@ -101,7 +101,7 @@ func BenchmarkUrlSanitizerWithoutSanitization(b *testing.B) {
 	urlSanitizer := NewURLSanitizerHook()
 
 	logger := log.New()
-	logger.Out = ioutil.Discard
+	logger.Out = io.Discard
 	logger.Hooks.Add(urlSanitizer)
 
 	benchmarkLogging(logger, b)
@@ -115,7 +115,7 @@ func BenchmarkUrlSanitizerWithSanitization(b *testing.B) {
 	)
 
 	logger := log.New()
-	logger.Out = ioutil.Discard
+	logger.Out = io.Discard
 	logger.Hooks.Add(urlSanitizer)
 
 	benchmarkLogging(logger, b)

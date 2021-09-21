@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -14,12 +14,12 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
-func TestFile(t *testing.T) {
+func TestFileWriter_successful(t *testing.T) {
 	dir := testhelper.TempDir(t)
 
 	filePath := filepath.Join(dir, "test_file_contents")
 	fileContents := "very important contents"
-	file, err := safe.CreateFileWriter(filePath)
+	file, err := safe.NewFileWriter(filePath)
 	require.NoError(t, err)
 
 	_, err = io.Copy(file, bytes.NewBufferString(fileContents))
@@ -32,13 +32,36 @@ func TestFile(t *testing.T) {
 	writtenContents := testhelper.MustReadFile(t, filePath)
 	require.Equal(t, fileContents, string(writtenContents))
 
-	filesInTempDir, err := ioutil.ReadDir(dir)
+	filesInTempDir, err := os.ReadDir(dir)
 	require.NoError(t, err)
 	require.Len(t, filesInTempDir, 1)
 	require.Equal(t, filepath.Base(filePath), filesInTempDir[0].Name())
 }
 
-func TestFileRace(t *testing.T) {
+func TestFileWriter_multipleConfigs(t *testing.T) {
+	_, err := safe.NewFileWriter("something", safe.FileWriterConfig{},
+		safe.FileWriterConfig{})
+	require.Equal(t, fmt.Errorf("file writer created with more than one config"), err)
+}
+
+func TestFileWriter_mode(t *testing.T) {
+	dir := testhelper.TempDir(t)
+
+	target := filepath.Join(dir, "file")
+	require.NoError(t, os.WriteFile(target, []byte("contents"), 0o600))
+
+	writer, err := safe.NewFileWriter(target, safe.FileWriterConfig{
+		FileMode: 0o060,
+	})
+	require.NoError(t, err)
+	require.NoError(t, writer.Commit())
+
+	fi, err := os.Stat(target)
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o060), fi.Mode())
+}
+
+func TestFileWriter_race(t *testing.T) {
 	dir := testhelper.TempDir(t)
 
 	filePath := filepath.Join(dir, "test_file_contents")
@@ -48,7 +71,7 @@ func TestFileRace(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func(i int) {
-			w, err := safe.CreateFileWriter(filePath)
+			w, err := safe.NewFileWriter(filePath)
 			require.NoError(t, err)
 			_, err = w.Write([]byte(fmt.Sprintf("message # %d", i)))
 			require.NoError(t, err)
@@ -59,16 +82,16 @@ func TestFileRace(t *testing.T) {
 	wg.Wait()
 
 	require.FileExists(t, filePath)
-	filesInTempDir, err := ioutil.ReadDir(dir)
+	filesInTempDir, err := os.ReadDir(dir)
 	require.NoError(t, err)
 	require.Len(t, filesInTempDir, 1, "make sure no other files were written")
 }
 
-func TestFileCloseBeforeCommit(t *testing.T) {
+func TestFileWriter_closeBeforeCommit(t *testing.T) {
 	dir := testhelper.TempDir(t)
 
 	dstPath := filepath.Join(dir, "safety_meow")
-	sf, err := safe.CreateFileWriter(dstPath)
+	sf, err := safe.NewFileWriter(dstPath)
 	require.NoError(t, err)
 
 	require.True(t, !dirEmpty(t, dir), "should contain something")
@@ -82,11 +105,11 @@ func TestFileCloseBeforeCommit(t *testing.T) {
 	require.Equal(t, safe.ErrAlreadyDone, sf.Commit())
 }
 
-func TestFileCommitBeforeClose(t *testing.T) {
+func TestFileWriter_commitBeforeClose(t *testing.T) {
 	dir := testhelper.TempDir(t)
 
 	dstPath := filepath.Join(dir, "safety_meow")
-	sf, err := safe.CreateFileWriter(dstPath)
+	sf, err := safe.NewFileWriter(dstPath)
 	require.NoError(t, err)
 
 	require.False(t, dirEmpty(t, dir), "should contain something")
@@ -104,7 +127,7 @@ func TestFileCommitBeforeClose(t *testing.T) {
 }
 
 func dirEmpty(t testing.TB, dirPath string) bool {
-	infos, err := ioutil.ReadDir(dirPath)
+	infos, err := os.ReadDir(dirPath)
 	require.NoError(t, err)
 	return len(infos) == 0
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -20,7 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ssh"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -83,7 +82,7 @@ func listenGitalySSHCalls(t *testing.T, conf config.Cfg) func() []GitalySSHParam
 		exit $?`,
 		tmpDir, envPrefix, argsPrefix, updatedPath)
 
-	require.NoError(t, ioutil.WriteFile(initialPath, []byte(script), 0o755))
+	require.NoError(t, os.WriteFile(initialPath, []byte(script), 0o755))
 
 	getSSHParams := func() []GitalySSHParams {
 		var gitalySSHParams []GitalySSHParams
@@ -110,7 +109,7 @@ func listenGitalySSHCalls(t *testing.T, conf config.Cfg) func() []GitalySSHParam
 					gitalySSHParams = tmp
 				}
 
-				data, err := ioutil.ReadFile(path)
+				data, err := os.ReadFile(path)
 				if err != nil {
 					return err
 				}
@@ -200,9 +199,10 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	t.Cleanup(cancel)
 
-	ctx, err := helper.InjectGitalyServers(ctx, remoteRepo.GetStorageName(), remoteAddr, "")
+	ctx, err := storage.InjectGitalyServers(ctx, remoteRepo.GetStorageName(), remoteAddr, "")
 	require.NoError(t, err)
 
+	//nolint:staticcheck
 	c, err := client.FetchInternalRemote(ctx, &gitalypb.FetchInternalRemoteRequest{
 		Repository:       localRepo,
 		RemoteRepository: remoteRepo,
@@ -248,6 +248,7 @@ func TestFailedFetchInternalRemote(t *testing.T) {
 		RemoteRepository: remoteRepo,
 	}
 
+	//nolint:staticcheck
 	c, err := client.FetchInternalRemote(ctx, request)
 	require.NoError(t, err, "FetchInternalRemote is not supposed to return an error when 'git fetch' fails")
 	require.False(t, c.GetResult())
@@ -276,6 +277,7 @@ func TestFailedFetchInternalRemoteDueToValidations(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
+			//nolint:staticcheck
 			_, err := client.FetchInternalRemote(ctx, tc.request)
 
 			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)

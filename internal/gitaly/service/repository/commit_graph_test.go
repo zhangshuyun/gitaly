@@ -10,9 +10,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -23,10 +23,10 @@ func TestWriteCommitGraph_withExistingCommitGraphCreatedWithDefaults(t *testing.
 	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
-	commitGraphPath := filepath.Join(repoPath, CommitGraphRelPath)
+	commitGraphPath := filepath.Join(repoPath, stats.CommitGraphRelPath)
 	require.NoFileExists(t, commitGraphPath, "sanity check no commit graph")
 
-	chainPath := filepath.Join(repoPath, CommitGraphChainRelPath)
+	chainPath := filepath.Join(repoPath, stats.CommitGraphChainRelPath)
 	require.NoFileExists(t, chainPath, "sanity check no commit graph chain exists")
 
 	// write commit graph using an old approach
@@ -61,10 +61,10 @@ func TestWriteCommitGraph_withExistingCommitGraphCreatedWithSplit(t *testing.T) 
 	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
-	commitGraphPath := filepath.Join(repoPath, CommitGraphRelPath)
+	commitGraphPath := filepath.Join(repoPath, stats.CommitGraphRelPath)
 	require.NoFileExists(t, commitGraphPath, "sanity check no commit graph")
 
-	chainPath := filepath.Join(repoPath, CommitGraphChainRelPath)
+	chainPath := filepath.Join(repoPath, stats.CommitGraphChainRelPath)
 	require.NoFileExists(t, chainPath, "sanity check no commit graph chain exists")
 
 	// write commit graph chain
@@ -102,7 +102,7 @@ func TestWriteCommitGraph(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	chainPath := filepath.Join(repoPath, CommitGraphChainRelPath)
+	chainPath := filepath.Join(repoPath, stats.CommitGraphChainRelPath)
 
 	require.NoFileExists(t, chainPath)
 
@@ -161,7 +161,7 @@ func TestUpdateCommitGraph(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	chainPath := filepath.Join(repoPath, CommitGraphChainRelPath)
+	chainPath := filepath.Join(repoPath, stats.CommitGraphChainRelPath)
 	require.NoFileExists(t, chainPath)
 
 	res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
@@ -202,44 +202,18 @@ func TestUpdateCommitGraph(t *testing.T) {
 func requireBloomFilterUsed(t testing.TB, repoPath string) {
 	t.Helper()
 
-	commitGraphsPath := filepath.Join(repoPath, CommitGraphChainRelPath)
+	commitGraphsPath := filepath.Join(repoPath, stats.CommitGraphChainRelPath)
 	ids := bytes.Split(testhelper.MustReadFile(t, commitGraphsPath), []byte{'\n'})
 
 	for _, id := range ids {
 		if len(id) == 0 {
 			continue
 		}
-		graphFilePath := filepath.Join(repoPath, filepath.Dir(CommitGraphChainRelPath), fmt.Sprintf("graph-%s.graph", id))
+		graphFilePath := filepath.Join(repoPath, filepath.Dir(stats.CommitGraphChainRelPath), fmt.Sprintf("graph-%s.graph", id))
 		graphFileData := testhelper.MustReadFile(t, graphFilePath)
 
 		require.True(t, bytes.HasPrefix(graphFileData, []byte("CGPH")), "4-byte signature of the commit graph file")
 		require.True(t, bytes.Contains(graphFileData, []byte("BIDX")), "Bloom Filter Index")
 		require.True(t, bytes.Contains(graphFileData, []byte("BDAT")), "Bloom Filter Data")
-	}
-}
-
-func TestIsMissingBloomFilters(t *testing.T) {
-	t.Parallel()
-	for _, tc := range []struct {
-		desc   string
-		enable bool
-	}{
-		{desc: "no Bloom filter", enable: false},
-		{desc: "with Bloom filter", enable: true},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			cfg := testcfg.Build(t)
-			_, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
-
-			args := []string{"-C", repoPath, "commit-graph", "write", "--reachable", "--split"}
-			if tc.enable {
-				args = append(args, "--changed-paths")
-			}
-			gittest.Exec(t, cfg, args...)
-
-			ok, err := isMissingBloomFilters(repoPath)
-			require.NoError(t, err)
-			require.Equal(t, tc.enable, !ok)
-		})
 	}
 }

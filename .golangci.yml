@@ -11,6 +11,7 @@ linters:
     - deadcode
     - errcheck
     - exportloopref
+    - depguard
     - gci
     - gofumpt
     - goimports
@@ -723,3 +724,10 @@ issues:
   max-issues-per-linter: 0
   # Maximum count of issues with the same text. Set to 0 to disable. Default is 3.
   max-same-issues: 0
+
+linters-settings:
+  depguard:
+    list-type: blacklist
+    include-go-root: true
+    packages-with-error-message:
+      - io/ioutil: "ioutil is deprecated starting with Go 1.16"

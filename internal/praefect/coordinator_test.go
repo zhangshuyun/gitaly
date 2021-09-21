@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
+	"math/rand"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -20,6 +22,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	gitaly_metadata "gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
@@ -52,7 +56,7 @@ import (
 var testLogger = logrus.New()
 
 func init() {
-	testLogger.SetOutput(ioutil.Discard)
+	testLogger.SetOutput(io.Discard)
 }
 
 func TestSecondaryRotation(t *testing.T) {
@@ -170,75 +174,115 @@ func TestStreamDirectorMutator(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	entry := testhelper.DiscardTestEntry(t)
-
-	nodeMgr, err := nodes.NewManager(entry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil)
-	require.NoError(t, err)
-	nodeMgr.Start(0, time.Hour)
-
 	txMgr := transactions.NewManager(conf)
-	rs := datastore.MockRepositoryStore{}
 
-	coordinator := NewCoordinator(
-		queueInterceptor,
-		rs,
-		NewNodeManagerRouter(nodeMgr, rs),
-		txMgr,
-		conf,
-		protoregistry.GitalyProtoPreregistered,
-	)
-
-	frame, err := proto.Marshal(&gitalypb.CreateObjectPoolRequest{
-		Origin:     &targetRepo,
-		ObjectPool: &gitalypb.ObjectPool{Repository: &targetRepo},
-	})
+	nodeSet, err := DialNodes(ctx, conf.VirtualStorages, protoregistry.GitalyProtoPreregistered, nil, nil)
 	require.NoError(t, err)
+	defer nodeSet.Close()
 
-	require.NoError(t, err)
-
-	fullMethod := "/gitaly.ObjectPoolService/CreateObjectPool"
-
-	peeker := &mockPeeker{frame}
-	streamParams, err := coordinator.StreamDirector(correlation.ContextWithCorrelation(ctx, "my-correlation-id"), fullMethod, peeker)
-	require.NoError(t, err)
-	require.Equal(t, primaryAddress, streamParams.Primary().Conn.Target())
-
-	mi, err := coordinator.registry.LookupMethod(fullMethod)
-	require.NoError(t, err)
-
-	m, err := mi.UnmarshalRequestProto(streamParams.Primary().Msg)
-	require.NoError(t, err)
-
-	rewrittenTargetRepo, err := mi.TargetRepo(m)
-	require.NoError(t, err)
-	require.Equal(t, "praefect-internal-1", rewrittenTargetRepo.GetStorageName(), "stream director should have rewritten the storage name")
-
-	replEventWait.Add(1) // expected only one event to be created
-	// this call creates new events in the queue and simulates usual flow of the update operation
-	require.NoError(t, streamParams.RequestFinalizer())
-
-	replEventWait.Wait() // wait until event persisted (async operation)
-	events, err := queueInterceptor.Dequeue(ctx, "praefect", "praefect-internal-2", 10)
-	require.NoError(t, err)
-	require.Len(t, events, 1)
-
-	expectedEvent := datastore.ReplicationEvent{
-		ID:        1,
-		State:     datastore.JobStateInProgress,
-		Attempt:   2,
-		LockID:    "praefect|praefect-internal-2|/path/to/hashed/storage",
-		CreatedAt: events[0].CreatedAt,
-		UpdatedAt: events[0].UpdatedAt,
-		Job: datastore.ReplicationJob{
-			Change:            datastore.UpdateRepo,
-			VirtualStorage:    conf.VirtualStorages[0].Name,
-			RelativePath:      targetRepo.RelativePath,
-			TargetNodeStorage: secondaryNode.Storage,
-			SourceNodeStorage: primaryNode.Storage,
+	for _, tc := range []struct {
+		desc             string
+		repositoryExists bool
+		error            error
+	}{
+		{
+			desc:             "succcessful",
+			repositoryExists: true,
 		},
-		Meta: datastore.Params{metadatahandler.CorrelationIDKey: "my-correlation-id"},
+		{
+			desc:  "repository not found",
+			error: helper.ErrNotFound(fmt.Errorf("mutator call: route repository mutator: %w", fmt.Errorf("get primary: %w", commonerr.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath)))),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			tx := glsql.NewDB(t).Begin(t)
+			defer tx.Rollback(t)
+
+			rs := datastore.NewPostgresRepositoryStore(tx, conf.StorageNames())
+
+			if tc.repositoryExists {
+				require.NoError(t, rs.CreateRepository(ctx, 1, targetRepo.StorageName, targetRepo.RelativePath, primaryNode.Storage, []string{secondaryNode.Storage}, nil, true, true))
+			}
+
+			testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": conf.StorageNames()})
+
+			coordinator := NewCoordinator(
+				queueInterceptor,
+				rs,
+				NewPerRepositoryRouter(
+					nodeSet.Connections(),
+					nodes.NewPerRepositoryElector(tx),
+					StaticHealthChecker(conf.StorageNames()),
+					NewLockedRandom(rand.New(rand.NewSource(0))),
+					rs,
+					datastore.NewAssignmentStore(tx, conf.StorageNames()),
+					rs,
+					nil,
+				),
+				txMgr,
+				conf,
+				protoregistry.GitalyProtoPreregistered,
+			)
+
+			frame, err := proto.Marshal(&gitalypb.CreateObjectPoolRequest{
+				Origin:     &targetRepo,
+				ObjectPool: &gitalypb.ObjectPool{Repository: &targetRepo},
+			})
+			require.NoError(t, err)
+
+			require.NoError(t, err)
+
+			fullMethod := "/gitaly.ObjectPoolService/CreateObjectPool"
+
+			peeker := &mockPeeker{frame}
+			streamParams, err := coordinator.StreamDirector(correlation.ContextWithCorrelation(ctx, "my-correlation-id"), fullMethod, peeker)
+			if tc.error != nil {
+				require.Equal(t, tc.error, err)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, primaryAddress, streamParams.Primary().Conn.Target())
+
+			mi, err := coordinator.registry.LookupMethod(fullMethod)
+			require.NoError(t, err)
+
+			m, err := mi.UnmarshalRequestProto(streamParams.Primary().Msg)
+			require.NoError(t, err)
+
+			rewrittenTargetRepo, err := mi.TargetRepo(m)
+			require.NoError(t, err)
+			require.Equal(t, "praefect-internal-1", rewrittenTargetRepo.GetStorageName(), "stream director should have rewritten the storage name")
+
+			replEventWait.Add(1) // expected only one event to be created
+			// this call creates new events in the queue and simulates usual flow of the update operation
+			require.NoError(t, streamParams.RequestFinalizer())
+
+			replEventWait.Wait() // wait until event persisted (async operation)
+			events, err := queueInterceptor.Dequeue(ctx, "praefect", "praefect-internal-2", 10)
+			require.NoError(t, err)
+			require.Len(t, events, 1)
+
+			expectedEvent := datastore.ReplicationEvent{
+				ID:        1,
+				State:     datastore.JobStateInProgress,
+				Attempt:   2,
+				LockID:    "praefect|praefect-internal-2|/path/to/hashed/storage",
+				CreatedAt: events[0].CreatedAt,
+				UpdatedAt: events[0].UpdatedAt,
+				Job: datastore.ReplicationJob{
+					RepositoryID:      1,
+					Change:            datastore.UpdateRepo,
+					VirtualStorage:    conf.VirtualStorages[0].Name,
+					RelativePath:      targetRepo.RelativePath,
+					TargetNodeStorage: secondaryNode.Storage,
+					SourceNodeStorage: primaryNode.Storage,
+				},
+				Meta: datastore.Params{metadatahandler.CorrelationIDKey: "my-correlation-id"},
+			}
+			require.Equal(t, expectedEvent, events[0], "ensure replication job created by stream director is correct")
+		})
 	}
-	require.Equal(t, expectedEvent, events[0], "ensure replication job created by stream director is correct")
 }
 
 func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
@@ -416,7 +460,7 @@ func TestStreamDirectorAccessor(t *testing.T) {
 					return RouterNode{}, commonerr.NewRepositoryNotFoundError(virtualStorage, relativePath)
 				},
 			},
-			error: helper.ErrNotFound(commonerr.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath)),
+			error: helper.ErrNotFound(fmt.Errorf("accessor call: route repository accessor: %w", commonerr.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath))),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -2093,6 +2137,208 @@ func TestNewRequestFinalizer_contextIsDisjointedFromTheRPC(t *testing.T) {
 				)(),
 				tc.errMsg,
 			)
+		})
+	}
+}
+
+func TestStreamParametersContext(t *testing.T) {
+	// Because we're using NewFeatureFlag, they'll end up in the All array.
+	enabledFF := featureflag.NewFeatureFlag("default-enabled", true)
+	disabledFF := featureflag.NewFeatureFlag("default-disabled", false)
+
+	type expectedFlag struct {
+		flag    featureflag.FeatureFlag
+		enabled bool
+	}
+
+	expectedFlags := func(overrides ...expectedFlag) []expectedFlag {
+		flagValues := map[featureflag.FeatureFlag]bool{}
+		for _, flag := range featureflag.All {
+			flagValues[flag] = flag.OnByDefault
+		}
+		for _, override := range overrides {
+			flagValues[override.flag] = override.enabled
+		}
+
+		expectedFlags := make([]expectedFlag, 0, len(flagValues))
+		for flag, value := range flagValues {
+			expectedFlags = append(expectedFlags, expectedFlag{
+				flag: flag, enabled: value,
+			})
+		}
+
+		return expectedFlags
+	}
+
+	metadataForFlags := func(flags []expectedFlag) metadata.MD {
+		pairs := []string{}
+		for _, flag := range flags {
+			pairs = append(pairs, flag.flag.MetadataKey(), strconv.FormatBool(flag.enabled))
+		}
+		return metadata.Pairs(pairs...)
+	}
+
+	for _, tc := range []struct {
+		desc               string
+		setupContext       func() context.Context
+		expectedIncomingMD metadata.MD
+		expectedOutgoingMD metadata.MD
+		expectedFlags      []expectedFlag
+	}{
+		{
+			desc: "no metadata",
+			setupContext: func() context.Context {
+				return context.Background()
+			},
+			expectedFlags:      expectedFlags(),
+			expectedOutgoingMD: metadataForFlags(expectedFlags()),
+		},
+		{
+			desc: "with incoming metadata",
+			setupContext: func() context.Context {
+				ctx := context.Background()
+				ctx = metadata.NewIncomingContext(ctx, metadata.Pairs("key", "value"))
+				return ctx
+			},
+			expectedIncomingMD: metadata.Pairs("key", "value"),
+			expectedOutgoingMD: metadata.Join(
+				metadata.Pairs("key", "value"),
+				metadataForFlags(expectedFlags()),
+			),
+			expectedFlags: expectedFlags(),
+		},
+		{
+			desc: "with outgoing metadata",
+			setupContext: func() context.Context {
+				ctx := context.Background()
+				ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("key", "value"))
+				return ctx
+			},
+			expectedOutgoingMD: metadata.Join(
+				metadata.Pairs("key", "value"),
+				metadataForFlags(expectedFlags()),
+			),
+			expectedFlags: expectedFlags(),
+		},
+		{
+			desc: "with incoming and outgoing metadata",
+			setupContext: func() context.Context {
+				ctx := context.Background()
+				ctx = metadata.NewIncomingContext(ctx, metadata.Pairs("incoming", "value"))
+				ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("outgoing", "value"))
+				return ctx
+			},
+			// This behaviour is quite subtle: in the previous test case where we only
+			// have outgoing metadata, we retain it. But in case we have both incoming
+			// and outgoing we'd discard the outgoing metadata altogether. It is
+			// debatable whether this is a bug or feature, so I'll just document this
+			// weird edge case here for now.
+			expectedIncomingMD: metadata.Pairs("incoming", "value"),
+			expectedOutgoingMD: metadata.Join(
+				metadata.Pairs("incoming", "value"),
+				metadataForFlags(expectedFlags()),
+			),
+			expectedFlags: expectedFlags(),
+		},
+		{
+			desc: "with flags set to their default values",
+			setupContext: func() context.Context {
+				ctx := context.Background()
+				ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, enabledFF)
+				ctx = featureflag.IncomingCtxWithDisabledFeatureFlag(ctx, disabledFF)
+				return ctx
+			},
+			expectedIncomingMD: metadata.Pairs(
+				enabledFF.MetadataKey(), "true",
+				disabledFF.MetadataKey(), "false",
+			),
+			expectedOutgoingMD: metadata.Join(
+				metadataForFlags(expectedFlags()),
+				metadata.Pairs(
+					enabledFF.MetadataKey(), "true",
+					disabledFF.MetadataKey(), "false",
+				),
+			),
+			expectedFlags: expectedFlags(),
+		},
+		{
+			desc: "with flags set to their reverse default values",
+			setupContext: func() context.Context {
+				ctx := context.Background()
+				ctx = featureflag.IncomingCtxWithDisabledFeatureFlag(ctx, enabledFF)
+				ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, disabledFF)
+				return ctx
+			},
+			expectedIncomingMD: metadata.Pairs(
+				enabledFF.MetadataKey(), "false",
+				disabledFF.MetadataKey(), "true",
+			),
+			expectedOutgoingMD: metadata.Join(
+				metadataForFlags(expectedFlags(
+					expectedFlag{flag: enabledFF, enabled: false},
+					expectedFlag{flag: disabledFF, enabled: true},
+				)),
+				metadata.Pairs(
+					enabledFF.MetadataKey(), "false",
+					disabledFF.MetadataKey(), "true",
+				),
+			),
+			expectedFlags: expectedFlags(
+				expectedFlag{flag: enabledFF, enabled: false},
+				expectedFlag{flag: disabledFF, enabled: true},
+			),
+		},
+		{
+			desc: "mixed flags and metadata",
+			setupContext: func() context.Context {
+				ctx := context.Background()
+				ctx = metadata.NewIncomingContext(ctx, metadata.Pairs(
+					disabledFF.MetadataKey(), "true",
+					"incoming", "value"),
+				)
+				return ctx
+			},
+			expectedIncomingMD: metadata.Pairs(
+				disabledFF.MetadataKey(), "true",
+				"incoming", "value",
+			),
+			expectedOutgoingMD: metadata.Join(
+				metadataForFlags(expectedFlags(
+					expectedFlag{flag: disabledFF, enabled: true},
+				)),
+				metadata.Pairs(
+					disabledFF.MetadataKey(), "true",
+					"incoming", "value",
+				),
+			),
+			expectedFlags: expectedFlags(
+				expectedFlag{flag: disabledFF, enabled: true},
+			),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx := streamParametersContext(tc.setupContext())
+
+			incomingMD, ok := metadata.FromIncomingContext(ctx)
+			if tc.expectedIncomingMD == nil {
+				require.False(t, ok)
+			} else {
+				require.True(t, ok)
+			}
+			require.Equal(t, tc.expectedIncomingMD, incomingMD)
+
+			outgoingMD, ok := metadata.FromOutgoingContext(ctx)
+			if tc.expectedOutgoingMD == nil {
+				require.False(t, ok)
+			} else {
+				require.True(t, ok)
+			}
+			require.Equal(t, tc.expectedOutgoingMD, outgoingMD)
+
+			incomingCtx := gitaly_metadata.OutgoingToIncoming(ctx)
+			for _, expectedFlag := range tc.expectedFlags {
+				require.Equal(t, expectedFlag.enabled, expectedFlag.flag.IsEnabled(incomingCtx))
+			}
 		})
 	}
 }

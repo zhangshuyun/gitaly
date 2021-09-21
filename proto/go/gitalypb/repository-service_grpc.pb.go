@@ -39,9 +39,6 @@ type RepositoryServiceClient interface {
 	WriteRef(ctx context.Context, in *WriteRefRequest, opts ...grpc.CallOption) (*WriteRefResponse, error)
 	FindMergeBase(ctx context.Context, in *FindMergeBaseRequest, opts ...grpc.CallOption) (*FindMergeBaseResponse, error)
 	CreateFork(ctx context.Context, in *CreateForkRequest, opts ...grpc.CallOption) (*CreateForkResponse, error)
-	// Deprecated: Do not use.
-	// IsSquashInProgress is deprecated and will always return false.
-	IsSquashInProgress(ctx context.Context, in *IsSquashInProgressRequest, opts ...grpc.CallOption) (*IsSquashInProgressResponse, error)
 	CreateRepositoryFromURL(ctx context.Context, in *CreateRepositoryFromURLRequest, opts ...grpc.CallOption) (*CreateRepositoryFromURLResponse, error)
 	// CreateBundle creates a bundle from all refs
 	CreateBundle(ctx context.Context, in *CreateBundleRequest, opts ...grpc.CallOption) (RepositoryService_CreateBundleClient, error)
@@ -51,18 +48,6 @@ type RepositoryServiceClient interface {
 	// GetConfig reads the target repository's gitconfig and streams its contents
 	// back. Returns a NotFound error in case no gitconfig was found.
 	GetConfig(ctx context.Context, in *GetConfigRequest, opts ...grpc.CallOption) (RepositoryService_GetConfigClient, error)
-	// Deprecated: Do not use.
-	// SetConfig writes a set of config entries into the target repository's
-	// gitconfig. This RPC is deprecated with no general replacement: modifying
-	// the on-disk gitconfig is not supported anymore. The only usecase that is
-	// still supported is writing "gitlab.fullpath" via the new `SetFullPath()`
-	// RPC.
-	SetConfig(ctx context.Context, in *SetConfigRequest, opts ...grpc.CallOption) (*SetConfigResponse, error)
-	// Deprecated: Do not use.
-	// DeleteConfig deletes a set of config entries from the target repository's
-	// gitconfig. This RPC is deprecated with no replacement: modifying the
-	// on-disk gitconfig is not supported anymore.
-	DeleteConfig(ctx context.Context, in *DeleteConfigRequest, opts ...grpc.CallOption) (*DeleteConfigResponse, error)
 	FindLicense(ctx context.Context, in *FindLicenseRequest, opts ...grpc.CallOption) (*FindLicenseResponse, error)
 	GetInfoAttributes(ctx context.Context, in *GetInfoAttributesRequest, opts ...grpc.CallOption) (RepositoryService_GetInfoAttributesClient, error)
 	CalculateChecksum(ctx context.Context, in *CalculateChecksumRequest, opts ...grpc.CallOption) (*CalculateChecksumResponse, error)
@@ -275,16 +260,6 @@ func (c *repositoryServiceClient) CreateFork(ctx context.Context, in *CreateFork
 	return out, nil
 }
 
-// Deprecated: Do not use.
-func (c *repositoryServiceClient) IsSquashInProgress(ctx context.Context, in *IsSquashInProgressRequest, opts ...grpc.CallOption) (*IsSquashInProgressResponse, error) {
-	out := new(IsSquashInProgressResponse)
-	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/IsSquashInProgress", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *repositoryServiceClient) CreateRepositoryFromURL(ctx context.Context, in *CreateRepositoryFromURLRequest, opts ...grpc.CallOption) (*CreateRepositoryFromURLResponse, error) {
 	out := new(CreateRepositoryFromURLResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/CreateRepositoryFromURL", in, out, opts...)
@@ -421,26 +396,6 @@ func (x *repositoryServiceGetConfigClient) Recv() (*GetConfigResponse, error) {
 		return nil, err
 	}
 	return m, nil
-}
-
-// Deprecated: Do not use.
-func (c *repositoryServiceClient) SetConfig(ctx context.Context, in *SetConfigRequest, opts ...grpc.CallOption) (*SetConfigResponse, error) {
-	out := new(SetConfigResponse)
-	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/SetConfig", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// Deprecated: Do not use.
-func (c *repositoryServiceClient) DeleteConfig(ctx context.Context, in *DeleteConfigRequest, opts ...grpc.CallOption) (*DeleteConfigResponse, error) {
-	out := new(DeleteConfigResponse)
-	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/DeleteConfig", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *repositoryServiceClient) FindLicense(ctx context.Context, in *FindLicenseRequest, opts ...grpc.CallOption) (*FindLicenseResponse, error) {
@@ -802,9 +757,6 @@ type RepositoryServiceServer interface {
 	WriteRef(context.Context, *WriteRefRequest) (*WriteRefResponse, error)
 	FindMergeBase(context.Context, *FindMergeBaseRequest) (*FindMergeBaseResponse, error)
 	CreateFork(context.Context, *CreateForkRequest) (*CreateForkResponse, error)
-	// Deprecated: Do not use.
-	// IsSquashInProgress is deprecated and will always return false.
-	IsSquashInProgress(context.Context, *IsSquashInProgressRequest) (*IsSquashInProgressResponse, error)
 	CreateRepositoryFromURL(context.Context, *CreateRepositoryFromURLRequest) (*CreateRepositoryFromURLResponse, error)
 	// CreateBundle creates a bundle from all refs
 	CreateBundle(*CreateBundleRequest, RepositoryService_CreateBundleServer) error
@@ -814,18 +766,6 @@ type RepositoryServiceServer interface {
 	// GetConfig reads the target repository's gitconfig and streams its contents
 	// back. Returns a NotFound error in case no gitconfig was found.
 	GetConfig(*GetConfigRequest, RepositoryService_GetConfigServer) error
-	// Deprecated: Do not use.
-	// SetConfig writes a set of config entries into the target repository's
-	// gitconfig. This RPC is deprecated with no general replacement: modifying
-	// the on-disk gitconfig is not supported anymore. The only usecase that is
-	// still supported is writing "gitlab.fullpath" via the new `SetFullPath()`
-	// RPC.
-	SetConfig(context.Context, *SetConfigRequest) (*SetConfigResponse, error)
-	// Deprecated: Do not use.
-	// DeleteConfig deletes a set of config entries from the target repository's
-	// gitconfig. This RPC is deprecated with no replacement: modifying the
-	// on-disk gitconfig is not supported anymore.
-	DeleteConfig(context.Context, *DeleteConfigRequest) (*DeleteConfigResponse, error)
 	FindLicense(context.Context, *FindLicenseRequest) (*FindLicenseResponse, error)
 	GetInfoAttributes(*GetInfoAttributesRequest, RepositoryService_GetInfoAttributesServer) error
 	CalculateChecksum(context.Context, *CalculateChecksumRequest) (*CalculateChecksumResponse, error)
@@ -910,9 +850,6 @@ func (UnimplementedRepositoryServiceServer) FindMergeBase(context.Context, *Find
 func (UnimplementedRepositoryServiceServer) CreateFork(context.Context, *CreateForkRequest) (*CreateForkResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateFork not implemented")
 }
-func (UnimplementedRepositoryServiceServer) IsSquashInProgress(context.Context, *IsSquashInProgressRequest) (*IsSquashInProgressResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method IsSquashInProgress not implemented")
-}
 func (UnimplementedRepositoryServiceServer) CreateRepositoryFromURL(context.Context, *CreateRepositoryFromURLRequest) (*CreateRepositoryFromURLResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateRepositoryFromURL not implemented")
 }
@@ -927,12 +864,6 @@ func (UnimplementedRepositoryServiceServer) CreateRepositoryFromBundle(Repositor
 }
 func (UnimplementedRepositoryServiceServer) GetConfig(*GetConfigRequest, RepositoryService_GetConfigServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetConfig not implemented")
-}
-func (UnimplementedRepositoryServiceServer) SetConfig(context.Context, *SetConfigRequest) (*SetConfigResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SetConfig not implemented")
-}
-func (UnimplementedRepositoryServiceServer) DeleteConfig(context.Context, *DeleteConfigRequest) (*DeleteConfigResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeleteConfig not implemented")
 }
 func (UnimplementedRepositoryServiceServer) FindLicense(context.Context, *FindLicenseRequest) (*FindLicenseResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FindLicense not implemented")
@@ -1313,24 +1244,6 @@ func _RepositoryService_CreateFork_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RepositoryService_IsSquashInProgress_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(IsSquashInProgressRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RepositoryServiceServer).IsSquashInProgress(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gitaly.RepositoryService/IsSquashInProgress",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RepositoryServiceServer).IsSquashInProgress(ctx, req.(*IsSquashInProgressRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _RepositoryService_CreateRepositoryFromURL_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateRepositoryFromURLRequest)
 	if err := dec(in); err != nil {
@@ -1441,42 +1354,6 @@ type repositoryServiceGetConfigServer struct {
 
 func (x *repositoryServiceGetConfigServer) Send(m *GetConfigResponse) error {
 	return x.ServerStream.SendMsg(m)
-}
-
-func _RepositoryService_SetConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SetConfigRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RepositoryServiceServer).SetConfig(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gitaly.RepositoryService/SetConfig",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RepositoryServiceServer).SetConfig(ctx, req.(*SetConfigRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RepositoryService_DeleteConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DeleteConfigRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RepositoryServiceServer).DeleteConfig(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gitaly.RepositoryService/DeleteConfig",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RepositoryServiceServer).DeleteConfig(ctx, req.(*DeleteConfigRequest))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _RepositoryService_FindLicense_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1919,20 +1796,8 @@ var RepositoryService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RepositoryService_CreateFork_Handler,
 		},
 		{
-			MethodName: "IsSquashInProgress",
-			Handler:    _RepositoryService_IsSquashInProgress_Handler,
-		},
-		{
 			MethodName: "CreateRepositoryFromURL",
 			Handler:    _RepositoryService_CreateRepositoryFromURL_Handler,
-		},
-		{
-			MethodName: "SetConfig",
-			Handler:    _RepositoryService_SetConfig_Handler,
-		},
-		{
-			MethodName: "DeleteConfig",
-			Handler:    _RepositoryService_DeleteConfig_Handler,
 		},
 		{
 			MethodName: "FindLicense",

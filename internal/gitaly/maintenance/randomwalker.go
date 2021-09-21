@@ -2,7 +2,6 @@ package maintenance
 
 import (
 	"errors"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -12,7 +11,7 @@ var errIterOver = errors.New("random walker at end")
 
 type stackFrame struct {
 	name    string
-	entries []os.FileInfo
+	entries []os.DirEntry
 }
 
 // randomWalker is a filesystem walker which traverses a directory hierarchy in depth-first order,
@@ -36,19 +35,19 @@ func newRandomWalker(root string, r *rand.Rand) *randomWalker {
 // next returns the next file. Traversal happens in depth-first order, where each directory's
 // entities are traversed in random order. If there are no more files to iterate, `errIterOver` is
 // returned.
-func (r *randomWalker) next() (os.FileInfo, string, error) {
+func (r *randomWalker) next() (os.DirEntry, string, error) {
 	if r.pendingDir != "" {
 		// Reset pendingDir before returning the error such that the caller can continue if
 		// he doesn't care e.g. for the directory not existing.
 		pendingDir := r.pendingDir
 		r.pendingDir = ""
 
-		entries, err := ioutil.ReadDir(pendingDir)
+		entries, err := os.ReadDir(pendingDir)
 		if err != nil {
 			return nil, pendingDir, err
 		}
 
-		shuffleFileInfos(r.rand, entries)
+		shuffleDirEntries(r.rand, entries)
 		r.stack = append(r.stack, stackFrame{
 			name:    pendingDir,
 			entries: entries,
@@ -83,7 +82,7 @@ func (r *randomWalker) next() (os.FileInfo, string, error) {
 	}
 }
 
-func shuffleFileInfos(randSrc *rand.Rand, s []os.FileInfo) {
+func shuffleDirEntries(randSrc *rand.Rand, s []os.DirEntry) {
 	randSrc.Shuffle(len(s), func(i, j int) { s[i], s[j] = s[j], s[i] })
 }
 

@@ -23,8 +23,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/fieldextractors"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/sentryhandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/grpc-proxy/proxy"
 	pb "gitlab.com/gitlab-org/gitaly/v14/internal/praefect/grpc-proxy/testdata"
@@ -33,7 +33,7 @@ import (
 	"go.uber.org/goleak"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
+	grpc_metadata "google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -64,7 +64,7 @@ type assertingService struct {
 
 func (s *assertingService) PingEmpty(ctx context.Context, _ *pb.Empty) (*pb.PingResponse, error) {
 	// Check that this call has client's metadata.
-	md, ok := metadata.FromIncomingContext(ctx)
+	md, ok := grpc_metadata.FromIncomingContext(ctx)
 	assert.True(s.t, ok, "PingEmpty call must have metadata in context")
 	_, ok = md[clientMdKey]
 	assert.True(s.t, ok, "PingEmpty call must have clients's custom headers in metadata")
@@ -73,8 +73,8 @@ func (s *assertingService) PingEmpty(ctx context.Context, _ *pb.Empty) (*pb.Ping
 
 func (s *assertingService) Ping(ctx context.Context, ping *pb.PingRequest) (*pb.PingResponse, error) {
 	// Send user trailers and headers.
-	require.NoError(s.t, grpc.SendHeader(ctx, metadata.Pairs(serverHeaderMdKey, "I like turtles.")))
-	require.NoError(s.t, grpc.SetTrailer(ctx, metadata.Pairs(serverTrailerMdKey, "I like ending turtles.")))
+	require.NoError(s.t, grpc.SendHeader(ctx, grpc_metadata.Pairs(serverHeaderMdKey, "I like turtles.")))
+	require.NoError(s.t, grpc.SetTrailer(ctx, grpc_metadata.Pairs(serverTrailerMdKey, "I like ending turtles.")))
 	return &pb.PingResponse{Value: ping.Value, Counter: 42}, nil
 }
 
@@ -84,16 +84,16 @@ func (s *assertingService) PingError(ctx context.Context, ping *pb.PingRequest) 
 
 func (s *assertingService) PingList(ping *pb.PingRequest, stream pb.TestService_PingListServer) error {
 	// Send user trailers and headers.
-	require.NoError(s.t, stream.SendHeader(metadata.Pairs(serverHeaderMdKey, "I like turtles.")))
+	require.NoError(s.t, stream.SendHeader(grpc_metadata.Pairs(serverHeaderMdKey, "I like turtles.")))
 	for i := 0; i < countListResponses; i++ {
 		require.NoError(s.t, stream.Send(&pb.PingResponse{Value: ping.Value, Counter: int32(i)}))
 	}
-	stream.SetTrailer(metadata.Pairs(serverTrailerMdKey, "I like ending turtles."))
+	stream.SetTrailer(grpc_metadata.Pairs(serverTrailerMdKey, "I like ending turtles."))
 	return nil
 }
 
 func (s *assertingService) PingStream(stream pb.TestService_PingStreamServer) error {
-	require.NoError(s.t, stream.SendHeader(metadata.Pairs(serverHeaderMdKey, "I like turtles.")))
+	require.NoError(s.t, stream.SendHeader(grpc_metadata.Pairs(serverHeaderMdKey, "I like turtles.")))
 	counter := int32(0)
 	for {
 		ping, err := stream.Recv()
@@ -109,7 +109,7 @@ func (s *assertingService) PingStream(stream pb.TestService_PingStreamServer) er
 		}
 		counter++
 	}
-	stream.SetTrailer(metadata.Pairs(serverTrailerMdKey, "I like ending turtles."))
+	stream.SetTrailer(grpc_metadata.Pairs(serverTrailerMdKey, "I like ending turtles."))
 	return nil
 }
 
@@ -126,7 +126,7 @@ type ProxyHappySuite struct {
 }
 
 func (s *ProxyHappySuite) TestPingEmptyCarriesClientMetadata() {
-	ctx := metadata.NewOutgoingContext(s.ctx, metadata.Pairs(clientMdKey, "true"))
+	ctx := grpc_metadata.NewOutgoingContext(s.ctx, grpc_metadata.Pairs(clientMdKey, "true"))
 	out, err := s.client.PingEmpty(ctx, &pb.Empty{})
 	require.NoError(s.T(), err, "PingEmpty should succeed without errors")
 	testassert.ProtoEqual(s.T(), &pb.PingResponse{Value: pingDefaultValue, Counter: 42}, out)
@@ -139,8 +139,8 @@ func (s *ProxyHappySuite) TestPingEmpty_StressTest() {
 }
 
 func (s *ProxyHappySuite) TestPingCarriesServerHeadersAndTrailers() {
-	headerMd := make(metadata.MD)
-	trailerMd := make(metadata.MD)
+	headerMd := make(grpc_metadata.MD)
+	trailerMd := make(grpc_metadata.MD)
 	// This is an awkward calling convention... but meh.
 	out, err := s.client.Ping(s.ctx, &pb.PingRequest{Value: "foo"}, grpc.Header(&headerMd), grpc.Trailer(&trailerMd))
 	require.NoError(s.T(), err, "Ping should succeed without errors")
@@ -179,7 +179,7 @@ func (s *ProxyHappySuite) TestPingErrorPropagatesAppError() {
 
 func (s *ProxyHappySuite) TestDirectorErrorIsPropagated() {
 	// See SetupSuite where the StreamDirector has a special case.
-	ctx := metadata.NewOutgoingContext(s.ctx, metadata.Pairs(rejectingMdKey, "true"))
+	ctx := grpc_metadata.NewOutgoingContext(s.ctx, grpc_metadata.Pairs(rejectingMdKey, "true"))
 	_, err := s.client.Ping(ctx, &pb.PingRequest{Value: "foo"})
 	require.Error(s.T(), err, "Director should reject this RPC")
 	assert.Equal(s.T(), codes.PermissionDenied, status.Code(err))
@@ -236,15 +236,15 @@ func (s *ProxyHappySuite) SetupSuite() {
 			return nil, err
 		}
 
-		md, ok := metadata.FromIncomingContext(ctx)
+		md, ok := grpc_metadata.FromIncomingContext(ctx)
 		if ok {
 			if _, exists := md[rejectingMdKey]; exists {
-				return proxy.NewStreamParameters(proxy.Destination{Ctx: helper.IncomingToOutgoing(ctx), Msg: payload}, nil, nil, nil), status.Errorf(codes.PermissionDenied, "testing rejection")
+				return proxy.NewStreamParameters(proxy.Destination{Ctx: metadata.IncomingToOutgoing(ctx), Msg: payload}, nil, nil, nil), status.Errorf(codes.PermissionDenied, "testing rejection")
 			}
 		}
 
 		// Explicitly copy the metadata, otherwise the tests will fail.
-		return proxy.NewStreamParameters(proxy.Destination{Ctx: helper.IncomingToOutgoing(ctx), Conn: s.connProxy2Server, Msg: payload}, nil, nil, nil), nil
+		return proxy.NewStreamParameters(proxy.Destination{Ctx: metadata.IncomingToOutgoing(ctx), Conn: s.connProxy2Server, Msg: payload}, nil, nil, nil), nil
 	}
 
 	// Setup backend server for test suite

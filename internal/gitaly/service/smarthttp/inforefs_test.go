@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,12 +13,14 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
@@ -149,7 +150,7 @@ func makeInfoRefsUploadPackRequest(ctx context.Context, t *testing.T, serverSock
 	c, err := client.InfoRefsUploadPack(ctx, rpcRequest)
 	require.NoError(t, err)
 
-	response, err := ioutil.ReadAll(streamio.NewReader(func() ([]byte, error) {
+	response, err := io.ReadAll(streamio.NewReader(func() ([]byte, error) {
 		resp, err := c.Recv()
 		return resp.GetData(), err
 	}))
@@ -191,6 +192,7 @@ func TestObjectPoolRefAdvertisementHiding(t *testing.T) {
 		config.NewLocator(cfg),
 		git.NewExecCommandFactory(cfg),
 		nil,
+		transaction.NewManager(cfg, backchannel.NewRegistry()),
 		repo.GetStorageName(),
 		gittest.NewObjectPoolName(t),
 	)
@@ -251,7 +253,7 @@ func makeInfoRefsReceivePackRequest(ctx context.Context, t *testing.T, serverSoc
 	c, err := client.InfoRefsReceivePack(ctx, rpcRequest)
 	require.NoError(t, err)
 
-	response, err := ioutil.ReadAll(streamio.NewReader(func() ([]byte, error) {
+	response, err := io.ReadAll(streamio.NewReader(func() ([]byte, error) {
 		resp, err := c.Recv()
 		return resp.GetData(), err
 	}))
@@ -397,7 +399,7 @@ func createInvalidRepo(t testing.TB, repoDir string) func() {
 
 func replaceCachedResponse(t testing.TB, ctx context.Context, cache *cache.DiskCache, req *gitalypb.InfoRefsRequest, newContents string) {
 	path := pathToCachedResponse(t, ctx, cache, req)
-	require.NoError(t, ioutil.WriteFile(path, []byte(newContents), 0o644))
+	require.NoError(t, os.WriteFile(path, []byte(newContents), 0o644))
 }
 
 func setInfoRefsUploadPackMethod(ctx context.Context) context.Context {

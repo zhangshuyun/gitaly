@@ -289,7 +289,7 @@ func (c *DiskCache) PutStream(ctx context.Context, repo *gitalypb.Repository, re
 		return err
 	}
 
-	sf, err := safe.CreateFileWriter(reqPath)
+	sf, err := safe.NewFileWriter(reqPath)
 	if err != nil {
 		return err
 	}

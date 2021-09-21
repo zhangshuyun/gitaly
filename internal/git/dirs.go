@@ -3,7 +3,6 @@ package git
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -65,7 +64,7 @@ func altObjectDirs(ctx context.Context, storagePrefix, objDir string, depth int)
 
 	dirs := []string{objDir}
 
-	alternates, err := ioutil.ReadFile(filepath.Join(objDir, "info", "alternates"))
+	alternates, err := os.ReadFile(filepath.Join(objDir, "info", "alternates"))
 	if os.IsNotExist(err) {
 		return dirs, nil
 	}

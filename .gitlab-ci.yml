@@ -5,7 +5,7 @@ stages:
   - qa
 
 default:
-  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-2.7-golang-1.15-git-2.31
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-2.7-golang-1.16-git-2.31
   tags:
     - gitlab-org
 
@@ -140,8 +140,17 @@ build:
     - _support/test-boot .
   parallel:
     matrix:
-      - GO_VERSION: [ "1.15", "1.16", "1.17" ]
-        GIT_VERSION: [ "v2.31.1", "v2.32.0", "v2.33.0" ]
+      # These definitions are for the non-default Git versions. We do not want
+      # to apply any additional Git patches on top of those given that they may
+      # not cleanly apply and thus set GIT_PATCHES="".
+      - GO_VERSION: [ "1.16", "1.17" ]
+        GIT_VERSION: [ "v2.31.1", "v2.32.0" ]
+        GIT_PATCHES: [ "" ]
+        RUBY_VERSION: [ "2.7" ]
+      # These definitions are for the default Git version where we want to
+      # apply our default set of Git patches.
+      - GO_VERSION: [ "1.16", "1.17" ]
+        GIT_VERSION: [ "v2.33.0" ]
         RUBY_VERSION: [ "2.7" ]
 
 binaries:
@@ -163,7 +172,7 @@ binaries:
     expire_in: 6 months
   parallel:
     matrix:
-      - GO_VERSION: [ "1.15", "1.16", "1.17" ]
+      - GO_VERSION: [ "1.16", "1.17" ]
 
 test:
   <<: *test_definition
@@ -183,8 +192,17 @@ test:
       junit: _build/reports/go-tests-report-go-${GO_VERSION}-git-${GIT_VERSION}.xml
   parallel:
     matrix:
-      - GO_VERSION: [ "1.15", "1.16", "1.17" ]
-        GIT_VERSION: [ "v2.31.1", "v2.32.0", "v2.33.0" ]
+      # These definitions are for the non-default Git versions. We do not want
+      # to apply any additional Git patches on top of those given that they may
+      # not cleanly apply and thus set GIT_PATCHES="".
+      - GO_VERSION: [ "1.16", "1.17" ]
+        GIT_VERSION: [ "v2.31.1", "v2.32.0" ]
+        GIT_PATCHES: [ "" ]
+        TARGET: test
+      # These definitions are for the default Git version where we want to
+      # apply our default set of Git patches.
+      - GO_VERSION: [ "1.16", "1.17" ]
+        GIT_VERSION: [ "v2.33.0" ]
         TARGET: test
       - GO_VERSION: "1.17"
         TARGET: [ test-with-proxies, test-with-praefect, race-go ]
@@ -195,11 +213,12 @@ nightly:git:
   image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.31
   script:
     - go version
-    - make all ${TARGET} GIT_PATCHES=
+    - make all ${TARGET}
   parallel:
     matrix:
       - GO_VERSION: "1.17"
         GIT_VERSION: ["master", "next"]
+        GIT_PATCHES: [ "" ]
         TARGET: [ test, test-with-proxies, test-with-praefect ]
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
@@ -308,15 +327,6 @@ objectinfo_fuzz_test:
     - /root/go/bin/go-fuzz-build -libfuzzer -o objectinfo_fuzzer.a ./internal/git/catfile
     - clang-7 -fsanitize=fuzzer objectinfo_fuzzer.a -o objectinfo_fuzzer
     - ./gitlab-cov-fuzz run -- ./objectinfo_fuzzer -max_total_time=300
-
-code_navigation:
-  allow_failure: true
-  script:
-    - go get github.com/sourcegraph/lsif-go/cmd/lsif-go@v1.3.1
-    - ~/go/bin/lsif-go
-  artifacts:
-    reports:
-      lsif: dump.lsif
 
 trigger-qa:
   stage: qa

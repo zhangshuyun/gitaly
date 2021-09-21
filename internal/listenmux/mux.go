@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 
 	"google.golang.org/grpc/credentials"
@@ -73,7 +72,7 @@ func (m *Mux) ServerHandshake(conn net.Conn) (net.Conn, credentials.AuthInfo, er
 		return nil, nil, fmt.Errorf("wrapped server handshake: %w", err)
 	}
 
-	peeked, err := ioutil.ReadAll(io.LimitReader(conn, magicLen))
+	peeked, err := io.ReadAll(io.LimitReader(conn, magicLen))
 	if err != nil {
 		return nil, nil, fmt.Errorf("peek network stream: %w", err)
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -40,7 +41,7 @@ func TestRepackIncrementalSuccess(t *testing.T) {
 	assertModTimeAfter(t, testTime, packPath)
 
 	assert.FileExistsf(t,
-		filepath.Join(repoPath, CommitGraphChainRelPath),
+		filepath.Join(repoPath, stats.CommitGraphChainRelPath),
 		"pre-computed commit-graph should exist after running incremental repack",
 	)
 }
@@ -165,7 +166,7 @@ func TestRepackFullSuccess(t *testing.T) {
 			}
 
 			assert.FileExistsf(t,
-				filepath.Join(repoPath, CommitGraphChainRelPath),
+				filepath.Join(repoPath, stats.CommitGraphChainRelPath),
 				"pre-computed commit-graph should exist after running full repack",
 			)
 		})

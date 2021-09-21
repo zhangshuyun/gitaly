@@ -1,7 +1,6 @@
 package conflicts
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -33,7 +32,7 @@ func testMain(m *testing.M) int {
 	cleanup := testhelper.Configure()
 	defer cleanup()
 
-	tempDir, err := ioutil.TempDir("", "gitaly")
+	tempDir, err := os.MkdirTemp("", "gitaly")
 	if err != nil {
 		log.Error(err)
 		return 1

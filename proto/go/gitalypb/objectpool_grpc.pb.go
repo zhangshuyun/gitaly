@@ -22,6 +22,17 @@ type ObjectPoolServiceClient interface {
 	DeleteObjectPool(ctx context.Context, in *DeleteObjectPoolRequest, opts ...grpc.CallOption) (*DeleteObjectPoolResponse, error)
 	// Repositories are assumed to be stored on the same disk
 	LinkRepositoryToObjectPool(ctx context.Context, in *LinkRepositoryToObjectPoolRequest, opts ...grpc.CallOption) (*LinkRepositoryToObjectPoolResponse, error)
+	// Deprecated: Do not use.
+	// UnlinkRepositoryFromObjectPool does not unlink the repository from the
+	// object pool as you'd think, but all it really does is to remove the object
+	// pool's remote pointing to the repository. And even this is a no-op given
+	// that we'd try to remove the remote by the repository's `GlRepository()`
+	// name, which we never create in the first place. To unlink repositories
+	// from an object pool, you'd really want to execute DisconnectGitAlternates
+	// to remove the repository's link to the pool's object database.
+	//
+	// This function is never called by anyone and highly misleading. It's thus
+	// deprecated and will be removed in v14.4.
 	UnlinkRepositoryFromObjectPool(ctx context.Context, in *UnlinkRepositoryFromObjectPoolRequest, opts ...grpc.CallOption) (*UnlinkRepositoryFromObjectPoolResponse, error)
 	ReduplicateRepository(ctx context.Context, in *ReduplicateRepositoryRequest, opts ...grpc.CallOption) (*ReduplicateRepositoryResponse, error)
 	DisconnectGitAlternates(ctx context.Context, in *DisconnectGitAlternatesRequest, opts ...grpc.CallOption) (*DisconnectGitAlternatesResponse, error)
@@ -64,6 +75,7 @@ func (c *objectPoolServiceClient) LinkRepositoryToObjectPool(ctx context.Context
 	return out, nil
 }
 
+// Deprecated: Do not use.
 func (c *objectPoolServiceClient) UnlinkRepositoryFromObjectPool(ctx context.Context, in *UnlinkRepositoryFromObjectPoolRequest, opts ...grpc.CallOption) (*UnlinkRepositoryFromObjectPoolResponse, error) {
 	out := new(UnlinkRepositoryFromObjectPoolResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.ObjectPoolService/UnlinkRepositoryFromObjectPool", in, out, opts...)
@@ -117,6 +129,17 @@ type ObjectPoolServiceServer interface {
 	DeleteObjectPool(context.Context, *DeleteObjectPoolRequest) (*DeleteObjectPoolResponse, error)
 	// Repositories are assumed to be stored on the same disk
 	LinkRepositoryToObjectPool(context.Context, *LinkRepositoryToObjectPoolRequest) (*LinkRepositoryToObjectPoolResponse, error)
+	// Deprecated: Do not use.
+	// UnlinkRepositoryFromObjectPool does not unlink the repository from the
+	// object pool as you'd think, but all it really does is to remove the object
+	// pool's remote pointing to the repository. And even this is a no-op given
+	// that we'd try to remove the remote by the repository's `GlRepository()`
+	// name, which we never create in the first place. To unlink repositories
+	// from an object pool, you'd really want to execute DisconnectGitAlternates
+	// to remove the repository's link to the pool's object database.
+	//
+	// This function is never called by anyone and highly misleading. It's thus
+	// deprecated and will be removed in v14.4.
 	UnlinkRepositoryFromObjectPool(context.Context, *UnlinkRepositoryFromObjectPoolRequest) (*UnlinkRepositoryFromObjectPoolResponse, error)
 	ReduplicateRepository(context.Context, *ReduplicateRepositoryRequest) (*ReduplicateRepositoryResponse, error)
 	DisconnectGitAlternates(context.Context, *DisconnectGitAlternatesRequest) (*DisconnectGitAlternatesResponse, error)

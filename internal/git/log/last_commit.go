@@ -2,7 +2,7 @@ package log
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
@@ -24,7 +24,7 @@ func LastCommitForPath(ctx context.Context, gitCmdFactory git.CommandFactory, ba
 		return nil, err
 	}
 
-	commitID, err := ioutil.ReadAll(cmd)
+	commitID, err := io.ReadAll(cmd)
 	if err != nil {
 		return nil, err
 	}

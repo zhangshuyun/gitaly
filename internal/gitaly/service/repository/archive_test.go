@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -147,7 +147,7 @@ func TestGetArchiveSuccess(t *testing.T) {
 				data, err := consumeArchive(stream)
 				require.NoError(t, err)
 
-				archiveFile, err := ioutil.TempFile("", "")
+				archiveFile, err := os.CreateTemp("", "")
 				require.NoError(t, err)
 				defer func() { require.NoError(t, os.Remove(archiveFile.Name())) }()
 
@@ -263,7 +263,7 @@ func TestGetArchiveWithLfsSuccess(t *testing.T) {
 					require.NoError(t, err)
 					defer fc.Close()
 
-					data, err := ioutil.ReadAll(fc)
+					data, err := io.ReadAll(fc)
 					require.NoError(t, err)
 
 					if tc.includeLfsBlobs {
@@ -464,7 +464,7 @@ func TestGetArchivePathInjection(t *testing.T) {
 	require.NoError(t, err)
 	defer authorizedKeysFile.Close()
 
-	authorizedKeysFileBytes, err := ioutil.ReadAll(authorizedKeysFile)
+	authorizedKeysFileBytes, err := io.ReadAll(authorizedKeysFile)
 	require.NoError(t, err)
 	authorizedKeysFileStat, err := authorizedKeysFile.Stat()
 	require.NoError(t, err)
@@ -475,7 +475,7 @@ func TestGetArchivePathInjection(t *testing.T) {
 
 func TestGetArchiveEnv(t *testing.T) {
 	t.Parallel()
-	tmpFile, err := ioutil.TempFile("", "archive.sh")
+	tmpFile, err := os.CreateTemp("", "archive.sh")
 	require.NoError(t, err)
 	defer func() { require.NoError(t, os.Remove(tmpFile.Name())) }()
 
@@ -557,5 +557,5 @@ func consumeArchive(stream gitalypb.RepositoryService_GetArchiveClient) ([]byte,
 		return response.GetData(), err
 	})
 
-	return ioutil.ReadAll(reader)
+	return io.ReadAll(reader)
 }

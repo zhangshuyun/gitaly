@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -12,6 +13,8 @@ import (
 	"github.com/sirupsen/logrus"
 	gitalyerrors "gitlab.com/gitlab-org/gitaly/v14/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
@@ -25,7 +28,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc/metadata"
+	grpc_metadata "google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -70,12 +73,10 @@ var transactionRPCs = map[string]transactionsCondition{
 	"/gitaly.RepositoryService/CreateRepositoryFromBundle":   transactionsEnabled,
 	"/gitaly.RepositoryService/CreateRepositoryFromSnapshot": transactionsEnabled,
 	"/gitaly.RepositoryService/CreateRepositoryFromURL":      transactionsEnabled,
-	"/gitaly.RepositoryService/DeleteConfig":                 transactionsEnabled,
 	"/gitaly.RepositoryService/FetchRemote":                  transactionsEnabled,
 	"/gitaly.RepositoryService/FetchSourceBranch":            transactionsEnabled,
 	"/gitaly.RepositoryService/RemoveRepository":             transactionsEnabled,
 	"/gitaly.RepositoryService/ReplicateRepository":          transactionsEnabled,
-	"/gitaly.RepositoryService/SetConfig":                    transactionsEnabled,
 	"/gitaly.RepositoryService/SetFullPath":                  transactionsEnabled,
 	"/gitaly.RepositoryService/WriteRef":                     transactionsEnabled,
 	"/gitaly.SSHService/SSHReceivePack":                      transactionsEnabled,
@@ -357,6 +358,10 @@ func (c *Coordinator) directRepositoryScopedMessage(ctx context.Context, call gr
 	}
 
 	if err != nil {
+		if errors.As(err, new(commonerr.RepositoryNotFoundError)) {
+			return nil, helper.ErrNotFound(err)
+		}
+
 		return nil, err
 	}
 
@@ -368,7 +373,7 @@ func shouldRouteRepositoryAccessorToPrimary(ctx context.Context, call grpcCall) 
 
 	// In case the call's metadata tells us to force-route to the primary, then we must abide
 	// and ignore what `forcePrimaryRPCs` says.
-	if md, ok := metadata.FromIncomingContext(ctx); ok {
+	if md, ok := grpc_metadata.FromIncomingContext(ctx); ok {
 		header := md.Get(routeRepositoryAccessorPolicy)
 		if len(header) == 0 {
 			return forcePrimary
@@ -390,10 +395,6 @@ func (c *Coordinator) accessorStreamParameters(ctx context.Context, call grpcCal
 		ctx, virtualStorage, repoPath, shouldRouteRepositoryAccessorToPrimary(ctx, call),
 	)
 	if err != nil {
-		if errors.As(err, new(commonerr.RepositoryNotFoundError)) {
-			return nil, helper.ErrNotFound(err)
-		}
-
 		return nil, fmt.Errorf("accessor call: route repository accessor: %w", err)
 	}
 
@@ -405,7 +406,7 @@ func (c *Coordinator) accessorStreamParameters(ctx context.Context, call grpcCal
 	metrics.ReadDistribution.WithLabelValues(virtualStorage, node.Storage).Inc()
 
 	return proxy.NewStreamParameters(proxy.Destination{
-		Ctx:  helper.IncomingToOutgoing(ctx),
+		Ctx:  streamParametersContext(ctx),
 		Conn: node.Connection,
 		Msg:  b,
 	}, nil, nil, nil), nil
@@ -486,7 +487,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 	var finalizers []func() error
 
 	primaryDest := proxy.Destination{
-		Ctx:  helper.IncomingToOutgoing(ctx),
+		Ctx:  streamParametersContext(ctx),
 		Conn: route.Primary.Connection,
 		Msg:  primaryMessage,
 	}
@@ -510,7 +511,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 		if err != nil {
 			return nil, err
 		}
-		primaryDest.Ctx = helper.IncomingToOutgoing(injectedCtx)
+		primaryDest.Ctx = streamParametersContext(injectedCtx)
 		primaryDest.ErrHandler = func(err error) error {
 			nodeErrors.Lock()
 			defer nodeErrors.Unlock()
@@ -531,7 +532,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 			}
 
 			secondaryDests = append(secondaryDests, proxy.Destination{
-				Ctx:  helper.IncomingToOutgoing(injectedCtx),
+				Ctx:  streamParametersContext(injectedCtx),
 				Conn: secondary.Connection,
 				Msg:  secondaryMsg,
 				ErrHandler: func(err error) error {
@@ -592,6 +593,49 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 		return firstErr
 	}
 	return proxy.NewStreamParameters(primaryDest, secondaryDests, reqFinalizer, nil), nil
+}
+
+// streamParametersContexts converts the contexts with incoming metadata into a context that is
+// usable by peer Gitaly nodes.
+func streamParametersContext(ctx context.Context) context.Context {
+	outgoingCtx := metadata.IncomingToOutgoing(ctx)
+
+	// When upgrading Gitaly nodes where the upgrade contains feature flag default changes, then
+	// there will be a window where a subset of Gitaly nodes has a different understanding of
+	// the current default value. If the feature flag wasn't set explicitly on upgrade by
+	// outside callers, then these Gitaly nodes will thus see different default values and run
+	// different code. This is something we want to avoid: all Gitalies should have the same
+	// world view of which features are enabled and which ones aren't and ideally do the same
+	// thing.
+	//
+	// This problem isn't solveable on Gitaly side, but Praefect is in a perfect position to do
+	// so. While it may have the same problem in a load-balanced multi-Praefect setup, this is
+	// much less of a problem: the most important thing is that the view on feature flags is
+	// consistent for a single RPC call, and that will always be the case regardless of which
+	// Praefect is proxying the call. The worst case scenario is that we'll execute the RPC once
+	// with a feature flag enabled, and once with it disabled, which shouldn't typically be an
+	// issue.
+	//
+	// To fix this scenario, we thus inject all known feature flags with their current default
+	// value as seen by Praefect into Gitaly's context if they haven't explicitly been set by
+	// the caller. Like this, Gitalies will never even consider the default value in a cluster
+	// setup, except when it is being introduced for the first time when Gitaly restarts before
+	// Praefect. But given that feature flags should be introduced with a default value of
+	// `false` to account for zero-dodwntime upgrades, the view would also be consistent in that
+	// case.
+	rawFeatureFlags := featureflag.RawFromContext(ctx)
+	if rawFeatureFlags == nil {
+		rawFeatureFlags = map[string]string{}
+	}
+
+	for _, ff := range featureflag.All {
+		if _, ok := rawFeatureFlags[ff.MetadataKey()]; !ok {
+			rawFeatureFlags[ff.MetadataKey()] = strconv.FormatBool(ff.OnByDefault)
+		}
+	}
+	outgoingCtx = featureflag.OutgoingWithRaw(outgoingCtx, rawFeatureFlags)
+
+	return outgoingCtx
 }
 
 // StreamDirector determines which downstream servers receive requests

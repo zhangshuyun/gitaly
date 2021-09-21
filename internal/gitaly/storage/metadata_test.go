@@ -2,7 +2,6 @@ package storage
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -23,7 +22,7 @@ func readFilesystemID(t *testing.T, path string) string {
 }
 
 func TestWriteMetdataFile(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", t.Name())
+	tempDir, err := os.MkdirTemp("", t.Name())
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, os.RemoveAll(tempDir))
@@ -34,7 +33,7 @@ func TestWriteMetdataFile(t *testing.T) {
 }
 
 func TestWriteMetadataFile_AlreadyExists(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", t.Name())
+	tempDir, err := os.MkdirTemp("", t.Name())
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, os.RemoveAll(tempDir))

@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	gitalyx509 "gitlab.com/gitlab-org/gitaly/v14/internal/x509"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -43,7 +43,7 @@ func commandEnv(ctx context.Context, cfg config.Cfg, storageName, command string
 		return nil, status.Errorf(codes.Internal, "commandEnv: marshalling payload failed: %v", err)
 	}
 
-	serversInfo, err := helper.ExtractGitalyServers(ctx)
+	serversInfo, err := storage.ExtractGitalyServers(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "commandEnv: extracting Gitaly servers: %v", err)
 	}

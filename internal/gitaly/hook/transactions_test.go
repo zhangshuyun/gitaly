@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -56,13 +56,13 @@ func TestHookManager_stopCalled(t *testing.T) {
 	}
 
 	preReceiveFunc := func(t *testing.T) error {
-		return hookManager.PreReceiveHook(ctx, repo, nil, []string{hooksPayload}, strings.NewReader("changes"), ioutil.Discard, ioutil.Discard)
+		return hookManager.PreReceiveHook(ctx, repo, nil, []string{hooksPayload}, strings.NewReader("changes"), io.Discard, io.Discard)
 	}
 	updateFunc := func(t *testing.T) error {
-		return hookManager.UpdateHook(ctx, repo, "ref", git.ZeroOID.String(), git.ZeroOID.String(), []string{hooksPayload}, ioutil.Discard, ioutil.Discard)
+		return hookManager.UpdateHook(ctx, repo, "ref", git.ZeroOID.String(), git.ZeroOID.String(), []string{hooksPayload}, io.Discard, io.Discard)
 	}
 	postReceiveFunc := func(t *testing.T) error {
-		return hookManager.PostReceiveHook(ctx, repo, nil, []string{hooksPayload}, strings.NewReader("changes"), ioutil.Discard, ioutil.Discard)
+		return hookManager.PostReceiveHook(ctx, repo, nil, []string{hooksPayload}, strings.NewReader("changes"), io.Discard, io.Discard)
 	}
 
 	for _, tc := range []struct {

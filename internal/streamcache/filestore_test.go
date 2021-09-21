@@ -2,7 +2,6 @@ package streamcache
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -110,7 +109,7 @@ func TestFilestoreCleanwalk(t *testing.T) {
 	file := filepath.Join(dir2, "file")
 	require.NoError(t, os.Mkdir(dir1, 0o755))
 	require.NoError(t, os.Mkdir(dir2, 0o755))
-	require.NoError(t, ioutil.WriteFile(file, nil, 0o644))
+	require.NoError(t, os.WriteFile(file, nil, 0o644))
 	require.NoError(t, os.Chmod(dir2, 0), "create dir with pathological permissions")
 
 	require.NoError(t, fs.cleanWalk(time.Now().Add(time.Hour)))

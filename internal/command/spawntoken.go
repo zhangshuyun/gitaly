@@ -7,6 +7,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/kelseyhightower/envconfig"
+	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -56,6 +57,9 @@ func getSpawnToken(ctx context.Context) (putToken func(), err error) {
 	// slows down. This has happened in real life, see
 	// https://gitlab.com/gitlab-org/gitaly/issues/823.
 	start := time.Now()
+
+	span, ctx := opentracing.StartSpanFromContext(ctx, "command.getSpawnToken")
+	defer span.Finish()
 
 	select {
 	case spawnTokens <- struct{}{}:

@@ -29,7 +29,7 @@ func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.Commit
 
 	revision := string(in.GetRevision())
 	if len(revision) == 0 {
-		defaultBranch, err := defaultBranchName(stream.Context(), repo)
+		defaultBranch, err := repo.GetDefaultBranch(stream.Context())
 		if err != nil {
 			return helper.ErrNotFoundf("revision not found %q", revision)
 		}
@@ -38,7 +38,7 @@ func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.Commit
 			return helper.ErrFailedPreconditionf("repository does not have a default branch")
 		}
 
-		revision = string(defaultBranch)
+		revision = defaultBranch.String()
 	}
 
 	contained, err := s.localrepo(repo).HasRevision(stream.Context(), git.Revision(revision))

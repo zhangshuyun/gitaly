@@ -1,7 +1,7 @@
 package tempdir
 
 import (
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -59,7 +59,7 @@ func TestCleanTempDir(t *testing.T) {
 	gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	logrus.SetLevel(logrus.InfoLevel)
-	logrus.SetOutput(ioutil.Discard)
+	logrus.SetOutput(io.Discard)
 
 	hook := test.NewGlobal()
 
@@ -123,7 +123,7 @@ func assertEntries(t *testing.T, locator storage.Locator, storage config.Storage
 	root, err := locator.TempDir(storage.Name)
 	require.NoError(t, err)
 
-	foundEntries, err := ioutil.ReadDir(root)
+	foundEntries, err := os.ReadDir(root)
 	require.NoError(t, err)
 
 	require.Len(t, foundEntries, len(entries))
@@ -138,7 +138,7 @@ func makeFile(t *testing.T, locator storage.Locator, storage config.Storage, fil
 	require.NoError(t, err)
 
 	fullPath := filepath.Join(root, filePath)
-	require.NoError(t, ioutil.WriteFile(fullPath, nil, 0o644))
+	require.NoError(t, os.WriteFile(fullPath, nil, 0o644))
 	require.NoError(t, os.Chtimes(fullPath, mtime, mtime))
 }
 

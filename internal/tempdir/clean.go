@@ -1,5 +1,6 @@
 package tempdir
 
+//nolint:depguard
 import (
 	"context"
 	"fmt"

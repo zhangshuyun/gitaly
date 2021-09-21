@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -66,7 +65,7 @@ func main() {
 			return nil
 		}
 
-		t, err := ioutil.ReadFile(path)
+		t, err := os.ReadFile(path)
 		if err != nil {
 			log.Fatal(err)
 		}

@@ -23,21 +23,21 @@ func TestSuccessfulGetTagMessagesRequest(t *testing.T) {
 	message1 := strings.Repeat("a", helper.MaxCommitOrTagMessageSize*2)
 	message2 := strings.Repeat("b", helper.MaxCommitOrTagMessageSize)
 
-	tag1ID := gittest.CreateTag(t, cfg, repoPath, "big-tag-1", "master", &gittest.CreateTagOpts{Message: message1})
-	tag2ID := gittest.CreateTag(t, cfg, repoPath, "big-tag-2", "master~", &gittest.CreateTagOpts{Message: message2})
+	tag1ID := gittest.WriteTag(t, cfg, repoPath, "big-tag-1", "master", gittest.WriteTagConfig{Message: message1})
+	tag2ID := gittest.WriteTag(t, cfg, repoPath, "big-tag-2", "master~", gittest.WriteTagConfig{Message: message2})
 
 	request := &gitalypb.GetTagMessagesRequest{
 		Repository: repo,
-		TagIds:     []string{tag1ID, tag2ID},
+		TagIds:     []string{tag1ID.String(), tag2ID.String()},
 	}
 
 	expectedMessages := []*gitalypb.GetTagMessagesResponse{
 		{
-			TagId:   tag1ID,
+			TagId:   tag1ID.String(),
 			Message: []byte(message1 + "\n"),
 		},
 		{
-			TagId:   tag2ID,
+			TagId:   tag2ID.String(),
 			Message: []byte(message2 + "\n"),
 		},
 	}

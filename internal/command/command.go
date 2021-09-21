@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -235,7 +234,6 @@ func New(ctx context.Context, cmd *exec.Cmd, stdin io.Reader, stdout, stderr io.
 			syscall.Kill(-process.Pid, syscall.SIGTERM)
 		}
 		command.Wait()
-		wg.Done()
 	}()
 
 	logPid = cmd.Process.Pid
@@ -270,7 +268,7 @@ func (c *Command) wait() {
 
 	if c.reader != nil {
 		// Prevent the command from blocking on writing to its stdout.
-		_, _ = io.Copy(ioutil.Discard, c.reader)
+		_, _ = io.Copy(io.Discard, c.reader)
 	}
 
 	c.waitError = c.cmd.Wait()
@@ -278,6 +276,15 @@ func (c *Command) wait() {
 	inFlightCommandGauge.Dec()
 
 	c.logProcessComplete()
+
+	// This is a bit out-of-place here given that the `wg.Add()` call is in `New()`.
+	// But in `New()`, we have to resort waiting on the context being finished until we
+	// would be able to decrement the number of in-flight commands. Given that in some
+	// cases we detach processes from their initial context such that they run in the
+	// background, this would cause us to take longer than necessary to decrease the
+	// wait group counter again. So we instead do it here to accelerate the process,
+	// even though it's less idiomatic.
+	wg.Done()
 }
 
 // ExitStatus will return the exit-code from an error returned by Wait().

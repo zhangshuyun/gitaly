@@ -2,7 +2,7 @@ package git_test
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -77,7 +77,7 @@ func TestExecCommandFactory_NewWithDir(t *testing.T) {
 		}, git.WithStderr(&stderr))
 		require.NoError(t, err)
 
-		revData, err := ioutil.ReadAll(cmd)
+		revData, err := io.ReadAll(cmd)
 		require.NoError(t, err)
 
 		require.NoError(t, cmd.Wait(), stderr.String())

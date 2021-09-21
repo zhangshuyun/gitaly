@@ -1,0 +1,60 @@
+From 284b2ce8fcb100e7194b9cca6d9b99bca7da39b6 Mon Sep 17 00:00:00 2001
+Message-Id: <284b2ce8fcb100e7194b9cca6d9b99bca7da39b6.1631166322.git.ps@pks.im>
+In-Reply-To: <fe7df03a9a2fa434ebce38b2cd5e6da42f8b2692.1631166322.git.ps@pks.im>
+References: <fe7df03a9a2fa434ebce38b2cd5e6da42f8b2692.1631166322.git.ps@pks.im>
+From: Patrick Steinhardt <ps@pks.im>
+Date: Wed, 1 Sep 2021 15:09:58 +0200
+Subject: [PATCH 12/14] fetch: refactor fetch refs to be more extendable
+
+Refactor `fetch_refs()` code to make it more extendable by explicitly
+handling error cases. The refactored code should behave the same.
+
+Signed-off-by: Patrick Steinhardt <ps@pks.im>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+---
+ builtin/fetch.c | 24 +++++++++++++++++-------
+ 1 file changed, 17 insertions(+), 7 deletions(-)
+
+diff --git a/builtin/fetch.c b/builtin/fetch.c
+index cdf0d0d671..ef6f9b3a33 100644
+--- a/builtin/fetch.c
++++ b/builtin/fetch.c
+@@ -1293,18 +1293,28 @@ static int check_exist_and_connected(struct ref *ref_map)
+ 
+ static int fetch_refs(struct transport *transport, struct ref *ref_map)
+ {
+-	int ret = check_exist_and_connected(ref_map);
++	int ret;
++
++	/*
++	 * We don't need to perform a fetch in case we can already satisfy all
++	 * refs.
++	 */
++	ret = check_exist_and_connected(ref_map);
+ 	if (ret) {
+ 		trace2_region_enter("fetch", "fetch_refs", the_repository);
+ 		ret = transport_fetch_refs(transport, ref_map);
+ 		trace2_region_leave("fetch", "fetch_refs", the_repository);
++		if (ret)
++			goto out;
+ 	}
+-	if (!ret)
+-		/*
+-		 * Keep the new pack's ".keep" file around to allow the caller
+-		 * time to update refs to reference the new objects.
+-		 */
+-		return 0;
++
++	/*
++	 * Keep the new pack's ".keep" file around to allow the caller
++	 * time to update refs to reference the new objects.
++	 */
++	return ret;
++
++out:
+ 	transport_unlock_pack(transport);
+ 	return ret;
+ }
+-- 
+2.33.0
+

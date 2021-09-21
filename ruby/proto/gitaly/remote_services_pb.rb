@@ -14,6 +14,9 @@ module Gitaly
       self.unmarshal_class_method = :decode
       self.service_name = 'gitaly.RemoteService'
 
+      # FetchInternalRemote used to fetch changes from a remote repository into
+      # the target repository. This RPC call is deprecated and shouldn't be used
+      # at all anymore. It will be removed in release v14.4.
       rpc :FetchInternalRemote, ::Gitaly::FetchInternalRemoteRequest, ::Gitaly::FetchInternalRemoteResponse
       # UpdateRemoteMirror compares the references in the target repository and its remote mirror
       # repository. Any differences in the references are then addressed by pushing the differing

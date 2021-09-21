@@ -3,9 +3,9 @@ package repository
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -13,8 +13,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -22,7 +23,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
+	grpc_metadata "google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -49,7 +50,7 @@ func TestReplicateRepository(t *testing.T) {
 	// write info attributes
 	attrFilePath := filepath.Join(repoPath, "info", "attributes")
 	attrData := []byte("*.pbxproj binary\n")
-	require.NoError(t, ioutil.WriteFile(attrFilePath, attrData, 0o644))
+	require.NoError(t, os.WriteFile(attrFilePath, attrData, 0o644))
 
 	// Write a modified gitconfig
 	gittest.Exec(t, cfg, "-C", repoPath, "config", "please.replicate", "me")
@@ -62,7 +63,7 @@ func TestReplicateRepository(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
-	injectedCtx := metadata.NewOutgoingContext(ctx, md)
+	injectedCtx := grpc_metadata.NewOutgoingContext(ctx, md)
 
 	_, err = client.ReplicateRepository(injectedCtx, &gitalypb.ReplicateRepositoryRequest{
 		Repository: targetRepo,
@@ -98,6 +99,12 @@ func TestReplicateRepository(t *testing.T) {
 }
 
 func TestReplicateRepositoryTransactional(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.TxExtendedFileLocking,
+	}).Run(t, testReplicateRepositoryTransactional)
+}
+
+func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
 
@@ -112,21 +119,19 @@ func TestReplicateRepositoryTransactional(t *testing.T) {
 	targetRepo := proto.Clone(sourceRepo).(*gitalypb.Repository)
 	targetRepo.StorageName = cfg.Storages[1].Name
 
-	votes := 0
+	votes := int32(0)
 	txServer := testTransactionServer{
 		vote: func(request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
-			votes++
+			atomic.AddInt32(&votes, 1)
 			return &gitalypb.VoteTransactionResponse{
 				State: gitalypb.VoteTransactionResponse_COMMIT,
 			}, nil
 		},
 	}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "primary", true)
 	require.NoError(t, err)
-	ctx = helper.IncomingToOutgoing(ctx)
+	ctx = metadata.IncomingToOutgoing(ctx)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
 
 	client := newMuxedRepositoryClient(t, ctx, cfg, serverSocketPath, backchannel.NewClientHandshaker(
@@ -146,13 +151,17 @@ func TestReplicateRepositoryTransactional(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, 1, votes)
+	if featureflag.TxExtendedFileLocking.IsEnabled(ctx) {
+		require.EqualValues(t, 5, atomic.LoadInt32(&votes))
+	} else {
+		require.EqualValues(t, 1, atomic.LoadInt32(&votes))
+	}
 
 	// We're now changing a reference in the source repository such that we can observe changes
 	// in the target repo.
 	gittest.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", "refs/heads/master", "refs/heads/master~")
 
-	votes = 0
+	atomic.StoreInt32(&votes, 0)
 
 	// And the second invocation uses FetchInternalRemote.
 	_, err = client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
@@ -161,7 +170,11 @@ func TestReplicateRepositoryTransactional(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, 2, votes)
+	if featureflag.TxExtendedFileLocking.IsEnabled(ctx) {
+		require.EqualValues(t, 6, atomic.LoadInt32(&votes))
+	} else {
+		require.EqualValues(t, 2, atomic.LoadInt32(&votes))
+	}
 }
 
 func TestReplicateRepositoryInvalidArguments(t *testing.T) {
@@ -319,7 +332,7 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 			defer cancel()
 
 			md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
-			injectedCtx := metadata.NewOutgoingContext(ctx, md)
+			injectedCtx := grpc_metadata.NewOutgoingContext(ctx, md)
 
 			_, err := client.ReplicateRepository(injectedCtx, &gitalypb.ReplicateRepositoryRequest{
 				Repository: targetRepo,
@@ -362,7 +375,7 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 	defer cancel()
 
 	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
-	injectedCtx := metadata.NewOutgoingContext(ctx, md)
+	injectedCtx := grpc_metadata.NewOutgoingContext(ctx, md)
 
 	_, err = repoClient.ReplicateRepository(injectedCtx, &gitalypb.ReplicateRepositoryRequest{
 		Repository: targetRepo,

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -41,7 +40,7 @@ func TestReadMonitorTimeout(t *testing.T) {
 	require.True(t, elapsed < time.Second, "Expected context to be cancelled quickly, but it was not")
 
 	// Verify that pipe is closed
-	_, err = ioutil.ReadAll(r)
+	_, err = io.ReadAll(r)
 	require.Error(t, err)
 	require.IsType(t, &os.PathError{}, err)
 }

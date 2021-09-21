@@ -3,13 +3,12 @@ package hook
 import (
 	"context"
 	"io"
-	"io/ioutil"
 	"net"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
-	"google.golang.org/grpc/metadata"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
+	grpc_metadata "google.golang.org/grpc/metadata"
 )
 
 func TestSidechannel(t *testing.T) {
@@ -25,12 +24,12 @@ func TestSidechannel(t *testing.T) {
 	defer wt.Close()
 
 	// Server side
-	ctxIn := helper.OutgoingToIncoming(ctxOut)
+	ctxIn := metadata.OutgoingToIncoming(ctxOut)
 	c, err := GetSidechannel(ctxIn)
 	require.NoError(t, err)
 	defer c.Close()
 
-	buf, err := ioutil.ReadAll(c)
+	buf, err := io.ReadAll(c)
 	require.NoError(t, err)
 	require.Equal(t, "ping", string(buf))
 
@@ -48,7 +47,7 @@ func TestGetSidechannel(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc, func(t *testing.T) {
-			ctx := metadata.NewIncomingContext(
+			ctx := grpc_metadata.NewIncomingContext(
 				context.Background(),
 				map[string][]string{sidechannelHeader: {tc}},
 			)

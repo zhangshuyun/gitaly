@@ -2,7 +2,7 @@ package gitpipe
 
 import (
 	"errors"
-	"io/ioutil"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -107,7 +107,7 @@ func TestCatfileObject(t *testing.T) {
 				// this: it would just be too annoying.
 				require.NotNil(t, result.ObjectReader)
 
-				objectData, err := ioutil.ReadAll(result.ObjectReader)
+				objectData, err := io.ReadAll(result.ObjectReader)
 				require.NoError(t, err)
 				require.Len(t, objectData, int(result.ObjectInfo.Size))
 

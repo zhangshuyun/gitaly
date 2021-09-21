@@ -3,7 +3,6 @@ package hook
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -41,7 +40,7 @@ func GetSidechannel(ctx context.Context) (net.Conn, error) {
 // returned context, so that the caller can propagate it to a server. The
 // caller must Close the SidechannelWaiter to prevent resource leaks.
 func SetupSidechannel(ctx context.Context, callback func(*net.UnixConn) error) (context.Context, *SidechannelWaiter, error) {
-	socketDir, err := ioutil.TempDir("", "gitaly")
+	socketDir, err := os.MkdirTemp("", "gitaly")
 	if err != nil {
 		return nil, nil, err
 	}

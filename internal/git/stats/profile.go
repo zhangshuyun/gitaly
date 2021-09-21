@@ -1,5 +1,6 @@
 package stats
 
+//nolint:depguard
 import (
 	"context"
 	"errors"

@@ -261,14 +261,15 @@ WITH updated_repository AS (
 	SET generation = generation + 1
 	WHERE virtual_storage = $1
 	AND   relative_path   = $2
-	RETURNING virtual_storage, relative_path, generation
+	RETURNING repository_id, virtual_storage, relative_path, generation
 )
 
-INSERT INTO storage_repositories
-SELECT virtual_storage, relative_path, $3, generation
+INSERT INTO storage_repositories (repository_id, virtual_storage, relative_path, storage, generation)
+SELECT repository_id, virtual_storage, relative_path, $3, generation
 FROM updated_repository
 ON CONFLICT (virtual_storage, relative_path, storage) DO UPDATE
-	SET generation = EXCLUDED.generation
+	SET repository_id = EXCLUDED.repository_id,
+	    generation = EXCLUDED.generation
 	`, virtualStorage, relativePath, storage)
 	if err != nil {
 		return fmt.Errorf("exec: %w", err)
@@ -351,9 +352,10 @@ WITH repo AS (
 		repository_id,
 		virtual_storage,
 		relative_path,
+		replica_path,
 		generation,
 		"primary"
-	) VALUES ($8, $1, $2, 0, CASE WHEN $4 THEN $3 END)
+	) VALUES ($8, $1, $2, $2, 0, CASE WHEN $4 THEN $3 END)
 ),
 
 assignments AS (
@@ -462,7 +464,8 @@ func (rs *PostgresRepositoryStore) RenameRepository(ctx context.Context, virtual
 	const q = `
 WITH repo AS (
 	UPDATE repositories
-	SET relative_path = $4
+	SET relative_path = $4,
+	    replica_path  = $4
 	WHERE virtual_storage = $1
 	AND relative_path = $2
 )

@@ -28,7 +28,7 @@ func WriteMetadataFile(storagePath string) error {
 		return err
 	}
 
-	fw, err := safe.CreateFileWriter(path)
+	fw, err := safe.NewFileWriter(path)
 	if err != nil {
 		return err
 	}

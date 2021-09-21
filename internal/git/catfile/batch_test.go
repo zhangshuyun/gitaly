@@ -3,8 +3,8 @@ package catfile
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strconv"
@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -23,30 +22,11 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-type repoExecutor struct {
-	repository.GitRepo
-	gitCmdFactory git.CommandFactory
-}
-
-func (e *repoExecutor) Exec(ctx context.Context, cmd git.Cmd, opts ...git.CmdOpt) (*command.Command, error) {
-	return e.gitCmdFactory.New(ctx, e.GitRepo, cmd, opts...)
-}
-
-func (e *repoExecutor) ExecAndWait(ctx context.Context, cmd git.Cmd, opts ...git.CmdOpt) error {
-	command, err := e.Exec(ctx, cmd, opts...)
-	if err != nil {
-		return err
-	}
-	return command.Wait()
-}
-
 func setupBatch(t *testing.T, ctx context.Context) (config.Cfg, Batch, *gitalypb.Repository) {
 	t.Helper()
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
-	repoExecutor := &repoExecutor{
-		GitRepo: repo, gitCmdFactory: git.NewExecCommandFactory(cfg),
-	}
+	repoExecutor := newRepoExecutor(t, cfg, repo)
 
 	cache := newCache(1*time.Hour, 1000, defaultEvictionInterval)
 	batch, err := cache.BatchProcess(ctx, repoExecutor)
@@ -142,7 +122,7 @@ func TestBlob(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tc.objInfo, blobObj.ObjectInfo)
 
-			contents, err := ioutil.ReadAll(blobObj.Reader)
+			contents, err := io.ReadAll(blobObj.Reader)
 			require.NoError(t, err)
 			require.Equal(t, tc.content, contents)
 		})
@@ -174,7 +154,7 @@ func TestCommit(t *testing.T) {
 			commitReader, err := c.Commit(ctx, git.Revision(tc.revision))
 			require.NoError(t, err)
 
-			contents, err := ioutil.ReadAll(commitReader)
+			contents, err := io.ReadAll(commitReader)
 			require.NoError(t, err)
 
 			require.Equal(t, tc.output, string(contents))
@@ -237,7 +217,7 @@ func TestTag(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tc.objInfo, tagObj.ObjectInfo)
 
-			contents, err := ioutil.ReadAll(tagObj.Reader)
+			contents, err := io.ReadAll(tagObj.Reader)
 			require.NoError(t, err)
 			require.Equal(t, tc.content, contents)
 		})
@@ -299,7 +279,7 @@ func TestTree(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tc.objInfo, treeObj.ObjectInfo)
 
-			contents, err := ioutil.ReadAll(treeObj.Reader)
+			contents, err := io.ReadAll(treeObj.Reader)
 			require.NoError(t, err)
 			require.Equal(t, tc.content, contents)
 		})
@@ -318,7 +298,7 @@ func TestRepeatedCalls(t *testing.T) {
 	tree1Obj, err := c.Tree(ctx, treeOid)
 	require.NoError(t, err)
 
-	tree1, err := ioutil.ReadAll(tree1Obj.Reader)
+	tree1, err := io.ReadAll(tree1Obj.Reader)
 	require.NoError(t, err)
 
 	require.Equal(t, string(treeBytes), string(tree1))
@@ -329,22 +309,30 @@ func TestRepeatedCalls(t *testing.T) {
 	_, err = c.Tree(ctx, treeOid)
 	require.Error(t, err, "request should fail because of unconsumed blob data")
 
-	_, err = io.CopyN(ioutil.Discard, blobReader, 10)
+	_, err = io.CopyN(io.Discard, blobReader, 10)
 	require.NoError(t, err)
 
 	_, err = c.Tree(ctx, treeOid)
 	require.Error(t, err, "request should fail because of unconsumed blob data")
 
-	_, err = io.Copy(ioutil.Discard, blobReader)
+	_, err = io.Copy(io.Discard, blobReader)
 	require.NoError(t, err, "blob reading should still work")
 
 	tree2Obj, err := c.Tree(ctx, treeOid)
 	require.NoError(t, err)
 
-	tree2, err := ioutil.ReadAll(tree2Obj.Reader)
+	tree2, err := io.ReadAll(tree2Obj.Reader)
 	require.NoError(t, err, "request should succeed because blob was consumed")
 
 	require.Equal(t, string(treeBytes), string(tree2))
+}
+
+type failingTestRepoExecutor struct {
+	git.RepositoryExecutor
+}
+
+func (e failingTestRepoExecutor) Exec(context.Context, git.Cmd, ...git.CmdOpt) (*command.Command, error) {
+	return nil, fmt.Errorf("simulated error")
 }
 
 func TestSpawnFailure(t *testing.T) {
@@ -392,10 +380,12 @@ func TestSpawnFailure(t *testing.T) {
 	ctx2, cancel2 := testhelper.Context()
 	defer cancel2()
 
-	cache.injectSpawnErrors = true
-	_, err = catfileWithFreshSessionID(ctx2, cache, testRepoExecutor)
+	failingTestRepoExecutor := failingTestRepoExecutor{
+		RepositoryExecutor: testRepoExecutor,
+	}
+	_, err = catfileWithFreshSessionID(ctx2, cache, failingTestRepoExecutor)
 	require.Error(t, err, "expect simulated error")
-	require.IsType(t, &simulatedBatchSpawnError{}, err)
+	require.EqualError(t, err, "simulated error")
 
 	require.True(
 		t,

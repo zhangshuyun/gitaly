@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
@@ -24,6 +25,7 @@ type Server struct {
 	cfg           config.Cfg
 	ruby          *rubyserver.Server
 	hookManager   hook.Manager
+	txManager     transaction.Manager
 	locator       storage.Locator
 	conns         *client.Pool
 	git2go        git2go.Executor
@@ -41,6 +43,7 @@ func NewServer(
 	cfg config.Cfg,
 	rs *rubyserver.Server,
 	hookManager hook.Manager,
+	txManager transaction.Manager,
 	locator storage.Locator,
 	conns *client.Pool,
 	gitCmdFactory git.CommandFactory,
@@ -50,6 +53,7 @@ func NewServer(
 		ruby:          rs,
 		cfg:           cfg,
 		hookManager:   hookManager,
+		txManager:     txManager,
 		locator:       locator,
 		conns:         conns,
 		git2go:        git2go.NewExecutor(cfg, locator),

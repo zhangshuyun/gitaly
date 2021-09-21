@@ -3,7 +3,6 @@ package stats
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -55,7 +54,7 @@ func TestLogObjectInfo(t *testing.T) {
 		storagePath, err := locator.GetStorageByName(repo1.GetStorageName())
 		require.NoError(t, err)
 
-		tmpDir, err := ioutil.TempDir(storagePath, "")
+		tmpDir, err := os.MkdirTemp(storagePath, "")
 		require.NoError(t, err)
 		defer func() { require.NoError(t, os.RemoveAll(tmpDir)) }()
 

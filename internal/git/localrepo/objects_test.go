@@ -3,7 +3,6 @@ package localrepo
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -91,7 +90,7 @@ func TestRepo_WriteBlob(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			require.NoError(t,
-				ioutil.WriteFile(filepath.Join(repoPath, "info", "attributes"), []byte(tc.attributes), os.ModePerm),
+				os.WriteFile(filepath.Join(repoPath, "info", "attributes"), []byte(tc.attributes), os.ModePerm),
 			)
 
 			sha, err := repo.WriteBlob(ctx, "file-path", tc.input)

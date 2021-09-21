@@ -2,7 +2,6 @@ package operations
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -16,8 +15,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/hook"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -117,7 +116,7 @@ end`, cfg.Git.BinPath)
 	dir := testhelper.TempDir(t)
 	hookPath := filepath.Join(dir, "pre-receive")
 
-	require.NoError(t, ioutil.WriteFile(hookPath, []byte(hook), 0o755))
+	require.NoError(t, os.WriteFile(hookPath, []byte(hook), 0o755))
 
 	return hookPath
 }
@@ -150,7 +149,7 @@ end`, cfg.Git.BinPath)
 	dir := testhelper.TempDir(t)
 	hookPath := filepath.Join(dir, "pre-receive")
 
-	require.NoError(t, ioutil.WriteFile(hookPath, []byte(hook), 0o755))
+	require.NoError(t, os.WriteFile(hookPath, []byte(hook), 0o755))
 
 	return hookPath
 }
@@ -281,6 +280,7 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 			deps.GetCfg(),
 			nil,
 			deps.GetHookManager(),
+			deps.GetTxManager(),
 			deps.GetLocator(),
 			deps.GetConnsPool(),
 			deps.GetGitCmdFactory(),
@@ -356,10 +356,10 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 
 			// We need to convert to an incoming context first in
 			// order to preserve the feature flag.
-			ctx = helper.OutgoingToIncoming(ctx)
+			ctx = metadata.OutgoingToIncoming(ctx)
 			ctx, err = txinfo.InjectTransaction(ctx, 1, "node", testCase.primary)
 			require.NoError(t, err)
-			ctx = helper.IncomingToOutgoing(ctx)
+			ctx = metadata.IncomingToOutgoing(ctx)
 
 			response, err := client.UserCreateTag(ctx, request)
 			require.NoError(t, err)

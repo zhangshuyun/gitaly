@@ -5,18 +5,19 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 const attributesFileMode os.FileMode = 0o644
@@ -28,7 +29,7 @@ func (s *server) applyGitattributes(ctx context.Context, c catfile.Batch, repoPa
 	_, err := c.Info(ctx, git.Revision(revision))
 	if err != nil {
 		if catfile.IsNotFound(err) {
-			return status.Errorf(codes.InvalidArgument, "Revision doesn't exist")
+			return helper.ErrInvalidArgumentf("revision does not exist")
 		}
 
 		return err
@@ -59,20 +60,40 @@ func (s *server) applyGitattributes(ctx context.Context, c catfile.Batch, repoPa
 		return err
 	}
 
-	tempFile, err := ioutil.TempFile(infoPath, "attributes")
+	blobObj, err := c.Blob(ctx, git.Revision(blobInfo.Oid))
 	if err != nil {
-		return status.Errorf(codes.Internal, "ApplyGitAttributes: creating temp file: %v", err)
+		return err
+	}
+
+	if featureflag.TxFileLocking.IsEnabled(ctx) {
+		writer, err := safe.NewLockingFileWriter(attributesPath, safe.LockingFileWriterConfig{
+			FileWriterConfig: safe.FileWriterConfig{FileMode: attributesFileMode},
+		})
+		if err != nil {
+			return fmt.Errorf("creating gitattributes writer: %w", err)
+		}
+		defer writer.Close()
+
+		if _, err := io.CopyN(writer, blobObj.Reader, blobInfo.Size); err != nil {
+			return err
+		}
+
+		if err := transaction.CommitLockedFile(ctx, s.txManager, writer); err != nil {
+			return fmt.Errorf("committing gitattributes: %w", err)
+		}
+
+		return nil
+	}
+
+	tempFile, err := os.CreateTemp(infoPath, "attributes")
+	if err != nil {
+		return helper.ErrInternalf("creating temporary gitattributes file: %w", err)
 	}
 	defer func() {
 		if err := os.Remove(tempFile.Name()); err != nil && !errors.Is(err, os.ErrNotExist) {
 			ctxlogrus.Extract(ctx).WithError(err).Errorf("failed to remove tmp file %q", tempFile.Name())
 		}
 	}()
-
-	blobObj, err := c.Blob(ctx, git.Revision(blobInfo.Oid))
-	if err != nil {
-		return err
-	}
 
 	// Write attributes to temp file
 	if _, err := io.CopyN(tempFile, blobObj.Reader, blobInfo.Size); err != nil {
@@ -128,7 +149,7 @@ func (s *server) ApplyGitattributes(ctx context.Context, in *gitalypb.ApplyGitat
 	}
 
 	if err := git.ValidateRevision(in.GetRevision()); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "ApplyGitAttributes: revision: %v", err)
+		return nil, helper.ErrInvalidArgumentf("revision: %v", err)
 	}
 
 	c, err := s.catfileCache.BatchProcess(ctx, repo)

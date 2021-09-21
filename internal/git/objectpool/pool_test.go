@@ -1,7 +1,6 @@
 package objectpool
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,10 +19,10 @@ func TestNewObjectPool(t *testing.T) {
 
 	locator := config.NewLocator(cfg)
 
-	_, err := NewObjectPool(cfg, locator, nil, nil, cfg.Storages[0].Name, gittest.NewObjectPoolName(t))
+	_, err := NewObjectPool(cfg, locator, nil, nil, nil, cfg.Storages[0].Name, gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 
-	_, err = NewObjectPool(cfg, locator, nil, nil, "mepmep", gittest.NewObjectPoolName(t))
+	_, err = NewObjectPool(cfg, locator, nil, nil, nil, "mepmep", gittest.NewObjectPoolName(t))
 	require.Error(t, err, "creating pool in storage that does not exist should fail")
 }
 
@@ -36,7 +35,7 @@ func TestNewFromRepoSuccess(t *testing.T) {
 	require.NoError(t, pool.Create(ctx, testRepo))
 	require.NoError(t, pool.Link(ctx, testRepo))
 
-	poolFromRepo, err := FromRepo(pool.cfg, pool.locator, pool.gitCmdFactory, nil, testRepo)
+	poolFromRepo, err := FromRepo(pool.cfg, pool.locator, pool.gitCmdFactory, nil, nil, testRepo)
 	require.NoError(t, err)
 	require.Equal(t, pool.relativePath, poolFromRepo.relativePath)
 	require.Equal(t, pool.storageName, poolFromRepo.storageName)
@@ -48,7 +47,7 @@ func TestNewFromRepoNoObjectPool(t *testing.T) {
 	testRepoPath := filepath.Join(pool.cfg.Storages[0].Path, testRepo.RelativePath)
 
 	// no alternates file
-	poolFromRepo, err := FromRepo(pool.cfg, pool.locator, pool.gitCmdFactory, nil, testRepo)
+	poolFromRepo, err := FromRepo(pool.cfg, pool.locator, pool.gitCmdFactory, nil, nil, testRepo)
 	require.Equal(t, ErrAlternateObjectDirNotExist, err)
 	require.Nil(t, poolFromRepo)
 
@@ -80,8 +79,8 @@ func TestNewFromRepoNoObjectPool(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			alternateFilePath := filepath.Join(testRepoPath, "objects", "info", "alternates")
-			require.NoError(t, ioutil.WriteFile(alternateFilePath, tc.fileContent, 0o644))
-			poolFromRepo, err := FromRepo(pool.cfg, pool.locator, pool.gitCmdFactory, nil, testRepo)
+			require.NoError(t, os.WriteFile(alternateFilePath, tc.fileContent, 0o644))
+			poolFromRepo, err := FromRepo(pool.cfg, pool.locator, pool.gitCmdFactory, nil, nil, testRepo)
 			require.Equal(t, tc.expectedErr, err)
 			require.Nil(t, poolFromRepo)
 

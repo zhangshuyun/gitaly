@@ -2,7 +2,7 @@ package repository
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -23,7 +23,7 @@ func TestGetInfoAttributesExisting(t *testing.T) {
 	buffSize := streamio.WriteBufferSize + 1
 	data := bytes.Repeat([]byte("*.pbxproj binary\n"), buffSize)
 	attrsPath := filepath.Join(infoPath, "attributes")
-	err := ioutil.WriteFile(attrsPath, data, 0o644)
+	err := os.WriteFile(attrsPath, data, 0o644)
 	require.NoError(t, err)
 
 	request := &gitalypb.GetInfoAttributesRequest{Repository: repo}
@@ -33,7 +33,7 @@ func TestGetInfoAttributesExisting(t *testing.T) {
 	stream, err := client.GetInfoAttributes(testCtx, request)
 	require.NoError(t, err)
 
-	receivedData, err := ioutil.ReadAll(streamio.NewReader(func() ([]byte, error) {
+	receivedData, err := io.ReadAll(streamio.NewReader(func() ([]byte, error) {
 		response, err := stream.Recv()
 		return response.GetAttributes(), err
 	}))

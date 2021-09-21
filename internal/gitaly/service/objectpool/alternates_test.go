@@ -2,14 +2,12 @@ package objectpool
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
@@ -21,12 +19,7 @@ func TestDisconnectGitAlternates(t *testing.T) {
 	defer cancel()
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	pool, err := objectpool.NewObjectPool(cfg, locator, gitCmdFactory, nil, repo.GetStorageName(), gittest.NewObjectPoolName(t))
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, pool.Remove(ctx))
-	}()
-
+	pool := initObjectPool(t, cfg, cfg.Storages[0])
 	require.NoError(t, pool.Create(ctx, repo))
 	require.NoError(t, pool.Link(ctx, repo))
 	gittest.Exec(t, cfg, "-C", repoPath, "gc")
@@ -97,7 +90,7 @@ func TestDisconnectGitAlternatesUnexpectedAlternates(t *testing.T) {
 			altPath, err := locator.InfoAlternatesPath(repo)
 			require.NoError(t, err, "find info/alternates")
 
-			require.NoError(t, ioutil.WriteFile(altPath, []byte(tc.altContent), 0o644))
+			require.NoError(t, os.WriteFile(altPath, []byte(tc.altContent), 0o644))
 
 			_, err = client.DisconnectGitAlternates(ctx, &gitalypb.DisconnectGitAlternatesRequest{Repository: repo})
 			require.Error(t, err, "call DisconnectGitAlternates on repository with unexpected objects/info/alternates")
@@ -117,7 +110,7 @@ func TestRemoveAlternatesIfOk(t *testing.T) {
 	altPath, err := locator.InfoAlternatesPath(repo)
 	require.NoError(t, err, "find info/alternates")
 	altContent := "/var/empty\n"
-	require.NoError(t, ioutil.WriteFile(altPath, []byte(altContent), 0o644), "write alternates file")
+	require.NoError(t, os.WriteFile(altPath, []byte(altContent), 0o644), "write alternates file")
 
 	// Intentionally break the repository, so that 'git fsck' will fail later.
 	testhelper.MustRunCommand(t, nil, "sh", "-c", fmt.Sprintf("rm %s/objects/pack/*.pack", repoPath))

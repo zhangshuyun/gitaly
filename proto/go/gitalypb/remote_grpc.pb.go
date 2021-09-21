@@ -18,6 +18,10 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RemoteServiceClient interface {
+	// Deprecated: Do not use.
+	// FetchInternalRemote used to fetch changes from a remote repository into
+	// the target repository. This RPC call is deprecated and shouldn't be used
+	// at all anymore. It will be removed in release v14.4.
 	FetchInternalRemote(ctx context.Context, in *FetchInternalRemoteRequest, opts ...grpc.CallOption) (*FetchInternalRemoteResponse, error)
 	// UpdateRemoteMirror compares the references in the target repository and its remote mirror
 	// repository. Any differences in the references are then addressed by pushing the differing
@@ -42,6 +46,7 @@ func NewRemoteServiceClient(cc grpc.ClientConnInterface) RemoteServiceClient {
 	return &remoteServiceClient{cc}
 }
 
+// Deprecated: Do not use.
 func (c *remoteServiceClient) FetchInternalRemote(ctx context.Context, in *FetchInternalRemoteRequest, opts ...grpc.CallOption) (*FetchInternalRemoteResponse, error) {
 	out := new(FetchInternalRemoteResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RemoteService/FetchInternalRemote", in, out, opts...)
@@ -107,6 +112,10 @@ func (c *remoteServiceClient) FindRemoteRootRef(ctx context.Context, in *FindRem
 // All implementations must embed UnimplementedRemoteServiceServer
 // for forward compatibility
 type RemoteServiceServer interface {
+	// Deprecated: Do not use.
+	// FetchInternalRemote used to fetch changes from a remote repository into
+	// the target repository. This RPC call is deprecated and shouldn't be used
+	// at all anymore. It will be removed in release v14.4.
 	FetchInternalRemote(context.Context, *FetchInternalRemoteRequest) (*FetchInternalRemoteResponse, error)
 	// UpdateRemoteMirror compares the references in the target repository and its remote mirror
 	// repository. Any differences in the references are then addressed by pushing the differing

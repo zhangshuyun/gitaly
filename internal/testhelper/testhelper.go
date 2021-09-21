@@ -12,7 +12,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/big"
 	"net"
 	"os"
@@ -50,7 +49,7 @@ const (
 
 // MustReadFile returns the content of a file or fails at once.
 func MustReadFile(t testing.TB, filename string) []byte {
-	content, err := ioutil.ReadFile(filename)
+	content, err := os.ReadFile(filename)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +140,7 @@ func CopyFile(t testing.TB, src, dst string) {
 func GetTemporaryGitalySocketFileName(t testing.TB) string {
 	require.NotEmpty(t, testDirectory, "you must call testhelper.Configure() before GetTemporaryGitalySocketFileName()")
 
-	tmpfile, err := ioutil.TempFile(testDirectory, "gitaly.socket.")
+	tmpfile, err := os.CreateTemp(testDirectory, "gitaly.socket.")
 	require.NoError(t, err)
 
 	name := tmpfile.Name()
@@ -251,13 +250,13 @@ func Context(opts ...ContextOpt) (context.Context, func()) {
 	}
 }
 
-// TempDir is a wrapper around ioutil.TempDir that provides a cleanup function.
+// TempDir is a wrapper around os.MkdirTemp that provides a cleanup function.
 func TempDir(t testing.TB) string {
 	if testDirectory == "" {
 		panic("you must call testhelper.Configure() before TempDir()")
 	}
 
-	tmpDir, err := ioutil.TempDir(testDirectory, "")
+	tmpDir, err := os.MkdirTemp(testDirectory, "")
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, os.RemoveAll(tmpDir))
@@ -275,7 +274,7 @@ func WriteExecutable(t testing.TB, path string, content []byte) {
 	dir := filepath.Dir(path)
 
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	require.NoError(t, ioutil.WriteFile(path, content, 0o755))
+	require.NoError(t, os.WriteFile(path, content, 0o755))
 
 	t.Cleanup(func() {
 		assert.NoError(t, os.RemoveAll(dir))
@@ -330,7 +329,7 @@ func GenerateCerts(t *testing.T) (string, string) {
 	entityCert, err := x509.CreateCertificate(rand.Reader, rootCA, entityX509, &entityKey.PublicKey, caKey)
 	require.NoError(t, err)
 
-	certFile, err := ioutil.TempFile(testDirectory, "")
+	certFile, err := os.CreateTemp(testDirectory, "")
 	require.NoError(t, err)
 	defer MustClose(t, certFile)
 	t.Cleanup(func() {
@@ -347,7 +346,7 @@ func GenerateCerts(t *testing.T) (string, string) {
 		)
 	}
 
-	keyFile, err := ioutil.TempFile(testDirectory, "")
+	keyFile, err := os.CreateTemp(testDirectory, "")
 	require.NoError(t, err)
 	defer MustClose(t, keyFile)
 	t.Cleanup(func() {

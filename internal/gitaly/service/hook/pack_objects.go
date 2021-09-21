@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 	"syscall"
@@ -311,7 +310,7 @@ func (p *packObjectsArgs) subcmd() git.SubCmd {
 }
 
 func bufferStdin(r io.Reader, h hash.Hash) (_ io.ReadCloser, err error) {
-	f, err := ioutil.TempFile("", "PackObjectsHook-stdin")
+	f, err := os.CreateTemp("", "PackObjectsHook-stdin")
 	if err != nil {
 		return nil, err
 	}

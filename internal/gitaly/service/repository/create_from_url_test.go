@@ -3,7 +3,6 @@ package repository
 import (
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -118,7 +117,7 @@ func TestFailedCreateRepositoryFromURLRequestDueToExistingTarget(t *testing.T) {
 			if testCase.isDir {
 				require.NoError(t, os.MkdirAll(importedRepoPath, 0o770))
 			} else {
-				require.NoError(t, ioutil.WriteFile(importedRepoPath, nil, 0o644))
+				require.NoError(t, os.WriteFile(importedRepoPath, nil, 0o644))
 			}
 			t.Cleanup(func() { require.NoError(t, os.RemoveAll(importedRepoPath)) })
 

@@ -3,7 +3,6 @@ package gitpipe
 import (
 	"errors"
 	"io"
-	"io/ioutil"
 	"sync"
 	"testing"
 
@@ -232,7 +231,7 @@ func TestPipeline_revlist(t *testing.T) {
 				// this: it would just be too annoying.
 				require.NotNil(t, result.ObjectReader)
 
-				objectData, err := ioutil.ReadAll(result.ObjectReader)
+				objectData, err := io.ReadAll(result.ObjectReader)
 				require.NoError(t, err)
 				require.Len(t, objectData, int(result.ObjectInfo.Size))
 
@@ -273,7 +272,7 @@ func TestPipeline_revlist(t *testing.T) {
 		for catfileObjectIter.Next() {
 			i++
 
-			_, err := io.Copy(ioutil.Discard, catfileObjectIter.Result().ObjectReader)
+			_, err := io.Copy(io.Discard, catfileObjectIter.Result().ObjectReader)
 			require.NoError(t, err)
 
 			if i == 3 {
@@ -317,7 +316,7 @@ func TestPipeline_revlist(t *testing.T) {
 			// the object reader.
 			go func(object CatfileObjectResult) {
 				defer wg.Done()
-				_, err := io.Copy(ioutil.Discard, object.ObjectReader)
+				_, err := io.Copy(io.Discard, object.ObjectReader)
 				require.NoError(t, err)
 			}(catfileObjectIter.Result())
 		}
@@ -363,7 +362,7 @@ func TestPipeline_forEachRef(t *testing.T) {
 		// this: it would just be too annoying.
 		require.NotNil(t, result.ObjectReader)
 
-		objectData, err := ioutil.ReadAll(result.ObjectReader)
+		objectData, err := io.ReadAll(result.ObjectReader)
 		require.NoError(t, err)
 		require.Len(t, objectData, int(result.ObjectInfo.Size))
 

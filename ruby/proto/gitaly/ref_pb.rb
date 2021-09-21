@@ -9,14 +9,6 @@ require 'blob_pb'
 require 'google/protobuf/timestamp_pb'
 Google::Protobuf::DescriptorPool.generated_pool.build do
   add_file("ref.proto", :syntax => :proto3) do
-    add_message "gitaly.ListNewBlobsRequest" do
-      optional :repository, :message, 1, "gitaly.Repository"
-      optional :commit_id, :string, 2
-      optional :limit, :uint32, 3
-    end
-    add_message "gitaly.ListNewBlobsResponse" do
-      repeated :new_blob_objects, :message, 1, "gitaly.NewBlobObject"
-    end
     add_message "gitaly.FindDefaultBranchNameRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
     end
@@ -211,8 +203,6 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
 end
 
 module Gitaly
-  ListNewBlobsRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListNewBlobsRequest").msgclass
-  ListNewBlobsResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListNewBlobsResponse").msgclass
   FindDefaultBranchNameRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindDefaultBranchNameRequest").msgclass
   FindDefaultBranchNameResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindDefaultBranchNameResponse").msgclass
   FindAllBranchNamesRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindAllBranchNamesRequest").msgclass

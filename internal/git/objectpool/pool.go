@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -37,6 +38,7 @@ type ObjectPool struct {
 	cfg           config.Cfg
 	locator       storage.Locator
 	gitCmdFactory git.CommandFactory
+	txManager     transaction.Manager
 	poolRepo      *localrepo.Repo
 	storageName   string
 	storagePath   string
@@ -52,6 +54,7 @@ func NewObjectPool(
 	locator storage.Locator,
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
+	txManager transaction.Manager,
 	storageName,
 	relativePath string,
 ) (*ObjectPool, error) {
@@ -69,6 +72,7 @@ func NewObjectPool(
 		cfg:           cfg,
 		locator:       locator,
 		gitCmdFactory: gitCmdFactory,
+		txManager:     txManager,
 		storageName:   storageName,
 		storagePath:   storagePath,
 		relativePath:  relativePath,
@@ -163,6 +167,7 @@ func FromRepo(
 	locator storage.Locator,
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
+	txManager transaction.Manager,
 	repo *gitalypb.Repository,
 ) (*ObjectPool, error) {
 	dir, err := getAlternateObjectDir(locator, repo)
@@ -184,7 +189,7 @@ func FromRepo(
 		return nil, err
 	}
 
-	return NewObjectPool(cfg, locator, gitCmdFactory, catfileCache, repo.GetStorageName(), filepath.Dir(altPathRelativeToStorage))
+	return NewObjectPool(cfg, locator, gitCmdFactory, catfileCache, txManager, repo.GetStorageName(), filepath.Dir(altPathRelativeToStorage))
 }
 
 var (

@@ -6,7 +6,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
@@ -19,7 +19,7 @@ type Repo struct {
 
 // New creates a new remote Repository from its protobuf representation.
 func New(ctx context.Context, repo *gitalypb.Repository, pool *client.Pool) (*Repo, error) {
-	server, err := helper.ExtractGitalyServer(ctx, repo.GetStorageName())
+	server, err := storage.ExtractGitalyServer(ctx, repo.GetStorageName())
 	if err != nil {
 		return nil, fmt.Errorf("remote repository: %w", err)
 	}

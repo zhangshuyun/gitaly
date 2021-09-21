@@ -1,7 +1,6 @@
 package maintenance
 
 import (
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -154,7 +153,7 @@ func TestRandomWalk(t *testing.T) {
 			}
 
 			for _, file := range tc.files {
-				require.NoError(t, ioutil.WriteFile(filepath.Join(root, file), []byte{}, 0o777))
+				require.NoError(t, os.WriteFile(filepath.Join(root, file), []byte{}, 0o777))
 			}
 
 			walker := newRandomWalker(root, rand.New(rand.NewSource(1)))

@@ -3,7 +3,6 @@ package blob
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
@@ -133,7 +132,7 @@ func sendBlobTreeEntry(response *gitalypb.GetBlobsResponse, stream gitalypb.Blob
 		return status.Errorf(codes.Unavailable, "GetBlobs: send: %v", err)
 	}
 
-	if _, err := io.Copy(ioutil.Discard, blobObj.Reader); err != nil {
+	if _, err := io.Copy(io.Discard, blobObj.Reader); err != nil {
 		return status.Errorf(codes.Unavailable, "GetBlobs: discarding data: %v", err)
 	}
 

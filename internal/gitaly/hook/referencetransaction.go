@@ -7,7 +7,6 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"io"
-	"io/ioutil"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 )
@@ -22,7 +21,7 @@ func (m *GitLabHookManager) ReferenceTransactionHook(ctx context.Context, state 
 		return fmt.Errorf("extracting hooks payload: %w", err)
 	}
 
-	changes, err := ioutil.ReadAll(stdin)
+	changes, err := io.ReadAll(stdin)
 	if err != nil {
 		return fmt.Errorf("reading stdin from request: %w", err)
 	}

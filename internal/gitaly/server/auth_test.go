@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"os"
 	"testing"
@@ -292,7 +292,7 @@ func TestStreamingNoAuth(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	_, err = ioutil.ReadAll(streamio.NewReader(func() ([]byte, error) {
+	_, err = io.ReadAll(streamio.NewReader(func() ([]byte, error) {
 		_, err = stream.Recv()
 		return nil, err
 	}))
@@ -328,17 +328,6 @@ func TestAuthBeforeLimit(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	targetRevision := "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"
-	inputTagName := "to-be-créated-soon"
-
-	request := &gitalypb.UserCreateTagRequest{
-		Repository:     repo,
-		TagName:        []byte(inputTagName),
-		TargetRevision: []byte(targetRevision),
-		User:           gittest.TestUser,
-		Message:        []byte("a new tag!"),
-	}
-
 	defer func(d time.Duration) {
 		gitalyauth.SetTokenValidityDuration(d)
 	}(gitalyauth.TokenValidityDuration())
@@ -351,8 +340,15 @@ sleep %vs
 	errChan := make(chan error)
 
 	for i := 0; i < 2; i++ {
+		i := i
 		go func() {
-			_, err := client.UserCreateTag(ctx, request)
+			_, err := client.UserCreateTag(ctx, &gitalypb.UserCreateTagRequest{
+				Repository:     repo,
+				TagName:        []byte(fmt.Sprintf("tag-name-%d", i)),
+				TargetRevision: []byte("c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"),
+				User:           gittest.TestUser,
+				Message:        []byte("a new tag!"),
+			})
 			errChan <- err
 		}()
 	}

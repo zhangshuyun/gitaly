@@ -1,7 +1,6 @@
 package objectpool
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,7 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -20,15 +18,14 @@ import (
 )
 
 func TestLink(t *testing.T) {
-	cfg, repo, _, locator, client := setup(t, testserver.WithDisablePraefect())
+	cfg, repo, _, _, client := setup(t, testserver.WithDisablePraefect())
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	localRepo := localrepo.NewTestRepo(t, cfg, repo)
 
-	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), nil, repo.GetStorageName(), gittest.NewObjectPoolName(t))
-	require.NoError(t, err)
+	pool := initObjectPool(t, cfg, cfg.Storages[0])
 
 	require.NoError(t, pool.Remove(ctx), "make sure pool does not exist at start of test")
 	require.NoError(t, pool.Create(ctx, repo), "create pool")
@@ -89,16 +86,12 @@ func TestLink(t *testing.T) {
 }
 
 func TestLinkIdempotent(t *testing.T) {
-	cfg, repo, _, locator, client := setup(t)
+	cfg, repo, _, _, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), nil, repo.GetStorageName(), gittest.NewObjectPoolName(t))
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, pool.Remove(ctx))
-	}()
+	pool := initObjectPool(t, cfg, cfg.Storages[0])
 	require.NoError(t, pool.Create(ctx, repo))
 
 	request := &gitalypb.LinkRepositoryToObjectPoolRequest{
@@ -106,7 +99,7 @@ func TestLinkIdempotent(t *testing.T) {
 		ObjectPool: pool.ToProto(),
 	}
 
-	_, err = client.LinkRepositoryToObjectPool(ctx, request)
+	_, err := client.LinkRepositoryToObjectPool(ctx, request)
 	require.NoError(t, err)
 
 	_, err = client.LinkRepositoryToObjectPool(ctx, request)
@@ -114,31 +107,26 @@ func TestLinkIdempotent(t *testing.T) {
 }
 
 func TestLinkNoClobber(t *testing.T) {
-	cfg, repo, repoPath, locator, client := setup(t)
+	cfg, repo, repoPath, _, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), nil, repo.GetStorageName(), gittest.NewObjectPoolName(t))
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, pool.Remove(ctx))
-	}()
-
+	pool := initObjectPool(t, cfg, cfg.Storages[0])
 	require.NoError(t, pool.Create(ctx, repo))
 
 	alternatesFile := filepath.Join(repoPath, "objects/info/alternates")
 	require.NoFileExists(t, alternatesFile)
 
 	contentBefore := "mock/objects\n"
-	require.NoError(t, ioutil.WriteFile(alternatesFile, []byte(contentBefore), 0o644))
+	require.NoError(t, os.WriteFile(alternatesFile, []byte(contentBefore), 0o644))
 
 	request := &gitalypb.LinkRepositoryToObjectPoolRequest{
 		Repository: repo,
 		ObjectPool: pool.ToProto(),
 	}
 
-	_, err = client.LinkRepositoryToObjectPool(ctx, request)
+	_, err := client.LinkRepositoryToObjectPool(ctx, request)
 	require.Error(t, err)
 
 	contentAfter := testhelper.MustReadFile(t, alternatesFile)
@@ -151,19 +139,15 @@ func TestLinkNoPool(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), nil, repo.GetStorageName(), gittest.NewObjectPoolName(t))
-	require.NoError(t, err)
-	// intentionally do not call pool.Create
-	defer func() {
-		require.NoError(t, pool.Remove(ctx))
-	}()
+	pool := initObjectPool(t, cfg, cfg.Storages[0])
+	require.NoError(t, pool.Remove(ctx))
 
 	request := &gitalypb.LinkRepositoryToObjectPoolRequest{
 		Repository: repo,
 		ObjectPool: pool.ToProto(),
 	}
 
-	_, err = client.LinkRepositoryToObjectPool(ctx, request)
+	_, err := client.LinkRepositoryToObjectPool(ctx, request)
 	require.NoError(t, err)
 
 	poolRepoPath, err := locator.GetRepoPath(pool)
@@ -173,20 +157,14 @@ func TestLinkNoPool(t *testing.T) {
 }
 
 func TestUnlink(t *testing.T) {
-	cfg, repo, _, locator, client := setup(t, testserver.WithDisablePraefect())
+	cfg, repo, _, _, client := setup(t, testserver.WithDisablePraefect())
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	deletedRepo, deletedRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	pool, err := objectpool.NewObjectPool(cfg, locator, gitCmdFactory, nil, repo.GetStorageName(), gittest.NewObjectPoolName(t))
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, pool.Remove(ctx))
-	}()
-
+	pool := initObjectPool(t, cfg, cfg.Storages[0])
 	require.NoError(t, pool.Create(ctx, repo), "create pool")
 	require.NoError(t, pool.Link(ctx, repo))
 	require.NoError(t, pool.Link(ctx, deletedRepo))
@@ -194,12 +172,8 @@ func TestUnlink(t *testing.T) {
 	require.NoError(t, os.RemoveAll(deletedRepoPath))
 	require.NoFileExists(t, deletedRepoPath)
 
-	pool2, err := objectpool.NewObjectPool(cfg, locator, gitCmdFactory, nil, repo.GetStorageName(), gittest.NewObjectPoolName(t))
-	require.NoError(t, err)
+	pool2 := initObjectPool(t, cfg, cfg.Storages[0])
 	require.NoError(t, pool2.Create(ctx, repo), "create pool 2")
-	defer func() {
-		require.NoError(t, pool2.Remove(ctx))
-	}()
 
 	require.False(t, gittest.RemoteExists(t, cfg, pool.FullPath(), repo.GlRepository), "sanity check: remote exists in pool")
 	require.False(t, gittest.RemoteExists(t, cfg, pool.FullPath(), deletedRepo.GlRepository), "sanity check: remote exists in pool")
@@ -266,6 +240,7 @@ func TestUnlink(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
+			//nolint:staticcheck
 			_, err := client.UnlinkRepositoryFromObjectPool(ctx, tc.req)
 
 			if tc.code != codes.OK {
@@ -282,16 +257,12 @@ func TestUnlink(t *testing.T) {
 }
 
 func TestUnlinkIdempotent(t *testing.T) {
-	cfg, repo, _, locator, client := setup(t)
+	cfg, repo, _, _, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), nil, repo.GetStorageName(), gittest.NewObjectPoolName(t))
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, pool.Remove(ctx))
-	}()
+	pool := initObjectPool(t, cfg, cfg.Storages[0])
 	require.NoError(t, pool.Create(ctx, repo))
 	require.NoError(t, pool.Link(ctx, repo))
 
@@ -300,9 +271,11 @@ func TestUnlinkIdempotent(t *testing.T) {
 		ObjectPool: pool.ToProto(),
 	}
 
-	_, err = client.UnlinkRepositoryFromObjectPool(ctx, request)
+	//nolint:staticcheck
+	_, err := client.UnlinkRepositoryFromObjectPool(ctx, request)
 	require.NoError(t, err)
 
+	//nolint:staticcheck
 	_, err = client.UnlinkRepositoryFromObjectPool(ctx, request)
 	require.NoError(t, err)
 }

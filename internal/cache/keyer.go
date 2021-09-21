@@ -1,5 +1,6 @@
 package cache
 
+//nolint:depguard
 import (
 	"context"
 	"crypto/sha256"
@@ -66,7 +67,7 @@ func (keyer leaseKeyer) updateLatest(ctx context.Context, repo *gitalypb.Reposit
 		return "", err
 	}
 
-	latest, err := safe.CreateFileWriter(lPath)
+	latest, err := safe.NewFileWriter(lPath)
 	if err != nil {
 		return "", err
 	}
@@ -168,7 +169,7 @@ func (keyer leaseKeyer) newPendingLease(repo *gitalypb.Repository) (string, erro
 		return "", err
 	}
 
-	f, err := ioutil.TempFile(pDir, "")
+	f, err := os.CreateTemp(pDir, "")
 	if err != nil {
 		err = fmt.Errorf("creating pending lease failed: %w", err)
 		return "", err
@@ -240,7 +241,7 @@ func (keyer leaseKeyer) currentGenID(ctx context.Context, repo *gitalypb.Reposit
 		return "", err
 	}
 
-	latestBytes, err := ioutil.ReadFile(latestPath(repoStatePath))
+	latestBytes, err := os.ReadFile(latestPath(repoStatePath))
 	switch {
 	case os.IsNotExist(err):
 		// latest file doesn't exist, so create one

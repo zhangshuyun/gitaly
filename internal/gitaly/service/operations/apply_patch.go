@@ -11,9 +11,9 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 	"google.golang.org/grpc/codes"
@@ -60,15 +60,15 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 			return fmt.Errorf("resolve target branch: %w", err)
 		}
 
-		defaultBranch, err := ref.DefaultBranchName(ctx, repo)
+		defaultBranch, err := repo.GetDefaultBranch(ctx)
 		if err != nil {
 			return fmt.Errorf("default branch name: %w", err)
-		} else if defaultBranch == nil {
+		} else if len(defaultBranch) == 0 {
 			return errNoDefaultBranch
 		}
 
 		branchCreated = true
-		parentCommitID, err = repo.ResolveRevision(ctx, git.Revision(defaultBranch)+"^{commit}")
+		parentCommitID, err = repo.ResolveRevision(ctx, defaultBranch.Revision()+"^{commit}")
 		if err != nil {
 			return fmt.Errorf("resolve default branch commit: %w", err)
 		}
@@ -199,8 +199,16 @@ func validateUserApplyPatchHeader(header *gitalypb.UserApplyPatchRequest_Header)
 }
 
 func (s *Server) addWorktree(ctx context.Context, repo *gitalypb.Repository, worktreePath string, committish string) error {
-	if err := s.runCmd(ctx, repo, "config", []git.Option{git.ConfigPair{Key: "core.splitIndex", Value: "false"}}, nil); err != nil {
-		return fmt.Errorf("on 'git config core.splitIndex false': %w", err)
+	if featureflag.TxExtendedFileLocking.IsEnabled(ctx) {
+		repo := s.localrepo(repo)
+
+		if err := repo.SetConfig(ctx, "core.splitIndex", "false", s.txManager); err != nil {
+			return fmt.Errorf("on 'git config core.splitIndex false': %w", err)
+		}
+	} else {
+		if err := s.runCmd(ctx, repo, "config", []git.Option{git.ConfigPair{Key: "core.splitIndex", Value: "false"}}, nil); err != nil {
+			return fmt.Errorf("on 'git config core.splitIndex false': %w", err)
+		}
 	}
 
 	args := []string{worktreePath}

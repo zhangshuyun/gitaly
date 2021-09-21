@@ -3,7 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 	"time"
 
@@ -146,7 +146,7 @@ type VirtualStorage struct {
 
 // FromFile loads the config for the passed file path
 func FromFile(filePath string) (Config, error) {
-	b, err := ioutil.ReadFile(filePath)
+	b, err := os.ReadFile(filePath)
 	if err != nil {
 		return Config{}, err
 	}

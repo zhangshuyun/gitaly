@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os/exec"
 	"path/filepath"
 	"strconv"
@@ -38,7 +38,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 		return err
 	}
 
-	if err := housekeeping.Perform(ctx, o.poolRepo); err != nil {
+	if err := housekeeping.Perform(ctx, o.poolRepo, o.txManager); err != nil {
 		return err
 	}
 
@@ -238,7 +238,7 @@ func sizeDir(ctx context.Context, dir string) (int64, error) {
 		return 0, err
 	}
 
-	sizeLine, err := ioutil.ReadAll(cmd)
+	sizeLine, err := io.ReadAll(cmd)
 	if err != nil {
 		return 0, err
 	}

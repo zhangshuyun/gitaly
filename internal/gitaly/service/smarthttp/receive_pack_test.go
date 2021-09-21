@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,8 +21,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
@@ -214,7 +213,7 @@ func TestFailedReceivePackRequestDueToHooksFailure(t *testing.T) {
 	require.NoError(t, os.MkdirAll(hooks.Path(cfg), 0o755))
 
 	hookContent := []byte("#!/bin/sh\nexit 1")
-	require.NoError(t, ioutil.WriteFile(filepath.Join(hooks.Path(cfg), "pre-receive"), hookContent, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(hooks.Path(cfg), "pre-receive"), hookContent, 0o755))
 
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 
@@ -306,7 +305,7 @@ func createCommit(t *testing.T, cfg config.Cfg, repoPath string, fileContents []
 	oldHead = text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "master"))
 
 	changedFile := "README.md"
-	require.NoError(t, ioutil.WriteFile(filepath.Join(repoPath, changedFile), fileContents, 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(repoPath, changedFile), fileContents, 0o644))
 
 	gittest.Exec(t, cfg, "-C", repoPath, "add", changedFile)
 	gittest.Exec(t, cfg, "-C", repoPath,
@@ -637,7 +636,7 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 
 	ctx, err := txinfo.InjectTransaction(ctx, 1234, "primary", true)
 	require.NoError(t, err)
-	ctx = helper.IncomingToOutgoing(ctx)
+	ctx = metadata.IncomingToOutgoing(ctx)
 
 	client := newMuxedSmartHTTPClient(t, ctx, addr, cfg.Auth.Token, func() backchannel.Server {
 		srv := grpc.NewServer()

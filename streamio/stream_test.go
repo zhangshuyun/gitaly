@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strings"
 	"sync"
 	"testing"
@@ -26,7 +25,7 @@ func TestReceiveSources(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		data, err := ioutil.ReadAll(&opaqueReader{NewReader(receiverFromReader(tc.r))})
+		data, err := io.ReadAll(&opaqueReader{NewReader(receiverFromReader(tc.r))})
 		require.NoError(t, err, tc.desc)
 		require.Equal(t, testData, string(data), tc.desc)
 	}

@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -31,7 +30,7 @@ func TestSuccessfullBackupCustomHooksRequest(t *testing.T) {
 	}
 	require.NoError(t, os.Mkdir(filepath.Join(repoPath, "custom_hooks"), 0o700), "Could not create custom_hooks dir")
 	for _, fileName := range expectedTarResponse[1:] {
-		require.NoError(t, ioutil.WriteFile(filepath.Join(repoPath, fileName), []byte("Some hooks"), 0o700), fmt.Sprintf("Could not create %s", fileName))
+		require.NoError(t, os.WriteFile(filepath.Join(repoPath, fileName), []byte("Some hooks"), 0o700), fmt.Sprintf("Could not create %s", fileName))
 	}
 
 	backupRequest := &gitalypb.BackupCustomHooksRequest{Repository: repo}

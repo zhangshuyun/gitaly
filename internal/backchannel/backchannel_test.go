@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -33,7 +32,7 @@ func (m mockTransactionServer) VoteTransaction(ctx context.Context, req *gitalyp
 
 func newLogger() *logrus.Entry {
 	logger := logrus.New()
-	logger.Out = ioutil.Discard
+	logger.Out = io.Discard
 	return logrus.NewEntry(logger)
 }
 

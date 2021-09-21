@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net"
 	"syscall"
@@ -253,7 +252,7 @@ func TestMux_concurrency(t *testing.T) {
 					return err
 				}
 
-				out, err := ioutil.ReadAll(c)
+				out, err := io.ReadAll(c)
 				if err != nil {
 					return err
 				}
