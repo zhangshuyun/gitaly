@@ -43,12 +43,9 @@ var (
 func TestUserMergeBranch_successful(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Git2GoMergeGob,
-	}).Run(t, testUserMergeBranchSuccessful)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserMergeBranchSuccessful(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -130,13 +127,9 @@ func testUserMergeBranchSuccessful(t *testing.T, ctx context.Context) {
 func TestUserMergeBranch_quarantine(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.UserMergeBranchAccessError,
-		featureflag.Git2GoMergeGob,
-	}).Run(t, testUserMergeBranchQuarantine)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserMergeBranchQuarantine(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -184,12 +177,9 @@ func testUserMergeBranchQuarantine(t *testing.T, ctx context.Context) {
 func TestUserMergeBranch_stableMergeIDs(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Git2GoMergeGob,
-	}).Run(t, testUserMergeBranchStableMergeIDs)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserMergeBranchStableMergeIDs(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -258,12 +248,9 @@ func testUserMergeBranchStableMergeIDs(t *testing.T, ctx context.Context) {
 func TestUserMergeBranch_abort(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Git2GoMergeGob,
-	}).Run(t, testUserMergeBranchAbort)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserMergeBranchAbort(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -326,13 +313,9 @@ func testUserMergeBranchAbort(t *testing.T, ctx context.Context) {
 func TestUserMergeBranch_concurrentUpdate(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.UserMergeBranchAccessError,
-		featureflag.Git2GoMergeGob,
-	}).Run(t, testUserMergeBranchConcurrentUpdate)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserMergeBranchConcurrentUpdate(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -380,12 +363,9 @@ func testUserMergeBranchConcurrentUpdate(t *testing.T, ctx context.Context) {
 func TestUserMergeBranch_ambiguousReference(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Git2GoMergeGob,
-	}).Run(t, testUserMergeBranchAmbiguousReference)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserMergeBranchAmbiguousReference(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -448,13 +428,9 @@ func testUserMergeBranchAmbiguousReference(t *testing.T, ctx context.Context) {
 func TestUserMergeBranch_failingHooks(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.UserMergeBranchAccessError,
-		featureflag.Git2GoMergeGob,
-	}).Run(t, testUserMergeBranchFailingHooks)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserMergeBranchFailingHooks(t *testing.T, ctx context.Context) {
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
@@ -508,12 +484,9 @@ func testUserMergeBranchFailingHooks(t *testing.T, ctx context.Context) {
 func TestUserMergeBranch_conflict(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Git2GoMergeGob,
-	}).Run(t, testUserMergeBranchConflict)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserMergeBranchConflict(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	const mergeIntoBranch = "mergeIntoBranch"
@@ -553,12 +526,9 @@ func testUserMergeBranchConflict(t *testing.T, ctx context.Context) {
 func TestUserMergeBranch_allowed(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.UserMergeBranchAccessError,
-	}).Run(t, testUserMergeBranchAllowed)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserMergeBranchAllowed(t *testing.T, ctx context.Context) {
 	mergeBranchHeadAfter := "ff0ac4dfa30d6b26fd14aa83a75650355270bf76"
 
 	for _, tc := range []struct {
@@ -886,12 +856,9 @@ func TestUserFFBranch_ambiguousReference(t *testing.T) {
 func TestUserMergeToRef_successful(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Git2GoMergeGob,
-	}).Run(t, testUserMergeToRefSuccessful)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserMergeToRefSuccessful(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -996,12 +963,9 @@ func testUserMergeToRefSuccessful(t *testing.T, ctx context.Context) {
 func TestUserMergeToRef_conflicts(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Git2GoMergeGob,
-	}).Run(t, testUserMergeToRefConflicts)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserMergeToRefConflicts(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -1137,12 +1101,9 @@ func buildUserMergeToRefRequest(t testing.TB, cfg config.Cfg, repo *gitalypb.Rep
 func TestUserMergeToRef_stableMergeID(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Git2GoMergeGob,
-	}).Run(t, testUserMergeToRefStableMergeID)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserMergeToRefStableMergeID(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -1193,12 +1154,9 @@ func testUserMergeToRefStableMergeID(t *testing.T, ctx context.Context) {
 func TestUserMergeToRef_failure(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Git2GoMergeGob,
-	}).Run(t, testUserMergeToRefFailure)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserMergeToRefFailure(t *testing.T, ctx context.Context) {
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
@@ -1293,12 +1251,9 @@ func testUserMergeToRefFailure(t *testing.T, ctx context.Context) {
 func TestUserMergeToRef_ignoreHooksRequest(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.Git2GoMergeGob,
-	}).Run(t, testUserMergeToRefIgnoreHooksRequest)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserMergeToRefIgnoreHooksRequest(t *testing.T, ctx context.Context) {
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
