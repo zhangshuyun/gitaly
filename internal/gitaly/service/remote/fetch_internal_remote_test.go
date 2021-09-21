@@ -28,16 +28,6 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
-type mockHookManager struct {
-	gitalyhook.Manager
-	called int
-}
-
-func (m *mockHookManager) ReferenceTransactionHook(_ context.Context, _ gitalyhook.ReferenceTransactionState, _ []string, _ io.Reader) error {
-	m.called++
-	return nil
-}
-
 // GitalySSHParams contains parameters used to exec 'gitaly-ssh' binary.
 type GitalySSHParams struct {
 	Args    []string
@@ -143,11 +133,15 @@ func listenGitalySSHCalls(t *testing.T, conf config.Cfg) func() []GitalySSHParam
 	return getSSHParams
 }
 
-func TestSuccessfulFetchInternalRemote(t *testing.T) {
+func TestFetchInternalRemote_successful(t *testing.T) {
 	t.Parallel()
-	remoteCfg, remoteRepo, remoteRepoPath := testcfg.BuildWithRepo(t)
 
+	ctx, cancel := testhelper.Context()
+	t.Cleanup(cancel)
+
+	remoteCfg, remoteRepo, remoteRepoPath := testcfg.BuildWithRepo(t)
 	testhelper.BuildGitalyHooks(t, remoteCfg)
+	gittest.WriteCommit(t, remoteCfg, remoteRepoPath, gittest.WithBranch("master"))
 
 	remoteAddr := testserver.RunGitalyServer(t, remoteCfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
@@ -163,22 +157,15 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 			deps.GetTxManager(),
 			deps.GetCatfileCache(),
 		))
-		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
 	}, testserver.WithDisablePraefect())
 
-	gittest.WriteCommit(t, remoteCfg, remoteRepoPath, gittest.WithBranch("master"))
-
-	localCfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("gitaly-1"))
-
-	localCfg, localRepos := localCfgBuilder.BuildWithRepoAt(t, "stub")
-	localRepo := localRepos[0]
-
+	localCfg, localRepo, localRepoPath := testcfg.BuildWithRepo(t)
 	testhelper.BuildGitalySSH(t, localCfg)
 	testhelper.BuildGitalyHooks(t, localCfg)
+	gittest.Exec(t, remoteCfg, "-C", localRepoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
 
-	getGitalySSHInvocationParams := listenGitalySSHCalls(t, localCfg)
+	referenceTransactionHookCalled := 0
 
-	hookManager := &mockHookManager{}
 	localAddr := testserver.RunGitalyServer(t, localCfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
 			deps.GetCfg(),
@@ -187,20 +174,24 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 			deps.GetCatfileCache(),
 			deps.GetTxManager(),
 		))
-		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
-	}, testserver.WithHookManager(hookManager), testserver.WithDisablePraefect())
-
-	localRepoPath := filepath.Join(localCfg.Storages[0].Path, localRepo.GetRelativePath())
-	gittest.Exec(t, remoteCfg, "-C", localRepoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
+		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(
+			deps.GetCfg(),
+			deps.GetHookManager(),
+			deps.GetGitCmdFactory(),
+			deps.GetPackObjectsCache(),
+		))
+	}, testserver.WithHookManager(gitalyhook.NewMockManager(t, nil, nil, nil, func(*testing.T, context.Context, gitalyhook.ReferenceTransactionState, []string, io.Reader) error {
+		referenceTransactionHookCalled++
+		return nil
+	})), testserver.WithDisablePraefect())
 
 	client, conn := newRemoteClient(t, localAddr)
 	t.Cleanup(func() { conn.Close() })
 
-	ctx, cancel := testhelper.Context()
-	t.Cleanup(cancel)
-
 	ctx, err := storage.InjectGitalyServers(ctx, remoteRepo.GetStorageName(), remoteAddr, "")
 	require.NoError(t, err)
+
+	getGitalySSHInvocationParams := listenGitalySSHCalls(t, localCfg)
 
 	//nolint:staticcheck
 	c, err := client.FetchInternalRemote(ctx, &gitalypb.FetchInternalRemoteRequest{
@@ -228,16 +219,16 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 		},
 	)
 
-	require.Equal(t, 2, hookManager.called)
+	require.Equal(t, 2, referenceTransactionHookCalled)
 }
 
-func TestFailedFetchInternalRemote(t *testing.T) {
+func TestFetchInternalRemote_failure(t *testing.T) {
 	t.Parallel()
+
 	cfg, repo, _, client := setupRemoteService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
 
 	// Non-existing remote repo
@@ -254,8 +245,9 @@ func TestFailedFetchInternalRemote(t *testing.T) {
 	require.False(t, c.GetResult())
 }
 
-func TestFailedFetchInternalRemoteDueToValidations(t *testing.T) {
+func TestFetchInternalRemote_validation(t *testing.T) {
 	t.Parallel()
+
 	_, repo, _, client := setupRemoteService(t)
 
 	ctx, cancel := testhelper.Context()
