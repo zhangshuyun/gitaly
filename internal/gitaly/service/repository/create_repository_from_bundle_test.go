@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
@@ -32,10 +33,12 @@ import (
 
 func TestCreateRepositoryFromBundle_successful(t *testing.T) {
 	t.Parallel()
-	cfg, repo, repoPath, client := setupRepositoryService(t)
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testServerCreateRepositoryFromBundleSuccessful)
+}
+
+func testServerCreateRepositoryFromBundleSuccessful(t *testing.T, ctx context.Context) {
+	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	locator := config.NewLocator(cfg)
 	tmpdir, err := tempdir.New(ctx, repo.GetStorageName(), locator)
@@ -95,6 +98,10 @@ func TestCreateRepositoryFromBundle_successful(t *testing.T) {
 func TestCreateRepositoryFromBundle_transactional(t *testing.T) {
 	t.Parallel()
 
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepositoryFromBundleTransactional)
+}
+
+func testCreateRepositoryFromBundleTransactional(t *testing.T, ctx context.Context) {
 	var votes []voting.Vote
 	txManager := &transaction.MockManager{
 		VoteFn: func(ctx context.Context, tx txinfo.Transaction, vote voting.Vote) error {
@@ -116,8 +123,6 @@ func TestCreateRepositoryFromBundle_transactional(t *testing.T) {
 		gittest.Exec(t, cfg, "-C", repoPath, "update-ref", keepAroundRef, masterOID)
 	}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "primary", true)
 	require.NoError(t, err)
 	ctx = metadata.IncomingToOutgoing(ctx)
@@ -146,6 +151,13 @@ func TestCreateRepositoryFromBundle_transactional(t *testing.T) {
 
 	_, err = stream.CloseAndRecv()
 	require.NoError(t, err)
+
+	if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
+		// We're being much more thorough with computation of the votes, so it's hard to say
+		// exactly what these votes look like. So we just assert we've got a bunch of them.
+		require.Len(t, votes, 4)
+		return
+	}
 
 	var votingInput []string
 
@@ -178,10 +190,11 @@ func TestCreateRepositoryFromBundle_transactional(t *testing.T) {
 func TestCreateRepositoryFromBundle_invalidBundle(t *testing.T) {
 	t.Parallel()
 
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepositoryFromBundleInvalidBundle)
+}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+func testCreateRepositoryFromBundleInvalidBundle(t *testing.T, ctx context.Context) {
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	stream, err := client.CreateRepositoryFromBundle(ctx)
 	require.NoError(t, err)
@@ -216,10 +229,12 @@ func TestCreateRepositoryFromBundle_invalidBundle(t *testing.T) {
 
 func TestCreateRepositoryFromBundle_invalidArgument(t *testing.T) {
 	t.Parallel()
-	_, client := setupRepositoryServiceWithoutRepo(t)
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testServerCreateRepositoryFromBundleFailedValidations)
+}
+
+func testServerCreateRepositoryFromBundleFailedValidations(t *testing.T, ctx context.Context) {
+	_, client := setupRepositoryServiceWithoutRepo(t)
 
 	stream, err := client.CreateRepositoryFromBundle(ctx)
 	require.NoError(t, err)
@@ -232,10 +247,12 @@ func TestCreateRepositoryFromBundle_invalidArgument(t *testing.T) {
 
 func TestCreateRepositoryFromBundle_existingRepository(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupRepositoryService(t)
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testServerCreateRepositoryFromBundleFailedExistingDirectory)
+}
+
+func testServerCreateRepositoryFromBundleFailedExistingDirectory(t *testing.T, ctx context.Context) {
+	_, repo, _, client := setupRepositoryService(t)
 
 	stream, err := client.CreateRepositoryFromBundle(ctx)
 	require.NoError(t, err)
@@ -245,7 +262,12 @@ func TestCreateRepositoryFromBundle_existingRepository(t *testing.T) {
 	}))
 
 	_, err = stream.CloseAndRecv()
-	testassert.GrpcEqualErr(t, status.Error(codes.FailedPrecondition, "CreateRepositoryFromBundle: target directory is non-empty"), err)
+
+	if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
+		testassert.GrpcEqualErr(t, status.Error(codes.AlreadyExists, "creating repository: repository exists already"), err)
+	} else {
+		testassert.GrpcEqualErr(t, status.Error(codes.FailedPrecondition, "CreateRepositoryFromBundle: target directory is non-empty"), err)
+	}
 }
 
 func TestSanitizedError(t *testing.T) {

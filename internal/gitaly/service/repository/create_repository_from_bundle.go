@@ -10,6 +10,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
@@ -26,6 +27,62 @@ func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_Cr
 	repo := firstRequest.GetRepository()
 	if repo == nil {
 		return status.Errorf(codes.InvalidArgument, "CreateRepositoryFromBundle: empty Repository")
+	}
+
+	ctx := stream.Context()
+
+	if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
+		firstRead := false
+		bundleReader := streamio.NewReader(func() ([]byte, error) {
+			if !firstRead {
+				firstRead = true
+				return firstRequest.GetData(), nil
+			}
+
+			request, err := stream.Recv()
+			return request.GetData(), err
+		})
+
+		bundleDir, err := tempdir.New(ctx, repo.GetStorageName(), s.locator)
+		if err != nil {
+			return helper.ErrInternalf("creating bundle directory: %w", err)
+		}
+
+		bundlePath := filepath.Join(bundleDir.Path(), "repo.bundle")
+		bundleFile, err := os.Create(bundlePath)
+		if err != nil {
+			return helper.ErrInternalf("creating bundle file: %w", err)
+		}
+
+		if _, err := io.Copy(bundleFile, bundleReader); err != nil {
+			return helper.ErrInternalf("writing bundle file: %w", err)
+		}
+
+		if err := s.createRepository(ctx, repo, func(repo *gitalypb.Repository) error {
+			var stderr bytes.Buffer
+			cmd, err := s.gitCmdFactory.New(ctx, repo, git.SubCmd{
+				Name: "fetch",
+				Flags: []git.Option{
+					git.Flag{Name: "--quiet"},
+					git.Flag{Name: "--atomic"},
+				},
+				Args: []string{bundlePath, "refs/*:refs/*"},
+			}, git.WithStderr(&stderr), git.WithRefTxHook(ctx, repo, s.cfg))
+			if err != nil {
+				return helper.ErrInternalf("spawning fetch: %w", err)
+			}
+
+			if err := cmd.Wait(); err != nil {
+				sanitizedStderr := sanitizedError("%s", stderr.String())
+				return helper.ErrInternalf("fetch from bundle: %w, stderr: %q", err, sanitizedStderr)
+			}
+
+			return nil
+		}); err != nil {
+			return helper.ErrInternalf("creating repository: %w", err)
+		}
+
+		return stream.SendAndClose(&gitalypb.CreateRepositoryFromBundleResponse{})
 	}
 
 	repoPath, err := s.locator.GetPath(repo)
@@ -47,8 +104,6 @@ func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_Cr
 		request, err := stream.Recv()
 		return request.GetData(), err
 	})
-
-	ctx := stream.Context()
 
 	tmpDir, err := tempdir.New(ctx, repo.GetStorageName(), s.locator)
 	if err != nil {
