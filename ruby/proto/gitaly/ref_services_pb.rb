@@ -39,9 +39,6 @@ module Gitaly
       rpc :GetTagMessages, Gitaly::GetTagMessagesRequest, stream(Gitaly::GetTagMessagesResponse)
       # Returns commits that are only reachable from the ref passed
       rpc :ListNewCommits, Gitaly::ListNewCommitsRequest, stream(Gitaly::ListNewCommitsResponse)
-      # ListNewBlobs is equivalent to ListBlobs with `["--not", "--all", "--not",
-      # commit_id]`. This RPC call will be removed in v14.4.
-      rpc :ListNewBlobs, Gitaly::ListNewBlobsRequest, stream(Gitaly::ListNewBlobsResponse)
       rpc :PackRefs, Gitaly::PackRefsRequest, Gitaly::PackRefsResponse
       # ListRefs returns a stream of all references in the repository. By default, pseudo-revisions like HEAD
       # will not be returned by this RPC. Any symbolic references will be resolved to the object ID it is

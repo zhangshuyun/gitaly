@@ -43,10 +43,6 @@ type RefServiceClient interface {
 	GetTagMessages(ctx context.Context, in *GetTagMessagesRequest, opts ...grpc.CallOption) (RefService_GetTagMessagesClient, error)
 	// Returns commits that are only reachable from the ref passed
 	ListNewCommits(ctx context.Context, in *ListNewCommitsRequest, opts ...grpc.CallOption) (RefService_ListNewCommitsClient, error)
-	// Deprecated: Do not use.
-	// ListNewBlobs is equivalent to ListBlobs with `["--not", "--all", "--not",
-	// commit_id]`. This RPC call will be removed in v14.4.
-	ListNewBlobs(ctx context.Context, in *ListNewBlobsRequest, opts ...grpc.CallOption) (RefService_ListNewBlobsClient, error)
 	PackRefs(ctx context.Context, in *PackRefsRequest, opts ...grpc.CallOption) (*PackRefsResponse, error)
 	// ListRefs returns a stream of all references in the repository. By default, pseudo-revisions like HEAD
 	// will not be returned by this RPC. Any symbolic references will be resolved to the object ID it is
@@ -459,39 +455,6 @@ func (x *refServiceListNewCommitsClient) Recv() (*ListNewCommitsResponse, error)
 	return m, nil
 }
 
-// Deprecated: Do not use.
-func (c *refServiceClient) ListNewBlobs(ctx context.Context, in *ListNewBlobsRequest, opts ...grpc.CallOption) (RefService_ListNewBlobsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[11], "/gitaly.RefService/ListNewBlobs", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &refServiceListNewBlobsClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type RefService_ListNewBlobsClient interface {
-	Recv() (*ListNewBlobsResponse, error)
-	grpc.ClientStream
-}
-
-type refServiceListNewBlobsClient struct {
-	grpc.ClientStream
-}
-
-func (x *refServiceListNewBlobsClient) Recv() (*ListNewBlobsResponse, error) {
-	m := new(ListNewBlobsResponse)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 func (c *refServiceClient) PackRefs(ctx context.Context, in *PackRefsRequest, opts ...grpc.CallOption) (*PackRefsResponse, error) {
 	out := new(PackRefsResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RefService/PackRefs", in, out, opts...)
@@ -502,7 +465,7 @@ func (c *refServiceClient) PackRefs(ctx context.Context, in *PackRefsRequest, op
 }
 
 func (c *refServiceClient) ListRefs(ctx context.Context, in *ListRefsRequest, opts ...grpc.CallOption) (RefService_ListRefsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[12], "/gitaly.RefService/ListRefs", opts...)
+	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[11], "/gitaly.RefService/ListRefs", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -562,10 +525,6 @@ type RefServiceServer interface {
 	GetTagMessages(*GetTagMessagesRequest, RefService_GetTagMessagesServer) error
 	// Returns commits that are only reachable from the ref passed
 	ListNewCommits(*ListNewCommitsRequest, RefService_ListNewCommitsServer) error
-	// Deprecated: Do not use.
-	// ListNewBlobs is equivalent to ListBlobs with `["--not", "--all", "--not",
-	// commit_id]`. This RPC call will be removed in v14.4.
-	ListNewBlobs(*ListNewBlobsRequest, RefService_ListNewBlobsServer) error
 	PackRefs(context.Context, *PackRefsRequest) (*PackRefsResponse, error)
 	// ListRefs returns a stream of all references in the repository. By default, pseudo-revisions like HEAD
 	// will not be returned by this RPC. Any symbolic references will be resolved to the object ID it is
@@ -625,9 +584,6 @@ func (UnimplementedRefServiceServer) GetTagMessages(*GetTagMessagesRequest, RefS
 }
 func (UnimplementedRefServiceServer) ListNewCommits(*ListNewCommitsRequest, RefService_ListNewCommitsServer) error {
 	return status.Errorf(codes.Unimplemented, "method ListNewCommits not implemented")
-}
-func (UnimplementedRefServiceServer) ListNewBlobs(*ListNewBlobsRequest, RefService_ListNewBlobsServer) error {
-	return status.Errorf(codes.Unimplemented, "method ListNewBlobs not implemented")
 }
 func (UnimplementedRefServiceServer) PackRefs(context.Context, *PackRefsRequest) (*PackRefsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PackRefs not implemented")
@@ -969,27 +925,6 @@ func (x *refServiceListNewCommitsServer) Send(m *ListNewCommitsResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _RefService_ListNewBlobs_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(ListNewBlobsRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(RefServiceServer).ListNewBlobs(m, &refServiceListNewBlobsServer{stream})
-}
-
-type RefService_ListNewBlobsServer interface {
-	Send(*ListNewBlobsResponse) error
-	grpc.ServerStream
-}
-
-type refServiceListNewBlobsServer struct {
-	grpc.ServerStream
-}
-
-func (x *refServiceListNewBlobsServer) Send(m *ListNewBlobsResponse) error {
-	return x.ServerStream.SendMsg(m)
-}
-
 func _RefService_PackRefs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(PackRefsRequest)
 	if err := dec(in); err != nil {
@@ -1115,11 +1050,6 @@ var RefService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "ListNewCommits",
 			Handler:       _RefService_ListNewCommits_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "ListNewBlobs",
-			Handler:       _RefService_ListNewBlobs_Handler,
 			ServerStreams: true,
 		},
 		{
