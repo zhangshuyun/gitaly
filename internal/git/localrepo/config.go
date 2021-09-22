@@ -21,37 +21,6 @@ type Config struct {
 	repo *Repo
 }
 
-// Set will set a configuration value. Any preexisting values will be overwritten with the new
-// value.
-func (cfg Config) Set(ctx context.Context, name, value string) error {
-	if err := validateNotBlank(name, "name"); err != nil {
-		return err
-	}
-
-	if err := cfg.repo.ExecAndWait(ctx, git.SubCmd{
-		Name: "config",
-		Flags: []git.Option{
-			git.Flag{Name: "--replace-all"},
-		},
-		Args: []string{name, value},
-	}); err != nil {
-		// Please refer to https://git-scm.com/docs/git-config#_description
-		// on return codes.
-		switch {
-		case isExitWithCode(err, 1):
-			// section or key is invalid
-			return fmt.Errorf("%w: bad section or name", git.ErrInvalidArg)
-		case isExitWithCode(err, 2):
-			// no section or name was provided
-			return fmt.Errorf("%w: missing section or name", git.ErrInvalidArg)
-		}
-
-		return err
-	}
-
-	return nil
-}
-
 // GetRegexp gets all config entries which whose keys match the given regexp.
 func (cfg Config) GetRegexp(ctx context.Context, nameRegexp string, opts git.ConfigGetRegexpOpts) ([]git.ConfigPair, error) {
 	if err := validateNotBlank(nameRegexp, "nameRegexp"); err != nil {

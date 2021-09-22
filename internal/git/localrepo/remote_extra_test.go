@@ -60,7 +60,7 @@ func TestRepo_FetchInternal(t *testing.T) {
 		repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-		require.NoError(t, repo.Config().Set(ctx, "fetch.writeCommitGraph", "true"))
+		gittest.Exec(t, cfg, "-C", repoPath, "config", "fetch.writeCommitGraph", "true")
 
 		require.NoError(t, repo.FetchInternal(
 			ctx, remoteRepoProto, []string{"refs/heads/master:refs/heads/master"},
