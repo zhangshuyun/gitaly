@@ -172,7 +172,7 @@ func New(protos ...*descriptorpb.FileDescriptorProto) (*Registry, error) {
 					p.GetPackage(), svc.GetName(), method.GetName(),
 				)
 
-				if intercepted, err := protoutil.IsInterceptedService(svc); err != nil {
+				if intercepted, err := protoutil.IsInterceptedMethod(svc, method); err != nil {
 					return nil, fmt.Errorf("is intercepted: %w", err)
 				} else if intercepted {
 					interceptedMethods[fullMethodName] = struct{}{}

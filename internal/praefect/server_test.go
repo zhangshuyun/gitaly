@@ -608,7 +608,7 @@ func TestRenameRepository(t *testing.T) {
 	repoPaths := make([]string, len(gitalyStorages))
 	praefectCfg := config.Config{
 		VirtualStorages: []*config.VirtualStorage{{Name: "praefect"}},
-		Failover:        config.Failover{Enabled: true},
+		Failover:        config.Failover{Enabled: true, ElectionStrategy: config.ElectionStrategyPerRepository},
 	}
 
 	var repo *gitalypb.Repository
@@ -644,7 +644,10 @@ func TestRenameRepository(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	cc, _, cleanup := runPraefectServer(t, ctx, praefectCfg, buildOptions{withQueue: evq})
+	cc, _, cleanup := runPraefectServer(t, ctx, praefectCfg, buildOptions{
+		withQueue:     evq,
+		withRepoStore: datastore.NewPostgresRepositoryStore(glsql.NewDB(t), nil),
+	})
 	defer cleanup()
 
 	// virtualRepo is a virtual repository all requests to it would be applied to the underline Gitaly nodes behind it
