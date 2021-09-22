@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -51,7 +52,13 @@ func TestGetConfig(t *testing.T) {
 
 		config, err := getConfig(t, client, repo)
 		require.NoError(t, err)
-		require.Equal(t, "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = true\n", config)
+
+		expectedConfig := "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = true\n"
+
+		if runtime.GOOS == "darwin" {
+			expectedConfig = expectedConfig + "\tignorecase = true\n\tprecomposeunicode = true\n"
+		}
+		require.Equal(t, expectedConfig, config)
 	})
 
 	t.Run("missing config", func(t *testing.T) {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -736,5 +737,11 @@ func testPerformUnsetConfigurationTransactional(t *testing.T, ctx context.Contex
 	}
 
 	configKeys := gittest.Exec(t, cfg, "-C", repoPath, "config", "--list", "--local", "--name-only")
-	require.Equal(t, "core.repositoryformatversion\ncore.filemode\ncore.bare\n", string(configKeys))
+
+	expectedConfig := "core.repositoryformatversion\ncore.filemode\ncore.bare\n"
+
+	if runtime.GOOS == "darwin" {
+		expectedConfig = expectedConfig + "core.ignorecase\ncore.precomposeunicode\n"
+	}
+	require.Equal(t, expectedConfig, string(configKeys))
 }

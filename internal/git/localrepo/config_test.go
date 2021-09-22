@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -383,6 +384,16 @@ func TestRepo_UnsetMatchingConfig(t *testing.T) {
 		"core.repositoryformatversion",
 		"core.filemode",
 		"core.bare",
+	}
+
+	if runtime.GOOS == "darwin" {
+		standardKeys = []string{
+			"core.repositoryformatversion",
+			"core.filemode",
+			"core.bare",
+			"core.ignorecase",
+			"core.precomposeunicode",
+		}
 	}
 
 	for _, tc := range []struct {
