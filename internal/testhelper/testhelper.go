@@ -1,6 +1,5 @@
 package testhelper
 
-//nolint: gci
 import (
 	"context"
 	"crypto/ecdsa"
@@ -31,11 +30,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
+	"go.uber.org/goleak"
 	"google.golang.org/grpc/metadata"
-
-	// The goleak import only exists such that this test-only dependency is properly being
-	// attributed in our NOTICE file.
-	_ "go.uber.org/goleak"
 )
 
 const (
@@ -167,6 +163,18 @@ func GetLocalhostListener(t testing.TB) (net.Listener, string) {
 	addr := fmt.Sprintf("localhost:%d", l.Addr().(*net.TCPAddr).Port)
 
 	return l, addr
+}
+
+// MustHaveNoGoroutines panics if it finds any Goroutines running.
+func MustHaveNoGoroutines() {
+	if err := goleak.Find(
+		// opencensus has a "defaultWorker" which is started by the package's
+		// `init()` function. There is no way to stop this worker, so it will leak
+		// whenever we import the package.
+		goleak.IgnoreTopFunction("go.opencensus.io/stats/view.(*worker).start"),
+	); err != nil {
+		panic(fmt.Errorf("goroutines running: %w", err))
+	}
 }
 
 // MustHaveNoChildProcess panics if it finds a running or finished child
