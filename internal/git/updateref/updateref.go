@@ -153,7 +153,10 @@ func (u *Updater) Cancel() error {
 func (u *Updater) setState(state string) error {
 	_, err := fmt.Fprintf(u.cmd, "%s\x00", state)
 	if err != nil {
-		return fmt.Errorf("updating state to %q: %w", state, err)
+		// We need to explicitly cancel the command here and wait for it to terminate such
+		// that we can retrieve the command's stderr in a race-free manner.
+		_ = u.Cancel()
+		return fmt.Errorf("updating state to %q: %w, stderr: %q", state, err, u.stderr)
 	}
 
 	// For each state-changing command, git-update-ref(1) will report successful execution via
