@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"math/rand"
 	"net"
 	"os"
 	"path/filepath"
@@ -630,9 +631,31 @@ func TestRenameRepository(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
+	tx := glsql.NewDB(t).Begin(t)
+	defer tx.Rollback(t)
+
+	rs := datastore.NewPostgresRepositoryStore(tx, nil)
+	require.NoError(t, rs.CreateRepository(ctx, 1, "praefect", repo.RelativePath, "gitaly-1", []string{"gitaly-2", "gitaly-3"}, nil, true, false))
+
+	nodeSet, err := DialNodes(ctx, praefectCfg.VirtualStorages, nil, nil, nil, nil)
+	require.NoError(t, err)
+	defer nodeSet.Close()
+
+	testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": praefectCfg.StorageNames()})
+
 	cc, _, cleanup := runPraefectServer(t, ctx, praefectCfg, buildOptions{
 		withQueue:     evq,
-		withRepoStore: datastore.NewPostgresRepositoryStore(glsql.NewDB(t), nil),
+		withRepoStore: rs,
+		withRouter: NewPerRepositoryRouter(
+			nodeSet.Connections(),
+			nodes.NewPerRepositoryElector(tx),
+			StaticHealthChecker(praefectCfg.StorageNames()),
+			NewLockedRandom(rand.New(rand.NewSource(0))),
+			rs,
+			datastore.NewAssignmentStore(tx, praefectCfg.StorageNames()),
+			rs,
+			nil,
+		),
 	})
 	defer cleanup()
 
