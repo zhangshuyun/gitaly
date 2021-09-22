@@ -17,7 +17,11 @@ func TestMain(m *testing.M) {
 }
 
 func testMain(m *testing.M) int {
-	defer testhelper.MustHaveNoChildProcess()
+	defer func() {
+		testhelper.MustHaveNoChildProcess()
+		testhelper.MustHaveNoGoroutines()
+	}()
+
 	cleanup := testhelper.Configure()
 	defer cleanup()
 	return m.Run()
