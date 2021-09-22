@@ -38,6 +38,7 @@ type upgrader interface {
 	HasParent() bool
 	Ready() error
 	Upgrade() error
+	Stop()
 }
 
 // New performs tableflip initialization
@@ -172,6 +173,7 @@ func (b *Bootstrap) Wait(gracefulTimeout time.Duration) error {
 		err = fmt.Errorf("graceful upgrade: %v", waitError)
 	case s := <-immediateShutdown:
 		err = fmt.Errorf("received signal %q", s)
+		b.upgrader.Stop()
 	case err = <-b.errChan:
 	}
 
