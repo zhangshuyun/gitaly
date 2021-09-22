@@ -9,7 +9,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 )
 
 // Updater wraps a `git update-ref --stdin` process, presenting an interface
@@ -72,14 +71,9 @@ func New(ctx context.Context, conf config.Cfg, repo git.RepositoryExecutor, opts
 		return nil, err
 	}
 
-	withStatusFlushing := false
-	if featureflag.UpdaterefVerifyStateChanges.IsEnabled(ctx) {
-		gitVersion, err := git.CurrentVersionForExecutor(ctx, repo)
-		if err != nil {
-			return nil, fmt.Errorf("determining git version: %w", err)
-		}
-
-		withStatusFlushing = gitVersion.FlushesUpdaterefStatus()
+	gitVersion, err := git.CurrentVersionForExecutor(ctx, repo)
+	if err != nil {
+		return nil, fmt.Errorf("determining git version: %w", err)
 	}
 
 	updater := &Updater{
@@ -87,7 +81,7 @@ func New(ctx context.Context, conf config.Cfg, repo git.RepositoryExecutor, opts
 		cmd:                cmd,
 		stderr:             &stderr,
 		stdout:             bufio.NewReader(cmd),
-		withStatusFlushing: withStatusFlushing,
+		withStatusFlushing: gitVersion.FlushesUpdaterefStatus(),
 	}
 
 	// By writing an explicit "start" to the command, we enable
