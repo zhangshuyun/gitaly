@@ -61,8 +61,12 @@ func mustFindNoRunningChildProcess() error {
 		return fmt.Errorf("found running child processes %s:\n%s", pidsComma, psOut)
 	}
 
-	if status, ok := command.ExitStatus(err); ok && status == 1 {
-		// Exit status 1 means no processes were found
+	exitError, ok := err.(*exec.ExitError)
+	if !ok {
+		return fmt.Errorf("expected ExitError, got %T", err)
+	}
+
+	if exitError.ExitCode() == 1 {
 		return nil
 	}
 
