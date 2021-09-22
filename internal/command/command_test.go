@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -16,15 +15,15 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
 func TestMain(m *testing.M) {
-	goleak.VerifyTestMain(m, goleak.IgnoreTopFunction("go.opencensus.io/stats/view.(*worker).start"))
+	testhelper.Run(m)
 }
 
 func TestNewCommandExtraEnv(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	extraVar := "FOOBAR=123456"
@@ -38,7 +37,7 @@ func TestNewCommandExtraEnv(t *testing.T) {
 }
 
 func TestNewCommandExportedEnv(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	testCases := []struct {
@@ -113,15 +112,8 @@ func TestNewCommandExportedEnv(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.key, func(t *testing.T) {
-			oldValue, exists := os.LookupEnv(tc.key)
-			defer func() {
-				if !exists {
-					require.NoError(t, os.Unsetenv(tc.key))
-					return
-				}
-				require.NoError(t, os.Setenv(tc.key, oldValue))
-			}()
-			require.NoError(t, os.Setenv(tc.key, tc.value))
+			cleanup := testhelper.ModifyEnvironment(t, tc.key, tc.value)
+			defer cleanup()
 
 			buff := &bytes.Buffer{}
 			cmd, err := New(ctx, exec.Command("/usr/bin/env"), nil, buff, nil)
@@ -135,21 +127,12 @@ func TestNewCommandExportedEnv(t *testing.T) {
 }
 
 func TestNewCommandUnexportedEnv(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	unexportedEnvKey, unexportedEnvVal := "GITALY_UNEXPORTED_ENV", "foobar"
-
-	oldValue, exists := os.LookupEnv(unexportedEnvKey)
-	defer func() {
-		if !exists {
-			require.NoError(t, os.Unsetenv(unexportedEnvKey))
-			return
-		}
-		require.NoError(t, os.Setenv(unexportedEnvKey, oldValue))
-	}()
-
-	require.NoError(t, os.Setenv(unexportedEnvKey, unexportedEnvVal))
+	cleanup := testhelper.ModifyEnvironment(t, unexportedEnvKey, unexportedEnvVal)
+	defer cleanup()
 
 	buff := &bytes.Buffer{}
 	cmd, err := New(ctx, exec.Command("/usr/bin/env"), nil, buff, nil)
@@ -178,7 +161,7 @@ func TestRejectEmptyContextDone(t *testing.T) {
 }
 
 func TestNewCommandTimeout(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	defer func(ch chan struct{}, t time.Duration) {
@@ -222,7 +205,7 @@ wait:
 }
 
 func TestCommand_Wait_interrupts_after_context_timeout(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	ctx, timeout := context.WithTimeout(ctx, time.Second)
@@ -246,7 +229,7 @@ func TestCommand_Wait_interrupts_after_context_timeout(t *testing.T) {
 }
 
 func TestNewCommandWithSetupStdin(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	value := "Test value"
@@ -267,7 +250,7 @@ func TestNewCommandWithSetupStdin(t *testing.T) {
 }
 
 func TestNewCommandNullInArg(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	_, err := New(ctx, exec.Command("sh", "-c", "hello\x00world"), nil, nil, nil)
@@ -276,7 +259,7 @@ func TestNewCommandNullInArg(t *testing.T) {
 }
 
 func TestNewNonExistent(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	cmd, err := New(ctx, exec.Command("command-non-existent"), nil, nil, nil)
@@ -285,7 +268,7 @@ func TestNewNonExistent(t *testing.T) {
 }
 
 func TestCommandStdErr(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	var stdout, stderr bytes.Buffer
@@ -305,7 +288,7 @@ func TestCommandStdErr(t *testing.T) {
 }
 
 func TestCommandStdErrLargeOutput(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	var stdout, stderr bytes.Buffer
@@ -325,7 +308,7 @@ func TestCommandStdErrLargeOutput(t *testing.T) {
 }
 
 func TestCommandStdErrBinaryNullBytes(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	var stdout, stderr bytes.Buffer
@@ -345,7 +328,7 @@ func TestCommandStdErrBinaryNullBytes(t *testing.T) {
 }
 
 func TestCommandStdErrLongLine(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	var stdout, stderr bytes.Buffer
@@ -364,7 +347,7 @@ func TestCommandStdErrLongLine(t *testing.T) {
 }
 
 func TestCommandStdErrMaxBytes(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	var stdout, stderr bytes.Buffer
