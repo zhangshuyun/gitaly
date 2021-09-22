@@ -21,6 +21,7 @@ import (
 func TestCache_add(t *testing.T) {
 	const maxLen = 3
 	bc := newCache(time.Hour, maxLen, defaultEvictionInterval)
+	defer bc.Stop()
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
@@ -50,6 +51,7 @@ func TestCache_add(t *testing.T) {
 
 func TestCache_addTwice(t *testing.T) {
 	bc := newCache(time.Hour, 10, defaultEvictionInterval)
+	defer bc.Stop()
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
@@ -77,6 +79,7 @@ func TestCache_addTwice(t *testing.T) {
 
 func TestCache_checkout(t *testing.T) {
 	bc := newCache(time.Hour, 10, defaultEvictionInterval)
+	defer bc.Stop()
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
@@ -105,6 +108,7 @@ func TestCache_checkout(t *testing.T) {
 func TestCache_enforceTTL(t *testing.T) {
 	ttl := time.Hour
 	bc := newCache(ttl, 10, defaultEvictionInterval)
+	defer bc.Stop()
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
@@ -154,6 +158,7 @@ func TestCache_autoExpiry(t *testing.T) {
 	ttl := 5 * time.Millisecond
 	refresh := 1 * time.Millisecond
 	bc := newCache(ttl, 10, refresh)
+	defer bc.Stop()
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
@@ -183,7 +188,7 @@ func TestCache_BatchProcess(t *testing.T) {
 	repoExecutor := newRepoExecutor(t, cfg, repo)
 
 	cache := newCache(time.Hour, 10, time.Hour)
-	defer cache.Evict()
+	defer cache.Stop()
 	cache.cachedProcessDone = sync.NewCond(&sync.Mutex{})
 
 	t.Run("uncancellable", func(t *testing.T) {
