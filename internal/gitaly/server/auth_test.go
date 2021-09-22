@@ -194,6 +194,7 @@ func runServer(t *testing.T, cfg config.Cfg) string {
 	), cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	catfileCache := catfile.NewCache(cfg)
+	t.Cleanup(catfileCache.Stop)
 	diskCache := cache.New(cfg, locator)
 
 	srv, err := New(false, cfg, testhelper.DiscardTestEntry(t), registry, diskCache)

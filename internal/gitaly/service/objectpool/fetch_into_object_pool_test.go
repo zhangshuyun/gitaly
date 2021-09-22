@@ -162,11 +162,14 @@ func TestFetchIntoObjectPool_Failure(t *testing.T) {
 
 	locator := config.NewLocator(cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	catfileCache := catfile.NewCache(cfg)
+	t.Cleanup(catfileCache.Stop)
+
 	server := NewServer(
 		cfg,
 		locator,
 		gitCmdFactory,
-		catfile.NewCache(cfg),
+		catfileCache,
 		transaction.NewManager(cfg, backchannel.NewRegistry()),
 	)
 

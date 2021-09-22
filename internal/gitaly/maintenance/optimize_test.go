@@ -33,6 +33,7 @@ func (mo *mockOptimizer) OptimizeRepository(ctx context.Context, req *gitalypb.O
 	l := config.NewLocator(mo.cfg)
 	gitCmdFactory := git.NewExecCommandFactory(mo.cfg)
 	catfileCache := catfile.NewCache(mo.cfg)
+	mo.t.Cleanup(catfileCache.Stop)
 	resp, err := repository.NewServer(mo.cfg, nil, l, transaction.NewManager(mo.cfg, backchannel.NewRegistry()), gitCmdFactory, catfileCache).OptimizeRepository(ctx, req)
 	assert.NoError(mo.t, err)
 	return resp, err

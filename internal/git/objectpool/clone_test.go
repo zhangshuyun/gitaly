@@ -23,11 +23,14 @@ func setupObjectPool(t *testing.T) (*ObjectPool, *gitalypb.Repository) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 	gitCommandFactory := git.NewExecCommandFactory(cfg)
 
+	catfileCache := catfile.NewCache(cfg)
+	t.Cleanup(catfileCache.Stop)
+
 	pool, err := NewObjectPool(
 		cfg,
 		config.NewLocator(cfg),
 		gitCommandFactory,
-		catfile.NewCache(cfg),
+		catfileCache,
 		transaction.NewManager(cfg, backchannel.NewRegistry()),
 		repo.GetStorageName(),
 		gittest.NewObjectPoolName(t),

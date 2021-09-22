@@ -133,6 +133,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 
 			locator := config.NewLocator(cfg)
 			catfileCache := catfile.NewCache(cfg)
+			defer catfileCache.Stop()
 
 			// ensure commit cannot be found in current repository
 			c, err := catfileCache.BatchProcess(ctx, repo)

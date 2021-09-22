@@ -26,12 +26,14 @@ func newTestObjectPool(t *testing.T, cfg config.Cfg) (*objectpool.ObjectPool, *g
 	repo := gittest.InitRepoDir(t, cfg.Storages[0].Path, relativePath)
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	catfileCache := catfile.NewCache(cfg)
+	t.Cleanup(catfileCache.Stop)
 
 	pool, err := objectpool.NewObjectPool(
 		cfg,
 		config.NewLocator(cfg),
 		gitCmdFactory,
-		catfile.NewCache(cfg),
+		catfileCache,
 		transaction.NewManager(cfg, backchannel.NewRegistry()),
 		repo.GetStorageName(),
 		relativePath,

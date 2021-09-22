@@ -207,6 +207,8 @@ func TestSearchFilesByContentFailure(t *testing.T) {
 	t.Parallel()
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 	gitCommandFactory := git.NewExecCommandFactory(cfg)
+	catfileCache := catfile.NewCache(cfg)
+	t.Cleanup(catfileCache.Stop)
 
 	server := NewServer(
 		cfg,
@@ -214,7 +216,7 @@ func TestSearchFilesByContentFailure(t *testing.T) {
 		config.NewLocator(cfg),
 		transaction.NewManager(cfg, backchannel.NewRegistry()),
 		gitCommandFactory,
-		catfile.NewCache(cfg),
+		catfileCache,
 	)
 
 	testCases := []struct {
@@ -330,6 +332,8 @@ func TestSearchFilesByNameFailure(t *testing.T) {
 	t.Parallel()
 	cfg := testcfg.Build(t)
 	gitCommandFactory := git.NewExecCommandFactory(cfg)
+	catfileCache := catfile.NewCache(cfg)
+	t.Cleanup(catfileCache.Stop)
 
 	server := NewServer(
 		cfg,
@@ -337,7 +341,7 @@ func TestSearchFilesByNameFailure(t *testing.T) {
 		config.NewLocator(cfg),
 		transaction.NewManager(cfg, backchannel.NewRegistry()),
 		gitCommandFactory,
-		catfile.NewCache(cfg),
+		catfileCache,
 	)
 
 	testCases := []struct {

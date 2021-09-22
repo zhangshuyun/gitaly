@@ -242,9 +242,12 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 	annotatedTagOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "annotated-tag"))
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	catfileCache := catfile.NewCache(cfg)
+	defer catfileCache.Stop()
+
 	repo := New(
 		gitCmdFactory,
-		catfile.NewCache(cfg),
+		catfileCache,
 		&gitalypb.Repository{StorageName: "default", RelativePath: filepath.Join(relativePath, ".git")},
 		cfg,
 	)

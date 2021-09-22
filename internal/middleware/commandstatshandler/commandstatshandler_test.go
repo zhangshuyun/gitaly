@@ -51,13 +51,15 @@ func createNewServer(t *testing.T, cfg config.Cfg) *grpc.Server {
 	server := grpc.NewServer(opts...)
 
 	gitCommandFactory := git.NewExecCommandFactory(cfg)
+	catfileCache := catfile.NewCache(cfg)
+	t.Cleanup(catfileCache.Stop)
 
 	gitalypb.RegisterRefServiceServer(server, ref.NewServer(
 		cfg,
 		config.NewLocator(cfg),
 		gitCommandFactory,
 		transaction.NewManager(cfg, backchannel.NewRegistry()),
-		catfile.NewCache(cfg),
+		catfileCache,
 	))
 
 	return server

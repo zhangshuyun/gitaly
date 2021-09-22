@@ -19,6 +19,8 @@ func TestWriteCommit(t *testing.T) {
 	defer cancel()
 
 	batchCache := catfile.NewCache(cfg)
+	defer batchCache.Stop()
+
 	batch, err := batchCache.BatchProcess(ctx, repo)
 	require.NoError(t, err)
 
