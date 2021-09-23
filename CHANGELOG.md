@@ -294,6 +294,12 @@ No changes.
 - [Separate listenmux from backchannel](gitlab-org/gitaly@c95298c125a680a006153d5aca5d3dbb575ce352) ([merge request](gitlab-org/gitaly!3593))
 - [Use upstream implementation of insecure credentials](gitlab-org/gitaly@7453f84b0bb385a958943b5e0910b8f6bb3906bb) ([merge request](gitlab-org/gitaly!3591))
 
+## 14.0.11 (2021-09-23)
+
+### Fixed (1 change)
+
+- [Derive virtual storage's filesystem id from its name](gitlab-org/gitaly@34cfd2c2b4964cf1c0ad1704fd9e2c25666bcf16) ([merge request](gitlab-org/gitaly!3834))
+
 ## 14.0.10 (2021-09-02)
 
 ### Fixed (2 changes)
