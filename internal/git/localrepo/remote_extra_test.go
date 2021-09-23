@@ -147,7 +147,22 @@ func TestRepo_FetchInternal(t *testing.T) {
 			localrepo.FetchOpts{Stderr: &stderr, Env: []string{"GIT_TRACE=1"}},
 		)
 		require.NoError(t, err)
-		require.Contains(t, stderr.String(), "trace: built-in: git fetch")
+		require.Contains(t, stderr.String(), "trace: built-in: git fetch --quiet --atomic --end-of-options")
+	})
+
+	t.Run("with disabled transactions", func(t *testing.T) {
+		ctx := testhelper.MergeIncomingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
+
+		repoProto, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
+		repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+		var stderr bytes.Buffer
+		err := repo.FetchInternal(
+			ctx, remoteRepoProto, []string{"refs/heads/master"},
+			localrepo.FetchOpts{Stderr: &stderr, Env: []string{"GIT_TRACE=1"}, DisableTransactions: true},
+		)
+		require.NoError(t, err)
+		require.Contains(t, stderr.String(), "trace: built-in: git fetch --quiet --end-of-options")
 	})
 
 	t.Run("invalid remote repo", func(t *testing.T) {
