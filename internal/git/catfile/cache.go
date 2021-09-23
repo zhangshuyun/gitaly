@@ -197,8 +197,11 @@ func (c *ProcessCache) BatchProcess(ctx context.Context, repo git.RepositoryExec
 
 		if entry, ok := c.checkout(cacheKey); ok {
 			go c.returnWhenDone(requestDone, cacheKey, entry.value, entry.cancel)
+			c.catfileCacheCounter.WithLabelValues("hit").Inc()
 			return entry.value, nil
 		}
+
+		c.catfileCacheCounter.WithLabelValues("miss").Inc()
 
 		// We have not found any cached process, so we need to create a new one. In this
 		// case, we need to detach the process from the current context such that it does
@@ -267,18 +270,21 @@ func (c *ProcessCache) returnWhenDone(done <-chan struct{}, cacheKey key, batch 
 		return
 	}
 
-	c.add(cacheKey, batch, cancel)
+	if replaced := c.add(cacheKey, batch, cancel); replaced {
+		c.catfileCacheCounter.WithLabelValues("duplicate").Inc()
+	}
 }
 
 // add adds a key, value pair to c. If there are too many keys in c
 // already add will evict old keys until the length is OK again.
-func (c *ProcessCache) add(k key, b *batch, cancel func()) {
+func (c *ProcessCache) add(k key, b *batch, cancel func()) bool {
 	c.entriesMutex.Lock()
 	defer c.entriesMutex.Unlock()
 
+	replacedExisting := false
 	if i, ok := c.lookup(k); ok {
-		c.catfileCacheCounter.WithLabelValues("duplicate").Inc()
 		c.delete(i, true)
+		replacedExisting = true
 	}
 
 	ent := &entry{
@@ -294,6 +300,8 @@ func (c *ProcessCache) add(k key, b *batch, cancel func()) {
 	}
 
 	c.catfileCacheMembers.Set(float64(c.len()))
+
+	return replacedExisting
 }
 
 func (c *ProcessCache) head() *entry { return c.entries[0] }
@@ -307,11 +315,8 @@ func (c *ProcessCache) checkout(k key) (*entry, bool) {
 
 	i, ok := c.lookup(k)
 	if !ok {
-		c.catfileCacheCounter.WithLabelValues("miss").Inc()
 		return nil, false
 	}
-
-	c.catfileCacheCounter.WithLabelValues("hit").Inc()
 
 	entry := c.entries[i]
 	c.delete(i, false)
