@@ -2,6 +2,7 @@ package catfile
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -32,6 +33,12 @@ type Cache interface {
 	BatchProcess(context.Context, git.RepositoryExecutor) (Batch, error)
 	// Evict evicts all cached processes from the cache.
 	Evict()
+}
+
+type cacheable interface {
+	isClosed() bool
+	isDirty() bool
+	Close()
 }
 
 // ProcessCache entries always get added to the back of the list. If the
@@ -153,7 +160,28 @@ func (c *ProcessCache) Stop() {
 }
 
 // BatchProcess creates a new Batch process for the given repository.
-func (c *ProcessCache) BatchProcess(ctx context.Context, repo git.RepositoryExecutor) (_ Batch, returnedErr error) {
+func (c *ProcessCache) BatchProcess(ctx context.Context, repo git.RepositoryExecutor) (Batch, error) {
+	cacheable, err := c.getOrCreateProcess(ctx, repo, &c.batchProcesses, func(ctx context.Context) (cacheable, error) {
+		return newBatch(ctx, repo, c.catfileLookupCounter)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	batch, ok := cacheable.(Batch)
+	if !ok {
+		return nil, fmt.Errorf("expected batch process, got %T", batch)
+	}
+
+	return batch, nil
+}
+
+func (c *ProcessCache) getOrCreateProcess(
+	ctx context.Context,
+	repo repository.GitRepo,
+	stack *stack,
+	create func(context.Context) (cacheable, error),
+) (_ cacheable, returnedErr error) {
 	requestDone := ctx.Done()
 	if requestDone == nil {
 		panic("empty ctx.Done() in catfile.Batch.New()")
@@ -170,8 +198,8 @@ func (c *ProcessCache) BatchProcess(ctx context.Context, repo git.RepositoryExec
 		// disallow trivial denial of service attacks against other users in case it is
 		// possible to poison the cache with broken git-cat-file(1) processes.
 
-		if entry, ok := c.batchProcesses.Checkout(cacheKey); ok {
-			go c.returnWhenDone(requestDone, cacheKey, entry.value, entry.cancel)
+		if entry, ok := stack.Checkout(cacheKey); ok {
+			go c.returnWhenDone(requestDone, stack, cacheKey, entry.value, entry.cancel)
 			c.catfileCacheCounter.WithLabelValues("hit").Inc()
 			return entry.value, nil
 		}
@@ -196,7 +224,7 @@ func (c *ProcessCache) BatchProcess(ctx context.Context, repo git.RepositoryExec
 		ctx = opentracing.ContextWithSpan(ctx, nil)
 	}
 
-	batch, err := newBatch(ctx, repo, c.catfileLookupCounter)
+	batch, err := create(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +246,7 @@ func (c *ProcessCache) BatchProcess(ctx context.Context, repo git.RepositoryExec
 	if isCacheable {
 		// If the process is cacheable, then we want to put the process into the cache when
 		// the current outer context is done.
-		go c.returnWhenDone(requestDone, cacheKey, batch, cancel)
+		go c.returnWhenDone(requestDone, stack, cacheKey, batch, cancel)
 	}
 
 	return batch, nil
@@ -233,7 +261,7 @@ func (c *ProcessCache) Evict() {
 	c.batchProcesses.Evict()
 }
 
-func (c *ProcessCache) returnWhenDone(done <-chan struct{}, cacheKey key, batch *batch, cancel func()) {
+func (c *ProcessCache) returnWhenDone(done <-chan struct{}, s *stack, cacheKey key, value cacheable, cancel func()) {
 	<-done
 
 	defer c.reportCacheMembers()
@@ -244,19 +272,19 @@ func (c *ProcessCache) returnWhenDone(done <-chan struct{}, cacheKey key, batch 
 		}()
 	}
 
-	if batch == nil || batch.isClosed() {
+	if value == nil || value.isClosed() {
 		cancel()
 		return
 	}
 
-	if batch.hasUnreadData() {
+	if value.isDirty() {
 		cancel()
 		c.catfileCacheCounter.WithLabelValues("dirty").Inc()
-		batch.Close()
+		value.Close()
 		return
 	}
 
-	if replaced := c.batchProcesses.Add(cacheKey, batch, c.ttl, cancel); replaced {
+	if replaced := s.Add(cacheKey, value, c.ttl, cancel); replaced {
 		c.catfileCacheCounter.WithLabelValues("duplicate").Inc()
 	}
 }
@@ -285,7 +313,7 @@ func newCacheKey(sessionID string, repo repository.GitRepo) (key, bool) {
 
 type entry struct {
 	key
-	value  *batch
+	value  cacheable
 	expiry time.Time
 	cancel func()
 }
@@ -299,7 +327,7 @@ type stack struct {
 
 // Add adds a key, value pair to s. If there are too many keys in s
 // already add will evict old keys until the length is OK again.
-func (s *stack) Add(k key, b *batch, ttl time.Duration, cancel func()) bool {
+func (s *stack) Add(k key, value cacheable, ttl time.Duration, cancel func()) bool {
 	s.entriesMutex.Lock()
 	defer s.entriesMutex.Unlock()
 
@@ -311,7 +339,7 @@ func (s *stack) Add(k key, b *batch, ttl time.Duration, cancel func()) bool {
 
 	ent := &entry{
 		key:    k,
-		value:  b,
+		value:  value,
 		expiry: time.Now().Add(ttl),
 		cancel: cancel,
 	}

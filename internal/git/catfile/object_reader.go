@@ -152,7 +152,7 @@ func (o *objectReader) consume(nBytes int) {
 	}
 }
 
-func (o *objectReader) hasUnreadData() bool {
+func (o *objectReader) isDirty() bool {
 	o.Lock()
 	defer o.Unlock()
 
