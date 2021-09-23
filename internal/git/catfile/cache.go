@@ -63,11 +63,11 @@ type entry struct {
 	cancel func()
 }
 
-// BatchCache entries always get added to the back of the list. If the
+// ProcessCache entries always get added to the back of the list. If the
 // list gets too long, we evict entries from the front of the list. When
 // an entry gets added it gets an expiry time based on a fixed TTL. A
 // monitor goroutine periodically evicts expired entries.
-type BatchCache struct {
+type ProcessCache struct {
 	// maxLen is the maximum number of keys in the cache
 	maxLen int
 	// ttl is the fixed ttl for cache entries
@@ -92,16 +92,16 @@ type BatchCache struct {
 }
 
 // NewCache creates a new catfile process cache.
-func NewCache(cfg config.Cfg) *BatchCache {
+func NewCache(cfg config.Cfg) *ProcessCache {
 	return newCache(defaultBatchfileTTL, cfg.Git.CatfileCacheSize, defaultEvictionInterval)
 }
 
-func newCache(ttl time.Duration, maxLen int, refreshInterval time.Duration) *BatchCache {
+func newCache(ttl time.Duration, maxLen int, refreshInterval time.Duration) *ProcessCache {
 	if maxLen <= 0 {
 		maxLen = defaultMaxLen
 	}
 
-	bc := &BatchCache{
+	processCache := &ProcessCache{
 		maxLen: maxLen,
 		ttl:    ttl,
 		catfileCacheCounter: prometheus.NewCounterVec(
@@ -140,31 +140,31 @@ func newCache(ttl time.Duration, maxLen int, refreshInterval time.Duration) *Bat
 		monitorDone:   make(chan interface{}),
 	}
 
-	go bc.monitor()
-	return bc
+	go processCache.monitor()
+	return processCache
 }
 
-// Describe describes all metrics exposed by BatchCache.
-func (bc *BatchCache) Describe(descs chan<- *prometheus.Desc) {
-	prometheus.DescribeByCollect(bc, descs)
+// Describe describes all metrics exposed by ProcessCache.
+func (c *ProcessCache) Describe(descs chan<- *prometheus.Desc) {
+	prometheus.DescribeByCollect(c, descs)
 }
 
-// Collect collects all metrics exposed by BatchCache.
-func (bc *BatchCache) Collect(metrics chan<- prometheus.Metric) {
-	bc.catfileCacheCounter.Collect(metrics)
-	bc.currentCatfileProcesses.Collect(metrics)
-	bc.totalCatfileProcesses.Collect(metrics)
-	bc.catfileLookupCounter.Collect(metrics)
-	bc.catfileCacheMembers.Collect(metrics)
+// Collect collects all metrics exposed by ProcessCache.
+func (c *ProcessCache) Collect(metrics chan<- prometheus.Metric) {
+	c.catfileCacheCounter.Collect(metrics)
+	c.currentCatfileProcesses.Collect(metrics)
+	c.totalCatfileProcesses.Collect(metrics)
+	c.catfileLookupCounter.Collect(metrics)
+	c.catfileCacheMembers.Collect(metrics)
 }
 
-func (bc *BatchCache) monitor() {
+func (c *ProcessCache) monitor() {
 	for {
 		select {
-		case <-bc.monitorTicker.C:
-			bc.enforceTTL(time.Now())
-		case <-bc.monitorDone:
-			close(bc.monitorDone)
+		case <-c.monitorTicker.C:
+			c.enforceTTL(time.Now())
+		case <-c.monitorDone:
+			close(c.monitorDone)
 			return
 		}
 	}
@@ -172,15 +172,15 @@ func (bc *BatchCache) monitor() {
 
 // Stop stops the monitoring Goroutine and evicts all cached processes. This must only be called
 // once.
-func (bc *BatchCache) Stop() {
-	bc.monitorTicker.Stop()
-	bc.monitorDone <- struct{}{}
-	<-bc.monitorDone
-	bc.Evict()
+func (c *ProcessCache) Stop() {
+	c.monitorTicker.Stop()
+	c.monitorDone <- struct{}{}
+	<-c.monitorDone
+	c.Evict()
 }
 
 // BatchProcess creates a new Batch process for the given repository.
-func (bc *BatchCache) BatchProcess(ctx context.Context, repo git.RepositoryExecutor) (_ Batch, returnedErr error) {
+func (c *ProcessCache) BatchProcess(ctx context.Context, repo git.RepositoryExecutor) (_ Batch, returnedErr error) {
 	requestDone := ctx.Done()
 	if requestDone == nil {
 		panic("empty ctx.Done() in catfile.Batch.New()")
@@ -195,8 +195,8 @@ func (bc *BatchCache) BatchProcess(ctx context.Context, repo git.RepositoryExecu
 		// disallow trivial denial of service attacks against other users in case it is
 		// possible to poison the cache with broken git-cat-file(1) processes.
 
-		if entry, ok := bc.checkout(cacheKey); ok {
-			go bc.returnWhenDone(requestDone, cacheKey, entry.value, entry.cancel)
+		if entry, ok := c.checkout(cacheKey); ok {
+			go c.returnWhenDone(requestDone, cacheKey, entry.value, entry.cancel)
 			return entry.value, nil
 		}
 
@@ -218,7 +218,7 @@ func (bc *BatchCache) BatchProcess(ctx context.Context, repo git.RepositoryExecu
 		ctx = opentracing.ContextWithSpan(ctx, nil)
 	}
 
-	c, err := newBatch(ctx, repo, bc.catfileLookupCounter)
+	batch, err := newBatch(ctx, repo, c.catfileLookupCounter)
 	if err != nil {
 		return nil, err
 	}
@@ -226,121 +226,121 @@ func (bc *BatchCache) BatchProcess(ctx context.Context, repo git.RepositoryExecu
 		// If we somehow fail after creating a new Batch process, then we want to kill
 		// spawned processes right away.
 		if returnedErr != nil {
-			c.Close()
+			batch.Close()
 		}
 	}()
 
-	bc.totalCatfileProcesses.Inc()
-	bc.currentCatfileProcesses.Inc()
+	c.totalCatfileProcesses.Inc()
+	c.currentCatfileProcesses.Inc()
 	go func() {
 		<-ctx.Done()
-		bc.currentCatfileProcesses.Dec()
+		c.currentCatfileProcesses.Dec()
 	}()
 
 	if isCacheable {
 		// If the process is cacheable, then we want to put the process into the cache when
 		// the current outer context is done.
-		go bc.returnWhenDone(requestDone, cacheKey, c, cancel)
+		go c.returnWhenDone(requestDone, cacheKey, batch, cancel)
 	}
 
-	return c, nil
+	return batch, nil
 }
 
-func (bc *BatchCache) returnWhenDone(done <-chan struct{}, cacheKey key, c *batch, cancel func()) {
+func (c *ProcessCache) returnWhenDone(done <-chan struct{}, cacheKey key, batch *batch, cancel func()) {
 	<-done
 
-	if bc.cachedProcessDone != nil {
+	if c.cachedProcessDone != nil {
 		defer func() {
-			bc.cachedProcessDone.Broadcast()
+			c.cachedProcessDone.Broadcast()
 		}()
 	}
 
-	if c == nil || c.isClosed() {
+	if batch == nil || batch.isClosed() {
 		cancel()
 		return
 	}
 
-	if c.hasUnreadData() {
+	if batch.hasUnreadData() {
 		cancel()
-		bc.catfileCacheCounter.WithLabelValues("dirty").Inc()
-		c.Close()
+		c.catfileCacheCounter.WithLabelValues("dirty").Inc()
+		batch.Close()
 		return
 	}
 
-	bc.add(cacheKey, c, cancel)
+	c.add(cacheKey, batch, cancel)
 }
 
-// add adds a key, value pair to bc. If there are too many keys in bc
+// add adds a key, value pair to c. If there are too many keys in c
 // already add will evict old keys until the length is OK again.
-func (bc *BatchCache) add(k key, b *batch, cancel func()) {
-	bc.entriesMutex.Lock()
-	defer bc.entriesMutex.Unlock()
+func (c *ProcessCache) add(k key, b *batch, cancel func()) {
+	c.entriesMutex.Lock()
+	defer c.entriesMutex.Unlock()
 
-	if i, ok := bc.lookup(k); ok {
-		bc.catfileCacheCounter.WithLabelValues("duplicate").Inc()
-		bc.delete(i, true)
+	if i, ok := c.lookup(k); ok {
+		c.catfileCacheCounter.WithLabelValues("duplicate").Inc()
+		c.delete(i, true)
 	}
 
 	ent := &entry{
 		key:    k,
 		value:  b,
-		expiry: time.Now().Add(bc.ttl),
+		expiry: time.Now().Add(c.ttl),
 		cancel: cancel,
 	}
-	bc.entries = append(bc.entries, ent)
+	c.entries = append(c.entries, ent)
 
-	for bc.len() > bc.maxLen {
-		bc.evictHead()
+	for c.len() > c.maxLen {
+		c.evictHead()
 	}
 
-	bc.catfileCacheMembers.Set(float64(bc.len()))
+	c.catfileCacheMembers.Set(float64(c.len()))
 }
 
-func (bc *BatchCache) head() *entry { return bc.entries[0] }
-func (bc *BatchCache) evictHead()   { bc.delete(0, true) }
-func (bc *BatchCache) len() int     { return len(bc.entries) }
+func (c *ProcessCache) head() *entry { return c.entries[0] }
+func (c *ProcessCache) evictHead()   { c.delete(0, true) }
+func (c *ProcessCache) len() int     { return len(c.entries) }
 
-// checkout removes a value from bc. After use the caller can re-add the value with bc.Add.
-func (bc *BatchCache) checkout(k key) (*entry, bool) {
-	bc.entriesMutex.Lock()
-	defer bc.entriesMutex.Unlock()
+// checkout removes a value from c. After use the caller can re-add the value with c.Add.
+func (c *ProcessCache) checkout(k key) (*entry, bool) {
+	c.entriesMutex.Lock()
+	defer c.entriesMutex.Unlock()
 
-	i, ok := bc.lookup(k)
+	i, ok := c.lookup(k)
 	if !ok {
-		bc.catfileCacheCounter.WithLabelValues("miss").Inc()
+		c.catfileCacheCounter.WithLabelValues("miss").Inc()
 		return nil, false
 	}
 
-	bc.catfileCacheCounter.WithLabelValues("hit").Inc()
+	c.catfileCacheCounter.WithLabelValues("hit").Inc()
 
-	entry := bc.entries[i]
-	bc.delete(i, false)
+	entry := c.entries[i]
+	c.delete(i, false)
 	return entry, true
 }
 
 // enforceTTL evicts all entries older than now, assuming the entry
 // expiry times are increasing.
-func (bc *BatchCache) enforceTTL(now time.Time) {
-	bc.entriesMutex.Lock()
-	defer bc.entriesMutex.Unlock()
+func (c *ProcessCache) enforceTTL(now time.Time) {
+	c.entriesMutex.Lock()
+	defer c.entriesMutex.Unlock()
 
-	for bc.len() > 0 && now.After(bc.head().expiry) {
-		bc.evictHead()
+	for c.len() > 0 && now.After(c.head().expiry) {
+		c.evictHead()
 	}
 }
 
 // Evict evicts all cached processes from the cache.
-func (bc *BatchCache) Evict() {
-	bc.entriesMutex.Lock()
-	defer bc.entriesMutex.Unlock()
+func (c *ProcessCache) Evict() {
+	c.entriesMutex.Lock()
+	defer c.entriesMutex.Unlock()
 
-	for bc.len() > 0 {
-		bc.evictHead()
+	for c.len() > 0 {
+		c.evictHead()
 	}
 }
 
-func (bc *BatchCache) lookup(k key) (int, bool) {
-	for i, ent := range bc.entries {
+func (c *ProcessCache) lookup(k key) (int, bool) {
+	for i, ent := range c.entries {
 		if ent.key == k {
 			return i, true
 		}
@@ -349,14 +349,14 @@ func (bc *BatchCache) lookup(k key) (int, bool) {
 	return -1, false
 }
 
-func (bc *BatchCache) delete(i int, wantClose bool) {
-	ent := bc.entries[i]
+func (c *ProcessCache) delete(i int, wantClose bool) {
+	ent := c.entries[i]
 
 	if wantClose {
 		ent.value.Close()
 		ent.cancel()
 	}
 
-	bc.entries = append(bc.entries[:i], bc.entries[i+1:]...)
-	bc.catfileCacheMembers.Set(float64(bc.len()))
+	c.entries = append(c.entries[:i], c.entries[i+1:]...)
+	c.catfileCacheMembers.Set(float64(c.len()))
 }

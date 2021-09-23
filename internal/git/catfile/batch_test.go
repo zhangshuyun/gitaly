@@ -434,7 +434,7 @@ func numGitChildren(t *testing.T) int {
 	return bytes.Count(out, []byte("\n"))
 }
 
-func cacheSize(bc *BatchCache) int {
+func cacheSize(bc *ProcessCache) int {
 	bc.entriesMutex.Lock()
 	defer bc.entriesMutex.Unlock()
 	return bc.len()

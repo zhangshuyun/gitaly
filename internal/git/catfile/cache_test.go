@@ -344,7 +344,7 @@ func TestCache_BatchProcess(t *testing.T) {
 	})
 }
 
-func requireCacheValid(t *testing.T, bc *BatchCache) {
+func requireCacheValid(t *testing.T, bc *ProcessCache) {
 	bc.entriesMutex.Lock()
 	defer bc.entriesMutex.Unlock()
 
@@ -375,7 +375,7 @@ func mustCreateKey(t *testing.T, sessionID string, repo repository.GitRepo) key 
 	return key
 }
 
-func keys(t *testing.T, bc *BatchCache) []key {
+func keys(t *testing.T, bc *ProcessCache) []key {
 	t.Helper()
 
 	bc.entriesMutex.Lock()
