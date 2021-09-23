@@ -122,18 +122,19 @@ type cache struct {
 	stopOnce   sync.Once
 	logger     logrus.FieldLogger
 	dir        string
+	sleepLoop  *dontpanic.Forever
 }
 
 // New returns a new cache instance.
 func New(cfg config.StreamCacheConfig, logger logrus.FieldLogger) Cache {
 	if cfg.Enabled {
-		return newCacheWithSleep(cfg.Dir, cfg.MaxAge.Duration(), time.Sleep, logger)
+		return newCacheWithSleep(cfg.Dir, cfg.MaxAge.Duration(), time.After, logger)
 	}
 
 	return NullCache{}
 }
 
-func newCacheWithSleep(dir string, maxAge time.Duration, sleep func(time.Duration), logger logrus.FieldLogger) Cache {
+func newCacheWithSleep(dir string, maxAge time.Duration, sleep func(time.Duration) <-chan time.Time, logger logrus.FieldLogger) Cache {
 	fs := newFilestore(dir, maxAge, sleep, logger)
 
 	c := &cache{
@@ -143,13 +144,15 @@ func newCacheWithSleep(dir string, maxAge time.Duration, sleep func(time.Duratio
 		stop:       make(chan struct{}),
 		logger:     logger,
 		dir:        dir,
+		sleepLoop:  dontpanic.NewForever(time.Minute),
 	}
 
-	dontpanic.NewForever(time.Minute).Go(func() {
+	c.sleepLoop.Go(func() {
 		sleepLoop(c.stop, c.maxAge, sleep, c.clean)
 	})
 	go func() {
 		<-c.stop
+		c.sleepLoop.Cancel()
 		fs.Stop()
 	}()
 
@@ -353,19 +356,17 @@ func (w *waiter) Wait(ctx context.Context) error {
 	}
 }
 
-func sleepLoop(done chan struct{}, period time.Duration, sleep func(time.Duration), callback func()) {
+func sleepLoop(done chan struct{}, period time.Duration, sleep func(time.Duration) <-chan time.Time, callback func()) {
 	const maxPeriod = time.Minute
 	if period <= 0 || period >= maxPeriod {
 		period = maxPeriod
 	}
 
 	for {
-		sleep(period)
-
 		select {
 		case <-done:
 			return
-		default:
+		case <-sleep(period):
 		}
 
 		callback()
