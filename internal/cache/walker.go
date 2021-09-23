@@ -98,7 +98,7 @@ func (c *DiskCache) walkLoop(walkPath string) {
 	logger.Infof("Starting file walker for %s", walkPath)
 
 	walkTick := time.NewTicker(cleanWalkFrequency)
-	dontpanic.GoForever(time.Minute, func() {
+	dontpanic.NewForever(time.Minute).Go(func() {
 		if err := c.cleanWalk(walkPath); err != nil {
 			logger.Error(err)
 		}

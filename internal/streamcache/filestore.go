@@ -65,7 +65,7 @@ func newFilestore(dir string, maxAge time.Duration, sleep func(time.Duration), l
 		stop:   make(chan struct{}),
 	}
 
-	dontpanic.GoForever(1*time.Minute, func() {
+	dontpanic.NewForever(time.Minute).Go(func() {
 		sleepLoop(fs.stop, fs.maxAge, sleep, func() {
 			diskUsageGauge.WithLabelValues(fs.dir).Set(fs.diskUsage())
 

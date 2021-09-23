@@ -145,7 +145,7 @@ func newCacheWithSleep(dir string, maxAge time.Duration, sleep func(time.Duratio
 		dir:        dir,
 	}
 
-	dontpanic.GoForever(1*time.Minute, func() {
+	dontpanic.NewForever(time.Minute).Go(func() {
 		sleepLoop(c.stop, c.maxAge, sleep, c.clean)
 	})
 	go func() {
