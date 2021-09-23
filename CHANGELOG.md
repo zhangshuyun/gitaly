@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## 14.0.11 (2021-09-23)
+
+### Fixed (1 change)
+
+- [Derive virtual storage's filesystem id from its name](gitlab-org/gitaly@34cfd2c2b4964cf1c0ad1704fd9e2c25666bcf16) ([merge request](gitlab-org/gitaly!3834))
+
 ## 14.0.10 (2021-09-02)
 
 ### Fixed (2 changes)
