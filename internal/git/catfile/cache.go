@@ -80,7 +80,7 @@ type ProcessCache struct {
 	currentCatfileProcesses prometheus.Gauge
 	totalCatfileProcesses   prometheus.Counter
 	catfileLookupCounter    *prometheus.CounterVec
-	catfileCacheMembers     prometheus.Gauge
+	catfileCacheMembers     *prometheus.GaugeVec
 
 	entriesMutex sync.Mutex
 	entries      []*entry
@@ -130,11 +130,12 @@ func newCache(ttl time.Duration, maxLen int, refreshInterval time.Duration) *Pro
 			},
 			[]string{"type"},
 		),
-		catfileCacheMembers: prometheus.NewGauge(
+		catfileCacheMembers: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "gitaly_catfile_cache_members",
-				Help: "Gauge of catfile cache members",
+				Help: "Gauge of catfile cache members by process type",
 			},
+			[]string{"type"},
 		),
 		monitorTicker: time.NewTicker(refreshInterval),
 		monitorDone:   make(chan interface{}),
@@ -167,6 +168,8 @@ func (c *ProcessCache) monitor() {
 			close(c.monitorDone)
 			return
 		}
+
+		c.reportCacheMembers()
 	}
 }
 
@@ -185,6 +188,8 @@ func (c *ProcessCache) BatchProcess(ctx context.Context, repo git.RepositoryExec
 	if requestDone == nil {
 		panic("empty ctx.Done() in catfile.Batch.New()")
 	}
+
+	defer c.reportCacheMembers()
 
 	var cancel func()
 	cacheKey, isCacheable := newCacheKey(metadata.GetValue(ctx, SessionIDField), repo)
@@ -249,8 +254,14 @@ func (c *ProcessCache) BatchProcess(ctx context.Context, repo git.RepositoryExec
 	return batch, nil
 }
 
+func (c *ProcessCache) reportCacheMembers() {
+	c.catfileCacheMembers.WithLabelValues("batch").Set(float64(c.entryCount()))
+}
+
 func (c *ProcessCache) returnWhenDone(done <-chan struct{}, cacheKey key, batch *batch, cancel func()) {
 	<-done
+
+	defer c.reportCacheMembers()
 
 	if c.cachedProcessDone != nil {
 		defer func() {
@@ -298,8 +309,6 @@ func (c *ProcessCache) add(k key, b *batch, cancel func()) bool {
 	for len(c.entries) > c.maxLen {
 		c.evictHead()
 	}
-
-	c.catfileCacheMembers.Set(float64(len(c.entries)))
 
 	return replacedExisting
 }
@@ -370,5 +379,4 @@ func (c *ProcessCache) delete(i int, wantClose bool) {
 	}
 
 	c.entries = append(c.entries[:i], c.entries[i+1:]...)
-	c.catfileCacheMembers.Set(float64(len(c.entries)))
 }
