@@ -248,6 +248,7 @@ func TestUnaryNoAuth(t *testing.T) {
 	path := runServer(t, cfg)
 	conn, err := grpc.Dial(path, grpc.WithInsecure())
 	require.NoError(t, err)
+	defer testhelper.MustClose(t, conn)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

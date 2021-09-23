@@ -63,6 +63,7 @@ func TestNodeStatus(t *testing.T) {
 		"unix://"+socket,
 		grpc.WithInsecure(),
 	)
+	defer testhelper.MustClose(t, cc)
 
 	require.NoError(t, err)
 

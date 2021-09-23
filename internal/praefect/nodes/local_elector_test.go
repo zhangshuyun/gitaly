@@ -20,6 +20,7 @@ func setupElector(t *testing.T) (*localElector, []*nodeStatus, *grpc.ClientConn)
 		"unix://"+socket,
 		grpc.WithInsecure(),
 	)
+	t.Cleanup(func() { testhelper.MustClose(t, cc) })
 
 	require.NoError(t, err)
 

@@ -121,7 +121,8 @@ func TestSuccessfulInfoRefsUploadPackWithGitProtocol(t *testing.T) {
 		GitProtocol: git.ProtocolV2,
 	}
 
-	client, _ := newSmartHTTPClient(t, serverSocketPath, cfg.Auth.Token)
+	client, conn := newSmartHTTPClient(t, serverSocketPath, cfg.Auth.Token)
+	defer testhelper.MustClose(t, conn)
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 

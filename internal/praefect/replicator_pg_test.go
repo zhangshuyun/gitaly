@@ -48,6 +48,7 @@ func TestReplicatorInvalidSourceRepository(t *testing.T) {
 
 	targetCC, err := client.Dial(ln.Addr().Network()+":"+ln.Addr().String(), nil)
 	require.NoError(t, err)
+	defer testhelper.MustClose(t, targetCC)
 
 	rs := datastore.NewPostgresRepositoryStore(glsql.NewDB(t), nil)
 	require.NoError(t, rs.SetGeneration(ctx, "virtual-storage-1", "relative-path-1", "gitaly-1", 0))

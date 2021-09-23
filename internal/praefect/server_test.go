@@ -1005,6 +1005,7 @@ func TestErrorThreshold(t *testing.T) {
 
 			conn, err := dial("unix://"+socket, []grpc.DialOption{grpc.WithInsecure()})
 			require.NoError(t, err)
+			defer testhelper.MustClose(t, conn)
 			cli := mock.NewSimpleServiceClient(conn)
 
 			_, repo, _ := testcfg.BuildWithRepo(t)
@@ -1048,6 +1049,7 @@ func newSmartHTTPClient(t *testing.T, serverSocketPath string) (gitalypb.SmartHT
 
 	conn, err := grpc.Dial(serverSocketPath, grpc.WithInsecure())
 	require.NoError(t, err)
+	t.Cleanup(func() { testhelper.MustClose(t, conn) })
 
 	return gitalypb.NewSmartHTTPServiceClient(conn), conn
 }

@@ -108,6 +108,7 @@ func TestRepositoryExistsHandler(t *testing.T) {
 
 			clientConn, err := grpc.DialContext(ctx, "unix://"+ln.Addr().String(), grpc.WithInsecure())
 			require.NoError(t, err)
+			defer testhelper.MustClose(t, clientConn)
 
 			client := gitalypb.NewRepositoryServiceClient(clientConn)
 			_, err = client.RepositorySize(ctx, &gitalypb.RepositorySizeRequest{Repository: tc.repository})
