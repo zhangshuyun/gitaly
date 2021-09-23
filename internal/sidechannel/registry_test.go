@@ -33,17 +33,18 @@ func TestRegistry(t *testing.T) {
 
 		close(triggerCallback)
 
-		require.NoError(t, waiter.Wait())
+		require.NoError(t, waiter.Close())
 		requireConnClosed(t, client)
 	})
 
-	t.Run("pull connections successfully", func(t *testing.T) {
+	t.Run("receive connections successfully", func(t *testing.T) {
 		wg := sync.WaitGroup{}
-		var servers []*ServerConn
+		servers := make([]net.Conn, N)
 
 		for i := 0; i < N; i++ {
 			client, server := socketPair(t)
-			servers = append(servers, newServerConn(server))
+			servers[i] = server
+			defer server.Close()
 
 			wg.Add(1)
 			go func(i int) {
@@ -57,7 +58,7 @@ func TestRegistry(t *testing.T) {
 				defer waiter.Close()
 
 				require.NoError(t, registry.receive(waiter.id, client))
-				require.NoError(t, waiter.Wait())
+				require.NoError(t, waiter.Close())
 				requireConnClosed(t, client)
 
 				wg.Done()
@@ -65,7 +66,14 @@ func TestRegistry(t *testing.T) {
 		}
 
 		for i := 0; i < N; i++ {
-			out, err := io.ReadAll(servers[i])
+			// Read registry confirmation
+			buf := make([]byte, 2)
+			_, err := io.ReadFull(servers[i], buf)
+			require.NoError(t, err)
+			require.Equal(t, "ok", string(buf))
+
+			// Read data written by callback
+			out, err := io.ReadAll(newServerConn(servers[i]))
 			require.NoError(t, err)
 			require.Equal(t, strconv.Itoa(i), string(out))
 		}
@@ -74,7 +82,7 @@ func TestRegistry(t *testing.T) {
 		require.Equal(t, 0, registry.waiting())
 	})
 
-	t.Run("push connection to non-existing ID", func(t *testing.T) {
+	t.Run("receive connection for non-existing ID", func(t *testing.T) {
 		client, _ := socketPair(t)
 		err := registry.receive(registry.nextID+1, client)
 		require.EqualError(t, err, "sidechannel registry: ID not registered")
@@ -83,7 +91,7 @@ func TestRegistry(t *testing.T) {
 
 	t.Run("pre-maturely close the waiter", func(t *testing.T) {
 		waiter := registry.Register(func(conn *ClientConn) error { panic("never execute") })
-		require.NoError(t, waiter.Close())
+		require.Equal(t, ErrCallbackDidNotRun, waiter.Close())
 		require.Equal(t, 0, registry.waiting())
 	})
 }

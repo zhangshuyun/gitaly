@@ -518,7 +518,7 @@ func makePostUploadPackWithSidechannelRequest(ctx context.Context, t *testing.T,
 
 		return <-errC
 	})
-	defer testhelper.MustClose(t, waiter)
+	defer waiter.Close()
 
 	rpcRequest := &gitalypb.PostUploadPackWithSidechannelRequest{
 		Repository:       in.GetRepository(),
@@ -527,7 +527,7 @@ func makePostUploadPackWithSidechannelRequest(ctx context.Context, t *testing.T,
 	}
 	_, err := client.PostUploadPackWithSidechannel(ctxOut, rpcRequest)
 	if err == nil {
-		require.NoError(t, waiter.Wait())
+		require.NoError(t, waiter.Close())
 	}
 
 	return responseBuffer, err

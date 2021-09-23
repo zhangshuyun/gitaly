@@ -1,9 +1,11 @@
 package sidechannel
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"sync"
+	"time"
 )
 
 // sidechannelID is the type of ID used to differeniate sidechannel connections
@@ -23,7 +25,8 @@ type Registry struct {
 type Waiter struct {
 	id       sidechannelID
 	registry *Registry
-	errC     chan error
+	err      error
+	done     chan struct{}
 	accept   chan net.Conn
 	callback func(*ClientConn) error
 }
@@ -47,13 +50,16 @@ func (s *Registry) Register(callback func(*ClientConn) error) *Waiter {
 	waiter := &Waiter{
 		id:       s.nextID,
 		registry: s,
-		errC:     make(chan error),
+		done:     make(chan struct{}),
 		accept:   make(chan net.Conn),
 		callback: callback,
 	}
 	s.nextID++
 
-	go waiter.run()
+	go func() {
+		defer close(waiter.done)
+		waiter.err = waiter.run()
+	}()
 	s.waiters[waiter.id] = waiter
 	return waiter
 }
@@ -99,23 +105,34 @@ func (s *Registry) waiting() int {
 	return len(s.waiters)
 }
 
-func (w *Waiter) run() {
-	defer close(w.errC)
+var ErrCallbackDidNotRun = errors.New("sidechannel: callback de-registered without having run")
 
-	if conn := <-w.accept; conn != nil {
-		defer conn.Close()
-		w.errC <- w.callback(newClientConn(conn))
+func (w *Waiter) run() error {
+	conn := <-w.accept
+	if conn == nil {
+		return ErrCallbackDidNotRun
 	}
+	defer conn.Close()
+
+	if err := conn.SetWriteDeadline(time.Now().Add(sidechannelTimeout)); err != nil {
+		return err
+	}
+	if _, err := conn.Write([]byte("ok")); err != nil {
+		return err
+	}
+	if err := conn.SetWriteDeadline(time.Time{}); err != nil {
+		return err
+	}
+
+	return w.callback(newClientConn(conn))
 }
 
-// Close cleans the waiter, removes it from the registry. If the callback is
-// executing, this method is blocked until the callback is done.
+// Close de-registers the callback. If the callback got triggered,
+// Close() will return its error return value. If the callback has not
+// started by the time Close() is called, Close() returns
+// ErrCallbackDidNotRun.
 func (w *Waiter) Close() error {
 	w.registry.removeWaiter(w)
-	return <-w.errC
-}
-
-// Wait waits until either the callback is executed, or the waiter is closed
-func (w *Waiter) Wait() error {
-	return <-w.errC
+	<-w.done
+	return w.err
 }

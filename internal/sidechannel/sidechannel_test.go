@@ -197,7 +197,7 @@ func call(ctx context.Context, conn *grpc.ClientConn, registry *Registry, handle
 		return err
 	}
 
-	if err := waiter.Wait(); err != nil {
+	if err := waiter.Close(); err != nil {
 		return err
 	}
 

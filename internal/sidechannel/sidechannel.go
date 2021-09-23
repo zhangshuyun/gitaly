@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"net"
 	"strconv"
 	"time"
@@ -62,6 +63,14 @@ func OpenSidechannel(ctx context.Context) (_ *ServerConn, err error) {
 
 	if err := binary.Write(stream, binary.BigEndian, sidechannelID); err != nil {
 		return nil, fmt.Errorf("sidechannel: write stream id: %w", err)
+	}
+
+	buf := make([]byte, 2)
+	if _, err := io.ReadFull(stream, buf); err != nil {
+		return nil, fmt.Errorf("sidechannel: receive confirmation: %w", err)
+	}
+	if string(buf) != "ok" {
+		return nil, fmt.Errorf("sidechannel: expected ok, got %q", buf)
 	}
 
 	if err := stream.SetDeadline(time.Time{}); err != nil {
