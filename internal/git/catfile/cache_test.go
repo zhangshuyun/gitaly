@@ -327,7 +327,7 @@ func TestCache_BatchProcess(t *testing.T) {
 
 		// Closed processes naturally cannot be reused anymore and thus shouldn't ever get
 		// cached.
-		batch.Close()
+		batch.close()
 
 		// Cancel the context such that the process will be considered for return to the
 		// cache and wait for the cache to collect it.

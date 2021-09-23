@@ -76,14 +76,14 @@ func newObjectReader(
 	}
 	go func() {
 		<-ctx.Done()
-		objectReader.Close()
+		objectReader.close()
 		span.Finish()
 	}()
 
 	return objectReader, nil
 }
 
-func (o *objectReader) Close() {
+func (o *objectReader) close() {
 	_ = o.cmd.Wait()
 }
 

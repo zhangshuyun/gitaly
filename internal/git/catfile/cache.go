@@ -38,7 +38,7 @@ type Cache interface {
 type cacheable interface {
 	isClosed() bool
 	isDirty() bool
-	Close()
+	close()
 }
 
 // ProcessCache entries always get added to the back of the list. If the
@@ -209,7 +209,7 @@ func (c *ProcessCache) getOrCreateProcess(
 		// We have not found any cached process, so we need to create a new one. In this
 		// case, we need to detach the process from the current context such that it does
 		// not get killed when the current context is done. Note that while we explicitly
-		// `Close()` processes in case this function fails, we must have a cancellable
+		// `close()` processes in case this function fails, we must have a cancellable
 		// context or otherwise our `command` package will panic.
 		ctx, cancel = context.WithCancel(context.Background())
 		defer func() {
@@ -232,7 +232,7 @@ func (c *ProcessCache) getOrCreateProcess(
 		// If we somehow fail after creating a new Batch process, then we want to kill
 		// spawned processes right away.
 		if returnedErr != nil {
-			batch.Close()
+			batch.close()
 		}
 	}()
 
@@ -280,7 +280,7 @@ func (c *ProcessCache) returnWhenDone(done <-chan struct{}, s *stack, cacheKey k
 	if value.isDirty() {
 		cancel()
 		c.catfileCacheCounter.WithLabelValues("dirty").Inc()
-		value.Close()
+		value.close()
 		return
 	}
 
@@ -413,7 +413,7 @@ func (s *stack) delete(i int, wantClose bool) {
 	ent := s.entries[i]
 
 	if wantClose {
-		ent.value.Close()
+		ent.value.close()
 		ent.cancel()
 	}
 

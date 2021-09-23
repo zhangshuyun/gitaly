@@ -54,7 +54,7 @@ func newBatch(
 		// If creation of the ObjectInfoReader fails, then we do not want to leak the
 		// ObjectReader process.
 		if returnedErr != nil {
-			objectReader.Close()
+			objectReader.close()
 		}
 	}()
 
@@ -68,7 +68,7 @@ func newBatch(
 
 // Close closes the writers for objectInfoReader and objectReader. This is only used for cached
 // Batches
-func (c *batch) Close() {
+func (c *batch) close() {
 	c.closedMutex.Lock()
 	defer c.closedMutex.Unlock()
 
@@ -77,8 +77,8 @@ func (c *batch) Close() {
 	}
 
 	c.closed = true
-	c.objectReader.Close()
-	c.objectInfoReader.Close()
+	c.objectReader.close()
+	c.objectInfoReader.close()
 }
 
 func (c *batch) isClosed() bool {

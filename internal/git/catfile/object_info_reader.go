@@ -113,14 +113,14 @@ func newObjectInfoReader(
 	go func() {
 		<-ctx.Done()
 		// This is crucial to prevent leaking file descriptors.
-		objectInfoReader.Close()
+		objectInfoReader.close()
 		span.Finish()
 	}()
 
 	return objectInfoReader, nil
 }
 
-func (o *objectInfoReader) Close() {
+func (o *objectInfoReader) close() {
 	_ = o.cmd.Wait()
 }
 
