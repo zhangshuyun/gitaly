@@ -53,6 +53,7 @@ func TestDiskCacheObjectWalker(t *testing.T) {
 
 	cache := New(cfg, locator, withDisabledMoveAndClear())
 	require.NoError(t, cache.StartWalkers())
+	defer cache.StopWalkers()
 
 	pollCountersUntil(t, cache, 4)
 
@@ -78,6 +79,7 @@ func TestDiskCacheInitialClear(t *testing.T) {
 
 	cache := New(cfg, locator, withDisabledWalker())
 	require.NoError(t, cache.StartWalkers())
+	defer cache.StopWalkers()
 
 	require.NoFileExists(t, canary)
 }

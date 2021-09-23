@@ -10,6 +10,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/dontpanic"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/safe"
@@ -79,6 +80,9 @@ type DiskCache struct {
 	af          activeFiles
 	cacheConfig cacheConfig
 
+	walkersDone chan struct{}
+	walkerLoops []*dontpanic.Forever
+
 	requestTotals              prometheus.Counter
 	missTotals                 prometheus.Counter
 	bytesStoredtotals          prometheus.Counter
@@ -107,6 +111,7 @@ func New(cfg config.Cfg, locator storage.Locator, opts ...Option) *DiskCache {
 			m:     map[string]int{},
 		},
 		cacheConfig: cacheConfig,
+		walkersDone: make(chan struct{}),
 
 		requestTotals: prometheus.NewCounter(
 			prometheus.CounterOpts{
