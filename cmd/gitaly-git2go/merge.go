@@ -18,27 +18,16 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 )
 
-type mergeSubcommand struct {
-	request string
-}
+type mergeSubcommand struct{}
 
 func (cmd *mergeSubcommand) Flags() *flag.FlagSet {
 	flags := flag.NewFlagSet("merge", flag.ExitOnError)
-	flags.StringVar(&cmd.request, "request", "", "git2go.MergeCommand")
 	return flags
 }
 
 func (cmd *mergeSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) error {
-	useGob := cmd.request == ""
-
-	var err error
 	var request git2go.MergeCommand
-	if useGob {
-		err = gob.NewDecoder(r).Decode(&request)
-	} else {
-		request, err = git2go.MergeCommandFromSerialized(cmd.request)
-	}
-	if err != nil {
+	if err := gob.NewDecoder(r).Decode(&request); err != nil {
 		return err
 	}
 
@@ -46,30 +35,15 @@ func (cmd *mergeSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) err
 		request.AuthorDate = time.Now()
 	}
 
-	commitID, err := merge(request, useGob)
-	if useGob {
-		return gob.NewEncoder(w).Encode(git2go.Result{
-			CommitID: commitID,
-			Error:    git2go.SerializableError(err),
-		})
-	}
+	commitID, err := merge(request)
 
-	if err != nil {
-		return err
-	}
-
-	response := git2go.MergeResult{
+	return gob.NewEncoder(w).Encode(git2go.Result{
 		CommitID: commitID,
-	}
-
-	if err := response.SerializeTo(w); err != nil {
-		return err
-	}
-
-	return nil
+		Error:    git2go.SerializableError(err),
+	})
 }
 
-func merge(request git2go.MergeCommand, useStructuredErrors bool) (string, error) {
+func merge(request git2go.MergeCommand) (string, error) {
 	repo, err := git2goutil.OpenRepository(request.Repository)
 	if err != nil {
 		return "", fmt.Errorf("could not open repository: %w", err)
@@ -100,21 +74,17 @@ func merge(request git2go.MergeCommand, useStructuredErrors bool) (string, error
 
 	if index.HasConflicts() {
 		if !request.AllowConflicts {
-			if useStructuredErrors {
-				conflictingFiles, err := getConflictingFiles(index)
-				if err != nil {
-					return "", fmt.Errorf("getting conflicting files: %w", err)
-				}
-
-				return "", git2go.ConflictingFilesError{
-					ConflictingFiles: conflictingFiles,
-				}
+			conflictingFiles, err := getConflictingFiles(index)
+			if err != nil {
+				return "", fmt.Errorf("getting conflicting files: %w", err)
 			}
 
-			return "", errors.New("could not auto-merge due to conflicts")
+			return "", git2go.ConflictingFilesError{
+				ConflictingFiles: conflictingFiles,
+			}
 		}
 
-		if err := resolveConflicts(repo, index, useStructuredErrors); err != nil {
+		if err := resolveConflicts(repo, index); err != nil {
 			return "", fmt.Errorf("could not resolve conflicts: %w", err)
 		}
 	}
@@ -133,7 +103,7 @@ func merge(request git2go.MergeCommand, useStructuredErrors bool) (string, error
 	return commit.String(), nil
 }
 
-func resolveConflicts(repo *git.Repository, index *git.Index, useStructuredErrors bool) error {
+func resolveConflicts(repo *git.Repository, index *git.Index) error {
 	// We need to get all conflicts up front as resolving conflicts as we
 	// iterate breaks the iterator.
 	indexConflicts, err := getConflicts(index)
@@ -194,18 +164,14 @@ func resolveConflicts(repo *git.Repository, index *git.Index, useStructuredError
 	}
 
 	if index.HasConflicts() {
-		if useStructuredErrors {
-			conflictingFiles, err := getConflictingFiles(index)
-			if err != nil {
-				return fmt.Errorf("getting conflicting files: %w", err)
-			}
-
-			return git2go.ConflictingFilesError{
-				ConflictingFiles: conflictingFiles,
-			}
+		conflictingFiles, err := getConflictingFiles(index)
+		if err != nil {
+			return fmt.Errorf("getting conflicting files: %w", err)
 		}
 
-		return errors.New("index still has conflicts")
+		return git2go.ConflictingFilesError{
+			ConflictingFiles: conflictingFiles,
+		}
 	}
 
 	return nil
