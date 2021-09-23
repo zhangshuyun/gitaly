@@ -159,7 +159,7 @@ func TestUpdater_concurrentLocking(t *testing.T) {
 	if gitSupportsStatusFlushing(t, ctx, cfg) {
 		err := secondUpdater.Prepare()
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "state update to \"prepare\" failed: EOF, stderr: \"warning: update refs/heads/master: missing <newvalue>, treating as zero\\nfatal: prepare: cannot lock ref 'refs/heads/master'")
+		require.Contains(t, err.Error(), "fatal: prepare: cannot lock ref 'refs/heads/master'")
 
 		require.NoError(t, firstUpdater.Commit())
 	} else {
@@ -168,7 +168,7 @@ func TestUpdater_concurrentLocking(t *testing.T) {
 
 		err := secondUpdater.Commit()
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "git update-ref: exit status 128, stderr: \"warning: update refs/heads/master: missing <newvalue>, treating as zero\\nfatal: prepare: cannot lock ref 'refs/heads/master'")
+		require.Contains(t, err.Error(), "fatal: prepare: cannot lock ref 'refs/heads/master'")
 	}
 }
 
