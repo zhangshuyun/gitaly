@@ -2,7 +2,6 @@ package localrepo
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"path/filepath"
 	"runtime"
@@ -86,7 +85,7 @@ func TestRepo_SetConfig(t *testing.T) {
 			value:           "value",
 			locked:          true,
 			expectedEntries: standardEntries,
-			expectedErr:     fmt.Errorf("committing config: %w", fmt.Errorf("locking file: %w", errors.New("file already locked"))),
+			expectedErr:     fmt.Errorf("committing config: %w", fmt.Errorf("locking file: %w", safe.ErrFileAlreadyLocked)),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -224,7 +223,7 @@ func TestRepo_UnsetMatchingConfig(t *testing.T) {
 			desc:         "locked",
 			regex:        ".*",
 			locked:       true,
-			expectedErr:  fmt.Errorf("committing config: %w", fmt.Errorf("locking file: %w", errors.New("file already locked"))),
+			expectedErr:  fmt.Errorf("committing config: %w", fmt.Errorf("locking file: %w", safe.ErrFileAlreadyLocked)),
 			expectedKeys: standardKeys,
 		},
 	} {
