@@ -300,6 +300,10 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		}()
 		healthChecker = hm
 
+		// Wait for the first health check to complete so the Praefect doesn't start serving RPC
+		// before the router is ready with the health status of the nodes.
+		<-hm.Updated()
+
 		elector := nodes.NewPerRepositoryElector(db)
 
 		primaryGetter = elector
