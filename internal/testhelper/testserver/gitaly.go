@@ -80,8 +80,7 @@ func runPraefectProxy(t testing.TB, cfg config.Cfg, gitalyAddr, praefectBinPath 
 	dbName := createDatabase(t)
 
 	conf := praefectconfig.Config{
-		AllowLegacyElectors: true,
-		SocketPath:          praefectServerSocketPath,
+		SocketPath: praefectServerSocketPath,
 		Auth: auth.Config{
 			Token: cfg.Auth.Token,
 		},
@@ -93,10 +92,8 @@ func runPraefectProxy(t testing.TB, cfg config.Cfg, gitalyAddr, praefectBinPath 
 			SSLMode: "disable",
 		},
 		Failover: praefectconfig.Failover{
-			Enabled:           true,
-			ElectionStrategy:  praefectconfig.ElectionStrategyLocal,
-			BootstrapInterval: config.Duration(time.Microsecond),
-			MonitorInterval:   config.Duration(time.Second),
+			Enabled:          true,
+			ElectionStrategy: praefectconfig.ElectionStrategyLocal,
 		},
 		Replication: praefectconfig.DefaultReplicationConfig(),
 		Logging: gitalylog.Config{
