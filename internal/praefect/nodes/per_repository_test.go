@@ -510,7 +510,14 @@ func TestPerRepositoryElector(t *testing.T) {
 			}
 
 			for _, event := range tc.existingJobs {
-				_, err := db.ExecContext(ctx,
+				repositoryID, err := rs.GetRepositoryID(ctx, event.Job.VirtualStorage, event.Job.RelativePath)
+				if err != nil {
+					require.Equal(t, commonerr.NewRepositoryNotFoundError(event.Job.VirtualStorage, event.Job.RelativePath), err)
+				}
+
+				event.Job.RepositoryID = repositoryID
+
+				_, err = db.ExecContext(ctx,
 					"INSERT INTO replication_queue (state, job) VALUES ($1, $2)",
 					event.State, event.Job,
 				)
