@@ -115,6 +115,57 @@ func TestSuccessfulCreateBranchRequest(t *testing.T) {
 	}
 }
 
+func TestSuccessfulUserCreateBranchWithExistingTagOfSameName(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+
+	preExistingTagName := "foobarTag"
+	gittest.Exec(t, cfg, "-C", repoPath, "tag", "-f", preExistingTagName)
+
+	testCases := []struct {
+		desc       string
+		branchName string
+	}{
+		{
+			desc:       "branch matches existing tag name",
+			branchName: preExistingTagName,
+		},
+		{
+			// This should create a branch under refs/heads/refs/tags/{something}
+			desc:       "branch matches existing tag ref prefix",
+			branchName: "refs/tags/" + preExistingTagName,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.desc, func(t *testing.T) {
+			refs := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs")
+			require.NotContains(t, string(refs), "refs/heads/"+testCase.branchName)
+			require.Contains(t, string(refs), "refs/tags/"+preExistingTagName)
+
+			request := &gitalypb.UserCreateBranchRequest{
+				Repository: repoProto,
+				BranchName: []byte(testCase.branchName),
+				StartPoint: []byte("c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"),
+				User:       gittest.TestUser,
+			}
+
+			response, err := client.UserCreateBranch(ctx, request)
+			require.NoError(t, err)
+			require.Equal(t, testCase.branchName, string(response.Branch.Name))
+			require.Empty(t, response.PreReceiveError)
+
+			refs = gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs")
+			require.Contains(t, string(refs), "refs/heads/"+testCase.branchName)
+			require.Contains(t, string(refs), "refs/tags/"+preExistingTagName)
+		})
+	}
+}
+
 func TestUserCreateBranchWithTransaction(t *testing.T) {
 	t.Parallel()
 
@@ -440,6 +491,57 @@ func TestSuccessfulUserDeleteBranchRequest(t *testing.T) {
 
 			refs := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+testCase.branchNameInput)
 			require.NotContains(t, string(refs), testCase.branchCommit, "branch deleted from refs")
+		})
+	}
+}
+
+func TestSuccessfulDeleteBranchWithoutImpactingTagOfSameName(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+
+	preExistingTagName := "foobarTag"
+	gittest.Exec(t, cfg, "-C", repoPath, "tag", "-f", preExistingTagName)
+
+	testCases := []struct {
+		desc       string
+		branchName string
+	}{
+		{
+			desc:       "branch matches existing tag name",
+			branchName: preExistingTagName,
+		},
+		{
+			// This should create a branch under refs/heads/refs/tags/{something}
+			desc:       "branch matches existing tag ref prefix",
+			branchName: "refs/tags/" + preExistingTagName,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.desc, func(t *testing.T) {
+			gittest.Exec(t, cfg, "-C", repoPath, "branch", "-f", testCase.branchName)
+
+			refs := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs")
+			require.Contains(t, string(refs), "refs/heads/"+testCase.branchName)
+			require.Contains(t, string(refs), "refs/tags/"+preExistingTagName)
+
+			request := &gitalypb.UserDeleteBranchRequest{
+				Repository: repoProto,
+				BranchName: []byte(testCase.branchName),
+				User:       gittest.TestUser,
+			}
+
+			response, err := client.UserDeleteBranch(ctx, request)
+			require.NoError(t, err)
+			require.Empty(t, response.PreReceiveError)
+
+			refs = gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs")
+			require.NotContains(t, string(refs), "refs/heads/"+testCase.branchName)
+			require.Contains(t, string(refs), "refs/tags/"+preExistingTagName)
 		})
 	}
 }

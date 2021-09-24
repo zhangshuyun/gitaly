@@ -54,6 +54,60 @@ func TestSuccessfulUserDeleteTagRequest(t *testing.T) {
 	require.NotContains(t, string(tags), tagNameInput, "tag name still exists in tags list")
 }
 
+func TestSuccessfulUserCreateTagWithExistingBranchOfSameName(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+
+	preExistingBranchName := "foobarBranch"
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", "-f", preExistingBranchName)
+
+	testCases := []struct {
+		desc    string
+		tagName string
+	}{
+		{
+			desc:    "branch matches existing tag name",
+			tagName: preExistingBranchName,
+		},
+		{
+			// This should create a tag under refs/tags/refs/heads/{something}
+			desc:    "branch matches existing tag ref prefix",
+			tagName: "refs/heads/" + preExistingBranchName,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.desc, func(t *testing.T) {
+			refs := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs")
+			require.NotContains(t, string(refs), "refs/tags/"+testCase.tagName)
+			require.Contains(t, string(refs), "refs/heads/"+preExistingBranchName)
+
+			tags := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/tags/"+testCase.tagName)
+			require.NotContains(t, string(tags), "refs/tags/"+testCase.tagName)
+
+			request := &gitalypb.UserCreateTagRequest{
+				Repository:     repoProto,
+				TagName:        []byte(testCase.tagName),
+				TargetRevision: []byte("master"),
+				User:           gittest.TestUser,
+			}
+
+			response, err := client.UserCreateTag(ctx, request)
+			require.NoError(t, err)
+			require.Equal(t, testCase.tagName, string(response.Tag.Name))
+			require.Empty(t, response.PreReceiveError)
+
+			refs = gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs")
+			require.Contains(t, string(refs), "refs/tags/"+testCase.tagName)
+			require.Contains(t, string(refs), "refs/heads/"+preExistingBranchName)
+		})
+	}
+}
+
 func TestSuccessfulGitHooksForUserDeleteTagRequest(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := testhelper.Context()
@@ -880,6 +934,57 @@ func TestUserCreateTagStableTagIDs(t *testing.T) {
 		Message:     []byte("my message"),
 		MessageSize: 10,
 	}, response.Tag)
+}
+
+func TestSuccessfulDeleteTagWithoutImpactingBranchOfSameName(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+
+	preExistingBranchName := "foobarBranch"
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", "-f", preExistingBranchName)
+
+	testCases := []struct {
+		desc    string
+		tagName string
+	}{
+		{
+			desc:    "tag matches existing branch name",
+			tagName: preExistingBranchName,
+		},
+		{
+			// This should create a branch under refs/heads/refs/tags/{something}
+			desc:    "tag matches existing branch ref prefix",
+			tagName: "refs/tags/" + preExistingBranchName,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.desc, func(t *testing.T) {
+			gittest.Exec(t, cfg, "-C", repoPath, "tag", "-f", testCase.tagName)
+
+			refs := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs")
+			require.Contains(t, string(refs), "refs/tags/"+testCase.tagName)
+			require.Contains(t, string(refs), "refs/heads/"+preExistingBranchName)
+
+			request := &gitalypb.UserDeleteTagRequest{
+				Repository: repoProto,
+				TagName:    []byte(testCase.tagName),
+				User:       gittest.TestUser,
+			}
+
+			response, err := client.UserDeleteTag(ctx, request)
+			require.NoError(t, err)
+			require.Empty(t, response.PreReceiveError)
+
+			refs = gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs")
+			require.NotContains(t, string(refs), "refs/tags/"+testCase.tagName)
+			require.Contains(t, string(refs), "refs/heads/"+preExistingBranchName)
+		})
+	}
 }
 
 func TestUserDeleteTagSuccessfulDeletionOfPrefixedTag(t *testing.T) {
