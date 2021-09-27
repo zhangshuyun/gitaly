@@ -59,10 +59,11 @@ func (l LegacyLocator) newFull(repo *gitalypb.Repository) *Step {
 // file named LATEST.
 //
 // Structure:
-//   <repo relative path>/<backup id>/full.bundle
-//   <repo relative path>/<backup id>/full.refs
-//   <repo relative path>/<backup id>/custom_hooks.tar
 //   <repo relative path>/LATEST
+//   <repo relative path>/<backup id>/LATEST
+//   <repo relative path>/<backup id>/<nnn>.bundle
+//   <repo relative path>/<backup id>/<nnn>.refs
+//   <repo relative path>/<backup id>/<nnn>.custom_hooks.tar
 type PointerLocator struct {
 	Sink     Sink
 	Fallback Locator
@@ -73,9 +74,9 @@ func (l PointerLocator) BeginFull(ctx context.Context, repo *gitalypb.Repository
 	backupPath := strings.TrimSuffix(repo.RelativePath, ".git")
 
 	return &Step{
-		BundlePath:      filepath.Join(backupPath, backupID, "full.bundle"),
-		RefPath:         filepath.Join(backupPath, backupID, "full.refs"),
-		CustomHooksPath: filepath.Join(backupPath, backupID, "custom_hooks.tar"),
+		BundlePath:      filepath.Join(backupPath, backupID, "001.bundle"),
+		RefPath:         filepath.Join(backupPath, backupID, "001.refs"),
+		CustomHooksPath: filepath.Join(backupPath, backupID, "001.custom_hooks.tar"),
 	}
 }
 
@@ -84,7 +85,13 @@ func (l PointerLocator) CommitFull(ctx context.Context, full *Step) error {
 	bundleDir := filepath.Dir(full.BundlePath)
 	backupID := filepath.Base(bundleDir)
 	backupPath := filepath.Dir(bundleDir)
-	return l.commitLatestID(ctx, backupPath, backupID)
+	if err := l.writeLatest(ctx, bundleDir, "001"); err != nil {
+		return err
+	}
+	if err := l.writeLatest(ctx, backupPath, backupID); err != nil {
+		return err
+	}
+	return nil
 }
 
 // FindLatest returns the paths committed by the latest call to CommitFull.
@@ -104,9 +111,9 @@ func (l PointerLocator) FindLatest(ctx context.Context, repo *gitalypb.Repositor
 	return &Backup{
 		Steps: []Step{
 			{
-				BundlePath:      filepath.Join(backupPath, backupID, "full.bundle"),
-				RefPath:         filepath.Join(backupPath, backupID, "full.refs"),
-				CustomHooksPath: filepath.Join(backupPath, backupID, "custom_hooks.tar"),
+				BundlePath:      filepath.Join(backupPath, backupID, "001.bundle"),
+				RefPath:         filepath.Join(backupPath, backupID, "001.refs"),
+				CustomHooksPath: filepath.Join(backupPath, backupID, "001.custom_hooks.tar"),
 			},
 		},
 	}, nil
@@ -127,10 +134,10 @@ func (l PointerLocator) findLatestID(ctx context.Context, backupPath string) (st
 	return text.ChompBytes(latest), nil
 }
 
-func (l PointerLocator) commitLatestID(ctx context.Context, backupPath, backupID string) error {
-	latest := strings.NewReader(backupID)
-	if err := l.Sink.Write(ctx, filepath.Join(backupPath, "LATEST"), latest); err != nil {
-		return fmt.Errorf("commit latest ID: %w", err)
+func (l PointerLocator) writeLatest(ctx context.Context, path, target string) error {
+	latest := strings.NewReader(target)
+	if err := l.Sink.Write(ctx, filepath.Join(path, "LATEST"), latest); err != nil {
+		return fmt.Errorf("write latest: %w", err)
 	}
 	return nil
 }

@@ -68,10 +68,11 @@ func TestPointerLocator(t *testing.T) {
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
+		const expectedIncrement = "001"
 		expected := &Step{
-			BundlePath:      filepath.Join(repo.RelativePath, backupID, "full.bundle"),
-			RefPath:         filepath.Join(repo.RelativePath, backupID, "full.refs"),
-			CustomHooksPath: filepath.Join(repo.RelativePath, backupID, "custom_hooks.tar"),
+			BundlePath:      filepath.Join(repo.RelativePath, backupID, expectedIncrement+".bundle"),
+			RefPath:         filepath.Join(repo.RelativePath, backupID, expectedIncrement+".refs"),
+			CustomHooksPath: filepath.Join(repo.RelativePath, backupID, expectedIncrement+".custom_hooks.tar"),
 		}
 
 		full := l.BeginFull(ctx, repo, backupID)
@@ -79,8 +80,11 @@ func TestPointerLocator(t *testing.T) {
 
 		require.NoError(t, l.CommitFull(ctx, full))
 
-		pointer := testhelper.MustReadFile(t, filepath.Join(backupPath, repo.RelativePath, "LATEST"))
-		require.Equal(t, backupID, string(pointer))
+		backupPointer := testhelper.MustReadFile(t, filepath.Join(backupPath, repo.RelativePath, "LATEST"))
+		require.Equal(t, backupID, string(backupPointer))
+
+		incrementPointer := testhelper.MustReadFile(t, filepath.Join(backupPath, repo.RelativePath, backupID, "LATEST"))
+		require.Equal(t, expectedIncrement, string(incrementPointer))
 	})
 
 	t.Run("FindLatest", func(t *testing.T) {
@@ -101,9 +105,9 @@ func TestPointerLocator(t *testing.T) {
 			expected := &Backup{
 				Steps: []Step{
 					{
-						BundlePath:      filepath.Join(repo.RelativePath, backupID, "full.bundle"),
-						RefPath:         filepath.Join(repo.RelativePath, backupID, "full.refs"),
-						CustomHooksPath: filepath.Join(repo.RelativePath, backupID, "custom_hooks.tar"),
+						BundlePath:      filepath.Join(repo.RelativePath, backupID, "001.bundle"),
+						RefPath:         filepath.Join(repo.RelativePath, backupID, "001.refs"),
+						CustomHooksPath: filepath.Join(repo.RelativePath, backupID, "001.custom_hooks.tar"),
 					},
 				},
 			}
@@ -143,9 +147,9 @@ func TestPointerLocator(t *testing.T) {
 			expected := &Backup{
 				Steps: []Step{
 					{
-						BundlePath:      filepath.Join(repo.RelativePath, backupID, "full.bundle"),
-						RefPath:         filepath.Join(repo.RelativePath, backupID, "full.refs"),
-						CustomHooksPath: filepath.Join(repo.RelativePath, backupID, "custom_hooks.tar"),
+						BundlePath:      filepath.Join(repo.RelativePath, backupID, "001.bundle"),
+						RefPath:         filepath.Join(repo.RelativePath, backupID, "001.refs"),
+						CustomHooksPath: filepath.Join(repo.RelativePath, backupID, "001.custom_hooks.tar"),
 					},
 				},
 			}
