@@ -20,9 +20,10 @@ func TestLegacyLocator(t *testing.T) {
 		defer cancel()
 
 		expected := &Full{
-			BundlePath:      repo.RelativePath + ".bundle",
-			RefPath:         repo.RelativePath + ".refs",
-			CustomHooksPath: filepath.Join(repo.RelativePath, "custom_hooks.tar"),
+			SkippableOnNotFound: true,
+			BundlePath:          repo.RelativePath + ".bundle",
+			RefPath:             repo.RelativePath + ".refs",
+			CustomHooksPath:     filepath.Join(repo.RelativePath, "custom_hooks.tar"),
 		}
 
 		full := l.BeginFull(ctx, repo, "abc123")
@@ -36,9 +37,10 @@ func TestLegacyLocator(t *testing.T) {
 		defer cancel()
 
 		expected := &Full{
-			BundlePath:      repo.RelativePath + ".bundle",
-			RefPath:         repo.RelativePath + ".refs",
-			CustomHooksPath: filepath.Join(repo.RelativePath, "custom_hooks.tar"),
+			SkippableOnNotFound: true,
+			BundlePath:          repo.RelativePath + ".bundle",
+			RefPath:             repo.RelativePath + ".refs",
+			CustomHooksPath:     filepath.Join(repo.RelativePath, "custom_hooks.tar"),
 		}
 
 		full, err := l.FindLatestFull(ctx, repo)
@@ -114,9 +116,10 @@ func TestPointerLocator(t *testing.T) {
 			defer cancel()
 
 			expectedFallback := &Full{
-				BundlePath:      repo.RelativePath + ".bundle",
-				RefPath:         repo.RelativePath + ".refs",
-				CustomHooksPath: filepath.Join(repo.RelativePath, "custom_hooks.tar"),
+				SkippableOnNotFound: true,
+				BundlePath:          repo.RelativePath + ".bundle",
+				RefPath:             repo.RelativePath + ".refs",
+				CustomHooksPath:     filepath.Join(repo.RelativePath, "custom_hooks.tar"),
 			}
 
 			fallbackFull, err := l.FindLatestFull(ctx, repo)

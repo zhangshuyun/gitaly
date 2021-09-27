@@ -256,6 +256,7 @@ func testManagerRestore(t *testing.T, cfg config.Cfg, gitalyAddr string) {
 		desc          string
 		repo          *gitalypb.Repository
 		alwaysCreate  bool
+		expectExists  bool
 		expectedPaths []string
 		expectedErrAs error
 		expectVerify  bool
@@ -264,6 +265,7 @@ func testManagerRestore(t *testing.T, cfg config.Cfg, gitalyAddr string) {
 			desc:         "existing repo, without hooks",
 			repo:         existingRepo,
 			expectVerify: true,
+			expectExists: true,
 		},
 		{
 			desc: "existing repo, with hooks",
@@ -273,6 +275,7 @@ func testManagerRestore(t *testing.T, cfg config.Cfg, gitalyAddr string) {
 				"custom_hooks/prepare-commit-msg.sample",
 				"custom_hooks/pre-push.sample",
 			},
+			expectExists: true,
 			expectVerify: true,
 		},
 		{
@@ -284,11 +287,13 @@ func testManagerRestore(t *testing.T, cfg config.Cfg, gitalyAddr string) {
 			desc:         "missing bundle, always create",
 			repo:         missingBundleRepoAlwaysCreate,
 			alwaysCreate: true,
+			expectExists: true,
 		},
 		{
 			desc:         "nonexistent repo",
 			repo:         nonexistentRepo,
 			expectVerify: true,
+			expectExists: true,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -306,6 +311,12 @@ func testManagerRestore(t *testing.T, cfg config.Cfg, gitalyAddr string) {
 			} else {
 				require.NoError(t, err)
 			}
+
+			exists, err := repoClient.RepositoryExists(ctx, &gitalypb.RepositoryExistsRequest{
+				Repository: tc.repo,
+			})
+			require.NoError(t, err)
+			require.Equal(t, tc.expectExists, exists.Exists)
 
 			if tc.expectVerify {
 				output := gittest.Exec(t, cfg, "-C", repoPath, "bundle", "verify", bundlePath)
