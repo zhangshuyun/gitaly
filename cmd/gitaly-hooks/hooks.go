@@ -21,7 +21,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/env"
 	gitalylog "gitlab.com/gitlab-org/gitaly/v14/internal/log"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/stream"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -342,19 +341,10 @@ func packObjectsHook(ctx context.Context, payload git.HooksPayload, hookClient g
 		fixedArgs = append(fixedArgs, fixFilterQuoteBug(a))
 	}
 
-	var rpc string
-	var err error
-	if featureflag.PackObjectsHookWithSidechannel.IsEnabled(metadata.OutgoingToIncoming(ctx)) {
-		rpc = "PackObjectsHookWithSidechannel"
-		err = handlePackObjectsWithSidechannel(ctx, hookClient, payload.Repo, fixedArgs)
-	} else {
-		rpc = "PackObjectsHook"
-		err = handlePackObjects(ctx, hookClient, payload.Repo, fixedArgs)
-	}
-	if err != nil {
+	if err := handlePackObjectsWithSidechannel(ctx, hookClient, payload.Repo, fixedArgs); err != nil {
 		logger.Logger().WithFields(logrus.Fields{
 			"args": args,
-			"rpc":  rpc,
+			"rpc":  "PackObjectsHookWithSidechannel",
 		}).WithError(err).Error("RPC failed")
 		return 1, nil
 	}
@@ -383,44 +373,6 @@ func fixFilterQuoteBug(arg string) string {
 
 	return "--filter=" + filterSpec
 }
-
-func handlePackObjects(ctx context.Context, hookClient gitalypb.HookServiceClient, repo *gitalypb.Repository, args []string) error {
-	packObjectsStream, err := hookClient.PackObjectsHook(ctx)
-	if err != nil {
-		return fmt.Errorf("initiate rpc: %w", err)
-	}
-
-	if err := packObjectsStream.Send(&gitalypb.PackObjectsHookRequest{
-		Repository: repo,
-		Args:       args,
-	}); err != nil {
-		return fmt.Errorf("first request: %w", err)
-	}
-
-	stdin := sendFunc(streamio.NewWriter(func(p []byte) error {
-		return packObjectsStream.Send(&gitalypb.PackObjectsHookRequest{Stdin: p})
-	}), packObjectsStream, os.Stdin)
-
-	if _, err := stream.Handler(func() (stream.StdoutStderrResponse, error) {
-		resp, err := packObjectsStream.Recv()
-		return nopExitStatus{resp}, err
-	}, stdin, os.Stdout, os.Stderr); err != nil {
-		return fmt.Errorf("handle stream: %w", err)
-	}
-
-	return nil
-}
-
-type stdoutStderr interface {
-	GetStdout() []byte
-	GetStderr() []byte
-}
-
-type nopExitStatus struct {
-	stdoutStderr
-}
-
-func (nopExitStatus) GetExitStatus() *gitalypb.ExitStatus { return nil }
 
 func handlePackObjectsWithSidechannel(ctx context.Context, hookClient gitalypb.HookServiceClient, repo *gitalypb.Repository, args []string) error {
 	ctx, wt, err := hook.SetupSidechannel(ctx, func(c *net.UnixConn) error {

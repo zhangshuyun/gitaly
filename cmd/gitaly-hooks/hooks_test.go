@@ -610,11 +610,6 @@ func (svc featureFlagAsserter) ReferenceTransactionHook(stream gitalypb.HookServ
 	return svc.wrapped.ReferenceTransactionHook(stream)
 }
 
-func (svc featureFlagAsserter) PackObjectsHook(stream gitalypb.HookService_PackObjectsHookServer) error {
-	svc.assertFlags(stream.Context())
-	return svc.wrapped.PackObjectsHook(stream)
-}
-
 func (svc featureFlagAsserter) PackObjectsHookWithSidechannel(ctx context.Context, req *gitalypb.PackObjectsHookWithSidechannelRequest) (*gitalypb.PackObjectsHookWithSidechannelResponse, error) {
 	svc.assertFlags(ctx)
 	return svc.wrapped.PackObjectsHookWithSidechannel(ctx, req)
@@ -679,47 +674,25 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 
 	testCases := []struct {
 		desc      string
-		ctx       context.Context
 		extraArgs []string
-		method    string
 	}{
-		{desc: "regular clone", method: "PackObjectsHook"},
-		{desc: "shallow clone", extraArgs: []string{"--depth=1"}, method: "PackObjectsHook"},
-		{desc: "partial clone", extraArgs: []string{"--filter=blob:none"}, method: "PackObjectsHook"},
-		{
-			desc:   "regular clone PackObjectsHookWithSidechannel",
-			ctx:    featureflag.IncomingCtxWithFeatureFlag(context.Background(), featureflag.PackObjectsHookWithSidechannel),
-			method: "PackObjectsHookWithSidechannel",
-		},
+		{desc: "regular clone"},
+		{desc: "shallow clone", extraArgs: []string{"--depth=1"}},
+		{desc: "partial clone", extraArgs: []string{"--filter=blob:none"}},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			hook.Reset()
 
-			ctx := context.Background()
-			if tc.ctx != nil {
-				ctx = tc.ctx
-			}
-
 			tempDir := testhelper.TempDir(t)
-
 			args := append(baseArgs[1:], tc.extraArgs...)
 			args = append(args, repoPath, tempDir)
 			cmd := exec.Command(baseArgs[0], args...)
-			cmd.Env = envForHooks(t, ctx, cfg, repo, glHookValues{}, proxyValues{})
+			cmd.Env = envForHooks(t, context.Background(), cfg, repo, glHookValues{}, proxyValues{})
 			cmd.Stderr = os.Stderr
 
 			require.NoError(t, cmd.Run())
-
-			foundMethod := false
-			for _, e := range hook.AllEntries() {
-				if e.Data["grpc.service"] == "gitaly.HookService" {
-					require.Equal(t, tc.method, e.Data["grpc.method"])
-					foundMethod = true
-				}
-			}
-			require.True(t, foundMethod)
 		})
 	}
 }
