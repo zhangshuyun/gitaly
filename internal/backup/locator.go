@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
@@ -98,25 +99,39 @@ func (l PointerLocator) CommitFull(ctx context.Context, full *Step) error {
 //
 // If there is no `LATEST` file, the result of the `Fallback` is used.
 func (l PointerLocator) FindLatest(ctx context.Context, repo *gitalypb.Repository) (*Backup, error) {
-	backupPath := strings.TrimSuffix(repo.RelativePath, ".git")
+	repoPath := strings.TrimSuffix(repo.RelativePath, ".git")
 
-	backupID, err := l.findLatestID(ctx, backupPath)
+	backupID, err := l.findLatestID(ctx, repoPath)
 	if err != nil {
 		if l.Fallback != nil && errors.Is(err, ErrDoesntExist) {
 			return l.Fallback.FindLatest(ctx, repo)
 		}
-		return nil, fmt.Errorf("pointer locator: %w", err)
+		return nil, fmt.Errorf("pointer locator: backup: %w", err)
 	}
 
-	return &Backup{
-		Steps: []Step{
-			{
-				BundlePath:      filepath.Join(backupPath, backupID, "001.bundle"),
-				RefPath:         filepath.Join(backupPath, backupID, "001.refs"),
-				CustomHooksPath: filepath.Join(backupPath, backupID, "001.custom_hooks.tar"),
-			},
-		},
-	}, nil
+	backupPath := filepath.Join(repoPath, backupID)
+
+	latestIncrementID, err := l.findLatestID(ctx, backupPath)
+	if err != nil {
+		return nil, fmt.Errorf("pointer locator: latest incremental: %w", err)
+	}
+
+	max, err := strconv.Atoi(latestIncrementID)
+	if err != nil {
+		return nil, fmt.Errorf("pointer locator: latest incremental: %w", err)
+	}
+
+	var backup Backup
+
+	for i := 1; i <= max; i++ {
+		backup.Steps = append(backup.Steps, Step{
+			BundlePath:      filepath.Join(backupPath, fmt.Sprintf("%03d.bundle", i)),
+			RefPath:         filepath.Join(backupPath, fmt.Sprintf("%03d.refs", i)),
+			CustomHooksPath: filepath.Join(backupPath, fmt.Sprintf("%03d.custom_hooks.tar", i)),
+		})
+	}
+
+	return &backup, nil
 }
 
 func (l PointerLocator) findLatestID(ctx context.Context, backupPath string) (string, error) {

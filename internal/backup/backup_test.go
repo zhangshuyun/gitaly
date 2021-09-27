@@ -303,6 +303,45 @@ func testManagerRestore(t *testing.T, cfg config.Cfg, gitalyAddr string) {
 			},
 			expectExists: true,
 		},
+		{
+			desc:     "single incremental",
+			locators: []string{"pointer"},
+			setup: func(t testing.TB) (*gitalypb.Repository, []string) {
+				const backupID = "abc123"
+				repo := createRepo(t, "incremental")
+				repoBackupPath := filepath.Join(path, repo.RelativePath)
+				backupPath := filepath.Join(repoBackupPath, backupID)
+				require.NoError(t, os.MkdirAll(backupPath, os.ModePerm))
+				require.NoError(t, os.WriteFile(filepath.Join(repoBackupPath, "LATEST"), []byte(backupID), os.ModePerm))
+				require.NoError(t, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("001"), os.ModePerm))
+				bundlePath := filepath.Join(backupPath, "001.bundle")
+				gittest.BundleTestRepo(t, cfg, "gitlab-test.git", bundlePath)
+				return repo, []string{bundlePath}
+			},
+			expectExists: true,
+		},
+		{
+			desc:     "many incrementals",
+			locators: []string{"pointer"},
+			setup: func(t testing.TB) (*gitalypb.Repository, []string) {
+				const backupID = "abc123"
+				repo := createRepo(t, "incremental")
+				repoBackupPath := filepath.Join(path, repo.RelativePath)
+				backupPath := filepath.Join(repoBackupPath, backupID)
+				require.NoError(t, os.MkdirAll(backupPath, os.ModePerm))
+				require.NoError(t, os.WriteFile(filepath.Join(repoBackupPath, "LATEST"), []byte(backupID), os.ModePerm))
+				require.NoError(t, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("002"), os.ModePerm))
+
+				bundlePath1 := filepath.Join(backupPath, "001.bundle")
+				gittest.BundleTestRepo(t, cfg, "gitlab-test.git", bundlePath1, "master")
+
+				bundlePath2 := filepath.Join(backupPath, "002.bundle")
+				gittest.BundleTestRepo(t, cfg, "gitlab-test.git", bundlePath2, "feature")
+
+				return repo, []string{bundlePath1, bundlePath2}
+			},
+			expectExists: true,
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			require.GreaterOrEqual(t, len(tc.locators), 1, "each test case must specify a locator")

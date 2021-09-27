@@ -100,14 +100,25 @@ func TestPointerLocator(t *testing.T) {
 			_, err := l.FindLatest(ctx, repo)
 			require.ErrorIs(t, err, ErrDoesntExist)
 
-			require.NoError(t, os.MkdirAll(filepath.Join(backupPath, repo.RelativePath), 0o755))
+			require.NoError(t, os.MkdirAll(filepath.Join(backupPath, repo.RelativePath, backupID), 0o755))
 			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte(backupID), 0o644))
+			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, backupID, "LATEST"), []byte("003"), 0o644))
 			expected := &Backup{
 				Steps: []Step{
 					{
 						BundlePath:      filepath.Join(repo.RelativePath, backupID, "001.bundle"),
 						RefPath:         filepath.Join(repo.RelativePath, backupID, "001.refs"),
 						CustomHooksPath: filepath.Join(repo.RelativePath, backupID, "001.custom_hooks.tar"),
+					},
+					{
+						BundlePath:      filepath.Join(repo.RelativePath, backupID, "002.bundle"),
+						RefPath:         filepath.Join(repo.RelativePath, backupID, "002.refs"),
+						CustomHooksPath: filepath.Join(repo.RelativePath, backupID, "002.custom_hooks.tar"),
+					},
+					{
+						BundlePath:      filepath.Join(repo.RelativePath, backupID, "003.bundle"),
+						RefPath:         filepath.Join(repo.RelativePath, backupID, "003.refs"),
+						CustomHooksPath: filepath.Join(repo.RelativePath, backupID, "003.custom_hooks.tar"),
 					},
 				},
 			}
@@ -142,8 +153,9 @@ func TestPointerLocator(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, expectedFallback, fallbackFull)
 
-			require.NoError(t, os.MkdirAll(filepath.Join(backupPath, repo.RelativePath), 0o755))
+			require.NoError(t, os.MkdirAll(filepath.Join(backupPath, repo.RelativePath, backupID), 0o755))
 			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte(backupID), 0o644))
+			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, backupID, "LATEST"), []byte("001"), 0o644))
 			expected := &Backup{
 				Steps: []Step{
 					{
@@ -157,6 +169,44 @@ func TestPointerLocator(t *testing.T) {
 			full, err := l.FindLatest(ctx, repo)
 			require.NoError(t, err)
 			require.Equal(t, expected, full)
+		})
+
+		t.Run("invalid backup LATEST", func(t *testing.T) {
+			backupPath := testhelper.TempDir(t)
+			var l Locator = PointerLocator{
+				Sink: NewFilesystemSink(backupPath),
+			}
+
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			_, err := l.FindLatest(ctx, repo)
+			require.ErrorIs(t, err, ErrDoesntExist)
+
+			require.NoError(t, os.MkdirAll(filepath.Join(backupPath, repo.RelativePath), 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte("invalid"), 0o644))
+			_, err = l.FindLatest(ctx, repo)
+			require.EqualError(t, err, "pointer locator: latest incremental: find latest ID: filesystem sink: get reader for \"TestPointerLocator/invalid/LATEST\": doesn't exist")
+		})
+
+		t.Run("invalid incremental LATEST", func(t *testing.T) {
+			backupPath := testhelper.TempDir(t)
+			var l Locator = PointerLocator{
+				Sink: NewFilesystemSink(backupPath),
+			}
+
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			_, err := l.FindLatest(ctx, repo)
+			require.ErrorIs(t, err, ErrDoesntExist)
+
+			require.NoError(t, os.MkdirAll(filepath.Join(backupPath, repo.RelativePath, backupID), 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte(backupID), 0o644))
+			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, backupID, "LATEST"), []byte("invalid"), 0o644))
+
+			_, err = l.FindLatest(ctx, repo)
+			require.EqualError(t, err, "pointer locator: latest incremental: strconv.Atoi: parsing \"invalid\": invalid syntax")
 		})
 	})
 }
