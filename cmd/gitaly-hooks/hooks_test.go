@@ -629,23 +629,6 @@ func requireContainsOnce(t *testing.T, s string, contains string) {
 	require.Equal(t, 1, len(matches))
 }
 
-func TestFixFilterQuoteBug(t *testing.T) {
-	testCases := []struct{ in, out string }{
-		{"foo bar", "foo bar"},
-		{"--filter=blob:none", "--filter=blob:none"},
-		{"--filter='blob:none'", "--filter=blob:none"},
-		{`--filter='blob'\'':none'`, `--filter=blob':none`},
-		{`--filter='blob'\!':none'`, `--filter=blob!:none`},
-		{`--filter='blob'\'':none'\!''`, `--filter=blob':none!`},
-	}
-
-	for i, tc := range testCases {
-		t.Run(fmt.Sprintf("%d-%s", i, tc.in), func(t *testing.T) {
-			require.Equal(t, tc.out, fixFilterQuoteBug(tc.in))
-		})
-	}
-}
-
 func TestGitalyHooksPackObjects(t *testing.T) {
 	logDir, err := filepath.Abs("testdata")
 	require.NoError(t, err)

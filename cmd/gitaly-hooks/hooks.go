@@ -8,7 +8,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"strings"
 
 	"github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
@@ -336,12 +335,7 @@ func referenceTransactionHook(ctx context.Context, payload git.HooksPayload, hoo
 }
 
 func packObjectsHook(ctx context.Context, payload git.HooksPayload, hookClient gitalypb.HookServiceClient, args []string) (int, error) {
-	var fixedArgs []string
-	for _, a := range args[2:] {
-		fixedArgs = append(fixedArgs, fixFilterQuoteBug(a))
-	}
-
-	if err := handlePackObjectsWithSidechannel(ctx, hookClient, payload.Repo, fixedArgs); err != nil {
+	if err := handlePackObjectsWithSidechannel(ctx, hookClient, payload.Repo, args[2:]); err != nil {
 		logger.Logger().WithFields(logrus.Fields{
 			"args": args,
 			"rpc":  "PackObjectsHookWithSidechannel",
@@ -350,28 +344,6 @@ func packObjectsHook(ctx context.Context, payload git.HooksPayload, hookClient g
 	}
 
 	return 0, nil
-}
-
-// This is a workaround for a bug in Git:
-// https://gitlab.com/gitlab-org/git/-/issues/82. Once that bug is fixed
-// we should no longer need this. The fix function is harmless if the bug
-// is not present.
-func fixFilterQuoteBug(arg string) string {
-	const prefix = "--filter='"
-
-	if !(strings.HasPrefix(arg, prefix) && strings.HasSuffix(arg, "'")) {
-		return arg
-	}
-
-	filterSpec := arg[len(prefix) : len(arg)-1]
-
-	// Perform the inverse of sq_quote_buf() in quote.c. The surrounding quotes
-	// are already gone, we now need to undo escaping of ! and '. The escape
-	// patterns are '\!' and '\'' respectively.
-	filterSpec = strings.ReplaceAll(filterSpec, `'\!'`, `!`)
-	filterSpec = strings.ReplaceAll(filterSpec, `'\''`, `'`)
-
-	return "--filter=" + filterSpec
 }
 
 func handlePackObjectsWithSidechannel(ctx context.Context, hookClient gitalypb.HookServiceClient, repo *gitalypb.Repository, args []string) error {
