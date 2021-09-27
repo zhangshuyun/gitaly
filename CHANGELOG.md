@@ -205,6 +205,12 @@ No changes.
 
 - [Remove `praefect reconcile` subcommand](gitlab-org/gitaly@0c48ca9e3f368f03d0d78de0a31540d2fe248242) ([merge request](gitlab-org/gitaly!3667))
 
+## 14.1.6 (2021-09-27)
+
+### Fixed (1 change)
+
+- [Derive virtual storage's filesystem id from its name](gitlab-org/gitaly@add378c8b07a885e23c905d157e285670513352f) ([merge request](gitlab-org/gitaly!3835))
+
 ## 14.1.5 (2021-09-02)
 
 ### Performance (2 changes)
