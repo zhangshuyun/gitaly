@@ -679,41 +679,6 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 	defer cancel()
 
 	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t)))
-	processed := make(chan struct{})
-
-	dequeues := 0
-	queueInterceptor.OnDequeue(func(ctx context.Context, virtual, target string, count int, queue datastore.ReplicationEventQueue) ([]datastore.ReplicationEvent, error) {
-		events, err := queue.Dequeue(ctx, virtual, target, count)
-		if len(events) > 0 {
-			dequeues++
-		}
-		return events, err
-	})
-
-	completedAcks := 0
-	failedAcks := 0
-	deadAcks := 0
-
-	queueInterceptor.OnAcknowledge(func(ctx context.Context, state datastore.JobState, ids []uint64, queue datastore.ReplicationEventQueue) ([]uint64, error) {
-		switch state {
-		case datastore.JobStateCompleted:
-			require.Equal(t, []uint64{1}, ids)
-			completedAcks++
-		case datastore.JobStateFailed:
-			require.Equal(t, []uint64{2}, ids)
-			failedAcks++
-		case datastore.JobStateDead:
-			require.Equal(t, []uint64{2}, ids)
-			deadAcks++
-		default:
-			require.FailNow(t, "acknowledge is not expected", state)
-		}
-		ackIDs, err := queue.Acknowledge(ctx, state, ids)
-		if completedAcks+failedAcks+deadAcks == 4 {
-			close(processed)
-		}
-		return ackIDs, err
-	})
 
 	// this job exists to verify that replication works
 	okJob := datastore.ReplicationJob{
@@ -750,19 +715,30 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 	)
 	replMgrDone := startProcessBacklog(ctx, replMgr)
 
-	select {
-	case <-processed:
-		cancel()
-	case <-time.After(60 * time.Second):
-		// strongly depends on the processing capacity
-		t.Fatal("time limit expired for job to complete")
-	}
-
-	require.Equal(t, 3, dequeues, "expected 1 deque to get [okJob, failJob] and 2 more for [failJob] only")
-	require.Equal(t, 2, failedAcks)
-	require.Equal(t, 1, deadAcks)
-	require.Equal(t, 1, completedAcks)
+	require.NoError(t, queueInterceptor.Wait(time.Minute, func(i *datastore.ReplicationEventQueueInterceptor) bool {
+		return len(i.GetAcknowledgeResult()) == 4
+	}))
+	cancel()
 	<-replMgrDone
+
+	var dequeueCalledEffectively int
+	for _, res := range queueInterceptor.GetDequeuedResult() {
+		if len(res) > 0 {
+			dequeueCalledEffectively++
+		}
+	}
+	require.Equal(t, 3, dequeueCalledEffectively, "expected 1 deque to get [okJob, failJob] and 2 more for [failJob] only")
+
+	expAcks := map[datastore.JobState][]uint64{
+		datastore.JobStateFailed:    {2, 2},
+		datastore.JobStateDead:      {2},
+		datastore.JobStateCompleted: {1},
+	}
+	acks := map[datastore.JobState][]uint64{}
+	for _, ack := range queueInterceptor.GetAcknowledge() {
+		acks[ack.State] = append(acks[ack.State], ack.IDs...)
+	}
+	require.Equal(t, expAcks, acks)
 }
 
 func TestProcessBacklog_Success(t *testing.T) {
@@ -803,21 +779,18 @@ func TestProcessBacklog_Success(t *testing.T) {
 	defer cancel()
 
 	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t)))
-
-	processed := make(chan struct{})
 	queueInterceptor.OnAcknowledge(func(ctx context.Context, state datastore.JobState, ids []uint64, queue datastore.ReplicationEventQueue) ([]uint64, error) {
 		ackIDs, err := queue.Acknowledge(ctx, state, ids)
 		if len(ids) > 0 {
-			require.Equal(t, datastore.JobStateCompleted, state, "no fails expected")
-			require.Equal(t, []uint64{1, 3, 4}, ids, "all jobs must be processed at once")
-			close(processed)
+			assert.Equal(t, datastore.JobStateCompleted, state, "no fails expected")
+			assert.Equal(t, []uint64{1, 3, 4}, ids, "all jobs must be processed at once")
 		}
 		return ackIDs, err
 	})
 
 	var healthUpdated int32
 	queueInterceptor.OnStartHealthUpdate(func(ctx context.Context, trigger <-chan time.Time, events []datastore.ReplicationEvent) error {
-		require.Len(t, events, 3)
+		assert.Len(t, events, 3)
 		atomic.AddInt32(&healthUpdated, 1)
 		return nil
 	})
@@ -892,18 +865,18 @@ func TestProcessBacklog_Success(t *testing.T) {
 	)
 	replMgrDone := startProcessBacklog(ctx, replMgr)
 
-	select {
-	case <-processed:
-		require.EqualValues(t, 1, atomic.LoadInt32(&healthUpdated), "health update should be called")
-		cancel()
-	case <-time.After(30 * time.Second):
-		// strongly depends on the processing capacity
-		t.Fatal("time limit expired for job to complete")
-	}
+	require.NoError(t, queueInterceptor.Wait(time.Minute, func(i *datastore.ReplicationEventQueueInterceptor) bool {
+		var ids []uint64
+		for _, params := range i.GetAcknowledge() {
+			ids = append(ids, params.IDs...)
+		}
+		return len(ids) == 3
+	}))
+	cancel()
+	<-replMgrDone
 
 	require.NoDirExists(t, fullNewPath1, "repository must be moved from %q to the new location", fullNewPath1)
 	require.True(t, storage.IsGitDirectory(fullNewPath2), "repository must exist at new last RenameRepository location")
-	<-replMgrDone
 }
 
 func TestReplMgrProcessBacklog_OnlyHealthyNodes(t *testing.T) {
