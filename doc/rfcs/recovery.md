@@ -79,6 +79,11 @@ and XORs each value together. This has the nice property that
 dynamically updating the checksum is a matter of XOR'ing the old value
 and XOR'ing the new value.
 
+[`CalculateChecksum`](https://gitlab.com/gitlab-org/gitaly/blob/12e0bf3ac80b72bef07a5733a70c270f70771859/internal/gitaly/service/repository/calculate_checksum.go#L29-58)
+is already implemented today. Let's say we had a checksum X, and we
+receive a push for a branch from commit Y to commit Z. The new checksum
+would be `X ^ Y ^ Z`.
+
 Every time a mutator RPC finishes, we should calculate the new
 checksum. To ensure a consistent view of the database, during reference
 transactions Praefect then should update the state of each repository in
@@ -110,3 +115,15 @@ but it does not catch:
 
 `git fsck` can detect these things, but for large repositories it is
 slow and requires significant I/O and CPU to walk the repository.
+
+### Recovering from missing project paths
+
+Right now Praefect assumes that its database contains which repository
+paths exist in each node. Currently if the Rails client requests project
+path `hello-world` and that path does not exist in the Praefect
+database, Praefect will return some error.
+
+However, a request from a path that does exist in the Praefect database
+should be verified. Praefect could query all nodes for the checksums at
+that specific path. If the path really does not exist, Praefect returns
+an error. Otherwise, Praefect should update its database.
