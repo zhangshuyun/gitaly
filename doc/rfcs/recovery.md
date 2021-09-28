@@ -21,7 +21,7 @@ itself with all repositories that should be on that virtual storage.
 
 ## Current status
 
-The [current implementation of virtual storages](virtual_storage.md)
+The [current implementation of virtual storages](../virtual_storage.md)
 assumes that the Praefect database reflects the correct state of the
 repositories of all Gitaly nodes. Each row in the `repositories` table
 corresponds to a project in the Rails `projects` database, and each
