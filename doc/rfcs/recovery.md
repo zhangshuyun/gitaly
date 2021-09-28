@@ -55,8 +55,6 @@ are a number of failure modes that can result:
     longer a quorum. Writes to node B will fail and cause the majority vote
     to fail until node C has caught up. Node B will not be resynched
     automatically even though it is behind.
-    1. A repository could receive a write to a branch, but that branch
-    update will fail since it is not at the right ref.
     1. A read from a repository could cause a 500 error when viewing
     a page (e.g. merge request, commit, etc.)
     1. A background job may fail trying to read Gitaly data.
