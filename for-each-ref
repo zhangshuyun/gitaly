@@ -1,0 +1,3 @@
+#!/bin/sh
+git for-each-ref --format='%(objectname) %(refname)%(if:equals=tag)%(objecttype)%(then)%0a%(objectname)^{} %(refname)^{}%(end)' "$@" | \
+  git cat-file --buffer --batch='%(objectname) %(objecttype) %(objectsize) %(rest)'
