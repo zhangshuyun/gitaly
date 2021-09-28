@@ -35,10 +35,10 @@ project 1000 is not listed in the Praefect database, there are a number of
 failure modes:
 
     1. Praefect will not be able to route Gitaly requests for those
-projects. For example, visiting a project repository may result in a 404
-error.
+    projects. For example, visiting a project repository may result in a 404
+    error.
     1. Praefect will not be able to replicate project 1000 since it
-does not know about it.
+    does not know about it.
 
 1. Gitaly nodes could be modified (e.g. restored from backup) without
 updating the `generation` column. As a result, Praefect might direct a
@@ -50,15 +50,15 @@ Suppose we have 3 nodes in the Gitaly Cluster: nodes A, B, and C.  There
 are a number of failure modes that can result:
 
     1. Pushes to the repository may fail. Suppose nodes A and B have the
-highest `generation` number, say, 10. Node C is at `generation` 9. If
-someone quietly restores from an old snapshot in node B, there is no
-longer a quorum. Writes to node B will fail and cause the majority vote
-to fail until node C has caught up. Node B will not be resynched
-automatically even though it is behind.
+    highest `generation` number, say, 10. Node C is at `generation` 9. If
+    someone quietly restores from an old snapshot in node B, there is no
+    longer a quorum. Writes to node B will fail and cause the majority vote
+    to fail until node C has caught up. Node B will not be resynched
+    automatically even though it is behind.
     1. A repository could receive a write to a branch, but that branch
-update will fail since it is not at the right ref.
+    update will fail since it is not at the right ref.
     1. A read from a repository could cause a 500 error when viewing
-a page (e.g. merge request, commit, etc.)
+    a page (e.g. merge request, commit, etc.)
     1. A background job may fail trying to read Gitaly data.
 
 ## Making Gitaly Cluster more resilient
