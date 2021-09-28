@@ -1,5 +1,6 @@
 [replication]
 batch_size = 1
+parallel_storage_processing_workers = 2
 
 [reconciliation]
 scheduling_interval = 0

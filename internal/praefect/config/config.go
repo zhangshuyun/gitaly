@@ -100,11 +100,14 @@ type Replication struct {
 	// BatchSize controls how many replication jobs to dequeue and lock
 	// in a single call to the database.
 	BatchSize uint `toml:"batch_size"`
+	// ParallelStorageProcessingWorkers is a number of workers used to process replication
+	// events per virtual storage (how many storages would be processed in parallel).
+	ParallelStorageProcessingWorkers uint `toml:"parallel_storage_processing_workers"`
 }
 
 // DefaultReplicationConfig returns the default values for replication configuration.
 func DefaultReplicationConfig() Replication {
-	return Replication{BatchSize: 10}
+	return Replication{BatchSize: 10, ParallelStorageProcessingWorkers: 1}
 }
 
 // Config is a container for everything found in the TOML config file
