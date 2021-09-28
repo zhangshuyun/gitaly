@@ -91,6 +91,15 @@ by issuing a `SELECT MAX(generation) FROM storage_repositories`. If a
 `GROUP BY(checksum), COUNT(*)` to find the consistent storage by
 majority vote.
 
+#### Performance impact of checksums
+
+For a large repository, doing a [full recalculation of the
+checksum](https://gitlab.com/gitlab-org/gitlab/-/issues/5196#note_73300281)
+can take several seconds and increases linerally with the number of refs
+in the repository. Because of this, we will have to explore how best to
+cache this information on a Gitaly node (e.g. a local database) and
+ensure that old and new values can be XOR'ed out easily.
+
 #### Limitations of checksums
 
 Checksums only ensure the contents of the Git references are correct,
