@@ -8,9 +8,6 @@ of out-of-sync nodes.
 
 ## Requirements
 
-1. A new Gitaly node should be able to added and automatically rebuild
-itself with all repositories that should be on that virtual storage.
-
 1. Gitaly Cluster should be able to detect and automatically recover
 from a single repository going out of sync. Example failure scenarios:
 
@@ -18,6 +15,9 @@ from a single repository going out of sync. Example failure scenarios:
     1. An admin deletes or modifies a repository.
     1. A hardware failure corrupts a repository.
     1. An admin attempts to rebuild a node by rsync'ing from existing repositories.
+
+1. A new Gitaly node should be able to added and automatically rebuild
+itself with all repositories that should be on that virtual storage.
 
 ## Current status
 
