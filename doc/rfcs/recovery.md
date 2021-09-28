@@ -78,3 +78,26 @@ a subset of the references (e.g. `refs/heads/*`, `refs/tags/*`, etc.)
 and XORs each value together. This has the nice property that
 dynamically updating the checksum is a matter of XOR'ing the old value
 and XOR'ing the new value.
+
+Every time a mutator RPC finishes, we should calculate the new
+checksum. To ensure a consistent view of the database, during reference
+transactions Praefect then should update the state of each repository in
+a single database transaction.
+
+Currently Gitaly Cluster picks the up-to-date storages via
+[`GetConsistentStorages`](https://gitlab.com/gitlab-org/gitaly/blob/21373c6e00ed20713c6bd42d032ea7ca4e71fe9c/internal/praefect/datastore/repository_store.go#L499-511)
+by issuing a `SELECT MAX(generation) FROM storage_repositories`. If a
+`checksum` field is in place, we can revise this `SELECT` to use a
+`GROUP BY(checksum), COUNT(*)` to find the consistent storage by
+majority vote.
+
+#### Limitations of checksums
+
+Checksums only ensure the contents of the Git references are correct,
+but it does not catch:
+
+1. Missing objects
+1. Corrupted pack files
+
+`git fsck` can detect these things, but for large repositories it is
+slow and requires significant I/O and CPU to walk the repository.
