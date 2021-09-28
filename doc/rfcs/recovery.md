@@ -55,7 +55,7 @@ are a number of failure modes that can result:
     longer a quorum. Writes to node B will fail and cause the majority vote
     to fail until node C has caught up. Node B will not be resynched
     automatically even though it is behind.
-    1. Praefect may stop directing reads to node node B, causing more pressure on
+    1. Praefect may stop directing reads to node B, causing more pressure on
     other nodes.
     1. A read from a repository could cause a 500 error when viewing
     a page (e.g. merge request, commit, etc.).
