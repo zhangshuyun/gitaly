@@ -407,17 +407,18 @@ func (dr defaultReplicator) RepackFull(ctx context.Context, event datastore.Repl
 
 // ReplMgr is a replication manager for handling replication jobs
 type ReplMgr struct {
-	log                          *logrus.Entry
-	queue                        datastore.ReplicationEventQueue
-	hc                           HealthChecker
-	nodes                        NodeSet
-	storageNamesByVirtualStorage map[string][]string // replicas this replicator is responsible for
-	replicator                   Replicator          // does the actual replication logic
-	replInFlightMetric           *prometheus.GaugeVec
-	replLatencyMetric            prommetrics.HistogramVec
-	replDelayMetric              prommetrics.HistogramVec
-	replJobTimeout               time.Duration
-	dequeueBatchSize             uint
+	log                              *logrus.Entry
+	queue                            datastore.ReplicationEventQueue
+	hc                               HealthChecker
+	nodes                            NodeSet
+	storageNamesByVirtualStorage     map[string][]string // replicas this replicator is responsible for
+	replicator                       Replicator          // does the actual replication logic
+	replInFlightMetric               *prometheus.GaugeVec
+	replLatencyMetric                prommetrics.HistogramVec
+	replDelayMetric                  prommetrics.HistogramVec
+	replJobTimeout                   time.Duration
+	dequeueBatchSize                 uint
+	parallelStorageProcessingWorkers uint
 }
 
 // ReplMgrOpt allows a replicator to be configured with additional options
@@ -444,6 +445,14 @@ func WithDequeueBatchSize(size uint) func(*ReplMgr) {
 	}
 }
 
+// WithParallelStorageProcessingWorkers configures the number of workers used to process replication
+// events per virtual storage.
+func WithParallelStorageProcessingWorkers(n uint) func(*ReplMgr) {
+	return func(m *ReplMgr) {
+		m.parallelStorageProcessingWorkers = n
+	}
+}
+
 // NewReplMgr initializes a replication manager with the provided dependencies
 // and options
 func NewReplMgr(log *logrus.Entry, storageNames map[string][]string, queue datastore.ReplicationEventQueue, rs datastore.RepositoryStore, hc HealthChecker, nodes NodeSet, opts ...ReplMgrOpt) ReplMgr {
@@ -460,15 +469,26 @@ func NewReplMgr(log *logrus.Entry, storageNames map[string][]string, queue datas
 				Help: "Number of replication jobs in flight.",
 			}, []string{"virtual_storage", "gitaly_storage", "change_type"},
 		),
-		replLatencyMetric: prometheus.NewHistogramVec(prometheus.HistogramOpts{}, []string{"type"}),
-		replDelayMetric:   prometheus.NewHistogramVec(prometheus.HistogramOpts{}, []string{"type"}),
-		dequeueBatchSize:  config.DefaultReplicationConfig().BatchSize,
+		replLatencyMetric:                prometheus.NewHistogramVec(prometheus.HistogramOpts{}, []string{"type"}),
+		replDelayMetric:                  prometheus.NewHistogramVec(prometheus.HistogramOpts{}, []string{"type"}),
+		dequeueBatchSize:                 config.DefaultReplicationConfig().BatchSize,
+		parallelStorageProcessingWorkers: 1,
 	}
 
 	for _, opt := range opts {
 		opt(&r)
 	}
 
+	for virtual, sn := range storageNames {
+		if len(sn) < int(r.parallelStorageProcessingWorkers) {
+			r.log.Infof("parallel processing workers decreased from %d "+
+				"configured with config to %d according to minumal amount of "+
+				"storages in the virtual storage %q",
+				r.parallelStorageProcessingWorkers, len(storageNames), virtual,
+			)
+			r.parallelStorageProcessingWorkers = uint(len(storageNames))
+		}
+	}
 	return r
 }
 
@@ -583,24 +603,36 @@ func (r ReplMgr) processBacklog(ctx context.Context, b BackoffFactory, virtualSt
 	appCtx := ctx
 	ctx = helper.SuppressCancellation(ctx)
 
-	for _, storageName := range r.storageNamesByVirtualStorage[virtualStorage] {
+	storageNames := r.storageNamesByVirtualStorage[virtualStorage]
+	type StorageProcessing struct {
+		StorageName string
+		Backoff
+		BackoffReset
+	}
+	storagesQueue := make(chan StorageProcessing, len(storageNames))
+	for _, storageName := range storageNames {
+		backoff, reset := b.Create()
+		storagesQueue <- StorageProcessing{StorageName: storageName, Backoff: backoff, BackoffReset: reset}
+	}
+
+	for i := uint(0); i < r.parallelStorageProcessingWorkers; i++ {
 		wg.Add(1)
-		go func(storageName string) {
+		go func() {
 			defer wg.Done()
 
-			for backoff, reset := b.Create(); ; {
+			for {
+				var storageProcessing StorageProcessing
 				select {
 				case <-appCtx.Done():
 					logger.WithError(appCtx.Err()).Info("processing stopped")
-					return // processing must be stopped
-				default:
-					// proceed with processing
+					return
+				case storageProcessing = <-storagesQueue:
 				}
 
 				healthyStorages := r.hc.HealthyNodes()[virtualStorage]
 				healthy := false
 				for _, healthyStorageName := range healthyStorages {
-					if healthyStorageName != storageName {
+					if healthyStorageName != storageProcessing.StorageName {
 						continue
 					}
 					healthy = true
@@ -609,27 +641,33 @@ func (r ReplMgr) processBacklog(ctx context.Context, b BackoffFactory, virtualSt
 
 				var processedEvents int
 				if healthy {
-					target, ok := r.nodes[virtualStorage][storageName]
+					target, ok := r.nodes[virtualStorage][storageProcessing.StorageName]
 					if !ok {
-						logger.WithField("storage", storageName).Error("no connection to target storage")
+						logger.WithField("storage", storageProcessing.StorageName).Error("no connection to target storage")
 					} else {
 						processedEvents = r.handleNode(ctx, virtualStorage, target)
 					}
 				}
 
 				if processedEvents == 0 {
-					select {
-					case <-time.After(backoff()):
-						continue
-					case <-appCtx.Done():
-						logger.WithError(appCtx.Err()).Info("processing stopped")
-						return
-					}
+					// if the storage is not healthy or if there is no events to
+					// process we don't put it back to the queue immediately but
+					// wait for certain time period first.
+					go func() {
+						select {
+						case <-time.After(storageProcessing.Backoff()):
+							storagesQueue <- storageProcessing
+						case <-appCtx.Done():
+							logger.WithError(appCtx.Err()).Info("processing stopped")
+							return
+						}
+					}()
+				} else {
+					storageProcessing.BackoffReset()
+					storagesQueue <- storageProcessing
 				}
-
-				reset()
 			}
-		}(storageName)
+		}()
 	}
 }
 

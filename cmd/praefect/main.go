@@ -364,6 +364,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 			praefect.WithDelayMetric(delayMetric),
 			praefect.WithLatencyMetric(latencyMetric),
 			praefect.WithDequeueBatchSize(conf.Replication.BatchSize),
+			praefect.WithParallelStorageProcessingWorkers(conf.Replication.ParallelStorageProcessingWorkers),
 		)
 		srvFactory = praefect.NewServerFactory(
 			conf,

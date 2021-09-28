@@ -176,29 +176,35 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 		NodeSetFromNodeManager(nodeMgr),
 		WithLatencyMetric(&mockReplicationLatencyHistogramVec),
 		WithDelayMetric(&mockReplicationDelayHistogramVec),
+		WithParallelStorageProcessingWorkers(100),
 	)
 
-	replMgr.ProcessBacklog(ctx, ExpBackoffFactory{Start: time.Hour, Max: 0})
+	replMgr.ProcessBacklog(ctx, noopBackoffFactory{})
 
 	logEntries := loggerHook.AllEntries()
-	require.True(t, len(logEntries) > 3, "expected at least 4 log entries to be present")
+	require.True(t, len(logEntries) > 4, "expected at least 5 log entries to be present")
+	require.Equal(t,
+		[]interface{}{`parallel processing workers decreased from 100 configured with config to 1 according to minumal amount of storages in the virtual storage "virtual"`},
+		[]interface{}{logEntries[0].Message},
+	)
+
 	require.Equal(t,
 		[]interface{}{"processing started", "virtual"},
-		[]interface{}{logEntries[0].Message, logEntries[0].Data["virtual_storage"]},
+		[]interface{}{logEntries[1].Message, logEntries[1].Data["virtual_storage"]},
 	)
 
 	require.Equal(t,
 		[]interface{}{"replication job processing started", "virtual", "correlation-id"},
-		[]interface{}{logEntries[1].Message, logEntries[1].Data["virtual_storage"], logEntries[1].Data[logWithCorrID]},
+		[]interface{}{logEntries[2].Message, logEntries[2].Data["virtual_storage"], logEntries[2].Data[logWithCorrID]},
 	)
 
-	dequeuedEvent := logEntries[1].Data["event"].(datastore.ReplicationEvent)
+	dequeuedEvent := logEntries[2].Data["event"].(datastore.ReplicationEvent)
 	require.Equal(t, datastore.JobStateInProgress, dequeuedEvent.State)
 	require.Equal(t, []string{"backup", "primary"}, []string{dequeuedEvent.Job.TargetNodeStorage, dequeuedEvent.Job.SourceNodeStorage})
 
 	require.Equal(t,
 		[]interface{}{"replication job processing finished", "virtual", datastore.JobStateCompleted, "correlation-id"},
-		[]interface{}{logEntries[2].Message, logEntries[2].Data["virtual_storage"], logEntries[2].Data["new_state"], logEntries[2].Data[logWithCorrID]},
+		[]interface{}{logEntries[3].Message, logEntries[3].Data["virtual_storage"], logEntries[3].Data["new_state"], logEntries[3].Data[logWithCorrID]},
 	)
 
 	replicatedPath := filepath.Join(backupCfg.Storages[0].Path, testRepo.GetRelativePath())
@@ -935,11 +941,7 @@ func TestReplMgrProcessBacklog_OnlyHealthyNodes(t *testing.T) {
 			},
 		},
 	)
-	replMgrDone := make(chan struct{})
-	go func() {
-		defer close(replMgrDone)
-		replMgr.ProcessBacklog(ctx, ExpBackoffFactory{Start: time.Minute, Max: time.Minute})
-	}()
+	replMgrDone := startProcessBacklog(ctx, replMgr)
 
 	select {
 	case <-ctx.Done():
