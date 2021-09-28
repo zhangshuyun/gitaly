@@ -46,7 +46,7 @@ read or write to a node that has gone out of sync with the cluster. We
 have seen this happen when admins restore a snapshot from backup, or
 when Geo renames project repositories.
 
-Suppose we have 3 nodes in the Gitaly Cluster: nodes A, B, and C.  There
+    Suppose we have 3 nodes in the Gitaly Cluster: nodes A, B, and C.  There
 are a number of failure modes that can result:
 
     1. Pushes to the repository may fail. Suppose nodes A and B have the
