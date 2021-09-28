@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
@@ -15,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/lines"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 )
 
 const (
@@ -352,4 +354,70 @@ func getTagSortField(sortBy *gitalypb.FindAllTagsRequest_SortBy) (string, error)
 	}
 
 	return dir + key, nil
+}
+
+func (s *server) ForEachRefRaw(req *gitalypb.ForEachRefRawRequest, stream gitalypb.RefService_ForEachRefRawServer) error {
+	ctx := stream.Context()
+
+	var patterns []string
+	for _, p := range req.GetPatterns() {
+		patterns = append(patterns, string(p))
+	}
+
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		return err
+	}
+	defer pr.Close()
+	defer pw.Close()
+
+	repo := s.localrepo(req.GetRepository())
+	forEachRef, err := repo.Exec(ctx,
+		git.SubCmd{
+			Name: "for-each-ref",
+			Flags: []git.Option{
+				git.ValueFlag{
+					Name:  "--format",
+					Value: "%(objectname) %(refname)%(if:equals=tag)%(objecttype)%(then)%0a%(objectname)^{} %(refname)^{}%(end)",
+				},
+			},
+			Args: patterns,
+		},
+		git.WithStdout(pw),
+	)
+	if err != nil {
+		return err
+	}
+	if err := pw.Close(); err != nil {
+		return err
+	}
+
+	catFile, err := repo.Exec(ctx,
+		git.SubCmd{
+			Name: "cat-file",
+			Flags: []git.Option{
+				git.Flag{Name: "--buffer"},
+				git.Flag{Name: "--batch=%(objectname) %(objecttype) %(objectsize) %(rest)"},
+			},
+		},
+		git.WithStdin(pr),
+		git.WithStdout(streamio.NewWriter(func(p []byte) error {
+			return stream.Send(&gitalypb.ForEachRefRawResponse{Data: p})
+		})),
+	)
+	if err != nil {
+		return err
+	}
+	if err := pr.Close(); err != nil {
+		return err
+	}
+
+	if err := catFile.Wait(); err != nil {
+		return err
+	}
+	if err := forEachRef.Wait(); err != nil {
+		return err
+	}
+
+	return nil
 }

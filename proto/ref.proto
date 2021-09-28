@@ -120,6 +120,12 @@ service RefService {
       op: ACCESSOR
     };
   }
+
+  rpc ForEachRefRaw(ForEachRefRawRequest) returns (stream ForEachRefRawResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
 }
 
 message FindDefaultBranchNameRequest {
@@ -414,4 +420,13 @@ message ListRefsResponse{
 
   // References is the set of references returned by the RPC.
   repeated Reference references = 1;
+}
+
+message ForEachRefRawRequest {
+  Repository repository = 1 [(target_repository)=true];
+  repeated bytes patterns = 2;
+}
+
+message ForEachRefRawResponse{
+  bytes data = 1;
 }

@@ -44,6 +44,7 @@ module Gitaly
       # will not be returned by this RPC. Any symbolic references will be resolved to the object ID it is
       # pointing at.
       rpc :ListRefs, Gitaly::ListRefsRequest, stream(Gitaly::ListRefsResponse)
+      rpc :ForEachRefRaw, Gitaly::ForEachRefRawRequest, stream(Gitaly::ForEachRefRawResponse)
     end
 
     Stub = Service.rpc_stub_class

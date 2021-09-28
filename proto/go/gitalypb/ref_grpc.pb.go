@@ -48,6 +48,7 @@ type RefServiceClient interface {
 	// will not be returned by this RPC. Any symbolic references will be resolved to the object ID it is
 	// pointing at.
 	ListRefs(ctx context.Context, in *ListRefsRequest, opts ...grpc.CallOption) (RefService_ListRefsClient, error)
+	ForEachRefRaw(ctx context.Context, in *ForEachRefRawRequest, opts ...grpc.CallOption) (RefService_ForEachRefRawClient, error)
 }
 
 type refServiceClient struct {
@@ -496,6 +497,38 @@ func (x *refServiceListRefsClient) Recv() (*ListRefsResponse, error) {
 	return m, nil
 }
 
+func (c *refServiceClient) ForEachRefRaw(ctx context.Context, in *ForEachRefRawRequest, opts ...grpc.CallOption) (RefService_ForEachRefRawClient, error) {
+	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[12], "/gitaly.RefService/ForEachRefRaw", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &refServiceForEachRefRawClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type RefService_ForEachRefRawClient interface {
+	Recv() (*ForEachRefRawResponse, error)
+	grpc.ClientStream
+}
+
+type refServiceForEachRefRawClient struct {
+	grpc.ClientStream
+}
+
+func (x *refServiceForEachRefRawClient) Recv() (*ForEachRefRawResponse, error) {
+	m := new(ForEachRefRawResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // RefServiceServer is the server API for RefService service.
 // All implementations must embed UnimplementedRefServiceServer
 // for forward compatibility
@@ -530,6 +563,7 @@ type RefServiceServer interface {
 	// will not be returned by this RPC. Any symbolic references will be resolved to the object ID it is
 	// pointing at.
 	ListRefs(*ListRefsRequest, RefService_ListRefsServer) error
+	ForEachRefRaw(*ForEachRefRawRequest, RefService_ForEachRefRawServer) error
 	mustEmbedUnimplementedRefServiceServer()
 }
 
@@ -590,6 +624,9 @@ func (UnimplementedRefServiceServer) PackRefs(context.Context, *PackRefsRequest)
 }
 func (UnimplementedRefServiceServer) ListRefs(*ListRefsRequest, RefService_ListRefsServer) error {
 	return status.Errorf(codes.Unimplemented, "method ListRefs not implemented")
+}
+func (UnimplementedRefServiceServer) ForEachRefRaw(*ForEachRefRawRequest, RefService_ForEachRefRawServer) error {
+	return status.Errorf(codes.Unimplemented, "method ForEachRefRaw not implemented")
 }
 func (UnimplementedRefServiceServer) mustEmbedUnimplementedRefServiceServer() {}
 
@@ -964,6 +1001,27 @@ func (x *refServiceListRefsServer) Send(m *ListRefsResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _RefService_ForEachRefRaw_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ForEachRefRawRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(RefServiceServer).ForEachRefRaw(m, &refServiceForEachRefRawServer{stream})
+}
+
+type RefService_ForEachRefRawServer interface {
+	Send(*ForEachRefRawResponse) error
+	grpc.ServerStream
+}
+
+type refServiceForEachRefRawServer struct {
+	grpc.ServerStream
+}
+
+func (x *refServiceForEachRefRawServer) Send(m *ForEachRefRawResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // RefService_ServiceDesc is the grpc.ServiceDesc for RefService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1055,6 +1113,11 @@ var RefService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "ListRefs",
 			Handler:       _RefService_ListRefs_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "ForEachRefRaw",
+			Handler:       _RefService_ForEachRefRaw_Handler,
 			ServerStreams: true,
 		},
 	},
