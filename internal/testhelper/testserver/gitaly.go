@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"testing"
 	"time"
 
@@ -73,10 +72,6 @@ func runPraefectProxy(t testing.TB, cfg config.Cfg, gitalyAddr, praefectBinPath 
 
 	praefectServerSocketPath := "unix://" + testhelper.GetTemporaryGitalySocketFileName(t)
 
-	pgport := os.Getenv("PGPORT")
-	port, err := strconv.Atoi(pgport)
-	require.NoError(t, err)
-
 	dbName := createDatabase(t)
 
 	conf := praefectconfig.Config{
@@ -85,13 +80,7 @@ func runPraefectProxy(t testing.TB, cfg config.Cfg, gitalyAddr, praefectBinPath 
 		Auth: auth.Config{
 			Token: cfg.Auth.Token,
 		},
-		DB: praefectconfig.DB{
-			Host:    os.Getenv("PGHOST"),
-			Port:    port,
-			User:    os.Getenv("PGUSER"),
-			DBName:  dbName,
-			SSLMode: "disable",
-		},
+		DB: glsql.GetDBConfig(t, dbName),
 		Failover: praefectconfig.Failover{
 			Enabled:           true,
 			ElectionStrategy:  praefectconfig.ElectionStrategyLocal,
