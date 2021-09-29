@@ -1342,12 +1342,6 @@ func TestPostgresRepositoryStore_GetPartiallyAvailableRepositories(t *testing.T)
 				require.NoError(t, err)
 			}
 
-			_, err := tx.ExecContext(ctx, `
-						INSERT INTO shard_primaries (shard_name, node_name, elected_by_praefect, elected_at)
-						VALUES ('virtual-storage', 'virtual-storage-primary', 'ignored', now())
-					`)
-			require.NoError(t, err)
-
 			store := NewPostgresRepositoryStore(tx, configuredStorages)
 			outdated, err := store.GetPartiallyAvailableRepositories(ctx, "virtual-storage")
 			require.NoError(t, err)
