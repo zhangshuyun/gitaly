@@ -31,6 +31,8 @@ func NewHookLogger() *HookLogger {
 		logger.SetOutput(logFile)
 	}
 
+	logger.SetFormatter(UTCTextFormatter())
+
 	return &HookLogger{logger: logger}
 }
 
