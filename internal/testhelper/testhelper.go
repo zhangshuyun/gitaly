@@ -47,6 +47,14 @@ const (
 	DefaultStorageName = "default"
 )
 
+// SkipWithPraefect skips the test if it is being executed with Praefect in front
+// of the Gitaly.
+func SkipWithPraefect(t testing.TB, reason string) {
+	if os.Getenv("GITALY_TEST_WITH_PRAEFECT") == "YesPlease" {
+		t.Skipf(reason)
+	}
+}
+
 // MustReadFile returns the content of a file or fails at once.
 func MustReadFile(t testing.TB, filename string) []byte {
 	content, err := os.ReadFile(filename)
