@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 14.3.1 (2021-09-30)
+
+No changes.
+
 ## 14.3.0 (2021-09-21)
 
 ### Added (6 changes)
@@ -78,6 +82,10 @@
 
 - [remote: Deprecate FetchInternalRemote RPC](gitlab-org/gitaly@c5fc4a035e8c6cd2e7b0847e5b9a10a67a762965) ([merge request](gitlab-org/gitaly!3860))
 - [repository: Deprecate `SetConfig()` RPC](gitlab-org/gitaly@4d1c5cc7f927a3da7a997f48b996fbdf9579b047) ([merge request](gitlab-org/gitaly!3790))
+
+## 14.2.5 (2021-09-30)
+
+No changes.
 
 ## 14.2.4 (2021-09-17)
 
@@ -204,6 +212,10 @@ No changes.
 ### removal (1 change)
 
 - [Remove `praefect reconcile` subcommand](gitlab-org/gitaly@0c48ca9e3f368f03d0d78de0a31540d2fe248242) ([merge request](gitlab-org/gitaly!3667))
+
+## 14.1.7 (2021-09-30)
+
+No changes.
 
 ## 14.1.6 (2021-09-27)
 
