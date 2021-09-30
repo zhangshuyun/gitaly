@@ -83,6 +83,10 @@ No changes.
 - [remote: Deprecate FetchInternalRemote RPC](gitlab-org/gitaly@c5fc4a035e8c6cd2e7b0847e5b9a10a67a762965) ([merge request](gitlab-org/gitaly!3860))
 - [repository: Deprecate `SetConfig()` RPC](gitlab-org/gitaly@4d1c5cc7f927a3da7a997f48b996fbdf9579b047) ([merge request](gitlab-org/gitaly!3790))
 
+## 14.2.5 (2021-09-30)
+
+No changes.
+
 ## 14.2.4 (2021-09-17)
 
 ### Fixed (1 change)
