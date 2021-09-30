@@ -6,6 +6,7 @@ import "context"
 // default to what could be considered success if not set.
 type MockRepositoryStore struct {
 	GetGenerationFunc                     func(ctx context.Context, virtualStorage, relativePath, storage string) (int, error)
+	UpdateChecksumsFunc                   func(ctx context.Context, virtualStorage, relativePath string, checksums map[string]string) error
 	IncrementGenerationFunc               func(ctx context.Context, virtualStorage, relativePath, primary string, secondaries []string) error
 	GetReplicatedGenerationFunc           func(ctx context.Context, virtualStorage, relativePath, source, target string) (int, error)
 	SetGenerationFunc                     func(ctx context.Context, virtualStorage, relativePath, storage string, generation int) error
@@ -28,6 +29,14 @@ func (m MockRepositoryStore) GetGeneration(ctx context.Context, virtualStorage, 
 	}
 
 	return m.GetGenerationFunc(ctx, virtualStorage, relativePath, storage)
+}
+
+func (m MockRepositoryStore) UpdateChecksums(ctx context.Context, virtualStorage, relativePath string, checksums map[string]string) error {
+	if m.UpdateChecksumsFunc == nil {
+		return nil
+	}
+
+	return m.UpdateChecksumsFunc(ctx, virtualStorage, relativePath, checksums)
 }
 
 func (m MockRepositoryStore) IncrementGeneration(ctx context.Context, virtualStorage, relativePath, primary string, secondaries []string) error {

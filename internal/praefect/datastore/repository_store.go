@@ -86,6 +86,8 @@ var ErrNoRowsAffected = errors.New("no rows were affected by the query")
 type RepositoryStore interface {
 	// GetGeneration gets the repository's generation on a given storage.
 	GetGeneration(ctx context.Context, virtualStorage, relativePath, storage string) (int, error)
+	// UpdateChecksums updates the checksums for a given storage for a given node
+	UpdateChecksums(ctx context.Context, virtualStorage, relativePath string, checksums map[string]string) error
 	// IncrementGeneration increments the generations of up to date nodes.
 	IncrementGeneration(ctx context.Context, virtualStorage, relativePath, primary string, secondaries []string) error
 	// SetGeneration sets the repository's generation on the given storage. If the generation is higher
@@ -166,6 +168,29 @@ AND storage = $3
 	}
 
 	return gen, nil
+}
+
+func (rs *PostgresRepositoryStore) UpdateChecksums(ctx context.Context, virtualStorage, relativePath string, checksums map[string]string) error {
+	const q = `
+		UPDATE storage_repositories
+		SET checksum = $1
+		WHERE virtual_storage = $2
+		AND   relative_path   = $3
+		AND   storage         = $4
+	`
+	var lastErr error
+
+	// TODO: Perform in transaction with generation
+	for name, checksum := range checksums {
+		_, err := rs.db.ExecContext(ctx, q, checksum, virtualStorage, relativePath, name)
+
+		if err != nil {
+			fmt.Println("=== error updating: %v", err)
+			lastErr = err
+		}
+	}
+
+	return lastErr
 }
 
 func (rs *PostgresRepositoryStore) IncrementGeneration(ctx context.Context, virtualStorage, relativePath, primary string, secondaries []string) error {

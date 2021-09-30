@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
+	"google.golang.org/grpc/metadata"
 )
 
 var (
@@ -59,6 +60,8 @@ type Transaction interface {
 	State() (map[string]VoteResult, error)
 	// DidVote returns whether the given node has cast a vote.
 	DidVote(string) bool
+	// Checksums for each node for the completed transaction
+	Checksums() map[string]string
 }
 
 // transaction is a session where a set of voters votes on one or more
@@ -68,6 +71,7 @@ type Transaction interface {
 type transaction struct {
 	id        uint64
 	threshold uint
+	checksums map[string]string
 	voters    []Voter
 
 	lock            sync.Mutex
@@ -108,6 +112,7 @@ func newTransaction(id uint64, voters []Voter, threshold uint) (*transaction, er
 		threshold: threshold,
 		voters:    voters,
 		state:     transactionOpen,
+		checksums: make(map[string]string, len(voters)),
 	}, nil
 }
 
@@ -175,6 +180,10 @@ func (t *transaction) State() (map[string]VoteResult, error) {
 	}
 
 	return results, nil
+}
+
+func (t *transaction) Checksums() map[string]string {
+	return t.checksums
 }
 
 // CountSubtransactions counts the number of subtransactions created as part of
@@ -271,6 +280,8 @@ func (t *transaction) getOrCreateSubtransaction(node string) (*subtransaction, e
 }
 
 func (t *transaction) vote(ctx context.Context, node string, vote voting.Vote) error {
+	t.updateChecksum(ctx, node)
+
 	subtransaction, err := t.getOrCreateSubtransaction(node)
 	if err != nil {
 		return err
@@ -281,4 +292,20 @@ func (t *transaction) vote(ctx context.Context, node string, vote voting.Vote) e
 	}
 
 	return subtransaction.collectVotes(ctx, node)
+}
+
+func (t *transaction) updateChecksum(ctx context.Context, node string) {
+	md, ok := metadata.FromIncomingContext(ctx)
+
+	if !ok {
+		return
+	}
+
+	result := md.Get("gitaly-repository-checksum")
+
+	if len(result) == 0 {
+		return
+	}
+
+	t.checksums[node] = result[0]
 }

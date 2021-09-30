@@ -1,10 +1,15 @@
 package updateref
 
 import (
+	"bufio"
 	"bytes"
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
+	"regexp"
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
@@ -18,6 +23,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 // UpdaterWithHooks updates a ref with Git hooks.
@@ -89,6 +97,7 @@ func (u *UpdaterWithHooks) UpdateReference(
 	newrev, oldrev git.ObjectID,
 	pushOptions ...string,
 ) error {
+	fmt.Println("=== UpdateReference called")
 	var transaction *txinfo.Transaction
 	if tx, err := txinfo.TransactionFromContext(ctx); err == nil {
 		transaction = &tx
@@ -192,6 +201,13 @@ func (u *UpdaterWithHooks) UpdateReference(
 		return Error{reference: reference.String()}
 	}
 
+	checksum, err := u.calculateChecksum(ctx, repo)
+	if err != nil {
+		return err
+	}
+	ctx = injectChecksum(ctx, checksum)
+	fmt.Printf("=== injecting checksum: %s\n", checksum)
+
 	if err := u.hookManager.ReferenceTransactionHook(ctx, hook.ReferenceTransactionCommitted, []string{hooksPayload}, strings.NewReader(changes)); err != nil {
 		return HookError{err: err}
 	}
@@ -205,4 +221,62 @@ func (u *UpdaterWithHooks) UpdateReference(
 
 func (u *UpdaterWithHooks) localrepo(repo repository.GitRepo) *localrepo.Repo {
 	return localrepo.New(u.gitCmdFactory, u.catfileCache, repo, u.cfg)
+}
+
+func injectChecksum(ctx context.Context, checksum string) context.Context {
+	md, ok := metadata.FromOutgoingContext(ctx)
+
+	if !ok {
+		md = metadata.New(map[string]string{})
+	} else {
+		md = md.Copy()
+	}
+
+	md.Set("gitaly-repository-checksum", checksum)
+
+	return metadata.NewOutgoingContext(ctx, md)
+}
+
+func (u *UpdaterWithHooks) calculateChecksum(ctx context.Context, repo *gitalypb.Repository) (string, error) {
+	var refWhitelist = regexp.MustCompile(`HEAD|(refs/(heads|tags|keep-around|merge-requests|environments|notes)/)`)
+
+	// Get checksum here and send it along to the committed hook
+	cmd, err := u.gitCmdFactory.New(ctx, repo, git.SubCmd{Name: "show-ref", Flags: []git.Option{git.Flag{Name: "--head"}}})
+	if err != nil {
+		return "", err
+	}
+
+	var checksum *big.Int
+
+	scanner := bufio.NewScanner(cmd)
+	for scanner.Scan() {
+		ref := scanner.Bytes()
+
+		if !refWhitelist.Match(ref) {
+			continue
+		}
+
+		h := sha1.New()
+		// hash.Hash will never return an error.
+		_, _ = h.Write(ref)
+
+		hash := hex.EncodeToString(h.Sum(nil))
+		hashIntBase16, _ := (&big.Int{}).SetString(hash, 16)
+
+		if checksum == nil {
+			checksum = hashIntBase16
+		} else {
+			checksum.Xor(checksum, hashIntBase16)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return "", status.Errorf(codes.Internal, err.Error())
+	}
+
+	if err := cmd.Wait(); checksum == nil || err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(checksum.Bytes()), nil
 }

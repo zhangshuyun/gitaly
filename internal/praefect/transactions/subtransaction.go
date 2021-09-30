@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
+	"google.golang.org/grpc/metadata"
 )
 
 // VoteResult represents the outcome of a transaction for a single voter.
@@ -296,6 +297,11 @@ func (t *subtransaction) collectVotes(ctx context.Context, node string) error {
 		}
 
 		return ctx.Err()
+	}
+
+	md, ok := metadata.FromIncomingContext(ctx)
+	if ok {
+		fmt.Printf("=== Got transaction context: %v\n", md)
 	}
 
 	switch voter.result {
