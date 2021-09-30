@@ -24,16 +24,17 @@ type subcmd interface {
 }
 
 var subcommands = map[string]subcmd{
-	"sql-ping":               &sqlPingSubcommand{},
-	"sql-migrate":            &sqlMigrateSubcommand{},
-	"dial-nodes":             &dialNodesSubcommand{},
-	"sql-migrate-down":       &sqlMigrateDownSubcommand{},
-	"sql-migrate-status":     &sqlMigrateStatusSubcommand{},
-	"dataloss":               newDatalossSubcommand(),
-	"accept-dataloss":        &acceptDatalossSubcommand{},
-	"set-replication-factor": newSetReplicatioFactorSubcommand(os.Stdout),
-	removeRepositoryCmdName:  newRemoveRepository(logger),
-	trackRepositoryCmdName:   newTrackRepository(logger),
+	"sql-ping":                    &sqlPingSubcommand{},
+	"sql-migrate":                 &sqlMigrateSubcommand{},
+	"dial-nodes":                  &dialNodesSubcommand{},
+	"sql-migrate-down":            &sqlMigrateDownSubcommand{},
+	"sql-migrate-status":          &sqlMigrateStatusSubcommand{},
+	"dataloss":                    newDatalossSubcommand(),
+	"accept-dataloss":             &acceptDatalossSubcommand{},
+	"set-replication-factor":      newSetReplicatioFactorSubcommand(os.Stdout),
+	removeRepositoryCmdName:       newRemoveRepository(logger),
+	trackRepositoryCmdName:        newTrackRepository(logger),
+	listUntrackedRepositoriesName: newListUntrackedRepositories(logger, os.Stdout),
 }
 
 // subCommand returns an exit code, to be fed into os.Exit.
