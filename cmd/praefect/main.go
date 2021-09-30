@@ -84,6 +84,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes/tracker"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/reconciler"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/repocleaner"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/service/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/transactions"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/version"
@@ -444,6 +445,29 @@ func run(cfgs []starter.Config, conf config.Config) error {
 			prometheus.MustRegister(r)
 			go r.Run(ctx, helper.NewTimerTicker(interval))
 		}
+	}
+
+	if interval := conf.RepositoriesCleanup.RunInterval.Duration(); interval > 0 {
+		if db != nil {
+			go func() {
+				storageSync := datastore.NewStorageCleanup(db)
+				cfg := repocleaner.Cfg{
+					RunInterval:         conf.RepositoriesCleanup.RunInterval.Duration(),
+					LivenessInterval:    30 * time.Second,
+					RepositoriesInBatch: conf.RepositoriesCleanup.RepositoriesInBatch,
+				}
+				repoCleaner := repocleaner.NewRunner(cfg, logger, healthChecker, nodeSet.Connections(), storageSync, storageSync, repocleaner.NewLogWarnAction(logger))
+				if err := repoCleaner.Run(ctx, helper.NewTimerTicker(conf.RepositoriesCleanup.CheckInterval.Duration())); err != nil && !errors.Is(context.Canceled, err) {
+					logger.WithError(err).Error("repository cleaner finished execution")
+				} else {
+					logger.Info("repository cleaner finished execution")
+				}
+			}()
+		} else {
+			logger.Warn("Repository cleanup background task disabled as there is no database connection configured.")
+		}
+	} else {
+		logger.Warn(`Repository cleanup background task disabled as "repositories_cleanup.run_interval" is not set or 0.`)
 	}
 
 	return b.Wait(conf.GracefulStopTimeout.Duration())
