@@ -129,7 +129,7 @@ func (gs *Runner) run(ctx context.Context) {
 	}
 
 	logger = gs.loggerWith(clusterPath.VirtualStorage, clusterPath.Storage)
-	err = gs.walker.ExecOnRepositories(ctx, clusterPath.VirtualStorage, clusterPath.Storage, func(paths []datastore.RepositoryClusterPath) {
+	err = gs.walker.ExecOnRepositories(ctx, clusterPath.VirtualStorage, clusterPath.Storage, func(paths []datastore.RepositoryClusterPath) error {
 		relativePaths := make([]string, len(paths))
 		for i, path := range paths {
 			relativePaths[i] = path.RelativeReplicaPath
@@ -137,13 +137,15 @@ func (gs *Runner) run(ctx context.Context) {
 		notExisting, err := gs.stateOwner.DoesntExist(ctx, clusterPath.VirtualStorage, clusterPath.Storage, relativePaths)
 		if err != nil {
 			logger.WithError(err).WithField("repositories", paths).Error("failed to check existence")
-			return
+			return nil
 		}
 
 		if err := gs.action.Perform(ctx, notExisting); err != nil {
 			logger.WithError(err).WithField("existence", notExisting).Error("perform action")
-			return
+			return nil
 		}
+
+		return nil
 	})
 	if err != nil {
 		logger.WithError(err).Error("failed to exec action on repositories")
@@ -166,9 +168,9 @@ func NewWalker(conns praefect.Connections, batchSize int) *Walker {
 	return &Walker{conns: conns, batchSize: batchSize}
 }
 
-// ExecOnRepositories runs throw the all repositories on a gitaly storage and executes provided action.
+// ExecOnRepositories runs through all the repositories on a Gitaly storage and executes the provided action.
 // The processing is done in batches to reduce cost of operations.
-func (wr *Walker) ExecOnRepositories(ctx context.Context, virtualStorage, storage string, action func([]datastore.RepositoryClusterPath)) error {
+func (wr *Walker) ExecOnRepositories(ctx context.Context, virtualStorage, storage string, action func([]datastore.RepositoryClusterPath) error) error {
 	gclient, err := wr.getInternalGitalyClient(virtualStorage, storage)
 	if err != nil {
 		return fmt.Errorf("setup gitaly client: %w", err)
@@ -198,12 +200,16 @@ func (wr *Walker) ExecOnRepositories(ctx context.Context, virtualStorage, storag
 		})
 
 		if len(batch) == cap(batch) {
-			action(batch)
+			if err := action(batch); err != nil {
+				return err
+			}
 			batch = batch[:0]
 		}
 	}
 	if len(batch) > 0 {
-		action(batch)
+		if err := action(batch); err != nil {
+			return err
+		}
 	}
 	return nil
 }
