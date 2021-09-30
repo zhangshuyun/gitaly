@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"strings"
@@ -392,6 +393,10 @@ func (s *server) ForEachRefRaw(req *gitalypb.ForEachRefRawRequest, stream gitaly
 		return err
 	}
 
+	stdout := bufio.NewWriterSize(struct{ io.Writer }{streamio.NewWriter(func(p []byte) error {
+		return stream.Send(&gitalypb.ForEachRefRawResponse{Data: p})
+	})}, 32*1024)
+
 	catFile, err := repo.Exec(ctx,
 		git.SubCmd{
 			Name: "cat-file",
@@ -401,9 +406,7 @@ func (s *server) ForEachRefRaw(req *gitalypb.ForEachRefRawRequest, stream gitaly
 			},
 		},
 		git.WithStdin(pr),
-		git.WithStdout(streamio.NewWriter(func(p []byte) error {
-			return stream.Send(&gitalypb.ForEachRefRawResponse{Data: p})
-		})),
+		git.WithStdout(stdout),
 	)
 	if err != nil {
 		return err
@@ -416,6 +419,9 @@ func (s *server) ForEachRefRaw(req *gitalypb.ForEachRefRawRequest, stream gitaly
 		return err
 	}
 	if err := forEachRef.Wait(); err != nil {
+		return err
+	}
+	if err := stdout.Flush(); err != nil {
 		return err
 	}
 
