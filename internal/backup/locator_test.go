@@ -19,7 +19,7 @@ func TestLegacyLocator(t *testing.T) {
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
-		expected := &Full{
+		expected := &Step{
 			SkippableOnNotFound: true,
 			BundlePath:          repo.RelativePath + ".bundle",
 			RefPath:             repo.RelativePath + ".refs",
@@ -32,18 +32,22 @@ func TestLegacyLocator(t *testing.T) {
 		require.NoError(t, l.CommitFull(ctx, full))
 	})
 
-	t.Run("FindLatestFull", func(t *testing.T) {
+	t.Run("FindLatest", func(t *testing.T) {
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
-		expected := &Full{
-			SkippableOnNotFound: true,
-			BundlePath:          repo.RelativePath + ".bundle",
-			RefPath:             repo.RelativePath + ".refs",
-			CustomHooksPath:     filepath.Join(repo.RelativePath, "custom_hooks.tar"),
+		expected := &Backup{
+			Steps: []Step{
+				{
+					SkippableOnNotFound: true,
+					BundlePath:          repo.RelativePath + ".bundle",
+					RefPath:             repo.RelativePath + ".refs",
+					CustomHooksPath:     filepath.Join(repo.RelativePath, "custom_hooks.tar"),
+				},
+			},
 		}
 
-		full, err := l.FindLatestFull(ctx, repo)
+		full, err := l.FindLatest(ctx, repo)
 		require.NoError(t, err)
 
 		assert.Equal(t, expected, full)
@@ -64,7 +68,7 @@ func TestPointerLocator(t *testing.T) {
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
-		expected := &Full{
+		expected := &Step{
 			BundlePath:      filepath.Join(repo.RelativePath, backupID, "full.bundle"),
 			RefPath:         filepath.Join(repo.RelativePath, backupID, "full.refs"),
 			CustomHooksPath: filepath.Join(repo.RelativePath, backupID, "custom_hooks.tar"),
@@ -79,7 +83,7 @@ func TestPointerLocator(t *testing.T) {
 		require.Equal(t, backupID, string(pointer))
 	})
 
-	t.Run("FindLatestFull", func(t *testing.T) {
+	t.Run("FindLatest", func(t *testing.T) {
 		t.Run("no fallback", func(t *testing.T) {
 			backupPath := testhelper.TempDir(t)
 			var l Locator = PointerLocator{
@@ -89,18 +93,22 @@ func TestPointerLocator(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			_, err := l.FindLatestFull(ctx, repo)
+			_, err := l.FindLatest(ctx, repo)
 			require.ErrorIs(t, err, ErrDoesntExist)
 
 			require.NoError(t, os.MkdirAll(filepath.Join(backupPath, repo.RelativePath), 0o755))
 			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte(backupID), 0o644))
-			expected := &Full{
-				BundlePath:      filepath.Join(repo.RelativePath, backupID, "full.bundle"),
-				RefPath:         filepath.Join(repo.RelativePath, backupID, "full.refs"),
-				CustomHooksPath: filepath.Join(repo.RelativePath, backupID, "custom_hooks.tar"),
+			expected := &Backup{
+				Steps: []Step{
+					{
+						BundlePath:      filepath.Join(repo.RelativePath, backupID, "full.bundle"),
+						RefPath:         filepath.Join(repo.RelativePath, backupID, "full.refs"),
+						CustomHooksPath: filepath.Join(repo.RelativePath, backupID, "custom_hooks.tar"),
+					},
+				},
 			}
 
-			full, err := l.FindLatestFull(ctx, repo)
+			full, err := l.FindLatest(ctx, repo)
 			require.NoError(t, err)
 			require.Equal(t, expected, full)
 		})
@@ -115,26 +123,34 @@ func TestPointerLocator(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			expectedFallback := &Full{
-				SkippableOnNotFound: true,
-				BundlePath:          repo.RelativePath + ".bundle",
-				RefPath:             repo.RelativePath + ".refs",
-				CustomHooksPath:     filepath.Join(repo.RelativePath, "custom_hooks.tar"),
+			expectedFallback := &Backup{
+				Steps: []Step{
+					{
+						SkippableOnNotFound: true,
+						BundlePath:          repo.RelativePath + ".bundle",
+						RefPath:             repo.RelativePath + ".refs",
+						CustomHooksPath:     filepath.Join(repo.RelativePath, "custom_hooks.tar"),
+					},
+				},
 			}
 
-			fallbackFull, err := l.FindLatestFull(ctx, repo)
+			fallbackFull, err := l.FindLatest(ctx, repo)
 			require.NoError(t, err)
 			require.Equal(t, expectedFallback, fallbackFull)
 
 			require.NoError(t, os.MkdirAll(filepath.Join(backupPath, repo.RelativePath), 0o755))
 			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte(backupID), 0o644))
-			expected := &Full{
-				BundlePath:      filepath.Join(repo.RelativePath, backupID, "full.bundle"),
-				RefPath:         filepath.Join(repo.RelativePath, backupID, "full.refs"),
-				CustomHooksPath: filepath.Join(repo.RelativePath, backupID, "custom_hooks.tar"),
+			expected := &Backup{
+				Steps: []Step{
+					{
+						BundlePath:      filepath.Join(repo.RelativePath, backupID, "full.bundle"),
+						RefPath:         filepath.Join(repo.RelativePath, backupID, "full.refs"),
+						CustomHooksPath: filepath.Join(repo.RelativePath, backupID, "custom_hooks.tar"),
+					},
+				},
 			}
 
-			full, err := l.FindLatestFull(ctx, repo)
+			full, err := l.FindLatest(ctx, repo)
 			require.NoError(t, err)
 			require.Equal(t, expected, full)
 		})

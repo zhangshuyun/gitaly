@@ -25,24 +25,28 @@ import (
 type LegacyLocator struct{}
 
 // BeginFull returns the static paths for a legacy repository backup
-func (l LegacyLocator) BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Full {
+func (l LegacyLocator) BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Step {
 	return l.newFull(repo)
 }
 
 // CommitFull is unused as the locations are static
-func (l LegacyLocator) CommitFull(ctx context.Context, full *Full) error {
+func (l LegacyLocator) CommitFull(ctx context.Context, full *Step) error {
 	return nil
 }
 
-// FindLatestFull returns the static paths for a legacy repository backup
-func (l LegacyLocator) FindLatestFull(ctx context.Context, repo *gitalypb.Repository) (*Full, error) {
-	return l.newFull(repo), nil
+// FindLatest returns the static paths for a legacy repository backup
+func (l LegacyLocator) FindLatest(ctx context.Context, repo *gitalypb.Repository) (*Backup, error) {
+	return &Backup{
+		Steps: []Step{
+			*l.newFull(repo),
+		},
+	}, nil
 }
 
-func (l LegacyLocator) newFull(repo *gitalypb.Repository) *Full {
+func (l LegacyLocator) newFull(repo *gitalypb.Repository) *Step {
 	backupPath := strings.TrimSuffix(repo.RelativePath, ".git")
 
-	return &Full{
+	return &Step{
 		SkippableOnNotFound: true,
 		BundlePath:          backupPath + ".bundle",
 		RefPath:             backupPath + ".refs",
@@ -65,42 +69,46 @@ type PointerLocator struct {
 }
 
 // BeginFull returns paths for a new full backup
-func (l PointerLocator) BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Full {
+func (l PointerLocator) BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Step {
 	backupPath := strings.TrimSuffix(repo.RelativePath, ".git")
 
-	return &Full{
+	return &Step{
 		BundlePath:      filepath.Join(backupPath, backupID, "full.bundle"),
 		RefPath:         filepath.Join(backupPath, backupID, "full.refs"),
 		CustomHooksPath: filepath.Join(backupPath, backupID, "custom_hooks.tar"),
 	}
 }
 
-// CommitFull persists the paths for a new backup so that it can be looked up by FindLatestFull
-func (l PointerLocator) CommitFull(ctx context.Context, full *Full) error {
+// CommitFull persists the paths for a new backup so that it can be looked up by FindLatest
+func (l PointerLocator) CommitFull(ctx context.Context, full *Step) error {
 	bundleDir := filepath.Dir(full.BundlePath)
 	backupID := filepath.Base(bundleDir)
 	backupPath := filepath.Dir(bundleDir)
 	return l.commitLatestID(ctx, backupPath, backupID)
 }
 
-// FindLatestFull returns the paths committed by the latest call to CommitFull.
+// FindLatest returns the paths committed by the latest call to CommitFull.
 //
 // If there is no `LATEST` file, the result of the `Fallback` is used.
-func (l PointerLocator) FindLatestFull(ctx context.Context, repo *gitalypb.Repository) (*Full, error) {
+func (l PointerLocator) FindLatest(ctx context.Context, repo *gitalypb.Repository) (*Backup, error) {
 	backupPath := strings.TrimSuffix(repo.RelativePath, ".git")
 
-	latest, err := l.findLatestID(ctx, backupPath)
+	backupID, err := l.findLatestID(ctx, backupPath)
 	if err != nil {
 		if l.Fallback != nil && errors.Is(err, ErrDoesntExist) {
-			return l.Fallback.FindLatestFull(ctx, repo)
+			return l.Fallback.FindLatest(ctx, repo)
 		}
 		return nil, fmt.Errorf("pointer locator: %w", err)
 	}
 
-	return &Full{
-		BundlePath:      filepath.Join(backupPath, latest, "full.bundle"),
-		RefPath:         filepath.Join(backupPath, latest, "full.refs"),
-		CustomHooksPath: filepath.Join(backupPath, latest, "custom_hooks.tar"),
+	return &Backup{
+		Steps: []Step{
+			{
+				BundlePath:      filepath.Join(backupPath, backupID, "full.bundle"),
+				RefPath:         filepath.Join(backupPath, backupID, "full.refs"),
+				CustomHooksPath: filepath.Join(backupPath, backupID, "custom_hooks.tar"),
+			},
+		},
 	}, nil
 }
 

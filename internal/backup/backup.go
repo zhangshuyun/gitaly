@@ -38,8 +38,14 @@ type Sink interface {
 	GetReader(ctx context.Context, relativePath string) (io.ReadCloser, error)
 }
 
-// Full represents all paths required for a full backup
-type Full struct {
+// Backup represents all the information needed to restore a backup for a repository
+type Backup struct {
+	// Steps are the ordered list of steps required to restore this backup
+	Steps []Step
+}
+
+// Step represents an incremental step that makes up a complete backup for a repository
+type Step struct {
 	// BundlePath is the path of the bundle
 	BundlePath string
 	// SkippableOnNotFound defines if the bundle can be skipped when it does
@@ -54,14 +60,14 @@ type Full struct {
 
 // Locator finds sink backup paths for repositories
 type Locator interface {
-	// BeginFull returns paths for a new full backup
-	BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Full
+	// BeginFull returns a tentative first step needed to create a new full backup.
+	BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Step
 
-	// CommitFull persists the paths for a new backup so that it can be looked up by FindLatestFull
-	CommitFull(ctx context.Context, full *Full) error
+	// CommitFull marks the step returned by `BeginFull` as the latest backup.
+	CommitFull(ctx context.Context, step *Step) error
 
-	// FindLatestFull returns the paths committed by the latest call to CommitFull
-	FindLatestFull(ctx context.Context, repo *gitalypb.Repository) (*Full, error)
+	// FindLatest returns the latest backup that was written by CommitFull
+	FindLatest(ctx context.Context, repo *gitalypb.Repository) (*Backup, error)
 }
 
 // ResolveSink returns a sink implementation based on the provided path.
@@ -176,7 +182,7 @@ func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
 		return fmt.Errorf("manager: %w", err)
 	}
 
-	full, err := mgr.locator.FindLatestFull(ctx, req.Repository)
+	backup, err := mgr.locator.FindLatest(ctx, req.Repository)
 	if err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
@@ -184,27 +190,30 @@ func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
 	if err := mgr.createRepository(ctx, req.Server, req.Repository); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
-	if err := mgr.restoreBundle(ctx, full.BundlePath, req.Server, req.Repository); err != nil {
-		if full.SkippableOnNotFound && errors.Is(err, ErrDoesntExist) {
-			// For compatibility with existing backups we need to make sure the
-			// repository exists even if there's no bundle for project
-			// repositories (not wiki or snippet repositories).  Gitaly does
-			// not know which repository is which type so here we accept a
-			// parameter to tell us to employ this behaviour. Since the
-			// repository has already been created, we simply skip cleaning up.
-			if req.AlwaysCreate {
-				return nil
-			}
 
-			if err := mgr.removeRepository(ctx, req.Server, req.Repository); err != nil {
-				return fmt.Errorf("manager: remove on skipped: %w", err)
-			}
+	for _, step := range backup.Steps {
+		if err := mgr.restoreBundle(ctx, step.BundlePath, req.Server, req.Repository); err != nil {
+			if step.SkippableOnNotFound && errors.Is(err, ErrDoesntExist) {
+				// For compatibility with existing backups we need to make sure the
+				// repository exists even if there's no bundle for project
+				// repositories (not wiki or snippet repositories).  Gitaly does
+				// not know which repository is which type so here we accept a
+				// parameter to tell us to employ this behaviour. Since the
+				// repository has already been created, we simply skip cleaning up.
+				if req.AlwaysCreate {
+					return nil
+				}
 
-			return fmt.Errorf("manager: %w: %s", ErrSkipped, err.Error())
+				if err := mgr.removeRepository(ctx, req.Server, req.Repository); err != nil {
+					return fmt.Errorf("manager: remove on skipped: %w", err)
+				}
+
+				return fmt.Errorf("manager: %w: %s", ErrSkipped, err.Error())
+			}
 		}
-	}
-	if err := mgr.restoreCustomHooks(ctx, full.CustomHooksPath, req.Server, req.Repository); err != nil {
-		return fmt.Errorf("manager: %w", err)
+		if err := mgr.restoreCustomHooks(ctx, step.CustomHooksPath, req.Server, req.Repository); err != nil {
+			return fmt.Errorf("manager: %w", err)
+		}
 	}
 	return nil
 }
