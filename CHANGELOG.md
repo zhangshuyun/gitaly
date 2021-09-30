@@ -213,6 +213,10 @@ No changes.
 
 - [Remove `praefect reconcile` subcommand](gitlab-org/gitaly@0c48ca9e3f368f03d0d78de0a31540d2fe248242) ([merge request](gitlab-org/gitaly!3667))
 
+## 14.1.7 (2021-09-30)
+
+No changes.
+
 ## 14.1.6 (2021-09-27)
 
 ### Fixed (1 change)
