@@ -124,9 +124,14 @@ func (l PointerLocator) FindLatest(ctx context.Context, repo *gitalypb.Repositor
 	var backup Backup
 
 	for i := 1; i <= max; i++ {
+		var previousRefPath string
+		if i > 1 {
+			previousRefPath = filepath.Join(backupPath, fmt.Sprintf("%03d.refs", i-1))
+		}
 		backup.Steps = append(backup.Steps, Step{
 			BundlePath:      filepath.Join(backupPath, fmt.Sprintf("%03d.bundle", i)),
 			RefPath:         filepath.Join(backupPath, fmt.Sprintf("%03d.refs", i)),
+			PreviousRefPath: previousRefPath,
 			CustomHooksPath: filepath.Join(backupPath, fmt.Sprintf("%03d.custom_hooks.tar", i)),
 		})
 	}

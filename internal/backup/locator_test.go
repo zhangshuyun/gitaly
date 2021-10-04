@@ -113,11 +113,13 @@ func TestPointerLocator(t *testing.T) {
 					{
 						BundlePath:      filepath.Join(repo.RelativePath, backupID, "002.bundle"),
 						RefPath:         filepath.Join(repo.RelativePath, backupID, "002.refs"),
+						PreviousRefPath: filepath.Join(repo.RelativePath, backupID, "001.refs"),
 						CustomHooksPath: filepath.Join(repo.RelativePath, backupID, "002.custom_hooks.tar"),
 					},
 					{
 						BundlePath:      filepath.Join(repo.RelativePath, backupID, "003.bundle"),
 						RefPath:         filepath.Join(repo.RelativePath, backupID, "003.refs"),
+						PreviousRefPath: filepath.Join(repo.RelativePath, backupID, "002.refs"),
 						CustomHooksPath: filepath.Join(repo.RelativePath, backupID, "003.custom_hooks.tar"),
 					},
 				},

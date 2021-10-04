@@ -54,6 +54,8 @@ type Step struct {
 	SkippableOnNotFound bool
 	// RefPath is the path of the ref file
 	RefPath string
+	// PreviousRefPath is the path of the previous ref file
+	PreviousRefPath string
 	// CustomHooksPath is the path of the custom hooks archive
 	CustomHooksPath string
 }
