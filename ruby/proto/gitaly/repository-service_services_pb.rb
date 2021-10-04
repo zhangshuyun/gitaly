@@ -38,7 +38,8 @@ module Gitaly
       rpc :CreateRepositoryFromURL, Gitaly::CreateRepositoryFromURLRequest, Gitaly::CreateRepositoryFromURLResponse
       # CreateBundle creates a bundle from all refs
       rpc :CreateBundle, Gitaly::CreateBundleRequest, stream(Gitaly::CreateBundleResponse)
-      # CreateBundleFromRefList creates a bundle from a stream of ref patterns
+      # CreateBundleFromRefList creates a bundle from a stream of ref patterns.
+      # When the bundle would be empty the FailedPrecondition error code is returned.
       rpc :CreateBundleFromRefList, stream(Gitaly::CreateBundleFromRefListRequest), stream(Gitaly::CreateBundleFromRefListResponse)
       # FetchBundle fetches references from a bundle into the local repository.
       # Refs will be mirrored to the target repository with the refspec

@@ -42,7 +42,8 @@ type RepositoryServiceClient interface {
 	CreateRepositoryFromURL(ctx context.Context, in *CreateRepositoryFromURLRequest, opts ...grpc.CallOption) (*CreateRepositoryFromURLResponse, error)
 	// CreateBundle creates a bundle from all refs
 	CreateBundle(ctx context.Context, in *CreateBundleRequest, opts ...grpc.CallOption) (RepositoryService_CreateBundleClient, error)
-	// CreateBundleFromRefList creates a bundle from a stream of ref patterns
+	// CreateBundleFromRefList creates a bundle from a stream of ref patterns.
+	// When the bundle would be empty the FailedPrecondition error code is returned.
 	CreateBundleFromRefList(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_CreateBundleFromRefListClient, error)
 	// FetchBundle fetches references from a bundle into the local repository.
 	// Refs will be mirrored to the target repository with the refspec
@@ -798,7 +799,8 @@ type RepositoryServiceServer interface {
 	CreateRepositoryFromURL(context.Context, *CreateRepositoryFromURLRequest) (*CreateRepositoryFromURLResponse, error)
 	// CreateBundle creates a bundle from all refs
 	CreateBundle(*CreateBundleRequest, RepositoryService_CreateBundleServer) error
-	// CreateBundleFromRefList creates a bundle from a stream of ref patterns
+	// CreateBundleFromRefList creates a bundle from a stream of ref patterns.
+	// When the bundle would be empty the FailedPrecondition error code is returned.
 	CreateBundleFromRefList(RepositoryService_CreateBundleFromRefListServer) error
 	// FetchBundle fetches references from a bundle into the local repository.
 	// Refs will be mirrored to the target repository with the refspec

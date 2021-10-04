@@ -113,7 +113,8 @@ service RepositoryService {
     };
   }
 
-  // CreateBundleFromRefList creates a bundle from a stream of ref patterns
+  // CreateBundleFromRefList creates a bundle from a stream of ref patterns.
+  // When the bundle would be empty the FailedPrecondition error code is returned.
   rpc CreateBundleFromRefList(stream CreateBundleFromRefListRequest) returns (stream CreateBundleFromRefListResponse) {
     option (op_type) = {
       op: ACCESSOR

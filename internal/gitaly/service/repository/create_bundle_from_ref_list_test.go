@@ -71,17 +71,30 @@ func TestCreateBundleFromRefList_success(t *testing.T) {
 
 func TestCreateBundleFromRefList_validations(t *testing.T) {
 	t.Parallel()
-	_, client := setupRepositoryServiceWithoutRepo(t)
+	_, repo, _, client := setupRepositoryService(t)
 
 	testCases := []struct {
-		desc    string
-		request *gitalypb.CreateBundleFromRefListRequest
-		code    codes.Code
+		desc         string
+		request      *gitalypb.CreateBundleFromRefListRequest
+		expectedErr  string
+		expectedCode codes.Code
 	}{
 		{
-			desc:    "empty repository",
-			request: &gitalypb.CreateBundleFromRefListRequest{Patterns: [][]byte{[]byte("master")}},
-			code:    codes.InvalidArgument,
+			desc: "empty repository",
+			request: &gitalypb.CreateBundleFromRefListRequest{
+				Patterns: [][]byte{[]byte("master")},
+			},
+			expectedErr:  "empty Repository",
+			expectedCode: codes.InvalidArgument,
+		},
+		{
+			desc: "empty bundle",
+			request: &gitalypb.CreateBundleFromRefListRequest{
+				Repository: repo,
+				Patterns:   [][]byte{[]byte("master"), []byte("^master")},
+			},
+			expectedErr:  "cmd wait failed: refusing to create empty bundle",
+			expectedCode: codes.FailedPrecondition,
 		},
 	}
 
@@ -96,9 +109,15 @@ func TestCreateBundleFromRefList_validations(t *testing.T) {
 			require.NoError(t, stream.Send(testCase.request))
 			require.NoError(t, stream.CloseSend())
 
-			_, err = stream.Recv()
-			require.NotEqual(t, io.EOF, err)
-			testhelper.RequireGrpcError(t, err, testCase.code)
+			for {
+				_, err = stream.Recv()
+				if err != nil {
+					break
+				}
+			}
+			require.Error(t, err)
+			require.Contains(t, err.Error(), testCase.expectedErr)
+			testhelper.RequireGrpcError(t, err, testCase.expectedCode)
 		})
 	}
 }
