@@ -199,8 +199,6 @@ func run(cfg config.Cfg) error {
 		return fmt.Errorf("linguist instance creation: %w", err)
 	}
 
-	b.StopAction = gitalyServerFactory.GracefulStop
-
 	rubySrv := rubyserver.New(cfg)
 	if err := rubySrv.Start(); err != nil {
 		return fmt.Errorf("initialize gitaly-ruby: %v", err)
@@ -303,5 +301,5 @@ func run(cfg config.Cfg) error {
 		}
 	}()
 
-	return b.Wait(cfg.GracefulRestartTimeout.Duration())
+	return b.Wait(cfg.GracefulRestartTimeout.Duration(), gitalyServerFactory.GracefulStop)
 }
