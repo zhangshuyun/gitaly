@@ -38,10 +38,20 @@ type Sink interface {
 	GetReader(ctx context.Context, relativePath string) (io.ReadCloser, error)
 }
 
-// Full represents all paths required for a full backup
-type Full struct {
+// Backup represents all the information needed to restore a backup for a repository
+type Backup struct {
+	// Steps are the ordered list of steps required to restore this backup
+	Steps []Step
+}
+
+// Step represents an incremental step that makes up a complete backup for a repository
+type Step struct {
 	// BundlePath is the path of the bundle
 	BundlePath string
+	// SkippableOnNotFound defines if the bundle can be skipped when it does
+	// not exist. This allows us to maintain legacy behaviour where we always
+	// check a specific location for a bundle without knowing if it exists.
+	SkippableOnNotFound bool
 	// RefPath is the path of the ref file
 	RefPath string
 	// CustomHooksPath is the path of the custom hooks archive
@@ -50,14 +60,14 @@ type Full struct {
 
 // Locator finds sink backup paths for repositories
 type Locator interface {
-	// BeginFull returns paths for a new full backup
-	BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Full
+	// BeginFull returns a tentative first step needed to create a new full backup.
+	BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Step
 
-	// CommitFull persists the paths for a new backup so that it can be looked up by FindLatestFull
-	CommitFull(ctx context.Context, full *Full) error
+	// CommitFull marks the step returned by `BeginFull` as the latest backup.
+	CommitFull(ctx context.Context, step *Step) error
 
-	// FindLatestFull returns the paths committed by the latest call to CommitFull
-	FindLatestFull(ctx context.Context, repo *gitalypb.Repository) (*Full, error)
+	// FindLatest returns the latest backup that was written by CommitFull
+	FindLatest(ctx context.Context, repo *gitalypb.Repository) (*Backup, error)
 }
 
 // ResolveSink returns a sink implementation based on the provided path.
@@ -172,38 +182,40 @@ func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
 		return fmt.Errorf("manager: %w", err)
 	}
 
-	full, err := mgr.locator.FindLatestFull(ctx, req.Repository)
+	backup, err := mgr.locator.FindLatest(ctx, req.Repository)
 	if err != nil {
-		return mgr.checkRestoreSkip(ctx, err, req)
-	}
-
-	if err := mgr.restoreBundle(ctx, full.BundlePath, req.Server, req.Repository); err != nil {
-		return mgr.checkRestoreSkip(ctx, err, req)
-	}
-	if err := mgr.restoreCustomHooks(ctx, full.CustomHooksPath, req.Server, req.Repository); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
-	return nil
-}
 
-func (mgr *Manager) checkRestoreSkip(ctx context.Context, err error, req *RestoreRequest) error {
-	if errors.Is(err, ErrDoesntExist) {
-		// For compatibility with existing backups we need to always create the
-		// repository even if there's no bundle for project repositories
-		// (not wiki or snippet repositories).  Gitaly does not know which
-		// repository is which type so here we accept a parameter to tell us
-		// to employ this behaviour.
-		if req.AlwaysCreate {
-			if err := mgr.createRepository(ctx, req.Server, req.Repository); err != nil {
-				return fmt.Errorf("manager: %w", err)
-			}
-			return nil
-		}
-
-		return fmt.Errorf("manager: %w: %s", ErrSkipped, err.Error())
+	if err := mgr.createRepository(ctx, req.Server, req.Repository); err != nil {
+		return fmt.Errorf("manager: %w", err)
 	}
 
-	return fmt.Errorf("manager: %w", err)
+	for _, step := range backup.Steps {
+		if err := mgr.restoreBundle(ctx, step.BundlePath, req.Server, req.Repository); err != nil {
+			if step.SkippableOnNotFound && errors.Is(err, ErrDoesntExist) {
+				// For compatibility with existing backups we need to make sure the
+				// repository exists even if there's no bundle for project
+				// repositories (not wiki or snippet repositories).  Gitaly does
+				// not know which repository is which type so here we accept a
+				// parameter to tell us to employ this behaviour. Since the
+				// repository has already been created, we simply skip cleaning up.
+				if req.AlwaysCreate {
+					return nil
+				}
+
+				if err := mgr.removeRepository(ctx, req.Server, req.Repository); err != nil {
+					return fmt.Errorf("manager: remove on skipped: %w", err)
+				}
+
+				return fmt.Errorf("manager: %w: %s", ErrSkipped, err.Error())
+			}
+		}
+		if err := mgr.restoreCustomHooks(ctx, step.CustomHooksPath, req.Server, req.Repository); err != nil {
+			return fmt.Errorf("manager: %w", err)
+		}
+	}
+	return nil
 }
 
 func (mgr *Manager) isEmpty(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) (bool, error) {
@@ -317,11 +329,11 @@ func (mgr *Manager) restoreBundle(ctx context.Context, path string, server stora
 	if err != nil {
 		return fmt.Errorf("restore bundle: %q: %w", path, err)
 	}
-	stream, err := repoClient.CreateRepositoryFromBundle(ctx)
+	stream, err := repoClient.FetchBundle(ctx)
 	if err != nil {
 		return fmt.Errorf("restore bundle: %q: %w", path, err)
 	}
-	request := &gitalypb.CreateRepositoryFromBundleRequest{Repository: repo}
+	request := &gitalypb.FetchBundleRequest{Repository: repo}
 	bundle := streamio.NewWriter(func(p []byte) error {
 		request.Data = p
 		if err := stream.Send(request); err != nil {
@@ -329,7 +341,7 @@ func (mgr *Manager) restoreBundle(ctx context.Context, path string, server stora
 		}
 
 		// Only set `Repository` on the first `Send` of the stream
-		request = &gitalypb.CreateRepositoryFromBundleRequest{}
+		request = &gitalypb.FetchBundleRequest{}
 
 		return nil
 	})
