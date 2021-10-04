@@ -36,7 +36,7 @@ func (cmd *datalossSubcommand) FlagSet() *flag.FlagSet {
 	fs.BoolVar(&cmd.includePartiallyAvailable, "partially-unavailable", false, strings.TrimSpace(`
 Additionally include repositories which are available but some assigned replicas
 are unavailable. Such repositories are available but are not fully replicated. This
-increases the change of data loss on primary failure`))
+increases the chance of data loss on primary failure`))
 	return fs
 }
 
