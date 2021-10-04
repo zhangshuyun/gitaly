@@ -6,13 +6,13 @@ import (
 	"flag"
 	"fmt"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/bootstrap"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
@@ -85,10 +85,10 @@ func TestListUntrackedRepositories_Exec(t *testing.T) {
 	starterConfigs, err := getStarterConfigs(conf)
 	require.NoError(t, err)
 	stopped := make(chan struct{})
+	bootstrapper := bootstrap.NewNoop()
 	go func() {
 		defer close(stopped)
-		err := run(starterConfigs, conf)
-		assert.EqualError(t, err, `received signal "terminated"`)
+		assert.NoError(t, run(starterConfigs, conf, bootstrapper))
 	}()
 
 	cc, err := client.Dial("unix://"+conf.SocketPath, nil)
@@ -115,7 +115,7 @@ func TestListUntrackedRepositories_Exec(t *testing.T) {
 	}
 	require.ElementsMatch(t, exp, strings.Split(out.String(), "\n"))
 
-	require.NoError(t, syscall.Kill(syscall.Getpid(), syscall.SIGTERM))
+	bootstrapper.Terminate()
 	<-stopped
 }
 
