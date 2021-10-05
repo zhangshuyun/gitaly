@@ -9,8 +9,13 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/listenmux"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -123,4 +128,17 @@ func (s *ServerHandshaker) Handshake(conn net.Conn, authInfo credentials.AuthInf
 // embed into listenmux.
 func NewServerHandshaker(registry *Registry) *ServerHandshaker {
 	return &ServerHandshaker{registry: registry}
+}
+
+// NewClientHandshaker is used to enable sidechannel support on outbound
+// gRPC connections.
+func NewClientHandshaker(logger *logrus.Entry, registry *Registry) client.Handshaker {
+	return backchannel.NewClientHandshaker(
+		logger,
+		func() backchannel.Server {
+			lm := listenmux.New(insecure.NewCredentials())
+			lm.Register(NewServerHandshaker(registry))
+			return grpc.NewServer(grpc.Creds(lm))
+		},
+	)
 }

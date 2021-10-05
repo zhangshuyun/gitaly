@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/opentracing/opentracing-go"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/uber/jaeger-client-go"
@@ -26,6 +27,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 )
@@ -37,7 +39,11 @@ func TestDial(t *testing.T) {
 		t.Log("WARNING. Proxy configuration detected from environment settings. This test failure may be related to proxy configuration. Please process with caution")
 	}
 
-	stop, connectionMap := startListeners(t)
+	stop, connectionMap := startListeners(t, func(creds credentials.TransportCredentials) *grpc.Server {
+		srv := grpc.NewServer(grpc.Creds(creds))
+		healthpb.RegisterHealthServer(srv, &healthServer{})
+		return srv
+	})
 	defer stop()
 
 	unixSocketAbsPath := connectionMap["unix"]
@@ -143,6 +149,110 @@ func TestDial(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
+		})
+	}
+}
+
+func TestDialSidechannel(t *testing.T) {
+	if emitProxyWarning() {
+		t.Log("WARNING. Proxy configuration detected from environment settings. This test failure may be related to proxy configuration. Please process with caution")
+	}
+
+	stop, connectionMap := startListeners(t, func(creds credentials.TransportCredentials) *grpc.Server {
+		return grpc.NewServer(TestSidechannelServer(newLogger(t), creds, func(
+			_ interface{},
+			stream grpc.ServerStream,
+			sidechannelConn io.ReadWriteCloser,
+		) error {
+			if method, ok := grpc.Method(stream.Context()); !ok || method != "/grpc.health.v1.Health/Check" {
+				return fmt.Errorf("unexpected method: %s", method)
+			}
+
+			var req healthpb.HealthCheckRequest
+			if err := stream.RecvMsg(&req); err != nil {
+				return fmt.Errorf("recv msg: %w", err)
+			}
+
+			if _, err := io.Copy(sidechannelConn, sidechannelConn); err != nil {
+				return fmt.Errorf("copy: %w", err)
+			}
+
+			if err := stream.SendMsg(&healthpb.HealthCheckResponse{}); err != nil {
+				return fmt.Errorf("send msg: %w", err)
+			}
+
+			return nil
+		})...)
+	})
+	defer stop()
+
+	unixSocketAbsPath := connectionMap["unix"]
+
+	tempDir := testhelper.TempDir(t)
+
+	unixSocketPath := filepath.Join(tempDir, "gitaly.socket")
+	require.NoError(t, os.Symlink(unixSocketAbsPath, unixSocketPath))
+
+	registry := NewSidechannelRegistry(newLogger(t))
+
+	tests := []struct {
+		name           string
+		rawAddress     string
+		envSSLCertFile string
+		dialOpts       []grpc.DialOption
+	}{
+		{
+			name:       "tcp sidechannel",
+			rawAddress: "tcp://localhost:" + connectionMap["tcp"], // "tcp://localhost:1234"
+		},
+		{
+			name:           "tls sidechannel",
+			rawAddress:     "tls://localhost:" + connectionMap["tls"], // "tls://localhost:1234"
+			envSSLCertFile: "./testdata/gitalycert.pem",
+		},
+		{
+			name:       "unix sidechannel",
+			rawAddress: "unix:" + unixSocketAbsPath, // "unix:/tmp/temp-socket"
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.envSSLCertFile != "" {
+				defer testhelper.ModifyEnvironment(t, gitalyx509.SSLCertFile, tt.envSSLCertFile)()
+			}
+
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			conn, err := DialSidechannel(ctx, tt.rawAddress, registry, tt.dialOpts)
+			require.NoError(t, err)
+			defer conn.Close()
+
+			ctx, scw := registry.Register(ctx, func(conn SidechannelConn) error {
+				const message = "hello world"
+				if _, err := io.WriteString(conn, message); err != nil {
+					return err
+				}
+				if err := conn.CloseWrite(); err != nil {
+					return err
+				}
+				buf, err := io.ReadAll(conn)
+				if err != nil {
+					return err
+				}
+				if string(buf) != message {
+					return fmt.Errorf("expected %q, got %q", message, buf)
+				}
+
+				return nil
+			})
+			defer scw.Close()
+
+			req := &healthpb.HealthCheckRequest{Service: "test sidechannel"}
+			_, err = healthpb.NewHealthClient(conn).Check(ctx, req)
+			require.NoError(t, err)
+			require.NoError(t, scw.Close())
 		})
 	}
 }
@@ -414,26 +524,23 @@ func TestDial_Tracing(t *testing.T) {
 }
 
 // healthServer provide a basic GRPC health service endpoint for testing purposes
-type healthServer struct{}
-
-func (*healthServer) Check(context.Context, *healthpb.HealthCheckRequest) (*healthpb.HealthCheckResponse, error) {
-	return &healthpb.HealthCheckResponse{Status: healthpb.HealthCheckResponse_SERVING}, nil
+type healthServer struct {
+	healthpb.UnimplementedHealthServer
 }
 
-func (*healthServer) Watch(*healthpb.HealthCheckRequest, healthpb.Health_WatchServer) error {
-	return status.Errorf(codes.Unimplemented, "Not implemented")
+func (*healthServer) Check(context.Context, *healthpb.HealthCheckRequest) (*healthpb.HealthCheckResponse, error) {
+	return &healthpb.HealthCheckResponse{}, nil
 }
 
 // startTCPListener will start a insecure TCP listener on a random unused port
-func startTCPListener(t testing.TB) (func(), string) {
+func startTCPListener(t testing.TB, factory func(credentials.TransportCredentials) *grpc.Server) (func(), string) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	require.NoError(t, err)
 
 	tcpPort := listener.Addr().(*net.TCPAddr).Port
 	address := fmt.Sprintf("%d", tcpPort)
 
-	grpcServer := grpc.NewServer()
-	healthpb.RegisterHealthServer(grpcServer, &healthServer{})
+	grpcServer := factory(insecure.NewCredentials())
 	go grpcServer.Serve(listener)
 
 	return func() {
@@ -442,14 +549,13 @@ func startTCPListener(t testing.TB) (func(), string) {
 }
 
 // startUnixListener will start a unix socket listener using a temporary file
-func startUnixListener(t testing.TB) (func(), string) {
+func startUnixListener(t testing.TB, factory func(credentials.TransportCredentials) *grpc.Server) (func(), string) {
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 	listener, err := net.Listen("unix", serverSocketPath)
 	require.NoError(t, err)
 
-	grpcServer := grpc.NewServer()
-	healthpb.RegisterHealthServer(grpcServer, &healthServer{})
+	grpcServer := factory(insecure.NewCredentials())
 	go grpcServer.Serve(listener)
 
 	return func() {
@@ -459,7 +565,7 @@ func startUnixListener(t testing.TB) (func(), string) {
 
 // startTLSListener will start a secure TLS listener on a random unused port
 //go:generate openssl req -newkey rsa:4096 -new -nodes -x509 -days 3650 -out testdata/gitalycert.pem -keyout testdata/gitalykey.pem -subj "/C=US/ST=California/L=San Francisco/O=GitLab/OU=GitLab-Shell/CN=localhost" -addext "subjectAltName = IP:127.0.0.1, DNS:localhost"
-func startTLSListener(t testing.TB) (func(), string) {
+func startTLSListener(t testing.TB, factory func(credentials.TransportCredentials) *grpc.Server) (func(), string) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	require.NoError(t, err)
 
@@ -469,11 +575,12 @@ func startTLSListener(t testing.TB) (func(), string) {
 	cert, err := tls.LoadX509KeyPair("testdata/gitalycert.pem", "testdata/gitalykey.pem")
 	require.NoError(t, err)
 
-	grpcServer := grpc.NewServer(grpc.Creds(credentials.NewTLS(&tls.Config{
-		Certificates: []tls.Certificate{cert},
-		MinVersion:   tls.VersionTLS12,
-	})))
-	healthpb.RegisterHealthServer(grpcServer, &healthServer{})
+	grpcServer := factory(
+		credentials.NewTLS(&tls.Config{
+			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS12,
+		}),
+	)
 	go grpcServer.Serve(listener)
 
 	return func() {
@@ -481,18 +588,18 @@ func startTLSListener(t testing.TB) (func(), string) {
 	}, address
 }
 
-var listeners = map[string]func(testing.TB) (func(), string){
+var listeners = map[string]func(testing.TB, func(credentials.TransportCredentials) *grpc.Server) (func(), string){
 	"tcp":  startTCPListener,
 	"unix": startUnixListener,
 	"tls":  startTLSListener,
 }
 
 // startListeners will start all the different listeners used in this test
-func startListeners(t testing.TB) (func(), map[string]string) {
+func startListeners(t testing.TB, factory func(credentials.TransportCredentials) *grpc.Server) (func(), map[string]string) {
 	var closers []func()
 	connectionMap := map[string]string{}
 	for k, v := range listeners {
-		closer, address := v(t)
+		closer, address := v(t, factory)
 		closers = append(closers, closer)
 		connectionMap[k] = address
 	}
@@ -532,3 +639,5 @@ func TestHealthCheckDialer(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, cc.Close())
 }
+
+func newLogger(t testing.TB) *logrus.Entry { return logrus.NewEntry(testhelper.NewTestLogger(t)) }
