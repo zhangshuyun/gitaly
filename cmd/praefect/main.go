@@ -435,7 +435,7 @@ func run(cfgs []starter.Config, conf config.Config, b bootstrap.Listener, promre
 				conf.StorageNames(),
 				conf.Reconciliation.HistogramBuckets,
 			)
-			prometheus.MustRegister(r)
+			promreg.MustRegister(r)
 			go r.Run(ctx, helper.NewTimerTicker(interval))
 		}
 	}
