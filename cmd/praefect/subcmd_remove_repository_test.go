@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
@@ -111,7 +112,7 @@ func TestRemoveRepository_Exec(t *testing.T) {
 	bootstrapper := bootstrap.NewNoop()
 	go func() {
 		defer close(stopped)
-		assert.NoError(t, run(starterConfigs, conf, bootstrapper))
+		assert.NoError(t, run(starterConfigs, conf, bootstrapper, prometheus.NewRegistry()))
 	}()
 
 	cc, err := client.Dial("unix://"+conf.SocketPath, nil)
