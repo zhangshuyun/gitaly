@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
@@ -88,7 +89,7 @@ func TestListUntrackedRepositories_Exec(t *testing.T) {
 	bootstrapper := bootstrap.NewNoop()
 	go func() {
 		defer close(stopped)
-		assert.NoError(t, run(starterConfigs, conf, bootstrapper))
+		assert.NoError(t, run(starterConfigs, conf, bootstrapper, prometheus.NewRegistry()))
 	}()
 
 	cc, err := client.Dial("unix://"+conf.SocketPath, nil)
