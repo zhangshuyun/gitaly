@@ -83,9 +83,7 @@ func TestAddRepository_Exec(t *testing.T) {
 	g1Addr := g1Srv.Address()
 
 	db := glsql.NewDB(t)
-	var database string
-	require.NoError(t, db.QueryRow(`SELECT current_database()`).Scan(&database))
-	dbConf := glsql.GetDBConfig(t, database)
+	dbConf := glsql.GetDBConfig(t, db.Name)
 
 	virtualStorageName := "praefect"
 	conf := config.Config{

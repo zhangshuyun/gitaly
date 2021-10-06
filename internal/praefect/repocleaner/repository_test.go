@@ -49,9 +49,7 @@ func TestRunner_Run(t *testing.T) {
 	g3Addr := testserver.RunGitalyServer(t, g3Cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
 	db := glsql.NewDB(t)
-	var database string
-	require.NoError(t, db.QueryRow(`SELECT current_database()`).Scan(&database))
-	dbConf := glsql.GetDBConfig(t, database)
+	dbConf := glsql.GetDBConfig(t, db.Name)
 
 	conf := config.Config{
 		SocketPath: testhelper.GetTemporaryGitalySocketFileName(t),
@@ -207,9 +205,7 @@ func TestRunner_Run_noAvailableStorages(t *testing.T) {
 	g1Addr := testserver.RunGitalyServer(t, g1Cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
 	db := glsql.NewDB(t)
-	var database string
-	require.NoError(t, db.QueryRow(`SELECT current_database()`).Scan(&database))
-	dbConf := glsql.GetDBConfig(t, database)
+	dbConf := glsql.GetDBConfig(t, db.Name)
 
 	conf := config.Config{
 		SocketPath: testhelper.GetTemporaryGitalySocketFileName(t),
