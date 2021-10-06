@@ -4,10 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"sync"
 
-	"github.com/opentracing/opentracing-go"
-	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 )
 
@@ -30,67 +27,12 @@ type Batch interface {
 }
 
 type batch struct {
-	*objectInfoReader
-	*objectReader
-
-	closedMutex sync.Mutex
-	closed      bool
+	objectReader     ObjectReader
+	objectInfoReader ObjectInfoReader
 }
 
-func newBatch(
-	ctx context.Context,
-	repo git.RepositoryExecutor,
-	counter *prometheus.CounterVec,
-) (_ *batch, returnedErr error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "catfile.Batch")
-	go func() {
-		<-ctx.Done()
-		span.Finish()
-	}()
-
-	objectReader, err := newObjectReader(ctx, repo, counter)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		// If creation of the ObjectInfoReader fails, then we do not want to leak the
-		// ObjectReader process.
-		if returnedErr != nil {
-			objectReader.close()
-		}
-	}()
-
-	objectInfoReader, err := newObjectInfoReader(ctx, repo, counter)
-	if err != nil {
-		return nil, err
-	}
-
-	return &batch{objectReader: objectReader, objectInfoReader: objectInfoReader}, nil
-}
-
-// Close closes the writers for objectInfoReader and objectReader. This is only used for cached
-// Batches
-func (c *batch) close() {
-	c.closedMutex.Lock()
-	defer c.closedMutex.Unlock()
-
-	if c.closed {
-		return
-	}
-
-	c.closed = true
-	c.objectReader.close()
-	c.objectInfoReader.close()
-}
-
-func (c *batch) isDirty() bool {
-	return c.objectReader.isDirty() || c.objectInfoReader.isDirty()
-}
-
-func (c *batch) isClosed() bool {
-	c.closedMutex.Lock()
-	defer c.closedMutex.Unlock()
-	return c.closed
+func newBatch(objectReader ObjectReader, objectInfoReader ObjectInfoReader) *batch {
+	return &batch{objectReader: objectReader, objectInfoReader: objectInfoReader}
 }
 
 // Info returns an ObjectInfo if spec exists. If the revision does not exist
