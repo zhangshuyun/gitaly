@@ -102,7 +102,7 @@ func (s *ServerFactory) Create(secure bool) (*grpc.Server, error) {
 	defer s.mtx.Unlock()
 
 	if !secure {
-		s.insecure = append(s.insecure, s.createGRPC())
+		s.insecure = append(s.insecure, s.createGRPC(nil))
 		return s.insecure[len(s.insecure)-1], nil
 	}
 
@@ -111,15 +111,15 @@ func (s *ServerFactory) Create(secure bool) (*grpc.Server, error) {
 		return nil, fmt.Errorf("load certificate key pair: %w", err)
 	}
 
-	s.secure = append(s.secure, s.createGRPC(grpc.Creds(credentials.NewTLS(&tls.Config{
+	s.secure = append(s.secure, s.createGRPC(credentials.NewTLS(&tls.Config{
 		Certificates: []tls.Certificate{cert},
 		MinVersion:   tls.VersionTLS12,
-	}))))
+	})))
 
 	return s.secure[len(s.secure)-1], nil
 }
 
-func (s *ServerFactory) createGRPC(grpcOpts ...grpc.ServerOption) *grpc.Server {
+func (s *ServerFactory) createGRPC(creds credentials.TransportCredentials) *grpc.Server {
 	return NewGRPCServer(
 		s.conf,
 		s.logger,
@@ -132,7 +132,7 @@ func (s *ServerFactory) createGRPC(grpcOpts ...grpc.ServerOption) *grpc.Server {
 		s.assignmentStore,
 		s.conns,
 		s.primaryGetter,
-		grpcOpts...,
+		creds,
 	)
 }
 

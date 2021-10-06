@@ -60,7 +60,7 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	nodeManager, err := nodes.NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil)
+	nodeManager, err := nodes.NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 	nodeManager.Start(0, time.Hour)
 	cc, _, cleanup := runPraefectServer(t, ctx, conf, buildOptions{

@@ -151,7 +151,7 @@ func runServer(t *testing.T, token string, required bool) (*grpc.Server, string,
 	logEntry := testhelper.DiscardTestEntry(t)
 	queue := datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t))
 
-	nodeMgr, err := nodes.NewManager(logEntry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil)
+	nodeMgr, err := nodes.NewManager(logEntry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 
 	txMgr := transactions.NewManager(conf)
@@ -161,7 +161,7 @@ func runServer(t *testing.T, token string, required bool) (*grpc.Server, string,
 
 	coordinator := NewCoordinator(queue, nil, NewNodeManagerRouter(nodeMgr, nil), txMgr, conf, registry)
 
-	srv := NewGRPCServer(conf, logEntry, registry, coordinator.StreamDirector, nodeMgr, txMgr, queue, nil, nil, nil, nil)
+	srv := NewGRPCServer(conf, logEntry, registry, coordinator.StreamDirector, nodeMgr, txMgr, queue, nil, nil, nil, nil, nil)
 
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 

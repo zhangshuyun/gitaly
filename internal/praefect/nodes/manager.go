@@ -22,6 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes/tracker"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/protoregistry"
 	prommetrics "gitlab.com/gitlab-org/gitaly/v14/internal/prometheus/metrics"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/sidechannel"
 	"google.golang.org/grpc"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
@@ -117,20 +118,26 @@ var ErrPrimaryNotHealthy = errors.New("primary gitaly is not healthy")
 const dialTimeout = 10 * time.Second
 
 // Dial dials a node with the necessary interceptors configured.
-func Dial(ctx context.Context, node *config.Node, registry *protoregistry.Registry, errorTracker tracker.ErrorTracker, handshaker client.Handshaker) (*grpc.ClientConn, error) {
+func Dial(ctx context.Context, node *config.Node, registry *protoregistry.Registry, errorTracker tracker.ErrorTracker, handshaker client.Handshaker, sidechannelRegistry *sidechannel.Registry) (*grpc.ClientConn, error) {
 	streamInterceptors := []grpc.StreamClientInterceptor{
 		grpcprometheus.StreamClientInterceptor,
+		sidechannel.NewStreamProxy(sidechannelRegistry),
 	}
 
 	if errorTracker != nil {
 		streamInterceptors = append(streamInterceptors, middleware.StreamErrorHandler(registry, errorTracker, node.Storage))
 	}
 
+	unaryInterceptors := []grpc.UnaryClientInterceptor{
+		grpcprometheus.UnaryClientInterceptor,
+		sidechannel.NewUnaryProxy(sidechannelRegistry),
+	}
+
 	dialOpts := []grpc.DialOption{
 		grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())),
 		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(node.Token)),
 		grpc.WithChainStreamInterceptor(streamInterceptors...),
-		grpc.WithChainUnaryInterceptor(grpcprometheus.UnaryClientInterceptor),
+		grpc.WithChainUnaryInterceptor(unaryInterceptors...),
 	}
 
 	return client.Dial(ctx, node.Address, dialOpts, handshaker)
@@ -146,6 +153,7 @@ func NewManager(
 	registry *protoregistry.Registry,
 	errorTracker tracker.ErrorTracker,
 	handshaker client.Handshaker,
+	sidechannelRegistry *sidechannel.Registry,
 ) (*Mgr, error) {
 	if !c.Failover.Enabled {
 		errorTracker = nil
@@ -161,7 +169,7 @@ func NewManager(
 
 		ns := make([]*nodeStatus, 0, len(virtualStorage.Nodes))
 		for _, node := range virtualStorage.Nodes {
-			conn, err := Dial(ctx, node, registry, errorTracker, handshaker)
+			conn, err := Dial(ctx, node, registry, errorTracker, handshaker, sidechannelRegistry)
 			if err != nil {
 				return nil, err
 			}

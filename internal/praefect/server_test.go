@@ -103,8 +103,8 @@ func TestNewBackchannelServerFactory(t *testing.T) {
 		Name:  "default",
 		Nodes: []*config.Node{{Storage: "gitaly-1", Address: "tcp://" + ln.Addr().String()}},
 	}}, nil, nil, backchannel.NewClientHandshaker(logger, NewBackchannelServerFactory(
-		testhelper.DiscardTestEntry(t), transaction.NewServer(mgr),
-	)))
+		testhelper.DiscardTestEntry(t), transaction.NewServer(mgr), nil,
+	)), nil)
 	require.NoError(t, err)
 	defer nodeSet.Close()
 
@@ -158,7 +158,7 @@ func TestGitalyServerInfo(t *testing.T) {
 			},
 		}
 
-		nodeSet, err := DialNodes(ctx, conf.VirtualStorages, nil, nil, nil)
+		nodeSet, err := DialNodes(ctx, conf.VirtualStorages, nil, nil, nil, nil)
 		require.NoError(t, err)
 		t.Cleanup(nodeSet.Close)
 
@@ -224,7 +224,7 @@ func TestGitalyServerInfo(t *testing.T) {
 			},
 		}
 
-		nodeSet, err := DialNodes(ctx, conf.VirtualStorages, nil, nil, nil)
+		nodeSet, err := DialNodes(ctx, conf.VirtualStorages, nil, nil, nil, nil)
 		require.NoError(t, err)
 		t.Cleanup(nodeSet.Close)
 
@@ -263,7 +263,7 @@ func TestGitalyServerInfoBadNode(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	nodes, err := DialNodes(ctx, conf.VirtualStorages, nil, nil, nil)
+	nodes, err := DialNodes(ctx, conf.VirtualStorages, nil, nil, nil, nil)
 	require.NoError(t, err)
 	defer nodes.Close()
 
@@ -297,7 +297,7 @@ func TestDiskStatistics(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	nodes, err := DialNodes(ctx, praefectCfg.VirtualStorages, nil, nil, nil)
+	nodes, err := DialNodes(ctx, praefectCfg.VirtualStorages, nil, nil, nil, nil)
 	require.NoError(t, err)
 	defer nodes.Close()
 
@@ -541,8 +541,8 @@ func TestRemoveRepository(t *testing.T) {
 		repoStore, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered,
 		nil, backchannel.NewClientHandshaker(
 			testhelper.DiscardTestEntry(t),
-			NewBackchannelServerFactory(testhelper.DiscardTestEntry(t), transaction.NewServer(txMgr)),
-		),
+			NewBackchannelServerFactory(testhelper.DiscardTestEntry(t), transaction.NewServer(txMgr), nil),
+		), nil,
 	)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Hour)
@@ -809,7 +809,7 @@ func TestProxyWrites(t *testing.T) {
 	queue := datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t))
 	entry := testhelper.DiscardTestEntry(t)
 
-	nodeMgr, err := nodes.NewManager(entry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil)
+	nodeMgr, err := nodes.NewManager(entry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Hour)
 
@@ -976,7 +976,7 @@ func TestErrorThreshold(t *testing.T) {
 			require.NoError(t, err)
 
 			rs := datastore.MockRepositoryStore{}
-			nodeMgr, err := nodes.NewManager(entry, conf, nil, rs, promtest.NewMockHistogramVec(), registry, errorTracker, nil)
+			nodeMgr, err := nodes.NewManager(entry, conf, nil, rs, promtest.NewMockHistogramVec(), registry, errorTracker, nil, nil)
 			require.NoError(t, err)
 
 			coordinator := NewCoordinator(
