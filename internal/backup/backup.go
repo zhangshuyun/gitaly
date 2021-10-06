@@ -65,10 +65,10 @@ type Locator interface {
 	// BeginFull returns a tentative first step needed to create a new full backup.
 	BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Step
 
-	// CommitFull marks the step returned by `BeginFull` as the latest backup.
-	CommitFull(ctx context.Context, step *Step) error
+	// Commit marks the step returned by `BeginFull` as the latest backup.
+	Commit(ctx context.Context, step *Step) error
 
-	// FindLatest returns the latest backup that was written by CommitFull
+	// FindLatest returns the latest backup that was written by Commit
 	FindLatest(ctx context.Context, repo *gitalypb.Repository) (*Backup, error)
 }
 
@@ -164,7 +164,7 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 		return fmt.Errorf("manager: write custom hooks: %w", err)
 	}
 
-	if err := mgr.locator.CommitFull(ctx, full); err != nil {
+	if err := mgr.locator.Commit(ctx, full); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
 

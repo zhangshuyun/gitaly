@@ -30,8 +30,8 @@ func (l LegacyLocator) BeginFull(ctx context.Context, repo *gitalypb.Repository,
 	return l.newFull(repo)
 }
 
-// CommitFull is unused as the locations are static
-func (l LegacyLocator) CommitFull(ctx context.Context, full *Step) error {
+// Commit is unused as the locations are static
+func (l LegacyLocator) Commit(ctx context.Context, full *Step) error {
 	return nil
 }
 
@@ -81,8 +81,8 @@ func (l PointerLocator) BeginFull(ctx context.Context, repo *gitalypb.Repository
 	}
 }
 
-// CommitFull persists the paths for a new backup so that it can be looked up by FindLatest
-func (l PointerLocator) CommitFull(ctx context.Context, full *Step) error {
+// Commit persists the paths for a new backup so that it can be looked up by FindLatest
+func (l PointerLocator) Commit(ctx context.Context, full *Step) error {
 	bundleDir := filepath.Dir(full.BundlePath)
 	backupID := filepath.Base(bundleDir)
 	backupPath := filepath.Dir(bundleDir)

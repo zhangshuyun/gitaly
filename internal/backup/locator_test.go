@@ -29,7 +29,7 @@ func TestLegacyLocator(t *testing.T) {
 		full := l.BeginFull(ctx, repo, "abc123")
 		assert.Equal(t, expected, full)
 
-		require.NoError(t, l.CommitFull(ctx, full))
+		require.NoError(t, l.Commit(ctx, full))
 	})
 
 	t.Run("FindLatest", func(t *testing.T) {
@@ -78,7 +78,7 @@ func TestPointerLocator(t *testing.T) {
 		full := l.BeginFull(ctx, repo, backupID)
 		assert.Equal(t, expected, full)
 
-		require.NoError(t, l.CommitFull(ctx, full))
+		require.NoError(t, l.Commit(ctx, full))
 
 		backupPointer := testhelper.MustReadFile(t, filepath.Join(backupPath, repo.RelativePath, "LATEST"))
 		require.Equal(t, backupID, string(backupPointer))
