@@ -108,7 +108,7 @@ func ConfigureRuby(cfg *config.Cfg) error {
 	}
 
 	if err := cfg.ConfigureRuby(); err != nil {
-		log.Fatalf("validate ruby config: %v", err)
+		return fmt.Errorf("validate ruby config: %w", err)
 	}
 
 	return nil
