@@ -18,100 +18,96 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-func TestCache_add(t *testing.T) {
+func TestStack_add(t *testing.T) {
 	const maxLen = 3
-	bc := newCache(time.Hour, maxLen, defaultEvictionInterval)
-	defer bc.Stop()
+	s := &stack{maxLen: maxLen}
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	key0 := mustCreateKey(t, "0", repo)
 	value0, cancel := mustCreateBatch(t, cfg, repo)
-	bc.add(key0, value0, cancel)
-	requireCacheValid(t, bc)
+	s.Add(key0, value0, time.Hour, cancel)
+	requireStackValid(t, s)
 
 	key1 := mustCreateKey(t, "1", repo)
 	value1, cancel := mustCreateBatch(t, cfg, repo)
-	bc.add(key1, value1, cancel)
-	requireCacheValid(t, bc)
+	s.Add(key1, value1, time.Hour, cancel)
+	requireStackValid(t, s)
 
 	key2 := mustCreateKey(t, "2", repo)
 	value2, cancel := mustCreateBatch(t, cfg, repo)
-	bc.add(key2, value2, cancel)
-	requireCacheValid(t, bc)
+	s.Add(key2, value2, time.Hour, cancel)
+	requireStackValid(t, s)
 
 	// Because maxLen is 3, and key0 is oldest, we expect that adding key3
 	// will kick out key0.
 	key3 := mustCreateKey(t, "3", repo)
 	value3, cancel := mustCreateBatch(t, cfg, repo)
-	bc.add(key3, value3, cancel)
-	requireCacheValid(t, bc)
+	s.Add(key3, value3, time.Hour, cancel)
+	requireStackValid(t, s)
 
-	require.Equal(t, maxLen, bc.entryCount(), "length should be maxLen")
+	require.Equal(t, maxLen, s.EntryCount(), "length should be maxLen")
 	require.True(t, value0.isClosed(), "value0 should be closed")
-	require.Equal(t, []key{key1, key2, key3}, keys(t, bc))
+	require.Equal(t, []key{key1, key2, key3}, keys(t, s))
 }
 
-func TestCache_addTwice(t *testing.T) {
-	bc := newCache(time.Hour, 10, defaultEvictionInterval)
-	defer bc.Stop()
+func TestStack_addTwice(t *testing.T) {
+	s := &stack{maxLen: 10}
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	key0 := mustCreateKey(t, "0", repo)
 	value0, cancel := mustCreateBatch(t, cfg, repo)
-	bc.add(key0, value0, cancel)
-	requireCacheValid(t, bc)
+	s.Add(key0, value0, time.Hour, cancel)
+	requireStackValid(t, s)
 
 	key1 := mustCreateKey(t, "1", repo)
 	value1, cancel := mustCreateBatch(t, cfg, repo)
-	bc.add(key1, value1, cancel)
-	requireCacheValid(t, bc)
+	s.Add(key1, value1, time.Hour, cancel)
+	requireStackValid(t, s)
 
-	require.Equal(t, key0, bc.head().key, "key0 should be oldest key")
+	require.Equal(t, key0, s.head().key, "key0 should be oldest key")
 
 	value2, cancel := mustCreateBatch(t, cfg, repo)
-	bc.add(key0, value2, cancel)
-	requireCacheValid(t, bc)
+	s.Add(key0, value2, time.Hour, cancel)
+	requireStackValid(t, s)
 
-	require.Equal(t, key1, bc.head().key, "key1 should be oldest key")
-	require.Equal(t, value1, bc.head().value)
+	require.Equal(t, key1, s.head().key, "key1 should be oldest key")
+	require.Equal(t, value1, s.head().value)
 
 	require.True(t, value0.isClosed(), "value0 should be closed")
 }
 
-func TestCache_checkout(t *testing.T) {
-	bc := newCache(time.Hour, 10, defaultEvictionInterval)
-	defer bc.Stop()
+func TestStack_Checkout(t *testing.T) {
+	s := &stack{maxLen: 10}
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	key0 := mustCreateKey(t, "0", repo)
 	value0, cancel := mustCreateBatch(t, cfg, repo)
-	bc.add(key0, value0, cancel)
+	s.Add(key0, value0, time.Hour, cancel)
 
-	entry, ok := bc.checkout(key{sessionID: "foo"})
-	requireCacheValid(t, bc)
+	entry, ok := s.Checkout(key{sessionID: "foo"})
+	requireStackValid(t, s)
 	require.Nil(t, entry, "expect nil value when key not found")
 	require.False(t, ok, "ok flag")
 
-	entry, ok = bc.checkout(key0)
-	requireCacheValid(t, bc)
+	entry, ok = s.Checkout(key0)
+	requireStackValid(t, s)
 
 	require.Equal(t, value0, entry.value)
 	require.True(t, ok, "ok flag")
 
 	require.False(t, entry.value.isClosed(), "value should not be closed after checkout")
 
-	entry, ok = bc.checkout(key0)
+	entry, ok = s.Checkout(key0)
 	require.False(t, ok, "ok flag after second checkout")
 	require.Nil(t, entry, "value from second checkout")
 }
 
-func TestCache_enforceTTL(t *testing.T) {
+func TestStack_EnforceTTL(t *testing.T) {
 	ttl := time.Hour
-	bc := newCache(ttl, 10, defaultEvictionInterval)
-	defer bc.Stop()
+	s := &stack{maxLen: 10}
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
@@ -119,12 +115,12 @@ func TestCache_enforceTTL(t *testing.T) {
 
 	key0 := mustCreateKey(t, "0", repo)
 	value0, cancel := mustCreateBatch(t, cfg, repo)
-	bc.add(key0, value0, cancel)
+	s.Add(key0, value0, ttl, cancel)
 	sleep()
 
 	key1 := mustCreateKey(t, "1", repo)
 	value1, cancel := mustCreateBatch(t, cfg, repo)
-	bc.add(key1, value1, cancel)
+	s.Add(key1, value1, ttl, cancel)
 	sleep()
 
 	cutoff := time.Now().Add(ttl)
@@ -132,59 +128,59 @@ func TestCache_enforceTTL(t *testing.T) {
 
 	key2 := mustCreateKey(t, "2", repo)
 	value2, cancel := mustCreateBatch(t, cfg, repo)
-	bc.add(key2, value2, cancel)
+	s.Add(key2, value2, ttl, cancel)
 	sleep()
 
 	key3 := mustCreateKey(t, "3", repo)
 	value3, cancel := mustCreateBatch(t, cfg, repo)
-	bc.add(key3, value3, cancel)
+	s.Add(key3, value3, ttl, cancel)
 	sleep()
 
-	requireCacheValid(t, bc)
+	requireStackValid(t, s)
 
 	// We expect this cutoff to cause eviction of key0 and key1 but no other keys.
-	bc.enforceTTL(cutoff)
+	s.EnforceTTL(cutoff)
 
-	requireCacheValid(t, bc)
+	requireStackValid(t, s)
 
 	for i, v := range []*batch{value0, value1} {
 		require.True(t, v.isClosed(), "value %d %v should be closed", i, v)
 	}
 
-	require.Equal(t, []key{key2, key3}, keys(t, bc), "remaining keys after EnforceTTL")
+	require.Equal(t, []key{key2, key3}, keys(t, s), "remaining keys after EnforceTTL")
 
-	bc.enforceTTL(cutoff)
+	s.EnforceTTL(cutoff)
 
-	requireCacheValid(t, bc)
-	require.Equal(t, []key{key2, key3}, keys(t, bc), "remaining keys after second EnforceTTL")
+	requireStackValid(t, s)
+	require.Equal(t, []key{key2, key3}, keys(t, s), "remaining keys after second EnforceTTL")
 }
 
 func TestCache_autoExpiry(t *testing.T) {
 	ttl := 5 * time.Millisecond
 	refresh := 1 * time.Millisecond
-	bc := newCache(ttl, 10, refresh)
-	defer bc.Stop()
+	c := newCache(ttl, 10, refresh)
+	defer c.Stop()
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	key0 := mustCreateKey(t, "0", repo)
 	value0, cancel := mustCreateBatch(t, cfg, repo)
-	bc.add(key0, value0, cancel)
-	requireCacheValid(t, bc)
+	c.batchProcesses.Add(key0, value0, ttl, cancel)
+	requireStackValid(t, &c.batchProcesses)
 
-	require.Contains(t, keys(t, bc), key0, "key should still be in map")
+	require.Contains(t, keys(t, &c.batchProcesses), key0, "key should still be in map")
 	require.False(t, value0.isClosed(), "value should not have been closed")
 
 	// Wait for the monitor goroutine to do its thing
 	for i := 0; i < 100; i++ {
-		if len(keys(t, bc)) == 0 {
+		if len(keys(t, &c.batchProcesses)) == 0 {
 			break
 		}
 
 		time.Sleep(refresh)
 	}
 
-	require.Empty(t, keys(t, bc), "key should no longer be in map")
+	require.Empty(t, keys(t, &c.batchProcesses), "key should no longer be in map")
 	require.True(t, value0.isClosed(), "value should be closed after eviction")
 }
 
@@ -240,7 +236,7 @@ func TestCache_BatchProcess(t *testing.T) {
 		// got killed as expected, the batch itself is not considered to have been closed.
 		require.False(t, batch.isClosed())
 
-		require.Empty(t, keys(t, cache))
+		require.Empty(t, keys(t, &cache.batchProcesses))
 	})
 
 	t.Run("cacheable", func(t *testing.T) {
@@ -271,7 +267,7 @@ func TestCache_BatchProcess(t *testing.T) {
 		defer cache.cachedProcessDone.L.Unlock()
 		cache.cachedProcessDone.Wait()
 
-		keys := keys(t, cache)
+		keys := keys(t, &cache.batchProcesses)
 		require.Equal(t, []key{{
 			sessionID:   "1",
 			repoStorage: repo.GetStorageName(),
@@ -307,7 +303,7 @@ func TestCache_BatchProcess(t *testing.T) {
 		defer cache.cachedProcessDone.L.Unlock()
 		cache.cachedProcessDone.Wait()
 
-		require.Empty(t, keys(t, cache))
+		require.Empty(t, keys(t, &cache.batchProcesses))
 
 		// The process should be killed now.
 		_, err = batchProcess.Info(ctx, "refs/heads/master")
@@ -340,15 +336,15 @@ func TestCache_BatchProcess(t *testing.T) {
 		defer cache.cachedProcessDone.L.Unlock()
 		cache.cachedProcessDone.Wait()
 
-		require.Empty(t, keys(t, cache))
+		require.Empty(t, keys(t, &cache.batchProcesses))
 	})
 }
 
-func requireCacheValid(t *testing.T, bc *ProcessCache) {
-	bc.entriesMutex.Lock()
-	defer bc.entriesMutex.Unlock()
+func requireStackValid(t *testing.T, s *stack) {
+	s.entriesMutex.Lock()
+	defer s.entriesMutex.Unlock()
 
-	for _, ent := range bc.entries {
+	for _, ent := range s.entries {
 		v := ent.value
 		require.False(t, v.isClosed(), "values in cache should not be closed: %v %v", ent, v)
 	}
@@ -375,14 +371,14 @@ func mustCreateKey(t *testing.T, sessionID string, repo repository.GitRepo) key 
 	return key
 }
 
-func keys(t *testing.T, bc *ProcessCache) []key {
+func keys(t *testing.T, s *stack) []key {
 	t.Helper()
 
-	bc.entriesMutex.Lock()
-	defer bc.entriesMutex.Unlock()
+	s.entriesMutex.Lock()
+	defer s.entriesMutex.Unlock()
 
 	var result []key
-	for _, ent := range bc.entries {
+	for _, ent := range s.entries {
 		result = append(result, ent.key)
 	}
 

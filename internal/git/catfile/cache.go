@@ -34,56 +34,24 @@ type Cache interface {
 	Evict()
 }
 
-func newCacheKey(sessionID string, repo repository.GitRepo) (key, bool) {
-	if sessionID == "" {
-		return key{}, false
-	}
-
-	return key{
-		sessionID:   sessionID,
-		repoStorage: repo.GetStorageName(),
-		repoRelPath: repo.GetRelativePath(),
-		repoObjDir:  repo.GetGitObjectDirectory(),
-		repoAltDir:  strings.Join(repo.GetGitAlternateObjectDirectories(), ","),
-	}, true
-}
-
-type key struct {
-	sessionID   string
-	repoStorage string
-	repoRelPath string
-	repoObjDir  string
-	repoAltDir  string
-}
-
-type entry struct {
-	key
-	value  *batch
-	expiry time.Time
-	cancel func()
-}
-
 // ProcessCache entries always get added to the back of the list. If the
 // list gets too long, we evict entries from the front of the list. When
 // an entry gets added it gets an expiry time based on a fixed TTL. A
 // monitor goroutine periodically evicts expired entries.
 type ProcessCache struct {
-	// maxLen is the maximum number of keys in the cache
-	maxLen int
 	// ttl is the fixed ttl for cache entries
 	ttl time.Duration
 	// monitorTicker is the ticker used for the monitoring Goroutine.
 	monitorTicker *time.Ticker
 	monitorDone   chan interface{}
 
+	batchProcesses stack
+
 	catfileCacheCounter     *prometheus.CounterVec
 	currentCatfileProcesses prometheus.Gauge
 	totalCatfileProcesses   prometheus.Counter
 	catfileLookupCounter    *prometheus.CounterVec
 	catfileCacheMembers     *prometheus.GaugeVec
-
-	entriesMutex sync.Mutex
-	entries      []*entry
 
 	// cachedProcessDone is a condition that gets signalled whenever a process is being
 	// considered to be returned to the cache. This field is optional and must only be used in
@@ -102,8 +70,10 @@ func newCache(ttl time.Duration, maxLen int, refreshInterval time.Duration) *Pro
 	}
 
 	processCache := &ProcessCache{
-		maxLen: maxLen,
-		ttl:    ttl,
+		ttl: ttl,
+		batchProcesses: stack{
+			maxLen: maxLen,
+		},
 		catfileCacheCounter: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "gitaly_catfile_cache_total",
@@ -163,7 +133,7 @@ func (c *ProcessCache) monitor() {
 	for {
 		select {
 		case <-c.monitorTicker.C:
-			c.enforceTTL(time.Now())
+			c.batchProcesses.EnforceTTL(time.Now())
 		case <-c.monitorDone:
 			close(c.monitorDone)
 			return
@@ -200,7 +170,7 @@ func (c *ProcessCache) BatchProcess(ctx context.Context, repo git.RepositoryExec
 		// disallow trivial denial of service attacks against other users in case it is
 		// possible to poison the cache with broken git-cat-file(1) processes.
 
-		if entry, ok := c.checkout(cacheKey); ok {
+		if entry, ok := c.batchProcesses.Checkout(cacheKey); ok {
 			go c.returnWhenDone(requestDone, cacheKey, entry.value, entry.cancel)
 			c.catfileCacheCounter.WithLabelValues("hit").Inc()
 			return entry.value, nil
@@ -255,7 +225,12 @@ func (c *ProcessCache) BatchProcess(ctx context.Context, repo git.RepositoryExec
 }
 
 func (c *ProcessCache) reportCacheMembers() {
-	c.catfileCacheMembers.WithLabelValues("batch").Set(float64(c.entryCount()))
+	c.catfileCacheMembers.WithLabelValues("batch").Set(float64(c.batchProcesses.EntryCount()))
+}
+
+// Evict evicts all cached processes from the cache.
+func (c *ProcessCache) Evict() {
+	c.batchProcesses.Evict()
 }
 
 func (c *ProcessCache) returnWhenDone(done <-chan struct{}, cacheKey key, batch *batch, cancel func()) {
@@ -281,87 +256,123 @@ func (c *ProcessCache) returnWhenDone(done <-chan struct{}, cacheKey key, batch 
 		return
 	}
 
-	if replaced := c.add(cacheKey, batch, cancel); replaced {
+	if replaced := c.batchProcesses.Add(cacheKey, batch, c.ttl, cancel); replaced {
 		c.catfileCacheCounter.WithLabelValues("duplicate").Inc()
 	}
 }
 
-// add adds a key, value pair to c. If there are too many keys in c
+type key struct {
+	sessionID   string
+	repoStorage string
+	repoRelPath string
+	repoObjDir  string
+	repoAltDir  string
+}
+
+func newCacheKey(sessionID string, repo repository.GitRepo) (key, bool) {
+	if sessionID == "" {
+		return key{}, false
+	}
+
+	return key{
+		sessionID:   sessionID,
+		repoStorage: repo.GetStorageName(),
+		repoRelPath: repo.GetRelativePath(),
+		repoObjDir:  repo.GetGitObjectDirectory(),
+		repoAltDir:  strings.Join(repo.GetGitAlternateObjectDirectories(), ","),
+	}, true
+}
+
+type entry struct {
+	key
+	value  *batch
+	expiry time.Time
+	cancel func()
+}
+
+type stack struct {
+	maxLen int
+
+	entriesMutex sync.Mutex
+	entries      []*entry
+}
+
+// Add adds a key, value pair to s. If there are too many keys in s
 // already add will evict old keys until the length is OK again.
-func (c *ProcessCache) add(k key, b *batch, cancel func()) bool {
-	c.entriesMutex.Lock()
-	defer c.entriesMutex.Unlock()
+func (s *stack) Add(k key, b *batch, ttl time.Duration, cancel func()) bool {
+	s.entriesMutex.Lock()
+	defer s.entriesMutex.Unlock()
 
 	replacedExisting := false
-	if i, ok := c.lookup(k); ok {
-		c.delete(i, true)
+	if i, ok := s.lookup(k); ok {
+		s.delete(i, true)
 		replacedExisting = true
 	}
 
 	ent := &entry{
 		key:    k,
 		value:  b,
-		expiry: time.Now().Add(c.ttl),
+		expiry: time.Now().Add(ttl),
 		cancel: cancel,
 	}
-	c.entries = append(c.entries, ent)
+	s.entries = append(s.entries, ent)
 
-	for len(c.entries) > c.maxLen {
-		c.evictHead()
+	for len(s.entries) > s.maxLen {
+		s.evictHead()
 	}
 
 	return replacedExisting
 }
 
-func (c *ProcessCache) head() *entry { return c.entries[0] }
-func (c *ProcessCache) evictHead()   { c.delete(0, true) }
+// Checkout removes a value from s. After use the caller can re-add the value with s.Add.
+func (s *stack) Checkout(k key) (*entry, bool) {
+	s.entriesMutex.Lock()
+	defer s.entriesMutex.Unlock()
 
-// entryCount returns the number of cached entries. This function will locks the ProcessCache to
-// avoid races.
-func (c *ProcessCache) entryCount() int {
-	c.entriesMutex.Lock()
-	defer c.entriesMutex.Unlock()
-	return len(c.entries)
-}
-
-// checkout removes a value from c. After use the caller can re-add the value with c.Add.
-func (c *ProcessCache) checkout(k key) (*entry, bool) {
-	c.entriesMutex.Lock()
-	defer c.entriesMutex.Unlock()
-
-	i, ok := c.lookup(k)
+	i, ok := s.lookup(k)
 	if !ok {
 		return nil, false
 	}
 
-	entry := c.entries[i]
-	c.delete(i, false)
+	entry := s.entries[i]
+	s.delete(i, false)
 	return entry, true
 }
 
-// enforceTTL evicts all entries older than now, assuming the entry
+// EnforceTTL evicts all entries older than now, assuming the entry
 // expiry times are increasing.
-func (c *ProcessCache) enforceTTL(now time.Time) {
-	c.entriesMutex.Lock()
-	defer c.entriesMutex.Unlock()
+func (s *stack) EnforceTTL(now time.Time) {
+	s.entriesMutex.Lock()
+	defer s.entriesMutex.Unlock()
 
-	for len(c.entries) > 0 && now.After(c.head().expiry) {
-		c.evictHead()
+	for len(s.entries) > 0 && now.After(s.head().expiry) {
+		s.evictHead()
 	}
 }
 
 // Evict evicts all cached processes from the cache.
-func (c *ProcessCache) Evict() {
-	c.entriesMutex.Lock()
-	defer c.entriesMutex.Unlock()
+func (s *stack) Evict() {
+	s.entriesMutex.Lock()
+	defer s.entriesMutex.Unlock()
 
-	for len(c.entries) > 0 {
-		c.evictHead()
+	for len(s.entries) > 0 {
+		s.evictHead()
 	}
 }
 
-func (c *ProcessCache) lookup(k key) (int, bool) {
-	for i, ent := range c.entries {
+// EntryCount returns the number of cached entries. This function will locks the ProcessCache to
+// avoid races.
+func (s *stack) EntryCount() int {
+	s.entriesMutex.Lock()
+	defer s.entriesMutex.Unlock()
+	return len(s.entries)
+}
+
+func (s *stack) head() *entry { return s.entries[0] }
+func (s *stack) evictHead()   { s.delete(0, true) }
+
+func (s *stack) lookup(k key) (int, bool) {
+	for i, ent := range s.entries {
 		if ent.key == k {
 			return i, true
 		}
@@ -370,13 +381,13 @@ func (c *ProcessCache) lookup(k key) (int, bool) {
 	return -1, false
 }
 
-func (c *ProcessCache) delete(i int, wantClose bool) {
-	ent := c.entries[i]
+func (s *stack) delete(i int, wantClose bool) {
+	ent := s.entries[i]
 
 	if wantClose {
 		ent.value.Close()
 		ent.cancel()
 	}
 
-	c.entries = append(c.entries[:i], c.entries[i+1:]...)
+	s.entries = append(s.entries[:i], s.entries[i+1:]...)
 }
