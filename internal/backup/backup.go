@@ -122,10 +122,10 @@ type Manager struct {
 }
 
 // NewManager creates and returns initialized *Manager instance.
-func NewManager(sink Sink, locator Locator) *Manager {
+func NewManager(sink Sink, locator Locator, pool *client.Pool) *Manager {
 	return &Manager{
 		sink:     sink,
-		conns:    client.NewPool(),
+		conns:    pool,
 		locator:  locator,
 		backupID: time.Now().UTC().Format("20060102150405"),
 	}

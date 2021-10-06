@@ -89,7 +89,10 @@ func TestManager_Create(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			fsBackup := NewManager(NewFilesystemSink(path), LegacyLocator{})
+			pool := client.NewPool()
+			defer testhelper.MustClose(t, pool)
+
+			fsBackup := NewManager(NewFilesystemSink(path), LegacyLocator{}, pool)
 			err := fsBackup.Create(ctx, &CreateRequest{
 				Server:     storage.ServerInfo{Address: gitalyAddr, Token: cfg.Auth.Token},
 				Repository: tc.repo,
@@ -351,11 +354,14 @@ func testManagerRestore(t *testing.T, cfg config.Cfg, gitalyAddr string) {
 					repo, bundles := tc.setup(t)
 					repoPath := filepath.Join(cfg.Storages[0].Path, repo.RelativePath)
 
+					pool := client.NewPool()
+					defer testhelper.MustClose(t, pool)
+
 					sink := NewFilesystemSink(path)
 					locator, err := ResolveLocator(locatorName, sink)
 					require.NoError(t, err)
 
-					fsBackup := NewManager(sink, locator)
+					fsBackup := NewManager(sink, locator, pool)
 					err = fsBackup.Restore(ctx, &RestoreRequest{
 						Server:       storage.ServerInfo{Address: gitalyAddr, Token: cfg.Auth.Token},
 						Repository:   repo,
