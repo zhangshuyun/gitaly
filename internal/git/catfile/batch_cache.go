@@ -6,11 +6,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
+	"gitlab.com/gitlab-org/labkit/correlation"
 )
 
 const (
@@ -32,14 +34,18 @@ type Cache interface {
 	Evict()
 }
 
-func newCacheKey(sessionID string, repo repository.GitRepo) key {
+func newCacheKey(sessionID string, repo repository.GitRepo) (key, bool) {
+	if sessionID == "" {
+		return key{}, false
+	}
+
 	return key{
 		sessionID:   sessionID,
 		repoStorage: repo.GetStorageName(),
 		repoRelPath: repo.GetRelativePath(),
 		repoObjDir:  repo.GetGitObjectDirectory(),
 		repoAltDir:  strings.Join(repo.GetGitAlternateObjectDirectories(), ","),
-	}
+	}, true
 }
 
 type key struct {
@@ -54,6 +60,7 @@ type entry struct {
 	key
 	value  *batch
 	expiry time.Time
+	cancel func()
 }
 
 // BatchCache entries always get added to the back of the list. If the
@@ -65,9 +72,6 @@ type BatchCache struct {
 	maxLen int
 	// ttl is the fixed ttl for cache entries
 	ttl time.Duration
-	// injectSpawnErrors is used for testing purposes only. If set to true, then spawned batch
-	// processes will simulate spawn errors.
-	injectSpawnErrors bool
 	// monitorTicker is the ticker used for the monitoring Goroutine.
 	monitorTicker *time.Ticker
 	monitorDone   chan interface{}
@@ -80,20 +84,16 @@ type BatchCache struct {
 
 	entriesMutex sync.Mutex
 	entries      []*entry
+
+	// cachedProcessDone is a condition that gets signalled whenever a process is being
+	// considered to be returned to the cache. This field is optional and must only be used in
+	// tests.
+	cachedProcessDone *sync.Cond
 }
 
 // NewCache creates a new catfile process cache.
 func NewCache(cfg config.Cfg) *BatchCache {
 	return newCache(defaultBatchfileTTL, cfg.Git.CatfileCacheSize, defaultEvictionInterval)
-}
-
-// Stop stops the monitoring Goroutine and evicts all cached processes. This must only be called
-// once.
-func (bc *BatchCache) Stop() {
-	bc.monitorTicker.Stop()
-	bc.monitorDone <- struct{}{}
-	<-bc.monitorDone
-	bc.Evict()
 }
 
 func newCache(ttl time.Duration, maxLen int, refreshInterval time.Duration) *BatchCache {
@@ -170,63 +170,109 @@ func (bc *BatchCache) monitor() {
 	}
 }
 
+// Stop stops the monitoring Goroutine and evicts all cached processes. This must only be called
+// once.
+func (bc *BatchCache) Stop() {
+	bc.monitorTicker.Stop()
+	bc.monitorDone <- struct{}{}
+	<-bc.monitorDone
+	bc.Evict()
+}
+
 // BatchProcess creates a new Batch process for the given repository.
-func (bc *BatchCache) BatchProcess(ctx context.Context, repo git.RepositoryExecutor) (Batch, error) {
-	if ctx.Done() == nil {
+func (bc *BatchCache) BatchProcess(ctx context.Context, repo git.RepositoryExecutor) (_ Batch, returnedErr error) {
+	requestDone := ctx.Done()
+	if requestDone == nil {
 		panic("empty ctx.Done() in catfile.Batch.New()")
 	}
 
-	sessionID := metadata.GetValue(ctx, SessionIDField)
-	if sessionID == "" {
-		c, ctx, err := bc.newBatch(ctx, repo)
-		if err != nil {
-			return nil, err
+	var cancel func()
+	cacheKey, isCacheable := newCacheKey(metadata.GetValue(ctx, SessionIDField), repo)
+	if isCacheable {
+		// We only try to look up cached batch processes in case it is cacheable, which
+		// requires a session ID. This is mostly done such that git-cat-file(1) processes
+		// from one user cannot interfer with those from another user. The main intent is to
+		// disallow trivial denial of service attacks against other users in case it is
+		// possible to poison the cache with broken git-cat-file(1) processes.
+
+		if entry, ok := bc.checkout(cacheKey); ok {
+			go bc.returnWhenDone(requestDone, cacheKey, entry.value, entry.cancel)
+			return entry.value, nil
 		}
-		return newInstrumentedBatch(ctx, c, bc.catfileLookupCounter), err
+
+		// We have not found any cached process, so we need to create a new one. In this
+		// case, we need to detach the process from the current context such that it does
+		// not get killed when the current context is done. Note that while we explicitly
+		// `Close()` processes in case this function fails, we must have a cancellable
+		// context or otherwise our `command` package will panic.
+		ctx, cancel = context.WithCancel(context.Background())
+		defer func() {
+			if returnedErr != nil {
+				cancel()
+			}
+		}()
+
+		// We have to decorrelate the process from the current context given that it
+		// may potentially be reused across different RPC calls.
+		ctx = correlation.ContextWithCorrelation(ctx, "")
+		ctx = opentracing.ContextWithSpan(ctx, nil)
 	}
 
-	cacheKey := newCacheKey(sessionID, repo)
-	requestDone := ctx.Done()
-
-	if c, ok := bc.checkout(cacheKey); ok {
-		go bc.returnWhenDone(requestDone, cacheKey, c)
-		return newInstrumentedBatch(ctx, c, bc.catfileLookupCounter), nil
-	}
-
-	// if we are using caching, create a fresh context for the new batch
-	// and initialize the new batch with a bc key and cancel function
-	cacheCtx, cacheCancel := context.WithCancel(context.Background())
-	c, ctx, err := bc.newBatch(cacheCtx, repo)
+	c, err := newBatch(ctx, repo, bc.catfileLookupCounter)
 	if err != nil {
-		cacheCancel()
 		return nil, err
 	}
+	defer func() {
+		// If we somehow fail after creating a new Batch process, then we want to kill
+		// spawned processes right away.
+		if returnedErr != nil {
+			c.Close()
+		}
+	}()
 
-	c.cancel = cacheCancel
-	go bc.returnWhenDone(requestDone, cacheKey, c)
+	bc.totalCatfileProcesses.Inc()
+	bc.currentCatfileProcesses.Inc()
+	go func() {
+		<-ctx.Done()
+		bc.currentCatfileProcesses.Dec()
+	}()
 
-	return newInstrumentedBatch(ctx, c, bc.catfileLookupCounter), nil
+	if isCacheable {
+		// If the process is cacheable, then we want to put the process into the cache when
+		// the current outer context is done.
+		go bc.returnWhenDone(requestDone, cacheKey, c, cancel)
+	}
+
+	return c, nil
 }
 
-func (bc *BatchCache) returnWhenDone(done <-chan struct{}, cacheKey key, c *batch) {
+func (bc *BatchCache) returnWhenDone(done <-chan struct{}, cacheKey key, c *batch, cancel func()) {
 	<-done
 
+	if bc.cachedProcessDone != nil {
+		defer func() {
+			bc.cachedProcessDone.Broadcast()
+		}()
+	}
+
 	if c == nil || c.isClosed() {
+		cancel()
 		return
 	}
 
 	if c.hasUnreadData() {
+		cancel()
 		bc.catfileCacheCounter.WithLabelValues("dirty").Inc()
 		c.Close()
 		return
 	}
 
-	bc.add(cacheKey, c)
+	bc.add(cacheKey, c, cancel)
 }
 
 // add adds a key, value pair to bc. If there are too many keys in bc
 // already add will evict old keys until the length is OK again.
-func (bc *BatchCache) add(k key, b *batch) {
+func (bc *BatchCache) add(k key, b *batch, cancel func()) {
 	bc.entriesMutex.Lock()
 	defer bc.entriesMutex.Unlock()
 
@@ -235,7 +281,12 @@ func (bc *BatchCache) add(k key, b *batch) {
 		bc.delete(i, true)
 	}
 
-	ent := &entry{key: k, value: b, expiry: time.Now().Add(bc.ttl)}
+	ent := &entry{
+		key:    k,
+		value:  b,
+		expiry: time.Now().Add(bc.ttl),
+		cancel: cancel,
+	}
 	bc.entries = append(bc.entries, ent)
 
 	for bc.len() > bc.maxLen {
@@ -250,7 +301,7 @@ func (bc *BatchCache) evictHead()   { bc.delete(0, true) }
 func (bc *BatchCache) len() int     { return len(bc.entries) }
 
 // checkout removes a value from bc. After use the caller can re-add the value with bc.Add.
-func (bc *BatchCache) checkout(k key) (*batch, bool) {
+func (bc *BatchCache) checkout(k key) (*entry, bool) {
 	bc.entriesMutex.Lock()
 	defer bc.entriesMutex.Unlock()
 
@@ -262,9 +313,9 @@ func (bc *BatchCache) checkout(k key) (*batch, bool) {
 
 	bc.catfileCacheCounter.WithLabelValues("hit").Inc()
 
-	ent := bc.entries[i]
+	entry := bc.entries[i]
 	bc.delete(i, false)
-	return ent.value, true
+	return entry, true
 }
 
 // enforceTTL evicts all entries older than now, assuming the entry
@@ -303,6 +354,7 @@ func (bc *BatchCache) delete(i int, wantClose bool) {
 
 	if wantClose {
 		ent.value.Close()
+		ent.cancel()
 	}
 
 	bc.entries = append(bc.entries[:i], bc.entries[i+1:]...)
