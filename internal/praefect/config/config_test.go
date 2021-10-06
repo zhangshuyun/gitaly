@@ -317,7 +317,7 @@ func TestConfigParsing(t *testing.T) {
 					SchedulingInterval: config.Duration(time.Minute),
 					HistogramBuckets:   []float64{1, 2, 3, 4, 5},
 				},
-				Replication: Replication{BatchSize: 1},
+				Replication: Replication{BatchSize: 1, ParallelStorageProcessingWorkers: 2},
 				Failover: Failover{
 					Enabled:                  true,
 					ElectionStrategy:         ElectionStrategyPerRepository,
@@ -344,7 +344,7 @@ func TestConfigParsing(t *testing.T) {
 					HistogramBuckets:   []float64{1, 2, 3, 4, 5},
 				},
 				Prometheus:  prometheus.DefaultConfig(),
-				Replication: Replication{BatchSize: 1},
+				Replication: Replication{BatchSize: 1, ParallelStorageProcessingWorkers: 2},
 				Failover: Failover{
 					Enabled:           false,
 					ElectionStrategy:  "local",

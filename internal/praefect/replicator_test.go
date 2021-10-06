@@ -169,36 +169,42 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 
 	replMgr := NewReplMgr(
 		loggerEntry,
-		conf.VirtualStorageNames(),
+		conf.StorageNames(),
 		queue,
 		datastore.MockRepositoryStore{},
 		nodeMgr,
 		NodeSetFromNodeManager(nodeMgr),
 		WithLatencyMetric(&mockReplicationLatencyHistogramVec),
 		WithDelayMetric(&mockReplicationDelayHistogramVec),
+		WithParallelStorageProcessingWorkers(100),
 	)
 
-	replMgr.ProcessBacklog(ctx, ExpBackoffFunc(time.Hour, 0))
+	replMgr.ProcessBacklog(ctx, noopBackoffFactory{})
 
 	logEntries := loggerHook.AllEntries()
-	require.True(t, len(logEntries) > 3, "expected at least 4 log entries to be present")
+	require.True(t, len(logEntries) > 4, "expected at least 5 log entries to be present")
+	require.Equal(t,
+		[]interface{}{`parallel processing workers decreased from 100 configured with config to 1 according to minumal amount of storages in the virtual storage "virtual"`},
+		[]interface{}{logEntries[0].Message},
+	)
+
 	require.Equal(t,
 		[]interface{}{"processing started", "virtual"},
-		[]interface{}{logEntries[0].Message, logEntries[0].Data["virtual_storage"]},
+		[]interface{}{logEntries[1].Message, logEntries[1].Data["virtual_storage"]},
 	)
 
 	require.Equal(t,
 		[]interface{}{"replication job processing started", "virtual", "correlation-id"},
-		[]interface{}{logEntries[1].Message, logEntries[1].Data["virtual_storage"], logEntries[1].Data[logWithCorrID]},
+		[]interface{}{logEntries[2].Message, logEntries[2].Data["virtual_storage"], logEntries[2].Data[logWithCorrID]},
 	)
 
-	dequeuedEvent := logEntries[1].Data["event"].(datastore.ReplicationEvent)
+	dequeuedEvent := logEntries[2].Data["event"].(datastore.ReplicationEvent)
 	require.Equal(t, datastore.JobStateInProgress, dequeuedEvent.State)
 	require.Equal(t, []string{"backup", "primary"}, []string{dequeuedEvent.Job.TargetNodeStorage, dequeuedEvent.Job.SourceNodeStorage})
 
 	require.Equal(t,
 		[]interface{}{"replication job processing finished", "virtual", datastore.JobStateCompleted, "correlation-id"},
-		[]interface{}{logEntries[2].Message, logEntries[2].Data["virtual_storage"], logEntries[2].Data["new_state"], logEntries[2].Data[logWithCorrID]},
+		[]interface{}{logEntries[3].Message, logEntries[3].Data["virtual_storage"], logEntries[3].Data["new_state"], logEntries[3].Data[logWithCorrID]},
 	)
 
 	replicatedPath := filepath.Join(backupCfg.Storages[0].Path, testRepo.GetRelativePath())
@@ -339,7 +345,7 @@ func TestReplicator_PropagateReplicationJob(t *testing.T) {
 		protoregistry.GitalyProtoPreregistered,
 	)
 
-	replmgr := NewReplMgr(logEntry, conf.VirtualStorageNames(), queue, rs, nodeMgr, NodeSetFromNodeManager(nodeMgr))
+	replmgr := NewReplMgr(logEntry, conf.StorageNames(), queue, rs, nodeMgr, NodeSetFromNodeManager(nodeMgr))
 
 	prf := NewGRPCServer(conf, logEntry, protoregistry.GitalyProtoPreregistered, coordinator.StreamDirector, nodeMgr, txMgr, queue, rs, nil, nil, nil)
 
@@ -707,7 +713,7 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 
 	replMgr := NewReplMgr(
 		logEntry,
-		conf.VirtualStorageNames(),
+		conf.StorageNames(),
 		queueInterceptor,
 		datastore.MockRepositoryStore{},
 		nodeMgr,
@@ -857,7 +863,7 @@ func TestProcessBacklog_Success(t *testing.T) {
 
 	replMgr := NewReplMgr(
 		logEntry,
-		conf.VirtualStorageNames(),
+		conf.StorageNames(),
 		queueInterceptor,
 		datastore.MockRepositoryStore{},
 		nodeMgr,
@@ -896,23 +902,22 @@ func TestReplMgrProcessBacklog_OnlyHealthyNodes(t *testing.T) {
 
 	ctx, cancel := testhelper.Context()
 
-	first := true
+	var mtx sync.Mutex
+	expStorages := map[string]bool{conf.VirtualStorages[0].Nodes[0].Storage: true, conf.VirtualStorages[0].Nodes[2].Storage: true}
 	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t)))
 	queueInterceptor.OnDequeue(func(_ context.Context, virtualStorageName string, storageName string, _ int, _ datastore.ReplicationEventQueue) ([]datastore.ReplicationEvent, error) {
 		select {
 		case <-ctx.Done():
 			return nil, nil
 		default:
-			if first {
-				first = false
-				require.Equal(t, conf.VirtualStorages[0].Name, virtualStorageName)
-				require.Equal(t, conf.VirtualStorages[0].Nodes[0].Storage, storageName)
-				return nil, nil
-			}
-
+			mtx.Lock()
+			defer mtx.Unlock()
 			assert.Equal(t, conf.VirtualStorages[0].Name, virtualStorageName)
-			assert.Equal(t, conf.VirtualStorages[0].Nodes[2].Storage, storageName)
-			cancel()
+			assert.True(t, expStorages[storageName], storageName, storageName)
+			delete(expStorages, storageName)
+			if len(expStorages) == 0 {
+				cancel()
+			}
 			return nil, nil
 		}
 	})
@@ -924,7 +929,7 @@ func TestReplMgrProcessBacklog_OnlyHealthyNodes(t *testing.T) {
 
 	replMgr := NewReplMgr(
 		testhelper.DiscardTestEntry(t),
-		conf.VirtualStorageNames(),
+		conf.StorageNames(),
 		queueInterceptor,
 		nil,
 		StaticHealthChecker{virtualStorage: {node1.Storage, node3.Storage}},
@@ -995,7 +1000,7 @@ func TestProcessBacklog_ReplicatesToReadOnlyPrimary(t *testing.T) {
 
 	replMgr := NewReplMgr(
 		testhelper.DiscardTestEntry(t),
-		conf.VirtualStorageNames(),
+		conf.StorageNames(),
 		queue,
 		datastore.MockRepositoryStore{},
 		StaticHealthChecker{virtualStorage: {primaryStorage, secondaryStorage}},
@@ -1024,7 +1029,7 @@ func TestProcessBacklog_ReplicatesToReadOnlyPrimary(t *testing.T) {
 	<-replMgrDone
 }
 
-func TestBackoff(t *testing.T) {
+func TestBackoffFactory(t *testing.T) {
 	start := 1 * time.Microsecond
 	max := 6 * time.Microsecond
 	expectedBackoffs := []time.Duration{
@@ -1035,7 +1040,7 @@ func TestBackoff(t *testing.T) {
 		6 * time.Microsecond,
 		6 * time.Microsecond,
 	}
-	b, reset := ExpBackoffFunc(start, max)()
+	b, reset := ExpBackoffFactory{Start: start, Max: max}.Create()
 	for _, expectedBackoff := range expectedBackoffs {
 		require.Equal(t, expectedBackoff, b())
 	}

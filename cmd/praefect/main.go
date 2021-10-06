@@ -356,7 +356,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 
 		repl = praefect.NewReplMgr(
 			logger,
-			conf.VirtualStorageNames(),
+			conf.StorageNames(),
 			queue,
 			rs,
 			healthChecker,
@@ -364,6 +364,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 			praefect.WithDelayMetric(delayMetric),
 			praefect.WithLatencyMetric(latencyMetric),
 			praefect.WithDequeueBatchSize(conf.Replication.BatchSize),
+			praefect.WithParallelStorageProcessingWorkers(conf.Replication.ParallelStorageProcessingWorkers),
 		)
 		srvFactory = praefect.NewServerFactory(
 			conf,
@@ -426,7 +427,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		return fmt.Errorf("unable to start the bootstrap: %v", err)
 	}
 
-	go repl.ProcessBacklog(ctx, praefect.ExpBackoffFunc(1*time.Second, 5*time.Second))
+	go repl.ProcessBacklog(ctx, praefect.ExpBackoffFactory{Start: time.Second, Max: 5 * time.Second})
 	logger.Info("background started: processing of the replication events")
 	repl.ProcessStale(ctx, 30*time.Second, time.Minute)
 	logger.Info("background started: processing of the stale replication events")

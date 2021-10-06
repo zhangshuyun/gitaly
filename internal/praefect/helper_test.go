@@ -54,7 +54,9 @@ func testConfig(backends int) config.Config {
 	return cfg
 }
 
-func noopBackoffFunc() (backoff, backoffReset) {
+type noopBackoffFactory struct{}
+
+func (noopBackoffFactory) Create() (Backoff, BackoffReset) {
 	return func() time.Duration {
 		return 0
 	}, func() {}
@@ -174,7 +176,7 @@ func runPraefectServer(t testing.TB, ctx context.Context, conf config.Config, op
 	// TODO: run a replmgr for EVERY virtual storage
 	replmgr := NewReplMgr(
 		opt.withLogger,
-		conf.VirtualStorageNames(),
+		conf.StorageNames(),
 		opt.withQueue,
 		opt.withRepoStore,
 		opt.withNodeMgr,
@@ -287,7 +289,7 @@ func startProcessBacklog(ctx context.Context, replMgr ReplMgr) <-chan struct{} {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		replMgr.ProcessBacklog(ctx, noopBackoffFunc)
+		replMgr.ProcessBacklog(ctx, noopBackoffFactory{})
 	}()
 	return done
 }
