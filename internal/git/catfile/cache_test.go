@@ -47,7 +47,7 @@ func TestCache_add(t *testing.T) {
 	bc.add(key3, value3, cancel)
 	requireCacheValid(t, bc)
 
-	require.Equal(t, maxLen, bc.len(), "length should be maxLen")
+	require.Equal(t, maxLen, bc.entryCount(), "length should be maxLen")
 	require.True(t, value0.isClosed(), "value0 should be closed")
 	require.Equal(t, []key{key1, key2, key3}, keys(t, bc))
 }

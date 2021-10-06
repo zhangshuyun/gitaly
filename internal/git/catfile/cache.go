@@ -295,18 +295,25 @@ func (c *ProcessCache) add(k key, b *batch, cancel func()) bool {
 	}
 	c.entries = append(c.entries, ent)
 
-	for c.len() > c.maxLen {
+	for len(c.entries) > c.maxLen {
 		c.evictHead()
 	}
 
-	c.catfileCacheMembers.Set(float64(c.len()))
+	c.catfileCacheMembers.Set(float64(len(c.entries)))
 
 	return replacedExisting
 }
 
 func (c *ProcessCache) head() *entry { return c.entries[0] }
 func (c *ProcessCache) evictHead()   { c.delete(0, true) }
-func (c *ProcessCache) len() int     { return len(c.entries) }
+
+// entryCount returns the number of cached entries. This function will locks the ProcessCache to
+// avoid races.
+func (c *ProcessCache) entryCount() int {
+	c.entriesMutex.Lock()
+	defer c.entriesMutex.Unlock()
+	return len(c.entries)
+}
 
 // checkout removes a value from c. After use the caller can re-add the value with c.Add.
 func (c *ProcessCache) checkout(k key) (*entry, bool) {
@@ -329,7 +336,7 @@ func (c *ProcessCache) enforceTTL(now time.Time) {
 	c.entriesMutex.Lock()
 	defer c.entriesMutex.Unlock()
 
-	for c.len() > 0 && now.After(c.head().expiry) {
+	for len(c.entries) > 0 && now.After(c.head().expiry) {
 		c.evictHead()
 	}
 }
@@ -339,7 +346,7 @@ func (c *ProcessCache) Evict() {
 	c.entriesMutex.Lock()
 	defer c.entriesMutex.Unlock()
 
-	for c.len() > 0 {
+	for len(c.entries) > 0 {
 		c.evictHead()
 	}
 }
@@ -363,5 +370,5 @@ func (c *ProcessCache) delete(i int, wantClose bool) {
 	}
 
 	c.entries = append(c.entries[:i], c.entries[i+1:]...)
-	c.catfileCacheMembers.Set(float64(c.len()))
+	c.catfileCacheMembers.Set(float64(len(c.entries)))
 }
