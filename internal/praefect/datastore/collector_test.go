@@ -156,29 +156,37 @@ func TestRepositoryStoreCollector(t *testing.T) {
 			})
 
 			for _, repository := range tc.repositories {
-				if !repository.deleted {
-					_, err := tx.ExecContext(ctx, `
-						INSERT INTO repositories (virtual_storage, relative_path)
-						VALUES ('virtual-storage-1', $1)
-					`, repository.relativePath,
-					)
-					require.NoError(t, err)
-				}
 
+				rs := NewPostgresRepositoryStore(tx, nil)
+
+				var repositoryID int64
 				for storage, replica := range repository.replicas {
+					if repositoryID == 0 {
+						const virtualStorage = "virtual-storage-1"
+
+						var err error
+						repositoryID, err = rs.ReserveRepositoryID(ctx, virtualStorage, repository.relativePath)
+						require.NoError(t, err)
+
+						require.NoError(t, rs.CreateRepository(ctx, repositoryID, virtualStorage, repository.relativePath, storage, nil, nil, false, false))
+					}
+
 					if replica.assigned {
 						_, err := tx.ExecContext(ctx, `
-							INSERT INTO repository_assignments (virtual_storage, relative_path, storage)
-							VALUES ('virtual-storage-1', $1, $2)
-						`, repository.relativePath, storage,
+							INSERT INTO repository_assignments (repository_id, virtual_storage, relative_path, storage)
+							VALUES ($1, 'virtual-storage-1', $2, $3)
+						`, repositoryID, repository.relativePath, storage,
 						)
 						require.NoError(t, err)
 					}
 
+					require.NoError(t, rs.SetGeneration(ctx, repositoryID, storage, replica.generation))
+				}
+
+				if repository.deleted {
 					_, err := tx.ExecContext(ctx, `
-						INSERT INTO storage_repositories (virtual_storage, relative_path, storage, generation)
-						VALUES ('virtual-storage-1', $1, $2, $3)
-					`, repository.relativePath, storage, replica.generation,
+						DELETE FROM repositories WHERE repository_id = $1
+					`, repositoryID,
 					)
 					require.NoError(t, err)
 				}
