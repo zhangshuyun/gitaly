@@ -46,7 +46,7 @@ func Run(m *testing.M, opts ...RunOption) {
 			opt(&cfg)
 		}
 
-		defer MustHaveNoChildProcess()
+		defer mustHaveNoChildProcess()
 
 		cleanup, err := configure()
 		if err != nil {
