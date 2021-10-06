@@ -24,7 +24,8 @@ var (
 type RunOption func(*runConfig)
 
 type runConfig struct {
-	setup func() error
+	setup                  func() error
+	disableGoroutineChecks bool
 }
 
 // WithSetup allows the caller of Run to pass a setup function that will be called after global
@@ -32,6 +33,16 @@ type runConfig struct {
 func WithSetup(setup func() error) RunOption {
 	return func(cfg *runConfig) {
 		cfg.setup = setup
+	}
+}
+
+// WithDisabledGoroutineChecker disables checking for leaked Goroutines after tests have run. This
+// should ideally only be used as a temporary measure until all Goroutine leaks have been fixed.
+//
+// Deprecated: This should not be used, but instead you should try to fix all Goroutine leakages.
+func WithDisabledGoroutineChecker() RunOption {
+	return func(cfg *runConfig) {
+		cfg.disableGoroutineChecks = true
 	}
 }
 
@@ -47,6 +58,9 @@ func Run(m *testing.M, opts ...RunOption) {
 		}
 
 		defer mustHaveNoChildProcess()
+		if !cfg.disableGoroutineChecks {
+			defer mustHaveNoGoroutines()
+		}
 
 		cleanup, err := configure()
 		if err != nil {

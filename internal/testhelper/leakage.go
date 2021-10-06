@@ -10,7 +10,32 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command/commandcounter"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
+	"go.uber.org/goleak"
 )
+
+// mustHaveNoGoroutines panics if it finds any Goroutines running.
+func mustHaveNoGoroutines() {
+	if err := goleak.Find(
+		// opencensus has a "defaultWorker" which is started by the package's
+		// `init()` function. There is no way to stop this worker, so it will leak
+		// whenever we import the package.
+		goleak.IgnoreTopFunction("go.opencensus.io/stats/view.(*worker).start"),
+		// The Ruby server's load balancer is registered in the `init()` function
+		// of our "rubyserver/balancer" package. Ideally we'd clean this up
+		// eventually, but the pragmatic approach is to just wait until we remove
+		// the Ruby sidecar altogether.
+		goleak.IgnoreTopFunction("google.golang.org/grpc.(*ccBalancerWrapper).watcher"),
+		goleak.IgnoreTopFunction("gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver/balancer.(*builder).monitor"),
+		// labkit's logger spawns a Goroutine which cannot be closed when calling
+		// `Initialize()`.
+		goleak.IgnoreTopFunction("gitlab.com/gitlab-org/labkit/log.listenForSignalHangup"),
+		// The backchannel code is somehow stock on closing its connections. I have no clue
+		// why that is, but we should investigate.
+		goleak.IgnoreTopFunction("gitlab.com/gitlab-org/gitaly/v14/internal/backchannel.clientHandshake.serve.func4"),
+	); err != nil {
+		panic(fmt.Errorf("goroutines running: %w", err))
+	}
+}
 
 // mustHaveNoChildProcess panics if it finds a running or finished child
 // process. It waits for 2 seconds for processes to be cleaned up by other

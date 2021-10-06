@@ -7,5 +7,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	testhelper.Run(m)
+	// gocloud.dev/blob leaks the HTTP connection even if we make sure to close all buckets.
+	//nolint:staticcheck
+	testhelper.Run(m, testhelper.WithDisabledGoroutineChecker())
 }
