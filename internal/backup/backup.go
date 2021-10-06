@@ -65,7 +65,10 @@ type Locator interface {
 	// BeginFull returns a tentative first step needed to create a new full backup.
 	BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Step
 
-	// Commit marks the step returned by `BeginFull` as the latest backup.
+	// BeginIncremental returns a tentative step needed to create a new incremental backup.
+	BeginIncremental(ctx context.Context, repo *gitalypb.Repository, backupID string) (*Step, error)
+
+	// Commit persists the step so that it can be looked up by FindLatest
 	Commit(ctx context.Context, step *Step) error
 
 	// FindLatest returns the latest backup that was written by Commit
