@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -49,18 +48,7 @@ const (
 )
 
 func TestMain(m *testing.M) {
-	os.Exit(testMain(m))
-}
-
-func testMain(m *testing.M) int {
-	defer func() {
-		testhelper.MustHaveNoChildProcess()
-		testhelper.MustHaveNoGoroutines()
-	}()
-	cleanup := testhelper.Configure()
-	defer cleanup()
-
-	return m.Run()
+	testhelper.Run(m)
 }
 
 // asserting service is implemented on the server side and serves as a handler for stuff

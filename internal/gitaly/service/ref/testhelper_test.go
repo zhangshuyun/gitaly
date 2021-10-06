@@ -2,7 +2,6 @@ package ref
 
 import (
 	"bytes"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -26,20 +25,12 @@ var localBranches = map[string]*gitalypb.GitCommit{
 }
 
 func TestMain(m *testing.M) {
-	os.Exit(testMain(m))
-}
-
-func testMain(m *testing.M) int {
-	defer testhelper.MustHaveNoChildProcess()
-
-	cleanup := testhelper.Configure()
-	defer cleanup()
-
-	// Force small messages to test that fragmenting the
-	// ref list works correctly
-	lines.ItemsPerMessage = 3
-
-	return m.Run()
+	testhelper.Run(m, testhelper.WithSetup(func() error {
+		// Force small messages to test that fragmenting the
+		// ref list works correctly
+		lines.ItemsPerMessage = 3
+		return nil
+	}))
 }
 
 func setupRefService(t testing.TB) (config.Cfg, *gitalypb.Repository, string, gitalypb.RefServiceClient) {

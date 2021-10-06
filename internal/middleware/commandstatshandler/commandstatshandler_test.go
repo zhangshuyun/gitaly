@@ -25,6 +25,10 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 )
 
+func TestMain(m *testing.M) {
+	testhelper.Run(m)
+}
+
 func createNewServer(t *testing.T, cfg config.Cfg) *grpc.Server {
 	logger := testhelper.NewTestLogger(t)
 	logrusEntry := logrus.NewEntry(logger).WithField("test", t.Name())
@@ -66,9 +70,6 @@ func getBufDialer(listener *bufconn.Listener) func(context.Context, string) (net
 }
 
 func TestInterceptor(t *testing.T) {
-	cleanup := testhelper.Configure()
-	defer cleanup()
-
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	logBuffer := &bytes.Buffer{}

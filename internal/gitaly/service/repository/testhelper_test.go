@@ -35,16 +35,7 @@ const testTimeString = "200601021504.05"
 var testTime = time.Date(2006, 1, 2, 15, 4, 5, 0, time.UTC)
 
 func TestMain(m *testing.M) {
-	os.Exit(testMain(m))
-}
-
-func testMain(m *testing.M) int {
-	defer testhelper.MustHaveNoChildProcess()
-
-	cleanup := testhelper.Configure()
-	defer cleanup()
-
-	return m.Run()
+	testhelper.Run(m)
 }
 
 func TestWithRubySidecar(t *testing.T) {

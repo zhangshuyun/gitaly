@@ -1,11 +1,8 @@
 package conflicts
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
-	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
@@ -23,30 +20,10 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	os.Exit(testMain(m))
-}
-
-func testMain(m *testing.M) int {
-	defer testhelper.MustHaveNoChildProcess()
-
-	cleanup := testhelper.Configure()
-	defer cleanup()
-
-	tempDir, err := os.MkdirTemp("", "gitaly")
-	if err != nil {
-		log.Error(err)
-		return 1
-	}
-	defer func() {
-		if err := os.RemoveAll(tempDir); err != nil {
-			log.Error(err)
-		}
-	}()
-
-	defer func(old string) { hooks.Override = old }(hooks.Override)
-	hooks.Override = filepath.Join(tempDir, "hooks")
-
-	return m.Run()
+	testhelper.Run(m, testhelper.WithSetup(func() error {
+		hooks.Override = "/"
+		return nil
+	}))
 }
 
 func SetupConfigAndRepo(t testing.TB, bare bool) (config.Cfg, *gitalypb.Repository, string) {

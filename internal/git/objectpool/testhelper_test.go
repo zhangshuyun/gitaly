@@ -1,7 +1,6 @@
 package objectpool
 
 import (
-	"os"
 	"testing"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/hooks"
@@ -9,13 +8,8 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	os.Exit(testMain(m))
-}
-
-func testMain(m *testing.M) int {
-	defer testhelper.MustHaveNoChildProcess()
-	cleanup := testhelper.Configure()
-	defer cleanup()
-	hooks.Override = "/"
-	return m.Run()
+	testhelper.Run(m, testhelper.WithSetup(func() error {
+		hooks.Override = "/"
+		return nil
+	}))
 }

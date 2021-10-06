@@ -3,7 +3,6 @@ package chunk
 import (
 	"io"
 	"net"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,14 +14,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	os.Exit(testMain(m))
-}
-
-func testMain(m *testing.M) int {
-	defer testhelper.MustHaveNoChildProcess()
-	cleanup := testhelper.Configure()
-	defer cleanup()
-	return m.Run()
+	testhelper.Run(m)
 }
 
 type testSender struct {

@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"testing"
 
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
@@ -19,35 +20,88 @@ var (
 	testDirectory string
 )
 
-// Configure sets up the global test configuration. On failure,
+// RunOption is an option that can be passed to Run.
+type RunOption func(*runConfig)
+
+type runConfig struct {
+	setup func() error
+}
+
+// WithSetup allows the caller of Run to pass a setup function that will be called after global
+// test state has been configured.
+func WithSetup(setup func() error) RunOption {
+	return func(cfg *runConfig) {
+		cfg.setup = setup
+	}
+}
+
+// Run sets up required testing state and executes the given test suite. It can optionally receive a
+// variable number of RunOptions.
+func Run(m *testing.M, opts ...RunOption) {
+	// Run tests in a separate function such that we can use deferred statements and still
+	// (indirectly) call `os.Exit()` in case the test setup failed.
+	if err := func() error {
+		var cfg runConfig
+		for _, opt := range opts {
+			opt(&cfg)
+		}
+
+		defer MustHaveNoChildProcess()
+
+		cleanup, err := configure()
+		if err != nil {
+			return err
+		}
+		defer cleanup()
+
+		if cfg.setup != nil {
+			if err := cfg.setup(); err != nil {
+				return fmt.Errorf("error calling setup function: %w", err)
+			}
+		}
+
+		m.Run()
+
+		return nil
+	}(); err != nil {
+		log.Fatalf("%v", err)
+	}
+}
+
+// configure sets up the global test configuration. On failure,
 // terminates the program.
-func Configure() func() {
+func configure() (func(), error) {
+	var returnedErr error
 	configureOnce.Do(func() {
 		gitalylog.Configure(gitalylog.Loggers, "json", "panic")
 
 		testDirectory = getTestTmpDir()
 
 		for _, f := range []func() error{
-			ConfigureGit,
+			configureGit,
 		} {
-			if err := f(); err != nil {
+			if returnedErr = f(); returnedErr != nil {
 				if err := os.RemoveAll(testDirectory); err != nil {
 					log.Error(err)
 				}
-				log.Fatalf("error configuring tests: %v", err)
+
+				return
 			}
 		}
 	})
+	if returnedErr != nil {
+		return nil, returnedErr
+	}
 
 	return func() {
 		if err := os.RemoveAll(testDirectory); err != nil {
-			log.Fatalf("error removing test directory: %v", err)
+			log.Errorf("error removing test directory: %v", err)
 		}
-	}
+	}, nil
 }
 
-// ConfigureGit configures git for test purpose
-func ConfigureGit() error {
+// configureGit configures git for test purpose
+func configureGit() error {
 	// We cannot use gittest here given that we ain't got no config yet. We thus need to
 	// manually resolve the git executable, which is either stored in below envvar if
 	// executed via our Makefile, or else just git as resolved via PATH.

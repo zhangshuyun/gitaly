@@ -3,7 +3,6 @@ package limithandler_test
 import (
 	"context"
 	"net"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -17,14 +16,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	os.Exit(testMain(m))
-}
-
-func testMain(m *testing.M) int {
-	defer testhelper.MustHaveNoChildProcess()
-	cleanup := testhelper.Configure()
-	defer cleanup()
-	return m.Run()
+	testhelper.Run(m)
 }
 
 func fixedLockKey(ctx context.Context) string {

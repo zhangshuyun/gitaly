@@ -2,7 +2,6 @@ package catfile
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
@@ -13,18 +12,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	os.Exit(testMain(m))
-}
-
-func testMain(m *testing.M) int {
-	defer func() {
-		testhelper.MustHaveNoChildProcess()
-		testhelper.MustHaveNoGoroutines()
-	}()
-
-	cleanup := testhelper.Configure()
-	defer cleanup()
-	return m.Run()
+	testhelper.Run(m)
 }
 
 type repoExecutor struct {
