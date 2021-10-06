@@ -534,20 +534,7 @@ func TestRemoveRepository(t *testing.T) {
 
 	verifyReposExistence(t, codes.OK)
 
-	// TODO: once https://gitlab.com/gitlab-org/gitaly/-/issues/2703 is done and the replication manager supports
-	// graceful shutdown, we can remove this code that waits for jobs to be complete
 	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t)))
-	jobsDoneCh := make(chan struct{}, 2)
-	queueInterceptor.OnAcknowledge(func(ctx context.Context, state datastore.JobState, ids []uint64, queue datastore.ReplicationEventQueue) ([]uint64, error) {
-		defer func() {
-			if state == datastore.JobStateCompleted {
-				jobsDoneCh <- struct{}{}
-			}
-		}()
-
-		return queue.Acknowledge(ctx, state, ids)
-	})
-
 	repoStore := defaultRepoStore(praefectCfg)
 	txMgr := defaultTxMgr(praefectCfg)
 	nodeMgr, err := nodes.NewManager(testhelper.DiscardTestEntry(t), praefectCfg, nil,
@@ -579,9 +566,15 @@ func TestRemoveRepository(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	for i := 0; i < cap(jobsDoneCh); i++ {
-		<-jobsDoneCh
-	}
+	require.NoError(t, queueInterceptor.Wait(time.Minute, func(i *datastore.ReplicationEventQueueInterceptor) bool {
+		var compl int
+		for _, ack := range i.GetAcknowledge() {
+			if ack.State == datastore.JobStateCompleted {
+				compl++
+			}
+		}
+		return compl == 2
+	}))
 
 	verifyReposExistence(t, codes.NotFound)
 }
@@ -608,7 +601,7 @@ func TestRenameRepository(t *testing.T) {
 	repoPaths := make([]string, len(gitalyStorages))
 	praefectCfg := config.Config{
 		VirtualStorages: []*config.VirtualStorage{{Name: "praefect"}},
-		Failover:        config.Failover{Enabled: true},
+		Failover:        config.Failover{Enabled: true, ElectionStrategy: config.ElectionStrategyPerRepository},
 	}
 
 	var repo *gitalypb.Repository
@@ -632,19 +625,14 @@ func TestRenameRepository(t *testing.T) {
 		repoPaths[i] = filepath.Join(gitalyCfg.Storages[0].Path, relativePath)
 	}
 
-	var canCheckRepo sync.WaitGroup
-	canCheckRepo.Add(2)
-
 	evq := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t)))
-	evq.OnAcknowledge(func(ctx context.Context, state datastore.JobState, ids []uint64, queue datastore.ReplicationEventQueue) ([]uint64, error) {
-		defer canCheckRepo.Done()
-		return queue.Acknowledge(ctx, state, ids)
-	})
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	cc, _, cleanup := runPraefectServer(t, ctx, praefectCfg, buildOptions{withQueue: evq})
+	cc, _, cleanup := runPraefectServer(t, ctx, praefectCfg, buildOptions{
+		withQueue:     evq,
+		withRepoStore: datastore.NewPostgresRepositoryStore(glsql.NewDB(t), nil),
+	})
 	defer cleanup()
 
 	// virtualRepo is a virtual repository all requests to it would be applied to the underline Gitaly nodes behind it
@@ -674,7 +662,9 @@ func TestRenameRepository(t *testing.T) {
 
 	// wait until replication jobs propagate changes to other storages
 	// as we don't know which one will be used to check because of reads distribution
-	canCheckRepo.Wait()
+	require.NoError(t, evq.Wait(time.Minute, func(i *datastore.ReplicationEventQueueInterceptor) bool {
+		return len(i.GetAcknowledge()) == 2
+	}))
 
 	for _, oldLocation := range repoPaths {
 		pollUntilRemoved(t, oldLocation, time.After(10*time.Second))

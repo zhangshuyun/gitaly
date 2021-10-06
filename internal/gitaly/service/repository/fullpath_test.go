@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -21,12 +19,9 @@ import (
 func TestSetFullPath(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.TxFileLocking,
-	}).Run(t, testSetFullPath)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSetFullPath(t *testing.T, ctx context.Context) {
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	t.Run("missing repository", func(t *testing.T) {
@@ -79,12 +74,8 @@ func testSetFullPath(t *testing.T, ctx context.Context) {
 
 		require.Nil(t, response)
 
-		expectedErr := fmt.Sprintf("rpc error: code = NotFound desc = writing config: rpc "+
+		expectedErr := fmt.Sprintf("rpc error: code = NotFound desc = setting config: rpc "+
 			"error: code = NotFound desc = GetRepoPath: not a git repository: %q", repoPath)
-		if featureflag.TxFileLocking.IsEnabled(ctx) {
-			expectedErr = fmt.Sprintf("rpc error: code = NotFound desc = setting config: rpc "+
-				"error: code = NotFound desc = GetRepoPath: not a git repository: %q", repoPath)
-		}
 		require.EqualError(t, err, expectedErr)
 	})
 

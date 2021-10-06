@@ -16,14 +16,10 @@ var (
 	errMissingRelativePath = status.Error(codes.InvalidArgument, "repository missing relative path")
 )
 
-// RepositoryExistsStreamInterceptor returns a stream interceptor that handles /gitaly.RepositoryService/RepositoryExists
-// calls by checking whether there is a record of the repository in the database.
-func RepositoryExistsStreamInterceptor(rs datastore.RepositoryStore) grpc.StreamServerInterceptor {
-	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-		if info.FullMethod != "/gitaly.RepositoryService/RepositoryExists" {
-			return handler(srv, stream)
-		}
-
+// RepositoryExistsHandler handles /gitaly.RepositoryService/RepositoryExists calls by checking
+// whether there is a record of the repository in the database.
+func RepositoryExistsHandler(rs datastore.RepositoryStore) grpc.StreamHandler {
+	return func(srv interface{}, stream grpc.ServerStream) error {
 		var req gitalypb.RepositoryExistsRequest
 		if err := stream.RecvMsg(&req); err != nil {
 			return fmt.Errorf("receive request: %w", err)

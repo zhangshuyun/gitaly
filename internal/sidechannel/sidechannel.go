@@ -4,12 +4,18 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"net"
 	"strconv"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/listenmux"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -26,7 +32,7 @@ const (
 
 // OpenSidechannel opens a sidechannel connection from the stream opener
 // extracted from the current peer connection.
-func OpenSidechannel(ctx context.Context) (_ net.Conn, err error) {
+func OpenSidechannel(ctx context.Context) (_ *ServerConn, err error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return nil, fmt.Errorf("sidechannel: failed to extract incoming metadata")
@@ -64,11 +70,19 @@ func OpenSidechannel(ctx context.Context) (_ net.Conn, err error) {
 		return nil, fmt.Errorf("sidechannel: write stream id: %w", err)
 	}
 
+	buf := make([]byte, 2)
+	if _, err := io.ReadFull(stream, buf); err != nil {
+		return nil, fmt.Errorf("sidechannel: receive confirmation: %w", err)
+	}
+	if string(buf) != "ok" {
+		return nil, fmt.Errorf("sidechannel: expected ok, got %q", buf)
+	}
+
 	if err := stream.SetDeadline(time.Time{}); err != nil {
 		return nil, err
 	}
 
-	return stream, nil
+	return newServerConn(stream), nil
 }
 
 // RegisterSidechannel registers the caller into the waiting list of the
@@ -76,7 +90,7 @@ func OpenSidechannel(ctx context.Context) (_ net.Conn, err error) {
 // The caller is expected to establish the request with the returned context. The
 // callback is executed automatically when the sidechannel connection arrives.
 // The result is pushed to the error channel of the returned waiter.
-func RegisterSidechannel(ctx context.Context, registry *Registry, callback func(net.Conn) error) (context.Context, *Waiter) {
+func RegisterSidechannel(ctx context.Context, registry *Registry, callback func(*ClientConn) error) (context.Context, *Waiter) {
 	waiter := registry.Register(callback)
 	ctxOut := metadata.AppendToOutgoingContext(ctx, sidechannelMetadataKey, fmt.Sprintf("%d", waiter.id))
 	return ctxOut, waiter
@@ -114,4 +128,17 @@ func (s *ServerHandshaker) Handshake(conn net.Conn, authInfo credentials.AuthInf
 // embed into listenmux.
 func NewServerHandshaker(registry *Registry) *ServerHandshaker {
 	return &ServerHandshaker{registry: registry}
+}
+
+// NewClientHandshaker is used to enable sidechannel support on outbound
+// gRPC connections.
+func NewClientHandshaker(logger *logrus.Entry, registry *Registry) client.Handshaker {
+	return backchannel.NewClientHandshaker(
+		logger,
+		func() backchannel.Server {
+			lm := listenmux.New(insecure.NewCredentials())
+			lm.Register(NewServerHandshaker(registry))
+			return grpc.NewServer(grpc.Creds(lm))
+		},
+	)
 }

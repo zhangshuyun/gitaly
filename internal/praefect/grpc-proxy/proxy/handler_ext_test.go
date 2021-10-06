@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -30,7 +31,6 @@ import (
 	pb "gitlab.com/gitlab-org/gitaly/v14/internal/praefect/grpc-proxy/testdata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
-	"go.uber.org/goleak"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	grpc_metadata "google.golang.org/grpc/metadata"
@@ -49,11 +49,18 @@ const (
 )
 
 func TestMain(m *testing.M) {
-	defer testhelper.MustHaveNoChildProcess()
+	os.Exit(testMain(m))
+}
+
+func testMain(m *testing.M) int {
+	defer func() {
+		testhelper.MustHaveNoChildProcess()
+		testhelper.MustHaveNoGoroutines()
+	}()
 	cleanup := testhelper.Configure()
 	defer cleanup()
 
-	goleak.VerifyTestMain(m, goleak.IgnoreTopFunction("go.opencensus.io/stats/view.(*worker).start"))
+	return m.Run()
 }
 
 // asserting service is implemented on the server side and serves as a handler for stuff

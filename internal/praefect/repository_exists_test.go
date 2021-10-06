@@ -20,7 +20,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func TestRepositoryExistsStreamInterceptor(t *testing.T) {
+func TestRepositoryExistsHandler(t *testing.T) {
 	t.Parallel()
 	errServedByGitaly := status.Error(codes.Unknown, "request passed to Gitaly")
 
@@ -76,22 +76,18 @@ func TestRepositoryExistsStreamInterceptor(t *testing.T) {
 
 			require.NoError(t, rs.CreateRepository(ctx, 0, "virtual-storage", "relative-path", "storage", nil, nil, false, false))
 
-			electionStrategy := config.ElectionStrategyPerRepository
-			if tc.routeToGitaly {
-				electionStrategy = config.ElectionStrategySQL
-			}
-
 			tmp := testhelper.TempDir(t)
 
 			ln, err := net.Listen("unix", filepath.Join(tmp, "praefect"))
 			require.NoError(t, err)
 
+			electionStrategy := config.ElectionStrategyPerRepository
+			if tc.routeToGitaly {
+				electionStrategy = config.ElectionStrategySQL
+			}
+
 			srv := NewGRPCServer(
-				config.Config{
-					Failover: config.Failover{
-						ElectionStrategy: electionStrategy,
-					},
-				},
+				config.Config{Failover: config.Failover{ElectionStrategy: electionStrategy}},
 				testhelper.DiscardTestEntry(t),
 				protoregistry.GitalyProtoPreregistered,
 				func(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {

@@ -12,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
@@ -135,12 +134,11 @@ func TestUpdater_prepareLocksTransaction(t *testing.T) {
 }
 
 func TestUpdater_concurrentLocking(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.UpdaterefVerifyStateChanges,
-	}).Run(t, testUpdaterConcurrentLocking)
-}
+	t.Parallel()
 
-func testUpdaterConcurrentLocking(t *testing.T, ctx context.Context) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	cfg, protoRepo, _ := testcfg.BuildWithRepo(t)
 	repo := localrepo.NewTestRepo(t, cfg, protoRepo)
 
@@ -158,10 +156,10 @@ func testUpdaterConcurrentLocking(t *testing.T, ctx context.Context) {
 
 	// With flushing, we're able to detect concurrent locking at prepare time already instead of
 	// at commit time.
-	if gitSupportsStatusFlushing(t, ctx, cfg) && featureflag.UpdaterefVerifyStateChanges.IsEnabled(ctx) {
+	if gitSupportsStatusFlushing(t, ctx, cfg) {
 		err := secondUpdater.Prepare()
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "state update to \"prepare\" failed: EOF, stderr: \"warning: update refs/heads/master: missing <newvalue>, treating as zero\\nfatal: prepare: cannot lock ref 'refs/heads/master'")
+		require.Contains(t, err.Error(), "fatal: prepare: cannot lock ref 'refs/heads/master'")
 
 		require.NoError(t, firstUpdater.Commit())
 	} else {
@@ -170,7 +168,7 @@ func testUpdaterConcurrentLocking(t *testing.T, ctx context.Context) {
 
 		err := secondUpdater.Commit()
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "git update-ref: exit status 128, stderr: \"warning: update refs/heads/master: missing <newvalue>, treating as zero\\nfatal: prepare: cannot lock ref 'refs/heads/master'")
+		require.Contains(t, err.Error(), "fatal: prepare: cannot lock ref 'refs/heads/master'")
 	}
 }
 
@@ -276,12 +274,11 @@ func TestUpdater_closingStdinAbortsChanges(t *testing.T) {
 }
 
 func TestUpdater_capturesStderr(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.UpdaterefVerifyStateChanges,
-	}).Run(t, testUpdaterCapturesStderr)
-}
+	t.Parallel()
 
-func testUpdaterCapturesStderr(t *testing.T, ctx context.Context) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	cfg, _, updater := setupUpdater(t, ctx)
 
 	ref := "refs/heads/a"
@@ -291,7 +288,7 @@ func testUpdaterCapturesStderr(t *testing.T, ctx context.Context) {
 	require.NoError(t, updater.Update(git.ReferenceName(ref), newValue, oldValue))
 
 	var expectedErr string
-	if gitSupportsStatusFlushing(t, ctx, cfg) && featureflag.UpdaterefVerifyStateChanges.IsEnabled(ctx) {
+	if gitSupportsStatusFlushing(t, ctx, cfg) {
 		expectedErr = fmt.Sprintf("state update to \"commit\" failed: EOF, stderr: \"fatal: commit: cannot update ref '%s': "+
 			"trying to write ref '%s' with nonexistent object %s\\n\"", ref, ref, newValue)
 	} else {

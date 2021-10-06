@@ -9,7 +9,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/listenmux"
@@ -47,7 +46,7 @@ func TestSidechannel(t *testing.T) {
 	conn, registry := dial(t, addr)
 	err = call(
 		context.Background(), conn, registry,
-		func(conn net.Conn) error {
+		func(conn *ClientConn) error {
 			errC := make(chan error, 1)
 			go func() {
 				var err error
@@ -113,7 +112,7 @@ func TestSidechannelConcurrency(t *testing.T) {
 
 			err := call(
 				context.Background(), conn, registry,
-				func(conn net.Conn) error {
+				func(conn *ClientConn) error {
 					errC := make(chan error, 1)
 					go func() {
 						var err error
@@ -145,10 +144,8 @@ func TestSidechannelConcurrency(t *testing.T) {
 func startServer(t *testing.T, th testHandler, opts ...grpc.ServerOption) string {
 	t.Helper()
 
-	logger := logrus.NewEntry(logrus.New())
-
 	lm := listenmux.New(insecure.NewCredentials())
-	lm.Register(backchannel.NewServerHandshaker(logger, backchannel.NewRegistry(), nil))
+	lm.Register(backchannel.NewServerHandshaker(newLogger(), backchannel.NewRegistry(), nil))
 
 	opts = append(opts, grpc.Creds(lm))
 
@@ -169,15 +166,7 @@ func startServer(t *testing.T, th testHandler, opts ...grpc.ServerOption) string
 
 func dial(t *testing.T, addr string) (*grpc.ClientConn, *Registry) {
 	registry := NewRegistry()
-	logger := logrus.NewEntry(logrus.New())
-
-	factory := func() backchannel.Server {
-		lm := listenmux.New(insecure.NewCredentials())
-		lm.Register(NewServerHandshaker(registry))
-		return grpc.NewServer(grpc.Creds(lm))
-	}
-
-	clientHandshaker := backchannel.NewClientHandshaker(logger, factory)
+	clientHandshaker := NewClientHandshaker(newLogger(), registry)
 	dialOpt := grpc.WithTransportCredentials(clientHandshaker.ClientHandshake(insecure.NewCredentials()))
 
 	conn, err := grpc.Dial(addr, dialOpt)
@@ -187,7 +176,7 @@ func dial(t *testing.T, addr string) (*grpc.ClientConn, *Registry) {
 	return conn, registry
 }
 
-func call(ctx context.Context, conn *grpc.ClientConn, registry *Registry, handler func(net.Conn) error) error {
+func call(ctx context.Context, conn *grpc.ClientConn, registry *Registry, handler func(*ClientConn) error) error {
 	client := healthpb.NewHealthClient(conn)
 
 	ctxOut, waiter := RegisterSidechannel(ctx, registry, handler)
@@ -197,7 +186,7 @@ func call(ctx context.Context, conn *grpc.ClientConn, registry *Registry, handle
 		return err
 	}
 
-	if err := waiter.Wait(); err != nil {
+	if err := waiter.Close(); err != nil {
 		return err
 	}
 

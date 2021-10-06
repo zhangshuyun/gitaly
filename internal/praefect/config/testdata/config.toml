@@ -8,6 +8,7 @@ graceful_stop_timeout = "30s"
 
 [replication]
 batch_size = 1
+parallel_storage_processing_workers = 2
 
 [reconciliation]
 scheduling_interval = "1m"
@@ -71,3 +72,8 @@ sslrootcert = "/path/to/sp/root-cert"
 error_threshold_window = "20s"
 write_error_threshold_count = 1500
 read_error_threshold_count = 100
+
+[repositories_cleanup]
+check_interval = "1s"
+run_interval = "3s"
+repositories_in_batch = 10

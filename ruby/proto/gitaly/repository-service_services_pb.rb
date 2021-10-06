@@ -37,24 +37,29 @@ module Gitaly
       rpc :CreateFork, ::Gitaly::CreateForkRequest, ::Gitaly::CreateForkResponse
       rpc :CreateRepositoryFromURL, ::Gitaly::CreateRepositoryFromURLRequest, ::Gitaly::CreateRepositoryFromURLResponse
       # CreateBundle creates a bundle from all refs
-      rpc :CreateBundle, ::Gitaly::CreateBundleRequest, stream(::Gitaly::CreateBundleResponse)
-      # CreateBundleFromRefList creates a bundle from a stream of ref patterns
-      rpc :CreateBundleFromRefList, stream(::Gitaly::CreateBundleFromRefListRequest), stream(::Gitaly::CreateBundleFromRefListResponse)
-      rpc :CreateRepositoryFromBundle, stream(::Gitaly::CreateRepositoryFromBundleRequest), ::Gitaly::CreateRepositoryFromBundleResponse
+      rpc :CreateBundle, ::Gitaly::CreateBundleRequest, stream ::Gitaly::CreateBundleResponse)
+      # CreateBundleFromRefList creates a bundle from a stream of ref patterns.
+      # When the bundle would be empty the FailedPrecondition error code is returned.
+      rpc :CreateBundleFromRefList, stream ::Gitaly::CreateBundleFromRefListRequest), stream ::Gitaly::CreateBundleFromRefListResponse)
+      # FetchBundle fetches references from a bundle into the local repository.
+      # Refs will be mirrored to the target repository with the refspec
+      # "+refs/*:refs/*" and refs that do not exist in the bundle will be removed.
+      rpc :FetchBundle, stream ::Gitaly::FetchBundleRequest), ::Gitaly::FetchBundleResponse
+      rpc :CreateRepositoryFromBundle, stream ::Gitaly::CreateRepositoryFromBundleRequest), ::Gitaly::CreateRepositoryFromBundleResponse
       # GetConfig reads the target repository's gitconfig and streams its contents
       # back. Returns a NotFound error in case no gitconfig was found.
-      rpc :GetConfig, ::Gitaly::GetConfigRequest, stream(Gitaly::GetConfigResponse)
+      rpc :GetConfig, ::Gitaly::GetConfigRequest, stream ::Gitaly::GetConfigResponse)
       rpc :FindLicense, ::Gitaly::FindLicenseRequest, ::Gitaly::FindLicenseResponse
-      rpc :GetInfoAttributes, ::Gitaly::GetInfoAttributesRequest, stream(Gitaly::GetInfoAttributesResponse)
+      rpc :GetInfoAttributes, ::Gitaly::GetInfoAttributesRequest, stream ::Gitaly::GetInfoAttributesResponse)
       rpc :CalculateChecksum, ::Gitaly::CalculateChecksumRequest, ::Gitaly::CalculateChecksumResponse
       rpc :Cleanup, ::Gitaly::CleanupRequest, ::Gitaly::CleanupResponse
-      rpc :GetSnapshot, ::Gitaly::GetSnapshotRequest, stream(Gitaly::GetSnapshotResponse)
+      rpc :GetSnapshot, ::Gitaly::GetSnapshotRequest, stream ::Gitaly::GetSnapshotResponse)
       rpc :CreateRepositoryFromSnapshot, ::Gitaly::CreateRepositoryFromSnapshotRequest, ::Gitaly::CreateRepositoryFromSnapshotResponse
-      rpc :GetRawChanges, ::Gitaly::GetRawChangesRequest, stream(Gitaly::GetRawChangesResponse)
-      rpc :SearchFilesByContent, ::Gitaly::SearchFilesByContentRequest, stream(Gitaly::SearchFilesByContentResponse)
-      rpc :SearchFilesByName, ::Gitaly::SearchFilesByNameRequest, stream(Gitaly::SearchFilesByNameResponse)
-      rpc :RestoreCustomHooks, stream(Gitaly::RestoreCustomHooksRequest), ::Gitaly::RestoreCustomHooksResponse
-      rpc :BackupCustomHooks, ::Gitaly::BackupCustomHooksRequest, stream(Gitaly::BackupCustomHooksResponse)
+      rpc :GetRawChanges, ::Gitaly::GetRawChangesRequest, stream ::Gitaly::GetRawChangesResponse)
+      rpc :SearchFilesByContent, ::Gitaly::SearchFilesByContentRequest, stream ::Gitaly::SearchFilesByContentResponse)
+      rpc :SearchFilesByName, ::Gitaly::SearchFilesByNameRequest, stream ::Gitaly::SearchFilesByNameResponse)
+      rpc :RestoreCustomHooks, stream ::Gitaly::RestoreCustomHooksRequest), ::Gitaly::RestoreCustomHooksResponse
+      rpc :BackupCustomHooks, ::Gitaly::BackupCustomHooksRequest, stream ::Gitaly::BackupCustomHooksResponse)
       rpc :GetObjectDirectorySize, ::Gitaly::GetObjectDirectorySizeRequest, ::Gitaly::GetObjectDirectorySizeResponse
       rpc :CloneFromPool, ::Gitaly::CloneFromPoolRequest, ::Gitaly::CloneFromPoolResponse
       rpc :CloneFromPoolInternal, ::Gitaly::CloneFromPoolInternalRequest, ::Gitaly::CloneFromPoolInternalResponse

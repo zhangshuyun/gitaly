@@ -9,8 +9,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -70,11 +74,34 @@ func TestCleanupDeletesStaleWorktrees(t *testing.T) {
 				assert.NoError(t, err)
 				assert.NotNil(t, c)
 
-				require.NoFileExists(t, worktreeCheckoutPath)
-				require.NoFileExists(t, worktreePath)
+				require.NoDirExists(t, worktreeCheckoutPath)
+				require.NoDirExists(t, worktreePath)
 			}
 		})
 	}
+}
+
+func TestCleanupDeletesOrphanedWorktrees(t *testing.T) {
+	t.Parallel()
+
+	_, repo, repoPath, client := setupRepositoryService(t)
+
+	worktreeCheckoutPath := filepath.Join(repoPath, worktreePrefix, "test-worktree")
+	basePath := filepath.Join(repoPath, "worktrees")
+	worktreePath := filepath.Join(basePath, "test-worktree")
+
+	require.NoError(t, os.MkdirAll(worktreeCheckoutPath, os.ModePerm))
+	require.NoError(t, os.Chtimes(worktreeCheckoutPath, oldTreeTime, oldTreeTime))
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	c, err := client.Cleanup(ctx, &gitalypb.CleanupRequest{Repository: repo})
+	assert.NoError(t, err)
+	assert.NotNil(t, c)
+
+	require.NoDirExists(t, worktreeCheckoutPath)
+	require.NoDirExists(t, worktreePath)
 }
 
 // TODO: replace emulated rebase RPC with actual
@@ -114,9 +141,72 @@ func TestCleanupDisconnectedWorktrees(t *testing.T) {
 	// cleanup should prune the disconnected worktree administrative files
 	_, err = client.Cleanup(ctx, req)
 	require.NoError(t, err)
-	require.NoFileExists(t, worktreeAdminPath)
+	require.NoDirExists(t, worktreeAdminPath)
 
 	// if the worktree administrative files are pruned, then we should be able
 	// to checkout another worktree at the same path
 	gittest.AddWorktree(t, cfg, repoPath, worktreePath)
+}
+
+func TestRemoveWorktree(t *testing.T) {
+	t.Parallel()
+
+	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	repo := localrepo.New(gitCmdFactory, catfile.NewCache(cfg), repoProto, cfg)
+
+	existingWorktreePath := filepath.Join(repoPath, worktreePrefix, "existing")
+	gittest.AddWorktree(t, cfg, repoPath, existingWorktreePath)
+
+	disconnectedWorktreePath := filepath.Join(repoPath, worktreePrefix, "disconnected")
+	gittest.AddWorktree(t, cfg, repoPath, disconnectedWorktreePath)
+	require.NoError(t, os.RemoveAll(disconnectedWorktreePath))
+
+	orphanedWorktreePath := filepath.Join(repoPath, worktreePrefix, "orphaned")
+	require.NoError(t, os.MkdirAll(orphanedWorktreePath, os.ModePerm))
+
+	for _, tc := range []struct {
+		worktree     string
+		errorIs      error
+		expectExists bool
+	}{
+		{
+			worktree:     "existing",
+			expectExists: false,
+		},
+		{
+			worktree:     "disconnected",
+			expectExists: false,
+		},
+		{
+			worktree:     "unknown",
+			errorIs:      errUnknownWorktree,
+			expectExists: false,
+		},
+		{
+			worktree:     "orphaned",
+			errorIs:      errUnknownWorktree,
+			expectExists: true,
+		},
+	} {
+		t.Run(tc.worktree, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			worktreePath := filepath.Join(repoPath, worktreePrefix, tc.worktree)
+
+			err := removeWorktree(ctx, cfg, repo, tc.worktree)
+			if tc.errorIs == nil {
+				require.NoError(t, err)
+			} else {
+				require.ErrorIs(t, err, tc.errorIs)
+			}
+
+			if tc.expectExists {
+				require.DirExists(t, worktreePath)
+			} else {
+				require.NoDirExists(t, worktreePath)
+			}
+		})
+	}
 }

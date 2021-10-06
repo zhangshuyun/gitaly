@@ -29,6 +29,8 @@ func setupBatch(t *testing.T, ctx context.Context) (config.Cfg, Batch, *gitalypb
 	repoExecutor := newRepoExecutor(t, cfg, repo)
 
 	cache := newCache(1*time.Hour, 1000, defaultEvictionInterval)
+	t.Cleanup(cache.Stop)
+
 	batch, err := cache.BatchProcess(ctx, repoExecutor)
 	require.NoError(t, err)
 
@@ -342,6 +344,7 @@ func TestSpawnFailure(t *testing.T) {
 	}
 
 	cache := newCache(1*time.Hour, 1000, defaultEvictionInterval)
+	defer cache.Stop()
 
 	require.True(
 		t,

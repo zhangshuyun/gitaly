@@ -113,10 +113,20 @@ service RepositoryService {
     };
   }
 
-  // CreateBundleFromRefList creates a bundle from a stream of ref patterns
+  // CreateBundleFromRefList creates a bundle from a stream of ref patterns.
+  // When the bundle would be empty the FailedPrecondition error code is returned.
   rpc CreateBundleFromRefList(stream CreateBundleFromRefListRequest) returns (stream CreateBundleFromRefListResponse) {
     option (op_type) = {
       op: ACCESSOR
+    };
+  }
+
+  // FetchBundle fetches references from a bundle into the local repository.
+  // Refs will be mirrored to the target repository with the refspec
+  // "+refs/*:refs/*" and refs that do not exist in the bundle will be removed.
+  rpc FetchBundle(stream FetchBundleRequest) returns (FetchBundleResponse) {
+    option (op_type) = {
+      op: MUTATOR
     };
   }
 
@@ -314,6 +324,16 @@ message ApplyGitattributesRequest {
 }
 
 message ApplyGitattributesResponse {}
+
+message FetchBundleRequest {
+  // Repository into which the reference shall be fetched.
+  Repository repository = 1 [(target_repository)=true];
+
+  // Data is the bundle file stream.
+  bytes data = 2;
+}
+
+message FetchBundleResponse {}
 
 message FetchRemoteRequest {
   Repository repository = 1 [(target_repository)=true];

@@ -73,6 +73,7 @@ var transactionRPCs = map[string]transactionsCondition{
 	"/gitaly.RepositoryService/CreateRepositoryFromBundle":   transactionsEnabled,
 	"/gitaly.RepositoryService/CreateRepositoryFromSnapshot": transactionsEnabled,
 	"/gitaly.RepositoryService/CreateRepositoryFromURL":      transactionsEnabled,
+	"/gitaly.RepositoryService/FetchBundle":                  transactionsEnabled,
 	"/gitaly.RepositoryService/FetchRemote":                  transactionsEnabled,
 	"/gitaly.RepositoryService/FetchSourceBranch":            transactionsEnabled,
 	"/gitaly.RepositoryService/RemoveRepository":             transactionsEnabled,
@@ -330,19 +331,26 @@ func (c *Coordinator) directRepositoryScopedMessage(ctx context.Context, call gr
 	var ps *proxy.StreamParameters
 
 	if c.forceCreateRepositories {
-		// This is a hack for the tests: during execution of the gitaly tests under praefect proxy
-		// the repositories are created directly on the filesystem. There is no call for the
-		// CreateRepository that creates records in the database that is why we do it artificially
-		// before redirecting the calls.
-		id, err := c.rs.ReserveRepositoryID(ctx, call.targetRepo.StorageName, call.targetRepo.RelativePath)
+		replicationType, _, err := getReplicationDetails(call.fullMethodName, call.msg)
 		if err != nil {
-			if !errors.Is(err, commonerr.ErrRepositoryAlreadyExists) {
-				return nil, err
-			}
-		} else {
-			if err := c.rs.CreateRepository(ctx, id, call.targetRepo.StorageName, call.targetRepo.RelativePath, call.targetRepo.StorageName, nil, nil, true, true); err != nil {
-				if !errors.As(err, &datastore.RepositoryExistsError{}) {
+			return nil, err
+		}
+
+		if replicationType != datastore.CreateRepo {
+			// This is a hack for the tests: during execution of the gitaly tests under praefect proxy
+			// the repositories are created directly on the filesystem. There is no call for the
+			// CreateRepository that creates records in the database that is why we do it artificially
+			// before redirecting the calls.
+			id, err := c.rs.ReserveRepositoryID(ctx, call.targetRepo.StorageName, call.targetRepo.RelativePath)
+			if err != nil {
+				if !errors.Is(err, commonerr.ErrRepositoryAlreadyExists) {
 					return nil, err
+				}
+			} else {
+				if err := c.rs.CreateRepository(ctx, id, call.targetRepo.StorageName, call.targetRepo.RelativePath, call.targetRepo.StorageName, nil, nil, true, true); err != nil {
+					if !errors.As(err, &datastore.RepositoryExistsError{}) {
+						return nil, err
+					}
 				}
 			}
 		}
