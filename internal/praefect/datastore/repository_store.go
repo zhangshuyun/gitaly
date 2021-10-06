@@ -89,6 +89,9 @@ type RepositoryStore interface {
 	// SetGeneration sets the repository's generation on the given storage. If the generation is higher
 	// than the virtual storage's generation, it is set to match as well to guarantee monotonic increments.
 	SetGeneration(ctx context.Context, repositoryID int64, storage, relativePath string, generation int) error
+	// GetReplicaPath gets the replica path of a repository. Returns a commonerr.ErrRepositoryNotFound if a record
+	// for the repository ID is not found.
+	GetReplicaPath(ctx context.Context, repositoryID int64) (string, error)
 	// GetReplicatedGeneration returns the generation propagated by applying the replication. If the generation would
 	// downgrade, a DowngradeAttemptedError is returned.
 	GetReplicatedGeneration(ctx context.Context, repositoryID int64, source, target string) (int, error)
@@ -772,4 +775,21 @@ AND   relative_path   = $2
 	}
 
 	return id, nil
+}
+
+// GetReplicaPath gets the replica path of a repository. Returns a commonerr.ErrRepositoryNotFound if a record
+// for the repository ID is not found.
+func (rs *PostgresRepositoryStore) GetReplicaPath(ctx context.Context, repositoryID int64) (string, error) {
+	var replicaPath string
+	if err := rs.db.QueryRowContext(
+		ctx, "SELECT replica_path FROM repositories WHERE repository_id = $1", repositoryID,
+	).Scan(&replicaPath); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", commonerr.ErrRepositoryNotFound
+		}
+
+		return "", fmt.Errorf("scan: %w", err)
+	}
+
+	return replicaPath, nil
 }

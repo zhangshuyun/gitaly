@@ -21,6 +21,7 @@ type MockRepositoryStore struct {
 	RepositoryExistsFunc                    func(ctx context.Context, virtualStorage, relativePath string) (bool, error)
 	ReserveRepositoryIDFunc                 func(ctx context.Context, virtualStorage, relativePath string) (int64, error)
 	GetRepositoryIDFunc                     func(ctx context.Context, virtualStorage, relativePath string) (int64, error)
+	GetReplicaPathFunc                      func(ctx context.Context, repositoryID int64) (string, error)
 }
 
 func (m MockRepositoryStore) GetGeneration(ctx context.Context, repositoryID int64, storage string) (int, error) {
@@ -157,4 +158,9 @@ func (m MockRepositoryStore) GetRepositoryID(ctx context.Context, virtualStorage
 	}
 
 	return m.GetRepositoryIDFunc(ctx, virtualStorage, relativePath)
+}
+
+// GetReplicaPath returns the result of GetReplicaPathFunc or panics if it is unset.
+func (m MockRepositoryStore) GetReplicaPath(ctx context.Context, repositoryID int64) (string, error) {
+	return m.GetReplicaPathFunc(ctx, repositoryID)
 }
