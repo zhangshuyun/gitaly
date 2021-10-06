@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/command/commandcounter"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 )
 
@@ -18,7 +18,7 @@ import (
 func mustHaveNoChildProcess() {
 	waitDone := make(chan struct{})
 	go func() {
-		command.WaitAllDone()
+		commandcounter.WaitAllDone()
 		close(waitDone)
 	}()
 
