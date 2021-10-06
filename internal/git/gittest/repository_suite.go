@@ -25,6 +25,10 @@ func TestRepository(t *testing.T, cfg config.Cfg, getRepository func(testing.TB,
 			desc: "HasBranches",
 			test: testRepositoryHasBranches,
 		},
+		{
+			desc: "GetDefaultBranch",
+			test: testRepositoryGetDefaultBranch,
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			tc.test(t, cfg, getRepository)
@@ -106,4 +110,94 @@ func testRepositoryHasBranches(t *testing.T, cfg config.Cfg, getRepository func(
 	hasBranches, err = repo.HasBranches(ctx)
 	require.NoError(t, err)
 	require.True(t, hasBranches)
+}
+
+func testRepositoryGetDefaultBranch(t *testing.T, cfg config.Cfg, getRepository func(testing.TB, *gitalypb.Repository) git.Repository) {
+	const testOID = "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
+
+	for _, tc := range []struct {
+		desc         string
+		repo         func(t *testing.T) git.Repository
+		expectedName git.ReferenceName
+	}{
+		{
+			desc: "default ref",
+			repo: func(t *testing.T) git.Repository {
+				repoProto, repoPath := InitRepo(t, cfg, cfg.Storages[0])
+				repo := getRepository(t, repoProto)
+				oid := WriteCommit(t, cfg, repoPath, WithParents(), WithBranch("apple"))
+				WriteCommit(t, cfg, repoPath, WithParents(oid), WithBranch("main"))
+				return repo
+			},
+			expectedName: git.ReferenceName(git.DefaultRef),
+		},
+		{
+			desc: "legacy default ref",
+			repo: func(t *testing.T) git.Repository {
+				repoProto, repoPath := InitRepo(t, cfg, cfg.Storages[0])
+				repo := getRepository(t, repoProto)
+				oid := WriteCommit(t, cfg, repoPath, WithParents(), WithBranch("apple"))
+				WriteCommit(t, cfg, repoPath, WithParents(oid), WithBranch("master"))
+				return repo
+			},
+			expectedName: git.ReferenceName(git.LegacyDefaultRef),
+		},
+		{
+			desc: "no branches",
+			repo: func(t *testing.T) git.Repository {
+				repoProto, _ := InitRepo(t, cfg, cfg.Storages[0])
+				repo := getRepository(t, repoProto)
+				return repo
+			},
+		},
+		{
+			desc: "one branch",
+			repo: func(t *testing.T) git.Repository {
+				repoProto, repoPath := InitRepo(t, cfg, cfg.Storages[0])
+				repo := getRepository(t, repoProto)
+				WriteCommit(t, cfg, repoPath, WithParents(), WithBranch("apple"))
+				return repo
+			},
+			expectedName: git.NewReferenceNameFromBranchName("apple"),
+		},
+		{
+			desc: "no default branches",
+			repo: func(t *testing.T) git.Repository {
+				repoProto, repoPath := InitRepo(t, cfg, cfg.Storages[0])
+				repo := getRepository(t, repoProto)
+				oid := WriteCommit(t, cfg, repoPath, WithParents(), WithBranch("apple"))
+				WriteCommit(t, cfg, repoPath, WithParents(oid), WithBranch("banana"))
+				return repo
+			},
+			expectedName: git.NewReferenceNameFromBranchName("apple"),
+		},
+		{
+			desc: "test repo default",
+			repo: func(t *testing.T) git.Repository {
+				repoProto, _ := CloneRepo(t, cfg, cfg.Storages[0])
+				return getRepository(t, repoProto)
+			},
+			expectedName: git.ReferenceName(git.LegacyDefaultRef),
+		},
+		{
+			desc: "test repo HEAD set",
+			repo: func(t *testing.T) git.Repository {
+				repoProto, repoPath := CloneRepo(t, cfg, cfg.Storages[0])
+				repo := getRepository(t, repoProto)
+				Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/feature", testOID)
+				Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
+				return repo
+			},
+			expectedName: git.NewReferenceNameFromBranchName("feature"),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			name, err := tc.repo(t).GetDefaultBranch(ctx)
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedName, name)
+		})
+	}
 }

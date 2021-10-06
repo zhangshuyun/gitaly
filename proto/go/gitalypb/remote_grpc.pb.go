@@ -18,11 +18,6 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RemoteServiceClient interface {
-	// Deprecated: Do not use.
-	// FetchInternalRemote used to fetch changes from a remote repository into
-	// the target repository. This RPC call is deprecated and shouldn't be used
-	// at all anymore. It will be removed in release v14.4.
-	FetchInternalRemote(ctx context.Context, in *FetchInternalRemoteRequest, opts ...grpc.CallOption) (*FetchInternalRemoteResponse, error)
 	// UpdateRemoteMirror compares the references in the target repository and its remote mirror
 	// repository. Any differences in the references are then addressed by pushing the differing
 	// references to the mirror. Created and modified references are updated, removed references are
@@ -44,16 +39,6 @@ type remoteServiceClient struct {
 
 func NewRemoteServiceClient(cc grpc.ClientConnInterface) RemoteServiceClient {
 	return &remoteServiceClient{cc}
-}
-
-// Deprecated: Do not use.
-func (c *remoteServiceClient) FetchInternalRemote(ctx context.Context, in *FetchInternalRemoteRequest, opts ...grpc.CallOption) (*FetchInternalRemoteResponse, error) {
-	out := new(FetchInternalRemoteResponse)
-	err := c.cc.Invoke(ctx, "/gitaly.RemoteService/FetchInternalRemote", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *remoteServiceClient) UpdateRemoteMirror(ctx context.Context, opts ...grpc.CallOption) (RemoteService_UpdateRemoteMirrorClient, error) {
@@ -112,11 +97,6 @@ func (c *remoteServiceClient) FindRemoteRootRef(ctx context.Context, in *FindRem
 // All implementations must embed UnimplementedRemoteServiceServer
 // for forward compatibility
 type RemoteServiceServer interface {
-	// Deprecated: Do not use.
-	// FetchInternalRemote used to fetch changes from a remote repository into
-	// the target repository. This RPC call is deprecated and shouldn't be used
-	// at all anymore. It will be removed in release v14.4.
-	FetchInternalRemote(context.Context, *FetchInternalRemoteRequest) (*FetchInternalRemoteResponse, error)
 	// UpdateRemoteMirror compares the references in the target repository and its remote mirror
 	// repository. Any differences in the references are then addressed by pushing the differing
 	// references to the mirror. Created and modified references are updated, removed references are
@@ -137,9 +117,6 @@ type RemoteServiceServer interface {
 type UnimplementedRemoteServiceServer struct {
 }
 
-func (UnimplementedRemoteServiceServer) FetchInternalRemote(context.Context, *FetchInternalRemoteRequest) (*FetchInternalRemoteResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method FetchInternalRemote not implemented")
-}
 func (UnimplementedRemoteServiceServer) UpdateRemoteMirror(RemoteService_UpdateRemoteMirrorServer) error {
 	return status.Errorf(codes.Unimplemented, "method UpdateRemoteMirror not implemented")
 }
@@ -160,24 +137,6 @@ type UnsafeRemoteServiceServer interface {
 
 func RegisterRemoteServiceServer(s grpc.ServiceRegistrar, srv RemoteServiceServer) {
 	s.RegisterService(&RemoteService_ServiceDesc, srv)
-}
-
-func _RemoteService_FetchInternalRemote_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FetchInternalRemoteRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RemoteServiceServer).FetchInternalRemote(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gitaly.RemoteService/FetchInternalRemote",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RemoteServiceServer).FetchInternalRemote(ctx, req.(*FetchInternalRemoteRequest))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _RemoteService_UpdateRemoteMirror_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -249,10 +208,6 @@ var RemoteService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "gitaly.RemoteService",
 	HandlerType: (*RemoteServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "FetchInternalRemote",
-			Handler:    _RemoteService_FetchInternalRemote_Handler,
-		},
 		{
 			MethodName: "FindRemoteRepository",
 			Handler:    _RemoteService_FindRemoteRepository_Handler,

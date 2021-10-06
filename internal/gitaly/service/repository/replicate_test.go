@@ -12,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
@@ -351,59 +350,42 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 
 func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 	t.Parallel()
-	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
-	cfg := cfgBuilder.Build(t)
 
-	cfg.SocketPath = runServerWithBadFetchInternalRemote(t, cfg)
+	cfg := testcfg.Build(t, testcfg.WithStorages("default", "replica"))
+	testhelper.BuildGitalyHooks(t, cfg)
+	testhelper.BuildGitalySSH(t, cfg)
 
-	locator := config.NewLocator(cfg)
+	// Our test setup does not allow for Praefects with multiple storages. We thus have to
+	// disable Praefect here.
+	cfg.SocketPath = runRepositoryServerWithConfig(t, cfg, nil, testserver.WithDisablePraefect())
 
-	testRepo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	targetRepo, _ := gittest.InitRepo(t, cfg, cfg.Storages[1])
 
-	repoClient := newRepositoryClient(t, cfg, cfg.SocketPath)
-
-	targetRepo := proto.Clone(testRepo).(*gitalypb.Repository)
-	targetRepo.StorageName = cfg.Storages[1].Name
-
-	targetRepoPath, err := locator.GetPath(targetRepo)
+	// The source repository must be at the same path as the target repository, and it must be a
+	// real repository. In order to still have the fetch fail, we corrupt the repository by
+	// writing garbage into HEAD.
+	sourceRepo := &gitalypb.Repository{
+		StorageName:  "default",
+		RelativePath: targetRepo.RelativePath,
+	}
+	sourceRepoPath, err := config.NewLocator(cfg).GetPath(sourceRepo)
 	require.NoError(t, err)
-
-	require.NoError(t, os.MkdirAll(targetRepoPath, 0o755))
-	testhelper.MustRunCommand(t, nil, "touch", filepath.Join(targetRepoPath, "invalid_git_repo"))
+	require.NoError(t, os.MkdirAll(sourceRepoPath, 0o777))
+	gittest.Exec(t, cfg, "init", "--bare", sourceRepoPath)
+	require.NoError(t, os.WriteFile(filepath.Join(sourceRepoPath, "HEAD"), []byte("garbage"), 0o666))
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
-	injectedCtx := grpc_metadata.NewOutgoingContext(ctx, md)
+	ctx = grpc_metadata.NewOutgoingContext(ctx, md)
 
-	_, err = repoClient.ReplicateRepository(injectedCtx, &gitalypb.ReplicateRepositoryRequest{
+	repoClient := newRepositoryClient(t, cfg, cfg.SocketPath)
+
+	_, err = repoClient.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
 		Repository: targetRepo,
-		Source:     testRepo,
+		Source:     sourceRepo,
 	})
 	require.Error(t, err)
-}
-
-func runServerWithBadFetchInternalRemote(t *testing.T, cfg config.Cfg) string {
-	return testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterRepositoryServiceServer(srv, NewServer(
-			deps.GetCfg(),
-			deps.GetRubyServer(),
-			deps.GetLocator(),
-			deps.GetTxManager(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-		))
-		gitalypb.RegisterRemoteServiceServer(srv, &mockRemoteServer{})
-	})
-}
-
-type mockRemoteServer struct {
-	gitalypb.UnimplementedRemoteServiceServer
-}
-
-func (m *mockRemoteServer) FetchInternalRemote(ctx context.Context, req *gitalypb.FetchInternalRemoteRequest) (*gitalypb.FetchInternalRemoteResponse, error) {
-	return &gitalypb.FetchInternalRemoteResponse{
-		Result: false,
-	}, nil
+	require.Contains(t, err.Error(), "fetch: exit status 128")
 }

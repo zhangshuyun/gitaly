@@ -99,7 +99,6 @@ func TestNewProtoRegistry(t *testing.T) {
 			"PackRefs":                        protoregistry.OpMutator,
 		},
 		"RemoteService": {
-			"FetchInternalRemote":  protoregistry.OpMutator,
 			"UpdateRemoteMirror":   protoregistry.OpAccessor,
 			"FindRemoteRepository": protoregistry.OpAccessor,
 			"FindRemoteRootRef":    protoregistry.OpAccessor,
