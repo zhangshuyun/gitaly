@@ -30,23 +30,27 @@ func NewPerRepositoryElector(db glsql.Querier) *PerRepositoryElector {
 func (pr *PerRepositoryElector) GetPrimary(ctx context.Context, virtualStorage, relativePath string) (string, error) {
 	var current, previous sql.NullString
 	if err := pr.db.QueryRowContext(ctx, `
-WITH new AS (
+WITH repository AS (
+	SELECT repository_id
+	FROM repositories
+	WHERE virtual_storage = $1
+	AND   relative_path   = $2
+),
+
+new AS (
 	UPDATE repositories
 		SET "primary" = (
 			SELECT storage
 			FROM valid_primaries
-			WHERE virtual_storage = repositories.virtual_storage
-			AND   relative_path   = repositories.relative_path
+			WHERE repository_id = (SELECT repository_id FROM repository)
 			ORDER BY random()
 			LIMIT 1
 		)
-	WHERE virtual_storage = $1
-	AND   relative_path   = $2
+	WHERE repository_id = (SELECT repository_id FROM repository)
 	AND NOT EXISTS (
 		SELECT FROM valid_primaries
-		WHERE virtual_storage = repositories.virtual_storage
-		AND   relative_path   = repositories.relative_path
-		AND   storage         = repositories."primary"
+		WHERE repository_id = (SELECT repository_id FROM repository)
+		AND   storage       = repositories."primary"
 	)
 	RETURNING true AS elected, "primary"
 )
@@ -59,8 +63,7 @@ SELECT
 	old.primary
 FROM repositories AS old
 FULL JOIN new ON true
-WHERE virtual_storage = $1
-AND relative_path = $2
+WHERE repository_id = (SELECT repository_id FROM repository)
 
 		`,
 		virtualStorage,
