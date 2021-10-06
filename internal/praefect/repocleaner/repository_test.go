@@ -2,7 +2,6 @@ package repocleaner
 
 import (
 	"context"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -130,11 +129,16 @@ func TestRunner_Run(t *testing.T) {
 	var iteration int32
 	runner := NewRunner(cfg, logger, praefect.StaticHealthChecker{virtualStorage: []string{storage1, storage2, storage3}}, nodeSet.Connections(), storageCleanup, storageCleanup, actionStub{
 		PerformMethod: func(ctx context.Context, notExisting []datastore.RepositoryClusterPath) error {
+			// Because action invocation happens for batches each run could result
+			// multiple invocations of the action. Amount of invocations can be calculated
+			// as amount of storage repositories divided on the size of the batch and rounded up.
+			// For storages:
+			//	'gitaly-1' is it 3 repos / 2 = 2 calls [0,1]
+			// 	'gitaly-2' is it 2 repos / 2 = 1 call [2]
+			// 	'gitaly-3' is it 4 repos / 2 = 2 calls [3,4]
 			i := atomic.LoadInt32(&iteration)
 			switch i {
-			case 0:
-				assert.ElementsMatch(t, nil, notExisting)
-			case 1:
+			case 0, 1:
 				assert.ElementsMatch(t, nil, notExisting)
 			case 2:
 				assert.ElementsMatch(
@@ -147,6 +151,8 @@ func TestRunner_Run(t *testing.T) {
 			case 3:
 				assert.ElementsMatch(t, nil, notExisting)
 			case 4:
+				// Terminates the loop.
+				defer cancel()
 				assert.Equal(
 					t,
 					[]datastore.RepositoryClusterPath{
@@ -154,6 +160,7 @@ func TestRunner_Run(t *testing.T) {
 					},
 					notExisting,
 				)
+				return nil
 			}
 			atomic.AddInt32(&iteration, 1)
 			return nil
@@ -166,20 +173,20 @@ func TestRunner_Run(t *testing.T) {
 		defer close(done)
 		assert.Equal(t, context.Canceled, runner.Run(ctx, ticker))
 	}()
-	// we need to trigger it 5 times to make sure the 4-th run is fully completed
-	for i := 0; i < 5; i++ {
+	// We have 3 storages that is why it requires 3 runs to cover them all.
+	// As the first run happens automatically we need to make 2 ticks for 2 additional runs.
+	for i := 0; i < len(conf.VirtualStorages[0].Nodes)-1; i++ {
 		ticker.Tick()
 	}
-	require.Greater(t, atomic.LoadInt32(&iteration), int32(4))
-	require.Len(t, loggerHook.AllEntries(), 1)
+	waitReceive(t, done)
+
+	require.Equal(t, int32(4), atomic.LoadInt32(&iteration))
+	require.GreaterOrEqual(t, len(loggerHook.AllEntries()), 2)
 	require.Equal(
 		t,
 		map[string]interface{}{"Data": logrus.Fields{"component": "repocleaner.repository_existence"}, "Message": "started"},
 		map[string]interface{}{"Data": loggerHook.AllEntries()[0].Data, "Message": loggerHook.AllEntries()[0].Message},
 	)
-	// Terminates the loop.
-	cancel()
-	<-done
 	require.Equal(
 		t,
 		map[string]interface{}{"Data": logrus.Fields{"component": "repocleaner.repository_existence"}, "Message": "completed"},
@@ -253,7 +260,7 @@ func TestRunner_Run_noAvailableStorages(t *testing.T) {
 	runner := NewRunner(cfg, logger, praefect.StaticHealthChecker{virtualStorage: []string{storage1}}, nodeSet.Connections(), storageCleanup, storageCleanup, actionStub{
 		PerformMethod: func(ctx context.Context, notExisting []datastore.RepositoryClusterPath) error {
 			assert.Empty(t, notExisting)
-			// Block execution here until send instance completes its execution.
+			// Block execution here until second instance completes its execution.
 			// It allows us to be sure the picked storage can't be picked once again by
 			// another instance as well as that it works without problems if there is
 			// nothing to pick up to process.
@@ -263,10 +270,10 @@ func TestRunner_Run_noAvailableStorages(t *testing.T) {
 		},
 	})
 
-	var wg sync.WaitGroup
-	wg.Add(2)
-
 	go func() {
+		// Continue execution of the first runner after the second completes.
+		defer close(releaseFirst)
+
 		logger, loggerHook := test.NewNullLogger()
 		logger.SetLevel(logrus.DebugLevel)
 
@@ -281,16 +288,19 @@ func TestRunner_Run_noAvailableStorages(t *testing.T) {
 		defer cancel()
 		ticker := helper.NewManualTicker()
 
-		<-startSecond
+		done := make(chan struct{})
 		go func() {
-			defer wg.Done()
+			defer close(done)
+			<-startSecond
 			assert.Equal(t, context.Canceled, runner.Run(ctx, ticker))
 		}()
+		// It fills the buffer with the value and is a non-blocking call.
 		ticker.Tick()
+		// It blocks until buffered value is consumed, that mean the initial
+		// run is completed and next one is started.
 		ticker.Tick()
-		close(releaseFirst)
 		cancel()
-		wg.Wait()
+		<-done
 
 		entries := loggerHook.AllEntries()
 		require.Greater(t, len(entries), 2)
@@ -301,15 +311,16 @@ func TestRunner_Run_noAvailableStorages(t *testing.T) {
 		)
 	}()
 
-	ticker := helper.NewManualTicker()
+	done := make(chan struct{})
 	go func() {
-		defer wg.Done()
-		assert.Equal(t, context.Canceled, runner.Run(ctx, ticker))
+		defer close(done)
+		assert.Equal(t, context.Canceled, runner.Run(ctx, helper.NewManualTicker()))
 	}()
-	ticker.Tick()
-	ticker.Tick() // blocks until first processing cycle is done
+	// Once the second runner completes we can proceed with execution of the first.
+	waitReceive(t, releaseFirst)
+	// Terminate the first runner.
 	cancel()
-	wg.Wait()
+	waitReceive(t, done)
 }
 
 type actionStub struct {
@@ -321,4 +332,13 @@ func (as actionStub) Perform(ctx context.Context, existence []datastore.Reposito
 		return as.PerformMethod(ctx, existence)
 	}
 	return nil
+}
+
+func waitReceive(t testing.TB, waitChan <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-waitChan:
+	case <-time.After(time.Minute):
+		require.FailNow(t, "waiting for too long")
+	}
 }
