@@ -7,7 +7,6 @@ import (
 	"io"
 	"strings"
 
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gitpipe"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
@@ -55,24 +54,13 @@ func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobS
 		},
 	})
 
-	gitVersion, err := git.CurrentVersion(ctx, s.gitCmdFactory)
-	if err != nil {
-		return helper.ErrInternalf("cannot determine Git version: %v", err)
-	}
-
 	revlistOptions := []gitpipe.RevlistOption{
 		gitpipe.WithObjects(),
-	}
-
-	if gitVersion.SupportsObjectTypeFilter() {
-		revlistOptions = append(revlistOptions, gitpipe.WithObjectTypeFilter(gitpipe.ObjectTypeBlob))
+		gitpipe.WithObjectTypeFilter(gitpipe.ObjectTypeBlob),
 	}
 
 	revlistIter := gitpipe.Revlist(ctx, repo, req.GetRevisions(), revlistOptions...)
 	catfileInfoIter := gitpipe.CatfileInfo(ctx, catfileProcess, revlistIter)
-	catfileInfoIter = gitpipe.CatfileInfoFilter(ctx, catfileInfoIter, func(r gitpipe.CatfileInfoResult) bool {
-		return r.ObjectInfo.Type == "blob"
-	})
 
 	if err := processBlobs(ctx, catfileProcess, catfileInfoIter, req.GetLimit(), req.GetBytesLimit(),
 		func(oid string, size int64, contents []byte, path []byte) error {

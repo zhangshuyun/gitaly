@@ -6,7 +6,6 @@ import (
 	"io"
 	"strings"
 
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gitpipe"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
@@ -53,25 +52,13 @@ func (s *server) GetTagSignatures(req *gitalypb.GetTagSignaturesRequest, stream 
 		},
 	})
 
-	gitVersion, err := git.CurrentVersion(ctx, s.gitCmdFactory)
-	if err != nil {
-		return helper.ErrInternalf("cannot determine Git version: %v", err)
-	}
-
 	revlistOptions := []gitpipe.RevlistOption{
 		gitpipe.WithObjects(),
-	}
-
-	if gitVersion.SupportsObjectTypeFilter() {
-		revlistOptions = append(revlistOptions, gitpipe.WithObjectTypeFilter(gitpipe.ObjectTypeTag))
+		gitpipe.WithObjectTypeFilter(gitpipe.ObjectTypeTag),
 	}
 
 	revlistIter := gitpipe.Revlist(ctx, repo, req.GetTagRevisions(), revlistOptions...)
 	catfileInfoIter := gitpipe.CatfileInfo(ctx, catfileProcess, revlistIter)
-	catfileInfoIter = gitpipe.CatfileInfoFilter(ctx, catfileInfoIter, func(r gitpipe.CatfileInfoResult) bool {
-		return r.ObjectInfo.Type == "tag"
-	})
-
 	catfileObjectIter := gitpipe.CatfileObject(ctx, catfileProcess, catfileInfoIter)
 
 	for catfileObjectIter.Next() {

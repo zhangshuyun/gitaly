@@ -98,12 +98,6 @@ func (v Version) IsSupported() bool {
 	return !v.LessThan(minimumVersion)
 }
 
-// SupportsObjectTypeFilter checks if a version corresponds to a Git version which supports object
-// type filters.
-func (v Version) SupportsObjectTypeFilter() bool {
-	return !v.LessThan(Version{major: 2, minor: 32, patch: 0})
-}
-
 // FlushesUpdaterefStatus determines whether the given Git version properly flushes status messages
 // in git-update-ref(1).
 func (v Version) FlushesUpdaterefStatus() bool {
