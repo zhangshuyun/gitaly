@@ -76,8 +76,7 @@ SELECT virtual_storage, COUNT(*)
 FROM repositories
 WHERE NOT EXISTS (
 	SELECT FROM valid_primaries
-	WHERE valid_primaries.virtual_storage = repositories.virtual_storage
-	AND   valid_primaries.relative_path   = repositories.relative_path
+	WHERE valid_primaries.repository_id = repositories.repository_id
 ) AND repositories.virtual_storage = ANY($1)
 GROUP BY virtual_storage
 	`, pq.StringArray(c.virtualStorages))
