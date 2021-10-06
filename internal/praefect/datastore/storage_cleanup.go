@@ -71,7 +71,7 @@ func (ss *StorageCleanup) AcquireNextStorage(ctx context.Context, inactive, upda
 	if err := ss.db.QueryRowContext(
 		ctx,
 		`UPDATE storage_cleanups
-			SET triggered_at = (NOW() AT TIME ZONE 'UTC')
+			SET triggered_at = NOW()
 			WHERE (virtual_storage, storage) IN (
 				SELECT virtual_storage, storage
 				FROM storage_cleanups
