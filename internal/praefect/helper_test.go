@@ -54,9 +54,7 @@ func testConfig(backends int) config.Config {
 	return cfg
 }
 
-type noopBackoffFactory struct{}
-
-func (noopBackoffFactory) Create() (Backoff, BackoffReset) {
+func noopBackoffFunc() (backoff, backoffReset) {
 	return func() time.Duration {
 		return 0
 	}, func() {}
@@ -176,7 +174,7 @@ func runPraefectServer(t testing.TB, ctx context.Context, conf config.Config, op
 	// TODO: run a replmgr for EVERY virtual storage
 	replmgr := NewReplMgr(
 		opt.withLogger,
-		conf.StorageNames(),
+		conf.VirtualStorageNames(),
 		opt.withQueue,
 		opt.withRepoStore,
 		opt.withNodeMgr,
@@ -202,10 +200,7 @@ func runPraefectServer(t testing.TB, ctx context.Context, conf config.Config, op
 	errQ := make(chan error)
 	ctx, cancel := context.WithCancel(ctx)
 
-	go func() {
-		errQ <- prf.Serve(listener)
-		close(errQ)
-	}()
+	go func() { errQ <- prf.Serve(listener) }()
 	replMgrDone := startProcessBacklog(ctx, replmgr)
 
 	// dial client to praefect
@@ -289,7 +284,7 @@ func startProcessBacklog(ctx context.Context, replMgr ReplMgr) <-chan struct{} {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		replMgr.ProcessBacklog(ctx, noopBackoffFactory{})
+		replMgr.ProcessBacklog(ctx, noopBackoffFunc)
 	}()
 	return done
 }

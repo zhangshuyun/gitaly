@@ -217,8 +217,6 @@ type FetchOpts struct {
 	Tags FetchOptsTags
 	// Stderr if set it would be used to redirect stderr stream into it.
 	Stderr io.Writer
-	// DisableTransactions will disable the reference-transaction hook and atomic transactions.
-	DisableTransactions bool
 }
 
 // ErrFetchFailed indicates that the fetch has failed.
@@ -246,11 +244,7 @@ func (repo *Repo) FetchRemote(ctx context.Context, remoteName string, opts Fetch
 	commandOptions := []git.CmdOpt{
 		git.WithEnv(opts.Env...),
 		git.WithStderr(opts.Stderr),
-	}
-	if opts.DisableTransactions {
-		commandOptions = append(commandOptions, git.WithDisabledHooks())
-	} else {
-		commandOptions = append(commandOptions, git.WithRefTxHook(ctx, repo, repo.cfg))
+		git.WithDisabledHooks(),
 	}
 	commandOptions = append(commandOptions, opts.CommandOptions...)
 
@@ -301,6 +295,7 @@ func (repo *Repo) FetchInternal(
 	commandOptions := []git.CmdOpt{
 		git.WithEnv(append(env, opts.Env...)...),
 		git.WithStderr(opts.Stderr),
+		git.WithRefTxHook(ctx, repo, repo.cfg),
 		// We've observed performance issues when fetching into big repositories part of an
 		// object pool. The root cause of this seems to be the connectivity check, which by
 		// default will also include references of any alternates. Given that object pools
@@ -310,17 +305,12 @@ func (repo *Repo) FetchInternal(
 		// matter in the connectivity check either.
 		git.WithConfig(git.ConfigPair{Key: "core.alternateRefsCommand", Value: "exit 0 #"}),
 	}
-	if opts.DisableTransactions {
-		commandOptions = append(commandOptions, git.WithDisabledHooks())
-	} else {
-		commandOptions = append(commandOptions, git.WithRefTxHook(ctx, repo, repo.cfg))
-	}
 	commandOptions = append(commandOptions, opts.CommandOptions...)
 
 	if err := repo.ExecAndWait(ctx,
 		git.SubCmd{
 			Name:  "fetch",
-			Flags: opts.buildFlags(),
+			Flags: append(opts.buildFlags(), git.Flag{Name: "--atomic"}),
 			Args:  append([]string{gitalyssh.GitalyInternalURL}, refspecs...),
 		},
 		commandOptions...,
@@ -348,10 +338,6 @@ func (opts FetchOpts) buildFlags() []git.Option {
 
 	if opts.Tags != FetchOptsTagsDefault {
 		flags = append(flags, git.Flag{Name: opts.Tags.String()})
-	}
-
-	if !opts.DisableTransactions {
-		flags = append(flags, git.Flag{Name: "--atomic"})
 	}
 
 	return flags

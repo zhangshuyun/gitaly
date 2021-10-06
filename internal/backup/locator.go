@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
@@ -26,32 +25,27 @@ import (
 type LegacyLocator struct{}
 
 // BeginFull returns the static paths for a legacy repository backup
-func (l LegacyLocator) BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Step {
+func (l LegacyLocator) BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Full {
 	return l.newFull(repo)
 }
 
 // CommitFull is unused as the locations are static
-func (l LegacyLocator) CommitFull(ctx context.Context, full *Step) error {
+func (l LegacyLocator) CommitFull(ctx context.Context, full *Full) error {
 	return nil
 }
 
-// FindLatest returns the static paths for a legacy repository backup
-func (l LegacyLocator) FindLatest(ctx context.Context, repo *gitalypb.Repository) (*Backup, error) {
-	return &Backup{
-		Steps: []Step{
-			*l.newFull(repo),
-		},
-	}, nil
+// FindLatestFull returns the static paths for a legacy repository backup
+func (l LegacyLocator) FindLatestFull(ctx context.Context, repo *gitalypb.Repository) (*Full, error) {
+	return l.newFull(repo), nil
 }
 
-func (l LegacyLocator) newFull(repo *gitalypb.Repository) *Step {
+func (l LegacyLocator) newFull(repo *gitalypb.Repository) *Full {
 	backupPath := strings.TrimSuffix(repo.RelativePath, ".git")
 
-	return &Step{
-		SkippableOnNotFound: true,
-		BundlePath:          backupPath + ".bundle",
-		RefPath:             backupPath + ".refs",
-		CustomHooksPath:     filepath.Join(backupPath, "custom_hooks.tar"),
+	return &Full{
+		BundlePath:      backupPath + ".bundle",
+		RefPath:         backupPath + ".refs",
+		CustomHooksPath: filepath.Join(backupPath, "custom_hooks.tar"),
 	}
 }
 
@@ -60,78 +54,53 @@ func (l LegacyLocator) newFull(repo *gitalypb.Repository) *Step {
 // file named LATEST.
 //
 // Structure:
+//   <repo relative path>/<backup id>/full.bundle
+//   <repo relative path>/<backup id>/full.refs
+//   <repo relative path>/<backup id>/custom_hooks.tar
 //   <repo relative path>/LATEST
-//   <repo relative path>/<backup id>/LATEST
-//   <repo relative path>/<backup id>/<nnn>.bundle
-//   <repo relative path>/<backup id>/<nnn>.refs
-//   <repo relative path>/<backup id>/<nnn>.custom_hooks.tar
 type PointerLocator struct {
 	Sink     Sink
 	Fallback Locator
 }
 
 // BeginFull returns paths for a new full backup
-func (l PointerLocator) BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Step {
+func (l PointerLocator) BeginFull(ctx context.Context, repo *gitalypb.Repository, backupID string) *Full {
 	backupPath := strings.TrimSuffix(repo.RelativePath, ".git")
 
-	return &Step{
-		BundlePath:      filepath.Join(backupPath, backupID, "001.bundle"),
-		RefPath:         filepath.Join(backupPath, backupID, "001.refs"),
-		CustomHooksPath: filepath.Join(backupPath, backupID, "001.custom_hooks.tar"),
+	return &Full{
+		BundlePath:      filepath.Join(backupPath, backupID, "full.bundle"),
+		RefPath:         filepath.Join(backupPath, backupID, "full.refs"),
+		CustomHooksPath: filepath.Join(backupPath, backupID, "custom_hooks.tar"),
 	}
 }
 
-// CommitFull persists the paths for a new backup so that it can be looked up by FindLatest
-func (l PointerLocator) CommitFull(ctx context.Context, full *Step) error {
+// CommitFull persists the paths for a new backup so that it can be looked up by FindLatestFull
+func (l PointerLocator) CommitFull(ctx context.Context, full *Full) error {
 	bundleDir := filepath.Dir(full.BundlePath)
 	backupID := filepath.Base(bundleDir)
 	backupPath := filepath.Dir(bundleDir)
-	if err := l.writeLatest(ctx, bundleDir, "001"); err != nil {
-		return err
-	}
-	if err := l.writeLatest(ctx, backupPath, backupID); err != nil {
-		return err
-	}
-	return nil
+	return l.commitLatestID(ctx, backupPath, backupID)
 }
 
-// FindLatest returns the paths committed by the latest call to CommitFull.
+// FindLatestFull returns the paths committed by the latest call to CommitFull.
 //
 // If there is no `LATEST` file, the result of the `Fallback` is used.
-func (l PointerLocator) FindLatest(ctx context.Context, repo *gitalypb.Repository) (*Backup, error) {
-	repoPath := strings.TrimSuffix(repo.RelativePath, ".git")
+func (l PointerLocator) FindLatestFull(ctx context.Context, repo *gitalypb.Repository) (*Full, error) {
+	backupPath := strings.TrimSuffix(repo.RelativePath, ".git")
 
-	backupID, err := l.findLatestID(ctx, repoPath)
+	latest, err := l.findLatestID(ctx, backupPath)
 	if err != nil {
 		if l.Fallback != nil && errors.Is(err, ErrDoesntExist) {
-			return l.Fallback.FindLatest(ctx, repo)
+			return l.Fallback.FindLatestFull(ctx, repo)
 		}
-		return nil, fmt.Errorf("pointer locator: backup: %w", err)
+		return nil, fmt.Errorf("pointer locator: %w", err)
 	}
 
-	backupPath := filepath.Join(repoPath, backupID)
-
-	latestIncrementID, err := l.findLatestID(ctx, backupPath)
-	if err != nil {
-		return nil, fmt.Errorf("pointer locator: latest incremental: %w", err)
-	}
-
-	max, err := strconv.Atoi(latestIncrementID)
-	if err != nil {
-		return nil, fmt.Errorf("pointer locator: latest incremental: %w", err)
-	}
-
-	var backup Backup
-
-	for i := 1; i <= max; i++ {
-		backup.Steps = append(backup.Steps, Step{
-			BundlePath:      filepath.Join(backupPath, fmt.Sprintf("%03d.bundle", i)),
-			RefPath:         filepath.Join(backupPath, fmt.Sprintf("%03d.refs", i)),
-			CustomHooksPath: filepath.Join(backupPath, fmt.Sprintf("%03d.custom_hooks.tar", i)),
-		})
-	}
-
-	return &backup, nil
+	return &Full{
+		BundlePath:      filepath.Join(backupPath, latest, "full.bundle"),
+		RefPath:         filepath.Join(backupPath, latest, "full.refs"),
+		CustomHooksPath: filepath.Join(backupPath, latest, "custom_hooks.tar"),
+	}, nil
 }
 
 func (l PointerLocator) findLatestID(ctx context.Context, backupPath string) (string, error) {
@@ -149,10 +118,10 @@ func (l PointerLocator) findLatestID(ctx context.Context, backupPath string) (st
 	return text.ChompBytes(latest), nil
 }
 
-func (l PointerLocator) writeLatest(ctx context.Context, path, target string) error {
-	latest := strings.NewReader(target)
-	if err := l.Sink.Write(ctx, filepath.Join(path, "LATEST"), latest); err != nil {
-		return fmt.Errorf("write latest: %w", err)
+func (l PointerLocator) commitLatestID(ctx context.Context, backupPath, backupID string) error {
+	latest := strings.NewReader(backupID)
+	if err := l.Sink.Write(ctx, filepath.Join(backupPath, "LATEST"), latest); err != nil {
+		return fmt.Errorf("commit latest ID: %w", err)
 	}
 	return nil
 }

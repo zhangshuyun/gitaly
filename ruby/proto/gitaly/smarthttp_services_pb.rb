@@ -23,9 +23,7 @@ module Gitaly
       # references to the user.
       rpc :InfoRefsReceivePack, ::Gitaly::InfoRefsRequest, stream(::Gitaly::InfoRefsResponse)
       # Request and response body for POST /upload-pack
-      rpc :PostUploadPack, stream(::Gitaly::PostUploadPackRequest), stream(Gitaly::PostUploadPackResponse)
-      # Request and response body for POST /upload-pack using sidechannel protocol
-      rpc :PostUploadPackWithSidechannel, ::Gitaly::PostUploadPackWithSidechannelRequest, ::Gitaly::PostUploadPackWithSidechannelResponse
+      rpc :PostUploadPack, stream(::Gitaly::PostUploadPackRequest), stream(::Gitaly::PostUploadPackResponse)
       # Request and response body for POST /receive-pack
       rpc :PostReceivePack, stream(::Gitaly::PostReceivePackRequest), stream(::Gitaly::PostReceivePackResponse)
     end

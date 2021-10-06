@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/version"
 	"gitlab.com/gitlab-org/labkit/monitoring"
 )
@@ -140,7 +140,7 @@ func (b Blackbox) Run() error {
 func (b Blackbox) runProbes() {
 	for ; ; time.Sleep(b.cfg.sleepDuration) {
 		for _, probe := range b.cfg.Probes {
-			entry := log.Default().WithFields(map[string]interface{}{
+			entry := log.WithFields(map[string]interface{}{
 				"probe": probe.Name,
 				"type":  probe.Type,
 			})

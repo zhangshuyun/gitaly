@@ -101,8 +101,6 @@ func getStorageDir(t *testing.T, cfg config.Cfg, storageName string) string {
 }
 
 func TestAddNamespace(t *testing.T) {
-	testhelper.SkipWithPraefect(t, "per_repository election strategy doesn't support storage scoped mutators")
-
 	cfg, client := setupNamespaceService(t)
 	existingStorage := cfg.Storages[0]
 
@@ -165,8 +163,6 @@ func TestAddNamespace(t *testing.T) {
 }
 
 func TestRemoveNamespace(t *testing.T) {
-	testhelper.SkipWithPraefect(t, "per_repository election strategy doesn't support storage scoped mutators")
-
 	cfg, client := setupNamespaceService(t)
 	existingStorage := cfg.Storages[0]
 
@@ -221,8 +217,6 @@ func TestRemoveNamespace(t *testing.T) {
 }
 
 func TestRenameNamespace(t *testing.T) {
-	testhelper.SkipWithPraefect(t, "per_repository election strategy doesn't support storage scoped mutators")
-
 	cfg, client := setupNamespaceService(t)
 	existingStorage := cfg.Storages[0]
 
@@ -291,8 +285,6 @@ func TestRenameNamespace(t *testing.T) {
 }
 
 func TestRenameNamespaceWithNonexistentParentDir(t *testing.T) {
-	testhelper.SkipWithPraefect(t, "per_repository election strategy doesn't support storage scoped mutators")
-
 	cfg, client := setupNamespaceService(t)
 	existingStorage := cfg.Storages[0]
 

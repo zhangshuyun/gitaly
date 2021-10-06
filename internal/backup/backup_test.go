@@ -2,6 +2,7 @@ package backup
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -202,8 +203,7 @@ func testManagerRestore(t *testing.T, cfg config.Cfg, gitalyAddr string) {
 
 	cc, err := client.Dial(gitalyAddr, nil)
 	require.NoError(t, err)
-	defer testhelper.MustClose(t, cc)
-
+	defer func() { require.NoError(t, cc.Close()) }()
 	repoClient := gitalypb.NewRepositoryServiceClient(cc)
 
 	createRepo := func(t testing.TB, relativePath string) *gitalypb.Repository {
@@ -211,7 +211,7 @@ func testManagerRestore(t *testing.T, cfg config.Cfg, gitalyAddr string) {
 
 		repo := &gitalypb.Repository{
 			StorageName:  "default",
-			RelativePath: gittest.NewRepositoryName(t, false) + relativePath,
+			RelativePath: relativePath,
 		}
 
 		for i := 0; true; i++ {
@@ -230,158 +230,90 @@ func testManagerRestore(t *testing.T, cfg config.Cfg, gitalyAddr string) {
 
 	path := testhelper.TempDir(t)
 
+	existingRepo := createRepo(t, "existing")
+	require.NoError(t, os.MkdirAll(filepath.Join(path, existingRepo.RelativePath), os.ModePerm))
+	existingRepoBundlePath := filepath.Join(path, existingRepo.RelativePath+".bundle")
+	gittest.BundleTestRepo(t, cfg, "gitlab-test.git", existingRepoBundlePath)
+
+	existingRepoHooks := createRepo(t, "existing_hooks")
+	existingRepoHooksBundlePath := filepath.Join(path, existingRepoHooks.RelativePath+".bundle")
+	existingRepoHooksCustomHooksPath := filepath.Join(path, existingRepoHooks.RelativePath, "custom_hooks.tar")
+	require.NoError(t, os.MkdirAll(filepath.Join(path, existingRepoHooks.RelativePath), os.ModePerm))
+	testhelper.CopyFile(t, existingRepoBundlePath, existingRepoHooksBundlePath)
+	testhelper.CopyFile(t, "../gitaly/service/repository/testdata/custom_hooks.tar", existingRepoHooksCustomHooksPath)
+
+	missingBundleRepo := createRepo(t, "missing_bundle")
+	missingBundleRepoAlwaysCreate := createRepo(t, "missing_bundle_always_create")
+
+	nonexistentRepo := &gitalypb.Repository{
+		StorageName:  "default",
+		RelativePath: "nonexistent",
+	}
+	nonexistentRepoBundlePath := filepath.Join(path, nonexistentRepo.RelativePath+".bundle")
+	testhelper.CopyFile(t, existingRepoBundlePath, nonexistentRepoBundlePath)
+
 	for _, tc := range []struct {
 		desc          string
-		locators      []string
-		setup         func(t testing.TB) (repo *gitalypb.Repository, bundles []string)
+		repo          *gitalypb.Repository
 		alwaysCreate  bool
-		expectExists  bool
 		expectedPaths []string
 		expectedErrAs error
+		expectVerify  bool
 	}{
 		{
-			desc:     "existing repo, without hooks",
-			locators: []string{"legacy", "pointer"},
-			setup: func(t testing.TB) (repo *gitalypb.Repository, bundles []string) {
-				existingRepo := createRepo(t, "existing")
-				require.NoError(t, os.MkdirAll(filepath.Join(path, existingRepo.RelativePath), os.ModePerm))
-				existingRepoBundlePath := filepath.Join(path, existingRepo.RelativePath+".bundle")
-				gittest.BundleTestRepo(t, cfg, "gitlab-test.git", existingRepoBundlePath)
-				return existingRepo, []string{existingRepoBundlePath}
-			},
-			expectExists: true,
+			desc:         "existing repo, without hooks",
+			repo:         existingRepo,
+			expectVerify: true,
 		},
 		{
-			desc:     "existing repo, with hooks",
-			locators: []string{"legacy", "pointer"},
-			setup: func(t testing.TB) (repo *gitalypb.Repository, bundles []string) {
-				existingRepoHooks := createRepo(t, "existing_hooks")
-				existingRepoHooksBundlePath := filepath.Join(path, existingRepoHooks.RelativePath+".bundle")
-				existingRepoHooksCustomHooksPath := filepath.Join(path, existingRepoHooks.RelativePath, "custom_hooks.tar")
-				require.NoError(t, os.MkdirAll(filepath.Join(path, existingRepoHooks.RelativePath), os.ModePerm))
-				gittest.BundleTestRepo(t, cfg, "gitlab-test.git", existingRepoHooksBundlePath)
-				testhelper.CopyFile(t, "../gitaly/service/repository/testdata/custom_hooks.tar", existingRepoHooksCustomHooksPath)
-				return existingRepoHooks, []string{existingRepoHooksBundlePath}
-			},
+			desc: "existing repo, with hooks",
+			repo: existingRepoHooks,
 			expectedPaths: []string{
 				"custom_hooks/pre-commit.sample",
 				"custom_hooks/prepare-commit-msg.sample",
 				"custom_hooks/pre-push.sample",
 			},
-			expectExists: true,
+			expectVerify: true,
 		},
 		{
-			desc:     "missing bundle",
-			locators: []string{"legacy", "pointer"},
-			setup: func(t testing.TB) (repo *gitalypb.Repository, bundles []string) {
-				missingBundleRepo := createRepo(t, "missing_bundle")
-				return missingBundleRepo, nil
-			},
+			desc:          "missing bundle",
+			repo:          missingBundleRepo,
 			expectedErrAs: ErrSkipped,
 		},
 		{
-			desc:     "missing bundle, always create",
-			locators: []string{"legacy", "pointer"},
-			setup: func(t testing.TB) (repo *gitalypb.Repository, bundles []string) {
-				missingBundleRepoAlwaysCreate := createRepo(t, "missing_bundle_always_create")
-				return missingBundleRepoAlwaysCreate, nil
-			},
+			desc:         "missing bundle, always create",
+			repo:         missingBundleRepoAlwaysCreate,
 			alwaysCreate: true,
-			expectExists: true,
 		},
 		{
-			desc:     "nonexistent repo",
-			locators: []string{"legacy", "pointer"},
-			setup: func(t testing.TB) (repo *gitalypb.Repository, bundles []string) {
-				nonexistentRepo := &gitalypb.Repository{
-					StorageName:  "default",
-					RelativePath: "nonexistent",
-				}
-				nonexistentRepoBundlePath := filepath.Join(path, nonexistentRepo.RelativePath+".bundle")
-				gittest.BundleTestRepo(t, cfg, "gitlab-test.git", nonexistentRepoBundlePath)
-				return nonexistentRepo, []string{nonexistentRepoBundlePath}
-			},
-			expectExists: true,
-		},
-		{
-			desc:     "single incremental",
-			locators: []string{"pointer"},
-			setup: func(t testing.TB) (*gitalypb.Repository, []string) {
-				const backupID = "abc123"
-				repo := createRepo(t, "incremental")
-				repoBackupPath := filepath.Join(path, repo.RelativePath)
-				backupPath := filepath.Join(repoBackupPath, backupID)
-				require.NoError(t, os.MkdirAll(backupPath, os.ModePerm))
-				require.NoError(t, os.WriteFile(filepath.Join(repoBackupPath, "LATEST"), []byte(backupID), os.ModePerm))
-				require.NoError(t, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("001"), os.ModePerm))
-				bundlePath := filepath.Join(backupPath, "001.bundle")
-				gittest.BundleTestRepo(t, cfg, "gitlab-test.git", bundlePath)
-				return repo, []string{bundlePath}
-			},
-			expectExists: true,
-		},
-		{
-			desc:     "many incrementals",
-			locators: []string{"pointer"},
-			setup: func(t testing.TB) (*gitalypb.Repository, []string) {
-				const backupID = "abc123"
-				repo := createRepo(t, "incremental")
-				repoBackupPath := filepath.Join(path, repo.RelativePath)
-				backupPath := filepath.Join(repoBackupPath, backupID)
-				require.NoError(t, os.MkdirAll(backupPath, os.ModePerm))
-				require.NoError(t, os.WriteFile(filepath.Join(repoBackupPath, "LATEST"), []byte(backupID), os.ModePerm))
-				require.NoError(t, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("002"), os.ModePerm))
-
-				bundlePath1 := filepath.Join(backupPath, "001.bundle")
-				gittest.BundleTestRepo(t, cfg, "gitlab-test.git", bundlePath1, "master")
-
-				bundlePath2 := filepath.Join(backupPath, "002.bundle")
-				gittest.BundleTestRepo(t, cfg, "gitlab-test.git", bundlePath2, "feature")
-
-				return repo, []string{bundlePath1, bundlePath2}
-			},
-			expectExists: true,
+			desc:         "nonexistent repo",
+			repo:         nonexistentRepo,
+			expectVerify: true,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			require.GreaterOrEqual(t, len(tc.locators), 1, "each test case must specify a locator")
+			repoPath := filepath.Join(cfg.Storages[0].Path, tc.repo.RelativePath)
+			bundlePath := filepath.Join(path, tc.repo.RelativePath+".bundle")
 
-			for _, locatorName := range tc.locators {
-				t.Run(locatorName, func(t *testing.T) {
-					repo, bundles := tc.setup(t)
-					repoPath := filepath.Join(cfg.Storages[0].Path, repo.RelativePath)
+			fsBackup := NewManager(NewFilesystemSink(path), LegacyLocator{})
+			err := fsBackup.Restore(ctx, &RestoreRequest{
+				Server:       storage.ServerInfo{Address: gitalyAddr, Token: cfg.Auth.Token},
+				Repository:   tc.repo,
+				AlwaysCreate: tc.alwaysCreate,
+			})
+			if tc.expectedErrAs != nil {
+				require.True(t, errors.Is(err, tc.expectedErrAs), err.Error())
+			} else {
+				require.NoError(t, err)
+			}
 
-					sink := NewFilesystemSink(path)
-					locator, err := ResolveLocator(locatorName, sink)
-					require.NoError(t, err)
+			if tc.expectVerify {
+				output := gittest.Exec(t, cfg, "-C", repoPath, "bundle", "verify", bundlePath)
+				require.Contains(t, string(output), "The bundle records a complete history")
+			}
 
-					fsBackup := NewManager(sink, locator)
-					err = fsBackup.Restore(ctx, &RestoreRequest{
-						Server:       storage.ServerInfo{Address: gitalyAddr, Token: cfg.Auth.Token},
-						Repository:   repo,
-						AlwaysCreate: tc.alwaysCreate,
-					})
-					if tc.expectedErrAs != nil {
-						require.ErrorAs(t, err, &tc.expectedErrAs)
-					} else {
-						require.NoError(t, err)
-					}
-
-					exists, err := repoClient.RepositoryExists(ctx, &gitalypb.RepositoryExistsRequest{
-						Repository: repo,
-					})
-					require.NoError(t, err)
-					require.Equal(t, tc.expectExists, exists.Exists, "repository exists")
-
-					for _, bundlePath := range bundles {
-						output := gittest.Exec(t, cfg, "-C", repoPath, "bundle", "verify", bundlePath)
-						require.Contains(t, string(output), "The bundle records a complete history")
-					}
-
-					for _, p := range tc.expectedPaths {
-						require.FileExists(t, filepath.Join(repoPath, p))
-					}
-				})
+			for _, p := range tc.expectedPaths {
+				require.FileExists(t, filepath.Join(repoPath, p))
 			}
 		})
 	}

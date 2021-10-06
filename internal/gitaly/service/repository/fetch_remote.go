@@ -26,12 +26,11 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 
 	var stderr bytes.Buffer
 	opts := localrepo.FetchOpts{
-		Stderr:              &stderr,
-		Force:               req.Force,
-		Prune:               !req.NoPrune,
-		Tags:                localrepo.FetchOptsTagsAll,
-		Verbose:             req.GetCheckTagsChanged(),
-		DisableTransactions: true,
+		Stderr:  &stderr,
+		Force:   req.Force,
+		Prune:   !req.NoPrune,
+		Tags:    localrepo.FetchOptsTagsAll,
+		Verbose: req.GetCheckTagsChanged(),
 	}
 
 	if req.GetNoTags() {

@@ -33,7 +33,6 @@ var subcommands = map[string]subcmd{
 	"accept-dataloss":        &acceptDatalossSubcommand{},
 	"set-replication-factor": newSetReplicatioFactorSubcommand(os.Stdout),
 	removeRepositoryCmdName:  newRemoveRepository(logger),
-	trackRepositoryCmdName:   newTrackRepository(logger),
 }
 
 // subCommand returns an exit code, to be fed into os.Exit.

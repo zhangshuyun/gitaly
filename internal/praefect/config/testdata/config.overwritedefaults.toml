@@ -1,6 +1,5 @@
 [replication]
 batch_size = 1
-parallel_storage_processing_workers = 2
 
 [reconciliation]
 scheduling_interval = 0
@@ -12,8 +11,3 @@ election_strategy = "local"
 read_only_after_failover = false
 bootstrap_interval = "5s"
 monitor_interval = "10s"
-
-[repositories_cleanup]
-check_interval = "1s"
-run_interval = "4s"
-repositories_in_batch = 11

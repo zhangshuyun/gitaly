@@ -361,22 +361,6 @@ func TestRepo_FetchRemote(t *testing.T) {
 
 		var stderr bytes.Buffer
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{Stderr: &stderr, Env: []string{"GIT_TRACE=1"}}))
-		require.Contains(t, stderr.String(), "trace: built-in: git fetch --quiet --atomic --end-of-options source")
-	})
-
-	t.Run("with disabled transactions", func(t *testing.T) {
-		_, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
-		testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
-
-		repo := New(remoteCmd.repo.gitCmdFactory, remoteCmd.repo.catfileCache, testRepo, cfg)
-		gittest.Exec(t, cfg, "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
-
-		var stderr bytes.Buffer
-		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{
-			Stderr:              &stderr,
-			Env:                 []string{"GIT_TRACE=1"},
-			DisableTransactions: true,
-		}))
 		require.Contains(t, stderr.String(), "trace: built-in: git fetch --quiet --end-of-options source")
 	})
 

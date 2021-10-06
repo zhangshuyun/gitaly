@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/google/uuid"
@@ -98,8 +97,6 @@ func (db DB) TruncateAll(t testing.TB) {
 		"storage_repositories",
 		"repositories",
 		"virtual_storages",
-		"repository_assignments",
-		"storage_cleanups",
 	)
 }
 
@@ -134,34 +131,39 @@ func NewDB(t testing.TB) DB {
 // GetDBConfig returns the database configuration determined by
 // environment variables.  See NewDB() for the list of variables.
 func GetDBConfig(t testing.TB, database string) config.DB {
-	env := getDatabaseEnvironment(t)
+	getEnvFromGDK(t)
 
-	require.Contains(t, env, "PGHOST", "PGHOST env var expected to be provided to connect to Postgres database")
-	require.Contains(t, env, "PGPORT", "PGHOST env var expected to be provided to connect to Postgres database")
+	host, hostFound := os.LookupEnv("PGHOST")
+	require.True(t, hostFound, "PGHOST env var expected to be provided to connect to Postgres database")
 
-	portNumber, err := strconv.Atoi(env["PGPORT"])
-	require.NoError(t, err, "PGPORT must be a port number of the Postgres database listens for incoming connections")
+	port, portFound := os.LookupEnv("PGPORT")
+	require.True(t, portFound, "PGPORT env var expected to be provided to connect to Postgres database")
+	portNumber, pErr := strconv.Atoi(port)
+	require.NoError(t, pErr, "PGPORT must be a port number of the Postgres database listens for incoming connections")
 
 	// connect to 'postgres' database first to re-create testing database from scratch
 	conf := config.DB{
-		Host:    env["PGHOST"],
+		Host:    host,
 		Port:    portNumber,
 		DBName:  database,
 		SSLMode: "disable",
-		User:    env["PGUSER"],
+		User:    os.Getenv("PGUSER"),
 		SessionPooled: config.DBConnection{
-			Host: env["PGHOST"],
+			Host: host,
 			Port: portNumber,
 		},
 	}
 
-	if bouncerHost, ok := env["PGHOST_PGBOUNCER"]; ok {
+	bouncerHost, bouncerHostFound := os.LookupEnv("PGHOST_PGBOUNCER")
+	if bouncerHostFound {
 		conf.Host = bouncerHost
 	}
 
-	if bouncerPort, ok := env["PGPORT_PGBOUNCER"]; ok {
-		bouncerPortNumber, err := strconv.Atoi(bouncerPort)
-		require.NoError(t, err, "PGPORT_PGBOUNCER must be a port number of the PgBouncer")
+	bouncerPort, bouncerPortFound := os.LookupEnv("PGPORT_PGBOUNCER")
+	if bouncerPortFound {
+		bouncerPortNumber, pErr := strconv.Atoi(bouncerPort)
+		require.NoError(t, pErr, "PGPORT_PGBOUNCER must be a port number of the PgBouncer")
+
 		conf.Port = bouncerPortNumber
 	}
 
@@ -285,48 +287,25 @@ func scanSingleBool(t testing.TB, db *sql.DB, query string, args ...interface{})
 	return flag
 }
 
-var (
-	// Running `gdk env` takes about 250ms on my system and is thus comparatively slow. When
-	// running with Praefect as proxy, this time adds up and may thus slow down tests by quite a
-	// margin. We thus amortize these costs by only running it once.
-	databaseEnvOnce sync.Once
-	databaseEnv     map[string]string
-)
+func getEnvFromGDK(t testing.TB) {
+	gdkEnv, err := exec.Command("gdk", "env").Output()
+	if err != nil {
+		// Assume we are not in a GDK setup; this is not an error so just return.
+		return
+	}
 
-func getDatabaseEnvironment(t testing.TB) map[string]string {
-	databaseEnvOnce.Do(func() {
-		envvars := map[string]string{}
-
-		// We only process output if `gdk env` returned success. If it didn't, we simply assume that
-		// we are not running in a GDK environment and will try to extract variables from the
-		// environment instead.
-		if output, err := exec.Command("gdk", "env").Output(); err == nil {
-			for _, line := range strings.Split(string(output), "\n") {
-				const prefix = "export "
-				if !strings.HasPrefix(line, prefix) {
-					continue
-				}
-
-				split := strings.SplitN(strings.TrimPrefix(line, prefix), "=", 2)
-				if len(split) != 2 {
-					continue
-				}
-
-				envvars[split[0]] = split[1]
-			}
+	for _, line := range strings.Split(string(gdkEnv), "\n") {
+		const prefix = "export "
+		if !strings.HasPrefix(line, prefix) {
+			continue
 		}
 
-		for _, key := range []string{"PGHOST", "PGPORT", "PGUSER", "PGHOST_PGBOUNCER", "PGPORT_PGBOUNCER"} {
-			if _, ok := envvars[key]; !ok {
-				value, ok := os.LookupEnv(key)
-				if ok {
-					envvars[key] = value
-				}
-			}
+		split := strings.SplitN(strings.TrimPrefix(line, prefix), "=", 2)
+		if len(split) != 2 {
+			continue
 		}
+		key, value := split[0], split[1]
 
-		databaseEnv = envvars
-	})
-
-	return databaseEnv
+		require.NoError(t, os.Setenv(key, value), "set env var %v", key)
+	}
 }

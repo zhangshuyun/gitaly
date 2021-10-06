@@ -24,13 +24,6 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     add_message "gitaly.PostUploadPackResponse" do
       optional :data, :bytes, 1
     end
-    add_message "gitaly.PostUploadPackWithSidechannelRequest" do
-      optional :repository, :message, 1, "gitaly.Repository"
-      repeated :git_config_options, :string, 2
-      optional :git_protocol, :string, 3
-    end
-    add_message "gitaly.PostUploadPackWithSidechannelResponse" do
-    end
     add_message "gitaly.PostReceivePackRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
       optional :data, :bytes, 2
@@ -51,8 +44,6 @@ module Gitaly
   InfoRefsResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.InfoRefsResponse").msgclass
   PostUploadPackRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.PostUploadPackRequest").msgclass
   PostUploadPackResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.PostUploadPackResponse").msgclass
-  PostUploadPackWithSidechannelRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.PostUploadPackWithSidechannelRequest").msgclass
-  PostUploadPackWithSidechannelResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.PostUploadPackWithSidechannelResponse").msgclass
   PostReceivePackRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.PostReceivePackRequest").msgclass
   PostReceivePackResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.PostReceivePackResponse").msgclass
 end

@@ -4,6 +4,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -16,16 +18,18 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
 
-func TestMerge_missingArguments(t *testing.T) {
-	t.Parallel()
+func TestMergeFailsWithMissingArguments(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Git2GoMergeGob,
+	}).Run(t, testMergeFailsWithMissingArguments)
+}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
+func testMergeFailsWithMissingArguments(t *testing.T, ctx context.Context) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 	executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
 
@@ -79,12 +83,13 @@ func TestMerge_missingArguments(t *testing.T) {
 	}
 }
 
-func TestMerge_invalidRepositoryPath(t *testing.T) {
-	t.Parallel()
+func TestMergeFailsWithInvalidRepositoryPath(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Git2GoMergeGob,
+	}).Run(t, testMergeFailsWithInvalidRepositoryPath)
+}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
+func testMergeFailsWithInvalidRepositoryPath(t *testing.T, ctx context.Context) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 	testhelper.BuildGitalyGit2Go(t, cfg)
 	executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
@@ -96,20 +101,22 @@ func TestMerge_invalidRepositoryPath(t *testing.T) {
 	require.Contains(t, err.Error(), "merge: could not open repository")
 }
 
-func TestMerge_trees(t *testing.T) {
-	t.Parallel()
+func TestMergeTrees(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Git2GoMergeGob,
+	}).Run(t, testMergeTrees)
+}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
+func testMergeTrees(t *testing.T, ctx context.Context) {
 	testcases := []struct {
-		desc             string
-		base             map[string]string
-		ours             map[string]string
-		theirs           map[string]string
-		expected         map[string]string
-		expectedResponse git2go.MergeResult
-		expectedErr      error
+		desc                  string
+		base                  map[string]string
+		ours                  map[string]string
+		theirs                map[string]string
+		expected              map[string]string
+		expectedResponse      git2go.MergeResult
+		expectedErr           error
+		expectedErrWithoutGob error
 	}{
 		{
 			desc: "trivial merge succeeds",
@@ -187,6 +194,8 @@ func TestMerge_trees(t *testing.T) {
 			expectedErr: fmt.Errorf("merge: %w", git2go.ConflictingFilesError{
 				ConflictingFiles: []string{"1"},
 			}),
+			//nolint:revive
+			expectedErrWithoutGob: errors.New("merge: could not auto-merge due to conflicts\n"),
 		},
 	}
 
@@ -213,7 +222,11 @@ func TestMerge_trees(t *testing.T) {
 			})
 
 			if tc.expectedErr != nil {
-				require.Equal(t, tc.expectedErr, err)
+				if featureflag.Git2GoMergeGob.IsEnabled(ctx) {
+					require.Equal(t, tc.expectedErr, err)
+				} else {
+					require.Equal(t, tc.expectedErrWithoutGob, err)
+				}
 				return
 			}
 
@@ -247,11 +260,12 @@ func TestMerge_trees(t *testing.T) {
 }
 
 func TestMerge_recursive(t *testing.T) {
-	t.Parallel()
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.Git2GoMergeGob,
+	}).Run(t, testMergeRecursive)
+}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
+func testMergeRecursive(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
 	testhelper.BuildGitalyGit2Go(t, cfg)
 	executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
@@ -318,9 +332,14 @@ func TestMerge_recursive(t *testing.T) {
 		Ours:       ours[len(ours)-1].String(),
 		Theirs:     theirs[len(theirs)-1].String(),
 	})
-	require.Equal(t, fmt.Errorf("merge: %w", git2go.ConflictingFilesError{
-		ConflictingFiles: []string{"theirs"},
-	}), err)
+	if featureflag.Git2GoMergeGob.IsEnabled(ctx) {
+		require.Equal(t, fmt.Errorf("merge: %w", git2go.ConflictingFilesError{
+			ConflictingFiles: []string{"theirs"},
+		}), err)
+	} else {
+		//nolint:revive
+		require.Equal(t, errors.New("merge: could not auto-merge due to conflicts\n"), err)
+	}
 
 	// Otherwise, if we're merging an earlier criss-cross merge which has
 	// half of the limit many criss-cross patterns, we exactly hit the

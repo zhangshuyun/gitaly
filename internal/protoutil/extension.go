@@ -21,19 +21,9 @@ func GetOpExtension(m *descriptorpb.MethodDescriptorProto) (*gitalypb.OperationM
 	return ext.(*gitalypb.OperationMsg), nil
 }
 
-// IsInterceptedMethod returns whether the RPC method is intercepted by Praefect.
-func IsInterceptedMethod(s *descriptorpb.ServiceDescriptorProto, m *descriptorpb.MethodDescriptorProto) (bool, error) {
-	isServiceIntercepted, err := getBoolExtension(s.GetOptions(), gitalypb.E_Intercepted)
-	if err != nil {
-		return false, fmt.Errorf("is service intercepted: %w", err)
-	}
-
-	isMethodIntercepted, err := getBoolExtension(m.GetOptions(), gitalypb.E_InterceptedMethod)
-	if err != nil {
-		return false, fmt.Errorf("is method intercepted: %w", err)
-	}
-
-	return isServiceIntercepted || isMethodIntercepted, nil
+// IsInterceptedService returns whether the serivce is intercepted by Praefect.
+func IsInterceptedService(s *descriptorpb.ServiceDescriptorProto) (bool, error) {
+	return getBoolExtension(s.GetOptions(), gitalypb.E_Intercepted)
 }
 
 // GetRepositoryExtension gets the repository extension from a field descriptor

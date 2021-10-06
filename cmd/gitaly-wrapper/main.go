@@ -23,12 +23,9 @@ const (
 )
 
 func main() {
-	var logFormat string
 	if jsonLogging() {
-		logFormat = "json"
+		logrus.SetFormatter(&logrus.JSONFormatter{TimestampFormat: log.LogTimestampFormat})
 	}
-
-	log.Configure(log.Loggers, logFormat, "")
 
 	if len(os.Args) < 2 {
 		logrus.Fatalf("usage: %s forking_binary [args]", os.Args[0])
@@ -36,45 +33,45 @@ func main() {
 
 	gitalyBin, gitalyArgs := os.Args[1], os.Args[2:]
 
-	logger := log.Default().WithField("wrapper", os.Getpid())
-	logger.Info("Wrapper started")
+	log := logrus.WithField("wrapper", os.Getpid())
+	log.Info("Wrapper started")
 
 	if pidFile() == "" {
-		logger.Fatalf("missing pid file ENV variable %q", bootstrap.EnvPidFile)
+		log.Fatalf("missing pid file ENV variable %q", bootstrap.EnvPidFile)
 	}
 
-	logger.WithField("pid_file", pidFile()).Info("finding gitaly")
+	log.WithField("pid_file", pidFile()).Info("finding gitaly")
 	gitaly, err := findGitaly()
 	if err != nil && !isRecoverable(err) {
-		logger.WithError(err).Fatal("find gitaly")
+		log.WithError(err).Fatal("find gitaly")
 	} else if err != nil {
-		logger.WithError(err).Error("find gitaly")
+		log.WithError(err).Error("find gitaly")
 	}
 
 	if gitaly != nil && isGitaly(gitaly, gitalyBin) {
-		logger.Info("adopting a process")
+		log.Info("adopting a process")
 	} else {
-		logger.Info("spawning a process")
+		log.Info("spawning a process")
 
 		proc, err := spawnGitaly(gitalyBin, gitalyArgs)
 		if err != nil {
-			logger.WithError(err).Fatal("spawn gitaly")
+			log.WithError(err).Fatal("spawn gitaly")
 		}
 
 		gitaly = proc
 	}
 
-	logger = logger.WithField("gitaly", gitaly.Pid)
-	logger.Info("monitoring gitaly")
+	log = log.WithField("gitaly", gitaly.Pid)
+	log.Info("monitoring gitaly")
 
-	forwardSignals(gitaly, logger)
+	forwardSignals(gitaly, log)
 
 	// wait
 	for isAlive(gitaly) {
 		time.Sleep(1 * time.Second)
 	}
 
-	logger.Error("wrapper for gitaly shutting down")
+	log.Error("wrapper for gitaly shutting down")
 }
 
 func isRecoverable(err error) bool {

@@ -216,204 +216,87 @@ func (s *memoryReplicationEventQueue) defineDest(event ReplicationEvent) eventDe
 	return eventDestination{virtual: event.Job.VirtualStorage, storage: event.Job.TargetNodeStorage, relativePath: event.Job.RelativePath}
 }
 
-// NewReplicationEventQueueInterceptor returns interception over `ReplicationEventQueue` interface.
-func NewReplicationEventQueueInterceptor(queue ReplicationEventQueue) *ReplicationEventQueueInterceptor {
-	return &ReplicationEventQueueInterceptor{
-		ReplicationEventQueue: queue,
-	}
-}
-
-// DequeParams is the list of parameters used for Dequeue method call.
-type DequeParams struct {
-	VirtualStorage, NodeStorage string
-	Count                       int
-}
-
-// AcknowledgeParams is the list of parameters used for Acknowledge method call.
-type AcknowledgeParams struct {
-	State JobState
-	IDs   []uint64
-}
-
 // ReplicationEventQueueInterceptor allows to register interceptors for `ReplicationEventQueue` interface.
-// It also provides additional methods to get info about incoming and outgoing data from the underling
-// queue.
-// NOTE: it should be used for testing purposes only as it persists data in memory and doesn't clean it up.
-type ReplicationEventQueueInterceptor struct {
-	mtx sync.Mutex
+type ReplicationEventQueueInterceptor interface {
+	// ReplicationEventQueue actual implementation.
+	ReplicationEventQueue
+	// OnEnqueue allows to set action that would be executed each time when `Enqueue` method called.
+	OnEnqueue(func(context.Context, ReplicationEvent, ReplicationEventQueue) (ReplicationEvent, error))
+	// OnDequeue allows to set action that would be executed each time when `Dequeue` method called.
+	OnDequeue(func(context.Context, string, string, int, ReplicationEventQueue) ([]ReplicationEvent, error))
+	// OnAcknowledge allows to set action that would be executed each time when `Acknowledge` method called.
+	OnAcknowledge(func(context.Context, JobState, []uint64, ReplicationEventQueue) ([]uint64, error))
+	// OnStartHealthUpdate allows to set action that would be executed each time when `StartHealthUpdate` method called.
+	OnStartHealthUpdate(func(context.Context, <-chan time.Time, []ReplicationEvent) error)
+	// OnAcknowledgeStale allows to set action that would be executed each time when `AcknowledgeStale` method called.
+	OnAcknowledgeStale(func(context.Context, time.Duration) error)
+}
+
+// NewReplicationEventQueueInterceptor returns interception over `ReplicationEventQueue` interface.
+func NewReplicationEventQueueInterceptor(queue ReplicationEventQueue) ReplicationEventQueueInterceptor {
+	return &replicationEventQueueInterceptor{ReplicationEventQueue: queue}
+}
+
+type replicationEventQueueInterceptor struct {
 	ReplicationEventQueue
 	onEnqueue           func(context.Context, ReplicationEvent, ReplicationEventQueue) (ReplicationEvent, error)
 	onDequeue           func(context.Context, string, string, int, ReplicationEventQueue) ([]ReplicationEvent, error)
 	onAcknowledge       func(context.Context, JobState, []uint64, ReplicationEventQueue) ([]uint64, error)
 	onStartHealthUpdate func(context.Context, <-chan time.Time, []ReplicationEvent) error
 	onAcknowledgeStale  func(context.Context, time.Duration) error
-
-	enqueue           []ReplicationEvent
-	enqueueResult     []ReplicationEvent
-	dequeue           []DequeParams
-	dequeueResult     [][]ReplicationEvent
-	acknowledge       []AcknowledgeParams
-	acknowledgeResult [][]uint64
 }
 
-// OnEnqueue allows to set action that would be executed each time when `Enqueue` method called.
-func (i *ReplicationEventQueueInterceptor) OnEnqueue(action func(context.Context, ReplicationEvent, ReplicationEventQueue) (ReplicationEvent, error)) {
+func (i *replicationEventQueueInterceptor) OnEnqueue(action func(context.Context, ReplicationEvent, ReplicationEventQueue) (ReplicationEvent, error)) {
 	i.onEnqueue = action
 }
 
-// OnDequeue allows to set action that would be executed each time when `Dequeue` method called.
-func (i *ReplicationEventQueueInterceptor) OnDequeue(action func(context.Context, string, string, int, ReplicationEventQueue) ([]ReplicationEvent, error)) {
+func (i *replicationEventQueueInterceptor) OnDequeue(action func(context.Context, string, string, int, ReplicationEventQueue) ([]ReplicationEvent, error)) {
 	i.onDequeue = action
 }
 
-// OnAcknowledge allows to set action that would be executed each time when `Acknowledge` method called.
-func (i *ReplicationEventQueueInterceptor) OnAcknowledge(action func(context.Context, JobState, []uint64, ReplicationEventQueue) ([]uint64, error)) {
+func (i *replicationEventQueueInterceptor) OnAcknowledge(action func(context.Context, JobState, []uint64, ReplicationEventQueue) ([]uint64, error)) {
 	i.onAcknowledge = action
 }
 
-// OnStartHealthUpdate allows to set action that would be executed each time when `StartHealthUpdate` method called.
-func (i *ReplicationEventQueueInterceptor) OnStartHealthUpdate(action func(context.Context, <-chan time.Time, []ReplicationEvent) error) {
+func (i *replicationEventQueueInterceptor) OnStartHealthUpdate(action func(context.Context, <-chan time.Time, []ReplicationEvent) error) {
 	i.onStartHealthUpdate = action
 }
 
-// OnAcknowledgeStale allows to set action that would be executed each time when `AcknowledgeStale` method called.
-func (i *ReplicationEventQueueInterceptor) OnAcknowledgeStale(action func(context.Context, time.Duration) error) {
+func (i *replicationEventQueueInterceptor) OnAcknowledgeStale(action func(context.Context, time.Duration) error) {
 	i.onAcknowledgeStale = action
 }
 
-// Enqueue intercepts call to the Enqueue method of the underling implementation or a call back.
-// It populates storage of incoming and outgoing parameters before and after method call.
-func (i *ReplicationEventQueueInterceptor) Enqueue(ctx context.Context, event ReplicationEvent) (ReplicationEvent, error) {
-	i.mtx.Lock()
-	i.enqueue = append(i.enqueue, event)
-	i.mtx.Unlock()
-
-	var enqEvent ReplicationEvent
-	var err error
-
+func (i *replicationEventQueueInterceptor) Enqueue(ctx context.Context, event ReplicationEvent) (ReplicationEvent, error) {
 	if i.onEnqueue != nil {
-		enqEvent, err = i.onEnqueue(ctx, event, i.ReplicationEventQueue)
-	} else {
-		enqEvent, err = i.ReplicationEventQueue.Enqueue(ctx, event)
+		return i.onEnqueue(ctx, event, i.ReplicationEventQueue)
 	}
-
-	i.mtx.Lock()
-	i.enqueueResult = append(i.enqueueResult, enqEvent)
-	i.mtx.Unlock()
-	return enqEvent, err
+	return i.ReplicationEventQueue.Enqueue(ctx, event)
 }
 
-// Dequeue intercepts call to the Dequeue method of the underling implementation or a call back.
-// It populates storage of incoming and outgoing parameters before and after method call.
-func (i *ReplicationEventQueueInterceptor) Dequeue(ctx context.Context, virtualStorage, nodeStorage string, count int) ([]ReplicationEvent, error) {
-	i.mtx.Lock()
-	i.dequeue = append(i.dequeue, DequeParams{VirtualStorage: virtualStorage, NodeStorage: nodeStorage, Count: count})
-	i.mtx.Unlock()
-
-	var deqEvents []ReplicationEvent
-	var err error
-
+func (i *replicationEventQueueInterceptor) Dequeue(ctx context.Context, virtualStorage, nodeStorage string, count int) ([]ReplicationEvent, error) {
 	if i.onDequeue != nil {
-		deqEvents, err = i.onDequeue(ctx, virtualStorage, nodeStorage, count, i.ReplicationEventQueue)
-	} else {
-		deqEvents, err = i.ReplicationEventQueue.Dequeue(ctx, virtualStorage, nodeStorage, count)
+		return i.onDequeue(ctx, virtualStorage, nodeStorage, count, i.ReplicationEventQueue)
 	}
-
-	i.mtx.Lock()
-	i.dequeueResult = append(i.dequeueResult, deqEvents)
-	i.mtx.Unlock()
-	return deqEvents, err
+	return i.ReplicationEventQueue.Dequeue(ctx, virtualStorage, nodeStorage, count)
 }
 
-// Acknowledge intercepts call to the Acknowledge method of the underling implementation or a call back.
-// It populates storage of incoming and outgoing parameters before and after method call.
-func (i *ReplicationEventQueueInterceptor) Acknowledge(ctx context.Context, state JobState, ids []uint64) ([]uint64, error) {
-	i.mtx.Lock()
-	i.acknowledge = append(i.acknowledge, AcknowledgeParams{State: state, IDs: ids})
-	i.mtx.Unlock()
-
-	var ackIDs []uint64
-	var err error
-
+func (i *replicationEventQueueInterceptor) Acknowledge(ctx context.Context, state JobState, ids []uint64) ([]uint64, error) {
 	if i.onAcknowledge != nil {
-		ackIDs, err = i.onAcknowledge(ctx, state, ids, i.ReplicationEventQueue)
-	} else {
-		ackIDs, err = i.ReplicationEventQueue.Acknowledge(ctx, state, ids)
+		return i.onAcknowledge(ctx, state, ids, i.ReplicationEventQueue)
 	}
-
-	i.mtx.Lock()
-	i.acknowledgeResult = append(i.acknowledgeResult, ackIDs)
-	i.mtx.Unlock()
-	return ackIDs, err
+	return i.ReplicationEventQueue.Acknowledge(ctx, state, ids)
 }
 
-// StartHealthUpdate intercepts call to the StartHealthUpdate method of the underling implementation or a call back.
-func (i *ReplicationEventQueueInterceptor) StartHealthUpdate(ctx context.Context, trigger <-chan time.Time, events []ReplicationEvent) error {
+func (i *replicationEventQueueInterceptor) StartHealthUpdate(ctx context.Context, trigger <-chan time.Time, events []ReplicationEvent) error {
 	if i.onStartHealthUpdate != nil {
 		return i.onStartHealthUpdate(ctx, trigger, events)
 	}
 	return i.ReplicationEventQueue.StartHealthUpdate(ctx, trigger, events)
 }
 
-// AcknowledgeStale intercepts call to the AcknowledgeStale method of the underling implementation or a call back.
-func (i *ReplicationEventQueueInterceptor) AcknowledgeStale(ctx context.Context, staleAfter time.Duration) error {
+func (i *replicationEventQueueInterceptor) AcknowledgeStale(ctx context.Context, staleAfter time.Duration) error {
 	if i.onAcknowledgeStale != nil {
 		return i.onAcknowledgeStale(ctx, staleAfter)
 	}
 	return i.ReplicationEventQueue.AcknowledgeStale(ctx, staleAfter)
-}
-
-// GetEnqueued returns a list of events used for Enqueue method or a call-back invocation.
-func (i *ReplicationEventQueueInterceptor) GetEnqueued() []ReplicationEvent {
-	i.mtx.Lock()
-	defer i.mtx.Unlock()
-	return i.enqueue
-}
-
-// GetEnqueuedResult returns a list of events returned by Enqueue method or a call-back invocation.
-func (i *ReplicationEventQueueInterceptor) GetEnqueuedResult() []ReplicationEvent {
-	i.mtx.Lock()
-	defer i.mtx.Unlock()
-	return i.enqueueResult
-}
-
-// GetDequeued returns a list of parameters used for Dequeue method or a call-back invocation.
-func (i *ReplicationEventQueueInterceptor) GetDequeued() []DequeParams {
-	i.mtx.Lock()
-	defer i.mtx.Unlock()
-	return i.dequeue
-}
-
-// GetDequeuedResult returns a list of events returned after Dequeue method or a call-back invocation.
-func (i *ReplicationEventQueueInterceptor) GetDequeuedResult() [][]ReplicationEvent {
-	i.mtx.Lock()
-	defer i.mtx.Unlock()
-	return i.dequeueResult
-}
-
-// GetAcknowledge returns a list of parameters used for Acknowledge method or a call-back invocation.
-func (i *ReplicationEventQueueInterceptor) GetAcknowledge() []AcknowledgeParams {
-	i.mtx.Lock()
-	defer i.mtx.Unlock()
-	return i.acknowledge
-}
-
-// GetAcknowledgeResult returns a list of results returned after Acknowledge method or a call-back invocation.
-func (i *ReplicationEventQueueInterceptor) GetAcknowledgeResult() [][]uint64 {
-	i.mtx.Lock()
-	defer i.mtx.Unlock()
-	return i.acknowledgeResult
-}
-
-// Wait checks the condition in a loop with await until it returns true or deadline is exceeded.
-// The error is returned only in case the deadline is exceeded.
-func (i *ReplicationEventQueueInterceptor) Wait(deadline time.Duration, condition func(i *ReplicationEventQueueInterceptor) bool) error {
-	dead := time.Now().Add(deadline)
-	for !condition(i) {
-		if dead.Before(time.Now()) {
-			return context.DeadlineExceeded
-		}
-		time.Sleep(time.Millisecond * 100)
-	}
-	return nil
 }

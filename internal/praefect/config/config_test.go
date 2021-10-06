@@ -198,20 +198,6 @@ func TestConfigValidation(t *testing.T) {
 			},
 			errMsg: `virtual storage "default" has a default replication factor (2) which is higher than the number of storages (1)`,
 		},
-		{
-			desc: "repositories_cleanup minimal duration is too low",
-			changeConfig: func(cfg *Config) {
-				cfg.RepositoriesCleanup.CheckInterval = config.Duration(minimalSyncCheckInterval - time.Nanosecond)
-			},
-			errMsg: `repositories_cleanup.check_interval is less then 1m0s, which could lead to a database performance problem`,
-		},
-		{
-			desc: "repositories_cleanup minimal duration is too low",
-			changeConfig: func(cfg *Config) {
-				cfg.RepositoriesCleanup.RunInterval = config.Duration(minimalSyncRunInterval - time.Nanosecond)
-			},
-			errMsg: `repositories_cleanup.run_interval is less then 1m0s, which could lead to a database performance problem`,
-		},
 	}
 
 	for _, tc := range testCases {
@@ -223,8 +209,7 @@ func TestConfigValidation(t *testing.T) {
 					{Name: "default", Nodes: vs1Nodes},
 					{Name: "secondary", Nodes: vs2Nodes},
 				},
-				Failover:            Failover{ElectionStrategy: ElectionStrategySQL},
-				RepositoriesCleanup: DefaultRepositoriesCleanup(),
+				Failover: Failover{ElectionStrategy: ElectionStrategySQL},
 			}
 
 			tc.changeConfig(&config)
@@ -317,7 +302,7 @@ func TestConfigParsing(t *testing.T) {
 					SchedulingInterval: config.Duration(time.Minute),
 					HistogramBuckets:   []float64{1, 2, 3, 4, 5},
 				},
-				Replication: Replication{BatchSize: 1, ParallelStorageProcessingWorkers: 2},
+				Replication: Replication{BatchSize: 1},
 				Failover: Failover{
 					Enabled:                  true,
 					ElectionStrategy:         ElectionStrategyPerRepository,
@@ -326,11 +311,6 @@ func TestConfigParsing(t *testing.T) {
 					ReadErrorThresholdCount:  100,
 					BootstrapInterval:        config.Duration(1 * time.Second),
 					MonitorInterval:          config.Duration(3 * time.Second),
-				},
-				RepositoriesCleanup: RepositoriesCleanup{
-					CheckInterval:       config.Duration(time.Second),
-					RunInterval:         config.Duration(3 * time.Second),
-					RepositoriesInBatch: 10,
 				},
 			},
 		},
@@ -344,17 +324,12 @@ func TestConfigParsing(t *testing.T) {
 					HistogramBuckets:   []float64{1, 2, 3, 4, 5},
 				},
 				Prometheus:  prometheus.DefaultConfig(),
-				Replication: Replication{BatchSize: 1, ParallelStorageProcessingWorkers: 2},
+				Replication: Replication{BatchSize: 1},
 				Failover: Failover{
 					Enabled:           false,
 					ElectionStrategy:  "local",
 					BootstrapInterval: config.Duration(5 * time.Second),
 					MonitorInterval:   config.Duration(10 * time.Second),
-				},
-				RepositoriesCleanup: RepositoriesCleanup{
-					CheckInterval:       config.Duration(time.Second),
-					RunInterval:         config.Duration(4 * time.Second),
-					RepositoriesInBatch: 11,
 				},
 			},
 		},
@@ -371,11 +346,6 @@ func TestConfigParsing(t *testing.T) {
 					ElectionStrategy:  ElectionStrategyPerRepository,
 					BootstrapInterval: config.Duration(time.Second),
 					MonitorInterval:   config.Duration(3 * time.Second),
-				},
-				RepositoriesCleanup: RepositoriesCleanup{
-					CheckInterval:       config.Duration(30 * time.Minute),
-					RunInterval:         config.Duration(24 * time.Hour),
-					RepositoriesInBatch: 16,
 				},
 			},
 		},

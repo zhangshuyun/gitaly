@@ -6,7 +6,8 @@ import (
 	"io"
 	"os"
 
-	"gitlab.com/gitlab-org/gitaly/v14/internal/log"
+	log "github.com/sirupsen/logrus"
+	glog "gitlab.com/gitlab-org/gitaly/v14/internal/log"
 )
 
 type subcmd interface {
@@ -20,21 +21,19 @@ var subcommands = map[string]subcmd{
 }
 
 func main() {
-	log.Configure(log.Loggers, "", "")
-
-	logger := log.Default()
+	glog.Configure(glog.Loggers, "", "")
 
 	flags := flag.NewFlagSet("gitaly-backup", flag.ExitOnError)
 	_ = flags.Parse(os.Args)
 
 	if flags.NArg() < 2 {
-		logger.Fatal("missing subcommand")
+		log.Fatal("missing subcommand")
 	}
 
 	subcmdName := flags.Arg(1)
 	subcmd, ok := subcommands[subcmdName]
 	if !ok {
-		logger.Fatalf("unknown subcommand: %q", flags.Arg(1))
+		log.Fatalf("unknown subcommand: %q", flags.Arg(1))
 	}
 
 	subcmdFlags := flag.NewFlagSet(subcmdName, flag.ExitOnError)
@@ -42,6 +41,6 @@ func main() {
 	_ = subcmdFlags.Parse(flags.Args()[2:])
 
 	if err := subcmd.Run(context.Background(), os.Stdin, os.Stdout); err != nil {
-		logger.Fatalf("%s", err)
+		log.Fatalf("%s", err)
 	}
 }

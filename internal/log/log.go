@@ -10,31 +10,8 @@ const (
 	// GitalyLogDirEnvKey defines the environment variable used to specify the Gitaly log directory
 	GitalyLogDirEnvKey = "GITALY_LOG_DIR"
 	// LogTimestampFormat defines the timestamp format in log files
-	LogTimestampFormat = "2006-01-02T15:04:05.000"
-	// LogTimestampFormatUTC defines the utc timestamp format in log files
-	LogTimestampFormatUTC = "2006-01-02T15:04:05.000Z"
+	LogTimestampFormat = "2006-01-02T15:04:05.000Z"
 )
-
-type utcFormatter struct {
-	logrus.Formatter
-}
-
-func (u utcFormatter) Format(e *logrus.Entry) ([]byte, error) {
-	e.Time = e.Time.UTC()
-	return u.Formatter.Format(e)
-}
-
-// UTCJsonFormatter returns a Formatter that formats a logrus Entry's as json and converts the time
-// field into UTC
-func UTCJsonFormatter() logrus.Formatter {
-	return &utcFormatter{Formatter: &logrus.JSONFormatter{TimestampFormat: LogTimestampFormatUTC}}
-}
-
-// UTCTextFormatter returns a Formatter that formats a logrus Entry's as text and converts the time
-// field into UTC
-func UTCTextFormatter() logrus.Formatter {
-	return &utcFormatter{Formatter: &logrus.TextFormatter{TimestampFormat: LogTimestampFormatUTC}}
-}
 
 var (
 	defaultLogger = logrus.StandardLogger()
@@ -60,9 +37,11 @@ func Configure(loggers []*logrus.Logger, format string, level string) {
 	var formatter logrus.Formatter
 	switch format {
 	case "json":
-		formatter = UTCJsonFormatter()
-	case "", "text":
-		formatter = UTCTextFormatter()
+		formatter = &logrus.JSONFormatter{TimestampFormat: LogTimestampFormat}
+	case "text":
+		formatter = &logrus.TextFormatter{TimestampFormat: LogTimestampFormat}
+	case "":
+		// Just stick with the default
 	default:
 		logrus.WithField("format", format).Fatal("invalid logger format")
 	}

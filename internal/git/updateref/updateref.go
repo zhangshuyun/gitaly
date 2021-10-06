@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 )
 
 // Updater wraps a `git update-ref --stdin` process, presenting an interface
@@ -71,9 +72,14 @@ func New(ctx context.Context, conf config.Cfg, repo git.RepositoryExecutor, opts
 		return nil, err
 	}
 
-	gitVersion, err := git.CurrentVersionForExecutor(ctx, repo)
-	if err != nil {
-		return nil, fmt.Errorf("determining git version: %w", err)
+	withStatusFlushing := false
+	if featureflag.UpdaterefVerifyStateChanges.IsEnabled(ctx) {
+		gitVersion, err := git.CurrentVersionForExecutor(ctx, repo)
+		if err != nil {
+			return nil, fmt.Errorf("determining git version: %w", err)
+		}
+
+		withStatusFlushing = gitVersion.FlushesUpdaterefStatus()
 	}
 
 	updater := &Updater{
@@ -81,7 +87,7 @@ func New(ctx context.Context, conf config.Cfg, repo git.RepositoryExecutor, opts
 		cmd:                cmd,
 		stderr:             &stderr,
 		stdout:             bufio.NewReader(cmd),
-		withStatusFlushing: gitVersion.FlushesUpdaterefStatus(),
+		withStatusFlushing: withStatusFlushing,
 	}
 
 	// By writing an explicit "start" to the command, we enable
@@ -147,10 +153,7 @@ func (u *Updater) Cancel() error {
 func (u *Updater) setState(state string) error {
 	_, err := fmt.Fprintf(u.cmd, "%s\x00", state)
 	if err != nil {
-		// We need to explicitly cancel the command here and wait for it to terminate such
-		// that we can retrieve the command's stderr in a race-free manner.
-		_ = u.Cancel()
-		return fmt.Errorf("updating state to %q: %w, stderr: %q", state, err, u.stderr)
+		return fmt.Errorf("updating state to %q: %w", state, err)
 	}
 
 	// For each state-changing command, git-update-ref(1) will report successful execution via

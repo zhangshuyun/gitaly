@@ -112,7 +112,6 @@ func TestNewProtoRegistry(t *testing.T) {
 			"RepositorySize":               protoregistry.OpAccessor,
 			"ApplyGitattributes":           protoregistry.OpMutator,
 			"FetchRemote":                  protoregistry.OpMutator,
-			"FetchBundle":                  protoregistry.OpMutator,
 			"CreateRepository":             protoregistry.OpMutator,
 			"GetArchive":                   protoregistry.OpAccessor,
 			"HasLocalBranches":             protoregistry.OpAccessor,

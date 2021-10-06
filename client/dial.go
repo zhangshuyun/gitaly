@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/client"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/sidechannel"
 	"google.golang.org/grpc"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
@@ -29,15 +28,6 @@ func DialContext(ctx context.Context, rawAddress string, connOpts []grpc.DialOpt
 // for details.
 func Dial(rawAddress string, connOpts []grpc.DialOption) (*grpc.ClientConn, error) {
 	return DialContext(context.Background(), rawAddress, connOpts)
-}
-
-// DialSidechannel configures the dialer to establish a Gitaly
-// backchannel connection instead of a regular gRPC connection. It also
-// injects sr as a sidechannel registry, so that Gitaly can establish
-// sidechannels back to the client.
-func DialSidechannel(ctx context.Context, rawAddress string, sr *SidechannelRegistry, connOpts []grpc.DialOption) (*grpc.ClientConn, error) {
-	clientHandshaker := sidechannel.NewClientHandshaker(sr.logger, sr.registry)
-	return client.Dial(ctx, rawAddress, connOpts, clientHandshaker)
 }
 
 // FailOnNonTempDialError helps to identify if remote listener is ready to accept new connections.

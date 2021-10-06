@@ -15,19 +15,16 @@ import (
 const (
 	// MaxSidebandData is the maximum number of bytes that fits into one Git
 	// pktline side-band-64k packet.
-	MaxSidebandData = MaxPktSize - 5
+	MaxSidebandData = maxPktSize - 5
 
-	// MaxPktSize is the maximum size of content of a Git pktline side-band-64k
-	// packet, excluding size of length and band number
-	// https://gitlab.com/gitlab-org/git/-/blob/v2.30.0/pkt-line.h#L216
-	MaxPktSize = 65520
+	maxPktSize = 65520 // https://gitlab.com/gitlab-org/git/-/blob/v2.30.0/pkt-line.h#L216
 	pktDelim   = "0001"
 )
 
 // NewScanner returns a bufio.Scanner that splits on Git pktline boundaries
 func NewScanner(r io.Reader) *bufio.Scanner {
 	scanner := bufio.NewScanner(r)
-	scanner.Buffer(make([]byte, MaxPktSize), MaxPktSize)
+	scanner.Buffer(make([]byte, maxPktSize), maxPktSize)
 	scanner.Split(pktLineSplitter)
 	return scanner
 }
@@ -47,7 +44,7 @@ func IsFlush(pkt []byte) bool {
 // WriteString writes a string with pkt-line framing
 func WriteString(w io.Writer, str string) (int, error) {
 	pktLen := len(str) + 4
-	if pktLen > MaxPktSize {
+	if pktLen > maxPktSize {
 		return 0, fmt.Errorf("string too large: %d bytes", len(str))
 	}
 
@@ -134,7 +131,7 @@ func (sw *SidebandWriter) writeBand(band byte, data []byte) (int, error) {
 	for len(data) > 0 {
 		chunkSize := len(data)
 		const headerSize = 5
-		if max := MaxPktSize - headerSize; chunkSize > max {
+		if max := maxPktSize - headerSize; chunkSize > max {
 			chunkSize = max
 		}
 

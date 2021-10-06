@@ -155,15 +155,10 @@ func CloneRepo(t testing.TB, cfg config.Cfg, storage config.Storage, opts ...Clo
 	return repo, absolutePath
 }
 
-// BundleTestRepo creates a bundle of a local test repo. E.g.
-// `gitlab-test.git`. `patterns` define the bundle contents as per
-// `git-rev-list-args`. If there are no patterns then `--all` is assumed.
-func BundleTestRepo(t testing.TB, cfg config.Cfg, sourceRepo, bundlePath string, patterns ...string) {
-	if len(patterns) == 0 {
-		patterns = []string{"--all"}
-	}
+// BundleTestRepo creates a bundle of a local test repo. E.g. `gitlab-test.git`
+func BundleTestRepo(t testing.TB, cfg config.Cfg, sourceRepo, bundlePath string) {
 	repoPath := testRepositoryPath(t, sourceRepo)
-	Exec(t, cfg, append([]string{"-C", repoPath, "bundle", "create", bundlePath}, patterns...)...)
+	Exec(t, cfg, "-C", repoPath, "bundle", "create", bundlePath, "--all")
 }
 
 // testRepositoryPath returns the absolute path of local 'gitlab-org/gitlab-test.git' clone.

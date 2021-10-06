@@ -324,7 +324,6 @@ func (c *Command) logProcessComplete() {
 		"command.exitCode":       exitCode,
 		"command.system_time_ms": systemTime.Seconds() * 1000,
 		"command.user_time_ms":   userTime.Seconds() * 1000,
-		"command.cpu_time_ms":    (systemTime.Seconds() + userTime.Seconds()) * 1000,
 		"command.real_time_ms":   realTime.Seconds() * 1000,
 	})
 
@@ -346,7 +345,6 @@ func (c *Command) logProcessComplete() {
 		stats.RecordSum("command.count", 1)
 		stats.RecordSum("command.system_time_ms", int(systemTime.Seconds()*1000))
 		stats.RecordSum("command.user_time_ms", int(userTime.Seconds()*1000))
-		stats.RecordSum("command.cpu_time_ms", int((systemTime.Seconds()+userTime.Seconds())*1000))
 		stats.RecordSum("command.real_time_ms", int(realTime.Seconds()*1000))
 
 		if ok {

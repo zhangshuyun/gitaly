@@ -42,13 +42,8 @@ type RepositoryServiceClient interface {
 	CreateRepositoryFromURL(ctx context.Context, in *CreateRepositoryFromURLRequest, opts ...grpc.CallOption) (*CreateRepositoryFromURLResponse, error)
 	// CreateBundle creates a bundle from all refs
 	CreateBundle(ctx context.Context, in *CreateBundleRequest, opts ...grpc.CallOption) (RepositoryService_CreateBundleClient, error)
-	// CreateBundleFromRefList creates a bundle from a stream of ref patterns.
-	// When the bundle would be empty the FailedPrecondition error code is returned.
+	// CreateBundleFromRefList creates a bundle from a stream of ref patterns
 	CreateBundleFromRefList(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_CreateBundleFromRefListClient, error)
-	// FetchBundle fetches references from a bundle into the local repository.
-	// Refs will be mirrored to the target repository with the refspec
-	// "+refs/*:refs/*" and refs that do not exist in the bundle will be removed.
-	FetchBundle(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_FetchBundleClient, error)
 	CreateRepositoryFromBundle(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_CreateRepositoryFromBundleClient, error)
 	// GetConfig reads the target repository's gitconfig and streams its contents
 	// back. Returns a NotFound error in case no gitconfig was found.
@@ -337,42 +332,8 @@ func (x *repositoryServiceCreateBundleFromRefListClient) Recv() (*CreateBundleFr
 	return m, nil
 }
 
-func (c *repositoryServiceClient) FetchBundle(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_FetchBundleClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[3], "/gitaly.RepositoryService/FetchBundle", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &repositoryServiceFetchBundleClient{stream}
-	return x, nil
-}
-
-type RepositoryService_FetchBundleClient interface {
-	Send(*FetchBundleRequest) error
-	CloseAndRecv() (*FetchBundleResponse, error)
-	grpc.ClientStream
-}
-
-type repositoryServiceFetchBundleClient struct {
-	grpc.ClientStream
-}
-
-func (x *repositoryServiceFetchBundleClient) Send(m *FetchBundleRequest) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *repositoryServiceFetchBundleClient) CloseAndRecv() (*FetchBundleResponse, error) {
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	m := new(FetchBundleResponse)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 func (c *repositoryServiceClient) CreateRepositoryFromBundle(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_CreateRepositoryFromBundleClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[4], "/gitaly.RepositoryService/CreateRepositoryFromBundle", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[3], "/gitaly.RepositoryService/CreateRepositoryFromBundle", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -406,7 +367,7 @@ func (x *repositoryServiceCreateRepositoryFromBundleClient) CloseAndRecv() (*Cre
 }
 
 func (c *repositoryServiceClient) GetConfig(ctx context.Context, in *GetConfigRequest, opts ...grpc.CallOption) (RepositoryService_GetConfigClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[5], "/gitaly.RepositoryService/GetConfig", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[4], "/gitaly.RepositoryService/GetConfig", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -447,7 +408,7 @@ func (c *repositoryServiceClient) FindLicense(ctx context.Context, in *FindLicen
 }
 
 func (c *repositoryServiceClient) GetInfoAttributes(ctx context.Context, in *GetInfoAttributesRequest, opts ...grpc.CallOption) (RepositoryService_GetInfoAttributesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[6], "/gitaly.RepositoryService/GetInfoAttributes", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[5], "/gitaly.RepositoryService/GetInfoAttributes", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -497,7 +458,7 @@ func (c *repositoryServiceClient) Cleanup(ctx context.Context, in *CleanupReques
 }
 
 func (c *repositoryServiceClient) GetSnapshot(ctx context.Context, in *GetSnapshotRequest, opts ...grpc.CallOption) (RepositoryService_GetSnapshotClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[7], "/gitaly.RepositoryService/GetSnapshot", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[6], "/gitaly.RepositoryService/GetSnapshot", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -538,7 +499,7 @@ func (c *repositoryServiceClient) CreateRepositoryFromSnapshot(ctx context.Conte
 }
 
 func (c *repositoryServiceClient) GetRawChanges(ctx context.Context, in *GetRawChangesRequest, opts ...grpc.CallOption) (RepositoryService_GetRawChangesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[8], "/gitaly.RepositoryService/GetRawChanges", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[7], "/gitaly.RepositoryService/GetRawChanges", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -570,7 +531,7 @@ func (x *repositoryServiceGetRawChangesClient) Recv() (*GetRawChangesResponse, e
 }
 
 func (c *repositoryServiceClient) SearchFilesByContent(ctx context.Context, in *SearchFilesByContentRequest, opts ...grpc.CallOption) (RepositoryService_SearchFilesByContentClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[9], "/gitaly.RepositoryService/SearchFilesByContent", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[8], "/gitaly.RepositoryService/SearchFilesByContent", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -602,7 +563,7 @@ func (x *repositoryServiceSearchFilesByContentClient) Recv() (*SearchFilesByCont
 }
 
 func (c *repositoryServiceClient) SearchFilesByName(ctx context.Context, in *SearchFilesByNameRequest, opts ...grpc.CallOption) (RepositoryService_SearchFilesByNameClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[10], "/gitaly.RepositoryService/SearchFilesByName", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[9], "/gitaly.RepositoryService/SearchFilesByName", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -634,7 +595,7 @@ func (x *repositoryServiceSearchFilesByNameClient) Recv() (*SearchFilesByNameRes
 }
 
 func (c *repositoryServiceClient) RestoreCustomHooks(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_RestoreCustomHooksClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[11], "/gitaly.RepositoryService/RestoreCustomHooks", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[10], "/gitaly.RepositoryService/RestoreCustomHooks", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -668,7 +629,7 @@ func (x *repositoryServiceRestoreCustomHooksClient) CloseAndRecv() (*RestoreCust
 }
 
 func (c *repositoryServiceClient) BackupCustomHooks(ctx context.Context, in *BackupCustomHooksRequest, opts ...grpc.CallOption) (RepositoryService_BackupCustomHooksClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[12], "/gitaly.RepositoryService/BackupCustomHooks", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[11], "/gitaly.RepositoryService/BackupCustomHooks", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -799,13 +760,8 @@ type RepositoryServiceServer interface {
 	CreateRepositoryFromURL(context.Context, *CreateRepositoryFromURLRequest) (*CreateRepositoryFromURLResponse, error)
 	// CreateBundle creates a bundle from all refs
 	CreateBundle(*CreateBundleRequest, RepositoryService_CreateBundleServer) error
-	// CreateBundleFromRefList creates a bundle from a stream of ref patterns.
-	// When the bundle would be empty the FailedPrecondition error code is returned.
+	// CreateBundleFromRefList creates a bundle from a stream of ref patterns
 	CreateBundleFromRefList(RepositoryService_CreateBundleFromRefListServer) error
-	// FetchBundle fetches references from a bundle into the local repository.
-	// Refs will be mirrored to the target repository with the refspec
-	// "+refs/*:refs/*" and refs that do not exist in the bundle will be removed.
-	FetchBundle(RepositoryService_FetchBundleServer) error
 	CreateRepositoryFromBundle(RepositoryService_CreateRepositoryFromBundleServer) error
 	// GetConfig reads the target repository's gitconfig and streams its contents
 	// back. Returns a NotFound error in case no gitconfig was found.
@@ -902,9 +858,6 @@ func (UnimplementedRepositoryServiceServer) CreateBundle(*CreateBundleRequest, R
 }
 func (UnimplementedRepositoryServiceServer) CreateBundleFromRefList(RepositoryService_CreateBundleFromRefListServer) error {
 	return status.Errorf(codes.Unimplemented, "method CreateBundleFromRefList not implemented")
-}
-func (UnimplementedRepositoryServiceServer) FetchBundle(RepositoryService_FetchBundleServer) error {
-	return status.Errorf(codes.Unimplemented, "method FetchBundle not implemented")
 }
 func (UnimplementedRepositoryServiceServer) CreateRepositoryFromBundle(RepositoryService_CreateRepositoryFromBundleServer) error {
 	return status.Errorf(codes.Unimplemented, "method CreateRepositoryFromBundle not implemented")
@@ -1350,32 +1303,6 @@ func (x *repositoryServiceCreateBundleFromRefListServer) Send(m *CreateBundleFro
 
 func (x *repositoryServiceCreateBundleFromRefListServer) Recv() (*CreateBundleFromRefListRequest, error) {
 	m := new(CreateBundleFromRefListRequest)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func _RepositoryService_FetchBundle_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(RepositoryServiceServer).FetchBundle(&repositoryServiceFetchBundleServer{stream})
-}
-
-type RepositoryService_FetchBundleServer interface {
-	SendAndClose(*FetchBundleResponse) error
-	Recv() (*FetchBundleRequest, error)
-	grpc.ServerStream
-}
-
-type repositoryServiceFetchBundleServer struct {
-	grpc.ServerStream
-}
-
-func (x *repositoryServiceFetchBundleServer) SendAndClose(m *FetchBundleResponse) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *repositoryServiceFetchBundleServer) Recv() (*FetchBundleRequest, error) {
-	m := new(FetchBundleRequest)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -1936,11 +1863,6 @@ var RepositoryService_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "CreateBundleFromRefList",
 			Handler:       _RepositoryService_CreateBundleFromRefList_Handler,
 			ServerStreams: true,
-			ClientStreams: true,
-		},
-		{
-			StreamName:    "FetchBundle",
-			Handler:       _RepositoryService_FetchBundle_Handler,
 			ClientStreams: true,
 		},
 		{

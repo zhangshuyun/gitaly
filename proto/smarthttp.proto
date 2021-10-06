@@ -33,13 +33,6 @@ service SmartHTTPService {
     };
   }
 
-  // Request and response body for POST /upload-pack using sidechannel protocol
-  rpc PostUploadPackWithSidechannel(PostUploadPackWithSidechannelRequest) returns (PostUploadPackWithSidechannelResponse) {
-    option (op_type) = {
-      op: ACCESSOR
-    };
-  }
-
   // Request and response body for POST /receive-pack
   rpc PostReceivePack(stream PostReceivePackRequest) returns (stream PostReceivePackResponse) {
     option (op_type) = {
@@ -77,17 +70,6 @@ message PostUploadPackResponse {
   // Raw data from stdout of 'git upload-pack'
   bytes data = 1;
 }
-
-message PostUploadPackWithSidechannelRequest {
-  // repository should only be present in the first message of the stream
-  Repository repository = 1 [(target_repository)=true];
-  // Parameters to use with git -c (key=value pairs)
-  repeated string git_config_options = 2;
-  // Git protocol version
-  string git_protocol = 3;
-}
-
-message PostUploadPackWithSidechannelResponse { }
 
 message PostReceivePackRequest {
   // repository should only be present in the first message of the stream

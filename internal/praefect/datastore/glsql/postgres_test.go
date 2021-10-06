@@ -1,13 +1,28 @@
 package glsql
 
 import (
+	"os"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 )
 
 func TestOpenDB(t *testing.T) {
-	dbCfg := GetDBConfig(t, "postgres")
+	getEnvFromGDK(t)
+
+	dbCfg := config.DB{
+		Host: os.Getenv("PGHOST"),
+		Port: func() int {
+			pgPort := os.Getenv("PGPORT")
+			port, err := strconv.Atoi(pgPort)
+			require.NoError(t, err, "failed to parse PGPORT %q", pgPort)
+			return port
+		}(),
+		DBName:  "postgres",
+		SSLMode: "disable",
+	}
 
 	t.Run("failed to ping because of incorrect config", func(t *testing.T) {
 		badCfg := dbCfg

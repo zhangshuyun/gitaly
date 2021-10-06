@@ -60,7 +60,6 @@ type entry struct {
 	key
 	value  *batch
 	expiry time.Time
-	cancel func()
 }
 
 // BatchCache entries always get added to the back of the list. If the
@@ -186,7 +185,6 @@ func (bc *BatchCache) BatchProcess(ctx context.Context, repo git.RepositoryExecu
 		panic("empty ctx.Done() in catfile.Batch.New()")
 	}
 
-	var cancel func()
 	cacheKey, isCacheable := newCacheKey(metadata.GetValue(ctx, SessionIDField), repo)
 	if isCacheable {
 		// We only try to look up cached batch processes in case it is cacheable, which
@@ -195,9 +193,9 @@ func (bc *BatchCache) BatchProcess(ctx context.Context, repo git.RepositoryExecu
 		// disallow trivial denial of service attacks against other users in case it is
 		// possible to poison the cache with broken git-cat-file(1) processes.
 
-		if entry, ok := bc.checkout(cacheKey); ok {
-			go bc.returnWhenDone(requestDone, cacheKey, entry.value, entry.cancel)
-			return entry.value, nil
+		if c, ok := bc.checkout(cacheKey); ok {
+			go bc.returnWhenDone(requestDone, cacheKey, c)
+			return c, nil
 		}
 
 		// We have not found any cached process, so we need to create a new one. In this
@@ -205,6 +203,7 @@ func (bc *BatchCache) BatchProcess(ctx context.Context, repo git.RepositoryExecu
 		// not get killed when the current context is done. Note that while we explicitly
 		// `Close()` processes in case this function fails, we must have a cancellable
 		// context or otherwise our `command` package will panic.
+		var cancel func()
 		ctx, cancel = context.WithCancel(context.Background())
 		defer func() {
 			if returnedErr != nil {
@@ -240,13 +239,13 @@ func (bc *BatchCache) BatchProcess(ctx context.Context, repo git.RepositoryExecu
 	if isCacheable {
 		// If the process is cacheable, then we want to put the process into the cache when
 		// the current outer context is done.
-		go bc.returnWhenDone(requestDone, cacheKey, c, cancel)
+		go bc.returnWhenDone(requestDone, cacheKey, c)
 	}
 
 	return c, nil
 }
 
-func (bc *BatchCache) returnWhenDone(done <-chan struct{}, cacheKey key, c *batch, cancel func()) {
+func (bc *BatchCache) returnWhenDone(done <-chan struct{}, cacheKey key, c *batch) {
 	<-done
 
 	if bc.cachedProcessDone != nil {
@@ -256,23 +255,21 @@ func (bc *BatchCache) returnWhenDone(done <-chan struct{}, cacheKey key, c *batc
 	}
 
 	if c == nil || c.isClosed() {
-		cancel()
 		return
 	}
 
 	if c.hasUnreadData() {
-		cancel()
 		bc.catfileCacheCounter.WithLabelValues("dirty").Inc()
 		c.Close()
 		return
 	}
 
-	bc.add(cacheKey, c, cancel)
+	bc.add(cacheKey, c)
 }
 
 // add adds a key, value pair to bc. If there are too many keys in bc
 // already add will evict old keys until the length is OK again.
-func (bc *BatchCache) add(k key, b *batch, cancel func()) {
+func (bc *BatchCache) add(k key, b *batch) {
 	bc.entriesMutex.Lock()
 	defer bc.entriesMutex.Unlock()
 
@@ -281,12 +278,7 @@ func (bc *BatchCache) add(k key, b *batch, cancel func()) {
 		bc.delete(i, true)
 	}
 
-	ent := &entry{
-		key:    k,
-		value:  b,
-		expiry: time.Now().Add(bc.ttl),
-		cancel: cancel,
-	}
+	ent := &entry{key: k, value: b, expiry: time.Now().Add(bc.ttl)}
 	bc.entries = append(bc.entries, ent)
 
 	for bc.len() > bc.maxLen {
@@ -301,7 +293,7 @@ func (bc *BatchCache) evictHead()   { bc.delete(0, true) }
 func (bc *BatchCache) len() int     { return len(bc.entries) }
 
 // checkout removes a value from bc. After use the caller can re-add the value with bc.Add.
-func (bc *BatchCache) checkout(k key) (*entry, bool) {
+func (bc *BatchCache) checkout(k key) (*batch, bool) {
 	bc.entriesMutex.Lock()
 	defer bc.entriesMutex.Unlock()
 
@@ -313,9 +305,9 @@ func (bc *BatchCache) checkout(k key) (*entry, bool) {
 
 	bc.catfileCacheCounter.WithLabelValues("hit").Inc()
 
-	entry := bc.entries[i]
+	ent := bc.entries[i]
 	bc.delete(i, false)
-	return entry, true
+	return ent.value, true
 }
 
 // enforceTTL evicts all entries older than now, assuming the entry
@@ -354,7 +346,6 @@ func (bc *BatchCache) delete(i int, wantClose bool) {
 
 	if wantClose {
 		ent.value.Close()
-		ent.cancel()
 	}
 
 	bc.entries = append(bc.entries[:i], bc.entries[i+1:]...)

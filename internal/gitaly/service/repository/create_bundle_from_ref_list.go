@@ -68,10 +68,7 @@ func (s *server) CreateBundleFromRefList(stream gitalypb.RepositoryService_Creat
 		return status.Errorf(codes.Internal, "stream writer failed: %v", err)
 	}
 
-	err = cmd.Wait()
-	if isExitWithCode(err, 128) && bytes.HasPrefix(stderr.Bytes(), []byte("fatal: Refusing to create empty bundle.")) {
-		return status.Errorf(codes.FailedPrecondition, "cmd wait failed: refusing to create empty bundle")
-	} else if err != nil {
+	if err := cmd.Wait(); err != nil {
 		return status.Errorf(codes.Internal, "cmd wait failed: %v, stderr: %q", err, stderr.String())
 	}
 

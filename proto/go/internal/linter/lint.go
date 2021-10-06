@@ -52,8 +52,8 @@ func ensureMethodOpType(fileDesc *descriptorpb.FileDescriptorProto, m *descripto
 }
 
 func validateMethod(file *descriptorpb.FileDescriptorProto, service *descriptorpb.ServiceDescriptorProto, method *descriptorpb.MethodDescriptorProto, req *pluginpb.CodeGeneratorRequest) error {
-	if intercepted, err := protoutil.IsInterceptedMethod(service, method); err != nil {
-		return fmt.Errorf("is intercepted method: %w", err)
+	if intercepted, err := protoutil.IsInterceptedService(service); err != nil {
+		return fmt.Errorf("is intercepted service: %w", err)
 	} else if intercepted {
 		if _, err := protoutil.GetOpExtension(method); err != nil {
 			if errors.Is(err, protoregistry.NotFound) {

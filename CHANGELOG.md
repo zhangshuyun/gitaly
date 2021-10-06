@@ -1,13 +1,5 @@
 # Gitaly changelog
 
-## 14.3.2 (2021-10-01)
-
-No changes.
-
-## 14.3.1 (2021-09-30)
-
-No changes.
-
 ## 14.3.0 (2021-09-21)
 
 ### Added (6 changes)
@@ -86,10 +78,6 @@ No changes.
 
 - [remote: Deprecate FetchInternalRemote RPC](gitlab-org/gitaly@c5fc4a035e8c6cd2e7b0847e5b9a10a67a762965) ([merge request](gitlab-org/gitaly!3860))
 - [repository: Deprecate `SetConfig()` RPC](gitlab-org/gitaly@4d1c5cc7f927a3da7a997f48b996fbdf9579b047) ([merge request](gitlab-org/gitaly!3790))
-
-## 14.2.5 (2021-09-30)
-
-No changes.
 
 ## 14.2.4 (2021-09-17)
 
@@ -217,16 +205,6 @@ No changes.
 
 - [Remove `praefect reconcile` subcommand](gitlab-org/gitaly@0c48ca9e3f368f03d0d78de0a31540d2fe248242) ([merge request](gitlab-org/gitaly!3667))
 
-## 14.1.7 (2021-09-30)
-
-No changes.
-
-## 14.1.6 (2021-09-27)
-
-### Fixed (1 change)
-
-- [Derive virtual storage's filesystem id from its name](gitlab-org/gitaly@add378c8b07a885e23c905d157e285670513352f) ([merge request](gitlab-org/gitaly!3835))
-
 ## 14.1.5 (2021-09-02)
 
 ### Performance (2 changes)
@@ -315,12 +293,6 @@ No changes.
 - [Refine metrics descriptions](gitlab-org/gitaly@d89639edbd90e1f0ca23a3bc63d8e70d15139004) ([merge request](gitlab-org/gitaly!3652))
 - [Separate listenmux from backchannel](gitlab-org/gitaly@c95298c125a680a006153d5aca5d3dbb575ce352) ([merge request](gitlab-org/gitaly!3593))
 - [Use upstream implementation of insecure credentials](gitlab-org/gitaly@7453f84b0bb385a958943b5e0910b8f6bb3906bb) ([merge request](gitlab-org/gitaly!3591))
-
-## 14.0.11 (2021-09-23)
-
-### Fixed (1 change)
-
-- [Derive virtual storage's filesystem id from its name](gitlab-org/gitaly@34cfd2c2b4964cf1c0ad1704fd9e2c25666bcf16) ([merge request](gitlab-org/gitaly!3834))
 
 ## 14.0.10 (2021-09-02)
 
@@ -455,12 +427,6 @@ No changes.
 ### Other (1 change)
 
 - [Update gitlab-labkit to 0.17.1](gitlab-org/gitaly@904af72eb7c42124978370cef53681fa561b10f5) ([merge request](gitlab-org/gitaly!3395))
-
-## 13.12.12 (2021-09-21)
-
-### Fixed (1 change)
-
-- [Derive virtual storage's filesystem id from its name](gitlab-org/gitaly@af62b5b5b2357419c3cde2412106b5013c2f1060) ([merge request](gitlab-org/gitaly!3833))
 
 ## 13.12.11 (2021-09-02)
 
