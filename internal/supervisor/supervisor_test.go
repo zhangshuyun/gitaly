@@ -5,7 +5,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"syscall"
@@ -16,52 +15,27 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
-var (
-	testDir    string
-	testExe    string
-	socketPath string
-)
-
 func TestMain(m *testing.M) {
-	testhelper.Run(m, testhelper.WithSetup(func() error {
-		var err error
-		testDir, err = os.MkdirTemp("", "gitaly-supervisor-test")
-		if err != nil {
-			return err
-		}
-
-		scriptPath, err := filepath.Abs("test-scripts/pid-server.go")
-		if err != nil {
-			return err
-		}
-
-		testExe = filepath.Join(testDir, "pid-server")
-
-		buildCmd := exec.Command("go", "build", "-o", testExe, scriptPath)
-		buildCmd.Dir = filepath.Dir(scriptPath)
-		buildCmd.Stderr = os.Stderr
-		buildCmd.Stdout = os.Stdout
-		if err := buildCmd.Run(); err != nil {
-			return err
-		}
-
-		socketPath = filepath.Join(testDir, "socket")
-
-		return nil
-	}))
+	testhelper.Run(m)
 }
 
 func TestRespawnAfterCrashWithoutCircuitBreaker(t *testing.T) {
+	t.Parallel()
+
+	pidServer := buildPidServer(t)
+	tempDir := testhelper.TempDir(t)
+
 	config, err := NewConfigFromEnv()
 	require.NoError(t, err)
-	process, err := New(config, t.Name(), nil, []string{testExe}, testDir, 0, nil, nil)
+
+	process, err := New(config, t.Name(), nil, []string{pidServer}, tempDir, 0, nil, nil)
 	require.NoError(t, err)
 	defer process.Stop()
 
 	attempts := config.CrashThreshold
 	require.True(t, attempts > 2, "config.CrashThreshold sanity check")
 
-	pids, err := tryConnect(socketPath, attempts, 1*time.Second)
+	pids, err := tryConnect(filepath.Join(tempDir, "socket"), attempts, 1*time.Second)
 	require.NoError(t, err)
 
 	require.Equal(t, attempts, len(pids), "number of pids should equal number of attempts")
@@ -75,45 +49,56 @@ func TestRespawnAfterCrashWithoutCircuitBreaker(t *testing.T) {
 }
 
 func TestTooManyCrashes(t *testing.T) {
+	t.Parallel()
+
+	pidServer := buildPidServer(t)
+	tempDir := testhelper.TempDir(t)
+
 	config, err := NewConfigFromEnv()
 	require.NoError(t, err)
-	process, err := New(config, t.Name(), nil, []string{testExe}, testDir, 0, nil, nil)
+
+	process, err := New(config, t.Name(), nil, []string{pidServer}, tempDir, 0, nil, nil)
 	require.NoError(t, err)
 	defer process.Stop()
 
 	attempts := config.CrashThreshold + 1
 	require.True(t, attempts > 2, "config.CrashThreshold sanity check")
 
-	pids, err := tryConnect(socketPath, attempts, 1*time.Second)
+	pids, err := tryConnect(filepath.Join(tempDir, "socket"), attempts, 1*time.Second)
 	require.Error(t, err, "circuit breaker should cause a connection error / timeout")
 
 	require.Equal(t, config.CrashThreshold, len(pids), "number of pids should equal circuit breaker threshold")
 }
 
 func TestSpawnFailure(t *testing.T) {
+	t.Parallel()
+
+	pidServer := buildPidServer(t)
+	tempDir := testhelper.TempDir(t)
+
 	config, err := NewConfigFromEnv()
 	require.NoError(t, err)
 	config.CrashWaitTime = 2 * time.Second
 
-	notFoundExe := filepath.Join(testDir, "not-found")
+	notFoundExe := filepath.Join(tempDir, "not-found")
 	require.NoError(t, os.RemoveAll(notFoundExe))
 	defer func() { require.NoError(t, os.Remove(notFoundExe)) }()
 
-	process, err := New(config, t.Name(), nil, []string{notFoundExe}, testDir, 0, nil, nil)
+	process, err := New(config, t.Name(), nil, []string{notFoundExe}, tempDir, 0, nil, nil)
 	require.NoError(t, err)
 	defer process.Stop()
 
 	time.Sleep(1 * time.Second)
 
-	pids, err := tryConnect(socketPath, 1, 1*time.Millisecond)
+	pids, err := tryConnect(filepath.Join(tempDir, "socket"), 1, 1*time.Millisecond)
 	require.Error(t, err, "connection must fail because executable cannot be spawned")
 	require.Equal(t, 0, len(pids))
 
 	// 'Fix' the spawning problem of our process
-	require.NoError(t, os.Symlink(testExe, notFoundExe))
+	require.NoError(t, os.Symlink(pidServer, notFoundExe))
 
 	// After CrashWaitTime, the circuit breaker should have closed
-	pids, err = tryConnect(socketPath, 1, config.CrashWaitTime)
+	pids, err = tryConnect(filepath.Join(tempDir, "socket"), 1, config.CrashWaitTime)
 
 	require.NoError(t, err, "process should be accepting connections now")
 	require.Equal(t, 1, len(pids), "we should have received the pid of the new process")
@@ -180,4 +165,13 @@ func getPid(ctx context.Context, socket string) (int, error) {
 	}
 
 	return strconv.Atoi(string(response))
+}
+
+func buildPidServer(t *testing.T) string {
+	t.Helper()
+
+	sourcePath, err := filepath.Abs("test-scripts/pid-server.go")
+	require.NoError(t, err)
+
+	return testhelper.BuildBinary(t, testhelper.TempDir(t), sourcePath)
 }
