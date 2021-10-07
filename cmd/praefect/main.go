@@ -340,6 +340,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		nodeManager = nodeMgr
 
 		nodeMgr.Start(conf.Failover.BootstrapInterval.Duration(), conf.Failover.MonitorInterval.Duration())
+		defer nodeMgr.Stop()
 	}
 
 	logger.Infof("election strategy: %q", conf.Failover.ElectionStrategy)

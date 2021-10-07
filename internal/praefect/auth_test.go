@@ -153,6 +153,7 @@ func runServer(t *testing.T, token string, required bool) (*grpc.Server, string,
 
 	nodeMgr, err := nodes.NewManager(logEntry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
+	defer nodeMgr.Stop()
 
 	txMgr := transactions.NewManager(conf)
 

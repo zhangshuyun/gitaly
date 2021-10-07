@@ -483,6 +483,7 @@ func TestConnectionMultiplexing(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
+	defer mgr.Stop()
 
 	// check the shard to get the primary in a healthy state
 	mgr.checkShards()

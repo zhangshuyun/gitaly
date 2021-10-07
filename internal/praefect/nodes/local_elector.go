@@ -19,6 +19,8 @@ type localElector struct {
 	nodes       []Node
 	primaryNode Node
 	log         logrus.FieldLogger
+
+	doneCh chan struct{}
 }
 
 func newLocalElector(name string, log logrus.FieldLogger, ns []*nodeStatus) *localElector {
@@ -31,6 +33,7 @@ func newLocalElector(name string, log logrus.FieldLogger, ns []*nodeStatus) *loc
 		log:         log.WithField("virtual_storage", name),
 		nodes:       nodes[:],
 		primaryNode: nodes[0],
+		doneCh:      make(chan struct{}),
 	}
 }
 
@@ -61,13 +64,21 @@ func (s *localElector) monitor(d time.Duration) {
 	ctx := context.Background()
 
 	for {
-		<-ticker.C
+		select {
+		case <-s.doneCh:
+			return
+		case <-ticker.C:
+		}
 
 		err := s.checkNodes(ctx)
 		if err != nil {
 			s.log.WithError(err).Warn("error checking nodes")
 		}
 	}
+}
+
+func (s *localElector) stop() {
+	close(s.doneCh)
 }
 
 // checkNodes issues a gRPC health check for each node managed by the

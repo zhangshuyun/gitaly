@@ -122,6 +122,7 @@ func TestManagerFailoverDisabledElectionStrategySQL(t *testing.T) {
 	require.NoError(t, err)
 
 	nm.Start(time.Millisecond, time.Millisecond)
+	defer nm.Stop()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -170,6 +171,7 @@ func TestDialWithUnhealthyNode(t *testing.T) {
 	require.NoError(t, err)
 
 	mgr.Start(1*time.Millisecond, 1*time.Millisecond)
+	defer mgr.Stop()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -222,7 +224,10 @@ func TestNodeManager(t *testing.T) {
 
 	// monitoring period set to 1 hour as we execute health checks by hands in this test
 	nm.Start(0, time.Hour)
+	defer nm.Stop()
+
 	nmWithoutFailover.Start(0, time.Hour)
+	defer nmWithoutFailover.Stop()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -339,6 +344,7 @@ func TestMgr_GetSyncedNode(t *testing.T) {
 			healthSrvs[i].SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 		}
 		nm.Start(0, time.Hour)
+		t.Cleanup(nm.Stop)
 
 		return func(t *testing.T) { scenario(t, nm, rs) }
 	}

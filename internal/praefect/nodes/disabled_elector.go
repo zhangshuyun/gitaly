@@ -40,6 +40,9 @@ func (de *disabledElector) start(bootstrap, _ time.Duration) {
 	de.updateMetrics()
 }
 
+func (de *disabledElector) stop() {
+}
+
 func (de *disabledElector) updateMetrics() {
 	metrics.PrimaryGauge.WithLabelValues(de.virtualStorage, de.shard.Primary.GetStorage()).Set(1)
 	for _, n := range de.shard.Secondaries {
