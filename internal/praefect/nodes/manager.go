@@ -107,6 +107,7 @@ type Mgr struct {
 // secondaries are managed.
 type leaderElectionStrategy interface {
 	start(bootstrapInterval, monitorInterval time.Duration)
+	stop()
 	checkNodes(context.Context) error
 	GetShard(ctx context.Context) (Shard, error)
 }
@@ -205,6 +206,19 @@ func NewManager(
 func (n *Mgr) Start(bootstrapInterval, monitorInterval time.Duration) {
 	for _, strategy := range n.strategies {
 		strategy.start(bootstrapInterval, monitorInterval)
+	}
+}
+
+// Stop will stop all monitoring processes and closes connections. Must only be called once.
+func (n *Mgr) Stop() {
+	for _, strategy := range n.strategies {
+		strategy.stop()
+	}
+
+	for _, nodes := range n.nodes {
+		for _, node := range nodes {
+			_ = node.GetConnection().Close()
+		}
 	}
 }
 

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -52,14 +51,7 @@ type mapConfig struct {
 }
 
 func TestMain(m *testing.M) {
-	os.Exit(testMain(m))
-}
-
-func testMain(m *testing.M) int {
-	defer testhelper.MustHaveNoChildProcess()
-	cleanup := testhelper.Configure()
-	defer cleanup()
-	return m.Run()
+	testhelper.Run(m)
 }
 
 func (m *mapConfig) Get(key string) string {

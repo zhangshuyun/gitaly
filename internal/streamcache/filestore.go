@@ -56,16 +56,19 @@ type filestore struct {
 	id      []byte
 	counter uint64
 	stop    chan struct{}
+
+	sleepLoop *dontpanic.Forever
 }
 
-func newFilestore(dir string, maxAge time.Duration, sleep func(time.Duration), logger logrus.FieldLogger) *filestore {
+func newFilestore(dir string, maxAge time.Duration, sleep func(time.Duration) <-chan time.Time, logger logrus.FieldLogger) *filestore {
 	fs := &filestore{
-		dir:    dir,
-		maxAge: maxAge,
-		stop:   make(chan struct{}),
+		dir:       dir,
+		maxAge:    maxAge,
+		stop:      make(chan struct{}),
+		sleepLoop: dontpanic.NewForever(time.Minute),
 	}
 
-	dontpanic.GoForever(1*time.Minute, func() {
+	fs.sleepLoop.Go(func() {
 		sleepLoop(fs.stop, fs.maxAge, sleep, func() {
 			diskUsageGauge.WithLabelValues(fs.dir).Set(fs.diskUsage())
 
@@ -146,6 +149,8 @@ func (fs *filestore) Stop() {
 	default:
 		close(fs.stop)
 	}
+
+	fs.sleepLoop.Cancel()
 }
 
 // cleanWalk removes files but not directories. This is to avoid races

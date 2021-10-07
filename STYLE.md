@@ -238,22 +238,10 @@ importantly, this includes any calls to `log.Fatal()` and related functions.
 
 ### Common setup
 
-When all tests require a common setup, we use the `TestMain()` function for
-this. `TestMain()` must call `os.Exit()` to indicate whether any tests failed.
-As this will cause deferred function calls to not be processed, we use the
-following pattern:
-
-```
-func TestMain(m *testing.M) {
-	os.Exit(testMain(m))
-}
-
-func testMain(m *testing.M) int {
-	cleanup := testhelper.Configure()
-	defer cleanup()
-	return m.Run()
-}
-```
+The `TestMain()` function shouldn't do any package-specific setup. Instead, all
+tests are supposed to set up required state as part of the tests themselves. All
+`TestMain()` functions must call `testhelper.Run()` though, which performs the
+setup of global state required for tests.
 
 ## Black box and white box testing
 

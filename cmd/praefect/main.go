@@ -340,6 +340,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		nodeManager = nodeMgr
 
 		nodeMgr.Start(conf.Failover.BootstrapInterval.Duration(), conf.Failover.MonitorInterval.Duration())
+		defer nodeMgr.Stop()
 	}
 
 	logger.Infof("election strategy: %q", conf.Failover.ElectionStrategy)
@@ -401,6 +402,8 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		if err != nil {
 			return fmt.Errorf("create gRPC server: %w", err)
 		}
+		defer srv.Stop()
+
 		b.RegisterStarter(starter.New(cfg, srv))
 	}
 

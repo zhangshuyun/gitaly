@@ -75,6 +75,7 @@ func TestStreamInterceptor(t *testing.T) {
 				grpc.WithStreamInterceptor(StreamErrorHandler(registry, errTracker, nodeName)),
 			)
 			require.NoError(t, err)
+			t.Cleanup(func() { testhelper.MustClose(t, cc) })
 			f, err := peeker.Peek()
 			require.NoError(t, err)
 			return proxy.NewStreamParameters(proxy.Destination{Conn: cc, Ctx: ctx, Msg: f}, nil, func() error { return nil }, nil), nil
@@ -90,6 +91,7 @@ func TestStreamInterceptor(t *testing.T) {
 	go praefectSrv.Serve(praefectLis)
 
 	praefectCC, err := grpc.Dial("unix://"+praefectSocket, grpc.WithInsecure())
+	defer testhelper.MustClose(t, praefectCC)
 	require.NoError(t, err)
 
 	simpleClient := mock.NewSimpleServiceClient(praefectCC)

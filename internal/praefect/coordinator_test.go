@@ -311,6 +311,7 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 	nodeMgr, err := nodes.NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Hour)
+	defer nodeMgr.Stop()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -442,6 +443,7 @@ func TestStreamDirectorAccessor(t *testing.T) {
 	nodeMgr, err := nodes.NewManager(entry, conf, nil, rs, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Minute)
+	defer nodeMgr.Stop()
 
 	txMgr := transactions.NewManager(conf)
 
@@ -553,6 +555,7 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 	nodeMgr, err := nodes.NewManager(entry, conf, nil, repoStore, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Minute)
+	defer nodeMgr.Stop()
 
 	txMgr := transactions.NewManager(conf)
 
@@ -875,6 +878,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 				nodeMgr, err := nodes.NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 				require.NoError(t, err)
 				nodeMgr.Start(0, time.Hour)
+				defer nodeMgr.Stop()
 
 				router = NewNodeManagerRouter(nodeMgr, rs)
 				for _, node := range nodeMgr.Nodes()["praefect"] {
@@ -1077,6 +1081,7 @@ func TestAbsentCorrelationID(t *testing.T) {
 	nodeMgr, err := nodes.NewManager(entry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Hour)
+	defer nodeMgr.Stop()
 
 	txMgr := transactions.NewManager(conf)
 	rs := datastore.MockRepositoryStore{}
@@ -1211,6 +1216,7 @@ func TestStreamDirectorStorageScope(t *testing.T) {
 	nodeMgr, err := nodes.NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Second)
+	defer nodeMgr.Stop()
 	coordinator := NewCoordinator(
 		nil,
 		rs,

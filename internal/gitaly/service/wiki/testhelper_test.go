@@ -2,12 +2,10 @@ package wiki
 
 import (
 	"bytes"
-	"os"
 	"reflect"
 	"runtime"
 	"testing"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
@@ -33,29 +31,10 @@ type createWikiPageOpts struct {
 var mockPageContent = bytes.Repeat([]byte("Mock wiki page content"), 10000)
 
 func TestMain(m *testing.M) {
-	os.Exit(testMain(m))
-}
-
-func testMain(m *testing.M) int {
-	defer testhelper.MustHaveNoChildProcess()
-
-	cleanup := testhelper.Configure()
-	defer cleanup()
-
-	tempDir, err := os.MkdirTemp("", "gitaly")
-	if err != nil {
-		log.Error(err)
-		return 1
-	}
-	defer func() {
-		if err := os.RemoveAll(tempDir); err != nil {
-			log.Error(err)
-		}
-	}()
-
-	hooks.Override = tempDir + "/hooks"
-
-	return m.Run()
+	testhelper.Run(m, testhelper.WithSetup(func() error {
+		hooks.Override = "/"
+		return nil
+	}))
 }
 
 func TestWithRubySidecar(t *testing.T) {

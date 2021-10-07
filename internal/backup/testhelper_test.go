@@ -1,21 +1,13 @@
 package backup
 
 import (
-	"os"
 	"testing"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
 func TestMain(m *testing.M) {
-	os.Exit(testMain(m))
-}
-
-func testMain(m *testing.M) int {
-	defer testhelper.MustHaveNoChildProcess()
-
-	cleanup := testhelper.Configure()
-	defer cleanup()
-
-	return m.Run()
+	// gocloud.dev/blob leaks the HTTP connection even if we make sure to close all buckets.
+	//nolint:staticcheck
+	testhelper.Run(m, testhelper.WithDisabledGoroutineChecker())
 }

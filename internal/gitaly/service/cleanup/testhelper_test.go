@@ -1,7 +1,6 @@
 package cleanup
 
 import (
-	"os"
 	"testing"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
@@ -15,14 +14,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	os.Exit(testMain(m))
-}
-
-func testMain(m *testing.M) int {
-	defer testhelper.MustHaveNoChildProcess()
-	cleanup := testhelper.Configure()
-	defer cleanup()
-	return m.Run()
+	testhelper.Run(m)
 }
 
 func setupCleanupService(t *testing.T) (config.Cfg, *gitalypb.Repository, string, gitalypb.CleanupServiceClient) {

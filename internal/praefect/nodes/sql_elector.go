@@ -85,6 +85,7 @@ type sqlElector struct {
 	db              *sql.DB
 	log             logrus.FieldLogger
 	failoverTimeout time.Duration
+	doneCh          chan struct{}
 }
 
 func newSQLElector(name string, c config.Config, db *sql.DB, log logrus.FieldLogger, ns []*nodeStatus) *sqlElector {
@@ -107,6 +108,7 @@ func newSQLElector(name string, c config.Config, db *sql.DB, log logrus.FieldLog
 		nodes:           nodes,
 		primaryNode:     nodes[0],
 		failoverTimeout: failoverTimeout,
+		doneCh:          make(chan struct{}),
 	}
 }
 
@@ -137,6 +139,10 @@ func (s *sqlElector) start(bootstrapInterval, monitorInterval time.Duration) {
 	go s.monitor(monitorInterval)
 }
 
+func (s *sqlElector) stop() {
+	close(s.doneCh)
+}
+
 func (s *sqlElector) bootstrap(d time.Duration) {
 	ctx := context.Background()
 	s.checkNodes(ctx)
@@ -149,7 +155,11 @@ func (s *sqlElector) monitor(d time.Duration) {
 	ctx := context.Background()
 
 	for {
-		<-ticker.C
+		select {
+		case <-s.doneCh:
+			return
+		case <-ticker.C:
+		}
 		s.checkNodes(ctx)
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
@@ -207,6 +208,11 @@ func TestSearchFilesByContentFailure(t *testing.T) {
 	t.Parallel()
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 	gitCommandFactory := git.NewExecCommandFactory(cfg)
+	catfileCache := catfile.NewCache(cfg)
+	t.Cleanup(catfileCache.Stop)
+
+	connsPool := client.NewPool()
+	defer testhelper.MustClose(t, connsPool)
 
 	server := NewServer(
 		cfg,
@@ -214,7 +220,8 @@ func TestSearchFilesByContentFailure(t *testing.T) {
 		config.NewLocator(cfg),
 		transaction.NewManager(cfg, backchannel.NewRegistry()),
 		gitCommandFactory,
-		catfile.NewCache(cfg),
+		catfileCache,
+		connsPool,
 	)
 
 	testCases := []struct {
@@ -330,6 +337,11 @@ func TestSearchFilesByNameFailure(t *testing.T) {
 	t.Parallel()
 	cfg := testcfg.Build(t)
 	gitCommandFactory := git.NewExecCommandFactory(cfg)
+	catfileCache := catfile.NewCache(cfg)
+	t.Cleanup(catfileCache.Stop)
+
+	connsPool := client.NewPool()
+	defer testhelper.MustClose(t, connsPool)
 
 	server := NewServer(
 		cfg,
@@ -337,7 +349,8 @@ func TestSearchFilesByNameFailure(t *testing.T) {
 		config.NewLocator(cfg),
 		transaction.NewManager(cfg, backchannel.NewRegistry()),
 		gitCommandFactory,
-		catfile.NewCache(cfg),
+		catfileCache,
+		connsPool,
 	)
 
 	testCases := []struct {

@@ -36,21 +36,19 @@ func NewServer(
 	txManager transaction.Manager,
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
+	connsPool *client.Pool,
 ) gitalypb.RepositoryServiceServer {
 	return &server{
 		ruby:          rs,
 		locator:       locator,
 		txManager:     txManager,
 		gitCmdFactory: gitCmdFactory,
-		conns: client.NewPoolWithOptions(
-			client.WithDialer(client.HealthCheckDialer(client.DialContext)),
-			client.WithDialOptions(client.FailOnNonTempDialError()...),
-		),
-		cfg:          cfg,
-		binDir:       cfg.BinDir,
-		loggingCfg:   cfg.Logging,
-		catfileCache: catfileCache,
-		git2go:       git2go.NewExecutor(cfg, locator),
+		conns:         connsPool,
+		cfg:           cfg,
+		binDir:        cfg.BinDir,
+		loggingCfg:    cfg.Logging,
+		catfileCache:  catfileCache,
+		git2go:        git2go.NewExecutor(cfg, locator),
 	}
 }
 

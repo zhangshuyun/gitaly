@@ -154,6 +154,7 @@ func TestAddRepository_Exec(t *testing.T) {
 				nodeMgr, err := nodes.NewManager(testhelper.DiscardTestEntry(t), addCmdConf, db.DB, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 				require.NoError(t, err)
 				nodeMgr.Start(0, time.Hour)
+				defer nodeMgr.Stop()
 
 				relativePath := fmt.Sprintf("path/to/test/repo_%s", tn)
 				repoDS := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())

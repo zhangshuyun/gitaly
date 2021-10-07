@@ -129,6 +129,7 @@ func defaultNodeMgr(t testing.TB, conf config.Config, rs datastore.RepositorySto
 	nodeMgr, err := nodes.NewManager(testhelper.DiscardTestEntry(t), conf, nil, rs, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Hour)
+	t.Cleanup(nodeMgr.Stop)
 	return nodeMgr
 }
 

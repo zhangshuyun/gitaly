@@ -8,6 +8,7 @@
 package dontpanic
 
 import (
+	"sync"
 	"time"
 
 	sentry "github.com/getsentry/sentry-go"
@@ -56,24 +57,63 @@ func catchAndLog(fn func()) bool {
 	return normal
 }
 
-// GoForever will keep retrying a function fn in a goroutine forever in the
-// background (until the process exits) while recovering from panics. Each
-// time a closure panics, the recovered value will be sent to Sentry and
-// logged at level error. The provided backoff will delay retries to enable
+// Forever encapsulates logic to run a function forever.
+type Forever struct {
+	backoff time.Duration
+
+	cancelOnce sync.Once
+	cancelCh   chan struct{}
+	doneCh     chan struct{}
+}
+
+// NewForever creates a new Forever struct. The given duration controls how long retry of a
+// function should be delayed if the function were to thrown an error.
+func NewForever(backoff time.Duration) *Forever {
+	return &Forever{
+		backoff:  backoff,
+		cancelCh: make(chan struct{}),
+		doneCh:   make(chan struct{}),
+	}
+}
+
+// Go will keep retrying a function fn in a goroutine forever in the background (until the process
+// exits) while recovering from panics. Each time a closure panics, the recovered value will be
+// sent to Sentry and logged at level error. The provided backoff will delay retries to enable
 // "breathing" room to prevent potentially worsening the situation.
-func GoForever(backoff time.Duration, fn func()) {
+func (f *Forever) Go(fn func()) {
 	go func() {
+		defer close(f.doneCh)
+
 		for {
+			select {
+			case <-f.cancelCh:
+				return
+			default:
+			}
+
 			if Try(fn) {
 				continue
 			}
 
-			if backoff <= 0 {
+			if f.backoff <= 0 {
 				continue
 			}
 
-			logger.Infof("dontpanic: backing off %s before retrying", backoff)
-			time.Sleep(backoff)
+			logger.Infof("dontpanic: backing off %s before retrying", f.backoff)
+
+			select {
+			case <-f.cancelCh:
+				return
+			case <-time.After(f.backoff):
+			}
 		}
 	}()
+}
+
+// Cancel cancels the walking loop.
+func (f *Forever) Cancel() {
+	f.cancelOnce.Do(func() {
+		close(f.cancelCh)
+		<-f.doneCh
+	})
 }

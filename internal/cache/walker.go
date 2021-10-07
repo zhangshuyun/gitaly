@@ -98,12 +98,27 @@ func (c *DiskCache) walkLoop(walkPath string) {
 	logger.Infof("Starting file walker for %s", walkPath)
 
 	walkTick := time.NewTicker(cleanWalkFrequency)
-	dontpanic.GoForever(time.Minute, func() {
+
+	forever := dontpanic.NewForever(time.Minute)
+	forever.Go(func() {
+		select {
+		case <-c.walkersDone:
+			return
+		default:
+		}
+
 		if err := c.cleanWalk(walkPath); err != nil {
 			logger.Error(err)
 		}
-		<-walkTick.C
+
+		select {
+		case <-c.walkersDone:
+			return
+		case <-walkTick.C:
+		}
 	})
+
+	c.walkerLoops = append(c.walkerLoops, forever)
 }
 
 func (c *DiskCache) startCleanWalker(cacheDir, stateDir string) {
@@ -198,4 +213,13 @@ func (c *DiskCache) StartWalkers() error {
 	}
 
 	return nil
+}
+
+// StopWalkers stops all walkers started by StartWalkers.
+func (c *DiskCache) StopWalkers() {
+	close(c.walkersDone)
+	for _, walkerLoop := range c.walkerLoops {
+		walkerLoop.Cancel()
+	}
+	c.walkerLoops = nil
 }

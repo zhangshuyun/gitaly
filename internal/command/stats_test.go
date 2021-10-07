@@ -1,15 +1,15 @@
 package command
 
 import (
-	"context"
 	"testing"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
 func TestStatsFromContext_BackgroundContext(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	stats := StatsFromContext(ctx)
@@ -17,7 +17,7 @@ func TestStatsFromContext_BackgroundContext(t *testing.T) {
 }
 
 func TestStatsFromContext_InitContext(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	ctx = InitContextStats(ctx)
@@ -29,7 +29,7 @@ func TestStatsFromContext_InitContext(t *testing.T) {
 }
 
 func TestStatsFromContext_RecordSum(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	ctx = InitContextStats(ctx)
@@ -44,7 +44,7 @@ func TestStatsFromContext_RecordSum(t *testing.T) {
 }
 
 func TestStatsFromContext_RecordSumByRef(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	ctx = InitContextStats(ctx)
@@ -61,7 +61,7 @@ func TestStatsFromContext_RecordSumByRef(t *testing.T) {
 }
 
 func TestStatsFromContext_RecordMax(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	ctx = InitContextStats(ctx)

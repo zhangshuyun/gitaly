@@ -153,7 +153,10 @@ func TestRemoveWorktree(t *testing.T) {
 
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	repo := localrepo.New(gitCmdFactory, catfile.NewCache(cfg), repoProto, cfg)
+	catfileCache := catfile.NewCache(cfg)
+	defer catfileCache.Stop()
+
+	repo := localrepo.New(gitCmdFactory, catfileCache, repoProto, cfg)
 
 	existingWorktreePath := filepath.Join(repoPath, worktreePrefix, "existing")
 	gittest.AddWorktree(t, cfg, repoPath, existingWorktreePath)

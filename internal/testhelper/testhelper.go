@@ -16,8 +16,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
-	"syscall"
 	"testing"
 	"time"
 
@@ -25,12 +23,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
-	"go.uber.org/goleak"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -163,68 +158,6 @@ func GetLocalhostListener(t testing.TB) (net.Listener, string) {
 	addr := fmt.Sprintf("localhost:%d", l.Addr().(*net.TCPAddr).Port)
 
 	return l, addr
-}
-
-// MustHaveNoGoroutines panics if it finds any Goroutines running.
-func MustHaveNoGoroutines() {
-	if err := goleak.Find(
-		// opencensus has a "defaultWorker" which is started by the package's
-		// `init()` function. There is no way to stop this worker, so it will leak
-		// whenever we import the package.
-		goleak.IgnoreTopFunction("go.opencensus.io/stats/view.(*worker).start"),
-	); err != nil {
-		panic(fmt.Errorf("goroutines running: %w", err))
-	}
-}
-
-// MustHaveNoChildProcess panics if it finds a running or finished child
-// process. It waits for 2 seconds for processes to be cleaned up by other
-// goroutines.
-func MustHaveNoChildProcess() {
-	waitDone := make(chan struct{})
-	go func() {
-		command.WaitAllDone()
-		close(waitDone)
-	}()
-
-	select {
-	case <-waitDone:
-	case <-time.After(2 * time.Second):
-	}
-
-	mustFindNoFinishedChildProcess()
-	mustFindNoRunningChildProcess()
-}
-
-func mustFindNoFinishedChildProcess() {
-	// Wait4(pid int, wstatus *WaitStatus, options int, rusage *Rusage) (wpid int, err error)
-	//
-	// We use pid -1 to wait for any child. We don't care about wstatus or
-	// rusage. Use WNOHANG to return immediately if there is no child waiting
-	// to be reaped.
-	wpid, err := syscall.Wait4(-1, nil, syscall.WNOHANG, nil)
-	if err == nil && wpid > 0 {
-		panic(fmt.Errorf("wait4 found child process %d", wpid))
-	}
-}
-
-func mustFindNoRunningChildProcess() {
-	pgrep := exec.Command("pgrep", "-P", fmt.Sprintf("%d", os.Getpid()))
-	desc := fmt.Sprintf("%q", strings.Join(pgrep.Args, " "))
-
-	out, err := pgrep.Output()
-	if err == nil {
-		pidsComma := strings.Replace(text.ChompBytes(out), "\n", ",", -1)
-		psOut, _ := exec.Command("ps", "-o", "pid,args", "-p", pidsComma).Output()
-		panic(fmt.Errorf("found running child processes %s:\n%s", pidsComma, psOut))
-	}
-
-	if status, ok := command.ExitStatus(err); ok && status == 1 {
-		// Exit status 1 means no processes were found
-		return
-	}
-
-	panic(fmt.Errorf("%s: %w", desc, err))
 }
 
 // ContextOpt returns a new context instance with the new additions to it.

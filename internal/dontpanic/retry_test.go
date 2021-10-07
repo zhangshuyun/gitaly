@@ -49,11 +49,13 @@ func TestGoForever(t *testing.T) {
 		panic("don't panic")
 	}
 
-	dontpanic.GoForever(time.Microsecond, fn)
+	forever := dontpanic.NewForever(time.Microsecond)
+	forever.Go(fn)
 
 	var actualPanics int
 	for range recoveredQ {
 		actualPanics++
 	}
 	require.Equal(t, expectPanics, actualPanics)
+	forever.Cancel()
 }

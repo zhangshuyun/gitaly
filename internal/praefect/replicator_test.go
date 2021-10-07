@@ -2,7 +2,6 @@ package praefect
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -46,16 +45,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	os.Exit(testMain(m))
-}
-
-func testMain(m *testing.M) int {
-	defer testhelper.MustHaveNoChildProcess()
-
-	cleanup := testhelper.Configure()
-	defer cleanup()
-
-	return m.Run()
+	testhelper.Run(m)
 }
 
 func TestReplMgr_ProcessBacklog(t *testing.T) {
@@ -127,6 +117,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	nodeMgr, err := nodes.NewManager(entry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 	nodeMgr.Start(1*time.Millisecond, 5*time.Millisecond)
+	defer nodeMgr.Stop()
 
 	shard, err := nodeMgr.GetShard(ctx, conf.VirtualStorages[0].Name)
 	require.NoError(t, err)
@@ -331,6 +322,7 @@ func TestReplicator_PropagateReplicationJob(t *testing.T) {
 	nodeMgr, err := nodes.NewManager(logEntry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Hour)
+	defer nodeMgr.Stop()
 
 	txMgr := transactions.NewManager(conf)
 
@@ -710,6 +702,7 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 	nodeMgr, err := nodes.NewManager(logEntry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Hour)
+	defer nodeMgr.Stop()
 
 	replMgr := NewReplMgr(
 		logEntry,
@@ -860,6 +853,7 @@ func TestProcessBacklog_Success(t *testing.T) {
 	nodeMgr, err := nodes.NewManager(logEntry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Hour)
+	defer nodeMgr.Stop()
 
 	replMgr := NewReplMgr(
 		logEntry,

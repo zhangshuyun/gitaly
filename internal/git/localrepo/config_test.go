@@ -31,7 +31,10 @@ func setupRepoConfig(t *testing.T) (Config, string) {
 	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	repo := New(gitCmdFactory, catfile.NewCache(cfg), repoProto, cfg)
+	catfileCache := catfile.NewCache(cfg)
+	t.Cleanup(catfileCache.Stop)
+
+	repo := New(gitCmdFactory, catfileCache, repoProto, cfg)
 
 	return repo.Config(), repoPath
 }

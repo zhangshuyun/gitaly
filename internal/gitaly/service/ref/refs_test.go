@@ -1081,6 +1081,8 @@ func TestFindTagNestedTag(t *testing.T) {
 			testhelper.MustRunCommand(t, tags, "xargs", cfg.Git.BinPath, "-C", repoPath, "tag", "-d")
 
 			catfileCache := catfile.NewCache(cfg)
+			defer catfileCache.Stop()
+
 			batch, err := catfileCache.BatchProcess(ctx, repo)
 			require.NoError(t, err)
 

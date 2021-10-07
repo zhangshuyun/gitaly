@@ -239,8 +239,10 @@ func TestGitalyServerFactory_closeOrder(t *testing.T) {
 
 		go server.Serve(ln)
 
-		*builder.conn, err = grpc.DialContext(ctx, ln.Addr().String(), grpc.WithInsecure())
+		conn, err := grpc.DialContext(ctx, ln.Addr().String(), grpc.WithInsecure())
 		require.NoError(t, err)
+		t.Cleanup(func() { testhelper.MustClose(t, conn) })
+		*builder.conn = conn
 	}
 
 	// both servers should be up and accepting RPCs

@@ -25,14 +25,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	os.Exit(testMain(m))
-}
-
-func testMain(m *testing.M) int {
-	defer testhelper.MustHaveNoChildProcess()
-	cleanup := testhelper.Configure()
-	defer cleanup()
-	return m.Run()
+	testhelper.Run(m)
 }
 
 func setup(t *testing.T, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, storage.Locator, gitalypb.ObjectPoolServiceClient) {
@@ -76,12 +69,14 @@ func initObjectPool(t testing.TB, cfg config.Cfg, storage config.Storage) *objec
 
 	relativePath := gittest.NewObjectPoolName(t)
 	gittest.InitRepoDir(t, storage.Path, relativePath)
+	catfileCache := catfile.NewCache(cfg)
+	t.Cleanup(catfileCache.Stop)
 
 	pool, err := objectpool.NewObjectPool(
 		cfg,
 		config.NewLocator(cfg),
 		git.NewExecCommandFactory(cfg),
-		catfile.NewCache(cfg),
+		catfileCache,
 		transaction.NewManager(cfg, backchannel.NewRegistry()),
 		storage.Name,
 		relativePath,

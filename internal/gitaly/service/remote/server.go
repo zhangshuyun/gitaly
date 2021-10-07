@@ -30,6 +30,7 @@ func NewServer(
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
 	txManager transaction.Manager,
+	connsPool *client.Pool,
 ) gitalypb.RemoteServiceServer {
 	return &server{
 		cfg:           cfg,
@@ -37,10 +38,7 @@ func NewServer(
 		gitCmdFactory: gitCmdFactory,
 		catfileCache:  catfileCache,
 		txManager:     txManager,
-		conns: client.NewPoolWithOptions(
-			client.WithDialer(client.HealthCheckDialer(client.DialContext)),
-			client.WithDialOptions(client.FailOnNonTempDialError()...),
-		),
+		conns:         connsPool,
 	}
 }
 

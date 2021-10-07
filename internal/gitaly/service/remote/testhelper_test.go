@@ -1,7 +1,6 @@
 package remote
 
 import (
-	"os"
 	"testing"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
@@ -15,16 +14,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	os.Exit(testMain(m))
-}
-
-func testMain(m *testing.M) int {
-	defer testhelper.MustHaveNoChildProcess()
-
-	cleanup := testhelper.Configure()
-	defer cleanup()
-
-	return m.Run()
+	testhelper.Run(m)
 }
 
 func setupRemoteService(t *testing.T, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RemoteServiceClient) {
@@ -41,6 +31,7 @@ func setupRemoteService(t *testing.T, opts ...testserver.GitalyServerOpt) (confi
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
 			deps.GetTxManager(),
+			deps.GetConnsPool(),
 		))
 	}, opts...)
 	cfg.SocketPath = addr

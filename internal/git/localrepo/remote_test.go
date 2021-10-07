@@ -37,7 +37,10 @@ func setupRepoRemote(t *testing.T, bare bool) (Remote, string) {
 	}
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	return New(gitCmdFactory, catfile.NewCache(cfg), repoProto, cfg).Remote(), repoPath
+	catfileCache := catfile.NewCache(cfg)
+	t.Cleanup(catfileCache.Stop)
+
+	return New(gitCmdFactory, catfileCache, repoProto, cfg).Remote(), repoPath
 }
 
 func TestRepo_Remote(t *testing.T) {

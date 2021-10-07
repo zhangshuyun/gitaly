@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
@@ -24,45 +23,32 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	os.Exit(testMain(m))
-}
-
-func testMain(m *testing.M) int {
-	defer testhelper.MustHaveNoChildProcess()
-	cleanup := testhelper.Configure()
-	defer cleanup()
-
-	var err error
-	testDir, err = os.MkdirTemp("", "gitaly-supervisor-test")
-	if err != nil {
-		log.Error(err)
-		return 1
-	}
-	defer func() {
-		if err := os.RemoveAll(testDir); err != nil {
-			log.Error(err)
+	testhelper.Run(m, testhelper.WithSetup(func() error {
+		var err error
+		testDir, err = os.MkdirTemp("", "gitaly-supervisor-test")
+		if err != nil {
+			return err
 		}
-	}()
 
-	scriptPath, err := filepath.Abs("test-scripts/pid-server.go")
-	if err != nil {
-		log.Error(err)
-		return 1
-	}
+		scriptPath, err := filepath.Abs("test-scripts/pid-server.go")
+		if err != nil {
+			return err
+		}
 
-	testExe = filepath.Join(testDir, "pid-server")
-	buildCmd := exec.Command("go", "build", "-o", testExe, scriptPath)
-	buildCmd.Dir = filepath.Dir(scriptPath)
-	buildCmd.Stderr = os.Stderr
-	buildCmd.Stdout = os.Stdout
-	if err := buildCmd.Run(); err != nil {
-		log.Error(err)
-		return 1
-	}
+		testExe = filepath.Join(testDir, "pid-server")
 
-	socketPath = filepath.Join(testDir, "socket")
+		buildCmd := exec.Command("go", "build", "-o", testExe, scriptPath)
+		buildCmd.Dir = filepath.Dir(scriptPath)
+		buildCmd.Stderr = os.Stderr
+		buildCmd.Stdout = os.Stdout
+		if err := buildCmd.Run(); err != nil {
+			return err
+		}
 
-	return m.Run()
+		socketPath = filepath.Join(testDir, "socket")
+
+		return nil
+	}))
 }
 
 func TestRespawnAfterCrashWithoutCircuitBreaker(t *testing.T) {

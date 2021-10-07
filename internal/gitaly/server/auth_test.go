@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
 	"testing"
 	"time"
 
@@ -39,14 +38,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	os.Exit(testMain(m))
-}
-
-func testMain(m *testing.M) int {
-	defer testhelper.MustHaveNoChildProcess()
-	cleanup := testhelper.Configure()
-	defer cleanup()
-	return m.Run()
+	testhelper.Run(m)
 }
 
 func TestSanity(t *testing.T) {
@@ -202,6 +194,7 @@ func runServer(t *testing.T, cfg config.Cfg) string {
 	), cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	catfileCache := catfile.NewCache(cfg)
+	t.Cleanup(catfileCache.Stop)
 	diskCache := cache.New(cfg, locator)
 
 	srv, err := New(false, cfg, testhelper.DiscardTestEntry(t), registry, diskCache)
@@ -255,6 +248,7 @@ func TestUnaryNoAuth(t *testing.T) {
 	path := runServer(t, cfg)
 	conn, err := grpc.Dial(path, grpc.WithInsecure())
 	require.NoError(t, err)
+	defer testhelper.MustClose(t, conn)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

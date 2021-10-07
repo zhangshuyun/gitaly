@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -221,35 +220,6 @@ func TestCache_scope(t *testing.T) {
 	}
 }
 
-type clock struct {
-	n int
-	sync.Mutex
-	*sync.Cond
-}
-
-func newClock() *clock {
-	cl := &clock{}
-	cl.Cond = sync.NewCond(cl)
-	return cl
-}
-
-func (cl *clock) wait() {
-	cl.Lock()
-	defer cl.Unlock()
-
-	for old := cl.n; old == cl.n; {
-		cl.Cond.Wait()
-	}
-}
-
-func (cl *clock) advance() {
-	cl.Lock()
-	defer cl.Unlock()
-
-	cl.n++
-	cl.Cond.Broadcast()
-}
-
 func TestCache_diskCleanup(t *testing.T) {
 	tmp := testhelper.TempDir(t)
 
@@ -257,8 +227,11 @@ func TestCache_diskCleanup(t *testing.T) {
 		key = "test key"
 	)
 
-	cl := newClock()
-	c := newCacheWithSleep(tmp, 0, func(time.Duration) { cl.wait() }, log.Default())
+	timerCh := make(chan time.Time)
+
+	c := newCacheWithSleep(tmp, 0, func(time.Duration) <-chan time.Time {
+		return timerCh
+	}, log.Default())
 	defer c.Stop()
 
 	content := func(i int) string { return fmt.Sprintf("content %d", i) }
@@ -278,7 +251,7 @@ func TestCache_diskCleanup(t *testing.T) {
 	requireCacheEntries(t, c, 1)
 
 	// Unblock cleanup goroutines so they run exactly once
-	cl.advance()
+	close(timerCh)
 	// Give them time to do their work
 	time.Sleep(10 * time.Millisecond)
 

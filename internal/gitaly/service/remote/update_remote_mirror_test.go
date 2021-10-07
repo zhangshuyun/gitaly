@@ -564,6 +564,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 					cmdFactory,
 					deps.GetCatfileCache(),
 					deps.GetTxManager(),
+					deps.GetConnsPool(),
 				))
 			})
 
@@ -632,6 +633,7 @@ func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
 			deps.GetTxManager(),
+			deps.GetConnsPool(),
 		))
 	})
 
@@ -734,6 +736,7 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithWildcards(t *testing.T) {
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
 			deps.GetTxManager(),
+			deps.GetConnsPool(),
 		))
 	})
 
@@ -817,6 +820,7 @@ func TestUpdateRemoteMirrorInmemory(t *testing.T) {
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
 			deps.GetTxManager(),
+			deps.GetConnsPool(),
 		))
 	})
 
@@ -865,6 +869,7 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T) 
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
 			deps.GetTxManager(),
+			deps.GetConnsPool(),
 		))
 	})
 
@@ -952,6 +957,7 @@ func TestFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T) {
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
 			deps.GetTxManager(),
+			deps.GetConnsPool(),
 		))
 	})
 

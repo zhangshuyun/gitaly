@@ -15,6 +15,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/command/commandcounter"
 	"gitlab.com/gitlab-org/labkit/tracing"
 )
 
@@ -118,15 +119,6 @@ func (c *Command) Wait() error {
 	return c.waitError
 }
 
-var wg = &sync.WaitGroup{}
-
-// WaitAllDone waits for all commands started by the command package to
-// finish. This can only be called once in the lifecycle of the current
-// Go process.
-func WaitAllDone() {
-	wg.Wait()
-}
-
 type contextWithoutDonePanic string
 
 // New creates a Command from an exec.Cmd. On success, the Command
@@ -225,7 +217,7 @@ func New(ctx context.Context, cmd *exec.Cmd, stdin io.Reader, stdout, stderr io.
 
 	// The goroutine below is responsible for terminating and reaping the
 	// process when ctx is canceled.
-	wg.Add(1)
+	commandcounter.Increment()
 	go func() {
 		<-ctx.Done()
 
@@ -277,14 +269,14 @@ func (c *Command) wait() {
 
 	c.logProcessComplete()
 
-	// This is a bit out-of-place here given that the `wg.Add()` call is in `New()`.
-	// But in `New()`, we have to resort waiting on the context being finished until we
+	// This is a bit out-of-place here given that the `commandcounter.Increment()` call is in
+	// `New()`. But in `New()`, we have to resort waiting on the context being finished until we
 	// would be able to decrement the number of in-flight commands. Given that in some
 	// cases we detach processes from their initial context such that they run in the
-	// background, this would cause us to take longer than necessary to decrease the
-	// wait group counter again. So we instead do it here to accelerate the process,
-	// even though it's less idiomatic.
-	wg.Done()
+	// background, this would cause us to take longer than necessary to decrease the wait group
+	// counter again. So we instead do it here to accelerate the process, even though it's less
+	// idiomatic.
+	commandcounter.Decrement()
 }
 
 // ExitStatus will return the exit-code from an error returned by Wait().

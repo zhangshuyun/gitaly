@@ -105,6 +105,7 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 			deps.GetTxManager(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
+			deps.GetConnsPool(),
 		))
 	})
 

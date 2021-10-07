@@ -80,6 +80,7 @@ func TestServerFactory(t *testing.T) {
 	nodeMgr, err := nodes.NewManager(logger, conf, nil, rs, &promtest.MockHistogramVec{}, protoregistry.GitalyProtoPreregistered, nil, clientHandshaker, sidechannelRegistry)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Second)
+	defer nodeMgr.Stop()
 	registry := protoregistry.GitalyProtoPreregistered
 
 	coordinator := NewCoordinator(

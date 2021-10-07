@@ -3,7 +3,6 @@ package updateref
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 
@@ -17,15 +16,10 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	os.Exit(testMain(m))
-}
-
-func testMain(m *testing.M) int {
-	defer testhelper.MustHaveNoChildProcess()
-	cleanup := testhelper.Configure()
-	defer cleanup()
-	hooks.Override = "/"
-	return m.Run()
+	testhelper.Run(m, testhelper.WithSetup(func() error {
+		hooks.Override = "/"
+		return nil
+	}))
 }
 
 func setupUpdater(t *testing.T, ctx context.Context) (config.Cfg, *localrepo.Repo, *Updater) {

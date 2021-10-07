@@ -25,6 +25,10 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 )
 
+func TestMain(m *testing.M) {
+	testhelper.Run(m)
+}
+
 func createNewServer(t *testing.T, cfg config.Cfg) *grpc.Server {
 	logger := testhelper.NewTestLogger(t)
 	logrusEntry := logrus.NewEntry(logger).WithField("test", t.Name())
@@ -47,13 +51,15 @@ func createNewServer(t *testing.T, cfg config.Cfg) *grpc.Server {
 	server := grpc.NewServer(opts...)
 
 	gitCommandFactory := git.NewExecCommandFactory(cfg)
+	catfileCache := catfile.NewCache(cfg)
+	t.Cleanup(catfileCache.Stop)
 
 	gitalypb.RegisterRefServiceServer(server, ref.NewServer(
 		cfg,
 		config.NewLocator(cfg),
 		gitCommandFactory,
 		transaction.NewManager(cfg, backchannel.NewRegistry()),
-		catfile.NewCache(cfg),
+		catfileCache,
 	))
 
 	return server
@@ -66,9 +72,6 @@ func getBufDialer(listener *bufconn.Listener) func(context.Context, string) (net
 }
 
 func TestInterceptor(t *testing.T) {
-	cleanup := testhelper.Configure()
-	defer cleanup()
-
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	logBuffer := &bytes.Buffer{}

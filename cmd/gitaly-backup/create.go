@@ -9,6 +9,7 @@ import (
 	"runtime"
 
 	log "github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backup"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -46,7 +47,10 @@ func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io
 		return fmt.Errorf("create: resolve locator: %w", err)
 	}
 
-	manager := backup.NewManager(sink, locator)
+	pool := client.NewPool()
+	defer pool.Close()
+
+	manager := backup.NewManager(sink, locator, pool)
 
 	var pipeline backup.Pipeline
 	pipeline = backup.NewLoggingPipeline(log.StandardLogger())

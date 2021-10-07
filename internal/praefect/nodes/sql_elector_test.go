@@ -47,6 +47,7 @@ func TestGetPrimaryAndSecondaries(t *testing.T) {
 		"unix://"+internalSocket0,
 		grpc.WithInsecure(),
 	)
+	defer testhelper.MustClose(t, cc0)
 	require.NoError(t, err)
 
 	storageName := "default"
@@ -85,6 +86,7 @@ func TestSqlElector_slow_execution(t *testing.T) {
 		"unix://"+gitalySocket,
 		grpc.WithInsecure(),
 	)
+	defer testhelper.MustClose(t, gitalyConn)
 	require.NoError(t, err)
 
 	gitalyNodeStatus := newConnectionStatus(config.Node{Storage: "gitaly", Address: "gitaly-address"}, gitalyConn, logger, promtest.NewMockHistogramVec(), nil)
@@ -128,6 +130,7 @@ func TestBasicFailover(t *testing.T) {
 		addr0,
 		grpc.WithInsecure(),
 	)
+	defer testhelper.MustClose(t, cc0)
 	require.NoError(t, err)
 
 	addr1 := "unix://" + internalSocket1
@@ -135,6 +138,7 @@ func TestBasicFailover(t *testing.T) {
 		addr1,
 		grpc.WithInsecure(),
 	)
+	defer testhelper.MustClose(t, cc1)
 
 	require.NoError(t, err)
 
@@ -483,6 +487,7 @@ func TestConnectionMultiplexing(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
+	defer mgr.Stop()
 
 	// check the shard to get the primary in a healthy state
 	mgr.checkShards()

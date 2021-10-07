@@ -546,6 +546,7 @@ func TestRemoveRepository(t *testing.T) {
 	)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Hour)
+	defer nodeMgr.Stop()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -812,6 +813,7 @@ func TestProxyWrites(t *testing.T) {
 	nodeMgr, err := nodes.NewManager(entry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Hour)
+	defer nodeMgr.Stop()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -978,6 +980,7 @@ func TestErrorThreshold(t *testing.T) {
 			rs := datastore.MockRepositoryStore{}
 			nodeMgr, err := nodes.NewManager(entry, conf, nil, rs, promtest.NewMockHistogramVec(), registry, errorTracker, nil, nil)
 			require.NoError(t, err)
+			defer nodeMgr.Stop()
 
 			coordinator := NewCoordinator(
 				queue,
@@ -1002,6 +1005,7 @@ func TestErrorThreshold(t *testing.T) {
 
 			conn, err := dial("unix://"+socket, []grpc.DialOption{grpc.WithInsecure()})
 			require.NoError(t, err)
+			defer testhelper.MustClose(t, conn)
 			cli := mock.NewSimpleServiceClient(conn)
 
 			_, repo, _ := testcfg.BuildWithRepo(t)
@@ -1045,6 +1049,7 @@ func newSmartHTTPClient(t *testing.T, serverSocketPath string) (gitalypb.SmartHT
 
 	conn, err := grpc.Dial(serverSocketPath, grpc.WithInsecure())
 	require.NoError(t, err)
+	t.Cleanup(func() { testhelper.MustClose(t, conn) })
 
 	return gitalypb.NewSmartHTTPServiceClient(conn), conn
 }

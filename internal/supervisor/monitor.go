@@ -93,6 +93,10 @@ func monitorHealth(f func() error, events chan<- Event, name string, shutdown <-
 			return
 		}
 
-		time.Sleep(15 * time.Second)
+		select {
+		case <-shutdown:
+			return
+		case <-time.After(15 * time.Second):
+		}
 	}
 }

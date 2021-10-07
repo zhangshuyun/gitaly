@@ -350,6 +350,7 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 
 	if gsd.packObjectsCache == nil {
 		gsd.packObjectsCache = streamcache.New(cfg.PackObjectsCache, gsd.logger)
+		t.Cleanup(gsd.packObjectsCache.Stop)
 	}
 
 	return &service.Dependencies{

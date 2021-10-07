@@ -399,6 +399,8 @@ func TestFindAllTags_nestedTags(t *testing.T) {
 			testhelper.MustRunCommand(t, tags, "xargs", cfg.Git.BinPath, "-C", repoPath, "tag", "-d")
 
 			catfileCache := catfile.NewCache(cfg)
+			defer catfileCache.Stop()
+
 			batch, err := catfileCache.BatchProcess(ctx, repo)
 			require.NoError(t, err)
 
@@ -506,7 +508,10 @@ func TestFindAllTags_sorted(t *testing.T) {
 
 	repoProto, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), catfile.NewCache(cfg), repoProto, cfg)
+	catfileCache := catfile.NewCache(cfg)
+	defer catfileCache.Stop()
+
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), catfileCache, repoProto, cfg)
 	headCommit, err := repo.ReadCommit(ctx, "HEAD")
 	require.NoError(t, err)
 	annotatedTagID, err := repo.WriteTag(ctx, git.ObjectID(headCommit.Id), "commit", []byte("annotated"), []byte("message"), gittest.TestUser, time.Now())
