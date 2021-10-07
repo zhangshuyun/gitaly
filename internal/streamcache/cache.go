@@ -128,14 +128,20 @@ type cache struct {
 // New returns a new cache instance.
 func New(cfg config.StreamCacheConfig, logger logrus.FieldLogger) Cache {
 	if cfg.Enabled {
-		return newCacheWithSleep(cfg.Dir, cfg.MaxAge.Duration(), time.After, logger)
+		return newCacheWithSleep(cfg.Dir, cfg.MaxAge.Duration(), time.After, time.After, logger)
 	}
 
 	return NullCache{}
 }
 
-func newCacheWithSleep(dir string, maxAge time.Duration, sleep func(time.Duration) <-chan time.Time, logger logrus.FieldLogger) Cache {
-	fs := newFilestore(dir, maxAge, sleep, logger)
+func newCacheWithSleep(
+	dir string,
+	maxAge time.Duration,
+	filestoreSleep func(time.Duration) <-chan time.Time,
+	cleanSleep func(time.Duration) <-chan time.Time,
+	logger logrus.FieldLogger,
+) Cache {
+	fs := newFilestore(dir, maxAge, filestoreSleep, logger)
 
 	c := &cache{
 		maxAge:     maxAge,
@@ -148,7 +154,7 @@ func newCacheWithSleep(dir string, maxAge time.Duration, sleep func(time.Duratio
 	}
 
 	c.sleepLoop.Go(func() {
-		sleepLoop(c.stop, c.maxAge, sleep, c.clean)
+		sleepLoop(c.stop, c.maxAge, cleanSleep, c.clean)
 	})
 	go func() {
 		<-c.stop

@@ -227,11 +227,17 @@ func TestCache_diskCleanup(t *testing.T) {
 		key = "test key"
 	)
 
-	timerCh := make(chan time.Time)
+	filestoreCleanTimerCh := make(chan time.Time)
+	filestoreClean := func(time.Duration) <-chan time.Time {
+		return filestoreCleanTimerCh
+	}
 
-	c := newCacheWithSleep(tmp, 0, func(time.Duration) <-chan time.Time {
-		return timerCh
-	}, log.Default())
+	cleanSleepTimerCh := make(chan time.Time)
+	cleanSleep := func(time.Duration) <-chan time.Time {
+		return cleanSleepTimerCh
+	}
+
+	c := newCacheWithSleep(tmp, 0, filestoreClean, cleanSleep, log.Default())
 	defer c.Stop()
 
 	content := func(i int) string { return fmt.Sprintf("content %d", i) }
@@ -251,7 +257,8 @@ func TestCache_diskCleanup(t *testing.T) {
 	requireCacheEntries(t, c, 1)
 
 	// Unblock cleanup goroutines so they run exactly once
-	close(timerCh)
+	cleanSleepTimerCh <- time.Time{}
+	filestoreCleanTimerCh <- time.Time{}
 	// Give them time to do their work
 	time.Sleep(10 * time.Millisecond)
 
