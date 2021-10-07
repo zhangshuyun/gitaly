@@ -13,17 +13,11 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/version"
 )
 
-var (
-	buildGitalyGit2GoOnce    sync.Once
-	buildGitalyLFSSmudgeOnce sync.Once
-	buildGitalyHooksOnce     sync.Once
-	buildGitalySSHOnce       sync.Once
-	buildPraefectOnce        sync.Once
-)
+var buildOnceByName sync.Map
 
 // BuildGitalyGit2Go builds the gitaly-git2go command and installs it into the binary directory.
 func BuildGitalyGit2Go(t testing.TB, cfg config.Cfg) {
-	buildBinary(t, cfg.BinDir, "gitaly-git2go", &buildGitalyGit2GoOnce)
+	buildBinary(t, cfg.BinDir, "gitaly-git2go")
 	// The link is needed because gitaly uses version-named binary.
 	// Please check out https://gitlab.com/gitlab-org/gitaly/-/issues/3647 for more info.
 	if err := os.Link(filepath.Join(cfg.BinDir, "gitaly-git2go"), filepath.Join(cfg.BinDir, "gitaly-git2go-"+version.GetModuleVersion())); err != nil {
@@ -37,25 +31,25 @@ func BuildGitalyGit2Go(t testing.TB, cfg config.Cfg) {
 // BuildGitalyLFSSmudge builds the gitaly-lfs-smudge command and installs it into the binary
 // directory.
 func BuildGitalyLFSSmudge(t *testing.T, cfg config.Cfg) {
-	buildBinary(t, cfg.BinDir, "gitaly-lfs-smudge", &buildGitalyLFSSmudgeOnce)
+	buildBinary(t, cfg.BinDir, "gitaly-lfs-smudge")
 }
 
 // BuildGitalyHooks builds the gitaly-hooks command and installs it into the binary directory.
 func BuildGitalyHooks(t testing.TB, cfg config.Cfg) {
-	buildBinary(t, cfg.BinDir, "gitaly-hooks", &buildGitalyHooksOnce)
+	buildBinary(t, cfg.BinDir, "gitaly-hooks")
 }
 
 // BuildGitalySSH builds the gitaly-ssh command and installs it into the binary directory.
 func BuildGitalySSH(t testing.TB, cfg config.Cfg) {
-	buildBinary(t, cfg.BinDir, "gitaly-ssh", &buildGitalySSHOnce)
+	buildBinary(t, cfg.BinDir, "gitaly-ssh")
 }
 
 // BuildPraefect builds the praefect command and installs it into the binary directory.
 func BuildPraefect(t testing.TB, cfg config.Cfg) {
-	buildBinary(t, cfg.BinDir, "praefect", &buildPraefectOnce)
+	buildBinary(t, cfg.BinDir, "praefect")
 }
 
-func buildBinary(t testing.TB, dstDir, name string, buildOnce *sync.Once) {
+func buildBinary(t testing.TB, dstDir, name string) {
 	require.NotEmpty(t, testDirectory, "you must call testhelper.Configure() first")
 
 	// binsPath is a shared between all tests location where all compiled binaries should be placed
@@ -80,6 +74,10 @@ func buildBinary(t testing.TB, dstDir, name string, buildOnce *sync.Once) {
 		CopyFile(t, binPath, targetPath)
 		require.NoError(t, os.Chmod(targetPath, 0o777))
 	}()
+
+	buildOnceInterface, _ := buildOnceByName.LoadOrStore(name, &sync.Once{})
+	buildOnce, ok := buildOnceInterface.(*sync.Once)
+	require.True(t, ok)
 
 	buildOnce.Do(func() {
 		require.NoError(t, os.MkdirAll(binsPath, os.ModePerm))
