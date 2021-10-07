@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"sync"
 
 	"github.com/opentracing/opentracing-go"
@@ -177,6 +178,10 @@ type objectDataReader struct {
 func (o *objectDataReader) Read(p []byte) (int, error) {
 	o.objectReader.Lock()
 	defer o.objectReader.Unlock()
+
+	if o.closed {
+		return 0, os.ErrClosed
+	}
 
 	n, err := o.r.Read(p)
 	o.objectReader.consume(n)
