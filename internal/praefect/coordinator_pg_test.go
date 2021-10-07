@@ -221,6 +221,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 				protoregistry.GitalyProtoPreregistered,
 				nil,
 				nil,
+				nil,
 			)
 			require.NoError(t, err)
 			defer nodeSet.Close()

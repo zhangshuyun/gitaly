@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/server/auth"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/fieldextractors"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/listenmux"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/cancelhandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/metadatahandler"
@@ -29,10 +30,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/service/server"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/service/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/transactions"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
@@ -40,14 +44,17 @@ import (
 
 // NewBackchannelServerFactory returns a ServerFactory that serves the RefTransactionServer on the backchannel
 // connection.
-func NewBackchannelServerFactory(logger *logrus.Entry, svc gitalypb.RefTransactionServer) backchannel.ServerFactory {
+func NewBackchannelServerFactory(logger *logrus.Entry, refSvc gitalypb.RefTransactionServer, registry *sidechannel.Registry) backchannel.ServerFactory {
 	return func() backchannel.Server {
+		lm := listenmux.New(insecure.NewCredentials())
+		lm.Register(sidechannel.NewServerHandshaker(registry))
 		srv := grpc.NewServer(
 			grpc.UnaryInterceptor(grpcmw.ChainUnaryServer(
 				commonUnaryServerInterceptors(logger)...,
 			)),
+			grpc.Creds(lm),
 		)
-		gitalypb.RegisterRefTransactionServer(srv, svc)
+		gitalypb.RegisterRefTransactionServer(srv, refSvc)
 		grpcprometheus.Register(srv)
 		return srv
 	}
@@ -87,6 +94,7 @@ func NewGRPCServer(
 	assignmentStore AssignmentStore,
 	conns Connections,
 	primaryGetter PrimaryGetter,
+	creds credentials.TransportCredentials,
 	grpcOpts ...grpc.ServerOption,
 ) *grpc.Server {
 	streamInterceptors := []grpc.StreamServerInterceptor{
@@ -121,6 +129,15 @@ func NewGRPCServer(
 			PermitWithoutStream: true,
 		}),
 	}...)
+
+	// Accept backchannel connections so that we can proxy sidechannels
+	// from clients (e.g. Workhorse) to a backend Gitaly server.
+	if creds == nil {
+		creds = insecure.NewCredentials()
+	}
+	lm := listenmux.New(creds)
+	lm.Register(backchannel.NewServerHandshaker(logger, backchannel.NewRegistry(), nil))
+	grpcOpts = append(grpcOpts, grpc.Creds(lm))
 
 	warnDupeAddrs(logger, conf)
 

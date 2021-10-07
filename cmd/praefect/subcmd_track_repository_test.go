@@ -151,7 +151,7 @@ func TestAddRepository_Exec(t *testing.T) {
 			addCmdConf.Failover = tc.failoverConfig
 
 			t.Run("ok", func(t *testing.T) {
-				nodeMgr, err := nodes.NewManager(testhelper.DiscardTestEntry(t), addCmdConf, db.DB, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil)
+				nodeMgr, err := nodes.NewManager(testhelper.DiscardTestEntry(t), addCmdConf, db.DB, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 				require.NoError(t, err)
 				nodeMgr.Start(0, time.Hour)
 

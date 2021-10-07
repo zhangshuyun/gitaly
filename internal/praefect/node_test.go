@@ -74,7 +74,7 @@ func TestDialNodes(t *testing.T) {
 				Storage: "invalid",
 				Address: "unix:non-existent-socket",
 			}),
-		}}, nil, nil, nil,
+		}}, nil, nil, nil, nil,
 	)
 	require.NoError(t, err)
 	defer nodeSet.Close()

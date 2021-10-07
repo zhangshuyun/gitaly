@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes/tracker"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/protoregistry"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/sidechannel"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
 )
@@ -96,12 +97,13 @@ func DialNodes(
 	registry *protoregistry.Registry,
 	errorTracker tracker.ErrorTracker,
 	handshaker client.Handshaker,
+	sidechannelRegistry *sidechannel.Registry,
 ) (NodeSet, error) {
 	set := make(NodeSet, len(virtualStorages))
 	for _, virtualStorage := range virtualStorages {
 		set[virtualStorage.Name] = make(map[string]Node, len(virtualStorage.Nodes))
 		for _, node := range virtualStorage.Nodes {
-			conn, err := nodes.Dial(ctx, node, registry, errorTracker, handshaker)
+			conn, err := nodes.Dial(ctx, node, registry, errorTracker, handshaker, sidechannelRegistry)
 			if err != nil {
 				return nil, fmt.Errorf("dial %q/%q: %w", virtualStorage.Name, node.Storage, err)
 			}

@@ -126,7 +126,7 @@ func defaultTxMgr(conf config.Config) *transactions.Manager {
 }
 
 func defaultNodeMgr(t testing.TB, conf config.Config, rs datastore.RepositoryStore) nodes.Manager {
-	nodeMgr, err := nodes.NewManager(testhelper.DiscardTestEntry(t), conf, nil, rs, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil)
+	nodeMgr, err := nodes.NewManager(testhelper.DiscardTestEntry(t), conf, nil, rs, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Hour)
 	return nodeMgr
@@ -195,6 +195,7 @@ func runPraefectServer(t testing.TB, ctx context.Context, conf config.Config, op
 		opt.withAssignmentStore,
 		opt.withConnections,
 		opt.withPrimaryGetter,
+		nil,
 	)
 
 	listener, port := listenAvailPort(t)

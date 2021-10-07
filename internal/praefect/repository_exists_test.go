@@ -100,6 +100,7 @@ func TestRepositoryExistsHandler(t *testing.T) {
 				nil,
 				nil,
 				nil,
+				nil,
 			)
 			defer srv.Stop()
 

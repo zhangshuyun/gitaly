@@ -480,6 +480,7 @@ func TestConnectionMultiplexing(t *testing.T) {
 		protoregistry.GitalyProtoPreregistered,
 		nil,
 		backchannel.NewClientHandshaker(logger, func() backchannel.Server { return grpc.NewServer() }),
+		nil,
 	)
 	require.NoError(t, err)
 
