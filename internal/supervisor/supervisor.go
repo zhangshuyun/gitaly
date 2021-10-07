@@ -156,9 +156,9 @@ spawnLoop:
 
 		waitCh := make(chan struct{})
 		go func(cmd *exec.Cmd, waitCh chan struct{}) {
-			err := cmd.Wait()
-			close(waitCh)
+			defer close(waitCh)
 
+			err := cmd.Wait()
 			cmd.Stdout.(io.WriteCloser).Close()
 			cmd.Stderr.(io.WriteCloser).Close()
 			logger.WithError(err).Warn("exited")
