@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"runtime"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
@@ -50,7 +51,7 @@ func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io
 	pool := client.NewPool()
 	defer pool.Close()
 
-	manager := backup.NewManager(sink, locator, pool)
+	manager := backup.NewManager(sink, locator, pool, time.Now().UTC().Format("20060102150405"))
 
 	var pipeline backup.Pipeline
 	pipeline = backup.NewLoggingPipeline(log.StandardLogger())

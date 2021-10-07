@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/url"
 	"strings"
-	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
@@ -127,12 +126,12 @@ type Manager struct {
 }
 
 // NewManager creates and returns initialized *Manager instance.
-func NewManager(sink Sink, locator Locator, pool *client.Pool) *Manager {
+func NewManager(sink Sink, locator Locator, pool *client.Pool, backupID string) *Manager {
 	return &Manager{
 		sink:     sink,
 		conns:    pool,
 		locator:  locator,
-		backupID: time.Now().UTC().Format("20060102150405"),
+		backupID: backupID,
 	}
 }
 
