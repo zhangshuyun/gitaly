@@ -235,6 +235,28 @@ var CommitsByID = map[string]*gitalypb.GitCommit{
 		BodySize: 33,
 		TreeId:   "729bb692f55d49149609dd1ceaaf1febbdec7d0d",
 	},
+	"ca47bfd5e930148c42ed74c3b561a8783e381f7f": {
+		Id:     "ca47bfd5e930148c42ed74c3b561a8783e381f7f",
+		TreeId: "a5d06eba4fd37a4f7a39863c226e5ff66010deed",
+		ParentIds: []string{
+			"00850ec866c95e6516fca79614af7a868f6d3f43",
+		},
+		Subject:  []byte("Add Modula-2 source file for language detection"),
+		Body:     []byte("Add Modula-2 source file for language detection\n"),
+		BodySize: 48,
+		Author: &gitalypb.CommitAuthor{
+			Name:     []byte("Jacob Vosmaer"),
+			Email:    []byte("jacob@gitlab.com"),
+			Date:     &timestamppb.Timestamp{Seconds: 1501503403},
+			Timezone: []byte("+0200"),
+		},
+		Committer: &gitalypb.CommitAuthor{
+			Name:     []byte("Ahmad Sherif"),
+			Email:    []byte("me@ahmadsherif.com"),
+			Date:     &timestamppb.Timestamp{Seconds: 1521033060},
+			Timezone: []byte("+0100"),
+		},
+	},
 }
 
 func alejandroRodriguez(ts int64) *gitalypb.CommitAuthor {

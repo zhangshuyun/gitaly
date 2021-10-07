@@ -453,7 +453,7 @@ func testFindLocalBranchesPaginationWithIncorrectToken(t *testing.T, ctx context
 	if featureflag.ExactPaginationTokenMatch.IsEnabled(ctx) {
 		_, err = c.Recv()
 		require.NotEqual(t, err, io.EOF)
-		testhelper.RequireGrpcError(t, err, codes.Internal)
+		testassert.GrpcEqualErr(t, helper.ErrInternalf("could not find page token"), err)
 	} else {
 		require.NoError(t, err)
 
@@ -467,7 +467,26 @@ func testFindLocalBranchesPaginationWithIncorrectToken(t *testing.T, ctx context
 			branches = append(branches, r.GetBranches()...)
 		}
 
-		require.NotEmpty(t, branches)
+		testassert.ProtoEqual(t, []*gitalypb.FindLocalBranchResponse{
+			{
+				Name:          []byte("refs/heads/rebase-encoding-failure-trigger"),
+				Commit:        gittest.CommitsByID["ca47bfd5e930148c42ed74c3b561a8783e381f7f"],
+				CommitId:      "ca47bfd5e930148c42ed74c3b561a8783e381f7f",
+				CommitSubject: []byte("Add Modula-2 source file for language detection"),
+				CommitAuthor: &gitalypb.FindLocalBranchCommitAuthor{
+					Name:     []byte("Jacob Vosmaer"),
+					Email:    []byte("jacob@gitlab.com"),
+					Date:     &timestamppb.Timestamp{Seconds: 1501503403},
+					Timezone: []byte("+0200"),
+				},
+				CommitCommitter: &gitalypb.FindLocalBranchCommitAuthor{
+					Name:     []byte("Ahmad Sherif"),
+					Email:    []byte("me@ahmadsherif.com"),
+					Date:     &timestamppb.Timestamp{Seconds: 1521033060},
+					Timezone: []byte("+0100"),
+				},
+			},
+		}, branches)
 	}
 }
 
