@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v14/client"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -137,8 +138,9 @@ func NewManager(sink Sink, locator Locator, pool *client.Pool, backupID string) 
 
 // CreateRequest is the request to create a backup
 type CreateRequest struct {
-	Server     storage.ServerInfo
-	Repository *gitalypb.Repository
+	Server      storage.ServerInfo
+	Repository  *gitalypb.Repository
+	Incremental bool
 }
 
 // Create creates a repository backup.
@@ -149,24 +151,32 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 		return fmt.Errorf("manager: repository empty: %w", ErrSkipped)
 	}
 
-	full := mgr.locator.BeginFull(ctx, req.Repository, mgr.backupID)
+	var step *Step
+	if req.Incremental {
+		var err error
+		step, err = mgr.locator.BeginIncremental(ctx, req.Repository, mgr.backupID)
+		if err != nil {
+			return fmt.Errorf("manager: %w", err)
+		}
+	} else {
+		step = mgr.locator.BeginFull(ctx, req.Repository, mgr.backupID)
+	}
 
 	refs, err := mgr.listRefs(ctx, req.Server, req.Repository)
 	if err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
-	if err := mgr.writeRefs(ctx, full.RefPath, refs); err != nil {
+	if err := mgr.writeRefs(ctx, step.RefPath, refs); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
-	patterns := mgr.generatePatterns(refs)
-	if err := mgr.writeBundle(ctx, full.BundlePath, req.Server, req.Repository, patterns); err != nil {
+	if err := mgr.writeBundle(ctx, step, req.Server, req.Repository, refs); err != nil {
 		return fmt.Errorf("manager: write bundle: %w", err)
 	}
-	if err := mgr.writeCustomHooks(ctx, full.CustomHooksPath, req.Server, req.Repository); err != nil {
+	if err := mgr.writeCustomHooks(ctx, step.CustomHooksPath, req.Server, req.Repository); err != nil {
 		return fmt.Errorf("manager: write custom hooks: %w", err)
 	}
 
-	if err := mgr.locator.Commit(ctx, full); err != nil {
+	if err := mgr.locator.Commit(ctx, step); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
 
@@ -263,7 +273,7 @@ func (mgr *Manager) createRepository(ctx context.Context, server storage.ServerI
 	return nil
 }
 
-func (mgr *Manager) writeBundle(ctx context.Context, path string, server storage.ServerInfo, repo *gitalypb.Repository, patterns [][]byte) error {
+func (mgr *Manager) writeBundle(ctx context.Context, step *Step, server storage.ServerInfo, repo *gitalypb.Repository, refs []*gitalypb.ListRefsResponse_Reference) error {
 	repoClient, err := mgr.newRepoClient(ctx, server)
 	if err != nil {
 		return err
@@ -275,10 +285,13 @@ func (mgr *Manager) writeBundle(ctx context.Context, path string, server storage
 	c := chunk.New(&createBundleFromRefListSender{
 		stream: stream,
 	})
-	for _, pattern := range patterns {
+	if err := mgr.sendKnownRefs(ctx, step, repo, c); err != nil {
+		return err
+	}
+	for _, ref := range refs {
 		if err := c.Send(&gitalypb.CreateBundleFromRefListRequest{
 			Repository: repo,
-			Patterns:   [][]byte{pattern},
+			Patterns:   [][]byte{ref.GetName()},
 		}); err != nil {
 			return err
 		}
@@ -294,9 +307,51 @@ func (mgr *Manager) writeBundle(ctx context.Context, path string, server storage
 		return resp.GetData(), err
 	})
 
-	if err := mgr.sink.Write(ctx, path, bundle); err != nil {
+	if err := mgr.sink.Write(ctx, step.BundlePath, bundle); err != nil {
+		var errGRPCStatus interface {
+			Error() string
+			GRPCStatus() *status.Status
+		}
+		if errors.As(err, &errGRPCStatus) && errGRPCStatus.GRPCStatus().Code() == codes.FailedPrecondition {
+			return fmt.Errorf("%T write: %w: no changes to bundle", mgr.sink, ErrSkipped)
+		}
 		return fmt.Errorf("%T write: %w", mgr.sink, err)
 	}
+	return nil
+}
+
+// sendKnownRefs sends the negated targets of each ref that had previously been
+// backed up. This ensures that git-bundle stops traversing commits once it
+// finds the commits that were previously backed up.
+func (mgr *Manager) sendKnownRefs(ctx context.Context, step *Step, repo *gitalypb.Repository, c *chunk.Chunker) error {
+	if len(step.PreviousRefPath) == 0 {
+		return nil
+	}
+
+	reader, err := mgr.sink.GetReader(ctx, step.PreviousRefPath)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+
+	d := NewRefsDecoder(reader)
+	for {
+		var ref git.Reference
+
+		if err := d.Decode(&ref); err == io.EOF {
+			break
+		} else if err != nil {
+			return err
+		}
+
+		if err := c.Send(&gitalypb.CreateBundleFromRefListRequest{
+			Repository: repo,
+			Patterns:   [][]byte{[]byte("^" + ref.Target)},
+		}); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -470,14 +525,6 @@ func (mgr *Manager) writeRefs(ctx context.Context, path string, refs []*gitalypb
 	}
 
 	return nil
-}
-
-func (mgr *Manager) generatePatterns(refs []*gitalypb.ListRefsResponse_Reference) [][]byte {
-	var patterns [][]byte
-	for _, ref := range refs {
-		patterns = append(patterns, ref.GetName())
-	}
-	return patterns
 }
 
 func (mgr *Manager) newRepoClient(ctx context.Context, server storage.ServerInfo) (gitalypb.RepositoryServiceClient, error) {
