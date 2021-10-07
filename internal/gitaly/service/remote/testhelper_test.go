@@ -31,6 +31,7 @@ func setupRemoteService(t *testing.T, opts ...testserver.GitalyServerOpt) (confi
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
 			deps.GetTxManager(),
+			deps.GetConnsPool(),
 		))
 	}, opts...)
 	cfg.SocketPath = addr

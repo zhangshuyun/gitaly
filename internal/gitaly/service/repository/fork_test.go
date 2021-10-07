@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
-	gclient "gitlab.com/gitlab-org/gitaly/v14/client"
+	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
@@ -129,7 +129,7 @@ func newSecureRepoClient(t testing.TB, addr, token string, pool *x509.CertPool) 
 		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(token)),
 	}
 
-	conn, err := gclient.Dial(addr, connOpts)
+	conn, err := client.Dial(addr, connOpts)
 	require.NoError(t, err)
 
 	return gitalypb.NewRepositoryServiceClient(conn), conn
@@ -228,9 +228,12 @@ func runSecureServer(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) s
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 
-	gitalypb.RegisterRepositoryServiceServer(server, NewServer(cfg, rubySrv, locator, txManager, gitCmdFactory, catfileCache))
+	connsPool := client.NewPool()
+	t.Cleanup(func() { testhelper.MustClose(t, connsPool) })
+
+	gitalypb.RegisterRepositoryServiceServer(server, NewServer(cfg, rubySrv, locator, txManager, gitCmdFactory, catfileCache, connsPool))
 	gitalypb.RegisterHookServiceServer(server, hookservice.NewServer(cfg, hookManager, gitCmdFactory, nil))
-	gitalypb.RegisterRemoteServiceServer(server, remote.NewServer(cfg, locator, gitCmdFactory, catfileCache, txManager))
+	gitalypb.RegisterRemoteServiceServer(server, remote.NewServer(cfg, locator, gitCmdFactory, catfileCache, txManager, connsPool))
 	gitalypb.RegisterSSHServiceServer(server, ssh.NewServer(cfg, locator, gitCmdFactory, txManager))
 	gitalypb.RegisterRefServiceServer(server, ref.NewServer(cfg, locator, gitCmdFactory, txManager, catfileCache))
 	gitalypb.RegisterCommitServiceServer(server, commit.NewServer(cfg, locator, gitCmdFactory, nil, catfileCache))

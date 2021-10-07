@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
@@ -34,7 +35,17 @@ func (mo *mockOptimizer) OptimizeRepository(ctx context.Context, req *gitalypb.O
 	gitCmdFactory := git.NewExecCommandFactory(mo.cfg)
 	catfileCache := catfile.NewCache(mo.cfg)
 	mo.t.Cleanup(catfileCache.Stop)
-	resp, err := repository.NewServer(mo.cfg, nil, l, transaction.NewManager(mo.cfg, backchannel.NewRegistry()), gitCmdFactory, catfileCache).OptimizeRepository(ctx, req)
+
+	connsPool := client.NewPool()
+	mo.t.Cleanup(func() { testhelper.MustClose(mo.t, connsPool) })
+
+	resp, err := repository.NewServer(mo.cfg, nil, l, transaction.NewManager(
+		mo.cfg,
+		backchannel.NewRegistry()),
+		gitCmdFactory,
+		catfileCache,
+		connsPool,
+	).OptimizeRepository(ctx, req)
 	assert.NoError(mo.t, err)
 	return resp, err
 }

@@ -90,6 +90,7 @@ func runOperationServiceServer(t testing.TB, cfg config.Cfg, rubySrv *rubyserver
 			deps.GetTxManager(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
+			deps.GetConnsPool(),
 		))
 		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(
 			deps.GetCfg(),

@@ -27,19 +27,23 @@ type server struct {
 }
 
 // NewServer creates a new instance of a grpc ConflictsServer
-func NewServer(cfg config.Cfg, hookManager hook.Manager, locator storage.Locator, gitCmdFactory git.CommandFactory, catfileCache catfile.Cache) gitalypb.ConflictsServiceServer {
+func NewServer(
+	cfg config.Cfg,
+	hookManager hook.Manager,
+	locator storage.Locator,
+	gitCmdFactory git.CommandFactory,
+	catfileCache catfile.Cache,
+	connsPool *client.Pool,
+) gitalypb.ConflictsServiceServer {
 	return &server{
 		cfg:           cfg,
 		hookManager:   hookManager,
 		locator:       locator,
 		gitCmdFactory: gitCmdFactory,
 		catfileCache:  catfileCache,
-		pool: client.NewPoolWithOptions(
-			client.WithDialer(client.HealthCheckDialer(client.DialContext)),
-			client.WithDialOptions(client.FailOnNonTempDialError()...),
-		),
-		updater: updateref.NewUpdaterWithHooks(cfg, hookManager, gitCmdFactory, catfileCache),
-		git2go:  git2go.NewExecutor(cfg, locator),
+		pool:          connsPool,
+		updater:       updateref.NewUpdaterWithHooks(cfg, hookManager, gitCmdFactory, catfileCache),
+		git2go:        git2go.NewExecutor(cfg, locator),
 	}
 }
 

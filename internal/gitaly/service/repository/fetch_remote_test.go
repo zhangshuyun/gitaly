@@ -209,6 +209,7 @@ func TestFetchRemote_transaction(t *testing.T) {
 			deps.GetTxManager(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
+			deps.GetConnsPool(),
 		))
 	}, testserver.WithTransactionManager(txManager))
 

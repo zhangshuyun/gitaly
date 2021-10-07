@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
@@ -210,6 +211,9 @@ func TestSearchFilesByContentFailure(t *testing.T) {
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 
+	connsPool := client.NewPool()
+	defer testhelper.MustClose(t, connsPool)
+
 	server := NewServer(
 		cfg,
 		nil,
@@ -217,6 +221,7 @@ func TestSearchFilesByContentFailure(t *testing.T) {
 		transaction.NewManager(cfg, backchannel.NewRegistry()),
 		gitCommandFactory,
 		catfileCache,
+		connsPool,
 	)
 
 	testCases := []struct {
@@ -335,6 +340,9 @@ func TestSearchFilesByNameFailure(t *testing.T) {
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 
+	connsPool := client.NewPool()
+	defer testhelper.MustClose(t, connsPool)
+
 	server := NewServer(
 		cfg,
 		nil,
@@ -342,6 +350,7 @@ func TestSearchFilesByNameFailure(t *testing.T) {
 		transaction.NewManager(cfg, backchannel.NewRegistry()),
 		gitCommandFactory,
 		catfileCache,
+		connsPool,
 	)
 
 	testCases := []struct {
