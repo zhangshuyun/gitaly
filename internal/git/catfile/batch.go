@@ -2,10 +2,9 @@ package catfile
 
 import (
 	"context"
-	"sync"
+	"fmt"
+	"io"
 
-	"github.com/opentracing/opentracing-go"
-	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 )
 
@@ -28,69 +27,18 @@ type Batch interface {
 }
 
 type batch struct {
-	*objectInfoReader
-	*objectReader
-
-	closedMutex sync.Mutex
-	closed      bool
+	objectReader     ObjectReader
+	objectInfoReader ObjectInfoReader
 }
 
-func newBatch(
-	ctx context.Context,
-	repo git.RepositoryExecutor,
-	counter *prometheus.CounterVec,
-) (_ *batch, returnedErr error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "catfile.Batch")
-	go func() {
-		<-ctx.Done()
-		span.Finish()
-	}()
-
-	objectReader, err := newObjectReader(ctx, repo, counter)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		// If creation of the ObjectInfoReader fails, then we do not want to leak the
-		// ObjectReader process.
-		if returnedErr != nil {
-			objectReader.Close()
-		}
-	}()
-
-	objectInfoReader, err := newObjectInfoReader(ctx, repo, counter)
-	if err != nil {
-		return nil, err
-	}
-
-	return &batch{objectReader: objectReader, objectInfoReader: objectInfoReader}, nil
-}
-
-// Close closes the writers for objectInfoReader and objectReader. This is only used for cached
-// Batches
-func (c *batch) Close() {
-	c.closedMutex.Lock()
-	defer c.closedMutex.Unlock()
-
-	if c.closed {
-		return
-	}
-
-	c.closed = true
-	c.objectReader.Close()
-	c.objectInfoReader.Close()
-}
-
-func (c *batch) isClosed() bool {
-	c.closedMutex.Lock()
-	defer c.closedMutex.Unlock()
-	return c.closed
+func newBatch(objectReader ObjectReader, objectInfoReader ObjectInfoReader) *batch {
+	return &batch{objectReader: objectReader, objectInfoReader: objectInfoReader}
 }
 
 // Info returns an ObjectInfo if spec exists. If the revision does not exist
 // the error is of type NotFoundError.
 func (c *batch) Info(ctx context.Context, revision git.Revision) (*ObjectInfo, error) {
-	return c.objectInfoReader.info(ctx, revision)
+	return c.objectInfoReader.Info(ctx, revision)
 }
 
 // Tree returns a raw tree object. It is an error if the revision does not
@@ -98,7 +46,7 @@ func (c *batch) Info(ctx context.Context, revision git.Revision) (*ObjectInfo, e
 // the object type. Caller must consume the Reader before making another call
 // on C.
 func (c *batch) Tree(ctx context.Context, revision git.Revision) (*Object, error) {
-	return c.objectReader.reader(ctx, revision, "tree")
+	return c.typedObjectReader(ctx, revision, "tree")
 }
 
 // Commit returns a raw commit object. It is an error if the revision does not
@@ -106,7 +54,7 @@ func (c *batch) Tree(ctx context.Context, revision git.Revision) (*Object, error
 // check the object type. Caller must consume the Reader before making another
 // call on C.
 func (c *batch) Commit(ctx context.Context, revision git.Revision) (*Object, error) {
-	return c.objectReader.reader(ctx, revision, "commit")
+	return c.typedObjectReader(ctx, revision, "commit")
 }
 
 // Blob returns a reader for the requested blob. The entire blob must be
@@ -115,11 +63,30 @@ func (c *batch) Commit(ctx context.Context, revision git.Revision) (*Object, err
 // It is an error if the revision does not point to a blob. To prevent this,
 // use Info to resolve the revision and check the object type.
 func (c *batch) Blob(ctx context.Context, revision git.Revision) (*Object, error) {
-	return c.objectReader.reader(ctx, revision, "blob")
+	return c.typedObjectReader(ctx, revision, "blob")
 }
 
 // Tag returns a raw tag object. Caller must consume the Reader before
 // making another call on C.
 func (c *batch) Tag(ctx context.Context, revision git.Revision) (*Object, error) {
-	return c.objectReader.reader(ctx, revision, "tag")
+	return c.typedObjectReader(ctx, revision, "tag")
+}
+
+func (c *batch) typedObjectReader(ctx context.Context, revision git.Revision, expectedType string) (*Object, error) {
+	object, err := c.objectReader.Object(ctx, revision)
+	if err != nil {
+		return nil, err
+	}
+
+	if object.Type != expectedType {
+		if _, err := io.Copy(io.Discard, object); err != nil {
+			return nil, fmt.Errorf("discarding object: %w", err)
+		}
+
+		return nil, NotFoundError{
+			error: fmt.Errorf("expected %s to be a %s, got %s", object.Oid, expectedType, object.Type),
+		}
+	}
+
+	return object, nil
 }

@@ -69,6 +69,14 @@ func ParseObjectInfo(stdout *bufio.Reader) (*ObjectInfo, error) {
 	}, nil
 }
 
+// ObjectInfoReader returns information about an object referenced by a given revision.
+type ObjectInfoReader interface {
+	cacheable
+
+	// Info requests information about the revision pointed to by the given revision.
+	Info(context.Context, git.Revision) (*ObjectInfo, error)
+}
+
 // objectInfoReader is a reader for Git object information. This reader is implemented via a
 // long-lived  `git cat-file --batch-check` process such that we do not have to spawn a separate
 // process per object info we're about to read.
@@ -76,6 +84,8 @@ type objectInfoReader struct {
 	cmd    *command.Command
 	stdout *bufio.Reader
 	sync.Mutex
+
+	closed bool
 
 	// creationCtx is the context in which this reader has been created. This context may
 	// potentially be decorrelated from the "real" RPC context in case the reader is going to be
@@ -113,18 +123,34 @@ func newObjectInfoReader(
 	go func() {
 		<-ctx.Done()
 		// This is crucial to prevent leaking file descriptors.
-		objectInfoReader.Close()
+		objectInfoReader.close()
 		span.Finish()
 	}()
 
 	return objectInfoReader, nil
 }
 
-func (o *objectInfoReader) Close() {
+func (o *objectInfoReader) close() {
+	o.Lock()
+	defer o.Unlock()
+
 	_ = o.cmd.Wait()
+
+	o.closed = true
 }
 
-func (o *objectInfoReader) info(ctx context.Context, revision git.Revision) (*ObjectInfo, error) {
+func (o *objectInfoReader) isClosed() bool {
+	o.Lock()
+	defer o.Unlock()
+	return o.closed
+}
+
+func (o *objectInfoReader) isDirty() bool {
+	// We always consume object info directly, so the reader cannot ever be dirty.
+	return false
+}
+
+func (o *objectInfoReader) Info(ctx context.Context, revision git.Revision) (*ObjectInfo, error) {
 	finish := startSpan(o.creationCtx, ctx, "Batch.Info", revision)
 	defer finish()
 

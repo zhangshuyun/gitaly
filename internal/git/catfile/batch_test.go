@@ -351,7 +351,7 @@ func TestSpawnFailure(t *testing.T) {
 		waitTrue(func() bool { return numGitChildren(t) == 0 }),
 		"test setup: wait for there to be 0 git children",
 	)
-	require.Equal(t, 0, cacheSize(cache), "sanity check: cache empty")
+	require.Equal(t, 0, cache.objectReaders.EntryCount()+cache.objectInfoReaders.EntryCount(), "sanity check: cache empty")
 
 	ctx1, cancel1 := testhelper.Context()
 	defer cancel1()
@@ -365,14 +365,16 @@ func TestSpawnFailure(t *testing.T) {
 
 	require.True(
 		t,
-		waitTrue(func() bool { return cacheSize(cache) == 1 }),
+		waitTrue(func() bool {
+			return cache.objectReaders.EntryCount() == 1 && cache.objectInfoReaders.EntryCount() == 1
+		}),
 		"1 cache entry, meaning 2 processes, should be in the cache now",
 	)
 
 	require.Equal(t, 2, numGitChildren(t), "there should still be 2 git child processes")
 
 	cache.Evict()
-	require.Equal(t, 0, cacheSize(cache), "the cache should be empty now")
+	require.Equal(t, 0, cache.objectReaders.EntryCount()+cache.objectInfoReaders.EntryCount(), "the cache should be empty now")
 
 	require.True(
 		t,
@@ -432,10 +434,4 @@ func numGitChildren(t *testing.T) int {
 	}
 
 	return bytes.Count(out, []byte("\n"))
-}
-
-func cacheSize(bc *BatchCache) int {
-	bc.entriesMutex.Lock()
-	defer bc.entriesMutex.Unlock()
-	return bc.len()
 }

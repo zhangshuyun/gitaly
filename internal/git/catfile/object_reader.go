@@ -21,6 +21,15 @@ type Object struct {
 	io.Reader
 }
 
+// ObjectReader is a reader for Git objects.
+type ObjectReader interface {
+	cacheable
+
+	// Reader returns a new Object for the given revision. The Object must be fully consumed
+	// before another object is requested.
+	Object(_ context.Context, _ git.Revision) (*Object, error)
+}
+
 // objectReader is a reader for Git objects. Reading is implemented via a long-lived `git cat-file
 // --batch` process such that we do not have to spawn a new process for each object we are about to
 // read.
@@ -40,6 +49,8 @@ type objectReader struct {
 	// instead of doing unsafe memory writes (to n) and failing in some
 	// unpredictable way.
 	sync.Mutex
+
+	closed bool
 
 	// creationCtx is the context in which this reader has been created. This context may
 	// potentially be decorrelated from the "real" RPC context in case the reader is going to be
@@ -76,28 +87,34 @@ func newObjectReader(
 	}
 	go func() {
 		<-ctx.Done()
-		objectReader.Close()
+		objectReader.close()
 		span.Finish()
 	}()
 
 	return objectReader, nil
 }
 
-func (o *objectReader) Close() {
+func (o *objectReader) close() {
+	o.Lock()
+	defer o.Unlock()
+
 	_ = o.cmd.Wait()
+
+	o.closed = true
 }
 
-func (o *objectReader) reader(
+func (o *objectReader) isClosed() bool {
+	o.Lock()
+	defer o.Unlock()
+	return o.closed
+}
+
+func (o *objectReader) Object(
 	ctx context.Context,
 	revision git.Revision,
-	expectedType string,
 ) (*Object, error) {
-	finish := startSpan(o.creationCtx, ctx, fmt.Sprintf("Batch.Object(%s)", expectedType), revision)
+	finish := startSpan(o.creationCtx, ctx, "Batch.Object", revision)
 	defer finish()
-
-	if o.counter != nil {
-		o.counter.WithLabelValues(expectedType).Inc()
-	}
 
 	o.Lock()
 	defer o.Unlock()
@@ -123,18 +140,11 @@ func (o *objectReader) reader(
 		return nil, err
 	}
 
-	o.n = oi.Size + 1
-
-	if oi.Type != expectedType {
-		// This is a programmer error and it should never happen. But if it does,
-		// we need to leave the cat-file process in a good state
-		if _, err := io.CopyN(io.Discard, o.stdout, o.n); err != nil {
-			return nil, err
-		}
-		o.n = 0
-
-		return nil, NotFoundError{error: fmt.Errorf("expected %s to be a %s, got %s", oi.Oid, expectedType, oi.Type)}
+	if o.counter != nil {
+		o.counter.WithLabelValues(oi.Type).Inc()
 	}
+
+	o.n = oi.Size + 1
 
 	return &Object{
 		ObjectInfo: *oi,
@@ -152,7 +162,7 @@ func (o *objectReader) consume(nBytes int) {
 	}
 }
 
-func (o *objectReader) hasUnreadData() bool {
+func (o *objectReader) isDirty() bool {
 	o.Lock()
 	defer o.Unlock()
 
