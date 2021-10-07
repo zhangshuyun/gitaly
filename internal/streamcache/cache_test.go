@@ -253,7 +253,7 @@ func TestCache_diskCleanup(t *testing.T) {
 	// Unblock cleanup goroutines so they run exactly once
 	close(timerCh)
 	// Give them time to do their work
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 
 	// File and index entry should have been removed by cleanup goroutines.
 	requireCacheFiles(t, tmp, 0)
