@@ -25,11 +25,11 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/x509"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-//go:generate openssl req -newkey rsa:4096 -new -nodes -x509 -days 3650 -out testdata/certs/gitalycert.pem -keyout testdata/gitalykey.pem -subj "/C=US/ST=California/L=San Francisco/O=GitLab/OU=GitLab-Shell/CN=localhost" -addext "subjectAltName = IP:127.0.0.1, DNS:localhost"
 func TestConnectivity(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
@@ -38,8 +38,6 @@ func TestConnectivity(t *testing.T) {
 
 	cwd, err := os.Getwd()
 	require.NoError(t, err)
-
-	certPoolPath := filepath.Join(cwd, "testdata", "certs")
 
 	tempDir := testhelper.TempDir(t)
 
@@ -56,54 +54,58 @@ func TestConnectivity(t *testing.T) {
 
 	testCases := []struct {
 		name  string
-		addr  func(t *testing.T, cfg config.Cfg) string
+		addr  func(t *testing.T, cfg config.Cfg) (string, string)
 		proxy bool
 	}{
 		{
 			name: "tcp",
-			addr: func(t *testing.T, cfg config.Cfg) string {
+			addr: func(t *testing.T, cfg config.Cfg) (string, string) {
 				cfg.ListenAddr = "localhost:0"
-				return runGitaly(t, cfg)
+				return runGitaly(t, cfg), ""
 			},
 		},
 		{
 			name: "unix absolute",
-			addr: func(t *testing.T, cfg config.Cfg) string {
-				return runGitaly(t, cfg)
+			addr: func(t *testing.T, cfg config.Cfg) (string, string) {
+				return runGitaly(t, cfg), ""
 			},
 		},
 		{
 			name: "unix abs with proxy",
-			addr: func(t *testing.T, cfg config.Cfg) string {
-				return runGitaly(t, cfg)
+			addr: func(t *testing.T, cfg config.Cfg) (string, string) {
+				return runGitaly(t, cfg), ""
 			},
 			proxy: true,
 		},
 		{
 			name: "unix relative",
-			addr: func(t *testing.T, cfg config.Cfg) string {
+			addr: func(t *testing.T, cfg config.Cfg) (string, string) {
 				cfg.SocketPath = fmt.Sprintf("unix:%s", relativeSocketPath)
-				return runGitaly(t, cfg)
+				return runGitaly(t, cfg), ""
 			},
 		},
 		{
 			name: "unix relative with proxy",
-			addr: func(t *testing.T, cfg config.Cfg) string {
+			addr: func(t *testing.T, cfg config.Cfg) (string, string) {
 				cfg.SocketPath = fmt.Sprintf("unix:%s", relativeSocketPath)
-				return runGitaly(t, cfg)
+				return runGitaly(t, cfg), ""
 			},
 			proxy: true,
 		},
 		{
 			name: "tls",
-			addr: func(t *testing.T, cfg config.Cfg) string {
+			addr: func(t *testing.T, cfg config.Cfg) (string, string) {
+				certFile, keyFile := testhelper.GenerateCerts(t)
+
+				revertEnv := testhelper.ModifyEnvironment(t, x509.SSLCertFile, certFile)
+				t.Cleanup(revertEnv)
+
 				cfg.TLSListenAddr = "localhost:0"
 				cfg.TLS = config.TLS{
-					// regenerate the test cert and key via `go generate`
-					CertPath: "testdata/certs/gitalycert.pem",
-					KeyPath:  "testdata/gitalykey.pem",
+					CertPath: certFile,
+					KeyPath:  keyFile,
 				}
-				return runGitaly(t, cfg)
+				return runGitaly(t, cfg), certFile
 			},
 		},
 	}
@@ -115,7 +117,7 @@ func TestConnectivity(t *testing.T) {
 	require.NoError(t, err)
 	for _, testcase := range testCases {
 		t.Run(testcase.name, func(t *testing.T) {
-			addr := testcase.addr(t, cfg)
+			addr, certFile := testcase.addr(t, cfg)
 
 			cmd := exec.Command(cfg.Git.BinPath, "ls-remote", "git@localhost:test/test.git", "refs/heads/master")
 			cmd.Stderr = os.Stderr
@@ -125,7 +127,7 @@ func TestConnectivity(t *testing.T) {
 				fmt.Sprintf("GITALY_WD=%s", cwd),
 				fmt.Sprintf("PATH=.:%s", os.Getenv("PATH")),
 				fmt.Sprintf("GIT_SSH_COMMAND=%s upload-pack", filepath.Join(cfg.BinDir, "gitaly-ssh")),
-				fmt.Sprintf("SSL_CERT_DIR=%s", certPoolPath),
+				fmt.Sprintf("SSL_CERT_FILE=%s", certFile),
 			}
 
 			if testcase.proxy {
