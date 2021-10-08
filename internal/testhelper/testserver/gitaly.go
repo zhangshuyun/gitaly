@@ -39,6 +39,18 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
+// praefectSpawnTokens limits the number of concurrent Praefect instances we spawn. With parallel
+// tests, it can happen that we otherwise would spawn so many Praefect executables, with two
+// consequences: first, they eat up all the hosts' memory. Second, they start to saturate Postgres
+// such that new connections start to fail becaue of too many clients. The limit of concurrent
+// instances is not scientifically chosen, but is picked such that tests do not fail on my machine
+// anymore.
+//
+// Note that this only limits concurrency for a single package. If you test multiple packages at
+// once, then these would also run concurrently, leading to `16 * len(packages)` concurrent Praefect
+// instances. To limit this, you can run `go test -p $n` to test at most `$n` concurrent packages.
+var praefectSpawnTokens = make(chan struct{}, 16)
+
 // RunGitalyServer starts gitaly server based on the provided cfg and returns a connection address.
 // It accepts addition Registrar to register all required service instead of
 // calling service.RegisterAll explicitly because it creates a circular dependency
@@ -68,6 +80,11 @@ func createDatabase(t testing.TB) string {
 }
 
 func runPraefectProxy(t testing.TB, cfg config.Cfg, gitalyAddr, praefectBinPath string) (string, func()) {
+	praefectSpawnTokens <- struct{}{}
+	t.Cleanup(func() {
+		<-praefectSpawnTokens
+	})
+
 	tempDir := testhelper.TempDir(t)
 
 	praefectServerSocketPath := "unix://" + testhelper.GetTemporaryGitalySocketFileName(t)
