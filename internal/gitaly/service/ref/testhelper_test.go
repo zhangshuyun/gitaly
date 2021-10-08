@@ -35,11 +35,7 @@ func TestMain(m *testing.M) {
 
 func setupRefService(t testing.TB) (config.Cfg, *gitalypb.Repository, string, gitalypb.RefServiceClient) {
 	cfg, client := setupRefServiceWithoutRepo(t)
-
 	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
-
-	testhelper.BuildGitalyHooks(t, cfg)
-
 	return cfg, repo, repoPath, client
 }
 

@@ -15,10 +15,8 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
-func testSuccessfulWikiFindPageRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+func testSuccessfulWikiFindPageRequest(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
 	wikiRepo, wikiRepoPath := setupWikiRepo(t, cfg)
-
-	client := setupWikiService(t, cfg, rubySrv)
 
 	page1Name := "Home Pagé"
 	page2Name := "Instálling/Step 133-b"
@@ -253,10 +251,8 @@ func testSuccessfulWikiFindPageRequest(t *testing.T, cfg config.Cfg, rubySrv *ru
 	}
 }
 
-func testSuccessfulWikiFindPageSameTitleDifferentPathRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+func testSuccessfulWikiFindPageSameTitleDifferentPathRequest(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
 	wikiRepo, wikiRepoPath := setupWikiRepo(t, cfg)
-
-	client := setupWikiService(t, cfg, rubySrv)
 
 	page1Name := "page1"
 	page1Content := []byte("content " + page1Name)
@@ -450,7 +446,7 @@ func TestInvalidWikiFindPageRequestRevision(t *testing.T) {
 	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 }
 
-func testSuccessfulWikiFindPageRequestWithTrailers(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+func testSuccessfulWikiFindPageRequestWithTrailers(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
 	wikiRepo, worktreePath := gittest.InitRepo(t, cfg, cfg.Storages[0], gittest.InitRepoOpts{
 		WithWorktree: true,
 	})
@@ -462,8 +458,6 @@ func testSuccessfulWikiFindPageRequestWithTrailers(t *testing.T, cfg config.Cfg,
 		"-c", fmt.Sprintf("user.name=%s", committerName),
 		"-c", fmt.Sprintf("user.email=%s", committerEmail),
 		"commit", "--allow-empty", "-m", "master branch, empty commit")
-
-	client := setupWikiService(t, cfg, rubySrv)
 
 	page1Name := "Home Pagé"
 	createTestWikiPage(t, cfg, client, wikiRepo, worktreePath, createWikiPageOpts{title: page1Name})

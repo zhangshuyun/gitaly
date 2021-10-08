@@ -11,11 +11,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
-func testSuccessfulWikiListPagesRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+func testSuccessfulWikiListPagesRequest(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-
-	client := setupWikiService(t, cfg, rubySrv)
 
 	wikiRepo, wikiRepoPath := setupWikiRepo(t, cfg)
 
@@ -63,11 +61,9 @@ func testSuccessfulWikiListPagesRequest(t *testing.T, cfg config.Cfg, rubySrv *r
 	}
 }
 
-func testWikiListPagesSorting(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+func testWikiListPagesSorting(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-
-	client := setupWikiService(t, cfg, rubySrv)
 
 	wikiRepo, wikiRepoPath := setupWikiRepo(t, cfg)
 

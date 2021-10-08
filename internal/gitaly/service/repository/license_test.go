@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -16,7 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
-func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gitalypb.RepositoryServiceClient, rubySrv *rubyserver.Server) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoFindLicense,
 	}).Run(t, func(t *testing.T, ctx context.Context) {
@@ -75,8 +74,6 @@ SOFTWARE.`,
 			},
 		} {
 			t.Run(tc.desc, func(t *testing.T) {
-				client, _ := runRepositoryService(t, cfg, rubySrv)
-
 				repo, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 				var treeEntries []gittest.TreeEntry
@@ -110,23 +107,17 @@ SOFTWARE.`,
 	})
 }
 
-func testFindLicenseRequestEmptyRepo(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+func testFindLicenseRequestEmptyRepo(t *testing.T, cfg config.Cfg, client gitalypb.RepositoryServiceClient, rubySrv *rubyserver.Server) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoFindLicense,
 	}).Run(t, func(t *testing.T, ctx context.Context) {
-		cfg, _, _, client := setupRepositoryServiceWithRuby(t, cfg, rubySrv)
+		repo, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+		require.NoError(t, os.RemoveAll(repoPath))
 
-		emptyRepo := &gitalypb.Repository{
-			RelativePath: "test-liceense-empty-repo.git",
-			StorageName:  cfg.Storages[0].Name,
-		}
-		emptyRepoPath := filepath.Join(cfg.Storages[0].Path, emptyRepo.GetRelativePath())
-		defer require.NoError(t, os.RemoveAll(emptyRepoPath))
-
-		_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: emptyRepo})
+		_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: repo})
 		require.NoError(t, err)
 
-		resp, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: emptyRepo})
+		resp, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: repo})
 		require.NoError(t, err)
 
 		require.Empty(t, resp.GetLicenseShortName())

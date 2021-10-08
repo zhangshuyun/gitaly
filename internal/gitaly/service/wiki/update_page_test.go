@@ -15,14 +15,12 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
-func testSuccessfulWikiUpdatePageRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+func testSuccessfulWikiUpdatePageRequest(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
 	wikiRepoProto, wikiRepoPath := setupWikiRepo(t, cfg)
 	wikiRepo := localrepo.NewTestRepo(t, cfg, wikiRepoProto)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-
-	client := setupWikiService(t, cfg, rubySrv)
 
 	writeWikiPage(t, client, wikiRepoProto, createWikiPageOpts{title: "Instálling Gitaly", content: []byte("foobar")})
 
@@ -110,10 +108,8 @@ func testSuccessfulWikiUpdatePageRequest(t *testing.T, cfg config.Cfg, rubySrv *
 	}
 }
 
-func testFailedWikiUpdatePageDueToValidations(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+func testFailedWikiUpdatePageDueToValidations(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
 	wikiRepo, _ := setupWikiRepo(t, cfg)
-
-	client := setupWikiService(t, cfg, rubySrv)
 
 	writeWikiPage(t, client, wikiRepo, createWikiPageOpts{title: "Installing Gitaly", content: []byte("foobar")})
 

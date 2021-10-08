@@ -12,11 +12,10 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
-func testSuccessfulWikiGetAllPagesRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+func testSuccessfulWikiGetAllPagesRequest(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	client := setupWikiService(t, cfg, rubySrv)
 	wikiRepo, wikiRepoPath := setupWikiRepo(t, cfg)
 
 	expectedPages := createTestWikiPages(t, cfg, client, wikiRepo, wikiRepoPath)
@@ -61,11 +60,10 @@ func testSuccessfulWikiGetAllPagesRequest(t *testing.T, cfg config.Cfg, rubySrv 
 	}
 }
 
-func testWikiGetAllPagesSorting(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+func testWikiGetAllPagesSorting(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	client := setupWikiService(t, cfg, rubySrv)
 	wikiRepo, wikiRepoPath := setupWikiRepo(t, cfg)
 
 	expectedPages := createTestWikiPages(t, cfg, client, wikiRepo, wikiRepoPath)
@@ -166,9 +164,7 @@ func testWikiGetAllPagesSorting(t *testing.T, cfg config.Cfg, rubySrv *rubyserve
 	}
 }
 
-func testFailedWikiGetAllPagesDueToValidation(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	client := setupWikiService(t, cfg, rubySrv)
-
+func testFailedWikiGetAllPagesDueToValidation(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
 	testCases := []struct {
 		desc string
 		req  *gitalypb.WikiGetAllPagesRequest

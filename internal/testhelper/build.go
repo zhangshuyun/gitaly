@@ -80,6 +80,7 @@ func buildBinary(t testing.TB, targetDir, executableName string) {
 	})
 
 	require.FileExists(t, sharedBinaryPath, "%s does not exist", executableName)
+	require.NoFileExists(t, targetPath, "%s exists already -- do you try to build it twice?", executableName)
 
 	require.NoError(t, os.MkdirAll(targetDir, os.ModePerm))
 	CopyFile(t, sharedBinaryPath, targetPath)

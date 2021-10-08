@@ -17,14 +17,12 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
-func testSuccessfulWikiWritePageRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+func testSuccessfulWikiWritePageRequest(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
 	wikiRepoProto, wikiRepoPath := setupWikiRepo(t, cfg)
 	wikiRepo := localrepo.NewTestRepo(t, cfg, wikiRepoProto)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-
-	client := setupWikiService(t, cfg, rubySrv)
 
 	authorID := int32(1)
 	authorUserName := []byte("ahmad")
@@ -115,10 +113,8 @@ func testSuccessfulWikiWritePageRequest(t *testing.T, cfg config.Cfg, rubySrv *r
 	}
 }
 
-func testFailedWikiWritePageDueToDuplicatePage(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+func testFailedWikiWritePageDueToDuplicatePage(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
 	wikiRepo, _ := setupWikiRepo(t, cfg)
-
-	client := setupWikiService(t, cfg, rubySrv)
 
 	pageName := "Installing Gitaly"
 	content := []byte("Mock wiki page content")
@@ -155,10 +151,8 @@ func testFailedWikiWritePageDueToDuplicatePage(t *testing.T, cfg config.Cfg, rub
 	testassert.ProtoEqual(t, expectedResponse, response)
 }
 
-func testFailedWikiWritePageInPathDueToDuplicatePage(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+func testFailedWikiWritePageInPathDueToDuplicatePage(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
 	wikiRepo, _ := setupWikiRepo(t, cfg)
-
-	client := setupWikiService(t, cfg, rubySrv)
 
 	pageName := "foo/Installing Gitaly"
 	content := []byte("Mock wiki page content")

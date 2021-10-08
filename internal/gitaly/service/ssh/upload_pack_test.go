@@ -416,6 +416,10 @@ func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
 func testUploadPackCloneSuccessWithGitProtocol(t *testing.T, opts ...testcfg.Option) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t, opts...)
 
+	readProto, cfg := gittest.EnableGitProtocolV2Support(t, cfg)
+
+	serverSocketPath := runSSHServer(t, cfg)
+
 	testhelper.BuildGitalySSH(t, cfg)
 	testhelper.BuildGitalyHooks(t, cfg)
 
@@ -437,10 +441,6 @@ func testUploadPackCloneSuccessWithGitProtocol(t *testing.T, opts ...testcfg.Opt
 
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
-			readProto, cfg := gittest.EnableGitProtocolV2Support(t, cfg)
-
-			serverSocketPath := runSSHServer(t, cfg)
-
 			cmd := cloneCommand{
 				repository:  repo,
 				command:     tc.cmd,

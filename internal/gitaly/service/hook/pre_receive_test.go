@@ -201,7 +201,7 @@ func allowedHandler(t *testing.T, allowed bool) http.HandlerFunc {
 }
 
 func TestPreReceive_APIErrors(t *testing.T) {
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	t.Parallel()
 
 	testCases := []struct {
 		desc               string
@@ -234,12 +234,14 @@ func TestPreReceive_APIErrors(t *testing.T) {
 		},
 	}
 
-	tmpDir := testhelper.TempDir(t)
-	secretFilePath := filepath.Join(tmpDir, ".gitlab_shell_secret")
-	gitlab.WriteShellSecretFile(t, tmpDir, "token")
-
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
+			cfg, repo, _ := testcfg.BuildWithRepo(t)
+
+			tmpDir := testhelper.TempDir(t)
+			secretFilePath := filepath.Join(tmpDir, ".gitlab_shell_secret")
+			gitlab.WriteShellSecretFile(t, tmpDir, "token")
+
 			mux := http.NewServeMux()
 			mux.Handle("/api/v4/internal/allowed", tc.allowedHandler)
 			mux.Handle("/api/v4/internal/pre_receive", tc.preReceiveHandler)
@@ -368,11 +370,10 @@ exit %d
 }
 
 func TestPreReceiveHook_Primary(t *testing.T) {
-	cfg := testcfg.Build(t)
+	t.Parallel()
 
 	cwd, err := os.Getwd()
 	require.NoError(t, err)
-	cfg.Ruby.Dir = filepath.Join(cwd, "testdata")
 
 	testCases := []struct {
 		desc               string
@@ -431,6 +432,9 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
+			cfg := testcfg.Build(t)
+			cfg.Ruby.Dir = filepath.Join(cwd, "testdata")
+
 			testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 			mux := http.NewServeMux()
