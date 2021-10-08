@@ -186,7 +186,7 @@ func StartGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Serv
 // waitHealthy waits until the server hosted at address becomes healthy. Times out after a fixed
 // amount of time.
 func waitHealthy(t testing.TB, cfg config.Cfg, addr string) {
-	grpcOpts := []grpc.DialOption{grpc.WithInsecure()}
+	var grpcOpts []grpc.DialOption
 	if cfg.Auth.Token != "" {
 		grpcOpts = append(grpcOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)))
 	}
@@ -194,7 +194,7 @@ func waitHealthy(t testing.TB, cfg config.Cfg, addr string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	conn, err := grpc.DialContext(ctx, addr, grpcOpts...)
+	conn, err := client.DialContext(ctx, addr, grpcOpts)
 	require.NoError(t, err)
 	defer testhelper.MustClose(t, conn)
 
