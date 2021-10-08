@@ -49,48 +49,39 @@ func BuildPraefect(t testing.TB, cfg config.Cfg) {
 	buildBinary(t, cfg.BinDir, "praefect")
 }
 
-func buildBinary(t testing.TB, dstDir, name string) {
+func buildBinary(t testing.TB, targetDir, executableName string) {
 	require.NotEmpty(t, testDirectory, "you must call testhelper.Configure() first")
 
-	// binsPath is a shared between all tests location where all compiled binaries should be placed
-	binsPath := filepath.Join(testDirectory, "bins")
-	// binPath is a path to a specific binary file
-	binPath := filepath.Join(binsPath, name)
+	var (
+		// sharedBinariesDir is where all binaries will be compiled into. This directory is
+		// shared between all tests.
+		sharedBinariesDir = filepath.Join(testDirectory, "bins")
+		// sharedBinaryPath is the path to the binary shared between all tests.
+		sharedBinaryPath = filepath.Join(sharedBinariesDir, executableName)
+		// targetPath is the final path where the binary should be copied to.
+		targetPath = filepath.Join(targetDir, executableName)
+	)
 
-	defer func() {
-		if t.Failed() {
-			return
-		}
-
-		targetPath := filepath.Join(dstDir, name)
-
-		// Exit early if the file exists.
-		if _, err := os.Stat(targetPath); err == nil {
-			return
-		}
-
-		// copy compiled binary to the destination folder
-		require.NoError(t, os.MkdirAll(dstDir, os.ModePerm))
-		CopyFile(t, binPath, targetPath)
-		require.NoError(t, os.Chmod(targetPath, 0o777))
-	}()
-
-	buildOnceInterface, _ := buildOnceByName.LoadOrStore(name, &sync.Once{})
+	buildOnceInterface, _ := buildOnceByName.LoadOrStore(executableName, &sync.Once{})
 	buildOnce, ok := buildOnceInterface.(*sync.Once)
 	require.True(t, ok)
 
 	buildOnce.Do(func() {
-		require.NoError(t, os.MkdirAll(binsPath, os.ModePerm))
-		require.NoFileExists(t, binPath, "binary has already been built")
+		require.NoError(t, os.MkdirAll(sharedBinariesDir, os.ModePerm))
+		require.NoFileExists(t, sharedBinaryPath, "binary has already been built")
 
 		MustRunCommand(t, nil,
 			"go",
 			"build",
 			"-tags", "static,system_libgit2",
-			"-o", binPath,
-			fmt.Sprintf("gitlab.com/gitlab-org/gitaly/v14/cmd/%s", name),
+			"-o", sharedBinaryPath,
+			fmt.Sprintf("gitlab.com/gitlab-org/gitaly/v14/cmd/%s", executableName),
 		)
 	})
 
-	require.FileExists(t, binPath, "%s does not exist", name)
+	require.FileExists(t, sharedBinaryPath, "%s does not exist", executableName)
+
+	require.NoError(t, os.MkdirAll(targetDir, os.ModePerm))
+	CopyFile(t, sharedBinaryPath, targetPath)
+	require.NoError(t, os.Chmod(targetPath, 0o755))
 }
