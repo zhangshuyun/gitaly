@@ -436,6 +436,61 @@ func testFindLocalBranchesPagination(t *testing.T, ctx context.Context) {
 	assertContainsLocalBranch(t, branches, branch)
 }
 
+func TestFindLocalBranchesPaginationSequence(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.ExactPaginationTokenMatch,
+	}).Run(t, testFindLocalBranchesPaginationSequence)
+}
+
+func testFindLocalBranchesPaginationSequence(t *testing.T, ctx context.Context) {
+	_, repo, _, client := setupRefService(t)
+
+	limit := 2
+	firstRPCRequest := &gitalypb.FindLocalBranchesRequest{
+		Repository: repo,
+		PaginationParams: &gitalypb.PaginationParameter{
+			Limit: int32(limit),
+		},
+	}
+	c, err := client.FindLocalBranches(ctx, firstRPCRequest)
+	require.NoError(t, err)
+
+	var firstResponseBranches []*gitalypb.FindLocalBranchResponse
+	for {
+		r, err := c.Recv()
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err)
+		firstResponseBranches = append(firstResponseBranches, r.GetBranches()...)
+	}
+
+	require.Len(t, firstResponseBranches, limit)
+
+	secondRPCRequest := &gitalypb.FindLocalBranchesRequest{
+		Repository: repo,
+		PaginationParams: &gitalypb.PaginationParameter{
+			Limit:     1,
+			PageToken: string(firstResponseBranches[0].Name),
+		},
+	}
+	c, err = client.FindLocalBranches(ctx, secondRPCRequest)
+	require.NoError(t, err)
+
+	var secondResponseBranches []*gitalypb.FindLocalBranchResponse
+	for {
+		r, err := c.Recv()
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err)
+		secondResponseBranches = append(secondResponseBranches, r.GetBranches()...)
+	}
+
+	require.Len(t, secondResponseBranches, 1)
+	require.Equal(t, firstResponseBranches[1], secondResponseBranches[0])
+}
+
 func TestFindLocalBranchesPaginationWithIncorrectToken(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.ExactPaginationTokenMatch,
