@@ -38,10 +38,6 @@ func (w commandFactoryWrapper) New(ctx context.Context, repo repository.GitRepo,
 func TestUpdateRemoteMirror(t *testing.T) {
 	t.Parallel()
 
-	cfg := testcfg.Build(t)
-
-	testhelper.BuildGitalyGit2Go(t, cfg)
-
 	type refs map[string][]string
 
 	for _, tc := range []struct {
@@ -499,6 +495,10 @@ func TestUpdateRemoteMirror(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
+
+			cfg := testcfg.Build(t)
+
+			testhelper.BuildGitalyGit2Go(t, cfg)
 
 			mirrorRepoPb, mirrorRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 

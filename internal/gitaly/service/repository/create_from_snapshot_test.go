@@ -148,9 +148,6 @@ func TestCreateRepositoryFromSnapshotFailsIfBadURL(t *testing.T) {
 
 func TestCreateRepositoryFromSnapshotBadRequests(t *testing.T) {
 	t.Parallel()
-	cfg := testcfg.Build(t)
-	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
-	require.NoError(t, os.RemoveAll(repoPath))
 
 	testCases := []struct {
 		desc        string
@@ -187,6 +184,10 @@ func TestCreateRepositoryFromSnapshotBadRequests(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
+			cfg := testcfg.Build(t)
+			repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+			require.NoError(t, os.RemoveAll(repoPath))
+
 			req := &gitalypb.CreateRepositoryFromSnapshotRequest{
 				Repository: repo,
 				HttpUrl:    srv.URL + tc.url,

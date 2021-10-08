@@ -59,10 +59,7 @@ func cfgWithCache(t *testing.T) (config.Cfg, *gitalypb.Repository, string) {
 }
 
 func TestServer_PackObjectsHook(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	cfg, repo, repoPath := cfgWithCache(t)
+	t.Parallel()
 
 	testCases := []struct {
 		desc  string
@@ -83,6 +80,11 @@ func TestServer_PackObjectsHook(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			cfg, repo, repoPath := cfgWithCache(t)
+
 			logger, hook := test.NewNullLogger()
 
 			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithLogger(logger))
@@ -308,7 +310,7 @@ func TestServer_PackObjectsHook_usesCache(t *testing.T) {
 }
 
 func TestServer_PackObjectsHookWithSidechannel(t *testing.T) {
-	cfg, repo, repoPath := cfgWithCache(t)
+	t.Parallel()
 
 	testCases := []struct {
 		desc  string
@@ -329,6 +331,8 @@ func TestServer_PackObjectsHookWithSidechannel(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
+			cfg, repo, repoPath := cfgWithCache(t)
+
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 

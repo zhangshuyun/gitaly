@@ -44,7 +44,9 @@ func TestWithRubySidecar(t *testing.T) {
 	require.NoError(t, rubySrv.Start())
 	t.Cleanup(rubySrv.Stop)
 
-	fs := []func(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server){
+	client := setupWikiService(t, cfg, rubySrv)
+
+	fs := []func(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server){
 		testSuccessfulWikiFindPageRequest,
 		testSuccessfulWikiFindPageSameTitleDifferentPathRequest,
 		testSuccessfulWikiFindPageRequestWithTrailers,
@@ -61,7 +63,7 @@ func TestWithRubySidecar(t *testing.T) {
 	}
 	for _, f := range fs {
 		t.Run(runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(), func(t *testing.T) {
-			f(t, cfg, rubySrv)
+			f(t, cfg, client, rubySrv)
 		})
 	}
 }

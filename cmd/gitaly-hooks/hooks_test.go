@@ -161,6 +161,11 @@ func testHooksPrePostReceive(t *testing.T, cfg config.Cfg, repo *gitalypb.Reposi
 	cfg.Gitlab.HTTPSettings.User = gitlabUser
 	cfg.Gitlab.HTTPSettings.Password = gitlabPassword
 
+	gitlabClient, err := gitlab.NewHTTPClient(logger.Logger(), cfg.Gitlab, cfg.TLS, prometheus.Config{})
+	require.NoError(t, err)
+
+	runHookServiceWithGitlabClient(t, cfg, gitlabClient)
+
 	gitObjectDirRegex := regexp.MustCompile(`(?m)^GIT_OBJECT_DIRECTORY=(.*)$`)
 	gitAlternateObjectDirRegex := regexp.MustCompile(`(?m)^GIT_ALTERNATE_OBJECT_DIRECTORIES=(.*)$`)
 
@@ -169,11 +174,6 @@ func testHooksPrePostReceive(t *testing.T, cfg config.Cfg, repo *gitalypb.Reposi
 	for _, hookName := range hookNames {
 		t.Run(fmt.Sprintf("hookName: %s", hookName), func(t *testing.T) {
 			customHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, hookName)
-
-			gitlabClient, err := gitlab.NewHTTPClient(logger.Logger(), cfg.Gitlab, cfg.TLS, prometheus.Config{})
-			require.NoError(t, err)
-
-			runHookServiceWithGitlabClient(t, cfg, gitlabClient)
 
 			var stderr, stdout bytes.Buffer
 			stdin := bytes.NewBuffer([]byte(changes))
@@ -353,6 +353,8 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 	gitlabClient, err := gitlab.NewHTTPClient(logger.Logger(), cfg.Gitlab, cfg.TLS, prometheus.Config{})
 	require.NoError(t, err)
 
+	runHookServiceWithGitlabClient(t, cfg, gitlabClient)
+
 	customHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
 
 	var stdout, stderr bytes.Buffer
@@ -395,8 +397,6 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			runHookServiceWithGitlabClient(t, cfg, gitlabClient)
-
 			hooksPayload, err := git.NewHooksPayload(
 				cfg,
 				repo,
@@ -661,6 +661,9 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 		Logging: config.Logging{Config: internallog.Config{Dir: logDir}},
 	}))
 
+	logger, hook := test.NewNullLogger()
+	runHookServiceServer(t, cfg, testserver.WithLogger(logger))
+
 	testhelper.BuildGitalyHooks(t, cfg)
 	testhelper.BuildGitalySSH(t, cfg)
 
@@ -692,13 +695,12 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
+			hook.Reset()
+
 			ctx := context.Background()
 			if tc.ctx != nil {
 				ctx = tc.ctx
 			}
-
-			logger, hook := test.NewNullLogger()
-			runHookServiceServer(t, cfg, testserver.WithLogger(logger))
 
 			tempDir := testhelper.TempDir(t)
 

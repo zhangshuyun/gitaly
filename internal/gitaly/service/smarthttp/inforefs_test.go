@@ -286,7 +286,7 @@ type mockStreamer struct {
 	putStream func(context.Context, *gitalypb.Repository, proto.Message, io.Reader) error
 }
 
-func (ms mockStreamer) PutStream(ctx context.Context, repo *gitalypb.Repository, req proto.Message, src io.Reader) error {
+func (ms *mockStreamer) PutStream(ctx context.Context, repo *gitalypb.Repository, req proto.Message, src io.Reader) error {
 	if ms.putStream != nil {
 		return ms.putStream(ctx, repo, req, src)
 	}
@@ -299,7 +299,12 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 	locator := config.NewLocator(cfg)
 	cache := cache.New(cfg, locator)
 
-	gitalyServer := startSmartHTTPServer(t, cfg, withInfoRefCache(newInfoRefCache(cache)))
+	streamer := mockStreamer{
+		Streamer: cache,
+	}
+	mockInfoRefCache := newInfoRefCache(&streamer)
+
+	gitalyServer := startSmartHTTPServer(t, cfg, withInfoRefCache(mockInfoRefCache))
 
 	rpcRequest := &gitalypb.InfoRefsRequest{Repository: repo}
 
@@ -368,20 +373,13 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 	// if an error occurs while putting stream, it should not interrupt
 	// request from being served
 	happened := false
-
-	mockInfoRefCache := newInfoRefCache(mockStreamer{
-		Streamer: cache,
-		putStream: func(context.Context, *gitalypb.Repository, proto.Message, io.Reader) error {
-			happened = true
-			return errors.New("oopsie")
-		},
-	})
-
-	gitalyServer.Shutdown()
-	addr := runSmartHTTPServer(t, cfg, withInfoRefCache(mockInfoRefCache))
+	streamer.putStream = func(context.Context, *gitalypb.Repository, proto.Message, io.Reader) error {
+		happened = true
+		return errors.New("oopsie")
+	}
 
 	invalidateCacheForRepo()
-	assertNormalResponse(addr)
+	assertNormalResponse(gitalyServer.Address())
 	require.True(t, happened)
 }
 
