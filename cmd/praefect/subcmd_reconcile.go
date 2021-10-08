@@ -61,6 +61,8 @@ func getNodeAddress(cfg config.Config) (string, error) {
 		return "unix://" + cfg.SocketPath, nil
 	case cfg.ListenAddr != "":
 		return "tcp://" + cfg.ListenAddr, nil
+	case cfg.TLSListenAddr != "":
+		return "tls://" + cfg.TLSListenAddr, nil
 	default:
 		return "", errors.New("no Praefect address configured")
 	}
