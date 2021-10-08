@@ -65,11 +65,6 @@ func RunGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server
 	testhelper.BuildPraefect(t, cfg)
 
 	praefectAddr, _ := runPraefectProxy(t, cfg, gitalyAddr, filepath.Join(cfg.BinDir, "praefect"))
-
-	// In case we're running with a Praefect proxy, it will use Gitaly's health information to
-	// inform routing decisions. The Gitaly node thus must be healthy.
-	waitHealthy(t, cfg, gitalyAddr)
-
 	return praefectAddr
 }
 
@@ -278,6 +273,8 @@ func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, regi
 	}
 
 	go srv.Serve(listener)
+
+	waitHealthy(t, cfg, addr)
 
 	return srv, addr, gsd.disablePraefect
 }
