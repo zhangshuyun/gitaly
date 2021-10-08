@@ -134,12 +134,14 @@ func runPraefectProxy(t testing.TB, cfg config.Cfg, gitalyAddr, praefectBinPath 
 	cmd.Stdout = os.Stdout
 
 	require.NoError(t, cmd.Start())
+	shutdown := func() { _ = cmd.Process.Kill() }
+	t.Cleanup(func() {
+		shutdown()
+		_ = cmd.Wait()
+	})
 
 	waitHealthy(t, cfg, praefectServerSocketPath)
 
-	t.Cleanup(func() { _ = cmd.Wait() })
-	shutdown := func() { _ = cmd.Process.Kill() }
-	t.Cleanup(shutdown)
 	return praefectServerSocketPath, shutdown
 }
 
