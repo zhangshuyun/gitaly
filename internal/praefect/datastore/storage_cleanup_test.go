@@ -156,7 +156,10 @@ func TestStorageCleanup_AcquireNextStorage(t *testing.T) {
 		check1 := getAllStoragesCleanup(t, db)
 		require.Len(t, check1, 1)
 		require.True(t, check1[0].TriggeredAt.Valid)
-		require.True(t, check1[0].TriggeredAt.Time.After(start), check1[0].TriggeredAt.Time.String(), start.String())
+		require.True(t,
+			check1[0].TriggeredAt.Time.After(start),
+			"%s is not after %s", check1[0].TriggeredAt.Time.String(), start.String(),
+		)
 
 		// Check the goroutine running in the background updates triggered_at column periodically.
 		time.Sleep(time.Second)
@@ -164,7 +167,12 @@ func TestStorageCleanup_AcquireNextStorage(t *testing.T) {
 		check2 := getAllStoragesCleanup(t, db)
 		require.Len(t, check2, 1)
 		require.True(t, check2[0].TriggeredAt.Valid)
-		require.True(t, check2[0].TriggeredAt.Time.After(check1[0].TriggeredAt.Time), check2[0].TriggeredAt.Time.String(), check1[0].TriggeredAt.Time.String())
+		require.True(
+			t,
+			check2[0].TriggeredAt.Time.After(check1[0].TriggeredAt.Time),
+			"%s is not after %s",
+			check2[0].TriggeredAt.Time.String(),
+			check1[0].TriggeredAt.Time.String())
 
 		require.NoError(t, release())
 

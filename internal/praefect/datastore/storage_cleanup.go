@@ -71,13 +71,13 @@ func (ss *StorageCleanup) AcquireNextStorage(ctx context.Context, inactive, upda
 	if err := ss.db.QueryRowContext(
 		ctx,
 		`UPDATE storage_cleanups
-			SET triggered_at = NOW()
+			SET triggered_at = NOW() AT TIME ZONE 'utc'
 			WHERE (virtual_storage, storage) IN (
 				SELECT virtual_storage, storage
 				FROM storage_cleanups
 				WHERE
-					COALESCE(last_run, TO_TIMESTAMP(0)) <= (NOW() - INTERVAL '1 MILLISECOND' * $1)
-					AND COALESCE(triggered_at, TO_TIMESTAMP(0)) <= (NOW() - INTERVAL '1 MILLISECOND' * $2)
+					COALESCE(last_run, TO_TIMESTAMP(0)) <= (NOW() AT TIME ZONE 'utc' - INTERVAL '1 MILLISECOND' * $1)
+					AND COALESCE(triggered_at, TO_TIMESTAMP(0)) <= (NOW() AT TIME ZONE 'utc' - INTERVAL '1 MILLISECOND' * $2)
 				ORDER BY last_run NULLS FIRST, virtual_storage, storage
 				LIMIT 1
 				FOR UPDATE SKIP LOCKED
@@ -111,7 +111,7 @@ func (ss *StorageCleanup) AcquireNextStorage(ctx context.Context, inactive, upda
 				if _, err := ss.db.ExecContext(
 					ctx,
 					`UPDATE storage_cleanups
-					SET triggered_at = NOW()
+					SET triggered_at = NOW() AT TIME ZONE 'utc'
 					WHERE virtual_storage = $1 AND storage = $2`,
 					entry.VirtualStorage, entry.Storage,
 				); err != nil {
@@ -131,7 +131,7 @@ func (ss *StorageCleanup) AcquireNextStorage(ctx context.Context, inactive, upda
 		if _, err := ss.db.ExecContext(
 			ctx,
 			`UPDATE storage_cleanups
-			SET last_run = NOW(), triggered_at = NULL
+			SET last_run = NOW() AT TIME ZONE 'utc', triggered_at = NULL
 			WHERE virtual_storage = $1 AND storage = $2`,
 			entry.VirtualStorage, entry.Storage,
 		); err != nil {
