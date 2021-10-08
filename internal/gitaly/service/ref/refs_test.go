@@ -355,6 +355,12 @@ func TestSuccessfulFindLocalBranches(t *testing.T) {
 }
 
 func TestFindLocalBranches_huge_committer(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.ExactPaginationTokenMatch,
+	}).Run(t, testFindLocalBranchesHugeCommitter)
+}
+
+func testFindLocalBranchesHugeCommitter(t *testing.T, ctx context.Context) {
 	cfg, repo, repoPath, client := setupRefService(t)
 
 	gittest.WriteCommit(t, cfg, repoPath,
@@ -363,9 +369,6 @@ func TestFindLocalBranches_huge_committer(t *testing.T) {
 	)
 
 	rpcRequest := &gitalypb.FindLocalBranchesRequest{Repository: repo}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	c, err := client.FindLocalBranches(ctx, rpcRequest)
 	require.NoError(t, err)
@@ -380,10 +383,13 @@ func TestFindLocalBranches_huge_committer(t *testing.T) {
 }
 
 func TestFindLocalBranchesPagination(t *testing.T) {
-	_, repo, _, client := setupRefService(t)
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.ExactPaginationTokenMatch,
+	}).Run(t, testFindLocalBranchesPagination)
+}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+func testFindLocalBranchesPagination(t *testing.T, ctx context.Context) {
+	_, repo, _, client := setupRefService(t)
 
 	limit := 1
 	rpcRequest := &gitalypb.FindLocalBranchesRequest{
@@ -509,6 +515,12 @@ func isOrderedSubset(subset, set []string) bool {
 }
 
 func TestFindLocalBranchesSort(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.ExactPaginationTokenMatch,
+	}).Run(t, testFindLocalBranchesSort)
+}
+
+func testFindLocalBranchesSort(t *testing.T, ctx context.Context) {
 	testCases := []struct {
 		desc          string
 		relativeOrder []string
@@ -537,8 +549,6 @@ func TestFindLocalBranchesSort(t *testing.T) {
 		t.Run(testCase.desc, func(t *testing.T) {
 			rpcRequest := &gitalypb.FindLocalBranchesRequest{Repository: repo, SortBy: testCase.sortBy}
 
-			ctx, cancel := testhelper.Context()
-			defer cancel()
 			c, err := client.FindLocalBranches(ctx, rpcRequest)
 			require.NoError(t, err)
 
