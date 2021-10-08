@@ -73,6 +73,29 @@ func RunGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server
 	return praefectAddr
 }
 
+// StartGitalyServer creates and runs gitaly (and praefect as a proxy) server.
+func StartGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) GitalyServer {
+	gitalySrv, gitalyAddr, disablePraefect := runGitaly(t, cfg, rubyServer, registrar, opts...)
+
+	if !isPraefectEnabled() || disablePraefect {
+		return GitalyServer{
+			shutdown: gitalySrv.Stop,
+			address:  gitalyAddr,
+		}
+	}
+
+	testhelper.BuildPraefect(t, cfg)
+
+	praefectAddr, shutdownPraefect := runPraefectProxy(t, cfg, gitalyAddr, filepath.Join(cfg.BinDir, "praefect"))
+	return GitalyServer{
+		shutdown: func() {
+			shutdownPraefect()
+			gitalySrv.Stop()
+		},
+		address: praefectAddr,
+	}
+}
+
 // createDatabase create a new database with randomly generated name and returns it back to the caller.
 func createDatabase(t testing.TB) string {
 	db := glsql.NewDB(t)
@@ -160,29 +183,6 @@ func (gs GitalyServer) Shutdown() {
 // Address returns address of the running gitaly (or praefect) service.
 func (gs GitalyServer) Address() string {
 	return gs.address
-}
-
-// StartGitalyServer creates and runs gitaly (and praefect as a proxy) server.
-func StartGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) GitalyServer {
-	gitalySrv, gitalyAddr, disablePraefect := runGitaly(t, cfg, rubyServer, registrar, opts...)
-
-	if !isPraefectEnabled() || disablePraefect {
-		return GitalyServer{
-			shutdown: gitalySrv.Stop,
-			address:  gitalyAddr,
-		}
-	}
-
-	testhelper.BuildPraefect(t, cfg)
-
-	praefectAddr, shutdownPraefect := runPraefectProxy(t, cfg, gitalyAddr, filepath.Join(cfg.BinDir, "praefect"))
-	return GitalyServer{
-		shutdown: func() {
-			shutdownPraefect()
-			gitalySrv.Stop()
-		},
-		address: praefectAddr,
-	}
 }
 
 // waitHealthy waits until the server hosted at address becomes healthy. Times out after a fixed
