@@ -56,16 +56,7 @@ var praefectSpawnTokens = make(chan struct{}, 16)
 // calling service.RegisterAll explicitly because it creates a circular dependency
 // when the function is used in on of internal/gitaly/service/... packages.
 func RunGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) string {
-	_, gitalyAddr, disablePraefect := runGitaly(t, cfg, rubyServer, registrar, opts...)
-
-	if !isPraefectEnabled() || disablePraefect {
-		return gitalyAddr
-	}
-
-	testhelper.BuildPraefect(t, cfg)
-
-	praefectAddr, _ := runPraefectProxy(t, cfg, gitalyAddr, filepath.Join(cfg.BinDir, "praefect"))
-	return praefectAddr
+	return StartGitalyServer(t, cfg, rubyServer, registrar, opts...).Address()
 }
 
 // StartGitalyServer creates and runs gitaly (and praefect as a proxy) server.
