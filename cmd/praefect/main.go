@@ -144,7 +144,12 @@ func main() {
 		logger.Fatalf("%s", err)
 	}
 
-	if err := run(starterConfigs, conf); err != nil {
+	b, err := bootstrap.New()
+	if err != nil {
+		logger.Fatalf("unable to create a bootstrap: %v", err)
+	}
+
+	if err := run(starterConfigs, conf, b, prometheus.DefaultRegisterer); err != nil {
 		logger.Fatalf("%v", err)
 	}
 }
@@ -187,18 +192,18 @@ func configure(conf config.Config) {
 	sentry.ConfigureSentry(version.GetVersion(), conf.Sentry)
 }
 
-func run(cfgs []starter.Config, conf config.Config) error {
-	nodeLatencyHistogram, err := metrics.RegisterNodeLatency(conf.Prometheus)
+func run(cfgs []starter.Config, conf config.Config, b bootstrap.Listener, promreg prometheus.Registerer) error {
+	nodeLatencyHistogram, err := metrics.RegisterNodeLatency(conf.Prometheus, promreg)
 	if err != nil {
 		return err
 	}
 
-	delayMetric, err := metrics.RegisterReplicationDelay(conf.Prometheus)
+	delayMetric, err := metrics.RegisterReplicationDelay(conf.Prometheus, promreg)
 	if err != nil {
 		return err
 	}
 
-	latencyMetric, err := metrics.RegisterReplicationLatency(conf.Prometheus)
+	latencyMetric, err := metrics.RegisterReplicationLatency(conf.Prometheus, promreg)
 	if err != nil {
 		return err
 	}
@@ -385,18 +390,12 @@ func run(cfgs []starter.Config, conf config.Config) error {
 	)
 	metricsCollectors = append(metricsCollectors, transactionManager, coordinator, repl)
 	if db != nil {
-		prometheus.MustRegister(
+		promreg.MustRegister(
 			datastore.NewRepositoryStoreCollector(logger, conf.VirtualStorageNames(), db, conf.Prometheus.ScrapeTimeout),
 		)
 	}
-	prometheus.MustRegister(metricsCollectors...)
+	promreg.MustRegister(metricsCollectors...)
 
-	b, err := bootstrap.New()
-	if err != nil {
-		return fmt.Errorf("unable to create a bootstrap: %v", err)
-	}
-
-	b.StopAction = srvFactory.GracefulStop
 	for _, cfg := range cfgs {
 		srv, err := srvFactory.Create(cfg.IsSecure())
 		if err != nil {
@@ -448,7 +447,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 				conf.StorageNames(),
 				conf.Reconciliation.HistogramBuckets,
 			)
-			prometheus.MustRegister(r)
+			promreg.MustRegister(r)
 			go r.Run(ctx, helper.NewTimerTicker(interval))
 		}
 	}
@@ -476,7 +475,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		logger.Warn(`Repository cleanup background task disabled as "repositories_cleanup.run_interval" is not set or 0.`)
 	}
 
-	return b.Wait(conf.GracefulStopTimeout.Duration())
+	return b.Wait(conf.GracefulStopTimeout.Duration(), srvFactory.GracefulStop)
 }
 
 func getStarterConfigs(conf config.Config) ([]starter.Config, error) {
