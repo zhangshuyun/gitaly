@@ -191,38 +191,21 @@ func waitHealthy(t testing.TB, cfg config.Cfg, addr string) {
 		grpcOpts = append(grpcOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)))
 	}
 
-	conn, err := grpc.Dial(addr, grpcOpts...)
-	require.NoError(t, err)
-	defer conn.Close()
-
-	for i := 0; i < 3; i++ {
-		if IsHealthy(conn, time.Second) {
-			return
-		}
-	}
-
-	require.FailNow(t, "server not yet ready to serve")
-}
-
-// IsHealthy creates a health client to passed in connection and send `Check` request.
-// It waits for `timeout` duration to get response back.
-// It returns `true` only if remote responds with `SERVING` status.
-func IsHealthy(conn *grpc.ClientConn, timeout time.Duration) bool {
-	healthClient := healthpb.NewHealthClient(conn)
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
+	conn, err := grpc.DialContext(ctx, addr, grpcOpts...)
+	require.NoError(t, err)
+	defer testhelper.MustClose(t, conn)
+
+	healthClient := healthpb.NewHealthClient(conn)
+
 	resp, err := healthClient.Check(ctx, &healthpb.HealthCheckRequest{}, grpc.WaitForReady(true))
-	if err != nil {
-		return false
-	}
+	require.NoError(t, err)
 
 	if resp.Status != healthpb.HealthCheckResponse_SERVING {
-		return false
+		require.FailNow(t, "server not yet ready to serve")
 	}
-
-	return true
 }
 
 func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) (*grpc.Server, string, bool) {
