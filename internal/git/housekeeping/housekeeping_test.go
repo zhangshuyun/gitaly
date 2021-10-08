@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
@@ -665,12 +664,14 @@ func TestPerformRepoDoesNotExist(t *testing.T) {
 }
 
 func TestPerform_UnsetConfiguration(t *testing.T) {
-	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
+	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
+	var expectedEntries []string
 	for key, value := range map[string]string{
 		"http.first.extraHeader":  "barfoo",
 		"http.second.extraHeader": "barfoo",
@@ -679,24 +680,17 @@ func TestPerform_UnsetConfiguration(t *testing.T) {
 		"totally.unrelated":       "untouched",
 	} {
 		gittest.Exec(t, cfg, "-C", repoPath, "config", key, value)
+		expectedEntries = append(expectedEntries, strings.ToLower(key)+"="+value)
 	}
 
-	opts, err := repo.Config().GetRegexp(ctx, ".*", git.ConfigGetRegexpOpts{})
-	require.NoError(t, err)
-
-	var filteredOpts []git.ConfigPair
-	for _, opt := range opts {
-		key := strings.ToLower(opt.Key)
-		if key != "http.first.extraheader" && key != "http.second.extraheader" {
-			filteredOpts = append(filteredOpts, opt)
-		}
-	}
+	preimageConfig := gittest.Exec(t, cfg, "-C", repoPath, "config", "--local", "--list")
+	require.Subset(t, strings.Split(string(preimageConfig), "\n"), expectedEntries)
 
 	require.NoError(t, Perform(ctx, repo, nil))
 
-	opts, err = repo.Config().GetRegexp(ctx, ".*", git.ConfigGetRegexpOpts{})
-	require.NoError(t, err)
-	require.Equal(t, filteredOpts, opts)
+	postimageConfig := gittest.Exec(t, cfg, "-C", repoPath, "config", "--local", "--list")
+	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "http.first.extraheader")
+	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "http.second.extraheader")
 }
 
 func TestPerform_UnsetConfiguration_transactional(t *testing.T) {

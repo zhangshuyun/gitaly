@@ -11,9 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
@@ -42,15 +40,8 @@ func TestMidxWrite(t *testing.T) {
 		"multi-pack-index should exist after running MidxRepack",
 	)
 
-	repoCfgPath := filepath.Join(repoPath, "config")
-
-	cfgF, err := os.Open(repoCfgPath)
-	require.NoError(t, err)
-	defer cfgF.Close()
-
-	cfgCmd, err := localrepo.NewTestRepo(t, cfg, repo).Config().GetRegexp(ctx, "core.multipackindex", git.ConfigGetRegexpOpts{})
-	require.NoError(t, err)
-	require.Equal(t, []git.ConfigPair{{Key: "core.multipackindex", Value: "true"}}, cfgCmd)
+	configEntries := gittest.Exec(t, cfg, "-C", repoPath, "config", "--local", "--list")
+	require.NotContains(t, configEntries, "core.muiltipackindex")
 }
 
 func TestMidxRewrite(t *testing.T) {
