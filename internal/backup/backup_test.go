@@ -152,9 +152,7 @@ func TestManager_Restore_praefect(t *testing.T) {
 	gitalyAddr := testserver.RunGitalyServer(t, gitalyCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
 	db := glsql.NewDB(t)
-	var database string
-	require.NoError(t, db.QueryRow(`SELECT current_database()`).Scan(&database))
-	dbConf := glsql.GetDBConfig(t, database)
+	dbConf := glsql.GetDBConfig(t, db.Name)
 
 	conf := praefectConfig.Config{
 		SocketPath: testhelper.GetTemporaryGitalySocketFileName(t),

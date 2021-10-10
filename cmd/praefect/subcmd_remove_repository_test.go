@@ -67,9 +67,7 @@ func TestRemoveRepository_Exec_invalidArgs(t *testing.T) {
 	t.Run("praefect address is not set in config ", func(t *testing.T) {
 		cmd := removeRepository{virtualStorage: "stub", relativePath: "stub", logger: testhelper.NewTestLogger(t)}
 		db := glsql.NewDB(t)
-		var database string
-		require.NoError(t, db.QueryRow(`SELECT current_database()`).Scan(&database))
-		dbConf := glsql.GetDBConfig(t, database)
+		dbConf := glsql.GetDBConfig(t, db.Name)
 		err := cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), config.Config{DB: dbConf})
 		require.EqualError(t, err, "get praefect address from config: no Praefect address configured")
 	})
@@ -84,9 +82,7 @@ func TestRemoveRepository_Exec(t *testing.T) {
 	g2Srv := testserver.StartGitalyServer(t, g2Cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
 	db := glsql.NewDB(t)
-	var database string
-	require.NoError(t, db.QueryRow(`SELECT current_database()`).Scan(&database))
-	dbConf := glsql.GetDBConfig(t, database)
+	dbConf := glsql.GetDBConfig(t, db.Name)
 
 	conf := config.Config{
 		SocketPath: testhelper.GetTemporaryGitalySocketFileName(t),
