@@ -118,29 +118,10 @@ func TestRemoveRepository_Exec(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	createRepo := func(t *testing.T, storageName, relativePath string) *gitalypb.Repository {
-		t.Helper()
-		repo := &gitalypb.Repository{
-			StorageName:  storageName,
-			RelativePath: relativePath,
-		}
-		for i := 0; true; i++ {
-			_, err := repoClient.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: repo})
-			if err != nil {
-				require.Regexp(t, "(no healthy nodes)|(no such file or directory)|(connection refused)", err.Error())
-				require.Less(t, i, 100, "praefect doesn't serve for too long")
-				time.Sleep(50 * time.Millisecond)
-			} else {
-				break
-			}
-		}
-		return repo
-	}
-
 	praefectStorage := conf.VirtualStorages[0].Name
 
 	t.Run("ok", func(t *testing.T) {
-		repo := createRepo(t, praefectStorage, "path/to/test/repo")
+		repo := createRepo(t, ctx, repoClient, praefectStorage, "path/to/test/repo")
 		cmd := &removeRepository{
 			logger:         testhelper.NewTestLogger(t),
 			virtualStorage: repo.StorageName,
@@ -160,7 +141,7 @@ func TestRemoveRepository_Exec(t *testing.T) {
 	})
 
 	t.Run("no info about repository on praefect", func(t *testing.T) {
-		repo := createRepo(t, praefectStorage, "path/to/test/repo")
+		repo := createRepo(t, ctx, repoClient, praefectStorage, "path/to/test/repo")
 		repoStore := datastore.NewPostgresRepositoryStore(db.DB, nil)
 		require.NoError(t, repoStore.DeleteRepository(
 			ctx, repo.StorageName, repo.RelativePath, g1Cfg.Storages[0].Name,
@@ -192,7 +173,7 @@ func TestRemoveRepository_Exec(t *testing.T) {
 	})
 
 	t.Run("one of gitalies is out of service", func(t *testing.T) {
-		repo := createRepo(t, praefectStorage, "path/to/test/repo")
+		repo := createRepo(t, ctx, repoClient, praefectStorage, "path/to/test/repo")
 		g2Srv.Shutdown()
 
 		logger := testhelper.NewTestLogger(t)
