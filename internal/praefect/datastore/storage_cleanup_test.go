@@ -175,6 +175,12 @@ func TestStorageCleanup_AcquireNextStorage(t *testing.T) {
 		require.Len(t, check3, 1)
 		require.False(t, check3[0].TriggeredAt.Valid)
 	})
+
+	t.Run("fail in quarantine", func(t *testing.T) {
+		testhelper.Quarantine(t, "issue-xyz")
+
+		require.True(t, false, "this is supposed to fail in quarantine only")
+	})
 }
 
 func TestStorageCleanup_Exists(t *testing.T) {
