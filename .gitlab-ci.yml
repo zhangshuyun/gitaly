@@ -130,8 +130,6 @@ test:
     - find . -type d \( -path ./_build -o -path ./ruby \) -prune -o -type d -exec chmod a-w {} \;
     - make ${TARGET}
   artifacts:
-    paths:
-      - _build/reports/go-tests-report-go-${GO_VERSION}-git-${GIT_VERSION}.xml
     reports:
       junit: _build/reports/go-tests-report-go-${GO_VERSION}-git-${GIT_VERSION}.xml
   parallel:
