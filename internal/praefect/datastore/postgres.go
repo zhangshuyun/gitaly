@@ -50,7 +50,11 @@ func MigrateDownPlan(conf config.Config, max int) ([]string, error) {
 	}
 	defer db.Close()
 
-	planned, _, err := migrate.PlanMigration(db, sqlMigrateDialect, migrationSource(), migrate.Down, max)
+	migrationSet := migrate.MigrationSet{
+		TableName: migrations.MigrationTableName,
+	}
+
+	planned, _, err := migrationSet.PlanMigration(db, sqlMigrateDialect, migrationSource(), migrate.Down, max)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +75,11 @@ func MigrateDown(conf config.Config, max int) (int, error) {
 	}
 	defer db.Close()
 
-	return migrate.ExecMax(db, sqlMigrateDialect, migrationSource(), migrate.Down, max)
+	migrationSet := migrate.MigrationSet{
+		TableName: migrations.MigrationTableName,
+	}
+
+	return migrationSet.ExecMax(db, sqlMigrateDialect, migrationSource(), migrate.Down, max)
 }
 
 // MigrateStatus returns the status of database migrations. The key of the map
@@ -83,12 +91,16 @@ func MigrateStatus(conf config.Config) (map[string]*MigrationStatusRow, error) {
 	}
 	defer db.Close()
 
+	migrationSet := migrate.MigrationSet{
+		TableName: migrations.MigrationTableName,
+	}
+
 	migrations, err := migrationSource().FindMigrations()
 	if err != nil {
 		return nil, err
 	}
 
-	records, err := migrate.GetMigrationRecords(db, sqlMigrateDialect)
+	records, err := migrationSet.GetMigrationRecords(db, sqlMigrateDialect)
 	if err != nil {
 		return nil, err
 	}

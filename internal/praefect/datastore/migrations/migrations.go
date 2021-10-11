@@ -4,13 +4,10 @@ import (
 	migrate "github.com/rubenv/sql-migrate"
 )
 
-const migrationTableName = "schema_migrations"
+// MigrationTableName is the name of the SQL table used to store migration info.
+const MigrationTableName = "schema_migrations"
 
 var allMigrations []*migrate.Migration
-
-func init() {
-	migrate.SetTable(migrationTableName)
-}
 
 // All returns all migrations defined in the package
 func All() []*migrate.Migration {
