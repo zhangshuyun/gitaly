@@ -17,9 +17,9 @@ import (
 // - https://gitlab.com/gitlab-org/gitlab-foss/blob/master/.gitlab-ci.yml
 // - https://gitlab.com/gitlab-org/gitlab-foss/blob/master/lib/system_check/app/git_version_check.rb
 var minimumVersion = Version{
-	versionString: "2.31.0",
+	versionString: "2.33.0",
 	major:         2,
-	minor:         31,
+	minor:         33,
 	patch:         0,
 	rc:            false,
 
@@ -96,12 +96,6 @@ func (v Version) String() string {
 // supported by Gitaly.
 func (v Version) IsSupported() bool {
 	return !v.LessThan(minimumVersion)
-}
-
-// SupportsObjectTypeFilter checks if a version corresponds to a Git version which supports object
-// type filters.
-func (v Version) SupportsObjectTypeFilter() bool {
-	return !v.LessThan(Version{major: 2, minor: 32, patch: 0})
 }
 
 // FlushesUpdaterefStatus determines whether the given Git version properly flushes status messages

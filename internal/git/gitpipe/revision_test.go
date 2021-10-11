@@ -19,21 +19,8 @@ func TestRevlist(t *testing.T) {
 	repoProto, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	needsObjectTypeFilters := func(t *testing.T) {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
-
-		gitVersion, err := git.CurrentVersion(ctx, git.NewExecCommandFactory(cfg))
-		require.NoError(t, err)
-
-		if !gitVersion.SupportsObjectTypeFilter() {
-			t.Skip("Git does not support object type filters")
-		}
-	}
-
 	for _, tc := range []struct {
 		desc            string
-		precondition    func(t *testing.T)
 		revisions       []string
 		options         []RevlistOption
 		expectedResults []RevisionResult
@@ -346,8 +333,7 @@ func TestRevlist(t *testing.T) {
 			},
 		},
 		{
-			desc:         "tree with blob object type filter",
-			precondition: needsObjectTypeFilters,
+			desc: "tree with blob object type filter",
 			revisions: []string{
 				"79d5f98270ad677c86a7e1ab2baa922958565135",
 			},
@@ -368,8 +354,7 @@ func TestRevlist(t *testing.T) {
 			},
 		},
 		{
-			desc:         "tree with tag object type filter",
-			precondition: needsObjectTypeFilters,
+			desc: "tree with tag object type filter",
 			revisions: []string{
 				"--all",
 			},
@@ -384,8 +369,7 @@ func TestRevlist(t *testing.T) {
 			},
 		},
 		{
-			desc:         "tree with commit object type filter",
-			precondition: needsObjectTypeFilters,
+			desc: "tree with commit object type filter",
 			revisions: []string{
 				"79d5f98270ad677c86a7e1ab2baa922958565135",
 			},
@@ -398,8 +382,7 @@ func TestRevlist(t *testing.T) {
 			},
 		},
 		{
-			desc:         "tree with commit object type filter",
-			precondition: needsObjectTypeFilters,
+			desc: "tree with commit object type filter",
 			revisions: []string{
 				"^refs/heads/master~",
 				"refs/heads/master",
@@ -414,8 +397,7 @@ func TestRevlist(t *testing.T) {
 			},
 		},
 		{
-			desc:         "tree with object type and blob size filter",
-			precondition: needsObjectTypeFilters,
+			desc: "tree with object type and blob size filter",
 			revisions: []string{
 				"79d5f98270ad677c86a7e1ab2baa922958565135",
 			},
@@ -447,10 +429,6 @@ func TestRevlist(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			if tc.precondition != nil {
-				tc.precondition(t)
-			}
-
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
