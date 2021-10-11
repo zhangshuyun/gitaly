@@ -308,7 +308,7 @@ backwards_compatibility_test:
   script:
     - git fetch origin 'refs/tags/*:refs/tags/*'
     - git checkout $(_support/get-previous-minor-release)
-    - git checkout --no-overlay $CI_COMMIT_SHA -- internal/praefect/datastore/migrations
+    - git checkout --no-overlay $CI_COMMIT_SHA -- internal/praefect/datastore/migrations :!internal/praefect/datastore/migrations/migrations.go
     - make test-postgres
 
 lint:
