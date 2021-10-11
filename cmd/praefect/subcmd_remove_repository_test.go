@@ -6,7 +6,6 @@ import (
 	"flag"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/internal/bootstrap"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
@@ -102,9 +102,10 @@ func TestRemoveRepository_Exec(t *testing.T) {
 	starterConfigs, err := getStarterConfigs(conf)
 	require.NoError(t, err)
 	stopped := make(chan struct{})
+	bootstrapper := bootstrap.NewNoop()
 	go func() {
 		defer close(stopped)
-		err := run(starterConfigs, conf)
+		err := run(starterConfigs, conf, bootstrapper)
 		assert.EqualError(t, err, `received signal "terminated"`)
 	}()
 
@@ -226,7 +227,7 @@ func TestRemoveRepository_Exec(t *testing.T) {
 		requireNoDatabaseInfo(t, db, cmd)
 	})
 
-	require.NoError(t, syscall.Kill(syscall.Getpid(), syscall.SIGTERM))
+	bootstrapper.Terminate()
 	<-stopped
 }
 
