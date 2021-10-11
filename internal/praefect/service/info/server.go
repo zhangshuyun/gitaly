@@ -30,7 +30,7 @@ type AssignmentStore interface {
 // `praefect` to `info` packages due to cyclic dependencies.
 type PrimaryGetter interface {
 	// GetPrimary returns the primary storage for a given repository.
-	GetPrimary(ctx context.Context, virtualStorage string, relativePath string) (string, error)
+	GetPrimary(ctx context.Context, repositoryID int64) (string, error)
 }
 
 // Server is a InfoService server

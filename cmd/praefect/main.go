@@ -192,6 +192,12 @@ func configure(conf config.Config) {
 	sentry.ConfigureSentry(version.GetVersion(), conf.Sentry)
 }
 
+type unimplementedPrimaryGetter struct{}
+
+func (unimplementedPrimaryGetter) GetPrimary(context.Context, int64) (string, error) {
+	return "", errors.New("unimplemented")
+}
+
 func run(cfgs []starter.Config, conf config.Config, b bootstrap.Listener, promreg prometheus.Registerer) error {
 	nodeLatencyHistogram, err := metrics.RegisterNodeLatency(conf.Prometheus, promreg)
 	if err != nil {
@@ -341,7 +347,7 @@ func run(cfgs []starter.Config, conf config.Config, b bootstrap.Listener, promre
 		healthChecker = praefect.HealthChecker(nodeMgr)
 		nodeSet = praefect.NodeSetFromNodeManager(nodeMgr)
 		router = praefect.NewNodeManagerRouter(nodeMgr, rs)
-		primaryGetter = nodeMgr
+		primaryGetter = unimplementedPrimaryGetter{}
 		nodeManager = nodeMgr
 
 		nodeMgr.Start(conf.Failover.BootstrapInterval.Duration(), conf.Failover.MonitorInterval.Duration())

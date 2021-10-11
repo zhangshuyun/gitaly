@@ -52,7 +52,7 @@ type Connections map[string]map[string]*grpc.ClientConn
 // PrimaryGetter is an interface for getting a primary of a repository.
 type PrimaryGetter interface {
 	// GetPrimary returns the primary storage for a given repository.
-	GetPrimary(ctx context.Context, virtualStorage string, relativePath string) (string, error)
+	GetPrimary(ctx context.Context, repositoryID int64) (string, error)
 }
 
 // PerRepositoryRouter implements a router that routes requests respecting per repository primary nodes.
@@ -149,7 +149,12 @@ func (r *PerRepositoryRouter) RouteRepositoryAccessor(ctx context.Context, virtu
 	}
 
 	if forcePrimary {
-		primary, err := r.pg.GetPrimary(ctx, virtualStorage, relativePath)
+		repositoryID, err := r.rs.GetRepositoryID(ctx, virtualStorage, relativePath)
+		if err != nil {
+			return RouterNode{}, fmt.Errorf("get repository id: %w", err)
+		}
+
+		primary, err := r.pg.GetPrimary(ctx, repositoryID)
 		if err != nil {
 			return RouterNode{}, fmt.Errorf("get primary: %w", err)
 		}
@@ -186,7 +191,12 @@ func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtua
 		return RepositoryMutatorRoute{}, err
 	}
 
-	primary, err := r.pg.GetPrimary(ctx, virtualStorage, relativePath)
+	repositoryID, err := r.rs.GetRepositoryID(ctx, virtualStorage, relativePath)
+	if err != nil {
+		return RepositoryMutatorRoute{}, fmt.Errorf("get repository id: %w", err)
+	}
+
+	primary, err := r.pg.GetPrimary(ctx, repositoryID)
 	if err != nil {
 		return RepositoryMutatorRoute{}, fmt.Errorf("get primary: %w", err)
 	}
@@ -212,11 +222,6 @@ func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtua
 	assignedStorages, err := r.ag.GetHostAssignments(ctx, virtualStorage, relativePath)
 	if err != nil {
 		return RepositoryMutatorRoute{}, fmt.Errorf("get host assignments: %w", err)
-	}
-
-	repositoryID, err := r.rs.GetRepositoryID(ctx, virtualStorage, relativePath)
-	if err != nil {
-		return RepositoryMutatorRoute{}, fmt.Errorf("get repository id: %w", err)
 	}
 
 	route := RepositoryMutatorRoute{RepositoryID: repositoryID}

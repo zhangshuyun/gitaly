@@ -478,7 +478,7 @@ func TestPerRepositoryElector(t *testing.T) {
 			desc: "repository does not exist",
 			steps: steps{
 				{
-					error:   commonerr.NewRepositoryNotFoundError("virtual-storage-1", "relative-path-1"),
+					error:   commonerr.ErrRepositoryNotFound,
 					primary: noPrimary(),
 				},
 			},
@@ -528,6 +528,8 @@ func TestPerRepositoryElector(t *testing.T) {
 			}
 
 			previousPrimary := ""
+			const repositoryID int64 = 1
+
 			for _, step := range tc.steps {
 				runElection := func(tx *glsql.TxWrapper) (string, *logrus.Entry) {
 					testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect-0": step.healthyNodes})
@@ -535,8 +537,7 @@ func TestPerRepositoryElector(t *testing.T) {
 					logger, hook := test.NewNullLogger()
 					elector := NewPerRepositoryElector(tx)
 
-					primary, err := elector.GetPrimary(
-						ctxlogrus.ToContext(ctx, logrus.NewEntry(logger)), "virtual-storage-1", "relative-path-1")
+					primary, err := elector.GetPrimary(ctxlogrus.ToContext(ctx, logrus.NewEntry(logger)), repositoryID)
 					require.Equal(t, step.error, err)
 					require.Less(t, len(hook.Entries), 2)
 
@@ -570,8 +571,7 @@ func TestPerRepositoryElector(t *testing.T) {
 					require.NotNil(t, logEntry)
 					require.Equal(t, "primary node changed", logEntry.Message)
 					require.Equal(t, logrus.Fields{
-						"virtual_storage":  "virtual-storage-1",
-						"relative_path":    "relative-path-1",
+						"repository_id":    repositoryID,
 						"current_primary":  primary,
 						"previous_primary": previousPrimary,
 					}, logEntry.Data)

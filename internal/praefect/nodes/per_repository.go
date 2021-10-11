@@ -27,29 +27,22 @@ func NewPerRepositoryElector(db glsql.Querier) *PerRepositoryElector {
 
 // GetPrimary returns the primary storage of a repository. If the primary is not a valid primary anymore, an election
 // is attempted. If there are no valid primaries, the current primary is simply demoted.
-func (pr *PerRepositoryElector) GetPrimary(ctx context.Context, virtualStorage, relativePath string) (string, error) {
+func (pr *PerRepositoryElector) GetPrimary(ctx context.Context, repositoryID int64) (string, error) {
 	var current, previous sql.NullString
 	if err := pr.db.QueryRowContext(ctx, `
-WITH repository AS (
-	SELECT repository_id
-	FROM repositories
-	WHERE virtual_storage = $1
-	AND   relative_path   = $2
-),
-
-new AS (
+WITH new AS (
 	UPDATE repositories
 		SET "primary" = (
 			SELECT storage
 			FROM valid_primaries
-			WHERE repository_id = (SELECT repository_id FROM repository)
+			WHERE repository_id = $1
 			ORDER BY random()
 			LIMIT 1
 		)
-	WHERE repository_id = (SELECT repository_id FROM repository)
+	WHERE repository_id = $1
 	AND NOT EXISTS (
 		SELECT FROM valid_primaries
-		WHERE repository_id = (SELECT repository_id FROM repository)
+		WHERE repository_id = $1
 		AND   storage       = repositories."primary"
 	)
 	RETURNING true AS elected, "primary"
@@ -63,14 +56,13 @@ SELECT
 	old.primary
 FROM repositories AS old
 FULL JOIN new ON true
-WHERE repository_id = (SELECT repository_id FROM repository)
+WHERE repository_id = $1
 
 		`,
-		virtualStorage,
-		relativePath,
+		repositoryID,
 	).Scan(&current, &previous); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", commonerr.NewRepositoryNotFoundError(virtualStorage, relativePath)
+			return "", commonerr.ErrRepositoryNotFound
 		}
 
 		return "", fmt.Errorf("scan: %w", err)
@@ -78,8 +70,7 @@ WHERE repository_id = (SELECT repository_id FROM repository)
 
 	if current != previous {
 		ctxlogrus.Extract(ctx).WithFields(logrus.Fields{
-			"virtual_storage":  virtualStorage,
-			"relative_path":    relativePath,
+			"repository_id":    repositoryID,
 			"current_primary":  current.String,
 			"previous_primary": previous.String,
 		}).Info("primary node changed")

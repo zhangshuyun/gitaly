@@ -184,7 +184,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 		},
 		{
 			desc:  "repository not found",
-			error: helper.ErrNotFound(fmt.Errorf("mutator call: route repository mutator: %w", fmt.Errorf("get primary: %w", commonerr.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath)))),
+			error: helper.ErrNotFound(fmt.Errorf("mutator call: route repository mutator: %w", fmt.Errorf("get repository id: %w", commonerr.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath)))),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

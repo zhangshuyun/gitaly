@@ -15,7 +15,12 @@ func (s *Server) RepositoryReplicas(ctx context.Context, in *gitalypb.Repository
 	virtualStorage := in.GetRepository().GetStorageName()
 	relativePath := in.GetRepository().GetRelativePath()
 
-	primary, err := s.primaryGetter.GetPrimary(ctx, virtualStorage, relativePath)
+	repositoryID, err := s.rs.GetRepositoryID(ctx, virtualStorage, relativePath)
+	if err != nil {
+		return nil, fmt.Errorf("get repository id: %q", err)
+	}
+
+	primary, err := s.primaryGetter.GetPrimary(ctx, repositoryID)
 	if err != nil {
 		return nil, fmt.Errorf("get primary: %w", err)
 	}
