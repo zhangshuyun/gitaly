@@ -200,6 +200,16 @@ test:
       - GO_VERSION: "1.17"
         TARGET: [ test-with-proxies, test-with-praefect, race-go ]
 
+test-quarantine:
+  <<: *test_definition
+  <<: *postgres_definition
+  allow_failure: true
+  variables:
+    <<: *postgres_variables
+    QUARANTINE: 1
+  script:
+    - make test
+
 nightly:git:
   <<: *test_definition
   <<: *postgres_definition
