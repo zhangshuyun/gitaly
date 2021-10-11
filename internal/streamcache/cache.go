@@ -123,6 +123,10 @@ type cache struct {
 	logger     logrus.FieldLogger
 	dir        string
 	sleepLoop  *dontpanic.Forever
+
+	// removalCond is a condition that gets signalled after files have been removed from disk.
+	// This field is optional and should only be used for tests.
+	removalCond *sync.Cond
 }
 
 // New returns a new cache instance.
@@ -140,7 +144,7 @@ func newCacheWithSleep(
 	filestoreSleep func(time.Duration) <-chan time.Time,
 	cleanSleep func(time.Duration) <-chan time.Time,
 	logger logrus.FieldLogger,
-) Cache {
+) *cache {
 	fs := newFilestore(dir, maxAge, filestoreSleep, logger)
 
 	c := &cache{
@@ -188,6 +192,10 @@ func (c *cache) clean() {
 			if err := e.pipe.RemoveFile(); err != nil && !os.IsNotExist(err) {
 				c.logger.WithError(err).Error("streamcache: remove file evicted from index")
 			}
+		}
+
+		if c.removalCond != nil {
+			c.removalCond.Broadcast()
 		}
 	}()
 }
