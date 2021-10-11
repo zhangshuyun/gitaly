@@ -43,22 +43,6 @@ func runSmartHTTPServer(t *testing.T, cfg config.Cfg, serverOpts ...ServerOpt) s
 	return gitalyServer.Address()
 }
 
-// TODO: remove this method and use runSmartHTTPServer after
-// https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1218
-func runSmartHTTPServerWithoutPraefect(t *testing.T, cfg config.Cfg, serverOpts ...ServerOpt) string {
-	gitalyServer := testserver.StartGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterSmartHTTPServiceServer(srv, NewServer(
-			deps.GetCfg(),
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetDiskCache(),
-			serverOpts...,
-		))
-		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
-	}, testserver.WithDisablePraefect())
-	return gitalyServer.Address()
-}
-
 func newSmartHTTPClient(t *testing.T, serverSocketPath, token string) (gitalypb.SmartHTTPServiceClient, *grpc.ClientConn) {
 	t.Helper()
 
