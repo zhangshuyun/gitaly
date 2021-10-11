@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/hashicorp/yamux"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/client"
@@ -29,6 +30,29 @@ const (
 	sidechannelTimeout     = 5 * time.Second
 	sidechannelMetadataKey = "gitaly-sidechannel-id"
 )
+
+// Options stores the configurations used in backchannel
+type Options struct {
+	YamuxConfig *yamux.Config
+}
+
+// A Option sets options such as yamux configurations for sidechannel
+type Option func(*Options)
+
+func defaultSidechannelOptions(logger io.Writer) *Options {
+	yamuxConf := yamux.DefaultConfig()
+
+	// At the moment, those configurations are the subset of backchannel yamux
+	// configurations, defined in internal/backchannel/backchannel.go. It's
+	// subject to change in the near future.
+	yamuxConf.MaxStreamWindowSize = 16 * 1024 * 1024
+	yamuxConf.EnableKeepAlive = false
+	yamuxConf.LogOutput = logger
+
+	return &Options{
+		YamuxConfig: yamuxConf,
+	}
+}
 
 // OpenSidechannel opens a sidechannel connection from the stream opener
 // extracted from the current peer connection.
@@ -132,7 +156,12 @@ func NewServerHandshaker(registry *Registry) *ServerHandshaker {
 
 // NewClientHandshaker is used to enable sidechannel support on outbound
 // gRPC connections.
-func NewClientHandshaker(logger *logrus.Entry, registry *Registry) client.Handshaker {
+func NewClientHandshaker(logger *logrus.Entry, registry *Registry, opts ...Option) client.Handshaker {
+	sidechannelOpts := defaultSidechannelOptions(logger.Logger.Out)
+	for _, opt := range opts {
+		opt(sidechannelOpts)
+	}
+
 	return backchannel.NewClientHandshaker(
 		logger,
 		func() backchannel.Server {
@@ -140,5 +169,10 @@ func NewClientHandshaker(logger *logrus.Entry, registry *Registry) client.Handsh
 			lm.Register(NewServerHandshaker(registry))
 			return grpc.NewServer(grpc.Creds(lm))
 		},
+		[]backchannel.Option{
+			func(options *backchannel.Options) {
+				options.YamuxConfig = sidechannelOpts.YamuxConfig
+			},
+		}...,
 	)
 }

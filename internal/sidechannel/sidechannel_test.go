@@ -8,11 +8,16 @@ import (
 	"net"
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/listenmux"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/cancelhandler"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
@@ -41,6 +46,7 @@ func TestSidechannel(t *testing.T) {
 			}
 			return &healthpb.HealthCheckResponse{}, conn.Close()
 		},
+		nil,
 	)
 
 	conn, registry := dial(t, addr)
@@ -98,6 +104,7 @@ func TestSidechannelConcurrency(t *testing.T) {
 
 			return &healthpb.HealthCheckResponse{}, conn.Close()
 		},
+		nil,
 	)
 
 	conn, registry := dial(t, addr)
@@ -142,14 +149,25 @@ func TestSidechannelConcurrency(t *testing.T) {
 }
 
 func startServer(t *testing.T, th testHandler, opts ...grpc.ServerOption) string {
+
+func startServer(t *testing.T, th testHandler, grpcOpts []grpc.ServerOption, sidechannelOpts ...Option) string {
 	t.Helper()
 
+	options := defaultSidechannelOptions(logrus.StandardLogger().Writer())
+	for _, opt := range sidechannelOpts {
+		opt(options)
+	}
+
 	lm := listenmux.New(insecure.NewCredentials())
-	lm.Register(backchannel.NewServerHandshaker(newLogger(), backchannel.NewRegistry(), nil))
+	lm.Register(backchannel.NewServerHandshaker(newLogger(), backchannel.NewRegistry(), nil, []backchannel.Option{
+		func(backchannelOptions *backchannel.Options) {
+			backchannelOptions.YamuxConfig = options.YamuxConfig
+		},
+	}...))
 
-	opts = append(opts, grpc.Creds(lm))
+	grpcOpts = append(grpcOpts, grpc.Creds(lm))
 
-	s := grpc.NewServer(opts...)
+	s := grpc.NewServer(grpcOpts...)
 	t.Cleanup(func() { s.Stop() })
 
 	handler := &server{testHandler: th}
@@ -164,9 +182,9 @@ func startServer(t *testing.T, th testHandler, opts ...grpc.ServerOption) string
 	return lis.Addr().String()
 }
 
-func dial(t *testing.T, addr string) (*grpc.ClientConn, *Registry) {
+func dial(t *testing.T, addr string, opts ...Option) (*grpc.ClientConn, *Registry) {
 	registry := NewRegistry()
-	clientHandshaker := NewClientHandshaker(newLogger(), registry)
+	clientHandshaker := NewClientHandshaker(newLogger(), registry, opts...)
 	dialOpt := grpc.WithTransportCredentials(clientHandshaker.ClientHandshake(insecure.NewCredentials()))
 
 	conn, err := grpc.Dial(addr, dialOpt)

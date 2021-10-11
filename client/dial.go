@@ -35,8 +35,8 @@ func Dial(rawAddress string, connOpts []grpc.DialOption) (*grpc.ClientConn, erro
 // backchannel connection instead of a regular gRPC connection. It also
 // injects sr as a sidechannel registry, so that Gitaly can establish
 // sidechannels back to the client.
-func DialSidechannel(ctx context.Context, rawAddress string, sr *SidechannelRegistry, connOpts []grpc.DialOption) (*grpc.ClientConn, error) {
-	clientHandshaker := sidechannel.NewClientHandshaker(sr.logger, sr.registry)
+func DialSidechannel(ctx context.Context, rawAddress string, sr *SidechannelRegistry, connOpts []grpc.DialOption, opts ...sidechannel.Option) (*grpc.ClientConn, error) {
+	clientHandshaker := sidechannel.NewClientHandshaker(sr.logger, sr.registry, opts...)
 	return client.Dial(ctx, rawAddress, connOpts, clientHandshaker)
 }
 

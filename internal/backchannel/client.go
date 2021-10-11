@@ -26,27 +26,29 @@ type ServerFactory func() Server
 
 // ClientHandshaker implements the client side handshake of the multiplexed connection.
 type ClientHandshaker struct {
-	logger        *logrus.Entry
-	serverFactory ServerFactory
+	logger          *logrus.Entry
+	serverFactory   ServerFactory
+	backchannelOpts []Option
 }
 
 // NewClientHandshaker returns a new client side implementation of the backchannel. The provided
 // logger is used to log multiplexing errors.
-func NewClientHandshaker(logger *logrus.Entry, serverFactory ServerFactory) ClientHandshaker {
-	return ClientHandshaker{logger: logger, serverFactory: serverFactory}
+func NewClientHandshaker(logger *logrus.Entry, serverFactory ServerFactory, opts ...Option) ClientHandshaker {
+	return ClientHandshaker{logger: logger, serverFactory: serverFactory, backchannelOpts: opts}
 }
 
 // ClientHandshake returns TransportCredentials that perform the client side multiplexing handshake and
 // start the backchannel Server on the established connections. The transport credentials are used to intiliaze the
 // connection prior to the multiplexing.
 func (ch ClientHandshaker) ClientHandshake(tc credentials.TransportCredentials) credentials.TransportCredentials {
-	return clientHandshake{TransportCredentials: tc, serverFactory: ch.serverFactory, logger: ch.logger}
+	return clientHandshake{TransportCredentials: tc, serverFactory: ch.serverFactory, logger: ch.logger, backchannelOpts: ch.backchannelOpts}
 }
 
 type clientHandshake struct {
 	credentials.TransportCredentials
-	serverFactory ServerFactory
-	logger        *logrus.Entry
+	serverFactory   ServerFactory
+	logger          *logrus.Entry
+	backchannelOpts []Option
 }
 
 func (ch clientHandshake) ClientHandshake(ctx context.Context, serverName string, conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
@@ -90,9 +92,13 @@ func (ch clientHandshake) serve(ctx context.Context, conn net.Conn) (net.Conn, e
 	}
 
 	logger := ch.logger.WriterLevel(logrus.ErrorLevel)
+	options := defaultBackchannelOptions(logger)
+	for _, opt := range ch.backchannelOpts {
+		opt(options)
+	}
 
 	// Initiate the multiplexing session.
-	muxSession, err := yamux.Client(conn, muxConfig(logger))
+	muxSession, err := yamux.Client(conn, options.YamuxConfig)
 	if err != nil {
 		logger.Close()
 		return nil, fmt.Errorf("open multiplexing session: %w", err)

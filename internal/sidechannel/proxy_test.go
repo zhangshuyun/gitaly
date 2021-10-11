@@ -72,6 +72,7 @@ func TestUnaryProxy(t *testing.T) {
 			}
 			return &healthpb.HealthCheckResponse{}, nil
 		},
+		nil,
 	)
 
 	proxyAddr := startServer(
@@ -86,6 +87,7 @@ func TestUnaryProxy(t *testing.T) {
 			ctxOut := metadata.IncomingToOutgoing(ctx)
 			return healthpb.NewHealthClient(conn).Check(ctxOut, request)
 		},
+		nil,
 	)
 
 	ctx, cancel := testhelper.Context()
