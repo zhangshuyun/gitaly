@@ -68,7 +68,9 @@ danger-review:
   stage: test
   artifacts:
     paths:
-    - ruby/tmp/gitaly-rspec-test.log
+      - ruby/tmp/gitaly-rspec-test.log
+    reports:
+      junit: _build/reports/go-tests-report-go-${GO_VERSION}-git-${GIT_VERSION}.xml
     when: on_failure
     expire_in: 1 week
 
@@ -166,9 +168,6 @@ test:
     # they should all instead use a temporary directory for runtime data.
     - find . -type d \( -path ./_build -o -path ./ruby \) -prune -o -type d -exec chmod a-w {} \;
     - make ${TARGET}
-  artifacts:
-    reports:
-      junit: _build/reports/go-tests-report-go-${GO_VERSION}-git-${GIT_VERSION}.xml
   parallel:
     matrix:
       # These definitions are for the non-default Git versions.
