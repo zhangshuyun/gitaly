@@ -39,26 +39,47 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
+// praefectSpawnTokens limits the number of concurrent Praefect instances we spawn. With parallel
+// tests, it can happen that we otherwise would spawn so many Praefect executables, with two
+// consequences: first, they eat up all the hosts' memory. Second, they start to saturate Postgres
+// such that new connections start to fail becaue of too many clients. The limit of concurrent
+// instances is not scientifically chosen, but is picked such that tests do not fail on my machine
+// anymore.
+//
+// Note that this only limits concurrency for a single package. If you test multiple packages at
+// once, then these would also run concurrently, leading to `16 * len(packages)` concurrent Praefect
+// instances. To limit this, you can run `go test -p $n` to test at most `$n` concurrent packages.
+var praefectSpawnTokens = make(chan struct{}, 16)
+
 // RunGitalyServer starts gitaly server based on the provided cfg and returns a connection address.
 // It accepts addition Registrar to register all required service instead of
 // calling service.RegisterAll explicitly because it creates a circular dependency
 // when the function is used in on of internal/gitaly/service/... packages.
 func RunGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) string {
-	_, gitalyAddr, disablePraefect := runGitaly(t, cfg, rubyServer, registrar, opts...)
+	return StartGitalyServer(t, cfg, rubyServer, registrar, opts...).Address()
+}
+
+// StartGitalyServer creates and runs gitaly (and praefect as a proxy) server.
+func StartGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) GitalyServer {
+	gitalySrv, gitalyAddr, disablePraefect := runGitaly(t, cfg, rubyServer, registrar, opts...)
 
 	if !isPraefectEnabled() || disablePraefect {
-		return gitalyAddr
+		return GitalyServer{
+			shutdown: gitalySrv.Stop,
+			address:  gitalyAddr,
+		}
 	}
 
 	testhelper.BuildPraefect(t, cfg)
 
-	praefectAddr, _ := runPraefectProxy(t, cfg, gitalyAddr, filepath.Join(cfg.BinDir, "praefect"))
-
-	// In case we're running with a Praefect proxy, it will use Gitaly's health information to
-	// inform routing decisions. The Gitaly node thus must be healthy.
-	waitHealthy(t, cfg, gitalyAddr, 3, time.Second)
-
-	return praefectAddr
+	praefectAddr, shutdownPraefect := runPraefectProxy(t, cfg, gitalyAddr, filepath.Join(cfg.BinDir, "praefect"))
+	return GitalyServer{
+		shutdown: func() {
+			shutdownPraefect()
+			gitalySrv.Stop()
+		},
+		address: praefectAddr,
+	}
 }
 
 // createDatabase create a new database with randomly generated name and returns it back to the caller.
@@ -68,6 +89,11 @@ func createDatabase(t testing.TB) string {
 }
 
 func runPraefectProxy(t testing.TB, cfg config.Cfg, gitalyAddr, praefectBinPath string) (string, func()) {
+	praefectSpawnTokens <- struct{}{}
+	t.Cleanup(func() {
+		<-praefectSpawnTokens
+	})
+
 	tempDir := testhelper.TempDir(t)
 
 	praefectServerSocketPath := "unix://" + testhelper.GetTemporaryGitalySocketFileName(t)
@@ -117,12 +143,14 @@ func runPraefectProxy(t testing.TB, cfg config.Cfg, gitalyAddr, praefectBinPath 
 	cmd.Stdout = os.Stdout
 
 	require.NoError(t, cmd.Start())
-
-	waitHealthy(t, cfg, praefectServerSocketPath, 3, time.Second)
-
-	t.Cleanup(func() { _ = cmd.Wait() })
 	shutdown := func() { _ = cmd.Process.Kill() }
-	t.Cleanup(shutdown)
+	t.Cleanup(func() {
+		shutdown()
+		_ = cmd.Wait()
+	})
+
+	waitHealthy(t, cfg, praefectServerSocketPath)
+
 	return praefectServerSocketPath, shutdown
 }
 
@@ -143,70 +171,29 @@ func (gs GitalyServer) Address() string {
 	return gs.address
 }
 
-// StartGitalyServer creates and runs gitaly (and praefect as a proxy) server.
-func StartGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) GitalyServer {
-	gitalySrv, gitalyAddr, disablePraefect := runGitaly(t, cfg, rubyServer, registrar, opts...)
-
-	if !isPraefectEnabled() || disablePraefect {
-		return GitalyServer{
-			shutdown: gitalySrv.Stop,
-			address:  gitalyAddr,
-		}
-	}
-
-	testhelper.BuildPraefect(t, cfg)
-
-	praefectAddr, shutdownPraefect := runPraefectProxy(t, cfg, gitalyAddr, filepath.Join(cfg.BinDir, "praefect"))
-	return GitalyServer{
-		shutdown: func() {
-			shutdownPraefect()
-			gitalySrv.Stop()
-		},
-		address: praefectAddr,
-	}
-}
-
-// waitHealthy executes health check request `retries` times and awaits each `timeout` period to respond.
-// After `retries` unsuccessful attempts it returns an error.
-// Returns immediately without an error once get a successful health check response.
-func waitHealthy(t testing.TB, cfg config.Cfg, addr string, retries int, timeout time.Duration) {
-	grpcOpts := []grpc.DialOption{grpc.WithInsecure()}
+// waitHealthy waits until the server hosted at address becomes healthy. Times out after a fixed
+// amount of time.
+func waitHealthy(t testing.TB, cfg config.Cfg, addr string) {
+	var grpcOpts []grpc.DialOption
 	if cfg.Auth.Token != "" {
 		grpcOpts = append(grpcOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)))
 	}
 
-	conn, err := grpc.Dial(addr, grpcOpts...)
-	require.NoError(t, err)
-	defer conn.Close()
-
-	for i := 0; i < retries; i++ {
-		if IsHealthy(conn, timeout) {
-			return
-		}
-	}
-
-	require.FailNow(t, "server not yet ready to serve")
-}
-
-// IsHealthy creates a health client to passed in connection and send `Check` request.
-// It waits for `timeout` duration to get response back.
-// It returns `true` only if remote responds with `SERVING` status.
-func IsHealthy(conn *grpc.ClientConn, timeout time.Duration) bool {
-	healthClient := healthpb.NewHealthClient(conn)
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
+	conn, err := client.DialContext(ctx, addr, grpcOpts)
+	require.NoError(t, err)
+	defer testhelper.MustClose(t, conn)
+
+	healthClient := healthpb.NewHealthClient(conn)
+
 	resp, err := healthClient.Check(ctx, &healthpb.HealthCheckRequest{}, grpc.WaitForReady(true))
-	if err != nil {
-		return false
-	}
+	require.NoError(t, err)
 
 	if resp.Status != healthpb.HealthCheckResponse_SERVING {
-		return false
+		require.FailNow(t, "server not yet ready to serve")
 	}
-
-	return true
 }
 
 func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) (*grpc.Server, string, bool) {
@@ -277,6 +264,8 @@ func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, regi
 	}
 
 	go srv.Serve(listener)
+
+	waitHealthy(t, cfg, addr)
 
 	return srv, addr, gsd.disablePraefect
 }
