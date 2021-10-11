@@ -23,7 +23,7 @@ func NewDisabledAssignmentStore(storages map[string][]string) AssignmentStore {
 }
 
 // GetHostAssigments simply returns all of the storages configured for the virtual storage.
-func (storages disabledAssignments) GetHostAssignments(ctx context.Context, virtualStorage, relativePath string) ([]string, error) {
+func (storages disabledAssignments) GetHostAssignments(ctx context.Context, virtualStorage string, repositoryID int64) ([]string, error) {
 	return storages[virtualStorage], nil
 }
 

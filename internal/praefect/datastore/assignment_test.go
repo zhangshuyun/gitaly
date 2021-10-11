@@ -2,6 +2,7 @@ package datastore
 
 import (
 	"errors"
+	"sort"
 	"testing"
 
 	"github.com/lib/pq"
@@ -97,10 +98,15 @@ func TestAssignmentStore_GetHostAssignments(t *testing.T) {
 				require.NoError(t, err)
 			}
 
+			repositoryID, err := rs.GetRepositoryID(ctx, tc.virtualStorage, "relative-path")
+			if err != nil {
+				require.Equal(t, commonerr.NewRepositoryNotFoundError(tc.virtualStorage, "relative-path"), err)
+			}
+
 			actualAssignments, err := NewAssignmentStore(
 				db,
 				map[string][]string{"virtual-storage": configuredStorages},
-			).GetHostAssignments(ctx, tc.virtualStorage, "relative-path")
+			).GetHostAssignments(ctx, tc.virtualStorage, repositoryID)
 			require.Equal(t, tc.error, err)
 			require.ElementsMatch(t, tc.expectedAssignments, actualAssignments)
 		})
@@ -233,8 +239,10 @@ func TestAssignmentStore_SetReplicationFactor(t *testing.T) {
 
 			tc.requireStorages(t, setStorages)
 
-			assignedStorages, err := store.GetHostAssignments(ctx, "virtual-storage", "relative-path")
+			assignedStorages, err := store.GetHostAssignments(ctx, "virtual-storage", 1)
 			require.NoError(t, err)
+
+			sort.Strings(assignedStorages)
 			tc.requireStorages(t, assignedStorages)
 
 			var storagesWithIncorrectRepositoryID pq.StringArray

@@ -182,7 +182,10 @@ func TestAddRepository_Exec(t *testing.T) {
 				require.NoError(t, addRepoCmd.Exec(flag.NewFlagSet("", flag.PanicOnError), addCmdConf))
 				as := datastore.NewAssignmentStore(db, conf.StorageNames())
 
-				assignments, err := as.GetHostAssignments(ctx, virtualStorageName, relativePath)
+				repositoryID, err := repoDS.GetRepositoryID(ctx, virtualStorageName, relativePath)
+				require.NoError(t, err)
+
+				assignments, err := as.GetHostAssignments(ctx, virtualStorageName, repositoryID)
 				require.NoError(t, err)
 				require.Len(t, assignments, 2)
 				assert.Contains(t, assignments, g1Cfg.Storages[0].Name)

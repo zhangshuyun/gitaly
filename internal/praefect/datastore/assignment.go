@@ -38,7 +38,7 @@ func NewAssignmentStore(db glsql.Querier, configuredStorages map[string][]string
 	return AssignmentStore{db: db, configuredStorages: configuredStorages}
 }
 
-func (s AssignmentStore) GetHostAssignments(ctx context.Context, virtualStorage, relativePath string) ([]string, error) {
+func (s AssignmentStore) GetHostAssignments(ctx context.Context, virtualStorage string, repositoryID int64) ([]string, error) {
 	configuredStorages, ok := s.configuredStorages[virtualStorage]
 	if !ok {
 		return nil, newVirtualStorageNotFoundError(virtualStorage)
@@ -47,10 +47,9 @@ func (s AssignmentStore) GetHostAssignments(ctx context.Context, virtualStorage,
 	rows, err := s.db.QueryContext(ctx, `
 SELECT storage
 FROM repository_assignments
-WHERE virtual_storage = $1
-AND   relative_path = $2
-AND   storage = ANY($3)
-`, virtualStorage, relativePath, pq.StringArray(configuredStorages))
+WHERE repository_id = $1
+AND   storage = ANY($2)
+`, repositoryID, pq.StringArray(configuredStorages))
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
