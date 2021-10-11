@@ -146,6 +146,8 @@ func TestStorageCleanup_AcquireNextStorage(t *testing.T) {
 	})
 
 	t.Run("acquired for long time triggers update loop", func(t *testing.T) {
+		testhelper.Quarantine(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/3828")
+
 		db.TruncateAll(t)
 		require.NoError(t, storageCleanup.Populate(ctx, "vs", "g1"))
 		start := time.Now().UTC()
