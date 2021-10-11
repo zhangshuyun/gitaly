@@ -507,15 +507,10 @@ func (rs *PostgresRepositoryStore) GetConsistentStorages(ctx context.Context, vi
 	const q = `
 SELECT storage
 FROM repositories
-JOIN storage_repositories USING (virtual_storage, relative_path)
+JOIN storage_repositories USING (virtual_storage, relative_path, generation)
 WHERE virtual_storage = $1
 AND relative_path = $2
-AND storage_repositories.generation = (
-	SELECT MAX(generation)
-	FROM storage_repositories
-	WHERE virtual_storage = $1
-	AND relative_path = $2
-)`
+`
 
 	rows, err := rs.db.QueryContext(ctx, q, virtualStorage, relativePath)
 	if err != nil {
