@@ -50,7 +50,7 @@ func TestAcceptDatalossSubcommand(t *testing.T) {
 			require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, storage, nil, nil, false, false))
 		}
 
-		require.NoError(t, rs.SetGeneration(ctx, vs, repo, storage, generation))
+		require.NoError(t, rs.SetGeneration(ctx, 1, storage, generation))
 	}
 
 	ln, clean := listenAndServe(t, []svcRegistrar{registerPraefectInfoServer(info.NewServer(conf, rs, nil, nil, nil))})
@@ -145,7 +145,7 @@ func TestAcceptDatalossSubcommand(t *testing.T) {
 			require.NoError(t, fs.Parse(tc.args))
 			tc.matchError(t, cmd.Exec(fs, conf))
 			for storage, expected := range tc.expectedGenerations {
-				actual, err := rs.GetGeneration(ctx, vs, repo, storage)
+				actual, err := rs.GetGeneration(ctx, 1, storage)
 				require.NoError(t, err)
 				require.Equal(t, expected, actual, storage)
 			}

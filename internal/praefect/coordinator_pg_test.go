@@ -210,7 +210,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 					require.NoError(t, rs.CreateRepository(ctx, 1, repo.StorageName, repo.RelativePath, storageNodes[i].Storage, nil, nil, true, false))
 				}
 
-				require.NoError(t, rs.SetGeneration(ctx, repo.StorageName, repo.RelativePath, storageNodes[i].Storage, n.generation))
+				require.NoError(t, rs.SetGeneration(ctx, 1, storageNodes[i].Storage, n.generation))
 			}
 
 			testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": conf.StorageNames()})
@@ -298,7 +298,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			}
 
 			if tc.concurrentWrite {
-				require.NoError(t, rs.SetGeneration(ctx, repo.StorageName, repo.RelativePath, "non-participating-storage", 2))
+				require.NoError(t, rs.SetGeneration(ctx, 1, "non-participating-storage", 2))
 			}
 
 			err = streamParams.RequestFinalizer()
@@ -312,7 +312,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			// Nodes that did not successfully commit or did not participate should remain on their
 			// existing generation.
 			for i, n := range tc.nodes {
-				gen, err := rs.GetGeneration(ctx, repo.StorageName, repo.RelativePath, storageNodes[i].Storage)
+				gen, err := rs.GetGeneration(ctx, 1, storageNodes[i].Storage)
 				require.NoError(t, err)
 				require.Equal(t, n.expectedGeneration, gen, "node %d has wrong generation", i)
 			}

@@ -225,7 +225,7 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 					[]string{"consistent-secondary", "unhealthy-secondary", "inconsistent-secondary"}, nil, true, true),
 			)
 			require.NoError(t,
-				rs.IncrementGeneration(ctx, "virtual-storage-1", "repository", "primary", []string{"consistent-secondary", "unhealthy-secondary"}),
+				rs.IncrementGeneration(ctx, repositoryID, "primary", []string{"consistent-secondary", "unhealthy-secondary"}),
 			)
 
 			router := NewPerRepositoryRouter(
@@ -369,7 +369,7 @@ func TestPerRepositoryRouter_RouteRepositoryMutator(t *testing.T) {
 			)
 
 			if len(tc.consistentStorages) > 0 {
-				require.NoError(t, rs.IncrementGeneration(ctx, "virtual-storage-1", "repository", tc.consistentStorages[0], tc.consistentStorages[1:]))
+				require.NoError(t, rs.IncrementGeneration(ctx, repositoryID, tc.consistentStorages[0], tc.consistentStorages[1:]))
 			}
 
 			for virtualStorage, relativePaths := range tc.assignedNodes {

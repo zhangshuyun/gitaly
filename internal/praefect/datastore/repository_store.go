@@ -25,16 +25,14 @@ var errWriteToOutdatedNodes = errors.New("write to outdated nodes")
 // DowngradeAttemptedError is returned when attempting to get the replicated generation for a source repository
 // that does not upgrade the target repository.
 type DowngradeAttemptedError struct {
-	VirtualStorage      string
-	RelativePath        string
 	Storage             string
 	CurrentGeneration   int
 	AttemptedGeneration int
 }
 
 func (err DowngradeAttemptedError) Error() string {
-	return fmt.Sprintf("attempted downgrading %q -> %q -> %q from generation %d to %d",
-		err.VirtualStorage, err.RelativePath, err.Storage, err.CurrentGeneration, err.AttemptedGeneration,
+	return fmt.Sprintf("attempted downgrading storage %q from generation %d to %d",
+		err.Storage, err.CurrentGeneration, err.AttemptedGeneration,
 	)
 }
 
@@ -85,15 +83,15 @@ var ErrNoRowsAffected = errors.New("no rows were affected by the query")
 // RepositoryStore provides access to repository state.
 type RepositoryStore interface {
 	// GetGeneration gets the repository's generation on a given storage.
-	GetGeneration(ctx context.Context, virtualStorage, relativePath, storage string) (int, error)
+	GetGeneration(ctx context.Context, repositoryID int64, storage string) (int, error)
 	// IncrementGeneration increments the generations of up to date nodes.
-	IncrementGeneration(ctx context.Context, virtualStorage, relativePath, primary string, secondaries []string) error
+	IncrementGeneration(ctx context.Context, repositoryID int64, primary string, secondaries []string) error
 	// SetGeneration sets the repository's generation on the given storage. If the generation is higher
 	// than the virtual storage's generation, it is set to match as well to guarantee monotonic increments.
-	SetGeneration(ctx context.Context, virtualStorage, relativePath, storage string, generation int) error
+	SetGeneration(ctx context.Context, repositoryID int64, storage string, generation int) error
 	// GetReplicatedGeneration returns the generation propagated by applying the replication. If the generation would
 	// downgrade, a DowngradeAttemptedError is returned.
-	GetReplicatedGeneration(ctx context.Context, virtualStorage, relativePath, source, target string) (int, error)
+	GetReplicatedGeneration(ctx context.Context, repositoryID int64, source, target string) (int, error)
 	// CreateRepository creates a record for a repository in the specified virtual storage and relative path.
 	// Primary is the storage the repository was created on. UpdatedSecondaries are secondaries that participated
 	// and successfully completed the transaction. OutdatedSecondaries are secondaries that were outdated or failed
@@ -126,7 +124,7 @@ type RepositoryStore interface {
 	// DeleteInvalidRepository is a method for deleting records of invalid repositories. It deletes a storage's
 	// record of the invalid repository. If the storage was the only storage with the repository, the repository's
 	// record on the virtual storage is also deleted.
-	DeleteInvalidRepository(ctx context.Context, virtualStorage, relativePath, storage string) error
+	DeleteInvalidRepository(ctx context.Context, repositoryID int64, storage string) error
 	// ReserveRepositoryID reserves an ID for a repository that is about to be created and returns it. If a repository already
 	// exists with the given virtual storage and relative path combination, an error is returned.
 	ReserveRepositoryID(ctx context.Context, virtualStorage, relativePath string) (int64, error)
@@ -147,17 +145,16 @@ func NewPostgresRepositoryStore(db glsql.Querier, configuredStorages map[string]
 	return &PostgresRepositoryStore{db: db, storages: storages(configuredStorages)}
 }
 
-func (rs *PostgresRepositoryStore) GetGeneration(ctx context.Context, virtualStorage, relativePath, storage string) (int, error) {
+func (rs *PostgresRepositoryStore) GetGeneration(ctx context.Context, repositoryID int64, storage string) (int, error) {
 	const q = `
 SELECT generation
 FROM storage_repositories
-WHERE virtual_storage = $1
-AND relative_path = $2
-AND storage = $3
+WHERE repository_id = $1
+AND storage = $2
 `
 
 	var gen int
-	if err := rs.db.QueryRowContext(ctx, q, virtualStorage, relativePath, storage).Scan(&gen); err != nil {
+	if err := rs.db.QueryRowContext(ctx, q, repositoryID, storage).Scan(&gen); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return GenerationUnknown, nil
 		}
@@ -168,54 +165,50 @@ AND storage = $3
 	return gen, nil
 }
 
-func (rs *PostgresRepositoryStore) IncrementGeneration(ctx context.Context, virtualStorage, relativePath, primary string, secondaries []string) error {
+func (rs *PostgresRepositoryStore) IncrementGeneration(ctx context.Context, repositoryID int64, primary string, secondaries []string) error {
 	const q = `
 WITH updated_replicas AS (
 	UPDATE storage_repositories
 	SET generation = generation + 1
 	FROM (
-		SELECT virtual_storage, relative_path, storage
+		SELECT repository_id, storage
 		FROM repositories
-		JOIN storage_repositories USING (virtual_storage, relative_path, generation)
-		WHERE virtual_storage = $1
-		AND   relative_path   = $2
-		AND   storage         = ANY($3)
+		JOIN storage_repositories USING (repository_id, generation)
+		WHERE repository_id = $1
+		AND   storage       = ANY($2)
 		FOR UPDATE
 	) AS to_update
-	WHERE storage_repositories.virtual_storage = to_update.virtual_storage
-	AND   storage_repositories.relative_path   = to_update.relative_path
-	AND   storage_repositories.storage         = to_update.storage
-	RETURNING storage_repositories.virtual_storage, storage_repositories.relative_path
+	WHERE storage_repositories.repository_id = to_update.repository_id
+	AND   storage_repositories.storage       = to_update.storage
+	RETURNING storage_repositories.repository_id
 ),
 
 updated_repository AS (
 	UPDATE repositories
 	SET generation = generation + 1
 	FROM (
-		SELECT DISTINCT virtual_storage, relative_path
+		SELECT DISTINCT repository_id
 		FROM updated_replicas
 	) AS updated_repositories
-	WHERE repositories.virtual_storage = updated_repositories.virtual_storage
-	AND   repositories.relative_path   = updated_repositories.relative_path
+	WHERE repositories.repository_id = updated_repositories.repository_id
 )
 
 SELECT
 	EXISTS (
 		SELECT FROM repositories
-		WHERE virtual_storage = $1
-		AND   relative_path   = $2
+		WHERE repository_id = $1
 	) AS repository_exists,
 	EXISTS ( SELECT FROM updated_replicas ) AS repository_updated
 `
 	var repositoryExists, repositoryUpdated bool
 	if err := rs.db.QueryRowContext(
-		ctx, q, virtualStorage, relativePath, pq.StringArray(append(secondaries, primary)),
+		ctx, q, repositoryID, pq.StringArray(append(secondaries, primary)),
 	).Scan(&repositoryExists, &repositoryUpdated); err != nil {
 		return fmt.Errorf("scan: %w", err)
 	}
 
 	if !repositoryExists {
-		return commonerr.NewRepositoryNotFoundError(virtualStorage, relativePath)
+		return commonerr.ErrRepositoryNotFound
 	}
 
 	if !repositoryUpdated {
@@ -225,13 +218,12 @@ SELECT
 	return nil
 }
 
-func (rs *PostgresRepositoryStore) SetGeneration(ctx context.Context, virtualStorage, relativePath, storage string, generation int) error {
+func (rs *PostgresRepositoryStore) SetGeneration(ctx context.Context, repositoryID int64, storage string, generation int) error {
 	const q = `
 WITH repository AS (
-	UPDATE repositories SET generation = $4
-	WHERE virtual_storage = $1
-	AND   relative_path   = $2
-	AND   COALESCE(repositories.generation, -1) < $4
+	UPDATE repositories SET generation = $3
+	WHERE repository_id = $1
+	AND   COALESCE(repositories.generation, -1) < $3
 )
 
 INSERT INTO storage_repositories (
@@ -242,14 +234,18 @@ INSERT INTO storage_repositories (
 	generation
 )
 SELECT
-	(SELECT repository_id FROM repositories WHERE virtual_storage = $1 AND relative_path = $2),
-	$1, $2, $3, $4
+	repository_id,
+	virtual_storage,
+	relative_path,
+	$2,
+	$3
+FROM repositories
+WHERE repository_id = $1
 ON CONFLICT (virtual_storage, relative_path, storage) DO UPDATE SET
-	repository_id = EXCLUDED.repository_id,
 	generation = EXCLUDED.generation
 `
 
-	_, err := rs.db.ExecContext(ctx, q, virtualStorage, relativePath, storage, generation)
+	_, err := rs.db.ExecContext(ctx, q, repositoryID, storage, generation)
 	return err
 }
 
@@ -284,16 +280,15 @@ ON CONFLICT (virtual_storage, relative_path, storage) DO UPDATE
 	return nil
 }
 
-func (rs *PostgresRepositoryStore) GetReplicatedGeneration(ctx context.Context, virtualStorage, relativePath, source, target string) (int, error) {
+func (rs *PostgresRepositoryStore) GetReplicatedGeneration(ctx context.Context, repositoryID int64, source, target string) (int, error) {
 	const q = `
 SELECT storage, generation
 FROM storage_repositories
-WHERE virtual_storage = $1
-AND relative_path = $2
-AND storage = ANY($3)
+WHERE repository_id = $1
+AND storage = ANY($2)
 `
 
-	rows, err := rs.db.QueryContext(ctx, q, virtualStorage, relativePath, pq.StringArray([]string{source, target}))
+	rows, err := rs.db.QueryContext(ctx, q, repositoryID, pq.StringArray([]string{source, target}))
 	if err != nil {
 		return 0, err
 	}
@@ -324,8 +319,6 @@ AND storage = ANY($3)
 
 	if targetGeneration != GenerationUnknown && targetGeneration >= sourceGeneration {
 		return 0, DowngradeAttemptedError{
-			VirtualStorage:      virtualStorage,
-			RelativePath:        relativePath,
 			Storage:             target,
 			CurrentGeneration:   targetGeneration,
 			AttemptedGeneration: sourceGeneration,
@@ -557,26 +550,23 @@ AND relative_path = $2
 	return exists, nil
 }
 
-func (rs *PostgresRepositoryStore) DeleteInvalidRepository(ctx context.Context, virtualStorage, relativePath, storage string) error {
+func (rs *PostgresRepositoryStore) DeleteInvalidRepository(ctx context.Context, repositoryID int64, storage string) error {
 	_, err := rs.db.ExecContext(ctx, `
 WITH invalid_repository AS (
 	DELETE FROM storage_repositories
-	WHERE virtual_storage = $1
-	AND   relative_path = $2
-	AND   storage = $3
+	WHERE repository_id = $1
+	AND   storage = $2
 )
 
 DELETE FROM repositories
-WHERE virtual_storage = $1
-AND relative_path = $2
+WHERE repository_id = $1
 AND NOT EXISTS (
 	SELECT 1
 	FROM storage_repositories
-	WHERE virtual_storage = $1
-	AND relative_path = $2
-	AND storage != $3
+	WHERE repository_id = $1
+	AND storage != $2
 )
-	`, virtualStorage, relativePath, storage)
+	`, repositoryID, storage)
 	return err
 }
 

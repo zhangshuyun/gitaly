@@ -237,15 +237,13 @@ func TestReplicatorDowngradeAttempt(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			returnedErr := datastore.DowngradeAttemptedError{
-				VirtualStorage:      "virtual-storage-1",
-				RelativePath:        "relative-path-1",
 				Storage:             "gitaly-2",
 				CurrentGeneration:   1,
 				AttemptedGeneration: tc.attemptedGeneration,
 			}
 
 			rs := datastore.MockRepositoryStore{
-				GetReplicatedGenerationFunc: func(ctx context.Context, virtualStorage, relativePath, source, target string) (int, error) {
+				GetReplicatedGenerationFunc: func(ctx context.Context, repositoryID int64, source, target string) (int, error) {
 					return 0, returnedErr
 				},
 			}

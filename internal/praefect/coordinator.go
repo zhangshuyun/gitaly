@@ -1016,7 +1016,7 @@ func (c *Coordinator) newRequestFinalizer(
 			// If this fails, the primary might have changes on it that are not recorded in the database. The secondaries will appear
 			// consistent with the primary but might serve different stale data. Follow-up mutator calls will solve this state although
 			// the primary will be a later generation in the mean while.
-			if err := c.rs.IncrementGeneration(ctx, virtualStorage, targetRepo.GetRelativePath(), primary, updatedSecondaries); err != nil {
+			if err := c.rs.IncrementGeneration(ctx, repositoryID, primary, updatedSecondaries); err != nil {
 				return fmt.Errorf("increment generation: %w", err)
 			}
 		case datastore.RenameRepo:

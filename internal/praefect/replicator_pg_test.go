@@ -51,11 +51,17 @@ func TestReplicatorInvalidSourceRepository(t *testing.T) {
 	defer testhelper.MustClose(t, targetCC)
 
 	rs := datastore.NewPostgresRepositoryStore(glsql.NewDB(t), nil)
-	require.NoError(t, rs.SetGeneration(ctx, "virtual-storage-1", "relative-path-1", "gitaly-1", 0))
+
+	require.NoError(t, rs.CreateRepository(ctx, 1, "virtual-storage-1", "relative-path-1", "gitaly-1", nil, nil, true, false))
+
+	exists, err := rs.RepositoryExists(ctx, "virtual-storage-1", "relative-path-1")
+	require.NoError(t, err)
+	require.True(t, exists)
 
 	r := &defaultReplicator{rs: rs, log: testhelper.DiscardTestLogger(t)}
 	require.NoError(t, r.Replicate(ctx, datastore.ReplicationEvent{
 		Job: datastore.ReplicationJob{
+			RepositoryID:      1,
 			VirtualStorage:    "virtual-storage-1",
 			RelativePath:      "relative-path-1",
 			SourceNodeStorage: "gitaly-1",
@@ -63,7 +69,7 @@ func TestReplicatorInvalidSourceRepository(t *testing.T) {
 		},
 	}, nil, targetCC))
 
-	exists, err := rs.RepositoryExists(ctx, "virtual-storage-1", "relative-path-1")
+	exists, err = rs.RepositoryExists(ctx, "virtual-storage-1", "relative-path-1")
 	require.NoError(t, err)
 	require.False(t, exists)
 }

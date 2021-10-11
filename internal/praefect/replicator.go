@@ -71,7 +71,7 @@ func (dr defaultReplicator) Replicate(ctx context.Context, event datastore.Repli
 		logWithCorrID:            correlation.ExtractFromContext(ctx),
 	})
 
-	generation, err := dr.rs.GetReplicatedGeneration(ctx, event.Job.VirtualStorage, event.Job.RelativePath, event.Job.SourceNodeStorage, event.Job.TargetNodeStorage)
+	generation, err := dr.rs.GetReplicatedGeneration(ctx, event.Job.RepositoryID, event.Job.SourceNodeStorage, event.Job.TargetNodeStorage)
 	if err != nil {
 		// Later generation might have already been replicated by an earlier replication job. If that's the case,
 		// we'll simply acknowledge the job. This also prevents accidental downgrades from happening.
@@ -96,11 +96,7 @@ func (dr defaultReplicator) Replicate(ctx context.Context, event datastore.Repli
 		Repository: targetRepository,
 	}); err != nil {
 		if errors.Is(err, repository.ErrInvalidSourceRepository) {
-			if err := dr.rs.DeleteInvalidRepository(ctx,
-				event.Job.VirtualStorage,
-				event.Job.RelativePath,
-				event.Job.SourceNodeStorage,
-			); err != nil {
+			if err := dr.rs.DeleteInvalidRepository(ctx, event.Job.RepositoryID, event.Job.SourceNodeStorage); err != nil {
 				return fmt.Errorf("delete invalid repository: %w", err)
 			}
 
@@ -137,8 +133,7 @@ func (dr defaultReplicator) Replicate(ctx context.Context, event datastore.Repli
 
 	if generation != datastore.GenerationUnknown {
 		return dr.rs.SetGeneration(ctx,
-			event.Job.VirtualStorage,
-			event.Job.RelativePath,
+			event.Job.RepositoryID,
 			event.Job.TargetNodeStorage,
 			generation,
 		)
