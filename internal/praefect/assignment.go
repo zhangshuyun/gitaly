@@ -13,18 +13,18 @@ type AssignmentStore interface {
 	SetReplicationFactor(ctx context.Context, virtualStorage, relativePath string, replicationFactor int) ([]string, error)
 }
 
-type disabledAssignments map[string][]string
+type disabledAssignments []string
 
 // NewDisabledAssignmentStore returns an assignments store that can be used if no
 // database is configured. It returns every configured storage as assigned and
 // errors when trying to set assignments.
-func NewDisabledAssignmentStore(storages map[string][]string) AssignmentStore {
+func NewDisabledAssignmentStore(storages []string) AssignmentStore {
 	return disabledAssignments(storages)
 }
 
 // GetHostAssigments simply returns all of the storages configured for the virtual storage.
-func (storages disabledAssignments) GetHostAssignments(ctx context.Context, virtualStorage, relativePath string) ([]string, error) {
-	return storages[virtualStorage], nil
+func (storages disabledAssignments) GetHostAssignments(ctx context.Context, repositoryID int64) ([]string, error) {
+	return storages, nil
 }
 
 // SetReplicationFactor errors when attempting to set assignments.

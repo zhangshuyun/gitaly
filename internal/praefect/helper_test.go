@@ -162,9 +162,6 @@ func runPraefectServer(t testing.TB, ctx context.Context, conf config.Config, op
 	if opt.withNodeMgr == nil {
 		opt.withNodeMgr = defaultNodeMgr(t, conf, opt.withRepoStore)
 	}
-	if opt.withAssignmentStore == nil {
-		opt.withAssignmentStore = NewDisabledAssignmentStore(conf.StorageNames())
-	}
 	if opt.withRouter == nil {
 		opt.withRouter = NewNodeManagerRouter(opt.withNodeMgr, opt.withRepoStore)
 	}

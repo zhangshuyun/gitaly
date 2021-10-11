@@ -25,7 +25,7 @@ var errPrimaryUnassigned = errors.New("primary node is not assigned")
 type AssignmentGetter interface {
 	// GetHostAssignments returns the names of the storages assigned to host the repository.
 	// The primary node must always be assigned.
-	GetHostAssignments(ctx context.Context, virtualStorage, relativePath string) ([]string, error)
+	GetHostAssignments(ctx context.Context, repositoryID int64) ([]string, error)
 }
 
 // ErrNoSuitableNode is returned when there is not suitable node to serve a request.
@@ -207,7 +207,7 @@ func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtua
 		return RepositoryMutatorRoute{}, ErrRepositoryReadOnly
 	}
 
-	assignedStorages, err := r.ag.GetHostAssignments(ctx, virtualStorage, relativePath)
+	assignedStorages, err := r.ag.GetHostAssignments(ctx, repositoryID)
 	if err != nil {
 		return RepositoryMutatorRoute{}, fmt.Errorf("get host assignments: %w", err)
 	}

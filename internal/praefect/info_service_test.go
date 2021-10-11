@@ -82,16 +82,19 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 		rs.CreateRepository(ctx, 1, virtualStorage, testRepo.GetRelativePath(), "g-1", []string{"g-2", "g-3"}, nil, true, false),
 	)
 
+	assignmentStore := datastore.NewAssignmentStore(tx, conf.StorageNames())
+
 	cc, _, cleanup := runPraefectServer(t, ctx, conf, buildOptions{
-		withConnections: conns,
-		withRepoStore:   rs,
+		withConnections:     conns,
+		withRepoStore:       rs,
+		withAssignmentStore: assignmentStore,
 		withRouter: NewPerRepositoryRouter(
 			conns,
 			elector,
 			StaticHealthChecker{virtualStorage: storages},
 			NewLockedRandom(rand.New(rand.NewSource(0))),
 			rs,
-			datastore.NewAssignmentStore(tx, conf.StorageNames()),
+			assignmentStore,
 			rs,
 			conf.DefaultReplicationFactors(),
 		),
