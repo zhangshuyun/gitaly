@@ -214,31 +214,19 @@ func (s *server) syncGitconfig(ctx context.Context, in *gitalypb.ReplicateReposi
 		return err
 	}
 
-	// At the point of implementing this, the `GetConfig` RPC hasn't been deployed yet and is
-	// thus not available for general use. In theory, we'd have to wait for this release cycle
-	// to finish, and only afterwards would we be able to implement replication of the
-	// gitconfig. In order to allow us to iterate fast, we just try to call `GetConfig()`, but
-	// ignore any errors for the case where the target Gitaly node doesn't support the RPC yet.
-	// TODO: Remove this hack and properly return the error in the next release cycle.
-	if err := func() error {
-		stream, err := repoClient.GetConfig(ctx, &gitalypb.GetConfigRequest{
-			Repository: in.GetSource(),
-		})
-		if err != nil {
-			return err
-		}
+	stream, err := repoClient.GetConfig(ctx, &gitalypb.GetConfigRequest{
+		Repository: in.GetSource(),
+	})
+	if err != nil {
+		return err
+	}
 
-		configPath := filepath.Join(repoPath, "config")
-		if err := s.writeFile(ctx, configPath, 0o644, streamio.NewReader(func() ([]byte, error) {
-			resp, err := stream.Recv()
-			return resp.GetData(), err
-		})); err != nil {
-			return err
-		}
-
-		return nil
-	}(); err != nil {
-		ctxlogrus.Extract(ctx).WithError(err).Warn("synchronizing gitconfig failed")
+	configPath := filepath.Join(repoPath, "config")
+	if err := s.writeFile(ctx, configPath, 0o644, streamio.NewReader(func() ([]byte, error) {
+		resp, err := stream.Recv()
+		return resp.GetData(), err
+	})); err != nil {
+		return err
 	}
 
 	return nil
