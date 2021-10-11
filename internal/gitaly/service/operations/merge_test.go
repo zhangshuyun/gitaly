@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"regexp"
@@ -91,10 +92,8 @@ func TestUserMergeBranch_successful(t *testing.T) {
 	secondResponse, err := mergeBidi.Recv()
 	require.NoError(t, err, "receive second response")
 
-	testhelper.ReceiveEOFWithTimeout(t, func() error {
-		_, err = mergeBidi.Recv()
-		return err
-	})
+	_, err = mergeBidi.Recv()
+	require.Equal(t, io.EOF, err)
 
 	commit, err := repo.ReadCommit(ctx, git.Revision(mergeBranchName))
 	require.NoError(t, err, "look up git commit after call has finished")
@@ -211,10 +210,8 @@ func TestUserMergeBranch_stableMergeIDs(t *testing.T) {
 	require.NoError(t, err, "receive second response")
 	require.Equal(t, expectedMergeID, response.BranchUpdate.CommitId)
 
-	testhelper.ReceiveEOFWithTimeout(t, func() error {
-		_, err = mergeBidi.Recv()
-		return err
-	})
+	_, err = mergeBidi.Recv()
+	require.Equal(t, io.EOF, err)
 
 	commit, err := repo.ReadCommit(ctx, git.Revision(mergeBranchName))
 	require.NoError(t, err, "look up git commit after call has finished")
@@ -410,10 +407,8 @@ func TestUserMergeBranch_ambiguousReference(t *testing.T) {
 	response, err := merge.Recv()
 	require.NoError(t, err, "receive second response")
 
-	testhelper.ReceiveEOFWithTimeout(t, func() error {
-		_, err = merge.Recv()
-		return err
-	})
+	_, err = merge.Recv()
+	require.Equal(t, io.EOF, err)
 
 	commit, err := repo.ReadCommit(ctx, git.Revision("refs/heads/"+mergeBranchName))
 	require.NoError(t, err, "look up git commit after call has finished")
@@ -469,10 +464,8 @@ func TestUserMergeBranch_failingHooks(t *testing.T) {
 				require.NoError(t, err, "receive second response")
 				require.Contains(t, secondResponse.PreReceiveError, "failure")
 
-				testhelper.ReceiveEOFWithTimeout(t, func() error {
-					_, err = mergeBidi.Recv()
-					return err
-				})
+				_, err = mergeBidi.Recv()
+				require.Equal(t, io.EOF, err)
 			}
 
 			currentBranchHead := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", mergeBranchName)
