@@ -354,7 +354,7 @@ func TestPipeline_forEachRef(t *testing.T) {
 	objectReader, err := catfileCache.ObjectReader(ctx, repo)
 	require.NoError(t, err)
 
-	forEachRefIter := ForEachRef(ctx, repo, nil, "")
+	forEachRefIter := ForEachRef(ctx, repo, nil)
 	catfileInfoIter := CatfileInfo(ctx, objectInfoReader, forEachRefIter)
 	catfileObjectIter := CatfileObject(ctx, objectReader, catfileInfoIter)
 

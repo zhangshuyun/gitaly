@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -312,7 +313,10 @@ func Revlist(
 }
 
 type forEachRefConfig struct {
-	format string
+	format    string
+	sortField string
+	pointsAt  string
+	count     int
 }
 
 // ForEachRefOption is an option that can be passed to ForEachRef.
@@ -327,6 +331,27 @@ func WithForEachRefFormat(format string) ForEachRefOption {
 	}
 }
 
+// WithSortField is an option for ForEachRef that determines the field by which results will be sorted
+func WithSortField(sortField string) ForEachRefOption {
+	return func(cfg *forEachRefConfig) {
+		cfg.sortField = sortField
+	}
+}
+
+// WithPointsAt is an option for ForEachRef to only list refs that point to an object id
+func WithPointsAt(pointsAt string) ForEachRefOption {
+	return func(cfg *forEachRefConfig) {
+		cfg.pointsAt = pointsAt
+	}
+}
+
+// WithCount is an option for ForEachRef to limit the number of results
+func WithCount(count int) ForEachRefOption {
+	return func(cfg *forEachRefConfig) {
+		cfg.count = count
+	}
+}
+
 // ForEachRef runs git-for-each-ref(1) with the given patterns and returns a RevisionIterator for
 // found references. Patterns must always refer to fully qualified reference names. Patterns for
 // which no branch is found do not result in an error. The iterator's object name is set to the
@@ -336,7 +361,6 @@ func ForEachRef(
 	ctx context.Context,
 	repo *localrepo.Repo,
 	patterns []string,
-	sortField string,
 	opts ...ForEachRefOption,
 ) RevisionIterator {
 	cfg := forEachRefConfig{
@@ -357,8 +381,14 @@ func ForEachRef(
 		flags := []git.Option{
 			git.ValueFlag{Name: "--format", Value: cfg.format},
 		}
-		if sortField != "" {
-			flags = append(flags, git.ValueFlag{Name: "--sort", Value: sortField})
+		if cfg.sortField != "" {
+			flags = append(flags, git.ValueFlag{Name: "--sort", Value: cfg.sortField})
+		}
+		if cfg.pointsAt != "" {
+			flags = append(flags, git.ValueFlag{Name: "--points-at", Value: cfg.pointsAt})
+		}
+		if cfg.count > 0 {
+			flags = append(flags, git.ValueFlag{Name: "--count", Value: strconv.Itoa(cfg.count)})
 		}
 
 		forEachRef, err := repo.Exec(ctx, git.SubCmd{

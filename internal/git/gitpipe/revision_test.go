@@ -5,10 +5,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
@@ -504,7 +506,7 @@ func TestForEachRef(t *testing.T) {
 	defer cancel()
 
 	readRefs := func(t *testing.T, repo *localrepo.Repo, patterns []string, opts ...ForEachRefOption) []RevisionResult {
-		it := ForEachRef(ctx, repo, patterns, "", opts...)
+		it := ForEachRef(ctx, repo, patterns, opts...)
 
 		var results []RevisionResult
 		for it.Next() {
@@ -597,4 +599,75 @@ func TestForEachRef(t *testing.T) {
 	t.Run("nonexisting pattern", func(t *testing.T) {
 		require.Nil(t, readRefs(t, repo, []string{"refs/idontexist/*"}))
 	})
+}
+
+func TestForEachRef_options(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	for _, tc := range []struct {
+		// prepare is a function that prepares a repository and returns an oid to match on
+		prepare  func(repoPath string, cfg config.Cfg) string
+		desc     string
+		options  []ForEachRefOption
+		refnames []string
+	}{
+		{
+			desc: "with limit",
+			prepare: func(repoPath string, cfg config.Cfg) string {
+				oid := string(gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage(t.Name())))
+
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-1", oid)
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-2", oid)
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-3", oid)
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-4", oid)
+
+				return oid
+			},
+			options: []ForEachRefOption{
+				WithCount(2),
+			},
+			refnames: []string{
+				"refs/heads/branch-1",
+				"refs/heads/branch-2",
+			},
+		},
+		{
+			desc: "with sort key",
+			prepare: func(repoPath string, cfg config.Cfg) string {
+				oid := string(gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage(t.Name())))
+
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-b", oid)
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-a", oid)
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-d", oid)
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-c", oid)
+
+				return oid
+			},
+			options: []ForEachRefOption{
+				WithSortField("refname"),
+			},
+			refnames: []string{
+				"refs/heads/branch-a",
+				"refs/heads/branch-b",
+				"refs/heads/branch-c",
+				"refs/heads/branch-d",
+			},
+		},
+	} {
+
+		cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+		repo := localrepo.NewTestRepo(t, cfg, repoProto)
+		oid := tc.prepare(repoPath, cfg)
+
+		forEachRef := ForEachRef(ctx, repo, nil, append(tc.options, WithPointsAt(oid))...)
+
+		var i int
+		for forEachRef.Next() {
+			assert.Equal(t, tc.refnames[i], string(forEachRef.Result().ObjectName))
+			i++
+		}
+
+		assert.Equal(t, i, len(tc.refnames))
+	}
 }
