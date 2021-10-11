@@ -98,7 +98,7 @@ func (ch clientHandshake) serve(ctx context.Context, conn net.Conn) (net.Conn, e
 	}
 
 	// Initiate the multiplexing session.
-	muxSession, err := yamux.Client(conn, options.YamuxConfig)
+	muxSession, err := yamux.Client(conn, options.yamuxConfig)
 	if err != nil {
 		logger.Close()
 		return nil, fmt.Errorf("open multiplexing session: %w", err)

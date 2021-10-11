@@ -105,7 +105,7 @@ func (s *ServerHandshaker) Handshake(conn net.Conn, authInfo credentials.AuthInf
 	}
 
 	// Open the server side of the multiplexing session.
-	muxSession, err := yamux.Server(conn, options.YamuxConfig)
+	muxSession, err := yamux.Server(conn, options.yamuxConfig)
 	if err != nil {
 		logger.Close()
 		return nil, nil, fmt.Errorf("create multiplexing session: %w", err)

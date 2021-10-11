@@ -48,15 +48,19 @@ type connCloser struct {
 // Close calls the provided close function.
 func (cc connCloser) Close() error { return cc.close() }
 
-// Options stores the configurations used in backchannel
-type Options struct {
-	YamuxConfig *yamux.Config
+type options struct {
+	yamuxConfig *yamux.Config
 }
 
 // A Option sets options such as yamux configurations for backchannel
-type Option func(*Options)
+type Option func(*options)
 
-func defaultBackchannelOptions(logger io.Writer) *Options {
+// WithYamuxConfig customizes the yamux configuration used in backchannel
+func WithYamuxConfig(yamuxConfig *yamux.Config) Option {
+	return func(opts *options) { opts.yamuxConfig = yamuxConfig }
+}
+
+func defaultBackchannelOptions(logger io.Writer) *options {
 	yamuxConf := yamux.DefaultConfig()
 	// The server only accepts a single stream from the client, which is the client's gRPC stream.
 	// The backchannel server should only receive a single stream from the server. As such, we can
@@ -75,7 +79,7 @@ func defaultBackchannelOptions(logger io.Writer) *Options {
 
 	yamuxConf.LogOutput = logger
 
-	return &Options{
-		YamuxConfig: yamuxConf,
+	return &options{
+		yamuxConfig: yamuxConf,
 	}
 }

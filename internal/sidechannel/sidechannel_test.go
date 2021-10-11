@@ -148,7 +148,47 @@ func TestSidechannelConcurrency(t *testing.T) {
 	}
 }
 
-func startServer(t *testing.T, th testHandler, opts ...grpc.ServerOption) string {
+func TestSidechannelCancelled(t *testing.T) {
+	addr := startServer(
+		t,
+		func(context context.Context, request *healthpb.HealthCheckRequest) (*healthpb.HealthCheckResponse, error) {
+			conn, err := OpenSidechannel(context)
+			if err != nil {
+				return nil, err
+			}
+			defer conn.Close()
+
+			if _, err := io.Copy(io.Discard, conn); err != nil {
+				return nil, err
+			}
+
+			responseData := make([]byte, 64*1024)
+			for {
+				// Write into yamux connection until reaching error.
+				if _, err = conn.Write(responseData); err != nil {
+					return nil, err
+				}
+			}
+		},
+		[]grpc.ServerOption{
+			grpc.UnaryInterceptor(cancelhandler.Unary),
+			grpc.StreamInterceptor(cancelhandler.Stream),
+		},
+		withYamuxCfgFastTimeout(),
+	)
+
+	conn, registry := dial(t, addr, withYamuxCfgFastTimeout())
+	client := healthpb.NewHealthClient(conn)
+
+	ctxOut, waiter := RegisterSidechannel(context.Background(), registry, func(conn *ClientConn) error {
+		// Send data to the server but not wait for the response
+		return conn.CloseWrite()
+	})
+	defer waiter.Close()
+
+	_, err := client.Check(ctxOut, &healthpb.HealthCheckRequest{})
+	testhelper.RequireGrpcError(t, err, codes.Canceled)
+}
 
 func startServer(t *testing.T, th testHandler, grpcOpts []grpc.ServerOption, sidechannelOpts ...Option) string {
 	t.Helper()
@@ -159,11 +199,7 @@ func startServer(t *testing.T, th testHandler, grpcOpts []grpc.ServerOption, sid
 	}
 
 	lm := listenmux.New(insecure.NewCredentials())
-	lm.Register(backchannel.NewServerHandshaker(newLogger(), backchannel.NewRegistry(), nil, []backchannel.Option{
-		func(backchannelOptions *backchannel.Options) {
-			backchannelOptions.YamuxConfig = options.YamuxConfig
-		},
-	}...))
+	lm.Register(backchannel.NewServerHandshaker(newLogger(), backchannel.NewRegistry(), nil, backchannel.WithYamuxConfig(options.yamuxConfig)))
 
 	grpcOpts = append(grpcOpts, grpc.Creds(lm))
 
@@ -220,4 +256,10 @@ type server struct {
 
 func (s *server) Check(context context.Context, request *healthpb.HealthCheckRequest) (*healthpb.HealthCheckResponse, error) {
 	return s.testHandler(context, request)
+}
+
+func withYamuxCfgFastTimeout() Option {
+	return func(options *options) {
+		options.yamuxConfig.StreamCloseTimeout = 10 * time.Millisecond
+	}
 }

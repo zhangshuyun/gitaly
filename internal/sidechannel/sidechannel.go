@@ -31,15 +31,11 @@ const (
 	sidechannelMetadataKey = "gitaly-sidechannel-id"
 )
 
-// Options stores the configurations used in backchannel
-type Options struct {
-	YamuxConfig *yamux.Config
+type options struct {
+	yamuxConfig *yamux.Config
 }
 
-// A Option sets options such as yamux configurations for sidechannel
-type Option func(*Options)
-
-func defaultSidechannelOptions(logger io.Writer) *Options {
+func defaultSidechannelOptions(logger io.Writer) *options {
 	yamuxConf := yamux.DefaultConfig()
 
 	// At the moment, those configurations are the subset of backchannel yamux
@@ -49,9 +45,17 @@ func defaultSidechannelOptions(logger io.Writer) *Options {
 	yamuxConf.EnableKeepAlive = false
 	yamuxConf.LogOutput = logger
 
-	return &Options{
-		YamuxConfig: yamuxConf,
+	return &options{
+		yamuxConfig: yamuxConf,
 	}
+}
+
+// A Option sets options such as yamux configurations for sidechannel
+type Option func(*options)
+
+// WithYamuxConfig customizes the yamux configuration used in sidechannel
+func WithYamuxConfig(yamuxConfig *yamux.Config) Option {
+	return func(opts *options) { opts.yamuxConfig = yamuxConfig }
 }
 
 // OpenSidechannel opens a sidechannel connection from the stream opener
@@ -169,10 +173,6 @@ func NewClientHandshaker(logger *logrus.Entry, registry *Registry, opts ...Optio
 			lm.Register(NewServerHandshaker(registry))
 			return grpc.NewServer(grpc.Creds(lm))
 		},
-		[]backchannel.Option{
-			func(options *backchannel.Options) {
-				options.YamuxConfig = sidechannelOpts.YamuxConfig
-			},
-		}...,
+		backchannel.WithYamuxConfig(sidechannelOpts.yamuxConfig),
 	)
 }
