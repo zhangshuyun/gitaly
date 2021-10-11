@@ -314,3 +314,12 @@ func GenerateCerts(t *testing.T) (string, string) {
 
 	return certFile.Name(), keyFile.Name()
 }
+
+// Quarantine skips a test unless environment variable QUARANTINE is set
+func Quarantine(t testing.TB, issueURL string) {
+	_, ok := os.LookupEnv("QUARANTINE")
+	if ok {
+		return
+	}
+	t.Skipf("Skipping quarantined test, issue %s", issueURL)
+}
