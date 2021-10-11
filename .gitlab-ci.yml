@@ -273,13 +273,6 @@ pgbouncer_test:
   script:
     - make test-postgres
 
-lint:
-  stage: test
-  retry: 2
-  script:
-    - go version
-    - make lint
-
 objectinfo_fuzz_test:
   extends: .fuzz_base
   stage: test
