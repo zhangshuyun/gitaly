@@ -1,10 +1,12 @@
 package datastore
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
@@ -78,17 +80,20 @@ func TestAssignmentStore_GetHostAssignments(t *testing.T) {
 
 			db.TruncateAll(t)
 
+			rs := NewPostgresRepositoryStore(db, nil)
 			for _, assignment := range tc.existingAssignments {
-				_, err := db.ExecContext(ctx, `
-					INSERT INTO repositories (virtual_storage, relative_path)
-					VALUES ($1, $2)
-					ON CONFLICT DO NOTHING
-				`, assignment.virtualStorage, assignment.relativePath)
-				require.NoError(t, err)
+				repositoryID, err := rs.GetRepositoryID(ctx, assignment.virtualStorage, assignment.relativePath)
+				if errors.Is(err, commonerr.NewRepositoryNotFoundError(assignment.virtualStorage, assignment.relativePath)) {
+					repositoryID, err = rs.ReserveRepositoryID(ctx, assignment.virtualStorage, assignment.relativePath)
+					require.NoError(t, err)
+
+					require.NoError(t, rs.CreateRepository(ctx, repositoryID, assignment.virtualStorage, assignment.relativePath, assignment.storage, nil, nil, false, false))
+				}
 
 				_, err = db.ExecContext(ctx, `
-					INSERT INTO repository_assignments VALUES ($1, $2, $3)
-				`, assignment.virtualStorage, assignment.relativePath, assignment.storage)
+					INSERT INTO repository_assignments (repository_id, virtual_storage, relative_path, storage)
+					VALUES ($1, $2, $3, $4)
+				`, repositoryID, assignment.virtualStorage, assignment.relativePath, assignment.storage)
 				require.NoError(t, err)
 			}
 
