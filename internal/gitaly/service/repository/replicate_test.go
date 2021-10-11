@@ -22,7 +22,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	grpc_metadata "google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -61,10 +60,9 @@ func TestReplicateRepository(t *testing.T) {
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
-	injectedCtx := grpc_metadata.NewOutgoingContext(ctx, md)
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
 
-	_, err = client.ReplicateRepository(injectedCtx, &gitalypb.ReplicateRepositoryRequest{
+	_, err = client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
 		Repository: targetRepo,
 		Source:     repo,
 	})
@@ -83,7 +81,7 @@ func TestReplicateRepository(t *testing.T) {
 
 	// create another branch
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
-	_, err = client.ReplicateRepository(injectedCtx, &gitalypb.ReplicateRepositoryRequest{
+	_, err = client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
 		Repository: targetRepo,
 		Source:     repo,
 	})
@@ -329,11 +327,9 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
+			ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
 
-			md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
-			injectedCtx := grpc_metadata.NewOutgoingContext(ctx, md)
-
-			_, err := client.ReplicateRepository(injectedCtx, &gitalypb.ReplicateRepositoryRequest{
+			_, err := client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
 				Repository: targetRepo,
 				Source:     sourceRepo,
 			})
@@ -377,8 +373,7 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
-	ctx = grpc_metadata.NewOutgoingContext(ctx, md)
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
 
 	repoClient := newRepositoryClient(t, cfg, cfg.SocketPath)
 

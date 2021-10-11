@@ -290,16 +290,16 @@ func (s *server) writeFile(ctx context.Context, path string, mode os.FileMode, r
 		}
 		defer func() {
 			if err := lockedFile.Close(); err != nil && returnedErr == nil {
-				returnedErr = fmt.Errorf("closing file writer: %w", err)
+				returnedErr = err
 			}
 		}()
 
 		if _, err := io.Copy(lockedFile, reader); err != nil {
-			return fmt.Errorf("writing contents: %w", err)
+			return err
 		}
 
 		if err := transaction.CommitLockedFile(ctx, s.txManager, lockedFile); err != nil {
-			return fmt.Errorf("committing file: %w", err)
+			return err
 		}
 	} else {
 		fw, err := safe.NewFileWriter(path)
