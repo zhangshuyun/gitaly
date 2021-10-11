@@ -200,6 +200,16 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :name, :bytes, 1
       optional :target, :string, 2
     end
+    add_message "gitaly.FindRefsByOIDRequest" do
+      optional :repository, :message, 1, "gitaly.Repository"
+      optional :oid, :string, 2
+      repeated :ref_patterns, :string, 3
+      optional :sort_field, :string, 4
+      optional :limit, :uint32, 5
+    end
+    add_message "gitaly.FindRefsByOIDResponse" do
+      repeated :refs, :string, 1
+    end
   end
 end
 
@@ -253,4 +263,6 @@ module Gitaly
   ListRefsRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListRefsRequest").msgclass
   ListRefsResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListRefsResponse").msgclass
   ListRefsResponse::Reference = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListRefsResponse.Reference").msgclass
+  FindRefsByOIDRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindRefsByOIDRequest").msgclass
+  FindRefsByOIDResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindRefsByOIDResponse").msgclass
 end

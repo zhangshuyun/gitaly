@@ -120,6 +120,15 @@ service RefService {
       op: ACCESSOR
     };
   }
+
+  // FindRefsByOID returns an array of fully qualified reference names that point to an object ID.
+  // It returns nothing if the object ID doesn't exist, or doesn't point to
+  // any branches or tags. Prefixes can be also be used as the object ID.
+  rpc FindRefsByOID(FindRefsByOIDRequest) returns (FindRefsByOIDResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
 }
 
 message FindDefaultBranchNameRequest {
@@ -419,4 +428,25 @@ message ListRefsResponse{
 
   // References is the set of references returned by the RPC.
   repeated Reference references = 1;
+}
+
+message FindRefsByOIDRequest {
+  // repository is the repository in which references will be looked for.
+  Repository repository = 1 [(target_repository)=true];
+  // oid is an object ID to find references for.
+  string oid = 2;
+  // ref_patterns can be one of branch name, tag name or fully qualified ref name.
+  // Providing more than one pattern will yield refs that match any of the given patterns.
+  // If left empty, defaults to "refs/heads/" and "refs/tags/"
+  repeated string ref_patterns = 3;
+  // sort_field determines the sort order of the resulting refs.
+  // If left empty, defaults to "-refname" (reverse lexigraphic refname order)
+  string sort_field = 4;
+  // limit limits the amount of results returned. 0 means no limit.
+  uint32 limit = 5;
+}
+
+message FindRefsByOIDResponse {
+  // refs is the set of fully-qualified references which have been found.
+  repeated string refs = 1;
 }

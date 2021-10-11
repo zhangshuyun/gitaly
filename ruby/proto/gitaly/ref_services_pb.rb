@@ -44,6 +44,10 @@ module Gitaly
       # will not be returned by this RPC. Any symbolic references will be resolved to the object ID it is
       # pointing at.
       rpc :ListRefs, Gitaly::ListRefsRequest, stream(Gitaly::ListRefsResponse)
+      # FindRefsByOID returns an array of fully qualified reference names that point to an object ID.
+      # It returns nothing if the object ID doesn't exist, or doesn't point to
+      # any branches or tags. Prefixes can be also be used as the object ID.
+      rpc :FindRefsByOID, Gitaly::FindRefsByOIDRequest, Gitaly::FindRefsByOIDResponse
     end
 
     Stub = Service.rpc_stub_class
