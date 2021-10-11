@@ -51,6 +51,27 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 		}
 	}
 
+	repoClient, err := s.newRepoClient(ctx, in.GetSource().GetStorageName())
+	if err != nil {
+		return nil, helper.ErrInternalf("new client: %w", err)
+	}
+
+	// We're checking for repository existence up front such that we can give a conclusive error
+	// in case it doesn't. Otherwise, the error message returned to the client would depend on
+	// the order in which the sync functions were executed. Most importantly, given that
+	// `syncRepository` uses FetchInternalRemote which in turn uses gitaly-ssh, this code path
+	// cannot pass up NotFound errors given that there is no communication channel between
+	// Gitaly and gitaly-ssh.
+	request, err := repoClient.RepositoryExists(ctx, &gitalypb.RepositoryExistsRequest{
+		Repository: in.GetSource(),
+	})
+	if err != nil {
+		return nil, helper.ErrInternalf("checking for repo existence: %w", err)
+	}
+	if !request.GetExists() {
+		return nil, helper.ErrNotFoundf("source repository does not exist")
+	}
+
 	// We're not using the context of the errgroup here, as an error
 	// returned by either of the called functions would cancel the
 	// respective other function. Given that we're doing RPC calls in
