@@ -34,17 +34,19 @@ type Pipeline interface {
 
 // CreateCommand creates a backup for a repository
 type CreateCommand struct {
-	strategy   Strategy
-	server     storage.ServerInfo
-	repository *gitalypb.Repository
+	strategy    Strategy
+	server      storage.ServerInfo
+	repository  *gitalypb.Repository
+	incremental bool
 }
 
 // NewCreateCommand builds a CreateCommand
-func NewCreateCommand(strategy Strategy, server storage.ServerInfo, repo *gitalypb.Repository) *CreateCommand {
+func NewCreateCommand(strategy Strategy, server storage.ServerInfo, repo *gitalypb.Repository, incremental bool) *CreateCommand {
 	return &CreateCommand{
-		strategy:   strategy,
-		server:     server,
-		repository: repo,
+		strategy:    strategy,
+		server:      server,
+		repository:  repo,
+		incremental: incremental,
 	}
 }
 
@@ -61,8 +63,9 @@ func (cmd CreateCommand) Name() string {
 // Execute performs the backup
 func (cmd CreateCommand) Execute(ctx context.Context) error {
 	return cmd.strategy.Create(ctx, &CreateRequest{
-		Server:     cmd.server,
-		Repository: cmd.repository,
+		Server:      cmd.server,
+		Repository:  cmd.repository,
+		Incremental: cmd.incremental,
 	})
 }
 
