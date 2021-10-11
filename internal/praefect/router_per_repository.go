@@ -28,18 +28,6 @@ type AssignmentGetter interface {
 	GetHostAssignments(ctx context.Context, virtualStorage, relativePath string) ([]string, error)
 }
 
-// StaticStorageAssignments is a static assignment of the same storages in a virtual storage for every repository.
-type StaticStorageAssignments map[string][]string
-
-func (st StaticStorageAssignments) GetHostAssignments(ctx context.Context, virtualStorage, relativePath string) ([]string, error) {
-	storages, ok := st[virtualStorage]
-	if !ok {
-		return nil, nodes.ErrVirtualStorageNotExist
-	}
-
-	return storages, nil
-}
-
 // ErrNoSuitableNode is returned when there is not suitable node to serve a request.
 var ErrNoSuitableNode = errors.New("no suitable node to serve the request")
 
