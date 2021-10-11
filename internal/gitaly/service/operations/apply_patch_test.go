@@ -22,7 +22,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -620,12 +619,9 @@ func TestUserApplyPatchStableID(t *testing.T) {
 func TestUserApplyPatchTransactional(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.TxExtendedFileLocking,
-	}).Run(t, testUserApplyPatchTransactional)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserApplyPatchTransactional(t *testing.T, ctx context.Context) {
 	var votes int32
 	txManager := &transaction.MockManager{
 		VoteFn: func(context.Context, txinfo.Transaction, voting.Vote) error {
@@ -670,11 +666,7 @@ func testUserApplyPatchTransactional(t *testing.T, ctx context.Context) {
 
 	require.True(t, response.BranchUpdate.BranchCreated)
 
-	if featureflag.TxExtendedFileLocking.IsEnabled(ctx) {
-		require.Equal(t, int32(14), votes)
-	} else {
-		require.Equal(t, int32(12), votes)
-	}
+	require.Equal(t, int32(14), votes)
 
 	splitIndex := gittest.Exec(t, cfg, "-C", repoPath, "config", "core.splitIndex")
 	require.Equal(t, "false", text.ChompBytes(splitIndex))

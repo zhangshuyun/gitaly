@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -279,46 +278,26 @@ func (s *server) writeFile(ctx context.Context, path string, mode os.FileMode, r
 		return err
 	}
 
-	if featureflag.TxExtendedFileLocking.IsEnabled(ctx) {
-		lockedFile, err := safe.NewLockingFileWriter(path, safe.LockingFileWriterConfig{
-			FileWriterConfig: safe.FileWriterConfig{
-				FileMode: mode,
-			},
-		})
-		if err != nil {
-			return fmt.Errorf("creating file writer: %w", err)
+	lockedFile, err := safe.NewLockingFileWriter(path, safe.LockingFileWriterConfig{
+		FileWriterConfig: safe.FileWriterConfig{
+			FileMode: mode,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("creating file writer: %w", err)
+	}
+	defer func() {
+		if err := lockedFile.Close(); err != nil && returnedErr == nil {
+			returnedErr = err
 		}
-		defer func() {
-			if err := lockedFile.Close(); err != nil && returnedErr == nil {
-				returnedErr = err
-			}
-		}()
+	}()
 
-		if _, err := io.Copy(lockedFile, reader); err != nil {
-			return err
-		}
+	if _, err := io.Copy(lockedFile, reader); err != nil {
+		return err
+	}
 
-		if err := transaction.CommitLockedFile(ctx, s.txManager, lockedFile); err != nil {
-			return err
-		}
-	} else {
-		fw, err := safe.NewFileWriter(path)
-		if err != nil {
-			return err
-		}
-		defer fw.Close()
-
-		if _, err := io.Copy(fw, reader); err != nil {
-			return err
-		}
-
-		if err = fw.Commit(); err != nil {
-			return err
-		}
-
-		if err := os.Chmod(path, mode); err != nil {
-			return err
-		}
+	if err := transaction.CommitLockedFile(ctx, s.txManager, lockedFile); err != nil {
+		return err
 	}
 
 	return nil

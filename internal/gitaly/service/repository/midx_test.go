@@ -19,7 +19,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
@@ -123,13 +122,10 @@ func TestMidxRepack(t *testing.T) {
 }
 
 func TestMidxRepack_transactional(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.TxExtendedFileLocking,
-	}).Run(t, testMidxRepackTransactional)
-}
-
-func testMidxRepackTransactional(t *testing.T, ctx context.Context) {
 	t.Parallel()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	votes := 0
 	txManager := &transaction.MockManager{
@@ -153,11 +149,7 @@ func testMidxRepackTransactional(t *testing.T, ctx context.Context) {
 	})
 	require.NoError(t, err)
 
-	if featureflag.TxExtendedFileLocking.IsEnabled(ctx) {
-		require.Equal(t, 2, votes)
-	} else {
-		require.Equal(t, 0, votes)
-	}
+	require.Equal(t, 2, votes)
 
 	multiPackIndex := gittest.Exec(t, cfg, "-C", repoPath, "config", "core.multiPackIndex")
 	require.Equal(t, "true", text.ChompBytes(multiPackIndex))

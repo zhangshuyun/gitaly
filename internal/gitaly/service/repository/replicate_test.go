@@ -2,7 +2,6 @@ package repository
 
 import (
 	"bytes"
-	"context"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -14,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -96,12 +94,11 @@ func TestReplicateRepository(t *testing.T) {
 }
 
 func TestReplicateRepositoryTransactional(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.TxExtendedFileLocking,
-	}).Run(t, testReplicateRepositoryTransactional)
-}
+	t.Parallel()
 
-func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
 
@@ -146,13 +143,8 @@ func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
 		Repository: targetRepo,
 		Source:     sourceRepo,
 	})
-
 	require.NoError(t, err)
-	if featureflag.TxExtendedFileLocking.IsEnabled(ctx) {
-		require.EqualValues(t, 5, atomic.LoadInt32(&votes))
-	} else {
-		require.EqualValues(t, 1, atomic.LoadInt32(&votes))
-	}
+	require.EqualValues(t, 5, atomic.LoadInt32(&votes))
 
 	// We're now changing a reference in the source repository such that we can observe changes
 	// in the target repo.
@@ -165,13 +157,8 @@ func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
 		Repository: targetRepo,
 		Source:     sourceRepo,
 	})
-
 	require.NoError(t, err)
-	if featureflag.TxExtendedFileLocking.IsEnabled(ctx) {
-		require.EqualValues(t, 6, atomic.LoadInt32(&votes))
-	} else {
-		require.EqualValues(t, 2, atomic.LoadInt32(&votes))
-	}
+	require.EqualValues(t, 6, atomic.LoadInt32(&votes))
 }
 
 func TestReplicateRepositoryInvalidArguments(t *testing.T) {
