@@ -199,6 +199,14 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :name, :bytes, 1
       optional :target, :string, 2
     end
+    add_message "gitaly.ForEachRefWithObjectsRequest" do
+      optional :repository, :message, 1, "gitaly.Repository"
+      repeated :patterns, :bytes, 2
+      optional :sort, :string, 3
+    end
+    add_message "gitaly.ForEachRefWithObjectsResponse" do
+      optional :data, :bytes, 1
+    end
   end
 end
 
@@ -252,4 +260,6 @@ module Gitaly
   ListRefsRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListRefsRequest").msgclass
   ListRefsResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListRefsResponse").msgclass
   ListRefsResponse::Reference = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListRefsResponse.Reference").msgclass
+  ForEachRefWithObjectsRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ForEachRefWithObjectsRequest").msgclass
+  ForEachRefWithObjectsResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ForEachRefWithObjectsResponse").msgclass
 end

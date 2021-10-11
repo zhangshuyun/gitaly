@@ -120,6 +120,18 @@ service RefService {
       op: ACCESSOR
     };
   }
+
+  // ForEachRefWithObjects returns a for-each-ref query joined with the
+  // objects the refs point to. The response is a byte stream in the format
+  // of 'git cat-file --batch'. The refname is the last field on each info
+  // line. If a tag object occurs in the output stream, the object
+  // immediately after it is the recursively dereferenced object the tag
+  // points to.
+  rpc ForEachRefWithObjects(ForEachRefWithObjectsRequest) returns (stream ForEachRefWithObjectsResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
 }
 
 message FindDefaultBranchNameRequest {
@@ -414,4 +426,16 @@ message ListRefsResponse{
 
   // References is the set of references returned by the RPC.
   repeated Reference references = 1;
+}
+
+message ForEachRefWithObjectsRequest {
+  Repository repository = 1 [(target_repository)=true];
+  // Patterns are prefixes of the ref namespace, such as "refs/heads"
+  repeated bytes patterns = 2;
+  // Sort sets the sorting direction using the syntax of `git for-each-ref --sort`
+  string sort = 3;
+}
+
+message ForEachRefWithObjectsResponse{
+  bytes data = 1;
 }

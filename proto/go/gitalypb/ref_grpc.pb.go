@@ -48,6 +48,13 @@ type RefServiceClient interface {
 	// will not be returned by this RPC. Any symbolic references will be resolved to the object ID it is
 	// pointing at.
 	ListRefs(ctx context.Context, in *ListRefsRequest, opts ...grpc.CallOption) (RefService_ListRefsClient, error)
+	// ForEachRefWithObjects returns a for-each-ref query joined with the
+	// objects the refs point to. The response is a byte stream in the format
+	// of 'git cat-file --batch'. The refname is the last field on each info
+	// line. If a tag object occurs in the output stream, the object
+	// immediately after it is the recursively dereferenced object the tag
+	// points to.
+	ForEachRefWithObjects(ctx context.Context, in *ForEachRefWithObjectsRequest, opts ...grpc.CallOption) (RefService_ForEachRefWithObjectsClient, error)
 }
 
 type refServiceClient struct {
@@ -496,6 +503,38 @@ func (x *refServiceListRefsClient) Recv() (*ListRefsResponse, error) {
 	return m, nil
 }
 
+func (c *refServiceClient) ForEachRefWithObjects(ctx context.Context, in *ForEachRefWithObjectsRequest, opts ...grpc.CallOption) (RefService_ForEachRefWithObjectsClient, error) {
+	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[12], "/gitaly.RefService/ForEachRefWithObjects", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &refServiceForEachRefWithObjectsClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type RefService_ForEachRefWithObjectsClient interface {
+	Recv() (*ForEachRefWithObjectsResponse, error)
+	grpc.ClientStream
+}
+
+type refServiceForEachRefWithObjectsClient struct {
+	grpc.ClientStream
+}
+
+func (x *refServiceForEachRefWithObjectsClient) Recv() (*ForEachRefWithObjectsResponse, error) {
+	m := new(ForEachRefWithObjectsResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // RefServiceServer is the server API for RefService service.
 // All implementations must embed UnimplementedRefServiceServer
 // for forward compatibility
@@ -530,6 +569,13 @@ type RefServiceServer interface {
 	// will not be returned by this RPC. Any symbolic references will be resolved to the object ID it is
 	// pointing at.
 	ListRefs(*ListRefsRequest, RefService_ListRefsServer) error
+	// ForEachRefWithObjects returns a for-each-ref query joined with the
+	// objects the refs point to. The response is a byte stream in the format
+	// of 'git cat-file --batch'. The refname is the last field on each info
+	// line. If a tag object occurs in the output stream, the object
+	// immediately after it is the recursively dereferenced object the tag
+	// points to.
+	ForEachRefWithObjects(*ForEachRefWithObjectsRequest, RefService_ForEachRefWithObjectsServer) error
 	mustEmbedUnimplementedRefServiceServer()
 }
 
@@ -590,6 +636,9 @@ func (UnimplementedRefServiceServer) PackRefs(context.Context, *PackRefsRequest)
 }
 func (UnimplementedRefServiceServer) ListRefs(*ListRefsRequest, RefService_ListRefsServer) error {
 	return status.Errorf(codes.Unimplemented, "method ListRefs not implemented")
+}
+func (UnimplementedRefServiceServer) ForEachRefWithObjects(*ForEachRefWithObjectsRequest, RefService_ForEachRefWithObjectsServer) error {
+	return status.Errorf(codes.Unimplemented, "method ForEachRefWithObjects not implemented")
 }
 func (UnimplementedRefServiceServer) mustEmbedUnimplementedRefServiceServer() {}
 
@@ -964,6 +1013,27 @@ func (x *refServiceListRefsServer) Send(m *ListRefsResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _RefService_ForEachRefWithObjects_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ForEachRefWithObjectsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(RefServiceServer).ForEachRefWithObjects(m, &refServiceForEachRefWithObjectsServer{stream})
+}
+
+type RefService_ForEachRefWithObjectsServer interface {
+	Send(*ForEachRefWithObjectsResponse) error
+	grpc.ServerStream
+}
+
+type refServiceForEachRefWithObjectsServer struct {
+	grpc.ServerStream
+}
+
+func (x *refServiceForEachRefWithObjectsServer) Send(m *ForEachRefWithObjectsResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // RefService_ServiceDesc is the grpc.ServiceDesc for RefService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1055,6 +1125,11 @@ var RefService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "ListRefs",
 			Handler:       _RefService_ListRefs_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "ForEachRefWithObjects",
+			Handler:       _RefService_ForEachRefWithObjects_Handler,
 			ServerStreams: true,
 		},
 	},

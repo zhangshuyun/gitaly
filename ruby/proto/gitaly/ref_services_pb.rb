@@ -44,6 +44,13 @@ module Gitaly
       # will not be returned by this RPC. Any symbolic references will be resolved to the object ID it is
       # pointing at.
       rpc :ListRefs, Gitaly::ListRefsRequest, stream(Gitaly::ListRefsResponse)
+      # ForEachRefWithObjects returns a for-each-ref query joined with the
+      # objects the refs point to. The response is a byte stream in the format
+      # of 'git cat-file --batch'. The refname is the last field on each info
+      # line. If a tag object occurs in the output stream, the object
+      # immediately after it is the recursively dereferenced object the tag
+      # points to.
+      rpc :ForEachRefWithObjects, Gitaly::ForEachRefWithObjectsRequest, stream(Gitaly::ForEachRefWithObjectsResponse)
     end
 
     Stub = Service.rpc_stub_class
