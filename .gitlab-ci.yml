@@ -313,13 +313,6 @@ backwards_compatibility_test:
     - git checkout --no-overlay $CI_COMMIT_SHA -- internal/praefect/datastore/migrations
     - make test-postgres
 
-lint:
-  stage: test
-  retry: 2
-  script:
-    - go version
-    - make lint
-
 objectinfo_fuzz_test:
   extends: .fuzz_base
   stage: test
