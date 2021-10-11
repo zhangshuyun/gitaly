@@ -243,13 +243,6 @@ verify:
       - proto/go/gitalypb/*
     when: on_failure
 
-lint:
-  stage: test
-  retry: 2
-  script:
-    - go version
-    - make lint
-
 gosec-sast:
   before_script:
     - apk add pkgconfig libgit2-dev gcc libc-dev
