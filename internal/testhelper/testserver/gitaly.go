@@ -174,7 +174,9 @@ func (gs GitalyServer) Address() string {
 // waitHealthy waits until the server hosted at address becomes healthy. Times out after a fixed
 // amount of time.
 func waitHealthy(t testing.TB, cfg config.Cfg, addr string) {
-	var grpcOpts []grpc.DialOption
+	grpcOpts := []grpc.DialOption{
+		grpc.WithBlock(),
+	}
 	if cfg.Auth.Token != "" {
 		grpcOpts = append(grpcOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)))
 	}
