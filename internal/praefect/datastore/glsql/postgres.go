@@ -29,9 +29,16 @@ func OpenDB(conf config.DB) (*sql.DB, error) {
 
 // Migrate will apply all pending SQL migrations.
 func Migrate(db *sql.DB, ignoreUnknown bool) (int, error) {
-	migrationSource := &migrate.MemoryMigrationSource{Migrations: migrations.All()}
-	migrate.SetIgnoreUnknown(ignoreUnknown)
-	return migrate.Exec(db, "postgres", migrationSource, migrate.Up)
+	migrationSet := migrate.MigrationSet{
+		IgnoreUnknown: ignoreUnknown,
+		TableName:     migrations.MigrationTableName,
+	}
+
+	migrationSource := &migrate.MemoryMigrationSource{
+		Migrations: migrations.All(),
+	}
+
+	return migrationSet.Exec(db, "postgres", migrationSource, migrate.Up)
 }
 
 // Querier is an abstraction on *sql.DB and *sql.Tx that allows to use their methods without awareness about actual type.
