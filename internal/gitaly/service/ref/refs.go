@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/lines"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -46,9 +47,10 @@ func (s *server) findRefs(ctx context.Context, writer lines.Sender, repo git.Rep
 	}
 
 	if err := lines.Send(cmd, writer, lines.SenderOpts{
-		IsPageToken: opts.IsPageToken,
-		Delimiter:   opts.delim,
-		Limit:       opts.Limit,
+		IsPageToken:    opts.IsPageToken,
+		Delimiter:      opts.delim,
+		Limit:          opts.Limit,
+		PageTokenError: opts.PageTokenError,
 	}); err != nil {
 		return err
 	}
@@ -142,7 +144,7 @@ func (s *server) findLocalBranches(in *gitalypb.FindLocalBranchesRequest, stream
 	}
 
 	writer := newFindLocalBranchesWriter(stream, c)
-	opts := paginationParamsToOpts(in.GetPaginationParams())
+	opts := paginationParamsToOpts(ctx, in.GetPaginationParams())
 	opts.cmdArgs = []git.Option{
 		// %00 inserts the null character into the output (see for-each-ref docs)
 		git.Flag{Name: "--format=" + strings.Join(localBranchFormatFields, "%00")},
@@ -193,7 +195,7 @@ func (s *server) findAllBranches(in *gitalypb.FindAllBranchesRequest, stream git
 		return err
 	}
 
-	opts := paginationParamsToOpts(nil)
+	opts := paginationParamsToOpts(ctx, nil)
 	opts.cmdArgs = args
 
 	writer := newFindAllBranchesWriter(stream, c)
@@ -304,7 +306,7 @@ func (s *server) validateFindTagRequest(in *gitalypb.FindTagRequest) error {
 	return nil
 }
 
-func paginationParamsToOpts(p *gitalypb.PaginationParameter) *findRefsOpts {
+func paginationParamsToOpts(ctx context.Context, p *gitalypb.PaginationParameter) *findRefsOpts {
 	opts := &findRefsOpts{delim: '\n'}
 	opts.IsPageToken = func(_ []byte) bool { return true }
 	opts.Limit = math.MaxInt32
@@ -318,7 +320,19 @@ func paginationParamsToOpts(p *gitalypb.PaginationParameter) *findRefsOpts {
 	}
 
 	if p.GetPageToken() != "" {
-		opts.IsPageToken = func(l []byte) bool { return bytes.Compare(l, []byte(p.GetPageToken())) >= 0 }
+		if featureflag.ExactPaginationTokenMatch.IsEnabled(ctx) {
+			opts.IsPageToken = func(line []byte) bool {
+				// Only use the first part of the line before \x00 separator
+				if nullByteIndex := bytes.IndexByte(line, 0); nullByteIndex != -1 {
+					line = line[:nullByteIndex]
+				}
+
+				return bytes.Equal(line, []byte(p.GetPageToken()))
+			}
+			opts.PageTokenError = true
+		} else {
+			opts.IsPageToken = func(l []byte) bool { return bytes.Compare(l, []byte(p.GetPageToken())) >= 0 }
+		}
 	}
 
 	return opts

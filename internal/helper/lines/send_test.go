@@ -16,11 +16,12 @@ func TestLinesSend(t *testing.T) {
 	}
 
 	tcs := []struct {
-		desc        string
-		filter      *regexp.Regexp
-		limit       int
-		isPageToken func([]byte) bool
-		output      [][]byte
+		desc           string
+		filter         *regexp.Regexp
+		limit          int
+		isPageToken    func([]byte) bool
+		PageTokenError bool
+		output         [][]byte
 	}{
 		{
 			desc:   "high limit",
@@ -50,6 +51,18 @@ func TestLinesSend(t *testing.T) {
 			output:      expected[1:3],
 		},
 		{
+			desc:        "page token is invalid",
+			limit:       100,
+			isPageToken: func(line []byte) bool { return false },
+			output:      [][]byte(nil),
+		},
+		{
+			desc:           "page token is invalid and page token error is set",
+			limit:          100,
+			isPageToken:    func(line []byte) bool { return false },
+			PageTokenError: true,
+		},
+		{
 			desc:        "skip no lines",
 			limit:       100,
 			isPageToken: func(_ []byte) bool { return true },
@@ -64,13 +77,19 @@ func TestLinesSend(t *testing.T) {
 			sender := func(in [][]byte) error { out = in; return nil }
 
 			err := Send(reader, sender, SenderOpts{
-				Limit:       tc.limit,
-				IsPageToken: tc.isPageToken,
-				Filter:      tc.filter,
-				Delimiter:   '\n',
+				Limit:          tc.limit,
+				IsPageToken:    tc.isPageToken,
+				PageTokenError: tc.PageTokenError,
+				Filter:         tc.filter,
+				Delimiter:      '\n',
 			})
-			require.NoError(t, err)
-			require.Equal(t, tc.output, out)
+
+			if tc.PageTokenError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.output, out)
+			}
 		})
 	}
 }

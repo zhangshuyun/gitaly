@@ -3,6 +3,7 @@ package ref
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -353,6 +355,12 @@ func TestSuccessfulFindLocalBranches(t *testing.T) {
 }
 
 func TestFindLocalBranches_huge_committer(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.ExactPaginationTokenMatch,
+	}).Run(t, testFindLocalBranchesHugeCommitter)
+}
+
+func testFindLocalBranchesHugeCommitter(t *testing.T, ctx context.Context) {
 	cfg, repo, repoPath, client := setupRefService(t)
 
 	gittest.WriteCommit(t, cfg, repoPath,
@@ -361,9 +369,6 @@ func TestFindLocalBranches_huge_committer(t *testing.T) {
 	)
 
 	rpcRequest := &gitalypb.FindLocalBranchesRequest{Repository: repo}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	c, err := client.FindLocalBranches(ctx, rpcRequest)
 	require.NoError(t, err)
@@ -378,10 +383,13 @@ func TestFindLocalBranches_huge_committer(t *testing.T) {
 }
 
 func TestFindLocalBranchesPagination(t *testing.T) {
-	_, repo, _, client := setupRefService(t)
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.ExactPaginationTokenMatch,
+	}).Run(t, testFindLocalBranchesPagination)
+}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+func testFindLocalBranchesPagination(t *testing.T, ctx context.Context) {
+	_, repo, _, client := setupRefService(t)
 
 	limit := 1
 	rpcRequest := &gitalypb.FindLocalBranchesRequest{
@@ -428,6 +436,121 @@ func TestFindLocalBranchesPagination(t *testing.T) {
 	assertContainsLocalBranch(t, branches, branch)
 }
 
+func TestFindLocalBranchesPaginationSequence(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.ExactPaginationTokenMatch,
+	}).Run(t, testFindLocalBranchesPaginationSequence)
+}
+
+func testFindLocalBranchesPaginationSequence(t *testing.T, ctx context.Context) {
+	_, repo, _, client := setupRefService(t)
+
+	limit := 2
+	firstRPCRequest := &gitalypb.FindLocalBranchesRequest{
+		Repository: repo,
+		PaginationParams: &gitalypb.PaginationParameter{
+			Limit: int32(limit),
+		},
+	}
+	c, err := client.FindLocalBranches(ctx, firstRPCRequest)
+	require.NoError(t, err)
+
+	var firstResponseBranches []*gitalypb.FindLocalBranchResponse
+	for {
+		r, err := c.Recv()
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err)
+		firstResponseBranches = append(firstResponseBranches, r.GetBranches()...)
+	}
+
+	require.Len(t, firstResponseBranches, limit)
+
+	secondRPCRequest := &gitalypb.FindLocalBranchesRequest{
+		Repository: repo,
+		PaginationParams: &gitalypb.PaginationParameter{
+			Limit:     1,
+			PageToken: string(firstResponseBranches[0].Name),
+		},
+	}
+	c, err = client.FindLocalBranches(ctx, secondRPCRequest)
+	require.NoError(t, err)
+
+	var secondResponseBranches []*gitalypb.FindLocalBranchResponse
+	for {
+		r, err := c.Recv()
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err)
+		secondResponseBranches = append(secondResponseBranches, r.GetBranches()...)
+	}
+
+	require.Len(t, secondResponseBranches, 1)
+	require.Equal(t, firstResponseBranches[1], secondResponseBranches[0])
+}
+
+func TestFindLocalBranchesPaginationWithIncorrectToken(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.ExactPaginationTokenMatch,
+	}).Run(t, testFindLocalBranchesPaginationWithIncorrectToken)
+}
+
+func testFindLocalBranchesPaginationWithIncorrectToken(t *testing.T, ctx context.Context) {
+	_, repo, _, client := setupRefService(t)
+
+	limit := 1
+	rpcRequest := &gitalypb.FindLocalBranchesRequest{
+		Repository: repo,
+		PaginationParams: &gitalypb.PaginationParameter{
+			Limit:     int32(limit),
+			PageToken: "refs/heads/random-unknown-branch",
+		},
+	}
+	c, err := client.FindLocalBranches(ctx, rpcRequest)
+	require.NoError(t, err)
+
+	if featureflag.ExactPaginationTokenMatch.IsEnabled(ctx) {
+		_, err = c.Recv()
+		require.NotEqual(t, err, io.EOF)
+		testassert.GrpcEqualErr(t, helper.ErrInternalf("could not find page token"), err)
+	} else {
+		require.NoError(t, err)
+
+		var branches []*gitalypb.FindLocalBranchResponse
+		for {
+			r, err := c.Recv()
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+			branches = append(branches, r.GetBranches()...)
+		}
+
+		testassert.ProtoEqual(t, []*gitalypb.FindLocalBranchResponse{
+			{
+				Name:          []byte("refs/heads/rebase-encoding-failure-trigger"),
+				Commit:        gittest.CommitsByID["ca47bfd5e930148c42ed74c3b561a8783e381f7f"],
+				CommitId:      "ca47bfd5e930148c42ed74c3b561a8783e381f7f",
+				CommitSubject: []byte("Add Modula-2 source file for language detection"),
+				CommitAuthor: &gitalypb.FindLocalBranchCommitAuthor{
+					Name:     []byte("Jacob Vosmaer"),
+					Email:    []byte("jacob@gitlab.com"),
+					Date:     &timestamppb.Timestamp{Seconds: 1501503403},
+					Timezone: []byte("+0200"),
+				},
+				CommitCommitter: &gitalypb.FindLocalBranchCommitAuthor{
+					Name:     []byte("Ahmad Sherif"),
+					Email:    []byte("me@ahmadsherif.com"),
+					Date:     &timestamppb.Timestamp{Seconds: 1521033060},
+					Timezone: []byte("+0100"),
+				},
+			},
+		}, branches)
+	}
+}
+
 // Test that `s` contains the elements in `relativeOrder` in that order
 // (relative to each other)
 func isOrderedSubset(subset, set []string) bool {
@@ -447,6 +570,12 @@ func isOrderedSubset(subset, set []string) bool {
 }
 
 func TestFindLocalBranchesSort(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.ExactPaginationTokenMatch,
+	}).Run(t, testFindLocalBranchesSort)
+}
+
+func testFindLocalBranchesSort(t *testing.T, ctx context.Context) {
 	testCases := []struct {
 		desc          string
 		relativeOrder []string
@@ -475,8 +604,6 @@ func TestFindLocalBranchesSort(t *testing.T) {
 		t.Run(testCase.desc, func(t *testing.T) {
 			rpcRequest := &gitalypb.FindLocalBranchesRequest{Repository: repo, SortBy: testCase.sortBy}
 
-			ctx, cancel := testhelper.Context()
-			defer cancel()
 			c, err := client.FindLocalBranches(ctx, rpcRequest)
 			require.NoError(t, err)
 
