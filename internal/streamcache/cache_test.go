@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -240,6 +241,9 @@ func TestCache_diskCleanup(t *testing.T) {
 	c := newCacheWithSleep(tmp, 0, filestoreClean, cleanSleep, log.Default())
 	defer c.Stop()
 
+	var removalLock sync.Mutex
+	c.removalCond = sync.NewCond(&removalLock)
+
 	content := func(i int) string { return fmt.Sprintf("content %d", i) }
 
 	r1, created, err := c.FindOrCreate(key, writeString(content(1)))
@@ -256,11 +260,26 @@ func TestCache_diskCleanup(t *testing.T) {
 	requireCacheFiles(t, tmp, 1)
 	requireCacheEntries(t, c, 1)
 
+	// In order to avoid having to sleep, we instead use the removalCond of the cache. Like
+	// this, we can lock the condition before scheduling removal of the cache entry and then
+	// wait for the condition to be triggered. Like this, we can wait for removal in an entirely
+	// race-free manner.
+	removedCh := make(chan struct{})
+	removalLock.Lock()
+	go func() {
+		defer func() {
+			removalLock.Unlock()
+			close(removedCh)
+		}()
+
+		c.removalCond.Wait()
+	}()
+
 	// Unblock cleanup goroutines so they run exactly once
 	cleanSleepTimerCh <- time.Time{}
 	filestoreCleanTimerCh <- time.Time{}
-	// Give them time to do their work
-	time.Sleep(10 * time.Millisecond)
+
+	<-removedCh
 
 	// File and index entry should have been removed by cleanup goroutines.
 	requireCacheFiles(t, tmp, 0)
