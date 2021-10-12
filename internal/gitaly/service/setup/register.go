@@ -80,7 +80,6 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 	gitalypb.RegisterNamespaceServiceServer(srv, namespace.NewServer(deps.GetLocator()))
 	gitalypb.RegisterOperationServiceServer(srv, operations.NewServer(
 		deps.GetCfg(),
-		deps.GetRubyServer(),
 		deps.GetHookManager(),
 		deps.GetTxManager(),
 		deps.GetLocator(),

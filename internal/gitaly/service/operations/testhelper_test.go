@@ -9,7 +9,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	internalclient "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/commit"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/hook"
@@ -38,14 +37,12 @@ func TestMain(m *testing.M) {
 
 func setupOperationsService(t testing.TB, ctx context.Context, options ...testserver.GitalyServerOpt) (context.Context, config.Cfg, *gitalypb.Repository, string, gitalypb.OperationServiceClient) {
 	cfg := testcfg.Build(t)
-
-	ctx, cfg, repo, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, nil, options...)
-
+	ctx, cfg, repo, repoPath, client := setupOperationsServiceWithCfg(t, ctx, cfg, options...)
 	return ctx, cfg, repo, repoPath, client
 }
 
-func setupOperationsServiceWithRuby(
-	t testing.TB, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server, options ...testserver.GitalyServerOpt,
+func setupOperationsServiceWithCfg(
+	t testing.TB, ctx context.Context, cfg config.Cfg, options ...testserver.GitalyServerOpt,
 ) (context.Context, config.Cfg, *gitalypb.Repository, string, gitalypb.OperationServiceClient) {
 	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
@@ -53,7 +50,7 @@ func setupOperationsServiceWithRuby(
 	testhelper.BuildGitalyGit2Go(t, cfg)
 	testhelper.BuildGitalyHooks(t, cfg)
 
-	serverSocketPath := runOperationServiceServer(t, cfg, rubySrv, options...)
+	serverSocketPath := runOperationServiceServer(t, cfg, options...)
 	cfg.SocketPath = serverSocketPath
 
 	client, conn := newOperationClient(t, serverSocketPath)
@@ -65,13 +62,12 @@ func setupOperationsServiceWithRuby(
 	return ctx, cfg, repo, repoPath, client
 }
 
-func runOperationServiceServer(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server, options ...testserver.GitalyServerOpt) string {
+func runOperationServiceServer(t testing.TB, cfg config.Cfg, options ...testserver.GitalyServerOpt) string {
 	t.Helper()
 
-	return testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
+	return testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		operationServer := NewServer(
 			deps.GetCfg(),
-			deps.GetRubyServer(),
 			deps.GetHookManager(),
 			deps.GetTxManager(),
 			deps.GetLocator(),
@@ -85,7 +81,7 @@ func runOperationServiceServer(t testing.TB, cfg config.Cfg, rubySrv *rubyserver
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(cfg, deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
 			deps.GetCfg(),
-			rubySrv,
+			nil,
 			deps.GetLocator(),
 			deps.GetTxManager(),
 			deps.GetGitCmdFactory(),

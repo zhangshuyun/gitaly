@@ -129,7 +129,6 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterOperationServiceServer(srv, NewServer(
 			deps.GetCfg(),
-			nil,
 			deps.GetHookManager(),
 			deps.GetTxManager(),
 			deps.GetLocator(),
@@ -492,7 +491,6 @@ func TestUserDeleteBranch_transaction(t *testing.T) {
 	testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterOperationServiceServer(srv, NewServer(
 			deps.GetCfg(),
-			nil,
 			deps.GetHookManager(),
 			deps.GetTxManager(),
 			deps.GetLocator(),
