@@ -1030,17 +1030,6 @@ func (c *Coordinator) newRequestFinalizer(
 
 				ctxlogrus.Extract(ctx).WithError(err).Info("renamed repository does not have a store entry")
 			}
-		case datastore.DeleteRepo:
-			// If this fails, the repository was already deleted from the primary but we end up still having a record of it in the db.
-			// Ideally we would delete the record from the db first and schedule the repository for deletion later in order to avoid
-			// this problem. Client can reattempt this as deleting a repository is idempotent.
-			if err := c.rs.DeleteRepository(ctx, virtualStorage, targetRepo.GetRelativePath(), append(updatedSecondaries, primary)); err != nil {
-				if !errors.Is(err, datastore.ErrNoRowsAffected) {
-					return fmt.Errorf("delete repository: %w", err)
-				}
-
-				ctxlogrus.Extract(ctx).WithError(err).Info("deleted repository does not have a store entry")
-			}
 		case datastore.CreateRepo:
 			repositorySpecificPrimariesEnabled := c.conf.Failover.ElectionStrategy == config.ElectionStrategyPerRepository
 			variableReplicationFactorEnabled := repositorySpecificPrimariesEnabled &&

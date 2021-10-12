@@ -105,10 +105,10 @@ type RepositoryStore interface {
 	CreateRepository(ctx context.Context, repositoryID int64, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error
 	// SetAuthoritativeReplica sets the given replica of a repsitory as the authoritative one by setting its generation as the latest one.
 	SetAuthoritativeReplica(ctx context.Context, virtualStorage, relativePath, storage string) error
-	// DeleteRepository deletes the repository's record from the virtual storage and the storages. Returns
-	// ErrNoRowsAffected when trying to delete a repository which has no record in the virtual storage
-	// or the storages.
-	DeleteRepository(ctx context.Context, virtualStorage, relativePath string, storages []string) error
+	// DeleteRepository deletes the database records associated with the repository. It returns the replica path and the storages
+	// which are known to have a replica at the time of deletion. commonerr.RepositoryNotFoundError is returned when
+	// the repository is not tracked by the Praefect datastore.
+	DeleteRepository(ctx context.Context, virtualStorage, relativePath string) (string, []string, error)
 	// DeleteReplica deletes a replica of a repository from a storage without affecting other state in the virtual storage.
 	DeleteReplica(ctx context.Context, virtualStorage, relativePath, storage string) error
 	// RenameRepository updates a repository's relative path. It renames the virtual storage wide record as well
@@ -411,20 +411,34 @@ FROM (
 	return err
 }
 
-func (rs *PostgresRepositoryStore) DeleteRepository(ctx context.Context, virtualStorage, relativePath string, storages []string) error {
-	return rs.delete(ctx, `
-WITH repo AS (
+func (rs *PostgresRepositoryStore) DeleteRepository(ctx context.Context, virtualStorage, relativePath string) (string, []string, error) {
+	var (
+		replicaPath string
+		storages    pq.StringArray
+	)
+
+	if err := rs.db.QueryRowContext(ctx, `
+WITH repository AS (
 	DELETE FROM repositories
 	WHERE virtual_storage = $1
 	AND relative_path = $2
+	RETURNING repository_id, replica_path
 )
 
-DELETE FROM storage_repositories
-WHERE virtual_storage = $1
-AND relative_path = $2
-AND storage = ANY($3::text[])
-		`, virtualStorage, relativePath, storages,
-	)
+SELECT replica_path, ARRAY_AGG(storage_repositories.storage)
+FROM repository
+LEFT JOIN storage_repositories USING (repository_id)
+GROUP BY replica_path
+		`, virtualStorage, relativePath,
+	).Scan(&replicaPath, &storages); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", nil, commonerr.NewRepositoryNotFoundError(virtualStorage, relativePath)
+		}
+
+		return "", nil, fmt.Errorf("scan: %w", err)
+	}
+
+	return replicaPath, storages, nil
 }
 
 // DeleteReplica deletes a record from the `storage_repositories`. See the interface documentation for details.

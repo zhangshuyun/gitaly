@@ -2084,10 +2084,6 @@ func TestNewRequestFinalizer_contextIsDisjointedFromTheRPC(t *testing.T) {
 			errMsg: "rename repository: error",
 		},
 		{
-			change: datastore.DeleteRepo,
-			errMsg: "delete repository: error",
-		},
-		{
 			change: "replication jobs only",
 			errMsg: "enqueue replication event: error",
 		},
@@ -2107,10 +2103,6 @@ func TestNewRequestFinalizer_contextIsDisjointedFromTheRPC(t *testing.T) {
 							return err
 						},
 						RenameRepositoryFunc: func(ctx context.Context, _, _, _, _ string) error {
-							requireSuppressedCancellation(t, ctx)
-							return err
-						},
-						DeleteRepositoryFunc: func(ctx context.Context, _, _ string, _ []string) error {
 							requireSuppressedCancellation(t, ctx)
 							return err
 						},

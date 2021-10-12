@@ -144,9 +144,8 @@ func TestRemoveRepository_Exec(t *testing.T) {
 	t.Run("no info about repository on praefect", func(t *testing.T) {
 		repo := createRepo(t, ctx, repoClient, praefectStorage, t.Name())
 		repoStore := datastore.NewPostgresRepositoryStore(db.DB, nil)
-		require.NoError(t, repoStore.DeleteRepository(
-			ctx, repo.StorageName, repo.RelativePath, []string{g1Cfg.Storages[0].Name, g2Cfg.Storages[0].Name},
-		))
+		_, _, err := repoStore.DeleteRepository(ctx, repo.StorageName, repo.RelativePath)
+		require.NoError(t, err)
 
 		logger := testhelper.NewTestLogger(t)
 		loggerHook := test.NewLocal(logger)
