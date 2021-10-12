@@ -6,6 +6,14 @@ import (
 	"google.golang.org/grpc"
 )
 
+// RepositoryAccessorRoute describes how to route a repository scoped accessor call.
+type RepositoryAccessorRoute struct {
+	// ReplicaPath is the disk path where the replicas are stored.
+	ReplicaPath string
+	// Node contains the details of the node that should handle the request.
+	Node RouterNode
+}
+
 // RouterNode is a subset of a node's configuration needed to perform
 // request routing.
 type RouterNode struct {
@@ -47,7 +55,7 @@ type Router interface {
 	RouteStorageMutator(ctx context.Context, virtualStorage string) (StorageMutatorRoute, error)
 	// RouteRepositoryAccessor returns the node that should serve the repository accessor
 	// request. If forcePrimary is set to `true`, it returns the primary node.
-	RouteRepositoryAccessor(ctx context.Context, virtualStorage, relativePath string, forcePrimary bool) (RouterNode, error)
+	RouteRepositoryAccessor(ctx context.Context, virtualStorage, relativePath string, forcePrimary bool) (RepositoryAccessorRoute, error)
 	// RouteRepositoryMutatorTransaction returns the primary and secondaries that should handle the repository mutator request.
 	// Additionally, it returns nodes which should have the change replicated to. RouteRepositoryMutator should only be used
 	// with existing repositories.

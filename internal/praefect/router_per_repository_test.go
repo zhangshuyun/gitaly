@@ -117,6 +117,8 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 
 	db := glsql.NewDB(t)
 
+	const relativePath = "repository"
+
 	for _, tc := range []struct {
 		desc           string
 		virtualStorage string
@@ -218,10 +220,10 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 			}})
 
 			rs := datastore.NewPostgresRepositoryStore(tx, nil)
-			repositoryID, err := rs.ReserveRepositoryID(ctx, "virtual-storage-1", "repository")
+			repositoryID, err := rs.ReserveRepositoryID(ctx, "virtual-storage-1", relativePath)
 			require.NoError(t, err)
 			require.NoError(t,
-				rs.CreateRepository(ctx, repositoryID, "virtual-storage-1", "repository", "primary",
+				rs.CreateRepository(ctx, repositoryID, "virtual-storage-1", relativePath, "primary",
 					[]string{"consistent-secondary", "unhealthy-secondary", "inconsistent-secondary"}, nil, true, true),
 			)
 			require.NoError(t,
@@ -244,15 +246,20 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 				nil,
 			)
 
-			node, err := router.RouteRepositoryAccessor(ctx, tc.virtualStorage, "repository", tc.forcePrimary)
+			route, err := router.RouteRepositoryAccessor(ctx, tc.virtualStorage, relativePath, tc.forcePrimary)
 			require.Equal(t, tc.error, err)
 			if tc.node != "" {
-				require.Equal(t, RouterNode{
-					Storage:    tc.node,
-					Connection: conns[tc.virtualStorage][tc.node],
-				}, node)
+				require.Equal(t,
+					RepositoryAccessorRoute{
+						ReplicaPath: relativePath,
+						Node: RouterNode{
+							Storage:    tc.node,
+							Connection: conns[tc.virtualStorage][tc.node],
+						},
+					},
+					route)
 			} else {
-				require.Empty(t, node)
+				require.Empty(t, route)
 			}
 		})
 	}

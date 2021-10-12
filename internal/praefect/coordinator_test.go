@@ -400,10 +400,10 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 
 type mockRouter struct {
 	Router
-	routeRepositoryAccessorFunc func(ctx context.Context, virtualStorage, relativePath string, forcePrimary bool) (RouterNode, error)
+	routeRepositoryAccessorFunc func(ctx context.Context, virtualStorage, relativePath string, forcePrimary bool) (RepositoryAccessorRoute, error)
 }
 
-func (m mockRouter) RouteRepositoryAccessor(ctx context.Context, virtualStorage, relativePath string, forcePrimary bool) (RouterNode, error) {
+func (m mockRouter) RouteRepositoryAccessor(ctx context.Context, virtualStorage, relativePath string, forcePrimary bool) (RepositoryAccessorRoute, error) {
 	return m.routeRepositoryAccessorFunc(ctx, virtualStorage, relativePath, forcePrimary)
 }
 
@@ -459,8 +459,8 @@ func TestStreamDirectorAccessor(t *testing.T) {
 		{
 			desc: "repository not found",
 			router: mockRouter{
-				routeRepositoryAccessorFunc: func(_ context.Context, virtualStorage, relativePath string, _ bool) (RouterNode, error) {
-					return RouterNode{}, commonerr.NewRepositoryNotFoundError(virtualStorage, relativePath)
+				routeRepositoryAccessorFunc: func(_ context.Context, virtualStorage, relativePath string, _ bool) (RepositoryAccessorRoute, error) {
+					return RepositoryAccessorRoute{}, commonerr.NewRepositoryNotFoundError(virtualStorage, relativePath)
 				},
 			},
 			error: helper.ErrNotFound(fmt.Errorf("accessor call: route repository accessor: %w", commonerr.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath))),

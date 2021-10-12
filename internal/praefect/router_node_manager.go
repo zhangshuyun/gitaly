@@ -35,22 +35,22 @@ func NewNodeManagerRouter(mgr nodes.Manager, rs datastore.RepositoryStore) Route
 	return &nodeManagerRouter{mgr: mgr, rs: rs}
 }
 
-func (r *nodeManagerRouter) RouteRepositoryAccessor(ctx context.Context, virtualStorage, relativePath string, forcePrimary bool) (RouterNode, error) {
+func (r *nodeManagerRouter) RouteRepositoryAccessor(ctx context.Context, virtualStorage, relativePath string, forcePrimary bool) (RepositoryAccessorRoute, error) {
 	if forcePrimary {
 		shard, err := r.mgr.GetShard(ctx, virtualStorage)
 		if err != nil {
-			return RouterNode{}, fmt.Errorf("get shard: %w", err)
+			return RepositoryAccessorRoute{}, fmt.Errorf("get shard: %w", err)
 		}
 
-		return toRouterNode(shard.Primary), nil
+		return RepositoryAccessorRoute{ReplicaPath: relativePath, Node: toRouterNode(shard.Primary)}, nil
 	}
 
 	node, err := r.mgr.GetSyncedNode(ctx, virtualStorage, relativePath)
 	if err != nil {
-		return RouterNode{}, fmt.Errorf("get synced node: %w", err)
+		return RepositoryAccessorRoute{}, fmt.Errorf("get synced node: %w", err)
 	}
 
-	return toRouterNode(node), nil
+	return RepositoryAccessorRoute{ReplicaPath: relativePath, Node: toRouterNode(node)}, nil
 }
 
 func (r *nodeManagerRouter) RouteStorageAccessor(ctx context.Context, virtualStorage string) (RouterNode, error) {
