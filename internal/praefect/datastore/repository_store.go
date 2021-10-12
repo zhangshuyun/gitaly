@@ -507,7 +507,7 @@ AND storage = $3
 // GetConsistentStoragesByRepositoryID returns a set of up to date storages for the given repository keyed by repository ID.
 func (rs *PostgresRepositoryStore) GetConsistentStoragesByRepositoryID(ctx context.Context, repositoryID int64) (map[string]struct{}, error) {
 	return rs.getConsistentStorages(ctx, `
-SELECT storage
+SELECT ARRAY_AGG(storage)
 FROM repositories
 JOIN storage_repositories USING (repository_id, generation)
 WHERE repository_id = $1
@@ -517,7 +517,7 @@ WHERE repository_id = $1
 // GetConsistentStorages returns a set of up to date storages for the given repository keyed by virtual storage and relative path.
 func (rs *PostgresRepositoryStore) GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
 	storages, err := rs.getConsistentStorages(ctx, `
-SELECT storage
+SELECT ARRAY_AGG(storage)
 FROM repositories
 JOIN storage_repositories USING (repository_id, generation)
 WHERE repositories.virtual_storage = $1
@@ -533,28 +533,18 @@ AND repositories.relative_path = $2
 
 // getConsistentStorages is a helper for querying the consistent storages by different keys.
 func (rs *PostgresRepositoryStore) getConsistentStorages(ctx context.Context, query string, params ...interface{}) (map[string]struct{}, error) {
-	rows, err := rs.db.QueryContext(ctx, query, params...)
-	if err != nil {
+	var storages pq.StringArray
+	if err := rs.db.QueryRowContext(ctx, query, params...).Scan(&storages); err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
-	defer rows.Close()
 
-	consistentStorages := map[string]struct{}{}
-	for rows.Next() {
-		var storage string
-		if err := rows.Scan(&storage); err != nil {
-			return nil, fmt.Errorf("scan: %w", err)
-		}
-
-		consistentStorages[storage] = struct{}{}
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("rows: %w", err)
-	}
-
-	if len(consistentStorages) == 0 {
+	if len(storages) == 0 {
 		return nil, commonerr.ErrRepositoryNotFound
+	}
+
+	consistentStorages := make(map[string]struct{}, len(storages))
+	for _, storage := range storages {
+		consistentStorages[storage] = struct{}{}
 	}
 
 	return consistentStorages, nil
