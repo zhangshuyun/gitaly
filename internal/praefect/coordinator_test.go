@@ -99,11 +99,11 @@ func TestStreamDirectorReadOnlyEnforcement(t *testing.T) {
 			defer cancel()
 
 			rs := datastore.MockRepositoryStore{
-				GetConsistentStoragesFunc: func(context.Context, string, string) (map[string]struct{}, error) {
+				GetConsistentStoragesFunc: func(context.Context, string, string) (string, map[string]struct{}, error) {
 					if tc.readOnly {
-						return map[string]struct{}{storage + "-other": {}}, nil
+						return "", map[string]struct{}{storage + "-other": {}}, nil
 					}
-					return map[string]struct{}{storage: {}}, nil
+					return "", map[string]struct{}{storage: {}}, nil
 				},
 			}
 
@@ -326,8 +326,8 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 	}
 
 	rs := datastore.MockRepositoryStore{
-		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
-			return map[string]struct{}{"primary": {}, "secondary": {}}, nil
+		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
+			return relativePath, map[string]struct{}{"primary": {}, "secondary": {}}, nil
 		},
 	}
 
@@ -547,8 +547,8 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 	entry := testhelper.DiscardTestEntry(t)
 
 	repoStore := datastore.MockRepositoryStore{
-		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
-			return map[string]struct{}{primaryNodeConf.Storage: {}, secondaryNodeConf.Storage: {}}, nil
+		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
+			return relativePath, map[string]struct{}{primaryNodeConf.Storage: {}, secondaryNodeConf.Storage: {}}, nil
 		},
 	}
 
@@ -1566,8 +1566,8 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 				// Set up a mock repsoitory store pretending that all nodes are consistent. Only consistent
 				// nodes will take part in transactions.
 				withRepoStore: datastore.MockRepositoryStore{
-					GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
-						return map[string]struct{}{"primary": {}, "secondary-1": {}, "secondary-2": {}}, nil
+					GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
+						return relativePath, map[string]struct{}{"primary": {}, "secondary-1": {}, "secondary-2": {}}, nil
 					},
 				},
 			})

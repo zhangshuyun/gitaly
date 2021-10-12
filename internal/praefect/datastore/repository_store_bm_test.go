@@ -66,7 +66,7 @@ func benchmarkGetConsistentStorages(b *testing.B, nstorages, nrepositories int) 
 		require.NoError(b, err)
 
 		b.StartTimer()
-		_, err = repoStore.GetConsistentStorages(ctx, "vs", "/path/repo/"+strconv.Itoa(nrepositories/2))
+		_, _, err = repoStore.GetConsistentStorages(ctx, "vs", "/path/repo/"+strconv.Itoa(nrepositories/2))
 		b.StopTimer()
 
 		require.NoError(b, err)

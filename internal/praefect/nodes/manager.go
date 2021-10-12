@@ -257,7 +257,7 @@ func (n *Mgr) GetPrimary(ctx context.Context, virtualStorage string, _ int64) (s
 }
 
 func (n *Mgr) GetSyncedNode(ctx context.Context, virtualStorageName, repoPath string) (Node, error) {
-	upToDateStorages, err := n.csg.GetConsistentStorages(ctx, virtualStorageName, repoPath)
+	_, upToDateStorages, err := n.csg.GetConsistentStorages(ctx, virtualStorageName, repoPath)
 	if err != nil && !errors.As(err, new(commonerr.RepositoryNotFoundError)) {
 		return nil, err
 	}

@@ -156,7 +156,7 @@ func (r *PerRepositoryRouter) RouteRepositoryAccessor(ctx context.Context, virtu
 		return RouterNode{}, nodes.ErrPrimaryNotHealthy
 	}
 
-	consistentStorages, err := r.csg.GetConsistentStorages(ctx, virtualStorage, relativePath)
+	_, consistentStorages, err := r.csg.GetConsistentStorages(ctx, virtualStorage, relativePath)
 	if err != nil {
 		return RouterNode{}, fmt.Errorf("consistent storages: %w", err)
 	}
@@ -198,7 +198,7 @@ func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtua
 		return RepositoryMutatorRoute{}, nodes.ErrPrimaryNotHealthy
 	}
 
-	consistentStorages, err := r.rs.GetConsistentStoragesByRepositoryID(ctx, repositoryID)
+	_, consistentStorages, err := r.rs.GetConsistentStoragesByRepositoryID(ctx, repositoryID)
 	if err != nil {
 		return RepositoryMutatorRoute{}, fmt.Errorf("consistent storages: %w", err)
 	}

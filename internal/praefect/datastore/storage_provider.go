@@ -16,9 +16,8 @@ import (
 
 // ConsistentStoragesGetter returns storages which contain the latest generation of a repository.
 type ConsistentStoragesGetter interface {
-	// GetConsistentStorages checks which storages are on the latest generation and returns them. Returns a
-	// commonerr.RepositoryNotFoundError if the repository does not exist.
-	GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error)
+	// GetConsistentStorages returns the replica path and the set of up to date storages for the given repository keyed by virtual storage and relative path.
+	GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error)
 }
 
 // errNotExistingVirtualStorage indicates that the requested virtual storage can't be found or not configured.
@@ -134,7 +133,7 @@ func (c *CachingConsistentStoragesGetter) getCache(virtualStorage string) (*lru.
 	return val, found
 }
 
-func (c *CachingConsistentStoragesGetter) cacheMiss(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
+func (c *CachingConsistentStoragesGetter) cacheMiss(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
 	c.cacheAccessTotal.WithLabelValues(virtualStorage, "miss").Inc()
 	return c.csg.GetConsistentStorages(ctx, virtualStorage, relativePath)
 }
@@ -165,8 +164,8 @@ func (c *CachingConsistentStoragesGetter) isCacheEnabled() bool {
 	return atomic.LoadInt32(&c.access) != 0
 }
 
-// GetConsistentStorages returns list of gitaly storages that are in up to date state based on the generation tracking.
-func (c *CachingConsistentStoragesGetter) GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
+// GetConsistentStorages returns the replica path and the set of up to date storages for the given repository keyed by virtual storage and relative path.
+func (c *CachingConsistentStoragesGetter) GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
 	var cache *lru.Cache
 
 	if c.isCacheEnabled() {
@@ -178,20 +177,21 @@ func (c *CachingConsistentStoragesGetter) GetConsistentStorages(ctx context.Cont
 		defer populationDone()
 		if ok {
 			c.cacheAccessTotal.WithLabelValues(virtualStorage, "hit").Inc()
-			return value.storages, nil
+			return value.replicaPath, value.storages, nil
 		}
 	}
 
-	storages, err := c.cacheMiss(ctx, virtualStorage, relativePath)
+	replicaPath, storages, err := c.cacheMiss(ctx, virtualStorage, relativePath)
 	if err == nil && cache != nil {
-		cache.Add(relativePath, cacheValue{storages: storages})
+		cache.Add(relativePath, cacheValue{replicaPath: replicaPath, storages: storages})
 		c.cacheAccessTotal.WithLabelValues(virtualStorage, "populate").Inc()
 	}
-	return storages, err
+	return replicaPath, storages, err
 }
 
 type cacheValue struct {
-	storages map[string]struct{}
+	replicaPath string
+	storages    map[string]struct{}
 }
 
 func getKey(cache *lru.Cache, key string) (cacheValue, bool) {
