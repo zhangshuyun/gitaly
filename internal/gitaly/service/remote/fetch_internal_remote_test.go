@@ -6,11 +6,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
@@ -30,109 +28,46 @@ import (
 	"google.golang.org/grpc"
 )
 
-// GitalySSHParams contains parameters used to exec 'gitaly-ssh' binary.
-type GitalySSHParams struct {
-	Args    []string
-	EnvVars []string
+// gitalySSHParams contains parameters used to exec 'gitaly-ssh' binary.
+type gitalySSHParams struct {
+	arguments   []string
+	environment []string
 }
 
 // listenGitalySSHCalls creates a script that intercepts 'gitaly-ssh' binary calls.
 // It replaces 'gitaly-ssh' with a interceptor script that calls actual binary after flushing env var and
 // arguments used for the binary invocation. That information will be returned back to the caller
 // after invocation of the returned anonymous function.
-func listenGitalySSHCalls(t *testing.T, conf config.Cfg) func() []GitalySSHParams {
+func listenGitalySSHCalls(t *testing.T, conf config.Cfg) func() gitalySSHParams {
 	t.Helper()
 
-	if conf.BinDir == "" {
-		assert.FailNow(t, "BinDir must be set")
-		return func() []GitalySSHParams { return nil }
-	}
-
-	const envPrefix = "env-"
-	const argsPrefix = "args-"
-
+	require.NotEmpty(t, conf.BinDir)
 	initialPath := filepath.Join(conf.BinDir, "gitaly-ssh")
 	updatedPath := initialPath + "-actual"
 	require.NoError(t, os.Rename(initialPath, updatedPath))
 
 	tmpDir := testhelper.TempDir(t)
 
-	script := fmt.Sprintf(`
-		#!/bin/sh
+	script := fmt.Sprintf(`#!/bin/bash
 
 		# To omit possible problem with parallel run and a race for the file creation with '>'
 		# this option is used, please checkout https://mywiki.wooledge.org/NoClobber for more details.
-		set -o noclobber
+		set -eo noclobber
 
-		ENV_IDX=$(ls %[1]q | grep %[2]s | wc -l)
-		env > "%[1]s/%[2]s$ENV_IDX"
+		env >%[1]q/environment
+		echo "$@" >%[1]q/arguments
 
-		ARGS_IDX=$(ls %[1]q | grep %[3]s | wc -l)
-		echo $@ > "%[1]s/%[3]s$ARGS_IDX"
-
-		%[4]q "$@" 1>&1 2>&2
-		exit $?`,
-		tmpDir, envPrefix, argsPrefix, updatedPath)
-
+		exec %[2]q "$@"`, tmpDir, updatedPath)
 	require.NoError(t, os.WriteFile(initialPath, []byte(script), 0o755))
 
-	getSSHParams := func() []GitalySSHParams {
-		var gitalySSHParams []GitalySSHParams
-		err := filepath.Walk(tmpDir, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-
-			filename := filepath.Base(path)
-
-			parseParams := func(prefix, delim string) error {
-				if !strings.HasPrefix(filename, prefix) {
-					return nil
-				}
-
-				idx, err := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(filename, prefix)))
-				if err != nil {
-					return err
-				}
-
-				if len(gitalySSHParams) < idx+1 {
-					tmp := make([]GitalySSHParams, idx+1)
-					copy(tmp, gitalySSHParams)
-					gitalySSHParams = tmp
-				}
-
-				data, err := os.ReadFile(path)
-				if err != nil {
-					return err
-				}
-
-				params := strings.Split(string(data), delim)
-
-				switch prefix {
-				case argsPrefix:
-					gitalySSHParams[idx].Args = params
-				case envPrefix:
-					gitalySSHParams[idx].EnvVars = params
-				}
-
-				return nil
-			}
-
-			if err := parseParams(envPrefix, "\n"); err != nil {
-				return err
-			}
-
-			if err := parseParams(argsPrefix, " "); err != nil {
-				return err
-			}
-
-			return nil
-		})
-		assert.NoError(t, err)
-		return gitalySSHParams
+	return func() gitalySSHParams {
+		arguments := testhelper.MustReadFile(t, filepath.Join(tmpDir, "arguments"))
+		environment := testhelper.MustReadFile(t, filepath.Join(tmpDir, "environment"))
+		return gitalySSHParams{
+			arguments:   strings.Split(string(arguments), " "),
+			environment: strings.Split(string(environment), "\n"),
+		}
 	}
-
-	return getSSHParams
 }
 
 func TestFetchInternalRemote_successful(t *testing.T) {
@@ -183,7 +118,7 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 		return nil
 	})), testserver.WithDisablePraefect())
 
-	ctx, err := storage.InjectGitalyServers(ctx, remoteRepo.GetStorageName(), remoteAddr, "")
+	ctx, err := storage.InjectGitalyServers(ctx, remoteRepo.GetStorageName(), remoteAddr, remoteCfg.Auth.Token)
 	require.NoError(t, err)
 	ctx = metadata.OutgoingToIncoming(ctx)
 
@@ -196,14 +131,13 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 
 	require.Equal(t,
 		string(gittest.Exec(t, remoteCfg, "-C", remoteRepoPath, "show-ref", "--head")),
-		string(gittest.Exec(t, remoteCfg, "-C", localRepoPath, "show-ref", "--head")),
+		string(gittest.Exec(t, localCfg, "-C", localRepoPath, "show-ref", "--head")),
 	)
 
-	gitalySSHInvocationParams := getGitalySSHInvocationParams()
-	require.Len(t, gitalySSHInvocationParams, 1)
-	require.Equal(t, []string{"upload-pack", "gitaly", "git-upload-pack", "'/internal.git'\n"}, gitalySSHInvocationParams[0].Args)
+	sshParams := getGitalySSHInvocationParams()
+	require.Equal(t, []string{"upload-pack", "gitaly", "git-upload-pack", "'/internal.git'\n"}, sshParams.arguments)
 	require.Subset(t,
-		gitalySSHInvocationParams[0].EnvVars,
+		sshParams.environment,
 		[]string{
 			"GIT_TERMINAL_PROMPT=0",
 			"GIT_SSH_VARIANT=simple",
