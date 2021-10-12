@@ -149,7 +149,7 @@ func TestStorageCleanup_AcquireNextStorage(t *testing.T) {
 		db.TruncateAll(t)
 		require.NoError(t, storageCleanup.Populate(ctx, "vs", "g1"))
 		start := time.Now().UTC()
-		_, release, err := storageCleanup.AcquireNextStorage(ctx, 0, 500*time.Millisecond)
+		_, release, err := storageCleanup.AcquireNextStorage(ctx, 0, 200*time.Millisecond)
 		require.NoError(t, err)
 
 		// Make sure the triggered_at column has a non NULL value after the record is acquired.
