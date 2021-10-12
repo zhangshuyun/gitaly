@@ -188,7 +188,7 @@ func waitHealthy(t testing.TB, cfg config.Cfg, addr string) {
 		grpcOpts = append(grpcOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)))
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
 	conn, err := client.DialContext(ctx, addr, grpcOpts)
