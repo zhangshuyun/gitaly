@@ -1,7 +1,6 @@
 package datastore
 
 import (
-	"context"
 	"encoding/json"
 	"runtime"
 	"strings"
@@ -13,35 +12,23 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
-type mockConsistentSecondariesProvider struct {
-	mock.Mock
-}
-
-func (m *mockConsistentSecondariesProvider) GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
-	args := m.Called(ctx, virtualStorage, relativePath)
-	val := args.Get(0)
-	var res map[string]struct{}
-	if val != nil {
-		res = val.(map[string]struct{})
-	}
-	return res, args.Error(1)
-}
-
 func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
+	t.Parallel()
+
+	db := glsql.NewDB(t)
+	rs := NewPostgresRepositoryStore(db, nil)
+
 	t.Run("unknown virtual storage", func(t *testing.T) {
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
-		rs := &mockConsistentSecondariesProvider{}
-		rs.On("GetConsistentStorages", mock.Anything, "unknown", "/repo/path").
-			Return(map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, nil).
-			Once()
+		require.NoError(t, rs.CreateRepository(ctx, 1, "unknown", "/repo/path", "g1", []string{"g2", "g3"}, nil, true, false))
 
 		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
@@ -61,13 +48,12 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 	})
 
 	t.Run("miss -> populate -> hit", func(t *testing.T) {
+		db.TruncateAll(t)
+
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
-		rs := &mockConsistentSecondariesProvider{}
-		rs.On("GetConsistentStorages", mock.Anything, "vs", "/repo/path").
-			Return(map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, nil).
-			Once()
+		require.NoError(t, rs.CreateRepository(ctx, 1, "vs", "/repo/path", "g1", []string{"g2", "g3"}, nil, true, false))
 
 		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
@@ -102,20 +88,17 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 	})
 
 	t.Run("repository store returns an error", func(t *testing.T) {
+		db.TruncateAll(t)
+
 		ctx, cancel := testhelper.Context(testhelper.ContextWithLogger(testhelper.DiscardTestEntry(t)))
 		defer cancel()
-
-		rs := &mockConsistentSecondariesProvider{}
-		rs.On("GetConsistentStorages", mock.Anything, "vs", "/repo/path").
-			Return(nil, assert.AnError).
-			Once()
 
 		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
 		_, err = cache.GetConsistentStorages(ctx, "vs", "/repo/path")
-		require.Equal(t, assert.AnError, err)
+		require.Equal(t, commonerr.NewRepositoryNotFoundError("vs", "/repo/path"), err)
 
 		// "populate" metric is not set as there was an error and we don't want this result to be cached
 		err = testutil.CollectAndCompare(cache, strings.NewReader(`
@@ -127,16 +110,15 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 	})
 
 	t.Run("cache is disabled after handling invalid payload", func(t *testing.T) {
+		db.TruncateAll(t)
+
 		logger := testhelper.DiscardTestEntry(t)
 		logHook := test.NewLocal(logger.Logger)
 
 		ctx, cancel := testhelper.Context(testhelper.ContextWithLogger(logger))
 		defer cancel()
 
-		rs := &mockConsistentSecondariesProvider{}
-		rs.On("GetConsistentStorages", mock.Anything, "vs", "/repo/path/1").
-			Return(map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, nil).
-			Times(4)
+		require.NoError(t, rs.CreateRepository(ctx, 1, "vs", "/repo/path/1", "g1", []string{"g2", "g3"}, nil, true, false))
 
 		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
@@ -187,14 +169,13 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 	})
 
 	t.Run("cache invalidation evicts cached entries", func(t *testing.T) {
+		db.TruncateAll(t)
+
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
-		rs := &mockConsistentSecondariesProvider{}
-		rs.On("GetConsistentStorages", mock.Anything, "vs", "/repo/path/1").
-			Return(map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, nil)
-		rs.On("GetConsistentStorages", mock.Anything, "vs", "/repo/path/2").
-			Return(map[string]struct{}{"g1": {}, "g2": {}}, nil)
+		require.NoError(t, rs.CreateRepository(ctx, 1, "vs", "/repo/path/1", "g1", []string{"g2", "g3"}, nil, true, false))
+		require.NoError(t, rs.CreateRepository(ctx, 2, "vs", "/repo/path/2", "g1", []string{"g2"}, nil, true, false))
 
 		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
@@ -237,12 +218,12 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 	})
 
 	t.Run("disconnect event disables cache", func(t *testing.T) {
+		db.TruncateAll(t)
+
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
-		rs := &mockConsistentSecondariesProvider{}
-		rs.On("GetConsistentStorages", mock.Anything, "vs", "/repo/path").
-			Return(map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, nil)
+		require.NoError(t, rs.CreateRepository(ctx, 1, "vs", "/repo/path", "g1", []string{"g2", "g3"}, nil, true, false))
 
 		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
@@ -272,12 +253,13 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 	})
 
 	t.Run("concurrent access", func(t *testing.T) {
+		db.TruncateAll(t)
+
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
-		rs := &mockConsistentSecondariesProvider{}
-		rs.On("GetConsistentStorages", mock.Anything, "vs", "/repo/path/1").Return(nil, nil)
-		rs.On("GetConsistentStorages", mock.Anything, "vs", "/repo/path/2").Return(nil, nil)
+		require.NoError(t, rs.CreateRepository(ctx, 1, "vs", "/repo/path/1", "g1", nil, nil, true, false))
+		require.NoError(t, rs.CreateRepository(ctx, 2, "vs", "/repo/path/2", "g1", nil, nil, true, false))
 
 		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
