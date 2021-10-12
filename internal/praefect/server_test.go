@@ -553,10 +553,14 @@ func TestRemoveRepository(t *testing.T) {
 	defer cancel()
 
 	cc, _, cleanup := runPraefectServer(t, ctx, praefectCfg, buildOptions{
-		withQueue:     queueInterceptor,
-		withRepoStore: repoStore,
-		withNodeMgr:   nodeMgr,
-		withTxMgr:     txMgr,
+		withQueue: queueInterceptor,
+		withRepoStore: datastore.MockRepositoryStore{
+			GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
+				return relativePath, nil, nil
+			},
+		},
+		withNodeMgr: nodeMgr,
+		withTxMgr:   txMgr,
 	})
 	defer cleanup()
 

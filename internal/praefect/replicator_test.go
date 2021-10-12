@@ -324,7 +324,13 @@ func TestReplicator_PropagateReplicationJob(t *testing.T) {
 
 	txMgr := transactions.NewManager(conf)
 
-	rs := datastore.MockRepositoryStore{}
+	repositoryRelativePath := "/path/to/repo"
+
+	rs := datastore.MockRepositoryStore{
+		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
+			return repositoryRelativePath, nil, nil
+		},
+	}
 
 	coordinator := NewCoordinator(
 		queue,
@@ -351,8 +357,6 @@ func TestReplicator_PropagateReplicationJob(t *testing.T) {
 	refClient := gitalypb.NewRefServiceClient(cc)
 	defer listener.Close()
 	defer cc.Close()
-
-	repositoryRelativePath := "/path/to/repo"
 
 	repository := &gitalypb.Repository{
 		StorageName:  conf.VirtualStorages[0].Name,
