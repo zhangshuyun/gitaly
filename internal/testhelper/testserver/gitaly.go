@@ -96,7 +96,14 @@ func runPraefectProxy(t testing.TB, cfg config.Cfg, gitalyAddr, praefectBinPath 
 
 	tempDir := testhelper.TempDir(t)
 
-	praefectServerSocketPath := "unix://" + testhelper.GetTemporaryGitalySocketFileName(t)
+	// We're precreating the Unix socket which we pass to Praefect. This closes a race where
+	// the Unix socket didn't yet exist when we tried to dial the Praefect server.
+	praefectServerSocket, err := net.Listen("unix", testhelper.GetTemporaryGitalySocketFileName(t))
+	require.NoError(t, err)
+	testhelper.MustClose(t, praefectServerSocket)
+	t.Cleanup(func() { require.NoError(t, os.RemoveAll(praefectServerSocket.Addr().String())) })
+
+	praefectServerSocketPath := "unix://" + praefectServerSocket.Addr().String()
 
 	dbName := createDatabase(t)
 
