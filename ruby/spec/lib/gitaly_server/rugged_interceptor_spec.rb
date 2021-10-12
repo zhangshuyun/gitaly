@@ -5,7 +5,7 @@ require_relative '../../../lib/gitaly_server/rugged_interceptor.rb'
 describe GitalyServer::RuggedInterceptor do
   include TestRepo
 
-  let(:meth) { GitalyServer::OperationsService.instance_method(:user_create_branch) }
+  let(:meth) { GitalyServer::WikiService.instance_method(:wiki_write_page) }
   let(:call) { double(metadata: {}) }
 
   subject do
