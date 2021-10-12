@@ -24,13 +24,13 @@ const (
 
 	// The default maximum number of cache entries
 	defaultMaxLen = 100
+
+	// SessionIDField is the gRPC metadata field we use to store the gitaly session ID.
+	SessionIDField = "gitaly-session-id"
 )
 
 // Cache is a cache for git-cat-file(1) processes.
 type Cache interface {
-	// BatchProcess either creates a new git-cat-file(1) process or returns a cached one for
-	// the given repository.
-	BatchProcess(context.Context, git.RepositoryExecutor) (Batch, error)
 	// ObjectReader either creates a new object reader or returns a cached one for the given
 	// repository.
 	ObjectReader(context.Context, git.RepositoryExecutor) (ObjectReader, error)
@@ -168,27 +168,6 @@ func (c *ProcessCache) Stop() {
 	c.monitorDone <- struct{}{}
 	<-c.monitorDone
 	c.Evict()
-}
-
-// BatchProcess creates a new Batch process for the given repository.
-func (c *ProcessCache) BatchProcess(ctx context.Context, repo git.RepositoryExecutor) (_ Batch,
-	returnedErr error) {
-	objectReader, err := c.ObjectReader(ctx, repo)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if returnedErr != nil {
-			objectReader.close()
-		}
-	}()
-
-	objectInfoReader, err := c.ObjectInfoReader(ctx, repo)
-	if err != nil {
-		return nil, err
-	}
-
-	return newBatch(objectReader, objectInfoReader), nil
 }
 
 // ObjectReader creates a new ObjectReader process for the given repository.
