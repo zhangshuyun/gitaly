@@ -8,10 +8,12 @@ import (
 	"io"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"testing"
 	"testing/iotest"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
 type wrappedFile struct{ f *os.File }
@@ -33,7 +35,7 @@ func TestPipe_WriteTo(t *testing.T) {
 		{
 			desc: "os.File",
 			create: func(t *testing.T) namedWriteCloser {
-				f, err := os.CreateTemp("", "pipe write to")
+				f, err := os.Create(filepath.Join(testhelper.TempDir(t), "pipe write to"))
 				require.NoError(t, err)
 				t.Cleanup(func() { require.NoError(t, os.Remove(f.Name())) })
 				return f
@@ -43,7 +45,7 @@ func TestPipe_WriteTo(t *testing.T) {
 		{
 			desc: "non-file writer",
 			create: func(t *testing.T) namedWriteCloser {
-				f, err := os.CreateTemp("", "pipe write to")
+				f, err := os.Create(filepath.Join(testhelper.TempDir(t), "pipe write to"))
 				require.NoError(t, err)
 				t.Cleanup(func() { require.NoError(t, os.Remove(f.Name())) })
 				return &wrappedFile{f}
