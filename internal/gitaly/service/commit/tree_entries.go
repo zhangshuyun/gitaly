@@ -29,7 +29,12 @@ func validateGetTreeEntriesRequest(in *gitalypb.GetTreeEntriesRequest) error {
 	return nil
 }
 
-func populateFlatPath(ctx context.Context, c catfile.Batch, entries []*gitalypb.TreeEntry) error {
+func populateFlatPath(
+	ctx context.Context,
+	objectReader catfile.ObjectReader,
+	objectInfoReader catfile.ObjectInfoReader,
+	entries []*gitalypb.TreeEntry,
+) error {
 	for _, entry := range entries {
 		entry.FlatPath = entry.Path
 
@@ -38,7 +43,7 @@ func populateFlatPath(ctx context.Context, c catfile.Batch, entries []*gitalypb.
 		}
 
 		for i := 1; i < defaultFlatTreeRecursion; i++ {
-			subEntries, err := treeEntries(ctx, c, entry.CommitOid, string(entry.FlatPath), "", false)
+			subEntries, err := treeEntries(ctx, objectReader, objectInfoReader, entry.CommitOid, string(entry.FlatPath), "", false)
 			if err != nil {
 				return err
 			}
@@ -54,10 +59,18 @@ func populateFlatPath(ctx context.Context, c catfile.Batch, entries []*gitalypb.
 	return nil
 }
 
-func sendTreeEntries(stream gitalypb.CommitService_GetTreeEntriesServer, c catfile.Batch, revision, path string, recursive bool, sort gitalypb.GetTreeEntriesRequest_SortBy, p *gitalypb.PaginationParameter) error {
+func sendTreeEntries(
+	stream gitalypb.CommitService_GetTreeEntriesServer,
+	objectReader catfile.ObjectReader,
+	objectInfoReader catfile.ObjectInfoReader,
+	revision, path string,
+	recursive bool,
+	sort gitalypb.GetTreeEntriesRequest_SortBy,
+	p *gitalypb.PaginationParameter,
+) error {
 	ctx := stream.Context()
 
-	entries, err := treeEntries(ctx, c, revision, path, "", recursive)
+	entries, err := treeEntries(ctx, objectReader, objectInfoReader, revision, path, "", recursive)
 	if err != nil {
 		return err
 	}
@@ -77,7 +90,7 @@ func sendTreeEntries(stream gitalypb.CommitService_GetTreeEntriesServer, c catfi
 	}
 
 	if !recursive {
-		if err := populateFlatPath(ctx, c, entries); err != nil {
+		if err := populateFlatPath(ctx, objectReader, objectInfoReader, entries); err != nil {
 			return err
 		}
 	}
@@ -176,14 +189,19 @@ func (s *server) GetTreeEntries(in *gitalypb.GetTreeEntriesRequest, stream gital
 
 	repo := s.localrepo(in.GetRepository())
 
-	c, err := s.catfileCache.BatchProcess(stream.Context(), repo)
+	objectReader, err := s.catfileCache.ObjectReader(stream.Context(), repo)
+	if err != nil {
+		return err
+	}
+
+	objectInfoReader, err := s.catfileCache.ObjectInfoReader(stream.Context(), repo)
 	if err != nil {
 		return err
 	}
 
 	revision := string(in.GetRevision())
 	path := string(in.GetPath())
-	return sendTreeEntries(stream, c, revision, path, in.Recursive, in.GetSort(), in.GetPaginationParams())
+	return sendTreeEntries(stream, objectReader, objectInfoReader, revision, path, in.Recursive, in.GetSort(), in.GetPaginationParams())
 }
 
 func paginateTreeEntries(entries []*gitalypb.TreeEntry, p *gitalypb.PaginationParameter) ([]*gitalypb.TreeEntry, string, error) {

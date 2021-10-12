@@ -19,10 +19,15 @@ var treeEntryToObjectType = map[gitalypb.TreeEntry_EntryType]gitalypb.ObjectType
 	gitalypb.TreeEntry_COMMIT: gitalypb.ObjectType_COMMIT,
 }
 
-func sendGetBlobsResponse(req *gitalypb.GetBlobsRequest, stream gitalypb.BlobService_GetBlobsServer, c catfile.Batch) error {
+func sendGetBlobsResponse(
+	req *gitalypb.GetBlobsRequest,
+	stream gitalypb.BlobService_GetBlobsServer,
+	objectReader catfile.ObjectReader,
+	objectInfoReader catfile.ObjectInfoReader,
+) error {
 	ctx := stream.Context()
 
-	tef := commit.NewTreeEntryFinder(c)
+	tef := commit.NewTreeEntryFinder(objectReader, objectInfoReader)
 
 	for _, revisionPath := range req.RevisionPaths {
 		revision := revisionPath.Revision
@@ -61,7 +66,7 @@ func sendGetBlobsResponse(req *gitalypb.GetBlobsRequest, stream gitalypb.BlobSer
 			continue
 		}
 
-		objectInfo, err := c.Info(ctx, git.Revision(treeEntry.Oid))
+		objectInfo, err := objectInfoReader.Info(ctx, git.Revision(treeEntry.Oid))
 		if err != nil {
 			return status.Errorf(codes.Internal, "GetBlobs: %v", err)
 		}
@@ -82,7 +87,7 @@ func sendGetBlobsResponse(req *gitalypb.GetBlobsRequest, stream gitalypb.BlobSer
 			continue
 		}
 
-		if err = sendBlobTreeEntry(response, stream, c, req.GetLimit()); err != nil {
+		if err = sendBlobTreeEntry(response, stream, objectReader, req.GetLimit()); err != nil {
 			return err
 		}
 	}
@@ -90,7 +95,7 @@ func sendGetBlobsResponse(req *gitalypb.GetBlobsRequest, stream gitalypb.BlobSer
 	return nil
 }
 
-func sendBlobTreeEntry(response *gitalypb.GetBlobsResponse, stream gitalypb.BlobService_GetBlobsServer, c catfile.Batch, limit int64) error {
+func sendBlobTreeEntry(response *gitalypb.GetBlobsResponse, stream gitalypb.BlobService_GetBlobsServer, objectReader catfile.ObjectReader, limit int64) error {
 	ctx := stream.Context()
 
 	var readLimit int64
@@ -110,9 +115,12 @@ func sendBlobTreeEntry(response *gitalypb.GetBlobsResponse, stream gitalypb.Blob
 		return nil
 	}
 
-	blobObj, err := c.Blob(ctx, git.Revision(response.Oid))
+	blobObj, err := objectReader.Object(ctx, git.Revision(response.Oid))
 	if err != nil {
 		return status.Errorf(codes.Internal, "GetBlobs: %v", err)
+	}
+	if blobObj.Type != "blob" {
+		return status.Errorf(codes.Internal, "blob got unexpected type %q", blobObj.Type)
 	}
 
 	sw := streamio.NewWriter(func(p []byte) error {
@@ -146,12 +154,17 @@ func (s *server) GetBlobs(req *gitalypb.GetBlobsRequest, stream gitalypb.BlobSer
 
 	repo := s.localrepo(req.GetRepository())
 
-	c, err := s.catfileCache.BatchProcess(stream.Context(), repo)
+	objectReader, err := s.catfileCache.ObjectReader(stream.Context(), repo)
 	if err != nil {
 		return err
 	}
 
-	return sendGetBlobsResponse(req, stream, c)
+	objectInfoReader, err := s.catfileCache.ObjectInfoReader(stream.Context(), repo)
+	if err != nil {
+		return err
+	}
+
+	return sendGetBlobsResponse(req, stream, objectReader, objectInfoReader)
 }
 
 func validateGetBlobsRequest(req *gitalypb.GetBlobsRequest) error {
