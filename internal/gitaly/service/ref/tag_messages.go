@@ -37,13 +37,13 @@ func (s *server) getAndStreamTagMessages(request *gitalypb.GetTagMessagesRequest
 	ctx := stream.Context()
 	repo := s.localrepo(request.GetRepository())
 
-	c, err := s.catfileCache.BatchProcess(ctx, repo)
+	objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
 		return err
 	}
 
 	for _, tagID := range request.GetTagIds() {
-		tag, err := catfile.GetTag(ctx, c, git.Revision(tagID), "", false, false)
+		tag, err := catfile.GetTag(ctx, objectReader, git.Revision(tagID), "", false, false)
 		if err != nil {
 			return fmt.Errorf("failed to get tag: %v", err)
 		}

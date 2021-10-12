@@ -38,14 +38,14 @@ func (s *server) filterShasWithSignatures(bidi gitalypb.CommitService_FilterShas
 	ctx := bidi.Context()
 	repo := s.localrepo(firstRequest.GetRepository())
 
-	c, err := s.catfileCache.BatchProcess(ctx, repo)
+	objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
 		return err
 	}
 
 	request := firstRequest
 	for {
-		shas, err := filterCommitShasWithSignatures(ctx, c, request.GetShas())
+		shas, err := filterCommitShasWithSignatures(ctx, objectReader, request.GetShas())
 		if err != nil {
 			return err
 		}
@@ -65,10 +65,10 @@ func (s *server) filterShasWithSignatures(bidi gitalypb.CommitService_FilterShas
 	}
 }
 
-func filterCommitShasWithSignatures(ctx context.Context, c catfile.Batch, shas [][]byte) ([][]byte, error) {
+func filterCommitShasWithSignatures(ctx context.Context, objectReader catfile.ObjectReader, shas [][]byte) ([][]byte, error) {
 	var foundShas [][]byte
 	for _, sha := range shas {
-		commit, err := catfile.GetCommit(ctx, c, git.Revision(sha))
+		commit, err := catfile.GetCommit(ctx, objectReader, git.Revision(sha))
 		if catfile.IsNotFound(err) {
 			continue
 		}

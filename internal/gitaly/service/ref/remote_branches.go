@@ -31,14 +31,14 @@ func (s *server) findAllRemoteBranches(req *gitalypb.FindAllRemoteBranchesReques
 	patterns := []string{"refs/remotes/" + req.GetRemoteName()}
 
 	ctx := stream.Context()
-	c, err := s.catfileCache.BatchProcess(ctx, repo)
+	objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
 		return err
 	}
 
 	opts := paginationParamsToOpts(ctx, nil)
 	opts.cmdArgs = args
-	writer := newFindAllRemoteBranchesWriter(stream, c)
+	writer := newFindAllRemoteBranchesWriter(stream, objectReader)
 
 	return s.findRefs(ctx, writer, repo, patterns, opts)
 }

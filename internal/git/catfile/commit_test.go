@@ -121,7 +121,7 @@ func TestGetCommit(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, c, _ := setupBatch(t, ctx)
+	_, objectReader, _ := setupObjectReader(t, ctx)
 
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{})
 
@@ -152,7 +152,7 @@ func TestGetCommit(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			c, err := GetCommit(ctx, c, git.Revision(tc.revision))
+			c, err := GetCommit(ctx, objectReader, git.Revision(tc.revision))
 
 			if tc.errStr == "" {
 				require.NoError(t, err)
@@ -168,11 +168,12 @@ func TestGetCommitWithTrailers(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	cfg, c, testRepo := setupBatch(t, ctx)
+	cfg, objectReader, testRepo := setupObjectReader(t, ctx)
 
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{})
 
-	commit, err := GetCommitWithTrailers(ctx, git.NewExecCommandFactory(cfg), testRepo, c, "5937ac0a7beb003549fc5fd26fc247adbce4a52e")
+	commit, err := GetCommitWithTrailers(ctx, git.NewExecCommandFactory(cfg), testRepo,
+		objectReader, "5937ac0a7beb003549fc5fd26fc247adbce4a52e")
 
 	require.NoError(t, err)
 

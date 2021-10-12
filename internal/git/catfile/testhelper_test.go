@@ -3,12 +3,16 @@ package catfile
 import (
 	"context"
 	"testing"
+	"time"
 
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
 func TestMain(m *testing.M) {
@@ -37,4 +41,19 @@ func (e *repoExecutor) ExecAndWait(ctx context.Context, cmd git.Cmd, opts ...git
 		return err
 	}
 	return command.Wait()
+}
+
+func setupObjectReader(t *testing.T, ctx context.Context) (config.Cfg, ObjectReader, *gitalypb.Repository) {
+	t.Helper()
+
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	repoExecutor := newRepoExecutor(t, cfg, repo)
+
+	cache := newCache(1*time.Hour, 1000, defaultEvictionInterval)
+	t.Cleanup(cache.Stop)
+
+	objectReader, err := cache.ObjectReader(ctx, repoExecutor)
+	require.NoError(t, err)
+
+	return cfg, objectReader, repo
 }

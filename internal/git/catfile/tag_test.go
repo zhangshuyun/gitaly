@@ -21,7 +21,7 @@ func TestGetTag(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	cfg, c, testRepo := setupBatch(t, ctx)
+	cfg, objectReader, testRepo := setupObjectReader(t, ctx)
 
 	testRepoPath := filepath.Join(cfg.Storages[0].Path, testRepo.RelativePath)
 
@@ -55,7 +55,7 @@ func TestGetTag(t *testing.T) {
 		t.Run(testCase.tagName, func(t *testing.T) {
 			tagID := gittest.WriteTag(t, cfg, testRepoPath, testCase.tagName, testCase.rev, gittest.WriteTagConfig{Message: testCase.message})
 
-			tag, err := GetTag(ctx, c, git.Revision(tagID), testCase.tagName, testCase.trim, true)
+			tag, err := GetTag(ctx, objectReader, git.Revision(tagID), testCase.tagName, testCase.trim, true)
 			require.NoError(t, err)
 			if testCase.trim && len(testCase.message) >= helper.MaxCommitOrTagMessageSize {
 				testCase.message = testCase.message[:helper.MaxCommitOrTagMessageSize]

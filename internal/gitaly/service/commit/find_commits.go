@@ -58,12 +58,12 @@ func (s *server) findCommits(ctx context.Context, req *gitalypb.FindCommitsReque
 		return fmt.Errorf("error when creating git log command: %v", err)
 	}
 
-	batch, err := s.catfileCache.BatchProcess(ctx, repo)
+	objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
 		return fmt.Errorf("creating catfile: %v", err)
 	}
 
-	getCommits := NewGetCommits(logCmd, batch)
+	getCommits := NewGetCommits(logCmd, objectReader)
 
 	if calculateOffsetManually(req) {
 		if err := getCommits.Offset(int(req.GetOffset())); err != nil {
@@ -88,17 +88,17 @@ func calculateOffsetManually(req *gitalypb.FindCommitsRequest) bool {
 	return req.GetFollow() && req.GetOffset() > 0
 }
 
-// GetCommits wraps a git log command that can be interated on to get individual commit objects
+// GetCommits wraps a git log command that can be iterated on to get individual commit objects
 type GetCommits struct {
-	scanner *bufio.Scanner
-	batch   catfile.Batch
+	scanner      *bufio.Scanner
+	objectReader catfile.ObjectReader
 }
 
 // NewGetCommits returns a new GetCommits object
-func NewGetCommits(cmd *command.Command, batch catfile.Batch) *GetCommits {
+func NewGetCommits(cmd *command.Command, objectReader catfile.ObjectReader) *GetCommits {
 	return &GetCommits{
-		scanner: bufio.NewScanner(cmd),
-		batch:   batch,
+		scanner:      bufio.NewScanner(cmd),
+		objectReader: objectReader,
 	}
 }
 
@@ -139,7 +139,7 @@ func (g *GetCommits) Commit(ctx context.Context, trailers bool) (*gitalypb.GitCo
 	} else {
 		revision = logOutput
 	}
-	commit, err := catfile.GetCommit(ctx, g.batch, git.Revision(revision))
+	commit, err := catfile.GetCommit(ctx, g.objectReader, git.Revision(revision))
 	if err != nil {
 		return nil, fmt.Errorf("cat-file get commit %q: %v", revision, err)
 	}

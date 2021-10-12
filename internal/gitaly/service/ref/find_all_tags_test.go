@@ -401,10 +401,13 @@ func TestFindAllTags_nestedTags(t *testing.T) {
 			catfileCache := catfile.NewCache(cfg)
 			defer catfileCache.Stop()
 
-			batch, err := catfileCache.BatchProcess(ctx, repo)
+			objectReader, err := catfileCache.ObjectReader(ctx, repo)
 			require.NoError(t, err)
 
-			info, err := batch.Info(ctx, git.Revision(tc.originalOid))
+			objectInfoReader, err := catfileCache.ObjectInfoReader(ctx, repo)
+			require.NoError(t, err)
+
+			info, err := objectInfoReader.Info(ctx, git.Revision(tc.originalOid))
 			require.NoError(t, err)
 
 			expectedTags := make(map[string]*gitalypb.Tag)
@@ -429,7 +432,7 @@ func TestFindAllTags_nestedTags(t *testing.T) {
 				}
 
 				if info.Type == "commit" {
-					commit, err := catfile.GetCommit(ctx, batch, git.Revision(tc.originalOid))
+					commit, err := catfile.GetCommit(ctx, objectReader, git.Revision(tc.originalOid))
 					require.NoError(t, err)
 					expectedTag.TargetCommit = commit
 				}

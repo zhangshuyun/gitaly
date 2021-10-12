@@ -25,7 +25,7 @@ func (s *server) ListCommitsByOid(in *gitalypb.ListCommitsByOidRequest, stream g
 	ctx := stream.Context()
 	repo := s.localrepo(in.GetRepository())
 
-	c, err := s.catfileCache.BatchProcess(ctx, repo)
+	objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
 		return err
 	}
@@ -34,7 +34,7 @@ func (s *server) ListCommitsByOid(in *gitalypb.ListCommitsByOidRequest, stream g
 	listCommitsbyOidHistogram.Observe(float64(len(in.Oid)))
 
 	for _, oid := range in.Oid {
-		commit, err := catfile.GetCommit(ctx, c, git.Revision(oid))
+		commit, err := catfile.GetCommit(ctx, objectReader, git.Revision(oid))
 		if catfile.IsNotFound(err) {
 			continue
 		}

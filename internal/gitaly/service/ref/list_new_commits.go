@@ -36,7 +36,7 @@ func (s *server) listNewCommits(in *gitalypb.ListNewCommitsRequest, stream gital
 		return err
 	}
 
-	batch, err := s.catfileCache.BatchProcess(ctx, repo)
+	objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
 		return err
 	}
@@ -46,7 +46,7 @@ func (s *server) listNewCommits(in *gitalypb.ListNewCommitsRequest, stream gital
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		commit, err := catfile.GetCommit(ctx, batch, git.Revision(line))
+		commit, err := catfile.GetCommit(ctx, objectReader, git.Revision(line))
 		if err != nil {
 			return err
 		}
