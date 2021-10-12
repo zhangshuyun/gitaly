@@ -80,7 +80,7 @@ func (r *nodeManagerRouter) RouteRepositoryMutator(ctx context.Context, virtualS
 		return RepositoryMutatorRoute{}, fmt.Errorf("get shard: %w", err)
 	}
 
-	_, consistentStorages, err := r.rs.GetConsistentStorages(ctx, virtualStorage, relativePath)
+	replicaPath, consistentStorages, err := r.rs.GetConsistentStorages(ctx, virtualStorage, relativePath)
 	if err != nil && !errors.As(err, new(commonerr.RepositoryNotFoundError)) {
 		return RepositoryMutatorRoute{}, fmt.Errorf("consistent storages: %w", err)
 	}
@@ -111,6 +111,7 @@ func (r *nodeManagerRouter) RouteRepositoryMutator(ctx context.Context, virtualS
 	}
 
 	return RepositoryMutatorRoute{
+		ReplicaPath:        replicaPath,
 		Primary:            toRouterNode(shard.Primary),
 		Secondaries:        toRouterNodes(participatingSecondaries),
 		ReplicationTargets: replicationTargets,
@@ -139,6 +140,7 @@ func (r *nodeManagerRouter) RouteRepositoryCreation(ctx context.Context, virtual
 
 	return RepositoryMutatorRoute{
 		Primary:            toRouterNode(shard.Primary),
+		ReplicaPath:        relativePath,
 		Secondaries:        secondaries,
 		ReplicationTargets: replicationTargets,
 	}, nil

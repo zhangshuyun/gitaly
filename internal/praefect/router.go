@@ -27,6 +27,8 @@ type StorageMutatorRoute struct {
 type RepositoryMutatorRoute struct {
 	// RepositoryID is the repository's ID as Praefect identifies it.
 	RepositoryID int64
+	// ReplicaPath is the disk path where the replicas are stored.
+	ReplicaPath string
 	// Primary is the primary node of the transaction.
 	Primary RouterNode
 	// Secondaries are the secondary participating in a transaction.

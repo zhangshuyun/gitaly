@@ -360,12 +360,14 @@ func TestPerRepositoryRouter_RouteRepositoryMutator(t *testing.T) {
 
 			testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": configuredNodes})
 
+			const relativePath = "repository"
+
 			rs := datastore.NewPostgresRepositoryStore(tx, nil)
-			repositoryID, err := rs.ReserveRepositoryID(ctx, "virtual-storage-1", "repository")
+			repositoryID, err := rs.ReserveRepositoryID(ctx, "virtual-storage-1", relativePath)
 			require.NoError(t, err)
 
 			require.NoError(t,
-				rs.CreateRepository(ctx, repositoryID, "virtual-storage-1", "repository", "primary", []string{"secondary-1", "secondary-2"}, nil, true, false),
+				rs.CreateRepository(ctx, repositoryID, "virtual-storage-1", relativePath, "primary", []string{"secondary-1", "secondary-2"}, nil, true, false),
 			)
 
 			if len(tc.consistentStorages) > 0 {
@@ -395,7 +397,7 @@ func TestPerRepositoryRouter_RouteRepositoryMutator(t *testing.T) {
 				nil,
 			)
 
-			route, err := router.RouteRepositoryMutator(ctx, tc.virtualStorage, "repository")
+			route, err := router.RouteRepositoryMutator(ctx, tc.virtualStorage, relativePath)
 			require.Equal(t, tc.error, err)
 			if err == nil {
 				var secondaries []RouterNode
@@ -408,6 +410,7 @@ func TestPerRepositoryRouter_RouteRepositoryMutator(t *testing.T) {
 
 				require.Equal(t, RepositoryMutatorRoute{
 					RepositoryID: repositoryID,
+					ReplicaPath:  relativePath,
 					Primary: RouterNode{
 						Storage:    "primary",
 						Connection: conns[tc.virtualStorage]["primary"],
@@ -445,6 +448,8 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 
 	db := glsql.NewDB(t)
 
+	const relativePath = "relative-path"
+
 	for _, tc := range []struct {
 		desc                string
 		virtualStorage      string
@@ -477,6 +482,7 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 			matchRoute: requireOneOf(
 				RepositoryMutatorRoute{
 					RepositoryID:       1,
+					ReplicaPath:        relativePath,
 					Primary:            RouterNode{Storage: "primary", Connection: primaryConn},
 					ReplicationTargets: []string{"secondary-1", "secondary-2"},
 				},
@@ -491,6 +497,7 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 			matchRoute: requireOneOf(
 				RepositoryMutatorRoute{
 					RepositoryID: 1,
+					ReplicaPath:  relativePath,
 					Primary:      RouterNode{Storage: "primary", Connection: primaryConn},
 					Secondaries: []RouterNode{
 						{Storage: "secondary-1", Connection: secondary1Conn},
@@ -508,6 +515,7 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 			matchRoute: requireOneOf(
 				RepositoryMutatorRoute{
 					RepositoryID: 1,
+					ReplicaPath:  relativePath,
 					Primary:      RouterNode{Storage: "primary", Connection: primaryConn},
 					Secondaries: []RouterNode{
 						{Storage: "secondary-1", Connection: secondary1Conn},
@@ -526,6 +534,7 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 			matchRoute: requireOneOf(
 				RepositoryMutatorRoute{
 					RepositoryID: 1,
+					ReplicaPath:  relativePath,
 					Primary:      RouterNode{Storage: "primary", Connection: primaryConn},
 				},
 			),
@@ -541,11 +550,13 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 			matchRoute: requireOneOf(
 				RepositoryMutatorRoute{
 					RepositoryID: 1,
+					ReplicaPath:  relativePath,
 					Primary:      RouterNode{Storage: "primary", Connection: primaryConn},
 					Secondaries:  []RouterNode{{Storage: "secondary-1", Connection: secondary1Conn}},
 				},
 				RepositoryMutatorRoute{
 					RepositoryID: 1,
+					ReplicaPath:  relativePath,
 					Primary:      RouterNode{Storage: "primary", Connection: primaryConn},
 					Secondaries:  []RouterNode{{Storage: "secondary-2", Connection: secondary1Conn}},
 				},
@@ -562,6 +573,7 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 			matchRoute: requireOneOf(
 				RepositoryMutatorRoute{
 					RepositoryID:       1,
+					ReplicaPath:        relativePath,
 					Primary:            RouterNode{Storage: "primary", Connection: primaryConn},
 					Secondaries:        []RouterNode{{Storage: "secondary-1", Connection: secondary1Conn}},
 					ReplicationTargets: []string{"secondary-2"},
@@ -587,7 +599,7 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 			rs := datastore.NewPostgresRepositoryStore(db, nil)
 			if tc.repositoryExists {
 				require.NoError(t,
-					rs.CreateRepository(ctx, 1, "virtual-storage-1", "relative-path", "primary", nil, nil, true, true),
+					rs.CreateRepository(ctx, 1, "virtual-storage-1", relativePath, "primary", nil, nil, true, true),
 				)
 			}
 
@@ -614,7 +626,7 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 				nil,
 				rs,
 				map[string]int{"virtual-storage-1": tc.replicationFactor},
-			).RouteRepositoryCreation(ctx, tc.virtualStorage, "relative-path")
+			).RouteRepositoryCreation(ctx, tc.virtualStorage, relativePath)
 			if tc.error != nil {
 				require.Equal(t, tc.error, err)
 				return

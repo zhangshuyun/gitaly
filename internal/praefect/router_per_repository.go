@@ -198,7 +198,7 @@ func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtua
 		return RepositoryMutatorRoute{}, nodes.ErrPrimaryNotHealthy
 	}
 
-	_, consistentStorages, err := r.rs.GetConsistentStoragesByRepositoryID(ctx, repositoryID)
+	replicaPath, consistentStorages, err := r.rs.GetConsistentStoragesByRepositoryID(ctx, repositoryID)
 	if err != nil {
 		return RepositoryMutatorRoute{}, fmt.Errorf("consistent storages: %w", err)
 	}
@@ -212,7 +212,7 @@ func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtua
 		return RepositoryMutatorRoute{}, fmt.Errorf("get host assignments: %w", err)
 	}
 
-	route := RepositoryMutatorRoute{RepositoryID: repositoryID}
+	route := RepositoryMutatorRoute{RepositoryID: repositoryID, ReplicaPath: replicaPath}
 	for _, assigned := range assignedStorages {
 		node, healthy := healthySet[assigned]
 		if assigned == primary {
@@ -265,6 +265,7 @@ func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtu
 	if replicationFactor == 1 {
 		return RepositoryMutatorRoute{
 			RepositoryID: id,
+			ReplicaPath:  relativePath,
 			Primary:      primary,
 		}, nil
 	}
@@ -313,6 +314,7 @@ func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtu
 
 	return RepositoryMutatorRoute{
 		RepositoryID:       id,
+		ReplicaPath:        relativePath,
 		Primary:            primary,
 		Secondaries:        secondaries,
 		ReplicationTargets: replicationTargets,
