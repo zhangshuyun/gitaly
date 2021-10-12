@@ -68,7 +68,7 @@ func (cmd resolveSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) er
 
 	for {
 		c, err := ci.Next()
-		if git.IsErrorCode(err, git.ErrIterOver) {
+		if git.IsErrorCode(err, git.ErrorCodeIterOver) {
 			break
 		}
 		if err != nil {
@@ -163,7 +163,7 @@ func (cmd resolveSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) er
 		var conflictPaths []string
 		for {
 			c, err := ci.Next()
-			if git.IsErrorCode(err, git.ErrIterOver) {
+			if git.IsErrorCode(err, git.ErrorCodeIterOver) {
 				break
 			}
 			if err != nil {

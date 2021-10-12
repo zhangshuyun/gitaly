@@ -66,7 +66,7 @@ func commit(ctx context.Context, params git2go.CommitParams) (string, error) {
 
 	for _, action := range params.Actions {
 		if err := apply(action, repo, index); err != nil {
-			if git.IsErrorClass(err, git.ErrClassIndex) {
+			if git.IsErrorClass(err, git.ErrorClassIndex) {
 				err = git2go.IndexError(err.Error())
 			}
 
@@ -83,7 +83,7 @@ func commit(ctx context.Context, params git2go.CommitParams) (string, error) {
 	committer := git.Signature(params.Committer)
 	commitID, err := repo.CreateCommitFromIds("", &author, &committer, params.Message, treeOID, parents...)
 	if err != nil {
-		if git.IsErrorClass(err, git.ErrClassInvalid) {
+		if git.IsErrorClass(err, git.ErrorClassInvalid) {
 			return "", git2go.InvalidArgumentError(err.Error())
 		}
 

@@ -11,7 +11,7 @@ import (
 func applyMoveFile(action git2go.MoveFile, index *git.Index) error {
 	entry, err := index.EntryByPath(action.Path, 0)
 	if err != nil {
-		if git.IsErrorCode(err, git.ErrNotFound) {
+		if git.IsErrorCode(err, git.ErrorCodeNotFound) {
 			return git2go.FileNotFoundError(action.Path)
 		}
 

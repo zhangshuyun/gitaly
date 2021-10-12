@@ -119,7 +119,7 @@ func (cmd *applySubcommand) applyPatch(
 
 	patchedIndex, err := repo.ApplyToTree(diff, parentTree, nil)
 	if err != nil {
-		if !git.IsErrorCode(err, git.ErrApplyFail) {
+		if !git.IsErrorCode(err, git.ErrorCodeApplyFail) {
 			return nil, fmt.Errorf("apply to tree: %w", err)
 		}
 

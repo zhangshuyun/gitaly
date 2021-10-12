@@ -230,7 +230,7 @@ func getConflicts(index *git.Index) ([]git.IndexConflict, error) {
 	for {
 		conflict, err := iterator.Next()
 		if err != nil {
-			if git.IsErrorCode(err, git.ErrIterOver) {
+			if git.IsErrorCode(err, git.ErrorCodeIterOver) {
 				break
 			}
 			return nil, err
