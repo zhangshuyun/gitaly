@@ -136,9 +136,9 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 			defer catfileCache.Stop()
 
 			// ensure commit cannot be found in current repository
-			c, err := catfileCache.BatchProcess(ctx, repo)
+			objectInfoReader, err := catfileCache.ObjectInfoReader(ctx, repo)
 			require.NoError(t, err)
-			_, err = c.Info(ctx, git.Revision(originalAlternatesCommit))
+			_, err = objectInfoReader.Info(ctx, git.Revision(originalAlternatesCommit))
 			require.True(t, catfile.IsNotFound(err))
 
 			// write alternates file to point to alt objects folder
@@ -153,9 +153,9 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 				"commit", "--allow-empty", "-m", "Another empty commit")
 			commitSha = gittest.CreateCommitInAlternateObjectDirectory(t, cfg.Git.BinPath, repoPath, alternateObjDir, cmd)
 
-			c, err = catfileCache.BatchProcess(ctx, repo)
+			objectInfoReader, err = catfileCache.ObjectInfoReader(ctx, repo)
 			require.NoError(t, err)
-			_, err = c.Info(ctx, git.Revision(commitSha))
+			_, err = objectInfoReader.Info(ctx, git.Revision(commitSha))
 			require.NoError(t, err)
 
 			_, repoCopyPath := copyRepoUsingSnapshot(t, cfg, client, repoProto)

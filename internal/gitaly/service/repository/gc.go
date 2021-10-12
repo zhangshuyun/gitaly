@@ -91,7 +91,7 @@ func (s *server) cleanupKeepArounds(ctx context.Context, repo *localrepo.Repo) e
 		return nil
 	}
 
-	batch, err := s.catfileCache.BatchProcess(ctx, repo)
+	objectInfoReader, err := s.catfileCache.ObjectInfoReader(ctx, repo)
 	if err != nil {
 		return nil
 	}
@@ -115,11 +115,11 @@ func (s *server) cleanupKeepArounds(ctx context.Context, repo *localrepo.Repo) e
 		refName := fmt.Sprintf("%s/%s", keepAroundsPrefix, info.Name())
 		path := filepath.Join(repoPath, keepAroundsPrefix, info.Name())
 
-		if err = checkRef(ctx, batch, refName, info); err == nil {
+		if err = checkRef(ctx, objectInfoReader, refName, info); err == nil {
 			continue
 		}
 
-		if err := s.fixRef(ctx, repo, batch, path, refName, info.Name()); err != nil {
+		if err := s.fixRef(ctx, repo, objectInfoReader, path, refName, info.Name()); err != nil {
 			return err
 		}
 	}
@@ -127,23 +127,23 @@ func (s *server) cleanupKeepArounds(ctx context.Context, repo *localrepo.Repo) e
 	return nil
 }
 
-func checkRef(ctx context.Context, batch catfile.Batch, refName string, info os.FileInfo) error {
+func checkRef(ctx context.Context, objectInfoReader catfile.ObjectInfoReader, refName string, info os.FileInfo) error {
 	if info.Size() == 0 {
 		return errors.New("checkRef: Ref file is empty")
 	}
 
-	_, err := batch.Info(ctx, git.Revision(refName))
+	_, err := objectInfoReader.Info(ctx, git.Revision(refName))
 	return err
 }
 
-func (s *server) fixRef(ctx context.Context, repo *localrepo.Repo, batch catfile.Batch, refPath string, name string, sha string) error {
+func (s *server) fixRef(ctx context.Context, repo *localrepo.Repo, objectInfoReader catfile.ObjectInfoReader, refPath string, name string, sha string) error {
 	// So the ref is broken, let's get rid of it
 	if err := os.RemoveAll(refPath); err != nil {
 		return err
 	}
 
 	// If the sha is not in the the repository, we can't fix it
-	if _, err := batch.Info(ctx, git.Revision(sha)); err != nil {
+	if _, err := objectInfoReader.Info(ctx, git.Revision(sha)); err != nil {
 		return nil
 	}
 
