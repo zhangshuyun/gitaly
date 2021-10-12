@@ -16,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"google.golang.org/grpc/codes"
 )
 
@@ -108,14 +107,8 @@ func Perform(ctx context.Context, repo *localrepo.Repo, txManager transaction.Ma
 
 	// TODO: https://gitlab.com/gitlab-org/gitaly/-/issues/3138
 	// This is a temporary code and needs to be removed once it will be run on all repositories at least once.
-	if featureflag.TxExtendedFileLocking.IsEnabled(ctx) {
-		if err := repo.UnsetMatchingConfig(ctx, "^http\\..+\\.extraHeader$", txManager); err != nil {
-			if !errors.Is(err, git.ErrNotFound) {
-				return fmt.Errorf("housekeeping could not unset extreHeaders: %w", err)
-			}
-		}
-	} else {
-		if err := unsetAllConfigsByRegexp(ctx, repo, "^http\\..+\\.extraHeader$"); err != nil {
+	if err := repo.UnsetMatchingConfig(ctx, "^http\\..+\\.extraHeader$", txManager); err != nil {
+		if !errors.Is(err, git.ErrNotFound) {
 			return fmt.Errorf("housekeeping could not unset extreHeaders: %w", err)
 		}
 	}
@@ -396,25 +389,6 @@ func removeEmptyDirs(ctx context.Context, target string) error {
 		return err
 	}
 	optimizeEmptyDirRemovalTotals.Inc()
-
-	return nil
-}
-
-func unsetAllConfigsByRegexp(ctx context.Context, repository *localrepo.Repo, regexp string) error {
-	config := repository.Config()
-
-	configPairs, err := config.GetRegexp(ctx, regexp, git.ConfigGetRegexpOpts{})
-	if err != nil {
-		return fmt.Errorf("get config keys: %w", err)
-	}
-
-	for _, configPair := range configPairs {
-		if err := config.Unset(ctx, configPair.Key, git.ConfigUnsetOpts{
-			All: true,
-		}); err != nil {
-			return fmt.Errorf("unset all: %w", err)
-		}
-	}
 
 	return nil
 }

@@ -13,11 +13,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
@@ -666,12 +664,14 @@ func TestPerformRepoDoesNotExist(t *testing.T) {
 }
 
 func TestPerform_UnsetConfiguration(t *testing.T) {
-	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
+	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
+	var expectedEntries []string
 	for key, value := range map[string]string{
 		"http.first.extraHeader":  "barfoo",
 		"http.second.extraHeader": "barfoo",
@@ -680,33 +680,25 @@ func TestPerform_UnsetConfiguration(t *testing.T) {
 		"totally.unrelated":       "untouched",
 	} {
 		gittest.Exec(t, cfg, "-C", repoPath, "config", key, value)
+		expectedEntries = append(expectedEntries, strings.ToLower(key)+"="+value)
 	}
 
-	opts, err := repo.Config().GetRegexp(ctx, ".*", git.ConfigGetRegexpOpts{})
-	require.NoError(t, err)
-
-	var filteredOpts []git.ConfigPair
-	for _, opt := range opts {
-		key := strings.ToLower(opt.Key)
-		if key != "http.first.extraheader" && key != "http.second.extraheader" {
-			filteredOpts = append(filteredOpts, opt)
-		}
-	}
+	preimageConfig := gittest.Exec(t, cfg, "-C", repoPath, "config", "--local", "--list")
+	require.Subset(t, strings.Split(string(preimageConfig), "\n"), expectedEntries)
 
 	require.NoError(t, Perform(ctx, repo, nil))
 
-	opts, err = repo.Config().GetRegexp(ctx, ".*", git.ConfigGetRegexpOpts{})
-	require.NoError(t, err)
-	require.Equal(t, filteredOpts, opts)
+	postimageConfig := gittest.Exec(t, cfg, "-C", repoPath, "config", "--local", "--list")
+	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "http.first.extraheader")
+	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "http.second.extraheader")
 }
 
 func TestPerform_UnsetConfiguration_transactional(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.TxExtendedFileLocking,
-	}).Run(t, testPerformUnsetConfigurationTransactional)
-}
+	t.Parallel()
 
-func testPerformUnsetConfigurationTransactional(t *testing.T, ctx context.Context) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	cfg := testcfg.Build(t)
 	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -729,11 +721,7 @@ func testPerformUnsetConfigurationTransactional(t *testing.T, ctx context.Contex
 
 	require.NoError(t, Perform(ctx, repo, txManager))
 
-	if featureflag.TxExtendedFileLocking.IsEnabled(ctx) {
-		require.Equal(t, 2, votes)
-	} else {
-		require.Equal(t, 0, votes)
-	}
+	require.Equal(t, 2, votes)
 
 	configKeys := gittest.Exec(t, cfg, "-C", repoPath, "config", "--list", "--local", "--name-only")
 	require.Equal(t, "core.repositoryformatversion\ncore.filemode\ncore.bare\n", string(configKeys))

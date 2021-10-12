@@ -11,15 +11,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
@@ -43,15 +40,8 @@ func TestMidxWrite(t *testing.T) {
 		"multi-pack-index should exist after running MidxRepack",
 	)
 
-	repoCfgPath := filepath.Join(repoPath, "config")
-
-	cfgF, err := os.Open(repoCfgPath)
-	require.NoError(t, err)
-	defer cfgF.Close()
-
-	cfgCmd, err := localrepo.NewTestRepo(t, cfg, repo).Config().GetRegexp(ctx, "core.multipackindex", git.ConfigGetRegexpOpts{})
-	require.NoError(t, err)
-	require.Equal(t, []git.ConfigPair{{Key: "core.multipackindex", Value: "true"}}, cfgCmd)
+	configEntries := gittest.Exec(t, cfg, "-C", repoPath, "config", "--local", "--list")
+	require.NotContains(t, configEntries, "core.muiltipackindex")
 }
 
 func TestMidxRewrite(t *testing.T) {
@@ -123,13 +113,10 @@ func TestMidxRepack(t *testing.T) {
 }
 
 func TestMidxRepack_transactional(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.TxExtendedFileLocking,
-	}).Run(t, testMidxRepackTransactional)
-}
-
-func testMidxRepackTransactional(t *testing.T, ctx context.Context) {
 	t.Parallel()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	votes := 0
 	txManager := &transaction.MockManager{
@@ -153,11 +140,7 @@ func testMidxRepackTransactional(t *testing.T, ctx context.Context) {
 	})
 	require.NoError(t, err)
 
-	if featureflag.TxExtendedFileLocking.IsEnabled(ctx) {
-		require.Equal(t, 2, votes)
-	} else {
-		require.Equal(t, 0, votes)
-	}
+	require.Equal(t, 2, votes)
 
 	multiPackIndex := gittest.Exec(t, cfg, "-C", repoPath, "config", "core.multiPackIndex")
 	require.Equal(t, "true", text.ChompBytes(multiPackIndex))

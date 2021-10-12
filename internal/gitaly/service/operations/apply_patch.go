@@ -11,9 +11,9 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 	"google.golang.org/grpc/codes"
@@ -82,7 +82,7 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 	}
 
 	worktreePath := newWorktreePath(path, "am-")
-	if err := s.addWorktree(ctx, header.Repository, worktreePath, parentCommitID.String()); err != nil {
+	if err := s.addWorktree(ctx, repo, worktreePath, parentCommitID.String()); err != nil {
 		return fmt.Errorf("add worktree: %w", err)
 	}
 
@@ -198,17 +198,9 @@ func validateUserApplyPatchHeader(header *gitalypb.UserApplyPatchRequest_Header)
 	return nil
 }
 
-func (s *Server) addWorktree(ctx context.Context, repo *gitalypb.Repository, worktreePath string, committish string) error {
-	if featureflag.TxExtendedFileLocking.IsEnabled(ctx) {
-		repo := s.localrepo(repo)
-
-		if err := repo.SetConfig(ctx, "core.splitIndex", "false", s.txManager); err != nil {
-			return fmt.Errorf("on 'git config core.splitIndex false': %w", err)
-		}
-	} else {
-		if err := s.runCmd(ctx, repo, "config", []git.Option{git.ConfigPair{Key: "core.splitIndex", Value: "false"}}, nil); err != nil {
-			return fmt.Errorf("on 'git config core.splitIndex false': %w", err)
-		}
+func (s *Server) addWorktree(ctx context.Context, repo *localrepo.Repo, worktreePath string, committish string) error {
+	if err := repo.SetConfig(ctx, "core.splitIndex", "false", s.txManager); err != nil {
+		return fmt.Errorf("on 'git config core.splitIndex false': %w", err)
 	}
 
 	args := []string{worktreePath}
@@ -220,22 +212,13 @@ func (s *Server) addWorktree(ctx context.Context, repo *gitalypb.Repository, wor
 	}
 
 	var stderr bytes.Buffer
-	cmd, err := s.gitCmdFactory.New(ctx, repo,
-		git.SubSubCmd{
-			Name:   "worktree",
-			Action: "add",
-			Flags:  flags,
-			Args:   args,
-		},
-		git.WithStderr(&stderr),
-		git.WithRefTxHook(ctx, repo, s.cfg),
-	)
-	if err != nil {
-		return fmt.Errorf("creation of 'git worktree add': %w", gitError{ErrMsg: stderr.String(), Err: err})
-	}
-
-	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("wait for 'git worktree add': %w", gitError{ErrMsg: stderr.String(), Err: err})
+	if err := repo.ExecAndWait(ctx, git.SubSubCmd{
+		Name:   "worktree",
+		Action: "add",
+		Flags:  flags,
+		Args:   args,
+	}, git.WithStderr(&stderr), git.WithRefTxHook(ctx, repo, s.cfg)); err != nil {
+		return fmt.Errorf("adding worktree: %w", gitError{ErrMsg: stderr.String(), Err: err})
 	}
 
 	return nil
@@ -266,18 +249,4 @@ func newWorktreePath(repoPath, prefix string) string {
 	chars := []byte("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 	rand.Shuffle(len(chars), func(i, j int) { chars[i], chars[j] = chars[j], chars[i] })
 	return filepath.Join(repoPath, gitlabWorktreesSubDir, prefix+string(chars[:32]))
-}
-
-func (s *Server) runCmd(ctx context.Context, repo *gitalypb.Repository, cmd string, opts []git.Option, args []string) error {
-	var stderr bytes.Buffer
-	safeCmd, err := s.gitCmdFactory.New(ctx, repo, git.SubCmd{Name: cmd, Flags: opts, Args: args}, git.WithStderr(&stderr))
-	if err != nil {
-		return fmt.Errorf("create safe cmd %q: %w", cmd, gitError{ErrMsg: stderr.String(), Err: err})
-	}
-
-	if err := safeCmd.Wait(); err != nil {
-		return fmt.Errorf("wait safe cmd %q: %w", cmd, gitError{ErrMsg: stderr.String(), Err: err})
-	}
-
-	return nil
 }

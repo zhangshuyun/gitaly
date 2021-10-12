@@ -11,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
@@ -47,12 +46,11 @@ func TestLink(t *testing.T) {
 }
 
 func TestLink_transactional(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.TxExtendedFileLocking,
-	}).Run(t, testLinkTransactional)
-}
+	t.Parallel()
 
-func testLinkTransactional(t *testing.T, ctx context.Context) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	pool, poolMember := setupObjectPool(t)
 	require.NoError(t, pool.Create(ctx, poolMember))
 
@@ -76,11 +74,7 @@ func testLinkTransactional(t *testing.T, ctx context.Context) {
 
 	require.NoError(t, pool.Link(ctx, poolMember))
 
-	if featureflag.TxExtendedFileLocking.IsEnabled(ctx) {
-		require.Equal(t, 2, votes)
-	} else {
-		require.Equal(t, 0, votes)
-	}
+	require.Equal(t, 2, votes)
 }
 
 func TestLinkRemoveBitmap(t *testing.T) {

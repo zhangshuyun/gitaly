@@ -64,11 +64,6 @@ func (repo *Repo) ExecAndWait(ctx context.Context, cmd git.Cmd, opts ...git.CmdO
 	return command.Wait()
 }
 
-// Config returns executor of the 'config' sub-command.
-func (repo *Repo) Config() Config {
-	return Config{repo: repo}
-}
-
 // Remote returns executor of the 'remote' sub-command.
 func (repo *Repo) Remote() Remote {
 	return Remote{repo: repo}
