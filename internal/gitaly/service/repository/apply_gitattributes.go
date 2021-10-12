@@ -10,6 +10,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/safe"
@@ -20,25 +21,25 @@ import (
 
 const attributesFileMode os.FileMode = 0o644
 
-func (s *server) applyGitattributes(ctx context.Context, c catfile.Batch, repoPath string, revision []byte) error {
+func (s *server) applyGitattributes(ctx context.Context, repo *localrepo.Repo, objectReader catfile.ObjectReader, repoPath string, revision []byte) error {
 	infoPath := filepath.Join(repoPath, "info")
 	attributesPath := filepath.Join(infoPath, "attributes")
 
-	_, err := c.Info(ctx, git.Revision(revision))
+	_, err := repo.ResolveRevision(ctx, git.Revision(revision)+"^{commit}")
 	if err != nil {
-		if catfile.IsNotFound(err) {
+		if errors.Is(err, git.ErrReferenceNotFound) {
 			return helper.ErrInvalidArgumentf("revision does not exist")
 		}
 
 		return err
 	}
 
-	blobInfo, err := c.Info(ctx, git.Revision(fmt.Sprintf("%s:.gitattributes", revision)))
+	blobObj, err := objectReader.Object(ctx, git.Revision(fmt.Sprintf("%s:.gitattributes", revision)))
 	if err != nil && !catfile.IsNotFound(err) {
 		return err
 	}
 
-	if catfile.IsNotFound(err) || blobInfo.Type != "blob" {
+	if catfile.IsNotFound(err) || blobObj.Type != "blob" {
 		// If there is no gitattributes file, we simply use the ZeroOID
 		// as a placeholder to vote on the removal.
 		if err := s.vote(ctx, git.ZeroOID); err != nil {
@@ -58,11 +59,6 @@ func (s *server) applyGitattributes(ctx context.Context, c catfile.Batch, repoPa
 		return err
 	}
 
-	blobObj, err := c.Blob(ctx, git.Revision(blobInfo.Oid))
-	if err != nil {
-		return err
-	}
-
 	writer, err := safe.NewLockingFileWriter(attributesPath, safe.LockingFileWriterConfig{
 		FileWriterConfig: safe.FileWriterConfig{FileMode: attributesFileMode},
 	})
@@ -71,7 +67,7 @@ func (s *server) applyGitattributes(ctx context.Context, c catfile.Batch, repoPa
 	}
 	defer writer.Close()
 
-	if _, err := io.CopyN(writer, blobObj.Reader, blobInfo.Size); err != nil {
+	if _, err := io.Copy(writer, blobObj.Reader); err != nil {
 		return err
 	}
 
@@ -116,12 +112,12 @@ func (s *server) ApplyGitattributes(ctx context.Context, in *gitalypb.ApplyGitat
 		return nil, helper.ErrInvalidArgumentf("revision: %v", err)
 	}
 
-	c, err := s.catfileCache.BatchProcess(ctx, repo)
+	objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := s.applyGitattributes(ctx, c, repoPath, in.GetRevision()); err != nil {
+	if err := s.applyGitattributes(ctx, repo, objectReader, repoPath, in.GetRevision()); err != nil {
 		return nil, err
 	}
 
