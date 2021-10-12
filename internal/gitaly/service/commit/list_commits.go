@@ -39,9 +39,14 @@ func (s *server) ListCommits(
 	ctx := stream.Context()
 	repo := s.localrepo(request.GetRepository())
 
-	catfileProcess, err := s.catfileCache.BatchProcess(ctx, repo)
+	objectInfoReader, err := s.catfileCache.ObjectInfoReader(ctx, repo)
 	if err != nil {
-		return helper.ErrInternal(fmt.Errorf("creating catfile process: %w", err))
+		return helper.ErrInternal(fmt.Errorf("creating object info reader: %w", err))
+	}
+
+	objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
+	if err != nil {
+		return helper.ErrInternal(fmt.Errorf("creating object reader: %w", err))
 	}
 
 	revlistOptions := []gitpipe.RevlistOption{}
@@ -101,8 +106,8 @@ func (s *server) ListCommits(
 		})
 	}
 
-	catfileInfoIter := gitpipe.CatfileInfo(ctx, catfileProcess, revlistIter)
-	catfileObjectIter := gitpipe.CatfileObject(ctx, catfileProcess, catfileInfoIter)
+	catfileInfoIter := gitpipe.CatfileInfo(ctx, objectInfoReader, revlistIter)
+	catfileObjectIter := gitpipe.CatfileObject(ctx, objectReader, catfileInfoIter)
 
 	chunker := chunk.New(&commitsSender{
 		send: func(commits []*gitalypb.GitCommit) error {

@@ -41,9 +41,14 @@ func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobS
 	ctx := stream.Context()
 	repo := s.localrepo(req.GetRepository())
 
-	catfileProcess, err := s.catfileCache.BatchProcess(ctx, repo)
+	objectInfoReader, err := s.catfileCache.ObjectInfoReader(ctx, repo)
 	if err != nil {
-		return helper.ErrInternal(fmt.Errorf("creating catfile process: %w", err))
+		return helper.ErrInternal(fmt.Errorf("creating object info reader: %w", err))
+	}
+
+	objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
+	if err != nil {
+		return helper.ErrInternal(fmt.Errorf("creating object reader: %w", err))
 	}
 
 	chunker := chunk.New(&blobSender{
@@ -60,9 +65,9 @@ func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobS
 	}
 
 	revlistIter := gitpipe.Revlist(ctx, repo, req.GetRevisions(), revlistOptions...)
-	catfileInfoIter := gitpipe.CatfileInfo(ctx, catfileProcess, revlistIter)
+	catfileInfoIter := gitpipe.CatfileInfo(ctx, objectInfoReader, revlistIter)
 
-	if err := processBlobs(ctx, catfileProcess, catfileInfoIter, req.GetLimit(), req.GetBytesLimit(),
+	if err := processBlobs(ctx, objectReader, catfileInfoIter, req.GetLimit(), req.GetBytesLimit(),
 		func(oid string, size int64, contents []byte, path []byte) error {
 			if !req.GetWithPaths() {
 				path = nil
@@ -88,7 +93,7 @@ func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobS
 
 func processBlobs(
 	ctx context.Context,
-	catfileProcess catfile.Batch,
+	objectReader catfile.ObjectReader,
 	catfileInfoIter gitpipe.CatfileInfoIterator,
 	blobsLimit uint32,
 	bytesLimit int64,
@@ -120,7 +125,7 @@ func processBlobs(
 			return helper.ErrInternal(err)
 		}
 	} else {
-		catfileObjectIter := gitpipe.CatfileObject(ctx, catfileProcess, catfileInfoIter)
+		catfileObjectIter := gitpipe.CatfileObject(ctx, objectReader, catfileInfoIter)
 
 		var i uint32
 		for catfileObjectIter.Next() {
@@ -225,9 +230,9 @@ func (s *server) ListAllBlobs(req *gitalypb.ListAllBlobsRequest, stream gitalypb
 		},
 	})
 
-	catfileProcess, err := s.catfileCache.BatchProcess(ctx, repo)
+	objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return helper.ErrInternal(fmt.Errorf("creating catfile process: %w", err))
+		return helper.ErrInternal(fmt.Errorf("creating object reader: %w", err))
 	}
 
 	catfileInfoIter := gitpipe.CatfileInfoAllObjects(ctx, repo)
@@ -235,7 +240,7 @@ func (s *server) ListAllBlobs(req *gitalypb.ListAllBlobsRequest, stream gitalypb
 		return r.ObjectInfo.Type == "blob"
 	})
 
-	if err := processBlobs(ctx, catfileProcess, catfileInfoIter, req.GetLimit(), req.GetBytesLimit(),
+	if err := processBlobs(ctx, objectReader, catfileInfoIter, req.GetLimit(), req.GetBytesLimit(),
 		func(oid string, size int64, contents []byte, path []byte) error {
 			return chunker.Send(&gitalypb.ListAllBlobsResponse_Blob{
 				Oid:  oid,

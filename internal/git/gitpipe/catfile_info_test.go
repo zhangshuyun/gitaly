@@ -93,10 +93,10 @@ func TestCatfileInfo(t *testing.T) {
 			catfileCache := catfile.NewCache(cfg)
 			defer catfileCache.Stop()
 
-			catfileProcess, err := catfileCache.BatchProcess(ctx, repo)
+			objectInfoReader, err := catfileCache.ObjectInfoReader(ctx, repo)
 			require.NoError(t, err)
 
-			it := CatfileInfo(ctx, catfileProcess, NewRevisionIterator(tc.revlistInputs))
+			it := CatfileInfo(ctx, objectInfoReader, NewRevisionIterator(tc.revlistInputs))
 
 			var results []CatfileInfoResult
 			for it.Next() {

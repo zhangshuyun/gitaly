@@ -208,7 +208,10 @@ func TestPipeline_revlist(t *testing.T) {
 			catfileCache := catfile.NewCache(cfg)
 			defer catfileCache.Stop()
 
-			catfileProcess, err := catfileCache.BatchProcess(ctx, repo)
+			objectInfoReader, err := catfileCache.ObjectInfoReader(ctx, repo)
+			require.NoError(t, err)
+
+			objectReader, err := catfileCache.ObjectReader(ctx, repo)
 			require.NoError(t, err)
 
 			revlistIter := Revlist(ctx, repo, tc.revisions, tc.revlistOptions...)
@@ -216,12 +219,12 @@ func TestPipeline_revlist(t *testing.T) {
 				revlistIter = RevisionFilter(ctx, revlistIter, tc.revisionFilter)
 			}
 
-			catfileInfoIter := CatfileInfo(ctx, catfileProcess, revlistIter)
+			catfileInfoIter := CatfileInfo(ctx, objectInfoReader, revlistIter)
 			if tc.catfileInfoFilter != nil {
 				catfileInfoIter = CatfileInfoFilter(ctx, catfileInfoIter, tc.catfileInfoFilter)
 			}
 
-			catfileObjectIter := CatfileObject(ctx, catfileProcess, catfileInfoIter)
+			catfileObjectIter := CatfileObject(ctx, objectReader, catfileInfoIter)
 
 			var results []CatfileObjectResult
 			for catfileObjectIter.Next() {
@@ -259,14 +262,17 @@ func TestPipeline_revlist(t *testing.T) {
 		catfileCache := catfile.NewCache(cfg)
 		defer catfileCache.Stop()
 
-		catfileProcess, err := catfileCache.BatchProcess(ctx, repo)
+		objectInfoReader, err := catfileCache.ObjectInfoReader(ctx, repo)
+		require.NoError(t, err)
+
+		objectReader, err := catfileCache.ObjectReader(ctx, repo)
 		require.NoError(t, err)
 
 		revlistIter := Revlist(ctx, repo, []string{"--all"})
 		revlistIter = RevisionFilter(ctx, revlistIter, func(RevisionResult) bool { return true })
-		catfileInfoIter := CatfileInfo(ctx, catfileProcess, revlistIter)
+		catfileInfoIter := CatfileInfo(ctx, objectInfoReader, revlistIter)
 		catfileInfoIter = CatfileInfoFilter(ctx, catfileInfoIter, func(CatfileInfoResult) bool { return true })
-		catfileObjectIter := CatfileObject(ctx, catfileProcess, catfileInfoIter)
+		catfileObjectIter := CatfileObject(ctx, objectReader, catfileInfoIter)
 
 		i := 0
 		for catfileObjectIter.Next() {
@@ -295,12 +301,15 @@ func TestPipeline_revlist(t *testing.T) {
 		catfileCache := catfile.NewCache(cfg)
 		defer catfileCache.Stop()
 
-		catfileProcess, err := catfileCache.BatchProcess(ctx, repo)
+		objectInfoReader, err := catfileCache.ObjectInfoReader(ctx, repo)
+		require.NoError(t, err)
+
+		objectReader, err := catfileCache.ObjectReader(ctx, repo)
 		require.NoError(t, err)
 
 		revlistIter := Revlist(ctx, repo, []string{"--all"}, WithObjects())
-		catfileInfoIter := CatfileInfo(ctx, catfileProcess, revlistIter)
-		catfileObjectIter := CatfileObject(ctx, catfileProcess, catfileInfoIter)
+		catfileInfoIter := CatfileInfo(ctx, objectInfoReader, revlistIter)
+		catfileObjectIter := CatfileObject(ctx, objectReader, catfileInfoIter)
 
 		i := 0
 		var wg sync.WaitGroup
@@ -342,12 +351,15 @@ func TestPipeline_forEachRef(t *testing.T) {
 	catfileCache := catfile.NewCache(cfg)
 	defer catfileCache.Stop()
 
-	catfileProcess, err := catfileCache.BatchProcess(ctx, repo)
+	objectInfoReader, err := catfileCache.ObjectInfoReader(ctx, repo)
+	require.NoError(t, err)
+
+	objectReader, err := catfileCache.ObjectReader(ctx, repo)
 	require.NoError(t, err)
 
 	forEachRefIter := ForEachRef(ctx, repo, nil, "")
-	catfileInfoIter := CatfileInfo(ctx, catfileProcess, forEachRefIter)
-	catfileObjectIter := CatfileObject(ctx, catfileProcess, catfileInfoIter)
+	catfileInfoIter := CatfileInfo(ctx, objectInfoReader, forEachRefIter)
+	catfileObjectIter := CatfileObject(ctx, objectReader, catfileInfoIter)
 
 	type object struct {
 		oid     git.ObjectID

@@ -38,9 +38,14 @@ func (s *server) FindAllTags(in *gitalypb.FindAllTagsRequest, stream gitalypb.Re
 }
 
 func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, sortField string, stream gitalypb.RefService_FindAllTagsServer) error {
-	c, err := s.catfileCache.BatchProcess(ctx, repo)
+	objectInfoReader, err := s.catfileCache.ObjectInfoReader(ctx, repo)
 	if err != nil {
-		return fmt.Errorf("error creating catfile: %v", err)
+		return fmt.Errorf("error creating object info reader: %v", err)
+	}
+
+	objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
+	if err != nil {
+		return fmt.Errorf("error creating object reader: %v", err)
 	}
 
 	forEachRefIter := gitpipe.ForEachRef(ctx, repo, []string{"refs/tags/"}, sortField)
@@ -57,7 +62,7 @@ func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, sortFiel
 		},
 	)
 
-	catfileInfoIter := gitpipe.CatfileInfo(ctx, c, forEachRefIter)
+	catfileInfoIter := gitpipe.CatfileInfo(ctx, objectInfoReader, forEachRefIter)
 
 	// In the previous pipeline step, we request information about both the object and the
 	// peeled object in case the object is a tag. Given that we now know about object types, we
@@ -103,7 +108,7 @@ func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, sortFiel
 		},
 	)
 
-	catfileObjectsIter := gitpipe.CatfileObject(ctx, c, catfileInfoIter)
+	catfileObjectsIter := gitpipe.CatfileObject(ctx, objectReader, catfileInfoIter)
 
 	chunker := chunk.New(&tagSender{stream: stream})
 

@@ -51,9 +51,14 @@ func (s *server) ListLFSPointers(in *gitalypb.ListLFSPointersRequest, stream git
 
 	repo := s.localrepo(in.GetRepository())
 
-	catfileProcess, err := s.catfileCache.BatchProcess(ctx, repo)
+	objectInfoReader, err := s.catfileCache.ObjectInfoReader(ctx, repo)
 	if err != nil {
-		return helper.ErrInternal(fmt.Errorf("creating catfile process: %w", err))
+		return helper.ErrInternal(fmt.Errorf("creating object info reader: %w", err))
+	}
+
+	objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
+	if err != nil {
+		return helper.ErrInternal(fmt.Errorf("creating object reader: %w", err))
 	}
 
 	revlistOptions := []gitpipe.RevlistOption{
@@ -63,8 +68,8 @@ func (s *server) ListLFSPointers(in *gitalypb.ListLFSPointersRequest, stream git
 	}
 
 	revlistIter := gitpipe.Revlist(ctx, repo, in.GetRevisions(), revlistOptions...)
-	catfileInfoIter := gitpipe.CatfileInfo(ctx, catfileProcess, revlistIter)
-	catfileObjectIter := gitpipe.CatfileObject(ctx, catfileProcess, catfileInfoIter)
+	catfileInfoIter := gitpipe.CatfileInfo(ctx, objectInfoReader, revlistIter)
+	catfileObjectIter := gitpipe.CatfileObject(ctx, objectReader, catfileInfoIter)
 
 	if err := sendLFSPointers(chunker, catfileObjectIter, int(in.Limit)); err != nil {
 		return err
@@ -92,16 +97,16 @@ func (s *server) ListAllLFSPointers(in *gitalypb.ListAllLFSPointersRequest, stre
 		},
 	})
 
-	catfileProcess, err := s.catfileCache.BatchProcess(ctx, repo)
+	objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return helper.ErrInternal(fmt.Errorf("creating catfile process: %w", err))
+		return helper.ErrInternal(fmt.Errorf("creating object reader: %w", err))
 	}
 
 	catfileInfoIter := gitpipe.CatfileInfoAllObjects(ctx, repo)
 	catfileInfoIter = gitpipe.CatfileInfoFilter(ctx, catfileInfoIter, func(r gitpipe.CatfileInfoResult) bool {
 		return r.ObjectInfo.Type == "blob" && r.ObjectInfo.Size <= lfsPointerMaxSize
 	})
-	catfileObjectIter := gitpipe.CatfileObject(ctx, catfileProcess, catfileInfoIter)
+	catfileObjectIter := gitpipe.CatfileObject(ctx, objectReader, catfileInfoIter)
 
 	if err := sendLFSPointers(chunker, catfileObjectIter, int(in.Limit)); err != nil {
 		return err
@@ -130,9 +135,14 @@ func (s *server) GetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gita
 		},
 	})
 
-	catfileProcess, err := s.catfileCache.BatchProcess(ctx, repo)
+	objectInfoReader, err := s.catfileCache.ObjectInfoReader(ctx, repo)
 	if err != nil {
-		return helper.ErrInternal(fmt.Errorf("creating catfile process: %w", err))
+		return helper.ErrInternal(fmt.Errorf("creating object info reader: %w", err))
+	}
+
+	objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
+	if err != nil {
+		return helper.ErrInternal(fmt.Errorf("creating object reader: %w", err))
 	}
 
 	blobs := make([]gitpipe.RevisionResult, len(req.GetBlobIds()))
@@ -140,11 +150,11 @@ func (s *server) GetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gita
 		blobs[i] = gitpipe.RevisionResult{OID: git.ObjectID(blobID)}
 	}
 
-	catfileInfoIter := gitpipe.CatfileInfo(ctx, catfileProcess, gitpipe.NewRevisionIterator(blobs))
+	catfileInfoIter := gitpipe.CatfileInfo(ctx, objectInfoReader, gitpipe.NewRevisionIterator(blobs))
 	catfileInfoIter = gitpipe.CatfileInfoFilter(ctx, catfileInfoIter, func(r gitpipe.CatfileInfoResult) bool {
 		return r.ObjectInfo.Type == "blob" && r.ObjectInfo.Size <= lfsPointerMaxSize
 	})
-	catfileObjectIter := gitpipe.CatfileObject(ctx, catfileProcess, catfileInfoIter)
+	catfileObjectIter := gitpipe.CatfileObject(ctx, objectReader, catfileInfoIter)
 
 	if err := sendLFSPointers(chunker, catfileObjectIter, 0); err != nil {
 		return err
