@@ -843,7 +843,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		rs, requireState := newStore(t, nil)
 
 		t.Run("delete non-existing", func(t *testing.T) {
-			require.Equal(t, ErrNoRowsAffected, rs.DeleteReplica(ctx, "virtual-storage-1", "relative-path-1", "storage-1"))
+			require.Equal(t, ErrNoRowsAffected, rs.DeleteReplica(ctx, 1, "storage-1"))
 		})
 
 		t.Run("delete existing", func(t *testing.T) {
@@ -879,7 +879,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 				},
 			)
 
-			require.NoError(t, rs.DeleteReplica(ctx, "virtual-storage-1", "relative-path-1", "storage-1"))
+			require.NoError(t, rs.DeleteReplica(ctx, 1, "storage-1"))
 
 			requireState(t, ctx,
 				virtualStorageState{

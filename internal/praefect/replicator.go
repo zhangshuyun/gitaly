@@ -159,7 +159,7 @@ func (dr defaultReplicator) Destroy(ctx context.Context, event datastore.Replica
 
 	// If the repository was deleted but this fails, we'll know by the repository not having a record in the virtual
 	// storage but having one for the storage. We can later retry the deletion.
-	if err := dr.rs.DeleteReplica(ctx, event.Job.VirtualStorage, event.Job.RelativePath, event.Job.TargetNodeStorage); err != nil {
+	if err := dr.rs.DeleteReplica(ctx, event.Job.RepositoryID, event.Job.TargetNodeStorage); err != nil {
 		if !errors.Is(err, datastore.ErrNoRowsAffected) {
 			return err
 		}
