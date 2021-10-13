@@ -503,6 +503,107 @@ func TestFindAllTags_invalidRequest(t *testing.T) {
 	}
 }
 
+func TestFindAllTags_pagination(t *testing.T) {
+	cfg, client := setupRefServiceWithoutRepo(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	repoProto, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+
+	catfileCache := catfile.NewCache(cfg)
+	defer catfileCache.Stop()
+
+	annotatedTagID := gittest.WriteTag(t, cfg, repoPath, "annotated", "HEAD", gittest.WriteTagConfig{
+		Message: "message",
+	})
+
+	for _, tc := range []struct {
+		desc             string
+		paginationParams *gitalypb.PaginationParameter
+		sortBy           *gitalypb.FindAllTagsRequest_SortBy
+		exp              []string
+		expectedErr      error
+	}{
+		{
+			desc:             "without pagination",
+			paginationParams: &gitalypb.PaginationParameter{Limit: 100},
+			exp: []string{
+				annotatedTagID.String(),
+				"f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8",
+				"8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b",
+				"8f03acbcd11c53d9c9468078f32a2622005a4841",
+			},
+		},
+		{
+			desc:             "with limit restrictions",
+			paginationParams: &gitalypb.PaginationParameter{Limit: 3},
+			exp: []string{
+				annotatedTagID.String(),
+				"f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8",
+				"8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b",
+			},
+		},
+		{
+			desc:             "with limit restrictions and page token",
+			paginationParams: &gitalypb.PaginationParameter{Limit: 3, PageToken: "refs/tags/v1.0.0"},
+			exp: []string{
+				"8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b",
+				"8f03acbcd11c53d9c9468078f32a2622005a4841",
+			},
+		},
+		{
+			desc:             "with reversed sort by name, limit restrictions and page token",
+			paginationParams: &gitalypb.PaginationParameter{Limit: 3, PageToken: "refs/tags/v1.0.0"},
+			sortBy:           &gitalypb.FindAllTagsRequest_SortBy{Key: gitalypb.FindAllTagsRequest_SortBy_REFNAME, Direction: gitalypb.SortDirection_DESCENDING},
+			exp: []string{
+				annotatedTagID.String(),
+			},
+		},
+		{
+			desc:             "with page token only",
+			paginationParams: &gitalypb.PaginationParameter{PageToken: "refs/tags/v1.1.0"},
+			exp:              nil,
+			expectedErr:      helper.ErrInvalidArgumentf("could not find page token"),
+		},
+		{
+			desc:             "with invalid page token",
+			paginationParams: &gitalypb.PaginationParameter{Limit: 3, PageToken: "refs/tags/invalid"},
+			exp:              nil,
+			expectedErr:      helper.ErrInvalidArgumentf("could not find page token"),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			c, err := client.FindAllTags(ctx, &gitalypb.FindAllTagsRequest{
+				Repository:       repoProto,
+				PaginationParams: tc.paginationParams,
+				SortBy:           tc.sortBy,
+			})
+
+			if tc.expectedErr != nil {
+				_, err = c.Recv()
+				require.NotEqual(t, err, io.EOF)
+				testassert.GrpcEqualErr(t, tc.expectedErr, err)
+			} else {
+				require.NoError(t, err)
+
+				var tags []string
+				for {
+					r, err := c.Recv()
+					if err == io.EOF {
+						break
+					}
+					require.NoError(t, err)
+					for _, tag := range r.GetTags() {
+						tags = append(tags, tag.Id)
+					}
+				}
+				require.Equal(t, tc.exp, tags)
+			}
+		})
+	}
+}
+
 func TestFindAllTags_sorted(t *testing.T) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 

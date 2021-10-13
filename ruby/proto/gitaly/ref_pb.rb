@@ -76,6 +76,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     add_message "gitaly.FindAllTagsRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
       optional :sort_by, :message, 2, "gitaly.FindAllTagsRequest.SortBy"
+      optional :pagination_params, :message, 3, "gitaly.PaginationParameter"
     end
     add_message "gitaly.FindAllTagsRequest.SortBy" do
       optional :key, :enum, 1, "gitaly.FindAllTagsRequest.SortBy.Key"

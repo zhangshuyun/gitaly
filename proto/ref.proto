@@ -223,6 +223,11 @@ message FindAllTagsRequest {
 
   // SortBy allows to request tags in particular order.
   SortBy sort_by = 2;
+
+  // The page token is the tags name, with the `refs/tags/` prefix, for
+  // example "refs/tags/v1.0.0". When the tag name matches the page token,
+  // the tag following it will be the first result send as part of the response.
+  PaginationParameter pagination_params = 3;
 }
 
 message FindAllTagsResponse {

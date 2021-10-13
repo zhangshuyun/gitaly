@@ -36,7 +36,7 @@ func (s *server) findAllRemoteBranches(req *gitalypb.FindAllRemoteBranchesReques
 		return err
 	}
 
-	opts := paginationParamsToOpts(ctx, nil)
+	opts := buildFindRefsOpts(ctx, nil)
 	opts.cmdArgs = args
 	writer := newFindAllRemoteBranchesWriter(stream, objectReader)
 
