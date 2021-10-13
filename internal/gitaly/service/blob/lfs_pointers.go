@@ -8,6 +8,7 @@ import (
 
 	gitalyerrors "gitlab.com/gitlab-org/gitaly/v14/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gitpipe"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/chunk"
@@ -102,10 +103,11 @@ func (s *server) ListAllLFSPointers(in *gitalypb.ListAllLFSPointersRequest, stre
 		return helper.ErrInternal(fmt.Errorf("creating object reader: %w", err))
 	}
 
-	catfileInfoIter := gitpipe.CatfileInfoAllObjects(ctx, repo)
-	catfileInfoIter = gitpipe.CatfileInfoFilter(ctx, catfileInfoIter, func(r gitpipe.CatfileInfoResult) bool {
-		return r.ObjectInfo.Type == "blob" && r.ObjectInfo.Size <= lfsPointerMaxSize
-	})
+	catfileInfoIter := gitpipe.CatfileInfoAllObjects(ctx, repo,
+		gitpipe.WithSkipCatfileInfoResult(func(objectInfo *catfile.ObjectInfo) bool {
+			return objectInfo.Type != "blob" || objectInfo.Size > lfsPointerMaxSize
+		}),
+	)
 	catfileObjectIter := gitpipe.CatfileObject(ctx, objectReader, catfileInfoIter)
 
 	if err := sendLFSPointers(chunker, catfileObjectIter, int(in.Limit)); err != nil {
@@ -150,10 +152,11 @@ func (s *server) GetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gita
 		blobs[i] = gitpipe.RevisionResult{OID: git.ObjectID(blobID)}
 	}
 
-	catfileInfoIter := gitpipe.CatfileInfo(ctx, objectInfoReader, gitpipe.NewRevisionIterator(blobs))
-	catfileInfoIter = gitpipe.CatfileInfoFilter(ctx, catfileInfoIter, func(r gitpipe.CatfileInfoResult) bool {
-		return r.ObjectInfo.Type == "blob" && r.ObjectInfo.Size <= lfsPointerMaxSize
-	})
+	catfileInfoIter := gitpipe.CatfileInfo(ctx, objectInfoReader, gitpipe.NewRevisionIterator(blobs),
+		gitpipe.WithSkipCatfileInfoResult(func(objectInfo *catfile.ObjectInfo) bool {
+			return objectInfo.Type != "blob" || objectInfo.Size > lfsPointerMaxSize
+		}),
+	)
 	catfileObjectIter := gitpipe.CatfileObject(ctx, objectReader, catfileInfoIter)
 
 	if err := sendLFSPointers(chunker, catfileObjectIter, 0); err != nil {

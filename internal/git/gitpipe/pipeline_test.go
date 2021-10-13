@@ -22,13 +22,13 @@ func TestPipeline_revlist(t *testing.T) {
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	for _, tc := range []struct {
-		desc              string
-		revisions         []string
-		revlistOptions    []RevlistOption
-		revisionFilter    func(RevisionResult) bool
-		catfileInfoFilter func(CatfileInfoResult) bool
-		expectedResults   []CatfileObjectResult
-		expectedErr       error
+		desc               string
+		revisions          []string
+		revlistOptions     []RevlistOption
+		revisionFilter     func(RevisionResult) bool
+		catfileInfoOptions []CatfileInfoOption
+		expectedResults    []CatfileObjectResult
+		expectedErr        error
 	}{
 		{
 			desc: "single blob",
@@ -110,8 +110,10 @@ func TestPipeline_revlist(t *testing.T) {
 			revlistOptions: []RevlistOption{
 				WithObjects(),
 			},
-			catfileInfoFilter: func(r CatfileInfoResult) bool {
-				return r.ObjectInfo.Type == "blob"
+			catfileInfoOptions: []CatfileInfoOption{
+				WithSkipCatfileInfoResult(func(objectInfo *catfile.ObjectInfo) bool {
+					return objectInfo.Type != "blob"
+				}),
 			},
 			expectedResults: []CatfileObjectResult{
 				{ObjectInfo: &catfile.ObjectInfo{Oid: "93e123ac8a3e6a0b600953d7598af629dec7b735", Type: "blob", Size: 59}, ObjectName: []byte("branch-test.txt")},
@@ -160,9 +162,11 @@ func TestPipeline_revlist(t *testing.T) {
 				return r.OID == "b95c0fad32f4361845f91d9ce4c1721b52b82793" ||
 					r.OID == lfsPointer1 || r.OID == lfsPointer2
 			},
-			catfileInfoFilter: func(r CatfileInfoResult) bool {
-				// Only let through blobs, so only the two LFS pointers remain.
-				return r.ObjectInfo.Type == "blob"
+			catfileInfoOptions: []CatfileInfoOption{
+				WithSkipCatfileInfoResult(func(objectInfo *catfile.ObjectInfo) bool {
+					// Only let through blobs, so only the two LFS pointers remain.
+					return objectInfo.Type != "blob"
+				}),
 			},
 			expectedResults: []CatfileObjectResult{
 				{ObjectInfo: &catfile.ObjectInfo{Oid: lfsPointer1, Type: "blob", Size: 133}, ObjectName: []byte("files/lfs/lfs_object.iso")},
@@ -194,9 +198,11 @@ func TestPipeline_revlist(t *testing.T) {
 				require.Fail(t, "filter should not be invoked on errors")
 				return true
 			},
-			catfileInfoFilter: func(r CatfileInfoResult) bool {
-				require.Fail(t, "filter should not be invoked on errors")
-				return true
+			catfileInfoOptions: []CatfileInfoOption{
+				WithSkipCatfileInfoResult(func(r *catfile.ObjectInfo) bool {
+					require.Fail(t, "filter should not be invoked on errors")
+					return true
+				}),
 			},
 			expectedErr: errors.New("rev-list pipeline command: exit status 128"),
 		},
@@ -219,11 +225,7 @@ func TestPipeline_revlist(t *testing.T) {
 				revlistIter = RevisionFilter(ctx, revlistIter, tc.revisionFilter)
 			}
 
-			catfileInfoIter := CatfileInfo(ctx, objectInfoReader, revlistIter)
-			if tc.catfileInfoFilter != nil {
-				catfileInfoIter = CatfileInfoFilter(ctx, catfileInfoIter, tc.catfileInfoFilter)
-			}
-
+			catfileInfoIter := CatfileInfo(ctx, objectInfoReader, revlistIter, tc.catfileInfoOptions...)
 			catfileObjectIter := CatfileObject(ctx, objectReader, catfileInfoIter)
 
 			var results []CatfileObjectResult
@@ -271,7 +273,6 @@ func TestPipeline_revlist(t *testing.T) {
 		revlistIter := Revlist(ctx, repo, []string{"--all"})
 		revlistIter = RevisionFilter(ctx, revlistIter, func(RevisionResult) bool { return true })
 		catfileInfoIter := CatfileInfo(ctx, objectInfoReader, revlistIter)
-		catfileInfoIter = CatfileInfoFilter(ctx, catfileInfoIter, func(CatfileInfoResult) bool { return true })
 		catfileObjectIter := CatfileObject(ctx, objectReader, catfileInfoIter)
 
 		i := 0

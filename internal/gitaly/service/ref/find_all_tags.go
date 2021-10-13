@@ -62,8 +62,6 @@ func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, sortFiel
 		},
 	)
 
-	catfileInfoIter := gitpipe.CatfileInfo(ctx, objectInfoReader, forEachRefIter)
-
 	// In the previous pipeline step, we request information about both the object and the
 	// peeled object in case the object is a tag. Given that we now know about object types, we
 	// can filter out the second request in case the object is not a tag: peeling a non-tag
@@ -82,30 +80,30 @@ func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, sortFiel
 	)
 
 	currentState := stateTag
-	catfileInfoIter = gitpipe.CatfileInfoFilter(ctx, catfileInfoIter,
-		func(r gitpipe.CatfileInfoResult) bool {
+	catfileInfoIter := gitpipe.CatfileInfo(ctx, objectInfoReader, forEachRefIter,
+		gitpipe.WithSkipCatfileInfoResult(func(info *catfile.ObjectInfo) bool {
 			switch currentState {
 			case stateTag:
 				// If we've got a tag, then we want to also see its peeled object.
 				// Otherwise, we can skip over the peeled object.
 				currentState = statePeeledTag
-				if r.ObjectInfo.Type != "tag" {
+				if info.Type != "tag" {
 					currentState = stateSkip
 				}
-				return true
+				return false
 			case statePeeledTag:
 				currentState = stateTag
-				return true
+				return false
 			case stateSkip:
 				currentState = stateTag
-				return false
+				return true
 			}
 
 			// We could try to gracefully handle this, but I don't see much of a point
 			// given that we can see above that it's never going to be anything else but
 			// a known state.
 			panic("invalid state")
-		},
+		}),
 	)
 
 	catfileObjectsIter := gitpipe.CatfileObject(ctx, objectReader, catfileInfoIter)

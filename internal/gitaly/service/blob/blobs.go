@@ -235,10 +235,11 @@ func (s *server) ListAllBlobs(req *gitalypb.ListAllBlobsRequest, stream gitalypb
 		return helper.ErrInternal(fmt.Errorf("creating object reader: %w", err))
 	}
 
-	catfileInfoIter := gitpipe.CatfileInfoAllObjects(ctx, repo)
-	catfileInfoIter = gitpipe.CatfileInfoFilter(ctx, catfileInfoIter, func(r gitpipe.CatfileInfoResult) bool {
-		return r.ObjectInfo.Type == "blob"
-	})
+	catfileInfoIter := gitpipe.CatfileInfoAllObjects(ctx, repo,
+		gitpipe.WithSkipCatfileInfoResult(func(objectInfo *catfile.ObjectInfo) bool {
+			return objectInfo.Type != "blob"
+		}),
+	)
 
 	if err := processBlobs(ctx, objectReader, catfileInfoIter, req.GetLimit(), req.GetBytesLimit(),
 		func(oid string, size int64, contents []byte, path []byte) error {

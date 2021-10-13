@@ -35,27 +35,23 @@ func (s *server) ListAllCommits(
 		return helper.ErrInternalf("creating object reader: %w", err)
 	}
 
-	catfileInfoIter := gitpipe.CatfileInfoAllObjects(ctx, repo)
-
 	// If we've got a pagination token, then we will only start to print commits as soon as
 	// we've seen the token.
 	token := request.GetPaginationParams().GetPageToken()
 	waitingForToken := token != ""
 
-	catfileInfoIter = gitpipe.CatfileInfoFilter(ctx, catfileInfoIter, func(r gitpipe.CatfileInfoResult) bool {
-		if waitingForToken {
-			waitingForToken = r.ObjectInfo.Oid != git.ObjectID(token)
-			// We also skip the token itself, thus we always return `false`
-			// here.
-			return false
-		}
+	catfileInfoIter := gitpipe.CatfileInfoAllObjects(ctx, repo,
+		gitpipe.WithSkipCatfileInfoResult(func(objectInfo *catfile.ObjectInfo) bool {
+			if waitingForToken {
+				waitingForToken = objectInfo.Oid != git.ObjectID(token)
+				// We also skip the token itself, thus we always return `false`
+				// here.
+				return true
+			}
 
-		if r.ObjectInfo.Type != "commit" {
-			return false
-		}
-
-		return true
-	})
+			return objectInfo.Type != "commit"
+		}),
+	)
 
 	catfileObjectIter := gitpipe.CatfileObject(ctx, objectReader, catfileInfoIter)
 
