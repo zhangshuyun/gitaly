@@ -86,7 +86,7 @@ LIBGIT2_VERSION           ?= v1.1.0
 # Support both vX.Y.Z and X.Y.Z version patterns, since callers across
 # GitLab use both.
 ifeq ($(origin GIT_VERSION),undefined)
-  GIT_VERSION := v2.33.0
+  GIT_VERSION := v2.33.1
 else
   GIT_VERSION := $(shell echo ${GIT_VERSION} | awk '/^[0-9]\.[0-9]+\.[0-9]+$$/ { printf "v" } { print $$1 }')
 endif
@@ -141,16 +141,6 @@ ifeq ($(origin GIT_PATCHES),undefined)
     GIT_PATCHES += 0013-fetch-merge-fetching-and-consuming-refs.patch
     GIT_PATCHES += 0014-fetch-avoid-second-connectivity-check-if-we-already-.patch
 
-    # git-update-ref(1) allows us to explicitly manage transactional state via
-    # a set of verbs "start", "prepare" and "commit", which we use in the
-    # git/updateref package. Due to a missing flush in git, the confirmation
-    # message that the state change has been executed couldn't be read by us
-    # though and thus we were not in a position to verify the transition. This
-    # is fixed by the following patch, which adds the missing flushes. This has
-    # been merged into next via 4ae19a5f34 (Merge branch
-    # 'ps/update-ref-batch-flush' into next, 2021-09-10).
-    GIT_PATCHES += 0015-update-ref-fix-streaming-of-status-updates.patch
-
     # Buffer ref advertisement writes in upload-pack. Merged into next via
     # c31d871c (Merge branch 'jv/pkt-line-batch' into next, 2021-09-10).
     GIT_PATCHES += 0016-pkt-line-add-stdio-packet-write-functions.patch
@@ -162,7 +152,7 @@ ifeq ($(origin GIT_PATCHES),undefined)
     # incremented whenever a new patch is added above. When no patches exist,
     # then this should be undefined. Otherwise, it must be set to at least
     # `gl1` given that `0` is the "default" GitLab patch level.
-    GIT_EXTRA_VERSION := gl4
+    GIT_EXTRA_VERSION := gl1
 endif
 
 ifeq ($(origin GIT_BUILD_OPTIONS),undefined)

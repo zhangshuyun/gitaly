@@ -101,18 +101,12 @@ func (v Version) IsSupported() bool {
 // FlushesUpdaterefStatus determines whether the given Git version properly flushes status messages
 // in git-update-ref(1).
 func (v Version) FlushesUpdaterefStatus() bool {
-	// We need to be a bit more careful here given that this comes in via a custom patch. The
-	// fix will be released as part of v2.34, so it's either in v2.33 with at least patch level
-	// 3, or it's greater than or equal to v2.34.
-	switch {
-	case v.major == 2 && v.minor == 33 && v.gl >= 3:
-		return true
-	case v.major == 2 && v.minor >= 34:
-		return true
-	case v.major >= 3:
-		return true
-	}
-	return false
+	// This has been released with v2.33.1 and will be part of v2.34.0. It's also contained in
+	// our custom-patched version v2.33.0-gl3. So everything newer than these versions is
+	// supported.
+	return !v.LessThan(Version{
+		major: 2, minor: 33, patch: 0, gl: 3,
+	})
 }
 
 // LessThan determines whether the version is older than another version.
