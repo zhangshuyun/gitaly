@@ -39,11 +39,6 @@ func (s *server) GetTagSignatures(req *gitalypb.GetTagSignaturesRequest, stream 
 	ctx := stream.Context()
 	repo := s.localrepo(req.GetRepository())
 
-	objectInfoReader, err := s.catfileCache.ObjectInfoReader(ctx, repo)
-	if err != nil {
-		return helper.ErrInternalf("creating object info reader: %w", err)
-	}
-
 	objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
 		return helper.ErrInternalf("creating object reader: %w", err)
@@ -63,8 +58,7 @@ func (s *server) GetTagSignatures(req *gitalypb.GetTagSignaturesRequest, stream 
 	}
 
 	revlistIter := gitpipe.Revlist(ctx, repo, req.GetTagRevisions(), revlistOptions...)
-	catfileInfoIter := gitpipe.CatfileInfo(ctx, objectInfoReader, revlistIter)
-	catfileObjectIter := gitpipe.CatfileObject(ctx, objectReader, catfileInfoIter)
+	catfileObjectIter := gitpipe.CatfileObject(ctx, objectReader, revlistIter)
 
 	for catfileObjectIter.Next() {
 		tag := catfileObjectIter.Result()
