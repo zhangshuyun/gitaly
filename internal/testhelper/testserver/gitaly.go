@@ -2,7 +2,6 @@ package testserver
 
 import (
 	"context"
-	"errors"
 	"net"
 	"os"
 	"os/exec"
@@ -234,18 +233,8 @@ func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, regi
 
 	// listen on internal socket
 	if cfg.InternalSocketDir != "" {
-		internalSocketDir := filepath.Dir(cfg.GitalyInternalSocketPath())
-		sds, err := os.Stat(internalSocketDir)
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				require.NoError(t, os.MkdirAll(internalSocketDir, 0o700))
-				t.Cleanup(func() { require.NoError(t, os.RemoveAll(internalSocketDir)) })
-			} else {
-				require.FailNow(t, err.Error())
-			}
-		} else {
-			require.True(t, sds.IsDir())
-		}
+		require.NoError(t, os.MkdirAll(cfg.InternalSocketDir, 0o700))
+		t.Cleanup(func() { require.NoError(t, os.RemoveAll(cfg.InternalSocketDir)) })
 
 		internalListener, err := net.Listen("unix", cfg.GitalyInternalSocketPath())
 		require.NoError(t, err)
