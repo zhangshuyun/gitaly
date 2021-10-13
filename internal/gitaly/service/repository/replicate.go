@@ -50,6 +50,27 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 		}
 	}
 
+	repoClient, err := s.newRepoClient(ctx, in.GetSource().GetStorageName())
+	if err != nil {
+		return nil, helper.ErrInternalf("new client: %w", err)
+	}
+
+	// We're checking for repository existence up front such that we can give a conclusive error
+	// in case it doesn't. Otherwise, the error message returned to the client would depend on
+	// the order in which the sync functions were executed. Most importantly, given that
+	// `syncRepository` uses FetchInternalRemote which in turn uses gitaly-ssh, this code path
+	// cannot pass up NotFound errors given that there is no communication channel between
+	// Gitaly and gitaly-ssh.
+	request, err := repoClient.RepositoryExists(ctx, &gitalypb.RepositoryExistsRequest{
+		Repository: in.GetSource(),
+	})
+	if err != nil {
+		return nil, helper.ErrInternalf("checking for repo existence: %w", err)
+	}
+	if !request.GetExists() {
+		return nil, helper.ErrNotFoundf("source repository does not exist")
+	}
+
 	// We're not using the context of the errgroup here, as an error
 	// returned by either of the called functions would cancel the
 	// respective other function. Given that we're doing RPC calls in
@@ -213,31 +234,19 @@ func (s *server) syncGitconfig(ctx context.Context, in *gitalypb.ReplicateReposi
 		return err
 	}
 
-	// At the point of implementing this, the `GetConfig` RPC hasn't been deployed yet and is
-	// thus not available for general use. In theory, we'd have to wait for this release cycle
-	// to finish, and only afterwards would we be able to implement replication of the
-	// gitconfig. In order to allow us to iterate fast, we just try to call `GetConfig()`, but
-	// ignore any errors for the case where the target Gitaly node doesn't support the RPC yet.
-	// TODO: Remove this hack and properly return the error in the next release cycle.
-	if err := func() error {
-		stream, err := repoClient.GetConfig(ctx, &gitalypb.GetConfigRequest{
-			Repository: in.GetSource(),
-		})
-		if err != nil {
-			return err
-		}
+	stream, err := repoClient.GetConfig(ctx, &gitalypb.GetConfigRequest{
+		Repository: in.GetSource(),
+	})
+	if err != nil {
+		return err
+	}
 
-		configPath := filepath.Join(repoPath, "config")
-		if err := s.writeFile(ctx, configPath, 0o644, streamio.NewReader(func() ([]byte, error) {
-			resp, err := stream.Recv()
-			return resp.GetData(), err
-		})); err != nil {
-			return err
-		}
-
-		return nil
-	}(); err != nil {
-		ctxlogrus.Extract(ctx).WithError(err).Warn("synchronizing gitconfig failed")
+	configPath := filepath.Join(repoPath, "config")
+	if err := s.writeFile(ctx, configPath, 0o644, streamio.NewReader(func() ([]byte, error) {
+		resp, err := stream.Recv()
+		return resp.GetData(), err
+	})); err != nil {
+		return err
 	}
 
 	return nil
