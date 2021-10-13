@@ -38,75 +38,15 @@ func (s *server) FindAllTags(in *gitalypb.FindAllTagsRequest, stream gitalypb.Re
 }
 
 func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, sortField string, stream gitalypb.RefService_FindAllTagsServer) error {
-	objectInfoReader, err := s.catfileCache.ObjectInfoReader(ctx, repo)
-	if err != nil {
-		return fmt.Errorf("error creating object info reader: %v", err)
-	}
-
 	objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
 		return fmt.Errorf("error creating object reader: %v", err)
 	}
 
-	forEachRefIter := gitpipe.ForEachRef(ctx, repo, []string{"refs/tags/"}, sortField)
-	forEachRefIter = gitpipe.RevisionTransform(ctx, forEachRefIter,
-		func(r gitpipe.RevisionResult) []gitpipe.RevisionResult {
-			// We transform the pipeline to include each tag-reference twice: once for
-			// the "normal" object, and once we opportunistically peel the object to a
-			// non-tag object. This is required such that we can efficiently parse the
-			// tagged object.
-			return []gitpipe.RevisionResult{
-				r,
-				{OID: r.OID + "^{}"},
-			}
-		},
+	forEachRefIter := gitpipe.ForEachRef(ctx, repo, []string{"refs/tags/"}, sortField,
+		gitpipe.WithForEachRefFormat("%(objectname) %(refname)%(if)%(*objectname)%(then)\n%(objectname)^{} PEELED%(end)"),
 	)
-
-	// In the previous pipeline step, we request information about both the object and the
-	// peeled object in case the object is a tag. Given that we now know about object types, we
-	// can filter out the second request in case the object is not a tag: peeling a non-tag
-	// object to a non-tag object is always going to end up with the same object anyway. And
-	// requesting the same object twice is moot.
-	type state int
-	const (
-		// stateTag indicates that the next object is going to be a tag.
-		stateTag = state(iota)
-		// statePeeledTag indicates that the next object is going to be the peeled object of
-		// the preceding tag.
-		statePeeledTag
-		// stateSkip indicates that the next object shall be skipped because it is the
-		// peeled version of a non-tag object, which is the same object anyway.
-		stateSkip
-	)
-
-	currentState := stateTag
-	catfileInfoIter := gitpipe.CatfileInfo(ctx, objectInfoReader, forEachRefIter,
-		gitpipe.WithSkipCatfileInfoResult(func(info *catfile.ObjectInfo) bool {
-			switch currentState {
-			case stateTag:
-				// If we've got a tag, then we want to also see its peeled object.
-				// Otherwise, we can skip over the peeled object.
-				currentState = statePeeledTag
-				if info.Type != "tag" {
-					currentState = stateSkip
-				}
-				return false
-			case statePeeledTag:
-				currentState = stateTag
-				return false
-			case stateSkip:
-				currentState = stateTag
-				return true
-			}
-
-			// We could try to gracefully handle this, but I don't see much of a point
-			// given that we can see above that it's never going to be anything else but
-			// a known state.
-			panic("invalid state")
-		}),
-	)
-
-	catfileObjectsIter := gitpipe.CatfileObject(ctx, objectReader, catfileInfoIter)
+	catfileObjectsIter := gitpipe.CatfileObject(ctx, objectReader, forEachRefIter)
 
 	chunker := chunk.New(&tagSender{stream: stream})
 
