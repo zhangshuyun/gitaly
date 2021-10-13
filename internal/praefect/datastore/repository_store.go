@@ -674,27 +674,25 @@ FROM (
 		relative_path,
 		repositories.primary,
 		storage,
-		repository_generations.generation - COALESCE(storage_repositories.generation, -1) AS behind_by,
+		repositories.generation - COALESCE(storage_repositories.generation, -1) AS behind_by,
 		repository_assignments.storage IS NOT NULL AS assigned,
 		healthy_storages.storage IS NOT NULL AS healthy,
 		valid_primaries.storage IS NOT NULL AS valid_primary
-	FROM storage_repositories
+	FROM ( SELECT repository_id, storage, generation FROM storage_repositories ) AS storage_repositories
 	FULL JOIN (
-		SELECT virtual_storage, relative_path, storage
+		SELECT repository_id, storage
 		FROM repositories
 		CROSS JOIN (SELECT unnest($2::text[]) AS storage) AS configured_storages
 		WHERE (
 			SELECT COUNT(*) = 0 OR COUNT(*) FILTER (WHERE storage = configured_storages.storage) = 1
 			FROM repository_assignments
-			WHERE virtual_storage = repositories.virtual_storage
-			AND   relative_path   = repositories.relative_path
-			AND   storage         = ANY($2::text[])
+			WHERE repository_id = repositories.repository_id
+			AND   storage       = ANY($2::text[])
 		)
-	) AS repository_assignments USING (virtual_storage, relative_path, storage)
-	JOIN repositories USING (virtual_storage, relative_path)
-	JOIN repository_generations USING (virtual_storage, relative_path)
+	) AS repository_assignments USING (repository_id, storage)
+	JOIN repositories USING (repository_id)
 	LEFT JOIN healthy_storages USING (virtual_storage, storage)
-	LEFT JOIN valid_primaries USING (virtual_storage, relative_path, storage)
+	LEFT JOIN ( SELECT repository_id, storage FROM valid_primaries ) AS valid_primaries USING (repository_id, storage)
 	WHERE virtual_storage = $1
 	ORDER BY relative_path, "primary", storage
 ) AS outdated_repositories

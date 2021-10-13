@@ -1281,41 +1281,47 @@ func TestPostgresRepositoryStore_GetPartiallyAvailableRepositories(t *testing.T)
 				"praefect-0": {"virtual-storage": healthyStorages},
 			})
 
-			if !tc.nonExistentRepository {
-				_, err := tx.ExecContext(ctx, `
-							INSERT INTO repositories (virtual_storage, relative_path, "primary")
-							VALUES ('virtual-storage', 'relative-path', 'repository-primary')
-						`)
-				require.NoError(t, err)
-			}
+			const (
+				virtualStorage = "virtual-storage"
+				relativePath   = "relative-path"
+			)
+
+			rs := NewPostgresRepositoryStore(tx, configuredStorages)
+
+			repositoryID, err := rs.ReserveRepositoryID(ctx, virtualStorage, relativePath)
+			require.NoError(t, err)
+
+			_, err = tx.ExecContext(ctx, `
+				INSERT INTO repositories (repository_id, virtual_storage, relative_path, "primary")
+				VALUES ($1, $2, $3, 'repository-primary')
+			`, repositoryID, virtualStorage, relativePath)
+			require.NoError(t, err)
 
 			for storage, generation := range tc.existingGenerations {
-				_, err := tx.ExecContext(ctx, `
-							INSERT INTO storage_repositories VALUES ('virtual-storage', 'relative-path', $1, $2)
-						`, storage, generation)
-				require.NoError(t, err)
+				require.NoError(t, rs.SetGeneration(ctx, repositoryID, storage, generation))
 			}
 
 			for _, storage := range tc.existingAssignments {
 				_, err := tx.ExecContext(ctx, `
-							INSERT INTO repository_assignments VALUES ('virtual-storage', 'relative-path', $1)
-						`, storage)
+					INSERT INTO repository_assignments (repository_id, virtual_storage, relative_path, storage)
+					VALUES ($1, $2, $3, $4)
+				`, repositoryID, virtualStorage, relativePath, storage)
 				require.NoError(t, err)
 			}
 
-			_, err := tx.ExecContext(ctx, `
-						INSERT INTO shard_primaries (shard_name, node_name, elected_by_praefect, elected_at)
-						VALUES ('virtual-storage', 'virtual-storage-primary', 'ignored', now())
-					`)
-			require.NoError(t, err)
+			if tc.nonExistentRepository {
+				// The repository record should always be created anyway prior to the deletion to match the real
+				// scenario. This way any foreign key cascades are also applied correctly to other records.
+				_, err := tx.ExecContext(ctx, "DELETE FROM repositories WHERE repository_id = $1", repositoryID)
+				require.NoError(t, err)
+			}
 
-			store := NewPostgresRepositoryStore(tx, configuredStorages)
-			outdated, err := store.GetPartiallyAvailableRepositories(ctx, "virtual-storage")
+			outdated, err := rs.GetPartiallyAvailableRepositories(ctx, virtualStorage)
 			require.NoError(t, err)
 
 			expected := []PartiallyAvailableRepository{
 				{
-					RelativePath: "relative-path",
+					RelativePath: relativePath,
 					Primary:      "repository-primary",
 					Storages:     tc.storageDetails,
 				},
