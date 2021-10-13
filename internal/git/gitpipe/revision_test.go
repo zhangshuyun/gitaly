@@ -503,8 +503,8 @@ func TestForEachRef(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	readRefs := func(t *testing.T, repo *localrepo.Repo, patterns ...string) []RevisionResult {
-		it := ForEachRef(ctx, repo, patterns, "")
+	readRefs := func(t *testing.T, repo *localrepo.Repo, patterns []string, opts ...ForEachRefOption) []RevisionResult {
+		it := ForEachRef(ctx, repo, patterns, "", opts...)
 
 		var results []RevisionResult
 		for it.Next() {
@@ -532,11 +532,11 @@ func TestForEachRef(t *testing.T) {
 				ObjectName: []byte("refs/heads/master"),
 				OID:        revisions["refs/heads/master"],
 			},
-		}, readRefs(t, repo, "refs/heads/master"))
+		}, readRefs(t, repo, []string{"refs/heads/master"}))
 	})
 
 	t.Run("unqualified branch name", func(t *testing.T) {
-		require.Nil(t, readRefs(t, repo, "master"))
+		require.Nil(t, readRefs(t, repo, []string{"master"}))
 	})
 
 	t.Run("multiple branches", func(t *testing.T) {
@@ -549,11 +549,11 @@ func TestForEachRef(t *testing.T) {
 				ObjectName: []byte("refs/heads/master"),
 				OID:        revisions["refs/heads/master"],
 			},
-		}, readRefs(t, repo, "refs/heads/master", "refs/heads/feature"))
+		}, readRefs(t, repo, []string{"refs/heads/master", "refs/heads/feature"}))
 	})
 
 	t.Run("branches pattern", func(t *testing.T) {
-		refs := readRefs(t, repo, "refs/heads/*")
+		refs := readRefs(t, repo, []string{"refs/heads/*"})
 		require.Greater(t, len(refs), 90)
 
 		require.Subset(t, refs, []RevisionResult{
@@ -568,17 +568,34 @@ func TestForEachRef(t *testing.T) {
 		})
 	})
 
+	t.Run("tag with format", func(t *testing.T) {
+		refs := readRefs(t, repo, []string{"refs/tags/v1.0.0"},
+			WithForEachRefFormat("%(objectname) tag\n%(*objectname) peeled"),
+		)
+
+		require.Equal(t, refs, []RevisionResult{
+			{
+				ObjectName: []byte("tag"),
+				OID:        "f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8",
+			},
+			{
+				ObjectName: []byte("peeled"),
+				OID:        "6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9",
+			},
+		})
+	})
+
 	t.Run("multiple patterns", func(t *testing.T) {
-		refs := readRefs(t, repo, "refs/heads/*", "refs/tags/*")
+		refs := readRefs(t, repo, []string{"refs/heads/*", "refs/tags/*"})
 		require.Greater(t, len(refs), 90)
 	})
 
 	t.Run("nonexisting branch", func(t *testing.T) {
-		require.Nil(t, readRefs(t, repo, "refs/heads/idontexist"))
+		require.Nil(t, readRefs(t, repo, []string{"refs/heads/idontexist"}))
 	})
 
 	t.Run("nonexisting pattern", func(t *testing.T) {
-		require.Nil(t, readRefs(t, repo, "refs/idontexist/*"))
+		require.Nil(t, readRefs(t, repo, []string{"refs/idontexist/*"}))
 	})
 }
 

@@ -311,6 +311,22 @@ func Revlist(
 	}
 }
 
+type forEachRefConfig struct {
+	format string
+}
+
+// ForEachRefOption is an option that can be passed to ForEachRef.
+type ForEachRefOption func(cfg *forEachRefConfig)
+
+// WithForEachRefFormat is the format used by git-for-each-ref. Note that each line _must_ be of
+// format "%(objectname) %(refname)" such that the pipeline can parse it correctly. You may use
+// conditional format statements though to potentially produce multiple such lines.
+func WithForEachRefFormat(format string) ForEachRefOption {
+	return func(cfg *forEachRefConfig) {
+		cfg.format = format
+	}
+}
+
 // ForEachRef runs git-for-each-ref(1) with the given patterns and returns a RevisionIterator for
 // found references. Patterns must always refer to fully qualified reference names. Patterns for
 // which no branch is found do not result in an error. The iterator's object name is set to the
@@ -321,18 +337,25 @@ func ForEachRef(
 	repo *localrepo.Repo,
 	patterns []string,
 	sortField string,
+	opts ...ForEachRefOption,
 ) RevisionIterator {
-	resultChan := make(chan RevisionResult)
+	cfg := forEachRefConfig{
+		// The default format also includes the object type, which requires us to read the
+		// referenced commit's object. It would thus be about 2-3x slower to use the
+		// default format, and instead we move the burden into the next pipeline step by
+		// default.
+		format: "%(objectname) %(refname)",
+	}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
 
+	resultChan := make(chan RevisionResult)
 	go func() {
 		defer close(resultChan)
 
 		flags := []git.Option{
-			// The default format also includes the object type, which requires
-			// us to read the referenced commit's object. It would thus be about
-			// 2-3x slower to use the default format, and instead we move the
-			// burden into the next pipeline step.
-			git.ValueFlag{Name: "--format", Value: "%(objectname) %(refname)"},
+			git.ValueFlag{Name: "--format", Value: cfg.format},
 		}
 		if sortField != "" {
 			flags = append(flags, git.ValueFlag{Name: "--sort", Value: sortField})
