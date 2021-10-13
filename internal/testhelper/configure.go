@@ -192,5 +192,12 @@ func getTestTmpDir() string {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return testTmpDir
+
+	// macOS symlinks /tmp/ to /private/tmp/ which can cause some check to fail
+	tmpDir, err := filepath.EvalSymlinks(testTmpDir)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return tmpDir
 }

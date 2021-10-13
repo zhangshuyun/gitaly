@@ -35,7 +35,7 @@ func TestRespawnAfterCrashWithoutCircuitBreaker(t *testing.T) {
 	attempts := config.CrashThreshold
 	require.True(t, attempts > 2, "config.CrashThreshold sanity check")
 
-	pids, err := tryConnect(filepath.Join(tempDir, "socket"), attempts, 1*time.Second)
+	pids, err := tryConnect(filepath.Join(tempDir, "socket"), attempts, 5*time.Second)
 	require.NoError(t, err)
 
 	require.Equal(t, attempts, len(pids), "number of pids should equal number of attempts")

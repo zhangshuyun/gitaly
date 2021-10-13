@@ -7,6 +7,7 @@ import (
 	"io"
 	"os/exec"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -112,6 +113,10 @@ func TestNewCommandExportedEnv(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.key, func(t *testing.T) {
+			if tc.key == "LD_LIBRARY_PATH" && runtime.GOOS == "darwin" {
+				t.Skip("System Integrity Protection prevents using dynamic linker (dyld) environment variables on macOS. https://apple.co/2XDH4iC")
+			}
+
 			cleanup := testhelper.ModifyEnvironment(t, tc.key, tc.value)
 			defer cleanup()
 
