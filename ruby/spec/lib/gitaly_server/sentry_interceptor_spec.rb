@@ -3,7 +3,7 @@ require 'spec_helper'
 require_relative '../../../lib/gitaly_server/sentry_interceptor.rb'
 describe GitalyServer::SentryInterceptor do
   describe 'handling exceptions' do
-    let(:meth) { GitalyServer::OperationsService.instance_method(:user_update_branch) }
+    let(:meth) { GitalyServer::WikiService.instance_method(:wiki_write_page) }
     let(:ex) { ArgumentError.new("unknown encoding") }
     let(:call) { nil }
 
@@ -45,7 +45,7 @@ describe GitalyServer::SentryInterceptor do
       let(:expected_tags) do
         call_metadata.merge(
           'system' => 'gitaly-ruby',
-          'gitaly-ruby.method' => 'Gitaly::OperationService::Service#user_update_branch',
+          'gitaly-ruby.method' => 'GitalyServer::WikiService#wiki_write_page',
           Labkit::Correlation::CorrelationId::LOG_KEY => anything
         )
       end
@@ -68,7 +68,7 @@ describe GitalyServer::SentryInterceptor do
         it 'sends the exception to Sentry' do
           expect(Raven).to receive(:capture_exception).with(
             ex,
-            fingerprint: ['gitaly-ruby', 'Gitaly::OperationService::Service#user_update_branch', 'unknown encoding']
+            fingerprint: ['gitaly-ruby', 'GitalyServer::WikiService#wiki_write_page', 'unknown encoding']
           )
 
           begin

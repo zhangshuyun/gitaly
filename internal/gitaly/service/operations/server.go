@@ -13,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
@@ -23,7 +22,6 @@ import (
 type Server struct {
 	gitalypb.UnimplementedOperationServiceServer
 	cfg           config.Cfg
-	ruby          *rubyserver.Server
 	hookManager   hook.Manager
 	txManager     transaction.Manager
 	locator       storage.Locator
@@ -41,7 +39,6 @@ type Server struct {
 // NewServer creates a new instance of a grpc OperationServiceServer
 func NewServer(
 	cfg config.Cfg,
-	rs *rubyserver.Server,
 	hookManager hook.Manager,
 	txManager transaction.Manager,
 	locator storage.Locator,
@@ -50,7 +47,6 @@ func NewServer(
 	catfileCache catfile.Cache,
 ) *Server {
 	return &Server{
-		ruby:          rs,
 		cfg:           cfg,
 		hookManager:   hookManager,
 		txManager:     txManager,

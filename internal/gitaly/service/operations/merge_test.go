@@ -602,8 +602,8 @@ func TestUserMergeBranch_allowed(t *testing.T) {
 				gitlab.MockPostReceive,
 			), cfg)
 
-			ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(
-				t, ctx, cfg, nil,
+			ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithCfg(
+				t, ctx, cfg,
 				testserver.WithBackchannelRegistry(backchannelRegistry),
 				testserver.WithTransactionManager(txManager),
 				testserver.WithHookManager(hookManager),

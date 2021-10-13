@@ -4,7 +4,7 @@ require 'raven/base'
 require 'raven/transports/dummy'
 require_relative '../../../../lib/gitaly_server/sentry.rb'
 describe GitalyServer::Sentry::URLSanitizer do
-  let(:meth) { GitalyServer::OperationsService.instance_method(:user_create_branch) }
+  let(:meth) { GitalyServer::WikiService.instance_method(:wiki_write_page) }
   let(:ex) { StandardError.new("error: failed to push some refs to 'https://fO0BA7:HunTer!@github.com/ruby/ruby.git'") }
   let(:ex_sanitized_message) { "error: failed to push some refs to 'https://[FILTERED]@github.com/ruby/ruby.git'" }
   let(:call) { double(metadata: {}) }

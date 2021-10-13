@@ -17,7 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
@@ -103,8 +102,8 @@ func TestUserRebaseConfirmableTransaction(t *testing.T) {
 		},
 	}
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(
-		t, ctx, testcfg.Build(t), nil,
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(
+		t, ctx,
 		// Praefect would intercept our call and inject its own transaction.
 		testserver.WithDisablePraefect(),
 		testserver.WithTransactionManager(txManager),
