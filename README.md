@@ -32,7 +32,7 @@ removed](https://about.gitlab.com/2018/09/12/the-road-to-gitaly-1-0/).
 
 For performance reasons some RPCs can be performed through NFS still. An
 effort is made to mitigate performance issues by removing [Gitaly N+1](https://gitlab.com/groups/gitlab-org/-/epics/827).
-Once that is no longer neccesairy we can conclude the migration project by
+Once that is no longer necessary we can conclude the migration project by
 [removing the Git repository storage paths from gitlab-rails's
 configuration](https://gitlab.com/gitlab-org/gitaly/issues/1282).
 
