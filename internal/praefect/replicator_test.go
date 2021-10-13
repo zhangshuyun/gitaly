@@ -123,10 +123,12 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, shard.Secondaries, 1)
 
+	const repositoryID = 1
 	var events []datastore.ReplicationEvent
 	for _, secondary := range shard.Secondaries {
 		events = append(events, datastore.ReplicationEvent{
 			Job: datastore.ReplicationJob{
+				RepositoryID:      repositoryID,
 				VirtualStorage:    conf.VirtualStorages[0].Name,
 				Change:            datastore.UpdateRepo,
 				TargetNodeStorage: secondary.GetStorage(),
@@ -158,11 +160,15 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	_, err = queue.Enqueue(ctx, events[0])
 	require.NoError(t, err)
 
+	db := glsql.NewDB(t)
+	rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
+	require.NoError(t, rs.CreateRepository(ctx, repositoryID, conf.VirtualStorages[0].Name, testRepo.GetRelativePath(), shard.Primary.GetStorage(), nil, nil, true, false))
+
 	replMgr := NewReplMgr(
 		loggerEntry,
 		conf.StorageNames(),
 		queue,
-		datastore.MockRepositoryStore{},
+		rs,
 		nodeMgr,
 		NodeSetFromNodeManager(nodeMgr),
 		WithLatencyMetric(&mockReplicationLatencyHistogramVec),
@@ -254,6 +260,7 @@ func TestReplicatorDowngradeAttempt(t *testing.T) {
 
 			require.NoError(t, r.Replicate(ctx, datastore.ReplicationEvent{
 				Job: datastore.ReplicationJob{
+					ReplicaPath:       "relative-path-1",
 					VirtualStorage:    "virtual-storage-1",
 					RelativePath:      "relative-path-1",
 					SourceNodeStorage: "gitaly-1",
@@ -329,6 +336,9 @@ func TestReplicator_PropagateReplicationJob(t *testing.T) {
 	rs := datastore.MockRepositoryStore{
 		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
 			return repositoryRelativePath, nil, nil
+		},
+		GetReplicaPathFunc: func(ctx context.Context, repositoryID int64) (string, error) {
+			return repositoryRelativePath, nil
 		},
 	}
 
@@ -682,6 +692,7 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 
 	// this job exists to verify that replication works
 	okJob := datastore.ReplicationJob{
+		RepositoryID:      1,
 		Change:            datastore.UpdateRepo,
 		RelativePath:      testRepo.RelativePath,
 		TargetNodeStorage: secondary.Storage,
@@ -706,11 +717,15 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 	nodeMgr.Start(0, time.Hour)
 	defer nodeMgr.Stop()
 
+	db := glsql.NewDB(t)
+	rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
+	require.NoError(t, rs.CreateRepository(ctx, okJob.RepositoryID, okJob.VirtualStorage, okJob.RelativePath, okJob.SourceNodeStorage, nil, nil, true, false))
+
 	replMgr := NewReplMgr(
 		logEntry,
 		conf.StorageNames(),
 		queueInterceptor,
-		datastore.MockRepositoryStore{},
+		rs,
 		nodeMgr,
 		NodeSetFromNodeManager(nodeMgr),
 	)
@@ -799,6 +814,7 @@ func TestProcessBacklog_Success(t *testing.T) {
 	// Update replication job
 	eventType1 := datastore.ReplicationEvent{
 		Job: datastore.ReplicationJob{
+			RepositoryID:      1,
 			Change:            datastore.UpdateRepo,
 			RelativePath:      testRepo.GetRelativePath(),
 			TargetNodeStorage: secondary.Storage,
@@ -857,11 +873,15 @@ func TestProcessBacklog_Success(t *testing.T) {
 	nodeMgr.Start(0, time.Hour)
 	defer nodeMgr.Stop()
 
+	db := glsql.NewDB(t)
+	rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
+	require.NoError(t, rs.CreateRepository(ctx, eventType1.Job.RepositoryID, eventType1.Job.VirtualStorage, eventType1.Job.RelativePath, eventType1.Job.SourceNodeStorage, nil, nil, true, false))
+
 	replMgr := NewReplMgr(
 		logEntry,
 		conf.StorageNames(),
 		queueInterceptor,
-		datastore.MockRepositoryStore{},
+		rs,
 		nodeMgr,
 		NodeSetFromNodeManager(nodeMgr),
 	)
@@ -966,6 +986,7 @@ func TestProcessBacklog_ReplicatesToReadOnlyPrimary(t *testing.T) {
 	const virtualStorage = "virtal-storage"
 	const primaryStorage = "storage-1"
 	const secondaryStorage = "storage-2"
+	const repositoryID = 1
 
 	primaryConn := &grpc.ClientConn{}
 	secondaryConn := &grpc.ClientConn{}
@@ -985,6 +1006,7 @@ func TestProcessBacklog_ReplicatesToReadOnlyPrimary(t *testing.T) {
 	queue := datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t))
 	_, err := queue.Enqueue(ctx, datastore.ReplicationEvent{
 		Job: datastore.ReplicationJob{
+			RepositoryID:      1,
 			Change:            datastore.UpdateRepo,
 			RelativePath:      "ignored",
 			TargetNodeStorage: primaryStorage,
@@ -994,11 +1016,15 @@ func TestProcessBacklog_ReplicatesToReadOnlyPrimary(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	db := glsql.NewDB(t)
+	rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
+	require.NoError(t, rs.CreateRepository(ctx, repositoryID, virtualStorage, "ignored", primaryStorage, []string{secondaryStorage}, nil, true, false))
+
 	replMgr := NewReplMgr(
 		testhelper.DiscardTestEntry(t),
 		conf.StorageNames(),
 		queue,
-		datastore.MockRepositoryStore{},
+		rs,
 		StaticHealthChecker{virtualStorage: {primaryStorage, secondaryStorage}},
 		NodeSet{virtualStorage: {
 			primaryStorage:   {Storage: primaryStorage, Connection: primaryConn},

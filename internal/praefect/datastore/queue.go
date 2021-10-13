@@ -52,13 +52,19 @@ type ReplicationJob struct {
 	// RepositoryID is the ID of the repository this job relates to. RepositoryID
 	// may be 0 if the job doesn't relate to any known repository. This can happen
 	// for example when the job is deleting an orphaned replica of a deleted repository.
-	RepositoryID      int64      `json:"repository_id"`
-	Change            ChangeType `json:"change"`
-	RelativePath      string     `json:"relative_path"`
-	TargetNodeStorage string     `json:"target_node_storage"`
-	SourceNodeStorage string     `json:"source_node_storage"`
-	VirtualStorage    string     `json:"virtual_storage"`
-	Params            Params     `json:"params"`
+	RepositoryID int64 `json:"repository_id"`
+	// ReplicaPath is the relative path where the replicas are stored in the Gitaly storages.
+	ReplicaPath string     `json:"replica_path"`
+	Change      ChangeType `json:"change"`
+	// RelativePath is the virtual relative path the client uses to access the repository on the
+	// virtual storage. The actual path that is used to store the repository on the disks is the
+	// ReplicaPath. This can be removed in the future but is still carried in the jobs as the
+	// replication queue locking depends on this.
+	RelativePath      string `json:"relative_path"`
+	TargetNodeStorage string `json:"target_node_storage"`
+	SourceNodeStorage string `json:"source_node_storage"`
+	VirtualStorage    string `json:"virtual_storage"`
+	Params            Params `json:"params"`
 }
 
 func (job *ReplicationJob) Scan(value interface{}) error {

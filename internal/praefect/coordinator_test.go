@@ -1567,6 +1567,9 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 				// Set up a mock repsoitory store pretending that all nodes are consistent. Only consistent
 				// nodes will take part in transactions.
 				withRepoStore: datastore.MockRepositoryStore{
+					GetReplicaPathFunc: func(ctx context.Context, repositoryID int64) (string, error) {
+						return repoProto.GetRelativePath(), nil
+					},
 					GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
 						return relativePath, map[string]struct{}{"primary": {}, "secondary-1": {}, "secondary-2": {}}, nil
 					},
