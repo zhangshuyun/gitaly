@@ -52,6 +52,7 @@ type revlistConfig struct {
 	firstParent   bool
 	before, after time.Time
 	author        []byte
+	skipResult    func(*RevisionResult) bool
 }
 
 // RevlistOption is an option for the revlist pipeline step.
@@ -156,6 +157,15 @@ func WithAfter(t time.Time) RevlistOption {
 func WithAuthor(author []byte) RevlistOption {
 	return func(cfg *revlistConfig) {
 		cfg.author = author
+	}
+}
+
+// WithSkipRevlistResult will execute the given function for each RevisionResult processed by the
+// pipeline. If the callback returns `true`, then the object will be skipped and not passed down
+// the pipeline.
+func WithSkipRevlistResult(skipResult func(*RevisionResult) bool) RevlistOption {
+	return func(cfg *revlistConfig) {
+		cfg.skipResult = skipResult
 	}
 }
 
@@ -272,6 +282,10 @@ func Revlist(
 				result.ObjectName = oidAndName[1]
 			}
 
+			if cfg.skipResult != nil && cfg.skipResult(&result) {
+				continue
+			}
+
 			if isDone := sendRevisionResult(ctx, resultChan, result); isDone {
 				return
 			}
@@ -372,18 +386,6 @@ func ForEachRef(
 	return &revisionIterator{
 		ch: resultChan,
 	}
-}
-
-// RevisionFilter filters the RevisionResult from the provided iterator with the filter function: if
-// the filter returns `false` for a given item, then it will be dropped from the pipeline. Errors
-// cannot be filtered and will always be passed through.
-func RevisionFilter(ctx context.Context, it RevisionIterator, filter func(RevisionResult) bool) RevisionIterator {
-	return RevisionTransform(ctx, it, func(r RevisionResult) []RevisionResult {
-		if filter(r) {
-			return []RevisionResult{r}
-		}
-		return []RevisionResult{}
-	})
 }
 
 // RevisionTransform transforms each RevisionResult from the provided iterator with the transforming

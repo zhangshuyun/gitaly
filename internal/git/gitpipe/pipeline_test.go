@@ -25,7 +25,6 @@ func TestPipeline_revlist(t *testing.T) {
 		desc               string
 		revisions          []string
 		revlistOptions     []RevlistOption
-		revisionFilter     func(RevisionResult) bool
 		catfileInfoOptions []CatfileInfoOption
 		expectedResults    []CatfileObjectResult
 		expectedErr        error
@@ -74,9 +73,9 @@ func TestPipeline_revlist(t *testing.T) {
 			},
 			revlistOptions: []RevlistOption{
 				WithObjects(),
-			},
-			revisionFilter: func(r RevisionResult) bool {
-				return r.OID == lfsPointer2
+				WithSkipRevlistResult(func(r *RevisionResult) bool {
+					return r.OID != lfsPointer2
+				}),
 			},
 			expectedResults: []CatfileObjectResult{
 				{ObjectInfo: &catfile.ObjectInfo{Oid: lfsPointer2, Type: "blob", Size: 127}},
@@ -156,11 +155,11 @@ func TestPipeline_revlist(t *testing.T) {
 			},
 			revlistOptions: []RevlistOption{
 				WithObjects(),
-			},
-			revisionFilter: func(r RevisionResult) bool {
-				// Let through two LFS pointers and a tree.
-				return r.OID == "b95c0fad32f4361845f91d9ce4c1721b52b82793" ||
-					r.OID == lfsPointer1 || r.OID == lfsPointer2
+				WithSkipRevlistResult(func(r *RevisionResult) bool {
+					// Let through two LFS pointers and a tree.
+					return r.OID != "b95c0fad32f4361845f91d9ce4c1721b52b82793" &&
+						r.OID != lfsPointer1 && r.OID != lfsPointer2
+				}),
 			},
 			catfileInfoOptions: []CatfileInfoOption{
 				WithSkipCatfileInfoResult(func(objectInfo *catfile.ObjectInfo) bool {
@@ -194,9 +193,11 @@ func TestPipeline_revlist(t *testing.T) {
 			revisions: []string{
 				"doesnotexist",
 			},
-			revisionFilter: func(r RevisionResult) bool {
-				require.Fail(t, "filter should not be invoked on errors")
-				return true
+			revlistOptions: []RevlistOption{
+				WithSkipRevlistResult(func(r *RevisionResult) bool {
+					require.Fail(t, "filter should not be invoked on errors")
+					return true
+				}),
 			},
 			catfileInfoOptions: []CatfileInfoOption{
 				WithSkipCatfileInfoResult(func(r *catfile.ObjectInfo) bool {
@@ -221,10 +222,6 @@ func TestPipeline_revlist(t *testing.T) {
 			require.NoError(t, err)
 
 			revlistIter := Revlist(ctx, repo, tc.revisions, tc.revlistOptions...)
-			if tc.revisionFilter != nil {
-				revlistIter = RevisionFilter(ctx, revlistIter, tc.revisionFilter)
-			}
-
 			catfileInfoIter := CatfileInfo(ctx, objectInfoReader, revlistIter, tc.catfileInfoOptions...)
 			catfileObjectIter := CatfileObject(ctx, objectReader, catfileInfoIter)
 
@@ -271,7 +268,6 @@ func TestPipeline_revlist(t *testing.T) {
 		require.NoError(t, err)
 
 		revlistIter := Revlist(ctx, repo, []string{"--all"})
-		revlistIter = RevisionFilter(ctx, revlistIter, func(RevisionResult) bool { return true })
 		catfileInfoIter := CatfileInfo(ctx, objectInfoReader, revlistIter)
 		catfileObjectIter := CatfileObject(ctx, objectReader, catfileInfoIter)
 

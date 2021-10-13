@@ -427,6 +427,53 @@ func TestRevlist(t *testing.T) {
 			},
 			expectedErr: errors.New("rev-list pipeline command: exit status 128"),
 		},
+		{
+			desc: "skip everything",
+			revisions: []string{
+				"79d5f98270ad677c86a7e1ab2baa922958565135",
+			},
+			options: []RevlistOption{
+				WithObjects(),
+				WithBlobLimit(10),
+				WithObjectTypeFilter(ObjectTypeBlob),
+				WithSkipRevlistResult(func(*RevisionResult) bool { return true }),
+			},
+		},
+		{
+			desc: "skip nothing",
+			revisions: []string{
+				"79d5f98270ad677c86a7e1ab2baa922958565135",
+			},
+			options: []RevlistOption{
+				WithObjects(),
+				WithBlobLimit(10),
+				WithObjectTypeFilter(ObjectTypeBlob),
+				WithSkipRevlistResult(func(*RevisionResult) bool { return false }),
+			},
+			expectedResults: []RevisionResult{
+				{OID: "0fb47f093f769008049a0b0976ac3fa6d6125033", ObjectName: []byte("hotfix-1.txt")},
+				{OID: "4ae6c5e14452a35d04156277ae63e8356eb17cae", ObjectName: []byte("hotfix-2.txt")},
+				{OID: "b988ffed90cb6a9b7f98a3686a933edb3c5d70c0", ObjectName: []byte("iso8859.txt")},
+			},
+		},
+		{
+			desc: "skip one",
+			revisions: []string{
+				"79d5f98270ad677c86a7e1ab2baa922958565135",
+			},
+			options: []RevlistOption{
+				WithObjects(),
+				WithBlobLimit(10),
+				WithObjectTypeFilter(ObjectTypeBlob),
+				WithSkipRevlistResult(func(r *RevisionResult) bool {
+					return string(r.ObjectName) == "hotfix-2.txt"
+				}),
+			},
+			expectedResults: []RevisionResult{
+				{OID: "0fb47f093f769008049a0b0976ac3fa6d6125033", ObjectName: []byte("hotfix-1.txt")},
+				{OID: "b988ffed90cb6a9b7f98a3686a933edb3c5d70c0", ObjectName: []byte("iso8859.txt")},
+			},
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx, cancel := testhelper.Context()
@@ -533,87 +580,6 @@ func TestForEachRef(t *testing.T) {
 	t.Run("nonexisting pattern", func(t *testing.T) {
 		require.Nil(t, readRefs(t, repo, "refs/idontexist/*"))
 	})
-}
-
-func TestRevisionFilter(t *testing.T) {
-	for _, tc := range []struct {
-		desc            string
-		input           []RevisionResult
-		filter          func(RevisionResult) bool
-		expectedResults []RevisionResult
-		expectedErr     error
-	}{
-		{
-			desc: "all accepted",
-			input: []RevisionResult{
-				{OID: "a"},
-				{OID: "b"},
-				{OID: "c"},
-			},
-			filter: func(RevisionResult) bool {
-				return true
-			},
-			expectedResults: []RevisionResult{
-				{OID: "a"},
-				{OID: "b"},
-				{OID: "c"},
-			},
-		},
-		{
-			desc: "all filtered",
-			input: []RevisionResult{
-				{OID: "a"},
-				{OID: "b"},
-				{OID: "c"},
-			},
-			filter: func(RevisionResult) bool {
-				return false
-			},
-			expectedResults: nil,
-		},
-		{
-			desc: "errors always get through",
-			input: []RevisionResult{
-				{OID: "a"},
-				{OID: "b"},
-				{err: errors.New("foobar")},
-				{OID: "c"},
-			},
-			filter: func(RevisionResult) bool {
-				return false
-			},
-			expectedErr: errors.New("foobar"),
-		},
-		{
-			desc: "subset filtered",
-			input: []RevisionResult{
-				{OID: "a"},
-				{OID: "b"},
-				{OID: "c"},
-			},
-			filter: func(r RevisionResult) bool {
-				return r.OID == "b"
-			},
-			expectedResults: []RevisionResult{
-				{OID: "b"},
-			},
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
-
-			it := RevisionFilter(ctx, NewRevisionIterator(tc.input), tc.filter)
-
-			var results []RevisionResult
-			for it.Next() {
-				results = append(results, it.Result())
-			}
-
-			require.Equal(t, tc.expectedErr, it.Err())
-			require.Equal(t, tc.expectedResults, results)
-		})
-	}
 }
 
 func TestRevisionTransform(t *testing.T) {

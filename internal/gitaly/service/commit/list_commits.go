@@ -88,23 +88,23 @@ func (s *server) ListCommits(
 		revlistOptions = append(revlistOptions, gitpipe.WithAuthor(request.GetAuthor()))
 	}
 
-	revlistIter := gitpipe.Revlist(ctx, repo, request.GetRevisions(), revlistOptions...)
-
 	// If we've got a pagination token, then we will only start to print commits as soon as
 	// we've seen the token.
 	if token := request.GetPaginationParams().GetPageToken(); token != "" {
 		tokenSeen := false
-		revlistIter = gitpipe.RevisionFilter(ctx, revlistIter, func(r gitpipe.RevisionResult) bool {
+		revlistOptions = append(revlistOptions, gitpipe.WithSkipRevlistResult(func(r *gitpipe.RevisionResult) bool {
 			if !tokenSeen {
 				tokenSeen = r.OID == git.ObjectID(token)
 				// We also skip the token itself, thus we always return `false`
 				// here.
-				return false
+				return true
 			}
 
-			return true
-		})
+			return false
+		}))
 	}
+
+	revlistIter := gitpipe.Revlist(ctx, repo, request.GetRevisions(), revlistOptions...)
 
 	catfileInfoIter := gitpipe.CatfileInfo(ctx, objectInfoReader, revlistIter)
 	catfileObjectIter := gitpipe.CatfileObject(ctx, objectReader, catfileInfoIter)
