@@ -47,7 +47,7 @@ func WithSkipCatfileInfoResult(skipResult func(*catfile.ObjectInfo) bool) Catfil
 func CatfileInfo(
 	ctx context.Context,
 	objectInfoReader catfile.ObjectInfoReader,
-	revisionIterator RevisionIterator,
+	it ObjectIterator,
 	opts ...CatfileInfoOption,
 ) CatfileInfoIterator {
 	var cfg catfileInfoConfig
@@ -59,13 +59,11 @@ func CatfileInfo(
 	go func() {
 		defer close(resultChan)
 
-		for revisionIterator.Next() {
-			revlistResult := revisionIterator.Result()
-
-			objectInfo, err := objectInfoReader.Info(ctx, revlistResult.OID.Revision())
+		for it.Next() {
+			objectInfo, err := objectInfoReader.Info(ctx, it.ObjectID().Revision())
 			if err != nil {
 				sendCatfileInfoResult(ctx, resultChan, CatfileInfoResult{
-					err: fmt.Errorf("retrieving object info for %q: %w", revlistResult.OID, err),
+					err: fmt.Errorf("retrieving object info for %q: %w", it.ObjectID(), err),
 				})
 				return
 			}
@@ -75,14 +73,14 @@ func CatfileInfo(
 			}
 
 			if isDone := sendCatfileInfoResult(ctx, resultChan, CatfileInfoResult{
-				ObjectName: revlistResult.ObjectName,
+				ObjectName: it.ObjectName(),
 				ObjectInfo: objectInfo,
 			}); isDone {
 				return
 			}
 		}
 
-		if err := revisionIterator.Err(); err != nil {
+		if err := it.Err(); err != nil {
 			sendCatfileInfoResult(ctx, resultChan, CatfileInfoResult{err: err})
 			return
 		}

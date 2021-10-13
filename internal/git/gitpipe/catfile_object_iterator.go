@@ -1,11 +1,10 @@
 package gitpipe
 
+import "gitlab.com/gitlab-org/gitaly/v14/internal/git"
+
 // CatfileObjectIterator is an iterator returned by the Revlist function.
 type CatfileObjectIterator interface {
-	// Next iterates to the next item. Returns `false` in case there are no more results left.
-	Next() bool
-	// Err returns the first error that was encountered.
-	Err() error
+	ObjectIterator
 	// Result returns the current item.
 	Result() CatfileObjectResult
 }
@@ -48,4 +47,12 @@ func (it *catfileObjectIterator) Err() error {
 
 func (it *catfileObjectIterator) Result() CatfileObjectResult {
 	return it.result
+}
+
+func (it *catfileObjectIterator) ObjectID() git.ObjectID {
+	return it.result.ObjectInfo.Oid
+}
+
+func (it *catfileObjectIterator) ObjectName() []byte {
+	return it.result.ObjectName
 }
