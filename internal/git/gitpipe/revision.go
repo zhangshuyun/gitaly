@@ -411,35 +411,6 @@ func ForEachRef(
 	}
 }
 
-// RevisionTransform transforms each RevisionResult from the provided iterator with the transforming
-// function. Instead of sending the original RevisionResult, it will instead send transformed
-// results.
-func RevisionTransform(ctx context.Context, it RevisionIterator, transform func(RevisionResult) []RevisionResult) RevisionIterator {
-	resultChan := make(chan RevisionResult)
-
-	go func() {
-		defer close(resultChan)
-
-		for it.Next() {
-			for _, transformed := range transform(it.Result()) {
-				if sendRevisionResult(ctx, resultChan, transformed) {
-					return
-				}
-			}
-		}
-
-		if err := it.Err(); err != nil {
-			if sendRevisionResult(ctx, resultChan, RevisionResult{err: err}) {
-				return
-			}
-		}
-	}()
-
-	return &revisionIterator{
-		ch: resultChan,
-	}
-}
-
 func sendRevisionResult(ctx context.Context, ch chan<- RevisionResult, result RevisionResult) bool {
 	// In case the context has been cancelled, we have a race between observing an error from
 	// the killed Git process and observing the context cancellation itself. But if we end up
