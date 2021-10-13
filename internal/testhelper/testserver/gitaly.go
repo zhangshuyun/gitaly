@@ -233,6 +233,8 @@ func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, regi
 		internalListener, err := net.Listen("unix", cfg.GitalyInternalSocketPath())
 		require.NoError(t, err)
 		go internalServer.Serve(internalListener)
+
+		defer waitHealthy(t, cfg, "unix://"+internalListener.Addr().String())
 	}
 
 	externalServer, err := serverFactory.CreateExternal(cfg.TLS.CertPath != "" && cfg.TLS.KeyPath != "")
