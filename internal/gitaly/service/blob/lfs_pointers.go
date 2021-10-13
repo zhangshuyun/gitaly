@@ -52,25 +52,17 @@ func (s *server) ListLFSPointers(in *gitalypb.ListLFSPointersRequest, stream git
 
 	repo := s.localrepo(in.GetRepository())
 
-	objectInfoReader, err := s.catfileCache.ObjectInfoReader(ctx, repo)
-	if err != nil {
-		return helper.ErrInternal(fmt.Errorf("creating object info reader: %w", err))
-	}
-
 	objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
 		return helper.ErrInternal(fmt.Errorf("creating object reader: %w", err))
 	}
 
-	revlistOptions := []gitpipe.RevlistOption{
+	revlistIter := gitpipe.Revlist(ctx, repo, in.GetRevisions(),
 		gitpipe.WithObjects(),
 		gitpipe.WithBlobLimit(lfsPointerMaxSize),
 		gitpipe.WithObjectTypeFilter(gitpipe.ObjectTypeBlob),
-	}
-
-	revlistIter := gitpipe.Revlist(ctx, repo, in.GetRevisions(), revlistOptions...)
-	catfileInfoIter := gitpipe.CatfileInfo(ctx, objectInfoReader, revlistIter)
-	catfileObjectIter := gitpipe.CatfileObject(ctx, objectReader, catfileInfoIter)
+	)
+	catfileObjectIter := gitpipe.CatfileObject(ctx, objectReader, revlistIter)
 
 	if err := sendLFSPointers(chunker, catfileObjectIter, int(in.Limit)); err != nil {
 		return err
