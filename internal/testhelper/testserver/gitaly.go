@@ -212,31 +212,35 @@ func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, regi
 	deps := gsd.createDependencies(t, cfg, rubyServer)
 	t.Cleanup(func() { gsd.conns.Close() })
 
-	srv, err := server.NewGitalyServerFactory(
+	serverFactory := server.NewGitalyServerFactory(
 		cfg,
 		gsd.logger.WithField("test", t.Name()),
 		deps.GetBackchannelRegistry(),
 		deps.GetDiskCache(),
-	).CreateExternal(cfg.TLS.CertPath != "" && cfg.TLS.KeyPath != "")
-	require.NoError(t, err)
-	t.Cleanup(srv.Stop)
+	)
 
-	registrar(srv, deps)
-	if _, found := srv.GetServiceInfo()["grpc.health.v1.Health"]; !found {
-		// we should register health service as it is used for the health checks
-		// praefect service executes periodically (and on the bootstrap step)
-		healthpb.RegisterHealthServer(srv, health.NewServer())
-	}
-
-	// listen on internal socket
 	if cfg.InternalSocketDir != "" {
+		internalServer, err := serverFactory.CreateInternal()
+		require.NoError(t, err)
+		t.Cleanup(internalServer.Stop)
+
+		registrar(internalServer, deps)
+		registerHealthServerIfNotRegistered(internalServer)
+
 		require.NoError(t, os.MkdirAll(cfg.InternalSocketDir, 0o700))
 		t.Cleanup(func() { require.NoError(t, os.RemoveAll(cfg.InternalSocketDir)) })
 
 		internalListener, err := net.Listen("unix", cfg.GitalyInternalSocketPath())
 		require.NoError(t, err)
-		go srv.Serve(internalListener)
+		go internalServer.Serve(internalListener)
 	}
+
+	externalServer, err := serverFactory.CreateExternal(cfg.TLS.CertPath != "" && cfg.TLS.KeyPath != "")
+	require.NoError(t, err)
+	t.Cleanup(externalServer.Stop)
+
+	registrar(externalServer, deps)
+	registerHealthServerIfNotRegistered(externalServer)
 
 	var listener net.Listener
 	var addr string
@@ -258,11 +262,19 @@ func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, regi
 		addr = "unix://" + serverSocketPath
 	}
 
-	go srv.Serve(listener)
+	go externalServer.Serve(listener)
 
 	waitHealthy(t, cfg, addr)
 
-	return srv, addr, gsd.disablePraefect
+	return externalServer, addr, gsd.disablePraefect
+}
+
+func registerHealthServerIfNotRegistered(srv *grpc.Server) {
+	if _, found := srv.GetServiceInfo()["grpc.health.v1.Health"]; !found {
+		// we should register health service as it is used for the health checks
+		// praefect service executes periodically (and on the bootstrap step)
+		healthpb.RegisterHealthServer(srv, health.NewServer())
+	}
 }
 
 type gitalyServerDeps struct {
