@@ -9,6 +9,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gitpipe"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -41,16 +42,6 @@ func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobS
 	ctx := stream.Context()
 	repo := s.localrepo(req.GetRepository())
 
-	objectInfoReader, err := s.catfileCache.ObjectInfoReader(ctx, repo)
-	if err != nil {
-		return helper.ErrInternal(fmt.Errorf("creating object info reader: %w", err))
-	}
-
-	objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
-	if err != nil {
-		return helper.ErrInternal(fmt.Errorf("creating object reader: %w", err))
-	}
-
 	chunker := chunk.New(&blobSender{
 		send: func(blobs []*gitalypb.ListBlobsResponse_Blob) error {
 			return stream.Send(&gitalypb.ListBlobsResponse{
@@ -65,9 +56,8 @@ func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobS
 	}
 
 	revlistIter := gitpipe.Revlist(ctx, repo, req.GetRevisions(), revlistOptions...)
-	catfileInfoIter := gitpipe.CatfileInfo(ctx, objectInfoReader, revlistIter)
 
-	if err := processBlobs(ctx, objectReader, catfileInfoIter, req.GetLimit(), req.GetBytesLimit(),
+	if err := s.processBlobs(ctx, repo, revlistIter, nil, req.GetLimit(), req.GetBytesLimit(),
 		func(oid string, size int64, contents []byte, path []byte) error {
 			if !req.GetWithPaths() {
 				path = nil
@@ -91,9 +81,10 @@ func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobS
 	return nil
 }
 
-func processBlobs(
+func (s *server) processBlobs(
 	ctx context.Context,
-	objectReader catfile.ObjectReader,
+	repo *localrepo.Repo,
+	objectIter gitpipe.ObjectIterator,
 	catfileInfoIter gitpipe.CatfileInfoIterator,
 	blobsLimit uint32,
 	bytesLimit int64,
@@ -102,6 +93,19 @@ func processBlobs(
 	// If we have a zero bytes limit, then the caller didn't request any blob contents at all.
 	// We can thus skip reading blob contents completely.
 	if bytesLimit == 0 {
+		// This is a bit untidy, but some callers may already use an object info iterator to
+		// enumerate objects, where it thus wouldn't make sense to recreate it via the
+		// object iterator. We thus support an optional `catfileInfoIter` parameter: if set,
+		// we just use that one and ignore the object iterator.
+		if catfileInfoIter == nil {
+			objectInfoReader, err := s.catfileCache.ObjectInfoReader(ctx, repo)
+			if err != nil {
+				return helper.ErrInternal(fmt.Errorf("creating object info reader: %w", err))
+			}
+
+			catfileInfoIter = gitpipe.CatfileInfo(ctx, objectInfoReader, objectIter)
+		}
+
 		var i uint32
 		for catfileInfoIter.Next() {
 			blob := catfileInfoIter.Result()
@@ -125,7 +129,12 @@ func processBlobs(
 			return helper.ErrInternal(err)
 		}
 	} else {
-		catfileObjectIter := gitpipe.CatfileObject(ctx, objectReader, catfileInfoIter)
+		objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
+		if err != nil {
+			return helper.ErrInternal(fmt.Errorf("creating object reader: %w", err))
+		}
+
+		catfileObjectIter := gitpipe.CatfileObject(ctx, objectReader, objectIter)
 
 		var i uint32
 		for catfileObjectIter.Next() {
@@ -230,18 +239,13 @@ func (s *server) ListAllBlobs(req *gitalypb.ListAllBlobsRequest, stream gitalypb
 		},
 	})
 
-	objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
-	if err != nil {
-		return helper.ErrInternal(fmt.Errorf("creating object reader: %w", err))
-	}
-
 	catfileInfoIter := gitpipe.CatfileInfoAllObjects(ctx, repo,
 		gitpipe.WithSkipCatfileInfoResult(func(objectInfo *catfile.ObjectInfo) bool {
 			return objectInfo.Type != "blob"
 		}),
 	)
 
-	if err := processBlobs(ctx, objectReader, catfileInfoIter, req.GetLimit(), req.GetBytesLimit(),
+	if err := s.processBlobs(ctx, repo, catfileInfoIter, catfileInfoIter, req.GetLimit(), req.GetBytesLimit(),
 		func(oid string, size int64, contents []byte, path []byte) error {
 			return chunker.Send(&gitalypb.ListAllBlobsResponse_Blob{
 				Oid:  oid,
