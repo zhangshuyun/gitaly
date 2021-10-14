@@ -2,7 +2,6 @@ package testserver
 
 import (
 	"context"
-	"errors"
 	"net"
 	"os"
 	"os/exec"
@@ -199,10 +198,7 @@ func waitHealthy(t testing.TB, cfg config.Cfg, addr string) {
 
 	resp, err := healthClient.Check(ctx, &healthpb.HealthCheckRequest{}, grpc.WaitForReady(true))
 	require.NoError(t, err)
-
-	if resp.Status != healthpb.HealthCheckResponse_SERVING {
-		require.FailNow(t, "server not yet ready to serve")
-	}
+	require.Equal(t, healthpb.HealthCheckResponse_SERVING, resp.Status, "server not yet ready to serve")
 }
 
 func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) (*grpc.Server, string, bool) {
@@ -216,41 +212,37 @@ func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, regi
 	deps := gsd.createDependencies(t, cfg, rubyServer)
 	t.Cleanup(func() { gsd.conns.Close() })
 
-	srv, err := server.NewGitalyServerFactory(
+	serverFactory := server.NewGitalyServerFactory(
 		cfg,
 		gsd.logger.WithField("test", t.Name()),
 		deps.GetBackchannelRegistry(),
 		deps.GetDiskCache(),
-	).CreateExternal(cfg.TLS.CertPath != "" && cfg.TLS.KeyPath != "")
-	require.NoError(t, err)
-	t.Cleanup(srv.Stop)
+	)
 
-	registrar(srv, deps)
-	if _, found := srv.GetServiceInfo()["grpc.health.v1.Health"]; !found {
-		// we should register health service as it is used for the health checks
-		// praefect service executes periodically (and on the bootstrap step)
-		healthpb.RegisterHealthServer(srv, health.NewServer())
-	}
-
-	// listen on internal socket
 	if cfg.InternalSocketDir != "" {
-		internalSocketDir := filepath.Dir(cfg.GitalyInternalSocketPath())
-		sds, err := os.Stat(internalSocketDir)
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				require.NoError(t, os.MkdirAll(internalSocketDir, 0o700))
-				t.Cleanup(func() { require.NoError(t, os.RemoveAll(internalSocketDir)) })
-			} else {
-				require.FailNow(t, err.Error())
-			}
-		} else {
-			require.True(t, sds.IsDir())
-		}
+		internalServer, err := serverFactory.CreateInternal()
+		require.NoError(t, err)
+		t.Cleanup(internalServer.Stop)
+
+		registrar(internalServer, deps)
+		registerHealthServerIfNotRegistered(internalServer)
+
+		require.NoError(t, os.MkdirAll(cfg.InternalSocketDir, 0o700))
+		t.Cleanup(func() { require.NoError(t, os.RemoveAll(cfg.InternalSocketDir)) })
 
 		internalListener, err := net.Listen("unix", cfg.GitalyInternalSocketPath())
 		require.NoError(t, err)
-		go srv.Serve(internalListener)
+		go internalServer.Serve(internalListener)
+
+		defer waitHealthy(t, cfg, "unix://"+internalListener.Addr().String())
 	}
+
+	externalServer, err := serverFactory.CreateExternal(cfg.TLS.CertPath != "" && cfg.TLS.KeyPath != "")
+	require.NoError(t, err)
+	t.Cleanup(externalServer.Stop)
+
+	registrar(externalServer, deps)
+	registerHealthServerIfNotRegistered(externalServer)
 
 	var listener net.Listener
 	var addr string
@@ -272,11 +264,19 @@ func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, regi
 		addr = "unix://" + serverSocketPath
 	}
 
-	go srv.Serve(listener)
+	go externalServer.Serve(listener)
 
 	waitHealthy(t, cfg, addr)
 
-	return srv, addr, gsd.disablePraefect
+	return externalServer, addr, gsd.disablePraefect
+}
+
+func registerHealthServerIfNotRegistered(srv *grpc.Server) {
+	if _, found := srv.GetServiceInfo()["grpc.health.v1.Health"]; !found {
+		// we should register health service as it is used for the health checks
+		// praefect service executes periodically (and on the bootstrap step)
+		healthpb.RegisterHealthServer(srv, health.NewServer())
+	}
 }
 
 type gitalyServerDeps struct {
