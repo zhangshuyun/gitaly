@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
@@ -28,6 +29,9 @@ var (
 	// ErrDoesntExist means that the data was not found.
 	ErrDoesntExist = errors.New("doesn't exist")
 )
+
+// errEmptyBundle means that the requested bundle contained nothing
+var errEmptyBundle = errors.New("empty bundle")
 
 // Sink is an abstraction over the real storage used for storing/restoring backups.
 type Sink interface {
@@ -304,15 +308,14 @@ func (mgr *Manager) writeBundle(ctx context.Context, step *Step, server storage.
 	}
 	bundle := streamio.NewReader(func() ([]byte, error) {
 		resp, err := stream.Recv()
+		if helper.GrpcCode(err) == codes.FailedPrecondition {
+			err = errEmptyBundle
+		}
 		return resp.GetData(), err
 	})
 
 	if err := mgr.sink.Write(ctx, step.BundlePath, bundle); err != nil {
-		var errGRPCStatus interface {
-			Error() string
-			GRPCStatus() *status.Status
-		}
-		if errors.As(err, &errGRPCStatus) && errGRPCStatus.GRPCStatus().Code() == codes.FailedPrecondition {
+		if errors.Is(err, errEmptyBundle) {
 			return fmt.Errorf("%T write: %w: no changes to bundle", mgr.sink, ErrSkipped)
 		}
 		return fmt.Errorf("%T write: %w", mgr.sink, err)
