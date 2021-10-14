@@ -91,6 +91,7 @@ type buildOptions struct {
 	withAssignmentStore AssignmentStore
 	withConnections     Connections
 	withPrimaryGetter   PrimaryGetter
+	withRouter          Router
 }
 
 func withMockBackends(t testing.TB, backends map[string]mock.SimpleServiceServer) func([]*config.VirtualStorage) []testhelper.Cleanup {
@@ -161,14 +162,14 @@ func runPraefectServer(t testing.TB, ctx context.Context, conf config.Config, op
 	if opt.withNodeMgr == nil {
 		opt.withNodeMgr = defaultNodeMgr(t, conf, opt.withRepoStore)
 	}
-	if opt.withAssignmentStore == nil {
-		opt.withAssignmentStore = NewDisabledAssignmentStore(conf.StorageNames())
+	if opt.withRouter == nil {
+		opt.withRouter = NewNodeManagerRouter(opt.withNodeMgr, opt.withRepoStore)
 	}
 
 	coordinator := NewCoordinator(
 		opt.withQueue,
 		opt.withRepoStore,
-		NewNodeManagerRouter(opt.withNodeMgr, opt.withRepoStore),
+		opt.withRouter,
 		opt.withTxMgr,
 		conf,
 		opt.withAnnotations,

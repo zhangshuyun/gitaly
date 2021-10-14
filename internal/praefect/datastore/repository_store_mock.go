@@ -5,21 +5,22 @@ import "context"
 // MockRepositoryStore allows for mocking a RepositoryStore by parametrizing its behavior. All methods
 // default to what could be considered success if not set.
 type MockRepositoryStore struct {
-	GetGenerationFunc                     func(ctx context.Context, repositoryID int64, storage string) (int, error)
-	IncrementGenerationFunc               func(ctx context.Context, repositoryID int64, primary string, secondaries []string) error
-	GetReplicatedGenerationFunc           func(ctx context.Context, repositoryID int64, source, target string) (int, error)
-	SetGenerationFunc                     func(ctx context.Context, repositoryID int64, storage string, generation int) error
-	CreateRepositoryFunc                  func(ctx context.Context, repositoryID int64, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error
-	SetAuthoritativeReplicaFunc           func(ctx context.Context, virtualStorage, relativePath, storage string) error
-	DeleteRepositoryFunc                  func(ctx context.Context, virtualStorage, relativePath string) (string, []string, error)
-	DeleteReplicaFunc                     func(ctx context.Context, virtualStorage, relativePath, storage string) error
-	RenameRepositoryFunc                  func(ctx context.Context, virtualStorage, relativePath, storage, newRelativePath string) error
-	GetConsistentStoragesFunc             func(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error)
-	GetPartiallyAvailableRepositoriesFunc func(ctx context.Context, virtualStorage string) ([]PartiallyAvailableRepository, error)
-	DeleteInvalidRepositoryFunc           func(ctx context.Context, repositoryID int64, storage string) error
-	RepositoryExistsFunc                  func(ctx context.Context, virtualStorage, relativePath string) (bool, error)
-	ReserveRepositoryIDFunc               func(ctx context.Context, virtualStorage, relativePath string) (int64, error)
-	GetRepositoryIDFunc                   func(ctx context.Context, virtualStorage, relativePath string) (int64, error)
+	GetGenerationFunc                       func(ctx context.Context, repositoryID int64, storage string) (int, error)
+	IncrementGenerationFunc                 func(ctx context.Context, repositoryID int64, primary string, secondaries []string) error
+	GetReplicatedGenerationFunc             func(ctx context.Context, repositoryID int64, source, target string) (int, error)
+	SetGenerationFunc                       func(ctx context.Context, repositoryID int64, storage string, generation int) error
+	CreateRepositoryFunc                    func(ctx context.Context, repositoryID int64, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error
+	SetAuthoritativeReplicaFunc             func(ctx context.Context, virtualStorage, relativePath, storage string) error
+	DeleteRepositoryFunc                    func(ctx context.Context, virtualStorage, relativePath string) (string, []string, error)
+	DeleteReplicaFunc                       func(ctx context.Context, virtualStorage, relativePath, storage string) error
+	RenameRepositoryFunc                    func(ctx context.Context, virtualStorage, relativePath, storage, newRelativePath string) error
+	GetConsistentStoragesByRepositoryIDFunc func(ctx context.Context, repositoryID int64) (map[string]struct{}, error)
+	GetConsistentStoragesFunc               func(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error)
+	GetPartiallyAvailableRepositoriesFunc   func(ctx context.Context, virtualStorage string) ([]PartiallyAvailableRepository, error)
+	DeleteInvalidRepositoryFunc             func(ctx context.Context, repositoryID int64, storage string) error
+	RepositoryExistsFunc                    func(ctx context.Context, virtualStorage, relativePath string) (bool, error)
+	ReserveRepositoryIDFunc                 func(ctx context.Context, virtualStorage, relativePath string) (int64, error)
+	GetRepositoryIDFunc                     func(ctx context.Context, virtualStorage, relativePath string) (int64, error)
 }
 
 func (m MockRepositoryStore) GetGeneration(ctx context.Context, repositoryID int64, storage string) (int, error) {
@@ -95,6 +96,15 @@ func (m MockRepositoryStore) RenameRepository(ctx context.Context, virtualStorag
 	}
 
 	return m.RenameRepositoryFunc(ctx, virtualStorage, relativePath, storage, newRelativePath)
+}
+
+// GetConsistentStoragesByRepositoryID returns result of execution of the GetConsistentStoragesByRepositoryIDFunc field if it is set or an empty map.
+func (m MockRepositoryStore) GetConsistentStoragesByRepositoryID(ctx context.Context, repositoryID int64) (map[string]struct{}, error) {
+	if m.GetConsistentStoragesFunc == nil {
+		return map[string]struct{}{}, nil
+	}
+
+	return m.GetConsistentStoragesByRepositoryIDFunc(ctx, repositoryID)
 }
 
 // GetConsistentStorages returns result of execution of the GetConsistentStoragesFunc field if it is set or an empty map.

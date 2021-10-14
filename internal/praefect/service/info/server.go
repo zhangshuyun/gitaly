@@ -19,7 +19,7 @@ import (
 type AssignmentStore interface {
 	// GetHostAssignments returns the names of the storages assigned to host the repository.
 	// The primary node must always be assigned.
-	GetHostAssignments(ctx context.Context, virtualStorage, relativePath string) ([]string, error)
+	GetHostAssignments(ctx context.Context, repositoryID int64) ([]string, error)
 	// SetReplicationFactor sets a repository's replication factor and returns the current assignments.
 	SetReplicationFactor(ctx context.Context, virtualStorage, relativePath string, replicationFactor int) ([]string, error)
 }
@@ -30,7 +30,7 @@ type AssignmentStore interface {
 // `praefect` to `info` packages due to cyclic dependencies.
 type PrimaryGetter interface {
 	// GetPrimary returns the primary storage for a given repository.
-	GetPrimary(ctx context.Context, virtualStorage string, relativePath string) (string, error)
+	GetPrimary(ctx context.Context, repositoryID int64) (string, error)
 }
 
 // Server is a InfoService server

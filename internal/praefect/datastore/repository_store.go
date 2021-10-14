@@ -115,6 +115,8 @@ type RepositoryStore interface {
 	// as the storage's which is calling it. Returns RepositoryNotExistsError when trying to rename a repository
 	// which has no record in the virtual storage or the storage.
 	RenameRepository(ctx context.Context, virtualStorage, relativePath, storage, newRelativePath string) error
+	// GetConsistentStoragesByRepositoryID returns a set of up to date storages for the given repository keyed by repository ID.
+	GetConsistentStoragesByRepositoryID(ctx context.Context, repositoryID int64) (map[string]struct{}, error)
 	ConsistentStoragesGetter
 	// RepositoryExists returns whether the repository exists on a virtual storage.
 	RepositoryExists(ctx context.Context, virtualStorage, relativePath string) (bool, error)
@@ -502,22 +504,36 @@ AND storage = $3
 	return err
 }
 
-// GetConsistentStorages checks which storages are on the latest generation and returns them.
-func (rs *PostgresRepositoryStore) GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
-	const q = `
+// GetConsistentStoragesByRepositoryID returns a set of up to date storages for the given repository keyed by repository ID.
+func (rs *PostgresRepositoryStore) GetConsistentStoragesByRepositoryID(ctx context.Context, repositoryID int64) (map[string]struct{}, error) {
+	return rs.getConsistentStorages(ctx, `
 SELECT storage
 FROM repositories
-JOIN storage_repositories USING (virtual_storage, relative_path)
-WHERE virtual_storage = $1
-AND relative_path = $2
-AND storage_repositories.generation = (
-	SELECT MAX(generation)
-	FROM storage_repositories
-	WHERE virtual_storage = $1
-	AND relative_path = $2
-)`
+JOIN storage_repositories USING (repository_id, generation)
+WHERE repository_id = $1
+	`, repositoryID)
+}
 
-	rows, err := rs.db.QueryContext(ctx, q, virtualStorage, relativePath)
+// GetConsistentStorages returns a set of up to date storages for the given repository keyed by virtual storage and relative path.
+func (rs *PostgresRepositoryStore) GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
+	storages, err := rs.getConsistentStorages(ctx, `
+SELECT storage
+FROM repositories
+JOIN storage_repositories USING (repository_id, generation)
+WHERE repositories.virtual_storage = $1
+AND repositories.relative_path = $2
+	`, virtualStorage, relativePath)
+
+	if errors.Is(err, commonerr.ErrRepositoryNotFound) {
+		return nil, commonerr.NewRepositoryNotFoundError(virtualStorage, relativePath)
+	}
+
+	return storages, err
+}
+
+// getConsistentStorages is a helper for querying the consistent storages by different keys.
+func (rs *PostgresRepositoryStore) getConsistentStorages(ctx context.Context, query string, params ...interface{}) (map[string]struct{}, error) {
+	rows, err := rs.db.QueryContext(ctx, query, params...)
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
@@ -538,7 +554,7 @@ AND storage_repositories.generation = (
 	}
 
 	if len(consistentStorages) == 0 {
-		return nil, commonerr.NewRepositoryNotFoundError(virtualStorage, relativePath)
+		return nil, commonerr.ErrRepositoryNotFound
 	}
 
 	return consistentStorages, nil

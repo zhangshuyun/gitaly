@@ -1,10 +1,12 @@
 package datastore
 
 import (
+	"sort"
 	"testing"
 
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
@@ -20,56 +22,56 @@ func TestAssignmentStore_GetHostAssignments(t *testing.T) {
 	db := glsql.NewDB(t)
 
 	configuredStorages := []string{"storage-1", "storage-2", "storage-3"}
+	configuredVirtualStorages := map[string][]string{"virtual-storage": configuredStorages}
 	for _, tc := range []struct {
-		desc                string
-		virtualStorage      string
-		existingAssignments []assignment
-		expectedAssignments []string
-		error               error
+		desc                      string
+		configuredVirtualStorages map[string][]string
+		existingAssignments       []assignment
+		expectedAssignments       []string
+		error                     error
 	}{
 		{
-			desc:           "virtual storage not found",
-			virtualStorage: "invalid-virtual-storage",
-			error:          newVirtualStorageNotFoundError("invalid-virtual-storage"),
+			desc:  "virtual storage not found",
+			error: newVirtualStorageNotFoundError("virtual-storage"),
 		},
 		{
-			desc:                "configured storages fallback when no records",
-			virtualStorage:      "virtual-storage",
-			expectedAssignments: configuredStorages,
+			desc:                      "configured storages fallback when no records",
+			configuredVirtualStorages: configuredVirtualStorages,
+			expectedAssignments:       configuredStorages,
 		},
 		{
-			desc:           "configured storages fallback when a repo exists in different virtual storage",
-			virtualStorage: "virtual-storage",
+			desc: "configured storages fallback when a repo exists in different virtual storage",
 			existingAssignments: []assignment{
 				{virtualStorage: "other-virtual-storage", relativePath: "relative-path", storage: "storage-1"},
 			},
-			expectedAssignments: configuredStorages,
+			configuredVirtualStorages: configuredVirtualStorages,
+			expectedAssignments:       configuredStorages,
 		},
 		{
-			desc:           "configured storages fallback when a different repo exists in the virtual storage ",
-			virtualStorage: "virtual-storage",
+			desc: "configured storages fallback when a different repo exists in the virtual storage ",
 			existingAssignments: []assignment{
 				{virtualStorage: "virtual-storage", relativePath: "other-relative-path", storage: "storage-1"},
 			},
-			expectedAssignments: configuredStorages,
+			configuredVirtualStorages: configuredVirtualStorages,
+			expectedAssignments:       configuredStorages,
 		},
 		{
-			desc:           "unconfigured storages are ignored",
-			virtualStorage: "virtual-storage",
+			desc: "unconfigured storages are ignored",
 			existingAssignments: []assignment{
 				{virtualStorage: "virtual-storage", relativePath: "relative-path", storage: "unconfigured-storage"},
 			},
-			expectedAssignments: configuredStorages,
+			configuredVirtualStorages: configuredVirtualStorages,
+			expectedAssignments:       configuredStorages,
 		},
 		{
-			desc:           "assignments found",
-			virtualStorage: "virtual-storage",
+			desc: "assignments found",
 			existingAssignments: []assignment{
 				{virtualStorage: "virtual-storage", relativePath: "relative-path", storage: "storage-1"},
 				{virtualStorage: "virtual-storage", relativePath: "relative-path", storage: "storage-2"},
 				{virtualStorage: "virtual-storage", relativePath: "relative-path", storage: "unconfigured"},
 			},
-			expectedAssignments: []string{"storage-1", "storage-2"},
+			configuredVirtualStorages: configuredVirtualStorages,
+			expectedAssignments:       []string{"storage-1", "storage-2"},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -78,24 +80,28 @@ func TestAssignmentStore_GetHostAssignments(t *testing.T) {
 
 			db.TruncateAll(t)
 
+			rs := NewPostgresRepositoryStore(db, nil)
+			require.NoError(t, rs.CreateRepository(ctx, 1, "virtual-storage", "relative-path", "primary", nil, nil, false, false))
+			require.NoError(t, rs.CreateRepository(ctx, 2, "virtual-storage", "other-relative-path", "primary", nil, nil, false, false))
+			require.NoError(t, rs.CreateRepository(ctx, 3, "other-virtual-storage", "relative-path", "primary", nil, nil, false, false))
+
 			for _, assignment := range tc.existingAssignments {
-				_, err := db.ExecContext(ctx, `
-					INSERT INTO repositories (virtual_storage, relative_path)
-					VALUES ($1, $2)
-					ON CONFLICT DO NOTHING
-				`, assignment.virtualStorage, assignment.relativePath)
-				require.NoError(t, err)
+				repositoryID, err := rs.GetRepositoryID(ctx, assignment.virtualStorage, assignment.relativePath)
+				if err != nil {
+					require.Equal(t, commonerr.NewRepositoryNotFoundError(assignment.virtualStorage, assignment.relativePath), err)
+				}
 
 				_, err = db.ExecContext(ctx, `
-					INSERT INTO repository_assignments VALUES ($1, $2, $3)
-				`, assignment.virtualStorage, assignment.relativePath, assignment.storage)
+					INSERT INTO repository_assignments (repository_id, virtual_storage, relative_path, storage)
+					VALUES ($1, $2, $3, $4)
+				`, repositoryID, assignment.virtualStorage, assignment.relativePath, assignment.storage)
 				require.NoError(t, err)
 			}
 
 			actualAssignments, err := NewAssignmentStore(
 				db,
-				map[string][]string{"virtual-storage": configuredStorages},
-			).GetHostAssignments(ctx, tc.virtualStorage, "relative-path")
+				tc.configuredVirtualStorages,
+			).GetHostAssignments(ctx, 1)
 			require.Equal(t, tc.error, err)
 			require.ElementsMatch(t, tc.expectedAssignments, actualAssignments)
 		})
@@ -228,8 +234,10 @@ func TestAssignmentStore_SetReplicationFactor(t *testing.T) {
 
 			tc.requireStorages(t, setStorages)
 
-			assignedStorages, err := store.GetHostAssignments(ctx, "virtual-storage", "relative-path")
+			assignedStorages, err := store.GetHostAssignments(ctx, 1)
 			require.NoError(t, err)
+
+			sort.Strings(assignedStorages)
 			tc.requireStorages(t, assignedStorages)
 
 			var storagesWithIncorrectRepositoryID pq.StringArray

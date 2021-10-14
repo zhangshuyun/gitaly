@@ -25,19 +25,7 @@ var errPrimaryUnassigned = errors.New("primary node is not assigned")
 type AssignmentGetter interface {
 	// GetHostAssignments returns the names of the storages assigned to host the repository.
 	// The primary node must always be assigned.
-	GetHostAssignments(ctx context.Context, virtualStorage, relativePath string) ([]string, error)
-}
-
-// StaticStorageAssignments is a static assignment of the same storages in a virtual storage for every repository.
-type StaticStorageAssignments map[string][]string
-
-func (st StaticStorageAssignments) GetHostAssignments(ctx context.Context, virtualStorage, relativePath string) ([]string, error) {
-	storages, ok := st[virtualStorage]
-	if !ok {
-		return nil, nodes.ErrVirtualStorageNotExist
-	}
-
-	return storages, nil
+	GetHostAssignments(ctx context.Context, repositoryID int64) ([]string, error)
 }
 
 // ErrNoSuitableNode is returned when there is not suitable node to serve a request.
@@ -52,7 +40,7 @@ type Connections map[string]map[string]*grpc.ClientConn
 // PrimaryGetter is an interface for getting a primary of a repository.
 type PrimaryGetter interface {
 	// GetPrimary returns the primary storage for a given repository.
-	GetPrimary(ctx context.Context, virtualStorage string, relativePath string) (string, error)
+	GetPrimary(ctx context.Context, repositoryID int64) (string, error)
 }
 
 // PerRepositoryRouter implements a router that routes requests respecting per repository primary nodes.
@@ -149,7 +137,12 @@ func (r *PerRepositoryRouter) RouteRepositoryAccessor(ctx context.Context, virtu
 	}
 
 	if forcePrimary {
-		primary, err := r.pg.GetPrimary(ctx, virtualStorage, relativePath)
+		repositoryID, err := r.rs.GetRepositoryID(ctx, virtualStorage, relativePath)
+		if err != nil {
+			return RouterNode{}, fmt.Errorf("get repository id: %w", err)
+		}
+
+		primary, err := r.pg.GetPrimary(ctx, repositoryID)
 		if err != nil {
 			return RouterNode{}, fmt.Errorf("get primary: %w", err)
 		}
@@ -186,7 +179,12 @@ func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtua
 		return RepositoryMutatorRoute{}, err
 	}
 
-	primary, err := r.pg.GetPrimary(ctx, virtualStorage, relativePath)
+	repositoryID, err := r.rs.GetRepositoryID(ctx, virtualStorage, relativePath)
+	if err != nil {
+		return RepositoryMutatorRoute{}, fmt.Errorf("get repository id: %w", err)
+	}
+
+	primary, err := r.pg.GetPrimary(ctx, repositoryID)
 	if err != nil {
 		return RepositoryMutatorRoute{}, fmt.Errorf("get primary: %w", err)
 	}
@@ -200,7 +198,7 @@ func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtua
 		return RepositoryMutatorRoute{}, nodes.ErrPrimaryNotHealthy
 	}
 
-	consistentStorages, err := r.csg.GetConsistentStorages(ctx, virtualStorage, relativePath)
+	consistentStorages, err := r.rs.GetConsistentStoragesByRepositoryID(ctx, repositoryID)
 	if err != nil {
 		return RepositoryMutatorRoute{}, fmt.Errorf("consistent storages: %w", err)
 	}
@@ -209,14 +207,9 @@ func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtua
 		return RepositoryMutatorRoute{}, ErrRepositoryReadOnly
 	}
 
-	assignedStorages, err := r.ag.GetHostAssignments(ctx, virtualStorage, relativePath)
+	assignedStorages, err := r.ag.GetHostAssignments(ctx, repositoryID)
 	if err != nil {
 		return RepositoryMutatorRoute{}, fmt.Errorf("get host assignments: %w", err)
-	}
-
-	repositoryID, err := r.rs.GetRepositoryID(ctx, virtualStorage, relativePath)
-	if err != nil {
-		return RepositoryMutatorRoute{}, fmt.Errorf("get repository id: %w", err)
 	}
 
 	route := RepositoryMutatorRoute{RepositoryID: repositoryID}

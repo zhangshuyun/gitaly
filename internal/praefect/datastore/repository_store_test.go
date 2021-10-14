@@ -924,6 +924,10 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			secondaries, err := rs.GetConsistentStorages(ctx, vs, repo)
 			require.Equal(t, commonerr.NewRepositoryNotFoundError(vs, repo), err)
 			require.Empty(t, secondaries)
+
+			secondaries, err = rs.GetConsistentStoragesByRepositoryID(ctx, 1)
+			require.Equal(t, commonerr.ErrRepositoryNotFound, err)
+			require.Empty(t, secondaries)
 		})
 
 		require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, "primary", []string{"consistent-secondary"}, nil, false, false))
@@ -950,12 +954,20 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			secondaries, err := rs.GetConsistentStorages(ctx, vs, repo)
 			require.NoError(t, err)
 			require.Equal(t, map[string]struct{}{"primary": {}, "consistent-secondary": {}}, secondaries)
+
+			secondaries, err = rs.GetConsistentStoragesByRepositoryID(ctx, 1)
+			require.NoError(t, err)
+			require.Equal(t, map[string]struct{}{"primary": {}, "consistent-secondary": {}}, secondaries)
 		})
 
 		require.NoError(t, rs.SetGeneration(ctx, 1, "primary", 0))
 
 		t.Run("outdated primary", func(t *testing.T) {
 			secondaries, err := rs.GetConsistentStorages(ctx, vs, repo)
+			require.NoError(t, err)
+			require.Equal(t, map[string]struct{}{"consistent-secondary": {}}, secondaries)
+
+			secondaries, err = rs.GetConsistentStoragesByRepositoryID(ctx, 1)
 			require.NoError(t, err)
 			require.Equal(t, map[string]struct{}{"consistent-secondary": {}}, secondaries)
 		})
@@ -984,6 +996,10 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			secondaries, err := rs.GetConsistentStorages(ctx, vs, repo)
 			require.NoError(t, err)
 			require.Equal(t, map[string]struct{}{"unknown": {}}, secondaries)
+
+			secondaries, err = rs.GetConsistentStoragesByRepositoryID(ctx, 1)
+			require.NoError(t, err)
+			require.Equal(t, map[string]struct{}{"unknown": {}}, secondaries)
 		})
 
 		t.Run("returns not found for deleted repositories", func(t *testing.T) {
@@ -993,6 +1009,10 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 
 			secondaries, err := rs.GetConsistentStorages(ctx, vs, repo)
 			require.Equal(t, commonerr.NewRepositoryNotFoundError(vs, repo), err)
+			require.Empty(t, secondaries)
+
+			secondaries, err = rs.GetConsistentStoragesByRepositoryID(ctx, 1)
+			require.Equal(t, commonerr.ErrRepositoryNotFound, err)
 			require.Empty(t, secondaries)
 		})
 	})
