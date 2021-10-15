@@ -537,7 +537,7 @@ func TestPerRepositoryElector(t *testing.T) {
 					logger, hook := test.NewNullLogger()
 					elector := NewPerRepositoryElector(tx)
 
-					primary, err := elector.GetPrimary(ctxlogrus.ToContext(ctx, logrus.NewEntry(logger)), repositoryID)
+					primary, err := elector.GetPrimary(ctxlogrus.ToContext(ctx, logrus.NewEntry(logger)), "", repositoryID)
 					require.Equal(t, step.error, err)
 					require.Less(t, len(hook.Entries), 2)
 

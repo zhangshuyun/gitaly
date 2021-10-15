@@ -27,7 +27,7 @@ func NewPerRepositoryElector(db glsql.Querier) *PerRepositoryElector {
 
 // GetPrimary returns the primary storage of a repository. If the primary is not a valid primary anymore, an election
 // is attempted. If there are no valid primaries, the current primary is simply demoted.
-func (pr *PerRepositoryElector) GetPrimary(ctx context.Context, repositoryID int64) (string, error) {
+func (pr *PerRepositoryElector) GetPrimary(ctx context.Context, virtualStorage string, repositoryID int64) (string, error) {
 	var current, previous sql.NullString
 	if err := pr.db.QueryRowContext(ctx, `
 WITH new AS (

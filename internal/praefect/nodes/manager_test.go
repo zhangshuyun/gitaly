@@ -292,7 +292,7 @@ func TestNodeManager(t *testing.T) {
 		Secondaries: []nodeAssertion{{node2.Storage, node2.Address}},
 	}, shard)
 
-	primary, err := nm.GetPrimary(ctx, "virtual-storage-0", "")
+	primary, err := nm.GetPrimary(ctx, "virtual-storage-0", 0)
 	require.NoError(t, err)
 	require.Equal(t, shard.Primary.GetStorage(), primary)
 
@@ -303,7 +303,7 @@ func TestNodeManager(t *testing.T) {
 	_, err = nm.GetShard(ctx, "virtual-storage-0")
 	require.Error(t, err, "should return error since no nodes are healthy")
 
-	_, err = nm.GetPrimary(ctx, "virtual-storage-0", "")
+	_, err = nm.GetPrimary(ctx, "virtual-storage-0", 0)
 	require.Equal(t, ErrPrimaryNotHealthy, err)
 }
 
