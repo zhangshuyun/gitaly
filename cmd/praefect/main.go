@@ -291,7 +291,7 @@ func run(cfgs []starter.Config, conf config.Config, b bootstrap.Listener, promre
 	transactionManager := transactions.NewManager(conf)
 	sidechannelRegistry := sidechannel.NewRegistry()
 	clientHandshaker := backchannel.NewClientHandshaker(logger, praefect.NewBackchannelServerFactory(logger, transaction.NewServer(transactionManager), sidechannelRegistry))
-	assignmentStore := praefect.NewDisabledAssignmentStore(conf.StorageNames()[conf.VirtualStorages[0].Name])
+	assignmentStore := praefect.NewDisabledAssignmentStore(conf.StorageNames())
 	var (
 		nodeManager   nodes.Manager
 		healthChecker praefect.HealthChecker
