@@ -535,6 +535,14 @@ func TestReconciler(t *testing.T) {
 						TargetNodeStorage: "storage-2",
 					},
 				},
+				{
+					{
+						Change:            datastore.DeleteReplica,
+						VirtualStorage:    "virtual-storage-1",
+						RelativePath:      "relative-path-1",
+						TargetNodeStorage: "storage-3",
+					},
+				},
 			},
 		},
 		{
