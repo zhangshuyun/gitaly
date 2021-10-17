@@ -140,9 +140,10 @@ func (hm *HealthManager) updateHealthChecks(ctx context.Context) error {
 
 	hm.locallyHealthy.Store(locallyHealthy)
 
+	now := time.Now().UTC()
 	if _, err := hm.db.ExecContext(ctx, `
 INSERT INTO node_status (praefect_name, shard_name, node_name, last_contact_attempt_at, last_seen_active_at)
-SELECT $1, shard_name, node_name, NOW(), CASE WHEN is_healthy THEN NOW() ELSE NULL END
+SELECT $1, shard_name, node_name, $5::TIMESTAMP, CASE WHEN is_healthy THEN $5::TIMESTAMP ELSE NULL END
 FROM (
     SELECT unnest($2::text[]) AS shard_name,
            unnest($3::text[]) AS node_name,
@@ -150,13 +151,14 @@ FROM (
 ) AS results
 ON CONFLICT (praefect_name, shard_name, node_name)
 	DO UPDATE SET
-		last_contact_attempt_at = NOW(),
+		last_contact_attempt_at = $5,
 		last_seen_active_at = COALESCE(EXCLUDED.last_seen_active_at, node_status.last_seen_active_at)
 	`,
 		hm.praefectName,
 		pq.StringArray(virtualStorages),
 		pq.StringArray(physicalStorages),
 		pq.BoolArray(healthy),
+		now,
 	); err != nil {
 		return fmt.Errorf("update checks: %w", err)
 	}

@@ -68,22 +68,23 @@ func (ss *StorageCleanup) Populate(ctx context.Context, virtualStorage, storage 
 // acquired storage. It updates last_run column of the entry on execution.
 func (ss *StorageCleanup) AcquireNextStorage(ctx context.Context, inactive, updatePeriod time.Duration) (*ClusterPath, func() error, error) {
 	var entry ClusterPath
+	now := time.Now().UTC()
 	if err := ss.db.QueryRowContext(
 		ctx,
 		`UPDATE storage_cleanups
-			SET triggered_at = NOW()
+			SET triggered_at = $3
 			WHERE (virtual_storage, storage) IN (
 				SELECT virtual_storage, storage
 				FROM storage_cleanups
 				WHERE
-					COALESCE(last_run, TO_TIMESTAMP(0)) <= (NOW() - INTERVAL '1 MILLISECOND' * $1)
-					AND COALESCE(triggered_at, TO_TIMESTAMP(0)) <= (NOW() - INTERVAL '1 MILLISECOND' * $2)
+					COALESCE(last_run, TO_TIMESTAMP(0)) <= $1
+					AND COALESCE(triggered_at, TO_TIMESTAMP(0)) <= $2
 				ORDER BY last_run NULLS FIRST, virtual_storage, storage
 				LIMIT 1
 				FOR UPDATE SKIP LOCKED
 			)
 			RETURNING virtual_storage, storage`,
-		inactive.Milliseconds(), updatePeriod.Milliseconds(),
+		now.Add(-inactive), now.Add(-updatePeriod), now,
 	).Scan(&entry.VirtualStorage, &entry.Storage); err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, nil, fmt.Errorf("scan: %w", err)
@@ -111,9 +112,9 @@ func (ss *StorageCleanup) AcquireNextStorage(ctx context.Context, inactive, upda
 				if _, err := ss.db.ExecContext(
 					ctx,
 					`UPDATE storage_cleanups
-					SET triggered_at = NOW()
+					SET triggered_at = $3
 					WHERE virtual_storage = $1 AND storage = $2`,
-					entry.VirtualStorage, entry.Storage,
+					entry.VirtualStorage, entry.Storage, time.Now().UTC(),
 				); err != nil {
 					return
 				}
@@ -131,9 +132,9 @@ func (ss *StorageCleanup) AcquireNextStorage(ctx context.Context, inactive, upda
 		if _, err := ss.db.ExecContext(
 			ctx,
 			`UPDATE storage_cleanups
-			SET last_run = NOW(), triggered_at = NULL
+			SET last_run = $3, triggered_at = NULL
 			WHERE virtual_storage = $1 AND storage = $2`,
-			entry.VirtualStorage, entry.Storage,
+			entry.VirtualStorage, entry.Storage, time.Now().UTC(),
 		); err != nil {
 			return fmt.Errorf("update storage_cleanups: %w", err)
 		}

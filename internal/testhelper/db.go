@@ -3,6 +3,7 @@ package testhelper
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
@@ -37,15 +38,16 @@ SELECT
 	unnest($1::text[]) AS praefect_name,
 	unnest($2::text[]) AS shard_name,
 	unnest($3::text[]) AS node_name,
-	NOW() AS last_contact_attempt_at,
-	NOW() AS last_seen_active_at
+	$4 AS last_contact_attempt_at,
+	$4 AS last_seen_active_at
 ON CONFLICT (praefect_name, shard_name, node_name) DO UPDATE SET
-	last_contact_attempt_at = NOW(),
-	last_seen_active_at = NOW()
+	last_contact_attempt_at = $4,
+	last_seen_active_at = $4
 		`,
 		pq.StringArray(praefects),
 		pq.StringArray(virtualStorages),
 		pq.StringArray(storages),
+		time.Now().UTC(),
 	)
 	require.NoError(t, err)
 }

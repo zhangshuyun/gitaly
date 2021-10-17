@@ -181,13 +181,14 @@ func (s *sqlElector) checkNodes(ctx context.Context) error {
 
 	defer s.updateMetrics()
 
+	timestamp := time.Now().UTC()
 	for _, n := range s.nodes {
 		wg.Add(1)
 
 		go func(n Node) {
 			defer wg.Done()
 			result, _ := n.CheckHealth(ctx)
-			if err := s.updateNode(ctx, tx, n, result); err != nil {
+			if err := s.updateNode(ctx, tx, n, result, timestamp); err != nil {
 				s.log.WithError(err).WithFields(logrus.Fields{
 					"storage": n.GetStorage(),
 					"address": n.GetAddress(),
@@ -198,7 +199,7 @@ func (s *sqlElector) checkNodes(ctx context.Context) error {
 
 	wg.Wait()
 
-	err = s.validateAndUpdatePrimary(ctx, tx)
+	err = s.validateAndUpdatePrimary(ctx, tx, timestamp)
 
 	if err != nil {
 		s.log.WithError(err).Error("unable to validate primary")
@@ -243,26 +244,26 @@ func (s *sqlElector) setPrimary(candidate *sqlCandidate) {
 	}
 }
 
-func (s *sqlElector) updateNode(ctx context.Context, tx *sql.Tx, node Node, result bool) error {
+func (s *sqlElector) updateNode(ctx context.Context, tx *sql.Tx, node Node, result bool, timestamp time.Time) error {
 	var q string
 
 	if result {
 		q = `INSERT INTO node_status (praefect_name, shard_name, node_name, last_contact_attempt_at, last_seen_active_at)
-VALUES ($1, $2, $3, NOW(), NOW())
+VALUES ($1, $2, $3, $4, $4)
 ON CONFLICT (praefect_name, shard_name, node_name)
 DO UPDATE SET
-last_contact_attempt_at = NOW(),
-last_seen_active_at = NOW()`
+last_contact_attempt_at = $4,
+last_seen_active_at = $4`
 	} else {
 		// Omit the last_seen_active_at since we weren't successful at contacting this node
 		q = `INSERT INTO node_status (praefect_name, shard_name, node_name, last_contact_attempt_at)
-VALUES ($1, $2, $3, NOW())
+VALUES ($1, $2, $3, $4)
 ON CONFLICT (praefect_name, shard_name, node_name)
 DO UPDATE SET
-last_contact_attempt_at = NOW()`
+last_contact_attempt_at = $4`
 	}
 
-	_, err := tx.ExecContext(ctx, q, s.praefectName, s.shardName, node.GetStorage())
+	_, err := tx.ExecContext(ctx, q, s.praefectName, s.shardName, node.GetStorage(), timestamp)
 	if err != nil {
 		s.log.Errorf("Error updating node: %s", err)
 	}
@@ -315,11 +316,11 @@ func (s *sqlElector) updateMetrics() {
 func (s *sqlElector) getQuorumCount(ctx context.Context, tx *sql.Tx) (int, error) {
 	// This is crude form of service discovery. Find how many active
 	// Praefect nodes based on whether they attempted to update entries.
-	q := `SELECT COUNT (DISTINCT praefect_name) FROM node_status WHERE shard_name = $1 AND last_contact_attempt_at >= NOW() - INTERVAL '1 MICROSECOND' * $2`
+	q := `SELECT COUNT (DISTINCT praefect_name) FROM node_status WHERE shard_name = $1 AND last_contact_attempt_at >= $2`
 
 	var totalCount int
 
-	if err := tx.QueryRowContext(ctx, q, s.shardName, activePraefectTimeout.Microseconds()).Scan(&totalCount); err != nil {
+	if err := tx.QueryRowContext(ctx, q, s.shardName, time.Now().UTC().Add(-activePraefectTimeout)).Scan(&totalCount); err != nil {
 		return 0, fmt.Errorf("error retrieving quorum count: %w", err)
 	}
 
@@ -427,16 +428,17 @@ func (s *sqlElector) electNewPrimary(ctx context.Context, tx *sql.Tx, candidates
 	//     N1 (RW) -> N2 (RO) -> N3 (RW): `previous_writable_primary` is N1 as N2 was not write-enabled before the second
 	//                                    failover and thus any data missing from N3 must be on N1.
 	q = `INSERT INTO shard_primaries (elected_by_praefect, shard_name, node_name, elected_at)
-	SELECT $1::VARCHAR, $2::VARCHAR, $3::VARCHAR, NOW()
+	SELECT $1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $5
 	WHERE $3 != COALESCE((SELECT node_name FROM shard_primaries WHERE shard_name = $2::VARCHAR AND demoted = false), '')
 	ON CONFLICT (shard_name)
 	DO UPDATE SET elected_by_praefect = EXCLUDED.elected_by_praefect
 				, node_name = EXCLUDED.node_name
 				, elected_at = EXCLUDED.elected_at
 				, demoted = false
-	   WHERE shard_primaries.elected_at < now() - INTERVAL '1 MICROSECOND' * $4
+	   WHERE shard_primaries.elected_at < $4
 	`
-	_, err := tx.ExecContext(ctx, q, s.praefectName, s.shardName, newPrimaryStorage, s.failoverTimeout.Microseconds())
+	now := time.Now().UTC()
+	_, err := tx.ExecContext(ctx, q, s.praefectName, s.shardName, newPrimaryStorage, now.Add(-s.failoverTimeout), now)
 	if err != nil {
 		s.log.Errorf("error updating new primary: %s", err)
 		return err
@@ -445,7 +447,7 @@ func (s *sqlElector) electNewPrimary(ctx context.Context, tx *sql.Tx, candidates
 	return nil
 }
 
-func (s *sqlElector) validateAndUpdatePrimary(ctx context.Context, tx *sql.Tx) error {
+func (s *sqlElector) validateAndUpdatePrimary(ctx context.Context, tx *sql.Tx, timestamp time.Time) error {
 	quorumCount, err := s.getQuorumCount(ctx, tx)
 	if err != nil {
 		return err
@@ -453,12 +455,12 @@ func (s *sqlElector) validateAndUpdatePrimary(ctx context.Context, tx *sql.Tx) e
 
 	// Retrieves candidates, ranked by the ones that are the most active
 	q := `SELECT node_name FROM node_status
-			WHERE shard_name = $1 AND last_seen_active_at >= NOW() - INTERVAL '1 MICROSECOND' * $2
+			WHERE shard_name = $1 AND last_seen_active_at >= $2
 			GROUP BY node_name
 			HAVING COUNT(praefect_name) >= $3
 			ORDER BY COUNT(node_name) DESC, node_name ASC`
 
-	rows, err := tx.QueryContext(ctx, q, s.shardName, s.failoverTimeout.Microseconds(), quorumCount)
+	rows, err := tx.QueryContext(ctx, q, s.shardName, timestamp.Add(-s.failoverTimeout), quorumCount)
 	if err != nil {
 		return fmt.Errorf("error retrieving candidates: %w", err)
 	}

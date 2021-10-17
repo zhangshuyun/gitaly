@@ -215,12 +215,12 @@ func (rq PostgresReplicationEventQueue) Enqueue(ctx context.Context, event Repli
 			ON CONFLICT (id) DO UPDATE SET id = EXCLUDED.id
 			RETURNING id
 		)
-		INSERT INTO replication_queue(lock_id, job, meta)
-		SELECT insert_lock.id, $4, $5
+		INSERT INTO replication_queue(lock_id, job, meta, created_at)
+		SELECT insert_lock.id, $4, $5, $6
 		FROM insert_lock
 		RETURNING id, state, created_at, updated_at, lock_id, attempt, job, meta`
 	// this will always return a single row result (because of lock uniqueness) or an error
-	rows, err := rq.qc.QueryContext(ctx, query, event.Job.VirtualStorage, event.Job.TargetNodeStorage, event.Job.RelativePath, event.Job, event.Meta)
+	rows, err := rq.qc.QueryContext(ctx, query, event.Job.VirtualStorage, event.Job.TargetNodeStorage, event.Job.RelativePath, event.Job, event.Meta, time.Now().UTC())
 	if err != nil {
 		return ReplicationEvent{}, fmt.Errorf("query: %w", err)
 	}
@@ -280,14 +280,14 @@ func (rq PostgresReplicationEventQueue) Dequeue(ctx context.Context, virtualStor
 			UPDATE replication_queue AS queue
 			SET attempt = CASE WHEN job->>'change' = 'delete_replica' THEN queue.attempt ELSE queue.attempt - 1 END
 				, state = 'in_progress'
-				, updated_at = NOW() AT TIME ZONE 'UTC'
+				, updated_at = $4
 			FROM candidate
 			WHERE queue.id = candidate.id
 			RETURNING queue.id, queue.state, queue.created_at, queue.updated_at, queue.lock_id, queue.attempt, queue.job, queue.meta
 		)
 		, track_job_lock AS (
 			INSERT INTO replication_queue_job_lock (job_id, lock_id, triggered_at)
-			SELECT job.id, job.lock_id, NOW() AT TIME ZONE 'UTC'
+			SELECT job.id, job.lock_id, $4
 			FROM job
 			RETURNING lock_id
 		)
@@ -300,7 +300,7 @@ func (rq PostgresReplicationEventQueue) Dequeue(ctx context.Context, virtualStor
 		SELECT id, state, created_at, updated_at, lock_id, attempt, job, meta
 		FROM job
 		ORDER BY id`
-	rows, err := rq.qc.QueryContext(ctx, query, virtualStorage, nodeStorage, count)
+	rows, err := rq.qc.QueryContext(ctx, query, virtualStorage, nodeStorage, count, time.Now().UTC())
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
@@ -379,7 +379,7 @@ func (rq PostgresReplicationEventQueue) Acknowledge(ctx context.Context, state J
 		, updated AS (
 			UPDATE replication_queue AS queue
 			SET state = $2::REPLICATION_JOB_STATE,
-				updated_at = NOW() AT TIME ZONE 'UTC'
+				updated_at = $3
 			FROM existing
 			WHERE existing.id = queue.id
 			RETURNING queue.id, queue.lock_id
@@ -406,7 +406,7 @@ func (rq PostgresReplicationEventQueue) Acknowledge(ctx context.Context, state J
 		)
 		SELECT id
 		FROM existing`
-	rows, err := rq.qc.QueryContext(ctx, query, pqIDs, state)
+	rows, err := rq.qc.QueryContext(ctx, query, pqIDs, state, time.Now().UTC())
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
@@ -438,7 +438,7 @@ func (rq PostgresReplicationEventQueue) StartHealthUpdate(ctx context.Context, t
 
 	query := `
 		UPDATE replication_queue_job_lock
-		SET triggered_at = NOW() AT TIME ZONE 'UTC'
+		SET triggered_at = $3
 		WHERE (job_id, lock_id) IN (SELECT UNNEST($1::BIGINT[]), UNNEST($2::TEXT[]))`
 
 	for {
@@ -446,7 +446,7 @@ func (rq PostgresReplicationEventQueue) StartHealthUpdate(ctx context.Context, t
 		case <-ctx.Done():
 			return nil
 		case <-trigger:
-			res, err := rq.qc.ExecContext(ctx, query, jobIDs, lockIDs)
+			res, err := rq.qc.ExecContext(ctx, query, jobIDs, lockIDs, time.Now().UTC())
 			if err != nil {
 				if pqError, ok := err.(*pq.Error); ok && pqError.Code.Name() == "query_canceled" {
 					return nil
@@ -479,7 +479,7 @@ func (rq PostgresReplicationEventQueue) StartHealthUpdate(ctx context.Context, t
 func (rq PostgresReplicationEventQueue) AcknowledgeStale(ctx context.Context, staleAfter time.Duration) error {
 	query := `
 		WITH stale_job_lock AS (
-			DELETE FROM replication_queue_job_lock WHERE triggered_at < NOW() AT TIME ZONE 'UTC' - INTERVAL '1 MILLISECOND' * $1
+			DELETE FROM replication_queue_job_lock WHERE triggered_at < $1
 			RETURNING job_id, lock_id
 		)
 		, update_job AS (
@@ -505,7 +505,7 @@ func (rq PostgresReplicationEventQueue) AcknowledgeStale(ctx context.Context, st
 				GROUP BY lock_id
 			) AS existing ON removed.lock_id = existing.lock_id AND removed.amount = existing.amount
 		)`
-	_, err := rq.qc.ExecContext(ctx, query, staleAfter.Milliseconds())
+	_, err := rq.qc.ExecContext(ctx, query, time.Now().UTC().Add(-staleAfter))
 	if err != nil {
 		return fmt.Errorf("exec acknowledge stale: %w", err)
 	}
