@@ -2,6 +2,7 @@ package repository
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/archive"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -60,20 +62,21 @@ func generateTarFile(t *testing.T, path string) ([]byte, []string) {
 	return data, entries
 }
 
-func createFromSnapshot(t *testing.T, req *gitalypb.CreateRepositoryFromSnapshotRequest, cfg config.Cfg) (*gitalypb.CreateRepositoryFromSnapshotResponse, error) {
+func createFromSnapshot(t *testing.T, ctx context.Context, req *gitalypb.CreateRepositoryFromSnapshotRequest, cfg config.Cfg) (*gitalypb.CreateRepositoryFromSnapshotResponse, error) {
 	t.Helper()
 
 	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil)
 	client := newRepositoryClient(t, cfg, serverSocketPath)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	return client.CreateRepositoryFromSnapshot(ctx, req)
 }
 
 func TestCreateRepositoryFromSnapshot_success(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepositoryFromSnapshotSuccess)
+}
+
+func testCreateRepositoryFromSnapshotSuccess(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
 	_, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
@@ -98,7 +101,7 @@ func TestCreateRepositoryFromSnapshot_success(t *testing.T) {
 		HttpAuth: secret,
 	}
 
-	rsp, err := createFromSnapshot(t, req, cfg)
+	rsp, err := createFromSnapshot(t, ctx, req, cfg)
 
 	require.NoError(t, err)
 	testassert.ProtoEqual(t, rsp, &gitalypb.CreateRepositoryFromSnapshotResponse{})
@@ -119,18 +122,33 @@ func TestCreateRepositoryFromSnapshot_success(t *testing.T) {
 
 func TestCreateRepositoryFromSnapshot_repositoryExists(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepositoryFromSnapshotFailsIfRepositoryExists)
+}
+
+func testCreateRepositoryFromSnapshotFailsIfRepositoryExists(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
 	repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	req := &gitalypb.CreateRepositoryFromSnapshotRequest{Repository: repo}
-	rsp, err := createFromSnapshot(t, req, cfg)
-	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
-	require.Contains(t, err.Error(), "destination directory exists")
+	rsp, err := createFromSnapshot(t, ctx, req, cfg)
+
+	if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
+		testhelper.RequireGrpcError(t, err, codes.AlreadyExists)
+		require.Contains(t, err.Error(), "creating repository: repository exists already")
+	} else {
+		testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+		require.Contains(t, err.Error(), "destination directory exists")
+	}
+
 	require.Nil(t, rsp)
 }
 
 func TestCreateRepositoryFromSnapshot_badURL(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepositoryFromSnapshotFailsIfBadURL)
+}
+
+func testCreateRepositoryFromSnapshotFailsIfBadURL(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
 	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	require.NoError(t, os.RemoveAll(repoPath))
@@ -140,7 +158,7 @@ func TestCreateRepositoryFromSnapshot_badURL(t *testing.T) {
 		HttpUrl:    "invalid!scheme://invalid.invalid",
 	}
 
-	rsp, err := createFromSnapshot(t, req, cfg)
+	rsp, err := createFromSnapshot(t, ctx, req, cfg)
 	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 	require.Contains(t, err.Error(), "Bad HTTP URL")
 	require.Nil(t, rsp)
@@ -149,6 +167,10 @@ func TestCreateRepositoryFromSnapshot_badURL(t *testing.T) {
 func TestCreateRepositoryFromSnapshot_invalidArguments(t *testing.T) {
 	t.Parallel()
 
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepositoryFromSnapshotBadRequests)
+}
+
+func testCreateRepositoryFromSnapshotBadRequests(t *testing.T, ctx context.Context) {
 	testCases := []struct {
 		desc        string
 		url         string
@@ -194,7 +216,7 @@ func TestCreateRepositoryFromSnapshot_invalidArguments(t *testing.T) {
 				HttpAuth:   tc.auth,
 			}
 
-			rsp, err := createFromSnapshot(t, req, cfg)
+			rsp, err := createFromSnapshot(t, ctx, req, cfg)
 			testhelper.RequireGrpcError(t, err, tc.code)
 			require.Nil(t, rsp)
 
@@ -205,6 +227,10 @@ func TestCreateRepositoryFromSnapshot_invalidArguments(t *testing.T) {
 
 func TestCreateRepositoryFromSnapshot_malformedResponse(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepositoryFromSnapshotHandlesMalformedResponse)
+}
+
+func testCreateRepositoryFromSnapshotHandlesMalformedResponse(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
 	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
@@ -227,7 +253,7 @@ func TestCreateRepositoryFromSnapshot_malformedResponse(t *testing.T) {
 		HttpAuth:   secret,
 	}
 
-	rsp, err := createFromSnapshot(t, req, cfg)
+	rsp, err := createFromSnapshot(t, ctx, req, cfg)
 
 	require.Error(t, err)
 	require.Nil(t, rsp)
