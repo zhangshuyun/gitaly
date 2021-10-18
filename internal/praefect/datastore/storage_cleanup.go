@@ -9,6 +9,7 @@ import (
 
 	"github.com/lib/pq"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 )
 
 // RepositoryClusterPath identifies location of the repository in the cluster.
@@ -38,13 +39,13 @@ type ClusterPath struct {
 }
 
 // NewStorageCleanup initialises and returns a new instance of the StorageCleanup.
-func NewStorageCleanup(db *sql.DB) *StorageCleanup {
+func NewStorageCleanup(db glsql.Querier) *StorageCleanup {
 	return &StorageCleanup{db: db}
 }
 
 // StorageCleanup provides methods on the database for the repository cleanup operation.
 type StorageCleanup struct {
-	db *sql.DB
+	db glsql.Querier
 }
 
 // Populate adds storage to the set, so it can be acquired afterwards.
