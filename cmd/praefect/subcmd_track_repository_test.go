@@ -185,7 +185,7 @@ func TestAddRepository_Exec(t *testing.T) {
 				repositoryID, err := repoDS.GetRepositoryID(ctx, virtualStorageName, relativePath)
 				require.NoError(t, err)
 
-				assignments, err := as.GetHostAssignments(ctx, repositoryID)
+				assignments, err := as.GetHostAssignments(ctx, virtualStorageName, repositoryID)
 				require.NoError(t, err)
 				require.Len(t, assignments, 2)
 				assert.Contains(t, assignments, g1Cfg.Storages[0].Name)

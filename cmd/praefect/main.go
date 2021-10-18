@@ -192,12 +192,6 @@ func configure(conf config.Config) {
 	sentry.ConfigureSentry(version.GetVersion(), conf.Sentry)
 }
 
-type unimplementedPrimaryGetter struct{}
-
-func (unimplementedPrimaryGetter) GetPrimary(context.Context, int64) (string, error) {
-	return "", errors.New("unimplemented")
-}
-
 func run(cfgs []starter.Config, conf config.Config, b bootstrap.Listener, promreg prometheus.Registerer) error {
 	nodeLatencyHistogram, err := metrics.RegisterNodeLatency(conf.Prometheus, promreg)
 	if err != nil {
@@ -291,7 +285,7 @@ func run(cfgs []starter.Config, conf config.Config, b bootstrap.Listener, promre
 	transactionManager := transactions.NewManager(conf)
 	sidechannelRegistry := sidechannel.NewRegistry()
 	clientHandshaker := backchannel.NewClientHandshaker(logger, praefect.NewBackchannelServerFactory(logger, transaction.NewServer(transactionManager), sidechannelRegistry))
-	assignmentStore := praefect.NewDisabledAssignmentStore(conf.StorageNames()[conf.VirtualStorages[0].Name])
+	assignmentStore := praefect.NewDisabledAssignmentStore(conf.StorageNames())
 	var (
 		nodeManager   nodes.Manager
 		healthChecker praefect.HealthChecker
@@ -347,7 +341,7 @@ func run(cfgs []starter.Config, conf config.Config, b bootstrap.Listener, promre
 		healthChecker = praefect.HealthChecker(nodeMgr)
 		nodeSet = praefect.NodeSetFromNodeManager(nodeMgr)
 		router = praefect.NewNodeManagerRouter(nodeMgr, rs)
-		primaryGetter = unimplementedPrimaryGetter{}
+		primaryGetter = nodeMgr
 		nodeManager = nodeMgr
 
 		nodeMgr.Start(conf.Failover.BootstrapInterval.Duration(), conf.Failover.MonitorInterval.Duration())

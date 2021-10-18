@@ -20,12 +20,12 @@ func (s *Server) RepositoryReplicas(ctx context.Context, in *gitalypb.Repository
 		return nil, fmt.Errorf("get repository id: %q", err)
 	}
 
-	primary, err := s.primaryGetter.GetPrimary(ctx, repositoryID)
+	primary, err := s.primaryGetter.GetPrimary(ctx, virtualStorage, repositoryID)
 	if err != nil {
 		return nil, fmt.Errorf("get primary: %w", err)
 	}
 
-	assignments, err := s.assignmentStore.GetHostAssignments(ctx, repositoryID)
+	assignments, err := s.assignmentStore.GetHostAssignments(ctx, virtualStorage, repositoryID)
 	if err != nil {
 		return nil, fmt.Errorf("get host assignments: %w", err)
 	}

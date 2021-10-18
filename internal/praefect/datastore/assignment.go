@@ -2,12 +2,9 @@ package datastore
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 
 	"github.com/lib/pq"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 )
 
@@ -41,37 +38,35 @@ func NewAssignmentStore(db glsql.Querier, configuredStorages map[string][]string
 	return AssignmentStore{db: db, configuredStorages: configuredStorages}
 }
 
-func (s AssignmentStore) GetHostAssignments(ctx context.Context, repositoryID int64) ([]string, error) {
-	var (
-		virtualStorage string
-		storages       pq.StringArray
-	)
-	if err := s.db.QueryRowContext(ctx, `
-SELECT repositories.virtual_storage, ARRAY_AGG(storage) FILTER (WHERE storage IS NOT NULL)
-FROM repositories
-LEFT JOIN repository_assignments USING (repository_id)
-WHERE repository_id = $1
-GROUP BY repositories.virtual_storage
-		`, repositoryID).Scan(&virtualStorage, &storages); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, commonerr.ErrRepositoryNotFound
-		}
-
-		return nil, fmt.Errorf("query: %w", err)
-	}
-
+func (s AssignmentStore) GetHostAssignments(ctx context.Context, virtualStorage string, repositoryID int64) ([]string, error) {
 	configuredStorages, ok := s.configuredStorages[virtualStorage]
 	if !ok {
 		return nil, newVirtualStorageNotFoundError(virtualStorage)
 	}
 
-	assignedStorages := make([]string, 0, len(storages))
-	for _, assignedStorage := range storages {
-		for _, configuredStorage := range configuredStorages {
-			if assignedStorage == configuredStorage {
-				assignedStorages = append(assignedStorages, configuredStorage)
-			}
+	rows, err := s.db.QueryContext(ctx, `
+SELECT storage
+FROM repository_assignments
+WHERE repository_id = $1
+AND   storage = ANY($2)
+`, repositoryID, pq.StringArray(configuredStorages))
+	if err != nil {
+		return nil, fmt.Errorf("query: %w", err)
+	}
+	defer rows.Close()
+
+	var assignedStorages []string
+	for rows.Next() {
+		var storage string
+		if err := rows.Scan(&storage); err != nil {
+			return nil, fmt.Errorf("scan: %w", err)
 		}
+
+		assignedStorages = append(assignedStorages, storage)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating rows: %w", err)
 	}
 
 	if len(assignedStorages) == 0 {

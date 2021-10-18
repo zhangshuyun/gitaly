@@ -25,7 +25,7 @@ var errPrimaryUnassigned = errors.New("primary node is not assigned")
 type AssignmentGetter interface {
 	// GetHostAssignments returns the names of the storages assigned to host the repository.
 	// The primary node must always be assigned.
-	GetHostAssignments(ctx context.Context, repositoryID int64) ([]string, error)
+	GetHostAssignments(ctx context.Context, virtualStorage string, repositoryID int64) ([]string, error)
 }
 
 // ErrNoSuitableNode is returned when there is not suitable node to serve a request.
@@ -40,7 +40,7 @@ type Connections map[string]map[string]*grpc.ClientConn
 // PrimaryGetter is an interface for getting a primary of a repository.
 type PrimaryGetter interface {
 	// GetPrimary returns the primary storage for a given repository.
-	GetPrimary(ctx context.Context, repositoryID int64) (string, error)
+	GetPrimary(ctx context.Context, virtualStorage string, repositoryID int64) (string, error)
 }
 
 // PerRepositoryRouter implements a router that routes requests respecting per repository primary nodes.
@@ -142,7 +142,7 @@ func (r *PerRepositoryRouter) RouteRepositoryAccessor(ctx context.Context, virtu
 			return RouterNode{}, fmt.Errorf("get repository id: %w", err)
 		}
 
-		primary, err := r.pg.GetPrimary(ctx, repositoryID)
+		primary, err := r.pg.GetPrimary(ctx, virtualStorage, repositoryID)
 		if err != nil {
 			return RouterNode{}, fmt.Errorf("get primary: %w", err)
 		}
@@ -184,7 +184,7 @@ func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtua
 		return RepositoryMutatorRoute{}, fmt.Errorf("get repository id: %w", err)
 	}
 
-	primary, err := r.pg.GetPrimary(ctx, repositoryID)
+	primary, err := r.pg.GetPrimary(ctx, virtualStorage, repositoryID)
 	if err != nil {
 		return RepositoryMutatorRoute{}, fmt.Errorf("get primary: %w", err)
 	}
@@ -207,7 +207,7 @@ func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtua
 		return RepositoryMutatorRoute{}, ErrRepositoryReadOnly
 	}
 
-	assignedStorages, err := r.ag.GetHostAssignments(ctx, repositoryID)
+	assignedStorages, err := r.ag.GetHostAssignments(ctx, virtualStorage, repositoryID)
 	if err != nil {
 		return RepositoryMutatorRoute{}, fmt.Errorf("get host assignments: %w", err)
 	}
