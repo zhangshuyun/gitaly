@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"io"
 
-	git "github.com/libgit2/git2go/v31"
+	git "github.com/libgit2/git2go/v32"
 	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/git2goutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 )
@@ -66,7 +66,7 @@ func commit(ctx context.Context, params git2go.CommitParams) (string, error) {
 
 	for _, action := range params.Actions {
 		if err := apply(action, repo, index); err != nil {
-			if git.IsErrorClass(err, git.ErrClassIndex) {
+			if git.IsErrorClass(err, git.ErrorClassIndex) {
 				err = git2go.IndexError(err.Error())
 			}
 
@@ -83,7 +83,7 @@ func commit(ctx context.Context, params git2go.CommitParams) (string, error) {
 	committer := git.Signature(params.Committer)
 	commitID, err := repo.CreateCommitFromIds("", &author, &committer, params.Message, treeOID, parents...)
 	if err != nil {
-		if git.IsErrorClass(err, git.ErrClassInvalid) {
+		if git.IsErrorClass(err, git.ErrorClassInvalid) {
 			return "", git2go.InvalidArgumentError(err.Error())
 		}
 

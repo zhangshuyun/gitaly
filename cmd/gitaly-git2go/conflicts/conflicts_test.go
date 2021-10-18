@@ -6,7 +6,7 @@ package conflicts
 import (
 	"testing"
 
-	git "github.com/libgit2/git2go/v31"
+	git "github.com/libgit2/git2go/v32"
 	"github.com/stretchr/testify/require"
 	cmdtesthelper "gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"

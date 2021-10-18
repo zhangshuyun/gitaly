@@ -11,7 +11,7 @@ import (
 	"io"
 	"os"
 
-	git "github.com/libgit2/git2go/v31"
+	git "github.com/libgit2/git2go/v32"
 	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/git2goutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
@@ -146,7 +146,7 @@ func (cmd *Subcommand) Run(context.Context, io.Reader, io.Writer) error {
 		conflict, err := conflicts.Next()
 		if err != nil {
 			var gitError git.GitError
-			if errors.As(err, &gitError) && gitError.Code != git.ErrIterOver {
+			if errors.As(err, &gitError) && gitError.Code != git.ErrorCodeIterOver {
 				return err
 			}
 			break

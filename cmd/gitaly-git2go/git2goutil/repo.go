@@ -1,7 +1,7 @@
 package git2goutil
 
 import (
-	git "github.com/libgit2/git2go/v31"
+	git "github.com/libgit2/git2go/v32"
 )
 
 // OpenRepository opens the repository located at path as a Git2Go repository.

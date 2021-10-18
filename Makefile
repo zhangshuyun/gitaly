@@ -80,8 +80,8 @@ PROTOC_VERSION            ?= 3.17.3
 PROTOC_GEN_GO_VERSION     ?= 1.26.0
 # https://pkg.go.dev/google.golang.org/grpc/cmd/protoc-gen-go-grpc
 PROTOC_GEN_GO_GRPC_VERSION?= 1.1.0
-GIT2GO_VERSION            ?= v31
-LIBGIT2_VERSION           ?= v1.1.0
+GIT2GO_VERSION            ?= v32
+LIBGIT2_VERSION           ?= v1.2.0
 
 # Support both vX.Y.Z and X.Y.Z version patterns, since callers across
 # GitLab use both.

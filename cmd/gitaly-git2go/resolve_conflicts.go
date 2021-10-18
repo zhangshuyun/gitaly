@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	git "github.com/libgit2/git2go/v31"
+	git "github.com/libgit2/git2go/v32"
 	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/git2goutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/conflict"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
@@ -68,7 +68,7 @@ func (cmd resolveSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) er
 
 	for {
 		c, err := ci.Next()
-		if git.IsErrorCode(err, git.ErrIterOver) {
+		if git.IsErrorCode(err, git.ErrorCodeIterOver) {
 			break
 		}
 		if err != nil {
@@ -163,7 +163,7 @@ func (cmd resolveSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) er
 		var conflictPaths []string
 		for {
 			c, err := ci.Next()
-			if git.IsErrorCode(err, git.ErrIterOver) {
+			if git.IsErrorCode(err, git.ErrorCodeIterOver) {
 				break
 			}
 			if err != nil {

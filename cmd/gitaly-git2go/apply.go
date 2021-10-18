@@ -15,7 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	git "github.com/libgit2/git2go/v31"
+	git "github.com/libgit2/git2go/v32"
 	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/git2goutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 )
@@ -119,7 +119,7 @@ func (cmd *applySubcommand) applyPatch(
 
 	patchedIndex, err := repo.ApplyToTree(diff, parentTree, nil)
 	if err != nil {
-		if !git.IsErrorCode(err, git.ErrApplyFail) {
+		if !git.IsErrorCode(err, git.ErrorCodeApplyFail) {
 			return nil, fmt.Errorf("apply to tree: %w", err)
 		}
 

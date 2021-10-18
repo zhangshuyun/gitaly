@@ -6,13 +6,13 @@ package commit
 import (
 	"os"
 
-	git "github.com/libgit2/git2go/v31"
+	git "github.com/libgit2/git2go/v32"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 )
 
 func validateFileExists(index *git.Index, path string) error {
 	if _, err := index.Find(path); err != nil {
-		if git.IsErrorCode(err, git.ErrNotFound) {
+		if git.IsErrorCode(err, git.ErrorCodeNotFound) {
 			return git2go.FileNotFoundError(path)
 		}
 
@@ -38,7 +38,7 @@ func validateFileDoesNotExist(index *git.Index, path string) error {
 		return git2go.FileExistsError(path)
 	}
 
-	if !git.IsErrorCode(err, git.ErrNotFound) {
+	if !git.IsErrorCode(err, git.ErrorCodeNotFound) {
 		return err
 	}
 
@@ -51,7 +51,7 @@ func validateDirectoryDoesNotExist(index *git.Index, path string) error {
 		return git2go.DirectoryExistsError(path)
 	}
 
-	if !git.IsErrorCode(err, git.ErrNotFound) {
+	if !git.IsErrorCode(err, git.ErrorCodeNotFound) {
 		return err
 	}
 

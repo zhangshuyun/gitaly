@@ -24,7 +24,7 @@ require (
 	github.com/hashicorp/yamux v0.0.0-20210316155119-a95892c5f864
 	github.com/kelseyhightower/envconfig v1.3.0
 	github.com/lib/pq v1.10.1
-	github.com/libgit2/git2go/v31 v31.4.12
+	github.com/libgit2/git2go/v32 v32.0.5
 	github.com/olekukonko/tablewriter v0.0.2
 	github.com/opencontainers/runtime-spec v1.0.2
 	github.com/opentracing/opentracing-go v1.2.0

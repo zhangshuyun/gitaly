@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"io"
 
-	git "github.com/libgit2/git2go/v31"
+	git "github.com/libgit2/git2go/v32"
 	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/git2goutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 )
@@ -138,7 +138,7 @@ func (cmd *rebaseSubcommand) rebase(ctx context.Context, request *git2go.RebaseC
 	var oid *git.Oid
 	for {
 		op, err := rebase.Next()
-		if git.IsErrorCode(err, git.ErrIterOver) {
+		if git.IsErrorCode(err, git.ErrorCodeIterOver) {
 			break
 		} else if err != nil {
 			return "", fmt.Errorf("rebase iterate: %w", err)
@@ -152,7 +152,7 @@ func (cmd *rebaseSubcommand) rebase(ctx context.Context, request *git2go.RebaseC
 		if err := rebase.Commit(op.Id, nil, &committer, commit.Message()); err != nil {
 			// If the commit has already been applied on the target branch then we can
 			// skip it if we were told to.
-			if request.SkipEmptyCommits && git.IsErrorCode(err, git.ErrApplied) {
+			if request.SkipEmptyCommits && git.IsErrorCode(err, git.ErrorCodeApplied) {
 				continue
 			}
 
