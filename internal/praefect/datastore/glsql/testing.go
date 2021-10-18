@@ -117,6 +117,28 @@ func (db DB) Close() error {
 	return nil
 }
 
+// SequenceReset restarts all sequences in the database.
+func (db DB) SequenceReset(t *testing.T) {
+	t.Helper()
+	prov := &StringProvider{}
+	rows, err := db.DB.Query(
+		`SELECT S.relname
+		FROM pg_class AS S, pg_depend AS D, pg_class AS T, pg_attribute AS C
+		WHERE S.relkind = 'S'
+		  AND S.oid = D.objid
+		  AND D.refobjid = T.oid
+		  AND D.refobjid = C.attrelid
+		  AND D.refobjsubid = C.attnum`,
+	)
+	require.NoError(t, err)
+	require.NoError(t, ScanAll(rows, prov))
+
+	for _, seqName := range prov.Values() {
+		_, err := db.DB.Exec(`ALTER SEQUENCE ` + seqName + ` RESTART`)
+		require.NoError(t, err)
+	}
+}
+
 // NewDB returns a wrapper around the database connection pool.
 // Must be used only for testing.
 // The new database with empty relations will be created for each call of this function.
