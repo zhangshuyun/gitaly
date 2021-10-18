@@ -68,7 +68,7 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 	defer tx.Rollback(t)
 
 	testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{
-		"praefect-0": map[string][]string{virtualStorage: storages},
+		"praefect-0": {virtualStorage: storages},
 	})
 
 	nodeSet, err := DialNodes(ctx, conf.VirtualStorages, protoregistry.GitalyProtoPreregistered, nil, nil, nil)
