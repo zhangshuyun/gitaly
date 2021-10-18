@@ -22,10 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
-const (
-	sourceRemote       = "origin"
-	sourceRefNamespace = "refs/remotes/" + sourceRemote
-)
+const sourceRefNamespace = "refs/remotes/origin"
 
 // FetchFromOrigin initializes the pool and fetches the objects from its origin repository
 func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repository) error {
@@ -42,23 +39,6 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 		return err
 	}
 
-	remote := o.poolRepo.Remote()
-
-	remoteExists, err := remote.Exists(ctx, sourceRemote)
-	if err != nil {
-		return err
-	}
-
-	if remoteExists {
-		if err := remote.SetURL(ctx, sourceRemote, originPath, git.SetURLOpts{}); err != nil {
-			return err
-		}
-	} else {
-		if err := remote.Add(ctx, sourceRemote, originPath, git.RemoteAddOpts{}); err != nil {
-			return err
-		}
-	}
-
 	if err := o.logStats(ctx, "before fetch"); err != nil {
 		return err
 	}
@@ -72,7 +52,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 				git.Flag{Name: "--quiet"},
 				git.Flag{Name: "--atomic"},
 			},
-			Args: []string{sourceRemote, refSpec},
+			Args: []string{originPath, refSpec},
 		},
 		git.WithRefTxHook(ctx, o.poolRepo, o.cfg),
 		git.WithStderr(&stderr),

@@ -227,10 +227,6 @@ func TestFetchFromOrigin_refs(t *testing.T) {
 		[]string{
 			"refs/remotes/origin/environments/1",
 			"refs/remotes/origin/heads/master",
-			// In addition to the branches we see in "origin/heads/", we also see them
-			// in "origin/" directly. This is because of the default refspec as set up
-			// when creating remotes and is a bug.
-			"refs/remotes/origin/master",
 			"refs/remotes/origin/tags/annotated-tag",
 			"refs/remotes/origin/tags/lightweight-tag",
 			// Tags are duplicated and end up in our main namespace, which is a bug.
