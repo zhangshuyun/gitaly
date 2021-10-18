@@ -444,8 +444,11 @@ func (p *processes) delete(i int, wantClose bool) {
 	ent := p.entries[i]
 
 	if wantClose {
-		ent.value.close()
+		// We first cancel the context such that the process gets a SIGKILL signal. Calling
+		// `close()` first may lead to a deadlock given that it waits for the process to
+		// exit, which may not happen if it hangs writing data to stdout.
 		ent.cancel()
+		ent.value.close()
 	}
 
 	p.entries = append(p.entries[:i], p.entries[i+1:]...)
