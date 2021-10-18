@@ -13,7 +13,15 @@ import (
 )
 
 // LastCommitForPath returns the last commit which modified path.
-func LastCommitForPath(ctx context.Context, gitCmdFactory git.CommandFactory, batch catfile.Batch, repo repository.GitRepo, revision git.Revision, path string, options *gitalypb.GlobalOptions) (*gitalypb.GitCommit, error) {
+func LastCommitForPath(
+	ctx context.Context,
+	gitCmdFactory git.CommandFactory,
+	objectReader catfile.ObjectReader,
+	repo repository.GitRepo,
+	revision git.Revision,
+	path string,
+	options *gitalypb.GlobalOptions,
+) (*gitalypb.GitCommit, error) {
 	cmd, err := gitCmdFactory.New(ctx, repo, git.SubCmd{
 		Name:        "log",
 		Flags:       []git.Option{git.Flag{Name: "--format=%H"}, git.Flag{Name: "--max-count=1"}},
@@ -29,7 +37,7 @@ func LastCommitForPath(ctx context.Context, gitCmdFactory git.CommandFactory, ba
 		return nil, err
 	}
 
-	return catfile.GetCommit(ctx, batch, git.Revision(text.ChompBytes(commitID)))
+	return catfile.GetCommit(ctx, objectReader, git.Revision(text.ChompBytes(commitID)))
 }
 
 // GitLogCommand returns a Command that executes git log with the given the arguments

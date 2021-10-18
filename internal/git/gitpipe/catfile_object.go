@@ -31,7 +31,7 @@ type CatfileObjectResult struct {
 // be fully consumed by the caller.
 func CatfileObject(
 	ctx context.Context,
-	catfileProcess catfile.Batch,
+	objectReader catfile.ObjectReader,
 	it CatfileInfoIterator,
 ) CatfileObjectIterator {
 	resultChan := make(chan CatfileObjectResult)
@@ -59,7 +59,7 @@ func CatfileObject(
 			}
 		}
 
-		var objectReader *signallingReader
+		var objectDataReader *signallingReader
 
 		for it.Next() {
 			catfileInfoResult := it.Result()
@@ -68,31 +68,15 @@ func CatfileObject(
 			// has concluded. Given that this is not under our control but under the
 			// control of the caller, we thus have to wait until the blocking reader has
 			// reached EOF.
-			if objectReader != nil {
+			if objectDataReader != nil {
 				select {
-				case <-objectReader.doneCh:
+				case <-objectDataReader.doneCh:
 				case <-ctx.Done():
 					return
 				}
 			}
 
-			var object *catfile.Object
-			var err error
-
-			objectType := catfileInfoResult.ObjectInfo.Type
-			switch objectType {
-			case "tag":
-				object, err = catfileProcess.Tag(ctx, catfileInfoResult.ObjectInfo.Oid.Revision())
-			case "commit":
-				object, err = catfileProcess.Commit(ctx, catfileInfoResult.ObjectInfo.Oid.Revision())
-			case "tree":
-				object, err = catfileProcess.Tree(ctx, catfileInfoResult.ObjectInfo.Oid.Revision())
-			case "blob":
-				object, err = catfileProcess.Blob(ctx, catfileInfoResult.ObjectInfo.Oid.Revision())
-			default:
-				err = fmt.Errorf("unknown object type %q", objectType)
-			}
-
+			object, err := objectReader.Object(ctx, catfileInfoResult.ObjectInfo.Oid.Revision())
 			if err != nil {
 				sendResult(CatfileObjectResult{
 					err: fmt.Errorf("requesting object: %w", err),
@@ -100,7 +84,7 @@ func CatfileObject(
 				return
 			}
 
-			objectReader = &signallingReader{
+			objectDataReader = &signallingReader{
 				reader: object,
 				doneCh: make(chan interface{}),
 			}
@@ -108,7 +92,7 @@ func CatfileObject(
 			if isDone := sendResult(CatfileObjectResult{
 				ObjectName:   catfileInfoResult.ObjectName,
 				ObjectInfo:   catfileInfoResult.ObjectInfo,
-				ObjectReader: objectReader,
+				ObjectReader: objectDataReader,
 			}); isDone {
 				return
 			}

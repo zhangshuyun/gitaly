@@ -177,14 +177,19 @@ func (s *Server) createTag(
 	committer *gitalypb.User,
 	committerTime time.Time,
 ) (*gitalypb.Tag, git.ObjectID, error) {
-	catFile, err := s.catfileCache.BatchProcess(ctx, repo)
+	objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
+	if err != nil {
+		return nil, "", status.Error(codes.Internal, err.Error())
+	}
+
+	objectInfoReader, err := s.catfileCache.ObjectInfoReader(ctx, repo)
 	if err != nil {
 		return nil, "", status.Error(codes.Internal, err.Error())
 	}
 
 	// We allow all ways to name a revision that cat-file
 	// supports, not just OID. Resolve it.
-	targetInfo, err := catFile.Info(ctx, targetRevision)
+	targetInfo, err := objectInfoReader.Info(ctx, targetRevision)
 	if err != nil {
 		return nil, "", status.Errorf(codes.FailedPrecondition, "revspec '%s' not found", targetRevision)
 	}
@@ -206,7 +211,7 @@ func (s *Server) createTag(
 	// the commit/tree/blob object itself in subsequent logic.
 	peeledTargetObjectID, peeledTargetObjectType := targetObjectID, targetObjectType
 	if targetObjectType == "tag" {
-		peeledTargetObjectInfo, err := catFile.Info(ctx, targetRevision+"^{}")
+		peeledTargetObjectInfo, err := objectInfoReader.Info(ctx, targetRevision+"^{}")
 		if err != nil {
 			return nil, "", status.Error(codes.Internal, err.Error())
 		}
@@ -241,7 +246,7 @@ func (s *Server) createTag(
 			return nil, "", status.Error(codes.Internal, err.Error())
 		}
 
-		createdTag, err := catfile.GetTag(ctx, catFile, tagObjectID.Revision(), string(tagName), false, false)
+		createdTag, err := catfile.GetTag(ctx, objectReader, tagObjectID.Revision(), string(tagName), false, false)
 		if err != nil {
 			return nil, "", status.Error(codes.Internal, err.Error())
 		}
@@ -266,7 +271,7 @@ func (s *Server) createTag(
 	// Save ourselves looking this up earlier in case update-ref
 	// died
 	if peeledTargetObjectType == "commit" {
-		peeledTargetCommit, err := catfile.GetCommit(ctx, catFile, peeledTargetObjectID.Revision())
+		peeledTargetCommit, err := catfile.GetCommit(ctx, objectReader, peeledTargetObjectID.Revision())
 		if err != nil {
 			return nil, "", status.Error(codes.Internal, err.Error())
 		}

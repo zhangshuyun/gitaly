@@ -27,12 +27,13 @@ func (s *server) getAndStreamCommitMessages(request *gitalypb.GetCommitMessagesR
 	ctx := stream.Context()
 	repo := s.localrepo(request.GetRepository())
 
-	c, err := s.catfileCache.BatchProcess(ctx, repo)
+	objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
 		return err
 	}
+
 	for _, commitID := range request.GetCommitIds() {
-		msg, err := catfile.GetCommitMessage(ctx, c, repo, git.Revision(commitID))
+		msg, err := catfile.GetCommitMessage(ctx, objectReader, repo, git.Revision(commitID))
 		if err != nil {
 			return fmt.Errorf("failed to get commit message: %v", err)
 		}

@@ -67,25 +67,6 @@ func TestCatfileObject(t *testing.T) {
 			},
 			expectedErr: errors.New("requesting object: object not found"),
 		},
-		{
-			desc: "invalid object type",
-			catfileInfoInputs: []CatfileInfoResult{
-				{ObjectInfo: &catfile.ObjectInfo{Oid: lfsPointer1, Type: "foobar"}},
-			},
-			expectedErr: errors.New("requesting object: unknown object type \"foobar\""),
-		},
-		{
-			desc: "mixed valid and invalid revision",
-			catfileInfoInputs: []CatfileInfoResult{
-				{ObjectInfo: &catfile.ObjectInfo{Oid: lfsPointer1, Type: "blob", Size: 133}},
-				{ObjectInfo: &catfile.ObjectInfo{Oid: lfsPointer1, Type: "foobar"}},
-				{ObjectInfo: &catfile.ObjectInfo{Oid: lfsPointer2}},
-			},
-			expectedResults: []CatfileObjectResult{
-				{ObjectInfo: &catfile.ObjectInfo{Oid: lfsPointer1, Type: "blob", Size: 133}},
-			},
-			expectedErr: errors.New("requesting object: unknown object type \"foobar\""),
-		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx, cancel := testhelper.Context()
@@ -94,10 +75,10 @@ func TestCatfileObject(t *testing.T) {
 			catfileCache := catfile.NewCache(cfg)
 			defer catfileCache.Stop()
 
-			catfileProcess, err := catfileCache.BatchProcess(ctx, repo)
+			objectReader, err := catfileCache.ObjectReader(ctx, repo)
 			require.NoError(t, err)
 
-			it := CatfileObject(ctx, catfileProcess, NewCatfileInfoIterator(tc.catfileInfoInputs))
+			it := CatfileObject(ctx, objectReader, NewCatfileInfoIterator(tc.catfileInfoInputs))
 
 			var results []CatfileObjectResult
 			for it.Next() {

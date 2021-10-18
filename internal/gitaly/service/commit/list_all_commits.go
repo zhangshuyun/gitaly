@@ -30,9 +30,9 @@ func (s *server) ListAllCommits(
 	ctx := stream.Context()
 	repo := s.localrepo(request.GetRepository())
 
-	catfileProcess, err := s.catfileCache.BatchProcess(ctx, repo)
+	objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return helper.ErrInternal(fmt.Errorf("creating catfile process: %w", err))
+		return helper.ErrInternalf("creating object reader: %w", err)
 	}
 
 	catfileInfoIter := gitpipe.CatfileInfoAllObjects(ctx, repo)
@@ -57,7 +57,7 @@ func (s *server) ListAllCommits(
 		return true
 	})
 
-	catfileObjectIter := gitpipe.CatfileObject(ctx, catfileProcess, catfileInfoIter)
+	catfileObjectIter := gitpipe.CatfileObject(ctx, objectReader, catfileInfoIter)
 
 	chunker := chunk.New(&commitsSender{
 		send: func(commits []*gitalypb.GitCommit) error {

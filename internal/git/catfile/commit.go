@@ -18,19 +18,25 @@ import (
 )
 
 // GetCommit looks up a commit by revision using an existing Batch instance.
-func GetCommit(ctx context.Context, c Batch, revision git.Revision) (*gitalypb.GitCommit, error) {
-	obj, err := c.Commit(ctx, revision+"^{commit}")
+func GetCommit(ctx context.Context, objectReader ObjectReader, revision git.Revision) (*gitalypb.GitCommit, error) {
+	object, err := objectReader.Object(ctx, revision+"^{commit}")
 	if err != nil {
 		return nil, err
 	}
 
-	return ParseCommit(obj.Reader, obj.ObjectInfo.Oid)
+	return ParseCommit(object.Reader, object.ObjectInfo.Oid)
 }
 
 // GetCommitWithTrailers looks up a commit by revision using an existing Batch instance, and
 // includes Git trailers in the returned commit.
-func GetCommitWithTrailers(ctx context.Context, gitCmdFactory git.CommandFactory, repo repository.GitRepo, c Batch, revision git.Revision) (*gitalypb.GitCommit, error) {
-	commit, err := GetCommit(ctx, c, revision)
+func GetCommitWithTrailers(
+	ctx context.Context,
+	gitCmdFactory git.CommandFactory,
+	repo repository.GitRepo,
+	objectReader ObjectReader,
+	revision git.Revision,
+) (*gitalypb.GitCommit, error) {
+	commit, err := GetCommit(ctx, objectReader, revision)
 	if err != nil {
 		return nil, err
 	}
@@ -65,8 +71,8 @@ func GetCommitWithTrailers(ctx context.Context, gitCmdFactory git.CommandFactory
 }
 
 // GetCommitMessage looks up a commit message and returns it in its entirety.
-func GetCommitMessage(ctx context.Context, c Batch, repo repository.GitRepo, revision git.Revision) ([]byte, error) {
-	obj, err := c.Commit(ctx, revision+"^{commit}")
+func GetCommitMessage(ctx context.Context, objectReader ObjectReader, repo repository.GitRepo, revision git.Revision) ([]byte, error) {
+	obj, err := objectReader.Object(ctx, revision+"^{commit}")
 	if err != nil {
 		return nil, err
 	}

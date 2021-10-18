@@ -138,12 +138,12 @@ func (s *server) findLocalBranches(in *gitalypb.FindLocalBranchesRequest, stream
 	ctx := stream.Context()
 	repo := s.localrepo(in.GetRepository())
 
-	c, err := s.catfileCache.BatchProcess(ctx, repo)
+	objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
 		return err
 	}
 
-	writer := newFindLocalBranchesWriter(stream, c)
+	writer := newFindLocalBranchesWriter(stream, objectReader)
 	opts := paginationParamsToOpts(ctx, in.GetPaginationParams())
 	opts.cmdArgs = []git.Option{
 		// %00 inserts the null character into the output (see for-each-ref docs)
@@ -190,7 +190,7 @@ func (s *server) findAllBranches(in *gitalypb.FindAllBranchesRequest, stream git
 	}
 
 	ctx := stream.Context()
-	c, err := s.catfileCache.BatchProcess(ctx, repo)
+	objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
 		return err
 	}
@@ -198,7 +198,7 @@ func (s *server) findAllBranches(in *gitalypb.FindAllBranchesRequest, stream git
 	opts := paginationParamsToOpts(ctx, nil)
 	opts.cmdArgs = args
 
-	writer := newFindAllBranchesWriter(stream, c)
+	writer := newFindAllBranchesWriter(stream, objectReader)
 
 	return s.findRefs(ctx, writer, repo, patterns, opts)
 }
@@ -219,7 +219,7 @@ func (s *server) FindTag(ctx context.Context, in *gitalypb.FindTagRequest) (*git
 }
 
 // parseTagLine parses a line of text with the output format %(objectname) %(objecttype) %(refname:lstrip=2)
-func parseTagLine(ctx context.Context, c catfile.Batch, tagLine string) (*gitalypb.Tag, error) {
+func parseTagLine(ctx context.Context, objectReader catfile.ObjectReader, tagLine string) (*gitalypb.Tag, error) {
 	fields := strings.SplitN(tagLine, " ", 3)
 	if len(fields) != 3 {
 		return nil, fmt.Errorf("invalid output from for-each-ref command: %v", tagLine)
@@ -235,13 +235,13 @@ func parseTagLine(ctx context.Context, c catfile.Batch, tagLine string) (*gitaly
 	switch refType {
 	// annotated tag
 	case "tag":
-		tag, err := catfile.GetTag(ctx, c, git.Revision(tagID), refName, true, true)
+		tag, err := catfile.GetTag(ctx, objectReader, git.Revision(tagID), refName, true, true)
 		if err != nil {
 			return nil, fmt.Errorf("getting annotated tag: %v", err)
 		}
 		return tag, nil
 	case "commit":
-		commit, err := catfile.GetCommit(ctx, c, git.Revision(tagID))
+		commit, err := catfile.GetCommit(ctx, objectReader, git.Revision(tagID))
 		if err != nil {
 			return nil, fmt.Errorf("getting commit catfile: %v", err)
 		}
@@ -267,7 +267,7 @@ func (s *server) findTag(ctx context.Context, repo git.RepositoryExecutor, tagNa
 		return nil, fmt.Errorf("for-each-ref error: %v", err)
 	}
 
-	c, err := s.catfileCache.BatchProcess(ctx, repo)
+	objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +276,7 @@ func (s *server) findTag(ctx context.Context, repo git.RepositoryExecutor, tagNa
 
 	scanner := bufio.NewScanner(tagCmd)
 	if scanner.Scan() {
-		tag, err = parseTagLine(ctx, c, scanner.Text())
+		tag, err = parseTagLine(ctx, objectReader, scanner.Text())
 		if err != nil {
 			return nil, err
 		}

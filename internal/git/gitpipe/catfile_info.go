@@ -28,7 +28,7 @@ type CatfileInfoResult struct {
 // `git cat-file --batch-check`. The returned channel will contain all processed catfile info
 // results. Any error received via the channel or encountered in this step will cause the pipeline
 // to fail. Context cancellation will gracefully halt the pipeline.
-func CatfileInfo(ctx context.Context, catfile catfile.Batch, revisionIterator RevisionIterator) CatfileInfoIterator {
+func CatfileInfo(ctx context.Context, objectInfoReader catfile.ObjectInfoReader, revisionIterator RevisionIterator) CatfileInfoIterator {
 	resultChan := make(chan CatfileInfoResult)
 
 	go func() {
@@ -37,7 +37,7 @@ func CatfileInfo(ctx context.Context, catfile catfile.Batch, revisionIterator Re
 		for revisionIterator.Next() {
 			revlistResult := revisionIterator.Result()
 
-			objectInfo, err := catfile.Info(ctx, revlistResult.OID.Revision())
+			objectInfo, err := objectInfoReader.Info(ctx, revlistResult.OID.Revision())
 			if err != nil {
 				sendCatfileInfoResult(ctx, resultChan, CatfileInfoResult{
 					err: fmt.Errorf("retrieving object info for %q: %w", revlistResult.OID, err),

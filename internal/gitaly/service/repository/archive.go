@@ -141,12 +141,17 @@ func (s *server) validateGetArchivePrecondition(
 	path string,
 	exclude []string,
 ) error {
-	c, err := s.catfileCache.BatchProcess(ctx, repo)
+	objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
 		return err
 	}
 
-	f := commit.NewTreeEntryFinder(c)
+	objectInfoReader, err := s.catfileCache.ObjectInfoReader(ctx, repo)
+	if err != nil {
+		return err
+	}
+
+	f := commit.NewTreeEntryFinder(objectReader, objectInfoReader)
 	if path != "." {
 		if ok, err := findGetArchivePath(ctx, f, commitID, path); err != nil {
 			return err

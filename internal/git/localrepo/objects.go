@@ -226,16 +226,16 @@ func (repo *Repo) ReadCommit(ctx context.Context, revision git.Revision, opts ..
 		opt(&cfg)
 	}
 
-	c, err := repo.catfileCache.BatchProcess(ctx, repo)
+	objectReader, err := repo.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
 		return nil, err
 	}
 
 	var commit *gitalypb.GitCommit
 	if cfg.withTrailers {
-		commit, err = catfile.GetCommitWithTrailers(ctx, repo.gitCmdFactory, repo, c, revision)
+		commit, err = catfile.GetCommitWithTrailers(ctx, repo.gitCmdFactory, repo, objectReader, revision)
 	} else {
-		commit, err = catfile.GetCommit(ctx, c, revision)
+		commit, err = catfile.GetCommit(ctx, objectReader, revision)
 	}
 
 	if err != nil {

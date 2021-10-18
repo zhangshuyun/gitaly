@@ -19,19 +19,19 @@ type Parser struct {
 	scanner       *bufio.Scanner
 	currentCommit *gitalypb.GitCommit
 	err           error
-	c             catfile.Batch
+	objectReader  catfile.ObjectReader
 }
 
 // NewParser returns a new Parser
 func NewParser(ctx context.Context, catfileCache catfile.Cache, repo git.RepositoryExecutor, src io.Reader) (*Parser, error) {
-	c, err := catfileCache.BatchProcess(ctx, repo)
+	objectReader, err := catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
 		return nil, err
 	}
 
 	parser := &Parser{
-		scanner: bufio.NewScanner(src),
-		c:       c,
+		scanner:      bufio.NewScanner(src),
+		objectReader: objectReader,
 	}
 
 	return parser, nil
@@ -47,7 +47,7 @@ func (parser *Parser) Parse(ctx context.Context) bool {
 
 	commitID := parser.scanner.Text()
 
-	commit, err := catfile.GetCommit(ctx, parser.c, git.Revision(commitID))
+	commit, err := catfile.GetCommit(ctx, parser.objectReader, git.Revision(commitID))
 	if err != nil {
 		parser.err = err
 		return false

@@ -23,13 +23,23 @@ const (
 // 'true', the tag message will be trimmed to remove all '\n' characters from right. note: we pass
 // in the tagName because the tag name from refs/tags may be different than the name found in the
 // actual tag object. We want to use the tagName found in refs/tags
-func GetTag(ctx context.Context, c Batch, tagID git.Revision, tagName string, trimLen, trimRightNewLine bool) (*gitalypb.Tag, error) {
-	tagObj, err := c.Tag(ctx, tagID)
+func GetTag(ctx context.Context, objectReader ObjectReader, tagID git.Revision, tagName string, trimLen, trimRightNewLine bool) (*gitalypb.Tag, error) {
+	object, err := objectReader.Object(ctx, tagID)
 	if err != nil {
 		return nil, err
 	}
 
-	tag, err := buildAnnotatedTag(ctx, c, tagObj, []byte(tagName), trimLen, trimRightNewLine)
+	if object.Type != "tag" {
+		if _, err := io.Copy(io.Discard, object); err != nil {
+			return nil, fmt.Errorf("discarding object: %w", err)
+		}
+
+		return nil, NotFoundError{
+			error: fmt.Errorf("expected tag, got %s", object.Type),
+		}
+	}
+
+	tag, err := buildAnnotatedTag(ctx, objectReader, object, []byte(tagName), trimLen, trimRightNewLine)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +153,7 @@ func parseTag(r io.Reader, oid git.ObjectID, name []byte, trimLen, trimRightNewL
 	return tag, header, nil
 }
 
-func buildAnnotatedTag(ctx context.Context, b Batch, object *Object, name []byte, trimLen, trimRightNewLine bool) (*gitalypb.Tag, error) {
+func buildAnnotatedTag(ctx context.Context, objectReader ObjectReader, object *Object, name []byte, trimLen, trimRightNewLine bool) (*gitalypb.Tag, error) {
 	tag, header, err := parseTag(object.Reader, object.ObjectInfo.Oid, name, trimLen, trimRightNewLine)
 	if err != nil {
 		return nil, err
@@ -151,13 +161,13 @@ func buildAnnotatedTag(ctx context.Context, b Batch, object *Object, name []byte
 
 	switch header.tagType {
 	case "commit":
-		tag.TargetCommit, err = GetCommit(ctx, b, git.Revision(header.oid))
+		tag.TargetCommit, err = GetCommit(ctx, objectReader, git.Revision(header.oid))
 		if err != nil {
 			return nil, fmt.Errorf("buildAnnotatedTag error when getting target commit: %v", err)
 		}
 
 	case "tag":
-		tag.TargetCommit, err = dereferenceTag(ctx, b, git.Revision(header.oid))
+		tag.TargetCommit, err = dereferenceTag(ctx, objectReader, git.Revision(header.oid))
 		if err != nil {
 			return nil, fmt.Errorf("buildAnnotatedTag error when dereferencing tag: %v", err)
 		}
@@ -170,21 +180,16 @@ func buildAnnotatedTag(ctx context.Context, b Batch, object *Object, name []byte
 // This matches the original behavior in the ruby implementation.
 // we also protect against circular tag references. Even though this is not possible in git,
 // we still want to protect against an infinite looop
-func dereferenceTag(ctx context.Context, b Batch, oid git.Revision) (*gitalypb.GitCommit, error) {
+func dereferenceTag(ctx context.Context, objectReader ObjectReader, oid git.Revision) (*gitalypb.GitCommit, error) {
 	for depth := 0; depth < MaxTagReferenceDepth; depth++ {
-		i, err := b.Info(ctx, oid)
+		object, err := objectReader.Object(ctx, oid)
 		if err != nil {
 			return nil, err
 		}
 
-		switch i.Type {
+		switch object.Type {
 		case "tag":
-			tagObj, err := b.Tag(ctx, oid)
-			if err != nil {
-				return nil, err
-			}
-
-			header, _, err := splitRawTag(tagObj.Reader, true)
+			header, _, err := splitRawTag(object.Reader, true)
 			if err != nil {
 				return nil, err
 			}
@@ -192,8 +197,12 @@ func dereferenceTag(ctx context.Context, b Batch, oid git.Revision) (*gitalypb.G
 			oid = git.Revision(header.oid)
 			continue
 		case "commit":
-			return GetCommit(ctx, b, oid)
+			return ParseCommit(object.Reader, object.ObjectInfo.Oid)
 		default: // This current tag points to a tree or a blob
+			// We do not care whether discarding the object fails -- the worst that can
+			// happen is that the object reader is dirty after the RPC call finishes,
+			// and then we'll just create a new one when we require it again.
+			_, _ = io.Copy(io.Discard, object)
 			return nil, nil
 		}
 	}

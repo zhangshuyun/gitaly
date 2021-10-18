@@ -1210,10 +1210,13 @@ func TestFindTagNestedTag(t *testing.T) {
 			catfileCache := catfile.NewCache(cfg)
 			defer catfileCache.Stop()
 
-			batch, err := catfileCache.BatchProcess(ctx, repo)
+			objectReader, err := catfileCache.ObjectReader(ctx, repo)
 			require.NoError(t, err)
 
-			info, err := batch.Info(ctx, git.Revision(tc.originalOid))
+			objectInfoReader, err := catfileCache.ObjectInfoReader(ctx, repo)
+			require.NoError(t, err)
+
+			info, err := objectInfoReader.Info(ctx, git.Revision(tc.originalOid))
 			require.NoError(t, err)
 
 			tagID := tc.originalOid
@@ -1238,7 +1241,7 @@ func TestFindTagNestedTag(t *testing.T) {
 			}
 			// only expect the TargetCommit to be populated if it is a commit and if its less than 10 tags deep
 			if info.Type == "commit" && tc.depth < catfile.MaxTagReferenceDepth {
-				commit, err := catfile.GetCommit(ctx, batch, git.Revision(tc.originalOid))
+				commit, err := catfile.GetCommit(ctx, objectReader, git.Revision(tc.originalOid))
 				require.NoError(t, err)
 				expectedTag.TargetCommit = commit
 			}

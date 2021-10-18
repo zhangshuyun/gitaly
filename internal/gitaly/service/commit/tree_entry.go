@@ -12,10 +12,16 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 )
 
-func sendTreeEntry(stream gitalypb.CommitService_TreeEntryServer, c catfile.Batch, revision, path string, limit, maxSize int64) error {
+func sendTreeEntry(
+	stream gitalypb.CommitService_TreeEntryServer,
+	objectReader catfile.ObjectReader,
+	objectInfoReader catfile.ObjectInfoReader,
+	revision, path string,
+	limit, maxSize int64,
+) error {
 	ctx := stream.Context()
 
-	treeEntry, err := NewTreeEntryFinder(c).FindByRevisionAndPath(ctx, revision, path)
+	treeEntry, err := NewTreeEntryFinder(objectReader, objectInfoReader).FindByRevisionAndPath(ctx, revision, path)
 	if err != nil {
 		return err
 	}
@@ -38,7 +44,7 @@ func sendTreeEntry(stream gitalypb.CommitService_TreeEntryServer, c catfile.Batc
 	}
 
 	if treeEntry.Type == gitalypb.TreeEntry_TREE {
-		treeInfo, err := c.Info(ctx, git.Revision(treeEntry.Oid))
+		treeInfo, err := objectInfoReader.Info(ctx, git.Revision(treeEntry.Oid))
 		if err != nil {
 			return err
 		}
@@ -52,7 +58,7 @@ func sendTreeEntry(stream gitalypb.CommitService_TreeEntryServer, c catfile.Batc
 		return helper.ErrUnavailable(stream.Send(response))
 	}
 
-	objectInfo, err := c.Info(ctx, git.Revision(treeEntry.Oid))
+	objectInfo, err := objectInfoReader.Info(ctx, git.Revision(treeEntry.Oid))
 	if err != nil {
 		return helper.ErrInternalf("TreeEntry: %v", err)
 	}
@@ -87,9 +93,12 @@ func sendTreeEntry(stream gitalypb.CommitService_TreeEntryServer, c catfile.Batc
 		return helper.ErrUnavailable(stream.Send(response))
 	}
 
-	blobObj, err := c.Blob(ctx, git.Revision(objectInfo.Oid))
+	blobObj, err := objectReader.Object(ctx, git.Revision(objectInfo.Oid))
 	if err != nil {
 		return err
+	}
+	if blobObj.Type != "blob" {
+		return fmt.Errorf("blob has unexpected type %q", blobObj.Type)
 	}
 
 	sw := streamio.NewWriter(func(p []byte) error {
@@ -123,12 +132,17 @@ func (s *server) TreeEntry(in *gitalypb.TreeEntryRequest, stream gitalypb.Commit
 		requestPath = strings.TrimRight(requestPath, "/")
 	}
 
-	c, err := s.catfileCache.BatchProcess(stream.Context(), repo)
+	objectReader, err := s.catfileCache.ObjectReader(stream.Context(), repo)
 	if err != nil {
 		return err
 	}
 
-	return sendTreeEntry(stream, c, string(in.GetRevision()), requestPath, in.GetLimit(), in.GetMaxSize())
+	objectInfoReader, err := s.catfileCache.ObjectInfoReader(stream.Context(), repo)
+	if err != nil {
+		return err
+	}
+
+	return sendTreeEntry(stream, objectReader, objectInfoReader, string(in.GetRevision()), requestPath, in.GetLimit(), in.GetMaxSize())
 }
 
 func validateRequest(in *gitalypb.TreeEntryRequest) error {
