@@ -4,10 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"crypto/sha1"
 	"encoding/hex"
-	"math/big"
-	"regexp"
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
@@ -15,8 +12,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
-
-var refWhitelist = regexp.MustCompile(`HEAD|(refs/(heads|tags|keep-around|merge-requests|environments|notes)/)`)
 
 func (s *server) CalculateChecksum(ctx context.Context, in *gitalypb.CalculateChecksumRequest) (*gitalypb.CalculateChecksumResponse, error) {
 	repo := in.GetRepository()
@@ -35,35 +30,18 @@ func (s *server) CalculateChecksum(ctx context.Context, in *gitalypb.CalculateCh
 		return nil, status.Errorf(codes.Internal, "CalculateChecksum: gitCommand: %v", err)
 	}
 
-	var checksum *big.Int
+	var checksum git.Checksum
 
 	scanner := bufio.NewScanner(cmd)
 	for scanner.Scan() {
-		ref := scanner.Bytes()
-
-		if !refWhitelist.Match(ref) {
-			continue
-		}
-
-		h := sha1.New()
-		// hash.Hash will never return an error.
-		_, _ = h.Write(ref)
-
-		hash := hex.EncodeToString(h.Sum(nil))
-		hashIntBase16, _ := (&big.Int{}).SetString(hash, 16)
-
-		if checksum == nil {
-			checksum = hashIntBase16
-		} else {
-			checksum.Xor(checksum, hashIntBase16)
-		}
+		checksum.AddBytes(scanner.Bytes())
 	}
 
 	if err := scanner.Err(); err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	if err := cmd.Wait(); checksum == nil || err != nil {
+	if err := cmd.Wait(); checksum.IsZero() || err != nil {
 		if s.isValidRepo(ctx, repo) {
 			return &gitalypb.CalculateChecksumResponse{Checksum: git.ZeroOID.String()}, nil
 		}
