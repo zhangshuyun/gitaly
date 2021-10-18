@@ -254,7 +254,8 @@ func TestVersion_FlushesUpdaterefStatus(t *testing.T) {
 		{"2.33.0.gl0", false},
 		{"2.33.0.gl2", false},
 		{"2.33.0.gl3", true},
-		{"2.33.1", false},
+		{"2.33.0.gl4", true},
+		{"2.33.1", true},
 		{"3.0.0", true},
 		{"3.0.0.gl5", true},
 	} {
