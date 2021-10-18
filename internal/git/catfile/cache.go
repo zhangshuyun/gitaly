@@ -58,8 +58,8 @@ type ProcessCache struct {
 	monitorTicker *time.Ticker
 	monitorDone   chan interface{}
 
-	objectReaders     stack
-	objectInfoReaders stack
+	objectReaders     processes
+	objectInfoReaders processes
 
 	catfileCacheCounter     *prometheus.CounterVec
 	currentCatfileProcesses prometheus.Gauge
@@ -85,10 +85,10 @@ func newCache(ttl time.Duration, maxLen int, refreshInterval time.Duration) *Pro
 
 	processCache := &ProcessCache{
 		ttl: ttl,
-		objectReaders: stack{
+		objectReaders: processes{
 			maxLen: maxLen,
 		},
-		objectInfoReaders: stack{
+		objectInfoReaders: processes{
 			maxLen: maxLen,
 		},
 		catfileCacheCounter: prometheus.NewCounterVec(
@@ -207,7 +207,7 @@ func (c *ProcessCache) ObjectInfoReader(ctx context.Context, repo git.Repository
 func (c *ProcessCache) getOrCreateProcess(
 	ctx context.Context,
 	repo repository.GitRepo,
-	stack *stack,
+	processes *processes,
 	create func(context.Context) (cacheable, error),
 ) (_ cacheable, returnedErr error) {
 	requestDone := ctx.Done()
@@ -226,8 +226,8 @@ func (c *ProcessCache) getOrCreateProcess(
 		// disallow trivial denial of service attacks against other users in case it is
 		// possible to poison the cache with broken git-cat-file(1) processes.
 
-		if entry, ok := stack.Checkout(cacheKey); ok {
-			go c.returnWhenDone(requestDone, stack, cacheKey, entry.value, entry.cancel)
+		if entry, ok := processes.Checkout(cacheKey); ok {
+			go c.returnWhenDone(requestDone, processes, cacheKey, entry.value, entry.cancel)
 			c.catfileCacheCounter.WithLabelValues("hit").Inc()
 			return entry.value, nil
 		}
@@ -274,7 +274,7 @@ func (c *ProcessCache) getOrCreateProcess(
 	if isCacheable {
 		// If the process is cacheable, then we want to put the process into the cache when
 		// the current outer context is done.
-		go c.returnWhenDone(requestDone, stack, cacheKey, batch, cancel)
+		go c.returnWhenDone(requestDone, processes, cacheKey, batch, cancel)
 	}
 
 	return batch, nil
@@ -291,7 +291,7 @@ func (c *ProcessCache) Evict() {
 	c.objectInfoReaders.Evict()
 }
 
-func (c *ProcessCache) returnWhenDone(done <-chan struct{}, s *stack, cacheKey key, value cacheable, cancel func()) {
+func (c *ProcessCache) returnWhenDone(done <-chan struct{}, p *processes, cacheKey key, value cacheable, cancel func()) {
 	<-done
 
 	defer func() {
@@ -315,7 +315,7 @@ func (c *ProcessCache) returnWhenDone(done <-chan struct{}, s *stack, cacheKey k
 		return
 	}
 
-	if replaced := s.Add(cacheKey, value, c.ttl, cancel); replaced {
+	if replaced := p.Add(cacheKey, value, c.ttl, cancel); replaced {
 		c.catfileCacheCounter.WithLabelValues("duplicate").Inc()
 	}
 }
@@ -349,22 +349,22 @@ type entry struct {
 	cancel func()
 }
 
-type stack struct {
+type processes struct {
 	maxLen int
 
 	entriesMutex sync.Mutex
 	entries      []*entry
 }
 
-// Add adds a key, value pair to s. If there are too many keys in s
+// Add adds a key, value pair to p. If there are too many keys in p
 // already add will evict old keys until the length is OK again.
-func (s *stack) Add(k key, value cacheable, ttl time.Duration, cancel func()) bool {
-	s.entriesMutex.Lock()
-	defer s.entriesMutex.Unlock()
+func (p *processes) Add(k key, value cacheable, ttl time.Duration, cancel func()) bool {
+	p.entriesMutex.Lock()
+	defer p.entriesMutex.Unlock()
 
 	replacedExisting := false
-	if i, ok := s.lookup(k); ok {
-		s.delete(i, true)
+	if i, ok := p.lookup(k); ok {
+		p.delete(i, true)
 		replacedExisting = true
 	}
 
@@ -374,64 +374,64 @@ func (s *stack) Add(k key, value cacheable, ttl time.Duration, cancel func()) bo
 		expiry: time.Now().Add(ttl),
 		cancel: cancel,
 	}
-	s.entries = append(s.entries, ent)
+	p.entries = append(p.entries, ent)
 
-	for len(s.entries) > s.maxLen {
-		s.evictHead()
+	for len(p.entries) > p.maxLen {
+		p.evictHead()
 	}
 
 	return replacedExisting
 }
 
-// Checkout removes a value from s. After use the caller can re-add the value with s.Add.
-func (s *stack) Checkout(k key) (*entry, bool) {
-	s.entriesMutex.Lock()
-	defer s.entriesMutex.Unlock()
+// Checkout removes a value from p. After use the caller can re-add the value with p.Add.
+func (p *processes) Checkout(k key) (*entry, bool) {
+	p.entriesMutex.Lock()
+	defer p.entriesMutex.Unlock()
 
-	i, ok := s.lookup(k)
+	i, ok := p.lookup(k)
 	if !ok {
 		return nil, false
 	}
 
-	entry := s.entries[i]
-	s.delete(i, false)
+	entry := p.entries[i]
+	p.delete(i, false)
 	return entry, true
 }
 
 // EnforceTTL evicts all entries older than now, assuming the entry
 // expiry times are increasing.
-func (s *stack) EnforceTTL(now time.Time) {
-	s.entriesMutex.Lock()
-	defer s.entriesMutex.Unlock()
+func (p *processes) EnforceTTL(now time.Time) {
+	p.entriesMutex.Lock()
+	defer p.entriesMutex.Unlock()
 
-	for len(s.entries) > 0 && now.After(s.head().expiry) {
-		s.evictHead()
+	for len(p.entries) > 0 && now.After(p.head().expiry) {
+		p.evictHead()
 	}
 }
 
 // Evict evicts all cached processes from the cache.
-func (s *stack) Evict() {
-	s.entriesMutex.Lock()
-	defer s.entriesMutex.Unlock()
+func (p *processes) Evict() {
+	p.entriesMutex.Lock()
+	defer p.entriesMutex.Unlock()
 
-	for len(s.entries) > 0 {
-		s.evictHead()
+	for len(p.entries) > 0 {
+		p.evictHead()
 	}
 }
 
 // EntryCount returns the number of cached entries. This function will locks the ProcessCache to
 // avoid races.
-func (s *stack) EntryCount() int {
-	s.entriesMutex.Lock()
-	defer s.entriesMutex.Unlock()
-	return len(s.entries)
+func (p *processes) EntryCount() int {
+	p.entriesMutex.Lock()
+	defer p.entriesMutex.Unlock()
+	return len(p.entries)
 }
 
-func (s *stack) head() *entry { return s.entries[0] }
-func (s *stack) evictHead()   { s.delete(0, true) }
+func (p *processes) head() *entry { return p.entries[0] }
+func (p *processes) evictHead()   { p.delete(0, true) }
 
-func (s *stack) lookup(k key) (int, bool) {
-	for i, ent := range s.entries {
+func (p *processes) lookup(k key) (int, bool) {
+	for i, ent := range p.entries {
 		if ent.key == k {
 			return i, true
 		}
@@ -440,13 +440,13 @@ func (s *stack) lookup(k key) (int, bool) {
 	return -1, false
 }
 
-func (s *stack) delete(i int, wantClose bool) {
-	ent := s.entries[i]
+func (p *processes) delete(i int, wantClose bool) {
+	ent := p.entries[i]
 
 	if wantClose {
 		ent.value.close()
 		ent.cancel()
 	}
 
-	s.entries = append(s.entries[:i], s.entries[i+1:]...)
+	p.entries = append(p.entries[:i], p.entries[i+1:]...)
 }
