@@ -69,8 +69,8 @@ func TestParallelPipeline(t *testing.T) {
 				defer cancel()
 
 				for i := 0; i < 10; i++ {
-					p.Handle(ctx, NewCreateCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{StorageName: "storage1"}))
-					p.Handle(ctx, NewCreateCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{StorageName: "storage2"}))
+					p.Handle(ctx, NewCreateCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{StorageName: "storage1"}, false))
+					p.Handle(ctx, NewCreateCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{StorageName: "storage2"}, false))
 				}
 				require.NoError(t, p.Done())
 			})
@@ -88,7 +88,7 @@ func TestParallelPipeline(t *testing.T) {
 		cancel()
 		<-ctx.Done()
 
-		p.Handle(ctx, NewCreateCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{StorageName: "default"}))
+		p.Handle(ctx, NewCreateCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{StorageName: "default"}, false))
 
 		err := p.Done()
 		require.EqualError(t, err, "pipeline: context canceled")
@@ -136,9 +136,9 @@ func testPipeline(t *testing.T, init func() Pipeline) {
 		defer cancel()
 
 		commands := []Command{
-			NewCreateCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{StorageName: "normal"}),
-			NewCreateCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{StorageName: "skip"}),
-			NewCreateCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{StorageName: "error"}),
+			NewCreateCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{StorageName: "normal"}, false),
+			NewCreateCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{StorageName: "skip"}, false),
+			NewCreateCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{StorageName: "error"}, false),
 		}
 		for _, cmd := range commands {
 			p.Handle(ctx, cmd)
