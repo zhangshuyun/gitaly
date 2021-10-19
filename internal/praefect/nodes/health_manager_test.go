@@ -473,7 +473,8 @@ func TestHealthManager(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			db.TruncateAll(t)
+			tx := db.Begin(t)
+			defer tx.Rollback(t)
 
 			healthStatus := map[string]grpc_health_v1.HealthCheckResponse_ServingStatus{}
 			// healthManagers are cached in order to keep the internal state intact between different
@@ -497,7 +498,7 @@ func TestHealthManager(t *testing.T) {
 						}
 					}
 
-					hm = NewHealthManager(testhelper.DiscardTestLogger(t), db, hc.PraefectName, clients)
+					hm = NewHealthManager(testhelper.DiscardTestLogger(t), tx, hc.PraefectName, clients)
 					hm.handleError = func(err error) error { return err }
 					healthManagers[hc.PraefectName] = hm
 				}
@@ -517,7 +518,7 @@ func TestHealthManager(t *testing.T) {
 				// predate earlier health checks to simulate this health check being run after a certain
 				// time period
 				if hc.After > 0 {
-					predateHealthChecks(t, db, hc.After)
+					predateHealthChecks(t, ctx, tx, hc.After)
 				}
 
 				expectedHealthyNodes := map[string][]string{}
@@ -557,10 +558,10 @@ func TestHealthManager(t *testing.T) {
 	}
 }
 
-func predateHealthChecks(t testing.TB, db glsql.DB, amount time.Duration) {
+func predateHealthChecks(t testing.TB, ctx context.Context, db glsql.Querier, amount time.Duration) {
 	t.Helper()
 
-	_, err := db.Exec(`
+	_, err := db.ExecContext(ctx, `
 		UPDATE node_status SET
 			last_contact_attempt_at = last_contact_attempt_at - INTERVAL '1 MICROSECOND' * $1,
 			last_seen_active_at = last_seen_active_at - INTERVAL '1 MICROSECOND' * $1

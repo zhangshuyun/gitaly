@@ -58,7 +58,8 @@ func TestRemoveRepositoryHandler(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			db.TruncateAll(t)
+			tx := db.Begin(t)
+			defer tx.Rollback(t)
 
 			const gitaly1Storage = "gitaly-1"
 			gitaly1Cfg := testcfg.Build(t, testcfg.WithStorages(gitaly1Storage))
@@ -84,7 +85,7 @@ func TestRemoveRepositoryHandler(t *testing.T) {
 				gittest.Exec(t, gitaly1Cfg, "init", "--bare", repoPath)
 			}
 
-			rs := datastore.NewPostgresRepositoryStore(db, cfg.StorageNames())
+			rs := datastore.NewPostgresRepositoryStore(tx, cfg.StorageNames())
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()

@@ -639,7 +639,9 @@ func TestRenameRepository(t *testing.T) {
 	defer tx.Rollback(t)
 
 	rs := datastore.NewPostgresRepositoryStore(tx, nil)
-	require.NoError(t, rs.CreateRepository(ctx, 1, "praefect", repo.RelativePath, "gitaly-1", []string{"gitaly-2", "gitaly-3"}, nil, true, false))
+	repositoryID, err := rs.ReserveRepositoryID(ctx, "praefect", repo.RelativePath)
+	require.NoError(t, err)
+	require.NoError(t, rs.CreateRepository(ctx, repositoryID, "praefect", repo.RelativePath, "gitaly-1", []string{"gitaly-2", "gitaly-3"}, nil, true, false))
 
 	nodeSet, err := DialNodes(ctx, praefectCfg.VirtualStorages, nil, nil, nil, nil)
 	require.NoError(t, err)

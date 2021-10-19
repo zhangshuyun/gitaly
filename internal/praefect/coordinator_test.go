@@ -74,7 +74,8 @@ func TestStreamDirectorReadOnlyEnforcement(t *testing.T) {
 		{desc: "read-only", readOnly: true},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			db.TruncateAll(t)
+			tx := db.Begin(t)
+			defer tx.Rollback(t)
 
 			const (
 				virtualStorage = "test-virtual-storage"
@@ -108,7 +109,7 @@ func TestStreamDirectorReadOnlyEnforcement(t *testing.T) {
 			}
 
 			coordinator := NewCoordinator(
-				datastore.NewPostgresReplicationEventQueue(db),
+				datastore.NewPostgresReplicationEventQueue(tx),
 				rs,
 				NewNodeManagerRouter(&nodes.MockManager{GetShardFunc: func(vs string) (nodes.Shard, error) {
 					require.Equal(t, virtualStorage, vs)
@@ -198,7 +199,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 			}
 
 			testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": conf.StorageNames()})
-			queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(db))
+			queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(tx))
 			queueInterceptor.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
 				assert.True(t, len(queueInterceptor.GetEnqueued()) < 2, "expected only one event to be created")
 				return queue.Enqueue(ctx, event)
@@ -821,7 +822,8 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			db.TruncateAll(t)
+			tx := db.Begin(t)
+			defer tx.Rollback(t)
 			primaryNode := &config.Node{Storage: "praefect-internal-1"}
 			healthySecondaryNode := &config.Node{Storage: "praefect-internal-2"}
 			unhealthySecondaryNode := &config.Node{Storage: "praefect-internal-3"}
@@ -924,7 +926,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 			}
 
 			txMgr := transactions.NewManager(conf)
-			queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(db))
+			queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(tx))
 
 			coordinator := NewCoordinator(
 				queueInterceptor,

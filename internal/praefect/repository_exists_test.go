@@ -68,8 +68,10 @@ func TestRepositoryExistsHandler(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			db.TruncateAll(t)
-			rs := datastore.NewPostgresRepositoryStore(db, map[string][]string{"virtual-storage": {"storage"}})
+			tx := db.Begin(t)
+			defer tx.Rollback(t)
+
+			rs := datastore.NewPostgresRepositoryStore(tx, map[string][]string{"virtual-storage": {"storage"}})
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()

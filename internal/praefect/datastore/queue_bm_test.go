@@ -9,22 +9,22 @@ import (
 )
 
 func BenchmarkPostgresReplicationEventQueue_Acknowledge(b *testing.B) {
-	// go test -tags=postgres -test.run=~ -test.bench=BenchmarkPostgresReplicationEventQueue_Acknowledge/small -benchtime=1000x gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore
+	// go test -test.run=~ -test.bench=BenchmarkPostgresReplicationEventQueue_Acknowledge/small -benchtime=1000x gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore
 	b.Run("small", func(b *testing.B) {
 		benchmarkPostgresReplicationEventQueueAcknowledge(b, map[JobState]int{JobStateReady: 10, JobStateInProgress: 10, JobStateFailed: 10})
 	})
 
-	// go test -tags=postgres -test.run=~ -test.bench=BenchmarkPostgresReplicationEventQueue_Acknowledge/medium -benchtime=100x gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore
+	// go test -test.run=~ -test.bench=BenchmarkPostgresReplicationEventQueue_Acknowledge/medium -benchtime=100x gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore
 	b.Run("medium", func(b *testing.B) {
 		benchmarkPostgresReplicationEventQueueAcknowledge(b, map[JobState]int{JobStateReady: 1_000, JobStateInProgress: 100, JobStateFailed: 100})
 	})
 
-	// go test -tags=postgres -test.run=~ -test.bench=BenchmarkPostgresReplicationEventQueue_Acknowledge/big -benchtime=10x gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore
+	// go test -test.run=~ -test.bench=BenchmarkPostgresReplicationEventQueue_Acknowledge/big -benchtime=10x gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore
 	b.Run("big", func(b *testing.B) {
 		benchmarkPostgresReplicationEventQueueAcknowledge(b, map[JobState]int{JobStateReady: 100_000, JobStateInProgress: 100, JobStateFailed: 100})
 	})
 
-	// go test -tags=postgres -test.run=~ -test.bench=BenchmarkPostgresReplicationEventQueue_Acknowledge/huge -benchtime=1x gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore
+	// go test -test.run=~ -test.bench=BenchmarkPostgresReplicationEventQueue_Acknowledge/huge -benchtime=1x gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore
 	b.Run("huge", func(b *testing.B) {
 		benchmarkPostgresReplicationEventQueueAcknowledge(b, map[JobState]int{JobStateReady: 1_000_000, JobStateInProgress: 100, JobStateFailed: 100})
 	})
@@ -36,7 +36,7 @@ func benchmarkPostgresReplicationEventQueueAcknowledge(b *testing.B, setup map[J
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	queue := PostgresReplicationEventQueue{db.DB}
+	queue := PostgresReplicationEventQueue{qc: db.DB}
 	eventTmpl := ReplicationEvent{
 		Job: ReplicationJob{
 			Change:            UpdateRepo,
@@ -59,7 +59,7 @@ func benchmarkPostgresReplicationEventQueueAcknowledge(b *testing.B, setup map[J
 		b.StopTimer()
 		b.ResetTimer()
 
-		db.TruncateAll(b)
+		db.Truncate(b, "replication_queue_job_lock", "replication_queue", "replication_queue_lock")
 
 		total := 0
 		for _, count := range setup {
@@ -67,7 +67,7 @@ func benchmarkPostgresReplicationEventQueueAcknowledge(b *testing.B, setup map[J
 			total += count
 		}
 
-		_, err := db.DB.ExecContext(
+		_, err := db.ExecContext(
 			ctx,
 			`INSERT INTO replication_queue (state, lock_id, job)
 			SELECT 'ready', 'praefect|gitaly-1|/project/path-'|| T.I, ('{"change":"update","relative_path":"/project/path-'|| T.I || '","virtual_storage":"praefect","source_node_storage":"gitaly-0","target_node_storage":"gitaly-1"}')::JSONB
@@ -76,7 +76,7 @@ func benchmarkPostgresReplicationEventQueueAcknowledge(b *testing.B, setup map[J
 		)
 		require.NoError(b, err)
 
-		_, err = db.DB.ExecContext(
+		_, err = db.ExecContext(
 			ctx,
 			`INSERT INTO replication_queue_lock
 			SELECT DISTINCT lock_id FROM replication_queue`,

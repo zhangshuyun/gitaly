@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
@@ -39,6 +40,8 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 		generation         int
 		expectedGeneration int
 	}
+
+	db := glsql.NewDB(t)
 
 	testcases := []struct {
 		desc                                 string
@@ -153,11 +156,10 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 		},
 	}
 
-	db := glsql.NewDB(t)
-
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			db.TruncateAll(t)
+			db.Truncate(t, "replication_queue_job_lock", "replication_queue", "replication_queue_lock")
+			db.SequenceReset(t)
 
 			storageNodes := make([]*config.Node, 0, len(tc.nodes))
 			for i := range tc.nodes {
@@ -208,6 +210,13 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 				if !repoCreated {
 					repoCreated = true
 					require.NoError(t, rs.CreateRepository(ctx, 1, repo.StorageName, repo.RelativePath, storageNodes[i].Storage, nil, nil, true, false))
+					defer func() {
+						repositoryStore := datastore.NewPostgresRepositoryStore(db, nil)
+						_, _, err := repositoryStore.DeleteRepository(ctx, repo.StorageName, repo.RelativePath)
+						if !errors.As(err, &commonerr.RepositoryNotFoundError{}) {
+							require.NoError(t, err)
+						}
+					}()
 				}
 
 				require.NoError(t, rs.SetGeneration(ctx, 1, storageNodes[i].Storage, n.generation))

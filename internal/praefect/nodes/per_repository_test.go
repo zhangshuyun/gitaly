@@ -485,8 +485,6 @@ func TestPerRepositoryElector(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			db.TruncateAll(t)
-
 			rs := datastore.NewPostgresRepositoryStore(db, nil)
 			for virtualStorage, relativePaths := range tc.state {
 				for relativePath, storages := range relativePaths {
@@ -498,6 +496,10 @@ func TestPerRepositoryElector(t *testing.T) {
 						if !repoCreated {
 							repoCreated = true
 							require.NoError(t, rs.CreateRepository(ctx, repositoryID, virtualStorage, relativePath, storage, nil, nil, false, false))
+							defer func(virtualStorage, relativePath string) {
+								_, _, err = rs.DeleteRepository(ctx, virtualStorage, relativePath)
+								require.NoError(t, err)
+							}(virtualStorage, relativePath)
 						}
 
 						require.NoError(t, rs.SetGeneration(ctx, repositoryID, storage, record.generation))
@@ -520,11 +522,15 @@ func TestPerRepositoryElector(t *testing.T) {
 
 				event.Job.RepositoryID = repositoryID
 
-				_, err = db.ExecContext(ctx,
-					"INSERT INTO replication_queue (state, job) VALUES ($1, $2)",
+				var id int64
+				require.NoError(t, db.QueryRowContext(ctx,
+					"INSERT INTO replication_queue (state, job) VALUES ($1, $2) RETURNING id",
 					event.State, event.Job,
-				)
-				require.NoError(t, err)
+				).Scan(&id))
+				t.Cleanup(func() {
+					_, err = db.ExecContext(ctx, `DELETE FROM replication_queue WHERE id = $1`, id)
+					require.NoError(t, err)
+				})
 			}
 
 			previousPrimary := ""

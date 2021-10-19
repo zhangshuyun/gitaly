@@ -84,9 +84,10 @@ func TestReplicatorDestroy(t *testing.T) {
 		{change: datastore.DeleteRepo},
 	} {
 		t.Run(string(tc.change), func(t *testing.T) {
-			db.TruncateAll(t)
+			tx := db.Begin(t)
+			defer tx.Rollback(t)
 
-			rs := datastore.NewPostgresRepositoryStore(db, nil)
+			rs := datastore.NewPostgresRepositoryStore(tx, nil)
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()

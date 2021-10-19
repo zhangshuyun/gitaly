@@ -1,6 +1,7 @@
 package datastore
 
 import (
+	"context"
 	"database/sql"
 	"testing"
 	"time"
@@ -18,18 +19,18 @@ func TestStorageCleanup_Populate(t *testing.T) {
 	storageCleanup := NewStorageCleanup(db.DB)
 
 	require.NoError(t, storageCleanup.Populate(ctx, "praefect", "gitaly-1"))
-	actual := getAllStoragesCleanup(t, db)
+	actual := getAllStoragesCleanup(t, ctx, db)
 	single := []storageCleanupRow{{ClusterPath: ClusterPath{VirtualStorage: "praefect", Storage: "gitaly-1"}}}
 	require.Equal(t, single, actual)
 
 	err := storageCleanup.Populate(ctx, "praefect", "gitaly-1")
 	require.NoError(t, err, "population of the same data should not generate an error")
-	actual = getAllStoragesCleanup(t, db)
+	actual = getAllStoragesCleanup(t, ctx, db)
 	require.Equal(t, single, actual, "same data should not create additional rows or change existing")
 
 	require.NoError(t, storageCleanup.Populate(ctx, "default", "gitaly-2"))
 	multiple := append(single, storageCleanupRow{ClusterPath: ClusterPath{VirtualStorage: "default", Storage: "gitaly-2"}})
-	actual = getAllStoragesCleanup(t, db)
+	actual = getAllStoragesCleanup(t, ctx, db)
 	require.ElementsMatch(t, multiple, actual, "new data should create additional row")
 }
 
@@ -38,10 +39,12 @@ func TestStorageCleanup_AcquireNextStorage(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	db := glsql.NewDB(t)
-	storageCleanup := NewStorageCleanup(db.DB)
 
 	t.Run("ok", func(t *testing.T) {
-		db.TruncateAll(t)
+		tx := db.Begin(t)
+		defer tx.Rollback(t)
+		storageCleanup := NewStorageCleanup(tx)
+
 		require.NoError(t, storageCleanup.Populate(ctx, "vs", "g1"))
 
 		clusterPath, release, err := storageCleanup.AcquireNextStorage(ctx, 0, time.Second)
@@ -51,7 +54,10 @@ func TestStorageCleanup_AcquireNextStorage(t *testing.T) {
 	})
 
 	t.Run("last_run condition", func(t *testing.T) {
-		db.TruncateAll(t)
+		tx := db.Begin(t)
+		defer tx.Rollback(t)
+		storageCleanup := NewStorageCleanup(tx)
+
 		require.NoError(t, storageCleanup.Populate(ctx, "vs", "g1"))
 		// Acquire it to initialize last_run column.
 		_, release, err := storageCleanup.AcquireNextStorage(ctx, 0, time.Second)
@@ -65,7 +71,10 @@ func TestStorageCleanup_AcquireNextStorage(t *testing.T) {
 	})
 
 	t.Run("sorting based on storage name as no executions done yet", func(t *testing.T) {
-		db.TruncateAll(t)
+		tx := db.Begin(t)
+		defer tx.Rollback(t)
+		storageCleanup := NewStorageCleanup(tx)
+
 		require.NoError(t, storageCleanup.Populate(ctx, "vs", "g1"))
 		require.NoError(t, storageCleanup.Populate(ctx, "vs", "g2"))
 		require.NoError(t, storageCleanup.Populate(ctx, "vs", "g3"))
@@ -77,7 +86,10 @@ func TestStorageCleanup_AcquireNextStorage(t *testing.T) {
 	})
 
 	t.Run("sorting based on storage name and last_run", func(t *testing.T) {
-		db.TruncateAll(t)
+		tx := db.Begin(t)
+		defer tx.Rollback(t)
+		storageCleanup := NewStorageCleanup(tx)
+
 		require.NoError(t, storageCleanup.Populate(ctx, "vs", "g1"))
 		_, release, err := storageCleanup.AcquireNextStorage(ctx, 0, time.Second)
 		require.NoError(t, err)
@@ -91,7 +103,10 @@ func TestStorageCleanup_AcquireNextStorage(t *testing.T) {
 	})
 
 	t.Run("sorting based on last_run", func(t *testing.T) {
-		db.TruncateAll(t)
+		tx := db.Begin(t)
+		defer tx.Rollback(t)
+		storageCleanup := NewStorageCleanup(tx)
+
 		require.NoError(t, storageCleanup.Populate(ctx, "vs", "g1"))
 		require.NoError(t, storageCleanup.Populate(ctx, "vs", "g2"))
 		clusterPath, release, err := storageCleanup.AcquireNextStorage(ctx, 0, time.Second)
@@ -110,7 +125,10 @@ func TestStorageCleanup_AcquireNextStorage(t *testing.T) {
 	})
 
 	t.Run("already acquired won't be acquired until released", func(t *testing.T) {
-		db.TruncateAll(t)
+		tx := db.Begin(t)
+		defer tx.Rollback(t)
+		storageCleanup := NewStorageCleanup(tx)
+
 		require.NoError(t, storageCleanup.Populate(ctx, "vs", "g1"))
 		_, release1, err := storageCleanup.AcquireNextStorage(ctx, 0, time.Second)
 		require.NoError(t, err)
@@ -128,7 +146,10 @@ func TestStorageCleanup_AcquireNextStorage(t *testing.T) {
 	})
 
 	t.Run("already acquired won't be acquired until released", func(t *testing.T) {
-		db.TruncateAll(t)
+		tx := db.Begin(t)
+		defer tx.Rollback(t)
+		storageCleanup := NewStorageCleanup(tx)
+
 		require.NoError(t, storageCleanup.Populate(ctx, "vs", "g1"))
 		_, release1, err := storageCleanup.AcquireNextStorage(ctx, 0, time.Second)
 		require.NoError(t, err)
@@ -146,30 +167,33 @@ func TestStorageCleanup_AcquireNextStorage(t *testing.T) {
 	})
 
 	t.Run("acquired for long time triggers update loop", func(t *testing.T) {
-		db.TruncateAll(t)
+		tx := db.Begin(t)
+		defer tx.Rollback(t)
+		storageCleanup := NewStorageCleanup(tx)
+
 		require.NoError(t, storageCleanup.Populate(ctx, "vs", "g1"))
 		start := time.Now().UTC()
 		_, release, err := storageCleanup.AcquireNextStorage(ctx, 0, 200*time.Millisecond)
 		require.NoError(t, err)
 
 		// Make sure the triggered_at column has a non NULL value after the record is acquired.
-		check1 := getAllStoragesCleanup(t, db)
+		check1 := getAllStoragesCleanup(t, ctx, tx)
 		require.Len(t, check1, 1)
 		require.True(t, check1[0].TriggeredAt.Valid)
-		require.True(t, check1[0].TriggeredAt.Time.After(start), check1[0].TriggeredAt.Time.String(), start.String())
+		require.Truef(t, check1[0].TriggeredAt.Time.After(start), "%s is not after %s", check1[0].TriggeredAt, start)
 
 		// Check the goroutine running in the background updates triggered_at column periodically.
 		time.Sleep(time.Second)
 
-		check2 := getAllStoragesCleanup(t, db)
+		check2 := getAllStoragesCleanup(t, ctx, tx)
 		require.Len(t, check2, 1)
 		require.True(t, check2[0].TriggeredAt.Valid)
-		require.True(t, check2[0].TriggeredAt.Time.After(check1[0].TriggeredAt.Time), check2[0].TriggeredAt.Time.String(), check1[0].TriggeredAt.Time.String())
+		require.Truef(t, check2[0].TriggeredAt.Time.After(check1[0].TriggeredAt.Time), "%s is not after %s", check2[0].TriggeredAt, check1[0].TriggeredAt)
 
 		require.NoError(t, release())
 
 		// Make sure the triggered_at column has a NULL value after the record is released.
-		check3 := getAllStoragesCleanup(t, db)
+		check3 := getAllStoragesCleanup(t, ctx, tx)
 		require.Len(t, check3, 1)
 		require.False(t, check3[0].TriggeredAt.Valid)
 	})
@@ -264,8 +288,8 @@ type storageCleanupRow struct {
 	TriggeredAt sql.NullTime
 }
 
-func getAllStoragesCleanup(t testing.TB, db glsql.DB) []storageCleanupRow {
-	rows, err := db.Query(`SELECT * FROM storage_cleanups`)
+func getAllStoragesCleanup(t testing.TB, ctx context.Context, db glsql.Querier) []storageCleanupRow {
+	rows, err := db.QueryContext(ctx, `SELECT * FROM storage_cleanups`)
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, rows.Close())

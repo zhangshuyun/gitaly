@@ -3,6 +3,7 @@ package reconciler
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"sort"
 	"testing"
@@ -1026,7 +1027,8 @@ func TestReconciler(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			db.TruncateAll(t)
+			db.Truncate(t, "replication_queue")
+			db.SequenceReset(t)
 
 			// set up the repository generation records expected by the test case
 			rs := datastore.NewPostgresRepositoryStore(db, configuredStorages)
@@ -1044,6 +1046,13 @@ func TestReconciler(t *testing.T) {
 								require.NoError(t, err)
 
 								require.NoError(t, rs.CreateRepository(ctx, repositoryID, virtualStorage, relativePath, storage, nil, nil, false, false))
+
+								defer func(virtualStorage, relativePath string) {
+									_, _, err := rs.DeleteRepository(ctx, virtualStorage, relativePath)
+									if !errors.As(err, &commonerr.RepositoryNotFoundError{}) {
+										require.NoError(t, err)
+									}
+								}(virtualStorage, relativePath)
 							}
 
 							require.NoError(t, rs.SetGeneration(ctx, repositoryID, storage, repo.generation))

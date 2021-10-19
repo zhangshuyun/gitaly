@@ -79,9 +79,10 @@ func TestAssignmentStore_GetHostAssignments(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			db.TruncateAll(t)
+			tx := db.Begin(t)
+			defer tx.Rollback(t)
 
-			rs := NewPostgresRepositoryStore(db, nil)
+			rs := NewPostgresRepositoryStore(tx, nil)
 			for _, assignment := range tc.existingAssignments {
 				repositoryID, err := rs.GetRepositoryID(ctx, assignment.virtualStorage, assignment.relativePath)
 				if errors.Is(err, commonerr.NewRepositoryNotFoundError(assignment.virtualStorage, assignment.relativePath)) {
@@ -104,7 +105,7 @@ func TestAssignmentStore_GetHostAssignments(t *testing.T) {
 			}
 
 			actualAssignments, err := NewAssignmentStore(
-				db,
+				tx,
 				map[string][]string{"virtual-storage": configuredStorages},
 			).GetHostAssignments(ctx, tc.virtualStorage, repositoryID)
 			require.Equal(t, tc.error, err)
@@ -210,26 +211,28 @@ func TestAssignmentStore_SetReplicationFactor(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			db.TruncateAll(t)
+			tx := db.Begin(t)
+			defer tx.Rollback(t)
 
 			configuredStorages := map[string][]string{"virtual-storage": {"primary", "secondary-1", "secondary-2"}}
 
 			if !tc.nonExistentRepository {
-				_, err := db.ExecContext(ctx, `
+				_, err := tx.ExecContext(ctx, `
 					INSERT INTO repositories (virtual_storage, relative_path, "primary", repository_id)
-					VALUES ('virtual-storage', 'relative-path', 'primary', 1)
+					VALUES ('virtual-storage', 'relative-path', 'primary', 1000)
 				`)
 				require.NoError(t, err)
 			}
 
 			for _, storage := range tc.existingAssignments {
-				_, err := db.ExecContext(ctx, `
-					INSERT INTO repository_assignments VALUES ('virtual-storage', 'relative-path', $1, 1)
+				_, err := tx.ExecContext(ctx, `
+					INSERT INTO repository_assignments (virtual_storage, relative_path, storage, repository_id)
+					VALUES ('virtual-storage', 'relative-path', $1, 1000)
 				`, storage)
 				require.NoError(t, err)
 			}
 
-			store := NewAssignmentStore(db, configuredStorages)
+			store := NewAssignmentStore(tx, configuredStorages)
 
 			setStorages, err := store.SetReplicationFactor(ctx, "virtual-storage", "relative-path", tc.replicationFactor)
 			require.Equal(t, tc.error, err)
@@ -246,10 +249,10 @@ func TestAssignmentStore_SetReplicationFactor(t *testing.T) {
 			tc.requireStorages(t, assignedStorages)
 
 			var storagesWithIncorrectRepositoryID pq.StringArray
-			require.NoError(t, db.QueryRowContext(ctx, `
+			require.NoError(t, tx.QueryRowContext(ctx, `
 				SELECT array_agg(storage)
 				FROM repository_assignments
-				WHERE COALESCE(repository_id != 1, true)
+				WHERE COALESCE(repository_id != 1000, true)
 			`).Scan(&storagesWithIncorrectRepositoryID))
 			require.Empty(t, storagesWithIncorrectRepositoryID)
 		})

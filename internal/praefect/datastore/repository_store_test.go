@@ -118,12 +118,13 @@ FROM storage_repositories
 func TestRepositoryStore_Postgres(t *testing.T) {
 	db := glsql.NewDB(t)
 	testRepositoryStore(t, func(t *testing.T, storages map[string][]string) (RepositoryStore, requireStateFunc) {
-		db.TruncateAll(t)
-		gs := NewPostgresRepositoryStore(db, storages)
+		tx := db.Begin(t)
+		t.Cleanup(func() { tx.Rollback(t) })
+		gs := NewPostgresRepositoryStore(tx, storages)
 
 		return gs, func(t *testing.T, ctx context.Context, vss virtualStorageState, ss storageState) {
 			t.Helper()
-			requireState(t, ctx, db, vss, ss)
+			requireState(t, ctx, tx, vss, ss)
 		}
 	})
 }
@@ -203,9 +204,12 @@ func TestRepositoryStore_incrementGenerationConcurrently(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			db.TruncateAll(t)
-
-			require.NoError(t, NewPostgresRepositoryStore(db, nil).CreateRepository(ctx, 1, "virtual-storage", "relative-path", "primary", []string{"secondary"}, nil, false, false))
+			globalRepositoryStore := NewPostgresRepositoryStore(db, nil)
+			require.NoError(t, globalRepositoryStore.CreateRepository(ctx, 1, "virtual-storage", "relative-path", "primary", []string{"secondary"}, nil, false, false))
+			defer func() {
+				_, _, err := globalRepositoryStore.DeleteRepository(ctx, "virtual-storage", "relative-path")
+				require.NoError(t, err)
+			}()
 
 			firstTx := db.Begin(t)
 			secondTx := db.Begin(t)

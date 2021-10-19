@@ -83,16 +83,17 @@ func TestSetReplicationFactorSubcommand(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			db.TruncateAll(t)
+			tx := db.Begin(t)
+			defer tx.Rollback(t)
 
 			store := tc.store
 			if tc.store == nil {
-				store = datastore.NewAssignmentStore(db, map[string][]string{"virtual-storage": {"primary", "secondary"}})
+				store = datastore.NewAssignmentStore(tx, map[string][]string{"virtual-storage": {"primary", "secondary"}})
 			}
 
 			// create a repository record
 			require.NoError(t,
-				datastore.NewPostgresRepositoryStore(db, nil).CreateRepository(ctx, 1, "virtual-storage", "relative-path", "primary", nil, nil, false, false),
+				datastore.NewPostgresRepositoryStore(tx, nil).CreateRepository(ctx, 1, "virtual-storage", "relative-path", "primary", nil, nil, false, false),
 			)
 
 			ln, clean := listenAndServe(t, []svcRegistrar{registerPraefectInfoServer(

@@ -22,13 +22,20 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 	t.Parallel()
 
 	db := glsql.NewDB(t)
-	rs := NewPostgresRepositoryStore(db, nil)
+	newPostgresRepositoryStore := func(t *testing.T) *PostgresRepositoryStore {
+		tx := db.Begin(t)
+		t.Cleanup(func() { tx.Rollback(t) })
+		return NewPostgresRepositoryStore(tx, nil)
+	}
 
 	t.Run("unknown virtual storage", func(t *testing.T) {
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
-		require.NoError(t, rs.CreateRepository(ctx, 1, "unknown", "/repo/path", "g1", []string{"g2", "g3"}, nil, true, false))
+		rs := newPostgresRepositoryStore(t)
+		repositoryID, err := rs.ReserveRepositoryID(ctx, "unknown", "/repo/path")
+		require.NoError(t, err)
+		require.NoError(t, rs.CreateRepository(ctx, repositoryID, "unknown", "/repo/path", "g1", []string{"g2", "g3"}, nil, true, false))
 
 		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
@@ -49,12 +56,13 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 	})
 
 	t.Run("miss -> populate -> hit", func(t *testing.T) {
-		db.TruncateAll(t)
-
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
-		require.NoError(t, rs.CreateRepository(ctx, 1, "vs", "/repo/path", "g1", []string{"g2", "g3"}, nil, true, false))
+		rs := newPostgresRepositoryStore(t)
+		repositoryID, err := rs.ReserveRepositoryID(ctx, "vs", "/repo/path")
+		require.NoError(t, err)
+		require.NoError(t, rs.CreateRepository(ctx, repositoryID, "vs", "/repo/path", "g1", []string{"g2", "g3"}, nil, true, false))
 
 		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
@@ -91,11 +99,10 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 	})
 
 	t.Run("repository store returns an error", func(t *testing.T) {
-		db.TruncateAll(t)
-
 		ctx, cancel := testhelper.Context(testhelper.ContextWithLogger(testhelper.DiscardTestEntry(t)))
 		defer cancel()
 
+		rs := newPostgresRepositoryStore(t)
 		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
@@ -113,15 +120,16 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 	})
 
 	t.Run("cache is disabled after handling invalid payload", func(t *testing.T) {
-		db.TruncateAll(t)
-
 		logger := testhelper.DiscardTestEntry(t)
 		logHook := test.NewLocal(logger.Logger)
 
 		ctx, cancel := testhelper.Context(testhelper.ContextWithLogger(logger))
 		defer cancel()
 
-		require.NoError(t, rs.CreateRepository(ctx, 1, "vs", "/repo/path/1", "g1", []string{"g2", "g3"}, nil, true, false))
+		rs := newPostgresRepositoryStore(t)
+		repositoryID, err := rs.ReserveRepositoryID(ctx, "vs", "/repo/path/1")
+		require.NoError(t, err)
+		require.NoError(t, rs.CreateRepository(ctx, repositoryID, "vs", "/repo/path/1", "g1", []string{"g2", "g3"}, nil, true, false))
 
 		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
@@ -176,13 +184,16 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 	})
 
 	t.Run("cache invalidation evicts cached entries", func(t *testing.T) {
-		db.TruncateAll(t)
-
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
-		require.NoError(t, rs.CreateRepository(ctx, 1, "vs", "/repo/path/1", "g1", []string{"g2", "g3"}, nil, true, false))
-		require.NoError(t, rs.CreateRepository(ctx, 2, "vs", "/repo/path/2", "g1", []string{"g2"}, nil, true, false))
+		rs := newPostgresRepositoryStore(t)
+		repositoryID1, err := rs.ReserveRepositoryID(ctx, "vs", "/repo/path/1")
+		require.NoError(t, err)
+		repositoryID2, err := rs.ReserveRepositoryID(ctx, "vs", "/repo/path/2")
+		require.NoError(t, err)
+		require.NoError(t, rs.CreateRepository(ctx, repositoryID1, "vs", "/repo/path/1", "g1", []string{"g2", "g3"}, nil, true, false))
+		require.NoError(t, rs.CreateRepository(ctx, repositoryID2, "vs", "/repo/path/2", "g1", []string{"g2"}, nil, true, false))
 
 		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
@@ -229,12 +240,13 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 	})
 
 	t.Run("disconnect event disables cache", func(t *testing.T) {
-		db.TruncateAll(t)
-
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
-		require.NoError(t, rs.CreateRepository(ctx, 1, "vs", "/repo/path", "g1", []string{"g2", "g3"}, nil, true, false))
+		rs := newPostgresRepositoryStore(t)
+		repositoryID, err := rs.ReserveRepositoryID(ctx, "vs", "/repo/path")
+		require.NoError(t, err)
+		require.NoError(t, rs.CreateRepository(ctx, repositoryID, "vs", "/repo/path", "g1", []string{"g2", "g3"}, nil, true, false))
 
 		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
@@ -266,13 +278,17 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 	})
 
 	t.Run("concurrent access", func(t *testing.T) {
-		db.TruncateAll(t)
-
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
-		require.NoError(t, rs.CreateRepository(ctx, 1, "vs", "/repo/path/1", "g1", nil, nil, true, false))
-		require.NoError(t, rs.CreateRepository(ctx, 2, "vs", "/repo/path/2", "g1", nil, nil, true, false))
+		rs := NewPostgresRepositoryStore(glsql.NewDB(t), nil)
+
+		repositoryID1, err := rs.ReserveRepositoryID(ctx, "vs", "/repo/path/1")
+		require.NoError(t, err)
+		repositoryID2, err := rs.ReserveRepositoryID(ctx, "vs", "/repo/path/2")
+		require.NoError(t, err)
+		require.NoError(t, rs.CreateRepository(ctx, repositoryID1, "vs", "/repo/path/1", "g1", nil, nil, true, false))
+		require.NoError(t, rs.CreateRepository(ctx, repositoryID2, "vs", "/repo/path/2", "g1", nil, nil, true, false))
 
 		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)

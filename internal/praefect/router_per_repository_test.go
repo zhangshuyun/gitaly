@@ -601,9 +601,11 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			db.TruncateAll(t)
+			db.SequenceReset(t)
+			tx := db.Begin(t)
+			defer tx.Rollback(t)
 
-			rs := datastore.NewPostgresRepositoryStore(db, nil)
+			rs := datastore.NewPostgresRepositoryStore(tx, nil)
 			if tc.repositoryExists {
 				require.NoError(t,
 					rs.CreateRepository(ctx, 1, "virtual-storage-1", relativePath, "primary", nil, nil, true, true),
