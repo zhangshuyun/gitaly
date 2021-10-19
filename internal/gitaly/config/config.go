@@ -365,27 +365,25 @@ func SkipHooks() bool {
 // SetGitPath populates the variable GitPath with the path to the `git`
 // executable. It warns if no path was specified in the configuration.
 func (cfg *Cfg) SetGitPath() error {
-	if cfg.Git.BinPath != "" {
-		return nil
-	}
-
-	if path, ok := os.LookupEnv("GITALY_TESTING_GIT_BINARY"); ok {
-		cfg.Git.BinPath = path
-		return nil
-	}
-
-	resolvedPath, err := exec.LookPath("git")
-	if err != nil {
-		if errors.Is(err, exec.ErrNotFound) {
-			return fmt.Errorf(`"git" executable not found, set path to it in the configuration file or add it to the PATH`)
+	switch {
+	case cfg.Git.BinPath != "":
+		// Nothing to do.
+	case os.Getenv("GITALY_TESTING_GIT_BINARY") != "":
+		cfg.Git.BinPath = os.Getenv("GITALY_TESTING_GIT_BINARY")
+	default:
+		resolvedPath, err := exec.LookPath("git")
+		if err != nil {
+			if errors.Is(err, exec.ErrNotFound) {
+				return fmt.Errorf(`"git" executable not found, set path to it in the configuration file or add it to the PATH`)
+			}
 		}
+
+		log.WithFields(log.Fields{
+			"resolvedPath": resolvedPath,
+		}).Warn("git path not configured. Using default path resolution")
+
+		cfg.Git.BinPath = resolvedPath
 	}
-
-	log.WithFields(log.Fields{
-		"resolvedPath": resolvedPath,
-	}).Warn("git path not configured. Using default path resolution")
-
-	cfg.Git.BinPath = resolvedPath
 
 	return nil
 }
