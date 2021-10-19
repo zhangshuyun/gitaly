@@ -74,9 +74,6 @@ func (db DB) Truncate(t testing.TB, tables ...string) {
 		_, err := db.DB.Exec("DELETE FROM " + table)
 		require.NoError(t, err, "database cleanup failed: %s", tables)
 	}
-
-	_, err := db.DB.Exec("SELECT setval(relname::TEXT, 1, false) from pg_class where relkind = 'S'")
-	require.NoError(t, err, "database cleanup failed: %s", tables)
 }
 
 // RequireRowsInTable verifies that `tname` table has `n` amount of rows in it.

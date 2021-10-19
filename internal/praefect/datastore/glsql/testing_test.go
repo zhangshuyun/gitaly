@@ -27,5 +27,5 @@ func TestDB_Truncate(t *testing.T) {
 
 	var id int
 	require.NoError(t, db.QueryRow("INSERT INTO truncate_tbl VALUES (DEFAULT) RETURNING id").Scan(&id))
-	require.Equal(t, 1, id, "sequence for primary key must be restarted")
+	require.Equal(t, 3, id, "sequence for primary key must be restarted")
 }
