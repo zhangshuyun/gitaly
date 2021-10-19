@@ -78,8 +78,10 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 	elector := nodes.NewPerRepositoryElector(tx)
 	conns := nodeSet.Connections()
 	rs := datastore.NewPostgresRepositoryStore(tx, conf.StorageNames())
+	id, err := rs.ReserveRepositoryID(ctx, virtualStorage, testRepo.GetRelativePath())
+	require.NoError(t, err)
 	require.NoError(t,
-		rs.CreateRepository(ctx, 1, virtualStorage, testRepo.GetRelativePath(), "g-1", []string{"g-2", "g-3"}, nil, true, false),
+		rs.CreateRepository(ctx, id, virtualStorage, testRepo.GetRelativePath(), "g-1", []string{"g-2", "g-3"}, nil, true, false),
 	)
 
 	cc, _, cleanup := runPraefectServer(t, ctx, conf, buildOptions{

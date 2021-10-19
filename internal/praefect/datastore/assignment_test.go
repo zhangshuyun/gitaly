@@ -92,7 +92,7 @@ func TestAssignmentStore_GetHostAssignments(t *testing.T) {
 					require.NoError(t, rs.CreateRepository(ctx, repositoryID, assignment.virtualStorage, assignment.relativePath, assignment.storage, nil, nil, false, false))
 				}
 
-				_, err = db.ExecContext(ctx, `
+				_, err = tx.ExecContext(ctx, `
 					INSERT INTO repository_assignments (repository_id, virtual_storage, relative_path, storage)
 					VALUES ($1, $2, $3, $4)
 				`, repositoryID, assignment.virtualStorage, assignment.relativePath, assignment.storage)
@@ -133,6 +133,7 @@ func TestAssignmentStore_SetReplicationFactor(t *testing.T) {
 	}
 
 	db := glsql.NewDB(t)
+	const repositoryID = 1e10
 
 	for _, tc := range []struct {
 		desc                  string
@@ -219,16 +220,16 @@ func TestAssignmentStore_SetReplicationFactor(t *testing.T) {
 			if !tc.nonExistentRepository {
 				_, err := tx.ExecContext(ctx, `
 					INSERT INTO repositories (virtual_storage, relative_path, "primary", repository_id)
-					VALUES ('virtual-storage', 'relative-path', 'primary', 1000)
-				`)
+					VALUES ('virtual-storage', 'relative-path', 'primary', $1)
+				`, repositoryID)
 				require.NoError(t, err)
 			}
 
 			for _, storage := range tc.existingAssignments {
 				_, err := tx.ExecContext(ctx, `
 					INSERT INTO repository_assignments (virtual_storage, relative_path, storage, repository_id)
-					VALUES ('virtual-storage', 'relative-path', $1, 1000)
-				`, storage)
+					VALUES ('virtual-storage', 'relative-path', $1, $2)
+				`, storage, repositoryID)
 				require.NoError(t, err)
 			}
 
@@ -242,7 +243,7 @@ func TestAssignmentStore_SetReplicationFactor(t *testing.T) {
 
 			tc.requireStorages(t, setStorages)
 
-			assignedStorages, err := store.GetHostAssignments(ctx, "virtual-storage", 1)
+			assignedStorages, err := store.GetHostAssignments(ctx, "virtual-storage", repositoryID)
 			require.NoError(t, err)
 
 			sort.Strings(assignedStorages)
@@ -252,8 +253,8 @@ func TestAssignmentStore_SetReplicationFactor(t *testing.T) {
 			require.NoError(t, tx.QueryRowContext(ctx, `
 				SELECT array_agg(storage)
 				FROM repository_assignments
-				WHERE COALESCE(repository_id != 1000, true)
-			`).Scan(&storagesWithIncorrectRepositoryID))
+				WHERE COALESCE(repository_id != $1, true)
+			`, repositoryID).Scan(&storagesWithIncorrectRepositoryID))
 			require.Empty(t, storagesWithIncorrectRepositoryID)
 		})
 	}

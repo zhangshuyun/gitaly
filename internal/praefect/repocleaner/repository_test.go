@@ -89,7 +89,7 @@ func TestRunner_Run(t *testing.T) {
 	defer cancel()
 
 	repoStore := datastore.NewPostgresRepositoryStore(db.DB, nil)
-	for i, set := range []struct {
+	for _, set := range []struct {
 		relativePath string
 		primary      string
 		secondaries  []string
@@ -110,7 +110,9 @@ func TestRunner_Run(t *testing.T) {
 			secondaries:  []string{storage2, storage3},
 		},
 	} {
-		require.NoError(t, repoStore.CreateRepository(ctx, int64(i), conf.VirtualStorages[0].Name, set.relativePath, set.primary, set.secondaries, nil, false, false))
+		id, err := repoStore.ReserveRepositoryID(ctx, conf.VirtualStorages[0].Name, set.relativePath)
+		require.NoError(t, err)
+		require.NoError(t, repoStore.CreateRepository(ctx, id, conf.VirtualStorages[0].Name, set.relativePath, set.primary, set.secondaries, nil, false, false))
 	}
 
 	logger, loggerHook := test.NewNullLogger()

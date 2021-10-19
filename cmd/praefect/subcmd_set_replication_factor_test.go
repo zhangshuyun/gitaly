@@ -92,8 +92,11 @@ func TestSetReplicationFactorSubcommand(t *testing.T) {
 			}
 
 			// create a repository record
+			rs := datastore.NewPostgresRepositoryStore(tx, nil)
+			id, err := rs.ReserveRepositoryID(ctx, "virtual-storage", "relative-path")
+			require.NoError(t, err)
 			require.NoError(t,
-				datastore.NewPostgresRepositoryStore(tx, nil).CreateRepository(ctx, 1, "virtual-storage", "relative-path", "primary", nil, nil, false, false),
+				rs.CreateRepository(ctx, id, "virtual-storage", "relative-path", "primary", nil, nil, false, false),
 			)
 
 			ln, clean := listenAndServe(t, []svcRegistrar{registerPraefectInfoServer(
@@ -105,7 +108,7 @@ func TestSetReplicationFactorSubcommand(t *testing.T) {
 			cmd := &setReplicationFactorSubcommand{stdout: stdout}
 			fs := cmd.FlagSet()
 			require.NoError(t, fs.Parse(tc.args))
-			err := cmd.Exec(fs, config.Config{
+			err = cmd.Exec(fs, config.Config{
 				SocketPath: ln.Addr().String(),
 			})
 			testassert.GrpcEqualErr(t, tc.error, err)

@@ -56,28 +56,28 @@ func TestDatalossSubcommand(t *testing.T) {
 		`
 				INSERT INTO repositories (repository_id, virtual_storage, relative_path, "primary")
 				VALUES
-					(1, 'virtual-storage-1', 'repository-1', 'gitaly-1'),
-					(2, 'virtual-storage-1', 'repository-2', 'gitaly-3')
+					(100000000, 'virtual-storage-1', 'repository-1', 'gitaly-1'),
+					(100000001, 'virtual-storage-1', 'repository-2', 'gitaly-3')
 				`,
 		`
 				INSERT INTO repository_assignments (repository_id, virtual_storage, relative_path, storage)
 				VALUES
-					(1, 'virtual-storage-1', 'repository-1', 'gitaly-1'),
-					(1, 'virtual-storage-1', 'repository-1', 'gitaly-2'),
-					(2, 'virtual-storage-1', 'repository-2', 'gitaly-1'),
-					(2, 'virtual-storage-1', 'repository-2', 'gitaly-3')
+					(100000000, 'virtual-storage-1', 'repository-1', 'gitaly-1'),
+					(100000000, 'virtual-storage-1', 'repository-1', 'gitaly-2'),
+					(100000001, 'virtual-storage-1', 'repository-2', 'gitaly-1'),
+					(100000001, 'virtual-storage-1', 'repository-2', 'gitaly-3')
 				`,
 	} {
 		_, err := tx.ExecContext(ctx, q)
 		require.NoError(t, err)
 	}
 
-	require.NoError(t, gs.SetGeneration(ctx, 1, "gitaly-1", 1))
-	require.NoError(t, gs.SetGeneration(ctx, 1, "gitaly-2", 0))
-	require.NoError(t, gs.SetGeneration(ctx, 1, "gitaly-3", 0))
+	require.NoError(t, gs.SetGeneration(ctx, 100000000, "gitaly-1", 1))
+	require.NoError(t, gs.SetGeneration(ctx, 100000000, "gitaly-2", 0))
+	require.NoError(t, gs.SetGeneration(ctx, 100000000, "gitaly-3", 0))
 
-	require.NoError(t, gs.SetGeneration(ctx, 2, "gitaly-2", 1))
-	require.NoError(t, gs.SetGeneration(ctx, 2, "gitaly-3", 0))
+	require.NoError(t, gs.SetGeneration(ctx, 100000001, "gitaly-2", 1))
+	require.NoError(t, gs.SetGeneration(ctx, 100000001, "gitaly-3", 0))
 
 	ln, clean := listenAndServe(t, []svcRegistrar{
 		registerPraefectInfoServer(info.NewServer(cfg, gs, nil, nil, nil)),

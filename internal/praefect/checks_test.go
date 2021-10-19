@@ -55,6 +55,9 @@ func TestPraefectMigrations_success(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			var cfg config.Config
 			db := glsql.NewDB(t)
+			// Migration that adds artificial data to the database needs to be dropped first
+			_, err := db.Exec(`DELETE FROM ` + migrations.MigrationTableName + " WHERE id = '20200921170400_artificial_repositories'")
+			require.NoError(t, err)
 			cfg.DB = glsql.GetDBConfig(t, db.Name)
 
 			require.NoError(t, tc.prepare(cfg))

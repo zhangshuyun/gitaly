@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
@@ -159,7 +158,6 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
 			db.Truncate(t, "replication_queue_job_lock", "replication_queue", "replication_queue_lock")
-			db.SequenceReset(t)
 
 			storageNodes := make([]*config.Node, 0, len(tc.nodes))
 			for i := range tc.nodes {
@@ -201,25 +199,25 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			// set up the generations prior to transaction
 			rs := datastore.NewPostgresRepositoryStore(tx, conf.StorageNames())
 
-			repoCreated := false
+			var id int64
+			var err error
 			for i, n := range tc.nodes {
 				if n.generation == datastore.GenerationUnknown {
 					continue
 				}
 
-				if !repoCreated {
-					repoCreated = true
-					require.NoError(t, rs.CreateRepository(ctx, 1, repo.StorageName, repo.RelativePath, storageNodes[i].Storage, nil, nil, true, false))
+				if id == 0 {
+					id, err = rs.ReserveRepositoryID(ctx, repo.StorageName, repo.RelativePath)
+					require.NoError(t, err)
+					require.NoError(t, rs.CreateRepository(ctx, id, repo.StorageName, repo.RelativePath, storageNodes[i].Storage, nil, nil, true, false))
 					defer func() {
-						repositoryStore := datastore.NewPostgresRepositoryStore(db, nil)
-						_, _, err := repositoryStore.DeleteRepository(ctx, repo.StorageName, repo.RelativePath)
-						if !errors.As(err, &commonerr.RepositoryNotFoundError{}) {
-							require.NoError(t, err)
-						}
+						repoStore := datastore.NewPostgresRepositoryStore(db, nil)
+						_, _, err := repoStore.DeleteRepository(ctx, repo.StorageName, repo.RelativePath)
+						require.NoError(t, err)
 					}()
 				}
 
-				require.NoError(t, rs.SetGeneration(ctx, 1, storageNodes[i].Storage, n.generation))
+				require.NoError(t, rs.SetGeneration(ctx, id, storageNodes[i].Storage, n.generation))
 			}
 
 			testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": conf.StorageNames()})
@@ -307,7 +305,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			}
 
 			if tc.concurrentWrite {
-				require.NoError(t, rs.SetGeneration(ctx, 1, "non-participating-storage", 2))
+				require.NoError(t, rs.SetGeneration(ctx, id, "non-participating-storage", 2))
 			}
 
 			err = streamParams.RequestFinalizer()
@@ -321,7 +319,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			// Nodes that did not successfully commit or did not participate should remain on their
 			// existing generation.
 			for i, n := range tc.nodes {
-				gen, err := rs.GetGeneration(ctx, 1, storageNodes[i].Storage)
+				gen, err := rs.GetGeneration(ctx, id, storageNodes[i].Storage)
 				require.NoError(t, err)
 				require.Equal(t, n.expectedGeneration, gen, "node %d has wrong generation", i)
 			}

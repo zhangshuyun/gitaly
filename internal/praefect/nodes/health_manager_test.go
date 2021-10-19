@@ -142,7 +142,7 @@ func TestHealthManager(t *testing.T) {
 					},
 				},
 				{
-					After:        failoverTimeout,
+					After:        failoverTimeout + time.Millisecond,
 					PraefectName: "praefect-1",
 					LocalStatus: LocalStatus{
 						"virtual-storage-1": {
@@ -178,7 +178,7 @@ func TestHealthManager(t *testing.T) {
 					HealthConsensus: map[string][]string{},
 				},
 				{
-					After:        activePraefectTimeout,
+					After:        activePraefectTimeout + time.Millisecond,
 					PraefectName: "praefect-3",
 					LocalStatus: LocalStatus{
 						"virtual-storage-1": {
@@ -456,7 +456,7 @@ func TestHealthManager(t *testing.T) {
 					},
 				},
 				{
-					After:        failoverTimeout,
+					After:        failoverTimeout + time.Millisecond,
 					PraefectName: "praefect-1",
 					LocalStatus: LocalStatus{
 						"virtual-storage-1": {

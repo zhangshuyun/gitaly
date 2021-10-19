@@ -194,8 +194,12 @@ func TestStreamDirectorMutator(t *testing.T) {
 
 			rs := datastore.NewPostgresRepositoryStore(tx, conf.StorageNames())
 
+			var id int64
+			var err error
 			if tc.repositoryExists {
-				require.NoError(t, rs.CreateRepository(ctx, 1, targetRepo.StorageName, targetRepo.RelativePath, primaryNode.Storage, []string{secondaryNode.Storage}, nil, true, true))
+				id, err = rs.ReserveRepositoryID(ctx, targetRepo.StorageName, targetRepo.RelativePath)
+				require.NoError(t, err)
+				require.NoError(t, rs.CreateRepository(ctx, id, targetRepo.StorageName, targetRepo.RelativePath, primaryNode.Storage, []string{secondaryNode.Storage}, nil, true, true))
 			}
 
 			testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": conf.StorageNames()})
@@ -273,7 +277,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 				CreatedAt: events[0].CreatedAt,
 				UpdatedAt: events[0].UpdatedAt,
 				Job: datastore.ReplicationJob{
-					RepositoryID:      1,
+					RepositoryID:      id,
 					Change:            datastore.UpdateRepo,
 					VirtualStorage:    conf.VirtualStorages[0].Name,
 					RelativePath:      targetRepo.RelativePath,

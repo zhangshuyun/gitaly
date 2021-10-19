@@ -445,6 +445,8 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 				return actual.Secondaries[i].Storage < actual.Secondaries[j].Storage
 			})
 			sort.Strings(actual.ReplicationTargets)
+			// Hard code it here as there is no way we can predict the value of the sequence
+			actual.RepositoryID = 1
 			require.Contains(t, expected, actual)
 		}
 	}
@@ -601,14 +603,15 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			db.SequenceReset(t)
 			tx := db.Begin(t)
 			defer tx.Rollback(t)
 
 			rs := datastore.NewPostgresRepositoryStore(tx, nil)
 			if tc.repositoryExists {
+				id, err := rs.ReserveRepositoryID(ctx, "virtual-storage-1", "relative-path")
+				require.NoError(t, err)
 				require.NoError(t,
-					rs.CreateRepository(ctx, 1, "virtual-storage-1", relativePath, "primary", nil, nil, true, true),
+					rs.CreateRepository(ctx, id, "virtual-storage-1", relativePath, "primary", nil, nil, true, true),
 				)
 			}
 

@@ -3,9 +3,7 @@ package reconciler
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
-	"sort"
 	"testing"
 
 	"github.com/lib/pq"
@@ -32,9 +30,11 @@ func TestReconciler(t *testing.T) {
 
 	type repositories map[string]map[string]map[string]storageRecord
 	type existingJobs []datastore.ReplicationEvent
-	// Jobs is a set of jobs that the reconciliation run might produce. Only one of the job
-	// sets is expected from a run at a time.
-	type jobs [][]datastore.ReplicationJob
+	type jobs []datastore.ReplicationJob
+	type jobsCondition struct {
+		oneOf bool
+		jobs  jobs
+	}
 	type storages map[string][]string
 
 	configuredStorages := storages{
@@ -86,12 +86,12 @@ func TestReconciler(t *testing.T) {
 	db := glsql.NewDB(t)
 
 	for _, tc := range []struct {
-		desc                string
-		healthyStorages     storages
-		repositories        repositories
-		existingJobs        existingJobs
-		deletedRepositories map[string][]string
-		reconciliationJobs  jobs
+		desc                       string
+		healthyStorages            storages
+		repositories               repositories
+		existingJobs               existingJobs
+		deletedRepositories        map[string][]string
+		reconciliationJobCondition jobsCondition
 	}{
 		{
 			desc:            "no repositories",
@@ -126,8 +126,8 @@ func TestReconciler(t *testing.T) {
 					},
 				},
 			},
-			reconciliationJobs: jobs{
-				{
+			reconciliationJobCondition: jobsCondition{
+				jobs: jobs{
 					{
 						Change:            datastore.UpdateRepo,
 						VirtualStorage:    "virtual-storage-1",
@@ -160,20 +160,22 @@ func TestReconciler(t *testing.T) {
 
 				return repos
 			}(),
-			reconciliationJobs: func() jobs {
-				var generated []datastore.ReplicationJob
-				for i := 0; i < 2*logBatchSize+1; i++ {
-					generated = append(generated, datastore.ReplicationJob{
-						Change:            datastore.UpdateRepo,
-						VirtualStorage:    "virtual-storage-1",
-						RelativePath:      fmt.Sprintf("relative-path-%d", i),
-						SourceNodeStorage: "storage-1",
-						TargetNodeStorage: "storage-2",
-					})
-				}
+			reconciliationJobCondition: jobsCondition{
+				jobs: func() jobs {
+					var generated jobs
+					for i := 0; i < 2*logBatchSize+1; i++ {
+						generated = append(generated, datastore.ReplicationJob{
+							Change:            datastore.UpdateRepo,
+							VirtualStorage:    "virtual-storage-1",
+							RelativePath:      fmt.Sprintf("relative-path-%d", i),
+							SourceNodeStorage: "storage-1",
+							TargetNodeStorage: "storage-2",
+						})
+					}
 
-				return jobs{generated}
-			}(),
+					return generated
+				}(),
+			},
 		},
 		{
 			desc:            "no healthy source to reconcile from",
@@ -203,8 +205,8 @@ func TestReconciler(t *testing.T) {
 					},
 				},
 			},
-			reconciliationJobs: jobs{
-				{
+			reconciliationJobCondition: jobsCondition{
+				jobs: jobs{
 					{
 						Change:            datastore.UpdateRepo,
 						VirtualStorage:    "virtual-storage-1",
@@ -226,8 +228,8 @@ func TestReconciler(t *testing.T) {
 					},
 				},
 			},
-			reconciliationJobs: jobs{
-				{
+			reconciliationJobCondition: jobsCondition{
+				jobs: jobs{
 					{
 						Change:            datastore.UpdateRepo,
 						VirtualStorage:    "virtual-storage-1",
@@ -261,8 +263,8 @@ func TestReconciler(t *testing.T) {
 					},
 				},
 			},
-			reconciliationJobs: jobs{
-				{
+			reconciliationJobCondition: jobsCondition{
+				jobs: jobs{
 					{
 						Change:            datastore.UpdateRepo,
 						VirtualStorage:    "virtual-storage-1",
@@ -320,8 +322,8 @@ func TestReconciler(t *testing.T) {
 					TargetNodeStorage: "storage-1",
 				},
 			),
-			reconciliationJobs: jobs{
-				{
+			reconciliationJobCondition: jobsCondition{
+				jobs: jobs{
 					{
 						Change:            datastore.UpdateRepo,
 						VirtualStorage:    "virtual-storage-1",
@@ -357,8 +359,8 @@ func TestReconciler(t *testing.T) {
 					TargetNodeStorage: "storage-2",
 				},
 			),
-			reconciliationJobs: jobs{
-				{
+			reconciliationJobCondition: jobsCondition{
+				jobs: jobs{
 					{
 						Change:            datastore.UpdateRepo,
 						VirtualStorage:    "virtual-storage-1",
@@ -404,8 +406,8 @@ func TestReconciler(t *testing.T) {
 					TargetNodeStorage: "storage-3",
 				},
 			),
-			reconciliationJobs: jobs{
-				{
+			reconciliationJobCondition: jobsCondition{
+				jobs: jobs{
 					{
 						Change:            datastore.UpdateRepo,
 						VirtualStorage:    "virtual-storage-1",
@@ -442,8 +444,8 @@ func TestReconciler(t *testing.T) {
 					},
 				},
 			},
-			reconciliationJobs: jobs{
-				{
+			reconciliationJobCondition: jobsCondition{
+				jobs: jobs{
 					{
 						Change:            datastore.UpdateRepo,
 						VirtualStorage:    "virtual-storage-1",
@@ -473,8 +475,8 @@ func TestReconciler(t *testing.T) {
 					},
 				},
 			},
-			reconciliationJobs: jobs{
-				{
+			reconciliationJobCondition: jobsCondition{
+				jobs: jobs{
 					{
 						Change:            datastore.UpdateRepo,
 						VirtualStorage:    "virtual-storage-1",
@@ -504,8 +506,8 @@ func TestReconciler(t *testing.T) {
 					},
 				},
 			},
-			reconciliationJobs: jobs{
-				{
+			reconciliationJobCondition: jobsCondition{
+				jobs: jobs{
 					{
 						Change:            datastore.DeleteReplica,
 						VirtualStorage:    "virtual-storage-1",
@@ -527,17 +529,15 @@ func TestReconciler(t *testing.T) {
 					},
 				},
 			},
-			reconciliationJobs: jobs{
-				{
+			reconciliationJobCondition: jobsCondition{
+				oneOf: true,
+				jobs: jobs{
 					{
 						Change:            datastore.DeleteReplica,
 						VirtualStorage:    "virtual-storage-1",
 						RelativePath:      "relative-path-1",
 						TargetNodeStorage: "storage-2",
-					},
-				},
-				{
-					{
+					}, {
 						Change:            datastore.DeleteReplica,
 						VirtualStorage:    "virtual-storage-1",
 						RelativePath:      "relative-path-1",
@@ -569,8 +569,8 @@ func TestReconciler(t *testing.T) {
 					},
 				},
 			},
-			reconciliationJobs: jobs{
-				{
+			reconciliationJobCondition: jobsCondition{
+				jobs: jobs{
 					{
 						Change:            datastore.DeleteReplica,
 						VirtualStorage:    "virtual-storage-1",
@@ -591,8 +591,8 @@ func TestReconciler(t *testing.T) {
 					},
 				},
 			},
-			reconciliationJobs: jobs{
-				{
+			reconciliationJobCondition: jobsCondition{
+				jobs: jobs{
 					{
 						Change:            datastore.UpdateRepo,
 						VirtualStorage:    "virtual-storage-1",
@@ -626,8 +626,8 @@ func TestReconciler(t *testing.T) {
 					},
 				},
 			},
-			reconciliationJobs: jobs{
-				{
+			reconciliationJobCondition: jobsCondition{
+				jobs: jobs{
 					{
 						Change:            datastore.UpdateRepo,
 						VirtualStorage:    "virtual-storage-1",
@@ -823,8 +823,8 @@ func TestReconciler(t *testing.T) {
 					},
 				},
 			},
-			reconciliationJobs: jobs{
-				{
+			reconciliationJobCondition: jobsCondition{
+				jobs: jobs{
 					{
 						Change:            datastore.DeleteReplica,
 						VirtualStorage:    "virtual-storage-1",
@@ -1011,8 +1011,8 @@ func TestReconciler(t *testing.T) {
 					},
 				},
 			},
-			reconciliationJobs: jobs{
-				{
+			reconciliationJobCondition: jobsCondition{
+				jobs: jobs{
 					{
 						Change:            datastore.DeleteReplica,
 						VirtualStorage:    "virtual-storage-1",
@@ -1028,19 +1028,15 @@ func TestReconciler(t *testing.T) {
 			defer cancel()
 
 			db.Truncate(t, "replication_queue")
-			db.SequenceReset(t)
 
 			// set up the repository generation records expected by the test case
 			rs := datastore.NewPostgresRepositoryStore(db, configuredStorages)
 			for virtualStorage, relativePaths := range tc.repositories {
 				for relativePath, storages := range relativePaths {
 					var repositoryID int64
-					repoCreated := false
 					for storage, repo := range storages {
 						if repo.generation >= 0 {
-							if !repoCreated {
-								repoCreated = true
-
+							if repositoryID == 0 {
 								var err error
 								repositoryID, err = rs.ReserveRepositoryID(ctx, virtualStorage, relativePath)
 								require.NoError(t, err)
@@ -1049,9 +1045,7 @@ func TestReconciler(t *testing.T) {
 
 								defer func(virtualStorage, relativePath string) {
 									_, _, err := rs.DeleteRepository(ctx, virtualStorage, relativePath)
-									if !errors.As(err, &commonerr.RepositoryNotFoundError{}) {
-										require.NoError(t, err)
-									}
+									require.NoError(t, err)
 								}(virtualStorage, relativePath)
 							}
 
@@ -1061,10 +1055,12 @@ func TestReconciler(t *testing.T) {
 
 					for storage, repo := range storages {
 						if repo.assigned {
-							_, err := db.ExecContext(ctx, `
-							INSERT INTO repository_assignments (repository_id, virtual_storage, relative_path, storage)
-							VALUES ($1, $2, $3, $4)
-						`, repositoryID, virtualStorage, relativePath, storage)
+							_, err := db.ExecContext(
+								ctx,
+								`INSERT INTO repository_assignments (repository_id, virtual_storage, relative_path, storage)
+								VALUES ($1, $2, $3, $4)`,
+								repositoryID, virtualStorage, relativePath, storage,
+							)
 							require.NoError(t, err)
 						}
 					}
@@ -1131,15 +1127,13 @@ func TestReconciler(t *testing.T) {
 			}
 
 			// Fill the expected reconciliation jobs with generated repository IDs.
-			for _, jobs := range tc.reconciliationJobs {
-				for i, job := range jobs {
-					id, err := rs.GetRepositoryID(ctx, job.VirtualStorage, job.RelativePath)
-					if err != nil {
-						require.Equal(t, commonerr.NewRepositoryNotFoundError(job.VirtualStorage, job.RelativePath), err)
-					}
-
-					jobs[i].RepositoryID = id
+			for i, job := range tc.reconciliationJobCondition.jobs {
+				id, err := rs.GetRepositoryID(ctx, job.VirtualStorage, job.RelativePath)
+				if err != nil {
+					require.Equal(t, commonerr.NewRepositoryNotFoundError(job.VirtualStorage, job.RelativePath), err)
 				}
+
+				tc.reconciliationJobCondition.jobs[i].RepositoryID = id
 			}
 
 			// run reconcile in two concurrent transactions to ensure everything works
@@ -1171,7 +1165,7 @@ func TestReconciler(t *testing.T) {
 			require.NoError(t, err)
 			defer rows.Close()
 
-			actualJobs := make([]datastore.ReplicationJob, 0, len(tc.reconciliationJobs))
+			actualJobs := make(jobs, 0, len(tc.reconciliationJobCondition.jobs))
 			for rows.Next() {
 				var job datastore.ReplicationJob
 				var meta datastore.Params
@@ -1181,22 +1175,11 @@ func TestReconciler(t *testing.T) {
 			}
 
 			require.NoError(t, rows.Err())
-
-			expectedJobs := tc.reconciliationJobs
-			if expectedJobs == nil {
-				// If the test case defined there are no jobs to be produced, just set an empty slice so the
-				// require.Contains matches the empty set.
-				expectedJobs = jobs{{}}
+			if tc.reconciliationJobCondition.oneOf {
+				require.Subset(t, tc.reconciliationJobCondition.jobs, actualJobs)
+			} else {
+				require.ElementsMatch(t, tc.reconciliationJobCondition.jobs, actualJobs)
 			}
-
-			// Sort the jobs so the require.Contains works below, the order of the produced jobs is not important.
-			for _, jobs := range append(expectedJobs, actualJobs) {
-				sort.Slice(jobs, func(i, j int) bool {
-					return jobs[i].VirtualStorage+jobs[i].RelativePath < jobs[j].VirtualStorage+jobs[j].RelativePath
-				})
-			}
-
-			require.Contains(t, expectedJobs, actualJobs)
 		})
 	}
 }

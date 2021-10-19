@@ -485,29 +485,32 @@ func TestPerRepositoryElector(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			var repositoryID int64
 			rs := datastore.NewPostgresRepositoryStore(db, nil)
 			for virtualStorage, relativePaths := range tc.state {
 				for relativePath, storages := range relativePaths {
-					repositoryID, err := rs.ReserveRepositoryID(ctx, virtualStorage, relativePath)
+					reservedRepositoryID, err := rs.ReserveRepositoryID(ctx, virtualStorage, relativePath)
 					require.NoError(t, err)
 
 					repoCreated := false
 					for storage, record := range storages {
 						if !repoCreated {
 							repoCreated = true
-							require.NoError(t, rs.CreateRepository(ctx, repositoryID, virtualStorage, relativePath, storage, nil, nil, false, false))
+							require.NoError(t, rs.CreateRepository(ctx, reservedRepositoryID, virtualStorage, relativePath, storage, nil, nil, false, false))
 							defer func(virtualStorage, relativePath string) {
 								_, _, err = rs.DeleteRepository(ctx, virtualStorage, relativePath)
 								require.NoError(t, err)
 							}(virtualStorage, relativePath)
+							repositoryID = reservedRepositoryID
 						}
 
-						require.NoError(t, rs.SetGeneration(ctx, repositoryID, storage, record.generation))
+						require.NoError(t, rs.SetGeneration(ctx, reservedRepositoryID, storage, record.generation))
 
 						if record.assigned {
 							_, err := db.ExecContext(ctx, `
-								INSERT INTO repository_assignments VALUES ($1, $2, $3, $4)
-							`, virtualStorage, relativePath, storage, repositoryID)
+								INSERT INTO repository_assignments (virtual_storage, relative_path, storage, repository_id)
+								VALUES ($1, $2, $3, $4)
+							`, virtualStorage, relativePath, storage, reservedRepositoryID)
 							require.NoError(t, err)
 						}
 					}
@@ -534,7 +537,6 @@ func TestPerRepositoryElector(t *testing.T) {
 			}
 
 			previousPrimary := ""
-			const repositoryID int64 = 1
 
 			for _, step := range tc.steps {
 				runElection := func(tx *glsql.TxWrapper) (string, *logrus.Entry) {

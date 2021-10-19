@@ -377,7 +377,7 @@ func TestPostgresListener_Listen_repositories_delete(t *testing.T) {
 		"repositories_updates",
 		func(t *testing.T) {
 			_, err := db.DB.Exec(`
-				INSERT INTO repositories
+				INSERT INTO repositories (virtual_storage, relative_path, generation)
 				VALUES ('praefect-1', '/path/to/repo/1', 1),
 					('praefect-1', '/path/to/repo/2', 1),
 					('praefect-1', '/path/to/repo/3', 0),
@@ -385,7 +385,7 @@ func TestPostgresListener_Listen_repositories_delete(t *testing.T) {
 			require.NoError(t, err)
 		},
 		func(t *testing.T) {
-			_, err := db.DB.Exec(`DELETE FROM repositories WHERE generation > 0`)
+			_, err := db.DB.Exec(`DELETE FROM repositories WHERE generation > 0 AND virtual_storage LIKE 'praefect%'`)
 			require.NoError(t, err)
 		},
 		func(t *testing.T, n glsql.Notification) {
@@ -435,11 +435,14 @@ func TestPostgresListener_Listen_storage_repositories_update(t *testing.T) {
 		db.Name,
 		channel,
 		func(t *testing.T) {
-			_, err := db.DB.Exec(`INSERT INTO storage_repositories VALUES ('praefect-1', '/path/to/repo', 'gitaly-1', 0)`)
+			_, err := db.DB.Exec(
+				`INSERT INTO storage_repositories(virtual_storage, relative_path, storage, generation)
+				VALUES ('praefect-1', '/path/to/repo', 'gitaly-1', 0)`,
+			)
 			require.NoError(t, err)
 		},
 		func(t *testing.T) {
-			_, err := db.DB.Exec(`UPDATE storage_repositories SET generation = generation + 1`)
+			_, err := db.DB.Exec(`UPDATE storage_repositories SET generation = generation + 1 WHERE virtual_storage = 'praefect-1'`)
 			require.NoError(t, err)
 		},
 		func(t *testing.T, n glsql.Notification) {
@@ -461,7 +464,7 @@ func TestPostgresListener_Listen_storage_empty_notification(t *testing.T) {
 		channel,
 		func(t *testing.T) {},
 		func(t *testing.T) {
-			_, err := db.DB.Exec(`UPDATE storage_repositories SET generation = 1`)
+			_, err := db.DB.Exec(`UPDATE storage_repositories SET generation = 1 WHERE repository_id = -1`)
 			require.NoError(t, err)
 		},
 		nil, // no notification events expected
@@ -486,7 +489,7 @@ func TestPostgresListener_Listen_storage_repositories_delete(t *testing.T) {
 			require.NoError(t, err)
 		},
 		func(t *testing.T) {
-			_, err := db.DB.Exec(`DELETE FROM storage_repositories`)
+			_, err := db.DB.Exec(`DELETE FROM storage_repositories WHERE virtual_storage = 'praefect-1'`)
 			require.NoError(t, err)
 		},
 		func(t *testing.T, n glsql.Notification) {
@@ -497,6 +500,7 @@ func TestPostgresListener_Listen_storage_repositories_delete(t *testing.T) {
 }
 
 func testListener(t *testing.T, dbName, channel string, setup func(t *testing.T), trigger func(t *testing.T), verifier func(t *testing.T, notification glsql.Notification)) {
+	t.Helper()
 	setup(t)
 
 	readyChan := make(chan struct{})
