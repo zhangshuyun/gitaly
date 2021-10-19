@@ -1,6 +1,7 @@
 package gittest
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -164,6 +166,18 @@ func BundleTestRepo(t testing.TB, cfg config.Cfg, sourceRepo, bundlePath string,
 	}
 	repoPath := testRepositoryPath(t, sourceRepo)
 	Exec(t, cfg, append([]string{"-C", repoPath, "bundle", "create", bundlePath}, patterns...)...)
+}
+
+// ChecksumTestRepo calculates the checksum of a local test repo. E.g.
+// `gitlab-test.git`.
+func ChecksumTestRepo(t testing.TB, cfg config.Cfg, sourceRepo string) *git.Checksum {
+	var checksum git.Checksum
+	repoPath := testRepositoryPath(t, sourceRepo)
+	lines := bytes.Split(Exec(t, cfg, "-C", repoPath, "show-ref"), []byte("\n"))
+	for _, line := range lines {
+		checksum.AddBytes(line)
+	}
+	return &checksum
 }
 
 // testRepositoryPath returns the absolute path of local 'gitlab-org/gitlab-test.git' clone.
