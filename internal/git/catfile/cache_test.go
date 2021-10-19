@@ -18,96 +18,96 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-func TestStack_add(t *testing.T) {
+func TestProcesses_add(t *testing.T) {
 	const maxLen = 3
-	s := &stack{maxLen: maxLen}
+	p := &processes{maxLen: maxLen}
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	key0 := mustCreateKey(t, "0", repo)
 	value0, cancel := mustCreateCacheable(t, cfg, repo)
-	s.Add(key0, value0, time.Hour, cancel)
-	requireStackValid(t, s)
+	p.Add(key0, value0, time.Hour, cancel)
+	requireProcessesValid(t, p)
 
 	key1 := mustCreateKey(t, "1", repo)
 	value1, cancel := mustCreateCacheable(t, cfg, repo)
-	s.Add(key1, value1, time.Hour, cancel)
-	requireStackValid(t, s)
+	p.Add(key1, value1, time.Hour, cancel)
+	requireProcessesValid(t, p)
 
 	key2 := mustCreateKey(t, "2", repo)
 	value2, cancel := mustCreateCacheable(t, cfg, repo)
-	s.Add(key2, value2, time.Hour, cancel)
-	requireStackValid(t, s)
+	p.Add(key2, value2, time.Hour, cancel)
+	requireProcessesValid(t, p)
 
 	// Because maxLen is 3, and key0 is oldest, we expect that adding key3
 	// will kick out key0.
 	key3 := mustCreateKey(t, "3", repo)
 	value3, cancel := mustCreateCacheable(t, cfg, repo)
-	s.Add(key3, value3, time.Hour, cancel)
-	requireStackValid(t, s)
+	p.Add(key3, value3, time.Hour, cancel)
+	requireProcessesValid(t, p)
 
-	require.Equal(t, maxLen, s.EntryCount(), "length should be maxLen")
+	require.Equal(t, maxLen, p.EntryCount(), "length should be maxLen")
 	require.True(t, value0.isClosed(), "value0 should be closed")
-	require.Equal(t, []key{key1, key2, key3}, keys(t, s))
+	require.Equal(t, []key{key1, key2, key3}, keys(t, p))
 }
 
-func TestStack_addTwice(t *testing.T) {
-	s := &stack{maxLen: 10}
+func TestProcesses_addTwice(t *testing.T) {
+	p := &processes{maxLen: 10}
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	key0 := mustCreateKey(t, "0", repo)
 	value0, cancel := mustCreateCacheable(t, cfg, repo)
-	s.Add(key0, value0, time.Hour, cancel)
-	requireStackValid(t, s)
+	p.Add(key0, value0, time.Hour, cancel)
+	requireProcessesValid(t, p)
 
 	key1 := mustCreateKey(t, "1", repo)
 	value1, cancel := mustCreateCacheable(t, cfg, repo)
-	s.Add(key1, value1, time.Hour, cancel)
-	requireStackValid(t, s)
+	p.Add(key1, value1, time.Hour, cancel)
+	requireProcessesValid(t, p)
 
-	require.Equal(t, key0, s.head().key, "key0 should be oldest key")
+	require.Equal(t, key0, p.head().key, "key0 should be oldest key")
 
 	value2, cancel := mustCreateCacheable(t, cfg, repo)
-	s.Add(key0, value2, time.Hour, cancel)
-	requireStackValid(t, s)
+	p.Add(key0, value2, time.Hour, cancel)
+	requireProcessesValid(t, p)
 
-	require.Equal(t, key1, s.head().key, "key1 should be oldest key")
-	require.Equal(t, value1, s.head().value)
+	require.Equal(t, key1, p.head().key, "key1 should be oldest key")
+	require.Equal(t, value1, p.head().value)
 
 	require.True(t, value0.isClosed(), "value0 should be closed")
 }
 
-func TestStack_Checkout(t *testing.T) {
-	s := &stack{maxLen: 10}
+func TestProcesses_Checkout(t *testing.T) {
+	p := &processes{maxLen: 10}
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	key0 := mustCreateKey(t, "0", repo)
 	value0, cancel := mustCreateCacheable(t, cfg, repo)
-	s.Add(key0, value0, time.Hour, cancel)
+	p.Add(key0, value0, time.Hour, cancel)
 
-	entry, ok := s.Checkout(key{sessionID: "foo"})
-	requireStackValid(t, s)
+	entry, ok := p.Checkout(key{sessionID: "foo"})
+	requireProcessesValid(t, p)
 	require.Nil(t, entry, "expect nil value when key not found")
 	require.False(t, ok, "ok flag")
 
-	entry, ok = s.Checkout(key0)
-	requireStackValid(t, s)
+	entry, ok = p.Checkout(key0)
+	requireProcessesValid(t, p)
 
 	require.Equal(t, value0, entry.value)
 	require.True(t, ok, "ok flag")
 
 	require.False(t, entry.value.isClosed(), "value should not be closed after checkout")
 
-	entry, ok = s.Checkout(key0)
+	entry, ok = p.Checkout(key0)
 	require.False(t, ok, "ok flag after second checkout")
 	require.Nil(t, entry, "value from second checkout")
 }
 
-func TestStack_EnforceTTL(t *testing.T) {
+func TestProcesses_EnforceTTL(t *testing.T) {
 	ttl := time.Hour
-	s := &stack{maxLen: 10}
+	p := &processes{maxLen: 10}
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
@@ -115,12 +115,12 @@ func TestStack_EnforceTTL(t *testing.T) {
 
 	key0 := mustCreateKey(t, "0", repo)
 	value0, cancel := mustCreateCacheable(t, cfg, repo)
-	s.Add(key0, value0, ttl, cancel)
+	p.Add(key0, value0, ttl, cancel)
 	sleep()
 
 	key1 := mustCreateKey(t, "1", repo)
 	value1, cancel := mustCreateCacheable(t, cfg, repo)
-	s.Add(key1, value1, ttl, cancel)
+	p.Add(key1, value1, ttl, cancel)
 	sleep()
 
 	cutoff := time.Now().Add(ttl)
@@ -128,31 +128,31 @@ func TestStack_EnforceTTL(t *testing.T) {
 
 	key2 := mustCreateKey(t, "2", repo)
 	value2, cancel := mustCreateCacheable(t, cfg, repo)
-	s.Add(key2, value2, ttl, cancel)
+	p.Add(key2, value2, ttl, cancel)
 	sleep()
 
 	key3 := mustCreateKey(t, "3", repo)
 	value3, cancel := mustCreateCacheable(t, cfg, repo)
-	s.Add(key3, value3, ttl, cancel)
+	p.Add(key3, value3, ttl, cancel)
 	sleep()
 
-	requireStackValid(t, s)
+	requireProcessesValid(t, p)
 
 	// We expect this cutoff to cause eviction of key0 and key1 but no other keys.
-	s.EnforceTTL(cutoff)
+	p.EnforceTTL(cutoff)
 
-	requireStackValid(t, s)
+	requireProcessesValid(t, p)
 
 	for i, v := range []cacheable{value0, value1} {
 		require.True(t, v.isClosed(), "value %d %v should be closed", i, v)
 	}
 
-	require.Equal(t, []key{key2, key3}, keys(t, s), "remaining keys after EnforceTTL")
+	require.Equal(t, []key{key2, key3}, keys(t, p), "remaining keys after EnforceTTL")
 
-	s.EnforceTTL(cutoff)
+	p.EnforceTTL(cutoff)
 
-	requireStackValid(t, s)
-	require.Equal(t, []key{key2, key3}, keys(t, s), "remaining keys after second EnforceTTL")
+	requireProcessesValid(t, p)
+	require.Equal(t, []key{key2, key3}, keys(t, p), "remaining keys after second EnforceTTL")
 }
 
 func TestCache_autoExpiry(t *testing.T) {
@@ -166,7 +166,7 @@ func TestCache_autoExpiry(t *testing.T) {
 	key0 := mustCreateKey(t, "0", repo)
 	value0, cancel := mustCreateCacheable(t, cfg, repo)
 	c.objectReaders.Add(key0, value0, ttl, cancel)
-	requireStackValid(t, &c.objectReaders)
+	requireProcessesValid(t, &c.objectReaders)
 
 	require.Contains(t, keys(t, &c.objectReaders), key0, "key should still be in map")
 	require.False(t, value0.isClosed(), "value should not have been closed")
@@ -425,11 +425,11 @@ func TestCache_ObjectInfoReader(t *testing.T) {
 	})
 }
 
-func requireStackValid(t *testing.T, s *stack) {
-	s.entriesMutex.Lock()
-	defer s.entriesMutex.Unlock()
+func requireProcessesValid(t *testing.T, p *processes) {
+	p.entriesMutex.Lock()
+	defer p.entriesMutex.Unlock()
 
-	for _, ent := range s.entries {
+	for _, ent := range p.entries {
 		v := ent.value
 		require.False(t, v.isClosed(), "values in cache should not be closed: %v %v", ent, v)
 	}
@@ -456,14 +456,14 @@ func mustCreateKey(t *testing.T, sessionID string, repo repository.GitRepo) key 
 	return key
 }
 
-func keys(t *testing.T, s *stack) []key {
+func keys(t *testing.T, p *processes) []key {
 	t.Helper()
 
-	s.entriesMutex.Lock()
-	defer s.entriesMutex.Unlock()
+	p.entriesMutex.Lock()
+	defer p.entriesMutex.Unlock()
 
 	var result []key
-	for _, ent := range s.entries {
+	for _, ent := range p.entries {
 		result = append(result, ent.key)
 	}
 
