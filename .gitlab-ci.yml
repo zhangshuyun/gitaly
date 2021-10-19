@@ -297,20 +297,6 @@ pgbouncer_test:
   script:
     - make test-postgres
 
-backwards_compatibility_test:
-  # The job verifies the old version of the service could run its database migration on the database where the
-  # migration of the newest service version was already applied.
-  <<: *test_definition
-  <<: *postgres_definition
-  rules:
-    - changes:
-      - "internal/praefect/datastore/migrations/*"
-  script:
-    - git fetch origin 'refs/tags/*:refs/tags/*'
-    - git checkout $(_support/get-previous-minor-release)
-    - git checkout --no-overlay $CI_COMMIT_SHA -- internal/praefect/datastore/migrations :!internal/praefect/datastore/migrations/migrations.go
-    - make test-postgres
-
 lint:
   stage: test
   retry: 2
