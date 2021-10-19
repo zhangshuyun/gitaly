@@ -42,7 +42,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestSanity(t *testing.T) {
-	serverSocketPath := runServer(t, config.Cfg{})
+	serverSocketPath := runServer(t, testcfg.Build(t))
 
 	conn, err := dial(serverSocketPath, []grpc.DialOption{grpc.WithInsecure()})
 	require.NoError(t, err)
@@ -96,7 +96,11 @@ func TestAuthFailures(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			serverSocketPath := runServer(t, config.Cfg{Auth: auth.Config{Token: "quxbaz"}})
+			cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{
+				Auth: auth.Config{Token: "quxbaz"},
+			}))
+
+			serverSocketPath := runServer(t, cfg)
 			connOpts := append(tc.opts, grpc.WithInsecure())
 			conn, err := dial(serverSocketPath, connOpts)
 			require.NoError(t, err, tc.desc)
