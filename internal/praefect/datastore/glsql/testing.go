@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/migrations"
 )
 
 const (
@@ -237,7 +238,7 @@ func initPraefectTestDB(t testing.TB, database string) *sql.DB {
 		require.NoErrorf(t, templateDB.Close(), "release connection to the %q database", templateDBConf.DBName)
 	}()
 
-	if _, err := Migrate(templateDB, false); err != nil {
+	if _, err := Migrate(templateDB, false, migrations.All()); err != nil {
 		// If database has unknown migration we try to re-create template database with
 		// current migration. It may be caused by other code changes done in another branch.
 		if pErr := (*migrate.PlanError)(nil); errors.As(err, &pErr) {
@@ -253,7 +254,7 @@ func initPraefectTestDB(t testing.TB, database string) *sql.DB {
 				defer func() {
 					require.NoErrorf(t, remigrateTemplateDB.Close(), "release connection to the %q database", templateDBConf.DBName)
 				}()
-				_, err = Migrate(remigrateTemplateDB, false)
+				_, err = Migrate(remigrateTemplateDB, false, migrations.All())
 				require.NoErrorf(t, err, "failed to run database migration on %q", praefectTemplateDatabase)
 			} else {
 				require.NoErrorf(t, err, "failed to run database migration on %q", praefectTemplateDatabase)

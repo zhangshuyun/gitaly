@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/migrations"
 	"google.golang.org/grpc"
 )
 
@@ -125,7 +126,7 @@ func (s *sqlMigrateSubcommand) Exec(flags *flag.FlagSet, conf config.Config) err
 	}
 	defer clean()
 
-	n, err := glsql.Migrate(db, s.ignoreUnknown)
+	n, err := glsql.Migrate(db, s.ignoreUnknown, migrations.All())
 	if err != nil {
 		return fmt.Errorf("%s: fail: %v", subCmd, err)
 	}
