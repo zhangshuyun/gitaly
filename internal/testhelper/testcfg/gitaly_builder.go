@@ -3,6 +3,7 @@ package testcfg
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -83,6 +84,12 @@ func (gc *GitalyCfgBuilder) Build(t testing.TB) config.Cfg {
 		require.NoError(t, os.Mkdir(cfg.BinDir, 0o755))
 	}
 
+	if cfg.Ruby.Dir == "" {
+		_, currentFile, _, ok := runtime.Caller(0)
+		require.True(t, ok, "could not get caller info")
+		cfg.Ruby.Dir = filepath.Join(filepath.Dir(currentFile), "../../../ruby")
+	}
+
 	if cfg.Logging.Dir == "" {
 		cfg.Logging.Dir = filepath.Join(root, "log.d")
 		require.NoError(t, os.Mkdir(cfg.Logging.Dir, 0o755))
@@ -130,7 +137,6 @@ func (gc *GitalyCfgBuilder) Build(t testing.TB) config.Cfg {
 
 	cfg.PackObjectsCache.Enabled = gc.packObjectsCacheEnabled
 
-	require.NoError(t, testhelper.ConfigureRuby(&cfg))
 	require.NoError(t, cfg.Validate())
 
 	return cfg

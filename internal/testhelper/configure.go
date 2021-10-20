@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	gitalylog "gitlab.com/gitlab-org/gitaly/v14/internal/log"
 )
 
@@ -161,26 +160,6 @@ func configureGit() error {
 	testHome := filepath.Join(filepath.Dir(currentFile), "testdata/home")
 	// overwrite HOME env variable so user global .gitconfig doesn't influence tests
 	return os.Setenv("HOME", testHome)
-}
-
-// ConfigureRuby configures Ruby settings for test purposes at run time.
-func ConfigureRuby(cfg *config.Cfg) error {
-	if dir := os.Getenv("GITALY_TEST_RUBY_DIR"); len(dir) > 0 {
-		// Sometimes runtime.Caller is unreliable. This environment variable provides a bypass.
-		cfg.Ruby.Dir = dir
-	} else {
-		_, currentFile, _, ok := runtime.Caller(0)
-		if !ok {
-			return fmt.Errorf("could not get caller info")
-		}
-		cfg.Ruby.Dir = filepath.Join(filepath.Dir(currentFile), "../../ruby")
-	}
-
-	if err := cfg.ConfigureRuby(); err != nil {
-		return fmt.Errorf("validate ruby config: %w", err)
-	}
-
-	return nil
 }
 
 func getTestTmpDir() string {
