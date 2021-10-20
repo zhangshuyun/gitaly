@@ -140,6 +140,18 @@ func configureTestDirectory() (_ func(), returnedErr error) {
 		return nil, err
 	}
 
+	// In many locations throughout Gitaly, we create temporary files and directories. By
+	// default, these would clutter the "real" temporary directory with useless cruft that stays
+	// around after our tests. To avoid this, we thus set the TMPDIR environment variable to
+	// point into a directory inside of out test directory.
+	globalTempDir := filepath.Join(testDirectory, "tmp")
+	if err := os.Mkdir(globalTempDir, 0o755); err != nil {
+		return nil, fmt.Errorf("creating global temporary directory: %w", err)
+	}
+	if err := os.Setenv("TMPDIR", globalTempDir); err != nil {
+		return nil, fmt.Errorf("setting global temporary directory: %w", err)
+	}
+
 	return cleanup, nil
 }
 
