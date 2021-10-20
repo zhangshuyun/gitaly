@@ -82,7 +82,7 @@ func TestSuccessfulCreateForkRequest(t *testing.T) {
 			ctxOuter, cancel := testhelper.Context()
 			defer cancel()
 
-			md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
+			md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 			ctx := metadata.NewOutgoingContext(ctxOuter, md)
 
 			forkedRepo := &gitalypb.Repository{
@@ -142,7 +142,7 @@ func TestFailedCreateForkRequestDueToExistingTarget(t *testing.T) {
 	ctxOuter, cancel := testhelper.Context()
 	defer cancel()
 
-	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
+	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	ctx := metadata.NewOutgoingContext(ctxOuter, md)
 
 	testCases := []struct {

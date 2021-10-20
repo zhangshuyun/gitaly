@@ -56,7 +56,7 @@ func setupOperationsServiceWithCfg(
 	client, conn := newOperationClient(t, serverSocketPath)
 	t.Cleanup(func() { conn.Close() })
 
-	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
+	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
 	return ctx, cfg, repo, repoPath, client

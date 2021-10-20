@@ -60,7 +60,7 @@ func TestReplicateRepository(t *testing.T) {
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 	_, err = client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
 		Repository: targetRepo,
@@ -128,7 +128,7 @@ func TestReplicateRepositoryTransactional(t *testing.T) {
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "primary", true)
 	require.NoError(t, err)
 	ctx = metadata.IncomingToOutgoing(ctx)
-	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 	client := newMuxedRepositoryClient(t, ctx, cfg, serverSocketPath, backchannel.NewClientHandshaker(
 		testhelper.DiscardTestEntry(t),
@@ -315,7 +315,7 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
-			ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
+			ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 			_, err := client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
 				Repository: targetRepo,
@@ -361,7 +361,7 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 	repoClient := newRepositoryClient(t, cfg, cfg.SocketPath)
 

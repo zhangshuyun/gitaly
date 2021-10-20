@@ -6,8 +6,6 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
-	"encoding/base64"
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io"
@@ -23,10 +21,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
-	"google.golang.org/grpc/metadata"
 )
 
 const (
@@ -62,33 +57,6 @@ func GitlabTestStoragePath() string {
 		panic("you must call testhelper.Configure() before GitlabTestStoragePath()")
 	}
 	return filepath.Join(testDirectory, "storage")
-}
-
-// GitalyServersMetadataFromCfg returns a metadata pair for gitaly-servers to be used in
-// inter-gitaly operations.
-func GitalyServersMetadataFromCfg(t testing.TB, cfg config.Cfg) metadata.MD {
-	gitalyServers := storage.GitalyServers{}
-storages:
-	for _, s := range cfg.Storages {
-		// It picks up the first address configured: TLS, TCP or UNIX.
-		for _, addr := range []string{cfg.TLSListenAddr, cfg.ListenAddr, cfg.SocketPath} {
-			if addr != "" {
-				gitalyServers[s.Name] = storage.ServerInfo{
-					Address: addr,
-					Token:   cfg.Auth.Token,
-				}
-				continue storages
-			}
-		}
-		require.FailNow(t, "no address found on the config")
-	}
-
-	gitalyServersJSON, err := json.Marshal(gitalyServers)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return metadata.Pairs("gitaly-servers", base64.StdEncoding.EncodeToString(gitalyServersJSON))
 }
 
 // MustRunCommand runs a command with an optional standard input and returns the standard output, or fails.

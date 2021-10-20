@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -141,7 +142,7 @@ func TestSuccessfulResolveConflictsRequestHelper(t *testing.T) {
 	hookManager := hook.NewMockManager(t, verifyFunc, verifyFunc, hook.NopUpdate, hook.NopReferenceTransaction)
 	client := SetupConflictsServiceWithConfig(t, &cfg, hookManager)
 
-	mdGS := testhelper.GitalyServersMetadataFromCfg(t, cfg)
+	mdGS := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	mdFF, _ := metadata.FromOutgoingContext(ctx)
 	ctx = metadata.NewOutgoingContext(ctx, metadata.Join(mdGS, mdFF))
 
@@ -219,7 +220,7 @@ func TestResolveConflictsWithRemoteRepo(t *testing.T) {
 	)
 	gittest.Exec(t, cfg, "-C", targetRepoPath, "update-ref", "refs/heads/target", targetCommitOID.String())
 
-	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 	stream, err := client.ResolveConflicts(ctx)
 	require.NoError(t, err)
@@ -268,7 +269,7 @@ func TestResolveConflictsLineEndings(t *testing.T) {
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 	for _, tc := range []struct {
 		desc             string
@@ -389,7 +390,7 @@ func TestResolveConflictsNonOIDRequests(t *testing.T) {
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 	stream, err := client.ResolveConflicts(ctx)
 	require.NoError(t, err)
@@ -488,7 +489,7 @@ func TestResolveConflictsIdenticalContent(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 	stream, err := client.ResolveConflicts(ctx)
 	require.NoError(t, err)
 
@@ -527,7 +528,7 @@ func TestResolveConflictsStableID(t *testing.T) {
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
+	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
 	stream, err := client.ResolveConflicts(ctx)
@@ -594,7 +595,7 @@ func TestFailedResolveConflictsRequestDueToResolutionError(t *testing.T) {
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	mdGS := testhelper.GitalyServersMetadataFromCfg(t, cfg)
+	mdGS := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	mdFF, _ := metadata.FromOutgoingContext(ctx)
 	ctx = metadata.NewOutgoingContext(ctx, metadata.Join(mdGS, mdFF))
 
@@ -652,7 +653,7 @@ func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	mdGS := testhelper.GitalyServersMetadataFromCfg(t, cfg)
+	mdGS := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	ourCommitOid := "1450cd639e0bc6721eb02800169e464f212cde06"
 	theirCommitOid := "824be604a34828eb682305f0d963056cfac87b2d"
 	commitMsg := []byte(conflictResolutionCommitMessage)
@@ -845,7 +846,7 @@ func TestResolveConflictsQuarantine(t *testing.T) {
 	)
 	gittest.Exec(t, cfg, "-C", targetRepoPath, "update-ref", "refs/heads/target", targetCommitOID.String())
 
-	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 	stream, err := client.ResolveConflicts(ctx)
 	require.NoError(t, err)

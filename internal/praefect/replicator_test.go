@@ -103,7 +103,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	injectedCtx := metadata.NewOutgoingContext(ctx, testhelper.GitalyServersMetadataFromCfg(t, primaryCfg))
+	injectedCtx := metadata.NewOutgoingContext(ctx, testcfg.GitalyServersMetadataFromCfg(t, primaryCfg))
 
 	repoClient := newRepositoryClient(t, backupCfg.SocketPath, backupCfg.Auth.Token)
 	_, err = repoClient.ReplicateRepository(injectedCtx, &gitalypb.ReplicateRepositoryRequest{
