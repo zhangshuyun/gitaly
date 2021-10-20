@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
 func readFilesystemID(t *testing.T, path string) string {
@@ -22,22 +23,14 @@ func readFilesystemID(t *testing.T, path string) string {
 }
 
 func TestWriteMetdataFile(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", t.Name())
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, os.RemoveAll(tempDir))
-	}()
+	tempDir := testhelper.TempDir(t)
 
 	require.NoError(t, WriteMetadataFile(tempDir))
 	require.NotEmpty(t, readFilesystemID(t, tempDir))
 }
 
 func TestWriteMetadataFile_AlreadyExists(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", t.Name())
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, os.RemoveAll(tempDir))
-	}()
+	tempDir := testhelper.TempDir(t)
 
 	metadataPath := filepath.Join(tempDir, ".gitaly-metadata")
 	metadataFile, err := os.Create(metadataPath)

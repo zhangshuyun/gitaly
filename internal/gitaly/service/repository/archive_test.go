@@ -147,9 +147,8 @@ func TestGetArchiveSuccess(t *testing.T) {
 				data, err := consumeArchive(stream)
 				require.NoError(t, err)
 
-				archiveFile, err := os.CreateTemp("", "")
+				archiveFile, err := os.Create(filepath.Join(testhelper.TempDir(t), "archive"))
 				require.NoError(t, err)
-				defer func() { require.NoError(t, os.Remove(archiveFile.Name())) }()
 
 				_, err = archiveFile.Write(data)
 				require.NoError(t, err)
@@ -475,17 +474,9 @@ func TestGetArchivePathInjection(t *testing.T) {
 
 func TestGetArchiveEnv(t *testing.T) {
 	t.Parallel()
-	tmpFile, err := os.CreateTemp("", "archive.sh")
-	require.NoError(t, err)
-	defer func() { require.NoError(t, os.Remove(tmpFile.Name())) }()
 
-	err = tmpFile.Chmod(0o755)
-	require.NoError(t, err)
-
-	_, err = tmpFile.Write([]byte(`#!/bin/sh
-env | grep -E "^GL_|CORRELATION|GITALY_"`))
-	require.NoError(t, err)
-	require.NoError(t, tmpFile.Close())
+	scriptPath := filepath.Join(testhelper.TempDir(t), "archive.sh")
+	require.NoError(t, os.WriteFile(scriptPath, []byte("#!/bin/sh\nenv | grep -E '^GL_|CORRELATION|GITALY_'"), 0o755))
 
 	cfg := testcfg.Build(t)
 
@@ -495,7 +486,7 @@ env | grep -E "^GL_|CORRELATION|GITALY_"`))
 	// This replacement only needs to be done for the configuration used to invoke git commands.
 	// Other operations should use actual path to the git binary to work properly.
 	spyGitCfg := cfg
-	spyGitCfg.Git.BinPath = tmpFile.Name()
+	spyGitCfg.Git.BinPath = scriptPath
 
 	serverSocketPath := runRepositoryServerWithConfig(t, spyGitCfg, nil)
 	cfg.SocketPath = serverSocketPath
