@@ -1,23 +1,20 @@
 package testhelper
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
 	gitalylog "gitlab.com/gitlab-org/gitaly/v14/internal/log"
 )
 
-var (
-	configureOnce sync.Once
-	testDirectory string
-)
+var testDirectory string
 
 // RunOption is an option that can be passed to Run.
 type RunOption func(*runConfig)
@@ -84,27 +81,24 @@ func Run(m *testing.M, opts ...RunOption) {
 
 // configure sets up the global test configuration. On failure,
 // terminates the program.
-func configure() (func(), error) {
-	var returnedErr error
-	configureOnce.Do(func() {
-		gitalylog.Configure(gitalylog.Loggers, "json", "panic")
+func configure() (_ func(), returnedErr error) {
+	gitalylog.Configure(gitalylog.Loggers, "json", "panic")
 
-		testDirectory = getTestTmpDir()
+	if testDirectory != "" {
+		return nil, errors.New("test directory has already been configured")
+	}
 
-		for _, f := range []func() error{
-			configureGit,
-		} {
-			if returnedErr = f(); returnedErr != nil {
-				if err := os.RemoveAll(testDirectory); err != nil {
-					log.Error(err)
-				}
-
-				return
+	testDirectory = getTestTmpDir()
+	defer func() {
+		if returnedErr != nil {
+			if err := os.RemoveAll(testDirectory); err != nil {
+				log.Error(err)
 			}
 		}
-	})
-	if returnedErr != nil {
-		return nil, returnedErr
+	}()
+
+	if err := configureGit(); err != nil {
+		return nil, fmt.Errorf("configuring git: %w", err)
 	}
 
 	return func() {
