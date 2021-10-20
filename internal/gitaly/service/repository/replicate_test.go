@@ -30,8 +30,8 @@ func TestReplicateRepository(t *testing.T) {
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
 
-	testhelper.BuildGitalyHooks(t, cfg)
-	testhelper.BuildGitalySSH(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalySSH(t, cfg)
 
 	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil, testserver.WithDisablePraefect())
 	cfg.SocketPath = serverSocketPath
@@ -104,8 +104,8 @@ func TestReplicateRepositoryTransactional(t *testing.T) {
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
 
-	testhelper.BuildGitalyHooks(t, cfg)
-	testhelper.BuildGitalySSH(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalySSH(t, cfg)
 
 	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil, testserver.WithDisablePraefect())
 	cfg.SocketPath = serverSocketPath
@@ -281,8 +281,8 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 			cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "target"))
 			cfg := cfgBuilder.Build(t)
 
-			testhelper.BuildGitalyHooks(t, cfg)
-			testhelper.BuildGitalySSH(t, cfg)
+			testcfg.BuildGitalyHooks(t, cfg)
+			testcfg.BuildGitalySSH(t, cfg)
 
 			serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil, testserver.WithDisablePraefect())
 			cfg.SocketPath = serverSocketPath
@@ -336,8 +336,8 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t, testcfg.WithStorages("default", "replica"))
-	testhelper.BuildGitalyHooks(t, cfg)
-	testhelper.BuildGitalySSH(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalySSH(t, cfg)
 
 	// Our test setup does not allow for Praefects with multiple storages. We thus have to
 	// disable Praefect here.

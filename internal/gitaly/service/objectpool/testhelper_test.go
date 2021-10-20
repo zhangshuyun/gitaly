@@ -33,7 +33,7 @@ func setup(t *testing.T, opts ...testserver.GitalyServerOpt) (config.Cfg, *gital
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
-	testhelper.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
 
 	locator := config.NewLocator(cfg)
 	addr := runObjectPoolServer(t, cfg, locator, testhelper.DiscardTestLogger(t), opts...)

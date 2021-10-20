@@ -46,9 +46,9 @@ func setupOperationsServiceWithCfg(
 ) (context.Context, config.Cfg, *gitalypb.Repository, string, gitalypb.OperationServiceClient) {
 	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
-	testhelper.BuildGitalySSH(t, cfg)
-	testhelper.BuildGitalyGit2Go(t, cfg)
-	testhelper.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalySSH(t, cfg)
+	testcfg.BuildGitalyGit2Go(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
 
 	serverSocketPath := runOperationServiceServer(t, cfg, options...)
 	cfg.SocketPath = serverSocketPath

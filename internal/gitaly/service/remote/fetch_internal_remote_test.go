@@ -78,7 +78,7 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 	t.Cleanup(cancel)
 
 	remoteCfg, remoteRepo, remoteRepoPath := testcfg.BuildWithRepo(t)
-	testhelper.BuildGitalyHooks(t, remoteCfg)
+	testcfg.BuildGitalyHooks(t, remoteCfg)
 	gittest.WriteCommit(t, remoteCfg, remoteRepoPath, gittest.WithBranch("master"))
 
 	remoteAddr := testserver.RunGitalyServer(t, remoteCfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
@@ -99,8 +99,8 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 
 	localCfg, localRepoProto, localRepoPath := testcfg.BuildWithRepo(t)
 	localRepo := localrepo.NewTestRepo(t, localCfg, localRepoProto)
-	testhelper.BuildGitalySSH(t, localCfg)
-	testhelper.BuildGitalyHooks(t, localCfg)
+	testcfg.BuildGitalySSH(t, localCfg)
+	testcfg.BuildGitalyHooks(t, localCfg)
 	gittest.Exec(t, remoteCfg, "-C", localRepoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
 
 	referenceTransactionHookCalled := 0

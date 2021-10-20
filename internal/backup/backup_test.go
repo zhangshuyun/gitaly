@@ -261,7 +261,7 @@ func TestManager_Create_incremental(t *testing.T) {
 
 func TestManager_Restore(t *testing.T) {
 	cfg := testcfg.Build(t)
-	testhelper.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
 
 	gitalyAddr := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
 
@@ -271,8 +271,8 @@ func TestManager_Restore(t *testing.T) {
 func TestManager_Restore_praefect(t *testing.T) {
 	gitalyCfg := testcfg.Build(t, testcfg.WithStorages("gitaly-1"))
 
-	testhelper.BuildPraefect(t, gitalyCfg)
-	testhelper.BuildGitalyHooks(t, gitalyCfg)
+	testcfg.BuildPraefect(t, gitalyCfg)
+	testcfg.BuildGitalyHooks(t, gitalyCfg)
 
 	gitalyAddr := testserver.RunGitalyServer(t, gitalyCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 

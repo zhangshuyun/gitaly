@@ -72,7 +72,7 @@ func TestServer_FetchBundle_success(t *testing.T) {
 func TestServer_FetchBundle_transaction(t *testing.T) {
 	t.Parallel()
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
-	testhelper.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
 
 	hookManager := &mockHookManager{}
 	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {

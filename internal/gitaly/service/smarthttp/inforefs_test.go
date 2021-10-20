@@ -181,7 +181,7 @@ func TestSuccessfulInfoRefsReceivePack(t *testing.T) {
 func TestObjectPoolRefAdvertisementHiding(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	testhelper.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
 
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 

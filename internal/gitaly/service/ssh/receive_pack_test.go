@@ -94,7 +94,7 @@ func TestReceivePackPushSuccess(t *testing.T) {
 
 	cfg.GitlabShell.Dir = "/foo/bar/gitlab-shell"
 
-	testhelper.BuildGitalySSH(t, cfg)
+	testcfg.BuildGitalySSH(t, cfg)
 
 	hookOutputFile, cleanup := gittest.CaptureHookEnv(t)
 	defer cleanup()
@@ -167,8 +167,8 @@ func TestReceivePackPushSuccess(t *testing.T) {
 func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	testhelper.BuildGitalySSH(t, cfg)
-	testhelper.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalySSH(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
 
 	readProto, cfg := gittest.EnableGitProtocolV2Support(t, cfg)
 
@@ -203,7 +203,7 @@ func TestReceivePackPushFailure(t *testing.T) {
 func TestReceivePackPushHookFailure(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	testhelper.BuildGitalySSH(t, cfg)
+	testcfg.BuildGitalySSH(t, cfg)
 
 	serverSocketPath := runSSHServer(t, cfg)
 
@@ -225,7 +225,7 @@ func TestReceivePackPushHookFailure(t *testing.T) {
 func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	testhelper.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
 
 	serverSocketPath := runSSHServer(t, cfg)
 
@@ -281,7 +281,7 @@ func TestReceivePackTransactional(t *testing.T) {
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	testhelper.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
 
 	var votes int
 	serverSocketPath := runSSHServer(t, cfg, testserver.WithTransactionManager(
@@ -489,8 +489,8 @@ func TestReceivePackTransactional(t *testing.T) {
 func TestSSHReceivePackToHooks(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	testhelper.BuildGitalyHooks(t, cfg)
-	testhelper.BuildGitalySSH(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalySSH(t, cfg)
 
 	const (
 		secretToken  = "secret token"

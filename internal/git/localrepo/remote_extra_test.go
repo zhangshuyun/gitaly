@@ -42,8 +42,8 @@ func TestRepo_FetchInternal(t *testing.T) {
 	})
 
 	remoteRepo := localrepo.NewTestRepo(t, cfg, remoteRepoProto)
-	testhelper.BuildGitalySSH(t, cfg)
-	testhelper.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalySSH(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
 
 	remoteOID, err := remoteRepo.ResolveRevision(ctx, git.Revision("refs/heads/master"))
 	require.NoError(t, err)

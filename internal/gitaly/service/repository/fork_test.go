@@ -62,8 +62,8 @@ func TestSuccessfulCreateForkRequest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-			testhelper.BuildGitalyHooks(t, cfg)
-			testhelper.BuildGitalySSH(t, cfg)
+			testcfg.BuildGitalyHooks(t, cfg)
+			testcfg.BuildGitalySSH(t, cfg)
 
 			var (
 				client gitalypb.RepositoryServiceClient

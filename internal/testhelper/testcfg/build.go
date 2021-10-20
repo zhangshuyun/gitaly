@@ -1,4 +1,4 @@
-package testhelper
+package testcfg
 
 import (
 	"errors"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/version"
 )
 
@@ -49,18 +50,23 @@ func BuildPraefect(t testing.TB, cfg config.Cfg) {
 	BuildBinary(t, cfg.BinDir, gitalyCommandPath("praefect"))
 }
 
+var (
+	sharedBinariesDir               string
+	createGlobalBinaryDirectoryOnce sync.Once
+)
+
 // BuildBinary builds a Go binary once and copies it into the target directory. The source path can
 // either be a ".go" file or a directory containing Go files. Returns the path to the executable in
 // the destination directory.
 func BuildBinary(t testing.TB, targetDir, sourcePath string) string {
-	require.NotEmpty(t, testDirectory, "you must call testhelper.Configure() first")
+	createGlobalBinaryDirectoryOnce.Do(func() {
+		sharedBinariesDir = testhelper.CreateGlobalDirectory(t, "bins")
+	})
+	require.NotEmpty(t, sharedBinariesDir, "creation of shared binary directory failed")
 
 	var (
 		// executableName is the name of the executable.
 		executableName = filepath.Base(sourcePath)
-		// sharedBinariesDir is where all binaries will be compiled into. This directory is
-		// shared between all tests.
-		sharedBinariesDir = filepath.Join(testDirectory, "bins")
 		// sharedBinaryPath is the path to the binary shared between all tests.
 		sharedBinaryPath = filepath.Join(sharedBinariesDir, executableName)
 		// targetPath is the final path where the binary should be copied to.
@@ -72,10 +78,9 @@ func BuildBinary(t testing.TB, targetDir, sourcePath string) string {
 	require.True(t, ok)
 
 	buildOnce.Do(func() {
-		require.NoError(t, os.MkdirAll(sharedBinariesDir, os.ModePerm))
 		require.NoFileExists(t, sharedBinaryPath, "binary has already been built")
 
-		MustRunCommand(t, nil,
+		testhelper.MustRunCommand(t, nil,
 			"go",
 			"build",
 			"-tags", "static,system_libgit2",
@@ -88,7 +93,7 @@ func BuildBinary(t testing.TB, targetDir, sourcePath string) string {
 	require.NoFileExists(t, targetPath, "%s exists already -- do you try to build it twice?", executableName)
 
 	require.NoError(t, os.MkdirAll(targetDir, os.ModePerm))
-	CopyFile(t, sharedBinaryPath, targetPath)
+	testhelper.CopyFile(t, sharedBinaryPath, targetPath)
 	require.NoError(t, os.Chmod(targetPath, 0o755))
 
 	return targetPath

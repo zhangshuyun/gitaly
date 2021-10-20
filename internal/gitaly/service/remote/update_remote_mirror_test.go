@@ -498,7 +498,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 
 			cfg := testcfg.Build(t)
 
-			testhelper.BuildGitalyGit2Go(t, cfg)
+			testcfg.BuildGitalyGit2Go(t, cfg)
 
 			mirrorRepoPb, mirrorRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 

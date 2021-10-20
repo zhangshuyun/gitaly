@@ -167,6 +167,15 @@ func Context(opts ...ContextOpt) (context.Context, func()) {
 	}
 }
 
+// CreateGlobalDirectory creates a directory in the test directory that is shared across all
+// between all tests.
+func CreateGlobalDirectory(t testing.TB, name string) string {
+	require.NotEmpty(t, testDirectory, "global temporary directory does not exist")
+	path := filepath.Join(testDirectory, name)
+	require.NoError(t, os.Mkdir(path, 0o777))
+	return path
+}
+
 // TempDir is a wrapper around os.MkdirTemp that provides a cleanup function.
 func TempDir(t testing.TB) string {
 	if testDirectory == "" {

@@ -215,8 +215,8 @@ func TestUploadPackCloneSuccess(t *testing.T) {
 func testUploadPackCloneSuccess(t *testing.T, opts ...testcfg.Option) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t, opts...)
 
-	testhelper.BuildGitalyHooks(t, cfg)
-	testhelper.BuildGitalySSH(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalySSH(t, cfg)
 
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
 
@@ -268,8 +268,8 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	outputPath := filepath.Join(filterDir, "output")
 	cfg.BinDir = filterDir
 
-	testhelper.BuildGitalyHooks(t, cfg)
-	testhelper.BuildGitalySSH(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalySSH(t, cfg)
 
 	hookScript := fmt.Sprintf(
 		`#!/bin/sh
@@ -308,8 +308,8 @@ func TestUploadPackWithoutSideband(t *testing.T) {
 func testUploadPackWithoutSideband(t *testing.T, opts ...testcfg.Option) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t, opts...)
 
-	testhelper.BuildGitalySSH(t, cfg)
-	testhelper.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalySSH(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
 
 	serverSocketPath := runSSHServer(t, cfg)
 
@@ -355,8 +355,8 @@ func TestUploadPackCloneWithPartialCloneFilter(t *testing.T) {
 func testUploadPackCloneWithPartialCloneFilter(t *testing.T, opts ...testcfg.Option) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t, opts...)
 
-	testhelper.BuildGitalySSH(t, cfg)
-	testhelper.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalySSH(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
 
 	serverSocketPath := runSSHServer(t, cfg)
 
@@ -420,8 +420,8 @@ func testUploadPackCloneSuccessWithGitProtocol(t *testing.T, opts ...testcfg.Opt
 
 	serverSocketPath := runSSHServer(t, cfg)
 
-	testhelper.BuildGitalySSH(t, cfg)
-	testhelper.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalySSH(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
 
 	localRepoPath := testhelper.TempDir(t)
 
@@ -461,8 +461,8 @@ func testUploadPackCloneSuccessWithGitProtocol(t *testing.T, opts ...testcfg.Opt
 func TestUploadPackCloneHideTags(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
-	testhelper.BuildGitalySSH(t, cfg)
-	testhelper.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalySSH(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
 
 	serverSocketPath := runSSHServer(t, cfg)
 
