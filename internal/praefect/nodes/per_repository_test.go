@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 )
 
 func TestPerRepositoryElector(t *testing.T) {
@@ -532,7 +533,7 @@ func TestPerRepositoryElector(t *testing.T) {
 
 			for _, step := range tc.steps {
 				runElection := func(tx *glsql.TxWrapper) (string, *logrus.Entry) {
-					testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect-0": step.healthyNodes})
+					testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect-0": step.healthyNodes})
 
 					logger, hook := test.NewNullLogger()
 					elector := NewPerRepositoryElector(tx)

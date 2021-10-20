@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 )
 
 // repositoryRecord represents Praefect's records related to a repository.
@@ -1307,7 +1308,7 @@ func TestPostgresRepositoryStore_GetPartiallyAvailableRepositories(t *testing.T)
 				healthyStorages = append(healthyStorages, storage)
 			}
 
-			testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{
+			testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{
 				"praefect-0": {"virtual-storage": healthyStorages},
 			})
 

@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/transactions"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -213,7 +214,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 				require.NoError(t, rs.SetGeneration(ctx, 1, storageNodes[i].Storage, n.generation))
 			}
 
-			testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": conf.StorageNames()})
+			testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": conf.StorageNames()})
 
 			nodeSet, err := DialNodes(
 				ctx,

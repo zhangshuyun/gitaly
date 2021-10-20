@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 )
 
 func TestRepositoryStoreCollector(t *testing.T) {
@@ -151,7 +152,7 @@ func TestRepositoryStoreCollector(t *testing.T) {
 			tx := db.Begin(t)
 			defer tx.Rollback(t)
 
-			testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{
+			testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{
 				"praefect-0": {"virtual-storage-1": tc.healthyNodes},
 			})
 

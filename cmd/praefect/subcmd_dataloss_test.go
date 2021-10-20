@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/service/info"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
@@ -47,7 +48,7 @@ func TestDatalossSubcommand(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect-0": {
+	testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect-0": {
 		"virtual-storage-1": {"gitaly-1", "gitaly-3"},
 	}})
 	gs := datastore.NewPostgresRepositoryStore(tx, cfg.StorageNames())
