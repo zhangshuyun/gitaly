@@ -3,7 +3,6 @@ package git
 import (
 	"bufio"
 	"bytes"
-	"encoding/hex"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -52,6 +51,7 @@ func TestChecksum(t *testing.T) {
 		{
 			desc:         "zero",
 			expectedZero: true,
+			expected:     ZeroOID.String(),
 		},
 		{
 			desc: "single ref",
@@ -118,7 +118,7 @@ f21f76b804422462e79f9f99d5b14856e130ed71 refs/heads/feature
 				}
 
 				require.Equal(t, tc.expectedZero, checksum.IsZero())
-				require.Equal(t, tc.expected, hex.EncodeToString(checksum.Bytes()))
+				require.Equal(t, tc.expected, checksum.String())
 			})
 
 			t.Run("AddBytes", func(t *testing.T) {
@@ -131,7 +131,7 @@ f21f76b804422462e79f9f99d5b14856e130ed71 refs/heads/feature
 
 				require.NoError(t, scanner.Err())
 				require.Equal(t, tc.expectedZero, checksum.IsZero())
-				require.Equal(t, tc.expected, hex.EncodeToString(checksum.Bytes()))
+				require.Equal(t, tc.expected, checksum.String())
 			})
 		})
 	}

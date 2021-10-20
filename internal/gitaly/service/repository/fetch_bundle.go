@@ -63,7 +63,6 @@ func (s *server) FetchBundle(stream gitalypb.RepositoryService_FetchBundleServer
 		{Key: "remote.inmemory.fetch", Value: mirrorRefSpec},
 	}
 	opts := localrepo.FetchOpts{
-		Prune:          true,
 		CommandOptions: []git.CmdOpt{git.WithConfigEnv(config...)},
 	}
 

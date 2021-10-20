@@ -2,6 +2,7 @@ package git
 
 import (
 	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"regexp"
@@ -59,4 +60,12 @@ func (c *Checksum) IsZero() bool {
 // Bytes returns the checksum as a slice of bytes.
 func (c *Checksum) Bytes() []byte {
 	return c.sum.Bytes()
+}
+
+// String returns the checksum as a hex encoded string.
+func (c *Checksum) String() string {
+	if c.IsZero() {
+		return ZeroOID.String()
+	}
+	return hex.EncodeToString(c.Bytes())
 }
