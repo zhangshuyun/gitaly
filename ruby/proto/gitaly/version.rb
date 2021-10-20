@@ -2,5 +2,5 @@
 # (https://gitlab.com/gitlab-org/release-tools/), and should not be
 # modified.
 module Gitaly
-  VERSION = '14.3.0-rc2'
+  VERSION = '14.4.0-rc42'
 end
