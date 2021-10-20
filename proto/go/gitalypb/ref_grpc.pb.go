@@ -48,6 +48,10 @@ type RefServiceClient interface {
 	// will not be returned by this RPC. Any symbolic references will be resolved to the object ID it is
 	// pointing at.
 	ListRefs(ctx context.Context, in *ListRefsRequest, opts ...grpc.CallOption) (RefService_ListRefsClient, error)
+	// FindRefsByOID returns an array of fully qualified reference names that point to an object ID.
+	// It returns nothing if the object ID doesn't exist, or doesn't point to
+	// any branches or tags. Prefixes can be also be used as the object ID.
+	FindRefsByOID(ctx context.Context, in *FindRefsByOIDRequest, opts ...grpc.CallOption) (*FindRefsByOIDResponse, error)
 }
 
 type refServiceClient struct {
@@ -496,6 +500,15 @@ func (x *refServiceListRefsClient) Recv() (*ListRefsResponse, error) {
 	return m, nil
 }
 
+func (c *refServiceClient) FindRefsByOID(ctx context.Context, in *FindRefsByOIDRequest, opts ...grpc.CallOption) (*FindRefsByOIDResponse, error) {
+	out := new(FindRefsByOIDResponse)
+	err := c.cc.Invoke(ctx, "/gitaly.RefService/FindRefsByOID", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RefServiceServer is the server API for RefService service.
 // All implementations must embed UnimplementedRefServiceServer
 // for forward compatibility
@@ -530,6 +543,10 @@ type RefServiceServer interface {
 	// will not be returned by this RPC. Any symbolic references will be resolved to the object ID it is
 	// pointing at.
 	ListRefs(*ListRefsRequest, RefService_ListRefsServer) error
+	// FindRefsByOID returns an array of fully qualified reference names that point to an object ID.
+	// It returns nothing if the object ID doesn't exist, or doesn't point to
+	// any branches or tags. Prefixes can be also be used as the object ID.
+	FindRefsByOID(context.Context, *FindRefsByOIDRequest) (*FindRefsByOIDResponse, error)
 	mustEmbedUnimplementedRefServiceServer()
 }
 
@@ -590,6 +607,9 @@ func (UnimplementedRefServiceServer) PackRefs(context.Context, *PackRefsRequest)
 }
 func (UnimplementedRefServiceServer) ListRefs(*ListRefsRequest, RefService_ListRefsServer) error {
 	return status.Errorf(codes.Unimplemented, "method ListRefs not implemented")
+}
+func (UnimplementedRefServiceServer) FindRefsByOID(context.Context, *FindRefsByOIDRequest) (*FindRefsByOIDResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FindRefsByOID not implemented")
 }
 func (UnimplementedRefServiceServer) mustEmbedUnimplementedRefServiceServer() {}
 
@@ -964,6 +984,24 @@ func (x *refServiceListRefsServer) Send(m *ListRefsResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _RefService_FindRefsByOID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FindRefsByOIDRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RefServiceServer).FindRefsByOID(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gitaly.RefService/FindRefsByOID",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RefServiceServer).FindRefsByOID(ctx, req.(*FindRefsByOIDRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RefService_ServiceDesc is the grpc.ServiceDesc for RefService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -994,6 +1032,10 @@ var RefService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PackRefs",
 			Handler:    _RefService_PackRefs_Handler,
+		},
+		{
+			MethodName: "FindRefsByOID",
+			Handler:    _RefService_FindRefsByOID_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
