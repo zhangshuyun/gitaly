@@ -22,6 +22,20 @@ const (
 	tagFormat = "%(objectname) %(objecttype) %(refname:lstrip=2)"
 )
 
+type paginationOpts struct {
+	// Limit allows to set the maximum numbers of elements
+	Limit int
+	// IsPageToken allows control over which results are sent as part of the
+	// response. When IsPageToken evaluates to true for the first time,
+	// results will start to be sent as part of the response. This function
+	// will	be called with an empty slice previous to sending the first line
+	// in order to allow sending everything right from the beginning.
+	IsPageToken func([]byte) bool
+	// When PageTokenError is true then the response will return an error when
+	// PageToken is not found.
+	PageTokenError bool
+}
+
 type findRefsOpts struct {
 	cmdArgs []git.Option
 	delim   byte
@@ -144,7 +158,7 @@ func (s *server) findLocalBranches(in *gitalypb.FindLocalBranchesRequest, stream
 	}
 
 	writer := newFindLocalBranchesWriter(stream, objectReader)
-	opts := paginationParamsToOpts(ctx, in.GetPaginationParams())
+	opts := buildFindRefsOpts(ctx, in.GetPaginationParams())
 	opts.cmdArgs = []git.Option{
 		// %00 inserts the null character into the output (see for-each-ref docs)
 		git.Flag{Name: "--format=" + strings.Join(localBranchFormatFields, "%00")},
@@ -195,7 +209,7 @@ func (s *server) findAllBranches(in *gitalypb.FindAllBranchesRequest, stream git
 		return err
 	}
 
-	opts := paginationParamsToOpts(ctx, nil)
+	opts := buildFindRefsOpts(ctx, nil)
 	opts.cmdArgs = args
 
 	writer := newFindAllBranchesWriter(stream, objectReader)
@@ -306,8 +320,8 @@ func (s *server) validateFindTagRequest(in *gitalypb.FindTagRequest) error {
 	return nil
 }
 
-func paginationParamsToOpts(ctx context.Context, p *gitalypb.PaginationParameter) *findRefsOpts {
-	opts := &findRefsOpts{delim: '\n'}
+func buildPaginationOpts(ctx context.Context, p *gitalypb.PaginationParameter) *paginationOpts {
+	opts := &paginationOpts{}
 	opts.IsPageToken = func(_ []byte) bool { return true }
 	opts.Limit = math.MaxInt32
 
@@ -336,6 +350,17 @@ func paginationParamsToOpts(ctx context.Context, p *gitalypb.PaginationParameter
 	}
 
 	return opts
+}
+
+func buildFindRefsOpts(ctx context.Context, p *gitalypb.PaginationParameter) *findRefsOpts {
+	opts := buildPaginationOpts(ctx, p)
+
+	refsOpts := &findRefsOpts{delim: '\n'}
+	refsOpts.Limit = opts.Limit
+	refsOpts.IsPageToken = opts.IsPageToken
+	refsOpts.PageTokenError = opts.PageTokenError
+
+	return refsOpts
 }
 
 // getTagSortField returns a field that needs to be used to sort the tags.

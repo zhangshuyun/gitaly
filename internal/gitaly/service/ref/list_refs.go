@@ -34,7 +34,7 @@ func (s *server) ListRefs(in *gitalypb.ListRefsRequest, stream gitalypb.RefServi
 		patterns = append(patterns, string(pattern))
 	}
 
-	opts := paginationParamsToOpts(ctx, nil)
+	opts := buildFindRefsOpts(ctx, nil)
 	opts.cmdArgs = []git.Option{
 		// %00 inserts the null character into the output (see for-each-ref docs)
 		git.Flag{Name: "--format=" + strings.Join(localBranchFormatFields, "%00")},
