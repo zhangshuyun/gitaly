@@ -64,7 +64,7 @@ func Run(m *testing.M, opts ...RunOption) {
 
 		cleanup, err := configure()
 		if err != nil {
-			return err
+			return fmt.Errorf("test configuration: %w", err)
 		}
 		defer cleanup()
 
@@ -78,7 +78,8 @@ func Run(m *testing.M, opts ...RunOption) {
 
 		return nil
 	}(); err != nil {
-		log.Fatalf("%v", err)
+		fmt.Printf("%s", err)
+		os.Exit(1)
 	}
 }
 
