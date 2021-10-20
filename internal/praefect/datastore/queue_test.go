@@ -1048,16 +1048,16 @@ func TestPostgresReplicationEventQueue_AcknowledgeStale(t *testing.T) {
 		db.TruncateAll(t)
 		source := NewPostgresReplicationEventQueue(db)
 
-		var exp []ReplicationEvent
+		var events []ReplicationEvent
 		for _, eventType := range []ReplicationEvent{eventType1, eventType2, eventType3} {
 			event, err := source.Enqueue(ctx, eventType)
 			require.NoError(t, err)
 			devents, err := source.Dequeue(ctx, event.Job.VirtualStorage, event.Job.TargetNodeStorage, 1)
 			require.NoError(t, err)
-			exp = append(exp, devents...)
+			events = append(events, devents...)
 		}
 
-		for event, i := exp[0], 0; i < 2; i++ { // consume all processing attempts to verify that state will be changed to 'dead'
+		for event, i := events[0], 0; i < 2; i++ { // consume all processing attempts to verify that state will be changed to 'dead'
 			_, err := source.Acknowledge(ctx, JobStateFailed, []uint64{event.ID})
 			require.NoError(t, err)
 			_, err = source.Dequeue(ctx, event.Job.VirtualStorage, event.Job.TargetNodeStorage, 1)
@@ -1066,10 +1066,11 @@ func TestPostgresReplicationEventQueue_AcknowledgeStale(t *testing.T) {
 
 		require.NoError(t, source.AcknowledgeStale(ctx, time.Microsecond))
 
-		exp[0].State = JobStateDead
-		exp[0].Attempt = 0
-		for i := range exp[1:] {
-			exp[1+i].State = JobStateFailed
+		var exp []ReplicationEvent
+		// The first event should be removed from table as its state changed to 'dead'.
+		for _, e := range events[1:] {
+			e.State = JobStateFailed
+			exp = append(exp, e)
 		}
 
 		requireEvents(t, ctx, db, exp)
