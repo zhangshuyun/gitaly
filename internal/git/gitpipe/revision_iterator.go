@@ -1,11 +1,10 @@
 package gitpipe
 
+import "gitlab.com/gitlab-org/gitaly/v14/internal/git"
+
 // RevisionIterator is an iterator returned by the Revlist function.
 type RevisionIterator interface {
-	// Next iterates to the next item. Returns `false` in case there are no more results left.
-	Next() bool
-	// Err returns the first error that was encountered.
-	Err() error
+	ObjectIterator
 	// Result returns the current item.
 	Result() RevisionResult
 }
@@ -48,4 +47,12 @@ func (it *revisionIterator) Err() error {
 
 func (it *revisionIterator) Result() RevisionResult {
 	return it.result
+}
+
+func (it *revisionIterator) ObjectID() git.ObjectID {
+	return it.result.OID
+}
+
+func (it *revisionIterator) ObjectName() []byte {
+	return it.result.ObjectName
 }

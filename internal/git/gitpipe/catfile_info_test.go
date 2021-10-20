@@ -28,6 +28,7 @@ func TestCatfileInfo(t *testing.T) {
 	for _, tc := range []struct {
 		desc            string
 		revlistInputs   []RevisionResult
+		opts            []CatfileInfoOption
 		expectedResults []CatfileInfoResult
 		expectedErr     error
 	}{
@@ -85,6 +86,45 @@ func TestCatfileInfo(t *testing.T) {
 			},
 			expectedErr: errors.New("retrieving object info for \"invalidobjectid\": object not found"),
 		},
+		{
+			desc: "skip everything",
+			revlistInputs: []RevisionResult{
+				{OID: lfsPointer1},
+				{OID: lfsPointer2},
+			},
+			opts: []CatfileInfoOption{
+				WithSkipCatfileInfoResult(func(*catfile.ObjectInfo) bool { return true }),
+			},
+		},
+		{
+			desc: "skip one",
+			revlistInputs: []RevisionResult{
+				{OID: lfsPointer1},
+				{OID: lfsPointer2},
+			},
+			opts: []CatfileInfoOption{
+				WithSkipCatfileInfoResult(func(objectInfo *catfile.ObjectInfo) bool {
+					return objectInfo.Oid == lfsPointer1
+				}),
+			},
+			expectedResults: []CatfileInfoResult{
+				{ObjectInfo: &catfile.ObjectInfo{Oid: lfsPointer2, Type: "blob", Size: 127}},
+			},
+		},
+		{
+			desc: "skip nothing",
+			revlistInputs: []RevisionResult{
+				{OID: lfsPointer1},
+				{OID: lfsPointer2},
+			},
+			opts: []CatfileInfoOption{
+				WithSkipCatfileInfoResult(func(*catfile.ObjectInfo) bool { return false }),
+			},
+			expectedResults: []CatfileInfoResult{
+				{ObjectInfo: &catfile.ObjectInfo{Oid: lfsPointer1, Type: "blob", Size: 133}},
+				{ObjectInfo: &catfile.ObjectInfo{Oid: lfsPointer2, Type: "blob", Size: 127}},
+			},
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx, cancel := testhelper.Context()
@@ -96,7 +136,7 @@ func TestCatfileInfo(t *testing.T) {
 			objectInfoReader, err := catfileCache.ObjectInfoReader(ctx, repo)
 			require.NoError(t, err)
 
-			it := CatfileInfo(ctx, objectInfoReader, NewRevisionIterator(tc.revlistInputs))
+			it := CatfileInfo(ctx, objectInfoReader, NewRevisionIterator(tc.revlistInputs), tc.opts...)
 
 			var results []CatfileInfoResult
 			for it.Next() {
@@ -146,84 +186,4 @@ func TestCatfileInfoAllObjects(t *testing.T) {
 		{ObjectInfo: &catfile.ObjectInfo{Oid: tree, Type: "tree", Size: 34}},
 		{ObjectInfo: &catfile.ObjectInfo{Oid: commit, Type: "commit", Size: 177}},
 	}, results)
-}
-
-func TestCatfileInfoFilter(t *testing.T) {
-	for _, tc := range []struct {
-		desc            string
-		input           []CatfileInfoResult
-		filter          func(CatfileInfoResult) bool
-		expectedResults []CatfileInfoResult
-		expectedErr     error
-	}{
-		{
-			desc: "all accepted",
-			input: []CatfileInfoResult{
-				{ObjectName: []byte{'a'}},
-				{ObjectName: []byte{'b'}},
-				{ObjectName: []byte{'c'}},
-			},
-			filter: func(CatfileInfoResult) bool {
-				return true
-			},
-			expectedResults: []CatfileInfoResult{
-				{ObjectName: []byte{'a'}},
-				{ObjectName: []byte{'b'}},
-				{ObjectName: []byte{'c'}},
-			},
-		},
-		{
-			desc: "all filtered",
-			input: []CatfileInfoResult{
-				{ObjectName: []byte{'a'}},
-				{ObjectName: []byte{'b'}},
-				{ObjectName: []byte{'c'}},
-			},
-			filter: func(CatfileInfoResult) bool {
-				return false
-			},
-		},
-		{
-			desc: "errors always get through",
-			input: []CatfileInfoResult{
-				{ObjectName: []byte{'a'}},
-				{ObjectName: []byte{'b'}},
-				{err: errors.New("foobar")},
-				{ObjectName: []byte{'c'}},
-			},
-			filter: func(CatfileInfoResult) bool {
-				return false
-			},
-			expectedErr: errors.New("foobar"),
-		},
-		{
-			desc: "subset filtered",
-			input: []CatfileInfoResult{
-				{ObjectName: []byte{'a'}},
-				{ObjectName: []byte{'b'}},
-				{ObjectName: []byte{'c'}},
-			},
-			filter: func(r CatfileInfoResult) bool {
-				return r.ObjectName[0] == 'b'
-			},
-			expectedResults: []CatfileInfoResult{
-				{ObjectName: []byte{'b'}},
-			},
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
-
-			it := CatfileInfoFilter(ctx, NewCatfileInfoIterator(tc.input), tc.filter)
-
-			var results []CatfileInfoResult
-			for it.Next() {
-				results = append(results, it.Result())
-			}
-
-			require.Equal(t, tc.expectedErr, it.Err())
-			require.Equal(t, tc.expectedResults, results)
-		})
-	}
 }

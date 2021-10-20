@@ -32,7 +32,7 @@ type CatfileObjectResult struct {
 func CatfileObject(
 	ctx context.Context,
 	objectReader catfile.ObjectReader,
-	it CatfileInfoIterator,
+	it ObjectIterator,
 ) CatfileObjectIterator {
 	resultChan := make(chan CatfileObjectResult)
 	go func() {
@@ -62,8 +62,6 @@ func CatfileObject(
 		var objectDataReader *signallingReader
 
 		for it.Next() {
-			catfileInfoResult := it.Result()
-
 			// We mustn't try to read another object before reading the previous object
 			// has concluded. Given that this is not under our control but under the
 			// control of the caller, we thus have to wait until the blocking reader has
@@ -76,7 +74,7 @@ func CatfileObject(
 				}
 			}
 
-			object, err := objectReader.Object(ctx, catfileInfoResult.ObjectInfo.Oid.Revision())
+			object, err := objectReader.Object(ctx, it.ObjectID().Revision())
 			if err != nil {
 				sendResult(CatfileObjectResult{
 					err: fmt.Errorf("requesting object: %w", err),
@@ -90,8 +88,8 @@ func CatfileObject(
 			}
 
 			if isDone := sendResult(CatfileObjectResult{
-				ObjectName:   catfileInfoResult.ObjectName,
-				ObjectInfo:   catfileInfoResult.ObjectInfo,
+				ObjectName:   it.ObjectName(),
+				ObjectInfo:   &object.ObjectInfo,
 				ObjectReader: objectDataReader,
 			}); isDone {
 				return

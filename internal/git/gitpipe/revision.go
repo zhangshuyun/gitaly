@@ -52,6 +52,7 @@ type revlistConfig struct {
 	firstParent   bool
 	before, after time.Time
 	author        []byte
+	skipResult    func(*RevisionResult) bool
 }
 
 // RevlistOption is an option for the revlist pipeline step.
@@ -156,6 +157,15 @@ func WithAfter(t time.Time) RevlistOption {
 func WithAuthor(author []byte) RevlistOption {
 	return func(cfg *revlistConfig) {
 		cfg.author = author
+	}
+}
+
+// WithSkipRevlistResult will execute the given function for each RevisionResult processed by the
+// pipeline. If the callback returns `true`, then the object will be skipped and not passed down
+// the pipeline.
+func WithSkipRevlistResult(skipResult func(*RevisionResult) bool) RevlistOption {
+	return func(cfg *revlistConfig) {
+		cfg.skipResult = skipResult
 	}
 }
 
@@ -272,6 +282,10 @@ func Revlist(
 				result.ObjectName = oidAndName[1]
 			}
 
+			if cfg.skipResult != nil && cfg.skipResult(&result) {
+				continue
+			}
+
 			if isDone := sendRevisionResult(ctx, resultChan, result); isDone {
 				return
 			}
@@ -297,6 +311,22 @@ func Revlist(
 	}
 }
 
+type forEachRefConfig struct {
+	format string
+}
+
+// ForEachRefOption is an option that can be passed to ForEachRef.
+type ForEachRefOption func(cfg *forEachRefConfig)
+
+// WithForEachRefFormat is the format used by git-for-each-ref. Note that each line _must_ be of
+// format "%(objectname) %(refname)" such that the pipeline can parse it correctly. You may use
+// conditional format statements though to potentially produce multiple such lines.
+func WithForEachRefFormat(format string) ForEachRefOption {
+	return func(cfg *forEachRefConfig) {
+		cfg.format = format
+	}
+}
+
 // ForEachRef runs git-for-each-ref(1) with the given patterns and returns a RevisionIterator for
 // found references. Patterns must always refer to fully qualified reference names. Patterns for
 // which no branch is found do not result in an error. The iterator's object name is set to the
@@ -307,18 +337,25 @@ func ForEachRef(
 	repo *localrepo.Repo,
 	patterns []string,
 	sortField string,
+	opts ...ForEachRefOption,
 ) RevisionIterator {
-	resultChan := make(chan RevisionResult)
+	cfg := forEachRefConfig{
+		// The default format also includes the object type, which requires us to read the
+		// referenced commit's object. It would thus be about 2-3x slower to use the
+		// default format, and instead we move the burden into the next pipeline step by
+		// default.
+		format: "%(objectname) %(refname)",
+	}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
 
+	resultChan := make(chan RevisionResult)
 	go func() {
 		defer close(resultChan)
 
 		flags := []git.Option{
-			// The default format also includes the object type, which requires
-			// us to read the referenced commit's object. It would thus be about
-			// 2-3x slower to use the default format, and instead we move the
-			// burden into the next pipeline step.
-			git.ValueFlag{Name: "--format", Value: "%(objectname) %(refname)"},
+			git.ValueFlag{Name: "--format", Value: cfg.format},
 		}
 		if sortField != "" {
 			flags = append(flags, git.ValueFlag{Name: "--sort", Value: sortField})
@@ -366,47 +403,6 @@ func ForEachRef(
 				err: fmt.Errorf("for-each-ref pipeline command: %w", err),
 			})
 			return
-		}
-	}()
-
-	return &revisionIterator{
-		ch: resultChan,
-	}
-}
-
-// RevisionFilter filters the RevisionResult from the provided iterator with the filter function: if
-// the filter returns `false` for a given item, then it will be dropped from the pipeline. Errors
-// cannot be filtered and will always be passed through.
-func RevisionFilter(ctx context.Context, it RevisionIterator, filter func(RevisionResult) bool) RevisionIterator {
-	return RevisionTransform(ctx, it, func(r RevisionResult) []RevisionResult {
-		if filter(r) {
-			return []RevisionResult{r}
-		}
-		return []RevisionResult{}
-	})
-}
-
-// RevisionTransform transforms each RevisionResult from the provided iterator with the transforming
-// function. Instead of sending the original RevisionResult, it will instead send transformed
-// results.
-func RevisionTransform(ctx context.Context, it RevisionIterator, transform func(RevisionResult) []RevisionResult) RevisionIterator {
-	resultChan := make(chan RevisionResult)
-
-	go func() {
-		defer close(resultChan)
-
-		for it.Next() {
-			for _, transformed := range transform(it.Result()) {
-				if sendRevisionResult(ctx, resultChan, transformed) {
-					return
-				}
-			}
-		}
-
-		if err := it.Err(); err != nil {
-			if sendRevisionResult(ctx, resultChan, RevisionResult{err: err}) {
-				return
-			}
 		}
 	}()
 

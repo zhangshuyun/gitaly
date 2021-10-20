@@ -39,11 +39,6 @@ func (s *server) ListCommits(
 	ctx := stream.Context()
 	repo := s.localrepo(request.GetRepository())
 
-	objectInfoReader, err := s.catfileCache.ObjectInfoReader(ctx, repo)
-	if err != nil {
-		return helper.ErrInternal(fmt.Errorf("creating object info reader: %w", err))
-	}
-
 	objectReader, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
 		return helper.ErrInternal(fmt.Errorf("creating object reader: %w", err))
@@ -88,26 +83,24 @@ func (s *server) ListCommits(
 		revlistOptions = append(revlistOptions, gitpipe.WithAuthor(request.GetAuthor()))
 	}
 
-	revlistIter := gitpipe.Revlist(ctx, repo, request.GetRevisions(), revlistOptions...)
-
 	// If we've got a pagination token, then we will only start to print commits as soon as
 	// we've seen the token.
 	if token := request.GetPaginationParams().GetPageToken(); token != "" {
 		tokenSeen := false
-		revlistIter = gitpipe.RevisionFilter(ctx, revlistIter, func(r gitpipe.RevisionResult) bool {
+		revlistOptions = append(revlistOptions, gitpipe.WithSkipRevlistResult(func(r *gitpipe.RevisionResult) bool {
 			if !tokenSeen {
 				tokenSeen = r.OID == git.ObjectID(token)
 				// We also skip the token itself, thus we always return `false`
 				// here.
-				return false
+				return true
 			}
 
-			return true
-		})
+			return false
+		}))
 	}
 
-	catfileInfoIter := gitpipe.CatfileInfo(ctx, objectInfoReader, revlistIter)
-	catfileObjectIter := gitpipe.CatfileObject(ctx, objectReader, catfileInfoIter)
+	revlistIter := gitpipe.Revlist(ctx, repo, request.GetRevisions(), revlistOptions...)
+	catfileObjectIter := gitpipe.CatfileObject(ctx, objectReader, revlistIter)
 
 	chunker := chunk.New(&commitsSender{
 		send: func(commits []*gitalypb.GitCommit) error {

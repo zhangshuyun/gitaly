@@ -24,36 +24,63 @@ type CatfileInfoResult struct {
 	ObjectInfo *catfile.ObjectInfo
 }
 
+type catfileInfoConfig struct {
+	skipResult func(*catfile.ObjectInfo) bool
+}
+
+// CatfileInfoOption is an option for the CatfileInfo and CatfileInfoAllObjects pipeline steps.
+type CatfileInfoOption func(cfg *catfileInfoConfig)
+
+// WithSkipCatfileInfoResult will execute the given function for each ObjectInfo processed by the
+// pipeline. If the callback returns `true`, then the object will be skipped and not passed down the
+// pipeline.
+func WithSkipCatfileInfoResult(skipResult func(*catfile.ObjectInfo) bool) CatfileInfoOption {
+	return func(cfg *catfileInfoConfig) {
+		cfg.skipResult = skipResult
+	}
+}
+
 // CatfileInfo processes revlistResults from the given channel and extracts object information via
 // `git cat-file --batch-check`. The returned channel will contain all processed catfile info
 // results. Any error received via the channel or encountered in this step will cause the pipeline
 // to fail. Context cancellation will gracefully halt the pipeline.
-func CatfileInfo(ctx context.Context, objectInfoReader catfile.ObjectInfoReader, revisionIterator RevisionIterator) CatfileInfoIterator {
-	resultChan := make(chan CatfileInfoResult)
+func CatfileInfo(
+	ctx context.Context,
+	objectInfoReader catfile.ObjectInfoReader,
+	it ObjectIterator,
+	opts ...CatfileInfoOption,
+) CatfileInfoIterator {
+	var cfg catfileInfoConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
 
+	resultChan := make(chan CatfileInfoResult)
 	go func() {
 		defer close(resultChan)
 
-		for revisionIterator.Next() {
-			revlistResult := revisionIterator.Result()
-
-			objectInfo, err := objectInfoReader.Info(ctx, revlistResult.OID.Revision())
+		for it.Next() {
+			objectInfo, err := objectInfoReader.Info(ctx, it.ObjectID().Revision())
 			if err != nil {
 				sendCatfileInfoResult(ctx, resultChan, CatfileInfoResult{
-					err: fmt.Errorf("retrieving object info for %q: %w", revlistResult.OID, err),
+					err: fmt.Errorf("retrieving object info for %q: %w", it.ObjectID(), err),
 				})
 				return
 			}
 
+			if cfg.skipResult != nil && cfg.skipResult(objectInfo) {
+				continue
+			}
+
 			if isDone := sendCatfileInfoResult(ctx, resultChan, CatfileInfoResult{
-				ObjectName: revlistResult.ObjectName,
+				ObjectName: it.ObjectName(),
 				ObjectInfo: objectInfo,
 			}); isDone {
 				return
 			}
 		}
 
-		if err := revisionIterator.Err(); err != nil {
+		if err := it.Err(); err != nil {
 			sendCatfileInfoResult(ctx, resultChan, CatfileInfoResult{err: err})
 			return
 		}
@@ -69,7 +96,16 @@ func CatfileInfo(ctx context.Context, objectInfoReader catfile.ObjectInfoReader,
 // all processed results. Any error encountered during execution of this pipeline step will cause
 // the pipeline to fail. Context cancellation will gracefully halt the pipeline. Note that with this
 // pipeline step, the resulting catfileInfoResults will never have an object name.
-func CatfileInfoAllObjects(ctx context.Context, repo *localrepo.Repo) CatfileInfoIterator {
+func CatfileInfoAllObjects(
+	ctx context.Context,
+	repo *localrepo.Repo,
+	opts ...CatfileInfoOption,
+) CatfileInfoIterator {
+	var cfg catfileInfoConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	resultChan := make(chan CatfileInfoResult)
 
 	go func() {
@@ -106,6 +142,10 @@ func CatfileInfoAllObjects(ctx context.Context, repo *localrepo.Repo) CatfileInf
 				return
 			}
 
+			if cfg.skipResult != nil && cfg.skipResult(objectInfo) {
+				continue
+			}
+
 			if isDone := sendCatfileInfoResult(ctx, resultChan, CatfileInfoResult{
 				ObjectInfo: objectInfo,
 			}); isDone {
@@ -118,36 +158,6 @@ func CatfileInfoAllObjects(ctx context.Context, repo *localrepo.Repo) CatfileInf
 				err: fmt.Errorf("cat-file failed: %w, stderr: %q", err, stderr),
 			})
 			return
-		}
-	}()
-
-	return &catfileInfoIterator{
-		ch: resultChan,
-	}
-}
-
-// CatfileInfoFilter filters the catfileInfoResults from the provided channel with the filter
-// function: if the filter returns `false` for a given item, then it will be dropped from the
-// pipeline. Errors cannot be filtered and will always be passed through.
-func CatfileInfoFilter(ctx context.Context, it CatfileInfoIterator, filter func(CatfileInfoResult) bool) CatfileInfoIterator {
-	resultChan := make(chan CatfileInfoResult)
-
-	go func() {
-		defer close(resultChan)
-
-		for it.Next() {
-			result := it.Result()
-			if filter(result) {
-				if sendCatfileInfoResult(ctx, resultChan, result) {
-					return
-				}
-			}
-		}
-
-		if err := it.Err(); err != nil {
-			if sendCatfileInfoResult(ctx, resultChan, CatfileInfoResult{err: err}) {
-				return
-			}
 		}
 	}()
 
