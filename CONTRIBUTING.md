@@ -77,14 +77,14 @@ The generated changelog entry would look like:
 
 ## Gitaly Maintainers
 
-| Maintainer         |
-|--------------------|
-|@8bitlife|
-|@avar|
-|@pks-t|
-|@proglottis|
-|@samihiltunen|
-|@toon|
+- @8bitlife
+- @avar
+- @chriscool
+- @jcaigitlab
+- @pks-t
+- @proglottis
+- @samihiltunen
+- @toon
 
 ## Development Process
 
