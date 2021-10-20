@@ -84,16 +84,13 @@ func Run(m *testing.M, opts ...RunOption) {
 func configure() (_ func(), returnedErr error) {
 	gitalylog.Configure(gitalylog.Loggers, "json", "panic")
 
-	if testDirectory != "" {
-		return nil, errors.New("test directory has already been configured")
+	cleanup, err := configureTestDirectory()
+	if err != nil {
+		return nil, fmt.Errorf("configuring test directory: %w", err)
 	}
-
-	testDirectory = getTestTmpDir()
 	defer func() {
 		if returnedErr != nil {
-			if err := os.RemoveAll(testDirectory); err != nil {
-				log.Error(err)
-			}
+			cleanup()
 		}
 	}()
 
@@ -101,11 +98,49 @@ func configure() (_ func(), returnedErr error) {
 		return nil, fmt.Errorf("configuring git: %w", err)
 	}
 
-	return func() {
+	return cleanup, nil
+}
+
+func configureTestDirectory() (_ func(), returnedErr error) {
+	if testDirectory != "" {
+		return nil, errors.New("test directory has already been configured")
+	}
+
+	// Ideally, we'd just pass "" to `os.MkdirTemp()`, which would then use either the value of
+	// `$TMPDIR` or alternatively "/tmp". But given that macOS sets `$TMPDIR` to a user specific
+	// temporary directory, resulting paths would be too long and thus cause issues galore. We
+	// thus support our own specific variable instead which allows users to override it, with
+	// our default being "/tmp".
+	tempDirLocation := os.Getenv("TEST_TMP_DIR")
+	if tempDirLocation == "" {
+		tempDirLocation = "/tmp"
+	}
+
+	var err error
+	testDirectory, err = os.MkdirTemp(tempDirLocation, "gitaly-")
+	if err != nil {
+		return nil, fmt.Errorf("creating test directory: %w", err)
+	}
+
+	cleanup := func() {
 		if err := os.RemoveAll(testDirectory); err != nil {
-			log.Errorf("error removing test directory: %v", err)
+			log.Errorf("cleaning up test directory: %v", err)
 		}
-	}, nil
+	}
+	defer func() {
+		if returnedErr != nil {
+			cleanup()
+		}
+	}()
+
+	// macOS symlinks /tmp/ to /private/tmp/ which can cause some check to fail. We thus resolve
+	// the symlinks to their actual location.
+	testDirectory, err = filepath.EvalSymlinks(testDirectory)
+	if err != nil {
+		return nil, err
+	}
+
+	return cleanup, nil
 }
 
 // configureGit configures git for test purpose
@@ -154,24 +189,4 @@ func configureGit() error {
 	testHome := filepath.Join(filepath.Dir(currentFile), "testdata/home")
 	// overwrite HOME env variable so user global .gitconfig doesn't influence tests
 	return os.Setenv("HOME", testHome)
-}
-
-func getTestTmpDir() string {
-	testTmpDir := os.Getenv("TEST_TMP_DIR")
-	if testTmpDir != "" {
-		return testTmpDir
-	}
-
-	testTmpDir, err := os.MkdirTemp("/tmp/", "gitaly-")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// macOS symlinks /tmp/ to /private/tmp/ which can cause some check to fail
-	tmpDir, err := filepath.EvalSymlinks(testTmpDir)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return tmpDir
 }
