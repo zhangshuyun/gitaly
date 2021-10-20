@@ -253,10 +253,8 @@ export CGO_LDFLAGS_ALLOW          = -D_THREAD_SAFE
 .SECONDARY:
 
 .PHONY: all
-## Default target which builds and installs Gitaly binaries into the root
-## source directory.
-all: INSTALL_DEST_DIR = ${SOURCE_DIR}
-all: install
+## Default target which builds Gitaly.
+all: build
 
 ## Print help about available targets and variables.
 help:
@@ -282,6 +280,14 @@ help:
 .PHONY: build
 ## Build Go binaries and install required Ruby Gems.
 build: ${SOURCE_DIR}/.ruby-bundle libgit2
+	${Q}# We used to install Gitaly binaries into the source directory by default when executing
+	${Q}# "make" or "make all", which has been changed in v14.5 to only build binaries into
+	${Q}# `_build/bin`. In order to quickly fail in case any source install still refers to these
+	${Q}# old binaries, we delete them from the source directory. Otherwise, it may happen that a
+	${Q}# source install continues to use the old set of binaries that wasn't updated at all.
+	${Q}# This safety guard can go away in v14.6.
+	${Q}rm -f $(addprefix ${SOURCE_DIR}/,$(notdir $(call find_commands)) gitaly-git2go-v14)
+
 	go install ${GO_LDFLAGS} -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, $(call find_commands))
 	${Q}# We use version suffix for the gitaly-git2go binary to support compatibility contract between
 	${Q}# gitaly and gitaly-git2go during upgrade deployment.
@@ -380,7 +386,7 @@ notice: ${SOURCE_DIR}/NOTICE
 .PHONY: clean
 ## Clean up build artifacts.
 clean:
-	rm -rf ${BUILD_DIR} ${SOURCE_DIR}/internal/testhelper/testdata/data/ ${SOURCE_DIR}/ruby/.bundle/ ${SOURCE_DIR}/ruby/vendor/bundle/ $(addprefix ${SOURCE_DIR}/, $(notdir $(call find_commands)))
+	rm -rf ${BUILD_DIR} ${SOURCE_DIR}/internal/testhelper/testdata/data/ ${SOURCE_DIR}/ruby/.bundle/ ${SOURCE_DIR}/ruby/vendor/bundle/
 
 .PHONY: clean-ruby-vendor-go
 clean-ruby-vendor-go:
