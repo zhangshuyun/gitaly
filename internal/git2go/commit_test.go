@@ -160,7 +160,9 @@ func TestExecutor_Commit(t *testing.T) {
 						CreateDirectory{Path: "directory"},
 						CreateFile{Path: "directory", OID: originalFile.String()},
 					},
-					error: DirectoryExistsError("directory"),
+					treeEntries: []gittest.TreeEntry{
+						{Mode: DefaultMode, Path: "directory", Content: "original"},
+					},
 				},
 			},
 		},
@@ -282,6 +284,8 @@ func TestExecutor_Commit(t *testing.T) {
 			},
 		},
 		{
+			// seems like a bug in the original implementation to allow overwriting a
+			// directory
 			desc: "move file with already existing destination directory",
 			steps: []step{
 				{
@@ -290,7 +294,9 @@ func TestExecutor_Commit(t *testing.T) {
 						CreateDirectory{Path: "already-existing"},
 						MoveFile{Path: "file", NewPath: "already-existing"},
 					},
-					error: DirectoryExistsError("already-existing"),
+					treeEntries: []gittest.TreeEntry{
+						{Mode: DefaultMode, Path: "already-existing", Content: "original"},
+					},
 				},
 			},
 		},
