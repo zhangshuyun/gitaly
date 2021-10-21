@@ -552,6 +552,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 				route.RepositoryID,
 				virtualStorage,
 				targetRepo,
+				route.ReplicaPath,
 				route.Primary.Storage,
 				nil,
 				append(routerNodesToStorages(route.Secondaries), route.ReplicationTargets...),
@@ -830,7 +831,7 @@ func (c *Coordinator) createTransactionFinalizer(
 		}
 
 		return c.newRequestFinalizer(
-			ctx, route.RepositoryID, virtualStorage, targetRepo, route.Primary.Storage,
+			ctx, route.RepositoryID, virtualStorage, targetRepo, route.ReplicaPath, route.Primary.Storage,
 			updated, outdated, change, params, cause)()
 	}
 }
@@ -987,6 +988,7 @@ func (c *Coordinator) newRequestFinalizer(
 	repositoryID int64,
 	virtualStorage string,
 	targetRepo *gitalypb.Repository,
+	replicaPath string,
 	primary string,
 	updatedSecondaries []string,
 	outdatedSecondaries []string,
@@ -1043,7 +1045,7 @@ func (c *Coordinator) newRequestFinalizer(
 				repositoryID,
 				virtualStorage,
 				targetRepo.GetRelativePath(),
-				targetRepo.GetRelativePath(),
+				replicaPath,
 				primary,
 				updatedSecondaries,
 				outdatedSecondaries,

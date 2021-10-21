@@ -2221,6 +2221,7 @@ func TestNewRequestFinalizer_contextIsDisjointedFromTheRPC(t *testing.T) {
 					0,
 					"virtual storage",
 					&gitalypb.Repository{},
+					"replica-path",
 					"primary",
 					[]string{},
 					[]string{"secondary"},
