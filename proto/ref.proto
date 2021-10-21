@@ -440,7 +440,7 @@ message FindRefsByOIDRequest {
   // If left empty, defaults to "refs/heads/" and "refs/tags/"
   repeated string ref_patterns = 3;
   // sort_field determines the sort order of the resulting refs.
-  // If left empty, defaults to "-refname" (reverse lexigraphic refname order)
+  // If left empty, defaults to "refname" (lexicographic refname order)
   string sort_field = 4;
   // limit limits the amount of results returned. 0 means no limit.
   uint32 limit = 5;

@@ -38,13 +38,13 @@ func TestFindRefsByOID_successful(t *testing.T) {
 		})
 		assert.NoError(t, err)
 		assert.Equal(t, []string{
-			"refs/tags/v100.1.0",
-			"refs/tags/v100.0.0",
-			"refs/heads/branch-5",
-			"refs/heads/branch-4",
-			"refs/heads/branch-3",
-			"refs/heads/branch-2",
 			"refs/heads/branch-1",
+			"refs/heads/branch-2",
+			"refs/heads/branch-3",
+			"refs/heads/branch-4",
+			"refs/heads/branch-5",
+			"refs/tags/v100.0.0",
+			"refs/tags/v100.1.0",
 		}, resp.GetRefs())
 	})
 
@@ -56,9 +56,9 @@ func TestFindRefsByOID_successful(t *testing.T) {
 		})
 		assert.NoError(t, err)
 		assert.Equal(t, []string{
-			"refs/tags/v100.1.0",
-			"refs/tags/v100.0.0",
-			"refs/heads/branch-5",
+			"refs/heads/branch-1",
+			"refs/heads/branch-2",
+			"refs/heads/branch-3",
 		}, resp.GetRefs())
 	})
 
@@ -82,7 +82,7 @@ func TestFindRefsByOID_successful(t *testing.T) {
 		})
 		assert.NoError(t, err)
 		assert.Equal(t, []string{
-			"refs/tags/v100.1.0",
+			"refs/heads/branch-1",
 		}, resp.GetRefs())
 	})
 
@@ -92,12 +92,12 @@ func TestFindRefsByOID_successful(t *testing.T) {
 			Oid:         string(oid),
 			RefPatterns: []string{"refs/heads/"},
 			Limit:       3,
-			SortField:   "refname",
+			SortField:   "-refname",
 		})
 		assert.NoError(t, err)
 		assert.Equal(t, []string{
-			"refs/heads/branch-1",
-			"refs/heads/branch-2",
+			"refs/heads/branch-5",
+			"refs/heads/branch-4",
 			"refs/heads/branch-3",
 		}, resp.GetRefs())
 	})
@@ -110,8 +110,8 @@ func TestFindRefsByOID_successful(t *testing.T) {
 		})
 		assert.NoError(t, err)
 		assert.Equal(t, []string{
-			"refs/tags/v100.1.0",
 			"refs/tags/v100.0.0",
+			"refs/tags/v100.1.0",
 		}, resp.GetRefs())
 	})
 }

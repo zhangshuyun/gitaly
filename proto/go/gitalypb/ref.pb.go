@@ -2460,7 +2460,7 @@ type FindRefsByOIDRequest struct {
 	// If left empty, defaults to "refs/heads/" and "refs/tags/"
 	RefPatterns []string `protobuf:"bytes,3,rep,name=ref_patterns,json=refPatterns,proto3" json:"ref_patterns,omitempty"`
 	// sort_field determines the sort order of the resulting refs.
-	// If left empty, defaults to "-refname" (reverse lexigraphic refname order)
+	// If left empty, defaults to "refname" (lexicographic refname order)
 	SortField string `protobuf:"bytes,4,opt,name=sort_field,json=sortField,proto3" json:"sort_field,omitempty"`
 	// limit limits the amount of results returned. 0 means no limit.
 	Limit uint32 `protobuf:"varint,5,opt,name=limit,proto3" json:"limit,omitempty"`
