@@ -586,6 +586,38 @@ func TestSuccessfulGetTreeEntries_FlatPathMaxDeep_SingleFoldersStructure(t *test
 	}}, fetchedEntries)
 }
 
+func TestGetTreeEntries_file(t *testing.T) {
+	t.Parallel()
+
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	commitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithTreeEntries(gittest.TreeEntry{
+			Mode:    "100644",
+			Path:    "README.md",
+			Content: "something with spaces in between",
+		}),
+	)
+
+	// request entries of the tree with single-folder structure on each level
+	stream, err := client.GetTreeEntries(ctx, &gitalypb.GetTreeEntriesRequest{
+		Repository: repo,
+		Revision:   []byte(commitID.String()),
+		Path:       []byte("README.md"),
+		Recursive:  true,
+	})
+	require.NoError(t, err)
+
+	// When trying to read a blob, the expectation is that we fail gracefully by just returning
+	// nothing.
+	entries, err := stream.Recv()
+	require.Equal(t, io.EOF, err)
+	require.Empty(t, entries)
+}
+
 func TestFailedGetTreeEntriesRequestDueToValidationError(t *testing.T) {
 	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)

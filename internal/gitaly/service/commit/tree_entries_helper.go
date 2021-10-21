@@ -112,7 +112,7 @@ func treeEntries(
 	objectInfoReader catfile.ObjectInfoReader,
 	revision, path, rootOid string,
 	recursive bool,
-) ([]*gitalypb.TreeEntry, error) {
+) (_ []*gitalypb.TreeEntry, returnedErr error) {
 	if path == "." {
 		path = ""
 	}
@@ -142,6 +142,18 @@ func treeEntries(
 			return nil, nil
 		}
 		return nil, err
+	}
+	defer func() {
+		if _, err := io.Copy(io.Discard, treeObj); err != nil && returnedErr == nil {
+			returnedErr = fmt.Errorf("discarding object: %w", err)
+		}
+	}()
+
+	// The tree entry may not refer to a subtree, but instead to a blob. Historically, we have
+	// simply ignored such objects altogether and didn't return an error, so we keep the same
+	// behaviour.
+	if treeObj.Type != "tree" {
+		return nil, nil
 	}
 
 	entries, err := extractEntryInfoFromTreeData(treeObj, revision, rootOid, path, treeObj.Oid.String())
