@@ -195,6 +195,8 @@ func (c *cache) clean() {
 		}
 
 		if c.removalCond != nil {
+			c.removalCond.L.Lock()
+			defer c.removalCond.L.Unlock()
 			c.removalCond.Broadcast()
 		}
 	}()
