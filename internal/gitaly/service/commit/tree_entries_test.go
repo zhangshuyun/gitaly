@@ -12,8 +12,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestSuccessfulGetTreeEntriesWithCurlyBraces(t *testing.T) {
@@ -584,6 +586,38 @@ func TestSuccessfulGetTreeEntries_FlatPathMaxDeep_SingleFoldersStructure(t *test
 		Mode:      0o40000,
 		CommitOid: commitID,
 	}}, fetchedEntries)
+}
+
+func TestGetTreeEntries_file(t *testing.T) {
+	t.Parallel()
+
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	commitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithTreeEntries(gittest.TreeEntry{
+			Mode:    "100644",
+			Path:    "README.md",
+			Content: "something with spaces in between",
+		}),
+	)
+
+	// request entries of the tree with single-folder structure on each level
+	stream, err := client.GetTreeEntries(ctx, &gitalypb.GetTreeEntriesRequest{
+		Repository: repo,
+		Revision:   []byte(commitID.String()),
+		Path:       []byte("README.md"),
+		Recursive:  true,
+	})
+	require.NoError(t, err)
+
+	_, err = stream.Recv()
+	// When reading the tree entry, we do not check whether it refers to a blob or to an
+	// subtree. Instead, we always parse the object as a subtree, which will obviously fail in
+	// case it is a blob instead.
+	testassert.GrpcEqualErr(t, status.Error(codes.Unknown, "read entry path: EOF"), err)
 }
 
 func TestFailedGetTreeEntriesRequestDueToValidationError(t *testing.T) {
