@@ -2,8 +2,10 @@ package praefect
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
@@ -277,6 +279,16 @@ func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtua
 	return route, nil
 }
 
+// deriveReplicaPath derives a repository's disk storage path from its repository ID. The repository ID
+// is SHA256 and the first four hex digits of the hash are used as the two subdirectories in the path.
+// The format is @repositories/ab/cd/<repository-id>.
+func deriveReplicaPath(repositoryID int64) string {
+	hasher := sha256.New()
+	hasher.Write([]byte(strconv.FormatInt(repositoryID, 10)))
+	hash := hasher.Sum(nil)
+	return fmt.Sprintf("@repositories/%x/%x/%d", hash[0:1], hash[1:2], repositoryID)
+}
+
 // RouteRepositoryCreation picks a random healthy node to act as the primary node and selects the secondary nodes
 // if assignments are enabled. Healthy secondaries take part in the transaction, unhealthy secondaries are set as
 // replication targets.
@@ -300,7 +312,7 @@ func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtu
 	if replicationFactor == 1 {
 		return RepositoryMutatorRoute{
 			RepositoryID: id,
-			ReplicaPath:  relativePath,
+			ReplicaPath:  deriveReplicaPath(id),
 			Primary:      primary,
 		}, nil
 	}
@@ -349,7 +361,7 @@ func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtu
 
 	return RepositoryMutatorRoute{
 		RepositoryID:       id,
-		ReplicaPath:        relativePath,
+		ReplicaPath:        deriveReplicaPath(id),
 		Primary:            primary,
 		Secondaries:        secondaries,
 		ReplicationTargets: replicationTargets,
