@@ -1,5 +1,75 @@
 # Gitaly changelog
 
+## 14.4.0 (2021-10-21)
+
+### Added (7 changes)
+
+- [Praefect: proxy sidechannels](gitlab-org/gitaly@9afed4db259197170992383d7710445dfca4f098) ([merge request](gitlab-org/gitaly!3862))
+- [client: add sidechannel support](gitlab-org/gitaly@e64a6c218dd5720789c82dd9deff3bc0f4212416) ([merge request](gitlab-org/gitaly!3900))
+- [Add track-repository praefect subcmd](gitlab-org/gitaly@26006f80560eee62ac19d71ce14cbbc9db53bfc6) ([merge request](gitlab-org/gitaly!3918))
+- [backup: Restore from incremental backups](gitlab-org/gitaly@b578f037a03b37d6e8b7e5f9e21a6cc9ce1b6060) ([merge request](gitlab-org/gitaly!3915))
+- [Implement PostUploadPackWithSidechannel using sidechannel protocol](gitlab-org/gitaly@7d681ebd6c531e048a9e5d41f524dafc02e76516) ([merge request](gitlab-org/gitaly!3883))
+- [Add FetchBundle RPC](gitlab-org/gitaly@baf7b1dcc301c125086159ad65eadcabe71345e0) ([merge request](gitlab-org/gitaly!3808))
+- [Add half-close capability to Gitaly sidechannel](gitlab-org/gitaly@8c48ef49e6b97de2850b94571822aeae32fdb2e4) ([merge request](gitlab-org/gitaly!3854))
+
+### Fixed (15 changes)
+
+- [datastore: Fix storage cleanup's handling of timezones](gitlab-org/gitaly@4f0368b6b6f0f00729736cdb3d8fa50848c8b677) ([merge request](gitlab-org/gitaly!3930))
+- [catfile: Plug Goroutine leak in the cache](gitlab-org/gitaly@c7458405f369c07f77760aa72c69211c5f55bdf2) ([merge request](gitlab-org/gitaly!3905))
+- [Ensure log entries have time formatted as UTC](gitlab-org/gitaly@1d7f00d36d2863713e8a116de33c2626633a60cb) ([merge request](gitlab-org/gitaly!3912))
+- [Wait for the first health check prior to serving in Praefect](gitlab-org/gitaly@3da740d6eeb9ac9597f461bd11c48951e2997545) ([merge request](gitlab-org/gitaly!3914))
+- [replication: Graceful stop of the replication processing loop](gitlab-org/gitaly@165c10e958ff69198a6f569d696bf31d22c1d1cc) ([merge request](gitlab-org/gitaly!3885))
+- [repository: Always lock gitconfig and gitattributes on write](gitlab-org/gitaly@76140fa589028f49501530c97d9b94235723f4c6) ([merge request](gitlab-org/gitaly!3891))
+- [Remove orphaned worktree directories](gitlab-org/gitaly@f2cce7919360bf87366841344b1c4778083c0bcc) ([merge request](gitlab-org/gitaly!3889))
+- [coordinator: Fix differing views on feature flags during upgrades](gitlab-org/gitaly@7403000aef3b91fa8eeaa4f0ffbb92783bdd53c1) ([merge request](gitlab-org/gitaly!3870))
+- [objectpool: Convert `Link()` to write alternates transactionally](gitlab-org/gitaly@8ed273f58380ce9d1a4b89f7fff15a39fc76b51d) ([merge request](gitlab-org/gitaly!3875))
+- [operations: Convert `UserApplyPatch()` to write config transactionally](gitlab-org/gitaly@aea408a7e7ebda3edda5e6c39676cfd799d76ad5) ([merge request](gitlab-org/gitaly!3875))
+- [housekeeping: Convert `Perform()` to write config transactionally](gitlab-org/gitaly@07f5f27a91357c1682a3ff169ac8a25ca05f6f06) ([merge request](gitlab-org/gitaly!3875))
+- [repository: Convert `ReplicateRepository()` to write files transactionally](gitlab-org/gitaly@a65add3bc5b6a0595c6406651965a9093312eb9f) ([merge request](gitlab-org/gitaly!3875))
+- [repository: Convert `MidxRepack()` to write config transactionally](gitlab-org/gitaly@d927c552ad4de29e14003a2b797f07750c80c76d) ([merge request](gitlab-org/gitaly!3875))
+- [Allow restoring into a non-existent repo on praefect](gitlab-org/gitaly@8240393ca21cd48287cfcf54fc6a7c2c97394b12) ([merge request](gitlab-org/gitaly!3865))
+- [catfile: Fix non-cacheable batch processes becoming decorrelated](gitlab-org/gitaly@4ddaa4beb0e2d031898bdbbbf87c7be9f768bb6d) ([merge request](gitlab-org/gitaly!3853))
+
+### Changed (4 changes)
+
+- [Update ruby gem activesupport to v6.1.4.1](gitlab-org/gitaly@e3207df5b2e0e9f6a572f41ca27570864fef2ab3) ([merge request](gitlab-org/gitaly!3929))
+- [replication: Process replication events for storages in parallel](gitlab-org/gitaly@1e5f3b25ee1a260f513bacb1a012072e7f405cd1) ([merge request](gitlab-org/gitaly!3894))
+- [Determine when CreateBundleFromRefList would generate an empty bundle](gitlab-org/gitaly@60fc2c957cc22cb61497344ceca5b9b46851e28e) ([merge request](gitlab-org/gitaly!3923))
+- [Introduce log field for command.cpu_time_ms](gitlab-org/gitaly@08766e0a8a1de02ecdcad8c33ad344c82b20322c) ([merge request](gitlab-org/gitaly!3917))
+
+### Deprecated (4 changes)
+
+- [ref: Drop ListNewBlobs RPC](gitlab-org/gitaly@a305a1ea41b69759e8473660dc6fe6bcbee6504f) ([merge request](gitlab-org/gitaly!3893))
+- [repository: Remove `SetConfig()` RPC](gitlab-org/gitaly@6cfa8f2dac97104cbfaa9140d59e834ab3560bc5) ([merge request](gitlab-org/gitaly!3890))
+- [repository: Remove `DeleteConfig()` RPC](gitlab-org/gitaly@9c57226c3c18791dc55622b481cffcdaa6552b3d) ([merge request](gitlab-org/gitaly!3890))
+- [ref: Deprecate `ListNewBlobs()` RPC](gitlab-org/gitaly@e61d7828e502e4cd7ad89c9c303ba5a0fb1d937f) ([merge request](gitlab-org/gitaly!3873))
+
+### Removed (2 changes)
+
+- [remote: Drop FetchInternalRemote RPC](gitlab-org/gitaly@047b1e6afa6d3905c1432c45fd6adc545593c968) ([merge request](gitlab-org/gitaly!3898))
+- [repository: Remove `IsSquashInProgress()` RPC](gitlab-org/gitaly@11ba3e1c8f6d1ce04bd5daeca96dea674c0b54ff) ([merge request](gitlab-org/gitaly!3892))
+
+### Performance (3 changes)
+
+- [blob: Convert `GetBlob()` to use object reader](gitlab-org/gitaly@44f8b3e88731ed371d9484b90a3cf39173e11f9f) ([merge request](gitlab-org/gitaly!3886))
+- [Index repo id for storage_repositories and repository_assignments](gitlab-org/gitaly@1c5ed6acd0386e2c8055cefdd44521239c24e20d) ([merge request](gitlab-org/gitaly!3901))
+- [Makefile: apply Git ref advertisement buffering patches](gitlab-org/gitaly@2f6f81300a7f27324c691557b8ea5b15252fb501) ([merge request](gitlab-org/gitaly!3855))
+
+### Other (4 changes)
+
+- [sidechannel: add proxy middleware](gitlab-org/gitaly@a12b72cf06b17416b36102f4b7b096df1405b896) ([merge request](gitlab-org/gitaly!3877))
+- [sidechannel: remove waiter.Wait()](gitlab-org/gitaly@098ee38438822b534723e76bad0bc3a5ba8baadb) ([merge request](gitlab-org/gitaly!3877))
+- [Backfill replica_path in 'repositories' records](gitlab-org/gitaly@99199b0887c09d93166d77cf01caea93f07c9c5b) ([merge request](gitlab-org/gitaly!3901))
+- [Link existing database record via repository ID](gitlab-org/gitaly@2bbec66c9d738b0df435f3aab801747408929ed0) ([merge request](gitlab-org/gitaly!3901))
+
+### fix (1 change)
+
+- [sql-migrate: Update storage_repositories table](gitlab-org/gitaly@e7a8c92b8f98337945cad16905aabf64f9c1aae1) ([merge request](gitlab-org/gitaly!3927))
+
+### deprecate (1 change)
+
+- [objectpool: Deprecate `UnlinkRepositoryFromObjectPool()`](gitlab-org/gitaly@50686040de4588533a8a4c8aae03ae373ae041fa) ([merge request](gitlab-org/gitaly!3874))
+
 ## 14.3.3 (2021-10-12)
 
 No changes.
