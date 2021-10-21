@@ -219,7 +219,7 @@ func TestAddRepository_Exec(t *testing.T) {
 				ds := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
 				id, err := ds.ReserveRepositoryID(ctx, virtualStorageName, relativePath)
 				require.NoError(t, err)
-				require.NoError(t, ds.CreateRepository(ctx, id, virtualStorageName, relativePath, g1Cfg.Storages[0].Name, nil, nil, true, true))
+				require.NoError(t, ds.CreateRepository(ctx, id, virtualStorageName, relativePath, relativePath, g1Cfg.Storages[0].Name, nil, nil, true, true))
 
 				cmd := &trackRepository{
 					logger:               testhelper.NewTestLogger(t),

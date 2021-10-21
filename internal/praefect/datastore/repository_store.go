@@ -105,7 +105,7 @@ type RepositoryStore interface {
 	//
 	// storeAssignments should be set when variable replication factor is enabled. When set, the primary and the
 	// secondaries are stored as the assigned hosts of the repository.
-	CreateRepository(ctx context.Context, repositoryID int64, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error
+	CreateRepository(ctx context.Context, repositoryID int64, virtualStorage, relativePath, replicaPath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error
 	// SetAuthoritativeReplica sets the given replica of a repsitory as the authoritative one by setting its generation as the latest one.
 	SetAuthoritativeReplica(ctx context.Context, virtualStorage, relativePath, storage string) error
 	// DeleteRepository deletes the database records associated with the repository. It returns the replica path and the storages
@@ -344,7 +344,7 @@ AND storage = ANY($2)
 //
 // storeAssignments should be set when variable replication factor is enabled. When set, the primary and the
 // secondaries are stored as the assigned hosts of the repository.
-func (rs *PostgresRepositoryStore) CreateRepository(ctx context.Context, repositoryID int64, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error {
+func (rs *PostgresRepositoryStore) CreateRepository(ctx context.Context, repositoryID int64, virtualStorage, relativePath, replicaPath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error {
 	const q = `
 WITH repo AS (
 	INSERT INTO repositories (
@@ -354,7 +354,7 @@ WITH repo AS (
 		replica_path,
 		generation,
 		"primary"
-	) VALUES ($8, $1, $2, $2, 0, CASE WHEN $4 THEN $3 END)
+	) VALUES ($8, $1, $2, $9, 0, CASE WHEN $4 THEN $3 END)
 ),
 
 assignments AS (
@@ -399,6 +399,7 @@ FROM (
 		pq.StringArray(outdatedSecondaries),
 		storeAssignments,
 		repositoryID,
+		replicaPath,
 	)
 
 	var pqerr *pq.Error

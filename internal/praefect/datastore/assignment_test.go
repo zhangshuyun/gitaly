@@ -88,7 +88,7 @@ func TestAssignmentStore_GetHostAssignments(t *testing.T) {
 					repositoryID, err = rs.ReserveRepositoryID(ctx, assignment.virtualStorage, assignment.relativePath)
 					require.NoError(t, err)
 
-					require.NoError(t, rs.CreateRepository(ctx, repositoryID, assignment.virtualStorage, assignment.relativePath, assignment.storage, nil, nil, false, false))
+					require.NoError(t, rs.CreateRepository(ctx, repositoryID, assignment.virtualStorage, assignment.relativePath, assignment.relativePath, assignment.storage, nil, nil, false, false))
 				}
 
 				_, err = db.ExecContext(ctx, `

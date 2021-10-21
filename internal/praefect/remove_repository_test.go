@@ -89,7 +89,7 @@ func TestRemoveRepositoryHandler(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			require.NoError(t, rs.CreateRepository(ctx, 0, virtualStorage, relativePath, gitaly1Storage, []string{gitaly2Storage, "non-existent-storage"}, nil, false, false))
+			require.NoError(t, rs.CreateRepository(ctx, 0, virtualStorage, relativePath, relativePath, gitaly1Storage, []string{gitaly2Storage, "non-existent-storage"}, nil, false, false))
 
 			tmp := testhelper.TempDir(t)
 

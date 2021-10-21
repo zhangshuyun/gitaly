@@ -174,6 +174,7 @@ func (cmd *trackRepository) trackRepository(
 		repositoryID,
 		cmd.virtualStorage,
 		cmd.relativePath,
+		cmd.relativePath,
 		primary,
 		nil,
 		secondaries,

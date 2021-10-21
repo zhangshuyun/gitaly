@@ -345,7 +345,7 @@ func (c *Coordinator) directRepositoryScopedMessage(ctx context.Context, call gr
 					return nil, err
 				}
 			} else {
-				if err := c.rs.CreateRepository(ctx, id, call.targetRepo.StorageName, call.targetRepo.RelativePath, call.targetRepo.StorageName, nil, nil, true, true); err != nil {
+				if err := c.rs.CreateRepository(ctx, id, call.targetRepo.StorageName, call.targetRepo.RelativePath, call.targetRepo.RelativePath, call.targetRepo.StorageName, nil, nil, true, true); err != nil {
 					if !errors.As(err, &datastore.RepositoryExistsError{}) {
 						return nil, err
 					}
@@ -1038,6 +1038,7 @@ func (c *Coordinator) newRequestFinalizer(
 			if err := c.rs.CreateRepository(ctx,
 				repositoryID,
 				virtualStorage,
+				targetRepo.GetRelativePath(),
 				targetRepo.GetRelativePath(),
 				primary,
 				updatedSecondaries,

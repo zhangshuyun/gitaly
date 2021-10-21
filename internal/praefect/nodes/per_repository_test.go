@@ -489,7 +489,7 @@ func TestPerRepositoryElector(t *testing.T) {
 					for storage, record := range storages {
 						if !repoCreated {
 							repoCreated = true
-							require.NoError(t, rs.CreateRepository(ctx, repositoryID, virtualStorage, relativePath, storage, nil, nil, false, false))
+							require.NoError(t, rs.CreateRepository(ctx, repositoryID, virtualStorage, relativePath, relativePath, storage, nil, nil, false, false))
 						}
 
 						require.NoError(t, rs.SetGeneration(ctx, repositoryID, storage, relativePath, record.generation))

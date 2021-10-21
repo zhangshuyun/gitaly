@@ -208,7 +208,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 
 				if !repoCreated {
 					repoCreated = true
-					require.NoError(t, rs.CreateRepository(ctx, 1, repo.StorageName, repo.RelativePath, storageNodes[i].Storage, nil, nil, true, false))
+					require.NoError(t, rs.CreateRepository(ctx, 1, repo.StorageName, repo.RelativePath, repo.RelativePath, storageNodes[i].Storage, nil, nil, true, false))
 				}
 
 				require.NoError(t, rs.SetGeneration(ctx, 1, storageNodes[i].Storage, repo.RelativePath, n.generation))

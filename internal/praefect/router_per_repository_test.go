@@ -224,7 +224,7 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 			repositoryID, err := rs.ReserveRepositoryID(ctx, "virtual-storage-1", relativePath)
 			require.NoError(t, err)
 			require.NoError(t,
-				rs.CreateRepository(ctx, repositoryID, "virtual-storage-1", relativePath, "primary",
+				rs.CreateRepository(ctx, repositoryID, "virtual-storage-1", relativePath, relativePath, "primary",
 					[]string{"consistent-secondary", "unhealthy-secondary", "inconsistent-secondary"}, nil, true, true),
 			)
 			require.NoError(t,
@@ -375,7 +375,7 @@ func TestPerRepositoryRouter_RouteRepositoryMutator(t *testing.T) {
 			require.NoError(t, err)
 
 			require.NoError(t,
-				rs.CreateRepository(ctx, repositoryID, "virtual-storage-1", relativePath, "primary", []string{"secondary-1", "secondary-2"}, nil, true, false),
+				rs.CreateRepository(ctx, repositoryID, "virtual-storage-1", relativePath, relativePath, "primary", []string{"secondary-1", "secondary-2"}, nil, true, false),
 			)
 
 			if len(tc.consistentStorages) > 0 {
@@ -607,7 +607,7 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 			rs := datastore.NewPostgresRepositoryStore(db, nil)
 			if tc.repositoryExists {
 				require.NoError(t,
-					rs.CreateRepository(ctx, 1, "virtual-storage-1", relativePath, "primary", nil, nil, true, true),
+					rs.CreateRepository(ctx, 1, "virtual-storage-1", relativePath, relativePath, "primary", nil, nil, true, true),
 				)
 			}
 
