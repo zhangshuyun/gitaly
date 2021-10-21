@@ -95,7 +95,12 @@ func sendGetBlobsResponse(
 	return nil
 }
 
-func sendBlobTreeEntry(response *gitalypb.GetBlobsResponse, stream gitalypb.BlobService_GetBlobsServer, objectReader catfile.ObjectReader, limit int64) error {
+func sendBlobTreeEntry(
+	response *gitalypb.GetBlobsResponse,
+	stream gitalypb.BlobService_GetBlobsServer,
+	objectReader catfile.ObjectReader,
+	limit int64,
+) (returnedErr error) {
 	ctx := stream.Context()
 
 	var readLimit int64
@@ -119,6 +124,11 @@ func sendBlobTreeEntry(response *gitalypb.GetBlobsResponse, stream gitalypb.Blob
 	if err != nil {
 		return status.Errorf(codes.Internal, "GetBlobs: %v", err)
 	}
+	defer func() {
+		if _, err := io.Copy(io.Discard, blobObj.Reader); err != nil && returnedErr == nil {
+			returnedErr = status.Errorf(codes.Internal, "GetBlobs: discarding data: %v", err)
+		}
+	}()
 	if blobObj.Type != "blob" {
 		return status.Errorf(codes.Internal, "blob got unexpected type %q", blobObj.Type)
 	}
@@ -138,10 +148,6 @@ func sendBlobTreeEntry(response *gitalypb.GetBlobsResponse, stream gitalypb.Blob
 	_, err = io.CopyN(sw, blobObj.Reader, readLimit)
 	if err != nil {
 		return status.Errorf(codes.Unavailable, "GetBlobs: send: %v", err)
-	}
-
-	if _, err := io.Copy(io.Discard, blobObj.Reader); err != nil {
-		return status.Errorf(codes.Unavailable, "GetBlobs: discarding data: %v", err)
 	}
 
 	return nil
