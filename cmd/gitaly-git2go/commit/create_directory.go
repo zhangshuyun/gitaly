@@ -12,7 +12,9 @@ import (
 )
 
 func applyCreateDirectory(action git2go.CreateDirectory, repo *git.Repository, index *git.Index) error {
-	if err := validatePathDoesNotExist(index, action.Path); err != nil {
+	if err := validateFileDoesNotExist(index, action.Path); err != nil {
+		return err
+	} else if err := validateDirectoryDoesNotExist(index, action.Path); err != nil {
 		return err
 	}
 

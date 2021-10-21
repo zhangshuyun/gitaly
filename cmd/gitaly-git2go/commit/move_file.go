@@ -18,7 +18,7 @@ func applyMoveFile(action git2go.MoveFile, index *git.Index) error {
 		return err
 	}
 
-	if err := validatePathDoesNotExist(index, action.NewPath); err != nil {
+	if err := validateFileDoesNotExist(index, action.NewPath); err != nil {
 		return err
 	}
 
