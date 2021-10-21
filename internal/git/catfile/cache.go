@@ -297,9 +297,9 @@ func (c *ProcessCache) returnWhenDone(done <-chan struct{}, p *processes, cacheK
 	defer func() {
 		c.reportCacheMembers()
 		if c.cachedProcessDone != nil {
-			defer func() {
-				c.cachedProcessDone.Broadcast()
-			}()
+			c.cachedProcessDone.L.Lock()
+			defer c.cachedProcessDone.L.Unlock()
+			c.cachedProcessDone.Broadcast()
 		}
 	}()
 
