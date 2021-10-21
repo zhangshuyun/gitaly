@@ -11,6 +11,7 @@ import (
 
 	"github.com/pelletier/go-toml"
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
@@ -232,9 +233,11 @@ func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, regi
 
 		internalListener, err := net.Listen("unix", cfg.GitalyInternalSocketPath())
 		require.NoError(t, err)
-		go internalServer.Serve(internalListener)
+		go func() {
+			assert.NoError(t, internalServer.Serve(internalListener), "failure to serve internal gRPC")
+		}()
 
-		defer waitHealthy(t, cfg, "unix://"+internalListener.Addr().String())
+		waitHealthy(t, cfg, "unix://"+internalListener.Addr().String())
 	}
 
 	externalServer, err := serverFactory.CreateExternal(cfg.TLS.CertPath != "" && cfg.TLS.KeyPath != "")
@@ -264,7 +267,9 @@ func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, regi
 		addr = "unix://" + serverSocketPath
 	}
 
-	go externalServer.Serve(listener)
+	go func() {
+		assert.NoError(t, externalServer.Serve(listener), "failure to serve external gRPC")
+	}()
 
 	waitHealthy(t, cfg, addr)
 
