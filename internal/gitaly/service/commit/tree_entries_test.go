@@ -12,10 +12,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func TestSuccessfulGetTreeEntriesWithCurlyBraces(t *testing.T) {
@@ -613,11 +611,11 @@ func TestGetTreeEntries_file(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = stream.Recv()
-	// When reading the tree entry, we do not check whether it refers to a blob or to an
-	// subtree. Instead, we always parse the object as a subtree, which will obviously fail in
-	// case it is a blob instead.
-	testassert.GrpcEqualErr(t, status.Error(codes.Unknown, "read entry path: EOF"), err)
+	// When trying to read a blob, the expectation is that we fail gracefully by just returning
+	// nothing.
+	entries, err := stream.Recv()
+	require.Equal(t, io.EOF, err)
+	require.Empty(t, entries)
 }
 
 func TestFailedGetTreeEntriesRequestDueToValidationError(t *testing.T) {
