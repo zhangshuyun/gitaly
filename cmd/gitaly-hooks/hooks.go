@@ -190,8 +190,12 @@ func gitPushOptions() []string {
 func sendFunc(reqWriter io.Writer, stream grpc.ClientStream, stdin io.Reader) func(errC chan error) {
 	return func(errC chan error) {
 		_, errSend := io.Copy(reqWriter, stdin)
-		stream.CloseSend()
-		errC <- errSend
+		errClose := stream.CloseSend()
+		if errSend != nil {
+			errC <- errSend
+		} else {
+			errC <- errClose
+		}
 	}
 }
 
