@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
@@ -127,7 +128,13 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 	connsPool := client.NewPool()
 	defer connsPool.Close()
 
-	require.NoError(t, FetchInternalRemote(ctx, localCfg, connsPool, localRepo, remoteRepo))
+	// Use the `assert` package while we haven't figured out this failure yet such that we can
+	// also verify the hook logs and hopefully get a lead.
+	assert.NoError(t, FetchInternalRemote(ctx, localCfg, connsPool, localRepo, remoteRepo))
+
+	hookLogs := filepath.Join(localCfg.Logging.Dir, "gitaly_hooks.log")
+	require.FileExists(t, hookLogs)
+	require.Equal(t, "", string(testhelper.MustReadFile(t, hookLogs)))
 
 	require.Equal(t,
 		string(gittest.Exec(t, remoteCfg, "-C", remoteRepoPath, "show-ref", "--head")),
