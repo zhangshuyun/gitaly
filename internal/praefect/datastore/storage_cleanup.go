@@ -11,24 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 )
 
-// RepositoryClusterPath identifies location of the repository in the cluster.
-type RepositoryClusterPath struct {
-	ClusterPath
-	// RelativeReplicaPath relative path to the repository on the disk.
-	RelativeReplicaPath string
-}
-
-// NewRepositoryClusterPath initializes and returns RepositoryClusterPath.
-func NewRepositoryClusterPath(virtualStorage, storage, relativePath string) RepositoryClusterPath {
-	return RepositoryClusterPath{
-		ClusterPath: ClusterPath{
-			VirtualStorage: virtualStorage,
-			Storage:        storage,
-		},
-		RelativeReplicaPath: relativePath,
-	}
-}
-
 // ClusterPath represents path on the cluster to the storage.
 type ClusterPath struct {
 	// VirtualStorage is the name of the virtual storage.
@@ -141,18 +123,18 @@ func (ss *StorageCleanup) AcquireNextStorage(ctx context.Context, inactive, upda
 	}, nil
 }
 
-// DoesntExist returns RepositoryClusterPath for each repository that doesn't exist in the database
+// DoesntExist returns replica path for each repository that doesn't exist in the database
 // by querying repositories and storage_repositories tables.
-func (ss *StorageCleanup) DoesntExist(ctx context.Context, virtualStorage, storage string, replicaPaths []string) ([]RepositoryClusterPath, error) {
+func (ss *StorageCleanup) DoesntExist(ctx context.Context, virtualStorage, storage string, replicaPaths []string) ([]string, error) {
 	if len(replicaPaths) == 0 {
 		return nil, nil
 	}
 
 	rows, err := ss.db.QueryContext(
 		ctx,
-		`SELECT $1 AS virtual_storage, $2 AS storage, UNNEST($3::TEXT[]) AS replica_path
+		`SELECT UNNEST($3::TEXT[]) AS replica_path
 		EXCEPT (
-			SELECT virtual_storage, storage, replica_path
+			SELECT replica_path
 			FROM repositories
 			JOIN storage_repositories USING (virtual_storage, relative_path)
 			WHERE virtual_storage = $1 AND storage = $2 AND replica_path = ANY($3)
@@ -164,10 +146,10 @@ func (ss *StorageCleanup) DoesntExist(ctx context.Context, virtualStorage, stora
 	}
 	defer func() { _ = rows.Close() }()
 
-	var res []RepositoryClusterPath
+	var res []string
 	for rows.Next() {
-		var curr RepositoryClusterPath
-		if err := rows.Scan(&curr.VirtualStorage, &curr.Storage, &curr.RelativeReplicaPath); err != nil {
+		var curr string
+		if err := rows.Scan(&curr); err != nil {
 			return nil, fmt.Errorf("scan: %w", err)
 		}
 		res = append(res, curr)

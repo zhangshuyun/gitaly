@@ -126,7 +126,8 @@ func TestRunner_Run(t *testing.T) {
 
 	var iteration int32
 	runner := NewRunner(cfg, logger, praefect.StaticHealthChecker{virtualStorage: []string{storage1, storage2, storage3}}, nodeSet.Connections(), storageCleanup, storageCleanup, actionStub{
-		PerformMethod: func(ctx context.Context, notExisting []datastore.RepositoryClusterPath) error {
+		PerformMethod: func(ctx context.Context, argVirtualStoage, argStorage string, notExisting []string) error {
+			assert.Equal(t, virtualStorage, argVirtualStoage)
 			// Because action invocation happens for batches each run could result
 			// multiple invocations of the action. Amount of invocations can be calculated
 			// as amount of storage repositories divided on the size of the batch and rounded up.
@@ -137,27 +138,19 @@ func TestRunner_Run(t *testing.T) {
 			i := atomic.LoadInt32(&iteration)
 			switch i {
 			case 0, 1:
+				assert.Equal(t, storage1, argStorage)
 				assert.ElementsMatch(t, nil, notExisting)
 			case 2:
-				assert.ElementsMatch(
-					t,
-					[]datastore.RepositoryClusterPath{
-						datastore.NewRepositoryClusterPath(virtualStorage, storage2, repo1RelPath),
-					},
-					notExisting,
-				)
+				assert.Equal(t, storage2, argStorage)
+				assert.ElementsMatch(t, []string{repo1RelPath}, notExisting)
 			case 3:
+				assert.Equal(t, storage3, argStorage)
 				assert.ElementsMatch(t, nil, notExisting)
 			case 4:
+				assert.Equal(t, storage3, argStorage)
 				// Terminates the loop.
 				defer cancel()
-				assert.Equal(
-					t,
-					[]datastore.RepositoryClusterPath{
-						datastore.NewRepositoryClusterPath(virtualStorage, storage3, "repo-4.git"),
-					},
-					notExisting,
-				)
+				assert.Equal(t, []string{"repo-4.git"}, notExisting)
 				return nil
 			}
 			atomic.AddInt32(&iteration, 1)
@@ -254,7 +247,7 @@ func TestRunner_Run_noAvailableStorages(t *testing.T) {
 	startSecond := make(chan struct{})
 	releaseFirst := make(chan struct{})
 	runner := NewRunner(cfg, logger, praefect.StaticHealthChecker{virtualStorage: []string{storage1}}, nodeSet.Connections(), storageCleanup, storageCleanup, actionStub{
-		PerformMethod: func(ctx context.Context, notExisting []datastore.RepositoryClusterPath) error {
+		PerformMethod: func(ctx context.Context, virtualStorage, storage string, notExisting []string) error {
 			assert.Empty(t, notExisting)
 			// Block execution here until second instance completes its execution.
 			// It allows us to be sure the picked storage can't be picked once again by
@@ -274,7 +267,7 @@ func TestRunner_Run_noAvailableStorages(t *testing.T) {
 		logger.SetLevel(logrus.DebugLevel)
 
 		runner := NewRunner(cfg, logger, praefect.StaticHealthChecker{virtualStorage: []string{storage1}}, nodeSet.Connections(), storageCleanup, storageCleanup, actionStub{
-			PerformMethod: func(ctx context.Context, notExisting []datastore.RepositoryClusterPath) error {
+			PerformMethod: func(ctx context.Context, virtualStorage, storage string, notExisting []string) error {
 				assert.FailNow(t, "should not be triggered as there is no available storages to acquire")
 				return nil
 			},
@@ -320,12 +313,12 @@ func TestRunner_Run_noAvailableStorages(t *testing.T) {
 }
 
 type actionStub struct {
-	PerformMethod func(ctx context.Context, existence []datastore.RepositoryClusterPath) error
+	PerformMethod func(ctx context.Context, virtualStorage, storage string, existence []string) error
 }
 
-func (as actionStub) Perform(ctx context.Context, existence []datastore.RepositoryClusterPath) error {
+func (as actionStub) Perform(ctx context.Context, virtualStorage, storage string, existence []string) error {
 	if as.PerformMethod != nil {
-		return as.PerformMethod(ctx, existence)
+		return as.PerformMethod(ctx, virtualStorage, storage, existence)
 	}
 	return nil
 }

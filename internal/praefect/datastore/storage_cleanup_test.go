@@ -192,26 +192,21 @@ func TestStorageCleanup_Exists(t *testing.T) {
 		virtualStorage       string
 		storage              string
 		relativeReplicaPaths []string
-		out                  []RepositoryClusterPath
+		out                  []string
 	}{
 		{
 			desc:                 "multiple doesn't exist",
 			virtualStorage:       "vs",
 			storage:              "g1",
 			relativeReplicaPaths: []string{"p/1", "p/2", "path/x", "path/y"},
-			out: []RepositoryClusterPath{
-				{ClusterPath: ClusterPath{VirtualStorage: "vs", Storage: "g1"}, RelativeReplicaPath: "path/x"},
-				{ClusterPath: ClusterPath{VirtualStorage: "vs", Storage: "g1"}, RelativeReplicaPath: "path/y"},
-			},
+			out:                  []string{"path/x", "path/y"},
 		},
 		{
 			desc:                 "duplicates",
 			virtualStorage:       "vs",
 			storage:              "g1",
 			relativeReplicaPaths: []string{"p/1", "path/x", "path/x"},
-			out: []RepositoryClusterPath{
-				{ClusterPath: ClusterPath{VirtualStorage: "vs", Storage: "g1"}, RelativeReplicaPath: "path/x"},
-			},
+			out:                  []string{"path/x"},
 		},
 		{
 			desc:                 "all exist",
@@ -225,29 +220,21 @@ func TestStorageCleanup_Exists(t *testing.T) {
 			virtualStorage:       "vs",
 			storage:              "g1",
 			relativeReplicaPaths: []string{"path/x", "path/y", "path/z"},
-			out: []RepositoryClusterPath{
-				{ClusterPath: ClusterPath{VirtualStorage: "vs", Storage: "g1"}, RelativeReplicaPath: "path/x"},
-				{ClusterPath: ClusterPath{VirtualStorage: "vs", Storage: "g1"}, RelativeReplicaPath: "path/y"},
-				{ClusterPath: ClusterPath{VirtualStorage: "vs", Storage: "g1"}, RelativeReplicaPath: "path/z"},
-			},
+			out:                  []string{"path/x", "path/y", "path/z"},
 		},
 		{
 			desc:                 "doesn't exist because of storage",
 			virtualStorage:       "vs",
 			storage:              "stub",
 			relativeReplicaPaths: []string{"path/x"},
-			out: []RepositoryClusterPath{
-				{ClusterPath: ClusterPath{VirtualStorage: "vs", Storage: "stub"}, RelativeReplicaPath: "path/x"},
-			},
+			out:                  []string{"path/x"},
 		},
 		{
 			desc:                 "doesn't exist because of virtual storage",
 			virtualStorage:       "stub",
 			storage:              "g1",
 			relativeReplicaPaths: []string{"path/x"},
-			out: []RepositoryClusterPath{
-				{ClusterPath: ClusterPath{VirtualStorage: "stub", Storage: "g1"}, RelativeReplicaPath: "path/x"},
-			},
+			out:                  []string{"path/x"},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

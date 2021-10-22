@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 )
 
 // LogWarnAction is an implementation of the Action interface that allows to log a warning message
@@ -21,12 +20,12 @@ func NewLogWarnAction(logger logrus.FieldLogger) *LogWarnAction {
 }
 
 // Perform logs a warning for each repository that is not known to praefect.
-func (al LogWarnAction) Perform(_ context.Context, notExisting []datastore.RepositoryClusterPath) error {
-	for _, entry := range notExisting {
+func (al LogWarnAction) Perform(_ context.Context, virtualStorage, storage string, replicaPaths []string) error {
+	for _, replicaPath := range replicaPaths {
 		al.logger.WithFields(logrus.Fields{
-			"virtual_storage":       entry.VirtualStorage,
-			"storage":               entry.Storage,
-			"relative_replica_path": entry.RelativeReplicaPath,
+			"virtual_storage":       virtualStorage,
+			"storage":               storage,
+			"relative_replica_path": replicaPath,
 		}).Warn("repository is not managed by praefect")
 	}
 	return nil
