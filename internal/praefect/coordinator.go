@@ -404,7 +404,7 @@ func (c *Coordinator) accessorStreamParameters(ctx context.Context, call grpcCal
 		return nil, fmt.Errorf("accessor call: route repository accessor: %w", err)
 	}
 
-	b, err := rewrittenRepositoryMessage(call.methodInfo, call.msg, route.Node.Storage, route.ReplicaPath)
+	b, err := rewrittenRepositoryMessage(call.methodInfo, call.msg, route.Node.Storage, route.ReplicaPath, "")
 	if err != nil {
 		return nil, fmt.Errorf("accessor call: rewrite storage: %w", err)
 	}
@@ -492,7 +492,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 		}
 	}
 
-	primaryMessage, err := rewrittenRepositoryMessage(call.methodInfo, call.msg, route.Primary.Storage, route.ReplicaPath)
+	primaryMessage, err := rewrittenRepositoryMessage(call.methodInfo, call.msg, route.Primary.Storage, route.ReplicaPath, route.AdditionalReplicaPath)
 	if err != nil {
 		return nil, fmt.Errorf("mutator call: rewrite storage: %w", err)
 	}
@@ -534,7 +534,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 
 		for _, secondary := range route.Secondaries {
 			secondary := secondary
-			secondaryMsg, err := rewrittenRepositoryMessage(call.methodInfo, call.msg, secondary.Storage, route.ReplicaPath)
+			secondaryMsg, err := rewrittenRepositoryMessage(call.methodInfo, call.msg, secondary.Storage, route.ReplicaPath, route.AdditionalReplicaPath)
 			if err != nil {
 				return nil, err
 			}
@@ -790,7 +790,7 @@ func (c *Coordinator) mutatorStorageStreamParameters(ctx context.Context, mi pro
 }
 
 // rewrittenRepositoryMessage rewrites the repository storages and relative paths.
-func rewrittenRepositoryMessage(mi protoregistry.MethodInfo, m proto.Message, storage, relativePath string) ([]byte, error) {
+func rewrittenRepositoryMessage(mi protoregistry.MethodInfo, m proto.Message, storage, relativePath, additionalRelativePath string) ([]byte, error) {
 	// clone the message so the original is not changed
 	m = proto.Clone(m)
 	targetRepo, err := mi.TargetRepo(m)
@@ -809,6 +809,7 @@ func rewrittenRepositoryMessage(mi protoregistry.MethodInfo, m proto.Message, st
 
 	if ok {
 		additionalRepo.StorageName = storage
+		additionalRepo.RelativePath = additionalRelativePath
 	}
 
 	return proxy.NewCodec().Marshal(m)
