@@ -782,13 +782,16 @@ func (c *Coordinator) mutatorStorageStreamParameters(ctx context.Context, mi pro
 	return proxy.NewStreamParameters(primaryDest, secondaryDests, func() error { return nil }, nil), nil
 }
 
+// rewrittenRepositoryMessage rewrites the repository storages and relative paths.
 func rewrittenRepositoryMessage(mi protoregistry.MethodInfo, m proto.Message, storage, relativePath string) ([]byte, error) {
+	// clone the message so the original is not changed
+	m = proto.Clone(m)
 	targetRepo, err := mi.TargetRepo(m)
 	if err != nil {
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	// rewrite storage name
+	// rewrite the target repository
 	targetRepo.StorageName = storage
 	targetRepo.RelativePath = relativePath
 
@@ -801,12 +804,7 @@ func rewrittenRepositoryMessage(mi protoregistry.MethodInfo, m proto.Message, st
 		additionalRepo.StorageName = storage
 	}
 
-	b, err := proxy.NewCodec().Marshal(m)
-	if err != nil {
-		return nil, err
-	}
-
-	return b, nil
+	return proxy.NewCodec().Marshal(m)
 }
 
 func rewrittenStorageMessage(mi protoregistry.MethodInfo, m proto.Message, storage string) ([]byte, error) {
