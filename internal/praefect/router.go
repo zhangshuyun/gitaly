@@ -37,6 +37,9 @@ type RepositoryMutatorRoute struct {
 	RepositoryID int64
 	// ReplicaPath is the disk path where the replicas are stored.
 	ReplicaPath string
+	// AdditionalReplicaPath is the disk path where the possible additional repository in the request
+	// is stored. This is only used for object pools.
+	AdditionalReplicaPath string
 	// Primary is the primary node of the transaction.
 	Primary RouterNode
 	// Secondaries are the secondary participating in a transaction.
@@ -59,7 +62,7 @@ type Router interface {
 	// RouteRepositoryMutatorTransaction returns the primary and secondaries that should handle the repository mutator request.
 	// Additionally, it returns nodes which should have the change replicated to. RouteRepositoryMutator should only be used
 	// with existing repositories.
-	RouteRepositoryMutator(ctx context.Context, virtualStorage, relativePath string) (RepositoryMutatorRoute, error)
+	RouteRepositoryMutator(ctx context.Context, virtualStorage, relativePath, additionalRepoRelativePath string) (RepositoryMutatorRoute, error)
 	// RouteRepositoryCreation decides returns the primary and secondaries that should handle the repository creation
 	// request. It is up to the caller to store the assignments and primary information after finishing the RPC.
 	RouteRepositoryCreation(ctx context.Context, virtualStorage, relativePath string) (RepositoryMutatorRoute, error)

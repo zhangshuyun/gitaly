@@ -475,7 +475,14 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 			return nil, fmt.Errorf("route repository creation: %w", err)
 		}
 	default:
-		route, err = c.router.RouteRepositoryMutator(ctx, virtualStorage, targetRepo.RelativePath)
+		var additionalRepoRelativePath string
+		if additionalRepo, ok, err := call.methodInfo.AdditionalRepo(call.msg); err != nil {
+			return nil, helper.ErrInvalidArgument(err)
+		} else if ok {
+			additionalRepoRelativePath = additionalRepo.GetRelativePath()
+		}
+
+		route, err = c.router.RouteRepositoryMutator(ctx, virtualStorage, targetRepo.RelativePath, additionalRepoRelativePath)
 		if err != nil {
 			if errors.Is(err, ErrRepositoryReadOnly) {
 				return nil, err
