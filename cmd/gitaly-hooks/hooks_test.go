@@ -136,8 +136,7 @@ func testHooksPrePostReceive(t *testing.T, cfg config.Cfg, repo *gitalypb.Reposi
 	gitlabUser, gitlabPassword := "gitlab_user-1234", "gitlabsecret9887"
 	httpProxy, httpsProxy, noProxy := "http://test.example.com:8080", "https://test.example.com:8080", "*"
 
-	defer func(old *gitalylog.HookLogger) { logger = old }(logger)
-	logger = gitalylog.NewHookLogger()
+	logger, _ := test.NewNullLogger()
 
 	c := gitlab.TestServerOptions{
 		User:                        gitlabUser,
@@ -161,7 +160,7 @@ func testHooksPrePostReceive(t *testing.T, cfg config.Cfg, repo *gitalypb.Reposi
 	cfg.Gitlab.HTTPSettings.User = gitlabUser
 	cfg.Gitlab.HTTPSettings.Password = gitlabPassword
 
-	gitlabClient, err := gitlab.NewHTTPClient(logger.Logger(), cfg.Gitlab, cfg.TLS, prometheus.Config{})
+	gitlabClient, err := gitlab.NewHTTPClient(logger, cfg.Gitlab, cfg.TLS, prometheus.Config{})
 	require.NoError(t, err)
 
 	runHookServiceWithGitlabClient(t, cfg, gitlabClient)
@@ -324,8 +323,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 	glProtocol := "ssh"
 	changes := "oldhead newhead"
 
-	defer func(old *gitalylog.HookLogger) { logger = old }(logger)
-	logger = gitalylog.NewHookLogger()
+	logger, _ := test.NewNullLogger()
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t, testcfg.WithBase(config.Cfg{Auth: auth.Config{Token: "abc123"}}))
 	testhelper.BuildGitalyHooks(t, cfg)
@@ -350,7 +348,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 	cfg.Gitlab.URL = serverURL
 	cfg.Gitlab.SecretFile = gitlab.WriteShellSecretFile(t, cfg.GitlabShell.Dir, secretToken)
 
-	gitlabClient, err := gitlab.NewHTTPClient(logger.Logger(), cfg.Gitlab, cfg.TLS, prometheus.Config{})
+	gitlabClient, err := gitlab.NewHTTPClient(logger, cfg.Gitlab, cfg.TLS, prometheus.Config{})
 	require.NoError(t, err)
 
 	runHookServiceWithGitlabClient(t, cfg, gitlabClient)
@@ -437,8 +435,7 @@ func TestHooksNotAllowed(t *testing.T) {
 	glProtocol := "ssh"
 	changes := "oldhead newhead"
 
-	defer func(old *gitalylog.HookLogger) { logger = old }(logger)
-	logger = gitalylog.NewHookLogger()
+	logger, _ := test.NewNullLogger()
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t, testcfg.WithBase(config.Cfg{Auth: auth.Config{Token: "abc123"}}))
 	testhelper.BuildGitalyHooks(t, cfg)
@@ -462,7 +459,7 @@ func TestHooksNotAllowed(t *testing.T) {
 
 	customHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
 
-	gitlabClient, err := gitlab.NewHTTPClient(logger.Logger(), cfg.Gitlab, cfg.TLS, prometheus.Config{})
+	gitlabClient, err := gitlab.NewHTTPClient(logger, cfg.Gitlab, cfg.TLS, prometheus.Config{})
 	require.NoError(t, err)
 
 	runHookServiceWithGitlabClient(t, cfg, gitlabClient)

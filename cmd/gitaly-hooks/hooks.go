@@ -41,35 +41,31 @@ type hookCommand struct {
 	hookType git.Hook
 }
 
-var (
-	hooksBySubcommand = map[string]hookCommand{
-		"update": {
-			exec:     updateHook,
-			hookType: git.UpdateHook,
-		},
-		"pre-receive": {
-			exec:     preReceiveHook,
-			hookType: git.PreReceiveHook,
-		},
-		"post-receive": {
-			exec:     postReceiveHook,
-			hookType: git.PostReceiveHook,
-		},
-		"reference-transaction": {
-			exec:     referenceTransactionHook,
-			hookType: git.ReferenceTransactionHook,
-		},
-		"git": {
-			exec:     packObjectsHook,
-			hookType: git.PackObjectsHook,
-		},
-	}
-
-	logger *gitalylog.HookLogger
-)
+var hooksBySubcommand = map[string]hookCommand{
+	"update": {
+		exec:     updateHook,
+		hookType: git.UpdateHook,
+	},
+	"pre-receive": {
+		exec:     preReceiveHook,
+		hookType: git.PreReceiveHook,
+	},
+	"post-receive": {
+		exec:     postReceiveHook,
+		hookType: git.PostReceiveHook,
+	},
+	"reference-transaction": {
+		exec:     referenceTransactionHook,
+		hookType: git.ReferenceTransactionHook,
+	},
+	"git": {
+		exec:     packObjectsHook,
+		hookType: git.PackObjectsHook,
+	},
+}
 
 func main() {
-	logger = gitalylog.NewHookLogger()
+	logger := gitalylog.NewHookLogger()
 
 	if err := run(os.Args); err != nil {
 		var hookError hookError
