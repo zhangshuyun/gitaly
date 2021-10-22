@@ -14,14 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 )
 
-// Object represents data returned by `git cat-file --batch`
-type Object struct {
-	// ObjectInfo represents main information about object
-	ObjectInfo
-	// Reader provides raw data about object. It differs for each type of object(tag, commit, tree, log, etc.)
-	io.Reader
-}
-
 // ObjectReader is a reader for Git objects.
 type ObjectReader interface {
 	cacheable
@@ -110,6 +102,30 @@ func (o *objectReader) isClosed() bool {
 	return o.closed
 }
 
+func (o *objectReader) consume(nBytes int) {
+	o.n -= int64(nBytes)
+	if o.n < 1 {
+		panic("too many bytes read from batch")
+	}
+}
+
+func (o *objectReader) isDirty() bool {
+	o.Lock()
+	defer o.Unlock()
+
+	return o.n > 1
+}
+
+// Object represents data returned by `git cat-file --batch`
+type Object struct {
+	// ObjectInfo represents main information about object
+	ObjectInfo
+	// parent is the objectReader which has created the Object.
+	parent *objectReader
+	// dataReader is reader which has all the object data.
+	dataReader io.LimitedReader
+}
+
 func (o *objectReader) Object(
 	ctx context.Context,
 	revision git.Revision,
@@ -149,41 +165,23 @@ func (o *objectReader) Object(
 
 	return &Object{
 		ObjectInfo: *oi,
-		Reader: &objectDataReader{
-			objectReader: o,
-			r:            io.LimitReader(o.stdout, oi.Size),
+		parent:     o,
+		dataReader: io.LimitedReader{
+			R: o.stdout,
+			N: oi.Size,
 		},
 	}, nil
 }
 
-func (o *objectReader) consume(nBytes int) {
-	o.n -= int64(nBytes)
-	if o.n < 1 {
-		panic("too many bytes read from batch")
-	}
-}
+func (o *Object) Read(p []byte) (int, error) {
+	o.parent.Lock()
+	defer o.parent.Unlock()
 
-func (o *objectReader) isDirty() bool {
-	o.Lock()
-	defer o.Unlock()
-
-	return o.n > 1
-}
-
-type objectDataReader struct {
-	*objectReader
-	r io.Reader
-}
-
-func (o *objectDataReader) Read(p []byte) (int, error) {
-	o.objectReader.Lock()
-	defer o.objectReader.Unlock()
-
-	if o.closed {
+	if o.parent.closed {
 		return 0, os.ErrClosed
 	}
 
-	n, err := o.r.Read(p)
-	o.objectReader.consume(n)
+	n, err := o.dataReader.Read(p)
+	o.parent.consume(n)
 	return n, err
 }

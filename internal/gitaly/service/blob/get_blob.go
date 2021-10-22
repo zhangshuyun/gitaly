@@ -60,7 +60,7 @@ func (s *server) GetBlob(in *gitalypb.GetBlobRequest, stream gitalypb.BlobServic
 		return stream.Send(msg)
 	})
 
-	_, err = io.CopyN(sw, blob.Reader, readLimit)
+	_, err = io.CopyN(sw, blob, readLimit)
 	if err != nil {
 		return helper.ErrUnavailablef("GetBlob: send: %v", err)
 	}

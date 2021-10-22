@@ -125,7 +125,7 @@ func sendBlobTreeEntry(
 		return status.Errorf(codes.Internal, "GetBlobs: %v", err)
 	}
 	defer func() {
-		if _, err := io.Copy(io.Discard, blobObj.Reader); err != nil && returnedErr == nil {
+		if _, err := io.Copy(io.Discard, blobObj); err != nil && returnedErr == nil {
 			returnedErr = status.Errorf(codes.Internal, "GetBlobs: discarding data: %v", err)
 		}
 	}()
@@ -145,7 +145,7 @@ func sendBlobTreeEntry(
 		return stream.Send(msg)
 	})
 
-	_, err = io.CopyN(sw, blobObj.Reader, readLimit)
+	_, err = io.CopyN(sw, blobObj, readLimit)
 	if err != nil {
 		return status.Errorf(codes.Unavailable, "GetBlobs: send: %v", err)
 	}

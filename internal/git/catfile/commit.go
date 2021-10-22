@@ -24,7 +24,7 @@ func GetCommit(ctx context.Context, objectReader ObjectReader, revision git.Revi
 		return nil, err
 	}
 
-	return ParseCommit(object.Reader, object.ObjectInfo.Oid)
+	return ParseCommit(object, object.ObjectInfo.Oid)
 }
 
 // GetCommitWithTrailers looks up a commit by revision using an existing Batch instance, and
@@ -77,7 +77,7 @@ func GetCommitMessage(ctx context.Context, objectReader ObjectReader, repo repos
 		return nil, err
 	}
 
-	_, body, err := splitRawCommit(obj.Reader)
+	_, body, err := splitRawCommit(obj)
 	if err != nil {
 		return nil, err
 	}

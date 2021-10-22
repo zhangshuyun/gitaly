@@ -154,7 +154,7 @@ func parseTag(r io.Reader, oid git.ObjectID, name []byte, trimLen, trimRightNewL
 }
 
 func buildAnnotatedTag(ctx context.Context, objectReader ObjectReader, object *Object, name []byte, trimLen, trimRightNewLine bool) (*gitalypb.Tag, error) {
-	tag, header, err := parseTag(object.Reader, object.ObjectInfo.Oid, name, trimLen, trimRightNewLine)
+	tag, header, err := parseTag(object, object.ObjectInfo.Oid, name, trimLen, trimRightNewLine)
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +189,7 @@ func dereferenceTag(ctx context.Context, objectReader ObjectReader, oid git.Revi
 
 		switch object.Type {
 		case "tag":
-			header, _, err := splitRawTag(object.Reader, true)
+			header, _, err := splitRawTag(object, true)
 			if err != nil {
 				return nil, err
 			}
@@ -197,7 +197,7 @@ func dereferenceTag(ctx context.Context, objectReader ObjectReader, oid git.Revi
 			oid = git.Revision(header.oid)
 			continue
 		case "commit":
-			return ParseCommit(object.Reader, object.ObjectInfo.Oid)
+			return ParseCommit(object, object.ObjectInfo.Oid)
 		default: // This current tag points to a tree or a blob
 			// We do not care whether discarding the object fails -- the worst that can
 			// happen is that the object reader is dirty after the RPC call finishes,
