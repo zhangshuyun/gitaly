@@ -13,6 +13,7 @@ type MockRepositoryStore struct {
 	SetAuthoritativeReplicaFunc             func(ctx context.Context, virtualStorage, relativePath, storage string) error
 	DeleteRepositoryFunc                    func(ctx context.Context, virtualStorage, relativePath string) (string, []string, error)
 	DeleteReplicaFunc                       func(ctx context.Context, repositoryID int64, storage string) error
+	RenameRepositoryInPlaceFunc             func(ctx context.Context, virtualStorage, relativePath, newRelativePath string) error
 	RenameRepositoryFunc                    func(ctx context.Context, virtualStorage, relativePath, storage, newRelativePath string) error
 	GetConsistentStoragesByRepositoryIDFunc func(ctx context.Context, repositoryID int64) (string, map[string]struct{}, error)
 	GetConsistentStoragesFunc               func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error)
@@ -96,6 +97,11 @@ func (m MockRepositoryStore) DeleteReplica(ctx context.Context, repositoryID int
 	}
 
 	return m.DeleteReplicaFunc(ctx, repositoryID, storage)
+}
+
+// RenameRepositoryInPlace runs the mock's RenameRepositoryInPlaceFunc.
+func (m MockRepositoryStore) RenameRepositoryInPlace(ctx context.Context, virtualStorage, relativePath, newRelativePath string) error {
+	return m.RenameRepositoryInPlaceFunc(ctx, virtualStorage, relativePath, newRelativePath)
 }
 
 //nolint: revive,stylecheck // This is unintentionally missing documentation.

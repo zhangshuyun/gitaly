@@ -117,6 +117,9 @@ type RepositoryStore interface {
 	// as the storage's which is calling it. Returns RepositoryNotExistsError when trying to rename a repository
 	// which has no record in the virtual storage or the storage.
 	RenameRepository(ctx context.Context, virtualStorage, relativePath, storage, newRelativePath string) error
+	// RenameRepositoryInPlace renames the repository in the database without changing the replica path. This will replace
+	// RenameRepository which can be removed in a later release.
+	RenameRepositoryInPlace(ctx context.Context, virtualStorage, relativePath, newRelativePath string) error
 	// GetConsistentStoragesByRepositoryID returns the replica path and the set of up to date storages for the given repository keyed by repository ID.
 	GetConsistentStoragesByRepositoryID(ctx context.Context, repositoryID int64) (string, map[string]struct{}, error)
 	ConsistentStoragesGetter
@@ -473,6 +476,39 @@ AND storage = $2
 		return err
 	} else if n == 0 {
 		return ErrNoRowsAffected
+	}
+
+	return nil
+}
+
+// RenameRepositoryInPlace renames the repository in the database without changing the replica path. This will replace
+// RenameRepository which can be removed in a later release.
+func (rs *PostgresRepositoryStore) RenameRepositoryInPlace(ctx context.Context, virtualStorage, relativePath, newRelativePath string) error {
+	result, err := rs.db.ExecContext(ctx, `
+WITH repository AS (
+	UPDATE repositories
+	SET relative_path = $3
+	WHERE virtual_storage = $1
+	AND   relative_path   = $2
+	RETURNING repository_id
+)
+
+UPDATE storage_repositories
+SET relative_path = $3
+WHERE repository_id = (SELECT repository_id FROM repository)
+	`, virtualStorage, relativePath, newRelativePath)
+	if err != nil {
+		if glsql.IsUniqueViolation(err, "repository_lookup_index") {
+			return commonerr.ErrRepositoryAlreadyExists
+		}
+
+		return fmt.Errorf("query: %w", err)
+	}
+
+	if rowsAffected, err := result.RowsAffected(); err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	} else if rowsAffected == 0 {
+		return commonerr.ErrRepositoryNotFound
 	}
 
 	return nil

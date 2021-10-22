@@ -764,6 +764,50 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 		})
 	})
 
+	t.Run("RenameRepositoryInPlace", func(t *testing.T) {
+		t.Run("rename non-existing", func(t *testing.T) {
+			rs := newRepositoryStore(t, nil)
+
+			require.Equal(t,
+				commonerr.ErrRepositoryNotFound,
+				rs.RenameRepositoryInPlace(ctx, vs, repo, "new-relative-path"),
+			)
+		})
+
+		t.Run("destination exists", func(t *testing.T) {
+			rs := newRepositoryStore(t, nil)
+
+			require.NoError(t, rs.CreateRepository(ctx, 1, vs, "relative-path-1", "replica-path-1", "primary", nil, nil, true, false))
+			require.NoError(t, rs.CreateRepository(ctx, 2, vs, "relative-path-2", "replica-path-2", "primary", nil, nil, true, false))
+
+			require.Equal(t,
+				commonerr.ErrRepositoryAlreadyExists,
+				rs.RenameRepositoryInPlace(ctx, vs, "relative-path-1", "relative-path-2"),
+			)
+		})
+
+		t.Run("successfully renamed", func(t *testing.T) {
+			rs := newRepositoryStore(t, nil)
+
+			require.NoError(t, rs.CreateRepository(ctx, 1, vs, "original-relative-path", "original-replica-path", "primary", nil, nil, false, false))
+			require.NoError(t, rs.RenameRepositoryInPlace(ctx, vs, "original-relative-path", "renamed-relative-path"))
+			requireState(t, ctx, db,
+				virtualStorageState{
+					vs: {
+						"renamed-relative-path": {repositoryID: 1, replicaPath: "original-replica-path"},
+					},
+				},
+				storageState{
+					vs: {
+						"renamed-relative-path": {
+							"primary": {repositoryID: 1},
+						},
+					},
+				},
+			)
+		})
+	})
+
 	t.Run("RenameRepository", func(t *testing.T) {
 		t.Run("rename non-existing", func(t *testing.T) {
 			rs := newRepositoryStore(t, nil)
