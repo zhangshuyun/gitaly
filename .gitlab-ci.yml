@@ -321,5 +321,5 @@ trigger-qa:
     project: gitlab-org/build/omnibus-gitlab-mirror
   variables:
     ALTERNATIVE_SOURCES: "true"
-    GITALY_SERVER_VERSION: $CI_COMMIT_SHA
+    GITALY_SERVER_VERSION: $CI_COMMIT_REF_NAME
     ee: "true"
