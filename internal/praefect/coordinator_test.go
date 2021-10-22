@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -806,41 +805,33 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 
 	db := testdb.New(t)
 
-	for _, tc := range []struct {
+	for i, tc := range []struct {
 		desc              string
-		electionStrategy  config.ElectionStrategy
 		replicationFactor int
 		primaryStored     bool
 		assignmentsStored bool
 	}{
 		{
-			desc:              "virtual storage scoped primaries",
-			electionStrategy:  config.ElectionStrategySQL,
-			replicationFactor: 3, // assignments are not set when not using repository specific primaries
-			primaryStored:     false,
-			assignmentsStored: false,
-		},
-		{
-			desc:              "repository specific primaries without variable replication factor",
-			electionStrategy:  config.ElectionStrategyPerRepository,
+			desc:              "without variable replication factor",
 			primaryStored:     true,
 			assignmentsStored: false,
 		},
 		{
-			desc:              "repository specific primaries with variable replication factor",
-			electionStrategy:  config.ElectionStrategyPerRepository,
+			desc:              "with variable replication factor",
 			replicationFactor: 3,
 			primaryStored:     true,
 			assignmentsStored: true,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			db.TruncateAll(t)
+			tx := db.Begin(t)
+			defer tx.Rollback(t)
+
 			primaryNode := &config.Node{Storage: "praefect-internal-1"}
 			healthySecondaryNode := &config.Node{Storage: "praefect-internal-2"}
 			unhealthySecondaryNode := &config.Node{Storage: "praefect-internal-3"}
 			conf := config.Config{
-				Failover: config.Failover{ElectionStrategy: tc.electionStrategy},
+				Failover: config.Failover{ElectionStrategy: config.ElectionStrategyPerRepository},
 				VirtualStorages: []*config.VirtualStorage{
 					{
 						Name:                     "praefect",
@@ -856,90 +847,38 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 				RelativePath: "/path/to/hashed/storage",
 			}
 
-			var createRepositoryCalled int64
-			rs := datastore.MockRepositoryStore{
-				CreateRepositoryFunc: func(ctx context.Context, repoID int64, virtualStorage, relativePath, replicaPath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error {
-					atomic.AddInt64(&createRepositoryCalled, 1)
-					assert.Equal(t, int64(0), repoID)
-					assert.Equal(t, targetRepo.StorageName, virtualStorage)
-					assert.Equal(t, targetRepo.RelativePath, relativePath)
-					assert.Equal(t, targetRepo.RelativePath, replicaPath)
-					assert.Equal(t, rewrittenStorage, primary)
-					assert.Equal(t, []string{healthySecondaryNode.Storage}, updatedSecondaries)
-					assert.Equal(t, []string{unhealthySecondaryNode.Storage}, outdatedSecondaries)
-					assert.Equal(t, tc.primaryStored, storePrimary)
-					assert.Equal(t, tc.assignmentsStored, storeAssignments)
-					return nil
+			conns := Connections{
+				"praefect": {
+					primaryNode.Storage:            &grpc.ClientConn{},
+					healthySecondaryNode.Storage:   &grpc.ClientConn{},
+					unhealthySecondaryNode.Storage: &grpc.ClientConn{},
 				},
 			}
 
-			var router Router
-			var primaryConnPointer string
-			var secondaryConnPointers []string
-			switch tc.electionStrategy {
-			case config.ElectionStrategySQL:
-				gitalySocket0 := testhelper.GetTemporaryGitalySocketFileName(t)
-				gitalySocket1 := testhelper.GetTemporaryGitalySocketFileName(t)
-				gitalySocket2 := testhelper.GetTemporaryGitalySocketFileName(t)
-				testhelper.NewServerWithHealth(t, gitalySocket0)
-				testhelper.NewServerWithHealth(t, gitalySocket1)
-				healthSrv2 := testhelper.NewServerWithHealth(t, gitalySocket2)
-				healthSrv2.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
-
-				primaryNode.Address = "unix://" + gitalySocket0
-				healthySecondaryNode.Address = "unix://" + gitalySocket1
-				unhealthySecondaryNode.Address = "unix://" + gitalySocket2
-
-				nodeMgr, err := nodes.NewManager(testhelper.NewDiscardingLogEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
-				require.NoError(t, err)
-				nodeMgr.Start(0, time.Hour)
-				defer nodeMgr.Stop()
-
-				router = NewNodeManagerRouter(nodeMgr, rs)
-				for _, node := range nodeMgr.Nodes()["praefect"] {
-					if node.GetStorage() == primaryNode.Storage {
-						primaryConnPointer = fmt.Sprintf("%p", node.GetConnection())
-						continue
-					}
-
-					if node.GetStorage() == healthySecondaryNode.Storage {
-						secondaryConnPointers = []string{fmt.Sprintf("%p", node.GetConnection())}
-					}
-				}
-			case config.ElectionStrategyPerRepository:
-				conns := Connections{
-					"praefect": {
-						primaryNode.Storage:            &grpc.ClientConn{},
-						healthySecondaryNode.Storage:   &grpc.ClientConn{},
-						unhealthySecondaryNode.Storage: &grpc.ClientConn{},
+			primaryConnPointer := fmt.Sprintf("%p", conns["praefect"][primaryNode.Storage])
+			secondaryConnPointers := []string{fmt.Sprintf("%p", conns["praefect"][healthySecondaryNode.Storage])}
+			rs := datastore.NewPostgresRepositoryStore(tx, conf.StorageNames())
+			router := NewPerRepositoryRouter(
+				conns,
+				nil,
+				StaticHealthChecker{"praefect": {primaryNode.Storage, healthySecondaryNode.Storage}},
+				mockRandom{
+					intnFunc: func(n int) int {
+						require.Equal(t, n, 2, "number of primary candidates should match the number of healthy nodes")
+						return 0
 					},
-				}
-				primaryConnPointer = fmt.Sprintf("%p", conns["praefect"][primaryNode.Storage])
-				secondaryConnPointers = []string{fmt.Sprintf("%p", conns["praefect"][healthySecondaryNode.Storage])}
-				router = NewPerRepositoryRouter(
-					conns,
-					nil,
-					StaticHealthChecker{"praefect": {primaryNode.Storage, healthySecondaryNode.Storage}},
-					mockRandom{
-						intnFunc: func(n int) int {
-							require.Equal(t, n, 2, "number of primary candidates should match the number of healthy nodes")
-							return 0
-						},
-						shuffleFunc: func(n int, swap func(int, int)) {
-							require.Equal(t, n, 2, "number of secondary candidates should match the number of node minus the primary")
-						},
+					shuffleFunc: func(n int, swap func(int, int)) {
+						require.Equal(t, n, 2, "number of secondary candidates should match the number of node minus the primary")
 					},
-					nil,
-					nil,
-					rs,
-					conf.DefaultReplicationFactors(),
-				)
-			default:
-				t.Fatalf("unexpected election strategy: %q", tc.electionStrategy)
-			}
+				},
+				nil,
+				nil,
+				rs,
+				conf.DefaultReplicationFactors(),
+			)
 
 			txMgr := transactions.NewManager(conf)
-			queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(db))
+			queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(tx))
 
 			coordinator := NewCoordinator(
 				queueInterceptor,
@@ -1007,6 +946,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 					CreatedAt: actual[0].CreatedAt,
 					UpdatedAt: actual[0].UpdatedAt,
 					Job: datastore.ReplicationJob{
+						RepositoryID:      int64(i + 1),
 						Change:            datastore.UpdateRepo,
 						VirtualStorage:    conf.VirtualStorages[0].Name,
 						RelativePath:      targetRepo.RelativePath,
@@ -1018,7 +958,6 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 			}
 
 			require.Equal(t, expectedEvents, actualEvents, "ensure replication job created by stream director is correct")
-			require.EqualValues(t, 1, atomic.LoadInt64(&createRepositoryCalled), "ensure CreateRepository is called on datastore")
 		})
 	}
 }
