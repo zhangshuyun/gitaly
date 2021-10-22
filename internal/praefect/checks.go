@@ -32,3 +32,40 @@ type Check struct {
 
 // CheckFunc is a function type that takes a praefect config and returns a Check
 type CheckFunc func(conf config.Config) *Check
+
+// NewPraefectMigrationCheck returns a Check that checks if all praefect migrations have run
+func NewPraefectMigrationCheck(conf config.Config) *Check {
+	return &Check{
+		Name:        "praefect migrations",
+		Description: "confirms whether or not all praefect migrations have run",
+		Run: func() error {
+			db, err := glsql.OpenDB(conf.DB)
+			if err != nil {
+				return err
+			}
+			defer db.Close()
+
+			migrationSet := migrate.MigrationSet{
+				TableName: migrations.MigrationTableName,
+			}
+
+			migrationSource := &migrate.MemoryMigrationSource{
+				Migrations: migrations.All(),
+			}
+
+			migrationsNeeded, _, err := migrationSet.PlanMigration(db, "postgres", migrationSource, migrate.Up, 0)
+			if err != nil {
+				return err
+			}
+
+			missingMigrations := len(migrationsNeeded)
+
+			if missingMigrations > 0 {
+				return fmt.Errorf("%d migrations have not been run", missingMigrations)
+			}
+
+			return nil
+		},
+		Severity: Fatal,
+	}
+}
