@@ -18,12 +18,12 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-func setup(t *testing.T) (config.Cfg, *gitalypb.Repository, string, gitalypb.BlobServiceClient) {
-	cfg := testcfg.Build(t)
+func setup(tb testing.TB) (config.Cfg, *gitalypb.Repository, string, gitalypb.BlobServiceClient) {
+	cfg := testcfg.Build(tb)
 
-	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	repo, repoPath := gittest.CloneRepo(tb, cfg, cfg.Storages[0])
 
-	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	addr := testserver.RunGitalyServer(tb, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterBlobServiceServer(srv, NewServer(
 			deps.GetCfg(),
 			deps.GetLocator(),
@@ -33,8 +33,8 @@ func setup(t *testing.T) (config.Cfg, *gitalypb.Repository, string, gitalypb.Blo
 	})
 
 	conn, err := grpc.Dial(addr, grpc.WithInsecure())
-	require.NoError(t, err)
-	t.Cleanup(func() { conn.Close() })
+	require.NoError(tb, err)
+	tb.Cleanup(func() { conn.Close() })
 
 	return cfg, repo, repoPath, gitalypb.NewBlobServiceClient(conn)
 }

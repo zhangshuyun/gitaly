@@ -162,3 +162,31 @@ func TestListAllCommits(t *testing.T) {
 		}}, receiveCommits(t, stream))
 	})
 }
+
+func BenchmarkListAllCommits(b *testing.B) {
+	b.StopTimer()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	_, repo, _, client := setupCommitServiceWithRepo(b, true)
+
+	b.Run("ListAllCommits", func(b *testing.B) {
+		b.ReportAllocs()
+
+		for i := 0; i < b.N; i++ {
+			stream, err := client.ListAllCommits(ctx, &gitalypb.ListAllCommitsRequest{
+				Repository: repo,
+			})
+			require.NoError(b, err)
+
+			for {
+				_, err := stream.Recv()
+				if err == io.EOF {
+					break
+				}
+				require.NoError(b, err)
+			}
+		}
+	})
+}

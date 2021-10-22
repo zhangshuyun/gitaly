@@ -419,3 +419,32 @@ func TestListAllBlobs(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkListAllBlobs(b *testing.B) {
+	b.StopTimer()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	_, repoProto, _, client := setup(b)
+
+	b.Run("ListAllBlobs", func(b *testing.B) {
+		b.ReportAllocs()
+
+		for i := 0; i < b.N; i++ {
+			stream, err := client.ListAllBlobs(ctx, &gitalypb.ListAllBlobsRequest{
+				Repository: repoProto,
+				BytesLimit: -1,
+			})
+			require.NoError(b, err)
+
+			for {
+				_, err := stream.Recv()
+				if err == io.EOF {
+					break
+				}
+				require.NoError(b, err)
+			}
+		}
+	})
+}
