@@ -136,8 +136,8 @@ func (ss *StorageCleanup) DoesntExist(ctx context.Context, virtualStorage, stora
 		EXCEPT (
 			SELECT replica_path
 			FROM repositories
-			JOIN storage_repositories USING (virtual_storage, relative_path)
-			WHERE virtual_storage = $1 AND storage = $2 AND replica_path = ANY($3)
+			JOIN storage_repositories USING (repository_id)
+			WHERE repositories.virtual_storage = $1 AND storage = $2 AND replica_path = ANY($3)
 		)`,
 		virtualStorage, storage, pq.StringArray(replicaPaths),
 	)
