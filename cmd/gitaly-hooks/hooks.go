@@ -27,8 +27,17 @@ import (
 	"google.golang.org/grpc"
 )
 
+type hookError struct {
+	returnCode int
+	err        error
+}
+
+func (e hookError) Error() string {
+	return fmt.Sprintf("hook returned error code %d", e.returnCode)
+}
+
 type hookCommand struct {
-	exec     func(context.Context, git.HooksPayload, gitalypb.HookServiceClient, []string) (int, error)
+	exec     func(context.Context, git.HooksPayload, gitalypb.HookServiceClient, []string) error
 	hookType git.Hook
 }
 
@@ -62,17 +71,23 @@ var (
 func main() {
 	logger = gitalylog.NewHookLogger()
 
-	returnCode, err := run(os.Args, logger)
-	if err != nil {
-		logger.Fatalf("%s", err)
-	}
+	if err := run(os.Args); err != nil {
+		var hookError hookError
+		if errors.As(err, &hookError) {
+			if hookError.err != nil {
+				logger.Fatalf("%s", err)
+			}
+			os.Exit(hookError.returnCode)
+		}
 
-	os.Exit(returnCode)
+		logger.Fatalf("%s", err)
+		os.Exit(1)
+	}
 }
 
-func run(args []string, logger *gitalylog.HookLogger) (int, error) {
+func run(args []string) error {
 	if len(args) < 2 {
-		return 0, fmt.Errorf("requires hook name. args: %v", args)
+		return fmt.Errorf("requires hook name. args: %v", args)
 	}
 
 	subCmd := args[1]
@@ -101,7 +116,7 @@ func run(args []string, logger *gitalylog.HookLogger) (int, error) {
 		fmt.Printf("Redis reachable for GitLab: %t\n", info.RedisReachable)
 		fmt.Println("OK")
 
-		return 0, nil
+		return nil
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -115,35 +130,34 @@ func run(args []string, logger *gitalylog.HookLogger) (int, error) {
 
 	payload, err := git.HooksPayloadFromEnv(os.Environ())
 	if err != nil {
-		return 0, fmt.Errorf("error when getting hooks payload: %v", err)
+		return fmt.Errorf("error when getting hooks payload: %v", err)
 	}
 
 	hookCommand, ok := hooksBySubcommand[subCmd]
 	if !ok {
-		return 0, fmt.Errorf("subcommand name invalid: %q", subCmd)
+		return fmt.Errorf("subcommand name invalid: %q", subCmd)
 	}
 
 	// If the hook wasn't requested, then we simply skip executing any
 	// logic.
 	if !payload.IsHookRequested(hookCommand.hookType) {
-		return 0, nil
+		return nil
 	}
 
 	conn, err := dialGitaly(payload)
 	if err != nil {
-		return 0, fmt.Errorf("error when connecting to gitaly: %v", err)
+		return fmt.Errorf("error when connecting to gitaly: %v", err)
 	}
 	defer conn.Close()
 
 	hookClient := gitalypb.NewHookServiceClient(conn)
 
 	ctx = featureflag.OutgoingWithRaw(ctx, payload.FeatureFlags)
-	returnCode, err := hookCommand.exec(ctx, payload, hookClient, args)
-	if err != nil {
-		return 0, err
+	if err := hookCommand.exec(ctx, payload, hookClient, args); err != nil {
+		return err
 	}
 
-	return returnCode, nil
+	return nil
 }
 
 func noopSender(c chan error) {}
@@ -205,10 +219,10 @@ func check(configPath string) (*gitlab.CheckInfo, error) {
 	return hook.NewManager(config.NewLocator(cfg), nil, gitlabAPI, cfg).Check(context.TODO())
 }
 
-func updateHook(ctx context.Context, payload git.HooksPayload, hookClient gitalypb.HookServiceClient, args []string) (int, error) {
+func updateHook(ctx context.Context, payload git.HooksPayload, hookClient gitalypb.HookServiceClient, args []string) error {
 	args = args[2:]
 	if len(args) != 3 {
-		return 1, errors.New("update hook expects exactly three arguments")
+		return errors.New("update hook expects exactly three arguments")
 	}
 	ref, oldValue, newValue := args[0], args[1], args[2]
 
@@ -222,23 +236,24 @@ func updateHook(ctx context.Context, payload git.HooksPayload, hookClient gitaly
 
 	updateHookStream, err := hookClient.UpdateHook(ctx, req)
 	if err != nil {
-		return 1, fmt.Errorf("error when starting command for update hook: %v", err)
+		return fmt.Errorf("error when starting command for update hook: %v", err)
 	}
 
-	var returnCode int32
-	if returnCode, err = stream.Handler(func() (stream.StdoutStderrResponse, error) {
+	if returnCode, err := stream.Handler(func() (stream.StdoutStderrResponse, error) {
 		return updateHookStream.Recv()
 	}, noopSender, os.Stdout, os.Stderr); err != nil {
-		return 1, fmt.Errorf("error when receiving data for update hook: %v", err)
+		return fmt.Errorf("error when receiving data for update hook: %v", err)
+	} else if returnCode != 0 {
+		return hookError{returnCode: int(returnCode)}
 	}
 
-	return int(returnCode), nil
+	return nil
 }
 
-func preReceiveHook(ctx context.Context, payload git.HooksPayload, hookClient gitalypb.HookServiceClient, args []string) (int, error) {
+func preReceiveHook(ctx context.Context, payload git.HooksPayload, hookClient gitalypb.HookServiceClient, args []string) error {
 	preReceiveHookStream, err := hookClient.PreReceiveHook(ctx)
 	if err != nil {
-		return 1, fmt.Errorf("error when getting preReceiveHookStream client for: %v", err)
+		return fmt.Errorf("error when getting preReceiveHookStream client for: %v", err)
 	}
 
 	if err := preReceiveHookStream.Send(&gitalypb.PreReceiveHookRequest{
@@ -246,27 +261,28 @@ func preReceiveHook(ctx context.Context, payload git.HooksPayload, hookClient gi
 		EnvironmentVariables: os.Environ(),
 		GitPushOptions:       gitPushOptions(),
 	}); err != nil {
-		return 1, fmt.Errorf("error when sending request for pre-receive hook: %v", err)
+		return fmt.Errorf("error when sending request for pre-receive hook: %v", err)
 	}
 
 	f := sendFunc(streamio.NewWriter(func(p []byte) error {
 		return preReceiveHookStream.Send(&gitalypb.PreReceiveHookRequest{Stdin: p})
 	}), preReceiveHookStream, os.Stdin)
 
-	var returnCode int32
-	if returnCode, err = stream.Handler(func() (stream.StdoutStderrResponse, error) {
+	if returnCode, err := stream.Handler(func() (stream.StdoutStderrResponse, error) {
 		return preReceiveHookStream.Recv()
 	}, f, os.Stdout, os.Stderr); err != nil {
-		return 1, fmt.Errorf("error when receiving data for pre-receive hook: %v", err)
+		return fmt.Errorf("error when receiving data for pre-receive hook: %v", err)
+	} else if returnCode != 0 {
+		return hookError{returnCode: int(returnCode)}
 	}
 
-	return int(returnCode), nil
+	return nil
 }
 
-func postReceiveHook(ctx context.Context, payload git.HooksPayload, hookClient gitalypb.HookServiceClient, args []string) (int, error) {
+func postReceiveHook(ctx context.Context, payload git.HooksPayload, hookClient gitalypb.HookServiceClient, args []string) error {
 	postReceiveHookStream, err := hookClient.PostReceiveHook(ctx)
 	if err != nil {
-		return 1, fmt.Errorf("error when getting stream client for post-receive hook: %v", err)
+		return fmt.Errorf("error when getting stream client for post-receive hook: %v", err)
 	}
 
 	if err := postReceiveHookStream.Send(&gitalypb.PostReceiveHookRequest{
@@ -274,26 +290,27 @@ func postReceiveHook(ctx context.Context, payload git.HooksPayload, hookClient g
 		EnvironmentVariables: os.Environ(),
 		GitPushOptions:       gitPushOptions(),
 	}); err != nil {
-		return 1, fmt.Errorf("error when sending request for post-receive hook: %v", err)
+		return fmt.Errorf("error when sending request for post-receive hook: %v", err)
 	}
 
 	f := sendFunc(streamio.NewWriter(func(p []byte) error {
 		return postReceiveHookStream.Send(&gitalypb.PostReceiveHookRequest{Stdin: p})
 	}), postReceiveHookStream, os.Stdin)
 
-	var returnCode int32
-	if returnCode, err = stream.Handler(func() (stream.StdoutStderrResponse, error) {
+	if returnCode, err := stream.Handler(func() (stream.StdoutStderrResponse, error) {
 		return postReceiveHookStream.Recv()
 	}, f, os.Stdout, os.Stderr); err != nil {
-		return 1, fmt.Errorf("error when receiving data for post-receive hook: %v", err)
+		return fmt.Errorf("error when receiving data for post-receive hook: %v", err)
+	} else if returnCode != 0 {
+		return hookError{returnCode: int(returnCode)}
 	}
 
-	return int(returnCode), nil
+	return nil
 }
 
-func referenceTransactionHook(ctx context.Context, payload git.HooksPayload, hookClient gitalypb.HookServiceClient, args []string) (int, error) {
+func referenceTransactionHook(ctx context.Context, payload git.HooksPayload, hookClient gitalypb.HookServiceClient, args []string) error {
 	if len(args) != 3 {
-		return 1, errors.New("reference-transaction hook is missing required arguments")
+		return errors.New("reference-transaction hook is missing required arguments")
 	}
 
 	var state gitalypb.ReferenceTransactionHookRequest_State
@@ -305,12 +322,12 @@ func referenceTransactionHook(ctx context.Context, payload git.HooksPayload, hoo
 	case "aborted":
 		state = gitalypb.ReferenceTransactionHookRequest_ABORTED
 	default:
-		return 1, fmt.Errorf("reference-transaction hook has invalid state: %q", args[2])
+		return fmt.Errorf("reference-transaction hook has invalid state: %q", args[2])
 	}
 
 	referenceTransactionHookStream, err := hookClient.ReferenceTransactionHook(ctx)
 	if err != nil {
-		return 1, fmt.Errorf("error when getting referenceTransactionHookStream client: %v", err)
+		return fmt.Errorf("error when getting referenceTransactionHookStream client: %v", err)
 	}
 
 	if err := referenceTransactionHookStream.Send(&gitalypb.ReferenceTransactionHookRequest{
@@ -318,33 +335,30 @@ func referenceTransactionHook(ctx context.Context, payload git.HooksPayload, hoo
 		EnvironmentVariables: os.Environ(),
 		State:                state,
 	}); err != nil {
-		return 1, fmt.Errorf("error when sending request for reference-transaction hook: %v", err)
+		return fmt.Errorf("error when sending request for reference-transaction hook: %v", err)
 	}
 
 	f := sendFunc(streamio.NewWriter(func(p []byte) error {
 		return referenceTransactionHookStream.Send(&gitalypb.ReferenceTransactionHookRequest{Stdin: p})
 	}), referenceTransactionHookStream, os.Stdin)
 
-	var returnCode int32
-	if returnCode, err = stream.Handler(func() (stream.StdoutStderrResponse, error) {
+	if returnCode, err := stream.Handler(func() (stream.StdoutStderrResponse, error) {
 		return referenceTransactionHookStream.Recv()
 	}, f, os.Stdout, os.Stderr); err != nil {
-		return 1, fmt.Errorf("error when receiving data for reference-transaction hook: %v", err)
+		return fmt.Errorf("error when receiving data for reference-transaction hook: %v", err)
+	} else if returnCode != 0 {
+		return hookError{returnCode: int(returnCode)}
 	}
 
-	return int(returnCode), nil
+	return nil
 }
 
-func packObjectsHook(ctx context.Context, payload git.HooksPayload, hookClient gitalypb.HookServiceClient, args []string) (int, error) {
+func packObjectsHook(ctx context.Context, payload git.HooksPayload, hookClient gitalypb.HookServiceClient, args []string) error {
 	if err := handlePackObjectsWithSidechannel(ctx, hookClient, payload.Repo, args[2:]); err != nil {
-		logger.Logger().WithFields(logrus.Fields{
-			"args": args,
-			"rpc":  "PackObjectsHookWithSidechannel",
-		}).WithError(err).Error("RPC failed")
-		return 1, nil
+		return hookError{returnCode: 1, err: fmt.Errorf("RPC failed: %w", err)}
 	}
 
-	return 0, nil
+	return nil
 }
 
 func handlePackObjectsWithSidechannel(ctx context.Context, hookClient gitalypb.HookServiceClient, repo *gitalypb.Repository, args []string) error {
