@@ -222,7 +222,7 @@ func check(configPath string) (*gitlab.CheckInfo, error) {
 func updateHook(ctx context.Context, payload git.HooksPayload, hookClient gitalypb.HookServiceClient, args []string) error {
 	args = args[2:]
 	if len(args) != 3 {
-		return errors.New("update hook expects exactly three arguments")
+		return fmt.Errorf("update hook expects exactly three arguments, got %q", args)
 	}
 	ref, oldValue, newValue := args[0], args[1], args[2]
 
@@ -310,7 +310,7 @@ func postReceiveHook(ctx context.Context, payload git.HooksPayload, hookClient g
 
 func referenceTransactionHook(ctx context.Context, payload git.HooksPayload, hookClient gitalypb.HookServiceClient, args []string) error {
 	if len(args) != 3 {
-		return errors.New("reference-transaction hook is missing required arguments")
+		return fmt.Errorf("reference-transaction hook is missing required arguments, got %q", args)
 	}
 
 	var state gitalypb.ReferenceTransactionHookRequest_State
