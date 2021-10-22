@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"os"
 
@@ -81,16 +80,18 @@ func run(args []string, logger *gitalylog.HookLogger) (int, error) {
 	if subCmd == "check" {
 		logrus.SetLevel(logrus.ErrorLevel)
 		if len(args) != 3 {
-			log.Fatal(errors.New("no configuration file path provided invoke with: gitaly-hooks check <config_path>"))
+			fmt.Fprint(os.Stderr, "no configuration file path provided invoke with: gitaly-hooks check <config_path>")
+			os.Exit(1)
 		}
 
 		configPath := args[2]
 		fmt.Print("Checking GitLab API access: ")
 
-		info, err := check(logger.Logger(), configPath)
+		info, err := check(configPath)
 		if err != nil {
 			fmt.Print("FAIL\n")
-			log.Fatal(err)
+			fmt.Fprint(os.Stderr, err)
+			os.Exit(1)
 		}
 
 		fmt.Print("OK\n")
@@ -184,7 +185,7 @@ func sendFunc(reqWriter io.Writer, stream grpc.ClientStream, stdin io.Reader) fu
 	}
 }
 
-func check(logger logrus.FieldLogger, configPath string) (*gitlab.CheckInfo, error) {
+func check(configPath string) (*gitlab.CheckInfo, error) {
 	cfgFile, err := os.Open(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open config file: %w", err)
@@ -196,7 +197,7 @@ func check(logger logrus.FieldLogger, configPath string) (*gitlab.CheckInfo, err
 		return nil, err
 	}
 
-	gitlabAPI, err := gitlab.NewHTTPClient(logger, cfg.Gitlab, cfg.TLS, prometheus.Config{})
+	gitlabAPI, err := gitlab.NewHTTPClient(logrus.New(), cfg.Gitlab, cfg.TLS, prometheus.Config{})
 	if err != nil {
 		return nil, err
 	}
