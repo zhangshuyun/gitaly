@@ -243,14 +243,14 @@ func TestParser_ParseTag(t *testing.T) {
 			},
 		},
 		{
-			desc:     "tag with message with empty line and right side new line trimming",
+			desc:     "tag with message with empty line and right side new line",
 			contents: "object c92faf3e0a557270141be67f206d7cdb99bfc3a2\ntype commit\ntag v2.6.16.28\ntagger Adrian Bunk <bunk@stusta.de> 1156539089 +0200\n\nHello world\n\nThis is a message\n\n",
 			oid:      "1234",
 			expectedTag: &gitalypb.Tag{
 				Id:          "1234",
 				Name:        []byte("v2.6.16.28"),
-				Message:     []byte("Hello world\n\nThis is a message"),
-				MessageSize: 30,
+				Message:     []byte("Hello world\n\nThis is a message\n\n"),
+				MessageSize: 32,
 				Tagger: &gitalypb.CommitAuthor{
 					Name:  []byte("Adrian Bunk"),
 					Email: []byte("bunk@stusta.de"),
@@ -331,7 +331,7 @@ func TestSplitRawTag(t *testing.T) {
 				tag:     "v2.6.16.28",
 				tagger:  "Adrian Bunk <bunk@stusta.de> 1156539089 +0200",
 			},
-			body:        []byte("Hello world\n\nThis is a message"),
+			body:        []byte("Hello world\n\nThis is a message\n\n"),
 			trimNewLine: true,
 		},
 		{
@@ -346,7 +346,7 @@ func TestSplitRawTag(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		header, body, err := splitRawTag(newStaticObject(tc.tagContent, "tag", "1234"), tc.trimNewLine)
+		header, body, err := splitRawTag(newStaticObject(tc.tagContent, "tag", "1234"))
 		assert.Equal(t, tc.header, *header)
 		assert.Equal(t, tc.body, body)
 		assert.NoError(t, err)

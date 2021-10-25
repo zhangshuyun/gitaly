@@ -81,6 +81,7 @@ func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, sortFiel
 			if err != nil {
 				return fmt.Errorf("parsing annotated tag: %w", err)
 			}
+			catfile.TrimTagMessage(result)
 
 			// For each tag, we expect both the tag itself as well as its
 			// potentially-peeled tagged object.

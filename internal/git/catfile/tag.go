@@ -7,15 +7,14 @@ import (
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
-// GetTag looks up a commit by tagID using an existing catfile.Batch instance. When 'trim' is
-// 'true', the tag message will be trimmed to fit in a gRPC message. When 'trimRightNewLine' is
-// 'true', the tag message will be trimmed to remove all '\n' characters from right. note: we pass
+// GetTag looks up a commit by tagID using an existing catfile.Batch instance. Note: we pass
 // in the tagName because the tag name from refs/tags may be different than the name found in the
 // actual tag object. We want to use the tagName found in refs/tags
-func GetTag(ctx context.Context, objectReader ObjectReader, tagID git.Revision, tagName string, trimLen, trimRightNewLine bool) (*gitalypb.Tag, error) {
+func GetTag(ctx context.Context, objectReader ObjectReader, tagID git.Revision, tagName string) (*gitalypb.Tag, error) {
 	object, err := objectReader.Object(ctx, tagID)
 	if err != nil {
 		return nil, err
@@ -31,7 +30,7 @@ func GetTag(ctx context.Context, objectReader ObjectReader, tagID git.Revision, 
 		}
 	}
 
-	tag, err := buildAnnotatedTag(ctx, objectReader, object, []byte(tagName), trimLen, trimRightNewLine)
+	tag, err := buildAnnotatedTag(ctx, objectReader, object, []byte(tagName))
 	if err != nil {
 		return nil, err
 	}
@@ -52,8 +51,8 @@ func ExtractTagSignature(content []byte) ([]byte, []byte) {
 	return nil, content
 }
 
-func buildAnnotatedTag(ctx context.Context, objectReader ObjectReader, object git.Object, name []byte, trimLen, trimRightNewLine bool) (*gitalypb.Tag, error) {
-	tag, header, err := parseTag(object, name, trimLen, trimRightNewLine)
+func buildAnnotatedTag(ctx context.Context, objectReader ObjectReader, object git.Object, name []byte) (*gitalypb.Tag, error) {
+	tag, header, err := parseTag(object, name)
 	if err != nil {
 		return nil, err
 	}
@@ -93,5 +92,25 @@ func dereferenceTag(ctx context.Context, objectReader ObjectReader, oid git.Revi
 		// and then we'll just create a new one when we require it again.
 		_, _ = io.Copy(io.Discard, object)
 		return nil, nil
+	}
+}
+
+// TrimTagMessage trims the tag's message. The message length will be trimmed such that it fits into a
+// single gRPC message and all trailing newline characters will be stripped.
+func TrimTagMessage(tag *gitalypb.Tag) {
+	// Remove trailing newline, if any, to preserve existing behavior the old GitLab tag finding code.
+	// See https://gitlab.com/gitlab-org/gitaly/blob/5e94dc966ac1900c11794b107a77496552591f9b/ruby/lib/gitlab/git/repository.rb#L211.
+	// Maybe this belongs in the FindAllTags handler, or even on the gitlab-ce client side, instead of here?
+	tag.Message = bytes.TrimRight(tag.Message, "\n")
+
+	// It is intentional that we set the message size _before_ truncating the commit but after
+	// trimming trailing newlines: the caller likely doesn't care about trailing newlines, and
+	// as such we shouldn't tell the caller that we did truncate the message by having differing
+	// message length and message size. But we do want to tell the caller in case we truncated
+	// the message, in which case message length and message size must be different.
+	tag.MessageSize = int64(len(tag.Message))
+
+	if max := helper.MaxCommitOrTagMessageSize; len(tag.Message) > max {
+		tag.Message = tag.Message[:max]
 	}
 }

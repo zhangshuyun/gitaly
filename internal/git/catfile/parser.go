@@ -178,7 +178,7 @@ func detectSignatureType(line string) gitalypb.SignatureType {
 // commit is not populated. The given object ID shall refer to the tag itself such that the returned
 // Tag structure has the correct OID.
 func (p *parser) ParseTag(object git.Object) (*gitalypb.Tag, error) {
-	tag, _, err := parseTag(object, nil, true, true)
+	tag, _, err := parseTag(object, nil)
 	return tag, err
 }
 
@@ -189,8 +189,8 @@ type tagHeader struct {
 	tagger  string
 }
 
-func parseTag(object git.Object, name []byte, trimLen, trimRightNewLine bool) (*gitalypb.Tag, *tagHeader, error) {
-	header, body, err := splitRawTag(object, trimRightNewLine)
+func parseTag(object git.Object, name []byte) (*gitalypb.Tag, *tagHeader, error) {
+	header, body, err := splitRawTag(object)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -204,10 +204,6 @@ func parseTag(object git.Object, name []byte, trimLen, trimRightNewLine bool) (*
 		Name:        name,
 		MessageSize: int64(len(body)),
 		Message:     body,
-	}
-
-	if max := helper.MaxCommitOrTagMessageSize; trimLen && len(body) > max {
-		tag.Message = tag.Message[:max]
 	}
 
 	signature, _ := ExtractTagSignature(body)
@@ -225,7 +221,7 @@ func parseTag(object git.Object, name []byte, trimLen, trimRightNewLine bool) (*
 	return tag, header, nil
 }
 
-func splitRawTag(object git.Object, trimRightNewLine bool) (*tagHeader, []byte, error) {
+func splitRawTag(object git.Object) (*tagHeader, []byte, error) {
 	raw, err := io.ReadAll(object)
 	if err != nil {
 		return nil, nil, err
@@ -235,12 +231,6 @@ func splitRawTag(object git.Object, trimRightNewLine bool) (*tagHeader, []byte, 
 	split := bytes.SplitN(raw, []byte("\n\n"), 2)
 	if len(split) == 2 {
 		body = split[1]
-		if trimRightNewLine {
-			// Remove trailing newline, if any, to preserve existing behavior the old GitLab tag finding code.
-			// See https://gitlab.com/gitlab-org/gitaly/blob/5e94dc966ac1900c11794b107a77496552591f9b/ruby/lib/gitlab/git/repository.rb#L211.
-			// Maybe this belongs in the FindAllTags handler, or even on the gitlab-ce client side, instead of here?
-			body = bytes.TrimRight(body, "\n")
-		}
 	}
 
 	var header tagHeader

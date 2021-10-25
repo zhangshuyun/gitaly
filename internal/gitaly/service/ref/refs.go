@@ -249,10 +249,12 @@ func parseTagLine(ctx context.Context, objectReader catfile.ObjectReader, tagLin
 	switch refType {
 	// annotated tag
 	case "tag":
-		tag, err := catfile.GetTag(ctx, objectReader, git.Revision(tagID), refName, true, true)
+		tag, err := catfile.GetTag(ctx, objectReader, git.Revision(tagID), refName)
 		if err != nil {
 			return nil, fmt.Errorf("getting annotated tag: %v", err)
 		}
+		catfile.TrimTagMessage(tag)
+
 		return tag, nil
 	case "commit":
 		commit, err := catfile.GetCommit(ctx, objectReader, git.Revision(tagID))
