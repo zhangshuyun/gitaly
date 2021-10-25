@@ -7,6 +7,7 @@ import (
 	"io"
 	"sync"
 
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 )
 
@@ -17,11 +18,9 @@ type CatfileObjectResult struct {
 
 	// ObjectName is the object name as received from the revlistResultChan.
 	ObjectName []byte
-	// ObjectInfo is the object info of the object.
-	ObjectInfo *catfile.ObjectInfo
-	// obbjectReader is the reader for the raw object data. The reader must always be consumed
-	// by the caller.
-	ObjectReader io.Reader
+	// Object is the object returned by the CatfileObject pipeline step. The object must
+	// be fully consumed.
+	git.Object
 }
 
 // CatfileObject processes catfileInfoResults from the given channel and reads associated objects
@@ -59,16 +58,16 @@ func CatfileObject(
 			}
 		}
 
-		var objectDataReader *signallingReader
+		var previousObject *synchronizingObject
 
 		for it.Next() {
 			// We mustn't try to read another object before reading the previous object
 			// has concluded. Given that this is not under our control but under the
 			// control of the caller, we thus have to wait until the blocking reader has
 			// reached EOF.
-			if objectDataReader != nil {
+			if previousObject != nil {
 				select {
-				case <-objectDataReader.doneCh:
+				case <-previousObject.doneCh:
 				case <-ctx.Done():
 					return
 				}
@@ -82,15 +81,14 @@ func CatfileObject(
 				return
 			}
 
-			objectDataReader = &signallingReader{
-				reader: object,
+			previousObject = &synchronizingObject{
+				Object: object,
 				doneCh: make(chan interface{}),
 			}
 
 			if isDone := sendResult(CatfileObjectResult{
-				ObjectName:   it.ObjectName(),
-				ObjectInfo:   &object.ObjectInfo,
-				ObjectReader: objectDataReader,
+				ObjectName: it.ObjectName(),
+				Object:     previousObject,
 			}); isDone {
 				return
 			}
@@ -107,14 +105,15 @@ func CatfileObject(
 	}
 }
 
-type signallingReader struct {
-	reader    io.Reader
+type synchronizingObject struct {
+	git.Object
+
 	doneCh    chan interface{}
 	closeOnce sync.Once
 }
 
-func (r *signallingReader) Read(p []byte) (int, error) {
-	n, err := r.reader.Read(p)
+func (r *synchronizingObject) Read(p []byte) (int, error) {
+	n, err := r.Object.Read(p)
 	if errors.Is(err, io.EOF) {
 		r.closeOnce.Do(func() {
 			close(r.doneCh)

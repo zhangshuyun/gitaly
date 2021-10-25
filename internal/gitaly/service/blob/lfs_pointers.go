@@ -201,7 +201,7 @@ func sendLFSPointers(chunker *chunk.Chunker, iter gitpipe.CatfileObjectIterator,
 		// Given that we filter pipeline objects by size, the biggest object we may see here
 		// is 200 bytes in size. So it's not much of a problem to read this into memory
 		// completely.
-		if _, err := io.Copy(buffer, lfsPointer.ObjectReader); err != nil {
+		if _, err := io.Copy(buffer, lfsPointer); err != nil {
 			return helper.ErrInternal(fmt.Errorf("reading LFS pointer data: %w", err))
 		}
 
@@ -215,7 +215,7 @@ func sendLFSPointers(chunker *chunk.Chunker, iter gitpipe.CatfileObjectIterator,
 		if err := chunker.Send(&gitalypb.LFSPointer{
 			Data: objectData,
 			Size: int64(len(objectData)),
-			Oid:  lfsPointer.ObjectInfo.Oid.String(),
+			Oid:  lfsPointer.ObjectID().String(),
 		}); err != nil {
 			return helper.ErrInternal(fmt.Errorf("sending LFS pointer chunk: %w", err))
 		}

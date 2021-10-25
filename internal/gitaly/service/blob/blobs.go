@@ -146,8 +146,8 @@ func (s *server) processBlobs(
 				var size int64
 
 				if !headerSent {
-					oid = blob.ObjectInfo.Oid.String()
-					size = blob.ObjectInfo.Size
+					oid = blob.ObjectID().String()
+					size = blob.ObjectSize()
 					headerSent = true
 				}
 
@@ -160,17 +160,17 @@ func (s *server) processBlobs(
 
 			readLimit := bytesLimit
 			if readLimit < 0 {
-				readLimit = blob.ObjectInfo.Size
+				readLimit = blob.ObjectSize()
 			}
 
-			_, err := io.CopyN(dataChunker, blob.ObjectReader, readLimit)
+			_, err := io.CopyN(dataChunker, blob, readLimit)
 			if err != nil && !errors.Is(err, io.EOF) {
 				return helper.ErrInternal(fmt.Errorf("sending blob data: %w", err))
 			}
 
 			// Discard trailing blob data in case the blob is bigger than the read
 			// limit.
-			_, err = io.Copy(io.Discard, blob.ObjectReader)
+			_, err = io.Copy(io.Discard, blob)
 			if err != nil {
 				return helper.ErrInternal(fmt.Errorf("discarding blob data: %w", err))
 			}
@@ -180,8 +180,8 @@ func (s *server) processBlobs(
 			// header manually in that case.
 			if !headerSent {
 				if err := callback(
-					blob.ObjectInfo.Oid.String(),
-					blob.ObjectInfo.Size,
+					blob.ObjectID().String(),
+					blob.ObjectSize(),
 					nil,
 					blob.ObjectName,
 				); err != nil {

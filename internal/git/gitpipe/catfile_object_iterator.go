@@ -50,7 +50,7 @@ func (it *catfileObjectIterator) Result() CatfileObjectResult {
 }
 
 func (it *catfileObjectIterator) ObjectID() git.ObjectID {
-	return it.result.ObjectInfo.Oid
+	return it.result.ObjectID()
 }
 
 func (it *catfileObjectIterator) ObjectName() []byte {

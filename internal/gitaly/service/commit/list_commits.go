@@ -121,7 +121,7 @@ func (s *server) ListCommits(
 
 		object := catfileObjectIter.Result()
 
-		commit, err := catfile.ParseCommit(object.ObjectReader, object.ObjectInfo.Oid)
+		commit, err := catfile.ParseCommit(object, object.ObjectID())
 		if err != nil {
 			return helper.ErrInternal(fmt.Errorf("parsing commit: %w", err))
 		}

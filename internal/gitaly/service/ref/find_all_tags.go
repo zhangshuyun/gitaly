@@ -72,10 +72,10 @@ func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, sortFiel
 		}
 
 		var result *gitalypb.Tag
-		switch tag.ObjectInfo.Type {
+		switch tag.ObjectType() {
 		case "tag":
 			var err error
-			result, err = catfile.ParseTag(tag.ObjectReader, tag.ObjectInfo.Oid)
+			result, err = catfile.ParseTag(tag, tag.ObjectID())
 			if err != nil {
 				return fmt.Errorf("parsing annotated tag: %w", err)
 			}
@@ -91,33 +91,33 @@ func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, sortFiel
 			// We only need to parse the tagged object in case we have an annotated tag
 			// which refers to a commit object. Otherwise, we discard the object's
 			// contents.
-			if peeledTag.ObjectInfo.Type == "commit" {
-				result.TargetCommit, err = catfile.ParseCommit(peeledTag.ObjectReader, peeledTag.ObjectInfo.Oid)
+			if peeledTag.ObjectType() == "commit" {
+				result.TargetCommit, err = catfile.ParseCommit(peeledTag, peeledTag.ObjectID())
 				if err != nil {
 					return fmt.Errorf("parsing tagged commit: %w", err)
 				}
 			} else {
-				if _, err := io.Copy(io.Discard, peeledTag.ObjectReader); err != nil {
+				if _, err := io.Copy(io.Discard, peeledTag); err != nil {
 					return fmt.Errorf("discarding tagged object contents: %w", err)
 				}
 			}
 		case "commit":
-			commit, err := catfile.ParseCommit(tag.ObjectReader, tag.ObjectInfo.Oid)
+			commit, err := catfile.ParseCommit(tag, tag.ObjectID())
 			if err != nil {
 				return fmt.Errorf("parsing tagged commit: %w", err)
 			}
 
 			result = &gitalypb.Tag{
-				Id:           tag.ObjectInfo.Oid.String(),
+				Id:           tag.ObjectID().String(),
 				TargetCommit: commit,
 			}
 		default:
-			if _, err := io.Copy(io.Discard, tag.ObjectReader); err != nil {
+			if _, err := io.Copy(io.Discard, tag); err != nil {
 				return fmt.Errorf("discarding tag object contents: %w", err)
 			}
 
 			result = &gitalypb.Tag{
-				Id: tag.ObjectInfo.Oid.String(),
+				Id: tag.ObjectID().String(),
 			}
 		}
 
