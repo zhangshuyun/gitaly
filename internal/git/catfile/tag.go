@@ -197,7 +197,7 @@ func dereferenceTag(ctx context.Context, objectReader ObjectReader, oid git.Revi
 			oid = git.Revision(header.oid)
 			continue
 		case "commit":
-			return ParseCommit(object, object.ObjectInfo.Oid)
+			return ParseCommit(object)
 		default: // This current tag points to a tree or a blob
 			// We do not care whether discarding the object fails -- the worst that can
 			// happen is that the object reader is dirty after the RPC call finishes,

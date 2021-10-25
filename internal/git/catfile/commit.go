@@ -24,7 +24,7 @@ func GetCommit(ctx context.Context, objectReader ObjectReader, revision git.Revi
 		return nil, err
 	}
 
-	return ParseCommit(object, object.ObjectInfo.Oid)
+	return ParseCommit(object)
 }
 
 // GetCommitWithTrailers looks up a commit by revision using an existing Batch instance, and
@@ -84,8 +84,8 @@ func GetCommitMessage(ctx context.Context, objectReader ObjectReader, repo repos
 	return body, nil
 }
 
-func splitRawCommit(r io.Reader) ([]byte, []byte, error) {
-	raw, err := io.ReadAll(r)
+func splitRawCommit(object git.Object) ([]byte, []byte, error) {
+	raw, err := io.ReadAll(object)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -102,11 +102,11 @@ func splitRawCommit(r io.Reader) ([]byte, []byte, error) {
 }
 
 // ParseCommit parses the commit data from the Reader.
-func ParseCommit(r io.Reader, oid git.ObjectID) (*gitalypb.GitCommit, error) {
-	commit := &gitalypb.GitCommit{Id: oid.String()}
+func ParseCommit(object git.Object) (*gitalypb.GitCommit, error) {
+	commit := &gitalypb.GitCommit{Id: object.ObjectID().String()}
 
 	var lastLine bool
-	b := bufio.NewReader(r)
+	b := bufio.NewReader(object)
 
 	for !lastLine {
 		line, err := b.ReadString('\n')

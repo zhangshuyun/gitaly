@@ -2,6 +2,7 @@ package catfile
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 	"time"
 
@@ -29,17 +30,17 @@ func TestParseCommit(t *testing.T) {
 	// than to throw hard errors.
 	testCases := []struct {
 		desc string
-		in   []byte
+		in   string
 		out  *gitalypb.GitCommit
 	}{
 		{
 			desc: "empty commit object",
-			in:   []byte{},
+			in:   "",
 			out:  &gitalypb.GitCommit{Id: info.Oid.String()},
 		},
 		{
 			desc: "no email",
-			in:   []byte("author Jane Doe"),
+			in:   "author Jane Doe",
 			out: &gitalypb.GitCommit{
 				Id:     info.Oid.String(),
 				Author: &gitalypb.CommitAuthor{Name: []byte("Jane Doe")},
@@ -47,7 +48,7 @@ func TestParseCommit(t *testing.T) {
 		},
 		{
 			desc: "unmatched <",
-			in:   []byte("author Jane Doe <janedoe@example.com"),
+			in:   "author Jane Doe <janedoe@example.com",
 			out: &gitalypb.GitCommit{
 				Id:     info.Oid.String(),
 				Author: &gitalypb.CommitAuthor{Name: []byte("Jane Doe")},
@@ -55,7 +56,7 @@ func TestParseCommit(t *testing.T) {
 		},
 		{
 			desc: "unmatched >",
-			in:   []byte("author Jane Doe janedoe@example.com>"),
+			in:   "author Jane Doe janedoe@example.com>",
 			out: &gitalypb.GitCommit{
 				Id:     info.Oid.String(),
 				Author: &gitalypb.CommitAuthor{Name: []byte("Jane Doe janedoe@example.com>")},
@@ -63,7 +64,7 @@ func TestParseCommit(t *testing.T) {
 		},
 		{
 			desc: "missing date",
-			in:   []byte("author Jane Doe <janedoe@example.com> "),
+			in:   "author Jane Doe <janedoe@example.com> ",
 			out: &gitalypb.GitCommit{
 				Id:     info.Oid.String(),
 				Author: &gitalypb.CommitAuthor{Name: []byte("Jane Doe"), Email: []byte("janedoe@example.com")},
@@ -71,7 +72,7 @@ func TestParseCommit(t *testing.T) {
 		},
 		{
 			desc: "date too high",
-			in:   []byte("author Jane Doe <janedoe@example.com> 9007199254740993 +0200"),
+			in:   "author Jane Doe <janedoe@example.com> 9007199254740993 +0200",
 			out: &gitalypb.GitCommit{
 				Id: info.Oid.String(),
 				Author: &gitalypb.CommitAuthor{
@@ -84,7 +85,7 @@ func TestParseCommit(t *testing.T) {
 		},
 		{
 			desc: "date negative",
-			in:   []byte("author Jane Doe <janedoe@example.com> -1 +0200"),
+			in:   "author Jane Doe <janedoe@example.com> -1 +0200",
 			out: &gitalypb.GitCommit{
 				Id: info.Oid.String(),
 				Author: &gitalypb.CommitAuthor{
@@ -97,7 +98,7 @@ func TestParseCommit(t *testing.T) {
 		},
 		{
 			desc: "huge",
-			in:   append([]byte("author "), bytes.Repeat([]byte("A"), 100000)...),
+			in:   "author " + strings.Repeat("A", 100000),
 			out: &gitalypb.GitCommit{
 				Id: info.Oid.String(),
 				Author: &gitalypb.CommitAuthor{
@@ -110,7 +111,7 @@ func TestParseCommit(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			info.Size = int64(len(tc.in))
-			out, err := ParseCommit(bytes.NewBuffer(tc.in), info.Oid)
+			out, err := ParseCommit(newStaticObject(tc.in, "commit", info.Oid))
 			require.NoError(t, err, "parse error")
 			require.Equal(t, tc.out, out)
 		})
