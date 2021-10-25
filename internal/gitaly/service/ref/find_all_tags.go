@@ -64,6 +64,8 @@ func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, sortFiel
 	limit := opts.Limit
 	i := 0
 
+	parser := catfile.NewParser()
+
 	for catfileObjectsIter.Next() {
 		tag := catfileObjectsIter.Result()
 
@@ -92,7 +94,7 @@ func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, sortFiel
 			// which refers to a commit object. Otherwise, we discard the object's
 			// contents.
 			if peeledTag.ObjectType() == "commit" {
-				result.TargetCommit, err = catfile.ParseCommit(peeledTag)
+				result.TargetCommit, err = parser.ParseCommit(peeledTag)
 				if err != nil {
 					return fmt.Errorf("parsing tagged commit: %w", err)
 				}
@@ -102,7 +104,7 @@ func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, sortFiel
 				}
 			}
 		case "commit":
-			commit, err := catfile.ParseCommit(tag)
+			commit, err := parser.ParseCommit(tag)
 			if err != nil {
 				return fmt.Errorf("parsing tagged commit: %w", err)
 			}
