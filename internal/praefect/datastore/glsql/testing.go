@@ -227,11 +227,11 @@ func initPraefectTestDB(t testing.TB, database string) *sql.DB {
 				_, err = postgresDB.Exec("CREATE DATABASE " + praefectTemplateDatabase + " WITH ENCODING 'UTF8'")
 				require.NoErrorf(t, err, "failed to create %q database", praefectTemplateDatabase)
 
-				templateDB = requireSQLOpen(t, templateDBConf, true)
+				remigrateTemplateDB := requireSQLOpen(t, templateDBConf, true)
 				defer func() {
-					require.NoErrorf(t, templateDB.Close(), "release connection to the %q database", templateDBConf.DBName)
+					require.NoErrorf(t, remigrateTemplateDB.Close(), "release connection to the %q database", templateDBConf.DBName)
 				}()
-				_, err = Migrate(templateDB, false)
+				_, err = Migrate(remigrateTemplateDB, false)
 				require.NoErrorf(t, err, "failed to run database migration on %q", praefectTemplateDatabase)
 			} else {
 				require.NoErrorf(t, err, "failed to run database migration on %q", praefectTemplateDatabase)
