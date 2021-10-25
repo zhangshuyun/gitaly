@@ -11,7 +11,7 @@ The following terminology may be used within the context of the Gitaly Cluster p
 - Praefect - a transparent front end to all Gitaly shards. This reverse proxy ensures that all gRPC calls are forwarded to the correct shard by consulting the coordinator. The reverse proxy also ensures that write actions are performed transactionally when needed.
     - etymology: from Latin praefectus for _a person appointed to any of various positions of command, authority, or superintendence, as a chief magistrate in ancient Rome or the chief administrative official of a department of France or Italy._
     - [pronounced _pree-fect_](https://www.youtube.com/watch?v=MHszCZjPmTQ)
-- Node (TODO: we probably need a similar latin name here) - performs the actual git read/write operations to/from disk. Has no knowledge of shards/prafects/coordinators just as the Gitaly service existed prior to HA.
+- Node - This is the Gitaly service which performs the actual git read/write operations from/to disk. Has no knowledge of shards/praefects.
 - RPC categories (#1496):
     - Accessor - a side effect free (or read-only) RPC; does not modify the git repo (!228)
     - Mutator - an RPC that modifies the data in the git repo (!228)
