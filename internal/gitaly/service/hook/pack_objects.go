@@ -23,7 +23,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
@@ -43,59 +42,12 @@ var (
 	})
 )
 
-func (s *server) PackObjectsHook(stream gitalypb.HookService_PackObjectsHookServer) error {
-	firstRequest, err := stream.Recv()
-	if err != nil {
-		return helper.ErrInternal(err)
-	}
-
-	if firstRequest.GetRepository() == nil {
-		return helper.ErrInvalidArgument(errors.New("repository is empty"))
-	}
-
-	args, err := parsePackObjectsArgs(firstRequest.Args)
-	if err != nil {
-		return helper.ErrInvalidArgumentf("invalid pack-objects command: %v: %w", firstRequest.Args, err)
-	}
-
-	stdin := streamio.NewReader(func() ([]byte, error) {
-		resp, err := stream.Recv()
-		return resp.GetStdin(), err
-	})
-
-	output := func(r io.Reader) (int64, error) {
-		var n int64
-		err := pktline.EachSidebandPacket(r, func(band byte, data []byte) error {
-			resp := &gitalypb.PackObjectsHookResponse{}
-
-			switch band {
-			case bandStdout:
-				resp.Stdout = data
-			case bandStderr:
-				resp.Stderr = data
-			default:
-				return fmt.Errorf("invalid side band: %d", band)
-			}
-
-			n += int64(len(data))
-			return stream.Send(resp)
-		})
-		return n, err
-	}
-
-	if err := s.packObjectsHook(stream.Context(), firstRequest.Repository, firstRequest, args, stdin, output); err != nil {
-		return helper.ErrInternal(err)
-	}
-
-	return nil
-}
-
 const (
 	bandStdout = 1
 	bandStderr = 2
 )
 
-func (s *server) packObjectsHook(ctx context.Context, repo *gitalypb.Repository, reqHash proto.Message, args *packObjectsArgs, stdinReader io.Reader, output func(io.Reader) (int64, error)) error {
+func (s *server) packObjectsHook(ctx context.Context, repo *gitalypb.Repository, reqHash proto.Message, args *packObjectsArgs, stdinReader io.Reader, output io.Writer) error {
 	data, err := protojson.Marshal(reqHash)
 	if err != nil {
 		return err
@@ -149,7 +101,7 @@ func (s *server) packObjectsHook(ctx context.Context, repo *gitalypb.Repository,
 		packObjectsServedBytes.Add(float64(servedBytes))
 	}()
 
-	servedBytes, err = output(r)
+	servedBytes, err = io.Copy(output, r)
 	if err != nil {
 		return err
 	}
@@ -363,8 +315,7 @@ func (s *server) PackObjectsHookWithSidechannel(ctx context.Context, req *gitaly
 	}
 	defer c.Close()
 
-	output := func(r io.Reader) (int64, error) { return io.Copy(c, r) }
-	if err := s.packObjectsHook(ctx, req.Repository, req, args, c, output); err != nil {
+	if err := s.packObjectsHook(ctx, req.Repository, req, args, c, c); err != nil {
 		if errors.Is(err, syscall.EPIPE) {
 			// EPIPE is the error we get if we try to write to c after the client has
 			// closed its side of the connection. By convention, we label server side
