@@ -2,7 +2,6 @@ package objectpool
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -160,24 +159,4 @@ func (o *ObjectPool) LinkedToRepository(repo *gitalypb.Repository) (bool, error)
 	}
 
 	return false, nil
-}
-
-// Unlink removes the remote from the object pool
-func (o *ObjectPool) Unlink(ctx context.Context, repo *gitalypb.Repository) error {
-	if !o.Exists() {
-		return errors.New("pool does not exist")
-	}
-
-	remote := o.poolRepo.Remote()
-
-	// We need to use removeRemote, and can't leverage `git config --remove-section`
-	// as the latter doesn't clean up refs
-	remoteName := repo.GetGlRepository()
-	if err := remote.Remove(ctx, remoteName); err != nil {
-		if present, err2 := remote.Exists(ctx, remoteName); err2 != nil || present {
-			return err
-		}
-	}
-
-	return nil
 }
