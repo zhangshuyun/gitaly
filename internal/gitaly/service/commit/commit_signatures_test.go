@@ -10,7 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -68,7 +67,12 @@ func TestSuccessfulGetCommitSignaturesRequest(t *testing.T) {
 
 	require.Len(t, fetchedSignatures, len(expectedSignatures))
 	for i, expected := range expectedSignatures {
-		testassert.ProtoEqual(t, expected, fetchedSignatures[i])
+		// We cannot use `testassert.ProtoEqual` here due to it being too inefficient with
+		// the data we're comparing because it contains multiple MB of signed data. This has
+		// in the past led to frequent timeouts in CI.
+		require.Equal(t, expected.CommitId, fetchedSignatures[i].CommitId)
+		require.Equal(t, expected.Signature, fetchedSignatures[i].Signature)
+		require.Equal(t, expected.SignedText, fetchedSignatures[i].SignedText)
 	}
 }
 
