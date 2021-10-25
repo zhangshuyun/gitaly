@@ -12,6 +12,7 @@ import (
 
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
@@ -35,6 +36,7 @@ var subcommands = map[string]subcmd{
 	removeRepositoryCmdName:       newRemoveRepository(logger),
 	trackRepositoryCmdName:        newTrackRepository(logger),
 	listUntrackedRepositoriesName: newListUntrackedRepositories(logger, os.Stdout),
+	checkCmdName:                  newCheckSubcommand(os.Stdout, praefect.NewPraefectMigrationCheck),
 }
 
 // subCommand returns an exit code, to be fed into os.Exit.
