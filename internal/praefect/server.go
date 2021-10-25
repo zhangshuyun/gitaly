@@ -148,6 +148,7 @@ func NewGRPCServer(
 		proxy.RegisterStreamHandlers(srv, "gitaly.RepositoryService", map[string]grpc.StreamHandler{
 			"RepositoryExists": RepositoryExistsHandler(rs),
 			"RemoveRepository": RemoveRepositoryHandler(rs, conns),
+			"RenameRepository": RenameRepositoryHandler(conf.VirtualStorageNames(), rs),
 		})
 	}
 

@@ -70,9 +70,6 @@ func TestRenameRepository_DestinationExists(t *testing.T) {
 }
 
 func TestRenameRepository_invalidRequest(t *testing.T) {
-	// Prafect applies renames to metadata even on failed requests, which fails this test.
-	testhelper.SkipWithPraefect(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/4003")
-
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -87,7 +84,7 @@ func TestRenameRepository_invalidRequest(t *testing.T) {
 		{
 			desc: "empty repository",
 			req:  &gitalypb.RenameRepositoryRequest{Repository: nil, RelativePath: "/tmp/abc"},
-			exp:  status.Error(codes.InvalidArgument, gitalyOrPraefect("empty Repository", "repo scoped: empty Repository")),
+			exp:  status.Error(codes.InvalidArgument, "empty Repository"),
 		},
 		{
 			desc: "empty destination relative path",
@@ -101,20 +98,20 @@ func TestRenameRepository_invalidRequest(t *testing.T) {
 		},
 		{
 			desc: "repository storage doesn't exist",
-			req:  &gitalypb.RenameRepositoryRequest{Repository: &gitalypb.Repository{StorageName: "stub", RelativePath: repo.RelativePath}, RelativePath: "../usr/bin"},
-			exp:  status.Error(codes.InvalidArgument, gitalyOrPraefect(`GetStorageByName: no such storage: "stub"`, "repo scoped: invalid Repository")),
+			req:  &gitalypb.RenameRepositoryRequest{Repository: &gitalypb.Repository{StorageName: "stub", RelativePath: repo.RelativePath}, RelativePath: "usr/bin"},
+			exp:  status.Error(codes.InvalidArgument, `GetStorageByName: no such storage: "stub"`),
 		},
 		{
 			desc: "repository relative path doesn't exist",
-			req:  &gitalypb.RenameRepositoryRequest{Repository: &gitalypb.Repository{StorageName: repo.StorageName, RelativePath: "stub"}, RelativePath: "../usr/bin"},
-			exp:  status.Error(codes.NotFound, fmt.Sprintf(`GetRepoPath: not a git repository: "%s/stub"`, storagePath)),
+			req:  &gitalypb.RenameRepositoryRequest{Repository: &gitalypb.Repository{StorageName: repo.StorageName, RelativePath: "stub"}, RelativePath: "non-existent/directory"},
+			exp:  status.Error(codes.NotFound, fmt.Sprintf(`GetRepoPath: not a git repository: "%s/stub"`, gitalyOrPraefect(storagePath, repo.GetStorageName()))),
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			_, err := client.RenameRepository(ctx, tc.req)
-			testhelper.RequireGrpcError(t, err, tc.exp)
+			testhelper.RequireGrpcError(t, tc.exp, err)
 		})
 	}
 }
