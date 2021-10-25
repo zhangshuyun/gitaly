@@ -35,22 +35,22 @@ func NewNodeManagerRouter(mgr nodes.Manager, rs datastore.RepositoryStore) Route
 	return &nodeManagerRouter{mgr: mgr, rs: rs}
 }
 
-func (r *nodeManagerRouter) RouteRepositoryAccessor(ctx context.Context, virtualStorage, relativePath string, forcePrimary bool) (RouterNode, error) {
+func (r *nodeManagerRouter) RouteRepositoryAccessor(ctx context.Context, virtualStorage, relativePath string, forcePrimary bool) (RepositoryAccessorRoute, error) {
 	if forcePrimary {
 		shard, err := r.mgr.GetShard(ctx, virtualStorage)
 		if err != nil {
-			return RouterNode{}, fmt.Errorf("get shard: %w", err)
+			return RepositoryAccessorRoute{}, fmt.Errorf("get shard: %w", err)
 		}
 
-		return toRouterNode(shard.Primary), nil
+		return RepositoryAccessorRoute{ReplicaPath: relativePath, Node: toRouterNode(shard.Primary)}, nil
 	}
 
 	node, err := r.mgr.GetSyncedNode(ctx, virtualStorage, relativePath)
 	if err != nil {
-		return RouterNode{}, fmt.Errorf("get synced node: %w", err)
+		return RepositoryAccessorRoute{}, fmt.Errorf("get synced node: %w", err)
 	}
 
-	return toRouterNode(node), nil
+	return RepositoryAccessorRoute{ReplicaPath: relativePath, Node: toRouterNode(node)}, nil
 }
 
 func (r *nodeManagerRouter) RouteStorageAccessor(ctx context.Context, virtualStorage string) (RouterNode, error) {
@@ -80,7 +80,7 @@ func (r *nodeManagerRouter) RouteRepositoryMutator(ctx context.Context, virtualS
 		return RepositoryMutatorRoute{}, fmt.Errorf("get shard: %w", err)
 	}
 
-	consistentStorages, err := r.rs.GetConsistentStorages(ctx, virtualStorage, relativePath)
+	replicaPath, consistentStorages, err := r.rs.GetConsistentStorages(ctx, virtualStorage, relativePath)
 	if err != nil && !errors.As(err, new(commonerr.RepositoryNotFoundError)) {
 		return RepositoryMutatorRoute{}, fmt.Errorf("consistent storages: %w", err)
 	}
@@ -111,6 +111,7 @@ func (r *nodeManagerRouter) RouteRepositoryMutator(ctx context.Context, virtualS
 	}
 
 	return RepositoryMutatorRoute{
+		ReplicaPath:        replicaPath,
 		Primary:            toRouterNode(shard.Primary),
 		Secondaries:        toRouterNodes(participatingSecondaries),
 		ReplicationTargets: replicationTargets,
@@ -139,6 +140,7 @@ func (r *nodeManagerRouter) RouteRepositoryCreation(ctx context.Context, virtual
 
 	return RepositoryMutatorRoute{
 		Primary:            toRouterNode(shard.Primary),
+		ReplicaPath:        relativePath,
 		Secondaries:        secondaries,
 		ReplicationTargets: replicationTargets,
 	}, nil

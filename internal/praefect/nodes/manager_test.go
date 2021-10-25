@@ -333,8 +333,8 @@ func TestMgr_GetSyncedNode(t *testing.T) {
 	verify := func(failover bool, scenario func(t *testing.T, nm Manager, rs datastore.RepositoryStore)) func(*testing.T) {
 		conf.Failover.Enabled = failover
 		rs := datastore.MockRepositoryStore{
-			GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
-				return consistentStorages, consistentSecondariesErr
+			GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
+				return relativePath, consistentStorages, consistentSecondariesErr
 			},
 		}
 

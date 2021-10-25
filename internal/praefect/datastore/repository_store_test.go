@@ -921,12 +921,14 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		})
 
 		t.Run("no records", func(t *testing.T) {
-			secondaries, err := rs.GetConsistentStorages(ctx, vs, repo)
+			replicaPath, secondaries, err := rs.GetConsistentStorages(ctx, vs, repo)
 			require.Equal(t, commonerr.NewRepositoryNotFoundError(vs, repo), err)
+			require.Empty(t, replicaPath)
 			require.Empty(t, secondaries)
 
-			secondaries, err = rs.GetConsistentStoragesByRepositoryID(ctx, 1)
+			replicaPath, secondaries, err = rs.GetConsistentStoragesByRepositoryID(ctx, 1)
 			require.Equal(t, commonerr.ErrRepositoryNotFound, err)
+			require.Empty(t, replicaPath)
 			require.Empty(t, secondaries)
 		})
 
@@ -951,25 +953,29 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		)
 
 		t.Run("consistent secondary", func(t *testing.T) {
-			secondaries, err := rs.GetConsistentStorages(ctx, vs, repo)
+			replicaPath, secondaries, err := rs.GetConsistentStorages(ctx, vs, repo)
 			require.NoError(t, err)
 			require.Equal(t, map[string]struct{}{"primary": {}, "consistent-secondary": {}}, secondaries)
+			require.Equal(t, repo, replicaPath)
 
-			secondaries, err = rs.GetConsistentStoragesByRepositoryID(ctx, 1)
+			replicaPath, secondaries, err = rs.GetConsistentStoragesByRepositoryID(ctx, 1)
 			require.NoError(t, err)
 			require.Equal(t, map[string]struct{}{"primary": {}, "consistent-secondary": {}}, secondaries)
+			require.Equal(t, repo, replicaPath)
 		})
 
 		require.NoError(t, rs.SetGeneration(ctx, 1, "primary", 0))
 
 		t.Run("outdated primary", func(t *testing.T) {
-			secondaries, err := rs.GetConsistentStorages(ctx, vs, repo)
+			replicaPath, secondaries, err := rs.GetConsistentStorages(ctx, vs, repo)
 			require.NoError(t, err)
 			require.Equal(t, map[string]struct{}{"consistent-secondary": {}}, secondaries)
+			require.Equal(t, repo, replicaPath)
 
-			secondaries, err = rs.GetConsistentStoragesByRepositoryID(ctx, 1)
+			replicaPath, secondaries, err = rs.GetConsistentStoragesByRepositoryID(ctx, 1)
 			require.NoError(t, err)
 			require.Equal(t, map[string]struct{}{"consistent-secondary": {}}, secondaries)
+			require.Equal(t, repo, replicaPath)
 		})
 
 		t.Run("storage with highest generation is not configured", func(t *testing.T) {
@@ -993,13 +999,15 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 				},
 			)
 
-			secondaries, err := rs.GetConsistentStorages(ctx, vs, repo)
+			replicaPath, secondaries, err := rs.GetConsistentStorages(ctx, vs, repo)
 			require.NoError(t, err)
 			require.Equal(t, map[string]struct{}{"unknown": {}}, secondaries)
+			require.Equal(t, repo, replicaPath)
 
-			secondaries, err = rs.GetConsistentStoragesByRepositoryID(ctx, 1)
+			replicaPath, secondaries, err = rs.GetConsistentStoragesByRepositoryID(ctx, 1)
 			require.NoError(t, err)
 			require.Equal(t, map[string]struct{}{"unknown": {}}, secondaries)
+			require.Equal(t, repo, replicaPath)
 		})
 
 		t.Run("returns not found for deleted repositories", func(t *testing.T) {
@@ -1007,13 +1015,15 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			require.NoError(t, err)
 			requireState(t, ctx, virtualStorageState{}, storageState{})
 
-			secondaries, err := rs.GetConsistentStorages(ctx, vs, repo)
+			replicaPath, secondaries, err := rs.GetConsistentStorages(ctx, vs, repo)
 			require.Equal(t, commonerr.NewRepositoryNotFoundError(vs, repo), err)
 			require.Empty(t, secondaries)
+			require.Empty(t, replicaPath)
 
-			secondaries, err = rs.GetConsistentStoragesByRepositoryID(ctx, 1)
+			replicaPath, secondaries, err = rs.GetConsistentStoragesByRepositoryID(ctx, 1)
 			require.Equal(t, commonerr.ErrRepositoryNotFound, err)
 			require.Empty(t, secondaries)
+			require.Empty(t, replicaPath)
 		})
 	})
 

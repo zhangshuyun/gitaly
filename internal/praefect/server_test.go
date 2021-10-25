@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"math/rand"
 	"net"
 	"os"
 	"path/filepath"
@@ -552,10 +553,14 @@ func TestRemoveRepository(t *testing.T) {
 	defer cancel()
 
 	cc, _, cleanup := runPraefectServer(t, ctx, praefectCfg, buildOptions{
-		withQueue:     queueInterceptor,
-		withRepoStore: repoStore,
-		withNodeMgr:   nodeMgr,
-		withTxMgr:     txMgr,
+		withQueue: queueInterceptor,
+		withRepoStore: datastore.MockRepositoryStore{
+			GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
+				return relativePath, nil, nil
+			},
+		},
+		withNodeMgr: nodeMgr,
+		withTxMgr:   txMgr,
 	})
 	defer cleanup()
 
@@ -630,9 +635,31 @@ func TestRenameRepository(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
+	tx := glsql.NewDB(t).Begin(t)
+	defer tx.Rollback(t)
+
+	rs := datastore.NewPostgresRepositoryStore(tx, nil)
+	require.NoError(t, rs.CreateRepository(ctx, 1, "praefect", repo.RelativePath, "gitaly-1", []string{"gitaly-2", "gitaly-3"}, nil, true, false))
+
+	nodeSet, err := DialNodes(ctx, praefectCfg.VirtualStorages, nil, nil, nil, nil)
+	require.NoError(t, err)
+	defer nodeSet.Close()
+
+	testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": praefectCfg.StorageNames()})
+
 	cc, _, cleanup := runPraefectServer(t, ctx, praefectCfg, buildOptions{
 		withQueue:     evq,
-		withRepoStore: datastore.NewPostgresRepositoryStore(glsql.NewDB(t), nil),
+		withRepoStore: rs,
+		withRouter: NewPerRepositoryRouter(
+			nodeSet.Connections(),
+			nodes.NewPerRepositoryElector(tx),
+			StaticHealthChecker(praefectCfg.StorageNames()),
+			NewLockedRandom(rand.New(rand.NewSource(0))),
+			rs,
+			datastore.NewAssignmentStore(tx, praefectCfg.StorageNames()),
+			rs,
+			nil,
+		),
 	})
 	defer cleanup()
 
@@ -821,8 +848,8 @@ func TestProxyWrites(t *testing.T) {
 	_, repo, _ := testcfg.BuildWithRepo(t)
 
 	rs := datastore.MockRepositoryStore{
-		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
-			return map[string]struct{}{cfg0.Storages[0].Name: {}, cfg1.Storages[0].Name: {}, cfg2.Storages[0].Name: {}}, nil
+		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
+			return relativePath, map[string]struct{}{cfg0.Storages[0].Name: {}, cfg1.Storages[0].Name: {}, cfg2.Storages[0].Name: {}}, nil
 		},
 	}
 

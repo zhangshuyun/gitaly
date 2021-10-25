@@ -398,23 +398,23 @@ func (c *Coordinator) accessorStreamParameters(ctx context.Context, call grpcCal
 	repoPath := call.targetRepo.GetRelativePath()
 	virtualStorage := call.targetRepo.StorageName
 
-	node, err := c.router.RouteRepositoryAccessor(
+	route, err := c.router.RouteRepositoryAccessor(
 		ctx, virtualStorage, repoPath, shouldRouteRepositoryAccessorToPrimary(ctx, call),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("accessor call: route repository accessor: %w", err)
 	}
 
-	b, err := rewrittenRepositoryMessage(call.methodInfo, call.msg, node.Storage)
+	b, err := rewrittenRepositoryMessage(call.methodInfo, call.msg, route.Node.Storage, route.ReplicaPath)
 	if err != nil {
 		return nil, fmt.Errorf("accessor call: rewrite storage: %w", err)
 	}
 
-	metrics.ReadDistribution.WithLabelValues(virtualStorage, node.Storage).Inc()
+	metrics.ReadDistribution.WithLabelValues(virtualStorage, route.Node.Storage).Inc()
 
 	return proxy.NewStreamParameters(proxy.Destination{
 		Ctx:  streamParametersContext(ctx),
-		Conn: node.Connection,
+		Conn: route.Node.Connection,
 		Msg:  b,
 	}, nil, nil, nil), nil
 }
@@ -486,7 +486,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 		}
 	}
 
-	primaryMessage, err := rewrittenRepositoryMessage(call.methodInfo, call.msg, route.Primary.Storage)
+	primaryMessage, err := rewrittenRepositoryMessage(call.methodInfo, call.msg, route.Primary.Storage, route.ReplicaPath)
 	if err != nil {
 		return nil, fmt.Errorf("mutator call: rewrite storage: %w", err)
 	}
@@ -528,7 +528,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 
 		for _, secondary := range route.Secondaries {
 			secondary := secondary
-			secondaryMsg, err := rewrittenRepositoryMessage(call.methodInfo, call.msg, secondary.Storage)
+			secondaryMsg, err := rewrittenRepositoryMessage(call.methodInfo, call.msg, secondary.Storage, route.ReplicaPath)
 			if err != nil {
 				return nil, err
 			}
@@ -783,7 +783,7 @@ func (c *Coordinator) mutatorStorageStreamParameters(ctx context.Context, mi pro
 	return proxy.NewStreamParameters(primaryDest, secondaryDests, func() error { return nil }, nil), nil
 }
 
-func rewrittenRepositoryMessage(mi protoregistry.MethodInfo, m proto.Message, storage string) ([]byte, error) {
+func rewrittenRepositoryMessage(mi protoregistry.MethodInfo, m proto.Message, storage, relativePath string) ([]byte, error) {
 	targetRepo, err := mi.TargetRepo(m)
 	if err != nil {
 		return nil, helper.ErrInvalidArgument(err)
@@ -791,6 +791,7 @@ func rewrittenRepositoryMessage(mi protoregistry.MethodInfo, m proto.Message, st
 
 	// rewrite storage name
 	targetRepo.StorageName = storage
+	targetRepo.RelativePath = relativePath
 
 	additionalRepo, ok, err := mi.AdditionalRepo(m)
 	if err != nil {

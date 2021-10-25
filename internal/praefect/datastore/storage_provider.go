@@ -16,9 +16,8 @@ import (
 
 // ConsistentStoragesGetter returns storages which contain the latest generation of a repository.
 type ConsistentStoragesGetter interface {
-	// GetConsistentStorages checks which storages are on the latest generation and returns them. Returns a
-	// commonerr.RepositoryNotFoundError if the repository does not exist.
-	GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error)
+	// GetConsistentStorages returns the replica path and the set of up to date storages for the given repository keyed by virtual storage and relative path.
+	GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error)
 }
 
 // errNotExistingVirtualStorage indicates that the requested virtual storage can't be found or not configured.
@@ -134,17 +133,17 @@ func (c *CachingConsistentStoragesGetter) getCache(virtualStorage string) (*lru.
 	return val, found
 }
 
-func (c *CachingConsistentStoragesGetter) cacheMiss(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
+func (c *CachingConsistentStoragesGetter) cacheMiss(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
 	c.cacheAccessTotal.WithLabelValues(virtualStorage, "miss").Inc()
 	return c.csg.GetConsistentStorages(ctx, virtualStorage, relativePath)
 }
 
-func (c *CachingConsistentStoragesGetter) tryCache(virtualStorage, relativePath string) (func(), *lru.Cache, map[string]struct{}, bool) {
+func (c *CachingConsistentStoragesGetter) tryCache(virtualStorage, relativePath string) (func(), *lru.Cache, cacheValue, bool) {
 	populateDone := func() {} // should be called AFTER any cache population is done
 
 	cache, found := c.getCache(virtualStorage)
 	if !found {
-		return populateDone, nil, nil, false
+		return populateDone, nil, cacheValue{}, false
 	}
 
 	if storages, found := getKey(cache, relativePath); found {
@@ -158,41 +157,46 @@ func (c *CachingConsistentStoragesGetter) tryCache(virtualStorage, relativePath 
 		return populateDone, cache, storages, true
 	}
 
-	return populateDone, cache, nil, false
+	return populateDone, cache, cacheValue{}, false
 }
 
 func (c *CachingConsistentStoragesGetter) isCacheEnabled() bool {
 	return atomic.LoadInt32(&c.access) != 0
 }
 
-// GetConsistentStorages returns list of gitaly storages that are in up to date state based on the generation tracking.
-func (c *CachingConsistentStoragesGetter) GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
+// GetConsistentStorages returns the replica path and the set of up to date storages for the given repository keyed by virtual storage and relative path.
+func (c *CachingConsistentStoragesGetter) GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
 	var cache *lru.Cache
 
 	if c.isCacheEnabled() {
-		var storages map[string]struct{}
+		var value cacheValue
 		var ok bool
 		var populationDone func()
 
-		populationDone, cache, storages, ok = c.tryCache(virtualStorage, relativePath)
+		populationDone, cache, value, ok = c.tryCache(virtualStorage, relativePath)
 		defer populationDone()
 		if ok {
 			c.cacheAccessTotal.WithLabelValues(virtualStorage, "hit").Inc()
-			return storages, nil
+			return value.replicaPath, value.storages, nil
 		}
 	}
 
-	storages, err := c.cacheMiss(ctx, virtualStorage, relativePath)
+	replicaPath, storages, err := c.cacheMiss(ctx, virtualStorage, relativePath)
 	if err == nil && cache != nil {
-		cache.Add(relativePath, storages)
+		cache.Add(relativePath, cacheValue{replicaPath: replicaPath, storages: storages})
 		c.cacheAccessTotal.WithLabelValues(virtualStorage, "populate").Inc()
 	}
-	return storages, err
+	return replicaPath, storages, err
 }
 
-func getKey(cache *lru.Cache, key string) (map[string]struct{}, bool) {
+type cacheValue struct {
+	replicaPath string
+	storages    map[string]struct{}
+}
+
+func getKey(cache *lru.Cache, key string) (cacheValue, bool) {
 	val, found := cache.Get(key)
-	vals, _ := val.(map[string]struct{})
+	vals, _ := val.(cacheValue)
 	return vals, found
 }
 

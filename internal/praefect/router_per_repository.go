@@ -130,35 +130,43 @@ func (r *PerRepositoryRouter) RouteStorageMutator(ctx context.Context, virtualSt
 	return StorageMutatorRoute{}, errors.New("RouteStorageMutator is not implemented on PerRepositoryRouter")
 }
 
-func (r *PerRepositoryRouter) RouteRepositoryAccessor(ctx context.Context, virtualStorage, relativePath string, forcePrimary bool) (RouterNode, error) {
+func (r *PerRepositoryRouter) RouteRepositoryAccessor(ctx context.Context, virtualStorage, relativePath string, forcePrimary bool) (RepositoryAccessorRoute, error) {
 	healthyNodes, err := r.healthyNodes(virtualStorage)
 	if err != nil {
-		return RouterNode{}, err
+		return RepositoryAccessorRoute{}, err
 	}
 
 	if forcePrimary {
 		repositoryID, err := r.rs.GetRepositoryID(ctx, virtualStorage, relativePath)
 		if err != nil {
-			return RouterNode{}, fmt.Errorf("get repository id: %w", err)
+			return RepositoryAccessorRoute{}, fmt.Errorf("get repository id: %w", err)
 		}
 
 		primary, err := r.pg.GetPrimary(ctx, virtualStorage, repositoryID)
 		if err != nil {
-			return RouterNode{}, fmt.Errorf("get primary: %w", err)
+			return RepositoryAccessorRoute{}, fmt.Errorf("get primary: %w", err)
+		}
+
+		replicaPath, _, err := r.rs.GetConsistentStoragesByRepositoryID(ctx, repositoryID)
+		if err != nil {
+			return RepositoryAccessorRoute{}, fmt.Errorf("get replica path: %w", err)
 		}
 
 		for _, node := range healthyNodes {
 			if node.Storage == primary {
-				return node, nil
+				return RepositoryAccessorRoute{
+					ReplicaPath: replicaPath,
+					Node:        node,
+				}, nil
 			}
 		}
 
-		return RouterNode{}, nodes.ErrPrimaryNotHealthy
+		return RepositoryAccessorRoute{}, nodes.ErrPrimaryNotHealthy
 	}
 
-	consistentStorages, err := r.csg.GetConsistentStorages(ctx, virtualStorage, relativePath)
+	replicaPath, consistentStorages, err := r.csg.GetConsistentStorages(ctx, virtualStorage, relativePath)
 	if err != nil {
-		return RouterNode{}, fmt.Errorf("consistent storages: %w", err)
+		return RepositoryAccessorRoute{}, fmt.Errorf("consistent storages: %w", err)
 	}
 
 	healthyConsistentNodes := make([]RouterNode, 0, len(healthyNodes))
@@ -170,7 +178,15 @@ func (r *PerRepositoryRouter) RouteRepositoryAccessor(ctx context.Context, virtu
 		healthyConsistentNodes = append(healthyConsistentNodes, node)
 	}
 
-	return r.pickRandom(healthyConsistentNodes)
+	node, err := r.pickRandom(healthyConsistentNodes)
+	if err != nil {
+		return RepositoryAccessorRoute{}, err
+	}
+
+	return RepositoryAccessorRoute{
+		ReplicaPath: replicaPath,
+		Node:        node,
+	}, nil
 }
 
 func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtualStorage, relativePath string) (RepositoryMutatorRoute, error) {
@@ -198,7 +214,7 @@ func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtua
 		return RepositoryMutatorRoute{}, nodes.ErrPrimaryNotHealthy
 	}
 
-	consistentStorages, err := r.rs.GetConsistentStoragesByRepositoryID(ctx, repositoryID)
+	replicaPath, consistentStorages, err := r.rs.GetConsistentStoragesByRepositoryID(ctx, repositoryID)
 	if err != nil {
 		return RepositoryMutatorRoute{}, fmt.Errorf("consistent storages: %w", err)
 	}
@@ -212,7 +228,7 @@ func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtua
 		return RepositoryMutatorRoute{}, fmt.Errorf("get host assignments: %w", err)
 	}
 
-	route := RepositoryMutatorRoute{RepositoryID: repositoryID}
+	route := RepositoryMutatorRoute{RepositoryID: repositoryID, ReplicaPath: replicaPath}
 	for _, assigned := range assignedStorages {
 		node, healthy := healthySet[assigned]
 		if assigned == primary {
@@ -265,6 +281,7 @@ func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtu
 	if replicationFactor == 1 {
 		return RepositoryMutatorRoute{
 			RepositoryID: id,
+			ReplicaPath:  relativePath,
 			Primary:      primary,
 		}, nil
 	}
@@ -313,6 +330,7 @@ func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtu
 
 	return RepositoryMutatorRoute{
 		RepositoryID:       id,
+		ReplicaPath:        relativePath,
 		Primary:            primary,
 		Secondaries:        secondaries,
 		ReplicationTargets: replicationTargets,
