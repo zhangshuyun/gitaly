@@ -192,28 +192,37 @@ type taggedObject struct {
 }
 
 func (p *parser) parseTag(object git.Object, name []byte) (*gitalypb.Tag, taggedObject, error) {
-	raw, err := io.ReadAll(object)
-	if err != nil {
-		return nil, taggedObject{}, err
-	}
-
-	var body []byte
-	split := bytes.SplitN(raw, []byte("\n\n"), 2)
-	if len(split) == 2 {
-		body = split[1]
-	}
+	p.bufferedReader.Reset(object)
 
 	tag := &gitalypb.Tag{
-		Id:          object.ObjectID().String(),
-		Name:        name,
-		MessageSize: int64(len(body)),
-		Message:     body,
+		Id:   object.ObjectID().String(),
+		Name: name,
 	}
-
-	s := bufio.NewScanner(bytes.NewReader(split[0]))
 	var tagged taggedObject
-	for s.Scan() {
-		headerSplit := strings.SplitN(s.Text(), " ", 2)
+	var lastLine bool
+	bytesRemaining := object.ObjectSize()
+
+	for !lastLine {
+		line, err := p.bufferedReader.ReadString('\n')
+		if err == io.EOF {
+			lastLine = true
+		} else if err != nil {
+			return nil, taggedObject{}, fmt.Errorf("reading tag header: %w", err)
+		}
+		bytesRemaining -= int64(len(line))
+
+		if len(line) == 0 {
+			continue
+		}
+		if line == "\n" {
+			break
+		}
+
+		if line[len(line)-1] == '\n' {
+			line = line[:len(line)-1]
+		}
+
+		headerSplit := strings.SplitN(line, " ", 2)
 		if len(headerSplit) != 2 {
 			continue
 		}
@@ -233,13 +242,43 @@ func (p *parser) parseTag(object git.Object, name []byte) (*gitalypb.Tag, tagged
 		}
 	}
 
-	signature, _ := ExtractTagSignature(body)
-	if signature != nil {
-		length := bytes.Index(signature, []byte("\n"))
+	// We only need to try reading the message if we haven't seen an EOF yet, but instead saw
+	// the "\n\n" separator.
+	if !lastLine {
+		message := make([]byte, bytesRemaining)
+		if _, err := io.ReadFull(p.bufferedReader, message); err != nil {
+			return nil, taggedObject{}, fmt.Errorf("reading tag message: %w", err)
+		}
 
-		if length > 0 {
-			signature := string(signature[:length])
-			tag.SignatureType = detectSignatureType(signature)
+		// After we have copied the message, we must make sure that there really is no
+		// additional data. For once, this is to detect bugs in our implementation where we
+		// would accidentally have truncated the commit message. On the other hand, we also
+		// need to do this such that we observe the EOF, which we must observe in order to
+		// unblock reading the next object.
+		//
+		// This all feels a bit complicated, where it would be much easier to just read into
+		// a preallocated `bytes.Buffer`. But this complexity is indeed required to optimize
+		// allocations. So if you want to change this, please make sure to execute the
+		// `BenchmarkFindAllTags` benchmark.
+		if n, err := io.Copy(io.Discard, p.bufferedReader); err != nil {
+			return nil, taggedObject{}, fmt.Errorf("reading tag message: %w", err)
+		} else if n != 0 {
+			return nil, taggedObject{}, fmt.Errorf(
+				"tag message exceeds expected length %v by %v bytes",
+				object.ObjectSize(), n,
+			)
+		}
+
+		tag.Message = message
+		tag.MessageSize = int64(len(message))
+
+		if signature, _ := ExtractTagSignature(message); signature != nil {
+			length := bytes.Index(signature, []byte("\n"))
+
+			if length > 0 {
+				signature := string(signature[:length])
+				tag.SignatureType = detectSignatureType(signature)
+			}
 		}
 	}
 
