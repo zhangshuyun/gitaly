@@ -17,6 +17,7 @@ import (
 // Parser parses Git objects into their gitalypb representations.
 type Parser interface {
 	ParseCommit(object git.Object) (*gitalypb.GitCommit, error)
+	ParseTag(object git.Object) (*gitalypb.Tag, error)
 }
 
 type parser struct{}
@@ -144,4 +145,97 @@ func detectSignatureType(line string) gitalypb.SignatureType {
 	default:
 		return gitalypb.SignatureType_NONE
 	}
+}
+
+// ParseTag parses the given object, which is expected to refer to a Git tag. The tag's tagged
+// commit is not populated. The given object ID shall refer to the tag itself such that the returned
+// Tag structure has the correct OID.
+func (p *parser) ParseTag(object git.Object) (*gitalypb.Tag, error) {
+	tag, _, err := parseTag(object, nil, true, true)
+	return tag, err
+}
+
+type tagHeader struct {
+	oid     string
+	tagType string
+	tag     string
+	tagger  string
+}
+
+func parseTag(object git.Object, name []byte, trimLen, trimRightNewLine bool) (*gitalypb.Tag, *tagHeader, error) {
+	header, body, err := splitRawTag(object, trimRightNewLine)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if len(name) == 0 {
+		name = []byte(header.tag)
+	}
+
+	tag := &gitalypb.Tag{
+		Id:          object.ObjectID().String(),
+		Name:        name,
+		MessageSize: int64(len(body)),
+		Message:     body,
+	}
+
+	if max := helper.MaxCommitOrTagMessageSize; trimLen && len(body) > max {
+		tag.Message = tag.Message[:max]
+	}
+
+	signature, _ := ExtractTagSignature(body)
+	if signature != nil {
+		length := bytes.Index(signature, []byte("\n"))
+
+		if length > 0 {
+			signature := string(signature[:length])
+			tag.SignatureType = detectSignatureType(signature)
+		}
+	}
+
+	tag.Tagger = parseCommitAuthor(header.tagger)
+
+	return tag, header, nil
+}
+
+func splitRawTag(object git.Object, trimRightNewLine bool) (*tagHeader, []byte, error) {
+	raw, err := io.ReadAll(object)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var body []byte
+	split := bytes.SplitN(raw, []byte("\n\n"), 2)
+	if len(split) == 2 {
+		body = split[1]
+		if trimRightNewLine {
+			// Remove trailing newline, if any, to preserve existing behavior the old GitLab tag finding code.
+			// See https://gitlab.com/gitlab-org/gitaly/blob/5e94dc966ac1900c11794b107a77496552591f9b/ruby/lib/gitlab/git/repository.rb#L211.
+			// Maybe this belongs in the FindAllTags handler, or even on the gitlab-ce client side, instead of here?
+			body = bytes.TrimRight(body, "\n")
+		}
+	}
+
+	var header tagHeader
+	s := bufio.NewScanner(bytes.NewReader(split[0]))
+	for s.Scan() {
+		headerSplit := strings.SplitN(s.Text(), " ", 2)
+		if len(headerSplit) != 2 {
+			continue
+		}
+
+		key, value := headerSplit[0], headerSplit[1]
+		switch key {
+		case "object":
+			header.oid = value
+		case "type":
+			header.tagType = value
+		case "tag":
+			header.tag = value
+		case "tagger":
+			header.tagger = value
+		}
+	}
+
+	return &header, body, nil
 }
