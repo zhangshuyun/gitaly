@@ -2,6 +2,8 @@ package catfile
 
 import (
 	"context"
+	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -56,4 +58,36 @@ func setupObjectReader(t *testing.T, ctx context.Context) (config.Cfg, ObjectRea
 	require.NoError(t, err)
 
 	return cfg, objectReader, repo
+}
+
+type staticObject struct {
+	reader     io.Reader
+	objectType string
+	objectSize int64
+	objectID   git.ObjectID
+}
+
+func newStaticObject(contents string, objectType string, oid git.ObjectID) *staticObject {
+	return &staticObject{
+		reader:     strings.NewReader(contents),
+		objectType: objectType,
+		objectSize: int64(len(contents)),
+		objectID:   oid,
+	}
+}
+
+func (o *staticObject) ObjectID() git.ObjectID {
+	return o.objectID
+}
+
+func (o *staticObject) ObjectSize() int64 {
+	return o.objectSize
+}
+
+func (o *staticObject) ObjectType() string {
+	return o.objectType
+}
+
+func (o *staticObject) Read(p []byte) (int, error) {
+	return o.reader.Read(p)
 }

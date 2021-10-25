@@ -75,7 +75,7 @@ func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, sortFiel
 		switch tag.ObjectType() {
 		case "tag":
 			var err error
-			result, err = catfile.ParseTag(tag, tag.ObjectID())
+			result, err = catfile.ParseTag(tag)
 			if err != nil {
 				return fmt.Errorf("parsing annotated tag: %w", err)
 			}

@@ -1,7 +1,6 @@
 package catfile
 
 import (
-	"bytes"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -168,7 +167,7 @@ func TestParseTag(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			tag, err := ParseTag(strings.NewReader(tc.contents), tc.oid)
+			tag, err := ParseTag(newStaticObject(tc.contents, "tag", tc.oid))
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedTag, tag)
 		})
@@ -251,7 +250,7 @@ func TestSplitRawTag(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		header, body, err := splitRawTag(bytes.NewReader([]byte(tc.tagContent)), tc.trimNewLine)
+		header, body, err := splitRawTag(newStaticObject(tc.tagContent, "tag", "1234"), tc.trimNewLine)
 		assert.Equal(t, tc.header, *header)
 		assert.Equal(t, tc.body, body)
 		assert.NoError(t, err)

@@ -67,8 +67,8 @@ type tagHeader struct {
 	tagger  string
 }
 
-func splitRawTag(r io.Reader, trimRightNewLine bool) (*tagHeader, []byte, error) {
-	raw, err := io.ReadAll(r)
+func splitRawTag(object git.Object, trimRightNewLine bool) (*tagHeader, []byte, error) {
+	raw, err := io.ReadAll(object)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -109,16 +109,16 @@ func splitRawTag(r io.Reader, trimRightNewLine bool) (*tagHeader, []byte, error)
 	return &header, body, nil
 }
 
-// ParseTag parses the tag from the given Reader. The tag's tagged commit is not populated. The
-// given object ID shall refer to the tag itself such that the returned Tag structure has the
-// correct OID.
-func ParseTag(r io.Reader, oid git.ObjectID) (*gitalypb.Tag, error) {
-	tag, _, err := parseTag(r, oid, nil, true, true)
+// ParseTag parses the given object, which is expected to refer to a Git tag. The tag's tagged
+// commit is not populated. The given object ID shall refer to the tag itself such that the returned
+// Tag structure has the correct OID.
+func ParseTag(object git.Object) (*gitalypb.Tag, error) {
+	tag, _, err := parseTag(object, nil, true, true)
 	return tag, err
 }
 
-func parseTag(r io.Reader, oid git.ObjectID, name []byte, trimLen, trimRightNewLine bool) (*gitalypb.Tag, *tagHeader, error) {
-	header, body, err := splitRawTag(r, trimRightNewLine)
+func parseTag(object git.Object, name []byte, trimLen, trimRightNewLine bool) (*gitalypb.Tag, *tagHeader, error) {
+	header, body, err := splitRawTag(object, trimRightNewLine)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -128,7 +128,7 @@ func parseTag(r io.Reader, oid git.ObjectID, name []byte, trimLen, trimRightNewL
 	}
 
 	tag := &gitalypb.Tag{
-		Id:          oid.String(),
+		Id:          object.ObjectID().String(),
 		Name:        name,
 		MessageSize: int64(len(body)),
 		Message:     body,
@@ -153,8 +153,8 @@ func parseTag(r io.Reader, oid git.ObjectID, name []byte, trimLen, trimRightNewL
 	return tag, header, nil
 }
 
-func buildAnnotatedTag(ctx context.Context, objectReader ObjectReader, object *Object, name []byte, trimLen, trimRightNewLine bool) (*gitalypb.Tag, error) {
-	tag, header, err := parseTag(object, object.ObjectInfo.Oid, name, trimLen, trimRightNewLine)
+func buildAnnotatedTag(ctx context.Context, objectReader ObjectReader, object git.Object, name []byte, trimLen, trimRightNewLine bool) (*gitalypb.Tag, error) {
+	tag, header, err := parseTag(object, name, trimLen, trimRightNewLine)
 	if err != nil {
 		return nil, err
 	}
