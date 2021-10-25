@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
@@ -113,10 +114,17 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 			deps.GetGitCmdFactory(),
 			deps.GetPackObjectsCache(),
 		))
-	}, testserver.WithHookManager(gitalyhook.NewMockManager(t, nil, nil, nil, func(*testing.T, context.Context, gitalyhook.ReferenceTransactionState, []string, io.Reader) error {
-		referenceTransactionHookCalled++
-		return nil
-	})), testserver.WithDisablePraefect())
+	}, testserver.WithHookManager(gitalyhook.NewMockManager(t, nil, nil, nil,
+		func(t *testing.T, _ context.Context, _ gitalyhook.ReferenceTransactionState, _ []string, stdin io.Reader) error {
+			// We need to discard stdin or otherwise the sending Goroutine may return an
+			// EOF error and cause the test to fail.
+			_, err := io.Copy(io.Discard, stdin)
+			require.NoError(t, err)
+
+			referenceTransactionHookCalled++
+			return nil
+		}),
+	), testserver.WithDisablePraefect())
 
 	ctx, err := storage.InjectGitalyServers(ctx, remoteRepo.GetStorageName(), remoteAddr, remoteCfg.Auth.Token)
 	require.NoError(t, err)
@@ -127,7 +135,13 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 	connsPool := client.NewPool()
 	defer connsPool.Close()
 
-	require.NoError(t, FetchInternalRemote(ctx, localCfg, connsPool, localRepo, remoteRepo))
+	// Use the `assert` package such that we can get information about why hooks have failed via
+	// the hook logs in case it did fail unexpectedly.
+	assert.NoError(t, FetchInternalRemote(ctx, localCfg, connsPool, localRepo, remoteRepo))
+
+	hookLogs := filepath.Join(localCfg.Logging.Dir, "gitaly_hooks.log")
+	require.FileExists(t, hookLogs)
+	require.Equal(t, "", string(testhelper.MustReadFile(t, hookLogs)))
 
 	require.Equal(t,
 		string(gittest.Exec(t, remoteCfg, "-C", remoteRepoPath, "show-ref", "--head")),
