@@ -40,7 +40,7 @@ type ReplicationEventQueue interface {
 
 func allowToAck(state JobState) error {
 	switch state {
-	case JobStateCompleted, JobStateFailed, JobStateCancelled, JobStateDead:
+	case JobStateCompleted, JobStateFailed, JobStateDead:
 		return nil
 	default:
 		return fmt.Errorf("event state is not supported: %q", state)

@@ -182,13 +182,13 @@ delete_jobs AS (
 				job->>'source_node_storage' = storage
 			OR 	job->>'target_node_storage' = storage
 		)
-		AND state NOT IN ('completed', 'dead', 'cancelled')
+		AND state NOT IN ('completed', 'dead')
 	) AND NOT EXISTS (
 		-- Ensure there are no other scheduled 'delete_replica' type jobs for the repository. Performing rapid
 		-- repository_assignments could cause the reconciler to schedule deletion against all replicas. To avoid this,
 		-- we do not allow more than one 'delete_replica' job to be active at any given time.
 		SELECT FROM replication_queue
-		WHERE state NOT IN ('completed', 'cancelled', 'dead')
+		WHERE state NOT IN ('completed', 'dead')
 		AND (job->>'repository_id')::bigint = repository_id
 		AND job->>'change' = 'delete_replica'
 	)
@@ -229,7 +229,7 @@ update_jobs AS (
 		JOIN healthy_storages USING (virtual_storage, storage)
 		WHERE NOT EXISTS (
 			SELECT FROM replication_queue
-			WHERE state NOT IN ('completed', 'cancelled', 'dead')
+			WHERE state NOT IN ('completed', 'dead')
 			AND (job->>'repository_id')::bigint = repository_id
 			AND job->>'target_node_storage' = storage
 			AND job->>'change' = 'delete_replica'
@@ -238,7 +238,7 @@ update_jobs AS (
 	) AS healthy_repositories USING (repository_id)
 	WHERE NOT EXISTS (
 		SELECT FROM replication_queue
-		WHERE state NOT IN ('completed', 'cancelled', 'dead')
+		WHERE state NOT IN ('completed', 'dead')
 		AND (job->>'repository_id')::bigint = repository_id
 		AND job->>'target_node_storage' = target_node_storage
 		AND job->>'change' = 'update'

@@ -438,15 +438,6 @@ func TestPerRepositoryElector(t *testing.T) {
 					},
 				},
 				{
-					State: datastore.JobStateCancelled,
-					Job: datastore.ReplicationJob{
-						Change:            datastore.DeleteReplica,
-						VirtualStorage:    "virtual-storage-1",
-						RelativePath:      "relative-path-1",
-						TargetNodeStorage: "gitaly-1",
-					},
-				},
-				{
 					State: datastore.JobStateDead,
 					Job: datastore.ReplicationJob{
 						Change:            datastore.DeleteReplica,

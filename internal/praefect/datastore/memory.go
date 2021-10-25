@@ -182,7 +182,7 @@ func (s *memoryReplicationEventQueue) Acknowledge(_ context.Context, state JobSt
 			}
 
 			switch state {
-			case JobStateCompleted, JobStateCancelled, JobStateDead:
+			case JobStateCompleted, JobStateDead:
 				// this event is fully processed and could be removed
 				s.remove(i)
 			}
