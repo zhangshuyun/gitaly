@@ -484,10 +484,14 @@ func (rq PostgresReplicationEventQueue) AcknowledgeStale(ctx context.Context, st
 		)
 		, update_job AS (
 			UPDATE replication_queue AS queue
-			SET state = (CASE WHEN attempt >= 1 THEN 'failed' ELSE 'dead' END)::REPLICATION_JOB_STATE
+			SET state = 'failed'::REPLICATION_JOB_STATE
 			FROM stale_job_lock
-			WHERE stale_job_lock.job_id = queue.id
+			WHERE stale_job_lock.job_id = queue.id AND attempt >= 1
 			RETURNING queue.id, queue.lock_id
+		)
+		, delete_job AS (
+			DELETE FROM replication_queue AS queue
+			WHERE attempt = 0 AND id IN (SELECT job_id FROM stale_job_lock)
 		)
 		UPDATE replication_queue_lock
 		SET acquired = FALSE
