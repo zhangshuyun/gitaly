@@ -13,11 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
-const (
-	// MaxTagReferenceDepth is the maximum depth of tag references we will dereference
-	MaxTagReferenceDepth = 10
-)
-
 // GetTag looks up a commit by tagID using an existing catfile.Batch instance. When 'trim' is
 // 'true', the tag message will be trimmed to fit in a gRPC message. When 'trimRightNewLine' is
 // 'true', the tag message will be trimmed to remove all '\n' characters from right. note: we pass
@@ -176,38 +171,23 @@ func buildAnnotatedTag(ctx context.Context, objectReader ObjectReader, object gi
 	return tag, nil
 }
 
-// dereferenceTag recursively dereferences annotated tags until it finds a commit.
-// This matches the original behavior in the ruby implementation.
-// we also protect against circular tag references. Even though this is not possible in git,
-// we still want to protect against an infinite looop
+// dereferenceTag recursively dereferences annotated tags until it finds a non-tag object. If it is
+// a commit, then it will parse and return this commit. Otherwise, if the tagged object is not a
+// commit, it will simply discard the object and not return an error.
 func dereferenceTag(ctx context.Context, objectReader ObjectReader, oid git.Revision) (*gitalypb.GitCommit, error) {
-	for depth := 0; depth < MaxTagReferenceDepth; depth++ {
-		object, err := objectReader.Object(ctx, oid)
-		if err != nil {
-			return nil, err
-		}
-
-		switch object.Type {
-		case "tag":
-			header, _, err := splitRawTag(object, true)
-			if err != nil {
-				return nil, err
-			}
-
-			oid = git.Revision(header.oid)
-			continue
-		case "commit":
-			return ParseCommit(object)
-		default: // This current tag points to a tree or a blob
-			// We do not care whether discarding the object fails -- the worst that can
-			// happen is that the object reader is dirty after the RPC call finishes,
-			// and then we'll just create a new one when we require it again.
-			_, _ = io.Copy(io.Discard, object)
-			return nil, nil
-		}
+	object, err := objectReader.Object(ctx, oid+"^{}")
+	if err != nil {
+		return nil, fmt.Errorf("peeling tag: %w", err)
 	}
 
-	// at this point the tag nesting has gone too deep. We want to return silently here however, as we don't
-	// want to fail the entire request if one tag is nested too deeply.
-	return nil, nil
+	switch object.Type {
+	case "commit":
+		return ParseCommit(object)
+	default: // This current tag points to a tree or a blob
+		// We do not care whether discarding the object fails -- the worst that can
+		// happen is that the object reader is dirty after the RPC call finishes,
+		// and then we'll just create a new one when we require it again.
+		_, _ = io.Copy(io.Discard, object)
+		return nil, nil
+	}
 }
