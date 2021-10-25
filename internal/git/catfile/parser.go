@@ -20,11 +20,15 @@ type Parser interface {
 	ParseTag(object git.Object) (*gitalypb.Tag, error)
 }
 
-type parser struct{}
+type parser struct {
+	bufferedReader *bufio.Reader
+}
 
 // NewParser creates a new parser for Git objects.
 func NewParser() Parser {
-	return &parser{}
+	return &parser{
+		bufferedReader: bufio.NewReader(nil),
+	}
 }
 
 // ParseCommit parses the commit data from the Reader.
@@ -32,15 +36,17 @@ func (p *parser) ParseCommit(object git.Object) (*gitalypb.GitCommit, error) {
 	commit := &gitalypb.GitCommit{Id: object.ObjectID().String()}
 
 	var lastLine bool
-	b := bufio.NewReader(object)
+	p.bufferedReader.Reset(object)
 
+	bytesRemaining := object.ObjectSize()
 	for !lastLine {
-		line, err := b.ReadString('\n')
+		line, err := p.bufferedReader.ReadString('\n')
 		if err == io.EOF {
 			lastLine = true
 		} else if err != nil {
 			return nil, fmt.Errorf("parse raw commit: header: %w", err)
 		}
+		bytesRemaining -= int64(len(line))
 
 		if len(line) == 0 || line[0] == ' ' {
 			continue
@@ -74,17 +80,38 @@ func (p *parser) ParseCommit(object git.Object) (*gitalypb.GitCommit, error) {
 		}
 	}
 
-	body, err := io.ReadAll(b)
-	if err != nil {
-		return nil, fmt.Errorf("parse raw commit: body: %w", err)
-	}
+	if !lastLine {
+		body := make([]byte, bytesRemaining)
+		if _, err := io.ReadFull(p.bufferedReader, body); err != nil {
+			return nil, fmt.Errorf("reading commit message: %w", err)
+		}
 
-	if len(body) > 0 {
-		commit.Subject = subjectFromBody(body)
-		commit.BodySize = int64(len(body))
-		commit.Body = body
-		if max := helper.MaxCommitOrTagMessageSize; len(body) > max {
-			commit.Body = commit.Body[:max]
+		// After we have copied the body, we must make sure that there really is no
+		// additional data. For once, this is to detect bugs in our implementation where we
+		// would accidentally have truncated the commit message. On the other hand, we also
+		// need to do this such that we observe the EOF, which we must observe in order to
+		// unblock reading the next object.
+		//
+		// This all feels a bit complicated, where it would be much easier to just read into
+		// a preallocated `bytes.Buffer`. But this complexity is indeed required to optimize
+		// allocations. So if you want to change this, please make sure to execute the
+		// `BenchmarkListAllCommits` benchmark.
+		if n, err := io.Copy(io.Discard, p.bufferedReader); err != nil {
+			return nil, fmt.Errorf("reading commit message: %w", err)
+		} else if n != 0 {
+			return nil, fmt.Errorf(
+				"commit message exceeds expected length %v by %v bytes",
+				object.ObjectSize(), n,
+			)
+		}
+
+		if len(body) > 0 {
+			commit.Subject = subjectFromBody(body)
+			commit.BodySize = int64(len(body))
+			commit.Body = body
+			if max := helper.MaxCommitOrTagMessageSize; len(body) > max {
+				commit.Body = commit.Body[:max]
+			}
 		}
 	}
 
