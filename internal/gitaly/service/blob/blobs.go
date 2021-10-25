@@ -111,8 +111,8 @@ func (s *server) processBlobs(
 			blob := catfileInfoIter.Result()
 
 			if err := callback(
-				blob.ObjectInfo.Oid.String(),
-				blob.ObjectInfo.Size,
+				blob.ObjectID().String(),
+				blob.ObjectSize(),
 				nil,
 				blob.ObjectName,
 			); err != nil {
