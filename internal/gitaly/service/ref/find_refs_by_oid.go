@@ -22,16 +22,11 @@ func (s *server) FindRefsByOID(ctx context.Context, in *gitalypb.FindRefsByOIDRe
 		patterns = []string{"refs/tags/", "refs/heads/"}
 	}
 
-	sortField := in.GetSortField()
-	if sortField == "" {
-		sortField = "-refname"
-	}
-
 	forEachRefIter := gitpipe.ForEachRef(
 		ctx,
 		repo,
 		patterns,
-		gitpipe.WithSortField(sortField),
+		gitpipe.WithSortField(in.GetSortField()),
 		gitpipe.WithPointsAt(in.GetOid()),
 		gitpipe.WithCount(int(in.GetLimit())),
 	)
