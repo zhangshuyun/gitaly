@@ -52,20 +52,20 @@ func ExtractTagSignature(content []byte) ([]byte, []byte) {
 }
 
 func buildAnnotatedTag(ctx context.Context, objectReader ObjectReader, object git.Object, name []byte) (*gitalypb.Tag, error) {
-	tag, header, err := parseTag(object, name)
+	tag, tagged, err := newParser().parseTag(object, name)
 	if err != nil {
 		return nil, err
 	}
 
-	switch header.tagType {
+	switch tagged.objectType {
 	case "commit":
-		tag.TargetCommit, err = GetCommit(ctx, objectReader, git.Revision(header.oid))
+		tag.TargetCommit, err = GetCommit(ctx, objectReader, git.Revision(tagged.objectID))
 		if err != nil {
 			return nil, fmt.Errorf("buildAnnotatedTag error when getting target commit: %v", err)
 		}
 
 	case "tag":
-		tag.TargetCommit, err = dereferenceTag(ctx, objectReader, git.Revision(header.oid))
+		tag.TargetCommit, err = dereferenceTag(ctx, objectReader, git.Revision(tagged.objectID))
 		if err != nil {
 			return nil, fmt.Errorf("buildAnnotatedTag error when dereferencing tag: %v", err)
 		}

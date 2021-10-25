@@ -26,6 +26,10 @@ type parser struct {
 
 // NewParser creates a new parser for Git objects.
 func NewParser() Parser {
+	return newParser()
+}
+
+func newParser() *parser {
 	return &parser{
 		bufferedReader: bufio.NewReader(nil),
 	}
@@ -178,25 +182,25 @@ func detectSignatureType(line string) gitalypb.SignatureType {
 // commit is not populated. The given object ID shall refer to the tag itself such that the returned
 // Tag structure has the correct OID.
 func (p *parser) ParseTag(object git.Object) (*gitalypb.Tag, error) {
-	tag, _, err := parseTag(object, nil)
+	tag, _, err := p.parseTag(object, nil)
 	return tag, err
 }
 
-type tagHeader struct {
-	oid     string
-	tagType string
-	tag     string
-	tagger  string
+type taggedObject struct {
+	objectID   string
+	objectType string
 }
 
-func parseTag(object git.Object, name []byte) (*gitalypb.Tag, *tagHeader, error) {
-	header, body, err := splitRawTag(object)
+func (p *parser) parseTag(object git.Object, name []byte) (*gitalypb.Tag, taggedObject, error) {
+	raw, err := io.ReadAll(object)
 	if err != nil {
-		return nil, nil, err
+		return nil, taggedObject{}, err
 	}
 
-	if len(name) == 0 {
-		name = []byte(header.tag)
+	var body []byte
+	split := bytes.SplitN(raw, []byte("\n\n"), 2)
+	if len(split) == 2 {
+		body = split[1]
 	}
 
 	tag := &gitalypb.Tag{
@@ -204,6 +208,29 @@ func parseTag(object git.Object, name []byte) (*gitalypb.Tag, *tagHeader, error)
 		Name:        name,
 		MessageSize: int64(len(body)),
 		Message:     body,
+	}
+
+	s := bufio.NewScanner(bytes.NewReader(split[0]))
+	var tagged taggedObject
+	for s.Scan() {
+		headerSplit := strings.SplitN(s.Text(), " ", 2)
+		if len(headerSplit) != 2 {
+			continue
+		}
+
+		key, value := headerSplit[0], headerSplit[1]
+		switch key {
+		case "object":
+			tagged.objectID = value
+		case "type":
+			tagged.objectType = value
+		case "tag":
+			if len(tag.Name) == 0 {
+				tag.Name = []byte(value)
+			}
+		case "tagger":
+			tag.Tagger = parseCommitAuthor(value)
+		}
 	}
 
 	signature, _ := ExtractTagSignature(body)
@@ -216,43 +243,5 @@ func parseTag(object git.Object, name []byte) (*gitalypb.Tag, *tagHeader, error)
 		}
 	}
 
-	tag.Tagger = parseCommitAuthor(header.tagger)
-
-	return tag, header, nil
-}
-
-func splitRawTag(object git.Object) (*tagHeader, []byte, error) {
-	raw, err := io.ReadAll(object)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	var body []byte
-	split := bytes.SplitN(raw, []byte("\n\n"), 2)
-	if len(split) == 2 {
-		body = split[1]
-	}
-
-	var header tagHeader
-	s := bufio.NewScanner(bytes.NewReader(split[0]))
-	for s.Scan() {
-		headerSplit := strings.SplitN(s.Text(), " ", 2)
-		if len(headerSplit) != 2 {
-			continue
-		}
-
-		key, value := headerSplit[0], headerSplit[1]
-		switch key {
-		case "object":
-			header.oid = value
-		case "type":
-			header.tagType = value
-		case "tag":
-			header.tag = value
-		case "tagger":
-			header.tagger = value
-		}
-	}
-
-	return &header, body, nil
+	return tag, tagged, nil
 }

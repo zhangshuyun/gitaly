@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
@@ -164,10 +163,11 @@ func TestParseCommitAuthor(t *testing.T) {
 
 func TestParser_ParseTag(t *testing.T) {
 	for _, tc := range []struct {
-		desc        string
-		oid         git.ObjectID
-		contents    string
-		expectedTag *gitalypb.Tag
+		desc           string
+		oid            git.ObjectID
+		contents       string
+		expectedTag    *gitalypb.Tag
+		expectedTagged taggedObject
 	}{
 		{
 			desc:     "tag without a message",
@@ -184,6 +184,10 @@ func TestParser_ParseTag(t *testing.T) {
 					},
 					Timezone: []byte("+0200"),
 				},
+			},
+			expectedTagged: taggedObject{
+				objectID:   "c92faf3e0a557270141be67f206d7cdb99bfc3a2",
+				objectType: "commit",
 			},
 		},
 		{
@@ -204,6 +208,10 @@ func TestParser_ParseTag(t *testing.T) {
 					Timezone: []byte("+0200"),
 				},
 			},
+			expectedTagged: taggedObject{
+				objectID:   "c92faf3e0a557270141be67f206d7cdb99bfc3a2",
+				objectType: "commit",
+			},
 		},
 		{
 			desc:     "tag with empty message",
@@ -221,6 +229,10 @@ func TestParser_ParseTag(t *testing.T) {
 					},
 					Timezone: []byte("+0200"),
 				},
+			},
+			expectedTagged: taggedObject{
+				objectID:   "c92faf3e0a557270141be67f206d7cdb99bfc3a2",
+				objectType: "commit",
 			},
 		},
 		{
@@ -241,6 +253,10 @@ func TestParser_ParseTag(t *testing.T) {
 					Timezone: []byte("+0200"),
 				},
 			},
+			expectedTagged: taggedObject{
+				objectID:   "c92faf3e0a557270141be67f206d7cdb99bfc3a2",
+				objectType: "commit",
+			},
 		},
 		{
 			desc:     "tag with message with empty line and right side new line",
@@ -260,95 +276,34 @@ func TestParser_ParseTag(t *testing.T) {
 					Timezone: []byte("+0200"),
 				},
 			},
+			expectedTagged: taggedObject{
+				objectID:   "c92faf3e0a557270141be67f206d7cdb99bfc3a2",
+				objectType: "commit",
+			},
+		},
+		{
+			desc:     "tag with missing date and body",
+			contents: "object 422081655f743e03b01ee29a2eaf26aab0ee7eda\ntype commit\ntag syslinux-3.11-pre6\ntagger hpa <hpa>\n",
+			oid:      "1234",
+			expectedTag: &gitalypb.Tag{
+				Id:   "1234",
+				Name: []byte("syslinux-3.11-pre6"),
+				Tagger: &gitalypb.CommitAuthor{
+					Name:  []byte("hpa"),
+					Email: []byte("hpa"),
+				},
+			},
+			expectedTagged: taggedObject{
+				objectID:   "422081655f743e03b01ee29a2eaf26aab0ee7eda",
+				objectType: "commit",
+			},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			tag, err := NewParser().ParseTag(newStaticObject(tc.contents, "tag", tc.oid))
+			tag, tagged, err := newParser().parseTag(newStaticObject(tc.contents, "tag", tc.oid), nil)
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedTag, tag)
+			require.Equal(t, tc.expectedTagged, tagged)
 		})
-	}
-}
-
-func TestSplitRawTag(t *testing.T) {
-	testCases := []struct {
-		description string
-		tagContent  string
-		header      tagHeader
-		body        []byte
-		trimNewLine bool
-	}{
-		{
-			description: "tag without a message",
-			tagContent:  "object c92faf3e0a557270141be67f206d7cdb99bfc3a2\ntype commit\ntag v2.6.16.28\ntagger Adrian Bunk <bunk@stusta.de> 1156539089 +0200",
-			header: tagHeader{
-				oid:     "c92faf3e0a557270141be67f206d7cdb99bfc3a2",
-				tagType: "commit",
-				tag:     "v2.6.16.28",
-				tagger:  "Adrian Bunk <bunk@stusta.de> 1156539089 +0200",
-			},
-			body: nil,
-		},
-		{
-			description: "tag with message",
-			tagContent:  "object c92faf3e0a557270141be67f206d7cdb99bfc3a2\ntype commit\ntag v2.6.16.28\ntagger Adrian Bunk <bunk@stusta.de> 1156539089 +0200\n\nmessage",
-			header: tagHeader{
-				oid:     "c92faf3e0a557270141be67f206d7cdb99bfc3a2",
-				tagType: "commit",
-				tag:     "v2.6.16.28",
-				tagger:  "Adrian Bunk <bunk@stusta.de> 1156539089 +0200",
-			},
-			body: []byte("message"),
-		},
-		{
-			description: "tag with empty message",
-			tagContent:  "object c92faf3e0a557270141be67f206d7cdb99bfc3a2\ntype commit\ntag v2.6.16.28\ntagger Adrian Bunk <bunk@stusta.de> 1156539089 +0200\n\n",
-			header: tagHeader{
-				oid:     "c92faf3e0a557270141be67f206d7cdb99bfc3a2",
-				tagType: "commit",
-				tag:     "v2.6.16.28",
-				tagger:  "Adrian Bunk <bunk@stusta.de> 1156539089 +0200",
-			},
-			body: []byte{},
-		},
-		{
-			description: "tag with message with empty line",
-			tagContent:  "object c92faf3e0a557270141be67f206d7cdb99bfc3a2\ntype commit\ntag v2.6.16.28\ntagger Adrian Bunk <bunk@stusta.de> 1156539089 +0200\n\nHello world\n\nThis is a message",
-			header: tagHeader{
-				oid:     "c92faf3e0a557270141be67f206d7cdb99bfc3a2",
-				tagType: "commit",
-				tag:     "v2.6.16.28",
-				tagger:  "Adrian Bunk <bunk@stusta.de> 1156539089 +0200",
-			},
-			body: []byte("Hello world\n\nThis is a message"),
-		},
-		{
-			description: "tag with message with empty line and right side new line trimming",
-			tagContent:  "object c92faf3e0a557270141be67f206d7cdb99bfc3a2\ntype commit\ntag v2.6.16.28\ntagger Adrian Bunk <bunk@stusta.de> 1156539089 +0200\n\nHello world\n\nThis is a message\n\n",
-			header: tagHeader{
-				oid:     "c92faf3e0a557270141be67f206d7cdb99bfc3a2",
-				tagType: "commit",
-				tag:     "v2.6.16.28",
-				tagger:  "Adrian Bunk <bunk@stusta.de> 1156539089 +0200",
-			},
-			body:        []byte("Hello world\n\nThis is a message\n\n"),
-			trimNewLine: true,
-		},
-		{
-			description: "tag with missing date and body",
-			tagContent:  "object 422081655f743e03b01ee29a2eaf26aab0ee7eda\ntype commit\ntag syslinux-3.11-pre6\ntagger hpa <hpa>\n",
-			header: tagHeader{
-				oid:     "422081655f743e03b01ee29a2eaf26aab0ee7eda",
-				tagType: "commit",
-				tag:     "syslinux-3.11-pre6",
-				tagger:  "hpa <hpa>",
-			},
-		},
-	}
-	for _, tc := range testCases {
-		header, body, err := splitRawTag(newStaticObject(tc.tagContent, "tag", "1234"))
-		assert.Equal(t, tc.header, *header)
-		assert.Equal(t, tc.body, body)
-		assert.NoError(t, err)
 	}
 }
