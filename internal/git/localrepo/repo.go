@@ -64,6 +64,11 @@ func (repo *Repo) ExecAndWait(ctx context.Context, cmd git.Cmd, opts ...git.CmdO
 	return command.Wait()
 }
 
+// Remote returns executor of the 'remote' sub-command.
+func (repo *Repo) Remote() Remote {
+	return Remote{repo: repo}
+}
+
 func errorWithStderr(err error, stderr []byte) error {
 	if len(stderr) == 0 {
 		return err
