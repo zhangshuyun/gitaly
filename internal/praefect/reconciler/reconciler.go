@@ -222,10 +222,10 @@ update_jobs AS (
 	JOIN (
 		SELECT repository_id, storage AS source_node_storage
 		FROM (
-			SELECT repository_id, storage, generation
+			SELECT repository_id, relative_path, storage, generation
 			FROM storage_repositories
 		) AS storage_repositories
-		JOIN repositories USING (repository_id, generation)
+		JOIN repositories USING (repository_id, relative_path, generation)
 		JOIN healthy_storages USING (virtual_storage, storage)
 		WHERE NOT EXISTS (
 			SELECT FROM replication_queue
