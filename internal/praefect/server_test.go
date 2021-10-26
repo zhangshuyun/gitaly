@@ -43,6 +43,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/promtest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
@@ -645,7 +646,7 @@ func TestRenameRepository(t *testing.T) {
 	require.NoError(t, err)
 	defer nodeSet.Close()
 
-	testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": praefectCfg.StorageNames()})
+	testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": praefectCfg.StorageNames()})
 
 	cc, _, cleanup := runPraefectServer(t, ctx, praefectCfg, buildOptions{
 		withQueue:     evq,

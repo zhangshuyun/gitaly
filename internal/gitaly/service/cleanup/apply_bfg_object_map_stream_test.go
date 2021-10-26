@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -20,7 +21,7 @@ import (
 func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
 	cfg, protoRepo, repoPath, client := setupCleanupService(t)
 
-	testhelper.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
 
 	repo := localrepo.NewTestRepo(t, cfg, protoRepo)
 

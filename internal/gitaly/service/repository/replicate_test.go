@@ -30,8 +30,8 @@ func TestReplicateRepository(t *testing.T) {
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
 
-	testhelper.BuildGitalyHooks(t, cfg)
-	testhelper.BuildGitalySSH(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalySSH(t, cfg)
 
 	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil, testserver.WithDisablePraefect())
 	cfg.SocketPath = serverSocketPath
@@ -60,7 +60,7 @@ func TestReplicateRepository(t *testing.T) {
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 	_, err = client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
 		Repository: targetRepo,
@@ -104,8 +104,8 @@ func TestReplicateRepositoryTransactional(t *testing.T) {
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
 
-	testhelper.BuildGitalyHooks(t, cfg)
-	testhelper.BuildGitalySSH(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalySSH(t, cfg)
 
 	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil, testserver.WithDisablePraefect())
 	cfg.SocketPath = serverSocketPath
@@ -128,7 +128,7 @@ func TestReplicateRepositoryTransactional(t *testing.T) {
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "primary", true)
 	require.NoError(t, err)
 	ctx = metadata.IncomingToOutgoing(ctx)
-	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 	client := newMuxedRepositoryClient(t, ctx, cfg, serverSocketPath, backchannel.NewClientHandshaker(
 		testhelper.DiscardTestEntry(t),
@@ -281,8 +281,8 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 			cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "target"))
 			cfg := cfgBuilder.Build(t)
 
-			testhelper.BuildGitalyHooks(t, cfg)
-			testhelper.BuildGitalySSH(t, cfg)
+			testcfg.BuildGitalyHooks(t, cfg)
+			testcfg.BuildGitalySSH(t, cfg)
 
 			serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil, testserver.WithDisablePraefect())
 			cfg.SocketPath = serverSocketPath
@@ -315,7 +315,7 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
-			ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
+			ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 			_, err := client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
 				Repository: targetRepo,
@@ -336,8 +336,8 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t, testcfg.WithStorages("default", "replica"))
-	testhelper.BuildGitalyHooks(t, cfg)
-	testhelper.BuildGitalySSH(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalySSH(t, cfg)
 
 	// Our test setup does not allow for Praefects with multiple storages. We thus have to
 	// disable Praefect here.
@@ -361,7 +361,7 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 	repoClient := newRepositoryClient(t, cfg, cfg.SocketPath)
 

@@ -55,9 +55,8 @@ func TestCreateBundleFromRefList_success(t *testing.T) {
 		return response.GetData(), err
 	})
 
-	bundle, err := os.CreateTemp("", "bundle")
+	bundle, err := os.Create(filepath.Join(testhelper.TempDir(t), "bundle"))
 	require.NoError(t, err)
-	defer func() { require.NoError(t, os.Remove(bundle.Name())) }()
 
 	_, err = io.Copy(bundle, reader)
 	require.NoError(t, err)

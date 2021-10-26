@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/sentry"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
 func TestLoadBrokenConfig(t *testing.T) {
@@ -29,13 +30,12 @@ func TestLoadEmptyConfig(t *testing.T) {
 	cfg, err := Load(strings.NewReader(``))
 	require.NoError(t, err)
 
-	defaultConf := Cfg{
+	expectedCfg := Cfg{
 		Prometheus:        prometheus.DefaultConfig(),
 		InternalSocketDir: cfg.InternalSocketDir,
 	}
-	require.NoError(t, defaultConf.setDefaults())
-
-	assert.Equal(t, defaultConf, cfg)
+	require.NoError(t, expectedCfg.setDefaults())
+	require.Equal(t, expectedCfg, cfg)
 }
 
 func TestLoadURLs(t *testing.T) {
@@ -47,15 +47,14 @@ relative_url_root = "/gitlab"`)
 	cfg, err := Load(tmpFile)
 	require.NoError(t, err)
 
-	defaultConf := Cfg{
+	expectedCfg := Cfg{
 		Gitlab: Gitlab{
 			URL:             "unix:///tmp/test.socket",
 			RelativeURLRoot: "/gitlab",
 		},
 	}
-	require.NoError(t, defaultConf.setDefaults())
-
-	assert.Equal(t, defaultConf.Gitlab, cfg.Gitlab)
+	require.NoError(t, expectedCfg.setDefaults())
+	require.Equal(t, expectedCfg.Gitlab, cfg.Gitlab)
 }
 
 func TestLoadStorage(t *testing.T) {
@@ -66,16 +65,13 @@ path = "/tmp/"`)
 	cfg, err := Load(tmpFile)
 	require.NoError(t, err)
 
-	if assert.Equal(t, 1, len(cfg.Storages), "Expected one (1) storage") {
-		expectedConf := Cfg{
-			Storages: []Storage{
-				{Name: "default", Path: "/tmp"},
-			},
-		}
-		require.NoError(t, expectedConf.setDefaults())
-
-		assert.Equal(t, expectedConf.Storages, cfg.Storages)
+	expectedCfg := Cfg{
+		Storages: []Storage{
+			{Name: "default", Path: "/tmp"},
+		},
 	}
+	require.NoError(t, expectedCfg.setDefaults())
+	require.Equal(t, expectedCfg.Storages, cfg.Storages)
 }
 
 func TestUncleanStoragePaths(t *testing.T) {
@@ -107,17 +103,10 @@ path="/tmp/repos2/"`)
 	cfg, err := Load(tmpFile)
 	require.NoError(t, err)
 
-	if assert.Equal(t, 2, len(cfg.Storages), "Expected one (1) storage") {
-		expectedConf := Cfg{
-			Storages: []Storage{
-				{Name: "default", Path: "/tmp/repos1"},
-				{Name: "other", Path: "/tmp/repos2"},
-			},
-		}
-		require.NoError(t, expectedConf.setDefaults())
-
-		assert.Equal(t, expectedConf.Storages, cfg.Storages)
-	}
+	require.Equal(t, []Storage{
+		{Name: "default", Path: "/tmp/repos1"},
+		{Name: "other", Path: "/tmp/repos2"},
+	}, cfg.Storages)
 }
 
 func TestLoadSentry(t *testing.T) {
@@ -129,18 +118,13 @@ ruby_sentry_dsn = "xyz456"`)
 	cfg, err := Load(tmpFile)
 	require.NoError(t, err)
 
-	expectedConf := Cfg{
-		Logging: Logging{
-			Sentry: Sentry(sentry.Config{
-				Environment: "production",
-				DSN:         "abc123",
-			}),
-			RubySentryDSN: "xyz456",
-		},
-	}
-	require.NoError(t, expectedConf.setDefaults())
-
-	assert.Equal(t, expectedConf.Logging, cfg.Logging)
+	require.Equal(t, Logging{
+		Sentry: Sentry(sentry.Config{
+			Environment: "production",
+			DSN:         "abc123",
+		}),
+		RubySentryDSN: "xyz456",
+	}, cfg.Logging)
 }
 
 func TestLoadPrometheus(t *testing.T) {
@@ -154,8 +138,8 @@ func TestLoadPrometheus(t *testing.T) {
 	cfg, err := Load(tmpFile)
 	require.NoError(t, err)
 
-	assert.Equal(t, ":9236", cfg.PrometheusListenAddr)
-	assert.Equal(t, prometheus.Config{
+	require.Equal(t, ":9236", cfg.PrometheusListenAddr)
+	require.Equal(t, prometheus.Config{
 		ScrapeTimeout:      time.Second,
 		GRPCLatencyBuckets: []float64{0, 1, 2},
 	}, cfg.Prometheus)
@@ -167,7 +151,7 @@ func TestLoadSocketPath(t *testing.T) {
 	cfg, err := Load(tmpFile)
 	require.NoError(t, err)
 
-	assert.Equal(t, "/tmp/gitaly.sock", cfg.SocketPath)
+	require.Equal(t, "/tmp/gitaly.sock", cfg.SocketPath)
 }
 
 func TestLoadListenAddr(t *testing.T) {
@@ -175,19 +159,17 @@ func TestLoadListenAddr(t *testing.T) {
 
 	cfg, err := Load(tmpFile)
 	require.NoError(t, err)
-
-	assert.Equal(t, ":8080", cfg.ListenAddr)
+	require.Equal(t, ":8080", cfg.ListenAddr)
 }
 
 func TestValidateStorages(t *testing.T) {
-	repositories := tempDir(t)
-	repositories2 := tempDir(t)
+	repositories := testhelper.TempDir(t)
+	repositories2 := testhelper.TempDir(t)
 	nestedRepositories := filepath.Join(repositories, "nested")
 	require.NoError(t, os.MkdirAll(nestedRepositories, os.ModePerm))
-	f, err := os.CreateTemp("", "")
-	require.NoError(t, err)
-	require.NoError(t, f.Close())
-	filePath := f.Name()
+
+	filePath := filepath.Join(testhelper.TempDir(t), "temporary-file")
+	require.NoError(t, os.WriteFile(filePath, []byte{}, 0o666))
 
 	invalidDir := filepath.Join(repositories, t.Name())
 
@@ -337,9 +319,8 @@ const (
 	hookFileExecutable
 )
 
-func setupTempHookDirs(t *testing.T, m map[string]hookFileMode) (string, func()) {
-	tempDir, err := os.MkdirTemp("", "hooks")
-	require.NoError(t, err)
+func setupTempHookDirs(t *testing.T, m map[string]hookFileMode) string {
+	tempDir := testhelper.TempDir(t)
 
 	for hookName, mode := range m {
 		if mode&hookFileExists > 0 {
@@ -354,7 +335,7 @@ func setupTempHookDirs(t *testing.T, m map[string]hookFileMode) (string, func())
 		}
 	}
 
-	return tempDir, func() { require.NoError(t, os.RemoveAll(tempDir)) }
+	return tempDir
 }
 
 var (
@@ -399,8 +380,7 @@ func TestValidateHooks(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			tempHookDir, cleanup := setupTempHookDirs(t, tc.hookFiles)
-			defer cleanup()
+			tempHookDir := setupTempHookDirs(t, tc.hookFiles)
 
 			cfg := Cfg{
 				Ruby: Ruby{
@@ -449,14 +429,8 @@ value = "second-value"
 }
 
 func TestSetGitPath(t *testing.T) {
-	// Clean up env so each test case can set it individually
-	val, set := os.LookupEnv("GITALY_TESTING_GIT_BINARY")
-	require.NoError(t, os.Unsetenv("GITALY_TESTING_GIT_BINARY"))
-	if set {
-		defer func() { require.NoError(t, os.Setenv("GITALY_TESTING_GIT_BINARY", val)) }()
-	} else {
-		defer func() { require.NoError(t, os.Unsetenv("GITALY_TESTING_GIT_BINARY")) }()
-	}
+	cleanup := testhelper.ModifyEnvironment(t, "GITALY_TESTING_GIT_BINARY", "")
+	defer cleanup()
 
 	t.Run("set in config", func(t *testing.T) {
 		cfg := Cfg{Git: Git{BinPath: "/path/to/myGit"}}
@@ -465,8 +439,9 @@ func TestSetGitPath(t *testing.T) {
 	})
 
 	t.Run("set using env var", func(t *testing.T) {
-		require.NoError(t, os.Setenv("GITALY_TESTING_GIT_BINARY", "/path/to/env_git"))
-		defer func() { require.NoError(t, os.Unsetenv("GITALY_TESTING_GIT_BINARY")) }()
+		cleanup := testhelper.ModifyEnvironment(t, "GITALY_TESTING_GIT_BINARY", "/path/to/env_git")
+		defer cleanup()
+
 		cfg := Cfg{Git: Git{}}
 		require.NoError(t, cfg.SetGitPath())
 		assert.Equal(t, "/path/to/env_git", cfg.Git.BinPath)
@@ -481,11 +456,9 @@ func TestSetGitPath(t *testing.T) {
 	})
 
 	t.Run("doesn't exist in the system", func(t *testing.T) {
-		val, set := os.LookupEnv("PATH")
-		require.NoError(t, os.Unsetenv("PATH"))
-		if set {
-			defer func() { require.NoError(t, os.Setenv("PATH", val)) }()
-		}
+		cleanup := testhelper.ModifyEnvironment(t, "PATH", "")
+		defer cleanup()
+
 		cfg := Cfg{Git: Git{}}
 		assert.EqualError(t, cfg.SetGitPath(), `"git" executable not found, set path to it in the configuration file or add it to the PATH`)
 	})
@@ -560,14 +533,11 @@ func TestValidateGitConfig(t *testing.T) {
 }
 
 func TestValidateShellPath(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "gitaly-tests-")
-	require.NoError(t, err)
+	tmpDir := testhelper.TempDir(t)
+
 	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "bin"), 0o755))
 	tmpFile := filepath.Join(tmpDir, "my-file")
-	defer func() { require.NoError(t, os.RemoveAll(tmpDir)) }()
-	fp, err := os.Create(tmpFile)
-	require.NoError(t, err)
-	require.NoError(t, fp.Close())
+	require.NoError(t, os.WriteFile(tmpFile, []byte{}, 0o666))
 
 	testCases := []struct {
 		desc      string
@@ -610,9 +580,7 @@ func TestValidateShellPath(t *testing.T) {
 }
 
 func TestConfigureRuby(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "gitaly-test")
-	require.NoError(t, err)
-	defer func() { require.NoError(t, os.RemoveAll(tmpDir)) }()
+	tmpDir := testhelper.TempDir(t)
 
 	tmpFile := filepath.Join(tmpDir, "file")
 	require.NoError(t, os.WriteFile(tmpFile, nil, 0o644))
@@ -741,26 +709,23 @@ func TestLoadGracefulRestartTimeout(t *testing.T) {
 
 func TestGitlabShellDefaults(t *testing.T) {
 	gitlabShellDir := "/dir"
-	expectedGitlab := Gitlab{
-		SecretFile: filepath.Join(gitlabShellDir, ".gitlab_shell_secret"),
-	}
-
-	expectedHooks := Hooks{
-		CustomHooksDir: filepath.Join(gitlabShellDir, "hooks"),
-	}
 
 	tmpFile := strings.NewReader(fmt.Sprintf(`[gitlab-shell]
 dir = '%s'`, gitlabShellDir))
 	cfg, err := Load(tmpFile)
 	require.NoError(t, err)
 
-	require.Equal(t, expectedGitlab, cfg.Gitlab)
-	require.Equal(t, expectedHooks, cfg.Hooks)
+	require.Equal(t, Gitlab{
+		SecretFile: filepath.Join(gitlabShellDir, ".gitlab_shell_secret"),
+	}, cfg.Gitlab)
+	require.Equal(t, Hooks{
+		CustomHooksDir: filepath.Join(gitlabShellDir, "hooks"),
+	}, cfg.Hooks)
 }
 
 func TestValidateInternalSocketDir(t *testing.T) {
 	// create a valid socket directory
-	tmpDir := tempDir(t)
+	tmpDir := testhelper.TempDir(t)
 	// create a symlinked socket directory
 	dirName := "internal_socket_dir"
 	validSocketDirSymlink := filepath.Join(tmpDir, dirName)
@@ -1165,7 +1130,7 @@ func TestValidateToken(t *testing.T) {
 }
 
 func TestValidateBinDir(t *testing.T) {
-	tmpDir := tempDir(t)
+	tmpDir := testhelper.TempDir(t)
 	tmpFile := filepath.Join(tmpDir, "file")
 	fp, err := os.Create(tmpFile)
 	require.NoError(t, err)
@@ -1205,15 +1170,4 @@ func TestValidateBinDir(t *testing.T) {
 			}
 		})
 	}
-}
-
-func tempDir(t *testing.T) string {
-	tmpdir, err := os.MkdirTemp("", "")
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		if err := os.RemoveAll(tmpdir); err != nil && !errors.Is(err, os.ErrNotExist) {
-			require.NoError(t, err)
-		}
-	})
-	return tmpdir
 }

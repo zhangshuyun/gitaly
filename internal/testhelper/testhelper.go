@@ -6,8 +6,6 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
-	"encoding/base64"
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io"
@@ -23,10 +21,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
-	"google.golang.org/grpc/metadata"
 )
 
 const (
@@ -62,33 +57,6 @@ func GitlabTestStoragePath() string {
 		panic("you must call testhelper.Configure() before GitlabTestStoragePath()")
 	}
 	return filepath.Join(testDirectory, "storage")
-}
-
-// GitalyServersMetadataFromCfg returns a metadata pair for gitaly-servers to be used in
-// inter-gitaly operations.
-func GitalyServersMetadataFromCfg(t testing.TB, cfg config.Cfg) metadata.MD {
-	gitalyServers := storage.GitalyServers{}
-storages:
-	for _, s := range cfg.Storages {
-		// It picks up the first address configured: TLS, TCP or UNIX.
-		for _, addr := range []string{cfg.TLSListenAddr, cfg.ListenAddr, cfg.SocketPath} {
-			if addr != "" {
-				gitalyServers[s.Name] = storage.ServerInfo{
-					Address: addr,
-					Token:   cfg.Auth.Token,
-				}
-				continue storages
-			}
-		}
-		require.FailNow(t, "no address found on the config")
-	}
-
-	gitalyServersJSON, err := json.Marshal(gitalyServers)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return metadata.Pairs("gitaly-servers", base64.StdEncoding.EncodeToString(gitalyServersJSON))
 }
 
 // MustRunCommand runs a command with an optional standard input and returns the standard output, or fails.
@@ -199,6 +167,15 @@ func Context(opts ...ContextOpt) (context.Context, func()) {
 	}
 }
 
+// CreateGlobalDirectory creates a directory in the test directory that is shared across all
+// between all tests.
+func CreateGlobalDirectory(t testing.TB, name string) string {
+	require.NotEmpty(t, testDirectory, "global temporary directory does not exist")
+	path := filepath.Join(testDirectory, name)
+	require.NoError(t, os.Mkdir(path, 0o777))
+	return path
+}
+
 // TempDir is a wrapper around os.MkdirTemp that provides a cleanup function.
 func TempDir(t testing.TB) string {
 	if testDirectory == "" {
@@ -231,12 +208,18 @@ func WriteExecutable(t testing.TB, path string, content []byte) {
 }
 
 // ModifyEnvironment will change an environment variable and return a func suitable
-// for `defer` to change the value back.
+// for `defer` to change the value back. If the given value is empty, then the envvar will be
+// unset.
 func ModifyEnvironment(t testing.TB, key string, value string) func() {
 	t.Helper()
 
 	oldValue, hasOldValue := os.LookupEnv(key)
-	require.NoError(t, os.Setenv(key, value))
+	if value == "" {
+		require.NoError(t, os.Unsetenv(key))
+	} else {
+		require.NoError(t, os.Setenv(key, value))
+	}
+
 	return func() {
 		if hasOldValue {
 			require.NoError(t, os.Setenv(key, oldValue))

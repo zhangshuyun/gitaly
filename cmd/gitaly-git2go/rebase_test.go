@@ -24,7 +24,7 @@ var masterRevision = "1e292f8fedd741b75372e19097c76d327140c312"
 
 func TestRebase_validation(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
-	testhelper.BuildGitalyGit2Go(t, cfg)
+	testcfg.BuildGitalyGit2Go(t, cfg)
 	committer := git2go.NewSignature("Foo", "foo@example.com", time.Now())
 	executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
 
@@ -177,7 +177,7 @@ func TestRebase_rebase(t *testing.T) {
 				time.Date(2021, 3, 1, 13, 45, 50, 0, time.FixedZone("", +2*60*60)))
 
 			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
-			testhelper.BuildGitalyGit2Go(t, cfg)
+			testcfg.BuildGitalyGit2Go(t, cfg)
 			executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
 
 			repo, err := git2goutil.OpenRepository(repoPath)
@@ -247,7 +247,7 @@ func TestRebase_skipEmptyCommit(t *testing.T) {
 	defer cancel()
 
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
-	testhelper.BuildGitalyGit2Go(t, cfg)
+	testcfg.BuildGitalyGit2Go(t, cfg)
 
 	// Set up history with two diverging lines of branches, where both sides have implemented
 	// the same changes. During rebase, the diff will thus become empty.

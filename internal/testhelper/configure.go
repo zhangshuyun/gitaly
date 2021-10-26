@@ -1,24 +1,20 @@
 package testhelper
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	gitalylog "gitlab.com/gitlab-org/gitaly/v14/internal/log"
 )
 
-var (
-	configureOnce sync.Once
-	testDirectory string
-)
+var testDirectory string
 
 // RunOption is an option that can be passed to Run.
 type RunOption func(*runConfig)
@@ -64,7 +60,7 @@ func Run(m *testing.M, opts ...RunOption) {
 
 		cleanup, err := configure()
 		if err != nil {
-			return err
+			return fmt.Errorf("test configuration: %w", err)
 		}
 		defer cleanup()
 
@@ -78,40 +74,85 @@ func Run(m *testing.M, opts ...RunOption) {
 
 		return nil
 	}(); err != nil {
-		log.Fatalf("%v", err)
+		fmt.Printf("%s", err)
+		os.Exit(1)
 	}
 }
 
 // configure sets up the global test configuration. On failure,
 // terminates the program.
-func configure() (func(), error) {
-	var returnedErr error
-	configureOnce.Do(func() {
-		gitalylog.Configure(gitalylog.Loggers, "json", "panic")
+func configure() (_ func(), returnedErr error) {
+	gitalylog.Configure(gitalylog.Loggers, "json", "panic")
 
-		testDirectory = getTestTmpDir()
-
-		for _, f := range []func() error{
-			configureGit,
-		} {
-			if returnedErr = f(); returnedErr != nil {
-				if err := os.RemoveAll(testDirectory); err != nil {
-					log.Error(err)
-				}
-
-				return
-			}
+	cleanup, err := configureTestDirectory()
+	if err != nil {
+		return nil, fmt.Errorf("configuring test directory: %w", err)
+	}
+	defer func() {
+		if returnedErr != nil {
+			cleanup()
 		}
-	})
-	if returnedErr != nil {
-		return nil, returnedErr
+	}()
+
+	if err := configureGit(); err != nil {
+		return nil, fmt.Errorf("configuring git: %w", err)
 	}
 
-	return func() {
+	return cleanup, nil
+}
+
+func configureTestDirectory() (_ func(), returnedErr error) {
+	if testDirectory != "" {
+		return nil, errors.New("test directory has already been configured")
+	}
+
+	// Ideally, we'd just pass "" to `os.MkdirTemp()`, which would then use either the value of
+	// `$TMPDIR` or alternatively "/tmp". But given that macOS sets `$TMPDIR` to a user specific
+	// temporary directory, resulting paths would be too long and thus cause issues galore. We
+	// thus support our own specific variable instead which allows users to override it, with
+	// our default being "/tmp".
+	tempDirLocation := os.Getenv("TEST_TMP_DIR")
+	if tempDirLocation == "" {
+		tempDirLocation = "/tmp"
+	}
+
+	var err error
+	testDirectory, err = os.MkdirTemp(tempDirLocation, "gitaly-")
+	if err != nil {
+		return nil, fmt.Errorf("creating test directory: %w", err)
+	}
+
+	cleanup := func() {
 		if err := os.RemoveAll(testDirectory); err != nil {
-			log.Errorf("error removing test directory: %v", err)
+			log.Errorf("cleaning up test directory: %v", err)
 		}
-	}, nil
+	}
+	defer func() {
+		if returnedErr != nil {
+			cleanup()
+		}
+	}()
+
+	// macOS symlinks /tmp/ to /private/tmp/ which can cause some check to fail. We thus resolve
+	// the symlinks to their actual location.
+	testDirectory, err = filepath.EvalSymlinks(testDirectory)
+	if err != nil {
+		return nil, err
+	}
+
+	// In many locations throughout Gitaly, we create temporary files and directories. By
+	// default, these would clutter the "real" temporary directory with useless cruft that stays
+	// around after our tests. To avoid this, we thus set the TMPDIR environment variable to
+	// point into a directory inside of out test directory.
+	globalTempDir := filepath.Join(testDirectory, "tmp")
+	if err := os.Mkdir(globalTempDir, 0o755); err != nil {
+		return nil, fmt.Errorf("creating global temporary directory: %w", err)
+	}
+	if err := os.Setenv("TMPDIR", globalTempDir); err != nil {
+		return nil, fmt.Errorf("setting global temporary directory: %w", err)
+	}
+
+	return cleanup, nil
 }
 
 // configureGit configures git for test purpose
@@ -160,44 +201,4 @@ func configureGit() error {
 	testHome := filepath.Join(filepath.Dir(currentFile), "testdata/home")
 	// overwrite HOME env variable so user global .gitconfig doesn't influence tests
 	return os.Setenv("HOME", testHome)
-}
-
-// ConfigureRuby configures Ruby settings for test purposes at run time.
-func ConfigureRuby(cfg *config.Cfg) error {
-	if dir := os.Getenv("GITALY_TEST_RUBY_DIR"); len(dir) > 0 {
-		// Sometimes runtime.Caller is unreliable. This environment variable provides a bypass.
-		cfg.Ruby.Dir = dir
-	} else {
-		_, currentFile, _, ok := runtime.Caller(0)
-		if !ok {
-			return fmt.Errorf("could not get caller info")
-		}
-		cfg.Ruby.Dir = filepath.Join(filepath.Dir(currentFile), "../../ruby")
-	}
-
-	if err := cfg.ConfigureRuby(); err != nil {
-		return fmt.Errorf("validate ruby config: %w", err)
-	}
-
-	return nil
-}
-
-func getTestTmpDir() string {
-	testTmpDir := os.Getenv("TEST_TMP_DIR")
-	if testTmpDir != "" {
-		return testTmpDir
-	}
-
-	testTmpDir, err := os.MkdirTemp("/tmp/", "gitaly-")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// macOS symlinks /tmp/ to /private/tmp/ which can cause some check to fail
-	tmpDir, err := filepath.EvalSymlinks(testTmpDir)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return tmpDir
 }

@@ -104,7 +104,7 @@ func TestReceivePackHiddenRefs(t *testing.T) {
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 	repoProto.GlProjectPath = "project/path"
 
-	testhelper.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -152,7 +152,7 @@ func TestReceivePackHiddenRefs(t *testing.T) {
 func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
-	testhelper.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
 
 	readProto, cfg := gittest.EnableGitProtocolV2Support(t, cfg)
 
@@ -442,7 +442,7 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 func TestReceivePackFsck(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
-	testhelper.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
 
 	head := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
 
@@ -493,7 +493,7 @@ func drainPostReceivePackResponse(stream gitalypb.SmartHTTPService_PostReceivePa
 func TestPostReceivePackToHooks(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	testhelper.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
 
 	const (
 		secretToken  = "secret token"
@@ -557,7 +557,7 @@ func TestPostReceiveWithTransactionsViaPraefect(t *testing.T) {
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
-	testhelper.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
 
 	secretToken := "secret token"
 	glID := "key-1234"
@@ -617,7 +617,7 @@ func (t *testTransactionServer) VoteTransaction(ctx context.Context, in *gitalyp
 func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	testhelper.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
 
 	refTransactionServer := &testTransactionServer{}
 

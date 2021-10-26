@@ -42,7 +42,7 @@ func setupRefService(t testing.TB) (config.Cfg, *gitalypb.Repository, string, gi
 func setupRefServiceWithoutRepo(t testing.TB) (config.Cfg, gitalypb.RefServiceClient) {
 	cfg := testcfg.Build(t)
 
-	testhelper.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
 
 	serverSocketPath := runRefServiceServer(t, cfg)
 	cfg.SocketPath = serverSocketPath

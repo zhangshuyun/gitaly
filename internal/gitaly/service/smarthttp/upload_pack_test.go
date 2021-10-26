@@ -65,7 +65,7 @@ func testServerPostUpload(t *testing.T, ctx context.Context, makeRequest request
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t, opts...)
 	_, localRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
-	testhelper.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
 	serverSocketPath := runSmartHTTPServer(t, cfg, WithPackfileNegotiationMetrics(negotiationMetrics))
 
@@ -107,7 +107,7 @@ func TestServer_PostUploadPackSidechannel_gitConfigOptions(t *testing.T) {
 
 func testServerPostUploadPackGitConfigOptions(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t, opts...)
-	testhelper.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
 
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 
@@ -356,7 +356,7 @@ func testServerPostUploadPackPartialClone(t *testing.T, ctx context.Context, mak
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t, opts...)
 	_, localRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
-	testhelper.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
 	serverSocketPath := runSmartHTTPServer(t, cfg, WithPackfileNegotiationMetrics(negotiationMetrics))
 
@@ -413,7 +413,7 @@ func testServerPostUploadPackAllowAnySHA1InWant(t *testing.T, ctx context.Contex
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 	_, localRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
-	testhelper.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 	newCommit := gittest.WriteCommit(t, cfg, repoPath)
 

@@ -29,7 +29,7 @@ func TestMain(m *testing.M) {
 func SetupConfigAndRepo(t testing.TB, bare bool) (config.Cfg, *gitalypb.Repository, string) {
 	cfg := testcfg.Build(t)
 
-	testhelper.BuildGitalyGit2Go(t, cfg)
+	testcfg.BuildGitalyGit2Go(t, cfg)
 
 	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
 		WithWorktree: !bare,

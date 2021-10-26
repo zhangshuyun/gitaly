@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -950,7 +951,7 @@ func TestUserCommitFilesStableCommitID(t *testing.T) {
 	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	for key, values := range testhelper.GitalyServersMetadataFromCfg(t, cfg) {
+	for key, values := range testcfg.GitalyServersMetadataFromCfg(t, cfg) {
 		for _, value := range values {
 			ctx = metadata.AppendToOutgoingContext(ctx, key, value)
 		}
@@ -1010,7 +1011,7 @@ func TestUserCommitFilesQuarantine(t *testing.T) {
 	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 	outputPath := filepath.Join(testhelper.TempDir(t), "output")
 

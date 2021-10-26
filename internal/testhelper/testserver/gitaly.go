@@ -34,6 +34,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/streamcache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
@@ -70,7 +71,7 @@ func StartGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Serv
 		}
 	}
 
-	testhelper.BuildPraefect(t, cfg)
+	testcfg.BuildPraefect(t, cfg)
 
 	praefectAddr, shutdownPraefect := runPraefectProxy(t, cfg, gitalyAddr, filepath.Join(cfg.BinDir, "praefect"))
 	return GitalyServer{

@@ -52,13 +52,13 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	t.Parallel()
 	primaryCfg, testRepo, testRepoPath := testcfg.BuildWithRepo(t, testcfg.WithStorages("primary"))
 	primaryCfg.SocketPath = testserver.RunGitalyServer(t, primaryCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
-	testhelper.BuildGitalySSH(t, primaryCfg)
-	testhelper.BuildGitalyHooks(t, primaryCfg)
+	testcfg.BuildGitalySSH(t, primaryCfg)
+	testcfg.BuildGitalyHooks(t, primaryCfg)
 
 	backupCfg, _, _ := testcfg.BuildWithRepo(t, testcfg.WithStorages("backup"))
 	backupCfg.SocketPath = testserver.RunGitalyServer(t, backupCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
-	testhelper.BuildGitalySSH(t, backupCfg)
-	testhelper.BuildGitalyHooks(t, backupCfg)
+	testcfg.BuildGitalySSH(t, backupCfg)
+	testcfg.BuildGitalyHooks(t, backupCfg)
 
 	conf := config.Config{
 		VirtualStorages: []*config.VirtualStorage{{
@@ -103,7 +103,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	injectedCtx := metadata.NewOutgoingContext(ctx, testhelper.GitalyServersMetadataFromCfg(t, primaryCfg))
+	injectedCtx := metadata.NewOutgoingContext(ctx, testcfg.GitalyServersMetadataFromCfg(t, primaryCfg))
 
 	repoClient := newRepositoryClient(t, backupCfg.SocketPath, backupCfg.Auth.Token)
 	_, err = repoClient.ReplicateRepository(injectedCtx, &gitalypb.ReplicateRepositoryRequest{
@@ -650,8 +650,8 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 
 	backupCfg, _, _ := testcfg.BuildWithRepo(t, testcfg.WithStorages("backup"))
 	backupAddr := testserver.RunGitalyServer(t, backupCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
-	testhelper.BuildGitalySSH(t, backupCfg)
-	testhelper.BuildGitalyHooks(t, backupCfg)
+	testcfg.BuildGitalySSH(t, backupCfg)
+	testcfg.BuildGitalyHooks(t, backupCfg)
 
 	primary := config.Node{
 		Storage: primaryCfg.Storages[0].Name,
@@ -746,13 +746,13 @@ func TestProcessBacklog_Success(t *testing.T) {
 	t.Parallel()
 	primaryCfg, testRepo, _ := testcfg.BuildWithRepo(t, testcfg.WithStorages("primary"))
 	primaryCfg.SocketPath = testserver.RunGitalyServer(t, primaryCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
-	testhelper.BuildGitalySSH(t, primaryCfg)
-	testhelper.BuildGitalyHooks(t, primaryCfg)
+	testcfg.BuildGitalySSH(t, primaryCfg)
+	testcfg.BuildGitalyHooks(t, primaryCfg)
 
 	backupCfg, _, _ := testcfg.BuildWithRepo(t, testcfg.WithStorages("backup"))
 	backupCfg.SocketPath = testserver.RunGitalyServer(t, backupCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
-	testhelper.BuildGitalySSH(t, backupCfg)
-	testhelper.BuildGitalyHooks(t, backupCfg)
+	testcfg.BuildGitalySSH(t, backupCfg)
+	testcfg.BuildGitalyHooks(t, backupCfg)
 
 	primary := config.Node{
 		Storage: primaryCfg.Storages[0].Name,

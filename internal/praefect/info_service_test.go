@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -67,7 +68,7 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 	tx := glsql.NewDB(t).Begin(t)
 	defer tx.Rollback(t)
 
-	testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{
+	testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{
 		"praefect-0": {virtualStorage: storages},
 	})
 

@@ -62,8 +62,8 @@ func TestSuccessfulCreateForkRequest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-			testhelper.BuildGitalyHooks(t, cfg)
-			testhelper.BuildGitalySSH(t, cfg)
+			testcfg.BuildGitalyHooks(t, cfg)
+			testcfg.BuildGitalySSH(t, cfg)
 
 			var (
 				client gitalypb.RepositoryServiceClient
@@ -82,7 +82,7 @@ func TestSuccessfulCreateForkRequest(t *testing.T) {
 			ctxOuter, cancel := testhelper.Context()
 			defer cancel()
 
-			md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
+			md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 			ctx := metadata.NewOutgoingContext(ctxOuter, md)
 
 			forkedRepo := &gitalypb.Repository{
@@ -142,7 +142,7 @@ func TestFailedCreateForkRequestDueToExistingTarget(t *testing.T) {
 	ctxOuter, cancel := testhelper.Context()
 	defer cancel()
 
-	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
+	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	ctx := metadata.NewOutgoingContext(ctxOuter, md)
 
 	testCases := []struct {

@@ -49,8 +49,8 @@ func TestWithRubySidecar(t *testing.T) {
 	client, serverSocketPath := runRepositoryService(t, cfg, rubySrv)
 	cfg.SocketPath = serverSocketPath
 
-	testhelper.BuildGitalyHooks(t, cfg)
-	testhelper.BuildGitalyGit2Go(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalyGit2Go(t, cfg)
 
 	fs := []func(t *testing.T, cfg config.Cfg, client gitalypb.RepositoryServiceClient, rubySrv *rubyserver.Server){
 		testSuccessfulFindLicenseRequest,
@@ -159,8 +159,8 @@ func setupRepositoryService(t testing.TB, opts ...testserver.GitalyServerOpt) (c
 func setupRepositoryServiceWithoutRepo(t testing.TB, opts ...testserver.GitalyServerOpt) (config.Cfg, gitalypb.RepositoryServiceClient) {
 	cfg := testcfg.Build(t)
 
-	testhelper.BuildGitalyHooks(t, cfg)
-	testhelper.BuildGitalySSH(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalySSH(t, cfg)
 
 	client, serverSocketPath := runRepositoryService(t, cfg, nil, opts...)
 	cfg.SocketPath = serverSocketPath

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -56,18 +56,17 @@ func TestUserMergeBranch_successful(t *testing.T) {
 
 	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
+	tempDir := testhelper.TempDir(t)
+
 	hooks := GitlabHooks
 	hookTempfiles := make([]string, len(hooks))
 	for i, hook := range hooks {
-		outputFile, err := os.CreateTemp("", "")
-		require.NoError(t, err)
-		require.NoError(t, outputFile.Close())
-		defer func() { require.NoError(t, os.Remove(outputFile.Name())) }()
+		outputFile := filepath.Join(tempDir, hook)
 
-		script := fmt.Sprintf("#!/bin/sh\n(cat && env) >%s \n", outputFile.Name())
+		script := fmt.Sprintf("#!/bin/sh\n(cat && env) >%s \n", outputFile)
 		gittest.WriteCustomHook(t, repoPath, hook, []byte(script))
 
-		hookTempfiles[i] = outputFile.Name()
+		hookTempfiles[i] = outputFile
 	}
 
 	mergeCommitMessage := "Merged by Gitaly"

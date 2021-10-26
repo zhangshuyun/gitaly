@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
@@ -215,7 +216,7 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 			tx := db.Begin(t)
 			defer tx.Rollback(t)
 
-			testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": {
+			testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": {
 				"virtual-storage-1": {"primary", "consistent-secondary", "inconsistent-secondary"},
 			}})
 
@@ -365,7 +366,7 @@ func TestPerRepositoryRouter_RouteRepositoryMutator(t *testing.T) {
 			tx := db.Begin(t)
 			defer tx.Rollback(t)
 
-			testhelper.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": configuredNodes})
+			testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": configuredNodes})
 
 			const relativePath = "repository"
 

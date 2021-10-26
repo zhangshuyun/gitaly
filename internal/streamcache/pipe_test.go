@@ -5,18 +5,20 @@ import (
 	"io"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
 func createPipe(t *testing.T) (*pipeReader, *pipe) {
 	t.Helper()
 
-	f, err := os.CreateTemp("", "gitaly-streamcache-test")
+	f, err := os.Create(filepath.Join(testhelper.TempDir(t), "gitaly-streamcache-test"))
 	require.NoError(t, err)
 
 	pr, p, err := newPipe(f)
@@ -200,7 +202,7 @@ func (cs *closeSpy) Close() error {
 // Closing the last reader _before_ closing the writer is a failure
 // condition. After this happens, opening new readers should fail.
 func TestPipe_closeWrongOrder(t *testing.T) {
-	f, err := os.CreateTemp("", "gitaly-streamcache-test")
+	f, err := os.Create(filepath.Join(testhelper.TempDir(t), "gitaly-streamcache-test"))
 	require.NoError(t, err)
 	cs := &closeSpy{namedWriteCloser: f}
 
@@ -233,7 +235,7 @@ func TestPipe_closeWrongOrder(t *testing.T) {
 // Closing last reader after closing the writer is the happy path. After
 // this happens, opening new readers should work.
 func TestPipe_closeOrderHappy(t *testing.T) {
-	f, err := os.CreateTemp("", "gitaly-streamcache-test")
+	f, err := os.Create(filepath.Join(testhelper.TempDir(t), "gitaly-streamcache-test"))
 	require.NoError(t, err)
 	cs := &closeSpy{namedWriteCloser: f}
 

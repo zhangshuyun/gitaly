@@ -14,6 +14,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
 
 func TestMain(m *testing.M) {
@@ -238,5 +239,5 @@ func buildPidServer(t *testing.T) string {
 	sourcePath, err := filepath.Abs("test-scripts/pid-server.go")
 	require.NoError(t, err)
 
-	return testhelper.BuildBinary(t, testhelper.TempDir(t), sourcePath)
+	return testcfg.BuildBinary(t, testhelper.TempDir(t), sourcePath)
 }

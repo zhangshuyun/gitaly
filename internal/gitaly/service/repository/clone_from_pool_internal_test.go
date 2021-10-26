@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/metadata"
 )
@@ -61,7 +62,7 @@ func TestCloneFromPoolInternal(t *testing.T) {
 	ctxOuter, cancel := testhelper.Context()
 	defer cancel()
 
-	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
+	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	ctx := metadata.NewOutgoingContext(ctxOuter, md)
 
 	pool, poolRepo := newTestObjectPool(t, cfg)

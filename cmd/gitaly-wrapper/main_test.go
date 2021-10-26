@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"testing"
 
@@ -14,21 +15,23 @@ import (
 
 // TestStolenPid tests for regressions in https://gitlab.com/gitlab-org/gitaly/issues/1661
 func TestStolenPid(t *testing.T) {
-	defer func(oldValue string) {
-		require.NoError(t, os.Setenv(bootstrap.EnvPidFile, oldValue))
-	}(os.Getenv(bootstrap.EnvPidFile))
+	tempDir := testhelper.TempDir(t)
 
-	pidFile, err := os.CreateTemp("", "pidfile")
+	pidFile, err := os.Create(filepath.Join(tempDir, "pidfile"))
 	require.NoError(t, err)
-	defer func() { require.NoError(t, os.Remove(pidFile.Name())) }()
 
-	require.NoError(t, os.Setenv(bootstrap.EnvPidFile, pidFile.Name()))
+	cleanup := testhelper.ModifyEnvironment(t, bootstrap.EnvPidFile, pidFile.Name())
+	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "tail", "-f")
 	require.NoError(t, cmd.Start())
+	defer func() {
+		cancel()
+		_ = cmd.Wait()
+	}()
 
 	_, err = pidFile.WriteString(strconv.Itoa(cmd.Process.Pid))
 	require.NoError(t, err)

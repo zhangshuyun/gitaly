@@ -46,9 +46,9 @@ func setupOperationsServiceWithCfg(
 ) (context.Context, config.Cfg, *gitalypb.Repository, string, gitalypb.OperationServiceClient) {
 	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
-	testhelper.BuildGitalySSH(t, cfg)
-	testhelper.BuildGitalyGit2Go(t, cfg)
-	testhelper.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalySSH(t, cfg)
+	testcfg.BuildGitalyGit2Go(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
 
 	serverSocketPath := runOperationServiceServer(t, cfg, options...)
 	cfg.SocketPath = serverSocketPath
@@ -56,7 +56,7 @@ func setupOperationsServiceWithCfg(
 	client, conn := newOperationClient(t, serverSocketPath)
 	t.Cleanup(func() { conn.Close() })
 
-	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
+	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
 	return ctx, cfg, repo, repoPath, client
