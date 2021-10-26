@@ -13,7 +13,8 @@ variables:
   DOCKER_DRIVER: overlay2
   SAST_DISABLE_DIND: "true"
   SAST_DEFAULT_ANALYZERS: "gosec"
-  GIT_VERSION: "v2.33.0"
+  # We use Gitaly's Git version by default.
+  GIT_VERSION: "default"
   GO_VERSION: "1.17"
   RUBY_VERSION: "2.7"
   POSTGRES_VERSION: "12.6-alpine"
@@ -140,7 +141,6 @@ build:
       # These definitions are for the default Git version where we want to
       # apply our default set of Git patches.
       - GO_VERSION: [ "1.16", "1.17" ]
-        GIT_VERSION: [ "v2.33.0" ]
         RUBY_VERSION: [ "2.7" ]
 
 binaries:
@@ -192,7 +192,6 @@ test:
       # These definitions are for the default Git version where we want to
       # apply our default set of Git patches.
       - GO_VERSION: [ "1.16", "1.17" ]
-        GIT_VERSION: [ "v2.33.0" ]
         TARGET: test
       - GO_VERSION: "1.17"
         TARGET: [ test-with-proxies, test-with-praefect, race-go ]
@@ -207,7 +206,7 @@ nightly:git:
   parallel:
     matrix:
       - GO_VERSION: "1.17"
-        GIT_VERSION: ["master", "next"]
+        GIT_VERSION: [ "master", "next" ]
         GIT_PATCHES: [ "" ]
         TARGET: [ test, test-with-proxies, test-with-praefect ]
   rules:

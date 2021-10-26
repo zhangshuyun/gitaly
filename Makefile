@@ -83,12 +83,14 @@ PROTOC_GEN_GO_GRPC_VERSION?= 1.1.0
 GIT2GO_VERSION            ?= v32
 LIBGIT2_VERSION           ?= v1.2.0
 
-# Support both vX.Y.Z and X.Y.Z version patterns, since callers across
-# GitLab use both.
-ifeq ($(GIT_VERSION),)
-  GIT_VERSION := v2.33.1
+# The default version is used in case the caller does not set the variable or
+# if it is either set to the empty string or "default".
+ifeq (${GIT_VERSION:default=},)
+    override GIT_VERSION := v2.33.1
 else
-  GIT_VERSION := $(shell echo ${GIT_VERSION} | awk '/^[0-9]\.[0-9]+\.[0-9]+$$/ { printf "v" } { print $$1 }')
+    # Support both vX.Y.Z and X.Y.Z version patterns, since callers across GitLab
+    # use both.
+    override GIT_VERSION := $(shell echo ${GIT_VERSION} | awk '/^[0-9]\.[0-9]+\.[0-9]+$$/ { printf "v" } { print $$1 }')
 endif
 
 # Dependency downloads
@@ -106,7 +108,7 @@ GIT_INSTALL_DIR   := ${DEPENDENCY_DIR}/git/install
 GIT_SOURCE_DIR    := ${DEPENDENCY_DIR}/git/source
 GIT_QUIET         :=
 ifeq (${Q},@)
-	GIT_QUIET = --quiet
+    GIT_QUIET = --quiet
 endif
 
 ifeq ($(origin GIT_PATCHES),undefined)
