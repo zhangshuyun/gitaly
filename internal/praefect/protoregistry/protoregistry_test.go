@@ -58,11 +58,12 @@ func TestNewProtoRegistry(t *testing.T) {
 			"NamespaceExists": protoregistry.OpAccessor,
 		},
 		"ObjectPoolService": {
-			"CreateObjectPool":           protoregistry.OpMutator,
-			"DeleteObjectPool":           protoregistry.OpMutator,
-			"LinkRepositoryToObjectPool": protoregistry.OpMutator,
-			"ReduplicateRepository":      protoregistry.OpMutator,
-			"DisconnectGitAlternates":    protoregistry.OpMutator,
+			"CreateObjectPool":               protoregistry.OpMutator,
+			"DeleteObjectPool":               protoregistry.OpMutator,
+			"LinkRepositoryToObjectPool":     protoregistry.OpMutator,
+			"UnlinkRepositoryFromObjectPool": protoregistry.OpMutator,
+			"ReduplicateRepository":          protoregistry.OpMutator,
+			"DisconnectGitAlternates":        protoregistry.OpMutator,
 		},
 		"OperationService": {
 			"UserCreateBranch":    protoregistry.OpMutator,

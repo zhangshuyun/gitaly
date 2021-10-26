@@ -22,6 +22,18 @@ type ObjectPoolServiceClient interface {
 	DeleteObjectPool(ctx context.Context, in *DeleteObjectPoolRequest, opts ...grpc.CallOption) (*DeleteObjectPoolResponse, error)
 	// Repositories are assumed to be stored on the same disk
 	LinkRepositoryToObjectPool(ctx context.Context, in *LinkRepositoryToObjectPoolRequest, opts ...grpc.CallOption) (*LinkRepositoryToObjectPoolResponse, error)
+	// Deprecated: Do not use.
+	// UnlinkRepositoryFromObjectPool does not unlink the repository from the
+	// object pool as you'd think, but all it really does is to remove the object
+	// pool's remote pointing to the repository. And even this is a no-op given
+	// that we'd try to remove the remote by the repository's `GlRepository()`
+	// name, which we never create in the first place. To unlink repositories
+	// from an object pool, you'd really want to execute DisconnectGitAlternates
+	// to remove the repository's link to the pool's object database.
+	//
+	// This function is never called by anyone and highly misleading. It's thus
+	// deprecated and will be removed in v14.4.
+	UnlinkRepositoryFromObjectPool(ctx context.Context, in *UnlinkRepositoryFromObjectPoolRequest, opts ...grpc.CallOption) (*UnlinkRepositoryFromObjectPoolResponse, error)
 	ReduplicateRepository(ctx context.Context, in *ReduplicateRepositoryRequest, opts ...grpc.CallOption) (*ReduplicateRepositoryResponse, error)
 	DisconnectGitAlternates(ctx context.Context, in *DisconnectGitAlternatesRequest, opts ...grpc.CallOption) (*DisconnectGitAlternatesResponse, error)
 	FetchIntoObjectPool(ctx context.Context, in *FetchIntoObjectPoolRequest, opts ...grpc.CallOption) (*FetchIntoObjectPoolResponse, error)
@@ -57,6 +69,16 @@ func (c *objectPoolServiceClient) DeleteObjectPool(ctx context.Context, in *Dele
 func (c *objectPoolServiceClient) LinkRepositoryToObjectPool(ctx context.Context, in *LinkRepositoryToObjectPoolRequest, opts ...grpc.CallOption) (*LinkRepositoryToObjectPoolResponse, error) {
 	out := new(LinkRepositoryToObjectPoolResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.ObjectPoolService/LinkRepositoryToObjectPool", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Deprecated: Do not use.
+func (c *objectPoolServiceClient) UnlinkRepositoryFromObjectPool(ctx context.Context, in *UnlinkRepositoryFromObjectPoolRequest, opts ...grpc.CallOption) (*UnlinkRepositoryFromObjectPoolResponse, error) {
+	out := new(UnlinkRepositoryFromObjectPoolResponse)
+	err := c.cc.Invoke(ctx, "/gitaly.ObjectPoolService/UnlinkRepositoryFromObjectPool", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -107,6 +129,18 @@ type ObjectPoolServiceServer interface {
 	DeleteObjectPool(context.Context, *DeleteObjectPoolRequest) (*DeleteObjectPoolResponse, error)
 	// Repositories are assumed to be stored on the same disk
 	LinkRepositoryToObjectPool(context.Context, *LinkRepositoryToObjectPoolRequest) (*LinkRepositoryToObjectPoolResponse, error)
+	// Deprecated: Do not use.
+	// UnlinkRepositoryFromObjectPool does not unlink the repository from the
+	// object pool as you'd think, but all it really does is to remove the object
+	// pool's remote pointing to the repository. And even this is a no-op given
+	// that we'd try to remove the remote by the repository's `GlRepository()`
+	// name, which we never create in the first place. To unlink repositories
+	// from an object pool, you'd really want to execute DisconnectGitAlternates
+	// to remove the repository's link to the pool's object database.
+	//
+	// This function is never called by anyone and highly misleading. It's thus
+	// deprecated and will be removed in v14.4.
+	UnlinkRepositoryFromObjectPool(context.Context, *UnlinkRepositoryFromObjectPoolRequest) (*UnlinkRepositoryFromObjectPoolResponse, error)
 	ReduplicateRepository(context.Context, *ReduplicateRepositoryRequest) (*ReduplicateRepositoryResponse, error)
 	DisconnectGitAlternates(context.Context, *DisconnectGitAlternatesRequest) (*DisconnectGitAlternatesResponse, error)
 	FetchIntoObjectPool(context.Context, *FetchIntoObjectPoolRequest) (*FetchIntoObjectPoolResponse, error)
@@ -126,6 +160,9 @@ func (UnimplementedObjectPoolServiceServer) DeleteObjectPool(context.Context, *D
 }
 func (UnimplementedObjectPoolServiceServer) LinkRepositoryToObjectPool(context.Context, *LinkRepositoryToObjectPoolRequest) (*LinkRepositoryToObjectPoolResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LinkRepositoryToObjectPool not implemented")
+}
+func (UnimplementedObjectPoolServiceServer) UnlinkRepositoryFromObjectPool(context.Context, *UnlinkRepositoryFromObjectPoolRequest) (*UnlinkRepositoryFromObjectPoolResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UnlinkRepositoryFromObjectPool not implemented")
 }
 func (UnimplementedObjectPoolServiceServer) ReduplicateRepository(context.Context, *ReduplicateRepositoryRequest) (*ReduplicateRepositoryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReduplicateRepository not implemented")
@@ -202,6 +239,24 @@ func _ObjectPoolService_LinkRepositoryToObjectPool_Handler(srv interface{}, ctx 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ObjectPoolServiceServer).LinkRepositoryToObjectPool(ctx, req.(*LinkRepositoryToObjectPoolRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ObjectPoolService_UnlinkRepositoryFromObjectPool_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UnlinkRepositoryFromObjectPoolRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ObjectPoolServiceServer).UnlinkRepositoryFromObjectPool(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gitaly.ObjectPoolService/UnlinkRepositoryFromObjectPool",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ObjectPoolServiceServer).UnlinkRepositoryFromObjectPool(ctx, req.(*UnlinkRepositoryFromObjectPoolRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -296,6 +351,10 @@ var ObjectPoolService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "LinkRepositoryToObjectPool",
 			Handler:    _ObjectPoolService_LinkRepositoryToObjectPool_Handler,
+		},
+		{
+			MethodName: "UnlinkRepositoryFromObjectPool",
+			Handler:    _ObjectPoolService_UnlinkRepositoryFromObjectPool_Handler,
 		},
 		{
 			MethodName: "ReduplicateRepository",

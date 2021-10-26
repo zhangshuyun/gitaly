@@ -41,6 +41,6 @@ func TestReduplicate(t *testing.T) {
 	_, err = client.ReduplicateRepository(ctx, &gitalypb.ReduplicateRepositoryRequest{Repository: repo})
 	require.NoError(t, err)
 
-	require.NoError(t, os.RemoveAll(altPath))
+	require.NoError(t, pool.Unlink(ctx, repo))
 	gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-e", existingObjectID)
 }

@@ -155,3 +155,127 @@ func TestLinkNoPool(t *testing.T) {
 
 	assert.True(t, storage.IsGitDirectory(poolRepoPath))
 }
+
+func TestUnlink(t *testing.T) {
+	cfg, repo, _, _, client := setup(t, testserver.WithDisablePraefect())
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	deletedRepo, deletedRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+
+	pool := initObjectPool(t, cfg, cfg.Storages[0])
+	require.NoError(t, pool.Create(ctx, repo), "create pool")
+	require.NoError(t, pool.Link(ctx, repo))
+	require.NoError(t, pool.Link(ctx, deletedRepo))
+
+	require.NoError(t, os.RemoveAll(deletedRepoPath))
+	require.NoFileExists(t, deletedRepoPath)
+
+	pool2 := initObjectPool(t, cfg, cfg.Storages[0])
+	require.NoError(t, pool2.Create(ctx, repo), "create pool 2")
+
+	require.False(t, gittest.RemoteExists(t, cfg, pool.FullPath(), repo.GlRepository), "sanity check: remote exists in pool")
+	require.False(t, gittest.RemoteExists(t, cfg, pool.FullPath(), deletedRepo.GlRepository), "sanity check: remote exists in pool")
+
+	testCases := []struct {
+		desc string
+		req  *gitalypb.UnlinkRepositoryFromObjectPoolRequest
+		code codes.Code
+	}{
+		{
+			desc: "Successful request",
+			req: &gitalypb.UnlinkRepositoryFromObjectPoolRequest{
+				Repository: repo,
+				ObjectPool: pool.ToProto(),
+			},
+			code: codes.OK,
+		},
+		{
+			desc: "Not linked in the first place",
+			req: &gitalypb.UnlinkRepositoryFromObjectPoolRequest{
+				Repository: repo,
+				ObjectPool: pool2.ToProto(),
+			},
+			code: codes.OK,
+		},
+		{
+			desc: "No Repository",
+			req: &gitalypb.UnlinkRepositoryFromObjectPoolRequest{
+				Repository: nil,
+				ObjectPool: pool.ToProto(),
+			},
+			code: codes.InvalidArgument,
+		},
+		{
+			desc: "No ObjectPool",
+			req: &gitalypb.UnlinkRepositoryFromObjectPoolRequest{
+				Repository: repo,
+				ObjectPool: nil,
+			},
+			code: codes.InvalidArgument,
+		},
+		{
+			desc: "Repo not found",
+			req: &gitalypb.UnlinkRepositoryFromObjectPoolRequest{
+				Repository: deletedRepo,
+				ObjectPool: pool.ToProto(),
+			},
+			code: codes.OK,
+		},
+		{
+			desc: "Pool not found",
+			req: &gitalypb.UnlinkRepositoryFromObjectPoolRequest{
+				Repository: repo,
+				ObjectPool: &gitalypb.ObjectPool{
+					Repository: &gitalypb.Repository{
+						StorageName:  repo.GetStorageName(),
+						RelativePath: gittest.NewObjectPoolName(t), // does not exist
+					},
+				},
+			},
+			code: codes.NotFound,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			//nolint:staticcheck
+			_, err := client.UnlinkRepositoryFromObjectPool(ctx, tc.req)
+
+			if tc.code != codes.OK {
+				testhelper.RequireGrpcError(t, err, tc.code)
+				return
+			}
+
+			require.NoError(t, err, "call UnlinkRepositoryFromObjectPool")
+
+			remoteName := tc.req.Repository.GlRepository
+			require.False(t, gittest.RemoteExists(t, cfg, pool.FullPath(), remoteName), "remote should no longer exist in pool")
+		})
+	}
+}
+
+func TestUnlinkIdempotent(t *testing.T) {
+	cfg, repo, _, _, client := setup(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	pool := initObjectPool(t, cfg, cfg.Storages[0])
+	require.NoError(t, pool.Create(ctx, repo))
+	require.NoError(t, pool.Link(ctx, repo))
+
+	request := &gitalypb.UnlinkRepositoryFromObjectPoolRequest{
+		Repository: repo,
+		ObjectPool: pool.ToProto(),
+	}
+
+	//nolint:staticcheck
+	_, err := client.UnlinkRepositoryFromObjectPool(ctx, request)
+	require.NoError(t, err)
+
+	//nolint:staticcheck
+	_, err = client.UnlinkRepositoryFromObjectPool(ctx, request)
+	require.NoError(t, err)
+}

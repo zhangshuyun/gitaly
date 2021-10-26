@@ -26,6 +26,23 @@ service ObjectPoolService {
     };
   }
 
+  // UnlinkRepositoryFromObjectPool does not unlink the repository from the
+  // object pool as you'd think, but all it really does is to remove the object
+  // pool's remote pointing to the repository. And even this is a no-op given
+  // that we'd try to remove the remote by the repository's `GlRepository()`
+  // name, which we never create in the first place. To unlink repositories
+  // from an object pool, you'd really want to execute DisconnectGitAlternates
+  // to remove the repository's link to the pool's object database.
+  //
+  // This function is never called by anyone and highly misleading. It's thus
+  // deprecated and will be removed in v14.4.
+  rpc UnlinkRepositoryFromObjectPool(UnlinkRepositoryFromObjectPoolRequest) returns (UnlinkRepositoryFromObjectPoolResponse) {
+    option deprecated = true;
+    option (op_type) = {
+      op: MUTATOR
+    };
+  }
+
   rpc ReduplicateRepository(ReduplicateRepositoryRequest) returns (ReduplicateRepositoryResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -68,6 +85,14 @@ message LinkRepositoryToObjectPoolRequest {
   Repository repository = 2 [(target_repository)=true];
 }
 message LinkRepositoryToObjectPoolResponse {}
+
+// This RPC doesn't require the ObjectPool as it will remove the alternates file
+// from the pool participant. The caller is responsible no data loss occurs.
+message UnlinkRepositoryFromObjectPoolRequest {
+  Repository repository = 1 [(target_repository)=true]; // already specified as the target repo field
+  ObjectPool object_pool = 2 [(additional_repository)=true];
+}
+message UnlinkRepositoryFromObjectPoolResponse {}
 
 message ReduplicateRepositoryRequest {
   Repository repository = 1 [(target_repository)=true];

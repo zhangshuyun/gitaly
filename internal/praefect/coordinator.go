@@ -86,12 +86,13 @@ var transactionRPCs = map[string]transactionsCondition{
 
 	// The following RPCs currently aren't transactional, but we may consider making them
 	// transactional in the future if the need arises.
-	"/gitaly.ObjectPoolService/CreateObjectPool":           transactionsDisabled,
-	"/gitaly.ObjectPoolService/DeleteObjectPool":           transactionsDisabled,
-	"/gitaly.ObjectPoolService/DisconnectGitAlternates":    transactionsDisabled,
-	"/gitaly.ObjectPoolService/LinkRepositoryToObjectPool": transactionsDisabled,
-	"/gitaly.ObjectPoolService/ReduplicateRepository":      transactionsDisabled,
-	"/gitaly.RepositoryService/RenameRepository":           transactionsDisabled,
+	"/gitaly.ObjectPoolService/CreateObjectPool":               transactionsDisabled,
+	"/gitaly.ObjectPoolService/DeleteObjectPool":               transactionsDisabled,
+	"/gitaly.ObjectPoolService/DisconnectGitAlternates":        transactionsDisabled,
+	"/gitaly.ObjectPoolService/LinkRepositoryToObjectPool":     transactionsDisabled,
+	"/gitaly.ObjectPoolService/ReduplicateRepository":          transactionsDisabled,
+	"/gitaly.ObjectPoolService/UnlinkRepositoryFromObjectPool": transactionsDisabled,
+	"/gitaly.RepositoryService/RenameRepository":               transactionsDisabled,
 
 	// The following list of RPCs are considered idempotent RPCs: while they write into the
 	// target repository, this shouldn't ever have any user-visible impact given that they're
