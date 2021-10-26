@@ -80,7 +80,11 @@ func (r *nodeManagerRouter) RouteRepositoryMutator(ctx context.Context, virtualS
 		return RepositoryMutatorRoute{}, fmt.Errorf("get shard: %w", err)
 	}
 
-	replicaPath, consistentStorages, err := r.rs.GetConsistentStorages(ctx, virtualStorage, relativePath)
+	// The replica path is ignored as Rails' tests are the only user of NodeManagerRouter. The tests don't
+	// set up a database, so the RepositoryStore here is always a mock. The mock doesn't know about the replica
+	// paths of repositories and thus returns an empty string. This breaks the tests. Instead, we'll just keep
+	// using the relative path in NodeManagerRouter.
+	_, consistentStorages, err := r.rs.GetConsistentStorages(ctx, virtualStorage, relativePath)
 	if err != nil && !errors.As(err, new(commonerr.RepositoryNotFoundError)) {
 		return RepositoryMutatorRoute{}, fmt.Errorf("consistent storages: %w", err)
 	}
@@ -111,7 +115,7 @@ func (r *nodeManagerRouter) RouteRepositoryMutator(ctx context.Context, virtualS
 	}
 
 	return RepositoryMutatorRoute{
-		ReplicaPath:        replicaPath,
+		ReplicaPath:        relativePath,
 		Primary:            toRouterNode(shard.Primary),
 		Secondaries:        toRouterNodes(participatingSecondaries),
 		ReplicationTargets: replicationTargets,
