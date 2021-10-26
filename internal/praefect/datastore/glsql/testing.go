@@ -85,22 +85,6 @@ func (db DB) RequireRowsInTable(t *testing.T, tname string, n int) {
 	require.Equal(t, n, count, "unexpected amount of rows in table: %d instead of %d", count, n)
 }
 
-// TruncateAll removes all data from known set of tables.
-func (db DB) TruncateAll(t testing.TB) {
-	db.Truncate(t,
-		"replication_queue_job_lock",
-		"replication_queue",
-		"replication_queue_lock",
-		"node_status",
-		"shard_primaries",
-		"storage_repositories",
-		"repositories",
-		"virtual_storages",
-		"repository_assignments",
-		"storage_cleanups",
-	)
-}
-
 // MustExec executes `q` with `args` and verifies there are no errors.
 func (db DB) MustExec(t testing.TB, q string, args ...interface{}) {
 	_, err := db.DB.Exec(q, args...)
