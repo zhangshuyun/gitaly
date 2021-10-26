@@ -510,7 +510,7 @@ func (rs *PostgresRepositoryStore) GetConsistentStoragesByRepositoryID(ctx conte
 	return rs.getConsistentStorages(ctx, `
 SELECT replica_path, ARRAY_AGG(storage)
 FROM repositories
-JOIN storage_repositories USING (repository_id, generation)
+JOIN storage_repositories USING (repository_id, relative_path, generation)
 WHERE repository_id = $1
 GROUP BY replica_path
 	`, repositoryID)
@@ -521,7 +521,7 @@ func (rs *PostgresRepositoryStore) GetConsistentStorages(ctx context.Context, vi
 	replicaPath, storages, err := rs.getConsistentStorages(ctx, `
 SELECT replica_path, ARRAY_AGG(storage)
 FROM repositories
-JOIN storage_repositories USING (repository_id, generation)
+JOIN storage_repositories USING (repository_id, relative_path, generation)
 WHERE repositories.virtual_storage = $1
 AND repositories.relative_path = $2
 GROUP BY replica_path

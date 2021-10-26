@@ -1083,6 +1083,40 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			require.Empty(t, secondaries)
 			require.Empty(t, replicaPath)
 		})
+
+		t.Run("replicas pending rename are considered outdated", func(t *testing.T) {
+			rs, _ := newStore(t, nil)
+
+			require.NoError(t, rs.CreateRepository(ctx, 1, vs, "original-path", "storage-1", []string{"storage-2"}, nil, true, false))
+			replicaPath, storages, err := rs.GetConsistentStorages(ctx, vs, "original-path")
+			require.NoError(t, err)
+			require.Equal(t, "original-path", replicaPath)
+			require.Equal(t, map[string]struct{}{"storage-1": {}, "storage-2": {}}, storages)
+			replicaPath, storages, err = rs.GetConsistentStoragesByRepositoryID(ctx, 1)
+			require.NoError(t, err)
+			require.Equal(t, "original-path", replicaPath)
+			require.Equal(t, map[string]struct{}{"storage-1": {}, "storage-2": {}}, storages)
+
+			require.NoError(t, rs.RenameRepository(ctx, vs, "original-path", "storage-1", "new-path"))
+			replicaPath, storages, err = rs.GetConsistentStorages(ctx, vs, "new-path")
+			require.NoError(t, err)
+			require.Equal(t, "new-path", replicaPath)
+			require.Equal(t, map[string]struct{}{"storage-1": {}}, storages)
+			replicaPath, storages, err = rs.GetConsistentStoragesByRepositoryID(ctx, 1)
+			require.NoError(t, err)
+			require.Equal(t, "new-path", replicaPath)
+			require.Equal(t, map[string]struct{}{"storage-1": {}}, storages)
+
+			require.NoError(t, rs.RenameRepository(ctx, vs, "original-path", "storage-2", "new-path"))
+			replicaPath, storages, err = rs.GetConsistentStorages(ctx, vs, "new-path")
+			require.NoError(t, err)
+			require.Equal(t, "new-path", replicaPath)
+			require.Equal(t, map[string]struct{}{"storage-1": {}, "storage-2": {}}, storages)
+			replicaPath, storages, err = rs.GetConsistentStoragesByRepositoryID(ctx, 1)
+			require.NoError(t, err)
+			require.Equal(t, "new-path", replicaPath)
+			require.Equal(t, map[string]struct{}{"storage-1": {}, "storage-2": {}}, storages)
+		})
 	})
 
 	t.Run("DeleteInvalidRepository", func(t *testing.T) {
