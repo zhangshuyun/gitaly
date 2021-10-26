@@ -102,8 +102,8 @@ func (o *objectReader) isClosed() bool {
 	return o.closed
 }
 
-func (o *objectReader) consume(nBytes int) {
-	o.n -= int64(nBytes)
+func (o *objectReader) consume(nBytes int64) {
+	o.n -= nBytes
 	if o.n < 1 {
 		panic("too many bytes read from batch")
 	}
@@ -182,6 +182,24 @@ func (o *Object) Read(p []byte) (int, error) {
 	}
 
 	n, err := o.dataReader.Read(p)
+	o.parent.consume(int64(n))
+	return n, err
+}
+
+// WriteTo implements the io.WriterTo interface. It defers the write to the embedded object reader
+// via `io.Copy()`, which in turn will use `WriteTo()` or `ReadFrom()` in case these interfaces are
+// implemented by the respective reader or writer.
+func (o *Object) WriteTo(w io.Writer) (int64, error) {
+	o.parent.Lock()
+	defer o.parent.Unlock()
+
+	if o.parent.closed {
+		return 0, os.ErrClosed
+	}
+
+	// While the `io.LimitedReader` does not support WriteTo, `io.Copy()` will make use of
+	// `ReadFrom()` in case the writer implements it.
+	n, err := io.Copy(w, &o.dataReader)
 	o.parent.consume(n)
 	return n, err
 }

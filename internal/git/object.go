@@ -15,4 +15,6 @@ type Object interface {
 	ObjectInfo
 	// Reader reads object data.
 	io.Reader
+	// WriterTo writes object data into a reader.
+	io.WriterTo
 }

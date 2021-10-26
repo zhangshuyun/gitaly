@@ -91,3 +91,7 @@ func (o *staticObject) ObjectType() string {
 func (o *staticObject) Read(p []byte) (int, error) {
 	return o.reader.Read(p)
 }
+
+func (o *staticObject) WriteTo(w io.Writer) (int64, error) {
+	return io.Copy(w, o.reader)
+}

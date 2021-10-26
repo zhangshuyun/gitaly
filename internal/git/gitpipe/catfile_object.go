@@ -121,3 +121,11 @@ func (r *synchronizingObject) Read(p []byte) (int, error) {
 	}
 	return n, err
 }
+
+func (r *synchronizingObject) WriteTo(w io.Writer) (int64, error) {
+	n, err := r.Object.WriteTo(w)
+	r.closeOnce.Do(func() {
+		close(r.doneCh)
+	})
+	return n, err
+}
