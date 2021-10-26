@@ -9,11 +9,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/bootstrap"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
@@ -101,10 +103,10 @@ func TestRemoveRepository_Exec(t *testing.T) {
 	starterConfigs, err := getStarterConfigs(conf)
 	require.NoError(t, err)
 	stopped := make(chan struct{})
+	bootstrapper := bootstrap.NewNoop()
 	go func() {
 		defer close(stopped)
-		err := run(starterConfigs, conf)
-		assert.EqualError(t, err, `received signal "terminated"`)
+		assert.NoError(t, run(starterConfigs, conf, bootstrapper, prometheus.NewRegistry()))
 	}()
 
 	cc, err := client.Dial("unix://"+conf.SocketPath, nil)
@@ -115,29 +117,10 @@ func TestRemoveRepository_Exec(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	createRepo := func(t *testing.T, storageName, relativePath string) *gitalypb.Repository {
-		t.Helper()
-		repo := &gitalypb.Repository{
-			StorageName:  storageName,
-			RelativePath: relativePath,
-		}
-		for i := 0; true; i++ {
-			_, err := repoClient.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: repo})
-			if err != nil {
-				require.Regexp(t, "(no healthy nodes)|(no such file or directory)|(connection refused)", err.Error())
-				require.Less(t, i, 100, "praefect doesn't serve for too long")
-				time.Sleep(50 * time.Millisecond)
-			} else {
-				break
-			}
-		}
-		return repo
-	}
-
 	praefectStorage := conf.VirtualStorages[0].Name
 
 	t.Run("ok", func(t *testing.T) {
-		repo := createRepo(t, praefectStorage, "path/to/test/repo")
+		repo := createRepo(t, ctx, repoClient, praefectStorage, t.Name())
 		cmd := &removeRepository{
 			logger:         testhelper.NewTestLogger(t),
 			virtualStorage: repo.StorageName,
@@ -158,7 +141,7 @@ func TestRemoveRepository_Exec(t *testing.T) {
 	})
 
 	t.Run("no info about repository on praefect", func(t *testing.T) {
-		repo := createRepo(t, praefectStorage, "path/to/test/repo")
+		repo := createRepo(t, ctx, repoClient, praefectStorage, t.Name())
 		repoStore := datastore.NewPostgresRepositoryStore(db.DB, nil)
 		require.NoError(t, repoStore.DeleteRepository(
 			ctx, repo.StorageName, repo.RelativePath, g1Cfg.Storages[0].Name,
@@ -191,7 +174,7 @@ func TestRemoveRepository_Exec(t *testing.T) {
 	})
 
 	t.Run("one of gitalies is out of service", func(t *testing.T) {
-		repo := createRepo(t, praefectStorage, "path/to/test/repo")
+		repo := createRepo(t, ctx, repoClient, praefectStorage, t.Name())
 		g2Srv.Shutdown()
 
 		logger := testhelper.NewTestLogger(t)
