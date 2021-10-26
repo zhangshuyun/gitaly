@@ -6,6 +6,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/ps"
 )
 
@@ -34,12 +35,16 @@ type monitorProcess struct {
 func monitorRss(procs <-chan monitorProcess, done chan<- struct{}, events chan<- Event, name string, threshold int) {
 	log.WithField("supervisor.name", name).WithField("supervisor.rss_threshold", threshold).Info("starting RSS monitor")
 
-	t := time.NewTicker(15 * time.Second)
+	t := helper.NewTimerTicker(15 * time.Second)
 	defer t.Stop()
 
 	defer close(done)
 
 	for mp := range procs {
+		// There is no need for the ticker to run on first iteration given that we'd reset
+		// it anyway.
+		t.Stop()
+
 	monitorLoop:
 		for {
 			rss, err := ps.RSS(mp.pid)
@@ -64,10 +69,16 @@ func monitorRss(procs <-chan monitorProcess, done chan<- struct{}, events chan<-
 				}
 			}
 
+			// Reset the timer such that we do the next check after 15 seconds.
+			// Otherwise, the first two loops for the current process may trigger in
+			// quick succession given that we may have waited some time to wait for the
+			// process during which the ticker would have already counted down.
+			t.Reset()
+
 			select {
 			case <-mp.wait:
 				break monitorLoop
-			case <-t.C:
+			case <-t.C():
 			}
 		}
 	}
