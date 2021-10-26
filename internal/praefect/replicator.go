@@ -135,6 +135,7 @@ func (dr defaultReplicator) Replicate(ctx context.Context, event datastore.Repli
 		return dr.rs.SetGeneration(ctx,
 			event.Job.RepositoryID,
 			event.Job.TargetNodeStorage,
+			event.Job.RelativePath,
 			generation,
 		)
 	}

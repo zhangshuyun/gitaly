@@ -88,7 +88,7 @@ type RepositoryStore interface {
 	IncrementGeneration(ctx context.Context, repositoryID int64, primary string, secondaries []string) error
 	// SetGeneration sets the repository's generation on the given storage. If the generation is higher
 	// than the virtual storage's generation, it is set to match as well to guarantee monotonic increments.
-	SetGeneration(ctx context.Context, repositoryID int64, storage string, generation int) error
+	SetGeneration(ctx context.Context, repositoryID int64, storage, relativePath string, generation int) error
 	// GetReplicatedGeneration returns the generation propagated by applying the replication. If the generation would
 	// downgrade, a DowngradeAttemptedError is returned.
 	GetReplicatedGeneration(ctx context.Context, repositoryID int64, source, target string) (int, error)
@@ -220,7 +220,7 @@ SELECT
 	return nil
 }
 
-func (rs *PostgresRepositoryStore) SetGeneration(ctx context.Context, repositoryID int64, storage string, generation int) error {
+func (rs *PostgresRepositoryStore) SetGeneration(ctx context.Context, repositoryID int64, storage, relativePath string, generation int) error {
 	const q = `
 WITH repository AS (
 	UPDATE repositories SET generation = $3
@@ -238,16 +238,17 @@ INSERT INTO storage_repositories (
 SELECT
 	repository_id,
 	virtual_storage,
-	relative_path,
+	$4,
 	$2,
 	$3
 FROM repositories
 WHERE repository_id = $1
-ON CONFLICT (virtual_storage, relative_path, storage) DO UPDATE SET
+ON CONFLICT (repository_id, storage) DO UPDATE SET
+	relative_path = EXCLUDED.relative_path,
 	generation = EXCLUDED.generation
 `
 
-	_, err := rs.db.ExecContext(ctx, q, repositoryID, storage, generation)
+	_, err := rs.db.ExecContext(ctx, q, repositoryID, storage, generation, relativePath)
 	return err
 }
 

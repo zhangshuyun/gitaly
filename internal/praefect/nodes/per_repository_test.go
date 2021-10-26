@@ -492,7 +492,7 @@ func TestPerRepositoryElector(t *testing.T) {
 							require.NoError(t, rs.CreateRepository(ctx, repositoryID, virtualStorage, relativePath, storage, nil, nil, false, false))
 						}
 
-						require.NoError(t, rs.SetGeneration(ctx, repositoryID, storage, record.generation))
+						require.NoError(t, rs.SetGeneration(ctx, repositoryID, storage, relativePath, record.generation))
 
 						if record.assigned {
 							_, err := db.ExecContext(ctx, `
