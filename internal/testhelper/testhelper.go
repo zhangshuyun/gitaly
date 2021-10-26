@@ -208,12 +208,18 @@ func WriteExecutable(t testing.TB, path string, content []byte) {
 }
 
 // ModifyEnvironment will change an environment variable and return a func suitable
-// for `defer` to change the value back.
+// for `defer` to change the value back. If the given value is empty, then the envvar will be
+// unset.
 func ModifyEnvironment(t testing.TB, key string, value string) func() {
 	t.Helper()
 
 	oldValue, hasOldValue := os.LookupEnv(key)
-	require.NoError(t, os.Setenv(key, value))
+	if value == "" {
+		require.NoError(t, os.Unsetenv(key))
+	} else {
+		require.NoError(t, os.Setenv(key, value))
+	}
+
 	return func() {
 		if hasOldValue {
 			require.NoError(t, os.Setenv(key, oldValue))
