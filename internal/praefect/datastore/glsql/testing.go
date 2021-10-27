@@ -331,3 +331,86 @@ func getDatabaseEnvironment(t testing.TB) map[string]string {
 
 	return databaseEnv
 }
+
+// testDataMigrations function should be used to include additional migration scripts into the
+// existing set of migrations. All migrations applied in order. The ordering is done via numeric
+// prefix of the migration. To insert migration in between some existing migrations you should
+// include it with the prefix that will be greater that the lowest and lesser than the upper one.
+func testDataMigrations() []*migrate.Migration {
+	return []*migrate.Migration{
+		{
+			Id: "10000000000000_helpers",
+			Up: []string{
+				// random_hex_string generates a random HEX string with requested length.
+				`-- +migrate StatementBegin
+				CREATE OR REPLACE FUNCTION random_hex_string(length INTEGER) RETURNS TEXT AS
+				$$
+				DECLARE
+				    chars TEXT[] := '{0,1,2,3,4,5,6,7,8,9,a,b,c,d,e,f}';
+				    result TEXT := '';
+				    i INTEGER := 0;
+				BEGIN
+				    IF length < 0 THEN
+					RAISE EXCEPTION 'Given length cannot be less than 0';
+				    END IF;
+				    FOR i IN 1..length LOOP
+					    result := result || chars[1+RANDOM()*(ARRAY_LENGTH(chars, 1)-1)];
+					END LOOP;
+				    RETURN result;
+				END;
+				$$ LANGUAGE plpgsql`,
+
+				// repository_relative_path generates a relative path for the repository.
+				// It has a standard format: @hashed/ab/cd/abcd000000000000000000000000000000000000000000000000000000000000.git
+				`-- +migrate StatementBegin
+				CREATE OR REPLACE FUNCTION repository_relative_path() RETURNS TEXT AS
+				$$
+				DECLARE
+				    result TEXT;
+				BEGIN
+				    SELECT CONCAT_WS('/', '@hashed', SUBSTR(path, 1, 2), SUBSTR(path, 3, 2), path || '.git') INTO result
+				    FROM (SELECT random_hex_string(64) AS path) t;
+				    RETURN result;
+				END;
+				$$ LANGUAGE plpgsql
+				-- +migrate StatementEnd`,
+			},
+		},
+		// Verify 20210906145021_link_repository_id migration runs without issues.
+		{
+			// Applied before 20210906145021_link_repository_id
+			// Migration populates database tables with artificial data.
+			// It is needed to check execution of the 20210906145021_link_repository_id migration.
+			Id: "20210906145020_artificial_repositories",
+			Up: []string{
+				`ALTER TABLE storage_repositories DISABLE TRIGGER notify_on_insert`,
+				`INSERT INTO storage_repositories (virtual_storage, relative_path, storage, generation)
+				SELECT virtual_storages.name, repositories.relative_path, storages.name, 1
+				FROM (SELECT UNNEST(ARRAY['artificial-praefect-1','artificial-praefect-2']) AS name) virtual_storages
+					 CROSS JOIN
+				     (SELECT UNNEST(ARRAY['artificial-gitaly-1','artificial-gitaly-2','artificial-gitaly-3']) AS name) storages
+					 CROSS JOIN
+				     (SELECT generate_series(1,300), repository_relative_path() AS relative_path) repositories`,
+
+				`INSERT INTO repositories (virtual_storage, relative_path, generation)
+				SELECT DISTINCT virtual_storage, relative_path, 1
+				FROM storage_repositories`,
+				`ALTER TABLE storage_repositories ENABLE TRIGGER notify_on_insert`,
+			},
+		},
+		{
+			// Applied after 20210906145021_link_repository_id
+			// Migration removes artificial data from the repository that was used to verify migration.
+			Id: "20210906145022_artificial_repositories_cleanup",
+			Up: []string{
+				`ALTER TABLE storage_repositories DISABLE TRIGGER notify_on_delete`,
+				`DELETE FROM storage_repositories WHERE virtual_storage IN ('artificial-praefect-1','artificial-praefect-2')`,
+				`ALTER TABLE storage_repositories ENABLE TRIGGER notify_on_delete`,
+
+				`ALTER TABLE repositories DISABLE TRIGGER notify_on_delete`,
+				`DELETE FROM repositories WHERE virtual_storage IN ('artificial-praefect-1','artificial-praefect-2')`,
+				`ALTER TABLE repositories ENABLE TRIGGER notify_on_delete`,
+			},
+		},
+	}
+}
