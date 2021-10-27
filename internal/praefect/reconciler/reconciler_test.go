@@ -309,7 +309,6 @@ func TestReconciler(t *testing.T) {
 			existingJobs: generateExistingJobs(
 				[]datastore.JobState{
 					datastore.JobStateCompleted,
-					datastore.JobStateCancelled,
 					datastore.JobStateDead,
 				},
 				[]datastore.ChangeType{datastore.DeleteRepo, datastore.DeleteReplica},
@@ -346,7 +345,6 @@ func TestReconciler(t *testing.T) {
 				[]datastore.JobState{
 					datastore.JobStateDead,
 					datastore.JobStateCompleted,
-					datastore.JobStateCancelled,
 				},
 				[]datastore.ChangeType{datastore.UpdateRepo},
 				datastore.ReplicationJob{
@@ -381,7 +379,6 @@ func TestReconciler(t *testing.T) {
 			},
 			existingJobs: generateExistingJobs(
 				[]datastore.JobState{
-					datastore.JobStateCancelled,
 					datastore.JobStateCompleted,
 					datastore.JobStateDead,
 					datastore.JobStateReady,
@@ -813,14 +810,6 @@ func TestReconciler(t *testing.T) {
 						SourceNodeStorage: "storage-2",
 					},
 				},
-				{
-					State: datastore.JobStateCancelled,
-					Job: datastore.ReplicationJob{
-						VirtualStorage:    "virtual-storage-1",
-						RelativePath:      "relative-path-1",
-						SourceNodeStorage: "storage-2",
-					},
-				},
 			},
 			reconciliationJobs: jobs{
 				{
@@ -984,15 +973,6 @@ func TestReconciler(t *testing.T) {
 				},
 				{
 					State: datastore.JobStateDead,
-					Job: datastore.ReplicationJob{
-						Change:            datastore.DeleteReplica,
-						VirtualStorage:    "virtual-storage-1",
-						RelativePath:      "relative-path-1",
-						SourceNodeStorage: "storage-2",
-					},
-				},
-				{
-					State: datastore.JobStateCancelled,
 					Job: datastore.ReplicationJob{
 						Change:            datastore.DeleteReplica,
 						VirtualStorage:    "virtual-storage-1",

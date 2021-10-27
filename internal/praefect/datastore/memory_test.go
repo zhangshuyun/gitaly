@@ -212,6 +212,6 @@ func TestMemoryReplicationEventQueue_ConcurrentAccess(t *testing.T) {
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
 	go checkScenario(wg, eventType1, JobStateCompleted)
-	go checkScenario(wg, eventType2, JobStateCancelled)
+	go checkScenario(wg, eventType2, JobStateDead)
 	wg.Wait()
 }

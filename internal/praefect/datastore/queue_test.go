@@ -37,18 +37,6 @@ func TestPostgresReplicationEventQueue_DeleteReplicaUniqueIndex(t *testing.T) {
 			succeeds: true,
 		},
 		{
-			desc: "allowed if existing cancelled job",
-			existingJob: &ReplicationEvent{
-				State: JobStateCancelled,
-				Job: ReplicationJob{
-					Change:         DeleteReplica,
-					VirtualStorage: "praefect",
-					RelativePath:   "relative-path",
-				},
-			},
-			succeeds: true,
-		},
-		{
 			desc: "allowed if existing dead job",
 			existingJob: &ReplicationEvent{
 				State: JobStateDead,

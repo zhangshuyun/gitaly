@@ -26,9 +26,6 @@ const (
 	JobStateInProgress = JobState("in_progress")
 	// JobStateCompleted indicates the job is now complete.
 	JobStateCompleted = JobState("completed")
-	// JobStateCancelled indicates the job was cancelled. This can occur if the
-	// job is no longer relevant (e.g. a node is moved out of a repository).
-	JobStateCancelled = JobState("cancelled")
 	// JobStateFailed indicates the job did not succeed. The Replicator will retry
 	// failed jobs.
 	JobStateFailed = JobState("failed")
