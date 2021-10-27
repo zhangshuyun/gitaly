@@ -7,16 +7,18 @@ import (
 	"strings"
 )
 
-// RefsDecoder parses the output format of git-show-ref
+// RefsDecoder parses git output for git references
 type RefsDecoder struct {
 	r   *bufio.Reader
+	sep string
 	err error
 }
 
-// NewRefsDecoder returns a new RefsDecoder
-func NewRefsDecoder(r io.Reader) *RefsDecoder {
+// NewShowRefDecoder returns a new RefsDecoder to decode the output from git-show-ref
+func NewShowRefDecoder(r io.Reader) *RefsDecoder {
 	return &RefsDecoder{
-		r: bufio.NewReader(r),
+		r:   bufio.NewReader(r),
+		sep: " ",
 	}
 }
 
@@ -34,7 +36,7 @@ func (d *RefsDecoder) Decode(ref *Reference) error {
 		line = line[:len(line)-1]
 	}
 
-	splits := strings.SplitN(line, " ", 2)
+	splits := strings.SplitN(line, d.sep, 2)
 	if len(splits) != 2 {
 		if d.err != nil {
 			return d.err
