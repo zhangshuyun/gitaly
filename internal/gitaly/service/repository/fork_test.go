@@ -200,8 +200,7 @@ func injectCustomCATestCerts(t *testing.T, cfg *config.Cfg) *x509.CertPool {
 	cfg.TLS.CertPath = certFile
 	cfg.TLS.KeyPath = keyFile
 
-	revertEnv := testhelper.ModifyEnvironment(t, gitalyx509.SSLCertFile, certFile)
-	t.Cleanup(revertEnv)
+	testhelper.ModifyEnvironment(t, gitalyx509.SSLCertFile, certFile)
 
 	caPEMBytes := testhelper.MustReadFile(t, certFile)
 	pool := x509.NewCertPool()

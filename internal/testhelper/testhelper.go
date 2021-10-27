@@ -207,25 +207,19 @@ func WriteExecutable(t testing.TB, path string, content []byte) {
 	})
 }
 
-// ModifyEnvironment will change an environment variable and return a func suitable
-// for `defer` to change the value back. If the given value is empty, then the envvar will be
-// unset.
-func ModifyEnvironment(t testing.TB, key string, value string) func() {
+// ModifyEnvironment will change an environment variable. If the given value is empty, then the
+// envvar will be unset. The environment must not be changed in parallel tests given that it would
+// also impact other concurrently running tests.
+func ModifyEnvironment(t testing.TB, key string, value string) {
 	t.Helper()
 
-	oldValue, hasOldValue := os.LookupEnv(key)
+	// We use `t.Setenv()` here first, which guards us against setting environment variables in
+	// case the test is using `t.Parallel()`. Given that there is no `t.Unsetenv()`, we'll
+	// manually unset the key via `os.Unsetenv()` afterwards when we know that we're not in a
+	// parallel test.
+	t.Setenv(key, value)
 	if value == "" {
 		require.NoError(t, os.Unsetenv(key))
-	} else {
-		require.NoError(t, os.Setenv(key, value))
-	}
-
-	return func() {
-		if hasOldValue {
-			require.NoError(t, os.Setenv(key, oldValue))
-		} else {
-			require.NoError(t, os.Unsetenv(key))
-		}
 	}
 }
 

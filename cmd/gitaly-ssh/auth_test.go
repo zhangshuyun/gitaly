@@ -97,8 +97,7 @@ func TestConnectivity(t *testing.T) {
 			addr: func(t *testing.T, cfg config.Cfg) (string, string) {
 				certFile, keyFile := testhelper.GenerateCerts(t)
 
-				revertEnv := testhelper.ModifyEnvironment(t, x509.SSLCertFile, certFile)
-				t.Cleanup(revertEnv)
+				testhelper.ModifyEnvironment(t, x509.SSLCertFile, certFile)
 
 				cfg.TLSListenAddr = "localhost:0"
 				cfg.TLS = config.TLS{

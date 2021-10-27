@@ -20,8 +20,7 @@ func TestStolenPid(t *testing.T) {
 	pidFile, err := os.Create(filepath.Join(tempDir, "pidfile"))
 	require.NoError(t, err)
 
-	cleanup := testhelper.ModifyEnvironment(t, bootstrap.EnvPidFile, pidFile.Name())
-	defer cleanup()
+	testhelper.ModifyEnvironment(t, bootstrap.EnvPidFile, pidFile.Name())
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

@@ -429,8 +429,7 @@ value = "second-value"
 }
 
 func TestSetGitPath(t *testing.T) {
-	cleanup := testhelper.ModifyEnvironment(t, "GITALY_TESTING_GIT_BINARY", "")
-	defer cleanup()
+	testhelper.ModifyEnvironment(t, "GITALY_TESTING_GIT_BINARY", "")
 
 	t.Run("set in config", func(t *testing.T) {
 		cfg := Cfg{Git: Git{BinPath: "/path/to/myGit"}}
@@ -439,8 +438,7 @@ func TestSetGitPath(t *testing.T) {
 	})
 
 	t.Run("set using env var", func(t *testing.T) {
-		cleanup := testhelper.ModifyEnvironment(t, "GITALY_TESTING_GIT_BINARY", "/path/to/env_git")
-		defer cleanup()
+		testhelper.ModifyEnvironment(t, "GITALY_TESTING_GIT_BINARY", "/path/to/env_git")
 
 		cfg := Cfg{Git: Git{}}
 		require.NoError(t, cfg.SetGitPath())
@@ -456,8 +454,7 @@ func TestSetGitPath(t *testing.T) {
 	})
 
 	t.Run("doesn't exist in the system", func(t *testing.T) {
-		cleanup := testhelper.ModifyEnvironment(t, "PATH", "")
-		defer cleanup()
+		testhelper.ModifyEnvironment(t, "PATH", "")
 
 		cfg := Cfg{Git: Git{}}
 		assert.EqualError(t, cfg.SetGitPath(), `"git" executable not found, set path to it in the configuration file or add it to the PATH`)
