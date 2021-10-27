@@ -22,6 +22,23 @@ func NewShowRefDecoder(r io.Reader) *RefsDecoder {
 	}
 }
 
+// ForEachRefFormat can be passed to the `for-each-ref` `--format` flag
+// to retrieve references that can be parsed by `NewForEachRefDecoder`.
+const ForEachRefFormat = "%(objectname)%00%(refname)"
+
+// ForEachRefSymbolicFormat can be passed to the `for-each-ref` `--format` flag
+// to retrieve references that can be parsed by `NewForEachRefDecoder` and that
+// distinguishes symbolic references.
+const ForEachRefSymbolicFormat = "%(objectname)%00%(refname)%00%(symref)"
+
+// NewForEachRefDecoder ...
+func NewForEachRefDecoder(r io.Reader) *RefsDecoder {
+	return &RefsDecoder{
+		r:   bufio.NewReader(r),
+		sep: "\x00",
+	}
+}
+
 // Decode reads and parses the next reference. Returns io.EOF when the end of
 // the reader has been reached.
 func (d *RefsDecoder) Decode(ref *Reference) error {
@@ -36,15 +53,18 @@ func (d *RefsDecoder) Decode(ref *Reference) error {
 		line = line[:len(line)-1]
 	}
 
-	splits := strings.SplitN(line, d.sep, 2)
-	if len(splits) != 2 {
+	splits := strings.SplitN(line, d.sep, 3)
+	switch {
+	case len(splits) == 3 && len(splits[2]) > 0:
+		*ref = NewSymbolicReference(ReferenceName(splits[1]), splits[0])
+	case len(splits) >= 2:
+		*ref = NewReference(ReferenceName(splits[1]), splits[0])
+	default:
 		if d.err != nil {
 			return d.err
 		}
 		return fmt.Errorf("refs decoder: invalid line: %q", line)
 	}
-
-	*ref = NewReference(ReferenceName(splits[1]), splits[0])
 
 	return nil
 }

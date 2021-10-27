@@ -93,7 +93,7 @@ func (repo *Repo) GetReferences(ctx context.Context, patterns ...string) ([]git.
 }
 
 func (repo *Repo) getReferences(ctx context.Context, limit uint, patterns ...string) ([]git.Reference, error) {
-	flags := []git.Option{git.Flag{Name: "--format=%(refname)%00%(objectname)%00%(symref)"}}
+	flags := []git.Option{git.ValueFlag{Name: "--format", Value: git.ForEachRefSymbolicFormat}}
 	if limit > 0 {
 		flags = append(flags, git.Flag{Name: fmt.Sprintf("--count=%d", limit)})
 	}
