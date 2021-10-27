@@ -14,14 +14,14 @@ required_labels = %w[devops::create]
 required_labels << "group::gitaly" if GITALY_TEAM.include?(gitlab.mr_author)
 
 TYPE_TO_LABEL = {
-  'added' => %w[feature feature::addition],
-  'fixed' => ['bug'],
-  'changed' => %w[feature feature::maintenance],
-  'deprecated' => %w[feature feature::maintenance],
+  'added' => %w[type::feature feature::addition],
+  'fixed' => ['type::bug'],
+  'changed' => ['type::maintenance'],
+  'deprecated' => ['type::maintenance'],
   'security' => ['security'],
-  'removed' => %w[feature feature::maintenance],
-  'performance' => %w[feature feature::maintenance performance],
-  'other' => ['tooling'],
+  'removed' => ['type::maintenance'],
+  'performance' => %w[type::maintenance performance],
+  'other' => ['type::tooling'],
   nil => []
 }
 
