@@ -32,7 +32,7 @@ end
 
 NO_CHANGELOG_LABELS = [
   'documentation',
-  'tooling',
+  'type::tooling',
   'tooling::pipelines',
   'tooling::workflow',
   'ci-build',
