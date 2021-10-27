@@ -13,7 +13,8 @@ variables:
   DOCKER_DRIVER: overlay2
   SAST_DISABLE_DIND: "true"
   SAST_DEFAULT_ANALYZERS: "gosec"
-  GIT_VERSION: "v2.33.0"
+  # We use Gitaly's Git version by default.
+  GIT_VERSION: "default"
   GO_VERSION: "1.17"
   RUBY_VERSION: "2.7"
   POSTGRES_VERSION: "12.6-alpine"
@@ -51,7 +52,7 @@ danger-review:
       fi
 
 .cache: &cache_definition
-  cache:
+  cache: &cache_configuration
     key:
       files:
         - Makefile
@@ -59,24 +60,12 @@ danger-review:
       prefix: git-${GIT_VERSION}-ruby-${RUBY_VERSION}
     paths:
       - _build/deps
-      - _build/Makefile.sha256
       - ruby/vendor/bundle
+    policy: pull
 
 .test_template: &test_definition
   <<: *cache_definition
   stage: test
-  # Override the cache definition for pull
-  cache:
-    key:
-      files:
-        - Makefile
-        - ruby/Gemfile.lock
-      prefix: git-${GIT_VERSION}-ruby-${RUBY_VERSION}
-    paths:
-      - _build/deps
-      - _build/Makefile.sha256
-      - ruby/vendor/bundle
-    policy: pull
   artifacts:
     paths:
     - ruby/tmp/gitaly-rspec-test.log
@@ -131,26 +120,24 @@ proto:
     when: on_failure
 
 build:
-  <<: *cache_definition
   stage: build
   image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.31
+  cache:
+    <<: *cache_configuration
+    policy: pull-push
   script:
     - go version
     - make all git
     - _support/test-boot .
   parallel:
     matrix:
-      # These definitions are for the non-default Git versions. We do not want
-      # to apply any additional Git patches on top of those given that they may
-      # not cleanly apply and thus set GIT_PATCHES="".
+      # These definitions are for the non-default Git versions.
       #- GO_VERSION: [ "1.16", "1.17" ]
       #  GIT_VERSION: [ ]
-      #  GIT_PATCHES: [ "" ]
       #  RUBY_VERSION: [ "2.7" ]
       # These definitions are for the default Git version where we want to
       # apply our default set of Git patches.
       - GO_VERSION: [ "1.16", "1.17" ]
-        GIT_VERSION: [ "v2.33.0" ]
         RUBY_VERSION: [ "2.7" ]
 
 binaries:
@@ -192,17 +179,13 @@ test:
       junit: _build/reports/go-tests-report-go-${GO_VERSION}-git-${GIT_VERSION}.xml
   parallel:
     matrix:
-      # These definitions are for the non-default Git versions. We do not want
-      # to apply any additional Git patches on top of those given that they may
-      # not cleanly apply and thus set GIT_PATCHES="".
+      # These definitions are for the non-default Git versions.
       #- GO_VERSION: [ "1.16", "1.17" ]
       #  GIT_VERSION: [ ]
-      #  GIT_PATCHES: [ "" ]
       #  TARGET: test
       # These definitions are for the default Git version where we want to
       # apply our default set of Git patches.
       - GO_VERSION: [ "1.16", "1.17" ]
-        GIT_VERSION: [ "v2.33.0" ]
         TARGET: test
       - GO_VERSION: "1.17"
         TARGET: [ test-with-proxies, test-with-praefect, race-go ]
@@ -217,8 +200,7 @@ nightly:git:
   parallel:
     matrix:
       - GO_VERSION: "1.17"
-        GIT_VERSION: ["master", "next"]
-        GIT_PATCHES: [ "" ]
+        GIT_VERSION: [ "master", "next" ]
         TARGET: [ test, test-with-proxies, test-with-praefect ]
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
