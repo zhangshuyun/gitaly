@@ -87,6 +87,7 @@ LIBGIT2_VERSION           ?= v1.2.0
 # if it is either set to the empty string or "default".
 ifeq (${GIT_VERSION:default=},)
     override GIT_VERSION := v2.33.1
+    GIT_APPLY_DEFAULT_PATCHES := YesPlease
 else
     # Support both vX.Y.Z and X.Y.Z version patterns, since callers across GitLab
     # use both.
@@ -111,7 +112,7 @@ ifeq (${Q},@)
     GIT_QUIET = --quiet
 endif
 
-ifeq ($(origin GIT_PATCHES),undefined)
+ifdef GIT_APPLY_DEFAULT_PATCHES
     # Before adding custom patches, please read doc/PROCESS.md#Patching-git
     # first to make sure your patches meet our acceptance criteria. Patches
     # must be put into `_support/git-patches`.
