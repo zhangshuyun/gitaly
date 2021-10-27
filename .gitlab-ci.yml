@@ -59,7 +59,6 @@ danger-review:
       prefix: git-${GIT_VERSION}-ruby-${RUBY_VERSION}
     paths:
       - _build/deps
-      - _build/Makefile.sha256
       - ruby/vendor/bundle
 
 .test_template: &test_definition
@@ -74,7 +73,6 @@ danger-review:
       prefix: git-${GIT_VERSION}-ruby-${RUBY_VERSION}
     paths:
       - _build/deps
-      - _build/Makefile.sha256
       - ruby/vendor/bundle
     policy: pull
   artifacts:
