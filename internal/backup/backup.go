@@ -337,7 +337,7 @@ func (mgr *Manager) sendKnownRefs(ctx context.Context, step *Step, repo *gitalyp
 	}
 	defer reader.Close()
 
-	d := NewRefsDecoder(reader)
+	d := git.NewRefsDecoder(reader)
 	for {
 		var ref git.Reference
 
