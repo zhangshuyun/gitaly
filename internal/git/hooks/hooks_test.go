@@ -1,11 +1,11 @@
 package hooks
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
 func TestPath(t *testing.T) {
@@ -23,12 +23,7 @@ func TestPath(t *testing.T) {
 	})
 
 	t.Run("when an env override", func(t *testing.T) {
-		key := "GITALY_TESTING_NO_GIT_HOOKS"
-
-		require.NoError(t, os.Setenv(key, "1"))
-		defer func() {
-			require.NoError(t, os.Unsetenv(key))
-		}()
+		testhelper.ModifyEnvironment(t, "GITALY_TESTING_NO_GIT_HOOKS", "1")
 
 		require.Equal(t, "/var/empty", Path(cfg))
 	})
