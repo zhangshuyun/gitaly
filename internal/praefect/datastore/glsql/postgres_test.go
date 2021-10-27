@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/migrations"
 )
 
 func TestOpenDB(t *testing.T) {
@@ -62,4 +63,55 @@ func TestScanAll(t *testing.T) {
 
 	require.NoError(t, ScanAll(emptyRows, &nothing))
 	require.Equal(t, ([]uint64)(nil), nothing.Values())
+}
+
+func TestAdditionalTestMigrationsWereApplied(t *testing.T) {
+	t.Parallel()
+
+	const dbName = "migrations_verification"
+
+	postgresDBCfg := GetDBConfig(t, "postgres")
+	postgresDB := requireSQLOpen(t, postgresDBCfg, true)
+	defer func() {
+		require.NoErrorf(t, postgresDB.Close(), "release connection to the %q database", postgresDBCfg.DBName)
+	}()
+
+	_, err := postgresDB.Exec("DROP DATABASE IF EXISTS " + dbName + "")
+	require.NoErrorf(t, err, `failed to drop %q database`, dbName)
+	_, err = postgresDB.Exec("CREATE DATABASE " + dbName + " WITH ENCODING 'UTF8'")
+	require.NoErrorf(t, err, `failed to create %q database`, dbName)
+
+	migrationsDBCfg := GetDBConfig(t, dbName)
+	migrationsDB := requireSQLOpen(t, migrationsDBCfg, true)
+	defer func() {
+		require.NoErrorf(t, migrationsDB.Close(), "release connection to the %q database", migrationsDBCfg.DBName)
+	}()
+
+	migrationsList := append(migrations.All(), testDataMigrations()...)
+	_, err = Migrate(migrationsDB, false, migrationsList)
+	require.NoError(t, err)
+
+	var ms StringProvider
+	rows, err := migrationsDB.Query(`SELECT id FROM ` + migrations.MigrationTableName)
+	require.NoError(t, err)
+	require.NoError(t, ScanAll(rows, &ms))
+	require.Len(t, ms.Values(), len(migrationsList), "sanity check to verify all migrations were executed")
+	var additionalMigrations []string
+	for _, applied := range ms.Values() {
+		var found bool
+		for _, mig := range migrations.All() {
+			if mig.Id == applied {
+				found = true
+				break
+			}
+		}
+		if !found {
+			additionalMigrations = append(additionalMigrations, applied)
+		}
+	}
+	require.ElementsMatch(t, additionalMigrations, []string{
+		"10000000000000_helpers",
+		"20210906145020_artificial_repositories",
+		"20210906145022_artificial_repositories_cleanup",
+	}, "sanity check to verify all additional test migrations were applied")
 }
