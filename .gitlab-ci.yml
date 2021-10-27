@@ -51,21 +51,7 @@ danger-review:
       fi
 
 .cache: &cache_definition
-  cache:
-    key:
-      files:
-        - Makefile
-        - ruby/Gemfile.lock
-      prefix: git-${GIT_VERSION}-ruby-${RUBY_VERSION}
-    paths:
-      - _build/deps
-      - ruby/vendor/bundle
-
-.test_template: &test_definition
-  <<: *cache_definition
-  stage: test
-  # Override the cache definition for pull
-  cache:
+  cache: &cache_configuration
     key:
       files:
         - Makefile
@@ -75,6 +61,10 @@ danger-review:
       - _build/deps
       - ruby/vendor/bundle
     policy: pull
+
+.test_template: &test_definition
+  <<: *cache_definition
+  stage: test
   artifacts:
     paths:
     - ruby/tmp/gitaly-rspec-test.log
@@ -129,9 +119,11 @@ proto:
     when: on_failure
 
 build:
-  <<: *cache_definition
   stage: build
   image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.31
+  cache:
+    <<: *cache_configuration
+    policy: pull-push
   script:
     - go version
     - make all git
