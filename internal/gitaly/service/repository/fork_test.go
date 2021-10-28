@@ -111,9 +111,8 @@ func TestSuccessfulCreateForkRequest(t *testing.T) {
 			remotes := gittest.Exec(t, cfg, "-C", forkedRepoPath, "remote")
 			require.NotContains(t, string(remotes), "origin")
 
-			info, err := os.Lstat(filepath.Join(forkedRepoPath, "hooks"))
-			require.NoError(t, err)
-			require.True(t, info.IsDir())
+			_, err = os.Lstat(filepath.Join(forkedRepoPath, "hooks"))
+			require.True(t, os.IsNotExist(err), "hooks directory should not have been created")
 		})
 	}
 }

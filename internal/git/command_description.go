@@ -54,6 +54,10 @@ var commandDescriptions = map[string]commandDescription{
 	},
 	"clone": {
 		flags: scGeneratesPackfiles,
+		opts: []GlobalOption{
+			// See "init" for why we set the template directory to the empty string.
+			ConfigPair{Key: "init.templateDir", Value: ""},
+		},
 	},
 	"commit": {
 		flags: 0,
@@ -123,6 +127,16 @@ var commandDescriptions = map[string]commandDescription{
 			// branch to be something different from "master" in Gitaly's git
 			// configuration. There explicitly override it on git-init.
 			ConfigPair{Key: "init.defaultBranch", Value: DefaultBranch},
+
+			// When creating a new repository, then Git will by default copy over all
+			// files from the femplate directory into the repository. These templates
+			// are non-mandatory files which help the user to configure parts of Git
+			// correctly, like hook templates or an exclude file. Given that repos
+			// should not be touched by admins anyway as they are completely owned by
+			// Gitaly, those templates don't serve much of a purpose except that they
+			// take up disk space. By setting below config entry to the empty value we
+			// can thus make sure that we do not use the template directory at all.
+			ConfigPair{Key: "init.templateDir", Value: ""},
 		},
 	},
 	"linguist": {

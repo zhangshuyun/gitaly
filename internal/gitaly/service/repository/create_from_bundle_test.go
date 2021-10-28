@@ -84,9 +84,8 @@ func TestServer_CreateRepositoryFromBundle_successful(t *testing.T) {
 
 	gittest.Exec(t, cfg, "-C", importedRepoPath, "fsck")
 
-	info, err := os.Lstat(filepath.Join(importedRepoPath, "hooks"))
-	require.NoError(t, err)
-	require.True(t, info.IsDir())
+	_, err = os.Lstat(filepath.Join(importedRepoPath, "hooks"))
+	require.True(t, os.IsNotExist(err), "hooks directory should not have been created")
 
 	commit, err := importedRepo.ReadCommit(ctx, "refs/custom-refs/ref1")
 	require.NoError(t, err)

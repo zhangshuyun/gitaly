@@ -53,9 +53,8 @@ func TestSuccessfulCreateRepositoryFromURLRequest(t *testing.T) {
 	remotes := gittest.Exec(t, cfg, "-C", importedRepoPath, "remote")
 	require.NotContains(t, string(remotes), "origin")
 
-	info, err := os.Lstat(filepath.Join(importedRepoPath, "hooks"))
-	require.NoError(t, err)
-	require.True(t, info.IsDir())
+	_, err = os.Lstat(filepath.Join(importedRepoPath, "hooks"))
+	require.True(t, os.IsNotExist(err), "hooks directory should not have been created")
 }
 
 func TestCloneRepositoryFromUrlCommand(t *testing.T) {
