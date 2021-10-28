@@ -115,10 +115,10 @@ func TestServer_PackObjectsHook(t *testing.T) {
 			}
 			require.Equal(t, io.EOF, err)
 
-			gittest.ExecStream(
+			gittest.ExecOpts(
 				t,
 				cfg,
-				bytes.NewReader(stdout),
+				gittest.ExecConfig{Stdin: bytes.NewReader(stdout)},
 				"-C", repoPath, "index-pack", "--stdin", "--fix-thin",
 			)
 
@@ -237,10 +237,10 @@ func TestServer_PackObjectsHook_separateContext(t *testing.T) {
 	}
 	require.Equal(t, io.EOF, err)
 
-	gittest.ExecStream(
+	gittest.ExecOpts(
 		t,
 		cfg,
-		bytes.NewReader(stdout),
+		gittest.ExecConfig{Stdin: bytes.NewReader(stdout)},
 		"-C", repoPath, "index-pack", "--stdin", "--fix-thin",
 	)
 }
@@ -282,10 +282,10 @@ func TestServer_PackObjectsHook_usesCache(t *testing.T) {
 		}
 		require.Equal(t, io.EOF, err)
 
-		gittest.ExecStream(
+		gittest.ExecOpts(
 			t,
 			cfg,
-			bytes.NewReader(stdout),
+			gittest.ExecConfig{Stdin: bytes.NewReader(stdout)},
 			"-C", repoPath, "index-pack", "--stdin", "--fix-thin",
 		)
 	}
@@ -385,10 +385,10 @@ func TestServer_PackObjectsHookWithSidechannel(t *testing.T) {
 				}
 			}
 
-			gittest.ExecStream(
+			gittest.ExecOpts(
 				t,
 				cfg,
-				bytes.NewReader(packdata),
+				gittest.ExecConfig{Stdin: bytes.NewReader(packdata)},
 				"-C", repoPath, "index-pack", "--stdin", "--fix-thin",
 			)
 

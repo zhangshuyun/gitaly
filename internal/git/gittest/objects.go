@@ -77,7 +77,9 @@ func WriteBlobs(t testing.TB, cfg config.Cfg, testRepoPath string, n int) []stri
 
 // WriteBlob writes the given contents as a blob into the repository and returns its OID.
 func WriteBlob(t testing.TB, cfg config.Cfg, testRepoPath string, contents []byte) git.ObjectID {
-	hex := text.ChompBytes(ExecStream(t, cfg, bytes.NewReader(contents), "-C", testRepoPath, "hash-object", "-w", "--stdin"))
+	hex := text.ChompBytes(ExecOpts(t, cfg, ExecConfig{Stdin: bytes.NewReader(contents)},
+		"-C", testRepoPath, "hash-object", "-w", "--stdin",
+	))
 	oid, err := git.NewObjectIDFromHex(hex)
 	require.NoError(t, err)
 	return oid

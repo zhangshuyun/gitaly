@@ -214,7 +214,9 @@ size 12345`
 	t.Run("dangling LFS pointer", func(t *testing.T) {
 		cfg, repo, repoPath, client := setup(t)
 
-		hash := gittest.ExecStream(t, cfg, strings.NewReader(lfsPointerContents), "-C", repoPath, "hash-object", "-w", "--stdin")
+		hash := gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: strings.NewReader(lfsPointerContents)},
+			"-C", repoPath, "hash-object", "-w", "--stdin",
+		)
 		lfsPointerOID := text.ChompBytes(hash)
 
 		stream, err := client.ListAllLFSPointers(ctx, &gitalypb.ListAllLFSPointersRequest{

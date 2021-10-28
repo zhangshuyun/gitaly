@@ -17,11 +17,17 @@ func Exec(t testing.TB, cfg config.Cfg, args ...string) []byte {
 	return run(t, nil, cfg, args...)
 }
 
-// ExecStream runs a git command with an input stream and returns the standard output, or fails.
-func ExecStream(t testing.TB, cfg config.Cfg, stream io.Reader, args ...string) []byte {
+// ExecConfig contains configuration for ExecOpts.
+type ExecConfig struct {
+	// Stdin sets up stdin of the spawned command.
+	Stdin io.Reader
+}
+
+// ExecOpts runs a git command with the given configuration.
+func ExecOpts(t testing.TB, cfg config.Cfg, execCfg ExecConfig, args ...string) []byte {
 	t.Helper()
 
-	return run(t, stream, cfg, args...)
+	return run(t, execCfg.Stdin, cfg, args...)
 }
 
 func run(t testing.TB, stdin io.Reader, cfg config.Cfg, args ...string) []byte {

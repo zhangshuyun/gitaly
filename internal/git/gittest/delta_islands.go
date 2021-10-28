@@ -65,7 +65,9 @@ func commitBlob(t *testing.T, cfg config.Cfg, repoPath, ref string, content []by
 }
 
 func deltaBase(t *testing.T, cfg config.Cfg, repoPath string, blobID string) string {
-	catfileOut := ExecStream(t, cfg, strings.NewReader(blobID), "-C", repoPath, "cat-file", "--batch-check=%(deltabase)")
+	catfileOut := ExecOpts(t, cfg, ExecConfig{Stdin: strings.NewReader(blobID)},
+		"-C", repoPath, "cat-file", "--batch-check=%(deltabase)",
+	)
 
 	return chompToString(catfileOut)
 }

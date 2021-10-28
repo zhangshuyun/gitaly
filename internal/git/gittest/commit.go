@@ -123,7 +123,7 @@ func WriteCommit(t testing.TB, cfg config.Cfg, repoPath string, opts ...WriteCom
 		commitArgs = append(commitArgs, "-p", parent.String())
 	}
 
-	stdout := ExecStream(t, cfg, stdin, commitArgs...)
+	stdout := ExecOpts(t, cfg, ExecConfig{Stdin: stdin}, commitArgs...)
 	oid, err := git.NewObjectIDFromHex(text.ChompBytes(stdout))
 	require.NoError(t, err)
 

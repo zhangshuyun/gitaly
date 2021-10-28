@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -36,8 +37,9 @@ func TestFindAllTags_successful(t *testing.T) {
 	// with partial PGP block
 	truncatedPGPTagMsg := testhelper.MustReadFile(t, "testdata/truncated_pgp_msg.patch")
 
-	truncatedPGPTagID := string(gittest.ExecStream(t, cfg, bytes.NewBuffer(truncatedPGPTagMsg), "-C", repoPath, "mktag"))
-	truncatedPGPTagID = strings.TrimSpace(truncatedPGPTagID) // remove trailing newline
+	truncatedPGPTagID := text.ChompBytes(gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: bytes.NewBuffer(truncatedPGPTagMsg)},
+		"-C", repoPath, "mktag",
+	))
 	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/tags/pgp-long-tag-message", truncatedPGPTagID)
 
 	blobID := git.ObjectID("faaf198af3a36dbf41961466703cc1d47c61d051")

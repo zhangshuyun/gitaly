@@ -60,7 +60,7 @@ func WriteTag(
 	}
 	args = append(args, tagName, targetRevision.String())
 
-	ExecStream(t, cfg, stdin, args...)
+	ExecOpts(t, cfg, ExecConfig{Stdin: stdin}, args...)
 
 	tagID := Exec(t, cfg, "-C", repoPath, "show-ref", "-s", tagName)
 

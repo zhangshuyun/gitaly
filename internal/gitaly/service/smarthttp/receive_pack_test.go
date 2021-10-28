@@ -134,7 +134,9 @@ func TestReceivePackHiddenRefs(t *testing.T) {
 
 			// The options passed are the same ones used when doing an actual push.
 			revisions := strings.NewReader(fmt.Sprintf("^%s\n%s\n", oldHead, newHead))
-			pack := gittest.ExecStream(t, cfg, revisions, "-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q")
+			pack := gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: revisions},
+				"-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q",
+			)
 			request.Write(pack)
 
 			stream, err := client.PostReceivePack(ctx)
@@ -288,7 +290,9 @@ func newTestPush(t *testing.T, cfg config.Cfg, fileContents []byte) *pushData {
 	stdin := strings.NewReader(fmt.Sprintf("^%s\n%s\n", oldHead, newHead))
 
 	// The options passed are the same ones used when doing an actual push.
-	pack := gittest.ExecStream(t, cfg, stdin, "-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q")
+	pack := gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: stdin},
+		"-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q",
+	)
 	requestBuffer.Write(pack)
 
 	return &pushData{newHead: newHead, body: requestBuffer}
@@ -409,12 +413,16 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			commitBuffer := tc.prepareCommit(t, repoPath)
-			commitID := text.ChompBytes(gittest.ExecStream(t, cfg, &commitBuffer, "-C", localRepoPath, "hash-object", "-t", "commit", "--stdin", "-w"))
+			commitID := text.ChompBytes(gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: &commitBuffer},
+				"-C", localRepoPath, "hash-object", "-t", "commit", "--stdin", "-w",
+			))
 
 			currentHead := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
 
 			stdin := strings.NewReader(fmt.Sprintf("^%s\n%s\n", currentHead, commitID))
-			pack := gittest.ExecStream(t, cfg, stdin, "-C", localRepoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q")
+			pack := gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: stdin},
+				"-C", localRepoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q",
+			)
 
 			pkt := fmt.Sprintf("%s %s refs/heads/master\x00 %s", currentHead, commitID, "report-status side-band-64k agent=git/2.12.0")
 			body := &bytes.Buffer{}
@@ -456,7 +464,9 @@ func TestReceivePackFsck(t *testing.T) {
 	)
 
 	stdin := strings.NewReader(fmt.Sprintf("^%s\n%s\n", head, commit))
-	pack := gittest.ExecStream(t, cfg, stdin, "-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q")
+	pack := gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: stdin},
+		"-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q",
+	)
 
 	var body bytes.Buffer
 	gittest.WritePktlineString(t, &body, fmt.Sprintf("%s %s refs/heads/master\x00 %s", head, commit, "report-status side-band-64k agent=git/2.12.0"))

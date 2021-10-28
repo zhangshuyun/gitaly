@@ -88,7 +88,9 @@ func testServerPostUpload(t *testing.T, ctx context.Context, makeRequest request
 	pack, version, entries := extractPackDataFromResponse(t, responseBuffer)
 	require.NotEmpty(t, pack, "Expected to find a pack file in response, found none")
 
-	gittest.ExecStream(t, cfg, bytes.NewReader(pack), "-C", localRepoPath, "unpack-objects", fmt.Sprintf("--pack_header=%d,%d", version, entries))
+	gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: bytes.NewReader(pack)},
+		"-C", localRepoPath, "unpack-objects", fmt.Sprintf("--pack_header=%d,%d", version, entries),
+	)
 
 	gittest.GitObjectMustExist(t, cfg.Git.BinPath, localRepoPath, newCommit.String())
 
@@ -378,7 +380,9 @@ func testServerPostUploadPackPartialClone(t *testing.T, ctx context.Context, mak
 	pack, version, entries := extractPackDataFromResponse(t, responseBuffer)
 	require.NotEmpty(t, pack, "Expected to find a pack file in response, found none")
 
-	gittest.ExecStream(t, cfg, bytes.NewReader(pack), "-C", localRepoPath, "unpack-objects", fmt.Sprintf("--pack_header=%d,%d", version, entries))
+	gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: bytes.NewReader(pack)},
+		"-C", localRepoPath, "unpack-objects", fmt.Sprintf("--pack_header=%d,%d", version, entries),
+	)
 
 	// a4a132b1b0d6720ca9254440a7ba8a6b9bbd69ec is README.md, which is a small file
 	blobLessThanLimit := "a4a132b1b0d6720ca9254440a7ba8a6b9bbd69ec"
@@ -430,7 +434,9 @@ func testServerPostUploadPackAllowAnySHA1InWant(t *testing.T, ctx context.Contex
 	pack, version, entries := extractPackDataFromResponse(t, responseBuffer)
 	require.NotEmpty(t, pack, "Expected to find a pack file in response, found none")
 
-	gittest.ExecStream(t, cfg, bytes.NewReader(pack), "-C", localRepoPath, "unpack-objects", fmt.Sprintf("--pack_header=%d,%d", version, entries))
+	gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: bytes.NewReader(pack)},
+		"-C", localRepoPath, "unpack-objects", fmt.Sprintf("--pack_header=%d,%d", version, entries),
+	)
 
 	gittest.GitObjectMustExist(t, cfg.Git.BinPath, localRepoPath, newCommit.String())
 }

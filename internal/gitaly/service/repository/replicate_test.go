@@ -43,7 +43,9 @@ func TestReplicateRepository(t *testing.T) {
 	// create a loose object to ensure snapshot replication is used
 	blobData, err := text.RandomHex(10)
 	require.NoError(t, err)
-	blobID := text.ChompBytes(gittest.ExecStream(t, cfg, bytes.NewBuffer([]byte(blobData)), "-C", repoPath, "hash-object", "-w", "--stdin"))
+	blobID := text.ChompBytes(gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: bytes.NewBuffer([]byte(blobData))},
+		"-C", repoPath, "hash-object", "-w", "--stdin",
+	))
 
 	// write info attributes
 	attrFilePath := filepath.Join(repoPath, "info", "attributes")
