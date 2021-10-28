@@ -1,13 +1,13 @@
 package repository
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
-	"os/exec"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
@@ -44,10 +44,23 @@ func TestRedirectingServerRedirects(t *testing.T) {
 
 	httpServerState, redirectingServer := StartRedirectingTestServer()
 
-	// we only test for redirection, this command can fail after that
-	cmd := exec.Command(cfg.Git.BinPath, "-c", "http.followRedirects=true", "clone", "--bare", redirectingServer.URL, dir)
-	cmd.Env = append(command.GitEnv, cmd.Env...)
-	cmd.Run()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	var stderr bytes.Buffer
+	cmd, err := git.NewExecCommandFactory(cfg).NewWithoutRepo(ctx, git.SubCmd{
+		Name: "clone",
+		Flags: []git.Option{
+			git.Flag{"--bare"},
+		},
+		Args: []string{
+			redirectingServer.URL, dir,
+		},
+	}, git.WithConfig(git.ConfigPair{Key: "http.followRedirects", Value: "true"}), git.WithDisabledHooks(), git.WithStderr(&stderr))
+	require.NoError(t, err)
+
+	require.Error(t, cmd.Wait())
+	require.Contains(t, stderr.String(), "unable to update url base from redirection")
 
 	redirectingServer.Close()
 
