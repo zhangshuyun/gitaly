@@ -28,7 +28,7 @@ const defaultDialTimeout = 30 * time.Second
 var subcommands = map[string]subcmd{
 	sqlPingCmdName:                &sqlPingSubcommand{},
 	sqlMigrateCmdName:             &sqlMigrateSubcommand{},
-	"dial-nodes":                  &dialNodesSubcommand{},
+	dialNodesCmdName:              &dialNodesSubcommand{},
 	"sql-migrate-down":            &sqlMigrateDownSubcommand{},
 	"sql-migrate-status":          &sqlMigrateStatusSubcommand{},
 	"dataloss":                    newDatalossSubcommand(),

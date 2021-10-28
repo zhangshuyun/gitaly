@@ -21,61 +21,6 @@ func TestNoConfigFlag(t *testing.T) {
 	assert.Equal(t, err, errNoConfigFile)
 }
 
-func TestFlattenNodes(t *testing.T) {
-	for _, tt := range []struct {
-		desc   string
-		conf   config.Config
-		expect map[string]*nodePing
-	}{
-		{
-			desc: "Flatten common address between storages",
-			conf: config.Config{
-				VirtualStorages: []*config.VirtualStorage{
-					{
-						Name: "meow",
-						Nodes: []*config.Node{
-							{
-								Storage: "foo",
-								Address: "tcp://example.com",
-								Token:   "abc",
-							},
-						},
-					},
-					{
-						Name: "woof",
-						Nodes: []*config.Node{
-							{
-								Storage: "bar",
-								Address: "tcp://example.com",
-								Token:   "abc",
-							},
-						},
-					},
-				},
-			},
-			expect: map[string]*nodePing{
-				"tcp://example.com": {
-					address: "tcp://example.com",
-					storages: map[gitalyStorage][]virtualStorage{
-						"foo": {"meow"},
-						"bar": {"woof"},
-					},
-					vStorages: map[virtualStorage]struct{}{
-						"meow": {},
-						"woof": {},
-					},
-					token: "abc",
-				},
-			},
-		},
-	} {
-		t.Run(tt.desc, func(t *testing.T) {
-			actual := flattenNodes(tt.conf)
-			require.Equal(t, tt.expect, actual)
-		})
-	}
-}
-
 func TestGetStarterConfigs(t *testing.T) {
 	for _, tc := range []struct {
 		desc   string

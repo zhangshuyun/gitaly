@@ -15,6 +15,37 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
+const dialNodesCmdName = "dial-nodes"
+
+type dialNodesSubcommand struct{}
+
+func (s *dialNodesSubcommand) FlagSet() *flag.FlagSet {
+	return flag.NewFlagSet(dialNodesCmdName, flag.ExitOnError)
+}
+
+func (s *dialNodesSubcommand) Exec(flags *flag.FlagSet, conf config.Config) error {
+	nodes := flattenNodes(conf)
+
+	var wg sync.WaitGroup
+	for _, n := range nodes {
+		wg.Add(1)
+		go func(n *nodePing) {
+			defer wg.Done()
+			n.checkNode()
+		}(n)
+	}
+	wg.Wait()
+
+	var err error
+	for _, n := range nodes {
+		if n.err != nil {
+			err = n.err
+		}
+	}
+
+	return err
+}
+
 type (
 	virtualStorage string
 	gitalyStorage  string
@@ -56,35 +87,6 @@ func flattenNodes(conf config.Config) map[string]*nodePing {
 		}
 	}
 	return nodeByAddress
-}
-
-type dialNodesSubcommand struct{}
-
-func (s *dialNodesSubcommand) FlagSet() *flag.FlagSet {
-	return flag.NewFlagSet("dial-nodes", flag.ExitOnError)
-}
-
-func (s *dialNodesSubcommand) Exec(flags *flag.FlagSet, conf config.Config) error {
-	nodes := flattenNodes(conf)
-
-	var wg sync.WaitGroup
-	for _, n := range nodes {
-		wg.Add(1)
-		go func(n *nodePing) {
-			defer wg.Done()
-			n.checkNode()
-		}(n)
-	}
-	wg.Wait()
-
-	var err error
-	for _, n := range nodes {
-		if n.err != nil {
-			err = n.err
-		}
-	}
-
-	return err
 }
 
 func (npr *nodePing) dial() (*grpc.ClientConn, error) {
