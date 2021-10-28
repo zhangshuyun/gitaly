@@ -28,10 +28,11 @@ type removeRepository struct {
 	logger         logrus.FieldLogger
 	virtualStorage string
 	relativePath   string
+	dialTimeout    time.Duration
 }
 
 func newRemoveRepository(logger logrus.FieldLogger) *removeRepository {
-	return &removeRepository{logger: logger}
+	return &removeRepository{logger: logger, dialTimeout: defaultDialTimeout}
 }
 
 func (cmd *removeRepository) FlagSet() *flag.FlagSet {
@@ -136,7 +137,7 @@ func (cmd *removeRepository) removeRepositoryFromDatabase(ctx context.Context, d
 }
 
 func (cmd *removeRepository) removeRepository(ctx context.Context, repo *gitalypb.Repository, addr, token string) (bool, error) {
-	conn, err := subCmdDial(addr, token)
+	conn, err := subCmdDial(ctx, addr, token, cmd.dialTimeout)
 	if err != nil {
 		return false, fmt.Errorf("error dialing: %w", err)
 	}
@@ -162,9 +163,15 @@ func (cmd *removeRepository) removeReplicationEvents(ctx context.Context, logger
 	// As some of them could be a repository creation jobs we need to remove those newly created
 	// repositories after replication finished.
 	start := time.Now()
+	var tick helper.Ticker
 	for found := true; found; {
-		ticker.Reset()
-		<-ticker.C()
+		if tick != nil {
+			tick.Reset()
+			<-tick.C()
+		} else {
+			tick = ticker
+		}
+
 		if int(time.Since(start).Seconds())%5 == 0 {
 			logger.Debug("awaiting for the repository in_progress replication jobs to complete...")
 		}

@@ -48,7 +48,7 @@ func (cmd *setReplicationFactorSubcommand) Exec(flags *flag.FlagSet, cfg config.
 		return err
 	}
 
-	conn, err := subCmdDial(nodeAddr, cfg.Auth.Token)
+	conn, err := subCmdDial(context.TODO(), nodeAddr, cfg.Auth.Token, defaultDialTimeout)
 	if err != nil {
 		return fmt.Errorf("error dialing: %w", err)
 	}

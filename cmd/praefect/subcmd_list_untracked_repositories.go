@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect"
@@ -63,7 +64,7 @@ func (cmd listUntrackedRepositories) Exec(flags *flag.FlagSet, cfg config.Config
 	logger.Debugf("starting %s command", cmd.FlagSet().Name())
 
 	logger.Debug("dialing to gitaly nodes...")
-	nodeSet, err := dialGitalyStorages(cfg)
+	nodeSet, err := dialGitalyStorages(ctx, cfg, defaultDialTimeout)
 	if err != nil {
 		return fmt.Errorf("dial nodes: %w", err)
 	}
@@ -97,11 +98,11 @@ func (cmd listUntrackedRepositories) Exec(flags *flag.FlagSet, cfg config.Config
 	return nil
 }
 
-func dialGitalyStorages(cfg config.Config) (praefect.NodeSet, error) {
+func dialGitalyStorages(ctx context.Context, cfg config.Config, timeout time.Duration) (praefect.NodeSet, error) {
 	nodeSet := praefect.NodeSet{}
 	for _, vs := range cfg.VirtualStorages {
 		for _, node := range vs.Nodes {
-			conn, err := subCmdDial(node.Address, node.Token)
+			conn, err := subCmdDial(ctx, node.Address, node.Token, timeout)
 			if err != nil {
 				return nil, fmt.Errorf("dial with %q gitaly at %q", node.Storage, node.Address)
 			}

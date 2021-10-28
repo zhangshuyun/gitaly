@@ -187,7 +187,7 @@ func (cmd *trackRepository) trackRepository(
 }
 
 func (cmd *trackRepository) repositoryExists(ctx context.Context, repo *gitalypb.Repository, addr, token string) (bool, error) {
-	conn, err := subCmdDial(addr, token)
+	conn, err := subCmdDial(ctx, addr, token, defaultDialTimeout)
 	if err != nil {
 		return false, fmt.Errorf("error dialing: %w", err)
 	}

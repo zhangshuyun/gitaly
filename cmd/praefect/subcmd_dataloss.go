@@ -65,7 +65,8 @@ func (cmd *datalossSubcommand) Exec(flags *flag.FlagSet, cfg config.Config) erro
 		return err
 	}
 
-	conn, err := subCmdDial(nodeAddr, cfg.Auth.Token)
+	ctx := context.Background()
+	conn, err := subCmdDial(ctx, nodeAddr, cfg.Auth.Token, defaultDialTimeout)
 	if err != nil {
 		return fmt.Errorf("error dialing: %v", err)
 	}
@@ -78,7 +79,7 @@ func (cmd *datalossSubcommand) Exec(flags *flag.FlagSet, cfg config.Config) erro
 	client := gitalypb.NewPraefectInfoServiceClient(conn)
 
 	for _, vs := range virtualStorages {
-		resp, err := client.DatalossCheck(context.Background(), &gitalypb.DatalossCheckRequest{
+		resp, err := client.DatalossCheck(ctx, &gitalypb.DatalossCheckRequest{
 			VirtualStorage:             vs,
 			IncludePartiallyReplicated: cmd.includePartiallyAvailable,
 		})

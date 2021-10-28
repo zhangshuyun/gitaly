@@ -50,15 +50,16 @@ func (cmd *acceptDatalossSubcommand) Exec(flags *flag.FlagSet, cfg config.Config
 	if err != nil {
 		return err
 	}
+	ctx := context.TODO()
 
-	conn, err := subCmdDial(nodeAddr, cfg.Auth.Token)
+	conn, err := subCmdDial(ctx, nodeAddr, cfg.Auth.Token, defaultDialTimeout)
 	if err != nil {
 		return fmt.Errorf("error dialing: %w", err)
 	}
 	defer conn.Close()
 
 	client := gitalypb.NewPraefectInfoServiceClient(conn)
-	if _, err := client.SetAuthoritativeStorage(context.TODO(), &gitalypb.SetAuthoritativeStorageRequest{
+	if _, err := client.SetAuthoritativeStorage(ctx, &gitalypb.SetAuthoritativeStorageRequest{
 		VirtualStorage:       cmd.virtualStorage,
 		RelativePath:         cmd.relativePath,
 		AuthoritativeStorage: cmd.authoritativeStorage,
