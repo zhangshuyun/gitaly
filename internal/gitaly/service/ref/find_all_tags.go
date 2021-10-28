@@ -50,7 +50,7 @@ func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, sortFiel
 		repo,
 		[]string{"refs/tags/"},
 		gitpipe.WithSortField(sortField),
-		gitpipe.WithForEachRefFormat("%(objectname) %(refname)%(if)%(*objectname)%(then)\n%(objectname)^{} PEELED%(end)"),
+		gitpipe.WithForEachRefFormat("%(objectname)%00%(refname)%(if)%(*objectname)%(then)\n%(objectname)^{}%00peeled%(end)"),
 	)
 	catfileObjectsIter := gitpipe.CatfileObject(ctx, objectReader, forEachRefIter)
 

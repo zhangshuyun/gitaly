@@ -5,8 +5,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"strconv"
-	"strings"
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
@@ -368,7 +368,7 @@ func ForEachRef(
 		// referenced commit's object. It would thus be about 2-3x slower to use the
 		// default format, and instead we move the burden into the next pipeline step by
 		// default.
-		format: "%(objectname) %(refname)",
+		format: git.ForEachRefFormat,
 	}
 	for _, opt := range opts {
 		opt(&cfg)
@@ -401,31 +401,25 @@ func ForEachRef(
 			return
 		}
 
-		scanner := bufio.NewScanner(forEachRef)
-		for scanner.Scan() {
-			line := scanner.Text()
-
-			oidAndRef := strings.SplitN(line, " ", 2)
-			if len(oidAndRef) != 2 {
+		decoder := git.NewForEachRefDecoder(forEachRef)
+		for {
+			var ref git.Reference
+			err := decoder.Decode(&ref)
+			if err == io.EOF {
+				break
+			} else if err != nil {
 				sendRevisionResult(ctx, resultChan, RevisionResult{
-					err: fmt.Errorf("invalid for-each-ref format: %q", line),
+					err: fmt.Errorf("scanning for-each-ref output: %w", err),
 				})
 				return
 			}
 
 			if isDone := sendRevisionResult(ctx, resultChan, RevisionResult{
-				OID:        git.ObjectID(oidAndRef[0]),
-				ObjectName: []byte(oidAndRef[1]),
+				OID:        git.ObjectID(ref.Target),
+				ObjectName: []byte(ref.Name),
 			}); isDone {
 				return
 			}
-		}
-
-		if err := scanner.Err(); err != nil {
-			sendRevisionResult(ctx, resultChan, RevisionResult{
-				err: fmt.Errorf("scanning for-each-ref output: %w", err),
-			})
-			return
 		}
 
 		if err := forEachRef.Wait(); err != nil {
