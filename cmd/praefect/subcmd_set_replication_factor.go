@@ -11,7 +11,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
-const paramReplicationFactor = "replication-factor"
+const (
+	setReplicationFactorCmdName = "set-replication-factor"
+	paramReplicationFactor      = "replication-factor"
+)
 
 type setReplicationFactorSubcommand struct {
 	stdout            io.Writer
@@ -25,7 +28,7 @@ func newSetReplicatioFactorSubcommand(stdout io.Writer) *setReplicationFactorSub
 }
 
 func (cmd *setReplicationFactorSubcommand) FlagSet() *flag.FlagSet {
-	fs := flag.NewFlagSet("set-replication-factor", flag.ContinueOnError)
+	fs := flag.NewFlagSet(setReplicationFactorCmdName, flag.ContinueOnError)
 	fs.StringVar(&cmd.virtualStorage, paramVirtualStorage, "", "name of the repository's virtual storage")
 	fs.StringVar(&cmd.relativePath, paramRelativePath, "", "repository to set the replication factor for")
 	fs.IntVar(&cmd.replicationFactor, paramReplicationFactor, -1, "desired replication factor")
