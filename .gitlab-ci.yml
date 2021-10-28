@@ -298,7 +298,6 @@ objectinfo_fuzz_test:
 
 trigger-qa:
   stage: qa
-  when: manual
   trigger:
     project: gitlab-org/build/omnibus-gitlab-mirror
   variables:
@@ -306,3 +305,13 @@ trigger-qa:
     GITALY_SERVER_VERSION: $CI_COMMIT_SHA
     GITALY_SERVER_ALTERNATIVE_REPO: $CI_PROJECT_URL
     ee: "true"
+  rules:
+    - if: $CI_MERGE_REQUEST_SOURCE_BRANCH_SHA != ""
+      when: manual
+      allow_failure: true
+      variables:
+        # Downstream pipeline does not fetch the merged result SHA.
+        # Fix: https://gitlab.com/gitlab-org/omnibus-gitlab/-/issues/6482
+        GITALY_SERVER_VERSION: $CI_MERGE_REQUEST_SOURCE_BRANCH_SHA
+    - when: manual
+      allow_failure: true
