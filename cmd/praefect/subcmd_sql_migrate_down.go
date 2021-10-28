@@ -10,16 +10,18 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 )
 
+const sqlMigrateDownCmdName = "sql-migrate-down"
+
 type sqlMigrateDownSubcommand struct {
 	force bool
 }
 
 func (s *sqlMigrateDownSubcommand) FlagSet() *flag.FlagSet {
-	flags := flag.NewFlagSet("sql-migrate-down", flag.ExitOnError)
+	flags := flag.NewFlagSet(sqlMigrateDownCmdName, flag.ExitOnError)
 	flags.Usage = func() {
 		flag.PrintDefaults()
-		printfErr("  MAX_MIGRATIONS\n")
-		printfErr("\tNumber of migrations to roll back\n")
+		_, _ = printfErr("  MAX_MIGRATIONS\n")
+		_, _ = printfErr("\tNumber of migrations to roll back\n")
 	}
 	flags.BoolVar(&s.force, "f", false, "apply down-migrations (default is dry run)")
 	return flags

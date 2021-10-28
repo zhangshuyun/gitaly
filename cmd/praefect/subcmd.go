@@ -29,7 +29,7 @@ var subcommands = map[string]subcmd{
 	sqlPingCmdName:                &sqlPingSubcommand{},
 	sqlMigrateCmdName:             &sqlMigrateSubcommand{},
 	dialNodesCmdName:              &dialNodesSubcommand{},
-	"sql-migrate-down":            &sqlMigrateDownSubcommand{},
+	sqlMigrateDownCmdName:         &sqlMigrateDownSubcommand{},
 	"sql-migrate-status":          &sqlMigrateStatusSubcommand{},
 	"dataloss":                    newDatalossSubcommand(),
 	"accept-dataloss":             &acceptDatalossSubcommand{},
