@@ -27,7 +27,7 @@ const defaultDialTimeout = 30 * time.Second
 
 var subcommands = map[string]subcmd{
 	sqlPingCmdName:                &sqlPingSubcommand{},
-	"sql-migrate":                 &sqlMigrateSubcommand{},
+	sqlMigrateCmdName:             &sqlMigrateSubcommand{},
 	"dial-nodes":                  &dialNodesSubcommand{},
 	"sql-migrate-down":            &sqlMigrateDownSubcommand{},
 	"sql-migrate-status":          &sqlMigrateStatusSubcommand{},
@@ -82,34 +82,6 @@ func getNodeAddress(cfg config.Config) (string, error) {
 	default:
 		return "", errors.New("no Praefect address configured")
 	}
-}
-
-type sqlMigrateSubcommand struct {
-	ignoreUnknown bool
-}
-
-func (s *sqlMigrateSubcommand) FlagSet() *flag.FlagSet {
-	flags := flag.NewFlagSet("sql-migrate", flag.ExitOnError)
-	flags.BoolVar(&s.ignoreUnknown, "ignore-unknown", true, "ignore unknown migrations (default is true)")
-	return flags
-}
-
-func (s *sqlMigrateSubcommand) Exec(flags *flag.FlagSet, conf config.Config) error {
-	const subCmd = progname + " sql-migrate"
-
-	db, clean, err := openDB(conf.DB)
-	if err != nil {
-		return err
-	}
-	defer clean()
-
-	n, err := glsql.Migrate(db, s.ignoreUnknown)
-	if err != nil {
-		return fmt.Errorf("%s: fail: %v", subCmd, err)
-	}
-
-	fmt.Printf("%s: OK (applied %d migrations)\n", subCmd, n)
-	return nil
 }
 
 func openDB(conf config.DB) (*sql.DB, func(), error) {
