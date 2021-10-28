@@ -63,7 +63,7 @@ func (s *server) GetTagSignatures(req *gitalypb.GetTagSignaturesRequest, stream 
 	for catfileObjectIter.Next() {
 		tag := catfileObjectIter.Result()
 
-		raw, err := io.ReadAll(tag.ObjectReader)
+		raw, err := io.ReadAll(tag)
 		if err != nil {
 			return helper.ErrInternal(err)
 		}
@@ -71,7 +71,7 @@ func (s *server) GetTagSignatures(req *gitalypb.GetTagSignaturesRequest, stream 
 		signatureKey, tagText := catfile.ExtractTagSignature(raw)
 
 		if err := chunker.Send(&gitalypb.GetTagSignaturesResponse_TagSignature{
-			TagId:     tag.ObjectInfo.Oid.String(),
+			TagId:     tag.ObjectID().String(),
 			Signature: signatureKey,
 			Content:   tagText,
 		}); err != nil {

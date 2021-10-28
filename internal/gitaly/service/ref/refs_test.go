@@ -1239,8 +1239,7 @@ func TestFindTagNestedTag(t *testing.T) {
 					Timezone: []byte("+0100"),
 				},
 			}
-			// only expect the TargetCommit to be populated if it is a commit and if its less than 10 tags deep
-			if info.Type == "commit" && tc.depth < catfile.MaxTagReferenceDepth {
+			if info.Type == "commit" {
 				commit, err := catfile.GetCommit(ctx, objectReader, git.Revision(tc.originalOid))
 				require.NoError(t, err)
 				expectedTag.TargetCommit = commit

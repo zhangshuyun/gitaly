@@ -64,6 +64,7 @@ func (s *server) ListAllCommits(
 	})
 
 	limit := request.GetPaginationParams().GetLimit()
+	parser := catfile.NewParser()
 
 	for i := int32(0); catfileObjectIter.Next(); i++ {
 		// If we hit the pagination limit, then we stop sending commits even if there are
@@ -74,7 +75,7 @@ func (s *server) ListAllCommits(
 
 		object := catfileObjectIter.Result()
 
-		commit, err := catfile.ParseCommit(object.ObjectReader, object.ObjectInfo.Oid)
+		commit, err := parser.ParseCommit(object)
 		if err != nil {
 			return helper.ErrInternal(fmt.Errorf("parsing commit: %w", err))
 		}

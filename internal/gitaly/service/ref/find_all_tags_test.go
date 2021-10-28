@@ -724,3 +724,39 @@ func TestFindAllTags_sorted(t *testing.T) {
 		require.Nil(t, r)
 	})
 }
+
+func BenchmarkFindAllTags(b *testing.B) {
+	b.StopTimer()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	cfg, client := setupRefServiceWithoutRepo(b)
+
+	repoProto, repoPath := gittest.CloneRepo(b, cfg, cfg.Storages[0])
+
+	for i := 0; i < 1000; i++ {
+		gittest.WriteTag(b, cfg, repoPath, fmt.Sprintf("%d", i), "HEAD", gittest.WriteTagConfig{
+			Message: strings.Repeat("abcdefghijk", i),
+		})
+	}
+
+	b.Run("FindAllTags", func(b *testing.B) {
+		b.ReportAllocs()
+
+		for i := 0; i < b.N; i++ {
+			stream, err := client.FindAllTags(ctx, &gitalypb.FindAllTagsRequest{
+				Repository: repoProto,
+			})
+			require.NoError(b, err)
+
+			for {
+				_, err := stream.Recv()
+				if err == io.EOF {
+					break
+				}
+				require.NoError(b, err)
+			}
+		}
+	})
+}

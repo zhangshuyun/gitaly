@@ -20,8 +20,8 @@ type CatfileInfoResult struct {
 
 	// ObjectName is the object name as received from the revlistResultChan.
 	ObjectName []byte
-	// ObjectInfo is the object info of the object.
-	ObjectInfo *catfile.ObjectInfo
+	// ObjectInfo provides information about the object.
+	git.ObjectInfo
 }
 
 type catfileInfoConfig struct {

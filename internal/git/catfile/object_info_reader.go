@@ -21,6 +21,26 @@ type ObjectInfo struct {
 	Size int64
 }
 
+// IsBlob returns true if object type is "blob"
+func (o *ObjectInfo) IsBlob() bool {
+	return o.Type == "blob"
+}
+
+// ObjectID is the ID of the object.
+func (o *ObjectInfo) ObjectID() git.ObjectID {
+	return o.Oid
+}
+
+// ObjectType is the type of the object.
+func (o *ObjectInfo) ObjectType() string {
+	return o.Type
+}
+
+// ObjectSize is the size of the object.
+func (o *ObjectInfo) ObjectSize() int64 {
+	return o.Size
+}
+
 // NotFoundError is returned when requesting an object that does not exist.
 type NotFoundError struct{ error }
 
@@ -28,11 +48,6 @@ type NotFoundError struct{ error }
 func IsNotFound(err error) bool {
 	_, ok := err.(NotFoundError)
 	return ok
-}
-
-// IsBlob returns true if object type is "blob"
-func (o *ObjectInfo) IsBlob() bool {
-	return o.Type == "blob"
 }
 
 // ParseObjectInfo reads from a reader and parses the data into an ObjectInfo struct

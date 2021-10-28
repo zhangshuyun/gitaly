@@ -246,7 +246,7 @@ func (s *Server) createTag(
 			return nil, "", status.Error(codes.Internal, err.Error())
 		}
 
-		createdTag, err := catfile.GetTag(ctx, objectReader, tagObjectID.Revision(), string(tagName), false, false)
+		createdTag, err := catfile.GetTag(ctx, objectReader, tagObjectID.Revision(), string(tagName))
 		if err != nil {
 			return nil, "", status.Error(codes.Internal, err.Error())
 		}

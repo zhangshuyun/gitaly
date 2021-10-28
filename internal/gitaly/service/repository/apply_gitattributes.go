@@ -67,7 +67,7 @@ func (s *server) applyGitattributes(ctx context.Context, repo *localrepo.Repo, o
 	}
 	defer writer.Close()
 
-	if _, err := io.Copy(writer, blobObj.Reader); err != nil {
+	if _, err := io.Copy(writer, blobObj); err != nil {
 		return err
 	}
 

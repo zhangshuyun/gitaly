@@ -44,7 +44,7 @@ func (s *server) getCommitSignatures(request *gitalypb.GetCommitSignaturesReques
 			return helper.ErrInternal(err)
 		}
 
-		signatureKey, commitText, err := extractSignature(commitObj.Reader)
+		signatureKey, commitText, err := extractSignature(commitObj)
 		if err != nil {
 			return helper.ErrInternal(err)
 		}
