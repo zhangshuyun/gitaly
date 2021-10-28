@@ -16,12 +16,6 @@ import (
 
 const datalossCmdName = "dataloss"
 
-type unexpectedPositionalArgsError struct{ Command string }
-
-func (err unexpectedPositionalArgsError) Error() string {
-	return fmt.Sprintf("%s doesn't accept positional arguments", err.Command)
-}
-
 type datalossSubcommand struct {
 	output                    io.Writer
 	virtualStorage            string

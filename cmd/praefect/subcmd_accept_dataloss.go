@@ -9,12 +9,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
-type requiredParameterError string
-
-func (p requiredParameterError) Error() string {
-	return fmt.Sprintf("%q is a required parameter", string(p))
-}
-
 const (
 	acceptDatalossCmdName     = "accept-dataloss"
 	paramVirtualStorage       = "virtual-storage"

@@ -121,3 +121,15 @@ func subCmdDial(ctx context.Context, addr, token string, timeout time.Duration, 
 
 	return client.DialContext(ctx, addr, opts)
 }
+
+type requiredParameterError string
+
+func (p requiredParameterError) Error() string {
+	return fmt.Sprintf("%q is a required parameter", string(p))
+}
+
+type unexpectedPositionalArgsError struct{ Command string }
+
+func (err unexpectedPositionalArgsError) Error() string {
+	return fmt.Sprintf("%s doesn't accept positional arguments", err.Command)
+}
