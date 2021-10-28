@@ -627,9 +627,7 @@ func requireContainsOnce(t *testing.T, s string, contains string) {
 }
 
 func TestGitalyHooksPackObjects(t *testing.T) {
-	logDir, err := filepath.Abs("testdata")
-	require.NoError(t, err)
-	require.NoError(t, os.MkdirAll(logDir, 0o755))
+	logDir := testhelper.TempDir(t)
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t, testcfg.WithBase(config.Cfg{
 		Auth:    auth.Config{Token: "abc123"},
