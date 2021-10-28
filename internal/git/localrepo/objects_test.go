@@ -91,9 +91,9 @@ func TestRepo_WriteBlob(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			require.NoError(t,
-				os.WriteFile(filepath.Join(repoPath, "info", "attributes"), []byte(tc.attributes), os.ModePerm),
-			)
+			attributesPath := filepath.Join(repoPath, "info", "attributes")
+			require.NoError(t, os.MkdirAll(filepath.Dir(attributesPath), 0o755))
+			require.NoError(t, os.WriteFile(attributesPath, []byte(tc.attributes), os.ModePerm))
 
 			sha, err := repo.WriteBlob(ctx, "file-path", tc.input)
 			require.Equal(t, tc.error, err)
