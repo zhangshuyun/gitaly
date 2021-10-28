@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -87,7 +86,7 @@ func TestServer_CreateRepositoryFromBundle_successful(t *testing.T) {
 
 	info, err := os.Lstat(filepath.Join(importedRepoPath, "hooks"))
 	require.NoError(t, err)
-	require.NotEqual(t, 0, info.Mode()&os.ModeSymlink)
+	require.True(t, info.IsDir())
 
 	commit, err := importedRepo.ReadCommit(ctx, "refs/custom-refs/ref1")
 	require.NoError(t, err)
@@ -165,18 +164,6 @@ func TestServerCreateRepositoryFromBundleTransactional(t *testing.T) {
 	votingInput = append(votingInput,
 		fmt.Sprintf("%s %s refs/keep-around/2\n%s %s refs/keep-around/1\n", git.ZeroOID, masterOID, git.ZeroOID, masterOID),
 		fmt.Sprintf("%s %s refs/keep-around/2\n%s %s refs/keep-around/1\n", git.ZeroOID, masterOID, git.ZeroOID, masterOID),
-	)
-
-	// And this is the final vote in Create(), which does a git-for-each-ref(1) in the target
-	// repository and then manually invokes the hook. The format is thus different from above
-	// votes.
-	votingInput = append(votingInput,
-		strings.Join([]string{
-			featureOID + " commit\trefs/heads/feature",
-			masterOID + " commit\trefs/heads/master",
-			masterOID + " commit\trefs/keep-around/1",
-			masterOID + " commit\trefs/keep-around/2",
-		}, "\n")+"\n",
 	)
 
 	var expectedVotes []voting.Vote

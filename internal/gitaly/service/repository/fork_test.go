@@ -113,7 +113,7 @@ func TestSuccessfulCreateForkRequest(t *testing.T) {
 
 			info, err := os.Lstat(filepath.Join(forkedRepoPath, "hooks"))
 			require.NoError(t, err)
-			require.NotEqual(t, 0, info.Mode()&os.ModeSymlink)
+			require.True(t, info.IsDir())
 		})
 	}
 }

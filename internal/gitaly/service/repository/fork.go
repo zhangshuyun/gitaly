@@ -79,10 +79,5 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 		return nil, status.Errorf(codes.Internal, "CreateFork: %v", err)
 	}
 
-	// CreateRepository is harmless on existing repositories with the side effect that it creates the hook symlink.
-	if _, err := s.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: targetRepository}); err != nil {
-		return nil, status.Errorf(codes.Internal, "CreateFork: create hooks failed: %v", err)
-	}
-
 	return &gitalypb.CreateForkResponse{}, nil
 }

@@ -55,7 +55,7 @@ func TestSuccessfulCreateRepositoryFromURLRequest(t *testing.T) {
 
 	info, err := os.Lstat(filepath.Join(importedRepoPath, "hooks"))
 	require.NoError(t, err)
-	require.NotEqual(t, 0, info.Mode()&os.ModeSymlink)
+	require.True(t, info.IsDir())
 }
 
 func TestCloneRepositoryFromUrlCommand(t *testing.T) {

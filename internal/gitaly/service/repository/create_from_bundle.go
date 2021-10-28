@@ -114,12 +114,6 @@ func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_Cr
 		return status.Error(codes.Internal, cleanError)
 	}
 
-	// CreateRepository is harmless on existing repositories with the side effect that it creates the hook symlink.
-	if _, err := s.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: repo}); err != nil {
-		cleanError := sanitizedError(repoPath, "CreateRepositoryFromBundle: create hooks failed: %v", err)
-		return status.Error(codes.Internal, cleanError)
-	}
-
 	return stream.SendAndClose(&gitalypb.CreateRepositoryFromBundleResponse{})
 }
 
