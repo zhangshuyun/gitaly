@@ -14,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"google.golang.org/grpc"
 )
@@ -27,7 +26,7 @@ type subcmd interface {
 const defaultDialTimeout = 30 * time.Second
 
 var subcommands = map[string]subcmd{
-	"sql-ping":                    &sqlPingSubcommand{},
+	sqlPingCmdName:                &sqlPingSubcommand{},
 	"sql-migrate":                 &sqlMigrateSubcommand{},
 	"dial-nodes":                  &dialNodesSubcommand{},
 	"sql-migrate-down":            &sqlMigrateDownSubcommand{},
@@ -83,29 +82,6 @@ func getNodeAddress(cfg config.Config) (string, error) {
 	default:
 		return "", errors.New("no Praefect address configured")
 	}
-}
-
-type sqlPingSubcommand struct{}
-
-func (s *sqlPingSubcommand) FlagSet() *flag.FlagSet {
-	return flag.NewFlagSet("sql-ping", flag.ExitOnError)
-}
-
-func (s *sqlPingSubcommand) Exec(flags *flag.FlagSet, conf config.Config) error {
-	const subCmd = progname + " sql-ping"
-
-	db, clean, err := openDB(conf.DB)
-	if err != nil {
-		return err
-	}
-	defer clean()
-
-	if err := datastore.CheckPostgresVersion(db); err != nil {
-		return fmt.Errorf("%s: fail: %v", subCmd, err)
-	}
-
-	fmt.Printf("%s: OK\n", subCmd)
-	return nil
 }
 
 type sqlMigrateSubcommand struct {
