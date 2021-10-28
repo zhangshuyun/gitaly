@@ -31,7 +31,7 @@ var subcommands = map[string]subcmd{
 	dialNodesCmdName:              &dialNodesSubcommand{},
 	sqlMigrateDownCmdName:         &sqlMigrateDownSubcommand{},
 	sqlMigrateStatusCmdName:       &sqlMigrateStatusSubcommand{},
-	"dataloss":                    newDatalossSubcommand(),
+	datalossCmdName:               newDatalossSubcommand(),
 	"accept-dataloss":             &acceptDatalossSubcommand{},
 	"set-replication-factor":      newSetReplicatioFactorSubcommand(os.Stdout),
 	removeRepositoryCmdName:       newRemoveRepository(logger),

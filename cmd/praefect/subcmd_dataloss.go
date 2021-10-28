@@ -14,6 +14,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
+const datalossCmdName = "dataloss"
+
 type unexpectedPositionalArgsError struct{ Command string }
 
 func (err unexpectedPositionalArgsError) Error() string {
@@ -31,7 +33,7 @@ func newDatalossSubcommand() *datalossSubcommand {
 }
 
 func (cmd *datalossSubcommand) FlagSet() *flag.FlagSet {
-	fs := flag.NewFlagSet("dataloss", flag.ContinueOnError)
+	fs := flag.NewFlagSet(datalossCmdName, flag.ContinueOnError)
 	fs.StringVar(&cmd.virtualStorage, "virtual-storage", "", "virtual storage to check for data loss")
 	fs.BoolVar(&cmd.includePartiallyAvailable, "partially-unavailable", false, strings.TrimSpace(`
 Additionally include repositories which are available but some assigned replicas
