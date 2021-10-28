@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 14.4.1 (2021-10-28)
+
+No changes.
+
 ## 14.4.0 (2021-10-21)
 
 ### Added (7 changes)
@@ -69,6 +73,10 @@
 ### deprecate (1 change)
 
 - [objectpool: Deprecate `UnlinkRepositoryFromObjectPool()`](gitlab-org/gitaly@50686040de4588533a8a4c8aae03ae373ae041fa) ([merge request](gitlab-org/gitaly!3874))
+
+## 14.3.4 (2021-10-28)
+
+No changes.
 
 ## 14.3.3 (2021-10-12)
 
@@ -160,6 +168,10 @@ No changes.
 
 - [remote: Deprecate FetchInternalRemote RPC](gitlab-org/gitaly@c5fc4a035e8c6cd2e7b0847e5b9a10a67a762965) ([merge request](gitlab-org/gitaly!3860))
 - [repository: Deprecate `SetConfig()` RPC](gitlab-org/gitaly@4d1c5cc7f927a3da7a997f48b996fbdf9579b047) ([merge request](gitlab-org/gitaly!3790))
+
+## 14.2.6 (2021-10-28)
+
+No changes.
 
 ## 14.2.5 (2021-09-30)
 
