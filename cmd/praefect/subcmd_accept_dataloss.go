@@ -16,6 +16,7 @@ func (p requiredParameterError) Error() string {
 }
 
 const (
+	acceptDatalossCmdName     = "accept-dataloss"
 	paramVirtualStorage       = "virtual-storage"
 	paramRelativePath         = "repository"
 	paramAuthoritativeStorage = "authoritative-storage"
@@ -28,7 +29,7 @@ type acceptDatalossSubcommand struct {
 }
 
 func (cmd *acceptDatalossSubcommand) FlagSet() *flag.FlagSet {
-	fs := flag.NewFlagSet("accept-dataloss", flag.ContinueOnError)
+	fs := flag.NewFlagSet(acceptDatalossCmdName, flag.ContinueOnError)
 	fs.StringVar(&cmd.virtualStorage, paramVirtualStorage, "", "name of the repository's virtual storage")
 	fs.StringVar(&cmd.relativePath, paramRelativePath, "", "repository to accept data loss for")
 	fs.StringVar(&cmd.authoritativeStorage, paramAuthoritativeStorage, "", "storage with the repository to consider as authoritative")

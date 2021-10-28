@@ -32,7 +32,7 @@ var subcommands = map[string]subcmd{
 	sqlMigrateDownCmdName:         &sqlMigrateDownSubcommand{},
 	sqlMigrateStatusCmdName:       &sqlMigrateStatusSubcommand{},
 	datalossCmdName:               newDatalossSubcommand(),
-	"accept-dataloss":             &acceptDatalossSubcommand{},
+	acceptDatalossCmdName:         &acceptDatalossSubcommand{},
 	"set-replication-factor":      newSetReplicatioFactorSubcommand(os.Stdout),
 	removeRepositoryCmdName:       newRemoveRepository(logger),
 	trackRepositoryCmdName:        newTrackRepository(logger),
