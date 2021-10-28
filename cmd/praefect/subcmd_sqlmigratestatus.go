@@ -10,10 +10,12 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 )
 
+const sqlMigrateStatusCmdName = "sql-migrate-status"
+
 type sqlMigrateStatusSubcommand struct{}
 
 func (s *sqlMigrateStatusSubcommand) FlagSet() *flag.FlagSet {
-	return flag.NewFlagSet("sql-migrate-status", flag.ExitOnError)
+	return flag.NewFlagSet(sqlMigrateStatusCmdName, flag.ExitOnError)
 }
 
 func (s *sqlMigrateStatusSubcommand) Exec(flags *flag.FlagSet, conf config.Config) error {
