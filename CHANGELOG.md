@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 14.2.6 (2021-10-28)
+
+No changes.
+
 ## 14.2.5 (2021-09-30)
 
 No changes.
