@@ -16,9 +16,9 @@ import (
 
 // StateOwner performs check for the existence of the repositories.
 type StateOwner interface {
-	// DoesntExist returns RepositoryClusterPath for each repository that doesn't exist in the database
+	// DoesntExist returns replica path for each repository that doesn't exist in the database
 	// by querying repositories and storage_repositories tables.
-	DoesntExist(ctx context.Context, virtualStorage, storage string, replicaPaths []string) ([]datastore.RepositoryClusterPath, error)
+	DoesntExist(ctx context.Context, virtualStorage, storage string, replicaPaths []string) ([]string, error)
 }
 
 // Acquirer acquires storage for processing and no any other Acquirer can acquire it again until it is released.
@@ -32,7 +32,7 @@ type Acquirer interface {
 // Action is a procedure to be executed on the repositories that doesn't exist in praefect database.
 type Action interface {
 	// Perform runs actual action for non-existing repositories.
-	Perform(ctx context.Context, notExisting []datastore.RepositoryClusterPath) error
+	Perform(ctx context.Context, virtualStorage, storage string, replicaPaths []string) error
 }
 
 // Runner scans healthy gitaly nodes for the repositories, verifies if
@@ -129,18 +129,14 @@ func (gs *Runner) run(ctx context.Context) {
 	}
 
 	logger = gs.loggerWith(clusterPath.VirtualStorage, clusterPath.Storage)
-	err = gs.walker.ExecOnRepositories(ctx, clusterPath.VirtualStorage, clusterPath.Storage, func(paths []datastore.RepositoryClusterPath) error {
-		relativePaths := make([]string, len(paths))
-		for i, path := range paths {
-			relativePaths[i] = path.RelativeReplicaPath
-		}
+	err = gs.walker.ExecOnRepositories(ctx, clusterPath.VirtualStorage, clusterPath.Storage, func(virtualStorage, storage string, relativePaths []string) error {
 		notExisting, err := gs.stateOwner.DoesntExist(ctx, clusterPath.VirtualStorage, clusterPath.Storage, relativePaths)
 		if err != nil {
-			logger.WithError(err).WithField("repositories", paths).Error("failed to check existence")
+			logger.WithError(err).WithField("repositories", relativePaths).Error("failed to check existence")
 			return nil
 		}
 
-		if err := gs.action.Perform(ctx, notExisting); err != nil {
+		if err := gs.action.Perform(ctx, clusterPath.VirtualStorage, clusterPath.Storage, notExisting); err != nil {
 			logger.WithError(err).WithField("existence", notExisting).Error("perform action")
 			return nil
 		}
@@ -170,7 +166,7 @@ func NewWalker(conns praefect.Connections, batchSize int) *Walker {
 
 // ExecOnRepositories runs through all the repositories on a Gitaly storage and executes the provided action.
 // The processing is done in batches to reduce cost of operations.
-func (wr *Walker) ExecOnRepositories(ctx context.Context, virtualStorage, storage string, action func([]datastore.RepositoryClusterPath) error) error {
+func (wr *Walker) ExecOnRepositories(ctx context.Context, virtualStorage, storage string, action func(string, string, []string) error) error {
 	gclient, err := wr.getInternalGitalyClient(virtualStorage, storage)
 	if err != nil {
 		return fmt.Errorf("setup gitaly client: %w", err)
@@ -181,7 +177,7 @@ func (wr *Walker) ExecOnRepositories(ctx context.Context, virtualStorage, storag
 		return fmt.Errorf("unable to walk repos: %w", err)
 	}
 
-	batch := make([]datastore.RepositoryClusterPath, 0, wr.batchSize)
+	batch := make([]string, 0, wr.batchSize)
 	for {
 		res, err := resp.Recv()
 		if err != nil {
@@ -191,23 +187,17 @@ func (wr *Walker) ExecOnRepositories(ctx context.Context, virtualStorage, storag
 			break
 		}
 
-		batch = append(batch, datastore.RepositoryClusterPath{
-			ClusterPath: datastore.ClusterPath{
-				VirtualStorage: virtualStorage,
-				Storage:        storage,
-			},
-			RelativeReplicaPath: res.RelativePath,
-		})
+		batch = append(batch, res.RelativePath)
 
 		if len(batch) == cap(batch) {
-			if err := action(batch); err != nil {
+			if err := action(virtualStorage, storage, batch); err != nil {
 				return err
 			}
 			batch = batch[:0]
 		}
 	}
 	if len(batch) > 0 {
-		if err := action(batch); err != nil {
+		if err := action(virtualStorage, storage, batch); err != nil {
 			return err
 		}
 	}

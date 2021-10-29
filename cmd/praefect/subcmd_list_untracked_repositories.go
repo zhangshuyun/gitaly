@@ -132,25 +132,24 @@ type reportUntrackedRepositories struct {
 // Report method accepts a list of repositories, checks if they exist in the praefect database
 // and writes JSON serialized location of each untracked repository using the configured delimiter
 // and writer.
-func (r *reportUntrackedRepositories) Report(paths []datastore.RepositoryClusterPath) error {
-	if len(paths) == 0 {
+func (r *reportUntrackedRepositories) Report(virtualStorage, storage string, replicaPaths []string) error {
+	if len(replicaPaths) == 0 {
 		return nil
 	}
 
-	replicaRelPaths := make([]string, len(paths))
-	for i, path := range paths {
-		replicaRelPaths[i] = path.RelativeReplicaPath
-	}
-
-	missing, err := r.checker.DoesntExist(r.ctx, paths[0].VirtualStorage, paths[0].Storage, replicaRelPaths)
+	missing, err := r.checker.DoesntExist(r.ctx, virtualStorage, storage, replicaPaths)
 	if err != nil {
 		return fmt.Errorf("existence check: %w", err)
 	}
 
-	for _, repoClusterPath := range missing {
-		d, err := serializeRepositoryClusterPath(repoClusterPath)
+	for _, replicaPath := range missing {
+		d, err := json.Marshal(map[string]string{
+			"virtual_storage": virtualStorage,
+			"storage":         storage,
+			"relative_path":   replicaPath,
+		})
 		if err != nil {
-			return fmt.Errorf("serialize %+v: %w", repoClusterPath, err)
+			return fmt.Errorf("serialize: %w", err)
 		}
 		if _, err := r.out.Write(d); err != nil {
 			return fmt.Errorf("write serialized data to output: %w", err)
@@ -161,12 +160,4 @@ func (r *reportUntrackedRepositories) Report(paths []datastore.RepositoryCluster
 	}
 
 	return nil
-}
-
-func serializeRepositoryClusterPath(path datastore.RepositoryClusterPath) ([]byte, error) {
-	return json.Marshal(map[string]string{
-		"virtual_storage": path.VirtualStorage,
-		"storage":         path.Storage,
-		"relative_path":   path.RelativeReplicaPath,
-	})
 }
