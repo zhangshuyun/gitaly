@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## 13.12.13 (2021-10-29)
+
+### Added (1 change)
+
+- [remove-repository: A new sub-command for the praefect to remove repository](gitlab-org/gitaly@ca6306ef066fa245ac8a63238b8c0e121a6d912d) ([merge request](gitlab-org/gitaly!3946))
+
 ## 13.12.12 (2021-09-21)
 
 ### Fixed (1 change)
