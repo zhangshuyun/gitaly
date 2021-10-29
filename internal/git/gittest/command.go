@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 )
@@ -14,13 +15,16 @@ import (
 func Exec(t testing.TB, cfg config.Cfg, args ...string) []byte {
 	t.Helper()
 
-	return run(t, nil, cfg, args, nil)
+	return run(t, nil, nil, cfg, args, nil)
 }
 
 // ExecConfig contains configuration for ExecOpts.
 type ExecConfig struct {
 	// Stdin sets up stdin of the spawned command.
 	Stdin io.Reader
+	// Stdout sets up stdout of the spawned command. Note that `ExecOpts()` will not return any
+	// output anymore if this field is set.
+	Stdout io.Writer
 	// Env contains environment variables that should be appended to the spawned command's
 	// environment.
 	Env []string
@@ -30,10 +34,10 @@ type ExecConfig struct {
 func ExecOpts(t testing.TB, cfg config.Cfg, execCfg ExecConfig, args ...string) []byte {
 	t.Helper()
 
-	return run(t, execCfg.Stdin, cfg, args, execCfg.Env)
+	return run(t, execCfg.Stdin, execCfg.Stdout, cfg, args, execCfg.Env)
 }
 
-func run(t testing.TB, stdin io.Reader, cfg config.Cfg, args, env []string) []byte {
+func run(t testing.TB, stdin io.Reader, stdout io.Writer, cfg config.Cfg, args, env []string) []byte {
 	t.Helper()
 
 	cmd := exec.Command(cfg.Git.BinPath, args...)
@@ -48,8 +52,14 @@ func run(t testing.TB, stdin io.Reader, cfg config.Cfg, args, env []string) []by
 	)
 	cmd.Env = append(cmd.Env, env...)
 
-	if stdin != nil {
-		cmd.Stdin = stdin
+	cmd.Stdout = stdout
+	cmd.Stdin = stdin
+
+	if stdout != nil {
+		require.NoError(t, cmd.Start())
+		require.NoError(t, cmd.Wait())
+
+		return nil
 	}
 
 	output, err := cmd.Output()
