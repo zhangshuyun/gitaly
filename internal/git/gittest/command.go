@@ -14,23 +14,26 @@ import (
 func Exec(t testing.TB, cfg config.Cfg, args ...string) []byte {
 	t.Helper()
 
-	return run(t, nil, cfg, args...)
+	return run(t, nil, cfg, args, nil)
 }
 
 // ExecConfig contains configuration for ExecOpts.
 type ExecConfig struct {
 	// Stdin sets up stdin of the spawned command.
 	Stdin io.Reader
+	// Env contains environment variables that should be appended to the spawned command's
+	// environment.
+	Env []string
 }
 
 // ExecOpts runs a git command with the given configuration.
 func ExecOpts(t testing.TB, cfg config.Cfg, execCfg ExecConfig, args ...string) []byte {
 	t.Helper()
 
-	return run(t, execCfg.Stdin, cfg, args...)
+	return run(t, execCfg.Stdin, cfg, args, execCfg.Env)
 }
 
-func run(t testing.TB, stdin io.Reader, cfg config.Cfg, args ...string) []byte {
+func run(t testing.TB, stdin io.Reader, cfg config.Cfg, args, env []string) []byte {
 	t.Helper()
 
 	cmd := exec.Command(cfg.Git.BinPath, args...)
@@ -43,6 +46,7 @@ func run(t testing.TB, stdin io.Reader, cfg config.Cfg, args ...string) []byte {
 		"GIT_CONFIG_KEY_0=init.defaultBranch",
 		"GIT_CONFIG_VALUE_0=master",
 	)
+	cmd.Env = append(cmd.Env, env...)
 
 	if stdin != nil {
 		cmd.Stdin = stdin
