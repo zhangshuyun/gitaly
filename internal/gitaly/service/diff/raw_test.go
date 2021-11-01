@@ -40,8 +40,8 @@ func TestSuccessfulRawDiffRequest(t *testing.T) {
 	committerEmail := "scrooge@mcduck.com"
 	gittest.Exec(t, cfg, "-C", sandboxRepoPath, "reset", "--hard", leftCommit)
 
-	gittest.ExecStream(t, cfg, reader, "-C", sandboxRepoPath, "apply")
-	gittest.ExecStream(t, cfg, reader, "-C", sandboxRepoPath, "add", ".")
+	gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: reader}, "-C", sandboxRepoPath, "apply")
+	gittest.Exec(t, cfg, "-C", sandboxRepoPath, "add", ".")
 	gittest.Exec(t, cfg, "-C", sandboxRepoPath,
 		"-c", fmt.Sprintf("user.name=%s", committerName),
 		"-c", fmt.Sprintf("user.email=%s", committerEmail),
@@ -123,8 +123,7 @@ func TestSuccessfulRawPatchRequest(t *testing.T) {
 	})
 
 	gittest.Exec(t, cfg, "-C", sandboxRepoPath, "reset", "--hard", leftCommit)
-
-	gittest.ExecStream(t, cfg, reader, "-C", sandboxRepoPath, "am")
+	gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: reader}, "-C", sandboxRepoPath, "am")
 
 	expectedTreeStructure := gittest.Exec(t, cfg, "-C", repoPath, "ls-tree", "-r", rightCommit)
 	actualTreeStructure := gittest.Exec(t, cfg, "-C", sandboxRepoPath, "ls-tree", "-r", "HEAD")

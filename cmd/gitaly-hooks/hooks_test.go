@@ -627,9 +627,7 @@ func requireContainsOnce(t *testing.T, s string, contains string) {
 }
 
 func TestGitalyHooksPackObjects(t *testing.T) {
-	logDir, err := filepath.Abs("testdata")
-	require.NoError(t, err)
-	require.NoError(t, os.MkdirAll(logDir, 0o755))
+	logDir := testhelper.TempDir(t)
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t, testcfg.WithBase(config.Cfg{
 		Auth:    auth.Config{Token: "abc123"},
@@ -643,7 +641,6 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 	testcfg.BuildGitalySSH(t, cfg)
 
 	baseArgs := []string{
-		cfg.Git.BinPath,
 		"clone",
 		"-u",
 		"git -c uploadpack.allowFilter -c uploadpack.packObjectsHook=" + cfg.BinDir + "/gitaly-hooks upload-pack",
@@ -666,13 +663,13 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 			hook.Reset()
 
 			tempDir := testhelper.TempDir(t)
-			args := append(baseArgs[1:], tc.extraArgs...)
-			args = append(args, repoPath, tempDir)
-			cmd := exec.Command(baseArgs[0], args...)
-			cmd.Env = envForHooks(t, context.Background(), cfg, repo, glHookValues{}, proxyValues{})
-			cmd.Stderr = os.Stderr
 
-			require.NoError(t, cmd.Run())
+			args := append(baseArgs, tc.extraArgs...)
+			args = append(args, repoPath, tempDir)
+
+			gittest.ExecOpts(t, cfg, gittest.ExecConfig{
+				Env: (envForHooks(t, context.Background(), cfg, repo, glHookValues{}, proxyValues{})),
+			}, args...)
 		})
 	}
 }

@@ -19,7 +19,9 @@ func TestSuccessfulGetCommitSignaturesRequest(t *testing.T) {
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
 
 	commitData := testhelper.MustReadFile(t, "testdata/dc00eb001f41dfac08192ead79c2377c588b82ee.commit")
-	commit := text.ChompBytes(gittest.ExecStream(t, cfg, bytes.NewReader(commitData), "-C", repoPath, "hash-object", "-w", "-t", "commit", "--stdin", "--literally"))
+	commit := text.ChompBytes(gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: bytes.NewReader(commitData)},
+		"-C", repoPath, "hash-object", "-w", "-t", "commit", "--stdin", "--literally",
+	))
 	require.Equal(t, "dc00eb001f41dfac08192ead79c2377c588b82ee", commit)
 
 	ctx, cancel := testhelper.Context()

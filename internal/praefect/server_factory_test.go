@@ -171,7 +171,9 @@ func TestServerFactory(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, waiter.Close())
 
-		gittest.ExecStream(t, cfg, bytes.NewReader(pack), "-C", repoPath, "index-pack", "--stdin", "--fix-thin")
+		gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: bytes.NewReader(pack)},
+			"-C", repoPath, "index-pack", "--stdin", "--fix-thin",
+		)
 	}
 
 	t.Run("insecure", func(t *testing.T) {

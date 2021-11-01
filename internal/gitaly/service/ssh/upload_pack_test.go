@@ -14,7 +14,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	promtest "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
@@ -27,7 +26,7 @@ import (
 )
 
 type cloneCommand struct {
-	command      *exec.Cmd
+	command      git.Cmd
 	repository   *gitalypb.Repository
 	server       string
 	featureFlags []string
@@ -62,20 +61,23 @@ func (cmd cloneCommand) execute(t *testing.T) error {
 		flagPairs = append(flagPairs, fmt.Sprintf("%s:true", flag))
 	}
 
-	cmd.command.Env = []string{
-		fmt.Sprintf("GITALY_ADDRESS=%s", cmd.server),
-		fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
-		fmt.Sprintf("GITALY_FEATUREFLAGS=%s", strings.Join(flagPairs, ",")),
-		fmt.Sprintf("PATH=.:%s", os.Getenv("PATH")),
-		fmt.Sprintf(`GIT_SSH_COMMAND=%s upload-pack`, filepath.Join(cmd.cfg.BinDir, "gitaly-ssh")),
-	}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-	out, err := cmd.command.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("%v: %q", err, out)
-	}
-	if !cmd.command.ProcessState.Success() {
-		return fmt.Errorf("Failed to run `git clone`: %q", out)
+	var output bytes.Buffer
+	gitCommand, err := git.NewExecCommandFactory(cmd.cfg).NewWithoutRepo(ctx,
+		cmd.command, git.WithStdout(&output), git.WithStderr(&output), git.WithEnv(
+			fmt.Sprintf("GITALY_ADDRESS=%s", cmd.server),
+			fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
+			fmt.Sprintf("GITALY_FEATUREFLAGS=%s", strings.Join(flagPairs, ",")),
+			fmt.Sprintf("PATH=.:%s", os.Getenv("PATH")),
+			fmt.Sprintf(`GIT_SSH_COMMAND=%s upload-pack`, filepath.Join(cmd.cfg.BinDir, "gitaly-ssh")),
+		), git.WithDisabledHooks(),
+	)
+	require.NoError(t, err)
+
+	if err := gitCommand.Wait(); err != nil {
+		return fmt.Errorf("Failed to run `git clone`: %q", output.Bytes())
 	}
 
 	return nil
@@ -225,17 +227,26 @@ func testUploadPackCloneSuccess(t *testing.T, opts ...testcfg.Option) {
 	localRepoPath := testhelper.TempDir(t)
 
 	tests := []struct {
-		cmd    *exec.Cmd
+		cmd    git.Cmd
 		desc   string
 		deepen float64
 	}{
 		{
-			cmd:    exec.Command(cfg.Git.BinPath, "clone", "git@localhost:test/test.git", localRepoPath),
+			cmd: git.SubCmd{
+				Name: "clone",
+				Args: []string{"git@localhost:test/test.git", localRepoPath},
+			},
 			desc:   "full clone",
 			deepen: 0,
 		},
 		{
-			cmd:    exec.Command(cfg.Git.BinPath, "clone", "--depth", "1", "git@localhost:test/test.git", localRepoPath),
+			cmd: git.SubCmd{
+				Name: "clone",
+				Flags: []git.Option{
+					git.ValueFlag{"--depth", "1"},
+				},
+				Args: []string{"git@localhost:test/test.git", localRepoPath},
+			},
 			desc:   "shallow clone",
 			deepen: 1,
 		},
@@ -292,9 +303,11 @@ exec '%s' "$@"
 
 	err := cloneCommand{
 		repository: repo,
-		command:    exec.Command(cfg.Git.BinPath, "clone", "git@localhost:test/test.git", localRepoPath),
-		server:     serverSocketPath,
-		cfg:        cfg,
+		command: git.SubCmd{
+			Name: "clone", Args: []string{"git@localhost:test/test.git", localRepoPath},
+		},
+		server: serverSocketPath,
+		cfg:    cfg,
 	}.execute(t)
 	require.NoError(t, err)
 
@@ -366,23 +379,30 @@ func testUploadPackCloneWithPartialCloneFilter(t *testing.T, opts ...testcfg.Opt
 	blobGreaterThanLimit := "18079e308ff9b3a5e304941020747e5c39b46c88"
 
 	tests := []struct {
-		desc      string
-		repoTest  func(t *testing.T, repoPath string)
-		cloneArgs []string
+		desc     string
+		repoTest func(t *testing.T, repoPath string)
+		cmd      git.SubCmd
 	}{
 		{
 			desc: "full_clone",
 			repoTest: func(t *testing.T, repoPath string) {
 				gittest.GitObjectMustExist(t, cfg.Git.BinPath, repoPath, blobGreaterThanLimit)
 			},
-			cloneArgs: []string{"clone", "git@localhost:test/test.git"},
+			cmd: git.SubCmd{
+				Name: "clone",
+			},
 		},
 		{
 			desc: "partial_clone",
 			repoTest: func(t *testing.T, repoPath string) {
 				gittest.GitObjectMustNotExist(t, cfg.Git.BinPath, repoPath, blobGreaterThanLimit)
 			},
-			cloneArgs: []string{"clone", "--filter=blob:limit=2048", "git@localhost:test/test.git"},
+			cmd: git.SubCmd{
+				Name: "clone",
+				Flags: []git.Option{
+					git.ValueFlag{Name: "--filter", Value: "blob:limit=2048"},
+				},
+			},
 		},
 	}
 
@@ -393,9 +413,11 @@ func testUploadPackCloneWithPartialCloneFilter(t *testing.T, opts ...testcfg.Opt
 			// UploadPackFilter flag disabled.
 			localPath := testhelper.TempDir(t)
 
+			tc.cmd.Args = []string{"git@localhost:test/test.git", localPath}
+
 			cmd := cloneCommand{
 				repository: repo,
-				command:    exec.Command(cfg.Git.BinPath, append(tc.cloneArgs, localPath)...),
+				command:    tc.cmd,
 				server:     serverSocketPath,
 				cfg:        cfg,
 			}
@@ -426,15 +448,24 @@ func testUploadPackCloneSuccessWithGitProtocol(t *testing.T, opts ...testcfg.Opt
 	localRepoPath := testhelper.TempDir(t)
 
 	tests := []struct {
-		cmd  *exec.Cmd
+		cmd  git.Cmd
 		desc string
 	}{
 		{
-			cmd:  exec.Command(cfg.Git.BinPath, "clone", "git@localhost:test/test.git", localRepoPath),
+			cmd: git.SubCmd{
+				Name: "clone",
+				Args: []string{"git@localhost:test/test.git", localRepoPath},
+			},
 			desc: "full clone",
 		},
 		{
-			cmd:  exec.Command(cfg.Git.BinPath, "clone", "--depth", "1", "git@localhost:test/test.git", localRepoPath),
+			cmd: git.SubCmd{
+				Name: "clone",
+				Args: []string{"git@localhost:test/test.git", localRepoPath},
+				Flags: []git.Option{
+					git.ValueFlag{Name: "--depth", Value: "1"},
+				},
+			},
 			desc: "shallow clone",
 		},
 	}
@@ -468,15 +499,18 @@ func TestUploadPackCloneHideTags(t *testing.T) {
 
 	localRepoPath := testhelper.TempDir(t)
 
-	cmd := exec.Command(cfg.Git.BinPath, "clone", "--mirror", "git@localhost:test/test.git", localRepoPath)
-	cmd.Env = os.Environ()
-	cmd.Env = append(command.GitEnv, cmd.Env...)
 	cloneCmd := cloneCommand{
 		repository: repo,
-		command:    cmd,
-		server:     serverSocketPath,
-		gitConfig:  "transfer.hideRefs=refs/tags",
-		cfg:        cfg,
+		command: git.SubCmd{
+			Name: "clone",
+			Flags: []git.Option{
+				git.Flag{Name: "--mirror"},
+			},
+			Args: []string{"git@localhost:test/test.git", localRepoPath},
+		},
+		server:    serverSocketPath,
+		gitConfig: "transfer.hideRefs=refs/tags",
+		cfg:       cfg,
 	}
 	_, _, lTags, rTags := cloneCmd.test(t, cfg, repoPath, localRepoPath)
 
@@ -500,9 +534,12 @@ func TestUploadPackCloneFailure(t *testing.T) {
 			StorageName:  "foobar",
 			RelativePath: repo.GetRelativePath(),
 		},
-		command: exec.Command(cfg.Git.BinPath, "clone", "git@localhost:test/test.git", localRepoPath),
-		server:  serverSocketPath,
-		cfg:     cfg,
+		command: git.SubCmd{
+			Name: "clone",
+			Args: []string{"git@localhost:test/test.git", localRepoPath},
+		},
+		server: serverSocketPath,
+		cfg:    cfg,
 	}
 	err := cmd.execute(t)
 	require.Error(t, err, "clone didn't fail")

@@ -9,17 +9,15 @@ import (
 	"net/http/cgi"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 )
 
 // RemoteUploadPackServer implements two HTTP routes for git-upload-pack by copying stdin and stdout into and out of the git upload-pack command
-func RemoteUploadPackServer(ctx context.Context, t *testing.T, gitPath, repoName, httpToken, repoPath string) (*httptest.Server, string) {
+func RemoteUploadPackServer(ctx context.Context, t *testing.T, cfg config.Cfg, repoName, httpToken, repoPath string) (*httptest.Server, string) {
 	s := httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch r.URL.String() {
@@ -35,9 +33,9 @@ func RemoteUploadPackServer(ctx context.Context, t *testing.T, gitPath, repoName
 				}
 				defer r.Body.Close()
 
-				cmd, err := command.New(ctx, exec.Command(gitPath, "-C", repoPath, "upload-pack", "--stateless-rpc", "."), reader, w, nil)
-				require.NoError(t, err)
-				require.NoError(t, cmd.Wait())
+				ExecOpts(t, cfg, ExecConfig{Stdin: reader, Stdout: w},
+					"-C", repoPath, "upload-pack", "--stateless-rpc", ".",
+				)
 			case fmt.Sprintf("/%s.git/info/refs?service=git-upload-pack", repoName):
 				if httpToken != "" && r.Header.Get("Authorization") != httpToken {
 					w.WriteHeader(http.StatusUnauthorized)
@@ -51,9 +49,9 @@ func RemoteUploadPackServer(ctx context.Context, t *testing.T, gitPath, repoName
 				_, err = w.Write([]byte("0000"))
 				require.NoError(t, err)
 
-				cmd, err := command.New(ctx, exec.Command(gitPath, "-C", repoPath, "upload-pack", "--advertise-refs", "."), nil, w, nil)
-				require.NoError(t, err)
-				require.NoError(t, cmd.Wait())
+				ExecOpts(t, cfg, ExecConfig{Stdout: w},
+					"-C", repoPath, "upload-pack", "--advertise-refs", ".",
+				)
 			default:
 				w.WriteHeader(http.StatusNotFound)
 			}

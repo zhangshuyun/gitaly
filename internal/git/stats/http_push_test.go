@@ -45,7 +45,9 @@ func TestPerformHTTPPush(t *testing.T) {
 
 				commit := gittest.WriteCommit(t, cfg, repoPath)
 				revisions := strings.NewReader(commit.String())
-				pack := gittest.ExecStream(t, cfg, revisions, "-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q")
+				pack := gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: revisions},
+					"-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q",
+				)
 
 				return []PushCommand{
 					{OldOID: git.ZeroOID, NewOID: commit, Reference: "refs/heads/foobar"},
@@ -88,7 +90,9 @@ func TestPerformHTTPPush(t *testing.T) {
 				}
 
 				revisions := strings.NewReader(strings.Join(commits, "\n"))
-				pack := gittest.ExecStream(t, cfg, revisions, "-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q")
+				pack := gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: revisions},
+					"-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q",
+				)
 
 				return commands, bytes.NewReader(pack)
 			},

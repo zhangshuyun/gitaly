@@ -104,7 +104,9 @@ func WriteTree(t testing.TB, cfg config.Cfg, repoPath string, entries []TreeEntr
 		require.NoError(t, err)
 	}
 
-	stdout := ExecStream(t, cfg, &tree, "-C", repoPath, "mktree", "-z", "--missing")
+	stdout := ExecOpts(t, cfg, ExecConfig{Stdin: &tree},
+		"-C", repoPath, "mktree", "-z", "--missing",
+	)
 	treeOID, err := git.NewObjectIDFromHex(text.ChompBytes(stdout))
 	require.NoError(t, err)
 
