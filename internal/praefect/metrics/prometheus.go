@@ -9,7 +9,7 @@ import (
 
 // RegisterReplicationDelay creates and registers a prometheus histogram
 // to observe replication delay times
-func RegisterReplicationDelay(conf promconfig.Config) (metrics.HistogramVec, error) {
+func RegisterReplicationDelay(conf promconfig.Config, registerer prometheus.Registerer) (metrics.HistogramVec, error) {
 	replicationDelay := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "gitaly",
@@ -20,12 +20,12 @@ func RegisterReplicationDelay(conf promconfig.Config) (metrics.HistogramVec, err
 		[]string{"type"},
 	)
 
-	return replicationDelay, prometheus.Register(replicationDelay)
+	return replicationDelay, registerer.Register(replicationDelay)
 }
 
 // RegisterReplicationLatency creates and registers a prometheus histogram
 // to observe replication latency times
-func RegisterReplicationLatency(conf promconfig.Config) (metrics.HistogramVec, error) {
+func RegisterReplicationLatency(conf promconfig.Config, registerer prometheus.Registerer) (metrics.HistogramVec, error) {
 	replicationLatency := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "gitaly",
@@ -36,12 +36,12 @@ func RegisterReplicationLatency(conf promconfig.Config) (metrics.HistogramVec, e
 		[]string{"type"},
 	)
 
-	return replicationLatency, prometheus.Register(replicationLatency)
+	return replicationLatency, registerer.Register(replicationLatency)
 }
 
 // RegisterNodeLatency creates and registers a prometheus histogram to
 // observe internal node latency
-func RegisterNodeLatency(conf promconfig.Config) (metrics.HistogramVec, error) {
+func RegisterNodeLatency(conf promconfig.Config, registerer prometheus.Registerer) (metrics.HistogramVec, error) {
 	nodeLatency := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "gitaly",
@@ -51,7 +51,7 @@ func RegisterNodeLatency(conf promconfig.Config) (metrics.HistogramVec, error) {
 		}, []string{"gitaly_storage"},
 	)
 
-	return nodeLatency, prometheus.Register(nodeLatency)
+	return nodeLatency, registerer.Register(nodeLatency)
 }
 
 var MethodTypeCounter = promauto.NewCounterVec(
