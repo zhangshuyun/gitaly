@@ -111,16 +111,6 @@ func (o *objectReader) isDirty() bool {
 	return o.n > 1
 }
 
-// Object represents data returned by `git cat-file --batch`
-type Object struct {
-	// ObjectInfo represents main information about object
-	ObjectInfo
-	// parent is the objectReader which has created the Object.
-	parent *objectReader
-	// dataReader is reader which has all the object data.
-	dataReader io.LimitedReader
-}
-
 func (o *objectReader) Object(
 	ctx context.Context,
 	revision git.Revision,
@@ -163,6 +153,16 @@ func (o *objectReader) Object(
 			N: oi.Size,
 		},
 	}, nil
+}
+
+// Object represents data returned by `git cat-file --batch`
+type Object struct {
+	// ObjectInfo represents main information about object
+	ObjectInfo
+	// parent is the objectReader which has created the Object.
+	parent *objectReader
+	// dataReader is reader which has all the object data.
+	dataReader io.LimitedReader
 }
 
 func (o *Object) Read(p []byte) (int, error) {
