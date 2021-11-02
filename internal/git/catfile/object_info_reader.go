@@ -166,7 +166,7 @@ func (o *objectInfoReader) isDirty() bool {
 }
 
 func (o *objectInfoReader) Info(ctx context.Context, revision git.Revision) (*ObjectInfo, error) {
-	finish := startSpan(o.creationCtx, ctx, "Batch.Info", revision)
+	finish := startSpan(ctx, o.creationCtx, "Batch.Info", revision)
 	defer finish()
 
 	if o.counter != nil {

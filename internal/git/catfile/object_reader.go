@@ -130,7 +130,7 @@ func (o *objectReader) Object(
 	ctx context.Context,
 	revision git.Revision,
 ) (*Object, error) {
-	finish := startSpan(o.creationCtx, ctx, "Batch.Object", revision)
+	finish := startSpan(ctx, o.creationCtx, "Batch.Object", revision)
 	defer finish()
 
 	o.Lock()
