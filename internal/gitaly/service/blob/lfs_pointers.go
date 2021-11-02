@@ -152,11 +152,14 @@ func (s *server) GetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gita
 		blobs[i] = gitpipe.RevisionResult{OID: git.ObjectID(blobID)}
 	}
 
-	catfileInfoIter := gitpipe.CatfileInfo(ctx, objectInfoReader, gitpipe.NewRevisionIterator(blobs),
+	catfileInfoIter, err := gitpipe.CatfileInfo(ctx, objectInfoReader, gitpipe.NewRevisionIterator(blobs),
 		gitpipe.WithSkipCatfileInfoResult(func(objectInfo *catfile.ObjectInfo) bool {
 			return objectInfo.Type != "blob" || objectInfo.Size > lfsPointerMaxSize
 		}),
 	)
+	if err != nil {
+		return helper.ErrInternalf("creating object info iterator: %w", err)
+	}
 
 	catfileObjectIter, err := gitpipe.CatfileObject(ctx, objectReader, catfileInfoIter)
 	if err != nil {

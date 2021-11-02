@@ -222,7 +222,9 @@ func TestPipeline_revlist(t *testing.T) {
 			require.NoError(t, err)
 
 			revlistIter := Revlist(ctx, repo, tc.revisions, tc.revlistOptions...)
-			catfileInfoIter := CatfileInfo(ctx, objectInfoReader, revlistIter, tc.catfileInfoOptions...)
+
+			catfileInfoIter, err := CatfileInfo(ctx, objectInfoReader, revlistIter, tc.catfileInfoOptions...)
+			require.NoError(t, err)
 
 			catfileObjectIter, err := CatfileObject(ctx, objectReader, catfileInfoIter)
 			require.NoError(t, err)
@@ -276,7 +278,9 @@ func TestPipeline_revlist(t *testing.T) {
 		require.NoError(t, err)
 
 		revlistIter := Revlist(ctx, repo, []string{"--all"})
-		catfileInfoIter := CatfileInfo(ctx, objectInfoReader, revlistIter)
+
+		catfileInfoIter, err := CatfileInfo(ctx, objectInfoReader, revlistIter)
+		require.NoError(t, err)
 
 		catfileObjectIter, err := CatfileObject(ctx, objectReader, catfileInfoIter)
 		require.NoError(t, err)
@@ -315,7 +319,9 @@ func TestPipeline_revlist(t *testing.T) {
 		require.NoError(t, err)
 
 		revlistIter := Revlist(ctx, repo, []string{"--all"}, WithObjects())
-		catfileInfoIter := CatfileInfo(ctx, objectInfoReader, revlistIter)
+
+		catfileInfoIter, err := CatfileInfo(ctx, objectInfoReader, revlistIter)
+		require.NoError(t, err)
 
 		catfileObjectIter, err := CatfileObject(ctx, objectReader, catfileInfoIter)
 		require.NoError(t, err)
@@ -367,7 +373,9 @@ func TestPipeline_forEachRef(t *testing.T) {
 	require.NoError(t, err)
 
 	forEachRefIter := ForEachRef(ctx, repo, nil)
-	catfileInfoIter := CatfileInfo(ctx, objectInfoReader, forEachRefIter)
+
+	catfileInfoIter, err := CatfileInfo(ctx, objectInfoReader, forEachRefIter)
+	require.NoError(t, err)
 
 	catfileObjectIter, err := CatfileObject(ctx, objectReader, catfileInfoIter)
 	require.NoError(t, err)
