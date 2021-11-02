@@ -26,7 +26,16 @@ type timerTicker struct {
 
 func (tt *timerTicker) C() <-chan time.Time { return tt.timer.C }
 
-func (tt *timerTicker) Reset() { tt.timer.Reset(tt.interval) }
+// Reset resets the timer. If there is a pending tick, then this tick will be drained.
+func (tt *timerTicker) Reset() {
+	if !tt.timer.Stop() {
+		select {
+		case <-tt.timer.C:
+		default:
+		}
+	}
+	tt.timer.Reset(tt.interval)
+}
 
 func (tt *timerTicker) Stop() { tt.timer.Stop() }
 
