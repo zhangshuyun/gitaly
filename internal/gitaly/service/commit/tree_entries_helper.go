@@ -143,16 +143,15 @@ func treeEntries(
 		}
 		return nil, err
 	}
-	defer func() {
-		if _, err := io.Copy(io.Discard, treeObj); err != nil && returnedErr == nil {
-			returnedErr = fmt.Errorf("discarding object: %w", err)
-		}
-	}()
 
 	// The tree entry may not refer to a subtree, but instead to a blob. Historically, we have
 	// simply ignored such objects altogether and didn't return an error, so we keep the same
 	// behaviour.
 	if treeObj.Type != "tree" {
+		if _, err := io.Copy(io.Discard, treeObj); err != nil && returnedErr == nil {
+			return nil, fmt.Errorf("discarding object: %w", err)
+		}
+
 		return nil, nil
 	}
 
