@@ -431,6 +431,9 @@ func run(cfgs []starter.Config, conf config.Config, b bootstrap.Listener, promre
 	if err := b.Start(); err != nil {
 		return fmt.Errorf("unable to start the bootstrap: %v", err)
 	}
+	for _, cfg := range cfgs {
+		logger.WithFields(logrus.Fields{"schema": cfg.Name, "address": cfg.Addr}).Info("listening")
+	}
 
 	go repl.ProcessBacklog(ctx, praefect.ExpBackoffFactory{Start: time.Second, Max: 5 * time.Second})
 	logger.Info("background started: processing of the replication events")
@@ -507,8 +510,6 @@ func getStarterConfigs(conf config.Config) ([]starter.Config, error) {
 		unique[addrConf.Addr] = struct{}{}
 
 		cfgs = append(cfgs, addrConf)
-
-		logger.WithFields(logrus.Fields{"schema": schema, "address": addr}).Info("listening")
 	}
 
 	if len(cfgs) == 0 {
