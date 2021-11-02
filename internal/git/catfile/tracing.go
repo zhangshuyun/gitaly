@@ -27,9 +27,15 @@ func startTrace(
 	methodName string,
 ) (*trace, func()) {
 	rpcSpan, _ := opentracing.StartSpanFromContext(rpcCtx, methodName)
-	cacheSpan, _ := opentracing.StartSpanFromContext(cacheCtx, methodName, opentracing.Tag{
-		Key: "correlation_id", Value: correlation.ExtractFromContext(rpcCtx),
-	})
+
+	// The per-RPC and cached context will be the same in case the process for which we're
+	// creating the tracing span for is not cached, and we shouldn't create the same span twice.
+	var cacheSpan opentracing.Span
+	if rpcCtx != cacheCtx {
+		cacheSpan, _ = opentracing.StartSpanFromContext(cacheCtx, methodName, opentracing.Tag{
+			Key: "correlation_id", Value: correlation.ExtractFromContext(rpcCtx),
+		})
+	}
 
 	trace := &trace{
 		rpcSpan:   rpcSpan,
@@ -59,7 +65,9 @@ func (t *trace) finish() {
 
 		tag := opentracing.Tag{Key: requestType, Value: requestCount}
 		tag.Set(t.rpcSpan)
-		tag.Set(t.cacheSpan)
+		if t.cacheSpan != nil {
+			tag.Set(t.cacheSpan)
+		}
 
 		if t.counter != nil {
 			t.counter.WithLabelValues(requestType).Add(float64(requestCount))
@@ -67,5 +75,7 @@ func (t *trace) finish() {
 	}
 
 	t.rpcSpan.Finish()
-	t.cacheSpan.Finish()
+	if t.cacheSpan != nil {
+		t.cacheSpan.Finish()
+	}
 }
