@@ -65,14 +65,16 @@ func (cmd trackRepository) Exec(flags *flag.FlagSet, cfg config.Config) error {
 		}
 	}
 
-	db, err := glsql.OpenDB(cfg.DB)
+	ctx := correlation.ContextWithCorrelation(context.Background(), correlation.SafeRandomID())
+	logger := cmd.logger.WithField("correlation_id", correlation.ExtractFromContext(ctx))
+
+	openDBCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	db, err := glsql.OpenDB(openDBCtx, cfg.DB)
 	if err != nil {
 		return fmt.Errorf("connect to database: %w", err)
 	}
 	defer func() { _ = db.Close() }()
-
-	ctx := correlation.ContextWithCorrelation(context.Background(), correlation.SafeRandomID())
-	logger := cmd.logger.WithField("correlation_id", correlation.ExtractFromContext(ctx))
 
 	return cmd.exec(ctx, logger, db, cfg)
 }

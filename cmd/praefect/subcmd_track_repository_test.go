@@ -62,11 +62,11 @@ func TestAddRepository_Exec_invalidArgs(t *testing.T) {
 	})
 
 	t.Run("db connection error", func(t *testing.T) {
-		cmd := trackRepository{virtualStorage: "stub", relativePath: "stub", authoritativeStorage: "storage-0"}
+		cmd := trackRepository{virtualStorage: "stub", relativePath: "stub", authoritativeStorage: "storage-0", logger: testhelper.NewTestLogger(t)}
 		cfg := config.Config{DB: config.DB{Host: "stub", SSLMode: "disable"}}
 		err := cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), cfg)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "connect to database: dial tcp: lookup stub")
+		require.Contains(t, err.Error(), "connect to database: send ping: dial tcp: lookup stub")
 	})
 }
 

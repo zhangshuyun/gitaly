@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	migrate "github.com/rubenv/sql-migrate"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
@@ -42,7 +43,9 @@ func NewPraefectMigrationCheck(conf config.Config) *Check {
 		Name:        "praefect migrations",
 		Description: "confirms whether or not all praefect migrations have run",
 		Run: func(ctx context.Context) error {
-			db, err := glsql.OpenDB(conf.DB)
+			openDBCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+			defer cancel()
+			db, err := glsql.OpenDB(openDBCtx, conf.DB)
 			if err != nil {
 				return err
 			}
