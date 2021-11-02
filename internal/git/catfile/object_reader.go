@@ -130,7 +130,7 @@ func (o *objectReader) Object(
 	ctx context.Context,
 	revision git.Revision,
 ) (*Object, error) {
-	finish := startSpan(ctx, o.creationCtx, "Batch.Object", revision)
+	trace, finish := startTrace(ctx, o.creationCtx, o.counter, "catfile.Object")
 	defer finish()
 
 	o.Lock()
@@ -156,10 +156,7 @@ func (o *objectReader) Object(
 	if err != nil {
 		return nil, err
 	}
-
-	if o.counter != nil {
-		o.counter.WithLabelValues(oi.Type).Inc()
-	}
+	trace.recordRequest(oi.Type)
 
 	o.n = oi.Size + 1
 

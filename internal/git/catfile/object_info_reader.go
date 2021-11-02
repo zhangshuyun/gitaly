@@ -166,12 +166,8 @@ func (o *objectInfoReader) isDirty() bool {
 }
 
 func (o *objectInfoReader) Info(ctx context.Context, revision git.Revision) (*ObjectInfo, error) {
-	finish := startSpan(ctx, o.creationCtx, "Batch.Info", revision)
+	trace, finish := startTrace(ctx, o.creationCtx, o.counter, "catfile.Info")
 	defer finish()
-
-	if o.counter != nil {
-		o.counter.WithLabelValues("info").Inc()
-	}
 
 	o.Lock()
 	defer o.Unlock()
@@ -179,6 +175,7 @@ func (o *objectInfoReader) Info(ctx context.Context, revision git.Revision) (*Ob
 	if _, err := fmt.Fprintln(o.cmd, revision.String()); err != nil {
 		return nil, err
 	}
+	trace.recordRequest("info")
 
 	return ParseObjectInfo(o.stdout)
 }
