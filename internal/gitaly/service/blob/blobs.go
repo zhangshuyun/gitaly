@@ -134,7 +134,10 @@ func (s *server) processBlobs(
 			return helper.ErrInternal(fmt.Errorf("creating object reader: %w", err))
 		}
 
-		catfileObjectIter := gitpipe.CatfileObject(ctx, objectReader, objectIter)
+		catfileObjectIter, err := gitpipe.CatfileObject(ctx, objectReader, objectIter)
+		if err != nil {
+			return helper.ErrInternalf("creating catfile object iterator: %w", err)
+		}
 
 		var i uint32
 		for catfileObjectIter.Next() {

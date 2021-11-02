@@ -53,7 +53,10 @@ func (s *server) ListAllCommits(
 		}),
 	)
 
-	catfileObjectIter := gitpipe.CatfileObject(ctx, objectReader, catfileInfoIter)
+	catfileObjectIter, err := gitpipe.CatfileObject(ctx, objectReader, catfileInfoIter)
+	if err != nil {
+		return err
+	}
 
 	chunker := chunk.New(&commitsSender{
 		send: func(commits []*gitalypb.GitCommit) error {

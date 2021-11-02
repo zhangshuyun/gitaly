@@ -62,7 +62,11 @@ func (s *server) ListLFSPointers(in *gitalypb.ListLFSPointersRequest, stream git
 		gitpipe.WithBlobLimit(lfsPointerMaxSize),
 		gitpipe.WithObjectTypeFilter(gitpipe.ObjectTypeBlob),
 	)
-	catfileObjectIter := gitpipe.CatfileObject(ctx, objectReader, revlistIter)
+
+	catfileObjectIter, err := gitpipe.CatfileObject(ctx, objectReader, revlistIter)
+	if err != nil {
+		return helper.ErrInternalf("creating object iterator: %w", err)
+	}
 
 	if err := sendLFSPointers(chunker, catfileObjectIter, int(in.Limit)); err != nil {
 		return err
@@ -100,7 +104,11 @@ func (s *server) ListAllLFSPointers(in *gitalypb.ListAllLFSPointersRequest, stre
 			return objectInfo.Type != "blob" || objectInfo.Size > lfsPointerMaxSize
 		}),
 	)
-	catfileObjectIter := gitpipe.CatfileObject(ctx, objectReader, catfileInfoIter)
+
+	catfileObjectIter, err := gitpipe.CatfileObject(ctx, objectReader, catfileInfoIter)
+	if err != nil {
+		return helper.ErrInternalf("creating object iterator: %w", err)
+	}
 
 	if err := sendLFSPointers(chunker, catfileObjectIter, int(in.Limit)); err != nil {
 		return err
@@ -149,7 +157,11 @@ func (s *server) GetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gita
 			return objectInfo.Type != "blob" || objectInfo.Size > lfsPointerMaxSize
 		}),
 	)
-	catfileObjectIter := gitpipe.CatfileObject(ctx, objectReader, catfileInfoIter)
+
+	catfileObjectIter, err := gitpipe.CatfileObject(ctx, objectReader, catfileInfoIter)
+	if err != nil {
+		return helper.ErrInternalf("creating object iterator: %w", err)
+	}
 
 	if err := sendLFSPointers(chunker, catfileObjectIter, 0); err != nil {
 		return err

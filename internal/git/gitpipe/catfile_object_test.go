@@ -78,7 +78,8 @@ func TestCatfileObject(t *testing.T) {
 			objectReader, err := catfileCache.ObjectReader(ctx, repo)
 			require.NoError(t, err)
 
-			it := CatfileObject(ctx, objectReader, NewCatfileInfoIterator(tc.catfileInfoInputs))
+			it, err := CatfileObject(ctx, objectReader, NewCatfileInfoIterator(tc.catfileInfoInputs))
+			require.NoError(t, err)
 
 			var results []CatfileObjectResult
 			for it.Next() {
