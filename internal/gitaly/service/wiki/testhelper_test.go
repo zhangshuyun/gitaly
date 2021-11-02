@@ -57,6 +57,7 @@ func TestWithRubySidecar(t *testing.T) {
 		testWikiListPagesSorting,
 		testSuccessfulWikiUpdatePageRequest,
 		testFailedWikiUpdatePageDueToValidations,
+		testFailedWikiUpdatePageDueToDuplicatePage,
 		testSuccessfulWikiWritePageRequest,
 		testFailedWikiWritePageDueToDuplicatePage,
 		testFailedWikiWritePageInPathDueToDuplicatePage,

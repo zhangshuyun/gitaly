@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -249,4 +250,45 @@ func testFailedWikiUpdatePageDueToValidations(t *testing.T, cfg config.Cfg, clie
 			testhelper.RequireGrpcError(t, err, testCase.code)
 		})
 	}
+}
+
+func testFailedWikiUpdatePageDueToDuplicatePage(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
+	wikiRepo, _ := setupWikiRepo(t, cfg)
+
+	page1Name := "Installing Gitaly"
+	page2Name := "Setting up Gitaly"
+	content := []byte("Mock wiki page content")
+	commitDetails := &gitalypb.WikiCommitDetails{
+		Name:     []byte("Ahmad Sherif"),
+		Email:    []byte("ahmad@gitlab.com"),
+		Message:  []byte("Add installation instructions"),
+		UserId:   int32(1),
+		UserName: []byte("ahmad"),
+	}
+
+	writeWikiPage(t, client, wikiRepo, createWikiPageOpts{title: page1Name, content: content})
+	writeWikiPage(t, client, wikiRepo, createWikiPageOpts{title: page2Name, content: content})
+
+	request := &gitalypb.WikiUpdatePageRequest{
+		Repository:    wikiRepo,
+		PagePath:      []byte("//" + page2Name),
+		Title:         []byte(page1Name),
+		Format:        "markdown",
+		CommitDetails: commitDetails,
+		Content:       content,
+	}
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	stream, err := client.WikiUpdatePage(ctx)
+	require.NoError(t, err)
+
+	require.NoError(t, stream.Send(request))
+
+	response, err := stream.CloseAndRecv()
+	require.NoError(t, err)
+
+	expectedResponse := &gitalypb.WikiUpdatePageResponse{Error: []byte("Cannot write //Installing-Gitaly.md, found //Installing-Gitaly.md.")}
+	testassert.ProtoEqual(t, expectedResponse, response)
 }
