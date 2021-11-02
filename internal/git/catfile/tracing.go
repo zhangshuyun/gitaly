@@ -2,6 +2,7 @@ package catfile
 
 import (
 	"context"
+	"sync"
 
 	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
@@ -11,7 +12,8 @@ type trace struct {
 	span    opentracing.Span
 	counter *prometheus.CounterVec
 
-	requests map[string]int
+	requestsLock sync.Mutex
+	requests     map[string]int
 }
 
 // startTrace starts a new tracing span and updates metrics according to how many requests have been
@@ -41,10 +43,15 @@ func startTrace(
 }
 
 func (t *trace) recordRequest(requestType string) {
+	t.requestsLock.Lock()
+	defer t.requestsLock.Unlock()
 	t.requests[requestType]++
 }
 
 func (t *trace) finish() {
+	t.requestsLock.Lock()
+	defer t.requestsLock.Unlock()
+
 	for requestType, requestCount := range t.requests {
 		if requestCount == 0 {
 			continue
