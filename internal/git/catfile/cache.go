@@ -181,7 +181,7 @@ func (c *ProcessCache) ObjectReader(ctx context.Context, repo git.RepositoryExec
 
 	objectReader, ok := cacheable.(ObjectReader)
 	if !ok {
-		return nil, fmt.Errorf("expected object reader, got %T", objectReader)
+		return nil, fmt.Errorf("expected object reader, got %T", cacheable)
 	}
 
 	return objectReader, nil
@@ -198,7 +198,7 @@ func (c *ProcessCache) ObjectInfoReader(ctx context.Context, repo git.Repository
 
 	objectInfoReader, ok := cacheable.(ObjectInfoReader)
 	if !ok {
-		return nil, fmt.Errorf("expected object info reader, got %T", objectInfoReader)
+		return nil, fmt.Errorf("expected object info reader, got %T", cacheable)
 	}
 
 	return objectInfoReader, nil
