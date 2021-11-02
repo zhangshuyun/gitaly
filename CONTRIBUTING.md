@@ -43,6 +43,110 @@ available at [https://contributor-covenant.org/version/1/1/0/](https://contribut
 
 The Gitaly style guide is [documented in it's own file](STYLE.md).
 
+## Commits
+
+While not directly related to coding style, it's still important to have a set
+of best practices around how Git commits are assembled. Proper commit hygiene
+makes it much easier to discover when bugs have been introduced, why changes
+have been made and what their reasoning was.
+
+### Write small, atomic commits
+
+Commits should be as small as possible but not smaller than required to make a
+logically complete change. If you struggle to find a proper summary for your
+commit message, it's a good indicator that the changes you do in this commit may
+not be focussed enough.
+
+Using `git add -p` is a great help to only add relevant changes. Often times,
+you only notice you require additional changes to achieve your goal when halfway
+through the implementation. Using `git stash` can help you stay focussed on this
+additional change until you have implemented it in a separate commit.
+
+### Split up refactors and behavioural changes
+
+More often than not, introducing changes in behaviour requires preliminary
+refactors. You should never squash this refactoring and behavioural change into
+a single commit, as it makes it very hard to spot the actual change at later
+points in time.
+
+### Tell a story
+
+When splitting up commits into small and logical changes, then there will be
+quite some interdependencies between all commits of your topic branch. If you do
+changes whose purpose it simply is to prepare another change, then you should
+briefly mention the overall goal this commit is heading towards.
+
+### Describe why you make changes, not what you change
+
+When writing commit messages, you should typically explain why a given change is
+being made. What has changed is typically visible from the diff itself. There
+are obviously exceptions to that rule, e.g. if you have pondered several
+potential solutions it is reasonable to explain why you have settled on the
+specific implementation you chose.
+
+A good commit message answers the following questions:
+
+- What is the current situation?
+- Why does that situation need to change?
+- How does your change fix that situation?
+- Are there relevant resources which help further the understanding? If so,
+  provide references.
+
+You may want to set up a [message template](https://thoughtbot.com/blog/better-commit-messages-with-a-gitmessage-template)
+to pre-populate your editor when executing git-commit(1).
+
+### Use scoped commit subjects
+
+Many projects typically prefix their commit subjects with a scope. E.g. if
+you're implementing a new feature "X" for subsystem "Y", your commit message
+would be "Y: Implement new feature X". This makes it easier to quickly sift
+through relevant commits by simply inspecting this prefix.
+
+### Keep the commit subject short
+
+As commit subjects are displayed in various command line tools by default, it is
+recommended to keep the commit subject short. A good rule of thum is that it
+shouldn't exceed 72 characters.
+
+### Mention the original commit which has introduced bugs
+
+When implementing bugfixes, it's often useful information to see why a bug was
+introduced and when it has been introduced. Mentioning the original commit which
+has introduced a given bug is thus recommended. You may use e.g. `git blame` or
+`git bisect` to help you identify that commit.
+
+The format used to mention commits is typically the abbreviated object ID
+followed by the commit subject and the commit date. You may create an alias for
+this to have it easily available:
+
+```
+$ git config alias.reference "show -s --pretty=reference"
+$ git reference HEAD
+cf7f9ffe5 (style: Document best practices for commit hygiene, 2020-11-20)
+```
+
+### Use interactive rebases to shape your commit series
+
+Using interactive rebases is crucial to end up with commit series which are
+readable and thus also easily reviewable one by one. Use it to rearrange
+commits, improve their commit messages or squash multiple commits into one.
+
+### Create fixup commits
+
+When you create multiple commits as part of feature branches, you will
+frequently discover bugs in one of the commits you've just written. Instead of
+creating a separate commit, you can easily create a fixup commit and squash it
+directly into the original source of bugs via `git commit --fixup=ORIG_COMMIT`
+and `git rebase --interactive --autosquash`.
+
+### Ensure that all commits build and pass tests
+
+In order to keep history bisectable via `git bisect`, you should ensure that all
+of your commits build and pass tests. You can do so with interactive rebases,
+e.g. with `git rebase -i --exec='make build format lint test' origin/master`.
+This will automatically build each commit and verify that it passes formatting,
+linting and our test suite.
+
 ## Changelog
 
 Gitaly keeps a [changelog](CHANGELOG.md) which is generated when a new release
