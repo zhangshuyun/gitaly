@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 13.12.14 (2021-11-03)
+
+No changes.
+
 ## 13.12.13 (2021-10-29)
 
 ### Added (1 change)
