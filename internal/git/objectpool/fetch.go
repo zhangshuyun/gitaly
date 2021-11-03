@@ -51,6 +51,10 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 			Flags: []git.Option{
 				git.Flag{Name: "--quiet"},
 				git.Flag{Name: "--atomic"},
+				// We already fetch tags via our refspec, so we don't
+				// want to fetch them a second time via Git's default
+				// tag refspec.
+				git.Flag{Name: "--no-tags"},
 			},
 			Args: []string{originPath, refSpec},
 		},

@@ -229,9 +229,6 @@ func TestFetchFromOrigin_refs(t *testing.T) {
 			"refs/remotes/origin/heads/master",
 			"refs/remotes/origin/tags/annotated-tag",
 			"refs/remotes/origin/tags/lightweight-tag",
-			// Tags are duplicated and end up in our main namespace, which is a bug.
-			"refs/tags/annotated-tag",
-			"refs/tags/lightweight-tag",
 		},
 		strings.Split(text.ChompBytes(gittest.Exec(t, pool.cfg, "-C", poolPath, "for-each-ref", "--format=%(refname)")), "\n"),
 	)
