@@ -5,13 +5,11 @@ import (
 
 	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
-	"gitlab.com/gitlab-org/labkit/correlation"
 )
 
 type trace struct {
-	rpcSpan   opentracing.Span
-	cacheSpan opentracing.Span
-	counter   *prometheus.CounterVec
+	span    opentracing.Span
+	counter *prometheus.CounterVec
 
 	requests map[string]int
 }
@@ -21,26 +19,15 @@ type trace struct {
 // is the context of the current RPC call. And then the cache context, which is the decorrelated
 // context for cached catfile processes. Spans are then created for both contexts.
 func startTrace(
-	rpcCtx context.Context,
-	cacheCtx context.Context,
+	ctx context.Context,
 	counter *prometheus.CounterVec,
 	methodName string,
 ) (*trace, func()) {
-	rpcSpan, _ := opentracing.StartSpanFromContext(rpcCtx, methodName)
-
-	// The per-RPC and cached context will be the same in case the process for which we're
-	// creating the tracing span for is not cached, and we shouldn't create the same span twice.
-	var cacheSpan opentracing.Span
-	if rpcCtx != cacheCtx {
-		cacheSpan, _ = opentracing.StartSpanFromContext(cacheCtx, methodName, opentracing.Tag{
-			Key: "correlation_id", Value: correlation.ExtractFromContext(rpcCtx),
-		})
-	}
+	span, _ := opentracing.StartSpanFromContext(ctx, methodName)
 
 	trace := &trace{
-		rpcSpan:   rpcSpan,
-		cacheSpan: cacheSpan,
-		counter:   counter,
+		span:    span,
+		counter: counter,
 		requests: map[string]int{
 			"blob":   0,
 			"commit": 0,
@@ -63,19 +50,11 @@ func (t *trace) finish() {
 			continue
 		}
 
-		tag := opentracing.Tag{Key: requestType, Value: requestCount}
-		tag.Set(t.rpcSpan)
-		if t.cacheSpan != nil {
-			tag.Set(t.cacheSpan)
-		}
-
+		t.span.SetTag(requestType, requestCount)
 		if t.counter != nil {
 			t.counter.WithLabelValues(requestType).Add(float64(requestCount))
 		}
 	}
 
-	t.rpcSpan.Finish()
-	if t.cacheSpan != nil {
-		t.cacheSpan.Finish()
-	}
+	t.span.Finish()
 }

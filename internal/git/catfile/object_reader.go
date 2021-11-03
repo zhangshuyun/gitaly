@@ -45,11 +45,7 @@ type objectReader struct {
 
 	closed bool
 
-	// creationCtx is the context in which this reader has been created. This context may
-	// potentially be decorrelated from the "real" RPC context in case the reader is going to be
-	// cached.
-	creationCtx context.Context
-	counter     *prometheus.CounterVec
+	counter *prometheus.CounterVec
 }
 
 func newObjectReader(
@@ -73,10 +69,9 @@ func newObjectReader(
 	}
 
 	objectReader := &objectReader{
-		cmd:         batchCmd,
-		stdout:      bufio.NewReader(batchCmd),
-		creationCtx: ctx,
-		counter:     counter,
+		cmd:     batchCmd,
+		stdout:  bufio.NewReader(batchCmd),
+		counter: counter,
 	}
 	go func() {
 		<-ctx.Done()
@@ -130,7 +125,7 @@ func (o *objectReader) Object(
 	ctx context.Context,
 	revision git.Revision,
 ) (*Object, error) {
-	trace, finish := startTrace(ctx, o.creationCtx, o.counter, "catfile.Object")
+	trace, finish := startTrace(ctx, o.counter, "catfile.Object")
 	defer finish()
 
 	o.Lock()

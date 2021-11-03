@@ -102,11 +102,7 @@ type objectInfoReader struct {
 
 	closed bool
 
-	// creationCtx is the context in which this reader has been created. This context may
-	// potentially be decorrelated from the "real" RPC context in case the reader is going to be
-	// cached.
-	creationCtx context.Context
-	counter     *prometheus.CounterVec
+	counter *prometheus.CounterVec
 }
 
 func newObjectInfoReader(
@@ -130,10 +126,9 @@ func newObjectInfoReader(
 	}
 
 	objectInfoReader := &objectInfoReader{
-		cmd:         batchCmd,
-		stdout:      bufio.NewReader(batchCmd),
-		creationCtx: ctx,
-		counter:     counter,
+		cmd:     batchCmd,
+		stdout:  bufio.NewReader(batchCmd),
+		counter: counter,
 	}
 	go func() {
 		<-ctx.Done()
@@ -166,7 +161,7 @@ func (o *objectInfoReader) isDirty() bool {
 }
 
 func (o *objectInfoReader) Info(ctx context.Context, revision git.Revision) (*ObjectInfo, error) {
-	trace, finish := startTrace(ctx, o.creationCtx, o.counter, "catfile.Info")
+	trace, finish := startTrace(ctx, o.counter, "catfile.Info")
 	defer finish()
 
 	o.Lock()
