@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -141,6 +142,20 @@ func (s *server) create(ctx context.Context, in *gitalypb.ReplicateRepositoryReq
 }
 
 func (s *server) createFromSnapshot(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) error {
+	if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
+		if err := s.createRepository(ctx, in.GetRepository(), func(repo *gitalypb.Repository) error {
+			if err := s.extractSnapshot(ctx, in.GetSource(), repo); err != nil {
+				return fmt.Errorf("extracting snapshot: %w", err)
+			}
+
+			return nil
+		}); err != nil {
+			return fmt.Errorf("creating repository: %w", err)
+		}
+
+		return nil
+	}
+
 	tempRepo, tempDir, err := tempdir.NewRepository(ctx, in.GetRepository().GetStorageName(), s.locator)
 	if err != nil {
 		return fmt.Errorf("create temporary directory: %w", err)

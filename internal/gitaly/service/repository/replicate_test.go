@@ -2,6 +2,7 @@ package repository
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -14,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -27,6 +29,10 @@ import (
 
 func TestReplicateRepository(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testReplicateRepository)
+}
+
+func testReplicateRepository(t *testing.T, ctx context.Context) {
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
 
@@ -61,8 +67,6 @@ func TestReplicateRepository(t *testing.T) {
 	targetRepo := proto.Clone(repo).(*gitalypb.Repository)
 	targetRepo.StorageName = cfg.Storages[1].Name
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 	_, err = client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
@@ -101,9 +105,10 @@ func TestReplicateRepository(t *testing.T) {
 func TestReplicateRepositoryTransactional(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testReplicateRepositoryTransactional)
+}
 
+func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
 
@@ -149,7 +154,12 @@ func TestReplicateRepositoryTransactional(t *testing.T) {
 		Source:     sourceRepo,
 	})
 	require.NoError(t, err)
-	require.EqualValues(t, 5, atomic.LoadInt32(&votes))
+
+	expectedVotes := 5
+	if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
+		expectedVotes++
+	}
+	require.EqualValues(t, expectedVotes, atomic.LoadInt32(&votes))
 
 	// We're now changing a reference in the source repository such that we can observe changes
 	// in the target repo.
@@ -168,6 +178,10 @@ func TestReplicateRepositoryTransactional(t *testing.T) {
 
 func TestReplicateRepositoryInvalidArguments(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testReplicateRepositoryInvalidArguments)
+}
+
+func testReplicateRepositoryInvalidArguments(t *testing.T, ctx context.Context) {
 	testCases := []struct {
 		description   string
 		input         *gitalypb.ReplicateRepositoryRequest
@@ -241,9 +255,6 @@ func TestReplicateRepositoryInvalidArguments(t *testing.T) {
 
 	_, client := setupRepositoryServiceWithoutRepo(t)
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
 			_, err := client.ReplicateRepository(ctx, tc.input)
@@ -254,6 +265,10 @@ func TestReplicateRepositoryInvalidArguments(t *testing.T) {
 
 func TestReplicateRepository_BadRepository(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testReplicateRepositoryBadRepository)
+}
+
+func testReplicateRepositoryBadRepository(t *testing.T, ctx context.Context) {
 	for _, tc := range []struct {
 		desc          string
 		invalidSource bool
@@ -316,8 +331,6 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 				}
 			}
 
-			ctx, cancel := testhelper.Context()
-			defer cancel()
 			ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 			_, err := client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
@@ -338,6 +351,10 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 	t.Parallel()
 
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testReplicateRepositoryFailedFetchInternalRemote)
+}
+
+func testReplicateRepositoryFailedFetchInternalRemote(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t, testcfg.WithStorages("default", "replica"))
 	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
@@ -360,9 +377,6 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 	require.NoError(t, os.MkdirAll(sourceRepoPath, 0o777))
 	gittest.Exec(t, cfg, "init", "--bare", sourceRepoPath)
 	require.NoError(t, os.WriteFile(filepath.Join(sourceRepoPath, "HEAD"), []byte("garbage"), 0o666))
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
