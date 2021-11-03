@@ -542,6 +542,10 @@ No changes.
 
 - [Update gitlab-labkit to 0.17.1](gitlab-org/gitaly@904af72eb7c42124978370cef53681fa561b10f5) ([merge request](gitlab-org/gitaly!3395))
 
+## 13.12.14 (2021-11-03)
+
+No changes.
+
 ## 13.12.13 (2021-10-29)
 
 ### Added (1 change)
