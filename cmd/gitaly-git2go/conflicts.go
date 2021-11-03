@@ -49,17 +49,17 @@ func (conflictsSubcommand) conflicts(request git2go.ConflictsCommand) git2go.Con
 
 	ours, err := repo.LookupCommit(oursOid)
 	if err != nil {
-		return conflictError(codes.Internal, err.Error())
+		return convertError(err, git.ErrorCodeNotFound, codes.InvalidArgument)
 	}
 
 	theirsOid, err := git.NewOid(request.Theirs)
 	if err != nil {
-		return conflictError(codes.Internal, err.Error())
+		return conflictError(codes.InvalidArgument, err.Error())
 	}
 
 	theirs, err := repo.LookupCommit(theirsOid)
 	if err != nil {
-		return conflictError(codes.Internal, err.Error())
+		return convertError(err, git.ErrorCodeNotFound, codes.InvalidArgument)
 	}
 
 	index, err := repo.MergeCommits(ours, theirs, nil)
@@ -163,4 +163,12 @@ func conflictError(code codes.Code, message string) git2go.ConflictsResult {
 			Message: message,
 		},
 	}
+}
+
+func convertError(err error, errorCode git.ErrorCode, returnCode codes.Code) git2go.ConflictsResult {
+	var gitError *git.GitError
+	if errors.As(err, &gitError) && gitError.Code == errorCode {
+		return conflictError(returnCode, err.Error())
+	}
+	return conflictError(codes.Internal, err.Error())
 }

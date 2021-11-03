@@ -4,15 +4,19 @@
 package main
 
 import (
+	"fmt"
 	"testing"
 
 	git "github.com/libgit2/git2go/v32"
 	"github.com/stretchr/testify/require"
 	cmdtesthelper "gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/testhelper"
+	glgit "gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestConflicts(t *testing.T) {
@@ -187,6 +191,94 @@ func TestConflicts(t *testing.T) {
 
 			require.NoError(t, err)
 			require.Equal(t, tc.conflicts, response.Conflicts)
+		})
+	}
+}
+
+func TestConflicts_checkError(t *testing.T) {
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	base := cmdtesthelper.BuildCommit(t, repoPath, nil, nil)
+	validOID := glgit.ObjectID(base.String())
+	executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
+
+	testcfg.BuildGitalyGit2Go(t, cfg)
+
+	testcases := []struct {
+		desc             string
+		overrideRepoPath string
+		ours             glgit.ObjectID
+		theirs           glgit.ObjectID
+		expErr           error
+	}{
+		{
+			desc:   "ours is not set",
+			ours:   "",
+			theirs: validOID,
+			expErr: fmt.Errorf("conflicts: %w: missing ours", git2go.ErrInvalidArgument),
+		},
+		{
+			desc:   "theirs is not set",
+			ours:   validOID,
+			theirs: "",
+			expErr: fmt.Errorf("conflicts: %w: missing theirs", git2go.ErrInvalidArgument),
+		},
+		{
+			desc:             "invalid repository",
+			overrideRepoPath: "not/existing/path.git",
+			ours:             validOID,
+			theirs:           validOID,
+			expErr:           status.Error(codes.Internal, "could not open repository: failed to resolve path 'not/existing/path.git': No such file or directory"),
+		},
+		{
+			desc:   "ours is invalid",
+			ours:   "1",
+			theirs: validOID,
+			expErr: status.Error(codes.InvalidArgument, "encoding/hex: odd length hex string"),
+		},
+		{
+			desc:   "theirs is invalid",
+			ours:   validOID,
+			theirs: "1",
+			expErr: status.Error(codes.InvalidArgument, "encoding/hex: odd length hex string"),
+		},
+		{
+			desc:   "ours OID doesn't exist",
+			ours:   glgit.ZeroOID,
+			theirs: validOID,
+			expErr: status.Error(codes.InvalidArgument, "odb: cannot read object: null OID cannot exist"),
+		},
+		{
+			desc:   "invalid object type",
+			ours:   glgit.EmptyTreeOID,
+			theirs: validOID,
+			expErr: status.Error(codes.InvalidArgument, "the requested type does not match the type in the ODB"),
+		},
+		{
+			desc:   "theirs OID doesn't exist",
+			ours:   validOID,
+			theirs: glgit.ZeroOID,
+			expErr: status.Error(codes.InvalidArgument, "odb: cannot read object: null OID cannot exist"),
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.desc, func(t *testing.T) {
+			repoPath := repoPath
+			if tc.overrideRepoPath != "" {
+				repoPath = tc.overrideRepoPath
+			}
+
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			_, err := executor.Conflicts(ctx, repo, git2go.ConflictsCommand{
+				Repository: repoPath,
+				Ours:       tc.ours.String(),
+				Theirs:     tc.theirs.String(),
+			})
+
+			require.Error(t, err)
+			require.Equal(t, tc.expErr, err)
 		})
 	}
 }
