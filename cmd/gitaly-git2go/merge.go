@@ -13,7 +13,6 @@ import (
 	"time"
 
 	git "github.com/libgit2/git2go/v32"
-	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/conflicts"
 	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/git2goutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 )
@@ -113,7 +112,7 @@ func resolveConflicts(repo *git.Repository, index *git.Index) error {
 
 	for _, conflict := range indexConflicts {
 		if isConflictMergeable(conflict) {
-			merge, err := conflicts.Merge(repo, conflict)
+			merge, err := Merge(repo, conflict)
 			if err != nil {
 				return err
 			}

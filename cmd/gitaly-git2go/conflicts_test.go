@@ -1,7 +1,7 @@
 //go:build static && system_libgit2
 // +build static,system_libgit2
 
-package conflicts
+package main
 
 import (
 	"testing"
@@ -14,10 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
-
-func TestMain(m *testing.M) {
-	testhelper.Run(m)
-}
 
 func TestConflicts(t *testing.T) {
 	testcases := []struct {
@@ -151,7 +147,7 @@ func TestConflicts(t *testing.T) {
 					Ancestor: git2go.ConflictEntry{Path: "file", Mode: 0o100644},
 					Our:      git2go.ConflictEntry{},
 					Their:    git2go.ConflictEntry{},
-					Content:  []byte{},
+					Content:  nil,
 				},
 				{
 					Ancestor: git2go.ConflictEntry{},

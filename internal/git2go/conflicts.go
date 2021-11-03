@@ -1,7 +1,9 @@
 package git2go
 
 import (
+	"bytes"
 	"context"
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"io"
@@ -82,26 +84,26 @@ func (b Executor) Conflicts(ctx context.Context, repo repository.GitRepo, c Conf
 		return ConflictsResult{}, fmt.Errorf("conflicts: %w: %s", ErrInvalidArgument, err.Error())
 	}
 
-	serialized, err := serialize(c)
+	input := &bytes.Buffer{}
+	const cmd = "conflicts"
+	if err := gob.NewEncoder(input).Encode(c); err != nil {
+		return ConflictsResult{}, fmt.Errorf("%s: %w", cmd, err)
+	}
+
+	output, err := b.run(ctx, repo, input, cmd)
 	if err != nil {
-		return ConflictsResult{}, err
+		return ConflictsResult{}, fmt.Errorf("%s: %w", cmd, err)
 	}
 
-	stdout, err := b.run(ctx, repo, nil, "conflicts", "-request", serialized)
-	if err != nil {
-		return ConflictsResult{}, err
+	var result ConflictsResult
+	if err := gob.NewDecoder(output).Decode(&result); err != nil {
+		return ConflictsResult{}, fmt.Errorf("%s: %w", cmd, err)
 	}
 
-	var response ConflictsResult
-	if err := deserialize(stdout.String(), &response); err != nil {
-		return ConflictsResult{}, err
+	if result.Error.Code != codes.OK {
+		return ConflictsResult{}, status.Error(result.Error.Code, result.Error.Message)
 	}
-
-	if response.Error.Code != codes.OK {
-		return ConflictsResult{}, status.Error(response.Error.Code, response.Error.Message)
-	}
-
-	return response, nil
+	return result, nil
 }
 
 func (c ConflictsCommand) verify() error {
