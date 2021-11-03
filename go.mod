@@ -40,7 +40,7 @@ require (
 	gocloud.dev v0.23.0
 	golang.org/x/exp v0.0.0-20200331195152-e8c3332aa8e5 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20210503173754-0981d6026fa6
+	golang.org/x/sys v0.0.0-20211102192858-4dd72447c267
 	google.golang.org/grpc v1.38.0
 	google.golang.org/protobuf v1.26.0
 )
