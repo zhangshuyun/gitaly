@@ -122,23 +122,6 @@ func listBitmaps(t *testing.T, repoPath string) []string {
 	return bitmaps
 }
 
-func TestUnlink(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	pool, testRepo := setupObjectPool(t)
-
-	require.Error(t, pool.Unlink(ctx, testRepo), "removing a non-existing pool should be an error")
-
-	require.NoError(t, pool.Create(ctx, testRepo), "create pool")
-	require.NoError(t, pool.Link(ctx, testRepo), "link test repo to pool")
-
-	require.False(t, gittest.RemoteExists(t, pool.cfg, pool.FullPath(), testRepo.GetGlRepository()), "pool remotes should include %v", testRepo)
-
-	require.NoError(t, pool.Unlink(ctx, testRepo), "unlink repo")
-	require.False(t, gittest.RemoteExists(t, pool.cfg, pool.FullPath(), testRepo.GetGlRepository()), "pool remotes should no longer include %v", testRepo)
-}
-
 func TestLinkAbsoluteLinkExists(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
