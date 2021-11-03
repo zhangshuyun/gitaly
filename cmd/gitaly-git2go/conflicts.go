@@ -76,11 +76,11 @@ func (conflictsSubcommand) conflicts(request git2go.ConflictsCommand) git2go.Con
 	for {
 		conflict, err := iterator.Next()
 		if err != nil {
-			var gitError git.GitError
-			if errors.As(err, &gitError) && gitError.Code != git.ErrorCodeIterOver {
-				return conflictError(codes.Internal, err.Error())
+			var gitError *git.GitError
+			if errors.As(err, &gitError) && gitError.Code == git.ErrorCodeIterOver {
+				break
 			}
-			break
+			return conflictError(codes.Internal, err.Error())
 		}
 
 		merge, err := Merge(repo, conflict)
