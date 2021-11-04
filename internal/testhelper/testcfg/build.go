@@ -93,8 +93,13 @@ func BuildBinary(t testing.TB, targetDir, sourcePath string) string {
 	require.NoFileExists(t, targetPath, "%s exists already -- do you try to build it twice?", executableName)
 
 	require.NoError(t, os.MkdirAll(targetDir, os.ModePerm))
-	testhelper.CopyFile(t, sharedBinaryPath, targetPath)
-	require.NoError(t, os.Chmod(targetPath, 0o755))
+
+	// We hard-link the file into place instead of copying it because copying used to cause
+	// ETXTBSY errors in CI. This is likely caused by a bug in the overlay filesystem used by
+	// Docker, so we just work around this by linking the file instead. It's more efficient
+	// anyway, the only thing is that no test must modify the binary directly. But let's count
+	// on that.
+	require.NoError(t, os.Link(sharedBinaryPath, targetPath))
 
 	return targetPath
 }
