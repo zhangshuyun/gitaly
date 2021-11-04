@@ -14,11 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
-type unexpectedPositionalArgsError struct{ Command string }
-
-func (err unexpectedPositionalArgsError) Error() string {
-	return fmt.Sprintf("%s doesn't accept positional arguments", err.Command)
-}
+const datalossCmdName = "dataloss"
 
 type datalossSubcommand struct {
 	output                    io.Writer
@@ -31,7 +27,7 @@ func newDatalossSubcommand() *datalossSubcommand {
 }
 
 func (cmd *datalossSubcommand) FlagSet() *flag.FlagSet {
-	fs := flag.NewFlagSet("dataloss", flag.ContinueOnError)
+	fs := flag.NewFlagSet(datalossCmdName, flag.ContinueOnError)
 	fs.StringVar(&cmd.virtualStorage, "virtual-storage", "", "virtual storage to check for data loss")
 	fs.BoolVar(&cmd.includePartiallyAvailable, "partially-unavailable", false, strings.TrimSpace(`
 Additionally include repositories which are available but some assigned replicas
@@ -65,7 +61,8 @@ func (cmd *datalossSubcommand) Exec(flags *flag.FlagSet, cfg config.Config) erro
 		return err
 	}
 
-	conn, err := subCmdDial(nodeAddr, cfg.Auth.Token)
+	ctx := context.Background()
+	conn, err := subCmdDial(ctx, nodeAddr, cfg.Auth.Token, defaultDialTimeout)
 	if err != nil {
 		return fmt.Errorf("error dialing: %v", err)
 	}
@@ -78,7 +75,7 @@ func (cmd *datalossSubcommand) Exec(flags *flag.FlagSet, cfg config.Config) erro
 	client := gitalypb.NewPraefectInfoServiceClient(conn)
 
 	for _, vs := range virtualStorages {
-		resp, err := client.DatalossCheck(context.Background(), &gitalypb.DatalossCheckRequest{
+		resp, err := client.DatalossCheck(ctx, &gitalypb.DatalossCheckRequest{
 			VirtualStorage:             vs,
 			IncludePartiallyReplicated: cmd.includePartiallyAvailable,
 		})

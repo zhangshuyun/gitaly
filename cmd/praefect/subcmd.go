@@ -14,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"google.golang.org/grpc"
 )
@@ -24,15 +23,17 @@ type subcmd interface {
 	Exec(flags *flag.FlagSet, config config.Config) error
 }
 
+const defaultDialTimeout = 30 * time.Second
+
 var subcommands = map[string]subcmd{
-	"sql-ping":                    &sqlPingSubcommand{},
-	"sql-migrate":                 &sqlMigrateSubcommand{},
-	"dial-nodes":                  &dialNodesSubcommand{},
-	"sql-migrate-down":            &sqlMigrateDownSubcommand{},
-	"sql-migrate-status":          &sqlMigrateStatusSubcommand{},
-	"dataloss":                    newDatalossSubcommand(),
-	"accept-dataloss":             &acceptDatalossSubcommand{},
-	"set-replication-factor":      newSetReplicatioFactorSubcommand(os.Stdout),
+	sqlPingCmdName:                &sqlPingSubcommand{},
+	sqlMigrateCmdName:             &sqlMigrateSubcommand{},
+	dialNodesCmdName:              &dialNodesSubcommand{},
+	sqlMigrateDownCmdName:         &sqlMigrateDownSubcommand{},
+	sqlMigrateStatusCmdName:       &sqlMigrateStatusSubcommand{},
+	datalossCmdName:               newDatalossSubcommand(),
+	acceptDatalossCmdName:         &acceptDatalossSubcommand{},
+	setReplicationFactorCmdName:   newSetReplicatioFactorSubcommand(os.Stdout),
 	removeRepositoryCmdName:       newRemoveRepository(logger),
 	trackRepositoryCmdName:        newTrackRepository(logger),
 	listUntrackedRepositoriesName: newListUntrackedRepositories(logger, os.Stdout),
@@ -83,57 +84,6 @@ func getNodeAddress(cfg config.Config) (string, error) {
 	}
 }
 
-type sqlPingSubcommand struct{}
-
-func (s *sqlPingSubcommand) FlagSet() *flag.FlagSet {
-	return flag.NewFlagSet("sql-ping", flag.ExitOnError)
-}
-
-func (s *sqlPingSubcommand) Exec(flags *flag.FlagSet, conf config.Config) error {
-	const subCmd = progname + " sql-ping"
-
-	db, clean, err := openDB(conf.DB)
-	if err != nil {
-		return err
-	}
-	defer clean()
-
-	if err := datastore.CheckPostgresVersion(db); err != nil {
-		return fmt.Errorf("%s: fail: %v", subCmd, err)
-	}
-
-	fmt.Printf("%s: OK\n", subCmd)
-	return nil
-}
-
-type sqlMigrateSubcommand struct {
-	ignoreUnknown bool
-}
-
-func (s *sqlMigrateSubcommand) FlagSet() *flag.FlagSet {
-	flags := flag.NewFlagSet("sql-migrate", flag.ExitOnError)
-	flags.BoolVar(&s.ignoreUnknown, "ignore-unknown", true, "ignore unknown migrations (default is true)")
-	return flags
-}
-
-func (s *sqlMigrateSubcommand) Exec(flags *flag.FlagSet, conf config.Config) error {
-	const subCmd = progname + " sql-migrate"
-
-	db, clean, err := openDB(conf.DB)
-	if err != nil {
-		return err
-	}
-	defer clean()
-
-	n, err := glsql.Migrate(db, s.ignoreUnknown)
-	if err != nil {
-		return fmt.Errorf("%s: fail: %v", subCmd, err)
-	}
-
-	fmt.Printf("%s: OK (applied %d migrations)\n", subCmd, n)
-	return nil
-}
-
 func openDB(conf config.DB) (*sql.DB, func(), error) {
 	db, err := glsql.OpenDB(conf)
 	if err != nil {
@@ -153,8 +103,8 @@ func printfErr(format string, a ...interface{}) (int, error) {
 	return fmt.Fprintf(os.Stderr, format, a...)
 }
 
-func subCmdDial(addr, token string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
-	ctx, cancel := context.WithTimeout(context.TODO(), 30*time.Second)
+func subCmdDial(ctx context.Context, addr, token string, timeout time.Duration, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	opts = append(opts,
@@ -170,4 +120,16 @@ func subCmdDial(addr, token string, opts ...grpc.DialOption) (*grpc.ClientConn, 
 	}
 
 	return client.DialContext(ctx, addr, opts)
+}
+
+type requiredParameterError string
+
+func (p requiredParameterError) Error() string {
+	return fmt.Sprintf("%q is a required parameter", string(p))
+}
+
+type unexpectedPositionalArgsError struct{ Command string }
+
+func (err unexpectedPositionalArgsError) Error() string {
+	return fmt.Sprintf("%s doesn't accept positional arguments", err.Command)
 }

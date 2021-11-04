@@ -127,6 +127,7 @@ func TestRemoveRepository_Exec(t *testing.T) {
 			logger:         testhelper.NewTestLogger(t),
 			virtualStorage: repo.StorageName,
 			relativePath:   repo.RelativePath,
+			dialTimeout:    time.Second,
 		}
 		require.NoError(t, cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), conf))
 
@@ -153,6 +154,7 @@ func TestRemoveRepository_Exec(t *testing.T) {
 			logger:         logrus.NewEntry(logger),
 			virtualStorage: praefectStorage,
 			relativePath:   repo.RelativePath,
+			dialTimeout:    time.Second,
 		}
 		require.NoError(t, cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), conf))
 		var found bool
@@ -179,6 +181,7 @@ func TestRemoveRepository_Exec(t *testing.T) {
 			logger:         logrus.NewEntry(logger),
 			virtualStorage: praefectStorage,
 			relativePath:   repo.RelativePath,
+			dialTimeout:    100 * time.Millisecond,
 		}
 
 		for {
