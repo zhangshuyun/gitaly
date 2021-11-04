@@ -89,11 +89,6 @@ func (s *server) CreateRepositoryFromURL(ctx context.Context, req *gitalypb.Crea
 		return nil, status.Errorf(codes.Internal, "CreateRepositoryFromURL: clone cmd wait: %s: %v", stderr.String(), err)
 	}
 
-	// CreateRepository is harmless on existing repositories with the side effect that it creates the hook symlink.
-	if _, err := s.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: repository}); err != nil {
-		return nil, status.Errorf(codes.Internal, "CreateRepositoryFromURL: create hooks failed: %v", err)
-	}
-
 	if err := s.removeOriginInRepo(ctx, repository); err != nil {
 		return nil, status.Errorf(codes.Internal, "CreateRepositoryFromURL: %v", err)
 	}
