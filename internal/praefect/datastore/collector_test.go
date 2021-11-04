@@ -181,7 +181,7 @@ func TestRepositoryStoreCollector(t *testing.T) {
 						require.NoError(t, err)
 					}
 
-					require.NoError(t, rs.SetGeneration(ctx, repositoryID, storage, replica.generation))
+					require.NoError(t, rs.SetGeneration(ctx, repositoryID, storage, repository.relativePath, replica.generation))
 				}
 
 				if repository.deleted {

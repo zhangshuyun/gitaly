@@ -1026,7 +1026,7 @@ func TestReconciler(t *testing.T) {
 								require.NoError(t, rs.CreateRepository(ctx, repositoryID, virtualStorage, relativePath, storage, nil, nil, false, false))
 							}
 
-							require.NoError(t, rs.SetGeneration(ctx, repositoryID, storage, repo.generation))
+							require.NoError(t, rs.SetGeneration(ctx, repositoryID, storage, relativePath, repo.generation))
 						}
 					}
 
@@ -1168,6 +1168,78 @@ func TestReconciler(t *testing.T) {
 			}
 
 			require.Contains(t, expectedJobs, actualJobs)
+		})
+	}
+}
+
+func TestReconciler_renames(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	db := glsql.NewDB(t)
+
+	for _, tc := range []struct {
+		desc          string
+		latestStorage string
+		expectedJob   datastore.ReplicationJob
+	}{
+		{
+			desc:          "replicas pending rename are targeted by updates",
+			latestStorage: "storage-1",
+			expectedJob: datastore.ReplicationJob{
+				RepositoryID:      1,
+				VirtualStorage:    "virtual-storage",
+				RelativePath:      "new-path",
+				SourceNodeStorage: "storage-1",
+				TargetNodeStorage: "storage-2",
+				Change:            "update",
+			},
+		},
+		{
+			desc:          "replicas pending rename are not used as a source",
+			latestStorage: "storage-2",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			db.TruncateAll(t)
+
+			configuredStorages := map[string][]string{"virtual-storage": {"storage-1", "storage-2"}}
+
+			reconciler := NewReconciler(
+				testhelper.DiscardTestLogger(t),
+				db,
+				praefect.StaticHealthChecker(configuredStorages),
+				configuredStorages,
+				prometheus.DefBuckets,
+			)
+
+			rs := datastore.NewPostgresRepositoryStore(db, configuredStorages)
+			require.NoError(t, rs.CreateRepository(ctx, 1, "virtual-storage", "original-path", "storage-1", []string{"storage-2"}, nil, true, false))
+			require.NoError(t, rs.SetGeneration(ctx, 1, tc.latestStorage, "original-path", 1))
+
+			require.NoError(t, rs.RenameRepository(ctx, "virtual-storage", "original-path", "storage-1", "new-path"))
+
+			runCtx, cancelRun := context.WithCancel(ctx)
+			var resetted bool
+			ticker := helper.NewManualTicker()
+			ticker.ResetFunc = func() {
+				if resetted {
+					cancelRun()
+					return
+				}
+
+				resetted = true
+				ticker.Tick()
+			}
+
+			require.Equal(t, context.Canceled, reconciler.Run(runCtx, ticker))
+
+			var job datastore.ReplicationJob
+			if err := db.QueryRowContext(ctx, `SELECT job FROM replication_queue`).Scan(&job); err != nil {
+				require.Equal(t, sql.ErrNoRows, err)
+			}
+
+			require.Equal(t, tc.expectedJob, job)
 		})
 	}
 }

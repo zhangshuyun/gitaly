@@ -73,12 +73,12 @@ func TestDatalossSubcommand(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	require.NoError(t, gs.SetGeneration(ctx, 1, "gitaly-1", 1))
-	require.NoError(t, gs.SetGeneration(ctx, 1, "gitaly-2", 0))
-	require.NoError(t, gs.SetGeneration(ctx, 1, "gitaly-3", 0))
+	require.NoError(t, gs.SetGeneration(ctx, 1, "gitaly-1", "repository-1", 1))
+	require.NoError(t, gs.SetGeneration(ctx, 1, "gitaly-2", "repository-1", 0))
+	require.NoError(t, gs.SetGeneration(ctx, 1, "gitaly-3", "repository-1", 0))
 
-	require.NoError(t, gs.SetGeneration(ctx, 2, "gitaly-2", 1))
-	require.NoError(t, gs.SetGeneration(ctx, 2, "gitaly-3", 0))
+	require.NoError(t, gs.SetGeneration(ctx, 2, "gitaly-2", "repository-2", 1))
+	require.NoError(t, gs.SetGeneration(ctx, 2, "gitaly-3", "repository-2", 0))
 
 	ln, clean := listenAndServe(t, []svcRegistrar{
 		registerPraefectInfoServer(info.NewServer(cfg, gs, nil, nil, nil)),

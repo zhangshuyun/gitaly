@@ -8,7 +8,7 @@ type MockRepositoryStore struct {
 	GetGenerationFunc                       func(ctx context.Context, repositoryID int64, storage string) (int, error)
 	IncrementGenerationFunc                 func(ctx context.Context, repositoryID int64, primary string, secondaries []string) error
 	GetReplicatedGenerationFunc             func(ctx context.Context, repositoryID int64, source, target string) (int, error)
-	SetGenerationFunc                       func(ctx context.Context, repositoryID int64, storage string, generation int) error
+	SetGenerationFunc                       func(ctx context.Context, repositoryID int64, storage, relativePath string, generation int) error
 	CreateRepositoryFunc                    func(ctx context.Context, repositoryID int64, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error
 	SetAuthoritativeReplicaFunc             func(ctx context.Context, virtualStorage, relativePath, storage string) error
 	DeleteRepositoryFunc                    func(ctx context.Context, virtualStorage, relativePath string) (string, []string, error)
@@ -47,12 +47,12 @@ func (m MockRepositoryStore) GetReplicatedGeneration(ctx context.Context, reposi
 	return m.GetReplicatedGenerationFunc(ctx, repositoryID, source, target)
 }
 
-func (m MockRepositoryStore) SetGeneration(ctx context.Context, repositoryID int64, storage string, generation int) error {
+func (m MockRepositoryStore) SetGeneration(ctx context.Context, repositoryID int64, storage, relativePath string, generation int) error {
 	if m.SetGenerationFunc == nil {
 		return nil
 	}
 
-	return m.SetGenerationFunc(ctx, repositoryID, storage, generation)
+	return m.SetGenerationFunc(ctx, repositoryID, storage, relativePath, generation)
 }
 
 // CreateRepository calls the mocked function. If no mock has been provided, it returns a nil error.

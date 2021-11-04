@@ -211,7 +211,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 					require.NoError(t, rs.CreateRepository(ctx, 1, repo.StorageName, repo.RelativePath, storageNodes[i].Storage, nil, nil, true, false))
 				}
 
-				require.NoError(t, rs.SetGeneration(ctx, 1, storageNodes[i].Storage, n.generation))
+				require.NoError(t, rs.SetGeneration(ctx, 1, storageNodes[i].Storage, repo.RelativePath, n.generation))
 			}
 
 			testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": conf.StorageNames()})
@@ -299,7 +299,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			}
 
 			if tc.concurrentWrite {
-				require.NoError(t, rs.SetGeneration(ctx, 1, "non-participating-storage", 2))
+				require.NoError(t, rs.SetGeneration(ctx, 1, "non-participating-storage", repo.RelativePath, 2))
 			}
 
 			err = streamParams.RequestFinalizer()
