@@ -20,7 +20,24 @@ type ObjectReader interface {
 
 	// Reader returns a new Object for the given revision. The Object must be fully consumed
 	// before another object is requested.
-	Object(_ context.Context, _ git.Revision) (*Object, error)
+	Object(context.Context, git.Revision) (*Object, error)
+
+	// ObjectQueue returns an ObjectQueue that can be used to batch multiple object requests.
+	// Using the queue is more efficient than using `Object()` when requesting a bunch of
+	// objects. The returned function must be executed after use of the ObjectQueue has
+	// finished.
+	ObjectQueue(context.Context) (ObjectQueue, func(), error)
+}
+
+// ObjectQueue allows for requesting and reading objects independently of each other. The number of
+// RequestObject and ReadObject calls must match. ReadObject must be executed after the object has
+// been requested already. The order of objects returned by ReadObject is the same as the order in
+// which objects have been requested.
+type ObjectQueue interface {
+	// RequestRevision requests the given revision from git-cat-file(1).
+	RequestRevision(git.Revision) error
+	// ReadObject reads an object which has previously been requested.
+	ReadObject() (*Object, error)
 }
 
 // objectReader is a reader for Git objects. Reading is implemented via a long-lived `git cat-file
@@ -117,6 +134,14 @@ func (o *objectReader) Object(ctx context.Context, revision git.Revision) (*Obje
 	}
 
 	return object, nil
+}
+
+func (o *objectReader) ObjectQueue(ctx context.Context) (ObjectQueue, func(), error) {
+	queue, finish, err := o.objectQueue(ctx, "catfile.ObjectQueue")
+	if err != nil {
+		return nil, nil, err
+	}
+	return queue, finish, nil
 }
 
 // Object represents data returned by `git cat-file --batch`
