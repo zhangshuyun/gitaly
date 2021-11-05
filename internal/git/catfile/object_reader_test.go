@@ -1,7 +1,6 @@
 package catfile
 
 import (
-	"fmt"
 	"io"
 	"testing"
 
@@ -76,7 +75,7 @@ func TestObjectReader_reader(t *testing.T) {
 
 		// We haven't yet consumed the previous object, so this must now fail.
 		_, err = reader.Object(ctx, commitID.Revision())
-		require.EqualError(t, err, fmt.Sprintf("cannot create new Object: batch contains %d unread bytes", len(commitContents)+1))
+		require.EqualError(t, err, "current object has not been fully read")
 	})
 
 	t.Run("read fails when partially consuming previous object", func(t *testing.T) {
@@ -91,7 +90,7 @@ func TestObjectReader_reader(t *testing.T) {
 
 		// We haven't yet consumed the previous object, so this must now fail.
 		_, err = reader.Object(ctx, commitID.Revision())
-		require.EqualError(t, err, fmt.Sprintf("cannot create new Object: batch contains %d unread bytes", len(commitContents)-100+1))
+		require.EqualError(t, err, "current object has not been fully read")
 	})
 
 	t.Run("read increments Prometheus counter", func(t *testing.T) {
