@@ -199,6 +199,41 @@ func TestFetchFromOriginRefUpdates(t *testing.T) {
 	require.Equal(t, "", string(looseRefs), "there should be no loose refs after the fetch")
 }
 
+func TestFetchFromOrigin_refs(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	pool, _ := setupObjectPool(t)
+	poolPath := pool.FullPath()
+
+	// Init the source repo with a bunch of refs.
+	repo, repoPath := gittest.InitRepo(t, pool.cfg, pool.cfg.Storages[0])
+	commitID := gittest.WriteCommit(t, pool.cfg, repoPath, gittest.WithParents(), gittest.WithTreeEntries())
+	for _, ref := range []string{"refs/heads/master", "refs/environments/1", "refs/tags/lightweight-tag"} {
+		gittest.Exec(t, pool.cfg, "-C", repoPath, "update-ref", ref, commitID.String())
+	}
+	gittest.WriteTag(t, pool.cfg, repoPath, "annotated-tag", commitID.Revision(), gittest.WriteTagConfig{
+		Message: "tag message",
+	})
+
+	require.NoError(t, pool.Init(ctx))
+
+	// The pool shouldn't have any refs yet.
+	require.Empty(t, gittest.Exec(t, pool.cfg, "-C", poolPath, "for-each-ref", "--format=%(refname)"))
+
+	require.NoError(t, pool.FetchFromOrigin(ctx, repo))
+
+	require.Equal(t,
+		[]string{
+			"refs/remotes/origin/environments/1",
+			"refs/remotes/origin/heads/master",
+			"refs/remotes/origin/tags/annotated-tag",
+			"refs/remotes/origin/tags/lightweight-tag",
+		},
+		strings.Split(text.ChompBytes(gittest.Exec(t, pool.cfg, "-C", poolPath, "for-each-ref", "--format=%(refname)")), "\n"),
+	)
+}
+
 func resolveRef(t *testing.T, cfg config.Cfg, repo string, ref string) string {
 	out := gittest.Exec(t, cfg, "-C", repo, "rev-parse", ref)
 	return text.ChompBytes(out)
