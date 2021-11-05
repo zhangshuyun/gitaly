@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -27,23 +28,24 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ssh"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	gitalyx509 "gitlab.com/gitlab-org/gitaly/v14/internal/x509"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/metadata"
 )
 
 func TestCreateFork_successful(t *testing.T) {
 	t.Parallel()
+
 	for _, tt := range []struct {
-		name          string
-		secure        bool
-		beforeRequest func(repoPath string)
+		name   string
+		secure bool
 	}{
 		{
 			name:   "secure",
@@ -51,12 +53,6 @@ func TestCreateFork_successful(t *testing.T) {
 		},
 		{
 			name: "insecure",
-		},
-		{
-			name: "existing empty directory target",
-			beforeRequest: func(repoPath string) {
-				require.NoError(t, os.MkdirAll(repoPath, 0o755))
-			},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -79,37 +75,25 @@ func TestCreateFork_successful(t *testing.T) {
 				client, cfg.SocketPath = runRepositoryService(t, cfg, nil)
 			}
 
-			ctxOuter, cancel := testhelper.Context()
+			ctx, cancel := testhelper.Context()
 			defer cancel()
-
-			md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
-			ctx := metadata.NewOutgoingContext(ctxOuter, md)
+			ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 			forkedRepo := &gitalypb.Repository{
-				RelativePath: "forks/test-repo-fork.git",
+				RelativePath: gittest.NewRepositoryName(t, true),
 				StorageName:  repo.GetStorageName(),
 			}
 
-			forkedRepoPath := filepath.Join(cfg.Storages[0].Path, forkedRepo.GetRelativePath())
-			require.NoError(t, os.RemoveAll(forkedRepoPath))
-
-			if tt.beforeRequest != nil {
-				tt.beforeRequest(forkedRepoPath)
-			}
-
-			req := &gitalypb.CreateForkRequest{
+			_, err := client.CreateFork(ctx, &gitalypb.CreateForkRequest{
 				Repository:       forkedRepo,
 				SourceRepository: repo,
-			}
-
-			_, err := client.CreateFork(ctx, req)
+			})
 			require.NoError(t, err)
-			defer func() { require.NoError(t, os.RemoveAll(forkedRepoPath)) }()
+
+			forkedRepoPath := filepath.Join(cfg.Storages[0].Path, forkedRepo.GetRelativePath())
 
 			gittest.Exec(t, cfg, "-C", forkedRepoPath, "fsck")
-
-			remotes := gittest.Exec(t, cfg, "-C", forkedRepoPath, "remote")
-			require.NotContains(t, string(remotes), "origin")
+			require.Empty(t, gittest.Exec(t, cfg, "-C", forkedRepoPath, "remote"))
 
 			_, err = os.Lstat(filepath.Join(forkedRepoPath, "hooks"))
 			require.True(t, os.IsNotExist(err), "hooks directory should not have been created")
@@ -117,78 +101,116 @@ func TestCreateFork_successful(t *testing.T) {
 	}
 }
 
-func newSecureRepoClient(t testing.TB, addr, token string, pool *x509.CertPool) (gitalypb.RepositoryServiceClient, *grpc.ClientConn) {
-	t.Helper()
+func TestCreateFork_refs(t *testing.T) {
+	t.Parallel()
 
-	connOpts := []grpc.DialOption{
-		grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
-			RootCAs:    pool,
-			MinVersion: tls.VersionTLS12,
-		})),
-		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(token)),
+	cfg := testcfg.Build(t)
+	testcfg.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalySSH(t, cfg)
+
+	sourceRepo, sourceRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+
+	// Prepare the source repository with a bunch of refs and a non-default HEAD ref so we can
+	// assert that the target repo gets created with the correct set of refs.
+	commitID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithParents())
+	for _, ref := range []string{
+		"refs/environments/something",
+		"refs/heads/something",
+		"refs/remotes/origin/something",
+		"refs/tags/something",
+	} {
+		gittest.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", ref, commitID.String())
 	}
+	gittest.Exec(t, cfg, "-C", sourceRepoPath, "symbolic-ref", "HEAD", "refs/heads/something")
 
-	conn, err := client.Dial(addr, connOpts)
+	client, socketPath := runRepositoryService(t, cfg, nil)
+	cfg.SocketPath = socketPath
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
+
+	targetRepo := &gitalypb.Repository{
+		RelativePath: gittest.NewRepositoryName(t, true),
+		StorageName:  sourceRepo.GetStorageName(),
+	}
+	targetRepoPath, err := config.NewLocator(cfg).GetPath(targetRepo)
 	require.NoError(t, err)
 
-	return gitalypb.NewRepositoryServiceClient(conn), conn
+	_, err = client.CreateFork(ctx, &gitalypb.CreateForkRequest{
+		Repository:       targetRepo,
+		SourceRepository: sourceRepo,
+	})
+	require.NoError(t, err)
+
+	require.Equal(t,
+		[]string{
+			commitID.String() + " refs/heads/something",
+			commitID.String() + " refs/tags/something",
+		},
+		strings.Split(text.ChompBytes(gittest.Exec(t, cfg, "-C", targetRepoPath, "show-ref")), "\n"),
+	)
+
+	require.Equal(t,
+		string(gittest.Exec(t, cfg, "-C", sourceRepoPath, "symbolic-ref", "HEAD")),
+		string(gittest.Exec(t, cfg, "-C", targetRepoPath, "symbolic-ref", "HEAD")),
+	)
 }
 
 func TestCreateFork_targetExists(t *testing.T) {
 	t.Parallel()
+
 	cfg, repo, _, client := setupRepositoryService(t)
 
-	ctxOuter, cancel := testhelper.Context()
+	ctx, cancel := testhelper.Context()
 	defer cancel()
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
-	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
-	ctx := metadata.NewOutgoingContext(ctxOuter, md)
-
-	testCases := []struct {
-		desc     string
-		repoPath string
-		isDir    bool
+	for _, tc := range []struct {
+		desc        string
+		seed        func(t *testing.T, targetPath string)
+		expectedErr error
 	}{
 		{
-			desc:     "target is a non-empty directory",
-			repoPath: "forks/test-repo-fork-dir.git",
-			isDir:    true,
+			desc: "empty target directory",
+			seed: func(t *testing.T, targetPath string) {
+				require.NoError(t, os.MkdirAll(targetPath, 0o770))
+			},
 		},
 		{
-			desc:     "target is a file",
-			repoPath: "forks/test-repo-fork-file.git",
-			isDir:    false,
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			forkedRepo := &gitalypb.Repository{
-				RelativePath: testCase.repoPath,
-				StorageName:  repo.StorageName,
-			}
-
-			forkedRepoPath := filepath.Join(cfg.Storages[0].Path, forkedRepo.GetRelativePath())
-
-			if testCase.isDir {
-				require.NoError(t, os.MkdirAll(forkedRepoPath, 0o770))
+			desc: "non-empty target directory",
+			seed: func(t *testing.T, targetPath string) {
+				require.NoError(t, os.MkdirAll(targetPath, 0o770))
 				require.NoError(t, os.WriteFile(
-					filepath.Join(forkedRepoPath, "config"),
+					filepath.Join(targetPath, "config"),
 					nil,
 					0o644,
 				))
-			} else {
-				require.NoError(t, os.WriteFile(forkedRepoPath, nil, 0o644))
+			},
+			expectedErr: helper.ErrInvalidArgumentf("CreateFork: destination directory is not empty"),
+		},
+		{
+			desc: "target file",
+			seed: func(t *testing.T, targetPath string) {
+				require.NoError(t, os.MkdirAll(filepath.Dir(targetPath), 0o770))
+				require.NoError(t, os.WriteFile(targetPath, nil, 0o644))
+			},
+			expectedErr: helper.ErrInvalidArgumentf("CreateFork: destination path exists"),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			forkedRepo := &gitalypb.Repository{
+				RelativePath: gittest.NewRepositoryName(t, true),
+				StorageName:  repo.StorageName,
 			}
-			defer func() { require.NoError(t, os.RemoveAll(forkedRepoPath)) }()
 
-			req := &gitalypb.CreateForkRequest{
+			tc.seed(t, filepath.Join(cfg.Storages[0].Path, forkedRepo.GetRelativePath()))
+
+			_, err := client.CreateFork(ctx, &gitalypb.CreateForkRequest{
 				Repository:       forkedRepo,
 				SourceRepository: repo,
-			}
-
-			_, err := client.CreateFork(ctx, req)
-			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+			})
+			testassert.GrpcEqualErr(t, tc.expectedErr, err)
 		})
 	}
 }
@@ -253,4 +275,21 @@ func runSecureServer(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) s
 	go func() { errQ <- server.Serve(listener) }()
 
 	return "tls://" + addr
+}
+
+func newSecureRepoClient(t testing.TB, addr, token string, pool *x509.CertPool) (gitalypb.RepositoryServiceClient, *grpc.ClientConn) {
+	t.Helper()
+
+	connOpts := []grpc.DialOption{
+		grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
+			RootCAs:    pool,
+			MinVersion: tls.VersionTLS12,
+		})),
+		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(token)),
+	}
+
+	conn, err := client.Dial(addr, connOpts)
+	require.NoError(t, err)
+
+	return gitalypb.NewRepositoryServiceClient(conn), conn
 }
