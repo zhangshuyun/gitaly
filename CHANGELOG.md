@@ -402,6 +402,14 @@ No changes.
 - [Separate listenmux from backchannel](gitlab-org/gitaly@c95298c125a680a006153d5aca5d3dbb575ce352) ([merge request](gitlab-org/gitaly!3593))
 - [Use upstream implementation of insecure credentials](gitlab-org/gitaly@7453f84b0bb385a958943b5e0910b8f6bb3906bb) ([merge request](gitlab-org/gitaly!3591))
 
+## 14.0.12 (2021-11-05)
+
+### Added (3 changes)
+
+- [Add track-repository praefect subcommand](gitlab-org/gitaly@b5724b09d133865ab808348fba7cd23c9e0a5ec4) ([merge request](gitlab-org/gitaly!4018))
+- [list-untracked-repositories: Praefect sub-command to show untracked repositories](gitlab-org/gitaly@a24845f6fcdc32b069ec341c83a1d9ad767e8cbf) ([merge request](gitlab-org/gitaly!4018))
+- [remove-repository: A new sub-command for the praefect to remove repository](gitlab-org/gitaly@ce91112aa5fca353d7b5a354461fca8fd24f9881) ([merge request](gitlab-org/gitaly!4018))
+
 ## 14.0.11 (2021-09-23)
 
 ### Fixed (1 change)
