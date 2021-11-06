@@ -4,7 +4,11 @@
 package main
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"os/exec"
+	"path/filepath"
 	"testing"
 
 	git "github.com/libgit2/git2go/v32"
@@ -193,6 +197,63 @@ func TestConflicts(t *testing.T) {
 			require.Equal(t, tc.conflicts, response.Conflicts)
 		})
 	}
+}
+
+// TestConflicts_backwardsCompatibility check that conflicts sub-command able to process both:
+// - JSON encoded flag as input
+// - gob encoded data from stdin
+// The support of first option should be dropped in the next release (14.6) together with this test.
+func TestConflicts_backwardsCompatibility(t *testing.T) {
+	cfg, _, repoPath := testcfg.BuildWithRepo(t)
+
+	testcfg.BuildGitalyGit2Go(t, cfg)
+
+	base := cmdtesthelper.BuildCommit(t, repoPath, nil, map[string]string{
+		"file-1": "a",
+		"file-2": "a",
+	})
+	ours := cmdtesthelper.BuildCommit(t, repoPath, []*git.Oid{base}, map[string]string{
+		"file-1": "b",
+		"file-2": "b",
+	})
+	theirs := cmdtesthelper.BuildCommit(t, repoPath, []*git.Oid{base}, map[string]string{
+		"file-1": "c",
+		"file-2": "c",
+	})
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	marshalled, err := json.Marshal(git2go.ConflictsCommand{
+		Repository: filepath.Join(repoPath),
+		Ours:       ours.String(),
+		Theirs:     theirs.String(),
+	})
+	require.NoError(t, err)
+	encoded := base64.StdEncoding.EncodeToString(marshalled)
+
+	cmd := exec.CommandContext(ctx, filepath.Join(cfg.BinDir, "gitaly-git2go"), "conflicts", "-request", encoded)
+	output, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(output))
+	decoded, err := base64.StdEncoding.DecodeString(string(output))
+	require.NoError(t, err)
+	result := git2go.ConflictsResult{}
+	require.NoError(t, json.Unmarshal(decoded, &result))
+	require.Equal(t, git2go.ConflictsResult{
+		Conflicts: []git2go.Conflict{
+			{
+				Ancestor: git2go.ConflictEntry{Path: "file-1", Mode: 0o100644},
+				Our:      git2go.ConflictEntry{Path: "file-1", Mode: 0o100644},
+				Their:    git2go.ConflictEntry{Path: "file-1", Mode: 0o100644},
+				Content:  []byte("<<<<<<< file-1\nb\n=======\nc\n>>>>>>> file-1\n"),
+			},
+			{
+				Ancestor: git2go.ConflictEntry{Path: "file-2", Mode: 0o100644},
+				Our:      git2go.ConflictEntry{Path: "file-2", Mode: 0o100644},
+				Their:    git2go.ConflictEntry{Path: "file-2", Mode: 0o100644},
+				Content:  []byte("<<<<<<< file-2\nb\n=======\nc\n>>>>>>> file-2\n"),
+			},
+		},
+	}, result)
 }
 
 func TestConflicts_checkError(t *testing.T) {

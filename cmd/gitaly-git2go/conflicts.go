@@ -10,6 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"os"
 
 	git "github.com/libgit2/git2go/v32"
 	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/git2goutil"
@@ -19,19 +20,30 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type conflictsSubcommand struct{}
+type conflictsSubcommand struct {
+	request string
+}
 
 func (cmd *conflictsSubcommand) Flags() *flag.FlagSet {
 	flags := flag.NewFlagSet("conflicts", flag.ExitOnError)
+	flags.StringVar(&cmd.request, "request", "", "git2go.ConflictsCommand")
 	return flags
 }
 
 func (cmd *conflictsSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) error {
+	if cmd.request != "" {
+		request, err := git2go.ConflictsCommandFromSerialized(cmd.request)
+		if err != nil {
+			return err
+		}
+		res := cmd.conflicts(request)
+		return res.SerializeTo(os.Stdout)
+	}
+
 	var request git2go.ConflictsCommand
 	if err := gob.NewDecoder(r).Decode(&request); err != nil {
 		return err
 	}
-
 	res := cmd.conflicts(request)
 	return gob.NewEncoder(w).Encode(res)
 }
