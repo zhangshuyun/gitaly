@@ -651,18 +651,18 @@ func TestResolveSink(t *testing.T) {
 
 func TestResolveLocator(t *testing.T) {
 	for _, tc := range []struct {
-		locator     string
+		layout      string
 		expectedErr string
 	}{
-		{locator: "legacy"},
-		{locator: "pointer"},
+		{layout: "legacy"},
+		{layout: "pointer"},
 		{
-			locator:     "unknown",
-			expectedErr: "unknown locator: \"unknown\"",
+			layout:      "unknown",
+			expectedErr: "unknown layout: \"unknown\"",
 		},
 	} {
-		t.Run(tc.locator, func(t *testing.T) {
-			l, err := ResolveLocator(tc.locator, nil)
+		t.Run(tc.layout, func(t *testing.T) {
+			l, err := ResolveLocator(tc.layout, nil)
 
 			if tc.expectedErr == "" {
 				require.NoError(t, err)

@@ -29,14 +29,14 @@ type restoreSubcommand struct {
 	backupPath      string
 	parallel        int
 	parallelStorage int
-	locator         string
+	layout          string
 }
 
 func (cmd *restoreSubcommand) Flags(fs *flag.FlagSet) {
 	fs.StringVar(&cmd.backupPath, "path", "", "repository backup path")
 	fs.IntVar(&cmd.parallel, "parallel", runtime.NumCPU(), "maximum number of parallel restores")
 	fs.IntVar(&cmd.parallelStorage, "parallel-storage", 2, "maximum number of parallel restores per storage. Note: actual parallelism when combined with `-parallel` depends on the order the repositories are received.")
-	fs.StringVar(&cmd.locator, "locator", "legacy", "determines how backup files are located. One of legacy, pointer. Note: The feature is not ready for production use.")
+	fs.StringVar(&cmd.layout, "layout", "legacy", "determines how backup files are located. One of legacy, pointer. Note: The feature is not ready for production use.")
 }
 
 func (cmd *restoreSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
@@ -45,7 +45,7 @@ func (cmd *restoreSubcommand) Run(ctx context.Context, stdin io.Reader, stdout i
 		return fmt.Errorf("restore: resolve sink: %w", err)
 	}
 
-	locator, err := backup.ResolveLocator(cmd.locator, sink)
+	locator, err := backup.ResolveLocator(cmd.layout, sink)
 	if err != nil {
 		return fmt.Errorf("restore: resolve locator: %w", err)
 	}
