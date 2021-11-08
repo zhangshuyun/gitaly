@@ -1,6 +1,7 @@
 package commit
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -656,14 +658,17 @@ func drainTreeEntriesResponse(c gitalypb.CommitService_GetTreeEntriesClient) err
 }
 
 func BenchmarkGetTreeEntries(b *testing.B) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.TreeEntriesViaLsTree,
+	}).Bench(b, benchmarkGetTreeEntries)
+}
+
+func benchmarkGetTreeEntries(b *testing.B, ctx context.Context) {
 	cfg, client := setupCommitService(b)
 
 	repo, _ := gittest.CloneRepo(b, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
 		SourceRepo: "benchmark.git",
 	})
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	for _, tc := range []struct {
 		desc            string

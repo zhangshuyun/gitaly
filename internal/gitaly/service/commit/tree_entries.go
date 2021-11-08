@@ -2,6 +2,7 @@ package commit
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 
@@ -9,8 +10,10 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/chunk"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -59,10 +62,9 @@ func populateFlatPath(
 	return nil
 }
 
-func sendTreeEntries(
+func (s *server) sendTreeEntries(
 	stream gitalypb.CommitService_GetTreeEntriesServer,
-	objectReader catfile.ObjectReader,
-	objectInfoReader catfile.ObjectInfoReader,
+	repo *localrepo.Repo,
 	revision, path string,
 	recursive bool,
 	sort gitalypb.GetTreeEntriesRequest_SortBy,
@@ -70,13 +72,104 @@ func sendTreeEntries(
 ) error {
 	ctx := stream.Context()
 
-	entries, err := treeEntries(ctx, objectReader, objectInfoReader, revision, path, "", recursive)
-	if err != nil {
-		return err
+	var entries []*gitalypb.TreeEntry
+
+	// When we want to do a recursive listing, then it's a _lot_ more efficient to let
+	// git-ls-tree(1) handle this for us. In theory, we'd also want to do this for the
+	// non-recursive case. But in practice, we must populate a so-called "flat path" when doing
+	// a non-recursive listing, where the flat path of a directory entry points to the first
+	// subdirectory which has more than a single entry.
+	//
+	// Answering this query efficiently is not possible with Git's tooling, and solving it via
+	// git-ls-tree(1) is worse than using a long-lived catfile process. We thus fall back to
+	// using catfile readers to answer these non-recursive queries.
+	if recursive && featureflag.TreeEntriesViaLsTree.IsEnabled(ctx) {
+		if path == "." {
+			path = ""
+		}
+
+		rootTreeInfo, err := repo.ResolveRevision(ctx, git.Revision(revision+"^{tree}"))
+		if err != nil {
+			if catfile.IsNotFound(err) {
+				return nil
+			}
+
+			return err
+		}
+
+		treeEntries, err := lstree.ListEntries(ctx, repo, git.Revision(revision), &lstree.ListEntriesConfig{
+			Recursive:    recursive,
+			RelativePath: path,
+		})
+		if err != nil {
+			// Design wart: we do not return an error if the request does not
+			// point to a tree object, but just return nothing.
+			if errors.Is(err, lstree.ErrNotTreeish) {
+				return nil
+			}
+
+			return fmt.Errorf("listing tree entries: %w", err)
+		}
+
+		entries = make([]*gitalypb.TreeEntry, 0, len(treeEntries))
+		for _, entry := range treeEntries {
+			objectID, err := entry.ObjectID.Bytes()
+			if err != nil {
+				return fmt.Errorf("converting tree entry OID: %w", err)
+			}
+
+			treeEntry, err := newTreeEntry(
+				revision,
+				rootTreeInfo.String(),
+				path,
+				[]byte(entry.Path),
+				objectID,
+				entry.Mode,
+			)
+			if err != nil {
+				return fmt.Errorf("converting tree entry: %w", err)
+			}
+
+			entries = append(entries, treeEntry)
+		}
+	} else {
+		objectReader, err := s.catfileCache.ObjectReader(stream.Context(), repo)
+		if err != nil {
+			return err
+		}
+
+		objectInfoReader, err := s.catfileCache.ObjectInfoReader(stream.Context(), repo)
+		if err != nil {
+			return err
+		}
+
+		entries, err = treeEntries(ctx, objectReader, objectInfoReader, revision, path, "", recursive)
+		if err != nil {
+			return err
+		}
+
+		if !recursive {
+			// When we're not doing a recursive request, then we need to populate flat
+			// paths. A flat path of a tree entry refers to the first subtree of that
+			// entry which either has at least one blob or more than two subtrees. In
+			// other terms, it refers to the first "non-empty" subtree such that it's
+			// easy to skip navigating the intermediate subtrees which wouldn't carry
+			// any interesting information anyway.
+			//
+			// Unfortunately, computing flat paths is _really_ inefficient: for each
+			// tree entry, we recurse up to 10 levels deep into that subtree. We do so
+			// by requesting the tree entries via a catfile process, which to the best
+			// of my knowledge is as good as we can get. Doing this via git-ls-tree(1)
+			// wouldn't fly: we'd have to spawn a separate process for each of the
+			// subtrees, which is a lot of overhead.
+			if err := populateFlatPath(ctx, objectReader, objectInfoReader, entries); err != nil {
+				return err
+			}
+		}
 	}
 
 	// We sort before we paginate to ensure consistent results with ListLastCommitsForTree
-	entries, err = sortTrees(entries, sort)
+	entries, err := sortTrees(entries, sort)
 	if err != nil {
 		return err
 	}
@@ -85,12 +178,6 @@ func sendTreeEntries(
 	if p != nil {
 		entries, cursor, err = paginateTreeEntries(entries, p)
 		if err != nil {
-			return err
-		}
-	}
-
-	if !recursive {
-		if err := populateFlatPath(ctx, objectReader, objectInfoReader, entries); err != nil {
 			return err
 		}
 	}
@@ -189,19 +276,9 @@ func (s *server) GetTreeEntries(in *gitalypb.GetTreeEntriesRequest, stream gital
 
 	repo := s.localrepo(in.GetRepository())
 
-	objectReader, err := s.catfileCache.ObjectReader(stream.Context(), repo)
-	if err != nil {
-		return err
-	}
-
-	objectInfoReader, err := s.catfileCache.ObjectInfoReader(stream.Context(), repo)
-	if err != nil {
-		return err
-	}
-
 	revision := string(in.GetRevision())
 	path := string(in.GetPath())
-	return sendTreeEntries(stream, objectReader, objectInfoReader, revision, path, in.Recursive, in.GetSort(), in.GetPaginationParams())
+	return s.sendTreeEntries(stream, repo, revision, path, in.Recursive, in.GetSort(), in.GetPaginationParams())
 }
 
 func paginateTreeEntries(entries []*gitalypb.TreeEntry, p *gitalypb.PaginationParameter) ([]*gitalypb.TreeEntry, string, error) {
