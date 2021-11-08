@@ -37,7 +37,11 @@ var subcommands = map[string]subcmd{
 	removeRepositoryCmdName:       newRemoveRepository(logger),
 	trackRepositoryCmdName:        newTrackRepository(logger),
 	listUntrackedRepositoriesName: newListUntrackedRepositories(logger, os.Stdout),
-	checkCmdName:                  newCheckSubcommand(os.Stdout, praefect.NewPraefectMigrationCheck),
+	checkCmdName: newCheckSubcommand(
+		os.Stdout,
+		praefect.NewPraefectMigrationCheck,
+		praefect.NewGitalyNodeConnectivityCheck,
+	),
 }
 
 // subCommand returns an exit code, to be fed into os.Exit.

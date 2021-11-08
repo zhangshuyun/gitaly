@@ -8,6 +8,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/migrations"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
 )
 
 // Severity is a type that indicates the severity of a check
@@ -66,6 +67,21 @@ func NewPraefectMigrationCheck(conf config.Config) *Check {
 			}
 
 			return nil
+		},
+		Severity: Fatal,
+	}
+}
+
+// NewGitalyNodeConnectivityCheck returns a check that ensures Praefect can talk to all nodes of all virtual storages
+func NewGitalyNodeConnectivityCheck(conf config.Config) *Check {
+	logger := conf.ConfigureLogger()
+
+	return &Check{
+		Name: "gitaly node connectivity & disk access",
+		Description: "confirms if praefect can reach all of its gitaly nodes, and " +
+			"whether or not the gitaly nodes can read/write from and to its storages.",
+		Run: func(ctx context.Context) error {
+			return nodes.PingAll(ctx, conf, logger)
 		},
 		Severity: Fatal,
 	}
