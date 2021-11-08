@@ -572,7 +572,7 @@ func TestForEachRef(t *testing.T) {
 
 	t.Run("tag with format", func(t *testing.T) {
 		refs := readRefs(t, repo, []string{"refs/tags/v1.0.0"},
-			WithForEachRefFormat("%(objectname)%00tag\n%(*objectname)%00peeled"),
+			WithForEachRefFormat("%(objectname) tag\n%(*objectname) peeled"),
 		)
 
 		require.Equal(t, refs, []RevisionResult{

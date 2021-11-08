@@ -24,18 +24,18 @@ func NewShowRefDecoder(r io.Reader) *RefsDecoder {
 
 // ForEachRefFormat can be passed to the `for-each-ref` `--format` flag
 // to retrieve references that can be parsed by `NewForEachRefDecoder`.
-const ForEachRefFormat = "%(objectname)%00%(refname)"
+const ForEachRefFormat = "%(objectname) %(refname)"
 
 // ForEachRefSymbolicFormat can be passed to the `for-each-ref` `--format` flag
 // to retrieve references that can be parsed by `NewForEachRefDecoder` and that
 // distinguishes symbolic references.
-const ForEachRefSymbolicFormat = "%(objectname)%00%(refname)%00%(symref)"
+const ForEachRefSymbolicFormat = "%(objectname) %(refname) %(symref)"
 
 // NewForEachRefDecoder ...
 func NewForEachRefDecoder(r io.Reader) *RefsDecoder {
 	return &RefsDecoder{
 		r:   bufio.NewReader(r),
-		sep: "\x00",
+		sep: " ",
 	}
 }
 
