@@ -1,7 +1,10 @@
 package catfile
 
 import (
+	"errors"
+	"fmt"
 	"io"
+	"os"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -115,5 +118,235 @@ func TestObjectReader_reader(t *testing.T) {
 			_, err = io.Copy(io.Discard, object)
 			require.NoError(t, err)
 		}
+	})
+}
+
+func TestObjectReader_queue(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+
+	foobarBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("foobar"))
+	barfooBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("barfoo"))
+
+	t.Run("read single object", func(t *testing.T) {
+		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.objectQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		require.NoError(t, queue.RequestRevision(foobarBlob.Revision()))
+
+		object, err := queue.ReadObject()
+		require.NoError(t, err)
+
+		contents, err := io.ReadAll(object)
+		require.NoError(t, err)
+		require.Equal(t, "foobar", string(contents))
+	})
+
+	t.Run("read multiple objects", func(t *testing.T) {
+		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.objectQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		for blobID, blobContents := range map[git.ObjectID]string{
+			foobarBlob: "foobar",
+			barfooBlob: "barfoo",
+		} {
+			require.NoError(t, queue.RequestRevision(blobID.Revision()))
+
+			object, err := queue.ReadObject()
+			require.NoError(t, err)
+
+			contents, err := io.ReadAll(object)
+			require.NoError(t, err)
+			require.Equal(t, blobContents, string(contents))
+		}
+	})
+
+	t.Run("request multiple objects", func(t *testing.T) {
+		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.objectQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		require.NoError(t, queue.RequestRevision(foobarBlob.Revision()))
+		require.NoError(t, queue.RequestRevision(barfooBlob.Revision()))
+
+		for _, expectedContents := range []string{"foobar", "barfoo"} {
+			object, err := queue.ReadObject()
+			require.NoError(t, err)
+
+			contents, err := io.ReadAll(object)
+			require.NoError(t, err)
+			require.Equal(t, expectedContents, string(contents))
+		}
+	})
+
+	t.Run("read without request", func(t *testing.T) {
+		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.objectQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		_, err = queue.ReadObject()
+		require.Equal(t, errors.New("no outstanding request"), err)
+	})
+
+	t.Run("request invalid object", func(t *testing.T) {
+		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.objectQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		require.NoError(t, queue.RequestRevision("does-not-exist"))
+
+		_, err = queue.ReadObject()
+		require.Equal(t, NotFoundError{errors.New("object not found")}, err)
+	})
+
+	t.Run("can continue reading after NotFoundError", func(t *testing.T) {
+		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.objectQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		require.NoError(t, queue.RequestRevision("does-not-exist"))
+		_, err = queue.ReadObject()
+		require.Equal(t, NotFoundError{errors.New("object not found")}, err)
+
+		// Requesting another object after the previous one has failed should continue to
+		// work alright.
+		require.NoError(t, queue.RequestRevision(foobarBlob.Revision()))
+		object, err := queue.ReadObject()
+		require.NoError(t, err)
+
+		contents, err := io.ReadAll(object)
+		require.NoError(t, err)
+		require.Equal(t, "foobar", string(contents))
+	})
+
+	t.Run("requesting multiple queues fails", func(t *testing.T) {
+		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		_, cleanup, err := reader.objectQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		_, _, err = reader.objectQueue(ctx, "trace")
+		require.Equal(t, errors.New("object queue already in use"), err)
+
+		// After calling cleanup we should be able to create an object queue again.
+		cleanup()
+
+		_, cleanup, err = reader.objectQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+	})
+
+	t.Run("requesting object dirties reader", func(t *testing.T) {
+		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.objectQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		require.False(t, reader.isDirty())
+		require.False(t, queue.isDirty())
+
+		require.NoError(t, queue.RequestRevision(foobarBlob.Revision()))
+
+		require.True(t, reader.isDirty())
+		require.True(t, queue.isDirty())
+
+		object, err := queue.ReadObject()
+		require.NoError(t, err)
+
+		// The object has not been consumed yet, so the reader must still be dirty.
+		require.True(t, reader.isDirty())
+		require.True(t, queue.isDirty())
+
+		_, err = io.ReadAll(object)
+		require.NoError(t, err)
+
+		require.False(t, reader.isDirty())
+		require.False(t, queue.isDirty())
+	})
+
+	t.Run("closing queue blocks request", func(t *testing.T) {
+		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.objectQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		queue.close()
+
+		require.True(t, reader.isClosed())
+		require.True(t, queue.isClosed())
+
+		require.Equal(t, fmt.Errorf("cannot request revision: %w", os.ErrClosed), queue.RequestRevision(foobarBlob.Revision()))
+	})
+
+	t.Run("closing queue blocks read", func(t *testing.T) {
+		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.objectQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		// Request the object before we close the queue.
+		require.NoError(t, queue.RequestRevision(foobarBlob.Revision()))
+
+		queue.close()
+
+		require.True(t, reader.isClosed())
+		require.True(t, queue.isClosed())
+
+		_, err = queue.ReadObject()
+		require.Equal(t, fmt.Errorf("cannot read object: %w", os.ErrClosed), err)
+	})
+
+	t.Run("closing queue blocks consuming", func(t *testing.T) {
+		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.objectQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		require.NoError(t, queue.RequestRevision(foobarBlob.Revision()))
+
+		// Read the object header before closing.
+		object, err := queue.ReadObject()
+		require.NoError(t, err)
+
+		queue.close()
+
+		require.True(t, reader.isClosed())
+		require.True(t, queue.isClosed())
+		require.True(t, object.isClosed())
+
+		_, err = io.ReadAll(object)
+		require.Equal(t, os.ErrClosed, err)
 	})
 }

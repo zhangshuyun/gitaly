@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"sync"
 	"sync/atomic"
 
 	"github.com/opentracing/opentracing-go"
@@ -28,21 +27,12 @@ type ObjectReader interface {
 // --batch` process such that we do not have to spawn a new process for each object we are about to
 // read.
 type objectReader struct {
-	cmd    *command.Command
-	stdout *bufio.Reader
-
-	// Even though the batch type should not be used concurrently, I think
-	// that if that does happen by mistake we should give proper errors
-	// instead of doing unsafe memory writes (to n) and failing in some
-	// unpredictable way.
-	sync.Mutex
-
-	closed bool
+	cmd *command.Command
 
 	counter *prometheus.CounterVec
 
-	// currentObject tracks the object that is currently being read.
-	currentObject *Object
+	queue      requestQueue
+	queueInUse int32
 }
 
 func newObjectReader(
@@ -67,8 +57,11 @@ func newObjectReader(
 
 	objectReader := &objectReader{
 		cmd:     batchCmd,
-		stdout:  bufio.NewReader(batchCmd),
 		counter: counter,
+		queue: requestQueue{
+			stdout: bufio.NewReader(batchCmd),
+			stdin:  batchCmd,
+		},
 	}
 	go func() {
 		<-ctx.Done()
@@ -80,83 +73,49 @@ func newObjectReader(
 }
 
 func (o *objectReader) close() {
-	o.Lock()
-	defer o.Unlock()
-
+	o.queue.close()
 	_ = o.cmd.Wait()
-	o.closed = true
-	if o.currentObject != nil {
-		o.currentObject.close()
-	}
 }
 
 func (o *objectReader) isClosed() bool {
-	o.Lock()
-	defer o.Unlock()
-	return o.closed
+	return o.queue.isClosed()
 }
 
 func (o *objectReader) isDirty() bool {
-	o.Lock()
-	defer o.Unlock()
-
-	if o.currentObject != nil {
-		return o.currentObject.isDirty()
-	}
-
-	return false
+	return o.queue.isDirty()
 }
 
-func (o *objectReader) Object(
-	ctx context.Context,
-	revision git.Revision,
-) (*Object, error) {
-	trace := startTrace(ctx, o.counter, "catfile.Object")
-	defer trace.finish()
-
-	o.Lock()
-	defer o.Unlock()
-
-	if o.closed {
-		return nil, fmt.Errorf("cannot read object: %w", os.ErrClosed)
+func (o *objectReader) objectQueue(ctx context.Context, tracedMethod string) (*requestQueue, func(), error) {
+	if !atomic.CompareAndSwapInt32(&o.queueInUse, 0, 1) {
+		return nil, nil, fmt.Errorf("object queue already in use")
 	}
 
-	if o.currentObject != nil {
-		// If the current object is still dirty, then we must not try to read a new object.
-		if o.currentObject.isDirty() {
-			return nil, fmt.Errorf("current object has not been fully read")
-		}
+	trace := startTrace(ctx, o.counter, tracedMethod)
+	o.queue.trace = trace
 
-		o.currentObject.close()
-		o.currentObject = nil
+	return &o.queue, func() {
+		atomic.StoreInt32(&o.queueInUse, 0)
+		trace.finish()
+	}, nil
+}
 
-		// If we have already read an object before, then we must consume the trailing
-		// newline after the object's data.
-		if _, err := o.stdout.ReadByte(); err != nil {
-			return nil, err
-		}
-	}
-
-	if _, err := fmt.Fprintln(o.cmd, revision.String()); err != nil {
-		return nil, err
-	}
-
-	oi, err := ParseObjectInfo(o.stdout)
+func (o *objectReader) Object(ctx context.Context, revision git.Revision) (*Object, error) {
+	queue, finish, err := o.objectQueue(ctx, "catfile.Object")
 	if err != nil {
 		return nil, err
 	}
-	trace.recordRequest(oi.Type)
+	defer finish()
 
-	o.currentObject = &Object{
-		ObjectInfo: *oi,
-		dataReader: io.LimitedReader{
-			R: o.stdout,
-			N: oi.Size,
-		},
-		bytesRemaining: oi.Size,
+	if err := queue.RequestRevision(revision); err != nil {
+		return nil, err
 	}
 
-	return o.currentObject, nil
+	object, err := queue.ReadObject()
+	if err != nil {
+		return nil, err
+	}
+
+	return object, nil
 }
 
 // Object represents data returned by `git cat-file --batch`
