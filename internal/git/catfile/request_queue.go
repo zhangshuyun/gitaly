@@ -12,6 +12,10 @@ import (
 )
 
 type requestQueue struct {
+	// isObjectQueue is set to `true` when this is a request queue which can be used for reading
+	// objects. If set to `false`, then this can only be used to read object info.
+	isObjectQueue bool
+
 	stdout *bufio.Reader
 	stdin  io.Writer
 
@@ -81,6 +85,10 @@ func (q *requestQueue) RequestRevision(revision git.Revision) error {
 }
 
 func (q *requestQueue) ReadObject() (*Object, error) {
+	if !q.isObjectQueue {
+		panic("object queue used to read object info")
+	}
+
 	q.currentObjectLock.Lock()
 	defer q.currentObjectLock.Unlock()
 
@@ -128,4 +136,31 @@ func (q *requestQueue) ReadObject() (*Object, error) {
 	}
 
 	return q.currentObject, nil
+}
+
+func (q *requestQueue) ReadInfo() (*ObjectInfo, error) {
+	if q.isObjectQueue {
+		panic("object queue used to read object info")
+	}
+
+	if q.isClosed() {
+		return nil, fmt.Errorf("cannot read object info: %w", os.ErrClosed)
+	}
+
+	// We first need to determine wether there are any queued requests at all. If not, then we
+	// cannot read anything.
+	queuedRequests := atomic.LoadInt64(&q.outstandingRequests)
+	if queuedRequests == 0 {
+		return nil, fmt.Errorf("no outstanding request")
+	}
+
+	// And when there are, we need to remove one of these queued requests. We do so via
+	// `CompareAndSwapInt64()`, which easily allows us to detect concurrent access to the queue.
+	if !atomic.CompareAndSwapInt64(&q.outstandingRequests, queuedRequests, queuedRequests-1) {
+		return nil, fmt.Errorf("concurrent access to object info queue")
+	}
+
+	q.trace.recordRequest("info")
+
+	return ParseObjectInfo(q.stdout)
 }

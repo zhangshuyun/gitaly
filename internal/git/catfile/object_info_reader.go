@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
+	"sync/atomic"
 
 	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
@@ -96,13 +96,12 @@ type ObjectInfoReader interface {
 // long-lived  `git cat-file --batch-check` process such that we do not have to spawn a separate
 // process per object info we're about to read.
 type objectInfoReader struct {
-	cmd    *command.Command
-	stdout *bufio.Reader
-	sync.Mutex
-
-	closed bool
+	cmd *command.Command
 
 	counter *prometheus.CounterVec
+
+	queue      requestQueue
+	queueInUse int32
 }
 
 func newObjectInfoReader(
@@ -127,8 +126,11 @@ func newObjectInfoReader(
 
 	objectInfoReader := &objectInfoReader{
 		cmd:     batchCmd,
-		stdout:  bufio.NewReader(batchCmd),
 		counter: counter,
+		queue: requestQueue{
+			stdout: bufio.NewReader(batchCmd),
+			stdin:  batchCmd,
+		},
 	}
 	go func() {
 		<-ctx.Done()
@@ -141,36 +143,47 @@ func newObjectInfoReader(
 }
 
 func (o *objectInfoReader) close() {
-	o.Lock()
-	defer o.Unlock()
-
+	o.queue.close()
 	_ = o.cmd.Wait()
-
-	o.closed = true
 }
 
 func (o *objectInfoReader) isClosed() bool {
-	o.Lock()
-	defer o.Unlock()
-	return o.closed
+	return o.queue.isClosed()
 }
 
 func (o *objectInfoReader) isDirty() bool {
-	// We always consume object info directly, so the reader cannot ever be dirty.
-	return false
+	return o.queue.isDirty()
+}
+
+func (o *objectInfoReader) infoQueue(ctx context.Context, tracedMethod string) (*requestQueue, func(), error) {
+	if !atomic.CompareAndSwapInt32(&o.queueInUse, 0, 1) {
+		return nil, nil, fmt.Errorf("object info queue already in use")
+	}
+
+	trace := startTrace(ctx, o.counter, tracedMethod)
+	o.queue.trace = trace
+
+	return &o.queue, func() {
+		atomic.StoreInt32(&o.queueInUse, 0)
+		trace.finish()
+	}, nil
 }
 
 func (o *objectInfoReader) Info(ctx context.Context, revision git.Revision) (*ObjectInfo, error) {
-	trace := startTrace(ctx, o.counter, "catfile.Info")
-	defer trace.finish()
-
-	o.Lock()
-	defer o.Unlock()
-
-	if _, err := fmt.Fprintln(o.cmd, revision.String()); err != nil {
+	queue, cleanup, err := o.infoQueue(ctx, "catfile.Info")
+	if err != nil {
 		return nil, err
 	}
-	trace.recordRequest("info")
+	defer cleanup()
 
-	return ParseObjectInfo(o.stdout)
+	if err := queue.RequestRevision(revision); err != nil {
+		return nil, err
+	}
+
+	objectInfo, err := queue.ReadInfo()
+	if err != nil {
+		return nil, err
+	}
+
+	return objectInfo, nil
 }
