@@ -1,6 +1,7 @@
 package praefect
 
 import (
+	"context"
 	"fmt"
 
 	migrate "github.com/rubenv/sql-migrate"
@@ -24,7 +25,7 @@ const (
 // concept which is more concerned with the health of the praefect service. These checks are meant to diagnose any issues with
 // the praefect cluster setup itself and will be run on startup/restarts.
 type Check struct {
-	Run         func() error
+	Run         func(ctx context.Context) error
 	Name        string
 	Description string
 	Severity    Severity
@@ -38,7 +39,7 @@ func NewPraefectMigrationCheck(conf config.Config) *Check {
 	return &Check{
 		Name:        "praefect migrations",
 		Description: "confirms whether or not all praefect migrations have run",
-		Run: func() error {
+		Run: func(ctx context.Context) error {
 			db, err := glsql.OpenDB(conf.DB)
 			if err != nil {
 				return err

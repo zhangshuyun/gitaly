@@ -1,6 +1,7 @@
 package praefect
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -53,6 +54,9 @@ func TestPraefectMigrations_success(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
 			var cfg config.Config
 			db := glsql.NewDB(t)
 			cfg.DB = glsql.GetDBConfig(t, db.Name)

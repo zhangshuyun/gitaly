@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"flag"
 	"testing"
@@ -26,21 +27,21 @@ func TestCheckSubcommand_Exec(t *testing.T) {
 				func(cfg config.Config) *praefect.Check {
 					return &praefect.Check{
 						Name:     "check 1",
-						Run:      func() error { return nil },
+						Run:      func(ctx context.Context) error { return nil },
 						Severity: praefect.Fatal,
 					}
 				},
 				func(cfg config.Config) *praefect.Check {
 					return &praefect.Check{
 						Name:     "check 2",
-						Run:      func() error { return nil },
+						Run:      func(ctx context.Context) error { return nil },
 						Severity: praefect.Fatal,
 					}
 				},
 				func(cfg config.Config) *praefect.Check {
 					return &praefect.Check{
 						Name:     "check 3",
-						Run:      func() error { return nil },
+						Run:      func(ctx context.Context) error { return nil },
 						Severity: praefect.Fatal,
 					}
 				},
@@ -54,21 +55,21 @@ func TestCheckSubcommand_Exec(t *testing.T) {
 				func(cfg config.Config) *praefect.Check {
 					return &praefect.Check{
 						Name:     "check 1",
-						Run:      func() error { return nil },
+						Run:      func(ctx context.Context) error { return nil },
 						Severity: praefect.Fatal,
 					}
 				},
 				func(cfg config.Config) *praefect.Check {
 					return &praefect.Check{
 						Name:     "check 2",
-						Run:      func() error { return errors.New("i failed") },
+						Run:      func(ctx context.Context) error { return errors.New("i failed") },
 						Severity: praefect.Fatal,
 					}
 				},
 				func(cfg config.Config) *praefect.Check {
 					return &praefect.Check{
 						Name:     "check 3",
-						Run:      func() error { return nil },
+						Run:      func(ctx context.Context) error { return nil },
 						Severity: praefect.Fatal,
 					}
 				},
@@ -82,21 +83,21 @@ func TestCheckSubcommand_Exec(t *testing.T) {
 				func(cfg config.Config) *praefect.Check {
 					return &praefect.Check{
 						Name:     "check 1",
-						Run:      func() error { return nil },
+						Run:      func(ctx context.Context) error { return nil },
 						Severity: praefect.Fatal,
 					}
 				},
 				func(cfg config.Config) *praefect.Check {
 					return &praefect.Check{
 						Name:     "check 2",
-						Run:      func() error { return errors.New("i failed but not too badly") },
+						Run:      func(ctx context.Context) error { return errors.New("i failed but not too badly") },
 						Severity: praefect.Warning,
 					}
 				},
 				func(cfg config.Config) *praefect.Check {
 					return &praefect.Check{
 						Name:     "check 3",
-						Run:      func() error { return errors.New("i failed but not too badly") },
+						Run:      func(ctx context.Context) error { return errors.New("i failed but not too badly") },
 						Severity: praefect.Warning,
 					}
 				},
