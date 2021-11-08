@@ -7,47 +7,12 @@ import (
 	"io"
 )
 
-// ObjectType is an Enum for the type of object of
-// the ls-tree entry, which can be can be tree, blob or commit
-type ObjectType int
-
-// Entry represents a single ls-tree entry
-type Entry struct {
-	Mode []byte
-	Type ObjectType
-	Oid  string
-	Path string
-}
-
-// Entries holds every ls-tree Entry
-type Entries []Entry
+// ErrParse is returned when the parse of an entry was unsuccessful
+var ErrParse = errors.New("failed to parse git ls-tree response")
 
 // Parser holds the necessary state for parsing the ls-tree output
 type Parser struct {
 	reader *bufio.Reader
-}
-
-// Enum values for ObjectType
-const (
-	Tree ObjectType = iota
-	Blob
-	Submodule
-)
-
-// ErrParse is returned when the parse of an entry was unsuccessful
-var ErrParse = errors.New("failed to parse git ls-tree response")
-
-func (e Entries) Len() int {
-	return len(e)
-}
-
-func (e Entries) Swap(i, j int) {
-	e[i], e[j] = e[j], e[i]
-}
-
-// Less sorts entries by type in the order [*tree *blobs *submodules]
-func (e Entries) Less(i, j int) bool {
-	return e[i].Type < e[j].Type
 }
 
 // NewParser returns a new Parser
