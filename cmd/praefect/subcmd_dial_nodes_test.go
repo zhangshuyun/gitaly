@@ -4,13 +4,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
-	"log"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -106,72 +105,12 @@ func TestSubCmdDialNodes(t *testing.T) {
 			tt.conf.SocketPath = ln.Addr().String()
 
 			output := &bytes.Buffer{}
-			defer func(w io.Writer, f int) {
-				log.SetOutput(w)
-				log.SetFlags(f) // reinstate timestamp
-			}(log.Writer(), log.Flags())
-			log.SetOutput(output)
-			log.SetFlags(0) // remove timestamp to make output deterministic
+			p := nodes.NewTextPrinter(output)
 
-			cmd := dialNodesSubcommand{}
+			cmd := newDialNodesSubcommand(p)
 			require.NoError(t, cmd.Exec(nil, tt.conf))
 
 			require.Equal(t, tt.logs, output.String())
-		})
-	}
-}
-
-func TestFlattenNodes(t *testing.T) {
-	for _, tt := range []struct {
-		desc   string
-		conf   config.Config
-		expect map[string]*nodePing
-	}{
-		{
-			desc: "Flatten common address between storages",
-			conf: config.Config{
-				VirtualStorages: []*config.VirtualStorage{
-					{
-						Name: "meow",
-						Nodes: []*config.Node{
-							{
-								Storage: "foo",
-								Address: "tcp://example.com",
-								Token:   "abc",
-							},
-						},
-					},
-					{
-						Name: "woof",
-						Nodes: []*config.Node{
-							{
-								Storage: "bar",
-								Address: "tcp://example.com",
-								Token:   "abc",
-							},
-						},
-					},
-				},
-			},
-			expect: map[string]*nodePing{
-				"tcp://example.com": {
-					address: "tcp://example.com",
-					storages: map[gitalyStorage][]virtualStorage{
-						"foo": {"meow"},
-						"bar": {"woof"},
-					},
-					vStorages: map[virtualStorage]struct{}{
-						"meow": {},
-						"woof": {},
-					},
-					token: "abc",
-				},
-			},
-		},
-	} {
-		t.Run(tt.desc, func(t *testing.T) {
-			actual := flattenNodes(tt.conf)
-			require.Equal(t, tt.expect, actual)
 		})
 	}
 }
