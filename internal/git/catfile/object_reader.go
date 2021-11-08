@@ -125,8 +125,8 @@ func (o *objectReader) Object(
 	ctx context.Context,
 	revision git.Revision,
 ) (*Object, error) {
-	trace, finish := startTrace(ctx, o.counter, "catfile.Object")
-	defer finish()
+	trace := startTrace(ctx, o.counter, "catfile.Object")
+	defer trace.finish()
 
 	o.Lock()
 	defer o.Unlock()

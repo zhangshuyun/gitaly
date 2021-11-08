@@ -161,8 +161,8 @@ func (o *objectInfoReader) isDirty() bool {
 }
 
 func (o *objectInfoReader) Info(ctx context.Context, revision git.Revision) (*ObjectInfo, error) {
-	trace, finish := startTrace(ctx, o.counter, "catfile.Info")
-	defer finish()
+	trace := startTrace(ctx, o.counter, "catfile.Info")
+	defer trace.finish()
 
 	o.Lock()
 	defer o.Unlock()

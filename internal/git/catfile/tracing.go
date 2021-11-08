@@ -17,14 +17,13 @@ type trace struct {
 }
 
 // startTrace starts a new tracing span and updates metrics according to how many requests have been
-// done during that trace. This must be called with two contexts: first the per-RPC context, which
-// is the context of the current RPC call. And then the cache context, which is the decorrelated
-// context for cached catfile processes. Spans are then created for both contexts.
+// done during that trace. The caller must call `finish()` on the resulting after it's deemed to be
+// done such that metrics get recorded correctly.
 func startTrace(
 	ctx context.Context,
 	counter *prometheus.CounterVec,
 	methodName string,
-) (*trace, func()) {
+) *trace {
 	span, _ := opentracing.StartSpanFromContext(ctx, methodName)
 
 	trace := &trace{
@@ -39,7 +38,7 @@ func startTrace(
 		},
 	}
 
-	return trace, trace.finish
+	return trace
 }
 
 func (t *trace) recordRequest(requestType string) {
