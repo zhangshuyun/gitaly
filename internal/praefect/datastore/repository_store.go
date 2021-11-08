@@ -89,6 +89,9 @@ type RepositoryStore interface {
 	// SetGeneration sets the repository's generation on the given storage. If the generation is higher
 	// than the virtual storage's generation, it is set to match as well to guarantee monotonic increments.
 	SetGeneration(ctx context.Context, repositoryID int64, storage, relativePath string, generation int) error
+	// GetReplicaPath gets the replica path of a repository. Returns a commonerr.ErrRepositoryNotFound if a record
+	// for the repository ID is not found.
+	GetReplicaPath(ctx context.Context, repositoryID int64) (string, error)
 	// GetReplicatedGeneration returns the generation propagated by applying the replication. If the generation would
 	// downgrade, a DowngradeAttemptedError is returned.
 	GetReplicatedGeneration(ctx context.Context, repositoryID int64, source, target string) (int, error)
@@ -110,7 +113,7 @@ type RepositoryStore interface {
 	// the repository is not tracked by the Praefect datastore.
 	DeleteRepository(ctx context.Context, virtualStorage, relativePath string) (string, []string, error)
 	// DeleteReplica deletes a replica of a repository from a storage without affecting other state in the virtual storage.
-	DeleteReplica(ctx context.Context, virtualStorage, relativePath, storage string) error
+	DeleteReplica(ctx context.Context, repositoryID int64, storage string) error
 	// RenameRepository updates a repository's relative path. It renames the virtual storage wide record as well
 	// as the storage's which is calling it. Returns RepositoryNotExistsError when trying to rename a repository
 	// which has no record in the virtual storage or the storage.
@@ -445,18 +448,12 @@ GROUP BY replica_path
 }
 
 // DeleteReplica deletes a record from the `storage_repositories`. See the interface documentation for details.
-func (rs *PostgresRepositoryStore) DeleteReplica(ctx context.Context, virtualStorage, relativePath string, storage string) error {
-	return rs.delete(ctx, `
+func (rs *PostgresRepositoryStore) DeleteReplica(ctx context.Context, repositoryID int64, storage string) error {
+	result, err := rs.db.ExecContext(ctx, `
 DELETE FROM storage_repositories
-WHERE virtual_storage = $1
-AND relative_path = $2
-AND storage = ANY($3::text[])
-		`, virtualStorage, relativePath, []string{storage},
-	)
-}
-
-func (rs *PostgresRepositoryStore) delete(ctx context.Context, query, virtualStorage, relativePath string, storages []string) error {
-	result, err := rs.db.ExecContext(ctx, query, virtualStorage, relativePath, pq.StringArray(storages))
+WHERE repository_id = $1
+AND storage = $2
+	`, repositoryID, storage)
 	if err != nil {
 		return err
 	}
@@ -772,4 +769,21 @@ AND   relative_path   = $2
 	}
 
 	return id, nil
+}
+
+// GetReplicaPath gets the replica path of a repository. Returns a commonerr.ErrRepositoryNotFound if a record
+// for the repository ID is not found.
+func (rs *PostgresRepositoryStore) GetReplicaPath(ctx context.Context, repositoryID int64) (string, error) {
+	var replicaPath string
+	if err := rs.db.QueryRowContext(
+		ctx, "SELECT replica_path FROM repositories WHERE repository_id = $1", repositoryID,
+	).Scan(&replicaPath); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", commonerr.ErrRepositoryNotFound
+		}
+
+		return "", fmt.Errorf("scan: %w", err)
+	}
+
+	return replicaPath, nil
 }

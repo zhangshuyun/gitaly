@@ -61,6 +61,7 @@ func TestReplicatorInvalidSourceRepository(t *testing.T) {
 	require.NoError(t, r.Replicate(ctx, datastore.ReplicationEvent{
 		Job: datastore.ReplicationJob{
 			RepositoryID:      1,
+			ReplicaPath:       "relative-path-1",
 			VirtualStorage:    "virtual-storage-1",
 			RelativePath:      "relative-path-1",
 			SourceNodeStorage: "gitaly-1",
@@ -114,6 +115,7 @@ func TestReplicatorDestroy(t *testing.T) {
 				ctx,
 				datastore.ReplicationEvent{
 					Job: datastore.ReplicationJob{
+						ReplicaPath:       "relative-path-1",
 						Change:            tc.change,
 						VirtualStorage:    "virtual-storage-1",
 						RelativePath:      "relative-path-1",

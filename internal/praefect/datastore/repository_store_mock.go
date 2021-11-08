@@ -12,7 +12,7 @@ type MockRepositoryStore struct {
 	CreateRepositoryFunc                    func(ctx context.Context, repositoryID int64, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error
 	SetAuthoritativeReplicaFunc             func(ctx context.Context, virtualStorage, relativePath, storage string) error
 	DeleteRepositoryFunc                    func(ctx context.Context, virtualStorage, relativePath string) (string, []string, error)
-	DeleteReplicaFunc                       func(ctx context.Context, virtualStorage, relativePath, storage string) error
+	DeleteReplicaFunc                       func(ctx context.Context, repositoryID int64, storage string) error
 	RenameRepositoryFunc                    func(ctx context.Context, virtualStorage, relativePath, storage, newRelativePath string) error
 	GetConsistentStoragesByRepositoryIDFunc func(ctx context.Context, repositoryID int64) (string, map[string]struct{}, error)
 	GetConsistentStoragesFunc               func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error)
@@ -21,6 +21,7 @@ type MockRepositoryStore struct {
 	RepositoryExistsFunc                    func(ctx context.Context, virtualStorage, relativePath string) (bool, error)
 	ReserveRepositoryIDFunc                 func(ctx context.Context, virtualStorage, relativePath string) (int64, error)
 	GetRepositoryIDFunc                     func(ctx context.Context, virtualStorage, relativePath string) (int64, error)
+	GetReplicaPathFunc                      func(ctx context.Context, repositoryID int64) (string, error)
 }
 
 func (m MockRepositoryStore) GetGeneration(ctx context.Context, repositoryID int64, storage string) (int, error) {
@@ -82,12 +83,12 @@ func (m MockRepositoryStore) DeleteRepository(ctx context.Context, virtualStorag
 }
 
 // DeleteReplica runs the mock's DeleteReplicaFunc.
-func (m MockRepositoryStore) DeleteReplica(ctx context.Context, virtualStorage, relativePath, storage string) error {
+func (m MockRepositoryStore) DeleteReplica(ctx context.Context, repositoryID int64, storage string) error {
 	if m.DeleteReplicaFunc == nil {
 		return nil
 	}
 
-	return m.DeleteReplicaFunc(ctx, virtualStorage, relativePath, storage)
+	return m.DeleteReplicaFunc(ctx, repositoryID, storage)
 }
 
 func (m MockRepositoryStore) RenameRepository(ctx context.Context, virtualStorage, relativePath, storage, newRelativePath string) error {
@@ -157,4 +158,9 @@ func (m MockRepositoryStore) GetRepositoryID(ctx context.Context, virtualStorage
 	}
 
 	return m.GetRepositoryIDFunc(ctx, virtualStorage, relativePath)
+}
+
+// GetReplicaPath returns the result of GetReplicaPathFunc or panics if it is unset.
+func (m MockRepositoryStore) GetReplicaPath(ctx context.Context, repositoryID int64) (string, error) {
+	return m.GetReplicaPathFunc(ctx, repositoryID)
 }

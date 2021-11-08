@@ -843,7 +843,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		rs, requireState := newStore(t, nil)
 
 		t.Run("delete non-existing", func(t *testing.T) {
-			require.Equal(t, ErrNoRowsAffected, rs.DeleteReplica(ctx, "virtual-storage-1", "relative-path-1", "storage-1"))
+			require.Equal(t, ErrNoRowsAffected, rs.DeleteReplica(ctx, 1, "storage-1"))
 		})
 
 		t.Run("delete existing", func(t *testing.T) {
@@ -879,7 +879,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 				},
 			)
 
-			require.NoError(t, rs.DeleteReplica(ctx, "virtual-storage-1", "relative-path-1", "storage-1"))
+			require.NoError(t, rs.DeleteReplica(ctx, 1, "storage-1"))
 
 			requireState(t, ctx,
 				virtualStorageState{
@@ -1201,6 +1201,20 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		id, err = rs.GetRepositoryID(ctx, vs, repo)
 		require.Nil(t, err)
 		require.Equal(t, int64(1), id)
+	})
+
+	t.Run("GetReplicaPath", func(t *testing.T) {
+		rs, _ := newStore(t, nil)
+
+		replicaPath, err := rs.GetReplicaPath(ctx, 1)
+		require.Equal(t, err, commonerr.ErrRepositoryNotFound)
+		require.Empty(t, replicaPath)
+
+		require.NoError(t, rs.CreateRepository(ctx, 1, vs, repo, stor, nil, nil, false, false))
+
+		replicaPath, err = rs.GetReplicaPath(ctx, 1)
+		require.NoError(t, err)
+		require.Equal(t, replicaPath, repo)
 	})
 }
 
