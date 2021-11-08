@@ -49,8 +49,8 @@ Gitaly and Gitaly Cluster.
    |  `-path`              |  string   |  yes     |  Directory where the backup files will be created. |
    |  `-parallel`          |  integer  |  no      |  Maximum number of parallel backups. |
    |  `-parallel-storage`  |  integer  |  no      |  Maximum number of parallel backups per storage. |
-   |  `-id`                |  string   |  no      |  Used by the locator to determine a unique path for the backup when a full backup is created. |
-   |  `-locator`           |  string   |  no      |  Determines the file-system layout. Any of `legacy`, `pointer` (default `legacy`). Note: The feature is not ready for production use. |
+   |  `-id`                |  string   |  no      |  Used to determine a unique path for the backup when a full backup is created. |
+   |  `-layout`            |  string   |  no      |  Determines the file-system layout. Any of `legacy`, `pointer` (default `legacy`). Note: The feature is not ready for production use. |
    |  `-incremental`       |  bool     |  no      |  Determines if an incremental backup should be created. Note: The feature is not ready for production use. |
 
 ## Directly restore repository data
@@ -99,7 +99,7 @@ Gitaly and Gitaly Cluster.
    |  `-path`              |  string   |  yes     |  Directory where the backup files are stored. |
    |  `-parallel`          |  integer  |  no      |  Maximum number of parallel restores. |
    |  `-parallel-storage`  |  integer  |  no      |  Maximum number of parallel restores per storage. |
-   |  `-locator`           |  string   |  no      |  Determines the file-system layout. Any of `legacy`, `pointer` (default `legacy`). Note: The feature is not ready for production use. |
+   |  `-layout`            |  string   |  no      |  Determines the file-system layout. Any of `legacy`, `pointer` (default `legacy`). Note: The feature is not ready for production use. |
 
 ## How Git repository backups work
 
