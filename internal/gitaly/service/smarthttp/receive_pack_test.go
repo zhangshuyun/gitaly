@@ -410,9 +410,37 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 			expectedResponse: "0030\x01000eunpack ok\n0019ok refs/heads/master\n00000000",
 			expectObject:     true,
 		},
+		{
+			desc: "zero-padded file mode",
+			prepareCommit: func(t *testing.T, repoPath string) bytes.Buffer {
+				subtree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Mode: "100644", Path: "file", Content: "content"},
+				})
+				subtreeID, err := subtree.Bytes()
+				require.NoError(t, err)
+
+				var treeContents bytes.Buffer
+				treeContents.WriteString("040000 subdir\x00")
+				treeContents.Write(subtreeID)
+
+				brokenTree := gittest.ExecOpts(t, cfg, gittest.ExecConfig{
+					Stdin: &treeContents,
+				}, "-C", repoPath, "hash-object", "-w", "-t", "tree", "--stdin")
+
+				var buf bytes.Buffer
+				buf.WriteString("tree " + text.ChompBytes(brokenTree) + "\n")
+				buf.WriteString("parent " + head + "\n")
+				buf.WriteString("author Au Thor <author@example.com>\n")
+				buf.WriteString("committer Au Thor <author@example.com>\n")
+				buf.WriteString("\n")
+				buf.WriteString("Commit message\n")
+				return buf
+			},
+			expectedResponse: "zeroPaddedFilemode: contains zero-padded file modes\n",
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			commitBuffer := tc.prepareCommit(t, repoPath)
+			commitBuffer := tc.prepareCommit(t, localRepoPath)
 			commitID := text.ChompBytes(gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: &commitBuffer},
 				"-C", localRepoPath, "hash-object", "-t", "commit", "--stdin", "-w",
 			))
