@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"sync"
+	"sync/atomic"
 
 	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
@@ -20,32 +20,36 @@ type ObjectReader interface {
 
 	// Reader returns a new Object for the given revision. The Object must be fully consumed
 	// before another object is requested.
-	Object(_ context.Context, _ git.Revision) (*Object, error)
+	Object(context.Context, git.Revision) (*Object, error)
+
+	// ObjectQueue returns an ObjectQueue that can be used to batch multiple object requests.
+	// Using the queue is more efficient than using `Object()` when requesting a bunch of
+	// objects. The returned function must be executed after use of the ObjectQueue has
+	// finished.
+	ObjectQueue(context.Context) (ObjectQueue, func(), error)
+}
+
+// ObjectQueue allows for requesting and reading objects independently of each other. The number of
+// RequestObject and ReadObject calls must match. ReadObject must be executed after the object has
+// been requested already. The order of objects returned by ReadObject is the same as the order in
+// which objects have been requested.
+type ObjectQueue interface {
+	// RequestRevision requests the given revision from git-cat-file(1).
+	RequestRevision(git.Revision) error
+	// ReadObject reads an object which has previously been requested.
+	ReadObject() (*Object, error)
 }
 
 // objectReader is a reader for Git objects. Reading is implemented via a long-lived `git cat-file
 // --batch` process such that we do not have to spawn a new process for each object we are about to
 // read.
 type objectReader struct {
-	cmd    *command.Command
-	stdout *bufio.Reader
-
-	// n is a state machine that tracks how much data we still have to read
-	// from r. Legal states are: n==0, this means we can do a new request on
-	// the cat-file process. n==1, this means that we have to discard a
-	// trailing newline. n>0, this means we are in the middle of reading a
-	// raw git object.
-	n int64
-
-	// Even though the batch type should not be used concurrently, I think
-	// that if that does happen by mistake we should give proper errors
-	// instead of doing unsafe memory writes (to n) and failing in some
-	// unpredictable way.
-	sync.Mutex
-
-	closed bool
+	cmd *command.Command
 
 	counter *prometheus.CounterVec
+
+	queue      requestQueue
+	queueInUse int32
 }
 
 func newObjectReader(
@@ -70,8 +74,12 @@ func newObjectReader(
 
 	objectReader := &objectReader{
 		cmd:     batchCmd,
-		stdout:  bufio.NewReader(batchCmd),
 		counter: counter,
+		queue: requestQueue{
+			isObjectQueue: true,
+			stdout:        bufio.NewReader(batchCmd),
+			stdin:         batchCmd,
+		},
 	}
 	go func() {
 		<-ctx.Done()
@@ -83,98 +91,103 @@ func newObjectReader(
 }
 
 func (o *objectReader) close() {
-	o.Lock()
-	defer o.Unlock()
-
+	o.queue.close()
 	_ = o.cmd.Wait()
-
-	o.closed = true
 }
 
 func (o *objectReader) isClosed() bool {
-	o.Lock()
-	defer o.Unlock()
-	return o.closed
-}
-
-func (o *objectReader) consume(nBytes int64) {
-	o.n -= nBytes
-	if o.n < 1 {
-		panic("too many bytes read from batch")
-	}
+	return o.queue.isClosed()
 }
 
 func (o *objectReader) isDirty() bool {
-	o.Lock()
-	defer o.Unlock()
+	return o.queue.isDirty()
+}
 
-	return o.n > 1
+func (o *objectReader) objectQueue(ctx context.Context, tracedMethod string) (*requestQueue, func(), error) {
+	if !atomic.CompareAndSwapInt32(&o.queueInUse, 0, 1) {
+		return nil, nil, fmt.Errorf("object queue already in use")
+	}
+
+	trace := startTrace(ctx, o.counter, tracedMethod)
+	o.queue.trace = trace
+
+	return &o.queue, func() {
+		atomic.StoreInt32(&o.queueInUse, 0)
+		trace.finish()
+	}, nil
+}
+
+func (o *objectReader) Object(ctx context.Context, revision git.Revision) (*Object, error) {
+	queue, finish, err := o.objectQueue(ctx, "catfile.Object")
+	if err != nil {
+		return nil, err
+	}
+	defer finish()
+
+	if err := queue.RequestRevision(revision); err != nil {
+		return nil, err
+	}
+
+	object, err := queue.ReadObject()
+	if err != nil {
+		return nil, err
+	}
+
+	return object, nil
+}
+
+func (o *objectReader) ObjectQueue(ctx context.Context) (ObjectQueue, func(), error) {
+	queue, finish, err := o.objectQueue(ctx, "catfile.ObjectQueue")
+	if err != nil {
+		return nil, nil, err
+	}
+	return queue, finish, nil
 }
 
 // Object represents data returned by `git cat-file --batch`
 type Object struct {
 	// ObjectInfo represents main information about object
 	ObjectInfo
-	// parent is the objectReader which has created the Object.
-	parent *objectReader
+
 	// dataReader is reader which has all the object data.
 	dataReader io.LimitedReader
+
+	// bytesLeft tracks the number of bytes which are left to be read. While this duplicates the
+	// information tracked in dataReader.N, this cannot be helped given that we need to make
+	// access to this information atomic so there's no race between updating it and checking the
+	// process for dirtiness. While we could use locking instead of atomics, we'd have to lock
+	// during the whole read duration -- and thus it'd become impossible to check for dirtiness
+	// at the same time.
+	bytesRemaining int64
+
+	// closed determines whether the object is closed for reading.
+	closed int32
 }
 
-func (o *objectReader) Object(
-	ctx context.Context,
-	revision git.Revision,
-) (*Object, error) {
-	trace, finish := startTrace(ctx, o.counter, "catfile.Object")
-	defer finish()
+// isDirty determines whether the object is still dirty, that is whether there are still unconsumed
+// bytes.
+func (o *Object) isDirty() bool {
+	return atomic.LoadInt64(&o.bytesRemaining) != 0
+}
 
-	o.Lock()
-	defer o.Unlock()
+func (o *Object) isClosed() bool {
+	return atomic.LoadInt32(&o.closed) == 1
+}
 
-	if o.n == 1 {
-		// Consume linefeed
-		if _, err := o.stdout.ReadByte(); err != nil {
-			return nil, err
-		}
-		o.n--
-	}
-
-	if o.n != 0 {
-		return nil, fmt.Errorf("cannot create new Object: batch contains %d unread bytes", o.n)
-	}
-
-	if _, err := fmt.Fprintln(o.cmd, revision.String()); err != nil {
-		return nil, err
-	}
-
-	oi, err := ParseObjectInfo(o.stdout)
-	if err != nil {
-		return nil, err
-	}
-	trace.recordRequest(oi.Type)
-
-	o.n = oi.Size + 1
-
-	return &Object{
-		ObjectInfo: *oi,
-		parent:     o,
-		dataReader: io.LimitedReader{
-			R: o.stdout,
-			N: oi.Size,
-		},
-	}, nil
+func (o *Object) close() {
+	atomic.StoreInt32(&o.closed, 1)
 }
 
 func (o *Object) Read(p []byte) (int, error) {
-	o.parent.Lock()
-	defer o.parent.Unlock()
-
-	if o.parent.closed {
+	if o.isClosed() {
 		return 0, os.ErrClosed
 	}
 
 	n, err := o.dataReader.Read(p)
-	o.parent.consume(int64(n))
+	if atomic.AddInt64(&o.bytesRemaining, int64(-n)) < 0 {
+		return n, fmt.Errorf("bytes remaining became negative while reading object")
+	}
+
 	return n, err
 }
 
@@ -182,16 +195,16 @@ func (o *Object) Read(p []byte) (int, error) {
 // via `io.Copy()`, which in turn will use `WriteTo()` or `ReadFrom()` in case these interfaces are
 // implemented by the respective reader or writer.
 func (o *Object) WriteTo(w io.Writer) (int64, error) {
-	o.parent.Lock()
-	defer o.parent.Unlock()
-
-	if o.parent.closed {
+	if o.isClosed() {
 		return 0, os.ErrClosed
 	}
 
 	// While the `io.LimitedReader` does not support WriteTo, `io.Copy()` will make use of
 	// `ReadFrom()` in case the writer implements it.
 	n, err := io.Copy(w, &o.dataReader)
-	o.parent.consume(n)
+	if atomic.AddInt64(&o.bytesRemaining, -n) < 0 {
+		return n, fmt.Errorf("bytes remaining became negative while reading object")
+	}
+
 	return n, err
 }

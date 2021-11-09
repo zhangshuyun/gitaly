@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
+	"sync/atomic"
 
 	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
@@ -90,19 +90,35 @@ type ObjectInfoReader interface {
 
 	// Info requests information about the revision pointed to by the given revision.
 	Info(context.Context, git.Revision) (*ObjectInfo, error)
+
+	// InfoQueue returns an ObjectInfoQueue that can be used to batch multiple object info
+	// requests. Using the queue is more efficient than using `Info()` when requesting a bunch
+	// of objects. The returned function must be executed after use of the ObjectInfoQueue has
+	// finished.
+	InfoQueue(context.Context) (ObjectInfoQueue, func(), error)
+}
+
+// ObjectInfoQueue allows for requesting and reading object info independently of each other. The
+// number of RequestInfo and ReadInfo calls must match. ReadObject must be executed after the
+// object has been requested already. The order of objects returned by ReadInfo is the same as the
+// order in which object info has been requested.
+type ObjectInfoQueue interface {
+	// RequestRevision requests the given revision from git-cat-file(1).
+	RequestRevision(git.Revision) error
+	// ReadInfo reads object info which has previously been requested.
+	ReadInfo() (*ObjectInfo, error)
 }
 
 // objectInfoReader is a reader for Git object information. This reader is implemented via a
 // long-lived  `git cat-file --batch-check` process such that we do not have to spawn a separate
 // process per object info we're about to read.
 type objectInfoReader struct {
-	cmd    *command.Command
-	stdout *bufio.Reader
-	sync.Mutex
-
-	closed bool
+	cmd *command.Command
 
 	counter *prometheus.CounterVec
+
+	queue      requestQueue
+	queueInUse int32
 }
 
 func newObjectInfoReader(
@@ -127,8 +143,11 @@ func newObjectInfoReader(
 
 	objectInfoReader := &objectInfoReader{
 		cmd:     batchCmd,
-		stdout:  bufio.NewReader(batchCmd),
 		counter: counter,
+		queue: requestQueue{
+			stdout: bufio.NewReader(batchCmd),
+			stdin:  batchCmd,
+		},
 	}
 	go func() {
 		<-ctx.Done()
@@ -141,36 +160,56 @@ func newObjectInfoReader(
 }
 
 func (o *objectInfoReader) close() {
-	o.Lock()
-	defer o.Unlock()
-
+	o.queue.close()
 	_ = o.cmd.Wait()
-
-	o.closed = true
 }
 
 func (o *objectInfoReader) isClosed() bool {
-	o.Lock()
-	defer o.Unlock()
-	return o.closed
+	return o.queue.isClosed()
 }
 
 func (o *objectInfoReader) isDirty() bool {
-	// We always consume object info directly, so the reader cannot ever be dirty.
-	return false
+	return o.queue.isDirty()
+}
+
+func (o *objectInfoReader) infoQueue(ctx context.Context, tracedMethod string) (*requestQueue, func(), error) {
+	if !atomic.CompareAndSwapInt32(&o.queueInUse, 0, 1) {
+		return nil, nil, fmt.Errorf("object info queue already in use")
+	}
+
+	trace := startTrace(ctx, o.counter, tracedMethod)
+	o.queue.trace = trace
+
+	return &o.queue, func() {
+		atomic.StoreInt32(&o.queueInUse, 0)
+		trace.finish()
+	}, nil
 }
 
 func (o *objectInfoReader) Info(ctx context.Context, revision git.Revision) (*ObjectInfo, error) {
-	trace, finish := startTrace(ctx, o.counter, "catfile.Info")
-	defer finish()
-
-	o.Lock()
-	defer o.Unlock()
-
-	if _, err := fmt.Fprintln(o.cmd, revision.String()); err != nil {
+	queue, cleanup, err := o.infoQueue(ctx, "catfile.Info")
+	if err != nil {
 		return nil, err
 	}
-	trace.recordRequest("info")
+	defer cleanup()
 
-	return ParseObjectInfo(o.stdout)
+	if err := queue.RequestRevision(revision); err != nil {
+		return nil, err
+	}
+
+	objectInfo, err := queue.ReadInfo()
+	if err != nil {
+		return nil, err
+	}
+
+	return objectInfo, nil
+}
+
+func (o *objectInfoReader) InfoQueue(ctx context.Context) (ObjectInfoQueue, func(), error) {
+	queue, cleanup, err := o.infoQueue(ctx, "catfile.InfoQueue")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return queue, cleanup, nil
 }

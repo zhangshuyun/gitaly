@@ -52,7 +52,11 @@ func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, sortFiel
 		gitpipe.WithSortField(sortField),
 		gitpipe.WithForEachRefFormat("%(objectname) %(refname)%(if)%(*objectname)%(then)\n%(objectname)^{} PEELED%(end)"),
 	)
-	catfileObjectsIter := gitpipe.CatfileObject(ctx, objectReader, forEachRefIter)
+
+	catfileObjectsIter, err := gitpipe.CatfileObject(ctx, objectReader, forEachRefIter)
+	if err != nil {
+		return err
+	}
 
 	chunker := chunk.New(&tagSender{stream: stream})
 

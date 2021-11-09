@@ -222,8 +222,12 @@ func TestPipeline_revlist(t *testing.T) {
 			require.NoError(t, err)
 
 			revlistIter := Revlist(ctx, repo, tc.revisions, tc.revlistOptions...)
-			catfileInfoIter := CatfileInfo(ctx, objectInfoReader, revlistIter, tc.catfileInfoOptions...)
-			catfileObjectIter := CatfileObject(ctx, objectReader, catfileInfoIter)
+
+			catfileInfoIter, err := CatfileInfo(ctx, objectInfoReader, revlistIter, tc.catfileInfoOptions...)
+			require.NoError(t, err)
+
+			catfileObjectIter, err := CatfileObject(ctx, objectReader, catfileInfoIter)
+			require.NoError(t, err)
 
 			var results []CatfileObjectResult
 			for catfileObjectIter.Next() {
@@ -274,8 +278,12 @@ func TestPipeline_revlist(t *testing.T) {
 		require.NoError(t, err)
 
 		revlistIter := Revlist(ctx, repo, []string{"--all"})
-		catfileInfoIter := CatfileInfo(ctx, objectInfoReader, revlistIter)
-		catfileObjectIter := CatfileObject(ctx, objectReader, catfileInfoIter)
+
+		catfileInfoIter, err := CatfileInfo(ctx, objectInfoReader, revlistIter)
+		require.NoError(t, err)
+
+		catfileObjectIter, err := CatfileObject(ctx, objectReader, catfileInfoIter)
+		require.NoError(t, err)
 
 		i := 0
 		for catfileObjectIter.Next() {
@@ -311,8 +319,12 @@ func TestPipeline_revlist(t *testing.T) {
 		require.NoError(t, err)
 
 		revlistIter := Revlist(ctx, repo, []string{"--all"}, WithObjects())
-		catfileInfoIter := CatfileInfo(ctx, objectInfoReader, revlistIter)
-		catfileObjectIter := CatfileObject(ctx, objectReader, catfileInfoIter)
+
+		catfileInfoIter, err := CatfileInfo(ctx, objectInfoReader, revlistIter)
+		require.NoError(t, err)
+
+		catfileObjectIter, err := CatfileObject(ctx, objectReader, catfileInfoIter)
+		require.NoError(t, err)
 
 		i := 0
 		var wg sync.WaitGroup
@@ -361,8 +373,12 @@ func TestPipeline_forEachRef(t *testing.T) {
 	require.NoError(t, err)
 
 	forEachRefIter := ForEachRef(ctx, repo, nil)
-	catfileInfoIter := CatfileInfo(ctx, objectInfoReader, forEachRefIter)
-	catfileObjectIter := CatfileObject(ctx, objectReader, catfileInfoIter)
+
+	catfileInfoIter, err := CatfileInfo(ctx, objectInfoReader, forEachRefIter)
+	require.NoError(t, err)
+
+	catfileObjectIter, err := CatfileObject(ctx, objectReader, catfileInfoIter)
+	require.NoError(t, err)
 
 	type object struct {
 		oid     git.ObjectID

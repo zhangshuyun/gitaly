@@ -100,7 +100,11 @@ func (s *server) ListCommits(
 	}
 
 	revlistIter := gitpipe.Revlist(ctx, repo, request.GetRevisions(), revlistOptions...)
-	catfileObjectIter := gitpipe.CatfileObject(ctx, objectReader, revlistIter)
+
+	catfileObjectIter, err := gitpipe.CatfileObject(ctx, objectReader, revlistIter)
+	if err != nil {
+		return err
+	}
 
 	chunker := chunk.New(&commitsSender{
 		send: func(commits []*gitalypb.GitCommit) error {

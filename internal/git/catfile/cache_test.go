@@ -218,7 +218,7 @@ func TestCache_ObjectReader(t *testing.T) {
 		// We're cheating a bit here to avoid creating a racy test by reaching into the
 		// process and trying to read from its stdout. If the cancel did kill the process as
 		// expected, then the stdout should be closed and we'll get an EOF.
-		output, err := io.ReadAll(objectReaderImpl.stdout)
+		output, err := io.ReadAll(objectReaderImpl.queue.stdout)
 		if err != nil {
 			require.True(t, errors.Is(err, os.ErrClosed))
 		} else {
@@ -354,7 +354,7 @@ func TestCache_ObjectInfoReader(t *testing.T) {
 		// We're cheating a bit here to avoid creating a racy test by reaching into the
 		// process and trying to read from its stdout. If the cancel did kill the process as
 		// expected, then the stdout should be closed and we'll get an EOF.
-		output, err := io.ReadAll(objectInfoReaderImpl.stdout)
+		output, err := io.ReadAll(objectInfoReaderImpl.queue.stdout)
 		if err != nil {
 			require.True(t, errors.Is(err, os.ErrClosed))
 		} else {

@@ -428,23 +428,88 @@ func BenchmarkListAllBlobs(b *testing.B) {
 
 	_, repoProto, _, client := setup(b)
 
-	b.Run("ListAllBlobs", func(b *testing.B) {
-		b.ReportAllocs()
-
-		for i := 0; i < b.N; i++ {
-			stream, err := client.ListAllBlobs(ctx, &gitalypb.ListAllBlobsRequest{
+	for _, tc := range []struct {
+		desc    string
+		request *gitalypb.ListAllBlobsRequest
+	}{
+		{
+			desc: "with contents",
+			request: &gitalypb.ListAllBlobsRequest{
 				Repository: repoProto,
 				BytesLimit: -1,
-			})
-			require.NoError(b, err)
+			},
+		},
+		{
+			desc: "without contents",
+			request: &gitalypb.ListAllBlobsRequest{
+				Repository: repoProto,
+				BytesLimit: 0,
+			},
+		},
+	} {
+		b.Run(tc.desc, func(b *testing.B) {
+			b.ReportAllocs()
 
-			for {
-				_, err := stream.Recv()
-				if err == io.EOF {
-					break
-				}
+			for i := 0; i < b.N; i++ {
+				stream, err := client.ListAllBlobs(ctx, tc.request)
 				require.NoError(b, err)
+
+				for {
+					_, err := stream.Recv()
+					if err == io.EOF {
+						break
+					}
+					require.NoError(b, err)
+				}
 			}
-		}
-	})
+		})
+	}
+}
+
+func BenchmarkListBlobs(b *testing.B) {
+	b.StopTimer()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	_, repoProto, _, client := setup(b)
+
+	for _, tc := range []struct {
+		desc    string
+		request *gitalypb.ListBlobsRequest
+	}{
+		{
+			desc: "with contents",
+			request: &gitalypb.ListBlobsRequest{
+				Repository: repoProto,
+				Revisions:  []string{"refs/heads/master"},
+				BytesLimit: -1,
+			},
+		},
+		{
+			desc: "without contents",
+			request: &gitalypb.ListBlobsRequest{
+				Repository: repoProto,
+				Revisions:  []string{"refs/heads/master"},
+				BytesLimit: 0,
+			},
+		},
+	} {
+		b.Run(tc.desc, func(b *testing.B) {
+			b.ReportAllocs()
+
+			for i := 0; i < b.N; i++ {
+				stream, err := client.ListBlobs(ctx, tc.request)
+				require.NoError(b, err)
+
+				for {
+					_, err := stream.Recv()
+					if err == io.EOF {
+						break
+					}
+					require.NoError(b, err)
+				}
+			}
+		})
+	}
 }

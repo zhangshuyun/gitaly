@@ -40,6 +40,12 @@ func WithSkipCatfileInfoResult(skipResult func(*catfile.ObjectInfo) bool) Catfil
 	}
 }
 
+type catfileInfoRequest struct {
+	objectID   git.ObjectID
+	objectName []byte
+	err        error
+}
+
 // CatfileInfo processes revlistResults from the given channel and extracts object information via
 // `git cat-file --batch-check`. The returned channel will contain all processed catfile info
 // results. Any error received via the channel or encountered in this step will cause the pipeline
@@ -49,21 +55,67 @@ func CatfileInfo(
 	objectInfoReader catfile.ObjectInfoReader,
 	it ObjectIterator,
 	opts ...CatfileInfoOption,
-) CatfileInfoIterator {
+) (CatfileInfoIterator, error) {
 	var cfg catfileInfoConfig
 	for _, opt := range opts {
 		opt(&cfg)
 	}
 
+	queue, cleanup, err := objectInfoReader.InfoQueue(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer cleanup()
+
+	requestChan := make(chan catfileInfoRequest)
+	go func() {
+		defer close(requestChan)
+
+		for it.Next() {
+			if err := queue.RequestRevision(it.ObjectID().Revision()); err != nil {
+				select {
+				case requestChan <- catfileInfoRequest{err: err}:
+				case <-ctx.Done():
+					return
+				}
+			}
+
+			select {
+			case requestChan <- catfileInfoRequest{
+				objectID:   it.ObjectID(),
+				objectName: it.ObjectName(),
+			}:
+			case <-ctx.Done():
+				return
+			}
+		}
+
+		if err := it.Err(); err != nil {
+			select {
+			case requestChan <- catfileInfoRequest{err: err}:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	resultChan := make(chan CatfileInfoResult)
 	go func() {
 		defer close(resultChan)
 
-		for it.Next() {
-			objectInfo, err := objectInfoReader.Info(ctx, it.ObjectID().Revision())
+		// It's fine to iterate over the request channel without paying attention to
+		// context cancellation because the request channel itself would be closed if the
+		// context was cancelled.
+		for request := range requestChan {
+			if request.err != nil {
+				sendCatfileInfoResult(ctx, resultChan, CatfileInfoResult{err: request.err})
+				break
+			}
+
+			objectInfo, err := queue.ReadInfo()
 			if err != nil {
 				sendCatfileInfoResult(ctx, resultChan, CatfileInfoResult{
-					err: fmt.Errorf("retrieving object info for %q: %w", it.ObjectID(), err),
+					err: fmt.Errorf("retrieving object info for %q: %w", request.objectID, err),
 				})
 				return
 			}
@@ -73,22 +125,17 @@ func CatfileInfo(
 			}
 
 			if isDone := sendCatfileInfoResult(ctx, resultChan, CatfileInfoResult{
-				ObjectName: it.ObjectName(),
+				ObjectName: request.objectName,
 				ObjectInfo: objectInfo,
 			}); isDone {
 				return
 			}
 		}
-
-		if err := it.Err(); err != nil {
-			sendCatfileInfoResult(ctx, resultChan, CatfileInfoResult{err: err})
-			return
-		}
 	}()
 
 	return &catfileInfoIterator{
 		ch: resultChan,
-	}
+	}, nil
 }
 
 // CatfileInfoAllObjects enumerates all Git objects part of the repository's object directory and

@@ -23,6 +23,11 @@ type CatfileObjectResult struct {
 	git.Object
 }
 
+type catfileObjectRequest struct {
+	objectName []byte
+	err        error
+}
+
 // CatfileObject processes catfileInfoResults from the given channel and reads associated objects
 // into memory via `git cat-file --batch`. The returned channel will contain all processed objects.
 // Any error received via the channel or encountered in this step will cause the pipeline to fail.
@@ -32,7 +37,42 @@ func CatfileObject(
 	ctx context.Context,
 	objectReader catfile.ObjectReader,
 	it ObjectIterator,
-) CatfileObjectIterator {
+) (CatfileObjectIterator, error) {
+	queue, cleanup, err := objectReader.ObjectQueue(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer cleanup()
+
+	requestChan := make(chan catfileObjectRequest)
+	go func() {
+		defer close(requestChan)
+
+		for it.Next() {
+			if err := queue.RequestRevision(it.ObjectID().Revision()); err != nil {
+				select {
+				case requestChan <- catfileObjectRequest{err: err}:
+				case <-ctx.Done():
+					return
+				}
+			}
+
+			select {
+			case requestChan <- catfileObjectRequest{objectName: it.ObjectName()}:
+			case <-ctx.Done():
+				return
+			}
+		}
+
+		if err := it.Err(); err != nil {
+			select {
+			case requestChan <- catfileObjectRequest{err: err}:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	resultChan := make(chan CatfileObjectResult)
 	go func() {
 		defer close(resultChan)
@@ -60,7 +100,15 @@ func CatfileObject(
 
 		var previousObject *synchronizingObject
 
-		for it.Next() {
+		// It's fine to iterate over the request channel without paying attention to
+		// context cancellation because the request channel itself would be closed if the
+		// context was cancelled.
+		for request := range requestChan {
+			if request.err != nil {
+				sendResult(CatfileObjectResult{err: request.err})
+				break
+			}
+
 			// We mustn't try to read another object before reading the previous object
 			// has concluded. Given that this is not under our control but under the
 			// control of the caller, we thus have to wait until the blocking reader has
@@ -73,7 +121,7 @@ func CatfileObject(
 				}
 			}
 
-			object, err := objectReader.Object(ctx, it.ObjectID().Revision())
+			object, err := queue.ReadObject()
 			if err != nil {
 				sendResult(CatfileObjectResult{
 					err: fmt.Errorf("requesting object: %w", err),
@@ -87,22 +135,17 @@ func CatfileObject(
 			}
 
 			if isDone := sendResult(CatfileObjectResult{
-				ObjectName: it.ObjectName(),
+				ObjectName: request.objectName,
 				Object:     previousObject,
 			}); isDone {
 				return
 			}
 		}
-
-		if err := it.Err(); err != nil {
-			sendResult(CatfileObjectResult{err: err})
-			return
-		}
 	}()
 
 	return &catfileObjectIterator{
 		ch: resultChan,
-	}
+	}, nil
 }
 
 type synchronizingObject struct {
