@@ -335,19 +335,29 @@ func (c *Coordinator) directRepositoryScopedMessage(ctx context.Context, call gr
 		}
 
 		if replicationType != datastore.CreateRepo {
-			// This is a hack for the tests: during execution of the gitaly tests under praefect proxy
-			// the repositories are created directly on the filesystem. There is no call for the
-			// CreateRepository that creates records in the database that is why we do it artificially
-			// before redirecting the calls.
-			id, err := c.rs.ReserveRepositoryID(ctx, call.targetRepo.StorageName, call.targetRepo.RelativePath)
-			if err != nil {
-				if !errors.Is(err, commonerr.ErrRepositoryAlreadyExists) {
-					return nil, err
-				}
-			} else {
-				if err := c.rs.CreateRepository(ctx, id, call.targetRepo.StorageName, call.targetRepo.RelativePath, call.targetRepo.RelativePath, call.targetRepo.StorageName, nil, nil, true, true); err != nil {
-					if !errors.As(err, &datastore.RepositoryExistsError{}) {
+			relativePaths := []string{call.targetRepo.RelativePath}
+
+			if additionalRepo, ok, err := call.methodInfo.AdditionalRepo(call.msg); err != nil {
+				return nil, err
+			} else if ok {
+				relativePaths = append(relativePaths, additionalRepo.RelativePath)
+			}
+
+			for _, relativePath := range relativePaths {
+				// This is a hack for the tests: during execution of the gitaly tests under praefect proxy
+				// the repositories are created directly on the filesystem. There is no call for the
+				// CreateRepository that creates records in the database that is why we do it artificially
+				// before redirecting the calls.
+				id, err := c.rs.ReserveRepositoryID(ctx, call.targetRepo.StorageName, relativePath)
+				if err != nil {
+					if !errors.Is(err, commonerr.ErrRepositoryAlreadyExists) {
 						return nil, err
+					}
+				} else {
+					if err := c.rs.CreateRepository(ctx, id, call.targetRepo.StorageName, relativePath, relativePath, call.targetRepo.StorageName, nil, nil, true, true); err != nil {
+						if !errors.As(err, &datastore.RepositoryExistsError{}) {
+							return nil, err
+						}
 					}
 				}
 			}
