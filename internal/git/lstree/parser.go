@@ -2,8 +2,8 @@ package lstree
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
+	"fmt"
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
@@ -24,43 +24,53 @@ func NewParser(src io.Reader) *Parser {
 	}
 }
 
-// NextEntry reads from git ls-tree --z --full-name command
-// parses the tree entry and returns a *Entry.
+// NextEntry reads a tree entry as it would be written by `git ls-tree -z`.
 func (p *Parser) NextEntry() (*Entry, error) {
-	data, err := p.reader.ReadBytes(0x00)
+	// Each tree entry is expected to have a format of `<mode> SP <type> SP <objectid> TAB <path> NUL`.
+
+	treeEntryMode, err := p.reader.ReadBytes(' ')
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return nil, io.EOF
+		}
+
+		return nil, fmt.Errorf("reading mode: %w", err)
+	}
+	treeEntryMode = treeEntryMode[:len(treeEntryMode)-1]
+
+	treeEntryType, err := p.reader.ReadBytes(' ')
+	if err != nil {
+		return nil, fmt.Errorf("reading type: %w", err)
+	}
+	treeEntryType = treeEntryType[:len(treeEntryType)-1]
+
+	treeEntryID, err := p.reader.ReadBytes('\t')
+	if err != nil {
+		return nil, fmt.Errorf("reading OID: %w", err)
+	}
+	treeEntryID = treeEntryID[:len(treeEntryID)-1]
+
+	treeEntryPath, err := p.reader.ReadBytes(0x00)
+	if err != nil {
+		return nil, fmt.Errorf("reading path: %w", err)
+	}
+	treeEntryPath = treeEntryPath[:len(treeEntryPath)-1]
+
+	objectType, err := toEnum(string(treeEntryType))
 	if err != nil {
 		return nil, err
 	}
 
-	// We expect each `data` to be <mode> SP <type> SP <object> TAB <path>\0.
-	split := bytes.SplitN(data, []byte(" "), 3)
-	if len(split) != 3 {
-		return nil, ErrParse
-	}
-
-	objectAndFile := bytes.SplitN(split[len(split)-1], []byte("\t"), 2)
-	if len(objectAndFile) != 2 {
-		return nil, ErrParse
-	}
-
-	objectType, err := toEnum(string(split[1]))
-	if err != nil {
-		return nil, err
-	}
-
-	// We know that the last byte in 'path' will be a zero byte.
-	path := string(bytes.TrimRight(objectAndFile[1], "\x00"))
-
-	objectID, err := git.NewObjectIDFromHex(string(objectAndFile[0]))
+	objectID, err := git.NewObjectIDFromHex(string(treeEntryID))
 	if err != nil {
 		return nil, err
 	}
 
 	return &Entry{
-		Mode:     split[0],
+		Mode:     treeEntryMode,
 		Type:     objectType,
 		ObjectID: objectID,
-		Path:     path,
+		Path:     string(treeEntryPath),
 	}, nil
 }
 
