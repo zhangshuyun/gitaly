@@ -81,6 +81,8 @@ func WriteTree(t testing.TB, cfg config.Cfg, repoPath string, entries []TreeEntr
 		switch entry.Mode {
 		case "100644":
 			entryType = "blob"
+		case "100755":
+			entryType = "blob"
 		case "040000":
 			entryType = "tree"
 		default:
