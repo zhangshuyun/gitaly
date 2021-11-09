@@ -388,6 +388,12 @@ func fsckConfiguration(prefix string) []GlobalOption {
 		// enough and we cope just fine parsing such signatures, so we can
 		// ignore this error.
 		"fsck.missingSpaceBeforeDate": "ignore",
+
+		// Oldish Git versions used to zero-pad some filemodes, e.g. instead of a
+		// file mode of 40000 the tree object would have endcoded the filemode as
+		// 04000. This doesn't cause any and Git can cope with it alright, so let's
+		// ignore it.
+		"fsck.zeroPaddedFilemode": "ignore",
 	} {
 		configPairs = append(configPairs, ConfigPair{
 			Key:   fmt.Sprintf("%s.%s", prefix, key),

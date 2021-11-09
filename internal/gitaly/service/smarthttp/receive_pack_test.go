@@ -436,7 +436,8 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 				buf.WriteString("Commit message\n")
 				return buf
 			},
-			expectedResponse: "zeroPaddedFilemode: contains zero-padded file modes\n",
+			expectedResponse: "0030\x01000eunpack ok\n0019ok refs/heads/master\n00000000",
+			expectObject:     true,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
