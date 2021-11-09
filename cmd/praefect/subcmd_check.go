@@ -8,13 +8,17 @@ import (
 	"io"
 	"time"
 
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/env"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 )
 
 const (
-	checkCmdName = "check"
+	skipChecksVar = "PRAEFECT_SKIP_STARTUP_CHECKS"
+	checkCmdName  = "check"
 )
+
+var errFatalChecksFailed = errors.New("checks failed")
 
 type checkSubcommand struct {
 	w          io.Writer
@@ -39,9 +43,12 @@ func (cmd *checkSubcommand) FlagSet() *flag.FlagSet {
 	return fs
 }
 
-var errFatalChecksFailed = errors.New("checks failed")
-
 func (cmd *checkSubcommand) Exec(flags *flag.FlagSet, cfg config.Config) error {
+	if skipChecks, _ := env.GetBool(skipChecksVar, false); skipChecks {
+		fmt.Fprintf(cmd.w, "Skipping startup checks.\n")
+		return nil
+	}
+
 	var allChecks []*praefect.Check
 	for _, checkFunc := range cmd.checkFuncs {
 		allChecks = append(allChecks, checkFunc(cfg))

@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
 func TestCheckSubcommand_Exec(t *testing.T) {
@@ -118,4 +119,30 @@ func TestCheckSubcommand_Exec(t *testing.T) {
 			assert.Equal(t, tc.expectedOutput, stdout.String())
 		})
 	}
+}
+
+func TestCheckSubcommand_Skip(t *testing.T) {
+	var cfg config.Config
+	var stdout bytes.Buffer
+
+	var functionRan bool
+	checks := []praefect.CheckFunc{
+		func(cfg config.Config) *praefect.Check {
+			return &praefect.Check{
+				Name: "check 1",
+				Run: func(ctx context.Context) error {
+					functionRan = true
+					return nil
+				},
+				Severity: praefect.Fatal,
+			}
+		},
+	}
+	checkCmd := checkSubcommand{w: &stdout, checkFuncs: checks}
+	cleanup := testhelper.ModifyEnvironment(t, skipChecksVar, "true")
+	defer cleanup()
+
+	assert.Nil(t, checkCmd.Exec(flag.NewFlagSet("", flag.PanicOnError), cfg))
+	assert.False(t, functionRan)
+	assert.Equal(t, "Skipping startup checks.\n", stdout.String())
 }
