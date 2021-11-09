@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"errors"
 	"io"
+
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 )
 
 // ErrParse is returned when the parse of an entry was unsuccessful
@@ -49,7 +51,17 @@ func (p *Parser) NextEntry() (*Entry, error) {
 	// We know that the last byte in 'path' will be a zero byte.
 	path := string(bytes.TrimRight(objectAndFile[1], "\x00"))
 
-	return &Entry{Mode: split[0], Type: objectType, Oid: string(objectAndFile[0]), Path: path}, nil
+	objectID, err := git.NewObjectIDFromHex(string(objectAndFile[0]))
+	if err != nil {
+		return nil, err
+	}
+
+	return &Entry{
+		Mode:     split[0],
+		Type:     objectType,
+		ObjectID: objectID,
+		Path:     path,
+	}, nil
 }
 
 func toEnum(s string) (ObjectType, error) {
