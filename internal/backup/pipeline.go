@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
-	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
@@ -106,10 +106,34 @@ func (cmd RestoreCommand) Execute(ctx context.Context) error {
 	})
 }
 
+// PipelineError represents a summary of errors by repository
+type PipelineError []error
+
+// AddError adds an error associated with a repository to the summary.
+func (e *PipelineError) AddError(repo *gitalypb.Repository, err error) {
+	if repo.GetGlProjectPath() != "" {
+		err = fmt.Errorf("%s (%s): %w", repo.GetRelativePath(), repo.GetGlProjectPath(), err)
+	} else {
+		err = fmt.Errorf("%s: %w", repo.GetRelativePath(), err)
+	}
+	*e = append(*e, err)
+}
+
+func (e PipelineError) Error() string {
+	var builder strings.Builder
+	_, _ = fmt.Fprintf(&builder, "%d failures encountered:\n", len(e))
+	for _, err := range e {
+		_, _ = fmt.Fprintf(&builder, " - %s\n", err.Error())
+	}
+	return builder.String()
+}
+
 // LoggingPipeline outputs logging for each command executed
 type LoggingPipeline struct {
-	log    logrus.FieldLogger
-	failed int64
+	log logrus.FieldLogger
+
+	mu   sync.Mutex
+	errs PipelineError
 }
 
 // NewLoggingPipeline creates a new logging pipeline
@@ -129,7 +153,7 @@ func (p *LoggingPipeline) Handle(ctx context.Context, cmd Command) {
 			log.WithError(err).Warnf("skipped %s", cmd.Name())
 		} else {
 			log.WithError(err).Errorf("%s failed", cmd.Name())
-			atomic.AddInt64(&p.failed, 1)
+			p.addError(cmd.Repository(), err)
 		}
 		return
 	}
@@ -137,10 +161,17 @@ func (p *LoggingPipeline) Handle(ctx context.Context, cmd Command) {
 	log.Infof("completed %s", cmd.Name())
 }
 
+func (p *LoggingPipeline) addError(repo *gitalypb.Repository, err error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.errs.AddError(repo, err)
+}
+
 // Done indicates that the pipeline is complete and returns any accumulated errors
 func (p *LoggingPipeline) Done() error {
-	if p.failed > 0 {
-		return fmt.Errorf("pipeline: %d failures encountered", p.failed)
+	if len(p.errs) > 0 {
+		return fmt.Errorf("pipeline: %w", p.errs)
 	}
 	return nil
 }
