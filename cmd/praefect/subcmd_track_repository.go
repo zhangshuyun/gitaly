@@ -189,7 +189,7 @@ func (cmd *trackRepository) trackRepository(
 	return nil
 }
 
-func (cmd *trackRepository) repositoryExists(ctx context.Context, repo *gitalypb.Repository, addr, token string) (bool, error) {
+func repositoryExists(ctx context.Context, repo *gitalypb.Repository, addr, token string) (bool, error) {
 	conn, err := subCmdDial(ctx, addr, token, defaultDialTimeout)
 	if err != nil {
 		return false, fmt.Errorf("error dialing: %w", err)
@@ -219,7 +219,7 @@ func (cmd *trackRepository) authoritativeRepositoryExists(ctx context.Context, c
 					StorageName:  node.Storage,
 					RelativePath: cmd.relativePath,
 				}
-				exists, err := cmd.repositoryExists(ctx, repo, node.Address, node.Token)
+				exists, err := repositoryExists(ctx, repo, node.Address, node.Token)
 				if err != nil {
 					logger.WithError(err).Warnf("checking if repository exists %q, %q", node.Storage, cmd.relativePath)
 					return false, nil
