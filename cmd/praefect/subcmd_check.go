@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
@@ -45,11 +47,15 @@ func (cmd *checkSubcommand) Exec(flags *flag.FlagSet, cfg config.Config) error {
 		allChecks = append(allChecks, checkFunc(cfg))
 	}
 
+	bgContext := context.Background()
 	passed := true
 	var failedChecks int
 	for _, check := range allChecks {
+		ctx, cancel := context.WithTimeout(bgContext, 5*time.Second)
+		defer cancel()
+
 		fmt.Fprintf(cmd.w, "Checking %s...", check.Name)
-		if err := check.Run(); err != nil {
+		if err := check.Run(ctx); err != nil {
 			failedChecks++
 			if check.Severity == praefect.Fatal {
 				passed = false

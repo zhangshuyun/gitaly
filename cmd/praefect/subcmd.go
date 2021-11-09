@@ -28,7 +28,7 @@ const defaultDialTimeout = 30 * time.Second
 var subcommands = map[string]subcmd{
 	sqlPingCmdName:                &sqlPingSubcommand{},
 	sqlMigrateCmdName:             &sqlMigrateSubcommand{},
-	dialNodesCmdName:              &dialNodesSubcommand{},
+	dialNodesCmdName:              newDialNodesSubcommand(logger),
 	sqlMigrateDownCmdName:         &sqlMigrateDownSubcommand{},
 	sqlMigrateStatusCmdName:       &sqlMigrateStatusSubcommand{},
 	datalossCmdName:               newDatalossSubcommand(),
@@ -37,7 +37,11 @@ var subcommands = map[string]subcmd{
 	removeRepositoryCmdName:       newRemoveRepository(logger),
 	trackRepositoryCmdName:        newTrackRepository(logger),
 	listUntrackedRepositoriesName: newListUntrackedRepositories(logger, os.Stdout),
-	checkCmdName:                  newCheckSubcommand(os.Stdout, praefect.NewPraefectMigrationCheck),
+	checkCmdName: newCheckSubcommand(
+		os.Stdout,
+		praefect.NewPraefectMigrationCheck,
+		praefect.NewGitalyNodeConnectivityCheck,
+	),
 }
 
 // subCommand returns an exit code, to be fed into os.Exit.
