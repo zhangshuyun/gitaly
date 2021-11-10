@@ -7,6 +7,7 @@ import (
 	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/stats"
 )
@@ -234,7 +235,34 @@ func (lh PerRPCLogHandler) HandleRPC(ctx context.Context, rs stats.RPCStats) {
 
 // TagRPC propagates a special data holder into the context that is responsible to
 // hold logging information produced by the logging interceptor.
+// The logging data should be caught by the UnaryLogDataCatcherServerInterceptor. It needs to
+// be included into the interceptor chain below logging interceptor.
 func (lh PerRPCLogHandler) TagRPC(ctx context.Context, rti *stats.RPCTagInfo) context.Context {
 	ctx = context.WithValue(ctx, messageProducerHolderKey{}, new(messageProducerHolder))
 	return lh.Underlying.TagRPC(ctx, rti)
+}
+
+// UnaryLogDataCatcherServerInterceptor catches logging data produced by the upper interceptors and
+// propagates it into the holder to pop up it to the HandleRPC method of the PerRPCLogHandler.
+func UnaryLogDataCatcherServerInterceptor() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		mpp := messageProducerPropagationFrom(ctx)
+		if mpp != nil {
+			mpp.fields = ctxlogrus.Extract(ctx).Data
+		}
+		return handler(ctx, req)
+	}
+}
+
+// StreamLogDataCatcherServerInterceptor catches logging data produced by the upper interceptors and
+// propagates it into the holder to pop up it to the HandleRPC method of the PerRPCLogHandler.
+func StreamLogDataCatcherServerInterceptor() grpc.StreamServerInterceptor {
+	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		ctx := ss.Context()
+		mpp := messageProducerPropagationFrom(ctx)
+		if mpp != nil {
+			mpp.fields = ctxlogrus.Extract(ctx).Data
+		}
+		return handler(srv, ss)
+	}
 }

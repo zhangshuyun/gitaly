@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/server/auth"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/grpcstats"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/fieldextractors"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/listenmux"
 	gitalylog "gitlab.com/gitlab-org/gitaly/v14/internal/log"
@@ -103,7 +104,19 @@ func New(
 		[]grpc.DialOption{client.UnaryInterceptor()},
 	))
 
+	logMsgProducer := grpcmwlogrus.WithMessageProducer(
+		gitalylog.MessageProducer(
+			gitalylog.PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),
+			commandstatshandler.FieldsProducer,
+			grpcstats.FieldsProducer,
+		),
+	)
+
 	opts := []grpc.ServerOption{
+		grpc.StatsHandler(gitalylog.PerRPCLogHandler{
+			Underlying:     &grpcstats.PayloadBytes{},
+			FieldProducers: []gitalylog.FieldsProducer{grpcstats.FieldsProducer},
+		}),
 		grpc.Creds(lm),
 		grpc.StreamInterceptor(grpcmw.ChainStreamServer(
 			grpcmwtags.StreamServerInterceptor(ctxTagOpts...),
@@ -113,7 +126,9 @@ func New(
 			commandstatshandler.StreamInterceptor,
 			grpcmwlogrus.StreamServerInterceptor(logrusEntry,
 				grpcmwlogrus.WithTimestampFormat(gitalylog.LogTimestampFormat),
-				grpcmwlogrus.WithMessageProducer(commandstatshandler.CommandStatsMessageProducer)),
+				logMsgProducer,
+			),
+			gitalylog.StreamLogDataCatcherServerInterceptor(),
 			sentryhandler.StreamLogHandler,
 			cancelhandler.Stream, // Should be below LogHandler
 			auth.StreamServerInterceptor(cfg.Auth),
@@ -132,7 +147,9 @@ func New(
 			commandstatshandler.UnaryInterceptor,
 			grpcmwlogrus.UnaryServerInterceptor(logrusEntry,
 				grpcmwlogrus.WithTimestampFormat(gitalylog.LogTimestampFormat),
-				grpcmwlogrus.WithMessageProducer(commandstatshandler.CommandStatsMessageProducer)),
+				logMsgProducer,
+			),
+			gitalylog.UnaryLogDataCatcherServerInterceptor(),
 			sentryhandler.UnaryLogHandler,
 			cancelhandler.Unary, // Should be below LogHandler
 			auth.UnaryServerInterceptor(cfg.Auth),

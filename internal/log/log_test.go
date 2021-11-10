@@ -3,16 +3,173 @@ package log
 import (
 	"bytes"
 	"context"
+	"io"
+	"net"
+	"os"
+	"sync"
 	"testing"
 	"time"
 
+	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/client"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/grpcstats"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/stats"
+	"google.golang.org/grpc/test/grpc_testing"
+	"google.golang.org/protobuf/proto"
 )
+
+func TestPayloadBytes(t *testing.T) {
+	ctx := context.Background()
+
+	logger, hook := test.NewNullLogger()
+
+	opts := []grpc.ServerOption{
+		grpc.StatsHandler(PerRPCLogHandler{
+			Underlying:     &grpcstats.PayloadBytes{},
+			FieldProducers: []FieldsProducer{grpcstats.FieldsProducer},
+		}),
+		grpc.UnaryInterceptor(
+			grpcmw.ChainUnaryServer(
+				grpcmwlogrus.UnaryServerInterceptor(
+					logrus.NewEntry(logger),
+					grpcmwlogrus.WithMessageProducer(
+						MessageProducer(
+							PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),
+							grpcstats.FieldsProducer,
+						),
+					),
+				),
+				UnaryLogDataCatcherServerInterceptor(),
+			),
+		),
+		grpc.StreamInterceptor(
+			grpcmw.ChainStreamServer(
+				grpcmwlogrus.StreamServerInterceptor(
+					logrus.NewEntry(logger),
+					grpcmwlogrus.WithMessageProducer(
+						MessageProducer(
+							PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),
+							grpcstats.FieldsProducer,
+						),
+					),
+				),
+				StreamLogDataCatcherServerInterceptor(),
+			),
+		),
+	}
+
+	srv := grpc.NewServer(opts...)
+	grpc_testing.RegisterTestServiceServer(srv, testService{})
+	sock, err := os.CreateTemp("", "")
+	require.NoError(t, err)
+	require.NoError(t, sock.Close())
+	require.NoError(t, os.RemoveAll(sock.Name()))
+	t.Cleanup(func() { require.NoError(t, os.RemoveAll(sock.Name())) })
+
+	lis, err := net.Listen("unix", sock.Name())
+	require.NoError(t, err)
+
+	t.Cleanup(srv.GracefulStop)
+	go func() { assert.NoError(t, srv.Serve(lis)) }()
+
+	cc, err := client.DialContext(ctx, "unix://"+sock.Name(), nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, cc.Close()) })
+
+	testClient := grpc_testing.NewTestServiceClient(cc)
+	const invocations = 2
+	var wg sync.WaitGroup
+	for i := 0; i < invocations; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			resp, err := testClient.UnaryCall(ctx, &grpc_testing.SimpleRequest{Payload: newStubPayload()})
+			if !assert.NoError(t, err) {
+				return
+			}
+			testassert.ProtoEqual(t, newStubPayload(), resp.Payload)
+
+			call, err := testClient.HalfDuplexCall(ctx)
+			if !assert.NoError(t, err) {
+				return
+			}
+
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				for {
+					_, err := call.Recv()
+					if err == io.EOF {
+						return
+					}
+					assert.NoError(t, err)
+				}
+			}()
+			assert.NoError(t, call.Send(&grpc_testing.StreamingOutputCallRequest{Payload: newStubPayload()}))
+			assert.NoError(t, call.Send(&grpc_testing.StreamingOutputCallRequest{Payload: newStubPayload()}))
+			assert.NoError(t, call.CloseSend())
+			<-done
+		}()
+	}
+	wg.Wait()
+
+	entries := hook.AllEntries()
+	require.Len(t, entries, 4)
+	var unary, stream int
+	for _, e := range entries {
+		if e.Message == "finished unary call with code OK" {
+			unary++
+			require.EqualValues(t, 8, e.Data["grpc.request.payload_bytes"])
+			require.EqualValues(t, 8, e.Data["grpc.response.payload_bytes"])
+		}
+		if e.Message == "finished streaming call with code OK" {
+			stream++
+			require.EqualValues(t, 16, e.Data["grpc.request.payload_bytes"])
+			require.EqualValues(t, 16, e.Data["grpc.response.payload_bytes"])
+		}
+	}
+	require.Equal(t, invocations, unary)
+	require.Equal(t, invocations, stream)
+}
+
+func newStubPayload() *grpc_testing.Payload {
+	return &grpc_testing.Payload{Body: []byte("stub")}
+}
+
+type testService struct {
+	grpc_testing.UnimplementedTestServiceServer
+}
+
+func (ts testService) UnaryCall(context.Context, *grpc_testing.SimpleRequest) (*grpc_testing.SimpleResponse, error) {
+	return &grpc_testing.SimpleResponse{Payload: newStubPayload()}, nil
+}
+
+func (ts testService) HalfDuplexCall(stream grpc_testing.TestService_HalfDuplexCallServer) error {
+	for {
+		if _, err := stream.Recv(); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+	}
+
+	resp := &grpc_testing.StreamingOutputCallResponse{Payload: newStubPayload()}
+	if err := stream.Send(proto.Clone(resp).(*grpc_testing.StreamingOutputCallResponse)); err != nil {
+		return err
+	}
+	return stream.Send(proto.Clone(resp).(*grpc_testing.StreamingOutputCallResponse))
+}
 
 func TestConfigure(t *testing.T) {
 	for _, tc := range []struct {
@@ -214,4 +371,70 @@ func (m *mockStatHandler) TagConn(ctx context.Context, s *stats.ConnTagInfo) con
 
 func (m *mockStatHandler) HandleConn(ctx context.Context, s stats.ConnStats) {
 	m.Calls["HandleConn"] = append(m.Calls["HandleConn"], s)
+}
+
+func TestUnaryLogDataCatcherServerInterceptor(t *testing.T) {
+	handlerStub := func(context.Context, interface{}) (interface{}, error) {
+		return nil, nil
+	}
+
+	t.Run("propagates call", func(t *testing.T) {
+		interceptor := UnaryLogDataCatcherServerInterceptor()
+		resp, err := interceptor(context.Background(), nil, nil, func(ctx context.Context, req interface{}) (interface{}, error) {
+			return 42, assert.AnError
+		})
+
+		assert.Equal(t, 42, resp)
+		assert.Equal(t, assert.AnError, err)
+	})
+
+	t.Run("no logger", func(t *testing.T) {
+		mpp := &messageProducerHolder{}
+		ctx := context.WithValue(context.Background(), messageProducerHolderKey{}, mpp)
+
+		interceptor := UnaryLogDataCatcherServerInterceptor()
+		_, _ = interceptor(ctx, nil, nil, handlerStub)
+		assert.Empty(t, mpp.fields)
+	})
+
+	t.Run("caught", func(t *testing.T) {
+		mpp := &messageProducerHolder{}
+		ctx := context.WithValue(context.Background(), messageProducerHolderKey{}, mpp)
+		ctx = ctxlogrus.ToContext(ctx, logrus.New().WithField("a", 1))
+		interceptor := UnaryLogDataCatcherServerInterceptor()
+		_, _ = interceptor(ctx, nil, nil, handlerStub)
+		assert.Equal(t, logrus.Fields{"a": 1}, mpp.fields)
+	})
+}
+
+func TestStreamLogDataCatcherServerInterceptor(t *testing.T) {
+	t.Run("propagates call", func(t *testing.T) {
+		interceptor := StreamLogDataCatcherServerInterceptor()
+		ss := &grpcmw.WrappedServerStream{WrappedContext: context.Background()}
+		err := interceptor(nil, ss, nil, func(interface{}, grpc.ServerStream) error {
+			return assert.AnError
+		})
+
+		assert.Equal(t, assert.AnError, err)
+	})
+
+	t.Run("no logger", func(t *testing.T) {
+		mpp := &messageProducerHolder{}
+		ctx := context.WithValue(context.Background(), messageProducerHolderKey{}, mpp)
+
+		interceptor := StreamLogDataCatcherServerInterceptor()
+		ss := &grpcmw.WrappedServerStream{WrappedContext: ctx}
+		_ = interceptor(nil, ss, nil, func(interface{}, grpc.ServerStream) error { return nil })
+	})
+
+	t.Run("caught", func(t *testing.T) {
+		mpp := &messageProducerHolder{}
+		ctx := context.WithValue(context.Background(), messageProducerHolderKey{}, mpp)
+		ctx = ctxlogrus.ToContext(ctx, logrus.New().WithField("a", 1))
+
+		interceptor := StreamLogDataCatcherServerInterceptor()
+		ss := &grpcmw.WrappedServerStream{WrappedContext: ctx}
+		_ = interceptor(nil, ss, nil, func(interface{}, grpc.ServerStream) error { return nil })
+		assert.Equal(t, logrus.Fields{"a": 1}, mpp.fields)
+	})
 }
