@@ -107,6 +107,9 @@ type ObjectInfoQueue interface {
 	RequestRevision(git.Revision) error
 	// ReadInfo reads object info which has previously been requested.
 	ReadInfo() (*ObjectInfo, error)
+	// Flush flushes all queued requests and asks git-cat-file(1) to print all objects which
+	// have been requested up to this point.
+	Flush() error
 }
 
 // objectInfoReader is a reader for Git object information. This reader is implemented via a

@@ -204,6 +204,65 @@ func TestObjectReader_queue(t *testing.T) {
 		require.Equal(t, errors.New("no outstanding request"), err)
 	})
 
+	t.Run("flush with single request", func(t *testing.T) {
+		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.objectQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		// We flush once before and once after requesting the object such that we can be
+		// sure that it doesn't impact which objects we can read.
+		require.NoError(t, queue.Flush())
+		require.NoError(t, queue.RequestRevision(foobarBlob.Revision()))
+		require.NoError(t, queue.Flush())
+
+		object, err := queue.ReadObject()
+		require.NoError(t, err)
+
+		contents, err := io.ReadAll(object)
+		require.NoError(t, err)
+		require.Equal(t, "foobar", string(contents))
+	})
+
+	t.Run("flush with multiple requests", func(t *testing.T) {
+		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.objectQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		for i := 0; i < 10; i++ {
+			require.NoError(t, queue.RequestRevision(foobarBlob.Revision()))
+		}
+		require.NoError(t, queue.Flush())
+
+		for i := 0; i < 10; i++ {
+			object, err := queue.ReadObject()
+			require.NoError(t, err)
+
+			contents, err := io.ReadAll(object)
+			require.NoError(t, err)
+			require.Equal(t, "foobar", string(contents))
+		}
+	})
+
+	t.Run("flush without request", func(t *testing.T) {
+		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.objectQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		require.NoError(t, queue.Flush())
+
+		_, err = queue.ReadObject()
+		require.Equal(t, errors.New("no outstanding request"), err)
+	})
+
 	t.Run("request invalid object", func(t *testing.T) {
 		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)

@@ -254,6 +254,59 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		require.Equal(t, errors.New("no outstanding request"), err)
 	})
 
+	t.Run("flush with single request", func(t *testing.T) {
+		reader, err := newObjectInfoReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.infoQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		// We flush once before and once after requesting the object such that we can be
+		// sure that it doesn't impact which objects we can read.
+		require.NoError(t, queue.Flush())
+		require.NoError(t, queue.RequestRevision(blobOID.Revision()))
+		require.NoError(t, queue.Flush())
+
+		info, err := queue.ReadInfo()
+		require.NoError(t, err)
+		require.Equal(t, &blobInfo, info)
+	})
+
+	t.Run("flush with multiple requests", func(t *testing.T) {
+		reader, err := newObjectInfoReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.infoQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		for i := 0; i < 10; i++ {
+			require.NoError(t, queue.RequestRevision(blobOID.Revision()))
+		}
+		require.NoError(t, queue.Flush())
+
+		for i := 0; i < 10; i++ {
+			info, err := queue.ReadInfo()
+			require.NoError(t, err)
+			require.Equal(t, &blobInfo, info)
+		}
+	})
+
+	t.Run("flush without request", func(t *testing.T) {
+		reader, err := newObjectInfoReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.infoQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		require.NoError(t, queue.Flush())
+
+		_, err = queue.ReadInfo()
+		require.Equal(t, errors.New("no outstanding request"), err)
+	})
+
 	t.Run("request invalid object info", func(t *testing.T) {
 		reader, err := newObjectInfoReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)

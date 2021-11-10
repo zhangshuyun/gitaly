@@ -38,6 +38,9 @@ type ObjectQueue interface {
 	RequestRevision(git.Revision) error
 	// ReadObject reads an object which has previously been requested.
 	ReadObject() (*Object, error)
+	// Flush flushes all queued requests and asks git-cat-file(1) to print all objects which
+	// have been requested up to this point.
+	Flush() error
 }
 
 // objectReader is a reader for Git objects. Reading is implemented via a long-lived `git cat-file

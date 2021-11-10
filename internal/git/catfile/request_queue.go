@@ -84,6 +84,14 @@ func (q *requestQueue) RequestRevision(revision git.Revision) error {
 	return nil
 }
 
+func (q *requestQueue) Flush() error {
+	if q.isClosed() {
+		return fmt.Errorf("cannot flush: %w", os.ErrClosed)
+	}
+
+	return nil
+}
+
 func (q *requestQueue) ReadObject() (*Object, error) {
 	if !q.isObjectQueue {
 		panic("object queue used to read object info")
