@@ -323,7 +323,7 @@ func TestObjectReader_queue(t *testing.T) {
 		require.True(t, queue.isClosed())
 
 		_, err = queue.ReadObject()
-		require.Equal(t, fmt.Errorf("cannot read object: %w", os.ErrClosed), err)
+		require.Equal(t, fmt.Errorf("cannot read object info: %w", os.ErrClosed), err)
 	})
 
 	t.Run("closing queue blocks consuming", func(t *testing.T) {
