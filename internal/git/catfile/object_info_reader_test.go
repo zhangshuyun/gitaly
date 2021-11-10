@@ -153,14 +153,18 @@ func TestObjectInfoReader(t *testing.T) {
 			require.Equal(t, tc.expectedErr, err)
 			require.Equal(t, tc.expectedInfo, info)
 
-			require.Equal(t, float64(1), testutil.ToFloat64(counter.WithLabelValues("info")))
+			expectedRequests := 0
+			if tc.expectedErr == nil {
+				expectedRequests = 1
+			}
+			require.Equal(t, float64(expectedRequests), testutil.ToFloat64(counter.WithLabelValues("info")))
 
 			// Verify that we do another request no matter whether the previous call
 			// succeeded or failed.
 			_, err = reader.Info(ctx, "refs/heads/master")
 			require.NoError(t, err)
 
-			require.Equal(t, float64(2), testutil.ToFloat64(counter.WithLabelValues("info")))
+			require.Equal(t, float64(expectedRequests+1), testutil.ToFloat64(counter.WithLabelValues("info")))
 		})
 	}
 }

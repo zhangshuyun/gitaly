@@ -143,6 +143,16 @@ func (q *requestQueue) ReadInfo() (*ObjectInfo, error) {
 		panic("object queue used to read object info")
 	}
 
+	objectInfo, err := q.readInfo()
+	if err != nil {
+		return nil, err
+	}
+	q.trace.recordRequest("info")
+
+	return objectInfo, nil
+}
+
+func (q *requestQueue) readInfo() (*ObjectInfo, error) {
 	if q.isClosed() {
 		return nil, fmt.Errorf("cannot read object info: %w", os.ErrClosed)
 	}
@@ -159,8 +169,6 @@ func (q *requestQueue) ReadInfo() (*ObjectInfo, error) {
 	if !atomic.CompareAndSwapInt64(&q.outstandingRequests, queuedRequests, queuedRequests-1) {
 		return nil, fmt.Errorf("concurrent access to object info queue")
 	}
-
-	q.trace.recordRequest("info")
 
 	return ParseObjectInfo(q.stdout)
 }
