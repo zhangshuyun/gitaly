@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -105,9 +104,8 @@ func TestSubCmdDialNodes(t *testing.T) {
 			tt.conf.SocketPath = ln.Addr().String()
 
 			output := &bytes.Buffer{}
-			p := nodes.NewTextPrinter(output)
 
-			cmd := newDialNodesSubcommand(p)
+			cmd := newDialNodesSubcommand(output)
 			require.NoError(t, cmd.Exec(nil, tt.conf))
 
 			require.Equal(t, tt.logs, output.String())

@@ -21,7 +21,7 @@ type (
 	gitalyStorage  string
 )
 
-func newPingSet(conf config.Config, printer Printer) map[string]*Ping {
+func newPingSet(conf config.Config, printer Printer, quiet bool) map[string]*Ping {
 	nodeByAddress := map[string]*Ping{} // key is address
 
 	// flatten nodes between virtual storages
@@ -36,6 +36,7 @@ func newPingSet(conf config.Config, printer Printer) map[string]*Ping {
 					storages:  map[gitalyStorage][]virtualStorage{},
 					vStorages: map[virtualStorage]struct{}{},
 					printer:   printer,
+					quiet:     quiet,
 				}
 			}
 			n.address = node.Address
@@ -60,6 +61,7 @@ type Ping struct {
 	token     string                      // auth token
 	err       error                       // any error during dial/ping
 	printer   Printer
+	quiet     bool
 }
 
 // Address returns the address of the node
@@ -155,11 +157,17 @@ func (p *Ping) isConsistent(ctx context.Context, cc *grpc.ClientConn) bool {
 }
 
 func (p *Ping) log(msg string, args ...interface{}) {
+	if p.quiet {
+		return
+	}
+
 	p.printer.Printf("[%s]: %s", p.address, fmt.Sprintf(msg, args...))
 }
 
 // Printer is an interface for Ping to print messages
 type Printer interface {
+	// Printf prints a message, taking into account whether
+	// or not the verbose flag has been set
 	Printf(format string, args ...interface{})
 }
 
@@ -170,7 +178,7 @@ type TextPrinter struct {
 
 // NewTextPrinter creates a new TextPrinter instance
 func NewTextPrinter(w io.Writer) *TextPrinter {
-	return &TextPrinter{w}
+	return &TextPrinter{w: w}
 }
 
 // Printf prints the message and adds a newline
@@ -224,8 +232,8 @@ func (p *Ping) Error() error {
 }
 
 // PingAll loops through all the pings and calls CheckNode on them
-func PingAll(ctx context.Context, cfg config.Config, printer Printer) error {
-	pings := newPingSet(cfg, printer)
+func PingAll(ctx context.Context, cfg config.Config, printer Printer, quiet bool) error {
+	pings := newPingSet(cfg, printer, quiet)
 
 	var wg sync.WaitGroup
 	for _, n := range pings {

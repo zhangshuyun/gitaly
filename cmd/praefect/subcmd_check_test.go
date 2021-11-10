@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -16,106 +17,166 @@ func TestCheckSubcommand_Exec(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		desc           string
-		checks         []praefect.CheckFunc
-		expectedOutput string
-		expectedError  error
+		desc                string
+		checks              []praefect.CheckFunc
+		expectedQuietOutput string
+		expectedOutput      string
+		expectedError       error
 	}{
 		{
 			desc: "all checks pass",
 			checks: []praefect.CheckFunc{
-				func(cfg config.Config) *praefect.Check {
+				func(cfg config.Config, w io.Writer, quiet bool) *praefect.Check {
 					return &praefect.Check{
-						Name:     "check 1",
-						Run:      func(ctx context.Context) error { return nil },
-						Severity: praefect.Fatal,
+						Name:        "check 1",
+						Description: "checks a",
+						Run:         func(ctx context.Context) error { return nil },
+						Severity:    praefect.Fatal,
 					}
 				},
-				func(cfg config.Config) *praefect.Check {
+				func(cfg config.Config, w io.Writer, quiet bool) *praefect.Check {
 					return &praefect.Check{
-						Name:     "check 2",
-						Run:      func(ctx context.Context) error { return nil },
-						Severity: praefect.Fatal,
+						Name:        "check 2",
+						Description: "checks b",
+						Run:         func(ctx context.Context) error { return nil },
+						Severity:    praefect.Fatal,
 					}
 				},
-				func(cfg config.Config) *praefect.Check {
+				func(cfg config.Config, w io.Writer, quiet bool) *praefect.Check {
 					return &praefect.Check{
-						Name:     "check 3",
-						Run:      func(ctx context.Context) error { return nil },
-						Severity: praefect.Fatal,
+						Name:        "check 3",
+						Description: "checks c",
+						Run:         func(ctx context.Context) error { return nil },
+						Severity:    praefect.Fatal,
 					}
 				},
 			},
-			expectedOutput: "Checking check 1...Passed\nChecking check 2...Passed\nChecking check 3...Passed\n\nAll checks passed.\n",
-			expectedError:  nil,
+			expectedOutput: `Checking check 1 - checks a [fatal]
+Passed
+Checking check 2 - checks b [fatal]
+Passed
+Checking check 3 - checks c [fatal]
+Passed
+
+All checks passed.
+`,
+			expectedQuietOutput: `Checking check 1...Passed
+Checking check 2...Passed
+Checking check 3...Passed
+
+All checks passed.
+`,
+			expectedError: nil,
 		},
 		{
 			desc: "a fatal check fails",
 			checks: []praefect.CheckFunc{
-				func(cfg config.Config) *praefect.Check {
+				func(cfg config.Config, w io.Writer, quiet bool) *praefect.Check {
 					return &praefect.Check{
-						Name:     "check 1",
-						Run:      func(ctx context.Context) error { return nil },
-						Severity: praefect.Fatal,
+						Name:        "check 1",
+						Description: "checks a",
+						Run:         func(ctx context.Context) error { return nil },
+						Severity:    praefect.Fatal,
 					}
 				},
-				func(cfg config.Config) *praefect.Check {
+				func(cfg config.Config, w io.Writer, quiet bool) *praefect.Check {
 					return &praefect.Check{
-						Name:     "check 2",
-						Run:      func(ctx context.Context) error { return errors.New("i failed") },
-						Severity: praefect.Fatal,
+						Name:        "check 2",
+						Description: "checks b",
+						Run:         func(ctx context.Context) error { return errors.New("i failed") },
+						Severity:    praefect.Fatal,
 					}
 				},
-				func(cfg config.Config) *praefect.Check {
+				func(cfg config.Config, w io.Writer, quiet bool) *praefect.Check {
 					return &praefect.Check{
-						Name:     "check 3",
-						Run:      func(ctx context.Context) error { return nil },
-						Severity: praefect.Fatal,
+						Name:        "check 3",
+						Description: "checks c",
+						Run:         func(ctx context.Context) error { return nil },
+						Severity:    praefect.Fatal,
 					}
 				},
 			},
-			expectedOutput: "Checking check 1...Passed\nChecking check 2...Failed (fatal) error: i failed\nChecking check 3...Passed\n\n1 check(s) failed, at least one was fatal.\n",
-			expectedError:  errFatalChecksFailed,
+			expectedOutput: `Checking check 1 - checks a [fatal]
+Passed
+Checking check 2 - checks b [fatal]
+Failed (fatal) error: i failed
+Checking check 3 - checks c [fatal]
+Passed
+
+1 check(s) failed, at least one was fatal.
+`,
+			expectedQuietOutput: `Checking check 1...Passed
+Checking check 2...Failed (fatal) error: i failed
+Checking check 3...Passed
+
+1 check(s) failed, at least one was fatal.
+`,
+			expectedError: errFatalChecksFailed,
 		},
 		{
 			desc: "only warning checks fail",
 			checks: []praefect.CheckFunc{
-				func(cfg config.Config) *praefect.Check {
+				func(cfg config.Config, w io.Writer, quiet bool) *praefect.Check {
 					return &praefect.Check{
-						Name:     "check 1",
-						Run:      func(ctx context.Context) error { return nil },
-						Severity: praefect.Fatal,
+						Name:        "check 1",
+						Description: "checks a",
+						Run:         func(ctx context.Context) error { return nil },
+						Severity:    praefect.Fatal,
 					}
 				},
-				func(cfg config.Config) *praefect.Check {
+				func(cfg config.Config, w io.Writer, quiet bool) *praefect.Check {
 					return &praefect.Check{
-						Name:     "check 2",
-						Run:      func(ctx context.Context) error { return errors.New("i failed but not too badly") },
-						Severity: praefect.Warning,
+						Name:        "check 2",
+						Description: "checks b",
+						Run:         func(ctx context.Context) error { return errors.New("i failed but not too badly") },
+						Severity:    praefect.Warning,
 					}
 				},
-				func(cfg config.Config) *praefect.Check {
+				func(cfg config.Config, w io.Writer, quiet bool) *praefect.Check {
 					return &praefect.Check{
-						Name:     "check 3",
-						Run:      func(ctx context.Context) error { return errors.New("i failed but not too badly") },
-						Severity: praefect.Warning,
+						Name:        "check 3",
+						Description: "checks c",
+						Run:         func(ctx context.Context) error { return errors.New("i failed but not too badly") },
+						Severity:    praefect.Warning,
 					}
 				},
 			},
-			expectedOutput: "Checking check 1...Passed\nChecking check 2...Failed (warning) error: i failed but not too badly\nChecking check 3...Failed (warning) error: i failed but not too badly\n\n2 check(s) failed, but none are fatal.\n",
-			expectedError:  nil,
+			expectedOutput: `Checking check 1 - checks a [fatal]
+Passed
+Checking check 2 - checks b [warning]
+Failed (warning) error: i failed but not too badly
+Checking check 3 - checks c [warning]
+Failed (warning) error: i failed but not too badly
+
+2 check(s) failed, but none are fatal.
+`,
+			expectedQuietOutput: `Checking check 1...Passed
+Checking check 2...Failed (warning) error: i failed but not too badly
+Checking check 3...Failed (warning) error: i failed but not too badly
+
+2 check(s) failed, but none are fatal.
+`,
+			expectedError: nil,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			var cfg config.Config
-			var stdout bytes.Buffer
 
-			checkCmd := checkSubcommand{w: &stdout, checkFuncs: tc.checks}
+			t.Run("quiet", func(t *testing.T) {
+				var stdout bytes.Buffer
+				checkCmd := checkSubcommand{w: &stdout, checkFuncs: tc.checks, quiet: true}
+				assert.Equal(t, tc.expectedError, checkCmd.Exec(flag.NewFlagSet("", flag.PanicOnError), cfg))
+				assert.Equal(t, tc.expectedQuietOutput, stdout.String())
+			})
 
-			assert.Equal(t, tc.expectedError, checkCmd.Exec(flag.NewFlagSet("", flag.PanicOnError), cfg))
-			assert.Equal(t, tc.expectedOutput, stdout.String())
+			t.Run("normal", func(t *testing.T) {
+				var stdout bytes.Buffer
+				checkCmd := checkSubcommand{w: &stdout, checkFuncs: tc.checks, quiet: false}
+				assert.Equal(t, tc.expectedError, checkCmd.Exec(flag.NewFlagSet("", flag.PanicOnError), cfg))
+				assert.Equal(t, tc.expectedOutput, stdout.String())
+			})
 		})
 	}
 }

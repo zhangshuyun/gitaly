@@ -10,10 +10,7 @@ import (
 )
 
 const (
-	acceptDatalossCmdName     = "accept-dataloss"
-	paramVirtualStorage       = "virtual-storage"
-	paramRelativePath         = "repository"
-	paramAuthoritativeStorage = "authoritative-storage"
+	acceptDatalossCmdName = "accept-dataloss"
 )
 
 type acceptDatalossSubcommand struct {
