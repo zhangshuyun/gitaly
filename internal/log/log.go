@@ -5,6 +5,7 @@ import (
 	"os"
 
 	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 )
@@ -131,5 +132,48 @@ func MessageProducer(mp grpcmwlogrus.MessageProducer, fieldsProducers ...FieldsP
 			}
 		}
 		mp(ctx, format, level, code, err, fields)
+	}
+}
+
+type messageProducerHolder struct {
+	logger *logrus.Entry
+	actual grpcmwlogrus.MessageProducer
+	format string
+	level  logrus.Level
+	code   codes.Code
+	err    error
+	fields logrus.Fields
+}
+
+type messageProducerHolderKey struct{}
+
+// messageProducerPropagationFrom extracts *messageProducerHolder from context
+// and returns to the caller.
+// It returns nil in case it is not found.
+func messageProducerPropagationFrom(ctx context.Context) *messageProducerHolder {
+	mpp, ok := ctx.Value(messageProducerHolderKey{}).(*messageProducerHolder)
+	if !ok {
+		return nil
+	}
+	return mpp
+}
+
+// PropagationMessageProducer catches logging information from the context and populates it
+// to the special holder that should be present in the context.
+func PropagationMessageProducer(actual grpcmwlogrus.MessageProducer) grpcmwlogrus.MessageProducer {
+	return func(ctx context.Context, format string, level logrus.Level, code codes.Code, err error, fields logrus.Fields) {
+		mpp := messageProducerPropagationFrom(ctx)
+		if mpp == nil {
+			return
+		}
+		*mpp = messageProducerHolder{
+			logger: ctxlogrus.Extract(ctx),
+			actual: actual,
+			format: format,
+			level:  level,
+			code:   code,
+			err:    err,
+			fields: fields,
+		}
 	}
 }

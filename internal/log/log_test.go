@@ -115,3 +115,28 @@ func TestMessageProducer(t *testing.T) {
 	})(context.Background(), "format-stub", logrus.DebugLevel, codes.OutOfRange, assert.AnError, logrus.Fields{"c": "stub"})
 	require.True(t, triggered)
 }
+
+func TestPropagationMessageProducer(t *testing.T) {
+	t.Run("empty context", func(t *testing.T) {
+		ctx := context.Background()
+		mp := PropagationMessageProducer(func(context.Context, string, logrus.Level, codes.Code, error, logrus.Fields) {})
+		mp(ctx, "", logrus.DebugLevel, codes.OK, nil, nil)
+	})
+
+	t.Run("context with holder", func(t *testing.T) {
+		holder := new(messageProducerHolder)
+		ctx := context.WithValue(context.Background(), messageProducerHolderKey{}, holder)
+		triggered := false
+		mp := PropagationMessageProducer(func(ctx context.Context, format string, level logrus.Level, code codes.Code, err error, fields logrus.Fields) {
+			triggered = true
+		})
+		mp(ctx, "format-stub", logrus.DebugLevel, codes.OutOfRange, assert.AnError, logrus.Fields{"a": 1})
+		require.Equal(t, "format-stub", holder.format)
+		require.Equal(t, logrus.DebugLevel, holder.level)
+		require.Equal(t, codes.OutOfRange, holder.code)
+		require.Equal(t, assert.AnError, holder.err)
+		require.Equal(t, logrus.Fields{"a": 1}, holder.fields)
+		holder.actual(ctx, "", logrus.DebugLevel, codes.OK, nil, nil)
+		require.True(t, triggered)
+	})
+}
