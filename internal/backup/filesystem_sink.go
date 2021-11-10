@@ -39,15 +39,8 @@ func (fs *FilesystemSink) Write(ctx context.Context, relativePath string, r io.R
 			returnErr = fmt.Errorf("write file %q: %w", path, err)
 		}
 	}()
-	size, err := io.Copy(f, r)
-	if err != nil {
+	if _, err := io.Copy(f, r); err != nil {
 		return fmt.Errorf("write file %q: %w", path, err)
-	}
-	if size == 0 {
-		// If the file is empty means that we received an empty stream, we delete the file
-		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("write file: %w", err)
-		}
 	}
 	return nil
 }

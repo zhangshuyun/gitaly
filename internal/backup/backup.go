@@ -314,7 +314,7 @@ func (mgr *Manager) writeBundle(ctx context.Context, step *Step, server storage.
 		return resp.GetData(), err
 	})
 
-	if err := mgr.sink.Write(ctx, step.BundlePath, bundle); err != nil {
+	if err := LazyWrite(ctx, mgr.sink, step.BundlePath, bundle); err != nil {
 		if errors.Is(err, errEmptyBundle) {
 			return fmt.Errorf("%T write: %w: no changes to bundle", mgr.sink, ErrSkipped)
 		}
@@ -429,7 +429,7 @@ func (mgr *Manager) writeCustomHooks(ctx context.Context, path string, server st
 		resp, err := stream.Recv()
 		return resp.GetData(), err
 	})
-	if err := mgr.sink.Write(ctx, path, hooks); err != nil {
+	if err := LazyWrite(ctx, mgr.sink, path, hooks); err != nil {
 		return fmt.Errorf("%T write: %w", mgr.sink, err)
 	}
 	return nil
