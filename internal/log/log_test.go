@@ -2,12 +2,14 @@ package log
 
 import (
 	"bytes"
+	"context"
 	"testing"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
 )
 
 func TestConfigure(t *testing.T) {
@@ -94,4 +96,22 @@ func TestConfigure(t *testing.T) {
 			assert.Contains(t, out.String(), message)
 		})
 	}
+}
+
+func TestMessageProducer(t *testing.T) {
+	triggered := false
+	MessageProducer(func(ctx context.Context, format string, level logrus.Level, code codes.Code, err error, fields logrus.Fields) {
+		require.Equal(t, context.Background(), ctx)
+		require.Equal(t, "format-stub", format)
+		require.Equal(t, logrus.DebugLevel, level)
+		require.Equal(t, codes.OutOfRange, code)
+		require.Equal(t, assert.AnError, err)
+		require.Equal(t, logrus.Fields{"a": 1, "b": "test", "c": "stub"}, fields)
+		triggered = true
+	}, func(context.Context) logrus.Fields {
+		return logrus.Fields{"a": 1}
+	}, func(context.Context) logrus.Fields {
+		return logrus.Fields{"b": "test"}
+	})(context.Background(), "format-stub", logrus.DebugLevel, codes.OutOfRange, assert.AnError, logrus.Fields{"c": "stub"})
+	require.True(t, triggered)
 }

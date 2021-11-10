@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
@@ -140,4 +141,15 @@ func TestInterceptor(t *testing.T) {
 			require.Contains(t, logBuffer.String(), tt.expectedLog)
 		})
 	}
+}
+
+func TestFieldsProducer(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	ctx = command.InitContextStats(ctx)
+	stats := command.StatsFromContext(ctx)
+	stats.RecordMax("stub", 42)
+
+	require.Equal(t, logrus.Fields{"stub": 42}, FieldsProducer(ctx))
 }

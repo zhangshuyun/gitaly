@@ -53,3 +53,11 @@ func CommandStatsMessageProducer(ctx context.Context, format string, level logru
 
 	entry.Logf(level, format)
 }
+
+// FieldsProducer extracts stats info from the context and returns it as a logging fields.
+func FieldsProducer(ctx context.Context) logrus.Fields {
+	if stats := command.StatsFromContext(ctx); stats != nil {
+		return stats.Fields()
+	}
+	return nil
+}

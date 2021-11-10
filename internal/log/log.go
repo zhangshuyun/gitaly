@@ -1,9 +1,12 @@
 package log
 
 import (
+	"context"
 	"os"
 
+	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc/codes"
 )
 
 const (
@@ -114,3 +117,19 @@ func Default() *logrus.Entry { return defaultLogger.WithField("pid", os.Getpid()
 // GrpcGo is a dedicated logrus logger for the grpc-go library. We use it
 // to control the library's chattiness.
 func GrpcGo() *logrus.Entry { return grpcGo.WithField("pid", os.Getpid()) }
+
+// FieldsProducer returns fields that need to be added into the logging context.
+type FieldsProducer func(context.Context) logrus.Fields
+
+// MessageProducer returns a wrapper that extends passed mp to accept additional fields generated
+// by each of the fieldsProducers.
+func MessageProducer(mp grpcmwlogrus.MessageProducer, fieldsProducers ...FieldsProducer) grpcmwlogrus.MessageProducer {
+	return func(ctx context.Context, format string, level logrus.Level, code codes.Code, err error, fields logrus.Fields) {
+		for _, fieldsProducer := range fieldsProducers {
+			for key, val := range fieldsProducer(ctx) {
+				fields[key] = val
+			}
+		}
+		mp(ctx, format, level, code, err, fields)
+	}
+}
