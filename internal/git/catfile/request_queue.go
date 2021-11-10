@@ -92,14 +92,6 @@ func (q *requestQueue) ReadObject() (*Object, error) {
 	q.currentObjectLock.Lock()
 	defer q.currentObjectLock.Unlock()
 
-	if q.isClosed() {
-		return nil, fmt.Errorf("cannot read object: %w", os.ErrClosed)
-	}
-
-	if atomic.LoadInt64(&q.outstandingRequests) == 0 {
-		return nil, fmt.Errorf("no outstanding request")
-	}
-
 	if q.currentObject != nil {
 		// If the current object is still dirty, then we must not try to read a new object.
 		if q.currentObject.isDirty() {
@@ -116,23 +108,19 @@ func (q *requestQueue) ReadObject() (*Object, error) {
 		}
 	}
 
-	oi, err := ParseObjectInfo(q.stdout)
+	objectInfo, err := q.readInfo()
 	if err != nil {
 		return nil, err
 	}
-	q.trace.recordRequest(oi.Type)
-
-	if atomic.AddInt64(&q.outstandingRequests, -1) < 0 {
-		return nil, fmt.Errorf("negative number of requests")
-	}
+	q.trace.recordRequest(objectInfo.Type)
 
 	q.currentObject = &Object{
-		ObjectInfo: *oi,
+		ObjectInfo: *objectInfo,
 		dataReader: io.LimitedReader{
 			R: q.stdout,
-			N: oi.Size,
+			N: objectInfo.Size,
 		},
-		bytesRemaining: oi.Size,
+		bytesRemaining: objectInfo.Size,
 	}
 
 	return q.currentObject, nil
@@ -143,6 +131,16 @@ func (q *requestQueue) ReadInfo() (*ObjectInfo, error) {
 		panic("object queue used to read object info")
 	}
 
+	objectInfo, err := q.readInfo()
+	if err != nil {
+		return nil, err
+	}
+	q.trace.recordRequest("info")
+
+	return objectInfo, nil
+}
+
+func (q *requestQueue) readInfo() (*ObjectInfo, error) {
 	if q.isClosed() {
 		return nil, fmt.Errorf("cannot read object info: %w", os.ErrClosed)
 	}
@@ -154,13 +152,13 @@ func (q *requestQueue) ReadInfo() (*ObjectInfo, error) {
 		return nil, fmt.Errorf("no outstanding request")
 	}
 
-	// And when there are, we need to remove one of these queued requests. We do so via
-	// `CompareAndSwapInt64()`, which easily allows us to detect concurrent access to the queue.
-	if !atomic.CompareAndSwapInt64(&q.outstandingRequests, queuedRequests, queuedRequests-1) {
-		return nil, fmt.Errorf("concurrent access to object info queue")
+	// We cannot check whether `outstandingRequests` is strictly smaller than before given
+	// that there may be a concurrent caller who requests additional objects, which would in
+	// turn increment the counter. But we can at least verify that it's not smaller than what we
+	// expect to give us the chance to detect concurrent reads.
+	if atomic.AddInt64(&q.outstandingRequests, -1) < queuedRequests-1 {
+		return nil, fmt.Errorf("concurrent read on request queue")
 	}
-
-	q.trace.recordRequest("info")
 
 	return ParseObjectInfo(q.stdout)
 }
