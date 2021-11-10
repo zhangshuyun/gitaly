@@ -152,10 +152,12 @@ func (q *requestQueue) readInfo() (*ObjectInfo, error) {
 		return nil, fmt.Errorf("no outstanding request")
 	}
 
-	// And when there are, we need to remove one of these queued requests. We do so via
-	// `CompareAndSwapInt64()`, which easily allows us to detect concurrent access to the queue.
-	if !atomic.CompareAndSwapInt64(&q.outstandingRequests, queuedRequests, queuedRequests-1) {
-		return nil, fmt.Errorf("concurrent access to request queue")
+	// We cannot check whether `outstandingRequests` is strictly smaller than before given
+	// that there may be a concurrent caller who requests additional objects, which would in
+	// turn increment the counter. But we can at least verify that it's not smaller than what we
+	// expect to give us the chance to detect concurrent reads.
+	if atomic.AddInt64(&q.outstandingRequests, -1) < queuedRequests-1 {
+		return nil, fmt.Errorf("concurrent read on request queue")
 	}
 
 	return ParseObjectInfo(q.stdout)
