@@ -101,7 +101,8 @@ type ObjectInfoReader interface {
 // ObjectInfoQueue allows for requesting and reading object info independently of each other. The
 // number of RequestInfo and ReadInfo calls must match. ReadObject must be executed after the
 // object has been requested already. The order of objects returned by ReadInfo is the same as the
-// order in which object info has been requested.
+// order in which object info has been requested. Users of this interface must call `Flush()` after
+// all requests have been queued up such that all requested objects will be readable.
 type ObjectInfoQueue interface {
 	// RequestRevision requests the given revision from git-cat-file(1).
 	RequestRevision(git.Revision) error
@@ -197,6 +198,10 @@ func (o *objectInfoReader) Info(ctx context.Context, revision git.Revision) (*Ob
 	defer cleanup()
 
 	if err := queue.RequestRevision(revision); err != nil {
+		return nil, err
+	}
+
+	if err := queue.Flush(); err != nil {
 		return nil, err
 	}
 
