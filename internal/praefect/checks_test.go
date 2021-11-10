@@ -346,3 +346,65 @@ func runNodes(t *testing.T, nodes []nodeAssertion) ([]*config.Node, func()) {
 		}
 	}
 }
+
+func TestPostgresReadWriteCheck(t *testing.T) {
+	testCases := []struct {
+		desc     string
+		setup    func(t *testing.T, db glsql.DB) error
+		errMsg   string
+		logLines string
+	}{
+		{
+			desc: "read and write work",
+			setup: func(t *testing.T, db glsql.DB) error {
+				return nil
+			},
+			errMsg:   "",
+			logLines: "successfully read from database\nsuccessfully wrote to database\n",
+		},
+		{
+			desc: "read only",
+			setup: func(t *testing.T, db glsql.DB) error {
+				tx := db.Begin(t)
+
+				if _, err := tx.Exec("LOCK TABLE hello_world IN ACCESS EXCLUSIVE MODE"); err != nil {
+					return err
+				}
+
+				t.Cleanup(func() { tx.Rollback(t) })
+				return nil
+			},
+			errMsg:   "error reading from table",
+			logLines: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context(testhelper.ContextWithTimeout(5 * time.Second))
+			defer cancel()
+
+			db := glsql.NewDB(t)
+			defer func() {
+				require.NoError(t, db.Close())
+			}()
+
+			require.NoError(t, tc.setup(t, db))
+
+			dbConf := glsql.GetDBConfig(t, db.Name)
+
+			conf := config.Config{DB: dbConf}
+			var out bytes.Buffer
+			c := NewPostgresReadWriteCheck(conf, &out, false)
+
+			err := c.Run(ctx)
+			if tc.errMsg != "" {
+				assert.Contains(t, err.Error(), tc.errMsg)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			assert.Equal(t, tc.logLines, out.String())
+		})
+	}
+}

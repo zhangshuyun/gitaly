@@ -46,6 +46,7 @@ var subcommands = map[string]subcmd{
 		os.Stdout,
 		praefect.NewPraefectMigrationCheck,
 		praefect.NewGitalyNodeConnectivityCheck,
+		praefect.NewPostgresReadWriteCheck,
 	),
 }
 
