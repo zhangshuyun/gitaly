@@ -289,7 +289,7 @@ func TestRemoveRepository_removeReplicationEvents(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []uint64{inProgress2[0].ID}, acks2)
 
-	ticker := helper.NewTimerTicker(time.Millisecond)
+	ticker := helper.NewManualTicker()
 	defer ticker.Stop()
 
 	errChan := make(chan error, 1)
@@ -297,25 +297,33 @@ func TestRemoveRepository_removeReplicationEvents(t *testing.T) {
 		cmd := &removeRepository{virtualStorage: virtualStorage, relativePath: relativePath}
 		errChan <- cmd.removeReplicationEvents(ctx, testhelper.NewTestLogger(t), db.DB, ticker)
 	}()
-	go func() {
-		// We acknowledge in_progress job, so it unblocks the waiting loop.
-		acks, err := queue.Acknowledge(ctx, datastore.JobStateCompleted, []uint64{inProgressEvent.ID})
-		if assert.NoError(t, err) {
-			assert.Equal(t, []uint64{inProgress1[0].ID}, acks)
-		}
-	}()
 
+	ticker.Tick()
+	ticker.Tick()
+	ticker.Tick() // blocks until previous tick is consumed
+
+	// Now we acknowledge in_progress job, so it stops the processing loop or the command.
+	acks, err := queue.Acknowledge(ctx, datastore.JobStateCompleted, []uint64{inProgressEvent.ID})
+	if assert.NoError(t, err) {
+		assert.Equal(t, []uint64{inProgress1[0].ID}, acks)
+	}
+
+	ticker.Tick()
+
+	timeout := time.After(time.Minute)
 	for checkChan, exists := errChan, true; exists; {
 		select {
 		case err := <-checkChan:
 			require.NoError(t, err)
 			close(errChan)
 			checkChan = nil
-		default:
+		case <-timeout:
+			require.FailNow(t, "timeout reached, looks like the command hasn't made any progress")
+		case <-time.After(50 * time.Millisecond):
+			// Wait until job removed
+			row := db.QueryRow(`SELECT EXISTS(SELECT FROM replication_queue WHERE id = $1)`, failedEvent.ID)
+			require.NoError(t, row.Scan(&exists))
 		}
-		// Wait until job removed
-		row := db.QueryRow(`SELECT EXISTS(SELECT FROM replication_queue WHERE id = $1)`, failedEvent.ID)
-		require.NoError(t, row.Scan(&exists))
 	}
 	// Once there are no in_progress jobs anymore the method returns.
 	require.NoError(t, <-errChan)
