@@ -6,10 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/stats"
 )
 
 func TestConfigure(t *testing.T) {
@@ -139,4 +141,77 @@ func TestPropagationMessageProducer(t *testing.T) {
 		holder.actual(ctx, "", logrus.DebugLevel, codes.OK, nil, nil)
 		require.True(t, triggered)
 	})
+}
+
+func TestPerRPCLogHandler(t *testing.T) {
+	msh := &mockStatHandler{Calls: map[string][]interface{}{}}
+
+	lh := PerRPCLogHandler{
+		Underlying: msh,
+		FieldProducers: []FieldsProducer{
+			func(ctx context.Context) logrus.Fields { return logrus.Fields{"a": 1} },
+			func(ctx context.Context) logrus.Fields { return logrus.Fields{"b": "2"} },
+		},
+	}
+
+	t.Run("check propagation", func(t *testing.T) {
+		ctx := context.Background()
+		ctx = lh.TagConn(ctx, &stats.ConnTagInfo{})
+		lh.HandleConn(ctx, &stats.ConnBegin{})
+		ctx = lh.TagRPC(ctx, &stats.RPCTagInfo{})
+		lh.HandleRPC(ctx, &stats.Begin{})
+		lh.HandleRPC(ctx, &stats.InHeader{})
+		lh.HandleRPC(ctx, &stats.InPayload{})
+		lh.HandleRPC(ctx, &stats.OutHeader{})
+		lh.HandleRPC(ctx, &stats.OutPayload{})
+		lh.HandleRPC(ctx, &stats.End{})
+		lh.HandleConn(ctx, &stats.ConnEnd{})
+
+		assert.Equal(t, map[string][]interface{}{
+			"TagConn":    {&stats.ConnTagInfo{}},
+			"HandleConn": {&stats.ConnBegin{}, &stats.ConnEnd{}},
+			"TagRPC":     {&stats.RPCTagInfo{}},
+			"HandleRPC":  {&stats.Begin{}, &stats.InHeader{}, &stats.InPayload{}, &stats.OutHeader{}, &stats.OutPayload{}, &stats.End{}},
+		}, msh.Calls)
+	})
+
+	t.Run("log handling", func(t *testing.T) {
+		ctx := ctxlogrus.ToContext(context.Background(), logrus.NewEntry(logrus.New()))
+		ctx = lh.TagRPC(ctx, &stats.RPCTagInfo{})
+		mpp := ctx.Value(messageProducerHolderKey{}).(*messageProducerHolder)
+		mpp.format = "message"
+		mpp.level = logrus.InfoLevel
+		mpp.code = codes.InvalidArgument
+		mpp.err = assert.AnError
+		mpp.actual = func(ctx context.Context, format string, level logrus.Level, code codes.Code, err error, fields logrus.Fields) {
+			assert.Equal(t, "message", format)
+			assert.Equal(t, logrus.InfoLevel, level)
+			assert.Equal(t, codes.InvalidArgument, code)
+			assert.Equal(t, assert.AnError, err)
+			assert.Equal(t, logrus.Fields{"a": 1, "b": "2"}, mpp.fields)
+		}
+		lh.HandleRPC(ctx, &stats.End{})
+	})
+}
+
+type mockStatHandler struct {
+	Calls map[string][]interface{}
+}
+
+func (m *mockStatHandler) TagRPC(ctx context.Context, s *stats.RPCTagInfo) context.Context {
+	m.Calls["TagRPC"] = append(m.Calls["TagRPC"], s)
+	return ctx
+}
+
+func (m *mockStatHandler) HandleRPC(ctx context.Context, s stats.RPCStats) {
+	m.Calls["HandleRPC"] = append(m.Calls["HandleRPC"], s)
+}
+
+func (m *mockStatHandler) TagConn(ctx context.Context, s *stats.ConnTagInfo) context.Context {
+	m.Calls["TagConn"] = append(m.Calls["TagConn"], s)
+	return ctx
+}
+
+func (m *mockStatHandler) HandleConn(ctx context.Context, s stats.ConnStats) {
+	m.Calls["HandleConn"] = append(m.Calls["HandleConn"], s)
 }
