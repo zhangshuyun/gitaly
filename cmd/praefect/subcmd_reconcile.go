@@ -61,6 +61,8 @@ func getNodeAddress(cfg config.Config) (string, error) {
 		return "unix:" + cfg.SocketPath, nil
 	case cfg.ListenAddr != "":
 		return "tcp://" + cfg.ListenAddr, nil
+	case cfg.TLSListenAddr != "":
+		return "tls://" + cfg.TLSListenAddr, nil
 	default:
 		return "", errors.New("no Praefect address configured")
 	}
@@ -76,7 +78,7 @@ func (nr nodeReconciler) reconcile() error {
 		return err
 	}
 
-	cc, err := subCmdDial(nodeAddr, nr.conf.Auth.Token)
+	cc, err := subCmdDial(context.Background(), nodeAddr, nr.conf.Auth.Token, defaultDialTimeout)
 	if err != nil {
 		return err
 	}
