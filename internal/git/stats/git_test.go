@@ -1,8 +1,6 @@
 package stats
 
 import (
-	"bytes"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +8,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
@@ -28,25 +27,27 @@ func TestLogObjectInfo(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	logBuffer := &bytes.Buffer{}
-	log := &logrus.Logger{Out: logBuffer, Formatter: &logrus.JSONFormatter{}, Level: logrus.InfoLevel}
-	testCtx := ctxlogrus.ToContext(ctx, log.WithField("test", "logging"))
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-	requireLog := func(msg string) map[string]interface{} {
-		var out map[string]interface{}
-		require.NoError(t, json.NewDecoder(strings.NewReader(msg)).Decode(&out))
-		const key = "count_objects"
-		require.Contains(t, out, key, "there is no any information about statistics")
-		countObjects := out[key].(map[string]interface{})
-		require.Contains(t, countObjects, "count")
-		require.Contains(t, countObjects, "size")
-		require.Contains(t, countObjects, "in-pack")
-		require.Contains(t, countObjects, "packs")
-		require.Contains(t, countObjects, "size-pack")
-		require.Contains(t, countObjects, "garbage")
-		require.Contains(t, countObjects, "size-garbage")
-		return countObjects
+	requireLog := func(entries []*logrus.Entry) map[string]interface{} {
+		for _, entry := range entries {
+			if entry.Message == "git repo statistic" {
+				const key = "count_objects"
+				data := entry.Data[key]
+				require.NotNil(t, data, "there is no any information about statistics")
+				countObjects, ok := data.(map[string]interface{})
+				require.True(t, ok)
+				require.Contains(t, countObjects, "count")
+				require.Contains(t, countObjects, "size")
+				require.Contains(t, countObjects, "in-pack")
+				require.Contains(t, countObjects, "packs")
+				require.Contains(t, countObjects, "size-pack")
+				require.Contains(t, countObjects, "garbage")
+				require.Contains(t, countObjects, "size-garbage")
+				return countObjects
+			}
+		}
+		return nil
 	}
 
 	t.Run("shared repo with multiple alternates", func(t *testing.T) {
@@ -61,21 +62,25 @@ func TestLogObjectInfo(t *testing.T) {
 		// clone existing local repo with two alternates
 		gittest.Exec(t, cfg, "clone", "--shared", repoPath1, "--reference", repoPath1, "--reference", repoPath2, tmpDir)
 
-		logBuffer.Reset()
+		logger, hook := test.NewNullLogger()
+		testCtx := ctxlogrus.ToContext(ctx, logger.WithField("test", "logging"))
+
 		LogObjectsInfo(testCtx, gitCmdFactory, &gitalypb.Repository{
 			StorageName:  repo1.StorageName,
 			RelativePath: filepath.Join(strings.TrimPrefix(tmpDir, storagePath), ".git"),
 		})
 
-		countObjects := requireLog(logBuffer.String())
+		countObjects := requireLog(hook.AllEntries())
 		require.ElementsMatch(t, []string{repoPath1 + "/objects", repoPath2 + "/objects"}, countObjects["alternate"])
 	})
 
 	t.Run("repo without alternates", func(t *testing.T) {
-		logBuffer.Reset()
+		logger, hook := test.NewNullLogger()
+		testCtx := ctxlogrus.ToContext(ctx, logger.WithField("test", "logging"))
+
 		LogObjectsInfo(testCtx, gitCmdFactory, repo2)
 
-		countObjects := requireLog(logBuffer.String())
+		countObjects := requireLog(hook.AllEntries())
 		require.Contains(t, countObjects, "prune-packable")
 	})
 }
