@@ -51,7 +51,7 @@ func (cmd *acceptDatalossSubcommand) Exec(flags *flag.FlagSet, cfg config.Config
 		return err
 	}
 
-	conn, err := subCmdDial(nodeAddr, cfg.Auth.Token)
+	conn, err := subCmdDial(context.Background(), nodeAddr, cfg.Auth.Token, defaultDialTimeout)
 	if err != nil {
 		return fmt.Errorf("error dialing: %w", err)
 	}
