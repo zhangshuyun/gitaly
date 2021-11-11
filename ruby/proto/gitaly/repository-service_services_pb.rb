@@ -61,8 +61,6 @@ module Gitaly
       rpc :RestoreCustomHooks, stream(Gitaly::RestoreCustomHooksRequest), Gitaly::RestoreCustomHooksResponse
       rpc :BackupCustomHooks, Gitaly::BackupCustomHooksRequest, stream(Gitaly::BackupCustomHooksResponse)
       rpc :GetObjectDirectorySize, Gitaly::GetObjectDirectorySizeRequest, Gitaly::GetObjectDirectorySizeResponse
-      rpc :CloneFromPool, Gitaly::CloneFromPoolRequest, Gitaly::CloneFromPoolResponse
-      rpc :CloneFromPoolInternal, Gitaly::CloneFromPoolInternalRequest, Gitaly::CloneFromPoolInternalResponse
       # RemoveRepository will move the repository to `+gitaly/tmp/<relative_path>_removed` and
       # eventually remove it. This ensures that even on networked filesystems the
       # data is actually removed even if there's someone still handling the data.

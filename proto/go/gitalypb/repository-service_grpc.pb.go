@@ -65,8 +65,6 @@ type RepositoryServiceClient interface {
 	RestoreCustomHooks(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_RestoreCustomHooksClient, error)
 	BackupCustomHooks(ctx context.Context, in *BackupCustomHooksRequest, opts ...grpc.CallOption) (RepositoryService_BackupCustomHooksClient, error)
 	GetObjectDirectorySize(ctx context.Context, in *GetObjectDirectorySizeRequest, opts ...grpc.CallOption) (*GetObjectDirectorySizeResponse, error)
-	CloneFromPool(ctx context.Context, in *CloneFromPoolRequest, opts ...grpc.CallOption) (*CloneFromPoolResponse, error)
-	CloneFromPoolInternal(ctx context.Context, in *CloneFromPoolInternalRequest, opts ...grpc.CallOption) (*CloneFromPoolInternalResponse, error)
 	// RemoveRepository will move the repository to `+gitaly/tmp/<relative_path>_removed` and
 	// eventually remove it. This ensures that even on networked filesystems the
 	// data is actually removed even if there's someone still handling the data.
@@ -708,24 +706,6 @@ func (c *repositoryServiceClient) GetObjectDirectorySize(ctx context.Context, in
 	return out, nil
 }
 
-func (c *repositoryServiceClient) CloneFromPool(ctx context.Context, in *CloneFromPoolRequest, opts ...grpc.CallOption) (*CloneFromPoolResponse, error) {
-	out := new(CloneFromPoolResponse)
-	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/CloneFromPool", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *repositoryServiceClient) CloneFromPoolInternal(ctx context.Context, in *CloneFromPoolInternalRequest, opts ...grpc.CallOption) (*CloneFromPoolInternalResponse, error) {
-	out := new(CloneFromPoolInternalResponse)
-	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/CloneFromPoolInternal", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *repositoryServiceClient) RemoveRepository(ctx context.Context, in *RemoveRepositoryRequest, opts ...grpc.CallOption) (*RemoveRepositoryResponse, error) {
 	out := new(RemoveRepositoryResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/RemoveRepository", in, out, opts...)
@@ -822,8 +802,6 @@ type RepositoryServiceServer interface {
 	RestoreCustomHooks(RepositoryService_RestoreCustomHooksServer) error
 	BackupCustomHooks(*BackupCustomHooksRequest, RepositoryService_BackupCustomHooksServer) error
 	GetObjectDirectorySize(context.Context, *GetObjectDirectorySizeRequest) (*GetObjectDirectorySizeResponse, error)
-	CloneFromPool(context.Context, *CloneFromPoolRequest) (*CloneFromPoolResponse, error)
-	CloneFromPoolInternal(context.Context, *CloneFromPoolInternalRequest) (*CloneFromPoolInternalResponse, error)
 	// RemoveRepository will move the repository to `+gitaly/tmp/<relative_path>_removed` and
 	// eventually remove it. This ensures that even on networked filesystems the
 	// data is actually removed even if there's someone still handling the data.
@@ -947,12 +925,6 @@ func (UnimplementedRepositoryServiceServer) BackupCustomHooks(*BackupCustomHooks
 }
 func (UnimplementedRepositoryServiceServer) GetObjectDirectorySize(context.Context, *GetObjectDirectorySizeRequest) (*GetObjectDirectorySizeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetObjectDirectorySize not implemented")
-}
-func (UnimplementedRepositoryServiceServer) CloneFromPool(context.Context, *CloneFromPoolRequest) (*CloneFromPoolResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CloneFromPool not implemented")
-}
-func (UnimplementedRepositoryServiceServer) CloneFromPoolInternal(context.Context, *CloneFromPoolInternalRequest) (*CloneFromPoolInternalResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CloneFromPoolInternal not implemented")
 }
 func (UnimplementedRepositoryServiceServer) RemoveRepository(context.Context, *RemoveRepositoryRequest) (*RemoveRepositoryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RemoveRepository not implemented")
@@ -1671,42 +1643,6 @@ func _RepositoryService_GetObjectDirectorySize_Handler(srv interface{}, ctx cont
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RepositoryService_CloneFromPool_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CloneFromPoolRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RepositoryServiceServer).CloneFromPool(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gitaly.RepositoryService/CloneFromPool",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RepositoryServiceServer).CloneFromPool(ctx, req.(*CloneFromPoolRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RepositoryService_CloneFromPoolInternal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CloneFromPoolInternalRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RepositoryServiceServer).CloneFromPoolInternal(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gitaly.RepositoryService/CloneFromPoolInternal",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RepositoryServiceServer).CloneFromPoolInternal(ctx, req.(*CloneFromPoolInternalRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _RepositoryService_RemoveRepository_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RemoveRepositoryRequest)
 	if err := dec(in); err != nil {
@@ -1891,14 +1827,6 @@ var RepositoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetObjectDirectorySize",
 			Handler:    _RepositoryService_GetObjectDirectorySize_Handler,
-		},
-		{
-			MethodName: "CloneFromPool",
-			Handler:    _RepositoryService_CloneFromPool_Handler,
-		},
-		{
-			MethodName: "CloneFromPoolInternal",
-			Handler:    _RepositoryService_CloneFromPoolInternal_Handler,
 		},
 		{
 			MethodName: "RemoveRepository",
