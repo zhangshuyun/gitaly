@@ -712,9 +712,6 @@ issues:
     ## END staticcheck exclusions
     # govet checks all struct initializations must be keyed by field names
     - linters:
-        - govet
-      text: "composite literal uses unkeyed fields"
-    - linters:
         - stylecheck
       text: "at least one file in a package should have a package comment"
     - path: "_test.go"
