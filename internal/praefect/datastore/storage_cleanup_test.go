@@ -182,8 +182,8 @@ func TestStorageCleanup_Exists(t *testing.T) {
 	db := glsql.NewDB(t)
 
 	repoStore := NewPostgresRepositoryStore(db.DB, nil)
-	require.NoError(t, repoStore.CreateRepository(ctx, 0, "vs", "p/1", "g1", []string{"g2", "g3"}, nil, false, false))
-	require.NoError(t, repoStore.CreateRepository(ctx, 1, "vs", "p/2", "g1", []string{"g2", "g3"}, nil, false, false))
+	require.NoError(t, repoStore.CreateRepository(ctx, 0, "vs", "p/1", "replica-path-1", "g1", []string{"g2", "g3"}, nil, false, false))
+	require.NoError(t, repoStore.CreateRepository(ctx, 1, "vs", "p/2", "replica-path-2", "g1", []string{"g2", "g3"}, nil, false, false))
 	storageCleanup := NewStorageCleanup(db.DB)
 
 	for _, tc := range []struct {
@@ -197,21 +197,21 @@ func TestStorageCleanup_Exists(t *testing.T) {
 			desc:                 "multiple doesn't exist",
 			virtualStorage:       "vs",
 			storage:              "g1",
-			relativeReplicaPaths: []string{"p/1", "p/2", "path/x", "path/y"},
+			relativeReplicaPaths: []string{"replica-path-1", "replica-path-2", "path/x", "path/y"},
 			out:                  []string{"path/x", "path/y"},
 		},
 		{
 			desc:                 "duplicates",
 			virtualStorage:       "vs",
 			storage:              "g1",
-			relativeReplicaPaths: []string{"p/1", "path/x", "path/x"},
+			relativeReplicaPaths: []string{"replica-path-1", "path/x", "path/x"},
 			out:                  []string{"path/x"},
 		},
 		{
 			desc:                 "all exist",
 			virtualStorage:       "vs",
 			storage:              "g1",
-			relativeReplicaPaths: []string{"p/1", "p/2"},
+			relativeReplicaPaths: []string{"replica-path-1", "replica-path-2"},
 			out:                  nil,
 		},
 		{

@@ -74,7 +74,7 @@ func (r *nodeManagerRouter) RouteStorageMutator(ctx context.Context, virtualStor
 	}, nil
 }
 
-func (r *nodeManagerRouter) RouteRepositoryMutator(ctx context.Context, virtualStorage, relativePath string) (RepositoryMutatorRoute, error) {
+func (r *nodeManagerRouter) RouteRepositoryMutator(ctx context.Context, virtualStorage, relativePath, additionalRelativePath string) (RepositoryMutatorRoute, error) {
 	shard, err := r.mgr.GetShard(ctx, virtualStorage)
 	if err != nil {
 		return RepositoryMutatorRoute{}, fmt.Errorf("get shard: %w", err)
@@ -115,10 +115,11 @@ func (r *nodeManagerRouter) RouteRepositoryMutator(ctx context.Context, virtualS
 	}
 
 	return RepositoryMutatorRoute{
-		ReplicaPath:        relativePath,
-		Primary:            toRouterNode(shard.Primary),
-		Secondaries:        toRouterNodes(participatingSecondaries),
-		ReplicationTargets: replicationTargets,
+		ReplicaPath:           relativePath,
+		AdditionalReplicaPath: additionalRelativePath,
+		Primary:               toRouterNode(shard.Primary),
+		Secondaries:           toRouterNodes(participatingSecondaries),
+		ReplicationTargets:    replicationTargets,
 	}, nil
 }
 

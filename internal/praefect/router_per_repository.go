@@ -189,7 +189,7 @@ func (r *PerRepositoryRouter) RouteRepositoryAccessor(ctx context.Context, virtu
 	}, nil
 }
 
-func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtualStorage, relativePath string) (RepositoryMutatorRoute, error) {
+func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtualStorage, relativePath, additionalRelativePath string) (RepositoryMutatorRoute, error) {
 	healthyNodes, err := r.healthyNodes(virtualStorage)
 	if err != nil {
 		return RepositoryMutatorRoute{}, err
@@ -198,6 +198,19 @@ func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtua
 	repositoryID, err := r.rs.GetRepositoryID(ctx, virtualStorage, relativePath)
 	if err != nil {
 		return RepositoryMutatorRoute{}, fmt.Errorf("get repository id: %w", err)
+	}
+
+	var additionalReplicaPath string
+	if additionalRelativePath != "" {
+		additionalRepositoryID, err := r.rs.GetRepositoryID(ctx, virtualStorage, additionalRelativePath)
+		if err != nil {
+			return RepositoryMutatorRoute{}, fmt.Errorf("get additional repository id: %w", err)
+		}
+
+		additionalReplicaPath, err = r.rs.GetReplicaPath(ctx, additionalRepositoryID)
+		if err != nil {
+			return RepositoryMutatorRoute{}, fmt.Errorf("get additional repository replica path: %w", err)
+		}
 	}
 
 	primary, err := r.pg.GetPrimary(ctx, virtualStorage, repositoryID)
@@ -228,7 +241,11 @@ func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtua
 		return RepositoryMutatorRoute{}, fmt.Errorf("get host assignments: %w", err)
 	}
 
-	route := RepositoryMutatorRoute{RepositoryID: repositoryID, ReplicaPath: replicaPath}
+	route := RepositoryMutatorRoute{
+		RepositoryID:          repositoryID,
+		ReplicaPath:           replicaPath,
+		AdditionalReplicaPath: additionalReplicaPath,
+	}
 	for _, assigned := range assignedStorages {
 		node, healthy := healthySet[assigned]
 		if assigned == primary {

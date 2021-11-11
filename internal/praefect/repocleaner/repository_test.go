@@ -110,7 +110,7 @@ func TestRunner_Run(t *testing.T) {
 			secondaries:  []string{storage2, storage3},
 		},
 	} {
-		require.NoError(t, repoStore.CreateRepository(ctx, int64(i), conf.VirtualStorages[0].Name, set.relativePath, set.primary, set.secondaries, nil, false, false))
+		require.NoError(t, repoStore.CreateRepository(ctx, int64(i), conf.VirtualStorages[0].Name, set.relativePath, set.relativePath, set.primary, set.secondaries, nil, false, false))
 	}
 
 	logger, loggerHook := test.NewNullLogger()
@@ -233,7 +233,7 @@ func TestRunner_Run_noAvailableStorages(t *testing.T) {
 			primary:      storage1,
 		},
 	} {
-		require.NoError(t, repoStore.CreateRepository(ctx, int64(i), conf.VirtualStorages[0].Name, set.relativePath, set.primary, nil, nil, false, false))
+		require.NoError(t, repoStore.CreateRepository(ctx, int64(i), conf.VirtualStorages[0].Name, set.relativePath, set.relativePath, set.primary, nil, nil, false, false))
 	}
 
 	logger := testhelper.NewTestLogger(t)

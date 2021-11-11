@@ -169,7 +169,7 @@ func TestRepositoryStoreCollector(t *testing.T) {
 						repositoryID, err = rs.ReserveRepositoryID(ctx, virtualStorage, repository.relativePath)
 						require.NoError(t, err)
 
-						require.NoError(t, rs.CreateRepository(ctx, repositoryID, virtualStorage, repository.relativePath, storage, nil, nil, false, false))
+						require.NoError(t, rs.CreateRepository(ctx, repositoryID, virtualStorage, repository.relativePath, repository.relativePath, storage, nil, nil, false, false))
 					}
 
 					if replica.assigned {

@@ -1023,7 +1023,7 @@ func TestReconciler(t *testing.T) {
 								repositoryID, err = rs.ReserveRepositoryID(ctx, virtualStorage, relativePath)
 								require.NoError(t, err)
 
-								require.NoError(t, rs.CreateRepository(ctx, repositoryID, virtualStorage, relativePath, storage, nil, nil, false, false))
+								require.NoError(t, rs.CreateRepository(ctx, repositoryID, virtualStorage, relativePath, relativePath, storage, nil, nil, false, false))
 							}
 
 							require.NoError(t, rs.SetGeneration(ctx, repositoryID, storage, relativePath, repo.generation))
@@ -1214,7 +1214,7 @@ func TestReconciler_renames(t *testing.T) {
 			)
 
 			rs := datastore.NewPostgresRepositoryStore(db, configuredStorages)
-			require.NoError(t, rs.CreateRepository(ctx, 1, "virtual-storage", "original-path", "storage-1", []string{"storage-2"}, nil, true, false))
+			require.NoError(t, rs.CreateRepository(ctx, 1, "virtual-storage", "original-path", "replica-path", "storage-1", []string{"storage-2"}, nil, true, false))
 			require.NoError(t, rs.SetGeneration(ctx, 1, tc.latestStorage, "original-path", 1))
 
 			require.NoError(t, rs.RenameRepository(ctx, "virtual-storage", "original-path", "storage-1", "new-path"))

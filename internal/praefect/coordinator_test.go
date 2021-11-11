@@ -195,7 +195,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 			rs := datastore.NewPostgresRepositoryStore(tx, conf.StorageNames())
 
 			if tc.repositoryExists {
-				require.NoError(t, rs.CreateRepository(ctx, 1, targetRepo.StorageName, targetRepo.RelativePath, primaryNode.Storage, []string{secondaryNode.Storage}, nil, true, true))
+				require.NoError(t, rs.CreateRepository(ctx, 1, targetRepo.StorageName, targetRepo.RelativePath, targetRepo.RelativePath, primaryNode.Storage, []string{secondaryNode.Storage}, nil, true, true))
 			}
 
 			testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": conf.StorageNames()})
@@ -788,6 +788,37 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 	})
 }
 
+func TestRewrittenRepositoryMessage(t *testing.T) {
+	buildRequest := func(storageName, relativePath, additionalRelativePath string) *gitalypb.CreateObjectPoolRequest {
+		return &gitalypb.CreateObjectPoolRequest{
+			ObjectPool: &gitalypb.ObjectPool{
+				Repository: &gitalypb.Repository{
+					StorageName:  storageName,
+					RelativePath: relativePath,
+				},
+			},
+			Origin: &gitalypb.Repository{
+				StorageName:  storageName,
+				RelativePath: additionalRelativePath,
+			},
+		}
+	}
+
+	originalRequest := buildRequest("original-storage", "original-relative-path", "original-additional-relative-path")
+
+	methodInfo, err := protoregistry.GitalyProtoPreregistered.LookupMethod("/gitaly.ObjectPoolService/CreateObjectPool")
+	require.NoError(t, err)
+
+	rewrittenMessageBytes, err := rewrittenRepositoryMessage(methodInfo, originalRequest, "rewritten-storage", "rewritten-relative-path", "rewritten-additional-relative-path")
+	require.NoError(t, err)
+
+	var rewrittenMessage gitalypb.CreateObjectPoolRequest
+	require.NoError(t, proto.Unmarshal(rewrittenMessageBytes, &rewrittenMessage))
+
+	testassert.ProtoEqual(t, buildRequest("original-storage", "original-relative-path", "original-additional-relative-path"), originalRequest)
+	testassert.ProtoEqual(t, buildRequest("rewritten-storage", "rewritten-relative-path", "rewritten-additional-relative-path"), &rewrittenMessage)
+}
+
 func TestStreamDirector_repo_creation(t *testing.T) {
 	t.Parallel()
 
@@ -845,11 +876,12 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 
 			var createRepositoryCalled int64
 			rs := datastore.MockRepositoryStore{
-				CreateRepositoryFunc: func(ctx context.Context, repoID int64, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error {
+				CreateRepositoryFunc: func(ctx context.Context, repoID int64, virtualStorage, relativePath, replicaPath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error {
 					atomic.AddInt64(&createRepositoryCalled, 1)
 					assert.Equal(t, int64(0), repoID)
 					assert.Equal(t, targetRepo.StorageName, virtualStorage)
 					assert.Equal(t, targetRepo.RelativePath, relativePath)
+					assert.Equal(t, targetRepo.RelativePath, replicaPath)
 					assert.Equal(t, rewrittenStorage, primary)
 					assert.Equal(t, []string{healthySecondaryNode.Storage}, updatedSecondaries)
 					assert.Equal(t, []string{unhealthySecondaryNode.Storage}, outdatedSecondaries)
@@ -2110,7 +2142,7 @@ func TestNewRequestFinalizer_contextIsDisjointedFromTheRPC(t *testing.T) {
 							requireSuppressedCancellation(t, ctx)
 							return err
 						},
-						CreateRepositoryFunc: func(ctx context.Context, _ int64, _, _, _ string, _, _ []string, _, _ bool) error {
+						CreateRepositoryFunc: func(ctx context.Context, _ int64, _, _, _, _ string, _, _ []string, _, _ bool) error {
 							requireSuppressedCancellation(t, ctx)
 							return err
 						},

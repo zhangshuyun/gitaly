@@ -335,19 +335,29 @@ func (c *Coordinator) directRepositoryScopedMessage(ctx context.Context, call gr
 		}
 
 		if replicationType != datastore.CreateRepo {
-			// This is a hack for the tests: during execution of the gitaly tests under praefect proxy
-			// the repositories are created directly on the filesystem. There is no call for the
-			// CreateRepository that creates records in the database that is why we do it artificially
-			// before redirecting the calls.
-			id, err := c.rs.ReserveRepositoryID(ctx, call.targetRepo.StorageName, call.targetRepo.RelativePath)
-			if err != nil {
-				if !errors.Is(err, commonerr.ErrRepositoryAlreadyExists) {
-					return nil, err
-				}
-			} else {
-				if err := c.rs.CreateRepository(ctx, id, call.targetRepo.StorageName, call.targetRepo.RelativePath, call.targetRepo.StorageName, nil, nil, true, true); err != nil {
-					if !errors.As(err, &datastore.RepositoryExistsError{}) {
+			relativePaths := []string{call.targetRepo.RelativePath}
+
+			if additionalRepo, ok, err := call.methodInfo.AdditionalRepo(call.msg); err != nil {
+				return nil, err
+			} else if ok {
+				relativePaths = append(relativePaths, additionalRepo.RelativePath)
+			}
+
+			for _, relativePath := range relativePaths {
+				// This is a hack for the tests: during execution of the gitaly tests under praefect proxy
+				// the repositories are created directly on the filesystem. There is no call for the
+				// CreateRepository that creates records in the database that is why we do it artificially
+				// before redirecting the calls.
+				id, err := c.rs.ReserveRepositoryID(ctx, call.targetRepo.StorageName, relativePath)
+				if err != nil {
+					if !errors.Is(err, commonerr.ErrRepositoryAlreadyExists) {
 						return nil, err
+					}
+				} else {
+					if err := c.rs.CreateRepository(ctx, id, call.targetRepo.StorageName, relativePath, relativePath, call.targetRepo.StorageName, nil, nil, true, true); err != nil {
+						if !errors.As(err, &datastore.RepositoryExistsError{}) {
+							return nil, err
+						}
 					}
 				}
 			}
@@ -404,7 +414,7 @@ func (c *Coordinator) accessorStreamParameters(ctx context.Context, call grpcCal
 		return nil, fmt.Errorf("accessor call: route repository accessor: %w", err)
 	}
 
-	b, err := rewrittenRepositoryMessage(call.methodInfo, call.msg, route.Node.Storage, route.ReplicaPath)
+	b, err := rewrittenRepositoryMessage(call.methodInfo, call.msg, route.Node.Storage, route.ReplicaPath, "")
 	if err != nil {
 		return nil, fmt.Errorf("accessor call: rewrite storage: %w", err)
 	}
@@ -475,7 +485,14 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 			return nil, fmt.Errorf("route repository creation: %w", err)
 		}
 	default:
-		route, err = c.router.RouteRepositoryMutator(ctx, virtualStorage, targetRepo.RelativePath)
+		var additionalRepoRelativePath string
+		if additionalRepo, ok, err := call.methodInfo.AdditionalRepo(call.msg); err != nil {
+			return nil, helper.ErrInvalidArgument(err)
+		} else if ok {
+			additionalRepoRelativePath = additionalRepo.GetRelativePath()
+		}
+
+		route, err = c.router.RouteRepositoryMutator(ctx, virtualStorage, targetRepo.RelativePath, additionalRepoRelativePath)
 		if err != nil {
 			if errors.Is(err, ErrRepositoryReadOnly) {
 				return nil, err
@@ -485,7 +502,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 		}
 	}
 
-	primaryMessage, err := rewrittenRepositoryMessage(call.methodInfo, call.msg, route.Primary.Storage, route.ReplicaPath)
+	primaryMessage, err := rewrittenRepositoryMessage(call.methodInfo, call.msg, route.Primary.Storage, route.ReplicaPath, route.AdditionalReplicaPath)
 	if err != nil {
 		return nil, fmt.Errorf("mutator call: rewrite storage: %w", err)
 	}
@@ -527,7 +544,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 
 		for _, secondary := range route.Secondaries {
 			secondary := secondary
-			secondaryMsg, err := rewrittenRepositoryMessage(call.methodInfo, call.msg, secondary.Storage, route.ReplicaPath)
+			secondaryMsg, err := rewrittenRepositoryMessage(call.methodInfo, call.msg, secondary.Storage, route.ReplicaPath, route.AdditionalReplicaPath)
 			if err != nil {
 				return nil, err
 			}
@@ -782,13 +799,16 @@ func (c *Coordinator) mutatorStorageStreamParameters(ctx context.Context, mi pro
 	return proxy.NewStreamParameters(primaryDest, secondaryDests, func() error { return nil }, nil), nil
 }
 
-func rewrittenRepositoryMessage(mi protoregistry.MethodInfo, m proto.Message, storage, relativePath string) ([]byte, error) {
+// rewrittenRepositoryMessage rewrites the repository storages and relative paths.
+func rewrittenRepositoryMessage(mi protoregistry.MethodInfo, m proto.Message, storage, relativePath, additionalRelativePath string) ([]byte, error) {
+	// clone the message so the original is not changed
+	m = proto.Clone(m)
 	targetRepo, err := mi.TargetRepo(m)
 	if err != nil {
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	// rewrite storage name
+	// rewrite the target repository
 	targetRepo.StorageName = storage
 	targetRepo.RelativePath = relativePath
 
@@ -799,14 +819,10 @@ func rewrittenRepositoryMessage(mi protoregistry.MethodInfo, m proto.Message, st
 
 	if ok {
 		additionalRepo.StorageName = storage
+		additionalRepo.RelativePath = additionalRelativePath
 	}
 
-	b, err := proxy.NewCodec().Marshal(m)
-	if err != nil {
-		return nil, err
-	}
-
-	return b, nil
+	return proxy.NewCodec().Marshal(m)
 }
 
 func rewrittenStorageMessage(mi protoregistry.MethodInfo, m proto.Message, storage string) ([]byte, error) {
@@ -1038,6 +1054,7 @@ func (c *Coordinator) newRequestFinalizer(
 			if err := c.rs.CreateRepository(ctx,
 				repositoryID,
 				virtualStorage,
+				targetRepo.GetRelativePath(),
 				targetRepo.GetRelativePath(),
 				primary,
 				updatedSecondaries,

@@ -162,7 +162,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 
 	db := glsql.NewDB(t)
 	rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
-	require.NoError(t, rs.CreateRepository(ctx, repositoryID, conf.VirtualStorages[0].Name, testRepo.GetRelativePath(), shard.Primary.GetStorage(), nil, nil, true, false))
+	require.NoError(t, rs.CreateRepository(ctx, repositoryID, conf.VirtualStorages[0].Name, testRepo.GetRelativePath(), testRepo.GetRelativePath(), shard.Primary.GetStorage(), nil, nil, true, false))
 
 	replMgr := NewReplMgr(
 		loggerEntry,
@@ -719,7 +719,7 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 
 	db := glsql.NewDB(t)
 	rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
-	require.NoError(t, rs.CreateRepository(ctx, okJob.RepositoryID, okJob.VirtualStorage, okJob.RelativePath, okJob.SourceNodeStorage, nil, nil, true, false))
+	require.NoError(t, rs.CreateRepository(ctx, okJob.RepositoryID, okJob.VirtualStorage, okJob.RelativePath, okJob.RelativePath, okJob.SourceNodeStorage, nil, nil, true, false))
 
 	replMgr := NewReplMgr(
 		logEntry,
@@ -875,7 +875,7 @@ func TestProcessBacklog_Success(t *testing.T) {
 
 	db := glsql.NewDB(t)
 	rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
-	require.NoError(t, rs.CreateRepository(ctx, eventType1.Job.RepositoryID, eventType1.Job.VirtualStorage, eventType1.Job.RelativePath, eventType1.Job.SourceNodeStorage, nil, nil, true, false))
+	require.NoError(t, rs.CreateRepository(ctx, eventType1.Job.RepositoryID, eventType1.Job.VirtualStorage, eventType1.Job.VirtualStorage, eventType1.Job.RelativePath, eventType1.Job.SourceNodeStorage, nil, nil, true, false))
 
 	replMgr := NewReplMgr(
 		logEntry,
@@ -1018,7 +1018,7 @@ func TestProcessBacklog_ReplicatesToReadOnlyPrimary(t *testing.T) {
 
 	db := glsql.NewDB(t)
 	rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
-	require.NoError(t, rs.CreateRepository(ctx, repositoryID, virtualStorage, "ignored", primaryStorage, []string{secondaryStorage}, nil, true, false))
+	require.NoError(t, rs.CreateRepository(ctx, repositoryID, virtualStorage, "ignored", "ignored", primaryStorage, []string{secondaryStorage}, nil, true, false))
 
 	replMgr := NewReplMgr(
 		testhelper.DiscardTestEntry(t),
