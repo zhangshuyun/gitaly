@@ -98,13 +98,6 @@ service RefService {
     };
   }
 
-  // Returns commits that are only reachable from the ref passed
-  rpc ListNewCommits(ListNewCommitsRequest) returns (stream ListNewCommitsResponse) {
-    option (op_type) = {
-      op: ACCESSOR
-    };
-  }
-
   rpc PackRefs(PackRefsRequest) returns (PackRefsResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -374,15 +367,6 @@ message GetTagMessagesResponse {
   bytes message = 2;
   // Only present for a new tag message
   string tag_id = 3;
-}
-
-message ListNewCommitsRequest {
-  Repository repository = 1 [(target_repository)=true];
-  string commit_id = 2;
-}
-
-message ListNewCommitsResponse {
-  repeated GitCommit commits = 1;
 }
 
 message FindAllRemoteBranchesRequest {
