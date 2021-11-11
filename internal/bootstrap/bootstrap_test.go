@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -41,6 +42,8 @@ func (m *mockUpgrader) Upgrade() error {
 }
 
 type testServer struct {
+	t         *testing.T
+	ctx       context.Context
 	server    *http.Server
 	listeners map[string]net.Listener
 	url       string
@@ -50,9 +53,14 @@ func (s *testServer) slowRequest(duration time.Duration) <-chan error {
 	done := make(chan error)
 
 	go func() {
-		r, err := http.Get(fmt.Sprintf("%sslow?seconds=%d", s.url, int(duration.Seconds())))
-		if r != nil {
-			r.Body.Close()
+		request, err := http.NewRequestWithContext(s.ctx, http.MethodGet, fmt.Sprintf("%sslow?seconds=%d", s.url, int(duration.Seconds())), nil)
+		require.NoError(s.t, err)
+
+		response, err := http.DefaultClient.Do(request)
+		if response != nil {
+			_, err := io.Copy(io.Discard, response.Body)
+			require.NoError(s.t, err)
+			require.NoError(s.t, response.Body.Close())
 		}
 
 		done <- err
@@ -322,19 +330,21 @@ func makeBootstrap(t *testing.T, ctx context.Context) (*Bootstrap, *testServer, 
 	require.Equal(t, 2, len(listeners))
 
 	// test connection
-	testAllListeners(t, listeners)
+	testAllListeners(t, ctx, listeners)
 
 	addr := listeners["tcp"].Addr()
 	url := fmt.Sprintf("http://%s/", addr.String())
 
 	return b, &testServer{
+		t:         t,
+		ctx:       ctx,
 		server:    &s,
 		listeners: listeners,
 		url:       url,
 	}, func() { require.NoError(t, s.Shutdown(context.Background())) }
 }
 
-func testAllListeners(t *testing.T, listeners map[string]net.Listener) {
+func testAllListeners(t *testing.T, ctx context.Context, listeners map[string]net.Listener) {
 	for network, listener := range listeners {
 		addr := listener.Addr().String()
 
@@ -347,10 +357,16 @@ func testAllListeners(t *testing.T, listeners map[string]net.Listener) {
 			},
 		}
 
-		// we don't need a real address because we forced it on Dial
-		r, err := client.Get("http://fakeHost/")
+		request, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://fakeHost/", nil)
 		require.NoError(t, err)
-		r.Body.Close()
+
+		r, err := client.Do(request)
+		require.NoError(t, err)
+
+		_, err = io.Copy(io.Discard, r.Body)
+		require.NoError(t, err)
+		require.NoError(t, r.Body.Close())
+
 		require.Equal(t, 200, r.StatusCode)
 	}
 }
