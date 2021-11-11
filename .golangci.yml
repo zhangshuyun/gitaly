@@ -702,14 +702,6 @@ issues:
       text: "Error return value of `strategy.checkNodes` is not checked"
     ## END errcheck exclusions
     ##
-    ## BEGIN staticcheck exclusions
-    - linters:
-        - staticcheck
-      text: "resp.OldPath is deprecated"
-    - linters:
-        - staticcheck
-      text: "resp.NewPath is deprecated"
-    ## END staticcheck exclusions
     # govet checks all struct initializations must be keyed by field names
     - linters:
         - stylecheck
