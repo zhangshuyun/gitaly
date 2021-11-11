@@ -26,16 +26,17 @@ const defaultDialTimeout = 30 * time.Second
 
 var (
 	subcommands = map[string]subcmd{
-		"sql-ping":               &sqlPingSubcommand{},
-		"sql-migrate":            &sqlMigrateSubcommand{},
-		"dial-nodes":             &dialNodesSubcommand{},
-		"reconcile":              &reconcileSubcommand{},
-		"sql-migrate-down":       &sqlMigrateDownSubcommand{},
-		"sql-migrate-status":     &sqlMigrateStatusSubcommand{},
-		"dataloss":               newDatalossSubcommand(),
-		"accept-dataloss":        &acceptDatalossSubcommand{},
-		"set-replication-factor": newSetReplicatioFactorSubcommand(os.Stdout),
-		removeRepositoryCmdName:  newRemoveRepository(logger),
+		"sql-ping":                    &sqlPingSubcommand{},
+		"sql-migrate":                 &sqlMigrateSubcommand{},
+		"dial-nodes":                  &dialNodesSubcommand{},
+		"reconcile":                   &reconcileSubcommand{},
+		"sql-migrate-down":            &sqlMigrateDownSubcommand{},
+		"sql-migrate-status":          &sqlMigrateStatusSubcommand{},
+		"dataloss":                    newDatalossSubcommand(),
+		"accept-dataloss":             &acceptDatalossSubcommand{},
+		"set-replication-factor":      newSetReplicatioFactorSubcommand(os.Stdout),
+		removeRepositoryCmdName:       newRemoveRepository(logger),
+		listUntrackedRepositoriesName: newListUntrackedRepositories(logger, os.Stdout),
 	}
 )
 
