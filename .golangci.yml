@@ -8,6 +8,7 @@ run:
 linters:
   disable-all: true
   enable:
+    - bidichk
     - deadcode
     - errcheck
     - exportloopref
