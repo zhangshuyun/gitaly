@@ -63,19 +63,6 @@ func TestFilesystemSink_Write(t *testing.T) {
 		require.Equal(t, []byte("test"), data)
 	})
 
-	t.Run("no data doesn't create a file", func(t *testing.T) {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
-
-		dir := testhelper.TempDir(t)
-		const relativePath = "nested/dir/test.dat"
-
-		fsSink := NewFilesystemSink(dir)
-		require.NoError(t, fsSink.Write(ctx, relativePath, strings.NewReader("")))
-
-		require.NoFileExists(t, filepath.Join(dir, relativePath))
-	})
-
 	t.Run("overrides existing data", func(t *testing.T) {
 		ctx, cancel := testhelper.Context()
 		defer cancel()
