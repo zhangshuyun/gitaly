@@ -40,12 +40,12 @@ func (cmd *removeRepository) FlagSet() *flag.FlagSet {
 	fs.StringVar(&cmd.virtualStorage, paramVirtualStorage, "", "name of the repository's virtual storage")
 	fs.StringVar(&cmd.relativePath, paramRelativePath, "", "relative path to the repository")
 	fs.Usage = func() {
-		_, _ = printfErr("Description:\n" +
+		printfErr("Description:\n" +
 			"	This command removes all state associated with a given repository from the Gitaly Cluster.\n" +
 			"	This includes both on-disk repositories on all relevant Gitaly nodes as well as any potential\n" +
 			"	database state as tracked by Praefect.\n")
 		fs.PrintDefaults()
-		_, _ = printfErr("NOTE:\n" +
+		printfErr("NOTE:\n" +
 			"	It may happen that parts of the repository continue to exist after this command, either because\n" +
 			"	of an error that happened during deletion or because of in-flight RPC calls targeting the repository.\n" +
 			"	It is safe and recommended to re-run this command in such a case.\n")

@@ -33,7 +33,10 @@ func ReceivePack(ctx context.Context, conn *grpc.ClientConn, stdin io.Reader, st
 		return receivePackStream.Recv()
 	}, func(errC chan error) {
 		_, errRecv := io.Copy(inWriter, stdin)
-		receivePackStream.CloseSend()
-		errC <- errRecv
+		if err := receivePackStream.CloseSend(); err != nil && errRecv == nil {
+			errC <- err
+		} else {
+			errC <- errRecv
+		}
 	}, stdout, stderr)
 }

@@ -448,7 +448,11 @@ func run(cfgs []starter.Config, conf config.Config, b bootstrap.Listener, promre
 				conf.Reconciliation.HistogramBuckets,
 			)
 			promreg.MustRegister(r)
-			go r.Run(ctx, helper.NewTimerTicker(interval))
+			go func() {
+				if err := r.Run(ctx, helper.NewTimerTicker(interval)); err != nil {
+					logger.WithError(err).Error("reconciler finished execution")
+				}
+			}()
 		}
 	}
 

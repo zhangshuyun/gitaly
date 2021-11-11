@@ -76,7 +76,7 @@ func IsGitDirectory(dir string) bool {
 	// git gc runs for a long time while keeping open the packed-refs file.
 	// Running stat() on the file causes the kernel to revalidate the cached
 	// directory entry. We don't actually care if this file exists.
-	os.Stat(filepath.Join(dir, "packed-refs"))
+	_, _ = os.Stat(filepath.Join(dir, "packed-refs"))
 
 	return true
 }

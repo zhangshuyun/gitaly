@@ -42,7 +42,7 @@ func (cmd *trackRepository) FlagSet() *flag.FlagSet {
 	fs.StringVar(&cmd.relativePath, paramRelativePath, "", "relative path to the repository")
 	fs.StringVar(&cmd.authoritativeStorage, paramAuthoritativeStorage, "", "storage with the repository to consider as authoritative")
 	fs.Usage = func() {
-		_, _ = printfErr("Description:\n" +
+		printfErr("Description:\n" +
 			"	This command adds a given repository to be tracked by Praefect.\n" +
 			"       It checks if the repository exists on disk on the authoritative storage, " +
 			"       and whether database records are absent from tracking the repository.")

@@ -39,12 +39,12 @@ func (cmd *listUntrackedRepositories) FlagSet() *flag.FlagSet {
 	fs := flag.NewFlagSet(listUntrackedRepositoriesName, flag.ExitOnError)
 	fs.StringVar(&cmd.delimiter, "delimiter", "\n", "string used as a delimiter in output")
 	fs.Usage = func() {
-		_, _ = printfErr("Description:\n" +
+		printfErr("Description:\n" +
 			"	This command checks if all repositories on all gitaly nodes tracked by praefect.\n" +
 			"	If repository is found on the disk, but it is not known to praefect the location of\n" +
 			"	that repository will be written into stdout stream in JSON format.\n")
 		fs.PrintDefaults()
-		_, _ = printfErr("NOTE:\n" +
+		printfErr("NOTE:\n" +
 			"	All errors and log messages directed to the stderr stream.\n" +
 			"	The output is produced as the new data appears, it doesn't wait\n" +
 			"	for the completion of the processing to produce the result.\n")

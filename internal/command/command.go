@@ -225,7 +225,10 @@ func New(ctx context.Context, cmd *exec.Cmd, stdin io.Reader, stdout, stderr io.
 			// Send SIGTERM to the process group of cmd
 			syscall.Kill(-process.Pid, syscall.SIGTERM)
 		}
-		command.Wait()
+
+		// We do not care for any potential erorr code, but just want to make sure that the
+		// subprocess gets properly killed and processed.
+		_ = command.Wait()
 	}()
 
 	logPid = cmd.Process.Pid

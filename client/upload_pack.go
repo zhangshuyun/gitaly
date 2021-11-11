@@ -33,7 +33,10 @@ func UploadPack(ctx context.Context, conn *grpc.ClientConn, stdin io.Reader, std
 		return uploadPackStream.Recv()
 	}, func(errC chan error) {
 		_, errRecv := io.Copy(inWriter, stdin)
-		uploadPackStream.CloseSend()
-		errC <- errRecv
+		if err := uploadPackStream.CloseSend(); err != nil && errRecv == nil {
+			errC <- err
+		} else {
+			errC <- errRecv
+		}
 	}, stdout, stderr)
 }

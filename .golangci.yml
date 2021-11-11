@@ -577,30 +577,6 @@ issues:
     ## errcheck: Specific issues in non-*_test.go files
     - linters:
         - errcheck
-      path: "client/receive_pack.go"
-      text: "Error return value of `receivePackStream\\.CloseSend` is not checked"
-    - linters:
-        - errcheck
-      path: "client/upload_archive.go"
-      text: "Error return value of `uploadPackStream\\.CloseSend` is not checked"
-    - linters:
-        - errcheck
-      path: "client/upload_pack.go"
-      text: "Error return value of `uploadPackStream\\.CloseSend` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/gitaly/rubyserver/proxy.go"
-      text: "Error return value of `requestStream.CloseSend` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/testhelper/testserver.go"
-      text: "Error return value of `p.process.Kill` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/testhelper/testserver.go"
-      text: "Error return value of `cmd.Wait` is not checked"
-    - linters:
-        - errcheck
       path: "cmd/gitaly-wrapper/main.go"
       text: "Error return value of `cmd.Wait` is not checked"
     - linters:
@@ -617,52 +593,12 @@ issues:
       text: "Error return value of `s.checkNodes` is not checked"
     - linters:
         - errcheck
-      path: "internal/gitaly/service/repository/snapshot.go"
-      text: "Error return value of `builder.FileIfExist` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/gitaly/service/repository/snapshot.go"
-      text: "Error return value of `builder.RecursiveDirIfExist` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/gitaly/service/repository/snapshot.go"
-      text: "Error return value of `builder.FileIfExist` is not checked"
-    - linters:
-        - errcheck
       path: "internal/middleware/limithandler/limithandler.go"
       text: "Error return value of `limiter.Limit` is not checked"
     - linters:
         - errcheck
-      path: "internal/praefect/transactions/manager.go"
-      text: "Error return value of `cryptorand.Read` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/command/command.go"
-      text: "Error return value of `command.Wait` is not checked"
-    - linters:
-        - errcheck
       path: "internal/supervisor/supervisor.go"
       text: "Error return value of `(cmd.Process.Kill)?` is not checked"
-    - linters:
-        - errcheck
-      path: "cmd/gitaly-git2go/main.go"
-      text: "Error return value of `flags.Parse` is not checked"
-    - linters:
-        - errcheck
-      path: "cmd/gitaly-git2go/main.go"
-      text: "Error return value of `subcmdFlags.Parse` is not checked"
-    - linters:
-        - errcheck
-      path: "cmd/gitaly-hooks/hooks.go"
-      text: "Error return value of `stream.CloseSend` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/gitaly/storage/locator.go"
-      text: "Error return value of `os.Stat` is not checked"
-    - linters:
-        - errcheck
-      path: "cmd/praefect/main.go"
-      text: "Error return value of `r.Run` is not checked"
     - linters:
         - errcheck
       path: "internal/gitaly/rubyserver/worker.go"
@@ -671,35 +607,6 @@ issues:
         - errcheck
       path: "internal/command/command.go"
       text: "Error return value of `syscall.Kill` is not checked"
-    - linters:
-        - errcheck
-      path: "cmd/praefect/main.go"
-      text: "Error return value is not checked"
-    - linters:
-        - errcheck
-      path: "cmd/praefect/subcmd.go"
-      text: "Error return value is not checked"
-    - linters:
-        - errcheck
-      path: "cmd/praefect/subcmd_sqldown.go"
-      text: "Error return value is not checked"
-    - linters:
-        - errcheck
-      path: "internal/supervisor/supervisor_test.go"
-      text: "Error return value of `syscall\\.Kill` is not checked"
-    ## errcheck: Specific issues in *_test.go files
-    - linters:
-        - errcheck
-      path: "internal/middleware/sentryhandler/sentryhandler_test.go"
-      text: "Error return value is not checked"
-    - linters:
-        - errcheck
-      path: "internal/gitaly/service/repository/redirecting_test_server_test.go"
-      text: "Error return value of `cmd.Run` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/praefect/nodes/local_elector_test.go"
-      text: "Error return value of `strategy.checkNodes` is not checked"
     ## END errcheck exclusions
     ##
     # govet checks all struct initializations must be keyed by field names

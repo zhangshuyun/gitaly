@@ -103,8 +103,8 @@ func openDB(conf config.DB) (*sql.DB, func(), error) {
 	return db, clean, nil
 }
 
-func printfErr(format string, a ...interface{}) (int, error) {
-	return fmt.Fprintf(os.Stderr, format, a...)
+func printfErr(format string, a ...interface{}) {
+	fmt.Fprintf(os.Stderr, format, a...)
 }
 
 func subCmdDial(ctx context.Context, addr, token string, timeout time.Duration, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
