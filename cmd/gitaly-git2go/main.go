@@ -10,7 +10,6 @@ import (
 	"io"
 	"os"
 
-	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/conflicts"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 )
 
@@ -23,7 +22,7 @@ var subcommands = map[string]subcmd{
 	"apply":       &applySubcommand{},
 	"cherry-pick": &cherryPickSubcommand{},
 	"commit":      commitSubcommand{},
-	"conflicts":   &conflicts.Subcommand{},
+	"conflicts":   &conflictsSubcommand{},
 	"merge":       &mergeSubcommand{},
 	"rebase":      &rebaseSubcommand{},
 	"revert":      &revertSubcommand{},
