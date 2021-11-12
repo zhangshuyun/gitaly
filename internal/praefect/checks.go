@@ -3,6 +3,7 @@ package praefect
 import (
 	"context"
 	"fmt"
+	"log"
 
 	migrate "github.com/rubenv/sql-migrate"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
@@ -74,14 +75,12 @@ func NewPraefectMigrationCheck(conf config.Config) *Check {
 
 // NewGitalyNodeConnectivityCheck returns a check that ensures Praefect can talk to all nodes of all virtual storages
 func NewGitalyNodeConnectivityCheck(conf config.Config) *Check {
-	logger := conf.ConfigureLogger()
-
 	return &Check{
 		Name: "gitaly node connectivity & disk access",
 		Description: "confirms if praefect can reach all of its gitaly nodes, and " +
 			"whether or not the gitaly nodes can read/write from and to its storages.",
 		Run: func(ctx context.Context) error {
-			return nodes.PingAll(ctx, conf, logger)
+			return nodes.PingAll(ctx, conf, log.Default())
 		},
 		Severity: Fatal,
 	}
