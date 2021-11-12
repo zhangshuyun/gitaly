@@ -6,7 +6,6 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 
 import "lint.proto";
 import "shared.proto";
-import "blob.proto";
 import "google/protobuf/timestamp.proto";
 
 service RefService {
