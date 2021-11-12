@@ -17,7 +17,7 @@ type requestQueue struct {
 	isObjectQueue bool
 
 	stdout *bufio.Reader
-	stdin  io.Writer
+	stdin  *bufio.Writer
 
 	// outstandingRequests is the number of requests which have been queued up. Gets incremented
 	// on request, and decremented when starting to read an object (not when that object has
@@ -76,9 +76,14 @@ func (q *requestQueue) RequestRevision(revision git.Revision) error {
 
 	atomic.AddInt64(&q.outstandingRequests, 1)
 
-	if _, err := fmt.Fprintln(q.stdin, revision.String()); err != nil {
+	if _, err := q.stdin.WriteString(revision.String()); err != nil {
 		atomic.AddInt64(&q.outstandingRequests, -1)
-		return fmt.Errorf("requesting revision: %w", err)
+		return fmt.Errorf("writing object request: %w", err)
+	}
+
+	if err := q.stdin.WriteByte('\n'); err != nil {
+		atomic.AddInt64(&q.outstandingRequests, -1)
+		return fmt.Errorf("terminating object request: %w", err)
 	}
 
 	return nil
@@ -87,6 +92,10 @@ func (q *requestQueue) RequestRevision(revision git.Revision) error {
 func (q *requestQueue) Flush() error {
 	if q.isClosed() {
 		return fmt.Errorf("cannot flush: %w", os.ErrClosed)
+	}
+
+	if err := q.stdin.Flush(); err != nil {
+		return fmt.Errorf("flushing: %w", err)
 	}
 
 	return nil

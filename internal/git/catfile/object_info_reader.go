@@ -150,7 +150,7 @@ func newObjectInfoReader(
 		counter: counter,
 		queue: requestQueue{
 			stdout: bufio.NewReader(batchCmd),
-			stdin:  batchCmd,
+			stdin:  bufio.NewWriter(batchCmd),
 		},
 	}
 	go func() {

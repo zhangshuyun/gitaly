@@ -82,7 +82,7 @@ func newObjectReader(
 		queue: requestQueue{
 			isObjectQueue: true,
 			stdout:        bufio.NewReader(batchCmd),
-			stdin:         batchCmd,
+			stdin:         bufio.NewWriter(batchCmd),
 		},
 	}
 	go func() {
