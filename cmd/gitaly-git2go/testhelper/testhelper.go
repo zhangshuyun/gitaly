@@ -19,6 +19,7 @@ var DefaultAuthor = git.Signature{
 	When:  time.Date(2020, 1, 1, 1, 1, 1, 0, time.FixedZone("", 2*60*60)),
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func BuildCommit(t testing.TB, repoPath string, parents []*git.Oid, fileContents map[string]string) *git.Oid {
 	repo, err := git2goutil.OpenRepository(repoPath)
 	require.NoError(t, err)

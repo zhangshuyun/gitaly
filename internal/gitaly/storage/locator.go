@@ -41,6 +41,7 @@ type Locator interface {
 	StateDir(storageName string) (string, error)
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 var ErrRelativePathEscapesRoot = errors.New("relative path escapes root directory")
 
 // ValidateRelativePath validates a relative path by joining it with rootDir and verifying the result

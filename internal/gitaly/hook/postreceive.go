@@ -116,6 +116,7 @@ func printAlert(m gitlab.PostReceiveMessage, w io.Writer) error {
 	return nil
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (m *GitLabHookManager) PostReceiveHook(ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	payload, err := git.HooksPayloadFromEnv(env)
 	if err != nil {

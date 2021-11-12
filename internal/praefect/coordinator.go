@@ -310,10 +310,12 @@ func NewCoordinator(
 	return coordinator
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (c *Coordinator) Describe(descs chan<- *prometheus.Desc) {
 	prometheus.DescribeByCollect(c, descs)
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (c *Coordinator) Collect(metrics chan<- prometheus.Metric) {
 	c.votersMetric.Collect(metrics)
 	c.txReplicationCountMetric.Collect(metrics)

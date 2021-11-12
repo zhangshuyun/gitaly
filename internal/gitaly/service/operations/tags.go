@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagRequest) (*gitalypb.UserDeleteTagResponse, error) {
 	if len(req.TagName) == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "empty tag name")
@@ -84,6 +85,7 @@ func validateUserCreateTag(req *gitalypb.UserCreateTagRequest) error {
 	return nil
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagRequest) (*gitalypb.UserCreateTagResponse, error) {
 	// Validate the request
 	if err := validateUserCreateTag(req); err != nil {

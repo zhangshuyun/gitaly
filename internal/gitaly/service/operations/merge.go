@@ -37,6 +37,7 @@ func validateMergeBranchRequest(request *gitalypb.UserMergeBranchRequest) error 
 	return nil
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranchServer) error {
 	ctx := stream.Context()
 
@@ -198,6 +199,7 @@ func validateFFRequest(in *gitalypb.UserFFBranchRequest) error {
 	return nil
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequest) (*gitalypb.UserFFBranchResponse, error) {
 	if err := validateFFRequest(in); err != nil {
 		return nil, helper.ErrInvalidArgument(err)

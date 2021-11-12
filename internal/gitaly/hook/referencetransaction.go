@@ -15,6 +15,7 @@ import (
 // reference without checking its current value.
 var forceDeletionPrefix = fmt.Sprintf("%[1]s %[1]s ", git.ZeroOID.String())
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (m *GitLabHookManager) ReferenceTransactionHook(ctx context.Context, state ReferenceTransactionState, env []string, stdin io.Reader) error {
 	payload, err := git.HooksPayloadFromEnv(env)
 	if err != nil {

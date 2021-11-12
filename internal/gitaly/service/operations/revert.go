@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest) (*gitalypb.UserRevertResponse, error) {
 	if err := validateCherryPickOrRevertRequest(req); err != nil {
 		return nil, helper.ErrInvalidArgument(err)

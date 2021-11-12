@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserRebaseConfirmableServer) error {
 	firstRequest, err := stream.Recv()
 	if err != nil {

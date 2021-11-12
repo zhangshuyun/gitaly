@@ -47,12 +47,16 @@ type ManualTicker struct {
 	ResetFunc func()
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (mt *ManualTicker) C() <-chan time.Time { return mt.c }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (mt *ManualTicker) Stop() { mt.StopFunc() }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (mt *ManualTicker) Reset() { mt.ResetFunc() }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (mt *ManualTicker) Tick() { mt.c <- time.Now() }
 
 // NewManualTicker returns a Ticker that can be manually controlled.
