@@ -621,19 +621,28 @@ func TestUserMergeBranch_allowed(t *testing.T) {
 				Timestamp:  &timestamppb.Timestamp{Seconds: 12, Nanos: 34},
 			}))
 
+			response, err := stream.Recv()
+			require.NoError(t, err)
+			testassert.ProtoEqual(t, &gitalypb.UserMergeBranchResponse{
+				CommitId: mergeBranchHeadAfter,
+			}, response)
+
 			require.NoError(t, stream.Send(&gitalypb.UserMergeBranchRequest{
 				Apply: true,
 			}))
-			_, err = stream.Recv()
-			require.NoError(t, err)
 
-			response, err := stream.Recv()
+			response, err = stream.Recv()
 			if featureflag.UserMergeBranchAccessError.IsEnabled(ctx) {
 				testassert.GrpcEqualErr(t, tc.expectedErr, err)
 				testassert.ProtoEqual(t, tc.expectedResponse, response)
 			} else {
 				require.NoError(t, err)
 				testassert.ProtoEqual(t, tc.expectedResponseWithoutFF, response)
+			}
+
+			if err == nil {
+				_, err = stream.Recv()
+				require.Equal(t, io.EOF, err)
 			}
 		})
 	}
