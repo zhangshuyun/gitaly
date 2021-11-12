@@ -19,9 +19,9 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CommitServiceClient interface {
 	// ListCommits lists all commits reachable via a set of references by doing a
-	// graph walk. This deprecates ListNewCommits, FindAllCommits, FindCommits
-	// (except Follow is not yet supported) and CommitsBetweenRequest. Any
-	// unknown revisions will cause the RPC to fail.
+	// graph walk. This deprecates FindAllCommits, FindCommits (except Follow is
+	// not yet supported) and CommitsBetweenRequest. Any unknown revisions will
+	// cause the RPC to fail.
 	ListCommits(ctx context.Context, in *ListCommitsRequest, opts ...grpc.CallOption) (CommitService_ListCommitsClient, error)
 	// ListAllCommits lists all commits present in the repository, including
 	// those not reachable by any reference.
@@ -637,9 +637,9 @@ func (x *commitServiceGetCommitMessagesClient) Recv() (*GetCommitMessagesRespons
 // for forward compatibility
 type CommitServiceServer interface {
 	// ListCommits lists all commits reachable via a set of references by doing a
-	// graph walk. This deprecates ListNewCommits, FindAllCommits, FindCommits
-	// (except Follow is not yet supported) and CommitsBetweenRequest. Any
-	// unknown revisions will cause the RPC to fail.
+	// graph walk. This deprecates FindAllCommits, FindCommits (except Follow is
+	// not yet supported) and CommitsBetweenRequest. Any unknown revisions will
+	// cause the RPC to fail.
 	ListCommits(*ListCommitsRequest, CommitService_ListCommitsServer) error
 	// ListAllCommits lists all commits present in the repository, including
 	// those not reachable by any reference.

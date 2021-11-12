@@ -5,7 +5,6 @@ require 'google/protobuf'
 
 require 'lint_pb'
 require 'shared_pb'
-require 'blob_pb'
 require 'google/protobuf/timestamp_pb'
 Google::Protobuf::DescriptorPool.generated_pool.build do
   add_file("ref.proto", :syntax => :proto3) do
@@ -168,13 +167,6 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :message, :bytes, 2
       optional :tag_id, :string, 3
     end
-    add_message "gitaly.ListNewCommitsRequest" do
-      optional :repository, :message, 1, "gitaly.Repository"
-      optional :commit_id, :string, 2
-    end
-    add_message "gitaly.ListNewCommitsResponse" do
-      repeated :commits, :message, 1, "gitaly.GitCommit"
-    end
     add_message "gitaly.FindAllRemoteBranchesRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
       optional :remote_name, :string, 2
@@ -254,8 +246,6 @@ module Gitaly
   GetTagSignaturesResponse::TagSignature = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GetTagSignaturesResponse.TagSignature").msgclass
   GetTagMessagesRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GetTagMessagesRequest").msgclass
   GetTagMessagesResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GetTagMessagesResponse").msgclass
-  ListNewCommitsRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListNewCommitsRequest").msgclass
-  ListNewCommitsResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListNewCommitsResponse").msgclass
   FindAllRemoteBranchesRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindAllRemoteBranchesRequest").msgclass
   FindAllRemoteBranchesResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindAllRemoteBranchesResponse").msgclass
   PackRefsRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.PackRefsRequest").msgclass

@@ -41,8 +41,6 @@ type RefServiceClient interface {
 	// which has no signature, but its unsigned contents will still be returned.
 	GetTagSignatures(ctx context.Context, in *GetTagSignaturesRequest, opts ...grpc.CallOption) (RefService_GetTagSignaturesClient, error)
 	GetTagMessages(ctx context.Context, in *GetTagMessagesRequest, opts ...grpc.CallOption) (RefService_GetTagMessagesClient, error)
-	// Returns commits that are only reachable from the ref passed
-	ListNewCommits(ctx context.Context, in *ListNewCommitsRequest, opts ...grpc.CallOption) (RefService_ListNewCommitsClient, error)
 	PackRefs(ctx context.Context, in *PackRefsRequest, opts ...grpc.CallOption) (*PackRefsResponse, error)
 	// ListRefs returns a stream of all references in the repository. By default, pseudo-revisions like HEAD
 	// will not be returned by this RPC. Any symbolic references will be resolved to the object ID it is
@@ -427,38 +425,6 @@ func (x *refServiceGetTagMessagesClient) Recv() (*GetTagMessagesResponse, error)
 	return m, nil
 }
 
-func (c *refServiceClient) ListNewCommits(ctx context.Context, in *ListNewCommitsRequest, opts ...grpc.CallOption) (RefService_ListNewCommitsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[10], "/gitaly.RefService/ListNewCommits", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &refServiceListNewCommitsClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type RefService_ListNewCommitsClient interface {
-	Recv() (*ListNewCommitsResponse, error)
-	grpc.ClientStream
-}
-
-type refServiceListNewCommitsClient struct {
-	grpc.ClientStream
-}
-
-func (x *refServiceListNewCommitsClient) Recv() (*ListNewCommitsResponse, error) {
-	m := new(ListNewCommitsResponse)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 func (c *refServiceClient) PackRefs(ctx context.Context, in *PackRefsRequest, opts ...grpc.CallOption) (*PackRefsResponse, error) {
 	out := new(PackRefsResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RefService/PackRefs", in, out, opts...)
@@ -469,7 +435,7 @@ func (c *refServiceClient) PackRefs(ctx context.Context, in *PackRefsRequest, op
 }
 
 func (c *refServiceClient) ListRefs(ctx context.Context, in *ListRefsRequest, opts ...grpc.CallOption) (RefService_ListRefsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[11], "/gitaly.RefService/ListRefs", opts...)
+	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[10], "/gitaly.RefService/ListRefs", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -536,8 +502,6 @@ type RefServiceServer interface {
 	// which has no signature, but its unsigned contents will still be returned.
 	GetTagSignatures(*GetTagSignaturesRequest, RefService_GetTagSignaturesServer) error
 	GetTagMessages(*GetTagMessagesRequest, RefService_GetTagMessagesServer) error
-	// Returns commits that are only reachable from the ref passed
-	ListNewCommits(*ListNewCommitsRequest, RefService_ListNewCommitsServer) error
 	PackRefs(context.Context, *PackRefsRequest) (*PackRefsResponse, error)
 	// ListRefs returns a stream of all references in the repository. By default, pseudo-revisions like HEAD
 	// will not be returned by this RPC. Any symbolic references will be resolved to the object ID it is
@@ -598,9 +562,6 @@ func (UnimplementedRefServiceServer) GetTagSignatures(*GetTagSignaturesRequest, 
 }
 func (UnimplementedRefServiceServer) GetTagMessages(*GetTagMessagesRequest, RefService_GetTagMessagesServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetTagMessages not implemented")
-}
-func (UnimplementedRefServiceServer) ListNewCommits(*ListNewCommitsRequest, RefService_ListNewCommitsServer) error {
-	return status.Errorf(codes.Unimplemented, "method ListNewCommits not implemented")
 }
 func (UnimplementedRefServiceServer) PackRefs(context.Context, *PackRefsRequest) (*PackRefsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PackRefs not implemented")
@@ -924,27 +885,6 @@ func (x *refServiceGetTagMessagesServer) Send(m *GetTagMessagesResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _RefService_ListNewCommits_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(ListNewCommitsRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(RefServiceServer).ListNewCommits(m, &refServiceListNewCommitsServer{stream})
-}
-
-type RefService_ListNewCommitsServer interface {
-	Send(*ListNewCommitsResponse) error
-	grpc.ServerStream
-}
-
-type refServiceListNewCommitsServer struct {
-	grpc.ServerStream
-}
-
-func (x *refServiceListNewCommitsServer) Send(m *ListNewCommitsResponse) error {
-	return x.ServerStream.SendMsg(m)
-}
-
 func _RefService_PackRefs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(PackRefsRequest)
 	if err := dec(in); err != nil {
@@ -1087,11 +1027,6 @@ var RefService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "GetTagMessages",
 			Handler:       _RefService_GetTagMessages_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "ListNewCommits",
-			Handler:       _RefService_ListNewCommits_Handler,
 			ServerStreams: true,
 		},
 		{
