@@ -175,10 +175,13 @@ func (s *server) processBlobs(
 			}
 
 			// Discard trailing blob data in case the blob is bigger than the read
-			// limit.
-			_, err = io.Copy(io.Discard, blob)
-			if err != nil {
-				return helper.ErrInternal(fmt.Errorf("discarding blob data: %w", err))
+			// limit. We only do so in case we haven't yet seen `io.EOF`: if we did,
+			// then the object may be closed already.
+			if !errors.Is(err, io.EOF) {
+				_, err = io.Copy(io.Discard, blob)
+				if err != nil {
+					return helper.ErrInternal(fmt.Errorf("discarding blob data: %w", err))
+				}
 			}
 
 			// If we still didn't send any header, then it probably means that the blob
