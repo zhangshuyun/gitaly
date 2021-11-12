@@ -89,7 +89,11 @@ func getNodeAddress(cfg config.Config) (string, error) {
 }
 
 func openDB(conf config.DB) (*sql.DB, func(), error) {
-	db, err := glsql.OpenDB(conf)
+	ctx := context.Background()
+
+	openDBCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	db, err := glsql.OpenDB(openDBCtx, conf)
 	if err != nil {
 		return nil, nil, fmt.Errorf("sql open: %v", err)
 	}

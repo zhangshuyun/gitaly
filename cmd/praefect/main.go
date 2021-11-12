@@ -208,19 +208,20 @@ func run(cfgs []starter.Config, conf config.Config, b bootstrap.Listener, promre
 		return err
 	}
 
-	var db *sql.DB
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
+	var db *sql.DB
 	if conf.NeedsSQL() {
-		dbConn, closedb, err := initDatabase(logger, conf)
+		logger.Infof("establishing database connection to %s:%d ...", conf.DB.Host, conf.DB.Port)
+		dbConn, closedb, err := initDatabase(ctx, logger, conf)
 		if err != nil {
 			return err
 		}
 		defer closedb()
 		db = dbConn
+		logger.Info("database connection established")
 	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	var queue datastore.ReplicationEventQueue
 	var rs datastore.RepositoryStore
@@ -430,6 +431,9 @@ func run(cfgs []starter.Config, conf config.Config, b bootstrap.Listener, promre
 	if err := b.Start(); err != nil {
 		return fmt.Errorf("unable to start the bootstrap: %v", err)
 	}
+	for _, cfg := range cfgs {
+		logger.WithFields(logrus.Fields{"schema": cfg.Name, "address": cfg.Addr}).Info("listening")
+	}
 
 	go repl.ProcessBacklog(ctx, praefect.ExpBackoffFactory{Start: time.Second, Max: 5 * time.Second})
 	logger.Info("background started: processing of the replication events")
@@ -510,8 +514,6 @@ func getStarterConfigs(conf config.Config) ([]starter.Config, error) {
 		unique[addrConf.Addr] = struct{}{}
 
 		cfgs = append(cfgs, addrConf)
-
-		logger.WithFields(logrus.Fields{"schema": schema, "address": addr}).Info("listening")
 	}
 
 	if len(cfgs) == 0 {
@@ -521,8 +523,10 @@ func getStarterConfigs(conf config.Config) ([]starter.Config, error) {
 	return cfgs, nil
 }
 
-func initDatabase(logger *logrus.Entry, conf config.Config) (*sql.DB, func(), error) {
-	db, err := glsql.OpenDB(conf.DB)
+func initDatabase(ctx context.Context, logger *logrus.Entry, conf config.Config) (*sql.DB, func(), error) {
+	openDBCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	db, err := glsql.OpenDB(openDBCtx, conf.DB)
 	if err != nil {
 		logger.WithError(err).Error("SQL connection open failed")
 		return nil, nil, err

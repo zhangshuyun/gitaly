@@ -72,7 +72,9 @@ func (cmd listUntrackedRepositories) Exec(flags *flag.FlagSet, cfg config.Config
 	logger.Debug("connected to gitaly nodes")
 
 	logger.Debug("connecting to praefect database...")
-	db, err := glsql.OpenDB(cfg.DB)
+	openDBCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	db, err := glsql.OpenDB(openDBCtx, cfg.DB)
 	if err != nil {
 		return fmt.Errorf("connect to database: %w", err)
 	}
