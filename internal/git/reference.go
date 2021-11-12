@@ -3,6 +3,7 @@ package git
 import (
 	"bytes"
 	"context"
+	"errors"
 	"strings"
 )
 
@@ -119,4 +120,51 @@ func CheckRefFormat(ctx context.Context, gitCmdFactory CommandFactory, refName s
 	}
 
 	return true, nil
+}
+
+// GuessHead tries to guess what branch HEAD would be pointing at given a list
+// of references. The references are assumed to be ordered by name.
+//
+// This function should match the corresponding function in git:
+// https://github.com/git/git/blob/2a97289ad8b103625d3a1a12f66c27f50df822ce/remote.c#L2198
+func GuessHead(refs []Reference) (ReferenceName, error) {
+	head := findRefByName(refs, "HEAD")
+	if head == nil {
+		return "", errors.New("missing HEAD ref")
+	}
+	if head.IsSymbolic {
+		return ReferenceName(head.Target), nil
+	}
+
+	main := findRefByName(refs, ReferenceName(DefaultRef))
+	if main != nil && head.Target == main.Target {
+		return main.Name, nil
+	}
+
+	master := findRefByName(refs, ReferenceName(LegacyDefaultRef))
+	if master != nil && head.Target == master.Target {
+		return master.Name, nil
+	}
+
+	for i := range refs {
+		if _, ok := refs[i].Name.Branch(); !ok {
+			continue
+		}
+		if refs[i].Target == head.Target {
+			return refs[i].Name, nil
+		}
+	}
+
+	return "", errors.New("no matching ref")
+}
+
+// findRefByName filters through refs and returns the first ref where name
+// matches exactly. nil is returned when no match is found.
+func findRefByName(refs []Reference, name ReferenceName) *Reference {
+	for i := range refs {
+		if refs[i].Name == name {
+			return &refs[i]
+		}
+	}
+	return nil
 }

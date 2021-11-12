@@ -131,3 +131,76 @@ func TestReferenceName_Branch(t *testing.T) {
 		})
 	}
 }
+
+func TestGuessHead(t *testing.T) {
+	for _, tc := range []struct {
+		desc         string
+		refs         []git.Reference
+		expectedErr  string
+		expectedHead git.ReferenceName
+	}{
+		{
+			desc:        "no refs",
+			expectedErr: "missing HEAD ref",
+		},
+		{
+			desc: "symbolic HEAD in refs",
+			refs: []git.Reference{
+				git.NewSymbolicReference("HEAD", "refs/heads/banana"),
+				git.NewReference("refs/heads/master", "5da601ef10e314884bbade9d5b063be37579ccf9"),
+			},
+			expectedHead: "refs/heads/banana",
+		},
+		{
+			desc: "matching default branch",
+			refs: []git.Reference{
+				git.NewReference("HEAD", "5da601ef10e314884bbade9d5b063be37579ccf9"),
+				git.NewReference("refs/heads/apple", "5da601ef10e314884bbade9d5b063be37579ccf9"),
+				git.NewReference("refs/heads/banana", "5da601ef10e314884bbade9d5b063be37579ccf9"),
+				git.NewReference("refs/heads/main", "5da601ef10e314884bbade9d5b063be37579ccf9"),
+			},
+			expectedHead: "refs/heads/main",
+		},
+		{
+			desc: "matching legacy default branch",
+			refs: []git.Reference{
+				git.NewReference("HEAD", "5da601ef10e314884bbade9d5b063be37579ccf9"),
+				git.NewReference("refs/heads/apple", "5da601ef10e314884bbade9d5b063be37579ccf9"),
+				git.NewReference("refs/heads/banana", "5da601ef10e314884bbade9d5b063be37579ccf9"),
+				git.NewReference("refs/heads/master", "5da601ef10e314884bbade9d5b063be37579ccf9"),
+			},
+			expectedHead: "refs/heads/master",
+		},
+		{
+			desc: "other matches",
+			refs: []git.Reference{
+				git.NewReference("HEAD", "5da601ef10e314884bbade9d5b063be37579ccf9"),
+				git.NewReference("refs/heads/apple", "5da601ef10e314884bbade9d5b063be37579ccf9"),
+				git.NewReference("refs/heads/banana", "5da601ef10e314884bbade9d5b063be37579ccf9"),
+				git.NewReference("refs/heads/carrot", "5da601ef10e314884bbade9d5b063be37579ccf9"),
+				git.NewReference("refs/heads/main", "5da601ef10e314884bbade9d5b063be37579ccf0"),
+			},
+			expectedHead: "refs/heads/apple",
+		},
+		{
+			desc: "no matches",
+			refs: []git.Reference{
+				git.NewReference("HEAD", "5da601ef10e314884bbade9d5b063be37579ccf9"),
+				git.NewReference("refs/heads/apple", "5da601ef10e314884bbade9d5b063be37579ccf0"),
+				git.NewReference("refs/heads/banana", "5da601ef10e314884bbade9d5b063be37579ccf0"),
+				git.NewReference("refs/heads/carrot", "5da601ef10e314884bbade9d5b063be37579ccf0"),
+			},
+			expectedErr: "no matching ref",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			head, err := git.GuessHead(tc.refs)
+			if tc.expectedErr == "" {
+				require.NoError(t, err)
+			} else {
+				require.EqualError(t, err, tc.expectedErr)
+			}
+			require.Equal(t, tc.expectedHead, head)
+		})
+	}
+}
