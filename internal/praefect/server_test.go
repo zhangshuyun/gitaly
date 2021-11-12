@@ -506,13 +506,23 @@ func TestWarnDuplicateAddrs(t *testing.T) {
 
 func TestRemoveRepository(t *testing.T) {
 	t.Parallel()
+
+	const (
+		virtualStorage = "praefect"
+		relativePath   = "test-repository"
+	)
+
 	gitalyCfgs := make([]gconfig.Cfg, 3)
 	repos := make([][]*gitalypb.Repository, 3)
-	praefectCfg := config.Config{VirtualStorages: []*config.VirtualStorage{{Name: "praefect"}}}
+	praefectCfg := config.Config{
+		VirtualStorages: []*config.VirtualStorage{{Name: virtualStorage}},
+		Failover:        config.Failover{ElectionStrategy: config.ElectionStrategyPerRepository},
+	}
 
-	for i, name := range []string{"gitaly-1", "gitaly-2", "gitaly-3"} {
+	storages := []string{"gitaly-1", "gitaly-2", "gitaly-3"}
+	for i, name := range storages {
 		cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages(name))
-		gitalyCfgs[i], repos[i] = cfgBuilder.BuildWithRepoAt(t, "test-repository")
+		gitalyCfgs[i], repos[i] = cfgBuilder.BuildWithRepoAt(t, relativePath)
 
 		gitalyAddr := testserver.RunGitalyServer(t, gitalyCfgs[i], nil, setup.RegisterAll, testserver.WithDisablePraefect())
 		gitalyCfgs[i].SocketPath = gitalyAddr
@@ -524,7 +534,16 @@ func TestRemoveRepository(t *testing.T) {
 		})
 	}
 
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	db := glsql.NewDB(t)
+	rs := datastore.NewPostgresRepositoryStore(db, praefectCfg.StorageNames())
+
+	require.NoError(t, rs.CreateRepository(ctx, 1, virtualStorage, relativePath, relativePath, storages[0], storages[1:], nil, true, false))
+
 	verifyReposExistence := func(t *testing.T, code codes.Code) {
+		t.Helper()
 		for i, gitalyCfg := range gitalyCfgs {
 			locator := gconfig.NewLocator(gitalyCfg)
 			_, err := locator.GetRepoPath(repos[i][0])
@@ -536,32 +555,24 @@ func TestRemoveRepository(t *testing.T) {
 
 	verifyReposExistence(t, codes.OK)
 
-	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t)))
-	repoStore := defaultRepoStore(praefectCfg)
-	txMgr := defaultTxMgr(praefectCfg)
-	nodeMgr, err := nodes.NewManager(testhelper.DiscardTestEntry(t), praefectCfg, nil,
-		repoStore, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered,
-		nil, backchannel.NewClientHandshaker(
-			testhelper.DiscardTestEntry(t),
-			NewBackchannelServerFactory(testhelper.DiscardTestEntry(t), transaction.NewServer(txMgr), nil),
-		), nil,
-	)
+	nodeSet, err := DialNodes(ctx, praefectCfg.VirtualStorages, protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
-	nodeMgr.Start(0, time.Hour)
-	defer nodeMgr.Stop()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	defer nodeSet.Close()
+	conns := nodeSet.Connections()
 
 	cc, _, cleanup := runPraefectServer(t, ctx, praefectCfg, buildOptions{
-		withQueue: queueInterceptor,
-		withRepoStore: datastore.MockRepositoryStore{
-			GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
-				return relativePath, nil, nil
-			},
-		},
-		withNodeMgr: nodeMgr,
-		withTxMgr:   txMgr,
+		withConnections: conns,
+		withRepoStore:   rs,
+		withRouter: NewPerRepositoryRouter(
+			conns,
+			nodes.NewPerRepositoryElector(db),
+			StaticHealthChecker(praefectCfg.StorageNames()),
+			NewLockedRandom(rand.New(rand.NewSource(0))),
+			rs,
+			datastore.NewAssignmentStore(db, praefectCfg.StorageNames()),
+			rs,
+			praefectCfg.DefaultReplicationFactors(),
+		),
 	})
 	defer cleanup()
 
@@ -572,16 +583,6 @@ func TestRemoveRepository(t *testing.T) {
 		Repository: virtualRepo,
 	})
 	require.NoError(t, err)
-
-	require.NoError(t, queueInterceptor.Wait(time.Minute, func(i *datastore.ReplicationEventQueueInterceptor) bool {
-		var compl int
-		for _, ack := range i.GetAcknowledge() {
-			if ack.State == datastore.JobStateCompleted {
-				compl++
-			}
-		}
-		return compl == 2
-	}))
 
 	verifyReposExistence(t, codes.NotFound)
 }
