@@ -68,7 +68,7 @@ func TestConcurrentCheckWithPrimary(t *testing.T) {
 		<-start
 
 		for i := 0; i < iterations; i++ {
-			strategy.checkNodes(ctx)
+			require.NoError(t, strategy.checkNodes(ctx))
 		}
 	}()
 

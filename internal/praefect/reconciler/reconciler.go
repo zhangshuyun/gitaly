@@ -50,10 +50,12 @@ func NewReconciler(log logrus.FieldLogger, db glsql.Querier, hc praefect.HealthC
 	return r
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (r *Reconciler) Describe(ch chan<- *prometheus.Desc) {
 	prometheus.DescribeByCollect(r, ch)
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (r *Reconciler) Collect(ch chan<- prometheus.Metric) {
 	r.reconciliationSchedulingDuration.Collect(ch)
 }

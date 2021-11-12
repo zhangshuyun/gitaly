@@ -12,6 +12,7 @@ type Node struct {
 	Token   string `toml:"token"`
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (n Node) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"storage": n.Storage,

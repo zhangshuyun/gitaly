@@ -37,7 +37,10 @@ func fatalf(format string, args ...interface{}) {
 
 func main() {
 	flags := flag.NewFlagSet(git2go.BinaryName, flag.ExitOnError)
-	flags.Parse(os.Args)
+
+	if err := flags.Parse(os.Args); err != nil {
+		fatalf("parsing flags: %s", err)
+	}
 
 	if flags.NArg() < 2 {
 		fatalf("missing subcommand")
@@ -49,7 +52,9 @@ func main() {
 	}
 
 	subcmdFlags := subcmd.Flags()
-	subcmdFlags.Parse(flags.Args()[2:])
+	if err := subcmdFlags.Parse(flags.Args()[2:]); err != nil {
+		fatalf("parsing flags of %q: %s", subcmdFlags.Name(), err)
+	}
 
 	if subcmdFlags.NArg() != 0 {
 		fatalf("%s: trailing arguments", subcmdFlags.Name())

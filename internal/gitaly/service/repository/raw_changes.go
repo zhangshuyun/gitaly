@@ -6,7 +6,6 @@ import (
 	"io"
 	"regexp"
 	"strconv"
-	"unicode/utf8"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
@@ -165,9 +164,6 @@ func changeFromDiff(ctx context.Context, objectInfoReader catfile.ObjectInfoRead
 	return resp, nil
 }
 
-// InvalidUTF8PathPlaceholder is a temporary placeholder that indicates the
-const InvalidUTF8PathPlaceholder = "ENCODING ERROR gitaly#1470"
-
 func setOperationAndPaths(d *rawdiff.Diff, resp *gitalypb.GetRawChangesResponse_RawChange) error {
 	if len(d.Status) == 0 {
 		return fmt.Errorf("empty diff status")
@@ -195,16 +191,6 @@ func setOperationAndPaths(d *rawdiff.Diff, resp *gitalypb.GetRawChangesResponse_
 		resp.Operation = gitalypb.GetRawChangesResponse_RawChange_TYPE_CHANGED
 	default:
 		resp.Operation = gitalypb.GetRawChangesResponse_RawChange_UNKNOWN
-	}
-
-	resp.OldPath = string(resp.OldPathBytes)
-	resp.NewPath = string(resp.NewPathBytes)
-
-	if !utf8.ValidString(resp.OldPath) {
-		resp.OldPath = InvalidUTF8PathPlaceholder
-	}
-	if !utf8.ValidString(resp.NewPath) {
-		resp.NewPath = InvalidUTF8PathPlaceholder
 	}
 
 	return nil

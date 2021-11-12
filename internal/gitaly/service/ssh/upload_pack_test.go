@@ -243,7 +243,7 @@ func testUploadPackCloneSuccess(t *testing.T, opts ...testcfg.Option) {
 			cmd: git.SubCmd{
 				Name: "clone",
 				Flags: []git.Option{
-					git.ValueFlag{"--depth", "1"},
+					git.ValueFlag{Name: "--depth", Value: "1"},
 				},
 				Args: []string{"git@localhost:test/test.git", localRepoPath},
 			},

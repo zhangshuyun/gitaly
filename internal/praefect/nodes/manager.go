@@ -33,6 +33,7 @@ type Shard struct {
 	Secondaries []Node
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (s Shard) GetNode(storage string) (Node, error) {
 	if storage == s.Primary.GetStorage() {
 		return s.Primary, nil
@@ -256,6 +257,7 @@ func (n *Mgr) GetPrimary(ctx context.Context, virtualStorage string, _ int64) (s
 	return shard.Primary.GetStorage(), nil
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (n *Mgr) GetSyncedNode(ctx context.Context, virtualStorageName, repoPath string) (Node, error) {
 	_, upToDateStorages, err := n.csg.GetConsistentStorages(ctx, virtualStorageName, repoPath)
 	if err != nil && !errors.As(err, new(commonerr.RepositoryNotFoundError)) {
@@ -292,6 +294,7 @@ func (n *Mgr) GetSyncedNode(ctx context.Context, virtualStorageName, repoPath st
 	return healthyStorages[rand.Intn(len(healthyStorages))], nil
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (n *Mgr) HealthyNodes() map[string][]string {
 	healthy := make(map[string][]string, len(n.nodes))
 	for vs, nodes := range n.nodes {
@@ -308,6 +311,7 @@ func (n *Mgr) HealthyNodes() map[string][]string {
 	return healthy
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (n *Mgr) Nodes() map[string][]Node { return n.nodes }
 
 func newConnectionStatus(node config.Node, cc *grpc.ClientConn, l logrus.FieldLogger, latencyHist prommetrics.HistogramVec, errorTracker tracker.ErrorTracker) *nodeStatus {

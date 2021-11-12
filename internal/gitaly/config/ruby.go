@@ -20,6 +20,7 @@ type Ruby struct {
 // Duration is a trick to let our TOML library parse durations from strings.
 type Duration time.Duration
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (d *Duration) Duration() time.Duration {
 	if d != nil {
 		return time.Duration(*d)
@@ -27,6 +28,7 @@ func (d *Duration) Duration() time.Duration {
 	return 0
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (d *Duration) UnmarshalText(text []byte) error {
 	td, err := time.ParseDuration(string(text))
 	if err == nil {
@@ -35,6 +37,7 @@ func (d *Duration) UnmarshalText(text []byte) error {
 	return err
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (d Duration) MarshalText() ([]byte, error) {
 	return []byte(time.Duration(d).String()), nil
 }

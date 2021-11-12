@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPickRequest) (*gitalypb.UserCherryPickResponse, error) {
 	if err := validateCherryPickOrRevertRequest(req); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "UserCherryPick: %v", err)

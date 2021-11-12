@@ -27,6 +27,7 @@ func newV1Manager(cfg cgroupscfg.Config) *CGroupV1Manager {
 	}
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (cg *CGroupV1Manager) Setup() error {
 	resources := &specs.LinuxResources{}
 
@@ -52,6 +53,7 @@ func (cg *CGroupV1Manager) Setup() error {
 	return nil
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (cg *CGroupV1Manager) AddCommand(cmd *command.Command) error {
 	checksum := crc32.ChecksumIEEE([]byte(strings.Join(cmd.Args(), "")))
 	groupID := uint(checksum) % cg.cfg.Count
@@ -74,6 +76,7 @@ func (cg *CGroupV1Manager) AddCommand(cmd *command.Command) error {
 	return nil
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (cg *CGroupV1Manager) Cleanup() error {
 	processCgroupPath := cg.currentProcessCgroup()
 

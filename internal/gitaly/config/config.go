@@ -93,6 +93,7 @@ type Hooks struct {
 	CustomHooksDir string `toml:"custom_hooks_dir" json:"custom_hooks_dir"`
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 type HTTPSettings struct {
 	ReadTimeout int    `toml:"read_timeout" json:"read_timeout"`
 	User        string `toml:"user" json:"user"`
@@ -355,6 +356,7 @@ func (cfg *Cfg) validateStorages() error {
 	return nil
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func SkipHooks() bool {
 	enabled, _ := env.GetBool("GITALY_TESTING_NO_GIT_HOOKS", false)
 	return enabled

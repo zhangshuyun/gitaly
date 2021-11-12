@@ -148,6 +148,7 @@ func (pgl *PostgresListener) connect() error {
 	return <-listenErrChan
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (pgl *PostgresListener) Close() error {
 	defer func() {
 		close(pgl.closed)
@@ -225,10 +226,12 @@ func (pgl *PostgresListener) async(f func()) {
 	}()
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (pgl *PostgresListener) Describe(descs chan<- *promclient.Desc) {
 	promclient.DescribeByCollect(pgl, descs)
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (pgl *PostgresListener) Collect(metrics chan<- promclient.Metric) {
 	pgl.reconnectTotal.Collect(metrics)
 }

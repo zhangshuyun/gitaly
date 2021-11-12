@@ -19,6 +19,7 @@ const (
 	ambiguousArgumentFmt  = "fatal: ambiguous argument '%s...%s': unknown revision or path not in the working tree.\nUse '--' to separate paths from revisions, like this:\n'git <command> [<revision>...] -- [<file>...]'\n"
 )
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (s *Server) UserSquash(ctx context.Context, req *gitalypb.UserSquashRequest) (*gitalypb.UserSquashResponse, error) {
 	if err := validateUserSquashRequest(req); err != nil {
 		return nil, helper.ErrInvalidArgumentf("UserSquash: %v", err)

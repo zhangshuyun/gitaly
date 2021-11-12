@@ -10,6 +10,7 @@ type server struct {
 	storages []config.Storage
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func NewServer(storages []config.Storage) gitalypb.InternalGitalyServer {
 	return &server{storages: storages}
 }

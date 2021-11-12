@@ -22,6 +22,7 @@ import (
 
 var errNoDefaultBranch = errors.New("no default branch")
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (s *Server) UserApplyPatch(stream gitalypb.OperationService_UserApplyPatchServer) error {
 	firstRequest, err := stream.Recv()
 	if err != nil {

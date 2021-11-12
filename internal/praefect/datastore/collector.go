@@ -46,10 +46,12 @@ func NewRepositoryStoreCollector(log logrus.FieldLogger, virtualStorages []strin
 	}
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (c *RepositoryStoreCollector) Describe(ch chan<- *prometheus.Desc) {
 	prometheus.DescribeByCollect(c, ch)
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (c *RepositoryStoreCollector) Collect(ch chan<- prometheus.Metric) {
 	ctx, cancel := context.WithTimeout(context.TODO(), c.timeout)
 	defer cancel()

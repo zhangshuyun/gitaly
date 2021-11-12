@@ -51,7 +51,7 @@ func TestRedirectingServerRedirects(t *testing.T) {
 	cmd, err := git.NewExecCommandFactory(cfg).NewWithoutRepo(ctx, git.SubCmd{
 		Name: "clone",
 		Flags: []git.Option{
-			git.Flag{"--bare"},
+			git.Flag{Name: "--bare"},
 		},
 		Args: []string{
 			redirectingServer.URL, dir,

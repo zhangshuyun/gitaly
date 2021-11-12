@@ -20,8 +20,8 @@ func (s *sqlMigrateDownSubcommand) FlagSet() *flag.FlagSet {
 	flags := flag.NewFlagSet(sqlMigrateDownCmdName, flag.ExitOnError)
 	flags.Usage = func() {
 		flag.PrintDefaults()
-		_, _ = printfErr("  MAX_MIGRATIONS\n")
-		_, _ = printfErr("\tNumber of migrations to roll back\n")
+		printfErr("  MAX_MIGRATIONS\n")
+		printfErr("\tNumber of migrations to roll back\n")
 	}
 	flags.BoolVar(&s.force, "f", false, "apply down-migrations (default is dry run)")
 	return flags

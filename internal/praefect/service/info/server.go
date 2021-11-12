@@ -60,6 +60,7 @@ func NewServer(
 	}
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (s *Server) SetAuthoritativeStorage(ctx context.Context, req *gitalypb.SetAuthoritativeStorageRequest) (*gitalypb.SetAuthoritativeStorageResponse, error) {
 	storages := s.conf.StorageNames()[req.VirtualStorage]
 	if storages == nil {

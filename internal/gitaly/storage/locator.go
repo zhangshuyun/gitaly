@@ -41,6 +41,7 @@ type Locator interface {
 	StateDir(storageName string) (string, error)
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 var ErrRelativePathEscapesRoot = errors.New("relative path escapes root directory")
 
 // ValidateRelativePath validates a relative path by joining it with rootDir and verifying the result
@@ -76,7 +77,7 @@ func IsGitDirectory(dir string) bool {
 	// git gc runs for a long time while keeping open the packed-refs file.
 	// Running stat() on the file causes the kernel to revalidate the cached
 	// directory entry. We don't actually care if this file exists.
-	os.Stat(filepath.Join(dir, "packed-refs"))
+	_, _ = os.Stat(filepath.Join(dir, "packed-refs"))
 
 	return true
 }

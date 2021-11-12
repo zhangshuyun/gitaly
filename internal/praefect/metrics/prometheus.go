@@ -54,6 +54,7 @@ func RegisterNodeLatency(conf gitalycfgprom.Config, registerer prometheus.Regist
 	return nodeLatency, registerer.Register(nodeLatency)
 }
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 var MethodTypeCounter = promauto.NewCounterVec(
 	prometheus.CounterOpts{
 		Namespace: "gitaly",
@@ -62,6 +63,7 @@ var MethodTypeCounter = promauto.NewCounterVec(
 	}, []string{"method_type"},
 )
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 var PrimaryGauge = promauto.NewGaugeVec(
 	prometheus.GaugeOpts{
 		Namespace: "gitaly",
@@ -70,6 +72,7 @@ var PrimaryGauge = promauto.NewGaugeVec(
 	}, []string{"virtual_storage", "gitaly_storage"},
 )
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 var NodeLastHealthcheckGauge = promauto.NewGaugeVec(
 	prometheus.GaugeOpts{
 		Namespace: "gitaly",

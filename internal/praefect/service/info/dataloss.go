@@ -6,6 +6,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (s *Server) DatalossCheck(ctx context.Context, req *gitalypb.DatalossCheckRequest) (*gitalypb.DatalossCheckResponse, error) {
 	repos, err := s.rs.GetPartiallyAvailableRepositories(ctx, req.GetVirtualStorage())
 	if err != nil {

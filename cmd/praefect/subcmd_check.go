@@ -31,7 +31,7 @@ func newCheckSubcommand(writer io.Writer, checkFuncs ...praefect.CheckFunc) *che
 func (cmd *checkSubcommand) FlagSet() *flag.FlagSet {
 	fs := flag.NewFlagSet(checkCmdName, flag.ExitOnError)
 	fs.Usage = func() {
-		_, _ = printfErr("Description:\n" +
+		printfErr("Description:\n" +
 			"	This command runs startup checks for Praefect.")
 		fs.PrintDefaults()
 	}

@@ -54,17 +54,17 @@ func (s *server) GetSnapshot(in *gitalypb.GetSnapshotRequest, stream gitalypb.Re
 	//   * worktrees/* - not replicated by git fetch
 
 	// References
-	builder.FileIfExist("HEAD")
-	builder.FileIfExist("packed-refs")
-	builder.RecursiveDirIfExist("refs")
-	builder.RecursiveDirIfExist("branches")
+	_ = builder.FileIfExist("HEAD")
+	_ = builder.FileIfExist("packed-refs")
+	_ = builder.RecursiveDirIfExist("refs")
+	_ = builder.RecursiveDirIfExist("branches")
 
 	// The packfiles + any loose objects.
-	builder.RecursiveDirIfExist("objects", objectFiles...)
+	_ = builder.RecursiveDirIfExist("objects", objectFiles...)
 
 	// In case this repository is a shallow clone. Seems unlikely, but better
 	// safe than sorry.
-	builder.FileIfExist("shallow")
+	_ = builder.FileIfExist("shallow")
 
 	if err := s.addAlternateFiles(stream.Context(), in.GetRepository(), builder); err != nil {
 		return helper.ErrInternalf("add alternates: %w", err)
