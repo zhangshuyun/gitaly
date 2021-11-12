@@ -75,7 +75,6 @@ var transactionRPCs = map[string]transactionsCondition{
 	"/gitaly.RepositoryService/FetchBundle":                  transactionsEnabled,
 	"/gitaly.RepositoryService/FetchRemote":                  transactionsEnabled,
 	"/gitaly.RepositoryService/FetchSourceBranch":            transactionsEnabled,
-	"/gitaly.RepositoryService/RemoveRepository":             transactionsEnabled,
 	"/gitaly.RepositoryService/ReplicateRepository":          transactionsEnabled,
 	"/gitaly.RepositoryService/SetFullPath":                  transactionsEnabled,
 	"/gitaly.RepositoryService/WriteRef":                     transactionsEnabled,
@@ -165,8 +164,6 @@ func shouldUseTransaction(ctx context.Context, method string) bool {
 // getReplicationDetails determines the type of job and additional details based on the method name and incoming message
 func getReplicationDetails(methodName string, m proto.Message) (datastore.ChangeType, datastore.Params, error) {
 	switch methodName {
-	case "/gitaly.RepositoryService/RemoveRepository":
-		return datastore.DeleteRepo, nil, nil
 	case "/gitaly.RepositoryService/CreateFork",
 		"/gitaly.RepositoryService/CreateRepository",
 		"/gitaly.RepositoryService/CreateRepositoryFromBundle",

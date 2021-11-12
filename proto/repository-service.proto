@@ -218,9 +218,7 @@ service RepositoryService {
   // eventually remove it. This ensures that even on networked filesystems the
   // data is actually removed even if there's someone still handling the data.
   rpc RemoveRepository(RemoveRepositoryRequest) returns (RemoveRepositoryResponse) {
-    option (op_type) = {
-      op: MUTATOR
-    };
+    option (intercepted_method) = true;
   }
   rpc RenameRepository(RenameRepositoryRequest) returns (RenameRepositoryResponse) {
     option (op_type) = {
