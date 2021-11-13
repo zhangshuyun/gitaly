@@ -23,6 +23,8 @@ type subcmd interface {
 	Exec(flags *flag.FlagSet, config config.Config) error
 }
 
+const defaultDialTimeout = 30 * time.Second
+
 var (
 	subcommands = map[string]subcmd{
 		"sql-ping":               &sqlPingSubcommand{},
@@ -33,6 +35,7 @@ var (
 		"dataloss":               newDatalossSubcommand(),
 		"accept-dataloss":        &acceptDatalossSubcommand{},
 		"set-replication-factor": newSetReplicatioFactorSubcommand(os.Stdout),
+		removeRepositoryCmdName:  newRemoveRepository(logger),
 	}
 )
 
@@ -73,6 +76,8 @@ func getNodeAddress(cfg config.Config) (string, error) {
 		return "unix:" + cfg.SocketPath, nil
 	case cfg.ListenAddr != "":
 		return "tcp://" + cfg.ListenAddr, nil
+	case cfg.TLSListenAddr != "":
+		return "tls://" + cfg.TLSListenAddr, nil
 	default:
 		return "", errors.New("no Praefect address configured")
 	}
@@ -148,8 +153,8 @@ func printfErr(format string, a ...interface{}) (int, error) {
 	return fmt.Fprintf(os.Stderr, format, a...)
 }
 
-func subCmdDial(addr, token string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
-	ctx, cancel := context.WithTimeout(context.TODO(), 30*time.Second)
+func subCmdDial(ctx context.Context, addr, token string, timeout time.Duration, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	opts = append(opts,

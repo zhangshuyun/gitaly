@@ -8,6 +8,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/service/info"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
@@ -79,7 +80,7 @@ func TestSetReplicationFactorSubcommand(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			db := getDB(t)
+			db := glsql.GetDB(t)
 
 			store := tc.store
 			if tc.store == nil {
