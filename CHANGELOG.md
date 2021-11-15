@@ -307,6 +307,14 @@ No changes.
 
 - [Remove `praefect reconcile` subcommand](gitlab-org/gitaly@0c48ca9e3f368f03d0d78de0a31540d2fe248242) ([merge request](gitlab-org/gitaly!3667))
 
+## 14.1.8 (2021-11-15)
+
+### Added (3 changes)
+
+- [Add track-repository praefect subcommand](gitlab-org/gitaly@e115980eaedc7310c36400fd3c39bc03c106b3fb) ([merge request](gitlab-org/gitaly!4061))
+- [list-untracked-repositories: Praefect sub-command to show untracked repositories](gitlab-org/gitaly@d52372a8fb6d3958731671fbb59f638f2a1f67b0) ([merge request](gitlab-org/gitaly!4061))
+- [remove-repository: A new sub-command for the praefect to remove repository](gitlab-org/gitaly@a7ed714d007359f503ff87e17b49f5e5746fb86f) ([merge request](gitlab-org/gitaly!4061))
+
 ## 14.1.7 (2021-09-30)
 
 No changes.
