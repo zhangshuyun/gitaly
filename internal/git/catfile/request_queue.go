@@ -11,13 +11,23 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 )
 
+const (
+	// flushCommand is the command we send to git-cat-file(1) to cause it to flush its stdout.
+	// Note that this is a hack: git-cat-file(1) doesn't really support flushing, but it will
+	// flush whenever it encounters an object it doesn't know. The flush command we use is thus
+	// chosen such that it cannot ever refer to a valid object: refs may not contain whitespace,
+	// so this command cannot refer to a ref. Adding "FLUSH" is just for the sake of making it
+	// easier to spot what's going on in case we ever mistakenly see this output in the wild.
+	flushCommand = "\tFLUSH\t"
+)
+
 type requestQueue struct {
 	// isObjectQueue is set to `true` when this is a request queue which can be used for reading
 	// objects. If set to `false`, then this can only be used to read object info.
 	isObjectQueue bool
 
 	stdout *bufio.Reader
-	stdin  io.Writer
+	stdin  *bufio.Writer
 
 	// outstandingRequests is the number of requests which have been queued up. Gets incremented
 	// on request, and decremented when starting to read an object (not when that object has
@@ -76,9 +86,34 @@ func (q *requestQueue) RequestRevision(revision git.Revision) error {
 
 	atomic.AddInt64(&q.outstandingRequests, 1)
 
-	if _, err := fmt.Fprintln(q.stdin, revision.String()); err != nil {
+	if _, err := q.stdin.WriteString(revision.String()); err != nil {
 		atomic.AddInt64(&q.outstandingRequests, -1)
-		return fmt.Errorf("requesting revision: %w", err)
+		return fmt.Errorf("writing object request: %w", err)
+	}
+
+	if err := q.stdin.WriteByte('\n'); err != nil {
+		atomic.AddInt64(&q.outstandingRequests, -1)
+		return fmt.Errorf("terminating object request: %w", err)
+	}
+
+	return nil
+}
+
+func (q *requestQueue) Flush() error {
+	if q.isClosed() {
+		return fmt.Errorf("cannot flush: %w", os.ErrClosed)
+	}
+
+	if _, err := q.stdin.WriteString(flushCommand); err != nil {
+		return fmt.Errorf("writing flush command: %w", err)
+	}
+
+	if err := q.stdin.WriteByte('\n'); err != nil {
+		return fmt.Errorf("terminating flush command: %w", err)
+	}
+
+	if err := q.stdin.Flush(); err != nil {
+		return fmt.Errorf("flushing: %w", err)
 	}
 
 	return nil

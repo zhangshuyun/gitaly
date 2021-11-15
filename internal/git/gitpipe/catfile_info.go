@@ -67,10 +67,11 @@ func CatfileInfo(
 	}
 	defer cleanup()
 
-	requestChan := make(chan catfileInfoRequest)
+	requestChan := make(chan catfileInfoRequest, 32)
 	go func() {
 		defer close(requestChan)
 
+		var i int64
 		for it.Next() {
 			if err := queue.RequestRevision(it.ObjectID().Revision()); err != nil {
 				select {
@@ -88,9 +89,28 @@ func CatfileInfo(
 			case <-ctx.Done():
 				return
 			}
+
+			i++
+			if i%int64(cap(requestChan)) == 0 {
+				if err := queue.Flush(); err != nil {
+					select {
+					case requestChan <- catfileInfoRequest{err: err}:
+					case <-ctx.Done():
+						return
+					}
+				}
+			}
 		}
 
 		if err := it.Err(); err != nil {
+			select {
+			case requestChan <- catfileInfoRequest{err: err}:
+			case <-ctx.Done():
+				return
+			}
+		}
+
+		if err := queue.Flush(); err != nil {
 			select {
 			case requestChan <- catfileInfoRequest{err: err}:
 			case <-ctx.Done():

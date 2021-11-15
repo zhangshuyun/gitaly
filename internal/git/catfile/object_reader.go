@@ -32,12 +32,16 @@ type ObjectReader interface {
 // ObjectQueue allows for requesting and reading objects independently of each other. The number of
 // RequestObject and ReadObject calls must match. ReadObject must be executed after the object has
 // been requested already. The order of objects returned by ReadObject is the same as the order in
-// which objects have been requested.
+// which objects have been requested. Users of this interface must call `Flush()` after all requests
+// have been queued up such that all requested objects will be readable.
 type ObjectQueue interface {
 	// RequestRevision requests the given revision from git-cat-file(1).
 	RequestRevision(git.Revision) error
 	// ReadObject reads an object which has previously been requested.
 	ReadObject() (*Object, error)
+	// Flush flushes all queued requests and asks git-cat-file(1) to print all objects which
+	// have been requested up to this point.
+	Flush() error
 }
 
 // objectReader is a reader for Git objects. Reading is implemented via a long-lived `git cat-file
@@ -64,6 +68,7 @@ func newObjectReader(
 			Name: "cat-file",
 			Flags: []git.Option{
 				git.Flag{Name: "--batch"},
+				git.Flag{Name: "--buffer"},
 			},
 		},
 		git.WithStdin(command.SetupStdin),
@@ -78,7 +83,7 @@ func newObjectReader(
 		queue: requestQueue{
 			isObjectQueue: true,
 			stdout:        bufio.NewReader(batchCmd),
-			stdin:         batchCmd,
+			stdin:         bufio.NewWriter(batchCmd),
 		},
 	}
 	go func() {
@@ -125,6 +130,10 @@ func (o *objectReader) Object(ctx context.Context, revision git.Revision) (*Obje
 	defer finish()
 
 	if err := queue.RequestRevision(revision); err != nil {
+		return nil, err
+	}
+
+	if err := queue.Flush(); err != nil {
 		return nil, err
 	}
 

@@ -198,6 +198,7 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		defer cleanup()
 
 		require.NoError(t, queue.RequestRevision(blobOID.Revision()))
+		require.NoError(t, queue.Flush())
 
 		info, err := queue.ReadInfo()
 		require.NoError(t, err)
@@ -217,6 +218,7 @@ func TestObjectInfoReader_queue(t *testing.T) {
 			commitOID: commitInfo,
 		} {
 			require.NoError(t, queue.RequestRevision(oid.Revision()))
+			require.NoError(t, queue.Flush())
 
 			info, err := queue.ReadInfo()
 			require.NoError(t, err)
@@ -234,6 +236,7 @@ func TestObjectInfoReader_queue(t *testing.T) {
 
 		require.NoError(t, queue.RequestRevision(blobOID.Revision()))
 		require.NoError(t, queue.RequestRevision(commitOID.Revision()))
+		require.NoError(t, queue.Flush())
 
 		for _, expectedInfo := range []ObjectInfo{blobInfo, commitInfo} {
 			info, err := queue.ReadInfo()
@@ -254,6 +257,59 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		require.Equal(t, errors.New("no outstanding request"), err)
 	})
 
+	t.Run("flush with single request", func(t *testing.T) {
+		reader, err := newObjectInfoReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.infoQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		// We flush once before and once after requesting the object such that we can be
+		// sure that it doesn't impact which objects we can read.
+		require.NoError(t, queue.Flush())
+		require.NoError(t, queue.RequestRevision(blobOID.Revision()))
+		require.NoError(t, queue.Flush())
+
+		info, err := queue.ReadInfo()
+		require.NoError(t, err)
+		require.Equal(t, &blobInfo, info)
+	})
+
+	t.Run("flush with multiple requests", func(t *testing.T) {
+		reader, err := newObjectInfoReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.infoQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		for i := 0; i < 10; i++ {
+			require.NoError(t, queue.RequestRevision(blobOID.Revision()))
+		}
+		require.NoError(t, queue.Flush())
+
+		for i := 0; i < 10; i++ {
+			info, err := queue.ReadInfo()
+			require.NoError(t, err)
+			require.Equal(t, &blobInfo, info)
+		}
+	})
+
+	t.Run("flush without request", func(t *testing.T) {
+		reader, err := newObjectInfoReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.infoQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		require.NoError(t, queue.Flush())
+
+		_, err = queue.ReadInfo()
+		require.Equal(t, errors.New("no outstanding request"), err)
+	})
+
 	t.Run("request invalid object info", func(t *testing.T) {
 		reader, err := newObjectInfoReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
@@ -263,6 +319,7 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		defer cleanup()
 
 		require.NoError(t, queue.RequestRevision("does-not-exist"))
+		require.NoError(t, queue.Flush())
 
 		_, err = queue.ReadInfo()
 		require.Equal(t, NotFoundError{errors.New("object not found")}, err)
@@ -277,12 +334,15 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		defer cleanup()
 
 		require.NoError(t, queue.RequestRevision("does-not-exist"))
+		require.NoError(t, queue.Flush())
+
 		_, err = queue.ReadInfo()
 		require.Equal(t, NotFoundError{errors.New("object not found")}, err)
 
 		// Requesting another object info after the previous one has failed should continue
 		// to work alright.
 		require.NoError(t, queue.RequestRevision(blobOID.Revision()))
+		require.NoError(t, queue.Flush())
 		info, err := queue.ReadInfo()
 		require.NoError(t, err)
 		require.Equal(t, &blobInfo, info)
@@ -319,6 +379,7 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		require.False(t, queue.isDirty())
 
 		require.NoError(t, queue.RequestRevision(blobOID.Revision()))
+		require.NoError(t, queue.Flush())
 
 		require.True(t, reader.isDirty())
 		require.True(t, queue.isDirty())
@@ -356,6 +417,7 @@ func TestObjectInfoReader_queue(t *testing.T) {
 
 		// Request the object before we close the queue.
 		require.NoError(t, queue.RequestRevision(blobOID.Revision()))
+		require.NoError(t, queue.Flush())
 
 		queue.close()
 

@@ -52,6 +52,7 @@ func IsNotFound(err error) bool {
 
 // ParseObjectInfo reads from a reader and parses the data into an ObjectInfo struct
 func ParseObjectInfo(stdout *bufio.Reader) (*ObjectInfo, error) {
+restart:
 	infoLine, err := stdout.ReadString('\n')
 	if err != nil {
 		return nil, fmt.Errorf("read info line: %w", err)
@@ -59,6 +60,14 @@ func ParseObjectInfo(stdout *bufio.Reader) (*ObjectInfo, error) {
 
 	infoLine = strings.TrimSuffix(infoLine, "\n")
 	if strings.HasSuffix(infoLine, " missing") {
+		// We use a hack to flush stdout of git-cat-file(1), which is that we request an
+		// object that cannot exist. This causes Git to write an error and immediately flush
+		// stdout. The only downside is that we need to filter this error here, but that's
+		// acceptable while git-cat-file(1) doesn't yet have any way to natively flush.
+		if strings.HasPrefix(infoLine, flushCommand) {
+			goto restart
+		}
+
 		return nil, NotFoundError{fmt.Errorf("object not found")}
 	}
 
@@ -101,12 +110,16 @@ type ObjectInfoReader interface {
 // ObjectInfoQueue allows for requesting and reading object info independently of each other. The
 // number of RequestInfo and ReadInfo calls must match. ReadObject must be executed after the
 // object has been requested already. The order of objects returned by ReadInfo is the same as the
-// order in which object info has been requested.
+// order in which object info has been requested. Users of this interface must call `Flush()` after
+// all requests have been queued up such that all requested objects will be readable.
 type ObjectInfoQueue interface {
 	// RequestRevision requests the given revision from git-cat-file(1).
 	RequestRevision(git.Revision) error
 	// ReadInfo reads object info which has previously been requested.
 	ReadInfo() (*ObjectInfo, error)
+	// Flush flushes all queued requests and asks git-cat-file(1) to print all objects which
+	// have been requested up to this point.
+	Flush() error
 }
 
 // objectInfoReader is a reader for Git object information. This reader is implemented via a
@@ -133,6 +146,7 @@ func newObjectInfoReader(
 			Name: "cat-file",
 			Flags: []git.Option{
 				git.Flag{Name: "--batch-check"},
+				git.Flag{Name: "--buffer"},
 			},
 		},
 		git.WithStdin(command.SetupStdin),
@@ -146,7 +160,7 @@ func newObjectInfoReader(
 		counter: counter,
 		queue: requestQueue{
 			stdout: bufio.NewReader(batchCmd),
-			stdin:  batchCmd,
+			stdin:  bufio.NewWriter(batchCmd),
 		},
 	}
 	go func() {
@@ -194,6 +208,10 @@ func (o *objectInfoReader) Info(ctx context.Context, revision git.Revision) (*Ob
 	defer cleanup()
 
 	if err := queue.RequestRevision(revision); err != nil {
+		return nil, err
+	}
+
+	if err := queue.Flush(); err != nil {
 		return nil, err
 	}
 
