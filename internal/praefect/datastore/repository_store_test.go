@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
@@ -215,7 +214,7 @@ func TestRepositoryStore_incrementGenerationConcurrently(t *testing.T) {
 			require.NoError(t, err)
 
 			go func() {
-				waitForQueries(t, ctx, db, "WITH updated_replicas AS (", 2)
+				glsql.WaitForQueries(ctx, t, db, "WITH updated_replicas AS (", 2)
 				firstTx.Commit(t)
 			}()
 
@@ -228,34 +227,6 @@ func TestRepositoryStore_incrementGenerationConcurrently(t *testing.T) {
 				tc.state,
 			)
 		})
-	}
-}
-
-// waitForQuery is a helper that waits until a certain number of queries matching the prefix are present in the
-// database. This is useful for ensuring multiple transactions are executing the query when testing concurrent
-// execution.
-func waitForQueries(t testing.TB, ctx context.Context, db glsql.Querier, queryPrefix string, count int) {
-	t.Helper()
-
-	for {
-		var queriesPresent bool
-		require.NoError(t, db.QueryRowContext(ctx, `
-			SELECT COUNT(*) = $2
-			FROM pg_stat_activity
-			WHERE TRIM(e'\n' FROM query) LIKE $1
-		`, queryPrefix+"%", count).Scan(&queriesPresent))
-
-		if queriesPresent {
-			return
-		}
-
-		retry := time.NewTimer(time.Millisecond)
-		select {
-		case <-ctx.Done():
-			retry.Stop()
-			return
-		case <-retry.C:
-		}
 	}
 }
 
