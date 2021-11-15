@@ -5,7 +5,8 @@ Cluster across versions in an attempt to identify areas of improvements.
 
 ## Writes
 
-The following sequence diagram shows a sequence diagram for a write in Gitaly Cluster in GitLab 14.0.x:
+The following sequence diagram shows what happens during a write in
+Gitaly Cluster for GitLab 14.0.x:
 
 ```mermaid
 sequenceDiagram
