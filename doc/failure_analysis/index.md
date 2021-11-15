@@ -29,7 +29,7 @@ sequenceDiagram
     Workhorse->>Client: success
 ```
 
-In step 3, when Praefect reveives the `ReceivePack` RPC from Workhorse,
+In step 3, when Praefect receives the `ReceivePack` RPC from Workhorse,
 it calls `GetPrimary()`, which consults the database. Praefect considers
 a primary repository on a per-repository basis, which means that in a
 cluster of 3 nodes, the primary repository could reside in any of the 3
