@@ -44,7 +44,7 @@ deem that a Gitaly node is no longer a valid primary:
 
 1. The Gitaly node is no longer in the [`valid_primaries` database view](https://gitlab.com/gitlab-org/gitaly/blob/d0083f4c828772537e6891cae4fe0df1f6b255f4/internal/praefect/datastore/migrations/20210525143540_healthy_storages_view.go#L9-20).
 1. `valid_primaries` depends on the [`healthy_storages` database view](https://gitlab.com/gitlab-org/gitaly/blob/d0083f4c828772537e6891cae4fe0df1f6b255f4/internal/praefect/datastore/migrations/20210525143540_healthy_storages_view.go#L9-21).
-2. `healthy_storages` depends on the [`node_status` datbase table](https://gitlab.com/gitlab-org/gitaly/blob/d0083f4c828772537e6891cae4fe0df1f6b255f4/internal/praefect/datastore/migrations/20210525143540_healthy_storages_view.go#L11).
+2. `healthy_storages` depends on the [`node_status` database table](https://gitlab.com/gitlab-org/gitaly/blob/d0083f4c828772537e6891cae4fe0df1f6b255f4/internal/praefect/datastore/migrations/20210525143540_healthy_storages_view.go#L11).
 3. Praefect nodes attempt to send `HealthCheck` RPC messages to Gitaly nodes once per second and update the  [`node_status` table](https://gitlab.com/gitlab-org/gitaly/blob/098c6dcdbde9824385d61b6cc56c2e10724a104b/internal/praefect/nodes/health_manager.go#L144-154) every time.
 
 A failover is triggered whenever a primary node is no longer in the
