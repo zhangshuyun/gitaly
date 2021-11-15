@@ -604,13 +604,15 @@ func TestHealthManager_orderedWrites(t *testing.T) {
 	// Wait for tx2 to be blocked on the gitaly-1 lock acquired by tx1
 	glsql.WaitForQueries(ctx, t, db, "INSERT INTO node_status", 1)
 
-	// This triggers a deadlock. Postgres allows tx1 to proceed and kills tx2.
+	// Ensure tx1 can acquire lock on gitaly-2.
 	require.NoError(t, hm1.updateHealthChecks(ctx, []string{virtualStorage}, []string{"gitaly-2"}, []bool{true}))
-	require.EqualError(t, <-tx2Err, "update checks: pq: deadlock detected")
-
-	// Tx1 succeeds and Tx2 failed
+	// Committing tx1 releases locks and unblocks tx2.
 	require.NoError(t, tx1.Commit())
-	require.Error(t, tx2.Commit())
+
+	// tx2 should succeed afterwards.
+	require.NoError(t, <-tx2Err)
+	require.NoError(t, tx2.Commit())
 
 	require.Equal(t, map[string][]string{"virtual-storage": {"gitaly-1", "gitaly-2"}}, hm1.HealthConsensus())
+	require.Equal(t, map[string][]string{"virtual-storage": {"gitaly-1", "gitaly-2"}}, hm2.HealthConsensus())
 }

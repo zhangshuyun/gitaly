@@ -146,6 +146,7 @@ FROM (
     SELECT unnest($2::text[]) AS shard_name,
            unnest($3::text[]) AS node_name,
            unnest($4::boolean[]) AS is_healthy
+    ORDER BY shard_name, node_name
 ) AS results
 ON CONFLICT (praefect_name, shard_name, node_name)
 	DO UPDATE SET
