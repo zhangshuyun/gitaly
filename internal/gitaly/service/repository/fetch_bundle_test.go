@@ -31,6 +31,7 @@ func TestServer_FetchBundle_success(t *testing.T) {
 	tmp := testhelper.TempDir(t)
 	bundlePath := filepath.Join(tmp, "test.bundle")
 
+	gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
 	gittest.Exec(t, cfg, "-C", repoPath, "bundle", "create", bundlePath, "--all")
 	expectedRefs := gittest.Exec(t, cfg, "-C", repoPath, "show-ref", "--head")
 
@@ -42,7 +43,7 @@ func TestServer_FetchBundle_success(t *testing.T) {
 	stream, err := client.FetchBundle(ctx)
 	require.NoError(t, err)
 
-	request := &gitalypb.FetchBundleRequest{Repository: targetRepo}
+	request := &gitalypb.FetchBundleRequest{Repository: targetRepo, UpdateHead: true}
 	writer := streamio.NewWriter(func(p []byte) error {
 		request.Data = p
 
