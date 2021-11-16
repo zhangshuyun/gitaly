@@ -83,13 +83,7 @@ var commandDescriptions = map[string]commandDescription{
 	"fetch": {
 		flags: 0,
 
-		opts: []GlobalOption{
-			// When fetching objects from an untrusted source, we want to always assert
-			// that all objects are valid. Please refer to the receive-pack
-			// description with regards to why we ignore some checks.
-			ConfigPair{Key: "fetch.fsckObjects", Value: "true"},
-			ConfigPair{Key: "fetch.fsck.badTimezone", Value: "ignore"},
-			ConfigPair{Key: "fetch.fsck.missingSpaceBeforeDate", Value: "ignore"},
+		opts: append([]GlobalOption{
 			// While git-fetch(1) by default won't write commit graphs, both CNG and
 			// Omnibus set this value to true. This has caused performance issues when
 			// doing internal fetches, and furthermore it's not encouraged to run such
@@ -98,7 +92,7 @@ var commandDescriptions = map[string]commandDescription{
 			// so. So let's disable writing commit graphs on fetches -- if it really is
 			// required, we can enable it on a case-by-case basis.
 			ConfigPair{Key: "fetch.writeCommitGraph", Value: "false"},
-		},
+		}, fsckConfiguration("fetch")...),
 	},
 	"for-each-ref": {
 		flags: scNoRefUpdates,
@@ -175,7 +169,7 @@ var commandDescriptions = map[string]commandDescription{
 	},
 	"receive-pack": {
 		flags: 0,
-		opts: append([]GlobalOption{
+		opts: append(append([]GlobalOption{
 			// In case the repository belongs to an object pool, we want to prevent
 			// Git from including the pool's refs in the ref advertisement. We do
 			// this by rigging core.alternateRefsCommand to produce no output.
@@ -183,29 +177,10 @@ var commandDescriptions = map[string]commandDescription{
 			// command ends with a "#". The end result is that Git runs `/bin/sh -c 'exit 0 # /path/to/pool.git`.
 			ConfigPair{Key: "core.alternateRefsCommand", Value: "exit 0 #"},
 
-			// When receiving objects from an untrusted source, we want to always assert
-			// that all objects are valid.
-			ConfigPair{Key: "receive.fsckObjects", Value: "true"},
-
-			// In the past, there was a bug in git that caused users to
-			// create commits with invalid timezones. As a result, some
-			// histories contain commits that do not match the spec. As we
-			// fsck received packfiles by default, any push containing such
-			// a commit will be rejected. As this is a mostly harmless
-			// issue, we add the following flag to ignore this check.
-			ConfigPair{Key: "receive.fsck.badTimezone", Value: "ignore"},
-
-			// git-fsck(1) complains in case a signature does not have a space
-			// between mail and date. The most common case where this can be hit
-			// is in case the date is missing completely. This error is harmless
-			// enough and we cope just fine parsing such signatures, so we can
-			// ignore this error.
-			ConfigPair{Key: "receive.fsck.missingSpaceBeforeDate", Value: "ignore"},
-
 			// Make git-receive-pack(1) advertise the push options
 			// capability to clients.
 			ConfigPair{Key: "receive.advertisePushOptions", Value: "true"},
-		}, hiddenReceivePackRefPrefixes()...),
+		}, hiddenReceivePackRefPrefixes()...), fsckConfiguration("receive")...),
 	},
 	"remote": {
 		// While git-remote(1)'s `add` subcommand does support `--end-of-options`,
@@ -388,4 +363,43 @@ func hiddenReceivePackRefPrefixes() []GlobalOption {
 	}
 
 	return cps
+}
+
+// fsckConfiguration generates our fsck configuration, including ignored checks. The prefix must
+// either be "receive" or "fetch" and indicates whether it should apply to git-receive-pack(1) or to
+// git-fetch-pack(1).
+func fsckConfiguration(prefix string) []GlobalOption {
+	var configPairs []GlobalOption
+	for key, value := range map[string]string{
+		// When receiving objects from an untrusted source, we want to always assert that
+		// all objects are valid.
+		"fsckObjects": "true",
+
+		// In the past, there was a bug in git that caused users to create commits with
+		// invalid timezones. As a result, some histories contain commits that do not match
+		// the spec. As we fsck received packfiles by default, any push containing such
+		// a commit will be rejected. As this is a mostly harmless issue, we add the
+		// following flag to ignore this check.
+		"fsck.badTimezone": "ignore",
+
+		// git-fsck(1) complains in case a signature does not have a space
+		// between mail and date. The most common case where this can be hit
+		// is in case the date is missing completely. This error is harmless
+		// enough and we cope just fine parsing such signatures, so we can
+		// ignore this error.
+		"fsck.missingSpaceBeforeDate": "ignore",
+
+		// Oldish Git versions used to zero-pad some filemodes, e.g. instead of a
+		// file mode of 40000 the tree object would have endcoded the filemode as
+		// 04000. This doesn't cause any and Git can cope with it alright, so let's
+		// ignore it.
+		"fsck.zeroPaddedFilemode": "ignore",
+	} {
+		configPairs = append(configPairs, ConfigPair{
+			Key:   fmt.Sprintf("%s.%s", prefix, key),
+			Value: value,
+		})
+	}
+
+	return configPairs
 }
