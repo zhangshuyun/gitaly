@@ -1,3 +1,4 @@
+//go:build postgres
 // +build postgres
 
 package nodes
@@ -6,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -617,9 +619,8 @@ func TestPerRepositoryElector(t *testing.T) {
 			}
 
 			for _, step := range tc.steps {
+				var wg sync.WaitGroup
 				runElection := func(tx *sql.Tx, matchLogs logMatcher) {
-					setHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect-0": step.healthyNodes})
-
 					// The first transaction runs first
 					logger, hook := test.NewNullLogger()
 					elector := NewPerRepositoryElector(logrus.NewEntry(logger), tx)
@@ -631,13 +632,11 @@ func TestPerRepositoryElector(t *testing.T) {
 
 					require.NoError(t, elector.Run(ctx, trigger))
 
-					primary, err := elector.GetPrimary(ctx, "virtual-storage-1", "relative-path-1")
-					assert.Equal(t, step.error, err)
-					step.primary(t, primary)
-
 					require.Len(t, hook.Entries, 3)
 					matchLogs(t, hook.Entries[1])
 				}
+
+				setHealthyNodes(t, ctx, db, map[string]map[string][]string{"praefect-0": step.healthyNodes})
 
 				// Run every step with two concurrent transactions to ensure two Praefect's running
 				// election at the same time do not elect the primary multiple times. We begin both
@@ -656,13 +655,23 @@ func TestPerRepositoryElector(t *testing.T) {
 
 				runElection(txFirst, step.matchLogs)
 
-				require.NoError(t, txFirst.Commit())
-
+				wg.Add(1)
 				// Run the second election on the same database snapshot. This should result in no changes.
 				// Running this prior to the first transaction committing would block.
-				runElection(txSecond, noChanges)
+				go func() {
+					defer wg.Done()
+					runElection(txSecond, noChanges)
+				}()
 
+				glsql.WaitForQueries(ctx, t, db, "WITH election_lock AS", 2)
+
+				require.NoError(t, txFirst.Commit())
+				wg.Wait()
 				require.NoError(t, txSecond.Commit())
+
+				primary, err := NewPerRepositoryElector(testhelper.DiscardTestLogger(t), db).GetPrimary(ctx, "virtual-storage-1", "relative-path-1")
+				assert.Equal(t, step.error, err)
+				step.primary(t, primary)
 			}
 		})
 	}

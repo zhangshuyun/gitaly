@@ -87,7 +87,11 @@ func (pr *PerRepositoryElector) Run(ctx context.Context, trigger <-chan struct{}
 
 func (pr *PerRepositoryElector) performFailovers(ctx context.Context) error {
 	rows, err := pr.db.QueryContext(ctx, `
-WITH updated AS (
+WITH election_lock AS (
+	SELECT pg_try_advisory_xact_lock(1020) AS acquired
+),
+
+updated AS (
 	UPDATE repositories
 		SET "primary" = (
 			SELECT storage
@@ -97,12 +101,13 @@ WITH updated AS (
 			ORDER BY random()
 			LIMIT 1
 		)
+	FROM election_lock
 	WHERE NOT EXISTS (
 		SELECT FROM valid_primaries
 		WHERE virtual_storage = repositories.virtual_storage
 		AND   relative_path   = repositories.relative_path
 		AND   storage         = repositories."primary"
-	)
+	) AND acquired
 	RETURNING virtual_storage, relative_path, "primary"
 ),
 
