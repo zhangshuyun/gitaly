@@ -75,13 +75,13 @@ func RequireTree(t testing.TB, cfg config.Cfg, repoPath, treeish string, expecte
 func WriteTree(t testing.TB, cfg config.Cfg, repoPath string, entries []TreeEntry) git.ObjectID {
 	t.Helper()
 
-	require.NotEmpty(t, entries)
-
 	var tree bytes.Buffer
 	for _, entry := range entries {
 		var entryType string
 		switch entry.Mode {
 		case "100644":
+			entryType = "blob"
+		case "100755":
 			entryType = "blob"
 		case "040000":
 			entryType = "tree"

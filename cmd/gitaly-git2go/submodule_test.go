@@ -127,7 +127,7 @@ func TestSubmodule(t *testing.T) {
 			parsedEntry, err := parser.NextEntry()
 			require.NoError(t, err)
 			require.Equal(t, tc.command.Submodule, parsedEntry.Path)
-			require.Equal(t, tc.command.CommitSHA, parsedEntry.Oid)
+			require.Equal(t, tc.command.CommitSHA, parsedEntry.ObjectID.String())
 		})
 	}
 }

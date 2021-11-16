@@ -1,6 +1,8 @@
 package commit
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -11,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -652,4 +655,78 @@ func drainTreeEntriesResponse(c gitalypb.CommitService_GetTreeEntriesClient) err
 		_, err = c.Recv()
 	}
 	return err
+}
+
+func BenchmarkGetTreeEntries(b *testing.B) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.TreeEntriesViaLsTree,
+	}).Bench(b, benchmarkGetTreeEntries)
+}
+
+func benchmarkGetTreeEntries(b *testing.B, ctx context.Context) {
+	cfg, client := setupCommitService(b)
+
+	repo, _ := gittest.CloneRepo(b, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+		SourceRepo: "benchmark.git",
+	})
+
+	for _, tc := range []struct {
+		desc            string
+		request         *gitalypb.GetTreeEntriesRequest
+		expectedEntries int
+	}{
+		{
+			desc: "recursive from root",
+			request: &gitalypb.GetTreeEntriesRequest{
+				Repository: repo,
+				Revision:   []byte("9659e770b131abb4e01d74306819192cd553c258"),
+				Path:       []byte("."),
+				Recursive:  true,
+			},
+			expectedEntries: 61027,
+		},
+		{
+			desc: "non-recursive from root",
+			request: &gitalypb.GetTreeEntriesRequest{
+				Repository: repo,
+				Revision:   []byte("9659e770b131abb4e01d74306819192cd553c258"),
+				Path:       []byte("."),
+				Recursive:  false,
+			},
+			expectedEntries: 101,
+		},
+		{
+			desc: "recursive from subdirectory",
+			request: &gitalypb.GetTreeEntriesRequest{
+				Repository: repo,
+				Revision:   []byte("9659e770b131abb4e01d74306819192cd553c258"),
+				Path:       []byte("lib/gitlab"),
+				Recursive:  true,
+			},
+			expectedEntries: 2642,
+		},
+	} {
+		b.Run(tc.desc, func(b *testing.B) {
+			b.ReportAllocs()
+
+			for i := 0; i < b.N; i++ {
+				stream, err := client.GetTreeEntries(ctx, tc.request)
+				require.NoError(b, err)
+
+				entriesReceived := 0
+				for {
+					response, err := stream.Recv()
+					if err != nil {
+						if errors.Is(err, io.EOF) {
+							break
+						}
+						require.NoError(b, err)
+					}
+
+					entriesReceived += len(response.Entries)
+				}
+				require.Equal(b, tc.expectedEntries, entriesReceived)
+			}
+		})
+	}
 }

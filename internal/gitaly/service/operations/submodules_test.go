@@ -97,7 +97,7 @@ func TestSuccessfulUserUpdateSubmoduleRequest(t *testing.T) {
 			parsedEntry, err := parser.NextEntry()
 			require.NoError(t, err)
 			require.Equal(t, testCase.submodule, parsedEntry.Path)
-			require.Equal(t, testCase.commitSha, parsedEntry.Oid)
+			require.Equal(t, testCase.commitSha, parsedEntry.ObjectID.String())
 		})
 	}
 }

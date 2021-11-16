@@ -104,3 +104,19 @@ func (s FeatureSets) Run(t *testing.T, test func(t *testing.T, ctx context.Conte
 		})
 	}
 }
+
+// Bench executes the given benchmarking function for each of the FeatureSets. The passed in
+// context has the feature flags set accordingly.
+func (s FeatureSets) Bench(b *testing.B, test func(b *testing.B, ctx context.Context)) {
+	b.Helper()
+
+	for _, featureSet := range s {
+		b.Run(featureSet.Desc(), func(b *testing.B) {
+			ctx, cancel := Context()
+			defer cancel()
+			ctx = featureSet.Disable(ctx)
+
+			test(b, ctx)
+		})
+	}
+}
