@@ -568,3 +568,51 @@ func predateHealthChecks(t testing.TB, db glsql.DB, amount time.Duration) {
 	)
 	require.NoError(t, err)
 }
+
+// This test case ensures the record updates are done in an ordered manner to avoid concurrent writes
+// deadlocking. Issue: https://gitlab.com/gitlab-org/gitaly/-/issues/3907
+func TestHealthManager_orderedWrites(t *testing.T) {
+	db := glsql.NewDB(t)
+
+	tx1 := db.Begin(t).Tx
+	defer func() { _ = tx1.Rollback() }()
+
+	tx2 := db.Begin(t).Tx
+	defer func() { _ = tx2.Rollback() }()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	const (
+		praefectName   = "praefect-1"
+		virtualStorage = "virtual-storage"
+	)
+
+	returnErr := func(err error) error { return err }
+
+	hm1 := NewHealthManager(testhelper.DiscardTestLogger(t), tx1, praefectName, nil)
+	hm1.handleError = returnErr
+	require.NoError(t, hm1.updateHealthChecks(ctx, []string{virtualStorage}, []string{"gitaly-1"}, []bool{true}))
+
+	tx2Err := make(chan error, 1)
+	hm2 := NewHealthManager(testhelper.DiscardTestLogger(t), tx2, praefectName, nil)
+	hm2.handleError = returnErr
+	go func() {
+		tx2Err <- hm2.updateHealthChecks(ctx, []string{virtualStorage, virtualStorage}, []string{"gitaly-2", "gitaly-1"}, []bool{true, true})
+	}()
+
+	// Wait for tx2 to be blocked on the gitaly-1 lock acquired by tx1
+	glsql.WaitForQueries(ctx, t, db, "INSERT INTO node_status", 1)
+
+	// Ensure tx1 can acquire lock on gitaly-2.
+	require.NoError(t, hm1.updateHealthChecks(ctx, []string{virtualStorage}, []string{"gitaly-2"}, []bool{true}))
+	// Committing tx1 releases locks and unblocks tx2.
+	require.NoError(t, tx1.Commit())
+
+	// tx2 should succeed afterwards.
+	require.NoError(t, <-tx2Err)
+	require.NoError(t, tx2.Commit())
+
+	require.Equal(t, map[string][]string{"virtual-storage": {"gitaly-1", "gitaly-2"}}, hm1.HealthConsensus())
+	require.Equal(t, map[string][]string{"virtual-storage": {"gitaly-1", "gitaly-2"}}, hm2.HealthConsensus())
+}

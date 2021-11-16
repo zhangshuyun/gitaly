@@ -96,7 +96,8 @@ func (hm *HealthManager) Run(ctx context.Context, ticker helper.Ticker) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C():
-			if err := hm.updateHealthChecks(ctx); err != nil {
+			virtualStorages, physicalStorages, healthy := hm.performHealthChecks(ctx)
+			if err := hm.updateHealthChecks(ctx, virtualStorages, physicalStorages, healthy); err != nil {
 				if err := hm.handleError(err); err != nil {
 					return err
 				}
@@ -126,9 +127,7 @@ func (hm *HealthManager) HealthConsensus() map[string][]string {
 	return hm.healthConsensus.Load().(map[string][]string)
 }
 
-func (hm *HealthManager) updateHealthChecks(ctx context.Context) error {
-	virtualStorages, physicalStorages, healthy := hm.performHealthChecks(ctx)
-
+func (hm *HealthManager) updateHealthChecks(ctx context.Context, virtualStorages, physicalStorages []string, healthy []bool) error {
 	locallyHealthy := map[string][]string{}
 	for i := range virtualStorages {
 		if !healthy[i] {
@@ -147,6 +146,7 @@ FROM (
     SELECT unnest($2::text[]) AS shard_name,
            unnest($3::text[]) AS node_name,
            unnest($4::boolean[]) AS is_healthy
+    ORDER BY shard_name, node_name
 ) AS results
 ON CONFLICT (praefect_name, shard_name, node_name)
 	DO UPDATE SET

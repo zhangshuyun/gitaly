@@ -1,6 +1,7 @@
 package glsql
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"net"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	migrate "github.com/rubenv/sql-migrate"
@@ -329,4 +331,32 @@ func getDatabaseEnvironment(t testing.TB) map[string]string {
 	})
 
 	return databaseEnv
+}
+
+// WaitForQueries is a helper that waits until a certain number of queries matching the prefix are present in the
+// database. This is useful for ensuring multiple transactions are executing the query when testing concurrent
+// execution.
+func WaitForQueries(ctx context.Context, t testing.TB, db Querier, queryPrefix string, count int) {
+	t.Helper()
+
+	for {
+		var queriesPresent bool
+		require.NoError(t, db.QueryRowContext(ctx, `
+			SELECT COUNT(*) = $2
+			FROM pg_stat_activity
+			WHERE TRIM(e'\n' FROM query) LIKE $1
+		`, queryPrefix+"%", count).Scan(&queriesPresent))
+
+		if queriesPresent {
+			return
+		}
+
+		retry := time.NewTimer(time.Millisecond)
+		select {
+		case <-ctx.Done():
+			retry.Stop()
+			return
+		case <-retry.C:
+		}
+	}
 }
