@@ -16,6 +16,8 @@ type Config struct {
 	// GRPCLatencyBuckets configures the histogram buckets used for gRPC
 	// latency measurements.
 	GRPCLatencyBuckets []float64 `toml:"grpc_latency_buckets"`
+	// MonitorMetadata when true, will register collectors that query the praefect database
+	MonitorMetadata bool `toml:"monitor_metadata"`
 }
 
 // DefaultConfig returns a new config with default values set.
