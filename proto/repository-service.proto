@@ -601,10 +601,11 @@ message GetRawChangesResponse {
     string blob_id = 1;
     int64 size= 2;
 
-    reserved 3;
-    reserved "new_path";
-    reserved 4;
-    reserved "old_path";
+    // use fields 9 and 10 in place of 3 and 4 (respectively). These fields are
+    // still used by the Elasticsearch indexer. Their usage will likely be
+    // removed in v14.6 so that we can remove these in v14.7.
+    string new_path = 3 [deprecated=true];
+    string old_path = 4 [deprecated=true];
 
     Operation operation= 5;
     string raw_operation = 6;
