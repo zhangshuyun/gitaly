@@ -6,6 +6,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
@@ -41,9 +42,10 @@ func TestPerRepositoryElector(t *testing.T) {
 	}
 
 	type steps []struct {
-		healthyNodes map[string][]string
-		error        error
-		primary      matcher
+		healthyNodes   map[string][]string
+		error          error
+		primary        matcher
+		noBlockedQuery bool
 	}
 
 	db := testdb.New(t)
@@ -280,7 +282,8 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1", "gitaly-2", "gitaly-3"},
 					},
-					primary: any("gitaly-2"),
+					primary:        any("gitaly-2"),
+					noBlockedQuery: true,
 				},
 			},
 		},
@@ -469,8 +472,9 @@ func TestPerRepositoryElector(t *testing.T) {
 			desc: "repository does not exist",
 			steps: steps{
 				{
-					error:   commonerr.ErrRepositoryNotFound,
-					primary: noPrimary(),
+					error:          commonerr.ErrRepositoryNotFound,
+					primary:        noPrimary(),
+					noBlockedQuery: true,
 				},
 			},
 		},
@@ -523,24 +527,24 @@ func TestPerRepositoryElector(t *testing.T) {
 
 			for _, step := range tc.steps {
 				runElection := func(tx *testdb.TxWrapper) (string, *logrus.Entry) {
-					testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect-0": step.healthyNodes})
-
 					logger, hook := test.NewNullLogger()
 					elector := NewPerRepositoryElector(tx)
 
 					primary, err := elector.GetPrimary(ctxlogrus.ToContext(ctx, logrus.NewEntry(logger)), "", repositoryID)
-					require.Equal(t, step.error, err)
-					require.Less(t, len(hook.Entries), 2)
+					assert.Equal(t, step.error, err)
+					assert.Less(t, len(hook.Entries), 2)
 
 					var entry *logrus.Entry
 					if len(hook.Entries) == 1 {
 						entry = &hook.Entries[0]
 					}
 
-					tx.Commit(t)
-
 					return primary, entry
 				}
+
+				// There is a 10s race from setting the healthy nodes to the transaction beginning. If creating
+				// the transaction takes longer, none of the nodes will be considered healthy.
+				testdb.SetHealthyNodes(t, ctx, db, map[string]map[string][]string{"praefect-0": step.healthyNodes})
 
 				// Run every step with two concurrent transactions to ensure two Praefect's running
 				// election at the same time do not elect the primary multiple times. We begin both
@@ -572,9 +576,32 @@ func TestPerRepositoryElector(t *testing.T) {
 
 				// Run the second election on the same database snapshot. This should result in no changes.
 				// Running this prior to the first transaction committing would block.
-				secondPrimary, secondLogEntry := runElection(txSecond)
+
+				var (
+					secondPrimary  string
+					secondLogEntry *logrus.Entry
+				)
+
+				secondStmtDone := make(chan struct{})
+				go func() {
+					defer close(secondStmtDone)
+					secondPrimary, secondLogEntry = runElection(txSecond)
+				}()
+
+				// With read-committed isolation mode, it's not sufficient to start the transaction to ensure concurrent
+				// execution different statements within a single transacation can see commits done during the transaction.
+				// Below we wait for the statement to actually begin executing to ensure the test actually exercises concurrent
+				// execution.
+				if !step.noBlockedQuery {
+					testdb.WaitForBlockedQuery(ctx, t, db, "WITH new AS (")
+				}
+
+				txFirst.Commit(t)
+
+				<-secondStmtDone
 				require.Equal(t, primary, secondPrimary)
 				require.Nil(t, secondLogEntry)
+				txSecond.Commit(t)
 
 				previousPrimary = primary
 			}
