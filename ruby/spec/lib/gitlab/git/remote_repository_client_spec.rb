@@ -113,7 +113,7 @@ describe Gitlab::Git::GitalyRemoteRepository do
     end
 
     context 'unix' do
-      let(:client) { get_client("unix:#{File.join(TMP_DIR_NAME, SOCKET_PATH)}") }
+      let(:client) { get_client("unix:#{File.join(TMP_DIR, SOCKET_PATH)}") }
 
       it 'Should connect over unix' do
         expect(client).not_to be_empty

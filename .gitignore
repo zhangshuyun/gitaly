@@ -6,7 +6,6 @@
 /.ruby-bundle
 /ruby/vendor/bundle
 /ruby/.bundle
-/ruby/tmp
 /gitaly-*.gem
 
 # Configuration and runtime data

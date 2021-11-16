@@ -34,7 +34,7 @@ module IntegrationClient
     klass = Gitaly.const_get(service).const_get(:Stub)
     addr = case type
            when 'unix'
-             "unix:#{File.join(TMP_DIR_NAME, SOCKET_PATH)}"
+             "unix:#{File.join(TMP_DIR, SOCKET_PATH)}"
            when 'tcp', 'tls'
              "#{type}://localhost:#{GitalyConfig.dynamic_port(type)}"
            end
@@ -101,7 +101,7 @@ def start_gitaly
   gitaly_pid = spawn(File.join(build_dir, 'bin/gitaly'), config_path, options)
   at_exit { Process.kill('KILL', gitaly_pid) }
 
-  wait_ready!(File.join(TMP_DIR_NAME, SOCKET_PATH))
+  wait_ready!(File.join(TMP_DIR, SOCKET_PATH))
 end
 
 def wait_ready!(socket)
