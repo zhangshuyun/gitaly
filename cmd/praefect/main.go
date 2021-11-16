@@ -63,11 +63,13 @@ import (
 	"flag"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/bootstrap"
@@ -149,7 +151,9 @@ func main() {
 		logger.Fatalf("unable to create a bootstrap: %v", err)
 	}
 
-	if err := run(starterConfigs, conf, b, prometheus.DefaultRegisterer); err != nil {
+	dbPromRegistry := prometheus.NewRegistry()
+
+	if err := run(starterConfigs, conf, b, prometheus.DefaultRegisterer, dbPromRegistry); err != nil {
 		logger.Fatalf("%v", err)
 	}
 }
@@ -192,7 +196,16 @@ func configure(conf config.Config) {
 	sentry.ConfigureSentry(version.GetVersion(), conf.Sentry)
 }
 
-func run(cfgs []starter.Config, conf config.Config, b bootstrap.Listener, promreg prometheus.Registerer) error {
+func run(
+	cfgs []starter.Config,
+	conf config.Config,
+	b bootstrap.Listener,
+	promreg prometheus.Registerer,
+	dbPromRegistry interface {
+		prometheus.Registerer
+		prometheus.Gatherer
+	},
+) error {
 	nodeLatencyHistogram, err := metrics.RegisterNodeLatency(conf.Prometheus, promreg)
 	if err != nil {
 		return err
@@ -391,9 +404,18 @@ func run(cfgs []starter.Config, conf config.Config, b bootstrap.Listener, promre
 	)
 	metricsCollectors = append(metricsCollectors, transactionManager, coordinator, repl)
 	if db != nil {
-		promreg.MustRegister(
-			datastore.NewRepositoryStoreCollector(logger, conf.VirtualStorageNames(), db, conf.Prometheus.ScrapeTimeout),
-		)
+		repositoryStoreCollector := datastore.NewRepositoryStoreCollector(logger, conf.VirtualStorageNames(), db, conf.Prometheus.ScrapeTimeout)
+
+		// Eventually, database-related metrics will always be exported via a separate
+		// endpoint such that it's possible to set a different scraping interval and thus to
+		// reduce database load. For now though, we register the metrics twice, once for the
+		// standard and once for the database-specific endpoint. This is done to ensure a
+		// transitory period where deployments can be moved to the new endpoint without
+		// causing breakage if they still use the old endpoint.
+		dbPromRegistry.MustRegister(repositoryStoreCollector)
+		if !conf.PrometheusExcludeDatabaseFromDefaultMetrics {
+			promreg.MustRegister(repositoryStoreCollector)
+		}
 	}
 	promreg.MustRegister(metricsCollectors...)
 
@@ -416,9 +438,13 @@ func run(cfgs []starter.Config, conf config.Config, b bootstrap.Listener, promre
 				return err
 			}
 
+			serveMux := http.NewServeMux()
+			serveMux.Handle("/db_metrics", promhttp.HandlerFor(dbPromRegistry, promhttp.HandlerOpts{}))
+
 			go func() {
 				if err := monitoring.Start(
 					monitoring.WithListener(l),
+					monitoring.WithServeMux(serveMux),
 					monitoring.WithBuildInformation(praefect.GetVersion(), praefect.GetBuildTime())); err != nil {
 					logger.WithError(err).Errorf("Unable to start prometheus listener: %v", conf.PrometheusListenAddr)
 				}
