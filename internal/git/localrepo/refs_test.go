@@ -1,6 +1,7 @@
 package localrepo
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -453,6 +454,104 @@ func TestRepo_UpdateRef(t *testing.T) {
 			repo := New(repo.gitCmdFactory, repo.catfileCache, repoProto, repo.cfg)
 			err := repo.UpdateRef(ctx, git.ReferenceName(tc.ref), tc.newValue, tc.oldValue)
 			tc.verify(t, repo, err)
+		})
+	}
+}
+
+func TestGuessHead(t *testing.T) {
+	repo, repoPath := setupRepo(t, false)
+
+	commit1 := text.ChompBytes(gittest.Exec(t, repo.cfg, "-C", repoPath, "rev-parse", "refs/heads/master"))
+	commit2 := text.ChompBytes(gittest.Exec(t, repo.cfg, "-C", repoPath, "rev-parse", "refs/heads/feature"))
+
+	for _, tc := range []struct {
+		desc        string
+		cmds        [][]string
+		head        git.Reference
+		expected    git.ReferenceName
+		expectedErr error
+	}{
+		{
+			desc:     "symbolic",
+			head:     git.NewSymbolicReference("HEAD", "refs/heads/something"),
+			expected: "refs/heads/something",
+		},
+		{
+			desc: "matching default branch",
+			cmds: [][]string{
+				{"update-ref", git.DefaultRef.String(), commit1},
+				{"update-ref", git.LegacyDefaultRef.String(), commit2},
+				{"update-ref", "refs/heads/apple", commit1},
+				{"update-ref", "refs/heads/feature", commit1},
+				{"update-ref", "refs/heads/zucchini", commit1},
+			},
+			head:     git.NewReference("HEAD", commit1),
+			expected: git.DefaultRef,
+		},
+		{
+			desc: "matching default legacy branch",
+			cmds: [][]string{
+				{"update-ref", git.DefaultRef.String(), commit2},
+				{"update-ref", git.LegacyDefaultRef.String(), commit1},
+				{"update-ref", "refs/heads/apple", commit1},
+				{"update-ref", "refs/heads/feature", commit1},
+				{"update-ref", "refs/heads/zucchini", commit1},
+			},
+			head:     git.NewReference("HEAD", commit1),
+			expected: git.LegacyDefaultRef,
+		},
+		{
+			desc: "matching other branch",
+			cmds: [][]string{
+				{"update-ref", git.DefaultRef.String(), commit2},
+				{"update-ref", git.LegacyDefaultRef.String(), commit2},
+				{"update-ref", "refs/heads/apple", commit1},
+				{"update-ref", "refs/heads/feature", commit1},
+				{"update-ref", "refs/heads/zucchini", commit1},
+			},
+			head:     git.NewReference("HEAD", commit1),
+			expected: "refs/heads/apple",
+		},
+		{
+			desc: "missing default branches",
+			cmds: [][]string{
+				{"update-ref", "-d", git.DefaultRef.String()},
+				{"update-ref", "-d", git.LegacyDefaultRef.String()},
+				{"update-ref", "refs/heads/apple", commit1},
+				{"update-ref", "refs/heads/feature", commit1},
+				{"update-ref", "refs/heads/zucchini", commit1},
+			},
+			head:     git.NewReference("HEAD", commit1),
+			expected: "refs/heads/apple",
+		},
+		{
+			desc: "no match",
+			cmds: [][]string{
+				{"update-ref", git.DefaultRef.String(), commit2},
+				{"update-ref", git.LegacyDefaultRef.String(), commit2},
+				{"update-ref", "refs/heads/apple", commit2},
+				{"update-ref", "refs/heads/feature", commit2},
+				{"update-ref", "refs/heads/zucchini", commit2},
+			},
+			head:        git.NewReference("HEAD", commit1),
+			expectedErr: fmt.Errorf("guess head: %w", git.ErrReferenceNotFound),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			for _, cmd := range tc.cmds {
+				gittest.Exec(t, repo.cfg, append([]string{"-C", repoPath}, cmd...)...)
+			}
+
+			guess, err := repo.GuessHead(ctx, tc.head)
+			if tc.expectedErr == nil {
+				require.NoError(t, err)
+			} else {
+				require.Equal(t, tc.expectedErr, err)
+			}
+			require.Equal(t, tc.expected, guess)
 		})
 	}
 }
