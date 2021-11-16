@@ -9,6 +9,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
@@ -124,6 +126,29 @@ func TestGitalyServerFactory(t *testing.T) {
 
 		_, socketErr := socketHealthClient.Check(ctx, &healthpb.HealthCheckRequest{})
 		require.Equal(t, codes.Unavailable, status.Code(socketErr))
+	})
+
+	t.Run("logging check", func(t *testing.T) {
+		cfg := testcfg.Build(t)
+		logger, hook := test.NewNullLogger()
+		sf := NewGitalyServerFactory(cfg, logger.WithContext(ctx), backchannel.NewRegistry(), cache.New(cfg, config.NewLocator(cfg)))
+
+		checkHealth(t, sf, starter.TCP, "localhost:0")
+
+		var entry *logrus.Entry
+		for _, e := range hook.AllEntries() {
+			if e.Message == "finished unary call with code OK" {
+				entry = e
+				break
+			}
+		}
+		require.NotNil(t, entry)
+		reqSize, found := entry.Data["grpc.request.payload_bytes"]
+		assert.EqualValues(t, 0, reqSize)
+		require.True(t, found)
+		respSize, found := entry.Data["grpc.response.payload_bytes"]
+		assert.EqualValues(t, 2, respSize)
+		require.True(t, found)
 	})
 }
 
