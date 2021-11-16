@@ -204,16 +204,6 @@ service RepositoryService {
       op: ACCESSOR
     };
   }
-  rpc CloneFromPool(CloneFromPoolRequest) returns (CloneFromPoolResponse) {
-    option (op_type) = {
-      op: MUTATOR
-    };
-  }
-  rpc CloneFromPoolInternal(CloneFromPoolInternalRequest) returns (CloneFromPoolInternalResponse) {
-    option (op_type) = {
-      op: MUTATOR
-    };
-  }
   // RemoveRepository will move the repository to `+gitaly/tmp/<relative_path>_removed` and
   // eventually remove it. This ensures that even on networked filesystems the
   // data is actually removed even if there's someone still handling the data.
@@ -686,24 +676,6 @@ message GetObjectDirectorySizeRequest {
 message GetObjectDirectorySizeResponse {
   // Object directory size in kilobytes
   int64 size = 1;
-}
-
-message CloneFromPoolRequest {
-  Repository repository = 1 [(target_repository)=true];
-  ObjectPool pool = 2;
-  Remote remote = 3;
-}
-
-message CloneFromPoolResponse {
-}
-
-message CloneFromPoolInternalRequest {
-  Repository repository = 1 [(target_repository)=true];
-  ObjectPool pool = 2;
-  Repository source_repository = 3;
-}
-
-message CloneFromPoolInternalResponse {
 }
 
 message RemoveRepositoryRequest {

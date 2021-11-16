@@ -65,8 +65,6 @@ var transactionRPCs = map[string]transactionsCondition{
 	"/gitaly.OperationService/UserUpdateSubmodule":           transactionsEnabled,
 	"/gitaly.RefService/DeleteRefs":                          transactionsEnabled,
 	"/gitaly.RepositoryService/ApplyGitattributes":           transactionsEnabled,
-	"/gitaly.RepositoryService/CloneFromPool":                transactionsEnabled,
-	"/gitaly.RepositoryService/CloneFromPoolInternal":        transactionsEnabled,
 	"/gitaly.RepositoryService/CreateFork":                   transactionsEnabled,
 	"/gitaly.RepositoryService/CreateRepository":             transactionsEnabled,
 	"/gitaly.RepositoryService/CreateRepositoryFromBundle":   transactionsEnabled,
