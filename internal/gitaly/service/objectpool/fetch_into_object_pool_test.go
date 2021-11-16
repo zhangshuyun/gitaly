@@ -1,16 +1,13 @@
 package objectpool
 
 import (
-	"bytes"
-	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
@@ -117,8 +114,8 @@ func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, cfg)
 
 	locator := config.NewLocator(cfg)
-	logBuffer := &bytes.Buffer{}
-	logger := &logrus.Logger{Out: logBuffer, Formatter: &logrus.JSONFormatter{}, Level: logrus.InfoLevel}
+
+	logger, hook := test.NewNullLogger()
 	serverSocketPath := runObjectPoolServer(t, cfg, locator, logger)
 
 	conn, err := grpc.Dial(serverSocketPath, grpc.WithInsecure())
@@ -141,15 +138,26 @@ func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
 	_, err = client.FetchIntoObjectPool(ctx, req)
 	require.NoError(t, err)
 
-	msgs := strings.Split(logBuffer.String(), "\n")
 	const key = "count_objects"
-	for _, msg := range msgs {
-		if strings.Contains(msg, key) {
-			var out map[string]interface{}
-			require.NoError(t, json.NewDecoder(strings.NewReader(msg)).Decode(&out))
-			require.Contains(t, out, key, "there is no any information about statistics")
-			countObjects := out[key].(map[string]interface{})
-			assert.Contains(t, countObjects, "count")
+	for _, logEntry := range hook.AllEntries() {
+		if stats, ok := logEntry.Data[key]; ok {
+			require.IsType(t, map[string]interface{}{}, stats)
+
+			var keys []string
+			for key := range stats.(map[string]interface{}) {
+				keys = append(keys, key)
+			}
+
+			require.ElementsMatch(t, []string{
+				"count",
+				"garbage",
+				"in-pack",
+				"packs",
+				"prune-packable",
+				"size",
+				"size-garbage",
+				"size-pack",
+			}, keys)
 			return
 		}
 	}
