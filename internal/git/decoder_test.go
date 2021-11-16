@@ -1,4 +1,4 @@
-package backup
+package git_test
 
 import (
 	"bytes"
@@ -31,7 +31,7 @@ func TestShowRefDecoder(t *testing.T) {
 	output := gittest.Exec(t, cfg, "-C", repoPath, "show-ref")
 	stream := bytes.NewBuffer(output)
 
-	d := NewShowRefDecoder(stream)
+	d := git.NewShowRefDecoder(stream)
 
 	var refs []git.Reference
 	for {
