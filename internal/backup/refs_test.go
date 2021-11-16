@@ -13,7 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
 
-func TestRefsDecoder(t *testing.T) {
+func TestShowRefDecoder(t *testing.T) {
 	cfg := testcfg.Build(t)
 
 	ctx, cancel := testhelper.Context()
@@ -31,7 +31,7 @@ func TestRefsDecoder(t *testing.T) {
 	output := gittest.Exec(t, cfg, "-C", repoPath, "show-ref")
 	stream := bytes.NewBuffer(output)
 
-	d := NewRefsDecoder(stream)
+	d := NewShowRefDecoder(stream)
 
 	var refs []git.Reference
 	for {
