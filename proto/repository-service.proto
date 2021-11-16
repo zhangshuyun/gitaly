@@ -331,6 +331,9 @@ message FetchBundleRequest {
 
   // Data is the bundle file stream.
   bytes data = 2;
+
+  // UpdateHead will update HEAD if there is a HEAD reference listed in the bundle
+  bool update_head = 3;
 }
 
 message FetchBundleResponse {}

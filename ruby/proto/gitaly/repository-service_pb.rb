@@ -65,6 +65,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     add_message "gitaly.FetchBundleRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
       optional :data, :bytes, 2
+      optional :update_head, :bool, 3
     end
     add_message "gitaly.FetchBundleResponse" do
     end
