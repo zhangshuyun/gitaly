@@ -593,7 +593,7 @@ func TestPerRepositoryElector(t *testing.T) {
 				// Below we wait for the statement to actually begin executing to ensure the test actually exercises concurrent
 				// execution.
 				if !step.noBlockedQuery {
-					testdb.WaitForBlockedQuery(ctx, t, db, "WITH new AS (")
+					testdb.WaitForBlockedQuery(ctx, t, db, "WITH reread AS (")
 				}
 
 				txFirst.Commit(t)

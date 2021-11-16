@@ -28,37 +28,74 @@ func NewPerRepositoryElector(db glsql.Querier) *PerRepositoryElector {
 // GetPrimary returns the primary storage of a repository. If the primary is not a valid primary anymore, an election
 // is attempted. If there are no valid primaries, the current primary is simply demoted.
 func (pr *PerRepositoryElector) GetPrimary(ctx context.Context, virtualStorage string, repositoryID int64) (string, error) {
+	// The query below contains three parts to account for visibility with read-committed isolation mode and
+	// concurrent updates.
+	//
+	// If the repository already has a valid primary, the `reread` and `election` CTEs don't return results and
+	// the query simply returns the primary from the `repositories` table (aliased as `snapshot`). No locks are
+	// acquired.
+	//
+	// If the primary is invalid, the `reread` CTE locks the record. Upon acquiring the lock, Postgres rereads
+	// the record. `reread` then contains an up to date record which has potentially been updated by a concurrent
+	// transaction. If the reread record still contains an invalid primary, the `election` CTE performs an election.
+	// If the repository has a valid primary after rereading the record, the `election` CTE doesn't re-elect a primary.
+	//
+	// The query then returns the primary from the correct CTE. The priority is:
+	//   1. `election`, as this indicates this transaction re-elected the primary and the CTE now contains the most
+	//      recent change
+	//   2. `reread`, as this indicates a concurrent transaction had potentially changed the primary.
+	//   3. `snapshot`, if the current primary was valid in the transcation's database snapshot.
 	var current, previous sql.NullString
 	if err := pr.db.QueryRowContext(ctx, `
-WITH new AS (
-	UPDATE repositories
-		SET "primary" = (
-			SELECT storage
-			FROM valid_primaries
-			WHERE repository_id = $1
-			ORDER BY random()
-			LIMIT 1
-		)
+WITH reread AS (
+	SELECT true AS valid, repository_id, "primary"
+	FROM repositories
 	WHERE repository_id = $1
 	AND NOT EXISTS (
 		SELECT FROM valid_primaries
-		WHERE repository_id = $1
-		AND   storage       = repositories."primary"
+		WHERE valid_primaries.repository_id = repositories.repository_id
+		AND storage = "primary"
 	)
-	RETURNING true AS elected, "primary"
+	FOR NO KEY UPDATE
+),
+
+election AS (
+	UPDATE repositories
+	SET "primary" = (
+		SELECT storage
+		FROM valid_primaries
+		WHERE valid_primaries.repository_id = repositories.repository_id
+		ORDER BY random()
+		LIMIT 1
+	)
+	FROM reread
+	WHERE repositories.repository_id = reread.repository_id
+	AND NOT EXISTS (
+		SELECT FROM valid_primaries
+		WHERE valid_primaries.repository_id = $1
+		AND storage = reread.primary
+	)
+	RETURNING true AS valid, repositories.primary
 )
 
 SELECT
-	CASE WHEN new.elected
-		THEN new.primary
-		ELSE old.primary
+	CASE WHEN election.valid
+		THEN election.primary
+		ELSE
+			CASE WHEN reread.valid
+				THEN reread.primary
+				ELSE snapshot.primary
+			END
 	END,
-	old.primary
-FROM repositories AS old
-FULL JOIN new ON true
-WHERE repository_id = $1
-
-		`,
+	CASE WHEN reread.valid
+		THEN reread.primary
+		ELSE snapshot.primary
+	END
+FROM repositories AS snapshot
+LEFT JOIN reread ON reread.valid
+LEFT JOIN election ON election.valid
+WHERE snapshot.repository_id = $1
+`,
 		repositoryID,
 	).Scan(&current, &previous); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
