@@ -123,6 +123,8 @@ func TestPayloadBytes(t *testing.T) {
 	}
 	wg.Wait()
 
+	srv.GracefulStop()
+
 	entries := hook.AllEntries()
 	require.Len(t, entries, 4)
 	var unary, stream int
