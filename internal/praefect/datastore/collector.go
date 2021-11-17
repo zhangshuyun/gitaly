@@ -72,6 +72,11 @@ func (c *RepositoryStoreCollector) Collect(ch chan<- prometheus.Metric) {
 // they are either unhealthy or out of date.
 func (c *RepositoryStoreCollector) queryMetrics(ctx context.Context) (map[string]int, error) {
 	rows, err := c.db.QueryContext(ctx, `
+WITH valid_primaries AS MATERIALIZED (
+	SELECT virtual_storage, relative_path
+	FROM valid_primaries
+)
+
 SELECT virtual_storage, COUNT(*)
 FROM repositories
 WHERE NOT EXISTS (
