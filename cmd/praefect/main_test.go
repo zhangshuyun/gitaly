@@ -2,12 +2,18 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/bootstrap"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/bootstrap/starter"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
@@ -145,6 +151,88 @@ func TestGetStarterConfigs(t *testing.T) {
 			actual, err := getStarterConfigs(tc.conf)
 			require.Equal(t, tc.expErr, err)
 			require.ElementsMatch(t, tc.exp, actual)
+		})
+	}
+}
+
+func newMockRegisterer() *mockRegisterer {
+	return &mockRegisterer{}
+}
+
+type mockRegisterer struct {
+	repositoryCollectorRegistered bool
+}
+
+func (m *mockRegisterer) Register(c prometheus.Collector) error {
+	if _, ok := c.(*datastore.RepositoryStoreCollector); ok {
+		m.repositoryCollectorRegistered = true
+	}
+
+	return nil
+}
+
+func (m *mockRegisterer) MustRegister(collectors ...prometheus.Collector) {
+	for _, c := range collectors {
+		if _, ok := c.(*datastore.RepositoryStoreCollector); ok {
+			m.repositoryCollectorRegistered = true
+		}
+	}
+}
+
+func (m *mockRegisterer) Unregister(c prometheus.Collector) bool {
+	return false
+}
+
+func (m *mockRegisterer) Gather() ([]*dto.MetricFamily, error) {
+	return nil, nil
+}
+
+func TestExcludeDatabaseMetricsFromDefaultMetrics(t *testing.T) {
+	t.Parallel()
+
+	db := glsql.NewDB(t)
+	dbConf := glsql.GetDBConfig(t, db.Name)
+
+	conf := config.Config{
+		SocketPath: testhelper.GetTemporaryGitalySocketFileName(t),
+		VirtualStorages: []*config.VirtualStorage{
+			{
+				Name: "praefect",
+				Nodes: []*config.Node{
+					{Storage: "storage-0", Address: "tcp://someaddress"},
+				},
+			},
+		},
+		DB: dbConf,
+		Failover: config.Failover{
+			Enabled:          true,
+			ElectionStrategy: config.ElectionStrategyPerRepository,
+		},
+		MemoryQueueEnabled: true,
+	}
+
+	starterConfigs, err := getStarterConfigs(conf)
+	require.NoError(t, err)
+
+	excludeDatabaseMetricsSettings := []bool{true, false}
+	for _, excludeDatabaseMetrics := range excludeDatabaseMetricsSettings {
+		t.Run(fmt.Sprintf("exclude database metrics %v", excludeDatabaseMetrics), func(t *testing.T) {
+			conf.PrometheusExcludeDatabaseFromDefaultMetrics = excludeDatabaseMetrics
+
+			stopped := make(chan struct{})
+			bootstrapper := bootstrap.NewNoop()
+
+			metricRegisterer, dbMetricsRegisterer := newMockRegisterer(), newMockRegisterer()
+			go func() {
+				defer close(stopped)
+				assert.NoError(t, run(starterConfigs, conf, bootstrapper, metricRegisterer, dbMetricsRegisterer))
+			}()
+
+			bootstrapper.Terminate()
+			<-stopped
+
+			assert.True(t, dbMetricsRegisterer.repositoryCollectorRegistered)
+			assert.Equal(t, excludeDatabaseMetrics, !metricRegisterer.repositoryCollectorRegistered)
 		})
 	}
 }
