@@ -14,10 +14,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-func getDB(t *testing.T) glsql.DB {
-	return glsql.GetDB(t)
-}
-
 func registerPraefectInfoServer(impl gitalypb.PraefectInfoServiceServer) svcRegistrar {
 	return func(srv *grpc.Server) {
 		gitalypb.RegisterPraefectInfoServiceServer(srv, impl)
@@ -44,7 +40,7 @@ func TestDatalossSubcommand(t *testing.T) {
 		},
 	}
 
-	tx := getDB(t).Begin(t)
+	tx := glsql.GetDB(t).Begin(t)
 	defer tx.Rollback(t)
 
 	ctx, cancel := testhelper.Context()
