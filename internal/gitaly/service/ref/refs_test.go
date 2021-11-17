@@ -225,7 +225,7 @@ func TestSetDefaultBranchRef(t *testing.T) {
 	testCases := []struct {
 		desc        string
 		ref         string
-		expectedRef string
+		expectedRef git.ReferenceName
 	}{
 		{
 			desc:        "update the branch ref",
@@ -235,7 +235,7 @@ func TestSetDefaultBranchRef(t *testing.T) {
 		{
 			desc:        "unknown ref",
 			ref:         "refs/heads/non_existent_ref",
-			expectedRef: string(git.LegacyDefaultRef),
+			expectedRef: git.LegacyDefaultRef,
 		},
 	}
 
@@ -249,7 +249,7 @@ func TestSetDefaultBranchRef(t *testing.T) {
 			newRef, err := repo.GetDefaultBranch(ctx)
 			require.NoError(t, err)
 
-			require.Equal(t, tc.expectedRef, newRef.String())
+			require.Equal(t, tc.expectedRef, newRef)
 		})
 	}
 }
@@ -268,7 +268,7 @@ func TestSuccessfulFindDefaultBranchName(t *testing.T) {
 	r, err := client.FindDefaultBranchName(ctx, rpcRequest)
 	require.NoError(t, err)
 
-	require.Equal(t, r.GetName(), git.DefaultRef)
+	require.Equal(t, git.ReferenceName(r.GetName()), git.DefaultRef)
 }
 
 func TestSuccessfulFindDefaultBranchNameLegacy(t *testing.T) {
@@ -280,7 +280,7 @@ func TestSuccessfulFindDefaultBranchNameLegacy(t *testing.T) {
 	r, err := client.FindDefaultBranchName(ctx, rpcRequest)
 	require.NoError(t, err)
 
-	require.Equal(t, r.GetName(), git.LegacyDefaultRef)
+	require.Equal(t, git.ReferenceName(r.GetName()), git.LegacyDefaultRef)
 }
 
 func TestEmptyFindDefaultBranchNameRequest(t *testing.T) {
