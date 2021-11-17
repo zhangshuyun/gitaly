@@ -47,6 +47,11 @@ resource "google_sql_database_instance" "praefect_sql" {
   settings {
     tier = "db-f1-micro"
 
+    database_flags {
+      name  = "log_min_duration_statement"
+      value = "500"
+    }
+
     ip_configuration{
       ipv4_enabled = true
 
