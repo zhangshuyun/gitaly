@@ -135,6 +135,9 @@ func TestGitalyServerFactory(t *testing.T) {
 
 		checkHealth(t, sf, starter.TCP, "localhost:0")
 
+		// Stop all servers to drain any postprocessing done for RPC calls.
+		sf.GracefulStop()
+
 		var entry *logrus.Entry
 		for _, e := range hook.AllEntries() {
 			if e.Message == "finished unary call with code OK" {
