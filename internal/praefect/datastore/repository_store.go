@@ -589,6 +589,10 @@ func (rs *PostgresRepositoryStore) GetPartiallyAvailableRepositories(ctx context
 	//    than the assigned ones.
 	//
 	rows, err := rs.db.QueryContext(ctx, `
+WITH valid_primaries AS MATERIALIZED (
+	SELECT * FROM valid_primaries
+)
+
 SELECT
 	json_build_object (
 		'RelativePath', relative_path,
