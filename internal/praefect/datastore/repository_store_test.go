@@ -1321,10 +1321,17 @@ func TestPostgresRepositoryStore_GetPartiallyAvailableRepositories(t *testing.T)
 			})
 
 			if !tc.nonExistentRepository {
+				var maxGeneration int
+				for _, generation := range tc.existingGenerations {
+					if generation > maxGeneration {
+						maxGeneration = generation
+					}
+				}
+
 				_, err := tx.ExecContext(ctx, `
-							INSERT INTO repositories (virtual_storage, relative_path, "primary")
-							VALUES ('virtual-storage', 'relative-path', 'repository-primary')
-						`)
+							INSERT INTO repositories (virtual_storage, relative_path, "primary", generation)
+							VALUES ('virtual-storage', 'relative-path', 'repository-primary', $1)
+						`, maxGeneration)
 				require.NoError(t, err)
 			}
 
