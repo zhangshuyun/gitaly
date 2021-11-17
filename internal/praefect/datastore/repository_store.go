@@ -612,7 +612,7 @@ FROM (
 		relative_path,
 		repositories.primary,
 		storage,
-		repository_generations.generation - COALESCE(storage_repositories.generation, -1) AS behind_by,
+		repositories.generation - COALESCE(storage_repositories.generation, -1) AS behind_by,
 		repository_assignments.storage IS NOT NULL AS assigned,
 		healthy_storages.storage IS NOT NULL AS healthy,
 		valid_primaries.storage IS NOT NULL AS valid_primary
@@ -630,7 +630,6 @@ FROM (
 		)
 	) AS repository_assignments USING (virtual_storage, relative_path, storage)
 	JOIN repositories USING (virtual_storage, relative_path)
-	JOIN repository_generations USING (virtual_storage, relative_path)
 	LEFT JOIN healthy_storages USING (virtual_storage, storage)
 	LEFT JOIN valid_primaries USING (virtual_storage, relative_path, storage)
 	WHERE virtual_storage = $1
