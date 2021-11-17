@@ -293,11 +293,11 @@ func (repo *Repo) GetDefaultBranch(ctx context.Context) (git.ReferenceName, erro
 			return branch.Name, nil
 		}
 
-		if string(git.DefaultRef) == branch.Name.String() {
+		if git.DefaultRef == branch.Name {
 			defaultRef = branch.Name
 		}
 
-		if string(git.LegacyDefaultRef) == branch.Name.String() {
+		if git.LegacyDefaultRef == branch.Name {
 			legacyDefaultRef = branch.Name
 		}
 	}

@@ -129,7 +129,7 @@ func testRepositoryGetDefaultBranch(t *testing.T, cfg config.Cfg, getRepository 
 				WriteCommit(t, cfg, repoPath, WithParents(oid), WithBranch("main"))
 				return repo
 			},
-			expectedName: git.ReferenceName(git.DefaultRef),
+			expectedName: git.DefaultRef,
 		},
 		{
 			desc: "legacy default ref",
@@ -140,7 +140,7 @@ func testRepositoryGetDefaultBranch(t *testing.T, cfg config.Cfg, getRepository 
 				WriteCommit(t, cfg, repoPath, WithParents(oid), WithBranch("master"))
 				return repo
 			},
-			expectedName: git.ReferenceName(git.LegacyDefaultRef),
+			expectedName: git.LegacyDefaultRef,
 		},
 		{
 			desc: "no branches",
@@ -177,7 +177,7 @@ func testRepositoryGetDefaultBranch(t *testing.T, cfg config.Cfg, getRepository 
 				repoProto, _ := CloneRepo(t, cfg, cfg.Storages[0])
 				return getRepository(t, repoProto)
 			},
-			expectedName: git.ReferenceName(git.LegacyDefaultRef),
+			expectedName: git.LegacyDefaultRef,
 		},
 		{
 			desc: "test repo HEAD set",
