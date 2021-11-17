@@ -88,33 +88,6 @@ describe Gitlab::Git::Repository do # rubocop:disable Metrics/BlockLength
     it { expect(repository).not_to be_empty }
   end
 
-  describe '#delete_refs' do
-    let(:repository) { mutable_repository }
-
-    it 'deletes the ref' do
-      repository.delete_refs('refs/heads/feature')
-
-      expect(repository_rugged.references['refs/heads/feature']).to be_nil
-    end
-
-    it 'deletes all refs' do
-      refs = %w[refs/heads/wip refs/tags/v1.1.0]
-      repository.delete_refs(*refs)
-
-      refs.each do |ref|
-        expect(repository_rugged.references[ref]).to be_nil
-      end
-    end
-
-    it 'does not fail when deleting an empty list of refs' do
-      expect { repository.delete_refs }.not_to raise_error
-    end
-
-    it 'raises an error if it failed' do
-      expect { repository.delete_refs('refs\heads\fix') }.to raise_error(Gitlab::Git::Repository::GitError)
-    end
-  end
-
   describe '#merge_base' do
     where(:from, :to, :result) do
       '570e7b2abdd848b95f2f578043fc23bd6f6fd24d' | '40f4a7a617393735a95a0bb67b08385bc1e7c66d' | '570e7b2abdd848b95f2f578043fc23bd6f6fd24d'
@@ -331,67 +304,6 @@ describe Gitlab::Git::Repository do # rubocop:disable Metrics/BlockLength
 
       expect(rugged).to be_a(Rugged::Repository)
       expect(Thread.current[described_class::RUGGED_KEY]).to be_nil
-    end
-  end
-
-  describe "#commit_patches" do
-    let(:repository) { gitlab_git_from_gitaly(new_mutable_test_repo) }
-    let(:testdata_dir) { File.join(File.dirname(__FILE__), '../../../../../internal/gitaly/service/operations/testdata') }
-    let(:patches) { File.foreach(File.join(testdata_dir, patch_file_name)) }
-
-    def apply_patches(branch_name)
-      repository.commit_patches(branch_name, patches)
-    end
-
-    context 'when the patch applies' do
-      let(:patch_file_name) { '0001-A-commit-from-a-patch.patch' }
-
-      it 'creates a new rev with the patch' do
-        new_rev = apply_patches(repository.root_ref)
-        commit = repository.commit(new_rev)
-
-        expect(new_rev).not_to be_nil
-        expect(commit.message).to eq("A commit from a patch\n")
-
-        # Ensure worktree cleanup occurs
-        result, status = repository.send(:run_git, %w[worktree list --porcelain])
-        expect(status).to eq(0)
-        expect(result).to eq("worktree #{repository_path}\nbare\n\n")
-      end
-    end
-
-    context 'when the patch does not apply' do
-      let(:patch_file_name) { '0001-This-does-not-apply-to-the-feature-branch.patch' }
-
-      it 'raises a PatchError' do
-        expect { apply_patches('feature') }.to raise_error Gitlab::Git::PatchError
-      end
-    end
-  end
-
-  describe '#update_submodule' do
-    let(:new_oid) { 'db97db76ecd478eb361f439807438f82d97b29a5' }
-    let(:repository) { gitlab_git_from_gitaly(new_mutable_test_repo) }
-    let(:submodule) { 'gitlab-grack' }
-    let(:head_commit) { repository.commit(branch) }
-    let!(:head_submodule_reference) { repository.blob_at(head_commit.id, submodule).id }
-    let(:committer) { repository.user_to_committer(user) }
-    let(:message) { 'Update submodule' }
-    let(:branch) { 'master' }
-
-    subject do
-      repository.update_submodule(submodule,
-                                  new_oid,
-                                  branch,
-                                  committer,
-                                  message)
-    end
-
-    it 'updates the submodule oid' do
-      blob = repository.blob_at(subject, submodule)
-
-      expect(blob.id).not_to eq head_submodule_reference
-      expect(blob.id).to eq new_oid
     end
   end
 

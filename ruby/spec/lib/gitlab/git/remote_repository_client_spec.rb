@@ -40,7 +40,7 @@ describe Gitlab::Git::GitalyRemoteRepository do
     end
   end
 
-  let(:repository) { gitlab_git_from_gitaly_with_gitlab_projects(new_mutable_test_repo) }
+  let(:repository) { gitlab_git_from_gitaly(new_mutable_test_repo) }
   describe 'certs' do
     let(:client) { get_client("tls://localhost:#{GitalyConfig.dynamic_port('tls')}") }
 
@@ -113,7 +113,7 @@ describe Gitlab::Git::GitalyRemoteRepository do
     end
 
     context 'unix' do
-      let(:client) { get_client("unix:#{File.join(TMP_DIR_NAME, SOCKET_PATH)}") }
+      let(:client) { get_client("unix:#{File.join(TMP_DIR, SOCKET_PATH)}") }
 
       it 'Should connect over unix' do
         expect(client).not_to be_empty

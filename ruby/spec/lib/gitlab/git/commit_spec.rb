@@ -109,13 +109,13 @@ describe Gitlab::Git::Commit do
       end
 
       it "should return nil for non-commit ids" do
-        blob = Gitlab::Git::Blob.find(repository, SeedRepo::Commit::ID, "files/ruby/popen.rb")
-        expect(described_class.find(repository, blob.id)).to be_nil
+        blob_id = repository.lookup("#{SeedRepo::Commit::ID}:files/ruby/popen.rb")
+        expect(described_class.find(repository, blob_id)).to be_nil
       end
 
       it "should return nil for parent of non-commit object" do
-        blob = Gitlab::Git::Blob.find(repository, SeedRepo::Commit::ID, "files/ruby/popen.rb")
-        expect(described_class.find(repository, "#{blob.id}^")).to be_nil
+        blob_id = repository.lookup("#{SeedRepo::Commit::ID}:files/ruby/popen.rb")
+        expect(described_class.find(repository, "#{blob_id}^")).to be_nil
       end
 
       it "should return nil for nonexisting ids" do

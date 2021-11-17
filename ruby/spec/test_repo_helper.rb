@@ -10,7 +10,7 @@ Gitlab.config.git.test_global_ivar_override(:bin_path, ENV.fetch('GITALY_TESTING
 Gitlab.config.git.test_global_ivar_override(:hooks_directory, File.join(GITALY_RUBY_DIR, "hooks"))
 Gitlab.config.gitaly.test_global_ivar_override(:bin_dir, __dir__)
 
-DEFAULT_STORAGE_DIR = File.expand_path('../tmp/repositories', __dir__)
+DEFAULT_STORAGE_DIR = File.join(TMP_DIR, 'repositories', __dir__)
 DEFAULT_STORAGE_NAME = 'default'.freeze
 TEST_REPO_PATH = File.join(DEFAULT_STORAGE_DIR, 'gitlab-test.git')
 TEST_REPO_ORIGIN = '../_build/testrepos/gitlab-test.git'.freeze
@@ -81,25 +81,13 @@ module TestRepo
     File.join(DEFAULT_STORAGE_DIR, gitaly_repo.relative_path)
   end
 
-  def gitlab_git_from_gitaly(gitaly_repo, gitlab_projects: nil)
+  def gitlab_git_from_gitaly(gitaly_repo)
     Gitlab::Git::Repository.new(
       gitaly_repo,
       repo_path_from_gitaly(gitaly_repo),
       'project-123',
-      gitlab_projects,
       ''
     )
-  end
-
-  def gitlab_git_from_gitaly_with_gitlab_projects(gitaly_repo)
-    gitlab_projects = Gitlab::Git::GitlabProjects.new(
-      DEFAULT_STORAGE_DIR,
-      gitaly_repo.relative_path,
-      global_hooks_path: '',
-      logger: Rails.logger
-    )
-
-    gitlab_git_from_gitaly(gitaly_repo, gitlab_projects: gitlab_projects)
   end
 
   def repository_from_relative_path(relative_path)

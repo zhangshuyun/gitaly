@@ -8,7 +8,6 @@ module Gitlab
       include Gitlab::EncodingHelper
       include Gitlab::Utils::StrongMemoize
 
-      AM_WORKTREE_PREFIX = 'am'.freeze
       GITALY_INTERNAL_URL = 'ssh://gitaly/internal.git'.freeze
       AUTOCRLF_VALUES = { 'true' => true, 'false' => false, 'input' => :input }.freeze
       RUGGED_KEY = :rugged_list
@@ -18,21 +17,12 @@ module Gitlab
       InvalidRef = Class.new(StandardError)
       GitError = Class.new(StandardError)
 
-      class CreateTreeError < StandardError
-        attr_reader :error
-
-        def initialize(error)
-          @error = error
-        end
-      end
-
       class << self
         def from_gitaly(gitaly_repository, call)
           new(
             gitaly_repository,
             GitalyServer.repo_path(call),
             GitalyServer.gl_repository(call),
-            Gitlab::Git::GitlabProjects.from_gitaly(gitaly_repository, call),
             GitalyServer.repo_alt_dirs(call),
             GitalyServer.feature_flags(call)
           )
@@ -54,9 +44,9 @@ module Gitlab
       # Directory name of repo
       attr_reader :name
 
-      attr_reader :gitlab_projects, :storage, :gl_repository, :gl_project_path, :relative_path
+      attr_reader :storage, :gl_repository, :gl_project_path, :relative_path
 
-      def initialize(gitaly_repository, path, gl_repository, gitlab_projects, combined_alt_dirs = "", feature_flags = GitalyServer::FeatureFlags.new({}))
+      def initialize(gitaly_repository, path, gl_repository, combined_alt_dirs = "", feature_flags = GitalyServer::FeatureFlags.new({}))
         @gitaly_repository = gitaly_repository
 
         @alternate_object_directories = combined_alt_dirs
@@ -68,7 +58,6 @@ module Gitlab
         @path = path
         @gl_repository = gl_repository
         @gl_project_path = gitaly_repository.gl_project_path
-        @gitlab_projects = gitlab_projects
         @feature_flags = feature_flags
       end
 
@@ -188,52 +177,6 @@ module Gitlab
         end
       end
 
-      def diff_exists?(sha1, sha2)
-        rugged.diff(sha1, sha2).size.positive?
-      end
-
-      def commit_patches(start_point, patches, extra_env: {})
-        worktree = Gitlab::Git::Worktree.new(path, AM_WORKTREE_PREFIX, SecureRandom.hex)
-
-        with_worktree(worktree, start_point, env: extra_env) do
-          result, status = run_git(%w[am --quiet --3way], chdir: worktree.path, env: extra_env) do |stdin|
-            loop { stdin.write(patches.next) }
-          end
-
-          raise Gitlab::Git::PatchError, result unless status == 0
-
-          run_git!(
-            %w[rev-parse --quiet --verify HEAD], chdir: worktree.path, env: extra_env
-          ).chomp
-        end
-      end
-
-      def update_submodule(submodule_path, commit_sha, branch, committer, message)
-        target = rugged.rev_parse("refs/heads/" + branch)
-        raise CommitError, 'Invalid branch' unless target.is_a?(Rugged::Commit)
-
-        current_entry = rugged_submodule_entry(target, submodule_path)
-        raise CommitError, 'Invalid submodule path' unless current_entry
-        raise CommitError, "The submodule #{submodule_path} is already at #{commit_sha}" if commit_sha == current_entry[:oid]
-
-        commit_tree = target.tree.update([action: :upsert,
-                                          oid: commit_sha,
-                                          filemode: 0o160000,
-                                          path: submodule_path])
-
-        options = {
-          parents: [target.oid],
-          tree: commit_tree,
-          message: message,
-          author: committer,
-          committer: committer
-        }
-
-        create_commit(options).tap do |result|
-          raise CommitError, 'Failed to create commit' unless result
-        end
-      end
-
       def with_repo_branch_commit(start_repository, start_ref)
         start_repository = RemoteRepository.new(start_repository) unless start_repository.is_a?(RemoteRepository)
 
@@ -274,10 +217,6 @@ module Gitlab
         end
       end
 
-      def delete_refs(*ref_names)
-        git_delete_refs(*ref_names)
-      end
-
       # Returns true if the given branch exists
       #
       # name - The name of the branch as a String.
@@ -298,10 +237,6 @@ module Gitlab
         nil
       end
 
-      def user_to_committer(user, timestamp = nil)
-        Gitlab::Git.committer_hash(email: user.email, name: user.name, timestamp: timestamp)
-      end
-
       # Fetch a commit from the given source repository
       def fetch_sha(source_repository, sha)
         source_repository = RemoteRepository.new(source_repository) unless source_repository.is_a?(RemoteRepository)
@@ -318,20 +253,6 @@ module Gitlab
       # Lookup for rugged object by oid or ref name
       def lookup(oid_or_ref_name)
         rugged.rev_parse(oid_or_ref_name)
-      end
-
-      def commit_index(user, branch_name, index, options, timestamp = nil)
-        committer = user_to_committer(user, timestamp)
-
-        OperationService.new(user, self).with_branch(branch_name) do
-          commit_params = options.merge(
-            tree: index.write_tree(rugged),
-            author: committer,
-            committer: committer
-          )
-
-          create_commit(commit_params)
-        end
       end
 
       # Return the object that +revspec+ points to.  If +revspec+ is an
@@ -358,10 +279,6 @@ module Gitlab
         rugged.config['core.autocrlf'] = AUTOCRLF_VALUES.invert[value]
       end
 
-      def blob_at(sha, path)
-        Gitlab::Git::Blob.find(self, sha, path) unless Gitlab::Git.blank_ref?(sha)
-      end
-
       def cleanup
         # Opening a repository may be expensive, and we only need to close it
         # if it's been open.
@@ -378,14 +295,6 @@ module Gitlab
 
       private
 
-      def sparse_checkout_empty?(output)
-        output.include?("error: Sparse checkout leaves no entry on working directory")
-      end
-
-      def disable_sparse_checkout
-        run_git!(%w[config core.sparseCheckout false], include_stderr: true)
-      end
-
       def run_git(args, chdir: path, env: {}, nice: false, include_stderr: false, lazy_block: nil, &block)
         cmd = [Gitlab.config.git.bin_path, *args]
         cmd.unshift("nice") if nice
@@ -394,14 +303,6 @@ module Gitlab
         env['GIT_ALTERNATE_OBJECT_DIRECTORIES'] = object_directories.join(File::PATH_SEPARATOR) if object_directories.any?
 
         popen(cmd, chdir, env, include_stderr: include_stderr, lazy_block: lazy_block, &block)
-      end
-
-      def run_git!(args, chdir: path, env: {}, nice: false, include_stderr: false, lazy_block: nil, &block)
-        output, status = run_git(args, chdir: chdir, env: env, nice: nice, include_stderr: include_stderr, lazy_block: lazy_block, &block)
-
-        raise GitError, output unless status.zero?
-
-        output
       end
 
       def branches_filter(filter: nil, sort_by: nil)
@@ -417,99 +318,10 @@ module Gitlab
         sort_branches(branches, sort_by)
       end
 
-      def git_delete_refs(*ref_names)
-        instructions = ref_names.map do |ref|
-          "delete #{ref}\x00\x00"
-        end
-
-        message, status = run_git(%w[update-ref --stdin -z], include_stderr: true) do |stdin|
-          stdin.write(instructions.join)
-        end
-
-        raise GitError, "Could not delete refs #{ref_names}: #{message}" unless status.zero?
-      end
-
-      def create_commit(params = {})
-        params[:message].delete!("\r")
-
-        Rugged::Commit.create(rugged, params)
-      end
-
       def rugged_head
         rugged.head
       rescue Rugged::ReferenceError
         nil
-      end
-
-      def with_worktree(worktree, branch, sparse_checkout_files: nil, env:)
-        base_args = %w[worktree add --detach]
-
-        run_git!(%w[config core.splitIndex false])
-
-        # Note that we _don't_ want to test for `.present?` here: If the caller
-        # passes an non nil empty value it means it still wants sparse checkout
-        # but just isn't interested in any file, perhaps because it wants to
-        # checkout files in by a changeset but that changeset only adds files.
-        if sparse_checkout_files
-          # Create worktree without checking out
-          run_git!(base_args + ['--no-checkout', worktree.path], env: env, include_stderr: true)
-          worktree_git_path = run_git!(%w[rev-parse --git-dir], chdir: worktree.path).chomp
-
-          configure_sparse_checkout(worktree_git_path, sparse_checkout_files)
-
-          # After sparse checkout configuration, checkout `branch` in worktree
-          output, cmd_status = run_git(%W[checkout --detach #{branch}], chdir: worktree.path, env: env, include_stderr: true)
-
-          # If sparse checkout fails, fall back to a regular checkout.
-          if cmd_status.nonzero?
-            if sparse_checkout_empty?(output)
-              disable_sparse_checkout
-              run_git!(%W[checkout --detach #{branch}], chdir: worktree.path, env: env, include_stderr: true)
-            else
-              raise GitError, output
-            end
-          end
-        else
-          # Create worktree and checkout `branch` in it
-          run_git!(base_args + [worktree.path, branch], env: env, include_stderr: true)
-        end
-
-        yield
-      ensure
-        run_git(%W[worktree remove -f #{worktree.name}], include_stderr: true)
-      end
-
-      # Adding a worktree means checking out the repository. For large repos,
-      # this can be very expensive, so set up sparse checkout for the worktree
-      # to only check out the files we're interested in.
-      def configure_sparse_checkout(worktree_git_path, files)
-        run_git!(%w[config core.sparseCheckout true], include_stderr: true)
-
-        return if files.empty?
-
-        worktree_info_path = File.join(worktree_git_path, 'info')
-        FileUtils.mkdir_p(worktree_info_path)
-        File.write(File.join(worktree_info_path, 'sparse-checkout'), files)
-      end
-
-      def gitlab_projects_error
-        raise CommandError, @gitlab_projects.output
-      end
-
-      def rugged_submodule_entry(target, submodule_path)
-        parent_dir = File.dirname(submodule_path)
-        parent_dir = '' if parent_dir == '.'
-        parent_tree = rugged.rev_parse("#{target.oid}^{tree}:#{parent_dir}")
-
-        return unless parent_tree.is_a?(Rugged::Tree)
-
-        current_entry = parent_tree[File.basename(submodule_path)]
-
-        valid_submodule_entry?(current_entry) ? current_entry : nil
-      end
-
-      def valid_submodule_entry?(entry)
-        entry && entry[:type] == :commit
       end
     end
   end

@@ -7,8 +7,7 @@ require 'factory_bot'
 require 'pry'
 
 GITALY_RUBY_DIR = File.expand_path('..', __dir__).freeze
-TMP_DIR_NAME = 'tmp'.freeze
-TMP_DIR = File.join(GITALY_RUBY_DIR, TMP_DIR_NAME).freeze
+TMP_DIR = Dir.mktmpdir('gitaly-ruby-tests-').freeze
 GITLAB_SHELL_DIR = File.join(TMP_DIR, 'gitlab-shell').freeze
 
 # overwrite HOME env variable so user global .gitconfig doesn't influence tests
@@ -23,5 +22,9 @@ RSpec.configure do |config|
 
   config.before(:suite) do
     FactoryBot.find_definitions
+  end
+
+  config.after(:suite) do
+    FileUtils.rm_rf(TMP_DIR)
   end
 end
