@@ -23,7 +23,7 @@ func features(flag ...ff.FeatureFlag) map[ff.FeatureFlag]struct{} {
 	return features
 }
 
-func TestNewFeatureSets(t *testing.T) {
+func TestNewFeatureSetsWithRubyFlags(t *testing.T) {
 	testcases := []struct {
 		desc         string
 		features     []ff.FeatureFlag
@@ -129,7 +129,7 @@ func TestNewFeatureSets(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			featureSets := NewFeatureSets(tc.features, tc.rubyFeatures...)
+			featureSets := NewFeatureSetsWithRubyFlags(tc.features, tc.rubyFeatures)
 			require.Len(t, featureSets, len(tc.expected))
 			for _, expected := range tc.expected {
 				require.Contains(t, featureSets, expected)
@@ -152,9 +152,7 @@ func TestFeatureSets_Run(t *testing.T) {
 	}(ff.All)
 	ff.All = append(ff.All, featureFlagA, featureFlagB)
 
-	NewFeatureSets([]ff.FeatureFlag{
-		featureFlagB, featureFlagA,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
+	NewFeatureSets(featureFlagB, featureFlagA).Run(t, func(t *testing.T, ctx context.Context) {
 		incomingMD, ok := grpc_metadata.FromIncomingContext(ctx)
 		require.True(t, ok)
 

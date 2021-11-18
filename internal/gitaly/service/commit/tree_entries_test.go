@@ -658,9 +658,7 @@ func drainTreeEntriesResponse(c gitalypb.CommitService_GetTreeEntriesClient) err
 }
 
 func BenchmarkGetTreeEntries(b *testing.B) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.TreeEntriesViaLsTree,
-	}).Bench(b, benchmarkGetTreeEntries)
+	testhelper.NewFeatureSets(featureflag.TreeEntriesViaLsTree).Bench(b, benchmarkGetTreeEntries)
 }
 
 func benchmarkGetTreeEntries(b *testing.B, ctx context.Context) {

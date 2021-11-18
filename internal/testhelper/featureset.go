@@ -54,9 +54,14 @@ func (f FeatureSet) Disable(ctx context.Context) context.Context {
 // FeatureSets is a slice containing many FeatureSets
 type FeatureSets []FeatureSet
 
-// NewFeatureSets takes a slice of go feature flags, and an optional variadic set of ruby feature flags
-// and returns a FeatureSets slice
-func NewFeatureSets(goFeatures []featureflag.FeatureFlag, rubyFeatures ...featureflag.FeatureFlag) FeatureSets {
+// NewFeatureSets takes Go feature flags and returns the combination of FeatureSets.
+func NewFeatureSets(features ...featureflag.FeatureFlag) FeatureSets {
+	return NewFeatureSetsWithRubyFlags(features, nil)
+}
+
+// NewFeatureSetsWithRubyFlags takes a Go- and Ruby-specific feature flags and returns a the
+// combination of FeatureSets.
+func NewFeatureSetsWithRubyFlags(goFeatures []featureflag.FeatureFlag, rubyFeatures []featureflag.FeatureFlag) FeatureSets {
 	var sets FeatureSets
 
 	length := len(goFeatures) + len(rubyFeatures)
