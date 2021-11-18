@@ -83,10 +83,11 @@ func (cmd listUntrackedRepositories) Exec(flags *flag.FlagSet, cfg config.Config
 
 	walker := repocleaner.NewWalker(nodeSet.Connections(), 16)
 	reporter := reportUntrackedRepositories{
-		ctx:       ctx,
-		checker:   datastore.NewStorageCleanup(db),
-		delimiter: cmd.delimiter,
-		out:       cmd.out,
+		ctx:         ctx,
+		checker:     datastore.NewStorageCleanup(db),
+		delimiter:   cmd.delimiter,
+		out:         cmd.out,
+		printHeader: true,
 	}
 	for _, vs := range cfg.VirtualStorages {
 		for _, node := range vs.Nodes {
@@ -126,10 +127,11 @@ func dialGitalyStorages(ctx context.Context, cfg config.Config, timeout time.Dur
 }
 
 type reportUntrackedRepositories struct {
-	ctx       context.Context
-	checker   *datastore.StorageCleanup
-	out       io.Writer
-	delimiter string
+	ctx         context.Context
+	checker     *datastore.StorageCleanup
+	out         io.Writer
+	delimiter   string
+	printHeader bool
 }
 
 // Report method accepts a list of repositories, checks if they exist in the praefect database
@@ -143,6 +145,13 @@ func (r *reportUntrackedRepositories) Report(virtualStorage, storage string, rep
 	missing, err := r.checker.DoesntExist(r.ctx, virtualStorage, storage, replicaPaths)
 	if err != nil {
 		return fmt.Errorf("existence check: %w", err)
+	}
+
+	if len(missing) > 0 && r.printHeader {
+		if _, err := fmt.Fprintf(r.out, "The following repositories were found on disk, but missing from the tracking database:\n"); err != nil {
+			return fmt.Errorf("write header to output: %w", err)
+		}
+		r.printHeader = false
 	}
 
 	for _, replicaPath := range missing {
