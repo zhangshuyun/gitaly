@@ -154,10 +154,7 @@ ON CONFLICT (praefect_name, shard_name, node_name)
 
 	if hm.firstUpdate {
 		hm.firstUpdate = false
-		select {
-		case hm.updated <- struct{}{}:
-		default:
-		}
+		hm.updated <- struct{}{}
 	}
 
 	return nil
