@@ -285,6 +285,7 @@ func TestFindAllTags_duplicateAnnotatedTags(t *testing.T) {
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
 	date := time.Unix(12345, 0)
+	dateOffset := date.Format("-0700")
 
 	tagID, err := repo.WriteTag(ctx, commitID, "commit", []byte("annotated"), []byte("message"),
 		gittest.TestUser, date)
@@ -334,7 +335,7 @@ func TestFindAllTags_duplicateAnnotatedTags(t *testing.T) {
 				Name:     gittest.TestUser.Name,
 				Email:    gittest.TestUser.Email,
 				Date:     timestamppb.New(date),
-				Timezone: []byte("+0000"),
+				Timezone: []byte(dateOffset),
 			},
 			TargetCommit: commit,
 		},
@@ -347,7 +348,7 @@ func TestFindAllTags_duplicateAnnotatedTags(t *testing.T) {
 				Name:     gittest.TestUser.Name,
 				Email:    gittest.TestUser.Email,
 				Date:     timestamppb.New(date),
-				Timezone: []byte("+0000"),
+				Timezone: []byte(dateOffset),
 			},
 			TargetCommit: commit,
 		},
