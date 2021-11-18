@@ -2,14 +2,18 @@ package datastore
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -219,4 +223,34 @@ gitaly_praefect_unavailable_repositories{virtual_storage="virtual-storage-2"} 0
 			require.NoError(t, err)
 		})
 	}
+}
+
+type checkIfQueriedDB struct {
+	queried bool
+}
+
+func (c *checkIfQueriedDB) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
+	c.queried = true
+	return nil, errors.New("QueryContext should not be called")
+}
+
+func (c *checkIfQueriedDB) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
+	c.queried = true
+	return &sql.Row{}
+}
+
+func (c *checkIfQueriedDB) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
+	c.queried = true
+	return nil, errors.New("ExecContext should not be called")
+}
+
+func TestRepositoryStoreCollector_CollectNotCalledOnRegister(t *testing.T) {
+	logger, _ := test.NewNullLogger()
+
+	var db checkIfQueriedDB
+	c := NewRepositoryStoreCollector(logger, []string{"virtual-storage-1", "virtual-storage-2"}, &db, 2*time.Second)
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(c)
+
+	assert.False(t, db.queried)
 }
