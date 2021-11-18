@@ -84,7 +84,7 @@ func TestListUntrackedRepositories_Exec(t *testing.T) {
 	require.NoError(t, err)
 	bootstrapper := bootstrap.NewNoop()
 	go func() {
-		assert.NoError(t, run(starterConfigs, conf, bootstrapper, prometheus.NewRegistry()))
+		assert.NoError(t, run(starterConfigs, conf, bootstrapper, prometheus.NewRegistry(), prometheus.NewRegistry()))
 	}()
 
 	cc, err := client.Dial("unix://"+conf.SocketPath, nil)
