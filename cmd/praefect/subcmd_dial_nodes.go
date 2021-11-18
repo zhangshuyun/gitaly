@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
@@ -10,12 +11,14 @@ import (
 
 const dialNodesCmdName = "dial-nodes"
 
-func newDialNodesSubcommand(p nodes.Printer) *dialNodesSubcommand {
-	return &dialNodesSubcommand{p}
+func newDialNodesSubcommand(w io.Writer) *dialNodesSubcommand {
+	return &dialNodesSubcommand{
+		w: w,
+	}
 }
 
 type dialNodesSubcommand struct {
-	p nodes.Printer
+	w io.Writer
 }
 
 func (s *dialNodesSubcommand) FlagSet() *flag.FlagSet {
@@ -24,5 +27,5 @@ func (s *dialNodesSubcommand) FlagSet() *flag.FlagSet {
 
 func (s *dialNodesSubcommand) Exec(flags *flag.FlagSet, conf config.Config) error {
 	ctx := context.Background()
-	return nodes.PingAll(ctx, conf, s.p)
+	return nodes.PingAll(ctx, conf, nodes.NewTextPrinter(s.w), false)
 }

@@ -33,7 +33,7 @@ func TestNewPingSet(t *testing.T) {
 		},
 	}
 
-	actual := newPingSet(conf, nil)
+	actual := newPingSet(conf, nil, true)
 	expected := map[string]*Ping{
 		"tcp://example.com": {
 			address: "tcp://example.com",
@@ -46,6 +46,7 @@ func TestNewPingSet(t *testing.T) {
 				"woof": {},
 			},
 			token: "abc",
+			quiet: true,
 		},
 	}
 

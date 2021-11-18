@@ -3,7 +3,7 @@ package praefect
 import (
 	"context"
 	"fmt"
-	"log"
+	"io"
 	"time"
 
 	migrate "github.com/rubenv/sql-migrate"
@@ -35,10 +35,10 @@ type Check struct {
 }
 
 // CheckFunc is a function type that takes a praefect config and returns a Check
-type CheckFunc func(conf config.Config) *Check
+type CheckFunc func(conf config.Config, w io.Writer, quiet bool) *Check
 
 // NewPraefectMigrationCheck returns a Check that checks if all praefect migrations have run
-func NewPraefectMigrationCheck(conf config.Config) *Check {
+func NewPraefectMigrationCheck(conf config.Config, w io.Writer, quiet bool) *Check {
 	return &Check{
 		Name:        "praefect migrations",
 		Description: "confirms whether or not all praefect migrations have run",
@@ -77,13 +77,13 @@ func NewPraefectMigrationCheck(conf config.Config) *Check {
 }
 
 // NewGitalyNodeConnectivityCheck returns a check that ensures Praefect can talk to all nodes of all virtual storages
-func NewGitalyNodeConnectivityCheck(conf config.Config) *Check {
+func NewGitalyNodeConnectivityCheck(conf config.Config, w io.Writer, quiet bool) *Check {
 	return &Check{
 		Name: "gitaly node connectivity & disk access",
 		Description: "confirms if praefect can reach all of its gitaly nodes, and " +
 			"whether or not the gitaly nodes can read/write from and to its storages.",
 		Run: func(ctx context.Context) error {
-			return nodes.PingAll(ctx, conf, log.Default())
+			return nodes.PingAll(ctx, conf, nodes.NewTextPrinter(w), quiet)
 		},
 		Severity: Fatal,
 	}

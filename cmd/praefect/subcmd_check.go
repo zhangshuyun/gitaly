@@ -18,6 +18,7 @@ const (
 
 type checkSubcommand struct {
 	w          io.Writer
+	quiet      bool
 	checkFuncs []praefect.CheckFunc
 }
 
@@ -30,6 +31,7 @@ func newCheckSubcommand(writer io.Writer, checkFuncs ...praefect.CheckFunc) *che
 
 func (cmd *checkSubcommand) FlagSet() *flag.FlagSet {
 	fs := flag.NewFlagSet(checkCmdName, flag.ExitOnError)
+	fs.BoolVar(&cmd.quiet, "q", false, "do not print out verbose output about each check")
 	fs.Usage = func() {
 		printfErr("Description:\n" +
 			"	This command runs startup checks for Praefect.")
@@ -44,7 +46,7 @@ var errFatalChecksFailed = errors.New("checks failed")
 func (cmd *checkSubcommand) Exec(flags *flag.FlagSet, cfg config.Config) error {
 	var allChecks []*praefect.Check
 	for _, checkFunc := range cmd.checkFuncs {
-		allChecks = append(allChecks, checkFunc(cfg))
+		allChecks = append(allChecks, checkFunc(cfg, cmd.w, cmd.quiet))
 	}
 
 	bgContext := context.Background()
@@ -54,7 +56,8 @@ func (cmd *checkSubcommand) Exec(flags *flag.FlagSet, cfg config.Config) error {
 		ctx, cancel := context.WithTimeout(bgContext, 5*time.Second)
 		defer cancel()
 
-		fmt.Fprintf(cmd.w, "Checking %s...", check.Name)
+		cmd.printCheckDetails(check)
+
 		if err := check.Run(ctx); err != nil {
 			failedChecks++
 			if check.Severity == praefect.Fatal {
@@ -80,4 +83,13 @@ func (cmd *checkSubcommand) Exec(flags *flag.FlagSet, cfg config.Config) error {
 	}
 
 	return nil
+}
+
+func (cmd *checkSubcommand) printCheckDetails(check *praefect.Check) {
+	if cmd.quiet {
+		fmt.Fprintf(cmd.w, "Checking %s...", check.Name)
+		return
+	}
+
+	fmt.Fprintf(cmd.w, "Checking %s - %s [%s]\n", check.Name, check.Description, check.Severity)
 }

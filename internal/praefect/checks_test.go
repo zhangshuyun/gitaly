@@ -1,8 +1,10 @@
 package praefect
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"path/filepath"
 	"testing"
@@ -71,7 +73,7 @@ func TestPraefectMigrations_success(t *testing.T) {
 
 			require.NoError(t, tc.prepare(cfg))
 
-			migrationCheck := NewPraefectMigrationCheck(cfg)
+			migrationCheck := NewPraefectMigrationCheck(cfg, io.Discard, false)
 			assert.Equal(t, "praefect migrations", migrationCheck.Name)
 			assert.Equal(t, "confirms whether or not all praefect migrations have run", migrationCheck.Description)
 			assert.Equal(t, tc.expectedErr, migrationCheck.Run(ctx))
@@ -193,35 +195,8 @@ func TestGitalyNodeConnectivityCheck(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			tmp := testhelper.TempDir(t)
-			var cfgNodes []*config.Node
-
-			for _, n := range tc.nodes {
-				socket := filepath.Join(tmp, n.storage)
-				ln, err := net.Listen("unix", socket)
-				require.NoError(t, err)
-				healthSrv := health.NewServer()
-				healthSrv.SetServingStatus("", n.servingStatus)
-
-				srvSrv := &mockServerServer{
-					node: n,
-				}
-
-				srv := grpc.NewServer()
-				grpc_health_v1.RegisterHealthServer(srv, healthSrv)
-				gitalypb.RegisterServerServiceServer(srv, srvSrv)
-				defer srv.Stop()
-				go func() {
-					assert.NoError(t, srv.Serve(ln))
-				}()
-
-				cfgNodes = append(cfgNodes, &config.Node{
-					Storage: n.storage,
-					Token:   n.token,
-					Address: fmt.Sprintf("%s://%s", ln.Addr().Network(), ln.Addr().String()),
-				})
-			}
-
+			cfgNodes, cleanup := runNodes(t, tc.nodes)
+			defer cleanup()
 			check := NewGitalyNodeConnectivityCheck(
 				config.Config{
 					VirtualStorages: []*config.VirtualStorage{
@@ -231,6 +206,8 @@ func TestGitalyNodeConnectivityCheck(t *testing.T) {
 						},
 					},
 				},
+				io.Discard,
+				false,
 			)
 
 			ctx, cancel := testhelper.Context()
@@ -266,6 +243,8 @@ func TestGitalyNodeConnectivityCheck(t *testing.T) {
 					},
 				},
 			},
+			io.Discard,
+			false,
 		)
 
 		ctx, cancel := testhelper.Context(testhelper.ContextWithTimeout(1 * time.Second))
@@ -273,4 +252,97 @@ func TestGitalyNodeConnectivityCheck(t *testing.T) {
 
 		assert.Errorf(t, check.Run(ctx), "the following nodes are not healthy: %s", socketAddr)
 	})
+
+	t.Run("output check details", func(t *testing.T) {
+		quietSettings := []bool{true, false}
+		nodes := []nodeAssertion{
+			{
+				storage:         "storage-0",
+				token:           "token-0",
+				servingStatus:   grpc_health_v1.HealthCheckResponse_SERVING,
+				serverReadable:  true,
+				serverWriteable: true,
+			},
+		}
+		expectedLogLines := []string{
+			"dialing...",
+			"dialed successfully!",
+			"checking health...",
+			"SUCCESS: node is healthy!",
+			"checking consistency...",
+			"SUCCESS: confirmed Gitaly storage \"storage-0\" in virtual storages [default] is served",
+			"SUCCESS: node configuration is consistent!",
+		}
+
+		for _, isQuiet := range quietSettings {
+			var output bytes.Buffer
+			cfgNodes, cleanup := runNodes(t, nodes)
+			defer cleanup()
+			check := NewGitalyNodeConnectivityCheck(
+				config.Config{
+					VirtualStorages: []*config.VirtualStorage{
+						{
+							Name:  "default",
+							Nodes: cfgNodes,
+						},
+					},
+				},
+				&output,
+				isQuiet,
+			)
+
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			require.NoError(t, check.Run(ctx))
+
+			for _, logLine := range expectedLogLines {
+				if isQuiet {
+					assert.NotContains(t, output.String(), logLine)
+					continue
+				}
+				assert.Contains(t, output.String(), logLine)
+			}
+		}
+	})
+}
+
+func runNodes(t *testing.T, nodes []nodeAssertion) ([]*config.Node, func()) {
+	tmp := testhelper.TempDir(t)
+	var cfgNodes []*config.Node
+
+	var cleanupFns []func()
+
+	for _, n := range nodes {
+		socket := filepath.Join(tmp, n.storage)
+		ln, err := net.Listen("unix", socket)
+		require.NoError(t, err)
+		healthSrv := health.NewServer()
+		healthSrv.SetServingStatus("", n.servingStatus)
+
+		srvSrv := &mockServerServer{
+			node: n,
+		}
+
+		srv := grpc.NewServer()
+		grpc_health_v1.RegisterHealthServer(srv, healthSrv)
+		gitalypb.RegisterServerServiceServer(srv, srvSrv)
+		cleanupFns = append(cleanupFns, srv.Stop)
+
+		go func() {
+			assert.NoError(t, srv.Serve(ln))
+		}()
+
+		cfgNodes = append(cfgNodes, &config.Node{
+			Storage: n.storage,
+			Token:   n.token,
+			Address: fmt.Sprintf("%s://%s", ln.Addr().Network(), ln.Addr().String()),
+		})
+	}
+
+	return cfgNodes, func() {
+		for _, cleanupFn := range cleanupFns {
+			cleanupFn()
+		}
+	}
 }

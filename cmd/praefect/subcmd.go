@@ -23,12 +23,17 @@ type subcmd interface {
 	Exec(flags *flag.FlagSet, config config.Config) error
 }
 
-const defaultDialTimeout = 30 * time.Second
+const (
+	defaultDialTimeout        = 30 * time.Second
+	paramVirtualStorage       = "virtual-storage"
+	paramRelativePath         = "repository"
+	paramAuthoritativeStorage = "authoritative-storage"
+)
 
 var subcommands = map[string]subcmd{
 	sqlPingCmdName:                &sqlPingSubcommand{},
 	sqlMigrateCmdName:             &sqlMigrateSubcommand{},
-	dialNodesCmdName:              newDialNodesSubcommand(logger),
+	dialNodesCmdName:              newDialNodesSubcommand(os.Stdout),
 	sqlMigrateDownCmdName:         &sqlMigrateDownSubcommand{},
 	sqlMigrateStatusCmdName:       &sqlMigrateStatusSubcommand{},
 	datalossCmdName:               newDatalossSubcommand(),
