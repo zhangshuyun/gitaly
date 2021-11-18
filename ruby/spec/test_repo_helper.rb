@@ -97,13 +97,13 @@ module TestRepo
   end
 
   def self.clone_new_repo!(origin, destination)
-    return if system(Gitlab.config.git.bin_path, "clone", "--quiet", "--bare", origin.to_s, destination.to_s)
+    return if system(Gitlab.config.git.bin_path, "-c", "init.templateDir=", "clone", "--quiet", "--bare", origin.to_s, destination.to_s)
 
     abort "Failed to clone test repo. Try running 'make prepare-tests' and try again."
   end
 
   def self.init_new_repo!(destination)
-    return if system(Gitlab.config.git.bin_path, "init", "--quiet", "--bare", destination.to_s)
+    return if system(Gitlab.config.git.bin_path, "-c", "init.templateDir=", "init", "--quiet", "--bare", destination.to_s)
 
     abort "Failed to init test repo."
   end
