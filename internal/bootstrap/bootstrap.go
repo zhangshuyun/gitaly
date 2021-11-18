@@ -22,11 +22,18 @@ const (
 	socketReusePortWarning = "Unable to set SO_REUSEPORT: zero downtime upgrades will not work"
 )
 
+// Listener is an interface of the bootstrap manager.
+type Listener interface {
+	// RegisterStarter adds starter to the pool.
+	RegisterStarter(starter Starter)
+	// Start starts all registered starters to accept connections.
+	Start() error
+	// Wait terminates all registered starters.
+	Wait(gracefulTimeout time.Duration, stopAction func()) error
+}
+
 // Bootstrap handles graceful upgrades
 type Bootstrap struct {
-	// StopAction will be invoked during a graceful stop. It must wait until the shutdown is completed
-	StopAction func()
-
 	upgrader   upgrader
 	listenFunc ListenFunc
 	errChan    chan error
@@ -38,6 +45,7 @@ type upgrader interface {
 	HasParent() bool
 	Ready() error
 	Upgrade() error
+	Stop()
 }
 
 // New performs tableflip initialization
@@ -151,7 +159,8 @@ func (b *Bootstrap) Start() error {
 // Wait will signal process readiness to the parent and than wait for an exit condition
 // SIGTERM, SIGINT and a runtime error will trigger an immediate shutdown
 // in case of an upgrade there will be a grace period to complete the ongoing requests
-func (b *Bootstrap) Wait(gracefulTimeout time.Duration) error {
+// stopAction will be invoked during a graceful stop. It must wait until the shutdown is completed.
+func (b *Bootstrap) Wait(gracefulTimeout time.Duration, stopAction func()) error {
 	signals := []os.Signal{syscall.SIGTERM, syscall.SIGINT}
 	immediateShutdown := make(chan os.Signal, len(signals))
 	signal.Notify(immediateShutdown, signals...)
@@ -167,24 +176,25 @@ func (b *Bootstrap) Wait(gracefulTimeout time.Duration) error {
 		// the new process signaled its readiness and we started a graceful stop
 		// however no further upgrades can be started until this process is running
 		// we set a grace period and then we force a termination.
-		waitError := b.waitGracePeriod(gracefulTimeout, immediateShutdown)
+		waitError := b.waitGracePeriod(gracefulTimeout, immediateShutdown, stopAction)
 
 		err = fmt.Errorf("graceful upgrade: %v", waitError)
 	case s := <-immediateShutdown:
 		err = fmt.Errorf("received signal %q", s)
+		b.upgrader.Stop()
 	case err = <-b.errChan:
 	}
 
 	return err
 }
 
-func (b *Bootstrap) waitGracePeriod(gracefulTimeout time.Duration, kill <-chan os.Signal) error {
+func (b *Bootstrap) waitGracePeriod(gracefulTimeout time.Duration, kill <-chan os.Signal, stopAction func()) error {
 	log.WithField("graceful_timeout", gracefulTimeout).Warn("starting grace period")
 
 	allServersDone := make(chan struct{})
 	go func() {
-		if b.StopAction != nil {
-			b.StopAction()
+		if stopAction != nil {
+			stopAction()
 		}
 		close(allServersDone)
 	}()
@@ -207,4 +217,52 @@ func (b *Bootstrap) listen(network, path string) (net.Listener, error) {
 	}
 
 	return b.listenFunc(network, path)
+}
+
+// Noop is a bootstrapper that does no additional configurations.
+type Noop struct {
+	starters []Starter
+	shutdown chan struct{}
+	errChan  chan error
+}
+
+// NewNoop returns initialized instance of the *Noop.
+func NewNoop() *Noop {
+	return &Noop{shutdown: make(chan struct{})}
+}
+
+// RegisterStarter adds starter to the pool.
+func (n *Noop) RegisterStarter(starter Starter) {
+	n.starters = append(n.starters, starter)
+}
+
+// Start starts all registered starters to accept connections.
+func (n *Noop) Start() error {
+	n.errChan = make(chan error, len(n.starters))
+
+	for _, start := range n.starters {
+		if err := start(net.Listen, n.errChan); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Wait terminates all registered starters.
+func (n *Noop) Wait(_ time.Duration, stopAction func()) error {
+	select {
+	case <-n.shutdown:
+		if stopAction != nil {
+			stopAction()
+		}
+	case err := <-n.errChan:
+		return err
+	}
+
+	return nil
+}
+
+// Terminate unblocks Wait method and executes stopAction call-back passed into it.
+func (n *Noop) Terminate() {
+	close(n.shutdown)
 }

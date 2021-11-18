@@ -4,15 +4,16 @@ import (
 	"flag"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/bootstrap"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
@@ -108,10 +109,10 @@ func TestRemoveRepository_Exec(t *testing.T) {
 	starterConfigs, err := getStarterConfigs(conf)
 	require.NoError(t, err)
 	stopped := make(chan struct{})
+	bootstrapper := bootstrap.NewNoop()
 	go func() {
 		defer close(stopped)
-		err := run(starterConfigs, conf)
-		assert.EqualError(t, err, `received signal "terminated"`)
+		assert.NoError(t, run(starterConfigs, conf, bootstrapper, prometheus.NewRegistry(), prometheus.NewRegistry()))
 	}()
 
 	cc, err := client.Dial("unix://"+conf.SocketPath, nil)
@@ -229,7 +230,7 @@ func TestRemoveRepository_Exec(t *testing.T) {
 		requireNoDatabaseInfo(t, db, cmd)
 	})
 
-	require.NoError(t, syscall.Kill(syscall.Getpid(), syscall.SIGTERM))
+	bootstrapper.Terminate()
 	<-stopped
 }
 
