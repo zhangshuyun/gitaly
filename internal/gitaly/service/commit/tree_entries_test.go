@@ -19,7 +19,7 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
-func TestSuccessfulGetTreeEntriesWithCurlyBraces(t *testing.T) {
+func TestGetTreeEntries_curlyBraces(t *testing.T) {
 	t.Parallel()
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
 
@@ -79,7 +79,7 @@ func TestSuccessfulGetTreeEntriesWithCurlyBraces(t *testing.T) {
 	}
 }
 
-func TestSuccessfulGetTreeEntries(t *testing.T) {
+func TestGetTreeEntries_successful(t *testing.T) {
 	t.Parallel()
 	commitID := "d25b6d94034242f3930dfcfeb6d8d9aac3583992"
 	rootOid := "21bdc8af908562ae485ed46d71dd5426c08b084a"
@@ -463,7 +463,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 	}
 }
 
-func TestUnsuccessfulGetTreeEntries(t *testing.T) {
+func TestGetTreeEntries_unsuccessful(t *testing.T) {
 	commitID := "d25b6d94034242f3930dfcfeb6d8d9aac3583992"
 
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
@@ -511,38 +511,7 @@ func TestUnsuccessfulGetTreeEntries(t *testing.T) {
 	}
 }
 
-func getTreeEntriesFromTreeEntryClient(t *testing.T, client gitalypb.CommitService_GetTreeEntriesClient, expectedError error) ([]*gitalypb.TreeEntry, *gitalypb.PaginationCursor) {
-	t.Helper()
-
-	var entries []*gitalypb.TreeEntry
-	var cursor *gitalypb.PaginationCursor
-	firstEntryReceived := false
-
-	for {
-		resp, err := client.Recv()
-		if err == io.EOF {
-			break
-		}
-
-		if expectedError == nil {
-			require.NoError(t, err)
-			entries = append(entries, resp.Entries...)
-
-			if !firstEntryReceived {
-				cursor = resp.PaginationCursor
-				firstEntryReceived = true
-			} else {
-				require.Equal(t, nil, resp.PaginationCursor)
-			}
-		} else {
-			require.Error(t, expectedError, err)
-			break
-		}
-	}
-	return entries, cursor
-}
-
-func TestSuccessfulGetTreeEntries_FlatPathMaxDeep_SingleFoldersStructure(t *testing.T) {
+func TestGetTreeEntries_deepFlatpath(t *testing.T) {
 	t.Parallel()
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
 
@@ -621,7 +590,7 @@ func TestGetTreeEntries_file(t *testing.T) {
 	require.Empty(t, entries)
 }
 
-func TestFailedGetTreeEntriesRequestDueToValidationError(t *testing.T) {
+func TestGetTreeEntries_validation(t *testing.T) {
 	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
@@ -647,14 +616,6 @@ func TestFailedGetTreeEntriesRequestDueToValidationError(t *testing.T) {
 			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 		})
 	}
-}
-
-func drainTreeEntriesResponse(c gitalypb.CommitService_GetTreeEntriesClient) error {
-	var err error
-	for err == nil {
-		_, err = c.Recv()
-	}
-	return err
 }
 
 func BenchmarkGetTreeEntries(b *testing.B) {
@@ -727,4 +688,43 @@ func benchmarkGetTreeEntries(b *testing.B, ctx context.Context) {
 			}
 		})
 	}
+}
+
+func getTreeEntriesFromTreeEntryClient(t *testing.T, client gitalypb.CommitService_GetTreeEntriesClient, expectedError error) ([]*gitalypb.TreeEntry, *gitalypb.PaginationCursor) {
+	t.Helper()
+
+	var entries []*gitalypb.TreeEntry
+	var cursor *gitalypb.PaginationCursor
+	firstEntryReceived := false
+
+	for {
+		resp, err := client.Recv()
+		if err == io.EOF {
+			break
+		}
+
+		if expectedError == nil {
+			require.NoError(t, err)
+			entries = append(entries, resp.Entries...)
+
+			if !firstEntryReceived {
+				cursor = resp.PaginationCursor
+				firstEntryReceived = true
+			} else {
+				require.Equal(t, nil, resp.PaginationCursor)
+			}
+		} else {
+			require.Error(t, expectedError, err)
+			break
+		}
+	}
+	return entries, cursor
+}
+
+func drainTreeEntriesResponse(c gitalypb.CommitService_GetTreeEntriesClient) error {
+	var err error
+	for err == nil {
+		_, err = c.Recv()
+	}
+	return err
 }
