@@ -19,7 +19,11 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
-func TestSuccessfulGetTreeEntriesWithCurlyBraces(t *testing.T) {
+func TestGetTreeEntries_curlyBraces(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.TreeEntriesViaLsTree).Run(t, testGetTreeEntriesCurlyBraces)
+}
+
+func testGetTreeEntriesCurlyBraces(t *testing.T, ctx context.Context) {
 	t.Parallel()
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
 
@@ -67,8 +71,6 @@ func TestSuccessfulGetTreeEntriesWithCurlyBraces(t *testing.T) {
 				Recursive:  testCase.recursive,
 			}
 
-			ctx, cancel := testhelper.Context()
-			defer cancel()
 			c, err := client.GetTreeEntries(ctx, request)
 			require.NoError(t, err)
 
@@ -79,7 +81,11 @@ func TestSuccessfulGetTreeEntriesWithCurlyBraces(t *testing.T) {
 	}
 }
 
-func TestSuccessfulGetTreeEntries(t *testing.T) {
+func TestGetTreeEntries_successful(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.TreeEntriesViaLsTree).Run(t, testGetTreeEntriesSuccessful)
+}
+
+func testGetTreeEntriesSuccessful(t *testing.T, ctx context.Context) {
 	t.Parallel()
 	commitID := "d25b6d94034242f3930dfcfeb6d8d9aac3583992"
 	rootOid := "21bdc8af908562ae485ed46d71dd5426c08b084a"
@@ -372,6 +378,13 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			entries:     nil,
 		},
 		{
+			description: "with a non-existing path",
+			revision:    []byte(commitID),
+			path:        []byte("i-dont/exist"),
+			recursive:   true,
+			entries:     nil,
+		},
+		{
 			description: "with root path and sorted by trees first",
 			revision:    []byte(commitID),
 			path:        []byte("."),
@@ -447,8 +460,6 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 				}
 			}
 
-			ctx, cancel := testhelper.Context()
-			defer cancel()
 			c, err := client.GetTreeEntries(ctx, request)
 
 			require.NoError(t, err)
@@ -463,7 +474,11 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 	}
 }
 
-func TestUnsuccessfulGetTreeEntries(t *testing.T) {
+func TestGetTreeEntries_unsuccessful(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.TreeEntriesViaLsTree).Run(t, testGetTreeEntriesUnsuccessful)
+}
+
+func testGetTreeEntriesUnsuccessful(t *testing.T, ctx context.Context) {
 	commitID := "d25b6d94034242f3930dfcfeb6d8d9aac3583992"
 
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
@@ -498,8 +513,6 @@ func TestUnsuccessfulGetTreeEntries(t *testing.T) {
 				}
 			}
 
-			ctx, cancel := testhelper.Context()
-			defer cancel()
 			c, err := client.GetTreeEntries(ctx, request)
 			require.NoError(t, err)
 
@@ -511,38 +524,11 @@ func TestUnsuccessfulGetTreeEntries(t *testing.T) {
 	}
 }
 
-func getTreeEntriesFromTreeEntryClient(t *testing.T, client gitalypb.CommitService_GetTreeEntriesClient, expectedError error) ([]*gitalypb.TreeEntry, *gitalypb.PaginationCursor) {
-	t.Helper()
-
-	var entries []*gitalypb.TreeEntry
-	var cursor *gitalypb.PaginationCursor
-	firstEntryReceived := false
-
-	for {
-		resp, err := client.Recv()
-		if err == io.EOF {
-			break
-		}
-
-		if expectedError == nil {
-			require.NoError(t, err)
-			entries = append(entries, resp.Entries...)
-
-			if !firstEntryReceived {
-				cursor = resp.PaginationCursor
-				firstEntryReceived = true
-			} else {
-				require.Equal(t, nil, resp.PaginationCursor)
-			}
-		} else {
-			require.Error(t, expectedError, err)
-			break
-		}
-	}
-	return entries, cursor
+func TestGetTreeEntries_deepFlatpath(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.TreeEntriesViaLsTree).Run(t, testGetTreeEntriesDeepFlatpath)
 }
 
-func TestSuccessfulGetTreeEntries_FlatPathMaxDeep_SingleFoldersStructure(t *testing.T) {
+func testGetTreeEntriesDeepFlatpath(t *testing.T, ctx context.Context) {
 	t.Parallel()
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
 
@@ -567,9 +553,6 @@ func TestSuccessfulGetTreeEntries_FlatPathMaxDeep_SingleFoldersStructure(t *test
 		Recursive:  false,
 	}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
 	// request entries of the tree with single-folder structure on each level
 	entriesClient, err := client.GetTreeEntries(ctx, request)
 	require.NoError(t, err)
@@ -590,12 +573,13 @@ func TestSuccessfulGetTreeEntries_FlatPathMaxDeep_SingleFoldersStructure(t *test
 }
 
 func TestGetTreeEntries_file(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.TreeEntriesViaLsTree).Run(t, testGetTreeEntriesFile)
+}
+
+func testGetTreeEntriesFile(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath,
 		gittest.WithTreeEntries(gittest.TreeEntry{
@@ -621,7 +605,11 @@ func TestGetTreeEntries_file(t *testing.T) {
 	require.Empty(t, entries)
 }
 
-func TestFailedGetTreeEntriesRequestDueToValidationError(t *testing.T) {
+func TestGetTreeEntries_validation(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.TreeEntriesViaLsTree).Run(t, testGetTreeEntriesValidation)
+}
+
+func testGetTreeEntriesValidation(t *testing.T, ctx context.Context) {
 	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
@@ -638,8 +626,6 @@ func TestFailedGetTreeEntriesRequestDueToValidationError(t *testing.T) {
 
 	for _, rpcRequest := range rpcRequests {
 		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
 			c, err := client.GetTreeEntries(ctx, rpcRequest)
 			require.NoError(t, err)
 
@@ -649,18 +635,8 @@ func TestFailedGetTreeEntriesRequestDueToValidationError(t *testing.T) {
 	}
 }
 
-func drainTreeEntriesResponse(c gitalypb.CommitService_GetTreeEntriesClient) error {
-	var err error
-	for err == nil {
-		_, err = c.Recv()
-	}
-	return err
-}
-
 func BenchmarkGetTreeEntries(b *testing.B) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.TreeEntriesViaLsTree,
-	}).Bench(b, benchmarkGetTreeEntries)
+	testhelper.NewFeatureSets(featureflag.TreeEntriesViaLsTree).Bench(b, benchmarkGetTreeEntries)
 }
 
 func benchmarkGetTreeEntries(b *testing.B, ctx context.Context) {
@@ -729,4 +705,43 @@ func benchmarkGetTreeEntries(b *testing.B, ctx context.Context) {
 			}
 		})
 	}
+}
+
+func getTreeEntriesFromTreeEntryClient(t *testing.T, client gitalypb.CommitService_GetTreeEntriesClient, expectedError error) ([]*gitalypb.TreeEntry, *gitalypb.PaginationCursor) {
+	t.Helper()
+
+	var entries []*gitalypb.TreeEntry
+	var cursor *gitalypb.PaginationCursor
+	firstEntryReceived := false
+
+	for {
+		resp, err := client.Recv()
+		if err == io.EOF {
+			break
+		}
+
+		if expectedError == nil {
+			require.NoError(t, err)
+			entries = append(entries, resp.Entries...)
+
+			if !firstEntryReceived {
+				cursor = resp.PaginationCursor
+				firstEntryReceived = true
+			} else {
+				require.Equal(t, nil, resp.PaginationCursor)
+			}
+		} else {
+			require.Error(t, expectedError, err)
+			break
+		}
+	}
+	return entries, cursor
+}
+
+func drainTreeEntriesResponse(c gitalypb.CommitService_GetTreeEntriesClient) error {
+	var err error
+	for err == nil {
+		_, err = c.Recv()
+	}
+	return err
 }

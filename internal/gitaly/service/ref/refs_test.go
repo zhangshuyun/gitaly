@@ -355,9 +355,7 @@ func TestSuccessfulFindLocalBranches(t *testing.T) {
 }
 
 func TestFindLocalBranches_huge_committer(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.ExactPaginationTokenMatch,
-	}).Run(t, testFindLocalBranchesHugeCommitter)
+	testhelper.NewFeatureSets(featureflag.ExactPaginationTokenMatch).Run(t, testFindLocalBranchesHugeCommitter)
 }
 
 func testFindLocalBranchesHugeCommitter(t *testing.T, ctx context.Context) {
@@ -383,9 +381,7 @@ func testFindLocalBranchesHugeCommitter(t *testing.T, ctx context.Context) {
 }
 
 func TestFindLocalBranchesPagination(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.ExactPaginationTokenMatch,
-	}).Run(t, testFindLocalBranchesPagination)
+	testhelper.NewFeatureSets(featureflag.ExactPaginationTokenMatch).Run(t, testFindLocalBranchesPagination)
 }
 
 func testFindLocalBranchesPagination(t *testing.T, ctx context.Context) {
@@ -437,9 +433,7 @@ func testFindLocalBranchesPagination(t *testing.T, ctx context.Context) {
 }
 
 func TestFindLocalBranchesPaginationSequence(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.ExactPaginationTokenMatch,
-	}).Run(t, testFindLocalBranchesPaginationSequence)
+	testhelper.NewFeatureSets(featureflag.ExactPaginationTokenMatch).Run(t, testFindLocalBranchesPaginationSequence)
 }
 
 func testFindLocalBranchesPaginationSequence(t *testing.T, ctx context.Context) {
@@ -492,9 +486,7 @@ func testFindLocalBranchesPaginationSequence(t *testing.T, ctx context.Context) 
 }
 
 func TestFindLocalBranchesPaginationWithIncorrectToken(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.ExactPaginationTokenMatch,
-	}).Run(t, testFindLocalBranchesPaginationWithIncorrectToken)
+	testhelper.NewFeatureSets(featureflag.ExactPaginationTokenMatch).Run(t, testFindLocalBranchesPaginationWithIncorrectToken)
 }
 
 func testFindLocalBranchesPaginationWithIncorrectToken(t *testing.T, ctx context.Context) {
@@ -570,9 +562,7 @@ func isOrderedSubset(subset, set []string) bool {
 }
 
 func TestFindLocalBranchesSort(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.ExactPaginationTokenMatch,
-	}).Run(t, testFindLocalBranchesSort)
+	testhelper.NewFeatureSets(featureflag.ExactPaginationTokenMatch).Run(t, testFindLocalBranchesSort)
 }
 
 func testFindLocalBranchesSort(t *testing.T, ctx context.Context) {

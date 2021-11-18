@@ -16,9 +16,7 @@ import (
 )
 
 func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gitalypb.RepositoryServiceClient, rubySrv *rubyserver.Server) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoFindLicense,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
+	testhelper.NewFeatureSets(featureflag.GoFindLicense).Run(t, func(t *testing.T, ctx context.Context) {
 		for _, tc := range []struct {
 			desc                  string
 			nonExistentRepository bool
@@ -108,9 +106,7 @@ SOFTWARE.`,
 }
 
 func testFindLicenseRequestEmptyRepo(t *testing.T, cfg config.Cfg, client gitalypb.RepositoryServiceClient, rubySrv *rubyserver.Server) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoFindLicense,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
+	testhelper.NewFeatureSets(featureflag.GoFindLicense).Run(t, func(t *testing.T, ctx context.Context) {
 		repo, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 		require.NoError(t, os.RemoveAll(repoPath))
 
