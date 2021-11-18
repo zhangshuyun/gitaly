@@ -20,6 +20,10 @@ import (
 )
 
 func TestGetTreeEntries_curlyBraces(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.TreeEntriesViaLsTree).Run(t, testGetTreeEntriesCurlyBraces)
+}
+
+func testGetTreeEntriesCurlyBraces(t *testing.T, ctx context.Context) {
 	t.Parallel()
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
 
@@ -67,8 +71,6 @@ func TestGetTreeEntries_curlyBraces(t *testing.T) {
 				Recursive:  testCase.recursive,
 			}
 
-			ctx, cancel := testhelper.Context()
-			defer cancel()
 			c, err := client.GetTreeEntries(ctx, request)
 			require.NoError(t, err)
 
@@ -80,6 +82,10 @@ func TestGetTreeEntries_curlyBraces(t *testing.T) {
 }
 
 func TestGetTreeEntries_successful(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.TreeEntriesViaLsTree).Run(t, testGetTreeEntriesSuccessful)
+}
+
+func testGetTreeEntriesSuccessful(t *testing.T, ctx context.Context) {
 	t.Parallel()
 	commitID := "d25b6d94034242f3930dfcfeb6d8d9aac3583992"
 	rootOid := "21bdc8af908562ae485ed46d71dd5426c08b084a"
@@ -447,8 +453,6 @@ func TestGetTreeEntries_successful(t *testing.T) {
 				}
 			}
 
-			ctx, cancel := testhelper.Context()
-			defer cancel()
 			c, err := client.GetTreeEntries(ctx, request)
 
 			require.NoError(t, err)
@@ -464,6 +468,10 @@ func TestGetTreeEntries_successful(t *testing.T) {
 }
 
 func TestGetTreeEntries_unsuccessful(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.TreeEntriesViaLsTree).Run(t, testGetTreeEntriesUnsuccessful)
+}
+
+func testGetTreeEntriesUnsuccessful(t *testing.T, ctx context.Context) {
 	commitID := "d25b6d94034242f3930dfcfeb6d8d9aac3583992"
 
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
@@ -498,8 +506,6 @@ func TestGetTreeEntries_unsuccessful(t *testing.T) {
 				}
 			}
 
-			ctx, cancel := testhelper.Context()
-			defer cancel()
 			c, err := client.GetTreeEntries(ctx, request)
 			require.NoError(t, err)
 
@@ -512,6 +518,10 @@ func TestGetTreeEntries_unsuccessful(t *testing.T) {
 }
 
 func TestGetTreeEntries_deepFlatpath(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.TreeEntriesViaLsTree).Run(t, testGetTreeEntriesDeepFlatpath)
+}
+
+func testGetTreeEntriesDeepFlatpath(t *testing.T, ctx context.Context) {
 	t.Parallel()
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
 
@@ -536,9 +546,6 @@ func TestGetTreeEntries_deepFlatpath(t *testing.T) {
 		Recursive:  false,
 	}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
 	// request entries of the tree with single-folder structure on each level
 	entriesClient, err := client.GetTreeEntries(ctx, request)
 	require.NoError(t, err)
@@ -559,12 +566,13 @@ func TestGetTreeEntries_deepFlatpath(t *testing.T) {
 }
 
 func TestGetTreeEntries_file(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.TreeEntriesViaLsTree).Run(t, testGetTreeEntriesFile)
+}
+
+func testGetTreeEntriesFile(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath,
 		gittest.WithTreeEntries(gittest.TreeEntry{
@@ -591,6 +599,10 @@ func TestGetTreeEntries_file(t *testing.T) {
 }
 
 func TestGetTreeEntries_validation(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.TreeEntriesViaLsTree).Run(t, testGetTreeEntriesValidation)
+}
+
+func testGetTreeEntriesValidation(t *testing.T, ctx context.Context) {
 	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
@@ -607,8 +619,6 @@ func TestGetTreeEntries_validation(t *testing.T) {
 
 	for _, rpcRequest := range rpcRequests {
 		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
 			c, err := client.GetTreeEntries(ctx, rpcRequest)
 			require.NoError(t, err)
 
