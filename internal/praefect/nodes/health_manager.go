@@ -44,9 +44,14 @@ type HealthManager struct {
 	praefectName string
 	// healthCheckTimeout is the duration after a health check attempt times out.
 	healthCheckTimeout time.Duration
-
-	firstUpdate bool
-	updated     chan struct{}
+	// databaseTimeout applies the timeout for the database update. It returns a context with
+	// the timeout applied and a cancellation function. This should be shorter than the failover
+	// timeout, otherwise it is possible that the updated health checks are immediately considered
+	// outdated after the update has finished. This can be difficult to debug as Gitaly nodes are
+	// seemingly responding to the health checks but are considered outdated by Praefect.
+	databaseTimeout func(context.Context) (context.Context, func())
+	firstUpdate     bool
+	updated         chan struct{}
 
 	locallyHealthy atomic.Value
 }
@@ -70,8 +75,11 @@ func NewHealthManager(
 		},
 		praefectName:       praefectName,
 		healthCheckTimeout: healthcheckTimeout,
-		firstUpdate:        true,
-		updated:            make(chan struct{}, 1),
+		databaseTimeout: func(ctx context.Context) (context.Context, func()) {
+			return context.WithTimeout(ctx, 5*time.Second)
+		},
+		firstUpdate: true,
+		updated:     make(chan struct{}, 1),
 	}
 
 	hm.locallyHealthy.Store(make(map[string][]string, len(clients)))
@@ -129,6 +137,9 @@ func (hm *HealthManager) updateHealthChecks(ctx context.Context, virtualStorages
 	}
 
 	hm.locallyHealthy.Store(locallyHealthy)
+
+	ctx, cancel := hm.databaseTimeout(ctx)
+	defer cancel()
 
 	if _, err := hm.db.ExecContext(ctx, `
 INSERT INTO node_status (praefect_name, shard_name, node_name, last_contact_attempt_at, last_seen_active_at)

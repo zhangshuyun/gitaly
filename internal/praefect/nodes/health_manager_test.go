@@ -554,6 +554,55 @@ func TestHealthManager(t *testing.T) {
 	}
 }
 
+func TestHealthManager_databaseTimeout(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	db := glsql.NewDB(t)
+
+	blockingTx := db.Begin(t)
+	defer blockingTx.Rollback(t)
+
+	newHealthManager := func(db glsql.Querier) *HealthManager {
+		return NewHealthManager(testhelper.DiscardTestLogger(t), db, "praefect", HealthClients{
+			"virtual-storage": {
+				"gitaly": mockHealthClient{
+					CheckFunc: func(context.Context, *grpc_health_v1.HealthCheckRequest, ...grpc.CallOption) (*grpc_health_v1.HealthCheckResponse, error) {
+						return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVING}, nil
+					},
+				},
+			},
+		})
+	}
+
+	// Run an update and leave the transaction open to block the other client.
+	blockingMgr := newHealthManager(blockingTx)
+	runCtx, cancelRun := context.WithCancel(ctx)
+	require.Equal(t, context.Canceled, blockingMgr.Run(runCtx, helper.NewCountTicker(1, cancelRun)))
+
+	blockedMgr := newHealthManager(db)
+
+	var timeoutQuery func()
+	blockedMgr.databaseTimeout = func(ctx context.Context) (context.Context, func()) {
+		ctx, timeoutQuery = context.WithCancel(ctx)
+		return ctx, timeoutQuery
+	}
+	blockedMgr.handleError = func(err error) error { return err }
+
+	blockedErr := make(chan error)
+	// This will block in database waiting for a lock.
+	go func() {
+		blockedErr <- blockedMgr.Run(ctx, helper.NewCountTicker(1, func() {}))
+	}()
+
+	// Wait until the blocked query is waiting.
+	glsql.WaitForBlockedQuery(ctx, t, db, "INSERT INTO node_status")
+	// Simulate a timeout.
+	timeoutQuery()
+	// Query should have been canceled.
+	require.EqualError(t, <-blockedErr, "update checks: pq: canceling statement due to user request")
+}
+
 func predateHealthChecks(t testing.TB, db glsql.DB, amount time.Duration) {
 	t.Helper()
 
