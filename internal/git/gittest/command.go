@@ -52,6 +52,7 @@ func run(t testing.TB, stdin io.Reader, stdout io.Writer, cfg config.Cfg, args, 
 		"GIT_CONFIG_KEY_1=init.templateDir",
 		"GIT_CONFIG_VALUE_1=",
 	)
+	cmd.Env = append(cmd.Env, cfg.GitExecEnv()...)
 	cmd.Env = append(cmd.Env, env...)
 
 	cmd.Stdout = stdout

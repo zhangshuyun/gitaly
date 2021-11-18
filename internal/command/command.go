@@ -40,6 +40,11 @@ var exportedEnvVars = []string{
 	"GIT_TRACE_PERFORMANCE",
 	"GIT_TRACE_SETUP",
 
+	// GIT_EXEC_PATH tells Git where to find its binaries. This must be exported especially in
+	// the case where we use bundled Git executables given that we cannot rely on a complete Git
+	// installation in that case.
+	"GIT_EXEC_PATH",
+
 	// Git HTTP proxy settings: https://git-scm.com/docs/git-config#git-config-httpproxy
 	"all_proxy",
 	"http_proxy",

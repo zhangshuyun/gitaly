@@ -196,7 +196,7 @@ func TestGlobalOption(t *testing.T) {
 }
 
 func TestWithConfig(t *testing.T) {
-	var cfg config.Cfg
+	cfg := config.Cfg{BinDir: testhelper.TempDir(t)}
 	require.NoError(t, cfg.SetGitPath())
 
 	ctx, cancel := testhelper.Context()
@@ -269,7 +269,7 @@ func TestWithConfig(t *testing.T) {
 }
 
 func TestExecCommandFactoryGitalyConfigOverrides(t *testing.T) {
-	var cfg config.Cfg
+	cfg := config.Cfg{BinDir: testhelper.TempDir(t)}
 	require.NoError(t, cfg.SetGitPath())
 
 	cfg.Git.Config = []config.GitConfig{
@@ -295,7 +295,7 @@ func TestExecCommandFactoryGitalyConfigOverrides(t *testing.T) {
 }
 
 func TestWithConfigEnv(t *testing.T) {
-	var cfg config.Cfg
+	cfg := config.Cfg{BinDir: testhelper.TempDir(t)}
 	require.NoError(t, cfg.SetGitPath())
 
 	ctx, cancel := testhelper.Context()

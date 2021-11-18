@@ -242,7 +242,6 @@ export GOCACHE                   ?= ${BUILD_DIR}/cache
 export GOPROXY                   ?= https://proxy.golang.org
 export PATH                      := ${BUILD_DIR}/bin:${PATH}
 export PKG_CONFIG_PATH           := ${LIBGIT2_INSTALL_DIR}/lib/pkgconfig
-export GITALY_TESTING_GIT_BINARY ?= ${GIT_INSTALL_DIR}/bin/git
 # Allow the linker flag -D_THREAD_SAFE as libgit2 is compiled with it on FreeBSD
 export CGO_LDFLAGS_ALLOW          = -D_THREAD_SAFE
 
@@ -312,16 +311,24 @@ build: $(patsubst %,${BUILD_DIR}/bin/gitaly-%,${GIT_EXECUTABLES})
 
 install: $(patsubst %,${INSTALL_DEST_DIR}/gitaly-%,${GIT_EXECUTABLES})
 
+prepare-tests: $(patsubst %,${BUILD_DIR}/bin/gitaly-%,${GIT_EXECUTABLES})
+
 ${BUILD_DIR}/bin/gitaly-%: ${GIT_SOURCE_DIR}/% | ${BUILD_DIR}/bin
 	${Q}install $< $@
 
 ${INSTALL_DEST_DIR}/gitaly-%: ${BUILD_DIR}/bin/gitaly-%
 	${Q}mkdir -p $(@D)
 	${Q}install $< $@
+
+export GITALY_TESTING_BUNDLED_GIT_PATH ?= ${BUILD_DIR}/bin
+else
+prepare-tests: git
+
+export GITALY_TESTING_GIT_BINARY ?= ${GIT_INSTALL_DIR}/bin/git
 endif
 
 .PHONY: prepare-tests
-prepare-tests: git libgit2 prepare-test-repos ${SOURCE_DIR}/.ruby-bundle
+prepare-tests: libgit2 prepare-test-repos ${SOURCE_DIR}/.ruby-bundle
 
 .PHONY: prepare-test-repos
 prepare-test-repos: ${TEST_REPO} ${TEST_REPO_GIT}
