@@ -23,6 +23,29 @@ func (m mockHealthClient) Check(ctx context.Context, r *grpc_health_v1.HealthChe
 	return m.CheckFunc(ctx, r, opts...)
 }
 
+func getHealthConsensus(ctx context.Context, t *testing.T, db glsql.Querier) map[string][]string {
+	t.Helper()
+
+	rows, err := db.QueryContext(ctx, "SELECT virtual_storage, storage FROM healthy_storages")
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, rows.Close())
+	}()
+
+	consensus := map[string][]string{}
+	for rows.Next() {
+		var virtualStorage, storage string
+		require.NoError(t, rows.Scan(&virtualStorage, &storage))
+
+		storages := consensus[virtualStorage]
+		storages = append(storages, storage)
+		consensus[virtualStorage] = storages
+	}
+
+	require.NoError(t, rows.Err())
+	return consensus
+}
+
 func TestHealthManager(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := testhelper.Context()
@@ -34,7 +57,6 @@ func TestHealthManager(t *testing.T) {
 		After           time.Duration
 		PraefectName    string
 		LocalStatus     LocalStatus
-		Updated         bool
 		HealthConsensus map[string][]string
 	}
 
@@ -63,7 +85,6 @@ func TestHealthManager(t *testing.T) {
 							"gitlay-2": false,
 						},
 					},
-					Updated: true,
 					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1", "gitaly-2"},
 						"virtual-storage-2": {"gitaly-1"},
@@ -81,7 +102,6 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-1": false,
 						},
 					},
-					Updated:         true,
 					HealthConsensus: map[string][]string{},
 				},
 				{
@@ -91,7 +111,6 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-1": true,
 						},
 					},
-					Updated: true,
 					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
@@ -108,7 +127,6 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-1": true,
 						},
 					},
-					Updated: true,
 					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
@@ -136,7 +154,6 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-1": true,
 						},
 					},
-					Updated: true,
 					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
@@ -149,7 +166,6 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-1": false,
 						},
 					},
-					Updated:         true,
 					HealthConsensus: map[string][]string{},
 				},
 			},
@@ -164,7 +180,6 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-1": false,
 						},
 					},
-					Updated:         true,
 					HealthConsensus: map[string][]string{},
 				},
 				{
@@ -174,7 +189,6 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-1": false,
 						},
 					},
-					Updated:         true,
 					HealthConsensus: map[string][]string{},
 				},
 				{
@@ -185,7 +199,6 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-1": true,
 						},
 					},
-					Updated: true,
 					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
@@ -202,7 +215,6 @@ func TestHealthManager(t *testing.T) {
 							"configured": true,
 						},
 					},
-					Updated: true,
 					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"configured"},
 					},
@@ -214,7 +226,6 @@ func TestHealthManager(t *testing.T) {
 							"configured": true,
 						},
 					},
-					Updated: true,
 					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"configured"},
 					},
@@ -227,7 +238,6 @@ func TestHealthManager(t *testing.T) {
 							"unconfigured": true,
 						},
 					},
-					Updated: true,
 					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"configured"},
 					},
@@ -245,7 +255,6 @@ func TestHealthManager(t *testing.T) {
 							"unconfigured": true,
 						},
 					},
-					Updated: true,
 					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"configured", "unconfigured"},
 					},
@@ -258,7 +267,6 @@ func TestHealthManager(t *testing.T) {
 							"unconfigured": true,
 						},
 					},
-					Updated: true,
 					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"configured", "unconfigured"},
 					},
@@ -270,7 +278,6 @@ func TestHealthManager(t *testing.T) {
 							"configured": true,
 						},
 					},
-					Updated: true,
 					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"configured", "unconfigured"},
 					},
@@ -287,7 +294,6 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-1": false,
 						},
 					},
-					Updated:         true,
 					HealthConsensus: map[string][]string{},
 				},
 				{
@@ -297,7 +303,6 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-1": true,
 						},
 					},
-					Updated: true,
 					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
@@ -309,7 +314,6 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-1": true,
 						},
 					},
-					Updated: true,
 					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
@@ -326,7 +330,6 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-1": true,
 						},
 					},
-					Updated: true,
 					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
@@ -338,7 +341,6 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-1": false,
 						},
 					},
-					Updated: true,
 					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
@@ -350,13 +352,12 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-1": false,
 						},
 					},
-					Updated:         true,
 					HealthConsensus: map[string][]string{},
 				},
 			},
 		},
 		{
-			desc: "first check triggers update",
+			desc: "first check triggers update even if all nodes are unhealthy",
 			healthChecks: HealthChecks{
 				{
 					PraefectName: "praefect-1",
@@ -365,7 +366,6 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-1": false,
 						},
 					},
-					Updated:         true,
 					HealthConsensus: map[string][]string{},
 				},
 				{
@@ -380,7 +380,7 @@ func TestHealthManager(t *testing.T) {
 			},
 		},
 		{
-			desc: "node becoming healthy triggers update",
+			desc: "node becoming healthy is reflected in the consensus",
 			healthChecks: HealthChecks{
 				{
 					PraefectName: "praefect-1",
@@ -390,7 +390,6 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-2": false,
 						},
 					},
-					Updated: true,
 					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
@@ -403,7 +402,6 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-2": true,
 						},
 					},
-					Updated: true,
 					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1", "gitaly-2"},
 					},
@@ -411,7 +409,7 @@ func TestHealthManager(t *testing.T) {
 			},
 		},
 		{
-			desc: "same set of healthy nodes does not update",
+			desc: "same health check status does not change consensus",
 			healthChecks: HealthChecks{
 				{
 					PraefectName: "praefect-1",
@@ -420,7 +418,6 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-1": true,
 						},
 					},
-					Updated: true,
 					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
@@ -439,7 +436,7 @@ func TestHealthManager(t *testing.T) {
 			},
 		},
 		{
-			desc: "different node triggers update",
+			desc: "nodes changing health status changes health consensus",
 			healthChecks: HealthChecks{
 				{
 					PraefectName: "praefect-1",
@@ -449,7 +446,6 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-2": false,
 						},
 					},
-					Updated: true,
 					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
@@ -463,7 +459,6 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-2": true,
 						},
 					},
-					Updated: true,
 					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-2"},
 					},
@@ -478,6 +473,8 @@ func TestHealthManager(t *testing.T) {
 			// healthManagers are cached in order to keep the internal state intact between different
 			// health checks during the test.
 			healthManagers := map[string]*HealthManager{}
+
+			hasUpdated := map[string]bool{}
 
 			for i, hc := range tc.healthChecks {
 				// Create or use existing health managers
@@ -542,15 +539,16 @@ func TestHealthManager(t *testing.T) {
 				}
 
 				require.Equal(t, expectedHealthyNodes, actualHealthyNodes, "health check %d", i+1)
-				require.Equal(t, hc.HealthConsensus, hm.HealthConsensus(), "health check %d", i+1)
+				require.Equal(t, hc.HealthConsensus, getHealthConsensus(ctx, t, db), "health check %d", i+1)
 
-				updated := false
 				select {
 				case <-hm.Updated():
-					updated = true
+					require.False(t, hasUpdated[hc.PraefectName], "Updated should tick on the first update to signal readiness")
 				default:
+					require.True(t, hasUpdated[hc.PraefectName], "Updated should only tick on the first update to signal readiness")
 				}
-				require.Equal(t, hc.Updated, updated, "health check %d", i+1)
+
+				hasUpdated[hc.PraefectName] = true
 			}
 		})
 	}
@@ -612,6 +610,5 @@ func TestHealthManager_orderedWrites(t *testing.T) {
 	require.NoError(t, <-tx2Err)
 	require.NoError(t, tx2.Commit())
 
-	require.Equal(t, map[string][]string{"virtual-storage": {"gitaly-1", "gitaly-2"}}, hm1.HealthConsensus())
-	require.Equal(t, map[string][]string{"virtual-storage": {"gitaly-1", "gitaly-2"}}, hm2.HealthConsensus())
+	require.Equal(t, map[string][]string{"virtual-storage": {"gitaly-1", "gitaly-2"}}, getHealthConsensus(ctx, t, db))
 }
