@@ -108,6 +108,11 @@ func (s *server) sendTreeEntries(
 				return nil
 			}
 
+			// Same if we try to list tree entries of a revision which doesn't exist.
+			if errors.Is(err, lstree.ErrNotExist) {
+				return nil
+			}
+
 			return fmt.Errorf("listing tree entries: %w", err)
 		}
 

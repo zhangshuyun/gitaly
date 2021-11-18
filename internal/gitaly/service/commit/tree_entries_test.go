@@ -378,6 +378,13 @@ func testGetTreeEntriesSuccessful(t *testing.T, ctx context.Context) {
 			entries:     nil,
 		},
 		{
+			description: "with a non-existing path",
+			revision:    []byte(commitID),
+			path:        []byte("i-dont/exist"),
+			recursive:   true,
+			entries:     nil,
+		},
+		{
 			description: "with root path and sorted by trees first",
 			revision:    []byte(commitID),
 			path:        []byte("."),
