@@ -188,6 +188,7 @@ test:
       - GO_VERSION: [ "1.16", "1.17" ]
         TARGET: test
       - GO_VERSION: "1.17"
+        POSTGRES_VERSION: [ "12.6-alpine", "11.14-alpine" ]
         TARGET: [ test-with-proxies, test-with-praefect, race-go ]
 
 nightly:git:
