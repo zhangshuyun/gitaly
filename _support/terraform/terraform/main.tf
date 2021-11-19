@@ -41,7 +41,7 @@ resource "google_sql_database_instance" "praefect_sql" {
   # It appears CloudSQL does not like Terraform re-using database names.
   # Adding a random ID prevents name reuse.
   name = "${var.praefect_demo_cluster_name}-praefect-postgresql-${random_id.db_name_suffix.hex}"
-  database_version = "POSTGRES_11"
+  database_version = "POSTGRES_12"
   region = var.demo_region
 
   settings {
