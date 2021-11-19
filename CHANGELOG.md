@@ -1,5 +1,90 @@
 # Gitaly changelog
 
+## 14.5.0 (2021-11-19)
+
+### Added (11 changes)
+
+- [praefect: Add ability to have separate database metrics endpoint](gitlab-org/gitaly@7e74b7333ca6f2d1e55e7a17350cccc7c856c847) ([merge request](gitlab-org/gitaly!4085))
+- [grpcstats: Extend log with payload size](gitlab-org/gitaly@ad63076210a0d46cc6933398392cf80e9d007b61) ([merge request](gitlab-org/gitaly!4030))
+- [praefect check: add node connectivity/consistency check](gitlab-org/gitaly@de417beefb4c8bef07ae47d869b99c043fdc236a) ([merge request](gitlab-org/gitaly!4035))
+- [Praefect cmd: adding check subcommand](gitlab-org/gitaly@663593f2fe2ae9fb9deb04be98466318e789e81e) ([merge request](gitlab-org/gitaly!3989))
+- [Praefect: add migration check](gitlab-org/gitaly@21576eb5268d2c43e7a111897274ec4f3b7cbbdd) ([merge request](gitlab-org/gitaly!3989))
+- [Praefect: add basic framework for adding praefect startup checks](gitlab-org/gitaly@fdecc5f4f36fa5f5bf593e61d59aea3cd1afc17c) ([merge request](gitlab-org/gitaly!3989))
+- [ref: Add implementation for FindRefsByOID](gitlab-org/gitaly@d02bf2ace9b28e7d6d31c529ca203d4753c06a75) ([merge request](gitlab-org/gitaly!3947))
+- [ref: Add new FindRefsByOID RPC method](gitlab-org/gitaly@95f07ac2d51615e0e605dd5ff7972772c79d376b) ([merge request](gitlab-org/gitaly!3947))
+- [Add pagination support for FindAllTags RPC](gitlab-org/gitaly@27b02714920d8ba8b451eb26d19395e7f692589b) ([merge request](gitlab-org/gitaly!3861))
+- [backup: Create incremental backups](gitlab-org/gitaly@a7806265151e4156549800619a4f83fc455d9dd2) ([merge request](gitlab-org/gitaly!3937))
+- [list-untracked-repositories: New praefect sub-command](gitlab-org/gitaly@86b813312e32540e7b7b57cda7ffd4be32b09397) ([merge request](gitlab-org/gitaly!3926))
+
+### Fixed (19 changes)
+
+- [Perform health check updates in an ordered manner](gitlab-org/gitaly@731fadf3c8b869ea55371375191e9c8c8105c8a9) ([merge request](gitlab-org/gitaly!4073))
+- [blob: Fix race when discarding already-consumed blobs](gitlab-org/gitaly@1bf60ec33329ed8f22d5f59d2102e2f424573ee6) ([merge request](gitlab-org/gitaly!4062))
+- [catfile: Fix race between reading and requesting object info](gitlab-org/gitaly@6f1259f02f927652212d065361141d3e45a645d7) ([merge request](gitlab-org/gitaly!4058))
+- [backup: Stop writing zero sized files](gitlab-org/gitaly@7b6e9939ff2143d16ab75d424de08b0a5d8dcbd6) ([merge request](gitlab-org/gitaly!4057))
+- [commit: Fix discarding of tree entries](gitlab-org/gitaly@c4e8fe30ec07a11a84c6ba6920f9f06c4d89c42a) ([merge request](gitlab-org/gitaly!4032))
+- [sql-migrate: Update storage_repositories table](gitlab-org/gitaly@e70fb2c4cca70fc2c7a4c4459efb56a9faa7f8f8) ([merge request](gitlab-org/gitaly!4047))
+- [objectpool: Stop fetching tags](gitlab-org/gitaly@221e26a6300c2e3d9e5412eb1e69188e90037646) ([merge request](gitlab-org/gitaly!4038))
+- [objectpool: Convert to use fetches without remote](gitlab-org/gitaly@b6e8233e62f458d29120d9f2b6c20adcedec62e2) ([merge request](gitlab-org/gitaly!4038))
+- [supervisor: Fix RSS monitor retriggering too fast](gitlab-org/gitaly@fd64e82da7596919ffaa56ed4055bfac45251337) ([merge request](gitlab-org/gitaly!4029))
+- [supervisor: Fix crash and notification timers clashing](gitlab-org/gitaly@3dd4d8b0ec8811062d339549ed0106973e71829a) ([merge request](gitlab-org/gitaly!4029))
+- [objectpool: Do not verify commit graphs when disconnecting alternates](gitlab-org/gitaly@0e5f52b3e5b57a8430c1828709154b1ee7f7c526) ([merge request](gitlab-org/gitaly!4021))
+- [Accept `GIT_VERSION=` environment variable](gitlab-org/gitaly@dc3756194f7f315c216029c823083027a28f9560) ([merge request](gitlab-org/gitaly!4010))
+- [commit: Fix `GetTreeEntries()` failing hard when reading a blob](gitlab-org/gitaly@7b85df16fe6343f4131fba0d598689a15684bbbd) ([merge request](gitlab-org/gitaly!3999))
+- [backup: Disable pruning for FetchBundle](gitlab-org/gitaly@f18aacb6953cc4b60f7b63dcc1870b49f8fe93fc) ([merge request](gitlab-org/gitaly!3949))
+- [catfile: Fix cache eviction potentially hanging](gitlab-org/gitaly@76e3367fcdf01f4e1f7de5c9b0dadc445ec4e3e0) ([merge request](gitlab-org/gitaly!3987))
+- [gitaly-git2go: Add dir validation in creating and moving file](gitlab-org/gitaly@24ea8ec77f5d44ef95bfcc26acb8fc13764028ac) by @blanet ([merge request](gitlab-org/gitaly!3844))
+- [global: Always use extended file locking](gitlab-org/gitaly@9dcc25c6ece7453bffae9a3a426ecbcdc6287d32) ([merge request](gitlab-org/gitaly!3954))
+- [repository: Fix wrong error code if replication source does not exist](gitlab-org/gitaly@0f09911d8920982a921993c223a4be798b15adb6) ([merge request](gitlab-org/gitaly!3956))
+- [repository: Return errors if replicating config fails](gitlab-org/gitaly@40b2c92f17336cbd958925d09b1f91e529075570) ([merge request](gitlab-org/gitaly!3956))
+
+### Changed (6 changes)
+
+- [git: Ignore fsck errors for zero-padded filemodes](gitlab-org/gitaly@db8f2e8da5e7ff9cf84a99195481303016cd2138) ([merge request](gitlab-org/gitaly!4051))
+- [gitaly-backup: Rename locator flag to layout](gitlab-org/gitaly@050a9c6b63da588e2f9e01300151af2dfb3b4c8e) ([merge request](gitlab-org/gitaly!4048))
+- [git: Do not install templates when creating repos](gitlab-org/gitaly@bd0f899545241c3c87ab48e88c91ce4ff163587f) ([merge request](gitlab-org/gitaly!4027))
+- [find_refs_by_id: Use 'refname' as the default sort order](gitlab-org/gitaly@35cead8ba918ac2ecbfd52a36f29f668fbd12a6b) ([merge request](gitlab-org/gitaly!4005))
+- [gitpipe: Use options for ForEachRef](gitlab-org/gitaly@9021bcb63d6635c5aedff78d9414fbca511ffc48) ([merge request](gitlab-org/gitaly!3947))
+- [Handle RemoveRepository in Praefect](gitlab-org/gitaly@55cb8c00585744f156aab022be82a4389d94d042) ([merge request](gitlab-org/gitaly!3906))
+
+### Deprecated (1 change)
+
+- [git: Bump minimum required Git version to v2.33.0](gitlab-org/gitaly@c8c774edc79eaf33f5b46e4626b57846c7b5545a) ([merge request](gitlab-org/gitaly!3931))
+
+### Removed (5 changes)
+
+- [Remove CloneFromPool and CloneFromPoolInternal RPCs](gitlab-org/gitaly@0426e614ba7520a495756b68c310f10dd6d624d9) ([merge request](gitlab-org/gitaly!4064))
+- [ref: Drop unused and deprecated ListNewCommits RPC](gitlab-org/gitaly@c88b7193eb99283645951c6c0ef1ef04b78f9319) ([merge request](gitlab-org/gitaly!4068))
+- [objectpool: Drop UnlinkRepostioryFromObjectPool RPC](gitlab-org/gitaly@2f2a001d6d224209ea0952de50d420ff5369884c) ([merge request](gitlab-org/gitaly!4037))
+- [objectpool: Drop UnlikRepostioryFromObjectPool RPC](gitlab-org/gitaly@ffadcf56a504ff667645dd69a03b43cf67bbbb91) ([merge request](gitlab-org/gitaly!3985))
+- [Stop calling PackObjectsHook from gitaly-hooks](gitlab-org/gitaly@701399393022e5b9f857f1c561684086dd7a128c) ([merge request](gitlab-org/gitaly!3991))
+
+### Performance (17 changes)
+
+- [catfile: Use buffered mode in git-cat-file(1)](gitlab-org/gitaly@486b2310e4d86ffb5ead677e65fb9690b5d05bbc) ([merge request](gitlab-org/gitaly!4070))
+- [catfile: Use buffered writes to queue requests](gitlab-org/gitaly@9053c88cff96fc2e5eeebcddfec0edcd096ddfb0) ([merge request](gitlab-org/gitaly!4070))
+- [lstree: Optimize allocations when parsing trees](gitlab-org/gitaly@61c5912f7d9dcb2068b04ab1594281e8d45d8975) ([merge request](gitlab-org/gitaly!4052))
+- [commit: Convert GetTreeEntries to use git-ls-tree(1)](gitlab-org/gitaly@08507b227743626fab52730480127532806d15c3) ([merge request](gitlab-org/gitaly!4052))
+- [gitpipe: Convert object info pipeline to use object info queue](gitlab-org/gitaly@73b8445fe775fbbb0bc544e069d0555f1e5ddaf3) ([merge request](gitlab-org/gitaly!4032))
+- [gitpipe: Convert object pipeline to use object reader queue](gitlab-org/gitaly@196235a330a3cb155a5d98b3fc071189b7af9acb) ([merge request](gitlab-org/gitaly!4032))
+- [catfile: Stop creating decorrelated spans](gitlab-org/gitaly@72ea1273f16cd6ca8240cbd047fce7dfb099ff0a) ([merge request](gitlab-org/gitaly!4042))
+- [catfile: Refactor tracing to allow for batching](gitlab-org/gitaly@dffe228a634bd607df288e722df5066e3f879b89) ([merge request](gitlab-org/gitaly!4031))
+- [catfile: Rewrite tag parser to amortize memory allocations](gitlab-org/gitaly@35d83148cbff01a5e7a42da186f73933c63839e1) ([merge request](gitlab-org/gitaly!4016))
+- [catfile: Amortize memory allocations when parsing commits](gitlab-org/gitaly@479b2bb2e7f010f6c21ca5777ff76b0835395ae1) ([merge request](gitlab-org/gitaly!4016))
+- [catfile: Use Git to peel tags](gitlab-org/gitaly@559ccb01dcaf14a5d2fef48c406d5cb7a2c99c9f) ([merge request](gitlab-org/gitaly!4016))
+- [ref: Refactor FindAllTags to skip `CatfileInfo()` pipeline step](gitlab-org/gitaly@b3aca45abd3648d06b3f8c4b6c546176f368868b) ([merge request](gitlab-org/gitaly!3980))
+- [ref: Avoid useless `CatfileInfo()` pipeline step](gitlab-org/gitaly@b259b8548cb83bcf4d5f155cad37df011b2749ed) ([merge request](gitlab-org/gitaly!3980))
+- [commit: Avoid useless `CatfileInfo()` pipeline step](gitlab-org/gitaly@3cbfd05515135c62cfd4fe51168abdbf63217c62) ([merge request](gitlab-org/gitaly!3980))
+- [blob: Avoid useless `CatfileInfo()` pipeline step](gitlab-org/gitaly@8e2843ed4c4ac0e2f9b3c2738af5c2f44c0b8481) ([merge request](gitlab-org/gitaly!3980))
+- [blob: Skip CatfileInfo pipeline step in ListBlobs and ListAllBlobs](gitlab-org/gitaly@490deda5e0c3b3f1476a13da2eeac2d46dfd71f6) ([merge request](gitlab-org/gitaly!3980))
+- [catfile: Drop inefficient Batch interface](gitlab-org/gitaly@ed565ea27950832a9e3795796c0a66bf7552078c) ([merge request](gitlab-org/gitaly!3969))
+
+### Other (3 changes)
+
+- [Add documentation about sidechannels](gitlab-org/gitaly@82ab5a67ad2ea5d1147a5219c5b09c9a44ffa858) ([merge request](gitlab-org/gitaly!3983))
+- [gitaly-hooks: remove filter quote bug workaround](gitlab-org/gitaly@3a0c60c114e437abe476228c9a5ff4bef79b3547) ([merge request](gitlab-org/gitaly!3991))
+- [Enable Praefect in PostUploadPackWithSidechannel tests](gitlab-org/gitaly@1ef01adb2b3e8e0c2cbfd6f18556421fb7fc4e09) ([merge request](gitlab-org/gitaly!3938))
+
 ## 14.4.2 (2021-11-08)
 
 No changes.
