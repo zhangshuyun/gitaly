@@ -123,10 +123,16 @@ type Config struct {
 	Sentry               sentry.Config     `toml:"sentry"`
 	PrometheusListenAddr string            `toml:"prometheus_listen_addr"`
 	Prometheus           prometheus.Config `toml:"prometheus"`
-	Auth                 auth.Config       `toml:"auth"`
-	TLS                  config.TLS        `toml:"tls"`
-	DB                   `toml:"database"`
-	Failover             Failover `toml:"failover"`
+	// PrometheusExcludeDatabaseFromDefaultMetrics excludes database-related metrics from the
+	// default metrics. If set to `false`, then database metrics will be available both via
+	// `/metrics` and `/db_metrics`. Otherwise, they will only be accessible via `/db_metrics`.
+	// Defaults to `false`. This is used as a transitory configuration key: eventually, database
+	// metrics will always be removed from the standard metrics endpoint.
+	PrometheusExcludeDatabaseFromDefaultMetrics bool        `toml:"prometheus_exclude_database_from_default_metrics"`
+	Auth                                        auth.Config `toml:"auth"`
+	TLS                                         config.TLS  `toml:"tls"`
+	DB                                          `toml:"database"`
+	Failover                                    Failover `toml:"failover"`
 	// Keep for legacy reasons: remove after Omnibus has switched
 	FailoverEnabled     bool                `toml:"failover_enabled"`
 	MemoryQueueEnabled  bool                `toml:"memory_queue_enabled"`
