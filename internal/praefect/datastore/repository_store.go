@@ -658,7 +658,7 @@ func (rs *PostgresRepositoryStore) GetPartiallyAvailableRepositories(ctx context
 	//    and there can't be any assignments for deleted repositories, this is still needed as long as the
 	//    fallback behavior of no assignments is in place.
 	//
-	// 4. We join the `healthy_storages` view to return the storages current health.
+	// 4. We join the `healthy_storages` CTE to return the storages current health.
 	//
 	// 5. We join the `valid_primaries` view to return whether the storage is ready to act as a primary in case
 	//    of a failover.
@@ -670,6 +670,7 @@ func (rs *PostgresRepositoryStore) GetPartiallyAvailableRepositories(ctx context
 	//    than the assigned ones.
 	//
 	rows, err := rs.db.QueryContext(ctx, `
+WITH healthy_storages_cte AS (`+HealthyStoragesQuery()+`) `+`
 SELECT
 	json_build_object (
 		'RelativePath', relative_path,
@@ -691,7 +692,7 @@ FROM (
 		storage,
 		repositories.generation - COALESCE(storage_repositories.generation, -1) AS behind_by,
 		repository_assignments.storage IS NOT NULL AS assigned,
-		healthy_storages.storage IS NOT NULL AS healthy,
+		healthy_storages_cte.storage IS NOT NULL AS healthy,
 		valid_primaries.storage IS NOT NULL AS valid_primary
 	FROM ( SELECT repository_id, storage, generation FROM storage_repositories ) AS storage_repositories
 	FULL JOIN (
@@ -706,7 +707,7 @@ FROM (
 		)
 	) AS repository_assignments USING (repository_id, storage)
 	JOIN repositories USING (repository_id)
-	LEFT JOIN healthy_storages USING (virtual_storage, storage)
+	LEFT JOIN healthy_storages_cte USING (virtual_storage, storage)
 	LEFT JOIN ( SELECT repository_id, storage FROM valid_primaries ) AS valid_primaries USING (repository_id, storage)
 	WHERE virtual_storage = $1
 	ORDER BY relative_path, "primary", storage

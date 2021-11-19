@@ -10,6 +10,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"google.golang.org/grpc/health/grpc_health_v1"
 )
@@ -161,7 +162,7 @@ ON CONFLICT (praefect_name, shard_name, node_name)
 		return fmt.Errorf("update checks: %w", err)
 	}
 
-	rows, err := hm.db.QueryContext(ctx, `SELECT virtual_storage, storage FROM healthy_storages`)
+	rows, err := hm.db.QueryContext(ctx, `WITH healthy_storages_cte AS (`+datastore.HealthyStoragesQuery()+`) `+`SELECT virtual_storage, storage FROM healthy_storages_cte`)
 	if err != nil {
 		return fmt.Errorf("query healthy storages: %w", err)
 	}
