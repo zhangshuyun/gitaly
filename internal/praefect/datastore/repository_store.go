@@ -670,10 +670,6 @@ func (rs *PostgresRepositoryStore) GetPartiallyAvailableRepositories(ctx context
 	//    than the assigned ones.
 	//
 	rows, err := rs.db.QueryContext(ctx, `
-WITH valid_primaries AS MATERIALIZED (
-	SELECT repository_id, storage FROM valid_primaries
-)
-
 SELECT
 	json_build_object (
 		'RelativePath', relative_path,
@@ -711,7 +707,7 @@ FROM (
 	) AS repository_assignments USING (repository_id, storage)
 	JOIN repositories USING (repository_id)
 	LEFT JOIN healthy_storages USING (virtual_storage, storage)
-	LEFT JOIN valid_primaries USING (repository_id, storage)
+	LEFT JOIN ( SELECT repository_id, storage FROM valid_primaries ) AS valid_primaries USING (repository_id, storage)
 	WHERE virtual_storage = $1
 	ORDER BY relative_path, "primary", storage
 ) AS outdated_repositories
