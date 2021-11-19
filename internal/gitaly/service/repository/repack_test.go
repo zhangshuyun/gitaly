@@ -1,15 +1,13 @@
 package repository
 
 import (
-	"bytes"
-	"encoding/json"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
@@ -51,15 +49,13 @@ func TestRepackIncrementalCollectLogStatistics(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	logBuffer := &bytes.Buffer{}
-	logger := &logrus.Logger{Out: logBuffer, Formatter: &logrus.JSONFormatter{}, Level: logrus.InfoLevel}
-
+	logger, hook := test.NewNullLogger()
 	_, repo, _, client := setupRepositoryService(t, testserver.WithLogger(logger))
 
 	_, err := client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: repo})
 	assert.NoError(t, err)
 
-	mustCountObjectLog(t, logBuffer.String())
+	mustCountObjectLog(t, hook.AllEntries()...)
 }
 
 func TestRepackLocal(t *testing.T) {
@@ -178,31 +174,28 @@ func TestRepackFullCollectLogStatistics(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	logBuffer := &bytes.Buffer{}
-	logger := &logrus.Logger{Out: logBuffer, Formatter: &logrus.JSONFormatter{}, Level: logrus.InfoLevel}
-
+	logger, hook := test.NewNullLogger()
 	_, repo, _, client := setupRepositoryService(t, testserver.WithLogger(logger))
 
 	_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: repo})
 	require.NoError(t, err)
 
-	mustCountObjectLog(t, logBuffer.String())
+	mustCountObjectLog(t, hook.AllEntries()...)
 }
 
-func mustCountObjectLog(t testing.TB, logData string) {
+func mustCountObjectLog(t testing.TB, entries ...*logrus.Entry) {
 	t.Helper()
 
-	msgs := strings.Split(logData, "\n")
 	const key = "count_objects"
-	for _, msg := range msgs {
-		if strings.Contains(msg, key) {
-			var out map[string]interface{}
-			require.NoError(t, json.NewDecoder(strings.NewReader(msg)).Decode(&out))
-			require.Contains(t, out, "grpc.request.glProjectPath")
-			require.Contains(t, out, "grpc.request.glRepository")
-			require.Contains(t, out, key, "there is no any information about statistics")
-			countObjects := out[key].(map[string]interface{})
-			require.Contains(t, countObjects, "count")
+	for _, entry := range entries {
+		if entry.Message == "git repo statistic" {
+			require.Contains(t, entry.Data, "grpc.request.glProjectPath")
+			require.Contains(t, entry.Data, "grpc.request.glRepository")
+			require.Contains(t, entry.Data, key, "statistics not found")
+
+			objectStats, ok := entry.Data[key].(map[string]interface{})
+			require.True(t, ok, "expected count_objects to be a map")
+			require.Contains(t, objectStats, "count")
 			return
 		}
 	}

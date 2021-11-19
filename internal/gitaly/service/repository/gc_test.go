@@ -1,14 +1,13 @@
 package repository
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
@@ -141,15 +140,13 @@ func TestGarbageCollectLogStatistics(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	logBuffer := &bytes.Buffer{}
-	logger := &logrus.Logger{Out: logBuffer, Formatter: &logrus.JSONFormatter{}, Level: logrus.InfoLevel}
-
+	logger, hook := test.NewNullLogger()
 	_, repo, _, client := setupRepositoryService(t, testserver.WithLogger(logger))
 
 	_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo})
 	require.NoError(t, err)
 
-	mustCountObjectLog(t, logBuffer.String())
+	mustCountObjectLog(t, hook.AllEntries()...)
 }
 
 func TestGarbageCollectDeletesRefsLocks(t *testing.T) {
