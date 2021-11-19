@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/archive"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -92,21 +93,24 @@ func testCreateRepositoryFromSnapshotSuccess(t *testing.T, ctx context.Context) 
 
 	repoRelativePath := filepath.Join("non-existing-parent", "repository")
 
+	repo := &gitalypb.Repository{
+		StorageName:  cfg.Storages[0].Name,
+		RelativePath: repoRelativePath,
+	}
 	req := &gitalypb.CreateRepositoryFromSnapshotRequest{
-		Repository: &gitalypb.Repository{
-			StorageName:  cfg.Storages[0].Name,
-			RelativePath: repoRelativePath,
-		},
-		HttpUrl:  srv.URL + tarPath,
-		HttpAuth: secret,
+		Repository: repo,
+		HttpUrl:    srv.URL + tarPath,
+		HttpAuth:   secret,
 	}
 
-	rsp, err := createFromSnapshot(t, ctx, req, cfg)
+	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil)
+	client := newRepositoryClient(t, cfg, serverSocketPath)
 
+	rsp, err := client.CreateRepositoryFromSnapshot(ctx, req)
 	require.NoError(t, err)
 	testassert.ProtoEqual(t, rsp, &gitalypb.CreateRepositoryFromSnapshotResponse{})
 
-	repoAbsolutePath := filepath.Join(cfg.Storages[0].Path, repoRelativePath)
+	repoAbsolutePath := filepath.Join(cfg.Storages[0].Path, getReplicaPath(ctx, t, client, repo))
 	require.DirExists(t, repoAbsolutePath)
 	for _, entry := range entries {
 		if strings.HasSuffix(entry, "/") {
@@ -127,7 +131,13 @@ func TestCreateRepositoryFromSnapshot_repositoryExists(t *testing.T) {
 
 func testCreateRepositoryFromSnapshotFailsIfRepositoryExists(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
-	repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+
+	// This creates the first repository on the server. As this test can run with Praefect in front of it,
+	// we'll use the next replica path Praefect will assign in order to ensure this repository creation
+	// conflicts even with Praefect in front of it.
+	repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+		RelativePath: praefectutil.DeriveReplicaPath(1),
+	})
 
 	req := &gitalypb.CreateRepositoryFromSnapshotRequest{Repository: repo}
 	rsp, err := createFromSnapshot(t, ctx, req, cfg)

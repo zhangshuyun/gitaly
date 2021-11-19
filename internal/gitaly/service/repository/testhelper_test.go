@@ -63,6 +63,17 @@ func TestWithRubySidecar(t *testing.T) {
 	}
 }
 
+// clientWithConn is used to pass through the connection to getReplicaPath. The tests themselves just use the
+// RepositoryServiceClient interface.
+type clientWithConn struct {
+	gitalypb.RepositoryServiceClient
+	*grpc.ClientConn
+}
+
+func getReplicaPath(ctx context.Context, t testing.TB, client gitalypb.RepositoryServiceClient, repo *gitalypb.Repository) string {
+	return testhelper.GetReplicaPath(ctx, t, client.(clientWithConn).ClientConn, repo)
+}
+
 func newRepositoryClient(t testing.TB, cfg config.Cfg, serverSocketPath string) gitalypb.RepositoryServiceClient {
 	var connOpts []grpc.DialOption
 	if cfg.Auth.Token != "" {
@@ -72,7 +83,10 @@ func newRepositoryClient(t testing.TB, cfg config.Cfg, serverSocketPath string) 
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close()) })
 
-	return gitalypb.NewRepositoryServiceClient(conn)
+	return clientWithConn{
+		RepositoryServiceClient: gitalypb.NewRepositoryServiceClient(conn),
+		ClientConn:              conn,
+	}
 }
 
 func newMuxedRepositoryClient(t *testing.T, ctx context.Context, cfg config.Cfg, serverSocketPath string, handshaker internalclient.Handshaker) gitalypb.RepositoryServiceClient {
@@ -168,8 +182,8 @@ func setupRepositoryServiceWithoutRepo(t testing.TB, opts ...testserver.GitalySe
 	return cfg, client
 }
 
-func setupRepositoryServiceWithWorktree(t testing.TB) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+func setupRepositoryServiceWithWorktree(t testing.TB, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
+	cfg, client := setupRepositoryServiceWithoutRepo(t, opts...)
 
 	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
 		WithWorktree: true,

@@ -158,7 +158,10 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 			_, err = objectInfoReader.Info(ctx, git.Revision(commitSha))
 			require.NoError(t, err)
 
-			_, repoCopyPath := copyRepoUsingSnapshot(t, cfg, client, repoProto)
+			repoCopy, _ := copyRepoUsingSnapshot(t, cfg, client, repoProto)
+			repoCopy.RelativePath = getReplicaPath(ctx, t, client, repoCopy)
+			repoCopyPath, err := locator.GetRepoPath(repoCopy)
+			require.NoError(t, err)
 
 			// ensure the sha committed to the alternates directory can be accessed
 			gittest.Exec(t, cfg, "-C", repoCopyPath, "cat-file", "-p", originalAlternatesCommit)
@@ -218,7 +221,13 @@ func TestGetSnapshotWithDedupeSoftFailures(t *testing.T) {
 
 	require.NoError(t, os.WriteFile(alternatesPath, []byte(alternateObjPath), 0o644))
 
-	_, repoCopyPath := copyRepoUsingSnapshot(t, cfg, client, testRepo)
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	repoCopy, _ := copyRepoUsingSnapshot(t, cfg, client, testRepo)
+	repoCopy.RelativePath = getReplicaPath(ctx, t, client, repoCopy)
+	repoCopyPath, err := locator.GetRepoPath(repoCopy)
+	require.NoError(t, err)
 
 	// ensure the sha committed to the alternates directory can be accessed
 	gittest.Exec(t, cfg, "-C", repoCopyPath, "cat-file", "-p", originalAlternatesCommit)
