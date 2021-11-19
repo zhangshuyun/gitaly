@@ -4,6 +4,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cache"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
@@ -31,6 +32,7 @@ type Dependencies struct {
 	CatfileCache        catfile.Cache
 	DiskCache           cache.Cache
 	PackObjectsCache    streamcache.Cache
+	CgroupsManager      cgroups.Manager
 }
 
 // GetCfg returns service configuration.
@@ -96,4 +98,8 @@ func (dc *Dependencies) GetDiskCache() cache.Cache {
 // GetPackObjectsCache returns the pack-objects cache.
 func (dc *Dependencies) GetPackObjectsCache() streamcache.Cache {
 	return dc.PackObjectsCache
+}
+
+func (dc *Dependencies) GetCgroupsManager() cgroups.Manager {
+	return dc.CgroupsManager
 }

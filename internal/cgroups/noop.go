@@ -2,6 +2,7 @@ package cgroups
 
 import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 )
 
 // NoopManager is a cgroups manager that does nothing
@@ -13,7 +14,7 @@ func (cg *NoopManager) Setup() error {
 }
 
 //nolint: revive,stylecheck // This is unintentionally missing documentation.
-func (cg *NoopManager) AddCommand(cmd *command.Command) error {
+func (cg *NoopManager) AddCommand(repo repository.GitRepo, cmd *command.Command) error {
 	return nil
 }
 

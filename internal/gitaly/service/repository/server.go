@@ -2,6 +2,7 @@ package repository
 
 import (
 	"gitlab.com/gitlab-org/gitaly/v14/client"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
@@ -16,16 +17,17 @@ import (
 
 type server struct {
 	gitalypb.UnimplementedRepositoryServiceServer
-	ruby          *rubyserver.Server
-	conns         *client.Pool
-	locator       storage.Locator
-	txManager     transaction.Manager
-	gitCmdFactory git.CommandFactory
-	cfg           config.Cfg
-	binDir        string
-	loggingCfg    config.Logging
-	catfileCache  catfile.Cache
-	git2go        git2go.Executor
+	ruby           *rubyserver.Server
+	conns          *client.Pool
+	locator        storage.Locator
+	txManager      transaction.Manager
+	gitCmdFactory  git.CommandFactory
+	cfg            config.Cfg
+	binDir         string
+	loggingCfg     config.Logging
+	catfileCache   catfile.Cache
+	git2go         git2go.Executor
+	cgroupsManager cgroups.Manager
 }
 
 // NewServer creates a new instance of a gRPC repo server
@@ -37,18 +39,20 @@ func NewServer(
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
 	connsPool *client.Pool,
+	cgroupsManager cgroups.Manager,
 ) gitalypb.RepositoryServiceServer {
 	return &server{
-		ruby:          rs,
-		locator:       locator,
-		txManager:     txManager,
-		gitCmdFactory: gitCmdFactory,
-		conns:         connsPool,
-		cfg:           cfg,
-		binDir:        cfg.BinDir,
-		loggingCfg:    cfg.Logging,
-		catfileCache:  catfileCache,
-		git2go:        git2go.NewExecutor(cfg, locator),
+		ruby:           rs,
+		locator:        locator,
+		txManager:      txManager,
+		gitCmdFactory:  gitCmdFactory,
+		conns:          connsPool,
+		cfg:            cfg,
+		binDir:         cfg.BinDir,
+		loggingCfg:     cfg.Logging,
+		catfileCache:   catfileCache,
+		git2go:         git2go.NewExecutor(cfg, locator),
+		cgroupsManager: cgroupsManager,
 	}
 }
 

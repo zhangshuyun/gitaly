@@ -54,8 +54,8 @@ func (cg *CGroupV1Manager) Setup() error {
 }
 
 //nolint: revive,stylecheck // This is unintentionally missing documentation.
-func (cg *CGroupV1Manager) AddCommand(cmd *command.Command) error {
-	checksum := crc32.ChecksumIEEE([]byte(strings.Join(cmd.Args(), "")))
+func (cg *CGroupV1Manager) AddCommand(repo repsitory.GitRepo, cmd *command.Command) error {
+	checksum := crc32.ChecksumIEEE([]byte(repo.GetRelativePath()))
 	groupID := uint(checksum) % cg.cfg.Count
 	cgroupPath := cg.cgroupPath(int(groupID))
 

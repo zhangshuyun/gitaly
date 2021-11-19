@@ -240,6 +240,7 @@ func run(cfg config.Cfg) error {
 			CatfileCache:       catfileCache,
 			DiskCache:          diskCache,
 			PackObjectsCache:   streamcache.New(cfg.PackObjectsCache, glog.Default()),
+			CgroupsManager:     cgroups.NewManager(cfg.Cgroups),
 		})
 		b.RegisterStarter(starter.New(c, srv))
 	}

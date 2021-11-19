@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
+
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/commit"
@@ -33,6 +35,7 @@ type archiveParams struct {
 	tlsCfg      []byte
 	binDir      string
 	loggingDir  string
+	repo        repository.GitRepo
 }
 
 func (s *server) GetArchive(in *gitalypb.GetArchiveRequest, stream gitalypb.RepositoryService_GetArchiveServer) error {
@@ -104,6 +107,7 @@ func (s *server) GetArchive(in *gitalypb.GetArchiveRequest, stream gitalypb.Repo
 		tlsCfg:      tlsCfg,
 		binDir:      s.binDir,
 		loggingDir:  s.loggingCfg.Dir,
+		repo:        in.GetRepository(),
 	})
 }
 
@@ -225,6 +229,10 @@ func (s *server) handleArchive(p archiveParams) error {
 		PostSepArgs: pathspecs,
 	}, git.WithEnv(env...), git.WithConfig(config...))
 	if err != nil {
+		return err
+	}
+
+	if err := s.cgroupsManager.AddCommand(p.repo, archiveCommand); err != nil {
 		return err
 	}
 
