@@ -1,6 +1,0 @@
----
-title: Fix default Git version in makegen.go
-merge_request: 2289
-author:
-type: deprecated
-
