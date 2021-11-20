@@ -47,6 +47,7 @@ var subcommands = map[string]subcmd{
 		praefect.NewPraefectMigrationCheck,
 		praefect.NewGitalyNodeConnectivityCheck,
 	),
+	metadataCmdName: newMetadataSubcommand(os.Stdout),
 }
 
 // subCommand returns an exit code, to be fed into os.Exit.
