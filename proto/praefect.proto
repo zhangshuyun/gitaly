@@ -29,6 +29,57 @@ service PraefectInfoService {
   // from a Praefect node that does not yet know about a new node. As assignments of unconfigured storages are ignored, replication
   // factor of repositories assigned to a storage node removed from the cluster is effectively decreased.
   rpc SetReplicationFactor(SetReplicationFactorRequest) returns (SetReplicationFactorResponse);
+  // GetRepositoryMetadata returns the cluster metadata for a repository. Returns NotFound if the repository does not exist.
+  rpc GetRepositoryMetadata(GetRepositoryMetadataRequest) returns (GetRepositoryMetadataResponse);
+}
+
+// GetRepositoryMetadataRequest specifies the repository to retrieve metadata for.
+message GetRepositoryMetadataRequest {
+  message Path {
+    // virtual_storage is the virtual storage where the repository is.
+    string virtual_storage = 1;
+    // relative_path is the relative path of the repository in the virtual storage.
+    string relative_path = 2;
+  }
+
+  oneof query {
+    // repository_id is the ID of the repository to retrieve information for.
+    int64 repository_id = 1;
+    // path is the external path of the repository to retrieve information for.
+    Path path = 2;
+  };
+}
+
+// GeRepositoryMetadataResponse contains the repository's cluster metadata.
+message GetRepositoryMetadataResponse {
+  message Replica {
+    // storage is the name of the replica's storage.
+    string storage = 1;
+    // assigned indicates whether the replica is on an assigned storage.
+    bool assigned = 2;
+    // generation is the replicas confirmed generation. Generation is -1 if the replica
+    // does not yet exist.
+    int64 generation = 4;
+    // healthy indicates whether the replica is on a healthy storage.
+    bool healthy = 5;
+    // valid_primary indicates whether the replica is considered a valid primary.
+    bool valid_primary = 6;
+  }
+
+  // repository_id is the internal ID of the repository.
+  int64 repository_id = 1;
+  // virtual_storage is the virtual storage in which the repository is located.
+  string virtual_storage = 2;
+  // relative_path is the relative path of the repository in the virtual storage.
+  string relative_path = 3;
+  // replica_path is the path on the disk where the replicas are stored.
+  string replica_path = 4;
+  // primary is the current primary of the repository.
+  string primary = 5;
+  // generation is the repository's current generation.
+  int64 generation = 6;
+  // replicas are the existing and supposed to exist replicas of this repository.
+  repeated Replica replicas = 7;
 }
 
 // SetReplicationFactorRequest sets the desired replication factor for a repository.

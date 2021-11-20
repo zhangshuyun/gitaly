@@ -7,6 +7,32 @@ require 'lint_pb'
 require 'shared_pb'
 Google::Protobuf::DescriptorPool.generated_pool.build do
   add_file("praefect.proto", :syntax => :proto3) do
+    add_message "gitaly.GetRepositoryMetadataRequest" do
+      oneof :query do
+        optional :repository_id, :int64, 1
+        optional :path, :message, 2, "gitaly.GetRepositoryMetadataRequest.Path"
+      end
+    end
+    add_message "gitaly.GetRepositoryMetadataRequest.Path" do
+      optional :virtual_storage, :string, 1
+      optional :relative_path, :string, 2
+    end
+    add_message "gitaly.GetRepositoryMetadataResponse" do
+      optional :repository_id, :int64, 1
+      optional :virtual_storage, :string, 2
+      optional :relative_path, :string, 3
+      optional :replica_path, :string, 4
+      optional :primary, :string, 5
+      optional :generation, :int64, 6
+      repeated :replicas, :message, 7, "gitaly.GetRepositoryMetadataResponse.Replica"
+    end
+    add_message "gitaly.GetRepositoryMetadataResponse.Replica" do
+      optional :storage, :string, 1
+      optional :assigned, :bool, 2
+      optional :generation, :int64, 4
+      optional :healthy, :bool, 5
+      optional :valid_primary, :bool, 6
+    end
     add_message "gitaly.SetReplicationFactorRequest" do
       optional :virtual_storage, :string, 1
       optional :relative_path, :string, 2
@@ -57,6 +83,10 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
 end
 
 module Gitaly
+  GetRepositoryMetadataRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GetRepositoryMetadataRequest").msgclass
+  GetRepositoryMetadataRequest::Path = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GetRepositoryMetadataRequest.Path").msgclass
+  GetRepositoryMetadataResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GetRepositoryMetadataResponse").msgclass
+  GetRepositoryMetadataResponse::Replica = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GetRepositoryMetadataResponse.Replica").msgclass
   SetReplicationFactorRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.SetReplicationFactorRequest").msgclass
   SetReplicationFactorResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.SetReplicationFactorResponse").msgclass
   SetAuthoritativeStorageRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.SetAuthoritativeStorageRequest").msgclass

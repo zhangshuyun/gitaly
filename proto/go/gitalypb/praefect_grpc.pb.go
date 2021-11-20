@@ -34,6 +34,8 @@ type PraefectInfoServiceClient interface {
 	// from a Praefect node that does not yet know about a new node. As assignments of unconfigured storages are ignored, replication
 	// factor of repositories assigned to a storage node removed from the cluster is effectively decreased.
 	SetReplicationFactor(ctx context.Context, in *SetReplicationFactorRequest, opts ...grpc.CallOption) (*SetReplicationFactorResponse, error)
+	// GetRepositoryMetadata returns the cluster metadata for a repository. Returns NotFound if the repository does not exist.
+	GetRepositoryMetadata(ctx context.Context, in *GetRepositoryMetadataRequest, opts ...grpc.CallOption) (*GetRepositoryMetadataResponse, error)
 }
 
 type praefectInfoServiceClient struct {
@@ -80,6 +82,15 @@ func (c *praefectInfoServiceClient) SetReplicationFactor(ctx context.Context, in
 	return out, nil
 }
 
+func (c *praefectInfoServiceClient) GetRepositoryMetadata(ctx context.Context, in *GetRepositoryMetadataRequest, opts ...grpc.CallOption) (*GetRepositoryMetadataResponse, error) {
+	out := new(GetRepositoryMetadataResponse)
+	err := c.cc.Invoke(ctx, "/gitaly.PraefectInfoService/GetRepositoryMetadata", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // PraefectInfoServiceServer is the server API for PraefectInfoService service.
 // All implementations must embed UnimplementedPraefectInfoServiceServer
 // for forward compatibility
@@ -100,6 +111,8 @@ type PraefectInfoServiceServer interface {
 	// from a Praefect node that does not yet know about a new node. As assignments of unconfigured storages are ignored, replication
 	// factor of repositories assigned to a storage node removed from the cluster is effectively decreased.
 	SetReplicationFactor(context.Context, *SetReplicationFactorRequest) (*SetReplicationFactorResponse, error)
+	// GetRepositoryMetadata returns the cluster metadata for a repository. Returns NotFound if the repository does not exist.
+	GetRepositoryMetadata(context.Context, *GetRepositoryMetadataRequest) (*GetRepositoryMetadataResponse, error)
 	mustEmbedUnimplementedPraefectInfoServiceServer()
 }
 
@@ -118,6 +131,9 @@ func (UnimplementedPraefectInfoServiceServer) SetAuthoritativeStorage(context.Co
 }
 func (UnimplementedPraefectInfoServiceServer) SetReplicationFactor(context.Context, *SetReplicationFactorRequest) (*SetReplicationFactorResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetReplicationFactor not implemented")
+}
+func (UnimplementedPraefectInfoServiceServer) GetRepositoryMetadata(context.Context, *GetRepositoryMetadataRequest) (*GetRepositoryMetadataResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetRepositoryMetadata not implemented")
 }
 func (UnimplementedPraefectInfoServiceServer) mustEmbedUnimplementedPraefectInfoServiceServer() {}
 
@@ -204,6 +220,24 @@ func _PraefectInfoService_SetReplicationFactor_Handler(srv interface{}, ctx cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PraefectInfoService_GetRepositoryMetadata_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRepositoryMetadataRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PraefectInfoServiceServer).GetRepositoryMetadata(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gitaly.PraefectInfoService/GetRepositoryMetadata",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PraefectInfoServiceServer).GetRepositoryMetadata(ctx, req.(*GetRepositoryMetadataRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // PraefectInfoService_ServiceDesc is the grpc.ServiceDesc for PraefectInfoService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -226,6 +260,10 @@ var PraefectInfoService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SetReplicationFactor",
 			Handler:    _PraefectInfoService_SetReplicationFactor_Handler,
+		},
+		{
+			MethodName: "GetRepositoryMetadata",
+			Handler:    _PraefectInfoService_GetRepositoryMetadata_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
