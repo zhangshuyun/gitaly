@@ -134,7 +134,7 @@ func TestUserMergeBranch_quarantine(t *testing.T) {
 	// Set up a hook that parses the merge commit and then aborts the update. Like this, we
 	// can assert that the object does not end up in the main repository.
 	hookScript := fmt.Sprintf("#!/bin/sh\nread oldval newval ref && %s rev-parse $newval^{commit} && exit 1", cfg.Git.BinPath)
-	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(hookScript))
+	hookFilename := gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(hookScript))
 
 	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
@@ -155,7 +155,7 @@ func TestUserMergeBranch_quarantine(t *testing.T) {
 	require.NoError(t, stream.Send(&gitalypb.UserMergeBranchRequest{Apply: true}), "apply merge")
 	secondResponse, err := stream.Recv()
 	if featureflag.UserMergeBranchAccessError.IsEnabled(ctx) {
-		testassert.GrpcEqualErr(t, helper.ErrInternalf("executing custom hooks: exit status 1, stdout: \"%s\\n\"", firstResponse.CommitId), err)
+		testassert.GrpcEqualErr(t, helper.ErrInternalf("executing custom hooks: error executing \"%s\": exit status 1, stdout: \"%s\\n\"", hookFilename, firstResponse.CommitId), err)
 		require.Nil(t, secondResponse)
 	} else {
 		require.NoError(t, err, "receive second response")
@@ -457,7 +457,8 @@ func TestUserMergeBranch_failingHooks(t *testing.T) {
 
 			secondResponse, err := mergeBidi.Recv()
 			if featureflag.UserMergeBranchAccessError.IsEnabled(ctx) {
-				testassert.GrpcEqualErr(t, helper.ErrInternalf("executing custom hooks: exit status 1, stdout: \"failure\\n\""), err)
+				hookFilename := gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
+				testassert.GrpcEqualErr(t, helper.ErrInternalf("executing custom hooks: error executing \"%s\": exit status 1, stdout: \"failure\\n\"", hookFilename), err)
 				require.Nil(t, secondResponse)
 			} else {
 				require.NoError(t, err, "receive second response")

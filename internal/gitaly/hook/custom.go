@@ -70,7 +70,7 @@ func (m *GitLabHookManager) newCustomHooksExecutor(repo *gitalypb.Repository, ho
 				return err
 			}
 			if err = c.Wait(); err != nil {
-				return err
+				return fmt.Errorf("error executing \"%s\": %w", hookFile, err)
 			}
 		}
 
