@@ -55,8 +55,9 @@ func TestRestoreSubcommand(t *testing.T) {
 	}
 
 	require.NoError(t, encoder.Encode(map[string]string{
-		"address": "invalid",
-		"token":   "invalid",
+		"address":       "invalid",
+		"token":         "invalid",
+		"relative_path": "invalid",
 	}))
 
 	cmd := restoreSubcommand{}
@@ -67,7 +68,7 @@ func TestRestoreSubcommand(t *testing.T) {
 	require.NoError(t, fs.Parse([]string{"-path", path}))
 	require.EqualError(t,
 		cmd.Run(context.Background(), &stdin, io.Discard),
-		"restore: pipeline: 1 failures encountered")
+		"restore: pipeline: 1 failures encountered:\n - invalid: manager: remove repository: could not dial source: invalid connection string: \"invalid\"\n")
 
 	for _, repo := range repos {
 		repoPath := filepath.Join(cfg.Storages[0].Path, repo.RelativePath)

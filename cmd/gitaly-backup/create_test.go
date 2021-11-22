@@ -48,8 +48,9 @@ func TestCreateSubcommand(t *testing.T) {
 	}
 
 	require.NoError(t, encoder.Encode(map[string]string{
-		"address": "invalid",
-		"token":   "invalid",
+		"address":       "invalid",
+		"token":         "invalid",
+		"relative_path": "invalid",
 	}))
 
 	cmd := createSubcommand{backupPath: path}
@@ -60,7 +61,7 @@ func TestCreateSubcommand(t *testing.T) {
 	require.NoError(t, fs.Parse([]string{"-path", path}))
 	require.EqualError(t,
 		cmd.Run(context.Background(), &stdin, io.Discard),
-		"create: pipeline: 1 failures encountered")
+		"create: pipeline: 1 failures encountered:\n - invalid: manager: isEmpty: could not dial source: invalid connection string: \"invalid\"\n")
 
 	for _, repo := range repos {
 		bundlePath := filepath.Join(path, repo.RelativePath+".bundle")

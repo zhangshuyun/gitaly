@@ -136,15 +136,15 @@ func testPipeline(t *testing.T, init func() Pipeline) {
 		defer cancel()
 
 		commands := []Command{
-			NewCreateCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{StorageName: "normal"}, false),
-			NewCreateCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{StorageName: "skip"}, false),
-			NewCreateCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{StorageName: "error"}, false),
+			NewCreateCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{RelativePath: "a.git", StorageName: "normal"}, false),
+			NewCreateCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{RelativePath: "b.git", StorageName: "skip"}, false),
+			NewCreateCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{RelativePath: "c.git", StorageName: "error"}, false),
 		}
 		for _, cmd := range commands {
 			p.Handle(ctx, cmd)
 		}
 		err := p.Done()
-		require.EqualError(t, err, "pipeline: 1 failures encountered")
+		require.EqualError(t, err, "pipeline: 1 failures encountered:\n - c.git: assert.AnError general error for testing\n")
 	})
 
 	t.Run("restore command", func(t *testing.T) {
@@ -168,14 +168,59 @@ func testPipeline(t *testing.T, init func() Pipeline) {
 		defer cancel()
 
 		commands := []Command{
-			NewRestoreCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{StorageName: "normal"}, false),
-			NewRestoreCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{StorageName: "skip"}, false),
-			NewRestoreCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{StorageName: "error"}, false),
+			NewRestoreCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{RelativePath: "a.git", StorageName: "normal"}, false),
+			NewRestoreCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{RelativePath: "b.git", StorageName: "skip"}, false),
+			NewRestoreCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{RelativePath: "c.git", StorageName: "error"}, false),
 		}
 		for _, cmd := range commands {
 			p.Handle(ctx, cmd)
 		}
 		err := p.Done()
-		require.EqualError(t, err, "pipeline: 1 failures encountered")
+		require.EqualError(t, err, "pipeline: 1 failures encountered:\n - c.git: assert.AnError general error for testing\n")
 	})
+}
+
+func TestPipelineError(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		repos         []*gitalypb.Repository
+		expectedError string
+	}{
+		{
+			name: "with gl_project_path",
+			repos: []*gitalypb.Repository{
+				&gitalypb.Repository{RelativePath: "1.git", GlProjectPath: "Projects/Apple"},
+				&gitalypb.Repository{RelativePath: "2.git", GlProjectPath: "Projects/Banana"},
+				&gitalypb.Repository{RelativePath: "3.git", GlProjectPath: "Projects/Carrot"},
+			},
+			expectedError: `3 failures encountered:
+ - 1.git (Projects/Apple): assert.AnError general error for testing
+ - 2.git (Projects/Banana): assert.AnError general error for testing
+ - 3.git (Projects/Carrot): assert.AnError general error for testing
+`,
+		},
+		{
+			name: "without gl_project_path",
+			repos: []*gitalypb.Repository{
+				&gitalypb.Repository{RelativePath: "1.git"},
+				&gitalypb.Repository{RelativePath: "2.git"},
+				&gitalypb.Repository{RelativePath: "3.git"},
+			},
+			expectedError: `3 failures encountered:
+ - 1.git: assert.AnError general error for testing
+ - 2.git: assert.AnError general error for testing
+ - 3.git: assert.AnError general error for testing
+`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := PipelineError{}
+
+			for _, repo := range tc.repos {
+				err.AddError(repo, assert.AnError)
+			}
+
+			require.EqualError(t, err, tc.expectedError)
+		})
+	}
 }
