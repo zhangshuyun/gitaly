@@ -43,10 +43,10 @@ var (
 
 func TestUserMergeBranch_successful(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.UserMergeBranchAccessError).Run(t, testUserMergeBranchSuccessful)
+}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
+func testUserMergeBranchSuccessful(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -124,10 +124,10 @@ func TestUserMergeBranch_successful(t *testing.T) {
 
 func TestUserMergeBranch_quarantine(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.UserMergeBranchAccessError).Run(t, testUserMergeBranchQuarantine)
+}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
+func testUserMergeBranchQuarantine(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -174,10 +174,10 @@ func TestUserMergeBranch_quarantine(t *testing.T) {
 
 func TestUserMergeBranch_stableMergeIDs(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.UserMergeBranchAccessError).Run(t, testUserMergeBranchStableMergeIDs)
+}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
+func testUserMergeBranchStableMergeIDs(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -243,10 +243,10 @@ func TestUserMergeBranch_stableMergeIDs(t *testing.T) {
 
 func TestUserMergeBranch_abort(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.UserMergeBranchAccessError).Run(t, testUserMergeBranchAbort)
+}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
+func testUserMergeBranchAbort(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -308,10 +308,10 @@ func TestUserMergeBranch_abort(t *testing.T) {
 
 func TestUserMergeBranch_concurrentUpdate(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.UserMergeBranchAccessError).Run(t, testUserMergeBranchConcurrentUpdate)
+}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
+func testUserMergeBranchConcurrentUpdate(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -358,10 +358,10 @@ func TestUserMergeBranch_concurrentUpdate(t *testing.T) {
 
 func TestUserMergeBranch_ambiguousReference(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.UserMergeBranchAccessError).Run(t, testUserMergeBranchAmbiguousReference)
+}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
+func testUserMergeBranchAmbiguousReference(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -421,10 +421,10 @@ func TestUserMergeBranch_ambiguousReference(t *testing.T) {
 
 func TestUserMergeBranch_failingHooks(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.UserMergeBranchAccessError).Run(t, testUserMergeBranchFailingHooks)
+}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
+func testUserMergeBranchFailingHooks(t *testing.T, ctx context.Context) {
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
@@ -476,10 +476,10 @@ func TestUserMergeBranch_failingHooks(t *testing.T) {
 
 func TestUserMergeBranch_conflict(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.UserMergeBranchAccessError).Run(t, testUserMergeBranchConflict)
+}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
+func testUserMergeBranchConflict(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	const mergeIntoBranch = "mergeIntoBranch"
@@ -518,10 +518,10 @@ func TestUserMergeBranch_conflict(t *testing.T) {
 
 func TestUserMergeBranch_allowed(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.UserMergeBranchAccessError).Run(t, testUserMergeBranchAllowed)
+}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
+func testUserMergeBranchAllowed(t *testing.T, ctx context.Context) {
 	mergeBranchHeadAfter := "ff0ac4dfa30d6b26fd14aa83a75650355270bf76"
 
 	for _, tc := range []struct {
