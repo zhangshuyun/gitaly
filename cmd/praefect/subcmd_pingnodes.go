@@ -88,7 +88,7 @@ func (s *dialNodesSubcommand) Exec(flags *flag.FlagSet, conf config.Config) erro
 }
 
 func (npr *nodePing) dial() (*grpc.ClientConn, error) {
-	return subCmdDial(npr.address, npr.token)
+	return subCmdDial(context.Background(), npr.address, npr.token, defaultDialTimeout)
 }
 
 func (npr *nodePing) healthCheck(cc *grpc.ClientConn) (grpc_health_v1.HealthCheckResponse_ServingStatus, error) {

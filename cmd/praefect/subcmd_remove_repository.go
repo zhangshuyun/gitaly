@@ -28,10 +28,11 @@ type removeRepository struct {
 	logger         logrus.FieldLogger
 	virtualStorage string
 	relativePath   string
+	timeout        time.Duration
 }
 
 func newRemoveRepository(logger logrus.FieldLogger) *removeRepository {
-	return &removeRepository{logger: logger}
+	return &removeRepository{logger: logger, timeout: defaultDialTimeout}
 }
 
 func (cmd *removeRepository) FlagSet() *flag.FlagSet {
@@ -136,7 +137,7 @@ func (cmd *removeRepository) removeRepositoryFromDatabase(ctx context.Context, d
 }
 
 func (cmd *removeRepository) removeRepository(ctx context.Context, repo *gitalypb.Repository, addr, token string) (bool, error) {
-	conn, err := subCmdDial(addr, token)
+	conn, err := subCmdDial(ctx, addr, token, cmd.timeout)
 	if err != nil {
 		return false, fmt.Errorf("error dialing: %w", err)
 	}
