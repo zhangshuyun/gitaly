@@ -40,9 +40,11 @@ end
 }
 
 // WriteCustomHook writes a hook in the repo/path.git/custom_hooks directory
-func WriteCustomHook(t testing.TB, repoPath, name string, content []byte) {
+func WriteCustomHook(t testing.TB, repoPath, name string, content []byte) string {
 	fullPath := filepath.Join(repoPath, "custom_hooks", name)
 	testhelper.WriteExecutable(t, fullPath, content)
+
+	return fullPath
 }
 
 // CaptureHookEnv creates a bogus 'update' Git hook to sniff out what

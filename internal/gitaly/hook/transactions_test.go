@@ -51,8 +51,9 @@ func TestHookManager_stopCalled(t *testing.T) {
 	).Env()
 	require.NoError(t, err)
 
-	for _, hook := range []string{"pre-receive", "update", "post-receive"} {
-		gittest.WriteCustomHook(t, repoPath, hook, []byte("#!/bin/sh\nexit 1\n"))
+	hookPaths := make([]string, 3)
+	for i, hook := range []string{"pre-receive", "update", "post-receive"} {
+		hookPaths[i] = gittest.WriteCustomHook(t, repoPath, hook, []byte("#!/bin/sh\nexit 1\n"))
 	}
 
 	preReceiveFunc := func(t *testing.T) error {
@@ -68,34 +69,41 @@ func TestHookManager_stopCalled(t *testing.T) {
 	for _, tc := range []struct {
 		desc     string
 		hookFunc func(*testing.T) error
+		hookPath string
 		stopErr  error
 	}{
 		{
 			desc:     "pre-receive gets successfully stopped",
 			hookFunc: preReceiveFunc,
+			hookPath: hookPaths[0],
 		},
 		{
 			desc:     "pre-receive with stop error does not clobber real error",
 			hookFunc: preReceiveFunc,
 			stopErr:  errors.New("stop error"),
+			hookPath: hookPaths[0],
 		},
 		{
 			desc:     "post-receive gets successfully stopped",
 			hookFunc: postReceiveFunc,
+			hookPath: hookPaths[2],
 		},
 		{
 			desc:     "post-receive with stop error does not clobber real error",
 			hookFunc: postReceiveFunc,
 			stopErr:  errors.New("stop error"),
+			hookPath: hookPaths[2],
 		},
 		{
 			desc:     "update gets successfully stopped",
 			hookFunc: updateFunc,
+			hookPath: hookPaths[1],
 		},
 		{
 			desc:     "update with stop error does not clobber real error",
 			hookFunc: updateFunc,
 			stopErr:  errors.New("stop error"),
+			hookPath: hookPaths[1],
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -107,7 +115,7 @@ func TestHookManager_stopCalled(t *testing.T) {
 			}
 
 			err := tc.hookFunc(t)
-			require.Equal(t, "executing custom hooks: exit status 1", err.Error())
+			require.Equal(t, fmt.Sprintf("executing custom hooks: error executing \"%s\": exit status 1", tc.hookPath), err.Error())
 			require.True(t, wasInvoked, "expected stop to have been invoked")
 		})
 	}

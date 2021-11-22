@@ -158,7 +158,12 @@ func TestCustomHookPartialFailure(t *testing.T) {
 			require.NoError(t, err)
 
 			var stdout, stderr bytes.Buffer
-			require.Error(t, caller(ctx, nil, nil, &bytes.Buffer{}, &stdout, &stderr))
+			result := caller(ctx, nil, nil, &bytes.Buffer{}, &stdout, &stderr)
+			failedHookPath := filepath.Join(projectHookPath, tc.hook)
+			if !tc.globalHookSucceeds {
+				failedHookPath = filepath.Join(globalHookPath, tc.hook)
+			}
+			require.EqualError(t, result, fmt.Sprintf("error executing \"%s\": exit status 1", failedHookPath))
 
 			if tc.projectHookSucceeds && tc.globalHookSucceeds {
 				require.Equal(t, filepath.Join(projectHookPath, tc.hook), text.ChompBytes(stdout.Bytes()))
