@@ -109,6 +109,7 @@ func TestListUntrackedRepositories_Exec(t *testing.T) {
 	require.NoError(t, cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), conf))
 
 	exp := []string{
+		"The following repositories were found on disk, but missing from the tracking database:",
 		fmt.Sprintf(`{"relative_path":%q,"storage":"gitaly-1","virtual_storage":"praefect"}`, repo1.RelativePath),
 		fmt.Sprintf(`{"relative_path":%q,"storage":"gitaly-1","virtual_storage":"praefect"}`, repo2.RelativePath),
 		fmt.Sprintf(`{"relative_path":%q,"storage":"gitaly-2","virtual_storage":"praefect"}`, repo3.RelativePath),
