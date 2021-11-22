@@ -16,12 +16,14 @@ type MockRepositoryStore struct {
 	RenameRepositoryFunc                    func(ctx context.Context, virtualStorage, relativePath, storage, newRelativePath string) error
 	GetConsistentStoragesByRepositoryIDFunc func(ctx context.Context, repositoryID int64) (string, map[string]struct{}, error)
 	GetConsistentStoragesFunc               func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error)
-	GetPartiallyAvailableRepositoriesFunc   func(ctx context.Context, virtualStorage string) ([]PartiallyAvailableRepository, error)
+	GetPartiallyAvailableRepositoriesFunc   func(ctx context.Context, virtualStorage string) ([]RepositoryMetadata, error)
 	DeleteInvalidRepositoryFunc             func(ctx context.Context, repositoryID int64, storage string) error
 	RepositoryExistsFunc                    func(ctx context.Context, virtualStorage, relativePath string) (bool, error)
 	ReserveRepositoryIDFunc                 func(ctx context.Context, virtualStorage, relativePath string) (int64, error)
 	GetRepositoryIDFunc                     func(ctx context.Context, virtualStorage, relativePath string) (int64, error)
 	GetReplicaPathFunc                      func(ctx context.Context, repositoryID int64) (string, error)
+	GetRepositoryMetadataFunc               func(ctx context.Context, repositoryID int64) (RepositoryMetadata, error)
+	GetRepositoryMetadataByPathFunc         func(ctx context.Context, virtualStorage, relativePath string) (RepositoryMetadata, error)
 }
 
 //nolint: revive,stylecheck // This is unintentionally missing documentation.
@@ -124,7 +126,7 @@ func (m MockRepositoryStore) GetConsistentStorages(ctx context.Context, virtualS
 }
 
 // GetPartiallyAvailableRepositories returns the result of GetPartiallyAvailableRepositories or nil if it is unset.
-func (m MockRepositoryStore) GetPartiallyAvailableRepositories(ctx context.Context, virtualStorage string) ([]PartiallyAvailableRepository, error) {
+func (m MockRepositoryStore) GetPartiallyAvailableRepositories(ctx context.Context, virtualStorage string) ([]RepositoryMetadata, error) {
 	if m.GetPartiallyAvailableRepositoriesFunc == nil {
 		return nil, nil
 	}
@@ -171,4 +173,14 @@ func (m MockRepositoryStore) GetRepositoryID(ctx context.Context, virtualStorage
 // GetReplicaPath returns the result of GetReplicaPathFunc or panics if it is unset.
 func (m MockRepositoryStore) GetReplicaPath(ctx context.Context, repositoryID int64) (string, error) {
 	return m.GetReplicaPathFunc(ctx, repositoryID)
+}
+
+// GetRepositoryMetadata returns the result of GetRepositoryMetadataFunc or panics if it is unset.
+func (m MockRepositoryStore) GetRepositoryMetadata(ctx context.Context, repositoryID int64) (RepositoryMetadata, error) {
+	return m.GetRepositoryMetadataFunc(ctx, repositoryID)
+}
+
+// GetRepositoryMetadataByPath returns the result of GetRepositoryMetadataByPathFunc or panics if it is unset.
+func (m MockRepositoryStore) GetRepositoryMetadataByPath(ctx context.Context, virtualStorage, relativePath string) (RepositoryMetadata, error) {
+	return m.GetRepositoryMetadataByPathFunc(ctx, virtualStorage, relativePath)
 }

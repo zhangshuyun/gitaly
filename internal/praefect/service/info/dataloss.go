@@ -17,18 +17,18 @@ func (s *Server) DatalossCheck(ctx context.Context, req *gitalypb.DatalossCheckR
 	for _, outdatedRepo := range repos {
 		unavailable := true
 
-		storages := make([]*gitalypb.DatalossCheckResponse_Repository_Storage, 0, len(outdatedRepo.Storages))
-		for _, storage := range outdatedRepo.Storages {
-			if storage.ValidPrimary {
+		storages := make([]*gitalypb.DatalossCheckResponse_Repository_Storage, 0, len(outdatedRepo.Replicas))
+		for _, replica := range outdatedRepo.Replicas {
+			if replica.ValidPrimary {
 				unavailable = false
 			}
 
 			storages = append(storages, &gitalypb.DatalossCheckResponse_Repository_Storage{
-				Name:         storage.Name,
-				BehindBy:     int64(storage.BehindBy),
-				Assigned:     storage.Assigned,
-				Healthy:      storage.Healthy,
-				ValidPrimary: storage.ValidPrimary,
+				Name:         replica.Storage,
+				BehindBy:     outdatedRepo.Generation - replica.Generation,
+				Assigned:     replica.Assigned,
+				Healthy:      replica.Healthy,
+				ValidPrimary: replica.ValidPrimary,
 			})
 		}
 
