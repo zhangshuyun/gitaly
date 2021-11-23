@@ -332,27 +332,27 @@ func TestElectNewPrimary(t *testing.T) {
 			desc: "gitaly-2 storage has more up to date repositories",
 			initialReplQueueInsert: `
 			INSERT INTO repositories
-				(virtual_storage, relative_path, generation)
+				(repository_id, virtual_storage, relative_path, generation)
 			VALUES
-				('test-shard-0', '/p/1', 5),
-				('test-shard-0', '/p/2', 5),
-				('test-shard-0', '/p/3', 5),
-				('test-shard-0', '/p/4', 5),
-				('test-shard-0', '/p/5', 5);
+				(1, 'test-shard-0', '/p/1', 5),
+				(2, 'test-shard-0', '/p/2', 5),
+				(3, 'test-shard-0', '/p/3', 5),
+				(4, 'test-shard-0', '/p/4', 5),
+				(5, 'test-shard-0', '/p/5', 5);
 
 			INSERT INTO storage_repositories
-				(virtual_storage, relative_path, storage, generation)
+				(repository_id, virtual_storage, relative_path, storage, generation)
 			VALUES
-				('test-shard-0', '/p/1', 'gitaly-1', 5),
-				('test-shard-0', '/p/2', 'gitaly-1', 5),
-				('test-shard-0', '/p/3', 'gitaly-1', 4),
-				('test-shard-0', '/p/4', 'gitaly-1', 3),
+				(1, 'test-shard-0', '/p/1', 'gitaly-1', 5),
+				(2, 'test-shard-0', '/p/2', 'gitaly-1', 5),
+				(3, 'test-shard-0', '/p/3', 'gitaly-1', 4),
+				(4, 'test-shard-0', '/p/4', 'gitaly-1', 3),
 
-				('test-shard-0', '/p/1', 'gitaly-2', 5),
-				('test-shard-0', '/p/2', 'gitaly-2', 5),
-				('test-shard-0', '/p/3', 'gitaly-2', 4),
-				('test-shard-0', '/p/4', 'gitaly-2', 4),
-				('test-shard-0', '/p/5', 'gitaly-2', 5)
+				(1, 'test-shard-0', '/p/1', 'gitaly-2', 5),
+				(2, 'test-shard-0', '/p/2', 'gitaly-2', 5),
+				(3, 'test-shard-0', '/p/3', 'gitaly-2', 4),
+				(4, 'test-shard-0', '/p/4', 'gitaly-2', 4),
+				(5, 'test-shard-0', '/p/5', 'gitaly-2', 5)
 			`,
 			expectedPrimary: "gitaly-2",
 			fallbackChoice:  false,
@@ -361,16 +361,17 @@ func TestElectNewPrimary(t *testing.T) {
 			desc: "gitaly-2 storage has less repositories as some may not been replicated yet",
 			initialReplQueueInsert: `
 			INSERT INTO REPOSITORIES
-				(virtual_storage, relative_path, generation)
+				(repository_id, virtual_storage, relative_path, generation)
 			VALUES
-				('test-shard-0', '/p/1', 5),
-				('test-shard-0', '/p/2', 5);
+				(1, 'test-shard-0', '/p/1', 5),
+				(2, 'test-shard-0', '/p/2', 5);
 
 			INSERT INTO STORAGE_REPOSITORIES
+				(repository_id, virtual_storage, relative_path, storage, generation)
 			VALUES
-				('test-shard-0', '/p/1', 'gitaly-1', 5),
-				('test-shard-0', '/p/2', 'gitaly-1', 4),
-				('test-shard-0', '/p/1', 'gitaly-2', 5)`,
+				(1, 'test-shard-0', '/p/1', 'gitaly-1', 5),
+				(2, 'test-shard-0', '/p/2', 'gitaly-1', 4),
+				(1, 'test-shard-0', '/p/1', 'gitaly-2', 5)`,
 			expectedPrimary: "gitaly-1",
 			fallbackChoice:  false,
 		},
@@ -378,19 +379,20 @@ func TestElectNewPrimary(t *testing.T) {
 			desc: "gitaly-1 is primary as it has less generations behind in total despite it has less repositories",
 			initialReplQueueInsert: `
 			INSERT INTO REPOSITORIES
-				(virtual_storage, relative_path, generation)
+				(repository_id, virtual_storage, relative_path, generation)
 			VALUES
-				('test-shard-0', '/p/1', 2),
-				('test-shard-0', '/p/2', 2),
-				('test-shard-0', '/p/3', 10);
+				(1, 'test-shard-0', '/p/1', 2),
+				(2, 'test-shard-0', '/p/2', 2),
+				(3, 'test-shard-0', '/p/3', 10);
 
 			INSERT INTO STORAGE_REPOSITORIES
+				(repository_id, virtual_storage, relative_path, storage, generation)
 			VALUES
-				('test-shard-0', '/p/2', 'gitaly-1', 1),
-				('test-shard-0', '/p/3', 'gitaly-1', 9),
-				('test-shard-0', '/p/1', 'gitaly-2', 1),
-				('test-shard-0', '/p/2', 'gitaly-2', 1),
-				('test-shard-0', '/p/3', 'gitaly-2', 1)`,
+				(2, 'test-shard-0', '/p/2', 'gitaly-1', 1),
+				(3, 'test-shard-0', '/p/3', 'gitaly-1', 9),
+				(1, 'test-shard-0', '/p/1', 'gitaly-2', 1),
+				(2, 'test-shard-0', '/p/2', 'gitaly-2', 1),
+				(3, 'test-shard-0', '/p/3', 'gitaly-2', 1)`,
 			expectedPrimary: "gitaly-1",
 			fallbackChoice:  false,
 		},

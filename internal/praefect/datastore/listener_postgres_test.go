@@ -378,10 +378,10 @@ func TestPostgresListener_Listen_repositories_delete(t *testing.T) {
 		func(t *testing.T) {
 			_, err := db.DB.Exec(`
 				INSERT INTO repositories
-				VALUES ('praefect-1', '/path/to/repo/1', 1),
-					('praefect-1', '/path/to/repo/2', 1),
-					('praefect-1', '/path/to/repo/3', 0),
-					('praefect-2', '/path/to/repo/1', 1)`)
+				VALUES ('praefect-1', '/path/to/repo/1', 1, 1),
+					('praefect-1', '/path/to/repo/2', 1, 2),
+					('praefect-1', '/path/to/repo/3', 0, 3),
+					('praefect-2', '/path/to/repo/1', 1, 4)`)
 			require.NoError(t, err)
 		},
 		func(t *testing.T) {
@@ -404,16 +404,22 @@ func TestPostgresListener_Listen_storage_repositories_insert(t *testing.T) {
 
 	const channel = "storage_repositories_updates"
 
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	testListener(
 		t,
 		db.Name,
 		channel,
-		func(t *testing.T) {},
+		func(t *testing.T) {
+			rs := NewPostgresRepositoryStore(db, nil)
+			require.NoError(t, rs.CreateRepository(ctx, 1, "praefect-1", "/path/to/repo", "replica-path", "primary", nil, nil, true, false))
+		},
 		func(t *testing.T) {
 			_, err := db.DB.Exec(`
 				INSERT INTO storage_repositories
-				VALUES ('praefect-1', '/path/to/repo', 'gitaly-1', 0),
-					('praefect-1', '/path/to/repo', 'gitaly-2', 0)`,
+				VALUES ('praefect-1', '/path/to/repo', 'gitaly-1', 0, 1),
+					('praefect-1', '/path/to/repo', 'gitaly-2', 0, 1)`,
 			)
 			require.NoError(t, err)
 		},
@@ -430,13 +436,16 @@ func TestPostgresListener_Listen_storage_repositories_update(t *testing.T) {
 
 	const channel = "storage_repositories_updates"
 
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	testListener(
 		t,
 		db.Name,
 		channel,
 		func(t *testing.T) {
-			_, err := db.DB.Exec(`INSERT INTO storage_repositories VALUES ('praefect-1', '/path/to/repo', 'gitaly-1', 0)`)
-			require.NoError(t, err)
+			rs := NewPostgresRepositoryStore(db, nil)
+			require.NoError(t, rs.CreateRepository(ctx, 1, "praefect-1", "/path/to/repo", "replica-path", "gitaly-1", nil, nil, true, false))
 		},
 		func(t *testing.T) {
 			_, err := db.DB.Exec(`UPDATE storage_repositories SET generation = generation + 1`)
@@ -474,16 +483,16 @@ func TestPostgresListener_Listen_storage_repositories_delete(t *testing.T) {
 
 	const channel = "storage_repositories_updates"
 
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	testListener(
 		t,
 		db.Name,
 		channel,
 		func(t *testing.T) {
-			_, err := db.DB.Exec(`
-				INSERT INTO storage_repositories (virtual_storage, relative_path, storage, generation)
-				VALUES ('praefect-1', '/path/to/repo', 'gitaly-1', 0)`,
-			)
-			require.NoError(t, err)
+			rs := NewPostgresRepositoryStore(db, nil)
+			require.NoError(t, rs.CreateRepository(ctx, 1, "praefect-1", "/path/to/repo", "replica-path", "gitaly-1", nil, nil, true, false))
 		},
 		func(t *testing.T) {
 			_, err := db.DB.Exec(`DELETE FROM storage_repositories`)
