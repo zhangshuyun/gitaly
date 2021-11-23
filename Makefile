@@ -449,6 +449,11 @@ no-proto-changes: | ${BUILD_DIR}
 	${Q}${GIT} diff -- '*.pb.go' 'ruby/proto/gitaly' >${BUILD_DIR}/proto.diff
 	${Q}if [ -s ${BUILD_DIR}/proto.diff ]; then echo "There is a difference in generated proto files. Please take a look at ${BUILD_DIR}/proto.diff file." && exit 1; fi
 
+.PHONY: dump-database-schema
+## Dump the clean database schema of Praefect into a file.
+dump-database-schema: build
+	${Q}"${SOURCE_DIR}"/_support/generate-praefect-schema >"${SOURCE_DIR}"/_support/praefect-schema.sql
+
 .PHONY: smoke-test
 smoke-test: TEST_PACKAGES := ${SOURCE_DIR}/internal/gitaly/rubyserver
 smoke-test: all rspec
