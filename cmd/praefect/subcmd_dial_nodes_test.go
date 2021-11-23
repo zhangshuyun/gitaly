@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
@@ -44,10 +45,11 @@ func TestSubCmdDialNodes(t *testing.T) {
 	}
 
 	for _, tt := range []struct {
-		name string
-		conf config.Config
-		resp *gitalypb.ServerInfoResponse
-		logs string
+		name   string
+		conf   config.Config
+		resp   *gitalypb.ServerInfoResponse
+		logs   string
+		errMsg string
 	}{
 		{
 			name: "2 virtuals, 2 storages, 1 node",
@@ -97,6 +99,26 @@ func TestSubCmdDialNodes(t *testing.T) {
 				"SUCCESS: confirmed Gitaly storage \"2\" in virtual storages [storage-1] is served",
 				"SUCCESS: node configuration is consistent!",
 			}), ""),
+			errMsg: "",
+		},
+		{
+			name: "node unreachable",
+			conf: config.Config{
+				VirtualStorages: []*config.VirtualStorage{
+					{
+						Name: "default",
+						Nodes: []*config.Node{
+							{
+								Storage: "1",
+								Address: "unix:///unreachable/socket",
+							},
+						},
+					},
+				},
+			},
+			resp:   nil,
+			logs:   "",
+			errMsg: "the following nodes are not healthy: unix:///unreachable/socket",
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -105,10 +127,17 @@ func TestSubCmdDialNodes(t *testing.T) {
 
 			output := &bytes.Buffer{}
 
-			cmd := newDialNodesSubcommand(output)
-			require.NoError(t, cmd.Exec(nil, tt.conf))
+			cmd := dialNodesSubcommand{w: output, timeout: 1 * time.Second}
 
-			require.Equal(t, tt.logs, output.String())
+			err := cmd.Exec(nil, tt.conf)
+
+			if tt.errMsg == "" {
+				require.NoError(t, err)
+				require.Equal(t, tt.logs, output.String())
+				return
+			}
+
+			require.Equal(t, tt.errMsg, err.Error())
 		})
 	}
 }
