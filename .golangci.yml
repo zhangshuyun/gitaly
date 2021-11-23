@@ -41,6 +41,10 @@ linters-settings:
     include-go-root: true
     packages-with-error-message:
       - io/ioutil: "ioutil is deprecated starting with Go 1.16"
+  stylecheck:
+    # ST1000 checks for missing package comments. We don't use these for most
+    # packages, so let's disable this check.
+    checks: [ "all", "-ST1000" ]
 
 issues:
   exclude-use-default: false
@@ -84,9 +88,6 @@ issues:
         - errcheck
       path: "internal/command/command.go"
       text: "Error return value of `syscall.Kill` is not checked"
-    - linters:
-        - stylecheck
-      text: "at least one file in a package should have a package comment"
   # Maximum issues count per one linter. Set to 0 to disable. Default is 50.
   max-issues-per-linter: 0
   # Maximum count of issues with the same text. Set to 0 to disable. Default is 3.
