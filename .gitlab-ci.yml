@@ -186,6 +186,12 @@ test:
       - GO_VERSION: [ "1.16", "1.17" ]
         TARGET: test
       - TARGET: [ test-with-proxies, test-with-praefect, race-go ]
+      # Execute tests with our minimum required Postgres version, as well. If
+      # the minimum version changes, please change this to the new minimum
+      # version. Furthermore, please make sure to update the minimum required
+      # version in `datastore.CheckPostgresVersion()`.
+      - POSTGRES_VERSION: "11.14-alpine"
+        TARGET: [ test, test-with-praefect ]
 
 nightly:git:
   <<: *test_definition
