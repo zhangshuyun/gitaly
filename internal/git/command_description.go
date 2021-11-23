@@ -57,6 +57,8 @@ var commandDescriptions = map[string]commandDescription{
 		opts: []GlobalOption{
 			// See "init" for why we set the template directory to the empty string.
 			ConfigPair{Key: "init.templateDir", Value: ""},
+			// See "fetch" for why we disable following redirects.
+			ConfigPair{Key: "http.followRedirects", Value: "false"},
 		},
 	},
 	"commit": {
@@ -92,6 +94,12 @@ var commandDescriptions = map[string]commandDescription{
 			// so. So let's disable writing commit graphs on fetches -- if it really is
 			// required, we can enable it on a case-by-case basis.
 			ConfigPair{Key: "fetch.writeCommitGraph", Value: "false"},
+
+			// By default, Git follows HTTP redirects. Because it's easy for a malicious
+			// user to set up a DNS redirect that points to a server that's internal for
+			// us and unreachable from the outside, this is dangerous. We thus have to
+			// disable redirects in all cases.
+			ConfigPair{Key: "http.followRedirects", Value: "false"},
 		}, fsckConfiguration("fetch")...),
 	},
 	"for-each-ref": {
@@ -142,6 +150,10 @@ var commandDescriptions = map[string]commandDescription{
 	},
 	"ls-remote": {
 		flags: scNoRefUpdates,
+		opts: []GlobalOption{
+			// See "fetch" for why we disable following redirects.
+			ConfigPair{Key: "http.followRedirects", Value: "false"},
+		},
 	},
 	"ls-tree": {
 		flags: scNoRefUpdates,
@@ -166,6 +178,10 @@ var commandDescriptions = map[string]commandDescription{
 	},
 	"push": {
 		flags: scNoRefUpdates,
+		opts: []GlobalOption{
+			// See "fetch" for why we disable following redirects.
+			ConfigPair{Key: "http.followRedirects", Value: "false"},
+		},
 	},
 	"receive-pack": {
 		flags: 0,
@@ -186,6 +202,10 @@ var commandDescriptions = map[string]commandDescription{
 		// While git-remote(1)'s `add` subcommand does support `--end-of-options`,
 		// `remove` doesn't.
 		flags: scNoEndOfOptions,
+		opts: []GlobalOption{
+			// See "fetch" for why we disable following redirects.
+			ConfigPair{Key: "http.followRedirects", Value: "false"},
+		},
 	},
 	"repack": {
 		flags: scNoRefUpdates | scGeneratesPackfiles,

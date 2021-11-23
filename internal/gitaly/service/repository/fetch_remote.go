@@ -75,10 +75,6 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 		defer cancel()
 	}
 
-	opts.CommandOptions = append(opts.CommandOptions,
-		git.WithConfig(git.ConfigPair{Key: "http.followRedirects", Value: "false"}),
-	)
-
 	if err := repo.FetchRemote(ctx, remoteName, opts); err != nil {
 		if _, ok := status.FromError(err); ok {
 			// this check is used because of internal call to alternates.PathAndEnv
