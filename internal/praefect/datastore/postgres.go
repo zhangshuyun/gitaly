@@ -32,8 +32,8 @@ func CheckPostgresVersion(db *sql.DB) error {
 		return fmt.Errorf("get postgres server version: %v", err)
 	}
 
-	const minimumServerVersion = 90600 // Postgres 9.6
-	if serverVersion < minimumServerVersion {
+	// The minimum required Postgres server version is v11.0.
+	if serverVersion < 11_00_00 {
 		return fmt.Errorf("postgres server version too old: %d", serverVersion)
 	}
 

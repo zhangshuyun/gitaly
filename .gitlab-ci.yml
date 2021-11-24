@@ -134,11 +134,9 @@ build:
       # These definitions are for the non-default Git versions.
       #- GO_VERSION: [ "1.16", "1.17" ]
       #  GIT_VERSION: [ ]
-      #  RUBY_VERSION: [ "2.7" ]
       # These definitions are for the default Git version where we want to
       # apply our default set of Git patches.
       - GO_VERSION: [ "1.16", "1.17" ]
-        RUBY_VERSION: [ "2.7" ]
 
 binaries:
   <<: *cache_definition
@@ -187,8 +185,13 @@ test:
       # apply our default set of Git patches.
       - GO_VERSION: [ "1.16", "1.17" ]
         TARGET: test
-      - GO_VERSION: "1.17"
-        TARGET: [ test-with-proxies, test-with-praefect, race-go ]
+      - TARGET: [ test-with-proxies, test-with-praefect, race-go ]
+      # Execute tests with our minimum required Postgres version, as well. If
+      # the minimum version changes, please change this to the new minimum
+      # version. Furthermore, please make sure to update the minimum required
+      # version in `datastore.CheckPostgresVersion()`.
+      - POSTGRES_VERSION: "11.14-alpine"
+        TARGET: [ test, test-with-praefect ]
 
 nightly:git:
   <<: *test_definition
@@ -199,8 +202,7 @@ nightly:git:
     - make all ${TARGET}
   parallel:
     matrix:
-      - GO_VERSION: "1.17"
-        GIT_VERSION: [ "master", "next" ]
+      - GIT_VERSION: [ "master", "next" ]
         TARGET: [ test, test-with-proxies, test-with-praefect ]
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
