@@ -16,7 +16,7 @@ import (
 
 // OpenDB returns connection pool to the database.
 func OpenDB(ctx context.Context, conf config.DB) (*sql.DB, error) {
-	db, err := sql.Open("postgres", conf.ToPQString(false))
+	db, err := sql.Open("postgres", DSN(conf, false))
 	if err != nil {
 		return nil, err
 	}

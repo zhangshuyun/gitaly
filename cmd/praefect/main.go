@@ -250,12 +250,13 @@ func run(
 		queue = datastore.NewPostgresReplicationEventQueue(db)
 		rs = datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
 
-		if conf.DB.ToPQString(true) == "" {
+		dsn := glsql.DSN(conf.DB, true)
+		if dsn == "" {
 			csg = rs
 			logger.Info("reads distribution caching is disabled because direct connection to Postgres is not set")
 		} else {
 			listenerOpts := datastore.DefaultPostgresListenerOpts
-			listenerOpts.Addr = conf.DB.ToPQString(true)
+			listenerOpts.Addr = dsn
 			listenerOpts.Channels = []string{"repositories_updates", "storage_repositories_updates"}
 
 			storagesCached, err := datastore.NewCachingConsistentStoragesGetter(logger, rs, conf.VirtualStorageNames())

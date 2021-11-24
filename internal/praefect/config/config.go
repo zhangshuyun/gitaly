@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/pelletier/go-toml"
@@ -363,81 +362,6 @@ type DB struct {
 	// SessionPooled instead.
 	HostNoProxy string `toml:"host_no_proxy"`
 	PortNoProxy int    `toml:"port_no_proxy"`
-}
-
-func coalesceStr(values ...string) string {
-	for _, cur := range values {
-		if cur != "" {
-			return cur
-		}
-	}
-	return ""
-}
-
-func coalesceInt(values ...int) int {
-	for _, cur := range values {
-		if cur != 0 {
-			return cur
-		}
-	}
-	return 0
-}
-
-// ToPQString returns a connection string that can be passed to github.com/lib/pq.
-func (db DB) ToPQString(direct bool) string {
-	var hostVal, userVal, passwordVal, dbNameVal string
-	var sslModeVal, sslCertVal, sslKeyVal, sslRootCertVal string
-	var portVal int
-
-	if direct {
-		hostVal = coalesceStr(db.SessionPooled.Host, db.HostNoProxy, db.Host)
-		portVal = coalesceInt(db.SessionPooled.Port, db.PortNoProxy, db.Port)
-		userVal = coalesceStr(db.SessionPooled.User, db.User)
-		passwordVal = coalesceStr(db.SessionPooled.Password, db.Password)
-		dbNameVal = coalesceStr(db.SessionPooled.DBName, db.DBName)
-		sslModeVal = coalesceStr(db.SessionPooled.SSLMode, db.SSLMode)
-		sslCertVal = coalesceStr(db.SessionPooled.SSLCert, db.SSLCert)
-		sslKeyVal = coalesceStr(db.SessionPooled.SSLKey, db.SSLKey)
-		sslRootCertVal = coalesceStr(db.SessionPooled.SSLRootCert, db.SSLRootCert)
-	} else {
-		hostVal = db.Host
-		portVal = db.Port
-		userVal = db.User
-		passwordVal = db.Password
-		dbNameVal = db.DBName
-		sslModeVal = db.SSLMode
-		sslCertVal = db.SSLCert
-		sslKeyVal = db.SSLKey
-		sslRootCertVal = db.SSLRootCert
-	}
-
-	var fields []string
-	if portVal > 0 {
-		fields = append(fields, fmt.Sprintf("port=%d", portVal))
-	}
-
-	for _, kv := range []struct{ key, value string }{
-		{"host", hostVal},
-		{"user", userVal},
-		{"password", passwordVal},
-		{"dbname", dbNameVal},
-		{"sslmode", sslModeVal},
-		{"sslcert", sslCertVal},
-		{"sslkey", sslKeyVal},
-		{"sslrootcert", sslRootCertVal},
-		{"binary_parameters", "yes"},
-	} {
-		if len(kv.value) == 0 {
-			continue
-		}
-
-		kv.value = strings.ReplaceAll(kv.value, "'", `\'`)
-		kv.value = strings.ReplaceAll(kv.value, " ", `\ `)
-
-		fields = append(fields, kv.key+"="+kv.value)
-	}
-
-	return strings.Join(fields, " ")
 }
 
 // RepositoriesCleanup configures repository synchronisation.

@@ -91,7 +91,7 @@ func TestPostgresListener_Listen(t *testing.T) {
 
 	newOpts := func() PostgresListenerOpts {
 		opts := DefaultPostgresListenerOpts
-		opts.Addr = glsql.GetDBConfig(t, db.Name).ToPQString(true)
+		opts.Addr = glsql.DSN(glsql.GetDBConfig(t, db.Name), true)
 		opts.MinReconnectInterval = time.Nanosecond
 		opts.MaxReconnectInterval = time.Minute
 		return opts
@@ -523,7 +523,7 @@ func testListener(t *testing.T, dbName, channel string, setup func(t *testing.T)
 	}
 
 	opts := DefaultPostgresListenerOpts
-	opts.Addr = glsql.GetDBConfig(t, dbName).ToPQString(true)
+	opts.Addr = glsql.DSN(glsql.GetDBConfig(t, dbName), true)
 	opts.Channels = []string{channel}
 
 	handler := mockListenHandler{OnNotification: callback, OnConnected: func() { close(readyChan) }}

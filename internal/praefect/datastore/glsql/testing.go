@@ -172,7 +172,7 @@ func GetDBConfig(t testing.TB, database string) config.DB {
 
 func requireSQLOpen(t testing.TB, dbCfg config.DB, direct bool) *sql.DB {
 	t.Helper()
-	db, err := sql.Open("postgres", dbCfg.ToPQString(direct))
+	db, err := sql.Open("postgres", DSN(dbCfg, direct))
 	require.NoErrorf(t, err, "failed to connect to %q database", dbCfg.DBName)
 	if !assert.NoErrorf(t, db.Ping(), "failed to communicate with %q database", dbCfg.DBName) {
 		require.NoErrorf(t, db.Close(), "release connection to the %q database", dbCfg.DBName)
