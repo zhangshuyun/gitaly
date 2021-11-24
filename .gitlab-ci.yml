@@ -140,18 +140,6 @@ build:binaries:
     matrix:
       - GO_VERSION: [ "1.16", "1.17" ]
 
-proto:
-  <<: *cache_definition
-  stage: test
-  script:
-    - make proto no-changes
-  artifacts:
-    paths:
-    - _build/proto.diff
-    - ruby/proto/gitaly/*
-    - proto/go/gitalypb/*
-    when: on_failure
-
 test:
   <<: *test_definition
   <<: *postgres_definition
@@ -248,6 +236,12 @@ verify:
   stage: test
   script:
     - make verify
+  artifacts:
+    paths:
+      - _build/proto.diff
+      - ruby/proto/gitaly/*
+      - proto/go/gitalypb/*
+    when: on_failure
 
 lint:
   stage: test
