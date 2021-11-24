@@ -120,7 +120,7 @@ build:
       # apply our default set of Git patches.
       - GO_VERSION: [ "1.16", "1.17" ]
 
-binaries:
+build:binaries:
   <<: *cache_definition
   stage: build
   image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.31
@@ -187,7 +187,7 @@ test:
       - POSTGRES_VERSION: "11.14-alpine"
         TARGET: [ test, test-with-praefect ]
 
-cover:
+test:coverage:
   <<: *cache_definition
   <<: *postgres_definition
   stage: test
@@ -197,14 +197,14 @@ cover:
     reports:
       cobertura: _build/cover/cobertura.xml
 
-pgbouncer_test:
+test:pgbouncer:
   # This job verifies all operations run without issues if PgBouncer is set in between service and PostgreSQL database.
   <<: *test_definition
   <<: *pgbouncer_definition
   script:
     - make test-postgres
 
-nightly:git:
+test:nightly:
   <<: *test_definition
   <<: *postgres_definition
   image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.31
@@ -218,7 +218,7 @@ nightly:git:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
 
-praefect_sql_connect:
+test:praefect_smoke:
   <<: *test_definition
   services:
     - postgres:${POSTGRES_VERSION}
@@ -234,7 +234,7 @@ praefect_sql_connect:
     - ./_build/bin/praefect -config config.praefect.toml sql-ping
     - ./_build/bin/praefect -config config.praefect.toml sql-migrate
 
-objectinfo_fuzz_test:
+test:fuzz_objectinfo:
   extends: .fuzz_base
   stage: test
   script:
