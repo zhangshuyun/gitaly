@@ -53,8 +53,9 @@ include:
     - postgres:${POSTGRES_VERSION}
   variables: &postgres_variables
     PGHOST: postgres
-    PGPORT: "5432"
+    PGPORT: 5432
     PGUSER: postgres
+    POSTGRES_DB: praefect_test
     POSTGRES_HOST_AUTH_METHOD: trust
   before_script:
     - go version
@@ -206,16 +207,9 @@ test:nightly:
 
 test:praefect_smoke:
   <<: *test_definition
-  services:
-    - postgres:${POSTGRES_VERSION}
-  variables:
-    POSTGRES_DB: praefect_test
-    POSTGRES_USER: praefect
-    POSTGRES_PASSWORD: sql-password
+  <<: *postgres_definition
   script:
     - make
-    # Sanity check: direct ping with psql
-    - PGPASSWORD=$POSTGRES_PASSWORD psql -h postgres -U $POSTGRES_USER -d $POSTGRES_DB -c 'select now()'
     - ruby -rerb -e 'ERB.new(ARGF.read).run' _support/config.praefect.toml.ci-sql-test.erb > config.praefect.toml
     - ./_build/bin/praefect -config config.praefect.toml sql-ping
     - ./_build/bin/praefect -config config.praefect.toml sql-migrate
