@@ -41,14 +41,6 @@ include:
 .test_template: &test_definition
   <<: *cache_definition
   stage: test
-  artifacts:
-    paths:
-    - ruby/tmp/gitaly-rspec-test.log
-    when: on_failure
-    expire_in: 1 week
-
-.postgres_template: &postgres_definition
-  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.31
   services:
     - postgres:${POSTGRES_VERSION}
   variables: &postgres_variables
@@ -61,21 +53,11 @@ include:
     - go version
     - git version
     - while ! psql -h $PGHOST -U $PGUSER -c 'SELECT 1' > /dev/null; do echo "awaiting Postgres service to be ready..." && sleep 1 ; done && echo "Postgres service is ready!"
-
-.pgbouncer_template: &pgbouncer_definition
-  <<: *postgres_definition
-  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.31-pgbouncer-1.14
-  variables:
-    <<: *postgres_variables
-    PGHOST_PGBOUNCER: 0.0.0.0
-    PGPORT_PGBOUNCER: "6432"
-  before_script:
-    - go version
-    - git version
-    - pgbouncer --version
-    - adduser --no-create-home --disabled-password --disabled-login --quiet --force-badname --gecos '' pgbouncer-runner
-    - su pgbouncer-runner -c 'pgbouncer internal/praefect/datastore/glsql/testdata/pgbouncer.ini' &
-    - for i in {1..10}; do psql -U $PGUSER -c 'select now()' && break; done || { echo 'pgbouncer awaiting failed' ; exit 1; }
+  artifacts:
+    paths:
+    - ruby/tmp/gitaly-rspec-test.log
+    when: on_failure
+    expire_in: 1 week
 
 danger-review:
   image: ruby:2.7
@@ -143,7 +125,6 @@ build:binaries:
 
 test:
   <<: *test_definition
-  <<: *postgres_definition
   image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.31
   script:
     - _build/deps/git/install/bin/git version
@@ -177,7 +158,6 @@ test:
 
 test:coverage:
   <<: *test_definition
-  <<: *postgres_definition
   script:
     - make cover
   artifacts:
@@ -187,13 +167,23 @@ test:coverage:
 test:pgbouncer:
   # This job verifies all operations run without issues if PgBouncer is set in between service and PostgreSQL database.
   <<: *test_definition
-  <<: *pgbouncer_definition
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.31-pgbouncer-1.14
+  variables:
+    <<: *postgres_variables
+    PGHOST_PGBOUNCER: 0.0.0.0
+    PGPORT_PGBOUNCER: "6432"
+  before_script:
+    - go version
+    - git version
+    - pgbouncer --version
+    - adduser --no-create-home --disabled-password --disabled-login --quiet --force-badname --gecos '' pgbouncer-runner
+    - su pgbouncer-runner -c 'pgbouncer internal/praefect/datastore/glsql/testdata/pgbouncer.ini' &
+    - for i in {1..10}; do psql -U $PGUSER -c 'select now()' && break; done || { echo 'pgbouncer awaiting failed' ; exit 1; }
   script:
     - make test-postgres
 
 test:nightly:
   <<: *test_definition
-  <<: *postgres_definition
   image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.31
   script:
     - go version
@@ -207,7 +197,6 @@ test:nightly:
 
 test:praefect_smoke:
   <<: *test_definition
-  <<: *postgres_definition
   script:
     - make
     - ruby -rerb -e 'ERB.new(ARGF.read).run' _support/config.praefect.toml.ci-sql-test.erb > config.praefect.toml
