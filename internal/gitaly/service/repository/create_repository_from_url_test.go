@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -12,18 +13,20 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
-func TestSuccessfulCreateRepositoryFromURLRequest(t *testing.T) {
+func TestCreateRepotitoryFromURL_successful(t *testing.T) {
 	t.Parallel()
-	cfg, _, repoPath, client := setupRepositoryService(t)
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepotitoryFromURLSuccessful)
+}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+func testCreateRepotitoryFromURLSuccessful(t *testing.T, ctx context.Context) {
+	cfg, _, repoPath, client := setupRepositoryService(t)
 
 	importedRepo := &gitalypb.Repository{
 		RelativePath: "imports/test-repo-imported.git",
@@ -57,36 +60,13 @@ func TestSuccessfulCreateRepositoryFromURLRequest(t *testing.T) {
 	require.True(t, os.IsNotExist(err), "hooks directory should not have been created")
 }
 
-func TestCloneRepositoryFromUrlCommand(t *testing.T) {
+func TestCreateRepositoryFromURL_existingTarget(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	userInfo := "user:pass%21%3F%40"
-	repositoryFullPath := "full/path/to/repository"
-	url := fmt.Sprintf("https://%s@www.example.com/secretrepo.git", userInfo)
-
-	cfg := testcfg.Build(t)
-	s := server{cfg: cfg, gitCmdFactory: git.NewExecCommandFactory(cfg)}
-	cmd, err := s.cloneFromURLCommand(ctx, &gitalypb.Repository{}, url, repositoryFullPath, nil)
-	require.NoError(t, err)
-
-	expectedScrubbedURL := "https://www.example.com/secretrepo.git"
-	expectedBasicAuthHeader := fmt.Sprintf("Authorization: Basic %s", base64.StdEncoding.EncodeToString([]byte("user:pass!?@")))
-	expectedHeader := fmt.Sprintf("http.extraHeader=%s", expectedBasicAuthHeader)
-
-	args := cmd.Args()
-	require.Contains(t, args, expectedScrubbedURL)
-	require.Contains(t, args, expectedHeader)
-	require.NotContains(t, args, userInfo)
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepositoryFromURLExistingTarget)
 }
 
-func TestFailedCreateRepositoryFromURLRequestDueToExistingTarget(t *testing.T) {
-	t.Parallel()
+func testCreateRepositoryFromURLExistingTarget(t *testing.T, ctx context.Context) {
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	testCases := []struct {
 		desc     string
@@ -126,17 +106,21 @@ func TestFailedCreateRepositoryFromURLRequestDueToExistingTarget(t *testing.T) {
 			}
 
 			_, err := client.CreateRepositoryFromURL(ctx, req)
-			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+			if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
+				testhelper.RequireGrpcError(t, err, codes.AlreadyExists)
+			} else {
+				testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+			}
 		})
 	}
 }
 
-func TestPreventingRedirect(t *testing.T) {
-	t.Parallel()
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+func TestCreateRepositoryFromURL_redirect(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepositoryFromURLRedirect)
+}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+func testCreateRepositoryFromURLRedirect(t *testing.T, ctx context.Context) {
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	importedRepo := &gitalypb.Repository{
 		RelativePath: "imports/test-repo-imported.git",
@@ -158,6 +142,30 @@ func TestPreventingRedirect(t *testing.T) {
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "The requested URL returned error: 301")
+}
+
+func TestCloneRepositoryFromUrlCommand(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	userInfo := "user:pass%21%3F%40"
+	repositoryFullPath := "full/path/to/repository"
+	url := fmt.Sprintf("https://%s@www.example.com/secretrepo.git", userInfo)
+
+	cfg := testcfg.Build(t)
+	s := server{cfg: cfg, gitCmdFactory: git.NewExecCommandFactory(cfg)}
+	cmd, err := s.cloneFromURLCommand(ctx, url, repositoryFullPath, git.WithDisabledHooks())
+	require.NoError(t, err)
+
+	expectedScrubbedURL := "https://www.example.com/secretrepo.git"
+	expectedBasicAuthHeader := fmt.Sprintf("Authorization: Basic %s", base64.StdEncoding.EncodeToString([]byte("user:pass!?@")))
+	expectedHeader := fmt.Sprintf("http.extraHeader=%s", expectedBasicAuthHeader)
+
+	args := cmd.Args()
+	require.Contains(t, args, expectedScrubbedURL)
+	require.Contains(t, args, expectedHeader)
+	require.NotContains(t, args, userInfo)
 }
 
 func gitServerWithBasicAuth(t testing.TB, cfg config.Cfg, user, pass, repoPath string) (int, func() error) {

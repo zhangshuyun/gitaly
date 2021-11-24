@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
@@ -76,6 +78,32 @@ func untar(ctx context.Context, path string, in *gitalypb.CreateRepositoryFromSn
 }
 
 func (s *server) CreateRepositoryFromSnapshot(ctx context.Context, in *gitalypb.CreateRepositoryFromSnapshotRequest) (*gitalypb.CreateRepositoryFromSnapshotResponse, error) {
+	if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
+		if err := s.createRepository(ctx, in.GetRepository(), func(repo *gitalypb.Repository) error {
+			path, err := s.locator.GetPath(repo)
+			if err != nil {
+				return helper.ErrInternalf("getting repo path: %w", err)
+			}
+
+			// The archive contains a partial git repository, missing a config file and
+			// other important items. Initializing a new bare one and extracting the
+			// archive on top of it ensures the created git repository has everything
+			// it needs (especially, the config file and hooks directory).
+			//
+			// NOTE: The received archive is trusted *a lot*. Before pointing this RPC
+			// at endpoints not under our control, it should undergo a lot of hardning.
+			if err := untar(ctx, path, in); err != nil {
+				return helper.ErrInternalf("extracting snapshot: %w", err)
+			}
+
+			return nil
+		}); err != nil {
+			return nil, helper.ErrInternalf("creating repository: %w", err)
+		}
+
+		return &gitalypb.CreateRepositoryFromSnapshotResponse{}, nil
+	}
+
 	realPath, err := s.locator.GetPath(in.Repository)
 	if err != nil {
 		return nil, err

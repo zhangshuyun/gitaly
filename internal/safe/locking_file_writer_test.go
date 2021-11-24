@@ -261,7 +261,7 @@ func TestLockingFileWriter_concurrentLocking(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, first.Lock())
-	require.Equal(t, fmt.Errorf("file already locked"), second.Lock())
+	require.Equal(t, safe.ErrFileAlreadyLocked, second.Lock())
 	require.NoError(t, first.Commit())
 
 	require.Equal(t, []byte("first"), testhelper.MustReadFile(t, file))
@@ -279,7 +279,7 @@ func TestLockingFileWriter_locked(t *testing.T) {
 	// Concurrently lock the file.
 	require.NoError(t, os.WriteFile(target+".lock", nil, 0o644))
 
-	require.Equal(t, fmt.Errorf("file already locked"), writer.Lock())
+	require.Equal(t, safe.ErrFileAlreadyLocked, writer.Lock())
 
 	require.Equal(t, []byte("base"), testhelper.MustReadFile(t, target))
 }

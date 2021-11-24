@@ -157,8 +157,6 @@ func TestAddRepository_Exec(t *testing.T) {
 				relativePath := fmt.Sprintf("path/to/test/repo_%s", tn)
 				repoDS := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
 
-				require.NoError(t, createRepoThroughGitaly1(relativePath))
-
 				rmRepoCmd := &removeRepository{
 					logger:         logger,
 					virtualStorage: virtualStorageName,

@@ -93,6 +93,12 @@ func ErrPermissionDeniedf(format string, a ...interface{}) error {
 	return formatError(codes.PermissionDenied, format, a...)
 }
 
+// ErrAlreadyExistsf wraps a formatted error with codes.AlreadyExists, unless the formatted error is
+// a wrapped gRPC error.
+func ErrAlreadyExistsf(format string, a ...interface{}) error {
+	return formatError(codes.AlreadyExists, format, a...)
+}
+
 // formatError will create a new error from the given format string. If the error string contains a
 // %w verb and its corresponding error has a gRPC error code, then the returned error will keep this
 // gRPC error code instead of using the one provided as an argument.

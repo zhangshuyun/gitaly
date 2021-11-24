@@ -1,6 +1,7 @@
 package safe
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -13,6 +14,10 @@ const (
 	lockingFileWriterStateLocked
 	lockingFileWriterStateClosed
 )
+
+// ErrFileAlreadyLocked is returned when trying to lock a file which has already been locked by
+// another concurrent process.
+var ErrFileAlreadyLocked = errors.New("file already locked")
 
 // LockingFileWriter is a FileWriter which locks the target file on commit and checks whether it
 // has been modified since the LockingFileWriter has been created. The user must first create a new
@@ -134,7 +139,7 @@ func (fw *LockingFileWriter) Lock() error {
 	lock, err := os.OpenFile(fw.lockPath(), os.O_CREATE|os.O_EXCL|os.O_RDONLY, 0o400)
 	if err != nil {
 		if os.IsExist(err) {
-			return fmt.Errorf("file already locked")
+			return ErrFileAlreadyLocked
 		}
 
 		return fmt.Errorf("creating lock file: %w", err)
