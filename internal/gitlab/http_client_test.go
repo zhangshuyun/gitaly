@@ -262,7 +262,6 @@ func TestAccess_allowedResponseHandling(t *testing.T) {
 		allowed        bool
 		errMsg         string
 	}{
-
 		{
 			desc: "allowed",
 			allowedHandler: func(w http.ResponseWriter, r *http.Request) {

@@ -280,7 +280,6 @@ func TestHealthManager(t *testing.T) {
 		{
 			desc: "majority consensus healthy",
 			healthChecks: HealthChecks{
-
 				{
 					PraefectName: "praefect-1",
 					LocalStatus: LocalStatus{

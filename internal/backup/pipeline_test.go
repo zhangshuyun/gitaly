@@ -189,9 +189,9 @@ func TestPipelineError(t *testing.T) {
 		{
 			name: "with gl_project_path",
 			repos: []*gitalypb.Repository{
-				&gitalypb.Repository{RelativePath: "1.git", GlProjectPath: "Projects/Apple"},
-				&gitalypb.Repository{RelativePath: "2.git", GlProjectPath: "Projects/Banana"},
-				&gitalypb.Repository{RelativePath: "3.git", GlProjectPath: "Projects/Carrot"},
+				{RelativePath: "1.git", GlProjectPath: "Projects/Apple"},
+				{RelativePath: "2.git", GlProjectPath: "Projects/Banana"},
+				{RelativePath: "3.git", GlProjectPath: "Projects/Carrot"},
 			},
 			expectedError: `3 failures encountered:
  - 1.git (Projects/Apple): assert.AnError general error for testing
@@ -202,9 +202,9 @@ func TestPipelineError(t *testing.T) {
 		{
 			name: "without gl_project_path",
 			repos: []*gitalypb.Repository{
-				&gitalypb.Repository{RelativePath: "1.git"},
-				&gitalypb.Repository{RelativePath: "2.git"},
-				&gitalypb.Repository{RelativePath: "3.git"},
+				{RelativePath: "1.git"},
+				{RelativePath: "2.git"},
+				{RelativePath: "3.git"},
 			},
 			expectedError: `3 failures encountered:
  - 1.git: assert.AnError general error for testing
