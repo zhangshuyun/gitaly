@@ -27,30 +27,6 @@ include:
   - template: Security/Coverage-Fuzzing.gitlab-ci.yml
   - template: Security/Secret-Detection.gitlab-ci.yml
 
-danger-review:
-  image: ruby:2.7
-  allow_failure: true
-  stage: build
-  only:
-    - merge_requests
-  except:
-    - tags
-    - master
-  variables:
-    BUNDLE_GEMFILE: danger/Gemfile
-  before_script:
-    - bundle install
-  script:
-    - >
-      if [ -z "$DANGER_GITLAB_API_TOKEN" ]; then
-        # Force danger to skip CI source GitLab and fallback to "local only git repo".
-        unset GITLAB_CI
-        # We need access to the base SHA to help danger determine the base commit for this shallow clone.
-        bundle exec danger dry_run --fail-on-errors=true --verbose --base='$CI_MERGE_REQUEST_DIFF_BASE_SHA'
-      else
-        bundle exec danger --fail-on-errors=true --verbose
-      fi
-
 .cache: &cache_definition
   cache: &cache_configuration
     key:
@@ -101,23 +77,29 @@ danger-review:
     - su pgbouncer-runner -c 'pgbouncer internal/praefect/datastore/glsql/testdata/pgbouncer.ini' &
     - for i in {1..10}; do psql -U $PGUSER -c 'select now()' && break; done || { echo 'pgbouncer awaiting failed' ; exit 1; }
 
-verify:
-  <<: *cache_definition
-  stage: test
+danger-review:
+  image: ruby:2.7
+  allow_failure: true
+  stage: build
+  only:
+    - merge_requests
+  except:
+    - tags
+    - master
+  variables:
+    BUNDLE_GEMFILE: danger/Gemfile
+  before_script:
+    - bundle install
   script:
-    - make verify
-
-proto:
-  <<: *cache_definition
-  stage: test
-  script:
-    - make proto no-changes
-  artifacts:
-    paths:
-    - _build/proto.diff
-    - ruby/proto/gitaly/*
-    - proto/go/gitalypb/*
-    when: on_failure
+    - >
+      if [ -z "$DANGER_GITLAB_API_TOKEN" ]; then
+        # Force danger to skip CI source GitLab and fallback to "local only git repo".
+        unset GITLAB_CI
+        # We need access to the base SHA to help danger determine the base commit for this shallow clone.
+        bundle exec danger dry_run --fail-on-errors=true --verbose --base='$CI_MERGE_REQUEST_DIFF_BASE_SHA'
+      else
+        bundle exec danger --fail-on-errors=true --verbose
+      fi
 
 build:
   stage: build
@@ -159,6 +141,18 @@ binaries:
     matrix:
       - GO_VERSION: [ "1.16", "1.17" ]
 
+proto:
+  <<: *cache_definition
+  stage: test
+  script:
+    - make proto no-changes
+  artifacts:
+    paths:
+    - _build/proto.diff
+    - ruby/proto/gitaly/*
+    - proto/go/gitalypb/*
+    when: on_failure
+
 test:
   <<: *test_definition
   <<: *postgres_definition
@@ -193,6 +187,23 @@ test:
       - POSTGRES_VERSION: "11.14-alpine"
         TARGET: [ test, test-with-praefect ]
 
+cover:
+  <<: *cache_definition
+  <<: *postgres_definition
+  stage: test
+  script:
+    - make cover
+  artifacts:
+    reports:
+      cobertura: _build/cover/cobertura.xml
+
+pgbouncer_test:
+  # This job verifies all operations run without issues if PgBouncer is set in between service and PostgreSQL database.
+  <<: *test_definition
+  <<: *pgbouncer_definition
+  script:
+    - make test-postgres
+
 nightly:git:
   <<: *test_definition
   <<: *postgres_definition
@@ -207,15 +218,44 @@ nightly:git:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
 
-cover:
-  <<: *cache_definition
-  <<: *postgres_definition
+praefect_sql_connect:
+  <<: *test_definition
+  services:
+    - postgres:${POSTGRES_VERSION}
+  variables:
+    POSTGRES_DB: praefect_test
+    POSTGRES_USER: praefect
+    POSTGRES_PASSWORD: sql-password
+  script:
+    - make
+    # Sanity check: direct ping with psql
+    - PGPASSWORD=$POSTGRES_PASSWORD psql -h postgres -U $POSTGRES_USER -d $POSTGRES_DB -c 'select now()'
+    - ruby -rerb -e 'ERB.new(ARGF.read).run' _support/config.praefect.toml.ci-sql-test.erb > config.praefect.toml
+    - ./_build/bin/praefect -config config.praefect.toml sql-ping
+    - ./_build/bin/praefect -config config.praefect.toml sql-migrate
+
+objectinfo_fuzz_test:
+  extends: .fuzz_base
   stage: test
   script:
-    - make cover
-  artifacts:
-    reports:
-      cobertura: _build/cover/cobertura.xml
+    - apt update && apt install -y clang-7
+    - go get github.com/dvyukov/go-fuzz/go-fuzz && go get github.com/dvyukov/go-fuzz/go-fuzz-build
+    - /root/go/bin/go-fuzz-build -libfuzzer -o objectinfo_fuzzer.a ./internal/git/catfile
+    - clang-7 -fsanitize=fuzzer objectinfo_fuzzer.a -o objectinfo_fuzzer
+    - ./gitlab-cov-fuzz run -- ./objectinfo_fuzzer -max_total_time=300
+
+verify:
+  <<: *cache_definition
+  stage: test
+  script:
+    - make verify
+
+lint:
+  stage: test
+  retry: 2
+  script:
+    - go version
+    - make lint
 
 gosec-sast:
   before_script:
@@ -257,46 +297,6 @@ secret_detection:
     - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_MERGE_REQUEST_IID
     - if: $CI_COMMIT_TAG
-
-praefect_sql_connect:
-  <<: *test_definition
-  services:
-    - postgres:${POSTGRES_VERSION}
-  variables:
-    POSTGRES_DB: praefect_test
-    POSTGRES_USER: praefect
-    POSTGRES_PASSWORD: sql-password
-  script:
-    - make
-    # Sanity check: direct ping with psql
-    - PGPASSWORD=$POSTGRES_PASSWORD psql -h postgres -U $POSTGRES_USER -d $POSTGRES_DB -c 'select now()'
-    - ruby -rerb -e 'ERB.new(ARGF.read).run' _support/config.praefect.toml.ci-sql-test.erb > config.praefect.toml
-    - ./_build/bin/praefect -config config.praefect.toml sql-ping
-    - ./_build/bin/praefect -config config.praefect.toml sql-migrate
-
-pgbouncer_test:
-  # This job verifies all operations run without issues if PgBouncer is set in between service and PostgreSQL database.
-  <<: *test_definition
-  <<: *pgbouncer_definition
-  script:
-    - make test-postgres
-
-lint:
-  stage: test
-  retry: 2
-  script:
-    - go version
-    - make lint
-
-objectinfo_fuzz_test:
-  extends: .fuzz_base
-  stage: test
-  script:
-    - apt update && apt install -y clang-7
-    - go get github.com/dvyukov/go-fuzz/go-fuzz && go get github.com/dvyukov/go-fuzz/go-fuzz-build
-    - /root/go/bin/go-fuzz-build -libfuzzer -o objectinfo_fuzzer.a ./internal/git/catfile
-    - clang-7 -fsanitize=fuzzer objectinfo_fuzzer.a -o objectinfo_fuzzer
-    - ./gitlab-cov-fuzz run -- ./objectinfo_fuzzer -max_total_time=300
 
 trigger-qa:
   stage: qa
