@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
@@ -89,4 +90,125 @@ func TestScanAll(t *testing.T) {
 
 	require.NoError(t, ScanAll(emptyRows, &nothing))
 	require.Equal(t, ([]uint64)(nil), nothing.Values())
+}
+
+func TestDSN(t *testing.T) {
+	testCases := []struct {
+		desc   string
+		in     config.DB
+		direct bool
+		out    string
+	}{
+		{desc: "empty", in: config.DB{}, out: "binary_parameters=yes"},
+		{
+			desc: "proxy connection",
+			in: config.DB{
+				Host:        "1.2.3.4",
+				Port:        2345,
+				User:        "praefect-user",
+				Password:    "secret",
+				DBName:      "praefect_production",
+				SSLMode:     "require",
+				SSLCert:     "/path/to/cert",
+				SSLKey:      "/path/to/key",
+				SSLRootCert: "/path/to/root-cert",
+			},
+			direct: false,
+			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert binary_parameters=yes`,
+		},
+		{
+			desc: "direct connection with different host and port",
+			in: config.DB{
+				User:        "praefect-user",
+				Password:    "secret",
+				DBName:      "praefect_production",
+				SSLMode:     "require",
+				SSLCert:     "/path/to/cert",
+				SSLKey:      "/path/to/key",
+				SSLRootCert: "/path/to/root-cert",
+				SessionPooled: config.DBConnection{
+					Host: "1.2.3.4",
+					Port: 2345,
+				},
+			},
+			direct: true,
+			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert binary_parameters=yes`,
+		},
+		{
+			desc: "direct connection with dbname",
+			in: config.DB{
+				Host:        "1.2.3.4",
+				Port:        2345,
+				User:        "praefect-user",
+				Password:    "secret",
+				DBName:      "praefect_production",
+				SSLMode:     "require",
+				SSLCert:     "/path/to/cert",
+				SSLKey:      "/path/to/key",
+				SSLRootCert: "/path/to/root-cert",
+				SessionPooled: config.DBConnection{
+					DBName: "praefect_production_sp",
+				},
+			},
+			direct: true,
+			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production_sp sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert binary_parameters=yes`,
+		},
+		{
+			desc: "direct connection with exactly the same parameters",
+			in: config.DB{
+				Host:          "1.2.3.4",
+				Port:          2345,
+				User:          "praefect-user",
+				Password:      "secret",
+				DBName:        "praefect_production",
+				SSLMode:       "require",
+				SSLCert:       "/path/to/cert",
+				SSLKey:        "/path/to/key",
+				SSLRootCert:   "/path/to/root-cert",
+				SessionPooled: config.DBConnection{},
+			},
+			direct: true,
+			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert binary_parameters=yes`,
+		},
+		{
+			desc: "direct connection with completely different parameters",
+			in: config.DB{
+				Host:        "1.2.3.4",
+				Port:        2345,
+				User:        "praefect-user",
+				Password:    "secret",
+				DBName:      "praefect_production",
+				SSLMode:     "require",
+				SSLCert:     "/path/to/cert",
+				SSLKey:      "/path/to/key",
+				SSLRootCert: "/path/to/root-cert",
+				SessionPooled: config.DBConnection{
+					Host:        "2.3.4.5",
+					Port:        6432,
+					User:        "praefect_sp",
+					Password:    "secret-sp",
+					DBName:      "praefect_production_sp",
+					SSLMode:     "prefer",
+					SSLCert:     "/path/to/sp/cert",
+					SSLKey:      "/path/to/sp/key",
+					SSLRootCert: "/path/to/sp/root-cert",
+				},
+			},
+			direct: true,
+			out:    `port=6432 host=2.3.4.5 user=praefect_sp password=secret-sp dbname=praefect_production_sp sslmode=prefer sslcert=/path/to/sp/cert sslkey=/path/to/sp/key sslrootcert=/path/to/sp/root-cert binary_parameters=yes`,
+		},
+		{
+			desc: "with spaces and quotes",
+			in: config.DB{
+				Password: "secret foo'bar",
+			},
+			out: `password=secret\ foo\'bar binary_parameters=yes`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			require.Equal(t, tc.out, DSN(tc.in, tc.direct))
+		})
+	}
 }
