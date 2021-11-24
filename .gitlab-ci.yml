@@ -175,9 +175,8 @@ test:
         TARGET: [ test, test-with-praefect ]
 
 test:coverage:
-  <<: *cache_definition
+  <<: *test_definition
   <<: *postgres_definition
-  stage: test
   script:
     - make cover
   artifacts:
