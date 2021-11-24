@@ -24,7 +24,7 @@ type subcmd interface {
 }
 
 const (
-	defaultDialTimeout        = 30 * time.Second
+	defaultDialTimeout        = 10 * time.Second
 	paramVirtualStorage       = "virtual-storage"
 	paramRelativePath         = "repository"
 	paramAuthoritativeStorage = "authoritative-storage"
