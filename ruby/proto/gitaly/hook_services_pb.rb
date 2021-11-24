@@ -18,9 +18,7 @@ module Gitaly
       rpc :PostReceiveHook, stream(Gitaly::PostReceiveHookRequest), stream(Gitaly::PostReceiveHookResponse)
       rpc :UpdateHook, Gitaly::UpdateHookRequest, stream(Gitaly::UpdateHookResponse)
       rpc :ReferenceTransactionHook, stream(Gitaly::ReferenceTransactionHookRequest), stream(Gitaly::ReferenceTransactionHookResponse)
-      # PackObjectsHook is meant to be called by git-upload-pack via the
-      # uploadpack.packObjectsHook mechanism. It generates a stream of packed
-      # Git objects.
+      # PackObjectsHook has been replaced by PackObjectsHookWithSidechannel. Remove in 15.0.
       rpc :PackObjectsHook, stream(Gitaly::PackObjectsHookRequest), stream(Gitaly::PackObjectsHookResponse)
       # PackObjectsHookWithSidechannel is an optimized version of PackObjectsHook that uses
       # a unix socket side channel.

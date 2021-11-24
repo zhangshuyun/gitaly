@@ -22,9 +22,8 @@ type HookServiceClient interface {
 	PostReceiveHook(ctx context.Context, opts ...grpc.CallOption) (HookService_PostReceiveHookClient, error)
 	UpdateHook(ctx context.Context, in *UpdateHookRequest, opts ...grpc.CallOption) (HookService_UpdateHookClient, error)
 	ReferenceTransactionHook(ctx context.Context, opts ...grpc.CallOption) (HookService_ReferenceTransactionHookClient, error)
-	// PackObjectsHook is meant to be called by git-upload-pack via the
-	// uploadpack.packObjectsHook mechanism. It generates a stream of packed
-	// Git objects.
+	// Deprecated: Do not use.
+	// PackObjectsHook has been replaced by PackObjectsHookWithSidechannel. Remove in 15.0.
 	PackObjectsHook(ctx context.Context, opts ...grpc.CallOption) (HookService_PackObjectsHookClient, error)
 	// PackObjectsHookWithSidechannel is an optimized version of PackObjectsHook that uses
 	// a unix socket side channel.
@@ -164,6 +163,7 @@ func (x *hookServiceReferenceTransactionHookClient) Recv() (*ReferenceTransactio
 	return m, nil
 }
 
+// Deprecated: Do not use.
 func (c *hookServiceClient) PackObjectsHook(ctx context.Context, opts ...grpc.CallOption) (HookService_PackObjectsHookClient, error) {
 	stream, err := c.cc.NewStream(ctx, &HookService_ServiceDesc.Streams[4], "/gitaly.HookService/PackObjectsHook", opts...)
 	if err != nil {
@@ -212,9 +212,8 @@ type HookServiceServer interface {
 	PostReceiveHook(HookService_PostReceiveHookServer) error
 	UpdateHook(*UpdateHookRequest, HookService_UpdateHookServer) error
 	ReferenceTransactionHook(HookService_ReferenceTransactionHookServer) error
-	// PackObjectsHook is meant to be called by git-upload-pack via the
-	// uploadpack.packObjectsHook mechanism. It generates a stream of packed
-	// Git objects.
+	// Deprecated: Do not use.
+	// PackObjectsHook has been replaced by PackObjectsHookWithSidechannel. Remove in 15.0.
 	PackObjectsHook(HookService_PackObjectsHookServer) error
 	// PackObjectsHookWithSidechannel is an optimized version of PackObjectsHook that uses
 	// a unix socket side channel.
