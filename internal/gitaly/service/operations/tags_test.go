@@ -414,7 +414,7 @@ func TestUserCreateTagQuarantine(t *testing.T) {
 	%s cat-file -p $newval^{commit} >/dev/null &&
 	%s cat-file -p $newval^{tag} &&
 	exit 1`, cfg.Git.BinPath, cfg.Git.BinPath)
-	hookFilename := gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(script))
+	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(script))
 
 	response, err := client.UserCreateTag(ctx, &gitalypb.UserCreateTagRequest{
 		Repository:     repoProto,
@@ -429,14 +429,12 @@ func TestUserCreateTagQuarantine(t *testing.T) {
 	// Conveniently, the pre-receive error will now contain output from our custom hook and thus
 	// the tag's contents.
 	testassert.ProtoEqual(t, &gitalypb.UserCreateTagResponse{
-		PreReceiveError: fmt.Sprintf("executing custom hooks: error executing \"%s\": exit status 1, stdout: %q",
-			hookFilename,
-			`object c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd
+		PreReceiveError: `object c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd
 type commit
 tag quarantined-tag
 tagger Jane Doe <janedoe@gitlab.com> 1600000000 +0800
 
-message`),
+message`,
 	}, response)
 
 	// In case we use an object quarantine directory, the tag should not exist in the target
@@ -1334,37 +1332,39 @@ func TestTagHookOutput(t *testing.T) {
 	testCases := []struct {
 		desc        string
 		hookContent string
-		output      string
+		output      func(hookPath string) string
 	}{
 		{
 			desc:        "empty stdout and empty stderr",
 			hookContent: "#!/bin/sh\nexit 1",
-			output:      "executing custom hooks: error executing \"%s\": exit status 1",
+			output: func(hookPath string) string {
+				return fmt.Sprintf("executing custom hooks: error executing %q: exit status 1", hookPath)
+			},
 		},
 		{
 			desc:        "empty stdout and some stderr",
 			hookContent: "#!/bin/sh\necho stderr >&2\nexit 1",
-			output:      "executing custom hooks: error executing \"%s\": exit status 1, stderr: \"stderr\\n\"",
+			output:      func(string) string { return "stderr\n" },
 		},
 		{
 			desc:        "some stdout and empty stderr",
 			hookContent: "#!/bin/sh\necho stdout\nexit 1",
-			output:      "executing custom hooks: error executing \"%s\": exit status 1, stdout: \"stdout\\n\"",
+			output:      func(string) string { return "stdout\n" },
 		},
 		{
 			desc:        "some stdout and some stderr",
 			hookContent: "#!/bin/sh\necho stdout\necho stderr >&2\nexit 1",
-			output:      "executing custom hooks: error executing \"%s\": exit status 1, stderr: \"stderr\\n\"",
+			output:      func(string) string { return "stderr\n" },
 		},
 		{
 			desc:        "whitespace stdout and some stderr",
 			hookContent: "#!/bin/sh\necho '   '\necho stderr >&2\nexit 1",
-			output:      "executing custom hooks: error executing \"%s\": exit status 1, stderr: \"stderr\\n\"",
+			output:      func(string) string { return "stderr\n" },
 		},
 		{
 			desc:        "some stdout and whitespace stderr",
 			hookContent: "#!/bin/sh\necho stdout\necho '   ' >&2\nexit 1",
-			output:      "executing custom hooks: error executing \"%s\": exit status 1, stdout: \"stdout\\n\"",
+			output:      func(string) string { return "stdout\n" },
 		},
 	}
 
@@ -1385,7 +1385,7 @@ func TestTagHookOutput(t *testing.T) {
 				}
 
 				hookFilename := gittest.WriteCustomHook(t, repoPath, hookName, []byte(testCase.hookContent))
-				expectedError := fmt.Sprintf(testCase.output, hookFilename)
+				expectedError := testCase.output(hookFilename)
 
 				createResponse, err := client.UserCreateTag(ctx, createRequest)
 				require.NoError(t, err)

@@ -37,12 +37,34 @@ type HookError struct {
 
 // Error returns an error message.
 func (e HookError) Error() string {
-	if len(strings.TrimSpace(e.stderr)) > 0 {
-		return fmt.Sprintf("%v, stderr: %q", e.err.Error(), e.stderr)
+	// If custom hooks write the "GitLab: " or "GL-HOOK-ERR: " prefix to either their stderr or
+	// their stdout, then this prefix is taken as a hint by Rails to print the error as-is in
+	// the web interface. We must thus make sure to not modify these custom hook error messages
+	// at all. Ideally, this logic would be handled by the hook package, which would return an
+	// error struct containing all necessary information. But the hook package does not manage
+	// neither stderr nor stdout itself, and these may be directly connected to the user on a
+	// clone. Given that we do use byte buffers here though, we do have enough information in
+	// the updateref package to handle these custom hook errors.
+	//
+	// Eventually, we should find a solution which allows us to bubble up the error in hook
+	// package such that we can also make proper use of structured errors for custom hooks.
+	var customHookError hook.CustomHookError
+	if errors.As(e.err, &customHookError) {
+		if len(strings.TrimSpace(e.stderr)) > 0 {
+			return e.stderr
+		}
+		if len(strings.TrimSpace(e.stdout)) > 0 {
+			return e.stdout
+		}
+	} else {
+		if len(strings.TrimSpace(e.stderr)) > 0 {
+			return fmt.Sprintf("%v, stderr: %q", e.err.Error(), e.stderr)
+		}
+		if len(strings.TrimSpace(e.stdout)) > 0 {
+			return fmt.Sprintf("%v, stdout: %q", e.err.Error(), e.stdout)
+		}
 	}
-	if len(strings.TrimSpace(e.stdout)) > 0 {
-		return fmt.Sprintf("%v, stdout: %q", e.err.Error(), e.stdout)
-	}
+
 	return e.err.Error()
 }
 

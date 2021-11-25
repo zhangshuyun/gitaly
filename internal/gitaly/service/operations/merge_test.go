@@ -134,7 +134,7 @@ func testUserMergeBranchQuarantine(t *testing.T, ctx context.Context) {
 	// Set up a hook that parses the merge commit and then aborts the update. Like this, we
 	// can assert that the object does not end up in the main repository.
 	hookScript := fmt.Sprintf("#!/bin/sh\nread oldval newval ref && %s rev-parse $newval^{commit} && exit 1", cfg.Git.BinPath)
-	hookFilename := gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(hookScript))
+	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(hookScript))
 
 	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
@@ -155,12 +155,12 @@ func testUserMergeBranchQuarantine(t *testing.T, ctx context.Context) {
 	require.NoError(t, stream.Send(&gitalypb.UserMergeBranchRequest{Apply: true}), "apply merge")
 	secondResponse, err := stream.Recv()
 	if featureflag.UserMergeBranchAccessError.IsEnabled(ctx) {
-		testassert.GrpcEqualErr(t, helper.ErrInternalf("executing custom hooks: error executing \"%s\": exit status 1, stdout: \"%s\\n\"", hookFilename, firstResponse.CommitId), err)
+		testassert.GrpcEqualErr(t, helper.ErrInternalf("%s\n", firstResponse.CommitId), err)
 		require.Nil(t, secondResponse)
 	} else {
 		require.NoError(t, err, "receive second response")
 		testassert.ProtoEqual(t, &gitalypb.UserMergeBranchResponse{
-			PreReceiveError: fmt.Sprintf("executing custom hooks: exit status 1, stdout: %q", firstResponse.CommitId+"\n"),
+			PreReceiveError: firstResponse.CommitId + "\n",
 		}, secondResponse)
 	}
 
@@ -457,8 +457,7 @@ func testUserMergeBranchFailingHooks(t *testing.T, ctx context.Context) {
 
 			secondResponse, err := mergeBidi.Recv()
 			if featureflag.UserMergeBranchAccessError.IsEnabled(ctx) {
-				hookFilename := gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
-				testassert.GrpcEqualErr(t, helper.ErrInternalf("executing custom hooks: error executing \"%s\": exit status 1, stdout: \"failure\\n\"", hookFilename), err)
+				testassert.GrpcEqualErr(t, helper.ErrInternalf("failure\n"), err)
 				require.Nil(t, secondResponse)
 			} else {
 				require.NoError(t, err, "receive second response")

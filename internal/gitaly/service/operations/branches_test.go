@@ -620,37 +620,39 @@ func TestBranchHookOutput(t *testing.T) {
 	testCases := []struct {
 		desc        string
 		hookContent string
-		output      string
+		output      func(hookPath string) string
 	}{
 		{
 			desc:        "empty stdout and empty stderr",
 			hookContent: "#!/bin/sh\nexit 1",
-			output:      "executing custom hooks: error executing \"%s\": exit status 1",
+			output: func(hookPath string) string {
+				return fmt.Sprintf("executing custom hooks: error executing %q: exit status 1", hookPath)
+			},
 		},
 		{
 			desc:        "empty stdout and some stderr",
 			hookContent: "#!/bin/sh\necho stderr >&2\nexit 1",
-			output:      "executing custom hooks: error executing \"%s\": exit status 1, stderr: \"stderr\\n\"",
+			output:      func(string) string { return "stderr\n" },
 		},
 		{
 			desc:        "some stdout and empty stderr",
 			hookContent: "#!/bin/sh\necho stdout\nexit 1",
-			output:      "executing custom hooks: error executing \"%s\": exit status 1, stdout: \"stdout\\n\"",
+			output:      func(string) string { return "stdout\n" },
 		},
 		{
 			desc:        "some stdout and some stderr",
 			hookContent: "#!/bin/sh\necho stdout\necho stderr >&2\nexit 1",
-			output:      "executing custom hooks: error executing \"%s\": exit status 1, stderr: \"stderr\\n\"",
+			output:      func(string) string { return "stderr\n" },
 		},
 		{
 			desc:        "whitespace stdout and some stderr",
 			hookContent: "#!/bin/sh\necho '   '\necho stderr >&2\nexit 1",
-			output:      "executing custom hooks: error executing \"%s\": exit status 1, stderr: \"stderr\\n\"",
+			output:      func(string) string { return "stderr\n" },
 		},
 		{
 			desc:        "some stdout and whitespace stderr",
 			hookContent: "#!/bin/sh\necho stdout\necho '   ' >&2\nexit 1",
-			output:      "executing custom hooks: error executing \"%s\": exit status 1, stdout: \"stdout\\n\"",
+			output:      func(string) string { return "stdout\n" },
 		},
 	}
 
@@ -671,7 +673,7 @@ func TestBranchHookOutput(t *testing.T) {
 				}
 
 				hookFilename := gittest.WriteCustomHook(t, repoPath, hookName, []byte(testCase.hookContent))
-				expectedError := fmt.Sprintf(testCase.output, hookFilename)
+				expectedError := testCase.output(hookFilename)
 
 				createResponse, err := client.UserCreateBranch(ctx, createRequest)
 				require.NoError(t, err)
