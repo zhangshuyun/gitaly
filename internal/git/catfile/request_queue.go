@@ -22,20 +22,23 @@ const (
 )
 
 type requestQueue struct {
+	// outstandingRequests is the number of requests which have been queued up. Gets incremented
+	// on request, and decremented when starting to read an object (not when that object has
+	// been fully consumed).
+	//
+	// We list the atomic fields first to ensure they are 64-bit and 32-bit aligned:
+	// https://pkg.go.dev/sync/atomic#pkg-note-BUG
+	outstandingRequests int64
+
+	// closed indicates whether the queue is closed for additional requests.
+	closed int32
+
 	// isObjectQueue is set to `true` when this is a request queue which can be used for reading
 	// objects. If set to `false`, then this can only be used to read object info.
 	isObjectQueue bool
 
 	stdout *bufio.Reader
 	stdin  *bufio.Writer
-
-	// outstandingRequests is the number of requests which have been queued up. Gets incremented
-	// on request, and decremented when starting to read an object (not when that object has
-	// been fully consumed).
-	outstandingRequests int64
-
-	// closed indicates whether the queue is closed for additional requests.
-	closed int32
 
 	// currentObject is the currently read object.
 	currentObject     *Object
