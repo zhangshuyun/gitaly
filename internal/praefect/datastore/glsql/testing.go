@@ -184,6 +184,21 @@ func requireTerminateAllConnections(t testing.TB, db *sql.DB, database string) {
 	t.Helper()
 	_, err := db.Exec("SELECT PG_TERMINATE_BACKEND(pid) FROM PG_STAT_ACTIVITY WHERE datname = '" + database + "'")
 	require.NoError(t, err)
+
+	// Once the pg_terminate_backend has completed, we may need to wait before the connections
+	// are fully released. pg_terminate_backend will return true as long as the signal was
+	// sent successfully, but the backend needs to respond to the signal to close the connection.
+	// TODO: In Postgre 14, pg_terminate_backend takes an optional timeout argument that makes it a blocking
+	// call. https://gitlab.com/gitlab-org/gitaly/-/issues/3937 tracks the refactor work to  remove this
+	// require.Eventuallyf call in favor of passing in a timeout to pg_terminate_backend
+	require.Eventuallyf(t, func() bool {
+		var openConnections int
+		require.NoError(t, db.QueryRow(
+			`SELECT COUNT(*) FROM pg_stat_activity
+				WHERE datname = $1 AND pid != pg_backend_pid()`, database).
+			Scan(&openConnections))
+		return openConnections == 0
+	}, 5*time.Second, 10*time.Millisecond, "wait for all connections to be terminated")
 }
 
 func initPraefectTestDB(t testing.TB, database string) *sql.DB {
