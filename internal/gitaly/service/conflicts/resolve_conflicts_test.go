@@ -835,7 +835,7 @@ func TestResolveConflictsQuarantine(t *testing.T) {
 	// then exits with an error. Like this, we can both assert that the hook can see the
 	// quarantined tag, and it allows us to fail the RPC before we migrate quarantined objects.
 	script := fmt.Sprintf("#!/bin/sh\nread oldval newval ref && echo $newval && %s cat-file -p $newval^{commit} && exit 1", cfg.Git.BinPath)
-	hookFilename := gittest.WriteCustomHook(t, sourceRepoPath, "pre-receive", []byte(script))
+	gittest.WriteCustomHook(t, sourceRepoPath, "pre-receive", []byte(script))
 
 	targetRepoProto, targetRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	targetBlobOID := gittest.WriteBlob(t, cfg, targetRepoPath, []byte("contents-2\n"))
@@ -884,16 +884,14 @@ func TestResolveConflictsQuarantine(t *testing.T) {
 	}))
 
 	response, err := stream.CloseAndRecv()
-	require.EqualError(t, err, fmt.Sprintf("rpc error: code = Unknown desc = executing custom hooks: error executing \"%s\": exit status 1, stdout: %q",
-		hookFilename,
-		`af339cb882d1e3cf8d6751651e58bbaff0265d6e
+	require.EqualError(t, err, `rpc error: code = Unknown desc = af339cb882d1e3cf8d6751651e58bbaff0265d6e
 tree 89fad81bbfa38070b90ca8f4c404625bf0999013
 parent 29449b1d52cd77fd060a083a1de691bbaf12d8af
 parent 26dac52be85c92742b2c0c19eb7303de9feccb63
 author John Doe <johndoe@gitlab.com> 12345 +0000
 committer John Doe <johndoe@gitlab.com> 12345 +0000
 
-Solve conflicts`))
+Solve conflicts`)
 	require.Empty(t, response.GetResolutionError())
 
 	// The file shouldn't have been updated and is thus expected to still have the same old

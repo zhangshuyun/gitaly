@@ -19,6 +19,9 @@ import (
 // customHooksExecutor executes all custom hooks for a given repository and hook name
 type customHooksExecutor func(ctx context.Context, args, env []string, stdin io.Reader, stdout, stderr io.Writer) error
 
+// CustomHookError is returned in case custom hooks return an error.
+type CustomHookError error
+
 // newCustomHooksExecutor creates a new hooks executor for custom hooks. Hooks
 // are looked up and executed in the following order:
 //
@@ -69,8 +72,14 @@ func (m *GitLabHookManager) newCustomHooksExecutor(repo *gitalypb.Repository, ho
 			if err != nil {
 				return err
 			}
+
 			if err = c.Wait(); err != nil {
-				return fmt.Errorf("error executing \"%s\": %w", hookFile, err)
+				// Custom hook errors need to be handled specially when we update
+				// refs via updateref.UpdaterWithHooks: their stdout and stderr must
+				// not be modified, but instead used as-is as the hooks' error
+				// message given that they may contain output that should be shown
+				// to the user.
+				return CustomHookError(fmt.Errorf("error executing %q: %w", hookFile, err))
 			}
 		}
 
