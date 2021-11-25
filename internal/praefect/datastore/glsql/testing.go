@@ -348,21 +348,25 @@ func getDatabaseEnvironment(t testing.TB) map[string]string {
 	return databaseEnv
 }
 
-// WaitForQueries is a helper that waits until a certain number of queries matching the prefix are present in the
-// database. This is useful for ensuring multiple transactions are executing the query when testing concurrent
-// execution.
-func WaitForQueries(ctx context.Context, t testing.TB, db Querier, queryPrefix string, count int) {
+// WaitForBlockedQuery is a helper that waits until a blocked query matching the prefix is present in the
+// database. This is useful for ensuring another transaction is blocking a query when testing concurrent
+// execution of multiple queries.
+func WaitForBlockedQuery(ctx context.Context, t testing.TB, db Querier, queryPrefix string) {
 	t.Helper()
 
 	for {
-		var queriesPresent bool
+		var queryBlocked bool
 		require.NoError(t, db.QueryRowContext(ctx, `
-			SELECT COUNT(*) = $2
-			FROM pg_stat_activity
-			WHERE TRIM(e'\n' FROM query) LIKE $1
-		`, queryPrefix+"%", count).Scan(&queriesPresent))
+			SELECT EXISTS (
+				SELECT FROM pg_stat_activity
+				WHERE TRIM(e'\n' FROM query) LIKE $1
+				AND state = 'active'
+				AND wait_event_type = 'Lock'
+				AND datname = current_database()
+			)
+		`, queryPrefix+"%").Scan(&queryBlocked))
 
-		if queriesPresent {
+		if queryBlocked {
 			return
 		}
 

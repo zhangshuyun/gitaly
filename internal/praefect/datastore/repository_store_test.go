@@ -214,7 +214,7 @@ func TestRepositoryStore_incrementGenerationConcurrently(t *testing.T) {
 			require.NoError(t, err)
 
 			go func() {
-				glsql.WaitForQueries(ctx, t, db, "WITH updated_replicas AS (", 2)
+				glsql.WaitForBlockedQuery(ctx, t, db, "WITH updated_replicas AS (")
 				firstTx.Commit(t)
 			}()
 

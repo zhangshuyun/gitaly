@@ -44,12 +44,16 @@ type HealthManager struct {
 	praefectName string
 	// healthCheckTimeout is the duration after a health check attempt times out.
 	healthCheckTimeout time.Duration
+	// databaseTimeout applies the timeout for the database update. It returns a context with
+	// the timeout applied and a cancellation function. This should be shorter than the failover
+	// timeout, otherwise it is possible that the updated health checks are immediately considered
+	// outdated after the update has finished. This can be difficult to debug as Gitaly nodes are
+	// seemingly responding to the health checks but are considered outdated by Praefect.
+	databaseTimeout func(context.Context) (context.Context, func())
+	firstUpdate     bool
+	updated         chan struct{}
 
-	firstUpdate bool
-	updated     chan struct{}
-
-	locallyHealthy  atomic.Value
-	healthConsensus atomic.Value
+	locallyHealthy atomic.Value
 }
 
 // NewHealthManager returns a new health manager that monitors which nodes in the cluster
@@ -71,12 +75,14 @@ func NewHealthManager(
 		},
 		praefectName:       praefectName,
 		healthCheckTimeout: healthcheckTimeout,
-		firstUpdate:        true,
-		updated:            make(chan struct{}, 1),
+		databaseTimeout: func(ctx context.Context) (context.Context, func()) {
+			return context.WithTimeout(ctx, 5*time.Second)
+		},
+		firstUpdate: true,
+		updated:     make(chan struct{}, 1),
 	}
 
 	hm.locallyHealthy.Store(make(map[string][]string, len(clients)))
-	hm.healthConsensus.Store(make(map[string][]string, len(clients)))
 
 	return &hm
 }
@@ -120,13 +126,6 @@ func (hm *HealthManager) HealthyNodes() map[string][]string {
 	return hm.locallyHealthy.Load().(map[string][]string)
 }
 
-// HealthConsensus returns a map of healthy nodes in each virtual storage as determined by
-// the consensus of Praefect nodes. The returned set might include nodes which are not present
-// in the local configuration if the cluster's consensus has deemed them healthy.
-func (hm *HealthManager) HealthConsensus() map[string][]string {
-	return hm.healthConsensus.Load().(map[string][]string)
-}
-
 func (hm *HealthManager) updateHealthChecks(ctx context.Context, virtualStorages, physicalStorages []string, healthy []bool) error {
 	locallyHealthy := map[string][]string{}
 	for i := range virtualStorages {
@@ -138,6 +137,9 @@ func (hm *HealthManager) updateHealthChecks(ctx context.Context, virtualStorages
 	}
 
 	hm.locallyHealthy.Store(locallyHealthy)
+
+	ctx, cancel := hm.databaseTimeout(ctx)
+	defer cancel()
 
 	if _, err := hm.db.ExecContext(ctx, `
 INSERT INTO node_status (praefect_name, shard_name, node_name, last_contact_attempt_at, last_seen_active_at)
@@ -161,38 +163,9 @@ ON CONFLICT (praefect_name, shard_name, node_name)
 		return fmt.Errorf("update checks: %w", err)
 	}
 
-	rows, err := hm.db.QueryContext(ctx, `SELECT virtual_storage, storage FROM healthy_storages`)
-	if err != nil {
-		return fmt.Errorf("query healthy storages: %w", err)
-	}
-
-	defer func() {
-		if err := rows.Close(); err != nil {
-			hm.log.WithError(err).Error("failed closing query rows")
-		}
-	}()
-
-	healthConsensus := make(map[string][]string, len(physicalStorages))
-	for rows.Next() {
-		var virtualStorage, storage string
-		if err := rows.Scan(&virtualStorage, &storage); err != nil {
-			return fmt.Errorf("scan: %w", err)
-		}
-
-		healthConsensus[virtualStorage] = append(healthConsensus[virtualStorage], storage)
-	}
-
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("rows: %w", err)
-	}
-
-	if hm.firstUpdate || hm.hasHealthConsensusChanged(healthConsensus) {
+	if hm.firstUpdate {
 		hm.firstUpdate = false
-		hm.healthConsensus.Store(healthConsensus)
-		select {
-		case hm.updated <- struct{}{}:
-		default:
-		}
+		hm.updated <- struct{}{}
 	}
 
 	return nil
@@ -240,32 +213,4 @@ func (hm *HealthManager) performHealthChecks(ctx context.Context) ([]string, []s
 	wg.Wait()
 
 	return virtualStorages, physicalStorages, healthy
-}
-
-func (hm *HealthManager) hasHealthConsensusChanged(currentlyHealthy map[string][]string) bool {
-	previouslyHealthy := hm.HealthConsensus()
-
-	if len(previouslyHealthy) != len(currentlyHealthy) {
-		return true
-	}
-
-	for virtualStorage, previousNodes := range previouslyHealthy {
-		currentNodes := currentlyHealthy[virtualStorage]
-		if len(currentNodes) != len(previousNodes) {
-			return true
-		}
-
-		previous := make(map[string]struct{}, len(previousNodes))
-		for _, node := range previousNodes {
-			previous[node] = struct{}{}
-		}
-
-		for _, node := range currentNodes {
-			if _, ok := previous[node]; !ok {
-				return true
-			}
-		}
-	}
-
-	return false
 }
