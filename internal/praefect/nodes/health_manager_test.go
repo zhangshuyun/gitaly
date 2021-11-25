@@ -601,7 +601,7 @@ func TestHealthManager_orderedWrites(t *testing.T) {
 	}()
 
 	// Wait for tx2 to be blocked on the gitaly-1 lock acquired by tx1
-	glsql.WaitForQueries(ctx, t, db, "INSERT INTO node_status", 1)
+	glsql.WaitForBlockedQuery(ctx, t, db, "INSERT INTO node_status")
 
 	// Ensure tx1 can acquire lock on gitaly-2.
 	require.NoError(t, hm1.updateHealthChecks(ctx, []string{virtualStorage}, []string{"gitaly-2"}, []bool{true}))
