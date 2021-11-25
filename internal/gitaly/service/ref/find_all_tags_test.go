@@ -2,6 +2,7 @@ package ref
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -507,10 +509,11 @@ func TestFindAllTags_invalidRequest(t *testing.T) {
 }
 
 func TestFindAllTags_pagination(t *testing.T) {
-	cfg, client := setupRefServiceWithoutRepo(t)
+	testhelper.NewFeatureSets(featureflag.ExactPaginationTokenMatch).Run(t, testFindAllTagsPagination)
+}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+func testFindAllTagsPagination(t *testing.T, ctx context.Context) {
+	cfg, client := setupRefServiceWithoutRepo(t)
 
 	repoProto, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
@@ -525,55 +528,79 @@ func TestFindAllTags_pagination(t *testing.T) {
 		desc             string
 		paginationParams *gitalypb.PaginationParameter
 		sortBy           *gitalypb.FindAllTagsRequest_SortBy
-		exp              []string
-		expectedErr      error
+		expected         func(context.Context) ([]string, error)
 	}{
 		{
 			desc:             "without pagination",
 			paginationParams: &gitalypb.PaginationParameter{Limit: 100},
-			exp: []string{
-				annotatedTagID.String(),
-				"f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8",
-				"8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b",
-				"8f03acbcd11c53d9c9468078f32a2622005a4841",
+			expected: func(context.Context) ([]string, error) {
+				return []string{
+					annotatedTagID.String(),
+					"f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8",
+					"8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b",
+					"8f03acbcd11c53d9c9468078f32a2622005a4841",
+				}, nil
 			},
 		},
 		{
 			desc:             "with limit restrictions",
 			paginationParams: &gitalypb.PaginationParameter{Limit: 3},
-			exp: []string{
-				annotatedTagID.String(),
-				"f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8",
-				"8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b",
+			expected: func(context.Context) ([]string, error) {
+				return []string{
+					annotatedTagID.String(),
+					"f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8",
+					"8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b",
+				}, nil
 			},
 		},
 		{
 			desc:             "with limit restrictions and page token",
 			paginationParams: &gitalypb.PaginationParameter{Limit: 3, PageToken: "refs/tags/v1.0.0"},
-			exp: []string{
-				"8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b",
-				"8f03acbcd11c53d9c9468078f32a2622005a4841",
+			expected: func(context.Context) ([]string, error) {
+				return []string{
+					"8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b",
+					"8f03acbcd11c53d9c9468078f32a2622005a4841",
+				}, nil
 			},
 		},
 		{
 			desc:             "with reversed sort by name, limit restrictions and page token",
 			paginationParams: &gitalypb.PaginationParameter{Limit: 3, PageToken: "refs/tags/v1.0.0"},
 			sortBy:           &gitalypb.FindAllTagsRequest_SortBy{Key: gitalypb.FindAllTagsRequest_SortBy_REFNAME, Direction: gitalypb.SortDirection_DESCENDING},
-			exp: []string{
-				annotatedTagID.String(),
+			expected: func(context.Context) ([]string, error) {
+				if featureflag.ExactPaginationTokenMatch.IsEnabled(ctx) {
+					return []string{
+						annotatedTagID.String(),
+					}, nil
+				}
+
+				return []string{
+					"8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b",
+					"f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8",
+					annotatedTagID.String(),
+				}, nil
 			},
 		},
 		{
 			desc:             "with page token only",
 			paginationParams: &gitalypb.PaginationParameter{PageToken: "refs/tags/v1.1.0"},
-			exp:              nil,
-			expectedErr:      helper.ErrInvalidArgumentf("could not find page token"),
+			expected: func(context.Context) ([]string, error) {
+				return nil, helper.ErrInvalidArgumentf("could not find page token")
+			},
 		},
 		{
 			desc:             "with invalid page token",
 			paginationParams: &gitalypb.PaginationParameter{Limit: 3, PageToken: "refs/tags/invalid"},
-			exp:              nil,
-			expectedErr:      helper.ErrInvalidArgumentf("could not find page token"),
+			expected: func(ctx context.Context) ([]string, error) {
+				if featureflag.ExactPaginationTokenMatch.IsEnabled(ctx) {
+					return nil, helper.ErrInvalidArgumentf("could not find page token")
+				}
+
+				return []string{
+					"8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b",
+					"8f03acbcd11c53d9c9468078f32a2622005a4841",
+				}, nil
+			},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -582,27 +609,29 @@ func TestFindAllTags_pagination(t *testing.T) {
 				PaginationParams: tc.paginationParams,
 				SortBy:           tc.sortBy,
 			})
+			require.NoError(t, err)
 
-			if tc.expectedErr != nil {
-				_, err = c.Recv()
-				require.NotEqual(t, err, io.EOF)
-				testassert.GrpcEqualErr(t, tc.expectedErr, err)
-			} else {
-				require.NoError(t, err)
+			expectedTags, expectedErr := tc.expected(ctx)
 
-				var tags []string
-				for {
-					r, err := c.Recv()
-					if err == io.EOF {
+			var tags []string
+			for {
+				response, err := c.Recv()
+				if err != nil {
+					if expectedErr != nil {
+						testassert.GrpcEqualErr(t, expectedErr, err)
+						break
+					} else {
+						require.Equal(t, io.EOF, err)
 						break
 					}
-					require.NoError(t, err)
-					for _, tag := range r.GetTags() {
-						tags = append(tags, tag.Id)
-					}
 				}
-				require.Equal(t, tc.exp, tags)
+
+				for _, tag := range response.GetTags() {
+					tags = append(tags, tag.Id)
+				}
 			}
+
+			require.Equal(t, expectedTags, tags)
 		})
 	}
 }
