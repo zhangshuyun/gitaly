@@ -22,6 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -310,6 +311,15 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
+
+	// The key computed for the cache entry takes into account all feature flags. Because
+	// Praefect explicitly injects all unset feature flags, the key is thus differend depending
+	// on whether Praefect is in use or not. We thus manually inject all feature flags here such
+	// that they're forced to the same state.
+	for _, ff := range featureflag.All {
+		ctx = featureflag.OutgoingCtxWithFeatureFlag(ctx, ff, true)
+		ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, ff, true)
+	}
 
 	assertNormalResponse := func(addr string) {
 		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)

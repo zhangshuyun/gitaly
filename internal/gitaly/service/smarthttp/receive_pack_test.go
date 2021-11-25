@@ -55,6 +55,19 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
+	// Below, we test whether extracting the hooks payload leads to the expected
+	// results. Part of this payload are feature flags, so we need to get them into a
+	// deterministic state such that we can compare them properly. While we wouldn't
+	// need to inject them in "normal" Gitaly tests, Praefect will inject all unset
+	// feature flags and set them to `false` -- as a result, we have a mismatch between
+	// the context's feature flags we see here and the context's metadata as it would
+	// arrive on the proxied Gitaly. To fix this, we thus inject all feature flags
+	// explicitly here.
+	for _, ff := range featureflag.All {
+		ctx = featureflag.OutgoingCtxWithFeatureFlag(ctx, ff, true)
+		ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, ff, true)
+	}
+
 	stream, err := client.PostReceivePack(ctx)
 	require.NoError(t, err)
 

@@ -2,6 +2,7 @@ package featureflag
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -31,6 +32,25 @@ var (
 	All = []FeatureFlag{}
 )
 
+const explicitFeatureFlagKey = "require_explicit_feature_flag_checks"
+
+// ContextWithExplicitFeatureFlags marks the context such that all feature flags which are checked
+// must have been explicitly set in that context. If a feature flag wasn't set to an explicit value,
+// then checking this feature flag will panic. This is not for use in production systems, but is
+// intended for tests to verify that we test each feature flag properly.
+func ContextWithExplicitFeatureFlags(ctx context.Context) context.Context {
+	incomingMD, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		incomingMD = metadata.New(map[string]string{})
+	}
+	incomingMD.Set(explicitFeatureFlagKey, "true")
+
+	ctx = metadata.NewIncomingContext(ctx, incomingMD)
+	ctx = metadata.AppendToOutgoingContext(ctx, explicitFeatureFlagKey, "true")
+
+	return ctx
+}
+
 // FeatureFlag gates the implementation of new or changed functionality.
 type FeatureFlag struct {
 	// Name is the name of the feature flag.
@@ -59,6 +79,12 @@ func (ff FeatureFlag) IsEnabled(ctx context.Context) bool {
 
 	val, ok := ff.valueFromContext(ctx)
 	if !ok {
+		if md, ok := metadata.FromIncomingContext(ctx); ok {
+			if _, ok := md[explicitFeatureFlagKey]; ok {
+				panic(fmt.Sprintf("checking for feature %q without use of feature sets", ff.Name))
+			}
+		}
+
 		return ff.OnByDefault
 	}
 

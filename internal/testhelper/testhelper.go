@@ -176,10 +176,12 @@ func ContextWithLogger(logger *log.Entry) ContextOpt {
 // Context returns a cancellable context.
 func Context(opts ...ContextOpt) (context.Context, func()) {
 	ctx, cancel := context.WithCancel(context.Background())
-	for _, ff := range featureflag.All {
-		ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, ff, true)
-		ctx = featureflag.OutgoingCtxWithFeatureFlag(ctx, ff, true)
-	}
+
+	// Enable use of explicit feature flags. Each feature flag which is checked must have been
+	// explicitly injected into the context, or otherwise we panic. This is a sanity check to
+	// verify that all feature flags we introduce are tested both with the flag enabled and
+	// with the flag disabled.
+	ctx = featureflag.ContextWithExplicitFeatureFlags(ctx)
 
 	cancels := make([]func(), len(opts)+1)
 	cancels[0] = cancel
