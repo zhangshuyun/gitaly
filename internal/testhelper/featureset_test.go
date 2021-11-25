@@ -15,14 +15,6 @@ var (
 	featureFlagB = ff.FeatureFlag{Name: "test_feature_flag_b"}
 )
 
-func features(flag ...ff.FeatureFlag) map[ff.FeatureFlag]struct{} {
-	features := make(map[ff.FeatureFlag]struct{}, len(flag))
-	for _, f := range flag {
-		features[f] = struct{}{}
-	}
-	return features
-}
-
 func TestNewFeatureSetsWithRubyFlags(t *testing.T) {
 	testcases := []struct {
 		desc         string
@@ -35,12 +27,12 @@ func TestNewFeatureSetsWithRubyFlags(t *testing.T) {
 			features: []ff.FeatureFlag{featureFlagA},
 			expected: FeatureSets{
 				FeatureSet{
-					features:     features(),
-					rubyFeatures: features(),
+					features:     map[ff.FeatureFlag]bool{featureFlagA: false},
+					rubyFeatures: map[ff.FeatureFlag]bool{},
 				},
 				FeatureSet{
-					features:     features(featureFlagA),
-					rubyFeatures: features(),
+					features:     map[ff.FeatureFlag]bool{featureFlagA: true},
+					rubyFeatures: map[ff.FeatureFlag]bool{},
 				},
 			},
 		},
@@ -49,20 +41,32 @@ func TestNewFeatureSetsWithRubyFlags(t *testing.T) {
 			features: []ff.FeatureFlag{featureFlagA, featureFlagB},
 			expected: FeatureSets{
 				FeatureSet{
-					features:     features(),
-					rubyFeatures: features(),
+					features: map[ff.FeatureFlag]bool{
+						featureFlagA: false,
+						featureFlagB: false,
+					},
+					rubyFeatures: map[ff.FeatureFlag]bool{},
 				},
 				FeatureSet{
-					features:     features(featureFlagB),
-					rubyFeatures: features(),
+					features: map[ff.FeatureFlag]bool{
+						featureFlagA: true,
+						featureFlagB: false,
+					},
+					rubyFeatures: map[ff.FeatureFlag]bool{},
 				},
 				FeatureSet{
-					features:     features(featureFlagA),
-					rubyFeatures: features(),
+					features: map[ff.FeatureFlag]bool{
+						featureFlagA: false,
+						featureFlagB: true,
+					},
+					rubyFeatures: map[ff.FeatureFlag]bool{},
 				},
 				FeatureSet{
-					features:     features(featureFlagB, featureFlagA),
-					rubyFeatures: features(),
+					features: map[ff.FeatureFlag]bool{
+						featureFlagA: true,
+						featureFlagB: true,
+					},
+					rubyFeatures: map[ff.FeatureFlag]bool{},
 				},
 			},
 		},
@@ -71,12 +75,16 @@ func TestNewFeatureSetsWithRubyFlags(t *testing.T) {
 			rubyFeatures: []ff.FeatureFlag{featureFlagA},
 			expected: FeatureSets{
 				FeatureSet{
-					features:     features(),
-					rubyFeatures: features(),
+					features: map[ff.FeatureFlag]bool{},
+					rubyFeatures: map[ff.FeatureFlag]bool{
+						featureFlagA: false,
+					},
 				},
 				FeatureSet{
-					features:     features(),
-					rubyFeatures: features(featureFlagA),
+					features: map[ff.FeatureFlag]bool{},
+					rubyFeatures: map[ff.FeatureFlag]bool{
+						featureFlagA: true,
+					},
 				},
 			},
 		},
@@ -85,20 +93,32 @@ func TestNewFeatureSetsWithRubyFlags(t *testing.T) {
 			rubyFeatures: []ff.FeatureFlag{featureFlagA, featureFlagB},
 			expected: FeatureSets{
 				FeatureSet{
-					features:     features(),
-					rubyFeatures: features(),
+					features: map[ff.FeatureFlag]bool{},
+					rubyFeatures: map[ff.FeatureFlag]bool{
+						featureFlagA: false,
+						featureFlagB: false,
+					},
 				},
 				FeatureSet{
-					features:     features(),
-					rubyFeatures: features(featureFlagB),
+					features: map[ff.FeatureFlag]bool{},
+					rubyFeatures: map[ff.FeatureFlag]bool{
+						featureFlagA: true,
+						featureFlagB: false,
+					},
 				},
 				FeatureSet{
-					features:     features(),
-					rubyFeatures: features(featureFlagA),
+					features: map[ff.FeatureFlag]bool{},
+					rubyFeatures: map[ff.FeatureFlag]bool{
+						featureFlagA: false,
+						featureFlagB: true,
+					},
 				},
 				FeatureSet{
-					features:     features(),
-					rubyFeatures: features(featureFlagB, featureFlagA),
+					features: map[ff.FeatureFlag]bool{},
+					rubyFeatures: map[ff.FeatureFlag]bool{
+						featureFlagA: true,
+						featureFlagB: true,
+					},
 				},
 			},
 		},
@@ -108,20 +128,36 @@ func TestNewFeatureSetsWithRubyFlags(t *testing.T) {
 			rubyFeatures: []ff.FeatureFlag{featureFlagA},
 			expected: FeatureSets{
 				FeatureSet{
-					features:     features(),
-					rubyFeatures: features(),
+					features: map[ff.FeatureFlag]bool{
+						featureFlagB: false,
+					},
+					rubyFeatures: map[ff.FeatureFlag]bool{
+						featureFlagA: false,
+					},
 				},
 				FeatureSet{
-					features:     features(featureFlagB),
-					rubyFeatures: features(),
+					features: map[ff.FeatureFlag]bool{
+						featureFlagB: true,
+					},
+					rubyFeatures: map[ff.FeatureFlag]bool{
+						featureFlagA: false,
+					},
 				},
 				FeatureSet{
-					features:     features(),
-					rubyFeatures: features(featureFlagA),
+					features: map[ff.FeatureFlag]bool{
+						featureFlagB: false,
+					},
+					rubyFeatures: map[ff.FeatureFlag]bool{
+						featureFlagA: true,
+					},
 				},
 				FeatureSet{
-					features:     features(featureFlagB),
-					rubyFeatures: features(featureFlagA),
+					features: map[ff.FeatureFlag]bool{
+						featureFlagB: true,
+					},
+					rubyFeatures: map[ff.FeatureFlag]bool{
+						featureFlagA: true,
+					},
 				},
 			},
 		},
@@ -130,10 +166,7 @@ func TestNewFeatureSetsWithRubyFlags(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
 			featureSets := NewFeatureSetsWithRubyFlags(tc.features, tc.rubyFeatures)
-			require.Len(t, featureSets, len(tc.expected))
-			for _, expected := range tc.expected {
-				require.Contains(t, featureSets, expected)
-			}
+			require.Equal(t, tc.expected, featureSets)
 		})
 	}
 }
