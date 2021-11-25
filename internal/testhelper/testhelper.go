@@ -177,8 +177,8 @@ func ContextWithLogger(logger *log.Entry) ContextOpt {
 func Context(opts ...ContextOpt) (context.Context, func()) {
 	ctx, cancel := context.WithCancel(context.Background())
 	for _, ff := range featureflag.All {
-		ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, ff)
-		ctx = featureflag.OutgoingCtxWithFeatureFlagValue(ctx, ff, "true")
+		ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, ff, true)
+		ctx = featureflag.OutgoingCtxWithFeatureFlag(ctx, ff, true)
 	}
 
 	cancels := make([]func(), len(opts)+1)

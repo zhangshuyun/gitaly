@@ -44,7 +44,7 @@ func TestRenameRepositoryDestinationExists(t *testing.T) {
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	ctx = featureflag.OutgoingCtxWithFeatureFlagValue(ctx, featureflag.TxAtomicRepositoryCreation, "true")
+	ctx = featureflag.OutgoingCtxWithFeatureFlag(ctx, featureflag.TxAtomicRepositoryCreation, true)
 
 	existingDestinationRepo := &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "repository-1"}
 	_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: existingDestinationRepo})

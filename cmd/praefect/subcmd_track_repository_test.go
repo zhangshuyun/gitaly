@@ -109,7 +109,7 @@ func TestAddRepository_Exec(t *testing.T) {
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	ctx = featureflag.OutgoingCtxWithFeatureFlagValue(ctx, featureflag.TxAtomicRepositoryCreation, "true")
+	ctx = featureflag.OutgoingCtxWithFeatureFlag(ctx, featureflag.TxAtomicRepositoryCreation, true)
 
 	gitaly1RepositoryClient := gitalypb.NewRepositoryServiceClient(gitalyCC)
 

@@ -3,6 +3,7 @@ package featureflag
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"google.golang.org/grpc/metadata"
@@ -16,70 +17,48 @@ const (
 	ffPrefix = "gitaly-feature-"
 )
 
-// OutgoingCtxWithFeatureFlagValue is used to set feature flags with an explicit value.
-// only "true" or "false" are valid values. Any other value will be ignored.
-func OutgoingCtxWithFeatureFlagValue(ctx context.Context, flag FeatureFlag, val string) context.Context {
-	if val != "true" && val != "false" {
-		return ctx
-	}
+// OutgoingCtxWithFeatureFlag sets the feature flag for an outgoing context.
+func OutgoingCtxWithFeatureFlag(ctx context.Context, flag FeatureFlag, enabled bool) context.Context {
+	return outgoingCtxWithFeatureFlag(ctx, flag.MetadataKey(), enabled)
+}
 
+// OutgoingCtxWithRubyFeatureFlag sets the Ruby feature flag for an outgoing context.
+func OutgoingCtxWithRubyFeatureFlag(ctx context.Context, flag FeatureFlag, enabled bool) context.Context {
+	return outgoingCtxWithFeatureFlag(ctx, rubyHeaderKey(flag.Name), enabled)
+}
+
+func outgoingCtxWithFeatureFlag(ctx context.Context, key string, enabled bool) context.Context {
 	md, ok := metadata.FromOutgoingContext(ctx)
 	if !ok {
 		md = metadata.New(map[string]string{})
 	}
 
-	md.Set(flag.MetadataKey(), val)
+	md.Set(key, strconv.FormatBool(enabled))
 
 	return metadata.NewOutgoingContext(ctx, md)
 }
 
-// IncomingCtxWithFeatureFlag is used to enable a feature flag in the incoming
-// context. This is NOT meant for use in clients that transfer the context
-// across process boundaries.
-func IncomingCtxWithFeatureFlag(ctx context.Context, flag FeatureFlag) context.Context {
-	return incomingCtxWithFeatureFlagValue(ctx, flag.MetadataKey(), true)
+// IncomingCtxWithFeatureFlag sets the feature flag for an incoming context. This is NOT meant for
+// use in clients that transfer the context across process boundaries.
+func IncomingCtxWithFeatureFlag(ctx context.Context, flag FeatureFlag, enabled bool) context.Context {
+	return incomingCtxWithFeatureFlag(ctx, flag.MetadataKey(), enabled)
 }
 
-// IncomingCtxWithDisabledFeatureFlag marks feature flag as disabled in the incoming context.
-func IncomingCtxWithDisabledFeatureFlag(ctx context.Context, flag FeatureFlag) context.Context {
-	return incomingCtxWithFeatureFlagValue(ctx, flag.MetadataKey(), false)
+// IncomingCtxWithRubyFeatureFlag sets the Ruby feature flag for an incoming context. This is NOT
+// meant for use in clients that transfer the context across process boundaries.
+func IncomingCtxWithRubyFeatureFlag(ctx context.Context, flag FeatureFlag, enabled bool) context.Context {
+	return incomingCtxWithFeatureFlag(ctx, rubyHeaderKey(flag.Name), enabled)
 }
 
-// IncomingCtxWithRubyFeatureFlagValue sets the feature flags status in the context.
-func IncomingCtxWithRubyFeatureFlagValue(ctx context.Context, flag FeatureFlag, enabled bool) context.Context {
-	return incomingCtxWithFeatureFlagValue(ctx, rubyHeaderKey(flag.Name), enabled)
-}
-
-func incomingCtxWithFeatureFlagValue(ctx context.Context, key string, enabled bool) context.Context {
+func incomingCtxWithFeatureFlag(ctx context.Context, key string, enabled bool) context.Context {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		md = metadata.New(map[string]string{})
 	}
 
-	value := "false"
-	if enabled {
-		value = "true"
-	}
+	md.Set(key, strconv.FormatBool(enabled))
 
-	md.Set(key, value)
 	return metadata.NewIncomingContext(ctx, md)
-}
-
-// OutgoingCtxWithRubyFeatureFlagValue returns context populated with outgoing metadata
-// that contains ruby feature flags passed in.
-func OutgoingCtxWithRubyFeatureFlagValue(ctx context.Context, flag FeatureFlag, val string) context.Context {
-	if val != "true" && val != "false" {
-		return ctx
-	}
-
-	md, ok := metadata.FromOutgoingContext(ctx)
-	if !ok {
-		md = metadata.New(map[string]string{})
-	}
-
-	md.Set(rubyHeaderKey(flag.Name), val)
-
-	return metadata.NewOutgoingContext(ctx, md)
 }
 
 // AllFlags returns all feature flags with their value that use the Gitaly metadata

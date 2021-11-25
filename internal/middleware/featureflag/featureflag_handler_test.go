@@ -64,8 +64,8 @@ func setup() (context.Context, *test.Hook) {
 	ctx, hook := setupContext()
 	ff1 := featureflag.FeatureFlag{Name: "ff1"}
 	ff2 := featureflag.FeatureFlag{Name: "ff2"}
-	ctx = featureflag.IncomingCtxWithDisabledFeatureFlag(ctx, ff1)
-	ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, ff2)
+	ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, ff1, false)
+	ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, ff2, true)
 
 	return ctx, hook
 }

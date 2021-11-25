@@ -326,7 +326,7 @@ func TestManager_Restore_praefect(t *testing.T) {
 func testManagerRestore(t *testing.T, cfg config.Cfg, gitalyAddr string) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	ctx = featureflag.OutgoingCtxWithFeatureFlagValue(ctx, featureflag.TxAtomicRepositoryCreation, "true")
+	ctx = featureflag.OutgoingCtxWithFeatureFlag(ctx, featureflag.TxAtomicRepositoryCreation, true)
 
 	cc, err := client.Dial(gitalyAddr, nil)
 	require.NoError(t, err)
