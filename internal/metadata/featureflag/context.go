@@ -16,39 +16,6 @@ const (
 	ffPrefix = "gitaly-feature-"
 )
 
-// OutgoingCtxWithFeatureFlags is used to enable feature flags in the outgoing
-// context metadata. The returned context is meant to be used in a client where
-// the outcoming context is transferred to an incoming context.
-func OutgoingCtxWithFeatureFlags(ctx context.Context, flags ...FeatureFlag) context.Context {
-	md, ok := metadata.FromOutgoingContext(ctx)
-	if !ok {
-		md = metadata.New(map[string]string{})
-	}
-
-	for _, flag := range flags {
-		md.Set(flag.MetadataKey(), "true")
-	}
-
-	return metadata.NewOutgoingContext(ctx, md)
-}
-
-// OutgoingCtxWithDisabledFeatureFlags is used to explicitly disable "on by
-// default" feature flags in the outgoing context metadata. The returned context
-// is meant to be used in a client where the outcoming context is transferred to
-// an incoming context.
-func OutgoingCtxWithDisabledFeatureFlags(ctx context.Context, flags ...FeatureFlag) context.Context {
-	md, ok := metadata.FromOutgoingContext(ctx)
-	if !ok {
-		md = metadata.New(map[string]string{})
-	}
-
-	for _, flag := range flags {
-		md.Set(flag.MetadataKey(), "false")
-	}
-
-	return metadata.NewOutgoingContext(ctx, md)
-}
-
 // OutgoingCtxWithFeatureFlagValue is used to set feature flags with an explicit value.
 // only "true" or "false" are valid values. Any other value will be ignored.
 func OutgoingCtxWithFeatureFlagValue(ctx context.Context, flag FeatureFlag, val string) context.Context {

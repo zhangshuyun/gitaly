@@ -32,7 +32,7 @@ func TestOutgoingCtxWithFeatureFlag(t *testing.T) {
 	ctx := context.Background()
 	require.False(t, mockFeatureFlag.IsEnabled(ctx))
 
-	ctx = OutgoingCtxWithFeatureFlags(ctx, mockFeatureFlag)
+	ctx = OutgoingCtxWithFeatureFlagValue(ctx, mockFeatureFlag, "true")
 	require.False(t, mockFeatureFlag.IsEnabled(ctx))
 
 	// simulate an outgoing context leaving the process boundary and then

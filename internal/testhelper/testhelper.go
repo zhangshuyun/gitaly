@@ -178,7 +178,7 @@ func Context(opts ...ContextOpt) (context.Context, func()) {
 	ctx, cancel := context.WithCancel(context.Background())
 	for _, ff := range featureflag.All {
 		ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, ff)
-		ctx = featureflag.OutgoingCtxWithFeatureFlags(ctx, ff)
+		ctx = featureflag.OutgoingCtxWithFeatureFlagValue(ctx, ff, "true")
 	}
 
 	cancels := make([]func(), len(opts)+1)
