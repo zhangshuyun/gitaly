@@ -1,5 +1,25 @@
 # Gitaly changelog
 
+## 14.3.5 (2021-11-26)
+
+### Added (4 changes)
+
+- [Add track-repository praefect subcommand](gitlab-org/gitaly@8e6a8c7b7fda4c79392effa05530c9d421487475) ([merge request](gitlab-org/gitaly!4114))
+- [list-untracked-repositories: Praefect sub-command to show untracked repositories](gitlab-org/gitaly@ed1bc404d0cfc7418c322fc9dba6304d8131e1c1) ([merge request](gitlab-org/gitaly!4114))
+- [remove-repository: A new sub-command for the praefect to remove repository](gitlab-org/gitaly@3c8d9152bdfa7937d2a21fd0bb482209d2a6f0dc) ([merge request](gitlab-org/gitaly!4114))
+- [praefect: Add ability to have separate database metrics endpoint](gitlab-org/gitaly@1abbade87891804dd67ce090d915f13b953a0998) ([merge request](gitlab-org/gitaly!4095))
+
+### Fixed (2 changes)
+
+- [datastore: Revert use of materialized views](gitlab-org/gitaly@7d792f5faf5aa5d46a112ab08197242d83f5ccba) ([merge request](gitlab-org/gitaly!4118))
+- [praefect: Do not collect repository store metrics on startup](gitlab-org/gitaly@7ae773348b34a129794cdabf6a9cf96fab37f554) ([merge request](gitlab-org/gitaly!4095))
+
+### Performance (3 changes)
+
+- [Materialize valid_primaries view in RepositoryStoreCollector](gitlab-org/gitaly@853ae2510e8151ac304cc4ddafb9873f42de4133) ([merge request](gitlab-org/gitaly!4089))
+- [Get the latest generation from repositories instead of a view](gitlab-org/gitaly@4372302d5a67def30e76a4d30440a4478a22fd91) ([merge request](gitlab-org/gitaly!4089))
+- [Materialize valid_primaries view in dataloss query](gitlab-org/gitaly@8be357bd0857773167a2d84b78d5896b3ceeb51f) ([merge request](gitlab-org/gitaly!4089))
+
 ## 14.3.4 (2021-10-28)
 
 No changes.
