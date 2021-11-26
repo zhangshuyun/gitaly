@@ -2,6 +2,8 @@ package praefect
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -87,4 +89,60 @@ func NewGitalyNodeConnectivityCheck(conf config.Config, w io.Writer, quiet bool)
 		},
 		Severity: Fatal,
 	}
+}
+
+// NewPostgresReadWriteCheck returns a check that ensures Praefect can read and write to the database
+func NewPostgresReadWriteCheck(conf config.Config, w io.Writer, quiet bool) *Check {
+	return &Check{
+		Name:        "database read/write",
+		Description: "checks if praefect can write/read to and from the database",
+		Run: func(ctx context.Context) error {
+			db, err := glsql.OpenDB(ctx, conf.DB)
+			if err != nil {
+				return fmt.Errorf("error opening database connection: %w", err)
+			}
+			defer db.Close()
+
+			tx, err := db.BeginTx(ctx, nil)
+			if err != nil {
+				return fmt.Errorf("error starting transaction: %w", err)
+			}
+			//nolint: errcheck
+			defer tx.Rollback()
+
+			var id int
+			if err = tx.QueryRowContext(ctx, "SELECT id FROM hello_world").Scan(&id); err != nil {
+				if !errors.Is(err, sql.ErrNoRows) {
+					return fmt.Errorf("error reading from table: %w", err)
+				}
+			}
+
+			logMessage(quiet, w, "successfully read from database")
+
+			res, err := tx.ExecContext(ctx, "INSERT INTO hello_world (id) VALUES(1)")
+			if err != nil {
+				return err
+			}
+
+			rows, err := res.RowsAffected()
+			if err != nil {
+				return err
+			}
+
+			if rows != 1 {
+				return errors.New("failed to insert row")
+			}
+			logMessage(quiet, w, "successfully wrote to database")
+
+			return nil
+		},
+		Severity: Fatal,
+	}
+}
+
+func logMessage(quiet bool, w io.Writer, format string, a ...interface{}) {
+	if quiet {
+		return
+	}
+	fmt.Fprintf(w, format+"\n", a...)
 }
