@@ -152,6 +152,8 @@ module Gitlab
           gollum_wiki.update_page(page, page.name, format, content, committer: committer)
           gollum_wiki.rename_page(page, title, committer: committer)
         end
+      rescue Gollum::DuplicatePageError => e
+        raise Gitlab::Git::Wiki::DuplicatePageError, e.message
       end
 
       def gollum_find_page(title:, version: nil, dir: nil)
