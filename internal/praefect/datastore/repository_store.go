@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jackc/pgconn"
 	"github.com/lib/pq"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
@@ -410,9 +411,11 @@ FROM (
 		replicaPath,
 	)
 
-	var pqerr *pq.Error
-	if errors.As(err, &pqerr) && pqerr.Code.Name() == "unique_violation" {
-		if pqerr.Constraint == "repositories_pkey" {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		// https://www.postgresql.org/docs/11/errcodes-appendix.html
+		// unique_violation
+		if pgErr.ConstraintName == "repositories_pkey" {
 			return fmt.Errorf("repository id %d already in use", repositoryID)
 		}
 

@@ -22,12 +22,8 @@ func TestOpenDB(t *testing.T) {
 		badCfg.Host = "not-existing.com"
 		_, err := glsql.OpenDB(ctx, badCfg)
 		require.Error(t, err)
-		// Locally the error looks like:
-		// 	send ping: dial tcp: lookup not-existing.com: no such host
-		// but on CI it looks like:
-		// 	send ping: dial tcp: lookup not-existing.com on 169.254.169.254:53: no such host
-		// that is why regexp is used to check it.
-		require.Regexp(t, "send ping: dial tcp: lookup not\\-existing.com(.*): no such host", err.Error(), "opening of DB with incorrect configuration must fail")
+		// The regexp is used because error message has a diff in local run an on CI.
+		require.Regexp(t, "send ping: failed to connect to `host=not\\-existing.com user=postgres database=postgres`: hostname resolving error", err.Error(), "opening of DB with incorrect configuration must fail")
 	})
 
 	t.Run("timeout on hanging connection attempt", func(t *testing.T) {
@@ -106,7 +102,7 @@ func TestDSN(t *testing.T) {
 		direct bool
 		out    string
 	}{
-		{desc: "empty", in: config.DB{}, out: "binary_parameters=yes"},
+		{desc: "empty", in: config.DB{}, out: "prefer_simple_protocol=true"},
 		{
 			desc: "proxy connection",
 			in: config.DB{
@@ -121,7 +117,7 @@ func TestDSN(t *testing.T) {
 				SSLRootCert: "/path/to/root-cert",
 			},
 			direct: false,
-			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert binary_parameters=yes`,
+			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert prefer_simple_protocol=true`,
 		},
 		{
 			desc: "direct connection with different host and port",
@@ -139,7 +135,7 @@ func TestDSN(t *testing.T) {
 				},
 			},
 			direct: true,
-			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert binary_parameters=yes`,
+			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert prefer_simple_protocol=true`,
 		},
 		{
 			desc: "direct connection with dbname",
@@ -158,7 +154,7 @@ func TestDSN(t *testing.T) {
 				},
 			},
 			direct: true,
-			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production_sp sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert binary_parameters=yes`,
+			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production_sp sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert prefer_simple_protocol=true`,
 		},
 		{
 			desc: "direct connection with exactly the same parameters",
@@ -175,7 +171,7 @@ func TestDSN(t *testing.T) {
 				SessionPooled: config.DBConnection{},
 			},
 			direct: true,
-			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert binary_parameters=yes`,
+			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert prefer_simple_protocol=true`,
 		},
 		{
 			desc: "direct connection with completely different parameters",
@@ -202,14 +198,14 @@ func TestDSN(t *testing.T) {
 				},
 			},
 			direct: true,
-			out:    `port=6432 host=2.3.4.5 user=praefect_sp password=secret-sp dbname=praefect_production_sp sslmode=prefer sslcert=/path/to/sp/cert sslkey=/path/to/sp/key sslrootcert=/path/to/sp/root-cert binary_parameters=yes`,
+			out:    `port=6432 host=2.3.4.5 user=praefect_sp password=secret-sp dbname=praefect_production_sp sslmode=prefer sslcert=/path/to/sp/cert sslkey=/path/to/sp/key sslrootcert=/path/to/sp/root-cert prefer_simple_protocol=true`,
 		},
 		{
 			desc: "with spaces and quotes",
 			in: config.DB{
 				Password: "secret foo'bar",
 			},
-			out: `password=secret\ foo\'bar binary_parameters=yes`,
+			out: `password=secret\ foo\'bar prefer_simple_protocol=true`,
 		},
 	}
 

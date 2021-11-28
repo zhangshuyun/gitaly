@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgconn"
 	"github.com/lib/pq"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 )
@@ -459,7 +460,10 @@ func (rq PostgresReplicationEventQueue) StartHealthUpdate(ctx context.Context, t
 		case <-trigger:
 			res, err := rq.qc.ExecContext(ctx, query, jobIDs, lockIDs)
 			if err != nil {
-				if pqError, ok := err.(*pq.Error); ok && pqError.Code.Name() == "query_canceled" {
+				var pgErr *pgconn.PgError
+				if errors.As(err, &pgErr) && pgErr.Code == "57014" {
+					// https://www.postgresql.org/docs/11/errcodes-appendix.html
+					// query_canceled
 					return nil
 				}
 				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {

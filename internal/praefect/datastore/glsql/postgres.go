@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	// Blank import to enable integration of github.com/lib/pq into database/sql
-	_ "github.com/lib/pq"
+	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/stdlib"
 	migrate "github.com/rubenv/sql-migrate"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/migrations"
@@ -16,7 +16,12 @@ import (
 
 // OpenDB returns connection pool to the database.
 func OpenDB(ctx context.Context, conf config.DB) (*sql.DB, error) {
-	db, err := sql.Open("postgres", DSN(conf, false))
+	connConfig, err := pgx.ParseConfig(DSN(conf, false))
+	if err != nil {
+		return nil, err
+	}
+	connStr := stdlib.RegisterConnConfig(connConfig)
+	db, err := sql.Open("pgx", connStr)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +93,7 @@ func DSN(db config.DB, direct bool) string {
 		{"sslcert", sslCertVal},
 		{"sslkey", sslKeyVal},
 		{"sslrootcert", sslRootCertVal},
-		{"binary_parameters", "yes"},
+		{"prefer_simple_protocol", "true"},
 	} {
 		if len(kv.value) == 0 {
 			continue
