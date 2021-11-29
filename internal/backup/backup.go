@@ -333,7 +333,7 @@ func (mgr *Manager) restoreBundle(ctx context.Context, path string, server stora
 	if err != nil {
 		return fmt.Errorf("restore bundle: %q: %w", path, err)
 	}
-	request := &gitalypb.FetchBundleRequest{Repository: repo}
+	request := &gitalypb.FetchBundleRequest{Repository: repo, UpdateHead: true}
 	bundle := streamio.NewWriter(func(p []byte) error {
 		request.Data = p
 		if err := stream.Send(request); err != nil {
