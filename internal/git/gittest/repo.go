@@ -173,7 +173,7 @@ func BundleTestRepo(t testing.TB, cfg config.Cfg, sourceRepo, bundlePath string,
 func ChecksumTestRepo(t testing.TB, cfg config.Cfg, sourceRepo string) *git.Checksum {
 	var checksum git.Checksum
 	repoPath := testRepositoryPath(t, sourceRepo)
-	lines := bytes.Split(Exec(t, cfg, "-C", repoPath, "show-ref"), []byte("\n"))
+	lines := bytes.Split(Exec(t, cfg, "-C", repoPath, "show-ref", "--head"), []byte("\n"))
 	for _, line := range lines {
 		checksum.AddBytes(line)
 	}
