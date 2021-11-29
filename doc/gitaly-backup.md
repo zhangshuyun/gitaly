@@ -101,9 +101,30 @@ Gitaly and Gitaly Cluster.
    |  `-parallel-storage`  |  integer  |  no      |  Maximum number of parallel restores per storage. |
    |  `-layout`            |  string   |  no      |  Determines the file-system layout. Any of `legacy`, `pointer` (default `legacy`). Note: The feature is not ready for production use. |
 
-## How Git repository backups work
+## Path
 
-The way backup files are arranged on the filesystem or on object storages is determined by the layout.
+Path determines where on the local filesystem or in object storage backup files
+are created on or restored from. The path is set using the `-path` flag.
+
+### Local Filesystem
+
+If `-path` specifies a local filesystem, it is the root of where all backup
+files are created.
+
+### Object Storage
+
+`gitaly-backup` supports streaming backup files directly to object storage
+using the [`gocloud.dev/blob`](https://pkg.go.dev/gocloud.dev/blob) library.
+`-path` can be used with:
+
+- [Amazon S3](https://pkg.go.dev/gocloud.dev/blob/s3blob). For example `-path=s3://my-bucket?region=us-west-1`.
+- [Azure Blob Storage](https://pkg.go.dev/gocloud.dev/blob/azureblob). For example `-path=azblob://my-container`.
+- [Google Cloud Storage](https://pkg.go.dev/gocloud.dev/blob/gcsblob). For example `-path=gs//my-bucket`.
+
+## Layouts
+
+The way backup files are arranged on the filesystem or on object storage is
+determined by the layout. The layout is set using the `-layout` flag.
 
 ### Legacy layout
 
