@@ -293,11 +293,11 @@ func (repo *Repo) GetDefaultBranch(ctx context.Context) (git.ReferenceName, erro
 			return branch.Name, nil
 		}
 
-		if string(git.DefaultRef) == branch.Name.String() {
+		if git.DefaultRef == branch.Name {
 			defaultRef = branch.Name
 		}
 
-		if string(git.LegacyDefaultRef) == branch.Name.String() {
+		if git.LegacyDefaultRef == branch.Name {
 			legacyDefaultRef = branch.Name
 		}
 	}
@@ -344,4 +344,45 @@ func (repo *Repo) headReference(ctx context.Context) (git.ReferenceName, error) 
 	}
 
 	return git.ReferenceName(headRef), nil
+}
+
+// GuessHead tries to guess what branch HEAD would be pointed at. If no
+// reference is found git.ErrReferenceNotFound is returned.
+//
+// This function should be roughly equivalent to the corresponding function in
+// git:
+// https://github.com/git/git/blob/2a97289ad8b103625d3a1a12f66c27f50df822ce/remote.c#L2198
+func (repo *Repo) GuessHead(ctx context.Context, head git.Reference) (git.ReferenceName, error) {
+	if head.IsSymbolic {
+		return git.ReferenceName(head.Target), nil
+	}
+
+	// Try current and historic default branches first. Ideally we might look
+	// up the git config `init.defaultBranch` but we do not allow this
+	// configuration to be set by the user. It is always set to
+	// `git.DefaultRef`.
+	for _, name := range []git.ReferenceName{git.DefaultRef, git.LegacyDefaultRef} {
+		ref, err := repo.GetReference(ctx, name)
+		switch {
+		case errors.Is(err, git.ErrReferenceNotFound):
+			continue
+		case err != nil:
+			return "", fmt.Errorf("guess head: default: %w", err)
+		case head.Target == ref.Target:
+			return ref.Name, nil
+		}
+	}
+
+	refs, err := repo.GetBranches(ctx)
+	if err != nil {
+		return "", fmt.Errorf("guess head: %w", err)
+	}
+	for _, ref := range refs {
+		if ref.Target != head.Target {
+			continue
+		}
+		return ref.Name, nil
+	}
+
+	return "", fmt.Errorf("guess head: %w", git.ErrReferenceNotFound)
 }
