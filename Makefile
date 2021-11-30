@@ -442,7 +442,7 @@ lint-proto: ${PROTOC} ${PROTOC_GEN_GITALY}
 
 .PHONY: no-changes
 no-changes:
-	${Q}${GIT} status --porcelain | awk '{ print } END { if (NR > 0) { exit 1 } }'
+	${Q}${GIT} diff --exit-code
 
 .PHONY: no-proto-changes
 no-proto-changes: | ${BUILD_DIR}
