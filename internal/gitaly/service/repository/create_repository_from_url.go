@@ -28,9 +28,7 @@ func (s *server) cloneFromURLCommand(
 		return nil, helper.ErrInternal(err)
 	}
 
-	config := []git.ConfigPair{
-		{Key: "http.followRedirects", Value: "false"},
-	}
+	var config []git.ConfigPair
 
 	cloneFlags := []git.Option{
 		git.Flag{Name: "--bare"},
