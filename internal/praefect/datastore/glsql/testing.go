@@ -198,7 +198,7 @@ func requireTerminateAllConnections(t testing.TB, db *sql.DB, database string) {
 				WHERE datname = $1 AND pid != pg_backend_pid()`, database).
 			Scan(&openConnections))
 		return openConnections == 0
-	}, 5*time.Second, 10*time.Millisecond, "wait for all connections to be terminated")
+	}, 20*time.Second, 10*time.Millisecond, "wait for all connections to be terminated")
 }
 
 func initPraefectTestDB(t testing.TB, database string) *sql.DB {
