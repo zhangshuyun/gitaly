@@ -30,6 +30,8 @@ module Gitaly
       # from a Praefect node that does not yet know about a new node. As assignments of unconfigured storages are ignored, replication
       # factor of repositories assigned to a storage node removed from the cluster is effectively decreased.
       rpc :SetReplicationFactor, Gitaly::SetReplicationFactorRequest, Gitaly::SetReplicationFactorResponse
+      # GetRepositoryMetadata returns the cluster metadata for a repository. Returns NotFound if the repository does not exist.
+      rpc :GetRepositoryMetadata, Gitaly::GetRepositoryMetadataRequest, Gitaly::GetRepositoryMetadataResponse
     end
 
     Stub = Service.rpc_stub_class

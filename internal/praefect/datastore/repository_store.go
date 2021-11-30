@@ -125,7 +125,7 @@ type RepositoryStore interface {
 	RepositoryExists(ctx context.Context, virtualStorage, relativePath string) (bool, error)
 	// GetPartiallyAvailableRepositories returns information on repositories which have assigned replicas which
 	// are not able to serve requests at the moment.
-	GetPartiallyAvailableRepositories(ctx context.Context, virtualStorage string) ([]PartiallyAvailableRepository, error)
+	GetPartiallyAvailableRepositories(ctx context.Context, virtualStorage string) ([]RepositoryMetadata, error)
 	// DeleteInvalidRepository is a method for deleting records of invalid repositories. It deletes a storage's
 	// record of the invalid repository. If the storage was the only storage with the repository, the repository's
 	// record on the virtual storage is also deleted.
@@ -136,6 +136,10 @@ type RepositoryStore interface {
 	// GetRepositoryID gets the ID of the repository identified via the given virtual storage and relative path. Returns a
 	// RepositoryNotFoundError if the repository doesn't exist.
 	GetRepositoryID(ctx context.Context, virtualStorage, relativePath string) (int64, error)
+	// GetRepositoryMetadata retrieves a repository's metadata.
+	GetRepositoryMetadata(ctx context.Context, repositoryID int64) (RepositoryMetadata, error)
+	// GetRepositoryMetadataByPath retrieves a repository's metadata by its virtual path.
+	GetRepositoryMetadataByPath(ctx context.Context, virtualStorage, relativePath string) (RepositoryMetadata, error)
 }
 
 // PostgresRepositoryStore is a Postgres implementation of RepositoryStore.
@@ -599,13 +603,13 @@ AND NOT EXISTS (
 	return err
 }
 
-// StorageDetails represents a storage that contains or should contain a
-// copy of the repository.
-type StorageDetails struct {
-	// Name of the storage as configured.
-	Name string
-	// BehindBy indicates how many generations the storage's copy of the repository is missing at maximum.
-	BehindBy int
+// Replica represents a replica of a repository.
+type Replica struct {
+	// Storage is the name of the replica's storage.
+	Storage string
+	// Generation is the replica's confirmed generation. If the replica does not yet exists, generation
+	// is -1.
+	Generation int64
 	// Assigned indicates whether the storage is an assigned host of the repository.
 	Assigned bool
 	// Healthy indicates whether the replica is considered healthy by the consensus of Praefect nodes.
@@ -614,26 +618,70 @@ type StorageDetails struct {
 	ValidPrimary bool
 }
 
-// PartiallyAvailableRepository is a repository with one or more assigned replicas which are not
-// able to serve requests at the moment.
-type PartiallyAvailableRepository struct {
+// RepositoryMetadata contains the repository's metadata.
+type RepositoryMetadata struct {
+	// RepositoryID is the internal id of the repository.
+	RepositoryID int64
+	// VirtualStorage is the virtual storage where the repository is.
+	VirtualStorage string
 	// RelativePath is the relative path of the repository.
 	RelativePath string
+	// ReplicaPath is the actual disk location where the replicas are stored in the storages.
+	ReplicaPath string
 	// Primary is the current primary of this repository.
 	Primary string
-	// Storages contains information of the repository on each storage that contains the repository
+	// Generation is the current generation of the repository.
+	Generation int64
+	// Replicas contains information of the repository on each storage that contains the repository
 	// or does not contain the repository but is assigned to host it.
-	Storages []StorageDetails
+	Replicas []Replica
+}
+
+// GetRepositoryMetadata retrieves a repository's metadata.
+func (rs *PostgresRepositoryStore) GetRepositoryMetadata(ctx context.Context, repositoryID int64) (RepositoryMetadata, error) {
+	metadata, err := rs.getRepositoryMetadata(ctx, "WHERE repository_id = $3", "", repositoryID)
+	if err != nil {
+		return RepositoryMetadata{}, err
+	}
+
+	if len(metadata) == 0 {
+		return RepositoryMetadata{}, commonerr.ErrRepositoryNotFound
+	}
+
+	return metadata[0], nil
+}
+
+// GetRepositoryMetadataByPath retrieves a repository's metadata by its virtual path.
+func (rs *PostgresRepositoryStore) GetRepositoryMetadataByPath(ctx context.Context, virtualStorage, relativePath string) (RepositoryMetadata, error) {
+	metadata, err := rs.getRepositoryMetadata(ctx, "WHERE virtual_storage = $3 AND relative_path = $4", "", virtualStorage, relativePath)
+	if err != nil {
+		return RepositoryMetadata{}, err
+	}
+
+	if len(metadata) == 0 {
+		return RepositoryMetadata{}, commonerr.ErrRepositoryNotFound
+	}
+
+	return metadata[0], nil
 }
 
 // GetPartiallyAvailableRepositories returns information on repositories which have assigned replicas which
 // are not able to serve requests at the moment.
-func (rs *PostgresRepositoryStore) GetPartiallyAvailableRepositories(ctx context.Context, virtualStorage string) ([]PartiallyAvailableRepository, error) {
-	configuredStorages, ok := rs.storages[virtualStorage]
+func (rs *PostgresRepositoryStore) GetPartiallyAvailableRepositories(ctx context.Context, virtualStorage string) ([]RepositoryMetadata, error) {
+	_, ok := rs.storages[virtualStorage]
 	if !ok {
 		return nil, fmt.Errorf("unknown virtual storage: %q", virtualStorage)
 	}
 
+	return rs.getRepositoryMetadata(ctx,
+		"WHERE virtual_storage = $3",
+		"HAVING bool_or(NOT valid_primary) FILTER(WHERE assigned)",
+		virtualStorage)
+}
+
+// GetPartiallyAvailableRepositories returns information on repositories which have assigned replicas which
+// are not able to serve requests at the moment.
+func (rs *PostgresRepositoryStore) getRepositoryMetadata(ctx context.Context, keyFilter, groupFilter string, filterArgs ...interface{}) ([]RepositoryMetadata, error) {
 	// The query below gets the status of every repository which has one or more assigned replicas that
 	// are not able to serve requests at the moment. The status includes how many changes a replica is behind,
 	// whether the replica is assigned host or not, whether the replica is healthy and whether the replica is
@@ -669,15 +717,39 @@ func (rs *PostgresRepositoryStore) GetPartiallyAvailableRepositories(ctx context
 	//    is reached. Status of unassigned storages does not matter as long as they don't contain a later generation
 	//    than the assigned ones.
 	//
-	rows, err := rs.db.QueryContext(ctx, `
+
+	var (
+		virtualStorages []string
+		storages        []string
+	)
+
+	for virtualStorage, configuredStorages := range rs.storages {
+		for _, storage := range configuredStorages {
+			virtualStorages = append(virtualStorages, virtualStorage)
+			storages = append(storages, storage)
+		}
+	}
+
+	args := append([]interface{}{pq.StringArray(virtualStorages), pq.StringArray(storages)}, filterArgs...)
+
+	rows, err := rs.db.QueryContext(ctx, fmt.Sprintf(`
+WITH configured_storages AS (
+	SELECT unnest($1::text[]) AS virtual_storage,
+	       unnest($2::text[]) AS storage
+)
+
 SELECT
 	json_build_object (
+		'RepositoryID', repository_id,
+		'VirtualStorage', virtual_storage,
 		'RelativePath', relative_path,
+		'ReplicaPath', replica_path,
 		'Primary', "primary",
-		'Storages', json_agg(
+		'Generation', generation,
+		'Replicas', json_agg(
 			json_build_object(
-				'Name', storage,
-				'BehindBy', behind_by,
+				'Storage', storage,
+				'Generation', replica_generation,
 				'Assigned', assigned,
 				'Healthy', healthy,
 				'ValidPrimary', valid_primary
@@ -686,10 +758,14 @@ SELECT
 	)
 FROM (
 	SELECT
+		repository_id,
+		virtual_storage,
 		relative_path,
+		replica_path,
 		repositories.primary,
+		repositories.generation,
 		storage,
-		repositories.generation - COALESCE(storage_repositories.generation, -1) AS behind_by,
+		COALESCE(storage_repositories.generation, -1) AS replica_generation,
 		repository_assignments.storage IS NOT NULL AS assigned,
 		healthy_storages.storage IS NOT NULL AS healthy,
 		valid_primaries.storage IS NOT NULL AS valid_primary
@@ -697,37 +773,37 @@ FROM (
 	FULL JOIN (
 		SELECT repository_id, storage
 		FROM repositories
-		CROSS JOIN (SELECT unnest($2::text[]) AS storage) AS configured_storages
+		JOIN configured_storages USING (virtual_storage)
 		WHERE (
 			SELECT COUNT(*) = 0 OR COUNT(*) FILTER (WHERE storage = configured_storages.storage) = 1
 			FROM repository_assignments
 			WHERE repository_id = repositories.repository_id
-			AND   storage       = ANY($2::text[])
+			AND   (virtual_storage, storage) IN (SELECT * FROM configured_storages)
 		)
 	) AS repository_assignments USING (repository_id, storage)
 	JOIN repositories USING (repository_id)
 	LEFT JOIN healthy_storages USING (virtual_storage, storage)
 	LEFT JOIN ( SELECT repository_id, storage FROM valid_primaries ) AS valid_primaries USING (repository_id, storage)
-	WHERE virtual_storage = $1
-	ORDER BY relative_path, "primary", storage
+	%s
+	ORDER BY repository_id, storage
 ) AS outdated_repositories
-GROUP BY relative_path, "primary"
-HAVING bool_or(NOT valid_primary) FILTER(WHERE assigned)
-ORDER BY relative_path, "primary"
-	`, virtualStorage, pq.StringArray(configuredStorages))
+GROUP BY repository_id, virtual_storage, relative_path, replica_path, "primary", generation
+%s
+ORDER BY repository_id
+	`, keyFilter, groupFilter), args...)
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
 	defer rows.Close()
 
-	var repos []PartiallyAvailableRepository
+	var repos []RepositoryMetadata
 	for rows.Next() {
 		var repositoryJSON string
 		if err := rows.Scan(&repositoryJSON); err != nil {
 			return nil, fmt.Errorf("scan: %w", err)
 		}
 
-		var repo PartiallyAvailableRepository
+		var repo RepositoryMetadata
 		if err := json.NewDecoder(strings.NewReader(repositoryJSON)).Decode(&repo); err != nil {
 			return nil, fmt.Errorf("decode json: %w", err)
 		}

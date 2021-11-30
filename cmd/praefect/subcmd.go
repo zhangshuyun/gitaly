@@ -48,6 +48,7 @@ var subcommands = map[string]subcmd{
 		praefect.NewGitalyNodeConnectivityCheck,
 		praefect.NewPostgresReadWriteCheck,
 	),
+	metadataCmdName: newMetadataSubcommand(os.Stdout),
 }
 
 // subCommand returns an exit code, to be fed into os.Exit.

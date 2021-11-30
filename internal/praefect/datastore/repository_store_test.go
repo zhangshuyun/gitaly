@@ -1189,7 +1189,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 	})
 }
 
-func TestPostgresRepositoryStore_GetPartiallyAvailableRepositories(t *testing.T) {
+func TestPostgresRepositoryStore_GetRepositoryMetadata(t *testing.T) {
 	t.Parallel()
 	db := glsql.NewDB(t)
 	for _, tc := range []struct {
@@ -1198,56 +1198,72 @@ func TestPostgresRepositoryStore_GetPartiallyAvailableRepositories(t *testing.T)
 		unhealthyStorages     map[string]struct{}
 		existingGenerations   map[string]int
 		existingAssignments   []string
-		storageDetails        []StorageDetails
+		replicas              []Replica
+
+		hasPartiallyReplicated bool
 	}{
 		{
 			desc:                "all up to date without assignments",
 			existingGenerations: map[string]int{"primary": 0, "secondary-1": 0},
+			replicas: []Replica{
+				{Storage: "primary", Generation: 0, Assigned: true, Healthy: true, ValidPrimary: true},
+				{Storage: "secondary-1", Generation: 0, Assigned: true, Healthy: true, ValidPrimary: true},
+			},
 		},
 		{
 			desc:                "unconfigured node outdated without assignments",
 			existingGenerations: map[string]int{"primary": 1, "secondary-1": 1, "unconfigured": 0},
+			replicas: []Replica{
+				{Storage: "primary", Generation: 1, Assigned: true, Healthy: true, ValidPrimary: true},
+				{Storage: "secondary-1", Generation: 1, Assigned: true, Healthy: true, ValidPrimary: true},
+				{Storage: "unconfigured", Generation: 0},
+			},
 		},
 		{
 			desc:                "unconfigured node contains the latest",
 			existingGenerations: map[string]int{"primary": 0, "secondary-1": 0, "unconfigured": 1},
-			storageDetails: []StorageDetails{
-				{Name: "primary", BehindBy: 1, Assigned: true, Healthy: true},
-				{Name: "secondary-1", BehindBy: 1, Assigned: true, Healthy: true},
-				{Name: "unconfigured", BehindBy: 0, Assigned: false},
+			replicas: []Replica{
+				{Storage: "primary", Generation: 0, Assigned: true, Healthy: true},
+				{Storage: "secondary-1", Generation: 0, Assigned: true, Healthy: true},
+				{Storage: "unconfigured", Generation: 1, Assigned: false},
 			},
+			hasPartiallyReplicated: true,
 		},
 		{
 			desc:                "node has no repository without assignments",
 			existingGenerations: map[string]int{"primary": 0},
-			storageDetails: []StorageDetails{
-				{Name: "primary", BehindBy: 0, Assigned: true, Healthy: true, ValidPrimary: true},
-				{Name: "secondary-1", BehindBy: 1, Assigned: true, Healthy: true},
+			replicas: []Replica{
+				{Storage: "primary", Generation: 0, Assigned: true, Healthy: true, ValidPrimary: true},
+				{Storage: "secondary-1", Generation: -1, Assigned: true, Healthy: true},
 			},
+			hasPartiallyReplicated: true,
 		},
 		{
 			desc:                "node has outdated repository without assignments",
 			existingGenerations: map[string]int{"primary": 1, "secondary-1": 0},
-			storageDetails: []StorageDetails{
-				{Name: "primary", BehindBy: 0, Assigned: true, Healthy: true, ValidPrimary: true},
-				{Name: "secondary-1", BehindBy: 1, Assigned: true, Healthy: true},
+			replicas: []Replica{
+				{Storage: "primary", Generation: 1, Assigned: true, Healthy: true, ValidPrimary: true},
+				{Storage: "secondary-1", Generation: 0, Assigned: true, Healthy: true},
 			},
+			hasPartiallyReplicated: true,
 		},
 		{
 			desc:                "node with no repository heavily outdated",
 			existingGenerations: map[string]int{"primary": 10},
-			storageDetails: []StorageDetails{
-				{Name: "primary", BehindBy: 0, Assigned: true, Healthy: true, ValidPrimary: true},
-				{Name: "secondary-1", BehindBy: 11, Assigned: true, Healthy: true},
+			replicas: []Replica{
+				{Storage: "primary", Generation: 10, Assigned: true, Healthy: true, ValidPrimary: true},
+				{Storage: "secondary-1", Generation: -1, Assigned: true, Healthy: true},
 			},
+			hasPartiallyReplicated: true,
 		},
 		{
 			desc:                "node with a heavily outdated repository",
 			existingGenerations: map[string]int{"primary": 10, "secondary-1": 0},
-			storageDetails: []StorageDetails{
-				{Name: "primary", BehindBy: 0, Assigned: true, Healthy: true, ValidPrimary: true},
-				{Name: "secondary-1", BehindBy: 10, Assigned: true, Healthy: true},
+			replicas: []Replica{
+				{Storage: "primary", Generation: 10, Assigned: true, Healthy: true, ValidPrimary: true},
+				{Storage: "secondary-1", Generation: 0, Assigned: true, Healthy: true},
 			},
+			hasPartiallyReplicated: true,
 		},
 		{
 			desc:                  "outdated nodes ignored when repository should not exist",
@@ -1258,112 +1274,139 @@ func TestPostgresRepositoryStore_GetPartiallyAvailableRepositories(t *testing.T)
 			desc:                "unassigned node has no repository",
 			existingAssignments: []string{"primary"},
 			existingGenerations: map[string]int{"primary": 0},
+			replicas: []Replica{
+				{Storage: "primary", Generation: 0, Assigned: true, Healthy: true, ValidPrimary: true},
+			},
 		},
 		{
 			desc:                "unassigned node has an outdated repository",
 			existingAssignments: []string{"primary"},
 			existingGenerations: map[string]int{"primary": 1, "secondary-1": 0},
+			replicas: []Replica{
+				{Storage: "primary", Generation: 1, Assigned: true, Healthy: true, ValidPrimary: true},
+				{Storage: "secondary-1", Generation: 0, Healthy: true},
+			},
 		},
 		{
 			desc:                "assigned node has no repository",
 			existingAssignments: []string{"primary", "secondary-1"},
 			existingGenerations: map[string]int{"primary": 0},
-			storageDetails: []StorageDetails{
-				{Name: "primary", BehindBy: 0, Assigned: true, Healthy: true, ValidPrimary: true},
-				{Name: "secondary-1", BehindBy: 1, Assigned: true, Healthy: true},
+			replicas: []Replica{
+				{Storage: "primary", Generation: 0, Assigned: true, Healthy: true, ValidPrimary: true},
+				{Storage: "secondary-1", Generation: -1, Assigned: true, Healthy: true},
 			},
+			hasPartiallyReplicated: true,
 		},
 		{
 			desc:                "assigned node has outdated repository",
 			existingAssignments: []string{"primary", "secondary-1"},
 			existingGenerations: map[string]int{"primary": 1, "secondary-1": 0},
-			storageDetails: []StorageDetails{
-				{Name: "primary", BehindBy: 0, Assigned: true, Healthy: true, ValidPrimary: true},
-				{Name: "secondary-1", BehindBy: 1, Assigned: true, Healthy: true},
+			replicas: []Replica{
+				{Storage: "primary", Generation: 1, Assigned: true, Healthy: true, ValidPrimary: true},
+				{Storage: "secondary-1", Generation: 0, Assigned: true, Healthy: true},
 			},
+			hasPartiallyReplicated: true,
 		},
 		{
 			desc:                "unassigned node contains the latest repository",
 			existingAssignments: []string{"primary"},
 			existingGenerations: map[string]int{"primary": 0, "secondary-1": 1},
-			storageDetails: []StorageDetails{
-				{Name: "primary", BehindBy: 1, Assigned: true, Healthy: true},
-				{Name: "secondary-1", BehindBy: 0, Assigned: false, Healthy: true, ValidPrimary: true},
+			replicas: []Replica{
+				{Storage: "primary", Generation: 0, Assigned: true, Healthy: true},
+				{Storage: "secondary-1", Generation: 1, Assigned: false, Healthy: true, ValidPrimary: true},
 			},
+			hasPartiallyReplicated: true,
 		},
 		{
 			desc:                "unassigned node contains the only repository",
 			existingAssignments: []string{"primary"},
 			existingGenerations: map[string]int{"secondary-1": 0},
-			storageDetails: []StorageDetails{
-				{Name: "primary", BehindBy: 1, Assigned: true, Healthy: true},
-				{Name: "secondary-1", BehindBy: 0, Assigned: false, Healthy: true, ValidPrimary: true},
+			replicas: []Replica{
+				{Storage: "primary", Generation: -1, Assigned: true, Healthy: true},
+				{Storage: "secondary-1", Generation: 0, Assigned: false, Healthy: true, ValidPrimary: true},
 			},
+			hasPartiallyReplicated: true,
 		},
 		{
 			desc:                "unassigned unconfigured node contains the only repository",
 			existingAssignments: []string{"primary"},
 			existingGenerations: map[string]int{"unconfigured": 0},
-			storageDetails: []StorageDetails{
-				{Name: "primary", BehindBy: 1, Assigned: true, Healthy: true},
-				{Name: "unconfigured", BehindBy: 0, Assigned: false},
+			replicas: []Replica{
+				{Storage: "primary", Generation: -1, Assigned: true, Healthy: true},
+				{Storage: "unconfigured", Generation: 0, Assigned: false},
 			},
+			hasPartiallyReplicated: true,
 		},
 		{
 			desc:                "assigned unconfigured node has no repository",
 			existingAssignments: []string{"primary", "unconfigured"},
 			existingGenerations: map[string]int{"primary": 1},
+			replicas: []Replica{
+				{Storage: "primary", Generation: 1, Assigned: true, Healthy: true, ValidPrimary: true},
+			},
 		},
 		{
 			desc:                "assigned unconfigured node is outdated",
 			existingAssignments: []string{"primary", "unconfigured"},
 			existingGenerations: map[string]int{"primary": 1, "unconfigured": 0},
+			replicas: []Replica{
+				{Storage: "primary", Generation: 1, Assigned: true, Healthy: true, ValidPrimary: true},
+				{Storage: "unconfigured", Generation: 0, Assigned: false},
+			},
 		},
 		{
 			desc:                "unconfigured node is the only assigned node",
 			existingAssignments: []string{"unconfigured"},
 			existingGenerations: map[string]int{"unconfigured": 0},
-			storageDetails: []StorageDetails{
-				{Name: "primary", BehindBy: 1, Assigned: true, Healthy: true},
-				{Name: "secondary-1", BehindBy: 1, Assigned: true, Healthy: true},
-				{Name: "unconfigured", BehindBy: 0, Assigned: false},
+			replicas: []Replica{
+				{Storage: "primary", Generation: -1, Assigned: true, Healthy: true},
+				{Storage: "secondary-1", Generation: -1, Assigned: true, Healthy: true},
+				{Storage: "unconfigured", Generation: 0, Assigned: false},
 			},
+			hasPartiallyReplicated: true,
 		},
 		{
 			desc:                "repository is fully replicated but unavailable",
 			unhealthyStorages:   map[string]struct{}{"primary": {}, "secondary-1": {}},
 			existingAssignments: []string{"primary", "secondary-1"},
 			existingGenerations: map[string]int{"primary": 0, "secondary-1": 0},
-			storageDetails: []StorageDetails{
-				{Name: "primary", Assigned: true},
-				{Name: "secondary-1", Assigned: true},
+			replicas: []Replica{
+				{Storage: "primary", Generation: 0, Assigned: true},
+				{Storage: "secondary-1", Generation: 0, Assigned: true},
 			},
+			hasPartiallyReplicated: true,
 		},
 		{
 			desc:                "assigned replicas unavailable but a valid unassigned primary candidate",
 			unhealthyStorages:   map[string]struct{}{"primary": {}},
 			existingAssignments: []string{"primary"},
 			existingGenerations: map[string]int{"primary": 0, "secondary-1": 0},
-			storageDetails: []StorageDetails{
-				{Name: "primary", Assigned: true},
-				{Name: "secondary-1", Healthy: true, ValidPrimary: true},
+			replicas: []Replica{
+				{Storage: "primary", Generation: 0, Assigned: true},
+				{Storage: "secondary-1", Generation: 0, Healthy: true, ValidPrimary: true},
 			},
+			hasPartiallyReplicated: true,
 		},
 		{
 			desc:                "assigned replicas available but unassigned replica unavailable",
 			unhealthyStorages:   map[string]struct{}{"secondary-1": {}},
 			existingAssignments: []string{"primary"},
 			existingGenerations: map[string]int{"primary": 0, "secondary-1": 0},
+			replicas: []Replica{
+				{Storage: "primary", Generation: 0, Assigned: true, Healthy: true, ValidPrimary: true},
+				{Storage: "secondary-1", Generation: 0},
+			},
 		},
 		{
 			desc:                "one assigned replica unavailable",
 			unhealthyStorages:   map[string]struct{}{"secondary-1": {}},
 			existingAssignments: []string{"primary", "secondary-1"},
 			existingGenerations: map[string]int{"primary": 0, "secondary-1": 0},
-			storageDetails: []StorageDetails{
-				{Name: "primary", Assigned: true, Healthy: true, ValidPrimary: true},
-				{Name: "secondary-1", Assigned: true},
+			replicas: []Replica{
+				{Storage: "primary", Generation: 0, Assigned: true, Healthy: true, ValidPrimary: true},
+				{Storage: "secondary-1", Generation: 0, Assigned: true},
 			},
+			hasPartiallyReplicated: true,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -1391,6 +1434,7 @@ func TestPostgresRepositoryStore_GetPartiallyAvailableRepositories(t *testing.T)
 			const (
 				virtualStorage = "virtual-storage"
 				relativePath   = "relative-path"
+				replicaPath    = "replica-path"
 			)
 
 			rs := NewPostgresRepositoryStore(tx, configuredStorages)
@@ -1399,12 +1443,17 @@ func TestPostgresRepositoryStore_GetPartiallyAvailableRepositories(t *testing.T)
 			require.NoError(t, err)
 
 			_, err = tx.ExecContext(ctx, `
-				INSERT INTO repositories (repository_id, virtual_storage, relative_path, "primary")
-				VALUES ($1, $2, $3, 'repository-primary')
-			`, repositoryID, virtualStorage, relativePath)
+				INSERT INTO repositories (repository_id, virtual_storage, relative_path, replica_path, "primary")
+				VALUES ($1, $2, $3, $4, 'repository-primary')
+			`, repositoryID, virtualStorage, relativePath, replicaPath)
 			require.NoError(t, err)
 
+			maxGeneration := 0
 			for storage, generation := range tc.existingGenerations {
+				if maxGeneration < generation {
+					maxGeneration = generation
+				}
+
 				require.NoError(t, rs.SetGeneration(ctx, repositoryID, storage, relativePath, generation))
 			}
 
@@ -1423,22 +1472,38 @@ func TestPostgresRepositoryStore_GetPartiallyAvailableRepositories(t *testing.T)
 				require.NoError(t, err)
 			}
 
-			outdated, err := rs.GetPartiallyAvailableRepositories(ctx, virtualStorage)
+			expectedMetadata := RepositoryMetadata{
+				RepositoryID:   repositoryID,
+				VirtualStorage: virtualStorage,
+				RelativePath:   relativePath,
+				ReplicaPath:    replicaPath,
+				Primary:        "repository-primary",
+				Generation:     int64(maxGeneration),
+				Replicas:       tc.replicas,
+			}
+
+			expectedPartiallyReplicated := []RepositoryMetadata{expectedMetadata}
+			if !tc.hasPartiallyReplicated {
+				expectedPartiallyReplicated = nil
+			}
+
+			partiallyReplicated, err := rs.GetPartiallyAvailableRepositories(ctx, virtualStorage)
 			require.NoError(t, err)
+			require.Equal(t, expectedPartiallyReplicated, partiallyReplicated)
 
-			expected := []PartiallyAvailableRepository{
-				{
-					RelativePath: relativePath,
-					Primary:      "repository-primary",
-					Storages:     tc.storageDetails,
-				},
+			var expectedErr error
+			if tc.nonExistentRepository {
+				expectedErr = commonerr.ErrRepositoryNotFound
+				expectedMetadata = RepositoryMetadata{}
 			}
 
-			if tc.storageDetails == nil {
-				expected = nil
-			}
+			metadata, err := rs.GetRepositoryMetadata(ctx, repositoryID)
+			require.Equal(t, expectedErr, err)
+			require.Equal(t, expectedMetadata, metadata)
 
-			require.Equal(t, expected, outdated)
+			metadata, err = rs.GetRepositoryMetadataByPath(ctx, virtualStorage, relativePath)
+			require.Equal(t, expectedErr, err)
+			require.Equal(t, expectedMetadata, metadata)
 		})
 	}
 }
