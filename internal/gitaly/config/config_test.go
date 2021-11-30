@@ -432,19 +432,94 @@ func TestSetGitPath(t *testing.T) {
 	cleanup := testhelper.ModifyEnvironment(t, "GITALY_TESTING_GIT_BINARY", "")
 	defer cleanup()
 
+	cleanup = testhelper.ModifyEnvironment(t, "GITALY_TESTING_BUNDLED_GIT_PATH", "")
+	defer cleanup()
+
 	t.Run("set in config", func(t *testing.T) {
 		cfg := Cfg{Git: Git{BinPath: "/path/to/myGit"}}
 		require.NoError(t, cfg.SetGitPath())
 		assert.Equal(t, "/path/to/myGit", cfg.Git.BinPath)
 	})
 
-	t.Run("set using env var", func(t *testing.T) {
+	t.Run("set using GITALY_TESTING_GIT_BINARY", func(t *testing.T) {
 		cleanup := testhelper.ModifyEnvironment(t, "GITALY_TESTING_GIT_BINARY", "/path/to/env_git")
 		defer cleanup()
 
 		cfg := Cfg{Git: Git{}}
 		require.NoError(t, cfg.SetGitPath())
 		assert.Equal(t, "/path/to/env_git", cfg.Git.BinPath)
+	})
+
+	t.Run("set using GITALY_TESTING_BUNDLED_GIT_PATH", func(t *testing.T) {
+		bundledGitDir := testhelper.TempDir(t)
+		bundledGitExecutable := filepath.Join(bundledGitDir, "gitaly-git")
+		bundledGitRemoteExecutable := filepath.Join(bundledGitDir, "gitaly-git-remote-http")
+		bundledGitHTTPBackendExecutable := filepath.Join(bundledGitDir, "gitaly-git-http-backend")
+
+		cleanup := testhelper.ModifyEnvironment(t, "GITALY_TESTING_BUNDLED_GIT_PATH", bundledGitDir)
+		defer cleanup()
+
+		t.Run("missing bin_dir", func(t *testing.T) {
+			cfg := Cfg{Git: Git{}}
+			require.Equal(t, errors.New("cannot use bundled binaries without bin path being set"), cfg.SetGitPath())
+		})
+
+		t.Run("missing gitaly-git executable", func(t *testing.T) {
+			cfg := Cfg{BinDir: testhelper.TempDir(t), Git: Git{}}
+			err := cfg.SetGitPath()
+			require.Error(t, err)
+			require.Contains(t, err.Error(), `statting "gitaly-git":`)
+			require.True(t, errors.Is(err, os.ErrNotExist))
+		})
+
+		t.Run("missing git-remote-http executable", func(t *testing.T) {
+			require.NoError(t, os.WriteFile(bundledGitExecutable, []byte{}, 0o777))
+
+			cfg := Cfg{BinDir: testhelper.TempDir(t), Git: Git{}}
+			err := cfg.SetGitPath()
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "statting \"gitaly-git-remote-http\":")
+			require.True(t, errors.Is(err, os.ErrNotExist))
+		})
+
+		t.Run("missing git-http-backend executable", func(t *testing.T) {
+			require.NoError(t, os.WriteFile(bundledGitExecutable, []byte{}, 0o777))
+			require.NoError(t, os.WriteFile(bundledGitRemoteExecutable, []byte{}, 0o777))
+
+			cfg := Cfg{BinDir: testhelper.TempDir(t), Git: Git{}}
+			err := cfg.SetGitPath()
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "statting \"gitaly-git-http-backend\":")
+			require.True(t, errors.Is(err, os.ErrNotExist))
+		})
+
+		t.Run("bin_dir with executables", func(t *testing.T) {
+			require.NoError(t, os.WriteFile(bundledGitExecutable, []byte{}, 0o777))
+			require.NoError(t, os.WriteFile(bundledGitRemoteExecutable, []byte{}, 0o777))
+			require.NoError(t, os.WriteFile(bundledGitHTTPBackendExecutable, []byte{}, 0o777))
+
+			binDir := testhelper.TempDir(t)
+
+			cfg := Cfg{BinDir: binDir, Git: Git{}}
+			require.NoError(t, cfg.SetGitPath())
+
+			for _, executable := range []string{"git", "git-remote-http", "git-http-backend"} {
+				symlinkPath := filepath.Join(filepath.Dir(cfg.Git.BinPath), executable)
+
+				// The symlink in Git's temporary BinPath points to the Git
+				// executable in Gitaly's BinDir.
+				target, err := os.Readlink(symlinkPath)
+				require.NoError(t, err)
+				require.Equal(t, filepath.Join(cfg.BinDir, "gitaly-"+executable), target)
+
+				// And in a test setup, the symlink in Gitaly's BinDir must point to
+				// the Git binary pointed to by the GITALY_TESTING_BUNDLED_GIT_PATH
+				// environment variable.
+				target, err = os.Readlink(target)
+				require.NoError(t, err)
+				require.Equal(t, filepath.Join(bundledGitDir, "gitaly-"+executable), target)
+			}
+		})
 	})
 
 	t.Run("not set, get from system", func(t *testing.T) {
@@ -526,7 +601,7 @@ func TestValidateGitConfig(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg := Cfg{Git: Git{Config: tc.configPairs}}
+			cfg := Cfg{BinDir: testhelper.TempDir(t), Git: Git{Config: tc.configPairs}}
 			require.Equal(t, tc.expectedErr, cfg.validateGit())
 		})
 	}

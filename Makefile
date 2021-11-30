@@ -242,7 +242,6 @@ export GOCACHE                   ?= ${BUILD_DIR}/cache
 export GOPROXY                   ?= https://proxy.golang.org
 export PATH                      := ${BUILD_DIR}/bin:${PATH}
 export PKG_CONFIG_PATH           := ${LIBGIT2_INSTALL_DIR}/lib/pkgconfig
-export GITALY_TESTING_GIT_BINARY ?= ${GIT_INSTALL_DIR}/bin/git
 # Allow the linker flag -D_THREAD_SAFE as libgit2 is compiled with it on FreeBSD
 export CGO_LDFLAGS_ALLOW          = -D_THREAD_SAFE
 
@@ -303,8 +302,33 @@ install: build
 	${Q}mkdir -p ${INSTALL_DEST_DIR}
 	install $(call find_command_binaries) ${INSTALL_DEST_DIR}
 
+ifdef WITH_BUNDLED_GIT
+GIT_EXECUTABLES += git
+GIT_EXECUTABLES += git-remote-http
+GIT_EXECUTABLES += git-http-backend
+
+build: $(patsubst %,${BUILD_DIR}/bin/gitaly-%,${GIT_EXECUTABLES})
+
+install: $(patsubst %,${INSTALL_DEST_DIR}/gitaly-%,${GIT_EXECUTABLES})
+
+prepare-tests: $(patsubst %,${BUILD_DIR}/bin/gitaly-%,${GIT_EXECUTABLES})
+
+${BUILD_DIR}/bin/gitaly-%: ${GIT_SOURCE_DIR}/% | ${BUILD_DIR}/bin
+	${Q}install $< $@
+
+${INSTALL_DEST_DIR}/gitaly-%: ${BUILD_DIR}/bin/gitaly-%
+	${Q}mkdir -p $(@D)
+	${Q}install $< $@
+
+export GITALY_TESTING_BUNDLED_GIT_PATH ?= ${BUILD_DIR}/bin
+else
+prepare-tests: git
+
+export GITALY_TESTING_GIT_BINARY ?= ${GIT_INSTALL_DIR}/bin/git
+endif
+
 .PHONY: prepare-tests
-prepare-tests: git libgit2 prepare-test-repos ${SOURCE_DIR}/.ruby-bundle
+prepare-tests: libgit2 prepare-test-repos ${SOURCE_DIR}/.ruby-bundle
 
 .PHONY: prepare-test-repos
 prepare-test-repos: ${TEST_REPO} ${TEST_REPO_GIT}
@@ -521,7 +545,13 @@ ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a: ${DEPENDENCY_DIR}/libgit2.version
 	${Q}CMAKE_BUILD_PARALLEL_LEVEL=$(shell nproc) cmake --build ${LIBGIT2_BUILD_DIR} --target install
 	go install -a github.com/libgit2/git2go/${GIT2GO_VERSION}
 
-${GIT_INSTALL_DIR}/bin/git: ${DEPENDENCY_DIR}/git.version
+# This target is responsible for checking out Git sources. In theory, we'd only
+# need to depend on the source directory. But given that the source directory
+# always changes when anything inside of it changes, like when we for example
+# build binaries inside of it, we cannot depend on it directly or we'd
+# otherwise try to rebuild all targets depending on it whenever we build
+# something else. We thus depend on the Makefile instead.
+${GIT_SOURCE_DIR}/Makefile: ${DEPENDENCY_DIR}/git.version
 	${Q}${GIT} -c init.defaultBranch=master init ${GIT_QUIET} ${GIT_SOURCE_DIR}
 	${Q}${GIT} -C "${GIT_SOURCE_DIR}" config remote.origin.url ${GIT_REPO_URL}
 	${Q}${GIT} -C "${GIT_SOURCE_DIR}" config remote.origin.tagOpt --no-tags
@@ -539,9 +569,17 @@ ifdef GIT_EXTRA_VERSION
 else
 	${Q}rm -f "${GIT_SOURCE_DIR}"/version
 endif
+	${Q}touch $@
+
+${GIT_SOURCE_DIR}/%: ${GIT_SOURCE_DIR}/Makefile
+	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C ${GIT_SOURCE_DIR} -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} $(notdir $@)
+	${Q}touch $@
+
+${GIT_INSTALL_DIR}/bin/git: ${GIT_SOURCE_DIR}/Makefile
 	${Q}rm -rf ${GIT_INSTALL_DIR}
 	${Q}mkdir -p ${GIT_INSTALL_DIR}
-	env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C ${GIT_SOURCE_DIR} -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
+	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C ${GIT_SOURCE_DIR} -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
+	${Q}touch $@
 
 ${TOOLS_DIR}/protoc.zip: TOOL_VERSION = ${PROTOC_VERSION}
 ${TOOLS_DIR}/protoc.zip: ${TOOLS_DIR}/protoc.version

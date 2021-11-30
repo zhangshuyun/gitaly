@@ -163,6 +163,8 @@ func configureGit() error {
 	gitPath := "git"
 	if path, ok := os.LookupEnv("GITALY_TESTING_GIT_BINARY"); ok {
 		gitPath = path
+	} else if path, ok := os.LookupEnv("GITALY_TESTING_BUNDLED_GIT_PATH"); ok {
+		gitPath = filepath.Join(path, "gitaly-git")
 	}
 
 	// Unset environment variables which have an effect on Git itself.

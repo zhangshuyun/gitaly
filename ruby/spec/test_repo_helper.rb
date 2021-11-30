@@ -6,7 +6,22 @@ require 'spec_helper'
 $:.unshift(File.expand_path('../proto', __dir__))
 require 'gitaly'
 
-Gitlab.config.git.test_global_ivar_override(:bin_path, ENV.fetch('GITALY_TESTING_GIT_BINARY', 'git'))
+if ENV.key?('GITALY_TESTING_GIT_BINARY')
+  GIT_BINARY_PATH = ENV['GITALY_TESTING_GIT_BINARY']
+elsif ENV.key?('GITALY_TESTING_BUNDLED_GIT_PATH')
+  GIT_BINARY_PATH = File.join(ENV['GITALY_TESTING_BUNDLED_GIT_PATH'], 'gitaly-git')
+  GIT_EXEC_PATH = File.join(TMP_DIR, 'git-exec-path')
+
+  # We execute git-clone(1) to set up the test repo, and this requires Git to
+  # find git-upload-pack(1). We thus symlink it into a temporary Git exec path
+  # and make it known to Git where it lives.
+  Dir.mkdir(GIT_EXEC_PATH)
+  File.symlink(GIT_BINARY_PATH, File.join(GIT_EXEC_PATH, 'git-upload-pack'))
+else
+  GIT_BINARY_PATH = 'git'.freeze
+end
+
+Gitlab.config.git.test_global_ivar_override(:bin_path, GIT_BINARY_PATH)
 Gitlab.config.git.test_global_ivar_override(:hooks_directory, File.join(GITALY_RUBY_DIR, "hooks"))
 Gitlab.config.gitaly.test_global_ivar_override(:bin_dir, __dir__)
 
@@ -97,13 +112,16 @@ module TestRepo
   end
 
   def self.clone_new_repo!(origin, destination)
-    return if system(Gitlab.config.git.bin_path, "clone", "--quiet", "--bare", origin.to_s, destination.to_s)
+    env = {}
+    env['GIT_EXEC_PATH'] = GIT_EXEC_PATH if defined?(GIT_EXEC_PATH)
+
+    return if system(env, Gitlab.config.git.bin_path, "-c", "init.templateDir=", "clone", "--quiet", "--bare", origin.to_s, destination.to_s)
 
     abort "Failed to clone test repo. Try running 'make prepare-tests' and try again."
   end
 
   def self.init_new_repo!(destination)
-    return if system(Gitlab.config.git.bin_path, "init", "--quiet", "--bare", destination.to_s)
+    return if system(Gitlab.config.git.bin_path, "-c", "init.templateDir=", "init", "--quiet", "--bare", destination.to_s)
 
     abort "Failed to init test repo."
   end

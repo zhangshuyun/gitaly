@@ -74,12 +74,12 @@ func GitServer(t testing.TB, cfg config.Cfg, repoPath string, middleware func(ht
 		Path: cfg.Git.BinPath,
 		Dir:  "/",
 		Args: []string{"http-backend"},
-		Env: []string{
+		Env: append([]string{
 			"GIT_PROJECT_ROOT=" + filepath.Dir(repoPath),
 			"GIT_CONFIG_COUNT=1",
 			"GIT_CONFIG_KEY_0=http.receivepack",
 			"GIT_CONFIG_VALUE_0=true",
-		},
+		}, cfg.GitExecEnv()...),
 	}
 	s := http.Server{Handler: gitHTTPBackend}
 

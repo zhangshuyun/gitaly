@@ -128,6 +128,7 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 	}
 
 	env = append(env, command.GitEnv...)
+	env = append(env, cf.cfg.GitExecEnv()...)
 
 	execCommand := exec.Command(cf.gitPath(), args...)
 	execCommand.Dir = dir
