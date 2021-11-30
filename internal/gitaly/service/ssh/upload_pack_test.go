@@ -279,11 +279,11 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	outputPath := filepath.Join(filterDir, "output")
 	cfg.BinDir = filterDir
 
-	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
 
 	hookScript := fmt.Sprintf(
-		`#!/bin/sh
+		`#!/bin/bash
+set -eo pipefail
 echo 'I was invoked' >'%s'
 shift
 exec '%s' "$@"

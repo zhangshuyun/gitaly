@@ -1,6 +1,7 @@
 package testhelper
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -195,12 +196,18 @@ func TempDir(t testing.TB) string {
 // immediately after they are returned from a test helper
 type Cleanup func()
 
-// WriteExecutable ensures that the parent directory exists, and writes an executable with provided content
+// WriteExecutable ensures that the parent directory exists, and writes an executable with provided
+// content. The executable must not exist previous to writing it.
 func WriteExecutable(t testing.TB, path string, content []byte) {
 	dir := filepath.Dir(path)
-
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	require.NoError(t, os.WriteFile(path, content, 0o755))
+
+	executable, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o755)
+	require.NoError(t, err)
+	defer MustClose(t, executable)
+
+	_, err = io.Copy(executable, bytes.NewReader(content))
+	require.NoError(t, err)
 
 	t.Cleanup(func() {
 		assert.NoError(t, os.RemoveAll(dir))
