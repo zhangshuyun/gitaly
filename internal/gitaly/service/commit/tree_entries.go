@@ -45,7 +45,7 @@ func populateFlatPath(
 		}
 
 		for i := 1; i < defaultFlatTreeRecursion; i++ {
-			subEntries, err := treeEntries(ctx, objectReader, objectInfoReader, entry.CommitOid, string(entry.FlatPath), "", false)
+			subEntries, err := treeEntries(ctx, objectReader, objectInfoReader, entry.CommitOid, string(entry.FlatPath))
 			if err != nil {
 				return err
 			}
@@ -147,7 +147,7 @@ func (s *server) sendTreeEntries(
 			return err
 		}
 
-		entries, err = treeEntries(ctx, objectReader, objectInfoReader, revision, path, "", false)
+		entries, err = treeEntries(ctx, objectReader, objectInfoReader, revision, path)
 		if err != nil {
 			return err
 		}

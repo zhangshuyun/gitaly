@@ -42,7 +42,7 @@ func (tef *TreeEntryFinder) FindByRevisionAndPath(ctx context.Context, revision,
 
 	if !ok {
 		var err error
-		entries, err = treeEntries(ctx, tef.objectReader, tef.objectInfoReader, revision, dir, "", false)
+		entries, err = treeEntries(ctx, tef.objectReader, tef.objectInfoReader, revision, dir)
 		if err != nil {
 			return nil, err
 		}
@@ -110,8 +110,7 @@ func treeEntries(
 	ctx context.Context,
 	objectReader catfile.ObjectReader,
 	objectInfoReader catfile.ObjectInfoReader,
-	revision, path, rootOid string,
-	recursive bool,
+	revision, path string,
 ) (_ []*gitalypb.TreeEntry, returnedErr error) {
 	if path == "." {
 		path = ""
@@ -123,18 +122,15 @@ func treeEntries(
 		return nil, nil
 	}
 
-	if len(rootOid) == 0 {
-		rootTreeInfo, err := objectInfoReader.Info(ctx, git.Revision(revision+"^{tree}"))
-		if err != nil {
-			if catfile.IsNotFound(err) {
-				return nil, nil
-			}
-
-			return nil, err
+	rootTreeInfo, err := objectInfoReader.Info(ctx, git.Revision(revision+"^{tree}"))
+	if err != nil {
+		if catfile.IsNotFound(err) {
+			return nil, nil
 		}
 
-		rootOid = rootTreeInfo.Oid.String()
+		return nil, err
 	}
+	rootOid := rootTreeInfo.Oid.String()
 
 	treeObj, err := objectReader.Object(ctx, git.Revision(fmt.Sprintf("%s:%s", revision, path)))
 	if err != nil {
@@ -160,23 +156,5 @@ func treeEntries(
 		return nil, err
 	}
 
-	if !recursive {
-		return entries, nil
-	}
-
-	var orderedEntries []*gitalypb.TreeEntry
-	for _, entry := range entries {
-		orderedEntries = append(orderedEntries, entry)
-
-		if entry.Type == gitalypb.TreeEntry_TREE {
-			subentries, err := treeEntries(ctx, objectReader, objectInfoReader, revision, string(entry.Path), rootOid, true)
-			if err != nil {
-				return nil, err
-			}
-
-			orderedEntries = append(orderedEntries, subentries...)
-		}
-	}
-
-	return orderedEntries, nil
+	return entries, nil
 }
