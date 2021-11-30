@@ -130,6 +130,11 @@ test:
     # The purpose is to verify that there is no test which writes into those directories anymore, as
     # they should all instead use a temporary directory for runtime data.
     - find . -type d \( -path ./_build -o -path ./ruby \) -prune -o -type d -exec chmod a-w {} \;
+    # If we're testing with bundled Git, then we don't want to have the Git
+    # installation around. Otherwise, Git would be able to resolve its binaries
+    # by just looking at its own GIT_PREFIX and then pick binaries from that
+    # installation directory.
+    - if test -n "${WITH_BUNDLED_GIT}"; then rm -r _build/deps/git/install; fi
     - make ${TARGET}
   parallel:
     matrix:
@@ -142,6 +147,8 @@ test:
       - GO_VERSION: [ "1.16", "1.17" ]
         TARGET: test
       - TARGET: [ test-with-proxies, test-with-praefect, race-go ]
+      - WITH_BUNDLED_GIT: "with-bundled-git"
+        TARGET: test
       # Execute tests with our minimum required Postgres version, as well. If
       # the minimum version changes, please change this to the new minimum
       # version. Furthermore, please make sure to update the minimum required
