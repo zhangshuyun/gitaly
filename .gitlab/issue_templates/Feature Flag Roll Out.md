@@ -1,4 +1,4 @@
-<!-- Title suggestion: [Feature flag] Enable description of feature -->
+/title [Feature flag] Enable description of feature
 
 ## What
 
