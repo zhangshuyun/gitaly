@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	// Blank import to enable integration of github.com/lib/pq into database/sql
 	_ "github.com/lib/pq"
@@ -15,7 +16,7 @@ import (
 
 // OpenDB returns connection pool to the database.
 func OpenDB(ctx context.Context, conf config.DB) (*sql.DB, error) {
-	db, err := sql.Open("postgres", conf.ToPQString(false))
+	db, err := sql.Open("postgres", DSN(conf, false))
 	if err != nil {
 		return nil, err
 	}
@@ -43,6 +44,63 @@ func OpenDB(ctx context.Context, conf config.DB) (*sql.DB, error) {
 	}
 
 	return db, nil
+}
+
+// DSN compiles configuration into data source name with lib/pq specifics.
+func DSN(db config.DB, direct bool) string {
+	var hostVal, userVal, passwordVal, dbNameVal string
+	var sslModeVal, sslCertVal, sslKeyVal, sslRootCertVal string
+	var portVal int
+
+	if direct {
+		hostVal = coalesceStr(db.SessionPooled.Host, db.HostNoProxy, db.Host)
+		portVal = coalesceInt(db.SessionPooled.Port, db.PortNoProxy, db.Port)
+		userVal = coalesceStr(db.SessionPooled.User, db.User)
+		passwordVal = coalesceStr(db.SessionPooled.Password, db.Password)
+		dbNameVal = coalesceStr(db.SessionPooled.DBName, db.DBName)
+		sslModeVal = coalesceStr(db.SessionPooled.SSLMode, db.SSLMode)
+		sslCertVal = coalesceStr(db.SessionPooled.SSLCert, db.SSLCert)
+		sslKeyVal = coalesceStr(db.SessionPooled.SSLKey, db.SSLKey)
+		sslRootCertVal = coalesceStr(db.SessionPooled.SSLRootCert, db.SSLRootCert)
+	} else {
+		hostVal = db.Host
+		portVal = db.Port
+		userVal = db.User
+		passwordVal = db.Password
+		dbNameVal = db.DBName
+		sslModeVal = db.SSLMode
+		sslCertVal = db.SSLCert
+		sslKeyVal = db.SSLKey
+		sslRootCertVal = db.SSLRootCert
+	}
+
+	var fields []string
+	if portVal > 0 {
+		fields = append(fields, fmt.Sprintf("port=%d", portVal))
+	}
+
+	for _, kv := range []struct{ key, value string }{
+		{"host", hostVal},
+		{"user", userVal},
+		{"password", passwordVal},
+		{"dbname", dbNameVal},
+		{"sslmode", sslModeVal},
+		{"sslcert", sslCertVal},
+		{"sslkey", sslKeyVal},
+		{"sslrootcert", sslRootCertVal},
+		{"binary_parameters", "yes"},
+	} {
+		if len(kv.value) == 0 {
+			continue
+		}
+
+		kv.value = strings.ReplaceAll(kv.value, "'", `\'`)
+		kv.value = strings.ReplaceAll(kv.value, " ", `\ `)
+
+		fields = append(fields, kv.key+"="+kv.value)
+	}
+
+	return strings.Join(fields, " ")
 }
 
 // Migrate will apply all pending SQL migrations.
@@ -147,4 +205,22 @@ func (p *StringProvider) To() []interface{} {
 	var d string
 	*p = append(*p, &d)
 	return []interface{}{&d}
+}
+
+func coalesceStr(values ...string) string {
+	for _, cur := range values {
+		if cur != "" {
+			return cur
+		}
+	}
+	return ""
+}
+
+func coalesceInt(values ...int) int {
+	for _, cur := range values {
+		if cur != 0 {
+			return cur
+		}
+	}
+	return 0
 }
