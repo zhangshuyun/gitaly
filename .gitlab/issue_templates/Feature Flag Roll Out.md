@@ -36,14 +36,6 @@ I.e.
 
 -->
 
-## Beta groups/projects
-
-If applicable, any groups/projects that are happy to have this feature turned on early. Some organizations may wish to test big changes they are interested in with a small subset of users ahead of time for example.
-
-- `gitlab-org/gitlab` / `gitlab-org/gitaly` projects
-- `gitlab-org`/`gitlab-com` groups
-- ...
-
 ## Roll Out Steps
 
 - [ ] [Read the documentation of feature flags](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#feature-flags)
