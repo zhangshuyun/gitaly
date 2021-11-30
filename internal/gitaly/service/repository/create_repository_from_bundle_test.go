@@ -153,9 +153,21 @@ func testCreateRepositoryFromBundleTransactional(t *testing.T, ctx context.Conte
 	require.NoError(t, err)
 
 	if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
-		// We're being much more thorough with computation of the votes, so it's hard to say
-		// exactly what these votes look like. So we just assert we've got a bunch of them.
-		require.Len(t, votes, 4)
+		var actualVotes []string
+		for _, vote := range votes {
+			actualVotes = append(actualVotes, vote.String())
+		}
+
+		// While the following votes are opaque to us, this doesn't really matter. All we do
+		// care about is that they're stable.
+		require.Equal(t, []string{
+			// These are the votes created by git-fetch(1).
+			"47553c06f575f757ad56ef3216c59804b72aa4a6",
+			"47553c06f575f757ad56ef3216c59804b72aa4a6",
+			// And this is the manual votes we compute by walking the repository.
+			"da39a3ee5e6b4b0d3255bfef95601890afd80709",
+			"da39a3ee5e6b4b0d3255bfef95601890afd80709",
+		}, actualVotes)
 		return
 	}
 
