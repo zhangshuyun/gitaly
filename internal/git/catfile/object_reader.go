@@ -155,22 +155,25 @@ func (o *objectReader) ObjectQueue(ctx context.Context) (ObjectQueue, func(), er
 
 // Object represents data returned by `git cat-file --batch`
 type Object struct {
-	// ObjectInfo represents main information about object
-	ObjectInfo
-
-	// dataReader is reader which has all the object data.
-	dataReader io.LimitedReader
-
-	// bytesLeft tracks the number of bytes which are left to be read. While this duplicates the
+	// bytesRemaining tracks the number of bytes which are left to be read. While this duplicates the
 	// information tracked in dataReader.N, this cannot be helped given that we need to make
 	// access to this information atomic so there's no race between updating it and checking the
 	// process for dirtiness. While we could use locking instead of atomics, we'd have to lock
 	// during the whole read duration -- and thus it'd become impossible to check for dirtiness
 	// at the same time.
+	//
+	// We list the atomic fields first to ensure they are 64-bit and 32-bit aligned:
+	// https://pkg.go.dev/sync/atomic#pkg-note-BUG
 	bytesRemaining int64
 
 	// closed determines whether the object is closed for reading.
 	closed int32
+
+	// ObjectInfo represents main information about object
+	ObjectInfo
+
+	// dataReader is reader which has all the object data.
+	dataReader io.LimitedReader
 }
 
 // isDirty determines whether the object is still dirty, that is whether there are still unconsumed
