@@ -13,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/chunk"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -83,7 +82,7 @@ func (s *server) sendTreeEntries(
 	// Answering this query efficiently is not possible with Git's tooling, and solving it via
 	// git-ls-tree(1) is worse than using a long-lived catfile process. We thus fall back to
 	// using catfile readers to answer these non-recursive queries.
-	if recursive && featureflag.TreeEntriesViaLsTree.IsEnabled(ctx) {
+	if recursive {
 		if path == "." {
 			path = ""
 		}
@@ -148,28 +147,26 @@ func (s *server) sendTreeEntries(
 			return err
 		}
 
-		entries, err = treeEntries(ctx, objectReader, objectInfoReader, revision, path, "", recursive)
+		entries, err = treeEntries(ctx, objectReader, objectInfoReader, revision, path, "", false)
 		if err != nil {
 			return err
 		}
 
-		if !recursive {
-			// When we're not doing a recursive request, then we need to populate flat
-			// paths. A flat path of a tree entry refers to the first subtree of that
-			// entry which either has at least one blob or more than two subtrees. In
-			// other terms, it refers to the first "non-empty" subtree such that it's
-			// easy to skip navigating the intermediate subtrees which wouldn't carry
-			// any interesting information anyway.
-			//
-			// Unfortunately, computing flat paths is _really_ inefficient: for each
-			// tree entry, we recurse up to 10 levels deep into that subtree. We do so
-			// by requesting the tree entries via a catfile process, which to the best
-			// of my knowledge is as good as we can get. Doing this via git-ls-tree(1)
-			// wouldn't fly: we'd have to spawn a separate process for each of the
-			// subtrees, which is a lot of overhead.
-			if err := populateFlatPath(ctx, objectReader, objectInfoReader, entries); err != nil {
-				return err
-			}
+		// When we're not doing a recursive request, then we need to populate flat
+		// paths. A flat path of a tree entry refers to the first subtree of that
+		// entry which either has at least one blob or more than two subtrees. In
+		// other terms, it refers to the first "non-empty" subtree such that it's
+		// easy to skip navigating the intermediate subtrees which wouldn't carry
+		// any interesting information anyway.
+		//
+		// Unfortunately, computing flat paths is _really_ inefficient: for each
+		// tree entry, we recurse up to 10 levels deep into that subtree. We do so
+		// by requesting the tree entries via a catfile process, which to the best
+		// of my knowledge is as good as we can get. Doing this via git-ls-tree(1)
+		// wouldn't fly: we'd have to spawn a separate process for each of the
+		// subtrees, which is a lot of overhead.
+		if err := populateFlatPath(ctx, objectReader, objectInfoReader, entries); err != nil {
+			return err
 		}
 	}
 

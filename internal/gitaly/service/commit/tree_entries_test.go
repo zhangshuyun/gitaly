@@ -1,7 +1,6 @@
 package commit
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -13,19 +12,18 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
 func TestGetTreeEntries_curlyBraces(t *testing.T) {
-	testhelper.NewFeatureSets(featureflag.TreeEntriesViaLsTree).Run(t, testGetTreeEntriesCurlyBraces)
-}
-
-func testGetTreeEntriesCurlyBraces(t *testing.T, ctx context.Context) {
 	t.Parallel()
+
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	normalFolderName := "issue-46261/folder"
 	curlyFolderName := "issue-46261/{{curly}}"
@@ -82,11 +80,11 @@ func testGetTreeEntriesCurlyBraces(t *testing.T, ctx context.Context) {
 }
 
 func TestGetTreeEntries_successful(t *testing.T) {
-	testhelper.NewFeatureSets(featureflag.TreeEntriesViaLsTree).Run(t, testGetTreeEntriesSuccessful)
-}
-
-func testGetTreeEntriesSuccessful(t *testing.T, ctx context.Context) {
 	t.Parallel()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	commitID := "d25b6d94034242f3930dfcfeb6d8d9aac3583992"
 	rootOid := "21bdc8af908562ae485ed46d71dd5426c08b084a"
 
@@ -475,10 +473,11 @@ func testGetTreeEntriesSuccessful(t *testing.T, ctx context.Context) {
 }
 
 func TestGetTreeEntries_unsuccessful(t *testing.T) {
-	testhelper.NewFeatureSets(featureflag.TreeEntriesViaLsTree).Run(t, testGetTreeEntriesUnsuccessful)
-}
+	t.Parallel()
 
-func testGetTreeEntriesUnsuccessful(t *testing.T, ctx context.Context) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	commitID := "d25b6d94034242f3930dfcfeb6d8d9aac3583992"
 
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
@@ -525,11 +524,11 @@ func testGetTreeEntriesUnsuccessful(t *testing.T, ctx context.Context) {
 }
 
 func TestGetTreeEntries_deepFlatpath(t *testing.T) {
-	testhelper.NewFeatureSets(featureflag.TreeEntriesViaLsTree).Run(t, testGetTreeEntriesDeepFlatpath)
-}
-
-func testGetTreeEntriesDeepFlatpath(t *testing.T, ctx context.Context) {
 	t.Parallel()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
 
 	folderName := "1/2/3/4/5/6/7/8/9/10/11/12"
@@ -573,11 +572,10 @@ func testGetTreeEntriesDeepFlatpath(t *testing.T, ctx context.Context) {
 }
 
 func TestGetTreeEntries_file(t *testing.T) {
-	testhelper.NewFeatureSets(featureflag.TreeEntriesViaLsTree).Run(t, testGetTreeEntriesFile)
-}
-
-func testGetTreeEntriesFile(t *testing.T, ctx context.Context) {
 	t.Parallel()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
 
@@ -606,11 +604,11 @@ func testGetTreeEntriesFile(t *testing.T, ctx context.Context) {
 }
 
 func TestGetTreeEntries_validation(t *testing.T) {
-	testhelper.NewFeatureSets(featureflag.TreeEntriesViaLsTree).Run(t, testGetTreeEntriesValidation)
-}
-
-func testGetTreeEntriesValidation(t *testing.T, ctx context.Context) {
 	t.Parallel()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	revision := []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72")
@@ -636,11 +634,10 @@ func testGetTreeEntriesValidation(t *testing.T, ctx context.Context) {
 }
 
 func BenchmarkGetTreeEntries(b *testing.B) {
-	testhelper.NewFeatureSets(featureflag.TreeEntriesViaLsTree).Bench(b, benchmarkGetTreeEntries)
-}
-
-func benchmarkGetTreeEntries(b *testing.B, ctx context.Context) {
 	cfg, client := setupCommitService(b)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	repo, _ := gittest.CloneRepo(b, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
 		SourceRepo: "benchmark.git",
