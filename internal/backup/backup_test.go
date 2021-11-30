@@ -479,8 +479,10 @@ func testManagerRestore(t *testing.T, cfg config.Cfg, gitalyAddr string) {
 					gittest.WithBranch("other"),
 					gittest.WithParents(root),
 				)
+				gittest.Exec(t, cfg, "-C", expectedRepoPath, "symbolic-ref", "HEAD", "refs/heads/master")
 				bundlePath1 := filepath.Join(backupPath, "001.bundle")
 				gittest.Exec(t, cfg, "-C", expectedRepoPath, "bundle", "create", bundlePath1,
+					"HEAD",
 					"refs/heads/master",
 					"refs/heads/other",
 				)
@@ -491,6 +493,7 @@ func testManagerRestore(t *testing.T, cfg config.Cfg, gitalyAddr string) {
 				)
 				bundlePath2 := filepath.Join(backupPath, "002.bundle")
 				gittest.Exec(t, cfg, "-C", expectedRepoPath, "bundle", "create", bundlePath2,
+					"HEAD",
 					"^"+master1.String(),
 					"^"+other.String(),
 					"refs/heads/master",
@@ -498,6 +501,7 @@ func testManagerRestore(t *testing.T, cfg config.Cfg, gitalyAddr string) {
 				)
 
 				checksum := new(git.Checksum)
+				checksum.Add(git.NewReference("HEAD", master2.String()))
 				checksum.Add(git.NewReference("refs/heads/master", master2.String()))
 				checksum.Add(git.NewReference("refs/heads/other", other.String()))
 
