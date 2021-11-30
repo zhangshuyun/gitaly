@@ -28,6 +28,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/listenmux"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
@@ -505,6 +506,10 @@ func TestWarnDuplicateAddrs(t *testing.T) {
 }
 
 func TestRemoveRepository(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.AtomicRemoveRepository).Run(t, testRemoveRepository)
+}
+
+func testRemoveRepository(t *testing.T, ctx context.Context) {
 	t.Parallel()
 	gitalyCfgs := make([]gconfig.Cfg, 3)
 	repos := make([][]*gitalypb.Repository, 3)
@@ -549,9 +554,6 @@ func TestRemoveRepository(t *testing.T) {
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Hour)
 	defer nodeMgr.Stop()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	cc, _, cleanup := runPraefectServer(t, ctx, praefectCfg, buildOptions{
 		withQueue: queueInterceptor,
