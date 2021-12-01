@@ -206,9 +206,7 @@ endif
 TEST_PACKAGES    ?= ${SOURCE_DIR}/...
 ## Test options passed to `go test`.
 TEST_OPTIONS     ?= -v -count=1
-TEST_REPORT_DIR  ?= ${BUILD_DIR}/reports
-TEST_OUTPUT_NAME ?= go-${GO_VERSION}-git-${GIT_VERSION}
-TEST_REPORT      ?= ${TEST_REPORT_DIR}/go-tests-report-${TEST_OUTPUT_NAME}.xml
+TEST_REPORT      ?= ${BUILD_DIR}/reports/go-tests-report.xml
 ## Directory where all runtime test data is being created.
 TEST_TMP_DIR     ?=
 TEST_REPO_DIR    := ${BUILD_DIR}/testrepos
@@ -327,7 +325,7 @@ endif
 
 .PHONY: prepare-tests
 prepare-tests: libgit2 prepare-test-repos ${SOURCE_DIR}/.ruby-bundle ${GOTESTSUM}
-	${Q}mkdir -p ${TEST_REPORT_DIR}
+	${Q}mkdir -p ${dir ${TEST_REPORT}}
 
 .PHONY: prepare-test-repos
 prepare-test-repos: ${TEST_REPO} ${TEST_REPO_GIT}

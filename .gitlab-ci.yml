@@ -57,7 +57,7 @@ include:
     paths:
       - ruby/tmp/gitaly-rspec-test.log
     reports:
-      junit: _build/reports/go-tests-report-go-${GO_VERSION}-git-${GIT_VERSION}.xml
+      junit: _build/reports/go-tests-report.xml
     when: on_failure
     expire_in: 1 week
 
