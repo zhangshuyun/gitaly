@@ -92,6 +92,25 @@
 - [gitaly-hooks: remove filter quote bug workaround](gitlab-org/gitaly@3a0c60c114e437abe476228c9a5ff4bef79b3547) ([merge request](gitlab-org/gitaly!3991))
 - [Enable Praefect in PostUploadPackWithSidechannel tests](gitlab-org/gitaly@1ef01adb2b3e8e0c2cbfd6f18556421fb7fc4e09) ([merge request](gitlab-org/gitaly!3938))
 
+## 14.4.3 (2021-12-01)
+
+### Added (2 changes)
+
+- [list-untracked-repositories: Praefect sub-command to show untracked repositories](gitlab-org/gitaly@b6fb5c332c131df79668ae600aa34e42189a12d3) ([merge request](gitlab-org/gitaly!4115))
+- [praefect: Add ability to have separate database metrics endpoint](gitlab-org/gitaly@ebaade4a4816704e6c5bf5696f070fd16273fe09) ([merge request](gitlab-org/gitaly!4094))
+
+### Fixed (3 changes)
+
+- [datastore: Revert use of materialized views](gitlab-org/gitaly@38b5c3327e100191b3205185fa83c842f732e6e9) ([merge request](gitlab-org/gitaly!4117))
+- [sql-migrate: Update storage_repositories table](gitlab-org/gitaly@0e6a5d2acc3ec3fd96920f4c0d8708d242368d0f) ([merge request](gitlab-org/gitaly!4113))
+- [praefect: Do not collect repository store metrics on startup](gitlab-org/gitaly@3cde9b5e764616dc81e4986d4a8cdc0272bb23ac) ([merge request](gitlab-org/gitaly!4094))
+
+### Performance (3 changes)
+
+- [Materialize valid_primaries view in RepositoryStoreCollector](gitlab-org/gitaly@df6b165f328449043f84ef9314f7b133aa3a3aa4) ([merge request](gitlab-org/gitaly!4090))
+- [Get the latest generation from repositories instead of a view](gitlab-org/gitaly@57bef77949125cf60bb479f5b37c77c9f1692c68) ([merge request](gitlab-org/gitaly!4090))
+- [Materialize valid_primaries view in dataloss query](gitlab-org/gitaly@6d569bb696187268b086fecdb5d45440eda7ebc2) ([merge request](gitlab-org/gitaly!4090))
+
 ## 14.4.2 (2021-11-08)
 
 No changes.
