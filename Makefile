@@ -578,11 +578,12 @@ ${GIT_SOURCE_DIR}/%: ${GIT_SOURCE_DIR}/Makefile
 	${Q}touch $@
 
 ${GIT_PREFIX}/bin/git: ${GIT_SOURCE_DIR}/Makefile
-	# Note that we're deleting GIT_DEFAULT_PREFIX, not GIT_PREFIX: we only
-	# want to remove the default location in our build directory, but never
-	# want to delete the actual location the user wants to install to.
-	# Otherwise, we may end up wiping e.g. `/usr/local`.
-	${Q}rm -rf ${GIT_DEFAULT_PREFIX}
+	# Remove the Git installation first in case GIT_PREFIX is the default
+	# prefix which always points into our build directory. This is done so
+	# we never end up with mixed Git installations on developer machines.
+	# We cannot ever remove GIT_PREFIX though in case they're different
+	# because it may point to a user-controlled directory.
+	${Q}if [ "x${GIT_DEFAULT_PREFIX}" = "x${GIT_PREFIX}" ]; then rm -rf "${GIT_DEFAULT_PREFIX}"; fi
 	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C ${GIT_SOURCE_DIR} -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
 	${Q}touch $@
 
