@@ -224,6 +224,24 @@ verify:
       - proto/go/gitalypb/*
     when: on_failure
 
+dbschema:
+  <<: *cache_definition
+  stage: test
+  services:
+    # The database version we use must match the version of `pg_dump` we have
+    # available in the build image.
+    - postgres:11.13-alpine
+  variables:
+    <<: *postgres_variables
+  before_script:
+    - while ! psql -h $PGHOST -U $PGUSER -c 'SELECT 1' > /dev/null; do echo "awaiting Postgres service to be ready..." && sleep 1 ; done && echo "Postgres service is ready!"
+  script:
+    - make dump-database-schema no-changes
+  artifacts:
+    paths:
+      - _support/praefect-schema.sql
+    when: on_failure
+
 gosec-sast:
   before_script:
     - apk add pkgconfig libgit2-dev gcc libc-dev

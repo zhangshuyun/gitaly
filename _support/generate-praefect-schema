@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+declare -r SOURCE_DIR=$(dirname "$(dirname "$(realpath "$0")")")
+
+function die_usage() {
+    echo "USAGE: $0" >&2
+    if test "$#" -ge 1
+    then
+        echo
+        echo "$@" >&2
+    fi
+
+    exit 1
+}
+
+if test -z "${PGHOST}" && command -v gdk >/dev/null
+then
+    # Try to get database information from the GDK, if available.
+    eval $(gdk env)
+fi
+
+if test -z "${PGHOST}"
+then
+    die_usage "PGHOST environment variable is not set"
+fi
+
+if test -z "${PGPORT}"
+then
+    die_usage "PGPORT environment variable is not set"
+fi
+
+declare -r DUMP_PATH="$1"
+if test "$#" -gt 0
+then
+    die_usage "Script does not take any arguments"
+fi
+
+# Create a temporary database. This database will be removed when the script
+# exits. We want to fail in case createdb(1) finds the database to exist
+# already such that we do not clobber any preexisting data.
+declare -r DBNAME=praefect_database_schema
+createdb "${DBNAME}"
+trap "dropdb '${DBNAME}'" EXIT
+
+# Create a temporary file where the Praefect configuration will be written to.
+# This file is deleted when the script exits.
+declare -r PRAEFECT_CFG=$(mktemp -t "praefect-config-XXXXXXXX")
+trap "dropdb '${DBNAME}' ; rm -f '${PRAEFECT_CFG}'" EXIT
+
+# Generate a dummy configuration. We don't care about anything but the database
+# configuration, but Praefect will fail to start if we have no listen address
+# and no virtual storage configured.
+cat >"${PRAEFECT_CFG}" <<EOF
+listen_addr = "127.0.0.1:0"
+
+[[virtual_storage]]
+name = "default"
+
+[[virtual_storage.node]]
+storage = "dummy-node"
+address = "unix:/dummy"
+
+[database]
+host = "${PGHOST}"
+port = ${PGPORT}
+dbname = "${DBNAME}"
+sslmode = "disable"
+EOF
+
+# Run the migration such that all required tables are created.
+"${SOURCE_DIR}"/_build/bin/praefect -config "${PRAEFECT_CFG}" sql-migrate >/dev/null
+
+# And then finally dump the database schema. We ignore the owner because it
+# would change based on the local user name. Furthermore, we replace the
+# database version such that the output doesn't change based on the the
+# Postgres version.
+pg_dump --create --schema-only --no-owner --dbname "$DBNAME" |
+    sed -e 's/^\(-- Dumped .* version\) [0-9]\+\(.[0-9]\+\).*/\1 REPLACED/'
