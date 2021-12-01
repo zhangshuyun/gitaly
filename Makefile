@@ -324,7 +324,7 @@ export GITALY_TESTING_BUNDLED_GIT_PATH ?= ${BUILD_DIR}/bin
 else
 prepare-tests: git
 
-export GITALY_TESTING_GIT_BINARY ?= ${GIT_INSTALL_DIR}/bin/git
+export GITALY_TESTING_GIT_BINARY ?= ${GIT_PREFIX}/bin/git
 endif
 
 .PHONY: prepare-tests
@@ -485,7 +485,7 @@ upgrade-module:
 
 .PHONY: git
 ## Build Git.
-git: ${GIT_INSTALL_DIR}/bin/git
+git: ${GIT_PREFIX}/bin/git
 
 .PHONY: libgit2
 ## Build libgit2.
@@ -575,7 +575,11 @@ ${GIT_SOURCE_DIR}/%: ${GIT_SOURCE_DIR}/Makefile
 	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C ${GIT_SOURCE_DIR} -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} $(notdir $@)
 	${Q}touch $@
 
-${GIT_INSTALL_DIR}/bin/git: ${GIT_SOURCE_DIR}/Makefile
+${GIT_PREFIX}/bin/git: ${GIT_SOURCE_DIR}/Makefile
+	# Note that we're deleting GIT_INSTALL_DIR, not GIT_PREFIX: we only
+	# want to remove the default location in our build directory, but never
+	# want to delete the actual location the user wants to install to.
+	# Otherwise, we may end up wiping e.g. `/usr/local`.
 	${Q}rm -rf ${GIT_INSTALL_DIR}
 	${Q}mkdir -p ${GIT_INSTALL_DIR}
 	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C ${GIT_SOURCE_DIR} -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
