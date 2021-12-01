@@ -53,7 +53,7 @@ PROTOC            := ${TOOLS_DIR}/protoc/bin/protoc
 PROTOC_GEN_GO     := ${TOOLS_DIR}/protoc-gen-go
 PROTOC_GEN_GO_GRPC:= ${TOOLS_DIR}/protoc-gen-go-grpc
 PROTOC_GEN_GITALY := ${TOOLS_DIR}/protoc-gen-gitaly
-GO_JUNIT_REPORT   := ${TOOLS_DIR}/go-junit-report
+GOTESTSUM         := ${TOOLS_DIR}/gotestsum
 GOCOVER_COBERTURA := ${TOOLS_DIR}/gocover-cobertura
 
 # Tool options
@@ -72,7 +72,7 @@ GOLANGCI_LINT_VERSION     ?= 1.43.0
 GOCOVER_COBERTURA_VERSION ?= aaee18c8195c3f2d90e5ef80ca918d265463842a
 GOFUMPT_VERSION           ?= 0.2.0
 GOIMPORTS_VERSION         ?= 2538eef75904eff384a2551359968e40c207d9d2
-GO_JUNIT_REPORT_VERSION   ?= 984a47ca6b0a7d704c4b589852051b4d7865aa17
+GOSUMTEST_VERSION         ?= v1.7.0
 GO_LICENSES_VERSION       ?= 73411c8fa237ccc6a75af79d0a5bc021c9487aad
 # https://pkg.go.dev/github.com/protocolbuffers/protobuf
 PROTOC_VERSION            ?= 3.17.3
@@ -208,9 +208,7 @@ TEST_PACKAGES    ?= ${SOURCE_DIR}/...
 TEST_OPTIONS     ?= -v -count=1
 TEST_REPORT_DIR  ?= ${BUILD_DIR}/reports
 TEST_OUTPUT_NAME ?= go-${GO_VERSION}-git-${GIT_VERSION}
-TEST_OUTPUT      ?= ${TEST_REPORT_DIR}/go-tests-output-${TEST_OUTPUT_NAME}.txt
 TEST_REPORT      ?= ${TEST_REPORT_DIR}/go-tests-report-${TEST_OUTPUT_NAME}.xml
-TEST_EXIT        ?= ${TEST_REPORT_DIR}/go-tests-exit-${TEST_OUTPUT_NAME}.txt
 ## Directory where all runtime test data is being created.
 TEST_TMP_DIR     ?=
 TEST_REPO_DIR    := ${BUILD_DIR}/testrepos
@@ -234,7 +232,7 @@ find_go_sources       = $(shell find ${SOURCE_DIR} -type d \( -name ruby -o -nam
 run_go_tests = PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}' \
     GIT_DIR=/dev/null \
     TEST_TMP_DIR='${TEST_TMP_DIR}' \
-    go test ${GO_LDFLAGS} -tags '${GO_BUILD_TAGS}' ${TEST_OPTIONS} ${TEST_PACKAGES}
+    ${GOTESTSUM} --junitfile ${TEST_REPORT} -- ${GO_LDFLAGS} -tags '${GO_BUILD_TAGS}' ${TEST_OPTIONS} ${TEST_PACKAGES}
 
 unexport GOROOT
 export GOBIN                      = ${BUILD_DIR}/bin
@@ -328,7 +326,8 @@ export GITALY_TESTING_GIT_BINARY ?= ${GIT_INSTALL_DIR}/bin/git
 endif
 
 .PHONY: prepare-tests
-prepare-tests: libgit2 prepare-test-repos ${SOURCE_DIR}/.ruby-bundle
+prepare-tests: libgit2 prepare-test-repos ${SOURCE_DIR}/.ruby-bundle ${GOTESTSUM}
+	${Q}mkdir -p ${TEST_REPORT_DIR}
 
 .PHONY: prepare-test-repos
 prepare-test-repos: ${TEST_REPO} ${TEST_REPO_GIT}
@@ -342,12 +341,8 @@ test-ruby: prepare-tests rspec
 
 .PHONY: test-go
 ## Run Go tests.
-test-go: prepare-tests ${GO_JUNIT_REPORT}
-	${Q}mkdir -p ${TEST_REPORT_DIR}
-	${Q}echo 0 >${TEST_EXIT}
-	${Q}$(call run_go_tests) 2>&1 | tee ${TEST_OUTPUT} || echo $$? >${TEST_EXIT}
-	${Q}${GO_JUNIT_REPORT} <${TEST_OUTPUT} >${TEST_REPORT}
-	${Q}exit `cat ${TEST_EXIT}`
+test-go: prepare-tests
+	${Q}$(call run_go_tests)
 
 .PHONY: test
 ## Run Go benchmarks.
@@ -608,8 +603,8 @@ ${GOIMPORTS}:         TOOL_PACKAGE = golang.org/x/tools/cmd/goimports
 ${GOIMPORTS}:         TOOL_VERSION = ${GOIMPORTS_VERSION}
 ${GOLANGCI_LINT}:     TOOL_PACKAGE = github.com/golangci/golangci-lint/cmd/golangci-lint
 ${GOLANGCI_LINT}:     TOOL_VERSION = v${GOLANGCI_LINT_VERSION}
-${GO_JUNIT_REPORT}:   TOOL_PACKAGE = github.com/jstemmer/go-junit-report
-${GO_JUNIT_REPORT}:   TOOL_VERSION = ${GO_JUNIT_REPORT_VERSION}
+${GOTESTSUM}:         TOOL_PACKAGE = gotest.tools/gotestsum
+${GOTESTSUM}:         TOOL_VERSION = ${GOSUMTEST_VERSION}
 ${GO_LICENSES}:       TOOL_PACKAGE = github.com/google/go-licenses
 ${GO_LICENSES}:       TOOL_VERSION = ${GO_LICENSES_VERSION}
 ${PROTOC_GEN_GO}:     TOOL_PACKAGE = google.golang.org/protobuf/cmd/protoc-gen-go
