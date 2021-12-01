@@ -639,7 +639,13 @@ type RepositoryMetadata struct {
 
 // GetRepositoryMetadata retrieves a repository's metadata.
 func (rs *PostgresRepositoryStore) GetRepositoryMetadata(ctx context.Context, repositoryID int64) (RepositoryMetadata, error) {
-	metadata, err := rs.getRepositoryMetadata(ctx, "WHERE repository_id = $3", "", repositoryID)
+	metadata, err := rs.getRepositoryMetadata(
+		ctx,
+		"WHERE repository_id = $3",
+		"WHERE repository_id = $3",
+		"",
+		repositoryID,
+	)
 	if err != nil {
 		return RepositoryMetadata{}, err
 	}
@@ -653,7 +659,14 @@ func (rs *PostgresRepositoryStore) GetRepositoryMetadata(ctx context.Context, re
 
 // GetRepositoryMetadataByPath retrieves a repository's metadata by its virtual path.
 func (rs *PostgresRepositoryStore) GetRepositoryMetadataByPath(ctx context.Context, virtualStorage, relativePath string) (RepositoryMetadata, error) {
-	metadata, err := rs.getRepositoryMetadata(ctx, "WHERE virtual_storage = $3 AND relative_path = $4", "", virtualStorage, relativePath)
+	metadata, err := rs.getRepositoryMetadata(
+		ctx,
+		"WHERE virtual_storage = $3 AND relative_path = $4",
+		"WHERE repository_id = (SELECT repository_id FROM repositories)",
+		"",
+		virtualStorage,
+		relativePath,
+	)
 	if err != nil {
 		return RepositoryMetadata{}, err
 	}
@@ -675,13 +688,15 @@ func (rs *PostgresRepositoryStore) GetPartiallyAvailableRepositories(ctx context
 
 	return rs.getRepositoryMetadata(ctx,
 		"WHERE virtual_storage = $3",
-		"HAVING bool_or(NOT valid_primary) FILTER(WHERE assigned)",
-		virtualStorage)
+		"WHERE virtual_storage = $3",
+		"HAVING bool_or(NOT valid_primaries.storage IS NOT NULL) FILTER(WHERE assigned)",
+		virtualStorage,
+	)
 }
 
 // GetPartiallyAvailableRepositories returns information on repositories which have assigned replicas which
 // are not able to serve requests at the moment.
-func (rs *PostgresRepositoryStore) getRepositoryMetadata(ctx context.Context, keyFilter, groupFilter string, filterArgs ...interface{}) ([]RepositoryMetadata, error) {
+func (rs *PostgresRepositoryStore) getRepositoryMetadata(ctx context.Context, repositoriesFilter, validPrimariesFilter, groupFilter string, filterArgs ...interface{}) ([]RepositoryMetadata, error) {
 	// The query below gets the status of every repository which has one or more assigned replicas that
 	// are not able to serve requests at the moment. The status includes how many changes a replica is behind,
 	// whether the replica is assigned host or not, whether the replica is healthy and whether the replica is
@@ -736,6 +751,24 @@ func (rs *PostgresRepositoryStore) getRepositoryMetadata(ctx context.Context, ke
 WITH configured_storages AS (
 	SELECT unnest($1::text[]) AS virtual_storage,
 	       unnest($2::text[]) AS storage
+),
+
+repositories AS (
+	SELECT *
+	FROM repositories
+	%s
+),
+
+storage_repositories AS (
+	SELECT repository_id, storage, storage_repositories.generation
+	FROM repositories
+	JOIN storage_repositories USING (repository_id)
+),
+
+valid_primaries AS (
+	SELECT repository_id, storage
+	FROM valid_primaries
+	%s
 )
 
 SELECT
@@ -745,31 +778,25 @@ SELECT
 		'RelativePath', relative_path,
 		'ReplicaPath', replica_path,
 		'Primary', "primary",
-		'Generation', generation,
+		'Generation', repositories.generation,
 		'Replicas', json_agg(
 			json_build_object(
 				'Storage', storage,
-				'Generation', replica_generation,
+				'Generation', COALESCE(replicas.generation, -1),
 				'Assigned', assigned,
-				'Healthy', healthy,
-				'ValidPrimary', valid_primary
+				'Healthy', healthy_storages.storage IS NOT NULL,
+				'ValidPrimary', valid_primaries.storage IS NOT NULL
 			)
 		)
 	)
-FROM (
+FROM repositories
+JOIN (
 	SELECT
 		repository_id,
-		virtual_storage,
-		relative_path,
-		replica_path,
-		repositories.primary,
-		repositories.generation,
 		storage,
-		COALESCE(storage_repositories.generation, -1) AS replica_generation,
-		repository_assignments.storage IS NOT NULL AS assigned,
-		healthy_storages.storage IS NOT NULL AS healthy,
-		valid_primaries.storage IS NOT NULL AS valid_primary
-	FROM ( SELECT repository_id, storage, generation FROM storage_repositories ) AS storage_repositories
+		generation,
+		repository_assignments.storage IS NOT NULL AS assigned
+	FROM storage_repositories
 	FULL JOIN (
 		SELECT repository_id, storage
 		FROM repositories
@@ -781,16 +808,14 @@ FROM (
 			AND   (virtual_storage, storage) IN (SELECT * FROM configured_storages)
 		)
 	) AS repository_assignments USING (repository_id, storage)
-	JOIN repositories USING (repository_id)
-	LEFT JOIN healthy_storages USING (virtual_storage, storage)
-	LEFT JOIN ( SELECT repository_id, storage FROM valid_primaries ) AS valid_primaries USING (repository_id, storage)
-	%s
 	ORDER BY repository_id, storage
-) AS outdated_repositories
-GROUP BY repository_id, virtual_storage, relative_path, replica_path, "primary", generation
+) AS replicas USING (repository_id)
+LEFT JOIN healthy_storages USING (virtual_storage, storage)
+LEFT JOIN valid_primaries USING (repository_id, storage)
+GROUP BY repository_id, virtual_storage, relative_path, replica_path, "primary", repositories.generation
 %s
 ORDER BY repository_id
-	`, keyFilter, groupFilter), args...)
+	`, repositoriesFilter, validPrimariesFilter, groupFilter), args...)
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
