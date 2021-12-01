@@ -44,7 +44,7 @@ INSTALL_DEST_DIR := ${DESTDIR}${bindir}
 GIT_PREFIX       ?= ${GIT_DEFAULT_PREFIX}
 
 # Tools
-GIT               := $(shell which git)
+GIT               := $(shell command -v git)
 GOIMPORTS         := ${TOOLS_DIR}/goimports
 GOFUMPT           := ${TOOLS_DIR}/gofumpt
 GOLANGCI_LINT     := ${TOOLS_DIR}/golangci-lint
