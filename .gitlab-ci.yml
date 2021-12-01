@@ -284,3 +284,4 @@ trigger-qa:
         GITALY_SERVER_VERSION: $CI_MERGE_REQUEST_SOURCE_BRANCH_SHA
     - when: manual
       allow_failure: true
+  needs: []
