@@ -101,9 +101,14 @@ func (s *server) createRepository(
 			return err
 		}
 
+		switch path {
 		// The way packfiles are generated may not be deterministic, so we skip over the
 		// object database.
-		if path == filepath.Join(newRepoDir.Path(), "objects") {
+		case filepath.Join(newRepoDir.Path(), "objects"):
+		// FETCH_HEAD refers to the remote we're fetching from. This URL may not be
+		// deterministic, e.g. when fetching from a temporary file like we do in
+		// CreateRepositoryFromBundle.
+		case filepath.Join(newRepoDir.Path(), "FETCH_HEAD"):
 			return fs.SkipDir
 		}
 
