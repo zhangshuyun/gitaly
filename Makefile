@@ -630,14 +630,14 @@ ${TEST_REPO}:
 	${Q}rm -rf $@/refs
 	${Q}mkdir -p $@/refs/heads $@/refs/tags
 	${Q}cp ${SOURCE_DIR}/_support/gitlab-test.git-packed-refs $@/packed-refs
-	${Q}${GIT} -C $@ fsck --no-progress
+	${Q}${GIT} -C $@ fsck --no-progress --no-dangling
 
 ${TEST_REPO_GIT}:
 	${GIT} clone --bare ${GIT_QUIET} https://gitlab.com/gitlab-org/gitlab-git-test.git $@
 	${Q}rm -rf $@/refs
 	${Q}mkdir -p $@/refs/heads $@/refs/tags
 	${Q}cp ${SOURCE_DIR}/_support/gitlab-git-test.git-packed-refs $@/packed-refs
-	${Q}${GIT} -C $@ fsck --no-progress
+	${Q}${GIT} -C $@ fsck --no-progress --no-dangling
 
 ${BENCHMARK_REPO}:
 	${GIT} clone --bare ${GIT_QUIET} https://gitlab.com/gitlab-org/gitlab.git $@
