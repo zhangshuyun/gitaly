@@ -62,7 +62,7 @@ CROSS JOIN (SELECT unnest('{gitaly-1, gitaly-2, gitaly-3}'::text[]) AS storage) 
 	for n := 0; n < b.N; n++ {
 		db.Truncate(b, "replication_queue", "replication_queue_lock", "replication_queue_job_lock")
 		r := NewReconciler(
-			testhelper.DiscardTestLogger(b),
+			testhelper.NewDiscardingLogger(b),
 			db,
 			praefect.StaticHealthChecker(storages),
 			storages,

@@ -70,7 +70,7 @@ func TestServerFactory(t *testing.T) {
 	repo.StorageName = conf.VirtualStorages[0].Name // storage must be re-written to virtual to be properly redirected by praefect
 	revision := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
 
-	logger := testhelper.DiscardTestEntry(t)
+	logger := testhelper.NewDiscardingLogEntry(t)
 	queue := datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t))
 
 	rs := datastore.MockRepositoryStore{}

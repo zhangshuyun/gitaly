@@ -473,7 +473,7 @@ func makePostUploadPackRequest(ctx context.Context, t *testing.T, serverSocketPa
 func dialSmartHTTPServerWithSidechannel(t *testing.T, serverSocketPath, token string, registry *sidechannel.Registry) *grpc.ClientConn {
 	t.Helper()
 
-	clientHandshaker := sidechannel.NewClientHandshaker(testhelper.DiscardTestEntry(t), registry)
+	clientHandshaker := sidechannel.NewClientHandshaker(testhelper.NewDiscardingLogEntry(t), registry)
 	connOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(clientHandshaker.ClientHandshake(insecure.NewCredentials())),
 		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(token)),

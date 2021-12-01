@@ -4,21 +4,17 @@ import (
 	"io"
 	"testing"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
-// NewTestLogger creates logger that should be used in the tests.
-var NewTestLogger = DiscardTestLogger
-
-// DiscardTestLogger created a logrus hook that discards everything.
-func DiscardTestLogger(tb testing.TB) *log.Logger {
-	logger := log.New()
+// NewDiscardingLogger creates a logger that discards everything.
+func NewDiscardingLogger(tb testing.TB) *logrus.Logger {
+	logger := logrus.New()
 	logger.Out = io.Discard
-
 	return logger
 }
 
-// DiscardTestEntry creates a logrus entry that discards everything.
-func DiscardTestEntry(tb testing.TB) *log.Entry {
-	return log.NewEntry(DiscardTestLogger(tb))
+// NewDiscardingLogEntry creates a logrus entry that discards everything.
+func NewDiscardingLogEntry(tb testing.TB) *logrus.Entry {
+	return logrus.NewEntry(NewDiscardingLogger(tb))
 }

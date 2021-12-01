@@ -65,7 +65,7 @@ func TestRemoveRepository_Exec_invalidArgs(t *testing.T) {
 	})
 
 	t.Run("praefect address is not set in config ", func(t *testing.T) {
-		cmd := removeRepository{virtualStorage: "stub", relativePath: "stub", logger: testhelper.NewTestLogger(t)}
+		cmd := removeRepository{virtualStorage: "stub", relativePath: "stub", logger: testhelper.NewDiscardingLogger(t)}
 		db := glsql.NewDB(t)
 		dbConf := glsql.GetDBConfig(t, db.Name)
 		err := cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), config.Config{DB: dbConf})
@@ -124,7 +124,7 @@ func TestRemoveRepository_Exec(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		repo := createRepo(t, ctx, repoClient, praefectStorage, t.Name())
 		cmd := &removeRepository{
-			logger:         testhelper.NewTestLogger(t),
+			logger:         testhelper.NewDiscardingLogger(t),
 			virtualStorage: repo.StorageName,
 			relativePath:   repo.RelativePath,
 			dialTimeout:    time.Second,
@@ -148,7 +148,7 @@ func TestRemoveRepository_Exec(t *testing.T) {
 		_, _, err := repoStore.DeleteRepository(ctx, repo.StorageName, repo.RelativePath)
 		require.NoError(t, err)
 
-		logger := testhelper.NewTestLogger(t)
+		logger := testhelper.NewDiscardingLogger(t)
 		loggerHook := test.NewLocal(logger)
 		cmd := &removeRepository{
 			logger:         logrus.NewEntry(logger),
@@ -175,7 +175,7 @@ func TestRemoveRepository_Exec(t *testing.T) {
 		repo := createRepo(t, ctx, repoClient, praefectStorage, t.Name())
 		g2Srv.Shutdown()
 
-		logger := testhelper.NewTestLogger(t)
+		logger := testhelper.NewDiscardingLogger(t)
 		loggerHook := test.NewLocal(logger)
 		cmd := &removeRepository{
 			logger:         logrus.NewEntry(logger),
@@ -295,7 +295,7 @@ func TestRemoveRepository_removeReplicationEvents(t *testing.T) {
 	errChan := make(chan error, 1)
 	go func() {
 		cmd := &removeRepository{virtualStorage: virtualStorage, relativePath: relativePath}
-		errChan <- cmd.removeReplicationEvents(ctx, testhelper.NewTestLogger(t), db.DB, ticker)
+		errChan <- cmd.removeReplicationEvents(ctx, testhelper.NewDiscardingLogger(t), db.DB, ticker)
 	}()
 
 	ticker.Tick()

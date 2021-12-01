@@ -39,7 +39,7 @@ func TestStartDaily(t *testing.T) {
 		Storages: []string{"meow"},
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	go func() { errQ <- dw.StartDaily(ctx, testhelper.DiscardTestEntry(t), s, fn) }()
+	go func() { errQ <- dw.StartDaily(ctx, testhelper.NewDiscardingLogEntry(t), s, fn) }()
 
 	startTime := time.Date(1999, 3, 31, 0, 0, 0, 0, time.Local)
 	for _, tt := range []struct {

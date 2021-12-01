@@ -236,7 +236,7 @@ func TestRunner_Run_noAvailableStorages(t *testing.T) {
 		require.NoError(t, repoStore.CreateRepository(ctx, int64(i), conf.VirtualStorages[0].Name, set.relativePath, set.relativePath, set.primary, nil, nil, false, false))
 	}
 
-	logger := testhelper.NewTestLogger(t)
+	logger := testhelper.NewDiscardingLogger(t)
 	entry := logger.WithContext(ctx)
 	clientHandshaker := backchannel.NewClientHandshaker(entry, praefect.NewBackchannelServerFactory(entry, transaction.NewServer(nil), nil))
 	nodeSet, err := praefect.DialNodes(ctx, conf.VirtualStorages, protoregistry.GitalyProtoPreregistered, nil, clientHandshaker, nil)

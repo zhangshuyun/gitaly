@@ -62,7 +62,7 @@ import (
 func TestNewBackchannelServerFactory(t *testing.T) {
 	mgr := transactions.NewManager(config.Config{})
 
-	logger := testhelper.DiscardTestEntry(t)
+	logger := testhelper.NewDiscardingLogEntry(t)
 	registry := backchannel.NewRegistry()
 
 	lm := listenmux.New(insecure.NewCredentials())
@@ -105,7 +105,7 @@ func TestNewBackchannelServerFactory(t *testing.T) {
 		Name:  "default",
 		Nodes: []*config.Node{{Storage: "gitaly-1", Address: "tcp://" + ln.Addr().String()}},
 	}}, nil, nil, backchannel.NewClientHandshaker(logger, NewBackchannelServerFactory(
-		testhelper.DiscardTestEntry(t), transaction.NewServer(mgr), nil,
+		testhelper.NewDiscardingLogEntry(t), transaction.NewServer(mgr), nil,
 	)), nil)
 	require.NoError(t, err)
 	defer nodeSet.Close()
@@ -539,11 +539,11 @@ func TestRemoveRepository(t *testing.T) {
 	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t)))
 	repoStore := defaultRepoStore(praefectCfg)
 	txMgr := defaultTxMgr(praefectCfg)
-	nodeMgr, err := nodes.NewManager(testhelper.DiscardTestEntry(t), praefectCfg, nil,
+	nodeMgr, err := nodes.NewManager(testhelper.NewDiscardingLogEntry(t), praefectCfg, nil,
 		repoStore, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered,
 		nil, backchannel.NewClientHandshaker(
-			testhelper.DiscardTestEntry(t),
-			NewBackchannelServerFactory(testhelper.DiscardTestEntry(t), transaction.NewServer(txMgr), nil),
+			testhelper.NewDiscardingLogEntry(t),
+			NewBackchannelServerFactory(testhelper.NewDiscardingLogEntry(t), transaction.NewServer(txMgr), nil),
 		), nil,
 	)
 	require.NoError(t, err)
@@ -836,7 +836,7 @@ func TestProxyWrites(t *testing.T) {
 	}
 
 	queue := datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t))
-	entry := testhelper.DiscardTestEntry(t)
+	entry := testhelper.NewDiscardingLogEntry(t)
 
 	nodeMgr, err := nodes.NewManager(entry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
@@ -972,7 +972,7 @@ func TestErrorThreshold(t *testing.T) {
 	defer cancel()
 
 	queue := datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t))
-	entry := testhelper.DiscardTestEntry(t)
+	entry := testhelper.NewDiscardingLogEntry(t)
 
 	testCases := []struct {
 		desc     string

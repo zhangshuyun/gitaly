@@ -309,7 +309,7 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 		RelativePath: "/path/to/hashed/storage",
 	}
 
-	nodeMgr, err := nodes.NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
+	nodeMgr, err := nodes.NewManager(testhelper.NewDiscardingLogEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Hour)
 	defer nodeMgr.Stop()
@@ -438,7 +438,7 @@ func TestStreamDirectorAccessor(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	entry := testhelper.DiscardTestEntry(t)
+	entry := testhelper.NewDiscardingLogEntry(t)
 	rs := datastore.MockRepositoryStore{}
 
 	nodeMgr, err := nodes.NewManager(entry, conf, nil, rs, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
@@ -545,7 +545,7 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	entry := testhelper.DiscardTestEntry(t)
+	entry := testhelper.NewDiscardingLogEntry(t)
 
 	repoStore := datastore.MockRepositoryStore{
 		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
@@ -908,7 +908,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 				healthySecondaryNode.Address = "unix://" + gitalySocket1
 				unhealthySecondaryNode.Address = "unix://" + gitalySocket2
 
-				nodeMgr, err := nodes.NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
+				nodeMgr, err := nodes.NewManager(testhelper.NewDiscardingLogEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 				require.NoError(t, err)
 				nodeMgr.Start(0, time.Hour)
 				defer nodeMgr.Stop()
@@ -1109,7 +1109,7 @@ func TestAbsentCorrelationID(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	entry := testhelper.DiscardTestEntry(t)
+	entry := testhelper.NewDiscardingLogEntry(t)
 
 	nodeMgr, err := nodes.NewManager(entry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
@@ -1246,7 +1246,7 @@ func TestStreamDirectorStorageScope(t *testing.T) {
 
 	rs := datastore.MockRepositoryStore{}
 
-	nodeMgr, err := nodes.NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
+	nodeMgr, err := nodes.NewManager(testhelper.NewDiscardingLogEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Second)
 	defer nodeMgr.Stop()

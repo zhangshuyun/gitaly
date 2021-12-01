@@ -258,7 +258,7 @@ func runSecureServer(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) s
 	registry := backchannel.NewRegistry()
 	locator := config.NewLocator(cfg)
 	cache := cache.New(cfg, locator)
-	server, err := gserver.New(true, cfg, testhelper.DiscardTestEntry(t), registry, cache)
+	server, err := gserver.New(true, cfg, testhelper.NewDiscardingLogEntry(t), registry, cache)
 	require.NoError(t, err)
 	listener, addr := testhelper.GetLocalhostListener(t)
 
