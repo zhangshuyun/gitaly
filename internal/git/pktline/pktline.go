@@ -119,8 +119,9 @@ func pktLineSplitter(data []byte, atEOF bool) (advance int, token []byte, err er
 
 // SidebandWriter multiplexes byte streams into a single side-band-64k stream.
 type SidebandWriter struct {
-	w io.Writer
-	m sync.Mutex
+	w   io.Writer
+	m   sync.Mutex
+	buf [MaxPktSize]byte // Use a buffer to coalesce header and payload into one write syscall
 }
 
 // NewSidebandWriter instantiates a new SidebandWriter.
@@ -132,17 +133,14 @@ func (sw *SidebandWriter) writeBand(band byte, data []byte) (int, error) {
 
 	n := 0
 	for len(data) > 0 {
-		chunkSize := len(data)
 		const headerSize = 5
-		if max := MaxPktSize - headerSize; chunkSize > max {
-			chunkSize = max
-		}
 
-		if _, err := fmt.Fprintf(sw.w, "%04x%s", chunkSize+headerSize, []byte{band}); err != nil {
-			return n, err
-		}
+		chunkSize := copy(sw.buf[headerSize:], data)
+		header := chunkSize + headerSize
+		copy(sw.buf[:4], fmt.Sprintf("%04x", header))
+		sw.buf[4] = band
 
-		if _, err := sw.w.Write(data[:chunkSize]); err != nil {
+		if _, err := sw.w.Write(sw.buf[:header]); err != nil {
 			return n, err
 		}
 		data = data[chunkSize:]
