@@ -41,7 +41,7 @@ exec_prefix      ?= ${prefix}
 bindir           ?= ${exec_prefix}/bin
 INSTALL_DEST_DIR := ${DESTDIR}${bindir}
 ## The prefix where Git will be installed to.
-GIT_PREFIX       ?= ${GIT_INSTALL_DIR}
+GIT_PREFIX       ?= ${GIT_DEFAULT_PREFIX}
 
 # Tools
 GIT               := $(shell which git)
@@ -104,10 +104,12 @@ else ifeq (${OS},Linux)
 endif
 
 # Git target
-GIT_REPO_URL      ?= https://gitlab.com/gitlab-org/gitlab-git.git
-GIT_INSTALL_DIR   := ${DEPENDENCY_DIR}/git/install
-GIT_SOURCE_DIR    := ${DEPENDENCY_DIR}/git/source
-GIT_QUIET         :=
+GIT_REPO_URL       ?= https://gitlab.com/gitlab-org/gitlab-git.git
+# The default prefix specifies where Git will be installed to if no GIT_PREFIX
+# was given. This directory will be cleaned up before we install into it.
+GIT_DEFAULT_PREFIX := ${DEPENDENCY_DIR}/git/install
+GIT_SOURCE_DIR     := ${DEPENDENCY_DIR}/git/source
+GIT_QUIET          :=
 ifeq (${Q},@)
     GIT_QUIET = --quiet
 endif
@@ -576,11 +578,11 @@ ${GIT_SOURCE_DIR}/%: ${GIT_SOURCE_DIR}/Makefile
 	${Q}touch $@
 
 ${GIT_PREFIX}/bin/git: ${GIT_SOURCE_DIR}/Makefile
-	# Note that we're deleting GIT_INSTALL_DIR, not GIT_PREFIX: we only
+	# Note that we're deleting GIT_DEFAULT_PREFIX, not GIT_PREFIX: we only
 	# want to remove the default location in our build directory, but never
 	# want to delete the actual location the user wants to install to.
 	# Otherwise, we may end up wiping e.g. `/usr/local`.
-	${Q}rm -rf ${GIT_INSTALL_DIR}
+	${Q}rm -rf ${GIT_DEFAULT_PREFIX}
 	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C ${GIT_SOURCE_DIR} -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
 	${Q}touch $@
 
