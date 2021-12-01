@@ -7,9 +7,11 @@ import (
 	"io"
 	"net"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
@@ -349,62 +351,69 @@ func runNodes(t *testing.T, nodes []nodeAssertion) ([]*config.Node, func()) {
 
 func TestPostgresReadWriteCheck(t *testing.T) {
 	testCases := []struct {
-		desc     string
-		setup    func(t *testing.T, db glsql.DB) error
-		errMsg   string
-		logLines string
+		desc        string
+		setup       func(t *testing.T, db glsql.DB) config.DB
+		expectedErr string
+		expectedLog string
 	}{
 		{
 			desc: "read and write work",
-			setup: func(t *testing.T, db glsql.DB) error {
-				return nil
+			setup: func(t *testing.T, db glsql.DB) config.DB {
+				return glsql.GetDBConfig(t, db.Name)
 			},
-			errMsg:   "",
-			logLines: "successfully read from database\nsuccessfully wrote to database\n",
+			expectedLog: "successfully read from database\nsuccessfully wrote to database\n",
 		},
 		{
 			desc: "read only",
-			setup: func(t *testing.T, db glsql.DB) error {
-				tx := db.Begin(t)
+			setup: func(t *testing.T, db glsql.DB) config.DB {
+				role := "praefect_ro_role_" + strings.ReplaceAll(uuid.New().String(), "-", "")
 
-				if _, err := tx.Exec("LOCK TABLE hello_world IN ACCESS EXCLUSIVE MODE"); err != nil {
-					return err
-				}
+				_, err := db.Exec(fmt.Sprintf(`
+					CREATE ROLE %[1]s LOGIN;
+					GRANT SELECT ON ALL TABLES IN SCHEMA public TO %[1]s;`, role))
+				require.NoError(t, err)
 
-				t.Cleanup(func() { tx.Rollback(t) })
-				return nil
+				t.Cleanup(func() {
+					_, err := db.Exec(fmt.Sprintf(`
+						DROP OWNED BY %[1]s;
+						DROP ROLE %[1]s;`, role))
+					require.NoError(t, err)
+				})
+
+				dbCfg := glsql.GetDBConfig(t, db.Name)
+				dbCfg.User = role
+				dbCfg.Password = ""
+
+				return dbCfg
 			},
-			errMsg:   "error reading from table",
-			logLines: "",
+			expectedErr: "error writing to table: pq: permission denied for table hello_world",
+			expectedLog: "successfully read from database\n",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context(testhelper.ContextWithTimeout(5 * time.Second))
+			ctx, cancel := testhelper.Context()
 			defer cancel()
 
 			db := glsql.NewDB(t)
-			defer func() {
-				require.NoError(t, db.Close())
-			}()
+			t.Cleanup(func() { require.NoError(t, db.Close()) })
 
-			require.NoError(t, tc.setup(t, db))
-
-			dbConf := glsql.GetDBConfig(t, db.Name)
+			dbConf := tc.setup(t, db)
 
 			conf := config.Config{DB: dbConf}
 			var out bytes.Buffer
 			c := NewPostgresReadWriteCheck(conf, &out, false)
 
 			err := c.Run(ctx)
-			if tc.errMsg != "" {
-				assert.Contains(t, err.Error(), tc.errMsg)
+			if tc.expectedErr != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectedErr)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 
-			assert.Equal(t, tc.logLines, out.String())
+			require.Equal(t, tc.expectedLog, out.String())
 		})
 	}
 }
