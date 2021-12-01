@@ -581,7 +581,6 @@ ${GIT_PREFIX}/bin/git: ${GIT_SOURCE_DIR}/Makefile
 	# want to delete the actual location the user wants to install to.
 	# Otherwise, we may end up wiping e.g. `/usr/local`.
 	${Q}rm -rf ${GIT_INSTALL_DIR}
-	${Q}mkdir -p ${GIT_INSTALL_DIR}
 	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C ${GIT_SOURCE_DIR} -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
 	${Q}touch $@
 
