@@ -1,7 +1,6 @@
 package commandstatshandler
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"net"
@@ -10,6 +9,7 @@ import (
 	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
@@ -30,8 +30,7 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-func createNewServer(t *testing.T, cfg config.Cfg) *grpc.Server {
-	logger := testhelper.NewTestLogger(t)
+func createNewServer(t *testing.T, cfg config.Cfg, logger *logrus.Logger) *grpc.Server {
 	logrusEntry := logrus.NewEntry(logger).WithField("test", t.Name())
 
 	opts := []grpc.ServerOption{
@@ -75,12 +74,9 @@ func getBufDialer(listener *bufconn.Listener) func(context.Context, string) (net
 func TestInterceptor(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	logBuffer := &bytes.Buffer{}
-	testhelper.NewTestLogger = func(tb testing.TB) *logrus.Logger {
-		return &logrus.Logger{Out: logBuffer, Formatter: &logrus.JSONFormatter{}, Level: logrus.InfoLevel}
-	}
+	logger, hook := test.NewNullLogger()
 
-	s := createNewServer(t, cfg)
+	s := createNewServer(t, cfg, logger)
 	defer s.Stop()
 
 	bufferSize := 1024 * 1024
@@ -91,9 +87,9 @@ func TestInterceptor(t *testing.T) {
 	}()
 
 	tests := []struct {
-		name        string
-		performRPC  func(ctx context.Context, client gitalypb.RefServiceClient)
-		expectedLog string
+		name            string
+		performRPC      func(ctx context.Context, client gitalypb.RefServiceClient)
+		expectedLogData map[string]interface{}
 	}{
 		{
 			name: "Unary",
@@ -103,7 +99,9 @@ func TestInterceptor(t *testing.T) {
 				_, err := client.RefExists(ctx, req)
 				require.NoError(t, err)
 			},
-			expectedLog: "\"command.count\":1",
+			expectedLogData: map[string]interface{}{
+				"command.count": 1,
+			},
 		},
 		{
 			name: "Stream",
@@ -121,12 +119,14 @@ func TestInterceptor(t *testing.T) {
 					require.NoError(t, err)
 				}
 			},
-			expectedLog: "\"command.count\":1",
+			expectedLogData: map[string]interface{}{
+				"command.count": 1,
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logBuffer.Reset()
+			hook.Reset()
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
@@ -138,7 +138,13 @@ func TestInterceptor(t *testing.T) {
 			client := gitalypb.NewRefServiceClient(conn)
 
 			tt.performRPC(ctx, client)
-			require.Contains(t, logBuffer.String(), tt.expectedLog)
+
+			logEntries := hook.AllEntries()
+			require.Len(t, logEntries, 1)
+			for expectedLogKey, expectedLogValue := range tt.expectedLogData {
+				require.Contains(t, logEntries[0].Data, expectedLogKey)
+				require.Equal(t, logEntries[0].Data[expectedLogKey], expectedLogValue)
+			}
 		})
 	}
 }
