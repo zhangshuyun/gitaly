@@ -62,7 +62,7 @@ func TestAddRepository_Exec_invalidArgs(t *testing.T) {
 	})
 
 	t.Run("db connection error", func(t *testing.T) {
-		cmd := trackRepository{virtualStorage: "stub", relativePath: "stub", authoritativeStorage: "storage-0", logger: testhelper.NewTestLogger(t)}
+		cmd := trackRepository{virtualStorage: "stub", relativePath: "stub", authoritativeStorage: "storage-0", logger: testhelper.NewDiscardingLogger(t)}
 		cfg := config.Config{DB: config.DB{Host: "stub", SSLMode: "disable"}}
 		err := cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), cfg)
 		require.Error(t, err)
@@ -142,14 +142,14 @@ func TestAddRepository_Exec(t *testing.T) {
 		},
 	}
 
-	logger := testhelper.NewTestLogger(t)
+	logger := testhelper.NewDiscardingLogger(t)
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
 			addCmdConf := conf
 			addCmdConf.Failover = tc.failoverConfig
 
 			t.Run("ok", func(t *testing.T) {
-				nodeMgr, err := nodes.NewManager(testhelper.DiscardTestEntry(t), addCmdConf, db.DB, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
+				nodeMgr, err := nodes.NewManager(testhelper.NewDiscardingLogEntry(t), addCmdConf, db.DB, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
 				require.NoError(t, err)
 				nodeMgr.Start(0, time.Hour)
 				defer nodeMgr.Stop()
@@ -198,7 +198,7 @@ func TestAddRepository_Exec(t *testing.T) {
 				relativePath := fmt.Sprintf("path/to/test/repo_1_%s", tn)
 
 				cmd := &trackRepository{
-					logger:               testhelper.NewTestLogger(t),
+					logger:               testhelper.NewDiscardingLogger(t),
 					virtualStorage:       "praefect",
 					relativePath:         relativePath,
 					authoritativeStorage: tc.authoritativeStorage,
@@ -220,7 +220,7 @@ func TestAddRepository_Exec(t *testing.T) {
 				require.NoError(t, ds.CreateRepository(ctx, id, virtualStorageName, relativePath, relativePath, g1Cfg.Storages[0].Name, nil, nil, true, true))
 
 				cmd := &trackRepository{
-					logger:               testhelper.NewTestLogger(t),
+					logger:               testhelper.NewDiscardingLogger(t),
 					virtualStorage:       virtualStorageName,
 					relativePath:         relativePath,
 					authoritativeStorage: tc.authoritativeStorage,

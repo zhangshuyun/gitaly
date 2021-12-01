@@ -493,7 +493,7 @@ func TestHealthManager(t *testing.T) {
 						}
 					}
 
-					hm = NewHealthManager(testhelper.DiscardTestLogger(t), db, hc.PraefectName, clients)
+					hm = NewHealthManager(testhelper.NewDiscardingLogger(t), db, hc.PraefectName, clients)
 					hm.handleError = func(err error) error { return err }
 					healthManagers[hc.PraefectName] = hm
 				}
@@ -564,7 +564,7 @@ func TestHealthManager_databaseTimeout(t *testing.T) {
 	defer blockingTx.Rollback(t)
 
 	newHealthManager := func(db glsql.Querier) *HealthManager {
-		return NewHealthManager(testhelper.DiscardTestLogger(t), db, "praefect", HealthClients{
+		return NewHealthManager(testhelper.NewDiscardingLogger(t), db, "praefect", HealthClients{
 			"virtual-storage": {
 				"gitaly": mockHealthClient{
 					CheckFunc: func(context.Context, *grpc_health_v1.HealthCheckRequest, ...grpc.CallOption) (*grpc_health_v1.HealthCheckResponse, error) {
@@ -636,12 +636,12 @@ func TestHealthManager_orderedWrites(t *testing.T) {
 
 	returnErr := func(err error) error { return err }
 
-	hm1 := NewHealthManager(testhelper.DiscardTestLogger(t), tx1, praefectName, nil)
+	hm1 := NewHealthManager(testhelper.NewDiscardingLogger(t), tx1, praefectName, nil)
 	hm1.handleError = returnErr
 	require.NoError(t, hm1.updateHealthChecks(ctx, []string{virtualStorage}, []string{"gitaly-1"}, []bool{true}))
 
 	tx2Err := make(chan error, 1)
-	hm2 := NewHealthManager(testhelper.DiscardTestLogger(t), tx2, praefectName, nil)
+	hm2 := NewHealthManager(testhelper.NewDiscardingLogger(t), tx2, praefectName, nil)
 	hm2.handleError = returnErr
 	go func() {
 		tx2Err <- hm2.updateHealthChecks(ctx, []string{virtualStorage, virtualStorage}, []string{"gitaly-2", "gitaly-1"}, []bool{true, true})

@@ -155,7 +155,7 @@ func runServer(t *testing.T, secure bool, cfg config.Cfg, connectionType string,
 	), cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	diskCache := cache.New(cfg, locator)
-	srv, err := server.New(secure, cfg, testhelper.DiscardTestEntry(t), registry, diskCache)
+	srv, err := server.New(secure, cfg, testhelper.NewDiscardingLogEntry(t), registry, diskCache)
 	require.NoError(t, err)
 	setup.RegisterAll(srv, &service.Dependencies{
 		Cfg:                cfg,

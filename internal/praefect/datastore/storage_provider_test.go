@@ -93,7 +93,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 	t.Run("repository store returns an error", func(t *testing.T) {
 		db.TruncateAll(t)
 
-		ctx, cancel := testhelper.Context(testhelper.ContextWithLogger(testhelper.DiscardTestEntry(t)))
+		ctx, cancel := testhelper.Context(testhelper.ContextWithLogger(testhelper.NewDiscardingLogEntry(t)))
 		defer cancel()
 
 		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
@@ -115,7 +115,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 	t.Run("cache is disabled after handling invalid payload", func(t *testing.T) {
 		db.TruncateAll(t)
 
-		logger := testhelper.DiscardTestEntry(t)
+		logger := testhelper.NewDiscardingLogEntry(t)
 		logHook := test.NewLocal(logger.Logger)
 
 		ctx, cancel := testhelper.Context(testhelper.ContextWithLogger(logger))

@@ -139,7 +139,7 @@ func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 	client := newMuxedRepositoryClient(t, ctx, cfg, serverSocketPath, backchannel.NewClientHandshaker(
-		testhelper.DiscardTestEntry(t),
+		testhelper.NewDiscardingLogEntry(t),
 		func() backchannel.Server {
 			srv := grpc.NewServer()
 			gitalypb.RegisterRefTransactionServer(srv, &txServer)

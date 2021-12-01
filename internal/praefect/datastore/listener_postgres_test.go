@@ -47,7 +47,7 @@ func TestNewPostgresListener(t *testing.T) {
 		},
 	} {
 		t.Run(title, func(t *testing.T) {
-			pgl, err := NewPostgresListener(testhelper.NewTestLogger(t), tc.opts, nil)
+			pgl, err := NewPostgresListener(testhelper.NewDiscardingLogger(t), tc.opts, nil)
 			if tc.expErrMsg != "" {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tc.expErrMsg)
@@ -87,7 +87,7 @@ func TestPostgresListener_Listen(t *testing.T) {
 	t.Parallel()
 	db := glsql.NewDB(t)
 
-	logger := testhelper.NewTestLogger(t)
+	logger := testhelper.NewDiscardingLogger(t)
 
 	newOpts := func() PostgresListenerOpts {
 		opts := DefaultPostgresListenerOpts
@@ -528,7 +528,7 @@ func testListener(t *testing.T, dbName, channel string, setup func(t *testing.T)
 
 	handler := mockListenHandler{OnNotification: callback, OnConnected: func() { close(readyChan) }}
 
-	pgl, err := NewPostgresListener(testhelper.NewTestLogger(t), opts, handler)
+	pgl, err := NewPostgresListener(testhelper.NewDiscardingLogger(t), opts, handler)
 	require.NoError(t, err)
 	defer pgl.Close()
 

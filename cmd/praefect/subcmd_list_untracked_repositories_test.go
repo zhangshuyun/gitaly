@@ -105,7 +105,7 @@ func TestListUntrackedRepositories_Exec(t *testing.T) {
 	// Repository managed by praefect, exists on gitaly-1 and gitaly-2.
 	createRepo(t, ctx, repoClient, praefectStorage, "path/to/test/repo")
 	out := &bytes.Buffer{}
-	cmd := newListUntrackedRepositories(testhelper.NewTestLogger(t), out)
+	cmd := newListUntrackedRepositories(testhelper.NewDiscardingLogger(t), out)
 	require.NoError(t, cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), conf))
 
 	exp := []string{

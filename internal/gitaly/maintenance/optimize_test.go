@@ -112,7 +112,7 @@ func TestOptimizeReposRandomly(t *testing.T) {
 			}
 			walker := OptimizeReposRandomly(cfg.Storages, mo, ticker, rand.New(rand.NewSource(1)))
 
-			require.NoError(t, walker(ctx, testhelper.DiscardTestEntry(t), tc.storages))
+			require.NoError(t, walker(ctx, testhelper.NewDiscardingLogEntry(t), tc.storages))
 			require.ElementsMatch(t, tc.expected, mo.actual)
 			require.True(t, tickerDone)
 			// We expect one more tick than optimized repositories because of the

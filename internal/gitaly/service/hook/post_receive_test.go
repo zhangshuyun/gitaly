@@ -87,7 +87,7 @@ func TestHooksMissingStdin(t *testing.T) {
 				},
 			}
 
-			gitlabClient, err := gitlab.NewHTTPClient(testhelper.NewTestLogger(t), cfg.Gitlab, cfg.TLS, prometheus.Config{})
+			gitlabClient, err := gitlab.NewHTTPClient(testhelper.NewDiscardingLogger(t), cfg.Gitlab, cfg.TLS, prometheus.Config{})
 			require.NoError(t, err)
 
 			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
@@ -218,7 +218,7 @@ To create a merge request for okay, visit:
 				},
 			}
 
-			gitlabClient, err := gitlab.NewHTTPClient(testhelper.NewTestLogger(t), cfg.Gitlab, cfg.TLS, prometheus.Config{})
+			gitlabClient, err := gitlab.NewHTTPClient(testhelper.NewDiscardingLogger(t), cfg.Gitlab, cfg.TLS, prometheus.Config{})
 			require.NoError(t, err)
 
 			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))

@@ -201,7 +201,7 @@ func runServer(t *testing.T, cfg config.Cfg) string {
 	t.Cleanup(catfileCache.Stop)
 	diskCache := cache.New(cfg, locator)
 
-	srv, err := New(false, cfg, testhelper.DiscardTestEntry(t), registry, diskCache)
+	srv, err := New(false, cfg, testhelper.NewDiscardingLogEntry(t), registry, diskCache)
 	require.NoError(t, err)
 
 	setup.RegisterAll(srv, &service.Dependencies{
@@ -235,7 +235,7 @@ func runSecureServer(t *testing.T, cfg config.Cfg) string {
 	conns := client.NewPool()
 	t.Cleanup(func() { conns.Close() })
 
-	srv, err := New(true, cfg, testhelper.DiscardTestEntry(t), backchannel.NewRegistry(), cache.New(cfg, config.NewLocator(cfg)))
+	srv, err := New(true, cfg, testhelper.NewDiscardingLogEntry(t), backchannel.NewRegistry(), cache.New(cfg, config.NewLocator(cfg)))
 	require.NoError(t, err)
 
 	healthpb.RegisterHealthServer(srv, health.NewServer())

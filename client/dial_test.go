@@ -640,4 +640,4 @@ func TestHealthCheckDialer(t *testing.T) {
 	require.NoError(t, cc.Close())
 }
 
-func newLogger(t testing.TB) *logrus.Entry { return logrus.NewEntry(testhelper.NewTestLogger(t)) }
+func newLogger(t testing.TB) *logrus.Entry { return logrus.NewEntry(testhelper.NewDiscardingLogger(t)) }

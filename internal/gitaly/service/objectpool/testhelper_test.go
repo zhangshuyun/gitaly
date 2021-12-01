@@ -36,7 +36,7 @@ func setup(t *testing.T, opts ...testserver.GitalyServerOpt) (config.Cfg, *gital
 	testcfg.BuildGitalyHooks(t, cfg)
 
 	locator := config.NewLocator(cfg)
-	addr := runObjectPoolServer(t, cfg, locator, testhelper.DiscardTestLogger(t), opts...)
+	addr := runObjectPoolServer(t, cfg, locator, testhelper.NewDiscardingLogger(t), opts...)
 
 	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	require.NoError(t, err)
