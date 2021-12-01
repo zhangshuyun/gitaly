@@ -415,7 +415,7 @@ notice: ${SOURCE_DIR}/NOTICE
 .PHONY: clean
 ## Clean up build artifacts.
 clean:
-	rm -rf ${BUILD_DIR} ${SOURCE_DIR}/internal/testhelper/testdata/data/ ${SOURCE_DIR}/ruby/.bundle/ ${SOURCE_DIR}/ruby/vendor/bundle/
+	rm -rf ${BUILD_DIR} ${SOURCE_DIR}/ruby/.bundle/ ${SOURCE_DIR}/ruby/vendor/bundle/
 
 .PHONY: clean-ruby-vendor-go
 clean-ruby-vendor-go:
