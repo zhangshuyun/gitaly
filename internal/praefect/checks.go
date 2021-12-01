@@ -121,7 +121,7 @@ func NewPostgresReadWriteCheck(conf config.Config, w io.Writer, quiet bool) *Che
 
 			res, err := tx.ExecContext(ctx, "INSERT INTO hello_world (id) VALUES(1)")
 			if err != nil {
-				return err
+				return fmt.Errorf("error writing to table: %w", err)
 			}
 
 			rows, err := res.RowsAffected()
