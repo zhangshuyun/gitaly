@@ -1,5 +1,12 @@
 # Gitaly changelog
 
+## 14.5.1 (2021-12-01)
+
+### Fixed (2 changes)
+
+- [catfile: Ensure structs are properly aligned in memory for 32-bit CPUs](gitlab-org/gitaly@e6b25f51212ac99bbc3a98a346a90c79db3cc6d7) ([merge request](gitlab-org/gitaly!4142))
+- [praefect: Do not collect repository store metrics on startup](gitlab-org/gitaly@7f14032ca824a99b535171e3b3cdbbb55200d924) ([merge request](gitlab-org/gitaly!4107))
+
 ## 14.5.0 (2021-11-19)
 
 ### Added (11 changes)
