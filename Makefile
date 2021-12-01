@@ -579,7 +579,7 @@ ${GIT_INSTALL_DIR}/bin/git: ${GIT_SOURCE_DIR}/Makefile
 	${Q}rm -rf ${GIT_INSTALL_DIR}
 	${Q}mkdir -p ${GIT_INSTALL_DIR}
 	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C ${GIT_SOURCE_DIR} -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
-	${Q}touch $@
+	${Q}touch ${GIT_PREFIX}/bin/git
 
 ${TOOLS_DIR}/protoc.zip: TOOL_VERSION = ${PROTOC_VERSION}
 ${TOOLS_DIR}/protoc.zip: ${TOOLS_DIR}/protoc.version
