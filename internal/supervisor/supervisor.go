@@ -101,9 +101,9 @@ func (p *Process) start(logger *log.Entry) (*exec.Cmd, error) {
 	return cmd, cmd.Start()
 }
 
-func (p *Process) notifyUp(pid int) {
+func (p *Process) notifyEvent(eventType EventType, pid int) {
 	select {
-	case p.events <- Event{Type: Up, Pid: pid}:
+	case p.events <- Event{Type: eventType, Pid: pid}:
 	case <-time.After(1 * time.Second):
 		// Timeout
 	}
@@ -158,7 +158,7 @@ spawnLoop:
 			continue
 		}
 		pid := cmd.Process.Pid
-		go p.notifyUp(pid)
+		go p.notifyEvent(Up, pid)
 		logger.WithField("supervisor.pid", pid).Warn("spawned")
 
 		waitCh := make(chan struct{})
@@ -184,7 +184,7 @@ spawnLoop:
 		for {
 			select {
 			case <-notificationTicker.C():
-				go p.notifyUp(pid)
+				go p.notifyEvent(Up, pid)
 
 				// We repeat this idempotent notification because its delivery is not
 				// guaranteed.
