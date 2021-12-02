@@ -29,8 +29,8 @@ func TestSupervisor_RespawnAfterCrashWithoutCircuitBreaker(t *testing.T) {
 
 	config := Config{
 		CrashThreshold: 3,
-		CrashWaitTime:  time.Minute,
-		CrashResetTime: time.Minute,
+		CrashWaitTime:  time.Hour,
+		CrashResetTime: time.Hour,
 	}
 
 	eventCh := make(chan Event, 1)
@@ -43,8 +43,7 @@ func TestSupervisor_RespawnAfterCrashWithoutCircuitBreaker(t *testing.T) {
 	// to respawn less often than the CrashThreshold.
 	var pids []int
 	for i := 0; i < config.CrashThreshold; i++ {
-		pid, ok := tryGetPid(t, eventCh, filepath.Join(tempDir, "socket"), 5*time.Second)
-		require.True(t, ok)
+		pid := waitForProcess(t, eventCh, filepath.Join(tempDir, "socket"))
 		require.NoError(t, syscall.Kill(pid, syscall.SIGKILL))
 		pids = append(pids, pid)
 	}
@@ -64,8 +63,8 @@ func TestSupervisor_TooManyCrashes(t *testing.T) {
 
 	config := Config{
 		CrashThreshold: 3,
-		CrashWaitTime:  time.Minute,
-		CrashResetTime: time.Minute,
+		CrashWaitTime:  time.Second,
+		CrashResetTime: time.Hour,
 	}
 
 	eventCh := make(chan Event, 1)
@@ -75,16 +74,22 @@ func TestSupervisor_TooManyCrashes(t *testing.T) {
 
 	// Kill the service `CrashThreshold` times, which will cause it to not come up after the
 	// last iteration.
+	var killTime time.Time
 	for i := 0; i < config.CrashThreshold; i++ {
-		pid, ok := tryGetPid(t, eventCh, filepath.Join(tempDir, "socket"), 1*time.Second)
-		require.True(t, ok)
+		pid := waitForProcess(t, eventCh, filepath.Join(tempDir, "socket"))
+
+		// Record the kill time such that we can assert that the process spawned after the
+		// circuit breaker has triggered waited for at least `CrashWaitTime`.
+		killTime = time.Now()
+
 		require.NoError(t, syscall.Kill(pid, syscall.SIGKILL))
 	}
 
-	// We should thus see the process not coming up here again given that there is a larger
-	// timeout after we have reached the threshold.
-	_, ok := tryGetPid(t, eventCh, filepath.Join(tempDir, "socket"), 1*time.Second)
-	require.False(t, ok, "circuit breaker should cause a connection error / timeout")
+	// Connecting to the process should work after the circuit breaker has kicked in, but it
+	// should take at least `CrashWaitTime` time.
+	waitForProcess(t, eventCh, filepath.Join(tempDir, "socket"))
+
+	require.True(t, time.Now().After(killTime.Add(config.CrashWaitTime)), "circuit breaker should have delayed start")
 }
 
 func TestSupervisor_SpawnFailure(t *testing.T) {
@@ -95,14 +100,14 @@ func TestSupervisor_SpawnFailure(t *testing.T) {
 
 	config := Config{
 		CrashThreshold: 3,
-		CrashWaitTime:  2 * time.Second,
-		CrashResetTime: time.Minute,
+		CrashWaitTime:  time.Second,
+		CrashResetTime: time.Hour,
 	}
 
 	notFoundExe := filepath.Join(tempDir, "not-found")
 
 	// Spawn the supervisor with an executable that doesn't exist.
-	eventCh := make(chan Event, config.CrashThreshold + 1)
+	eventCh := make(chan Event, config.CrashThreshold+1)
 	process, err := New(config, t.Name(), nil, []string{notFoundExe}, tempDir, 0, eventCh, nil)
 	require.NoError(t, err)
 	defer process.Stop()
@@ -122,9 +127,8 @@ func TestSupervisor_SpawnFailure(t *testing.T) {
 	// 'Fix' the spawning problem of our process by symlinking the PID server into place.
 	require.NoError(t, os.Symlink(pidServer, notFoundExe))
 
-	// So that we should now see the server to come up again after CrashWaitTime (and a bit).
-	_, ok := tryGetPid(t, eventCh, filepath.Join(tempDir, "socket"), config.CrashWaitTime + time.Second)
-	require.True(t, ok)
+	// So that we should now see the server to come up again.
+	waitForProcess(t, eventCh, filepath.Join(tempDir, "socket"))
 }
 
 func TestNewConfigFromEnv(t *testing.T) {
@@ -187,57 +191,37 @@ func TestNewConfigFromEnv(t *testing.T) {
 	}
 }
 
-// tryGetPid will wait for the process to come up. If it does, then it connects to its service and
-// retrieves the PID. Returns the PID and `true` in case the process came up, `false` otherwise.
-func tryGetPid(t *testing.T, eventCh <-chan Event, socketPath string, timeout time.Duration) (int, bool) {
+// waitForProcess will wait for the process to come up. If it does, then it connects to its service
+// and retrieves the PID. Returns the PID if successful, fails the test if not.
+func waitForProcess(t *testing.T, eventCh <-chan Event, socketPath string) int {
 	t.Helper()
 
-	ctx, cancel := testhelper.Context(testhelper.ContextWithTimeout(timeout))
-	defer cancel()
-
-	// We first wait for the process to come back up by waiting for its event notifcation. If
-	// we do not receive an Up event, then we gracefully fail and notify the caller that the
-	// supervisor did not respawn the executable.
+	// We first wait for the process to come back up by waiting for its event notifcation.
 	for {
-		var up bool
-		select {
-		case event := <-eventCh:
-			up = event.Type == Up
-		case <-ctx.Done():
-			return 0, false
-		}
-
-		if up {
+		event := <-eventCh
+		if event.Type == Up {
 			break
 		}
 	}
 
-	// If we got here, then we know that the process must've come up. We thus require the
-	// connection to it to succeed given that otherwise it would indicate that the running
-	// process is somehow unable to serve requests, which is unexpected. Given that there is
-	// still a race between the process coming up and it creating its socket, we must loop
-	// around the connection.
-	for {
-		conn, err := net.DialTimeout("unix", socketPath, 1*time.Millisecond)
-		if err != nil {
-			select {
-			case <-ctx.Done():
-				require.FailNow(t, "process did not start to serve")
-			case <-time.After(5 * time.Millisecond):
-				continue
-			}
-		}
-		defer testhelper.MustClose(t, conn)
+	// Even if the service is up, we still need to wait for the socket to be created.
+	var conn net.Conn
+	require.Eventually(t, func() bool {
+		var err error
+		conn, err = net.Dial("unix", socketPath)
+		return err == nil
+	}, time.Minute, 10*time.Millisecond)
 
-		response, err := io.ReadAll(conn)
-		require.NoError(t, err)
+	defer testhelper.MustClose(t, conn)
 
-		pid, err := strconv.Atoi(string(response))
-		require.NoError(t, err)
-		require.NotZero(t, pid, "we should have received the pid of the new process")
+	response, err := io.ReadAll(conn)
+	require.NoError(t, err)
 
-		return pid, true
-	}
+	pid, err := strconv.Atoi(string(response))
+	require.NoError(t, err)
+	require.NotZero(t, pid, "we should have received the pid of the new process")
+
+	return pid
 }
 
 func buildPidServer(t *testing.T) string {
