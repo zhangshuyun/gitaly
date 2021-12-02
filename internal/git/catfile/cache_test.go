@@ -149,29 +149,29 @@ func TestProcesses_EnforceTTL(t *testing.T) {
 }
 
 func TestCache_autoExpiry(t *testing.T) {
-	ttl := 5 * time.Millisecond
-	refresh := 1 * time.Millisecond
-	c := newCache(ttl, 10, helper.NewTimerTicker(refresh))
+	monitorTicker := helper.NewManualTicker()
+
+	c := newCache(time.Hour, 10, monitorTicker)
 	defer c.Stop()
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
+	// Add a process that has expired already.
 	key0 := mustCreateKey(t, "0", repo)
 	value0, cancel := mustCreateCacheable(t, cfg, repo)
-	c.objectReaders.Add(key0, value0, time.Now().Add(ttl), cancel)
+	c.objectReaders.Add(key0, value0, time.Now().Add(-time.Millisecond), cancel)
 	requireProcessesValid(t, &c.objectReaders)
 
 	require.Contains(t, keys(t, &c.objectReaders), key0, "key should still be in map")
 	require.False(t, value0.isClosed(), "value should not have been closed")
 
-	// Wait for the monitor goroutine to do its thing
-	for i := 0; i < 100; i++ {
-		if len(keys(t, &c.objectReaders)) == 0 {
-			break
-		}
-
-		time.Sleep(refresh)
-	}
+	// We need to tick thrice to get deterministic results: the first tick is discarded before
+	// the monitor enters the loop, the second tick will be consumed and kicks off the eviction
+	// but doesn't yet guarantee that the eviction has finished, and the third tick will then
+	// start another eviction, which means that the previous eviction is done.
+	monitorTicker.Tick()
+	monitorTicker.Tick()
+	monitorTicker.Tick()
 
 	require.Empty(t, keys(t, &c.objectReaders), "key should no longer be in map")
 	require.True(t, value0.isClosed(), "value should be closed after eviction")
