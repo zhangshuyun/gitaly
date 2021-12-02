@@ -27,21 +27,31 @@ include:
   - template: Security/Coverage-Fuzzing.gitlab-ci.yml
   - template: Security/Secret-Detection.gitlab-ci.yml
 
-.cache: &cache_definition
-  cache: &cache_configuration
+.cache_deps:
+  cache: &cache_deps_configuration
     key:
       files:
         - Makefile
-        - ruby/Gemfile.lock
-      prefix: git-${GIT_VERSION}-ruby-${RUBY_VERSION}
+      prefix: git-${GIT_VERSION}
     paths:
       - _build/deps
+    policy: pull
+
+.cache_gems:
+  cache: &cache_gems_configuration
+    key:
+      files:
+        - ruby/Gemfile.lock
+      prefix: ruby-${RUBY_VERSION}
+    paths:
       - ruby/vendor/bundle
     policy: pull
 
 .test_template: &test_definition
-  <<: *cache_definition
   stage: test
+  cache:
+    - *cache_deps_configuration
+    - *cache_gems_configuration
   services:
     - postgres:${POSTGRES_VERSION}
   variables: &postgres_variables
@@ -87,8 +97,10 @@ danger-review:
 build:
   stage: build
   cache:
-    <<: *cache_configuration
-    policy: pull-push
+    - <<: *cache_deps_configuration
+      policy: pull-push
+    - <<: *cache_gems_configuration
+      policy: pull-push
   script:
     - go version
     - make all git
@@ -103,8 +115,9 @@ build:
       - GO_VERSION: [ "1.16", "1.17" ]
 
 build:binaries:
-  <<: *cache_definition
   stage: build
+  cache:
+    - *cache_deps_configuration
   only:
     - tags
   script:
@@ -229,8 +242,9 @@ test:fuzz_objectinfo:
     - ./gitlab-cov-fuzz run -- ./objectinfo_fuzzer -max_total_time=300
 
 verify:
-  <<: *cache_definition
   stage: test
+  cache:
+    - *cache_gems_configuration
   script:
     - make verify
   artifacts:
@@ -241,8 +255,9 @@ verify:
     when: on_failure
 
 dbschema:
-  <<: *cache_definition
   stage: test
+  cache:
+    - *cache_deps_configuration
   services:
     # The database version we use must match the version of `pg_dump` we have
     # available in the build image.
