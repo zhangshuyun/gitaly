@@ -205,7 +205,9 @@ endif
 ## Go packages to test when using the test-go target.
 TEST_PACKAGES    ?= ${SOURCE_DIR}/...
 ## Test options passed to `go test`.
-TEST_OPTIONS     ?= -v -count=1
+TEST_OPTIONS     ?= -count=1
+## Specify the output format used to print tests ["standard-verbose", "standard-quiet", "short"]
+TEST_FORMAT      ?= short
 TEST_REPORT      ?= ${BUILD_DIR}/reports/go-tests-report.xml
 ## Directory where all runtime test data is being created.
 TEST_TMP_DIR     ?=
@@ -230,7 +232,7 @@ find_go_sources       = $(shell find ${SOURCE_DIR} -type d \( -name ruby -o -nam
 run_go_tests = PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}' \
     GIT_DIR=/dev/null \
     TEST_TMP_DIR='${TEST_TMP_DIR}' \
-    ${GOTESTSUM} --junitfile ${TEST_REPORT} -- ${GO_LDFLAGS} -tags '${GO_BUILD_TAGS}' ${TEST_OPTIONS} ${TEST_PACKAGES}
+    ${GOTESTSUM} --format ${TEST_FORMAT} --junitfile ${TEST_REPORT} -- ${GO_LDFLAGS} -tags '${GO_BUILD_TAGS}' ${TEST_OPTIONS} ${TEST_PACKAGES}
 
 unexport GOROOT
 export GOBIN                      = ${BUILD_DIR}/bin
@@ -325,7 +327,7 @@ endif
 
 .PHONY: prepare-tests
 prepare-tests: libgit2 prepare-test-repos ${SOURCE_DIR}/.ruby-bundle ${GOTESTSUM}
-	${Q}mkdir -p ${dir ${TEST_REPORT}}
+	${Q}mkdir -p "$(dir ${TEST_REPORT})"
 
 .PHONY: prepare-test-repos
 prepare-test-repos: ${TEST_REPO} ${TEST_REPO_GIT}
