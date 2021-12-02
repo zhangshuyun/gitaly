@@ -351,6 +351,11 @@ func testManagerRestore(t *testing.T, cfg config.Cfg, gitalyAddr string) {
 			}
 		}
 
+		// The repository might be created through Praefect and the tests reach into the repository directly
+		// on the filesystem. To ensure the test accesses correct directory, we need to rewrite the relative
+		// path if the repository creation went through Praefect.
+		repo.RelativePath = testhelper.GetReplicaPath(ctx, t, cc, repo)
+
 		return repo
 	}
 
@@ -516,7 +521,6 @@ func testManagerRestore(t *testing.T, cfg config.Cfg, gitalyAddr string) {
 			for _, locatorName := range tc.locators {
 				t.Run(locatorName, func(t *testing.T) {
 					repo, expectedChecksum := tc.setup(t)
-					repoPath := filepath.Join(cfg.Storages[0].Path, repo.RelativePath)
 
 					pool := client.NewPool()
 					defer testhelper.MustClose(t, pool)
@@ -552,8 +556,14 @@ func testManagerRestore(t *testing.T, cfg config.Cfg, gitalyAddr string) {
 						require.Equal(t, expectedChecksum.String(), checksum.GetChecksum())
 					}
 
-					for _, p := range tc.expectedPaths {
-						require.FileExists(t, filepath.Join(repoPath, p))
+					if len(tc.expectedPaths) > 0 {
+						// Restore has to use the rewritten path as the relative path due to the test creating
+						// the repository through Praefect. In order to get to the correct disk paths, we need
+						// to get the replica path of the rewritten repository.
+						repoPath := filepath.Join(cfg.Storages[0].Path, testhelper.GetReplicaPath(ctx, t, cc, repo))
+						for _, p := range tc.expectedPaths {
+							require.FileExists(t, filepath.Join(repoPath, p))
+						}
 					}
 				})
 			}

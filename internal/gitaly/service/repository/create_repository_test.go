@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -57,12 +58,13 @@ func testCreateRepositorySuccessful(t *testing.T, ctx context.Context) {
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	relativePath := "create-repository-test.git"
-	repoDir := filepath.Join(cfg.Storages[0].Path, relativePath)
 
 	repo := &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: relativePath}
 	req := &gitalypb.CreateRepositoryRequest{Repository: repo}
 	_, err := client.CreateRepository(ctx, req)
 	require.NoError(t, err)
+
+	repoDir := filepath.Join(cfg.Storages[0].Path, getReplicaPath(ctx, t, client, repo))
 
 	require.NoError(t, unix.Access(repoDir, unix.R_OK))
 	require.NoError(t, unix.Access(repoDir, unix.W_OK))
@@ -91,14 +93,19 @@ func TestCreateRepository_failure(t *testing.T) {
 func testCreateRepositoryFailure(t *testing.T, ctx context.Context) {
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
+	// This tests what happens if a file already exists at the path of the repository. In order to have
+	// the test working with Praefect, we use the relative path to ensure the directory conflicts with
+	// the repository as Praefect would create it.
+	replicaPath := praefectutil.DeriveReplicaPath(1)
 	storagePath := cfg.Storages[0].Path
-	fullPath := filepath.Join(storagePath, "foo.git")
+	fullPath := filepath.Join(storagePath, replicaPath)
 
+	require.NoError(t, os.MkdirAll(filepath.Dir(fullPath), os.ModePerm))
 	_, err := os.Create(fullPath)
 	require.NoError(t, err)
 
 	_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
-		Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "foo.git"},
+		Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: replicaPath},
 	})
 
 	if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
@@ -165,15 +172,14 @@ func testCreateRepositoryTransactional(t *testing.T, ctx context.Context) {
 		called = 0
 		actualVote = voting.Vote{}
 
-		_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
-			Repository: &gitalypb.Repository{
-				StorageName:  cfg.Storages[0].Name,
-				RelativePath: "repo.git",
-			},
-		})
+		repo := &gitalypb.Repository{
+			StorageName:  cfg.Storages[0].Name,
+			RelativePath: "repo.git",
+		}
+		_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: repo})
 		require.NoError(t, err)
 
-		require.DirExists(t, filepath.Join(cfg.Storages[0].Path, "repo.git"))
+		require.DirExists(t, filepath.Join(cfg.Storages[0].Path, getReplicaPath(ctx, t, client, repo)))
 		if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
 			require.Equal(t, 2, called, "expected transactional vote")
 		} else {
@@ -186,7 +192,12 @@ func testCreateRepositoryTransactional(t *testing.T, ctx context.Context) {
 		called = 0
 		actualVote = voting.Vote{}
 
-		repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+		// The above test creates the second repository on the server. As this test can run with Praefect in front of it,
+		// we'll use the next replica path Praefect will assign in order to ensure this repository creation conflicts even
+		// with Praefect in front of it.
+		repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+			RelativePath: praefectutil.DeriveReplicaPath(2),
+		})
 
 		_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
 			Repository: repo,
@@ -214,7 +225,19 @@ func TestCreateRepository_idempotent(t *testing.T) {
 }
 
 func testCreateRepositoryIdempotent(t *testing.T, ctx context.Context) {
-	cfg, repo, repoPath, client := setupRepositoryService(t)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+	repo := &gitalypb.Repository{
+		StorageName: cfg.Storages[0].Name,
+		// This creates the first repository on the server. As this test can run with Praefect in front of it,
+		// we'll use the next replica path Praefect will assign in order to ensure this repository creation
+		// conflicts even with Praefect in front of it.
+		RelativePath: praefectutil.DeriveReplicaPath(1),
+	}
+
+	_, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+		RelativePath: repo.RelativePath,
+	})
 
 	refsBefore := strings.Split(string(gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref")), "\n")
 

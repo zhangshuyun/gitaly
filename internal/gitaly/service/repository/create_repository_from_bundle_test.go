@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
@@ -57,10 +58,6 @@ func testServerCreateRepositoryFromBundleSuccessful(t *testing.T, ctx context.Co
 		StorageName:  repo.GetStorageName(),
 		RelativePath: "a-repo-from-bundle",
 	}
-	importedRepo := localrepo.NewTestRepo(t, cfg, importedRepoProto)
-	importedRepoPath, err := locator.GetPath(importedRepoProto)
-	require.NoError(t, err)
-	defer func() { require.NoError(t, os.RemoveAll(importedRepoPath)) }()
 
 	request := &gitalypb.CreateRepositoryFromBundleRequest{Repository: importedRepoProto}
 	writer := streamio.NewWriter(func(p []byte) error {
@@ -84,6 +81,12 @@ func testServerCreateRepositoryFromBundleSuccessful(t *testing.T, ctx context.Co
 
 	_, err = stream.CloseAndRecv()
 	require.NoError(t, err)
+
+	importedRepoProto.RelativePath = getReplicaPath(ctx, t, client, importedRepoProto)
+	importedRepo := localrepo.NewTestRepo(t, cfg, importedRepoProto)
+	importedRepoPath, err := locator.GetPath(importedRepoProto)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, os.RemoveAll(importedRepoPath)) }()
 
 	gittest.Exec(t, cfg, "-C", importedRepoPath, "fsck")
 
@@ -264,7 +267,14 @@ func TestCreateRepositoryFromBundle_existingRepository(t *testing.T) {
 }
 
 func testServerCreateRepositoryFromBundleFailedExistingDirectory(t *testing.T, ctx context.Context) {
-	_, repo, _, client := setupRepositoryService(t)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+	// The above test creates the second repository on the server. As this test can run with Praefect in front of it,
+	// we'll use the next replica path Praefect will assign in order to ensure this repository creation conflicts even
+	// with Praefect in front of it.
+	repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+		RelativePath: praefectutil.DeriveReplicaPath(1),
+	})
 
 	stream, err := client.CreateRepositoryFromBundle(ctx)
 	require.NoError(t, err)

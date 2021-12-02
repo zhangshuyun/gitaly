@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -32,7 +33,6 @@ func testCreateRepotitoryFromURLSuccessful(t *testing.T, ctx context.Context) {
 		RelativePath: "imports/test-repo-imported.git",
 		StorageName:  cfg.Storages[0].Name,
 	}
-	importedRepoPath := filepath.Join(cfg.Storages[0].Path, importedRepo.GetRelativePath())
 
 	user := "username123"
 	password := "password321localhost"
@@ -51,6 +51,8 @@ func testCreateRepotitoryFromURLSuccessful(t *testing.T, ctx context.Context) {
 	_, err := client.CreateRepositoryFromURL(ctx, req)
 	require.NoError(t, err)
 
+	importedRepoPath := filepath.Join(cfg.Storages[0].Path, getReplicaPath(ctx, t, client, importedRepo))
+
 	gittest.Exec(t, cfg, "-C", importedRepoPath, "fsck")
 
 	remotes := gittest.Exec(t, cfg, "-C", importedRepoPath, "remote")
@@ -66,29 +68,27 @@ func TestCreateRepositoryFromURL_existingTarget(t *testing.T) {
 }
 
 func testCreateRepositoryFromURLExistingTarget(t *testing.T, ctx context.Context) {
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
-
 	testCases := []struct {
 		desc     string
 		repoPath string
 		isDir    bool
 	}{
 		{
-			desc:     "target is a directory",
-			repoPath: "imports/test-repo-import-dir.git",
-			isDir:    true,
+			desc:  "target is a directory",
+			isDir: true,
 		},
 		{
-			desc:     "target is a file",
-			repoPath: "imports/test-repo-import-file.git",
-			isDir:    false,
+			desc:  "target is a file",
+			isDir: false,
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
+			cfg, client := setupRepositoryServiceWithoutRepo(t)
+
 			importedRepo := &gitalypb.Repository{
-				RelativePath: "imports/test-repo-imported.git",
+				RelativePath: praefectutil.DeriveReplicaPath(1),
 				StorageName:  cfg.Storages[0].Name,
 			}
 			importedRepoPath := filepath.Join(cfg.Storages[0].Path, importedRepo.GetRelativePath())
@@ -96,6 +96,7 @@ func testCreateRepositoryFromURLExistingTarget(t *testing.T, ctx context.Context
 			if testCase.isDir {
 				require.NoError(t, os.MkdirAll(importedRepoPath, 0o770))
 			} else {
+				require.NoError(t, os.MkdirAll(filepath.Dir(importedRepoPath), os.ModePerm))
 				require.NoError(t, os.WriteFile(importedRepoPath, nil, 0o644))
 			}
 			t.Cleanup(func() { require.NoError(t, os.RemoveAll(importedRepoPath)) })

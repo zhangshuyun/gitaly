@@ -32,6 +32,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -102,7 +103,14 @@ func testCreateForkSuccessful(t *testing.T, ctx context.Context, certPool *x509.
 			})
 			require.NoError(t, err)
 
-			forkedRepoPath := filepath.Join(cfg.Storages[0].Path, forkedRepo.GetRelativePath())
+			replicaPath := forkedRepo.GetRelativePath()
+			if !tt.secure {
+				// Only the insecure test cases run through Praefect, so we only rewrite the path
+				// in that case.
+				replicaPath = getReplicaPath(ctx, t, client, forkedRepo)
+			}
+
+			forkedRepoPath := filepath.Join(cfg.Storages[0].Path, replicaPath)
 
 			gittest.Exec(t, cfg, "-C", forkedRepoPath, "fsck")
 			require.Empty(t, gittest.Exec(t, cfg, "-C", forkedRepoPath, "remote"))
@@ -148,14 +156,17 @@ func testCreateForkRefs(t *testing.T, ctx context.Context) {
 		RelativePath: gittest.NewRepositoryName(t, true),
 		StorageName:  sourceRepo.GetStorageName(),
 	}
-	targetRepoPath, err := config.NewLocator(cfg).GetPath(targetRepo)
-	require.NoError(t, err)
 
-	_, err = client.CreateFork(ctx, &gitalypb.CreateForkRequest{
+	_, err := client.CreateFork(ctx, &gitalypb.CreateForkRequest{
 		Repository:       targetRepo,
 		SourceRepository: sourceRepo,
 	})
 	require.NoError(t, err)
+
+	storagePath, err := config.NewLocator(cfg).GetStorageByName(targetRepo.GetStorageName())
+	require.NoError(t, err)
+
+	targetRepoPath := filepath.Join(storagePath, getReplicaPath(ctx, t, client, targetRepo))
 
 	require.Equal(t,
 		[]string{
@@ -178,10 +189,6 @@ func TestCreateFork_targetExists(t *testing.T) {
 }
 
 func testCreateForkTargetExists(t *testing.T, ctx context.Context) {
-	cfg, repo, _, client := setupRepositoryService(t)
-
-	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
-
 	for _, tc := range []struct {
 		desc                          string
 		seed                          func(t *testing.T, targetPath string)
@@ -219,8 +226,14 @@ func testCreateForkTargetExists(t *testing.T, ctx context.Context) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			cfg, repo, _, client := setupRepositoryService(t)
+
+			ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
+
 			forkedRepo := &gitalypb.Repository{
-				RelativePath: gittest.NewRepositoryName(t, true),
+				// As this test can run with Praefect in front of it, we'll use the next replica path Praefect will
+				// assign in order to ensure this repository creation conflicts even with Praefect in front of it.
+				RelativePath: praefectutil.DeriveReplicaPath(1),
 				StorageName:  repo.StorageName,
 			}
 
