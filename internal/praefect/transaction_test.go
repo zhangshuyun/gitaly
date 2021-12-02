@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
@@ -76,10 +75,6 @@ func TestTransactionSucceeds(t *testing.T) {
 
 	cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
 	defer cleanup()
-
-	// setup timeout only after praefect setup as db migration may require some time
-	ctx, cancel = context.WithTimeout(ctx, time.Second)
-	defer cancel()
 
 	client := gitalypb.NewRefTransactionClient(cc)
 
@@ -579,10 +574,6 @@ func TestTransactionFailures(t *testing.T) {
 	cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
 	defer cleanup()
 
-	// setup timeout only after praefect setup as db migration may require some time
-	ctx, cancel = context.WithTimeout(ctx, time.Second)
-	defer cancel()
-
 	client := gitalypb.NewRefTransactionClient(cc)
 
 	hash := sha1.Sum([]byte{})
@@ -653,10 +644,6 @@ func TestTransactionCancellation(t *testing.T) {
 
 			cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
 			defer cleanup()
-
-			// setup timeout only after praefect setup as db migration may require some time
-			ctx, cancel = context.WithTimeout(ctx, time.Second)
-			defer cancel()
 
 			client := gitalypb.NewRefTransactionClient(cc)
 

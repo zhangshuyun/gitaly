@@ -14,7 +14,6 @@ import (
 	"net/url"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/getsentry/sentry-go"
 	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -214,7 +213,7 @@ func (s *ProxyHappySuite) TestPingStream_StressTest() {
 }
 
 func (s *ProxyHappySuite) SetupSuite() {
-	s.ctx, s.cancel = context.WithTimeout(context.Background(), 120*time.Second)
+	s.ctx, s.cancel = testhelper.Context()
 
 	listenerProxy, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(s.T(), err, "must be able to allocate a port for listenerProxy")
@@ -268,8 +267,9 @@ func (s *ProxyHappySuite) SetupSuite() {
 	}()
 
 	// Setup client for test suite
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := testhelper.Context()
 	defer cancel()
+
 	s.connClient2Proxy, err = grpc.DialContext(ctx, listenerProxy.Addr().String(), grpc.WithInsecure())
 	require.NoError(s.T(), err, "must not error on deferred client Dial")
 	s.client = pb.NewTestServiceClient(s.connClient2Proxy)

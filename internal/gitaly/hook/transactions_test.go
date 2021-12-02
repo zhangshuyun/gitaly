@@ -7,7 +7,6 @@ import (
 	"io"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
@@ -147,13 +146,15 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 	).Env()
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	changes := fmt.Sprintf("%s %s refs/heads/master", strings.Repeat("1", 40), git.ZeroOID)
 
+	cancel()
+
 	err = hookManager.ReferenceTransactionHook(ctx, ReferenceTransactionPrepared, []string{hooksPayload}, strings.NewReader(changes))
-	require.Equal(t, "error voting on transaction: mock error: context deadline exceeded", err.Error())
+	require.Equal(t, "error voting on transaction: mock error: context canceled", err.Error())
 }
 
 func TestIsForceDeletionsOnly(t *testing.T) {
