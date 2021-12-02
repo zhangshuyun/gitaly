@@ -315,7 +315,7 @@ func (c *ProcessCache) returnWhenDone(done <-chan struct{}, p *processes, cacheK
 		return
 	}
 
-	if replaced := p.Add(cacheKey, value, c.ttl, cancel); replaced {
+	if replaced := p.Add(cacheKey, value, time.Now().Add(c.ttl), cancel); replaced {
 		c.catfileCacheCounter.WithLabelValues("duplicate").Inc()
 	}
 }
@@ -358,7 +358,7 @@ type processes struct {
 
 // Add adds a key, value pair to p. If there are too many keys in p
 // already add will evict old keys until the length is OK again.
-func (p *processes) Add(k key, value cacheable, ttl time.Duration, cancel func()) bool {
+func (p *processes) Add(k key, value cacheable, expiry time.Time, cancel func()) bool {
 	p.entriesMutex.Lock()
 	defer p.entriesMutex.Unlock()
 
@@ -371,7 +371,7 @@ func (p *processes) Add(k key, value cacheable, ttl time.Duration, cancel func()
 	ent := &entry{
 		key:    k,
 		value:  value,
-		expiry: time.Now().Add(ttl),
+		expiry: expiry,
 		cancel: cancel,
 	}
 	p.entries = append(p.entries, ent)

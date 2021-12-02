@@ -26,24 +26,24 @@ func TestProcesses_add(t *testing.T) {
 
 	key0 := mustCreateKey(t, "0", repo)
 	value0, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key0, value0, time.Hour, cancel)
+	p.Add(key0, value0, time.Now().Add(time.Hour), cancel)
 	requireProcessesValid(t, p)
 
 	key1 := mustCreateKey(t, "1", repo)
 	value1, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key1, value1, time.Hour, cancel)
+	p.Add(key1, value1, time.Now().Add(time.Hour), cancel)
 	requireProcessesValid(t, p)
 
 	key2 := mustCreateKey(t, "2", repo)
 	value2, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key2, value2, time.Hour, cancel)
+	p.Add(key2, value2, time.Now().Add(time.Hour), cancel)
 	requireProcessesValid(t, p)
 
 	// Because maxLen is 3, and key0 is oldest, we expect that adding key3
 	// will kick out key0.
 	key3 := mustCreateKey(t, "3", repo)
 	value3, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key3, value3, time.Hour, cancel)
+	p.Add(key3, value3, time.Now().Add(time.Hour), cancel)
 	requireProcessesValid(t, p)
 
 	require.Equal(t, maxLen, p.EntryCount(), "length should be maxLen")
@@ -58,18 +58,18 @@ func TestProcesses_addTwice(t *testing.T) {
 
 	key0 := mustCreateKey(t, "0", repo)
 	value0, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key0, value0, time.Hour, cancel)
+	p.Add(key0, value0, time.Now().Add(time.Hour), cancel)
 	requireProcessesValid(t, p)
 
 	key1 := mustCreateKey(t, "1", repo)
 	value1, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key1, value1, time.Hour, cancel)
+	p.Add(key1, value1, time.Now().Add(time.Hour), cancel)
 	requireProcessesValid(t, p)
 
 	require.Equal(t, key0, p.head().key, "key0 should be oldest key")
 
 	value2, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key0, value2, time.Hour, cancel)
+	p.Add(key0, value2, time.Now().Add(time.Hour), cancel)
 	requireProcessesValid(t, p)
 
 	require.Equal(t, key1, p.head().key, "key1 should be oldest key")
@@ -85,7 +85,7 @@ func TestProcesses_Checkout(t *testing.T) {
 
 	key0 := mustCreateKey(t, "0", repo)
 	value0, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key0, value0, time.Hour, cancel)
+	p.Add(key0, value0, time.Now().Add(time.Hour), cancel)
 
 	entry, ok := p.Checkout(key{sessionID: "foo"})
 	requireProcessesValid(t, p)
@@ -115,12 +115,12 @@ func TestProcesses_EnforceTTL(t *testing.T) {
 
 	key0 := mustCreateKey(t, "0", repo)
 	value0, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key0, value0, ttl, cancel)
+	p.Add(key0, value0, time.Now().Add(ttl), cancel)
 	sleep()
 
 	key1 := mustCreateKey(t, "1", repo)
 	value1, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key1, value1, ttl, cancel)
+	p.Add(key1, value1, time.Now().Add(ttl), cancel)
 	sleep()
 
 	cutoff := time.Now().Add(ttl)
@@ -128,12 +128,12 @@ func TestProcesses_EnforceTTL(t *testing.T) {
 
 	key2 := mustCreateKey(t, "2", repo)
 	value2, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key2, value2, ttl, cancel)
+	p.Add(key2, value2, time.Now().Add(ttl), cancel)
 	sleep()
 
 	key3 := mustCreateKey(t, "3", repo)
 	value3, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key3, value3, ttl, cancel)
+	p.Add(key3, value3, time.Now().Add(ttl), cancel)
 	sleep()
 
 	requireProcessesValid(t, p)
@@ -165,7 +165,7 @@ func TestCache_autoExpiry(t *testing.T) {
 
 	key0 := mustCreateKey(t, "0", repo)
 	value0, cancel := mustCreateCacheable(t, cfg, repo)
-	c.objectReaders.Add(key0, value0, ttl, cancel)
+	c.objectReaders.Add(key0, value0, time.Now().Add(ttl), cancel)
 	requireProcessesValid(t, &c.objectReaders)
 
 	require.Contains(t, keys(t, &c.objectReaders), key0, "key should still be in map")
