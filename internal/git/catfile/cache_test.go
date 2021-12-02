@@ -107,35 +107,27 @@ func TestProcesses_Checkout(t *testing.T) {
 }
 
 func TestProcesses_EnforceTTL(t *testing.T) {
-	ttl := time.Hour
 	p := &processes{maxLen: 10}
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	sleep := func() { time.Sleep(2 * time.Millisecond) }
+	cutoff := time.Now()
 
 	key0 := mustCreateKey(t, "0", repo)
 	value0, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key0, value0, time.Now().Add(ttl), cancel)
-	sleep()
+	p.Add(key0, value0, cutoff.Add(-time.Hour), cancel)
 
 	key1 := mustCreateKey(t, "1", repo)
 	value1, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key1, value1, time.Now().Add(ttl), cancel)
-	sleep()
-
-	cutoff := time.Now().Add(ttl)
-	sleep()
+	p.Add(key1, value1, cutoff.Add(-time.Millisecond), cancel)
 
 	key2 := mustCreateKey(t, "2", repo)
 	value2, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key2, value2, time.Now().Add(ttl), cancel)
-	sleep()
+	p.Add(key2, value2, cutoff.Add(time.Millisecond), cancel)
 
 	key3 := mustCreateKey(t, "3", repo)
 	value3, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key3, value3, time.Now().Add(ttl), cancel)
-	sleep()
+	p.Add(key3, value3, cutoff.Add(time.Hour), cancel)
 
 	requireProcessesValid(t, p)
 
