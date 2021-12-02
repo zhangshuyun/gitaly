@@ -153,6 +153,7 @@ spawnLoop:
 
 		cmd, err := p.start(logger)
 		if err != nil {
+			go p.notifyEvent(Crash, -1)
 			crashes++
 			logger.WithError(err).Error("start failed")
 			continue
@@ -194,6 +195,7 @@ spawnLoop:
 				// reset crashes once.
 				crashes = 0
 			case <-waitCh:
+				go p.notifyEvent(Crash, pid)
 				crashes++
 				break waitLoop
 			case <-p.shutdown:

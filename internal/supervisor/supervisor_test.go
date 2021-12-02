@@ -102,21 +102,28 @@ func TestSupervisor_SpawnFailure(t *testing.T) {
 	notFoundExe := filepath.Join(tempDir, "not-found")
 
 	// Spawn the supervisor with an executable that doesn't exist.
-	eventCh := make(chan Event, 1)
+	eventCh := make(chan Event, config.CrashThreshold + 1)
 	process, err := New(config, t.Name(), nil, []string{notFoundExe}, tempDir, 0, eventCh, nil)
 	require.NoError(t, err)
 	defer process.Stop()
 
-	// Connecting to the service should thus obviously fail: there is nothing that the
-	// supervisor could have spawned.
-	_, ok := tryGetPid(t, eventCh, filepath.Join(tempDir, "socket"), 1*time.Second)
-	require.False(t, ok, "connection must fail because executable cannot be spawned")
+	// We should observe multiple crashes now given that the executable cannot be found.
+	crashes := 0
+	for event := range eventCh {
+		if event.Type == Crash {
+			crashes++
+		}
+
+		if crashes == config.CrashThreshold {
+			break
+		}
+	}
 
 	// 'Fix' the spawning problem of our process by symlinking the PID server into place.
 	require.NoError(t, os.Symlink(pidServer, notFoundExe))
 
-	// So that we should now see the server to come up again after CrashWaitTime.
-	_, ok = tryGetPid(t, eventCh, filepath.Join(tempDir, "socket"), config.CrashWaitTime)
+	// So that we should now see the server to come up again after CrashWaitTime (and a bit).
+	_, ok := tryGetPid(t, eventCh, filepath.Join(tempDir, "socket"), config.CrashWaitTime + time.Second)
 	require.True(t, ok)
 }
 
