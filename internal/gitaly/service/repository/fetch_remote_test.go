@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -698,17 +697,22 @@ func TestFetchRemoteOverHTTPWithTimeout(t *testing.T) {
 	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t)
 
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	s := httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			require.Equal(t, "/info/refs?service=git-upload-pack", r.URL.String())
-			time.Sleep(2 * time.Second)
-			http.Error(w, "", http.StatusNotFound)
+			// Block the request forever.
+			<-ctx.Done()
 		}),
 	)
-	defer s.Close()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	defer func() {
+		// We need to explicitly cancel the context here, or otherwise we'll be stuck
+		// closing the server due to the ongoing request.
+		cancel()
+		s.Close()
+	}()
 
 	req := &gitalypb.FetchRemoteRequest{
 		Repository:   repo,
