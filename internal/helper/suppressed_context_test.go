@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+//nolint:forbidigo // We're explicitly testing that deadline cancellation works as expected.
 func TestSuppressCancellation(t *testing.T) {
 	type key struct{}
 

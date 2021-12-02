@@ -2089,6 +2089,9 @@ func TestNewRequestFinalizer_contextIsDisjointedFromTheRPC(t *testing.T) {
 	type ctxKey struct{}
 
 	parentDeadline := time.Now()
+
+	//nolint:forbidigo // We explicitly want to test that the deadline does not propagate into
+	// the request's context.
 	ctx, cancel := context.WithDeadline(context.WithValue(context.Background(), ctxKey{}, "value"), parentDeadline)
 	cancel()
 
