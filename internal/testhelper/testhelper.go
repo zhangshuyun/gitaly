@@ -159,13 +159,6 @@ func GetLocalhostListener(t testing.TB) (net.Listener, string) {
 // ContextOpt returns a new context instance with the new additions to it.
 type ContextOpt func(context.Context) (context.Context, func())
 
-// ContextWithTimeout allows to set provided timeout to the context.
-func ContextWithTimeout(duration time.Duration) ContextOpt {
-	return func(ctx context.Context) (context.Context, func()) {
-		return context.WithTimeout(ctx, duration)
-	}
-}
-
 // ContextWithLogger allows to inject provided logger into the context.
 func ContextWithLogger(logger *log.Entry) ContextOpt {
 	return func(ctx context.Context) (context.Context, func()) {
