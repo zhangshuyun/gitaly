@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/labkit/correlation"
@@ -158,7 +159,7 @@ func TestProcesses_EnforceTTL(t *testing.T) {
 func TestCache_autoExpiry(t *testing.T) {
 	ttl := 5 * time.Millisecond
 	refresh := 1 * time.Millisecond
-	c := newCache(ttl, 10, refresh)
+	c := newCache(ttl, 10, helper.NewTimerTicker(refresh))
 	defer c.Stop()
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
@@ -188,7 +189,7 @@ func TestCache_ObjectReader(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 	repoExecutor := newRepoExecutor(t, cfg, repo)
 
-	cache := newCache(time.Hour, 10, time.Hour)
+	cache := newCache(time.Hour, 10, helper.NewManualTicker())
 	defer cache.Stop()
 	cache.cachedProcessDone = sync.NewCond(&sync.Mutex{})
 
@@ -324,7 +325,7 @@ func TestCache_ObjectInfoReader(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 	repoExecutor := newRepoExecutor(t, cfg, repo)
 
-	cache := newCache(time.Hour, 10, time.Hour)
+	cache := newCache(time.Hour, 10, helper.NewManualTicker())
 	defer cache.Stop()
 	cache.cachedProcessDone = sync.NewCond(&sync.Mutex{})
 
