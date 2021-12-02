@@ -1045,13 +1045,15 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 func waitNodeToChangeHealthStatus(ctx context.Context, t *testing.T, node nodes.Node, health bool) {
 	t.Helper()
 
-	ctx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
+	require.Eventually(t, func() bool {
+		if node.IsHealthy() == health {
+			return true
+		}
 
-	for node.IsHealthy() != health {
 		_, err := node.CheckHealth(ctx)
 		require.NoError(t, err)
-	}
+		return false
+	}, time.Minute, time.Nanosecond)
 }
 
 type mockPeeker struct {
