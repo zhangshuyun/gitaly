@@ -209,28 +209,21 @@ wait:
 	require.Contains(t, err.Error(), "process spawn timed out after")
 }
 
-func TestCommand_Wait_interrupts_after_context_timeout(t *testing.T) {
+func TestCommand_Wait_interrupts_after_context_cancellation(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	ctx, timeout := context.WithTimeout(ctx, time.Second)
-	defer timeout()
-
-	cmd, err := New(ctx, exec.CommandContext(ctx, "sleep", "3"), nil, nil, nil)
+	cmd, err := New(ctx, exec.CommandContext(ctx, "sleep", "1h"), nil, nil, nil)
 	require.NoError(t, err)
 
-	completed := make(chan error, 1)
-	go func() { completed <- cmd.Wait() }()
+	// Cancel the command early.
+	go cancel()
 
-	select {
-	case err := <-completed:
-		require.Error(t, err)
-		s, ok := ExitStatus(err)
-		require.True(t, ok)
-		require.Equal(t, -1, s)
-	case <-time.After(2 * time.Second):
-		require.FailNow(t, "process is running too long")
-	}
+	err = cmd.Wait()
+	require.Error(t, err)
+	s, ok := ExitStatus(err)
+	require.True(t, ok)
+	require.Equal(t, -1, s)
 }
 
 func TestNewCommandWithSetupStdin(t *testing.T) {
