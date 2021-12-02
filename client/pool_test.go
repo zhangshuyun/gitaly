@@ -5,7 +5,6 @@ import (
 	"net"
 	"sync"
 	"testing"
-	"time"
 
 	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/stretchr/testify/assert"
@@ -42,7 +41,7 @@ func TestPoolDial(t *testing.T) {
 			test: func(t *testing.T, ctx context.Context, pool *Pool) {
 				conn, err := pool.Dial(ctx, insecure, "")
 				require.NoError(t, err)
-				verifyConnection(t, conn, codes.OK)
+				verifyConnection(t, ctx, conn, codes.OK)
 			},
 		},
 		{
@@ -51,7 +50,7 @@ func TestPoolDial(t *testing.T) {
 				for i := 0; i < 10; i++ {
 					conn, err := pool.Dial(ctx, insecure, "")
 					require.NoError(t, err)
-					verifyConnection(t, conn, codes.OK)
+					verifyConnection(t, ctx, conn, codes.OK)
 				}
 			},
 		},
@@ -60,13 +59,13 @@ func TestPoolDial(t *testing.T) {
 			test: func(t *testing.T, ctx context.Context, pool *Pool) {
 				conn, err := pool.Dial(ctx, insecure, "")
 				require.NoError(t, err)
-				verifyConnection(t, conn, codes.OK)
+				verifyConnection(t, ctx, conn, codes.OK)
 
 				require.NoError(t, pool.Close())
 
 				conn, err = pool.Dial(ctx, insecure, "")
 				require.NoError(t, err)
-				verifyConnection(t, conn, codes.OK)
+				verifyConnection(t, ctx, conn, codes.OK)
 			},
 		},
 		{
@@ -97,7 +96,7 @@ func TestPoolDial(t *testing.T) {
 						defer wg.Done()
 						conn, err := pool.Dial(ctx, insecure, "")
 						require.NoError(t, err)
-						verifyConnection(t, conn, codes.OK)
+						verifyConnection(t, ctx, conn, codes.OK)
 					}()
 				}
 
@@ -109,7 +108,7 @@ func TestPoolDial(t *testing.T) {
 			test: func(t *testing.T, ctx context.Context, pool *Pool) {
 				conn, err := pool.Dial(ctx, secure, creds)
 				require.NoError(t, err)
-				verifyConnection(t, conn, codes.OK)
+				verifyConnection(t, ctx, conn, codes.OK)
 			},
 		},
 		{
@@ -117,7 +116,7 @@ func TestPoolDial(t *testing.T) {
 			test: func(t *testing.T, ctx context.Context, pool *Pool) {
 				conn, err := pool.Dial(ctx, secure, "invalid-credential")
 				require.NoError(t, err)
-				verifyConnection(t, conn, codes.PermissionDenied)
+				verifyConnection(t, ctx, conn, codes.PermissionDenied)
 			},
 		},
 		{
@@ -125,7 +124,7 @@ func TestPoolDial(t *testing.T) {
 			test: func(t *testing.T, ctx context.Context, pool *Pool) {
 				conn, err := pool.Dial(ctx, secure, "")
 				require.NoError(t, err)
-				verifyConnection(t, conn, codes.Unauthenticated)
+				verifyConnection(t, ctx, conn, codes.Unauthenticated)
 			},
 		},
 		{
@@ -136,7 +135,7 @@ func TestPoolDial(t *testing.T) {
 			test: func(t *testing.T, ctx context.Context, pool *Pool) {
 				conn, err := pool.Dial(ctx, secure, "") // no creds here
 				require.NoError(t, err)
-				verifyConnection(t, conn, codes.OK) // auth passes
+				verifyConnection(t, ctx, conn, codes.OK) // auth passes
 			},
 		},
 		{
@@ -165,7 +164,7 @@ func TestPoolDial(t *testing.T) {
 				require.NoError(t, pool.Close())
 			}()
 
-			ctx, cancel := testhelper.Context(testhelper.ContextWithTimeout(time.Second))
+			ctx, cancel := testhelper.Context()
 			defer cancel()
 
 			tc.test(t, ctx, pool)
@@ -215,11 +214,8 @@ func runServerWithAddr(t *testing.T, creds, addr string) (*health.Server, string
 	}
 }
 
-func verifyConnection(t *testing.T, conn *grpc.ClientConn, expectedCode codes.Code) {
+func verifyConnection(t *testing.T, ctx context.Context, conn *grpc.ClientConn, expectedCode codes.Code) {
 	t.Helper()
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
 
 	_, err := grpc_health_v1.NewHealthClient(conn).Check(ctx, &grpc_health_v1.HealthCheckRequest{})
 
@@ -243,7 +239,7 @@ func TestPool_Dial_same_addr_another_token(t *testing.T) {
 	// all good - server is running and serving requests
 	conn, err := pool.Dial(ctx, addr, "")
 	require.NoError(t, err)
-	verifyConnection(t, conn, codes.OK)
+	verifyConnection(t, ctx, conn, codes.OK)
 
 	stop1() // stop the server and all open connections
 	stop1 = func() {}
@@ -258,5 +254,5 @@ func TestPool_Dial_same_addr_another_token(t *testing.T) {
 	// all good - another server with token verification is running on the same address and new connection was established
 	conn, err = pool.Dial(ctx, addr, "token")
 	require.NoError(t, err)
-	verifyConnection(t, conn, codes.OK)
+	verifyConnection(t, ctx, conn, codes.OK)
 }
