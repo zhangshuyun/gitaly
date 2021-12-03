@@ -5,9 +5,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -73,14 +75,17 @@ func TestFindRemoteRootRefWithUnbornRemoteHead(t *testing.T) {
 
 func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupRemoteService(t)
+
+	// We're running tests with Praefect disabled given that we don't want to exercise
+	// Praefect's validation, but Gitaly's.
+	_, repo, _, client := setupRemoteService(t, testserver.WithDisablePraefect())
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
 
 	testCases := []struct {
 		desc        string
 		request     *gitalypb.FindRemoteRootRefRequest
-		expectedErr []error
+		expectedErr error
 	}{
 		{
 			desc: "Invalid repository",
@@ -88,29 +93,21 @@ func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 				Repository: invalidRepo,
 				RemoteUrl:  "remote-url",
 			},
-			expectedErr: []error{
-				status.Error(codes.InvalidArgument, "GetStorageByName: no such storage: \"fake\""),
-				status.Error(codes.InvalidArgument, "repo scoped: invalid Repository"),
-			},
+			expectedErr: helper.ErrInvalidArgumentf("GetStorageByName: no such storage: \"fake\""),
 		},
 		{
 			desc: "Repository is nil",
 			request: &gitalypb.FindRemoteRootRefRequest{
 				RemoteUrl: "remote-url",
 			},
-			expectedErr: []error{
-				status.Error(codes.InvalidArgument, "missing repository"),
-				status.Error(codes.InvalidArgument, "repo scoped: empty Repository"),
-			},
+			expectedErr: helper.ErrInvalidArgumentf("missing repository"),
 		},
 		{
 			desc: "Remote URL is empty",
 			request: &gitalypb.FindRemoteRootRefRequest{
 				Repository: repo,
 			},
-			expectedErr: []error{
-				status.Error(codes.InvalidArgument, "missing remote URL"),
-			},
+			expectedErr: helper.ErrInvalidArgumentf("missing remote URL"),
 		},
 	}
 
@@ -120,11 +117,7 @@ func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 			defer cancel()
 
 			_, err := client.FindRemoteRootRef(ctx, testCase.request)
-			// We cannot test for equality given that some errors depend on whether we
-			// proxy via Praefect or not. We thus simply assert that the actual error is
-			// one of the possible errors, which is the same as equality for all the
-			// other tests.
-			testassert.ContainsGrpcError(t, testCase.expectedErr, err)
+			testassert.GrpcEqualErr(t, testCase.expectedErr, err)
 		})
 	}
 }
