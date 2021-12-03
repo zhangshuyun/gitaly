@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
@@ -87,7 +88,13 @@ func (cmd gitalySSHCommand) run() (int, error) {
 			if len(flagPairSplit) != 2 {
 				continue
 			}
-			ctx = featureflag.OutgoingCtxWithFeatureFlagValue(ctx, featureflag.FeatureFlag{Name: flagPairSplit[0]}, flagPairSplit[1])
+
+			enabled, err := strconv.ParseBool(flagPairSplit[1])
+			if err != nil {
+				continue
+			}
+
+			ctx = featureflag.OutgoingCtxWithFeatureFlag(ctx, featureflag.FeatureFlag{Name: flagPairSplit[0]}, enabled)
 		}
 	}
 

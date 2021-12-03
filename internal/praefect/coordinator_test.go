@@ -2272,8 +2272,8 @@ func TestStreamParametersContext(t *testing.T) {
 			desc: "with flags set to their default values",
 			setupContext: func() context.Context {
 				ctx := context.Background()
-				ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, enabledFF)
-				ctx = featureflag.IncomingCtxWithDisabledFeatureFlag(ctx, disabledFF)
+				ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, enabledFF, true)
+				ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, disabledFF, false)
 				return ctx
 			},
 			expectedIncomingMD: metadata.Pairs(
@@ -2293,8 +2293,8 @@ func TestStreamParametersContext(t *testing.T) {
 			desc: "with flags set to their reverse default values",
 			setupContext: func() context.Context {
 				ctx := context.Background()
-				ctx = featureflag.IncomingCtxWithDisabledFeatureFlag(ctx, enabledFF)
-				ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, disabledFF)
+				ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, enabledFF, false)
+				ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, disabledFF, true)
 				return ctx
 			},
 			expectedIncomingMD: metadata.Pairs(

@@ -14,34 +14,45 @@ func TestIncomingCtxWithFeatureFlag(t *testing.T) {
 	ctx := context.Background()
 	require.False(t, mockFeatureFlag.IsEnabled(ctx))
 
-	ctx = IncomingCtxWithFeatureFlag(ctx, mockFeatureFlag)
-	require.True(t, mockFeatureFlag.IsEnabled(ctx))
-}
+	t.Run("enabled", func(t *testing.T) {
+		ctx := IncomingCtxWithFeatureFlag(ctx, mockFeatureFlag, true)
+		require.True(t, mockFeatureFlag.IsEnabled(ctx))
+	})
 
-func TestIncomingCtxWithDisabledFeatureFlag(t *testing.T) {
-	ctx := context.Background()
-
-	require.False(t, mockFeatureFlag.IsEnabled(ctx))
-
-	ctx = IncomingCtxWithDisabledFeatureFlag(ctx, mockFeatureFlag)
-
-	require.True(t, mockFeatureFlag.IsDisabled(ctx))
+	t.Run("disabled", func(t *testing.T) {
+		ctx := IncomingCtxWithFeatureFlag(ctx, mockFeatureFlag, false)
+		require.False(t, mockFeatureFlag.IsEnabled(ctx))
+	})
 }
 
 func TestOutgoingCtxWithFeatureFlag(t *testing.T) {
 	ctx := context.Background()
 	require.False(t, mockFeatureFlag.IsEnabled(ctx))
 
-	ctx = OutgoingCtxWithFeatureFlags(ctx, mockFeatureFlag)
-	require.False(t, mockFeatureFlag.IsEnabled(ctx))
+	t.Run("enabled", func(t *testing.T) {
+		ctx := OutgoingCtxWithFeatureFlag(ctx, mockFeatureFlag, true)
+		// The feature flag is only checked for incoming contexts, so it's not expected to
+		// be enabled yet.
+		require.False(t, mockFeatureFlag.IsEnabled(ctx))
 
-	// simulate an outgoing context leaving the process boundary and then
-	// becoming an incoming context in a new process boundary
-	md, ok := metadata.FromOutgoingContext(ctx)
-	require.True(t, ok)
+		md, ok := metadata.FromOutgoingContext(ctx)
+		require.True(t, ok)
 
-	ctx = metadata.NewIncomingContext(context.Background(), md)
-	require.True(t, mockFeatureFlag.IsEnabled(ctx))
+		// It should be enabled after converting it to an incoming context though.
+		ctx = metadata.NewIncomingContext(context.Background(), md)
+		require.True(t, mockFeatureFlag.IsEnabled(ctx))
+	})
+
+	t.Run("disabled", func(t *testing.T) {
+		ctx = OutgoingCtxWithFeatureFlag(ctx, mockFeatureFlag, false)
+		require.False(t, mockFeatureFlag.IsEnabled(ctx))
+
+		md, ok := metadata.FromOutgoingContext(ctx)
+		require.True(t, ok)
+
+		ctx = metadata.NewIncomingContext(context.Background(), md)
+		require.False(t, mockFeatureFlag.IsEnabled(ctx))
+	})
 }
 
 func TestGRPCMetadataFeatureFlag(t *testing.T) {
@@ -95,8 +106,8 @@ func TestRaw(t *testing.T) {
 
 	t.Run("RawFromContext", func(t *testing.T) {
 		ctx := context.Background()
-		ctx = IncomingCtxWithFeatureFlag(ctx, enabledFlag)
-		ctx = IncomingCtxWithDisabledFeatureFlag(ctx, disabledFlag)
+		ctx = IncomingCtxWithFeatureFlag(ctx, enabledFlag, true)
+		ctx = IncomingCtxWithFeatureFlag(ctx, disabledFlag, false)
 
 		require.Equal(t, raw, RawFromContext(ctx))
 	})

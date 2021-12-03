@@ -51,8 +51,8 @@ var (
 )
 
 func rawFeatureFlags(ctx context.Context) featureflag.Raw {
-	ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, enabledFeatureFlag)
-	ctx = featureflag.IncomingCtxWithDisabledFeatureFlag(ctx, disabledFeatureFlag)
+	ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, enabledFeatureFlag, true)
+	ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, disabledFeatureFlag, false)
 	return featureflag.RawFromContext(ctx)
 }
 

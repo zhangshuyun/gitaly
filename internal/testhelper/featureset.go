@@ -2,7 +2,9 @@ package testhelper
 
 import (
 	"context"
+	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -13,40 +15,35 @@ import (
 // This is useful in situations where a test needs to test any combination of features toggled on and off.
 // It is designed to disable features as all features are enabled by default, please see: testhelper.Context()
 type FeatureSet struct {
-	features     map[featureflag.FeatureFlag]struct{}
-	rubyFeatures map[featureflag.FeatureFlag]struct{}
+	features     map[featureflag.FeatureFlag]bool
+	rubyFeatures map[featureflag.FeatureFlag]bool
 }
 
 // Desc describes the feature such that it is suitable as a testcase description.
 func (f FeatureSet) Desc() string {
-	features := make([]string, 0, len(f.features))
+	features := make([]string, 0, len(f.features)+len(f.rubyFeatures))
 
-	for feature := range f.features {
-		features = append(features, feature.Name)
+	for feature, enabled := range f.features {
+		features = append(features, fmt.Sprintf("%s=%s", feature.Name, strconv.FormatBool(enabled)))
 	}
-	for feature := range f.rubyFeatures {
-		features = append(features, feature.Name)
-	}
-
-	if len(features) == 0 {
-		return "all features enabled"
+	for feature, enabled := range f.rubyFeatures {
+		features = append(features, fmt.Sprintf("%s=%s", feature.Name, strconv.FormatBool(enabled)))
 	}
 
 	sort.Strings(features)
 
-	return "disabled " + strings.Join(features, ",")
+	return strings.Join(features, ",")
 }
 
-// Disable disables all feature flags in the given FeatureSet in the given context. The context is
-// treated as an outgoing context.
-func (f FeatureSet) Disable(ctx context.Context) context.Context {
-	for feature := range f.features {
-		ctx = featureflag.OutgoingCtxWithFeatureFlagValue(ctx, feature, "false")
-		ctx = featureflag.IncomingCtxWithDisabledFeatureFlag(ctx, feature)
+// Apply applies all feature flags in the given FeatureSet to the given context.
+func (f FeatureSet) Apply(ctx context.Context) context.Context {
+	for feature, enabled := range f.features {
+		ctx = featureflag.OutgoingCtxWithFeatureFlag(ctx, feature, enabled)
+		ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, feature, enabled)
 	}
-	for feature := range f.rubyFeatures {
-		ctx = featureflag.OutgoingCtxWithRubyFeatureFlagValue(ctx, feature, "false")
-		ctx = featureflag.IncomingCtxWithRubyFeatureFlagValue(ctx, feature, false)
+	for feature, enabled := range f.rubyFeatures {
+		ctx = featureflag.OutgoingCtxWithRubyFeatureFlag(ctx, feature, enabled)
+		ctx = featureflag.IncomingCtxWithRubyFeatureFlag(ctx, feature, enabled)
 	}
 	return ctx
 }
@@ -72,20 +69,15 @@ func NewFeatureSetsWithRubyFlags(goFeatures []featureflag.FeatureFlag, rubyFeatu
 	// otherwise it's left out of the set. Note that this also includes the empty set.
 	for i := uint(0); i < uint(1<<length); i++ {
 		set := FeatureSet{
-			features:     make(map[featureflag.FeatureFlag]struct{}),
-			rubyFeatures: make(map[featureflag.FeatureFlag]struct{}),
+			features:     make(map[featureflag.FeatureFlag]bool),
+			rubyFeatures: make(map[featureflag.FeatureFlag]bool),
 		}
 
 		for j, feature := range goFeatures {
-			if (i>>uint(j))&1 == 1 {
-				set.features[feature] = struct{}{}
-			}
+			set.features[feature] = (i>>uint(j))&1 == 1
 		}
-
 		for j, feature := range rubyFeatures {
-			if (i>>uint(j+len(goFeatures)))&1 == 1 {
-				set.rubyFeatures[feature] = struct{}{}
-			}
+			set.rubyFeatures[feature] = (i>>uint(j+len(goFeatures)))&1 == 1
 		}
 
 		sets = append(sets, set)
@@ -103,7 +95,7 @@ func (s FeatureSets) Run(t *testing.T, test func(t *testing.T, ctx context.Conte
 		t.Run(featureSet.Desc(), func(t *testing.T) {
 			ctx, cancel := Context()
 			defer cancel()
-			ctx = featureSet.Disable(ctx)
+			ctx = featureSet.Apply(ctx)
 
 			test(t, ctx)
 		})
@@ -119,7 +111,7 @@ func (s FeatureSets) Bench(b *testing.B, test func(b *testing.B, ctx context.Con
 		b.Run(featureSet.Desc(), func(b *testing.B) {
 			ctx, cancel := Context()
 			defer cancel()
-			ctx = featureSet.Disable(ctx)
+			ctx = featureSet.Apply(ctx)
 
 			test(b, ctx)
 		})
