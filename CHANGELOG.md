@@ -197,6 +197,10 @@ No changes.
 
 - [objectpool: Deprecate `UnlinkRepositoryFromObjectPool()`](gitlab-org/gitaly@50686040de4588533a8a4c8aae03ae373ae041fa) ([merge request](gitlab-org/gitaly!3874))
 
+## 14.3.6 (2021-12-03)
+
+No changes.
+
 ## 14.3.5 (2021-11-26)
 
 ### Added (4 changes)
