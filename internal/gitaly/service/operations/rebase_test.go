@@ -309,7 +309,7 @@ func TestFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeader(t *testing.T
 			require.NoError(t, rebaseStream.Send(tc.req), "send request header")
 
 			firstResponse, err := rebaseStream.Recv()
-			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 			require.Contains(t, err.Error(), tc.desc)
 			require.Empty(t, firstResponse.GetRebaseSha(), "rebase sha on first response")
 		})
@@ -368,7 +368,7 @@ func TestAbortedUserRebaseConfirmable(t *testing.T) {
 
 			require.False(t, secondResponse.GetRebaseApplied(), "rebase should not have been applied")
 			require.Error(t, err)
-			testhelper.RequireGrpcError(t, err, tc.code)
+			testhelper.RequireGrpcCode(t, err, tc.code)
 
 			newBranchSha := getBranchSha(t, cfg, testRepoPath, rebaseBranchName)
 			require.Equal(t, newBranchSha, branchSha, "branch should not change when the rebase is aborted")
@@ -407,7 +407,7 @@ func TestFailedUserRebaseConfirmableDueToApplyBeingFalse(t *testing.T) {
 
 	secondResponse, err := rebaseStream.Recv()
 	require.Error(t, err, "second response should have error")
-	testhelper.RequireGrpcError(t, err, codes.FailedPrecondition)
+	testhelper.RequireGrpcCode(t, err, codes.FailedPrecondition)
 	require.False(t, secondResponse.GetRebaseApplied(), "the second rebase is not applied")
 
 	_, err = repo.ReadCommit(ctx, git.Revision(firstResponse.GetRebaseSha()))
@@ -672,7 +672,7 @@ func TestRebaseFailedWithCode(t *testing.T) {
 			require.NoError(t, rebaseStream.Send(headerRequest), "send header")
 
 			_, err = rebaseStream.Recv()
-			testhelper.RequireGrpcError(t, err, tc.expectedCode)
+			testhelper.RequireGrpcCode(t, err, tc.expectedCode)
 		})
 	}
 }

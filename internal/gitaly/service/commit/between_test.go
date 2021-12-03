@@ -200,7 +200,7 @@ func TestFailedCommitsBetweenRequest(t *testing.T) {
 			require.NoError(t, err)
 
 			err = drainCommitsBetweenResponse(c)
-			testhelper.RequireGrpcError(t, err, tc.code)
+			testhelper.RequireGrpcCode(t, err, tc.code)
 		})
 	}
 }

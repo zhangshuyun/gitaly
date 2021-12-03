@@ -227,7 +227,7 @@ func TestFailedTreeEntry(t *testing.T) {
 			require.NoError(t, err)
 
 			err = drainTreeEntryResponse(c)
-			testhelper.RequireGrpcError(t, err, testCase.expectedCode)
+			testhelper.RequireGrpcCode(t, err, testCase.expectedCode)
 		})
 	}
 }

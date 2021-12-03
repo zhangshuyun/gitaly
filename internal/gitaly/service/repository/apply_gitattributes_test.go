@@ -262,7 +262,7 @@ func TestApplyGitattributesFailure(t *testing.T) {
 		t.Run(fmt.Sprintf("%+v", test), func(t *testing.T) {
 			req := &gitalypb.ApplyGitattributesRequest{Repository: test.repo, Revision: test.revision}
 			_, err := client.ApplyGitattributes(ctx, req)
-			testhelper.RequireGrpcError(t, err, test.code)
+			testhelper.RequireGrpcCode(t, err, test.code)
 		})
 	}
 }

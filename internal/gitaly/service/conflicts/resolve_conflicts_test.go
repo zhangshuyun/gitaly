@@ -806,7 +806,7 @@ func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
 			require.NoError(t, stream.Send(headerRequest))
 
 			_, err = stream.CloseAndRecv()
-			testhelper.RequireGrpcError(t, err, testCase.expectedCode)
+			testhelper.RequireGrpcCode(t, err, testCase.expectedCode)
 			require.Contains(t, err.Error(), testCase.expectedErr)
 		})
 	}

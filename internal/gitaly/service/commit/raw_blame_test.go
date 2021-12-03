@@ -117,7 +117,7 @@ func TestFailedRawBlameRequest(t *testing.T) {
 			c, err := client.RawBlame(ctx, &request)
 			require.NoError(t, err)
 
-			testhelper.RequireGrpcError(t, drainRawBlameResponse(c), testCase.code)
+			testhelper.RequireGrpcCode(t, drainRawBlameResponse(c), testCase.code)
 		})
 	}
 }

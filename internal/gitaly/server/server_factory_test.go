@@ -169,7 +169,7 @@ func TestGitalyServerFactory_closeOrder(t *testing.T) {
 	invokeQuick := func(conn *grpc.ClientConn, shouldSucceed bool) {
 		err := conn.Invoke(ctx, "/Service/Quick", &healthpb.HealthCheckRequest{}, &healthpb.HealthCheckRequest{})
 		if !shouldSucceed {
-			testhelper.RequireGrpcError(t, err, codes.Unavailable)
+			testhelper.RequireGrpcCode(t, err, codes.Unavailable)
 			return
 		}
 
@@ -197,7 +197,7 @@ func TestGitalyServerFactory_closeOrder(t *testing.T) {
 				continue
 			}
 
-			testhelper.RequireGrpcError(t, err, codes.Unavailable)
+			testhelper.RequireGrpcCode(t, err, codes.Unavailable)
 			break
 		}
 	}

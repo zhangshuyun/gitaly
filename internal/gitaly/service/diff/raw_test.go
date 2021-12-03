@@ -95,7 +95,7 @@ func TestFailedRawDiffRequestDueToValidations(t *testing.T) {
 			defer cancel()
 
 			c, _ := client.RawDiff(ctx, testCase.request)
-			testhelper.RequireGrpcError(t, drainRawDiffResponse(c), testCase.code)
+			testhelper.RequireGrpcCode(t, drainRawDiffResponse(c), testCase.code)
 		})
 	}
 }
@@ -173,7 +173,7 @@ func TestFailedRawPatchRequestDueToValidations(t *testing.T) {
 			defer cancel()
 
 			c, _ := client.RawPatch(ctx, testCase.request)
-			testhelper.RequireGrpcError(t, drainRawPatchResponse(c), testCase.code)
+			testhelper.RequireGrpcCode(t, drainRawPatchResponse(c), testCase.code)
 		})
 	}
 }

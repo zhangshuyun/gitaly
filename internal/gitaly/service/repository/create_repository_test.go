@@ -44,7 +44,7 @@ func testCreateRepositoryMissingAuth(t *testing.T, ctx context.Context) {
 
 	_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: repo})
 
-	testhelper.RequireGrpcError(t, err, codes.Unauthenticated)
+	testhelper.RequireGrpcCode(t, err, codes.Unauthenticated)
 }
 
 func TestCreateRepository_successful(t *testing.T) {
@@ -108,9 +108,9 @@ func testCreateRepositoryFailure(t *testing.T, ctx context.Context) {
 	})
 
 	if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
-		testhelper.RequireGrpcError(t, err, codes.AlreadyExists)
+		testhelper.RequireGrpcCode(t, err, codes.AlreadyExists)
 	} else {
-		testhelper.RequireGrpcError(t, err, codes.Internal)
+		testhelper.RequireGrpcCode(t, err, codes.Internal)
 	}
 }
 
@@ -138,7 +138,7 @@ func testCreateRepositoryInvalidArguments(t *testing.T, ctx context.Context) {
 			_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: tc.repo})
 
 			require.Error(t, err)
-			testhelper.RequireGrpcError(t, err, tc.code)
+			testhelper.RequireGrpcCode(t, err, tc.code)
 		})
 	}
 }

@@ -64,7 +64,7 @@ func TestBrokenRepositoryCalculateChecksum(t *testing.T) {
 	defer cancelCtx()
 
 	_, err := client.CalculateChecksum(testCtx, request)
-	testhelper.RequireGrpcError(t, err, codes.DataLoss)
+	testhelper.RequireGrpcCode(t, err, codes.DataLoss)
 }
 
 func TestFailedCalculateChecksum(t *testing.T) {
@@ -95,7 +95,7 @@ func TestFailedCalculateChecksum(t *testing.T) {
 		defer cancelCtx()
 
 		_, err := client.CalculateChecksum(testCtx, testCase.request)
-		testhelper.RequireGrpcError(t, err, testCase.code)
+		testhelper.RequireGrpcCode(t, err, testCase.code)
 	}
 }
 

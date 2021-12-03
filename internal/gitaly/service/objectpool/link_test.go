@@ -71,7 +71,7 @@ func TestLink(t *testing.T) {
 			_, err := client.LinkRepositoryToObjectPool(ctx, tc.req)
 
 			if tc.code != codes.OK {
-				testhelper.RequireGrpcError(t, err, tc.code)
+				testhelper.RequireGrpcCode(t, err, tc.code)
 				return
 			}
 

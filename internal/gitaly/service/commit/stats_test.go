@@ -117,7 +117,7 @@ func TestCommitStatsFailure(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
 			_, err := client.CommitStats(ctx, &gitalypb.CommitStatsRequest{Repository: tc.repo, Revision: tc.revision})
-			testhelper.RequireGrpcError(t, err, tc.err)
+			testhelper.RequireGrpcCode(t, err, tc.err)
 		})
 	}
 }

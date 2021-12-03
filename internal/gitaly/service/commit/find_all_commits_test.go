@@ -189,7 +189,7 @@ func TestFailedFindAllCommitsRequest(t *testing.T) {
 			require.NoError(t, err)
 
 			err = drainFindAllCommitsResponse(c)
-			testhelper.RequireGrpcError(t, err, testCase.code)
+			testhelper.RequireGrpcCode(t, err, testCase.code)
 		})
 	}
 }

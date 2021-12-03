@@ -196,7 +196,7 @@ func TestFailedCommitsByMessageRequest(t *testing.T) {
 			c, err := client.CommitsByMessage(ctx, testCase.request)
 			require.NoError(t, err)
 
-			testhelper.RequireGrpcError(t, drainCommitsByMessageResponse(c), testCase.code)
+			testhelper.RequireGrpcCode(t, drainCommitsByMessageResponse(c), testCase.code)
 		})
 	}
 }

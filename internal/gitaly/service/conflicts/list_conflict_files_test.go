@@ -251,7 +251,7 @@ func TestListConflictFilesFailedPrecondition(t *testing.T) {
 				err = drainListConflictFilesResponse(c)
 			}
 
-			testhelper.RequireGrpcError(t, err, codes.FailedPrecondition)
+			testhelper.RequireGrpcCode(t, err, codes.FailedPrecondition)
 		})
 	}
 }
@@ -395,7 +395,7 @@ func TestFailedListConflictFilesRequestDueToValidation(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			c, _ := client.ListConflictFiles(ctx, testCase.request)
-			testhelper.RequireGrpcError(t, drainListConflictFilesResponse(c), testCase.code)
+			testhelper.RequireGrpcCode(t, drainListConflictFilesResponse(c), testCase.code)
 		})
 	}
 }

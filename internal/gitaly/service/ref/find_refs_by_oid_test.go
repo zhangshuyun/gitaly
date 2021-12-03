@@ -237,7 +237,7 @@ func TestFindRefsByOID_validation(t *testing.T) {
 			_, err := client.FindRefsByOID(ctx, tc.req)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), tc.expectedMsg)
-			testhelper.RequireGrpcError(t, err, tc.expectedCode)
+			testhelper.RequireGrpcCode(t, err, tc.expectedCode)
 		})
 	}
 }

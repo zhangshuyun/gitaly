@@ -148,7 +148,7 @@ func TestServer_ListRefs(t *testing.T) {
 					}
 
 					if tc.expectedGrpcError != 0 {
-						testhelper.RequireGrpcError(t, err, tc.expectedGrpcError)
+						testhelper.RequireGrpcCode(t, err, tc.expectedGrpcError)
 					}
 
 					return

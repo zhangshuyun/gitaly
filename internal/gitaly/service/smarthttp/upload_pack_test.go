@@ -144,7 +144,7 @@ func testServerPostUploadPackGitConfigOptions(t *testing.T, ctx context.Context,
 			},
 		}
 		response, err := makeRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest, bytes.NewReader(requestBody.Bytes()))
-		testhelper.RequireGrpcError(t, err, codes.Unavailable)
+		testhelper.RequireGrpcCode(t, err, codes.Unavailable)
 
 		// The failure message proves that upload-pack failed because of
 		// GitConfigOptions, and that proves that passing GitConfigOptions works.
@@ -281,7 +281,7 @@ func testServerPostUploadPackValidation(t *testing.T, ctx context.Context, makeR
 	for _, rpcRequest := range rpcRequests {
 		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
 			_, err := makeRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest, bytes.NewBuffer(nil))
-			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 		})
 	}
 }
@@ -302,7 +302,7 @@ func testServerPostUploadPackWithSideChannelValidation(t *testing.T, ctx context
 	for _, rpcRequest := range rpcRequests {
 		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
 			_, err := makeRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest, bytes.NewBuffer(nil))
-			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 		})
 	}
 }

@@ -224,7 +224,7 @@ func TestFetchIntoObjectPool_Failure(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			_, err := server.FetchIntoObjectPool(ctx, tc.request)
 			require.Error(t, err)
-			testhelper.RequireGrpcError(t, err, tc.code)
+			testhelper.RequireGrpcCode(t, err, tc.code)
 			assert.Contains(t, err.Error(), tc.errMsg)
 		})
 	}

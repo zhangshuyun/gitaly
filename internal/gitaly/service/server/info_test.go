@@ -77,7 +77,7 @@ func TestServerNoAuth(t *testing.T) {
 	client := gitalypb.NewServerServiceClient(conn)
 	_, err = client.ServerInfo(ctx, &gitalypb.ServerInfoRequest{})
 
-	testhelper.RequireGrpcError(t, err, codes.Unauthenticated)
+	testhelper.RequireGrpcCode(t, err, codes.Unauthenticated)
 }
 
 func newServerClient(t *testing.T, serverSocketPath string) gitalypb.ServerServiceClient {

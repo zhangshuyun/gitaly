@@ -189,7 +189,7 @@ func TestListFiles_unbornBranch(t *testing.T) {
 			}
 
 			if tc.code != codes.OK {
-				testhelper.RequireGrpcError(t, err, tc.code)
+				testhelper.RequireGrpcCode(t, err, tc.code)
 			} else {
 				require.Equal(t, err, io.EOF)
 			}
@@ -237,7 +237,7 @@ func TestListFiles_failure(t *testing.T) {
 			require.NoError(t, err)
 
 			err = drainListFilesResponse(c)
-			testhelper.RequireGrpcError(t, err, tc.code)
+			testhelper.RequireGrpcCode(t, err, tc.code)
 		})
 	}
 }
@@ -267,5 +267,5 @@ func TestListFiles_invalidRevision(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = stream.Recv()
-	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+	testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 }

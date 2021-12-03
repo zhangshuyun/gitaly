@@ -810,7 +810,7 @@ func TestInvalidFindAllBranchesRequest(t *testing.T) {
 				_, recvError = c.Recv()
 			}
 
-			testhelper.RequireGrpcError(t, recvError, codes.InvalidArgument)
+			testhelper.RequireGrpcCode(t, recvError, codes.InvalidArgument)
 		})
 	}
 }
@@ -881,7 +881,7 @@ func TestListTagNamesContainingCommit(t *testing.T) {
 				if err == io.EOF {
 					break
 				} else if tc.code != codes.OK {
-					testhelper.RequireGrpcError(t, err, tc.code)
+					testhelper.RequireGrpcCode(t, err, tc.code)
 
 					return
 				}
@@ -968,7 +968,7 @@ func TestListBranchNamesContainingCommit(t *testing.T) {
 				if err == io.EOF {
 					break
 				} else if tc.code != codes.OK {
-					testhelper.RequireGrpcError(t, err, tc.code)
+					testhelper.RequireGrpcCode(t, err, tc.code)
 
 					return
 				}
@@ -1275,7 +1275,7 @@ func TestInvalidFindTagRequest(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			_, err := client.FindTag(ctx, tc.request)
-			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 		})
 	}
 }

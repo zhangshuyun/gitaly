@@ -83,7 +83,7 @@ func TestFailedGetTagMessagesRequest(t *testing.T) {
 				}
 			}
 
-			testhelper.RequireGrpcError(t, err, testCase.code)
+			testhelper.RequireGrpcCode(t, err, testCase.code)
 		})
 	}
 }

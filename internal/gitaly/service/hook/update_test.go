@@ -32,7 +32,7 @@ func TestUpdateInvalidArgument(t *testing.T) {
 	require.NoError(t, err)
 	_, err = stream.Recv()
 
-	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+	testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 }
 
 func TestUpdate_CustomHooks(t *testing.T) {

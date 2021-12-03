@@ -256,7 +256,7 @@ func testServerCreateRepositoryFromBundleFailedValidations(t *testing.T, ctx con
 	require.NoError(t, stream.Send(&gitalypb.CreateRepositoryFromBundleRequest{}))
 
 	_, err = stream.CloseAndRecv()
-	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+	testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 }
 
 func TestCreateRepositoryFromBundle_existingRepository(t *testing.T) {

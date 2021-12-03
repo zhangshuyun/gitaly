@@ -502,7 +502,7 @@ func TestFindAllTags_invalidRequest(t *testing.T) {
 				_, recvError = c.Recv()
 			}
 
-			testhelper.RequireGrpcError(t, recvError, codes.InvalidArgument)
+			testhelper.RequireGrpcCode(t, recvError, codes.InvalidArgument)
 		})
 	}
 }

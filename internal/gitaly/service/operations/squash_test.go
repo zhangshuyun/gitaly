@@ -493,7 +493,7 @@ func TestUserSquash_validation(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			_, err := client.UserSquash(ctx, testCase.request)
-			testhelper.RequireGrpcError(t, err, testCase.code)
+			testhelper.RequireGrpcCode(t, err, testCase.code)
 			require.Contains(t, err.Error(), testCase.desc)
 		})
 	}

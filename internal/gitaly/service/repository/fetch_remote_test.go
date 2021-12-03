@@ -553,7 +553,7 @@ func TestFetchRemoteFailure(t *testing.T) {
 			require.Nil(t, resp)
 
 			require.Contains(t, err.Error(), tc.errMsg)
-			testhelper.RequireGrpcError(t, err, tc.code)
+			testhelper.RequireGrpcCode(t, err, tc.code)
 		})
 	}
 }

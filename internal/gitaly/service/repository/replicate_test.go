@@ -257,7 +257,7 @@ func testReplicateRepositoryInvalidArguments(t *testing.T, ctx context.Context) 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
 			_, err := client.ReplicateRepository(ctx, tc.input)
-			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 		})
 	}
 }

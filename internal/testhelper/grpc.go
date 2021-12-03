@@ -41,19 +41,14 @@ func ProtoEqual(t testing.TB, expected, actual interface{}) {
 	require.Empty(t, cmp.Diff(expected, actual, protocmp.Transform(), cmpopts.EquateErrors()))
 }
 
-// RequireGrpcError asserts the passed err is of the same code as expectedCode.
-func RequireGrpcError(t testing.TB, err error, expectedCode codes.Code) {
+// RequireGrpcCode asserts that the error has the expected gRPC status code.
+func RequireGrpcCode(t testing.TB, err error, expectedCode codes.Code) {
 	t.Helper()
 
-	if err == nil {
-		t.Fatal("Expected an error, got nil")
-	}
-
-	// Check that the code matches
-	status, _ := status.FromError(err)
-	if code := status.Code(); code != expectedCode {
-		t.Fatalf("Expected an error with code %v, got %v. The error was %q", expectedCode, code, err.Error())
-	}
+	require.Error(t, err)
+	status, ok := status.FromError(err)
+	require.True(t, ok)
+	require.Equal(t, expectedCode, status.Code())
 }
 
 // GrpcEqualErr asserts that expected and actual gRPC errors are equal.

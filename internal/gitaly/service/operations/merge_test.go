@@ -770,7 +770,7 @@ func TestUserFFBranch_failure(t *testing.T) {
 				CommitId:   testCase.commitID,
 			}
 			_, err := client.UserFFBranch(ctx, request)
-			testhelper.RequireGrpcError(t, err, testCase.code)
+			testhelper.RequireGrpcCode(t, err, testCase.code)
 		})
 	}
 }
@@ -1077,7 +1077,7 @@ func TestUserMergeToRef_conflicts(t *testing.T) {
 		request.TargetRef = []byte(targetRef)
 
 		_, err := client.UserMergeToRef(ctx, request)
-		testhelper.RequireGrpcError(t, err, codes.FailedPrecondition)
+		testhelper.RequireGrpcCode(t, err, codes.FailedPrecondition)
 
 		hasRevision, err := repo.HasRevision(ctx, targetRef)
 		require.NoError(t, err)
@@ -1243,7 +1243,7 @@ func TestUserMergeToRef_failure(t *testing.T) {
 				TargetRef:  testCase.targetRef,
 			}
 			_, err := client.UserMergeToRef(ctx, request)
-			testhelper.RequireGrpcError(t, err, testCase.code)
+			testhelper.RequireGrpcCode(t, err, testCase.code)
 		})
 	}
 }

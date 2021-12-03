@@ -132,7 +132,7 @@ func TestStreamDirectorReadOnlyEnforcement(t *testing.T) {
 			_, err = coordinator.StreamDirector(ctx, "/gitaly.RepositoryService/Cleanup", &mockPeeker{frame: frame})
 			if tc.readOnly {
 				require.Equal(t, ErrRepositoryReadOnly, err)
-				testhelper.RequireGrpcError(t, err, codes.FailedPrecondition)
+				testhelper.RequireGrpcCode(t, err, codes.FailedPrecondition)
 			} else {
 				require.NoError(t, err)
 			}

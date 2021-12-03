@@ -137,6 +137,6 @@ func TestFindRemoteRootRefFailedDueToInvalidRemote(t *testing.T) {
 		defer cancel()
 
 		_, err := client.FindRemoteRootRef(ctx, request)
-		testhelper.RequireGrpcError(t, err, codes.Internal)
+		testhelper.RequireGrpcCode(t, err, codes.Internal)
 	})
 }

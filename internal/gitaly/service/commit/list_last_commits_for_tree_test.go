@@ -316,7 +316,7 @@ func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = stream.Recv()
-			testhelper.RequireGrpcError(t, err, testCase.code)
+			testhelper.RequireGrpcCode(t, err, testCase.code)
 		})
 	}
 }

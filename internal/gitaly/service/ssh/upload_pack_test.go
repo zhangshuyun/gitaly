@@ -205,7 +205,7 @@ func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 			require.NoError(t, stream.CloseSend())
 
 			err = testPostUploadPackFailedResponse(t, stream)
-			testhelper.RequireGrpcError(t, err, test.Code)
+			testhelper.RequireGrpcCode(t, err, test.Code)
 		})
 	}
 }

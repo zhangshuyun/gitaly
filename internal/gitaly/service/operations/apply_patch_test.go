@@ -691,7 +691,7 @@ func TestFailedPatchApplyPatch(t *testing.T) {
 	require.NoError(t, stream.Send(patchRequest))
 
 	_, err = stream.CloseAndRecv()
-	testhelper.RequireGrpcError(t, err, codes.FailedPrecondition)
+	testhelper.RequireGrpcCode(t, err, codes.FailedPrecondition)
 }
 
 func TestFailedValidationUserApplyPatch(t *testing.T) {

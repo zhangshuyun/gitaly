@@ -111,7 +111,7 @@ func TestRepackIncrementalFailure(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			_, err := client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: test.repo})
-			testhelper.RequireGrpcError(t, err, test.code)
+			testhelper.RequireGrpcCode(t, err, test.code)
 		})
 	}
 }
@@ -230,7 +230,7 @@ func TestRepackFullFailure(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: test.repo})
-			testhelper.RequireGrpcError(t, err, test.code)
+			testhelper.RequireGrpcCode(t, err, test.code)
 		})
 	}
 }

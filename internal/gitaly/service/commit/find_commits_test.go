@@ -556,7 +556,7 @@ func TestFailureFindCommitsRequest(t *testing.T) {
 				_, err = stream.Recv()
 			}
 
-			testhelper.RequireGrpcError(t, err, tc.code)
+			testhelper.RequireGrpcCode(t, err, tc.code)
 		})
 	}
 }

@@ -179,7 +179,7 @@ func TestFailedGetBlobsRequestDueToValidation(t *testing.T) {
 
 			_, err = stream.Recv()
 			require.NotEqual(t, io.EOF, err)
-			testhelper.RequireGrpcError(t, err, testCase.code)
+			testhelper.RequireGrpcCode(t, err, testCase.code)
 		})
 	}
 }

@@ -61,7 +61,7 @@ func TestRenameRepositoryDestinationExists(t *testing.T) {
 		Repository:   renamedRepo,
 		RelativePath: existingDestinationRepo.RelativePath,
 	})
-	testhelper.RequireGrpcError(t, err, codes.FailedPrecondition)
+	testhelper.RequireGrpcCode(t, err, codes.FailedPrecondition)
 
 	// ensure the git directory that already existed didn't get overwritten
 	gittest.GitObjectMustExist(t, cfg.Git.BinPath, destinationRepoPath, sha.String())
@@ -95,7 +95,7 @@ func TestRenameRepositoryInvalidRequest(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			_, err := client.RenameRepository(ctx, tc.req)
-			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 		})
 	}
 }

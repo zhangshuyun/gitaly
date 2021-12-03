@@ -240,7 +240,7 @@ func TestFailureRepoNotSetInfoRefsReceivePack(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	_, err := makeInfoRefsReceivePackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest)
-	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+	testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 }
 
 func makeInfoRefsReceivePackRequest(ctx context.Context, t *testing.T, serverSocketPath, token string, rpcRequest *gitalypb.InfoRefsRequest) ([]byte, error) {
@@ -376,7 +376,7 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 	defer invalidRepoCleanup()
 
 	_, err = makeInfoRefsUploadPackRequest(ctx, t, gitalyServer.Address(), cfg.Auth.Token, invalidReq)
-	testhelper.RequireGrpcError(t, err, codes.NotFound)
+	testhelper.RequireGrpcCode(t, err, codes.NotFound)
 	require.NoFileExists(t, pathToCachedResponse(t, ctx, cache, invalidReq))
 
 	// if an error occurs while putting stream, it should not interrupt

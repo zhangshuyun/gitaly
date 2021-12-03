@@ -142,10 +142,10 @@ func testCreateRepositoryFromSnapshotFailsIfRepositoryExists(t *testing.T, ctx c
 	rsp, err := createFromSnapshot(t, ctx, req, cfg)
 
 	if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
-		testhelper.RequireGrpcError(t, err, codes.AlreadyExists)
+		testhelper.RequireGrpcCode(t, err, codes.AlreadyExists)
 		require.Contains(t, err.Error(), "creating repository: repository exists already")
 	} else {
-		testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+		testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 		require.Contains(t, err.Error(), "destination directory exists")
 	}
 
@@ -168,7 +168,7 @@ func testCreateRepositoryFromSnapshotFailsIfBadURL(t *testing.T, ctx context.Con
 	}
 
 	rsp, err := createFromSnapshot(t, ctx, req, cfg)
-	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+	testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 	require.Contains(t, err.Error(), "Bad HTTP URL")
 	require.Nil(t, rsp)
 }
@@ -226,7 +226,7 @@ func testCreateRepositoryFromSnapshotBadRequests(t *testing.T, ctx context.Conte
 			}
 
 			rsp, err := createFromSnapshot(t, ctx, req, cfg)
-			testhelper.RequireGrpcError(t, err, tc.code)
+			testhelper.RequireGrpcCode(t, err, tc.code)
 			require.Nil(t, rsp)
 
 			require.Contains(t, err.Error(), tc.errContains)

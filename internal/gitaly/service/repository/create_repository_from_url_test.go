@@ -108,9 +108,9 @@ func testCreateRepositoryFromURLExistingTarget(t *testing.T, ctx context.Context
 
 			_, err := client.CreateRepositoryFromURL(ctx, req)
 			if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
-				testhelper.RequireGrpcError(t, err, codes.AlreadyExists)
+				testhelper.RequireGrpcCode(t, err, codes.AlreadyExists)
 			} else {
-				testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+				testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 			}
 		})
 	}

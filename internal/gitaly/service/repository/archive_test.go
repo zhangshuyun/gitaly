@@ -401,7 +401,7 @@ func TestGetArchiveFailure(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = consumeArchive(stream)
-			testhelper.RequireGrpcError(t, err, tc.code)
+			testhelper.RequireGrpcCode(t, err, tc.code)
 		})
 	}
 }

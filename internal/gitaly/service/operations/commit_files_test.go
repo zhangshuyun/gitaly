@@ -1562,7 +1562,7 @@ func TestFailedUserCommitFilesRequest(t *testing.T) {
 			require.NoError(t, stream.Send(tc.req))
 
 			_, err = stream.CloseAndRecv()
-			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 			require.Contains(t, err.Error(), tc.desc)
 		})
 	}

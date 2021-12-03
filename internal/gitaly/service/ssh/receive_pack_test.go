@@ -83,7 +83,7 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 			require.NoError(t, stream.CloseSend())
 
 			err = drainPostReceivePackResponse(stream)
-			testhelper.RequireGrpcError(t, err, test.Code)
+			testhelper.RequireGrpcCode(t, err, test.Code)
 		})
 	}
 }

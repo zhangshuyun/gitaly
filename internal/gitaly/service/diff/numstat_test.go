@@ -196,7 +196,7 @@ func TestFailedDiffStatsRequest(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			_, err := stream.Recv()
 
-			testhelper.RequireGrpcError(t, err, tc.err)
+			testhelper.RequireGrpcCode(t, err, tc.err)
 		})
 	}
 }

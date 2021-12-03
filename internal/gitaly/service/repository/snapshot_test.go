@@ -278,7 +278,7 @@ func TestGetSnapshotFailsIfRepositoryMissing(t *testing.T) {
 
 	req := &gitalypb.GetSnapshotRequest{Repository: repo}
 	data, err := getSnapshot(client, req)
-	testhelper.RequireGrpcError(t, err, codes.NotFound)
+	testhelper.RequireGrpcCode(t, err, codes.NotFound)
 	require.Empty(t, data)
 }
 
@@ -293,7 +293,7 @@ func TestGetSnapshotFailsIfRepositoryContainsSymlink(t *testing.T) {
 
 	req := &gitalypb.GetSnapshotRequest{Repository: repo}
 	data, err := getSnapshot(client, req)
-	testhelper.RequireGrpcError(t, err, codes.Internal)
+	testhelper.RequireGrpcCode(t, err, codes.Internal)
 	require.Contains(t, err.Error(), "building snapshot failed")
 
 	// At least some of the tar file should have been written so far

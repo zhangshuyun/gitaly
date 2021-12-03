@@ -59,7 +59,7 @@ func TestFailedRestoreCustomHooksDueToValidations(t *testing.T) {
 	require.NoError(t, stream.Send(&gitalypb.RestoreCustomHooksRequest{}))
 
 	_, err = stream.CloseAndRecv()
-	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+	testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 }
 
 func TestFailedRestoreCustomHooksDueToBadTar(t *testing.T) {
@@ -92,5 +92,5 @@ func TestFailedRestoreCustomHooksDueToBadTar(t *testing.T) {
 	require.NoError(t, err)
 	_, err = stream.CloseAndRecv()
 
-	testhelper.RequireGrpcError(t, err, codes.Internal)
+	testhelper.RequireGrpcCode(t, err, codes.Internal)
 }

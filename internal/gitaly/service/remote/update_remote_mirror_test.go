@@ -589,7 +589,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 
 			resp, err := stream.CloseAndRecv()
 			if tc.errorContains != "" {
-				testhelper.RequireGrpcError(t, err, codes.Internal)
+				testhelper.RequireGrpcCode(t, err, codes.Internal)
 				require.Contains(t, err.Error(), tc.errorContains)
 				return
 			}
@@ -996,7 +996,7 @@ func TestFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T) {
 			require.NoError(t, stream.Send(tc.request))
 
 			_, err = stream.CloseAndRecv()
-			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 			require.Contains(t, err.Error(), tc.desc)
 		})
 	}

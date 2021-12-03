@@ -392,7 +392,7 @@ func TestFailedWikiFindPageDueToValidation(t *testing.T) {
 			require.NoError(t, err)
 
 			err = drainWikiFindPageResponse(c)
-			testhelper.RequireGrpcError(t, err, testCase.code)
+			testhelper.RequireGrpcCode(t, err, testCase.code)
 		})
 	}
 }
@@ -443,7 +443,7 @@ func TestInvalidWikiFindPageRequestRevision(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = stream.Recv()
-	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+	testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 }
 
 func testSuccessfulWikiFindPageRequestWithTrailers(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
