@@ -125,9 +125,12 @@ func (s *server) sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, r
 		wg.Wait()
 
 		if status, ok := command.ExitStatus(err); ok {
-			return stream.Send(&gitalypb.SSHUploadPackResponse{
+			if sendErr := stream.Send(&gitalypb.SSHUploadPackResponse{
 				ExitStatus: &gitalypb.ExitStatus{Value: int32(status)},
-			})
+			}); sendErr != nil {
+				return sendErr
+			}
+			return fmt.Errorf("SSHUploadPack: %v", err)
 		}
 		return fmt.Errorf("cmd wait: %v", err)
 	}

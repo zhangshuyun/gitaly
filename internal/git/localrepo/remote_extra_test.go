@@ -132,7 +132,7 @@ func TestRepo_FetchInternal(t *testing.T) {
 		)
 		require.EqualError(t, err, "exit status 128")
 		require.IsType(t, err, localrepo.ErrFetchFailed{})
-		require.Equal(t, "fatal: couldn't find remote ref refs/does/not/exist\nfatal: the remote end hung up unexpectedly\n", stderr.String())
+		require.Contains(t, stderr.String(), "fatal: couldn't find remote ref refs/does/not/exist\nfatal: the remote end hung up unexpectedly\n")
 	})
 
 	t.Run("with env", func(t *testing.T) {

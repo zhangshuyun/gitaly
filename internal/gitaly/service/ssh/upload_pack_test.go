@@ -3,7 +3,6 @@ package ssh
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -153,7 +152,7 @@ func requireFailedSSHStream(t *testing.T, recv func() (int32, error)) {
 
 	select {
 	case <-done:
-		require.Equal(t, io.EOF, err)
+		testhelper.RequireGrpcCode(t, err, codes.Internal)
 		require.NotEqual(t, 0, code, "exit status")
 	case <-time.After(10 * time.Second):
 		t.Fatal("timeout waiting for SSH stream")
@@ -543,6 +542,41 @@ func TestUploadPackCloneFailure(t *testing.T) {
 	}
 	err := cmd.execute(t)
 	require.Error(t, err, "clone didn't fail")
+}
+
+func TestUploadPackCloneGitFailure(t *testing.T) {
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
+
+	serverSocketPath := runSSHServer(t, cfg)
+
+	client, conn := newSSHClient(t, serverSocketPath)
+	defer conn.Close()
+
+	configPath := filepath.Join(cfg.Storages[0].Path, repo.RelativePath, "config")
+	gitconfig, err := os.Create(configPath)
+	require.NoError(t, err)
+
+	// Writing an invalid config will allow repo to pass the `IsGitDirectory` check but still
+	// trigger an error when git tries to access the repo.
+	_, err = gitconfig.WriteString("Not a valid git config")
+	require.NoError(t, err)
+
+	require.NoError(t, gitconfig.Close())
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+	stream, err := client.SSHUploadPack(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = stream.Send(&gitalypb.SSHUploadPackRequest{Repository: repo}); err != nil {
+		t.Fatal(err)
+	}
+	require.NoError(t, stream.CloseSend())
+
+	err = testPostUploadPackFailedResponse(t, stream)
+	testhelper.RequireGrpcCode(t, err, codes.Internal)
 }
 
 func testPostUploadPackFailedResponse(t *testing.T, stream gitalypb.SSHService_SSHUploadPackClient) error {
