@@ -582,17 +582,27 @@ AND relative_path = $2
 	return exists, nil
 }
 
-//nolint: revive,stylecheck // This is unintentionally missing documentation.
+// DeleteInvalidRepository deletes the given replica. If the replica was the only replica of the
+// repository, then the repository will be deleted, as well.
 func (rs *PostgresRepositoryStore) DeleteInvalidRepository(ctx context.Context, repositoryID int64, storage string) error {
 	_, err := rs.db.ExecContext(ctx, `
-WITH invalid_repository AS (
-	DELETE FROM storage_repositories
+WITH repository AS (
+	SELECT repository_id
+	FROM repositories
 	WHERE repository_id = $1
-	AND   storage = $2
+	FOR UPDATE
+),
+
+invalid_repository AS (
+	DELETE FROM storage_repositories
+	USING repository
+	WHERE storage_repositories.repository_id = repository.repository_id
+	AND storage = $2
 )
 
 DELETE FROM repositories
-WHERE repository_id = $1
+USING repository
+WHERE repositories.repository_id = repository.repository_id
 AND NOT EXISTS (
 	SELECT 1
 	FROM storage_repositories
