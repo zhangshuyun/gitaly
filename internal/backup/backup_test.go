@@ -324,10 +324,15 @@ func TestManager_Restore_praefect(t *testing.T) {
 }
 
 func testManagerRestore(t *testing.T, cfg config.Cfg, gitalyAddr string) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-	ctx = featureflag.OutgoingCtxWithFeatureFlag(ctx, featureflag.TxAtomicRepositoryCreation, true)
+	testhelper.NewFeatureSets(
+		featureflag.AtomicRemoveRepository,
+		featureflag.TxAtomicRepositoryCreation,
+	).Run(t, func(t *testing.T, ctx context.Context) {
+		testManagerRestoreWithContext(t, ctx, cfg, gitalyAddr)
+	})
+}
 
+func testManagerRestoreWithContext(t *testing.T, ctx context.Context, cfg config.Cfg, gitalyAddr string) {
 	cc, err := client.Dial(gitalyAddr, nil)
 	require.NoError(t, err)
 	defer testhelper.MustClose(t, cc)
