@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/setup"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
@@ -105,8 +106,10 @@ func TestAddRepository_Exec(t *testing.T) {
 	gitalyCC, err := client.Dial(g1Addr, nil)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, gitalyCC.Close()) }()
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
+	ctx = featureflag.OutgoingCtxWithFeatureFlagValue(ctx, featureflag.TxAtomicRepositoryCreation, "true")
 
 	gitaly1RepositoryClient := gitalypb.NewRepositoryServiceClient(gitalyCC)
 

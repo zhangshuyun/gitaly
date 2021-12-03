@@ -107,6 +107,8 @@ SOFTWARE.`,
 
 func testFindLicenseRequestEmptyRepo(t *testing.T, cfg config.Cfg, client gitalypb.RepositoryServiceClient, rubySrv *rubyserver.Server) {
 	testhelper.NewFeatureSets(featureflag.GoFindLicense).Run(t, func(t *testing.T, ctx context.Context) {
+		ctx = featureflag.OutgoingCtxWithFeatureFlagValue(ctx, featureflag.TxAtomicRepositoryCreation, "true")
+
 		repo, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 		require.NoError(t, os.RemoveAll(repoPath))
 

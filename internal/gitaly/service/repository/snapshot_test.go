@@ -2,6 +2,7 @@ package repository
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http/httptest"
@@ -19,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/archive"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -88,6 +90,10 @@ func TestGetSnapshotSuccess(t *testing.T) {
 
 func TestGetSnapshotWithDedupe(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testGetSnapshotWithDedupe)
+}
+
+func testGetSnapshotWithDedupe(t *testing.T, ctx context.Context) {
 	for _, tc := range []struct {
 		desc              string
 		alternatePathFunc func(t *testing.T, storageDir, objDir string) string
@@ -116,9 +122,6 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg, repoProto, repoPath, client := setupRepositoryServiceWithWorktree(t)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
 
 			const committerName = "Scrooge McDuck"
 			const committerEmail = "scrooge@mcduck.com"
@@ -158,7 +161,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 			_, err = objectInfoReader.Info(ctx, git.Revision(commitSha))
 			require.NoError(t, err)
 
-			repoCopy, _ := copyRepoUsingSnapshot(t, cfg, client, repoProto)
+			repoCopy, _ := copyRepoUsingSnapshot(t, ctx, cfg, client, repoProto)
 			repoCopy.RelativePath = getReplicaPath(ctx, t, client, repoCopy)
 			repoCopyPath, err := locator.GetRepoPath(repoCopy)
 			require.NoError(t, err)
@@ -172,6 +175,10 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 
 func TestGetSnapshotWithDedupeSoftFailures(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testGetSnapshotWithDedupeSoftFailures)
+}
+
+func testGetSnapshotWithDedupeSoftFailures(t *testing.T, ctx context.Context) {
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	testRepo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
@@ -221,10 +228,7 @@ func TestGetSnapshotWithDedupeSoftFailures(t *testing.T) {
 
 	require.NoError(t, os.WriteFile(alternatesPath, []byte(alternateObjPath), 0o644))
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	repoCopy, _ := copyRepoUsingSnapshot(t, cfg, client, testRepo)
+	repoCopy, _ := copyRepoUsingSnapshot(t, ctx, cfg, client, testRepo)
 	repoCopy.RelativePath = getReplicaPath(ctx, t, client, repoCopy)
 	repoCopyPath, err := locator.GetRepoPath(repoCopy)
 	require.NoError(t, err)
@@ -235,7 +239,7 @@ func TestGetSnapshotWithDedupeSoftFailures(t *testing.T) {
 }
 
 // copyRepoUsingSnapshot creates a tarball snapshot, then creates a new repository from that snapshot
-func copyRepoUsingSnapshot(t *testing.T, cfg config.Cfg, client gitalypb.RepositoryServiceClient, source *gitalypb.Repository) (*gitalypb.Repository, string) {
+func copyRepoUsingSnapshot(t *testing.T, ctx context.Context, cfg config.Cfg, client gitalypb.RepositoryServiceClient, source *gitalypb.Repository) (*gitalypb.Repository, string) {
 	t.Helper()
 	// create the tar
 	req := &gitalypb.GetSnapshotRequest{Repository: source}
@@ -257,8 +261,6 @@ func copyRepoUsingSnapshot(t *testing.T, cfg config.Cfg, client gitalypb.Reposit
 		HttpAuth:   secret,
 	}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 	rsp, err := client.CreateRepositoryFromSnapshot(ctx, createRepoReq)
 	require.NoError(t, err)
 	testassert.ProtoEqual(t, rsp, &gitalypb.CreateRepositoryFromSnapshotResponse{})

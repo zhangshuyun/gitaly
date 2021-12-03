@@ -18,6 +18,7 @@ import (
 	gitalylog "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/log"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	praefectConfig "gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -325,6 +326,7 @@ func TestManager_Restore_praefect(t *testing.T) {
 func testManagerRestore(t *testing.T, cfg config.Cfg, gitalyAddr string) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
+	ctx = featureflag.OutgoingCtxWithFeatureFlagValue(ctx, featureflag.TxAtomicRepositoryCreation, "true")
 
 	cc, err := client.Dial(gitalyAddr, nil)
 	require.NoError(t, err)
