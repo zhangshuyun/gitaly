@@ -1,122 +1,247 @@
 # Gitaly Hooks
 
-Gitaly requires Git to execute hooks after certain mutator RPCs. This document
-explains the different code paths that trigger hooks.
+Gitaly requires Git to execute hooks after certain mutator RPCs and whenever Git
+references are updated. This document explains the different code paths that
+trigger hooks.
 
-# git-receive-pack
+## Hook Setup
 
-When git-receive-pack gets called either through `PostReceivePack` or `SSHReceivePack`, git will look for hooks in `core.hooksPath`. See the [githooks documentation](https://git-scm.com/docs/githooks)
-for detailed information about how git calls hooks. `core.hooksPath` is set to an internal directory containing Gitaly hooks detailed below.
+By default, when Git executes hooks, it inspects the `.git/hooks` directory
+inside the repository it's executing in. However, Gitaly intercepts this
+mechanism. There are no repository-specific hooks we ever want to execute using
+this mechanism. Instead, we want to inject our own global hooks that are
+required for each repository.
 
-## Gitaly server hooks
+We inject some information into Git commands to set up the hook execution
+environment for both Git and ourselves so that the `gitaly-hooks` executable is
+able to derive required information:
 
-When `git-receive-pack` is called, the following server side hooks run:
+- We inject `GITALY_BIN_DIR`, which points to Gitaly's binary directory. This is
+  used to locate the `gitaly-hooks` binary.
+- We inject the `core.hooksPath` config entry, which points to the directory
+  containing our global hooks. All hooks are symlinks to the `gitlab-shell-hook`
+  script, which locates the `gitaly-hooks` executable using `GITALY_BIN_DIR`.
+- We inject `GITALY_HOOKS_PAYLOAD`, which contains JSON-formatted data. This
+  payload encodes various information:
+  - Which hooks have been requested. Gitaly uses this to only configure a
+    subset of hooks even if the executed Git command would run additional
+    hooks.
+  - Information about the repository the hook is executed in.
+  - Information about how to connect to Gitaly.
+  - Information about the ongoing transaction, if any.
+  - Information about the user who triggered the hook. This is required for
+    access checks.
 
-`pre-receive`: checks if the ref updates are allowed to happen, and increments the reference counter.
-If reference transactions are enabled, the hook's standard input containing all reference updates will be hashed and submitted as a vote.
+The `gitaly-hooks` executable is only a gateway to be able to use gRPC and
+execute the hook logic inside of the Gitaly server process. It uses the injected
+information to connect to Gitaly and execute the respective RPC call. The
+execution path is:
 
-`update`: on GitLab.com this is a noop. It simply runs the update custom hooks. Custom hooks are detailed below
+1. Git locates the hook using `core.hooksPath`. If found, this is a symlink
+   pointing to the `gitlab-shell-hook` script.
+1. The `gitlab-shell-hook` script executes `gitaly-hook`, which it locates using
+   `GITALY_BIN_DIR`.
+1. `gitaly-hook` connects to Gitaly and executes the corresponding RPC call in
+   Gitaly, passing along any hook-specific information to the RPC.
+1. Gitaly performs the hook-specific logic in the RPC handler.
 
-`post-receive`: prints out the merge request link, and decreases the reference counter.
+## Hook-specific logic
 
-Note: The reference counter is a counter per repository so GitLab knows when a certain repository can be moved. If the reference
-counter is not at 0, that means there are active pushes happening.
+The logic implemented in Gitaly's hook RPC handlers depends on which hook is
+being executed.
 
-## Custom Hooks
+### Reference-transaction hook
 
-After each hook type `pre-receive`, `update`, `post-receive`, custom hooks are also run.
-See the [GitLab Server Hooks documentation](https://docs.gitlab.com/ee/administration/server_hooks.html) for how they are used.
+The reference-transaction hook is executed whenever Git updates a reference from
+an old value to a new value, where it hooks into the low-level mechanism to
+update references in Git. An update of a hook goes through two phases, where the
+hook is executed once for each phase:
 
-### Execution path
+1. Git "prepares" the reference transaction. When the hook is called in this
+   phase, the references that are about to be updated are locked for concurrent
+   modification.
+1. Git "commits" or "aborts" the reference transaction.
 
-A Brief History: Gitaly hooks were originally in GitLab-Shell and implemented in Ruby. They have since been moved to Gitaly, and are replaced
-with hooks implemented in Go.
+Depending on how the command updates references, this hook can be executed per
+reference that is about to be updated, or for all references at once. The
+references that are about to be updated are received on standard input.
+
+In Gitaly, we use the reference-transaction mechanism to perform votes on all
+references which are updated by Git in a way that is transparent to Gitaly
+itself. That is, we do not know how often and with which arguments the hook is
+going to be executed when we execute any Git command, and the order can change
+when new Git versions are rolled out that do internal changes.
+
+The reference-transaction can therefore be used to put an absolute ordering on
+all reference updates across multiple Gitaly nodes. To ensure that multiple
+Gitaly nodes part of a single transaction (that is, all Gitalies execute the
+same logic at the same point in time) perform the same action, we vote on each
+of the hook executions. Gitaly nodes:
+
+1. Take the standard input containing all references we are about to update.
+1. Hash these references.
+1. Use the resulting hash as it's vote that it sends to Praefect.
+
+We expect the hash must be the same across all Gitaly nodes if (and only if) all
+nodes:
+
+- Are in the same state before.
+- Make the change deterministically.
+
+If a [quorum](design_ha.md) is reached, the update is committed to disk,
+otherwise the update is rejected.
+
+### Receive-Pack Hooks
+
+These hooks are executed by `git-receive-pack` whenever changes are pushed into
+a repository and can be used to:
+
+- Verify whether the changes should be allowed into the repository in the first
+  place (`pre-receive` and `update` hooks).
+- Show information to the user (`post-update` hook).
+
+While the reference-transaction hook executes on all Gitaly nodes, the
+receive-pack style hooks only run on a single Gitaly, which is the primary node.
+It can thus happen that receive-pack style hooks reject the update on the
+primary node, which is not something the secondary nodes would see. The result
+is that secondaries would now hang until the timeout for the RPC call triggers
+given that the primary is never going to vote on this transaction.
+
+To fix the hang, transactions support graceful stops: if the primary node fails
+the RPC call in code that is only executed on the primary, then it will stop the
+transaction and thus tell other Gitaly nodes to stop waiting for quorum.
+
+There are two users of these hooks:
+
+- `PostReceivePack` and `SSHReceivePack` directly invoke `git-receive-pack`,
+  which then executes the hooks for us.
+- Most RPCs in the `OperationService` that write objects into the repository
+  manually invoke these hooks using the `updateref.UpdaterWithHooks` structure.
+
+These hooks perform the following functions:
+
+- `pre-receive`: The pre-receive hook receives all reference updates as a whole
+  via standard input, where each change is represented by one line with the old
+  and new object ID as well the name of the reference that is to be updated. At
+  this point, all objects required to satisfy the update have already been
+  received, but they are still in a separate "quarantine directory" and are
+  therefore detached from the main repository. This hook first increments a
+  reference counter that tracks how many pushes are active at the same time.
+  Afterwards, it posts all changes to Rails' `/internal/allowed` API endpoint so
+  that Rails can determine whether the change is allowed or not. Because objects
+  still live in a quarantine directory, Gitaly tells Rails where it can find the
+  quarantine directory using the repository's alternative object directory
+  fields so that any subsequent RPC calls that check the change can access those
+  objects. When the access checks succeed, any existing custom pre-receive hooks
+  installed by the administrator are executed.
+- `update`: The update hook runs after the pre-receive hook at the point where
+  objects from the object quarantine directory have already been migrated into
+  the main repository. This hook only executes custom hooks installed by the
+  admin.
+- `post-receive`: This hook prints information to the user (for example, the
+  merge request link). It also decrements the reference counter incremented in
+  the pre-receive hook.
+
+Note: The reference is per repository so GitLab knows when a certain repository
+can be moved. If the reference counter is not at 0, there are active pushes
+happening.
+
+#### Error Messages
+
+Both custom hooks and the `/internal/allowed` API endpoint may return
+specially-formatted error messages that have either a `GitLab:` or a
+`GL-Hook-Error:` prefix. Messages with this prefix are returned as-is to Rails
+and signify an error message that should be printed to the user directly, either
+through the user interface or through standard error of `git-receive-pack`.
+
+#### Custom Hooks
+
+Administrators can install custom hooks that run after the usual logic executed
+by Gitaly itself. Custom hooks are _never_ expected to replace Gitaly's own
+hooks, which are mandatory. Gitaly supports installation of custom hooks for the
+`pre-receive`, `update`, and `post-receive` hooks. See the [GitLab server hooks
+documentation](https://docs.gitlab.com/ee/administration/server_hooks.html).
+
+## Execution Path
+
+The following sequence diagram depicts the order in which hooks are executed for
+`git-receive-pack`-based RPCs:
 
 ```mermaid
-graph TD
-  A[git-receive-pack] --> B1[ruby/git-hooks/pre-receive]
-  A --> B2[ruby/git-hooks/update]
-  A --> B3[ruby/git-hooks/post-receive]
-  B1 --> C[ruby/git-hooks/gitlab-shell-hook]
-  B2 --> C[ruby/git-hooks/gitlab-shell-hook]
-  B3 --> C[ruby/git-hooks/gitlab-shell-hook]
-  C --> E1[gitaly.HookService/PreReceiveHook]
-  C --> E2[gitaly.HookService/UpdateHook]
-  C --> E3[gitaly.HookService/PostReceiveHook]
-  E1 --> F1[GitLab Rails /internal/allowed]
-  E1 --> F2[GitLab Rails /internal/pre_receive]
-  E1 --> H1[Execute pre-receive custom hooks]
-  E2 --> F3[update custom hooks]
-  E3 --> I[GitLab Rails /internal/post_receive]
-  E3 --> J[post-receive custom hooks]
+sequenceDiagram
+    git-receive-pack->>+gitaly-hooks: exec "pre-receive"
+    gitaly-hooks->>+Hook Service: call PreReceiveHook
+    Hook Service->>Rails: increment counter
+    Hook Service->>+Rails: call "/internal/allowed"
+    Rails->>-Hook Service: OK
+    Hook Service->>+Custom Hooks: exec "pre-receive"
+    Custom Hooks->>-Hook Service: OK
+    Hook Service->>-gitaly-hooks: OK
+    gitaly-hooks->>-git-receive-pack: OK
+
+    loop For each reference
+        git-receive-pack->>+gitaly-hooks: exec "update"
+        gitaly-hooks->>+Hook Service: call Update
+        Hook Service->>+Custom Hooks: exec "update"
+        Custom Hooks->>-Hook Service: OK
+        Hook Service->>-gitaly-hooks: OK
+        gitaly-hooks->>-git-receive-pack: OK
+
+        git-receive-pack->>+gitaly-hooks: exec "reference-transaction prepare"
+        gitaly-hooks->>+Hook Service: call ReferenceTransactionHook(prepare)
+        Hook Service->>+Praefect: cast vote
+        Praefect->>-Hook Service: OK
+        Hook Service->>-gitaly-hooks: OK
+        gitaly-hooks->>-git-receive-pack: OK
+
+        git-receive-pack->>+gitaly-hooks: exec "reference-transaction commit"
+        gitaly-hooks->>+Hook Service: call ReferenceTransaction(commit)
+        Hook Service->>+Praefect: cast vote
+        Praefect->>-Hook Service: OK
+        Hook Service->>-gitaly-hooks: OK
+        gitaly-hooks->>-git-receive-pack: OK
+    end
+
+    git-receive-pack->>+gitaly-hooks: exec "post-receive"
+    gitaly-hooks->>+Hook Service: call PostReceiveHook
+    Hook Service->>Rails: decrement counter
+    Hook Service->>+Custom Hooks: exec "post-receive"
+    Custom Hooks->>-Hook Service: OK
+    Hook Service->>-gitaly-hooks: OK
+    gitaly-hooks->>-git-receive-pack: OK
 ```
 
-1. `git-receive-pack` calls `pre-receive`, `update`, `post-receive` shell scripts under `ruby/git-hooks/`. Each of these scripts simply invokes `exec $GITALY_BIN_DIR/git-hooks` with the hook name and arguments.
-1. `gitaly-hooks` will call the corresponding RPC that handles `pre-receive`(`PreReceiveHook`), `update`(`UpdateHook`), and `post-receive`(`PostReceiveHook`).
-    - `/gitaly.HookService/UpdateHook` will run once for each ref being updated.
-1. `PreReceiveHook` RPC will call out to GitLab's `internal/allowed` endpoint.
-1. `PreReceiveHook` RPC will call out to GitLab's `internal/pre_receive` endpoint.
-1. `PreReceiveHook` RPC will find `pre-receive` custom hooks and execute them.
-1. `UpdateHook` RPC will find `update` custom hooks and execute them.
-1. `PostReceiveHook` will call out to GitLab's `internal/post_receive` endpoint.
-1. `PostReceiveHook` will call the `post-receive` custom hooks.
-
-# Operations RPCs
-
-The other way that Gitaly hooks are triggered is through the Operations Service RPCs. Similar to `git-receive-pack`, the `pre-receive`, `update`, and `post-receive` are executed when a ref is updated via
-one of the Operations Service RPCs. The execution path is different. Instead of `git-receive-pack` triggering the hooks, they are invoked manually
-through Gitaly.
-
-### Execution path
+The following sequence diagram depicts the order in which hooks are executed for
+RPCs in the `OperationService`:
 
 ```mermaid
-graph TD
-  A[1. OperationsService RPC] --> B[2. ruby/lib/gitlab_server/operation_service.rb]
-  B --> O1[3. with_hooks ]
-  O1 --> O2[4. ruby/lib/gitlab/git/hooks_service.rb]
-  O2 --> |pre-receive|O4[ruby/lib/gitlab/git/hooks.rb]
-  O2 --> |update|O4[ruby/lib/gitlab/git/hooks.rb]
-  O2 --> |post-receive|O4[ruby/lib/gitlab/git/hooks.rb]
-  O4 --> C[5. ruby/git-hooks/pre-receive]
-  O4 --> C[5. ruby/git-hooks/update]
-  O4 --> C[5. ruby/git-hooks/post-receive]
-  C --> D[7. GITALY_BIN_DIR/gitaly-hooks]
-  D --> E1[8. /gitaly.HookService/PreReceiveHook]
-  D --> E2[8. /gitaly.HookService/UpdateHook]
-  D --> E3[8. /gitaly.HookService/PostReceiveHook]
-  E1 --> F1[9. GitLab Rails /internal/allowed]
-  E1 --> F2[10. GitLab Rails /internal/pre_receive]
-  E1 --> H1[11. Execute pre-receive custom hooks]
-  E2 --> F3[12. update custom hooks]
-  E3 --> F4{13. is gitaly_go_postreceive_hook enabled?}
-  F4 --> |yes| G3a[14. use go implementation in PostReceiveHook]
-  F4 --> |no| G3b[15. ruby/gitlab-shell/hooks/post-receive]
-  G3a --> I[16. GitLab Rails /internal/post_receive]
-  G3b --> I
-  G3a --> J[17. post-receive custom hooks]
-  G3b --> J
+sequenceDiagram
+    Operation Service->>+Hook Service: call PreReceiveHook
+    Hook Service->>Rails: increment counter
+    Hook Service->>+Rails: call "/internal/allowed"
+    Rails->>-Hook Service: OK
+    Hook Service->>+Custom Hooks: exec "pre-receive"
+    Custom Hooks->>-Hook Service: OK
+    Hook Service->>-Operation Service: OK
+
+    Operation Service->>+Hook Service: call UpdateHook
+    Hook Service->>+Custom Hooks: exec "update"
+    Custom Hooks->>-Hook Service: OK
+    Hook Service->>-Operation Service: OK
+
+    Operation Service->>+Hook Service: call ReferenceTransactionHook(prepare)
+    Hook Service->>+Praefect: cast vote
+    Praefect->>-Hook Service: OK
+    Hook Service->>-Operation Service: OK
+
+    Operation Service->>+Hook Service: call ReferenceTransactionHook(commit)
+    Hook Service->>+Praefect: cast vote
+    Praefect->>-Hook Service: OK
+    Hook Service->>-Operation Service: OK
+
+    Operation Service->>+Hook Service: call PostReceiveHook
+    Hook Service->>Rails: decrement counter
+    Hook Service->>+Custom Hooks: exec "post-receive"
+    Custom Hooks->>-Hook Service: OK
+    Hook Service->>-Operation Service: OK
 ```
-
-1. An OperationsService RPC calls out to `gitaly-ruby`'s `operation_service.rb`.
-1. A number of operation service methods call out to the `with_hooks` method.
-1. `with_hooks` calls out to `hooks_service.rb`.
-1. `hooks_service.rb` calls `hooks.rb` with `pre-receive`, `update`, and `post-receive`.
-1. `pre-receive`, `update`, `post-receive` shell scripts call `gitlab-shell-hook` shell script with environment, hook name, hook arguments.
-
-    Note: Steps 6-17 are identical to descriptions of steps 2-13 above.
-
-1. Each of these scripts simply calls `ruby/git-hooks/gitlab-shell-hook` with the environment, stdin, hook name, and hook arguments.
-1. `ruby/git-hooks/gitlab-shell-hook` in turn calls the `GITALY_BIN_DIR/gitaly-hooks` binary.
-1. `gitaly-hooks` will call the corresponding RPC that handles `pre-receive`(`PreReceiveHook`), `update`(`UpdateHook`), and `post-receive`(`PostReceiveHook`).
-    - `/gitaly.HookService/PreReceiveHook` and `/gitaly.HookService/UpdateHoo` uses the Go implementation by default but falls back to the Ruby `ruby/gitlab-shell/pre-receive` and  `ruby/gitlab-shell/update` hooks when `:gitaly_go_prereceive_hook`, `:gitaly_go_update_hook`
-      feature flags are (respectively) explicitly disabled.
-    - `/gitaly.HookService/UpdateHook` will run once for each ref being updated.
-1. `PreReceiveHook` RPC will call out to GitLab's `internal/allowed` endpoint.
-1. `PreReceiveHook` RPC will call out to GitLab's `internal/pre_receive` endpoint. (uses the Go implementation by default but falls back to the Ruby `ruby/gitlab-shell/pre-receive` hook when `:gitaly_go_prereceive_hook` is explicitly disabled)
-1. `PreReceiveHook` RPC will find `pre-receive` custom hooks and execute them.
-1. `UpdateHook` RPC will find `update` custom hooks and execute them.
-1. `PostReceiveHook`  will check if `gitaly_go_postreceive_hook` feature flag is enabled.
-1. If `gitaly_go_postreceive_hook`  is not enabled, `PostReceiveHook` RPC will fall back to calling the Ruby hook.
-1. If `gitaly_go_postreceive_hook` is enabled,  `PostReceiveHook` RPC will use the go implementation.
-1. Both the Ruby `post-receive` hook as well as the Go implementation of `PostReceiveHook` will call out to GitLab's `internal/post_receive` endpoint. (the `internal/post_receive` endpoint decreases the reference counter, and generates the MR creation link that gets printed out to stdout.)
-1. Both the Ruby `post-receive` hook as well as the Go implementation of `PostReceiveHook` will call the `post-receive` custom hooks.
