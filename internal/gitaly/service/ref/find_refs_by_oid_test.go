@@ -198,7 +198,7 @@ func TestFindRefsByOID_failure(t *testing.T) {
 
 			response, err := client.FindRefsByOID(ctx, request)
 			require.Empty(t, response.GetRefs())
-			testhelper.GrpcEqualErr(t, expectedErr, err)
+			testhelper.RequireGrpcError(t, expectedErr, err)
 		})
 	}
 }

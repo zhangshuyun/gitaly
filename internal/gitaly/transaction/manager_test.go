@@ -125,7 +125,7 @@ func TestPoolManager_Vote(t *testing.T) {
 			}
 
 			err := manager.Vote(ctx, tc.transaction, tc.vote)
-			testhelper.GrpcEqualErr(t, tc.expectedErr, err)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }
@@ -182,7 +182,7 @@ func TestPoolManager_Stop(t *testing.T) {
 			}
 
 			err := manager.Stop(ctx, tc.transaction)
-			testhelper.GrpcEqualErr(t, tc.expectedErr, err)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }

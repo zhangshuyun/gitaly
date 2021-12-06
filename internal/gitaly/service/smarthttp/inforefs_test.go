@@ -63,7 +63,7 @@ func TestInfoRefsUploadPack_repositoryDoesntExist(t *testing.T) {
 	defer cancel()
 
 	_, err := makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest)
-	testhelper.GrpcEqualErr(t, helper.ErrNotFoundf(`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/doesnt/exist"`), err)
+	testhelper.RequireGrpcError(t, helper.ErrNotFoundf(`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/doesnt/exist"`), err)
 }
 
 func TestSuccessfulInfoRefsUploadWithPartialClone(t *testing.T) {
@@ -227,7 +227,7 @@ func TestFailureRepoNotFoundInfoRefsReceivePack(t *testing.T) {
 	defer cancel()
 	_, err := makeInfoRefsReceivePackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest)
 	msg := `GetRepoPath: not a git repository: "` + cfg.Storages[0].Path + "/" + repo.RelativePath + `"`
-	testhelper.GrpcEqualErr(t, helper.ErrNotFoundf(msg), err)
+	testhelper.RequireGrpcError(t, helper.ErrNotFoundf(msg), err)
 }
 
 func TestFailureRepoNotSetInfoRefsReceivePack(t *testing.T) {

@@ -67,7 +67,7 @@ func TestGetConfig(t *testing.T) {
 		require.NoError(t, os.Remove(configPath))
 
 		config, err := getConfig(t, client, repo)
-		testhelper.GrpcEqualErr(t, status.Errorf(codes.NotFound, "opening gitconfig: open %s: no such file or directory", configPath), err)
+		testhelper.RequireGrpcError(t, status.Errorf(codes.NotFound, "opening gitconfig: open %s: no such file or directory", configPath), err)
 		require.Equal(t, "", config)
 	})
 }

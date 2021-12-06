@@ -148,7 +148,7 @@ func TestWriteCommitGraph_validationChecks(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			_, err := client.WriteCommitGraph(ctx, tc.req)
-			testhelper.GrpcEqualErr(t, tc.expErr, err)
+			testhelper.RequireGrpcError(t, tc.expErr, err)
 		})
 	}
 }

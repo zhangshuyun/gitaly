@@ -388,7 +388,7 @@ To restore the original branch and stop patching, run "git am --abort".
 
 			actualResponse, err := stream.CloseAndRecv()
 			if tc.error != nil {
-				testhelper.GrpcEqualErr(t, tc.error, err)
+				testhelper.RequireGrpcError(t, tc.error, err)
 				return
 			}
 

@@ -68,7 +68,7 @@ func TestFindRemoteRootRefWithUnbornRemoteHead(t *testing.T) {
 		RemoteUrl:  "file://" + clientRepoPath,
 	},
 	)
-	testhelper.GrpcEqualErr(t, status.Error(codes.NotFound, "no remote HEAD found"), err)
+	testhelper.RequireGrpcError(t, status.Error(codes.NotFound, "no remote HEAD found"), err)
 	require.Nil(t, response)
 }
 
@@ -116,7 +116,7 @@ func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 			defer cancel()
 
 			_, err := client.FindRemoteRootRef(ctx, testCase.request)
-			testhelper.GrpcEqualErr(t, testCase.expectedErr, err)
+			testhelper.RequireGrpcError(t, testCase.expectedErr, err)
 		})
 	}
 }

@@ -282,7 +282,7 @@ func testReplicateRepositoryBadRepository(t *testing.T, ctx context.Context) {
 			desc:          "source invalid",
 			invalidSource: true,
 			error: func(t testing.TB, actual error) {
-				testhelper.GrpcEqualErr(t, actual, helper.ErrNotFoundf("source repository does not exist"))
+				testhelper.RequireGrpcError(t, actual, helper.ErrNotFoundf("source repository does not exist"))
 			},
 		},
 		{

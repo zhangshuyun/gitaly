@@ -99,7 +99,7 @@ func TestBackchannel_concurrentRequestsFromMultipleClients(t *testing.T) {
 			}
 
 			resp, err := gitalypb.NewRefTransactionClient(client).VoteTransaction(ctx, &gitalypb.VoteTransactionRequest{})
-			testhelper.GrpcEqualErr(t, errNonMultiplexed, err)
+			testhelper.RequireGrpcError(t, errNonMultiplexed, err)
 			assert.Nil(t, resp)
 
 			assert.NoError(t, client.Close())
@@ -138,7 +138,7 @@ func TestBackchannel_concurrentRequestsFromMultipleClients(t *testing.T) {
 				go func() {
 					defer invocations.Done()
 					resp, err := gitalypb.NewRefTransactionClient(client).VoteTransaction(ctx, &gitalypb.VoteTransactionRequest{TransactionId: i})
-					testhelper.GrpcEqualErr(t, expectedErr, err)
+					testhelper.RequireGrpcError(t, expectedErr, err)
 					assert.Nil(t, resp)
 				}()
 			}

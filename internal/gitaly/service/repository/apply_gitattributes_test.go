@@ -194,7 +194,7 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 				Repository: repo,
 				Revision:   tc.revision,
 			})
-			testhelper.GrpcEqualErr(t, tc.expectedErr, err)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 
 			path := filepath.Join(infoPath, "attributes")
 			if tc.shouldExist {

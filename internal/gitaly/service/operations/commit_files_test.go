@@ -918,7 +918,7 @@ func TestUserCommitFiles(t *testing.T) {
 				}
 
 				resp, err := stream.CloseAndRecv()
-				testhelper.GrpcEqualErr(t, step.error, err)
+				testhelper.RequireGrpcError(t, step.error, err)
 				if step.error != nil {
 					continue
 				}

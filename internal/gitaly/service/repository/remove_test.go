@@ -41,7 +41,7 @@ func testRemoveRepositoryDoesNotExist(t *testing.T, ctx context.Context) {
 	})
 
 	if featureflag.AtomicRemoveRepository.IsEnabled(ctx) {
-		testhelper.GrpcEqualErr(t, helper.ErrNotFoundf("repository does not exist"), err)
+		testhelper.RequireGrpcError(t, helper.ErrNotFoundf("repository does not exist"), err)
 	} else {
 		require.NoError(t, err)
 	}
@@ -61,7 +61,7 @@ func testRemoveRepositoryLocking(t *testing.T, ctx context.Context) {
 
 	_, err := client.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{Repository: repo})
 	if featureflag.AtomicRemoveRepository.IsEnabled(ctx) {
-		testhelper.GrpcEqualErr(t, helper.ErrFailedPreconditionf("repository is already locked"), err)
+		testhelper.RequireGrpcError(t, helper.ErrFailedPreconditionf("repository is already locked"), err)
 	} else {
 		require.NoError(t, err)
 	}

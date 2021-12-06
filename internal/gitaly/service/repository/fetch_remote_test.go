@@ -438,7 +438,7 @@ func TestFetchRemote_force(t *testing.T) {
 
 			tc.request.Repository = targetRepoProto
 			_, err := client.FetchRemote(ctx, tc.request)
-			testhelper.GrpcEqualErr(t, tc.expectedErr, err)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 
 			updatedBranchOID, err := targetRepo.ResolveRevision(ctx, "refs/heads/master")
 			require.NoError(t, err)

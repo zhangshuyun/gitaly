@@ -285,9 +285,9 @@ func testServerCreateRepositoryFromBundleFailedExistingDirectory(t *testing.T, c
 	_, err = stream.CloseAndRecv()
 
 	if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
-		testhelper.GrpcEqualErr(t, status.Error(codes.AlreadyExists, "creating repository: repository exists already"), err)
+		testhelper.RequireGrpcError(t, status.Error(codes.AlreadyExists, "creating repository: repository exists already"), err)
 	} else {
-		testhelper.GrpcEqualErr(t, status.Error(codes.FailedPrecondition, "CreateRepositoryFromBundle: target directory is non-empty"), err)
+		testhelper.RequireGrpcError(t, status.Error(codes.FailedPrecondition, "CreateRepositoryFromBundle: target directory is non-empty"), err)
 	}
 }
 

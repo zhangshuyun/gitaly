@@ -368,7 +368,7 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 
 			response, err := client.UserUpdateBranch(ctx, request)
 			testhelper.ProtoEqual(t, testCase.response, response)
-			testhelper.GrpcEqualErr(t, testCase.err, err)
+			testhelper.RequireGrpcError(t, testCase.err, err)
 
 			branchCommit, err := repo.ReadCommit(ctx, git.Revision(testCase.branchName))
 			if testCase.expectNotFoundError {

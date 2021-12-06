@@ -154,7 +154,7 @@ func testUserMergeBranchQuarantine(t *testing.T, ctx context.Context) {
 	require.NoError(t, stream.Send(&gitalypb.UserMergeBranchRequest{Apply: true}), "apply merge")
 	secondResponse, err := stream.Recv()
 	if featureflag.UserMergeBranchAccessError.IsEnabled(ctx) {
-		testhelper.GrpcEqualErr(t, helper.ErrInternalf("%s\n", firstResponse.CommitId), err)
+		testhelper.RequireGrpcError(t, helper.ErrInternalf("%s\n", firstResponse.CommitId), err)
 		require.Nil(t, secondResponse)
 	} else {
 		require.NoError(t, err, "receive second response")
@@ -343,7 +343,7 @@ func testUserMergeBranchConcurrentUpdate(t *testing.T, ctx context.Context) {
 
 	secondResponse, err := mergeBidi.Recv()
 	if featureflag.UserMergeBranchAccessError.IsEnabled(ctx) {
-		testhelper.GrpcEqualErr(t, helper.ErrFailedPreconditionf("Could not update refs/heads/gitaly-merge-test-branch. Please refresh and try again."), err)
+		testhelper.RequireGrpcError(t, helper.ErrFailedPreconditionf("Could not update refs/heads/gitaly-merge-test-branch. Please refresh and try again."), err)
 		require.Nil(t, secondResponse)
 	} else {
 		require.NoError(t, err, "receive second response")
@@ -456,7 +456,7 @@ func testUserMergeBranchFailingHooks(t *testing.T, ctx context.Context) {
 
 			secondResponse, err := mergeBidi.Recv()
 			if featureflag.UserMergeBranchAccessError.IsEnabled(ctx) {
-				testhelper.GrpcEqualErr(t, helper.ErrInternalf("failure\n"), err)
+				testhelper.RequireGrpcError(t, helper.ErrInternalf("failure\n"), err)
 				require.Nil(t, secondResponse)
 			} else {
 				require.NoError(t, err, "receive second response")
@@ -510,7 +510,7 @@ func testUserMergeBranchConflict(t *testing.T, ctx context.Context) {
 	}), "send first request")
 
 	firstResponse, err := mergeBidi.Recv()
-	testhelper.GrpcEqualErr(t, helper.ErrFailedPreconditionf("Failed to merge for source_sha %s into target_sha %s", divergedFrom, divergedInto), err)
+	testhelper.RequireGrpcError(t, helper.ErrFailedPreconditionf("Failed to merge for source_sha %s into target_sha %s", divergedFrom, divergedInto), err)
 	require.Nil(t, firstResponse)
 }
 
@@ -632,7 +632,7 @@ func testUserMergeBranchAllowed(t *testing.T, ctx context.Context) {
 
 			response, err = stream.Recv()
 			if featureflag.UserMergeBranchAccessError.IsEnabled(ctx) {
-				testhelper.GrpcEqualErr(t, tc.expectedErr, err)
+				testhelper.RequireGrpcError(t, tc.expectedErr, err)
 				testhelper.ProtoEqual(t, tc.expectedResponse, response)
 			} else {
 				require.NoError(t, err)
@@ -1067,7 +1067,7 @@ func TestUserMergeToRef_conflicts(t *testing.T) {
 		request.AllowConflicts = false
 
 		_, err := client.UserMergeToRef(ctx, request)
-		testhelper.GrpcEqualErr(t, status.Error(codes.FailedPrecondition, "Failed to create merge commit for source_sha 1450cd639e0bc6721eb02800169e464f212cde06 and target_sha 824be604a34828eb682305f0d963056cfac87b2d at refs/merge-requests/x/written"), err)
+		testhelper.RequireGrpcError(t, status.Error(codes.FailedPrecondition, "Failed to create merge commit for source_sha 1450cd639e0bc6721eb02800169e464f212cde06 and target_sha 824be604a34828eb682305f0d963056cfac87b2d at refs/merge-requests/x/written"), err)
 	})
 
 	targetRef := git.Revision("refs/merge-requests/foo")

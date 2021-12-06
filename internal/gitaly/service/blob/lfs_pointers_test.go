@@ -159,7 +159,7 @@ func TestListLFSPointers(t *testing.T) {
 				if err == io.EOF {
 					break
 				}
-				testhelper.GrpcEqualErr(t, tc.expectedErr, err)
+				testhelper.RequireGrpcError(t, tc.expectedErr, err)
 				if err != nil {
 					break
 				}

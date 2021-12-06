@@ -617,7 +617,7 @@ func testFindAllTagsPagination(t *testing.T, ctx context.Context) {
 				response, err := c.Recv()
 				if err != nil {
 					if expectedErr != nil {
-						testhelper.GrpcEqualErr(t, expectedErr, err)
+						testhelper.RequireGrpcError(t, expectedErr, err)
 						break
 					} else {
 						require.Equal(t, io.EOF, err)
@@ -727,7 +727,7 @@ func TestFindAllTags_sorted(t *testing.T) {
 		})
 		require.NoError(t, err)
 		r, err := c.Recv()
-		testhelper.GrpcEqualErr(t, status.Error(codes.InvalidArgument, "unsupported sorting key: -1"), err)
+		testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, "unsupported sorting key: -1"), err)
 		require.Nil(t, r)
 	})
 
@@ -738,7 +738,7 @@ func TestFindAllTags_sorted(t *testing.T) {
 		})
 		require.NoError(t, err)
 		r, err := c.Recv()
-		testhelper.GrpcEqualErr(t, status.Error(codes.InvalidArgument, "unsupported sorting direction: -1"), err)
+		testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, "unsupported sorting direction: -1"), err)
 		require.Nil(t, r)
 	})
 

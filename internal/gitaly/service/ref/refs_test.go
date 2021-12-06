@@ -505,7 +505,7 @@ func testFindLocalBranchesPaginationWithIncorrectToken(t *testing.T, ctx context
 	if featureflag.ExactPaginationTokenMatch.IsEnabled(ctx) {
 		_, err = c.Recv()
 		require.NotEqual(t, err, io.EOF)
-		testhelper.GrpcEqualErr(t, helper.ErrInternalf("could not find page token"), err)
+		testhelper.RequireGrpcError(t, helper.ErrInternalf("could not find page token"), err)
 	} else {
 		require.NoError(t, err)
 

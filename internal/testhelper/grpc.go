@@ -51,10 +51,9 @@ func RequireGrpcCode(t testing.TB, err error, expectedCode codes.Code) {
 	require.Equal(t, expectedCode, status.Code())
 }
 
-// GrpcEqualErr asserts that expected and actual gRPC errors are equal.
-// This is required as comparing messages directly with `require.Equal` doesn't
-// work.
-func GrpcEqualErr(t testing.TB, expected, actual error) {
+// RequireGrpcError asserts that expected and actual gRPC errors are equal. Comparing gRPC errors
+// directly with `require.Equal()` will not typically work correct.
+func RequireGrpcError(t testing.TB, expected, actual error) {
 	t.Helper()
 	// .Proto() handles nil receiver
 	ProtoEqual(t, status.Convert(expected).Proto(), status.Convert(actual).Proto())

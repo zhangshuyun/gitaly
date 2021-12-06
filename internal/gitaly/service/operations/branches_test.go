@@ -379,7 +379,7 @@ func TestFailedUserCreateBranchRequest(t *testing.T) {
 			}
 
 			response, err := client.UserCreateBranch(ctx, request)
-			testhelper.GrpcEqualErr(t, testCase.err, err)
+			testhelper.RequireGrpcError(t, testCase.err, err)
 			require.Empty(t, response)
 		})
 	}
@@ -571,7 +571,7 @@ func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			response, err := client.UserDeleteBranch(ctx, testCase.request)
-			testhelper.GrpcEqualErr(t, testCase.err, err)
+			testhelper.RequireGrpcError(t, testCase.err, err)
 			testhelper.ProtoEqual(t, testCase.response, response)
 		})
 	}

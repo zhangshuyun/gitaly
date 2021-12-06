@@ -418,7 +418,7 @@ func TestResolveConflictsNonOIDRequests(t *testing.T) {
 	}))
 
 	_, err = stream.CloseAndRecv()
-	testhelper.GrpcEqualErr(t, status.Errorf(codes.Unknown, "Rugged::InvalidError: unable to parse OID - contains invalid characters"), err)
+	testhelper.RequireGrpcError(t, status.Errorf(codes.Unknown, "Rugged::InvalidError: unable to parse OID - contains invalid characters"), err)
 }
 
 func TestResolveConflictsIdenticalContent(t *testing.T) {

@@ -243,9 +243,9 @@ func testCreateForkTargetExists(t *testing.T, ctx context.Context) {
 				SourceRepository: repo,
 			})
 			if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
-				testhelper.GrpcEqualErr(t, tc.expectedErrWithAtomicCreation, err)
+				testhelper.RequireGrpcError(t, tc.expectedErrWithAtomicCreation, err)
 			} else {
-				testhelper.GrpcEqualErr(t, tc.expectedErr, err)
+				testhelper.RequireGrpcError(t, tc.expectedErr, err)
 			}
 		})
 	}

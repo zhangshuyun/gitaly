@@ -632,7 +632,7 @@ func TestHealthCheckDialer(t *testing.T) {
 	defer cancel()
 
 	_, err := HealthCheckDialer(DialContext)(ctx, addr, nil)
-	testhelper.GrpcEqualErr(t, status.Error(codes.Unauthenticated, "authentication required"), err)
+	testhelper.RequireGrpcError(t, status.Error(codes.Unauthenticated, "authentication required"), err)
 
 	cc, err := HealthCheckDialer(DialContext)(ctx, addr, []grpc.DialOption{grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2("token"))})
 	require.NoError(t, err)

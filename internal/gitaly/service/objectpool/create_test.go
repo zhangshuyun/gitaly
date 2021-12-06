@@ -134,7 +134,7 @@ func TestUnsuccessfulCreate(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			_, err := client.CreateObjectPool(ctx, tc.request)
-			testhelper.GrpcEqualErr(t, tc.error, err)
+			testhelper.RequireGrpcError(t, tc.error, err)
 		})
 	}
 }
@@ -200,7 +200,7 @@ func TestDelete(t *testing.T) {
 					RelativePath: tc.relativePath,
 				},
 			}})
-			testhelper.GrpcEqualErr(t, tc.error, err)
+			testhelper.RequireGrpcError(t, tc.error, err)
 		})
 	}
 }

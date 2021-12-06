@@ -161,7 +161,7 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 
 		t.Run(tc.desc, func(t *testing.T) {
 			_, err := stream.Recv()
-			testhelper.GrpcEqualErr(t, tc.err, err)
+			testhelper.RequireGrpcError(t, tc.err, err)
 		})
 	}
 }

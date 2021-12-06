@@ -344,7 +344,7 @@ func TestProxyErrorPropagation(t *testing.T) {
 			requestFinalizerError: errRequestFinalizer,
 			returnedError:         errBackend,
 			errHandler: func(err error) error {
-				testhelper.GrpcEqualErr(t, errBackend, err)
+				testhelper.RequireGrpcError(t, errBackend, err)
 				return errBackend
 			},
 		},
@@ -353,7 +353,7 @@ func TestProxyErrorPropagation(t *testing.T) {
 			backendError:  errBackend,
 			returnedError: io.EOF,
 			errHandler: func(err error) error {
-				testhelper.GrpcEqualErr(t, errBackend, err)
+				testhelper.RequireGrpcError(t, errBackend, err)
 				return nil
 			},
 		},
@@ -363,7 +363,7 @@ func TestProxyErrorPropagation(t *testing.T) {
 			requestFinalizerError: errRequestFinalizer,
 			returnedError:         errRequestFinalizer,
 			errHandler: func(err error) error {
-				testhelper.GrpcEqualErr(t, errBackend, err)
+				testhelper.RequireGrpcError(t, errBackend, err)
 				return nil
 			},
 		},
@@ -419,7 +419,7 @@ func TestProxyErrorPropagation(t *testing.T) {
 			}()
 
 			resp, err := pb.NewTestServiceClient(proxyClientConn).Ping(ctx, &pb.PingRequest{})
-			testhelper.GrpcEqualErr(t, tc.returnedError, err)
+			testhelper.RequireGrpcError(t, tc.returnedError, err)
 			require.Nil(t, resp)
 		})
 	}
@@ -499,5 +499,5 @@ func TestRegisterStreamHandlers(t *testing.T) {
 
 	// since PingError was never registered with its own streamer, it should get sent to the UnknownServiceHandler
 	_, err = testServiceClient.PingError(ctx, &pb.PingRequest{})
-	testhelper.GrpcEqualErr(t, status.Error(codes.Unknown, directorCalledError.Error()), err)
+	testhelper.RequireGrpcError(t, status.Error(codes.Unknown, directorCalledError.Error()), err)
 }

@@ -643,7 +643,7 @@ func TestUserSquash_gitError(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			response, err := client.UserSquash(ctx, tc.request)
-			testhelper.GrpcEqualErr(t, tc.expectedErr, err)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 			testhelper.ProtoEqual(t, tc.expectedResponse, response)
 		})
 	}

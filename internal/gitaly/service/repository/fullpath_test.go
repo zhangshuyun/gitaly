@@ -41,7 +41,7 @@ func TestSetFullPath(t *testing.T) {
 			Path:       "",
 		})
 		require.Nil(t, response)
-		testhelper.GrpcEqualErr(t, helper.ErrInvalidArgumentf("no path provided"), err)
+		testhelper.RequireGrpcError(t, helper.ErrInvalidArgumentf("no path provided"), err)
 	})
 
 	t.Run("invalid storage", func(t *testing.T) {

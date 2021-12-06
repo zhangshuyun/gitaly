@@ -1618,7 +1618,7 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 				&gitalypb.UserCreateBranchRequest{
 					Repository: repoProto,
 				})
-			testhelper.GrpcEqualErr(t, tc.expectedErr, err)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 
 			for _, node := range gitalies {
 				require.True(t, node.operationServer.called, "expected gitaly %q to have been called", node.mock.GetStorage())

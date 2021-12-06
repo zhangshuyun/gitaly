@@ -524,7 +524,7 @@ func TestSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *tes
 			response, err := client.UserCreateTag(ctx, request)
 
 			if testCase.err != nil {
-				testhelper.GrpcEqualErr(t, testCase.err, err)
+				testhelper.RequireGrpcError(t, testCase.err, err)
 			} else {
 				defer gittest.Exec(t, cfg, "-C", repoPath, "tag", "-d", tagName)
 				require.NoError(t, err)
@@ -916,7 +916,7 @@ func TestUserDeleteTagSuccessfulDeletionOfPrefixedTag(t *testing.T) {
 			}
 
 			response, err := client.UserDeleteTag(ctx, request)
-			testhelper.GrpcEqualErr(t, testCase.err, err)
+			testhelper.RequireGrpcError(t, testCase.err, err)
 			testhelper.ProtoEqual(t, testCase.response, response)
 
 			refs := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/tags/"+testCase.tagNameInput)
@@ -962,7 +962,7 @@ func TestUserCreateTagsuccessfulCreationOfPrefixedTag(t *testing.T) {
 			}
 
 			response, err := client.UserCreateTag(ctx, request)
-			testhelper.GrpcEqualErr(t, testCase.err, err)
+			testhelper.RequireGrpcError(t, testCase.err, err)
 			commitOk, err := repo.ReadCommit(ctx, git.Revision(testCase.tagTargetRevisionInput))
 			require.NoError(t, err)
 
@@ -1084,7 +1084,7 @@ func TestFailedUserDeleteTagRequestDueToValidation(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			response, err := client.UserDeleteTag(ctx, testCase.request)
-			testhelper.GrpcEqualErr(t, testCase.err, err)
+			testhelper.RequireGrpcError(t, testCase.err, err)
 			testhelper.ProtoEqual(t, testCase.response, response)
 		})
 	}
@@ -1195,7 +1195,7 @@ func TestFailedUserCreateTagRequestDueToTagExistence(t *testing.T) {
 			}
 
 			response, err := client.UserCreateTag(ctx, request)
-			testhelper.GrpcEqualErr(t, testCase.err, err)
+			testhelper.RequireGrpcError(t, testCase.err, err)
 			testhelper.ProtoEqual(t, testCase.response, response)
 		})
 	}
@@ -1314,7 +1314,7 @@ func TestFailedUserCreateTagRequestDueToValidation(t *testing.T) {
 			}
 
 			response, err := client.UserCreateTag(ctx, request)
-			testhelper.GrpcEqualErr(t, testCase.err, err)
+			testhelper.RequireGrpcError(t, testCase.err, err)
 			testhelper.ProtoEqual(t, testCase.response, response)
 		})
 	}

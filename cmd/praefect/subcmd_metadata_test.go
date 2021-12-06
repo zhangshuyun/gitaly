@@ -91,7 +91,7 @@ func TestMetadataSubcommand(t *testing.T) {
 			fs := cmd.FlagSet()
 			require.NoError(t, fs.Parse(tc.args))
 			err := cmd.Exec(fs, config.Config{SocketPath: ln.Addr().String()})
-			testhelper.GrpcEqualErr(t, tc.error, err)
+			testhelper.RequireGrpcError(t, tc.error, err)
 			if tc.error != nil {
 				return
 			}

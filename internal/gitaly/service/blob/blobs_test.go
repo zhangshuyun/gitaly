@@ -268,7 +268,7 @@ func TestListBlobs(t *testing.T) {
 				resp, err := stream.Recv()
 				if err != nil {
 					if !errors.Is(err, io.EOF) {
-						testhelper.GrpcEqualErr(t, tc.expectedErr, err)
+						testhelper.RequireGrpcError(t, tc.expectedErr, err)
 					}
 					break
 				}

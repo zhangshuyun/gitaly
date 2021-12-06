@@ -119,7 +119,7 @@ func TestInvalidators(t *testing.T) {
 	require.Equal(t, 0, MethodErrCount.Method["/grpc.health.v1.Health/Check"])
 
 	_, err = testdata.NewInterceptedServiceClient(cc).IgnoredMethod(ctx, &testdata.Request{})
-	testhelper.GrpcEqualErr(t, status.Error(codes.Unimplemented, "method IgnoredMethod not implemented"), err)
+	testhelper.RequireGrpcError(t, status.Error(codes.Unimplemented, "method IgnoredMethod not implemented"), err)
 	require.Equal(t, 0, MethodErrCount.Method["/testdata.InterceptedService/IgnoredMethod"])
 
 	testhelper.ProtoEqual(t, expectedInvalidations, mCache.(*mockCache).invalidatedRepos)
