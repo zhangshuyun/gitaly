@@ -25,7 +25,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
@@ -91,7 +90,7 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 
 	// Compare the repository up front so that we can use require.Equal for
 	// the remaining values.
-	testassert.ProtoEqual(t, repo, payload.Repo)
+	testhelper.ProtoEqual(t, repo, payload.Repo)
 	payload.Repo = nil
 
 	// If running tests with Praefect, then the transaction would be set, but we have no way of

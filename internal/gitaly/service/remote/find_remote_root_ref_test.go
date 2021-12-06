@@ -8,7 +8,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -69,7 +68,7 @@ func TestFindRemoteRootRefWithUnbornRemoteHead(t *testing.T) {
 		RemoteUrl:  "file://" + clientRepoPath,
 	},
 	)
-	testassert.GrpcEqualErr(t, status.Error(codes.NotFound, "no remote HEAD found"), err)
+	testhelper.GrpcEqualErr(t, status.Error(codes.NotFound, "no remote HEAD found"), err)
 	require.Nil(t, response)
 }
 
@@ -117,7 +116,7 @@ func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 			defer cancel()
 
 			_, err := client.FindRemoteRootRef(ctx, testCase.request)
-			testassert.GrpcEqualErr(t, testCase.expectedErr, err)
+			testhelper.GrpcEqualErr(t, testCase.expectedErr, err)
 		})
 	}
 }

@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -278,7 +277,7 @@ func TestListCommits(t *testing.T) {
 				commits = append(commits, response.Commits...)
 			}
 
-			testassert.ProtoEqual(t, tc.expectedCommits, commits)
+			testhelper.ProtoEqual(t, tc.expectedCommits, commits)
 		})
 	}
 }

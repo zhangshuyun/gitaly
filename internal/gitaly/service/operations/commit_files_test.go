@@ -17,7 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -919,7 +918,7 @@ func TestUserCommitFiles(t *testing.T) {
 				}
 
 				resp, err := stream.CloseAndRecv()
-				testassert.GrpcEqualErr(t, step.error, err)
+				testhelper.GrpcEqualErr(t, step.error, err)
 				if step.error != nil {
 					continue
 				}

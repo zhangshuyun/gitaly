@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -162,7 +161,7 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 
 		t.Run(tc.desc, func(t *testing.T) {
 			_, err := stream.Recv()
-			testassert.GrpcEqualErr(t, tc.err, err)
+			testhelper.GrpcEqualErr(t, tc.err, err)
 		})
 	}
 }

@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -596,7 +595,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			testassert.ProtoEqual(t, tc.response, resp)
+			testhelper.ProtoEqual(t, tc.response, resp)
 
 			// Check that the refs on the mirror now refer to the correct commits.
 			// This is done by checking the commit messages as the commits are otherwise
@@ -847,7 +846,7 @@ func TestUpdateRemoteMirrorInmemory(t *testing.T) {
 
 	response, err := stream.CloseAndRecv()
 	require.NoError(t, err)
-	testassert.ProtoEqual(t, &gitalypb.UpdateRemoteMirrorResponse{}, response)
+	testhelper.ProtoEqual(t, &gitalypb.UpdateRemoteMirrorResponse{}, response)
 
 	localRefs := string(gittest.Exec(t, cfg, "-C", localPath, "for-each-ref"))
 	remoteRefs := string(gittest.Exec(t, cfg, "-C", remotePath, "for-each-ref"))

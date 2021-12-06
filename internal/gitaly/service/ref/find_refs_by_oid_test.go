@@ -10,7 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -199,7 +198,7 @@ func TestFindRefsByOID_failure(t *testing.T) {
 
 			response, err := client.FindRefsByOID(ctx, request)
 			require.Empty(t, response.GetRefs())
-			testassert.GrpcEqualErr(t, expectedErr, err)
+			testhelper.GrpcEqualErr(t, expectedErr, err)
 		})
 	}
 }

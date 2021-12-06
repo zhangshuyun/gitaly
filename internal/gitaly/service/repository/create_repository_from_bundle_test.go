@@ -22,7 +22,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
@@ -286,9 +285,9 @@ func testServerCreateRepositoryFromBundleFailedExistingDirectory(t *testing.T, c
 	_, err = stream.CloseAndRecv()
 
 	if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
-		testassert.GrpcEqualErr(t, status.Error(codes.AlreadyExists, "creating repository: repository exists already"), err)
+		testhelper.GrpcEqualErr(t, status.Error(codes.AlreadyExists, "creating repository: repository exists already"), err)
 	} else {
-		testassert.GrpcEqualErr(t, status.Error(codes.FailedPrecondition, "CreateRepositoryFromBundle: target directory is non-empty"), err)
+		testhelper.GrpcEqualErr(t, status.Error(codes.FailedPrecondition, "CreateRepositoryFromBundle: target directory is non-empty"), err)
 	}
 }
 

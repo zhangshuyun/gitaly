@@ -2,12 +2,17 @@ package testhelper
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
 // SetCtxGrpcMethod will set the gRPC context value for the proper key
@@ -27,6 +32,15 @@ func (mockServerTransportStream) SetHeader(md metadata.MD) error  { return nil }
 func (mockServerTransportStream) SendHeader(md metadata.MD) error { return nil }
 func (mockServerTransportStream) SetTrailer(md metadata.MD) error { return nil }
 
+// ProtoEqual asserts that expected and actual protobuf messages are equal.
+// It can accept not only proto.Message, but slices, maps, and structs too.
+// This is required as comparing messages directly with `require.Equal` doesn't
+// work.
+func ProtoEqual(t testing.TB, expected, actual interface{}) {
+	t.Helper()
+	require.Empty(t, cmp.Diff(expected, actual, protocmp.Transform(), cmpopts.EquateErrors()))
+}
+
 // RequireGrpcError asserts the passed err is of the same code as expectedCode.
 func RequireGrpcError(t testing.TB, err error, expectedCode codes.Code) {
 	t.Helper()
@@ -40,6 +54,27 @@ func RequireGrpcError(t testing.TB, err error, expectedCode codes.Code) {
 	if code := status.Code(); code != expectedCode {
 		t.Fatalf("Expected an error with code %v, got %v. The error was %q", expectedCode, code, err.Error())
 	}
+}
+
+// GrpcEqualErr asserts that expected and actual gRPC errors are equal.
+// This is required as comparing messages directly with `require.Equal` doesn't
+// work.
+func GrpcEqualErr(t testing.TB, expected, actual error) {
+	t.Helper()
+	// .Proto() handles nil receiver
+	ProtoEqual(t, status.Convert(expected).Proto(), status.Convert(actual).Proto())
+}
+
+// ContainsGrpcError checks that an equal gRPC error is present in the slice of errors.
+func ContainsGrpcError(t testing.TB, errs []error, err error) {
+	t.Helper()
+	errStatus := status.Convert(err).Proto()
+	for _, e := range errs {
+		if cmp.Equal(status.Convert(e).Proto(), errStatus, protocmp.Transform()) {
+			return
+		}
+	}
+	require.FailNow(t, fmt.Sprintf("%#v does not contain %#v", errs, err))
 }
 
 // MergeOutgoingMetadata merges provided metadata-s and returns context with resulting value.

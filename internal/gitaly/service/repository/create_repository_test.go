@@ -20,7 +20,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
@@ -204,7 +203,7 @@ func testCreateRepositoryTransactional(t *testing.T, ctx context.Context) {
 		})
 
 		if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
-			testassert.ProtoEqual(t, status.Error(codes.AlreadyExists, "creating repository: repository exists already"), err)
+			testhelper.ProtoEqual(t, status.Error(codes.AlreadyExists, "creating repository: repository exists already"), err)
 			return
 		}
 
@@ -245,7 +244,7 @@ func testCreateRepositoryIdempotent(t *testing.T, ctx context.Context) {
 	_, err := client.CreateRepository(ctx, req)
 
 	if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
-		testassert.ProtoEqual(t, status.Error(codes.AlreadyExists, "creating repository: repository exists already"), err)
+		testhelper.ProtoEqual(t, status.Error(codes.AlreadyExists, "creating repository: repository exists already"), err)
 		return
 	}
 

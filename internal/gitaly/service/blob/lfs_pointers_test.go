@@ -15,7 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -160,7 +159,7 @@ func TestListLFSPointers(t *testing.T) {
 				if err == io.EOF {
 					break
 				}
-				testassert.GrpcEqualErr(t, tc.expectedErr, err)
+				testhelper.GrpcEqualErr(t, tc.expectedErr, err)
 				if err != nil {
 					break
 				}
@@ -385,6 +384,6 @@ func lfsPointersEqual(tb testing.TB, expected, actual []*gitalypb.LFSPointer) {
 
 	require.Equal(tb, len(expected), len(actual))
 	for i := range expected {
-		testassert.ProtoEqual(tb, expected[i], actual[i])
+		testhelper.ProtoEqual(tb, expected[i], actual[i])
 	}
 }

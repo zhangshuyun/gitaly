@@ -23,7 +23,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
@@ -389,7 +388,7 @@ To restore the original branch and stop patching, run "git am --abort".
 
 			actualResponse, err := stream.CloseAndRecv()
 			if tc.error != nil {
-				testassert.GrpcEqualErr(t, tc.error, err)
+				testhelper.GrpcEqualErr(t, tc.error, err)
 				return
 			}
 
@@ -397,7 +396,7 @@ To restore the original branch and stop patching, run "git am --abort".
 
 			commitID := actualResponse.GetBranchUpdate().GetCommitId()
 			actualResponse.GetBranchUpdate().CommitId = ""
-			testassert.ProtoEqual(t, &gitalypb.UserApplyPatchResponse{
+			testhelper.ProtoEqual(t, &gitalypb.UserApplyPatchResponse{
 				BranchUpdate: &gitalypb.OperationBranchUpdate{
 					RepoCreated:   false,
 					BranchCreated: tc.branchCreated,
@@ -417,7 +416,7 @@ To restore the original branch and stop patching, run "git am --abort".
 
 			expectedBody := []byte("commit subject\n\ncommit message body\n")
 			expectedTimezone := []byte("+0000")
-			testassert.ProtoEqual(t,
+			testhelper.ProtoEqual(t,
 				&gitalypb.GitCommit{
 					Id:      commitID,
 					Subject: []byte("commit subject"),

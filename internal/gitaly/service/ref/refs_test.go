@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -506,7 +505,7 @@ func testFindLocalBranchesPaginationWithIncorrectToken(t *testing.T, ctx context
 	if featureflag.ExactPaginationTokenMatch.IsEnabled(ctx) {
 		_, err = c.Recv()
 		require.NotEqual(t, err, io.EOF)
-		testassert.GrpcEqualErr(t, helper.ErrInternalf("could not find page token"), err)
+		testhelper.GrpcEqualErr(t, helper.ErrInternalf("could not find page token"), err)
 	} else {
 		require.NoError(t, err)
 
@@ -520,7 +519,7 @@ func testFindLocalBranchesPaginationWithIncorrectToken(t *testing.T, ctx context
 			branches = append(branches, r.GetBranches()...)
 		}
 
-		testassert.ProtoEqual(t, []*gitalypb.FindLocalBranchResponse{
+		testhelper.ProtoEqual(t, []*gitalypb.FindLocalBranchResponse{
 			{
 				Name:          []byte("refs/heads/rebase-encoding-failure-trigger"),
 				Commit:        gittest.CommitsByID["ca47bfd5e930148c42ed74c3b561a8783e381f7f"],
@@ -1149,7 +1148,7 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 		resp, err := client.FindTag(ctx, rpcRequest)
 		require.NoError(t, err)
 
-		testassert.ProtoEqual(t, expectedTag, resp.GetTag())
+		testhelper.ProtoEqual(t, expectedTag, resp.GetTag())
 	}
 }
 

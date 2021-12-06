@@ -69,7 +69,7 @@ func TestSuccessfulGetCommitSignaturesRequest(t *testing.T) {
 
 	require.Len(t, fetchedSignatures, len(expectedSignatures))
 	for i, expected := range expectedSignatures {
-		// We cannot use `testassert.ProtoEqual` here due to it being too inefficient with
+		// We cannot use `testhelper.ProtoEqual` here due to it being too inefficient with
 		// the data we're comparing because it contains multiple MB of signed data. This has
 		// in the past led to frequent timeouts in CI.
 		require.Equal(t, expected.CommitId, fetchedSignatures[i].CommitId)

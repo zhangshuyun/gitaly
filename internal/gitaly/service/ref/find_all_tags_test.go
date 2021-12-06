@@ -19,7 +19,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -243,7 +242,7 @@ func TestFindAllTags_simpleNestedTags(t *testing.T) {
 
 	response, err := stream.Recv()
 	require.NoError(t, err)
-	testassert.ProtoEqual(t, &gitalypb.FindAllTagsResponse{
+	testhelper.ProtoEqual(t, &gitalypb.FindAllTagsResponse{
 		Tags: []*gitalypb.Tag{
 			{
 				Name: []byte("my/nested/tag"),
@@ -327,7 +326,7 @@ func TestFindAllTags_duplicateAnnotatedTags(t *testing.T) {
 		Committer: commitAuthor,
 	}
 
-	testassert.ProtoEqual(t, []*gitalypb.Tag{
+	testhelper.ProtoEqual(t, []*gitalypb.Tag{
 		{
 			Name:        []byte("annotated"),
 			Id:          tagID.String(),
@@ -618,7 +617,7 @@ func testFindAllTagsPagination(t *testing.T, ctx context.Context) {
 				response, err := c.Recv()
 				if err != nil {
 					if expectedErr != nil {
-						testassert.GrpcEqualErr(t, expectedErr, err)
+						testhelper.GrpcEqualErr(t, expectedErr, err)
 						break
 					} else {
 						require.Equal(t, io.EOF, err)
@@ -728,7 +727,7 @@ func TestFindAllTags_sorted(t *testing.T) {
 		})
 		require.NoError(t, err)
 		r, err := c.Recv()
-		testassert.GrpcEqualErr(t, status.Error(codes.InvalidArgument, "unsupported sorting key: -1"), err)
+		testhelper.GrpcEqualErr(t, status.Error(codes.InvalidArgument, "unsupported sorting key: -1"), err)
 		require.Nil(t, r)
 	})
 
@@ -739,7 +738,7 @@ func TestFindAllTags_sorted(t *testing.T) {
 		})
 		require.NoError(t, err)
 		r, err := c.Recv()
-		testassert.GrpcEqualErr(t, status.Error(codes.InvalidArgument, "unsupported sorting direction: -1"), err)
+		testhelper.GrpcEqualErr(t, status.Error(codes.InvalidArgument, "unsupported sorting direction: -1"), err)
 		require.Nil(t, r)
 	})
 

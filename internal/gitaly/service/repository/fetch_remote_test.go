@@ -22,7 +22,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
@@ -439,7 +438,7 @@ func TestFetchRemote_force(t *testing.T) {
 
 			tc.request.Repository = targetRepoProto
 			_, err := client.FetchRemote(ctx, tc.request)
-			testassert.GrpcEqualErr(t, tc.expectedErr, err)
+			testhelper.GrpcEqualErr(t, tc.expectedErr, err)
 
 			updatedBranchOID, err := targetRepo.ResolveRevision(ctx, "refs/heads/master")
 			require.NoError(t, err)

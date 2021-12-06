@@ -10,7 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -167,7 +166,7 @@ func TestGetTagSignatures(t *testing.T) {
 				resp, err := stream.Recv()
 				if err != nil {
 					if !errors.Is(err, io.EOF) {
-						testassert.GrpcEqualErr(t, tc.expectedErr, err)
+						testhelper.GrpcEqualErr(t, tc.expectedErr, err)
 					}
 					break
 				}
@@ -175,7 +174,7 @@ func TestGetTagSignatures(t *testing.T) {
 				signatures = append(signatures, resp.Signatures...)
 			}
 
-			testassert.ProtoEqual(t, tc.expectedSignatures, signatures)
+			testhelper.ProtoEqual(t, tc.expectedSignatures, signatures)
 		})
 	}
 }

@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -108,7 +107,7 @@ func testCreateRepositoryFromSnapshotSuccess(t *testing.T, ctx context.Context) 
 
 	rsp, err := client.CreateRepositoryFromSnapshot(ctx, req)
 	require.NoError(t, err)
-	testassert.ProtoEqual(t, rsp, &gitalypb.CreateRepositoryFromSnapshotResponse{})
+	testhelper.ProtoEqual(t, rsp, &gitalypb.CreateRepositoryFromSnapshotResponse{})
 
 	repoAbsolutePath := filepath.Join(cfg.Storages[0].Path, getReplicaPath(ctx, t, client, repo))
 	require.DirExists(t, repoAbsolutePath)

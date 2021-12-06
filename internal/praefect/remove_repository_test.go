@@ -15,7 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/grpc-proxy/proxy"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -147,7 +146,7 @@ func TestRemoveRepositoryHandler(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			testassert.ProtoEqual(t, &gitalypb.RemoveRepositoryResponse{}, resp)
+			testhelper.ProtoEqual(t, &gitalypb.RemoveRepositoryResponse{}, resp)
 			assertExistence(t, gitaly1RepoPath)
 			assertExistence(t, gitaly2RepoPath)
 		})

@@ -19,7 +19,6 @@ import (
 	hookservice "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -293,9 +292,9 @@ func TestUpdaterWithHooks_quarantine(t *testing.T) {
 			payload, err := git.HooksPayloadFromEnv(env)
 			require.NoError(t, err)
 			if quarantined {
-				testassert.ProtoEqual(t, quarantine.QuarantinedRepo(), payload.Repo)
+				testhelper.ProtoEqual(t, quarantine.QuarantinedRepo(), payload.Repo)
 			} else {
-				testassert.ProtoEqual(t, repoProto, payload.Repo)
+				testhelper.ProtoEqual(t, repoProto, payload.Repo)
 			}
 		}
 
@@ -313,7 +312,7 @@ func TestUpdaterWithHooks_quarantine(t *testing.T) {
 		// The pre-receive hook is not expected to have the object in the normal repo.
 		func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 			expectQuarantined(t, env, true)
-			testassert.ProtoEqual(t, quarantine.QuarantinedRepo(), repo)
+			testhelper.ProtoEqual(t, quarantine.QuarantinedRepo(), repo)
 			hookExecutions["prereceive"]++
 			return nil
 		},
@@ -321,7 +320,7 @@ func TestUpdaterWithHooks_quarantine(t *testing.T) {
 		// objects already having been migrated into the target repo.
 		func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 			expectQuarantined(t, env, false)
-			testassert.ProtoEqual(t, repoProto, repo)
+			testhelper.ProtoEqual(t, repoProto, repo)
 			hookExecutions["postreceive"]++
 			return nil
 		},
@@ -331,7 +330,7 @@ func TestUpdaterWithHooks_quarantine(t *testing.T) {
 		// updating the refs will fail due to missing objects.
 		func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error {
 			expectQuarantined(t, env, false)
-			testassert.ProtoEqual(t, quarantine.QuarantinedRepo(), repo)
+			testhelper.ProtoEqual(t, quarantine.QuarantinedRepo(), repo)
 			hookExecutions["update"]++
 			return nil
 		},

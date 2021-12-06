@@ -5,7 +5,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -126,7 +125,7 @@ func TestSuccessfulCommitsBetween(t *testing.T) {
 
 			require.Len(t, commits, len(tc.expectedCommits))
 			for i, commit := range commits {
-				testassert.ProtoEqual(t, tc.expectedCommits[i], commit)
+				testhelper.ProtoEqual(t, tc.expectedCommits[i], commit)
 			}
 		})
 	}

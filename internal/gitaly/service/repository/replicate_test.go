@@ -17,7 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
@@ -283,7 +282,7 @@ func testReplicateRepositoryBadRepository(t *testing.T, ctx context.Context) {
 			desc:          "source invalid",
 			invalidSource: true,
 			error: func(t testing.TB, actual error) {
-				testassert.GrpcEqualErr(t, actual, helper.ErrNotFoundf("source repository does not exist"))
+				testhelper.GrpcEqualErr(t, actual, helper.ErrNotFoundf("source repository does not exist"))
 			},
 		},
 		{

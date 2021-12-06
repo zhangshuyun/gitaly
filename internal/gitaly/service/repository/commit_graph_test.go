@@ -12,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -149,7 +148,7 @@ func TestWriteCommitGraph_validationChecks(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			_, err := client.WriteCommitGraph(ctx, tc.req)
-			testassert.GrpcEqualErr(t, tc.expErr, err)
+			testhelper.GrpcEqualErr(t, tc.expErr, err)
 		})
 	}
 }

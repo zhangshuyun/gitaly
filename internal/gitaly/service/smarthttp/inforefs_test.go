@@ -24,7 +24,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
@@ -64,7 +63,7 @@ func TestInfoRefsUploadPack_repositoryDoesntExist(t *testing.T) {
 	defer cancel()
 
 	_, err := makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest)
-	testassert.GrpcEqualErr(t, helper.ErrNotFoundf(`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/doesnt/exist"`), err)
+	testhelper.GrpcEqualErr(t, helper.ErrNotFoundf(`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/doesnt/exist"`), err)
 }
 
 func TestSuccessfulInfoRefsUploadWithPartialClone(t *testing.T) {
@@ -228,7 +227,7 @@ func TestFailureRepoNotFoundInfoRefsReceivePack(t *testing.T) {
 	defer cancel()
 	_, err := makeInfoRefsReceivePackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest)
 	msg := `GetRepoPath: not a git repository: "` + cfg.Storages[0].Path + "/" + repo.RelativePath + `"`
-	testassert.GrpcEqualErr(t, helper.ErrNotFoundf(msg), err)
+	testhelper.GrpcEqualErr(t, helper.ErrNotFoundf(msg), err)
 }
 
 func TestFailureRepoNotSetInfoRefsReceivePack(t *testing.T) {

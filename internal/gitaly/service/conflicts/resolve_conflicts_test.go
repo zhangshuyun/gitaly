@@ -19,7 +19,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -419,7 +418,7 @@ func TestResolveConflictsNonOIDRequests(t *testing.T) {
 	}))
 
 	_, err = stream.CloseAndRecv()
-	testassert.GrpcEqualErr(t, status.Errorf(codes.Unknown, "Rugged::InvalidError: unable to parse OID - contains invalid characters"), err)
+	testhelper.GrpcEqualErr(t, status.Errorf(codes.Unknown, "Rugged::InvalidError: unable to parse OID - contains invalid characters"), err)
 }
 
 func TestResolveConflictsIdenticalContent(t *testing.T) {
@@ -515,7 +514,7 @@ func TestResolveConflictsIdenticalContent(t *testing.T) {
 
 	response, err := stream.CloseAndRecv()
 	require.NoError(t, err)
-	testassert.ProtoEqual(t, &gitalypb.ResolveConflictsResponse{
+	testhelper.ProtoEqual(t, &gitalypb.ResolveConflictsResponse{
 		ResolutionError: "Resolved content has no changes for file files/ruby/popen.rb",
 	}, response)
 }

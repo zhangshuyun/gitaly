@@ -11,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -97,7 +96,7 @@ SOFTWARE.`,
 				}
 
 				require.NoError(t, err)
-				testassert.ProtoEqual(t, &gitalypb.FindLicenseResponse{
+				testhelper.ProtoEqual(t, &gitalypb.FindLicenseResponse{
 					LicenseShortName: tc.expectedLicense,
 				}, resp)
 			})

@@ -16,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
@@ -232,7 +231,7 @@ func TestUserRebaseConfirmableStableCommitIDs(t *testing.T) {
 
 	commit, err := repo.ReadCommit(ctx, git.Revision(rebaseBranchName))
 	require.NoError(t, err, "look up git commit")
-	testassert.ProtoEqual(t, &gitalypb.GitCommit{
+	testhelper.ProtoEqual(t, &gitalypb.GitCommit{
 		Subject:   []byte("Add a directory with many files to allow testing of default 1,000 entry limit"),
 		Body:      []byte("Add a directory with many files to allow testing of default 1,000 entry limit\n\nFor performance reasons, GitLab will add a file viewer limit and only show\nthe first 1,000 entries in a directory. Having this directory with many\nempty files in the test project will make the test easy.\n"),
 		BodySize:  283,

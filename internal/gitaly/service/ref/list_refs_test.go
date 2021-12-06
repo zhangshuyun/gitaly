@@ -9,7 +9,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -158,7 +157,7 @@ func TestServer_ListRefs(t *testing.T) {
 				refs = append(refs, r.GetReferences()...)
 			}
 
-			testassert.ProtoEqual(t, tc.expected, refs)
+			testhelper.ProtoEqual(t, tc.expected, refs)
 		})
 	}
 }

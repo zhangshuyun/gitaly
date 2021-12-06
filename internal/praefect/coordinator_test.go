@@ -36,7 +36,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/transactions"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/promtest"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -815,8 +814,8 @@ func TestRewrittenRepositoryMessage(t *testing.T) {
 	var rewrittenMessage gitalypb.CreateObjectPoolRequest
 	require.NoError(t, proto.Unmarshal(rewrittenMessageBytes, &rewrittenMessage))
 
-	testassert.ProtoEqual(t, buildRequest("original-storage", "original-relative-path", "original-additional-relative-path"), originalRequest)
-	testassert.ProtoEqual(t, buildRequest("rewritten-storage", "rewritten-relative-path", "rewritten-additional-relative-path"), &rewrittenMessage)
+	testhelper.ProtoEqual(t, buildRequest("original-storage", "original-relative-path", "original-additional-relative-path"), originalRequest)
+	testhelper.ProtoEqual(t, buildRequest("rewritten-storage", "rewritten-relative-path", "rewritten-additional-relative-path"), &rewrittenMessage)
 }
 
 func TestStreamDirector_repo_creation(t *testing.T) {
@@ -1619,7 +1618,7 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 				&gitalypb.UserCreateBranchRequest{
 					Repository: repoProto,
 				})
-			testassert.GrpcEqualErr(t, tc.expectedErr, err)
+			testhelper.GrpcEqualErr(t, tc.expectedErr, err)
 
 			for _, node := range gitalies {
 				require.True(t, node.operationServer.called, "expected gitaly %q to have been called", node.mock.GetStorage())

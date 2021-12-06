@@ -34,7 +34,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	gitalyx509 "gitlab.com/gitlab-org/gitaly/v14/internal/x509"
@@ -244,9 +243,9 @@ func testCreateForkTargetExists(t *testing.T, ctx context.Context) {
 				SourceRepository: repo,
 			})
 			if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
-				testassert.GrpcEqualErr(t, tc.expectedErrWithAtomicCreation, err)
+				testhelper.GrpcEqualErr(t, tc.expectedErrWithAtomicCreation, err)
 			} else {
-				testassert.GrpcEqualErr(t, tc.expectedErr, err)
+				testhelper.GrpcEqualErr(t, tc.expectedErr, err)
 			}
 		})
 	}
