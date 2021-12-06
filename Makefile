@@ -176,6 +176,10 @@ ifeq ($(origin GIT_BUILD_OPTIONS),undefined)
     GIT_BUILD_OPTIONS += NO_INSTALL_HARDLINKS=YesPlease
 endif
 
+ifdef GIT_APPEND_BUILD_OPTIONS
+	GIT_BUILD_OPTIONS += ${GIT_APPEND_BUILD_OPTIONS}
+endif
+
 # libgit2 target
 LIBGIT2_REPO_URL    ?= https://gitlab.com/libgit2/libgit2
 LIBGIT2_SOURCE_DIR  ?= ${DEPENDENCY_DIR}/libgit2/source
@@ -200,6 +204,10 @@ ifeq ($(origin LIBGIT2_BUILD_OPTIONS),undefined)
     LIBGIT2_BUILD_OPTIONS += -DUSE_BUNDLED_ZLIB=ON
     LIBGIT2_BUILD_OPTIONS += -DUSE_HTTP_PARSER=builtin
     LIBGIT2_BUILD_OPTIONS += -DREGEX_BACKEND=builtin
+endif
+
+ifdef LIBGIT2_APPEND_BUILD_OPTIONS
+	LIBGIT2_BUILD_OPTIONS += ${LIBGIT2_APPEND_BUILD_OPTIONS}
 endif
 
 # These variables control test options and artifacts
