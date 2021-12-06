@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"strings"
 	"sync"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
@@ -22,28 +24,47 @@ import (
 
 const (
 	removeRepositoryCmdName = "remove-repository"
+	paramApply              = "apply"
 )
+
+type writer struct {
+	m sync.Mutex
+	w io.Writer
+}
+
+func (w *writer) Write(b []byte) (int, error) {
+	w.m.Lock()
+	defer w.m.Unlock()
+	return w.w.Write(b)
+}
 
 type removeRepository struct {
 	logger         logrus.FieldLogger
 	virtualStorage string
 	relativePath   string
+	apply          bool
 	dialTimeout    time.Duration
+	w              io.Writer
 }
 
-func newRemoveRepository(logger logrus.FieldLogger) *removeRepository {
-	return &removeRepository{logger: logger, dialTimeout: defaultDialTimeout}
+func newRemoveRepository(logger logrus.FieldLogger, w io.Writer) *removeRepository {
+	return &removeRepository{logger: logger, w: &writer{w: w}, dialTimeout: defaultDialTimeout}
 }
 
 func (cmd *removeRepository) FlagSet() *flag.FlagSet {
 	fs := flag.NewFlagSet(removeRepositoryCmdName, flag.ExitOnError)
 	fs.StringVar(&cmd.virtualStorage, paramVirtualStorage, "", "name of the repository's virtual storage")
+	fs.BoolVar(&cmd.apply, paramApply, false, "physically remove the repository from disk and the database")
 	fs.StringVar(&cmd.relativePath, paramRelativePath, "", "relative path to the repository")
 	fs.Usage = func() {
 		printfErr("Description:\n" +
 			"	This command removes all state associated with a given repository from the Gitaly Cluster.\n" +
 			"	This includes both on-disk repositories on all relevant Gitaly nodes as well as any potential\n" +
-			"	database state as tracked by Praefect.\n")
+			"	database state as tracked by Praefect.\n" +
+			"	Runs in dry-run mode by default and lists the gitaly nodes from which the repository will be removed from " +
+			"	without actually removing it from the database and disk.\n" +
+			"	When -apply is used, the repository will be removed from the database as well as\n" +
+			"	the individual gitaly nodes on which they exist.\n")
 		fs.PrintDefaults()
 		printfErr("NOTE:\n" +
 			"	It may happen that parts of the repository continue to exist after this command, either because\n" +
@@ -86,35 +107,106 @@ func (cmd *removeRepository) exec(ctx context.Context, logger logrus.FieldLogger
 		"relative_path":   cmd.relativePath,
 	}).Debug("remove repository")
 
-	addr, err := getNodeAddress(cfg)
+	rs := datastore.NewPostgresRepositoryStore(db, cfg.StorageNames())
+	exists, err := rs.RepositoryExists(ctx, cmd.virtualStorage, cmd.relativePath)
 	if err != nil {
-		return fmt.Errorf("get praefect address from config: %w", err)
+		fmt.Fprintf(cmd.w, "error getting storages from database: %v. Please make sure the database"+
+			" parameters are set correctly and the database is accessible.\n", err)
+	} else {
+		if exists {
+			fmt.Fprintln(cmd.w, "Repository found in the database.")
+		} else {
+			fmt.Fprintln(cmd.w, "Repository is not being tracked in Praefect.")
+		}
 	}
 
-	logger.Debugf("remove repository info from praefect database %q", addr)
+	storagesOnDisk, err := cmd.getStoragesFromNodes(ctx, cfg)
+	if err != nil {
+		return err
+	}
+
+	if len(storagesOnDisk) == 0 {
+		fmt.Fprintln(cmd.w, "Repository not found on any gitaly nodes.")
+	} else {
+		fmt.Fprintf(cmd.w, "Repository found on the following gitaly nodes: %s.\n", strings.Join(storagesOnDisk, ", "))
+	}
+
+	if !cmd.apply {
+		fmt.Fprintln(cmd.w, "Re-run the command with -apply to remove repositories from the database and disk.")
+		return nil
+	}
+
+	fmt.Fprintf(cmd.w, "Attempting to remove %s from the database, and delete it from all gitaly nodes...\n", cmd.relativePath)
+
+	fmt.Fprintln(cmd.w, "Removing repository from the database...")
 	removed, err := cmd.removeRepositoryFromDatabase(ctx, db)
 	if err != nil {
 		return fmt.Errorf("remove repository info from praefect database: %w", err)
 	}
-	if !removed {
-		logger.Warn("praefect database has no info about the repository")
-	}
-	logger.Debug("removal of the repository info from praefect database completed")
 
-	logger.Debug("remove replication events")
+	if !removed {
+		fmt.Fprintln(cmd.w, "The database has no information about this repository.")
+	} else {
+		fmt.Fprintln(cmd.w, "Removed repository metadata from the database.")
+	}
+
+	fmt.Fprintln(cmd.w, "Removing replication events...")
 	ticker := helper.NewTimerTicker(time.Second)
 	defer ticker.Stop()
 	if err := cmd.removeReplicationEvents(ctx, logger, db, ticker); err != nil {
 		return fmt.Errorf("remove scheduled replication events: %w", err)
 	}
-	logger.Debug("replication events removal completed")
+	fmt.Fprintln(cmd.w, "Replication event removal completed.")
 
 	// We should try to remove repository from each of gitaly nodes.
-	logger.Debug("remove repository directly by each gitaly node")
+	fmt.Fprintln(cmd.w, "Removing repository directly from gitaly nodes...")
 	cmd.removeRepositoryForEachGitaly(ctx, cfg, logger)
-	logger.Debug("direct repository removal by each gitaly node completed")
+	fmt.Fprintln(cmd.w, "Finished removing repository from gitaly nodes.")
 
 	return nil
+}
+
+// getStoragesFromNodes looks on disk to finds the storages this repository exists for
+func (cmd *removeRepository) getStoragesFromNodes(ctx context.Context, cfg config.Config) ([]string, error) {
+	var storages []string
+	for _, vs := range cfg.VirtualStorages {
+		if vs.Name != cmd.virtualStorage {
+			continue
+		}
+
+		storages = make([]string, len(vs.Nodes))
+		var wg sync.WaitGroup
+
+		for i := 0; i < len(vs.Nodes); i++ {
+			wg.Add(1)
+			go func(node *config.Node, i int) {
+				defer wg.Done()
+				repo := &gitalypb.Repository{
+					StorageName:  node.Storage,
+					RelativePath: cmd.relativePath,
+				}
+				exists, err := repositoryExists(ctx, repo, node.Address, node.Token)
+				if err != nil {
+					cmd.logger.WithError(err).Errorf("checking if repository exists on %q", node.Storage)
+				}
+				if exists {
+					storages[i] = node.Storage
+				}
+			}(vs.Nodes[i], i)
+		}
+
+		wg.Wait()
+		break
+	}
+
+	var storagesFound []string
+	for _, storage := range storages {
+		if storage != "" {
+			storagesFound = append(storagesFound, storage)
+		}
+	}
+
+	return storagesFound, nil
 }
 
 func (cmd *removeRepository) removeRepositoryFromDatabase(ctx context.Context, db *sql.DB) (bool, error) {
@@ -204,25 +296,38 @@ func (cmd *removeRepository) removeReplicationEvents(ctx context.Context, logger
 	return nil
 }
 
+func (cmd *removeRepository) removeNode(
+	ctx context.Context,
+	logger logrus.FieldLogger,
+	node *config.Node,
+) {
+	logger.Debugf("remove repository with gitaly %q at %q", node.Storage, node.Address)
+	repo := &gitalypb.Repository{
+		StorageName:  node.Storage,
+		RelativePath: cmd.relativePath,
+	}
+	removed, err := cmd.removeRepository(ctx, repo, node.Address, node.Token)
+	if err != nil {
+		logger.WithError(err).Warnf("repository removal failed for %q", node.Storage)
+	} else {
+		if removed {
+			fmt.Fprintf(cmd.w, "Successfully removed %s from %s\n", cmd.relativePath, node.Storage)
+		}
+		fmt.Fprintf(cmd.w, "Did not remove %s from %s\n", cmd.relativePath, node.Storage)
+	}
+	logger.Debugf("repository removal call to gitaly %q completed", node.Storage)
+}
+
 func (cmd *removeRepository) removeRepositoryForEachGitaly(ctx context.Context, cfg config.Config, logger logrus.FieldLogger) {
 	for _, vs := range cfg.VirtualStorages {
 		if vs.Name == cmd.virtualStorage {
 			var wg sync.WaitGroup
 			for i := 0; i < len(vs.Nodes); i++ {
 				wg.Add(1)
-				go func(node *config.Node) {
+				go func(i int) {
 					defer wg.Done()
-					logger.Debugf("remove repository with gitaly %q at %q", node.Storage, node.Address)
-					repo := &gitalypb.Repository{
-						StorageName:  node.Storage,
-						RelativePath: cmd.relativePath,
-					}
-					_, err := cmd.removeRepository(ctx, repo, node.Address, node.Token)
-					if err != nil {
-						logger.WithError(err).Warnf("repository removal failed for gitaly %q", node.Storage)
-					}
-					logger.Debugf("repository removal call to gitaly %q completed", node.Storage)
-				}(vs.Nodes[i])
+					cmd.removeNode(ctx, logger, vs.Nodes[i])
+				}(i)
 			}
 			wg.Wait()
 			break

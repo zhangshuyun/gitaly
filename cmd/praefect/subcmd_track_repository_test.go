@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"path/filepath"
 	"testing"
 	"time"
@@ -164,6 +165,8 @@ func TestAddRepository_Exec(t *testing.T) {
 					logger:         logger,
 					virtualStorage: virtualStorageName,
 					relativePath:   relativePath,
+					w:              io.Discard,
+					apply:          true,
 				}
 
 				require.NoError(t, rmRepoCmd.Exec(flag.NewFlagSet("", flag.PanicOnError), conf))
