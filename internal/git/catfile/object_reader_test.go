@@ -443,7 +443,7 @@ func TestObjectReader_replaceRefs(t *testing.T) {
 	contents, err := io.ReadAll(object)
 	require.NoError(t, err)
 
-	// This is a bug: we shouldn't ever honor replace refs and should've thus seen the original
-	// blob content.
-	require.Equal(t, "replaced", string(contents))
+	// But using our "normal" Git command execution code path, we still want to see the original
+	// content of the blob.
+	require.Equal(t, "original", string(contents))
 }
