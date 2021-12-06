@@ -182,6 +182,10 @@ func Context(opts ...ContextOpt) (context.Context, func()) {
 	// verify that all feature flags we introduce are tested both with the flag enabled and
 	// with the flag disabled.
 	ctx = featureflag.ContextWithExplicitFeatureFlags(ctx)
+	// There are some feature flags we need to enable in this function because they end up very
+	// deep in the call stack, so almost every test function would have to inject it into its
+	// context.
+	ctx = featureflag.ContextWithFeatureFlags(ctx, featureflag.RunCommandsInCGroup)
 
 	cancels := make([]func(), len(opts)+1)
 	cancels[0] = cancel

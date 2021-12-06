@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 )
 
 var globalOptions = []GlobalOption{
@@ -138,8 +139,10 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 		return nil, err
 	}
 
-	if err := cf.cgroupsManager.AddCommand(command); err != nil {
-		return nil, err
+	if featureflag.RunCommandsInCGroup.IsEnabled(ctx) {
+		if err := cf.cgroupsManager.AddCommand(command); err != nil {
+			return nil, err
+		}
 	}
 
 	return command, nil
