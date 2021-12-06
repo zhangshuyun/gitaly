@@ -605,6 +605,11 @@ func pollUntilRemoved(t testing.TB, path string, deadline <-chan time.Time) {
 
 func TestRenameRepository(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.RenameRepositoryLocking).Run(t, testRenameRepository)
+}
+
+func testRenameRepository(t *testing.T, ctx context.Context) {
+	t.Parallel()
 	gitalyStorages := []string{"gitaly-1", "gitaly-2", "gitaly-3"}
 	repoPaths := make([]string, len(gitalyStorages))
 	praefectCfg := config.Config{
@@ -634,8 +639,6 @@ func TestRenameRepository(t *testing.T) {
 	}
 
 	evq := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t)))
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	tx := glsql.NewDB(t).Begin(t)
 	defer tx.Rollback(t)

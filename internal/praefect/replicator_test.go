@@ -24,6 +24,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
@@ -758,6 +759,10 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 
 func TestProcessBacklog_Success(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.RenameRepositoryLocking).Run(t, testProcessBacklogsuccess)
+}
+
+func testProcessBacklogsuccess(t *testing.T, ctx context.Context) {
 	primaryCfg, testRepo, _ := testcfg.BuildWithRepo(t, testcfg.WithStorages("primary"))
 	primaryCfg.SocketPath = testserver.RunGitalyServer(t, primaryCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 	testcfg.BuildGitalySSH(t, primaryCfg)
@@ -790,7 +795,7 @@ func TestProcessBacklog_Success(t *testing.T) {
 		},
 	}
 
-	ctx, cancel := testhelper.Context()
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t)))
