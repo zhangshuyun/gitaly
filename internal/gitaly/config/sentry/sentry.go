@@ -10,8 +10,8 @@ import (
 
 // Config contains configuration for sentry
 type Config struct {
-	DSN         string `toml:"sentry_dsn"`
-	Environment string `toml:"sentry_environment"`
+	DSN         string `toml:"sentry_dsn,omitempty"`
+	Environment string `toml:"sentry_environment,omitempty"`
 }
 
 // ConfigureSentry configures the sentry DSN

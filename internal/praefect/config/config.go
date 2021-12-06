@@ -42,18 +42,18 @@ const (
 
 //nolint: revive,stylecheck // This is unintentionally missing documentation.
 type Failover struct {
-	Enabled bool `toml:"enabled"`
+	Enabled bool `toml:"enabled,omitempty"`
 	// ElectionStrategy is the strategy to use for electing primaries nodes.
-	ElectionStrategy         ElectionStrategy `toml:"election_strategy"`
-	ErrorThresholdWindow     config.Duration  `toml:"error_threshold_window"`
-	WriteErrorThresholdCount uint32           `toml:"write_error_threshold_count"`
-	ReadErrorThresholdCount  uint32           `toml:"read_error_threshold_count"`
+	ElectionStrategy         ElectionStrategy `toml:"election_strategy,omitempty"`
+	ErrorThresholdWindow     config.Duration  `toml:"error_threshold_window,omitempty"`
+	WriteErrorThresholdCount uint32           `toml:"write_error_threshold_count,omitempty"`
+	ReadErrorThresholdCount  uint32           `toml:"read_error_threshold_count,omitempty"`
 	// BootstrapInterval allows set a time duration that would be used on startup to make initial health check.
 	// The default value is 1s.
-	BootstrapInterval config.Duration `toml:"bootstrap_interval"`
+	BootstrapInterval config.Duration `toml:"bootstrap_interval,omitempty"`
 	// MonitorInterval allows set a time duration that would be used after bootstrap is completed to execute health checks.
 	// The default value is 3s.
-	MonitorInterval config.Duration `toml:"monitor_interval"`
+	MonitorInterval config.Duration `toml:"monitor_interval,omitempty"`
 }
 
 // ErrorThresholdsConfigured checks whether returns whether the errors thresholds are configured. If they
@@ -82,9 +82,9 @@ func (f Failover) ErrorThresholdsConfigured() (bool, error) {
 type Reconciliation struct {
 	// SchedulingInterval the interval between each automatic reconciliation run. If set to 0,
 	// automatic reconciliation is disabled.
-	SchedulingInterval config.Duration `toml:"scheduling_interval"`
+	SchedulingInterval config.Duration `toml:"scheduling_interval,omitempty"`
 	// HistogramBuckets configures the reconciliation scheduling duration histogram's buckets.
-	HistogramBuckets []float64 `toml:"histogram_buckets"`
+	HistogramBuckets []float64 `toml:"histogram_buckets,omitempty"`
 }
 
 // DefaultReconciliationConfig returns the default values for reconciliation configuration.
@@ -99,10 +99,10 @@ func DefaultReconciliationConfig() Reconciliation {
 type Replication struct {
 	// BatchSize controls how many replication jobs to dequeue and lock
 	// in a single call to the database.
-	BatchSize uint `toml:"batch_size"`
+	BatchSize uint `toml:"batch_size,omitempty"`
 	// ParallelStorageProcessingWorkers is a number of workers used to process replication
 	// events per virtual storage (how many storages would be processed in parallel).
-	ParallelStorageProcessingWorkers uint `toml:"parallel_storage_processing_workers"`
+	ParallelStorageProcessingWorkers uint `toml:"parallel_storage_processing_workers,omitempty"`
 }
 
 // DefaultReplicationConfig returns the default values for replication configuration.
@@ -112,48 +112,48 @@ func DefaultReplicationConfig() Replication {
 
 // Config is a container for everything found in the TOML config file
 type Config struct {
-	AllowLegacyElectors  bool              `toml:"i_understand_my_election_strategy_is_unsupported_and_will_be_removed_without_warning"`
-	Reconciliation       Reconciliation    `toml:"reconciliation"`
-	Replication          Replication       `toml:"replication"`
-	ListenAddr           string            `toml:"listen_addr"`
-	TLSListenAddr        string            `toml:"tls_listen_addr"`
-	SocketPath           string            `toml:"socket_path"`
-	VirtualStorages      []*VirtualStorage `toml:"virtual_storage"`
-	Logging              log.Config        `toml:"logging"`
-	Sentry               sentry.Config     `toml:"sentry"`
-	PrometheusListenAddr string            `toml:"prometheus_listen_addr"`
-	Prometheus           prometheus.Config `toml:"prometheus"`
+	AllowLegacyElectors  bool              `toml:"i_understand_my_election_strategy_is_unsupported_and_will_be_removed_without_warning,omitempty"`
+	Reconciliation       Reconciliation    `toml:"reconciliation,omitempty"`
+	Replication          Replication       `toml:"replication,omitempty"`
+	ListenAddr           string            `toml:"listen_addr,omitempty"`
+	TLSListenAddr        string            `toml:"tls_listen_addr,omitempty"`
+	SocketPath           string            `toml:"socket_path,omitempty"`
+	VirtualStorages      []*VirtualStorage `toml:"virtual_storage,omitempty"`
+	Logging              log.Config        `toml:"logging,omitempty"`
+	Sentry               sentry.Config     `toml:"sentry,omitempty"`
+	PrometheusListenAddr string            `toml:"prometheus_listen_addr,omitempty"`
+	Prometheus           prometheus.Config `toml:"prometheus,omitempty"`
 	// PrometheusExcludeDatabaseFromDefaultMetrics excludes database-related metrics from the
 	// default metrics. If set to `false`, then database metrics will be available both via
 	// `/metrics` and `/db_metrics`. Otherwise, they will only be accessible via `/db_metrics`.
 	// Defaults to `false`. This is used as a transitory configuration key: eventually, database
 	// metrics will always be removed from the standard metrics endpoint.
-	PrometheusExcludeDatabaseFromDefaultMetrics bool        `toml:"prometheus_exclude_database_from_default_metrics"`
-	Auth                                        auth.Config `toml:"auth"`
-	TLS                                         config.TLS  `toml:"tls"`
-	DB                                          `toml:"database"`
-	Failover                                    Failover `toml:"failover"`
+	PrometheusExcludeDatabaseFromDefaultMetrics bool        `toml:"prometheus_exclude_database_from_default_metrics,omitempty"`
+	Auth                                        auth.Config `toml:"auth,omitempty"`
+	TLS                                         config.TLS  `toml:"tls,omitempty"`
+	DB                                          `toml:"database,omitempty"`
+	Failover                                    Failover `toml:"failover,omitempty"`
 	// Keep for legacy reasons: remove after Omnibus has switched
-	FailoverEnabled     bool                `toml:"failover_enabled"`
-	MemoryQueueEnabled  bool                `toml:"memory_queue_enabled"`
-	GracefulStopTimeout config.Duration     `toml:"graceful_stop_timeout"`
-	RepositoriesCleanup RepositoriesCleanup `toml:"repositories_cleanup"`
+	FailoverEnabled     bool                `toml:"failover_enabled,omitempty"`
+	MemoryQueueEnabled  bool                `toml:"memory_queue_enabled,omitempty"`
+	GracefulStopTimeout config.Duration     `toml:"graceful_stop_timeout,omitempty"`
+	RepositoriesCleanup RepositoriesCleanup `toml:"repositories_cleanup,omitempty"`
 	// ForceCreateRepositories will enable force-creation of repositories in the
 	// coordinator when routing repository-scoped mutators. This must never be used
 	// outside of tests.
-	ForceCreateRepositories bool `toml:"force_create_repositories_for_testing_purposes"`
+	ForceCreateRepositories bool `toml:"force_create_repositories_for_testing_purposes,omitempty"`
 }
 
 // VirtualStorage represents a set of nodes for a storage
 type VirtualStorage struct {
-	Name  string  `toml:"name"`
-	Nodes []*Node `toml:"node"`
+	Name  string  `toml:"name,omitempty"`
+	Nodes []*Node `toml:"node,omitempty"`
 	// DefaultReplicationFactor is the replication factor set for new repositories.
 	// A valid value is inclusive between 1 and the number of configured storages in the
 	// virtual storage. Setting the value to 0 or below causes Praefect to not store any
 	// host assignments, falling back to the behavior of replicating to every configured
 	// storage
-	DefaultReplicationFactor int `toml:"default_replication_factor"`
+	DefaultReplicationFactor int `toml:"default_replication_factor,omitempty"`
 }
 
 // FromFile loads the config for the passed file path
@@ -332,36 +332,36 @@ func (c Config) DefaultReplicationFactors() map[string]int {
 
 // DBConnection holds Postgres client configuration data.
 type DBConnection struct {
-	Host        string `toml:"host"`
-	Port        int    `toml:"port"`
-	User        string `toml:"user"`
-	Password    string `toml:"password"`
-	DBName      string `toml:"dbname"`
-	SSLMode     string `toml:"sslmode"`
-	SSLCert     string `toml:"sslcert"`
-	SSLKey      string `toml:"sslkey"`
-	SSLRootCert string `toml:"sslrootcert"`
+	Host        string `toml:"host,omitempty"`
+	Port        int    `toml:"port,omitempty"`
+	User        string `toml:"user,omitempty"`
+	Password    string `toml:"password,omitempty"`
+	DBName      string `toml:"dbname,omitempty"`
+	SSLMode     string `toml:"sslmode,omitempty"`
+	SSLCert     string `toml:"sslcert,omitempty"`
+	SSLKey      string `toml:"sslkey,omitempty"`
+	SSLRootCert string `toml:"sslrootcert,omitempty"`
 }
 
 // DB holds database configuration data.
 type DB struct {
-	Host        string `toml:"host"`
-	Port        int    `toml:"port"`
-	User        string `toml:"user"`
-	Password    string `toml:"password"`
-	DBName      string `toml:"dbname"`
-	SSLMode     string `toml:"sslmode"`
-	SSLCert     string `toml:"sslcert"`
-	SSLKey      string `toml:"sslkey"`
-	SSLRootCert string `toml:"sslrootcert"`
+	Host        string `toml:"host,omitempty"`
+	Port        int    `toml:"port,omitempty"`
+	User        string `toml:"user,omitempty"`
+	Password    string `toml:"password,omitempty"`
+	DBName      string `toml:"dbname,omitempty"`
+	SSLMode     string `toml:"sslmode,omitempty"`
+	SSLCert     string `toml:"sslcert,omitempty"`
+	SSLKey      string `toml:"sslkey,omitempty"`
+	SSLRootCert string `toml:"sslrootcert,omitempty"`
 
-	SessionPooled DBConnection `toml:"session_pooled"`
+	SessionPooled DBConnection `toml:"session_pooled,omitempty"`
 
 	// The following configuration keys are deprecated and
 	// will be removed. Use Host and Port attributes of
 	// SessionPooled instead.
-	HostNoProxy string `toml:"host_no_proxy"`
-	PortNoProxy int    `toml:"port_no_proxy"`
+	HostNoProxy string `toml:"host_no_proxy,omitempty"`
+	PortNoProxy int    `toml:"port_no_proxy,omitempty"`
 }
 
 // RepositoriesCleanup configures repository synchronisation.
@@ -369,11 +369,11 @@ type RepositoriesCleanup struct {
 	// CheckInterval is a time period used to check if operation should be executed.
 	// It is recommended to keep it less than run_interval configuration as some
 	// nodes may be out of service, so they can be stale for too long.
-	CheckInterval config.Duration `toml:"check_interval"`
+	CheckInterval config.Duration `toml:"check_interval,omitempty"`
 	// RunInterval: the check runs if the previous operation was done at least RunInterval before.
-	RunInterval config.Duration `toml:"run_interval"`
+	RunInterval config.Duration `toml:"run_interval,omitempty"`
 	// RepositoriesInBatch is the number of repositories to pass as a batch for processing.
-	RepositoriesInBatch int `toml:"repositories_in_batch"`
+	RepositoriesInBatch int `toml:"repositories_in_batch,omitempty"`
 }
 
 // DefaultRepositoriesCleanup contains default configuration values for the RepositoriesCleanup.

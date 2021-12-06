@@ -1,11 +1,13 @@
 package config
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/log"
@@ -493,4 +495,21 @@ func TestNeedsSQL(t *testing.T) {
 			require.Equal(t, tc.expected, tc.config.NeedsSQL())
 		})
 	}
+}
+
+func TestSerialization(t *testing.T) {
+	out := &bytes.Buffer{}
+	encoder := toml.NewEncoder(out)
+
+	t.Run("completely empty", func(t *testing.T) {
+		out.Reset()
+		require.NoError(t, encoder.Encode(Config{}))
+		require.Empty(t, out.Bytes())
+	})
+
+	t.Run("partially set", func(t *testing.T) {
+		out.Reset()
+		require.NoError(t, encoder.Encode(Config{ListenAddr: "localhost:5640"}))
+		require.Equal(t, "listen_addr = \"localhost:5640\"\n", out.String())
+	})
 }
