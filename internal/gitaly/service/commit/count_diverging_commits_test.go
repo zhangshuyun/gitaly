@@ -198,7 +198,7 @@ func TestFailedCountDivergentCommitsRequestDueToValidationError(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			_, err := client.CountDivergingCommits(ctx, rpcRequest)
-			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 		})
 	}
 }

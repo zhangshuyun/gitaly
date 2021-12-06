@@ -181,7 +181,7 @@ func TestOptimizeRepositoryValidation(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			_, err := client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: tc.repo})
 			require.Error(t, err)
-			testhelper.RequireGrpcError(t, err, tc.expectedErrorCode)
+			testhelper.RequireGrpcCode(t, err, tc.expectedErrorCode)
 		})
 	}
 

@@ -12,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/service/info"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -92,7 +91,7 @@ func TestMetadataSubcommand(t *testing.T) {
 			fs := cmd.FlagSet()
 			require.NoError(t, fs.Parse(tc.args))
 			err := cmd.Exec(fs, config.Config{SocketPath: ln.Addr().String()})
-			testassert.GrpcEqualErr(t, tc.error, err)
+			testhelper.RequireGrpcError(t, tc.error, err)
 			if tc.error != nil {
 				return
 			}

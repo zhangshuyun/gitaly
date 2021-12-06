@@ -5,7 +5,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -151,7 +150,7 @@ func TestSuccessfulCommitsByMessageRequest(t *testing.T) {
 			require.Equal(t, len(testCase.expectedCommits), len(receivedCommits), "number of commits received")
 
 			for i, receivedCommit := range receivedCommits {
-				testassert.ProtoEqual(t, testCase.expectedCommits[i], receivedCommit)
+				testhelper.ProtoEqual(t, testCase.expectedCommits[i], receivedCommit)
 			}
 		})
 	}
@@ -197,7 +196,7 @@ func TestFailedCommitsByMessageRequest(t *testing.T) {
 			c, err := client.CommitsByMessage(ctx, testCase.request)
 			require.NoError(t, err)
 
-			testhelper.RequireGrpcError(t, drainCommitsByMessageResponse(c), testCase.code)
+			testhelper.RequireGrpcCode(t, drainCommitsByMessageResponse(c), testCase.code)
 		})
 	}
 }

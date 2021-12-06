@@ -116,7 +116,7 @@ func TestCreateBundleFromRefList_validations(t *testing.T) {
 			}
 			require.Error(t, err)
 			require.Contains(t, err.Error(), testCase.expectedErr)
-			testhelper.RequireGrpcError(t, err, testCase.expectedCode)
+			testhelper.RequireGrpcCode(t, err, testCase.expectedCode)
 		})
 	}
 }

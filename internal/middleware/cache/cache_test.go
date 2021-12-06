@@ -14,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/cache/testdata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -120,11 +119,11 @@ func TestInvalidators(t *testing.T) {
 	require.Equal(t, 0, MethodErrCount.Method["/grpc.health.v1.Health/Check"])
 
 	_, err = testdata.NewInterceptedServiceClient(cc).IgnoredMethod(ctx, &testdata.Request{})
-	testassert.GrpcEqualErr(t, status.Error(codes.Unimplemented, "method IgnoredMethod not implemented"), err)
+	testhelper.RequireGrpcError(t, status.Error(codes.Unimplemented, "method IgnoredMethod not implemented"), err)
 	require.Equal(t, 0, MethodErrCount.Method["/testdata.InterceptedService/IgnoredMethod"])
 
-	testassert.ProtoEqual(t, expectedInvalidations, mCache.(*mockCache).invalidatedRepos)
-	testassert.ProtoEqual(t, expectedSvcRequests, svc.repoRequests)
+	testhelper.ProtoEqual(t, expectedInvalidations, mCache.(*mockCache).invalidatedRepos)
+	testhelper.ProtoEqual(t, expectedSvcRequests, svc.repoRequests)
 	require.Equal(t, 3, mCache.(*mockCache).endedLeases.count)
 }
 

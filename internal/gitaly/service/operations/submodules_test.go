@@ -301,7 +301,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			_, err := client.UserUpdateSubmodule(ctx, testCase.request)
-			testhelper.RequireGrpcError(t, err, testCase.code)
+			testhelper.RequireGrpcCode(t, err, testCase.code)
 			require.Contains(t, err.Error(), testCase.desc)
 		})
 	}
@@ -325,7 +325,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToInvalidBranch(t *testing.T) {
 	}
 
 	_, err := client.UserUpdateSubmodule(ctx, request)
-	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+	testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 	require.Contains(t, err.Error(), "Cannot find branch")
 }
 

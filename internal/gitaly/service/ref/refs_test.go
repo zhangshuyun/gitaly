@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -506,7 +505,7 @@ func testFindLocalBranchesPaginationWithIncorrectToken(t *testing.T, ctx context
 	if featureflag.ExactPaginationTokenMatch.IsEnabled(ctx) {
 		_, err = c.Recv()
 		require.NotEqual(t, err, io.EOF)
-		testassert.GrpcEqualErr(t, helper.ErrInternalf("could not find page token"), err)
+		testhelper.RequireGrpcError(t, helper.ErrInternalf("could not find page token"), err)
 	} else {
 		require.NoError(t, err)
 
@@ -520,7 +519,7 @@ func testFindLocalBranchesPaginationWithIncorrectToken(t *testing.T, ctx context
 			branches = append(branches, r.GetBranches()...)
 		}
 
-		testassert.ProtoEqual(t, []*gitalypb.FindLocalBranchResponse{
+		testhelper.ProtoEqual(t, []*gitalypb.FindLocalBranchResponse{
 			{
 				Name:          []byte("refs/heads/rebase-encoding-failure-trigger"),
 				Commit:        gittest.CommitsByID["ca47bfd5e930148c42ed74c3b561a8783e381f7f"],
@@ -811,7 +810,7 @@ func TestInvalidFindAllBranchesRequest(t *testing.T) {
 				_, recvError = c.Recv()
 			}
 
-			testhelper.RequireGrpcError(t, recvError, codes.InvalidArgument)
+			testhelper.RequireGrpcCode(t, recvError, codes.InvalidArgument)
 		})
 	}
 }
@@ -882,7 +881,7 @@ func TestListTagNamesContainingCommit(t *testing.T) {
 				if err == io.EOF {
 					break
 				} else if tc.code != codes.OK {
-					testhelper.RequireGrpcError(t, err, tc.code)
+					testhelper.RequireGrpcCode(t, err, tc.code)
 
 					return
 				}
@@ -969,7 +968,7 @@ func TestListBranchNamesContainingCommit(t *testing.T) {
 				if err == io.EOF {
 					break
 				} else if tc.code != codes.OK {
-					testhelper.RequireGrpcError(t, err, tc.code)
+					testhelper.RequireGrpcCode(t, err, tc.code)
 
 					return
 				}
@@ -1149,7 +1148,7 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 		resp, err := client.FindTag(ctx, rpcRequest)
 		require.NoError(t, err)
 
-		testassert.ProtoEqual(t, expectedTag, resp.GetTag())
+		testhelper.ProtoEqual(t, expectedTag, resp.GetTag())
 	}
 }
 
@@ -1276,7 +1275,7 @@ func TestInvalidFindTagRequest(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			_, err := client.FindTag(ctx, tc.request)
-			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 		})
 	}
 }

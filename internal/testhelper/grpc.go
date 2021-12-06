@@ -4,10 +4,14 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
 // SetCtxGrpcMethod will set the gRPC context value for the proper key
@@ -27,19 +31,31 @@ func (mockServerTransportStream) SetHeader(md metadata.MD) error  { return nil }
 func (mockServerTransportStream) SendHeader(md metadata.MD) error { return nil }
 func (mockServerTransportStream) SetTrailer(md metadata.MD) error { return nil }
 
-// RequireGrpcError asserts the passed err is of the same code as expectedCode.
-func RequireGrpcError(t testing.TB, err error, expectedCode codes.Code) {
+// ProtoEqual asserts that expected and actual protobuf messages are equal.
+// It can accept not only proto.Message, but slices, maps, and structs too.
+// This is required as comparing messages directly with `require.Equal` doesn't
+// work.
+func ProtoEqual(t testing.TB, expected, actual interface{}) {
+	t.Helper()
+	require.Empty(t, cmp.Diff(expected, actual, protocmp.Transform(), cmpopts.EquateErrors()))
+}
+
+// RequireGrpcCode asserts that the error has the expected gRPC status code.
+func RequireGrpcCode(t testing.TB, err error, expectedCode codes.Code) {
 	t.Helper()
 
-	if err == nil {
-		t.Fatal("Expected an error, got nil")
-	}
+	require.Error(t, err)
+	status, ok := status.FromError(err)
+	require.True(t, ok)
+	require.Equal(t, expectedCode, status.Code())
+}
 
-	// Check that the code matches
-	status, _ := status.FromError(err)
-	if code := status.Code(); code != expectedCode {
-		t.Fatalf("Expected an error with code %v, got %v. The error was %q", expectedCode, code, err.Error())
-	}
+// RequireGrpcError asserts that expected and actual gRPC errors are equal. Comparing gRPC errors
+// directly with `require.Equal()` will not typically work correct.
+func RequireGrpcError(t testing.TB, expected, actual error) {
+	t.Helper()
+	// .Proto() handles nil receiver
+	ProtoEqual(t, status.Convert(expected).Proto(), status.Convert(actual).Proto())
 }
 
 // MergeOutgoingMetadata merges provided metadata-s and returns context with resulting value.

@@ -140,7 +140,7 @@ func TestWriteRefValidationError(t *testing.T) {
 			defer cancel()
 			_, err := client.WriteRef(ctx, tc.req)
 
-			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 		})
 	}
 }

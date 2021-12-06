@@ -11,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -247,7 +246,7 @@ func testFailedWikiUpdatePageDueToValidations(t *testing.T, cfg config.Cfg, clie
 			require.NoError(t, stream.Send(testCase.request))
 
 			_, err = stream.CloseAndRecv()
-			testhelper.RequireGrpcError(t, err, testCase.code)
+			testhelper.RequireGrpcCode(t, err, testCase.code)
 		})
 	}
 }
@@ -290,5 +289,5 @@ func testFailedWikiUpdatePageDueToDuplicatePage(t *testing.T, cfg config.Cfg, cl
 	require.NoError(t, err)
 
 	expectedResponse := &gitalypb.WikiUpdatePageResponse{Error: []byte("Cannot write //Installing-Gitaly.md, found //Installing-Gitaly.md.")}
-	testassert.ProtoEqual(t, expectedResponse, response)
+	testhelper.ProtoEqual(t, expectedResponse, response)
 }

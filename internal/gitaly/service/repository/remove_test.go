@@ -9,7 +9,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
@@ -42,7 +41,7 @@ func testRemoveRepositoryDoesNotExist(t *testing.T, ctx context.Context) {
 	})
 
 	if featureflag.AtomicRemoveRepository.IsEnabled(ctx) {
-		testassert.GrpcEqualErr(t, helper.ErrNotFoundf("repository does not exist"), err)
+		testhelper.RequireGrpcError(t, helper.ErrNotFoundf("repository does not exist"), err)
 	} else {
 		require.NoError(t, err)
 	}
@@ -62,7 +61,7 @@ func testRemoveRepositoryLocking(t *testing.T, ctx context.Context) {
 
 	_, err := client.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{Repository: repo})
 	if featureflag.AtomicRemoveRepository.IsEnabled(ctx) {
-		testassert.GrpcEqualErr(t, helper.ErrFailedPreconditionf("repository is already locked"), err)
+		testhelper.RequireGrpcError(t, helper.ErrFailedPreconditionf("repository is already locked"), err)
 	} else {
 		require.NoError(t, err)
 	}

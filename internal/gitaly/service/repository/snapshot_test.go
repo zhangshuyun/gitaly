@@ -22,7 +22,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 	"google.golang.org/grpc/codes"
@@ -263,7 +262,7 @@ func copyRepoUsingSnapshot(t *testing.T, ctx context.Context, cfg config.Cfg, cl
 
 	rsp, err := client.CreateRepositoryFromSnapshot(ctx, createRepoReq)
 	require.NoError(t, err)
-	testassert.ProtoEqual(t, rsp, &gitalypb.CreateRepositoryFromSnapshotResponse{})
+	testhelper.ProtoEqual(t, rsp, &gitalypb.CreateRepositoryFromSnapshotResponse{})
 	return repoCopy, repoCopyPath
 }
 
@@ -279,7 +278,7 @@ func TestGetSnapshotFailsIfRepositoryMissing(t *testing.T) {
 
 	req := &gitalypb.GetSnapshotRequest{Repository: repo}
 	data, err := getSnapshot(client, req)
-	testhelper.RequireGrpcError(t, err, codes.NotFound)
+	testhelper.RequireGrpcCode(t, err, codes.NotFound)
 	require.Empty(t, data)
 }
 
@@ -294,7 +293,7 @@ func TestGetSnapshotFailsIfRepositoryContainsSymlink(t *testing.T) {
 
 	req := &gitalypb.GetSnapshotRequest{Repository: repo}
 	data, err := getSnapshot(client, req)
-	testhelper.RequireGrpcError(t, err, codes.Internal)
+	testhelper.RequireGrpcCode(t, err, codes.Internal)
 	require.Contains(t, err.Error(), "building snapshot failed")
 
 	// At least some of the tar file should have been written so far

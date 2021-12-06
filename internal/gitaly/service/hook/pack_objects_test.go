@@ -106,7 +106,7 @@ func TestServer_PackObjectsHook_separateContext(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		_, err := client1.PackObjectsHookWithSidechannel(ctx1, req)
-		testhelper.RequireGrpcError(t, err, codes.Canceled)
+		testhelper.RequireGrpcCode(t, err, codes.Canceled)
 		require.NoError(t, wt1.Wait())
 	}()
 
@@ -377,7 +377,7 @@ func TestServer_PackObjectsHookWithSidechannel_invalidArgument(t *testing.T) {
 			defer conn.Close()
 
 			_, err := client.PackObjectsHookWithSidechannel(ctx, tc.req)
-			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 		})
 	}
 }
@@ -406,7 +406,7 @@ func TestServer_PackObjectsHookWithSidechannel_Canceled(t *testing.T) {
 		Repository: repo,
 		Args:       []string{"pack-objects", "--revs", "--thin", "--stdout", "--progress", "--delta-base-offset"},
 	})
-	testhelper.RequireGrpcError(t, err, codes.Canceled)
+	testhelper.RequireGrpcCode(t, err, codes.Canceled)
 
 	require.NoError(t, wt.Wait())
 }

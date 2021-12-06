@@ -242,7 +242,7 @@ func TestFetchSourceBranchWrongRef(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			_, err := client.FetchSourceBranch(ctx, tc.req)
-			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 		})
 	}
 }

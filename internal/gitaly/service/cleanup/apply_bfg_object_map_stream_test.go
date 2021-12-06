@@ -111,7 +111,7 @@ func TestApplyBfgObjectMapStreamFailsOnInvalidInput(t *testing.T) {
 
 	entries, err := doStreamingRequest(ctx, t, repo, client, "invalid-data here as you can see")
 	require.Empty(t, entries)
-	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+	testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 }
 
 func doStreamingRequest(ctx context.Context, t *testing.T, repo *gitalypb.Repository, client gitalypb.CleanupServiceClient, objectMap string) ([]*gitalypb.ApplyBfgObjectMapStreamResponse_Entry, error) {

@@ -7,7 +7,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -68,7 +67,7 @@ func TestSuccessfulLastCommitForPathRequest(t *testing.T) {
 			response, err := client.LastCommitForPath(ctx, request)
 			require.NoError(t, err)
 
-			testassert.ProtoEqual(t, testCase.commit, response.GetCommit())
+			testhelper.ProtoEqual(t, testCase.commit, response.GetCommit())
 		})
 	}
 }
@@ -113,7 +112,7 @@ func TestFailedLastCommitForPathRequest(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			_, err := client.LastCommitForPath(ctx, testCase.request)
-			testhelper.RequireGrpcError(t, err, testCase.code)
+			testhelper.RequireGrpcCode(t, err, testCase.code)
 		})
 	}
 }

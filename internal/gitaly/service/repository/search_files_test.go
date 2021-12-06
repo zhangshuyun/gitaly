@@ -268,7 +268,7 @@ func TestSearchFilesByContentFailure(t *testing.T) {
 				Ref:        []byte(tc.ref),
 			}, nil)
 
-			testhelper.RequireGrpcError(t, err, tc.code)
+			testhelper.RequireGrpcCode(t, err, tc.code)
 			require.Contains(t, err.Error(), tc.msg)
 		})
 	}
@@ -407,7 +407,7 @@ func TestSearchFilesByNameFailure(t *testing.T) {
 				Ref:        []byte(tc.ref),
 			}, nil)
 
-			testhelper.RequireGrpcError(t, err, tc.code)
+			testhelper.RequireGrpcCode(t, err, tc.code)
 			require.Contains(t, err.Error(), tc.msg)
 		})
 	}

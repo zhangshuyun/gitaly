@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
@@ -241,7 +240,7 @@ func TestSuccessfulUserCreateTagRequest(t *testing.T) {
 				responseOk.Tag.Id = text.ChompBytes(id)
 			}
 
-			testassert.ProtoEqual(t, responseOk, response)
+			testhelper.ProtoEqual(t, responseOk, response)
 
 			tag := gittest.Exec(t, cfg, "-C", repoPath, "tag")
 			require.Contains(t, string(tag), inputTagName)
@@ -371,7 +370,7 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 			}
 			require.Equal(t, targetOIDOK, targetRevision)
 
-			testassert.ProtoEqual(t, &gitalypb.UserCreateTagResponse{
+			testhelper.ProtoEqual(t, &gitalypb.UserCreateTagResponse{
 				Tag: &gitalypb.Tag{
 					Name:         []byte(tagName),
 					Message:      []byte(testCase.message),
@@ -428,7 +427,7 @@ func TestUserCreateTagQuarantine(t *testing.T) {
 
 	// Conveniently, the pre-receive error will now contain output from our custom hook and thus
 	// the tag's contents.
-	testassert.ProtoEqual(t, &gitalypb.UserCreateTagResponse{
+	testhelper.ProtoEqual(t, &gitalypb.UserCreateTagResponse{
 		PreReceiveError: `object c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd
 type commit
 tag quarantined-tag
@@ -525,7 +524,7 @@ func TestSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *tes
 			response, err := client.UserCreateTag(ctx, request)
 
 			if testCase.err != nil {
-				testassert.GrpcEqualErr(t, testCase.err, err)
+				testhelper.RequireGrpcError(t, testCase.err, err)
 			} else {
 				defer gittest.Exec(t, cfg, "-C", repoPath, "tag", "-d", tagName)
 				require.NoError(t, err)
@@ -717,7 +716,7 @@ func TestSuccessfulUserCreateTagRequestToNonCommit(t *testing.T) {
 				tagID := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", inputTagName)
 				responseOk.Tag.Id = text.ChompBytes(tagID)
 			}
-			testassert.ProtoEqual(t, responseOk, response)
+			testhelper.ProtoEqual(t, responseOk, response)
 
 			peeledID := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", inputTagName+"^{}")
 			require.Equal(t, testCase.targetRevision, text.ChompBytes(peeledID))
@@ -810,7 +809,7 @@ func TestSuccessfulUserCreateTagNestedTags(t *testing.T) {
 					responseOk.Tag.TargetCommit, err = repo.ReadCommit(ctx, git.Revision(testCase.targetObject))
 					require.NoError(t, err)
 				}
-				testassert.ProtoEqual(t, responseOk, response)
+				testhelper.ProtoEqual(t, responseOk, response)
 
 				peeledID := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", tagName+"^{}")
 				peeledIDStr := text.ChompBytes(peeledID)
@@ -845,7 +844,7 @@ func TestSuccessfulUserCreateTagNestedTags(t *testing.T) {
 						MessageSize:  0,
 					},
 				}
-				testassert.ProtoEqual(t, responseOk, response)
+				testhelper.ProtoEqual(t, responseOk, response)
 
 				createdIDLight := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", tagNameLight)
 				createdIDLightStr := text.ChompBytes(createdIDLight)
@@ -917,8 +916,8 @@ func TestUserDeleteTagSuccessfulDeletionOfPrefixedTag(t *testing.T) {
 			}
 
 			response, err := client.UserDeleteTag(ctx, request)
-			testassert.GrpcEqualErr(t, testCase.err, err)
-			testassert.ProtoEqual(t, testCase.response, response)
+			testhelper.RequireGrpcError(t, testCase.err, err)
+			testhelper.ProtoEqual(t, testCase.response, response)
 
 			refs := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/tags/"+testCase.tagNameInput)
 			require.NotContains(t, string(refs), testCase.tagCommit, "tag kept because we stripped off refs/tags/*")
@@ -963,7 +962,7 @@ func TestUserCreateTagsuccessfulCreationOfPrefixedTag(t *testing.T) {
 			}
 
 			response, err := client.UserCreateTag(ctx, request)
-			testassert.GrpcEqualErr(t, testCase.err, err)
+			testhelper.RequireGrpcError(t, testCase.err, err)
 			commitOk, err := repo.ReadCommit(ctx, git.Revision(testCase.tagTargetRevisionInput))
 			require.NoError(t, err)
 
@@ -975,7 +974,7 @@ func TestUserCreateTagsuccessfulCreationOfPrefixedTag(t *testing.T) {
 				},
 			}
 
-			testassert.ProtoEqual(t, responseOk, response)
+			testhelper.ProtoEqual(t, responseOk, response)
 
 			refs := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/tags/"+testCase.tagNameInput)
 			require.Contains(t, string(refs), testCase.tagTargetRevisionInput, "tag created, we did not strip off refs/tags/*")
@@ -1085,8 +1084,8 @@ func TestFailedUserDeleteTagRequestDueToValidation(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			response, err := client.UserDeleteTag(ctx, testCase.request)
-			testassert.GrpcEqualErr(t, testCase.err, err)
-			testassert.ProtoEqual(t, testCase.response, response)
+			testhelper.RequireGrpcError(t, testCase.err, err)
+			testhelper.ProtoEqual(t, testCase.response, response)
 		})
 	}
 }
@@ -1196,8 +1195,8 @@ func TestFailedUserCreateTagRequestDueToTagExistence(t *testing.T) {
 			}
 
 			response, err := client.UserCreateTag(ctx, request)
-			testassert.GrpcEqualErr(t, testCase.err, err)
-			testassert.ProtoEqual(t, testCase.response, response)
+			testhelper.RequireGrpcError(t, testCase.err, err)
+			testhelper.ProtoEqual(t, testCase.response, response)
 		})
 	}
 }
@@ -1315,8 +1314,8 @@ func TestFailedUserCreateTagRequestDueToValidation(t *testing.T) {
 			}
 
 			response, err := client.UserCreateTag(ctx, request)
-			testassert.GrpcEqualErr(t, testCase.err, err)
-			testassert.ProtoEqual(t, testCase.response, response)
+			testhelper.RequireGrpcError(t, testCase.err, err)
+			testhelper.ProtoEqual(t, testCase.response, response)
 		})
 	}
 }
@@ -1395,7 +1394,7 @@ func TestTagHookOutput(t *testing.T) {
 					Exists:          false,
 					PreReceiveError: expectedError,
 				}
-				testassert.ProtoEqual(t, createResponseOk, createResponse)
+				testhelper.ProtoEqual(t, createResponseOk, createResponse)
 
 				defer gittest.Exec(t, cfg, "-C", repoPath, "tag", "-d", tagNameInput)
 				gittest.Exec(t, cfg, "-C", repoPath, "tag", tagNameInput)
@@ -1405,7 +1404,7 @@ func TestTagHookOutput(t *testing.T) {
 				deleteResponseOk := &gitalypb.UserDeleteTagResponse{
 					PreReceiveError: expectedError,
 				}
-				testassert.ProtoEqual(t, deleteResponseOk, deleteResponse)
+				testhelper.ProtoEqual(t, deleteResponseOk, deleteResponse)
 			})
 		}
 	}

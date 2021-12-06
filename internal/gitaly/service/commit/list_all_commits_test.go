@@ -13,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -64,7 +63,7 @@ func TestListAllCommits(t *testing.T) {
 		require.Greater(t, len(commits), 350)
 
 		// Build a map of received commits by their OID so that we can easily compare a
-		// subset via `testassert.ProtoEqual()`. Ideally, we'd just use `require.Subset()`,
+		// subset via `testhelper.ProtoEqual()`. Ideally, we'd just use `require.Subset()`,
 		// but that doesn't work with protobuf messages.
 		commitsByID := make(map[string]*gitalypb.GitCommit)
 		for _, commit := range commits {
@@ -79,7 +78,7 @@ func TestListAllCommits(t *testing.T) {
 			"335bc94d5b7369b10251e612158da2e4a4aaa2a5",
 			"bf6e164cac2dc32b1f391ca4290badcbe4ffc5fb",
 		} {
-			testassert.ProtoEqual(t, gittest.CommitsByID[oid], commitsByID[oid])
+			testhelper.ProtoEqual(t, gittest.CommitsByID[oid], commitsByID[oid])
 		}
 	})
 
@@ -95,7 +94,7 @@ func TestListAllCommits(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		testassert.ProtoEqual(t, []*gitalypb.GitCommit{
+		testhelper.ProtoEqual(t, []*gitalypb.GitCommit{
 			gittest.CommitsByID["54188278422b1fa877c2e71c4e37fc6640a58ad1"],
 		}, receiveCommits(t, stream))
 	})

@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -108,7 +107,7 @@ func testCreateRepositoryFromSnapshotSuccess(t *testing.T, ctx context.Context) 
 
 	rsp, err := client.CreateRepositoryFromSnapshot(ctx, req)
 	require.NoError(t, err)
-	testassert.ProtoEqual(t, rsp, &gitalypb.CreateRepositoryFromSnapshotResponse{})
+	testhelper.ProtoEqual(t, rsp, &gitalypb.CreateRepositoryFromSnapshotResponse{})
 
 	repoAbsolutePath := filepath.Join(cfg.Storages[0].Path, getReplicaPath(ctx, t, client, repo))
 	require.DirExists(t, repoAbsolutePath)
@@ -143,10 +142,10 @@ func testCreateRepositoryFromSnapshotFailsIfRepositoryExists(t *testing.T, ctx c
 	rsp, err := createFromSnapshot(t, ctx, req, cfg)
 
 	if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
-		testhelper.RequireGrpcError(t, err, codes.AlreadyExists)
+		testhelper.RequireGrpcCode(t, err, codes.AlreadyExists)
 		require.Contains(t, err.Error(), "creating repository: repository exists already")
 	} else {
-		testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+		testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 		require.Contains(t, err.Error(), "destination directory exists")
 	}
 
@@ -169,7 +168,7 @@ func testCreateRepositoryFromSnapshotFailsIfBadURL(t *testing.T, ctx context.Con
 	}
 
 	rsp, err := createFromSnapshot(t, ctx, req, cfg)
-	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+	testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 	require.Contains(t, err.Error(), "Bad HTTP URL")
 	require.Nil(t, rsp)
 }
@@ -227,7 +226,7 @@ func testCreateRepositoryFromSnapshotBadRequests(t *testing.T, ctx context.Conte
 			}
 
 			rsp, err := createFromSnapshot(t, ctx, req, cfg)
-			testhelper.RequireGrpcError(t, err, tc.code)
+			testhelper.RequireGrpcCode(t, err, tc.code)
 			require.Nil(t, rsp)
 
 			require.Contains(t, err.Error(), tc.errContains)

@@ -56,7 +56,7 @@ func TestFailedFindRemoteRepository(t *testing.T) {
 		if tc.code == codes.OK {
 			require.NoError(t, err)
 		} else {
-			testhelper.RequireGrpcError(t, err, tc.code)
+			testhelper.RequireGrpcCode(t, err, tc.code)
 			continue
 		}
 

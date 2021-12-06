@@ -116,7 +116,7 @@ func TestInvalidCommitLanguagesRequestRevision(t *testing.T) {
 		Repository: repo,
 		Revision:   []byte("--output=/meow"),
 	})
-	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+	testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 }
 
 func TestAmbiguousRefCommitLanguagesRequestRevision(t *testing.T) {

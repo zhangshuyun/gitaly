@@ -15,7 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -391,7 +390,7 @@ func TestUserSquash_emptyCommit(t *testing.T) {
 				Timestamp:     &timestamppb.Timestamp{Seconds: 1234512345},
 			})
 			require.NoError(t, err)
-			testassert.ProtoEqual(t, &gitalypb.UserSquashResponse{
+			testhelper.ProtoEqual(t, &gitalypb.UserSquashResponse{
 				SquashSha: tc.expectedOID.String(),
 			}, response)
 
@@ -494,7 +493,7 @@ func TestUserSquash_validation(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			_, err := client.UserSquash(ctx, testCase.request)
-			testhelper.RequireGrpcError(t, err, testCase.code)
+			testhelper.RequireGrpcCode(t, err, testCase.code)
 			require.Contains(t, err.Error(), testCase.desc)
 		})
 	}
@@ -533,7 +532,7 @@ func TestUserSquash_conflicts(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	testassert.ProtoEqual(t, &gitalypb.UserSquashResponse{
+	testhelper.ProtoEqual(t, &gitalypb.UserSquashResponse{
 		GitError: fmt.Sprintf("rebase: commit %q: conflicts have not been resolved", ours),
 	}, response)
 }
@@ -569,7 +568,7 @@ func TestUserSquash_ancestry(t *testing.T) {
 	})
 
 	require.Nil(t, err)
-	testassert.ProtoEqual(t, &gitalypb.UserSquashResponse{
+	testhelper.ProtoEqual(t, &gitalypb.UserSquashResponse{
 		SquashSha: "b277ddc0aafcba53f23f3d4d4a46dde42c9e7ad2",
 	}, response)
 }
@@ -644,8 +643,8 @@ func TestUserSquash_gitError(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			response, err := client.UserSquash(ctx, tc.request)
-			testassert.GrpcEqualErr(t, tc.expectedErr, err)
-			testassert.ProtoEqual(t, tc.expectedResponse, response)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+			testhelper.ProtoEqual(t, tc.expectedResponse, response)
 		})
 	}
 }

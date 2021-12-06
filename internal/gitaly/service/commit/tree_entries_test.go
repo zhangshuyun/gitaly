@@ -628,7 +628,7 @@ func TestGetTreeEntries_validation(t *testing.T) {
 			require.NoError(t, err)
 
 			err = drainTreeEntriesResponse(c)
-			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 		})
 	}
 }

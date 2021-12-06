@@ -26,7 +26,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
@@ -84,7 +83,7 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 			require.NoError(t, stream.CloseSend())
 
 			err = drainPostReceivePackResponse(stream)
-			testhelper.RequireGrpcError(t, err, test.Code)
+			testhelper.RequireGrpcCode(t, err, test.Code)
 		})
 	}
 }
@@ -132,7 +131,7 @@ func TestReceivePackPushSuccess(t *testing.T) {
 
 	// Compare the repository up front so that we can use require.Equal for
 	// the remaining values.
-	testassert.ProtoEqual(t, &gitalypb.Repository{
+	testhelper.ProtoEqual(t, &gitalypb.Repository{
 		StorageName:   cfg.Storages[0].Name,
 		RelativePath:  "gitlab-test-ssh-receive-pack.git",
 		GlProjectPath: glProjectPath,

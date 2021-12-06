@@ -33,7 +33,7 @@ func TestPostReceiveInvalidArgument(t *testing.T) {
 	require.NoError(t, stream.Send(&gitalypb.PostReceiveHookRequest{}), "empty repository should result in an error")
 	_, err = stream.Recv()
 
-	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+	testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 }
 
 func TestHooksMissingStdin(t *testing.T) {

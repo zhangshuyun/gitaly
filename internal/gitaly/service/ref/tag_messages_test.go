@@ -9,7 +9,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -47,8 +46,8 @@ func TestSuccessfulGetTagMessagesRequest(t *testing.T) {
 
 	fetchedMessages := readAllMessagesFromClient(t, c)
 	require.Len(t, fetchedMessages, len(expectedMessages))
-	testassert.ProtoEqual(t, expectedMessages[0], fetchedMessages[0])
-	testassert.ProtoEqual(t, expectedMessages[1], fetchedMessages[1])
+	testhelper.ProtoEqual(t, expectedMessages[0], fetchedMessages[0])
+	testhelper.ProtoEqual(t, expectedMessages[1], fetchedMessages[1])
 }
 
 func TestFailedGetTagMessagesRequest(t *testing.T) {
@@ -84,7 +83,7 @@ func TestFailedGetTagMessagesRequest(t *testing.T) {
 				}
 			}
 
-			testhelper.RequireGrpcError(t, err, testCase.code)
+			testhelper.RequireGrpcCode(t, err, testCase.code)
 		})
 	}
 }

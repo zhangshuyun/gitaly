@@ -820,7 +820,7 @@ func TestFailedCommitDiffRequestDueToValidationError(t *testing.T) {
 			require.NoError(t, err)
 
 			err = drainCommitDiffResponse(c)
-			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 		})
 	}
 }
@@ -838,7 +838,7 @@ func TestFailedCommitDiffRequestWithNonExistentCommit(t *testing.T) {
 	require.NoError(t, err)
 
 	err = drainCommitDiffResponse(c)
-	testhelper.RequireGrpcError(t, err, codes.Unavailable)
+	testhelper.RequireGrpcCode(t, err, codes.Unavailable)
 }
 
 func TestSuccessfulCommitDeltaRequest(t *testing.T) {
@@ -1036,7 +1036,7 @@ func TestFailedCommitDeltaRequestDueToValidationError(t *testing.T) {
 			require.NoError(t, err)
 
 			err = drainCommitDeltaResponse(c)
-			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 		})
 	}
 }
@@ -1054,7 +1054,7 @@ func TestFailedCommitDeltaRequestWithNonExistentCommit(t *testing.T) {
 	require.NoError(t, err)
 
 	err = drainCommitDeltaResponse(c)
-	testhelper.RequireGrpcError(t, err, codes.Unavailable)
+	testhelper.RequireGrpcCode(t, err, codes.Unavailable)
 }
 
 func drainCommitDiffResponse(c gitalypb.DiffService_CommitDiffClient) error {

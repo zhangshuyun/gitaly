@@ -110,7 +110,7 @@ func TestFailedFindBranchRequest(t *testing.T) {
 			defer cancel()
 
 			_, err := client.FindBranch(ctx, request)
-			testhelper.RequireGrpcError(t, err, testCase.code)
+			testhelper.RequireGrpcCode(t, err, testCase.code)
 		})
 	}
 }

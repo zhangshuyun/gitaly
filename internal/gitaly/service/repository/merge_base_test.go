@@ -94,5 +94,5 @@ func TestFailedFindMergeBaseRequestDueToValidations(t *testing.T) {
 	}
 
 	_, err := client.FindMergeBase(ctx, request)
-	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+	testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 }

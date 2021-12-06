@@ -11,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 	"google.golang.org/grpc/codes"
@@ -269,7 +268,7 @@ func TestListBlobs(t *testing.T) {
 				resp, err := stream.Recv()
 				if err != nil {
 					if !errors.Is(err, io.EOF) {
-						testassert.GrpcEqualErr(t, tc.expectedErr, err)
+						testhelper.RequireGrpcError(t, tc.expectedErr, err)
 					}
 					break
 				}
@@ -277,7 +276,7 @@ func TestListBlobs(t *testing.T) {
 				blobs = append(blobs, resp.Blobs...)
 			}
 
-			testassert.ProtoEqual(t, tc.expectedBlobs, blobs)
+			testhelper.ProtoEqual(t, tc.expectedBlobs, blobs)
 		})
 	}
 }

@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/log"
@@ -105,7 +104,7 @@ func TestFetchIntoObjectPool_hooks(t *testing.T) {
 	}
 
 	_, err := client.FetchIntoObjectPool(ctx, req)
-	testassert.GrpcEqualErr(t, status.Error(codes.Internal, "fetch into object pool: exit status 128, stderr: \"fatal: ref updates aborted by hook\\n\""), err)
+	testhelper.RequireGrpcError(t, status.Error(codes.Internal, "fetch into object pool: exit status 128, stderr: \"fatal: ref updates aborted by hook\\n\""), err)
 }
 
 func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
@@ -225,7 +224,7 @@ func TestFetchIntoObjectPool_Failure(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			_, err := server.FetchIntoObjectPool(ctx, tc.request)
 			require.Error(t, err)
-			testhelper.RequireGrpcError(t, err, tc.code)
+			testhelper.RequireGrpcCode(t, err, tc.code)
 			assert.Contains(t, err.Error(), tc.errMsg)
 		})
 	}

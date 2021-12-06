@@ -181,7 +181,7 @@ func testFailedWikiGetAllPagesDueToValidation(t *testing.T, cfg config.Cfg, clie
 			require.NoError(t, err)
 
 			err = drainWikiGetAllPagesResponse(c)
-			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 		})
 	}
 }

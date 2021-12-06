@@ -12,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -42,7 +41,7 @@ func TestSetFullPath(t *testing.T) {
 			Path:       "",
 		})
 		require.Nil(t, response)
-		testassert.GrpcEqualErr(t, helper.ErrInvalidArgumentf("no path provided"), err)
+		testhelper.RequireGrpcError(t, helper.ErrInvalidArgumentf("no path provided"), err)
 	})
 
 	t.Run("invalid storage", func(t *testing.T) {
@@ -87,7 +86,7 @@ func TestSetFullPath(t *testing.T) {
 			Path:       "foo/bar",
 		})
 		require.NoError(t, err)
-		testassert.ProtoEqual(t, &gitalypb.SetFullPathResponse{}, response)
+		testhelper.ProtoEqual(t, &gitalypb.SetFullPathResponse{}, response)
 
 		fullPath := gittest.Exec(t, cfg, "-C", repoPath, "config", fullPathKey)
 		require.Equal(t, "foo/bar", text.ChompBytes(fullPath))
@@ -104,7 +103,7 @@ func TestSetFullPath(t *testing.T) {
 			Path:       "foo/bar",
 		})
 		require.NoError(t, err)
-		testassert.ProtoEqual(t, &gitalypb.SetFullPathResponse{}, response)
+		testhelper.ProtoEqual(t, &gitalypb.SetFullPathResponse{}, response)
 
 		fullPath := gittest.Exec(t, cfg, "-C", repoPath, "config", fullPathKey)
 		require.Equal(t, "foo/bar", text.ChompBytes(fullPath))
@@ -119,7 +118,7 @@ func TestSetFullPath(t *testing.T) {
 				Path:       fmt.Sprintf("foo/%d", i),
 			})
 			require.NoError(t, err)
-			testassert.ProtoEqual(t, &gitalypb.SetFullPathResponse{}, response)
+			testhelper.ProtoEqual(t, &gitalypb.SetFullPathResponse{}, response)
 		}
 
 		fullPath := gittest.Exec(t, cfg, "-C", repoPath, "config", "--get-all", fullPathKey)
@@ -138,7 +137,7 @@ func TestSetFullPath(t *testing.T) {
 			Path:       "replace",
 		})
 		require.NoError(t, err)
-		testassert.ProtoEqual(t, &gitalypb.SetFullPathResponse{}, response)
+		testhelper.ProtoEqual(t, &gitalypb.SetFullPathResponse{}, response)
 
 		fullPath := gittest.Exec(t, cfg, "-C", repoPath, "config", "--get-all", fullPathKey)
 		require.Equal(t, "replace", text.ChompBytes(fullPath))

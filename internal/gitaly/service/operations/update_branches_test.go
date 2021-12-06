@@ -10,7 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -86,7 +85,7 @@ func TestSuccessfulUserUpdateBranchRequest(t *testing.T) {
 			}
 			response, err := client.UserUpdateBranch(ctx, request)
 			require.NoError(t, err)
-			testassert.ProtoEqual(t, responseOk, response)
+			testhelper.ProtoEqual(t, responseOk, response)
 
 			branchCommit, err := repo.ReadCommit(ctx, git.Revision(testCase.updateBranchName))
 
@@ -159,7 +158,7 @@ func TestSuccessfulUserUpdateBranchRequestToDelete(t *testing.T) {
 			}
 			response, err := client.UserUpdateBranch(ctx, request)
 			require.NoError(t, err)
-			testassert.ProtoEqual(t, responseOk, response)
+			testhelper.ProtoEqual(t, responseOk, response)
 
 			_, err = repo.ReadCommit(ctx, git.Revision(testCase.updateBranchName))
 			require.Equal(t, localrepo.ErrObjectNotFound, err, "expected 'not found' error got %v", err)
@@ -197,7 +196,7 @@ func TestSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T) {
 			require.NoError(t, err)
 			require.Empty(t, response.PreReceiveError)
 
-			testassert.ProtoEqual(t, responseOk, response)
+			testhelper.ProtoEqual(t, responseOk, response)
 			output := string(testhelper.MustReadFile(t, hookOutputTempPath))
 			require.Contains(t, output, "GL_USERNAME="+gittest.TestUser.GlUsername)
 		})
@@ -234,7 +233,7 @@ func TestFailedUserUpdateBranchDueToHooks(t *testing.T) {
 		responseOk := &gitalypb.UserUpdateBranchResponse{
 			PreReceiveError: response.PreReceiveError,
 		}
-		testassert.ProtoEqual(t, responseOk, response)
+		testhelper.ProtoEqual(t, responseOk, response)
 	}
 }
 
@@ -368,8 +367,8 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 			}
 
 			response, err := client.UserUpdateBranch(ctx, request)
-			testassert.ProtoEqual(t, testCase.response, response)
-			testassert.GrpcEqualErr(t, testCase.err, err)
+			testhelper.ProtoEqual(t, testCase.response, response)
+			testhelper.RequireGrpcError(t, testCase.err, err)
 
 			branchCommit, err := repo.ReadCommit(ctx, git.Revision(testCase.branchName))
 			if testCase.expectNotFoundError {

@@ -14,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -86,7 +85,7 @@ end
 	require.Len(t, receivedFiles, len(expectedFiles))
 
 	for i := 0; i < len(expectedFiles); i++ {
-		testassert.ProtoEqual(t, receivedFiles[i].Header, expectedFiles[i].Header)
+		testhelper.ProtoEqual(t, receivedFiles[i].Header, expectedFiles[i].Header)
 		require.Equal(t, expectedFiles[i].Content, receivedFiles[i].Content)
 	}
 }
@@ -134,7 +133,7 @@ func TestSuccessfulListConflictFilesRequestWithAncestor(t *testing.T) {
 	require.Len(t, receivedFiles, len(expectedFiles))
 
 	for i := 0; i < len(expectedFiles); i++ {
-		testassert.ProtoEqual(t, receivedFiles[i].Header, expectedFiles[i].Header)
+		testhelper.ProtoEqual(t, receivedFiles[i].Header, expectedFiles[i].Header)
 	}
 }
 
@@ -165,14 +164,14 @@ func TestListConflictFilesHugeDiff(t *testing.T) {
 
 	receivedFiles := getConflictFiles(t, c)
 	require.Len(t, receivedFiles, 2)
-	testassert.ProtoEqual(t, &gitalypb.ConflictFileHeader{
+	testhelper.ProtoEqual(t, &gitalypb.ConflictFileHeader{
 		CommitOid: our,
 		OurMode:   int32(0o100644),
 		OurPath:   []byte("a"),
 		TheirPath: []byte("a"),
 	}, receivedFiles[0].Header)
 
-	testassert.ProtoEqual(t, &gitalypb.ConflictFileHeader{
+	testhelper.ProtoEqual(t, &gitalypb.ConflictFileHeader{
 		CommitOid: our,
 		OurMode:   int32(0o100644),
 		OurPath:   []byte("b"),
@@ -252,7 +251,7 @@ func TestListConflictFilesFailedPrecondition(t *testing.T) {
 				err = drainListConflictFilesResponse(c)
 			}
 
-			testhelper.RequireGrpcError(t, err, codes.FailedPrecondition)
+			testhelper.RequireGrpcCode(t, err, codes.FailedPrecondition)
 		})
 	}
 }
@@ -347,7 +346,7 @@ end
 		},
 	}
 
-	testassert.ProtoEqual(t, expectedFiles, getConflictFiles(t, c))
+	testhelper.ProtoEqual(t, expectedFiles, getConflictFiles(t, c))
 }
 
 func TestFailedListConflictFilesRequestDueToValidation(t *testing.T) {
@@ -396,7 +395,7 @@ func TestFailedListConflictFilesRequestDueToValidation(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			c, _ := client.ListConflictFiles(ctx, testCase.request)
-			testhelper.RequireGrpcError(t, drainListConflictFilesResponse(c), testCase.code)
+			testhelper.RequireGrpcCode(t, drainListConflictFilesResponse(c), testCase.code)
 		})
 	}
 }

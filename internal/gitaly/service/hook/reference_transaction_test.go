@@ -47,7 +47,7 @@ func TestReferenceTransactionHookInvalidArgument(t *testing.T) {
 	require.NoError(t, stream.Send(&gitalypb.ReferenceTransactionHookRequest{}))
 	_, err = stream.Recv()
 
-	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+	testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 }
 
 func TestReferenceTransactionHook(t *testing.T) {

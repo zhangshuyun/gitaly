@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -263,7 +263,7 @@ func TestErrWithDetails(t *testing.T) {
 				require.NoError(t, err)
 				details = append(details, detailProto)
 			}
-			testassert.ProtoEqual(t, tc.expectedDetails, details)
+			testhelper.ProtoEqual(t, tc.expectedDetails, details)
 		})
 	}
 }

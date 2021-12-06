@@ -229,7 +229,7 @@ func TestFailedDeleteRefsDueToValidation(t *testing.T) {
 			defer cancel()
 
 			_, err := client.DeleteRefs(ctx, tc.request)
-			testhelper.RequireGrpcError(t, err, tc.code)
+			testhelper.RequireGrpcCode(t, err, tc.code)
 		})
 	}
 }

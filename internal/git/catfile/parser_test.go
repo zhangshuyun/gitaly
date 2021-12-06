@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -156,7 +156,7 @@ func TestParseCommitAuthor(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			testassert.ProtoEqual(t, tc.expected, parseCommitAuthor(tc.author))
+			testhelper.ProtoEqual(t, tc.expected, parseCommitAuthor(tc.author))
 		})
 	}
 }

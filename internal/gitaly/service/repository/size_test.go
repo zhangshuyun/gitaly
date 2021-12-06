@@ -57,7 +57,7 @@ func TestFailedRepositorySizeRequest(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			_, err := client.RepositorySize(ctx, request)
-			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 		})
 	}
 }

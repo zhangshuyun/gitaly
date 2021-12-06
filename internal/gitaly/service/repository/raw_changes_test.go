@@ -218,7 +218,7 @@ func TestGetRawChangesFailures(t *testing.T) {
 				_, err = resp.Recv()
 			}
 
-			testhelper.RequireGrpcError(t, err, tc.code)
+			testhelper.RequireGrpcCode(t, err, tc.code)
 		})
 	}
 }

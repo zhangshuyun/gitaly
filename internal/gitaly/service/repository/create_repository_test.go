@@ -20,7 +20,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
@@ -45,7 +44,7 @@ func testCreateRepositoryMissingAuth(t *testing.T, ctx context.Context) {
 
 	_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: repo})
 
-	testhelper.RequireGrpcError(t, err, codes.Unauthenticated)
+	testhelper.RequireGrpcCode(t, err, codes.Unauthenticated)
 }
 
 func TestCreateRepository_successful(t *testing.T) {
@@ -109,9 +108,9 @@ func testCreateRepositoryFailure(t *testing.T, ctx context.Context) {
 	})
 
 	if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
-		testhelper.RequireGrpcError(t, err, codes.AlreadyExists)
+		testhelper.RequireGrpcCode(t, err, codes.AlreadyExists)
 	} else {
-		testhelper.RequireGrpcError(t, err, codes.Internal)
+		testhelper.RequireGrpcCode(t, err, codes.Internal)
 	}
 }
 
@@ -139,7 +138,7 @@ func testCreateRepositoryInvalidArguments(t *testing.T, ctx context.Context) {
 			_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: tc.repo})
 
 			require.Error(t, err)
-			testhelper.RequireGrpcError(t, err, tc.code)
+			testhelper.RequireGrpcCode(t, err, tc.code)
 		})
 	}
 }
@@ -204,7 +203,7 @@ func testCreateRepositoryTransactional(t *testing.T, ctx context.Context) {
 		})
 
 		if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
-			testassert.ProtoEqual(t, status.Error(codes.AlreadyExists, "creating repository: repository exists already"), err)
+			testhelper.ProtoEqual(t, status.Error(codes.AlreadyExists, "creating repository: repository exists already"), err)
 			return
 		}
 
@@ -245,7 +244,7 @@ func testCreateRepositoryIdempotent(t *testing.T, ctx context.Context) {
 	_, err := client.CreateRepository(ctx, req)
 
 	if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
-		testassert.ProtoEqual(t, status.Error(codes.AlreadyExists, "creating repository: repository exists already"), err)
+		testhelper.ProtoEqual(t, status.Error(codes.AlreadyExists, "creating repository: repository exists already"), err)
 		return
 	}
 

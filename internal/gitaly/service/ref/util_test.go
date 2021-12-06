@@ -3,7 +3,7 @@ package ref
 import (
 	"testing"
 
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -174,7 +174,7 @@ func TestBuildLocalBranch(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			testassert.ProtoEqual(t, tc.out, buildLocalBranch([]byte("my-branch"), tc.in))
+			testhelper.ProtoEqual(t, tc.out, buildLocalBranch([]byte("my-branch"), tc.in))
 		})
 	}
 }

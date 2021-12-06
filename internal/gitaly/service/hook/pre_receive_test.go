@@ -39,7 +39,7 @@ func TestPreReceiveInvalidArgument(t *testing.T) {
 	require.NoError(t, stream.Send(&gitalypb.PreReceiveHookRequest{}))
 	_, err = stream.Recv()
 
-	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+	testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 }
 
 func sendPreReceiveHookRequest(t *testing.T, stream gitalypb.HookService_PreReceiveHookClient, stdin io.Reader) ([]byte, []byte, int32, error) {

@@ -177,7 +177,7 @@ func TestGarbageCollectDeletesRefsLocks(t *testing.T) {
 	mustCreateFileWithTimes(t, deleteLockPath, oldTime)
 
 	c, err := client.GarbageCollect(ctx, req)
-	testhelper.RequireGrpcError(t, err, codes.Internal)
+	testhelper.RequireGrpcCode(t, err, codes.Internal)
 	require.Contains(t, err.Error(), "GarbageCollect: cmd wait")
 	assert.Nil(t, c)
 
@@ -244,7 +244,7 @@ func TestGarbageCollectDeletesPackedRefsLock(t *testing.T) {
 
 			if tc.shouldExist {
 				assert.Error(t, err)
-				testhelper.RequireGrpcError(t, err, codes.Internal)
+				testhelper.RequireGrpcCode(t, err, codes.Internal)
 
 				require.FileExists(t, lockPath)
 			} else {
@@ -335,7 +335,7 @@ func TestGarbageCollectDeletesPackedRefsNew(t *testing.T) {
 
 			if tc.shouldExist {
 				require.Error(t, err)
-				testhelper.RequireGrpcError(t, err, codes.Internal)
+				testhelper.RequireGrpcCode(t, err, codes.Internal)
 
 				require.FileExists(t, packedRefsNewPath)
 			} else {
@@ -367,7 +367,7 @@ func TestGarbageCollectFailure(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: test.repo})
-			testhelper.RequireGrpcError(t, err, test.code)
+			testhelper.RequireGrpcCode(t, err, test.code)
 		})
 	}
 }

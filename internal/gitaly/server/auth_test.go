@@ -105,7 +105,7 @@ func TestAuthFailures(t *testing.T) {
 			conn, err := dial(serverSocketPath, connOpts)
 			require.NoError(t, err, tc.desc)
 			t.Cleanup(func() { conn.Close() })
-			testhelper.RequireGrpcError(t, healthCheck(conn), tc.code)
+			testhelper.RequireGrpcCode(t, healthCheck(conn), tc.code)
 		})
 	}
 }
@@ -266,7 +266,7 @@ func TestUnaryNoAuth(t *testing.T) {
 	},
 	)
 
-	testhelper.RequireGrpcError(t, err, codes.Unauthenticated)
+	testhelper.RequireGrpcCode(t, err, codes.Unauthenticated)
 }
 
 func TestStreamingNoAuth(t *testing.T) {
@@ -294,7 +294,7 @@ func TestStreamingNoAuth(t *testing.T) {
 		_, err = stream.Recv()
 		return nil, err
 	}))
-	testhelper.RequireGrpcError(t, err, codes.Unauthenticated)
+	testhelper.RequireGrpcCode(t, err, codes.Unauthenticated)
 }
 
 func TestAuthBeforeLimit(t *testing.T) {

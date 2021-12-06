@@ -19,7 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/grpcstats"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/stats"
@@ -97,7 +96,7 @@ func TestPayloadBytes(t *testing.T) {
 			if !assert.NoError(t, err) {
 				return
 			}
-			testassert.ProtoEqual(t, newStubPayload(), resp.Payload)
+			require.Equal(t, newStubPayload(), resp.Payload)
 
 			call, err := testClient.HalfDuplexCall(ctx)
 			if !assert.NoError(t, err) {

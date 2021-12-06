@@ -15,7 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
@@ -195,7 +194,7 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 				Repository: repo,
 				Revision:   tc.revision,
 			})
-			testassert.GrpcEqualErr(t, tc.expectedErr, err)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 
 			path := filepath.Join(infoPath, "attributes")
 			if tc.shouldExist {
@@ -263,7 +262,7 @@ func TestApplyGitattributesFailure(t *testing.T) {
 		t.Run(fmt.Sprintf("%+v", test), func(t *testing.T) {
 			req := &gitalypb.ApplyGitattributesRequest{Repository: test.repo, Revision: test.revision}
 			_, err := client.ApplyGitattributes(ctx, req)
-			testhelper.RequireGrpcError(t, err, test.code)
+			testhelper.RequireGrpcCode(t, err, test.code)
 		})
 	}
 }

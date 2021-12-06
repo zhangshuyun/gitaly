@@ -16,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
@@ -232,7 +231,7 @@ func TestUserRebaseConfirmableStableCommitIDs(t *testing.T) {
 
 	commit, err := repo.ReadCommit(ctx, git.Revision(rebaseBranchName))
 	require.NoError(t, err, "look up git commit")
-	testassert.ProtoEqual(t, &gitalypb.GitCommit{
+	testhelper.ProtoEqual(t, &gitalypb.GitCommit{
 		Subject:   []byte("Add a directory with many files to allow testing of default 1,000 entry limit"),
 		Body:      []byte("Add a directory with many files to allow testing of default 1,000 entry limit\n\nFor performance reasons, GitLab will add a file viewer limit and only show\nthe first 1,000 entries in a directory. Having this directory with many\nempty files in the test project will make the test easy.\n"),
 		BodySize:  283,
@@ -310,7 +309,7 @@ func TestFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeader(t *testing.T
 			require.NoError(t, rebaseStream.Send(tc.req), "send request header")
 
 			firstResponse, err := rebaseStream.Recv()
-			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 			require.Contains(t, err.Error(), tc.desc)
 			require.Empty(t, firstResponse.GetRebaseSha(), "rebase sha on first response")
 		})
@@ -369,7 +368,7 @@ func TestAbortedUserRebaseConfirmable(t *testing.T) {
 
 			require.False(t, secondResponse.GetRebaseApplied(), "rebase should not have been applied")
 			require.Error(t, err)
-			testhelper.RequireGrpcError(t, err, tc.code)
+			testhelper.RequireGrpcCode(t, err, tc.code)
 
 			newBranchSha := getBranchSha(t, cfg, testRepoPath, rebaseBranchName)
 			require.Equal(t, newBranchSha, branchSha, "branch should not change when the rebase is aborted")
@@ -408,7 +407,7 @@ func TestFailedUserRebaseConfirmableDueToApplyBeingFalse(t *testing.T) {
 
 	secondResponse, err := rebaseStream.Recv()
 	require.Error(t, err, "second response should have error")
-	testhelper.RequireGrpcError(t, err, codes.FailedPrecondition)
+	testhelper.RequireGrpcCode(t, err, codes.FailedPrecondition)
 	require.False(t, secondResponse.GetRebaseApplied(), "the second rebase is not applied")
 
 	_, err = repo.ReadCommit(ctx, git.Revision(firstResponse.GetRebaseSha()))
@@ -673,7 +672,7 @@ func TestRebaseFailedWithCode(t *testing.T) {
 			require.NoError(t, rebaseStream.Send(headerRequest), "send header")
 
 			_, err = rebaseStream.Recv()
-			testhelper.RequireGrpcError(t, err, tc.expectedCode)
+			testhelper.RequireGrpcCode(t, err, tc.expectedCode)
 		})
 	}
 }

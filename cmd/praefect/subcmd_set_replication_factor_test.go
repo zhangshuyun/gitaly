@@ -11,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/service/info"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -107,7 +106,7 @@ func TestSetReplicationFactorSubcommand(t *testing.T) {
 			err := cmd.Exec(fs, config.Config{
 				SocketPath: ln.Addr().String(),
 			})
-			testassert.GrpcEqualErr(t, tc.error, err)
+			testhelper.RequireGrpcError(t, tc.error, err)
 			require.Equal(t, tc.stdout, stdout.String())
 		})
 	}
