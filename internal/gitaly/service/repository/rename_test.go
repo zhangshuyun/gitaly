@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -17,12 +18,12 @@ import (
 
 func TestRenameRepository_success(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.RenameRepositoryLocking).Run(t, testRenameRepositorySuccess)
+}
 
+func testRenameRepositorySuccess(t *testing.T, ctx context.Context) {
 	// Praefect does not move repositories on the disk so this test case is not run with Praefect.
 	cfg, repo, _, client := setupRepositoryService(t, testserver.WithDisablePraefect())
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	const targetPath = "a-new-location"
 	_, err := client.RenameRepository(ctx, &gitalypb.RenameRepositoryRequest{
@@ -41,12 +42,16 @@ func TestRenameRepository_success(t *testing.T) {
 	gittest.GitObjectMustExist(t, cfg.Git.BinPath, newDirectory, "913c66a37b4a45b9769037c55c2d238bd0942d2e")
 }
 
-func TestRenameRepository_destinationExists(t *testing.T) {
+func TestRenameRepository_DestinationExists(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.RenameRepositoryLocking).Run(t, testRenameRepositoryDestinationExists)
+}
+
+func testRenameRepositoryDestinationExists(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 	ctx = featureflag.OutgoingCtxWithFeatureFlag(ctx, featureflag.TxAtomicRepositoryCreation, true)
 
 	existingDestinationRepo := &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "repository-1"}
@@ -64,7 +69,11 @@ func TestRenameRepository_destinationExists(t *testing.T) {
 		Repository:   renamedRepo,
 		RelativePath: existingDestinationRepo.RelativePath,
 	})
-	testhelper.RequireGrpcCode(t, err, codes.FailedPrecondition)
+	if featureflag.RenameRepositoryLocking.IsEnabled(ctx) {
+		testhelper.RequireGrpcCode(t, err, codes.AlreadyExists)
+	} else {
+		testhelper.RequireGrpcCode(t, err, codes.FailedPrecondition)
+	}
 
 	// ensure the git directory that already existed didn't get overwritten
 	gittest.GitObjectMustExist(t, cfg.Git.BinPath, destinationRepoPath, commitID.String())
@@ -72,11 +81,11 @@ func TestRenameRepository_destinationExists(t *testing.T) {
 
 func TestRenameRepository_invalidRequest(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.RenameRepositoryLocking).Run(t, testRenameRepositoryInvalidRequest)
+}
 
+func testRenameRepositoryInvalidRequest(t *testing.T, ctx context.Context) {
 	_, repo, _, client := setupRepositoryService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	testCases := []struct {
 		desc string
