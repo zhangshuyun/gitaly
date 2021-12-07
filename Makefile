@@ -44,7 +44,7 @@ INSTALL_DEST_DIR := ${DESTDIR}${bindir}
 GIT_PREFIX       ?= ${GIT_DEFAULT_PREFIX}
 
 # Tools
-GIT               := $(shell which git)
+GIT               := $(shell command -v git)
 GOIMPORTS         := ${TOOLS_DIR}/goimports
 GOFUMPT           := ${TOOLS_DIR}/gofumpt
 GOLANGCI_LINT     := ${TOOLS_DIR}/golangci-lint
@@ -418,7 +418,7 @@ notice: ${SOURCE_DIR}/NOTICE
 .PHONY: clean
 ## Clean up build artifacts.
 clean:
-	rm -rf ${BUILD_DIR} ${SOURCE_DIR}/internal/testhelper/testdata/data/ ${SOURCE_DIR}/ruby/.bundle/ ${SOURCE_DIR}/ruby/vendor/bundle/
+	rm -rf ${BUILD_DIR} ${SOURCE_DIR}/ruby/.bundle/ ${SOURCE_DIR}/ruby/vendor/bundle/
 
 .PHONY: clean-ruby-vendor-go
 clean-ruby-vendor-go:
@@ -586,11 +586,12 @@ ${GIT_SOURCE_DIR}/%: ${GIT_SOURCE_DIR}/Makefile
 	${Q}touch $@
 
 ${GIT_PREFIX}/bin/git: ${GIT_SOURCE_DIR}/Makefile
-	# Note that we're deleting GIT_DEFAULT_PREFIX, not GIT_PREFIX: we only
-	# want to remove the default location in our build directory, but never
-	# want to delete the actual location the user wants to install to.
-	# Otherwise, we may end up wiping e.g. `/usr/local`.
-	${Q}rm -rf ${GIT_DEFAULT_PREFIX}
+	# Remove the Git installation first in case GIT_PREFIX is the default
+	# prefix which always points into our build directory. This is done so
+	# we never end up with mixed Git installations on developer machines.
+	# We cannot ever remove GIT_PREFIX though in case they're different
+	# because it may point to a user-controlled directory.
+	${Q}if [ "x${GIT_DEFAULT_PREFIX}" = "x${GIT_PREFIX}" ]; then rm -rf "${GIT_DEFAULT_PREFIX}"; fi
 	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C ${GIT_SOURCE_DIR} -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
 	${Q}touch $@
 
@@ -637,14 +638,14 @@ ${TEST_REPO}:
 	${Q}rm -rf $@/refs
 	${Q}mkdir -p $@/refs/heads $@/refs/tags
 	${Q}cp ${SOURCE_DIR}/_support/gitlab-test.git-packed-refs $@/packed-refs
-	${Q}${GIT} -C $@ fsck --no-progress
+	${Q}${GIT} -C $@ fsck --no-progress --no-dangling
 
 ${TEST_REPO_GIT}:
 	${GIT} clone --bare ${GIT_QUIET} https://gitlab.com/gitlab-org/gitlab-git-test.git $@
 	${Q}rm -rf $@/refs
 	${Q}mkdir -p $@/refs/heads $@/refs/tags
 	${Q}cp ${SOURCE_DIR}/_support/gitlab-git-test.git-packed-refs $@/packed-refs
-	${Q}${GIT} -C $@ fsck --no-progress
+	${Q}${GIT} -C $@ fsck --no-progress --no-dangling
 
 ${BENCHMARK_REPO}:
 	${GIT} clone --bare ${GIT_QUIET} https://gitlab.com/gitlab-org/gitlab.git $@
