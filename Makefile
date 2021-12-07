@@ -273,7 +273,7 @@ help:
 	@echo "These are the available targets:"
 	@echo ""
 
-	${Q}# Match all targets which have preceding `## ` comments.
+	@ # Match all targets which have preceding `## ` comments.
 	${Q}awk '/^## / { sub(/^##/, "", $$0) ; desc = desc $$0 ; next } \
 		 /^[[:alpha:]][[:alnum:]_-]+:/ && desc { print "  " $$1 desc } \
 		 { desc = "" }' $(MAKEFILE_LIST) | sort | column -s: -t
@@ -282,7 +282,7 @@ help:
 	${Q}echo "These are common variables which can be overridden in config.mak:"
 	${Q}echo ""
 
-	${Q}# Match all variables which have preceding `## ` comments and which are assigned via `?=`.
+	@ # Match all variables which have preceding `## ` comments and which are assigned via `?=`.
 	${Q}awk '/^[[:space:]]*## / { sub(/^[[:space:]]*##/,"",$$0) ; desc = desc $$0 ; next } \
 		 /^[[:space:]]*[[:alpha:]][[:alnum:]_-]+[[:space:]]*\?=/ && desc { print "  "$$1 ":" desc } \
 		 { desc = "" }' $(MAKEFILE_LIST) | sort | column -s: -t
@@ -290,18 +290,18 @@ help:
 .PHONY: build
 ## Build Go binaries and install required Ruby Gems.
 build: ${SOURCE_DIR}/.ruby-bundle libgit2
-	${Q}# We used to install Gitaly binaries into the source directory by default when executing
-	${Q}# "make" or "make all", which has been changed in v14.5 to only build binaries into
-	${Q}# `_build/bin`. In order to quickly fail in case any source install still refers to these
-	${Q}# old binaries, we delete them from the source directory. Otherwise, it may happen that a
-	${Q}# source install continues to use the old set of binaries that wasn't updated at all.
-	${Q}# This safety guard can go away in v14.6.
+	@ # We used to install Gitaly binaries into the source directory by default when executing
+	@ # "make" or "make all", which has been changed in v14.5 to only build binaries into
+	@ # `_build/bin`. In order to quickly fail in case any source install still refers to these
+	@ # old binaries, we delete them from the source directory. Otherwise, it may happen that a
+	@ # source install continues to use the old set of binaries that wasn't updated at all.
+	@ # This safety guard can go away in v14.6.
 	${Q}rm -f $(addprefix ${SOURCE_DIR}/,$(notdir $(call find_commands)) gitaly-git2go-v14)
 
 	go install ${GO_LDFLAGS} -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, $(call find_commands))
-	${Q}# We use version suffix for the gitaly-git2go binary to support compatibility contract between
-	${Q}# gitaly and gitaly-git2go during upgrade deployment.
-	${Q}# For more information refer to https://gitlab.com/gitlab-org/gitaly/-/issues/3647#note_599082033
+	@ # We use version suffix for the gitaly-git2go binary to support compatibility contract between
+	@ # gitaly and gitaly-git2go during upgrade deployment.
+	@ # For more information refer to https://gitlab.com/gitlab-org/gitaly/-/issues/3647#note_599082033
 	${Q}mv ${BUILD_DIR}/bin/gitaly-git2go "${BUILD_DIR}/bin/gitaly-git2go-${MODULE_VERSION}"
 
 .PHONY: install
@@ -441,7 +441,7 @@ cover: prepare-tests libgit2 ${GOCOVER_COBERTURA}
 	${Q}rm -f "${COVERAGE_DIR}/all.merged" "${COVERAGE_DIR}/all.html"
 	${Q}$(call run_go_tests)
 	${Q}go tool cover -html  "${COVERAGE_DIR}/all.merged" -o "${COVERAGE_DIR}/all.html"
-	# sed is used below to convert file paths to repository root relative paths. See https://gitlab.com/gitlab-org/gitlab/-/issues/217664
+	@ # sed is used below to convert file paths to repository root relative paths. See https://gitlab.com/gitlab-org/gitlab/-/issues/217664
 	${Q}${GOCOVER_COBERTURA} <"${COVERAGE_DIR}/all.merged" | sed 's;filename=\"$(shell go list -m)/;filename=\";g' >"${COVERAGE_DIR}/cobertura.xml"
 	${Q}echo ""
 	${Q}echo "=====> Total test coverage: <====="
@@ -456,7 +456,7 @@ proto: ${PROTOC} ${PROTOC_GEN_GO} ${PROTOC_GEN_GO_GRPC} ${SOURCE_DIR}/.ruby-bund
 	${Q}rm -f ${SOURCE_DIR}/proto/go/gitalypb/*.pb.go
 	${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/proto --go_out=${SOURCE_DIR}/proto/go/gitalypb --go-grpc_out=${SOURCE_DIR}/proto/go/gitalypb ${SOURCE_DIR}/proto/*.proto
 	${SOURCE_DIR}/_support/generate-proto-ruby
-	${Q}# this part is related to the generation of sources from testing proto files
+	@ # this part is related to the generation of sources from testing proto files
 	${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/internal --go_out=${SOURCE_DIR}/internal --go-grpc_out=${SOURCE_DIR}/internal ${SOURCE_DIR}/internal/praefect/grpc-proxy/testdata/test.proto
 	${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/proto -I ${SOURCE_DIR}/internal --go_out=${SOURCE_DIR}/internal --go-grpc_out=${SOURCE_DIR}/internal \
 		${SOURCE_DIR}/internal/praefect/mock/mock.proto \
@@ -514,9 +514,9 @@ ${SOURCE_DIR}/NOTICE: ${BUILD_DIR}/NOTICE
 ${BUILD_DIR}/NOTICE: ${GO_LICENSES} clean-ruby-vendor-go
 	${Q}rm -rf ${BUILD_DIR}/licenses
 	${Q}GOOS=linux GOFLAGS="-tags=${GO_BUILD_TAGS}" ${GO_LICENSES} save ./... --save_path=${BUILD_DIR}/licenses
-	${Q}# some projects may be copied from the Go module cache
-	${Q}# (GOPATH/pkg/mod) and retain strict permissions (444). These
-	${Q}# permissions are not desirable when removing and rebuilding:
+	@ # some projects may be copied from the Go module cache
+	@ # (GOPATH/pkg/mod) and retain strict permissions (444). These
+	@ # permissions are not desirable when removing and rebuilding:
 	${Q}find ${BUILD_DIR}/licenses -type d -exec chmod 0755 {} \;
 	${Q}find ${BUILD_DIR}/licenses -type f -exec chmod 0644 {} \;
 	${Q}go run ${SOURCE_DIR}/_support/noticegen/noticegen.go -source ${BUILD_DIR}/licenses -template ${SOURCE_DIR}/_support/noticegen/notice.template > ${BUILD_DIR}/NOTICE
@@ -571,9 +571,9 @@ ${GIT_SOURCE_DIR}/Makefile: ${DEPENDENCY_DIR}/git.version
 ifdef GIT_PATCHES
 	${Q}${GIT} -C "${GIT_SOURCE_DIR}" apply $(addprefix "${SOURCE_DIR}"/_support/git-patches/,${GIT_PATCHES})
 endif
-	${Q}# We're writing the version into the "version" file in Git's own source
-	${Q}# directory. If it exists, Git's Makefile will pick it up and use it as
-	${Q}# the version instead of auto-detecting via git-describe(1).
+	@ # We're writing the version into the "version" file in Git's own source
+	@ # directory. If it exists, Git's Makefile will pick it up and use it as
+	@ # the version instead of auto-detecting via git-describe(1).
 ifdef GIT_EXTRA_VERSION
 	${Q}echo ${GIT_VERSION}.${GIT_EXTRA_VERSION} >"${GIT_SOURCE_DIR}"/version
 else
@@ -586,11 +586,11 @@ ${GIT_SOURCE_DIR}/%: ${GIT_SOURCE_DIR}/Makefile
 	${Q}touch $@
 
 ${GIT_PREFIX}/bin/git: ${GIT_SOURCE_DIR}/Makefile
-	# Remove the Git installation first in case GIT_PREFIX is the default
-	# prefix which always points into our build directory. This is done so
-	# we never end up with mixed Git installations on developer machines.
-	# We cannot ever remove GIT_PREFIX though in case they're different
-	# because it may point to a user-controlled directory.
+	@ # Remove the Git installation first in case GIT_PREFIX is the default
+	@ # prefix which always points into our build directory. This is done so
+	@ # we never end up with mixed Git installations on developer machines.
+	@ # We cannot ever remove GIT_PREFIX though in case they're different
+	@ # because it may point to a user-controlled directory.
 	${Q}if [ "x${GIT_DEFAULT_PREFIX}" = "x${GIT_PREFIX}" ]; then rm -rf "${GIT_DEFAULT_PREFIX}"; fi
 	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C ${GIT_SOURCE_DIR} -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
 	${Q}touch $@
@@ -633,7 +633,7 @@ ${PROTOC_GEN_GO_GRPC}:TOOL_VERSION = v${PROTOC_GEN_GO_GRPC_VERSION}
 
 ${TEST_REPO}:
 	${GIT} clone --bare ${GIT_QUIET} https://gitlab.com/gitlab-org/gitlab-test.git $@
-	${Q}# Git notes aren't fetched by default with git clone
+	@ # Git notes aren't fetched by default with git clone
 	${GIT} -C $@ fetch ${GIT_QUIET} origin refs/notes/*:refs/notes/*
 	${Q}rm -rf $@/refs
 	${Q}mkdir -p $@/refs/heads $@/refs/tags
