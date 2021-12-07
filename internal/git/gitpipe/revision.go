@@ -257,13 +257,19 @@ func Revlist(
 			})
 		}
 
-		revlist, err := repo.Exec(ctx, git.SubCmd{
-			Name:  "rev-list",
-			Flags: flags,
-			Args:  revisions,
-		})
+		var stderr strings.Builder
+		revlist, err := repo.Exec(ctx,
+			git.SubCmd{
+				Name:  "rev-list",
+				Flags: flags,
+				Args:  revisions,
+			},
+			git.WithStderr(&stderr),
+		)
 		if err != nil {
-			sendRevisionResult(ctx, resultChan, RevisionResult{err: err})
+			sendRevisionResult(ctx, resultChan, RevisionResult{
+				err: fmt.Errorf("rev-list: %w, stderr: %q", err, stderr.String()),
+			})
 			return
 		}
 
@@ -301,7 +307,7 @@ func Revlist(
 
 		if err := revlist.Wait(); err != nil {
 			sendRevisionResult(ctx, resultChan, RevisionResult{
-				err: fmt.Errorf("rev-list pipeline command: %w", err),
+				err: fmt.Errorf("rev-list pipeline command: %w, stderr: %q", err, stderr.String()),
 			})
 			return
 		}
