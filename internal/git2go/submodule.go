@@ -1,7 +1,9 @@
 package git2go
 
 import (
+	"bytes"
 	"context"
+	"encoding/gob"
 	"fmt"
 	"io"
 	"time"
@@ -69,19 +71,20 @@ func (b Executor) Submodule(ctx context.Context, repo repository.GitRepo, s Subm
 		return SubmoduleResult{}, fmt.Errorf("submodule: %w", err)
 	}
 
-	serialized, err := serialize(s)
-	if err != nil {
-		return SubmoduleResult{}, err
+	input := &bytes.Buffer{}
+	const cmd = "submodule"
+	if err := gob.NewEncoder(input).Encode(s); err != nil {
+		return SubmoduleResult{}, fmt.Errorf("%s: %w", cmd, err)
 	}
 
-	stdout, err := b.run(ctx, repo, nil, "submodule", "-request", serialized)
+	stdout, err := b.run(ctx, repo, input, cmd)
 	if err != nil {
 		return SubmoduleResult{}, err
 	}
 
 	var response SubmoduleResult
-	if err := deserialize(stdout.String(), &response); err != nil {
-		return SubmoduleResult{}, err
+	if err := gob.NewDecoder(stdout).Decode(&response); err != nil {
+		return SubmoduleResult{}, fmt.Errorf("%s: %w", cmd, err)
 	}
 
 	return response, nil
