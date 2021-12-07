@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 14.5.2 (2021-12-03)
+
+No changes.
+
 ## 14.5.1 (2021-12-01)
 
 ### Fixed (2 changes)
@@ -91,6 +95,10 @@
 - [Add documentation about sidechannels](gitlab-org/gitaly@82ab5a67ad2ea5d1147a5219c5b09c9a44ffa858) ([merge request](gitlab-org/gitaly!3983))
 - [gitaly-hooks: remove filter quote bug workaround](gitlab-org/gitaly@3a0c60c114e437abe476228c9a5ff4bef79b3547) ([merge request](gitlab-org/gitaly!3991))
 - [Enable Praefect in PostUploadPackWithSidechannel tests](gitlab-org/gitaly@1ef01adb2b3e8e0c2cbfd6f18556421fb7fc4e09) ([merge request](gitlab-org/gitaly!3938))
+
+## 14.4.4 (2021-12-03)
+
+No changes.
 
 ## 14.4.3 (2021-12-01)
 
@@ -188,6 +196,10 @@ No changes.
 ### deprecate (1 change)
 
 - [objectpool: Deprecate `UnlinkRepositoryFromObjectPool()`](gitlab-org/gitaly@50686040de4588533a8a4c8aae03ae373ae041fa) ([merge request](gitlab-org/gitaly!3874))
+
+## 14.3.6 (2021-12-03)
+
+No changes.
 
 ## 14.3.5 (2021-11-26)
 
