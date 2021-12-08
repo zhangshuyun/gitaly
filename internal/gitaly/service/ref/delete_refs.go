@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -64,7 +65,7 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 	// reference-transaction hook here. Instead, we need to resort to a manual vote which is
 	// simply the concatenation of all reference we're about to delete.
 	if err := transaction.VoteOnContext(ctx, s.txManager, vote); err != nil {
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("preparatory vote: %w", err)
 	}
 
 	if err := updater.Commit(); err != nil {
@@ -73,6 +74,12 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 		// issues would be catched when `Prepare()`ing the changes already, so a fail
 		// afterwards would hint at a real unexpected error.
 		return &gitalypb.DeleteRefsResponse{GitError: fmt.Sprintf("unable to delete refs: %s", err.Error())}, nil
+	}
+
+	if featureflag.TxTwoPhaseDeleteRefs.IsEnabled(ctx) {
+		if err := transaction.VoteOnContext(ctx, s.txManager, vote); err != nil {
+			return nil, helper.ErrInternalf("committing vote: %w", err)
+		}
 	}
 
 	return &gitalypb.DeleteRefsResponse{}, nil

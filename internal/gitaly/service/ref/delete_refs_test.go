@@ -12,6 +12,7 @@ import (
 	hookservice "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -25,6 +26,10 @@ import (
 func TestDeleteRefs_successful(t *testing.T) {
 	t.Parallel()
 
+	testhelper.NewFeatureSets(featureflag.TxTwoPhaseDeleteRefs).Run(t, testDeleteRefsSuccessful)
+}
+
+func testDeleteRefsSuccessful(t *testing.T, ctx context.Context) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 
 	testCases := []struct {
@@ -54,9 +59,6 @@ func TestDeleteRefs_successful(t *testing.T) {
 			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/keep/c", "498214de67004b1da3d820901307bed2a68a8ef6")
 			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/also-keep/d", "b83d6e391c22777fca1ed3012fce84f633d7fed0")
 
-			ctx, cancel := testhelper.Context()
-			defer cancel()
-
 			testCase.request.Repository = repo
 			_, err := client.DeleteRefs(ctx, testCase.request)
 			require.NoError(t, err)
@@ -82,6 +84,10 @@ func TestDeleteRefs_successful(t *testing.T) {
 func TestDeleteRefs_transaction(t *testing.T) {
 	t.Parallel()
 
+	testhelper.NewFeatureSets(featureflag.TxTwoPhaseDeleteRefs).Run(t, testDeleteRefsTransaction)
+}
+
+func testDeleteRefsTransaction(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
 
 	testcfg.BuildGitalyHooks(t, cfg)
@@ -107,9 +113,6 @@ func TestDeleteRefs_transaction(t *testing.T) {
 
 	client, conn := newRefServiceClient(t, addr)
 	t.Cleanup(func() { conn.Close() })
-
-	ctx, cancel := testhelper.Context()
-	t.Cleanup(cancel)
 
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
@@ -145,7 +148,12 @@ func TestDeleteRefs_transaction(t *testing.T) {
 			require.NoError(t, err)
 			require.Empty(t, response.GitError)
 
-			require.Equal(t, tc.expectedVotes, votes)
+			expectedVotes := tc.expectedVotes
+			if featureflag.TxTwoPhaseDeleteRefs.IsEnabled(ctx) {
+				expectedVotes *= 2
+			}
+
+			require.Equal(t, expectedVotes, votes)
 		})
 	}
 }
@@ -153,10 +161,11 @@ func TestDeleteRefs_transaction(t *testing.T) {
 func TestDeleteRefs_invalidRefFormat(t *testing.T) {
 	t.Parallel()
 
-	_, repo, _, client := setupRefService(t)
+	testhelper.NewFeatureSets(featureflag.TxTwoPhaseDeleteRefs).Run(t, testDeleteRefsInvalidRefFormat)
+}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+func testDeleteRefsInvalidRefFormat(t *testing.T, ctx context.Context) {
+	_, repo, _, client := setupRefService(t)
 
 	request := &gitalypb.DeleteRefsRequest{
 		Repository: repo,
@@ -172,6 +181,10 @@ func TestDeleteRefs_invalidRefFormat(t *testing.T) {
 func TestDeleteRefs_validation(t *testing.T) {
 	t.Parallel()
 
+	testhelper.NewFeatureSets(featureflag.TxTwoPhaseDeleteRefs).Run(t, testDeleteRefsValidation)
+}
+
+func testDeleteRefsValidation(t *testing.T, ctx context.Context) {
 	_, repo, _, client := setupRefService(t)
 
 	testCases := []struct {
@@ -233,9 +246,6 @@ func TestDeleteRefs_validation(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
-
 			_, err := client.DeleteRefs(ctx, tc.request)
 			testhelper.RequireGrpcCode(t, err, tc.code)
 		})
