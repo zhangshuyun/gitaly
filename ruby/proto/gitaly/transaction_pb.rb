@@ -12,6 +12,12 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :transaction_id, :uint64, 2
       optional :node, :string, 3
       optional :reference_updates_hash, :bytes, 4
+      optional :phase, :enum, 5, "gitaly.VoteTransactionRequest.Phase"
+    end
+    add_enum "gitaly.VoteTransactionRequest.Phase" do
+      value :UNKNOWN_PHASE, 0
+      value :PREPARED_PHASE, 1
+      value :COMMITTED_PHASE, 2
     end
     add_message "gitaly.VoteTransactionResponse" do
       optional :state, :enum, 1, "gitaly.VoteTransactionResponse.TransactionState"
@@ -32,6 +38,7 @@ end
 
 module Gitaly
   VoteTransactionRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.VoteTransactionRequest").msgclass
+  VoteTransactionRequest::Phase = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.VoteTransactionRequest.Phase").enummodule
   VoteTransactionResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.VoteTransactionResponse").msgclass
   VoteTransactionResponse::TransactionState = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.VoteTransactionResponse.TransactionState").enummodule
   StopTransactionRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.StopTransactionRequest").msgclass
