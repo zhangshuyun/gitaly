@@ -21,6 +21,7 @@ package cgroups
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/containerd/cgroups"
@@ -53,4 +54,46 @@ func newMock(t *testing.T) *mockCgroup {
 
 func (m *mockCgroup) hierarchy() ([]cgroups.Subsystem, error) {
 	return m.subsystems, nil
+}
+
+func (m *mockCgroup) setupMockCgroupFiles(
+	t *testing.T,
+	manager *CGroupV1Manager,
+	memFailCount int,
+) {
+	for _, s := range m.subsystems {
+		path := filepath.Join(m.root, string(s.Name()), manager.currentProcessCgroup())
+		require.NoError(t, os.MkdirAll(path, 0o644))
+
+		for _, emptyFile := range []string{
+			"cpu.stat",
+			"memory.stat",
+			"memory.oom_control",
+		} {
+			require.NoError(t, os.WriteFile(filepath.Join(path, emptyFile), []byte(""), 0o644))
+		}
+
+		for _, zeroFile := range []string{
+			"memory.usage_in_bytes",
+			"memory.max_usage_in_bytes",
+			"memory.limit_in_bytes",
+			"memory.failcnt",
+			"memory.memsw.failcnt",
+			"memory.memsw.usage_in_bytes",
+			"memory.memsw.max_usage_in_bytes",
+			"memory.memsw.limit_in_bytes",
+			"memory.kmem.usage_in_bytes",
+			"memory.kmem.max_usage_in_bytes",
+			"memory.kmem.failcnt",
+			"memory.kmem.limit_in_bytes",
+			"memory.kmem.tcp.usage_in_bytes",
+			"memory.kmem.tcp.max_usage_in_bytes",
+			"memory.kmem.tcp.failcnt",
+			"memory.kmem.tcp.limit_in_bytes",
+		} {
+			require.NoError(t, os.WriteFile(filepath.Join(path, zeroFile), []byte("0"), 0o644))
+		}
+
+		require.NoError(t, os.WriteFile(filepath.Join(path, "memory.failcnt"), []byte(strconv.Itoa(memFailCount)), 0o644))
+	}
 }

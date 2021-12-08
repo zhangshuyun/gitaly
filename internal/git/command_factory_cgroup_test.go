@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
@@ -30,6 +31,9 @@ func (m *mockCgroupsManager) AddCommand(c *command.Command) error {
 func (m *mockCgroupsManager) Cleanup() error {
 	return nil
 }
+
+func (m *mockCgroupsManager) Collect(ch chan<- prometheus.Metric) {}
+func (m *mockCgroupsManager) Describe(ch chan<- *prometheus.Desc) {}
 
 func TestNewCommandAddsToCgroup(t *testing.T) {
 	root := testhelper.TempDir(t)

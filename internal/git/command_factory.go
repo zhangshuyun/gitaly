@@ -74,6 +74,7 @@ func (cf *ExecCommandFactory) Describe(descs chan<- *prometheus.Desc) {
 // Collect is used to collect Prometheus metrics.
 func (cf *ExecCommandFactory) Collect(metrics chan<- prometheus.Metric) {
 	cf.invalidCommandsMetric.Collect(metrics)
+	cf.cgroupsManager.Collect(metrics)
 }
 
 // New creates a new command for the repo repository.

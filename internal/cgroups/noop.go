@@ -1,6 +1,7 @@
 package cgroups
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 )
 
@@ -21,3 +22,9 @@ func (cg *NoopManager) AddCommand(cmd *command.Command) error {
 func (cg *NoopManager) Cleanup() error {
 	return nil
 }
+
+// Describe does nothing
+func (cg *NoopManager) Describe(ch chan<- *prometheus.Desc) {}
+
+// Collect does nothing
+func (cg *NoopManager) Collect(ch chan<- prometheus.Metric) {}

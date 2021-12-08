@@ -1,6 +1,7 @@
 package cgroups
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"hash/crc32"
@@ -11,6 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/prometheus/client_golang/prometheus/testutil"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/cgroups"
@@ -65,6 +68,7 @@ func TestAddCommand(t *testing.T) {
 	v1Manager1 := &CGroupV1Manager{
 		cfg:       config,
 		hierarchy: mock.hierarchy,
+		paths:     make(map[string]interface{}),
 	}
 	require.NoError(t, v1Manager1.Setup())
 
@@ -79,6 +83,7 @@ func TestAddCommand(t *testing.T) {
 	v1Manager2 := &CGroupV1Manager{
 		cfg:       config,
 		hierarchy: mock.hierarchy,
+		paths:     make(map[string]interface{}),
 	}
 	require.NoError(t, v1Manager2.AddCommand(cmd2))
 
@@ -113,6 +118,43 @@ func TestCleanup(t *testing.T) {
 		require.NoDirExists(t, memoryPath)
 		require.NoDirExists(t, cpuPath)
 	}
+}
+
+func TestMetrics(t *testing.T) {
+	mock := newMock(t)
+
+	config := defaultCgroupsConfig()
+	v1Manager1 := newV1Manager(config)
+	v1Manager1.hierarchy = mock.hierarchy
+
+	require.NoError(t, v1Manager1.Setup())
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	cmd1 := exec.Command("ls", "-hal", ".")
+	cmd2, err := command.New(ctx, cmd1, nil, nil, nil)
+	require.NoError(t, err)
+	require.NoError(t, cmd2.Wait())
+
+	require.NoError(t, v1Manager1.AddCommand(cmd2))
+	mock.setupMockCgroupFiles(t, v1Manager1, 2)
+
+	cgroupPath := v1Manager1.currentProcessCgroup()
+
+	expected := bytes.NewBufferString(fmt.Sprintf(`# HELP gitaly_cgroup_cpu_usage CPU Usage of Cgroup
+# TYPE gitaly_cgroup_cpu_usage gauge
+gitaly_cgroup_cpu_usage{path="%s",type="kernel"} 0
+gitaly_cgroup_cpu_usage{path="%s",type="user"} 0
+# HELP gitaly_cgroup_memory_failed_total Number of memory usage hits limits
+# TYPE gitaly_cgroup_memory_failed_total gauge
+gitaly_cgroup_memory_failed_total{path="%s"} 2
+`, cgroupPath, cgroupPath, cgroupPath))
+	assert.NoError(t, testutil.CollectAndCompare(
+		v1Manager1,
+		expected,
+		"gitaly_cgroup_memory_failed_total",
+		"gitaly_cgroup_cpu_usage"))
 }
 
 func readCgroupFile(t *testing.T, path string) []byte {

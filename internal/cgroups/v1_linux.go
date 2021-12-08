@@ -8,14 +8,17 @@ import (
 
 	"github.com/containerd/cgroups"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	cgroupscfg "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/cgroups"
 )
 
 // CGroupV1Manager is the manager for cgroups v1
 type CGroupV1Manager struct {
-	cfg       cgroupscfg.Config
-	hierarchy func() ([]cgroups.Subsystem, error)
+	cfg                         cgroupscfg.Config
+	hierarchy                   func() ([]cgroups.Subsystem, error)
+	paths                       map[string]interface{}
+	memoryFailedTotal, cpuUsage *prometheus.GaugeVec
 }
 
 func newV1Manager(cfg cgroupscfg.Config) *CGroupV1Manager {
@@ -24,6 +27,21 @@ func newV1Manager(cfg cgroupscfg.Config) *CGroupV1Manager {
 		hierarchy: func() ([]cgroups.Subsystem, error) {
 			return defaultSubsystems(cfg.Mountpoint)
 		},
+		paths: make(map[string]interface{}),
+		memoryFailedTotal: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "gitaly_cgroup_memory_failed_total",
+				Help: "Number of memory usage hits limits",
+			},
+			[]string{"path"},
+		),
+		cpuUsage: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "gitaly_cgroup_cpu_usage",
+				Help: "CPU Usage of Cgroup",
+			},
+			[]string{"path", "type"},
+		),
 	}
 }
 
@@ -73,7 +91,40 @@ func (cg *CGroupV1Manager) AddCommand(cmd *command.Command) error {
 		return fmt.Errorf("failed adding process to cgroup: %w", err)
 	}
 
+	cg.paths[cgroupPath] = struct{}{}
+
 	return nil
+}
+
+// Collect collects metrics from the cgroups controller
+func (cg *CGroupV1Manager) Collect(ch chan<- prometheus.Metric) {
+	path := cg.currentProcessCgroup()
+	control, err := cgroups.Load(cg.hierarchy, cgroups.StaticPath(path))
+	if err != nil {
+		return
+	}
+
+	metrics, err := control.Stat()
+	if err != nil {
+		return
+	}
+
+	memoryMetric := cg.memoryFailedTotal.WithLabelValues(path)
+	memoryMetric.Set(float64(metrics.Memory.Usage.Failcnt))
+	ch <- memoryMetric
+
+	cpuUserMetric := cg.cpuUsage.WithLabelValues(path, "user")
+	cpuUserMetric.Set(float64(metrics.CPU.Usage.User))
+	ch <- cpuUserMetric
+
+	cpuKernelMetric := cg.cpuUsage.WithLabelValues(path, "kernel")
+	cpuKernelMetric.Set(float64(metrics.CPU.Usage.Kernel))
+	ch <- cpuKernelMetric
+}
+
+// Describe describes the cgroup metrics that Collect provides
+func (cg *CGroupV1Manager) Describe(ch chan<- *prometheus.Desc) {
+	prometheus.DescribeByCollect(cg, ch)
 }
 
 //nolint: revive,stylecheck // This is unintentionally missing documentation.
