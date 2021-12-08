@@ -22,7 +22,9 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
-func TestSuccessfulDeleteRefs(t *testing.T) {
+func TestDeleteRefs_successful(t *testing.T) {
+	t.Parallel()
+
 	cfg, client := setupRefServiceWithoutRepo(t)
 
 	testCases := []struct {
@@ -78,6 +80,8 @@ func TestSuccessfulDeleteRefs(t *testing.T) {
 }
 
 func TestDeleteRefs_transaction(t *testing.T) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 
 	testcfg.BuildGitalyHooks(t, cfg)
@@ -146,7 +150,9 @@ func TestDeleteRefs_transaction(t *testing.T) {
 	}
 }
 
-func TestFailedDeleteRefsRequestDueToGitError(t *testing.T) {
+func TestDeleteRefs_invalidRefFormat(t *testing.T) {
+	t.Parallel()
+
 	_, repo, _, client := setupRefService(t)
 
 	ctx, cancel := testhelper.Context()
@@ -163,7 +169,9 @@ func TestFailedDeleteRefsRequestDueToGitError(t *testing.T) {
 	assert.Contains(t, response.GitError, "unable to delete refs")
 }
 
-func TestFailedDeleteRefsDueToValidation(t *testing.T) {
+func TestDeleteRefs_validation(t *testing.T) {
+	t.Parallel()
+
 	_, repo, _, client := setupRefService(t)
 
 	testCases := []struct {
