@@ -53,7 +53,7 @@ GEM
     gitlab (4.17.0)
       httparty (~> 0.18)
       terminal-table (~> 1.5, >= 1.5.1)
-    gitlab-dangerfiles (2.5.0)
+    gitlab-dangerfiles (2.6.1)
       danger (>= 8.3.1)
       danger-gitlab (>= 8.0.0)
     httparty (0.20.0)
