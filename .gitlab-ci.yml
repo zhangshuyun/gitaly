@@ -17,6 +17,7 @@ variables:
   GO_VERSION: "1.17"
   RUBY_VERSION: "2.7"
   POSTGRES_VERSION: "12.6-alpine"
+  PGBOUNCER_VERSION: "1.16.1"
 
 include:
   - template: Workflows/MergeRequest-Pipelines.gitlab-ci.yml
@@ -49,7 +50,7 @@ include:
     PGUSER: postgres
     POSTGRES_DB: praefect_test
     POSTGRES_HOST_AUTH_METHOD: trust
-  before_script:
+  before_script: &test_before_script
     - go version
     - git version
     - while ! psql -h $PGHOST -U $PGUSER -c 'SELECT 1' > /dev/null; do echo "awaiting Postgres service to be ready..." && sleep 1 ; done && echo "Postgres service is ready!"
@@ -165,20 +166,37 @@ test:coverage:
       cobertura: _build/cover/cobertura.xml
 
 test:pgbouncer:
-  # This job verifies all operations run without issues if PgBouncer is set in between service and PostgreSQL database.
   <<: *test_definition
-  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.31-pgbouncer-1.14
+  services:
+    - postgres:${POSTGRES_VERSION}
+    - name: bitnami/pgbouncer:${PGBOUNCER_VERSION}
+      alias: pgbouncer
   variables:
     <<: *postgres_variables
-    PGHOST_PGBOUNCER: 0.0.0.0
-    PGPORT_PGBOUNCER: "6432"
+    # The following variables are used by PgBouncer to connect to Postgres.
+    POSTGRESQL_HOST: "${PGHOST}"
+    # The image doesn't support setting `auth_user`, so we're cheating and use
+    # "command line injection" here. In any case, `auth_user` is required so
+    # that we can connect as a different user, but authenticate as the actual
+    # PGUSER. We can fix this when
+    # https://github.com/bitnami/bitnami-docker-pgbouncer/pull/22 lands.
+    POSTGRESQL_PORT: "${PGPORT} auth_user=${PGUSER}"
+    POSTGRESQL_USERNAME: "${PGUSER}"
+    # These variables define how PgBouncer itself is configured
+    PGBOUNCER_AUTH_TYPE: trust
+    PGBOUNCER_DATABASE: "*"
+    PGBOUNCER_IGNORE_STARTUP_PARAMETERS: extra_float_digits
+    PGBOUNCER_POOL_MODE: transaction
+    PGBOUNCER_MAX_DB_CONNECTIONS: 100
+    # And these are finally used by Gitaly's tests.
+    PGHOST_PGBOUNCER: pgbouncer
+    PGPORT_PGBOUNCER: 6432
+    # We need to enable per-build networking such that the PgBouncer service
+    # can reach Postgres.
+    FF_NETWORK_PER_BUILD: "true"
   before_script:
-    - go version
-    - git version
-    - pgbouncer --version
-    - adduser --no-create-home --disabled-password --disabled-login --quiet --force-badname --gecos '' pgbouncer-runner
-    - su pgbouncer-runner -c 'pgbouncer internal/praefect/datastore/glsql/testdata/pgbouncer.ini' &
-    - for i in {1..10}; do psql -U $PGUSER -c 'select now()' && break; done || { echo 'pgbouncer awaiting failed' ; exit 1; }
+    - *test_before_script
+    - while ! psql -h "${PGHOST_PGBOUNCER}" -p "${PGPORT_PGBOUNCER}" -U "${PGUSER}" -c 'SELECT 1' > /dev/null; do echo "awaiting PgBouncer service to be ready..." && sleep 1 ; done && echo "PgBouncer service is ready!"
   script:
     - make test-postgres
 
