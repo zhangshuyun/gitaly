@@ -75,6 +75,8 @@ func TestAddRepository_Exec(t *testing.T) {
 	t.Parallel()
 	g1Cfg := testcfg.Build(t, testcfg.WithStorages("gitaly-1"))
 	g2Cfg := testcfg.Build(t, testcfg.WithStorages("gitaly-2"))
+	testcfg.BuildGitalyHooks(t, g2Cfg)
+	testcfg.BuildGitalySSH(t, g2Cfg)
 
 	g1Srv := testserver.StartGitalyServer(t, g1Cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 	g2Srv := testserver.StartGitalyServer(t, g2Cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
@@ -133,67 +135,89 @@ func TestAddRepository_Exec(t *testing.T) {
 	logger := testhelper.NewDiscardingLogger(t)
 
 	t.Run("ok", func(t *testing.T) {
-		nodeMgr, err := nodes.NewManager(
-			testhelper.NewDiscardingLogEntry(t),
-			conf,
-			db.DB,
-			nil,
-			promtest.NewMockHistogramVec(),
-			protoregistry.GitalyProtoPreregistered,
-			nil,
-			nil,
-			nil,
-		)
-		require.NoError(t, err)
-		nodeMgr.Start(0, time.Hour)
-		defer nodeMgr.Stop()
-
-		relativePath := "path/to/test/repo"
-		repoDS := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
-
-		rmRepoCmd := &removeRepository{
-			logger:         logger,
-			virtualStorage: virtualStorageName,
-			relativePath:   relativePath,
-			w:              io.Discard,
-			apply:          true,
+		testCases := []struct {
+			relativePath         string
+			desc                 string
+			replicateImmediately bool
+		}{
+			{
+				relativePath:         "path/to/test/repo1",
+				desc:                 "force replication",
+				replicateImmediately: true,
+			},
+			{
+				relativePath:         "path/to/test/repo2",
+				desc:                 "do not force replication",
+				replicateImmediately: false,
+			},
 		}
 
-		require.NoError(t, rmRepoCmd.Exec(flag.NewFlagSet("", flag.PanicOnError), conf))
+		for _, tc := range testCases {
+			t.Run(tc.desc, func(t *testing.T) {
+				nodeMgr, err := nodes.NewManager(
+					testhelper.NewDiscardingLogEntry(t),
+					conf,
+					db.DB,
+					nil,
+					promtest.NewMockHistogramVec(),
+					protoregistry.GitalyProtoPreregistered,
+					nil,
+					nil,
+					nil,
+				)
+				require.NoError(t, err)
+				nodeMgr.Start(0, time.Hour)
+				defer nodeMgr.Stop()
 
-		// create the repo on Gitaly without Praefect knowing
-		require.NoError(t, createRepoThroughGitaly1(relativePath))
-		require.DirExists(t, filepath.Join(g1Cfg.Storages[0].Path, relativePath))
-		require.NoDirExists(t, filepath.Join(g2Cfg.Storages[0].Path, relativePath))
+				repoDS := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
 
-		addRepoCmd := &trackRepository{
-			logger:               logger,
-			virtualStorage:       virtualStorageName,
-			relativePath:         relativePath,
-			authoritativeStorage: authoritativeStorage,
+				rmRepoCmd := &removeRepository{
+					logger:         logger,
+					virtualStorage: virtualStorageName,
+					relativePath:   tc.relativePath,
+					w:              io.Discard,
+					apply:          true,
+				}
+				require.NoError(t, rmRepoCmd.Exec(flag.NewFlagSet("", flag.PanicOnError), conf))
+
+				// create the repo on Gitaly without Praefect knowing
+				require.NoError(t, createRepoThroughGitaly1(tc.relativePath))
+				require.DirExists(t, filepath.Join(g1Cfg.Storages[0].Path, tc.relativePath))
+				require.NoDirExists(t, filepath.Join(g2Cfg.Storages[0].Path, tc.relativePath))
+
+				addRepoCmd := &trackRepository{
+					logger:               logger,
+					virtualStorage:       virtualStorageName,
+					relativePath:         tc.relativePath,
+					authoritativeStorage: authoritativeStorage,
+					replicateImmediately: tc.replicateImmediately,
+				}
+
+				require.NoError(t, addRepoCmd.Exec(flag.NewFlagSet("", flag.PanicOnError), conf))
+				as := datastore.NewAssignmentStore(db, conf.StorageNames())
+
+				repositoryID, err := repoDS.GetRepositoryID(ctx, virtualStorageName, tc.relativePath)
+				require.NoError(t, err)
+
+				assignments, err := as.GetHostAssignments(ctx, virtualStorageName, repositoryID)
+				require.NoError(t, err)
+				require.Len(t, assignments, 2)
+				assert.Contains(t, assignments, g1Cfg.Storages[0].Name)
+				assert.Contains(t, assignments, g2Cfg.Storages[0].Name)
+
+				exists, err := repoDS.RepositoryExists(ctx, virtualStorageName, tc.relativePath)
+				require.NoError(t, err)
+				assert.True(t, exists)
+
+				if !tc.replicateImmediately {
+					queue := datastore.NewPostgresReplicationEventQueue(db)
+					events, err := queue.Dequeue(ctx, virtualStorageName, g2Cfg.Storages[0].Name, 1)
+					require.NoError(t, err)
+					assert.Len(t, events, 1)
+					assert.Equal(t, tc.relativePath, events[0].Job.RelativePath)
+				}
+			})
 		}
-
-		require.NoError(t, addRepoCmd.Exec(flag.NewFlagSet("", flag.PanicOnError), conf))
-		as := datastore.NewAssignmentStore(db, conf.StorageNames())
-
-		repositoryID, err := repoDS.GetRepositoryID(ctx, virtualStorageName, relativePath)
-		require.NoError(t, err)
-
-		assignments, err := as.GetHostAssignments(ctx, virtualStorageName, repositoryID)
-		require.NoError(t, err)
-		require.Len(t, assignments, 2)
-		assert.Contains(t, assignments, g1Cfg.Storages[0].Name)
-		assert.Contains(t, assignments, g2Cfg.Storages[0].Name)
-
-		exists, err := repoDS.RepositoryExists(ctx, virtualStorageName, relativePath)
-		require.NoError(t, err)
-		assert.True(t, exists)
-
-		queue := datastore.NewPostgresReplicationEventQueue(db)
-		events, err := queue.Dequeue(ctx, virtualStorageName, g2Cfg.Storages[0].Name, 1)
-		require.NoError(t, err)
-		assert.Len(t, events, 1)
-		assert.Equal(t, relativePath, events[0].Job.RelativePath)
 	})
 
 	t.Run("repository does not exist", func(t *testing.T) {

@@ -11,10 +11,12 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/metadatahandler"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"google.golang.org/grpc/metadata"
@@ -29,6 +31,7 @@ type trackRepository struct {
 	virtualStorage       string
 	relativePath         string
 	authoritativeStorage string
+	replicateImmediately bool
 }
 
 var errAuthoritativeRepositoryNotExist = errors.New("authoritative repository does not exist")
@@ -42,11 +45,14 @@ func (cmd *trackRepository) FlagSet() *flag.FlagSet {
 	fs.StringVar(&cmd.virtualStorage, paramVirtualStorage, "", "name of the repository's virtual storage")
 	fs.StringVar(&cmd.relativePath, paramRelativePath, "", "relative path to the repository")
 	fs.StringVar(&cmd.authoritativeStorage, paramAuthoritativeStorage, "", "storage with the repository to consider as authoritative")
+	fs.BoolVar(&cmd.replicateImmediately, "replicate-immediately", false, "kick off a replication immediately")
 	fs.Usage = func() {
 		printfErr("Description:\n" +
 			"	This command adds a given repository to be tracked by Praefect.\n" +
-			"       It checks if the repository exists on disk on the authoritative storage, " +
-			"       and whether database records are absent from tracking the repository.")
+			"	It checks if the repository exists on disk on the authoritative storage,\n" +
+			"	and whether database records are absent from tracking the repository.\n" +
+			"	If -replicate-immediately is used, the command will attempt to replicate the repository to the secondaries.\n" +
+			"	Otherwise, replication jobs will be created and will be excuted eventually by Praefect itself.\n")
 		fs.PrintDefaults()
 	}
 	return fs
@@ -138,10 +144,31 @@ func (cmd *trackRepository) exec(ctx context.Context, logger logrus.FieldLogger,
 		return fmt.Errorf("%s: %w", trackRepoErrorPrefix, errAuthoritativeRepositoryNotExist)
 	}
 
+	nodeSet, err := praefect.DialNodes(
+		ctx,
+		cfg.VirtualStorages,
+		protoregistry.GitalyProtoPreregistered,
+		nil,
+		nil,
+		nil,
+	)
+	if err != nil {
+		return fmt.Errorf("%s: %w", trackRepoErrorPrefix, err)
+	}
+	defer nodeSet.Close()
+
 	store := datastore.NewPostgresRepositoryStore(db, cfg.StorageNames())
 	queue := datastore.NewPostgresReplicationEventQueue(db)
+	replMgr := praefect.NewReplMgr(
+		cmd.logger,
+		cfg.StorageNames(),
+		queue,
+		store,
+		praefect.StaticHealthChecker(cfg.StorageNames()),
+		nodeSet,
+	)
 
-	if err := cmd.trackRepository(
+	repositoryID, err := cmd.trackRepository(
 		ctx,
 		store,
 		queue,
@@ -149,11 +176,43 @@ func (cmd *trackRepository) exec(ctx context.Context, logger logrus.FieldLogger,
 		secondaries,
 		savePrimary,
 		variableReplicationFactorEnabled,
-	); err != nil {
+	)
+	if err != nil {
 		return fmt.Errorf("%s: %w", trackRepoErrorPrefix, err)
 	}
-
 	logger.Debug("finished adding new repository to be tracked in praefect database.")
+
+	correlationID := correlation.SafeRandomID()
+	connections := nodeSet.Connections()[cmd.virtualStorage]
+
+	for _, secondary := range secondaries {
+		event := datastore.ReplicationEvent{
+			Job: datastore.ReplicationJob{
+				RepositoryID:      repositoryID,
+				Change:            datastore.UpdateRepo,
+				RelativePath:      cmd.relativePath,
+				VirtualStorage:    cmd.virtualStorage,
+				SourceNodeStorage: primary,
+				TargetNodeStorage: secondary,
+			},
+			Meta: datastore.Params{metadatahandler.CorrelationIDKey: correlationID},
+		}
+		if cmd.replicateImmediately {
+			conn, ok := connections[secondary]
+			if !ok {
+				return fmt.Errorf("%s: connection for %q not found", trackRepoErrorPrefix, secondary)
+			}
+
+			if err := replMgr.ProcessReplicationEvent(ctx, event, conn); err != nil {
+				return fmt.Errorf("%s: processing replication event %w", trackRepoErrorPrefix, err)
+			}
+			continue
+		}
+
+		if _, err := queue.Enqueue(ctx, event); err != nil {
+			return fmt.Errorf("%s: %w", trackRepoErrorPrefix, err)
+		}
+	}
 
 	return nil
 }
@@ -166,15 +225,15 @@ func (cmd *trackRepository) trackRepository(
 	secondaries []string,
 	savePrimary bool,
 	variableReplicationFactorEnabled bool,
-) error {
+) (int64, error) {
 	repositoryID, err := ds.ReserveRepositoryID(ctx, cmd.virtualStorage, cmd.relativePath)
 	if err != nil {
 		if errors.Is(err, commonerr.ErrRepositoryAlreadyExists) {
 			cmd.logger.Print("repository is already tracked in praefect database")
-			return nil
+			return 0, nil
 		}
 
-		return fmt.Errorf("ReserveRepositoryID: %w", err)
+		return 0, fmt.Errorf("ReserveRepositoryID: %w", err)
 	}
 
 	if err := ds.CreateRepository(
@@ -189,30 +248,10 @@ func (cmd *trackRepository) trackRepository(
 		savePrimary,
 		variableReplicationFactorEnabled,
 	); err != nil {
-		return fmt.Errorf("CreateRepository: %w", err)
+		return 0, fmt.Errorf("CreateRepository: %w", err)
 	}
 
-	correlationID := correlation.SafeRandomID()
-	for _, secondary := range secondaries {
-		event := datastore.ReplicationEvent{
-			Job: datastore.ReplicationJob{
-				RepositoryID:      repositoryID,
-				Change:            datastore.UpdateRepo,
-				RelativePath:      cmd.relativePath,
-				VirtualStorage:    cmd.virtualStorage,
-				SourceNodeStorage: primary,
-				TargetNodeStorage: secondary,
-			},
-			Meta: datastore.Params{metadatahandler.CorrelationIDKey: correlationID},
-		}
-
-		_, err := queue.Enqueue(ctx, event)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return repositoryID, nil
 }
 
 func repositoryExists(ctx context.Context, repo *gitalypb.Repository, addr, token string) (bool, error) {

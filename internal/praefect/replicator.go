@@ -780,6 +780,11 @@ func (r ReplMgr) backfillReplicaPath(ctx context.Context, event datastore.Replic
 	}
 }
 
+// ProcessReplicationEvent processes a single replication event given the target client connection
+func (r ReplMgr) ProcessReplicationEvent(ctx context.Context, event datastore.ReplicationEvent, targetCC *grpc.ClientConn) error {
+	return r.processReplicationEvent(ctx, event, targetCC)
+}
+
 func (r ReplMgr) processReplicationEvent(ctx context.Context, event datastore.ReplicationEvent, targetCC *grpc.ClientConn) error {
 	var cancel func()
 
