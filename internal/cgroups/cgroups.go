@@ -1,6 +1,7 @@
 package cgroups
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/cgroups"
 )
@@ -17,6 +18,8 @@ type Manager interface {
 	// It is expected to be called once at Gitaly shutdown from any
 	// instance of the Manager.
 	Cleanup() error
+	Describe(ch chan<- *prometheus.Desc)
+	Collect(ch chan<- prometheus.Metric)
 }
 
 // NewManager returns the appropriate Cgroups manager

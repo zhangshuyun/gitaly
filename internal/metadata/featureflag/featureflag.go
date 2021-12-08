@@ -32,23 +32,37 @@ var (
 	All = []FeatureFlag{}
 )
 
+// ContextWithFeatureFlags returns a new context with the given feature flags enabled. This is not for use in
+// production systems, but is intended to be used in tests.
+func ContextWithFeatureFlags(ctx context.Context, featureFlags ...FeatureFlag) context.Context {
+	for _, featureFlag := range featureFlags {
+		ctx = injectIntoIncomingAndOutgoingContext(ctx, featureFlag.MetadataKey())
+	}
+
+	return ctx
+}
+
 const explicitFeatureFlagKey = "require_explicit_feature_flag_checks"
+
+func injectIntoIncomingAndOutgoingContext(ctx context.Context, key string) context.Context {
+	incomingMD, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		incomingMD = metadata.New(map[string]string{})
+	}
+
+	incomingMD.Set(key, "true")
+
+	ctx = metadata.NewIncomingContext(ctx, incomingMD)
+
+	return metadata.AppendToOutgoingContext(ctx, key, "true")
+}
 
 // ContextWithExplicitFeatureFlags marks the context such that all feature flags which are checked
 // must have been explicitly set in that context. If a feature flag wasn't set to an explicit value,
 // then checking this feature flag will panic. This is not for use in production systems, but is
 // intended for tests to verify that we test each feature flag properly.
 func ContextWithExplicitFeatureFlags(ctx context.Context) context.Context {
-	incomingMD, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		incomingMD = metadata.New(map[string]string{})
-	}
-	incomingMD.Set(explicitFeatureFlagKey, "true")
-
-	ctx = metadata.NewIncomingContext(ctx, incomingMD)
-	ctx = metadata.AppendToOutgoingContext(ctx, explicitFeatureFlagKey, "true")
-
-	return ctx
+	return injectIntoIncomingAndOutgoingContext(ctx, explicitFeatureFlagKey)
 }
 
 // FeatureFlag gates the implementation of new or changed functionality.
