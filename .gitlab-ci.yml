@@ -18,6 +18,7 @@ variables:
   RUBY_VERSION: "2.7"
   POSTGRES_VERSION: "12.6-alpine"
   PGBOUNCER_VERSION: "1.16.1"
+  BUNDLE_PATH: "${CI_PROJECT_DIR}/.ruby"
 
 include:
   - template: Workflows/MergeRequest-Pipelines.gitlab-ci.yml
@@ -44,7 +45,7 @@ include:
         - ruby/Gemfile.lock
       prefix: ruby-${RUBY_VERSION}
     paths:
-      - ruby/vendor/bundle
+      - .ruby
     policy: pull
 
 .test_template: &test_definition
