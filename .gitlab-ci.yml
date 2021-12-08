@@ -19,6 +19,7 @@ variables:
   POSTGRES_VERSION: "12.6-alpine"
   PGBOUNCER_VERSION: "1.16.1"
   BUNDLE_PATH: "${CI_PROJECT_DIR}/.ruby"
+  GOPATH: "${CI_PROJECT_DIR}/.go"
 
 include:
   - template: Workflows/MergeRequest-Pipelines.gitlab-ci.yml
@@ -48,11 +49,23 @@ include:
       - .ruby
     policy: pull
 
+.cache_go:
+  cache: &cache_go_configuration
+    key:
+      files:
+        - go.sum
+      prefix: go-${GO_VERSION}
+    paths:
+      - .go/pkg/mod
+      - _build/cache
+    policy: pull
+
 .test_template: &test_definition
   stage: test
   cache:
     - *cache_deps_configuration
     - *cache_gems_configuration
+    - *cache_go_configuration
   services:
     - postgres:${POSTGRES_VERSION}
   variables: &postgres_variables
@@ -102,6 +115,8 @@ build:
       policy: pull-push
     - <<: *cache_gems_configuration
       policy: pull-push
+    - <<: *cache_go_configuration
+      policy: pull-push
   script:
     - go version
     - make all git
@@ -119,6 +134,7 @@ build:binaries:
   stage: build
   cache:
     - *cache_deps_configuration
+    - *cache_go_configuration
   only:
     - tags
   script:
@@ -246,6 +262,7 @@ verify:
   stage: test
   cache:
     - *cache_gems_configuration
+    - *cache_go_configuration
   script:
     - make verify
   artifacts:
@@ -259,6 +276,7 @@ dbschema:
   stage: test
   cache:
     - *cache_deps_configuration
+    - *cache_go_configuration
   services:
     # The database version we use must match the version of `pg_dump` we have
     # available in the build image.
