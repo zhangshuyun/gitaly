@@ -556,20 +556,20 @@ func (r ReplMgr) ProcessBacklog(ctx context.Context, b BackoffFactory) {
 
 // ProcessStale starts a background process to acknowledge stale replication jobs.
 // It will process jobs until ctx is Done.
-func (r ReplMgr) ProcessStale(ctx context.Context, checkPeriod, staleAfter time.Duration) chan struct{} {
+func (r ReplMgr) ProcessStale(ctx context.Context, ticker helper.Ticker, staleAfter time.Duration) chan struct{} {
 	done := make(chan struct{})
 
 	go func() {
 		defer close(done)
 
-		t := time.NewTimer(checkPeriod)
+		ticker.Reset()
 		for {
 			select {
-			case <-t.C:
+			case <-ticker.C():
 				if err := r.queue.AcknowledgeStale(ctx, staleAfter); err != nil {
 					r.log.WithError(err).Error("background periodical acknowledgement for stale replication jobs")
 				}
-				t.Reset(checkPeriod)
+				ticker.Reset()
 			case <-ctx.Done():
 				return
 			}
