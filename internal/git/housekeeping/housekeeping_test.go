@@ -2,7 +2,6 @@ package housekeeping
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,7 +19,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
 	"google.golang.org/grpc/peer"
 )
 
@@ -706,13 +704,7 @@ func TestPerform_UnsetConfiguration_transactional(t *testing.T) {
 
 	gittest.Exec(t, cfg, "-C", repoPath, "config", "http.some.extraHeader", "value")
 
-	votes := 0
-	txManager := &transaction.MockManager{
-		VoteFn: func(context.Context, txinfo.Transaction, voting.Vote) error {
-			votes++
-			return nil
-		},
-	}
+	txManager := transaction.NewTrackingManager()
 
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
@@ -721,8 +713,7 @@ func TestPerform_UnsetConfiguration_transactional(t *testing.T) {
 	})
 
 	require.NoError(t, Perform(ctx, repo, txManager))
-
-	require.Equal(t, 2, votes)
+	require.Equal(t, 2, len(txManager.Votes()))
 
 	configKeys := gittest.Exec(t, cfg, "-C", repoPath, "config", "--list", "--local", "--name-only")
 

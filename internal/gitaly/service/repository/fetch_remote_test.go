@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -24,7 +23,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -184,21 +182,11 @@ func TestFetchRemote_withDefaultRefmaps(t *testing.T) {
 	require.Equal(t, sourceRefs, targetRefs)
 }
 
-type mockTxManager struct {
-	transaction.Manager
-	votes int
-}
-
-func (m *mockTxManager) Vote(context.Context, txinfo.Transaction, voting.Vote) error {
-	m.votes++
-	return nil
-}
-
 func TestFetchRemote_transaction(t *testing.T) {
 	t.Parallel()
 	sourceCfg, _, sourceRepoPath := testcfg.BuildWithRepo(t)
 
-	txManager := &mockTxManager{}
+	txManager := transaction.NewTrackingManager()
 	addr := testserver.RunGitalyServer(t, sourceCfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRepositoryServiceServer(srv, NewServer(
 			deps.GetCfg(),
@@ -223,7 +211,7 @@ func TestFetchRemote_transaction(t *testing.T) {
 	require.NoError(t, err)
 	ctx = metadata.IncomingToOutgoing(ctx)
 
-	require.Equal(t, 0, txManager.votes)
+	require.Equal(t, 0, len(txManager.Votes()))
 
 	_, err = client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
 		Repository: targetRepoProto,
@@ -233,7 +221,7 @@ func TestFetchRemote_transaction(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.Equal(t, 1, txManager.votes)
+	require.Equal(t, 1, len(txManager.Votes()))
 }
 
 func TestFetchRemote_prune(t *testing.T) {

@@ -20,7 +20,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/peer"
 )
@@ -118,13 +117,7 @@ func TestMidxRepack_transactional(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	votes := 0
-	txManager := &transaction.MockManager{
-		VoteFn: func(context.Context, txinfo.Transaction, voting.Vote) error {
-			votes++
-			return nil
-		},
-	}
+	txManager := transaction.NewTrackingManager()
 
 	cfg, repo, repoPath, client := setupRepositoryService(t, testserver.WithTransactionManager(txManager))
 
@@ -140,7 +133,7 @@ func TestMidxRepack_transactional(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.Equal(t, 2, votes)
+	require.Equal(t, 2, len(txManager.Votes()))
 
 	multiPackIndex := gittest.Exec(t, cfg, "-C", repoPath, "config", "core.multiPackIndex")
 	require.Equal(t, "true", text.ChompBytes(multiPackIndex))

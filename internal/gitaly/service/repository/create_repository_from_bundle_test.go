@@ -104,16 +104,9 @@ func TestCreateRepositoryFromBundle_transactional(t *testing.T) {
 }
 
 func testCreateRepositoryFromBundleTransactional(t *testing.T, ctx context.Context) {
-	var votes []voting.Vote
-	txManager := &transaction.MockManager{
-		VoteFn: func(ctx context.Context, tx txinfo.Transaction, vote voting.Vote) error {
-			votes = append(votes, vote)
-			return nil
-		},
-	}
+	txManager := transaction.NewTrackingManager()
 
-	cfg, repoProto, repoPath, client := setupRepositoryService(t,
-		testserver.WithTransactionManager(txManager))
+	cfg, repoProto, repoPath, client := setupRepositoryService(t, testserver.WithTransactionManager(txManager))
 
 	masterOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/master"))
 	featureOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/feature"))
@@ -155,21 +148,22 @@ func testCreateRepositoryFromBundleTransactional(t *testing.T, ctx context.Conte
 	require.NoError(t, err)
 
 	if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
-		var actualVotes []string
-		for _, vote := range votes {
-			actualVotes = append(actualVotes, vote.String())
+		createVote := func(hash string) voting.Vote {
+			vote, err := voting.VoteFromString(hash)
+			require.NoError(t, err)
+			return vote
 		}
 
 		// While the following votes are opaque to us, this doesn't really matter. All we do
 		// care about is that they're stable.
-		require.Equal(t, []string{
+		require.Equal(t, []voting.Vote{
 			// These are the votes created by git-fetch(1).
-			"47553c06f575f757ad56ef3216c59804b72aa4a6",
-			"47553c06f575f757ad56ef3216c59804b72aa4a6",
+			createVote("47553c06f575f757ad56ef3216c59804b72aa4a6"),
+			createVote("47553c06f575f757ad56ef3216c59804b72aa4a6"),
 			// And this is the manual votes we compute by walking the repository.
-			"da39a3ee5e6b4b0d3255bfef95601890afd80709",
-			"da39a3ee5e6b4b0d3255bfef95601890afd80709",
-		}, actualVotes)
+			createVote("da39a3ee5e6b4b0d3255bfef95601890afd80709"),
+			createVote("da39a3ee5e6b4b0d3255bfef95601890afd80709"),
+		}, txManager.Votes())
 		return
 	}
 
@@ -198,7 +192,7 @@ func testCreateRepositoryFromBundleTransactional(t *testing.T, ctx context.Conte
 		expectedVotes = append(expectedVotes, voting.VoteFromData([]byte(expectedVote)))
 	}
 
-	require.Equal(t, votes, expectedVotes)
+	require.Equal(t, expectedVotes, txManager.Votes())
 }
 
 func TestCreateRepositoryFromBundle_invalidBundle(t *testing.T) {

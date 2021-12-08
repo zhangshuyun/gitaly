@@ -1,7 +1,6 @@
 package operations
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -18,7 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/proto"
@@ -93,13 +91,7 @@ func TestUserRebaseConfirmableTransaction(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	var voteCount int
-	txManager := &transaction.MockManager{
-		VoteFn: func(context.Context, txinfo.Transaction, voting.Vote) error {
-			voteCount++
-			return nil
-		},
-	}
+	txManager := transaction.NewTrackingManager()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(
 		t, ctx,
@@ -141,7 +133,7 @@ func TestUserRebaseConfirmableTransaction(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			preReceiveHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "pre-receive")
 
-			voteCount = 0
+			txManager.Reset()
 
 			ctx := ctx
 			if tc.withTransaction {
@@ -173,7 +165,7 @@ func TestUserRebaseConfirmableTransaction(t *testing.T) {
 			require.Nil(t, response)
 			require.Equal(t, io.EOF, err)
 
-			require.Equal(t, tc.expectedVotes, voteCount)
+			require.Equal(t, tc.expectedVotes, len(txManager.Votes()))
 			if tc.expectPreReceiveHook {
 				require.FileExists(t, preReceiveHookOutputPath)
 			} else {
