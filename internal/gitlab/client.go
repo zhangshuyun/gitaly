@@ -6,8 +6,6 @@ import (
 
 // AllowedParams compose set of parameters required to call 'GitlabAPI.Allowed' method.
 type AllowedParams struct {
-	// RepoPath is an absolute path to the repository.
-	RepoPath string
 	// GitObjectDirectory is a path to git object directory.
 	GitObjectDirectory string
 	// GitAlternateObjectDirectories are the paths to alternate object directories.

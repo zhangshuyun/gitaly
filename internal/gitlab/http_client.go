@@ -104,7 +104,6 @@ func (c *HTTPClient) Collect(metrics chan<- prometheus.Metric) {
 type allowedRequest struct {
 	Action       string `json:"action,omitempty"`
 	GLRepository string `json:"gl_repository,omitempty"`
-	Project      string `json:"project,omitempty"`
 	Changes      string `json:"changes,omitempty"`
 	Protocol     string `json:"protocol,omitempty"`
 	Env          string `json:"env,omitempty"`
@@ -156,7 +155,6 @@ func (c *HTTPClient) Allowed(ctx context.Context, params AllowedParams) (bool, s
 		GLRepository: params.GLRepository,
 		Changes:      params.Changes,
 		Protocol:     params.GLProtocol,
-		Project:      strings.Replace(params.RepoPath, "'", "", -1),
 		Env:          gitObjDirVars,
 	}
 

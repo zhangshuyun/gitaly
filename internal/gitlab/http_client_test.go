@@ -122,7 +122,6 @@ func TestAccess_verifyParams(t *testing.T) {
 
 	for _, tc := range testCases {
 		allowed, _, err := c.Allowed(context.Background(), AllowedParams{
-			RepoPath:                      tc.repo.RelativePath,
 			GitObjectDirectory:            tc.repo.GitObjectDirectory,
 			GitAlternateObjectDirectories: tc.repo.GitAlternateObjectDirectories,
 			GLRepository:                  tc.glRepository,
@@ -228,7 +227,6 @@ func TestAccess_escapedAndRelativeURLs(t *testing.T) {
 			)
 			require.NoError(t, err)
 			allowed, _, err := c.Allowed(context.Background(), AllowedParams{
-				RepoPath:                      repo.RelativePath,
 				GitObjectDirectory:            repo.GitObjectDirectory,
 				GitAlternateObjectDirectories: repo.GitAlternateObjectDirectories,
 				GLID:                          glID,
@@ -380,7 +378,6 @@ func TestAccess_allowedResponseHandling(t *testing.T) {
 			c.latencyMetric = mockHistogramVec
 
 			allowed, message, err := c.Allowed(context.Background(), AllowedParams{
-				RepoPath:                      repo.RelativePath,
 				GitObjectDirectory:            repo.GitObjectDirectory,
 				GitAlternateObjectDirectories: repo.GitAlternateObjectDirectories,
 				GLRepository:                  "repo-1",

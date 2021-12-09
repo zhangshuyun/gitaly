@@ -285,7 +285,6 @@ func TestPrereceive_gitlab(t *testing.T) {
 			env:     standardEnv,
 			changes: "changes\n",
 			allowed: func(t *testing.T, ctx context.Context, params gitlab.AllowedParams) (bool, string, error) {
-				require.Equal(t, repoPath, params.RepoPath)
 				require.Equal(t, repo.GlRepository, params.GLRepository)
 				require.Equal(t, "1234", params.GLID)
 				require.Equal(t, "web", params.GLProtocol)
