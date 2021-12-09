@@ -436,8 +436,10 @@ func testManagerRestoreWithContext(t *testing.T, ctx context.Context, cfg config
 			setup: func(t testing.TB) (*gitalypb.Repository, *git.Checksum) {
 				repo := &gitalypb.Repository{
 					StorageName:  "default",
-					RelativePath: "nonexistent",
+					RelativePath: gittest.NewRepositoryName(t, false),
 				}
+
+				require.NoError(t, os.MkdirAll(filepath.Dir(filepath.Join(path, repo.RelativePath)), os.ModePerm))
 				bundlePath := filepath.Join(path, repo.RelativePath+".bundle")
 				gittest.BundleTestRepo(t, cfg, "gitlab-test.git", bundlePath)
 
