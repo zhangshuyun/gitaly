@@ -7,12 +7,15 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/setup"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -20,6 +23,14 @@ import (
 )
 
 func TestRestoreSubcommand(t *testing.T) {
+	t.Parallel()
+	testhelper.NewFeatureSets(
+		featureflag.AtomicRemoveRepository,
+		featureflag.TxAtomicRepositoryCreation,
+	).Run(t, testRestoreSubcommand)
+}
+
+func testRestoreSubcommand(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
@@ -29,8 +40,28 @@ func TestRestoreSubcommand(t *testing.T) {
 
 	path := testhelper.TempDir(t)
 
-	existingRepo, existRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+	conn, err := client.Dial(gitalyAddr, nil)
+	require.NoError(t, err)
+	defer testhelper.MustClose(t, conn)
+
+	existingRepo := &gitalypb.Repository{
 		RelativePath: "existing_repo",
+		StorageName:  cfg.Storages[0].Name,
+	}
+
+	// We need to create the repository entry in the database such that we can call
+	// `RemoveRepository()` and have Praefect forward the request to Gitaly as expected.
+	repoClient := gitalypb.NewRepositoryServiceClient(conn)
+	_, err = repoClient.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: existingRepo})
+	require.NoError(t, err)
+	existingRepo.RelativePath = testhelper.GetReplicaPath(ctx, t, conn, existingRepo)
+
+	// This is a bit awkward: we have to delete the created repository on-disk again and
+	// recreate it with the seed repository.
+	existRepoPath := filepath.Join(cfg.Storages[0].Path, existingRepo.RelativePath)
+	require.NoError(t, os.RemoveAll(existRepoPath))
+	gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+		RelativePath: existingRepo.RelativePath,
 	})
 	existingRepoBundlePath := filepath.Join(path, existingRepo.RelativePath+".bundle")
 	gittest.Exec(t, cfg, "-C", existRepoPath, "bundle", "create", existingRepoBundlePath, "--all")
@@ -69,7 +100,7 @@ func TestRestoreSubcommand(t *testing.T) {
 
 	require.NoError(t, fs.Parse([]string{"-path", path}))
 	require.EqualError(t,
-		cmd.Run(context.Background(), &stdin, io.Discard),
+		cmd.Run(ctx, &stdin, io.Discard),
 		"restore: pipeline: 1 failures encountered:\n - invalid: manager: remove repository: could not dial source: invalid connection string: \"invalid\"\n")
 
 	for _, repo := range repos {
