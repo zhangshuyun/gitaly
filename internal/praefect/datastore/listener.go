@@ -2,11 +2,15 @@ package datastore
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v4"
+	promclient "github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 )
@@ -72,4 +76,85 @@ func compileListenQuery(channels []string) string {
 	}
 	statement := fmt.Sprintf(strings.Repeat("listen %s;", len(channels)), channelNames...)
 	return statement
+}
+
+type metricsHandlerMiddleware struct {
+	glsql.ListenHandler
+	counter *promclient.CounterVec
+}
+
+func (mh metricsHandlerMiddleware) Connected() {
+	mh.counter.WithLabelValues("connected").Inc()
+	mh.ListenHandler.Connected()
+}
+
+func (mh metricsHandlerMiddleware) Disconnect(err error) {
+	mh.counter.WithLabelValues("disconnected").Inc()
+	mh.ListenHandler.Disconnect(err)
+}
+
+// ResilientListener allows listen for notifications resiliently.
+type ResilientListener struct {
+	conf           config.DB
+	ticker         helper.Ticker
+	logger         logrus.FieldLogger
+	reconnectTotal *promclient.CounterVec
+}
+
+// NewResilientListener returns instance of the *ResilientListener.
+func NewResilientListener(conf config.DB, ticker helper.Ticker, logger logrus.FieldLogger) *ResilientListener {
+	return &ResilientListener{
+		conf:   conf,
+		ticker: ticker,
+		logger: logger.WithField("component", "resilient_listener"),
+		reconnectTotal: promclient.NewCounterVec(
+			promclient.CounterOpts{
+				Name: "gitaly_praefect_notifications_reconnects_total",
+				Help: "Counts amount of reconnects to listen for notification from PostgreSQL",
+			},
+			[]string{"state"},
+		),
+	}
+}
+
+// Listen starts a new Listener and listens for the notifications on the channels.
+// If error occurs and connection is closed/terminated another Listener is created
+// after some await period. The method returns only when provided context is cancelled
+// or invalid configuration is used.
+func (rl *ResilientListener) Listen(ctx context.Context, handler glsql.ListenHandler, channels ...string) error {
+	defer rl.ticker.Stop()
+	for {
+		lis, err := NewListener(rl.conf)
+		if err != nil {
+			return err
+		}
+
+		handler := metricsHandlerMiddleware{ListenHandler: handler, counter: rl.reconnectTotal}
+		if err := lis.Listen(ctx, handler, channels...); err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return err
+			}
+
+			rl.logger.WithError(err).
+				WithField("channels", channels).
+				Error("listening was interrupted")
+		}
+
+		rl.ticker.Reset()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-rl.ticker.C():
+		}
+	}
+}
+
+// Describe return description of the metric.
+func (rl *ResilientListener) Describe(descs chan<- *promclient.Desc) {
+	promclient.DescribeByCollect(rl, descs)
+}
+
+// Collect returns set of metrics collected during execution.
+func (rl *ResilientListener) Collect(metrics chan<- promclient.Metric) {
+	rl.reconnectTotal.Collect(metrics)
 }

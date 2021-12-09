@@ -4,12 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgconn"
+	"github.com/prometheus/client_golang/prometheus/testutil"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -48,16 +52,6 @@ func TestListener_Listen(t *testing.T) {
 		}
 	}
 
-	waitFor := func(t *testing.T, c <-chan struct{}, d time.Duration) {
-		t.Helper()
-		select {
-		case <-time.After(d):
-			require.FailNow(t, "it takes too long")
-		case <-c:
-			// proceed
-		}
-	}
-
 	listenNotify := func(t *testing.T, lis *Listener, channels []string, numNotifiers int, payloads []string) []string {
 		t.Helper()
 
@@ -92,7 +86,7 @@ func TestListener_Listen(t *testing.T) {
 		defer cancel()
 		allDone := make(chan struct{})
 		go func() {
-			waitFor(t, allReceivedChan, time.Minute)
+			waitFor(t, allReceivedChan)
 			cancel()
 			close(allDone)
 		}()
@@ -176,11 +170,70 @@ func TestListener_Listen(t *testing.T) {
 			}
 		}()
 
-		waitFor(t, connected, time.Minute)
+		waitFor(t, connected)
 		disconnectListener(t, db, channel)
-		waitFor(t, disconnected, time.Minute)
+		waitFor(t, disconnected)
 		<-done
 	})
+}
+
+func TestResilientListener_Listen(t *testing.T) {
+	t.Parallel()
+	db := testdb.New(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	const channel = "channel_z"
+	logger, hook := test.NewNullLogger()
+	connected := make(chan struct{})
+	disconnected := make(chan struct{})
+	handler := mockListenHandler{
+		OnConnected:  func() { connected <- struct{}{} },
+		OnDisconnect: func(error) { disconnected <- struct{}{} },
+	}
+
+	lis := NewResilientListener(
+		testdb.GetConfig(t, db.Name),
+		helper.NewCountTicker(1, func() {}),
+		logger,
+	)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		err := lis.Listen(ctx, handler, channel)
+		require.True(t, errors.Is(err, context.Canceled), err)
+	}()
+
+	waitFor(t, connected)
+	disconnectListener(t, db, channel)
+	waitFor(t, disconnected)
+	waitFor(t, connected)
+	cancel()
+	waitFor(t, disconnected)
+	<-done
+
+	entries := hook.AllEntries()
+	require.Len(t, entries, 1)
+	require.Equal(t, "listening was interrupted", entries[0].Message)
+	require.Equal(t, []string{channel}, entries[0].Data["channels"])
+
+	require.NoError(t, testutil.CollectAndCompare(lis, strings.NewReader(`
+		# HELP gitaly_praefect_notifications_reconnects_total Counts amount of reconnects to listen for notification from PostgreSQL
+		# TYPE gitaly_praefect_notifications_reconnects_total counter
+		gitaly_praefect_notifications_reconnects_total{state="connected"} 2
+		gitaly_praefect_notifications_reconnects_total{state="disconnected"} 2
+	`)))
+}
+
+func waitFor(t *testing.T, c <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-time.After(30 * time.Second):
+		require.FailNow(t, "it takes too long")
+	case <-c:
+		// proceed
+	}
 }
 
 func disconnectListener(t *testing.T, db testdb.DB, channel string) {
