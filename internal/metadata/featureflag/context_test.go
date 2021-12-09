@@ -34,8 +34,7 @@ func TestIncomingCtxWithFeatureFlag(t *testing.T) {
 		ctxB := IncomingCtxWithFeatureFlag(ctxA, ffB, true)
 
 		require.True(t, ffA.IsEnabled(ctxA))
-		// This is a bug: setting the feature flag on context B modifies context A.
-		require.True(t, ffB.IsEnabled(ctxA))
+		require.False(t, ffB.IsEnabled(ctxA))
 
 		require.True(t, ffA.IsEnabled(ctxB))
 		require.True(t, ffB.IsEnabled(ctxB))
