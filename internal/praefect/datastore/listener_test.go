@@ -248,3 +248,207 @@ func disconnectListener(t *testing.T, db testdb.DB, channel string) {
 	require.NoError(t, err)
 	require.EqualValues(t, 1, affected)
 }
+
+func TestListener_Listen_repositories_delete(t *testing.T) {
+	t.Parallel()
+	db := testdb.New(t)
+	dbConf := testdb.GetConfig(t, db.Name)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	verifyListener(
+		t,
+		ctx,
+		dbConf,
+		RepositoriesUpdatesChannel,
+		func(t *testing.T) {
+			_, err := db.DB.Exec(`
+				INSERT INTO repositories
+				VALUES ('praefect-1', '/path/to/repo/1', 1, 1),
+					('praefect-1', '/path/to/repo/2', 1, 2),
+					('praefect-1', '/path/to/repo/3', 0, 3),
+					('praefect-2', '/path/to/repo/1', 1, 4)`)
+			require.NoError(t, err)
+		},
+		func(t *testing.T) {
+			_, err := db.DB.Exec(`DELETE FROM repositories WHERE generation > 0`)
+			require.NoError(t, err)
+		},
+		func(t *testing.T, n glsql.Notification) {
+			require.Equal(t, RepositoriesUpdatesChannel, n.Channel)
+			requireEqualNotificationEntries(t, n.Payload, []notificationEntry{
+				{VirtualStorage: "praefect-1", RelativePaths: []string{"/path/to/repo/1", "/path/to/repo/2"}},
+				{VirtualStorage: "praefect-2", RelativePaths: []string{"/path/to/repo/1"}},
+			})
+		},
+	)
+}
+
+func TestListener_Listen_storage_repositories_insert(t *testing.T) {
+	t.Parallel()
+	db := testdb.New(t)
+	dbConf := testdb.GetConfig(t, db.Name)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	verifyListener(
+		t,
+		ctx,
+		dbConf,
+		StorageRepositoriesUpdatesChannel,
+		func(t *testing.T) {
+			rs := NewPostgresRepositoryStore(db, nil)
+			require.NoError(t, rs.CreateRepository(ctx, 1, "praefect-1", "/path/to/repo", "replica-path", "primary", nil, nil, true, false))
+		},
+		func(t *testing.T) {
+			_, err := db.DB.Exec(`
+				INSERT INTO storage_repositories
+				VALUES ('praefect-1', '/path/to/repo', 'gitaly-1', 0, 1),
+					('praefect-1', '/path/to/repo', 'gitaly-2', 0, 1)`,
+			)
+			require.NoError(t, err)
+		},
+		func(t *testing.T, n glsql.Notification) {
+			require.Equal(t, StorageRepositoriesUpdatesChannel, n.Channel)
+			requireEqualNotificationEntries(t, n.Payload, []notificationEntry{{VirtualStorage: "praefect-1", RelativePaths: []string{"/path/to/repo"}}})
+		},
+	)
+}
+
+func TestListener_Listen_storage_repositories_update(t *testing.T) {
+	t.Parallel()
+	db := testdb.New(t)
+	dbConf := testdb.GetConfig(t, db.Name)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	verifyListener(
+		t,
+		ctx,
+		dbConf,
+		StorageRepositoriesUpdatesChannel,
+		func(t *testing.T) {
+			rs := NewPostgresRepositoryStore(db, nil)
+			require.NoError(t, rs.CreateRepository(ctx, 1, "praefect-1", "/path/to/repo", "replica-path", "gitaly-1", nil, nil, true, false))
+		},
+		func(t *testing.T) {
+			_, err := db.DB.Exec(`UPDATE storage_repositories SET generation = generation + 1`)
+			require.NoError(t, err)
+		},
+		func(t *testing.T, n glsql.Notification) {
+			require.Equal(t, StorageRepositoriesUpdatesChannel, n.Channel)
+			requireEqualNotificationEntries(t, n.Payload, []notificationEntry{{VirtualStorage: "praefect-1", RelativePaths: []string{"/path/to/repo"}}})
+		},
+	)
+}
+
+func TestListener_Listen_storage_empty_notification(t *testing.T) {
+	t.Parallel()
+	db := testdb.New(t)
+	dbConf := testdb.GetConfig(t, db.Name)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	verifyListener(
+		t,
+		ctx,
+		dbConf,
+		StorageRepositoriesUpdatesChannel,
+		func(t *testing.T) {},
+		func(t *testing.T) {
+			_, err := db.DB.Exec(`UPDATE storage_repositories SET generation = 1`)
+			require.NoError(t, err)
+		},
+		nil, // no notification events expected
+	)
+}
+
+func TestListener_Listen_storage_repositories_delete(t *testing.T) {
+	t.Parallel()
+	db := testdb.New(t)
+	dbConf := testdb.GetConfig(t, db.Name)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	verifyListener(
+		t,
+		ctx,
+		dbConf,
+		StorageRepositoriesUpdatesChannel,
+		func(t *testing.T) {
+			rs := NewPostgresRepositoryStore(db, nil)
+			require.NoError(t, rs.CreateRepository(ctx, 1, "praefect-1", "/path/to/repo", "replica-path", "gitaly-1", nil, nil, true, false))
+		},
+		func(t *testing.T) {
+			_, err := db.DB.Exec(`DELETE FROM storage_repositories`)
+			require.NoError(t, err)
+		},
+		func(t *testing.T, n glsql.Notification) {
+			require.Equal(t, StorageRepositoriesUpdatesChannel, n.Channel)
+			requireEqualNotificationEntries(t, n.Payload, []notificationEntry{{VirtualStorage: "praefect-1", RelativePaths: []string{"/path/to/repo"}}})
+		},
+	)
+}
+
+func verifyListener(t *testing.T, ctx context.Context, dbConf config.DB, channel string, setup func(t *testing.T), trigger func(t *testing.T), verifier func(t *testing.T, notification glsql.Notification)) {
+	setup(t)
+
+	runCtx, runCancel := context.WithCancel(ctx)
+	defer runCancel()
+
+	readyChan := make(chan struct{})
+	receivedChan := make(chan struct{})
+	var notification glsql.Notification
+
+	callback := func(n glsql.Notification) {
+		select {
+		case <-receivedChan:
+			return
+		default:
+			notification = n
+			close(receivedChan)
+			runCancel()
+		}
+	}
+
+	handler := mockListenHandler{OnNotification: callback, OnConnected: func() { close(readyChan) }}
+
+	lis, err := NewListener(dbConf)
+	require.NoError(t, err)
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		err := lis.Listen(runCtx, handler, channel)
+		assert.True(t, errors.Is(err, context.Canceled), err)
+	}()
+
+	select {
+	case <-time.After(time.Second):
+		require.FailNow(t, "no connection for too long period")
+	case <-readyChan:
+	}
+
+	trigger(t)
+
+	select {
+	case <-time.After(time.Second):
+		if verifier == nil {
+			// no notifications expected
+			return
+		}
+		require.FailNow(t, "no notifications for too long period")
+	case <-receivedChan:
+	}
+
+	if verifier == nil {
+		require.Failf(t, "no notifications expected", "received: %v", notification)
+	}
+	verifier(t, notification)
+	waitFor(t, done)
+}

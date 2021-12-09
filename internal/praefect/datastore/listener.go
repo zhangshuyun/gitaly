@@ -15,6 +15,15 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 )
 
+const (
+	// StorageRepositoriesUpdatesChannel is a name of the database event channel
+	// used to send events with changes done to 'storage_repositories' table.
+	StorageRepositoriesUpdatesChannel = "storage_repositories_updates"
+	// RepositoriesUpdatesChannel is a name of the database event channel
+	// used to send events with changes done to 'repositories' table.
+	RepositoriesUpdatesChannel = "repositories_updates"
+)
+
 // Listener is designed to listen for PostgreSQL database NOTIFY events.
 // It connects to the database with Listen method and starts to listen for
 // events.
