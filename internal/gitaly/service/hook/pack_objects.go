@@ -142,7 +142,7 @@ func (s *server) runPackObjects(ctx context.Context, w io.Writer, repo *gitalypb
 
 	defer stdin.Close()
 
-	counter := &countingWriter{W: w}
+	counter := &helper.CountingWriter{W: w}
 	sw := pktline.NewSidebandWriter(counter)
 	stdout := bufio.NewWriterSize(sw.Writer(bandStdout), pktline.MaxSidebandData)
 	stderrBuf := &bytes.Buffer{}
@@ -285,17 +285,6 @@ func bufferStdin(r io.Reader, h hash.Hash) (_ io.ReadCloser, err error) {
 	}
 
 	return f, nil
-}
-
-type countingWriter struct {
-	W io.Writer
-	N int64
-}
-
-func (cw *countingWriter) Write(p []byte) (int, error) {
-	n, err := cw.W.Write(p)
-	cw.N += int64(n)
-	return n, err
 }
 
 func (s *server) PackObjectsHookWithSidechannel(ctx context.Context, req *gitalypb.PackObjectsHookWithSidechannelRequest) (*gitalypb.PackObjectsHookWithSidechannelResponse, error) {

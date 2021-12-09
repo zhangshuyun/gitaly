@@ -58,9 +58,9 @@ func (s *server) sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, r
 	// synchronize writing stdout and stderrr.
 	var m sync.Mutex
 
-	stdout := streamio.NewSyncWriter(&m, func(p []byte) error {
+	stdout := &helper.CountingWriter{W: streamio.NewSyncWriter(&m, func(p []byte) error {
 		return stream.Send(&gitalypb.SSHUploadPackResponse{Stdout: p})
-	})
+	})}
 
 	stderr := streamio.NewSyncWriter(&m, func(p []byte) error {
 		return stream.Send(&gitalypb.SSHUploadPackResponse{Stderr: p})
@@ -134,6 +134,8 @@ func (s *server) sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, r
 
 	pw.Close()
 	wg.Wait()
+
+	ctxlogrus.Extract(ctx).WithField("response_bytes", stdout.N).Info("request details")
 
 	return nil
 }
