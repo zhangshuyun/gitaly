@@ -16,7 +16,11 @@ type AllowedParams struct {
 	// For example, `project-19` specifies the code repository of project with id 19
 	// and `wiki-19` specifies the wiki repository of the same project.
 	GLRepository string
-	// GLID is an identifier of the repository.
+	// GLID is the identifier of the actor performing the operation.
+	//
+	// This value is opaque to Gitaly but is formatted as `<type>-<value>`. For example,
+	// 'user-13' specifies the operation was performed by user with ID 13. If username of
+	// user 13 is 'exampleuser', GLID 'username-exampleuser' would identify the same user.
 	GLID string
 	// GLProtocol is a protocol used for operation.
 	GLProtocol string
