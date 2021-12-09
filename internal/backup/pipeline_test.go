@@ -16,12 +16,16 @@ import (
 )
 
 func TestLoggingPipeline(t *testing.T) {
+	t.Parallel()
+
 	testPipeline(t, func() Pipeline {
 		return NewLoggingPipeline(logrus.StandardLogger())
 	})
 }
 
 func TestParallelPipeline(t *testing.T) {
+	t.Parallel()
+
 	testPipeline(t, func() Pipeline {
 		return NewParallelPipeline(NewLoggingPipeline(logrus.StandardLogger()), 2, 0)
 	})
@@ -116,6 +120,8 @@ func (s MockStrategy) Restore(ctx context.Context, req *RestoreRequest) error {
 
 func testPipeline(t *testing.T, init func() Pipeline) {
 	t.Run("create command", func(t *testing.T) {
+		t.Parallel()
+
 		strategy := MockStrategy{
 			CreateFunc: func(_ context.Context, req *CreateRequest) error {
 				switch req.Repository.StorageName {
@@ -148,6 +154,8 @@ func testPipeline(t *testing.T, init func() Pipeline) {
 	})
 
 	t.Run("restore command", func(t *testing.T) {
+		t.Parallel()
+
 		strategy := MockStrategy{
 			RestoreFunc: func(_ context.Context, req *RestoreRequest) error {
 				switch req.Repository.StorageName {
@@ -181,6 +189,8 @@ func testPipeline(t *testing.T, init func() Pipeline) {
 }
 
 func TestPipelineError(t *testing.T) {
+	t.Parallel()
+
 	for _, tc := range []struct {
 		name          string
 		repos         []*gitalypb.Repository

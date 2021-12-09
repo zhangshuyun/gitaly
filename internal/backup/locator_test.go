@@ -15,10 +15,14 @@ import (
 )
 
 func TestLegacyLocator(t *testing.T) {
+	t.Parallel()
+
 	_, repo, _ := testcfg.BuildWithRepo(t)
 	l := LegacyLocator{}
 
 	t.Run("Begin/Commit Full", func(t *testing.T) {
+		t.Parallel()
+
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
@@ -36,6 +40,8 @@ func TestLegacyLocator(t *testing.T) {
 	})
 
 	t.Run("FindLatest", func(t *testing.T) {
+		t.Parallel()
+
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
@@ -58,11 +64,15 @@ func TestLegacyLocator(t *testing.T) {
 }
 
 func TestPointerLocator(t *testing.T) {
+	t.Parallel()
+
 	const backupID = "abc123"
 
 	_, repo, _ := testcfg.BuildWithRepo(t)
 
 	t.Run("Begin/Commit full", func(t *testing.T) {
+		t.Parallel()
+
 		backupPath := testhelper.TempDir(t)
 		var l Locator = PointerLocator{
 			Sink: NewFilesystemSink(backupPath),
@@ -91,6 +101,8 @@ func TestPointerLocator(t *testing.T) {
 	})
 
 	t.Run("Begin/Commit incremental", func(t *testing.T) {
+		t.Parallel()
+
 		const fallbackBackupID = "fallback123"
 
 		for _, tc := range []struct {
@@ -114,6 +126,8 @@ func TestPointerLocator(t *testing.T) {
 			},
 		} {
 			t.Run(tc.desc, func(t *testing.T) {
+				t.Parallel()
+
 				backupPath := testhelper.TempDir(t)
 				sink := NewFilesystemSink(backupPath)
 				var l Locator = PointerLocator{Sink: sink}
@@ -157,7 +171,11 @@ func TestPointerLocator(t *testing.T) {
 	})
 
 	t.Run("FindLatest", func(t *testing.T) {
+		t.Parallel()
+
 		t.Run("no fallback", func(t *testing.T) {
+			t.Parallel()
+
 			backupPath := testhelper.TempDir(t)
 			var l Locator = PointerLocator{
 				Sink: NewFilesystemSink(backupPath),
@@ -200,6 +218,8 @@ func TestPointerLocator(t *testing.T) {
 		})
 
 		t.Run("fallback", func(t *testing.T) {
+			t.Parallel()
+
 			backupPath := testhelper.TempDir(t)
 			var l Locator = PointerLocator{
 				Sink:     NewFilesystemSink(backupPath),
@@ -243,6 +263,8 @@ func TestPointerLocator(t *testing.T) {
 		})
 
 		t.Run("invalid backup LATEST", func(t *testing.T) {
+			t.Parallel()
+
 			backupPath := testhelper.TempDir(t)
 			var l Locator = PointerLocator{
 				Sink: NewFilesystemSink(backupPath),
@@ -261,6 +283,8 @@ func TestPointerLocator(t *testing.T) {
 		})
 
 		t.Run("invalid incremental LATEST", func(t *testing.T) {
+			t.Parallel()
+
 			backupPath := testhelper.TempDir(t)
 			var l Locator = PointerLocator{
 				Sink: NewFilesystemSink(backupPath),

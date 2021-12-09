@@ -20,6 +20,8 @@ import (
 )
 
 func TestRestoreSubcommand(t *testing.T) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyHooks(t, cfg)
 

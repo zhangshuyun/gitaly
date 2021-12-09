@@ -29,6 +29,8 @@ import (
 )
 
 func TestManager_Create(t *testing.T) {
+	t.Parallel()
+
 	const backupID = "abc123"
 
 	cfg := testcfg.Build(t)
@@ -150,6 +152,8 @@ func TestManager_Create(t *testing.T) {
 }
 
 func TestManager_Create_incremental(t *testing.T) {
+	t.Parallel()
+
 	const backupID = "abc123"
 
 	cfg := testcfg.Build(t)
@@ -261,6 +265,8 @@ func TestManager_Create_incremental(t *testing.T) {
 }
 
 func TestManager_Restore(t *testing.T) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyHooks(t, cfg)
 
@@ -270,6 +276,8 @@ func TestManager_Restore(t *testing.T) {
 }
 
 func TestManager_Restore_praefect(t *testing.T) {
+	t.Parallel()
+
 	gitalyCfg := testcfg.Build(t, testcfg.WithStorages("gitaly-1"))
 
 	testcfg.BuildPraefect(t, gitalyCfg)
@@ -324,11 +332,14 @@ func TestManager_Restore_praefect(t *testing.T) {
 }
 
 func testManagerRestore(t *testing.T, cfg config.Cfg, gitalyAddr string) {
-	testhelper.NewFeatureSets(
-		featureflag.AtomicRemoveRepository,
-		featureflag.TxAtomicRepositoryCreation,
-	).Run(t, func(t *testing.T, ctx context.Context) {
-		testManagerRestoreWithContext(t, ctx, cfg, gitalyAddr)
+	t.Run("parallel", func(t *testing.T) {
+		testhelper.NewFeatureSets(
+			featureflag.AtomicRemoveRepository,
+			featureflag.TxAtomicRepositoryCreation,
+		).Run(t, func(t *testing.T, ctx context.Context) {
+			t.Parallel()
+			testManagerRestoreWithContext(t, ctx, cfg, gitalyAddr)
+		})
 	})
 }
 
@@ -581,6 +592,8 @@ func testManagerRestoreWithContext(t *testing.T, ctx context.Context, cfg config
 }
 
 func TestResolveSink(t *testing.T) {
+	t.Parallel()
+
 	isStorageServiceSink := func(expErrMsg string) func(t *testing.T, sink Sink) {
 		return func(t *testing.T, sink Sink) {
 			t.Helper()
@@ -673,6 +686,8 @@ func TestResolveSink(t *testing.T) {
 }
 
 func TestResolveLocator(t *testing.T) {
+	t.Parallel()
+
 	for _, tc := range []struct {
 		layout      string
 		expectedErr string

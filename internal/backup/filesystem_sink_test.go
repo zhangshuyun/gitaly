@@ -13,7 +13,11 @@ import (
 )
 
 func TestFilesystemSink_GetReader(t *testing.T) {
+	t.Parallel()
+
 	t.Run("ok", func(t *testing.T) {
+		t.Parallel()
+
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
@@ -33,6 +37,8 @@ func TestFilesystemSink_GetReader(t *testing.T) {
 	})
 
 	t.Run("no file", func(t *testing.T) {
+		t.Parallel()
+
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
@@ -47,7 +53,11 @@ func TestFilesystemSink_GetReader(t *testing.T) {
 }
 
 func TestFilesystemSink_Write(t *testing.T) {
+	t.Parallel()
+
 	t.Run("ok", func(t *testing.T) {
+		t.Parallel()
+
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
@@ -64,6 +74,8 @@ func TestFilesystemSink_Write(t *testing.T) {
 	})
 
 	t.Run("overrides existing data", func(t *testing.T) {
+		t.Parallel()
+
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
@@ -84,6 +96,8 @@ func TestFilesystemSink_Write(t *testing.T) {
 	})
 
 	t.Run("dir creation error", func(t *testing.T) {
+		t.Parallel()
+
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 

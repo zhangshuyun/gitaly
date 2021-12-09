@@ -12,6 +12,8 @@ import (
 )
 
 func TestStorageServiceSink(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
