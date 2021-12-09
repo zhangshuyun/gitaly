@@ -77,7 +77,7 @@ func TestBackchannel_concurrentRequestsFromMultipleClients(t *testing.T) {
 	defer srv.Stop()
 	go srv.Serve(ln)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	start := make(chan struct{})
@@ -208,7 +208,7 @@ func Benchmark(b *testing.B) {
 					defer srv.Stop()
 					go srv.Serve(ln)
 
-					ctx, cancel := context.WithCancel(context.Background())
+					ctx, cancel := testhelper.Context()
 					defer cancel()
 
 					opts := []grpc.DialOption{grpc.WithBlock(), grpc.WithInsecure()}

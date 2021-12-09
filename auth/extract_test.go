@@ -1,12 +1,12 @@
 package gitalyauth
 
 import (
-	"context"
 	"testing"
 	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
 func TestCheckTokenV2(t *testing.T) {
@@ -77,9 +77,12 @@ func TestCheckTokenV2(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
 			md := metautils.NiceMD{}
 			md.Set("authorization", "Bearer "+tc.token)
-			result := CheckToken(md.ToIncoming(context.Background()), string(secret), targetTime)
+			result := CheckToken(md.ToIncoming(ctx), string(secret), targetTime)
 
 			require.Equal(t, tc.result, result)
 		})

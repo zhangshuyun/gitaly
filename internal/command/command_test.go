@@ -2,7 +2,6 @@ package command
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"os/exec"
@@ -161,7 +160,7 @@ func TestRejectEmptyContextDone(t *testing.T) {
 		}
 	}()
 
-	_, err := New(context.Background(), exec.Command("true"), nil, nil, nil)
+	_, err := New(testhelper.ContextWithoutCancel(), exec.Command("true"), nil, nil, nil)
 	require.NoError(t, err)
 }
 

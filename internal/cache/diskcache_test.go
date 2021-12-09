@@ -168,7 +168,10 @@ func TestLoserCount(t *testing.T) {
 			StorageName:  "storage-1",
 		},
 	}
-	ctx := testhelper.SetCtxGrpcMethod(context.Background(), "InfoRefsUploadPack")
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+	ctx = testhelper.SetCtxGrpcMethod(ctx, "InfoRefsUploadPack")
 
 	leashes := []chan struct{}{make(chan struct{}), make(chan struct{}), make(chan struct{})}
 	errQ := make(chan error)

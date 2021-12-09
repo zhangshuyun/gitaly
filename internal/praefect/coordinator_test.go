@@ -2090,9 +2090,12 @@ func TestNewRequestFinalizer_contextIsDisjointedFromTheRPC(t *testing.T) {
 
 	parentDeadline := time.Now()
 
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	//nolint:forbidigo // We explicitly want to test that the deadline does not propagate into
 	// the request's context.
-	ctx, cancel := context.WithDeadline(context.WithValue(context.Background(), ctxKey{}, "value"), parentDeadline)
+	ctx, cancel = context.WithDeadline(context.WithValue(ctx, ctxKey{}, "value"), parentDeadline)
 	cancel()
 
 	requireSuppressedCancellation := func(t testing.TB, ctx context.Context) {

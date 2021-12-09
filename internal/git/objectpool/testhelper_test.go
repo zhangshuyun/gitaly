@@ -24,7 +24,7 @@ func TestMain(m *testing.M) {
 	}))
 }
 
-func setupObjectPool(t *testing.T) (*ObjectPool, *gitalypb.Repository) {
+func setupObjectPool(t *testing.T, ctx context.Context) (*ObjectPool, *gitalypb.Repository) {
 	t.Helper()
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
@@ -45,7 +45,7 @@ func setupObjectPool(t *testing.T) (*ObjectPool, *gitalypb.Repository) {
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		if err := pool.Remove(context.TODO()); err != nil {
+		if err := pool.Remove(ctx); err != nil {
 			panic(err)
 		}
 	})
