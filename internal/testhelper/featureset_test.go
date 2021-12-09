@@ -5,9 +5,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	ff "gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
-	grpc_metadata "google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/metadata"
 )
 
 var (
@@ -172,9 +171,6 @@ func TestNewFeatureSetsWithRubyFlags(t *testing.T) {
 }
 
 func TestFeatureSets_Run(t *testing.T) {
-	var incomingFlags [][2]bool
-	var outgoingFlags [][2]bool
-
 	// This test depends on feature flags being default-enabled in the test
 	// context, which requires those flags to exist in the ff.All slice. So
 	// let's just append them here so we do not need to use a "real"
@@ -185,40 +181,25 @@ func TestFeatureSets_Run(t *testing.T) {
 	}(ff.All)
 	ff.All = append(ff.All, featureFlagA, featureFlagB)
 
+	var featureFlags [][2]bool
 	NewFeatureSets(featureFlagB, featureFlagA).Run(t, func(t *testing.T, ctx context.Context) {
-		incomingMD, ok := grpc_metadata.FromIncomingContext(ctx)
+		incomingMD, ok := metadata.FromIncomingContext(ctx)
 		require.True(t, ok)
 
-		outgoingMD, ok := grpc_metadata.FromOutgoingContext(ctx)
+		outgoingMD, ok := metadata.FromOutgoingContext(ctx)
 		require.True(t, ok)
 
-		incomingCtx := grpc_metadata.NewIncomingContext(context.Background(), incomingMD)
-		outgoingCtx := metadata.OutgoingToIncoming(grpc_metadata.NewOutgoingContext(context.Background(), outgoingMD))
+		require.Equal(t, incomingMD, outgoingMD)
 
-		incomingFlags = append(incomingFlags, [2]bool{
-			featureFlagB.IsDisabled(incomingCtx),
-			featureFlagA.IsDisabled(incomingCtx),
-		})
-		outgoingFlags = append(outgoingFlags, [2]bool{
-			featureFlagB.IsDisabled(outgoingCtx),
-			featureFlagA.IsDisabled(outgoingCtx),
+		featureFlags = append(featureFlags, [2]bool{
+			featureFlagA.IsEnabled(ctx), featureFlagB.IsEnabled(ctx),
 		})
 	})
 
-	for _, tc := range []struct {
-		desc  string
-		flags [][2]bool
-	}{
-		{desc: "incoming context", flags: incomingFlags},
-		{desc: "outgoing context", flags: outgoingFlags},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			require.ElementsMatch(t, tc.flags, [][2]bool{
-				{false, false},
-				{true, false},
-				{false, true},
-				{true, true},
-			})
-		})
-	}
+	require.Equal(t, [][2]bool{
+		{false, false},
+		{false, true},
+		{true, false},
+		{true, true},
+	}, featureFlags)
 }
