@@ -594,12 +594,15 @@ func testManagerRestoreWithContext(t *testing.T, ctx context.Context, cfg config
 func TestResolveSink(t *testing.T) {
 	t.Parallel()
 
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	isStorageServiceSink := func(expErrMsg string) func(t *testing.T, sink Sink) {
 		return func(t *testing.T, sink Sink) {
 			t.Helper()
 			sssink, ok := sink.(*StorageServiceSink)
 			require.True(t, ok)
-			_, err := sssink.bucket.List(nil).Next(context.TODO())
+			_, err := sssink.bucket.List(nil).Next(ctx)
 			ierr, ok := err.(interface{ Unwrap() error })
 			require.True(t, ok)
 			terr := ierr.Unwrap()
@@ -675,7 +678,7 @@ func TestResolveSink(t *testing.T) {
 			for k, v := range tc.envs {
 				t.Cleanup(testhelper.ModifyEnvironment(t, k, v))
 			}
-			sink, err := ResolveSink(context.TODO(), tc.path)
+			sink, err := ResolveSink(ctx, tc.path)
 			if tc.errMsg != "" {
 				require.EqualError(t, err, tc.errMsg)
 				return
