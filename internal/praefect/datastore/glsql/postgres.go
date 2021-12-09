@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/stdlib"
 	migrate "github.com/rubenv/sql-migrate"
@@ -228,4 +229,28 @@ func coalesceInt(values ...int) int {
 		}
 	}
 	return 0
+}
+
+// StringArray is a wrapper that provides a helper methods.
+type StringArray struct {
+	pgtype.TextArray
+}
+
+// Slice converts StringArray into a slice of strings.
+// The array element considered to be a valid string if it is not a null.
+func (sa StringArray) Slice() []string {
+	if sa.Status != pgtype.Present {
+		return nil
+	}
+
+	res := make([]string, 0, len(sa.Elements))
+	if sa.Status == pgtype.Present {
+		for _, e := range sa.Elements {
+			if e.Status != pgtype.Present {
+				continue
+			}
+			res = append(res, e.String)
+		}
+	}
+	return res
 }

@@ -215,3 +215,20 @@ func TestDSN(t *testing.T) {
 		})
 	}
 }
+
+func TestStringArray(t *testing.T) {
+	t.Parallel()
+	db := testdb.New(t)
+
+	t.Run("multiple elements", func(t *testing.T) {
+		var res glsql.StringArray
+		require.NoError(t, db.QueryRow("SELECT ARRAY['a', NULL, '42', 'c']").Scan(&res))
+		require.Equal(t, []string{"a", "42", "c"}, res.Slice())
+	})
+
+	t.Run("NULL value", func(t *testing.T) {
+		var res glsql.StringArray
+		require.NoError(t, db.QueryRow("SELECT NULL").Scan(&res))
+		require.Empty(t, res.Slice())
+	})
+}
