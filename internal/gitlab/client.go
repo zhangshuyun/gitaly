@@ -10,7 +10,11 @@ type AllowedParams struct {
 	GitObjectDirectory string
 	// GitAlternateObjectDirectories are the paths to alternate object directories.
 	GitAlternateObjectDirectories []string
-	// GLRepository is a name of the repository.
+	// GLRepository is a unique identifier that Rails identifies the repository with.
+	//
+	// This value is opaque to Gitaly but is formatted as `<repository-type>-<id>`.
+	// For example, `project-19` specifies the code repository of project with id 19
+	// and `wiki-19` specifies the wiki repository of the same project.
 	GLRepository string
 	// GLID is an identifier of the repository.
 	GLID string
