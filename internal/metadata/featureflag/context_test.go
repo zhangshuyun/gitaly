@@ -5,53 +5,84 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	gitaly_metadata "gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"google.golang.org/grpc/metadata"
 )
 
-var mockFeatureFlag = FeatureFlag{"turn meow on", false}
+var (
+	ffA = FeatureFlag{"feature-a", false}
+	ffB = FeatureFlag{"feature-b", false}
+)
 
 func TestIncomingCtxWithFeatureFlag(t *testing.T) {
 	ctx := context.Background()
-	require.False(t, mockFeatureFlag.IsEnabled(ctx))
+	require.False(t, ffA.IsEnabled(ctx))
+	require.False(t, ffB.IsEnabled(ctx))
 
 	t.Run("enabled", func(t *testing.T) {
-		ctx := IncomingCtxWithFeatureFlag(ctx, mockFeatureFlag, true)
-		require.True(t, mockFeatureFlag.IsEnabled(ctx))
+		ctx := IncomingCtxWithFeatureFlag(ctx, ffA, true)
+		require.True(t, ffA.IsEnabled(ctx))
 	})
 
 	t.Run("disabled", func(t *testing.T) {
-		ctx := IncomingCtxWithFeatureFlag(ctx, mockFeatureFlag, false)
-		require.False(t, mockFeatureFlag.IsEnabled(ctx))
+		ctx := IncomingCtxWithFeatureFlag(ctx, ffA, false)
+		require.False(t, ffA.IsEnabled(ctx))
+	})
+
+	t.Run("set multiple flags", func(t *testing.T) {
+		ctxA := IncomingCtxWithFeatureFlag(ctx, ffA, true)
+		ctxB := IncomingCtxWithFeatureFlag(ctxA, ffB, true)
+
+		require.True(t, ffA.IsEnabled(ctxA))
+		// This is a bug: setting the feature flag on context B modifies context A.
+		require.True(t, ffB.IsEnabled(ctxA))
+
+		require.True(t, ffA.IsEnabled(ctxB))
+		require.True(t, ffB.IsEnabled(ctxB))
 	})
 }
 
 func TestOutgoingCtxWithFeatureFlag(t *testing.T) {
 	ctx := context.Background()
-	require.False(t, mockFeatureFlag.IsEnabled(ctx))
+	require.False(t, ffA.IsEnabled(ctx))
+	require.False(t, ffB.IsEnabled(ctx))
 
 	t.Run("enabled", func(t *testing.T) {
-		ctx := OutgoingCtxWithFeatureFlag(ctx, mockFeatureFlag, true)
+		ctx := OutgoingCtxWithFeatureFlag(ctx, ffA, true)
 		// The feature flag is only checked for incoming contexts, so it's not expected to
 		// be enabled yet.
-		require.False(t, mockFeatureFlag.IsEnabled(ctx))
+		require.False(t, ffA.IsEnabled(ctx))
 
 		md, ok := metadata.FromOutgoingContext(ctx)
 		require.True(t, ok)
 
 		// It should be enabled after converting it to an incoming context though.
 		ctx = metadata.NewIncomingContext(context.Background(), md)
-		require.True(t, mockFeatureFlag.IsEnabled(ctx))
+		require.True(t, ffA.IsEnabled(ctx))
 	})
 
 	t.Run("disabled", func(t *testing.T) {
-		ctx = OutgoingCtxWithFeatureFlag(ctx, mockFeatureFlag, false)
-		require.False(t, mockFeatureFlag.IsEnabled(ctx))
+		ctx = OutgoingCtxWithFeatureFlag(ctx, ffA, false)
+		require.False(t, ffA.IsEnabled(ctx))
 
 		md, ok := metadata.FromOutgoingContext(ctx)
 		require.True(t, ok)
 
 		ctx = metadata.NewIncomingContext(context.Background(), md)
-		require.False(t, mockFeatureFlag.IsEnabled(ctx))
+		require.False(t, ffA.IsEnabled(ctx))
+	})
+
+	t.Run("set multiple flags", func(t *testing.T) {
+		ctxA := OutgoingCtxWithFeatureFlag(ctx, ffA, true)
+		ctxB := OutgoingCtxWithFeatureFlag(ctxA, ffB, true)
+
+		ctxA = gitaly_metadata.OutgoingToIncoming(ctxA)
+		require.True(t, ffA.IsEnabled(ctxA))
+		require.False(t, ffB.IsEnabled(ctxA))
+
+		ctxB = gitaly_metadata.OutgoingToIncoming(ctxB)
+		require.True(t, ffA.IsEnabled(ctxB))
+		require.True(t, ffB.IsEnabled(ctxB))
 	})
 }
 
