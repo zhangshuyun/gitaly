@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lib/pq"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 )
 
@@ -139,7 +138,7 @@ func (ss *StorageCleanup) DoesntExist(ctx context.Context, virtualStorage, stora
 			JOIN storage_repositories USING (repository_id)
 			WHERE repositories.virtual_storage = $1 AND storage = $2 AND replica_path = ANY($3)
 		)`,
-		virtualStorage, storage, pq.StringArray(replicaPaths),
+		virtualStorage, storage, replicaPaths,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)

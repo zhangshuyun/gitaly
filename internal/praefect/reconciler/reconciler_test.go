@@ -7,7 +7,6 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
@@ -1137,7 +1136,7 @@ func TestReconciler(t *testing.T) {
 				SELECT job, meta
 				FROM replication_queue
 				WHERE id NOT IN ( SELECT unnest($1::bigint[]) )
-				`, pq.Int64Array(existingJobIDs),
+				`, existingJobIDs,
 			)
 			require.NoError(t, err)
 			defer rows.Close()

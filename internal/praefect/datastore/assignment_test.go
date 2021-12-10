@@ -5,9 +5,9 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 )
@@ -245,13 +245,13 @@ func TestAssignmentStore_SetReplicationFactor(t *testing.T) {
 			sort.Strings(assignedStorages)
 			tc.requireStorages(t, assignedStorages)
 
-			var storagesWithIncorrectRepositoryID pq.StringArray
+			var storagesWithIncorrectRepositoryID glsql.StringArray
 			require.NoError(t, db.QueryRowContext(ctx, `
 				SELECT array_agg(storage)
 				FROM repository_assignments
 				WHERE COALESCE(repository_id != 1, true)
 			`).Scan(&storagesWithIncorrectRepositoryID))
-			require.Empty(t, storagesWithIncorrectRepositoryID)
+			require.Empty(t, storagesWithIncorrectRepositoryID.Slice())
 		})
 	}
 }

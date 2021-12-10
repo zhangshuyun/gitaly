@@ -601,7 +601,7 @@ func TestHealthManager_databaseTimeout(t *testing.T) {
 	// Simulate a timeout.
 	timeoutQuery()
 	// Query should have been canceled.
-	require.EqualError(t, <-blockedErr, "update checks: pq: canceling statement due to user request")
+	require.EqualError(t, <-blockedErr, "update checks: timeout: context canceled")
 }
 
 func predateHealthChecks(t testing.TB, db testdb.DB, amount time.Duration) {

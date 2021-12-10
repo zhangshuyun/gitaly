@@ -174,7 +174,7 @@ func GetConfig(t testing.TB, database string) config.DB {
 
 func requireSQLOpen(t testing.TB, dbCfg config.DB, direct bool) *sql.DB {
 	t.Helper()
-	db, err := sql.Open("postgres", glsql.DSN(dbCfg, direct))
+	db, err := sql.Open("pgx", glsql.DSN(dbCfg, direct))
 	require.NoErrorf(t, err, "failed to connect to %q database", dbCfg.DBName)
 	if !assert.NoErrorf(t, db.Ping(), "failed to communicate with %q database", dbCfg.DBName) {
 		require.NoErrorf(t, db.Close(), "release connection to the %q database", dbCfg.DBName)
@@ -276,7 +276,7 @@ func initPraefectDB(t testing.TB, database string) *sql.DB {
 
 			// We cannot use `requireSQLOpen()` because it would ping the database,
 			// which is not supported by the PgBouncer admin console.
-			pgbouncerDB, err := sql.Open("postgres", glsql.DSN(pgbouncerCfg, false))
+			pgbouncerDB, err := sql.Open("pgx", glsql.DSN(pgbouncerCfg, false))
 			require.NoError(t, err)
 			defer testhelper.MustClose(t, pgbouncerDB)
 

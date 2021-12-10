@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/lib/pq"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 )
 
@@ -50,7 +49,7 @@ SELECT storage
 FROM repository_assignments
 WHERE repository_id = $1
 AND   storage = ANY($2)
-`, repositoryID, pq.StringArray(configuredStorages))
+`, repositoryID, configuredStorages)
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
@@ -170,7 +169,7 @@ UNION
 SELECT storage
 FROM created_assignments
 ORDER BY storage
-	`, virtualStorage, relativePath, replicationFactor, pq.StringArray(candidateStorages))
+	`, virtualStorage, relativePath, replicationFactor, candidateStorages)
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}

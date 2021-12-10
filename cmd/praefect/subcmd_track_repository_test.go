@@ -68,7 +68,7 @@ func TestAddRepository_Exec_invalidArgs(t *testing.T) {
 		cfg := config.Config{DB: config.DB{Host: "stub", SSLMode: "disable"}}
 		err := cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), cfg)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "connect to database: send ping: dial tcp: lookup stub")
+		require.Contains(t, err.Error(), "connect to database: send ping: failed to connect to")
 	})
 }
 

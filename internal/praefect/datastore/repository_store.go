@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/jackc/pgconn"
-	"github.com/lib/pq"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 )
@@ -214,7 +213,7 @@ SELECT
 `
 	var repositoryExists, repositoryUpdated bool
 	if err := rs.db.QueryRowContext(
-		ctx, q, repositoryID, pq.StringArray(append(secondaries, primary)),
+		ctx, q, repositoryID, append(secondaries, primary),
 	).Scan(&repositoryExists, &repositoryUpdated); err != nil {
 		return fmt.Errorf("scan: %w", err)
 	}
@@ -303,7 +302,7 @@ WHERE repository_id = $1
 AND storage = ANY($2)
 `
 
-	rows, err := rs.db.QueryContext(ctx, q, repositoryID, pq.StringArray([]string{source, target}))
+	rows, err := rs.db.QueryContext(ctx, q, repositoryID, []string{source, target})
 	if err != nil {
 		return 0, err
 	}
@@ -404,8 +403,8 @@ FROM (
 		relativePath,
 		primary,
 		storePrimary,
-		pq.StringArray(updatedSecondaries),
-		pq.StringArray(outdatedSecondaries),
+		updatedSecondaries,
+		outdatedSecondaries,
 		storeAssignments,
 		repositoryID,
 		replicaPath,
@@ -433,7 +432,7 @@ FROM (
 func (rs *PostgresRepositoryStore) DeleteRepository(ctx context.Context, virtualStorage, relativePath string) (string, []string, error) {
 	var (
 		replicaPath string
-		storages    pq.StringArray
+		storages    glsql.StringArray
 	)
 
 	if err := rs.db.QueryRowContext(ctx, `
@@ -457,7 +456,7 @@ GROUP BY replica_path
 		return "", nil, fmt.Errorf("scan: %w", err)
 	}
 
-	return replicaPath, storages, nil
+	return replicaPath, storages.Slice(), nil
 }
 
 // DeleteReplica deletes a record from the `storage_repositories`. See the interface documentation for details.
@@ -547,7 +546,8 @@ GROUP BY replica_path
 // getConsistentStorages is a helper for querying the consistent storages by different keys.
 func (rs *PostgresRepositoryStore) getConsistentStorages(ctx context.Context, query string, params ...interface{}) (string, map[string]struct{}, error) {
 	var replicaPath string
-	var storages pq.StringArray
+	var storages glsql.StringArray
+
 	if err := rs.db.QueryRowContext(ctx, query, params...).Scan(&replicaPath, &storages); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", nil, commonerr.ErrRepositoryNotFound
@@ -556,8 +556,9 @@ func (rs *PostgresRepositoryStore) getConsistentStorages(ctx context.Context, qu
 		return "", nil, fmt.Errorf("query: %w", err)
 	}
 
-	consistentStorages := make(map[string]struct{}, len(storages))
-	for _, storage := range storages {
+	result := storages.Slice()
+	consistentStorages := make(map[string]struct{}, len(result))
+	for _, storage := range result {
 		consistentStorages[storage] = struct{}{}
 	}
 
@@ -758,7 +759,7 @@ func (rs *PostgresRepositoryStore) getRepositoryMetadata(ctx context.Context, re
 		}
 	}
 
-	args := append([]interface{}{pq.StringArray(virtualStorages), pq.StringArray(storages)}, filterArgs...)
+	args := append([]interface{}{virtualStorages, storages}, filterArgs...)
 
 	rows, err := rs.db.QueryContext(ctx, fmt.Sprintf(`
 WITH configured_storages AS (
