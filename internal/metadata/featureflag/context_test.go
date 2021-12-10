@@ -14,8 +14,14 @@ var (
 	ffB = FeatureFlag{"feature-b", false}
 )
 
+//nolint:forbidigo // We cannot use `testhelper.Context()` given that it would inject feature flags
+// already.
+func createContext() context.Context {
+	return context.Background()
+}
+
 func TestIncomingCtxWithFeatureFlag(t *testing.T) {
-	ctx := context.Background()
+	ctx := createContext()
 	require.False(t, ffA.IsEnabled(ctx))
 	require.False(t, ffB.IsEnabled(ctx))
 
@@ -42,7 +48,7 @@ func TestIncomingCtxWithFeatureFlag(t *testing.T) {
 }
 
 func TestOutgoingCtxWithFeatureFlag(t *testing.T) {
-	ctx := context.Background()
+	ctx := createContext()
 	require.False(t, ffA.IsEnabled(ctx))
 	require.False(t, ffB.IsEnabled(ctx))
 
@@ -56,7 +62,7 @@ func TestOutgoingCtxWithFeatureFlag(t *testing.T) {
 		require.True(t, ok)
 
 		// It should be enabled after converting it to an incoming context though.
-		ctx = metadata.NewIncomingContext(context.Background(), md)
+		ctx = metadata.NewIncomingContext(createContext(), md)
 		require.True(t, ffA.IsEnabled(ctx))
 	})
 
@@ -67,7 +73,7 @@ func TestOutgoingCtxWithFeatureFlag(t *testing.T) {
 		md, ok := metadata.FromOutgoingContext(ctx)
 		require.True(t, ok)
 
-		ctx = metadata.NewIncomingContext(context.Background(), md)
+		ctx = metadata.NewIncomingContext(createContext(), md)
 		require.False(t, ffA.IsEnabled(ctx))
 	})
 
@@ -106,7 +112,7 @@ func TestGRPCMetadataFeatureFlag(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			md := metadata.New(tc.headers)
-			ctx := metadata.NewIncomingContext(context.Background(), md)
+			ctx := metadata.NewIncomingContext(createContext(), md)
 
 			require.Equal(t, tc.enabled, FeatureFlag{tc.flag, tc.onByDefault}.IsEnabled(ctx))
 		})
@@ -121,7 +127,7 @@ func TestAllEnabledFlags(t *testing.T) {
 		ffPrefix + "bar":  "TRUE",  // not enabled
 	}
 
-	ctx := metadata.NewIncomingContext(context.Background(), metadata.New(flags))
+	ctx := metadata.NewIncomingContext(createContext(), metadata.New(flags))
 	require.ElementsMatch(t, AllFlags(ctx), []string{"meow:true", "foo:true", "woof:false", "bar:TRUE"})
 }
 
@@ -135,7 +141,7 @@ func TestRaw(t *testing.T) {
 	}
 
 	t.Run("RawFromContext", func(t *testing.T) {
-		ctx := context.Background()
+		ctx := createContext()
 		ctx = IncomingCtxWithFeatureFlag(ctx, enabledFlag, true)
 		ctx = IncomingCtxWithFeatureFlag(ctx, disabledFlag, false)
 
@@ -143,7 +149,7 @@ func TestRaw(t *testing.T) {
 	})
 
 	t.Run("OutgoingWithRaw", func(t *testing.T) {
-		outgoingMD, ok := metadata.FromOutgoingContext(OutgoingWithRaw(context.Background(), raw))
+		outgoingMD, ok := metadata.FromOutgoingContext(OutgoingWithRaw(createContext(), raw))
 		require.True(t, ok)
 		require.Equal(t, metadata.MD{
 			ffPrefix + enabledFlag.Name:  {"true"},

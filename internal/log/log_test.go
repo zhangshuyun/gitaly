@@ -27,7 +27,7 @@ import (
 )
 
 func TestPayloadBytes(t *testing.T) {
-	ctx := context.Background()
+	ctx := createContext()
 
 	logger, hook := test.NewNullLogger()
 
@@ -261,7 +261,7 @@ func TestConfigure(t *testing.T) {
 func TestMessageProducer(t *testing.T) {
 	triggered := false
 	MessageProducer(func(ctx context.Context, format string, level logrus.Level, code codes.Code, err error, fields logrus.Fields) {
-		require.Equal(t, context.Background(), ctx)
+		require.Equal(t, createContext(), ctx)
 		require.Equal(t, "format-stub", format)
 		require.Equal(t, logrus.DebugLevel, level)
 		require.Equal(t, codes.OutOfRange, code)
@@ -272,20 +272,20 @@ func TestMessageProducer(t *testing.T) {
 		return logrus.Fields{"a": 1}
 	}, func(context.Context) logrus.Fields {
 		return logrus.Fields{"b": "test"}
-	})(context.Background(), "format-stub", logrus.DebugLevel, codes.OutOfRange, assert.AnError, logrus.Fields{"c": "stub"})
+	})(createContext(), "format-stub", logrus.DebugLevel, codes.OutOfRange, assert.AnError, logrus.Fields{"c": "stub"})
 	require.True(t, triggered)
 }
 
 func TestPropagationMessageProducer(t *testing.T) {
 	t.Run("empty context", func(t *testing.T) {
-		ctx := context.Background()
+		ctx := createContext()
 		mp := PropagationMessageProducer(func(context.Context, string, logrus.Level, codes.Code, error, logrus.Fields) {})
 		mp(ctx, "", logrus.DebugLevel, codes.OK, nil, nil)
 	})
 
 	t.Run("context with holder", func(t *testing.T) {
 		holder := new(messageProducerHolder)
-		ctx := context.WithValue(context.Background(), messageProducerHolderKey{}, holder)
+		ctx := context.WithValue(createContext(), messageProducerHolderKey{}, holder)
 		triggered := false
 		mp := PropagationMessageProducer(func(ctx context.Context, format string, level logrus.Level, code codes.Code, err error, fields logrus.Fields) {
 			triggered = true
@@ -313,7 +313,7 @@ func TestPerRPCLogHandler(t *testing.T) {
 	}
 
 	t.Run("check propagation", func(t *testing.T) {
-		ctx := context.Background()
+		ctx := createContext()
 		ctx = lh.TagConn(ctx, &stats.ConnTagInfo{})
 		lh.HandleConn(ctx, &stats.ConnBegin{})
 		ctx = lh.TagRPC(ctx, &stats.RPCTagInfo{})
@@ -334,7 +334,7 @@ func TestPerRPCLogHandler(t *testing.T) {
 	})
 
 	t.Run("log handling", func(t *testing.T) {
-		ctx := ctxlogrus.ToContext(context.Background(), logrus.NewEntry(logrus.New()))
+		ctx := ctxlogrus.ToContext(createContext(), logrus.NewEntry(logrus.New()))
 		ctx = lh.TagRPC(ctx, &stats.RPCTagInfo{})
 		mpp := ctx.Value(messageProducerHolderKey{}).(*messageProducerHolder)
 		mpp.format = "message"
@@ -381,7 +381,7 @@ func TestUnaryLogDataCatcherServerInterceptor(t *testing.T) {
 
 	t.Run("propagates call", func(t *testing.T) {
 		interceptor := UnaryLogDataCatcherServerInterceptor()
-		resp, err := interceptor(context.Background(), nil, nil, func(ctx context.Context, req interface{}) (interface{}, error) {
+		resp, err := interceptor(createContext(), nil, nil, func(ctx context.Context, req interface{}) (interface{}, error) {
 			return 42, assert.AnError
 		})
 
@@ -391,7 +391,7 @@ func TestUnaryLogDataCatcherServerInterceptor(t *testing.T) {
 
 	t.Run("no logger", func(t *testing.T) {
 		mpp := &messageProducerHolder{}
-		ctx := context.WithValue(context.Background(), messageProducerHolderKey{}, mpp)
+		ctx := context.WithValue(createContext(), messageProducerHolderKey{}, mpp)
 
 		interceptor := UnaryLogDataCatcherServerInterceptor()
 		_, _ = interceptor(ctx, nil, nil, handlerStub)
@@ -400,7 +400,7 @@ func TestUnaryLogDataCatcherServerInterceptor(t *testing.T) {
 
 	t.Run("caught", func(t *testing.T) {
 		mpp := &messageProducerHolder{}
-		ctx := context.WithValue(context.Background(), messageProducerHolderKey{}, mpp)
+		ctx := context.WithValue(createContext(), messageProducerHolderKey{}, mpp)
 		ctx = ctxlogrus.ToContext(ctx, logrus.New().WithField("a", 1))
 		interceptor := UnaryLogDataCatcherServerInterceptor()
 		_, _ = interceptor(ctx, nil, nil, handlerStub)
@@ -411,7 +411,7 @@ func TestUnaryLogDataCatcherServerInterceptor(t *testing.T) {
 func TestStreamLogDataCatcherServerInterceptor(t *testing.T) {
 	t.Run("propagates call", func(t *testing.T) {
 		interceptor := StreamLogDataCatcherServerInterceptor()
-		ss := &grpcmw.WrappedServerStream{WrappedContext: context.Background()}
+		ss := &grpcmw.WrappedServerStream{WrappedContext: createContext()}
 		err := interceptor(nil, ss, nil, func(interface{}, grpc.ServerStream) error {
 			return assert.AnError
 		})
@@ -421,7 +421,7 @@ func TestStreamLogDataCatcherServerInterceptor(t *testing.T) {
 
 	t.Run("no logger", func(t *testing.T) {
 		mpp := &messageProducerHolder{}
-		ctx := context.WithValue(context.Background(), messageProducerHolderKey{}, mpp)
+		ctx := context.WithValue(createContext(), messageProducerHolderKey{}, mpp)
 
 		interceptor := StreamLogDataCatcherServerInterceptor()
 		ss := &grpcmw.WrappedServerStream{WrappedContext: ctx}
@@ -430,7 +430,7 @@ func TestStreamLogDataCatcherServerInterceptor(t *testing.T) {
 
 	t.Run("caught", func(t *testing.T) {
 		mpp := &messageProducerHolder{}
-		ctx := context.WithValue(context.Background(), messageProducerHolderKey{}, mpp)
+		ctx := context.WithValue(createContext(), messageProducerHolderKey{}, mpp)
 		ctx = ctxlogrus.ToContext(ctx, logrus.New().WithField("a", 1))
 
 		interceptor := StreamLogDataCatcherServerInterceptor()
@@ -438,4 +438,10 @@ func TestStreamLogDataCatcherServerInterceptor(t *testing.T) {
 		_ = interceptor(nil, ss, nil, func(interface{}, grpc.ServerStream) error { return nil })
 		assert.Equal(t, logrus.Fields{"a": 1}, mpp.fields)
 	})
+}
+
+//nolint:forbidigo // We cannot use `testhelper.Context()` because of a cyclic dependency between
+// this package and the `testhelper` package.
+func createContext() context.Context {
+	return context.Background()
 }

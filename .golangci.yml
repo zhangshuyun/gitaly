@@ -53,6 +53,11 @@ linters-settings:
       # following functions is thus disallowed. and a code smell.
       - ^context.WithDeadline$
       - ^context.WithTimeout$
+      # Tests should always use `testhelper.Context()`: this context has
+      # special handling for feature flags which allows us to assert that
+      # they're tested as expected.
+      - ^context.Background$
+      - ^context.TODO$
   stylecheck:
     # ST1000 checks for missing package comments. We don't use these for most
     # packages, so let's disable this check.

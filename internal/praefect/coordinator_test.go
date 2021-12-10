@@ -2213,6 +2213,9 @@ func TestStreamParametersContext(t *testing.T) {
 		return metadata.Pairs(pairs...)
 	}
 
+	//nolint:forbidigo // We explicitly test context values, so we cannot use the testhelper
+	// context here given that it would contain unrelated data and thus change the system under
+	// test.
 	for _, tc := range []struct {
 		desc               string
 		setupContext       func() context.Context
