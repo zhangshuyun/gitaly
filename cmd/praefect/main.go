@@ -255,27 +255,21 @@ func run(
 			csg = rs
 			logger.Info("reads distribution caching is disabled because direct connection to Postgres is not set")
 		} else {
-			listenerOpts := datastore.DefaultPostgresListenerOpts
-			listenerOpts.Addr = dsn
-			listenerOpts.Channels = []string{"repositories_updates", "storage_repositories_updates"}
-
 			storagesCached, err := datastore.NewCachingConsistentStoragesGetter(logger, rs, conf.VirtualStorageNames())
 			if err != nil {
 				return fmt.Errorf("caching storage provider: %w", err)
 			}
 
-			postgresListener, err := datastore.NewPostgresListener(logger, listenerOpts, storagesCached)
-			if err != nil {
-				return err
-			}
-
-			defer func() {
-				if err := postgresListener.Close(); err != nil {
-					logger.WithError(err).Error("error on closing Postgres notifications listener")
+			resilientListenerTicker := helper.NewTimerTicker(5 * time.Second)
+			notificationsListener := datastore.NewResilientListener(conf.DB, resilientListenerTicker, logger)
+			go func() {
+				err := notificationsListener.Listen(ctx, storagesCached, datastore.StorageRepositoriesUpdatesChannel, datastore.RepositoriesUpdatesChannel)
+				if err != nil && !errors.Is(err, context.Canceled) {
+					logger.WithError(err).Error("notifications listener terminated")
 				}
 			}()
 
-			metricsCollectors = append(metricsCollectors, storagesCached, postgresListener)
+			metricsCollectors = append(metricsCollectors, storagesCached, notificationsListener)
 			csg = storagesCached
 			logger.Info("reads distribution caching is enabled by configuration")
 		}
