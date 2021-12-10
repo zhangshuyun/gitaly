@@ -38,11 +38,22 @@ func initLogging(p configProvider) (io.Closer, error) {
 }
 
 func smudge(to io.Writer, from io.Reader, cfgProvider configProvider) error {
-	output, err := handleSmudge(to, from, cfgProvider)
+	// Since the environment is sanitized at the moment, we're only
+	// using this to extract the correlation ID. The finished() call
+	// to clean up the tracing will be a NOP here.
+	ctx, finished := tracing.ExtractFromEnv(context.Background())
+	defer finished()
+
+	output, err := handleSmudge(ctx, to, from, cfgProvider)
 	if err != nil {
 		log.WithError(err).Error(err)
 		return err
 	}
+	defer func() {
+		if err := output.Close(); err != nil {
+			log.ContextLogger(ctx).WithError(err).Error("closing LFS object: %w", err)
+		}
+	}()
 
 	_, copyErr := io.Copy(to, output)
 	if copyErr != nil {
@@ -53,26 +64,20 @@ func smudge(to io.Writer, from io.Reader, cfgProvider configProvider) error {
 	return nil
 }
 
-func handleSmudge(to io.Writer, from io.Reader, config configProvider) (io.Reader, error) {
-	// Since the environment is sanitized at the moment, we're only
-	// using this to extract the correlation ID. The finished() call
-	// to clean up the tracing will be a NOP here.
-	ctx, finished := tracing.ExtractFromEnv(context.Background())
-	defer finished()
-
+func handleSmudge(ctx context.Context, to io.Writer, from io.Reader, config configProvider) (io.ReadCloser, error) {
 	logger := log.ContextLogger(ctx)
 
 	ptr, contents, err := lfs.DecodeFrom(from)
 	if err != nil {
 		// This isn't a valid LFS pointer. Just copy the existing pointer data.
-		return contents, nil
+		return io.NopCloser(contents), nil
 	}
 
 	logger.WithField("oid", ptr.Oid).Debug("decoded LFS OID")
 
 	glCfg, tlsCfg, glRepository, err := loadConfig(config)
 	if err != nil {
-		return contents, err
+		return io.NopCloser(contents), err
 	}
 
 	logger.WithField("gitlab_config", glCfg).
@@ -81,7 +86,7 @@ func handleSmudge(to io.Writer, from io.Reader, config configProvider) (io.Reade
 
 	client, err := gitlab.NewHTTPClient(logger, glCfg, tlsCfg, prometheus.Config{})
 	if err != nil {
-		return contents, err
+		return io.NopCloser(contents), err
 	}
 
 	qs := url.Values{}
@@ -91,14 +96,18 @@ func handleSmudge(to io.Writer, from io.Reader, config configProvider) (io.Reade
 
 	response, err := client.Get(ctx, u.String())
 	if err != nil {
-		return contents, fmt.Errorf("error loading LFS object: %v", err)
+		return io.NopCloser(contents), fmt.Errorf("error loading LFS object: %v", err)
 	}
 
 	if response.StatusCode == 200 {
 		return response.Body, nil
 	}
 
-	return contents, nil
+	if err := response.Body.Close(); err != nil {
+		logger.WithError(err).Error("closing LFS pointer body: %w", err)
+	}
+
+	return io.NopCloser(contents), nil
 }
 
 func loadConfig(cfgProvider configProvider) (config.Gitlab, config.TLS, string, error) {
