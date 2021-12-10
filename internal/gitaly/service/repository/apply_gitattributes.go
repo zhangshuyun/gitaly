@@ -8,11 +8,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
@@ -39,7 +41,46 @@ func (s *server) applyGitattributes(ctx context.Context, repo *localrepo.Repo, o
 		return err
 	}
 
+	// Create  /info folder if it doesn't exist
+	if err := os.MkdirAll(infoPath, 0o755); err != nil {
+		return err
+	}
+
 	if catfile.IsNotFound(err) || blobObj.Type != "blob" {
+		if featureflag.TxApplyGitattributesTwoPhaseRemoval.IsEnabled(ctx) {
+			locker, err := safe.NewLockingFileWriter(attributesPath, safe.LockingFileWriterConfig{
+				FileWriterConfig: safe.FileWriterConfig{FileMode: attributesFileMode},
+			})
+			if err != nil {
+				return fmt.Errorf("creating gitattributes lock: %w", err)
+			}
+			defer func() {
+				if err := locker.Close(); err != nil {
+					ctxlogrus.Extract(ctx).WithError(err).Error("unlocking gitattributes")
+				}
+			}()
+
+			if err := locker.Lock(); err != nil {
+				return fmt.Errorf("locking gitattributes: %w", err)
+			}
+
+			// We use the zero OID as placeholder to vote on removal of the
+			// gitattributes file.
+			if err := s.vote(ctx, git.ZeroOID); err != nil {
+				return fmt.Errorf("preimage vote: %w", err)
+			}
+
+			if err := os.Remove(attributesPath); err != nil && !os.IsNotExist(err) {
+				return err
+			}
+
+			if err := s.vote(ctx, git.ZeroOID); err != nil {
+				return fmt.Errorf("postimage vote: %w", err)
+			}
+
+			return nil
+		}
+
 		// If there is no gitattributes file, we simply use the ZeroOID
 		// as a placeholder to vote on the removal.
 		if err := s.vote(ctx, git.ZeroOID); err != nil {
@@ -52,11 +93,6 @@ func (s *server) applyGitattributes(ctx context.Context, repo *localrepo.Repo, o
 		}
 
 		return nil
-	}
-
-	// Create  /info folder if it doesn't exist
-	if err := os.MkdirAll(infoPath, 0o755); err != nil {
-		return err
 	}
 
 	writer, err := safe.NewLockingFileWriter(attributesPath, safe.LockingFileWriterConfig{
