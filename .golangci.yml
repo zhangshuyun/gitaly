@@ -13,6 +13,7 @@ linters:
     - errcheck
     - exportloopref
     - depguard
+    - forbidigo
     - gci
     # We use both gofmt and gofumpt because gofumpt doesn't seem to be linting
     # for simplifications, while gofmt does.
@@ -44,6 +45,14 @@ linters-settings:
     include-go-root: true
     packages-with-error-message:
       - io/ioutil: "ioutil is deprecated starting with Go 1.16"
+  forbidigo:
+    forbid:
+      # Tests and code which use timing-based setups have repeatedly resulted
+      # in flaky tests and are considered a code smell. Tests should be
+      # rewritten to use deterministic timing sources like tickers. Using the
+      # following functions is thus disallowed. and a code smell.
+      - ^context.WithDeadline$
+      - ^context.WithTimeout$
   stylecheck:
     # ST1000 checks for missing package comments. We don't use these for most
     # packages, so let's disable this check.
@@ -52,6 +61,10 @@ linters-settings:
 issues:
   exclude-use-default: false
   exclude-rules:
+    - linters:
+        - forbidigo
+      # This fine thing excludes all paths which don't end with "_test.go".
+      path: "^([^_]|_([^t]|t([^e]|e([^s]|s([^t]|t([^\\.]|\\.([^g]|g[^o])))))))*$"
     - linters:
         - revive
       text: "context.Context should be the first parameter of a function"

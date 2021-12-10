@@ -86,7 +86,7 @@ func BenchmarkConcurrency(b *testing.B) {
 }
 
 func makeRequest(s *Server) error {
-	ctx, cancel := testhelper.Context(testhelper.ContextWithTimeout(time.Second))
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	conn, err := s.getConnection(ctx)

@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/labkit/correlation"
@@ -26,24 +27,24 @@ func TestProcesses_add(t *testing.T) {
 
 	key0 := mustCreateKey(t, "0", repo)
 	value0, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key0, value0, time.Hour, cancel)
+	p.Add(key0, value0, time.Now().Add(time.Hour), cancel)
 	requireProcessesValid(t, p)
 
 	key1 := mustCreateKey(t, "1", repo)
 	value1, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key1, value1, time.Hour, cancel)
+	p.Add(key1, value1, time.Now().Add(time.Hour), cancel)
 	requireProcessesValid(t, p)
 
 	key2 := mustCreateKey(t, "2", repo)
 	value2, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key2, value2, time.Hour, cancel)
+	p.Add(key2, value2, time.Now().Add(time.Hour), cancel)
 	requireProcessesValid(t, p)
 
 	// Because maxLen is 3, and key0 is oldest, we expect that adding key3
 	// will kick out key0.
 	key3 := mustCreateKey(t, "3", repo)
 	value3, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key3, value3, time.Hour, cancel)
+	p.Add(key3, value3, time.Now().Add(time.Hour), cancel)
 	requireProcessesValid(t, p)
 
 	require.Equal(t, maxLen, p.EntryCount(), "length should be maxLen")
@@ -58,18 +59,18 @@ func TestProcesses_addTwice(t *testing.T) {
 
 	key0 := mustCreateKey(t, "0", repo)
 	value0, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key0, value0, time.Hour, cancel)
+	p.Add(key0, value0, time.Now().Add(time.Hour), cancel)
 	requireProcessesValid(t, p)
 
 	key1 := mustCreateKey(t, "1", repo)
 	value1, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key1, value1, time.Hour, cancel)
+	p.Add(key1, value1, time.Now().Add(time.Hour), cancel)
 	requireProcessesValid(t, p)
 
 	require.Equal(t, key0, p.head().key, "key0 should be oldest key")
 
 	value2, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key0, value2, time.Hour, cancel)
+	p.Add(key0, value2, time.Now().Add(time.Hour), cancel)
 	requireProcessesValid(t, p)
 
 	require.Equal(t, key1, p.head().key, "key1 should be oldest key")
@@ -85,7 +86,7 @@ func TestProcesses_Checkout(t *testing.T) {
 
 	key0 := mustCreateKey(t, "0", repo)
 	value0, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key0, value0, time.Hour, cancel)
+	p.Add(key0, value0, time.Now().Add(time.Hour), cancel)
 
 	entry, ok := p.Checkout(key{sessionID: "foo"})
 	requireProcessesValid(t, p)
@@ -106,35 +107,27 @@ func TestProcesses_Checkout(t *testing.T) {
 }
 
 func TestProcesses_EnforceTTL(t *testing.T) {
-	ttl := time.Hour
 	p := &processes{maxLen: 10}
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	sleep := func() { time.Sleep(2 * time.Millisecond) }
+	cutoff := time.Now()
 
 	key0 := mustCreateKey(t, "0", repo)
 	value0, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key0, value0, ttl, cancel)
-	sleep()
+	p.Add(key0, value0, cutoff.Add(-time.Hour), cancel)
 
 	key1 := mustCreateKey(t, "1", repo)
 	value1, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key1, value1, ttl, cancel)
-	sleep()
-
-	cutoff := time.Now().Add(ttl)
-	sleep()
+	p.Add(key1, value1, cutoff.Add(-time.Millisecond), cancel)
 
 	key2 := mustCreateKey(t, "2", repo)
 	value2, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key2, value2, ttl, cancel)
-	sleep()
+	p.Add(key2, value2, cutoff.Add(time.Millisecond), cancel)
 
 	key3 := mustCreateKey(t, "3", repo)
 	value3, cancel := mustCreateCacheable(t, cfg, repo)
-	p.Add(key3, value3, ttl, cancel)
-	sleep()
+	p.Add(key3, value3, cutoff.Add(time.Hour), cancel)
 
 	requireProcessesValid(t, p)
 
@@ -156,29 +149,29 @@ func TestProcesses_EnforceTTL(t *testing.T) {
 }
 
 func TestCache_autoExpiry(t *testing.T) {
-	ttl := 5 * time.Millisecond
-	refresh := 1 * time.Millisecond
-	c := newCache(ttl, 10, refresh)
+	monitorTicker := helper.NewManualTicker()
+
+	c := newCache(time.Hour, 10, monitorTicker)
 	defer c.Stop()
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
+	// Add a process that has expired already.
 	key0 := mustCreateKey(t, "0", repo)
 	value0, cancel := mustCreateCacheable(t, cfg, repo)
-	c.objectReaders.Add(key0, value0, ttl, cancel)
+	c.objectReaders.Add(key0, value0, time.Now().Add(-time.Millisecond), cancel)
 	requireProcessesValid(t, &c.objectReaders)
 
 	require.Contains(t, keys(t, &c.objectReaders), key0, "key should still be in map")
 	require.False(t, value0.isClosed(), "value should not have been closed")
 
-	// Wait for the monitor goroutine to do its thing
-	for i := 0; i < 100; i++ {
-		if len(keys(t, &c.objectReaders)) == 0 {
-			break
-		}
-
-		time.Sleep(refresh)
-	}
+	// We need to tick thrice to get deterministic results: the first tick is discarded before
+	// the monitor enters the loop, the second tick will be consumed and kicks off the eviction
+	// but doesn't yet guarantee that the eviction has finished, and the third tick will then
+	// start another eviction, which means that the previous eviction is done.
+	monitorTicker.Tick()
+	monitorTicker.Tick()
+	monitorTicker.Tick()
 
 	require.Empty(t, keys(t, &c.objectReaders), "key should no longer be in map")
 	require.True(t, value0.isClosed(), "value should be closed after eviction")
@@ -188,7 +181,7 @@ func TestCache_ObjectReader(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 	repoExecutor := newRepoExecutor(t, cfg, repo)
 
-	cache := newCache(time.Hour, 10, time.Hour)
+	cache := newCache(time.Hour, 10, helper.NewManualTicker())
 	defer cache.Stop()
 	cache.cachedProcessDone = sync.NewCond(&sync.Mutex{})
 
@@ -324,7 +317,7 @@ func TestCache_ObjectInfoReader(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 	repoExecutor := newRepoExecutor(t, cfg, repo)
 
-	cache := newCache(time.Hour, 10, time.Hour)
+	cache := newCache(time.Hour, 10, helper.NewManualTicker())
 	defer cache.Stop()
 	cache.cachedProcessDone = sync.NewCond(&sync.Mutex{})
 

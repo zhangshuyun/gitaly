@@ -1,7 +1,6 @@
 package glsql
 
 import (
-	"context"
 	"net"
 	"testing"
 	"time"
@@ -36,10 +35,12 @@ func TestOpenDB(t *testing.T) {
 		badCfg.Host = "localhost"
 		badCfg.Port = (lis.Addr().(*net.TCPAddr)).Port
 		start := time.Now()
-		ctx, cancel := context.WithTimeout(ctx, time.Nanosecond)
-		defer cancel()
+
+		ctx, cancel := testhelper.Context()
+		cancel()
+
 		_, err = OpenDB(ctx, badCfg)
-		require.Equal(t, context.DeadlineExceeded, err, "context cancellation should prevent hang")
+		require.EqualError(t, err, "context canceled")
 		duration := time.Since(start)
 		require.Truef(t, duration < time.Second, "connection attempt took %s", duration.String())
 	})

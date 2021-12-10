@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,7 +18,7 @@ import (
 // into a stream. Further more, it demonstrates that peeking into a stream
 // will not disturb the stream sent from the proxy client to the backend.
 func TestStreamPeeking(t *testing.T) {
-	ctx, cancel := testhelper.Context(testhelper.ContextWithTimeout(2 * time.Second))
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	backendCC, backendSrvr, cleanupPinger := newBackendPinger(t, ctx)
@@ -77,7 +76,7 @@ func TestStreamPeeking(t *testing.T) {
 }
 
 func TestStreamInjecting(t *testing.T) {
-	ctx, cancel := testhelper.Context(testhelper.ContextWithTimeout(2 * time.Second))
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	backendCC, backendSrvr, cleanupPinger := newBackendPinger(t, ctx)

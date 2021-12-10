@@ -231,7 +231,8 @@ func (p *Ping) Error() error {
 	return p.err
 }
 
-// PingAll loops through all the pings and calls CheckNode on them
+// PingAll loops through all the pings and calls CheckNode on them. Returns a PingError in case
+// pinging a subset of nodes failed.
 func PingAll(ctx context.Context, cfg config.Config, printer Printer, quiet bool) error {
 	pings := newPingSet(cfg, printer, quiet)
 
@@ -253,17 +254,19 @@ func PingAll(ctx context.Context, cfg config.Config, printer Printer, quiet bool
 	}
 
 	if len(unhealthyAddresses) > 0 {
-		return &pingError{unhealthyAddresses}
+		return &PingError{unhealthyAddresses}
 	}
 
 	return nil
 }
 
-type pingError struct {
-	unhealthyAddresses []string
+// PingError is an error returned in case pinging a node failed.
+type PingError struct {
+	// UnhealthyAddresses contains all addresses which
+	UnhealthyAddresses []string
 }
 
 // Error returns a composite error message based on which nodes were deemed unhealthy
-func (n *pingError) Error() string {
-	return fmt.Sprintf("the following nodes are not healthy: %s", strings.Join(n.unhealthyAddresses, ", "))
+func (n *PingError) Error() string {
+	return fmt.Sprintf("the following nodes are not healthy: %s", strings.Join(n.UnhealthyAddresses, ", "))
 }

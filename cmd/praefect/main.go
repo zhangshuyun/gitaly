@@ -463,8 +463,12 @@ func run(
 	}
 
 	go repl.ProcessBacklog(ctx, praefect.ExpBackoffFactory{Start: time.Second, Max: 5 * time.Second})
+
+	staleTicker := helper.NewTimerTicker(30 * time.Second)
+	defer staleTicker.Stop()
+
 	logger.Info("background started: processing of the replication events")
-	repl.ProcessStale(ctx, 30*time.Second, time.Minute)
+	repl.ProcessStale(ctx, staleTicker, time.Minute)
 	logger.Info("background started: processing of the stale replication events")
 
 	if interval := conf.Reconciliation.SchedulingInterval.Duration(); interval > 0 {

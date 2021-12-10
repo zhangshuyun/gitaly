@@ -110,6 +110,8 @@ func (w *worker) monitor() {
 				swMem.reset()
 				swHealth.reset()
 				lastRestart = time.Now()
+			case supervisor.Crash:
+				break nextEvent
 			case supervisor.MemoryHigh:
 				if badPid(e.Pid) {
 					w.logBadEvent(e)

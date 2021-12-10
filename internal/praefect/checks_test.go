@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -18,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/migrations"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -249,10 +249,14 @@ func TestGitalyNodeConnectivityCheck(t *testing.T) {
 			false,
 		)
 
-		ctx, cancel := testhelper.Context(testhelper.ContextWithTimeout(1 * time.Second))
-		defer cancel()
+		ctx, cancel := testhelper.Context()
 
-		assert.Errorf(t, check.Run(ctx), "the following nodes are not healthy: %s", socketAddr)
+		// Cancel the context directly such that dialling the node will fail.
+		cancel()
+
+		require.Equal(t, &nodes.PingError{
+			UnhealthyAddresses: []string{socketAddr},
+		}, check.Run(ctx))
 	})
 
 	t.Run("output check details", func(t *testing.T) {

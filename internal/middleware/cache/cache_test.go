@@ -6,7 +6,6 @@ import (
 	"net"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,7 +37,7 @@ func TestInvalidators(t *testing.T) {
 		),
 	)
 
-	ctx, cancel := testhelper.Context(testhelper.ContextWithTimeout(time.Second))
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	svc := &testSvc{}

@@ -24,6 +24,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
@@ -1129,16 +1130,20 @@ func TestReplMgr_ProcessStale(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	ctx, cancel = context.WithTimeout(ctx, 350*time.Millisecond)
-	defer cancel()
+	ticker := helper.NewManualTicker()
 
-	done := mgr.ProcessStale(ctx, 100*time.Millisecond, time.Second)
+	done := mgr.ProcessStale(ctx, ticker, time.Second)
 
-	select {
-	case <-time.After(time.Second):
-		require.FailNow(t, "execution had stuck")
-	case <-done:
-	}
+	// Tick thrice so we know that at least one event was acknowledged: the first tick is
+	// consumed by the reset, the second tick is consumed by the first loop, but we don't know
+	// yet that the loop is done. And the third tick then finally tells us that at have run it
+	// at least once.
+	ticker.Tick()
+	ticker.Tick()
+	ticker.Tick()
+
+	cancel()
+	<-done
 
 	require.Equal(t, int32(3), counter)
 	require.Len(t, hook.Entries, 1)

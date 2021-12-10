@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -502,9 +501,6 @@ func TestSubtransaction_voterStopsWaiting(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
-			defer cancel()
-
 			var totalWeight uint
 			var voters []Voter
 			for i, outcome := range tc.outcomes {

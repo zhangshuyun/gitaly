@@ -55,7 +55,10 @@ func TestDiskCacheObjectWalker(t *testing.T) {
 	require.NoError(t, cache.StartWalkers())
 	defer cache.StopWalkers()
 
-	pollCountersUntil(t, cache, 4)
+	require.Eventually(t, func() bool {
+		count := int(promtest.ToFloat64(cache.walkerRemovalTotal))
+		return count == 4
+	}, time.Minute, time.Millisecond)
 
 	for _, p := range shouldExist {
 		assert.FileExists(t, p)
@@ -82,27 +85,6 @@ func TestDiskCacheInitialClear(t *testing.T) {
 	defer cache.StopWalkers()
 
 	require.NoFileExists(t, canary)
-}
-
-func pollCountersUntil(t testing.TB, cache *DiskCache, expectRemovals int) {
-	// poll injected mock prometheus counters until expected events occur
-	timeout := time.After(time.Second)
-	for {
-		count := int(promtest.ToFloat64(cache.walkerRemovalTotal))
-		select {
-		case <-timeout:
-			t.Fatalf(
-				"timed out polling prometheus stats; removals: %d",
-				count,
-			)
-		default:
-			// keep on truckin'
-		}
-		if count == expectRemovals {
-			break
-		}
-		time.Sleep(time.Millisecond)
-	}
 }
 
 func TestCleanWalkDirNotExists(t *testing.T) {

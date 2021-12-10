@@ -332,10 +332,6 @@ func TestHealthCheck(t *testing.T) {
 	}}, buildOptions{})
 	defer cleanup()
 
-	// setup timeout only after praefect setup as db migration may require some time
-	ctx, cancel = context.WithTimeout(ctx, time.Second)
-	defer cancel()
-
 	client := grpc_health_v1.NewHealthClient(cc)
 	_, err := client.Check(ctx, &grpc_health_v1.HealthCheckRequest{})
 	require.NoError(t, err)
