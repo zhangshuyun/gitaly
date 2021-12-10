@@ -168,7 +168,12 @@ func ContextWithLogger(logger *log.Entry) ContextOpt {
 
 // Context returns a cancellable context.
 func Context(opts ...ContextOpt) (context.Context, func()) {
-	ctx, cancel := context.WithCancel(context.Background())
+	return context.WithCancel(ContextWithoutCancel(opts...))
+}
+
+// ContextWithoutCancel returns a non-cancellable context.
+func ContextWithoutCancel(opts ...ContextOpt) context.Context {
+	ctx := context.Background()
 
 	// Enable use of explicit feature flags. Each feature flag which is checked must have been
 	// explicitly injected into the context, or otherwise we panic. This is a sanity check to
@@ -184,7 +189,7 @@ func Context(opts ...ContextOpt) (context.Context, func()) {
 		ctx = opt(ctx)
 	}
 
-	return ctx, cancel
+	return ctx
 }
 
 // CreateGlobalDirectory creates a directory in the test directory that is shared across all
