@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"io"
 	"path/filepath"
 	"testing"
@@ -102,6 +101,10 @@ func TestAddRepository_Exec(t *testing.T) {
 			},
 		},
 		DB: dbConf,
+		Failover: config.Failover{
+			Enabled:          true,
+			ElectionStrategy: config.ElectionStrategyPerRepository,
+		},
 	}
 
 	gitalyCC, err := client.Dial(g1Addr, nil)
@@ -126,114 +129,116 @@ func TestAddRepository_Exec(t *testing.T) {
 		return err
 	}
 
-	testCases := map[string]struct {
-		failoverConfig       config.Failover
-		authoritativeStorage string
-	}{
-		"sql election": {
-			failoverConfig: config.Failover{
-				Enabled:          true,
-				ElectionStrategy: config.ElectionStrategySQL,
-			},
-			authoritativeStorage: "",
-		},
-		"per repository election": {
-			failoverConfig: config.Failover{
-				Enabled:          true,
-				ElectionStrategy: config.ElectionStrategyPerRepository,
-			},
-			authoritativeStorage: g1Cfg.Storages[0].Name,
-		},
-	}
-
+	authoritativeStorage := g1Cfg.Storages[0].Name
 	logger := testhelper.NewDiscardingLogger(t)
-	for tn, tc := range testCases {
-		t.Run(tn, func(t *testing.T) {
-			addCmdConf := conf
-			addCmdConf.Failover = tc.failoverConfig
 
-			t.Run("ok", func(t *testing.T) {
-				nodeMgr, err := nodes.NewManager(testhelper.NewDiscardingLogEntry(t), addCmdConf, db.DB, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
-				require.NoError(t, err)
-				nodeMgr.Start(0, time.Hour)
-				defer nodeMgr.Stop()
+	t.Run("ok", func(t *testing.T) {
+		nodeMgr, err := nodes.NewManager(
+			testhelper.NewDiscardingLogEntry(t),
+			conf,
+			db.DB,
+			nil,
+			promtest.NewMockHistogramVec(),
+			protoregistry.GitalyProtoPreregistered,
+			nil,
+			nil,
+			nil,
+		)
+		require.NoError(t, err)
+		nodeMgr.Start(0, time.Hour)
+		defer nodeMgr.Stop()
 
-				relativePath := fmt.Sprintf("path/to/test/repo_%s", tn)
-				repoDS := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
+		relativePath := "path/to/test/repo"
+		repoDS := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
 
-				rmRepoCmd := &removeRepository{
-					logger:         logger,
-					virtualStorage: virtualStorageName,
-					relativePath:   relativePath,
-					w:              io.Discard,
-					apply:          true,
-				}
+		rmRepoCmd := &removeRepository{
+			logger:         logger,
+			virtualStorage: virtualStorageName,
+			relativePath:   relativePath,
+			w:              io.Discard,
+			apply:          true,
+		}
 
-				require.NoError(t, rmRepoCmd.Exec(flag.NewFlagSet("", flag.PanicOnError), conf))
+		require.NoError(t, rmRepoCmd.Exec(flag.NewFlagSet("", flag.PanicOnError), conf))
 
-				// create the repo on Gitaly without Praefect knowing
-				require.NoError(t, createRepoThroughGitaly1(relativePath))
-				require.DirExists(t, filepath.Join(g1Cfg.Storages[0].Path, relativePath))
-				require.NoDirExists(t, filepath.Join(g2Cfg.Storages[0].Path, relativePath))
+		// create the repo on Gitaly without Praefect knowing
+		require.NoError(t, createRepoThroughGitaly1(relativePath))
+		require.DirExists(t, filepath.Join(g1Cfg.Storages[0].Path, relativePath))
+		require.NoDirExists(t, filepath.Join(g2Cfg.Storages[0].Path, relativePath))
 
-				addRepoCmd := &trackRepository{
-					logger:               logger,
-					virtualStorage:       virtualStorageName,
-					relativePath:         relativePath,
-					authoritativeStorage: tc.authoritativeStorage,
-				}
+		addRepoCmd := &trackRepository{
+			logger:               logger,
+			virtualStorage:       virtualStorageName,
+			relativePath:         relativePath,
+			authoritativeStorage: authoritativeStorage,
+		}
 
-				require.NoError(t, addRepoCmd.Exec(flag.NewFlagSet("", flag.PanicOnError), addCmdConf))
-				as := datastore.NewAssignmentStore(db, conf.StorageNames())
+		require.NoError(t, addRepoCmd.Exec(flag.NewFlagSet("", flag.PanicOnError), conf))
+		as := datastore.NewAssignmentStore(db, conf.StorageNames())
 
-				repositoryID, err := repoDS.GetRepositoryID(ctx, virtualStorageName, relativePath)
-				require.NoError(t, err)
+		repositoryID, err := repoDS.GetRepositoryID(ctx, virtualStorageName, relativePath)
+		require.NoError(t, err)
 
-				assignments, err := as.GetHostAssignments(ctx, virtualStorageName, repositoryID)
-				require.NoError(t, err)
-				require.Len(t, assignments, 2)
-				assert.Contains(t, assignments, g1Cfg.Storages[0].Name)
-				assert.Contains(t, assignments, g2Cfg.Storages[0].Name)
+		assignments, err := as.GetHostAssignments(ctx, virtualStorageName, repositoryID)
+		require.NoError(t, err)
+		require.Len(t, assignments, 2)
+		assert.Contains(t, assignments, g1Cfg.Storages[0].Name)
+		assert.Contains(t, assignments, g2Cfg.Storages[0].Name)
 
-				exists, err := repoDS.RepositoryExists(ctx, virtualStorageName, relativePath)
-				require.NoError(t, err)
-				assert.True(t, exists)
-			})
+		exists, err := repoDS.RepositoryExists(ctx, virtualStorageName, relativePath)
+		require.NoError(t, err)
+		assert.True(t, exists)
 
-			t.Run("repository does not exist", func(t *testing.T) {
-				relativePath := fmt.Sprintf("path/to/test/repo_1_%s", tn)
+		queue := datastore.NewPostgresReplicationEventQueue(db)
+		events, err := queue.Dequeue(ctx, virtualStorageName, g2Cfg.Storages[0].Name, 1)
+		require.NoError(t, err)
+		assert.Len(t, events, 1)
+		assert.Equal(t, relativePath, events[0].Job.RelativePath)
+	})
 
-				cmd := &trackRepository{
-					logger:               testhelper.NewDiscardingLogger(t),
-					virtualStorage:       "praefect",
-					relativePath:         relativePath,
-					authoritativeStorage: tc.authoritativeStorage,
-				}
+	t.Run("repository does not exist", func(t *testing.T) {
+		relativePath := "path/to/test/repo_1"
 
-				assert.ErrorIs(t, cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), addCmdConf), errAuthoritativeRepositoryNotExist)
-			})
+		cmd := &trackRepository{
+			logger:               testhelper.NewDiscardingLogger(t),
+			virtualStorage:       "praefect",
+			relativePath:         relativePath,
+			authoritativeStorage: authoritativeStorage,
+		}
 
-			t.Run("records already exist", func(t *testing.T) {
-				relativePath := fmt.Sprintf("path/to/test/repo_2_%s", tn)
+		assert.ErrorIs(t, cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), conf), errAuthoritativeRepositoryNotExist)
+	})
 
-				require.NoError(t, createRepoThroughGitaly1(relativePath))
-				require.DirExists(t, filepath.Join(g1Cfg.Storages[0].Path, relativePath))
-				require.NoDirExists(t, filepath.Join(g2Cfg.Storages[0].Path, relativePath))
+	t.Run("records already exist", func(t *testing.T) {
+		relativePath := "path/to/test/repo_2"
 
-				ds := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
-				id, err := ds.ReserveRepositoryID(ctx, virtualStorageName, relativePath)
-				require.NoError(t, err)
-				require.NoError(t, ds.CreateRepository(ctx, id, virtualStorageName, relativePath, relativePath, g1Cfg.Storages[0].Name, nil, nil, true, true))
+		require.NoError(t, createRepoThroughGitaly1(relativePath))
+		require.DirExists(t, filepath.Join(g1Cfg.Storages[0].Path, relativePath))
+		require.NoDirExists(t, filepath.Join(g2Cfg.Storages[0].Path, relativePath))
 
-				cmd := &trackRepository{
-					logger:               testhelper.NewDiscardingLogger(t),
-					virtualStorage:       virtualStorageName,
-					relativePath:         relativePath,
-					authoritativeStorage: tc.authoritativeStorage,
-				}
+		ds := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
+		id, err := ds.ReserveRepositoryID(ctx, virtualStorageName, relativePath)
+		require.NoError(t, err)
+		require.NoError(t, ds.CreateRepository(
+			ctx,
+			id,
+			virtualStorageName,
+			relativePath,
+			relativePath,
+			g1Cfg.Storages[0].Name,
+			nil,
+			nil,
+			true,
+			true,
+		))
 
-				assert.NoError(t, cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), addCmdConf))
-			})
-		})
-	}
+		cmd := &trackRepository{
+			logger:               testhelper.NewDiscardingLogger(t),
+			virtualStorage:       virtualStorageName,
+			relativePath:         relativePath,
+			authoritativeStorage: authoritativeStorage,
+		}
+
+		assert.NoError(t, cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), conf))
+	})
 }

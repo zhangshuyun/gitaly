@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
@@ -137,9 +138,13 @@ func (cmd *trackRepository) exec(ctx context.Context, logger logrus.FieldLogger,
 		return fmt.Errorf("%s: %w", trackRepoErrorPrefix, errAuthoritativeRepositoryNotExist)
 	}
 
+	store := datastore.NewPostgresRepositoryStore(db, cfg.StorageNames())
+	queue := datastore.NewPostgresReplicationEventQueue(db)
+
 	if err := cmd.trackRepository(
 		ctx,
-		datastore.NewPostgresRepositoryStore(db, cfg.StorageNames()),
+		store,
+		queue,
 		primary,
 		secondaries,
 		savePrimary,
@@ -156,6 +161,7 @@ func (cmd *trackRepository) exec(ctx context.Context, logger logrus.FieldLogger,
 func (cmd *trackRepository) trackRepository(
 	ctx context.Context,
 	ds *datastore.PostgresRepositoryStore,
+	queue datastore.ReplicationEventQueue,
 	primary string,
 	secondaries []string,
 	savePrimary bool,
@@ -184,6 +190,26 @@ func (cmd *trackRepository) trackRepository(
 		variableReplicationFactorEnabled,
 	); err != nil {
 		return fmt.Errorf("CreateRepository: %w", err)
+	}
+
+	correlationID := correlation.SafeRandomID()
+	for _, secondary := range secondaries {
+		event := datastore.ReplicationEvent{
+			Job: datastore.ReplicationJob{
+				RepositoryID:      repositoryID,
+				Change:            datastore.UpdateRepo,
+				RelativePath:      cmd.relativePath,
+				VirtualStorage:    cmd.virtualStorage,
+				SourceNodeStorage: primary,
+				TargetNodeStorage: secondary,
+			},
+			Meta: datastore.Params{metadatahandler.CorrelationIDKey: correlationID},
+		}
+
+		_, err := queue.Enqueue(ctx, event)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
