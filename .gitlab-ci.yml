@@ -18,6 +18,8 @@ variables:
   RUBY_VERSION: "2.7"
   POSTGRES_VERSION: "12.6-alpine"
   PGBOUNCER_VERSION: "1.16.1"
+  BUNDLE_PATH: "${CI_PROJECT_DIR}/.ruby"
+  GOPATH: "${CI_PROJECT_DIR}/.go"
 
 include:
   - template: Workflows/MergeRequest-Pipelines.gitlab-ci.yml
@@ -27,21 +29,43 @@ include:
   - template: Security/Coverage-Fuzzing.gitlab-ci.yml
   - template: Security/Secret-Detection.gitlab-ci.yml
 
-.cache: &cache_definition
-  cache: &cache_configuration
+.cache_deps:
+  cache: &cache_deps_configuration
     key:
       files:
         - Makefile
-        - ruby/Gemfile.lock
-      prefix: git-${GIT_VERSION}-ruby-${RUBY_VERSION}
+      prefix: git-${GIT_VERSION}
     paths:
       - _build/deps
-      - ruby/vendor/bundle
+    policy: pull
+
+.cache_gems:
+  cache: &cache_gems_configuration
+    key:
+      files:
+        - ruby/Gemfile.lock
+      prefix: ruby-${RUBY_VERSION}
+    paths:
+      - .ruby
+    policy: pull
+
+.cache_go:
+  cache: &cache_go_configuration
+    key:
+      files:
+        - go.sum
+      prefix: go-${GO_VERSION}
+    paths:
+      - .go/pkg/mod
+      - _build/cache
     policy: pull
 
 .test_template: &test_definition
-  <<: *cache_definition
   stage: test
+  cache:
+    - *cache_deps_configuration
+    - *cache_gems_configuration
+    - *cache_go_configuration
   services:
     - postgres:${POSTGRES_VERSION}
   variables: &postgres_variables
@@ -52,7 +76,6 @@ include:
     POSTGRES_HOST_AUTH_METHOD: trust
   before_script: &test_before_script
     - go version
-    - git version
     - while ! psql -h $PGHOST -U $PGUSER -c 'SELECT 1' > /dev/null; do echo "awaiting Postgres service to be ready..." && sleep 1 ; done && echo "Postgres service is ready!"
   artifacts:
     paths:
@@ -88,8 +111,12 @@ danger-review:
 build:
   stage: build
   cache:
-    <<: *cache_configuration
-    policy: pull-push
+    - <<: *cache_deps_configuration
+      policy: pull-push
+    - <<: *cache_gems_configuration
+      policy: pull-push
+    - <<: *cache_go_configuration
+      policy: pull-push
   script:
     - go version
     - make all git
@@ -104,8 +131,10 @@ build:
       - GO_VERSION: [ "1.16", "1.17" ]
 
 build:binaries:
-  <<: *cache_definition
   stage: build
+  cache:
+    - *cache_deps_configuration
+    - *cache_go_configuration
   only:
     - tags
   script:
@@ -126,7 +155,6 @@ build:binaries:
 test:
   <<: *test_definition
   script:
-    - _build/deps/git/install/bin/git version
     # This command will make all directories except of our build directory and Ruby code unwritable.
     # The purpose is to verify that there is no test which writes into those directories anymore, as
     # they should all instead use a temporary directory for runtime data.
@@ -135,7 +163,7 @@ test:
     # installation around. Otherwise, Git would be able to resolve its binaries
     # by just looking at its own GIT_PREFIX and then pick binaries from that
     # installation directory.
-    - if test -n "${WITH_BUNDLED_GIT}"; then rm -r _build/deps/git/install; fi
+    - if test -n "${WITH_BUNDLED_GIT}"; then rm -rf _build/deps/git/install; fi
     - make ${TARGET}
   parallel:
     matrix:
@@ -231,8 +259,10 @@ test:fuzz_objectinfo:
     - ./gitlab-cov-fuzz run -- ./objectinfo_fuzzer -max_total_time=300
 
 verify:
-  <<: *cache_definition
   stage: test
+  cache:
+    - *cache_gems_configuration
+    - *cache_go_configuration
   script:
     - make verify
   artifacts:
@@ -243,8 +273,10 @@ verify:
     when: on_failure
 
 dbschema:
-  <<: *cache_definition
   stage: test
+  cache:
+    - *cache_deps_configuration
+    - *cache_go_configuration
   services:
     # The database version we use must match the version of `pg_dump` we have
     # available in the build image.
