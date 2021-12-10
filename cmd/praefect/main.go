@@ -514,7 +514,10 @@ func run(
 		logger.Warn(`Repository cleanup background task disabled as "repositories_cleanup.run_interval" is not set or 0.`)
 	}
 
-	return b.Wait(conf.GracefulStopTimeout.Duration(), srvFactory.GracefulStop)
+	gracefulStopTicker := helper.NewTimerTicker(conf.GracefulStopTimeout.Duration())
+	defer gracefulStopTicker.Stop()
+
+	return b.Wait(gracefulStopTicker, srvFactory.GracefulStop)
 }
 
 func getStarterConfigs(conf config.Config) ([]starter.Config, error) {

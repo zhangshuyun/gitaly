@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"syscall"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
@@ -93,7 +93,7 @@ func TestBootstrap_listenerError(t *testing.T) {
 	b, upgrader, listeners := setup(t, ctx)
 
 	waitCh := make(chan error)
-	go func() { waitCh <- b.Wait(time.Hour, nil) }()
+	go func() { waitCh <- b.Wait(helper.NewManualTicker(), nil) }()
 
 	// Signal readiness, but don't start the upgrade. Like this, we can close the listener in a
 	// raceless manner and wait for the error to propagate.
@@ -114,7 +114,7 @@ func TestBootstrap_signal(t *testing.T) {
 			b, upgrader, _ := setup(t, ctx)
 
 			waitCh := make(chan error)
-			go func() { waitCh <- b.Wait(time.Hour, nil) }()
+			go func() { waitCh <- b.Wait(helper.NewManualTicker(), nil) }()
 
 			// Start the upgrade, but don't unblock `Exit()` such that we'll be blocked
 			// waiting on the parent.
@@ -137,9 +137,13 @@ func TestBootstrap_gracefulTerminationStuck(t *testing.T) {
 
 	b, upgrader, _ := setup(t, ctx)
 
+	gracePeriodTicker := helper.NewManualTicker()
+
 	doneCh := make(chan struct{})
-	err := performUpgrade(t, b, upgrader, time.Second, nil, func() {
+	err := performUpgrade(t, b, upgrader, gracePeriodTicker, nil, func() {
 		defer close(doneCh)
+
+		gracePeriodTicker.Tick()
 
 		// We block on context cancellation here, which essentially means that this won't
 		// terminate and thus the graceful termination will be stuck.
@@ -160,7 +164,7 @@ func TestBootstrap_gracefulTerminationWithSignals(t *testing.T) {
 			b, upgrader, _ := setup(t, ctx)
 
 			doneCh := make(chan struct{})
-			err := performUpgrade(t, b, upgrader, time.Hour, func() {
+			err := performUpgrade(t, b, upgrader, helper.NewManualTicker(), func() {
 				self, err := os.FindProcess(os.Getpid())
 				require.NoError(t, err)
 				require.NoError(t, self.Signal(sig))
@@ -184,13 +188,17 @@ func TestBootstrap_gracefulTerminationTimeoutWithListenerError(t *testing.T) {
 
 	b, upgrader, listeners := setup(t, ctx)
 
+	gracePeriodTicker := helper.NewManualTicker()
+
 	doneCh := make(chan struct{})
-	err := performUpgrade(t, b, upgrader, time.Second, nil, func() {
+	err := performUpgrade(t, b, upgrader, gracePeriodTicker, nil, func() {
 		defer close(doneCh)
 
 		// We inject an error into the Unix socket to assert that this won't kill the server
 		// immediately, but waits for the TCP connection to terminate as expected.
 		listeners["unix"].errorCh <- assert.AnError
+
+		gracePeriodTicker.Tick()
 
 		// We block on context cancellation here, which essentially means that this won't
 		// terminate.
@@ -208,7 +216,10 @@ func TestBootstrap_gracefulTermination(t *testing.T) {
 
 	b, upgrader, _ := setup(t, ctx)
 
-	require.Equal(t, fmt.Errorf("graceful upgrade: completed"), performUpgrade(t, b, upgrader, time.Hour, nil, nil))
+	require.Equal(t,
+		fmt.Errorf("graceful upgrade: completed"),
+		performUpgrade(t, b, upgrader, helper.NewManualTicker(), nil, nil),
+	)
 }
 
 func TestBootstrap_portReuse(t *testing.T) {
@@ -233,12 +244,12 @@ func performUpgrade(
 	t *testing.T,
 	b *Bootstrap,
 	upgrader *mockUpgrader,
-	gracefulWait time.Duration,
+	gracePeriodTicker helper.Ticker,
 	duringGracePeriodCallback func(),
 	stopAction func(),
 ) error {
 	waitCh := make(chan error)
-	go func() { waitCh <- b.Wait(gracefulWait, stopAction) }()
+	go func() { waitCh <- b.Wait(gracePeriodTicker, stopAction) }()
 
 	// Simulate an upgrade request after entering into the blocking b.Wait() and during the
 	// slowRequest execution
