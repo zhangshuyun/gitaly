@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"io"
 	"path/filepath"
@@ -139,16 +140,19 @@ func TestAddRepository_Exec(t *testing.T) {
 			relativePath         string
 			desc                 string
 			replicateImmediately bool
+			expectedOutput       string
 		}{
 			{
 				relativePath:         "path/to/test/repo1",
 				desc:                 "force replication",
 				replicateImmediately: true,
+				expectedOutput:       "Finished replicating repository to \"gitaly-2\".\n",
 			},
 			{
 				relativePath:         "path/to/test/repo2",
 				desc:                 "do not force replication",
 				replicateImmediately: false,
+				expectedOutput:       "Added replication job to replicate repository to \"gitaly-2\".\n",
 			},
 		}
 
@@ -184,6 +188,7 @@ func TestAddRepository_Exec(t *testing.T) {
 				require.NoError(t, createRepoThroughGitaly1(tc.relativePath))
 				require.DirExists(t, filepath.Join(g1Cfg.Storages[0].Path, tc.relativePath))
 				require.NoDirExists(t, filepath.Join(g2Cfg.Storages[0].Path, tc.relativePath))
+				var stdout bytes.Buffer
 
 				addRepoCmd := &trackRepository{
 					logger:               logger,
@@ -191,6 +196,7 @@ func TestAddRepository_Exec(t *testing.T) {
 					relativePath:         tc.relativePath,
 					authoritativeStorage: authoritativeStorage,
 					replicateImmediately: tc.replicateImmediately,
+					w:                    &stdout,
 				}
 
 				require.NoError(t, addRepoCmd.Exec(flag.NewFlagSet("", flag.PanicOnError), conf))
@@ -208,6 +214,7 @@ func TestAddRepository_Exec(t *testing.T) {
 				exists, err := repoDS.RepositoryExists(ctx, virtualStorageName, tc.relativePath)
 				require.NoError(t, err)
 				assert.True(t, exists)
+				assert.Contains(t, stdout.String(), tc.expectedOutput)
 
 				if !tc.replicateImmediately {
 					queue := datastore.NewPostgresReplicationEventQueue(db)
@@ -224,6 +231,7 @@ func TestAddRepository_Exec(t *testing.T) {
 		relativePath := "path/to/test/repo_1"
 
 		cmd := &trackRepository{
+			w:                    &bytes.Buffer{},
 			logger:               testhelper.NewDiscardingLogger(t),
 			virtualStorage:       "praefect",
 			relativePath:         relativePath,
@@ -257,6 +265,7 @@ func TestAddRepository_Exec(t *testing.T) {
 		))
 
 		cmd := &trackRepository{
+			w:                    &bytes.Buffer{},
 			logger:               testhelper.NewDiscardingLogger(t),
 			virtualStorage:       virtualStorageName,
 			relativePath:         relativePath,

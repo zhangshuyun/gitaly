@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"math/rand"
 	"time"
 
@@ -27,6 +28,7 @@ const (
 )
 
 type trackRepository struct {
+	w                    io.Writer
 	logger               logrus.FieldLogger
 	virtualStorage       string
 	relativePath         string
@@ -36,8 +38,8 @@ type trackRepository struct {
 
 var errAuthoritativeRepositoryNotExist = errors.New("authoritative repository does not exist")
 
-func newTrackRepository(logger logrus.FieldLogger) *trackRepository {
-	return &trackRepository{logger: logger}
+func newTrackRepository(logger logrus.FieldLogger, w io.Writer) *trackRepository {
+	return &trackRepository{w: w, logger: logger}
 }
 
 func (cmd *trackRepository) FlagSet() *flag.FlagSet {
@@ -180,7 +182,8 @@ func (cmd *trackRepository) exec(ctx context.Context, logger logrus.FieldLogger,
 	if err != nil {
 		return fmt.Errorf("%s: %w", trackRepoErrorPrefix, err)
 	}
-	logger.Debug("finished adding new repository to be tracked in praefect database.")
+
+	fmt.Fprintln(cmd.w, "Finished adding new repository to be tracked in praefect database.")
 
 	correlationID := correlation.SafeRandomID()
 	connections := nodeSet.Connections()[cmd.virtualStorage]
@@ -206,12 +209,15 @@ func (cmd *trackRepository) exec(ctx context.Context, logger logrus.FieldLogger,
 			if err := replMgr.ProcessReplicationEvent(ctx, event, conn); err != nil {
 				return fmt.Errorf("%s: processing replication event %w", trackRepoErrorPrefix, err)
 			}
+
+			fmt.Fprintf(cmd.w, "Finished replicating repository to %q.\n", secondary)
 			continue
 		}
 
 		if _, err := queue.Enqueue(ctx, event); err != nil {
 			return fmt.Errorf("%s: %w", trackRepoErrorPrefix, err)
 		}
+		fmt.Fprintf(cmd.w, "Added replication job to replicate repository to %q.\n", secondary)
 	}
 
 	return nil
