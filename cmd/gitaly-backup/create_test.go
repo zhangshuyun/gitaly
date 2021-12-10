@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -58,9 +57,12 @@ func TestCreateSubcommand(t *testing.T) {
 	fs := flag.NewFlagSet("create", flag.ContinueOnError)
 	cmd.Flags(fs)
 
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	require.NoError(t, fs.Parse([]string{"-path", path}))
 	require.EqualError(t,
-		cmd.Run(context.Background(), &stdin, io.Discard),
+		cmd.Run(ctx, &stdin, io.Discard),
 		"create: pipeline: 1 failures encountered:\n - invalid: manager: isEmpty: could not dial source: invalid connection string: \"invalid\"\n")
 
 	for _, repo := range repos {

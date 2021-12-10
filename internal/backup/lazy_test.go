@@ -13,6 +13,8 @@ import (
 )
 
 func TestLazyWrite_noData(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -30,6 +32,8 @@ func TestLazyWrite_noData(t *testing.T) {
 }
 
 func TestLazyWrite_data(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 

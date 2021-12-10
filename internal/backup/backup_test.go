@@ -29,6 +29,8 @@ import (
 )
 
 func TestManager_Create(t *testing.T) {
+	t.Parallel()
+
 	const backupID = "abc123"
 
 	cfg := testcfg.Build(t)
@@ -150,6 +152,8 @@ func TestManager_Create(t *testing.T) {
 }
 
 func TestManager_Create_incremental(t *testing.T) {
+	t.Parallel()
+
 	const backupID = "abc123"
 
 	cfg := testcfg.Build(t)
@@ -261,6 +265,8 @@ func TestManager_Create_incremental(t *testing.T) {
 }
 
 func TestManager_Restore(t *testing.T) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyHooks(t, cfg)
 
@@ -270,6 +276,8 @@ func TestManager_Restore(t *testing.T) {
 }
 
 func TestManager_Restore_praefect(t *testing.T) {
+	t.Parallel()
+
 	gitalyCfg := testcfg.Build(t, testcfg.WithStorages("gitaly-1"))
 
 	testcfg.BuildPraefect(t, gitalyCfg)
@@ -324,11 +332,14 @@ func TestManager_Restore_praefect(t *testing.T) {
 }
 
 func testManagerRestore(t *testing.T, cfg config.Cfg, gitalyAddr string) {
-	testhelper.NewFeatureSets(
-		featureflag.AtomicRemoveRepository,
-		featureflag.TxAtomicRepositoryCreation,
-	).Run(t, func(t *testing.T, ctx context.Context) {
-		testManagerRestoreWithContext(t, ctx, cfg, gitalyAddr)
+	t.Run("parallel", func(t *testing.T) {
+		testhelper.NewFeatureSets(
+			featureflag.AtomicRemoveRepository,
+			featureflag.TxAtomicRepositoryCreation,
+		).Run(t, func(t *testing.T, ctx context.Context) {
+			t.Parallel()
+			testManagerRestoreWithContext(t, ctx, cfg, gitalyAddr)
+		})
 	})
 }
 
@@ -339,12 +350,12 @@ func testManagerRestoreWithContext(t *testing.T, ctx context.Context, cfg config
 
 	repoClient := gitalypb.NewRepositoryServiceClient(cc)
 
-	createRepo := func(t testing.TB, relativePath string) *gitalypb.Repository {
+	createRepo := func(t testing.TB) *gitalypb.Repository {
 		t.Helper()
 
 		repo := &gitalypb.Repository{
 			StorageName:  "default",
-			RelativePath: gittest.NewRepositoryName(t, false) + relativePath,
+			RelativePath: gittest.NewRepositoryName(t, false),
 		}
 
 		for i := 0; true; i++ {
@@ -382,7 +393,7 @@ func testManagerRestoreWithContext(t *testing.T, ctx context.Context, cfg config
 			desc:     "existing repo, without hooks",
 			locators: []string{"legacy", "pointer"},
 			setup: func(t testing.TB) (*gitalypb.Repository, *git.Checksum) {
-				repo := createRepo(t, "existing")
+				repo := createRepo(t)
 				require.NoError(t, os.MkdirAll(filepath.Join(path, repo.RelativePath), os.ModePerm))
 				bundlePath := filepath.Join(path, repo.RelativePath+".bundle")
 				gittest.BundleTestRepo(t, cfg, "gitlab-test.git", bundlePath)
@@ -395,7 +406,7 @@ func testManagerRestoreWithContext(t *testing.T, ctx context.Context, cfg config
 			desc:     "existing repo, with hooks",
 			locators: []string{"legacy", "pointer"},
 			setup: func(t testing.TB) (*gitalypb.Repository, *git.Checksum) {
-				repo := createRepo(t, "existing_hooks")
+				repo := createRepo(t)
 				bundlePath := filepath.Join(path, repo.RelativePath+".bundle")
 				customHooksPath := filepath.Join(path, repo.RelativePath, "custom_hooks.tar")
 				require.NoError(t, os.MkdirAll(filepath.Join(path, repo.RelativePath), os.ModePerm))
@@ -415,7 +426,7 @@ func testManagerRestoreWithContext(t *testing.T, ctx context.Context, cfg config
 			desc:     "missing bundle",
 			locators: []string{"legacy", "pointer"},
 			setup: func(t testing.TB) (*gitalypb.Repository, *git.Checksum) {
-				repo := createRepo(t, "missing_bundle")
+				repo := createRepo(t)
 				return repo, nil
 			},
 			expectedErrAs: ErrSkipped,
@@ -424,7 +435,7 @@ func testManagerRestoreWithContext(t *testing.T, ctx context.Context, cfg config
 			desc:     "missing bundle, always create",
 			locators: []string{"legacy", "pointer"},
 			setup: func(t testing.TB) (*gitalypb.Repository, *git.Checksum) {
-				repo := createRepo(t, "missing_bundle_always_create")
+				repo := createRepo(t)
 				return repo, new(git.Checksum)
 			},
 			alwaysCreate: true,
@@ -436,8 +447,10 @@ func testManagerRestoreWithContext(t *testing.T, ctx context.Context, cfg config
 			setup: func(t testing.TB) (*gitalypb.Repository, *git.Checksum) {
 				repo := &gitalypb.Repository{
 					StorageName:  "default",
-					RelativePath: "nonexistent",
+					RelativePath: gittest.NewRepositoryName(t, false),
 				}
+
+				require.NoError(t, os.MkdirAll(filepath.Dir(filepath.Join(path, repo.RelativePath)), os.ModePerm))
 				bundlePath := filepath.Join(path, repo.RelativePath+".bundle")
 				gittest.BundleTestRepo(t, cfg, "gitlab-test.git", bundlePath)
 
@@ -450,7 +463,7 @@ func testManagerRestoreWithContext(t *testing.T, ctx context.Context, cfg config
 			locators: []string{"pointer"},
 			setup: func(t testing.TB) (*gitalypb.Repository, *git.Checksum) {
 				const backupID = "abc123"
-				repo := createRepo(t, "incremental")
+				repo := createRepo(t)
 				repoBackupPath := filepath.Join(path, repo.RelativePath)
 				backupPath := filepath.Join(repoBackupPath, backupID)
 				require.NoError(t, os.MkdirAll(backupPath, os.ModePerm))
@@ -469,10 +482,10 @@ func testManagerRestoreWithContext(t *testing.T, ctx context.Context, cfg config
 			setup: func(t testing.TB) (*gitalypb.Repository, *git.Checksum) {
 				const backupID = "abc123"
 
-				expected := createRepo(t, "expected")
+				expected := createRepo(t)
 				expectedRepoPath := filepath.Join(cfg.Storages[0].Path, expected.RelativePath)
 
-				repo := createRepo(t, "incremental")
+				repo := createRepo(t)
 				repoBackupPath := filepath.Join(path, repo.RelativePath)
 				backupPath := filepath.Join(repoBackupPath, backupID)
 				require.NoError(t, os.MkdirAll(backupPath, os.ModePerm))
@@ -579,12 +592,17 @@ func testManagerRestoreWithContext(t *testing.T, ctx context.Context, cfg config
 }
 
 func TestResolveSink(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	isStorageServiceSink := func(expErrMsg string) func(t *testing.T, sink Sink) {
 		return func(t *testing.T, sink Sink) {
 			t.Helper()
 			sssink, ok := sink.(*StorageServiceSink)
 			require.True(t, ok)
-			_, err := sssink.bucket.List(nil).Next(context.TODO())
+			_, err := sssink.bucket.List(nil).Next(ctx)
 			ierr, ok := err.(interface{ Unwrap() error })
 			require.True(t, ok)
 			terr := ierr.Unwrap()
@@ -660,7 +678,7 @@ func TestResolveSink(t *testing.T) {
 			for k, v := range tc.envs {
 				t.Cleanup(testhelper.ModifyEnvironment(t, k, v))
 			}
-			sink, err := ResolveSink(context.TODO(), tc.path)
+			sink, err := ResolveSink(ctx, tc.path)
 			if tc.errMsg != "" {
 				require.EqualError(t, err, tc.errMsg)
 				return
@@ -671,6 +689,8 @@ func TestResolveSink(t *testing.T) {
 }
 
 func TestResolveLocator(t *testing.T) {
+	t.Parallel()
+
 	for _, tc := range []struct {
 		layout      string
 		expectedErr string
