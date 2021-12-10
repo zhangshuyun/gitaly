@@ -63,21 +63,64 @@ func TestPoolManager_Vote(t *testing.T) {
 		desc        string
 		transaction txinfo.Transaction
 		vote        voting.Vote
+		phase       voting.Phase
 		voteFn      func(*testing.T, *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error)
 		expectedErr error
 	}{
 		{
-			desc: "successful vote",
+			desc: "successful unknown vote",
 			transaction: txinfo.Transaction{
 				BackchannelID: backchannelID,
 				ID:            1,
 				Node:          "node",
 			},
-			vote: voting.VoteFromData([]byte("foobar")),
+			vote:  voting.VoteFromData([]byte("foobar")),
+			phase: voting.UnknownPhase,
 			voteFn: func(t *testing.T, request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
 				require.Equal(t, uint64(1), request.TransactionId)
 				require.Equal(t, "node", request.Node)
 				require.Equal(t, request.ReferenceUpdatesHash, voting.VoteFromData([]byte("foobar")).Bytes())
+				require.Equal(t, gitalypb.VoteTransactionRequest_UNKNOWN_PHASE, request.Phase)
+
+				return &gitalypb.VoteTransactionResponse{
+					State: gitalypb.VoteTransactionResponse_COMMIT,
+				}, nil
+			},
+		},
+		{
+			desc: "successful prepared vote",
+			transaction: txinfo.Transaction{
+				BackchannelID: backchannelID,
+				ID:            1,
+				Node:          "node",
+			},
+			vote:  voting.VoteFromData([]byte("foobar")),
+			phase: voting.Prepared,
+			voteFn: func(t *testing.T, request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
+				require.Equal(t, uint64(1), request.TransactionId)
+				require.Equal(t, "node", request.Node)
+				require.Equal(t, request.ReferenceUpdatesHash, voting.VoteFromData([]byte("foobar")).Bytes())
+				require.Equal(t, gitalypb.VoteTransactionRequest_PREPARED_PHASE, request.Phase)
+
+				return &gitalypb.VoteTransactionResponse{
+					State: gitalypb.VoteTransactionResponse_COMMIT,
+				}, nil
+			},
+		},
+		{
+			desc: "successful committed vote",
+			transaction: txinfo.Transaction{
+				BackchannelID: backchannelID,
+				ID:            1,
+				Node:          "node",
+			},
+			vote:  voting.VoteFromData([]byte("foobar")),
+			phase: voting.Committed,
+			voteFn: func(t *testing.T, request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
+				require.Equal(t, uint64(1), request.TransactionId)
+				require.Equal(t, "node", request.Node)
+				require.Equal(t, request.ReferenceUpdatesHash, voting.VoteFromData([]byte("foobar")).Bytes())
+				require.Equal(t, gitalypb.VoteTransactionRequest_COMMITTED_PHASE, request.Phase)
 
 				return &gitalypb.VoteTransactionResponse{
 					State: gitalypb.VoteTransactionResponse_COMMIT,
@@ -124,7 +167,7 @@ func TestPoolManager_Vote(t *testing.T) {
 				return tc.voteFn(t, request)
 			}
 
-			err := manager.Vote(ctx, tc.transaction, tc.vote)
+			err := manager.Vote(ctx, tc.transaction, tc.vote, tc.phase)
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}

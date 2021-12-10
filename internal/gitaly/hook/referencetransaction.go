@@ -9,6 +9,7 @@ import (
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
 )
 
 // forceDeletionPrefix is the prefix of a queued reference transaction which deletes a
@@ -27,13 +28,19 @@ func (m *GitLabHookManager) ReferenceTransactionHook(ctx context.Context, state 
 		return fmt.Errorf("reading stdin from request: %w", err)
 	}
 
+	var phase voting.Phase
+	switch state {
 	// We're voting in prepared state as this is the only stage in Git's reference transaction
-	// which allows us to abort the transaction. We're also voting in committed state to tell
-	// Praefect we've actually persisted the changes. This is necessary as some RPCs fail return
-	// errors in the response body rather than as an error code. Praefect can't tell if these RPCs
-	// have failed. Voting on committed ensure Praefect sees either a missing vote or that the RPC did
-	// commit the changes.
-	if state != ReferenceTransactionPrepared && state != ReferenceTransactionCommitted {
+	// which allows us to abort the transaction.
+	case ReferenceTransactionPrepared:
+		phase = voting.Prepared
+	// We're also voting in committed state to tell Praefect we've actually persisted the
+	// changes. This is necessary as some RPCs fail return errors in the response body rather
+	// than as an error code. Praefect can't tell if these RPCs have failed. Voting on committed
+	// ensure Praefect sees either a missing vote or that the RPC did commit the changes.
+	case ReferenceTransactionCommitted:
+		phase = voting.Committed
+	default:
 		return nil
 	}
 
@@ -61,7 +68,7 @@ func (m *GitLabHookManager) ReferenceTransactionHook(ctx context.Context, state 
 
 	hash := sha1.Sum(changes)
 
-	if err := m.voteOnTransaction(ctx, hash, payload); err != nil {
+	if err := m.voteOnTransaction(ctx, hash, phase, payload); err != nil {
 		return fmt.Errorf("error voting on transaction: %w", err)
 	}
 

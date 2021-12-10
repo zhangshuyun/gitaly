@@ -84,7 +84,7 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 			return nil, helper.ErrInternalf("re-statting repository: %w", err)
 		}
 
-		if err := s.voteOnAction(ctx, repo, preRemove); err != nil {
+		if err := s.voteOnAction(ctx, repo, voting.Prepared); err != nil {
 			return nil, helper.ErrInternalf("vote on rename: %v", err)
 		}
 
@@ -99,11 +99,11 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 			return nil, helper.ErrInternalf("removing repository: %w", err)
 		}
 
-		if err := s.voteOnAction(ctx, repo, postRemove); err != nil {
+		if err := s.voteOnAction(ctx, repo, voting.Committed); err != nil {
 			return nil, helper.ErrInternalf("vote on finalizing: %v", err)
 		}
 	} else {
-		if err := s.voteOnAction(ctx, repo, preRemove); err != nil {
+		if err := s.voteOnAction(ctx, repo, voting.Prepared); err != nil {
 			return nil, helper.ErrInternalf("vote on rename: %v", err)
 		}
 
@@ -121,7 +121,7 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 			return nil, helper.ErrInternal(err)
 		}
 
-		if err := s.voteOnAction(ctx, repo, postRemove); err != nil {
+		if err := s.voteOnAction(ctx, repo, voting.Committed); err != nil {
 			return nil, helper.ErrInternalf("vote on finalizing: %v", err)
 		}
 	}
@@ -129,26 +129,19 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 	return &gitalypb.RemoveRepositoryResponse{}, nil
 }
 
-type removalStep int
-
-const (
-	preRemove = removalStep(iota)
-	postRemove
-)
-
-func (s *server) voteOnAction(ctx context.Context, repo *gitalypb.Repository, step removalStep) error {
+func (s *server) voteOnAction(ctx context.Context, repo *gitalypb.Repository, phase voting.Phase) error {
 	return transaction.RunOnContext(ctx, func(tx txinfo.Transaction) error {
 		var voteStep string
-		switch step {
-		case preRemove:
+		switch phase {
+		case voting.Prepared:
 			voteStep = "pre-remove"
-		case postRemove:
+		case voting.Committed:
 			voteStep = "post-remove"
 		default:
-			return fmt.Errorf("invalid removal step: %d", step)
+			return fmt.Errorf("invalid removal step: %d", phase)
 		}
 
 		vote := fmt.Sprintf("%s %s", voteStep, repo.GetRelativePath())
-		return s.txManager.Vote(ctx, tx, voting.VoteFromData([]byte(vote)))
+		return s.txManager.Vote(ctx, tx, voting.VoteFromData([]byte(vote)), phase)
 	})
 }

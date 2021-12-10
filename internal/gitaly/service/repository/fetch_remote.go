@@ -114,7 +114,7 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 			return err
 		}
 
-		return s.txManager.Vote(ctx, tx, vote)
+		return s.txManager.Vote(ctx, tx, vote, voting.UnknownPhase)
 	}); err != nil {
 		return nil, status.Errorf(codes.Aborted, "failed vote on refs: %v", err)
 	}

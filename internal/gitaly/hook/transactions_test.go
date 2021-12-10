@@ -124,7 +124,7 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	mockTxMgr := transaction.MockManager{
-		VoteFn: func(ctx context.Context, tx txinfo.Transaction, vote voting.Vote) error {
+		VoteFn: func(ctx context.Context, _ txinfo.Transaction, _ voting.Vote, _ voting.Phase) error {
 			<-ctx.Done()
 			return fmt.Errorf("mock error: %s", ctx.Err())
 		},

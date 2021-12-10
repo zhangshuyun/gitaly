@@ -172,8 +172,8 @@ func testCreateRepositoryTransactional(t *testing.T, ctx context.Context) {
 		if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
 			require.Equal(t, 2, len(txManager.Votes()), "expected transactional vote")
 		} else {
-			require.Equal(t, []voting.Vote{
-				voting.VoteFromData([]byte{}),
+			require.Equal(t, []transaction.PhasedVote{
+				{Vote: voting.VoteFromData([]byte{}), Phase: voting.UnknownPhase},
 			}, txManager.Votes())
 		}
 	})
@@ -202,7 +202,9 @@ func testCreateRepositoryTransactional(t *testing.T, ctx context.Context) {
 		refs := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref")
 		require.NotEmpty(t, refs)
 
-		require.Equal(t, []voting.Vote{voting.VoteFromData(refs)}, txManager.Votes())
+		require.Equal(t, []transaction.PhasedVote{
+			{Vote: voting.VoteFromData(refs), Phase: voting.UnknownPhase},
+		}, txManager.Votes())
 	})
 }
 

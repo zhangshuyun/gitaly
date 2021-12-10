@@ -47,7 +47,7 @@ var (
 type Manager interface {
 	// Vote casts a vote on the given transaction which is hosted by the
 	// given Praefect server.
-	Vote(context.Context, txinfo.Transaction, voting.Vote) error
+	Vote(context.Context, txinfo.Transaction, voting.Vote, voting.Phase) error
 
 	// Stop gracefully stops the given transaction which is hosted by the
 	// given Praefect server.
@@ -97,7 +97,12 @@ func (m *PoolManager) getTransactionClient(ctx context.Context, tx txinfo.Transa
 }
 
 // Vote connects to the given server and casts vote as a vote for the transaction identified by tx.
-func (m *PoolManager) Vote(ctx context.Context, tx txinfo.Transaction, vote voting.Vote) error {
+func (m *PoolManager) Vote(
+	ctx context.Context,
+	tx txinfo.Transaction,
+	vote voting.Vote,
+	phase voting.Phase,
+) error {
 	client, err := m.getTransactionClient(ctx, tx)
 	if err != nil {
 		return err
@@ -118,6 +123,7 @@ func (m *PoolManager) Vote(ctx context.Context, tx txinfo.Transaction, vote voti
 		TransactionId:        tx.ID,
 		Node:                 tx.Node,
 		ReferenceUpdatesHash: vote.Bytes(),
+		Phase:                phase.ToProto(),
 	})
 	if err != nil {
 		// Add some additional context to cancellation errors so that

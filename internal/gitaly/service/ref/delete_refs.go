@@ -60,11 +60,18 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 		return nil, helper.ErrInternalf("could not compute vote: %v", err)
 	}
 
+	// We don't use proper two-phase voting when the feature flag is disabled, so we use
+	// `UnknownPhase` in that case.
+	preparedPhase := voting.UnknownPhase
+	if featureflag.TxTwoPhaseDeleteRefs.IsEnabled(ctx) {
+		preparedPhase = voting.Prepared
+	}
+
 	// All deletes we're doing in this RPC are force deletions. Because we're required to filter
 	// out transactions which only consist of force deletions, we never do any voting via the
 	// reference-transaction hook here. Instead, we need to resort to a manual vote which is
 	// simply the concatenation of all reference we're about to delete.
-	if err := transaction.VoteOnContext(ctx, s.txManager, vote); err != nil {
+	if err := transaction.VoteOnContext(ctx, s.txManager, vote, preparedPhase); err != nil {
 		return nil, helper.ErrInternalf("preparatory vote: %w", err)
 	}
 
@@ -77,7 +84,7 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 	}
 
 	if featureflag.TxTwoPhaseDeleteRefs.IsEnabled(ctx) {
-		if err := transaction.VoteOnContext(ctx, s.txManager, vote); err != nil {
+		if err := transaction.VoteOnContext(ctx, s.txManager, vote, voting.Committed); err != nil {
 			return nil, helper.ErrInternalf("committing vote: %w", err)
 		}
 	}

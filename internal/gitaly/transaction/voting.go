@@ -25,9 +25,9 @@ func RunOnContext(ctx context.Context, fn func(txinfo.Transaction) error) error 
 }
 
 // VoteOnContext casts the vote on a transaction identified by the context, if there is any.
-func VoteOnContext(ctx context.Context, m Manager, vote voting.Vote) error {
+func VoteOnContext(ctx context.Context, m Manager, vote voting.Vote, phase voting.Phase) error {
 	return RunOnContext(ctx, func(transaction txinfo.Transaction) error {
-		return m.Vote(ctx, transaction, vote)
+		return m.Vote(ctx, transaction, vote, phase)
 	})
 }
 
@@ -56,7 +56,7 @@ func CommitLockedFile(ctx context.Context, m Manager, writer *safe.LockingFileWr
 			return fmt.Errorf("computing vote for locked file: %w", err)
 		}
 
-		if err := m.Vote(ctx, tx, vote); err != nil {
+		if err := m.Vote(ctx, tx, vote, voting.Prepared); err != nil {
 			return fmt.Errorf("preimage vote: %w", err)
 		}
 
@@ -69,7 +69,7 @@ func CommitLockedFile(ctx context.Context, m Manager, writer *safe.LockingFileWr
 		return fmt.Errorf("committing file: %w", err)
 	}
 
-	if err := VoteOnContext(ctx, m, vote); err != nil {
+	if err := VoteOnContext(ctx, m, vote, voting.Committed); err != nil {
 		return fmt.Errorf("postimage vote: %w", err)
 	}
 
