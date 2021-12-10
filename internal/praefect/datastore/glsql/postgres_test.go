@@ -1,10 +1,13 @@
 package glsql_test
 
 import (
+	"fmt"
 	"net"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgconn"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
@@ -231,4 +234,89 @@ func TestStringArray(t *testing.T) {
 		require.NoError(t, db.QueryRow("SELECT NULL").Scan(&res))
 		require.Empty(t, res.Slice())
 	})
+}
+
+func TestIsQueryCancelled(t *testing.T) {
+	for _, tc := range []struct {
+		desc string
+		err  error
+		exp  bool
+	}{
+		{
+			desc: "nil input",
+			err:  nil,
+			exp:  false,
+		},
+		{
+			desc: "wrong error type",
+			err:  assert.AnError,
+			exp:  false,
+		},
+		{
+			desc: "wrong code",
+			err:  &pgconn.PgError{Code: "stub"},
+			exp:  false,
+		},
+		{
+			desc: "cancellation error",
+			err:  &pgconn.PgError{Code: "57014"},
+			exp:  true,
+		},
+		{
+			desc: "wrapped cancellation error",
+			err:  fmt.Errorf("stub: %w", &pgconn.PgError{Code: "57014"}),
+			exp:  true,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			res := glsql.IsQueryCancelled(tc.err)
+			require.Equal(t, tc.exp, res)
+		})
+	}
+}
+
+func TestIsUniqueViolation(t *testing.T) {
+	for _, tc := range []struct {
+		desc   string
+		err    error
+		constr string
+		exp    bool
+	}{
+		{
+			desc: "nil input",
+			err:  nil,
+			exp:  false,
+		},
+		{
+			desc: "wrong error type",
+			err:  assert.AnError,
+			exp:  false,
+		},
+		{
+			desc: "wrong code",
+			err:  &pgconn.PgError{Code: "stub"},
+			exp:  false,
+		},
+		{
+			desc: "unique violation",
+			err:  &pgconn.PgError{Code: "23505"},
+			exp:  true,
+		},
+		{
+			desc: "wrapped unique violation",
+			err:  fmt.Errorf("stub: %w", &pgconn.PgError{Code: "23505"}),
+			exp:  true,
+		},
+		{
+			desc:   "unique violation with accepted conditions",
+			err:    &pgconn.PgError{Code: "23505", ConstraintName: "cname"},
+			constr: "cname",
+			exp:    true,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			res := glsql.IsUniqueViolation(tc.err, tc.constr)
+			require.Equal(t, tc.exp, res)
+		})
+	}
 }

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jackc/pgconn"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 )
@@ -409,23 +408,23 @@ FROM (
 		repositoryID,
 		replicaPath,
 	)
-
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-		// https://www.postgresql.org/docs/11/errcodes-appendix.html
-		// unique_violation
-		if pgErr.ConstraintName == "repositories_pkey" {
+	if err != nil {
+		if glsql.IsUniqueViolation(err, "repositories_pkey") {
 			return fmt.Errorf("repository id %d already in use", repositoryID)
 		}
 
-		return RepositoryExistsError{
-			virtualStorage: virtualStorage,
-			relativePath:   relativePath,
-			storage:        primary,
+		if glsql.IsUniqueViolation(err, "storage_repositories_pkey") {
+			return RepositoryExistsError{
+				virtualStorage: virtualStorage,
+				relativePath:   relativePath,
+				storage:        primary,
+			}
 		}
+
+		return err
 	}
 
-	return err
+	return nil
 }
 
 //nolint: revive,stylecheck // This is unintentionally missing documentation.

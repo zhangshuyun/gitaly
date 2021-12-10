@@ -4,9 +4,11 @@ package glsql
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/jackc/pgconn"
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/stdlib"
@@ -253,4 +255,41 @@ func (sa StringArray) Slice() []string {
 		}
 	}
 	return res
+}
+
+// errorCondition is a checker of the additional conditions of an error.
+type errorCondition func(*pgconn.PgError) bool
+
+// withConstraintName returns errorCondition that check if constraint name matches provided name.
+func withConstraintName(name string) errorCondition {
+	return func(pgErr *pgconn.PgError) bool {
+		return pgErr.ConstraintName == name
+	}
+}
+
+// IsQueryCancelled returns true if an error is a query cancellation.
+func IsQueryCancelled(err error) bool {
+	// https://www.postgresql.org/docs/11/errcodes-appendix.html
+	// query_canceled
+	return isPgError(err, "57014", nil)
+}
+
+// IsUniqueViolation returns true if an error is a unique violation.
+func IsUniqueViolation(err error, constraint string) bool {
+	// https://www.postgresql.org/docs/11/errcodes-appendix.html
+	// unique_violation
+	return isPgError(err, "23505", []errorCondition{withConstraintName(constraint)})
+}
+
+func isPgError(err error, code string, conditions []errorCondition) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == code {
+		for _, condition := range conditions {
+			if !condition(pgErr) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
