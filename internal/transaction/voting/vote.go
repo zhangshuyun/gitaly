@@ -37,6 +37,16 @@ func VoteFromHash(bytes []byte) (Vote, error) {
 	return vote, nil
 }
 
+// VoteFromString converts the given string representation of the hash into a vote.
+func VoteFromString(s string) (Vote, error) {
+	bytes, err := hex.DecodeString(s)
+	if err != nil {
+		return Vote{}, fmt.Errorf("invalid vote string: %w", err)
+	}
+
+	return VoteFromHash(bytes)
+}
+
 // VoteFromData hashes the given data and converts it to a vote.
 func VoteFromData(data []byte) Vote {
 	return sha1.Sum(data)
