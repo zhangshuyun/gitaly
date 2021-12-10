@@ -2,8 +2,10 @@ package datastore
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -451,4 +453,44 @@ func verifyListener(t *testing.T, ctx context.Context, dbConf config.DB, channel
 	}
 	verifier(t, notification)
 	waitFor(t, done)
+}
+
+func requireEqualNotificationEntries(t *testing.T, d string, entries []notificationEntry) {
+	t.Helper()
+
+	var nes []notificationEntry
+	require.NoError(t, json.NewDecoder(strings.NewReader(d)).Decode(&nes))
+
+	for _, es := range [][]notificationEntry{entries, nes} {
+		for _, e := range es {
+			sort.Strings(e.RelativePaths)
+		}
+		sort.Slice(es, func(i, j int) bool { return es[i].VirtualStorage < es[j].VirtualStorage })
+	}
+
+	require.EqualValues(t, entries, nes)
+}
+
+type mockListenHandler struct {
+	OnNotification func(glsql.Notification)
+	OnDisconnect   func(error)
+	OnConnected    func()
+}
+
+func (mlh mockListenHandler) Notification(n glsql.Notification) {
+	if mlh.OnNotification != nil {
+		mlh.OnNotification(n)
+	}
+}
+
+func (mlh mockListenHandler) Disconnect(err error) {
+	if mlh.OnDisconnect != nil {
+		mlh.OnDisconnect(err)
+	}
+}
+
+func (mlh mockListenHandler) Connected() {
+	if mlh.OnConnected != nil {
+		mlh.OnConnected()
+	}
 }
