@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/setup"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
@@ -25,9 +27,19 @@ import (
 
 func TestRemoveRepositoryHandler(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.AtomicRemoveRepository).Run(t, testRemoveRepositoryHandler)
+}
+
+func testRemoveRepositoryHandler(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	errServedByGitaly := status.Error(codes.Unknown, "request passed to Gitaly")
 	const virtualStorage, relativePath = "virtual-storage", "relative-path"
+
+	var errNotFound error
+	if featureflag.AtomicRemoveRepository.IsEnabled(ctx) {
+		errNotFound = helper.ErrNotFoundf("repository does not exist")
+	}
 
 	db := glsql.NewDB(t)
 	for _, tc := range []struct {
@@ -44,6 +56,7 @@ func TestRemoveRepositoryHandler(t *testing.T) {
 		{
 			desc:       "repository not found",
 			repository: &gitalypb.Repository{StorageName: "virtual-storage", RelativePath: "doesn't exist"},
+			error:      errNotFound,
 		},
 		{
 			desc:        "repository found",
@@ -84,9 +97,6 @@ func TestRemoveRepositoryHandler(t *testing.T) {
 			}
 
 			rs := datastore.NewPostgresRepositoryStore(db, cfg.StorageNames())
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
 
 			require.NoError(t, rs.CreateRepository(ctx, 0, virtualStorage, relativePath, relativePath, gitaly1Storage, []string{gitaly2Storage, "non-existent-storage"}, nil, false, false))
 
@@ -139,7 +149,7 @@ func TestRemoveRepositoryHandler(t *testing.T) {
 
 			resp, err := client.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{Repository: tc.repository})
 			if tc.error != nil {
-				require.Equal(t, tc.error, err)
+				testhelper.RequireGrpcError(t, tc.error, err)
 				assertExistence(t, gitaly1RepoPath)
 				assertExistence(t, gitaly2RepoPath)
 				return

@@ -3,9 +3,11 @@ package repository
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -15,16 +17,31 @@ import (
 
 func TestRemoveRepository(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.AtomicRemoveRepository).Run(t, testRemoveRepository)
+	testhelper.NewFeatureSets(
+		featureflag.AtomicRemoveRepository,
+		featureflag.TxAtomicRepositoryCreation,
+	).Run(t, testRemoveRepository)
 }
 
 func testRemoveRepository(t *testing.T, ctx context.Context) {
-	_, repo, repoPath, client := setupRepositoryService(t)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	_, err := client.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{Repository: repo})
+	repo := &gitalypb.Repository{
+		StorageName:  cfg.Storages[0].Name,
+		RelativePath: gittest.NewRepositoryName(t, true),
+	}
+
+	_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
+		Repository: repo,
+	})
 	require.NoError(t, err)
 
-	require.NoFileExists(t, repoPath)
+	_, err = client.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{
+		Repository: repo,
+	})
+	require.NoError(t, err)
+
+	require.NoFileExists(t, filepath.Join(cfg.Storages[0].Path, repo.RelativePath))
 }
 
 func TestRemoveRepository_doesNotExist(t *testing.T) {
