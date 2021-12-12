@@ -64,7 +64,12 @@ GOLANGCI_LINT_CONFIG  ?= ${SOURCE_DIR}/.golangci.yml
 GITALY_PACKAGE    := gitlab.com/gitlab-org/gitaly/v14
 BUILD_TIME        := $(shell date +"%Y%m%d.%H%M%S")
 GITALY_VERSION    := $(shell ${GIT} describe --match v* 2>/dev/null | sed 's/^v//' || cat ${SOURCE_DIR}/VERSION 2>/dev/null || echo unknown)
-GO_LDFLAGS        := -ldflags '-X ${GITALY_PACKAGE}/internal/version.version=${GITALY_VERSION} -X ${GITALY_PACKAGE}/internal/version.buildtime=${BUILD_TIME} -X ${GITALY_PACKAGE}/internal/version.moduleVersion=${MODULE_VERSION}'
+# The gnu-build-id must be unique for each binary.
+# Since we must specify that build-id value on the command line as an arg to the linker, we must use
+# recursively expanded variables for GNU_BUILD_ID and GO_LDFLAGS, so they can take on a new unique value
+# for each build target.
+GNU_BUILD_ID      = 0x$(shell openssl rand -hex 32)
+GO_LDFLAGS        = -X ${GITALY_PACKAGE}/internal/version.version=${GITALY_VERSION} -X ${GITALY_PACKAGE}/internal/version.buildtime=${BUILD_TIME} -X ${GITALY_PACKAGE}/internal/version.moduleVersion=${MODULE_VERSION} -B $(GNU_BUILD_ID)
 GO_BUILD_TAGS     := tracer_static,tracer_static_jaeger,tracer_static_stackdriver,continuous_profiler_stackdriver,static,system_libgit2
 
 # Dependency versions
@@ -242,7 +247,7 @@ find_go_sources       = $(shell find ${SOURCE_DIR} -type d \( -name ruby -o -nam
 run_go_tests = PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}' \
     GIT_DIR=/dev/null \
     TEST_TMP_DIR='${TEST_TMP_DIR}' \
-    ${GOTESTSUM} --format ${TEST_FORMAT} --junitfile ${TEST_REPORT} -- ${GO_LDFLAGS} -tags '${GO_BUILD_TAGS}' ${TEST_OPTIONS} ${TEST_PACKAGES}
+    ${GOTESTSUM} --format ${TEST_FORMAT} --junitfile ${TEST_REPORT} -- -ldflags '${GO_LDFLAGS}' -tags '${GO_BUILD_TAGS}' ${TEST_OPTIONS} ${TEST_PACKAGES}
 
 unexport GOROOT
 export GOBIN                      = ${BUILD_DIR}/bin
@@ -289,7 +294,7 @@ help:
 
 .PHONY: build
 ## Build Go binaries and install required Ruby Gems.
-build: ${SOURCE_DIR}/.ruby-bundle libgit2
+build: ${SOURCE_DIR}/.ruby-bundle libgit2 $(call find_commands)
 	@ # We used to install Gitaly binaries into the source directory by default when executing
 	@ # "make" or "make all", which has been changed in v14.5 to only build binaries into
 	@ # `_build/bin`. In order to quickly fail in case any source install still refers to these
@@ -298,11 +303,14 @@ build: ${SOURCE_DIR}/.ruby-bundle libgit2
 	@ # This safety guard can go away in v14.6.
 	${Q}rm -f $(addprefix ${SOURCE_DIR}/,$(notdir $(call find_commands)) gitaly-git2go-v14)
 
-	go install ${GO_LDFLAGS} -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, $(call find_commands))
 	@ # We use version suffix for the gitaly-git2go binary to support compatibility contract between
 	@ # gitaly and gitaly-git2go during upgrade deployment.
 	@ # For more information refer to https://gitlab.com/gitlab-org/gitaly/-/issues/3647#note_599082033
 	${Q}mv ${BUILD_DIR}/bin/gitaly-git2go "${BUILD_DIR}/bin/gitaly-git2go-${MODULE_VERSION}"
+
+.PHONY: $(call find_commands)
+$(call find_commands):
+	go install -ldflags '${GO_LDFLAGS}' -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, $@)
 
 .PHONY: install
 ## Install Gitaly binaries. The target directory can be modified by setting PREFIX and DESTDIR.
