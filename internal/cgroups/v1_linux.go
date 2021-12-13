@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	cgroupscfg "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/cgroups"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/log"
 )
 
 // CGroupV1Manager is the manager for cgroups v1
@@ -19,6 +20,7 @@ type CGroupV1Manager struct {
 	hierarchy                   func() ([]cgroups.Subsystem, error)
 	paths                       map[string]interface{}
 	memoryFailedTotal, cpuUsage *prometheus.GaugeVec
+	procs                       *prometheus.GaugeVec
 }
 
 func newV1Manager(cfg cgroupscfg.Config) *CGroupV1Manager {
@@ -41,6 +43,13 @@ func newV1Manager(cfg cgroupscfg.Config) *CGroupV1Manager {
 				Help: "CPU Usage of Cgroup",
 			},
 			[]string{"path", "type"},
+		),
+		procs: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "gitaly_cgroup_procs_total",
+				Help: "Total number of procs",
+			},
+			[]string{"path", "subsystem"},
 		),
 	}
 }
@@ -99,27 +108,46 @@ func (cg *CGroupV1Manager) AddCommand(cmd *command.Command) error {
 // Collect collects metrics from the cgroups controller
 func (cg *CGroupV1Manager) Collect(ch chan<- prometheus.Metric) {
 	path := cg.currentProcessCgroup()
+	logger := log.Default().WithField("cgroup_path", path)
 	control, err := cgroups.Load(cg.hierarchy, cgroups.StaticPath(path))
 	if err != nil {
+		logger.WithError(err).Warn("unable to load cgroup controller")
 		return
 	}
 
-	metrics, err := control.Stat()
-	if err != nil {
-		return
+	if metrics, err := control.Stat(); err != nil {
+		logger.WithError(err).Warn("unable to get cgroup stats")
+	} else {
+		memoryMetric := cg.memoryFailedTotal.WithLabelValues(path)
+		memoryMetric.Set(float64(metrics.Memory.Usage.Failcnt))
+		ch <- memoryMetric
+
+		cpuUserMetric := cg.cpuUsage.WithLabelValues(path, "user")
+		cpuUserMetric.Set(float64(metrics.CPU.Usage.User))
+		ch <- cpuUserMetric
+
+		cpuKernelMetric := cg.cpuUsage.WithLabelValues(path, "kernel")
+		cpuKernelMetric.Set(float64(metrics.CPU.Usage.Kernel))
+		ch <- cpuKernelMetric
 	}
 
-	memoryMetric := cg.memoryFailedTotal.WithLabelValues(path)
-	memoryMetric.Set(float64(metrics.Memory.Usage.Failcnt))
-	ch <- memoryMetric
+	if subsystems, err := cg.hierarchy(); err != nil {
+		logger.WithError(err).Warn("unable to get cgroup hierarchy")
+	} else {
+		for _, subsystem := range subsystems {
+			processes, err := control.Processes(subsystem.Name(), true)
+			if err != nil {
+				logger.WithField("subsystem", subsystem.Name()).
+					WithError(err).
+					Warn("unable to get process list")
+				continue
+			}
 
-	cpuUserMetric := cg.cpuUsage.WithLabelValues(path, "user")
-	cpuUserMetric.Set(float64(metrics.CPU.Usage.User))
-	ch <- cpuUserMetric
-
-	cpuKernelMetric := cg.cpuUsage.WithLabelValues(path, "kernel")
-	cpuKernelMetric.Set(float64(metrics.CPU.Usage.Kernel))
-	ch <- cpuKernelMetric
+			procsMetric := cg.procs.WithLabelValues(path, string(subsystem.Name()))
+			procsMetric.Set(float64(len(processes)))
+			ch <- procsMetric
+		}
+	}
 }
 
 // Describe describes the cgroup metrics that Collect provides

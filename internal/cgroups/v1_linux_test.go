@@ -149,12 +149,17 @@ gitaly_cgroup_cpu_usage{path="%s",type="user"} 0
 # HELP gitaly_cgroup_memory_failed_total Number of memory usage hits limits
 # TYPE gitaly_cgroup_memory_failed_total gauge
 gitaly_cgroup_memory_failed_total{path="%s"} 2
-`, cgroupPath, cgroupPath, cgroupPath))
+# HELP gitaly_cgroup_procs_total Total number of procs
+# TYPE gitaly_cgroup_procs_total gauge
+gitaly_cgroup_procs_total{path="%s",subsystem="memory"} 1
+gitaly_cgroup_procs_total{path="%s",subsystem="cpu"} 1
+`, cgroupPath, cgroupPath, cgroupPath, cgroupPath, cgroupPath))
 	assert.NoError(t, testutil.CollectAndCompare(
 		v1Manager1,
 		expected,
 		"gitaly_cgroup_memory_failed_total",
-		"gitaly_cgroup_cpu_usage"))
+		"gitaly_cgroup_cpu_usage",
+		"gitaly_cgroup_procs_total"))
 }
 
 func readCgroupFile(t *testing.T, path string) []byte {
