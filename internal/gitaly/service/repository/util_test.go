@@ -44,7 +44,7 @@ func TestCreateRepository(t *testing.T) {
 		gitCmdFactory: gitCmdFactory,
 	}
 
-	votes := 0
+	var votesByPhase map[voting.Phase]int
 
 	for _, tc := range []struct {
 		desc   string
@@ -136,21 +136,24 @@ func TestCreateRepository(t *testing.T) {
 			desc:          "successful transaction",
 			transactional: true,
 			setup: func(t *testing.T, repo *gitalypb.Repository, repoPath string) {
-				votes = 0
-				txManager.VoteFn = func(context.Context, txinfo.Transaction, voting.Vote) error {
-					votes++
+				votesByPhase = map[voting.Phase]int{}
+				txManager.VoteFn = func(_ context.Context, _ txinfo.Transaction, _ voting.Vote, phase voting.Phase) error {
+					votesByPhase[phase]++
 					return nil
 				}
 			},
 			verify: func(t *testing.T, tempRepo *gitalypb.Repository, tempRepoPath string, realRepo *gitalypb.Repository, realRepoPath string) {
-				require.Equal(t, 2, votes)
+				require.Equal(t, map[voting.Phase]int{
+					voting.Prepared:  1,
+					voting.Committed: 1,
+				}, votesByPhase)
 			},
 		},
 		{
 			desc:          "failing preparatory vote",
 			transactional: true,
 			setup: func(t *testing.T, repo *gitalypb.Repository, repoPath string) {
-				txManager.VoteFn = func(context.Context, txinfo.Transaction, voting.Vote) error {
+				txManager.VoteFn = func(context.Context, txinfo.Transaction, voting.Vote, voting.Phase) error {
 					return errors.New("vote failed")
 				}
 			},
@@ -164,10 +167,8 @@ func TestCreateRepository(t *testing.T) {
 			desc:          "failing post-commit vote",
 			transactional: true,
 			setup: func(t *testing.T, repo *gitalypb.Repository, repoPath string) {
-				votes = 0
-				txManager.VoteFn = func(context.Context, txinfo.Transaction, voting.Vote) error {
-					votes++
-					if votes == 1 {
+				txManager.VoteFn = func(_ context.Context, _ txinfo.Transaction, _ voting.Vote, phase voting.Phase) error {
+					if phase == voting.Prepared {
 						return nil
 					}
 					return errors.New("vote failed")
@@ -196,7 +197,7 @@ func TestCreateRepository(t *testing.T) {
 				require.NoError(t, err)
 				require.NoError(t, lock.Close())
 
-				txManager.VoteFn = func(context.Context, txinfo.Transaction, voting.Vote) error {
+				txManager.VoteFn = func(context.Context, txinfo.Transaction, voting.Vote, voting.Phase) error {
 					require.FailNow(t, "no votes should have happened")
 					return nil
 				}

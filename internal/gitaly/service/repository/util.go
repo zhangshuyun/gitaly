@@ -177,7 +177,7 @@ func (s *server) createRepository(
 		return helper.ErrAlreadyExistsf("repository exists already")
 	}
 
-	if err := transaction.VoteOnContext(ctx, s.txManager, vote); err != nil {
+	if err := transaction.VoteOnContext(ctx, s.txManager, vote, voting.Prepared); err != nil {
 		return helper.ErrFailedPreconditionf("preparatory vote: %w", err)
 	}
 
@@ -187,7 +187,7 @@ func (s *server) createRepository(
 		return fmt.Errorf("moving repository into place: %w", err)
 	}
 
-	if err := transaction.VoteOnContext(ctx, s.txManager, vote); err != nil {
+	if err := transaction.VoteOnContext(ctx, s.txManager, vote, voting.Committed); err != nil {
 		return helper.ErrFailedPreconditionf("committing vote: %w", err)
 	}
 

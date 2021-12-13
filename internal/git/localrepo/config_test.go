@@ -1,7 +1,6 @@
 package localrepo
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 	"runtime"
@@ -18,7 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
 	"google.golang.org/grpc/peer"
 )
 
@@ -121,17 +119,12 @@ func TestRepo_SetConfig(t *testing.T) {
 		ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 		ctx = peer.NewContext(ctx, backchannelPeer)
 
-		votes := 0
+		txManager := transaction.NewTrackingManager()
 
 		require.NoError(t, err)
-		require.NoError(t, repo.SetConfig(ctx, "some.key", "value", &transaction.MockManager{
-			VoteFn: func(context.Context, txinfo.Transaction, voting.Vote) error {
-				votes++
-				return nil
-			},
-		}))
+		require.NoError(t, repo.SetConfig(ctx, "some.key", "value", txManager))
 
-		require.Equal(t, 2, votes)
+		require.Equal(t, 2, len(txManager.Votes()))
 	})
 }
 
@@ -262,16 +255,11 @@ func TestRepo_UnsetMatchingConfig(t *testing.T) {
 		ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 		ctx = peer.NewContext(ctx, backchannelPeer)
 
-		votes := 0
+		txManager := transaction.NewTrackingManager()
 
 		require.NoError(t, err)
-		require.NoError(t, repo.UnsetMatchingConfig(ctx, "some.key", &transaction.MockManager{
-			VoteFn: func(context.Context, txinfo.Transaction, voting.Vote) error {
-				votes++
-				return nil
-			},
-		}))
+		require.NoError(t, repo.UnsetMatchingConfig(ctx, "some.key", txManager))
 
-		require.Equal(t, 2, votes)
+		require.Equal(t, 2, len(txManager.Votes()))
 	})
 }

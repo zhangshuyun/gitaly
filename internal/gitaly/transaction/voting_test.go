@@ -76,10 +76,10 @@ func TestVoteOnContext(t *testing.T) {
 		AuthInfo: backchannel.WithID(nil, 1234),
 	}
 
-	vote := voting.VoteFromData([]byte("1"))
+	expectedVote := voting.VoteFromData([]byte("1"))
 
 	t.Run("without transaction", func(t *testing.T) {
-		require.NoError(t, VoteOnContext(ctx, &MockManager{}, voting.Vote{}))
+		require.NoError(t, VoteOnContext(ctx, &MockManager{}, voting.Vote{}, voting.Prepared))
 	})
 
 	t.Run("successful vote", func(t *testing.T) {
@@ -89,7 +89,7 @@ func TestVoteOnContext(t *testing.T) {
 
 		callbackExecuted := false
 		require.NoError(t, VoteOnContext(ctx, &MockManager{
-			VoteFn: func(ctx context.Context, tx txinfo.Transaction, vote voting.Vote) error {
+			VoteFn: func(ctx context.Context, tx txinfo.Transaction, vote voting.Vote, phase voting.Phase) error {
 				require.Equal(t, txinfo.Transaction{
 					ID:            5678,
 					Node:          "node",
@@ -97,9 +97,11 @@ func TestVoteOnContext(t *testing.T) {
 					BackchannelID: 1234,
 				}, tx)
 				callbackExecuted = true
+				require.Equal(t, expectedVote, vote)
+				require.Equal(t, voting.Prepared, phase)
 				return nil
 			},
-		}, vote))
+		}, expectedVote, voting.Prepared))
 		require.True(t, callbackExecuted, "callback should have been executed")
 	})
 
@@ -110,10 +112,10 @@ func TestVoteOnContext(t *testing.T) {
 
 		expectedErr := fmt.Errorf("any error")
 		require.Equal(t, expectedErr, VoteOnContext(ctx, &MockManager{
-			VoteFn: func(ctx context.Context, tx txinfo.Transaction, vote voting.Vote) error {
+			VoteFn: func(context.Context, txinfo.Transaction, voting.Vote, voting.Phase) error {
 				return expectedErr
 			},
-		}, vote))
+		}, expectedVote, voting.Prepared))
 	})
 }
 
@@ -151,7 +153,7 @@ func TestCommitLockedFile(t *testing.T) {
 
 		calls := 0
 		require.NoError(t, CommitLockedFile(ctx, &MockManager{
-			VoteFn: func(ctx context.Context, tx txinfo.Transaction, vote voting.Vote) error {
+			VoteFn: func(ctx context.Context, tx txinfo.Transaction, vote voting.Vote, phase voting.Phase) error {
 				require.Equal(t, txinfo.Transaction{
 					ID:            5678,
 					Node:          "node",
@@ -160,6 +162,16 @@ func TestCommitLockedFile(t *testing.T) {
 				}, tx)
 				require.Equal(t, voting.VoteFromData([]byte("contents")), vote)
 				calls++
+
+				switch calls {
+				case 1:
+					require.Equal(t, voting.Prepared, phase)
+				case 2:
+					require.Equal(t, voting.Committed, phase)
+				default:
+					require.FailNow(t, "unexpected voting phase %q", phase)
+				}
+
 				return nil
 			},
 		}, writer))
@@ -177,7 +189,7 @@ func TestCommitLockedFile(t *testing.T) {
 		require.NoError(t, err)
 
 		err = CommitLockedFile(ctx, &MockManager{
-			VoteFn: func(context.Context, txinfo.Transaction, voting.Vote) error {
+			VoteFn: func(context.Context, txinfo.Transaction, voting.Vote, voting.Phase) error {
 				return fmt.Errorf("some error")
 			},
 		}, writer)
@@ -195,11 +207,10 @@ func TestCommitLockedFile(t *testing.T) {
 		require.NoError(t, err)
 
 		err = CommitLockedFile(ctx, &MockManager{
-			VoteFn: func(context.Context, txinfo.Transaction, voting.Vote) error {
+			VoteFn: func(context.Context, txinfo.Transaction, voting.Vote, voting.Phase) error {
 				// This shouldn't typically happen given that the file is locked,
 				// but we concurrently update the file after our first vote.
-				require.NoError(t, os.WriteFile(file, []byte("something"),
-					0o666))
+				require.NoError(t, os.WriteFile(file, []byte("something"), 0o666))
 				return nil
 			},
 		}, writer)

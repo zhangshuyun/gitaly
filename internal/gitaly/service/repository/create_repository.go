@@ -84,7 +84,7 @@ func (s *server) CreateRepository(ctx context.Context, req *gitalypb.CreateRepos
 			return err
 		}
 
-		if err := s.txManager.Vote(ctx, tx, vote); err != nil {
+		if err := s.txManager.Vote(ctx, tx, vote, voting.UnknownPhase); err != nil {
 			return fmt.Errorf("casting vote: %w", err)
 		}
 

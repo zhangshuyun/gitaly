@@ -150,26 +150,16 @@ func TestCreateRepository_transactional(t *testing.T) {
 }
 
 func testCreateRepositoryTransactional(t *testing.T, ctx context.Context) {
-	var actualVote voting.Vote
-	var called int
+	txManager := transaction.NewTrackingManager()
 
-	mockTxManager := transaction.MockManager{
-		VoteFn: func(ctx context.Context, tx txinfo.Transaction, v voting.Vote) error {
-			actualVote = v
-			called++
-			return nil
-		},
-	}
-
-	cfg, client := setupRepositoryServiceWithoutRepo(t, testserver.WithTransactionManager(&mockTxManager))
+	cfg, client := setupRepositoryServiceWithoutRepo(t, testserver.WithTransactionManager(txManager))
 
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
 	ctx = metadata.IncomingToOutgoing(ctx)
 
 	t.Run("initial creation without refs", func(t *testing.T) {
-		called = 0
-		actualVote = voting.Vote{}
+		txManager.Reset()
 
 		repo := &gitalypb.Repository{
 			StorageName:  cfg.Storages[0].Name,
@@ -180,16 +170,16 @@ func testCreateRepositoryTransactional(t *testing.T, ctx context.Context) {
 
 		require.DirExists(t, filepath.Join(cfg.Storages[0].Path, getReplicaPath(ctx, t, client, repo)))
 		if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
-			require.Equal(t, 2, called, "expected transactional vote")
+			require.Equal(t, 2, len(txManager.Votes()), "expected transactional vote")
 		} else {
-			require.Equal(t, 1, called, "expected transactional vote")
-			require.Equal(t, voting.VoteFromData([]byte{}), actualVote)
+			require.Equal(t, []transaction.PhasedVote{
+				{Vote: voting.VoteFromData([]byte{}), Phase: voting.UnknownPhase},
+			}, txManager.Votes())
 		}
 	})
 
 	t.Run("idempotent creation with preexisting refs", func(t *testing.T) {
-		called = 0
-		actualVote = voting.Vote{}
+		txManager.Reset()
 
 		// The above test creates the second repository on the server. As this test can run with Praefect in front of it,
 		// we'll use the next replica path Praefect will assign in order to ensure this repository creation conflicts even
@@ -212,8 +202,9 @@ func testCreateRepositoryTransactional(t *testing.T, ctx context.Context) {
 		refs := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref")
 		require.NotEmpty(t, refs)
 
-		require.Equal(t, 1, called, "expected transactional vote")
-		require.Equal(t, voting.VoteFromData(refs), actualVote)
+		require.Equal(t, []transaction.PhasedVote{
+			{Vote: voting.VoteFromData(refs), Phase: voting.UnknownPhase},
+		}, txManager.Votes())
 	})
 }
 

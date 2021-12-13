@@ -2,7 +2,6 @@ package ssh
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -29,7 +28,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 	"google.golang.org/grpc/codes"
@@ -282,15 +280,9 @@ func TestReceivePackTransactional(t *testing.T) {
 
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	var votes int
-	serverSocketPath := runSSHServer(t, cfg, testserver.WithTransactionManager(
-		&transaction.MockManager{
-			VoteFn: func(context.Context, txinfo.Transaction, voting.Vote) error {
-				votes++
-				return nil
-			},
-		},
-	))
+	txManager := transaction.NewTrackingManager()
+
+	serverSocketPath := runSSHServer(t, cfg, testserver.WithTransactionManager(txManager))
 
 	client, conn := newSSHClient(t, serverSocketPath)
 	defer conn.Close()
@@ -435,7 +427,7 @@ func TestReceivePackTransactional(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			votes = 0
+			txManager.Reset()
 
 			var request bytes.Buffer
 			for i, command := range tc.commands {
@@ -480,7 +472,7 @@ func TestReceivePackTransactional(t *testing.T) {
 					require.Equal(t, expectedOID, actualOID.String())
 				}
 			}
-			require.Equal(t, tc.expectedVotes, votes)
+			require.Equal(t, tc.expectedVotes, len(txManager.Votes()))
 		})
 	}
 }

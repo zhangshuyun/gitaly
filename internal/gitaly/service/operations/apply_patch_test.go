@@ -1,12 +1,10 @@
 package operations
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"testing/iotest"
 	"time"
@@ -26,7 +24,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 	"google.golang.org/grpc/codes"
@@ -621,16 +618,7 @@ func TestUserApplyPatchTransactional(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	var votes int32
-	txManager := &transaction.MockManager{
-		VoteFn: func(context.Context, txinfo.Transaction, voting.Vote) error {
-			// We can see a race here between adding the worktree and changing its
-			// config and updating refs via the reference-transaction hook. Given that
-			// both come in via different threads, Go perceives it as a potential race.
-			atomic.AddInt32(&votes, 1)
-			return nil
-		},
-	}
+	txManager := transaction.NewTrackingManager()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx, testserver.WithTransactionManager(txManager))
 
@@ -665,7 +653,7 @@ func TestUserApplyPatchTransactional(t *testing.T) {
 
 	require.True(t, response.BranchUpdate.BranchCreated)
 
-	require.Equal(t, int32(14), votes)
+	require.Equal(t, 14, len(txManager.Votes()))
 
 	splitIndex := gittest.Exec(t, cfg, "-C", repoPath, "config", "core.splitIndex")
 	require.Equal(t, "false", text.ChompBytes(splitIndex))

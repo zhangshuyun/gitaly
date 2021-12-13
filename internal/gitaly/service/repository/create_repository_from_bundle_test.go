@@ -104,16 +104,9 @@ func TestCreateRepositoryFromBundle_transactional(t *testing.T) {
 }
 
 func testCreateRepositoryFromBundleTransactional(t *testing.T, ctx context.Context) {
-	var votes []voting.Vote
-	txManager := &transaction.MockManager{
-		VoteFn: func(ctx context.Context, tx txinfo.Transaction, vote voting.Vote) error {
-			votes = append(votes, vote)
-			return nil
-		},
-	}
+	txManager := transaction.NewTrackingManager()
 
-	cfg, repoProto, repoPath, client := setupRepositoryService(t,
-		testserver.WithTransactionManager(txManager))
+	cfg, repoProto, repoPath, client := setupRepositoryService(t, testserver.WithTransactionManager(txManager))
 
 	masterOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/master"))
 	featureOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/feature"))
@@ -155,50 +148,43 @@ func testCreateRepositoryFromBundleTransactional(t *testing.T, ctx context.Conte
 	require.NoError(t, err)
 
 	if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
-		var actualVotes []string
-		for _, vote := range votes {
-			actualVotes = append(actualVotes, vote.String())
+		createVote := func(hash string, phase voting.Phase) transaction.PhasedVote {
+			vote, err := voting.VoteFromString(hash)
+			require.NoError(t, err)
+			return transaction.PhasedVote{Vote: vote, Phase: phase}
 		}
 
 		// While the following votes are opaque to us, this doesn't really matter. All we do
 		// care about is that they're stable.
-		require.Equal(t, []string{
+		require.Equal(t, []transaction.PhasedVote{
 			// These are the votes created by git-fetch(1).
-			"47553c06f575f757ad56ef3216c59804b72aa4a6",
-			"47553c06f575f757ad56ef3216c59804b72aa4a6",
+			createVote("47553c06f575f757ad56ef3216c59804b72aa4a6", voting.Prepared),
+			createVote("47553c06f575f757ad56ef3216c59804b72aa4a6", voting.Committed),
 			// And this is the manual votes we compute by walking the repository.
-			"da39a3ee5e6b4b0d3255bfef95601890afd80709",
-			"da39a3ee5e6b4b0d3255bfef95601890afd80709",
-		}, actualVotes)
+			createVote("da39a3ee5e6b4b0d3255bfef95601890afd80709", voting.Prepared),
+			createVote("da39a3ee5e6b4b0d3255bfef95601890afd80709", voting.Committed),
+		}, txManager.Votes())
 		return
 	}
-
-	var votingInput []string
 
 	// This accounts for the first two votes via git-clone(1). Given that git-clone(1) creates
 	// all references in a single reference transaction, the hook is executed twice for all
 	// fetched references (once for "prepare", once for "commit").
-	votingInput = append(votingInput,
-		fmt.Sprintf("%s %s refs/heads/feature\n%s %s refs/heads/master\n", git.ZeroOID, featureOID, git.ZeroOID, masterOID),
-		fmt.Sprintf("%s %s refs/heads/feature\n%s %s refs/heads/master\n", git.ZeroOID, featureOID, git.ZeroOID, masterOID),
-	)
+	voteFromCloning := []byte(fmt.Sprintf("%s %s refs/heads/feature\n%s %s refs/heads/master\n", git.ZeroOID, featureOID, git.ZeroOID, masterOID))
 
 	// Keep-around references are not fetched via git-clone(1) because non-mirror clones only
 	// fetch branches and tags. These additional references are thus obtained via git-fetch(1).
 	// Given that we use the `--atomic` flag for git-fetch(1), all reference updates will be in
 	// a single transaction and we thus expect exactly two votes (once for "prepare", once for
 	// "commit").
-	votingInput = append(votingInput,
-		fmt.Sprintf("%s %s refs/keep-around/2\n%s %s refs/keep-around/1\n", git.ZeroOID, masterOID, git.ZeroOID, masterOID),
-		fmt.Sprintf("%s %s refs/keep-around/2\n%s %s refs/keep-around/1\n", git.ZeroOID, masterOID, git.ZeroOID, masterOID),
-	)
+	voteFromFetching := []byte(fmt.Sprintf("%s %s refs/keep-around/2\n%s %s refs/keep-around/1\n", git.ZeroOID, masterOID, git.ZeroOID, masterOID))
 
-	var expectedVotes []voting.Vote
-	for _, expectedVote := range votingInput {
-		expectedVotes = append(expectedVotes, voting.VoteFromData([]byte(expectedVote)))
-	}
-
-	require.Equal(t, votes, expectedVotes)
+	require.Equal(t, []transaction.PhasedVote{
+		{Vote: voting.VoteFromData(voteFromCloning), Phase: voting.Prepared},
+		{Vote: voting.VoteFromData(voteFromCloning), Phase: voting.Committed},
+		{Vote: voting.VoteFromData(voteFromFetching), Phase: voting.Prepared},
+		{Vote: voting.VoteFromData(voteFromFetching), Phase: voting.Committed},
+	}, txManager.Votes())
 }
 
 func TestCreateRepositoryFromBundle_invalidBundle(t *testing.T) {

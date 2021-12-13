@@ -17,7 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -92,13 +91,7 @@ func testDeleteRefsTransaction(t *testing.T, ctx context.Context) {
 
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	var votes int
-	txManager := &transaction.MockManager{
-		VoteFn: func(context.Context, txinfo.Transaction, voting.Vote) error {
-			votes++
-			return nil
-		},
-	}
+	txManager := transaction.NewTrackingManager()
 
 	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRefServiceServer(srv, NewServer(
@@ -139,7 +132,7 @@ func testDeleteRefsTransaction(t *testing.T, ctx context.Context) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			votes = 0
+			txManager.Reset()
 
 			repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 			tc.request.Repository = repo
@@ -153,7 +146,7 @@ func testDeleteRefsTransaction(t *testing.T, ctx context.Context) {
 				expectedVotes *= 2
 			}
 
-			require.Equal(t, expectedVotes, votes)
+			require.Equal(t, expectedVotes, len(txManager.Votes()))
 		})
 	}
 }

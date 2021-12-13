@@ -32,9 +32,14 @@ func (m *GitLabHookManager) runWithTransaction(ctx context.Context, payload git.
 	return nil
 }
 
-func (m *GitLabHookManager) voteOnTransaction(ctx context.Context, vote voting.Vote, payload git.HooksPayload) error {
+func (m *GitLabHookManager) voteOnTransaction(
+	ctx context.Context,
+	vote voting.Vote,
+	phase voting.Phase,
+	payload git.HooksPayload,
+) error {
 	return m.runWithTransaction(ctx, payload, func(ctx context.Context, tx txinfo.Transaction) error {
-		return m.txManager.Vote(ctx, tx, vote)
+		return m.txManager.Vote(ctx, tx, vote, phase)
 	})
 }
 

@@ -100,7 +100,7 @@ func (s *server) sshReceivePack(stream gitalypb.SSHService_SSHReceivePackServer,
 	// ensure there's always at least one vote. In case there was diverging behaviour in
 	// git-receive-pack(1) which led to a different outcome across voters, then this final vote
 	// would fail because the sequence of votes would be different.
-	if err := transaction.VoteOnContext(ctx, s.txManager, voting.Vote{}); err != nil {
+	if err := transaction.VoteOnContext(ctx, s.txManager, voting.Vote{}, voting.Committed); err != nil {
 		return status.Errorf(codes.Aborted, "final transactional vote: %v", err)
 	}
 
