@@ -6,15 +6,15 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 )
 
 func TestStorageCleanup_Populate(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	db := glsql.NewDB(t)
+	db := testdb.NewDB(t)
 	storageCleanup := NewStorageCleanup(db.DB)
 
 	require.NoError(t, storageCleanup.Populate(ctx, "praefect", "gitaly-1"))
@@ -37,7 +37,7 @@ func TestStorageCleanup_AcquireNextStorage(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	db := glsql.NewDB(t)
+	db := testdb.NewDB(t)
 	storageCleanup := NewStorageCleanup(db.DB)
 
 	t.Run("ok", func(t *testing.T) {
@@ -179,7 +179,7 @@ func TestStorageCleanup_Exists(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	db := glsql.NewDB(t)
+	db := testdb.NewDB(t)
 
 	repoStore := NewPostgresRepositoryStore(db.DB, nil)
 	require.NoError(t, repoStore.CreateRepository(ctx, 0, "vs", "p/1", "replica-path-1", "g1", []string{"g2", "g3"}, nil, false, false))
@@ -250,7 +250,7 @@ type storageCleanupRow struct {
 	TriggeredAt sql.NullTime
 }
 
-func getAllStoragesCleanup(t testing.TB, db glsql.DB) []storageCleanupRow {
+func getAllStoragesCleanup(t testing.TB, db testdb.DB) []storageCleanupRow {
 	rows, err := db.Query(`SELECT * FROM storage_cleanups`)
 	require.NoError(t, err)
 	defer func() {

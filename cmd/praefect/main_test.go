@@ -13,8 +13,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/bootstrap/starter"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 )
 
 func TestMain(m *testing.M) {
@@ -190,8 +190,8 @@ func (m *mockRegisterer) Gather() ([]*dto.MetricFamily, error) {
 func TestExcludeDatabaseMetricsFromDefaultMetrics(t *testing.T) {
 	t.Parallel()
 
-	db := glsql.NewDB(t)
-	dbConf := glsql.GetDBConfig(t, db.Name)
+	db := testdb.NewDB(t)
+	dbConf := testdb.GetDBConfig(t, db.Name)
 
 	conf := config.Config{
 		SocketPath: testhelper.GetTemporaryGitalySocketFileName(t),

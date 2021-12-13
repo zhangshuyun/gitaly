@@ -31,10 +31,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
 	praefectconfig "gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/streamcache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
@@ -85,7 +85,7 @@ func StartGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Serv
 
 // createDatabase create a new database with randomly generated name and returns it back to the caller.
 func createDatabase(t testing.TB) string {
-	db := glsql.NewDB(t)
+	db := testdb.NewDB(t)
 	return db.Name
 }
 
@@ -113,7 +113,7 @@ func runPraefectProxy(t testing.TB, cfg config.Cfg, gitalyAddr, praefectBinPath 
 		Auth: auth.Config{
 			Token: cfg.Auth.Token,
 		},
-		DB: glsql.GetDBConfig(t, dbName),
+		DB: testdb.GetDBConfig(t, dbName),
 		Failover: praefectconfig.Failover{
 			Enabled:          true,
 			ElectionStrategy: praefectconfig.ElectionStrategyLocal,

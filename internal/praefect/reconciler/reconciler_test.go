@@ -15,8 +15,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 )
 
 func TestReconciler(t *testing.T) {
@@ -82,7 +82,7 @@ func TestReconciler(t *testing.T) {
 		return out
 	}
 
-	db := glsql.NewDB(t)
+	db := testdb.NewDB(t)
 
 	for _, tc := range []struct {
 		desc                string
@@ -1176,7 +1176,7 @@ func TestReconciler_renames(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	db := glsql.NewDB(t)
+	db := testdb.NewDB(t)
 
 	for _, tc := range []struct {
 		desc          string

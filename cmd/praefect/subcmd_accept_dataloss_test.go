@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/service/info"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -35,7 +35,7 @@ func TestAcceptDatalossSubcommand(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	db := glsql.NewDB(t)
+	db := testdb.NewDB(t)
 	rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
 	startingGenerations := map[string]int{st1: 1, st2: 0, st3: datastore.GenerationUnknown}
 

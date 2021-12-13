@@ -1,4 +1,4 @@
-package glsql
+package testdb
 
 import (
 	"context"
@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 )
 
 const (
@@ -172,7 +173,7 @@ func GetDBConfig(t testing.TB, database string) config.DB {
 
 func requireSQLOpen(t testing.TB, dbCfg config.DB, direct bool) *sql.DB {
 	t.Helper()
-	db, err := sql.Open("postgres", DSN(dbCfg, direct))
+	db, err := sql.Open("postgres", glsql.DSN(dbCfg, direct))
 	require.NoErrorf(t, err, "failed to connect to %q database", dbCfg.DBName)
 	if !assert.NoErrorf(t, db.Ping(), "failed to communicate with %q database", dbCfg.DBName) {
 		require.NoErrorf(t, db.Close(), "release connection to the %q database", dbCfg.DBName)
@@ -232,7 +233,7 @@ func initPraefectTestDB(t testing.TB, database string) *sql.DB {
 		require.NoErrorf(t, templateDB.Close(), "release connection to the %q database", templateDBConf.DBName)
 	}()
 
-	if _, err := Migrate(templateDB, false); err != nil {
+	if _, err := glsql.Migrate(templateDB, false); err != nil {
 		// If database has unknown migration we try to re-create template database with
 		// current migration. It may be caused by other code changes done in another branch.
 		if pErr := (*migrate.PlanError)(nil); errors.As(err, &pErr) {
@@ -248,7 +249,7 @@ func initPraefectTestDB(t testing.TB, database string) *sql.DB {
 				defer func() {
 					require.NoErrorf(t, remigrateTemplateDB.Close(), "release connection to the %q database", templateDBConf.DBName)
 				}()
-				_, err = Migrate(remigrateTemplateDB, false)
+				_, err = glsql.Migrate(remigrateTemplateDB, false)
 				require.NoErrorf(t, err, "failed to run database migration on %q", praefectTemplateDatabase)
 			} else {
 				require.NoErrorf(t, err, "failed to run database migration on %q", praefectTemplateDatabase)
@@ -351,7 +352,7 @@ func getDatabaseEnvironment(t testing.TB) map[string]string {
 // WaitForBlockedQuery is a helper that waits until a blocked query matching the prefix is present in the
 // database. This is useful for ensuring another transaction is blocking a query when testing concurrent
 // execution of multiple queries.
-func WaitForBlockedQuery(ctx context.Context, t testing.TB, db Querier, queryPrefix string) {
+func WaitForBlockedQuery(ctx context.Context, t testing.TB, db glsql.Querier, queryPrefix string) {
 	t.Helper()
 
 	for {

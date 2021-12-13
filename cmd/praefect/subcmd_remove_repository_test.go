@@ -20,9 +20,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
@@ -75,8 +75,8 @@ func TestRemoveRepository_Exec(t *testing.T) {
 	g1Addr := testserver.RunGitalyServer(t, g1Cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 	g2Srv := testserver.StartGitalyServer(t, g2Cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
-	db := glsql.NewDB(t)
-	dbConf := glsql.GetDBConfig(t, db.Name)
+	db := testdb.NewDB(t)
+	dbConf := testdb.GetDBConfig(t, db.Name)
 
 	conf := config.Config{
 		SocketPath: testhelper.GetTemporaryGitalySocketFileName(t),
@@ -233,7 +233,7 @@ func TestRemoveRepository_Exec(t *testing.T) {
 	<-stopped
 }
 
-func requireNoDatabaseInfo(t *testing.T, db glsql.DB, cmd *removeRepository) {
+func requireNoDatabaseInfo(t *testing.T, db testdb.DB, cmd *removeRepository) {
 	t.Helper()
 	var repositoryRowExists bool
 	require.NoError(t, db.QueryRow(
@@ -259,7 +259,7 @@ func TestRemoveRepository_removeReplicationEvents(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	db := glsql.NewDB(t)
+	db := testdb.NewDB(t)
 
 	queue := datastore.NewPostgresReplicationEventQueue(db)
 

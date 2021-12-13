@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
@@ -116,7 +115,7 @@ func TestPerRepositoryRouter_RouteStorageAccessor(t *testing.T) {
 func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 	t.Parallel()
 
-	db := glsql.NewDB(t)
+	db := testdb.NewDB(t)
 
 	const relativePath = "repository"
 
@@ -269,7 +268,7 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 func TestPerRepositoryRouter_RouteRepositoryMutator(t *testing.T) {
 	t.Parallel()
 
-	db := glsql.NewDB(t)
+	db := testdb.NewDB(t)
 
 	configuredNodes := map[string][]string{
 		"virtual-storage-1": {"primary", "secondary-1", "secondary-2"},
@@ -482,7 +481,7 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 	secondary1Conn := &grpc.ClientConn{}
 	secondary2Conn := &grpc.ClientConn{}
 
-	db := glsql.NewDB(t)
+	db := testdb.NewDB(t)
 
 	const relativePath = "relative-path"
 

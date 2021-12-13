@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/transactions"
@@ -154,7 +153,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 		},
 	}
 
-	db := glsql.NewDB(t)
+	db := testdb.NewDB(t)
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {

@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/promtest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -29,7 +30,7 @@ var shardName = "test-shard-0"
 
 func TestGetPrimaryAndSecondaries(t *testing.T) {
 	t.Parallel()
-	db := glsql.NewDB(t)
+	db := testdb.NewDB(t)
 
 	logger := testhelper.NewDiscardingLogger(t).WithField("test", t.Name())
 	praefectSocket := testhelper.GetTemporaryGitalySocketFileName(t)
@@ -74,7 +75,7 @@ func TestGetPrimaryAndSecondaries(t *testing.T) {
 
 func TestSqlElector_slow_execution(t *testing.T) {
 	t.Parallel()
-	db := glsql.NewDB(t)
+	db := testdb.NewDB(t)
 
 	praefectSocket := "unix://" + testhelper.GetTemporaryGitalySocketFileName(t)
 	logger := testhelper.NewDiscardingLogger(t).WithField("test", t.Name())
@@ -113,7 +114,7 @@ func TestSqlElector_slow_execution(t *testing.T) {
 
 func TestBasicFailover(t *testing.T) {
 	t.Parallel()
-	db := glsql.NewDB(t)
+	db := testdb.NewDB(t)
 
 	logger := testhelper.NewDiscardingLogger(t).WithField("test", t.Name())
 	praefectSocket := testhelper.GetTemporaryGitalySocketFileName(t)
@@ -224,7 +225,7 @@ func TestBasicFailover(t *testing.T) {
 
 func TestElectDemotedPrimary(t *testing.T) {
 	t.Parallel()
-	tx := glsql.NewDB(t).Begin(t)
+	tx := testdb.NewDB(t).Begin(t)
 	defer tx.Rollback(t)
 
 	node := config.Node{Storage: "gitaly-0"}
@@ -263,7 +264,7 @@ func TestElectDemotedPrimary(t *testing.T) {
 
 // predateLastSeenActiveAt shifts the last_seen_active_at column to an earlier time. This avoids
 // waiting for the node's status to become unhealthy.
-func predateLastSeenActiveAt(t testing.TB, db glsql.DB, shardName, nodeName string, amount time.Duration) {
+func predateLastSeenActiveAt(t testing.TB, db testdb.DB, shardName, nodeName string, amount time.Duration) {
 	t.Helper()
 
 	_, err := db.Exec(`
@@ -290,7 +291,7 @@ func predateElection(t testing.TB, ctx context.Context, db glsql.Querier, shardN
 
 func TestElectNewPrimary(t *testing.T) {
 	t.Parallel()
-	db := glsql.NewDB(t)
+	db := testdb.NewDB(t)
 
 	ns := []*nodeStatus{{
 		node: config.Node{
@@ -462,7 +463,7 @@ func TestConnectionMultiplexing(t *testing.T) {
 
 	go srv.Serve(ln)
 
-	db := glsql.NewDB(t)
+	db := testdb.NewDB(t)
 	mgr, err := NewManager(
 		testhelper.NewDiscardingLogEntry(t),
 		config.Config{

@@ -31,7 +31,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/grpc-proxy/proxy"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/mock"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
@@ -536,7 +535,7 @@ func testRemoveRepository(t *testing.T, ctx context.Context) {
 
 	verifyReposExistence(t, codes.OK)
 
-	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t)))
+	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.NewDB(t)))
 	repoStore := defaultRepoStore(praefectCfg)
 	txMgr := defaultTxMgr(praefectCfg)
 	nodeMgr, err := nodes.NewManager(testhelper.NewDiscardingLogEntry(t), praefectCfg, nil,
@@ -633,9 +632,9 @@ func TestRenameRepository(t *testing.T) {
 		repoPaths[i] = filepath.Join(gitalyCfg.Storages[0].Path, relativePath)
 	}
 
-	evq := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t)))
+	evq := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.NewDB(t)))
 
-	tx := glsql.NewDB(t).Begin(t)
+	tx := testdb.NewDB(t).Begin(t)
 	defer tx.Rollback(t)
 
 	rs := datastore.NewPostgresRepositoryStore(tx, nil)
@@ -834,7 +833,7 @@ func TestProxyWrites(t *testing.T) {
 		},
 	}
 
-	queue := datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t))
+	queue := datastore.NewPostgresReplicationEventQueue(testdb.NewDB(t))
 	entry := testhelper.NewDiscardingLogEntry(t)
 
 	nodeMgr, err := nodes.NewManager(entry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
@@ -970,7 +969,7 @@ func TestErrorThreshold(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	queue := datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t))
+	queue := datastore.NewPostgresReplicationEventQueue(testdb.NewDB(t))
 	entry := testhelper.NewDiscardingLogEntry(t)
 
 	testCases := []struct {

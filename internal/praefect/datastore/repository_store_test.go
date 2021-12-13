@@ -116,7 +116,7 @@ FROM storage_repositories
 }
 
 func TestRepositoryStore_Postgres(t *testing.T) {
-	db := glsql.NewDB(t)
+	db := testdb.NewDB(t)
 	testRepositoryStore(t, func(t *testing.T, storages map[string][]string) (RepositoryStore, requireStateFunc) {
 		db.TruncateAll(t)
 		gs := NewPostgresRepositoryStore(db, storages)
@@ -129,7 +129,7 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 }
 
 func TestRepositoryStore_incrementGenerationConcurrently(t *testing.T) {
-	db := glsql.NewDB(t)
+	db := testdb.NewDB(t)
 
 	type call struct {
 		primary     string
@@ -214,7 +214,7 @@ func TestRepositoryStore_incrementGenerationConcurrently(t *testing.T) {
 			require.NoError(t, err)
 
 			go func() {
-				glsql.WaitForBlockedQuery(ctx, t, db, "WITH updated_replicas AS (")
+				testdb.WaitForBlockedQuery(ctx, t, db, "WITH updated_replicas AS (")
 				firstTx.Commit(t)
 			}()
 
@@ -1191,7 +1191,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 
 func TestPostgresRepositoryStore_GetRepositoryMetadata(t *testing.T) {
 	t.Parallel()
-	db := glsql.NewDB(t)
+	db := testdb.NewDB(t)
 	for _, tc := range []struct {
 		desc                  string
 		nonExistentRepository bool

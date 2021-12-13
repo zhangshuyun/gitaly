@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 )
 
 func TestNewPostgresListener(t *testing.T) {
@@ -85,13 +86,13 @@ func (mlh mockListenHandler) Connected() {
 
 func TestPostgresListener_Listen(t *testing.T) {
 	t.Parallel()
-	db := glsql.NewDB(t)
+	db := testdb.NewDB(t)
 
 	logger := testhelper.NewDiscardingLogger(t)
 
 	newOpts := func() PostgresListenerOpts {
 		opts := DefaultPostgresListenerOpts
-		opts.Addr = glsql.DSN(glsql.GetDBConfig(t, db.Name), true)
+		opts.Addr = glsql.DSN(testdb.GetDBConfig(t, db.Name), true)
 		opts.MinReconnectInterval = time.Nanosecond
 		opts.MaxReconnectInterval = time.Minute
 		return opts
@@ -367,7 +368,7 @@ func requireEqualNotificationEntries(t *testing.T, d string, entries []notificat
 
 func TestPostgresListener_Listen_repositories_delete(t *testing.T) {
 	t.Parallel()
-	db := glsql.NewDB(t)
+	db := testdb.NewDB(t)
 
 	const channel = "repositories_updates"
 
@@ -400,7 +401,7 @@ func TestPostgresListener_Listen_repositories_delete(t *testing.T) {
 
 func TestPostgresListener_Listen_storage_repositories_insert(t *testing.T) {
 	t.Parallel()
-	db := glsql.NewDB(t)
+	db := testdb.NewDB(t)
 
 	const channel = "storage_repositories_updates"
 
@@ -432,7 +433,7 @@ func TestPostgresListener_Listen_storage_repositories_insert(t *testing.T) {
 
 func TestPostgresListener_Listen_storage_repositories_update(t *testing.T) {
 	t.Parallel()
-	db := glsql.NewDB(t)
+	db := testdb.NewDB(t)
 
 	const channel = "storage_repositories_updates"
 
@@ -460,7 +461,7 @@ func TestPostgresListener_Listen_storage_repositories_update(t *testing.T) {
 
 func TestPostgresListener_Listen_storage_empty_notification(t *testing.T) {
 	t.Parallel()
-	db := glsql.NewDB(t)
+	db := testdb.NewDB(t)
 
 	const channel = "storage_repositories_updates"
 
@@ -479,7 +480,7 @@ func TestPostgresListener_Listen_storage_empty_notification(t *testing.T) {
 
 func TestPostgresListener_Listen_storage_repositories_delete(t *testing.T) {
 	t.Parallel()
-	db := glsql.NewDB(t)
+	db := testdb.NewDB(t)
 
 	const channel = "storage_repositories_updates"
 
@@ -523,7 +524,7 @@ func testListener(t *testing.T, dbName, channel string, setup func(t *testing.T)
 	}
 
 	opts := DefaultPostgresListenerOpts
-	opts.Addr = glsql.DSN(glsql.GetDBConfig(t, dbName), true)
+	opts.Addr = glsql.DSN(testdb.GetDBConfig(t, dbName), true)
 	opts.Channels = []string{channel}
 
 	handler := mockListenHandler{OnNotification: callback, OnConnected: func() { close(readyChan) }}

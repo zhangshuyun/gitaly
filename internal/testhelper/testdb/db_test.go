@@ -1,4 +1,4 @@
-package glsql
+package testdb
 
 import (
 	"testing"

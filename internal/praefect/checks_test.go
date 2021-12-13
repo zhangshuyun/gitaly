@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/migrations"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -72,8 +71,8 @@ func TestPraefectMigrations_success(t *testing.T) {
 			defer cancel()
 
 			var cfg config.Config
-			db := glsql.NewDB(t)
-			cfg.DB = glsql.GetDBConfig(t, db.Name)
+			db := testdb.NewDB(t)
+			cfg.DB = testdb.GetDBConfig(t, db.Name)
 
 			require.NoError(t, tc.prepare(cfg))
 
@@ -358,20 +357,20 @@ func runNodes(t *testing.T, nodes []nodeAssertion) ([]*config.Node, func()) {
 func TestPostgresReadWriteCheck(t *testing.T) {
 	testCases := []struct {
 		desc        string
-		setup       func(t *testing.T, db glsql.DB) config.DB
+		setup       func(t *testing.T, db testdb.DB) config.DB
 		expectedErr string
 		expectedLog string
 	}{
 		{
 			desc: "read and write work",
-			setup: func(t *testing.T, db glsql.DB) config.DB {
-				return glsql.GetDBConfig(t, db.Name)
+			setup: func(t *testing.T, db testdb.DB) config.DB {
+				return testdb.GetDBConfig(t, db.Name)
 			},
 			expectedLog: "successfully read from database\nsuccessfully wrote to database\n",
 		},
 		{
 			desc: "read only",
-			setup: func(t *testing.T, db glsql.DB) config.DB {
+			setup: func(t *testing.T, db testdb.DB) config.DB {
 				role := "praefect_ro_role_" + strings.ReplaceAll(uuid.New().String(), "-", "")
 
 				_, err := db.Exec(fmt.Sprintf(`
@@ -386,7 +385,7 @@ func TestPostgresReadWriteCheck(t *testing.T) {
 					require.NoError(t, err)
 				})
 
-				dbCfg := glsql.GetDBConfig(t, db.Name)
+				dbCfg := testdb.GetDBConfig(t, db.Name)
 				dbCfg.User = role
 				dbCfg.Password = ""
 
@@ -402,7 +401,7 @@ func TestPostgresReadWriteCheck(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			db := glsql.NewDB(t)
+			db := testdb.NewDB(t)
 			t.Cleanup(func() { require.NoError(t, db.Close()) })
 
 			dbConf := tc.setup(t, db)
@@ -475,8 +474,8 @@ func TestNewUnavailableReposCheck(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			db := glsql.NewDB(t)
-			dbCfg := glsql.GetDBConfig(t, db.Name)
+			db := testdb.NewDB(t)
+			dbCfg := testdb.GetDBConfig(t, db.Name)
 			conf.DB = dbCfg
 
 			rs := datastore.NewPostgresRepositoryStore(db, nil)

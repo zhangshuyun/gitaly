@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 )
 
 func BenchmarkPostgresReplicationEventQueue_Acknowledge(b *testing.B) {
@@ -31,7 +31,7 @@ func BenchmarkPostgresReplicationEventQueue_Acknowledge(b *testing.B) {
 }
 
 func benchmarkPostgresReplicationEventQueueAcknowledge(b *testing.B, setup map[JobState]int) {
-	db := glsql.NewDB(b)
+	db := testdb.NewDB(b)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

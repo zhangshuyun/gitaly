@@ -16,12 +16,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 )
 
 func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 	t.Parallel()
 
-	db := glsql.NewDB(t)
+	db := testdb.NewDB(t)
 	rs := NewPostgresRepositoryStore(db, nil)
 
 	t.Run("unknown virtual storage", func(t *testing.T) {
