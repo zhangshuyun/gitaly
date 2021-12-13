@@ -17,7 +17,7 @@ import (
 
 func TestSetReplicationFactorSubcommand(t *testing.T) {
 	t.Parallel()
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 
 	for _, tc := range []struct {
 		desc   string

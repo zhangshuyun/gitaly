@@ -35,7 +35,7 @@ func TestRepositoryStoreCollector(t *testing.T) {
 		replicas     replicas
 	}
 
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 
 	for _, tc := range []struct {
 		desc         string

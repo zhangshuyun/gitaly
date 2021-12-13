@@ -71,7 +71,7 @@ func TestServerFactory(t *testing.T) {
 	revision := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
 
 	logger := testhelper.NewDiscardingLogEntry(t)
-	queue := datastore.NewPostgresReplicationEventQueue(testdb.NewDB(t))
+	queue := datastore.NewPostgresReplicationEventQueue(testdb.New(t))
 
 	rs := datastore.MockRepositoryStore{}
 	txMgr := transactions.NewManager(conf)

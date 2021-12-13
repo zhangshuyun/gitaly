@@ -190,8 +190,8 @@ func (m *mockRegisterer) Gather() ([]*dto.MetricFamily, error) {
 func TestExcludeDatabaseMetricsFromDefaultMetrics(t *testing.T) {
 	t.Parallel()
 
-	db := testdb.NewDB(t)
-	dbConf := testdb.GetDBConfig(t, db.Name)
+	db := testdb.New(t)
+	dbConf := testdb.GetConfig(t, db.Name)
 
 	conf := config.Config{
 		SocketPath: testhelper.GetTemporaryGitalySocketFileName(t),

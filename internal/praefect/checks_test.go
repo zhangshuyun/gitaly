@@ -71,8 +71,8 @@ func TestPraefectMigrations_success(t *testing.T) {
 			defer cancel()
 
 			var cfg config.Config
-			db := testdb.NewDB(t)
-			cfg.DB = testdb.GetDBConfig(t, db.Name)
+			db := testdb.New(t)
+			cfg.DB = testdb.GetConfig(t, db.Name)
 
 			require.NoError(t, tc.prepare(cfg))
 
@@ -364,7 +364,7 @@ func TestPostgresReadWriteCheck(t *testing.T) {
 		{
 			desc: "read and write work",
 			setup: func(t *testing.T, db testdb.DB) config.DB {
-				return testdb.GetDBConfig(t, db.Name)
+				return testdb.GetConfig(t, db.Name)
 			},
 			expectedLog: "successfully read from database\nsuccessfully wrote to database\n",
 		},
@@ -385,7 +385,7 @@ func TestPostgresReadWriteCheck(t *testing.T) {
 					require.NoError(t, err)
 				})
 
-				dbCfg := testdb.GetDBConfig(t, db.Name)
+				dbCfg := testdb.GetConfig(t, db.Name)
 				dbCfg.User = role
 				dbCfg.Password = ""
 
@@ -401,7 +401,7 @@ func TestPostgresReadWriteCheck(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			db := testdb.NewDB(t)
+			db := testdb.New(t)
 			t.Cleanup(func() { require.NoError(t, db.Close()) })
 
 			dbConf := tc.setup(t, db)
@@ -474,8 +474,8 @@ func TestNewUnavailableReposCheck(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			db := testdb.NewDB(t)
-			dbCfg := testdb.GetDBConfig(t, db.Name)
+			db := testdb.New(t)
+			dbCfg := testdb.GetConfig(t, db.Name)
 			conf.DB = dbCfg
 
 			rs := datastore.NewPostgresRepositoryStore(db, nil)

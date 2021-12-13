@@ -285,8 +285,8 @@ func TestManager_Restore_praefect(t *testing.T) {
 
 	gitalyAddr := testserver.RunGitalyServer(t, gitalyCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
-	db := testdb.NewDB(t)
-	dbConf := testdb.GetDBConfig(t, db.Name)
+	db := testdb.New(t)
+	dbConf := testdb.GetConfig(t, db.Name)
 
 	conf := praefectConfig.Config{
 		SocketPath: testhelper.GetTemporaryGitalySocketFileName(t),

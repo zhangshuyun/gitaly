@@ -49,7 +49,7 @@ func TestReplicatorInvalidSourceRepository(t *testing.T) {
 	require.NoError(t, err)
 	defer testhelper.MustClose(t, targetCC)
 
-	rs := datastore.NewPostgresRepositoryStore(testdb.NewDB(t), nil)
+	rs := datastore.NewPostgresRepositoryStore(testdb.New(t), nil)
 
 	require.NoError(t, rs.CreateRepository(ctx, 1, "virtual-storage-1", "relative-path-1", "relative-path-1", "gitaly-1", nil, nil, true, false))
 
@@ -76,7 +76,7 @@ func TestReplicatorInvalidSourceRepository(t *testing.T) {
 
 func TestReplicatorDestroy(t *testing.T) {
 	t.Parallel()
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 	for _, tc := range []struct {
 		change datastore.ChangeType
 		error  error

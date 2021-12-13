@@ -30,7 +30,7 @@ var shardName = "test-shard-0"
 
 func TestGetPrimaryAndSecondaries(t *testing.T) {
 	t.Parallel()
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 
 	logger := testhelper.NewDiscardingLogger(t).WithField("test", t.Name())
 	praefectSocket := testhelper.GetTemporaryGitalySocketFileName(t)
@@ -75,7 +75,7 @@ func TestGetPrimaryAndSecondaries(t *testing.T) {
 
 func TestSqlElector_slow_execution(t *testing.T) {
 	t.Parallel()
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 
 	praefectSocket := "unix://" + testhelper.GetTemporaryGitalySocketFileName(t)
 	logger := testhelper.NewDiscardingLogger(t).WithField("test", t.Name())
@@ -114,7 +114,7 @@ func TestSqlElector_slow_execution(t *testing.T) {
 
 func TestBasicFailover(t *testing.T) {
 	t.Parallel()
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 
 	logger := testhelper.NewDiscardingLogger(t).WithField("test", t.Name())
 	praefectSocket := testhelper.GetTemporaryGitalySocketFileName(t)
@@ -225,7 +225,7 @@ func TestBasicFailover(t *testing.T) {
 
 func TestElectDemotedPrimary(t *testing.T) {
 	t.Parallel()
-	tx := testdb.NewDB(t).Begin(t)
+	tx := testdb.New(t).Begin(t)
 	defer tx.Rollback(t)
 
 	node := config.Node{Storage: "gitaly-0"}
@@ -291,7 +291,7 @@ func predateElection(t testing.TB, ctx context.Context, db glsql.Querier, shardN
 
 func TestElectNewPrimary(t *testing.T) {
 	t.Parallel()
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 
 	ns := []*nodeStatus{{
 		node: config.Node{
@@ -463,7 +463,7 @@ func TestConnectionMultiplexing(t *testing.T) {
 
 	go srv.Serve(ln)
 
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 	mgr, err := NewManager(
 		testhelper.NewDiscardingLogEntry(t),
 		config.Config{

@@ -115,7 +115,7 @@ func TestPerRepositoryRouter_RouteStorageAccessor(t *testing.T) {
 func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 	t.Parallel()
 
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 
 	const relativePath = "repository"
 
@@ -268,7 +268,7 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 func TestPerRepositoryRouter_RouteRepositoryMutator(t *testing.T) {
 	t.Parallel()
 
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 
 	configuredNodes := map[string][]string{
 		"virtual-storage-1": {"primary", "secondary-1", "secondary-2"},
@@ -481,7 +481,7 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 	secondary1Conn := &grpc.ClientConn{}
 	secondary2Conn := &grpc.ClientConn{}
 
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 
 	const relativePath = "relative-path"
 

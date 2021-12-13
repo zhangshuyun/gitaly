@@ -116,7 +116,7 @@ FROM storage_repositories
 }
 
 func TestRepositoryStore_Postgres(t *testing.T) {
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 	testRepositoryStore(t, func(t *testing.T, storages map[string][]string) (RepositoryStore, requireStateFunc) {
 		db.TruncateAll(t)
 		gs := NewPostgresRepositoryStore(db, storages)
@@ -129,7 +129,7 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 }
 
 func TestRepositoryStore_incrementGenerationConcurrently(t *testing.T) {
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 
 	type call struct {
 		primary     string
@@ -1191,7 +1191,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 
 func TestPostgresRepositoryStore_GetRepositoryMetadata(t *testing.T) {
 	t.Parallel()
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 	for _, tc := range []struct {
 		desc                  string
 		nonExistentRepository bool

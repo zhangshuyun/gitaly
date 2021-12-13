@@ -41,7 +41,7 @@ func TestDatalossSubcommand(t *testing.T) {
 		},
 	}
 
-	tx := testdb.NewDB(t).Begin(t)
+	tx := testdb.New(t).Begin(t)
 	defer tx.Rollback(t)
 
 	ctx, cancel := testhelper.Context()

@@ -75,8 +75,8 @@ func TestRemoveRepository_Exec(t *testing.T) {
 	g1Addr := testserver.RunGitalyServer(t, g1Cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 	g2Srv := testserver.StartGitalyServer(t, g2Cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
-	db := testdb.NewDB(t)
-	dbConf := testdb.GetDBConfig(t, db.Name)
+	db := testdb.New(t)
+	dbConf := testdb.GetConfig(t, db.Name)
 
 	conf := config.Config{
 		SocketPath: testhelper.GetTemporaryGitalySocketFileName(t),
@@ -259,7 +259,7 @@ func TestRemoveRepository_removeReplicationEvents(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 
 	queue := datastore.NewPostgresReplicationEventQueue(db)
 

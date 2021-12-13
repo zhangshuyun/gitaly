@@ -8,7 +8,7 @@ import (
 
 func TestDB_Truncate(t *testing.T) {
 	t.Parallel()
-	db := NewDB(t)
+	db := New(t)
 
 	_, err := db.Exec("CREATE TABLE truncate_tbl(id BIGSERIAL PRIMARY KEY)")
 	require.NoError(t, err)

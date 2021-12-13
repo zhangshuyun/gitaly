@@ -82,7 +82,7 @@ func TestReconciler(t *testing.T) {
 		return out
 	}
 
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 
 	for _, tc := range []struct {
 		desc                string
@@ -1176,7 +1176,7 @@ func TestReconciler_renames(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 
 	for _, tc := range []struct {
 		desc          string

@@ -23,7 +23,7 @@ func TestRepositoryExistsHandler(t *testing.T) {
 	t.Parallel()
 	errServedByGitaly := status.Error(codes.Unknown, "request passed to Gitaly")
 
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 	for _, tc := range []struct {
 		desc          string
 		routeToGitaly bool

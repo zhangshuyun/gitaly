@@ -86,8 +86,8 @@ func TestAddRepository_Exec(t *testing.T) {
 
 	g1Addr := g1Srv.Address()
 
-	db := testdb.NewDB(t)
-	dbConf := testdb.GetDBConfig(t, db.Name)
+	db := testdb.New(t)
+	dbConf := testdb.GetConfig(t, db.Name)
 
 	virtualStorageName := "praefect"
 	conf := config.Config{

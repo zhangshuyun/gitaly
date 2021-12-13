@@ -14,7 +14,7 @@ func TestStorageCleanup_Populate(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 	storageCleanup := NewStorageCleanup(db.DB)
 
 	require.NoError(t, storageCleanup.Populate(ctx, "praefect", "gitaly-1"))
@@ -37,7 +37,7 @@ func TestStorageCleanup_AcquireNextStorage(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 	storageCleanup := NewStorageCleanup(db.DB)
 
 	t.Run("ok", func(t *testing.T) {
@@ -179,7 +179,7 @@ func TestStorageCleanup_Exists(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 
 	repoStore := NewPostgresRepositoryStore(db.DB, nil)
 	require.NoError(t, repoStore.CreateRepository(ctx, 0, "vs", "p/1", "replica-path-1", "g1", []string{"g2", "g3"}, nil, false, false))

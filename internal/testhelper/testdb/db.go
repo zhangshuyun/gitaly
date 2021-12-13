@@ -120,7 +120,7 @@ func (db DB) Close() error {
 	return nil
 }
 
-// NewDB returns a wrapper around the database connection pool.
+// New returns a wrapper around the database connection pool.
 // Must be used only for testing.
 // The new database with empty relations will be created for each call of this function.
 // It uses env vars:
@@ -128,15 +128,15 @@ func (db DB) Close() error {
 //   PGPORT - required, binding port
 //   PGUSER - optional, user - `$ whoami` would be used if not provided
 // Once the test is completed the database will be dropped on test cleanup execution.
-func NewDB(t testing.TB) DB {
+func New(t testing.TB) DB {
 	t.Helper()
 	database := "praefect_" + strings.ReplaceAll(uuid.New().String(), "-", "")
-	return DB{DB: initPraefectTestDB(t, database), Name: database}
+	return DB{DB: initPraefectDB(t, database), Name: database}
 }
 
-// GetDBConfig returns the database configuration determined by
+// GetConfig returns the database configuration determined by
 // environment variables.  See NewDB() for the list of variables.
-func GetDBConfig(t testing.TB, database string) config.DB {
+func GetConfig(t testing.TB, database string) config.DB {
 	env := getDatabaseEnvironment(t)
 
 	require.Contains(t, env, "PGHOST", "PGHOST env var expected to be provided to connect to Postgres database")
@@ -202,10 +202,10 @@ func requireTerminateAllConnections(t testing.TB, db *sql.DB, database string) {
 	}, 20*time.Second, 10*time.Millisecond, "wait for all connections to be terminated")
 }
 
-func initPraefectTestDB(t testing.TB, database string) *sql.DB {
+func initPraefectDB(t testing.TB, database string) *sql.DB {
 	t.Helper()
 
-	dbCfg := GetDBConfig(t, "postgres")
+	dbCfg := GetConfig(t, "postgres")
 	// We require a direct connection to the Postgres instance and not through the PgBouncer
 	// because we use transaction pool mood for it and it doesn't work well for system advisory locks.
 	postgresDB := requireSQLOpen(t, dbCfg, true)
@@ -227,7 +227,7 @@ func initPraefectTestDB(t testing.TB, database string) *sql.DB {
 		require.NoErrorf(t, err, "failed to create %q database", praefectTemplateDatabase)
 	}
 
-	templateDBConf := GetDBConfig(t, praefectTemplateDatabase)
+	templateDBConf := GetConfig(t, praefectTemplateDatabase)
 	templateDB := requireSQLOpen(t, templateDBConf, true)
 	defer func() {
 		require.NoErrorf(t, templateDB.Close(), "release connection to the %q database", templateDBConf.DBName)

@@ -41,7 +41,7 @@ func testRemoveRepositoryHandler(t *testing.T, ctx context.Context) {
 		errNotFound = helper.ErrNotFoundf("repository does not exist")
 	}
 
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 	for _, tc := range []struct {
 		desc          string
 		routeToGitaly bool

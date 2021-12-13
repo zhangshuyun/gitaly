@@ -153,7 +153,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 		},
 	}
 
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {

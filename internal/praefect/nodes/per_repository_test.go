@@ -46,7 +46,7 @@ func TestPerRepositoryElector(t *testing.T) {
 		primary      matcher
 	}
 
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 
 	for _, tc := range []struct {
 		desc         string

@@ -64,7 +64,7 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	tx := testdb.NewDB(t).Begin(t)
+	tx := testdb.New(t).Begin(t)
 	defer tx.Rollback(t)
 
 	testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{

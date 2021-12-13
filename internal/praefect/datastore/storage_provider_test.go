@@ -22,7 +22,7 @@ import (
 func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 	t.Parallel()
 
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 	rs := NewPostgresRepositoryStore(db, nil)
 
 	t.Run("unknown virtual storage", func(t *testing.T) {

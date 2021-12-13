@@ -13,7 +13,7 @@ import (
 )
 
 func TestOpenDB(t *testing.T) {
-	dbCfg := testdb.GetDBConfig(t, "postgres")
+	dbCfg := testdb.GetConfig(t, "postgres")
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -78,7 +78,7 @@ func TestUint64Provider(t *testing.T) {
 
 func TestScanAll(t *testing.T) {
 	t.Parallel()
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 
 	var ids glsql.Uint64Provider
 	notEmptyRows, err := db.Query("SELECT id FROM (VALUES (1), (200), (300500)) AS t(id)")

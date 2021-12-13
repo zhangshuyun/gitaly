@@ -85,7 +85,7 @@ func StartGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Serv
 
 // createDatabase create a new database with randomly generated name and returns it back to the caller.
 func createDatabase(t testing.TB) string {
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 	return db.Name
 }
 
@@ -113,7 +113,7 @@ func runPraefectProxy(t testing.TB, cfg config.Cfg, gitalyAddr, praefectBinPath 
 		Auth: auth.Config{
 			Token: cfg.Auth.Token,
 		},
-		DB: testdb.GetDBConfig(t, dbName),
+		DB: testdb.GetConfig(t, dbName),
 		Failover: praefectconfig.Failover{
 			Enabled:          true,
 			ElectionStrategy: praefectconfig.ElectionStrategyLocal,

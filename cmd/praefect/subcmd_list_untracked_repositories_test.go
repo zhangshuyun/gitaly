@@ -64,10 +64,10 @@ func TestListUntrackedRepositories_Exec(t *testing.T) {
 	g1Addr := testserver.RunGitalyServer(t, g1Cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 	g2Addr := testserver.RunGitalyServer(t, g2Cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 	var database string
 	require.NoError(t, db.QueryRow(`SELECT current_database()`).Scan(&database))
-	dbConf := testdb.GetDBConfig(t, database)
+	dbConf := testdb.GetConfig(t, database)
 
 	conf := config.Config{
 		SocketPath: testhelper.GetTemporaryGitalySocketFileName(t),

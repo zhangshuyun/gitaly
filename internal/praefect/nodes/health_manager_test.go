@@ -61,7 +61,7 @@ func TestHealthManager(t *testing.T) {
 		HealthConsensus map[string][]string
 	}
 
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 
 	for _, tc := range []struct {
 		desc         string
@@ -559,7 +559,7 @@ func TestHealthManager_databaseTimeout(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 
 	blockingTx := db.Begin(t)
 	defer blockingTx.Rollback(t)
@@ -619,7 +619,7 @@ func predateHealthChecks(t testing.TB, db testdb.DB, amount time.Duration) {
 // This test case ensures the record updates are done in an ordered manner to avoid concurrent writes
 // deadlocking. Issue: https://gitlab.com/gitlab-org/gitaly/-/issues/3907
 func TestHealthManager_orderedWrites(t *testing.T) {
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 
 	tx1 := db.Begin(t).Tx
 	defer func() { _ = tx1.Rollback() }()

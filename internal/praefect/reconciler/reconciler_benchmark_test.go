@@ -31,7 +31,7 @@ func benchmarkReconcile(b *testing.B, numRepositories int, worstCase bool) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	db := testdb.NewDB(b)
+	db := testdb.New(b)
 
 	behind := 0
 	if worstCase {

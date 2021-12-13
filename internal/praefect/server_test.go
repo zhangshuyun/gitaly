@@ -535,7 +535,7 @@ func testRemoveRepository(t *testing.T, ctx context.Context) {
 
 	verifyReposExistence(t, codes.OK)
 
-	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.NewDB(t)))
+	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.New(t)))
 	repoStore := defaultRepoStore(praefectCfg)
 	txMgr := defaultTxMgr(praefectCfg)
 	nodeMgr, err := nodes.NewManager(testhelper.NewDiscardingLogEntry(t), praefectCfg, nil,
@@ -632,9 +632,9 @@ func TestRenameRepository(t *testing.T) {
 		repoPaths[i] = filepath.Join(gitalyCfg.Storages[0].Path, relativePath)
 	}
 
-	evq := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.NewDB(t)))
+	evq := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.New(t)))
 
-	tx := testdb.NewDB(t).Begin(t)
+	tx := testdb.New(t).Begin(t)
 	defer tx.Rollback(t)
 
 	rs := datastore.NewPostgresRepositoryStore(tx, nil)
@@ -833,7 +833,7 @@ func TestProxyWrites(t *testing.T) {
 		},
 	}
 
-	queue := datastore.NewPostgresReplicationEventQueue(testdb.NewDB(t))
+	queue := datastore.NewPostgresReplicationEventQueue(testdb.New(t))
 	entry := testhelper.NewDiscardingLogEntry(t)
 
 	nodeMgr, err := nodes.NewManager(entry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
@@ -969,7 +969,7 @@ func TestErrorThreshold(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	queue := datastore.NewPostgresReplicationEventQueue(testdb.NewDB(t))
+	queue := datastore.NewPostgresReplicationEventQueue(testdb.New(t))
 	entry := testhelper.NewDiscardingLogEntry(t)
 
 	testCases := []struct {

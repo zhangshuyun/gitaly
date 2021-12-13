@@ -10,10 +10,10 @@ import (
 
 func TestMigrateStatus(t *testing.T) {
 	t.Parallel()
-	db := testdb.NewDB(t)
+	db := testdb.New(t)
 
 	config := config.Config{
-		DB: testdb.GetDBConfig(t, db.Name),
+		DB: testdb.GetConfig(t, db.Name),
 	}
 
 	_, err := db.Exec("INSERT INTO schema_migrations VALUES ('2020_01_01_test', NOW())")

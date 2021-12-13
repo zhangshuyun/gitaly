@@ -31,7 +31,7 @@ func BenchmarkPostgresReplicationEventQueue_Acknowledge(b *testing.B) {
 }
 
 func benchmarkPostgresReplicationEventQueueAcknowledge(b *testing.B, setup map[JobState]int) {
-	db := testdb.NewDB(b)
+	db := testdb.New(b)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
