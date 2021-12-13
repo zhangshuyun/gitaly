@@ -290,7 +290,7 @@ help:
 
 .PHONY: build
 ## Build Go binaries and install required Ruby Gems.
-build: ${SOURCE_DIR}/.ruby-bundle libgit2 $(call find_commands)
+build: $(call find_commands)
 	@ # We used to install Gitaly binaries into the source directory by default when executing
 	@ # "make" or "make all", which has been changed in v14.5 to only build binaries into
 	@ # `_build/bin`. In order to quickly fail in case any source install still refers to these
@@ -305,7 +305,7 @@ build: ${SOURCE_DIR}/.ruby-bundle libgit2 $(call find_commands)
 	${Q}mv ${BUILD_DIR}/bin/gitaly-git2go "${BUILD_DIR}/bin/gitaly-git2go-${MODULE_VERSION}"
 
 .PHONY: $(call find_commands)
-$(call find_commands):
+$(call find_commands): ${SOURCE_DIR}/.ruby-bundle libgit2
 	echo "Building target '$@'"
 	go install -ldflags '${GO_LDFLAGS}' -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, $@)
 ifeq "${ADD_GNU_BUILD_ID}" "true"
