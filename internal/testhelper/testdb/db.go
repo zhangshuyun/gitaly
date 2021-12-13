@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
 const (
@@ -268,9 +269,29 @@ func initPraefectDB(t testing.TB, database string) *sql.DB {
 	require.NoErrorf(t, err, "failed to create %q database", praefectTemplateDatabase)
 
 	t.Cleanup(func() {
+		if _, ok := getDatabaseEnvironment(t)["PGHOST_PGBOUNCER"]; ok {
+			pgbouncerCfg := dbCfg
+			// This database name will connect us to the special admin console.
+			pgbouncerCfg.DBName = "pgbouncer"
+
+			// We cannot use `requireSQLOpen()` because it would ping the database,
+			// which is not supported by the PgBouncer admin console.
+			pgbouncerDB, err := sql.Open("postgres", glsql.DSN(pgbouncerCfg, false))
+			require.NoError(t, err)
+			defer testhelper.MustClose(t, pgbouncerDB)
+
+			// Trying to release connections like we do with the "normal" Postgres
+			// database regularly results in flaky tests with PgBouncer given that the
+			// connections are seemingly never released. Instead, we kill PgBouncer
+			// connections by connecting to its admin console and using the KILL
+			// command, which instructs it to kill all client and server connections.
+			_, err = pgbouncerDB.Exec("KILL " + database)
+			require.NoError(t, err, "killing PgBouncer connections")
+		}
+
 		dbCfg.DBName = "postgres"
 		postgresDB := requireSQLOpen(t, dbCfg, true)
-		defer func() { require.NoErrorf(t, postgresDB.Close(), "release connection to the %q database", dbCfg.DBName) }()
+		defer testhelper.MustClose(t, postgresDB)
 
 		// We need to force-terminate open connections as for the tasks that use PgBouncer
 		// the actual client connected to the database is a PgBouncer and not a test that is
