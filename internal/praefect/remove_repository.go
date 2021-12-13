@@ -9,6 +9,8 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -37,6 +39,10 @@ func RemoveRepositoryHandler(rs datastore.RepositoryStore, conns Connections) gr
 			// Gitaly doesn't return an error if the repository is not found, so Praefect follows the
 			// same protocol.
 			if errors.As(err, new(commonerr.RepositoryNotFoundError)) {
+				if featureflag.AtomicRemoveRepository.IsEnabled(ctx) {
+					return helper.ErrNotFoundf("repository does not exist")
+				}
+
 				return stream.SendMsg(&gitalypb.RemoveRepositoryResponse{})
 			}
 
