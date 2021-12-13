@@ -440,7 +440,7 @@ func WithParallelStorageProcessingWorkers(n uint) func(*ReplMgr) {
 
 // NewReplMgr initializes a replication manager with the provided dependencies
 // and options
-func NewReplMgr(log *logrus.Entry, storageNames map[string][]string, queue datastore.ReplicationEventQueue, rs datastore.RepositoryStore, hc HealthChecker, nodes NodeSet, opts ...ReplMgrOpt) ReplMgr {
+func NewReplMgr(log logrus.FieldLogger, storageNames map[string][]string, queue datastore.ReplicationEventQueue, rs datastore.RepositoryStore, hc HealthChecker, nodes NodeSet, opts ...ReplMgrOpt) ReplMgr {
 	r := ReplMgr{
 		log:                          log.WithField("component", "replication_manager"),
 		queue:                        queue,
@@ -778,6 +778,11 @@ func (r ReplMgr) backfillReplicaPath(ctx context.Context, event datastore.Replic
 
 		return replicaPath, nil
 	}
+}
+
+// ProcessReplicationEvent processes a single replication event given the target client connection
+func (r ReplMgr) ProcessReplicationEvent(ctx context.Context, event datastore.ReplicationEvent, targetCC *grpc.ClientConn) error {
+	return r.processReplicationEvent(ctx, event, targetCC)
 }
 
 func (r ReplMgr) processReplicationEvent(ctx context.Context, event datastore.ReplicationEvent, targetCC *grpc.ClientConn) error {

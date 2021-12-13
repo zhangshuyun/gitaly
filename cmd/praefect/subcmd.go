@@ -40,7 +40,7 @@ var subcommands = map[string]subcmd{
 	acceptDatalossCmdName:         &acceptDatalossSubcommand{},
 	setReplicationFactorCmdName:   newSetReplicatioFactorSubcommand(os.Stdout),
 	removeRepositoryCmdName:       newRemoveRepository(logger, os.Stdout),
-	trackRepositoryCmdName:        newTrackRepository(logger),
+	trackRepositoryCmdName:        newTrackRepository(logger, os.Stdout),
 	listUntrackedRepositoriesName: newListUntrackedRepositories(logger, os.Stdout),
 	checkCmdName: newCheckSubcommand(
 		os.Stdout,
