@@ -29,6 +29,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	glog "gitlab.com/gitlab-org/gitaly/v14/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/streamcache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
@@ -301,5 +302,8 @@ func run(cfg config.Cfg) error {
 		}
 	}()
 
-	return b.Wait(cfg.GracefulRestartTimeout.Duration(), gitalyServerFactory.GracefulStop)
+	gracefulStopTicker := helper.NewTimerTicker(cfg.GracefulRestartTimeout.Duration())
+	defer gracefulStopTicker.Stop()
+
+	return b.Wait(gracefulStopTicker, gitalyServerFactory.GracefulStop)
 }

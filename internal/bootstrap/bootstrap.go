@@ -6,10 +6,10 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/cloudflare/tableflip"
 	log "github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/env"
 	"golang.org/x/sys/unix"
 )
@@ -29,7 +29,7 @@ type Listener interface {
 	// Start starts all registered starters to accept connections.
 	Start() error
 	// Wait terminates all registered starters.
-	Wait(gracefulTimeout time.Duration, stopAction func()) error
+	Wait(gracePeriodTicker helper.Ticker, stopAction func()) error
 }
 
 // Bootstrap handles graceful upgrades
@@ -160,7 +160,7 @@ func (b *Bootstrap) Start() error {
 // SIGTERM, SIGINT and a runtime error will trigger an immediate shutdown
 // in case of an upgrade there will be a grace period to complete the ongoing requests
 // stopAction will be invoked during a graceful stop. It must wait until the shutdown is completed.
-func (b *Bootstrap) Wait(gracefulTimeout time.Duration, stopAction func()) error {
+func (b *Bootstrap) Wait(gracePeriodTicker helper.Ticker, stopAction func()) error {
 	signals := []os.Signal{syscall.SIGTERM, syscall.SIGINT}
 	immediateShutdown := make(chan os.Signal, len(signals))
 	signal.Notify(immediateShutdown, signals...)
@@ -176,7 +176,7 @@ func (b *Bootstrap) Wait(gracefulTimeout time.Duration, stopAction func()) error
 		// the new process signaled its readiness and we started a graceful stop
 		// however no further upgrades can be started until this process is running
 		// we set a grace period and then we force a termination.
-		waitError := b.waitGracePeriod(gracefulTimeout, immediateShutdown, stopAction)
+		waitError := b.waitGracePeriod(gracePeriodTicker, immediateShutdown, stopAction)
 
 		err = fmt.Errorf("graceful upgrade: %v", waitError)
 	case s := <-immediateShutdown:
@@ -188,8 +188,8 @@ func (b *Bootstrap) Wait(gracefulTimeout time.Duration, stopAction func()) error
 	return err
 }
 
-func (b *Bootstrap) waitGracePeriod(gracefulTimeout time.Duration, kill <-chan os.Signal, stopAction func()) error {
-	log.WithField("graceful_timeout", gracefulTimeout).Warn("starting grace period")
+func (b *Bootstrap) waitGracePeriod(gracePeriodTicker helper.Ticker, kill <-chan os.Signal, stopAction func()) error {
+	log.Warn("starting grace period")
 
 	allServersDone := make(chan struct{})
 	go func() {
@@ -199,8 +199,10 @@ func (b *Bootstrap) waitGracePeriod(gracefulTimeout time.Duration, kill <-chan o
 		close(allServersDone)
 	}()
 
+	gracePeriodTicker.Reset()
+
 	select {
-	case <-time.After(gracefulTimeout):
+	case <-gracePeriodTicker.C():
 		return fmt.Errorf("grace period expired")
 	case <-kill:
 		return fmt.Errorf("force shutdown")
@@ -249,7 +251,7 @@ func (n *Noop) Start() error {
 }
 
 // Wait terminates all registered starters.
-func (n *Noop) Wait(_ time.Duration, stopAction func()) error {
+func (n *Noop) Wait(_ helper.Ticker, stopAction func()) error {
 	select {
 	case <-n.shutdown:
 		if stopAction != nil {
