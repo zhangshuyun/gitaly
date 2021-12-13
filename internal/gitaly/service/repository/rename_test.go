@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -18,10 +17,10 @@ import (
 
 func TestRenameRepository_success(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.RenameRepositoryLocking).Run(t, testRenameRepositorySuccess)
-}
 
-func testRenameRepositorySuccess(t *testing.T, ctx context.Context) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	// Praefect does not move repositories on the disk so this test case is not run with Praefect.
 	cfg, repo, _, client := setupRepositoryService(t, testserver.WithDisablePraefect())
 
@@ -44,11 +43,9 @@ func testRenameRepositorySuccess(t *testing.T, ctx context.Context) {
 
 func TestRenameRepository_DestinationExists(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.RenameRepositoryLocking).Run(t, testRenameRepositoryDestinationExists)
-}
 
-func testRenameRepositoryDestinationExists(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
@@ -69,11 +66,7 @@ func testRenameRepositoryDestinationExists(t *testing.T, ctx context.Context) {
 		Repository:   renamedRepo,
 		RelativePath: existingDestinationRepo.RelativePath,
 	})
-	if featureflag.RenameRepositoryLocking.IsEnabled(ctx) {
-		testhelper.RequireGrpcCode(t, err, codes.AlreadyExists)
-	} else {
-		testhelper.RequireGrpcCode(t, err, codes.FailedPrecondition)
-	}
+	testhelper.RequireGrpcCode(t, err, codes.AlreadyExists)
 
 	// ensure the git directory that already existed didn't get overwritten
 	gittest.GitObjectMustExist(t, cfg.Git.BinPath, destinationRepoPath, commitID.String())
@@ -81,10 +74,10 @@ func testRenameRepositoryDestinationExists(t *testing.T, ctx context.Context) {
 
 func TestRenameRepository_invalidRequest(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.RenameRepositoryLocking).Run(t, testRenameRepositoryInvalidRequest)
-}
 
-func testRenameRepositoryInvalidRequest(t *testing.T, ctx context.Context) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	_, repo, _, client := setupRepositoryService(t)
 
 	testCases := []struct {

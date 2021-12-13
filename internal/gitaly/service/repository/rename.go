@@ -9,7 +9,6 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
@@ -19,38 +18,12 @@ func (s *server) RenameRepository(ctx context.Context, in *gitalypb.RenameReposi
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	if featureflag.RenameRepositoryLocking.IsEnabled(ctx) {
-		targetRepo := &gitalypb.Repository{
-			StorageName:  in.GetRepository().GetStorageName(),
-			RelativePath: in.GetRelativePath(),
-		}
-
-		if err := s.renameRepository(ctx, in.GetRepository(), targetRepo); err != nil {
-			return nil, helper.ErrInternal(err)
-		}
-
-		return &gitalypb.RenameRepositoryResponse{}, nil
+	targetRepo := &gitalypb.Repository{
+		StorageName:  in.GetRepository().GetStorageName(),
+		RelativePath: in.GetRelativePath(),
 	}
 
-	fromFullPath, err := s.locator.GetRepoPath(in.GetRepository())
-	if err != nil {
-		return nil, helper.ErrInvalidArgument(err)
-	}
-
-	toFullPath, err := s.locator.GetPath(&gitalypb.Repository{StorageName: in.GetRepository().GetStorageName(), RelativePath: in.GetRelativePath()})
-	if err != nil {
-		return nil, helper.ErrInvalidArgument(err)
-	}
-
-	if _, err = os.Stat(toFullPath); !os.IsNotExist(err) {
-		return nil, helper.ErrFailedPreconditionf("destination already exists")
-	}
-
-	if err = os.MkdirAll(filepath.Dir(toFullPath), 0o755); err != nil {
-		return nil, helper.ErrInternal(err)
-	}
-
-	if err = os.Rename(fromFullPath, toFullPath); err != nil {
+	if err := s.renameRepository(ctx, in.GetRepository(), targetRepo); err != nil {
 		return nil, helper.ErrInternal(err)
 	}
 

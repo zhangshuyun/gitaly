@@ -601,11 +601,10 @@ func pollUntilRemoved(t testing.TB, path string, deadline <-chan time.Time) {
 
 func TestRenameRepository(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.RenameRepositoryLocking).Run(t, testRenameRepository)
-}
 
-func testRenameRepository(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	gitalyStorages := []string{"gitaly-1", "gitaly-2", "gitaly-3"}
 	repoPaths := make([]string, len(gitalyStorages))
 	praefectCfg := config.Config{
