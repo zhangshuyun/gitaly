@@ -155,7 +155,7 @@ func runServer(t *testing.T, secure bool, cfg config.Cfg, connectionType string,
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
 	), cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	limitHandler := limithandler.New(limithandler.LimitConcurrencyByRepo)
+	limitHandler := limithandler.New(cfg, limithandler.LimitConcurrencyByRepo)
 	diskCache := cache.New(cfg, locator)
 	srv, err := server.New(secure, cfg, testhelper.NewDiscardingLogEntry(t), registry, diskCache, limitHandler)
 	require.NoError(t, err)

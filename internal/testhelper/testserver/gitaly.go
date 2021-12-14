@@ -361,7 +361,7 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 	}
 
 	if gsd.limitHandler == nil {
-		gsd.limitHandler = limithandler.New(limithandler.LimitConcurrencyByRepo)
+		gsd.limitHandler = limithandler.New(cfg, limithandler.LimitConcurrencyByRepo)
 	}
 
 	return &service.Dependencies{

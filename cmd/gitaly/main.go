@@ -192,7 +192,8 @@ func run(cfg config.Cfg) error {
 		return fmt.Errorf("disk cache walkers: %w", err)
 	}
 
-	limitHandler := limithandler.New(limithandler.LimitConcurrencyByRepo)
+	limitHandler := limithandler.New(cfg, limithandler.LimitConcurrencyByRepo)
+	prometheus.MustRegister(limitHandler)
 
 	gitalyServerFactory := server.NewGitalyServerFactory(cfg, glog.Default(), registry, diskCache, limitHandler)
 	defer gitalyServerFactory.Stop()

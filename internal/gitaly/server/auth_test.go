@@ -201,7 +201,7 @@ func runServer(t *testing.T, cfg config.Cfg) string {
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 	diskCache := cache.New(cfg, locator)
-	limitHandler := limithandler.New(limithandler.LimitConcurrencyByRepo)
+	limitHandler := limithandler.New(cfg, limithandler.LimitConcurrencyByRepo)
 
 	srv, err := New(false, cfg, testhelper.NewDiscardingLogEntry(t), registry, diskCache, limitHandler)
 	require.NoError(t, err)
@@ -243,7 +243,7 @@ func runSecureServer(t *testing.T, cfg config.Cfg) string {
 		testhelper.NewDiscardingLogEntry(t),
 		backchannel.NewRegistry(),
 		cache.New(cfg, config.NewLocator(cfg)),
-		limithandler.New(limithandler.LimitConcurrencyByRepo),
+		limithandler.New(cfg, limithandler.LimitConcurrencyByRepo),
 	)
 	require.NoError(t, err)
 

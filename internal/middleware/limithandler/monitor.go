@@ -27,50 +27,44 @@ func (c *nullConcurrencyMonitor) Enter(ctx context.Context, acquireTime time.Dur
 func (c *nullConcurrencyMonitor) Exit(ctx context.Context)                             {}
 
 type promMonitor struct {
-	queuedGauge     prometheus.Gauge
-	inprogressGauge prometheus.Gauge
-	histogram       prometheus.Observer
+	queuedMetric           prometheus.Gauge
+	inProgressMetric       prometheus.Gauge
+	acquiringSecondsMetric prometheus.Observer
 }
 
-// NewPromMonitor creates a new ConcurrencyMonitor that tracks limiter
+// newPromMonitor creates a new ConcurrencyMonitor that tracks limiter
 // activity in Prometheus.
-func NewPromMonitor(system string, fullMethod string) ConcurrencyMonitor {
+func newPromMonitor(lh *LimiterMiddleware, system string, fullMethod string) ConcurrencyMonitor {
 	serviceName, methodName := splitMethodName(fullMethod)
 
-	queuedGauge := queuedGaugeVec.WithLabelValues(system, serviceName, methodName)
-	inprogressGauge := inprogressGaugeVec.WithLabelValues(system, serviceName, methodName)
-
-	var histogram prometheus.Observer
-	if histogramVec != nil {
-		histogram = histogramVec.WithLabelValues(system, serviceName, methodName)
+	return &promMonitor{
+		lh.queuedMetric.WithLabelValues(system, serviceName, methodName),
+		lh.inProgressMetric.WithLabelValues(system, serviceName, methodName),
+		lh.acquiringSecondsMetric.WithLabelValues(system, serviceName, methodName),
 	}
-
-	return &promMonitor{queuedGauge, inprogressGauge, histogram}
 }
 
 func (c *promMonitor) Queued(ctx context.Context) {
-	c.queuedGauge.Inc()
+	c.queuedMetric.Inc()
 }
 
 func (c *promMonitor) Dequeued(ctx context.Context) {
-	c.queuedGauge.Dec()
+	c.queuedMetric.Dec()
 }
 
 func (c *promMonitor) Enter(ctx context.Context, acquireTime time.Duration) {
-	c.inprogressGauge.Inc()
+	c.inProgressMetric.Inc()
 
 	if acquireTime > acquireDurationLogThreshold {
 		logger := ctxlogrus.Extract(ctx)
 		logger.WithField("acquire_ms", acquireTime.Seconds()*1000).Info("Rate limit acquire wait")
 	}
 
-	if c.histogram != nil {
-		c.histogram.Observe(acquireTime.Seconds())
-	}
+	c.acquiringSecondsMetric.Observe(acquireTime.Seconds())
 }
 
 func (c *promMonitor) Exit(ctx context.Context) {
-	c.inprogressGauge.Dec()
+	c.inProgressMetric.Dec()
 }
 
 func splitMethodName(fullMethodName string) (string, string) {

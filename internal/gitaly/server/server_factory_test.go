@@ -94,7 +94,7 @@ func TestGitalyServerFactory(t *testing.T) {
 			testhelper.NewDiscardingLogEntry(t),
 			backchannel.NewRegistry(),
 			cache.New(cfg, config.NewLocator(cfg)),
-			limithandler.New(limithandler.LimitConcurrencyByRepo),
+			limithandler.New(cfg, limithandler.LimitConcurrencyByRepo),
 		)
 
 		checkHealth(t, sf, starter.TCP, "localhost:0")
@@ -113,7 +113,7 @@ func TestGitalyServerFactory(t *testing.T) {
 			testhelper.NewDiscardingLogEntry(t),
 			backchannel.NewRegistry(),
 			cache.New(cfg, config.NewLocator(cfg)),
-			limithandler.New(limithandler.LimitConcurrencyByRepo),
+			limithandler.New(cfg, limithandler.LimitConcurrencyByRepo),
 		)
 		t.Cleanup(sf.Stop)
 
@@ -127,7 +127,7 @@ func TestGitalyServerFactory(t *testing.T) {
 			testhelper.NewDiscardingLogEntry(t),
 			backchannel.NewRegistry(),
 			cache.New(cfg, config.NewLocator(cfg)),
-			limithandler.New(limithandler.LimitConcurrencyByRepo),
+			limithandler.New(cfg, limithandler.LimitConcurrencyByRepo),
 		)
 		t.Cleanup(sf.Stop)
 
@@ -155,7 +155,7 @@ func TestGitalyServerFactory(t *testing.T) {
 			logger.WithContext(ctx),
 			backchannel.NewRegistry(),
 			cache.New(cfg, config.NewLocator(cfg)),
-			limithandler.New(limithandler.LimitConcurrencyByRepo),
+			limithandler.New(cfg, limithandler.LimitConcurrencyByRepo),
 		)
 
 		checkHealth(t, sf, starter.TCP, "localhost:0")
@@ -190,7 +190,7 @@ func TestGitalyServerFactory_closeOrder(t *testing.T) {
 		testhelper.NewDiscardingLogEntry(t),
 		backchannel.NewRegistry(),
 		cache.New(cfg, config.NewLocator(cfg)),
-		limithandler.New(limithandler.LimitConcurrencyByRepo),
+		limithandler.New(cfg, limithandler.LimitConcurrencyByRepo),
 	)
 	defer sf.Stop()
 
