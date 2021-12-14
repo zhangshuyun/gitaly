@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
@@ -28,10 +29,13 @@ func TestReadMonitorTimeout(t *testing.T) {
 	r, monitor, err := NewReadMonitor(ctx, in)
 	require.NoError(t, err)
 
-	startTime := time.Now()
-	go monitor.Monitor(PktDone(), 10*time.Millisecond, cancel)
+	timeoutTicker := helper.NewManualTicker()
 
-	// We should be done quickly
+	startTime := time.Now()
+	go monitor.Monitor(ctx, PktDone(), timeoutTicker, cancel)
+
+	// Trigger the timeout, which should cause the context to be cancelled.
+	timeoutTicker.Tick()
 	<-ctx.Done()
 
 	elapsed := time.Since(startTime)
@@ -64,7 +68,14 @@ func TestReadMonitorSuccess(t *testing.T) {
 	r, monitor, err := NewReadMonitor(ctx, in)
 	require.NoError(t, err)
 
-	go monitor.Monitor(PktFlush(), 10*time.Millisecond, cancel)
+	timeoutTicker := helper.NewManualTicker()
+
+	stopCh := make(chan interface{})
+	timeoutTicker.StopFunc = func() {
+		close(stopCh)
+	}
+
+	go monitor.Monitor(ctx, PktFlush(), timeoutTicker, cancel)
 
 	// Verify the data is passed through correctly
 	scanner := NewScanner(r)
@@ -73,8 +84,8 @@ func TestReadMonitorSuccess(t *testing.T) {
 	require.True(t, scanner.Scan())
 	require.Equal(t, PktFlush(), scanner.Bytes())
 
-	// If the timeout *has* been stopped, a wait this long won't break it
-	time.Sleep(100 * time.Millisecond)
+	// We have observed the flush packet, so the timer should've been stopped.
+	<-stopCh
 
 	// Close the pipe to skip to next reader
 	require.NoError(t, waitPipeW.Close())

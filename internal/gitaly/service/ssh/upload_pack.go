@@ -116,13 +116,15 @@ func (s *server) sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, r
 		return err
 	}
 
+	timeoutTicker := helper.NewTimerTicker(s.uploadPackRequestTimeout)
+
 	// upload-pack negotiation is terminated by either a flush, or the "done"
 	// packet: https://github.com/git/git/blob/v2.20.0/Documentation/technical/pack-protocol.txt#L335
 	//
 	// "flush" tells the server it can terminate, while "done" tells it to start
 	// generating a packfile. Add a timeout to the second case to mitigate
 	// use-after-check attacks.
-	go monitor.Monitor(pktline.PktDone(), s.uploadPackRequestTimeout, cancelCtx)
+	go monitor.Monitor(ctx, pktline.PktDone(), timeoutTicker, cancelCtx)
 
 	if err := cmd.Wait(); err != nil {
 		pw.Close()

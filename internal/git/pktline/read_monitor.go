@@ -5,7 +5,9 @@ import (
 	"context"
 	"io"
 	"os"
-	"time"
+	"sync"
+
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 )
 
 // ReadMonitor monitors an io.Reader, waiting for a specified packet. If the
@@ -63,14 +65,27 @@ func NewReadMonitor(ctx context.Context, r io.Reader) (*os.File, *ReadMonitor, e
 
 // Monitor should be called at most once. It scans the stream, looking for the
 // specified packet, and will call cancelFn if it isn't seen within the timeout
-func (m *ReadMonitor) Monitor(pkt []byte, timeout time.Duration, cancelFn func()) {
-	timer := time.AfterFunc(timeout, cancelFn)
+func (m *ReadMonitor) Monitor(ctx context.Context, pkt []byte, timeout helper.Ticker, cancelFn func()) {
+	var stopOnce sync.Once
+
+	go func() {
+		timeout.Reset()
+		defer stopOnce.Do(timeout.Stop)
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-timeout.C():
+			cancelFn()
+		}
+	}()
+
 	teeReader := io.TeeReader(m.underlying, m.pw)
 
 	scanner := NewScanner(teeReader)
 	for scanner.Scan() {
 		if bytes.Equal(scanner.Bytes(), pkt) {
-			timer.Stop()
+			stopOnce.Do(timeout.Stop)
 			break
 		}
 	}
