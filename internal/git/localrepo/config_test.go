@@ -26,12 +26,6 @@ func TestRepo_SetConfig(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 
-	standardEntries := []string{
-		"core.repositoryformatversion=0",
-		"core.filemode=true",
-		"core.bare=true",
-	}
-
 	type configEntry struct {
 		key, value string
 	}
@@ -49,7 +43,7 @@ func TestRepo_SetConfig(t *testing.T) {
 			desc:            "simple addition",
 			key:             "my.key",
 			value:           "value",
-			expectedEntries: append(standardEntries, "my.key=value"),
+			expectedEntries: []string{"my.key=value"},
 		},
 		{
 			desc: "overwrite preexisting value",
@@ -58,7 +52,7 @@ func TestRepo_SetConfig(t *testing.T) {
 			},
 			key:             "preexisting.key",
 			value:           "overridden",
-			expectedEntries: append(standardEntries, "preexisting.key=overridden"),
+			expectedEntries: []string{"preexisting.key=overridden"},
 		},
 		{
 			desc: "overwrite multi-value",
@@ -68,22 +62,20 @@ func TestRepo_SetConfig(t *testing.T) {
 			},
 			key:             "preexisting.key",
 			value:           "overridden",
-			expectedEntries: append(standardEntries, "preexisting.key=overridden"),
+			expectedEntries: []string{"preexisting.key=overridden"},
 		},
 		{
-			desc:            "invalid key",
-			key:             "missingsection",
-			value:           "overridden",
-			expectedEntries: standardEntries,
-			expectedErr:     fmt.Errorf("%w: missing section or name", git.ErrInvalidArg),
+			desc:        "invalid key",
+			key:         "missingsection",
+			value:       "overridden",
+			expectedErr: fmt.Errorf("%w: missing section or name", git.ErrInvalidArg),
 		},
 		{
-			desc:            "locked",
-			key:             "my.key",
-			value:           "value",
-			locked:          true,
-			expectedEntries: standardEntries,
-			expectedErr:     fmt.Errorf("committing config: %w", fmt.Errorf("locking file: %w", safe.ErrFileAlreadyLocked)),
+			desc:        "locked",
+			key:         "my.key",
+			value:       "value",
+			locked:      true,
+			expectedErr: fmt.Errorf("committing config: %w", fmt.Errorf("locking file: %w", safe.ErrFileAlreadyLocked)),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -103,8 +95,24 @@ func TestRepo_SetConfig(t *testing.T) {
 
 			require.Equal(t, tc.expectedErr, repo.SetConfig(ctx, tc.key, tc.value, &transaction.MockManager{}))
 
+			standardEntries := []string{
+				"core.repositoryformatversion=0",
+				"core.filemode=true",
+				"core.bare=true",
+			}
+
+			if runtime.GOOS == "darwin" {
+				standardEntries = append(standardEntries,
+					"core.ignorecase=true",
+					"core.precomposeunicode=true",
+				)
+			}
+
 			output := gittest.Exec(t, cfg, "-C", repoPath, "config", "--list", "--local")
-			require.Equal(t, tc.expectedEntries, strings.Split(text.ChompBytes(output), "\n"))
+			require.Equal(t,
+				append(standardEntries, tc.expectedEntries...),
+				strings.Split(text.ChompBytes(output), "\n"),
+			)
 		})
 	}
 
