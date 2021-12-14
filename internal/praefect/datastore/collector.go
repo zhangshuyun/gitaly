@@ -62,7 +62,7 @@ func (c *RepositoryStoreCollector) Collect(ch chan<- prometheus.Metric) {
 	ctx, cancel := context.WithTimeout(context.TODO(), c.timeout)
 	defer cancel()
 
-	unavailableCounts, err := c.queryMetrics(ctx)
+	unavailableCounts, err := CountUnavailableRepositories(ctx, c.db, c.virtualStorages)
 	if err != nil {
 		c.log.WithError(err).Error("failed collecting read-only repository count metric")
 		return
@@ -75,11 +75,11 @@ func (c *RepositoryStoreCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
-// queryMetrics queries the number of unavailable repositories from the database.
+// CountUnavailableRepositories queries the number of unavailable repositories from the database.
 // A repository is unavailable when it has no replicas that can act as a primary, indicating
 // they are either unhealthy or out of date.
-func (c *RepositoryStoreCollector) queryMetrics(ctx context.Context) (map[string]int, error) {
-	rows, err := c.db.QueryContext(ctx, `
+func CountUnavailableRepositories(ctx context.Context, db glsql.Querier, virtualStorages []string) (map[string]int, error) {
+	rows, err := db.QueryContext(ctx, `
 SELECT virtual_storage, COUNT(*)
 FROM repositories
 WHERE NOT EXISTS (
@@ -87,7 +87,7 @@ WHERE NOT EXISTS (
 	WHERE valid_primaries.repository_id = repositories.repository_id
 ) AND repositories.virtual_storage = ANY($1)
 GROUP BY virtual_storage
-	`, pq.StringArray(c.virtualStorages))
+	`, pq.StringArray(virtualStorages))
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
