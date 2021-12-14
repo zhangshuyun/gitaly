@@ -153,9 +153,6 @@ func TestMux_handshakerStealsConnection(t *testing.T) {
 		serverConn := <-connCh
 		defer serverConn.Close()
 
-		// Give grpc-go a chance to close the connection, which it shouldn't
-		time.Sleep(100 * time.Millisecond)
-
 		ping := readN(t, serverConn, 4)
 		require.Equal(t, "ping", string(ping))
 
