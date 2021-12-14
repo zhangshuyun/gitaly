@@ -241,11 +241,7 @@ func (cmd *removeRepository) removeRepository(ctx context.Context, repo *gitalyp
 	ctx = metadata.AppendToOutgoingContext(ctx, "client_name", removeRepositoryCmdName)
 	repositoryClient := gitalypb.NewRepositoryServiceClient(conn)
 	if _, err := repositoryClient.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{Repository: repo}); err != nil {
-		s, ok := status.FromError(err)
-		if !ok {
-			return false, fmt.Errorf("RemoveRepository: %w", err)
-		}
-		if !strings.Contains(s.Message(), fmt.Sprintf("get primary: repository %q/%q not found", cmd.virtualStorage, cmd.relativePath)) {
+		if _, ok := status.FromError(err); !ok {
 			return false, fmt.Errorf("RemoveRepository: %w", err)
 		}
 		return false, nil
@@ -312,8 +308,9 @@ func (cmd *removeRepository) removeNode(
 	} else {
 		if removed {
 			fmt.Fprintf(cmd.w, "Successfully removed %s from %s\n", cmd.relativePath, node.Storage)
+		} else {
+			fmt.Fprintf(cmd.w, "Did not remove %s from %s\n", cmd.relativePath, node.Storage)
 		}
-		fmt.Fprintf(cmd.w, "Did not remove %s from %s\n", cmd.relativePath, node.Storage)
 	}
 	logger.Debugf("repository removal call to gitaly %q completed", node.Storage)
 }
