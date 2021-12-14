@@ -1,7 +1,6 @@
 package gitlab
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -120,8 +119,11 @@ func TestAccess_verifyParams(t *testing.T) {
 		},
 	}
 
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	for _, tc := range testCases {
-		allowed, _, err := c.Allowed(context.Background(), AllowedParams{
+		allowed, _, err := c.Allowed(ctx, AllowedParams{
 			RepoPath:                      tc.repo.RelativePath,
 			GitObjectDirectory:            tc.repo.GitObjectDirectory,
 			GitAlternateObjectDirectories: tc.repo.GitAlternateObjectDirectories,
@@ -227,7 +229,11 @@ func TestAccess_escapedAndRelativeURLs(t *testing.T) {
 				prometheus.Config{},
 			)
 			require.NoError(t, err)
-			allowed, _, err := c.Allowed(context.Background(), AllowedParams{
+
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			allowed, _, err := c.Allowed(ctx, AllowedParams{
 				RepoPath:                      repo.RelativePath,
 				GitObjectDirectory:            repo.GitObjectDirectory,
 				GitAlternateObjectDirectories: repo.GitAlternateObjectDirectories,
@@ -379,7 +385,10 @@ func TestAccess_allowedResponseHandling(t *testing.T) {
 			mockHistogramVec := promtest.NewMockHistogramVec()
 			c.latencyMetric = mockHistogramVec
 
-			allowed, message, err := c.Allowed(context.Background(), AllowedParams{
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			allowed, message, err := c.Allowed(ctx, AllowedParams{
 				RepoPath:                      repo.RelativePath,
 				GitObjectDirectory:            repo.GitObjectDirectory,
 				GitAlternateObjectDirectories: repo.GitAlternateObjectDirectories,
@@ -489,7 +498,10 @@ func TestAccess_preReceive(t *testing.T) {
 			mockHistogramVec := promtest.NewMockHistogramVec()
 			c.latencyMetric = mockHistogramVec
 
-			success, err := c.PreReceive(context.Background(), "key-123")
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			success, err := c.PreReceive(ctx, "key-123")
 			require.Equal(t, tc.success, success)
 			if err != nil {
 				require.Contains(t, err.Error(), tc.errMsg)
@@ -577,10 +589,13 @@ func TestAccess_postReceive(t *testing.T) {
 			mockHistogramVec := promtest.NewMockHistogramVec()
 			c.latencyMetric = mockHistogramVec
 
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
 			repositoryID := "project-123"
 			identifier := "key-123"
 			changes := "000 000 refs/heads/master"
-			success, _, err := c.PostReceive(context.Background(), repositoryID, identifier, changes, tc.pushOptions...)
+			success, _, err := c.PostReceive(ctx, repositoryID, identifier, changes, tc.pushOptions...)
 			require.Equal(t, tc.success, success)
 			if err != nil {
 				require.Contains(t, err.Error(), tc.errMsg)

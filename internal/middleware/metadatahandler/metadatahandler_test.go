@@ -129,12 +129,15 @@ func verifyHandler(ctx context.Context, req interface{}) (interface{}, error) {
 }
 
 func TestGRPCTags(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	require := require.New(t)
 
-	ctx := metadata.NewIncomingContext(
+	ctx = metadata.NewIncomingContext(
 		correlation.ContextWithCorrelation(
 			correlation.ContextWithClientName(
-				context.Background(),
+				ctx,
 				clientName,
 			),
 			correlationID,

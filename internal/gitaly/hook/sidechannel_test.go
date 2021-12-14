@@ -1,20 +1,23 @@
 package hook
 
 import (
-	"context"
 	"io"
 	"net"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	grpc_metadata "google.golang.org/grpc/metadata"
 )
 
 func TestSidechannel(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	// Client side
 	ctxOut, wt, err := SetupSidechannel(
-		context.Background(),
+		ctx,
 		func(c *net.UnixConn) error {
 			_, err := io.WriteString(c, "ping")
 			return err
@@ -38,6 +41,9 @@ func TestSidechannel(t *testing.T) {
 }
 
 func TestGetSidechannel(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	testCases := []string{
 		"foobar",
 		"sc.foo/../../bar",
@@ -48,7 +54,7 @@ func TestGetSidechannel(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc, func(t *testing.T) {
 			ctx := grpc_metadata.NewIncomingContext(
-				context.Background(),
+				ctx,
 				map[string][]string{sidechannelHeader: {tc}},
 			)
 			_, err := GetSidechannel(ctx)

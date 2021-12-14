@@ -1,7 +1,6 @@
 package catfile
 
 import (
-	"context"
 	"errors"
 	"io"
 	"os"
@@ -186,7 +185,7 @@ func TestCache_ObjectReader(t *testing.T) {
 	cache.cachedProcessDone = sync.NewCond(&sync.Mutex{})
 
 	t.Run("uncancellable", func(t *testing.T) {
-		ctx := context.Background()
+		ctx := testhelper.ContextWithoutCancel()
 
 		require.PanicsWithValue(t, "empty ctx.Done() in catfile.Batch.New()", func() {
 			_, _ = cache.ObjectReader(ctx, repoExecutor)
@@ -322,7 +321,7 @@ func TestCache_ObjectInfoReader(t *testing.T) {
 	cache.cachedProcessDone = sync.NewCond(&sync.Mutex{})
 
 	t.Run("uncancellable", func(t *testing.T) {
-		ctx := context.Background()
+		ctx := testhelper.ContextWithoutCancel()
 
 		require.PanicsWithValue(t, "empty ctx.Done() in catfile.Batch.New()", func() {
 			_, _ = cache.ObjectInfoReader(ctx, repoExecutor)

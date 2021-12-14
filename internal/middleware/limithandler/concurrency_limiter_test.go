@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
 type counter struct {
@@ -123,6 +124,9 @@ func TestLimiter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
 			expectedGaugeMax := tt.maxConcurrency * tt.buckets
 			if tt.maxConcurrency <= 0 {
 				expectedGaugeMax = tt.concurrency
@@ -161,7 +165,7 @@ func TestLimiter(t *testing.T) {
 					for i := 0; i < tt.iterations; i++ {
 						lockKey := strconv.Itoa((i ^ counter) % tt.buckets)
 
-						_, err := limiter.Limit(context.Background(), lockKey, func() (interface{}, error) {
+						_, err := limiter.Limit(ctx, lockKey, func() (interface{}, error) {
 							primePump()
 
 							current := gauge.currentVal()

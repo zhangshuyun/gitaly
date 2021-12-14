@@ -1,18 +1,21 @@
 package repocleaner
 
 import (
-	"context"
 	"testing"
 
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
 func TestLogWarnAction_Perform(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	logger, hook := test.NewNullLogger()
 	action := NewLogWarnAction(logger)
-	err := action.Perform(context.TODO(), "vs1", "g1", []string{"p/1", "p/2"})
+	err := action.Perform(ctx, "vs1", "g1", []string{"p/1", "p/2"})
 	require.NoError(t, err)
 	require.Len(t, hook.AllEntries(), 2)
 

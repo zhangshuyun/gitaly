@@ -83,7 +83,10 @@ func Test_generateSentryEvent(t *testing.T) {
 			name: "marked to skip",
 			ctx: func() context.Context {
 				var result context.Context
-				ctx := context.Background()
+
+				ctx, cancel := testhelper.Context()
+				t.Cleanup(cancel)
+
 				// this is the only way how we could populate context with `tags` assembler
 				_, err := grpcmwtags.UnaryServerInterceptor()(ctx, nil, nil, func(ctx context.Context, req interface{}) (interface{}, error) {
 					result = ctx

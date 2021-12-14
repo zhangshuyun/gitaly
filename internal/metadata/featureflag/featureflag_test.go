@@ -1,7 +1,6 @@
 package featureflag
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -74,7 +73,7 @@ func TestFeatureFlag_enabled(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := metadata.NewIncomingContext(context.Background(), metadata.New(tc.headers))
+			ctx := metadata.NewIncomingContext(createContext(), metadata.New(tc.headers))
 
 			ff := FeatureFlag{tc.flag, tc.onByDefault}
 			require.Equal(t, tc.enabled, ff.IsEnabled(ctx))

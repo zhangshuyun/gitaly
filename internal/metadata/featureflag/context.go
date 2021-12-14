@@ -33,6 +33,7 @@ func outgoingCtxWithFeatureFlag(ctx context.Context, key string, enabled bool) c
 		md = metadata.New(map[string]string{})
 	}
 
+	md = md.Copy()
 	md.Set(key, strconv.FormatBool(enabled))
 
 	return metadata.NewOutgoingContext(ctx, md)
@@ -56,6 +57,7 @@ func incomingCtxWithFeatureFlag(ctx context.Context, key string, enabled bool) c
 		md = metadata.New(map[string]string{})
 	}
 
+	md = md.Copy()
 	md.Set(key, strconv.FormatBool(enabled))
 
 	return metadata.NewIncomingContext(ctx, md)

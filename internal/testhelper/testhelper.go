@@ -157,18 +157,23 @@ func GetLocalhostListener(t testing.TB) (net.Listener, string) {
 }
 
 // ContextOpt returns a new context instance with the new additions to it.
-type ContextOpt func(context.Context) (context.Context, func())
+type ContextOpt func(context.Context) context.Context
 
 // ContextWithLogger allows to inject provided logger into the context.
 func ContextWithLogger(logger *log.Entry) ContextOpt {
-	return func(ctx context.Context) (context.Context, func()) {
-		return ctxlogrus.ToContext(ctx, logger), func() {}
+	return func(ctx context.Context) context.Context {
+		return ctxlogrus.ToContext(ctx, logger)
 	}
 }
 
 // Context returns a cancellable context.
 func Context(opts ...ContextOpt) (context.Context, func()) {
-	ctx, cancel := context.WithCancel(context.Background())
+	return context.WithCancel(ContextWithoutCancel(opts...))
+}
+
+// ContextWithoutCancel returns a non-cancellable context.
+func ContextWithoutCancel(opts ...ContextOpt) context.Context {
+	ctx := context.Background()
 
 	// Enable use of explicit feature flags. Each feature flag which is checked must have been
 	// explicitly injected into the context, or otherwise we panic. This is a sanity check to
@@ -180,18 +185,11 @@ func Context(opts ...ContextOpt) (context.Context, func()) {
 	// context.
 	ctx = featureflag.ContextWithFeatureFlags(ctx, featureflag.RunCommandsInCGroup)
 
-	cancels := make([]func(), len(opts)+1)
-	cancels[0] = cancel
-	for i, opt := range opts {
-		ctx, cancel = opt(ctx)
-		cancels[i+1] = cancel
+	for _, opt := range opts {
+		ctx = opt(ctx)
 	}
 
-	return ctx, func() {
-		for i := len(cancels) - 1; i >= 0; i-- {
-			cancels[i]()
-		}
-	}
+	return ctx
 }
 
 // CreateGlobalDirectory creates a directory in the test directory that is shared across all

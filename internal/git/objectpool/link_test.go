@@ -19,7 +19,7 @@ func TestLink(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, testRepo := setupObjectPool(t)
+	pool, testRepo := setupObjectPool(t, ctx)
 
 	require.NoError(t, pool.Remove(ctx), "make sure pool does not exist prior to creation")
 	require.NoError(t, pool.Create(ctx, testRepo), "create pool")
@@ -49,7 +49,7 @@ func TestLink_transactional(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, poolMember := setupObjectPool(t)
+	pool, poolMember := setupObjectPool(t, ctx)
 	require.NoError(t, pool.Create(ctx, poolMember))
 
 	txManager := transaction.NewTrackingManager()
@@ -74,7 +74,7 @@ func TestLinkRemoveBitmap(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, testRepo := setupObjectPool(t)
+	pool, testRepo := setupObjectPool(t, ctx)
 	require.NoError(t, pool.Init(ctx))
 
 	testRepoPath := filepath.Join(pool.cfg.Storages[0].Path, testRepo.RelativePath)
@@ -119,7 +119,7 @@ func TestLinkAbsoluteLinkExists(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, testRepo := setupObjectPool(t)
+	pool, testRepo := setupObjectPool(t, ctx)
 
 	testRepoPath := filepath.Join(pool.cfg.Storages[0].Path, testRepo.RelativePath)
 

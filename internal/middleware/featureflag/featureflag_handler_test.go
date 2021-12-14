@@ -71,6 +71,8 @@ func setup() (context.Context, *test.Hook) {
 }
 
 func setupContext() (context.Context, *test.Hook) {
+	//nolint:forbidigo // We don't want to set up the feature flags which `testhelper.Context()`
+	// would inject here.
 	ctx := context.Background()
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)

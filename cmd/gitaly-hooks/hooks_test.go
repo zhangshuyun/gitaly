@@ -122,6 +122,9 @@ func TestHooksPrePostReceive(t *testing.T) {
 }
 
 func testHooksPrePostReceive(t *testing.T, cfg config.Cfg, repo *gitalypb.Repository, repoPath string) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	secretToken := "secret token"
 	glID := "key-1234"
 	glUsername := "iamgitlab"
@@ -184,7 +187,7 @@ func testHooksPrePostReceive(t *testing.T, cfg config.Cfg, repo *gitalypb.Reposi
 			cmd.Stdin = stdin
 			cmd.Env = envForHooks(
 				t,
-				context.Background(),
+				ctx,
 				cfg,
 				repo,
 				glHookValues{
@@ -242,6 +245,9 @@ func testHooksPrePostReceive(t *testing.T, cfg config.Cfg, repo *gitalypb.Reposi
 }
 
 func TestHooksUpdate(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	glID := "key-1234"
 	glUsername := "iamgitlab"
 	glProtocol := "ssh"
@@ -261,21 +267,21 @@ func TestHooksUpdate(t *testing.T) {
 
 	runHookServiceServer(t, cfg)
 
-	testHooksUpdate(t, cfg, glHookValues{
+	testHooksUpdate(t, ctx, cfg, glHookValues{
 		GLID:       glID,
 		GLUsername: glUsername,
 		GLProtocol: glProtocol,
 	})
 }
 
-func testHooksUpdate(t *testing.T, cfg config.Cfg, glValues glHookValues) {
+func testHooksUpdate(t *testing.T, ctx context.Context, cfg config.Cfg, glValues glHookValues) {
 	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	refval, oldval, newval := "refval", strings.Repeat("a", 40), strings.Repeat("b", 40)
 	updateHookPath, err := filepath.Abs("../../ruby/git-hooks/update")
 	require.NoError(t, err)
 	cmd := exec.Command(updateHookPath, refval, oldval, newval)
-	cmd.Env = envForHooks(t, context.Background(), cfg, repo, glValues, proxyValues{})
+	cmd.Env = envForHooks(t, ctx, cfg, repo, glValues, proxyValues{})
 	cmd.Dir = repoPath
 
 	tempDir := testhelper.TempDir(t)
@@ -395,6 +401,9 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
 			hooksPayload, err := git.NewHooksPayload(
 				cfg,
 				repo,
@@ -409,11 +418,11 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 					Protocol: glProtocol,
 				},
 				git.PostReceiveHook,
-				rawFeatureFlags(context.Background()),
+				rawFeatureFlags(ctx),
 			).Env()
 			require.NoError(t, err)
 
-			env := envForHooks(t, context.Background(), cfg, repo, glHookValues{}, proxyValues{})
+			env := envForHooks(t, ctx, cfg, repo, glHookValues{}, proxyValues{})
 			env = append(env, hooksPayload)
 
 			cmd := exec.Command(postReceiveHookPath)
@@ -466,13 +475,16 @@ func TestHooksNotAllowed(t *testing.T) {
 
 	var stderr, stdout bytes.Buffer
 
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	preReceiveHookPath, err := filepath.Abs("../../ruby/git-hooks/pre-receive")
 	require.NoError(t, err)
 	cmd := exec.Command(preReceiveHookPath)
 	cmd.Stderr = &stderr
 	cmd.Stdout = &stdout
 	cmd.Stdin = strings.NewReader(changes)
-	cmd.Env = envForHooks(t, context.Background(), cfg, repo,
+	cmd.Env = envForHooks(t, ctx, cfg, repo,
 		glHookValues{
 			GLID:       glID,
 			GLUsername: glUsername,
@@ -660,6 +672,9 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
 			hook.Reset()
 
 			tempDir := testhelper.TempDir(t)
@@ -668,7 +683,7 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 			args = append(args, repoPath, tempDir)
 
 			gittest.ExecOpts(t, cfg, gittest.ExecConfig{
-				Env: (envForHooks(t, context.Background(), cfg, repo, glHookValues{}, proxyValues{})),
+				Env: (envForHooks(t, ctx, cfg, repo, glHookValues{}, proxyValues{})),
 			}, args...)
 		})
 	}

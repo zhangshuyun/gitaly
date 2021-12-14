@@ -12,12 +12,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/listenmux"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 func TestSidechannel(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	const blobSize = 1024 * 1024
 
 	in := make([]byte, blobSize)
@@ -45,7 +49,7 @@ func TestSidechannel(t *testing.T) {
 
 	conn, registry := dial(t, addr)
 	err = call(
-		context.Background(), conn, registry,
+		ctx, conn, registry,
 		func(conn *ClientConn) error {
 			errC := make(chan error, 1)
 			go func() {
@@ -68,6 +72,9 @@ func TestSidechannel(t *testing.T) {
 // Conduct multiple requests with sidechannel included on the same grpc
 // connection.
 func TestSidechannelConcurrency(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	const concurrency = 10
 	const blobSize = 1024 * 1024
 
@@ -111,7 +118,7 @@ func TestSidechannelConcurrency(t *testing.T) {
 			defer wg.Done()
 
 			err := call(
-				context.Background(), conn, registry,
+				ctx, conn, registry,
 				func(conn *ClientConn) error {
 					errC := make(chan error, 1)
 					go func() {

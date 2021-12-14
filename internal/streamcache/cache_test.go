@@ -29,6 +29,9 @@ func newCache(dir string) Cache {
 }
 
 func TestCache_writeOneReadMultiple(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	tmp := testhelper.TempDir(t)
 
 	c := newCache(tmp)
@@ -50,7 +53,7 @@ func TestCache_writeOneReadMultiple(t *testing.T) {
 
 			out, err := io.ReadAll(r)
 			require.NoError(t, err)
-			require.NoError(t, r.Wait(context.Background()))
+			require.NoError(t, r.Wait(ctx))
 			require.Equal(t, content(0), string(out), "expect cache hits for all i > 0")
 		})
 	}
@@ -59,6 +62,9 @@ func TestCache_writeOneReadMultiple(t *testing.T) {
 }
 
 func TestCache_manyConcurrentWrites(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	tmp := testhelper.TempDir(t)
 
 	c := newCache(tmp)
@@ -94,7 +100,7 @@ func TestCache_manyConcurrentWrites(t *testing.T) {
 				}
 				output[i] = string(out)
 
-				return r.Wait(context.Background())
+				return r.Wait(ctx)
 			}()
 		}(i)
 	}
@@ -175,6 +181,9 @@ func TestCache_deletedFile(t *testing.T) {
 }
 
 func TestCache_scope(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	tmp := testhelper.TempDir(t)
 
 	const (
@@ -215,13 +224,16 @@ func TestCache_scope(t *testing.T) {
 
 		out, err := io.ReadAll(r)
 		require.NoError(t, err)
-		require.NoError(t, r.Wait(context.Background()))
+		require.NoError(t, r.Wait(ctx))
 
 		require.Equal(t, content, string(out))
 	}
 }
 
 func TestCache_diskCleanup(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	tmp := testhelper.TempDir(t)
 
 	const (
@@ -254,7 +266,7 @@ func TestCache_diskCleanup(t *testing.T) {
 	out1, err := io.ReadAll(r1)
 	require.NoError(t, err)
 	require.Equal(t, content(1), string(out1))
-	require.NoError(t, r1.Wait(context.Background()))
+	require.NoError(t, r1.Wait(ctx))
 
 	// File and index entry should still exist because cleanup goroutines are blocked.
 	requireCacheFiles(t, tmp, 1)
@@ -292,13 +304,16 @@ func TestCache_diskCleanup(t *testing.T) {
 
 	out2, err := io.ReadAll(r2)
 	require.NoError(t, err)
-	require.NoError(t, r2.Wait(context.Background()))
+	require.NoError(t, r2.Wait(ctx))
 
 	// Sanity check: no stale value returned by the cache
 	require.Equal(t, content(2), string(out2))
 }
 
 func TestCache_failedWrite(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	tmp := testhelper.TempDir(t)
 
 	c := newCache(tmp)
@@ -327,7 +342,7 @@ func TestCache_failedWrite(t *testing.T) {
 			_, err = io.Copy(io.Discard, r1)
 			require.NoError(t, err, "errors on the write end are not propagated via Read()")
 			require.NoError(t, r1.Close(), "errors on the write end are not propagated via Close()")
-			require.Error(t, r1.Wait(context.Background()), "error propagation happens via Wait()")
+			require.Error(t, r1.Wait(ctx), "error propagation happens via Wait()")
 
 			time.Sleep(10 * time.Millisecond)
 
@@ -339,7 +354,7 @@ func TestCache_failedWrite(t *testing.T) {
 
 			out, err := io.ReadAll(r2)
 			require.NoError(t, err)
-			require.NoError(t, r2.Wait(context.Background()))
+			require.NoError(t, r2.Wait(ctx))
 			require.Equal(t, happy, string(out))
 		})
 	}
@@ -359,6 +374,9 @@ func TestCache_failCreateFile(t *testing.T) {
 }
 
 func TestCache_unWriteableFile(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	tmp := testhelper.TempDir(t)
 
 	c := newCache(tmp)
@@ -378,12 +396,15 @@ func TestCache_unWriteableFile(t *testing.T) {
 	_, err = io.ReadAll(r)
 	require.NoError(t, err)
 
-	err = r.Wait(context.Background())
+	err = r.Wait(ctx)
 	require.IsType(t, &os.PathError{}, err)
 	require.Equal(t, "write", err.(*os.PathError).Op)
 }
 
 func TestCache_unCloseableFile(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	tmp := testhelper.TempDir(t)
 
 	c := newCache(tmp)
@@ -404,7 +425,7 @@ func TestCache_unCloseableFile(t *testing.T) {
 	_, err = io.ReadAll(r)
 	require.NoError(t, err)
 
-	err = r.Wait(context.Background())
+	err = r.Wait(ctx)
 	require.IsType(t, &os.PathError{}, err)
 	require.Equal(t, "close", err.(*os.PathError).Op)
 }
@@ -430,16 +451,21 @@ func TestCache_cannotOpenFileForReading(t *testing.T) {
 }
 
 func TestWaiter(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	w := newWaiter()
 	err := errors.New("test error")
 	w.SetError(err)
-	require.Equal(t, err, w.Wait(context.Background()))
+	require.Equal(t, err, w.Wait(ctx))
 }
 
 func TestWaiter_cancel(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	w := newWaiter()
 	errc := make(chan error, 1)
-	ctx, cancel := context.WithCancel(context.Background())
 	go func() { errc <- w.Wait(ctx) }()
 
 	cancel()
@@ -447,6 +473,9 @@ func TestWaiter_cancel(t *testing.T) {
 }
 
 func TestNullCache(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	const (
 		N         = 1000
 		inputSize = 4096
@@ -500,7 +529,7 @@ func TestNullCache(t *testing.T) {
 					return errors.New("output does not match input")
 				}
 
-				return s.Wait(context.Background())
+				return s.Wait(ctx)
 			}()
 		}()
 	}

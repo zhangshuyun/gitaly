@@ -18,33 +18,12 @@ import (
 )
 
 func TestStreamDBNaiveKeyer(t *testing.T) {
-	cfg := testcfg.Build(t)
-
-	testRepo1, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
-	testRepo2, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
-
-	locator := config.NewLocator(cfg)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	ctx = testhelper.SetCtxGrpcMethod(ctx, "InfoRefsUploadPack")
-
-	cache := New(cfg, locator)
-
-	req1 := &gitalypb.InfoRefsRequest{
-		Repository: testRepo1,
-	}
-	req2 := &gitalypb.InfoRefsRequest{
-		Repository: testRepo2,
-	}
-
-	expectGetMiss := func(req *gitalypb.InfoRefsRequest) {
+	expectGetMiss := func(ctx context.Context, cache Cache, req *gitalypb.InfoRefsRequest) {
 		_, err := cache.GetStream(ctx, req.Repository, req)
 		require.Equal(t, ErrReqNotFound, err)
 	}
 
-	expectGetHit := func(expectStr string, req *gitalypb.InfoRefsRequest) {
+	expectGetHit := func(ctx context.Context, cache Cache, req *gitalypb.InfoRefsRequest, expectStr string) {
 		actualStream, err := cache.GetStream(ctx, req.Repository, req)
 		require.NoError(t, err)
 		actualBytes, err := io.ReadAll(actualStream)
@@ -52,70 +31,126 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 		require.Equal(t, expectStr, string(actualBytes))
 	}
 
-	invalidationEvent := func(repo *gitalypb.Repository) {
+	invalidationEvent := func(ctx context.Context, cache Cache, repo *gitalypb.Repository) {
 		lease, err := cache.StartLease(repo)
 		require.NoError(t, err)
 		// imagine repo being modified here
 		require.NoError(t, lease.EndLease(ctx))
 	}
 
-	storeAndRetrieve := func(expectStr string, req *gitalypb.InfoRefsRequest) {
+	storeAndRetrieve := func(ctx context.Context, cache Cache, req *gitalypb.InfoRefsRequest, expectStr string) {
 		require.NoError(t, cache.PutStream(ctx, req.Repository, req, strings.NewReader(expectStr)))
-		expectGetHit(expectStr, req)
+		expectGetHit(ctx, cache, req, expectStr)
 	}
 
-	// cache is initially empty
-	expectGetMiss(req1)
-	expectGetMiss(req2)
+	cfg := testcfg.Build(t)
 
-	// populate cache
-	repo1contents := "store and retrieve value in repo 1"
-	storeAndRetrieve(repo1contents, req1)
-	repo2contents := "store and retrieve value in repo 2"
-	storeAndRetrieve(repo2contents, req2)
+	repo1, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	repo2, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
-	// invalidation makes previous value stale and unreachable
-	invalidationEvent(req1.Repository)
-	expectGetMiss(req1)
-	expectGetHit(repo2contents, req2) // repo1 invalidation doesn't affect repo2
+	locator := config.NewLocator(cfg)
 
-	// store new value for same cache value but at new generation
-	expectStream2 := "not what you were looking for"
-	require.NoError(t, cache.PutStream(ctx, req1.Repository, req1, strings.NewReader(expectStream2)))
-	expectGetHit(expectStream2, req1)
+	req1 := &gitalypb.InfoRefsRequest{
+		Repository: repo1,
+	}
+	req2 := &gitalypb.InfoRefsRequest{
+		Repository: repo2,
+	}
 
-	// enabled feature flags affect caching
-	oldCtx := ctx
-	ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, featureflag.FeatureFlag{Name: "meow", OnByDefault: false}, true)
-	expectGetMiss(req1)
-	ctx = oldCtx
-	expectGetHit(expectStream2, req1)
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+	ctx = testhelper.SetCtxGrpcMethod(ctx, "InfoRefsUploadPack")
 
-	// start critical section without closing
-	repo1Lease, err := cache.StartLease(req1.Repository)
-	require.NoError(t, err)
+	t.Run("empty cache", func(t *testing.T) {
+		cache := New(cfg, locator)
 
-	// accessing repo cache with open critical section should fail
-	_, err = cache.GetStream(ctx, req1.Repository, req1)
-	require.Equal(t, err, ErrPendingExists)
-	err = cache.PutStream(ctx, req1.Repository, req1, strings.NewReader(repo1contents))
-	require.Equal(t, err, ErrPendingExists)
+		expectGetMiss(ctx, cache, req1)
+		expectGetMiss(ctx, cache, req2)
+	})
 
-	expectGetHit(repo2contents, req2) // other repo caches should be unaffected
+	t.Run("store and retrieve", func(t *testing.T) {
+		cache := New(cfg, locator)
+		storeAndRetrieve(ctx, cache, req1, "content-1")
+		storeAndRetrieve(ctx, cache, req2, "content-2")
+	})
 
-	// opening and closing a new critical zone doesn't resolve the issue
-	invalidationEvent(req1.Repository)
-	_, err = cache.GetStream(ctx, req1.Repository, req1)
-	require.Equal(t, err, ErrPendingExists)
+	t.Run("invalidation", func(t *testing.T) {
+		cache := New(cfg, locator)
 
-	// only completing/removing the pending generation file will allow access
-	require.NoError(t, repo1Lease.EndLease(ctx))
-	expectGetMiss(req1)
+		storeAndRetrieve(ctx, cache, req1, "content-1")
+		storeAndRetrieve(ctx, cache, req2, "content-2")
 
-	// creating a lease on a repo that doesn't exist yet should succeed
-	req1.Repository.RelativePath += "-does-not-exist"
-	_, err = cache.StartLease(req1.Repository)
-	require.NoError(t, err)
+		invalidationEvent(ctx, cache, req1.Repository)
+
+		expectGetMiss(ctx, cache, req1)
+		expectGetHit(ctx, cache, req2, "content-2")
+	})
+
+	t.Run("overwrite existing entry", func(t *testing.T) {
+		cache := New(cfg, locator)
+
+		storeAndRetrieve(ctx, cache, req1, "content-1")
+
+		require.NoError(t, cache.PutStream(ctx, req1.Repository, req1, strings.NewReader("not what you were looking for")))
+		expectGetHit(ctx, cache, req1, "not what you were looking for")
+	})
+
+	t.Run("feature flags affect caching", func(t *testing.T) {
+		cache := New(cfg, locator)
+
+		ctxWithFF := featureflag.IncomingCtxWithFeatureFlag(ctx, featureflag.FeatureFlag{
+			Name: "meow",
+		}, true)
+
+		storeAndRetrieve(ctx, cache, req1, "default")
+		expectGetHit(ctx, cache, req1, "default")
+		expectGetMiss(ctxWithFF, cache, req1)
+
+		storeAndRetrieve(ctxWithFF, cache, req1, "flagged")
+		expectGetHit(ctxWithFF, cache, req1, "flagged")
+		expectGetHit(ctx, cache, req1, "default")
+	})
+
+	t.Run("critical section", func(t *testing.T) {
+		cache := New(cfg, locator)
+
+		storeAndRetrieve(ctx, cache, req2, "unrelated")
+
+		// Start critical section without closing it.
+		repo1Lease, err := cache.StartLease(req1.Repository)
+		require.NoError(t, err)
+
+		// Accessing repo cache with open critical section should fail.
+		_, err = cache.GetStream(ctx, req1.Repository, req1)
+		require.Equal(t, err, ErrPendingExists)
+		err = cache.PutStream(ctx, req1.Repository, req1, strings.NewReader("conflict"))
+		require.Equal(t, err, ErrPendingExists)
+
+		// Other repo caches should be unaffected.
+		expectGetHit(ctx, cache, req2, "unrelated")
+
+		// Opening and closing a new critical section doesn't resolve the issue.
+		invalidationEvent(ctx, cache, req1.Repository)
+		_, err = cache.GetStream(ctx, req1.Repository, req1)
+		require.Equal(t, err, ErrPendingExists)
+
+		// Only completing/removing the pending generation file will allow access.
+		require.NoError(t, repo1Lease.EndLease(ctx))
+		expectGetMiss(ctx, cache, req1)
+	})
+
+	t.Run("nonexisteng repository", func(t *testing.T) {
+		cache := New(cfg, locator)
+
+		nonexistentRepo := &gitalypb.Repository{
+			StorageName:  repo1.StorageName,
+			RelativePath: "does-not-exist",
+		}
+
+		// Creating a lease on a repo that doesn't exist yet should succeed.
+		_, err := cache.StartLease(nonexistentRepo)
+		require.NoError(t, err)
+	})
 }
 
 func TestLoserCount(t *testing.T) {
@@ -133,7 +168,10 @@ func TestLoserCount(t *testing.T) {
 			StorageName:  "storage-1",
 		},
 	}
-	ctx := testhelper.SetCtxGrpcMethod(context.Background(), "InfoRefsUploadPack")
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+	ctx = testhelper.SetCtxGrpcMethod(ctx, "InfoRefsUploadPack")
 
 	leashes := []chan struct{}{make(chan struct{}), make(chan struct{}), make(chan struct{})}
 	errQ := make(chan error)

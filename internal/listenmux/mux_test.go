@@ -14,6 +14,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -55,23 +56,29 @@ func serverWithHandshaker(t *testing.T, h Handshaker) string {
 	return l.Addr().String()
 }
 
-func checkHealth(t *testing.T, cc *grpc.ClientConn) {
+func checkHealth(t *testing.T, ctx context.Context, cc *grpc.ClientConn) {
 	t.Helper()
-	_, err := healthgrpc.NewHealthClient(cc).Check(context.Background(), &healthgrpc.HealthCheckRequest{})
+	_, err := healthgrpc.NewHealthClient(cc).Check(ctx, &healthgrpc.HealthCheckRequest{})
 	require.NoError(t, err)
 }
 
 func TestMux_normalClientNoMux(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	addr := serverWithHandshaker(t, nil)
 
 	cc, err := grpc.Dial(addr, grpc.WithInsecure())
 	require.NoError(t, err)
 	defer cc.Close()
 
-	checkHealth(t, cc)
+	checkHealth(t, ctx, cc)
 }
 
 func TestMux_normalClientMuxIgnored(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	addr := serverWithHandshaker(t,
 		handshakeFunc(func(net.Conn, credentials.AuthInfo) (net.Conn, credentials.AuthInfo, error) {
 			t.Error("never called")
@@ -83,10 +90,13 @@ func TestMux_normalClientMuxIgnored(t *testing.T) {
 	require.NoError(t, err)
 	defer cc.Close()
 
-	checkHealth(t, cc)
+	checkHealth(t, ctx, cc)
 }
 
 func TestMux_muxClientPassesThrough(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	handshakerCalled := false
 
 	addr := serverWithHandshaker(t,
@@ -115,7 +125,7 @@ func TestMux_muxClientPassesThrough(t *testing.T) {
 	require.NoError(t, err)
 	defer cc.Close()
 
-	checkHealth(t, cc)
+	checkHealth(t, ctx, cc)
 
 	require.True(t, handshakerCalled)
 }
@@ -221,6 +231,9 @@ func TestMux_concurrency(t *testing.T) {
 	streamClientErrors := make(chan error, N)
 	grpcHealthErrors := make(chan error, N)
 
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	for i := 0; i < N; i++ {
 		go func() {
 			<-start
@@ -274,7 +287,7 @@ func TestMux_concurrency(t *testing.T) {
 				defer cc.Close()
 
 				client := healthgrpc.NewHealthClient(cc)
-				_, err = client.Check(context.Background(), &healthgrpc.HealthCheckRequest{})
+				_, err = client.Check(ctx, &healthgrpc.HealthCheckRequest{})
 				return err
 			}()
 		}()

@@ -81,6 +81,8 @@ func TestInjectGitalyServers(t *testing.T) {
 	}
 
 	t.Run("brand new context", func(t *testing.T) {
+		//nolint:forbidigo // We need to check for metadata and thus cannot use the
+		// testhelper context, which injects feature flags.
 		ctx := context.Background()
 
 		check(t, ctx)
@@ -89,6 +91,8 @@ func TestInjectGitalyServers(t *testing.T) {
 	t.Run("context with existing outgoing metadata should not be re-written", func(t *testing.T) {
 		existing := metadata.New(map[string]string{"foo": "bar"})
 
+		//nolint:forbidigo // We need to check for metadata and thus cannot use the
+		// testhelper context, which injects feature flags.
 		ctx := metadata.NewOutgoingContext(context.Background(), existing)
 		check(t, ctx)
 

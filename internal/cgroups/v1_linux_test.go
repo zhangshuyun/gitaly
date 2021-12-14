@@ -2,7 +2,6 @@ package cgroups
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"hash/crc32"
 	"os"
@@ -72,7 +71,7 @@ func TestAddCommand(t *testing.T) {
 	}
 	require.NoError(t, v1Manager1.Setup())
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	cmd1 := exec.Command("ls", "-hal", ".")
