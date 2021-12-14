@@ -7,6 +7,8 @@ import (
 	"google.golang.org/grpc"
 )
 
+var maxConcurrencyPerRepoPerRPC map[string]int
+
 // GetLockKey function defines the lock key of an RPC invocation based on its context
 type GetLockKey func(context.Context) string
 
@@ -16,14 +18,13 @@ type LimiterMiddleware struct {
 	getLockKey     GetLockKey
 }
 
-type wrappedStream struct {
-	grpc.ServerStream
-	info              *grpc.StreamServerInfo
-	limiterMiddleware *LimiterMiddleware
-	initial           bool
+// New creates a new rate limiter
+func New(getLockKey GetLockKey) LimiterMiddleware {
+	return LimiterMiddleware{
+		methodLimiters: createLimiterConfig(),
+		getLockKey:     getLockKey,
+	}
 }
-
-var maxConcurrencyPerRepoPerRPC map[string]int
 
 // UnaryInterceptor returns a Unary Interceptor
 func (c *LimiterMiddleware) UnaryInterceptor() grpc.UnaryServerInterceptor {
@@ -51,6 +52,28 @@ func (c *LimiterMiddleware) StreamInterceptor() grpc.StreamServerInterceptor {
 		wrapper := &wrappedStream{stream, info, c, true}
 		return handler(srv, wrapper)
 	}
+}
+
+func createLimiterConfig() map[string]*ConcurrencyLimiter {
+	result := make(map[string]*ConcurrencyLimiter)
+
+	for fullMethodName, max := range maxConcurrencyPerRepoPerRPC {
+		result[fullMethodName] = NewLimiter(max, NewPromMonitor("gitaly", fullMethodName))
+	}
+
+	return result
+}
+
+// SetMaxRepoConcurrency Configures the max concurrency per repo per RPC
+func SetMaxRepoConcurrency(config map[string]int) {
+	maxConcurrencyPerRepoPerRPC = config
+}
+
+type wrappedStream struct {
+	grpc.ServerStream
+	info              *grpc.StreamServerInfo
+	limiterMiddleware *LimiterMiddleware
+	initial           bool
 }
 
 func (w *wrappedStream) RecvMsg(m interface{}) error {
@@ -96,27 +119,4 @@ func (w *wrappedStream) RecvMsg(m interface{}) error {
 		// It's our turn!
 		return nil
 	}
-}
-
-// New creates a new rate limiter
-func New(getLockKey GetLockKey) LimiterMiddleware {
-	return LimiterMiddleware{
-		methodLimiters: createLimiterConfig(),
-		getLockKey:     getLockKey,
-	}
-}
-
-func createLimiterConfig() map[string]*ConcurrencyLimiter {
-	result := make(map[string]*ConcurrencyLimiter)
-
-	for fullMethodName, max := range maxConcurrencyPerRepoPerRPC {
-		result[fullMethodName] = NewLimiter(max, NewPromMonitor("gitaly", fullMethodName))
-	}
-
-	return result
-}
-
-// SetMaxRepoConcurrency Configures the max concurrency per repo per RPC
-func SetMaxRepoConcurrency(config map[string]int) {
-	maxConcurrencyPerRepoPerRPC = config
 }
