@@ -3,6 +3,7 @@ package praefect
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -19,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/migrations"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -418,6 +420,94 @@ func TestPostgresReadWriteCheck(t *testing.T) {
 			}
 
 			require.Equal(t, tc.expectedLog, out.String())
+		})
+	}
+}
+
+func TestNewUnavailableReposCheck(t *testing.T) {
+	conf := config.Config{
+		VirtualStorages: []*config.VirtualStorage{
+			{
+				Name: "virtual-storage-1",
+				Nodes: []*config.Node{
+					{Storage: "storage-0"},
+					{Storage: "storage-1"},
+					{Storage: "storage-2"},
+				},
+			},
+		},
+	}
+
+	testCases := []struct {
+		desc         string
+		healthyNodes map[string]map[string][]string
+		expectedMsg  string
+		expectedErr  error
+	}{
+		{
+			desc: "all repos available",
+			healthyNodes: map[string]map[string][]string{
+				"praefect-0": {"virtual-storage-1": []string{"storage-0", "storage-1", "storage-2"}},
+			},
+			expectedMsg: "All repositories are available.\n",
+			expectedErr: nil,
+		},
+		{
+			desc: "one unavailable",
+			healthyNodes: map[string]map[string][]string{
+				"praefect-0": {"virtual-storage-1": []string{"storage-1", "storage-2"}},
+			},
+			expectedMsg: "virtual-storage \"virtual-storage-1\" has 1 repository that is unavailable.\n",
+			expectedErr: errors.New("repositories unavailable"),
+		},
+		{
+			desc: "three unavailable",
+			healthyNodes: map[string]map[string][]string{
+				"praefect-0": {"virtual-storage-1": []string{}},
+			},
+			expectedMsg: "virtual-storage \"virtual-storage-1\" has 3 repositories that are unavailable.\n",
+			expectedErr: errors.New("repositories unavailable"),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			db := glsql.NewDB(t)
+			dbCfg := glsql.GetDBConfig(t, db.Name)
+			conf.DB = dbCfg
+
+			rs := datastore.NewPostgresRepositoryStore(db, nil)
+			for path, storage := range map[string]string{
+				"repo-0": "storage-0",
+				"repo-1": "storage-1",
+				"repo-2": "storage-2",
+			} {
+				repositoryID, err := rs.ReserveRepositoryID(ctx, "virtual-storage-1", path)
+				require.NoError(t, err)
+				require.NoError(t, rs.CreateRepository(
+					ctx,
+					repositoryID,
+					"virtual-storage-1",
+					path,
+					path,
+					storage,
+					nil, nil, true, false,
+				))
+
+				require.NoError(t, err)
+				require.NoError(t, rs.SetGeneration(ctx, repositoryID, storage, path, 1))
+				require.NoError(t, err)
+			}
+
+			testdb.SetHealthyNodes(t, ctx, db, tc.healthyNodes)
+			var stdout bytes.Buffer
+			check := NewUnavailableReposCheck(conf, &stdout, false)
+
+			assert.Equal(t, tc.expectedErr, check.Run(ctx))
+			assert.Equal(t, tc.expectedMsg, stdout.String())
 		})
 	}
 }
