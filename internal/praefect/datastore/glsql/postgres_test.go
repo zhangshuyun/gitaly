@@ -29,7 +29,7 @@ func TestOpenDB(t *testing.T) {
 	})
 
 	t.Run("timeout on hanging connection attempt", func(t *testing.T) {
-		lis, err := net.Listen("tcp", ":0")
+		lis, err := net.Listen("tcp", "localhost:0")
 		require.NoError(t, err)
 		badCfg := dbCfg
 		badCfg.Host = "localhost"
