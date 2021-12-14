@@ -20,7 +20,7 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 			desc                  string
 			nonExistentRepository bool
 			files                 map[string]string
-			expectedLicense       string
+			expectedLicense       *gitalypb.FindLicenseResponse
 			errorContains         string
 		}{
 			{
@@ -33,7 +33,7 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 				files: map[string]string{
 					"README.md": "readme content",
 				},
-				expectedLicense: "",
+				expectedLicense: &gitalypb.FindLicenseResponse{},
 			},
 			{
 				desc: "high confidence mit result and less confident mit-0 result",
@@ -60,14 +60,24 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.`,
 				},
-				expectedLicense: "mit",
+				expectedLicense: &gitalypb.FindLicenseResponse{
+					LicenseShortName: "mit",
+					LicenceUrl:       "http://choosealicense.com/licenses/mit/",
+					LicenseName:      "MIT License",
+					LicencePath:      "LICENSE",
+				},
 			},
 			{
 				desc: "unknown license",
 				files: map[string]string{
 					"LICENSE.md": "this doesn't match any known license",
 				},
-				expectedLicense: "other",
+				expectedLicense: &gitalypb.FindLicenseResponse{
+					LicenseShortName: "other",
+					LicenceUrl:       "http://choosealicense.com/licenses/other/",
+					LicenseName:      "Other",
+					LicencePath:      "LICENSE.md",
+				},
 			},
 		} {
 			t.Run(tc.desc, func(t *testing.T) {
@@ -96,9 +106,11 @@ SOFTWARE.`,
 				}
 
 				require.NoError(t, err)
-				testhelper.ProtoEqual(t, &gitalypb.FindLicenseResponse{
-					LicenseShortName: tc.expectedLicense,
-				}, resp)
+				if featureflag.GoFindLicense.IsEnabled(ctx) {
+					tc.expectedLicense.LicenseName = ""
+					tc.expectedLicense.LicenceUrl = ""
+				}
+				testhelper.ProtoEqual(t, tc.expectedLicense, resp)
 			})
 		}
 	})

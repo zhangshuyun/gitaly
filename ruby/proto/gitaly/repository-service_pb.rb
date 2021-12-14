@@ -198,6 +198,9 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     end
     add_message "gitaly.FindLicenseResponse" do
       optional :license_short_name, :string, 1
+      optional :license_name, :string, 2
+      optional :licence_url, :string, 3
+      optional :licence_path, :string, 4
     end
     add_message "gitaly.GetInfoAttributesRequest" do
       optional :repository, :message, 1, "gitaly.Repository"

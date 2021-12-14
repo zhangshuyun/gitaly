@@ -539,6 +539,9 @@ message FindLicenseRequest {
 
 message FindLicenseResponse {
   string license_short_name = 1;
+  string license_name = 2;
+  string licence_url = 3;
+  string licence_path = 4;
 }
 
 message GetInfoAttributesRequest {

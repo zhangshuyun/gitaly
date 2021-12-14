@@ -32,7 +32,7 @@ func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseReque
 			return &gitalypb.FindLicenseResponse{}, nil
 		}
 
-		repoFiler := &gitFiler{ctx, repo, false}
+		repoFiler := &gitFiler{ctx: ctx, repo: repo}
 
 		licenses, err := licensedb.Detect(repoFiler)
 		if err != nil {
@@ -47,21 +47,28 @@ func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseReque
 					licenseShortName = "other"
 				}
 
-				return &gitalypb.FindLicenseResponse{LicenseShortName: licenseShortName}, nil
+				return &gitalypb.FindLicenseResponse{
+					LicenseShortName: licenseShortName,
+					LicencePath:      repoFiler.path,
+				}, nil
 			}
 			return nil, helper.ErrInternal(fmt.Errorf("FindLicense: Err: %w", err))
 		}
 
-		var result string
+		var shortName, path string
 		var bestConfidence float32
 		for candidate, match := range licenses {
 			if match.Confidence > bestConfidence {
-				result = candidate
+				shortName = candidate
+				path = match.File
 				bestConfidence = match.Confidence
 			}
 		}
 
-		return &gitalypb.FindLicenseResponse{LicenseShortName: strings.ToLower(result)}, nil
+		return &gitalypb.FindLicenseResponse{
+			LicenseShortName: strings.ToLower(shortName),
+			LicencePath:      path,
+		}, nil
 	}
 
 	client, err := s.ruby.RepositoryServiceClient(ctx)
@@ -81,6 +88,7 @@ type gitFiler struct {
 	ctx          context.Context
 	repo         *localrepo.Repo
 	foundLicense bool
+	path         string
 }
 
 func (f *gitFiler) ReadFile(path string) ([]byte, error) {
@@ -102,6 +110,9 @@ func (f *gitFiler) ReadFile(path string) ([]byte, error) {
 	// be licenses.
 	if !f.foundLicense {
 		f.foundLicense = !readmeRegexp.MatchString(strings.ToLower(path))
+		if f.foundLicense {
+			f.path = path
+		}
 	}
 
 	return stdout.Bytes(), nil
