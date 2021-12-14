@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"google.golang.org/grpc"
 )
 
@@ -11,6 +12,22 @@ var maxConcurrencyPerRepoPerRPC map[string]int
 
 // GetLockKey function defines the lock key of an RPC invocation based on its context
 type GetLockKey func(context.Context) string
+
+// LimitConcurrencyByRepo implements GetLockKey by using the repository path as lock.
+func LimitConcurrencyByRepo(ctx context.Context) string {
+	tags := grpcmwtags.Extract(ctx)
+	ctxValue := tags.Values()["grpc.request.repoPath"]
+	if ctxValue == nil {
+		return ""
+	}
+
+	s, ok := ctxValue.(string)
+	if ok {
+		return s
+	}
+
+	return ""
+}
 
 // LimiterMiddleware contains rate limiter state
 type LimiterMiddleware struct {

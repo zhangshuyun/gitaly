@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"crypto/tls"
 	"fmt"
 	"time"
@@ -37,21 +36,6 @@ import (
 	"google.golang.org/grpc/keepalive"
 )
 
-func concurrencyKeyFn(ctx context.Context) string {
-	tags := grpcmwtags.Extract(ctx)
-	ctxValue := tags.Values()["grpc.request.repoPath"]
-	if ctxValue == nil {
-		return ""
-	}
-
-	s, ok := ctxValue.(string)
-	if ok {
-		return s
-	}
-
-	return ""
-}
-
 func init() {
 	for _, l := range gitalylog.Loggers {
 		urlSanitizer := logsanitizer.NewURLSanitizerHook()
@@ -80,7 +64,7 @@ func New(
 		grpcmwtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor),
 	}
 
-	lh := limithandler.New(concurrencyKeyFn)
+	lh := limithandler.New(limithandler.LimitConcurrencyByRepo)
 
 	transportCredentials := insecure.NewCredentials()
 	// If tls config is specified attempt to extract tls options and use it
