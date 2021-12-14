@@ -26,6 +26,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -200,8 +201,9 @@ func runServer(t *testing.T, cfg config.Cfg) string {
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 	diskCache := cache.New(cfg, locator)
+	limitHandler := limithandler.New(limithandler.LimitConcurrencyByRepo)
 
-	srv, err := New(false, cfg, testhelper.NewDiscardingLogEntry(t), registry, diskCache)
+	srv, err := New(false, cfg, testhelper.NewDiscardingLogEntry(t), registry, diskCache, limitHandler)
 	require.NoError(t, err)
 
 	setup.RegisterAll(srv, &service.Dependencies{
@@ -235,7 +237,14 @@ func runSecureServer(t *testing.T, cfg config.Cfg) string {
 	conns := client.NewPool()
 	t.Cleanup(func() { conns.Close() })
 
-	srv, err := New(true, cfg, testhelper.NewDiscardingLogEntry(t), backchannel.NewRegistry(), cache.New(cfg, config.NewLocator(cfg)))
+	srv, err := New(
+		true,
+		cfg,
+		testhelper.NewDiscardingLogEntry(t),
+		backchannel.NewRegistry(),
+		cache.New(cfg, config.NewLocator(cfg)),
+		limithandler.New(limithandler.LimitConcurrencyByRepo),
+	)
 	require.NoError(t, err)
 
 	healthpb.RegisterHealthServer(srv, health.NewServer())
@@ -306,8 +315,6 @@ func TestAuthBeforeLimit(t *testing.T) {
 		}},
 	},
 	))
-
-	config.ConfigureConcurrencyLimits(cfg)
 
 	gitlabURL, cleanup := gitlab.SetupAndStartGitlabServer(t, cfg.GitlabShell.Dir, &gitlab.TestServerOptions{
 		SecretToken:                 "secretToken",

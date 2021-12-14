@@ -59,12 +59,11 @@ func New(
 	logrusEntry *log.Entry,
 	registry *backchannel.Registry,
 	cacheInvalidator diskcache.Invalidator,
+	limitHandler *limithandler.LimiterMiddleware,
 ) (*grpc.Server, error) {
 	ctxTagOpts := []grpcmwtags.Option{
 		grpcmwtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor),
 	}
-
-	lh := limithandler.New(limithandler.LimitConcurrencyByRepo)
 
 	transportCredentials := insecure.NewCredentials()
 	// If tls config is specified attempt to extract tls options and use it
@@ -116,7 +115,7 @@ func New(
 			sentryhandler.StreamLogHandler,
 			cancelhandler.Stream, // Should be below LogHandler
 			auth.StreamServerInterceptor(cfg.Auth),
-			lh.StreamInterceptor(), // Should be below auth handler to prevent v2 hmac tokens from timing out while queued
+			limitHandler.StreamInterceptor(), // Should be below auth handler to prevent v2 hmac tokens from timing out while queued
 			grpctracing.StreamServerTracingInterceptor(),
 			cache.StreamInvalidator(cacheInvalidator, protoregistry.GitalyProtoPreregistered),
 			// Panic handler should remain last so that application panics will be
@@ -137,7 +136,7 @@ func New(
 			sentryhandler.UnaryLogHandler,
 			cancelhandler.Unary, // Should be below LogHandler
 			auth.UnaryServerInterceptor(cfg.Auth),
-			lh.UnaryInterceptor(), // Should be below auth handler to prevent v2 hmac tokens from timing out while queued
+			limitHandler.UnaryInterceptor(), // Should be below auth handler to prevent v2 hmac tokens from timing out while queued
 			grpctracing.UnaryServerTracingInterceptor(),
 			cache.UnaryInvalidator(cacheInvalidator, protoregistry.GitalyProtoPreregistered),
 			// Panic handler should remain last so that application panics will be

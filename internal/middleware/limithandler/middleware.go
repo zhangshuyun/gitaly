@@ -36,8 +36,8 @@ type LimiterMiddleware struct {
 }
 
 // New creates a new rate limiter
-func New(getLockKey GetLockKey) LimiterMiddleware {
-	return LimiterMiddleware{
+func New(getLockKey GetLockKey) *LimiterMiddleware {
+	return &LimiterMiddleware{
 		methodLimiters: createLimiterConfig(),
 		getLockKey:     getLockKey,
 	}
