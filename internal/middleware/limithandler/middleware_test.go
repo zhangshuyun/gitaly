@@ -25,6 +25,8 @@ func fixedLockKey(ctx context.Context) string {
 }
 
 func TestUnaryLimitHandler(t *testing.T) {
+	t.Parallel()
+
 	s := &server{blockCh: make(chan struct{})}
 
 	cfg := config.Cfg{
@@ -70,6 +72,8 @@ func TestUnaryLimitHandler(t *testing.T) {
 }
 
 func TestStreamLimitHandler(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		desc                 string
 		fullname             string
@@ -176,6 +180,8 @@ func TestStreamLimitHandler(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			s := &server{blockCh: make(chan struct{})}
 
 			cfg := config.Cfg{
