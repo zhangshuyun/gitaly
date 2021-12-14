@@ -3,6 +3,7 @@ package limithandler
 import (
 	"context"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"google.golang.org/grpc"
 )
 
@@ -78,11 +79,15 @@ func (w *wrappedStream) RecvMsg(m interface{}) error {
 	}
 
 	ready := make(chan struct{})
-	go limiter.Limit(ctx, lockKey, func() (interface{}, error) {
-		close(ready)
-		<-ctx.Done()
-		return nil, nil
-	})
+	go func() {
+		if _, err := limiter.Limit(ctx, lockKey, func() (interface{}, error) {
+			close(ready)
+			<-ctx.Done()
+			return nil, nil
+		}); err != nil {
+			ctxlogrus.Extract(ctx).WithError(err).Error("rate limiting streaming request")
+		}
+	}()
 
 	select {
 	case <-ctx.Done():
