@@ -47,6 +47,7 @@ var subcommands = map[string]subcmd{
 		praefect.NewPraefectMigrationCheck,
 		praefect.NewGitalyNodeConnectivityCheck,
 		praefect.NewPostgresReadWriteCheck,
+		praefect.NewUnavailableReposCheck,
 	),
 	metadataCmdName: newMetadataSubcommand(os.Stdout),
 }

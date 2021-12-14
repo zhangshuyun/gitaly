@@ -10,6 +10,7 @@ import (
 
 	migrate "github.com/rubenv/sql-migrate"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/migrations"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
@@ -137,6 +138,46 @@ func NewPostgresReadWriteCheck(conf config.Config, w io.Writer, quiet bool) *Che
 			return nil
 		},
 		Severity: Fatal,
+	}
+}
+
+// NewUnavailableReposCheck returns a check that finds the number of repositories without a valid primary
+func NewUnavailableReposCheck(conf config.Config, w io.Writer, quiet bool) *Check {
+	return &Check{
+		Name:        "unavailable repositories",
+		Description: "lists repositories that are missing a valid primary, hence rendering them unavailable",
+		Run: func(ctx context.Context) error {
+			db, err := glsql.OpenDB(ctx, conf.DB)
+			if err != nil {
+				return fmt.Errorf("error opening database connection: %w", err)
+			}
+			defer db.Close()
+
+			unavailableRepositories, err := datastore.CountUnavailableRepositories(
+				ctx,
+				db,
+				conf.VirtualStorageNames(),
+			)
+			if err != nil {
+				return err
+			}
+
+			if len(unavailableRepositories) == 0 {
+				logMessage(quiet, w, "All repositories are available.")
+				return nil
+			}
+
+			for virtualStorage, unavailableCount := range unavailableRepositories {
+				format := "virtual-storage %q has %d repositories that are unavailable."
+				if unavailableCount == 1 {
+					format = "virtual-storage %q has %d repository that is unavailable."
+				}
+				logMessage(quiet, w, format, virtualStorage, unavailableCount)
+			}
+
+			return errors.New("repositories unavailable")
+		},
+		Severity: Warning,
 	}
 }
 
