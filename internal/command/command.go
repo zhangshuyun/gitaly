@@ -173,7 +173,7 @@ func New(ctx context.Context, cmd *exec.Cmd, stdin io.Reader, stdout, stderr io.
 	env = append(env, "GIT_TERMINAL_PROMPT=0")
 
 	// Export env vars
-	cmd.Env = append(env, AllowedEnvironment(os.Environ())...)
+	cmd.Env = append(AllowedEnvironment(os.Environ()), env...)
 	cmd.Env = envInjector(ctx, cmd.Env)
 
 	// Start the command in its own process group (nice for signalling)
