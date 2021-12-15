@@ -429,32 +429,47 @@ value = "second-value"
 }
 
 func TestHooksPath(t *testing.T) {
-	cfg := Cfg{
-		Ruby: Ruby{
-			Dir: "/bazqux/gitaly-ruby",
-		},
-	}
+	t.Run("Ruby directory", func(t *testing.T) {
+		cfg := Cfg{
+			Ruby: Ruby{
+				Dir: "/ruby/dir",
+			},
+		}
 
-	t.Run("default", func(t *testing.T) {
-		require.Equal(t, "/bazqux/gitaly-ruby/git-hooks", cfg.HooksPath())
+		t.Run("no overrides", func(t *testing.T) {
+			require.Equal(t, "/ruby/dir/git-hooks", cfg.HooksPath())
+		})
+
+		t.Run("with override", func(t *testing.T) {
+			OverrideHooksPath = "/override/hooks"
+			defer func() { OverrideHooksPath = "" }()
+			require.Equal(t, "/override/hooks", cfg.HooksPath())
+		})
+
+		t.Run("with skip", func(t *testing.T) {
+			defer testhelper.ModifyEnvironment(t, "GITALY_TESTING_NO_GIT_HOOKS", "1")()
+			require.Equal(t, "/var/empty", cfg.HooksPath())
+		})
 	})
 
-	t.Run("with an override", func(t *testing.T) {
+	t.Run("hooks path", func(t *testing.T) {
+		cfg := Cfg{
+			Git: Git{
+				HooksPath: "/hooks/path",
+			},
+			Ruby: Ruby{
+				Dir: "/ruby/dir",
+			},
+		}
+
 		OverrideHooksPath = "/override/hooks"
 		defer func() { OverrideHooksPath = "" }()
 
-		require.Equal(t, "/override/hooks", cfg.HooksPath())
-	})
+		defer testhelper.ModifyEnvironment(t, "GITALY_TESTING_NO_GIT_HOOKS", "1")()
 
-	t.Run("when an env override", func(t *testing.T) {
-		key := "GITALY_TESTING_NO_GIT_HOOKS"
-
-		require.NoError(t, os.Setenv(key, "1"))
-		defer func() {
-			require.NoError(t, os.Unsetenv(key))
-		}()
-
-		require.Equal(t, "/var/empty", cfg.HooksPath())
+		// Neither overrides nor the environment variable should impact an explicitly set
+		// HooksPath.
+		require.Equal(t, "/hooks/path", cfg.HooksPath())
 	})
 }
 
