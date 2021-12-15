@@ -440,12 +440,6 @@ func TestHooksPath(t *testing.T) {
 			require.Equal(t, "/ruby/dir/git-hooks", cfg.HooksPath())
 		})
 
-		t.Run("with override", func(t *testing.T) {
-			OverrideHooksPath = "/override/hooks"
-			defer func() { OverrideHooksPath = "" }()
-			require.Equal(t, "/override/hooks", cfg.HooksPath())
-		})
-
 		t.Run("with skip", func(t *testing.T) {
 			defer testhelper.ModifyEnvironment(t, "GITALY_TESTING_NO_GIT_HOOKS", "1")()
 			require.Equal(t, "/var/empty", cfg.HooksPath())
@@ -462,13 +456,9 @@ func TestHooksPath(t *testing.T) {
 			},
 		}
 
-		OverrideHooksPath = "/override/hooks"
-		defer func() { OverrideHooksPath = "" }()
-
 		defer testhelper.ModifyEnvironment(t, "GITALY_TESTING_NO_GIT_HOOKS", "1")()
 
-		// Neither overrides nor the environment variable should impact an explicitly set
-		// HooksPath.
+		// The environment variable shouldn't override an explicitly set hooks path.
 		require.Equal(t, "/hooks/path", cfg.HooksPath())
 	})
 }

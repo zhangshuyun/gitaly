@@ -368,17 +368,10 @@ func SkipHooks() bool {
 	return enabled
 }
 
-// OverrideHooksPath allows tests to control where the hooks directory is.
-var OverrideHooksPath string
-
 // HooksPath returns the path where Gitaly's Git hooks are located.
 func (cfg *Cfg) HooksPath() string {
 	if len(cfg.Git.HooksPath) > 0 {
 		return cfg.Git.HooksPath
-	}
-
-	if len(OverrideHooksPath) > 0 {
-		return OverrideHooksPath
 	}
 
 	if SkipHooks() {
