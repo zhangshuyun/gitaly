@@ -38,6 +38,8 @@ const (
 )
 
 func TestSuccessfulReceivePackRequest(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 	cfg.GitlabShell.Dir = "/foo/bar/gitlab-shell"
 	cfg, hookOutputFile := gittest.CaptureHookEnv(t, cfg)
@@ -109,6 +111,8 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 }
 
 func TestReceivePackHiddenRefs(t *testing.T) {
+	t.Parallel()
+
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 	repoProto.GlProjectPath = "project/path"
 
@@ -160,6 +164,8 @@ func TestReceivePackHiddenRefs(t *testing.T) {
 }
 
 func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	testcfg.BuildGitalyHooks(t, cfg)
@@ -189,6 +195,8 @@ func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 }
 
 func TestFailedReceivePackRequestWithGitOpts(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	serverSocketPath := runSmartHTTPServer(t, cfg)
@@ -211,14 +219,10 @@ func TestFailedReceivePackRequestWithGitOpts(t *testing.T) {
 }
 
 func TestFailedReceivePackRequestDueToHooksFailure(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
-
-	hookDir := testhelper.TempDir(t)
-
-	defer func(override string) {
-		config.OverrideHooksPath = override
-	}(config.OverrideHooksPath)
-	config.OverrideHooksPath = hookDir
+	cfg.Git.HooksPath = testhelper.TempDir(t)
 
 	require.NoError(t, os.MkdirAll(cfg.HooksPath(), 0o755))
 
@@ -332,6 +336,8 @@ func createCommit(t *testing.T, cfg config.Cfg, repoPath string, fileContents []
 }
 
 func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 
 	serverSocketPath := runSmartHTTPServer(t, cfg)
@@ -363,6 +369,8 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 }
 
 func TestPostReceivePack_invalidObjects(t *testing.T) {
+	t.Parallel()
+
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	cfg, _ = gittest.CaptureHookEnv(t, cfg)
@@ -483,6 +491,8 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 }
 
 func TestReceivePackFsck(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	testcfg.BuildGitalyHooks(t, cfg)
@@ -536,6 +546,8 @@ func drainPostReceivePackResponse(stream gitalypb.SmartHTTPService_PostReceivePa
 }
 
 func TestPostReceivePackToHooks(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	testcfg.BuildGitalyHooks(t, cfg)
@@ -597,6 +609,8 @@ func TestPostReceivePackToHooks(t *testing.T) {
 }
 
 func TestPostReceiveWithTransactionsViaPraefect(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -660,6 +674,8 @@ func (t *testTransactionServer) VoteTransaction(ctx context.Context, in *gitalyp
 }
 
 func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 
 	testcfg.BuildGitalyHooks(t, cfg)
