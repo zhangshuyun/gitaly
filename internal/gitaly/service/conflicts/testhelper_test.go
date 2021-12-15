@@ -19,10 +19,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	testhelper.Run(m, testhelper.WithSetup(func() error {
-		config.OverrideHooksPath = "/"
-		return nil
-	}))
+	testhelper.Run(m)
 }
 
 func SetupConfigAndRepo(t testing.TB, bare bool) (config.Cfg, *gitalypb.Repository, string) {
