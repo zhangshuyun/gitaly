@@ -39,11 +39,8 @@ const (
 
 func TestSuccessfulReceivePackRequest(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
-
 	cfg.GitlabShell.Dir = "/foo/bar/gitlab-shell"
-
-	hookOutputFile, cleanup := gittest.CaptureHookEnv(t)
-	defer cleanup()
+	cfg, hookOutputFile := gittest.CaptureHookEnv(t, cfg)
 
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 
@@ -368,13 +365,11 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 func TestPostReceivePack_invalidObjects(t *testing.T) {
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	cfg, _ = gittest.CaptureHookEnv(t, cfg)
 
 	_, localRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	socket := runSmartHTTPServer(t, cfg)
-
-	_, cleanup := gittest.CaptureHookEnv(t)
-	defer cleanup()
 
 	client, conn := newSmartHTTPClient(t, socket, cfg.Auth.Token)
 	defer conn.Close()

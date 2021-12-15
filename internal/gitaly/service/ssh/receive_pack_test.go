@@ -90,10 +90,9 @@ func TestReceivePackPushSuccess(t *testing.T) {
 
 	cfg.GitlabShell.Dir = "/foo/bar/gitlab-shell"
 
-	testcfg.BuildGitalySSH(t, cfg)
+	cfg, hookOutputFile := gittest.CaptureHookEnv(t, cfg)
 
-	hookOutputFile, cleanup := gittest.CaptureHookEnv(t)
-	defer cleanup()
+	testcfg.BuildGitalySSH(t, cfg)
 
 	serverSocketPath := runSSHServer(t, cfg)
 

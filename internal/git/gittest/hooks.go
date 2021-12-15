@@ -2,11 +2,9 @@ package gittest
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
@@ -47,24 +45,19 @@ func WriteCustomHook(t testing.TB, repoPath, name string, content []byte) string
 	return fullPath
 }
 
-// CaptureHookEnv creates a bogus 'update' Git hook to sniff out what
-// environment variables get set for hooks.
-func CaptureHookEnv(t testing.TB) (string, func()) {
+// CaptureHookEnv creates a bogus 'update' Git hook to sniff out what environment variables get set
+// for hooks. Returns a copy of the Gitaly configuration whose hook path is adapted as required.
+func CaptureHookEnv(t testing.TB, cfg config.Cfg) (config.Cfg, string) {
 	tempDir := testhelper.TempDir(t)
 
-	oldOverride := config.OverrideHooksPath
-	config.OverrideHooksPath = filepath.Join(tempDir, "hooks")
-	hookOutputFile := filepath.Join(tempDir, "hook.env")
-
-	require.NoError(t, os.MkdirAll(config.OverrideHooksPath, 0o755))
+	cfg.Git.HooksPath = tempDir
+	hookOutputFile := filepath.Join(cfg.Git.HooksPath, "hook.env")
 
 	script := []byte(`
 #!/bin/sh
 env | grep -e ^GIT -e ^GL_ > ` + hookOutputFile + "\n")
 
-	require.NoError(t, os.WriteFile(filepath.Join(config.OverrideHooksPath, "update"), script, 0o755))
+	testhelper.WriteExecutable(t, filepath.Join(tempDir, "update"), script)
 
-	return hookOutputFile, func() {
-		config.OverrideHooksPath = oldOverride
-	}
+	return cfg, hookOutputFile
 }
