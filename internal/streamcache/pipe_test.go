@@ -139,8 +139,9 @@ func TestPipe_backpressure(t *testing.T) {
 	_, err = io.ReadFull(pr, buf)
 	require.NoError(t, err)
 	output = append(output, buf...)
-	time.Sleep(10 * time.Millisecond)
-	require.Equal(t, int64(3), atomic.LoadInt64(&wprogress), "writer should be blocked after having advanced 1 byte")
+	require.Eventually(t, func() bool {
+		return atomic.LoadInt64(&wprogress) == 3
+	}, time.Minute, time.Millisecond, "writer should have been unblocked after having reading 1 byte")
 
 	rest, err := io.ReadAll(pr)
 	require.NoError(t, err)
