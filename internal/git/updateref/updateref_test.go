@@ -15,16 +15,15 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	testhelper.Run(m, testhelper.WithSetup(func() error {
-		config.OverrideHooksPath = "/"
-		return nil
-	}))
+	testhelper.Run(m)
 }
 
 func setupUpdater(t *testing.T, ctx context.Context) (config.Cfg, *localrepo.Repo, *Updater) {
 	t.Helper()
 
 	cfg, protoRepo, _ := testcfg.BuildWithRepo(t)
+	// We have no Gitaly server set up in these tests, so we cannot use hooks.
+	cfg.Git.HooksPath = "/"
 
 	repo := localrepo.NewTestRepo(t, cfg, protoRepo)
 
@@ -133,6 +132,7 @@ func TestUpdater_concurrentLocking(t *testing.T) {
 	defer cancel()
 
 	cfg, protoRepo, _ := testcfg.BuildWithRepo(t)
+	cfg.Git.HooksPath = "/"
 	repo := localrepo.NewTestRepo(t, cfg, protoRepo)
 
 	commit, logErr := repo.ReadCommit(ctx, "refs/heads/master")
