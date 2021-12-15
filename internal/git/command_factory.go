@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os/exec"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
@@ -142,7 +143,7 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 
 	if featureflag.RunCommandsInCGroup.IsEnabled(ctx) {
 		if err := cf.cgroupsManager.AddCommand(command); err != nil {
-			return nil, err
+			ctxlogrus.Extract(ctx).WithError(err).Error("could not add command to cgroup")
 		}
 	}
 
