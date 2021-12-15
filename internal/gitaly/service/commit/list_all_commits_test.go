@@ -2,16 +2,13 @@ package commit
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -116,23 +113,12 @@ func TestListAllCommits(t *testing.T) {
 		require.NoError(t, err)
 		require.Empty(t, receiveCommits(t, stream))
 
-		treeID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD^{tree}"))
-
 		// We cannot easily spawn a command with an object directory, so we just do so
 		// manually here and write the commit into the quarantine object directory.
-		commitTree := exec.Command(cfg.Git.BinPath, "-C", repoPath,
-			"-c", "user.name=John Doe",
-			"-c", "user.email=john.doe@example.com",
-			"commit-tree", treeID, "-m", "An empty commit")
-		commitTree.Env = []string{
-			"GIT_AUTHOR_DATE=1600000000 +0200",
-			"GIT_COMMITTER_DATE=1600000001 +0200",
-			fmt.Sprintf("GIT_OBJECT_DIRECTORY=%s", quarantineDir),
-			fmt.Sprintf("GIT_ALTERNATE_OBJECT_DIRECTORIES=%s", filepath.Join(repoPath, "objects")),
-		}
-
-		commitID, err := commitTree.Output()
-		require.NoError(t, err)
+		commitID := gittest.WriteCommit(t, cfg, repoPath,
+			gittest.WithAlternateObjectDirectory(filepath.Join(repoPath, quarantineDir)),
+			gittest.WithParents(),
+		)
 
 		// We now expect only the quarantined commit to be returned.
 		stream, err = client.ListAllCommits(ctx, &gitalypb.ListAllCommitsRequest{
@@ -141,22 +127,22 @@ func TestListAllCommits(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, []*gitalypb.GitCommit{{
-			Id:       text.ChompBytes(commitID),
-			Subject:  []byte("An empty commit"),
-			Body:     []byte("An empty commit\n"),
-			BodySize: 16,
-			TreeId:   treeID,
+			Id:       commitID.String(),
+			Subject:  []byte("message"),
+			Body:     []byte("message"),
+			BodySize: 7,
+			TreeId:   "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
 			Author: &gitalypb.CommitAuthor{
-				Name:     []byte("John Doe"),
-				Email:    []byte("john.doe@example.com"),
-				Date:     &timestamppb.Timestamp{Seconds: 1600000000},
-				Timezone: []byte("+0200"),
+				Name:     []byte("Scrooge McDuck"),
+				Email:    []byte("scrooge@mcduck.com"),
+				Date:     &timestamppb.Timestamp{Seconds: 1572776879},
+				Timezone: []byte("+0100"),
 			},
 			Committer: &gitalypb.CommitAuthor{
-				Name:     []byte("John Doe"),
-				Email:    []byte("john.doe@example.com"),
-				Date:     &timestamppb.Timestamp{Seconds: 1600000001},
-				Timezone: []byte("+0200"),
+				Name:     []byte("Scrooge McDuck"),
+				Email:    []byte("scrooge@mcduck.com"),
+				Date:     &timestamppb.Timestamp{Seconds: 1572776879},
+				Timezone: []byte("+0100"),
 			},
 		}}, receiveCommits(t, stream))
 	})

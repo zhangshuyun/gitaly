@@ -2,12 +2,14 @@ package commit
 
 import (
 	"fmt"
-	"os/exec"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -162,19 +164,15 @@ func TestCommitIsAncestorSuccess(t *testing.T) {
 
 func TestSuccessfulIsAncestorRequestWithAltGitObjectDirs(t *testing.T) {
 	t.Parallel()
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
 
-	committerName := "Scrooge McDuck"
-	committerEmail := "scrooge@mcduck.com"
+	parentCommitID := git.ObjectID(text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "--verify", "HEAD")))
 
-	previousHead := gittest.Exec(t, cfg, "-C", repoPath, "show", "--format=format:%H", "--no-patch", "HEAD")
-
-	cmd := exec.Command(cfg.Git.BinPath, "-C", repoPath,
-		"-c", fmt.Sprintf("user.name=%s", committerName),
-		"-c", fmt.Sprintf("user.email=%s", committerEmail),
-		"commit", "--allow-empty", "-m", "An empty commit")
 	altObjectsDir := "./alt-objects"
-	currentHead := gittest.CreateCommitInAlternateObjectDirectory(t, cfg.Git.BinPath, repoPath, altObjectsDir, cmd)
+	commitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(parentCommitID),
+		gittest.WithAlternateObjectDirectory(filepath.Join(repoPath, altObjectsDir)),
+	)
 
 	testCases := []struct {
 		desc    string
@@ -198,8 +196,8 @@ func TestSuccessfulIsAncestorRequestWithAltGitObjectDirs(t *testing.T) {
 			repo.GitAlternateObjectDirectories = testCase.altDirs
 			request := &gitalypb.CommitIsAncestorRequest{
 				Repository: repo,
-				AncestorId: string(previousHead),
-				ChildId:    string(currentHead),
+				AncestorId: string(parentCommitID),
+				ChildId:    commitID.String(),
 			}
 
 			ctx, cancel := testhelper.Context()

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os/exec"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -436,17 +436,12 @@ func TestSuccessfulFindCommitsRequest(t *testing.T) {
 
 func TestSuccessfulFindCommitsRequestWithAltGitObjectDirs(t *testing.T) {
 	t.Parallel()
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
 
-	committerName := "Scrooge McDuck"
-	committerEmail := "scrooge@mcduck.com"
-
-	cmd := exec.Command(cfg.Git.BinPath, "-C", repoPath,
-		"-c", fmt.Sprintf("user.name=%s", committerName),
-		"-c", fmt.Sprintf("user.email=%s", committerEmail),
-		"commit", "--allow-empty", "-m", "An empty commit")
 	altObjectsDir := "./alt-objects"
-	currentHead := gittest.CreateCommitInAlternateObjectDirectory(t, cfg.Git.BinPath, repoPath, altObjectsDir, cmd)
+	commitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithAlternateObjectDirectory(filepath.Join(repoPath, altObjectsDir)),
+	)
 
 	testCases := []struct {
 		desc          string
@@ -470,7 +465,7 @@ func TestSuccessfulFindCommitsRequestWithAltGitObjectDirs(t *testing.T) {
 			repo.GitAlternateObjectDirectories = testCase.altDirs
 			request := &gitalypb.FindCommitsRequest{
 				Repository: repo,
-				Revision:   currentHead,
+				Revision:   []byte(commitID.String()),
 				Limit:      1,
 			}
 
