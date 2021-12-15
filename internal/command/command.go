@@ -23,6 +23,9 @@ import (
 var GitEnv = []string{
 	// Force english locale for consistency on the output messages
 	"LANG=en_US.UTF-8",
+	// Prevent the environment from affecting git calls by ignoring the global configuration files.
+	"GIT_CONFIG_GLOBAL=/dev/null",
+	"GIT_CONFIG_SYSTEM=/dev/null",
 }
 
 // exportedEnvVars contains a list of environment variables

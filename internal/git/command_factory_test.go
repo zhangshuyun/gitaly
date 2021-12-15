@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -45,6 +46,43 @@ func TestGitCommandProxy(t *testing.T) {
 	err = cmd.Wait()
 	require.NoError(t, err)
 	require.True(t, requestReceived)
+}
+
+func TestExecCommandFactory_globalGitConfigIgnored(t *testing.T) {
+	cfg := testcfg.Build(t)
+
+	tmpHome := testhelper.TempDir(t)
+	require.NoError(t, os.WriteFile(filepath.Join(tmpHome, ".gitconfig"), []byte(`[ignored]
+	value = true
+`,
+	), os.ModePerm))
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	for _, tc := range []struct {
+		desc   string
+		filter string
+	}{
+		{desc: "global", filter: "--global"},
+		// The test doesn't override the system config as that would be a global change or would
+		// require chrooting. The assertion won't catch problems on systems that do not have system
+		// level configuration set.
+		{desc: "system", filter: "--system"},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			cmd, err := git.NewExecCommandFactory(cfg).NewWithoutRepo(ctx, git.SubCmd{
+				Name:  "config",
+				Flags: []git.Option{git.Flag{Name: "--list"}, git.Flag{Name: tc.filter}},
+			}, git.WithEnv("HOME="+tmpHome))
+			require.NoError(t, err)
+
+			configContents, err := io.ReadAll(cmd)
+			require.NoError(t, err)
+			require.NoError(t, cmd.Wait())
+			require.Empty(t, string(configContents))
+		})
+	}
 }
 
 func TestExecCommandFactory_NewWithDir(t *testing.T) {
