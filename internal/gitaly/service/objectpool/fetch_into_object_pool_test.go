@@ -78,23 +78,24 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 }
 
 func TestFetchIntoObjectPool_hooks(t *testing.T) {
-	cfg, repo, _, _, client := setup(t)
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg.Git.HooksPath = testhelper.TempDir(t)
+	addr := runObjectPoolServer(t, cfg, config.NewLocator(cfg), testhelper.NewDiscardingLogger(t))
+
+	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	require.NoError(t, err)
+	defer testhelper.MustClose(t, conn)
+
+	client := gitalypb.NewObjectPoolServiceClient(conn)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
 
-	hookDir := testhelper.TempDir(t)
-
-	defer func(oldValue string) {
-		config.OverrideHooksPath = oldValue
-	}(config.OverrideHooksPath)
-	config.OverrideHooksPath = hookDir
-
 	// Set up a custom reference-transaction hook which simply exits failure. This asserts that
 	// the RPC doesn't invoke any reference-transaction.
-	require.NoError(t, os.WriteFile(filepath.Join(hookDir, "reference-transaction"), []byte("#!/bin/sh\nexit 1\n"), 0o777))
+	testhelper.WriteExecutable(t, filepath.Join(cfg.HooksPath(), "reference-transaction"), []byte("#!/bin/sh\nexit 1\n"))
 
 	req := &gitalypb.FetchIntoObjectPoolRequest{
 		ObjectPool: pool.ToProto(),
@@ -102,7 +103,7 @@ func TestFetchIntoObjectPool_hooks(t *testing.T) {
 		Repack:     true,
 	}
 
-	_, err := client.FetchIntoObjectPool(ctx, req)
+	_, err = client.FetchIntoObjectPool(ctx, req)
 	testhelper.RequireGrpcError(t, status.Error(codes.Internal, "fetch into object pool: exit status 128, stderr: \"fatal: ref updates aborted by hook\\n\""), err)
 }
 
