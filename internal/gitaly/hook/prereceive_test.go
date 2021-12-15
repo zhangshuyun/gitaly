@@ -79,33 +79,22 @@ func TestPrereceive_customHooks(t *testing.T) {
 		expectedStderr string
 	}{
 		{
-			desc:  "hook receives environment variables",
-			env:   []string{payload},
-			hook:  "#!/bin/sh\nenv | grep -e '^GL_' -e '^GITALY_' | sort\n",
-			stdin: "change\n",
-			expectedStdout: strings.Join([]string{
-				"GL_ID=1234",
-				fmt.Sprintf("GL_PROJECT_PATH=%s", repo.GetGlProjectPath()),
-				"GL_PROTOCOL=web",
-				fmt.Sprintf("GL_REPOSITORY=%s", repo.GetGlRepository()),
-				"GL_USERNAME=user",
-			}, "\n") + "\n",
+			desc:           "hook receives environment variables",
+			env:            []string{payload},
+			hook:           "#!/bin/sh\nenv | grep -v -e '^SHLVL=' -e '^_=' | sort\n",
+			stdin:          "change\n",
+			expectedStdout: strings.Join(getExpectedEnv(t, cfg, repo), "\n") + "\n",
 		},
 		{
 			desc:        "hook receives push options",
 			env:         []string{payload},
 			pushOptions: []string{"mr.create", "mr.merge_when_pipeline_succeeds"},
-			hook:        "#!/bin/sh\nenv | grep -e '^GL_' -e '^GITALY_' -e '^GIT_PUSH_' | sort\n",
+			hook:        "#!/bin/sh\nenv | grep '^GIT_PUSH_' | sort\n",
 			stdin:       "change\n",
 			expectedStdout: strings.Join([]string{
 				"GIT_PUSH_OPTION_0=mr.create",
 				"GIT_PUSH_OPTION_1=mr.merge_when_pipeline_succeeds",
 				"GIT_PUSH_OPTION_COUNT=2",
-				"GL_ID=1234",
-				fmt.Sprintf("GL_PROJECT_PATH=%s", repo.GetGlProjectPath()),
-				"GL_PROTOCOL=web",
-				fmt.Sprintf("GL_REPOSITORY=%s", repo.GetGlRepository()),
-				"GL_USERNAME=user",
 			}, "\n") + "\n",
 		},
 		{

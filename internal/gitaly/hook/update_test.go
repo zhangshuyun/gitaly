@@ -80,19 +80,13 @@ func TestUpdate_customHooks(t *testing.T) {
 		expectedStderr string
 	}{
 		{
-			desc:      "hook receives environment variables",
-			env:       []string{payload},
-			reference: "refs/heads/master",
-			oldHash:   hash1,
-			newHash:   hash2,
-			hook:      "#!/bin/sh\nenv | grep -e '^GL_' -e '^GITALY_' | sort\n",
-			expectedStdout: strings.Join([]string{
-				"GL_ID=1234",
-				fmt.Sprintf("GL_PROJECT_PATH=%s", repo.GetGlProjectPath()),
-				"GL_PROTOCOL=web",
-				fmt.Sprintf("GL_REPOSITORY=%s", repo.GetGlRepository()),
-				"GL_USERNAME=user",
-			}, "\n") + "\n",
+			desc:           "hook receives environment variables",
+			env:            []string{payload},
+			reference:      "refs/heads/master",
+			oldHash:        hash1,
+			newHash:        hash2,
+			hook:           "#!/bin/sh\nenv | grep -v -e '^SHLVL=' -e '^_=' | sort\n",
+			expectedStdout: strings.Join(getExpectedEnv(t, cfg, repo), "\n") + "\n",
 		},
 		{
 			desc:           "hook receives arguments",
