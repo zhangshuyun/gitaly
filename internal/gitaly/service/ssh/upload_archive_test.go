@@ -18,6 +18,8 @@ import (
 )
 
 func TestFailedUploadArchiveRequestDueToTimeout(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	serverSocketPath := runSSHServerWithOptions(t, cfg, []ServerOpt{WithArchiveRequestTimeout(100 * time.Microsecond)})
@@ -53,6 +55,8 @@ func TestFailedUploadArchiveRequestDueToTimeout(t *testing.T) {
 }
 
 func TestFailedUploadArchiveRequestDueToValidationError(t *testing.T) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 
 	serverSocketPath := runSSHServer(t, cfg)
@@ -103,6 +107,8 @@ func TestFailedUploadArchiveRequestDueToValidationError(t *testing.T) {
 }
 
 func TestUploadArchiveSuccess(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	testcfg.BuildGitalySSH(t, cfg)

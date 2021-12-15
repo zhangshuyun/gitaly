@@ -34,6 +34,8 @@ import (
 )
 
 func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	serverSocketPath := runSSHServer(t, cfg)
@@ -86,6 +88,8 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 }
 
 func TestReceivePackPushSuccess(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	cfg.GitlabShell.Dir = "/foo/bar/gitlab-shell"
@@ -160,6 +164,8 @@ func TestReceivePackPushSuccess(t *testing.T) {
 }
 
 func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	testcfg.BuildGitalySSH(t, cfg)
@@ -184,6 +190,8 @@ func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
 }
 
 func TestReceivePackPushFailure(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	serverSocketPath := runSSHServer(t, cfg)
@@ -196,16 +204,14 @@ func TestReceivePackPushFailure(t *testing.T) {
 }
 
 func TestReceivePackPushHookFailure(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg.Git.HooksPath = testhelper.TempDir(t)
 
 	testcfg.BuildGitalySSH(t, cfg)
 
 	serverSocketPath := runSSHServer(t, cfg)
-
-	hookDir := testhelper.TempDir(t)
-
-	defer func(old string) { config.OverrideHooksPath = old }(config.OverrideHooksPath)
-	config.OverrideHooksPath = hookDir
 
 	require.NoError(t, os.MkdirAll(cfg.HooksPath(), 0o755))
 
@@ -218,6 +224,8 @@ func TestReceivePackPushHookFailure(t *testing.T) {
 }
 
 func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	testcfg.BuildGitalyHooks(t, cfg)
@@ -273,6 +281,8 @@ func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 }
 
 func TestReceivePackTransactional(t *testing.T) {
+	t.Parallel()
+
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -476,6 +486,8 @@ func TestReceivePackTransactional(t *testing.T) {
 }
 
 func TestSSHReceivePackToHooks(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	testcfg.BuildGitalyHooks(t, cfg)
