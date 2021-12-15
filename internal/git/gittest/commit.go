@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -159,35 +158,6 @@ func WriteCommit(t testing.TB, cfg config.Cfg, repoPath string, opts ...WriteCom
 	}
 
 	return oid
-}
-
-// CreateCommitInAlternateObjectDirectory runs a command such that its created
-// objects will live in an alternate objects directory. It returns the current
-// head after the command is run and the alternate objects directory path
-func CreateCommitInAlternateObjectDirectory(t testing.TB, gitBin, repoPath, altObjectsDir string, cmd *exec.Cmd) (currentHead []byte) {
-	gitPath := filepath.Join(repoPath, ".git")
-
-	altObjectsPath := filepath.Join(gitPath, altObjectsDir)
-	gitObjectEnv := []string{
-		fmt.Sprintf("GIT_OBJECT_DIRECTORY=%s", altObjectsPath),
-		fmt.Sprintf("GIT_ALTERNATE_OBJECT_DIRECTORIES=%s", filepath.Join(gitPath, "objects")),
-	}
-	require.NoError(t, os.MkdirAll(altObjectsPath, 0o755))
-
-	// Because we set 'gitObjectEnv', the new objects created by this command
-	// will go into 'find-commits-alt-test-repo/.git/alt-objects'.
-	cmd.Env = append(cmd.Env, gitObjectEnv...)
-	if output, err := cmd.Output(); err != nil {
-		stderr := err.(*exec.ExitError).Stderr
-		t.Fatalf("stdout: %s, stderr: %s", output, stderr)
-	}
-
-	cmd = exec.Command(gitBin, "-C", repoPath, "rev-parse", "HEAD")
-	cmd.Env = gitObjectEnv
-	currentHead, err := cmd.Output()
-	require.NoError(t, err)
-
-	return currentHead[:len(currentHead)-1]
 }
 
 func authorEqualIgnoringDate(t testing.TB, expected *gitalypb.CommitAuthor, actual *gitalypb.CommitAuthor) {
