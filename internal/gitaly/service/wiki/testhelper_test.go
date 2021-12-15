@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -30,10 +31,7 @@ type createWikiPageOpts struct {
 var mockPageContent = bytes.Repeat([]byte("Mock wiki page content"), 10000)
 
 func TestMain(m *testing.M) {
-	testhelper.Run(m, testhelper.WithSetup(func() error {
-		config.OverrideHooksPath = "/"
-		return nil
-	}))
+	testhelper.Run(m)
 }
 
 func TestWithRubySidecar(t *testing.T) {
@@ -70,8 +68,15 @@ func TestWithRubySidecar(t *testing.T) {
 
 func setupWikiService(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server) gitalypb.WikiServiceClient {
 	addr := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(
+			deps.GetCfg(),
+			deps.GetHookManager(),
+			deps.GetGitCmdFactory(),
+			deps.GetPackObjectsCache(),
+		))
 		gitalypb.RegisterWikiServiceServer(srv, NewServer(deps.GetRubyServer(), deps.GetLocator()))
 	})
+	testcfg.BuildGitalyHooks(t, cfg)
 	client := newWikiClient(t, addr)
 	return client
 }
