@@ -100,6 +100,21 @@ func configure(configPath string) (config.Cfg, error) {
 
 	if err := cgroups.NewManager(cfg.Cgroups).Setup(); err != nil {
 		log.WithError(err).Error("failed setting up cgroups")
+		go func() {
+			ticker := time.NewTicker(5 * time.Minute)
+			defer ticker.Stop()
+
+			for {
+				<-ticker.C
+				log.Info("attempting to setup cgroups")
+
+				if err := cgroups.NewManager(cfg.Cgroups).Setup(); err != nil {
+					log.WithError(err).Error("failed setting up cgroups")
+				} else {
+					break
+				}
+			}
+		}()
 	}
 
 	if err := verifyGitVersion(cfg); err != nil {
