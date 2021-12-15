@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -60,18 +59,23 @@ func TestRepackIncrementalCollectLogStatistics(t *testing.T) {
 
 func TestRepackLocal(t *testing.T) {
 	t.Parallel()
-	cfg, repo, repoPath, client := setupRepositoryServiceWithWorktree(t)
 
-	commiterArgs := []string{"-c", "user.name=Scrooge McDuck", "-c", "user.email=scrooge@mcduck.com"}
-	cmdArgs := append(commiterArgs, "-C", repoPath, "commit", "--allow-empty", "-m", "An empty commit")
-	cmd := exec.Command(cfg.Git.BinPath, cmdArgs...)
+	cfg, repo, repoPath, client := setupRepositoryService(t)
+
 	altObjectsDir := "./alt-objects"
-	altDirsCommit := gittest.CreateCommitInAlternateObjectDirectory(t, cfg.Git.BinPath, repoPath, altObjectsDir, cmd)
+	alternateCommit := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithMessage("alternate commit"),
+		gittest.WithAlternateObjectDirectory(filepath.Join(repoPath, altObjectsDir)),
+		gittest.WithBranch("alternate-odb"),
+	)
 
-	repoCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(t.Name()))
+	repoCommit := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithMessage("main commit"),
+		gittest.WithBranch("main-odb"),
+	)
 
-	ctx, cancelFn := testhelper.Context()
-	defer cancelFn()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	// Set GIT_ALTERNATE_OBJECT_DIRECTORIES on the outgoing request. The
 	// intended use case of the behavior we're testing here is that
@@ -82,13 +86,13 @@ func TestRepackLocal(t *testing.T) {
 	_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: repo})
 	require.NoError(t, err)
 
-	packFiles, err := filepath.Glob(filepath.Join(repoPath, ".git", "objects", "pack", "pack-*.pack"))
+	packFiles, err := filepath.Glob(filepath.Join(repoPath, "objects", "pack", "pack-*.pack"))
 	require.NoError(t, err)
 	require.Len(t, packFiles, 1)
 
 	packContents := gittest.Exec(t, cfg, "-C", repoPath, "verify-pack", "-v", packFiles[0])
-	require.NotContains(t, string(packContents), string(altDirsCommit))
-	require.Contains(t, string(packContents), repoCommit)
+	require.NotContains(t, string(packContents), alternateCommit.String())
+	require.Contains(t, string(packContents), repoCommit.String())
 }
 
 func TestRepackIncrementalFailure(t *testing.T) {

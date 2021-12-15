@@ -7,17 +7,12 @@ import (
 	"io"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/archive"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
@@ -95,7 +90,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 func testGetSnapshotWithDedupe(t *testing.T, ctx context.Context) {
 	for _, tc := range []struct {
 		desc              string
-		alternatePathFunc func(t *testing.T, storageDir, objDir string) string
+		alternatePathFunc func(t *testing.T, storageDir, repoPath string) string
 	}{
 		{
 			desc:              "subdirectory",
@@ -119,46 +114,40 @@ func testGetSnapshotWithDedupe(t *testing.T, ctx context.Context) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg, repoProto, repoPath, client := setupRepositoryServiceWithWorktree(t)
-			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+			cfg, repoProto, repoPath, client := setupRepositoryService(t)
 
-			const committerName = "Scrooge McDuck"
-			const committerEmail = "scrooge@mcduck.com"
-
-			cmd := exec.Command(cfg.Git.BinPath, "-C", repoPath,
-				"-c", fmt.Sprintf("user.name=%s", committerName),
-				"-c", fmt.Sprintf("user.email=%s", committerEmail),
-				"commit", "--allow-empty", "-m", "An empty commit")
 			alternateObjDir := tc.alternatePathFunc(t, cfg.Storages[0].Path, filepath.Join(repoPath, "objects"))
-			commitSha := gittest.CreateCommitInAlternateObjectDirectory(t, cfg.Git.BinPath, repoPath, alternateObjDir, cmd)
-			originalAlternatesCommit := string(commitSha)
+			absoluteAlternateObjDir := alternateObjDir
+			if !filepath.IsAbs(alternateObjDir) {
+				absoluteAlternateObjDir = filepath.Join(repoPath, "objects", alternateObjDir)
+			}
+
+			firstCommitID := gittest.WriteCommit(t, cfg, repoPath,
+				gittest.WithMessage("An empty commit"),
+				gittest.WithAlternateObjectDirectory(absoluteAlternateObjDir),
+			)
 
 			locator := config.NewLocator(cfg)
-			catfileCache := catfile.NewCache(cfg)
-			defer catfileCache.Stop()
 
-			// ensure commit cannot be found in current repository
-			objectInfoReader, err := catfileCache.ObjectInfoReader(ctx, repo)
-			require.NoError(t, err)
-			_, err = objectInfoReader.Info(ctx, git.Revision(originalAlternatesCommit))
-			require.True(t, catfile.IsNotFound(err))
+			// We haven't yet written the alternates file, and thus we shouldn't be able
+			// to find this commit yet.
+			gittest.RequireObjectNotExists(t, cfg, repoPath, firstCommitID)
 
-			// write alternates file to point to alt objects folder
+			// Write alternates file to point to alt objects folder.
 			alternatesPath, err := locator.InfoAlternatesPath(repoProto)
 			require.NoError(t, err)
-			require.NoError(t, os.WriteFile(alternatesPath, []byte(filepath.Join(repoPath, ".git", fmt.Sprintf("%s\n", alternateObjDir))), 0o644))
+			require.NoError(t, os.WriteFile(alternatesPath, []byte(fmt.Sprintf("%s\n", alternateObjDir)), 0o644))
 
-			// write another commit and ensure we can find it
-			cmd = exec.Command(cfg.Git.BinPath, "-C", repoPath,
-				"-c", fmt.Sprintf("user.name=%s", committerName),
-				"-c", fmt.Sprintf("user.email=%s", committerEmail),
-				"commit", "--allow-empty", "-m", "Another empty commit")
-			commitSha = gittest.CreateCommitInAlternateObjectDirectory(t, cfg.Git.BinPath, repoPath, alternateObjDir, cmd)
+			// Write another commit into the alternate object directory.
+			secondCommitID := gittest.WriteCommit(t, cfg, repoPath,
+				gittest.WithMessage("Another empty commit"),
+				gittest.WithAlternateObjectDirectory(absoluteAlternateObjDir),
+			)
 
-			objectInfoReader, err = catfileCache.ObjectInfoReader(ctx, repo)
-			require.NoError(t, err)
-			_, err = objectInfoReader.Info(ctx, git.Revision(commitSha))
-			require.NoError(t, err)
+			// We should now be able to find both commits given that the alternates file
+			// points to the object directory we've created them in.
+			gittest.RequireObjectExists(t, cfg, repoPath, firstCommitID)
+			gittest.RequireObjectExists(t, cfg, repoPath, secondCommitID)
 
 			repoCopy, _ := copyRepoUsingSnapshot(t, ctx, cfg, client, repoProto)
 			repoCopy.RelativePath = getReplicaPath(ctx, t, client, repoCopy)
@@ -166,75 +155,92 @@ func testGetSnapshotWithDedupe(t *testing.T, ctx context.Context) {
 			require.NoError(t, err)
 
 			// ensure the sha committed to the alternates directory can be accessed
-			gittest.Exec(t, cfg, "-C", repoCopyPath, "cat-file", "-p", originalAlternatesCommit)
+			gittest.Exec(t, cfg, "-C", repoCopyPath, "cat-file", "-p", firstCommitID.String())
 			gittest.Exec(t, cfg, "-C", repoCopyPath, "fsck")
 		})
 	}
 }
 
-func TestGetSnapshotWithDedupeSoftFailures(t *testing.T) {
+func TestGetSnapshot_alternateObjectDirectory(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testGetSnapshotWithDedupeSoftFailures)
+	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testGetSnapshotAlternateObjectDirectory)
 }
 
-func testGetSnapshotWithDedupeSoftFailures(t *testing.T, ctx context.Context) {
+func testGetSnapshotAlternateObjectDirectory(t *testing.T, ctx context.Context) {
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	testRepo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
-		WithWorktree: true,
-	})
+	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	locator := config.NewLocator(cfg)
-
-	// write alternates file to point to alternates objects folder that doesn't exist
-	alternateObjDir := "./alt-objects"
-	alternateObjPath := filepath.Join(repoPath, ".git", alternateObjDir)
-	alternatesPath, err := locator.InfoAlternatesPath(testRepo)
-	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(alternatesPath, []byte(fmt.Sprintf("%s\n", alternateObjPath)), 0o644))
-
-	req := &gitalypb.GetSnapshotRequest{Repository: testRepo}
-	_, err = getSnapshot(client, req)
-	assert.NoError(t, err)
-	require.NoError(t, os.Remove(alternatesPath))
-
-	// write alternates file to point outside storage root
-	storageRoot, err := locator.GetStorageByName(testRepo.GetStorageName())
-	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(alternatesPath, []byte(filepath.Join(storageRoot, "..")), 0o600))
-
-	_, err = getSnapshot(client, &gitalypb.GetSnapshotRequest{Repository: testRepo})
-	assert.NoError(t, err)
-	require.NoError(t, os.Remove(alternatesPath))
-
-	// write alternates file with bad permissions
-	require.NoError(t, os.WriteFile(alternatesPath, []byte(fmt.Sprintf("%s\n", alternateObjPath)), 0o000))
-	_, err = getSnapshot(client, req)
-	assert.NoError(t, err)
-	require.NoError(t, os.Remove(alternatesPath))
-
-	// write alternates file without newline
-	committerName := "Scrooge McDuck"
-	committerEmail := "scrooge@mcduck.com"
-
-	cmd := exec.Command(cfg.Git.BinPath, "-C", repoPath,
-		"-c", fmt.Sprintf("user.name=%s", committerName),
-		"-c", fmt.Sprintf("user.email=%s", committerEmail),
-		"commit", "--allow-empty", "-m", "An empty commit")
-
-	commitSha := gittest.CreateCommitInAlternateObjectDirectory(t, cfg.Git.BinPath, repoPath, alternateObjDir, cmd)
-	originalAlternatesCommit := string(commitSha)
-
-	require.NoError(t, os.WriteFile(alternatesPath, []byte(alternateObjPath), 0o644))
-
-	repoCopy, _ := copyRepoUsingSnapshot(t, ctx, cfg, client, testRepo)
-	repoCopy.RelativePath = getReplicaPath(ctx, t, client, repoCopy)
-	repoCopyPath, err := locator.GetRepoPath(repoCopy)
+	alternatesFile, err := locator.InfoAlternatesPath(repo)
 	require.NoError(t, err)
 
-	// ensure the sha committed to the alternates directory can be accessed
-	gittest.Exec(t, cfg, "-C", repoCopyPath, "cat-file", "-p", originalAlternatesCommit)
-	gittest.Exec(t, cfg, "-C", repoCopyPath, "fsck")
+	req := &gitalypb.GetSnapshotRequest{Repository: repo}
+
+	t.Run("nonexistent", func(t *testing.T) {
+		alternateObjectDir := filepath.Join(repoPath, "does-not-exist")
+
+		require.NoError(t, os.WriteFile(alternatesFile, []byte(fmt.Sprintf("%s\n", alternateObjectDir)), 0o644))
+		defer func() {
+			require.NoError(t, os.Remove(alternatesFile))
+		}()
+
+		_, err = getSnapshot(client, req)
+		require.NoError(t, err)
+	})
+
+	t.Run("escape storage root", func(t *testing.T) {
+		storageRoot, err := locator.GetStorageByName(repo.GetStorageName())
+		require.NoError(t, err)
+
+		alternateObjectDir := filepath.Join(storageRoot, "..")
+
+		require.NoError(t, os.WriteFile(alternatesFile, []byte(alternateObjectDir), 0o600))
+		defer func() {
+			require.NoError(t, os.Remove(alternatesFile))
+		}()
+
+		_, err = getSnapshot(client, &gitalypb.GetSnapshotRequest{Repository: repo})
+		require.NoError(t, err)
+	})
+
+	t.Run("bad permissions", func(t *testing.T) {
+		alternateObjectDir := filepath.Join(repoPath, "bad-permissions")
+
+		require.NoError(t, os.WriteFile(alternatesFile, []byte(fmt.Sprintf("%s\n", alternateObjectDir)), 0o000))
+		defer func() {
+			require.NoError(t, os.Remove(alternatesFile))
+		}()
+
+		_, err = getSnapshot(client, req)
+		require.NoError(t, err)
+	})
+
+	t.Run("valid alternate object directory", func(t *testing.T) {
+		alternateObjectDir := filepath.Join(repoPath, "valid-odb")
+
+		commitID := gittest.WriteCommit(t, cfg, repoPath,
+			gittest.WithAlternateObjectDirectory(alternateObjectDir),
+			// Create a branch with the commit such that the snapshot would indeed treat
+			// this commit as referenced.
+			gittest.WithBranch("some-branch"),
+		)
+
+		require.NoError(t, os.WriteFile(alternatesFile, []byte(alternateObjectDir), 0o644))
+		defer func() {
+			require.NoError(t, os.Remove(alternatesFile))
+		}()
+
+		repoCopy, _ := copyRepoUsingSnapshot(t, ctx, cfg, client, repo)
+		repoCopy.RelativePath = getReplicaPath(ctx, t, client, repoCopy)
+		repoCopyPath, err := locator.GetRepoPath(repoCopy)
+		require.NoError(t, err)
+
+		// Ensure the object committed to the alternates directory can be accessed and that
+		// the repository is consistent.
+		gittest.Exec(t, cfg, "-C", repoCopyPath, "cat-file", "-p", commitID.String())
+		gittest.Exec(t, cfg, "-C", repoCopyPath, "fsck")
+	})
 }
 
 // copyRepoUsingSnapshot creates a tarball snapshot, then creates a new repository from that snapshot
