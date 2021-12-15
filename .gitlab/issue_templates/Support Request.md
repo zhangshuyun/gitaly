@@ -49,5 +49,4 @@ For a good rule of thumb, please refer to the bug prioritization framework locat
 - [ ] Clearly articulated what is needed from the Gitaly team to support your request by filling out the _What specifically do you need from the Gitaly team_
 
 /label ~"Gitaly Customer Issue" ~"group::gitaly" ~"devops::create"
-/confidential
 /cc @mjwood
