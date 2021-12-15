@@ -92,7 +92,7 @@ func testServerPostUpload(t *testing.T, ctx context.Context, makeRequest request
 		"-C", localRepoPath, "unpack-objects", fmt.Sprintf("--pack_header=%d,%d", version, entries),
 	)
 
-	gittest.GitObjectMustExist(t, cfg.Git.BinPath, localRepoPath, newCommit.String())
+	gittest.RequireObjectExists(t, cfg, localRepoPath, newCommit)
 
 	metric, err := negotiationMetrics.GetMetricWithLabelValues("have")
 	require.NoError(t, err)
@@ -385,14 +385,14 @@ func testServerPostUploadPackPartialClone(t *testing.T, ctx context.Context, mak
 	)
 
 	// a4a132b1b0d6720ca9254440a7ba8a6b9bbd69ec is README.md, which is a small file
-	blobLessThanLimit := "a4a132b1b0d6720ca9254440a7ba8a6b9bbd69ec"
+	blobLessThanLimit := git.ObjectID("a4a132b1b0d6720ca9254440a7ba8a6b9bbd69ec")
 
 	// c1788657b95998a2f177a4f86d68a60f2a80117f is CONTRIBUTING.md, which is > 200 bytese
-	blobGreaterThanLimit := "c1788657b95998a2f177a4f86d68a60f2a80117f"
+	blobGreaterThanLimit := git.ObjectID("c1788657b95998a2f177a4f86d68a60f2a80117f")
 
-	gittest.GitObjectMustExist(t, cfg.Git.BinPath, localRepoPath, blobLessThanLimit)
-	gittest.GitObjectMustExist(t, cfg.Git.BinPath, repoPath, blobGreaterThanLimit)
-	gittest.GitObjectMustNotExist(t, cfg.Git.BinPath, localRepoPath, blobGreaterThanLimit)
+	gittest.RequireObjectExists(t, cfg, localRepoPath, blobLessThanLimit)
+	gittest.RequireObjectExists(t, cfg, repoPath, blobGreaterThanLimit)
+	gittest.RequireObjectNotExists(t, cfg, localRepoPath, blobGreaterThanLimit)
 
 	metric, err := negotiationMetrics.GetMetricWithLabelValues("filter")
 	require.NoError(t, err)
@@ -438,7 +438,7 @@ func testServerPostUploadPackAllowAnySHA1InWant(t *testing.T, ctx context.Contex
 		"-C", localRepoPath, "unpack-objects", fmt.Sprintf("--pack_header=%d,%d", version, entries),
 	)
 
-	gittest.GitObjectMustExist(t, cfg.Git.BinPath, localRepoPath, newCommit.String())
+	gittest.RequireObjectExists(t, cfg, localRepoPath, newCommit)
 }
 
 func makePostUploadPackRequest(ctx context.Context, t *testing.T, serverSocketPath, token string, in *gitalypb.PostUploadPackRequest, body io.Reader) (*bytes.Buffer, error) {

@@ -373,9 +373,9 @@ func testUploadPackCloneWithPartialCloneFilter(t *testing.T, opts ...testcfg.Opt
 	serverSocketPath := runSSHServer(t, cfg)
 
 	// Ruby file which is ~1kB in size and not present in HEAD
-	blobLessThanLimit := "6ee41e85cc9bf33c10b690df09ca735b22f3790f"
+	blobLessThanLimit := git.ObjectID("6ee41e85cc9bf33c10b690df09ca735b22f3790f")
 	// Image which is ~100kB in size and not present in HEAD
-	blobGreaterThanLimit := "18079e308ff9b3a5e304941020747e5c39b46c88"
+	blobGreaterThanLimit := git.ObjectID("18079e308ff9b3a5e304941020747e5c39b46c88")
 
 	tests := []struct {
 		desc     string
@@ -385,7 +385,7 @@ func testUploadPackCloneWithPartialCloneFilter(t *testing.T, opts ...testcfg.Opt
 		{
 			desc: "full_clone",
 			repoTest: func(t *testing.T, repoPath string) {
-				gittest.GitObjectMustExist(t, cfg.Git.BinPath, repoPath, blobGreaterThanLimit)
+				gittest.RequireObjectExists(t, cfg, repoPath, blobGreaterThanLimit)
 			},
 			cmd: git.SubCmd{
 				Name: "clone",
@@ -394,7 +394,7 @@ func testUploadPackCloneWithPartialCloneFilter(t *testing.T, opts ...testcfg.Opt
 		{
 			desc: "partial_clone",
 			repoTest: func(t *testing.T, repoPath string) {
-				gittest.GitObjectMustNotExist(t, cfg.Git.BinPath, repoPath, blobGreaterThanLimit)
+				gittest.RequireObjectNotExists(t, cfg, repoPath, blobGreaterThanLimit)
 			},
 			cmd: git.SubCmd{
 				Name: "clone",
@@ -424,7 +424,7 @@ func testUploadPackCloneWithPartialCloneFilter(t *testing.T, opts ...testcfg.Opt
 			defer func() { require.NoError(t, os.RemoveAll(localPath)) }()
 			require.NoError(t, err, "clone failed")
 
-			gittest.GitObjectMustExist(t, cfg.Git.BinPath, localPath, blobLessThanLimit)
+			gittest.RequireObjectExists(t, cfg, localPath, blobLessThanLimit)
 			tc.repoTest(t, localPath)
 		})
 	}

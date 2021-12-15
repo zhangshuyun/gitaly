@@ -15,18 +15,20 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 )
 
-// GitObjectMustExist is a test assertion that fails unless the git repo in repoPath contains sha
-func GitObjectMustExist(t testing.TB, gitBin, repoPath, sha string) {
-	gitObjectExists(t, gitBin, repoPath, sha, true)
+// RequireObjectExists asserts that the given repository does contain an object with the specified
+// object ID.
+func RequireObjectExists(t testing.TB, cfg config.Cfg, repoPath string, objectID git.ObjectID) {
+	requireObjectExists(t, cfg, repoPath, objectID, true)
 }
 
-// GitObjectMustNotExist is a test assertion that fails unless the git repo in repoPath contains sha
-func GitObjectMustNotExist(t testing.TB, gitBin, repoPath, sha string) {
-	gitObjectExists(t, gitBin, repoPath, sha, false)
+// RequireObjectNotExists asserts that the given repository does not contain an object with the
+// specified object ID.
+func RequireObjectNotExists(t testing.TB, cfg config.Cfg, repoPath string, objectID git.ObjectID) {
+	requireObjectExists(t, cfg, repoPath, objectID, false)
 }
 
-func gitObjectExists(t testing.TB, gitBin, repoPath, sha string, exists bool) {
-	cmd := exec.Command(gitBin, "-C", repoPath, "cat-file", "-e", sha)
+func requireObjectExists(t testing.TB, cfg config.Cfg, repoPath string, objectID git.ObjectID, exists bool) {
+	cmd := exec.Command(cfg.Git.BinPath, "-C", repoPath, "cat-file", "-e", objectID.String())
 	cmd.Env = []string{
 		"GIT_ALLOW_PROTOCOL=", // To prevent partial clone reaching remote repo over SSH
 	}
