@@ -48,6 +48,8 @@ func TestGitCommandProxy(t *testing.T) {
 	require.True(t, requestReceived)
 }
 
+// Global git configuration is only disabled in tests for now. Gitaly should stop using the global
+// git configuration in 15.0. See https://gitlab.com/gitlab-org/gitaly/-/issues/3617.
 func TestExecCommandFactory_globalGitConfigIgnored(t *testing.T) {
 	cfg := testcfg.Build(t)
 
