@@ -12,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -65,7 +64,7 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	tx := glsql.NewDB(t).Begin(t)
+	tx := testdb.New(t).Begin(t)
 	defer tx.Rollback(t)
 
 	testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{

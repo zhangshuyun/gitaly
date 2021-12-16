@@ -7,8 +7,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 )
 
 func BenchmarkReconcile(b *testing.B) {
@@ -31,7 +31,7 @@ func benchmarkReconcile(b *testing.B, numRepositories int, worstCase bool) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	db := glsql.NewDB(b)
+	db := testdb.New(b)
 
 	behind := 0
 	if worstCase {

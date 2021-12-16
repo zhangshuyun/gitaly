@@ -8,8 +8,8 @@ import (
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 )
 
 func TestAssignmentStore_GetHostAssignments(t *testing.T) {
@@ -20,7 +20,7 @@ func TestAssignmentStore_GetHostAssignments(t *testing.T) {
 		storage        string
 	}
 
-	db := glsql.NewDB(t)
+	db := testdb.New(t)
 
 	configuredStorages := []string{"storage-1", "storage-2", "storage-3"}
 	for _, tc := range []struct {
@@ -131,7 +131,7 @@ func TestAssignmentStore_SetReplicationFactor(t *testing.T) {
 		}
 	}
 
-	db := glsql.NewDB(t)
+	db := testdb.New(t)
 
 	for _, tc := range []struct {
 		desc                  string

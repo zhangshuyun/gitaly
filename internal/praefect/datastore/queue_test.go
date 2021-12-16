@@ -8,13 +8,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 )
 
 func TestPostgresReplicationEventQueue_DeleteReplicaUniqueIndex(t *testing.T) {
 	t.Parallel()
-	db := glsql.NewDB(t)
+	db := testdb.New(t)
 	for _, tc := range []struct {
 		desc        string
 		existingJob *ReplicationEvent
@@ -142,7 +142,7 @@ func TestPostgresReplicationEventQueue_DeleteReplicaUniqueIndex(t *testing.T) {
 
 func TestPostgresReplicationEventQueue_Enqueue(t *testing.T) {
 	t.Parallel()
-	db := glsql.NewDB(t)
+	db := testdb.New(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -189,7 +189,7 @@ func TestPostgresReplicationEventQueue_Enqueue(t *testing.T) {
 
 func TestPostgresReplicationEventQueue_DeleteReplicaInfiniteAttempts(t *testing.T) {
 	t.Parallel()
-	queue := NewPostgresReplicationEventQueue(glsql.NewDB(t))
+	queue := NewPostgresReplicationEventQueue(testdb.New(t))
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -240,7 +240,7 @@ func TestPostgresReplicationEventQueue_DeleteReplicaInfiniteAttempts(t *testing.
 
 func TestPostgresReplicationEventQueue_EnqueueMultiple(t *testing.T) {
 	t.Parallel()
-	db := glsql.NewDB(t)
+	db := testdb.New(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -374,7 +374,7 @@ func TestPostgresReplicationEventQueue_EnqueueMultiple(t *testing.T) {
 
 func TestPostgresReplicationEventQueue_Dequeue(t *testing.T) {
 	t.Parallel()
-	db := glsql.NewDB(t)
+	db := testdb.New(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -423,7 +423,7 @@ func TestPostgresReplicationEventQueue_Dequeue(t *testing.T) {
 // expected results are listed as literals on purpose to be more explicit about what is going on with data
 func TestPostgresReplicationEventQueue_DequeueMultiple(t *testing.T) {
 	t.Parallel()
-	db := glsql.NewDB(t)
+	db := testdb.New(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -533,7 +533,7 @@ func TestPostgresReplicationEventQueue_DequeueMultiple(t *testing.T) {
 
 func TestPostgresReplicationEventQueue_DequeueSameStorageOtherRepository(t *testing.T) {
 	t.Parallel()
-	db := glsql.NewDB(t)
+	db := testdb.New(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -596,7 +596,7 @@ func TestPostgresReplicationEventQueue_DequeueSameStorageOtherRepository(t *test
 
 func TestPostgresReplicationEventQueue_Acknowledge(t *testing.T) {
 	t.Parallel()
-	db := glsql.NewDB(t)
+	db := testdb.New(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -640,7 +640,7 @@ func TestPostgresReplicationEventQueue_Acknowledge(t *testing.T) {
 
 func TestPostgresReplicationEventQueue_AcknowledgeMultiple(t *testing.T) {
 	t.Parallel()
-	db := glsql.NewDB(t)
+	db := testdb.New(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -829,7 +829,7 @@ func TestPostgresReplicationEventQueue_StartHealthUpdate(t *testing.T) {
 	eventType4 := eventType1
 	eventType4.Job.TargetNodeStorage = "s-2"
 
-	db := glsql.NewDB(t)
+	db := testdb.New(t)
 
 	t.Run("no events is valid", func(t *testing.T) {
 		// 'qc' is not initialized, so the test will fail if there will be an attempt to make SQL operation
@@ -976,7 +976,7 @@ func TestPostgresReplicationEventQueue_AcknowledgeStale(t *testing.T) {
 	eventType4 := eventType3
 	eventType4.Job.TargetNodeStorage = "gitaly-3"
 
-	db := glsql.NewDB(t)
+	db := testdb.New(t)
 
 	t.Run("no stale jobs yet", func(t *testing.T) {
 		db.TruncateAll(t)
@@ -1065,7 +1065,7 @@ func TestPostgresReplicationEventQueue_AcknowledgeStale(t *testing.T) {
 	})
 }
 
-func requireEvents(t *testing.T, ctx context.Context, db glsql.DB, expected []ReplicationEvent) {
+func requireEvents(t *testing.T, ctx context.Context, db testdb.DB, expected []ReplicationEvent) {
 	t.Helper()
 
 	// as it is not possible to expect exact time of entity creation/update we do not fetch it from database
@@ -1093,7 +1093,7 @@ type LockRow struct {
 	Acquired bool
 }
 
-func requireLocks(t *testing.T, ctx context.Context, db glsql.DB, expected []LockRow) {
+func requireLocks(t *testing.T, ctx context.Context, db testdb.DB, expected []LockRow) {
 	t.Helper()
 
 	sqlStmt := `SELECT id, acquired FROM replication_queue_lock`
@@ -1118,7 +1118,7 @@ type JobLockRow struct {
 	TriggeredAt time.Time
 }
 
-func requireJobLocks(t *testing.T, ctx context.Context, db glsql.DB, expected []JobLockRow) {
+func requireJobLocks(t *testing.T, ctx context.Context, db testdb.DB, expected []JobLockRow) {
 	t.Helper()
 
 	actual := fetchJobLocks(t, ctx, db)
@@ -1128,7 +1128,7 @@ func requireJobLocks(t *testing.T, ctx context.Context, db glsql.DB, expected []
 	require.ElementsMatch(t, expected, actual)
 }
 
-func fetchJobLocks(t *testing.T, ctx context.Context, db glsql.DB) []JobLockRow {
+func fetchJobLocks(t *testing.T, ctx context.Context, db testdb.DB) []JobLockRow {
 	t.Helper()
 	sqlStmt := `SELECT job_id, lock_id, triggered_at FROM replication_queue_job_lock ORDER BY job_id`
 	rows, err := db.QueryContext(ctx, sqlStmt)

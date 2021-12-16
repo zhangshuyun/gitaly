@@ -20,9 +20,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	praefectConfig "gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/protobuf/proto"
@@ -285,8 +285,8 @@ func TestManager_Restore_praefect(t *testing.T) {
 
 	gitalyAddr := testserver.RunGitalyServer(t, gitalyCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
-	db := glsql.NewDB(t)
-	dbConf := glsql.GetDBConfig(t, db.Name)
+	db := testdb.New(t)
+	dbConf := testdb.GetConfig(t, db.Name)
 
 	conf := praefectConfig.Config{
 		SocketPath: testhelper.GetTemporaryGitalySocketFileName(t),

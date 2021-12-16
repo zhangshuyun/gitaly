@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 )
@@ -47,7 +46,7 @@ func TestPerRepositoryElector(t *testing.T) {
 		primary      matcher
 	}
 
-	db := glsql.NewDB(t)
+	db := testdb.New(t)
 
 	for _, tc := range []struct {
 		desc         string
@@ -523,7 +522,7 @@ func TestPerRepositoryElector(t *testing.T) {
 			const repositoryID int64 = 1
 
 			for _, step := range tc.steps {
-				runElection := func(tx *glsql.TxWrapper) (string, *logrus.Entry) {
+				runElection := func(tx *testdb.TxWrapper) (string, *logrus.Entry) {
 					testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect-0": step.healthyNodes})
 
 					logger, hook := test.NewNullLogger()

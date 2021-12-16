@@ -28,13 +28,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/transactions"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/promtest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
@@ -150,7 +150,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	logger := testhelper.NewDiscardingLogger(t)
 	loggerHook := test.NewLocal(logger)
 
-	queue := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t)))
+	queue := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.New(t)))
 	queue.OnAcknowledge(func(ctx context.Context, state datastore.JobState, ids []uint64, queue datastore.ReplicationEventQueue) ([]uint64, error) {
 		cancel() // when it is called we know that replication is finished
 		return queue.Acknowledge(ctx, state, ids)
@@ -160,7 +160,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	_, err = queue.Enqueue(ctx, events[0])
 	require.NoError(t, err)
 
-	db := glsql.NewDB(t)
+	db := testdb.New(t)
 	rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
 	require.NoError(t, rs.CreateRepository(ctx, repositoryID, conf.VirtualStorages[0].Name, testRepo.GetRelativePath(), testRepo.GetRelativePath(), shard.Primary.GetStorage(), nil, nil, true, false))
 
@@ -311,7 +311,7 @@ func TestReplicator_PropagateReplicationJob(t *testing.T) {
 	// unlinkat /tmp/gitaly-222007427/381349228/storages.d/internal-gitaly-1/+gitaly/state/path/to/repo: directory not empty
 	// By using WaitGroup we are sure the test cleanup will be started after all replication
 	// requests are completed, so no running cache IO operations happen.
-	queue := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t)))
+	queue := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.New(t)))
 	var wg sync.WaitGroup
 	queue.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
 		wg.Add(1)
@@ -688,7 +688,7 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t)))
+	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.New(t)))
 
 	// this job exists to verify that replication works
 	okJob := datastore.ReplicationJob{
@@ -717,7 +717,7 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 	nodeMgr.Start(0, time.Hour)
 	defer nodeMgr.Stop()
 
-	db := glsql.NewDB(t)
+	db := testdb.New(t)
 	rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
 	require.NoError(t, rs.CreateRepository(ctx, okJob.RepositoryID, okJob.VirtualStorage, okJob.RelativePath, okJob.RelativePath, okJob.SourceNodeStorage, nil, nil, true, false))
 
@@ -795,7 +795,7 @@ func TestProcessBacklog_Success(t *testing.T) {
 		},
 	}
 
-	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t)))
+	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.New(t)))
 	queueInterceptor.OnAcknowledge(func(ctx context.Context, state datastore.JobState, ids []uint64, queue datastore.ReplicationEventQueue) ([]uint64, error) {
 		ackIDs, err := queue.Acknowledge(ctx, state, ids)
 		if len(ids) > 0 {
@@ -874,7 +874,7 @@ func TestProcessBacklog_Success(t *testing.T) {
 	nodeMgr.Start(0, time.Hour)
 	defer nodeMgr.Stop()
 
-	db := glsql.NewDB(t)
+	db := testdb.New(t)
 	rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
 	require.NoError(t, rs.CreateRepository(ctx, eventType1.Job.RepositoryID, eventType1.Job.VirtualStorage, eventType1.Job.VirtualStorage, eventType1.Job.RelativePath, eventType1.Job.SourceNodeStorage, nil, nil, true, false))
 
@@ -921,7 +921,7 @@ func TestReplMgrProcessBacklog_OnlyHealthyNodes(t *testing.T) {
 
 	var mtx sync.Mutex
 	expStorages := map[string]bool{conf.VirtualStorages[0].Nodes[0].Storage: true, conf.VirtualStorages[0].Nodes[2].Storage: true}
-	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t)))
+	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.New(t)))
 	queueInterceptor.OnDequeue(func(_ context.Context, virtualStorageName string, storageName string, _ int, _ datastore.ReplicationEventQueue) ([]datastore.ReplicationEvent, error) {
 		select {
 		case <-ctx.Done():
@@ -1004,7 +1004,7 @@ func TestProcessBacklog_ReplicatesToReadOnlyPrimary(t *testing.T) {
 		},
 	}
 
-	queue := datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t))
+	queue := datastore.NewPostgresReplicationEventQueue(testdb.New(t))
 	_, err := queue.Enqueue(ctx, datastore.ReplicationEvent{
 		Job: datastore.ReplicationJob{
 			RepositoryID:      1,
@@ -1017,7 +1017,7 @@ func TestProcessBacklog_ReplicatesToReadOnlyPrimary(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	db := glsql.NewDB(t)
+	db := testdb.New(t)
 	rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
 	require.NoError(t, rs.CreateRepository(ctx, repositoryID, virtualStorage, "ignored", "ignored", primaryStorage, []string{secondaryStorage}, nil, true, false))
 

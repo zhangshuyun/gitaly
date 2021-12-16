@@ -28,7 +28,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/grpc-proxy/proxy"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/mock"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
@@ -65,7 +64,7 @@ func TestSecondaryRotation(t *testing.T) {
 
 func TestStreamDirectorReadOnlyEnforcement(t *testing.T) {
 	t.Parallel()
-	db := glsql.NewDB(t)
+	db := testdb.New(t)
 	for _, tc := range []struct {
 		desc     string
 		readOnly bool
@@ -157,7 +156,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 			},
 		},
 	}
-	db := glsql.NewDB(t)
+	db := testdb.New(t)
 
 	targetRepo := gitalypb.Repository{
 		StorageName:  "praefect",
@@ -334,7 +333,7 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 	txMgr := transactions.NewManager(conf)
 
 	coordinator := NewCoordinator(
-		datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t)),
+		datastore.NewPostgresReplicationEventQueue(testdb.New(t)),
 		rs,
 		NewNodeManagerRouter(nodeMgr, rs),
 		txMgr,
@@ -427,7 +426,7 @@ func TestStreamDirectorAccessor(t *testing.T) {
 		},
 	}
 
-	queue := datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t))
+	queue := datastore.NewPostgresReplicationEventQueue(testdb.New(t))
 
 	targetRepo := gitalypb.Repository{
 		StorageName:  "praefect",
@@ -534,7 +533,7 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 		},
 	}
 
-	queue := datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t))
+	queue := datastore.NewPostgresReplicationEventQueue(testdb.New(t))
 
 	targetRepo := gitalypb.Repository{
 		StorageName:  "praefect",
@@ -821,7 +820,7 @@ func TestRewrittenRepositoryMessage(t *testing.T) {
 func TestStreamDirector_repo_creation(t *testing.T) {
 	t.Parallel()
 
-	db := glsql.NewDB(t)
+	db := testdb.New(t)
 
 	for _, tc := range []struct {
 		desc              string
@@ -1097,7 +1096,7 @@ func TestAbsentCorrelationID(t *testing.T) {
 		},
 	}
 
-	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(glsql.NewDB(t)))
+	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.New(t)))
 	queueInterceptor.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
 		assert.True(t, len(queueInterceptor.GetEnqueued()) < 2, "expected only one event to be created")
 		return queue.Enqueue(ctx, event)

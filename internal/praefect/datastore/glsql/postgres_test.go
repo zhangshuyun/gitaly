@@ -1,4 +1,4 @@
-package glsql
+package glsql_test
 
 import (
 	"net"
@@ -7,18 +7,20 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 )
 
 func TestOpenDB(t *testing.T) {
-	dbCfg := GetDBConfig(t, "postgres")
+	dbCfg := testdb.GetConfig(t, "postgres")
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	t.Run("failed to ping because of incorrect config", func(t *testing.T) {
 		badCfg := dbCfg
 		badCfg.Host = "not-existing.com"
-		_, err := OpenDB(ctx, badCfg)
+		_, err := glsql.OpenDB(ctx, badCfg)
 		require.Error(t, err)
 		// Locally the error looks like:
 		// 	send ping: dial tcp: lookup not-existing.com: no such host
@@ -39,21 +41,21 @@ func TestOpenDB(t *testing.T) {
 		ctx, cancel := testhelper.Context()
 		cancel()
 
-		_, err = OpenDB(ctx, badCfg)
+		_, err = glsql.OpenDB(ctx, badCfg)
 		require.EqualError(t, err, "context canceled")
 		duration := time.Since(start)
 		require.Truef(t, duration < time.Second, "connection attempt took %s", duration.String())
 	})
 
 	t.Run("connected with proper config", func(t *testing.T) {
-		db, err := OpenDB(ctx, dbCfg)
+		db, err := glsql.OpenDB(ctx, dbCfg)
 		require.NoError(t, err, "opening of DB with correct configuration must not fail")
 		require.NoError(t, db.Close())
 	})
 }
 
 func TestUint64Provider(t *testing.T) {
-	var provider Uint64Provider
+	var provider glsql.Uint64Provider
 
 	dst1 := provider.To()
 	require.Equal(t, []interface{}{new(uint64)}, dst1, "must be a single value holder")
@@ -76,21 +78,25 @@ func TestUint64Provider(t *testing.T) {
 
 func TestScanAll(t *testing.T) {
 	t.Parallel()
-	db := NewDB(t)
+	db := testdb.New(t)
 
-	var ids Uint64Provider
+	var ids glsql.Uint64Provider
 	notEmptyRows, err := db.Query("SELECT id FROM (VALUES (1), (200), (300500)) AS t(id)")
 	require.NoError(t, err)
+	defer func() { require.NoError(t, notEmptyRows.Close()) }()
 
-	require.NoError(t, ScanAll(notEmptyRows, &ids))
+	require.NoError(t, glsql.ScanAll(notEmptyRows, &ids))
 	require.Equal(t, []uint64{1, 200, 300500}, ids.Values())
+	require.NoError(t, notEmptyRows.Err())
 
-	var nothing Uint64Provider
+	var nothing glsql.Uint64Provider
 	emptyRows, err := db.Query("SELECT id FROM (VALUES (1), (200), (300500)) AS t(id) WHERE id < 0")
 	require.NoError(t, err)
+	defer func() { require.NoError(t, emptyRows.Close()) }()
 
-	require.NoError(t, ScanAll(emptyRows, &nothing))
+	require.NoError(t, glsql.ScanAll(emptyRows, &nothing))
 	require.Equal(t, ([]uint64)(nil), nothing.Values())
+	require.NoError(t, emptyRows.Err())
 }
 
 func TestDSN(t *testing.T) {
@@ -209,7 +215,7 @@ func TestDSN(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			require.Equal(t, tc.out, DSN(tc.in, tc.direct))
+			require.Equal(t, tc.out, glsql.DSN(tc.in, tc.direct))
 		})
 	}
 }

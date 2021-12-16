@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
 )
@@ -60,7 +61,7 @@ func TestHealthManager(t *testing.T) {
 		HealthConsensus map[string][]string
 	}
 
-	db := glsql.NewDB(t)
+	db := testdb.New(t)
 
 	for _, tc := range []struct {
 		desc         string
@@ -558,7 +559,7 @@ func TestHealthManager_databaseTimeout(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	db := glsql.NewDB(t)
+	db := testdb.New(t)
 
 	blockingTx := db.Begin(t)
 	defer blockingTx.Rollback(t)
@@ -596,14 +597,14 @@ func TestHealthManager_databaseTimeout(t *testing.T) {
 	}()
 
 	// Wait until the blocked query is waiting.
-	glsql.WaitForBlockedQuery(ctx, t, db, "INSERT INTO node_status")
+	testdb.WaitForBlockedQuery(ctx, t, db, "INSERT INTO node_status")
 	// Simulate a timeout.
 	timeoutQuery()
 	// Query should have been canceled.
 	require.EqualError(t, <-blockedErr, "update checks: pq: canceling statement due to user request")
 }
 
-func predateHealthChecks(t testing.TB, db glsql.DB, amount time.Duration) {
+func predateHealthChecks(t testing.TB, db testdb.DB, amount time.Duration) {
 	t.Helper()
 
 	_, err := db.Exec(`
@@ -618,7 +619,7 @@ func predateHealthChecks(t testing.TB, db glsql.DB, amount time.Duration) {
 // This test case ensures the record updates are done in an ordered manner to avoid concurrent writes
 // deadlocking. Issue: https://gitlab.com/gitlab-org/gitaly/-/issues/3907
 func TestHealthManager_orderedWrites(t *testing.T) {
-	db := glsql.NewDB(t)
+	db := testdb.New(t)
 
 	tx1 := db.Begin(t).Tx
 	defer func() { _ = tx1.Rollback() }()
@@ -648,7 +649,7 @@ func TestHealthManager_orderedWrites(t *testing.T) {
 	}()
 
 	// Wait for tx2 to be blocked on the gitaly-1 lock acquired by tx1
-	glsql.WaitForBlockedQuery(ctx, t, db, "INSERT INTO node_status")
+	testdb.WaitForBlockedQuery(ctx, t, db, "INSERT INTO node_status")
 
 	// Ensure tx1 can acquire lock on gitaly-2.
 	require.NoError(t, hm1.updateHealthChecks(ctx, []string{virtualStorage}, []string{"gitaly-2"}, []bool{true}))
