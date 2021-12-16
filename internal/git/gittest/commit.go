@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -21,11 +20,12 @@ const (
 )
 
 type writeCommitConfig struct {
-	branch        string
-	parents       []git.ObjectID
-	committerName string
-	message       string
-	treeEntries   []TreeEntry
+	branch             string
+	parents            []git.ObjectID
+	committerName      string
+	message            string
+	treeEntries        []TreeEntry
+	alternateObjectDir string
 }
 
 // WriteCommitOption is an option which can be passed to WriteCommit.
@@ -74,6 +74,15 @@ func WithCommitterName(name string) WriteCommitOption {
 	}
 }
 
+// WithAlternateObjectDirectory will cause the commit to be written into the given alternate object
+// directory. This can either be an absolute path or a relative path. In the latter case the path
+// is considered to be relative to the repository path.
+func WithAlternateObjectDirectory(alternateObjectDir string) WriteCommitOption {
+	return func(cfg *writeCommitConfig) {
+		cfg.alternateObjectDir = alternateObjectDir
+	}
+}
+
 // WriteCommit writes a new commit into the target repository.
 func WriteCommit(t testing.TB, cfg config.Cfg, repoPath string, opts ...WriteCommitOption) git.ObjectID {
 	t.Helper()
@@ -119,48 +128,36 @@ func WriteCommit(t testing.TB, cfg config.Cfg, repoPath string, opts ...WriteCom
 		"commit-tree", "-F", "-", tree,
 	}
 
+	var env []string
+	if writeCommitConfig.alternateObjectDir != "" {
+		require.True(t, filepath.IsAbs(writeCommitConfig.alternateObjectDir),
+			"alternate object directory must be an absolute path")
+		require.NoError(t, os.MkdirAll(writeCommitConfig.alternateObjectDir, 0o755))
+
+		env = append(env,
+			fmt.Sprintf("GIT_OBJECT_DIRECTORY=%s", writeCommitConfig.alternateObjectDir),
+			fmt.Sprintf("GIT_ALTERNATE_OBJECT_DIRECTORIES=%s", filepath.Join(repoPath, "objects")),
+		)
+	}
+
 	for _, parent := range parents {
 		commitArgs = append(commitArgs, "-p", parent.String())
 	}
 
-	stdout := ExecOpts(t, cfg, ExecConfig{Stdin: stdin}, commitArgs...)
+	stdout := ExecOpts(t, cfg, ExecConfig{
+		Stdin: stdin,
+		Env:   env,
+	}, commitArgs...)
 	oid, err := git.NewObjectIDFromHex(text.ChompBytes(stdout))
 	require.NoError(t, err)
 
 	if writeCommitConfig.branch != "" {
-		Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/"+writeCommitConfig.branch, oid.String())
+		ExecOpts(t, cfg, ExecConfig{
+			Env: env,
+		}, "-C", repoPath, "update-ref", "refs/heads/"+writeCommitConfig.branch, oid.String())
 	}
 
 	return oid
-}
-
-// CreateCommitInAlternateObjectDirectory runs a command such that its created
-// objects will live in an alternate objects directory. It returns the current
-// head after the command is run and the alternate objects directory path
-func CreateCommitInAlternateObjectDirectory(t testing.TB, gitBin, repoPath, altObjectsDir string, cmd *exec.Cmd) (currentHead []byte) {
-	gitPath := filepath.Join(repoPath, ".git")
-
-	altObjectsPath := filepath.Join(gitPath, altObjectsDir)
-	gitObjectEnv := []string{
-		fmt.Sprintf("GIT_OBJECT_DIRECTORY=%s", altObjectsPath),
-		fmt.Sprintf("GIT_ALTERNATE_OBJECT_DIRECTORIES=%s", filepath.Join(gitPath, "objects")),
-	}
-	require.NoError(t, os.MkdirAll(altObjectsPath, 0o755))
-
-	// Because we set 'gitObjectEnv', the new objects created by this command
-	// will go into 'find-commits-alt-test-repo/.git/alt-objects'.
-	cmd.Env = append(cmd.Env, gitObjectEnv...)
-	if output, err := cmd.Output(); err != nil {
-		stderr := err.(*exec.ExitError).Stderr
-		t.Fatalf("stdout: %s, stderr: %s", output, stderr)
-	}
-
-	cmd = exec.Command(gitBin, "-C", repoPath, "rev-parse", "HEAD")
-	cmd.Env = gitObjectEnv
-	currentHead, err := cmd.Output()
-	require.NoError(t, err)
-
-	return currentHead[:len(currentHead)-1]
 }
 
 func authorEqualIgnoringDate(t testing.TB, expected *gitalypb.CommitAuthor, actual *gitalypb.CommitAuthor) {

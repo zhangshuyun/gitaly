@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
@@ -38,7 +39,7 @@ func TestRenameRepository_success(t *testing.T) {
 	require.True(t, storage.IsGitDirectory(newDirectory), "moved Git repository has been corrupted")
 
 	// ensure the git directory that got renamed contains a sha in the seed repo
-	gittest.GitObjectMustExist(t, cfg.Git.BinPath, newDirectory, "913c66a37b4a45b9769037c55c2d238bd0942d2e")
+	gittest.RequireObjectExists(t, cfg, newDirectory, git.ObjectID("913c66a37b4a45b9769037c55c2d238bd0942d2e"))
 }
 
 func TestRenameRepository_DestinationExists(t *testing.T) {
@@ -69,7 +70,7 @@ func TestRenameRepository_DestinationExists(t *testing.T) {
 	testhelper.RequireGrpcCode(t, err, codes.AlreadyExists)
 
 	// ensure the git directory that already existed didn't get overwritten
-	gittest.GitObjectMustExist(t, cfg.Git.BinPath, destinationRepoPath, commitID.String())
+	gittest.RequireObjectExists(t, cfg, destinationRepoPath, commitID)
 }
 
 func TestRenameRepository_invalidRequest(t *testing.T) {
