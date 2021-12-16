@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -17,7 +16,7 @@ import (
 
 func TestMain(m *testing.M) {
 	testhelper.Run(m, testhelper.WithSetup(func() error {
-		hooks.Override = "/"
+		config.OverrideHooksPath = "/"
 		return nil
 	}))
 }

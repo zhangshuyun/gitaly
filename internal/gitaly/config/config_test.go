@@ -428,6 +428,36 @@ value = "second-value"
 	}, cfg.Git)
 }
 
+func TestHooksPath(t *testing.T) {
+	cfg := Cfg{
+		Ruby: Ruby{
+			Dir: "/bazqux/gitaly-ruby",
+		},
+	}
+
+	t.Run("default", func(t *testing.T) {
+		require.Equal(t, "/bazqux/gitaly-ruby/git-hooks", cfg.HooksPath())
+	})
+
+	t.Run("with an override", func(t *testing.T) {
+		OverrideHooksPath = "/override/hooks"
+		defer func() { OverrideHooksPath = "" }()
+
+		require.Equal(t, "/override/hooks", cfg.HooksPath())
+	})
+
+	t.Run("when an env override", func(t *testing.T) {
+		key := "GITALY_TESTING_NO_GIT_HOOKS"
+
+		require.NoError(t, os.Setenv(key, "1"))
+		defer func() {
+			require.NoError(t, os.Unsetenv(key))
+		}()
+
+		require.Equal(t, "/var/empty", cfg.HooksPath())
+	})
+}
+
 func TestSetGitPath(t *testing.T) {
 	cleanup := testhelper.ModifyEnvironment(t, "GITALY_TESTING_GIT_BINARY", "")
 	defer cleanup()

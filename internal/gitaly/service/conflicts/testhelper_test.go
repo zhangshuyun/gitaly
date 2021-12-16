@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
@@ -21,7 +20,7 @@ import (
 
 func TestMain(m *testing.M) {
 	testhelper.Run(m, testhelper.WithSetup(func() error {
-		hooks.Override = "/"
+		config.OverrideHooksPath = "/"
 		return nil
 	}))
 }

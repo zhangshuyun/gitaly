@@ -14,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -89,9 +88,9 @@ func TestFetchIntoObjectPool_hooks(t *testing.T) {
 	hookDir := testhelper.TempDir(t)
 
 	defer func(oldValue string) {
-		hooks.Override = oldValue
-	}(hooks.Override)
-	hooks.Override = hookDir
+		config.OverrideHooksPath = oldValue
+	}(config.OverrideHooksPath)
+	config.OverrideHooksPath = hookDir
 
 	// Set up a custom reference-transaction hook which simply exits failure. This asserts that
 	// the RPC doesn't invoke any reference-transaction.

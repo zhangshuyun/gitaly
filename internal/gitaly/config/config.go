@@ -365,6 +365,22 @@ func SkipHooks() bool {
 	return enabled
 }
 
+// OverrideHooksPath allows tests to control where the hooks directory is.
+var OverrideHooksPath string
+
+// HooksPath returns the path where Gitaly's Git hooks are located.
+func (cfg *Cfg) HooksPath() string {
+	if len(OverrideHooksPath) > 0 {
+		return OverrideHooksPath
+	}
+
+	if SkipHooks() {
+		return "/var/empty"
+	}
+
+	return filepath.Join(cfg.Ruby.Dir, "git-hooks")
+}
+
 // SetGitPath populates the variable GitPath with the path to the `git`
 // executable. It warns if no path was specified in the configuration.
 func (cfg *Cfg) SetGitPath() error {

@@ -15,7 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
@@ -220,14 +219,14 @@ func TestFailedReceivePackRequestDueToHooksFailure(t *testing.T) {
 	hookDir := testhelper.TempDir(t)
 
 	defer func(override string) {
-		hooks.Override = override
-	}(hooks.Override)
-	hooks.Override = hookDir
+		config.OverrideHooksPath = override
+	}(config.OverrideHooksPath)
+	config.OverrideHooksPath = hookDir
 
-	require.NoError(t, os.MkdirAll(hooks.Path(cfg), 0o755))
+	require.NoError(t, os.MkdirAll(cfg.HooksPath(), 0o755))
 
 	hookContent := []byte("#!/bin/sh\nexit 1")
-	require.NoError(t, os.WriteFile(filepath.Join(hooks.Path(cfg), "pre-receive"), hookContent, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(cfg.HooksPath(), "pre-receive"), hookContent, 0o755))
 
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 

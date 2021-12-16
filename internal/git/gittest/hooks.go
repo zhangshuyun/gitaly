@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
@@ -53,19 +52,19 @@ func WriteCustomHook(t testing.TB, repoPath, name string, content []byte) string
 func CaptureHookEnv(t testing.TB) (string, func()) {
 	tempDir := testhelper.TempDir(t)
 
-	oldOverride := hooks.Override
-	hooks.Override = filepath.Join(tempDir, "hooks")
+	oldOverride := config.OverrideHooksPath
+	config.OverrideHooksPath = filepath.Join(tempDir, "hooks")
 	hookOutputFile := filepath.Join(tempDir, "hook.env")
 
-	require.NoError(t, os.MkdirAll(hooks.Override, 0o755))
+	require.NoError(t, os.MkdirAll(config.OverrideHooksPath, 0o755))
 
 	script := []byte(`
 #!/bin/sh
 env | grep -e ^GIT -e ^GL_ > ` + hookOutputFile + "\n")
 
-	require.NoError(t, os.WriteFile(filepath.Join(hooks.Override, "update"), script, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(config.OverrideHooksPath, "update"), script, 0o755))
 
 	return hookOutputFile, func() {
-		hooks.Override = oldOverride
+		config.OverrideHooksPath = oldOverride
 	}
 }
