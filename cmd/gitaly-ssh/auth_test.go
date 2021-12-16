@@ -22,6 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -154,8 +155,9 @@ func runServer(t *testing.T, secure bool, cfg config.Cfg, connectionType string,
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
 	), cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	limitHandler := limithandler.New(cfg, limithandler.LimitConcurrencyByRepo)
 	diskCache := cache.New(cfg, locator)
-	srv, err := server.New(secure, cfg, testhelper.NewDiscardingLogEntry(t), registry, diskCache)
+	srv, err := server.New(secure, cfg, testhelper.NewDiscardingLogEntry(t), registry, diskCache, limitHandler)
 	require.NoError(t, err)
 	setup.RegisterAll(srv, &service.Dependencies{
 		Cfg:                cfg,

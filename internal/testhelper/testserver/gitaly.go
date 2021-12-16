@@ -30,6 +30,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/limithandler"
 	praefectconfig "gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/streamcache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -219,6 +220,7 @@ func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, regi
 		gsd.logger.WithField("test", t.Name()),
 		deps.GetBackchannelRegistry(),
 		deps.GetDiskCache(),
+		deps.GetLimitHandler(),
 	)
 
 	if cfg.InternalSocketDir != "" {
@@ -299,6 +301,7 @@ type gitalyServerDeps struct {
 	catfileCache     catfile.Cache
 	diskCache        cache.Cache
 	packObjectsCache streamcache.Cache
+	limitHandler     *limithandler.LimiterMiddleware
 }
 
 func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server) *service.Dependencies {
@@ -357,6 +360,10 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 		t.Cleanup(gsd.packObjectsCache.Stop)
 	}
 
+	if gsd.limitHandler == nil {
+		gsd.limitHandler = limithandler.New(cfg, limithandler.LimitConcurrencyByRepo)
+	}
+
 	return &service.Dependencies{
 		Cfg:                 cfg,
 		RubyServer:          rubyServer,
@@ -371,6 +378,7 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 		CatfileCache:        gsd.catfileCache,
 		DiskCache:           gsd.diskCache,
 		PackObjectsCache:    gsd.packObjectsCache,
+		LimitHandler:        gsd.limitHandler,
 	}
 }
 

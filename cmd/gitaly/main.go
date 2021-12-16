@@ -31,6 +31,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	glog "gitlab.com/gitlab-org/gitaly/v14/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/streamcache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/version"
@@ -108,7 +109,6 @@ func configure(configPath string) (config.Cfg, error) {
 
 	sentry.ConfigureSentry(version.GetVersion(), sentry.Config(cfg.Logging.Sentry))
 	cfg.Prometheus.Configure()
-	config.ConfigureConcurrencyLimits(cfg)
 	tracing.Initialize(tracing.WithServiceName("gitaly"))
 	preloadLicenseDatabase()
 
@@ -192,7 +192,10 @@ func run(cfg config.Cfg) error {
 		return fmt.Errorf("disk cache walkers: %w", err)
 	}
 
-	gitalyServerFactory := server.NewGitalyServerFactory(cfg, glog.Default(), registry, diskCache)
+	limitHandler := limithandler.New(cfg, limithandler.LimitConcurrencyByRepo)
+	prometheus.MustRegister(limitHandler)
+
+	gitalyServerFactory := server.NewGitalyServerFactory(cfg, glog.Default(), registry, diskCache, limitHandler)
 	defer gitalyServerFactory.Stop()
 
 	ling, err := linguist.New(cfg)

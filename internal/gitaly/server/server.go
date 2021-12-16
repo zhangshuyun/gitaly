@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"crypto/tls"
 	"fmt"
 	"time"
@@ -37,21 +36,6 @@ import (
 	"google.golang.org/grpc/keepalive"
 )
 
-func concurrencyKeyFn(ctx context.Context) string {
-	tags := grpcmwtags.Extract(ctx)
-	ctxValue := tags.Values()["grpc.request.repoPath"]
-	if ctxValue == nil {
-		return ""
-	}
-
-	s, ok := ctxValue.(string)
-	if ok {
-		return s
-	}
-
-	return ""
-}
-
 func init() {
 	for _, l := range gitalylog.Loggers {
 		urlSanitizer := logsanitizer.NewURLSanitizerHook()
@@ -75,12 +59,11 @@ func New(
 	logrusEntry *log.Entry,
 	registry *backchannel.Registry,
 	cacheInvalidator diskcache.Invalidator,
+	limitHandler *limithandler.LimiterMiddleware,
 ) (*grpc.Server, error) {
 	ctxTagOpts := []grpcmwtags.Option{
 		grpcmwtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor),
 	}
-
-	lh := limithandler.New(concurrencyKeyFn)
 
 	transportCredentials := insecure.NewCredentials()
 	// If tls config is specified attempt to extract tls options and use it
@@ -132,7 +115,7 @@ func New(
 			sentryhandler.StreamLogHandler,
 			cancelhandler.Stream, // Should be below LogHandler
 			auth.StreamServerInterceptor(cfg.Auth),
-			lh.StreamInterceptor(), // Should be below auth handler to prevent v2 hmac tokens from timing out while queued
+			limitHandler.StreamInterceptor(), // Should be below auth handler to prevent v2 hmac tokens from timing out while queued
 			grpctracing.StreamServerTracingInterceptor(),
 			cache.StreamInvalidator(cacheInvalidator, protoregistry.GitalyProtoPreregistered),
 			// Panic handler should remain last so that application panics will be
@@ -153,7 +136,7 @@ func New(
 			sentryhandler.UnaryLogHandler,
 			cancelhandler.Unary, // Should be below LogHandler
 			auth.UnaryServerInterceptor(cfg.Auth),
-			lh.UnaryInterceptor(), // Should be below auth handler to prevent v2 hmac tokens from timing out while queued
+			limitHandler.UnaryInterceptor(), // Should be below auth handler to prevent v2 hmac tokens from timing out while queued
 			grpctracing.UnaryServerTracingInterceptor(),
 			cache.UnaryInvalidator(cacheInvalidator, protoregistry.GitalyProtoPreregistered),
 			// Panic handler should remain last so that application panics will be

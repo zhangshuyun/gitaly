@@ -32,6 +32,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -270,7 +271,8 @@ func runSecureServer(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) s
 	registry := backchannel.NewRegistry()
 	locator := config.NewLocator(cfg)
 	cache := cache.New(cfg, locator)
-	server, err := gserver.New(true, cfg, testhelper.NewDiscardingLogEntry(t), registry, cache)
+	limitHandler := limithandler.New(cfg, limithandler.LimitConcurrencyByRepo)
+	server, err := gserver.New(true, cfg, testhelper.NewDiscardingLogEntry(t), registry, cache, limitHandler)
 	require.NoError(t, err)
 	listener, addr := testhelper.GetLocalhostListener(t)
 

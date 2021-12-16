@@ -6,7 +6,6 @@ import (
 	grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/limithandler"
 )
 
 // Config contains additional configuration data for prometheus
@@ -40,6 +39,4 @@ func (c *Config) Configure() {
 	grpcprometheus.EnableClientHandlingTimeHistogram(func(histogramOpts *prometheus.HistogramOpts) {
 		histogramOpts.Buckets = c.GRPCLatencyBuckets
 	})
-
-	limithandler.EnableAcquireTimeHistogram(c.GRPCLatencyBuckets)
 }

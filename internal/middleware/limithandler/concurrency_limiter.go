@@ -10,14 +10,6 @@ import (
 // LimitedFunc represents a function that will be limited
 type LimitedFunc func() (resp interface{}, err error)
 
-// ConcurrencyMonitor allows the concurrency monitor to be observed
-type ConcurrencyMonitor interface {
-	Queued(ctx context.Context)
-	Dequeued(ctx context.Context)
-	Enter(ctx context.Context, acquireTime time.Duration)
-	Exit(ctx context.Context)
-}
-
 // ConcurrencyLimiter contains rate limiter state
 type ConcurrencyLimiter struct {
 	semaphores map[string]*semaphoreReference
@@ -119,10 +111,3 @@ func NewLimiter(max int, monitor ConcurrencyMonitor) *ConcurrencyLimiter {
 		monitor:    monitor,
 	}
 }
-
-type nullConcurrencyMonitor struct{}
-
-func (c *nullConcurrencyMonitor) Queued(ctx context.Context)                           {}
-func (c *nullConcurrencyMonitor) Dequeued(ctx context.Context)                         {}
-func (c *nullConcurrencyMonitor) Enter(ctx context.Context, acquireTime time.Duration) {}
-func (c *nullConcurrencyMonitor) Exit(ctx context.Context)                             {}

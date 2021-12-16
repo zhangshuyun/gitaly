@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/limithandler"
 	pb "gitlab.com/gitlab-org/gitaly/v14/internal/middleware/limithandler/testdata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -24,10 +25,17 @@ func fixedLockKey(ctx context.Context) string {
 }
 
 func TestUnaryLimitHandler(t *testing.T) {
+	t.Parallel()
+
 	s := &server{blockCh: make(chan struct{})}
 
-	limithandler.SetMaxRepoConcurrency(map[string]int{"/test.limithandler.Test/Unary": 2})
-	lh := limithandler.New(fixedLockKey)
+	cfg := config.Cfg{
+		Concurrency: []config.Concurrency{
+			{RPC: "/test.limithandler.Test/Unary", MaxPerRepo: 2},
+		},
+	}
+
+	lh := limithandler.New(cfg, fixedLockKey)
 	interceptor := lh.UnaryInterceptor()
 	srv, serverSocketPath := runServer(t, s, grpc.UnaryInterceptor(interceptor))
 	defer srv.Stop()
@@ -64,6 +72,8 @@ func TestUnaryLimitHandler(t *testing.T) {
 }
 
 func TestStreamLimitHandler(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		desc                 string
 		fullname             string
@@ -170,13 +180,17 @@ func TestStreamLimitHandler(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			s := &server{blockCh: make(chan struct{})}
 
-			limithandler.SetMaxRepoConcurrency(map[string]int{
-				tc.fullname: tc.maxConcurrency,
-			})
+			cfg := config.Cfg{
+				Concurrency: []config.Concurrency{
+					{RPC: tc.fullname, MaxPerRepo: tc.maxConcurrency},
+				},
+			}
 
-			lh := limithandler.New(fixedLockKey)
+			lh := limithandler.New(cfg, fixedLockKey)
 			interceptor := lh.StreamInterceptor()
 			srv, serverSocketPath := runServer(t, s, grpc.StreamInterceptor(interceptor))
 			defer srv.Stop()

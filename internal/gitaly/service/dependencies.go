@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/streamcache"
 )
 
@@ -31,6 +32,7 @@ type Dependencies struct {
 	CatfileCache        catfile.Cache
 	DiskCache           cache.Cache
 	PackObjectsCache    streamcache.Cache
+	LimitHandler        *limithandler.LimiterMiddleware
 }
 
 // GetCfg returns service configuration.
@@ -96,4 +98,9 @@ func (dc *Dependencies) GetDiskCache() cache.Cache {
 // GetPackObjectsCache returns the pack-objects cache.
 func (dc *Dependencies) GetPackObjectsCache() streamcache.Cache {
 	return dc.PackObjectsCache
+}
+
+// GetLimitHandler returns the RPC limit handler.
+func (dc *Dependencies) GetLimitHandler() *limithandler.LimiterMiddleware {
+	return dc.LimitHandler
 }
