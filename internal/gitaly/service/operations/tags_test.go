@@ -83,74 +83,64 @@ func TestSuccessfulGitHooksForUserDeleteTagRequest(t *testing.T) {
 	}
 }
 
-func writeAssertObjectTypePreReceiveHook(t *testing.T, cfg config.Cfg) string {
+func writeAssertObjectTypePreReceiveHook(t *testing.T, cfg config.Cfg, repoPath, expectedObjectType string) {
 	t.Helper()
 
-	hook := fmt.Sprintf(`#!/usr/bin/env ruby
+	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(fmt.Sprintf(
+		`#!/usr/bin/env ruby
 
-# We match a non-ASCII ref_name below
-Encoding.default_external = Encoding::UTF_8
-Encoding.default_internal = Encoding::UTF_8
+		# We match a non-ASCII ref_name below
+		Encoding.default_external = Encoding::UTF_8
+		Encoding.default_internal = Encoding::UTF_8
 
-expected_object_type = ARGV.shift
-commands = STDIN.each_line.map(&:chomp)
-unless commands.size == 1
-  abort "expected 1 ref update command, got #{commands.size}"
-end
+		expected_object_type = %[2]q
+		commands = STDIN.each_line.map(&:chomp)
+		unless commands.size == 1
+		abort "expected 1 ref update command, got #{commands.size}"
+		end
 
-old_value, new_value, ref_name = commands[0].split(' ', 3)
-abort 'missing new_value' unless new_value
+		old_value, new_value, ref_name = commands[0].split(' ', 3)
+		abort 'missing new_value' unless new_value
 
-out = IO.popen(%%W[%s cat-file -t #{new_value}], &:read)
-abort 'cat-file failed' unless $?.success?
+		out = IO.popen(%%W[%[1]s cat-file -t #{new_value}], &:read)
+		abort 'cat-file failed' unless $?.success?
 
-if ref_name =~ /^refs\/[^\/]+\/skip-type-check-/
-  exit 0
-end
+		if ref_name =~ /^refs\/[^\/]+\/skip-type-check-/
+		exit 0
+		end
 
-unless out.chomp == expected_object_type
-  abort "pre-receive hook error: expected '#{ref_name}' update of '#{old_value}' (a) -> '#{new_value}' (b) for 'b' to be a '#{expected_object_type}' object, got '#{out}'"
-end`, cfg.Git.BinPath)
-
-	dir := testhelper.TempDir(t)
-	hookPath := filepath.Join(dir, "pre-receive")
-
-	require.NoError(t, os.WriteFile(hookPath, []byte(hook), 0o755))
-
-	return hookPath
+		unless out.chomp == expected_object_type
+		abort "pre-receive hook error: expected '#{ref_name}' update of '#{old_value}' (a) -> '#{new_value}' (b) for 'b' to be a '#{expected_object_type}' object, got '#{out}'"
+		end
+	`, cfg.Git.BinPath, expectedObjectType)))
 }
 
-func writeAssertObjectTypeUpdateHook(t *testing.T, cfg config.Cfg) string {
+func writeAssertObjectTypeUpdateHook(t *testing.T, cfg config.Cfg, repoPath, expectedObjectType string) {
 	t.Helper()
 
-	hook := fmt.Sprintf(`#!/usr/bin/env ruby
+	gittest.WriteCustomHook(t, repoPath, "update", []byte(fmt.Sprintf(
+		`#!/usr/bin/env ruby
 
-# We match a non-ASCII ref_name below
-Encoding.default_external = Encoding::UTF_8
-Encoding.default_internal = Encoding::UTF_8
+		# We match a non-ASCII ref_name below
+		Encoding.default_external = Encoding::UTF_8
+		Encoding.default_internal = Encoding::UTF_8
 
-expected_object_type = ARGV.shift
-ref_name, old_value, new_value = ARGV[0..2]
+		expected_object_type = %[2]q
+		ref_name, old_value, new_value = ARGV[0..2]
 
-abort "missing new_value" unless new_value
+		abort "missing new_value" unless new_value
 
-out = IO.popen(%%W[%s cat-file -t #{new_value}], &:read)
-abort 'cat-file failed' unless $?.success?
+		out = IO.popen(%%W[%[1]s cat-file -t #{new_value}], &:read)
+		abort 'cat-file failed' unless $?.success?
 
-if ref_name =~ /^refs\/[^\/]+\/skip-type-check-/
-  exit 0
-end
+		if ref_name =~ /^refs\/[^\/]+\/skip-type-check-/
+		exit 0
+		end
 
-unless out.chomp == expected_object_type
-  abort "update hook error: expected '#{ref_name}' update of '#{old_value}' (a) -> '#{new_value}' (b) for 'b' to be a '#{expected_object_type}' object, got '#{out}'"
-end`, cfg.Git.BinPath)
-
-	dir := testhelper.TempDir(t)
-	hookPath := filepath.Join(dir, "pre-receive")
-
-	require.NoError(t, os.WriteFile(hookPath, []byte(hook), 0o755))
-
-	return hookPath
+		unless out.chomp == expected_object_type
+		abort "update hook error: expected '#{ref_name}' update of '#{old_value}' (a) -> '#{new_value}' (b) for 'b' to be a '#{expected_object_type}' object, got '#{out}'"
+		end
+	`, cfg.Git.BinPath, expectedObjectType)))
 }
 
 func TestSuccessfulUserCreateTagRequest(t *testing.T) {
@@ -168,10 +158,6 @@ func TestSuccessfulUserCreateTagRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	inputTagName := "to-be-créated-soon"
-
-	preReceiveHook := writeAssertObjectTypePreReceiveHook(t, cfg)
-
-	updateHook := writeAssertObjectTypeUpdateHook(t, cfg)
 
 	testCases := []struct {
 		desc               string
@@ -210,12 +196,8 @@ func TestSuccessfulUserCreateTagRequest(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			for hook, content := range map[string]string{
-				"pre-receive": fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", preReceiveHook, testCase.expectedObjectType),
-				"update":      fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", updateHook, testCase.expectedObjectType),
-			} {
-				gittest.WriteCustomHook(t, repoPath, hook, []byte(content))
-			}
+			writeAssertObjectTypePreReceiveHook(t, cfg, repoPath, testCase.expectedObjectType)
+			writeAssertObjectTypeUpdateHook(t, cfg, repoPath, testCase.expectedObjectType)
 
 			request := &gitalypb.UserCreateTagRequest{
 				Repository:     repoProto,
@@ -451,10 +433,6 @@ func TestSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *tes
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	preReceiveHook := writeAssertObjectTypePreReceiveHook(t, cfg)
-
-	updateHook := writeAssertObjectTypeUpdateHook(t, cfg)
-
 	testCases := []struct {
 		desc    string
 		message string
@@ -505,12 +483,8 @@ func TestSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *tes
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			for hook, content := range map[string]string{
-				"pre-receive": fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", preReceiveHook, testCase.objType),
-				"update":      fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", updateHook, testCase.objType),
-			} {
-				gittest.WriteCustomHook(t, repoPath, hook, []byte(content))
-			}
+			writeAssertObjectTypePreReceiveHook(t, cfg, repoPath, testCase.objType)
+			writeAssertObjectTypeUpdateHook(t, cfg, repoPath, testCase.objType)
 
 			tagName := "what-will-it-be"
 			request := &gitalypb.UserCreateTagRequest{
@@ -624,10 +598,6 @@ func TestSuccessfulUserCreateTagRequestToNonCommit(t *testing.T) {
 
 	inputTagName := "to-be-créated-soon"
 
-	preReceiveHook := writeAssertObjectTypePreReceiveHook(t, cfg)
-
-	updateHook := writeAssertObjectTypeUpdateHook(t, cfg)
-
 	testCases := []struct {
 		desc               string
 		tagName            string
@@ -688,12 +658,8 @@ func TestSuccessfulUserCreateTagRequestToNonCommit(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			for hook, content := range map[string]string{
-				"pre-receive": fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", preReceiveHook, testCase.expectedObjectType),
-				"update":      fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", updateHook, testCase.expectedObjectType),
-			} {
-				gittest.WriteCustomHook(t, repoPath, hook, []byte(content))
-			}
+			writeAssertObjectTypePreReceiveHook(t, cfg, repoPath, testCase.expectedObjectType)
+			writeAssertObjectTypeUpdateHook(t, cfg, repoPath, testCase.expectedObjectType)
 
 			request := &gitalypb.UserCreateTagRequest{
 				Repository:     repo,
@@ -736,10 +702,6 @@ func TestSuccessfulUserCreateTagNestedTags(t *testing.T) {
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	preReceiveHook := writeAssertObjectTypePreReceiveHook(t, cfg)
-
-	updateHook := writeAssertObjectTypeUpdateHook(t, cfg)
-
 	testCases := []struct {
 		desc             string
 		targetObject     string
@@ -765,15 +727,10 @@ func TestSuccessfulUserCreateTagNestedTags(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			// We resolve down to commit/tree/blob, but
-			// we'll only ever push a "tag" here.
-			hookObjectType := "tag"
-			for hook, content := range map[string]string{
-				"pre-receive": fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", preReceiveHook, hookObjectType),
-				"update":      fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", updateHook, hookObjectType),
-			} {
-				gittest.WriteCustomHook(t, repoPath, hook, []byte(content))
-			}
+			// We resolve down to commit/tree/blob, but we'll only ever push a "tag"
+			// here.
+			writeAssertObjectTypePreReceiveHook(t, cfg, repoPath, "tag")
+			writeAssertObjectTypeUpdateHook(t, cfg, repoPath, "tag")
 
 			targetObject := testCase.targetObject
 			nestLevel := 2
