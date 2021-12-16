@@ -3,6 +3,7 @@ package hook
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -40,6 +41,8 @@ func getExpectedEnv(t testing.TB, cfg config.Cfg, repo *gitalypb.Repository) []s
 		require.Len(t, kv, 2)
 		expectedEnv[kv[0]] = kv[1]
 	}
+
+	expectedEnv["PATH"] = fmt.Sprintf("%s:%s", filepath.Dir(cfg.Git.BinPath), os.Getenv("PATH"))
 
 	result := make([]string, 0, len(expectedEnv))
 	for key, value := range expectedEnv {

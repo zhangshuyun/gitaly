@@ -81,20 +81,21 @@ func TestCustomHooksSuccess(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.hookName, func(t *testing.T) {
-			globalCustomHooksDir := testhelper.TempDir(t)
+			cfg := cfg
+			cfg.Hooks.CustomHooksDir = testhelper.TempDir(t)
 
 			locator := config.NewLocator(cfg)
 			// hook is in project custom hook directory <repository>.git/custom_hooks/<hook_name>
 			hookDir := filepath.Join(repoPath, "custom_hooks")
-			callAndVerifyHooks(t, locator, repo, tc.hookName, globalCustomHooksDir, hookDir, tc.stdin, tc.args, tc.env)
+			callAndVerifyHooks(t, cfg, locator, repo, tc.hookName, hookDir, tc.stdin, tc.args, tc.env)
 
 			// hook is in project custom hooks directory <repository>.git/custom_hooks/<hook_name>.d/*
 			hookDir = filepath.Join(repoPath, "custom_hooks", fmt.Sprintf("%s.d", tc.hookName))
-			callAndVerifyHooks(t, locator, repo, tc.hookName, globalCustomHooksDir, hookDir, tc.stdin, tc.args, tc.env)
+			callAndVerifyHooks(t, cfg, locator, repo, tc.hookName, hookDir, tc.stdin, tc.args, tc.env)
 
 			// hook is in global custom hooks directory <global_custom_hooks_dir>/<hook_name>.d/*
-			hookDir = filepath.Join(globalCustomHooksDir, fmt.Sprintf("%s.d", tc.hookName))
-			callAndVerifyHooks(t, locator, repo, tc.hookName, globalCustomHooksDir, hookDir, tc.stdin, tc.args, tc.env)
+			hookDir = filepath.Join(cfg.Hooks.CustomHooksDir, fmt.Sprintf("%s.d", tc.hookName))
+			callAndVerifyHooks(t, cfg, locator, repo, tc.hookName, hookDir, tc.stdin, tc.args, tc.env)
 		})
 	}
 }
@@ -147,11 +148,12 @@ func TestCustomHookPartialFailure(t *testing.T) {
 			cleanup = writeCustomHook(t, tc.hook, globalHookPath, globalHookScript)
 			defer cleanup()
 
+			cfg := cfg
+			cfg.Hooks.CustomHooksDir = globalCustomHooksDir
+
 			mgr := GitLabHookManager{
+				cfg:     cfg,
 				locator: config.NewLocator(cfg),
-				hooksConfig: config.Hooks{
-					CustomHooksDir: globalCustomHooksDir,
-				},
 			}
 
 			caller, err := mgr.newCustomHooksExecutor(repo, tc.hook)
@@ -183,6 +185,8 @@ func TestCustomHooksMultipleHooks(t *testing.T) {
 
 	globalCustomHooksDir := testhelper.TempDir(t)
 
+	cfg.Hooks.CustomHooksDir = globalCustomHooksDir
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -206,10 +210,8 @@ func TestCustomHooksMultipleHooks(t *testing.T) {
 	}
 
 	mgr := GitLabHookManager{
+		cfg:     cfg,
 		locator: config.NewLocator(cfg),
-		hooksConfig: config.Hooks{
-			CustomHooksDir: globalCustomHooksDir,
-		},
 	}
 	hooksExecutor, err := mgr.newCustomHooksExecutor(repo, "update")
 	require.NoError(t, err)
@@ -230,6 +232,8 @@ func TestCustomHooksWithSymlinks(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	globalCustomHooksDir := testhelper.TempDir(t)
+
+	cfg.Hooks.CustomHooksDir = globalCustomHooksDir
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -277,10 +281,8 @@ func TestCustomHooksWithSymlinks(t *testing.T) {
 	expectedExecutedScripts := []string{updateHookPath, updateTildePath}
 
 	mgr := GitLabHookManager{
+		cfg:     cfg,
 		locator: config.NewLocator(cfg),
-		hooksConfig: config.Hooks{
-			CustomHooksDir: globalCustomHooksDir,
-		},
 	}
 	hooksExecutor, err := mgr.newCustomHooksExecutor(repo, "update")
 	require.NoError(t, err)
@@ -301,6 +303,8 @@ func TestMultilineStdin(t *testing.T) {
 
 	globalCustomHooksDir := testhelper.TempDir(t)
 
+	cfg.Hooks.CustomHooksDir = globalCustomHooksDir
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -308,10 +312,8 @@ func TestMultilineStdin(t *testing.T) {
 
 	writeCustomHook(t, "pre-receive-script", projectHooksPath, printStdinScript)
 	mgr := GitLabHookManager{
+		cfg:     cfg,
 		locator: config.NewLocator(cfg),
-		hooksConfig: config.Hooks{
-			CustomHooksDir: globalCustomHooksDir,
-		},
 	}
 
 	hooksExecutor, err := mgr.newCustomHooksExecutor(repo, "pre-receive")
@@ -333,6 +335,8 @@ func TestMultipleScriptsStdin(t *testing.T) {
 
 	globalCustomHooksDir := testhelper.TempDir(t)
 
+	cfg.Hooks.CustomHooksDir = globalCustomHooksDir
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -345,10 +349,8 @@ func TestMultipleScriptsStdin(t *testing.T) {
 	}
 
 	mgr := GitLabHookManager{
+		cfg:     cfg,
 		locator: config.NewLocator(cfg),
-		hooksConfig: config.Hooks{
-			CustomHooksDir: globalCustomHooksDir,
-		},
 	}
 
 	hooksExecutor, err := mgr.newCustomHooksExecutor(repo, "pre-receive")
@@ -368,7 +370,7 @@ func TestMultipleScriptsStdin(t *testing.T) {
 	}
 }
 
-func callAndVerifyHooks(t *testing.T, locator storage.Locator, repo *gitalypb.Repository, hookName, globalHooksDir, hookDir, stdin string, args, env []string) {
+func callAndVerifyHooks(t *testing.T, cfg config.Cfg, locator storage.Locator, repo *gitalypb.Repository, hookName, hookDir, stdin string, args, env []string) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	var stdout, stderr bytes.Buffer
@@ -377,10 +379,8 @@ func callAndVerifyHooks(t *testing.T, locator storage.Locator, repo *gitalypb.Re
 	defer cleanup()
 
 	mgr := GitLabHookManager{
+		cfg:     cfg,
 		locator: locator,
-		hooksConfig: config.Hooks{
-			CustomHooksDir: globalHooksDir,
-		},
 	}
 
 	callHooks, err := mgr.newCustomHooksExecutor(repo, hookName)
