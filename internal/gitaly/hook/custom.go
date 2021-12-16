@@ -181,6 +181,10 @@ func (m *GitLabHookManager) customHooksEnv(payload git.HooksPayload, pushOptions
 		customEnvs = append(customEnvs, fmt.Sprintf("PATH=%s:%s", gitDir, currentPath))
 	}
 
+	// We need to inject environment variables which set up the Git execution environment in
+	// case we're running with bundled Git such that Git can locate its binaries.
+	customEnvs = append(customEnvs, m.cfg.GitExecEnv()...)
+
 	return append(customEnvs,
 		"GIT_DIR="+repoPath,
 		"GL_REPOSITORY="+payload.Repo.GetGlRepository(),

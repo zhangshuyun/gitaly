@@ -36,7 +36,7 @@ func getExpectedEnv(t testing.TB, cfg config.Cfg, repo *gitalypb.Repository) []s
 
 	// This is really quite roundabout given that we'll convert it back to an array next, but
 	// we need to deduplicate environment variables here.
-	for _, allowedEnvVar := range command.AllowedEnvironment(os.Environ()) {
+	for _, allowedEnvVar := range append(command.AllowedEnvironment(os.Environ()), cfg.GitExecEnv()...) {
 		kv := strings.SplitN(allowedEnvVar, "=", 2)
 		require.Len(t, kv, 2)
 		expectedEnv[kv[0]] = kv[1]
