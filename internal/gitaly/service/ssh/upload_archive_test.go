@@ -3,13 +3,12 @@ package ssh
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -115,34 +114,19 @@ func TestUploadArchiveSuccess(t *testing.T) {
 
 	serverSocketPath := runSSHServer(t, cfg)
 
-	cmd := exec.Command(cfg.Git.BinPath, "archive", "master", "--remote=git@localhost:test/test.git")
-
-	err := testArchive(t, cfg, serverSocketPath, repo, cmd)
-	require.NoError(t, err)
-}
-
-func testArchive(t *testing.T, cfg config.Cfg, serverSocketPath string, testRepo *gitalypb.Repository, cmd *exec.Cmd) error {
-	req := &gitalypb.SSHUploadArchiveRequest{Repository: testRepo}
-	payload, err := protojson.Marshal(req)
-
+	payload, err := protojson.Marshal(&gitalypb.SSHUploadArchiveRequest{
+		Repository: repo,
+	})
 	require.NoError(t, err)
 
-	cmd.Env = []string{
-		fmt.Sprintf("GITALY_ADDRESS=%s", serverSocketPath),
-		fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
-		fmt.Sprintf("PATH=%s", ".:"+os.Getenv("PATH")),
-		fmt.Sprintf(`GIT_SSH_COMMAND=%s upload-archive`, filepath.Join(cfg.BinDir, "gitaly-ssh")),
-	}
-
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("%v: %q", err, out)
-	}
-	if !cmd.ProcessState.Success() {
-		return fmt.Errorf("Failed to run `git archive`: %q", out)
-	}
-
-	return nil
+	gittest.ExecOpts(t, cfg, gittest.ExecConfig{
+		Env: []string{
+			fmt.Sprintf("GITALY_ADDRESS=%s", serverSocketPath),
+			fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
+			fmt.Sprintf("PATH=%s", ".:"+os.Getenv("PATH")),
+			fmt.Sprintf(`GIT_SSH_COMMAND=%s upload-archive`, filepath.Join(cfg.BinDir, "gitaly-ssh")),
+		},
+	}, "archive", "master", "--remote=git@localhost:test/test.git")
 }
 
 func testUploadArchiveFailedResponse(t *testing.T, stream gitalypb.SSHService_SSHUploadArchiveClient) error {

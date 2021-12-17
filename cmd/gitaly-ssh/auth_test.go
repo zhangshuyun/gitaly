@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -15,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/server"
@@ -120,9 +120,7 @@ func TestConnectivity(t *testing.T) {
 		t.Run(testcase.name, func(t *testing.T) {
 			addr, certFile := testcase.addr(t, cfg)
 
-			cmd := exec.Command(cfg.Git.BinPath, "ls-remote", "git@localhost:test/test.git", "refs/heads/master")
-			cmd.Stderr = os.Stderr
-			cmd.Env = []string{
+			env := []string{
 				fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
 				fmt.Sprintf("GITALY_ADDRESS=%s", addr),
 				fmt.Sprintf("GITALY_WD=%s", cwd),
@@ -130,17 +128,16 @@ func TestConnectivity(t *testing.T) {
 				fmt.Sprintf("GIT_SSH_COMMAND=%s upload-pack", filepath.Join(cfg.BinDir, "gitaly-ssh")),
 				fmt.Sprintf("SSL_CERT_FILE=%s", certFile),
 			}
-
 			if testcase.proxy {
-				cmd.Env = append(cmd.Env,
+				env = append(env,
 					"http_proxy=http://invalid:1234",
 					"https_proxy=https://invalid:1234",
 				)
 			}
 
-			output, err := cmd.Output()
-
-			require.NoError(t, err, "git ls-remote exit status")
+			output := gittest.ExecOpts(t, cfg, gittest.ExecConfig{
+				Env: env,
+			}, "ls-remote", "git@localhost:test/test.git", "refs/heads/master")
 			require.True(t, strings.HasSuffix(strings.TrimSpace(string(output)), "refs/heads/master"))
 		})
 	}

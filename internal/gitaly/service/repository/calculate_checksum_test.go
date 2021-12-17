@@ -23,8 +23,9 @@ func TestSuccessfulCalculateChecksum(t *testing.T) {
 	for _, d := range []string{"refs/heads", "refs/tags", "refs/notes"} {
 		require.NoError(t, os.MkdirAll(filepath.Join(repoPath, d), 0o755))
 	}
-	require.NoError(t, exec.Command("cp", "testdata/checksum-test-packed-refs", filepath.Join(repoPath, "packed-refs")).Run())
-	require.NoError(t, exec.Command(cfg.Git.BinPath, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/feature").Run())
+
+	testhelper.CopyFile(t, "testdata/checksum-test-packed-refs", filepath.Join(repoPath, "packed-refs"))
+	gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
 
 	request := &gitalypb.CalculateChecksumRequest{Repository: repo}
 	testCtx, cancelCtx := testhelper.Context()

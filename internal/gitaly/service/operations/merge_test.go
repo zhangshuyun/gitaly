@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -875,8 +874,7 @@ func TestUserMergeToRef_successful(t *testing.T) {
 
 	// Writes in existingTargetRef
 	beforeRefreshCommitSha := "a5391128b0ef5d21df5dd23d98557f4ef12fae20"
-	out, err := exec.Command(cfg.Git.BinPath, "-C", repoPath, "update-ref", string(existingTargetRef), beforeRefreshCommitSha).CombinedOutput()
-	require.NoError(t, err, "give an existing state to the target ref: %s", out)
+	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", string(existingTargetRef), beforeRefreshCommitSha)
 
 	testCases := []struct {
 		desc           string
