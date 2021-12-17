@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
@@ -399,8 +400,15 @@ func TestFindAllTags_nestedTags(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			tags := bytes.NewReader(gittest.Exec(t, cfg, "-C", repoPath, "tag"))
-			testhelper.MustRunCommand(t, tags, "xargs", cfg.Git.BinPath, "-C", repoPath, "tag", "-d")
+			tags, err := repo.GetReferences(ctx, "refs/tags/")
+			require.NoError(t, err)
+
+			updater, err := updateref.New(ctx, cfg, repo)
+			require.NoError(t, err)
+			for _, tag := range tags {
+				require.NoError(t, updater.Delete(tag.Name))
+			}
+			require.NoError(t, updater.Commit())
 
 			catfileCache := catfile.NewCache(cfg)
 			defer catfileCache.Stop()
