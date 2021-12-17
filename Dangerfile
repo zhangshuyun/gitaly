@@ -2,16 +2,6 @@
 
 require 'gitlab-dangerfiles'
 
-GITALY_TEAM = %w[
-  8bitlife
-  avar
-  chriscool
-  pks-t
-  proglottis
-  samihiltunen
-  toon
-]
-
 Gitlab::Dangerfiles.for_project(self) do |dangerfiles|
   dangerfiles.import_defaults
 
