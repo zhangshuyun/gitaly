@@ -2,33 +2,20 @@
 
 require 'gitlab-dangerfiles'
 
-GITALY_TEAM = %w[
-  8bitlife
-  avar
-  chriscool
-  pks-t
-  proglottis
-  samihiltunen
-  toon
-]
+Gitlab::Dangerfiles.for_project(self) do |dangerfiles|
+  dangerfiles.import_defaults
 
-gitlab_dangerfiles = Gitlab::Dangerfiles::Engine.new(self)
-gitlab_dangerfiles.import_plugins
+  danger.import_plugin('danger/plugins/*.rb')
 
-danger.import_plugin('danger/plugins/*.rb')
+  Dir.each_child('danger/rules') do |rule|
+    danger.import_dangerfile(path: "danger/rules/#{rule}")
+  end
 
-gitlab_dangerfiles.import_dangerfiles
+  anything_to_post = status_report.values.any?(&:any?)
 
-danger.import_dangerfile(path: 'danger/changelog')
-danger.import_dangerfile(path: 'danger/labels')
-danger.import_dangerfile(path: 'danger/merge_request')
-danger.import_dangerfile(path: 'danger/milestones')
-danger.import_dangerfile(path: 'danger/roulette')
-
-anything_to_post = status_report.values.any?(&:any?)
-
-if helper.ci? && anything_to_post
-  markdown("**If needed, you can retry the [`danger-review` job](#{ENV['CI_JOB_URL']}) that generated this comment.**")
+  if helper.ci? && anything_to_post
+    markdown("**If needed, you can retry the [`danger-review` job](#{ENV['CI_JOB_URL']}) that generated this comment.**")
+  end
 end
 
 # vim: ft=ruby
