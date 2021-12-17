@@ -98,3 +98,17 @@ func TestExecCommandFactory_NewWithDir(t *testing.T) {
 		require.Contains(t, err.Error(), "no such file or directory")
 	})
 }
+
+func TestExecCommandFactory_GetExecutionEnvironment(t *testing.T) {
+	cfg := testcfg.Build(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+
+	require.Equal(t, git.ExecutionEnvironment{
+		BinaryPath:           cfg.Git.BinPath,
+		EnvironmentVariables: cfg.GitExecEnv(),
+	}, gitCmdFactory.GetExecutionEnvironment(ctx))
+}
