@@ -58,10 +58,6 @@ func init() {
 	testLogger.SetOutput(io.Discard)
 }
 
-func TestSecondaryRotation(t *testing.T) {
-	t.Skip("secondary rotation will change with the new data model")
-}
-
 func TestStreamDirectorReadOnlyEnforcement(t *testing.T) {
 	t.Parallel()
 	db := testdb.New(t)

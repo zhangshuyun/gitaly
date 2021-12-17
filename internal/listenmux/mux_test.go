@@ -8,7 +8,6 @@ import (
 	"io"
 	"math/rand"
 	"net"
-	"syscall"
 	"testing"
 	"time"
 
@@ -199,14 +198,7 @@ func TestMux_handshakerReturnsError(t *testing.T) {
 }
 
 func TestMux_concurrency(t *testing.T) {
-	const N = 100
-
-	// We want to open a lot of network connections. Raise the limits for the
-	// process as far as we're allowed.
-	var limit syscall.Rlimit
-	require.NoError(t, syscall.Getrlimit(syscall.RLIMIT_NOFILE, &limit))
-	limit.Cur = limit.Max
-	require.NoError(t, syscall.Setrlimit(syscall.RLIMIT_NOFILE, &limit))
+	const N = 50
 
 	streamServerErrors := make(chan error, N)
 
