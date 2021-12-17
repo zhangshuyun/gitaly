@@ -19,11 +19,9 @@ danger.import_plugin('danger/plugins/*.rb')
 
 gitlab_dangerfiles.import_dangerfiles
 
-danger.import_dangerfile(path: 'danger/changelog')
-danger.import_dangerfile(path: 'danger/labels')
-danger.import_dangerfile(path: 'danger/merge_request')
-danger.import_dangerfile(path: 'danger/milestones')
-danger.import_dangerfile(path: 'danger/roulette')
+Dir.each_child('danger/rules') do |rule|
+  danger.import_dangerfile(path: "danger/rules/#{rule}")
+end
 
 anything_to_post = status_report.values.any?(&:any?)
 

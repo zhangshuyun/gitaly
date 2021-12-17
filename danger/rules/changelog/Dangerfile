@@ -40,7 +40,7 @@ NO_CHANGELOG_LABELS = [
 ].freeze
 
 CATEGORIES = YAML
-  .load_file(File.expand_path('../../.gitlab/changelog_config.yml', __dir__))
+  .load_file(File.expand_path('../../../.gitlab/changelog_config.yml', __dir__))
   .fetch('categories')
   .keys
   .freeze
