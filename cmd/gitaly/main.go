@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-enry/go-license-detector/v4/licensedb"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
@@ -144,7 +145,13 @@ func run(cfg config.Cfg) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	b, err := bootstrap.New()
+	b, err := bootstrap.New(promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "gitaly_connections_total",
+			Help: "Total number of connections to Gitaly",
+		},
+		[]string{"type"},
+	))
 	if err != nil {
 		return fmt.Errorf("init bootstrap: %w", err)
 	}
@@ -249,7 +256,7 @@ func run(cfg config.Cfg) error {
 	}
 
 	if addr := cfg.PrometheusListenAddr; addr != "" {
-		b.RegisterStarter(func(listen bootstrap.ListenFunc, _ chan<- error) error {
+		b.RegisterStarter(func(listen bootstrap.ListenFunc, _ chan<- error, _ *prometheus.CounterVec) error {
 			l, err := listen("tcp", addr)
 			if err != nil {
 				return err

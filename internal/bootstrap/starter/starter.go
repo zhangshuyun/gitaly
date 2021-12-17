@@ -7,9 +7,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/bootstrap"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/connectioncounter"
 )
 
 const (
@@ -111,7 +111,7 @@ type Server interface {
 
 // New creates a new bootstrap.Starter from a config and a GracefulStoppableServer
 func New(cfg Config, server Server) bootstrap.Starter {
-	return func(listenWithHandover bootstrap.ListenFunc, errCh chan<- error) error {
+	return func(listenWithHandover bootstrap.ListenFunc, errCh chan<- error, connTotal *prometheus.CounterVec) error {
 		listen := listenWithHandover
 		if !cfg.HandoverOnUpgrade {
 			if cfg.Name == Unix {
@@ -129,7 +129,7 @@ func New(cfg Config, server Server) bootstrap.Starter {
 		}
 
 		logrus.WithField("address", cfg.Addr).Infof("listening at %s address", cfg.Name)
-		l = connectioncounter.New(cfg.Name, l)
+		l = wrap(cfg.Name, l, connTotal)
 
 		go func() {
 			errCh <- server.Serve(l)

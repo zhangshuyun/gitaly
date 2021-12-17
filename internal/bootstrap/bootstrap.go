@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/cloudflare/tableflip"
+	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/env"
@@ -38,6 +39,7 @@ type Bootstrap struct {
 	listenFunc ListenFunc
 	errChan    chan error
 	starters   []Starter
+	connTotal  *prometheus.CounterVec
 }
 
 type upgrader interface {
@@ -72,7 +74,7 @@ type upgrader interface {
 // * upgrades cannot starts again if p1 and p2 are both running, an hard termination should be scheduled to overcome
 //   freezes during a graceful shutdown
 // gitaly-wrapper is supposed to set EnvUpgradesEnabled in order to enable graceful upgrades
-func New() (*Bootstrap, error) {
+func New(totalConn *prometheus.CounterVec) (*Bootstrap, error) {
 	pidFile := os.Getenv(EnvPidFile)
 	upgradesEnabled, _ := env.GetBool(EnvUpgradesEnabled, false)
 
@@ -99,10 +101,10 @@ func New() (*Bootstrap, error) {
 		return nil, err
 	}
 
-	return _new(upg, upg.Fds.Listen, upgradesEnabled)
+	return _new(upg, upg.Fds.Listen, upgradesEnabled, totalConn)
 }
 
-func _new(upg upgrader, listenFunc ListenFunc, upgradesEnabled bool) (*Bootstrap, error) {
+func _new(upg upgrader, listenFunc ListenFunc, upgradesEnabled bool, totalConn *prometheus.CounterVec) (*Bootstrap, error) {
 	if upgradesEnabled {
 		go func() {
 			sig := make(chan os.Signal, 1)
@@ -123,6 +125,7 @@ func _new(upg upgrader, listenFunc ListenFunc, upgradesEnabled bool) (*Bootstrap
 	return &Bootstrap{
 		upgrader:   upg,
 		listenFunc: listenFunc,
+		connTotal:  totalConn,
 	}, nil
 }
 
@@ -133,7 +136,7 @@ type ListenFunc func(net, addr string) (net.Listener, error)
 // it receives a ListenFunc to be used for net.Listener creation and a chan<- error to signal runtime errors
 // It must serve incoming connections asynchronously and signal errors on the channel
 // the return value is for setup errors
-type Starter func(ListenFunc, chan<- error) error
+type Starter func(ListenFunc, chan<- error, *prometheus.CounterVec) error
 
 func (b *Bootstrap) isFirstBoot() bool { return !b.upgrader.HasParent() }
 
@@ -148,7 +151,7 @@ func (b *Bootstrap) Start() error {
 	b.errChan = make(chan error, len(b.starters))
 
 	for _, start := range b.starters {
-		if err := start(b.listen, b.errChan); err != nil {
+		if err := start(b.listen, b.errChan, b.connTotal); err != nil {
 			return err
 		}
 	}
@@ -223,14 +226,15 @@ func (b *Bootstrap) listen(network, path string) (net.Listener, error) {
 
 // Noop is a bootstrapper that does no additional configurations.
 type Noop struct {
-	starters []Starter
-	shutdown chan struct{}
-	errChan  chan error
+	starters  []Starter
+	shutdown  chan struct{}
+	errChan   chan error
+	connTotal *prometheus.CounterVec
 }
 
 // NewNoop returns initialized instance of the *Noop.
-func NewNoop() *Noop {
-	return &Noop{shutdown: make(chan struct{})}
+func NewNoop(connTotal *prometheus.CounterVec) *Noop {
+	return &Noop{shutdown: make(chan struct{}), connTotal: connTotal}
 }
 
 // RegisterStarter adds starter to the pool.
@@ -243,7 +247,11 @@ func (n *Noop) Start() error {
 	n.errChan = make(chan error, len(n.starters))
 
 	for _, start := range n.starters {
-		if err := start(net.Listen, n.errChan); err != nil {
+		if err := start(
+			net.Listen,
+			n.errChan,
+			n.connTotal,
+		); err != nil {
 			return err
 		}
 	}

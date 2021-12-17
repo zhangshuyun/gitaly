@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
@@ -72,7 +73,7 @@ func TestBootstrap_unixListener(t *testing.T) {
 				hasParent: tc.hasParent,
 			}
 
-			b, err := _new(upgrader, listen, false)
+			b, err := _new(upgrader, listen, false, &prometheus.CounterVec{})
 			require.NoError(t, err)
 
 			if tc.preexistingSocket {
@@ -223,7 +224,7 @@ func TestBootstrap_gracefulTermination(t *testing.T) {
 }
 
 func TestBootstrap_portReuse(t *testing.T) {
-	b, err := New()
+	b, err := New(&prometheus.CounterVec{})
 	require.NoError(t, err)
 
 	l, err := b.listen("tcp", "localhost:")
@@ -271,14 +272,14 @@ func setup(t *testing.T, ctx context.Context) (*Bootstrap, *mockUpgrader, mockLi
 		readyCh: make(chan error),
 	}
 
-	b, err := _new(u, net.Listen, false)
+	b, err := _new(u, net.Listen, false, &prometheus.CounterVec{})
 	require.NoError(t, err)
 
 	listeners := mockListeners{}
 	start := func(network, address string) Starter {
 		listeners[network] = &mockListener{}
 
-		return func(listen ListenFunc, errors chan<- error) error {
+		return func(listen ListenFunc, errors chan<- error, _ *prometheus.CounterVec) error {
 			listeners[network].errorCh = errors
 			listeners[network].listening = true
 			return nil
