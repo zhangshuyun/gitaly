@@ -203,7 +203,7 @@ func run(cfg config.Cfg) error {
 		return fmt.Errorf("linguist instance creation: %w", err)
 	}
 
-	rubySrv := rubyserver.New(cfg)
+	rubySrv := rubyserver.New(cfg, gitCmdFactory)
 	if err := rubySrv.Start(); err != nil {
 		return fmt.Errorf("initialize gitaly-ruby: %v", err)
 	}

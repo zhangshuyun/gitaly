@@ -13,6 +13,7 @@ import (
 	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver/balancer"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
@@ -36,11 +37,17 @@ func init() {
 	}
 }
 
-func setupEnv(cfg config.Cfg) []string {
+func setupEnv(cfg config.Cfg, gitCmdFactory git.CommandFactory) []string {
+	// Ideally, we'd pass in the RPC context to the Git command factory such that we can
+	// properly use feature flags to switch between different execution environments. But the
+	// Ruby server is precreated and thus cannot use feature flags here. So for now, we have to
+	// live with the fact that we cannot use feature flags for it.
+	gitExecEnv := gitCmdFactory.GetExecutionEnvironment(context.TODO())
+
 	env := append(
 		os.Environ(),
 		"GITALY_LOG_DIR="+cfg.Logging.Dir,
-		"GITALY_RUBY_GIT_BIN_PATH="+cfg.Git.BinPath,
+		"GITALY_RUBY_GIT_BIN_PATH="+gitExecEnv.BinaryPath,
 		fmt.Sprintf("GITALY_RUBY_WRITE_BUFFER_SIZE=%d", streamio.WriteBufferSize),
 		fmt.Sprintf("GITALY_RUBY_MAX_COMMIT_OR_TAG_MESSAGE_SIZE=%d", helper.MaxCommitOrTagMessageSize),
 		"GITALY_RUBY_GITALY_BIN_DIR="+cfg.BinDir,
@@ -51,6 +58,7 @@ func setupEnv(cfg config.Cfg) []string {
 		"GITALY_RUGGED_GIT_CONFIG_SEARCH_PATH="+cfg.Ruby.RuggedGitConfigSearchPath,
 	)
 	env = append(env, command.GitEnv...)
+	env = append(env, gitExecEnv.EnvironmentVariables...)
 
 	if dsn := cfg.Logging.RubySentryDSN; dsn != "" {
 		env = append(env, "SENTRY_DSN="+dsn)
@@ -65,17 +73,18 @@ func setupEnv(cfg config.Cfg) []string {
 
 // Server represents a gitaly-ruby helper process.
 type Server struct {
-	cfg          config.Cfg
-	startOnce    sync.Once
-	startErr     error
-	workers      []*worker
-	clientConnMu sync.Mutex
-	clientConn   *grpc.ClientConn
+	cfg           config.Cfg
+	gitCmdFactory git.CommandFactory
+	startOnce     sync.Once
+	startErr      error
+	workers       []*worker
+	clientConnMu  sync.Mutex
+	clientConn    *grpc.ClientConn
 }
 
 // New returns a new instance of the server.
-func New(cfg config.Cfg) *Server {
-	return &Server{cfg: cfg}
+func New(cfg config.Cfg, gitCmdFactory git.CommandFactory) *Server {
+	return &Server{cfg: cfg, gitCmdFactory: gitCmdFactory}
 }
 
 // Stop shuts down the gitaly-ruby helper process and cleans up resources.
@@ -107,7 +116,7 @@ func (s *Server) start() error {
 	}
 
 	cfg := s.cfg
-	env := setupEnv(cfg)
+	env := setupEnv(cfg, s.gitCmdFactory)
 
 	gitalyRuby := filepath.Join(cfg.Ruby.Dir, "bin", "gitaly-ruby")
 

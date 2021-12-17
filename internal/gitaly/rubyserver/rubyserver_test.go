@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/log"
@@ -23,7 +24,7 @@ import (
 func TestStopSafe(t *testing.T) {
 	badServers := []*Server{
 		nil,
-		New(config.Cfg{}),
+		New(config.Cfg{}, nil),
 	}
 
 	for _, bs := range badServers {
@@ -80,6 +81,19 @@ func TestSetHeaders(t *testing.T) {
 	}
 }
 
+type mockGitCommandFactory struct {
+	git.CommandFactory
+}
+
+func (mockGitCommandFactory) GetExecutionEnvironment(context.Context) git.ExecutionEnvironment {
+	return git.ExecutionEnvironment{
+		BinaryPath: "/something",
+		EnvironmentVariables: []string{
+			"FOO=bar",
+		},
+	}
+}
+
 func TestSetupEnv(t *testing.T) {
 	cfg := config.Cfg{
 		BinDir:            "/bin/dit",
@@ -93,15 +107,15 @@ func TestSetupEnv(t *testing.T) {
 				Environment: "testEnvironment",
 			},
 		},
-		Git:  config.Git{BinPath: "/bin/git"},
 		Auth: auth.Config{Token: "paswd"},
 		Ruby: config.Ruby{RuggedGitConfigSearchPath: "/bin/rugged"},
 	}
 
-	env := setupEnv(cfg)
+	env := setupEnv(cfg, mockGitCommandFactory{})
 
+	require.Contains(t, env, "FOO=bar")
 	require.Contains(t, env, "GITALY_LOG_DIR=/log/dir")
-	require.Contains(t, env, "GITALY_RUBY_GIT_BIN_PATH=/bin/git")
+	require.Contains(t, env, "GITALY_RUBY_GIT_BIN_PATH=/something")
 	require.Contains(t, env, fmt.Sprintf("GITALY_RUBY_WRITE_BUFFER_SIZE=%d", streamio.WriteBufferSize))
 	require.Contains(t, env, fmt.Sprintf("GITALY_RUBY_MAX_COMMIT_OR_TAG_MESSAGE_SIZE=%d", helper.MaxCommitOrTagMessageSize))
 	require.Contains(t, env, "GITALY_RUBY_GITALY_BIN_DIR=/bin/dit")
