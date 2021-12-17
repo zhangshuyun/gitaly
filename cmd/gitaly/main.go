@@ -198,7 +198,7 @@ func run(cfg config.Cfg) error {
 	gitalyServerFactory := server.NewGitalyServerFactory(cfg, glog.Default(), registry, diskCache, limitHandler)
 	defer gitalyServerFactory.Stop()
 
-	ling, err := linguist.New(cfg)
+	ling, err := linguist.New(cfg, gitCmdFactory)
 	if err != nil {
 		return fmt.Errorf("linguist instance creation: %w", err)
 	}
