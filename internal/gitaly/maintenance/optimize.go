@@ -56,6 +56,14 @@ func optimizeRepoAtPath(ctx context.Context, l logrus.FieldLogger, s config.Stor
 		Repository: repo,
 	}
 
+	// In order to prevent RPC cancellation because of the parent context cancellation
+	// (job execution duration passed) we suppress cancellation of the parent and add a
+	// new time limit to make sure it won't block forever.
+	// It also helps us to be protected over repositories that are taking too long to complete
+	// a request, so no any other repository can be optimized.
+	ctx, cancel := context.WithTimeout(helper.SuppressCancellation(ctx), 5*time.Minute)
+	defer cancel()
+
 	start := time.Now()
 	if _, err := o.OptimizeRepository(ctx, optimizeReq); err != nil {
 		l.WithFields(map[string]interface{}{
