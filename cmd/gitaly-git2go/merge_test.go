@@ -15,7 +15,6 @@ import (
 	cmdtesthelper "gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
@@ -27,7 +26,7 @@ func TestMerge_missingArguments(t *testing.T) {
 	defer cancel()
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
-	executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
+	executor := buildExecutor(cfg)
 
 	testcases := []struct {
 		desc        string
@@ -87,7 +86,7 @@ func TestMerge_invalidRepositoryPath(t *testing.T) {
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 	testcfg.BuildGitalyGit2Go(t, cfg)
-	executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
+	executor := buildExecutor(cfg)
 
 	_, err := executor.Merge(ctx, repo, git2go.MergeCommand{
 		Repository: "/does/not/exist", AuthorName: "Foo", AuthorMail: "foo@example.com", Message: "Foo", Ours: "HEAD", Theirs: "HEAD",
@@ -193,7 +192,7 @@ func TestMerge_trees(t *testing.T) {
 	for _, tc := range testcases {
 		cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 		testcfg.BuildGitalyGit2Go(t, cfg)
-		executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
+		executor := buildExecutor(cfg)
 
 		base := cmdtesthelper.BuildCommit(t, repoPath, []*git.Oid{nil}, tc.base)
 		ours := cmdtesthelper.BuildCommit(t, repoPath, []*git.Oid{base}, tc.ours)
@@ -254,7 +253,7 @@ func TestMerge_recursive(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyGit2Go(t, cfg)
-	executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
+	executor := buildExecutor(cfg)
 
 	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 

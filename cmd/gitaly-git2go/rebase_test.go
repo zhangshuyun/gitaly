@@ -15,7 +15,6 @@ import (
 	gitalygit "gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
@@ -26,7 +25,7 @@ func TestRebase_validation(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 	testcfg.BuildGitalyGit2Go(t, cfg)
 	committer := git2go.NewSignature("Foo", "foo@example.com", time.Now())
-	executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
+	executor := buildExecutor(cfg)
 
 	testcases := []struct {
 		desc        string
@@ -178,7 +177,7 @@ func TestRebase_rebase(t *testing.T) {
 
 			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 			testcfg.BuildGitalyGit2Go(t, cfg)
-			executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
+			executor := buildExecutor(cfg)
 
 			repo, err := git2goutil.OpenRepository(repoPath)
 			require.NoError(t, err)
@@ -285,7 +284,7 @@ func TestRebase_skipEmptyCommit(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			response, err := git2go.NewExecutor(cfg, config.NewLocator(cfg)).Rebase(ctx, repoProto, git2go.RebaseCommand{
+			response, err := buildExecutor(cfg).Rebase(ctx, repoProto, git2go.RebaseCommand{
 				Repository:       repoPath,
 				Committer:        git2go.NewSignature("Foo", "foo@example.com", time.Now()),
 				CommitID:         ours,

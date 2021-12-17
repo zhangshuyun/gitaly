@@ -53,7 +53,7 @@ func NewServer(
 		txManager:     txManager,
 		locator:       locator,
 		conns:         conns,
-		git2go:        git2go.NewExecutor(cfg, locator),
+		git2go:        git2go.NewExecutor(cfg, gitCmdFactory, locator),
 		gitCmdFactory: gitCmdFactory,
 		catfileCache:  catfileCache,
 		updater:       updateref.NewUpdaterWithHooks(cfg, hookManager, gitCmdFactory, catfileCache),
