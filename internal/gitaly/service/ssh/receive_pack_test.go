@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -604,7 +603,7 @@ func sshPush(t *testing.T, cfg config.Cfg, cloneDetails SSHCloneDetails, serverS
 		featureFlags = append(featureFlags, fmt.Sprintf("%s:%v", flag.Name, value))
 	}
 
-	cmd := exec.Command(cfg.Git.BinPath, "-C", cloneDetails.LocalRepoPath, "push", "-v", "git@localhost:test/test.git", "master")
+	cmd := gittest.NewCommand(t, cfg, "-C", cloneDetails.LocalRepoPath, "push", "-v", "git@localhost:test/test.git", "master")
 	cmd.Env = []string{
 		fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
 		fmt.Sprintf("GITALY_ADDRESS=%s", serverSocketPath),

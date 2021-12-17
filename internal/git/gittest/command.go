@@ -31,10 +31,28 @@ func Exec(t testing.TB, cfg config.Cfg, args ...string) []byte {
 // ExecOpts runs a git command with the given configuration.
 func ExecOpts(t testing.TB, cfg config.Cfg, execCfg ExecConfig, args ...string) []byte {
 	t.Helper()
-	return run(t, cfg, execCfg, args...)
+
+	cmd := createCommand(t, cfg, execCfg, args...)
+
+	output, err := cmd.Output()
+	if err != nil {
+		t.Log(cfg.Git.BinPath, args)
+		if ee, ok := err.(*exec.ExitError); ok {
+			t.Logf("%s: %s\n", ee.Stderr, output)
+		}
+		t.Fatal(err)
+	}
+
+	return output
 }
 
-func run(t testing.TB, cfg config.Cfg, execCfg ExecConfig, args ...string) []byte {
+// NewCommand creates a new Git command ready for execution.
+func NewCommand(t testing.TB, cfg config.Cfg, args ...string) *exec.Cmd {
+	t.Helper()
+	return createCommand(t, cfg, ExecConfig{}, args...)
+}
+
+func createCommand(t testing.TB, cfg config.Cfg, execCfg ExecConfig, args ...string) *exec.Cmd {
 	t.Helper()
 
 	cmd := exec.Command(cfg.Git.BinPath, args...)
@@ -55,14 +73,5 @@ func run(t testing.TB, cfg config.Cfg, execCfg ExecConfig, args ...string) []byt
 	cmd.Stdout = execCfg.Stdout
 	cmd.Stdin = execCfg.Stdin
 
-	output, err := cmd.Output()
-	if err != nil {
-		t.Log(cfg.Git.BinPath, args)
-		if ee, ok := err.(*exec.ExitError); ok {
-			t.Logf("%s: %s\n", ee.Stderr, output)
-		}
-		t.Fatal(err)
-	}
-
-	return output
+	return cmd
 }

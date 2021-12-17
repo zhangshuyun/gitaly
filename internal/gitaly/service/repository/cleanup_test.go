@@ -2,7 +2,6 @@ package repository
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -135,8 +134,8 @@ func TestCleanupDisconnectedWorktrees(t *testing.T) {
 		"disconnecting worktree by removing work tree at %s should succeed", worktreePath,
 	)
 
-	err = exec.Command(cfg.Git.BinPath, gittest.AddWorktreeArgs(repoPath, worktreePath)...).Run()
-	require.Error(t, err, "creating a new work tree at the same path as a disconnected work tree should fail")
+	cmd := gittest.NewCommand(t, cfg, gittest.AddWorktreeArgs(repoPath, worktreePath)...)
+	require.Error(t, cmd.Run(), "creating a new work tree at the same path as a disconnected work tree should fail")
 
 	// cleanup should prune the disconnected worktree administrative files
 	_, err = client.Cleanup(ctx, req)

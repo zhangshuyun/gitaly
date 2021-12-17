@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -35,7 +34,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 
 		clientRepo, clientRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
-		cmd := exec.Command(cfg.Git.BinPath, "-C", clientRepoPath, "remote", "add", remote, remoteRepoPath)
+		cmd := gittest.NewCommand(t, cfg, "-C", clientRepoPath, "remote", "add", remote, remoteRepoPath)
 		err := cmd.Run()
 		if err != nil {
 			require.NoError(t, err)

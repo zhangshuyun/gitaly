@@ -28,7 +28,7 @@ func RequireObjectNotExists(t testing.TB, cfg config.Cfg, repoPath string, objec
 }
 
 func requireObjectExists(t testing.TB, cfg config.Cfg, repoPath string, objectID git.ObjectID, exists bool) {
-	cmd := exec.Command(cfg.Git.BinPath, "-C", repoPath, "cat-file", "-e", objectID.String())
+	cmd := NewCommand(t, cfg, "-C", repoPath, "cat-file", "-e", objectID.String())
 	cmd.Env = []string{
 		"GIT_ALLOW_PROTOCOL=", // To prevent partial clone reaching remote repo over SSH
 	}
