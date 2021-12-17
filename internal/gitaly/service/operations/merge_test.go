@@ -594,14 +594,14 @@ func testUserMergeBranchAllowed(t *testing.T, ctx context.Context) {
 			cfg := testcfg.Build(t)
 			backchannelRegistry := backchannel.NewRegistry()
 			txManager := transaction.NewManager(cfg, backchannelRegistry)
-			hookManager := hook.NewManager(config.NewLocator(cfg), txManager, gitlab.NewMockClient(
+			hookManager := hook.NewManager(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), txManager, gitlab.NewMockClient(
 				t,
 				func(context.Context, gitlab.AllowedParams) (bool, string, error) {
 					return tc.allowed, tc.allowedMessage, tc.allowedErr
 				},
 				gitlab.MockPreReceive,
 				gitlab.MockPostReceive,
-			), cfg)
+			))
 
 			ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithCfg(
 				t, ctx, cfg,

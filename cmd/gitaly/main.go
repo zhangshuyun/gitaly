@@ -159,6 +159,9 @@ func run(cfg config.Cfg) error {
 
 	tempdir.StartCleaning(locator, cfg.Storages, time.Hour)
 
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	prometheus.MustRegister(gitCmdFactory)
+
 	if config.SkipHooks() {
 		log.Warn("skipping GitLab API client creation since hooks are bypassed via GITALY_TESTING_NO_GIT_HOOKS")
 	} else {
@@ -168,7 +171,7 @@ func run(cfg config.Cfg) error {
 		}
 		prometheus.MustRegister(gitlabClient)
 
-		hm := hook.NewManager(locator, transactionManager, gitlabClient, cfg)
+		hm := hook.NewManager(cfg, locator, gitCmdFactory, transactionManager, gitlabClient)
 
 		hookManager = hm
 	}
@@ -178,9 +181,6 @@ func run(cfg config.Cfg) error {
 		client.WithDialOptions(client.FailOnNonTempDialError()...),
 	)
 	defer conns.Close()
-
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	prometheus.MustRegister(gitCmdFactory)
 
 	catfileCache := catfile.NewCache(cfg)
 	defer catfileCache.Stop()

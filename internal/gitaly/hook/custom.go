@@ -138,7 +138,7 @@ func isValidHook(path string) bool {
 	return true
 }
 
-func (m *GitLabHookManager) customHooksEnv(payload git.HooksPayload, pushOptions []string, envs []string) ([]string, error) {
+func (m *GitLabHookManager) customHooksEnv(ctx context.Context, payload git.HooksPayload, pushOptions []string, envs []string) ([]string, error) {
 	repoPath, err := m.locator.GetPath(payload.Repo)
 	if err != nil {
 		return nil, err
@@ -166,7 +166,9 @@ func (m *GitLabHookManager) customHooksEnv(payload git.HooksPayload, pushOptions
 		customEnvs = append(customEnvs, "GIT_ALTERNATE_OBJECT_DIRECTORIES="+alternateObjectDirectories)
 	}
 
-	if gitDir := filepath.Dir(m.cfg.Git.BinPath); gitDir != "." {
+	gitExecEnv := m.gitCmdFactory.GetExecutionEnvironment(ctx)
+
+	if gitDir := filepath.Dir(gitExecEnv.BinaryPath); gitDir != "." {
 		// By default, we should take PATH from the given set of environment variables, if
 		// it's contained in there. Otherwise, we need to take the current process's PATH
 		// environment, which would also be the default injected by the command package.
@@ -183,7 +185,7 @@ func (m *GitLabHookManager) customHooksEnv(payload git.HooksPayload, pushOptions
 
 	// We need to inject environment variables which set up the Git execution environment in
 	// case we're running with bundled Git such that Git can locate its binaries.
-	customEnvs = append(customEnvs, m.cfg.GitExecEnv()...)
+	customEnvs = append(customEnvs, gitExecEnv.EnvironmentVariables...)
 
 	return append(customEnvs,
 		"GIT_DIR="+repoPath,

@@ -216,7 +216,7 @@ func check(configPath string) (*gitlab.CheckInfo, error) {
 		return nil, err
 	}
 
-	return hook.NewManager(config.NewLocator(cfg), nil, gitlabAPI, cfg).Check(context.TODO())
+	return hook.NewManager(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), nil, gitlabAPI).Check(context.TODO())
 }
 
 func updateHook(ctx context.Context, payload git.HooksPayload, hookClient gitalypb.HookServiceClient, args []string) error {

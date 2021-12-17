@@ -194,10 +194,10 @@ func runServer(t *testing.T, cfg config.Cfg) string {
 	t.Cleanup(func() { conns.Close() })
 	locator := config.NewLocator(cfg)
 	txManager := transaction.NewManager(cfg, registry)
-	hookManager := hook.NewManager(locator, txManager, gitlab.NewMockClient(
-		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
-	), cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	hookManager := hook.NewManager(cfg, locator, gitCmdFactory, txManager, gitlab.NewMockClient(
+		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
+	))
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 	diskCache := cache.New(cfg, locator)

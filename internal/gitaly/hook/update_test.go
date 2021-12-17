@@ -25,9 +25,9 @@ import (
 func TestUpdate_customHooks(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
-	hookManager := NewManager(config.NewLocator(cfg), transaction.NewManager(cfg, backchannel.NewRegistry()), gitlab.NewMockClient(
+	hookManager := NewManager(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), transaction.NewManager(cfg, backchannel.NewRegistry()), gitlab.NewMockClient(
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
-	), cfg)
+	))
 
 	receiveHooksPayload := &git.ReceiveHooksPayload{
 		UserID:   "1234",
@@ -216,9 +216,9 @@ func TestUpdate_quarantine(t *testing.T) {
 	blobID, err := quarantinedRepo.WriteBlob(ctx, "", strings.NewReader("allyourbasearebelongtous"))
 	require.NoError(t, err)
 
-	hookManager := NewManager(config.NewLocator(cfg), nil, gitlab.NewMockClient(
+	hookManager := NewManager(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), nil, gitlab.NewMockClient(
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
-	), cfg)
+	))
 
 	gittest.WriteCustomHook(t, repoPath, "update", []byte(fmt.Sprintf(
 		`#!/bin/sh
