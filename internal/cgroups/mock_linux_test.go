@@ -19,6 +19,7 @@
 package cgroups
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -62,38 +63,54 @@ func (m *mockCgroup) setupMockCgroupFiles(
 	memFailCount int,
 ) {
 	for _, s := range m.subsystems {
-		path := filepath.Join(m.root, string(s.Name()), manager.currentProcessCgroup())
-		require.NoError(t, os.MkdirAll(path, 0o755))
+		cgroupPath := filepath.Join(m.root, string(s.Name()), manager.currentProcessCgroup())
+		require.NoError(t, os.MkdirAll(cgroupPath, 0o755))
 
-		for _, emptyFile := range []string{
-			"cpu.stat",
-			"memory.stat",
-			"memory.oom_control",
-		} {
-			require.NoError(t, os.WriteFile(filepath.Join(path, emptyFile), []byte(""), 0o644))
+		contentByFilename := map[string]string{
+			"cgroup.procs": "",
 		}
 
-		for _, zeroFile := range []string{
-			"memory.usage_in_bytes",
-			"memory.max_usage_in_bytes",
-			"memory.limit_in_bytes",
-			"memory.failcnt",
-			"memory.memsw.failcnt",
-			"memory.memsw.usage_in_bytes",
-			"memory.memsw.max_usage_in_bytes",
-			"memory.memsw.limit_in_bytes",
-			"memory.kmem.usage_in_bytes",
-			"memory.kmem.max_usage_in_bytes",
-			"memory.kmem.failcnt",
-			"memory.kmem.limit_in_bytes",
-			"memory.kmem.tcp.usage_in_bytes",
-			"memory.kmem.tcp.max_usage_in_bytes",
-			"memory.kmem.tcp.failcnt",
-			"memory.kmem.tcp.limit_in_bytes",
-		} {
-			require.NoError(t, os.WriteFile(filepath.Join(path, zeroFile), []byte("0"), 0o644))
+		switch s.Name() {
+		case "memory":
+			contentByFilename["memory.stat"] = ""
+			contentByFilename["memory.oom_control"] = ""
+			contentByFilename["memory.usage_in_bytes"] = "0"
+			contentByFilename["memory.max_usage_in_bytes"] = "0"
+			contentByFilename["memory.limit_in_bytes"] = "0"
+			contentByFilename["memory.failcnt"] = "0"
+			contentByFilename["memory.memsw.failcnt"] = "0"
+			contentByFilename["memory.memsw.usage_in_bytes"] = "0"
+			contentByFilename["memory.memsw.max_usage_in_bytes"] = "0"
+			contentByFilename["memory.memsw.limit_in_bytes"] = "0"
+			contentByFilename["memory.kmem.usage_in_bytes"] = "0"
+			contentByFilename["memory.kmem.max_usage_in_bytes"] = "0"
+			contentByFilename["memory.kmem.failcnt"] = "0"
+			contentByFilename["memory.kmem.limit_in_bytes"] = "0"
+			contentByFilename["memory.kmem.tcp.usage_in_bytes"] = "0"
+			contentByFilename["memory.kmem.tcp.max_usage_in_bytes"] = "0"
+			contentByFilename["memory.kmem.tcp.failcnt"] = "0"
+			contentByFilename["memory.kmem.tcp.limit_in_bytes"] = "0"
+			contentByFilename["memory.failcnt"] = strconv.Itoa(memFailCount)
+		case "cpu":
+			contentByFilename["cpu.stat"] = ""
+			contentByFilename["cpu.shares"] = "0"
+		default:
+			require.FailNow(t, "cannot set up subsystem", "unknown subsystem %q", s.Name())
 		}
 
-		require.NoError(t, os.WriteFile(filepath.Join(path, "memory.failcnt"), []byte(strconv.Itoa(memFailCount)), 0o644))
+		for filename, content := range contentByFilename {
+			controlFilePath := filepath.Join(cgroupPath, filename)
+			require.NoError(t, os.WriteFile(controlFilePath, []byte(content), 0o644))
+		}
+
+		for shard := uint(0); shard < manager.cfg.Count; shard++ {
+			shardPath := filepath.Join(cgroupPath, fmt.Sprintf("shard-%d", shard))
+			require.NoError(t, os.MkdirAll(shardPath, 0o755))
+
+			for filename, content := range contentByFilename {
+				shardControlFilePath := filepath.Join(shardPath, filename)
+				require.NoError(t, os.WriteFile(shardControlFilePath, []byte(content), 0o644))
+			}
+		}
 	}
 }
