@@ -63,7 +63,7 @@ func (m *mockCgroup) setupMockCgroupFiles(
 ) {
 	for _, s := range m.subsystems {
 		path := filepath.Join(m.root, string(s.Name()), manager.currentProcessCgroup())
-		require.NoError(t, os.MkdirAll(path, 0o644))
+		require.NoError(t, os.MkdirAll(path, 0o755))
 
 		for _, emptyFile := range []string{
 			"cpu.stat",
