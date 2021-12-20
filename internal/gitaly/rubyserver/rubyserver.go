@@ -13,7 +13,6 @@ import (
 	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver/balancer"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
@@ -46,7 +45,7 @@ func setupEnv(cfg config.Cfg) []string {
 		fmt.Sprintf("GITALY_RUBY_MAX_COMMIT_OR_TAG_MESSAGE_SIZE=%d", helper.MaxCommitOrTagMessageSize),
 		"GITALY_RUBY_GITALY_BIN_DIR="+cfg.BinDir,
 		"GITALY_VERSION="+version.GetVersion(),
-		"GITALY_GIT_HOOKS_DIR="+hooks.Path(cfg),
+		"GITALY_GIT_HOOKS_DIR="+cfg.HooksPath(),
 		"GITALY_SOCKET="+cfg.GitalyInternalSocketPath(),
 		"GITALY_TOKEN="+cfg.Auth.Token,
 		"GITALY_RUGGED_GIT_CONFIG_SEARCH_PATH="+cfg.Ruby.RuggedGitConfigSearchPath,

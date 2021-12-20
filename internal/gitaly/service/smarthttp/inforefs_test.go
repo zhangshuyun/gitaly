@@ -31,6 +31,8 @@ import (
 )
 
 func TestSuccessfulInfoRefsUploadPack(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	serverSocketPath := runSmartHTTPServer(t, cfg)
@@ -49,6 +51,8 @@ func TestSuccessfulInfoRefsUploadPack(t *testing.T) {
 }
 
 func TestInfoRefsUploadPack_repositoryDoesntExist(t *testing.T) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 
 	serverSocketPath := runSmartHTTPServer(t, cfg)
@@ -66,6 +70,8 @@ func TestInfoRefsUploadPack_repositoryDoesntExist(t *testing.T) {
 }
 
 func TestSuccessfulInfoRefsUploadWithPartialClone(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	serverSocketPath := runSmartHTTPServer(t, cfg)
@@ -89,6 +95,8 @@ func TestSuccessfulInfoRefsUploadWithPartialClone(t *testing.T) {
 }
 
 func TestSuccessfulInfoRefsUploadPackWithGitConfigOptions(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	serverSocketPath := runSmartHTTPServer(t, cfg)
@@ -109,6 +117,8 @@ func TestSuccessfulInfoRefsUploadPackWithGitConfigOptions(t *testing.T) {
 }
 
 func TestSuccessfulInfoRefsUploadPackWithGitProtocol(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	readProtocol, cfg := gittest.EnableGitProtocolV2Support(t, cfg)
@@ -159,6 +169,8 @@ func makeInfoRefsUploadPackRequest(ctx context.Context, t *testing.T, serverSock
 }
 
 func TestSuccessfulInfoRefsReceivePack(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	serverSocketPath := runSmartHTTPServer(t, cfg)
@@ -178,6 +190,8 @@ func TestSuccessfulInfoRefsReceivePack(t *testing.T) {
 }
 
 func TestObjectPoolRefAdvertisementHiding(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	testcfg.BuildGitalyHooks(t, cfg)
@@ -215,6 +229,8 @@ func TestObjectPoolRefAdvertisementHiding(t *testing.T) {
 }
 
 func TestFailureRepoNotFoundInfoRefsReceivePack(t *testing.T) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 
 	serverSocketPath := runSmartHTTPServer(t, cfg)
@@ -230,6 +246,8 @@ func TestFailureRepoNotFoundInfoRefsReceivePack(t *testing.T) {
 }
 
 func TestFailureRepoNotSetInfoRefsReceivePack(t *testing.T) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 
 	serverSocketPath := runSmartHTTPServer(t, cfg)
@@ -293,6 +311,8 @@ func (ms *mockStreamer) PutStream(ctx context.Context, repo *gitalypb.Repository
 }
 
 func TestCacheInfoRefsUploadPack(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	locator := config.NewLocator(cfg)

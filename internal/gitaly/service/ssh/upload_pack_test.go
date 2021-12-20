@@ -100,6 +100,8 @@ func (cmd cloneCommand) test(t *testing.T, cfg config.Cfg, repoPath string, loca
 }
 
 func TestFailedUploadPackRequestDueToTimeout(t *testing.T) {
+	t.Parallel()
+
 	runTestWithAndWithoutConfigOptions(t, testFailedUploadPackRequestDueToTimeout, testcfg.WithPackObjectsCacheEnabled())
 }
 
@@ -160,6 +162,8 @@ func requireFailedSSHStream(t *testing.T, recv func() (int32, error)) {
 }
 
 func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 
 	serverSocketPath := runSSHServer(t, cfg)
@@ -210,6 +214,8 @@ func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 }
 
 func TestUploadPackCloneSuccess(t *testing.T) {
+	t.Parallel()
+
 	runTestWithAndWithoutConfigOptions(t, testUploadPackCloneSuccess, testcfg.WithPackObjectsCacheEnabled())
 }
 
@@ -272,6 +278,8 @@ func testUploadPackCloneSuccess(t *testing.T, opts ...testcfg.Option) {
 }
 
 func TestUploadPackWithPackObjectsHook(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t, testcfg.WithPackObjectsCacheEnabled())
 
 	filterDir := testhelper.TempDir(t)
@@ -314,6 +322,8 @@ exec '%s' "$@"
 }
 
 func TestUploadPackWithoutSideband(t *testing.T) {
+	t.Parallel()
+
 	runTestWithAndWithoutConfigOptions(t, testUploadPackWithoutSideband, testcfg.WithPackObjectsCacheEnabled())
 }
 
@@ -361,6 +371,8 @@ func testUploadPackWithoutSideband(t *testing.T, opts ...testcfg.Option) {
 }
 
 func TestUploadPackCloneWithPartialCloneFilter(t *testing.T) {
+	t.Parallel()
+
 	runTestWithAndWithoutConfigOptions(t, testUploadPackCloneWithPartialCloneFilter, testcfg.WithPackObjectsCacheEnabled())
 }
 
@@ -431,6 +443,8 @@ func testUploadPackCloneWithPartialCloneFilter(t *testing.T, opts ...testcfg.Opt
 }
 
 func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
+	t.Parallel()
+
 	runTestWithAndWithoutConfigOptions(t, testUploadPackCloneSuccessWithGitProtocol, testcfg.WithPackObjectsCacheEnabled())
 }
 
@@ -489,6 +503,8 @@ func testUploadPackCloneSuccessWithGitProtocol(t *testing.T, opts ...testcfg.Opt
 }
 
 func TestUploadPackCloneHideTags(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	testcfg.BuildGitalySSH(t, cfg)
@@ -522,6 +538,8 @@ func TestUploadPackCloneHideTags(t *testing.T) {
 }
 
 func TestUploadPackCloneFailure(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	serverSocketPath := runSSHServer(t, cfg)
@@ -545,6 +563,8 @@ func TestUploadPackCloneFailure(t *testing.T) {
 }
 
 func TestUploadPackCloneGitFailure(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	serverSocketPath := runSSHServer(t, cfg)

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/log"
@@ -107,7 +106,7 @@ func (cc *cmdCfg) configureHooks(
 		fmt.Sprintf("%s=%s", log.GitalyLogDirEnvKey, cfg.Logging.Dir),
 	)
 
-	cc.globals = append(cc.globals, ConfigPair{Key: "core.hooksPath", Value: hooks.Path(cfg)})
+	cc.globals = append(cc.globals, ConfigPair{Key: "core.hooksPath", Value: cfg.HooksPath()})
 	cc.hooksConfigured = true
 
 	return nil

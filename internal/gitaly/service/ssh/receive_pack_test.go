@@ -15,7 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
@@ -35,6 +34,8 @@ import (
 )
 
 func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	serverSocketPath := runSSHServer(t, cfg)
@@ -87,14 +88,15 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 }
 
 func TestReceivePackPushSuccess(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	cfg.GitlabShell.Dir = "/foo/bar/gitlab-shell"
 
-	testcfg.BuildGitalySSH(t, cfg)
+	cfg, hookOutputFile := gittest.CaptureHookEnv(t, cfg)
 
-	hookOutputFile, cleanup := gittest.CaptureHookEnv(t)
-	defer cleanup()
+	testcfg.BuildGitalySSH(t, cfg)
 
 	serverSocketPath := runSSHServer(t, cfg)
 
@@ -162,6 +164,8 @@ func TestReceivePackPushSuccess(t *testing.T) {
 }
 
 func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	testcfg.BuildGitalySSH(t, cfg)
@@ -186,6 +190,8 @@ func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
 }
 
 func TestReceivePackPushFailure(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	serverSocketPath := runSSHServer(t, cfg)
@@ -198,21 +204,19 @@ func TestReceivePackPushFailure(t *testing.T) {
 }
 
 func TestReceivePackPushHookFailure(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg.Git.HooksPath = testhelper.TempDir(t)
 
 	testcfg.BuildGitalySSH(t, cfg)
 
 	serverSocketPath := runSSHServer(t, cfg)
 
-	hookDir := testhelper.TempDir(t)
-
-	defer func(old string) { hooks.Override = old }(hooks.Override)
-	hooks.Override = hookDir
-
-	require.NoError(t, os.MkdirAll(hooks.Path(cfg), 0o755))
+	require.NoError(t, os.MkdirAll(cfg.HooksPath(), 0o755))
 
 	hookContent := []byte("#!/bin/sh\nexit 1")
-	require.NoError(t, os.WriteFile(filepath.Join(hooks.Path(cfg), "pre-receive"), hookContent, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(cfg.HooksPath(), "pre-receive"), hookContent, 0o755))
 
 	_, _, err := testCloneAndPush(t, cfg, cfg.Storages[0].Path, serverSocketPath, repo, pushParams{storageName: cfg.Storages[0].Name, glID: "1"})
 	require.Error(t, err)
@@ -220,6 +224,8 @@ func TestReceivePackPushHookFailure(t *testing.T) {
 }
 
 func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	testcfg.BuildGitalyHooks(t, cfg)
@@ -275,6 +281,8 @@ func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 }
 
 func TestReceivePackTransactional(t *testing.T) {
+	t.Parallel()
+
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -478,6 +486,8 @@ func TestReceivePackTransactional(t *testing.T) {
 }
 
 func TestSSHReceivePackToHooks(t *testing.T) {
+	t.Parallel()
+
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	testcfg.BuildGitalyHooks(t, cfg)

@@ -428,6 +428,41 @@ value = "second-value"
 	}, cfg.Git)
 }
 
+func TestHooksPath(t *testing.T) {
+	t.Run("Ruby directory", func(t *testing.T) {
+		cfg := Cfg{
+			Ruby: Ruby{
+				Dir: "/ruby/dir",
+			},
+		}
+
+		t.Run("no overrides", func(t *testing.T) {
+			require.Equal(t, "/ruby/dir/git-hooks", cfg.HooksPath())
+		})
+
+		t.Run("with skip", func(t *testing.T) {
+			defer testhelper.ModifyEnvironment(t, "GITALY_TESTING_NO_GIT_HOOKS", "1")()
+			require.Equal(t, "/var/empty", cfg.HooksPath())
+		})
+	})
+
+	t.Run("hooks path", func(t *testing.T) {
+		cfg := Cfg{
+			Git: Git{
+				HooksPath: "/hooks/path",
+			},
+			Ruby: Ruby{
+				Dir: "/ruby/dir",
+			},
+		}
+
+		defer testhelper.ModifyEnvironment(t, "GITALY_TESTING_NO_GIT_HOOKS", "1")()
+
+		// The environment variable shouldn't override an explicitly set hooks path.
+		require.Equal(t, "/hooks/path", cfg.HooksPath())
+	})
+}
+
 func TestSetGitPath(t *testing.T) {
 	cleanup := testhelper.ModifyEnvironment(t, "GITALY_TESTING_GIT_BINARY", "")
 	defer cleanup()

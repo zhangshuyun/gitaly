@@ -54,10 +54,14 @@ func runTestWithAndWithoutConfigOptions(
 }
 
 func TestServer_PostUpload(t *testing.T) {
+	t.Parallel()
+
 	runTestWithAndWithoutConfigOptions(t, testServerPostUpload, makePostUploadPackRequest, testcfg.WithPackObjectsCacheEnabled())
 }
 
 func TestServer_PostUploadWithChannel(t *testing.T) {
+	t.Parallel()
+
 	runTestWithAndWithoutConfigOptions(t, testServerPostUpload, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
 }
 
@@ -100,10 +104,14 @@ func testServerPostUpload(t *testing.T, ctx context.Context, makeRequest request
 }
 
 func TestServer_PostUploadPack_gitConfigOptions(t *testing.T) {
+	t.Parallel()
+
 	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackGitConfigOptions, makePostUploadPackRequest, testcfg.WithPackObjectsCacheEnabled())
 }
 
 func TestServer_PostUploadPackSidechannel_gitConfigOptions(t *testing.T) {
+	t.Parallel()
+
 	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackGitConfigOptions, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
 }
 
@@ -154,10 +162,14 @@ func testServerPostUploadPackGitConfigOptions(t *testing.T, ctx context.Context,
 }
 
 func TestServer_PostUploadPack_gitProtocol(t *testing.T) {
+	t.Parallel()
+
 	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackGitProtocol, makePostUploadPackRequest, testcfg.WithPackObjectsCacheEnabled())
 }
 
 func TestServer_PostUploadPackWithSidechannel_gitProtocol(t *testing.T) {
+	t.Parallel()
+
 	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackGitProtocol, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
 }
 
@@ -190,10 +202,14 @@ func testServerPostUploadPackGitProtocol(t *testing.T, ctx context.Context, make
 // on 'deepen' requests even though the request is being handled just
 // fine from the client perspective.
 func TestServer_PostUploadPack_suppressDeepenExitError(t *testing.T) {
+	t.Parallel()
+
 	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackSuppressDeepenExitError, makePostUploadPackRequest, testcfg.WithPackObjectsCacheEnabled())
 }
 
 func TestServer_PostUploadPackWithSidechannel_suppressDeepenExitError(t *testing.T) {
+	t.Parallel()
+
 	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackSuppressDeepenExitError, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
 }
 
@@ -215,6 +231,8 @@ func testServerPostUploadPackSuppressDeepenExitError(t *testing.T, ctx context.C
 }
 
 func TestServer_PostUploadPack_usesPackObjectsHook(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -222,6 +240,8 @@ func TestServer_PostUploadPack_usesPackObjectsHook(t *testing.T) {
 }
 
 func TestServer_PostUploadPackWithSidechannel_usesPackObjectsHook(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -265,6 +285,8 @@ func testServerPostUploadPackUsesPackObjectsHook(t *testing.T, ctx context.Conte
 }
 
 func TestServer_PostUploadPack_validation(t *testing.T) {
+	t.Parallel()
+
 	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackValidation, makePostUploadPackRequest, testcfg.WithPackObjectsCacheEnabled())
 }
 
@@ -287,6 +309,8 @@ func testServerPostUploadPackValidation(t *testing.T, ctx context.Context, makeR
 }
 
 func TestServer_PostUploadPackSidechannel_validation(t *testing.T) {
+	t.Parallel()
+
 	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackWithSideChannelValidation, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
 }
 
@@ -347,10 +371,14 @@ func extractPackDataFromResponse(t *testing.T, buf *bytes.Buffer) ([]byte, int, 
 }
 
 func TestServer_PostUploadPack_partialClone(t *testing.T) {
+	t.Parallel()
+
 	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackPartialClone, makePostUploadPackRequest, testcfg.WithPackObjectsCacheEnabled())
 }
 
 func TestServer_PostUploadPackWithSidechannel_partialClone(t *testing.T) {
+	t.Parallel()
+
 	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackPartialClone, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
 }
 
@@ -400,6 +428,8 @@ func testServerPostUploadPackPartialClone(t *testing.T, ctx context.Context, mak
 }
 
 func TestServer_PostUploadPack_allowAnySHA1InWant(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -407,6 +437,8 @@ func TestServer_PostUploadPack_allowAnySHA1InWant(t *testing.T) {
 }
 
 func TestServer_PostUploadPackWithSidechannel_allowAnySHA1InWant(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 

@@ -109,6 +109,9 @@ type Git struct {
 	BinPath            string      `toml:"bin_path"`
 	CatfileCacheSize   int         `toml:"catfile_cache_size"`
 	Config             []GitConfig `toml:"config"`
+	// HooksPath is the location where Gitaly has its hooks. This variable cannot be set via the
+	// config file and is only used in our tests.
+	HooksPath string `toml:"-"`
 
 	execEnv []string
 }
@@ -363,6 +366,19 @@ func (cfg *Cfg) validateStorages() error {
 func SkipHooks() bool {
 	enabled, _ := env.GetBool("GITALY_TESTING_NO_GIT_HOOKS", false)
 	return enabled
+}
+
+// HooksPath returns the path where Gitaly's Git hooks are located.
+func (cfg *Cfg) HooksPath() string {
+	if len(cfg.Git.HooksPath) > 0 {
+		return cfg.Git.HooksPath
+	}
+
+	if SkipHooks() {
+		return "/var/empty"
+	}
+
+	return filepath.Join(cfg.Ruby.Dir, "git-hooks")
 }
 
 // SetGitPath populates the variable GitPath with the path to the `git`
