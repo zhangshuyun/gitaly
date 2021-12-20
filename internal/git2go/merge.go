@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
@@ -19,47 +18,28 @@ const (
 // MergeCommand contains parameters to perform a merge.
 type MergeCommand struct {
 	// Repository is the path to execute merge in.
-	Repository string `json:"repository"`
+	Repository string
 	// AuthorName is the author name of merge commit.
-	AuthorName string `json:"author_name"`
+	AuthorName string
 	// AuthorMail is the author mail of merge commit.
-	AuthorMail string `json:"author_mail"`
+	AuthorMail string
 	// AuthorDate is the auithor date of merge commit.
-	AuthorDate time.Time `json:"author_date"`
+	AuthorDate time.Time
 	// Message is the message to be used for the merge commit.
-	Message string `json:"message"`
+	Message string
 	// Ours is the commit that is to be merged into theirs.
-	Ours string `json:"ours"`
+	Ours string
 	// Theirs is the commit into which ours is to be merged.
-	Theirs string `json:"theirs"`
+	Theirs string
 	// AllowConflicts controls whether conflicts are allowed. If they are,
 	// then conflicts will be committed as part of the result.
-	AllowConflicts bool `json:"allow_conflicts"`
+	AllowConflicts bool
 }
 
 // MergeResult contains results from a merge.
 type MergeResult struct {
 	// CommitID is the object ID of the generated merge commit.
-	CommitID string `json:"commit_id"`
-}
-
-// MergeCommandFromSerialized deserializes the merge request from its JSON representation encoded with base64.
-func MergeCommandFromSerialized(serialized string) (MergeCommand, error) {
-	var request MergeCommand
-	if err := deserialize(serialized, &request); err != nil {
-		return MergeCommand{}, err
-	}
-
-	if err := request.verify(); err != nil {
-		return MergeCommand{}, fmt.Errorf("merge: %w: %s", ErrInvalidArgument, err.Error())
-	}
-
-	return request, nil
-}
-
-// SerializeTo serializes the merge result and writes it into the writer.
-func (m MergeResult) SerializeTo(w io.Writer) error {
-	return serializeTo(w, m)
+	CommitID string
 }
 
 // Merge performs a merge via gitaly-git2go.
