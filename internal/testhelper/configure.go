@@ -84,6 +84,26 @@ func Run(m *testing.M, opts ...RunOption) {
 func configure() (_ func(), returnedErr error) {
 	gitalylog.Configure(gitalylog.Loggers, "json", "panic")
 
+	for key, value := range map[string]string{
+		// We inject the following two variables, which instruct Git to search its
+		// configuration in non-default locations in the global and system scope. This is
+		// done as a sanity check to verify that we don't ever pick up this configuration
+		// but instead filter it out whenever we execute Git. The values are set to the
+		// root directory: this directory is guaranteed to exist, and Git is guaranteed to
+		// fail parsing those directories as configuration.
+		"GIT_CONFIG_GLOBAL": "/",
+		"GIT_CONFIG_SYSTEM": "/",
+		// Same as above, this value is injected such that we can detect whether any site
+		// which executes Git fails to inject the expected Git directory. This is also
+		// required such that we don't ever inadvertently execute Git commands in the wrong
+		// Git repository.
+		"GIT_DIR": "/dev/null",
+	} {
+		if err := os.Setenv(key, value); err != nil {
+			return nil, err
+		}
+	}
+
 	cleanup, err := configureTestDirectory()
 	if err != nil {
 		return nil, fmt.Errorf("configuring test directory: %w", err)

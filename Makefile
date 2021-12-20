@@ -240,7 +240,6 @@ find_go_sources       = $(shell find ${SOURCE_DIR} -type d \( -name ruby -o -nam
 # TEST_OPTIONS: any additional options
 # TEST_PACKAGES: packages which shall be tested
 run_go_tests = PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}' \
-    GIT_DIR=/dev/null \
     TEST_TMP_DIR='${TEST_TMP_DIR}' \
     ${GOTESTSUM} --format ${TEST_FORMAT} --junitfile ${TEST_REPORT} -- ${GO_LDFLAGS} -tags '${GO_BUILD_TAGS}' ${TEST_OPTIONS} ${TEST_PACKAGES}
 
