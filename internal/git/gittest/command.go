@@ -61,11 +61,15 @@ func createCommand(t testing.TB, cfg config.Cfg, execCfg ExecConfig, args ...str
 	cmd.Env = append(cmd.Env,
 		"GIT_AUTHOR_DATE=1572776879 +0100",
 		"GIT_COMMITTER_DATE=1572776879 +0100",
-		"GIT_CONFIG_COUNT=2",
+		"GIT_CONFIG_COUNT=4",
 		"GIT_CONFIG_KEY_0=init.defaultBranch",
 		"GIT_CONFIG_VALUE_0=master",
 		"GIT_CONFIG_KEY_1=init.templateDir",
 		"GIT_CONFIG_VALUE_1=",
+		"GIT_CONFIG_KEY_2=user.name",
+		"GIT_CONFIG_VALUE_2=Your Name",
+		"GIT_CONFIG_KEY_3=user.email",
+		"GIT_CONFIG_VALUE_3=you@example.com",
 	)
 	cmd.Env = append(cmd.Env, cfg.GitExecEnv()...)
 	cmd.Env = append(cmd.Env, execCfg.Env...)
