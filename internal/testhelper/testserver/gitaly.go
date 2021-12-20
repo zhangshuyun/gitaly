@@ -4,12 +4,9 @@ import (
 	"context"
 	"net"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/pelletier/go-toml"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -34,24 +31,11 @@ import (
 	praefectconfig "gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/streamcache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
-
-// praefectSpawnTokens limits the number of concurrent Praefect instances we spawn. With parallel
-// tests, it can happen that we otherwise would spawn so many Praefect executables, with two
-// consequences: first, they eat up all the hosts' memory. Second, they start to saturate Postgres
-// such that new connections start to fail becaue of too many clients. The limit of concurrent
-// instances is not scientifically chosen, but is picked such that tests do not fail on my machine
-// anymore.
-//
-// Note that this only limits concurrency for a single package. If you test multiple packages at
-// once, then these would also run concurrently, leading to `16 * len(packages)` concurrent Praefect
-// instances. To limit this, you can run `go test -p $n` to test at most `$n` concurrent packages.
-var praefectSpawnTokens = make(chan struct{}, 16)
 
 // RunGitalyServer starts gitaly server based on the provided cfg and returns a connection address.
 // It accepts addition Registrar to register all required service instead of
@@ -72,49 +56,23 @@ func StartGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Serv
 		}
 	}
 
-	testcfg.BuildPraefect(t, cfg)
-
-	praefectAddr, shutdownPraefect := runPraefectProxy(t, cfg, gitalyAddr, filepath.Join(cfg.BinDir, "praefect"))
+	praefectServer := runPraefectProxy(t, cfg, gitalyAddr)
 	return GitalyServer{
 		shutdown: func() {
-			shutdownPraefect()
+			praefectServer.Shutdown()
 			gitalySrv.Stop()
 		},
-		address: praefectAddr,
+		address: praefectServer.Address(),
 	}
 }
 
-// createDatabase create a new database with randomly generated name and returns it back to the caller.
-func createDatabase(t testing.TB) string {
-	db := testdb.New(t)
-	return db.Name
-}
-
-func runPraefectProxy(t testing.TB, cfg config.Cfg, gitalyAddr, praefectBinPath string) (string, func()) {
-	praefectSpawnTokens <- struct{}{}
-	t.Cleanup(func() {
-		<-praefectSpawnTokens
-	})
-
-	tempDir := testhelper.TempDir(t)
-
-	// We're precreating the Unix socket which we pass to Praefect. This closes a race where
-	// the Unix socket didn't yet exist when we tried to dial the Praefect server.
-	praefectServerSocket, err := net.Listen("unix", testhelper.GetTemporaryGitalySocketFileName(t))
-	require.NoError(t, err)
-	testhelper.MustClose(t, praefectServerSocket)
-	t.Cleanup(func() { require.NoError(t, os.RemoveAll(praefectServerSocket.Addr().String())) })
-
-	praefectServerSocketPath := "unix://" + praefectServerSocket.Addr().String()
-
-	dbName := createDatabase(t)
-
-	conf := praefectconfig.Config{
-		SocketPath: praefectServerSocketPath,
+func runPraefectProxy(t testing.TB, gitalyCfg config.Cfg, gitalyAddr string) PraefectServer {
+	return StartPraefect(t, praefectconfig.Config{
+		SocketPath: testhelper.GetTemporaryGitalySocketFileName(t),
 		Auth: auth.Config{
-			Token: cfg.Auth.Token,
+			Token: gitalyCfg.Auth.Token,
 		},
-		DB: testdb.GetConfig(t, dbName),
+		DB: testdb.GetConfig(t, testdb.New(t).Name),
 		Failover: praefectconfig.Failover{
 			Enabled:          true,
 			ElectionStrategy: praefectconfig.ElectionStrategyLocal,
@@ -125,42 +83,22 @@ func runPraefectProxy(t testing.TB, cfg config.Cfg, gitalyAddr, praefectBinPath 
 			Level:  "panic",
 		},
 		ForceCreateRepositories: true,
-	}
-
-	// Only single storage will be served by the praefect instance.
-	// We can't include more as it is invalid to use same address for
-	// different storages.
-	conf.VirtualStorages = []*praefectconfig.VirtualStorage{{
-		Name: cfg.Storages[0].Name,
-		Nodes: []*praefectconfig.Node{{
-			Storage: cfg.Storages[0].Name,
-			Address: gitalyAddr,
-			Token:   cfg.Auth.Token,
-		}},
-	}}
-
-	configFilePath := filepath.Join(tempDir, "config.toml")
-	configFile, err := os.Create(configFilePath)
-	require.NoError(t, err)
-	defer testhelper.MustClose(t, configFile)
-
-	require.NoError(t, toml.NewEncoder(configFile).Encode(&conf))
-	require.NoError(t, configFile.Sync())
-
-	cmd := exec.Command(praefectBinPath, "-config", configFilePath)
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-
-	require.NoError(t, cmd.Start())
-	shutdown := func() { _ = cmd.Process.Kill() }
-	t.Cleanup(func() {
-		shutdown()
-		_ = cmd.Wait()
+		VirtualStorages: []*praefectconfig.VirtualStorage{
+			{
+				// Only single storage will be served by the Praefect instance. We
+				// can't include more as it is invalid to use same address for
+				// different storages.
+				Name: gitalyCfg.Storages[0].Name,
+				Nodes: []*praefectconfig.Node{
+					{
+						Storage: gitalyCfg.Storages[0].Name,
+						Address: gitalyAddr,
+						Token:   gitalyCfg.Auth.Token,
+					},
+				},
+			},
+		},
 	})
-
-	waitHealthy(t, cfg, praefectServerSocketPath)
-
-	return praefectServerSocketPath, shutdown
 }
 
 // GitalyServer is a helper that carries additional info and
@@ -182,12 +120,12 @@ func (gs GitalyServer) Address() string {
 
 // waitHealthy waits until the server hosted at address becomes healthy. Times out after a fixed
 // amount of time.
-func waitHealthy(t testing.TB, cfg config.Cfg, addr string) {
+func waitHealthy(t testing.TB, addr string, authToken string) {
 	grpcOpts := []grpc.DialOption{
 		grpc.WithBlock(),
 	}
-	if cfg.Auth.Token != "" {
-		grpcOpts = append(grpcOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)))
+	if authToken != "" {
+		grpcOpts = append(grpcOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(authToken)))
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -240,7 +178,7 @@ func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, regi
 			assert.NoError(t, internalServer.Serve(internalListener), "failure to serve internal gRPC")
 		}()
 
-		waitHealthy(t, cfg, "unix://"+internalListener.Addr().String())
+		waitHealthy(t, "unix://"+internalListener.Addr().String(), cfg.Auth.Token)
 	}
 
 	externalServer, err := serverFactory.CreateExternal(cfg.TLS.CertPath != "" && cfg.TLS.KeyPath != "")
@@ -274,7 +212,7 @@ func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, regi
 		assert.NoError(t, externalServer.Serve(listener), "failure to serve external gRPC")
 	}()
 
-	waitHealthy(t, cfg, addr)
+	waitHealthy(t, addr, cfg.Auth.Token)
 
 	return externalServer, addr, gsd.disablePraefect
 }
