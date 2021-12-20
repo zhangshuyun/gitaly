@@ -220,9 +220,10 @@ func TestUpdate_quarantine(t *testing.T) {
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
 	), cfg)
 
-	script := fmt.Sprintf("#!/bin/sh\n%s cat-file -p '%s' || true\n",
-		cfg.Git.BinPath, blobID.String())
-	gittest.WriteCustomHook(t, repoPath, "update", []byte(script))
+	gittest.WriteCustomHook(t, repoPath, "update", []byte(fmt.Sprintf(
+		`#!/bin/sh
+		git cat-file -p '%s' || true
+	`, blobID.String())))
 
 	for repo, isQuarantined := range map[*gitalypb.Repository]bool{
 		quarantine.QuarantinedRepo(): true,

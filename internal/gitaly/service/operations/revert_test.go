@@ -187,8 +187,12 @@ func TestServer_UserRevert_quarantine(t *testing.T) {
 	// Set up a hook that parses the new object and then aborts the update. Like this, we can
 	// assert that the object does not end up in the main repository.
 	outputPath := filepath.Join(testhelper.TempDir(t), "output")
-	hookScript := fmt.Sprintf("#!/bin/sh\nread oldval newval ref && %s rev-parse $newval^{commit} >%s && exit 1", cfg.Git.BinPath, outputPath)
-	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(hookScript))
+	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(fmt.Sprintf(
+		`#!/bin/sh
+		read oldval newval ref &&
+		git rev-parse $newval^{commit} >%s &&
+		exit 1
+	`, outputPath)))
 
 	commitToRevert, err := repo.ReadCommit(ctx, "d59c60028b053793cecfb4022de34602e1a9218e")
 	require.NoError(t, err)

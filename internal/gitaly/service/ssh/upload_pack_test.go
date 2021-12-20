@@ -288,21 +288,18 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 
 	testcfg.BuildGitalySSH(t, cfg)
 
-	hookScript := fmt.Sprintf(
-		`#!/bin/bash
-set -eo pipefail
-echo 'I was invoked' >'%s'
-shift
-exec '%s' "$@"
-`,
-		outputPath, cfg.Git.BinPath)
-
 	// We're using a custom pack-objetcs hook for git-upload-pack. In order
 	// to assure that it's getting executed as expected, we're writing a
 	// custom script which replaces the hook binary. It doesn't do anything
 	// special, but writes an error message and errors out and should thus
 	// cause the clone to fail with this error message.
-	testhelper.WriteExecutable(t, filepath.Join(filterDir, "gitaly-hooks"), []byte(hookScript))
+	testhelper.WriteExecutable(t, filepath.Join(filterDir, "gitaly-hooks"), []byte(fmt.Sprintf(
+		`#!/bin/bash
+		set -eo pipefail
+		echo 'I was invoked' >'%s'
+		shift
+		exec git "$@"
+	`, outputPath)))
 
 	serverSocketPath := runSSHServer(t, cfg)
 

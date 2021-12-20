@@ -582,7 +582,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 	})
 	defer cleanup()
 
-	gittest.WriteCheckNewObjectExistsHook(t, cfg, testRepoPath)
+	gittest.WriteCheckNewObjectExistsHook(t, testRepoPath)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

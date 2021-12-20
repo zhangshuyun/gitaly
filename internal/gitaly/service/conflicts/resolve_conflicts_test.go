@@ -833,8 +833,13 @@ func TestResolveConflictsQuarantine(t *testing.T) {
 	// We set up a custom "pre-receive" hook which simply prints the new commit to stdout and
 	// then exits with an error. Like this, we can both assert that the hook can see the
 	// quarantined tag, and it allows us to fail the RPC before we migrate quarantined objects.
-	script := fmt.Sprintf("#!/bin/sh\nread oldval newval ref && echo $newval && %s cat-file -p $newval^{commit} && exit 1", cfg.Git.BinPath)
-	gittest.WriteCustomHook(t, sourceRepoPath, "pre-receive", []byte(script))
+	gittest.WriteCustomHook(t, sourceRepoPath, "pre-receive", []byte(
+		`#!/bin/sh
+		read oldval newval ref &&
+		echo $newval &&
+		git cat-file -p $newval^{commit} &&
+		exit 1
+	`))
 
 	targetRepoProto, targetRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	targetBlobOID := gittest.WriteBlob(t, cfg, targetRepoPath, []byte("contents-2\n"))
