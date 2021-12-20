@@ -16,28 +16,17 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 )
 
-type submoduleSubcommand struct {
-	request string
-}
+type submoduleSubcommand struct{}
 
 func (cmd *submoduleSubcommand) Flags() *flag.FlagSet {
-	flags := flag.NewFlagSet("submodule", flag.ExitOnError)
-	flags.StringVar(&cmd.request, "request", "", "git2go.SubmoduleCommand")
-	return flags
+	return flag.NewFlagSet("submodule", flag.ExitOnError)
 }
 
 func (cmd *submoduleSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) error {
 	var request git2go.SubmoduleCommand
-	if cmd.request == "" {
-		if err := gob.NewDecoder(r).Decode(&request); err != nil {
-			return fmt.Errorf("deserializing submodule command request: %w", err)
-		}
-	} else {
-		var err error
-		request, err = git2go.SubmoduleCommandFromSerialized(cmd.request)
-		if err != nil {
-			return fmt.Errorf("deserializing submodule command request: %w", err)
-		}
+
+	if err := gob.NewDecoder(r).Decode(&request); err != nil {
+		return fmt.Errorf("deserializing submodule command request: %w", err)
 	}
 
 	res, err := cmd.run(request)
@@ -45,11 +34,7 @@ func (cmd *submoduleSubcommand) Run(_ context.Context, r io.Reader, w io.Writer)
 		return err
 	}
 
-	if cmd.request == "" {
-		return gob.NewEncoder(w).Encode(res)
-	}
-
-	return res.SerializeTo(w)
+	return gob.NewEncoder(w).Encode(res)
 }
 
 func (cmd *submoduleSubcommand) run(request git2go.SubmoduleCommand) (*git2go.SubmoduleResult, error) {
