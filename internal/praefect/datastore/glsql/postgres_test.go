@@ -41,7 +41,7 @@ func TestOpenDB(t *testing.T) {
 		cancel()
 
 		_, err = glsql.OpenDB(ctx, badCfg)
-		require.EqualError(t, err, "context canceled")
+		require.EqualError(t, err, "send ping: context canceled")
 		duration := time.Since(start)
 		require.Truef(t, duration < time.Second, "connection attempt took %s", duration.String())
 	})

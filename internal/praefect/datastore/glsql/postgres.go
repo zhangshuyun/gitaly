@@ -29,26 +29,9 @@ func OpenDB(ctx context.Context, conf config.DB) (*sql.DB, error) {
 		return nil, err
 	}
 
-	errChan := make(chan error)
-	go func() {
-		if err := db.PingContext(ctx); err != nil {
-			errChan <- fmt.Errorf("send ping: %w", err)
-		} else {
-			errChan <- nil
-		}
-	}()
-
-	select {
-	// Because of the issue https://github.com/lib/pq/issues/620 we need to handle context
-	// cancellation/timeout by ourselves.
-	case <-ctx.Done():
-		db.Close()
-		return nil, ctx.Err()
-	case err := <-errChan:
-		if err != nil {
-			db.Close()
-			return nil, err
-		}
+	if err := db.PingContext(ctx); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("send ping: %w", err)
 	}
 
 	return db, nil
