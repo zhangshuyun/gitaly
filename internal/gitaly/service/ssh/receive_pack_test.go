@@ -525,7 +525,7 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 	cfg.Gitlab.URL = serverURL
 	cfg.Gitlab.SecretFile = filepath.Join(tempGitlabShellDir, ".gitlab_shell_secret")
 
-	gittest.WriteCheckNewObjectExistsHook(t, cfg, cloneDetails.RemoteRepoPath)
+	gittest.WriteCheckNewObjectExistsHook(t, cloneDetails.RemoteRepoPath)
 
 	serverSocketPath := runSSHServer(t, cfg)
 

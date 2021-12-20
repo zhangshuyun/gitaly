@@ -49,7 +49,7 @@ func (m *GitLabHookManager) newCustomHooksExecutor(repo *gitalypb.Repository, ho
 	}
 	hookFiles = append(hookFiles, files...)
 
-	globalCustomHooksDir := filepath.Join(m.hooksConfig.CustomHooksDir, fmt.Sprintf("%s.d", hookName))
+	globalCustomHooksDir := filepath.Join(m.cfg.Hooks.CustomHooksDir, fmt.Sprintf("%s.d", hookName))
 	files, err = findHooks(globalCustomHooksDir)
 	if err != nil {
 		return nil, err
@@ -165,6 +165,25 @@ func (m *GitLabHookManager) customHooksEnv(payload git.HooksPayload, pushOptions
 	if alternateObjectDirectories != "" {
 		customEnvs = append(customEnvs, "GIT_ALTERNATE_OBJECT_DIRECTORIES="+alternateObjectDirectories)
 	}
+
+	if gitDir := filepath.Dir(m.cfg.Git.BinPath); gitDir != "." {
+		// By default, we should take PATH from the given set of environment variables, if
+		// it's contained in there. Otherwise, we need to take the current process's PATH
+		// environment, which would also be the default injected by the command package.
+		currentPath := getEnvVar("PATH", envs)
+		if currentPath == "" {
+			currentPath = os.Getenv("PATH")
+		}
+
+		// We want to ensure that custom hooks use the same Git version as used by Gitaly.
+		// Given that our Git version may not be contained in PATH, we thus have to prepend
+		// the directory containing that executable to PATH such that it can be found.
+		customEnvs = append(customEnvs, fmt.Sprintf("PATH=%s:%s", gitDir, currentPath))
+	}
+
+	// We need to inject environment variables which set up the Git execution environment in
+	// case we're running with bundled Git such that Git can locate its binaries.
+	customEnvs = append(customEnvs, m.cfg.GitExecEnv()...)
 
 	return append(customEnvs,
 		"GIT_DIR="+repoPath,

@@ -1012,12 +1012,15 @@ func TestUserCommitFilesQuarantine(t *testing.T) {
 
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
-	outputPath := filepath.Join(testhelper.TempDir(t), "output")
-
 	// Set up a hook that parses the new object and then aborts the update. Like this, we can
 	// assert that the object does not end up in the main repository.
-	hookScript := fmt.Sprintf("#!/bin/sh\nread oldval newval ref && %s rev-parse $newval^{commit} >%s && exit 1", cfg.Git.BinPath, outputPath)
-	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(hookScript))
+	outputPath := filepath.Join(testhelper.TempDir(t), "output")
+	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(fmt.Sprintf(
+		`#!/bin/sh
+		read oldval newval ref &&
+		git rev-parse $newval^{commit} >%s &&
+		exit 1
+	`, outputPath)))
 
 	stream, err := client.UserCommitFiles(ctx)
 	require.NoError(t, err)

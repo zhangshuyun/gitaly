@@ -120,17 +120,11 @@ func TestPostReceive_customHook(t *testing.T) {
 		expectedStderr string
 	}{
 		{
-			desc:  "hook receives environment variables",
-			env:   []string{payload},
-			stdin: "changes\n",
-			hook:  "#!/bin/sh\nenv | grep -e '^GL_' -e '^GITALY_' | sort\n",
-			expectedStdout: strings.Join([]string{
-				"GL_ID=1234",
-				fmt.Sprintf("GL_PROJECT_PATH=%s", repo.GetGlProjectPath()),
-				"GL_PROTOCOL=web",
-				fmt.Sprintf("GL_REPOSITORY=%s", repo.GetGlRepository()),
-				"GL_USERNAME=user",
-			}, "\n") + "\n",
+			desc:           "hook receives environment variables",
+			env:            []string{payload},
+			stdin:          "changes\n",
+			hook:           "#!/bin/sh\nenv | grep -v -e '^SHLVL=' -e '^_=' | sort\n",
+			expectedStdout: strings.Join(getExpectedEnv(t, cfg, repo), "\n") + "\n",
 		},
 		{
 			desc:  "push options are passed through",
@@ -377,9 +371,10 @@ func TestPostReceive_quarantine(t *testing.T) {
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
 	), cfg)
 
-	script := fmt.Sprintf("#!/bin/sh\n%s cat-file -p '%s' || true\n",
-		cfg.Git.BinPath, blobID.String())
-	gittest.WriteCustomHook(t, repoPath, "post-receive", []byte(script))
+	gittest.WriteCustomHook(t, repoPath, "post-receive", []byte(fmt.Sprintf(
+		`#!/bin/sh
+		git cat-file -p '%s' || true
+	`, blobID.String())))
 
 	for repo, isQuarantined := range map[*gitalypb.Repository]bool{
 		quarantine.QuarantinedRepo(): true,
