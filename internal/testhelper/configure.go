@@ -157,33 +157,6 @@ func configureTestDirectory() (_ func(), returnedErr error) {
 
 // configureGit configures git for test purpose
 func configureGit() error {
-	// We cannot use gittest here given that we ain't got no config yet. We thus need to
-	// manually resolve the git executable, which is either stored in below envvar if
-	// executed via our Makefile, or else just git as resolved via PATH.
-	gitPath := "git"
-	if path, ok := os.LookupEnv("GITALY_TESTING_GIT_BINARY"); ok {
-		gitPath = path
-	} else if path, ok := os.LookupEnv("GITALY_TESTING_BUNDLED_GIT_PATH"); ok {
-		gitPath = filepath.Join(path, "gitaly-git")
-	}
-
-	// Unset environment variables which have an effect on Git itself.
-	cmd := exec.Command(gitPath, "rev-parse", "--local-env-vars")
-	envvars, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("error computing local envvars: %w", err)
-	}
-	for _, envvar := range strings.Split(string(envvars), "\n") {
-		if err := os.Unsetenv(envvar); err != nil {
-			return fmt.Errorf("error unsetting envvar: %w", err)
-		}
-	}
-
-	_, currentFile, _, ok := runtime.Caller(0)
-	if !ok {
-		return fmt.Errorf("could not get caller info")
-	}
-
 	// Set both GOCACHE and GOPATH to the currently active settings to not
 	// have them be overridden by changing our home directory. default it
 	for _, envvar := range []string{"GOCACHE", "GOPATH"} {
@@ -198,6 +171,11 @@ func configureGit() error {
 		if err != nil {
 			return err
 		}
+	}
+
+	_, currentFile, _, ok := runtime.Caller(0)
+	if !ok {
+		return fmt.Errorf("could not get caller info")
 	}
 
 	testHome := filepath.Join(filepath.Dir(currentFile), "testdata/home")

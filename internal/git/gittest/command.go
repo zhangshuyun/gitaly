@@ -56,7 +56,7 @@ func createCommand(t testing.TB, cfg config.Cfg, execCfg ExecConfig, args ...str
 	t.Helper()
 
 	cmd := exec.Command(cfg.Git.BinPath, args...)
-	cmd.Env = os.Environ()
+	cmd.Env = command.AllowedEnvironment(os.Environ())
 	cmd.Env = append(command.GitEnv, cmd.Env...)
 	cmd.Env = append(cmd.Env,
 		"GIT_AUTHOR_DATE=1572776879 +0100",

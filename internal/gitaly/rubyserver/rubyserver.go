@@ -45,7 +45,7 @@ func setupEnv(cfg config.Cfg, gitCmdFactory git.CommandFactory) []string {
 	gitExecEnv := gitCmdFactory.GetExecutionEnvironment(context.TODO())
 
 	env := append(
-		os.Environ(),
+		command.AllowedEnvironment(os.Environ()),
 		"GITALY_LOG_DIR="+cfg.Logging.Dir,
 		"GITALY_RUBY_GIT_BIN_PATH="+gitExecEnv.BinaryPath,
 		fmt.Sprintf("GITALY_RUBY_WRITE_BUFFER_SIZE=%d", streamio.WriteBufferSize),
@@ -59,6 +59,8 @@ func setupEnv(cfg config.Cfg, gitCmdFactory git.CommandFactory) []string {
 	)
 	env = append(env, command.GitEnv...)
 	env = append(env, gitExecEnv.EnvironmentVariables...)
+	env = appendEnvIfSet(env, "BUNDLE_PATH")
+	env = appendEnvIfSet(env, "GEM_HOME")
 
 	if dsn := cfg.Logging.RubySentryDSN; dsn != "" {
 		env = append(env, "SENTRY_DSN="+dsn)
@@ -69,6 +71,13 @@ func setupEnv(cfg config.Cfg, gitCmdFactory git.CommandFactory) []string {
 	}
 
 	return env
+}
+
+func appendEnvIfSet(envvars []string, key string) []string {
+	if value, ok := os.LookupEnv(key); ok {
+		envvars = append(envvars, fmt.Sprintf("%s=%s", key, value))
+	}
+	return envvars
 }
 
 // Server represents a gitaly-ruby helper process.
