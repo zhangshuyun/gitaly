@@ -14,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -29,10 +28,9 @@ import (
 func TestApplyGitattributesSuccess(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.TxApplyGitattributesTwoPhaseRemoval).Run(t, testApplyGitattributesSuccess)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testApplyGitattributesSuccess(t *testing.T, ctx context.Context) {
 	cfg, repo, _, client := setupRepositoryService(t)
 
 	infoPath := filepath.Join(cfg.Storages[0].Path, repo.GetRelativePath(), "info")
@@ -92,10 +90,9 @@ func (s *testTransactionServer) VoteTransaction(ctx context.Context, in *gitalyp
 func TestApplyGitattributesWithTransaction(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.TxApplyGitattributesTwoPhaseRemoval).Run(t, testApplyGitattributesWithTransaction)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testApplyGitattributesWithTransaction(t *testing.T, ctx context.Context) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	transactionServer := &testTransactionServer{}
@@ -130,7 +127,7 @@ func testApplyGitattributesWithTransaction(t *testing.T, ctx context.Context) {
 		voteFn        func(*testing.T, *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error)
 		shouldExist   bool
 		expectedErr   error
-		expectedVotes func(ctx context.Context) int
+		expectedVotes int
 	}{
 		{
 			desc:     "successful vote writes gitattributes",
@@ -145,7 +142,7 @@ func testApplyGitattributesWithTransaction(t *testing.T, ctx context.Context) {
 				}, nil
 			},
 			shouldExist:   true,
-			expectedVotes: func(context.Context) int { return 2 },
+			expectedVotes: 2,
 		},
 		{
 			desc:     "aborted vote does not write gitattributes",
@@ -159,7 +156,7 @@ func testApplyGitattributesWithTransaction(t *testing.T, ctx context.Context) {
 			expectedErr: func() error {
 				return status.Error(codes.Unknown, "committing gitattributes: voting on locked file: preimage vote: transaction was aborted")
 			}(),
-			expectedVotes: func(context.Context) int { return 1 },
+			expectedVotes: 1,
 		},
 		{
 			desc:     "failing vote does not write gitattributes",
@@ -171,7 +168,7 @@ func testApplyGitattributesWithTransaction(t *testing.T, ctx context.Context) {
 			expectedErr: func() error {
 				return status.Error(codes.Unknown, "committing gitattributes: voting on locked file: preimage vote: rpc error: code = Unknown desc = foobar")
 			}(),
-			expectedVotes: func(context.Context) int { return 1 },
+			expectedVotes: 1,
 		},
 		{
 			desc:     "commit without gitattributes performs vote",
@@ -182,13 +179,8 @@ func testApplyGitattributesWithTransaction(t *testing.T, ctx context.Context) {
 					State: gitalypb.VoteTransactionResponse_COMMIT,
 				}, nil
 			},
-			shouldExist: false,
-			expectedVotes: func(ctx context.Context) int {
-				if featureflag.TxApplyGitattributesTwoPhaseRemoval.IsEnabled(ctx) {
-					return 2
-				}
-				return 1
-			},
+			shouldExist:   false,
+			expectedVotes: 2,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -219,7 +211,7 @@ func testApplyGitattributesWithTransaction(t *testing.T, ctx context.Context) {
 			} else {
 				require.NoFileExists(t, path)
 			}
-			require.Equal(t, tc.expectedVotes(ctx), votes)
+			require.Equal(t, tc.expectedVotes, votes)
 		})
 	}
 }
@@ -227,10 +219,9 @@ func testApplyGitattributesWithTransaction(t *testing.T, ctx context.Context) {
 func TestApplyGitattributesFailure(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.TxApplyGitattributesTwoPhaseRemoval).Run(t, testApplyGitattributesFailure)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testApplyGitattributesFailure(t *testing.T, ctx context.Context) {
 	_, repo, _, client := setupRepositoryService(t)
 
 	tests := []struct {
