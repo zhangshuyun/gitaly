@@ -73,15 +73,6 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       value :TREE, 2
       value :TAG, 3
     end
-    add_message "gitaly.CommitsBetweenRequest" do
-      optional :repository, :message, 1, "gitaly.Repository"
-      optional :from, :bytes, 2
-      optional :to, :bytes, 3
-      optional :pagination_params, :message, 4, "gitaly.PaginationParameter"
-    end
-    add_message "gitaly.CommitsBetweenResponse" do
-      repeated :commits, :message, 1, "gitaly.GitCommit"
-    end
     add_message "gitaly.CountCommitsRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
       optional :revision, :bytes, 2
@@ -317,8 +308,6 @@ module Gitaly
   TreeEntryRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.TreeEntryRequest").msgclass
   TreeEntryResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.TreeEntryResponse").msgclass
   TreeEntryResponse::ObjectType = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.TreeEntryResponse.ObjectType").enummodule
-  CommitsBetweenRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CommitsBetweenRequest").msgclass
-  CommitsBetweenResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CommitsBetweenResponse").msgclass
   CountCommitsRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CountCommitsRequest").msgclass
   CountCommitsResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CountCommitsResponse").msgclass
   CountDivergingCommitsRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CountDivergingCommitsRequest").msgclass

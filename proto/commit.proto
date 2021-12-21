@@ -11,9 +11,8 @@ import "google/protobuf/timestamp.proto";
 service CommitService {
 
   // ListCommits lists all commits reachable via a set of references by doing a
-  // graph walk. This deprecates FindAllCommits, FindCommits (except Follow is
-  // not yet supported) and CommitsBetweenRequest. Any unknown revisions will
-  // cause the RPC to fail.
+  // graph walk. This deprecates FindAllCommits and FindCommits (except Follow
+  // is not yet supported). Any unknown revisions will cause the RPC to fail.
   rpc ListCommits(ListCommitsRequest) returns (stream ListCommitsResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -34,11 +33,6 @@ service CommitService {
     };
   }
   rpc TreeEntry(TreeEntryRequest) returns (stream TreeEntryResponse) {
-    option (op_type) = {
-      op: ACCESSOR
-    };
-  }
-  rpc CommitsBetween(CommitsBetweenRequest) returns (stream CommitsBetweenResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
@@ -275,22 +269,6 @@ message TreeEntryResponse {
   int32 mode = 4;
   // raw object contents
   bytes data = 5;
-}
-
-message CommitsBetweenRequest {
-  Repository repository = 1 [(target_repository)=true];
-  bytes from = 2;
-  bytes to = 3;
-
-  // The page token is the last commit OID that was sent. It's expected to be the
-  // full object ID to guard against ambigious OIDs. Using the page parameter is
-  // effectivaly equivalent to setting the `from` parameter to the commit object
-  // identifier.
-  PaginationParameter pagination_params = 4;
-}
-
-message CommitsBetweenResponse {
-  repeated GitCommit commits = 1;
 }
 
 message CountCommitsRequest {
