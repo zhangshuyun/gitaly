@@ -14,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
@@ -47,49 +46,34 @@ func (s *server) applyGitattributes(ctx context.Context, repo *localrepo.Repo, o
 	}
 
 	if catfile.IsNotFound(err) || blobObj.Type != "blob" {
-		if featureflag.TxApplyGitattributesTwoPhaseRemoval.IsEnabled(ctx) {
-			locker, err := safe.NewLockingFileWriter(attributesPath, safe.LockingFileWriterConfig{
-				FileWriterConfig: safe.FileWriterConfig{FileMode: attributesFileMode},
-			})
-			if err != nil {
-				return fmt.Errorf("creating gitattributes lock: %w", err)
+		locker, err := safe.NewLockingFileWriter(attributesPath, safe.LockingFileWriterConfig{
+			FileWriterConfig: safe.FileWriterConfig{FileMode: attributesFileMode},
+		})
+		if err != nil {
+			return fmt.Errorf("creating gitattributes lock: %w", err)
+		}
+		defer func() {
+			if err := locker.Close(); err != nil {
+				ctxlogrus.Extract(ctx).WithError(err).Error("unlocking gitattributes")
 			}
-			defer func() {
-				if err := locker.Close(); err != nil {
-					ctxlogrus.Extract(ctx).WithError(err).Error("unlocking gitattributes")
-				}
-			}()
+		}()
 
-			if err := locker.Lock(); err != nil {
-				return fmt.Errorf("locking gitattributes: %w", err)
-			}
-
-			// We use the zero OID as placeholder to vote on removal of the
-			// gitattributes file.
-			if err := s.vote(ctx, git.ZeroOID, voting.Prepared); err != nil {
-				return fmt.Errorf("preimage vote: %w", err)
-			}
-
-			if err := os.Remove(attributesPath); err != nil && !os.IsNotExist(err) {
-				return err
-			}
-
-			if err := s.vote(ctx, git.ZeroOID, voting.Committed); err != nil {
-				return fmt.Errorf("postimage vote: %w", err)
-			}
-
-			return nil
+		if err := locker.Lock(); err != nil {
+			return fmt.Errorf("locking gitattributes: %w", err)
 		}
 
-		// If there is no gitattributes file, we simply use the ZeroOID
-		// as a placeholder to vote on the removal.
-		if err := s.vote(ctx, git.ZeroOID, voting.UnknownPhase); err != nil {
-			return fmt.Errorf("could not remove gitattributes: %w", err)
+		// We use the zero OID as placeholder to vote on removal of the
+		// gitattributes file.
+		if err := s.vote(ctx, git.ZeroOID, voting.Prepared); err != nil {
+			return fmt.Errorf("preimage vote: %w", err)
 		}
 
-		// Remove info/attributes file if there's no .gitattributes file
 		if err := os.Remove(attributesPath); err != nil && !os.IsNotExist(err) {
 			return err
+		}
+
+		if err := s.vote(ctx, git.ZeroOID, voting.Committed); err != nil {
+			return fmt.Errorf("postimage vote: %w", err)
 		}
 
 		return nil
