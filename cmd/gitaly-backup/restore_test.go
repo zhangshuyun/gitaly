@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -15,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/setup"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -24,13 +22,9 @@ import (
 
 func TestRestoreSubcommand(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(
-		featureflag.TxAtomicRepositoryCreation,
-	).Run(t, testRestoreSubcommand)
-}
 
-func testRestoreSubcommand(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyHooks(t, cfg)

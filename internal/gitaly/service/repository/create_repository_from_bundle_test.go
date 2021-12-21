@@ -2,8 +2,6 @@ package repository
 
 import (
 	"bytes"
-	"context"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -11,14 +9,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -34,10 +30,9 @@ import (
 func TestCreateRepositoryFromBundle_successful(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testServerCreateRepositoryFromBundleSuccessful)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerCreateRepositoryFromBundleSuccessful(t *testing.T, ctx context.Context) {
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	locator := config.NewLocator(cfg)
@@ -100,16 +95,14 @@ func testServerCreateRepositoryFromBundleSuccessful(t *testing.T, ctx context.Co
 func TestCreateRepositoryFromBundle_transactional(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepositoryFromBundleTransactional)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testCreateRepositoryFromBundleTransactional(t *testing.T, ctx context.Context) {
 	txManager := transaction.NewTrackingManager()
 
 	cfg, repoProto, repoPath, client := setupRepositoryService(t, testserver.WithTransactionManager(txManager))
 
 	masterOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/master"))
-	featureOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/feature"))
 
 	// keep-around refs are not cloned in the initial step, but are added via the second call to
 	// git-fetch(1). We thus create some of them to exercise their behaviour with regards to
@@ -147,53 +140,30 @@ func testCreateRepositoryFromBundleTransactional(t *testing.T, ctx context.Conte
 	_, err = stream.CloseAndRecv()
 	require.NoError(t, err)
 
-	if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
-		createVote := func(hash string, phase voting.Phase) transaction.PhasedVote {
-			vote, err := voting.VoteFromString(hash)
-			require.NoError(t, err)
-			return transaction.PhasedVote{Vote: vote, Phase: phase}
-		}
-
-		// While the following votes are opaque to us, this doesn't really matter. All we do
-		// care about is that they're stable.
-		require.Equal(t, []transaction.PhasedVote{
-			// These are the votes created by git-fetch(1).
-			createVote("47553c06f575f757ad56ef3216c59804b72aa4a6", voting.Prepared),
-			createVote("47553c06f575f757ad56ef3216c59804b72aa4a6", voting.Committed),
-			// And this is the manual votes we compute by walking the repository.
-			createVote("da39a3ee5e6b4b0d3255bfef95601890afd80709", voting.Prepared),
-			createVote("da39a3ee5e6b4b0d3255bfef95601890afd80709", voting.Committed),
-		}, txManager.Votes())
-		return
+	createVote := func(hash string, phase voting.Phase) transaction.PhasedVote {
+		vote, err := voting.VoteFromString(hash)
+		require.NoError(t, err)
+		return transaction.PhasedVote{Vote: vote, Phase: phase}
 	}
 
-	// This accounts for the first two votes via git-clone(1). Given that git-clone(1) creates
-	// all references in a single reference transaction, the hook is executed twice for all
-	// fetched references (once for "prepare", once for "commit").
-	voteFromCloning := []byte(fmt.Sprintf("%s %s refs/heads/feature\n%s %s refs/heads/master\n", git.ZeroOID, featureOID, git.ZeroOID, masterOID))
-
-	// Keep-around references are not fetched via git-clone(1) because non-mirror clones only
-	// fetch branches and tags. These additional references are thus obtained via git-fetch(1).
-	// Given that we use the `--atomic` flag for git-fetch(1), all reference updates will be in
-	// a single transaction and we thus expect exactly two votes (once for "prepare", once for
-	// "commit").
-	voteFromFetching := []byte(fmt.Sprintf("%s %s refs/keep-around/2\n%s %s refs/keep-around/1\n", git.ZeroOID, masterOID, git.ZeroOID, masterOID))
-
+	// While the following votes are opaque to us, this doesn't really matter. All we do
+	// care about is that they're stable.
 	require.Equal(t, []transaction.PhasedVote{
-		{Vote: voting.VoteFromData(voteFromCloning), Phase: voting.Prepared},
-		{Vote: voting.VoteFromData(voteFromCloning), Phase: voting.Committed},
-		{Vote: voting.VoteFromData(voteFromFetching), Phase: voting.Prepared},
-		{Vote: voting.VoteFromData(voteFromFetching), Phase: voting.Committed},
+		// These are the votes created by git-fetch(1).
+		createVote("47553c06f575f757ad56ef3216c59804b72aa4a6", voting.Prepared),
+		createVote("47553c06f575f757ad56ef3216c59804b72aa4a6", voting.Committed),
+		// And this is the manual votes we compute by walking the repository.
+		createVote("da39a3ee5e6b4b0d3255bfef95601890afd80709", voting.Prepared),
+		createVote("da39a3ee5e6b4b0d3255bfef95601890afd80709", voting.Committed),
 	}, txManager.Votes())
 }
 
 func TestCreateRepositoryFromBundle_invalidBundle(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepositoryFromBundleInvalidBundle)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testCreateRepositoryFromBundleInvalidBundle(t *testing.T, ctx context.Context) {
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	stream, err := client.CreateRepositoryFromBundle(ctx)
@@ -230,10 +200,9 @@ func testCreateRepositoryFromBundleInvalidBundle(t *testing.T, ctx context.Conte
 func TestCreateRepositoryFromBundle_invalidArgument(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testServerCreateRepositoryFromBundleFailedValidations)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerCreateRepositoryFromBundleFailedValidations(t *testing.T, ctx context.Context) {
 	_, client := setupRepositoryServiceWithoutRepo(t)
 
 	stream, err := client.CreateRepositoryFromBundle(ctx)
@@ -248,10 +217,9 @@ func testServerCreateRepositoryFromBundleFailedValidations(t *testing.T, ctx con
 func TestCreateRepositoryFromBundle_existingRepository(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testServerCreateRepositoryFromBundleFailedExistingDirectory)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerCreateRepositoryFromBundleFailedExistingDirectory(t *testing.T, ctx context.Context) {
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	// The above test creates the second repository on the server. As this test can run with Praefect in front of it,
@@ -269,12 +237,7 @@ func testServerCreateRepositoryFromBundleFailedExistingDirectory(t *testing.T, c
 	}))
 
 	_, err = stream.CloseAndRecv()
-
-	if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
-		testhelper.RequireGrpcError(t, status.Error(codes.AlreadyExists, "creating repository: repository exists already"), err)
-	} else {
-		testhelper.RequireGrpcError(t, status.Error(codes.FailedPrecondition, "CreateRepositoryFromBundle: target directory is non-empty"), err)
-	}
+	testhelper.RequireGrpcError(t, status.Error(codes.AlreadyExists, "creating repository: repository exists already"), err)
 }
 
 func TestSanitizedError(t *testing.T) {

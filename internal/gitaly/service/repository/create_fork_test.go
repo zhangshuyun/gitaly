@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"os"
@@ -31,7 +30,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -52,12 +50,9 @@ func TestCreateFork_successful(t *testing.T) {
 	// utilities around this, but now's not the time.
 	certPool, tlsConfig := injectCustomCATestCerts(t)
 
-	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, func(t *testing.T, ctx context.Context) {
-		testCreateForkSuccessful(t, ctx, certPool, tlsConfig)
-	})
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testCreateForkSuccessful(t *testing.T, ctx context.Context, certPool *x509.CertPool, tlsConfig config.TLS) {
 	for _, tt := range []struct {
 		name   string
 		secure bool
@@ -124,10 +119,9 @@ func testCreateForkSuccessful(t *testing.T, ctx context.Context, certPool *x509.
 func TestCreateFork_refs(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateForkRefs)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testCreateForkRefs(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
@@ -185,10 +179,9 @@ func testCreateForkRefs(t *testing.T, ctx context.Context) {
 func TestCreateFork_targetExists(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateForkTargetExists)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testCreateForkTargetExists(t *testing.T, ctx context.Context) {
 	for _, tc := range []struct {
 		desc                          string
 		seed                          func(t *testing.T, targetPath string)
@@ -243,11 +236,7 @@ func testCreateForkTargetExists(t *testing.T, ctx context.Context) {
 				Repository:       forkedRepo,
 				SourceRepository: repo,
 			})
-			if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
-				testhelper.RequireGrpcError(t, tc.expectedErrWithAtomicCreation, err)
-			} else {
-				testhelper.RequireGrpcError(t, tc.expectedErr, err)
-			}
+			testhelper.RequireGrpcError(t, tc.expectedErrWithAtomicCreation, err)
 		})
 	}
 }
