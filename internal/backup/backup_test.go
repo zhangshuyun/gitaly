@@ -334,7 +334,6 @@ func TestManager_Restore_praefect(t *testing.T) {
 func testManagerRestore(t *testing.T, cfg config.Cfg, gitalyAddr string) {
 	t.Run("parallel", func(t *testing.T) {
 		testhelper.NewFeatureSets(
-			featureflag.AtomicRemoveRepository,
 			featureflag.TxAtomicRepositoryCreation,
 		).Run(t, func(t *testing.T, ctx context.Context) {
 			t.Parallel()

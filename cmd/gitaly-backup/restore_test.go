@@ -25,7 +25,6 @@ import (
 func TestRestoreSubcommand(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(
-		featureflag.AtomicRemoveRepository,
 		featureflag.TxAtomicRepositoryCreation,
 	).Run(t, testRestoreSubcommand)
 }

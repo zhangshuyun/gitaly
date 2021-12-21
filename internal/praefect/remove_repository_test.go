@@ -10,7 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/grpc-proxy/proxy"
@@ -27,19 +26,12 @@ import (
 
 func TestRemoveRepositoryHandler(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.AtomicRemoveRepository).Run(t, testRemoveRepositoryHandler)
-}
 
-func testRemoveRepositoryHandler(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	errServedByGitaly := status.Error(codes.Unknown, "request passed to Gitaly")
 	const virtualStorage, relativePath = "virtual-storage", "relative-path"
-
-	var errNotFound error
-	if featureflag.AtomicRemoveRepository.IsEnabled(ctx) {
-		errNotFound = helper.ErrNotFoundf("repository does not exist")
-	}
 
 	db := testdb.New(t)
 	for _, tc := range []struct {
@@ -56,7 +48,7 @@ func testRemoveRepositoryHandler(t *testing.T, ctx context.Context) {
 		{
 			desc:       "repository not found",
 			repository: &gitalypb.Repository{StorageName: "virtual-storage", RelativePath: "doesn't exist"},
-			error:      errNotFound,
+			error:      helper.ErrNotFoundf("repository does not exist"),
 		},
 		{
 			desc:        "repository found",
