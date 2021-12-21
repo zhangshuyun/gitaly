@@ -5,11 +5,7 @@ package main
 
 import (
 	"bytes"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"os/exec"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -134,63 +130,4 @@ func TestSubmodule(t *testing.T) {
 			require.Equal(t, tc.command.CommitSHA, parsedEntry.ObjectID.String())
 		})
 	}
-}
-
-// TestSubmodule_backwardsCompatibility check that submodule sub-command able to process both:
-// - JSON encoded flag as input
-// - gob encoded data from stdin
-// The support of first option should be dropped in the next release (14.7) together with this test.
-func TestSubmodule_backwardsCompatibility(t *testing.T) {
-	const commitMessage = "Update Submodule message"
-	const commitSHA = "41fa1bc9e0f0630ced6a8a211d60c2af425ecc2d"
-	const submodule = "gitlab-grack"
-
-	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
-	testcfg.BuildGitalyGit2Go(t, cfg)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	marshalled, err := json.Marshal(git2go.SubmoduleCommand{
-		Repository: repoPath,
-		AuthorName: string(gittest.TestUser.Name),
-		AuthorMail: string(gittest.TestUser.Email),
-		Message:    commitMessage,
-		CommitSHA:  commitSHA,
-		Submodule:  submodule,
-		Branch:     "master",
-	})
-	require.NoError(t, err)
-	encoded := base64.StdEncoding.EncodeToString(marshalled)
-
-	cmd := exec.CommandContext(ctx, filepath.Join(cfg.BinDir, "gitaly-git2go"), "submodule", "-request", encoded)
-	output, err := cmd.CombinedOutput()
-	require.NoError(t, err, string(output))
-	decoded, err := base64.StdEncoding.DecodeString(string(output))
-	require.NoError(t, err)
-	result := git2go.SubmoduleResult{}
-	require.NoError(t, json.Unmarshal(decoded, &result))
-
-	commit, err := repo.ReadCommit(ctx, git.Revision(result.CommitID))
-	require.NoError(t, err)
-	require.Equal(t, commit.Author.Email, gittest.TestUser.Email)
-	require.Equal(t, commit.Committer.Email, gittest.TestUser.Email)
-	require.Equal(t, string(commit.Subject), commitMessage)
-
-	entry := gittest.Exec(
-		t,
-		cfg,
-		"-C",
-		repoPath,
-		"ls-tree",
-		"-z",
-		fmt.Sprintf("%s^{tree}:", result.CommitID),
-		submodule,
-	)
-	parser := lstree.NewParser(bytes.NewReader(entry))
-	parsedEntry, err := parser.NextEntry()
-	require.NoError(t, err)
-	require.Equal(t, submodule, parsedEntry.Path)
-	require.Equal(t, commitSHA, parsedEntry.ObjectID.String())
 }

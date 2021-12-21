@@ -1,13 +1,9 @@
 package git2go
 
 import (
-	"encoding/base64"
 	"encoding/gob"
-	"encoding/json"
 	"errors"
-	"io"
 	"reflect"
-	"strings"
 )
 
 func init() {
@@ -101,25 +97,4 @@ func SerializableError(err error) error {
 	}
 
 	return err
-}
-
-func serialize(v interface{}) (string, error) {
-	marshalled, err := json.Marshal(v)
-	if err != nil {
-		return "", err
-	}
-	return base64.StdEncoding.EncodeToString(marshalled), nil
-}
-
-func deserialize(serialized string, v interface{}) error {
-	base64Decoder := base64.NewDecoder(base64.StdEncoding, strings.NewReader(serialized))
-	jsonDecoder := json.NewDecoder(base64Decoder)
-	return jsonDecoder.Decode(v)
-}
-
-func serializeTo(writer io.Writer, v interface{}) error {
-	base64Encoder := base64.NewEncoder(base64.StdEncoding, writer)
-	defer base64Encoder.Close()
-	jsonEncoder := json.NewEncoder(base64Encoder)
-	return jsonEncoder.Encode(v)
 }
