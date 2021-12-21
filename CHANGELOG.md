@@ -1,5 +1,78 @@
 # Gitaly changelog
 
+## 14.6.0 (2021-12-21)
+
+### Added (8 changes)
+
+- [cmd/praefect: add helper text to explain replication](gitlab-org/gitaly@dffc3458ce32ede5ccfea0ade0282962b3370d38) ([merge request](gitlab-org/gitaly!4183))
+- [cmd/praefect: replicate immediately after track-repository](gitlab-org/gitaly@84eaa31e0940f439068cd3960713c9c800b851d8) ([merge request](gitlab-org/gitaly!4183))
+- [proto: Introduce transactional voting phases](gitlab-org/gitaly@0c08541cf496d76c5611ee1e7bcfc49724dbcc21) ([merge request](gitlab-org/gitaly!4180))
+- [Add 'praefect metadata' subcommand](gitlab-org/gitaly@64ad803a11f85abbf055114f795c8fd1bdfe0e08) ([merge request](gitlab-org/gitaly!4122))
+- [Add RPC definitions for GetRepositoryMetadata](gitlab-org/gitaly@13ba757fdcb5200e59954fb0200e44b4b95c9629) ([merge request](gitlab-org/gitaly!4122))
+- [repository: Implement UpdateHead option for FetchBundle](gitlab-org/gitaly@7b555e908288faab6b7c6efc13e42e18f2be27f0) ([merge request](gitlab-org/gitaly!4076))
+- [praefect: Add database read/write check](gitlab-org/gitaly@c20c465303cd8b00aa05a1950c2510689682027c) ([merge request](gitlab-org/gitaly!4121))
+- [Improve custom hook error logging](gitlab-org/gitaly@a5d4bdb56de2051969b42f3c5f66e1abf48339f3) ([merge request](gitlab-org/gitaly!4111))
+
+### Fixed (22 changes)
+
+- [featureflag: Fix setting incoming feature flags modifying parent context](gitlab-org/gitaly@da9773ba7ad5c047e3d2346a3d348b95542b84ec) ([merge request](gitlab-org/gitaly!4190))
+- [ssh: Log error on git command failure](gitlab-org/gitaly@9deaf47f1ecb00f0f36d18ee4a0fb1576f5a0efe) ([merge request](gitlab-org/gitaly!4173))
+- [cmd/praefect: create replication events](gitlab-org/gitaly@81a41a856adc5628a57e49503ca1a5498c915671) ([merge request](gitlab-org/gitaly!4183))
+- [praefect: Support new locking semantics in RemoveRepository handler](gitlab-org/gitaly@a7d18eed4f7ffe60215321345ebc0a8a99afa4d4) ([merge request](gitlab-org/gitaly!4187))
+- [repository: Use locking two-phase voting when deleting gitattributes](gitlab-org/gitaly@6480bb2d1fe2ec587ea99d514b2473a99a545fa3) ([merge request](gitlab-org/gitaly!4179))
+- [repository: Implement atomic locking semantics for RemoveRepository](gitlab-org/gitaly@f328e3f70565ab544cc80f3430e7e06fe88d4ef5) ([merge request](gitlab-org/gitaly!4145))
+- [datastore: Fix potential deadlock when deleting invalid repo storages](gitlab-org/gitaly@75e50adc0c10c681e1a6e815cf339c454765fdf8) ([merge request](gitlab-org/gitaly!4165))
+- [Makefile: Fix invalid usage of GIT_INSTALL_DIR](gitlab-org/gitaly@fb81673084d988ca301f207b79de9dda909d096c) ([merge request](gitlab-org/gitaly!4154))
+- [repository: Fix undeterministic votes when creating repos](gitlab-org/gitaly@3fff73e61061fe7d01a4cc9eb69683b12f2bc579) ([merge request](gitlab-org/gitaly!4149))
+- [backup: Set HEAD from bundle files](gitlab-org/gitaly@c1d4b71be00cdb7ffc422dfff6287b3fab57c52d) ([merge request](gitlab-org/gitaly!4144))
+- [Add timeout to health check database inserts](gitlab-org/gitaly@7a3e7ef49c5caeab4addb9e8e611f4b07ef3e04c) ([merge request](gitlab-org/gitaly!4099))
+- [catfile: Ensure structs are properly aligned in memory for 32-bit CPUs](gitlab-org/gitaly@243e24e35b4b7113a6c0b1ab33cb07cd57af1064) ([merge request](gitlab-org/gitaly!4139))
+- [hook: Fix custom hook errors not propagating correctly](gitlab-org/gitaly@d1067c73ada752e2ab301beff49cf5796a3da9b0) ([merge request](gitlab-org/gitaly!4120))
+- [repository: Convert `CreateRepository()` to be atomic](gitlab-org/gitaly@a2367d906ac47fa0a19d0c5de2a554bfaef8abc3) ([merge request](gitlab-org/gitaly!3884))
+- [repository: Convert `CreateRepositoryFromURL` to be atomic](gitlab-org/gitaly@2ba603f65430c968fcdb8f19a213dc53c5b17fdd) ([merge request](gitlab-org/gitaly!3884))
+- [repository: Convert `CreateRepositoryFromSnapshot()` to be atomic](gitlab-org/gitaly@1de1ec6956c10448f8ab39333ffeeefa45cfe686) ([merge request](gitlab-org/gitaly!3884))
+- [repository: Convert `CreateRepositoryFromBundle()` to be atomic](gitlab-org/gitaly@5c61a0138a6d82ebb85cc0578638a1b321938f06) ([merge request](gitlab-org/gitaly!3884))
+- [repository: Convert `ReplicateRepository()` to atomically create repos](gitlab-org/gitaly@f3ffcfca7916c856298441b7a77512e24d72d0b0) ([merge request](gitlab-org/gitaly!3884))
+- [datastore: Revert use of materialized views](gitlab-org/gitaly@2a3106830edfea17772c65320a69befced42b6fd) ([merge request](gitlab-org/gitaly!4116))
+- [commit: Do not raise error when listing tree entries for nonexistent ref](gitlab-org/gitaly@df40494541216b4a8d0c4437c75bb7540b5c5f72) ([merge request](gitlab-org/gitaly!4097))
+- [praefect: Do not collect repository store metrics on startup](gitlab-org/gitaly@90cb7fb7b9f8703547fa62719650394478653c62) ([merge request](gitlab-org/gitaly!4092))
+- [Return a proper response on WikiUpdatePage failing on DuplicatePageError](gitlab-org/gitaly@989ca13e053371bad530f817c57224c136ddb175) ([merge request](gitlab-org/gitaly!4033))
+
+### Changed (12 changes)
+
+- [repository: Always enable locking RenameRepository RPC](gitlab-org/gitaly@fe69e8c1cdcea042fed59c591a067432b244e6e9) ([merge request](gitlab-org/gitaly!4194))
+- [featureflag: Enable atomic repository creation by default](gitlab-org/gitaly@c90b1df094bb2e2371e164b0e8d9a1d6b9280646) ([merge request](gitlab-org/gitaly!4181))
+- [cgroups: emit cgroups stats to prometheus](gitlab-org/gitaly@234974414f2e1f5c8855f4e07289a6570caf1c90) ([merge request](gitlab-org/gitaly!4134))
+- [ref: Implement two-phase voting for DeleteRefs](gitlab-org/gitaly@8bce1d6a7d2fb051140cc4248bc894cc69faf477) ([merge request](gitlab-org/gitaly!4178))
+- [git2go: Use gob for submodule sub-command invocation](gitlab-org/gitaly@6b8707cd6bbed1782bf78324d80943e3211fe9a8) ([merge request](gitlab-org/gitaly!4163))
+- [Make remove-repository dry-run by default](gitlab-org/gitaly@f93e0e478fa9ca4af5abed33300d7608e7a427f7) ([merge request](gitlab-org/gitaly!4054))
+- [repository: Implement locking for RenameRepository](gitlab-org/gitaly@0118edab02d79748f75109829a312f54ab3c5aed) ([merge request](gitlab-org/gitaly!4140))
+- [dial-nodes: add timeout flag](gitlab-org/gitaly@36eac03c7d6b0e83a2bdb8393eb65bf6191c1de3) ([merge request](gitlab-org/gitaly!4123))
+- [praefect: print verbose output in check subcommand](gitlab-org/gitaly@08e17fddcf3da9ca8e25005c8356c42e15e1790c) ([merge request](gitlab-org/gitaly!4060))
+- [praefect: Add text clarifying what list-untracked-repositories output signfiies](gitlab-org/gitaly@167f40896009e5e9148995945a7772ba6dbbb44a) ([merge request](gitlab-org/gitaly!4055))
+- [schema: Make repository ID non nullable](gitlab-org/gitaly@260f81b8300af26123e6922365c5d67e5c5f9697) ([merge request](gitlab-org/gitaly!4045))
+- [backup: Collect summary of backup errors](gitlab-org/gitaly@bf2a1d91eab5d2dbd8787dc55e5642c2efa9489d) ([merge request](gitlab-org/gitaly!4049))
+
+### Removed (1 change)
+
+- [Deprecate PackObjectsHook](gitlab-org/gitaly@473e3540fb7f4ce78904be47b05a919539415539) ([merge request](gitlab-org/gitaly!3916))
+
+### Security (1 change)
+
+- [git: Globally disable HTTP redirects](gitlab-org/gitaly@2fb8aa237dafcffd8ecd35b351cbddc2c01b1722) ([merge request](gitlab-org/gitaly!4131))
+
+### Performance (4 changes)
+
+- [pktline: coalesce writes in SidebandWriter](gitlab-org/gitaly@cb3dea2da7445442e12b6c76b4a48419c1dee0c5) ([merge request](gitlab-org/gitaly!4159))
+- [commit: Always enable efficient recursive tree listings](gitlab-org/gitaly@672f179f004388cbdadc734c0536f426c631a2c0) ([merge request](gitlab-org/gitaly!4146))
+- [Materialize valid_primaries view in RepositoryStoreCollector](gitlab-org/gitaly@4fe8fd912146315da97855172cfff4ad1106af77) ([merge request](gitlab-org/gitaly!4091))
+- [Materialize valid_primaries view in dataloss query](gitlab-org/gitaly@ab692bf6a4b35d0e9d536d33cb4e248d50449847) ([merge request](gitlab-org/gitaly!4091))
+
+### Other (2 changes)
+
+- [SSHUploadPack: log response size in bytes](gitlab-org/gitaly@be15b6e5eb470bb866045c5c013596fe6e7e6bdf) ([merge request](gitlab-org/gitaly!4182))
+- [PackObjectsHookWithSidechannel: simplify generated bytes counter](gitlab-org/gitaly@6a5139b671dc85e185820cbc79fd3c818b1ae372) ([merge request](gitlab-org/gitaly!4159))
+
 ## 14.5.2 (2021-12-03)
 
 No changes.
