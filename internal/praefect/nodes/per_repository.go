@@ -25,15 +25,16 @@ func NewPerRepositoryElector(db glsql.Querier) *PerRepositoryElector {
 	return &PerRepositoryElector{db: db}
 }
 
-// GetPrimary returns the primary storage of a repository. If the primary is not a valid primary anymore, an election
-// is attempted. If there are no valid primaries, the current primary is simply demoted.
+// GetPrimary returns the primary storage of a repository. If the current primary is invalid, a new primary
+// is elected if there are valid candidates for promotion.
 func (pr *PerRepositoryElector) GetPrimary(ctx context.Context, virtualStorage string, repositoryID int64) (string, error) {
 	// The query below contains three parts to account for visibility with read-committed isolation mode and
 	// concurrent updates.
 	//
 	// If the repository already has a valid primary, the `reread` and `election` CTEs don't return results and
 	// the query simply returns the primary from the `repositories` table (aliased as `snapshot`). No locks are
-	// acquired.
+	// acquired. Same happens if the repository has an invalid primary but there are no valid candidates for
+	// promotion.
 	//
 	// If the primary is invalid, the `reread` CTE locks the record. Upon acquiring the lock, Postgres rereads
 	// the record. `reread` then contains an up to date record which has potentially been updated by a concurrent
@@ -55,6 +56,9 @@ WITH reread AS (
 		SELECT FROM valid_primaries
 		WHERE valid_primaries.repository_id = repositories.repository_id
 		AND storage = "primary"
+	) AND EXISTS (
+		SELECT FROM valid_primaries
+		WHERE valid_primaries.repository_id = repositories.repository_id
 	)
 	FOR NO KEY UPDATE
 ),

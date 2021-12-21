@@ -90,8 +90,9 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
-					error:   ErrNoPrimary,
-					primary: noPrimary(),
+					error:          ErrNoPrimary,
+					primary:        noPrimary(),
+					noBlockedQuery: true,
 				},
 			},
 		},
@@ -109,8 +110,9 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
-					error:   ErrNoPrimary,
-					primary: noPrimary(),
+					error:          ErrNoPrimary,
+					primary:        noPrimary(),
+					noBlockedQuery: true,
 				},
 			},
 		},
@@ -180,8 +182,8 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
-					error:   ErrNoPrimary,
-					primary: noPrimary(),
+					primary:        any("gitaly-1"),
+					noBlockedQuery: true,
 				},
 			},
 		},
@@ -288,7 +290,7 @@ func TestPerRepositoryElector(t *testing.T) {
 			},
 		},
 		{
-			desc: "demotes the primary when there are no valid candidates",
+			desc: "does not demote the primary when there are no valid candidates",
 			state: state{
 				"virtual-storage-1": {
 					"relative-path-1": {
@@ -308,8 +310,8 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
-					error:   ErrNoPrimary,
-					primary: noPrimary(),
+					primary:        any("gitaly-1"),
+					noBlockedQuery: true,
 				},
 			},
 		},
@@ -338,8 +340,9 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
-					error:   ErrNoPrimary,
-					primary: noPrimary(),
+					error:          ErrNoPrimary,
+					primary:        noPrimary(),
+					noBlockedQuery: true,
 				},
 			},
 		},
@@ -368,8 +371,9 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
-					error:   ErrNoPrimary,
-					primary: noPrimary(),
+					error:          ErrNoPrimary,
+					primary:        noPrimary(),
+					noBlockedQuery: true,
 				},
 			},
 		},
@@ -398,8 +402,9 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
-					error:   ErrNoPrimary,
-					primary: noPrimary(),
+					error:          ErrNoPrimary,
+					primary:        noPrimary(),
+					noBlockedQuery: true,
 				},
 			},
 		},
