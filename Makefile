@@ -49,7 +49,6 @@ GOIMPORTS         := ${TOOLS_DIR}/goimports
 GOFUMPT           := ${TOOLS_DIR}/gofumpt
 GOLANGCI_LINT     := ${TOOLS_DIR}/golangci-lint
 GO_LICENSES       := ${TOOLS_DIR}/go-licenses
-PROTOC            := ${TOOLS_DIR}/protoc/bin/protoc
 PROTOC_GEN_GO     := ${TOOLS_DIR}/protoc-gen-go
 PROTOC_GEN_GO_GRPC:= ${TOOLS_DIR}/protoc-gen-go-grpc
 PROTOC_GEN_GITALY := ${TOOLS_DIR}/protoc-gen-gitaly
@@ -102,6 +101,13 @@ else ifeq (${OS},Linux)
     PROTOC_URL            ?= https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip
     PROTOC_HASH           ?= d4246a5136cf9cd1abc851c521a1ad6b8884df4feded8b9cbd5e2a2226d4b357
 endif
+
+PROTOC_REPO_URL ?=  https://github.com/protocolbuffers/protobuf.git
+PROTOC_SOURCE_DIR  ?= ${DEPENDENCY_DIR}/protoc/source
+PROTOC_BUILD_DIR   ?= ${DEPENDENCY_DIR}/protoc/build
+PROTOC_INSTALL_DIR ?= ${DEPENDENCY_DIR}/protoc/install
+PROTOC_BUILD_OPTIONS ?= -Dprotobuf_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=${PROTOC_INSTALL_DIR}
+PROTOC ?= ${PROTOC_INSTALL_DIR}/bin/protoc
 
 # Git target
 GIT_REPO_URL       ?= https://gitlab.com/gitlab-org/gitlab-git.git
@@ -595,16 +601,18 @@ ${GIT_PREFIX}/bin/git: ${GIT_SOURCE_DIR}/Makefile
 	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C ${GIT_SOURCE_DIR} -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
 	${Q}touch $@
 
-${TOOLS_DIR}/protoc.zip: TOOL_VERSION = ${PROTOC_VERSION}
-${TOOLS_DIR}/protoc.zip: ${TOOLS_DIR}/protoc.version
-	${Q}if [ -z "${PROTOC_URL}" ]; then echo "Cannot generate protos on unsupported platform ${OS}" && exit 1; fi
-	curl -o $@.tmp --silent --show-error -L ${PROTOC_URL}
-	${Q}printf '${PROTOC_HASH}  $@.tmp' | sha256sum -c -
-	${Q}mv $@.tmp $@
-
-${PROTOC}: ${TOOLS_DIR}/protoc.zip
-	${Q}rm -rf ${TOOLS_DIR}/protoc
-	${Q}unzip -DD -q -d ${TOOLS_DIR}/protoc ${TOOLS_DIR}/protoc.zip
+${PROTOC}: TOOL_VERSION = ${PROTOC_VERSION}
+${PROTOC}: ${TOOLS_DIR}/protoc.version
+	${Q}${GIT} -c init.defaultBranch=master init ${GIT_QUIET} ${PROTOC_SOURCE_DIR}
+	${Q}${GIT} -C "${PROTOC_SOURCE_DIR}" config remote.origin.url ${PROTOC_REPO_URL}
+	${Q}${GIT} -C "${PROTOC_SOURCE_DIR}" config remote.origin.tagOpt --no-tags
+	${Q}${GIT} -C "${PROTOC_SOURCE_DIR}" fetch --depth 1 ${GIT_QUIET} origin v${PROTOC_VERSION}
+	${Q}${GIT} -C "${PROTOC_SOURCE_DIR}" checkout ${GIT_QUIET} --detach FETCH_HEAD
+	${Q}rm -rf ${PROTOC_BUILD_DIR}
+	${Q}mkdir -p ${PROTOC_BUILD_DIR}
+	${Q}cd ${PROTOC_BUILD_DIR} && cmake ${PROTOC_SOURCE_DIR}/cmake ${PROTOC_BUILD_OPTIONS}
+	${Q}cmake --build ${PROTOC_BUILD_DIR} --target install -- -j $(shell nproc)
+	${Q}cp ${PROTOC_BUILD_DIR}/protoc ${TOOLS_DIR}/protoc
 
 ${TOOLS_DIR}/%: GOBIN = ${TOOLS_DIR}
 ${TOOLS_DIR}/%: ${TOOLS_DIR}/%.version
