@@ -23,7 +23,6 @@ func TestNewProtoRegistry(t *testing.T) {
 		"CommitService": {
 			"CommitIsAncestor":         protoregistry.OpAccessor,
 			"TreeEntry":                protoregistry.OpAccessor,
-			"CommitsBetween":           protoregistry.OpAccessor,
 			"CountCommits":             protoregistry.OpAccessor,
 			"CountDivergingCommits":    protoregistry.OpAccessor,
 			"GetTreeEntries":           protoregistry.OpAccessor,

@@ -15,16 +15,14 @@ module Gitaly
       self.service_name = 'gitaly.CommitService'
 
       # ListCommits lists all commits reachable via a set of references by doing a
-      # graph walk. This deprecates FindAllCommits, FindCommits (except Follow is
-      # not yet supported) and CommitsBetweenRequest. Any unknown revisions will
-      # cause the RPC to fail.
+      # graph walk. This deprecates FindAllCommits and FindCommits (except Follow
+      # is not yet supported). Any unknown revisions will cause the RPC to fail.
       rpc :ListCommits, Gitaly::ListCommitsRequest, stream(Gitaly::ListCommitsResponse)
       # ListAllCommits lists all commits present in the repository, including
       # those not reachable by any reference.
       rpc :ListAllCommits, Gitaly::ListAllCommitsRequest, stream(Gitaly::ListAllCommitsResponse)
       rpc :CommitIsAncestor, Gitaly::CommitIsAncestorRequest, Gitaly::CommitIsAncestorResponse
       rpc :TreeEntry, Gitaly::TreeEntryRequest, stream(Gitaly::TreeEntryResponse)
-      rpc :CommitsBetween, Gitaly::CommitsBetweenRequest, stream(Gitaly::CommitsBetweenResponse)
       rpc :CountCommits, Gitaly::CountCommitsRequest, Gitaly::CountCommitsResponse
       rpc :CountDivergingCommits, Gitaly::CountDivergingCommitsRequest, Gitaly::CountDivergingCommitsResponse
       rpc :GetTreeEntries, Gitaly::GetTreeEntriesRequest, stream(Gitaly::GetTreeEntriesResponse)
