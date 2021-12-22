@@ -1,32 +1,41 @@
 package commit
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ref"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
 func TestSuccessfulFindAllCommitsRequest(t *testing.T) {
-	defer func() {
-		//nolint:staticcheck // FindBranchNames is deprecated but the tests are difficult to refactor
-		_findBranchNamesFunc = ref.FindBranchNames
-	}()
+	t.Parallel()
 
-	_findBranchNamesFunc = func(context.Context, git.RepositoryExecutor) ([][]byte, error) {
-		return [][]byte{
-			[]byte("few-commits"),
-			[]byte("two-commits"),
-		}, nil
+	cfg, repoProto, _, client := setupCommitServiceWithRepo(t, true)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	refs, err := repo.GetReferences(ctx, "refs/")
+	require.NoError(t, err)
+
+	// Delete all preexisting refs except the two refs below to bring the repository into a
+	// known state.
+	updater, err := updateref.New(ctx, cfg, repo, updateref.WithDisabledTransactions())
+	require.NoError(t, err)
+
+	for _, ref := range refs {
+		if ref.Name == "refs/heads/few-commits" || ref.Name == "refs/heads/two-commits" {
+			continue
+		}
+		require.NoError(t, updater.Delete(ref.Name))
 	}
-
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+	require.NoError(t, updater.Commit())
 
 	// Commits made on another branch in parallel to the normal commits below.
 	// Will be used to test topology ordering.
@@ -132,10 +141,8 @@ func TestSuccessfulFindAllCommitsRequest(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := testCase.request
-			request.Repository = repo
+			request.Repository = repoProto
 
-			ctx, cancel := testhelper.Context()
-			defer cancel()
 			c, err := client.FindAllCommits(ctx, request)
 			require.NoError(t, err)
 

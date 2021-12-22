@@ -72,37 +72,6 @@ func (s *server) findRefs(ctx context.Context, writer lines.Sender, repo git.Rep
 	return cmd.Wait()
 }
 
-// FindBranchNames returns all branch names.
-//
-// Deprecated: Use localrepo.Repo.GetBranches instead.
-func FindBranchNames(ctx context.Context, repo git.RepositoryExecutor) ([][]byte, error) {
-	var names [][]byte
-
-	cmd, err := repo.Exec(ctx, git.SubCmd{
-		Name:  "for-each-ref",
-		Flags: []git.Option{git.Flag{Name: "--format=%(refname)"}},
-		Args:  []string{"refs/heads"},
-	},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	scanner := bufio.NewScanner(cmd)
-	for scanner.Scan() {
-		names = lines.CopyAndAppend(names, scanner.Bytes())
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("reading standard input: %v", err)
-	}
-
-	if err := cmd.Wait(); err != nil {
-		return nil, err
-	}
-
-	return names, nil
-}
-
 // SetDefaultBranchRef overwrites the default branch ref for the repository
 func SetDefaultBranchRef(ctx context.Context, repo git.RepositoryExecutor, ref string, cfg config.Cfg) error {
 	if err := repo.ExecAndWait(ctx, git.SubCmd{

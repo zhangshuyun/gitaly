@@ -4,31 +4,28 @@ import (
 	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
-
-// We declare this function in variables so that we can override them in our tests
-//nolint:staticcheck // FindBranchNames is deprecated but the tests are difficult to refactor
-var _findBranchNamesFunc = ref.FindBranchNames
 
 func (s *server) FindAllCommits(in *gitalypb.FindAllCommitsRequest, stream gitalypb.CommitService_FindAllCommitsServer) error {
 	if err := validateFindAllCommitsRequest(in); err != nil {
 		return err
 	}
 
+	ctx := stream.Context()
+
 	repo := s.localrepo(in.GetRepository())
 
 	var revisions []string
 	if len(in.GetRevision()) == 0 {
-		branchNames, err := _findBranchNamesFunc(stream.Context(), repo)
+		refs, err := repo.GetReferences(ctx, "refs/heads")
 		if err != nil {
 			return helper.ErrInvalidArgument(err)
 		}
 
-		for _, branch := range branchNames {
-			revisions = append(revisions, string(branch))
+		for _, ref := range refs {
+			revisions = append(revisions, ref.Name.String())
 		}
 	} else {
 		revisions = []string{string(in.GetRevision())}
