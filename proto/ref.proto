@@ -399,6 +399,22 @@ message ListRefsRequest {
   // Head determines whether the RPC should also return the HEAD reference. By default,
   // pseudo-refs are not included in the response.
   bool head = 3;
+
+  message SortBy {
+    enum Key {
+      REFNAME       = 0;
+      CREATORDATE   = 1;
+      AUTHORDATE    = 2;
+      COMMITTERDATE = 3;
+    }
+
+    // Key is a key used for sorting.
+    Key           key       = 1;
+    SortDirection direction = 2;
+  }
+
+  // SortBy allows to request SHAs in particular order.
+  SortBy sort_by = 4;
 }
 
 // ListRefsResponse is a response for the ListRefs RPC. The RPC can return multiple responses
