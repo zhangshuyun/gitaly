@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -507,6 +508,55 @@ func TestNewUnavailableReposCheck(t *testing.T) {
 
 			assert.Equal(t, tc.expectedErr, check.Run(ctx))
 			assert.Equal(t, tc.expectedMsg, stdout.String())
+		})
+	}
+}
+
+func TestNewClockSyncCheck(t *testing.T) {
+	for _, tt := range []struct {
+		desc        string
+		offsetCheck func(ntpURL string, allowedOffset time.Duration) (bool, error)
+		setup       func(t *testing.T)
+		expErr      error
+	}{
+		{
+			desc:        "synced",
+			offsetCheck: func(_ string, _ time.Duration) (bool, error) { return true, nil },
+		},
+		{
+			desc:        "not synced",
+			offsetCheck: func(_ string, _ time.Duration) (bool, error) { return false, nil },
+			expErr:      errors.New("praefect: clock is not synced"),
+		},
+		{
+			desc:        "failure",
+			offsetCheck: func(_ string, _ time.Duration) (bool, error) { return false, assert.AnError },
+			expErr:      fmt.Errorf("praefect: %w", assert.AnError),
+		},
+		{
+			desc: "custom url",
+			offsetCheck: func(url string, _ time.Duration) (bool, error) {
+				if url != "custom" {
+					return false, assert.AnError
+				}
+				return true, nil
+			},
+			setup: func(t *testing.T) {
+				testhelper.ModifyEnvironment(t, "NTP_HOST", "custom")
+			},
+		},
+	} {
+		t.Run(tt.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			if tt.setup != nil {
+				tt.setup(t)
+			}
+
+			check := NewClockSyncCheck(tt.offsetCheck)
+			err := check(config.Config{}, bytes.NewBuffer(nil), false).Run(ctx)
+			require.Equal(t, tt.expErr, err)
 		})
 	}
 }

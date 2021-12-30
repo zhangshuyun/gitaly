@@ -20,6 +20,9 @@ const _ = grpc.SupportPackageIsVersion7
 type ServerServiceClient interface {
 	ServerInfo(ctx context.Context, in *ServerInfoRequest, opts ...grpc.CallOption) (*ServerInfoResponse, error)
 	DiskStatistics(ctx context.Context, in *DiskStatisticsRequest, opts ...grpc.CallOption) (*DiskStatisticsResponse, error)
+	// ClockSynced checks if machine clock is synced
+	// (the offset is less that the one passed in the request).
+	ClockSynced(ctx context.Context, in *ClockSyncedRequest, opts ...grpc.CallOption) (*ClockSyncedResponse, error)
 }
 
 type serverServiceClient struct {
@@ -48,12 +51,24 @@ func (c *serverServiceClient) DiskStatistics(ctx context.Context, in *DiskStatis
 	return out, nil
 }
 
+func (c *serverServiceClient) ClockSynced(ctx context.Context, in *ClockSyncedRequest, opts ...grpc.CallOption) (*ClockSyncedResponse, error) {
+	out := new(ClockSyncedResponse)
+	err := c.cc.Invoke(ctx, "/gitaly.ServerService/ClockSynced", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ServerServiceServer is the server API for ServerService service.
 // All implementations must embed UnimplementedServerServiceServer
 // for forward compatibility
 type ServerServiceServer interface {
 	ServerInfo(context.Context, *ServerInfoRequest) (*ServerInfoResponse, error)
 	DiskStatistics(context.Context, *DiskStatisticsRequest) (*DiskStatisticsResponse, error)
+	// ClockSynced checks if machine clock is synced
+	// (the offset is less that the one passed in the request).
+	ClockSynced(context.Context, *ClockSyncedRequest) (*ClockSyncedResponse, error)
 	mustEmbedUnimplementedServerServiceServer()
 }
 
@@ -66,6 +81,9 @@ func (UnimplementedServerServiceServer) ServerInfo(context.Context, *ServerInfoR
 }
 func (UnimplementedServerServiceServer) DiskStatistics(context.Context, *DiskStatisticsRequest) (*DiskStatisticsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DiskStatistics not implemented")
+}
+func (UnimplementedServerServiceServer) ClockSynced(context.Context, *ClockSyncedRequest) (*ClockSyncedResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ClockSynced not implemented")
 }
 func (UnimplementedServerServiceServer) mustEmbedUnimplementedServerServiceServer() {}
 
@@ -116,6 +134,24 @@ func _ServerService_DiskStatistics_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ServerService_ClockSynced_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClockSyncedRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ServerServiceServer).ClockSynced(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gitaly.ServerService/ClockSynced",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ServerServiceServer).ClockSynced(ctx, req.(*ClockSyncedRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ServerService_ServiceDesc is the grpc.ServiceDesc for ServerService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -130,6 +166,10 @@ var ServerService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DiskStatistics",
 			Handler:    _ServerService_DiskStatistics_Handler,
+		},
+		{
+			MethodName: "ClockSynced",
+			Handler:    _ServerService_ClockSynced_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
