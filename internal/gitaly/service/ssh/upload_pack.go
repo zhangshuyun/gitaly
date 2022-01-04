@@ -58,9 +58,13 @@ func (s *server) sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, r
 	// synchronize writing stdout and stderrr.
 	var m sync.Mutex
 
-	stdout := &helper.CountingWriter{W: streamio.NewSyncWriter(&m, func(p []byte) error {
-		return stream.Send(&gitalypb.SSHUploadPackResponse{Stdout: p})
-	})}
+	stdoutCounter := &helper.CountingWriter{
+		W: streamio.NewSyncWriter(&m, func(p []byte) error {
+			return stream.Send(&gitalypb.SSHUploadPackResponse{Stdout: p})
+		}),
+	}
+	// Use large copy buffer to reduce the number of system calls
+	stdout := &largeBufferReaderFrom{Writer: stdoutCounter}
 
 	stderr := streamio.NewSyncWriter(&m, func(p []byte) error {
 		return stream.Send(&gitalypb.SSHUploadPackResponse{Stderr: p})
@@ -138,7 +142,7 @@ func (s *server) sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, r
 	pw.Close()
 	wg.Wait()
 
-	ctxlogrus.Extract(ctx).WithField("response_bytes", stdout.N).Info("request details")
+	ctxlogrus.Extract(ctx).WithField("response_bytes", stdoutCounter.N).Info("request details")
 
 	return nil
 }
@@ -149,4 +153,12 @@ func validateFirstUploadPackRequest(req *gitalypb.SSHUploadPackRequest) error {
 	}
 
 	return nil
+}
+
+type largeBufferReaderFrom struct {
+	io.Writer
+}
+
+func (rf *largeBufferReaderFrom) ReadFrom(r io.Reader) (int64, error) {
+	return io.CopyBuffer(rf.Writer, r, make([]byte, 64*1024))
 }

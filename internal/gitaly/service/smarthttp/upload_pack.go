@@ -148,7 +148,8 @@ func (s *server) runUploadPack(ctx context.Context, req basicPostUploadPackReque
 		return helper.ErrUnavailablef("cmd: %v", err)
 	}
 
-	respBytes, err := io.Copy(stdout, cmd)
+	// Use a custom buffer size to minimize the number of system calls.
+	respBytes, err := io.CopyBuffer(stdout, cmd, make([]byte, 64*1024))
 	if err != nil {
 		return helper.ErrUnavailablef("Fail to transfer git data: %v", err)
 	}
