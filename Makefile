@@ -151,13 +151,18 @@ ifdef GIT_APPLY_DEFAULT_PATCHES
     GIT_PATCHES += 0016-pkt-line-add-stdio-packet-write-functions.patch
     GIT_PATCHES += 0017-upload-pack-use-stdio-in-send_ref-callbacks.patch
 
+    # Increase upload-pack copy buffer size. Merged into next via 3a1afc1ef8
+    # (Merge branch 'jv/use-larger-buffer-in-upload-pack' into next,
+    # 2021-12-27).
+    GIT_PATCHES += 0018-upload-pack.c-increase-output-buffer-size.patch
+
     # This extra version has two intentions: first, it allows us to detect
     # capabilities of the command at runtime. Second, it helps admins to
     # discover which version is currently in use. As such, this version must be
     # incremented whenever a new patch is added above. When no patches exist,
     # then this should be undefined. Otherwise, it must be set to at least
     # `gl1` given that `0` is the "default" GitLab patch level.
-    GIT_EXTRA_VERSION := gl1
+    GIT_EXTRA_VERSION := gl2
 endif
 
 ifeq ($(origin GIT_BUILD_OPTIONS),undefined)
