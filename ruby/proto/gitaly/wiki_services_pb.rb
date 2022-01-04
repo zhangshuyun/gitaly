@@ -8,18 +8,18 @@ module Gitaly
   module WikiService
     class Service
 
-      include GRPC::GenericService
+      include ::GRPC::GenericService
 
       self.marshal_class_method = :encode
       self.unmarshal_class_method = :decode
       self.service_name = 'gitaly.WikiService'
 
-      rpc :WikiWritePage, stream(Gitaly::WikiWritePageRequest), Gitaly::WikiWritePageResponse
-      rpc :WikiUpdatePage, stream(Gitaly::WikiUpdatePageRequest), Gitaly::WikiUpdatePageResponse
+      rpc :WikiWritePage, stream(::Gitaly::WikiWritePageRequest), ::Gitaly::WikiWritePageResponse
+      rpc :WikiUpdatePage, stream(::Gitaly::WikiUpdatePageRequest), ::Gitaly::WikiUpdatePageResponse
       # WikiFindPage returns a stream because the page's raw_data field may be arbitrarily large.
-      rpc :WikiFindPage, Gitaly::WikiFindPageRequest, stream(Gitaly::WikiFindPageResponse)
-      rpc :WikiGetAllPages, Gitaly::WikiGetAllPagesRequest, stream(Gitaly::WikiGetAllPagesResponse)
-      rpc :WikiListPages, Gitaly::WikiListPagesRequest, stream(Gitaly::WikiListPagesResponse)
+      rpc :WikiFindPage, ::Gitaly::WikiFindPageRequest, stream(::Gitaly::WikiFindPageResponse)
+      rpc :WikiGetAllPages, ::Gitaly::WikiGetAllPagesRequest, stream(::Gitaly::WikiGetAllPagesResponse)
+      rpc :WikiListPages, ::Gitaly::WikiListPagesRequest, stream(::Gitaly::WikiListPagesResponse)
     end
 
     Stub = Service.rpc_stub_class
