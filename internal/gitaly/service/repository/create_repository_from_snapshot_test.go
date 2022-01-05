@@ -15,7 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/archive"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -73,10 +72,10 @@ func createFromSnapshot(t *testing.T, ctx context.Context, req *gitalypb.CreateR
 
 func TestCreateRepositoryFromSnapshot_success(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepositoryFromSnapshotSuccess)
-}
 
-func testCreateRepositoryFromSnapshotSuccess(t *testing.T, ctx context.Context) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	cfg := testcfg.Build(t)
 	_, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
@@ -125,10 +124,10 @@ func testCreateRepositoryFromSnapshotSuccess(t *testing.T, ctx context.Context) 
 
 func TestCreateRepositoryFromSnapshot_repositoryExists(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepositoryFromSnapshotFailsIfRepositoryExists)
-}
 
-func testCreateRepositoryFromSnapshotFailsIfRepositoryExists(t *testing.T, ctx context.Context) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	cfg := testcfg.Build(t)
 
 	// This creates the first repository on the server. As this test can run with Praefect in front of it,
@@ -140,24 +139,17 @@ func testCreateRepositoryFromSnapshotFailsIfRepositoryExists(t *testing.T, ctx c
 
 	req := &gitalypb.CreateRepositoryFromSnapshotRequest{Repository: repo}
 	rsp, err := createFromSnapshot(t, ctx, req, cfg)
-
-	if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
-		testhelper.RequireGrpcCode(t, err, codes.AlreadyExists)
-		require.Contains(t, err.Error(), "creating repository: repository exists already")
-	} else {
-		testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
-		require.Contains(t, err.Error(), "destination directory exists")
-	}
-
+	testhelper.RequireGrpcCode(t, err, codes.AlreadyExists)
+	require.Contains(t, err.Error(), "creating repository: repository exists already")
 	require.Nil(t, rsp)
 }
 
 func TestCreateRepositoryFromSnapshot_badURL(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepositoryFromSnapshotFailsIfBadURL)
-}
 
-func testCreateRepositoryFromSnapshotFailsIfBadURL(t *testing.T, ctx context.Context) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	cfg := testcfg.Build(t)
 	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	require.NoError(t, os.RemoveAll(repoPath))
@@ -176,10 +168,9 @@ func testCreateRepositoryFromSnapshotFailsIfBadURL(t *testing.T, ctx context.Con
 func TestCreateRepositoryFromSnapshot_invalidArguments(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepositoryFromSnapshotBadRequests)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testCreateRepositoryFromSnapshotBadRequests(t *testing.T, ctx context.Context) {
 	testCases := []struct {
 		desc        string
 		url         string
@@ -236,10 +227,10 @@ func testCreateRepositoryFromSnapshotBadRequests(t *testing.T, ctx context.Conte
 
 func TestCreateRepositoryFromSnapshot_malformedResponse(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepositoryFromSnapshotHandlesMalformedResponse)
-}
 
-func testCreateRepositoryFromSnapshotHandlesMalformedResponse(t *testing.T, ctx context.Context) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	cfg := testcfg.Build(t)
 	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 

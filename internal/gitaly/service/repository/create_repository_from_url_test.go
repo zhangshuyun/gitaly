@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"context"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -13,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -23,10 +21,10 @@ import (
 
 func TestCreateRepotitoryFromURL_successful(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepotitoryFromURLSuccessful)
-}
 
-func testCreateRepotitoryFromURLSuccessful(t *testing.T, ctx context.Context) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	cfg, _, repoPath, client := setupRepositoryService(t)
 
 	importedRepo := &gitalypb.Repository{
@@ -64,10 +62,10 @@ func testCreateRepotitoryFromURLSuccessful(t *testing.T, ctx context.Context) {
 
 func TestCreateRepositoryFromURL_existingTarget(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepositoryFromURLExistingTarget)
-}
 
-func testCreateRepositoryFromURLExistingTarget(t *testing.T, ctx context.Context) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	testCases := []struct {
 		desc     string
 		repoPath string
@@ -107,20 +105,17 @@ func testCreateRepositoryFromURLExistingTarget(t *testing.T, ctx context.Context
 			}
 
 			_, err := client.CreateRepositoryFromURL(ctx, req)
-			if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
-				testhelper.RequireGrpcCode(t, err, codes.AlreadyExists)
-			} else {
-				testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
-			}
+			testhelper.RequireGrpcCode(t, err, codes.AlreadyExists)
 		})
 	}
 }
 
 func TestCreateRepositoryFromURL_redirect(t *testing.T) {
-	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testCreateRepositoryFromURLRedirect)
-}
+	t.Parallel()
 
-func testCreateRepositoryFromURLRedirect(t *testing.T, ctx context.Context) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	importedRepo := &gitalypb.Repository{

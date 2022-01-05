@@ -15,7 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/archive"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
@@ -84,10 +83,10 @@ func TestGetSnapshotSuccess(t *testing.T) {
 
 func TestGetSnapshotWithDedupe(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testGetSnapshotWithDedupe)
-}
 
-func testGetSnapshotWithDedupe(t *testing.T, ctx context.Context) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	for _, tc := range []struct {
 		desc              string
 		alternatePathFunc func(t *testing.T, storageDir, repoPath string) string
@@ -163,10 +162,10 @@ func testGetSnapshotWithDedupe(t *testing.T, ctx context.Context) {
 
 func TestGetSnapshot_alternateObjectDirectory(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.TxAtomicRepositoryCreation).Run(t, testGetSnapshotAlternateObjectDirectory)
-}
 
-func testGetSnapshotAlternateObjectDirectory(t *testing.T, ctx context.Context) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])

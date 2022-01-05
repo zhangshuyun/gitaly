@@ -2,18 +2,13 @@ package repository
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"net/http"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"gitlab.com/gitlab-org/labkit/tracing"
@@ -78,71 +73,26 @@ func untar(ctx context.Context, path string, in *gitalypb.CreateRepositoryFromSn
 }
 
 func (s *server) CreateRepositoryFromSnapshot(ctx context.Context, in *gitalypb.CreateRepositoryFromSnapshotRequest) (*gitalypb.CreateRepositoryFromSnapshotResponse, error) {
-	if featureflag.TxAtomicRepositoryCreation.IsEnabled(ctx) {
-		if err := s.createRepository(ctx, in.GetRepository(), func(repo *gitalypb.Repository) error {
-			path, err := s.locator.GetPath(repo)
-			if err != nil {
-				return helper.ErrInternalf("getting repo path: %w", err)
-			}
-
-			// The archive contains a partial git repository, missing a config file and
-			// other important items. Initializing a new bare one and extracting the
-			// archive on top of it ensures the created git repository has everything
-			// it needs (especially, the config file and hooks directory).
-			//
-			// NOTE: The received archive is trusted *a lot*. Before pointing this RPC
-			// at endpoints not under our control, it should undergo a lot of hardning.
-			if err := untar(ctx, path, in); err != nil {
-				return helper.ErrInternalf("extracting snapshot: %w", err)
-			}
-
-			return nil
-		}); err != nil {
-			return nil, helper.ErrInternalf("creating repository: %w", err)
+	if err := s.createRepository(ctx, in.GetRepository(), func(repo *gitalypb.Repository) error {
+		path, err := s.locator.GetPath(repo)
+		if err != nil {
+			return helper.ErrInternalf("getting repo path: %w", err)
 		}
 
-		return &gitalypb.CreateRepositoryFromSnapshotResponse{}, nil
-	}
+		// The archive contains a partial git repository, missing a config file and
+		// other important items. Initializing a new bare one and extracting the
+		// archive on top of it ensures the created git repository has everything
+		// it needs (especially, the config file and hooks directory).
+		//
+		// NOTE: The received archive is trusted *a lot*. Before pointing this RPC
+		// at endpoints not under our control, it should undergo a lot of hardning.
+		if err := untar(ctx, path, in); err != nil {
+			return helper.ErrInternalf("extracting snapshot: %w", err)
+		}
 
-	realPath, err := s.locator.GetPath(in.Repository)
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := os.Stat(realPath); !os.IsNotExist(err) {
-		return nil, status.Errorf(codes.InvalidArgument, "destination directory exists")
-	}
-
-	// Perform all operations against a temporary directory, only moving it to
-	// the canonical location if retrieving and unpacking the snapshot is a
-	// success
-	tempRepo, tempDir, err := tempdir.NewRepository(ctx, in.GetRepository().GetStorageName(), s.locator)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "couldn't create temporary directory: %v", err)
-	}
-
-	// The archive contains a partial git repository, missing a config file and
-	// other important items. Initializing a new bare one and extracting the
-	// archive on top of it ensures the created git repository has everything
-	// it needs (especially, the config file and hooks directory).
-	//
-	// NOTE: The received archive is trusted *a lot*. Before pointing this RPC
-	// at endpoints not under our control, it should undergo a lot of hardning.
-	crr := &gitalypb.CreateRepositoryRequest{Repository: tempRepo}
-	if _, err := s.CreateRepository(ctx, crr); err != nil {
-		return nil, status.Errorf(codes.Internal, "couldn't create empty bare repository: %v", err)
-	}
-
-	if err := untar(ctx, tempDir.Path(), in); err != nil {
-		return nil, err
-	}
-
-	if err = os.MkdirAll(filepath.Dir(realPath), 0o755); err != nil {
-		return nil, fmt.Errorf("create directory hierarchy: %w", err)
-	}
-
-	if err := os.Rename(tempDir.Path(), realPath); err != nil {
-		return nil, status.Errorf(codes.Internal, "Promoting temporary directory failed: %v", err)
+		return nil
+	}); err != nil {
+		return nil, helper.ErrInternalf("creating repository: %w", err)
 	}
 
 	return &gitalypb.CreateRepositoryFromSnapshotResponse{}, nil

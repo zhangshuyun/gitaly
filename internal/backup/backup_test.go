@@ -18,7 +18,6 @@ import (
 	gitalylog "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/log"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	praefectConfig "gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -272,7 +271,10 @@ func TestManager_Restore(t *testing.T) {
 
 	gitalyAddr := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
 
-	testManagerRestore(t, cfg, gitalyAddr)
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	testManagerRestore(t, ctx, cfg, gitalyAddr)
 }
 
 func TestManager_Restore_praefect(t *testing.T) {
@@ -328,22 +330,13 @@ func TestManager_Restore_praefect(t *testing.T) {
 	t.Cleanup(func() { _ = cmd.Wait() })
 	t.Cleanup(func() { _ = cmd.Process.Kill() })
 
-	testManagerRestore(t, gitalyCfg, "unix://"+conf.SocketPath)
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	testManagerRestore(t, ctx, gitalyCfg, "unix://"+conf.SocketPath)
 }
 
-func testManagerRestore(t *testing.T, cfg config.Cfg, gitalyAddr string) {
-	t.Run("parallel", func(t *testing.T) {
-		testhelper.NewFeatureSets(
-			featureflag.AtomicRemoveRepository,
-			featureflag.TxAtomicRepositoryCreation,
-		).Run(t, func(t *testing.T, ctx context.Context) {
-			t.Parallel()
-			testManagerRestoreWithContext(t, ctx, cfg, gitalyAddr)
-		})
-	})
-}
-
-func testManagerRestoreWithContext(t *testing.T, ctx context.Context, cfg config.Cfg, gitalyAddr string) {
+func testManagerRestore(t *testing.T, ctx context.Context, cfg config.Cfg, gitalyAddr string) {
 	cc, err := client.Dial(gitalyAddr, nil)
 	require.NoError(t, err)
 	defer testhelper.MustClose(t, cc)

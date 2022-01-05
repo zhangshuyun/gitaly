@@ -28,7 +28,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/listenmux"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/grpc-proxy/proxy"
@@ -500,11 +499,11 @@ func TestWarnDuplicateAddrs(t *testing.T) {
 }
 
 func TestRemoveRepository(t *testing.T) {
-	testhelper.NewFeatureSets(featureflag.AtomicRemoveRepository).Run(t, testRemoveRepository)
-}
-
-func testRemoveRepository(t *testing.T, ctx context.Context) {
 	t.Parallel()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	gitalyCfgs := make([]gconfig.Cfg, 3)
 	repos := make([][]*gitalypb.Repository, 3)
 	praefectCfg := config.Config{VirtualStorages: []*config.VirtualStorage{{Name: "praefect"}}}
