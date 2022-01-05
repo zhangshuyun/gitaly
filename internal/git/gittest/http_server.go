@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 )
 
@@ -61,17 +62,19 @@ func RemoteUploadPackServer(ctx context.Context, t *testing.T, cfg config.Cfg, r
 	return s, fmt.Sprintf("%s/%s.git", s.URL, repoName)
 }
 
-// GitServer starts an HTTP server with git-http-backend(1) as CGI handler. The
-// repository is prepared such that git-http-backend(1) will serve it by
-// creating the "git-daemon-export-ok" magic file.
-func GitServer(t testing.TB, cfg config.Cfg, repoPath string, middleware func(http.ResponseWriter, *http.Request, http.Handler)) (int, func() error) {
+// HTTPServer starts an HTTP server with git-http-backend(1) as CGI handler. The repository is
+// prepared such that git-http-backend(1) will serve it by creating the "git-daemon-export-ok" magic
+// file.
+func HTTPServer(ctx context.Context, t testing.TB, gitCmdFactory git.CommandFactory, repoPath string, middleware func(http.ResponseWriter, *http.Request, http.Handler)) (int, func() error) {
 	require.NoError(t, os.WriteFile(filepath.Join(repoPath, "git-daemon-export-ok"), nil, 0o644))
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 
+	gitExecEnv := gitCmdFactory.GetExecutionEnvironment(ctx)
+
 	gitHTTPBackend := &cgi.Handler{
-		Path: cfg.Git.BinPath,
+		Path: gitExecEnv.BinaryPath,
 		Dir:  "/",
 		Args: []string{"http-backend"},
 		Env: append([]string{
@@ -79,7 +82,7 @@ func GitServer(t testing.TB, cfg config.Cfg, repoPath string, middleware func(ht
 			"GIT_CONFIG_COUNT=1",
 			"GIT_CONFIG_KEY_0=http.receivepack",
 			"GIT_CONFIG_VALUE_0=true",
-		}, cfg.GitExecEnv()...),
+		}, gitExecEnv.EnvironmentVariables...),
 	}
 	s := http.Server{Handler: gitHTTPBackend}
 

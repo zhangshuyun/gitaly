@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -11,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -26,6 +26,7 @@ func TestCreateRepotitoryFromURL_successful(t *testing.T) {
 	defer cancel()
 
 	cfg, _, repoPath, client := setupRepositoryService(t)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
 	importedRepo := &gitalypb.Repository{
 		RelativePath: "imports/test-repo-imported.git",
@@ -34,7 +35,7 @@ func TestCreateRepotitoryFromURL_successful(t *testing.T) {
 
 	user := "username123"
 	password := "password321localhost"
-	port, stopGitServer := gitServerWithBasicAuth(t, cfg, user, password, repoPath)
+	port, stopGitServer := gitServerWithBasicAuth(ctx, t, gitCmdFactory, user, password, repoPath)
 	defer func() {
 		require.NoError(t, stopGitServer())
 	}()
@@ -164,8 +165,8 @@ func TestCloneRepositoryFromUrlCommand(t *testing.T) {
 	require.NotContains(t, args, userInfo)
 }
 
-func gitServerWithBasicAuth(t testing.TB, cfg config.Cfg, user, pass, repoPath string) (int, func() error) {
-	return gittest.GitServer(t, cfg, repoPath, basicAuthMiddleware(t, user, pass))
+func gitServerWithBasicAuth(ctx context.Context, t testing.TB, gitCmdFactory git.CommandFactory, user, pass, repoPath string) (int, func() error) {
+	return gittest.HTTPServer(ctx, t, gitCmdFactory, repoPath, basicAuthMiddleware(t, user, pass))
 }
 
 func basicAuthMiddleware(t testing.TB, user, pass string) func(http.ResponseWriter, *http.Request, http.Handler) {
