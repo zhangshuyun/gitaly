@@ -27,22 +27,13 @@ func (s *server) WriteRef(ctx context.Context, req *gitalypb.WriteRefRequest) (*
 func (s *server) writeRef(ctx context.Context, req *gitalypb.WriteRefRequest) error {
 	repo := s.localrepo(req.GetRepository())
 	if string(req.Ref) == "HEAD" {
-		return s.updateSymbolicRef(ctx, repo, req)
+		if err := repo.SetDefaultBranch(ctx, git.ReferenceName(req.GetRevision())); err != nil {
+			return fmt.Errorf("setting default branch: %v", err)
+		}
+
+		return nil
 	}
 	return updateRef(ctx, s.cfg, repo, req)
-}
-
-func (s *server) updateSymbolicRef(ctx context.Context, repo *localrepo.Repo, req *gitalypb.WriteRefRequest) error {
-	if err := repo.ExecAndWait(ctx,
-		git.SubCmd{
-			Name: "symbolic-ref",
-			Args: []string{string(req.GetRef()), string(req.GetRevision())},
-		},
-		git.WithRefTxHook(ctx, req.GetRepository(), s.cfg),
-	); err != nil {
-		return fmt.Errorf("error when running symbolic-ref command: %v", err)
-	}
-	return nil
 }
 
 func updateRef(ctx context.Context, cfg config.Cfg, repo *localrepo.Repo, req *gitalypb.WriteRefRequest) error {

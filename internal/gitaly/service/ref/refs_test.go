@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -216,42 +215,6 @@ func TestInvalidRepoFindAllTagNamesRequest(t *testing.T) {
 
 	if helper.GrpcCode(recvError) != codes.NotFound {
 		t.Fatal(recvError)
-	}
-}
-
-func TestSetDefaultBranchRef(t *testing.T) {
-	cfg, repoProto, _ := testcfg.BuildWithRepo(t)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	testCases := []struct {
-		desc        string
-		ref         string
-		expectedRef git.ReferenceName
-	}{
-		{
-			desc:        "update the branch ref",
-			ref:         "refs/heads/feature",
-			expectedRef: "refs/heads/feature",
-		},
-		{
-			desc:        "unknown ref",
-			ref:         "refs/heads/non_existent_ref",
-			expectedRef: git.LegacyDefaultRef,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
-
-			require.NoError(t, SetDefaultBranchRef(ctx, repo, tc.ref, cfg))
-
-			newRef, err := repo.GetDefaultBranch(ctx)
-			require.NoError(t, err)
-
-			require.Equal(t, tc.expectedRef, newRef)
-		})
 	}
 }
 

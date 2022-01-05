@@ -456,6 +456,41 @@ func TestRepo_UpdateRef(t *testing.T) {
 	}
 }
 
+func TestRepo_SetDefaultBranch(t *testing.T) {
+	repo, _ := setupRepo(t, false)
+
+	testCases := []struct {
+		desc        string
+		ref         git.ReferenceName
+		expectedRef git.ReferenceName
+	}{
+		{
+			desc:        "update the branch ref",
+			ref:         "refs/heads/feature",
+			expectedRef: "refs/heads/feature",
+		},
+		{
+			desc:        "unknown ref",
+			ref:         "refs/heads/non_existent_ref",
+			expectedRef: git.LegacyDefaultRef,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			require.NoError(t, repo.SetDefaultBranch(ctx, tc.ref))
+
+			newRef, err := repo.GetDefaultBranch(ctx)
+			require.NoError(t, err)
+
+			require.Equal(t, tc.expectedRef, newRef)
+		})
+	}
+}
+
 func TestGuessHead(t *testing.T) {
 	repo, repoPath := setupRepo(t, false)
 

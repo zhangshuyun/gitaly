@@ -10,7 +10,6 @@ import (
 	gitalyerrors "gitlab.com/gitlab-org/gitaly/v14/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -98,7 +97,7 @@ func (s *server) updateHeadFromBundle(ctx context.Context, repo *localrepo.Repo,
 		return fmt.Errorf("update head from bundle: %w", err)
 	}
 
-	if err := ref.SetDefaultBranchRef(ctx, repo, branch.String(), s.cfg); err != nil {
+	if err := repo.SetDefaultBranch(ctx, branch); err != nil {
 		return fmt.Errorf("update head from bundle: %w", err)
 	}
 	return nil

@@ -11,7 +11,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/lines"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
@@ -70,17 +69,6 @@ func (s *server) findRefs(ctx context.Context, writer lines.Sender, repo git.Rep
 	}
 
 	return cmd.Wait()
-}
-
-// SetDefaultBranchRef overwrites the default branch ref for the repository
-func SetDefaultBranchRef(ctx context.Context, repo git.RepositoryExecutor, ref string, cfg config.Cfg) error {
-	if err := repo.ExecAndWait(ctx, git.SubCmd{
-		Name: "symbolic-ref",
-		Args: []string{"HEAD", ref},
-	}, git.WithRefTxHook(ctx, repo, cfg)); err != nil {
-		return err
-	}
-	return nil
 }
 
 // FindDefaultBranchName returns the default branch name for the given repository
