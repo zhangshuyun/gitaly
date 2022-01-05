@@ -80,7 +80,9 @@ func (cg *CGroupV1Manager) Setup() error {
 	return nil
 }
 
-//nolint: revive,stylecheck // This is unintentionally missing documentation.
+// AddCommand adds the given command to one of the CGroup's buckets. The bucket used for the command
+// is determined by hashing the commands arguments. No error is returned if the command has already
+// exited.
 func (cg *CGroupV1Manager) AddCommand(cmd *command.Command) error {
 	checksum := crc32.ChecksumIEEE([]byte(strings.Join(cmd.Args(), "")))
 	groupID := uint(checksum) % cg.cfg.Count

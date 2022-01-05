@@ -126,6 +126,8 @@ func TestMetrics(t *testing.T) {
 	v1Manager1 := newV1Manager(config)
 	v1Manager1.hierarchy = mock.hierarchy
 
+	mock.setupMockCgroupFiles(t, v1Manager1, 2)
+
 	require.NoError(t, v1Manager1.Setup())
 
 	ctx, cancel := testhelper.Context()
@@ -137,7 +139,6 @@ func TestMetrics(t *testing.T) {
 	require.NoError(t, cmd2.Wait())
 
 	require.NoError(t, v1Manager1.AddCommand(cmd2))
-	mock.setupMockCgroupFiles(t, v1Manager1, 2)
 
 	cgroupPath := v1Manager1.currentProcessCgroup()
 
