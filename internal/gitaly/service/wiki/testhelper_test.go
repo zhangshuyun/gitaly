@@ -37,7 +37,7 @@ func TestMain(m *testing.M) {
 func TestWithRubySidecar(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	rubySrv := rubyserver.New(cfg)
+	rubySrv := rubyserver.New(cfg, git.NewExecCommandFactory(cfg))
 	require.NoError(t, rubySrv.Start())
 	t.Cleanup(rubySrv.Stop)
 

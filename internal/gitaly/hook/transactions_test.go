@@ -29,9 +29,9 @@ func TestHookManager_stopCalled(t *testing.T) {
 	}
 
 	var mockTxMgr transaction.MockManager
-	hookManager := NewManager(config.NewLocator(cfg), &mockTxMgr, gitlab.NewMockClient(
+	hookManager := NewManager(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), &mockTxMgr, gitlab.NewMockClient(
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
-	), cfg)
+	))
 
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
@@ -130,9 +130,9 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 		},
 	}
 
-	hookManager := NewManager(config.NewLocator(cfg), &mockTxMgr, gitlab.NewMockClient(
+	hookManager := NewManager(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), &mockTxMgr, gitlab.NewMockClient(
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
-	), cfg)
+	))
 
 	hooksPayload, err := git.NewHooksPayload(
 		cfg,

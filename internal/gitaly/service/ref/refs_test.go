@@ -1193,8 +1193,15 @@ func TestFindTagNestedTag(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			tags := bytes.NewReader(gittest.Exec(t, cfg, "-C", repoPath, "tag"))
-			testhelper.MustRunCommand(t, tags, "xargs", cfg.Git.BinPath, "-C", repoPath, "tag", "-d")
+			tags, err := repo.GetReferences(ctx, "refs/tags/")
+			require.NoError(t, err)
+
+			updater, err := updateref.New(ctx, cfg, repo)
+			require.NoError(t, err)
+			for _, tag := range tags {
+				require.NoError(t, updater.Delete(tag.Name))
+			}
+			require.NoError(t, updater.Commit())
 
 			catfileCache := catfile.NewCache(cfg)
 			defer catfileCache.Stop()

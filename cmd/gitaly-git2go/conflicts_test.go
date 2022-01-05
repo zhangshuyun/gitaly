@@ -12,7 +12,6 @@ import (
 	cmdtesthelper "gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/testhelper"
 	glgit "gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"google.golang.org/grpc/codes"
@@ -171,7 +170,7 @@ func TestConflicts(t *testing.T) {
 
 	for _, tc := range testcases {
 		cfg, repo, repoPath := testcfg.BuildWithRepo(t)
-		executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
+		executor := buildExecutor(cfg)
 
 		testcfg.BuildGitalyGit2Go(t, cfg)
 
@@ -199,7 +198,7 @@ func TestConflicts_checkError(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 	base := cmdtesthelper.BuildCommit(t, repoPath, nil, nil)
 	validOID := glgit.ObjectID(base.String())
-	executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
+	executor := buildExecutor(cfg)
 
 	testcfg.BuildGitalyGit2Go(t, cfg)
 

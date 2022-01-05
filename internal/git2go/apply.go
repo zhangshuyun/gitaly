@@ -102,8 +102,10 @@ func (b Executor) Apply(ctx context.Context, repo repository.GitRepo, params App
 		}())
 	}()
 
+	execEnv := b.gitCmdFactory.GetExecutionEnvironment(ctx)
+
 	var result Result
-	output, err := b.run(ctx, repo, reader, "apply", "-git-binary-path", b.gitBinaryPath)
+	output, err := b.run(ctx, repo, reader, "apply", "-git-binary-path", execEnv.BinaryPath)
 	if err != nil {
 		return "", fmt.Errorf("run: %w", err)
 	}

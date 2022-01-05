@@ -331,17 +331,17 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 		gsd.txMgr = transaction.NewManager(cfg, gsd.backchannelReg)
 	}
 
-	if gsd.hookMgr == nil {
-		gsd.hookMgr = hook.NewManager(gsd.locator, gsd.txMgr, gsd.gitlabClient, cfg)
-	}
-
 	if gsd.gitCmdFactory == nil {
 		gsd.gitCmdFactory = git.NewExecCommandFactory(cfg)
 	}
 
+	if gsd.hookMgr == nil {
+		gsd.hookMgr = hook.NewManager(cfg, gsd.locator, gsd.gitCmdFactory, gsd.txMgr, gsd.gitlabClient)
+	}
+
 	if gsd.linguist == nil {
 		var err error
-		gsd.linguist, err = linguist.New(cfg)
+		gsd.linguist, err = linguist.New(cfg, gsd.gitCmdFactory)
 		require.NoError(t, err)
 	}
 

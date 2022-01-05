@@ -54,7 +54,7 @@ func (m *GitLabHookManager) updateHook(ctx context.Context, payload git.HooksPay
 		return helper.ErrInternal(err)
 	}
 
-	customEnv, err := m.customHooksEnv(payload, nil, env)
+	customEnv, err := m.customHooksEnv(ctx, payload, nil, env)
 	if err != nil {
 		return helper.ErrInternalf("constructing custom hook environment: %v", err)
 	}

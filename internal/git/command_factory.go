@@ -32,6 +32,14 @@ var globalOptions = []GlobalOption{
 	ConfigPair{Key: "core.autocrlf", Value: "input"},
 }
 
+// ExecutionEnvironment describes the environment required to execute a Git command
+type ExecutionEnvironment struct {
+	// BinaryPath is the path to the Git binary.
+	BinaryPath string
+	// EnvironmentVariables are variables which must be set when running the Git binary.
+	EnvironmentVariables []string
+}
+
 // CommandFactory is designed to create and run git commands in a protected and fully managed manner.
 type CommandFactory interface {
 	// New creates a new command for the repo repository.
@@ -40,6 +48,8 @@ type CommandFactory interface {
 	NewWithoutRepo(ctx context.Context, sc Cmd, opts ...CmdOpt) (*command.Command, error)
 	// NewWithDir creates a command without a target repository that would be executed in dir directory.
 	NewWithDir(ctx context.Context, dir string, sc Cmd, opts ...CmdOpt) (*command.Command, error)
+	// GetExecutionEnvironment returns parameters required to execute Git commands.
+	GetExecutionEnvironment(context.Context) ExecutionEnvironment
 }
 
 // ExecCommandFactory knows how to properly construct different types of commands.
@@ -98,8 +108,12 @@ func (cf *ExecCommandFactory) NewWithDir(ctx context.Context, dir string, sc Cmd
 	return cf.newCommand(ctx, nil, dir, sc, opts...)
 }
 
-func (cf *ExecCommandFactory) gitPath() string {
-	return cf.cfg.Git.BinPath
+// GetExecutionEnvironment returns parameters required to execute Git commands.
+func (cf *ExecCommandFactory) GetExecutionEnvironment(context.Context) ExecutionEnvironment {
+	return ExecutionEnvironment{
+		BinaryPath:           cf.cfg.Git.BinPath,
+		EnvironmentVariables: cf.cfg.GitExecEnv(),
+	}
 }
 
 // newCommand creates a new command.Command for the given git command. If a repo is given, then the
@@ -129,10 +143,12 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 		args = append([]string{"--git-dir", repoPath}, args...)
 	}
 
-	env = append(env, command.GitEnv...)
-	env = append(env, cf.cfg.GitExecEnv()...)
+	execEnv := cf.GetExecutionEnvironment(ctx)
 
-	execCommand := exec.Command(cf.gitPath(), args...)
+	env = append(env, command.GitEnv...)
+	env = append(env, execEnv.EnvironmentVariables...)
+
+	execCommand := exec.Command(execEnv.BinaryPath, args...)
 	execCommand.Dir = dir
 
 	command, err := command.New(ctx, execCommand, config.stdin, config.stdout, config.stderr, env...)

@@ -279,7 +279,7 @@ To restore the original branch and stop patching, run "git am --abort".
 
 			repo := localrepo.New(git.NewExecCommandFactory(cfg), catfileCache, repoPb, cfg)
 
-			executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
+			executor := git2go.NewExecutor(cfg, git.NewExecCommandFactory(cfg), config.NewLocator(cfg))
 
 			authorTime := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 			committerTime := authorTime.Add(time.Hour)

@@ -69,9 +69,9 @@ func TestPrintAlert(t *testing.T) {
 func TestPostReceive_customHook(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
-	hookManager := NewManager(config.NewLocator(cfg), transaction.NewManager(cfg, backchannel.NewRegistry()), gitlab.NewMockClient(
+	hookManager := NewManager(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), transaction.NewManager(cfg, backchannel.NewRegistry()), gitlab.NewMockClient(
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
-	), cfg)
+	))
 
 	receiveHooksPayload := &git.ReceiveHooksPayload{
 		UserID:   "1234",
@@ -335,7 +335,7 @@ func TestPostReceive_gitlab(t *testing.T) {
 				},
 			}
 
-			hookManager := NewManager(config.NewLocator(cfg), transaction.NewManager(cfg, backchannel.NewRegistry()), &gitlabAPI, cfg)
+			hookManager := NewManager(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), transaction.NewManager(cfg, backchannel.NewRegistry()), &gitlabAPI)
 
 			gittest.WriteCustomHook(t, repoPath, "post-receive", []byte("#!/bin/sh\necho hook called\n"))
 
@@ -367,9 +367,9 @@ func TestPostReceive_quarantine(t *testing.T) {
 	blobID, err := quarantinedRepo.WriteBlob(ctx, "", strings.NewReader("allyourbasearebelongtous"))
 	require.NoError(t, err)
 
-	hookManager := NewManager(config.NewLocator(cfg), nil, gitlab.NewMockClient(
+	hookManager := NewManager(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), nil, gitlab.NewMockClient(
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
-	), cfg)
+	))
 
 	gittest.WriteCustomHook(t, repoPath, "post-receive", []byte(fmt.Sprintf(
 		`#!/bin/sh

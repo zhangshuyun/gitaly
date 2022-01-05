@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
@@ -49,18 +50,26 @@ type Manager interface {
 // GitLabHookManager is a hook manager containing Git hook business logic. It
 // uses the GitLab API to authenticate and track ongoing hook calls.
 type GitLabHookManager struct {
-	cfg          config.Cfg
-	locator      storage.Locator
-	gitlabClient gitlab.Client
-	txManager    transaction.Manager
+	cfg           config.Cfg
+	locator       storage.Locator
+	gitCmdFactory git.CommandFactory
+	txManager     transaction.Manager
+	gitlabClient  gitlab.Client
 }
 
 // NewManager returns a new hook manager
-func NewManager(locator storage.Locator, txManager transaction.Manager, gitlabClient gitlab.Client, cfg config.Cfg) *GitLabHookManager {
+func NewManager(
+	cfg config.Cfg,
+	locator storage.Locator,
+	gitCmdFactory git.CommandFactory,
+	txManager transaction.Manager,
+	gitlabClient gitlab.Client,
+) *GitLabHookManager {
 	return &GitLabHookManager{
-		cfg:          cfg,
-		locator:      locator,
-		gitlabClient: gitlabClient,
-		txManager:    txManager,
+		cfg:           cfg,
+		locator:       locator,
+		gitCmdFactory: gitCmdFactory,
+		txManager:     txManager,
+		gitlabClient:  gitlabClient,
 	}
 }

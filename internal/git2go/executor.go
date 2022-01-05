@@ -30,16 +30,16 @@ var (
 // Executor executes gitaly-git2go.
 type Executor struct {
 	binaryPath    string
-	gitBinaryPath string
+	gitCmdFactory git.CommandFactory
 	locator       storage.Locator
 }
 
 // NewExecutor returns a new gitaly-git2go executor using binaries as configured in the given
 // configuration.
-func NewExecutor(cfg config.Cfg, locator storage.Locator) Executor {
+func NewExecutor(cfg config.Cfg, gitCmdFactory git.CommandFactory, locator storage.Locator) Executor {
 	return Executor{
 		binaryPath:    filepath.Join(cfg.BinDir, BinaryName),
-		gitBinaryPath: cfg.Git.BinPath,
+		gitCmdFactory: gitCmdFactory,
 		locator:       locator,
 	}
 }

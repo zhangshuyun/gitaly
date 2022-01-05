@@ -48,7 +48,7 @@ func NewServer(
 		binDir:        cfg.BinDir,
 		loggingCfg:    cfg.Logging,
 		catfileCache:  catfileCache,
-		git2go:        git2go.NewExecutor(cfg, locator),
+		git2go:        git2go.NewExecutor(cfg, gitCmdFactory, locator),
 	}
 }
 

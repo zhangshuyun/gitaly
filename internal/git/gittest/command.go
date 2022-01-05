@@ -6,17 +6,9 @@ import (
 	"os/exec"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 )
-
-// Exec runs a git command and returns the standard output, or fails.
-func Exec(t testing.TB, cfg config.Cfg, args ...string) []byte {
-	t.Helper()
-
-	return run(t, nil, nil, cfg, args, nil)
-}
 
 // ExecConfig contains configuration for ExecOpts.
 type ExecConfig struct {
@@ -30,40 +22,17 @@ type ExecConfig struct {
 	Env []string
 }
 
+// Exec runs a git command and returns the standard output, or fails.
+func Exec(t testing.TB, cfg config.Cfg, args ...string) []byte {
+	t.Helper()
+	return ExecOpts(t, cfg, ExecConfig{}, args...)
+}
+
 // ExecOpts runs a git command with the given configuration.
 func ExecOpts(t testing.TB, cfg config.Cfg, execCfg ExecConfig, args ...string) []byte {
 	t.Helper()
 
-	return run(t, execCfg.Stdin, execCfg.Stdout, cfg, args, execCfg.Env)
-}
-
-func run(t testing.TB, stdin io.Reader, stdout io.Writer, cfg config.Cfg, args, env []string) []byte {
-	t.Helper()
-
-	cmd := exec.Command(cfg.Git.BinPath, args...)
-	cmd.Env = os.Environ()
-	cmd.Env = append(command.GitEnv, cmd.Env...)
-	cmd.Env = append(cmd.Env,
-		"GIT_AUTHOR_DATE=1572776879 +0100",
-		"GIT_COMMITTER_DATE=1572776879 +0100",
-		"GIT_CONFIG_COUNT=2",
-		"GIT_CONFIG_KEY_0=init.defaultBranch",
-		"GIT_CONFIG_VALUE_0=master",
-		"GIT_CONFIG_KEY_1=init.templateDir",
-		"GIT_CONFIG_VALUE_1=",
-	)
-	cmd.Env = append(cmd.Env, cfg.GitExecEnv()...)
-	cmd.Env = append(cmd.Env, env...)
-
-	cmd.Stdout = stdout
-	cmd.Stdin = stdin
-
-	if stdout != nil {
-		require.NoError(t, cmd.Start())
-		require.NoError(t, cmd.Wait())
-
-		return nil
-	}
+	cmd := createCommand(t, cfg, execCfg, args...)
 
 	output, err := cmd.Output()
 	if err != nil {
@@ -75,4 +44,38 @@ func run(t testing.TB, stdin io.Reader, stdout io.Writer, cfg config.Cfg, args, 
 	}
 
 	return output
+}
+
+// NewCommand creates a new Git command ready for execution.
+func NewCommand(t testing.TB, cfg config.Cfg, args ...string) *exec.Cmd {
+	t.Helper()
+	return createCommand(t, cfg, ExecConfig{}, args...)
+}
+
+func createCommand(t testing.TB, cfg config.Cfg, execCfg ExecConfig, args ...string) *exec.Cmd {
+	t.Helper()
+
+	cmd := exec.Command(cfg.Git.BinPath, args...)
+	cmd.Env = command.AllowedEnvironment(os.Environ())
+	cmd.Env = append(command.GitEnv, cmd.Env...)
+	cmd.Env = append(cmd.Env,
+		"GIT_AUTHOR_DATE=1572776879 +0100",
+		"GIT_COMMITTER_DATE=1572776879 +0100",
+		"GIT_CONFIG_COUNT=4",
+		"GIT_CONFIG_KEY_0=init.defaultBranch",
+		"GIT_CONFIG_VALUE_0=master",
+		"GIT_CONFIG_KEY_1=init.templateDir",
+		"GIT_CONFIG_VALUE_1=",
+		"GIT_CONFIG_KEY_2=user.name",
+		"GIT_CONFIG_VALUE_2=Your Name",
+		"GIT_CONFIG_KEY_3=user.email",
+		"GIT_CONFIG_VALUE_3=you@example.com",
+	)
+	cmd.Env = append(cmd.Env, cfg.GitExecEnv()...)
+	cmd.Env = append(cmd.Env, execCfg.Env...)
+
+	cmd.Stdout = execCfg.Stdout
+	cmd.Stdin = execCfg.Stdin
+
+	return cmd
 }

@@ -14,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/git2goutil"
 	cmdtesthelper "gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
@@ -22,7 +21,7 @@ import (
 func TestCherryPick_validation(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 	testcfg.BuildGitalyGit2Go(t, cfg)
-	executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
+	executor := buildExecutor(cfg)
 
 	testcases := []struct {
 		desc        string
@@ -150,7 +149,7 @@ func TestCherryPick(t *testing.T) {
 	for _, tc := range testcases {
 		cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 		testcfg.BuildGitalyGit2Go(t, cfg)
-		executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
+		executor := buildExecutor(cfg)
 
 		base := cmdtesthelper.BuildCommit(t, repoPath, []*git.Oid{nil}, tc.base)
 

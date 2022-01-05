@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 )
 
@@ -26,30 +27,35 @@ type ByteCountPerLanguage map[string]uint64
 
 // Instance is a holder of the defined in the system language settings.
 type Instance struct {
-	colorMap map[string]Language
+	cfg           config.Cfg
+	colorMap      map[string]Language
+	gitCmdFactory git.CommandFactory
 }
 
 // New loads the name->color map from the Linguist gem and returns initialised instance
 // to use back to the caller or an error.
-func New(cfg config.Cfg) (*Instance, error) {
+func New(cfg config.Cfg, gitCmdFactory git.CommandFactory) (*Instance, error) {
 	jsonReader, err := openLanguagesJSON(cfg)
 	if err != nil {
 		return nil, err
 	}
 	defer jsonReader.Close()
 
-	var inst Instance
-
-	if err := json.NewDecoder(jsonReader).Decode(&inst.colorMap); err != nil {
+	var colorMap map[string]Language
+	if err := json.NewDecoder(jsonReader).Decode(&colorMap); err != nil {
 		return nil, err
 	}
 
-	return &inst, nil
+	return &Instance{
+		cfg:           cfg,
+		gitCmdFactory: gitCmdFactory,
+		colorMap:      colorMap,
+	}, nil
 }
 
 // Stats returns the repository's language stats as reported by 'git-linguist'.
-func (inst *Instance) Stats(ctx context.Context, cfg config.Cfg, repoPath string, commitID string) (ByteCountPerLanguage, error) {
-	cmd, err := startGitLinguist(ctx, cfg, repoPath, commitID, "stats")
+func (inst *Instance) Stats(ctx context.Context, repoPath string, commitID string) (ByteCountPerLanguage, error) {
+	cmd, err := inst.startGitLinguist(ctx, repoPath, commitID, "stats")
 	if err != nil {
 		return nil, fmt.Errorf("starting linguist: %w", err)
 	}
@@ -81,7 +87,7 @@ func (inst *Instance) Color(language string) string {
 	return fmt.Sprintf("#%x", colorSha[0:3])
 }
 
-func startGitLinguist(ctx context.Context, cfg config.Cfg, repoPath string, commitID string, linguistCommand string) (*command.Command, error) {
+func (inst *Instance) startGitLinguist(ctx context.Context, repoPath string, commitID string, linguistCommand string) (*command.Command, error) {
 	bundle, err := exec.LookPath("bundle")
 	if err != nil {
 		return nil, fmt.Errorf("finding bundle executable: %w", err)
@@ -97,6 +103,8 @@ func startGitLinguist(ctx context.Context, cfg config.Cfg, repoPath string, comm
 		linguistCommand,
 	}
 
+	gitExecEnv := inst.gitCmdFactory.GetExecutionEnvironment(ctx)
+
 	// This is a horrible hack. git-linguist will execute `git rev-parse
 	// --git-dir` to check whether it is in a Git directory or not. We don't
 	// want to use the one provided by PATH, but instead the one specified
@@ -105,7 +113,7 @@ func startGitLinguist(ctx context.Context, cfg config.Cfg, repoPath string, comm
 	// Git's directory to PATH. But as our internal command interface will
 	// overwrite PATH even if we pass it in here, we need to work around it
 	// and instead execute the command with `env PATH=$GITDIR:$PATH`.
-	gitDir := filepath.Dir(cfg.Git.BinPath)
+	gitDir := filepath.Dir(gitExecEnv.BinaryPath)
 	if path, ok := os.LookupEnv("PATH"); ok && gitDir != "." {
 		args = append([]string{
 			"env", fmt.Sprintf("PATH=%s:%s", gitDir, path),
@@ -113,7 +121,7 @@ func startGitLinguist(ctx context.Context, cfg config.Cfg, repoPath string, comm
 	}
 
 	cmd := exec.Command(args[0], args[1:]...)
-	cmd.Dir = cfg.Ruby.Dir
+	cmd.Dir = inst.cfg.Ruby.Dir
 
 	internalCmd, err := command.New(ctx, cmd, nil, nil, nil, exportEnvironment()...)
 	if err != nil {

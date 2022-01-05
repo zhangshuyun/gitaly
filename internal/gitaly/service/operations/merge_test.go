@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -595,14 +594,14 @@ func testUserMergeBranchAllowed(t *testing.T, ctx context.Context) {
 			cfg := testcfg.Build(t)
 			backchannelRegistry := backchannel.NewRegistry()
 			txManager := transaction.NewManager(cfg, backchannelRegistry)
-			hookManager := hook.NewManager(config.NewLocator(cfg), txManager, gitlab.NewMockClient(
+			hookManager := hook.NewManager(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), txManager, gitlab.NewMockClient(
 				t,
 				func(context.Context, gitlab.AllowedParams) (bool, string, error) {
 					return tc.allowed, tc.allowedMessage, tc.allowedErr
 				},
 				gitlab.MockPreReceive,
 				gitlab.MockPostReceive,
-			), cfg)
+			))
 
 			ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithCfg(
 				t, ctx, cfg,
@@ -875,8 +874,7 @@ func TestUserMergeToRef_successful(t *testing.T) {
 
 	// Writes in existingTargetRef
 	beforeRefreshCommitSha := "a5391128b0ef5d21df5dd23d98557f4ef12fae20"
-	out, err := exec.Command(cfg.Git.BinPath, "-C", repoPath, "update-ref", string(existingTargetRef), beforeRefreshCommitSha).CombinedOutput()
-	require.NoError(t, err, "give an existing state to the target ref: %s", out)
+	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", string(existingTargetRef), beforeRefreshCommitSha)
 
 	testCases := []struct {
 		desc           string
