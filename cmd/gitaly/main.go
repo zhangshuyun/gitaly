@@ -104,10 +104,6 @@ func configure(configPath string) (config.Cfg, error) {
 		return config.Cfg{}, fmt.Errorf("failed setting up cgroups: %w", err)
 	}
 
-	if err := verifyGitVersion(cfg); err != nil {
-		return config.Cfg{}, err
-	}
-
 	sentry.ConfigureSentry(version.GetVersion(), sentry.Config(cfg.Logging.Sentry))
 	cfg.Prometheus.Configure()
 	tracing.Initialize(tracing.WithServiceName("gitaly"))
@@ -116,11 +112,8 @@ func configure(configPath string) (config.Cfg, error) {
 	return cfg, nil
 }
 
-func verifyGitVersion(cfg config.Cfg) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	gitVersion, err := git.CurrentVersion(ctx, git.NewExecCommandFactory(cfg))
+func verifyGitVersion(ctx context.Context, gitCmdFactory git.CommandFactory) error {
+	gitVersion, err := git.CurrentVersion(ctx, gitCmdFactory)
 	if err != nil {
 		return fmt.Errorf("git version detection: %w", err)
 	}
@@ -128,6 +121,7 @@ func verifyGitVersion(cfg config.Cfg) error {
 	if !gitVersion.IsSupported() {
 		return fmt.Errorf("unsupported Git version: %q", gitVersion)
 	}
+
 	return nil
 }
 
@@ -156,6 +150,11 @@ func run(cfg config.Cfg) error {
 		return fmt.Errorf("init bootstrap: %w", err)
 	}
 
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	if err := verifyGitVersion(ctx, gitCmdFactory); err != nil {
+		return err
+	}
+
 	registry := backchannel.NewRegistry()
 	transactionManager := transaction.NewManager(cfg, registry)
 	prometheus.MustRegister(transactionManager)
@@ -166,7 +165,6 @@ func run(cfg config.Cfg) error {
 
 	tempdir.StartCleaning(locator, cfg.Storages, time.Hour)
 
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	prometheus.MustRegister(gitCmdFactory)
 
 	if config.SkipHooks() {
