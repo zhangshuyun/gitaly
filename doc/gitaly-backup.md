@@ -68,6 +68,7 @@ Gitaly and Gitaly Cluster.
    |  `storage_name`     |  string  |  yes     |  Name of the storage where the repository is stored. |
    |  `relative_path`    |  string  |  yes     |  Relative path of the repository. |
    |  `gl_project_path`  |  string  |  no      |  Name of the project. Used for logging. |
+   |  `always_create`    |  boolean |  no      |  Create the repository even if no bundle for it exists (for compatibility with existing backups) |
 
    For example, `restore_job.json`:
 
