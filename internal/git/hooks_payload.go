@@ -58,8 +58,6 @@ type HooksPayload struct {
 
 	// Repo is the repository in which the hook is running.
 	Repo *gitalypb.Repository `json:"-"`
-	// BinDir is the binary directory of Gitaly.
-	BinDir string `json:"binary_directory"`
 	// InternalSocket is the path to Gitaly's internal socket.
 	InternalSocket string `json:"internal_socket"`
 	// InternalSocketToken is the token required to authenticate with
@@ -107,7 +105,6 @@ func NewHooksPayload(
 ) HooksPayload {
 	return HooksPayload{
 		Repo:                repo,
-		BinDir:              cfg.BinDir,
 		InternalSocket:      cfg.GitalyInternalSocketPath(),
 		InternalSocketToken: cfg.Auth.Token,
 		Transaction:         tx,
