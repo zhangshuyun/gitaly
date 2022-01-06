@@ -216,7 +216,13 @@ func check(configPath string) (*gitlab.CheckInfo, error) {
 		return nil, err
 	}
 
-	return hook.NewManager(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), nil, gitlabAPI).Check(context.TODO())
+	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg)
+	if err != nil {
+		return nil, err
+	}
+	defer cleanup()
+
+	return hook.NewManager(cfg, config.NewLocator(cfg), gitCmdFactory, nil, gitlabAPI).Check(context.TODO())
 }
 
 func updateHook(ctx context.Context, payload git.HooksPayload, hookClient gitalypb.HookServiceClient, args []string) error {

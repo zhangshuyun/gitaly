@@ -60,8 +60,9 @@ type ExecCommandFactory struct {
 	invalidCommandsMetric *prometheus.CounterVec
 }
 
-// NewExecCommandFactory returns a new instance of initialized ExecCommandFactory.
-func NewExecCommandFactory(cfg config.Cfg) *ExecCommandFactory {
+// NewExecCommandFactory returns a new instance of initialized ExecCommandFactory. The returned
+// cleanup function shall be executed when the server shuts down.
+func NewExecCommandFactory(cfg config.Cfg) (*ExecCommandFactory, func(), error) {
 	return &ExecCommandFactory{
 		cfg:            cfg,
 		locator:        config.NewLocator(cfg),
@@ -73,7 +74,7 @@ func NewExecCommandFactory(cfg config.Cfg) *ExecCommandFactory {
 			},
 			[]string{"command"},
 		),
-	}
+	}, func() {}, nil
 }
 
 // Describe is used to describe Prometheus metrics.

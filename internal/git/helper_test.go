@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
@@ -33,4 +34,11 @@ func TestValidateRevision(t *testing.T) {
 			}
 		})
 	}
+}
+
+func newCommandFactory(tb testing.TB, cfg config.Cfg) *ExecCommandFactory {
+	gitCmdFactory, cleanup, err := NewExecCommandFactory(cfg)
+	require.NoError(tb, err)
+	tb.Cleanup(cleanup)
+	return gitCmdFactory
 }

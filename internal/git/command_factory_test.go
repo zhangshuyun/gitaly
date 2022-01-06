@@ -36,7 +36,10 @@ func TestGitCommandProxy(t *testing.T) {
 
 	dir := testhelper.TempDir(t)
 
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg)
+	require.NoError(t, err)
+	defer cleanup()
+
 	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, git.SubCmd{
 		Name: "clone",
 		Args: []string{"http://gitlab.com/bogus-repo", dir},
@@ -52,6 +55,10 @@ func TestGitCommandProxy(t *testing.T) {
 // git configuration in 15.0. See https://gitlab.com/gitlab-org/gitaly/-/issues/3617.
 func TestExecCommandFactory_globalGitConfigIgnored(t *testing.T) {
 	cfg := testcfg.Build(t)
+
+	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg)
+	require.NoError(t, err)
+	defer cleanup()
 
 	tmpHome := testhelper.TempDir(t)
 	require.NoError(t, os.WriteFile(filepath.Join(tmpHome, ".gitconfig"), []byte(`[ignored]
@@ -73,7 +80,7 @@ func TestExecCommandFactory_globalGitConfigIgnored(t *testing.T) {
 		{desc: "system", filter: "--system"},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			cmd, err := git.NewExecCommandFactory(cfg).NewWithoutRepo(ctx, git.SubCmd{
+			cmd, err := gitCmdFactory.NewWithoutRepo(ctx, git.SubCmd{
 				Name:  "config",
 				Flags: []git.Option{git.Flag{Name: "--list"}, git.Flag{Name: tc.filter}},
 			}, git.WithEnv("HOME="+tmpHome))
@@ -90,7 +97,9 @@ func TestExecCommandFactory_globalGitConfigIgnored(t *testing.T) {
 func TestExecCommandFactory_NewWithDir(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg)
+	require.NoError(t, err)
+	defer cleanup()
 
 	t.Run("no dir specified", func(t *testing.T) {
 		ctx, cancel := testhelper.Context()
@@ -145,7 +154,9 @@ func TestExecCommandFactory_GetExecutionEnvironment(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg)
+	require.NoError(t, err)
+	defer cleanup()
 
 	require.Equal(t, git.ExecutionEnvironment{
 		BinaryPath:           cfg.Git.BinPath,

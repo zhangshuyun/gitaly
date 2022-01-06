@@ -53,7 +53,7 @@ func TestNewCommandAddsToCgroup(t *testing.T) {
 	require.NoError(t, os.MkdirAll(cfg.BinDir, 0o644))
 	require.NoError(t, cfg.SetGitPath())
 
-	gitCmdFactory := NewExecCommandFactory(cfg)
+	gitCmdFactory := newCommandFactory(t, cfg)
 
 	testCases := []struct {
 		desc      string

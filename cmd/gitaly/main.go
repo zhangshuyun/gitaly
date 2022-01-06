@@ -150,7 +150,12 @@ func run(cfg config.Cfg) error {
 		return fmt.Errorf("init bootstrap: %w", err)
 	}
 
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg)
+	if err != nil {
+		return fmt.Errorf("creating Git command factory: %w", err)
+	}
+	defer cleanup()
+
 	if err := verifyGitVersion(ctx, gitCmdFactory); err != nil {
 		return err
 	}
