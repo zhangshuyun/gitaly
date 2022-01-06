@@ -73,38 +73,34 @@ func TestFetchRemoteSuccess(t *testing.T) {
 
 func TestFetchRemote_sshCommand(t *testing.T) {
 	t.Parallel()
-	tempDir := testhelper.TempDir(t)
-
-	// We ain't got a nice way to intercept the SSH call, so we just write a custom git command
-	// which simply prints the GIT_SSH_COMMAND environment variable.
-	gitPath := filepath.Join(tempDir, "git")
-	outputPath := filepath.Join(tempDir, "output")
-	script := fmt.Sprintf(`#!/bin/sh
-	for arg in $GIT_SSH_COMMAND
-	do
-		case "$arg" in
-		-oIdentityFile=*)
-			path=$(echo "$arg" | cut -d= -f2)
-			cat "$path";;
-		*)
-			echo "$arg";;
-		esac
-	done >'%s'
-	exit 7`, outputPath)
-	testhelper.WriteExecutable(t, gitPath, []byte(script))
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	// We re-define path to the git executable to catch parameters used to call it.
-	// This replacement only needs to be done for the configuration used to invoke git commands.
-	// Other operations should use actual path to the git binary to work properly.
-	spyGitCfg := cfg
-	spyGitCfg.Git.BinPath = gitPath
-
-	client, _ := runRepositoryService(t, spyGitCfg, nil)
+	outputPath := filepath.Join(testhelper.TempDir(t), "output")
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
+
+	// We ain't got a nice way to intercept the SSH call, so we just write a custom git command
+	// which simply prints the GIT_SSH_COMMAND environment variable.
+	gitCmdFactory := gittest.NewInterceptingCommandFactory(ctx, t, cfg, func(git.ExecutionEnvironment) string {
+		return fmt.Sprintf(
+			`#!/bin/sh
+			for arg in $GIT_SSH_COMMAND
+			do
+				case "$arg" in
+				-oIdentityFile=*)
+					path=$(echo "$arg" | cut -d= -f2)
+					cat "$path";;
+				*)
+					echo "$arg";;
+				esac
+			done >'%s'
+			exit 7
+		`, outputPath)
+	})
+
+	client, _ := runRepositoryService(t, cfg, nil, testserver.WithGitCommandFactory(gitCmdFactory))
 
 	for _, tc := range []struct {
 		desc           string
