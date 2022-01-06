@@ -24,6 +24,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 	"google.golang.org/grpc/codes"
@@ -121,19 +122,22 @@ func TestSuccessfulInfoRefsUploadPackWithGitProtocol(t *testing.T) {
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	readProtocol, cfg := gittest.EnableGitProtocolV2Support(t, cfg)
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-	serverSocketPath := runSmartHTTPServer(t, cfg)
+	gitCmdFactory, readProtocol := gittest.EnableGitProtocolV2Support(ctx, t, cfg)
+
+	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
+		testserver.WithGitCommandFactory(gitCmdFactory),
+	})
 
 	rpcRequest := &gitalypb.InfoRefsRequest{
 		Repository:  repo,
 		GitProtocol: git.ProtocolV2,
 	}
 
-	client, conn := newSmartHTTPClient(t, serverSocketPath, cfg.Auth.Token)
+	client, conn := newSmartHTTPClient(t, server.Address(), cfg.Auth.Token)
 	defer testhelper.MustClose(t, conn)
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	c, err := client.InfoRefsUploadPack(ctx, rpcRequest)
 	require.NoError(t, err)

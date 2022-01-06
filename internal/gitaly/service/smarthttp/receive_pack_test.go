@@ -169,15 +169,17 @@ func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	readProto, cfg := gittest.EnableGitProtocolV2Support(t, cfg)
-
-	serverSocketPath := runSmartHTTPServer(t, cfg)
-
-	client, conn := newSmartHTTPClient(t, serverSocketPath, cfg.Auth.Token)
-	defer conn.Close()
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
+
+	gitCmdFactory, readProto := gittest.EnableGitProtocolV2Support(ctx, t, cfg)
+
+	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
+		testserver.WithGitCommandFactory(gitCmdFactory),
+	})
+
+	client, conn := newSmartHTTPClient(t, server.Address(), cfg.Auth.Token)
+	defer conn.Close()
 
 	stream, err := client.PostReceivePack(ctx)
 	require.NoError(t, err)
