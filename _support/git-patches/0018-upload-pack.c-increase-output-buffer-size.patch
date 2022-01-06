@@ -1,0 +1,84 @@
+From 8dee71501ba8dca0872fe3166a0a817c41e14d6e Mon Sep 17 00:00:00 2001
+From: Jacob Vosmaer <jacob@gitlab.com>
+Date: Tue, 14 Dec 2021 20:46:26 +0100
+Subject: [PATCH] upload-pack.c: increase output buffer size
+
+When serving a fetch, git upload-pack copies data from a git
+pack-objects stdout pipe to its stdout. This commit increases the size
+of the buffer used for that copying from 8192 to 65515, the maximum
+sideband-64k packet size.
+
+Previously, this buffer was allocated on the stack. Because the new
+buffer size is nearly 64KB, we switch this to a heap allocation.
+
+On GitLab.com we use GitLab's pack-objects cache which does writes of
+65515 bytes. Because of the default 8KB buffer size, propagating these
+cache writes requires 8 pipe reads and 8 pipe writes from
+git-upload-pack, and 8 pipe reads from Gitaly (our Git RPC service).
+If we increase the size of the buffer to the maximum Git packet size,
+we need only 1 pipe read and 1 pipe write in git-upload-pack, and 1
+pipe read in Gitaly to transfer the same amount of data. In benchmarks
+with a pure fetch and 100% cache hit rate workload we are seeing CPU
+utilization reductions of over 30%.
+
+Signed-off-by: Jacob Vosmaer <jacob@gitlab.com>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+---
+ upload-pack.c | 17 ++++++++++++-----
+ 1 file changed, 12 insertions(+), 5 deletions(-)
+
+diff --git a/upload-pack.c b/upload-pack.c
+index 6ce07231d3..c52f7709d4 100644
+--- a/upload-pack.c
++++ b/upload-pack.c
+@@ -194,7 +194,13 @@ static int write_one_shallow(const struct commit_graft *graft, void *cb_data)
+ }
+ 
+ struct output_state {
+-	char buffer[8193];
++	/*
++	 * We do writes no bigger than LARGE_PACKET_DATA_MAX - 1, because with
++	 * sideband-64k the band designator takes up 1 byte of space. Because
++	 * relay_pack_data keeps the last byte to itself, we make the buffer 1
++	 * byte bigger than the intended maximum write size.
++	 */
++	char buffer[(LARGE_PACKET_DATA_MAX - 1) + 1];
+ 	int used;
+ 	unsigned packfile_uris_started : 1;
+ 	unsigned packfile_started : 1;
+@@ -269,7 +275,7 @@ static void create_pack_file(struct upload_pack_data *pack_data,
+ 			     const struct string_list *uri_protocols)
+ {
+ 	struct child_process pack_objects = CHILD_PROCESS_INIT;
+-	struct output_state output_state = { { 0 } };
++	struct output_state *output_state = xcalloc(1, sizeof(struct output_state));
+ 	char progress[128];
+ 	char abort_msg[] = "aborting due to possible repository "
+ 		"corruption on the remote side.";
+@@ -404,7 +410,7 @@ static void create_pack_file(struct upload_pack_data *pack_data,
+ 		}
+ 		if (0 <= pu && (pfd[pu].revents & (POLLIN|POLLHUP))) {
+ 			int result = relay_pack_data(pack_objects.out,
+-						     &output_state,
++						     output_state,
+ 						     pack_data->use_sideband,
+ 						     !!uri_protocols);
+ 
+@@ -438,11 +444,12 @@ static void create_pack_file(struct upload_pack_data *pack_data,
+ 	}
+ 
+ 	/* flush the data */
+-	if (output_state.used > 0) {
+-		send_client_data(1, output_state.buffer, output_state.used,
++	if (output_state->used > 0) {
++		send_client_data(1, output_state->buffer, output_state->used,
+ 				 pack_data->use_sideband);
+ 		fprintf(stderr, "flushed.\n");
+ 	}
++	free(output_state);
+ 	if (pack_data->use_sideband)
+ 		packet_flush(1);
+ 	return;
+-- 
+2.32.0
+
