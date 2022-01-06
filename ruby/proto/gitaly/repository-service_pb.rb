@@ -235,8 +235,6 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     add_message "gitaly.GetRawChangesResponse.RawChange" do
       optional :blob_id, :string, 1
       optional :size, :int64, 2
-      optional :new_path, :string, 3
-      optional :old_path, :string, 4
       optional :operation, :enum, 5, "gitaly.GetRawChangesResponse.RawChange.Operation"
       optional :raw_operation, :string, 6
       optional :old_mode, :int32, 7
