@@ -4,12 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
-	"time"
 
-	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
@@ -282,13 +279,9 @@ func TestManager_Restore_praefect(t *testing.T) {
 
 	gitalyCfg := testcfg.Build(t, testcfg.WithStorages("gitaly-1"))
 
-	testcfg.BuildPraefect(t, gitalyCfg)
 	testcfg.BuildGitalyHooks(t, gitalyCfg)
 
 	gitalyAddr := testserver.RunGitalyServer(t, gitalyCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
-
-	db := testdb.New(t)
-	dbConf := testdb.GetConfig(t, db.Name)
 
 	conf := praefectConfig.Config{
 		SocketPath: testhelper.GetTemporaryGitalySocketFileName(t),
@@ -300,7 +293,7 @@ func TestManager_Restore_praefect(t *testing.T) {
 				},
 			},
 		},
-		DB: dbConf,
+		DB: testdb.GetConfig(t, testdb.New(t).Name),
 		Failover: praefectConfig.Failover{
 			Enabled:          true,
 			ElectionStrategy: praefectConfig.ElectionStrategyPerRepository,
@@ -312,28 +305,10 @@ func TestManager_Restore_praefect(t *testing.T) {
 		},
 	}
 
-	tempDir := testhelper.TempDir(t)
-	configFilePath := filepath.Join(tempDir, "config.toml")
-	configFile, err := os.Create(configFilePath)
-	require.NoError(t, err)
-	defer testhelper.MustClose(t, configFile)
-
-	require.NoError(t, toml.NewEncoder(configFile).Encode(&conf))
-	require.NoError(t, configFile.Sync())
-
-	cmd := exec.Command(filepath.Join(gitalyCfg.BinDir, "praefect"), "-config", configFilePath)
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-
-	require.NoError(t, cmd.Start())
-
-	t.Cleanup(func() { _ = cmd.Wait() })
-	t.Cleanup(func() { _ = cmd.Process.Kill() })
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testManagerRestore(t, ctx, gitalyCfg, "unix://"+conf.SocketPath)
+	testManagerRestore(t, ctx, gitalyCfg, testserver.StartPraefect(t, conf).Address())
 }
 
 func testManagerRestore(t *testing.T, ctx context.Context, cfg config.Cfg, gitalyAddr string) {
@@ -351,16 +326,8 @@ func testManagerRestore(t *testing.T, ctx context.Context, cfg config.Cfg, gital
 			RelativePath: gittest.NewRepositoryName(t, false),
 		}
 
-		for i := 0; true; i++ {
-			_, err := repoClient.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: repo})
-			if err != nil {
-				require.Regexp(t, "(no healthy nodes)|(no such file or directory)|(connection refused)", err.Error())
-				require.Less(t, i, 100, "praefect doesn't serve for too long")
-				time.Sleep(50 * time.Millisecond)
-			} else {
-				break
-			}
-		}
+		_, err := repoClient.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: repo})
+		require.NoError(t, err)
 
 		// The repository might be created through Praefect and the tests reach into the repository directly
 		// on the filesystem. To ensure the test accesses correct directory, we need to rewrite the relative
