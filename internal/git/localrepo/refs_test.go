@@ -25,7 +25,7 @@ func TestRepo_ContainsRef(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _ := setupRepo(t, false)
+	repo, _ := setupRepo(t)
 
 	testcases := []struct {
 		desc      string
@@ -62,7 +62,7 @@ func TestRepo_GetReference(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _ := setupRepo(t, false)
+	repo, _ := setupRepo(t)
 
 	testcases := []struct {
 		desc        string
@@ -110,7 +110,7 @@ func TestRepo_GetReferenceWithAmbiguousRefs(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _ := setupRepo(t, false)
+	repo, _ := setupRepo(t)
 
 	// Disable hooks
 	repo.cfg.Ruby.Dir = "/var/empty"
@@ -146,7 +146,7 @@ func TestRepo_GetReferences(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _ := setupRepo(t, false)
+	repo, _ := setupRepo(t)
 
 	masterBranch, err := repo.GetReference(ctx, "refs/heads/master")
 	require.NoError(t, err)
@@ -334,7 +334,7 @@ func TestRepo_GetBranches(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _ := setupRepo(t, false)
+	repo, _ := setupRepo(t)
 
 	refs, err := repo.GetBranches(ctx)
 	require.NoError(t, err)
@@ -345,7 +345,7 @@ func TestRepo_UpdateRef(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _ := setupRepo(t, false)
+	repo, _ := setupRepo(t)
 
 	// Disable hooks
 	repo.cfg.Ruby.Dir = "/var/empty"
@@ -457,7 +457,7 @@ func TestRepo_UpdateRef(t *testing.T) {
 }
 
 func TestRepo_SetDefaultBranch(t *testing.T) {
-	repo, _ := setupRepo(t, false)
+	repo, _ := setupRepo(t)
 
 	testCases := []struct {
 		desc        string
@@ -492,7 +492,7 @@ func TestRepo_SetDefaultBranch(t *testing.T) {
 }
 
 func TestGuessHead(t *testing.T) {
-	repo, repoPath := setupRepo(t, false)
+	repo, repoPath := setupRepo(t)
 
 	commit1 := text.ChompBytes(gittest.Exec(t, repo.cfg, "-C", repoPath, "rev-parse", "refs/heads/master"))
 	commit2 := text.ChompBytes(gittest.Exec(t, repo.cfg, "-C", repoPath, "rev-parse", "refs/heads/feature"))
