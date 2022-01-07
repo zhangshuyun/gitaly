@@ -220,7 +220,7 @@ func TestExcludeDatabaseMetricsFromDefaultMetrics(t *testing.T) {
 			conf.PrometheusExcludeDatabaseFromDefaultMetrics = excludeDatabaseMetrics
 
 			stopped := make(chan struct{})
-			bootstrapper := bootstrap.NewNoop()
+			bootstrapper := bootstrap.NewNoop(prometheus.NewCounterVec(prometheus.CounterOpts{Name: "stub"}, []string{"type"}))
 
 			metricRegisterer, dbMetricsRegisterer := newMockRegisterer(), newMockRegisterer()
 			go func() {

@@ -86,7 +86,7 @@ func TestListUntrackedRepositories_Exec(t *testing.T) {
 	starterConfigs, err := getStarterConfigs(conf)
 	require.NoError(t, err)
 	stopped := make(chan struct{})
-	bootstrapper := bootstrap.NewNoop()
+	bootstrapper := bootstrap.NewNoop(prometheus.NewCounterVec(prometheus.CounterOpts{Name: "stub"}, []string{"type"}))
 	go func() {
 		defer close(stopped)
 		assert.NoError(t, run(starterConfigs, conf, bootstrapper, prometheus.NewRegistry(), prometheus.NewRegistry()))

@@ -69,6 +69,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
@@ -146,14 +147,21 @@ func main() {
 		logger.Fatalf("%s", err)
 	}
 
-	b, err := bootstrap.New()
+	promreg := prometheus.DefaultRegisterer
+	b, err := bootstrap.New(promauto.With(promreg).NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "gitaly_praefect_connections_total",
+			Help: "Total number of connections to Praefect",
+		},
+		[]string{"type"},
+	))
 	if err != nil {
 		logger.Fatalf("unable to create a bootstrap: %v", err)
 	}
 
 	dbPromRegistry := prometheus.NewRegistry()
 
-	if err := run(starterConfigs, conf, b, prometheus.DefaultRegisterer, dbPromRegistry); err != nil {
+	if err := run(starterConfigs, conf, b, promreg, dbPromRegistry); err != nil {
 		logger.Fatalf("%v", err)
 	}
 }
@@ -433,7 +441,7 @@ func run(
 	if conf.PrometheusListenAddr != "" {
 		logger.WithField("address", conf.PrometheusListenAddr).Info("Starting prometheus listener")
 
-		b.RegisterStarter(func(listen bootstrap.ListenFunc, _ chan<- error) error {
+		b.RegisterStarter(func(listen bootstrap.ListenFunc, _ chan<- error, _ *prometheus.CounterVec) error {
 			l, err := listen(starter.TCP, conf.PrometheusListenAddr)
 			if err != nil {
 				return err
