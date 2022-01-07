@@ -18,6 +18,8 @@ type setupRepoConfig struct {
 	// emptyRepo will cause `setupRepo()` to create a new, empty repository instead of
 	// cloning our test repository.
 	emptyRepo bool
+	// disableHooks will disable the use of hooks.
+	disableHooks bool
 }
 
 type setupRepoOption func(*setupRepoConfig)
@@ -25,6 +27,12 @@ type setupRepoOption func(*setupRepoConfig)
 func withEmptyRepo() setupRepoOption {
 	return func(cfg *setupRepoConfig) {
 		cfg.emptyRepo = true
+	}
+}
+
+func withDisabledHooks() setupRepoOption {
+	return func(cfg *setupRepoConfig) {
+		cfg.disableHooks = true
 	}
 }
 
@@ -37,6 +45,9 @@ func setupRepo(t *testing.T, opts ...setupRepoOption) (*Repo, string) {
 	}
 
 	cfg := testcfg.Build(t)
+	if setupRepoCfg.disableHooks {
+		cfg.Ruby.Dir = "/var/empty"
+	}
 
 	var repoProto *gitalypb.Repository
 	var repoPath string

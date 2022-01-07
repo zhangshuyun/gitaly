@@ -110,10 +110,7 @@ func TestRepo_GetReferenceWithAmbiguousRefs(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _ := setupRepo(t)
-
-	// Disable hooks
-	repo.cfg.Ruby.Dir = "/var/empty"
+	repo, _ := setupRepo(t, withDisabledHooks())
 
 	currentOID, err := repo.ResolveRevision(ctx, "refs/heads/master")
 	require.NoError(t, err)
@@ -345,10 +342,7 @@ func TestRepo_UpdateRef(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _ := setupRepo(t)
-
-	// Disable hooks
-	repo.cfg.Ruby.Dir = "/var/empty"
+	repo, _ := setupRepo(t, withDisabledHooks())
 
 	otherRef, err := repo.GetReference(ctx, "refs/heads/gitaly-test-ref")
 	require.NoError(t, err)
