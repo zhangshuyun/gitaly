@@ -68,6 +68,7 @@ Gitaly and Gitaly Cluster.
    |  `storage_name`     |  string  |  yes     |  Name of the storage where the repository is stored. |
    |  `relative_path`    |  string  |  yes     |  Relative path of the repository. |
    |  `gl_project_path`  |  string  |  no      |  Name of the project. Used for logging. |
+   |  `always_create`    |  boolean |  no      |  Create the repository even if no bundle for it exists (for compatibility with existing backups). Defaults to `false` |
 
    For example, `restore_job.json`:
 
@@ -77,7 +78,8 @@ Gitaly and Gitaly Cluster.
      "token":"",
      "storage_name":"default",
      "relative_path":"@hashed/f5/ca/f5ca38f748a1d6eaf726b8a42fb575c3c71f1864a8143301782de13da2d9202b.git",
-     "gl_project_path":"diaspora/diaspora-client"
+     "gl_project_path":"diaspora/diaspora-client",
+     "always_create": true
    }
    {
      "address":"unix:/var/opt/gitlab/gitaly.socket",
