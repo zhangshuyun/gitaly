@@ -1,11 +1,13 @@
 package git
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"regexp"
 	"strings"
 
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -143,12 +145,12 @@ type cmdCfg struct {
 }
 
 // CmdOpt is an option for running a command
-type CmdOpt func(*cmdCfg) error
+type CmdOpt func(context.Context, config.Cfg, CommandFactory, *cmdCfg) error
 
 // WithStdin sets the command's stdin. Pass `command.SetupStdin` to make the
 // command suitable for `Write()`ing to.
 func WithStdin(r io.Reader) CmdOpt {
-	return func(c *cmdCfg) error {
+	return func(_ context.Context, _ config.Cfg, _ CommandFactory, c *cmdCfg) error {
 		c.stdin = r
 		return nil
 	}
@@ -156,7 +158,7 @@ func WithStdin(r io.Reader) CmdOpt {
 
 // WithStdout sets the command's stdout.
 func WithStdout(w io.Writer) CmdOpt {
-	return func(c *cmdCfg) error {
+	return func(_ context.Context, _ config.Cfg, _ CommandFactory, c *cmdCfg) error {
 		c.stdout = w
 		return nil
 	}
@@ -164,7 +166,7 @@ func WithStdout(w io.Writer) CmdOpt {
 
 // WithStderr sets the command's stderr.
 func WithStderr(w io.Writer) CmdOpt {
-	return func(c *cmdCfg) error {
+	return func(_ context.Context, _ config.Cfg, _ CommandFactory, c *cmdCfg) error {
 		c.stderr = w
 		return nil
 	}
@@ -172,7 +174,7 @@ func WithStderr(w io.Writer) CmdOpt {
 
 // WithEnv adds environment variables to the command.
 func WithEnv(envs ...string) CmdOpt {
-	return func(c *cmdCfg) error {
+	return func(_ context.Context, _ config.Cfg, _ CommandFactory, c *cmdCfg) error {
 		c.env = append(c.env, envs...)
 		return nil
 	}
@@ -180,7 +182,7 @@ func WithEnv(envs ...string) CmdOpt {
 
 // WithConfig adds git configuration entries to the command.
 func WithConfig(configPairs ...ConfigPair) CmdOpt {
-	return func(c *cmdCfg) error {
+	return func(_ context.Context, _ config.Cfg, _ CommandFactory, c *cmdCfg) error {
 		for _, configPair := range configPairs {
 			c.globals = append(c.globals, configPair)
 		}
@@ -192,7 +194,7 @@ func WithConfig(configPairs ...ConfigPair) CmdOpt {
 // in place of `WithConfig()` in case config entries may contain secrets which shouldn't leak e.g.
 // via the process's command line.
 func WithConfigEnv(configPairs ...ConfigPair) CmdOpt {
-	return func(c *cmdCfg) error {
+	return func(_ context.Context, _ config.Cfg, _ CommandFactory, c *cmdCfg) error {
 		env := make([]string, 0, len(configPairs)*2+1)
 
 		for i, configPair := range configPairs {
@@ -211,7 +213,7 @@ func WithConfigEnv(configPairs ...ConfigPair) CmdOpt {
 // WithGlobalOption adds the global options to the command. These are universal options which work
 // across all git commands.
 func WithGlobalOption(opts ...GlobalOption) CmdOpt {
-	return func(c *cmdCfg) error {
+	return func(_ context.Context, _ config.Cfg, _ CommandFactory, c *cmdCfg) error {
 		c.globals = append(c.globals, opts...)
 		return nil
 	}

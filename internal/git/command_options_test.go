@@ -252,7 +252,7 @@ func TestWithConfig(t *testing.T) {
 			option := WithConfig(tc.configPairs...)
 
 			var commandCfg cmdCfg
-			require.NoError(t, option(&commandCfg))
+			require.NoError(t, option(ctx, cfg, gitCmdFactory, &commandCfg))
 
 			for expectedKey, expectedValue := range tc.expectedValues {
 				var stdout bytes.Buffer
@@ -378,7 +378,7 @@ func TestWithConfigEnv(t *testing.T) {
 			option := WithConfigEnv(tc.configPairs...)
 
 			var commandCfg cmdCfg
-			require.NoError(t, option(&commandCfg))
+			require.NoError(t, option(ctx, cfg, gitCmdFactory, &commandCfg))
 			require.EqualValues(t, tc.expectedEnv, commandCfg.env)
 
 			for expectedKey, expectedValue := range tc.expectedValues {

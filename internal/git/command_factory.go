@@ -175,7 +175,7 @@ func (cf *ExecCommandFactory) combineOpts(ctx context.Context, sc Cmd, opts []Cm
 	}
 
 	for _, opt := range opts {
-		if err := opt(&config); err != nil {
+		if err := opt(ctx, cf.cfg, cf, &config); err != nil {
 			return cmdCfg{}, err
 		}
 	}

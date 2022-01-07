@@ -8,6 +8,7 @@ import (
 	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/log"
 )
 
@@ -32,7 +33,7 @@ type RequestWithGitProtocol interface {
 // WithGitProtocol checks whether the request has Git protocol v2
 // and sets this in the environment.
 func WithGitProtocol(ctx context.Context, req RequestWithGitProtocol) CmdOpt {
-	return func(cc *cmdCfg) error {
+	return func(_ context.Context, _ config.Cfg, _ CommandFactory, cc *cmdCfg) error {
 		cc.env = append(cc.env, gitProtocolEnv(ctx, req)...)
 		return nil
 	}

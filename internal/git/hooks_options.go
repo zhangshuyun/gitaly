@@ -17,7 +17,7 @@ import (
 // WithDisabledHooks returns an option that satisfies the requirement to set up
 // hooks, but won't in fact set up hook execution.
 func WithDisabledHooks() CmdOpt {
-	return func(cc *cmdCfg) error {
+	return func(_ context.Context, _ config.Cfg, _ CommandFactory, cc *cmdCfg) error {
 		cc.hooksConfigured = true
 		return nil
 	}
@@ -27,7 +27,7 @@ func WithDisabledHooks() CmdOpt {
 // environment variables necessary to properly execute a reference hook for
 // repository changes that may possibly update references
 func WithRefTxHook(ctx context.Context, repo repository.GitRepo, cfg config.Cfg) CmdOpt {
-	return func(cc *cmdCfg) error {
+	return func(_ context.Context, _ config.Cfg, _ CommandFactory, cc *cmdCfg) error {
 		if repo == nil {
 			return fmt.Errorf("missing repo: %w", ErrInvalidArg)
 		}
@@ -51,7 +51,7 @@ func WithRefTxHook(ctx context.Context, repo repository.GitRepo, cfg config.Cfg)
 
 // WithPackObjectsHookEnv provides metadata for gitaly-hooks so it can act as a pack-objects hook.
 func WithPackObjectsHookEnv(ctx context.Context, repo *gitalypb.Repository, cfg config.Cfg) CmdOpt {
-	return func(cc *cmdCfg) error {
+	return func(_ context.Context, _ config.Cfg, _ CommandFactory, cc *cmdCfg) error {
 		if !cfg.PackObjectsCache.Enabled {
 			return nil
 		}
@@ -125,7 +125,7 @@ type ReceivePackRequest interface {
 // variables necessary to properly execute the pre-receive, update and post-receive hooks for
 // git-receive-pack(1).
 func WithReceivePackHooks(ctx context.Context, cfg config.Cfg, req ReceivePackRequest, protocol string) CmdOpt {
-	return func(cc *cmdCfg) error {
+	return func(_ context.Context, _ config.Cfg, _ CommandFactory, cc *cmdCfg) error {
 		if err := cc.configureHooks(ctx, req.GetRepository(), cfg, &ReceiveHooksPayload{
 			UserID:   req.GetGlId(),
 			Username: req.GetGlUsername(),
