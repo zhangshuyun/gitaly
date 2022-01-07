@@ -19,10 +19,30 @@ import (
 	"gitlab.com/gitlab-org/labkit/tracing"
 )
 
+func init() {
+	// Prevent the environment from affecting git calls by ignoring the configuration files.
+	//
+	// This should be done always but we have to wait until 15.0 due to backwards compatibility
+	// concerns. To fix tests ahead to 15.0, we ignore the global configuration when the package
+	// has been built under tests. `go test` uses a `.test` suffix on the test binaries. We use
+	// that to check whether to ignore the globals or not.
+	//
+	// See https://gitlab.com/gitlab-org/gitaly/-/issues/3617.
+	if strings.HasSuffix(os.Args[0], ".test") {
+		GitEnv = append(GitEnv, "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_SYSTEM=/dev/null")
+	}
+}
+
 // GitEnv contains the ENV variables for git commands
 var GitEnv = []string{
 	// Force english locale for consistency on the output messages
 	"LANG=en_US.UTF-8",
+
+	//
+	// PLEASE NOTE: the init of this package adds rules to ignore global git configuration in
+	// tests. This should really be done always but we can't do this before 15.0 due to backwards
+	// compatibility concerns. See https://gitlab.com/gitlab-org/gitaly/-/issues/3617.
+	//
 }
 
 // exportedEnvVars contains a list of environment variables

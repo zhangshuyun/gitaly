@@ -4,10 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
-	"strings"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
@@ -114,10 +111,6 @@ func configure() (_ func(), returnedErr error) {
 		}
 	}()
 
-	if err := configureGit(); err != nil {
-		return nil, fmt.Errorf("configuring git: %w", err)
-	}
-
 	return cleanup, nil
 }
 
@@ -173,32 +166,4 @@ func configureTestDirectory() (_ func(), returnedErr error) {
 	}
 
 	return cleanup, nil
-}
-
-// configureGit configures git for test purpose
-func configureGit() error {
-	// Set both GOCACHE and GOPATH to the currently active settings to not
-	// have them be overridden by changing our home directory. default it
-	for _, envvar := range []string{"GOCACHE", "GOPATH"} {
-		cmd := exec.Command("go", "env", envvar)
-
-		output, err := cmd.Output()
-		if err != nil {
-			return err
-		}
-
-		err = os.Setenv(envvar, strings.TrimSpace(string(output)))
-		if err != nil {
-			return err
-		}
-	}
-
-	_, currentFile, _, ok := runtime.Caller(0)
-	if !ok {
-		return fmt.Errorf("could not get caller info")
-	}
-
-	testHome := filepath.Join(filepath.Dir(currentFile), "testdata/home")
-	// overwrite HOME env variable so user global .gitconfig doesn't influence tests
-	return os.Setenv("HOME", testHome)
 }
