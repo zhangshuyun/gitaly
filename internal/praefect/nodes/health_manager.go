@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
+	"gitlab.com/gitlab-org/labkit/correlation"
 	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
@@ -195,12 +196,15 @@ func (hm *HealthManager) performHealthChecks(ctx context.Context) ([]string, []s
 			go func(i int, client grpc_health_v1.HealthClient) {
 				defer wg.Done()
 
+				correlationID := correlation.SafeRandomID()
+				ctx := correlation.ContextWithCorrelation(ctx, correlationID)
 				resp, err := client.Check(ctx, &grpc_health_v1.HealthCheckRequest{})
 				if err != nil {
 					hm.log.WithFields(logrus.Fields{
 						logrus.ErrorKey:   err,
 						"virtual_storage": virtualStorages[i],
 						"storage":         physicalStorages[i],
+						"correlation_id":  correlationID,
 					}).Error("failed checking node health")
 				}
 
