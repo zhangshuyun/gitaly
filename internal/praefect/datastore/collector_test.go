@@ -1,6 +1,7 @@
 package datastore
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
@@ -252,4 +253,76 @@ func TestRepositoryStoreCollector_CollectNotCalledOnRegister(t *testing.T) {
 	registry.MustRegister(c)
 
 	assert.False(t, db.queried)
+}
+
+func TestRepositoryStoreCollector_ReplicationQueueDepth(t *testing.T) {
+	db := testdb.New(t)
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	log := testhelper.NewDiscardingLogger(t)
+
+	storageNames := map[string][]string{
+		"praefect-0": {"storage-0", "storage-1", "storage-2"},
+		"praefect-1": {"storage-3", "storage-4", "storage-5"},
+	}
+	queue := NewPostgresReplicationEventQueue(db.DB)
+
+	readyJobs := 5
+	for virtualStorage, nodes := range storageNames {
+		for i := 0; i < readyJobs; i++ {
+			_, err := queue.Enqueue(ctx, ReplicationEvent{
+				Job: ReplicationJob{
+					Change:            UpdateRepo,
+					RelativePath:      "/project/path-1",
+					TargetNodeStorage: nodes[1],
+					SourceNodeStorage: nodes[0],
+					VirtualStorage:    virtualStorage,
+					Params:            nil,
+				},
+			})
+			require.NoError(t, err)
+		}
+	}
+
+	collector := NewQueueDepthCollector(log, db, 1*time.Hour)
+
+	require.NoError(t, testutil.CollectAndCompare(collector, bytes.NewBufferString(fmt.Sprintf(`
+# HELP gitaly_praefect_replication_queue_depth Number of jobs in the replication queue
+# TYPE gitaly_praefect_replication_queue_depth gauge
+gitaly_praefect_replication_queue_depth{state="ready",target_node="storage-1",virtual_storage="praefect-0"} %d
+gitaly_praefect_replication_queue_depth{state="ready",target_node="storage-4",virtual_storage="praefect-1"} %d
+`, readyJobs, readyJobs))))
+
+	var eventIDs []uint64
+	events, err := queue.Dequeue(ctx, "praefect-0", "storage-1", 1)
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+	eventIDs = append(eventIDs, events[0].ID)
+
+	events, err = queue.Dequeue(ctx, "praefect-1", "storage-4", 1)
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+	eventIDs = append(eventIDs, events[0].ID)
+
+	require.NoError(t, testutil.CollectAndCompare(collector, bytes.NewBufferString(fmt.Sprintf(`
+# HELP gitaly_praefect_replication_queue_depth Number of jobs in the replication queue
+# TYPE gitaly_praefect_replication_queue_depth gauge
+gitaly_praefect_replication_queue_depth{state="in_progress",target_node="storage-1",virtual_storage="praefect-0"} %d
+gitaly_praefect_replication_queue_depth{state="in_progress",target_node="storage-4",virtual_storage="praefect-1"} %d
+gitaly_praefect_replication_queue_depth{state="ready",target_node="storage-1",virtual_storage="praefect-0"} %d
+gitaly_praefect_replication_queue_depth{state="ready",target_node="storage-4",virtual_storage="praefect-1"} %d
+`, 1, 1, readyJobs-1, readyJobs-1))))
+
+	_, err = queue.Acknowledge(ctx, JobStateFailed, eventIDs)
+	require.NoError(t, err)
+
+	require.NoError(t, testutil.CollectAndCompare(collector, bytes.NewBufferString(fmt.Sprintf(`
+# HELP gitaly_praefect_replication_queue_depth Number of jobs in the replication queue
+# TYPE gitaly_praefect_replication_queue_depth gauge
+gitaly_praefect_replication_queue_depth{state="failed",target_node="storage-1",virtual_storage="praefect-0"} %d
+gitaly_praefect_replication_queue_depth{state="failed",target_node="storage-4",virtual_storage="praefect-1"} %d
+gitaly_praefect_replication_queue_depth{state="ready",target_node="storage-1",virtual_storage="praefect-0"} %d
+gitaly_praefect_replication_queue_depth{state="ready",target_node="storage-4",virtual_storage="praefect-1"} %d
+`, 1, 1, readyJobs-1, readyJobs-1))))
 }

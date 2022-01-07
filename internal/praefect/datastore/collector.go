@@ -29,7 +29,17 @@ var (
 		nil,
 	)
 
-	descriptions = []*prometheus.Desc{descReadOnlyRepositories, descUnavailableRepositories}
+	descReplicationQueueDepth = prometheus.NewDesc(
+		"gitaly_praefect_replication_queue_depth",
+		"Number of jobs in the replication queue",
+		[]string{"virtual_storage", "target_node", "state"},
+		nil,
+	)
+
+	descriptions = []*prometheus.Desc{
+		descReadOnlyRepositories,
+		descUnavailableRepositories,
+	}
 )
 
 // RepositoryStoreCollector collects metrics from the RepositoryStore.
@@ -41,7 +51,12 @@ type RepositoryStoreCollector struct {
 }
 
 // NewRepositoryStoreCollector returns a new collector.
-func NewRepositoryStoreCollector(log logrus.FieldLogger, virtualStorages []string, db glsql.Querier, timeout time.Duration) *RepositoryStoreCollector {
+func NewRepositoryStoreCollector(
+	log logrus.FieldLogger,
+	virtualStorages []string,
+	db glsql.Querier,
+	timeout time.Duration,
+) *RepositoryStoreCollector {
 	return &RepositoryStoreCollector{
 		log:             log.WithField("component", "RepositoryStoreCollector"),
 		db:              db,
@@ -106,4 +121,61 @@ GROUP BY virtual_storage
 	}
 
 	return vsUnavailable, rows.Err()
+}
+
+// QueueDepthCollector collects metrics describing replication queue depths
+type QueueDepthCollector struct {
+	log     logrus.FieldLogger
+	timeout time.Duration
+	db      glsql.Querier
+}
+
+//nolint: revive,stylecheck // This is unintentionally missing documentation.
+func (q *QueueDepthCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- descReplicationQueueDepth
+}
+
+// NewQueueDepthCollector returns a new QueueDepthCollector
+func NewQueueDepthCollector(log logrus.FieldLogger, db glsql.Querier, timeout time.Duration) *QueueDepthCollector {
+	return &QueueDepthCollector{
+		timeout: timeout,
+		db:      db,
+	}
+}
+
+// Collect collects metrics describing the replication queue depth
+func (q *QueueDepthCollector) Collect(ch chan<- prometheus.Metric) {
+	ctx, cancel := context.WithTimeout(context.TODO(), q.timeout)
+	defer cancel()
+
+	rows, err := q.db.QueryContext(ctx, `
+SELECT job->>'virtual_storage', job->>'target_node_storage', state, COUNT(*)
+FROM replication_queue
+GROUP BY job->>'virtual_storage', job->>'target_node_storage', state
+`)
+	if err != nil {
+		q.log.WithError(err).Error("failed to query queue depth metrics")
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var virtualStorage, targetNode, state string
+		var count float64
+
+		if err := rows.Scan(&virtualStorage, &targetNode, &state, &count); err != nil {
+			q.log.WithError(err).Error("failed to scan row for queue depth metrics")
+			return
+		}
+
+		ch <- prometheus.MustNewConstMetric(
+			descReplicationQueueDepth,
+			prometheus.GaugeValue,
+			count,
+			virtualStorage, targetNode, state)
+	}
+
+	if err := rows.Err(); err != nil {
+		q.log.WithError(err).Error("failed to iterate over rows for queue depth metrics")
+	}
 }

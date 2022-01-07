@@ -405,7 +405,12 @@ func run(
 	)
 	metricsCollectors = append(metricsCollectors, transactionManager, coordinator, repl)
 	if db != nil {
-		repositoryStoreCollector := datastore.NewRepositoryStoreCollector(logger, conf.VirtualStorageNames(), db, conf.Prometheus.ScrapeTimeout)
+		repositoryStoreCollector := datastore.NewRepositoryStoreCollector(
+			logger,
+			conf.VirtualStorageNames(),
+			db,
+			conf.Prometheus.ScrapeTimeout)
+		queueDepthCollector := datastore.NewQueueDepthCollector(logger, db, conf.Prometheus.ScrapeTimeout)
 
 		// Eventually, database-related metrics will always be exported via a separate
 		// endpoint such that it's possible to set a different scraping interval and thus to
@@ -413,9 +418,9 @@ func run(
 		// standard and once for the database-specific endpoint. This is done to ensure a
 		// transitory period where deployments can be moved to the new endpoint without
 		// causing breakage if they still use the old endpoint.
-		dbPromRegistry.MustRegister(repositoryStoreCollector)
+		dbPromRegistry.MustRegister(repositoryStoreCollector, queueDepthCollector)
 		if !conf.PrometheusExcludeDatabaseFromDefaultMetrics {
-			promreg.MustRegister(repositoryStoreCollector)
+			promreg.MustRegister(repositoryStoreCollector, queueDepthCollector)
 		}
 	}
 	promreg.MustRegister(metricsCollectors...)
