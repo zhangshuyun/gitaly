@@ -403,7 +403,7 @@ func TestFindAllTags_nestedTags(t *testing.T) {
 			tags, err := repo.GetReferences(ctx, "refs/tags/")
 			require.NoError(t, err)
 
-			updater, err := updateref.New(ctx, cfg, repo)
+			updater, err := updateref.New(ctx, repo)
 			require.NoError(t, err)
 			for _, tag := range tags {
 				require.NoError(t, updater.Delete(tag.Name))

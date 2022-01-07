@@ -42,7 +42,7 @@ func TestVisibilityOfHiddenRefs(t *testing.T) {
 
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	localRepo := localrepo.NewTestRepo(t, cfg, repo)
-	updater, err := updateref.New(ctx, cfg, localRepo)
+	updater, err := updateref.New(ctx, localRepo)
 
 	require.NoError(t, err)
 	require.NoError(t, updater.Create(git.ReferenceName(keepAroundRef), existingSha))

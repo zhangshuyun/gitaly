@@ -28,7 +28,7 @@ func setupUpdater(t *testing.T, ctx context.Context) (config.Cfg, *localrepo.Rep
 
 	repo := localrepo.NewTestRepo(t, cfg, protoRepo)
 
-	updater, err := New(ctx, cfg, repo)
+	updater, err := New(ctx, repo)
 	require.NoError(t, err)
 
 	return cfg, repo, updater
@@ -139,12 +139,12 @@ func TestUpdater_concurrentLocking(t *testing.T) {
 	commit, logErr := repo.ReadCommit(ctx, "refs/heads/master")
 	require.NoError(t, logErr)
 
-	firstUpdater, err := New(ctx, cfg, repo)
+	firstUpdater, err := New(ctx, repo)
 	require.NoError(t, err)
 	require.NoError(t, firstUpdater.Update("refs/heads/master", "", commit.Id))
 	require.NoError(t, firstUpdater.Prepare())
 
-	secondUpdater, err := New(ctx, cfg, repo)
+	secondUpdater, err := New(ctx, repo)
 	require.NoError(t, err)
 	require.NoError(t, secondUpdater.Update("refs/heads/master", "", commit.Id))
 
@@ -198,7 +198,7 @@ func TestContextCancelAbortsRefChanges(t *testing.T) {
 
 	childCtx, childCancel := context.WithCancel(ctx)
 	localRepo := localrepo.NewTestRepo(t, cfg, repo)
-	updater, err := New(childCtx, cfg, localRepo)
+	updater, err := New(childCtx, localRepo)
 	require.NoError(t, err)
 
 	ref := git.ReferenceName("refs/heads/_shouldnotexist")
@@ -218,13 +218,13 @@ func TestUpdater_cancel(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	cfg, repo, updater := setupUpdater(t, ctx)
+	_, repo, updater := setupUpdater(t, ctx)
 
 	require.NoError(t, updater.Delete(git.ReferenceName("refs/heads/master")))
 	require.NoError(t, updater.Prepare())
 
 	// A concurrent update shouldn't be allowed.
-	concurrentUpdater, err := New(ctx, cfg, repo)
+	concurrentUpdater, err := New(ctx, repo)
 	require.NoError(t, err)
 	require.NoError(t, concurrentUpdater.Delete(git.ReferenceName("refs/heads/master")))
 	err = concurrentUpdater.Commit()
@@ -235,7 +235,7 @@ func TestUpdater_cancel(t *testing.T) {
 	// ref because locks should have been released.
 	require.NoError(t, updater.Cancel())
 
-	concurrentUpdater, err = New(ctx, cfg, repo)
+	concurrentUpdater, err = New(ctx, repo)
 	require.NoError(t, err)
 	require.NoError(t, concurrentUpdater.Delete(git.ReferenceName("refs/heads/master")))
 	require.NoError(t, concurrentUpdater.Commit())

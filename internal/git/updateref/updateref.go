@@ -8,7 +8,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 )
 
 // Updater wraps a `git update-ref --stdin` process, presenting an interface
@@ -46,7 +45,7 @@ func WithDisabledTransactions() UpdaterOpt {
 //
 // It is important that ctx gets canceled somewhere. If it doesn't, the process
 // spawned by New() may never terminate.
-func New(ctx context.Context, _ config.Cfg, repo git.RepositoryExecutor, opts ...UpdaterOpt) (*Updater, error) {
+func New(ctx context.Context, repo git.RepositoryExecutor, opts ...UpdaterOpt) (*Updater, error) {
 	var cfg updaterConfig
 	for _, opt := range opts {
 		opt(&cfg)
