@@ -175,18 +175,19 @@ func TestExecCommandFatcory_HooksPath(t *testing.T) {
 	rubyDir := filepath.Join(hookDir, "ruby")
 
 	t.Run("Ruby directory", func(t *testing.T) {
-		gitCmdFactory := gittest.NewCommandFactory(t, config.Cfg{
+		cfg := config.Cfg{
 			Ruby: config.Ruby{
 				Dir: rubyDir,
 			},
-		})
+		}
 
 		t.Run("no overrides", func(t *testing.T) {
+			gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 			require.Equal(t, filepath.Join(rubyDir, "git-hooks"), gitCmdFactory.HooksPath())
 		})
 
 		t.Run("with skip", func(t *testing.T) {
-			defer testhelper.ModifyEnvironment(t, "GITALY_TESTING_NO_GIT_HOOKS", "1")()
+			gitCmdFactory := gittest.NewCommandFactory(t, cfg, git.WithSkipHooks())
 			require.Equal(t, "/var/empty", gitCmdFactory.HooksPath())
 		})
 	})
@@ -199,9 +200,7 @@ func TestExecCommandFatcory_HooksPath(t *testing.T) {
 			Ruby: config.Ruby{
 				Dir: rubyDir,
 			},
-		})
-
-		defer testhelper.ModifyEnvironment(t, "GITALY_TESTING_NO_GIT_HOOKS", "1")()
+		}, git.WithSkipHooks())
 
 		// The environment variable shouldn't override an explicitly set hooks path.
 		require.Equal(t, "/hooks/path", gitCmdFactory.HooksPath())

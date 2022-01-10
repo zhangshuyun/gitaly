@@ -31,6 +31,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/env"
 	glog "gitlab.com/gitlab-org/gitaly/v14/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/streamcache"
@@ -150,7 +151,13 @@ func run(cfg config.Cfg) error {
 		return fmt.Errorf("init bootstrap: %w", err)
 	}
 
-	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg)
+	skipHooks, _ := env.GetBool("GITALY_TESTING_NO_GIT_HOOKS", false)
+	var commandFactoryOpts []git.ExecCommandFactoryOption
+	if skipHooks {
+		commandFactoryOpts = append(commandFactoryOpts, git.WithSkipHooks())
+	}
+
+	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, commandFactoryOpts...)
 	if err != nil {
 		return fmt.Errorf("creating Git command factory: %w", err)
 	}
@@ -172,7 +179,7 @@ func run(cfg config.Cfg) error {
 
 	prometheus.MustRegister(gitCmdFactory)
 
-	if config.SkipHooks() {
+	if skipHooks {
 		log.Warn("skipping GitLab API client creation since hooks are bypassed via GITALY_TESTING_NO_GIT_HOOKS")
 	} else {
 		gitlabClient, err := gitlab.NewHTTPClient(glog.Default(), cfg.Gitlab, cfg.TLS, cfg.Prometheus)

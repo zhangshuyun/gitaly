@@ -156,7 +156,7 @@ func (cf *ExecCommandFactory) HooksPath() string {
 		return cf.cfg.Git.HooksPath
 	}
 
-	if cf.skipHooks || config.SkipHooks() {
+	if cf.skipHooks {
 		return "/var/empty"
 	}
 
@@ -164,7 +164,7 @@ func (cf *ExecCommandFactory) HooksPath() string {
 }
 
 func (cf *ExecCommandFactory) validateHooks() error {
-	if cf.skipHooks || config.SkipHooks() {
+	if cf.skipHooks {
 		return nil
 	}
 
