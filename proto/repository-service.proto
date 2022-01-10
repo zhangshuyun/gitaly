@@ -519,6 +519,9 @@ message CreateRepositoryFromURLRequest {
   // URL hostname has already been resolved to an IP address to prevent DNS
   // rebinding.
   string http_host = 3;
+  // http_authorization_header is the HTTP header which should be added to
+  // the request in order to authenticate against the repository.
+  string http_authorization_header = 4;
 }
 
 message CreateRepositoryFromURLResponse {}
