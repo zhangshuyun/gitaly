@@ -675,8 +675,7 @@ func TestSuccessfulFindAllBranchesRequest(t *testing.T) {
 		},
 	}
 
-	gittest.CreateRemoteBranch(t, cfg, repoPath, "origin",
-		"fake-remote-branch", remoteBranch.Target.Id)
+	gittest.WriteRef(t, cfg, repoPath, "refs/remotes/origin/fake-remote-branch", git.ObjectID(remoteBranch.Target.Id))
 
 	request := &gitalypb.FindAllBranchesRequest{Repository: repo}
 	ctx, cancel := testhelper.Context()
