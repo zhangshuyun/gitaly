@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
 
+	"github.com/pelletier/go-toml"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -514,18 +514,20 @@ func TestCheckOK(t *testing.T) {
 	serverURL, cleanup := gitlab.NewTestServer(t, c)
 	defer cleanup()
 
-	tempDir := testhelper.TempDir(t)
-
-	gitlabShellDir := filepath.Join(tempDir, "gitlab-shell")
-	require.NoError(t, os.MkdirAll(gitlabShellDir, 0o755))
-
-	gitlab.WriteShellSecretFile(t, gitlabShellDir, "the secret")
-	configPath, cleanup := writeTemporaryGitalyConfigFile(t, tempDir, serverURL, user, password, path.Join(gitlabShellDir, ".gitlab_shell_secret"))
-	defer cleanup()
-
-	cfg := testcfg.Build(t)
+	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{
+		Gitlab: config.Gitlab{
+			URL: serverURL,
+			HTTPSettings: config.HTTPSettings{
+				User:     user,
+				Password: password,
+			},
+			SecretFile: gitlab.WriteShellSecretFile(t, testhelper.TempDir(t), "the secret"),
+		},
+	}))
 	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
+
+	configPath := writeTemporaryGitalyConfigFile(t, cfg)
 
 	cmd := exec.Command(filepath.Join(cfg.BinDir, "gitaly-hooks"), "check", configPath)
 
@@ -558,18 +560,20 @@ func TestCheckBadCreds(t *testing.T) {
 	serverURL, cleanup := gitlab.NewTestServer(t, c)
 	defer cleanup()
 
-	tempDir := testhelper.TempDir(t)
-
-	gitlabShellDir := filepath.Join(tempDir, "gitlab-shell")
-	require.NoError(t, os.MkdirAll(gitlabShellDir, 0o755))
-	gitlab.WriteShellSecretFile(t, gitlabShellDir, "the secret")
-
-	configPath, cleanup := writeTemporaryGitalyConfigFile(t, tempDir, serverURL, "wrong", password, path.Join(gitlabShellDir, ".gitlab_shell_secret"))
-	defer cleanup()
-
-	cfg := testcfg.Build(t)
+	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{
+		Gitlab: config.Gitlab{
+			URL: serverURL,
+			HTTPSettings: config.HTTPSettings{
+				User:     "wrong",
+				Password: password,
+			},
+			SecretFile: gitlab.WriteShellSecretFile(t, testhelper.TempDir(t), "the secret"),
+		},
+	}))
 	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
+
+	configPath := writeTemporaryGitalyConfigFile(t, cfg)
 
 	cmd := exec.Command(filepath.Join(cfg.BinDir, "gitaly-hooks"), "check", configPath)
 
@@ -732,21 +736,16 @@ func TestRequestedHooks(t *testing.T) {
 	}
 }
 
-// writeTemporaryGitalyConfigFile writes a gitaly toml file into a temporary directory. It returns the path to
-// the file as well as a cleanup function
-func writeTemporaryGitalyConfigFile(t testing.TB, tempDir, gitlabURL, user, password, secretFile string) (string, func()) {
-	path := filepath.Join(tempDir, "config.toml")
-	contents := fmt.Sprintf(`
-[gitlab]
-  url = "%s"
-  secret_file = "%s"
-  [gitlab.http-settings]
-    user = %q
-    password = %q
-`, gitlabURL, secretFile, user, password)
+// writeTemporaryGitalyConfigFile writes the given Gitaly configuration into a temporary file and
+// returns its path.
+func writeTemporaryGitalyConfigFile(t testing.TB, cfg config.Cfg) string {
+	t.Helper()
 
-	require.NoError(t, os.WriteFile(path, []byte(contents), 0o644))
-	return path, func() {
-		require.NoError(t, os.RemoveAll(path))
-	}
+	path := filepath.Join(testhelper.TempDir(t), "config.toml")
+
+	contents, err := toml.Marshal(cfg)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(path, contents, 0o644))
+
+	return path
 }
