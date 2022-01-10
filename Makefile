@@ -510,7 +510,7 @@ git: ${GIT_PREFIX}/bin/git
 libgit2: ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a
 
 .PHONY: protoc
-protoc: ${TOOLS_DIR}/protoc
+protoc: ${PROTOC}
 
 # This file is used by Omnibus and CNG to skip the "bundle install"
 # step. Both Omnibus and CNG assume it is in the Gitaly root, not in
@@ -608,7 +608,7 @@ ${GIT_PREFIX}/bin/git: ${GIT_SOURCE_DIR}/Makefile
 	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C ${GIT_SOURCE_DIR} -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
 	${Q}touch $@
 
-${TOOLS_DIR}/protoc: ${DEPENDENCY_DIR}/protoc.version | ${TOOLS_DIR}
+${PROTOC}: ${DEPENDENCY_DIR}/protoc.version | ${TOOLS_DIR}
 	${Q}${GIT} -c init.defaultBranch=master init ${GIT_QUIET} ${PROTOC_SOURCE_DIR}
 	${Q}${GIT} -C "${PROTOC_SOURCE_DIR}" config remote.origin.url ${PROTOC_REPO_URL}
 	${Q}${GIT} -C "${PROTOC_SOURCE_DIR}" config remote.origin.tagOpt --no-tags
@@ -616,7 +616,7 @@ ${TOOLS_DIR}/protoc: ${DEPENDENCY_DIR}/protoc.version | ${TOOLS_DIR}
 	${Q}${GIT} -C "${PROTOC_SOURCE_DIR}" checkout ${GIT_QUIET} --detach FETCH_HEAD
 	${Q}${GIT} -C "${PROTOC_SOURCE_DIR}" submodule update --init --recursive
 	${Q}rm -rf ${PROTOC_BUILD_DIR}
-	${Q}rm -f ${TOOLS_DIR}/protoc
+	${Q}rm -f ${PROTOC}
 	${Q}mkdir -p ${PROTOC_BUILD_DIR}
 	${Q}cd ${PROTOC_BUILD_DIR} && cmake ${PROTOC_SOURCE_DIR}/cmake ${PROTOC_BUILD_OPTIONS}
 	${Q}cmake --build ${PROTOC_BUILD_DIR} --target install -- -j $(shell nproc)
