@@ -152,7 +152,7 @@ func (repo *Repo) UpdateRef(ctx context.Context, reference git.ReferenceName, ne
 		},
 		git.WithStdin(strings.NewReader(fmt.Sprintf("update %s\x00%s\x00%s\x00", reference, newValue.String(), oldValue.String()))),
 		git.WithStderr(&stderr),
-		git.WithRefTxHook(ctx, repo, repo.cfg),
+		git.WithRefTxHook(repo),
 	); err != nil {
 		return fmt.Errorf("UpdateRef: failed updating reference %q from %q to %q: %w", reference, oldValue, newValue, errorWithStderr(err, stderr.Bytes()))
 	}
@@ -165,7 +165,7 @@ func (repo *Repo) SetDefaultBranch(ctx context.Context, reference git.ReferenceN
 	if err := repo.ExecAndWait(ctx, git.SubCmd{
 		Name: "symbolic-ref",
 		Args: []string{"HEAD", reference.String()},
-	}, git.WithRefTxHook(ctx, repo, repo.cfg)); err != nil {
+	}, git.WithRefTxHook(repo)); err != nil {
 		return err
 	}
 	return nil

@@ -151,5 +151,5 @@ func (s *server) fixRef(ctx context.Context, repo *localrepo.Repo, objectInfoRea
 	return repo.ExecAndWait(ctx, git.SubCmd{
 		Name: "update-ref",
 		Args: []string{name, sha},
-	}, git.WithRefTxHook(ctx, repo, s.cfg))
+	}, git.WithRefTxHook(repo))
 }

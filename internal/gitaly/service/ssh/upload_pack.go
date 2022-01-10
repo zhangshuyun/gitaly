@@ -103,9 +103,9 @@ func (s *server) sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, r
 	}()
 
 	commandOpts := []git.CmdOpt{
-		git.WithGitProtocol(ctx, req),
+		git.WithGitProtocol(req),
 		git.WithConfig(config...),
-		git.WithPackObjectsHookEnv(ctx, req.Repository, s.cfg),
+		git.WithPackObjectsHookEnv(req.Repository),
 	}
 
 	cmd, monitor, err := monitorStdinCommand(ctx, s.gitCmdFactory, stdin, stdout, stderr, git.SubCmd{

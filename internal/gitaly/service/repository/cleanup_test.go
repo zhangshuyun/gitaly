@@ -196,7 +196,7 @@ func TestRemoveWorktree(t *testing.T) {
 
 			worktreePath := filepath.Join(repoPath, worktreePrefix, tc.worktree)
 
-			err := removeWorktree(ctx, cfg, repo, tc.worktree)
+			err := removeWorktree(ctx, repo, tc.worktree)
 			if tc.errorIs == nil {
 				require.NoError(t, err)
 			} else {

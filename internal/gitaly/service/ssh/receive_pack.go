@@ -77,8 +77,8 @@ func (s *server) sshReceivePack(stream gitalypb.SSHService_SSHReceivePackServer,
 		git.WithStdin(stdin),
 		git.WithStdout(stdout),
 		git.WithStderr(stderr),
-		git.WithReceivePackHooks(ctx, s.cfg, req, "ssh"),
-		git.WithGitProtocol(ctx, req),
+		git.WithReceivePackHooks(req, "ssh"),
+		git.WithGitProtocol(req),
 		git.WithConfig(config...),
 	)
 	if err != nil {

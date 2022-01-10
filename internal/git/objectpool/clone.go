@@ -27,7 +27,7 @@ func (o *ObjectPool) clone(ctx context.Context, repo *gitalypb.Repository) error
 			},
 			Args: []string{repoPath, o.FullPath()},
 		},
-		git.WithRefTxHook(ctx, repo, o.cfg),
+		git.WithRefTxHook(repo),
 	)
 	if err != nil {
 		return err

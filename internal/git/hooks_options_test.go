@@ -18,7 +18,7 @@ func TestWithRefHook(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	opt := git.WithRefTxHook(ctx, repo, cfg)
+	opt := git.WithRefTxHook(repo)
 	subCmd := git.SubCmd{Name: "update-ref", Args: []string{"refs/heads/master", git.ZeroOID.String()}}
 
 	for _, tt := range []struct {

@@ -117,7 +117,7 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 		})),
 		git.WithStdout(&stdout),
 		git.WithStderr(&stderr),
-		git.WithRefTxHook(ctx, header.Repository, s.cfg),
+		git.WithRefTxHook(header.Repository),
 	)
 	if err != nil {
 		return fmt.Errorf("create git am: %w", err)
@@ -218,7 +218,7 @@ func (s *Server) addWorktree(ctx context.Context, repo *localrepo.Repo, worktree
 		Action: "add",
 		Flags:  flags,
 		Args:   args,
-	}, git.WithStderr(&stderr), git.WithRefTxHook(ctx, repo, s.cfg)); err != nil {
+	}, git.WithStderr(&stderr), git.WithRefTxHook(repo)); err != nil {
 		return fmt.Errorf("adding worktree: %w", gitError{ErrMsg: stderr.String(), Err: err})
 	}
 
@@ -233,7 +233,7 @@ func (s *Server) removeWorktree(ctx context.Context, repo *gitalypb.Repository, 
 			Flags:  []git.Option{git.Flag{Name: "--force"}},
 			Args:   []string{worktreeName},
 		},
-		git.WithRefTxHook(ctx, repo, s.cfg),
+		git.WithRefTxHook(repo),
 	)
 	if err != nil {
 		return fmt.Errorf("creation of 'worktree remove': %w", err)

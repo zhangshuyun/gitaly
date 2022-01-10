@@ -26,8 +26,8 @@ func WithDisabledHooks() CmdOpt {
 // WithRefTxHook returns an option that populates the safe command with the
 // environment variables necessary to properly execute a reference hook for
 // repository changes that may possibly update references
-func WithRefTxHook(ctx context.Context, repo repository.GitRepo, cfg config.Cfg) CmdOpt {
-	return func(_ context.Context, _ config.Cfg, _ CommandFactory, cc *cmdCfg) error {
+func WithRefTxHook(repo repository.GitRepo) CmdOpt {
+	return func(ctx context.Context, cfg config.Cfg, _ CommandFactory, cc *cmdCfg) error {
 		if repo == nil {
 			return fmt.Errorf("missing repo: %w", ErrInvalidArg)
 		}
@@ -50,8 +50,8 @@ func WithRefTxHook(ctx context.Context, repo repository.GitRepo, cfg config.Cfg)
 }
 
 // WithPackObjectsHookEnv provides metadata for gitaly-hooks so it can act as a pack-objects hook.
-func WithPackObjectsHookEnv(ctx context.Context, repo *gitalypb.Repository, cfg config.Cfg) CmdOpt {
-	return func(_ context.Context, _ config.Cfg, _ CommandFactory, cc *cmdCfg) error {
+func WithPackObjectsHookEnv(repo *gitalypb.Repository) CmdOpt {
+	return func(ctx context.Context, cfg config.Cfg, _ CommandFactory, cc *cmdCfg) error {
 		if !cfg.PackObjectsCache.Enabled {
 			return nil
 		}
@@ -124,8 +124,8 @@ type ReceivePackRequest interface {
 // WithReceivePackHooks returns an option that populates the safe command with the environment
 // variables necessary to properly execute the pre-receive, update and post-receive hooks for
 // git-receive-pack(1).
-func WithReceivePackHooks(ctx context.Context, cfg config.Cfg, req ReceivePackRequest, protocol string) CmdOpt {
-	return func(_ context.Context, _ config.Cfg, _ CommandFactory, cc *cmdCfg) error {
+func WithReceivePackHooks(req ReceivePackRequest, protocol string) CmdOpt {
+	return func(ctx context.Context, cfg config.Cfg, _ CommandFactory, cc *cmdCfg) error {
 		if err := cc.configureHooks(ctx, req.GetRepository(), cfg, &ReceiveHooksPayload{
 			UserID:   req.GetGlId(),
 			Username: req.GetGlUsername(),
