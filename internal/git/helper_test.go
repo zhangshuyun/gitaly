@@ -36,8 +36,8 @@ func TestValidateRevision(t *testing.T) {
 	}
 }
 
-func newCommandFactory(tb testing.TB, cfg config.Cfg) *ExecCommandFactory {
-	gitCmdFactory, cleanup, err := NewExecCommandFactory(cfg)
+func newCommandFactory(tb testing.TB, cfg config.Cfg, opts ...ExecCommandFactoryOption) *ExecCommandFactory {
+	gitCmdFactory, cleanup, err := NewExecCommandFactory(cfg, opts...)
 	require.NoError(tb, err)
 	tb.Cleanup(cleanup)
 	return gitCmdFactory

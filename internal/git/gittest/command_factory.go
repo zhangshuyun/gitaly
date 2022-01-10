@@ -9,9 +9,9 @@ import (
 )
 
 // NewCommandFactory creates a new Git command factory.
-func NewCommandFactory(tb testing.TB, cfg config.Cfg) git.CommandFactory {
+func NewCommandFactory(tb testing.TB, cfg config.Cfg, opts ...git.ExecCommandFactoryOption) git.CommandFactory {
 	tb.Helper()
-	factory, cleanup, err := git.NewExecCommandFactory(cfg)
+	factory, cleanup, err := git.NewExecCommandFactory(cfg, opts...)
 	require.NoError(tb, err)
 	tb.Cleanup(cleanup)
 	return factory

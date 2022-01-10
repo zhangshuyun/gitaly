@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cgroups"
@@ -15,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
+	"golang.org/x/sys/unix"
 )
 
 var globalOptions = []GlobalOption{
@@ -55,18 +58,38 @@ type CommandFactory interface {
 	HooksPath() string
 }
 
+type execCommandFactoryConfig struct {
+	skipHooks bool
+}
+
+// ExecCommandFactoryOption is an option that can be passed to NewExecCommandFactory.
+type ExecCommandFactoryOption func(*execCommandFactoryConfig)
+
+// WithSkipHooks will skip any use of hooks in this command factory.
+func WithSkipHooks() ExecCommandFactoryOption {
+	return func(cfg *execCommandFactoryConfig) {
+		cfg.skipHooks = true
+	}
+}
+
 // ExecCommandFactory knows how to properly construct different types of commands.
 type ExecCommandFactory struct {
 	locator               storage.Locator
 	cfg                   config.Cfg
 	cgroupsManager        cgroups.Manager
 	invalidCommandsMetric *prometheus.CounterVec
+	skipHooks             bool
 }
 
 // NewExecCommandFactory returns a new instance of initialized ExecCommandFactory. The returned
 // cleanup function shall be executed when the server shuts down.
-func NewExecCommandFactory(cfg config.Cfg) (*ExecCommandFactory, func(), error) {
-	return &ExecCommandFactory{
+func NewExecCommandFactory(cfg config.Cfg, opts ...ExecCommandFactoryOption) (*ExecCommandFactory, func(), error) {
+	var factoryCfg execCommandFactoryConfig
+	for _, opt := range opts {
+		opt(&factoryCfg)
+	}
+
+	gitCmdFactory := &ExecCommandFactory{
 		cfg:            cfg,
 		locator:        config.NewLocator(cfg),
 		cgroupsManager: cgroups.NewManager(cfg.Cgroups),
@@ -77,7 +100,14 @@ func NewExecCommandFactory(cfg config.Cfg) (*ExecCommandFactory, func(), error) 
 			},
 			[]string{"command"},
 		),
-	}, func() {}, nil
+		skipHooks: factoryCfg.skipHooks,
+	}
+
+	if err := gitCmdFactory.validateHooks(); err != nil {
+		return nil, nil, fmt.Errorf("validating hooks: %w", err)
+	}
+
+	return gitCmdFactory, func() {}, nil
 }
 
 // Describe is used to describe Prometheus metrics.
@@ -126,11 +156,35 @@ func (cf *ExecCommandFactory) HooksPath() string {
 		return cf.cfg.Git.HooksPath
 	}
 
-	if config.SkipHooks() {
+	if cf.skipHooks || config.SkipHooks() {
 		return "/var/empty"
 	}
 
 	return filepath.Join(cf.cfg.Ruby.Dir, "git-hooks")
+}
+
+func (cf *ExecCommandFactory) validateHooks() error {
+	if cf.skipHooks || config.SkipHooks() {
+		return nil
+	}
+
+	var errs []string
+	for _, hookName := range []string{"pre-receive", "post-receive", "update"} {
+		hookPath := filepath.Join(cf.cfg.Ruby.Dir, "git-hooks", hookName)
+		if err := unix.Access(hookPath, unix.X_OK); err != nil {
+			if errors.Is(err, os.ErrPermission) {
+				errs = append(errs, fmt.Sprintf("not executable: %v", hookPath))
+			} else {
+				errs = append(errs, err.Error())
+			}
+		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf(strings.Join(errs, ", "))
+	}
+
+	return nil
 }
 
 // newCommand creates a new command.Command for the given git command. If a repo is given, then the

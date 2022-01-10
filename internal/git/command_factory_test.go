@@ -2,6 +2,7 @@ package git_test
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -166,15 +167,22 @@ func TestExecCommandFactory_GetExecutionEnvironment(t *testing.T) {
 }
 
 func TestExecCommandFatcory_HooksPath(t *testing.T) {
+	hookDir := setupTempHookDirs(t, map[string]hookFileMode{
+		"ruby/git-hooks/update":       hookFileExists | hookFileExecutable,
+		"ruby/git-hooks/pre-receive":  hookFileExists | hookFileExecutable,
+		"ruby/git-hooks/post-receive": hookFileExists | hookFileExecutable,
+	})
+	rubyDir := filepath.Join(hookDir, "ruby")
+
 	t.Run("Ruby directory", func(t *testing.T) {
 		gitCmdFactory := gittest.NewCommandFactory(t, config.Cfg{
 			Ruby: config.Ruby{
-				Dir: "/ruby/dir",
+				Dir: rubyDir,
 			},
 		})
 
 		t.Run("no overrides", func(t *testing.T) {
-			require.Equal(t, "/ruby/dir/git-hooks", gitCmdFactory.HooksPath())
+			require.Equal(t, filepath.Join(rubyDir, "git-hooks"), gitCmdFactory.HooksPath())
 		})
 
 		t.Run("with skip", func(t *testing.T) {
@@ -189,7 +197,7 @@ func TestExecCommandFatcory_HooksPath(t *testing.T) {
 				HooksPath: "/hooks/path",
 			},
 			Ruby: config.Ruby{
-				Dir: "/ruby/dir",
+				Dir: rubyDir,
 			},
 		})
 
@@ -198,4 +206,97 @@ func TestExecCommandFatcory_HooksPath(t *testing.T) {
 		// The environment variable shouldn't override an explicitly set hooks path.
 		require.Equal(t, "/hooks/path", gitCmdFactory.HooksPath())
 	})
+}
+
+type hookFileMode int
+
+const (
+	hookFileExists hookFileMode = 1 << (4 - 1 - iota)
+	hookFileExecutable
+)
+
+func setupTempHookDirs(t *testing.T, m map[string]hookFileMode) string {
+	tempDir := testhelper.TempDir(t)
+
+	for hookName, mode := range m {
+		if mode&hookFileExists > 0 {
+			path := filepath.Join(tempDir, hookName)
+			require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+
+			require.NoError(t, os.WriteFile(filepath.Join(tempDir, hookName), nil, 0o644))
+
+			if mode&hookFileExecutable > 0 {
+				require.NoError(t, os.Chmod(filepath.Join(tempDir, hookName), 0o755))
+			}
+		}
+	}
+
+	return tempDir
+}
+
+var (
+	fileNotExistsErrRegexSnippit  = "no such file or directory"
+	fileNotExecutableRegexSnippit = "not executable: .*"
+)
+
+func TestExecCommandFactory_ValidateHooks(t *testing.T) {
+	testCases := []struct {
+		desc             string
+		expectedErrRegex string
+		hookFiles        map[string]hookFileMode
+	}{
+		{
+			desc: "everything is ✅",
+			hookFiles: map[string]hookFileMode{
+				"ruby/git-hooks/update":       hookFileExists | hookFileExecutable,
+				"ruby/git-hooks/pre-receive":  hookFileExists | hookFileExecutable,
+				"ruby/git-hooks/post-receive": hookFileExists | hookFileExecutable,
+			},
+			expectedErrRegex: "",
+		},
+		{
+			desc: "missing git-hooks",
+			hookFiles: map[string]hookFileMode{
+				"ruby/git-hooks/update":       0,
+				"ruby/git-hooks/pre-receive":  0,
+				"ruby/git-hooks/post-receive": 0,
+			},
+			expectedErrRegex: fmt.Sprintf("%s, %s, %s", fileNotExistsErrRegexSnippit, fileNotExistsErrRegexSnippit, fileNotExistsErrRegexSnippit),
+		},
+		{
+			desc: "git-hooks are not executable",
+			hookFiles: map[string]hookFileMode{
+				"ruby/git-hooks/update":       hookFileExists,
+				"ruby/git-hooks/pre-receive":  hookFileExists,
+				"ruby/git-hooks/post-receive": hookFileExists,
+			},
+			expectedErrRegex: fmt.Sprintf("%s, %s, %s", fileNotExecutableRegexSnippit, fileNotExecutableRegexSnippit, fileNotExecutableRegexSnippit),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			tempHookDir := setupTempHookDirs(t, tc.hookFiles)
+
+			_, cleanup, err := git.NewExecCommandFactory(config.Cfg{
+				Ruby: config.Ruby{
+					Dir: filepath.Join(tempHookDir, "ruby"),
+				},
+				GitlabShell: config.GitlabShell{
+					Dir: filepath.Join(tempHookDir, "/gitlab-shell"),
+				},
+				BinDir: filepath.Join(tempHookDir, "/bin"),
+			})
+			if err == nil {
+				defer cleanup()
+			}
+
+			if tc.expectedErrRegex != "" {
+				require.Error(t, err)
+				require.Regexp(t, tc.expectedErrRegex, err.Error(), "error should match regexp")
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }
