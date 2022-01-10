@@ -10,13 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/bootstrap"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
@@ -77,7 +75,6 @@ func TestRemoveRepository_Exec(t *testing.T) {
 	g2Srv := testserver.StartGitalyServer(t, g2Cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
 	db := testdb.New(t)
-	dbConf := testdb.GetConfig(t, db.Name)
 
 	conf := config.Config{
 		SocketPath: testhelper.GetTemporaryGitalySocketFileName(t),
@@ -90,23 +87,16 @@ func TestRemoveRepository_Exec(t *testing.T) {
 				},
 			},
 		},
-		DB: dbConf,
+		DB: testdb.GetConfig(t, db.Name),
 		Failover: config.Failover{
 			Enabled:          true,
 			ElectionStrategy: config.ElectionStrategyPerRepository,
 		},
 	}
 
-	starterConfigs, err := getStarterConfigs(conf)
-	require.NoError(t, err)
-	stopped := make(chan struct{})
-	bootstrapper := bootstrap.NewNoop(prometheus.NewCounterVec(prometheus.CounterOpts{Name: "stub"}, []string{"type"}))
-	go func() {
-		defer close(stopped)
-		assert.NoError(t, run(starterConfigs, conf, bootstrapper, prometheus.NewRegistry(), prometheus.NewRegistry()))
-	}()
+	praefectServer := testserver.StartPraefect(t, conf)
 
-	cc, err := client.Dial("unix://"+conf.SocketPath, nil)
+	cc, err := client.Dial(praefectServer.Address(), nil)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, cc.Close()) }()
 	repoClient := gitalypb.NewRepositoryServiceClient(cc)
@@ -261,9 +251,6 @@ func TestRemoveRepository_Exec(t *testing.T) {
 
 		requireNoDatabaseInfo(t, db, cmd)
 	})
-
-	bootstrapper.Terminate()
-	<-stopped
 }
 
 func requireNoDatabaseInfo(t *testing.T, db testdb.DB, cmd *removeRepository) {
