@@ -35,7 +35,7 @@ func main() {
 		logrus.Fatalf("usage: %s forking_binary [args]", os.Args[0])
 	}
 
-	gitalyBin, gitalyArgs := os.Args[1], os.Args[2:]
+	binary, arguments := os.Args[1], os.Args[2:]
 
 	logger := log.Default().WithField("wrapper", os.Getpid())
 	logger.Info("Wrapper started")
@@ -53,12 +53,12 @@ func main() {
 		logger.WithError(err).Error("find process")
 	}
 
-	if process != nil && isExpectedProcess(process, gitalyBin) {
+	if process != nil && isExpectedProcess(process, binary) {
 		logger.Info("adopting a process")
 	} else {
 		logger.Info("spawning a process")
 
-		proc, err := spawnGitaly(gitalyBin, gitalyArgs)
+		proc, err := spawnProcess(binary, arguments)
 		if err != nil {
 			logger.WithError(err).Fatal("spawn gitaly")
 		}
@@ -103,7 +103,7 @@ func findProcess(pidFilePath string) (*os.Process, error) {
 	return nil, nil
 }
 
-func spawnGitaly(bin string, args []string) (*os.Process, error) {
+func spawnProcess(bin string, args []string) (*os.Process, error) {
 	cmd := exec.Command(bin, args...)
 	cmd.Env = append(os.Environ(), fmt.Sprintf("%s=true", bootstrap.EnvUpgradesEnabled))
 
