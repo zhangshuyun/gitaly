@@ -41,7 +41,7 @@ func TestRepositoryProfile(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(blobs), unpackedObjects)
 
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	looseObjects, err := LooseObjects(ctx, gitCmdFactory, testRepo)
 	require.NoError(t, err)
 	require.Equal(t, int64(blobs), looseObjects)

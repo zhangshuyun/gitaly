@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
@@ -168,7 +167,7 @@ func TestFetchIntoObjectPool_Failure(t *testing.T) {
 	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
 
 	locator := config.NewLocator(cfg)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 

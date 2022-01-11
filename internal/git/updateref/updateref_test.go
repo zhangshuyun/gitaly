@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -296,7 +297,7 @@ func TestUpdater_capturesStderr(t *testing.T) {
 }
 
 func gitSupportsStatusFlushing(t *testing.T, ctx context.Context, cfg config.Cfg) bool {
-	version, err := git.CurrentVersion(ctx, git.NewExecCommandFactory(cfg))
+	version, err := git.CurrentVersion(ctx, gittest.NewCommandFactory(t, cfg))
 	require.NoError(t, err)
 	return version.FlushesUpdaterefStatus()
 }

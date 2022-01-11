@@ -5,13 +5,13 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
 
 func TestPingSuccess(t *testing.T) {
 	cfg := testcfg.Build(t)
-	s := New(cfg, git.NewExecCommandFactory(cfg))
+	s := New(cfg, gittest.NewCommandFactory(t, cfg))
 	require.NoError(t, s.Start())
 	defer s.Stop()
 

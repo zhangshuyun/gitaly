@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
@@ -151,7 +150,7 @@ func TestRemoveWorktree(t *testing.T) {
 	t.Parallel()
 
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	catfileCache := catfile.NewCache(cfg)
 	defer catfileCache.Stop()
 

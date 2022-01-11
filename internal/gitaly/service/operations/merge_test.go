@@ -594,7 +594,7 @@ func testUserMergeBranchAllowed(t *testing.T, ctx context.Context) {
 			cfg := testcfg.Build(t)
 			backchannelRegistry := backchannel.NewRegistry()
 			txManager := transaction.NewManager(cfg, backchannelRegistry)
-			hookManager := hook.NewManager(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), txManager, gitlab.NewMockClient(
+			hookManager := hook.NewManager(cfg, config.NewLocator(cfg), gittest.NewCommandFactory(t, cfg), txManager, gitlab.NewMockClient(
 				t,
 				func(context.Context, gitlab.AllowedParams) (bool, string, error) {
 					return tc.allowed, tc.allowedMessage, tc.allowedErr

@@ -301,7 +301,7 @@ func benchmarkFindCommit(withCache bool, b *testing.B) {
 	cfg, repo, _, client := setupCommitServiceWithRepo(b, false)
 
 	// get a list of revisions
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitCmdFactory := gittest.NewCommandFactory(b, cfg)
 	logCmd, err := gitCmdFactory.New(ctx, repo,
 		git.SubCmd{Name: "log", Flags: []git.Option{git.Flag{Name: "--format=format:%H"}}})
 	require.NoError(b, err)
@@ -341,7 +341,7 @@ func TestFindCommitWithCache(t *testing.T) {
 
 	// get a list of revisions
 
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	logCmd, err := gitCmdFactory.New(ctx, repo,
 		git.SubCmd{Name: "log", Flags: []git.Option{git.Flag{Name: "--format=format:%H"}}})
 	require.NoError(t, err)

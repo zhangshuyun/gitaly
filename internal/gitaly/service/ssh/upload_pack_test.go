@@ -65,7 +65,7 @@ func (cmd cloneCommand) execute(t *testing.T) error {
 	defer cancel()
 
 	var output bytes.Buffer
-	gitCommand, err := git.NewExecCommandFactory(cmd.cfg).NewWithoutRepo(ctx,
+	gitCommand, err := gittest.NewCommandFactory(t, cmd.cfg).NewWithoutRepo(ctx,
 		cmd.command, git.WithStdout(&output), git.WithStderr(&output), git.WithEnv(
 			fmt.Sprintf("GITALY_ADDRESS=%s", cmd.server),
 			fmt.Sprintf("GITALY_PAYLOAD=%s", payload),

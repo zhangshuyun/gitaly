@@ -22,7 +22,7 @@ func TestExecutor_Apply(t *testing.T) {
 	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	executor := NewExecutor(cfg, git.NewExecCommandFactory(cfg), config.NewLocator(cfg))
+	executor := NewExecutor(cfg, gittest.NewCommandFactory(t, cfg), config.NewLocator(cfg))
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

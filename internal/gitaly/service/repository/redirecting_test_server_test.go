@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
@@ -48,7 +49,7 @@ func TestRedirectingServerRedirects(t *testing.T) {
 	defer cancel()
 
 	var stderr bytes.Buffer
-	cmd, err := git.NewExecCommandFactory(cfg).NewWithoutRepo(ctx, git.SubCmd{
+	cmd, err := gittest.NewCommandFactory(t, cfg).NewWithoutRepo(ctx, git.SubCmd{
 		Name: "clone",
 		Flags: []git.Option{
 			git.Flag{Name: "--bare"},

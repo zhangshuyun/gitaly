@@ -40,7 +40,7 @@ func TestVisibilityOfHiddenRefs(t *testing.T) {
 	existingSha := "1e292f8fedd741b75372e19097c76d327140c312"
 	keepAroundRef := fmt.Sprintf("%s/%s", keepAroundNamespace, existingSha)
 
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	localRepo := localrepo.NewTestRepo(t, cfg, repo)
 	updater, err := updateref.New(ctx, cfg, localRepo)
 

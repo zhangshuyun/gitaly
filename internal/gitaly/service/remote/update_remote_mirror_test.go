@@ -506,7 +506,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			// create identical commits in both repositories so we can use them for
 			// the references
 			commitSignature := git2go.NewSignature("Test Author", "author@example.com", time.Now())
-			executor := git2go.NewExecutor(cfg, git.NewExecCommandFactory(cfg), config.NewLocator(cfg))
+			executor := git2go.NewExecutor(cfg, gittest.NewCommandFactory(t, cfg), config.NewLocator(cfg))
 
 			// construct the starting state of the repositories
 			for _, c := range []struct {

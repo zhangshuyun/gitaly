@@ -25,7 +25,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 	cfg := testcfg.Build(t)
 	cfg.Ruby.Dir = "/var/empty"
 
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	catfileCache := catfile.NewCache(cfg)
 	defer catfileCache.Stop()
 

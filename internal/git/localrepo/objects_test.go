@@ -34,7 +34,7 @@ func setupRepo(t *testing.T, bare bool) (*Repo, string) {
 		repoProto, repoPath = gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	}
 
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 	return New(gitCmdFactory, catfileCache, repoProto, cfg), repoPath

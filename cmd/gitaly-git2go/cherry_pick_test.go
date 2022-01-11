@@ -21,7 +21,7 @@ import (
 func TestCherryPick_validation(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 	testcfg.BuildGitalyGit2Go(t, cfg)
-	executor := buildExecutor(cfg)
+	executor := buildExecutor(t, cfg)
 
 	testcases := []struct {
 		desc        string
@@ -149,7 +149,7 @@ func TestCherryPick(t *testing.T) {
 	for _, tc := range testcases {
 		cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 		testcfg.BuildGitalyGit2Go(t, cfg)
-		executor := buildExecutor(cfg)
+		executor := buildExecutor(t, cfg)
 
 		base := cmdtesthelper.BuildCommit(t, repoPath, []*git.Oid{nil}, tc.base)
 

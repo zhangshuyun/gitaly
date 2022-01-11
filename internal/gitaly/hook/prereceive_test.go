@@ -27,7 +27,7 @@ import (
 
 func TestPrereceive_customHooks(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	locator := config.NewLocator(cfg)
 
 	hookManager := NewManager(cfg, locator, gitCmdFactory, transaction.NewManager(cfg, backchannel.NewRegistry()), gitlab.NewMockClient(
@@ -187,7 +187,7 @@ func TestPrereceive_quarantine(t *testing.T) {
 	blobID, err := quarantinedRepo.WriteBlob(ctx, "", strings.NewReader("allyourbasearebelongtous"))
 	require.NoError(t, err)
 
-	hookManager := NewManager(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), nil, gitlab.NewMockClient(
+	hookManager := NewManager(cfg, config.NewLocator(cfg), gittest.NewCommandFactory(t, cfg), nil, gitlab.NewMockClient(
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
 	))
 
@@ -364,7 +364,7 @@ func TestPrereceive_gitlab(t *testing.T) {
 				},
 			}
 
-			hookManager := NewManager(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), transaction.NewManager(cfg, backchannel.NewRegistry()), &gitlabAPI)
+			hookManager := NewManager(cfg, config.NewLocator(cfg), gittest.NewCommandFactory(t, cfg), transaction.NewManager(cfg, backchannel.NewRegistry()), &gitlabAPI)
 
 			gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte("#!/bin/sh\necho called\n"))
 

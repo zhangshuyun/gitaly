@@ -21,7 +21,7 @@ import (
 
 func TestPerformHTTPPush(t *testing.T) {
 	cfg, _, targetRepoPath := testcfg.BuildWithRepo(t)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

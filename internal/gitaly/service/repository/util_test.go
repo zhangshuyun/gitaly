@@ -35,7 +35,7 @@ func TestCreateRepository(t *testing.T) {
 
 	txManager := &transaction.MockManager{}
 	locator := config.NewLocator(cfg)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
 	server := &server{
 		cfg:           cfg,

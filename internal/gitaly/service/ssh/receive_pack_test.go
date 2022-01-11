@@ -244,7 +244,7 @@ func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 	pool, err := objectpool.NewObjectPool(
 		cfg,
 		config.NewLocator(cfg),
-		git.NewExecCommandFactory(cfg),
+		gittest.NewCommandFactory(t, cfg),
 		nil,
 		transaction.NewManager(cfg, backchannel.NewRegistry()),
 		repo.GetStorageName(),

@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/objectpool"
 	gconfig "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
@@ -81,7 +80,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	pool, err := objectpool.NewObjectPool(
 		primaryCfg,
 		gconfig.NewLocator(primaryCfg),
-		git.NewExecCommandFactory(primaryCfg),
+		gittest.NewCommandFactory(t, primaryCfg),
 		nil,
 		transaction.NewManager(primaryCfg, backchannel.NewRegistry()),
 		testRepo.GetStorageName(),

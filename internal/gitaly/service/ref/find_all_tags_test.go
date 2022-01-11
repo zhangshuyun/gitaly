@@ -654,7 +654,7 @@ func TestFindAllTags_sorted(t *testing.T) {
 	catfileCache := catfile.NewCache(cfg)
 	defer catfileCache.Stop()
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), catfileCache, repoProto, cfg)
+	repo := localrepo.New(gittest.NewCommandFactory(t, cfg), catfileCache, repoProto, cfg)
 	headCommit, err := repo.ReadCommit(ctx, "HEAD")
 	require.NoError(t, err)
 	annotatedTagID, err := repo.WriteTag(ctx, git.ObjectID(headCommit.Id), "commit", []byte("annotated"), []byte("message"), gittest.TestUser, time.Now())
