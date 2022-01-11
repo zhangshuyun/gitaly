@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/bootstrap"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
@@ -19,9 +18,6 @@ func TestStolenPid(t *testing.T) {
 
 	pidFile, err := os.Create(filepath.Join(tempDir, "pidfile"))
 	require.NoError(t, err)
-
-	cleanup := testhelper.ModifyEnvironment(t, bootstrap.EnvPidFile, pidFile.Name())
-	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -37,7 +33,7 @@ func TestStolenPid(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, pidFile.Close())
 
-	tail, err := findGitaly()
+	tail, err := findGitaly(pidFile.Name())
 	require.NoError(t, err)
 	require.NotNil(t, tail)
 	require.Equal(t, cmd.Process.Pid, tail.Pid)
@@ -82,4 +78,35 @@ func TestIsRecoverable(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestReadPIDFile(t *testing.T) {
+	t.Run("nonexistent", func(t *testing.T) {
+		_, err := readPIDFile("does-not-exist")
+		require.True(t, os.IsNotExist(err))
+	})
+
+	t.Run("empty", func(t *testing.T) {
+		path := filepath.Join(testhelper.TempDir(t), "pid")
+		require.NoError(t, os.WriteFile(path, nil, 0o644))
+		_, err := readPIDFile(path)
+		_, expectedErr := strconv.Atoi("")
+		require.Equal(t, expectedErr, err)
+	})
+
+	t.Run("invalid contents", func(t *testing.T) {
+		path := filepath.Join(testhelper.TempDir(t), "pid")
+		require.NoError(t, os.WriteFile(path, []byte("invalid"), 0o644))
+		_, err := readPIDFile(path)
+		_, expectedErr := strconv.Atoi("invalid")
+		require.Equal(t, expectedErr, err)
+	})
+
+	t.Run("valid", func(t *testing.T) {
+		path := filepath.Join(testhelper.TempDir(t), "pid")
+		require.NoError(t, os.WriteFile(path, []byte("12345"), 0o644))
+		pid, err := readPIDFile(path)
+		require.NoError(t, err)
+		require.Equal(t, 12345, pid)
+	})
 }

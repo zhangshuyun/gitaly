@@ -40,12 +40,13 @@ func main() {
 	logger := log.Default().WithField("wrapper", os.Getpid())
 	logger.Info("Wrapper started")
 
-	if pidFile() == "" {
+	pidFilePath := os.Getenv(bootstrap.EnvPidFile)
+	if pidFilePath == "" {
 		logger.Fatalf("missing pid file ENV variable %q", bootstrap.EnvPidFile)
 	}
+	logger.WithField("pid_file", pidFilePath).Info("finding gitaly")
 
-	logger.WithField("pid_file", pidFile()).Info("finding gitaly")
-	gitaly, err := findGitaly()
+	gitaly, err := findGitaly(pidFilePath)
 	if err != nil && !isRecoverable(err) {
 		logger.WithError(err).Fatal("find gitaly")
 	} else if err != nil {
@@ -83,8 +84,8 @@ func isRecoverable(err error) bool {
 	return os.IsNotExist(err) || errors.As(err, &numError)
 }
 
-func findGitaly() (*os.Process, error) {
-	pid, err := getPid()
+func findGitaly(pidFilePath string) (*os.Process, error) {
+	pid, err := readPIDFile(pidFilePath)
 	if err != nil {
 		return nil, err
 	}
@@ -146,8 +147,8 @@ func forwardSignals(gitaly *os.Process, log *logrus.Entry) {
 	signal.Notify(sigs)
 }
 
-func getPid() (int, error) {
-	data, err := os.ReadFile(pidFile())
+func readPIDFile(pidFilePath string) (int, error) {
+	data, err := os.ReadFile(pidFilePath)
 	if err != nil {
 		return 0, err
 	}
@@ -174,10 +175,6 @@ func isGitaly(p *os.Process, gitalyBin string) bool {
 	}
 
 	return false
-}
-
-func pidFile() string {
-	return os.Getenv(bootstrap.EnvPidFile)
 }
 
 func jsonLogging() bool {
