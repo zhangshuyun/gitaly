@@ -80,3 +80,9 @@ func (f *InterceptingCommandFactory) GetExecutionEnvironment(ctx context.Context
 	execEnv.BinaryPath = f.interceptingCommandFactory.GetExecutionEnvironment(ctx).BinaryPath
 	return execEnv
 }
+
+// HooksPath returns the path where hooks are stored. This returns the actual hooks path of the real
+// Git command factory.
+func (f *InterceptingCommandFactory) HooksPath() string {
+	return f.realCommandFactory.HooksPath()
+}

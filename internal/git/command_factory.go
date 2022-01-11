@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cgroups"
@@ -50,6 +51,8 @@ type CommandFactory interface {
 	NewWithDir(ctx context.Context, dir string, sc Cmd, opts ...CmdOpt) (*command.Command, error)
 	// GetExecutionEnvironment returns parameters required to execute Git commands.
 	GetExecutionEnvironment(context.Context) ExecutionEnvironment
+	// HooksPath returns the path where Gitaly's Git hooks reside.
+	HooksPath() string
 }
 
 // ExecCommandFactory knows how to properly construct different types of commands.
@@ -115,6 +118,19 @@ func (cf *ExecCommandFactory) GetExecutionEnvironment(context.Context) Execution
 		BinaryPath:           cf.cfg.Git.BinPath,
 		EnvironmentVariables: cf.cfg.GitExecEnv(),
 	}
+}
+
+// HooksPath returns the path where Gitaly's Git hooks reside.
+func (cf *ExecCommandFactory) HooksPath() string {
+	if len(cf.cfg.Git.HooksPath) > 0 {
+		return cf.cfg.Git.HooksPath
+	}
+
+	if config.SkipHooks() {
+		return "/var/empty"
+	}
+
+	return filepath.Join(cf.cfg.Ruby.Dir, "git-hooks")
 }
 
 // newCommand creates a new command.Command for the given git command. If a repo is given, then the

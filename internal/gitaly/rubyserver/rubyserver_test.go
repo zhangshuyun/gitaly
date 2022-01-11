@@ -94,6 +94,10 @@ func (mockGitCommandFactory) GetExecutionEnvironment(context.Context) git.Execut
 	}
 }
 
+func (mockGitCommandFactory) HooksPath() string {
+	return "custom_hooks_path"
+}
+
 func TestSetupEnv(t *testing.T) {
 	cfg := config.Cfg{
 		BinDir:            "/bin/dit",
@@ -125,4 +129,5 @@ func TestSetupEnv(t *testing.T) {
 	require.Contains(t, env, "GITALY_RUGGED_GIT_CONFIG_SEARCH_PATH=/bin/rugged")
 	require.Contains(t, env, "SENTRY_DSN=testDSN")
 	require.Contains(t, env, "SENTRY_ENVIRONMENT=testEnvironment")
+	require.Contains(t, env, "GITALY_GIT_HOOKS_DIR=custom_hooks_path")
 }

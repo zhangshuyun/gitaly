@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -162,4 +163,39 @@ func TestExecCommandFactory_GetExecutionEnvironment(t *testing.T) {
 		BinaryPath:           cfg.Git.BinPath,
 		EnvironmentVariables: cfg.GitExecEnv(),
 	}, gitCmdFactory.GetExecutionEnvironment(ctx))
+}
+
+func TestExecCommandFatcory_HooksPath(t *testing.T) {
+	t.Run("Ruby directory", func(t *testing.T) {
+		gitCmdFactory := gittest.NewCommandFactory(t, config.Cfg{
+			Ruby: config.Ruby{
+				Dir: "/ruby/dir",
+			},
+		})
+
+		t.Run("no overrides", func(t *testing.T) {
+			require.Equal(t, "/ruby/dir/git-hooks", gitCmdFactory.HooksPath())
+		})
+
+		t.Run("with skip", func(t *testing.T) {
+			defer testhelper.ModifyEnvironment(t, "GITALY_TESTING_NO_GIT_HOOKS", "1")()
+			require.Equal(t, "/var/empty", gitCmdFactory.HooksPath())
+		})
+	})
+
+	t.Run("hooks path", func(t *testing.T) {
+		gitCmdFactory := gittest.NewCommandFactory(t, config.Cfg{
+			Git: config.Git{
+				HooksPath: "/hooks/path",
+			},
+			Ruby: config.Ruby{
+				Dir: "/ruby/dir",
+			},
+		})
+
+		defer testhelper.ModifyEnvironment(t, "GITALY_TESTING_NO_GIT_HOOKS", "1")()
+
+		// The environment variable shouldn't override an explicitly set hooks path.
+		require.Equal(t, "/hooks/path", gitCmdFactory.HooksPath())
+	})
 }

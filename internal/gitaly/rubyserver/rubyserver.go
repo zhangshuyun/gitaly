@@ -52,7 +52,7 @@ func setupEnv(cfg config.Cfg, gitCmdFactory git.CommandFactory) []string {
 		fmt.Sprintf("GITALY_RUBY_MAX_COMMIT_OR_TAG_MESSAGE_SIZE=%d", helper.MaxCommitOrTagMessageSize),
 		"GITALY_RUBY_GITALY_BIN_DIR="+cfg.BinDir,
 		"GITALY_VERSION="+version.GetVersion(),
-		"GITALY_GIT_HOOKS_DIR="+cfg.HooksPath(),
+		"GITALY_GIT_HOOKS_DIR="+gitCmdFactory.HooksPath(),
 		"GITALY_SOCKET="+cfg.GitalyInternalSocketPath(),
 		"GITALY_TOKEN="+cfg.Auth.Token,
 		"GITALY_RUGGED_GIT_CONFIG_SEARCH_PATH="+cfg.Ruby.RuggedGitConfigSearchPath,

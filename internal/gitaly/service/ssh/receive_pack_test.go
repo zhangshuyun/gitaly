@@ -208,15 +208,14 @@ func TestReceivePackPushHookFailure(t *testing.T) {
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 	cfg.Git.HooksPath = testhelper.TempDir(t)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
 	testcfg.BuildGitalySSH(t, cfg)
 
-	serverSocketPath := runSSHServer(t, cfg)
-
-	require.NoError(t, os.MkdirAll(cfg.HooksPath(), 0o755))
+	serverSocketPath := runSSHServer(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
 
 	hookContent := []byte("#!/bin/sh\nexit 1")
-	require.NoError(t, os.WriteFile(filepath.Join(cfg.HooksPath(), "pre-receive"), hookContent, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(gitCmdFactory.HooksPath(), "pre-receive"), hookContent, 0o755))
 
 	_, _, err := testCloneAndPush(t, cfg, cfg.Storages[0].Path, serverSocketPath, repo, pushParams{storageName: cfg.Storages[0].Name, glID: "1"})
 	require.Error(t, err)

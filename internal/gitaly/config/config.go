@@ -368,19 +368,6 @@ func SkipHooks() bool {
 	return enabled
 }
 
-// HooksPath returns the path where Gitaly's Git hooks are located.
-func (cfg *Cfg) HooksPath() string {
-	if len(cfg.Git.HooksPath) > 0 {
-		return cfg.Git.HooksPath
-	}
-
-	if SkipHooks() {
-		return "/var/empty"
-	}
-
-	return filepath.Join(cfg.Ruby.Dir, "git-hooks")
-}
-
 // SetGitPath populates the variable GitPath with the path to the `git`
 // executable. It warns if no path was specified in the configuration.
 func (cfg *Cfg) SetGitPath() error {
