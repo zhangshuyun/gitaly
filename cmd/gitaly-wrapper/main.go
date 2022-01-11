@@ -53,7 +53,7 @@ func main() {
 		logger.WithError(err).Error("find process")
 	}
 
-	if process != nil && isGitaly(process, gitalyBin) {
+	if process != nil && isExpectedProcess(process, gitalyBin) {
 		logger.Info("adopting a process")
 	} else {
 		logger.Info("spawning a process")
@@ -164,13 +164,13 @@ func isAlive(p *os.Process) bool {
 	return p.Signal(syscall.Signal(0)) == nil
 }
 
-func isGitaly(p *os.Process, gitalyBin string) bool {
+func isExpectedProcess(p *os.Process, binary string) bool {
 	command, err := ps.Comm(p.Pid)
 	if err != nil {
 		return false
 	}
 
-	if filepath.Base(command) == filepath.Base(gitalyBin) {
+	if filepath.Base(command) == filepath.Base(binary) {
 		return true
 	}
 

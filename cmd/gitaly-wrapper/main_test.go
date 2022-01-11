@@ -39,11 +39,11 @@ func TestStolenPid(t *testing.T) {
 	require.Equal(t, cmd.Process.Pid, tail.Pid)
 
 	t.Run("stolen", func(t *testing.T) {
-		require.False(t, isGitaly(tail, "/path/to/gitaly"))
+		require.False(t, isExpectedProcess(tail, "/path/to/gitaly"))
 	})
 
 	t.Run("not stolen", func(t *testing.T) {
-		require.True(t, isGitaly(tail, "/path/to/tail"))
+		require.True(t, isExpectedProcess(tail, "/path/to/tail"))
 	})
 }
 
@@ -172,4 +172,35 @@ func TestReadPIDFile(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 12345, pid)
 	})
+}
+
+func TestIsExpectedProcess(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	executable := testhelper.WriteExecutable(t, filepath.Join(testhelper.TempDir(t), "noop"), []byte(
+		`#!/usr/bin/env bash
+		echo ready
+		read wait_until_killed
+	`))
+
+	cmd := exec.CommandContext(ctx, executable)
+	stdout, err := cmd.StdoutPipe()
+	require.NoError(t, err)
+	stdin, err := cmd.StdinPipe()
+	require.NoError(t, err)
+
+	require.NoError(t, cmd.Start())
+	defer func() {
+		testhelper.MustClose(t, stdin)
+		require.Error(t, cmd.Wait())
+	}()
+
+	// Wait for the process to be ready such that we know it's started up successfully
+	// and is executing the bash shell.
+	_, err = stdout.Read(make([]byte, 10))
+	require.NoError(t, err)
+
+	require.False(t, isExpectedProcess(cmd.Process, "does not match"))
+	require.True(t, isExpectedProcess(cmd.Process, "bash"))
 }
