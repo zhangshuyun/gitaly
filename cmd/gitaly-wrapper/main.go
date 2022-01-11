@@ -44,16 +44,16 @@ func main() {
 	if pidFilePath == "" {
 		logger.Fatalf("missing pid file ENV variable %q", bootstrap.EnvPidFile)
 	}
-	logger.WithField("pid_file", pidFilePath).Info("finding gitaly")
+	logger.WithField("pid_file", pidFilePath).Info("finding process")
 
-	gitaly, err := findGitaly(pidFilePath)
+	process, err := findProcess(pidFilePath)
 	if err != nil && !isRecoverable(err) {
-		logger.WithError(err).Fatal("find gitaly")
+		logger.WithError(err).Fatal("find process")
 	} else if err != nil {
-		logger.WithError(err).Error("find gitaly")
+		logger.WithError(err).Error("find process")
 	}
 
-	if gitaly != nil && isGitaly(gitaly, gitalyBin) {
+	if process != nil && isGitaly(process, gitalyBin) {
 		logger.Info("adopting a process")
 	} else {
 		logger.Info("spawning a process")
@@ -63,20 +63,20 @@ func main() {
 			logger.WithError(err).Fatal("spawn gitaly")
 		}
 
-		gitaly = proc
+		process = proc
 	}
 
-	logger = logger.WithField("gitaly", gitaly.Pid)
-	logger.Info("monitoring gitaly")
+	logger = logger.WithField("process", process.Pid)
+	logger.Info("monitoring process")
 
-	forwardSignals(gitaly, logger)
+	forwardSignals(process, logger)
 
 	// wait
-	for isAlive(gitaly) {
+	for isAlive(process) {
 		time.Sleep(1 * time.Second)
 	}
 
-	logger.Error("wrapper for gitaly shutting down")
+	logger.Error("wrapper for process shutting down")
 }
 
 func isRecoverable(err error) bool {
@@ -84,20 +84,20 @@ func isRecoverable(err error) bool {
 	return os.IsNotExist(err) || errors.As(err, &numError)
 }
 
-func findGitaly(pidFilePath string) (*os.Process, error) {
+func findProcess(pidFilePath string) (*os.Process, error) {
 	pid, err := readPIDFile(pidFilePath)
 	if err != nil {
 		return nil, err
 	}
 
 	// os.FindProcess on unix do not return an error if the process does not exist
-	gitaly, err := os.FindProcess(pid)
+	process, err := os.FindProcess(pid)
 	if err != nil {
 		return nil, err
 	}
 
-	if isAlive(gitaly) {
-		return gitaly, nil
+	if isAlive(process) {
+		return process, nil
 	}
 
 	return nil, nil
