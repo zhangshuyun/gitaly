@@ -185,6 +185,10 @@ No changes.
 - [gitaly-hooks: remove filter quote bug workaround](gitlab-org/gitaly@3a0c60c114e437abe476228c9a5ff4bef79b3547) ([merge request](gitlab-org/gitaly!3991))
 - [Enable Praefect in PostUploadPackWithSidechannel tests](gitlab-org/gitaly@1ef01adb2b3e8e0c2cbfd6f18556421fb7fc4e09) ([merge request](gitlab-org/gitaly!3938))
 
+## 14.4.5 (2022-01-11)
+
+No changes.
+
 ## 14.4.4 (2021-12-03)
 
 No changes.
