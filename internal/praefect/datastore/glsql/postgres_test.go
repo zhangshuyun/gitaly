@@ -1,10 +1,13 @@
 package glsql_test
 
 import (
+	"fmt"
 	"net"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgconn"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
@@ -22,12 +25,8 @@ func TestOpenDB(t *testing.T) {
 		badCfg.Host = "not-existing.com"
 		_, err := glsql.OpenDB(ctx, badCfg)
 		require.Error(t, err)
-		// Locally the error looks like:
-		// 	send ping: dial tcp: lookup not-existing.com: no such host
-		// but on CI it looks like:
-		// 	send ping: dial tcp: lookup not-existing.com on 169.254.169.254:53: no such host
-		// that is why regexp is used to check it.
-		require.Regexp(t, "send ping: dial tcp: lookup not\\-existing.com(.*): no such host", err.Error(), "opening of DB with incorrect configuration must fail")
+		// The regexp is used because error message has a diff in local run an on CI.
+		require.Regexp(t, "send ping: failed to connect to `host=not\\-existing.com user=postgres database=postgres`: hostname resolving error", err.Error(), "opening of DB with incorrect configuration must fail")
 	})
 
 	t.Run("timeout on hanging connection attempt", func(t *testing.T) {
@@ -42,7 +41,7 @@ func TestOpenDB(t *testing.T) {
 		cancel()
 
 		_, err = glsql.OpenDB(ctx, badCfg)
-		require.EqualError(t, err, "context canceled")
+		require.EqualError(t, err, "send ping: context canceled")
 		duration := time.Since(start)
 		require.Truef(t, duration < time.Second, "connection attempt took %s", duration.String())
 	})
@@ -106,7 +105,7 @@ func TestDSN(t *testing.T) {
 		direct bool
 		out    string
 	}{
-		{desc: "empty", in: config.DB{}, out: "binary_parameters=yes"},
+		{desc: "empty", in: config.DB{}, out: "prefer_simple_protocol=true"},
 		{
 			desc: "proxy connection",
 			in: config.DB{
@@ -121,7 +120,7 @@ func TestDSN(t *testing.T) {
 				SSLRootCert: "/path/to/root-cert",
 			},
 			direct: false,
-			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert binary_parameters=yes`,
+			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert prefer_simple_protocol=true`,
 		},
 		{
 			desc: "direct connection with different host and port",
@@ -139,7 +138,7 @@ func TestDSN(t *testing.T) {
 				},
 			},
 			direct: true,
-			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert binary_parameters=yes`,
+			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert prefer_simple_protocol=true`,
 		},
 		{
 			desc: "direct connection with dbname",
@@ -158,7 +157,7 @@ func TestDSN(t *testing.T) {
 				},
 			},
 			direct: true,
-			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production_sp sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert binary_parameters=yes`,
+			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production_sp sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert prefer_simple_protocol=true`,
 		},
 		{
 			desc: "direct connection with exactly the same parameters",
@@ -175,7 +174,7 @@ func TestDSN(t *testing.T) {
 				SessionPooled: config.DBConnection{},
 			},
 			direct: true,
-			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert binary_parameters=yes`,
+			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert prefer_simple_protocol=true`,
 		},
 		{
 			desc: "direct connection with completely different parameters",
@@ -202,20 +201,122 @@ func TestDSN(t *testing.T) {
 				},
 			},
 			direct: true,
-			out:    `port=6432 host=2.3.4.5 user=praefect_sp password=secret-sp dbname=praefect_production_sp sslmode=prefer sslcert=/path/to/sp/cert sslkey=/path/to/sp/key sslrootcert=/path/to/sp/root-cert binary_parameters=yes`,
+			out:    `port=6432 host=2.3.4.5 user=praefect_sp password=secret-sp dbname=praefect_production_sp sslmode=prefer sslcert=/path/to/sp/cert sslkey=/path/to/sp/key sslrootcert=/path/to/sp/root-cert prefer_simple_protocol=true`,
 		},
 		{
 			desc: "with spaces and quotes",
 			in: config.DB{
 				Password: "secret foo'bar",
 			},
-			out: `password=secret\ foo\'bar binary_parameters=yes`,
+			out: `password=secret\ foo\'bar prefer_simple_protocol=true`,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			require.Equal(t, tc.out, glsql.DSN(tc.in, tc.direct))
+		})
+	}
+}
+
+func TestStringArray(t *testing.T) {
+	t.Parallel()
+	db := testdb.New(t)
+
+	t.Run("multiple elements", func(t *testing.T) {
+		var res glsql.StringArray
+		require.NoError(t, db.QueryRow("SELECT ARRAY['a', NULL, '42', 'c']").Scan(&res))
+		require.Equal(t, []string{"a", "42", "c"}, res.Slice())
+	})
+
+	t.Run("NULL value", func(t *testing.T) {
+		var res glsql.StringArray
+		require.NoError(t, db.QueryRow("SELECT NULL").Scan(&res))
+		require.Empty(t, res.Slice())
+	})
+}
+
+func TestIsQueryCancelled(t *testing.T) {
+	for _, tc := range []struct {
+		desc string
+		err  error
+		exp  bool
+	}{
+		{
+			desc: "nil input",
+			err:  nil,
+			exp:  false,
+		},
+		{
+			desc: "wrong error type",
+			err:  assert.AnError,
+			exp:  false,
+		},
+		{
+			desc: "wrong code",
+			err:  &pgconn.PgError{Code: "stub"},
+			exp:  false,
+		},
+		{
+			desc: "cancellation error",
+			err:  &pgconn.PgError{Code: "57014"},
+			exp:  true,
+		},
+		{
+			desc: "wrapped cancellation error",
+			err:  fmt.Errorf("stub: %w", &pgconn.PgError{Code: "57014"}),
+			exp:  true,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			res := glsql.IsQueryCancelled(tc.err)
+			require.Equal(t, tc.exp, res)
+		})
+	}
+}
+
+func TestIsUniqueViolation(t *testing.T) {
+	for _, tc := range []struct {
+		desc   string
+		err    error
+		constr string
+		exp    bool
+	}{
+		{
+			desc: "nil input",
+			err:  nil,
+			exp:  false,
+		},
+		{
+			desc: "wrong error type",
+			err:  assert.AnError,
+			exp:  false,
+		},
+		{
+			desc: "wrong code",
+			err:  &pgconn.PgError{Code: "stub"},
+			exp:  false,
+		},
+		{
+			desc: "unique violation",
+			err:  &pgconn.PgError{Code: "23505"},
+			exp:  true,
+		},
+		{
+			desc: "wrapped unique violation",
+			err:  fmt.Errorf("stub: %w", &pgconn.PgError{Code: "23505"}),
+			exp:  true,
+		},
+		{
+			desc:   "unique violation with accepted conditions",
+			err:    &pgconn.PgError{Code: "23505", ConstraintName: "cname"},
+			constr: "cname",
+			exp:    true,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			res := glsql.IsUniqueViolation(tc.err, tc.constr)
+			require.Equal(t, tc.exp, res)
 		})
 	}
 }

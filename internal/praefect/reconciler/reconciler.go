@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
@@ -295,7 +294,7 @@ SELECT
 	job->>'source_node_storage',
 	job->>'target_node_storage'
 FROM reconciliation_jobs
-`, advisorylock.Reconcile, pq.StringArray(virtualStorages), pq.StringArray(storages))
+`, advisorylock.Reconcile, virtualStorages, storages)
 	if err != nil {
 		return fmt.Errorf("query: %w", err)
 	}

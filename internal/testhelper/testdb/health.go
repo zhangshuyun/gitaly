@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 )
@@ -43,9 +42,9 @@ ON CONFLICT (praefect_name, shard_name, node_name) DO UPDATE SET
 	last_contact_attempt_at = NOW(),
 	last_seen_active_at = NOW()
 		`,
-		pq.StringArray(praefects),
-		pq.StringArray(virtualStorages),
-		pq.StringArray(storages),
+		praefects,
+		virtualStorages,
+		storages,
 	)
 	require.NoError(t, err)
 }

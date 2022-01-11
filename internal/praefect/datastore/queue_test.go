@@ -135,7 +135,7 @@ func TestPostgresReplicationEventQueue_DeleteReplicaUniqueIndex(t *testing.T) {
 				return
 			}
 
-			require.EqualError(t, err, `query: pq: duplicate key value violates unique constraint "delete_replica_unique_index"`)
+			require.EqualError(t, err, `query: ERROR: duplicate key value violates unique constraint "delete_replica_unique_index" (SQLSTATE 23505)`)
 		})
 	}
 }

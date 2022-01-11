@@ -4,11 +4,14 @@ package glsql
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
-	// Blank import to enable integration of github.com/lib/pq into database/sql
-	_ "github.com/lib/pq"
+	"github.com/jackc/pgconn"
+	"github.com/jackc/pgtype"
+	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/stdlib"
 	migrate "github.com/rubenv/sql-migrate"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/migrations"
@@ -16,31 +19,19 @@ import (
 
 // OpenDB returns connection pool to the database.
 func OpenDB(ctx context.Context, conf config.DB) (*sql.DB, error) {
-	db, err := sql.Open("postgres", DSN(conf, false))
+	connConfig, err := pgx.ParseConfig(DSN(conf, false))
+	if err != nil {
+		return nil, err
+	}
+	connStr := stdlib.RegisterConnConfig(connConfig)
+	db, err := sql.Open("pgx", connStr)
 	if err != nil {
 		return nil, err
 	}
 
-	errChan := make(chan error)
-	go func() {
-		if err := db.PingContext(ctx); err != nil {
-			errChan <- fmt.Errorf("send ping: %w", err)
-		} else {
-			errChan <- nil
-		}
-	}()
-
-	select {
-	// Because of the issue https://github.com/lib/pq/issues/620 we need to handle context
-	// cancellation/timeout by ourselves.
-	case <-ctx.Done():
-		db.Close()
-		return nil, ctx.Err()
-	case err := <-errChan:
-		if err != nil {
-			db.Close()
-			return nil, err
-		}
+	if err := db.PingContext(ctx); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("send ping: %w", err)
 	}
 
 	return db, nil
@@ -88,7 +79,7 @@ func DSN(db config.DB, direct bool) string {
 		{"sslcert", sslCertVal},
 		{"sslkey", sslKeyVal},
 		{"sslrootcert", sslRootCertVal},
-		{"binary_parameters", "yes"},
+		{"prefer_simple_protocol", "true"},
 	} {
 		if len(kv.value) == 0 {
 			continue
@@ -223,4 +214,65 @@ func coalesceInt(values ...int) int {
 		}
 	}
 	return 0
+}
+
+// StringArray is a wrapper that provides a helper methods.
+type StringArray struct {
+	pgtype.TextArray
+}
+
+// Slice converts StringArray into a slice of strings.
+// The array element considered to be a valid string if it is not a null.
+func (sa StringArray) Slice() []string {
+	if sa.Status != pgtype.Present {
+		return nil
+	}
+
+	res := make([]string, 0, len(sa.Elements))
+	if sa.Status == pgtype.Present {
+		for _, e := range sa.Elements {
+			if e.Status != pgtype.Present {
+				continue
+			}
+			res = append(res, e.String)
+		}
+	}
+	return res
+}
+
+// errorCondition is a checker of the additional conditions of an error.
+type errorCondition func(*pgconn.PgError) bool
+
+// withConstraintName returns errorCondition that check if constraint name matches provided name.
+func withConstraintName(name string) errorCondition {
+	return func(pgErr *pgconn.PgError) bool {
+		return pgErr.ConstraintName == name
+	}
+}
+
+// IsQueryCancelled returns true if an error is a query cancellation.
+func IsQueryCancelled(err error) bool {
+	// https://www.postgresql.org/docs/11/errcodes-appendix.html
+	// query_canceled
+	return isPgError(err, "57014", nil)
+}
+
+// IsUniqueViolation returns true if an error is a unique violation.
+func IsUniqueViolation(err error, constraint string) bool {
+	// https://www.postgresql.org/docs/11/errcodes-appendix.html
+	// unique_violation
+	return isPgError(err, "23505", []errorCondition{withConstraintName(constraint)})
+}
+
+func isPgError(err error, code string, conditions []errorCondition) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == code {
+		for _, condition := range conditions {
+			if !condition(pgErr) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }

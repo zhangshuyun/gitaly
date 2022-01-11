@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lib/pq"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 )
 
@@ -352,11 +351,6 @@ func (rq PostgresReplicationEventQueue) Acknowledge(ctx context.Context, state J
 		return nil, err
 	}
 
-	pqIDs := make(pq.Int64Array, len(ids))
-	for i, id := range ids {
-		pqIDs[i] = int64(id)
-	}
-
 	query := `
 		WITH existing AS (
 			SELECT id, lock_id, updated_at, job
@@ -417,7 +411,7 @@ func (rq PostgresReplicationEventQueue) Acknowledge(ctx context.Context, state J
 		)
 		SELECT id
 		FROM existing`
-	rows, err := rq.qc.QueryContext(ctx, query, pqIDs, state)
+	rows, err := rq.qc.QueryContext(ctx, query, ids, state)
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
@@ -440,8 +434,8 @@ func (rq PostgresReplicationEventQueue) StartHealthUpdate(ctx context.Context, t
 		return nil
 	}
 
-	jobIDs := make(pq.Int64Array, len(events))
-	lockIDs := make(pq.StringArray, len(events))
+	jobIDs := make([]int64, len(events))
+	lockIDs := make([]string, len(events))
 	for i := range events {
 		jobIDs[i] = int64(events[i].ID)
 		lockIDs[i] = events[i].LockID
@@ -459,7 +453,7 @@ func (rq PostgresReplicationEventQueue) StartHealthUpdate(ctx context.Context, t
 		case <-trigger:
 			res, err := rq.qc.ExecContext(ctx, query, jobIDs, lockIDs)
 			if err != nil {
-				if pqError, ok := err.(*pq.Error); ok && pqError.Code.Name() == "query_canceled" {
+				if glsql.IsQueryCancelled(err) {
 					return nil
 				}
 				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {

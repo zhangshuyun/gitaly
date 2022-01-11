@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
@@ -390,7 +389,7 @@ func (s *sqlElector) electNewPrimary(ctx context.Context, tx *sql.Tx, candidates
 
 	var newPrimaryStorage string
 	var fallbackChoice bool
-	if err := tx.QueryRowContext(ctx, q, pq.StringArray(candidateStorages), s.shardName).Scan(&newPrimaryStorage); err != nil {
+	if err := tx.QueryRowContext(ctx, q, candidateStorages, s.shardName).Scan(&newPrimaryStorage); err != nil {
 		if err != sql.ErrNoRows {
 			return fmt.Errorf("retrieve potential candidate: %w", err)
 		}

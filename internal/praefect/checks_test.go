@@ -391,7 +391,7 @@ func TestPostgresReadWriteCheck(t *testing.T) {
 
 				return dbCfg
 			},
-			expectedErr: "error writing to table: pq: permission denied for table hello_world",
+			expectedErr: "error writing to table: ERROR: permission denied for table hello_world",
 			expectedLog: "successfully read from database\n",
 		},
 	}

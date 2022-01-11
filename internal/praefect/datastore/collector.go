@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
@@ -87,7 +86,7 @@ WHERE NOT EXISTS (
 	WHERE valid_primaries.repository_id = repositories.repository_id
 ) AND repositories.virtual_storage = ANY($1)
 GROUP BY virtual_storage
-	`, pq.StringArray(virtualStorages))
+	`, virtualStorages)
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}

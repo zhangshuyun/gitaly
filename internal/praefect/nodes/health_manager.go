@@ -7,7 +7,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/lib/pq"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
@@ -157,9 +156,9 @@ ON CONFLICT (praefect_name, shard_name, node_name)
 		last_seen_active_at = COALESCE(EXCLUDED.last_seen_active_at, node_status.last_seen_active_at)
 	`,
 		hm.praefectName,
-		pq.StringArray(virtualStorages),
-		pq.StringArray(physicalStorages),
-		pq.BoolArray(healthy),
+		virtualStorages,
+		physicalStorages,
+		healthy,
 	); err != nil {
 		return fmt.Errorf("update checks: %w", err)
 	}

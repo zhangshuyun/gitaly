@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
@@ -63,7 +62,7 @@ LEFT JOIN (
 				repositoryID                              sql.NullInt64
 				virtualStorage, relativePath, replicaPath string
 				primary                                   sql.NullString
-				assignments                               pq.StringArray
+				assignments                               glsql.StringArray
 			)
 			require.NoError(t, rows.Scan(&repositoryID, &virtualStorage, &relativePath, &replicaPath, &primary, &assignments))
 			if act[virtualStorage] == nil {
@@ -74,7 +73,7 @@ LEFT JOIN (
 				repositoryID: repositoryID.Int64,
 				replicaPath:  replicaPath,
 				primary:      primary.String,
-				assignments:  assignments,
+				assignments:  assignments.Slice(),
 			}
 		}
 
