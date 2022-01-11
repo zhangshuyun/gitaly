@@ -419,3 +419,31 @@ func TestObjectReader_queue(t *testing.T) {
 		require.Equal(t, os.ErrClosed, err)
 	})
 }
+
+func TestObjectReader_replaceRefs(t *testing.T) {
+	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	originalOID := gittest.WriteBlob(t, cfg, repoPath, []byte("original"))
+	replacedOID := gittest.WriteBlob(t, cfg, repoPath, []byte("replaced"))
+
+	gittest.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/replace/"+originalOID.String()), replacedOID)
+
+	// Reading the object via our testhelper should result in the object having been replaced.
+	require.Equal(t, "replaced", text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-p", originalOID.String())))
+
+	reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+	require.NoError(t, err)
+
+	object, err := reader.Object(ctx, originalOID.Revision())
+	require.NoError(t, err)
+
+	contents, err := io.ReadAll(object)
+	require.NoError(t, err)
+
+	// But using our "normal" Git command execution code path, we still want to see the original
+	// content of the blob.
+	require.Equal(t, "original", string(contents))
+}

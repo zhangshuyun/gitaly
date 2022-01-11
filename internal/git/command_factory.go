@@ -30,6 +30,13 @@ var globalOptions = []GlobalOption{
 	// done when reading blobs from the object database. This is
 	// required for the web editor.
 	ConfigPair{Key: "core.autocrlf", Value: "input"},
+
+	// Git allows the use of replace refs, where a given object ID can be replaced with a
+	// different one. The result is that Git commands would use the new object instead of the
+	// old one in almost all contexts. This is a security threat: an adversary may use this
+	// mechanism to replace malicious commits with seemingly benign ones. We thus globally
+	// disable this mechanism.
+	ConfigPair{Key: "core.useReplaceRefs", Value: "false"},
 }
 
 // CommandFactory is designed to create and run git commands in a protected and fully managed manner.
