@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -78,8 +79,8 @@ func main() {
 }
 
 func isRecoverable(err error) bool {
-	_, isNumError := err.(*strconv.NumError)
-	return os.IsNotExist(err) || isNumError
+	var numError *strconv.NumError
+	return os.IsNotExist(err) || errors.As(err, &numError)
 }
 
 func findGitaly() (*os.Process, error) {
