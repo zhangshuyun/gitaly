@@ -204,3 +204,52 @@ func TestIsExpectedProcess(t *testing.T) {
 	require.False(t, isExpectedProcess(cmd.Process, "does not match"))
 	require.True(t, isExpectedProcess(cmd.Process, "bash"))
 }
+
+func TestIsProcessAlive(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	t.Run("nonexistent process", func(t *testing.T) {
+		// And now let's check with a nonexistent process. FindProcess never returns an
+		// error on Unix systems even if the process doesn't exist, so this is fine.
+		process, err := os.FindProcess(77777777)
+		require.NoError(t, err)
+		require.False(t, isProcessAlive(process))
+	})
+
+	t.Run("existing process", func(t *testing.T) {
+		executable := testhelper.WriteExecutable(t, filepath.Join(testhelper.TempDir(t), "noop"), []byte(
+			`#!/usr/bin/env bash
+			echo ready
+			read wait_until_killed
+		`))
+
+		cmd := exec.CommandContext(ctx, executable)
+		stdout, err := cmd.StdoutPipe()
+		require.NoError(t, err)
+		_, err = cmd.StdinPipe()
+		require.NoError(t, err)
+
+		require.NoError(t, cmd.Start())
+
+		// Wait for the process to be ready such that we know it's started up successfully
+		// and is executing the bash shell.
+		_, err = stdout.Read(make([]byte, 10))
+		require.NoError(t, err)
+
+		t.Run("running", func(t *testing.T) {
+			require.True(t, isProcessAlive(cmd.Process))
+		})
+
+		t.Run("zombie", func(t *testing.T) {
+			// The process will be considered alive as long as it hasn't been reaped yet.
+			require.NoError(t, cmd.Process.Kill())
+			require.True(t, isProcessAlive(cmd.Process))
+		})
+
+		t.Run("reaped", func(t *testing.T) {
+			require.Error(t, cmd.Wait())
+			require.False(t, isProcessAlive(cmd.Process))
+		})
+	})
+}

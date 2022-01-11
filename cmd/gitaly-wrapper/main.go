@@ -72,7 +72,7 @@ func main() {
 	forwardSignals(process, logger)
 
 	// wait
-	for isAlive(process) {
+	for isProcessAlive(process) {
 		time.Sleep(1 * time.Second)
 	}
 
@@ -96,7 +96,7 @@ func findProcess(pidFilePath string) (*os.Process, error) {
 		return nil, err
 	}
 
-	if isAlive(process) {
+	if isProcessAlive(process) {
 		return process, nil
 	}
 
@@ -156,7 +156,7 @@ func readPIDFile(pidFilePath string) (int, error) {
 	return strconv.Atoi(string(data))
 }
 
-func isAlive(p *os.Process) bool {
+func isProcessAlive(p *os.Process) bool {
 	// After p exits, and after it gets reaped, this p.Signal will fail. It is crucial that p gets reaped.
 	// If p was spawned by the current process, it will get reaped from a goroutine that does cmd.Wait().
 	// If p was spawned by someone else we rely on them to reap it, or on p to become an orphan.
