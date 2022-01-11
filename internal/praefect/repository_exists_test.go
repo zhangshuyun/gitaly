@@ -93,8 +93,6 @@ func TestRepositoryExistsHandler(t *testing.T) {
 					return nil, errServedByGitaly
 				},
 				nil,
-				nil,
-				nil,
 				rs,
 				nil,
 				nil,
