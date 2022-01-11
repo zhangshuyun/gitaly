@@ -1,6 +1,7 @@
 package ref
 
 import (
+	"fmt"
 	"io"
 	"testing"
 
@@ -22,21 +23,21 @@ func TestSuccessfulFindAllRemoteBranchesRequest(t *testing.T) {
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	remoteName := "my-remote"
-	expectedBranches := map[string]string{
+	expectedBranches := map[string]git.ObjectID{
 		"foo": "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd",
 		"bar": "60ecb67744cb56576c30214ff52294f8ce2def98",
 	}
 	excludedRemote := "my-remote-2"
-	excludedBranches := map[string]string{
+	excludedBranches := map[string]git.ObjectID{
 		"from-another-remote": "5937ac0a7beb003549fc5fd26fc247adbce4a52e",
 	}
 
 	for branchName, commitID := range expectedBranches {
-		gittest.CreateRemoteBranch(t, cfg, repoPath, remoteName, branchName, commitID)
+		gittest.WriteRef(t, cfg, repoPath, git.ReferenceName(fmt.Sprintf("refs/remotes/%s/%s", remoteName, branchName)), commitID)
 	}
 
 	for branchName, commitID := range excludedBranches {
-		gittest.CreateRemoteBranch(t, cfg, repoPath, excludedRemote, branchName, commitID)
+		gittest.WriteRef(t, cfg, repoPath, git.ReferenceName(fmt.Sprintf("refs/remotes/%s/%s", excludedRemote, branchName)), commitID)
 	}
 
 	request := &gitalypb.FindAllRemoteBranchesRequest{Repository: repoProto, RemoteName: remoteName}

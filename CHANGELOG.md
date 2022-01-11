@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## 14.5.3 (2022-01-11)
+
+### Fixed (1 change)
+
+- [Optimize link repository ID migration](gitlab-org/security/gitaly@4e33c3728c27f78d83b03421c0368708a055883d)
+
 ## 14.5.2 (2021-12-03)
 
 No changes.
