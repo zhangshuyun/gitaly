@@ -148,7 +148,6 @@ func TestReceivePackPushSuccess(t *testing.T) {
 	}
 
 	require.Equal(t, git.HooksPayload{
-		BinDir:              cfg.BinDir,
 		InternalSocket:      cfg.GitalyInternalSocketPath(),
 		InternalSocketToken: cfg.Auth.Token,
 		ReceiveHooksPayload: &git.ReceiveHooksPayload{

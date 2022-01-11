@@ -160,6 +160,17 @@ func (repo *Repo) UpdateRef(ctx context.Context, reference git.ReferenceName, ne
 	return nil
 }
 
+// SetDefaultBranch sets the repository's HEAD to point to the given reference.
+func (repo *Repo) SetDefaultBranch(ctx context.Context, reference git.ReferenceName) error {
+	if err := repo.ExecAndWait(ctx, git.SubCmd{
+		Name: "symbolic-ref",
+		Args: []string{"HEAD", reference.String()},
+	}, git.WithRefTxHook(ctx, repo, repo.cfg)); err != nil {
+		return err
+	}
+	return nil
+}
+
 type getRemoteReferenceConfig struct {
 	patterns   []string
 	config     []git.ConfigPair

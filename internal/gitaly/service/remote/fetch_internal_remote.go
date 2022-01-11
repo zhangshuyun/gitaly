@@ -10,7 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
@@ -57,7 +56,7 @@ func FetchInternalRemote(
 	}
 
 	if defaultBranch != remoteDefaultBranch {
-		if err := ref.SetDefaultBranchRef(ctx, repo, remoteDefaultBranch.String(), cfg); err != nil {
+		if err := repo.SetDefaultBranch(ctx, remoteDefaultBranch); err != nil {
 			return helper.ErrInternalf("setting default branch: %w", err)
 		}
 	}

@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -372,9 +371,6 @@ exit %d
 func TestPreReceiveHook_Primary(t *testing.T) {
 	t.Parallel()
 
-	cwd, err := os.Getwd()
-	require.NoError(t, err)
-
 	testCases := []struct {
 		desc               string
 		primary            bool
@@ -433,7 +429,6 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg := testcfg.Build(t)
-			cfg.Ruby.Dir = filepath.Join(cwd, "testdata")
 
 			testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
