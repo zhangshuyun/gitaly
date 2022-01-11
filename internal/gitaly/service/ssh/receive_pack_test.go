@@ -149,7 +149,6 @@ func TestReceivePackPushSuccess(t *testing.T) {
 
 	require.Equal(t, git.HooksPayload{
 		BinDir:              cfg.BinDir,
-		GitPath:             cfg.Git.BinPath,
 		InternalSocket:      cfg.GitalyInternalSocketPath(),
 		InternalSocketToken: cfg.Auth.Token,
 		ReceiveHooksPayload: &git.ReceiveHooksPayload{
@@ -170,9 +169,12 @@ func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
 	testcfg.BuildGitalySSH(t, cfg)
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	readProto, cfg := gittest.EnableGitProtocolV2Support(t, cfg)
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-	serverSocketPath := runSSHServer(t, cfg)
+	gitCmdFactory, readProto := gittest.EnableGitProtocolV2Support(ctx, t, cfg)
+
+	serverSocketPath := runSSHServer(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
 
 	lHead, rHead, err := testCloneAndPush(t, cfg, cfg.Storages[0].Path, serverSocketPath, repo, pushParams{
 		storageName:  testhelper.DefaultStorageName,
@@ -498,7 +500,10 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 		glID         = "key-123"
 	)
 
-	readProto, cfg := gittest.EnableGitProtocolV2Support(t, cfg)
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	gitCmdFactory, readProto := gittest.EnableGitProtocolV2Support(ctx, t, cfg)
 
 	tempGitlabShellDir := testhelper.TempDir(t)
 
@@ -526,7 +531,7 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 
 	gittest.WriteCheckNewObjectExistsHook(t, cloneDetails.RemoteRepoPath)
 
-	serverSocketPath := runSSHServer(t, cfg)
+	serverSocketPath := runSSHServer(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
 
 	lHead, rHead, err := sshPush(t, cfg, cloneDetails, serverSocketPath, pushParams{
 		storageName:  cfg.Storages[0].Name,

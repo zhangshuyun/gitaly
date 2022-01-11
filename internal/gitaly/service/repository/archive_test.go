@@ -12,11 +12,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 	"gitlab.com/gitlab-org/labkit/correlation"
@@ -475,20 +477,20 @@ func TestGetArchivePathInjection(t *testing.T) {
 func TestGetArchiveEnv(t *testing.T) {
 	t.Parallel()
 
-	scriptPath := filepath.Join(testhelper.TempDir(t), "archive.sh")
-	require.NoError(t, os.WriteFile(scriptPath, []byte("#!/bin/sh\nenv | grep -E '^GL_|CORRELATION|GITALY_'"), 0o755))
-
 	cfg := testcfg.Build(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	gitCmdFactory := gittest.NewInterceptingCommandFactory(ctx, t, cfg, func(git.ExecutionEnvironment) string {
+		return `#!/bin/sh
+		env | grep -E '^GL_|CORRELATION|GITALY_'
+		`
+	})
 
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	// We re-define path to the git executable to catch parameters used to call it.
-	// This replacement only needs to be done for the configuration used to invoke git commands.
-	// Other operations should use actual path to the git binary to work properly.
-	spyGitCfg := cfg
-	spyGitCfg.Git.BinPath = scriptPath
-
-	serverSocketPath := runRepositoryServerWithConfig(t, spyGitCfg, nil)
+	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil, testserver.WithGitCommandFactory(gitCmdFactory))
 	cfg.SocketPath = serverSocketPath
 
 	client := newRepositoryClient(t, cfg, serverSocketPath)
@@ -496,9 +498,6 @@ func TestGetArchiveEnv(t *testing.T) {
 	repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	commitID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	correlationID, _ := correlation.RandomID()
 	ctx = correlation.ContextWithCorrelation(ctx, correlationID)

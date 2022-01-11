@@ -21,15 +21,16 @@ import (
 
 func TestPerformHTTPPush(t *testing.T) {
 	cfg, _, targetRepoPath := testcfg.BuildWithRepo(t)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-	serverPort, stopGitServer := gittest.GitServer(t, cfg, targetRepoPath, nil)
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	serverPort, stopGitServer := gittest.HTTPServer(ctx, t, gitCmdFactory, targetRepoPath, nil)
 	defer func() {
 		require.NoError(t, stopGitServer())
 	}()
 	url := fmt.Sprintf("http://localhost:%d/%s", serverPort, filepath.Base(targetRepoPath))
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	for _, tc := range []struct {
 		desc            string

@@ -25,21 +25,25 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-func startSmartHTTPServer(t *testing.T, cfg config.Cfg, serverOpts ...ServerOpt) testserver.GitalyServer {
+func startSmartHTTPServerWithOptions(t *testing.T, cfg config.Cfg, opts []ServerOpt, serverOpts []testserver.GitalyServerOpt) testserver.GitalyServer {
 	return testserver.StartGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterSmartHTTPServiceServer(srv, NewServer(
 			deps.GetCfg(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetDiskCache(),
-			serverOpts...,
+			opts...,
 		))
 		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
-	})
+	}, serverOpts...)
 }
 
-func runSmartHTTPServer(t *testing.T, cfg config.Cfg, serverOpts ...ServerOpt) string {
-	gitalyServer := startSmartHTTPServer(t, cfg, serverOpts...)
+func startSmartHTTPServer(t *testing.T, cfg config.Cfg, opts ...ServerOpt) testserver.GitalyServer {
+	return startSmartHTTPServerWithOptions(t, cfg, opts, nil)
+}
+
+func runSmartHTTPServer(t *testing.T, cfg config.Cfg, opts ...ServerOpt) string {
+	gitalyServer := startSmartHTTPServer(t, cfg, opts...)
 	return gitalyServer.Address()
 }
 

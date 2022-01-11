@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -448,9 +449,12 @@ func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
 func testUploadPackCloneSuccessWithGitProtocol(t *testing.T, opts ...testcfg.Option) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t, opts...)
 
-	readProto, cfg := gittest.EnableGitProtocolV2Support(t, cfg)
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-	serverSocketPath := runSSHServer(t, cfg)
+	gitCmdFactory, readProto := gittest.EnableGitProtocolV2Support(ctx, t, cfg)
+
+	serverSocketPath := runSSHServer(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
 
 	testcfg.BuildGitalySSH(t, cfg)
 	testcfg.BuildGitalyHooks(t, cfg)

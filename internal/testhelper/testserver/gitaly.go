@@ -401,6 +401,15 @@ func WithLocator(locator storage.Locator) GitalyServerOpt {
 	}
 }
 
+// WithGitCommandFactory sets a git.CommandFactory instance that will be used for gitaly services
+// initialisation.
+func WithGitCommandFactory(gitCmdFactory git.CommandFactory) GitalyServerOpt {
+	return func(deps gitalyServerDeps) gitalyServerDeps {
+		deps.gitCmdFactory = gitCmdFactory
+		return deps
+	}
+}
+
 // WithGitLabClient sets gitlab.Client instance that will be used for gitaly services initialisation.
 func WithGitLabClient(gitlabClient gitlab.Client) GitalyServerOpt {
 	return func(deps gitalyServerDeps) gitalyServerDeps {

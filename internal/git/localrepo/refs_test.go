@@ -217,8 +217,7 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 
-	wrappedGit, gitSSHCommandFile := captureGitSSHCommand(t, cfg.Git.BinPath)
-	cfg.Git.BinPath = wrappedGit
+	gitCmdFactory, readSSHCommand := captureGitSSHCommand(ctx, t, cfg)
 
 	storagePath, ok := cfg.StoragePath("default")
 	require.True(t, ok)
@@ -242,7 +241,6 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 
 	annotatedTagOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "annotated-tag"))
 
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	catfileCache := catfile.NewCache(cfg)
 	defer catfileCache.Stop()
 
@@ -322,7 +320,7 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tc.expected, refs)
 
-			gitSSHCommand, err := os.ReadFile(gitSSHCommandFile)
+			gitSSHCommand, err := readSSHCommand()
 			if !os.IsNotExist(err) {
 				require.NoError(t, err)
 			}

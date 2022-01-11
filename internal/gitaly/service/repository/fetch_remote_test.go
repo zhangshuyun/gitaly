@@ -73,38 +73,34 @@ func TestFetchRemoteSuccess(t *testing.T) {
 
 func TestFetchRemote_sshCommand(t *testing.T) {
 	t.Parallel()
-	tempDir := testhelper.TempDir(t)
-
-	// We ain't got a nice way to intercept the SSH call, so we just write a custom git command
-	// which simply prints the GIT_SSH_COMMAND environment variable.
-	gitPath := filepath.Join(tempDir, "git")
-	outputPath := filepath.Join(tempDir, "output")
-	script := fmt.Sprintf(`#!/bin/sh
-	for arg in $GIT_SSH_COMMAND
-	do
-		case "$arg" in
-		-oIdentityFile=*)
-			path=$(echo "$arg" | cut -d= -f2)
-			cat "$path";;
-		*)
-			echo "$arg";;
-		esac
-	done >'%s'
-	exit 7`, outputPath)
-	testhelper.WriteExecutable(t, gitPath, []byte(script))
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	// We re-define path to the git executable to catch parameters used to call it.
-	// This replacement only needs to be done for the configuration used to invoke git commands.
-	// Other operations should use actual path to the git binary to work properly.
-	spyGitCfg := cfg
-	spyGitCfg.Git.BinPath = gitPath
-
-	client, _ := runRepositoryService(t, spyGitCfg, nil)
+	outputPath := filepath.Join(testhelper.TempDir(t), "output")
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
+
+	// We ain't got a nice way to intercept the SSH call, so we just write a custom git command
+	// which simply prints the GIT_SSH_COMMAND environment variable.
+	gitCmdFactory := gittest.NewInterceptingCommandFactory(ctx, t, cfg, func(git.ExecutionEnvironment) string {
+		return fmt.Sprintf(
+			`#!/bin/sh
+			for arg in $GIT_SSH_COMMAND
+			do
+				case "$arg" in
+				-oIdentityFile=*)
+					path=$(echo "$arg" | cut -d= -f2)
+					cat "$path";;
+				*)
+					echo "$arg";;
+				esac
+			done >'%s'
+			exit 7
+		`, outputPath)
+	})
+
+	client, _ := runRepositoryService(t, cfg, nil, testserver.WithGitCommandFactory(gitCmdFactory))
 
 	for _, tc := range []struct {
 		desc           string
@@ -149,17 +145,18 @@ func TestFetchRemote_sshCommand(t *testing.T) {
 func TestFetchRemote_withDefaultRefmaps(t *testing.T) {
 	t.Parallel()
 	cfg, sourceRepoProto, sourceRepoPath, client := setupRepositoryService(t)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
 	sourceRepo := localrepo.NewTestRepo(t, cfg, sourceRepoProto)
 
 	targetRepoProto := copyRepo(t, cfg, sourceRepoProto, sourceRepoPath)
 	targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
 
-	port, stopGitServer := gittest.GitServer(t, cfg, sourceRepoPath, nil)
-	defer func() { require.NoError(t, stopGitServer()) }()
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
+
+	port, stopGitServer := gittest.HTTPServer(ctx, t, gitCmdFactory, sourceRepoPath, nil)
+	defer func() { require.NoError(t, stopGitServer()) }()
 
 	require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/heads/foobar", "refs/heads/master", ""))
 
@@ -202,11 +199,14 @@ func TestFetchRemote_transaction(t *testing.T) {
 	client := newRepositoryClient(t, sourceCfg, addr)
 
 	targetCfg, targetRepoProto, targetRepoPath := testcfg.BuildWithRepo(t)
-	port, stopGitServer := gittest.GitServer(t, targetCfg, targetRepoPath, nil)
-	defer func() { require.NoError(t, stopGitServer()) }()
+	targetGitCmdFactory := git.NewExecCommandFactory(targetCfg)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
+
+	port, stopGitServer := gittest.HTTPServer(ctx, t, targetGitCmdFactory, targetRepoPath, nil)
+	defer func() { require.NoError(t, stopGitServer()) }()
+
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
 	ctx = metadata.IncomingToOutgoing(ctx)
@@ -227,8 +227,12 @@ func TestFetchRemote_transaction(t *testing.T) {
 func TestFetchRemote_prune(t *testing.T) {
 	t.Parallel()
 	cfg, sourceRepo, sourceRepoPath, client := setupRepositoryService(t)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-	port, stopGitServer := gittest.GitServer(t, cfg, sourceRepoPath, nil)
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	port, stopGitServer := gittest.HTTPServer(ctx, t, gitCmdFactory, sourceRepoPath, nil)
 	defer func() { require.NoError(t, stopGitServer()) }()
 
 	remoteURL := fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(sourceRepoPath))
@@ -280,9 +284,6 @@ func TestFetchRemote_prune(t *testing.T) {
 			targetRepoProto := copyRepo(t, cfg, sourceRepo, sourceRepoPath)
 			targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
 
-			ctx, cancel := testhelper.Context()
-			defer cancel()
-
 			require.NoError(t, targetRepo.UpdateRef(ctx, tc.ref, "refs/heads/master", ""))
 
 			tc.request.Repository = targetRepoProto
@@ -303,6 +304,7 @@ func TestFetchRemote_force(t *testing.T) {
 	defer cancel()
 
 	cfg, sourceRepoProto, sourceRepoPath, client := setupRepositoryService(t)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
 	sourceRepo := localrepo.NewTestRepo(t, cfg, sourceRepoProto)
 
@@ -315,7 +317,7 @@ func TestFetchRemote_force(t *testing.T) {
 	divergingBranchOID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("b1"))
 	divergingTagOID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("b2"))
 
-	port, stopGitServer := gittest.GitServer(t, cfg, sourceRepoPath, nil)
+	port, stopGitServer := gittest.HTTPServer(ctx, t, gitCmdFactory, sourceRepoPath, nil)
 	defer func() { require.NoError(t, stopGitServer()) }()
 
 	remoteURL := fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(sourceRepoPath))

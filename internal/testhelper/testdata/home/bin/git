@@ -7,6 +7,6 @@
 # quickly and with a hopefully helpful message making the actual error quick to
 # spot.
 
-echo "$0 executable from \$PATH was picked up. Please fix code to use \`config.Config.Git.BinPath\` instead." >&2
+echo "$0 executable from \$PATH was picked up. Please fix your code to use either a Git command factory or `gittest.Exec()` functions instead." >&2
 
 exit 63

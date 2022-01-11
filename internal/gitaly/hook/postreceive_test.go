@@ -68,8 +68,10 @@ func TestPrintAlert(t *testing.T) {
 
 func TestPostReceive_customHook(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	locator := config.NewLocator(cfg)
 
-	hookManager := NewManager(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), transaction.NewManager(cfg, backchannel.NewRegistry()), gitlab.NewMockClient(
+	hookManager := NewManager(cfg, locator, gitCmdFactory, transaction.NewManager(cfg, backchannel.NewRegistry()), gitlab.NewMockClient(
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
 	))
 
@@ -124,7 +126,7 @@ func TestPostReceive_customHook(t *testing.T) {
 			env:            []string{payload},
 			stdin:          "changes\n",
 			hook:           "#!/bin/sh\nenv | grep -v -e '^SHLVL=' -e '^_=' | sort\n",
-			expectedStdout: strings.Join(getExpectedEnv(t, cfg, repo), "\n") + "\n",
+			expectedStdout: strings.Join(getExpectedEnv(ctx, t, locator, gitCmdFactory, repo), "\n") + "\n",
 		},
 		{
 			desc:  "push options are passed through",

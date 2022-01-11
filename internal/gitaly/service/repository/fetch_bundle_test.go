@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
@@ -73,6 +74,7 @@ func TestServer_FetchBundle_success(t *testing.T) {
 func TestServer_FetchBundle_transaction(t *testing.T) {
 	t.Parallel()
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	testcfg.BuildGitalyHooks(t, cfg)
 
 	hookManager := &mockHookManager{}
@@ -100,11 +102,12 @@ func TestServer_FetchBundle_transaction(t *testing.T) {
 	bundlePath := filepath.Join(tmp, "test.bundle")
 	gittest.BundleTestRepo(t, cfg, "gitlab-test.git", bundlePath)
 
-	_, stopGitServer := gittest.GitServer(t, cfg, repoPath, nil)
-	defer func() { require.NoError(t, stopGitServer()) }()
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
+
+	_, stopGitServer := gittest.HTTPServer(ctx, t, gitCmdFactory, repoPath, nil)
+	defer func() { require.NoError(t, stopGitServer()) }()
+
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
 	ctx = metadata.IncomingToOutgoing(ctx)

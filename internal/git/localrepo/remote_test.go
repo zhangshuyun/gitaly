@@ -2,6 +2,7 @@ package localrepo
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
@@ -184,27 +186,28 @@ func TestRepo_FetchRemote(t *testing.T) {
 	})
 }
 
-// captureGitSSHCommand returns a path to a script that wraps the git at the passed in path
-// and records the GIT_SSH_COMMAND that was passed to it. It returns also a path to the file
-// that contains the captured GIT_SSH_COMMAND value.
-func captureGitSSHCommand(t testing.TB, gitBinaryPath string) (string, string) {
-	tmpDir := t.TempDir()
+// captureGitSSHCommand creates a new intercepting command factory which captures the
+// GIT_SSH_COMMAND environment variable. The returned function can be used to read the variables's
+// value.
+func captureGitSSHCommand(ctx context.Context, t testing.TB, cfg config.Cfg) (git.CommandFactory, func() ([]byte, error)) {
+	envPath := filepath.Join(testhelper.TempDir(t), "GIT_SSH_PATH")
 
-	gitPath := filepath.Join(tmpDir, "git-hook")
-	envPath := filepath.Join(tmpDir, "GIT_SSH_PATH")
-	require.NoError(t, os.WriteFile(
-		gitPath,
-		[]byte(fmt.Sprintf(
+	gitCmdFactory := gittest.NewInterceptingCommandFactory(ctx, t, cfg, func(execEnv git.ExecutionEnvironment) string {
+		return fmt.Sprintf(
 			`#!/usr/bin/env bash
-if [ -z ${GIT_SSH_COMMAND+x} ];then rm -f %q ;else echo -n "$GIT_SSH_COMMAND" > %q; fi
-%s "$@"`,
-			envPath, envPath,
-			gitBinaryPath,
-		)),
-		os.ModePerm),
-	)
+			if test -z "${GIT_SSH_COMMAND+x}"
+			then
+				rm -f %q
+			else
+				echo -n "$GIT_SSH_COMMAND" >%q
+			fi
+			%q "$@"
+		`, envPath, envPath, execEnv.BinaryPath)
+	})
 
-	return gitPath, envPath
+	return gitCmdFactory, func() ([]byte, error) {
+		return os.ReadFile(envPath)
+	}
 }
 
 func TestRepo_Push(t *testing.T) {
@@ -213,19 +216,20 @@ func TestRepo_Push(t *testing.T) {
 
 	cfg, sourceRepoPb, _ := testcfg.BuildWithRepo(t)
 
-	wrappedGit, gitSSHCommandFile := captureGitSSHCommand(t, cfg.Git.BinPath)
+	gitCmdFactory, readSSHCommand := captureGitSSHCommand(ctx, t, cfg)
+	catfileCache := catfile.NewCache(cfg)
+	t.Cleanup(catfileCache.Stop)
 
-	cfg.Git.BinPath = wrappedGit
-	sourceRepo := NewTestRepo(t, cfg, sourceRepoPb)
+	sourceRepo := New(gitCmdFactory, catfileCache, sourceRepoPb, cfg)
 
 	setupPushRepo := func(t testing.TB) (*Repo, string, []git.ConfigPair) {
 		repoProto, repopath := gittest.InitRepo(t, cfg, cfg.Storages[0])
-		return NewTestRepo(t, cfg, repoProto), repopath, nil
+		return New(gitCmdFactory, catfileCache, repoProto, cfg), repopath, nil
 	}
 
 	setupDivergedRepo := func(t testing.TB) (*Repo, string, []git.ConfigPair) {
 		repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
-		repo := NewTestRepo(t, cfg, repoProto)
+		repo := New(gitCmdFactory, catfileCache, repoProto, cfg)
 
 		// set up master as a divergin ref in push repo
 		sourceMaster, err := sourceRepo.GetReference(ctx, "refs/heads/master")
@@ -299,7 +303,7 @@ func TestRepo_Push(t *testing.T) {
 			desc: "invalid remote",
 			setupPushRepo: func(t testing.TB) (*Repo, string, []git.ConfigPair) {
 				repoProto, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
-				return NewTestRepo(t, cfg, repoProto), "", nil
+				return New(gitCmdFactory, catfileCache, repoProto, cfg), "", nil
 			},
 			refspecs:     []string{"refs/heads/master"},
 			errorMessage: `git push: exit status 128, stderr: "fatal: no path specified; see 'git help pull' for valid url syntax\n"`,
@@ -308,7 +312,7 @@ func TestRepo_Push(t *testing.T) {
 			desc: "in-memory remote",
 			setupPushRepo: func(testing.TB) (*Repo, string, []git.ConfigPair) {
 				repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
-				return NewTestRepo(t, cfg, repoProto), "inmemory", []git.ConfigPair{
+				return New(gitCmdFactory, catfileCache, repoProto, cfg), "inmemory", []git.ConfigPair{
 					{Key: "remote.inmemory.url", Value: repoPath},
 				}
 			},
@@ -330,7 +334,7 @@ func TestRepo_Push(t *testing.T) {
 			}
 			require.NoError(t, err)
 
-			gitSSHCommand, err := os.ReadFile(gitSSHCommandFile)
+			gitSSHCommand, err := readSSHCommand()
 			if !os.IsNotExist(err) {
 				require.NoError(t, err)
 			}

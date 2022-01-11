@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 	"google.golang.org/grpc"
@@ -175,8 +176,10 @@ func TestServer_PostUploadPackWithSidechannel_gitProtocol(t *testing.T) {
 
 func testServerPostUploadPackGitProtocol(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t, opts...)
-	readProto, cfg := gittest.EnableGitProtocolV2Support(t, cfg)
-	serverSocketPath := runSmartHTTPServer(t, cfg)
+	gitCmdFactory, readProto := gittest.EnableGitProtocolV2Support(ctx, t, cfg)
+	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
+		testserver.WithGitCommandFactory(gitCmdFactory),
+	})
 
 	// command=ls-refs does not exist in protocol v0, so if this succeeds, we're talking v2
 	requestBody := &bytes.Buffer{}
@@ -191,7 +194,7 @@ func testServerPostUploadPackGitProtocol(t *testing.T, ctx context.Context, make
 		GitProtocol: git.ProtocolV2,
 	}
 
-	_, err := makeRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest, requestBody)
+	_, err := makeRequest(ctx, t, server.Address(), cfg.Auth.Token, rpcRequest, requestBody)
 	require.NoError(t, err)
 
 	envData := readProto()

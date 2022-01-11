@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -15,11 +16,12 @@ import (
 
 func TestClone(t *testing.T) {
 	cfg, _, repoPath := testcfg.BuildWithRepo(t)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverPort, stopGitServer := gittest.GitServer(t, cfg, repoPath, nil)
+	serverPort, stopGitServer := gittest.HTTPServer(ctx, t, gitCmdFactory, repoPath, nil)
 	defer func() {
 		require.NoError(t, stopGitServer())
 	}()
@@ -75,6 +77,7 @@ func TestClone(t *testing.T) {
 
 func TestCloneWithAuth(t *testing.T) {
 	cfg, _, repoPath := testcfg.BuildWithRepo(t)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -86,7 +89,7 @@ func TestCloneWithAuth(t *testing.T) {
 
 	authWasChecked := false
 
-	serverPort, stopGitServer := gittest.GitServer(t, cfg, repoPath, func(w http.ResponseWriter, r *http.Request, next http.Handler) {
+	serverPort, stopGitServer := gittest.HTTPServer(ctx, t, gitCmdFactory, repoPath, func(w http.ResponseWriter, r *http.Request, next http.Handler) {
 		authWasChecked = true
 
 		actualUser, actualPassword, ok := r.BasicAuth()
