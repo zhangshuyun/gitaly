@@ -13,6 +13,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/sidechannel"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/stream"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 )
@@ -169,4 +171,24 @@ type largeBufferReaderFrom struct {
 
 func (rf *largeBufferReaderFrom) ReadFrom(r io.Reader) (int64, error) {
 	return io.CopyBuffer(rf.Writer, r, make([]byte, 64*1024))
+}
+
+func (s *server) SSHUploadPackWithSidechannel(ctx context.Context, req *gitalypb.SSHUploadPackWithSidechannelRequest) (*gitalypb.SSHUploadPackWithSidechannelResponse, error) {
+	conn, err := sidechannel.OpenSidechannel(ctx)
+	if err != nil {
+		return nil, helper.ErrUnavailable(err)
+	}
+	defer conn.Close()
+
+	sidebandWriter := pktline.NewSidebandWriter(conn)
+	stdout := sidebandWriter.Writer(stream.BandStdout)
+	stderr := sidebandWriter.Writer(stream.BandStderr)
+	if _, err := s.sshUploadPack(ctx, req, conn, stdout, stderr); err != nil {
+		return nil, helper.ErrInternal(err)
+	}
+	if err := conn.Close(); err != nil {
+		return nil, helper.ErrInternalf("close sidechannel: %w", err)
+	}
+
+	return &gitalypb.SSHUploadPackWithSidechannelResponse{}, nil
 }
