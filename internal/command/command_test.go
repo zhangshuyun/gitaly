@@ -281,7 +281,7 @@ func TestCommandStdErr(t *testing.T) {
 	require.Error(t, cmd.Wait())
 
 	assert.Empty(t, stdout.Bytes())
-	require.Equal(t, expectedMessage, extractMessage(stderr.String()))
+	require.Equal(t, expectedMessage, extractLastMessage(stderr.String()))
 }
 
 func TestCommandStdErrLargeOutput(t *testing.T) {
@@ -300,7 +300,7 @@ func TestCommandStdErrLargeOutput(t *testing.T) {
 	require.Error(t, cmd.Wait())
 
 	assert.Empty(t, stdout.Bytes())
-	msg := strings.ReplaceAll(extractMessage(stderr.String()), "\\n", "\n")
+	msg := strings.ReplaceAll(extractLastMessage(stderr.String()), "\\n", "\n")
 	require.LessOrEqual(t, len(msg), maxStderrBytes)
 }
 
@@ -320,7 +320,7 @@ func TestCommandStdErrBinaryNullBytes(t *testing.T) {
 	require.Error(t, cmd.Wait())
 
 	assert.Empty(t, stdout.Bytes())
-	msg := strings.SplitN(extractMessage(stderr.String()), "\\n", 2)[0]
+	msg := strings.SplitN(extractLastMessage(stderr.String()), "\\n", 2)[0]
 	require.Equal(t, strings.Repeat("\\x00", maxStderrLineLength), msg)
 }
 
@@ -359,13 +359,19 @@ func TestCommandStdErrMaxBytes(t *testing.T) {
 	require.Error(t, cmd.Wait())
 
 	assert.Empty(t, stdout.Bytes())
-	require.Equal(t, maxStderrBytes, len(strings.ReplaceAll(extractMessage(stderr.String()), "\\n", "\n")))
+	message := extractLastMessage(stderr.String())
+	require.Equal(t, maxStderrBytes, len(strings.ReplaceAll(message, "\\n", "\n")))
 }
 
 var logMsgRegex = regexp.MustCompile(`msg="(.+?)"`)
 
-func extractMessage(logMessage string) string {
-	subMatches := logMsgRegex.FindStringSubmatch(logMessage)
+func extractLastMessage(logMessage string) string {
+	subMatchesAll := logMsgRegex.FindAllStringSubmatch(logMessage, -1)
+	if len(subMatchesAll) < 1 {
+		return ""
+	}
+
+	subMatches := subMatchesAll[len(subMatchesAll)-1]
 	if len(subMatches) != 2 {
 		return ""
 	}
