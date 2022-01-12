@@ -37,6 +37,7 @@ include:
       prefix: git-${GIT_VERSION}
     paths:
       - _build/deps
+      - _build/tools
     policy: pull
 
 .cache_gems:
@@ -119,7 +120,7 @@ build:
       policy: pull-push
   script:
     - go version
-    - make all git
+    - make all git $(pwd)/_build/tools/protoc
     - _support/test-boot .
   parallel:
     matrix:
@@ -261,6 +262,7 @@ test:fuzz_objectinfo:
 verify:
   stage: test
   cache:
+    - *cache_deps_configuration
     - *cache_gems_configuration
     - *cache_go_configuration
   script:
