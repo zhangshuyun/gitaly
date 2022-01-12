@@ -297,7 +297,7 @@ help:
 
 .PHONY: build
 ## Build Go binaries and install required Ruby Gems.
-build: ${SOURCE_DIR}/.ruby-bundle libgit2 protoc
+build: ${SOURCE_DIR}/.ruby-bundle libgit2
 	@ # We used to install Gitaly binaries into the source directory by default when executing
 	@ # "make" or "make all", which has been changed in v14.5 to only build binaries into
 	@ # `_build/bin`. In order to quickly fail in case any source install still refers to these
@@ -508,9 +508,6 @@ git: ${GIT_PREFIX}/bin/git
 .PHONY: libgit2
 ## Build libgit2.
 libgit2: ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a
-
-.PHONY: protoc
-protoc: ${PROTOC}
 
 # This file is used by Omnibus and CNG to skip the "bundle install"
 # step. Both Omnibus and CNG assume it is in the Gitaly root, not in
