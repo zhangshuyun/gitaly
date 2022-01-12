@@ -613,7 +613,6 @@ ${PROTOC}: ${DEPENDENCY_DIR}/protoc.version | ${TOOLS_DIR}
 	${Q}${GIT} -C "${PROTOC_SOURCE_DIR}" checkout ${GIT_QUIET} --detach FETCH_HEAD
 	${Q}${GIT} -C "${PROTOC_SOURCE_DIR}" submodule update --init --recursive
 	${Q}rm -rf ${PROTOC_BUILD_DIR}
-	${Q}rm -f ${PROTOC}
 	${Q}mkdir -p ${PROTOC_BUILD_DIR}
 	${Q}cd ${PROTOC_BUILD_DIR} && cmake ${PROTOC_SOURCE_DIR}/cmake ${PROTOC_BUILD_OPTIONS}
 	${Q}cmake --build ${PROTOC_BUILD_DIR} --target install -- -j $(shell nproc)
