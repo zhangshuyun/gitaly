@@ -8,6 +8,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
 // ExecConfig contains configuration for ExecOpts.
@@ -55,7 +56,12 @@ func NewCommand(t testing.TB, cfg config.Cfg, args ...string) *exec.Cmd {
 func createCommand(t testing.TB, cfg config.Cfg, execCfg ExecConfig, args ...string) *exec.Cmd {
 	t.Helper()
 
-	cmd := exec.Command(cfg.Git.BinPath, args...)
+	ctx, cancel := testhelper.Context()
+	t.Cleanup(cancel)
+
+	execEnv := NewCommandFactory(t, cfg).GetExecutionEnvironment(ctx)
+
+	cmd := exec.CommandContext(ctx, execEnv.BinaryPath, args...)
 	cmd.Env = command.AllowedEnvironment(os.Environ())
 	cmd.Env = append(command.GitEnv, cmd.Env...)
 	cmd.Env = append(cmd.Env,
@@ -71,7 +77,7 @@ func createCommand(t testing.TB, cfg config.Cfg, execCfg ExecConfig, args ...str
 		"GIT_CONFIG_KEY_3=user.email",
 		"GIT_CONFIG_VALUE_3=you@example.com",
 	)
-	cmd.Env = append(cmd.Env, cfg.GitExecEnv()...)
+	cmd.Env = append(cmd.Env, execEnv.EnvironmentVariables...)
 	cmd.Env = append(cmd.Env, execCfg.Env...)
 
 	cmd.Stdout = execCfg.Stdout
