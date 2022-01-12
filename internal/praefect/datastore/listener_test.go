@@ -26,9 +26,9 @@ func TestNewListener(t *testing.T) {
 	t.Parallel()
 
 	t.Run("bad configuration", func(t *testing.T) {
-		_, err := NewListener(config.DB{SSLMode: "invalid"})
+		_, err := NewListener(config.DB{Host: "tcp://i-do-not-exist", SSLMode: "invalid"})
 		require.Error(t, err)
-		require.Regexp(t, "connection config preparation:.*`sslmode=invalid.*`", err.Error())
+		require.Regexp(t, "connection config preparation:.*`host=tcp://i-do-not-exist sslmode=invalid.*`", err.Error())
 	})
 }
 
