@@ -23,7 +23,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/grpc-proxy/proxy"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/middleware"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/service/info"
@@ -87,9 +86,7 @@ func NewGRPCServer(
 	logger *logrus.Entry,
 	registry *protoregistry.Registry,
 	director proxy.StreamDirector,
-	nodeMgr nodes.Manager,
 	txMgr *transactions.Manager,
-	queue datastore.ReplicationEventQueue,
 	rs datastore.RepositoryStore,
 	assignmentStore AssignmentStore,
 	conns Connections,
@@ -142,7 +139,7 @@ func NewGRPCServer(
 	warnDupeAddrs(logger, conf)
 
 	srv := grpc.NewServer(grpcOpts...)
-	registerServices(srv, nodeMgr, txMgr, conf, queue, rs, assignmentStore, service.Connections(conns), primaryGetter)
+	registerServices(srv, txMgr, conf, rs, assignmentStore, service.Connections(conns), primaryGetter)
 
 	if conf.Failover.ElectionStrategy == config.ElectionStrategyPerRepository {
 		proxy.RegisterStreamHandlers(srv, "gitaly.RepositoryService", map[string]grpc.StreamHandler{
@@ -164,10 +161,8 @@ func proxyRequiredOpts(director proxy.StreamDirector) []grpc.ServerOption {
 // registerServices registers services praefect needs to handle RPCs on its own.
 func registerServices(
 	srv *grpc.Server,
-	nm nodes.Manager,
 	tm *transactions.Manager,
 	conf config.Config,
-	queue datastore.ReplicationEventQueue,
 	rs datastore.RepositoryStore,
 	assignmentStore AssignmentStore,
 	conns service.Connections,

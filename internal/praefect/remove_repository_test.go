@@ -114,8 +114,6 @@ func TestRemoveRepositoryHandler(t *testing.T) {
 					return nil, errServedByGitaly
 				},
 				nil,
-				nil,
-				nil,
 				rs,
 				nil,
 				nodeSet.Connections(),
