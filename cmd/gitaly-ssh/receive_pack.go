@@ -11,7 +11,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-func receivePack(ctx context.Context, conn *grpc.ClientConn, req string) (int32, error) {
+func receivePack(ctx context.Context, conn *grpc.ClientConn, registry *client.SidechannelRegistry, req string) (int32, error) {
 	var request gitalypb.SSHReceivePackRequest
 
 	if err := protojson.Unmarshal([]byte(req), &request); err != nil {

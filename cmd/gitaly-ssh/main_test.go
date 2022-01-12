@@ -7,14 +7,21 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"google.golang.org/grpc"
 )
 
 func TestRun(t *testing.T) {
-	var successPacker packFn = func(_ context.Context, _ *grpc.ClientConn, _ string) (int32, error) { return 0, nil }
-	var exitCodePacker packFn = func(_ context.Context, _ *grpc.ClientConn, _ string) (int32, error) { return 123, nil }
-	var errorPacker packFn = func(_ context.Context, _ *grpc.ClientConn, _ string) (int32, error) { return 1, fmt.Errorf("fail") }
+	var successPacker packFn = func(context.Context, *grpc.ClientConn, *client.SidechannelRegistry, string) (int32, error) {
+		return 0, nil
+	}
+	var exitCodePacker packFn = func(context.Context, *grpc.ClientConn, *client.SidechannelRegistry, string) (int32, error) {
+		return 123, nil
+	}
+	var errorPacker packFn = func(context.Context, *grpc.ClientConn, *client.SidechannelRegistry, string) (int32, error) {
+		return 1, fmt.Errorf("fail")
+	}
 
 	gitalyTCPAddress := "tcp://localhost:9999"
 	gitalyUnixAddress := fmt.Sprintf("unix://%s", testhelper.GetTemporaryGitalySocketFileName(t))

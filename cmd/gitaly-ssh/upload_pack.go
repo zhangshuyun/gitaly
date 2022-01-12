@@ -18,16 +18,34 @@ const (
 	GitConfigShowAllRefs = "transfer.hideRefs=!refs"
 )
 
-func uploadPack(ctx context.Context, conn *grpc.ClientConn, req string) (int32, error) {
+func uploadPackConfig(config []string) []string {
+	return append([]string{GitConfigShowAllRefs}, config...)
+}
+
+func uploadPack(ctx context.Context, conn *grpc.ClientConn, registry *client.SidechannelRegistry, req string) (int32, error) {
 	var request gitalypb.SSHUploadPackRequest
 	if err := protojson.Unmarshal([]byte(req), &request); err != nil {
 		return 0, fmt.Errorf("json unmarshal: %w", err)
 	}
 
-	request.GitConfigOptions = append([]string{GitConfigShowAllRefs}, request.GitConfigOptions...)
+	request.GitConfigOptions = uploadPackConfig(request.GitConfigOptions)
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	return client.UploadPack(ctx, conn, os.Stdin, os.Stdout, os.Stderr, &request)
+}
+
+func uploadPackWithSidechannel(ctx context.Context, conn *grpc.ClientConn, registry *client.SidechannelRegistry, req string) (int32, error) {
+	var request gitalypb.SSHUploadPackWithSidechannelRequest
+	if err := protojson.Unmarshal([]byte(req), &request); err != nil {
+		return 0, fmt.Errorf("json unmarshal: %w", err)
+	}
+
+	request.GitConfigOptions = uploadPackConfig(request.GitConfigOptions)
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	return client.UploadPackWithSidechannel(ctx, conn, registry, os.Stdin, os.Stdout, os.Stderr, &request)
 }
