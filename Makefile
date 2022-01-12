@@ -606,17 +606,16 @@ ${GIT_PREFIX}/bin/git: ${GIT_SOURCE_DIR}/Makefile
 	${Q}touch $@
 
 ${PROTOC}: ${DEPENDENCY_DIR}/protoc.version | ${TOOLS_DIR}
-	${Q}${GIT} -c init.defaultBranch=master init ${GIT_QUIET} ${PROTOC_SOURCE_DIR}
+	${Q}${GIT} -c init.defaultBranch=master init ${GIT_QUIET} "${PROTOC_SOURCE_DIR}"
 	${Q}${GIT} -C "${PROTOC_SOURCE_DIR}" config remote.origin.url ${PROTOC_REPO_URL}
 	${Q}${GIT} -C "${PROTOC_SOURCE_DIR}" config remote.origin.tagOpt --no-tags
 	${Q}${GIT} -C "${PROTOC_SOURCE_DIR}" fetch --depth 1 ${GIT_QUIET} origin ${PROTOC_VERSION}
 	${Q}${GIT} -C "${PROTOC_SOURCE_DIR}" checkout ${GIT_QUIET} --detach FETCH_HEAD
 	${Q}${GIT} -C "${PROTOC_SOURCE_DIR}" submodule update --init --recursive
-	${Q}rm -rf ${PROTOC_BUILD_DIR}
-	${Q}mkdir -p ${PROTOC_BUILD_DIR}
-	${Q}cd ${PROTOC_BUILD_DIR} && cmake ${PROTOC_SOURCE_DIR}/cmake ${PROTOC_BUILD_OPTIONS}
-	${Q}cmake --build ${PROTOC_BUILD_DIR} --target install -- -j $(shell nproc)
-	${Q}cp ${PROTOC_INSTALL_DIR}/bin/protoc ${PROTOC}
+	${Q}rm -rf "${PROTOC_BUILD_DIR}"
+	${Q}cmake "${PROTOC_SOURCE_DIR}"/cmake -B "${PROTOC_BUILD_DIR}" ${PROTOC_BUILD_OPTIONS}
+	${Q}cmake --build "${PROTOC_BUILD_DIR}" --target install -- -j $(shell nproc)
+	${Q}cp "${PROTOC_INSTALL_DIR}"/bin/protoc ${PROTOC}
 
 ${TOOLS_DIR}/%: GOBIN = ${TOOLS_DIR}
 ${TOOLS_DIR}/%: ${TOOLS_DIR}/%.version
