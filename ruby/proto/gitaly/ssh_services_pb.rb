@@ -8,18 +8,18 @@ module Gitaly
   module SSHService
     class Service
 
-      include GRPC::GenericService
+      include ::GRPC::GenericService
 
       self.marshal_class_method = :encode
       self.unmarshal_class_method = :decode
       self.service_name = 'gitaly.SSHService'
 
       # To forward 'git upload-pack' to Gitaly for SSH sessions
-      rpc :SSHUploadPack, stream(Gitaly::SSHUploadPackRequest), stream(Gitaly::SSHUploadPackResponse)
+      rpc :SSHUploadPack, stream(::Gitaly::SSHUploadPackRequest), stream(::Gitaly::SSHUploadPackResponse)
       # To forward 'git receive-pack' to Gitaly for SSH sessions
-      rpc :SSHReceivePack, stream(Gitaly::SSHReceivePackRequest), stream(Gitaly::SSHReceivePackResponse)
+      rpc :SSHReceivePack, stream(::Gitaly::SSHReceivePackRequest), stream(::Gitaly::SSHReceivePackResponse)
       # To forward 'git upload-archive' to Gitaly for SSH sessions
-      rpc :SSHUploadArchive, stream(Gitaly::SSHUploadArchiveRequest), stream(Gitaly::SSHUploadArchiveResponse)
+      rpc :SSHUploadArchive, stream(::Gitaly::SSHUploadArchiveRequest), stream(::Gitaly::SSHUploadArchiveResponse)
     end
 
     Stub = Service.rpc_stub_class
