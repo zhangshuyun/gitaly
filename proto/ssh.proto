@@ -15,6 +15,13 @@ service SSHService {
     };
   }
 
+  // To forward 'git upload-pack' to Gitaly for SSH sessions, via sidechannels
+  rpc SSHUploadPackWithSidechannel(SSHUploadPackWithSidechannelRequest) returns (SSHUploadPackWithSidechannelResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
+
   // To forward 'git receive-pack' to Gitaly for SSH sessions
   rpc SSHReceivePack(stream SSHReceivePackRequest) returns (stream SSHReceivePackResponse) {
     option (op_type) = {
@@ -54,6 +61,18 @@ message SSHUploadPackResponse {
   // command has finished can we return its exit status.
   ExitStatus exit_status = 3;
 }
+
+message SSHUploadPackWithSidechannelRequest {
+  // 'repository' must be present in the first message.
+  Repository repository = 1 [(target_repository)=true];
+  // Parameters to use with git -c (key=value pairs)
+  repeated string git_config_options = 2;
+
+  // Git protocol version
+  string git_protocol = 3;
+}
+
+message SSHUploadPackWithSidechannelResponse {}
 
 message SSHReceivePackRequest {
   // 'repository' must be present in the first message.
