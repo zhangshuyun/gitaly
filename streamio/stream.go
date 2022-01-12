@@ -23,7 +23,7 @@ type receiveReader struct {
 }
 
 func (rr *receiveReader) Read(p []byte) (int, error) {
-	if len(rr.data) == 0 {
+	if len(rr.data) == 0 && rr.err == nil {
 		rr.data, rr.err = rr.receiver()
 	}
 
