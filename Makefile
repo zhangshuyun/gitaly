@@ -306,8 +306,7 @@ build: $(call find_commands)
 
 .PHONY: $(call find_commands)
 $(call find_commands): ${SOURCE_DIR}/.ruby-bundle libgit2
-	echo "Building target '$@'"
-	go install -ldflags '${GO_LDFLAGS}' -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, $@)
+	${Q}go install -ldflags '${GO_LDFLAGS}' -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, $@)
 ifeq "${ADD_GNU_BUILD_ID}" "true"
 	@ # To compute a unique and deterministic value for GNU build-id, we build the Go binary a second time.
 	@ # From the first build, we extract its unique and deterministic Go build-id, and use that to derive
@@ -315,10 +314,8 @@ ifeq "${ADD_GNU_BUILD_ID}" "true"
 	@ # If we cannot extract a Go build-id, we punt and fallback to using a random 32-byte hex string.
 	@ # This fallback is unique but non-deterministic, making it sufficient to avoid generating the
 	@ # GNU build-id from the empty string and causing guaranteed collisions.
-	GO_BUILD_ID=$$( go tool buildid $(addprefix ${BUILD_DIR}/bin/, $@) || openssl rand -hex 32 ) && \
-	echo "Intermediate GO_BUILD_ID='$$GO_BUILD_ID'" && \
+	${Q}GO_BUILD_ID=$$( go tool buildid $(addprefix ${BUILD_DIR}/bin/, $@) || openssl rand -hex 32 ) && \
 	GNU_BUILD_ID=$$( echo $$GO_BUILD_ID | sha1sum | cut -d' ' -f1 ) && \
-	echo "GNU_BUILD_ID='$$GNU_BUILD_ID'" && \
 	go install -ldflags '${GO_LDFLAGS}'" -B 0x$$GNU_BUILD_ID" -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, $@)
 endif
 
