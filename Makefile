@@ -49,7 +49,7 @@ GOIMPORTS         := ${TOOLS_DIR}/goimports
 GOFUMPT           := ${TOOLS_DIR}/gofumpt
 GOLANGCI_LINT     := ${TOOLS_DIR}/golangci-lint
 GO_LICENSES       := ${TOOLS_DIR}/go-licenses
-PROTOC            := ${TOOLS_DIR}/protoc/bin/protoc
+PROTOC            := ${TOOLS_DIR}/protoc
 PROTOC_GEN_GO     := ${TOOLS_DIR}/protoc-gen-go
 PROTOC_GEN_GO_GRPC:= ${TOOLS_DIR}/protoc-gen-go-grpc
 PROTOC_GEN_GITALY := ${TOOLS_DIR}/protoc-gen-gitaly
@@ -75,7 +75,7 @@ GOIMPORTS_VERSION         ?= 2538eef75904eff384a2551359968e40c207d9d2
 GOSUMTEST_VERSION         ?= v1.7.0
 GO_LICENSES_VERSION       ?= 73411c8fa237ccc6a75af79d0a5bc021c9487aad
 # https://pkg.go.dev/github.com/protocolbuffers/protobuf
-PROTOC_VERSION            ?= 3.17.3
+PROTOC_VERSION            ?= v3.17.3
 # https://pkg.go.dev/google.golang.org/protobuf
 PROTOC_GEN_GO_VERSION     ?= 1.26.0
 # https://pkg.go.dev/google.golang.org/grpc/cmd/protoc-gen-go-grpc
@@ -94,13 +94,17 @@ else
     override GIT_VERSION := $(shell echo ${GIT_VERSION} | awk '/^[0-9]\.[0-9]+\.[0-9]+$$/ { printf "v" } { print $$1 }')
 endif
 
-# Dependency downloads
-ifeq (${OS},Darwin)
-    PROTOC_URL            ?= https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-osx-x86_64.zip
-    PROTOC_HASH           ?= 68901eb7ef5b55d7f2df3241ab0b8d97ee5192d3902c59e7adf461adc058e9f1
-else ifeq (${OS},Linux)
-    PROTOC_URL            ?= https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip
-    PROTOC_HASH           ?= d4246a5136cf9cd1abc851c521a1ad6b8884df4feded8b9cbd5e2a2226d4b357
+# protoc target
+PROTOC_REPO_URL ?= https://github.com/protocolbuffers/protobuf
+PROTOC_SOURCE_DIR   ?= ${DEPENDENCY_DIR}/protobuf/source
+PROTOC_BUILD_DIR    ?= ${DEPENDENCY_DIR}/protobuf/build
+PROTOC_INSTALL_DIR  ?= ${DEPENDENCY_DIR}/protobuf/install
+
+ifeq ($(origin PROTOC_BUILD_OPTIONS),undefined)
+    ## Build options for protoc.
+    PROTOC_BUILD_OPTIONS ?=
+    PROTOC_BUILD_OPTIONS += -DBUILD_SHARED_LIBS=NO
+    PROTOC_BUILD_OPTIONS += -DCMAKE_INSTALL_PREFIX=${PROTOC_INSTALL_DIR}
 endif
 
 # Git target
@@ -293,7 +297,7 @@ help:
 
 .PHONY: build
 ## Build Go binaries and install required Ruby Gems.
-build: ${SOURCE_DIR}/.ruby-bundle libgit2
+build: ${SOURCE_DIR}/.ruby-bundle libgit2 protoc
 	@ # We used to install Gitaly binaries into the source directory by default when executing
 	@ # "make" or "make all", which has been changed in v14.5 to only build binaries into
 	@ # `_build/bin`. In order to quickly fail in case any source install still refers to these
@@ -458,20 +462,20 @@ proto: SHARED_PROTOC_OPTS = --plugin=${PROTOC_GEN_GO} --plugin=${PROTOC_GEN_GO_G
 proto: ${PROTOC} ${PROTOC_GEN_GO} ${PROTOC_GEN_GO_GRPC} ${SOURCE_DIR}/.ruby-bundle
 	${Q}mkdir -p ${SOURCE_DIR}/proto/go/gitalypb
 	${Q}rm -f ${SOURCE_DIR}/proto/go/gitalypb/*.pb.go
-	${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/proto --go_out=${SOURCE_DIR}/proto/go/gitalypb --go-grpc_out=${SOURCE_DIR}/proto/go/gitalypb ${SOURCE_DIR}/proto/*.proto
+	${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/proto -I ${PROTOC_INSTALL_DIR}/include --go_out=${SOURCE_DIR}/proto/go/gitalypb --go-grpc_out=${SOURCE_DIR}/proto/go/gitalypb ${SOURCE_DIR}/proto/*.proto
 	${SOURCE_DIR}/_support/generate-proto-ruby
 	@ # this part is related to the generation of sources from testing proto files
 	${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/internal --go_out=${SOURCE_DIR}/internal --go-grpc_out=${SOURCE_DIR}/internal ${SOURCE_DIR}/internal/praefect/grpc-proxy/testdata/test.proto
-	${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/proto -I ${SOURCE_DIR}/internal --go_out=${SOURCE_DIR}/internal --go-grpc_out=${SOURCE_DIR}/internal \
+	${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/proto -I ${SOURCE_DIR}/internal -I ${PROTOC_INSTALL_DIR}/include --go_out=${SOURCE_DIR}/internal --go-grpc_out=${SOURCE_DIR}/internal \
 		${SOURCE_DIR}/internal/praefect/mock/mock.proto \
 		${SOURCE_DIR}/internal/middleware/cache/testdata/stream.proto \
 		${SOURCE_DIR}/internal/helper/chunk/testdata/test.proto \
 		${SOURCE_DIR}/internal/middleware/limithandler/testdata/test.proto
-	${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/proto --go_out=${SOURCE_DIR}/proto --go-grpc_out=${SOURCE_DIR}/proto ${SOURCE_DIR}/proto/go/internal/linter/testdata/*.proto
+	${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/proto -I ${PROTOC_INSTALL_DIR}/include --go_out=${SOURCE_DIR}/proto --go-grpc_out=${SOURCE_DIR}/proto ${SOURCE_DIR}/proto/go/internal/linter/testdata/*.proto
 
 .PHONY: lint-proto
 lint-proto: ${PROTOC} ${PROTOC_GEN_GITALY}
-	${Q}${PROTOC} --plugin=${PROTOC_GEN_GITALY} -I ${SOURCE_DIR}/proto --gitaly_out=proto_dir=${SOURCE_DIR}/proto,gitalypb_dir=${SOURCE_DIR}/proto/go/gitalypb:${SOURCE_DIR} ${SOURCE_DIR}/proto/*.proto
+	${Q}${PROTOC} --plugin=${PROTOC_GEN_GITALY} -I ${SOURCE_DIR}/proto -I ${PROTOC_INSTALL_DIR}/include --gitaly_out=proto_dir=${SOURCE_DIR}/proto,gitalypb_dir=${SOURCE_DIR}/proto/go/gitalypb:${SOURCE_DIR} ${SOURCE_DIR}/proto/*.proto
 
 .PHONY: no-changes
 no-changes:
@@ -504,6 +508,9 @@ git: ${GIT_PREFIX}/bin/git
 .PHONY: libgit2
 ## Build libgit2.
 libgit2: ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a
+
+.PHONY: protoc
+protoc: ${PROTOC}
 
 # This file is used by Omnibus and CNG to skip the "bundle install"
 # step. Both Omnibus and CNG assume it is in the Gitaly root, not in
@@ -544,6 +551,8 @@ ${DEPENDENCY_DIR}/libgit2.version: dependency-version | ${DEPENDENCY_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${LIBGIT2_VERSION} ${LIBGIT2_BUILD_OPTIONS}" ] || >$@ echo -n "${LIBGIT2_VERSION} ${LIBGIT2_BUILD_OPTIONS}"
 ${DEPENDENCY_DIR}/git.version: dependency-version | ${DEPENDENCY_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${GIT_VERSION}.${GIT_EXTRA_VERSION} ${GIT_BUILD_OPTIONS} ${GIT_PATCHES}" ] || >$@ echo -n "${GIT_VERSION}.${GIT_EXTRA_VERSION} ${GIT_BUILD_OPTIONS} ${GIT_PATCHES}"
+${DEPENDENCY_DIR}/protoc.version: dependency-version | ${DEPENDENCY_DIR}
+	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${PROTOC_VERSION} ${PROTOC_BUILD_OPTIONS}" ] || >$@ echo -n "${PROTOC_VERSION} ${PROTOC_BUILD_OPTIONS}"
 ${TOOLS_DIR}/%.version: dependency-version | ${TOOLS_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${TOOL_VERSION}" ] || >$@ echo -n "${TOOL_VERSION}"
 
@@ -599,16 +608,19 @@ ${GIT_PREFIX}/bin/git: ${GIT_SOURCE_DIR}/Makefile
 	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C ${GIT_SOURCE_DIR} -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
 	${Q}touch $@
 
-${TOOLS_DIR}/protoc.zip: TOOL_VERSION = ${PROTOC_VERSION}
-${TOOLS_DIR}/protoc.zip: ${TOOLS_DIR}/protoc.version
-	${Q}if [ -z "${PROTOC_URL}" ]; then echo "Cannot generate protos on unsupported platform ${OS}" && exit 1; fi
-	curl -o $@.tmp --silent --show-error -L ${PROTOC_URL}
-	${Q}printf '${PROTOC_HASH}  $@.tmp' | sha256sum -c -
-	${Q}mv $@.tmp $@
-
-${PROTOC}: ${TOOLS_DIR}/protoc.zip
-	${Q}rm -rf ${TOOLS_DIR}/protoc
-	${Q}unzip -DD -q -d ${TOOLS_DIR}/protoc ${TOOLS_DIR}/protoc.zip
+${PROTOC}: ${DEPENDENCY_DIR}/protoc.version | ${TOOLS_DIR}
+	${Q}${GIT} -c init.defaultBranch=master init ${GIT_QUIET} ${PROTOC_SOURCE_DIR}
+	${Q}${GIT} -C "${PROTOC_SOURCE_DIR}" config remote.origin.url ${PROTOC_REPO_URL}
+	${Q}${GIT} -C "${PROTOC_SOURCE_DIR}" config remote.origin.tagOpt --no-tags
+	${Q}${GIT} -C "${PROTOC_SOURCE_DIR}" fetch --depth 1 ${GIT_QUIET} origin ${PROTOC_VERSION}
+	${Q}${GIT} -C "${PROTOC_SOURCE_DIR}" checkout ${GIT_QUIET} --detach FETCH_HEAD
+	${Q}${GIT} -C "${PROTOC_SOURCE_DIR}" submodule update --init --recursive
+	${Q}rm -rf ${PROTOC_BUILD_DIR}
+	${Q}rm -f ${PROTOC}
+	${Q}mkdir -p ${PROTOC_BUILD_DIR}
+	${Q}cd ${PROTOC_BUILD_DIR} && cmake ${PROTOC_SOURCE_DIR}/cmake ${PROTOC_BUILD_OPTIONS}
+	${Q}cmake --build ${PROTOC_BUILD_DIR} --target install -- -j $(shell nproc)
+	${Q}cp ${PROTOC_INSTALL_DIR}/bin/protoc ${PROTOC}
 
 ${TOOLS_DIR}/%: GOBIN = ${TOOLS_DIR}
 ${TOOLS_DIR}/%: ${TOOLS_DIR}/%.version
