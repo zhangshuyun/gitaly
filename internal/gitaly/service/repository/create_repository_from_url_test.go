@@ -26,7 +26,7 @@ func TestCreateRepotitoryFromURL_successful(t *testing.T) {
 	defer cancel()
 
 	cfg, _, repoPath, client := setupRepositoryService(t)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
 	importedRepo := &gitalypb.Repository{
 		RelativePath: "imports/test-repo-imported.git",
@@ -151,7 +151,7 @@ func TestCloneRepositoryFromUrlCommand(t *testing.T) {
 	url := fmt.Sprintf("https://%s@www.example.com/secretrepo.git", userInfo)
 
 	cfg := testcfg.Build(t)
-	s := server{cfg: cfg, gitCmdFactory: git.NewExecCommandFactory(cfg)}
+	s := server{cfg: cfg, gitCmdFactory: gittest.NewCommandFactory(t, cfg)}
 	cmd, err := s.cloneFromURLCommand(ctx, url, repositoryFullPath, git.WithDisabledHooks())
 	require.NoError(t, err)
 

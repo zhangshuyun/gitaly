@@ -17,7 +17,7 @@ func TestReduplicate(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
 	require.NoError(t, pool.Create(ctx, repo))
 	require.NoError(t, pool.Link(ctx, repo))

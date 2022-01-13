@@ -36,7 +36,7 @@ func NewInterceptingCommandFactory(
 	// required environment variables for both bundled and non-bundled Git. The second one will
 	// then use a separate config which overrides the Git binary path to point to a custom
 	// script supplied by the user.
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitCmdFactory := NewCommandFactory(tb, cfg)
 
 	scriptPath := filepath.Join(testhelper.TempDir(tb), "git")
 	testhelper.WriteExecutable(tb, scriptPath, []byte(generateScript(gitCmdFactory.GetExecutionEnvironment(ctx))))
@@ -47,7 +47,7 @@ func NewInterceptingCommandFactory(
 
 	return &InterceptingCommandFactory{
 		realCommandFactory:         gitCmdFactory,
-		interceptingCommandFactory: git.NewExecCommandFactory(interceptingCfg),
+		interceptingCommandFactory: NewCommandFactory(tb, interceptingCfg),
 	}
 }
 
@@ -79,4 +79,10 @@ func (f *InterceptingCommandFactory) GetExecutionEnvironment(ctx context.Context
 	execEnv := f.realCommandFactory.GetExecutionEnvironment(ctx)
 	execEnv.BinaryPath = f.interceptingCommandFactory.GetExecutionEnvironment(ctx).BinaryPath
 	return execEnv
+}
+
+// HooksPath returns the path where hooks are stored. This returns the actual hooks path of the real
+// Git command factory.
+func (f *InterceptingCommandFactory) HooksPath() string {
+	return f.realCommandFactory.HooksPath()
 }

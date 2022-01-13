@@ -15,7 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -79,7 +78,7 @@ func (s *server) cleanStaleWorktrees(ctx context.Context, repo *localrepo.Repo, 
 		}
 
 		if info.ModTime().Before(threshold) {
-			err := removeWorktree(ctx, s.cfg, repo, info.Name())
+			err := removeWorktree(ctx, repo, info.Name())
 			switch {
 			case errors.Is(err, errUnknownWorktree):
 				// if git doesn't recognise the worktree then we can safely remove it
@@ -98,7 +97,7 @@ func (s *server) cleanStaleWorktrees(ctx context.Context, repo *localrepo.Repo, 
 // errUnknownWorktree indicates that git does not recognise the worktree
 var errUnknownWorktree = errors.New("unknown worktree")
 
-func removeWorktree(ctx context.Context, cfg config.Cfg, repo *localrepo.Repo, name string) error {
+func removeWorktree(ctx context.Context, repo *localrepo.Repo, name string) error {
 	var stderr bytes.Buffer
 	err := repo.ExecAndWait(ctx, git.SubSubCmd{
 		Name:   "worktree",
@@ -106,7 +105,7 @@ func removeWorktree(ctx context.Context, cfg config.Cfg, repo *localrepo.Repo, n
 		Flags:  []git.Option{git.Flag{Name: "--force"}},
 		Args:   []string{name},
 	},
-		git.WithRefTxHook(ctx, repo, cfg),
+		git.WithRefTxHook(repo),
 		git.WithStderr(&stderr),
 	)
 	if isExitWithCode(err, 128) && strings.HasPrefix(stderr.String(), "fatal: '"+name+"' is not a working tree") {
@@ -131,5 +130,5 @@ func (s *server) cleanDisconnectedWorktrees(ctx context.Context, repo *localrepo
 	return repo.ExecAndWait(ctx, git.SubSubCmd{
 		Name:   "worktree",
 		Action: "prune",
-	}, git.WithRefTxHook(ctx, repo, s.cfg))
+	}, git.WithRefTxHook(repo))
 }

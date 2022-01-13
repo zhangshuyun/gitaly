@@ -33,7 +33,7 @@ func (s *server) findRemoteRootRef(ctx context.Context, request *gitalypb.FindRe
 			Action: "show",
 			Args:   []string{"inmemory"},
 		},
-		git.WithRefTxHook(ctx, request.Repository, s.cfg),
+		git.WithRefTxHook(request.Repository),
 		git.WithConfigEnv(config...),
 	)
 	if err != nil {

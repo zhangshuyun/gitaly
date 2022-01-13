@@ -8,7 +8,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/objectpool"
@@ -75,7 +74,7 @@ func initObjectPool(t testing.TB, cfg config.Cfg, storage config.Storage) *objec
 	pool, err := objectpool.NewObjectPool(
 		cfg,
 		config.NewLocator(cfg),
-		git.NewExecCommandFactory(cfg),
+		gittest.NewCommandFactory(t, cfg),
 		catfileCache,
 		transaction.NewManager(cfg, backchannel.NewRegistry()),
 		storage.Name,

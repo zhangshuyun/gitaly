@@ -223,15 +223,16 @@ func TestFailedReceivePackRequestDueToHooksFailure(t *testing.T) {
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 	cfg.Git.HooksPath = testhelper.TempDir(t)
-
-	require.NoError(t, os.MkdirAll(cfg.HooksPath(), 0o755))
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
 	hookContent := []byte("#!/bin/sh\nexit 1")
-	require.NoError(t, os.WriteFile(filepath.Join(cfg.HooksPath(), "pre-receive"), hookContent, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(gitCmdFactory.HooksPath(), "pre-receive"), hookContent, 0o755))
 
-	serverSocketPath := runSmartHTTPServer(t, cfg)
+	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
+		testserver.WithGitCommandFactory(gitCmdFactory),
+	})
 
-	client, conn := newSmartHTTPClient(t, serverSocketPath, cfg.Auth.Token)
+	client, conn := newSmartHTTPClient(t, server.Address(), cfg.Auth.Token)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()

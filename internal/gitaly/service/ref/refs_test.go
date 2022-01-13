@@ -66,7 +66,7 @@ func TestFindAllBranchNamesVeryLargeResponse(t *testing.T) {
 	defer cancel()
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	updater, err := updateref.New(ctx, cfg, repo)
+	updater, err := updateref.New(ctx, repo)
 	require.NoError(t, err)
 
 	// We want to create enough refs to overflow the default bufio.Scanner
@@ -1158,7 +1158,7 @@ func TestFindTagNestedTag(t *testing.T) {
 			tags, err := repo.GetReferences(ctx, "refs/tags/")
 			require.NoError(t, err)
 
-			updater, err := updateref.New(ctx, cfg, repo)
+			updater, err := updateref.New(ctx, repo)
 			require.NoError(t, err)
 			for _, tag := range tags {
 				require.NoError(t, updater.Delete(tag.Name))

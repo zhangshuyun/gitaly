@@ -403,7 +403,7 @@ func TestFindAllTags_nestedTags(t *testing.T) {
 			tags, err := repo.GetReferences(ctx, "refs/tags/")
 			require.NoError(t, err)
 
-			updater, err := updateref.New(ctx, cfg, repo)
+			updater, err := updateref.New(ctx, repo)
 			require.NoError(t, err)
 			for _, tag := range tags {
 				require.NoError(t, updater.Delete(tag.Name))
@@ -654,7 +654,7 @@ func TestFindAllTags_sorted(t *testing.T) {
 	catfileCache := catfile.NewCache(cfg)
 	defer catfileCache.Stop()
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), catfileCache, repoProto, cfg)
+	repo := localrepo.New(gittest.NewCommandFactory(t, cfg), catfileCache, repoProto, cfg)
 	headCommit, err := repo.ReadCommit(ctx, "HEAD")
 	require.NoError(t, err)
 	annotatedTagID, err := repo.WriteTag(ctx, git.ObjectID(headCommit.Id), "commit", []byte("annotated"), []byte("message"), gittest.TestUser, time.Now())

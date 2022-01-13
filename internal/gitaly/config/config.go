@@ -19,9 +19,7 @@ import (
 	internallog "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/log"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/sentry"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/env"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
-	"golang.org/x/sys/unix"
 )
 
 const (
@@ -186,7 +184,6 @@ func (cfg *Cfg) Validate() error {
 		cfg.ConfigureRuby,
 		cfg.validateBinDir,
 		cfg.validateInternalSocketDir,
-		cfg.validateHooks,
 		cfg.validateMaintenance,
 		cfg.validateCgroups,
 		cfg.configurePackObjectsCache,
@@ -245,55 +242,6 @@ func (cfg *Cfg) validateShell() error {
 	}
 
 	return validateIsDirectory(cfg.GitlabShell.Dir, "gitlab-shell.dir")
-}
-
-func checkExecutable(path string) error {
-	if err := unix.Access(path, unix.X_OK); err != nil {
-		if errors.Is(err, os.ErrPermission) {
-			return fmt.Errorf("not executable: %v", path)
-		}
-		return err
-	}
-
-	return nil
-}
-
-type hookErrs struct {
-	errors []error
-}
-
-func (h *hookErrs) Error() string {
-	var errStrings []string
-	for _, err := range h.errors {
-		errStrings = append(errStrings, err.Error())
-	}
-
-	return strings.Join(errStrings, ", ")
-}
-
-func (h *hookErrs) Add(err error) {
-	h.errors = append(h.errors, err)
-}
-
-func (cfg *Cfg) validateHooks() error {
-	if SkipHooks() {
-		return nil
-	}
-
-	errs := &hookErrs{}
-
-	for _, hookName := range []string{"pre-receive", "post-receive", "update"} {
-		if err := checkExecutable(filepath.Join(cfg.Ruby.Dir, "git-hooks", hookName)); err != nil {
-			errs.Add(err)
-			continue
-		}
-	}
-
-	if len(errs.errors) > 0 {
-		return errs
-	}
-
-	return nil
 }
 
 func validateIsDirectory(path, name string) error {
@@ -360,25 +308,6 @@ func (cfg *Cfg) validateStorages() error {
 	}
 
 	return nil
-}
-
-//nolint: revive,stylecheck // This is unintentionally missing documentation.
-func SkipHooks() bool {
-	enabled, _ := env.GetBool("GITALY_TESTING_NO_GIT_HOOKS", false)
-	return enabled
-}
-
-// HooksPath returns the path where Gitaly's Git hooks are located.
-func (cfg *Cfg) HooksPath() string {
-	if len(cfg.Git.HooksPath) > 0 {
-		return cfg.Git.HooksPath
-	}
-
-	if SkipHooks() {
-		return "/var/empty"
-	}
-
-	return filepath.Join(cfg.Ruby.Dir, "git-hooks")
 }
 
 // SetGitPath populates the variable GitPath with the path to the `git`

@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/metadata"
@@ -65,7 +66,7 @@ func TestGetCommitWithTrailers(t *testing.T) {
 
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{})
 
-	commit, err := GetCommitWithTrailers(ctx, git.NewExecCommandFactory(cfg), testRepo,
+	commit, err := GetCommitWithTrailers(ctx, gittest.NewCommandFactory(t, cfg), testRepo,
 		objectReader, "5937ac0a7beb003549fc5fd26fc247adbce4a52e")
 
 	require.NoError(t, err)

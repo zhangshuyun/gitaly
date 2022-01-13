@@ -145,7 +145,7 @@ func TestFetchRemote_sshCommand(t *testing.T) {
 func TestFetchRemote_withDefaultRefmaps(t *testing.T) {
 	t.Parallel()
 	cfg, sourceRepoProto, sourceRepoPath, client := setupRepositoryService(t)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
 	sourceRepo := localrepo.NewTestRepo(t, cfg, sourceRepoProto)
 
@@ -199,7 +199,7 @@ func TestFetchRemote_transaction(t *testing.T) {
 	client := newRepositoryClient(t, sourceCfg, addr)
 
 	targetCfg, targetRepoProto, targetRepoPath := testcfg.BuildWithRepo(t)
-	targetGitCmdFactory := git.NewExecCommandFactory(targetCfg)
+	targetGitCmdFactory := gittest.NewCommandFactory(t, targetCfg)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -227,7 +227,7 @@ func TestFetchRemote_transaction(t *testing.T) {
 func TestFetchRemote_prune(t *testing.T) {
 	t.Parallel()
 	cfg, sourceRepo, sourceRepoPath, client := setupRepositoryService(t)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -304,7 +304,7 @@ func TestFetchRemote_force(t *testing.T) {
 	defer cancel()
 
 	cfg, sourceRepoProto, sourceRepoPath, client := setupRepositoryService(t)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
 	sourceRepo := localrepo.NewTestRepo(t, cfg, sourceRepoProto)
 

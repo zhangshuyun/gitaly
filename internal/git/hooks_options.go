@@ -17,7 +17,7 @@ import (
 // WithDisabledHooks returns an option that satisfies the requirement to set up
 // hooks, but won't in fact set up hook execution.
 func WithDisabledHooks() CmdOpt {
-	return func(cc *cmdCfg) error {
+	return func(_ context.Context, _ config.Cfg, _ CommandFactory, cc *cmdCfg) error {
 		cc.hooksConfigured = true
 		return nil
 	}
@@ -26,8 +26,8 @@ func WithDisabledHooks() CmdOpt {
 // WithRefTxHook returns an option that populates the safe command with the
 // environment variables necessary to properly execute a reference hook for
 // repository changes that may possibly update references
-func WithRefTxHook(ctx context.Context, repo repository.GitRepo, cfg config.Cfg) CmdOpt {
-	return func(cc *cmdCfg) error {
+func WithRefTxHook(repo repository.GitRepo) CmdOpt {
+	return func(ctx context.Context, cfg config.Cfg, gitCmdFactory CommandFactory, cc *cmdCfg) error {
 		if repo == nil {
 			return fmt.Errorf("missing repo: %w", ErrInvalidArg)
 		}
@@ -41,7 +41,7 @@ func WithRefTxHook(ctx context.Context, repo repository.GitRepo, cfg config.Cfg)
 			GitAlternateObjectDirectories: repo.GetGitAlternateObjectDirectories(),
 			GitObjectDirectory:            repo.GetGitObjectDirectory(),
 			RelativePath:                  repo.GetRelativePath(),
-		}, cfg, nil, ReferenceTransactionHook); err != nil {
+		}, cfg, gitCmdFactory, nil, ReferenceTransactionHook); err != nil {
 			return fmt.Errorf("ref hook env var: %w", err)
 		}
 
@@ -50,8 +50,8 @@ func WithRefTxHook(ctx context.Context, repo repository.GitRepo, cfg config.Cfg)
 }
 
 // WithPackObjectsHookEnv provides metadata for gitaly-hooks so it can act as a pack-objects hook.
-func WithPackObjectsHookEnv(ctx context.Context, repo *gitalypb.Repository, cfg config.Cfg) CmdOpt {
-	return func(cc *cmdCfg) error {
+func WithPackObjectsHookEnv(repo *gitalypb.Repository) CmdOpt {
+	return func(ctx context.Context, cfg config.Cfg, gitCmdFactory CommandFactory, cc *cmdCfg) error {
 		if !cfg.PackObjectsCache.Enabled {
 			return nil
 		}
@@ -60,7 +60,7 @@ func WithPackObjectsHookEnv(ctx context.Context, repo *gitalypb.Repository, cfg 
 			return fmt.Errorf("missing repo: %w", ErrInvalidArg)
 		}
 
-		if err := cc.configureHooks(ctx, repo, cfg, nil, PackObjectsHook); err != nil {
+		if err := cc.configureHooks(ctx, repo, cfg, gitCmdFactory, nil, PackObjectsHook); err != nil {
 			return fmt.Errorf("pack-objects hook configuration: %w", err)
 		}
 
@@ -80,6 +80,7 @@ func (cc *cmdCfg) configureHooks(
 	ctx context.Context,
 	repo *gitalypb.Repository,
 	cfg config.Cfg,
+	gitCmdFactory CommandFactory,
 	receiveHooksPayload *ReceiveHooksPayload,
 	requestedHooks Hook,
 ) error {
@@ -106,7 +107,7 @@ func (cc *cmdCfg) configureHooks(
 		fmt.Sprintf("%s=%s", log.GitalyLogDirEnvKey, cfg.Logging.Dir),
 	)
 
-	cc.globals = append(cc.globals, ConfigPair{Key: "core.hooksPath", Value: cfg.HooksPath()})
+	cc.globals = append(cc.globals, ConfigPair{Key: "core.hooksPath", Value: gitCmdFactory.HooksPath()})
 	cc.hooksConfigured = true
 
 	return nil
@@ -124,9 +125,9 @@ type ReceivePackRequest interface {
 // WithReceivePackHooks returns an option that populates the safe command with the environment
 // variables necessary to properly execute the pre-receive, update and post-receive hooks for
 // git-receive-pack(1).
-func WithReceivePackHooks(ctx context.Context, cfg config.Cfg, req ReceivePackRequest, protocol string) CmdOpt {
-	return func(cc *cmdCfg) error {
-		if err := cc.configureHooks(ctx, req.GetRepository(), cfg, &ReceiveHooksPayload{
+func WithReceivePackHooks(req ReceivePackRequest, protocol string) CmdOpt {
+	return func(ctx context.Context, cfg config.Cfg, gitCmdFactory CommandFactory, cc *cmdCfg) error {
+		if err := cc.configureHooks(ctx, req.GetRepository(), cfg, gitCmdFactory, &ReceiveHooksPayload{
 			UserID:   req.GetGlId(),
 			Username: req.GetGlUsername(),
 			Protocol: protocol,

@@ -188,7 +188,7 @@ func (u *UpdaterWithHooks) UpdateReference(
 	// is packed, which is obviously a bad thing as Gitaly nodes may be differently packed. We
 	// thus continue to manually drive the reference-transaction hook here, which doesn't have
 	// this problem.
-	updater, err := New(ctx, u.cfg, u.localrepo(repo), WithDisabledTransactions())
+	updater, err := New(ctx, u.localrepo(repo), WithDisabledTransactions())
 	if err != nil {
 		return fmt.Errorf("creating updater: %w", err)
 	}

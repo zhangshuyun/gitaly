@@ -26,7 +26,7 @@ func TestSuccessfulFindAllCommitsRequest(t *testing.T) {
 
 	// Delete all preexisting refs except the two refs below to bring the repository into a
 	// known state.
-	updater, err := updateref.New(ctx, cfg, repo, updateref.WithDisabledTransactions())
+	updater, err := updateref.New(ctx, repo, updateref.WithDisabledTransactions())
 	require.NoError(t, err)
 
 	for _, ref := range refs {

@@ -86,7 +86,7 @@ func (repo *Repo) FetchRemote(ctx context.Context, remoteName string, opts Fetch
 	if opts.DisableTransactions {
 		commandOptions = append(commandOptions, git.WithDisabledHooks())
 	} else {
-		commandOptions = append(commandOptions, git.WithRefTxHook(ctx, repo, repo.cfg))
+		commandOptions = append(commandOptions, git.WithRefTxHook(repo))
 	}
 	commandOptions = append(commandOptions, opts.CommandOptions...)
 
@@ -149,7 +149,7 @@ func (repo *Repo) FetchInternal(
 	if opts.DisableTransactions {
 		commandOptions = append(commandOptions, git.WithDisabledHooks())
 	} else {
-		commandOptions = append(commandOptions, git.WithRefTxHook(ctx, repo, repo.cfg))
+		commandOptions = append(commandOptions, git.WithRefTxHook(repo))
 	}
 	commandOptions = append(commandOptions, opts.CommandOptions...)
 

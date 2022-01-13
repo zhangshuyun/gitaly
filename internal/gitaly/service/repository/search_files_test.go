@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
@@ -207,7 +206,7 @@ func TestSearchFilesByContentLargeFile(t *testing.T) {
 func TestSearchFilesByContentFailure(t *testing.T) {
 	t.Parallel()
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
-	gitCommandFactory := git.NewExecCommandFactory(cfg)
+	gitCommandFactory := gittest.NewCommandFactory(t, cfg)
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 
@@ -336,7 +335,7 @@ func TestSearchFilesByNameSuccessful(t *testing.T) {
 func TestSearchFilesByNameFailure(t *testing.T) {
 	t.Parallel()
 	cfg := testcfg.Build(t)
-	gitCommandFactory := git.NewExecCommandFactory(cfg)
+	gitCommandFactory := gittest.NewCommandFactory(t, cfg)
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 

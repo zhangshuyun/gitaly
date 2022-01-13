@@ -19,7 +19,7 @@ func TestRepo(t *testing.T) {
 
 	gittest.TestRepository(t, cfg, func(t testing.TB, pbRepo *gitalypb.Repository) git.Repository {
 		t.Helper()
-		gitCmdFactory := git.NewExecCommandFactory(cfg)
+		gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 		catfileCache := catfile.NewCache(cfg)
 		t.Cleanup(catfileCache.Stop)
 		return New(gitCmdFactory, catfileCache, pbRepo, cfg)
@@ -29,7 +29,7 @@ func TestRepo(t *testing.T) {
 func TestRepo_Path(t *testing.T) {
 	t.Run("valid repository", func(t *testing.T) {
 		cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
-		gitCmdFactory := git.NewExecCommandFactory(cfg)
+		gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 		catfileCache := catfile.NewCache(cfg)
 		t.Cleanup(catfileCache.Stop)
 		repo := New(gitCmdFactory, catfileCache, repoProto, cfg)
@@ -41,7 +41,7 @@ func TestRepo_Path(t *testing.T) {
 
 	t.Run("deleted repository", func(t *testing.T) {
 		cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
-		gitCmdFactory := git.NewExecCommandFactory(cfg)
+		gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 		catfileCache := catfile.NewCache(cfg)
 		t.Cleanup(catfileCache.Stop)
 		repo := New(gitCmdFactory, catfileCache, repoProto, cfg)
@@ -54,7 +54,7 @@ func TestRepo_Path(t *testing.T) {
 
 	t.Run("non-git repository", func(t *testing.T) {
 		cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
-		gitCmdFactory := git.NewExecCommandFactory(cfg)
+		gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 		catfileCache := catfile.NewCache(cfg)
 		t.Cleanup(catfileCache.Stop)
 		repo := New(gitCmdFactory, catfileCache, repoProto, cfg)

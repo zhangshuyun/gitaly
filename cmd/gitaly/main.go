@@ -31,6 +31,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/env"
 	glog "gitlab.com/gitlab-org/gitaly/v14/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/streamcache"
@@ -104,10 +105,6 @@ func configure(configPath string) (config.Cfg, error) {
 		return config.Cfg{}, fmt.Errorf("failed setting up cgroups: %w", err)
 	}
 
-	if err := verifyGitVersion(cfg); err != nil {
-		return config.Cfg{}, err
-	}
-
 	sentry.ConfigureSentry(version.GetVersion(), sentry.Config(cfg.Logging.Sentry))
 	cfg.Prometheus.Configure()
 	tracing.Initialize(tracing.WithServiceName("gitaly"))
@@ -116,11 +113,8 @@ func configure(configPath string) (config.Cfg, error) {
 	return cfg, nil
 }
 
-func verifyGitVersion(cfg config.Cfg) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	gitVersion, err := git.CurrentVersion(ctx, git.NewExecCommandFactory(cfg))
+func verifyGitVersion(ctx context.Context, gitCmdFactory git.CommandFactory) error {
+	gitVersion, err := git.CurrentVersion(ctx, gitCmdFactory)
 	if err != nil {
 		return fmt.Errorf("git version detection: %w", err)
 	}
@@ -128,6 +122,7 @@ func verifyGitVersion(cfg config.Cfg) error {
 	if !gitVersion.IsSupported() {
 		return fmt.Errorf("unsupported Git version: %q", gitVersion)
 	}
+
 	return nil
 }
 
@@ -156,6 +151,22 @@ func run(cfg config.Cfg) error {
 		return fmt.Errorf("init bootstrap: %w", err)
 	}
 
+	skipHooks, _ := env.GetBool("GITALY_TESTING_NO_GIT_HOOKS", false)
+	var commandFactoryOpts []git.ExecCommandFactoryOption
+	if skipHooks {
+		commandFactoryOpts = append(commandFactoryOpts, git.WithSkipHooks())
+	}
+
+	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, commandFactoryOpts...)
+	if err != nil {
+		return fmt.Errorf("creating Git command factory: %w", err)
+	}
+	defer cleanup()
+
+	if err := verifyGitVersion(ctx, gitCmdFactory); err != nil {
+		return err
+	}
+
 	registry := backchannel.NewRegistry()
 	transactionManager := transaction.NewManager(cfg, registry)
 	prometheus.MustRegister(transactionManager)
@@ -166,10 +177,9 @@ func run(cfg config.Cfg) error {
 
 	tempdir.StartCleaning(locator, cfg.Storages, time.Hour)
 
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	prometheus.MustRegister(gitCmdFactory)
 
-	if config.SkipHooks() {
+	if skipHooks {
 		log.Warn("skipping GitLab API client creation since hooks are bypassed via GITALY_TESTING_NO_GIT_HOOKS")
 	} else {
 		gitlabClient, err := gitlab.NewHTTPClient(glog.Default(), cfg.Gitlab, cfg.TLS, cfg.Prometheus)

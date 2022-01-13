@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
@@ -17,7 +18,7 @@ func TestWithRefHook(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	opt := git.WithRefTxHook(ctx, repo, cfg)
+	opt := git.WithRefTxHook(repo)
 	subCmd := git.SubCmd{Name: "update-ref", Args: []string{"refs/heads/master", git.ZeroOID.String()}}
 
 	for _, tt := range []struct {
@@ -27,7 +28,7 @@ func TestWithRefHook(t *testing.T) {
 		{
 			name: "NewCommand",
 			fn: func() (*command.Command, error) {
-				return git.NewExecCommandFactory(cfg).New(ctx, repo, subCmd, opt)
+				return gittest.NewCommandFactory(t, cfg).New(ctx, repo, subCmd, opt)
 			},
 		},
 	} {

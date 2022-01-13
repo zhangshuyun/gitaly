@@ -12,33 +12,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
-
-func setupRepo(t *testing.T, bare bool) (*Repo, string) {
-	t.Helper()
-
-	cfg := testcfg.Build(t)
-
-	var repoProto *gitalypb.Repository
-	var repoPath string
-	if bare {
-		repoProto, repoPath = gittest.InitRepo(t, cfg, cfg.Storages[0])
-	} else {
-		repoProto, repoPath = gittest.CloneRepo(t, cfg, cfg.Storages[0])
-	}
-
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	catfileCache := catfile.NewCache(cfg)
-	t.Cleanup(catfileCache.Stop)
-	return New(gitCmdFactory, catfileCache, repoProto, cfg), repoPath
-}
 
 type ReaderFunc func([]byte) (int, error)
 
@@ -48,7 +27,7 @@ func TestRepo_WriteBlob(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, repoPath := setupRepo(t, true)
+	repo, repoPath := setupRepo(t, withEmptyRepo())
 
 	for _, tc := range []struct {
 		desc       string
@@ -176,7 +155,7 @@ func TestRepo_WriteTag(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, repoPath := setupRepo(t, false)
+	repo, repoPath := setupRepo(t)
 
 	for _, tc := range []struct {
 		desc        string
@@ -256,7 +235,7 @@ func TestRepo_ReadObject(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _ := setupRepo(t, false)
+	repo, _ := setupRepo(t)
 
 	for _, tc := range []struct {
 		desc    string
@@ -288,7 +267,7 @@ func TestRepo_ReadCommit(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _ := setupRepo(t, false)
+	repo, _ := setupRepo(t)
 
 	for _, tc := range []struct {
 		desc           string
@@ -426,7 +405,7 @@ func TestRepo_IsAncestor(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _ := setupRepo(t, false)
+	repo, _ := setupRepo(t)
 
 	for _, tc := range []struct {
 		desc         string

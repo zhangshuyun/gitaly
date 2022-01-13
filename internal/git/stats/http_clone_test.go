@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -16,7 +15,7 @@ import (
 
 func TestClone(t *testing.T) {
 	cfg, _, repoPath := testcfg.BuildWithRepo(t)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -77,7 +76,7 @@ func TestClone(t *testing.T) {
 
 func TestCloneWithAuth(t *testing.T) {
 	cfg, _, repoPath := testcfg.BuildWithRepo(t)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

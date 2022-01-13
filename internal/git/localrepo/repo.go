@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
@@ -36,9 +37,15 @@ func New(gitCmdFactory git.CommandFactory, catfileCache catfile.Cache, repo repo
 // NewTestRepo constructs a Repo. It is intended as a helper function for tests which assembles
 // dependencies ad-hoc from the given config.
 func NewTestRepo(t testing.TB, cfg config.Cfg, repo repository.GitRepo) *Repo {
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	t.Helper()
+
+	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg)
+	t.Cleanup(cleanup)
+	require.NoError(t, err)
+
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
+
 	return New(gitCmdFactory, catfileCache, repo, cfg)
 }
 

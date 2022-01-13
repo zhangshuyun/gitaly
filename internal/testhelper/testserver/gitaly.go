@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/auth"
 	gitalylog "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/log"
@@ -332,7 +333,7 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 	}
 
 	if gsd.gitCmdFactory == nil {
-		gsd.gitCmdFactory = git.NewExecCommandFactory(cfg)
+		gsd.gitCmdFactory = gittest.NewCommandFactory(t, cfg)
 	}
 
 	if gsd.hookMgr == nil {

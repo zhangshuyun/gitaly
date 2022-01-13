@@ -202,7 +202,7 @@ func TestWithConfig(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	gitCmdFactory := NewExecCommandFactory(cfg)
+	gitCmdFactory := newCommandFactory(t, cfg, WithSkipHooks())
 
 	for _, tc := range []struct {
 		desc           string
@@ -252,7 +252,7 @@ func TestWithConfig(t *testing.T) {
 			option := WithConfig(tc.configPairs...)
 
 			var commandCfg cmdCfg
-			require.NoError(t, option(&commandCfg))
+			require.NoError(t, option(ctx, cfg, gitCmdFactory, &commandCfg))
 
 			for expectedKey, expectedValue := range tc.expectedValues {
 				var stdout bytes.Buffer
@@ -279,8 +279,10 @@ func TestExecCommandFactoryGitalyConfigOverrides(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
+	gitCmdFactory := newCommandFactory(t, cfg, WithSkipHooks())
+
 	var stdout bytes.Buffer
-	cmd, err := NewExecCommandFactory(cfg).NewWithoutRepo(ctx,
+	cmd, err := gitCmdFactory.NewWithoutRepo(ctx,
 		SubCmd{
 			Name: "config",
 			Args: []string{"foo.bar"},
@@ -301,7 +303,7 @@ func TestWithConfigEnv(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	gitCmdFactory := NewExecCommandFactory(cfg)
+	gitCmdFactory := newCommandFactory(t, cfg, WithSkipHooks())
 
 	for _, tc := range []struct {
 		desc           string
@@ -376,7 +378,7 @@ func TestWithConfigEnv(t *testing.T) {
 			option := WithConfigEnv(tc.configPairs...)
 
 			var commandCfg cmdCfg
-			require.NoError(t, option(&commandCfg))
+			require.NoError(t, option(ctx, cfg, gitCmdFactory, &commandCfg))
 			require.EqualValues(t, tc.expectedEnv, commandCfg.env)
 
 			for expectedKey, expectedValue := range tc.expectedValues {

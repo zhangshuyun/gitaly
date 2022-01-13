@@ -134,9 +134,9 @@ func (s *server) runUploadPack(ctx context.Context, req basicPostUploadPackReque
 
 	commandOpts := []git.CmdOpt{
 		git.WithStdin(stdin),
-		git.WithGitProtocol(ctx, req),
+		git.WithGitProtocol(req),
 		git.WithConfig(gitConfig...),
-		git.WithPackObjectsHookEnv(ctx, req.GetRepository(), s.cfg),
+		git.WithPackObjectsHookEnv(req.GetRepository()),
 	}
 
 	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx, git.SubCmd{

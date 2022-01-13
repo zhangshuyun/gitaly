@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cgroups"
@@ -14,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
+	"golang.org/x/sys/unix"
 )
 
 var globalOptions = []GlobalOption{
@@ -57,6 +61,22 @@ type CommandFactory interface {
 	NewWithDir(ctx context.Context, dir string, sc Cmd, opts ...CmdOpt) (*command.Command, error)
 	// GetExecutionEnvironment returns parameters required to execute Git commands.
 	GetExecutionEnvironment(context.Context) ExecutionEnvironment
+	// HooksPath returns the path where Gitaly's Git hooks reside.
+	HooksPath() string
+}
+
+type execCommandFactoryConfig struct {
+	skipHooks bool
+}
+
+// ExecCommandFactoryOption is an option that can be passed to NewExecCommandFactory.
+type ExecCommandFactoryOption func(*execCommandFactoryConfig)
+
+// WithSkipHooks will skip any use of hooks in this command factory.
+func WithSkipHooks() ExecCommandFactoryOption {
+	return func(cfg *execCommandFactoryConfig) {
+		cfg.skipHooks = true
+	}
 }
 
 // ExecCommandFactory knows how to properly construct different types of commands.
@@ -65,11 +85,18 @@ type ExecCommandFactory struct {
 	cfg                   config.Cfg
 	cgroupsManager        cgroups.Manager
 	invalidCommandsMetric *prometheus.CounterVec
+	skipHooks             bool
 }
 
-// NewExecCommandFactory returns a new instance of initialized ExecCommandFactory.
-func NewExecCommandFactory(cfg config.Cfg) *ExecCommandFactory {
-	return &ExecCommandFactory{
+// NewExecCommandFactory returns a new instance of initialized ExecCommandFactory. The returned
+// cleanup function shall be executed when the server shuts down.
+func NewExecCommandFactory(cfg config.Cfg, opts ...ExecCommandFactoryOption) (*ExecCommandFactory, func(), error) {
+	var factoryCfg execCommandFactoryConfig
+	for _, opt := range opts {
+		opt(&factoryCfg)
+	}
+
+	gitCmdFactory := &ExecCommandFactory{
 		cfg:            cfg,
 		locator:        config.NewLocator(cfg),
 		cgroupsManager: cgroups.NewManager(cfg.Cgroups),
@@ -80,7 +107,14 @@ func NewExecCommandFactory(cfg config.Cfg) *ExecCommandFactory {
 			},
 			[]string{"command"},
 		),
+		skipHooks: factoryCfg.skipHooks,
 	}
+
+	if err := gitCmdFactory.validateHooks(); err != nil {
+		return nil, nil, fmt.Errorf("validating hooks: %w", err)
+	}
+
+	return gitCmdFactory, func() {}, nil
 }
 
 // Describe is used to describe Prometheus metrics.
@@ -121,6 +155,43 @@ func (cf *ExecCommandFactory) GetExecutionEnvironment(context.Context) Execution
 		BinaryPath:           cf.cfg.Git.BinPath,
 		EnvironmentVariables: cf.cfg.GitExecEnv(),
 	}
+}
+
+// HooksPath returns the path where Gitaly's Git hooks reside.
+func (cf *ExecCommandFactory) HooksPath() string {
+	if len(cf.cfg.Git.HooksPath) > 0 {
+		return cf.cfg.Git.HooksPath
+	}
+
+	if cf.skipHooks {
+		return "/var/empty"
+	}
+
+	return filepath.Join(cf.cfg.Ruby.Dir, "git-hooks")
+}
+
+func (cf *ExecCommandFactory) validateHooks() error {
+	if cf.skipHooks {
+		return nil
+	}
+
+	var errs []string
+	for _, hookName := range []string{"pre-receive", "post-receive", "update"} {
+		hookPath := filepath.Join(cf.cfg.Ruby.Dir, "git-hooks", hookName)
+		if err := unix.Access(hookPath, unix.X_OK); err != nil {
+			if errors.Is(err, os.ErrPermission) {
+				errs = append(errs, fmt.Sprintf("not executable: %v", hookPath))
+			} else {
+				errs = append(errs, err.Error())
+			}
+		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf(strings.Join(errs, ", "))
+	}
+
+	return nil
 }
 
 // newCommand creates a new command.Command for the given git command. If a repo is given, then the
@@ -181,7 +252,7 @@ func (cf *ExecCommandFactory) combineOpts(ctx context.Context, sc Cmd, opts []Cm
 	}
 
 	for _, opt := range opts {
-		if err := opt(&config); err != nil {
+		if err := opt(ctx, cf.cfg, cf, &config); err != nil {
 			return cmdCfg{}, err
 		}
 	}

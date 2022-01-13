@@ -37,7 +37,7 @@ func (s *server) writeRef(ctx context.Context, req *gitalypb.WriteRefRequest) er
 }
 
 func updateRef(ctx context.Context, cfg config.Cfg, repo *localrepo.Repo, req *gitalypb.WriteRefRequest) error {
-	u, err := updateref.New(ctx, cfg, repo)
+	u, err := updateref.New(ctx, repo)
 	if err != nil {
 		return fmt.Errorf("error when running creating new updater: %v", err)
 	}

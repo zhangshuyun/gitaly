@@ -13,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cache"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
@@ -266,8 +265,8 @@ func runSecureServer(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) s
 	listener, addr := testhelper.GetLocalhostListener(t)
 
 	txManager := transaction.NewManager(cfg, registry)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	hookManager := hook.NewManager(cfg, locator, git.NewExecCommandFactory(cfg), txManager, gitlab.NewMockClient(
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+	hookManager := hook.NewManager(cfg, locator, gittest.NewCommandFactory(t, cfg), txManager, gitlab.NewMockClient(
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
 	))
 	catfileCache := catfile.NewCache(cfg)

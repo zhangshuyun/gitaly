@@ -25,7 +25,7 @@ func TestRebase_validation(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 	testcfg.BuildGitalyGit2Go(t, cfg)
 	committer := git2go.NewSignature("Foo", "foo@example.com", time.Now())
-	executor := buildExecutor(cfg)
+	executor := buildExecutor(t, cfg)
 
 	testcases := []struct {
 		desc        string
@@ -177,7 +177,7 @@ func TestRebase_rebase(t *testing.T) {
 
 			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 			testcfg.BuildGitalyGit2Go(t, cfg)
-			executor := buildExecutor(cfg)
+			executor := buildExecutor(t, cfg)
 
 			repo, err := git2goutil.OpenRepository(repoPath)
 			require.NoError(t, err)
@@ -284,7 +284,7 @@ func TestRebase_skipEmptyCommit(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			response, err := buildExecutor(cfg).Rebase(ctx, repoProto, git2go.RebaseCommand{
+			response, err := buildExecutor(t, cfg).Rebase(ctx, repoProto, git2go.RebaseCommand{
 				Repository:       repoPath,
 				Committer:        git2go.NewSignature("Foo", "foo@example.com", time.Now()),
 				CommitID:         ours,

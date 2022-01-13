@@ -58,7 +58,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 			},
 			Args: []string{originPath, refSpec},
 		},
-		git.WithRefTxHook(ctx, o.poolRepo, o.cfg),
+		git.WithRefTxHook(o.poolRepo),
 		git.WithStderr(&stderr),
 	); err != nil {
 		return helper.ErrInternalf("fetch into object pool: %w, stderr: %q", err,
@@ -102,7 +102,7 @@ func (o *ObjectPool) rescueDanglingObjects(ctx context.Context) error {
 		return err
 	}
 
-	updater, err := updateref.New(ctx, o.cfg, o.poolRepo, updateref.WithDisabledTransactions())
+	updater, err := updateref.New(ctx, o.poolRepo, updateref.WithDisabledTransactions())
 	if err != nil {
 		return err
 	}

@@ -245,7 +245,7 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			hookManager := hook.NewMockManager(t, tc.preReceive, tc.postReceive, tc.update, tc.referenceTransaction)
 
-			gitCmdFactory := git.NewExecCommandFactory(cfg)
+			gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 			updater := NewUpdaterWithHooks(cfg, hookManager, gitCmdFactory, nil)
 
 			err := updater.UpdateReference(ctx, repo, user, nil, git.ReferenceName("refs/heads/master"), git.ZeroOID, git.ObjectID(oldRev))
@@ -271,7 +271,7 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 
 func TestUpdaterWithHooks_quarantine(t *testing.T) {
 	cfg, repoProto, _ := testcfg.BuildWithRepo(t)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	locator := config.NewLocator(cfg)
 
 	ctx, cancel := testhelper.Context()

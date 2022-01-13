@@ -170,7 +170,7 @@ func TestConflicts(t *testing.T) {
 
 	for _, tc := range testcases {
 		cfg, repo, repoPath := testcfg.BuildWithRepo(t)
-		executor := buildExecutor(cfg)
+		executor := buildExecutor(t, cfg)
 
 		testcfg.BuildGitalyGit2Go(t, cfg)
 
@@ -198,7 +198,7 @@ func TestConflicts_checkError(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 	base := cmdtesthelper.BuildCommit(t, repoPath, nil, nil)
 	validOID := glgit.ObjectID(base.String())
-	executor := buildExecutor(cfg)
+	executor := buildExecutor(t, cfg)
 
 	testcfg.BuildGitalyGit2Go(t, cfg)
 

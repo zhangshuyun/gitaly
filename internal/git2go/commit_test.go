@@ -58,7 +58,7 @@ func TestExecutor_Commit(t *testing.T) {
 	updatedFile, err := repo.WriteBlob(ctx, "file", bytes.NewBufferString("updated"))
 	require.NoError(t, err)
 
-	executor := NewExecutor(cfg, git.NewExecCommandFactory(cfg), config.NewLocator(cfg))
+	executor := NewExecutor(cfg, gittest.NewCommandFactory(t, cfg), config.NewLocator(cfg))
 
 	for _, tc := range []struct {
 		desc  string
