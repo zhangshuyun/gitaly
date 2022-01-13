@@ -32,29 +32,19 @@ var (
 	All = []FeatureFlag{}
 )
 
-// ContextWithFeatureFlags returns a new context with the given feature flags enabled. This is not for use in
-// production systems, but is intended to be used in tests.
-func ContextWithFeatureFlags(ctx context.Context, featureFlags ...FeatureFlag) context.Context {
-	for _, featureFlag := range featureFlags {
-		ctx = injectIntoIncomingAndOutgoingContext(ctx, featureFlag.MetadataKey())
-	}
-
-	return ctx
-}
-
 const explicitFeatureFlagKey = "require_explicit_feature_flag_checks"
 
-func injectIntoIncomingAndOutgoingContext(ctx context.Context, key string) context.Context {
+func injectIntoIncomingAndOutgoingContext(ctx context.Context, key string, enabled bool) context.Context {
 	incomingMD, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		incomingMD = metadata.New(map[string]string{})
 	}
 
-	incomingMD.Set(key, "true")
+	incomingMD.Set(key, strconv.FormatBool(enabled))
 
 	ctx = metadata.NewIncomingContext(ctx, incomingMD)
 
-	return metadata.AppendToOutgoingContext(ctx, key, "true")
+	return metadata.AppendToOutgoingContext(ctx, key, strconv.FormatBool(enabled))
 }
 
 // ContextWithExplicitFeatureFlags marks the context such that all feature flags which are checked
@@ -62,7 +52,7 @@ func injectIntoIncomingAndOutgoingContext(ctx context.Context, key string) conte
 // then checking this feature flag will panic. This is not for use in production systems, but is
 // intended for tests to verify that we test each feature flag properly.
 func ContextWithExplicitFeatureFlags(ctx context.Context) context.Context {
-	return injectIntoIncomingAndOutgoingContext(ctx, explicitFeatureFlagKey)
+	return injectIntoIncomingAndOutgoingContext(ctx, explicitFeatureFlagKey, true)
 }
 
 // FeatureFlag gates the implementation of new or changed functionality.

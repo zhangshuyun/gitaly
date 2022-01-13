@@ -183,7 +183,7 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	// There are some feature flags we need to enable in this function because they end up very
 	// deep in the call stack, so almost every test function would have to inject it into its
 	// context.
-	ctx = featureflag.ContextWithFeatureFlags(ctx, featureflag.RunCommandsInCGroup)
+	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RunCommandsInCGroup, true)
 
 	for _, opt := range opts {
 		ctx = opt(ctx)
