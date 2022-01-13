@@ -337,8 +337,13 @@ func (cf *ExecCommandFactory) NewWithDir(ctx context.Context, dir string, sc Cmd
 }
 
 // GetExecutionEnvironment returns parameters required to execute Git commands.
-func (cf *ExecCommandFactory) GetExecutionEnvironment(context.Context) ExecutionEnvironment {
+func (cf *ExecCommandFactory) GetExecutionEnvironment(ctx context.Context) ExecutionEnvironment {
 	switch {
+	case cf.execEnvs.bundledGit.BinaryPath != "" && cf.execEnvs.externalGit.BinaryPath != "":
+		if featureflag.UseBundledGit.IsEnabled(ctx) {
+			return cf.execEnvs.bundledGit
+		}
+		return cf.execEnvs.externalGit
 	case cf.execEnvs.bundledGit.BinaryPath != "":
 		return cf.execEnvs.bundledGit
 	case cf.execEnvs.externalGit.BinaryPath != "":

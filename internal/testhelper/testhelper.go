@@ -188,6 +188,11 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	// We use hook directories everywhere, so it's infeasible to test this on a global
 	// scale. Instead, we use it randomly.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.HooksInTempdir, mrand.Int()%2 == 0)
+	// We support using both bundled and non-bundled Git, which can be toggled via a feature
+	// flag if both are configured. Naturally, this kicks in whenever we spawn a Git command,
+	// and thus it's not feasible to inject the feature flag everywhere. Instead, we just use
+	// one of both randomly.
+	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.UseBundledGit, mrand.Int()%2 == 0)
 
 	for _, opt := range opts {
 		ctx = opt(ctx)
