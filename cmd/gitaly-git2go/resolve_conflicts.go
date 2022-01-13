@@ -114,7 +114,7 @@ func (cmd resolveSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) er
 			return fmt.Errorf("read conflict entries: %w", err)
 		}
 
-		mfr, err := mergeFileResult(odb, ancestor, our, their)
+		mfr, err := mergeFileResult(ancestor, our, their)
 		if err != nil {
 			return fmt.Errorf("merge file result for %q: %w", r.NewPath, err)
 		}
@@ -238,7 +238,7 @@ func readConflictEntries(odb *git.Odb, c git.IndexConflict) (*conflict.Entry, *c
 	return ancestor, our, their, nil
 }
 
-func mergeFileResult(odb *git.Odb, ancestor, our, their *conflict.Entry) (*git.MergeFileResult, error) {
+func mergeFileResult(ancestor, our, their *conflict.Entry) (*git.MergeFileResult, error) {
 	mfr, err := git.MergeFile(
 		conflictEntryToMergeFileInput(ancestor),
 		conflictEntryToMergeFileInput(our),
