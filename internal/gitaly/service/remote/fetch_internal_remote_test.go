@@ -137,7 +137,7 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 
 	// Use the `assert` package such that we can get information about why hooks have failed via
 	// the hook logs in case it did fail unexpectedly.
-	assert.NoError(t, FetchInternalRemote(ctx, localCfg, connsPool, localRepo, remoteRepo))
+	assert.NoError(t, FetchInternalRemote(ctx, connsPool, localRepo, remoteRepo))
 
 	hookLogs := filepath.Join(localCfg.Logging.Dir, "gitaly_hooks.log")
 	require.FileExists(t, hookLogs)
@@ -176,7 +176,7 @@ func TestFetchInternalRemote_failure(t *testing.T) {
 	connsPool := client.NewPool()
 	defer connsPool.Close()
 
-	err := FetchInternalRemote(ctx, cfg, connsPool, repo, &gitalypb.Repository{
+	err := FetchInternalRemote(ctx, connsPool, repo, &gitalypb.Repository{
 		StorageName:  repoProto.GetStorageName(),
 		RelativePath: "does-not-exist.git",
 	})
