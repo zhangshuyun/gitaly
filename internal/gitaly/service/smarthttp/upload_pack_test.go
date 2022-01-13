@@ -252,7 +252,7 @@ func TestServer_PostUploadPackWithSidechannel_usesPackObjectsHook(t *testing.T) 
 }
 
 func testServerPostUploadPackUsesPackObjectsHook(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t, testcfg.WithPackObjectsCacheEnabled())
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t, append(opts, testcfg.WithPackObjectsCacheEnabled())...)
 	cfg.BinDir = testhelper.TempDir(t)
 
 	outputPath := filepath.Join(cfg.BinDir, "output")
