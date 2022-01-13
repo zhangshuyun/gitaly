@@ -104,6 +104,7 @@ ifeq ($(origin PROTOC_BUILD_OPTIONS),undefined)
     ## Build options for protoc.
     PROTOC_BUILD_OPTIONS ?=
     PROTOC_BUILD_OPTIONS += -DBUILD_SHARED_LIBS=NO
+    PROTOC_BUILD_OPTIONS += -DBUILD_TESTS=OFF
     PROTOC_BUILD_OPTIONS += -DCMAKE_INSTALL_PREFIX=${PROTOC_INSTALL_DIR}
 endif
 
@@ -297,7 +298,7 @@ help:
 
 .PHONY: build
 ## Build Go binaries and install required Ruby Gems.
-build: ${SOURCE_DIR}/.ruby-bundle libgit2 protoc
+build: ${SOURCE_DIR}/.ruby-bundle libgit2
 	@ # We used to install Gitaly binaries into the source directory by default when executing
 	@ # "make" or "make all", which has been changed in v14.5 to only build binaries into
 	@ # `_build/bin`. In order to quickly fail in case any source install still refers to these
@@ -509,9 +510,6 @@ git: ${GIT_PREFIX}/bin/git
 ## Build libgit2.
 libgit2: ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a
 
-.PHONY: protoc
-protoc: ${PROTOC}
-
 # This file is used by Omnibus and CNG to skip the "bundle install"
 # step. Both Omnibus and CNG assume it is in the Gitaly root, not in
 # _build. Hence the '../' in front.
@@ -609,18 +607,16 @@ ${GIT_PREFIX}/bin/git: ${GIT_SOURCE_DIR}/Makefile
 	${Q}touch $@
 
 ${PROTOC}: ${DEPENDENCY_DIR}/protoc.version | ${TOOLS_DIR}
-	${Q}${GIT} -c init.defaultBranch=master init ${GIT_QUIET} ${PROTOC_SOURCE_DIR}
+	${Q}${GIT} -c init.defaultBranch=master init ${GIT_QUIET} "${PROTOC_SOURCE_DIR}"
 	${Q}${GIT} -C "${PROTOC_SOURCE_DIR}" config remote.origin.url ${PROTOC_REPO_URL}
 	${Q}${GIT} -C "${PROTOC_SOURCE_DIR}" config remote.origin.tagOpt --no-tags
 	${Q}${GIT} -C "${PROTOC_SOURCE_DIR}" fetch --depth 1 ${GIT_QUIET} origin ${PROTOC_VERSION}
 	${Q}${GIT} -C "${PROTOC_SOURCE_DIR}" checkout ${GIT_QUIET} --detach FETCH_HEAD
 	${Q}${GIT} -C "${PROTOC_SOURCE_DIR}" submodule update --init --recursive
-	${Q}rm -rf ${PROTOC_BUILD_DIR}
-	${Q}rm -f ${PROTOC}
-	${Q}mkdir -p ${PROTOC_BUILD_DIR}
-	${Q}cd ${PROTOC_BUILD_DIR} && cmake ${PROTOC_SOURCE_DIR}/cmake ${PROTOC_BUILD_OPTIONS}
-	${Q}cmake --build ${PROTOC_BUILD_DIR} --target install -- -j $(shell nproc)
-	${Q}cp ${PROTOC_INSTALL_DIR}/bin/protoc ${PROTOC}
+	${Q}rm -rf "${PROTOC_BUILD_DIR}"
+	${Q}cmake "${PROTOC_SOURCE_DIR}"/cmake -B "${PROTOC_BUILD_DIR}" ${PROTOC_BUILD_OPTIONS}
+	${Q}cmake --build "${PROTOC_BUILD_DIR}" --target install -- -j $(shell nproc)
+	${Q}cp "${PROTOC_INSTALL_DIR}"/bin/protoc ${PROTOC}
 
 ${TOOLS_DIR}/%: GOBIN = ${TOOLS_DIR}
 ${TOOLS_DIR}/%: ${TOOLS_DIR}/%.version
