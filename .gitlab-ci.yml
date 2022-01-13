@@ -75,6 +75,7 @@ include:
     PGUSER: postgres
     POSTGRES_DB: praefect_test
     POSTGRES_HOST_AUTH_METHOD: trust
+    TEST_REPORT: /tmp/go-tests-report.xml
   before_script: &test_before_script
     - go version
     - while ! psql -h $PGHOST -U $PGUSER -c 'SELECT 1' > /dev/null; do echo "awaiting Postgres service to be ready..." && sleep 1 ; done && echo "Postgres service is ready!"
@@ -82,7 +83,7 @@ include:
     paths:
       - ruby/tmp/gitaly-rspec-test.log
     reports:
-      junit: _build/reports/go-tests-report.xml
+      junit: ${TEST_REPORT}
     when: on_failure
     expire_in: 1 week
 
