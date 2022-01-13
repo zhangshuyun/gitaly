@@ -2167,7 +2167,7 @@ type CreateRepositoryFromURLRequest struct {
 	// URL hostname has already been resolved to an IP address to prevent DNS
 	// rebinding.
 	HttpHost string `protobuf:"bytes,3,opt,name=http_host,json=httpHost,proto3" json:"http_host,omitempty"`
-	// http_authorization_header is the HTTP header which should be added to
+	// http_authorization_header is the HTTP header which can be added to
 	// the request in order to authenticate against the repository.
 	HttpAuthorizationHeader string `protobuf:"bytes,4,opt,name=http_authorization_header,json=httpAuthorizationHeader,proto3" json:"http_authorization_header,omitempty"`
 }

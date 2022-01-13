@@ -135,10 +135,11 @@ func TestCreateRepositoryFromURL_redirect(t *testing.T) {
 	require.Contains(t, err.Error(), "The requested URL returned error: 301")
 }
 
-func TestCloneRepositoryFromUrlCommand(t *testing.T) {
+func TestServer_CloneFromURLCommand(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
+	var authToken string
 	userInfo := "user:pass%21%3F%40"
 	repositoryFullPath := "full/path/to/repository"
 	url := fmt.Sprintf("https://%s@192.0.2.1/secretrepo.git", userInfo)
@@ -146,7 +147,7 @@ func TestCloneRepositoryFromUrlCommand(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 	s := server{cfg: cfg, gitCmdFactory: gittest.NewCommandFactory(t, cfg)}
-	cmd, err := s.cloneFromURLCommand(ctx, url, host, repositoryFullPath, git.WithDisabledHooks())
+	cmd, err := s.cloneFromURLCommand(ctx, url, host, repositoryFullPath, authToken, git.WithDisabledHooks())
 	require.NoError(t, err)
 
 	expectedScrubbedURL := "https://192.0.2.1/secretrepo.git"
@@ -159,6 +160,28 @@ func TestCloneRepositoryFromUrlCommand(t *testing.T) {
 	require.Contains(t, args, expectedAuthHeader)
 	require.Contains(t, args, expectedHostHeader)
 	require.NotContains(t, args, userInfo)
+}
+
+func TestServer_CloneFromURLCommand_withToken(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+
+	repositoryFullPath := "full/path/to/repository"
+	url := "https://www.example.com/secretrepo.git"
+	authToken := "GL-Geo EhEhKSUk_385GSLnS7BI:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjoie1wic2NvcGVcIjpcInJvb3QvZ2l0bGFiLWNlXCJ9IiwianRpIjoiNmQ4ZDM1NGQtZjUxYS00MDQ5LWExZjctMjUyMjk4YmQwMTI4IiwiaWF0IjoxNjQyMDk1MzY5LCJuYmYiOjE2NDIwOTUzNjQsImV4cCI6MTY0MjA5NTk2OX0.YEpfzg8305dUqkYOiB7_dhbL0FVSaUPgpSpMuKrgNrg"
+
+	cfg := testcfg.Build(t)
+	s := server{cfg: cfg, gitCmdFactory: gittest.NewCommandFactory(t, cfg)}
+	cmd, err := s.cloneFromURLCommand(ctx, url, "", repositoryFullPath, authToken, git.WithDisabledHooks())
+	require.NoError(t, err)
+
+	expectedScrubbedURL := "https://www.example.com/secretrepo.git"
+	expectedBasicAuthHeader := fmt.Sprintf("Authorization: %s", authToken)
+	expectedHeader := fmt.Sprintf("http.extraHeader=%s", expectedBasicAuthHeader)
+
+	args := cmd.Args()
+	require.Contains(t, args, expectedScrubbedURL)
+	require.Contains(t, args, expectedHeader)
 }
 
 func gitServerWithBasicAuth(ctx context.Context, t testing.TB, gitCmdFactory git.CommandFactory, user, pass, repoPath string) (int, func() error) {
