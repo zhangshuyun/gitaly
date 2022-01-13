@@ -33,13 +33,6 @@ func (st StaticRepositoryAssignments) GetHostAssignments(ctx context.Context, vi
 	return storages, nil
 }
 
-// PrimaryGetter is an adapter to turn conforming functions in to a PrimaryGetter.
-type PrimaryGetterFunc func(ctx context.Context, virtualStorage, relativePath string) (string, error)
-
-func (fn PrimaryGetterFunc) GetPrimary(ctx context.Context, virtualStorage, relativePath string) (string, error) {
-	return fn(ctx, virtualStorage, relativePath)
-}
-
 func TestPerRepositoryRouter_RouteStorageAccessor(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
