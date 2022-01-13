@@ -95,6 +95,19 @@ func TestParser_ParseCommit(t *testing.T) {
 			},
 		},
 		{
+			desc: "ssh signature",
+			in: `gpgsig -----BEGIN SSH SIGNATURE-----
+U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgtc+Qk8jhMwVZk/jFEFCM16LNQb
+30q5kK30bbetfjyTMAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5
+AAAAQLSyv010gOFwIs9QTtDvlfIEWiAw2iQL/T9usGcxHXn/W5l0cOFCd7O+WaMDg0t0nW
+fF3T79iV8paT4/OfX8Ygg=
+-----END SSH SIGNATURE-----`,
+			out: &gitalypb.GitCommit{
+				Id:            info.Oid.String(),
+				SignatureType: gitalypb.SignatureType_SSH,
+			},
+		},
+		{
 			desc: "huge",
 			in:   "author " + strings.Repeat("A", 100000),
 			out: &gitalypb.GitCommit{
@@ -295,6 +308,47 @@ func TestParser_ParseTag(t *testing.T) {
 			},
 			expectedTagged: taggedObject{
 				objectID:   "422081655f743e03b01ee29a2eaf26aab0ee7eda",
+				objectType: "commit",
+			},
+		},
+		{
+			desc: "tag signed with SSH",
+			oid:  "1234",
+			contents: `object c92faf3e0a557270141be67f206d7cdb99bfc3a2
+type commit
+tag v2.6.16.28
+tagger Adrian Bunk <bunk@stusta.de> 1156539089 +0200
+
+This tag is signed with SSH
+-----BEGIN SSH SIGNATURE-----
+U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgtc+Qk8jhMwVZk/jFEFCM16LNQb
+30q5kK30bbetfjyTMAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5
+AAAAQLSyv010gOFwIs9QTtDvlfIEWiAw2iQL/T9usGcxHXn/W5l0cOFCd7O+WaMDg0t0nW
+fF3T79iV8paT4/OfX8Ygg=
+-----END SSH SIGNATURE-----`,
+			expectedTag: &gitalypb.Tag{
+				Id:   "1234",
+				Name: []byte("v2.6.16.28"),
+				Message: []byte(`This tag is signed with SSH
+-----BEGIN SSH SIGNATURE-----
+U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgtc+Qk8jhMwVZk/jFEFCM16LNQb
+30q5kK30bbetfjyTMAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5
+AAAAQLSyv010gOFwIs9QTtDvlfIEWiAw2iQL/T9usGcxHXn/W5l0cOFCd7O+WaMDg0t0nW
+fF3T79iV8paT4/OfX8Ygg=
+-----END SSH SIGNATURE-----`),
+				MessageSize: 321,
+				Tagger: &gitalypb.CommitAuthor{
+					Name:  []byte("Adrian Bunk"),
+					Email: []byte("bunk@stusta.de"),
+					Date: &timestamppb.Timestamp{
+						Seconds: 1156539089,
+					},
+					Timezone: []byte("+0200"),
+				},
+				SignatureType: gitalypb.SignatureType_SSH,
+			},
+			expectedTagged: taggedObject{
+				objectID:   "c92faf3e0a557270141be67f206d7cdb99bfc3a2",
 				objectType: "commit",
 			},
 		},

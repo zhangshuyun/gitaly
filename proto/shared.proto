@@ -19,6 +19,7 @@ enum SignatureType {
   NONE = 0;
   PGP = 1;
   X509 = 2;
+  SSH = 3;
   // maybe add X509+TSA or other combinations at a later step
 }
 

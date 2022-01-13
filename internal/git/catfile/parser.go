@@ -173,6 +173,8 @@ func detectSignatureType(line string) gitalypb.SignatureType {
 		return gitalypb.SignatureType_PGP
 	case "-----BEGIN PGP SIGNATURE-----":
 		return gitalypb.SignatureType_PGP
+	case "-----BEGIN SSH SIGNATURE-----":
+		return gitalypb.SignatureType_SSH
 	default:
 		return gitalypb.SignatureType_NONE
 	}

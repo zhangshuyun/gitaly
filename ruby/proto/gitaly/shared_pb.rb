@@ -84,6 +84,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       value :NONE, 0
       value :PGP, 1
       value :X509, 2
+      value :SSH, 3
     end
     add_enum "gitaly.SortDirection" do
       value :ASCENDING, 0
