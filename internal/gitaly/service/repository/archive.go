@@ -58,7 +58,7 @@ func (s *server) GetArchive(in *gitalypb.GetArchiveRequest, stream gitalypb.Repo
 		}
 	}
 
-	if err := validateGetArchiveRequest(in, format, path); err != nil {
+	if err := validateGetArchiveRequest(in, format); err != nil {
 		return err
 	}
 
@@ -122,7 +122,7 @@ func parseArchiveFormat(format gitalypb.GetArchiveRequest_Format) (*exec.Cmd, st
 	return nil, ""
 }
 
-func validateGetArchiveRequest(in *gitalypb.GetArchiveRequest, format string, path string) error {
+func validateGetArchiveRequest(in *gitalypb.GetArchiveRequest, format string) error {
 	if err := git.ValidateRevision([]byte(in.GetCommitId())); err != nil {
 		return helper.ErrInvalidArgumentf("invalid commitId: %v", err)
 	}
