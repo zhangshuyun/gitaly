@@ -13,13 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
-const (
-	// InvalidUTF8PathPlaceholder is a placeholder we return in the Path field since
-	// returning non utf8 data will result in a marshalling error
-	// Once we deprecate the Path field, we can remove this
-	InvalidUTF8PathPlaceholder = "ENCODING ERROR gitaly#1547"
-)
-
 var maxNumStatBatchSize = 10
 
 func (s *server) ListLastCommitsForTree(in *gitalypb.ListLastCommitsForTreeRequest, stream gitalypb.CommitService_ListLastCommitsForTreeServer) error {
