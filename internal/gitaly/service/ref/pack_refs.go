@@ -16,7 +16,7 @@ func (s *server) PackRefs(ctx context.Context, in *gitalypb.PackRefsRequest) (*g
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	if err := s.packRefs(ctx, in.GetRepository(), in.GetAllRefs()); err != nil {
+	if err := s.packRefs(ctx, in.GetRepository()); err != nil {
 		return nil, helper.ErrInternal(err)
 	}
 
@@ -30,7 +30,7 @@ func validatePackRefsRequest(in *gitalypb.PackRefsRequest) error {
 	return nil
 }
 
-func (s *server) packRefs(ctx context.Context, repository repository.GitRepo, all bool) error {
+func (s *server) packRefs(ctx context.Context, repository repository.GitRepo) error {
 	cmd, err := s.gitCmdFactory.New(ctx, repository, git.SubCmd{
 		Name:  "pack-refs",
 		Flags: []git.Option{git.Flag{Name: "--all"}},

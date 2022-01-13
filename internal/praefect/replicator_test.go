@@ -407,7 +407,6 @@ func TestReplicator_PropagateReplicationJob(t *testing.T) {
 
 	_, err = refClient.PackRefs(ctx, &gitalypb.PackRefsRequest{
 		Repository: repository,
-		AllRefs:    true,
 	})
 	require.NoError(t, err)
 
@@ -439,7 +438,6 @@ func TestReplicator_PropagateReplicationJob(t *testing.T) {
 	}
 	expectedPrimaryPackRefs := &gitalypb.PackRefsRequest{
 		Repository: primaryRepository,
-		AllRefs:    true,
 	}
 
 	replMgrDone := startProcessBacklog(ctx, replmgr)

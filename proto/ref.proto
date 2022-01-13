@@ -380,7 +380,10 @@ message FindAllRemoteBranchesResponse {
 
 message PackRefsRequest {
   Repository repository = 1 [(target_repository)=true];
-  bool all_refs = 2;
+
+  // DEPRECATED: https://gitlab.com/gitlab-org/gitaly/-/issues/3997
+  reserved 2;
+  reserved "all_refs";
 }
 
 message PackRefsResponse{}

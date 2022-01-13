@@ -176,7 +176,6 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     end
     add_message "gitaly.PackRefsRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
-      optional :all_refs, :bool, 2
     end
     add_message "gitaly.PackRefsResponse" do
     end

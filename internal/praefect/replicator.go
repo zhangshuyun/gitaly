@@ -279,16 +279,10 @@ func (dr defaultReplicator) PackRefs(ctx context.Context, event datastore.Replic
 		RelativePath: event.Job.ReplicaPath,
 	}
 
-	allRefs, err := event.Job.Params.GetBool("AllRefs")
-	if err != nil {
-		return fmt.Errorf("getting AllRefs parameter for PackRefs: %w", err)
-	}
-
 	refSvcClient := gitalypb.NewRefServiceClient(targetCC)
 
 	if _, err := refSvcClient.PackRefs(ctx, &gitalypb.PackRefsRequest{
 		Repository: targetRepo,
-		AllRefs:    allRefs,
 	}); err != nil {
 		return err
 	}
