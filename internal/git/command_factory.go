@@ -71,7 +71,8 @@ type CommandFactory interface {
 }
 
 type execCommandFactoryConfig struct {
-	hooksPath string
+	hooksPath     string
+	gitBinaryPath string
 }
 
 // ExecCommandFactoryOption is an option that can be passed to NewExecCommandFactory.
@@ -88,6 +89,13 @@ func WithSkipHooks() ExecCommandFactoryOption {
 func WithHooksPath(hooksPath string) ExecCommandFactoryOption {
 	return func(cfg *execCommandFactoryConfig) {
 		cfg.hooksPath = hooksPath
+	}
+}
+
+// WithGitBinaryPath overrides the path to the Git binary that shall be executed.
+func WithGitBinaryPath(path string) ExecCommandFactoryOption {
+	return func(cfg *execCommandFactoryConfig) {
+		cfg.gitBinaryPath = path
 	}
 }
 
@@ -141,7 +149,7 @@ func NewExecCommandFactory(cfg config.Cfg, opts ...ExecCommandFactoryOption) (_ 
 	}
 	cleanups = append(cleanups, cleanup)
 
-	execEnv, cleanup, err := setupGitExecutionEnvironment(cfg)
+	execEnv, cleanup, err := setupGitExecutionEnvironment(cfg, factoryCfg)
 	if err != nil {
 		return nil, nil, fmt.Errorf("setting up Git execution environment: %w", err)
 	}
@@ -168,7 +176,13 @@ func NewExecCommandFactory(cfg config.Cfg, opts ...ExecCommandFactoryOption) (_ 
 
 // setupGitExecutionEnvironment assembles a Git execution environment that can be used to run Git
 // commands. It warns if no path was specified in the configuration.
-func setupGitExecutionEnvironment(cfg config.Cfg) (ExecutionEnvironment, func(), error) {
+func setupGitExecutionEnvironment(cfg config.Cfg, factoryCfg execCommandFactoryConfig) (ExecutionEnvironment, func(), error) {
+	if factoryCfg.gitBinaryPath != "" {
+		return ExecutionEnvironment{
+			BinaryPath: factoryCfg.gitBinaryPath,
+		}, func() {}, nil
+	}
+
 	switch {
 	case cfg.Git.BinPath != "":
 		return ExecutionEnvironment{

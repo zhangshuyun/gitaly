@@ -42,13 +42,9 @@ func NewInterceptingCommandFactory(
 	scriptPath := filepath.Join(testhelper.TempDir(tb), "git")
 	testhelper.WriteExecutable(tb, scriptPath, []byte(generateScript(gitCmdFactory.GetExecutionEnvironment(ctx))))
 
-	interceptingCfg := cfg
-	interceptingCfg.Git.UseBundledBinaries = false
-	interceptingCfg.Git.BinPath = scriptPath
-
 	return &InterceptingCommandFactory{
 		realCommandFactory:         gitCmdFactory,
-		interceptingCommandFactory: NewCommandFactory(tb, interceptingCfg),
+		interceptingCommandFactory: NewCommandFactory(tb, cfg, git.WithGitBinaryPath(scriptPath)),
 	}
 }
 
