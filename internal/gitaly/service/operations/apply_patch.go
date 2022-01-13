@@ -200,10 +200,6 @@ func validateUserApplyPatchHeader(header *gitalypb.UserApplyPatchRequest_Header)
 }
 
 func (s *Server) addWorktree(ctx context.Context, repo *localrepo.Repo, worktreePath string, committish string) error {
-	if err := repo.SetConfig(ctx, "core.splitIndex", "false", s.txManager); err != nil {
-		return fmt.Errorf("on 'git config core.splitIndex false': %w", err)
-	}
-
 	args := []string{worktreePath}
 	flags := []git.Option{git.Flag{Name: "--detach"}}
 	if committish != "" {

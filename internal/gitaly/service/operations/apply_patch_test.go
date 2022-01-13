@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -620,7 +619,7 @@ func TestUserApplyPatchTransactional(t *testing.T) {
 
 	txManager := transaction.NewTrackingManager()
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx, testserver.WithTransactionManager(txManager))
+	ctx, _, repoProto, _, client := setupOperationsService(t, ctx, testserver.WithTransactionManager(txManager))
 
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
@@ -653,10 +652,7 @@ func TestUserApplyPatchTransactional(t *testing.T) {
 
 	require.True(t, response.BranchUpdate.BranchCreated)
 
-	require.Equal(t, 14, len(txManager.Votes()))
-
-	splitIndex := gittest.Exec(t, cfg, "-C", repoPath, "config", "core.splitIndex")
-	require.Equal(t, "false", text.ChompBytes(splitIndex))
+	require.Equal(t, 12, len(txManager.Votes()))
 }
 
 func TestFailedPatchApplyPatch(t *testing.T) {

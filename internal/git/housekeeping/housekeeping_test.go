@@ -437,6 +437,7 @@ func testPerformWithSpecificFile(t *testing.T, file string, finder staleFileFind
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
+	require.NoError(t, Perform(ctx, repo, nil))
 	for _, tc := range []struct {
 		desc          string
 		entries       []entry
@@ -672,6 +673,13 @@ func TestPerform_UnsetConfiguration(t *testing.T) {
 
 	var expectedEntries []string
 	for key, value := range map[string]string{
+		"core.commitgraph":        "true",
+		"core.sparsecheckout":     "true",
+		"core.splitindex":         "false",
+		"remote.first.fetch":      "baz",
+		"remote.first.mirror":     "baz",
+		"remote.first.prune":      "baz",
+		"remote.first.url":        "baz",
 		"http.first.extraHeader":  "barfoo",
 		"http.second.extraHeader": "barfoo",
 		"http.extraHeader":        "untouched",
@@ -688,6 +696,13 @@ func TestPerform_UnsetConfiguration(t *testing.T) {
 	require.NoError(t, Perform(ctx, repo, nil))
 
 	postimageConfig := gittest.Exec(t, cfg, "-C", repoPath, "config", "--local", "--list")
+	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "core.commitgraph")
+	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "core.sparsecheckout")
+	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "core.splitindex")
+	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "remote.first.fetch")
+	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "remote.first.mirror")
+	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "remote.first.prune")
+	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "remote.first.url")
 	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "http.first.extraheader")
 	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "http.second.extraheader")
 }

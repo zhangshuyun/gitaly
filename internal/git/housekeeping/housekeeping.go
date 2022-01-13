@@ -105,11 +105,12 @@ func Perform(ctx context.Context, repo *localrepo.Repo, txManager transaction.Ma
 		return fmt.Errorf("housekeeping could not remove empty refs: %w", err)
 	}
 
-	// TODO: https://gitlab.com/gitlab-org/gitaly/-/issues/3138
+	// TODO: https://gitlab.com/gitlab-org/gitaly/-/issues/3987
 	// This is a temporary code and needs to be removed once it will be run on all repositories at least once.
-	if err := repo.UnsetMatchingConfig(ctx, "^http\\..+\\.extraHeader$", txManager); err != nil {
+	unnecessaryConfigRegex := "^(http\\..+\\.extraheader|remote\\..+\\.(fetch|mirror|prunes|url)|core\\.(commitgraph|sparsecheckout|splitindex))$"
+	if err := repo.UnsetMatchingConfig(ctx, unnecessaryConfigRegex, txManager); err != nil {
 		if !errors.Is(err, git.ErrNotFound) {
-			return fmt.Errorf("housekeeping could not unset extreHeaders: %w", err)
+			return fmt.Errorf("housekeeping could not unset unnecessary config lines: %w", err)
 		}
 	}
 
