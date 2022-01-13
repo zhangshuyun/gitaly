@@ -1114,35 +1114,30 @@ func TestReplMgr_ProcessStale(t *testing.T) {
 	queue := datastore.NewReplicationEventQueueInterceptor(nil)
 	mgr := NewReplMgr(logger.WithField("test", t.Name()), nil, queue, datastore.MockRepositoryStore{}, nil, nil)
 
-	var counter int32
-	queue.OnAcknowledgeStale(func(ctx context.Context, duration time.Duration) error {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	const iterations = 3
+	var counter int
+	queue.OnAcknowledgeStale(func(context.Context, time.Duration) error {
 		counter++
-		if counter > 2 {
+		if counter >= iterations {
+			cancel()
 			return assert.AnError
 		}
 		return nil
 	})
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
 	ticker := helper.NewManualTicker()
 
 	done := mgr.ProcessStale(ctx, ticker, time.Second)
-
-	// Tick thrice so we know that at least one event was acknowledged: the first tick is
-	// consumed by the reset, the second tick is consumed by the first loop, but we don't know
-	// yet that the loop is done. And the third tick then finally tells us that at have run it
-	// at least once.
-	ticker.Tick()
-	ticker.Tick()
-	ticker.Tick()
-
-	cancel()
+	for i := 0; i < iterations; i++ {
+		ticker.Tick()
+	}
 	<-done
 
-	require.Equal(t, int32(3), counter)
-	require.Len(t, hook.Entries, 1)
+	require.Equal(t, iterations, counter)
+	require.Len(t, hook.AllEntries(), 1)
 	require.Equal(t, logrus.ErrorLevel, hook.LastEntry().Level)
 	require.Equal(t, "background periodical acknowledgement for stale replication jobs", hook.LastEntry().Message)
 	require.Equal(t, "replication_manager", hook.LastEntry().Data["component"])
