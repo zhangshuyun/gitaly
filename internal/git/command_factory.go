@@ -82,13 +82,17 @@ func WithSkipHooks() ExecCommandFactoryOption {
 	}
 }
 
+type hookDirectories struct {
+	rubyHooksPath string
+}
+
 // ExecCommandFactory knows how to properly construct different types of commands.
 type ExecCommandFactory struct {
 	locator               storage.Locator
 	cfg                   config.Cfg
 	cgroupsManager        cgroups.Manager
 	invalidCommandsMetric *prometheus.CounterVec
-	skipHooks             bool
+	hookDirs              hookDirectories
 
 	cachedGitVersionLock sync.RWMutex
 	cachedGitVersion     Version
@@ -103,6 +107,11 @@ func NewExecCommandFactory(cfg config.Cfg, opts ...ExecCommandFactoryOption) (*E
 		opt(&factoryCfg)
 	}
 
+	hookDirectories, err := setupHookDirectories(cfg, factoryCfg)
+	if err != nil {
+		return nil, nil, fmt.Errorf("setting up hooks: %w", err)
+	}
+
 	gitCmdFactory := &ExecCommandFactory{
 		cfg:            cfg,
 		locator:        config.NewLocator(cfg),
@@ -114,11 +123,7 @@ func NewExecCommandFactory(cfg config.Cfg, opts ...ExecCommandFactoryOption) (*E
 			},
 			[]string{"command"},
 		),
-		skipHooks: factoryCfg.skipHooks,
-	}
-
-	if err := gitCmdFactory.validateHooks(); err != nil {
-		return nil, nil, fmt.Errorf("validating hooks: %w", err)
+		hookDirs: hookDirectories,
 	}
 
 	return gitCmdFactory, func() {}, nil
@@ -166,25 +171,27 @@ func (cf *ExecCommandFactory) GetExecutionEnvironment(context.Context) Execution
 
 // HooksPath returns the path where Gitaly's Git hooks reside.
 func (cf *ExecCommandFactory) HooksPath() string {
-	if len(cf.cfg.Git.HooksPath) > 0 {
-		return cf.cfg.Git.HooksPath
-	}
-
-	if cf.skipHooks {
-		return "/var/empty"
-	}
-
-	return filepath.Join(cf.cfg.Ruby.Dir, "git-hooks")
+	return cf.hookDirs.rubyHooksPath
 }
 
-func (cf *ExecCommandFactory) validateHooks() error {
-	if cf.skipHooks {
-		return nil
+func setupHookDirectories(cfg config.Cfg, factoryCfg execCommandFactoryConfig) (hookDirectories, error) {
+	if len(cfg.Git.HooksPath) > 0 {
+		return hookDirectories{
+			rubyHooksPath: cfg.Git.HooksPath,
+		}, nil
 	}
+
+	if factoryCfg.skipHooks {
+		return hookDirectories{
+			rubyHooksPath: "/var/empty",
+		}, nil
+	}
+
+	rubyHooksPath := filepath.Join(cfg.Ruby.Dir, "git-hooks")
 
 	var errs []string
 	for _, hookName := range []string{"pre-receive", "post-receive", "update"} {
-		hookPath := filepath.Join(cf.cfg.Ruby.Dir, "git-hooks", hookName)
+		hookPath := filepath.Join(rubyHooksPath, hookName)
 		if err := unix.Access(hookPath, unix.X_OK); err != nil {
 			if errors.Is(err, os.ErrPermission) {
 				errs = append(errs, fmt.Sprintf("not executable: %v", hookPath))
@@ -195,10 +202,12 @@ func (cf *ExecCommandFactory) validateHooks() error {
 	}
 
 	if len(errs) > 0 {
-		return fmt.Errorf(strings.Join(errs, ", "))
+		return hookDirectories{}, fmt.Errorf(strings.Join(errs, ", "))
 	}
 
-	return nil
+	return hookDirectories{
+		rubyHooksPath: rubyHooksPath,
+	}, nil
 }
 
 func statDiffers(a, b os.FileInfo) bool {
