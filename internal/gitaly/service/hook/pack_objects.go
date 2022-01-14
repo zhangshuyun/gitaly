@@ -22,6 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/stream"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
@@ -40,11 +41,6 @@ var (
 		Name: "gitaly_pack_objects_generated_bytes_total",
 		Help: "Number of bytes generated in PackObjectsHook by running git-pack-objects",
 	})
-)
-
-const (
-	bandStdout = 1
-	bandStderr = 2
 )
 
 func (s *server) packObjectsHook(ctx context.Context, repo *gitalypb.Repository, reqHash proto.Message, args *packObjectsArgs, stdinReader io.Reader, output io.Writer) error {
@@ -144,9 +140,9 @@ func (s *server) runPackObjects(ctx context.Context, w io.Writer, repo *gitalypb
 
 	counter := &helper.CountingWriter{W: w}
 	sw := pktline.NewSidebandWriter(counter)
-	stdout := bufio.NewWriterSize(sw.Writer(bandStdout), pktline.MaxSidebandData)
+	stdout := bufio.NewWriterSize(sw.Writer(stream.BandStdout), pktline.MaxSidebandData)
 	stderrBuf := &bytes.Buffer{}
-	stderr := io.MultiWriter(sw.Writer(bandStderr), stderrBuf)
+	stderr := io.MultiWriter(sw.Writer(stream.BandStderr), stderrBuf)
 
 	defer func() {
 		packObjectsGeneratedBytes.Add(float64(counter.N))
