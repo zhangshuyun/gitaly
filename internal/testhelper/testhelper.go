@@ -221,8 +221,9 @@ func TempDir(t testing.TB) string {
 type Cleanup func()
 
 // WriteExecutable ensures that the parent directory exists, and writes an executable with provided
-// content. The executable must not exist previous to writing it.
-func WriteExecutable(t testing.TB, path string, content []byte) {
+// content. The executable must not exist previous to writing it. Returns the path of the written
+// executable.
+func WriteExecutable(t testing.TB, path string, content []byte) string {
 	dir := filepath.Dir(path)
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 
@@ -236,6 +237,8 @@ func WriteExecutable(t testing.TB, path string, content []byte) {
 	t.Cleanup(func() {
 		assert.NoError(t, os.RemoveAll(dir))
 	})
+
+	return path
 }
 
 // ModifyEnvironment will change an environment variable and return a func suitable
