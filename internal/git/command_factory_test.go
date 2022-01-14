@@ -319,3 +319,100 @@ func TestExecCommandFactory_ValidateHooks(t *testing.T) {
 		})
 	}
 }
+
+func TestExecCommandFactory_GitVersion(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	generateVersionScript := func(version string) func(git.ExecutionEnvironment) string {
+		return func(git.ExecutionEnvironment) string {
+			return fmt.Sprintf(
+				`#!/usr/bin/env bash
+				echo '%s'
+			`, version)
+		}
+	}
+
+	for _, tc := range []struct {
+		desc            string
+		versionString   string
+		expectedErr     string
+		expectedVersion string
+	}{
+		{
+			desc:            "valid version",
+			versionString:   "git version 2.33.1.gl1",
+			expectedVersion: "2.33.1.gl1",
+		},
+		{
+			desc:            "valid version with trailing newline",
+			versionString:   "git version 2.33.1.gl1\n",
+			expectedVersion: "2.33.1.gl1",
+		},
+		{
+			desc:          "multi-line version",
+			versionString: "git version 2.33.1.gl1\nfoobar\n",
+			expectedErr:   "cannot parse git version: strconv.ParseUint: parsing \"1\\nfoobar\": invalid syntax",
+		},
+		{
+			desc:          "unexpected format",
+			versionString: "2.33.1\n",
+			expectedErr:   "invalid version format: \"2.33.1\\n\\n\"",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			gitCmdFactory := gittest.NewInterceptingCommandFactory(
+				ctx, t, testcfg.Build(t), generateVersionScript(tc.versionString), git.WithSkipHooks(),
+			)
+
+			actualVersion, err := gitCmdFactory.GitVersion(ctx)
+			if tc.expectedErr == "" {
+				require.NoError(t, err)
+			} else {
+				require.EqualError(t, err, tc.expectedErr)
+			}
+			require.Equal(t, tc.expectedVersion, actualVersion.String())
+		})
+	}
+
+	t.Run("caching", func(t *testing.T) {
+		gitCmdFactory := gittest.NewInterceptingCommandFactory(
+			ctx, t, testcfg.Build(t), generateVersionScript("git version 1.2.3"), git.WithSkipHooks(),
+		)
+
+		gitPath := gitCmdFactory.GetExecutionEnvironment(ctx).BinaryPath
+		stat, err := os.Stat(gitPath)
+		require.NoError(t, err)
+
+		version, err := gitCmdFactory.GitVersion(ctx)
+		require.NoError(t, err)
+		require.Equal(t, "1.2.3", version.String())
+
+		// We rewrite the file with the same content length and modification time such that
+		// its file information doesn't change. As a result, information returned by
+		// stat(3P) shouldn't differ and we should continue to see the cached version. This
+		// is a known insufficiency, but it is extremely unlikely to ever happen in
+		// production when the real Git binary changes.
+		require.NoError(t, os.Remove(gitPath))
+		testhelper.WriteExecutable(t, gitPath, []byte(generateVersionScript("git version 9.8.7")(git.ExecutionEnvironment{})))
+		require.NoError(t, os.Chtimes(gitPath, stat.ModTime(), stat.ModTime()))
+
+		// Given that we continue to use the cached version we shouldn't see any
+		// change here.
+		version, err = gitCmdFactory.GitVersion(ctx)
+		require.NoError(t, err)
+		require.Equal(t, "1.2.3", version.String())
+
+		// If we really replace the Git binary with something else, then we should
+		// see a changed version.
+		require.NoError(t, os.Remove(gitPath))
+		testhelper.WriteExecutable(t, gitPath, []byte(
+			`#!/usr/bin/env bash
+			echo 'git version 2.34.1'
+		`))
+
+		version, err = gitCmdFactory.GitVersion(ctx)
+		require.NoError(t, err)
+		require.Equal(t, "2.34.1", version.String())
+	})
+}

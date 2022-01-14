@@ -30,13 +30,14 @@ func NewInterceptingCommandFactory(
 	tb testing.TB,
 	cfg config.Cfg,
 	generateScript func(git.ExecutionEnvironment) string,
+	opts ...git.ExecCommandFactoryOption,
 ) *InterceptingCommandFactory {
 	// We create two different command factories. The first one will set up the execution
 	// environment such that we can deterministically resolve the Git binary path as well as
 	// required environment variables for both bundled and non-bundled Git. The second one will
 	// then use a separate config which overrides the Git binary path to point to a custom
 	// script supplied by the user.
-	gitCmdFactory := NewCommandFactory(tb, cfg)
+	gitCmdFactory := NewCommandFactory(tb, cfg, opts...)
 
 	scriptPath := filepath.Join(testhelper.TempDir(tb), "git")
 	testhelper.WriteExecutable(tb, scriptPath, []byte(generateScript(gitCmdFactory.GetExecutionEnvironment(ctx))))
@@ -87,7 +88,7 @@ func (f *InterceptingCommandFactory) HooksPath(ctx context.Context) string {
 	return f.realCommandFactory.HooksPath(ctx)
 }
 
-// GitVersion returns the real Git version.
+// GitVersion returns the Git version as returned by the intercepted command.
 func (f *InterceptingCommandFactory) GitVersion(ctx context.Context) (git.Version, error) {
-	return f.realCommandFactory.GitVersion(ctx)
+	return f.interceptingCommandFactory.GitVersion(ctx)
 }
