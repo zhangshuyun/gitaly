@@ -71,6 +71,11 @@ func (repo *Repo) ExecAndWait(ctx context.Context, cmd git.Cmd, opts ...git.CmdO
 	return command.Wait()
 }
 
+// GitVersion returns the Git version in use.
+func (repo *Repo) GitVersion(ctx context.Context) (git.Version, error) {
+	return repo.gitCmdFactory.GitVersion(ctx)
+}
+
 func errorWithStderr(err error, stderr []byte) error {
 	if len(stderr) == 0 {
 		return err

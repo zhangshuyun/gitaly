@@ -150,7 +150,7 @@ func run(cfg config.Cfg) error {
 	}
 	defer cleanup()
 
-	gitVersion, err := git.CurrentVersion(ctx, gitCmdFactory)
+	gitVersion, err := gitCmdFactory.GitVersion(ctx)
 	if err != nil {
 		return fmt.Errorf("git version detection: %w", err)
 	}

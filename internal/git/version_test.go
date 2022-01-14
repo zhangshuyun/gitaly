@@ -1,73 +1,16 @@
 package git
 
 import (
-	"context"
 	"fmt"
-	"os/exec"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
-type versionGitCommandFactory struct {
-	CommandFactory
-
-	t       *testing.T
-	version string
-}
-
-func newVersionGitCommandFactory(t *testing.T, version string) *versionGitCommandFactory {
-	return &versionGitCommandFactory{
-		t:       t,
-		version: version,
-	}
-}
-
-func (f *versionGitCommandFactory) NewWithoutRepo(ctx context.Context, subcmd Cmd, opts ...CmdOpt) (*command.Command, error) {
-	f.t.Helper()
-
-	require.Equal(f.t, SubCmd{
-		Name: "version",
-	}, subcmd)
-	require.Len(f.t, opts, 0)
-
-	cmd, err := command.New(ctx, exec.Command("/usr/bin/env", "echo", f.version), nil, nil, nil)
-	require.NoError(f.t, err)
-
-	return cmd, nil
-}
-
-type versionRepositoryExecutor struct {
-	RepositoryExecutor
-
-	t       *testing.T
-	version string
-}
-
-func newVersionRepositoryExecutor(t *testing.T, version string) *versionRepositoryExecutor {
-	return &versionRepositoryExecutor{
-		t:       t,
-		version: version,
-	}
-}
-
-func (e *versionRepositoryExecutor) Exec(ctx context.Context, subcmd Cmd, opts ...CmdOpt) (*command.Command, error) {
-	e.t.Helper()
-
-	require.Equal(e.t, SubCmd{
-		Name: "version",
-	}, subcmd)
-	require.Len(e.t, opts, 0)
-
-	cmd, err := command.New(ctx, exec.Command("/usr/bin/env", "echo", e.version), nil, nil, nil)
-	require.NoError(e.t, err)
-
-	return cmd, nil
-}
-
-func TestCurrentVersion(t *testing.T) {
+func TestExecCommandFactory_GitVersion(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -103,25 +46,27 @@ func TestCurrentVersion(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			t.Run("command factory", func(t *testing.T) {
-				actualVersion, err := CurrentVersion(ctx, newVersionGitCommandFactory(t, tc.versionString))
-				if tc.expectedErr == "" {
-					require.NoError(t, err)
-				} else {
-					require.EqualError(t, err, tc.expectedErr)
-				}
-				require.Equal(t, tc.expectedVersion, actualVersion)
-			})
+			gitPath := filepath.Join(testhelper.TempDir(t), "git")
+			testhelper.WriteExecutable(t, gitPath, []byte(fmt.Sprintf(
+				`#!/usr/bin/env bash
+				echo '%s'
+			`, tc.versionString)))
 
-			t.Run("repository executor", func(t *testing.T) {
-				actualVersion, err := CurrentVersionForExecutor(ctx, newVersionRepositoryExecutor(t, tc.versionString))
-				if tc.expectedErr == "" {
-					require.NoError(t, err)
-				} else {
-					require.EqualError(t, err, tc.expectedErr)
-				}
-				require.Equal(t, tc.expectedVersion, actualVersion)
-			})
+			gitCmdFactory, cleanup, err := NewExecCommandFactory(config.Cfg{
+				Git: config.Git{
+					BinPath: gitPath,
+				},
+			}, WithSkipHooks())
+			require.NoError(t, err)
+			defer cleanup()
+
+			actualVersion, err := gitCmdFactory.GitVersion(ctx)
+			if tc.expectedErr == "" {
+				require.NoError(t, err)
+			} else {
+				require.EqualError(t, err, tc.expectedErr)
+			}
+			require.Equal(t, tc.expectedVersion, actualVersion)
 		})
 	}
 }

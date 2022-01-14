@@ -63,6 +63,8 @@ type CommandFactory interface {
 	GetExecutionEnvironment(context.Context) ExecutionEnvironment
 	// HooksPath returns the path where Gitaly's Git hooks reside.
 	HooksPath() string
+	// GitVersion returns the Git version used by the command factory.
+	GitVersion(context.Context) (Version, error)
 }
 
 type execCommandFactoryConfig struct {
@@ -192,6 +194,18 @@ func (cf *ExecCommandFactory) validateHooks() error {
 	}
 
 	return nil
+}
+
+// GitVersion returns the Git version in use.
+func (cf *ExecCommandFactory) GitVersion(ctx context.Context) (Version, error) {
+	cmd, err := cf.NewWithoutRepo(ctx, SubCmd{
+		Name: "version",
+	})
+	if err != nil {
+		return Version{}, fmt.Errorf("spawning version command: %w", err)
+	}
+
+	return parseVersionFromCommand(cmd)
 }
 
 // newCommand creates a new command.Command for the given git command. If a repo is given, then the

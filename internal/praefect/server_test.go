@@ -20,7 +20,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	gconfig "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
@@ -168,7 +167,7 @@ func TestGitalyServerInfo(t *testing.T) {
 		})
 		t.Cleanup(cleanup)
 
-		gitVersion, err := git.CurrentVersion(ctx, gittest.NewCommandFactory(t, firstCfg))
+		gitVersion, err := gittest.NewCommandFactory(t, firstCfg).GitVersion(ctx)
 		require.NoError(t, err)
 
 		expected := &gitalypb.ServerInfoResponse{
