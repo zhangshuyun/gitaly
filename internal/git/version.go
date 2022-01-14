@@ -1,7 +1,6 @@
 package git
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"strconv"
@@ -37,30 +36,6 @@ type Version struct {
 	major, minor, patch uint32
 	rc                  bool
 	gl                  uint32
-}
-
-// CurrentVersion returns the used git version.
-func CurrentVersion(ctx context.Context, gitCmdFactory CommandFactory) (Version, error) {
-	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, SubCmd{
-		Name: "version",
-	})
-	if err != nil {
-		return Version{}, fmt.Errorf("spawning version command: %w", err)
-	}
-
-	return parseVersionFromCommand(cmd)
-}
-
-// CurrentVersionForExecutor returns the git version used by the given executor.
-func CurrentVersionForExecutor(ctx context.Context, executor RepositoryExecutor) (Version, error) {
-	cmd, err := executor.Exec(ctx, SubCmd{
-		Name: "version",
-	})
-	if err != nil {
-		return Version{}, fmt.Errorf("spawning version command: %w", err)
-	}
-
-	return parseVersionFromCommand(cmd)
 }
 
 func parseVersionFromCommand(cmd *command.Command) (Version, error) {

@@ -86,3 +86,8 @@ func (f *InterceptingCommandFactory) GetExecutionEnvironment(ctx context.Context
 func (f *InterceptingCommandFactory) HooksPath() string {
 	return f.realCommandFactory.HooksPath()
 }
+
+// GitVersion returns the real Git version.
+func (f *InterceptingCommandFactory) GitVersion(ctx context.Context) (git.Version, error) {
+	return f.realCommandFactory.GitVersion(ctx)
+}

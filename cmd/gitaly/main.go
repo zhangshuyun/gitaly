@@ -113,19 +113,6 @@ func configure(configPath string) (config.Cfg, error) {
 	return cfg, nil
 }
 
-func verifyGitVersion(ctx context.Context, gitCmdFactory git.CommandFactory) error {
-	gitVersion, err := git.CurrentVersion(ctx, gitCmdFactory)
-	if err != nil {
-		return fmt.Errorf("git version detection: %w", err)
-	}
-
-	if !gitVersion.IsSupported() {
-		return fmt.Errorf("unsupported Git version: %q", gitVersion)
-	}
-
-	return nil
-}
-
 func preloadLicenseDatabase() {
 	// the first call to `licensedb.Detect` could be too long
 	// https://github.com/go-enry/go-license-detector/issues/13
@@ -163,8 +150,13 @@ func run(cfg config.Cfg) error {
 	}
 	defer cleanup()
 
-	if err := verifyGitVersion(ctx, gitCmdFactory); err != nil {
-		return err
+	gitVersion, err := gitCmdFactory.GitVersion(ctx)
+	if err != nil {
+		return fmt.Errorf("git version detection: %w", err)
+	}
+
+	if !gitVersion.IsSupported() {
+		return fmt.Errorf("unsupported Git version: %q", gitVersion)
 	}
 
 	registry := backchannel.NewRegistry()
@@ -268,14 +260,6 @@ func run(cfg config.Cfg) error {
 	if addr := cfg.PrometheusListenAddr; addr != "" {
 		b.RegisterStarter(func(listen bootstrap.ListenFunc, _ chan<- error, _ *prometheus.CounterVec) error {
 			l, err := listen("tcp", addr)
-			if err != nil {
-				return err
-			}
-
-			ctx, cancel := context.WithCancel(context.TODO())
-			defer cancel()
-
-			gitVersion, err := git.CurrentVersion(ctx, gitCmdFactory)
 			if err != nil {
 				return err
 			}

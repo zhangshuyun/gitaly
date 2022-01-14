@@ -47,6 +47,10 @@ func (e *repoExecutor) ExecAndWait(ctx context.Context, cmd git.Cmd, opts ...git
 	return command.Wait()
 }
 
+func (e *repoExecutor) GitVersion(ctx context.Context) (git.Version, error) {
+	return git.Version{}, nil
+}
+
 func setupObjectReader(t *testing.T, ctx context.Context) (config.Cfg, ObjectReader, *gitalypb.Repository) {
 	t.Helper()
 
