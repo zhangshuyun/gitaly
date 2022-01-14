@@ -63,7 +63,7 @@ type CommandFactory interface {
 	// GetExecutionEnvironment returns parameters required to execute Git commands.
 	GetExecutionEnvironment(context.Context) ExecutionEnvironment
 	// HooksPath returns the path where Gitaly's Git hooks reside.
-	HooksPath() string
+	HooksPath(context.Context) string
 	// GitVersion returns the Git version used by the command factory.
 	GitVersion(context.Context) (Version, error)
 }
@@ -177,7 +177,7 @@ func (cf *ExecCommandFactory) GetExecutionEnvironment(context.Context) Execution
 }
 
 // HooksPath returns the path where Gitaly's Git hooks reside.
-func (cf *ExecCommandFactory) HooksPath() string {
+func (cf *ExecCommandFactory) HooksPath(context.Context) string {
 	return cf.hookDirs.rubyHooksPath
 }
 

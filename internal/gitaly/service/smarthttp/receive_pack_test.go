@@ -226,8 +226,11 @@ func TestFailedReceivePackRequestDueToHooksFailure(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg, git.WithHooksPath(testhelper.TempDir(t)))
 
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	hookContent := []byte("#!/bin/sh\nexit 1")
-	require.NoError(t, os.WriteFile(filepath.Join(gitCmdFactory.HooksPath(), "pre-receive"), hookContent, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(gitCmdFactory.HooksPath(ctx), "pre-receive"), hookContent, 0o755))
 
 	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
 		testserver.WithGitCommandFactory(gitCmdFactory),
@@ -235,9 +238,6 @@ func TestFailedReceivePackRequestDueToHooksFailure(t *testing.T) {
 
 	client, conn := newSmartHTTPClient(t, server.Address(), cfg.Auth.Token)
 	defer conn.Close()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	stream, err := client.PostReceivePack(ctx)
 	require.NoError(t, err)

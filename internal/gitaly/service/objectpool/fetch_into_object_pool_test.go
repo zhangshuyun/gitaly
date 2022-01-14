@@ -97,7 +97,7 @@ func TestFetchIntoObjectPool_hooks(t *testing.T) {
 
 	// Set up a custom reference-transaction hook which simply exits failure. This asserts that
 	// the RPC doesn't invoke any reference-transaction.
-	testhelper.WriteExecutable(t, filepath.Join(gitCmdFactory.HooksPath(), "reference-transaction"), []byte("#!/bin/sh\nexit 1\n"))
+	testhelper.WriteExecutable(t, filepath.Join(gitCmdFactory.HooksPath(ctx), "reference-transaction"), []byte("#!/bin/sh\nexit 1\n"))
 
 	req := &gitalypb.FetchIntoObjectPoolRequest{
 		ObjectPool: pool.ToProto(),
