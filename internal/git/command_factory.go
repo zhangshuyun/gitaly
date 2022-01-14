@@ -95,6 +95,11 @@ type hookDirectories struct {
 	tempHooksPath string
 }
 
+type cachedGitVersion struct {
+	version Version
+	stat    os.FileInfo
+}
+
 // ExecCommandFactory knows how to properly construct different types of commands.
 type ExecCommandFactory struct {
 	locator               storage.Locator
@@ -103,9 +108,8 @@ type ExecCommandFactory struct {
 	invalidCommandsMetric *prometheus.CounterVec
 	hookDirs              hookDirectories
 
-	cachedGitVersionLock sync.RWMutex
-	cachedGitVersion     Version
-	cachedGitStat        *os.FileInfo
+	cachedGitVersionLock     sync.RWMutex
+	cachedGitVersionByBinary map[string]cachedGitVersion
 }
 
 // NewExecCommandFactory returns a new instance of initialized ExecCommandFactory. The returned
@@ -137,7 +141,8 @@ func NewExecCommandFactory(cfg config.Cfg, opts ...ExecCommandFactoryOption) (_ 
 			},
 			[]string{"command"},
 		),
-		hookDirs: hookDirectories,
+		hookDirs:                 hookDirectories,
+		cachedGitVersionByBinary: make(map[string]cachedGitVersion),
 	}
 
 	return gitCmdFactory, cleanup, nil
@@ -255,18 +260,22 @@ func statDiffers(a, b os.FileInfo) bool {
 // GitVersion returns the Git version in use. The version is cached as long as the binary remains
 // unchanged as determined by stat(3P).
 func (cf *ExecCommandFactory) GitVersion(ctx context.Context) (Version, error) {
-	stat, err := os.Stat(cf.GetExecutionEnvironment(ctx).BinaryPath)
+	gitBinary := cf.GetExecutionEnvironment(ctx).BinaryPath
+
+	stat, err := os.Stat(gitBinary)
 	if err != nil {
 		return Version{}, fmt.Errorf("cannot stat Git binary: %w", err)
 	}
 
 	cf.cachedGitVersionLock.RLock()
-	upToDate := cf.cachedGitStat != nil && !statDiffers(stat, *cf.cachedGitStat)
-	cachedGitVersion := cf.cachedGitVersion
+	cachedVersion, upToDate := cf.cachedGitVersionByBinary[gitBinary]
+	if upToDate {
+		upToDate = !statDiffers(stat, cachedVersion.stat)
+	}
 	cf.cachedGitVersionLock.RUnlock()
 
 	if upToDate {
-		return cachedGitVersion, nil
+		return cachedVersion.version, nil
 	}
 
 	cf.cachedGitVersionLock.Lock()
@@ -297,8 +306,10 @@ func (cf *ExecCommandFactory) GitVersion(ctx context.Context) (Version, error) {
 		return Version{}, err
 	}
 
-	cf.cachedGitVersion = gitVersion
-	cf.cachedGitStat = &stat
+	cf.cachedGitVersionByBinary[gitBinary] = cachedGitVersion{
+		version: gitVersion,
+		stat:    stat,
+	}
 
 	return gitVersion, nil
 }
