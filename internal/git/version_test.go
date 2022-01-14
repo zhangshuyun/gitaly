@@ -2,6 +2,7 @@ package git
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -69,6 +70,65 @@ func TestExecCommandFactory_GitVersion(t *testing.T) {
 			require.Equal(t, tc.expectedVersion, actualVersion)
 		})
 	}
+
+	t.Run("caching", func(t *testing.T) {
+		gitPath := filepath.Join(testhelper.TempDir(t), "git")
+		testhelper.WriteExecutable(t, gitPath, []byte(
+			`#!/usr/bin/env bash
+			echo 'git version 1.2.3'
+		`))
+
+		stat, err := os.Stat(gitPath)
+		require.NoError(t, err)
+
+		gitCmdFactory, cleanup, err := NewExecCommandFactory(config.Cfg{
+			Git: config.Git{
+				BinPath: gitPath,
+			},
+		}, WithSkipHooks())
+		require.NoError(t, err)
+		defer cleanup()
+
+		version, err := gitCmdFactory.GitVersion(ctx)
+		require.NoError(t, err)
+		require.Equal(t, "1.2.3", version.String())
+		require.Equal(t, stat, *gitCmdFactory.cachedGitStat)
+
+		// We rewrite the file with the same content length and modification time such that
+		// its file information doesn't change. As a result, information returned by
+		// stat(3P) shouldn't differ and we should continue to see the cached version. This
+		// is a known insufficiency, but it is extremely unlikely to ever happen in
+		// production when the real Git binary changes.
+		require.NoError(t, os.Remove(gitPath))
+		testhelper.WriteExecutable(t, gitPath, []byte(
+			`#!/usr/bin/env bash
+			echo 'git version 9.8.7'
+		`))
+		require.NoError(t, os.Chtimes(gitPath, stat.ModTime(), stat.ModTime()))
+
+		// Given that we continue to use the cached version we shouldn't see any
+		// change here.
+		version, err = gitCmdFactory.GitVersion(ctx)
+		require.NoError(t, err)
+		require.Equal(t, "1.2.3", version.String())
+		require.Equal(t, stat, *gitCmdFactory.cachedGitStat)
+
+		// If we really replace the Git binary with something else, then we should
+		// see a changed version.
+		require.NoError(t, os.Remove(gitPath))
+		testhelper.WriteExecutable(t, gitPath, []byte(
+			`#!/usr/bin/env bash
+			echo 'git version 2.34.1'
+		`))
+
+		stat, err = os.Stat(gitPath)
+		require.NoError(t, err)
+
+		version, err = gitCmdFactory.GitVersion(ctx)
+		require.NoError(t, err)
+		require.Equal(t, "2.34.1", version.String())
+		require.Equal(t, stat, *gitCmdFactory.cachedGitStat)
+	})
 }
 
 func TestVersion_LessThan(t *testing.T) {

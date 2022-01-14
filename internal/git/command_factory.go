@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cgroups"
@@ -88,6 +89,10 @@ type ExecCommandFactory struct {
 	cgroupsManager        cgroups.Manager
 	invalidCommandsMetric *prometheus.CounterVec
 	skipHooks             bool
+
+	cachedGitVersionLock sync.RWMutex
+	cachedGitVersion     Version
+	cachedGitStat        *os.FileInfo
 }
 
 // NewExecCommandFactory returns a new instance of initialized ExecCommandFactory. The returned
@@ -196,8 +201,43 @@ func (cf *ExecCommandFactory) validateHooks() error {
 	return nil
 }
 
-// GitVersion returns the Git version in use.
+func statDiffers(a, b os.FileInfo) bool {
+	return a.Size() != b.Size() || a.ModTime() != b.ModTime() || a.Mode() != b.Mode()
+}
+
+// GitVersion returns the Git version in use. The version is cached as long as the binary remains
+// unchanged as determined by stat(3P).
 func (cf *ExecCommandFactory) GitVersion(ctx context.Context) (Version, error) {
+	stat, err := os.Stat(cf.GetExecutionEnvironment(ctx).BinaryPath)
+	if err != nil {
+		return Version{}, fmt.Errorf("cannot stat Git binary: %w", err)
+	}
+
+	cf.cachedGitVersionLock.RLock()
+	upToDate := cf.cachedGitStat != nil && !statDiffers(stat, *cf.cachedGitStat)
+	cachedGitVersion := cf.cachedGitVersion
+	cf.cachedGitVersionLock.RUnlock()
+
+	if upToDate {
+		return cachedGitVersion, nil
+	}
+
+	cf.cachedGitVersionLock.Lock()
+	defer cf.cachedGitVersionLock.Unlock()
+
+	// We cannot reuse the stat(3P) information from above given that it wasn't acquired under
+	// the write-lock. As such, it may have been invalidated by a concurrent thread which has
+	// already updated the Git version information.
+	stat, err = os.Stat(cf.GetExecutionEnvironment(ctx).BinaryPath)
+	if err != nil {
+		return Version{}, fmt.Errorf("cannot stat Git binary: %w", err)
+	}
+
+	// There is a race here: if the Git executable has changed between calling stat(3P) on the
+	// binary and executing it, then we may report the wrong Git version. This race is inherent
+	// though: it can also happen after `GitVersion()` was called, so it doesn't really help to
+	// retry version detection here. Instead, we just live with this raciness -- the next call
+	// to `GitVersion()` would detect the version being out-of-date anyway and thus correct it.
 	cmd, err := cf.NewWithoutRepo(ctx, SubCmd{
 		Name: "version",
 	})
@@ -205,7 +245,15 @@ func (cf *ExecCommandFactory) GitVersion(ctx context.Context) (Version, error) {
 		return Version{}, fmt.Errorf("spawning version command: %w", err)
 	}
 
-	return parseVersionFromCommand(cmd)
+	gitVersion, err := parseVersionFromCommand(cmd)
+	if err != nil {
+		return Version{}, err
+	}
+
+	cf.cachedGitVersion = gitVersion
+	cf.cachedGitStat = &stat
+
+	return gitVersion, nil
 }
 
 // newCommand creates a new command.Command for the given git command. If a repo is given, then the
