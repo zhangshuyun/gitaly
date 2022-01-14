@@ -19,6 +19,8 @@ import (
 
 // TestStolenPid tests for regressions in https://gitlab.com/gitlab-org/gitaly/issues/1661
 func TestStolenPid(t *testing.T) {
+	t.Parallel()
+
 	tempDir := testhelper.TempDir(t)
 
 	pidFile, err := os.Create(filepath.Join(tempDir, "pidfile"))
@@ -53,12 +55,18 @@ func TestStolenPid(t *testing.T) {
 }
 
 func TestFindProcess(t *testing.T) {
+	t.Parallel()
+
 	t.Run("nonexistent PID file", func(t *testing.T) {
+		t.Parallel()
+
 		_, err := findProcess("does-not-exist")
 		require.True(t, os.IsNotExist(err))
 	})
 
 	t.Run("PID file with garbage", func(t *testing.T) {
+		t.Parallel()
+
 		path := filepath.Join(testhelper.TempDir(t), "pid")
 		require.NoError(t, os.WriteFile(path, []byte("garbage"), 0o644))
 
@@ -68,6 +76,8 @@ func TestFindProcess(t *testing.T) {
 	})
 
 	t.Run("nonexistent process", func(t *testing.T) {
+		t.Parallel()
+
 		// The below PID can exist, but chances are sufficiently low to hopefully not matter
 		// in practice.
 		path := filepath.Join(testhelper.TempDir(t), "pid")
@@ -81,6 +91,8 @@ func TestFindProcess(t *testing.T) {
 	})
 
 	t.Run("running process", func(t *testing.T) {
+		t.Parallel()
+
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
@@ -116,6 +128,8 @@ func TestFindProcess(t *testing.T) {
 }
 
 func TestIsRecoverable(t *testing.T) {
+	t.Parallel()
+
 	_, numericError := strconv.Atoi("")
 
 	tests := []struct {
@@ -149,12 +163,18 @@ func TestIsRecoverable(t *testing.T) {
 }
 
 func TestReadPIDFile(t *testing.T) {
+	t.Parallel()
+
 	t.Run("nonexistent", func(t *testing.T) {
+		t.Parallel()
+
 		_, err := readPIDFile("does-not-exist")
 		require.True(t, os.IsNotExist(err))
 	})
 
 	t.Run("empty", func(t *testing.T) {
+		t.Parallel()
+
 		path := filepath.Join(testhelper.TempDir(t), "pid")
 		require.NoError(t, os.WriteFile(path, nil, 0o644))
 		_, err := readPIDFile(path)
@@ -163,6 +183,8 @@ func TestReadPIDFile(t *testing.T) {
 	})
 
 	t.Run("invalid contents", func(t *testing.T) {
+		t.Parallel()
+
 		path := filepath.Join(testhelper.TempDir(t), "pid")
 		require.NoError(t, os.WriteFile(path, []byte("invalid"), 0o644))
 		_, err := readPIDFile(path)
@@ -171,6 +193,8 @@ func TestReadPIDFile(t *testing.T) {
 	})
 
 	t.Run("valid", func(t *testing.T) {
+		t.Parallel()
+
 		path := filepath.Join(testhelper.TempDir(t), "pid")
 		require.NoError(t, os.WriteFile(path, []byte("12345"), 0o644))
 		pid, err := readPIDFile(path)
@@ -180,6 +204,8 @@ func TestReadPIDFile(t *testing.T) {
 }
 
 func TestIsExpectedProcess(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -211,10 +237,11 @@ func TestIsExpectedProcess(t *testing.T) {
 }
 
 func TestIsProcessAlive(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	t.Parallel()
 
 	t.Run("nonexistent process", func(t *testing.T) {
+		t.Parallel()
+
 		// And now let's check with a nonexistent process. FindProcess never returns an
 		// error on Unix systems even if the process doesn't exist, so this is fine.
 		process, err := os.FindProcess(77777777)
@@ -223,6 +250,11 @@ func TestIsProcessAlive(t *testing.T) {
 	})
 
 	t.Run("existing process", func(t *testing.T) {
+		t.Parallel()
+
+		ctx, cancel := testhelper.Context()
+		defer cancel()
+
 		executable := testhelper.WriteExecutable(t, filepath.Join(testhelper.TempDir(t), "noop"), []byte(
 			`#!/usr/bin/env bash
 			echo ready
@@ -260,9 +292,13 @@ func TestIsProcessAlive(t *testing.T) {
 }
 
 func TestRun(t *testing.T) {
+	t.Parallel()
+
 	binary := testcfg.BuildGitalyWrapper(t, testcfg.Build(t))
 
 	t.Run("missing arguments", func(t *testing.T) {
+		t.Parallel()
+
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
@@ -272,6 +308,8 @@ func TestRun(t *testing.T) {
 	})
 
 	t.Run("missing PID file envvar", func(t *testing.T) {
+		t.Parallel()
+
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
@@ -281,6 +319,8 @@ func TestRun(t *testing.T) {
 	})
 
 	t.Run("invalid executable", func(t *testing.T) {
+		t.Parallel()
+
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
@@ -295,6 +335,8 @@ func TestRun(t *testing.T) {
 	})
 
 	t.Run("adopting executable", func(t *testing.T) {
+		t.Parallel()
+
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
@@ -352,6 +394,8 @@ func TestRun(t *testing.T) {
 	})
 
 	t.Run("spawning executable", func(t *testing.T) {
+		t.Parallel()
+
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
@@ -374,6 +418,8 @@ func TestRun(t *testing.T) {
 	})
 
 	t.Run("spawning executable with missing process", func(t *testing.T) {
+		t.Parallel()
+
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
@@ -395,6 +441,8 @@ func TestRun(t *testing.T) {
 	})
 
 	t.Run("spawning executable with zombie process", func(t *testing.T) {
+		t.Parallel()
+
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
