@@ -2,6 +2,7 @@ package git_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 )
@@ -167,9 +169,12 @@ func TestExecCommandFactory_GetExecutionEnvironment(t *testing.T) {
 }
 
 func TestExecCommandFatcory_HooksPath(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testhelper.NewFeatureSets(featureflag.HooksInTempdir).Run(t, func(t *testing.T, ctx context.Context) {
+		testExecCommandFactoryHooksPath(t, ctx)
+	})
+}
 
+func testExecCommandFactoryHooksPath(t *testing.T, ctx context.Context) {
 	hookDir := setupTempHookDirs(t, map[string]hookFileMode{
 		"ruby/git-hooks/update":       hookFileExists | hookFileExecutable,
 		"ruby/git-hooks/pre-receive":  hookFileExists | hookFileExecutable,
@@ -182,11 +187,31 @@ func TestExecCommandFatcory_HooksPath(t *testing.T) {
 			Ruby: config.Ruby{
 				Dir: rubyDir,
 			},
+			BinDir: "/gitaly-hooks/directory",
 		}
 
 		t.Run("no overrides", func(t *testing.T) {
 			gitCmdFactory := gittest.NewCommandFactory(t, cfg)
-			require.Equal(t, filepath.Join(rubyDir, "git-hooks"), gitCmdFactory.HooksPath(ctx))
+
+			if featureflag.HooksInTempdir.IsEnabled(ctx) {
+				hooksPath := gitCmdFactory.HooksPath(ctx)
+
+				// We cannot assert that the hooks path is equal to any specific
+				// string, but instead we can assert that it exists and contains the
+				// symlinks we expect.
+				for _, hook := range []string{"update", "pre-receive", "post-receive", "reference-transaction"} {
+					target, err := os.Readlink(filepath.Join(hooksPath, hook))
+					require.NoError(t, err)
+					require.Equal(t, filepath.Join(hooksPath, "gitlab-shell-hook"), target)
+
+					hookScript := testhelper.MustReadFile(t, filepath.Join(hooksPath, hook))
+					require.Equal(t, `#!/bin/bash
+exec -a "$0" "/gitaly-hooks/directory/gitaly-hooks" "$(basename "$0")" "$@"
+`, string(hookScript))
+				}
+			} else {
+				require.Equal(t, filepath.Join(rubyDir, "git-hooks"), gitCmdFactory.HooksPath(ctx))
+			}
 		})
 
 		t.Run("with skip", func(t *testing.T) {
