@@ -69,7 +69,7 @@ type CommandFactory interface {
 }
 
 type execCommandFactoryConfig struct {
-	skipHooks bool
+	hooksPath string
 }
 
 // ExecCommandFactoryOption is an option that can be passed to NewExecCommandFactory.
@@ -78,7 +78,14 @@ type ExecCommandFactoryOption func(*execCommandFactoryConfig)
 // WithSkipHooks will skip any use of hooks in this command factory.
 func WithSkipHooks() ExecCommandFactoryOption {
 	return func(cfg *execCommandFactoryConfig) {
-		cfg.skipHooks = true
+		cfg.hooksPath = "/var/empty"
+	}
+}
+
+// WithHooksPath will override the path where hooks are to be found.
+func WithHooksPath(hooksPath string) ExecCommandFactoryOption {
+	return func(cfg *execCommandFactoryConfig) {
+		cfg.hooksPath = hooksPath
 	}
 }
 
@@ -175,15 +182,9 @@ func (cf *ExecCommandFactory) HooksPath() string {
 }
 
 func setupHookDirectories(cfg config.Cfg, factoryCfg execCommandFactoryConfig) (hookDirectories, error) {
-	if len(cfg.Git.HooksPath) > 0 {
+	if factoryCfg.hooksPath != "" {
 		return hookDirectories{
-			rubyHooksPath: cfg.Git.HooksPath,
-		}, nil
-	}
-
-	if factoryCfg.skipHooks {
-		return hookDirectories{
-			rubyHooksPath: "/var/empty",
+			rubyHooksPath: factoryCfg.hooksPath,
 		}, nil
 	}
 

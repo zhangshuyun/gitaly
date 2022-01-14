@@ -194,13 +194,10 @@ func TestExecCommandFatcory_HooksPath(t *testing.T) {
 
 	t.Run("hooks path", func(t *testing.T) {
 		gitCmdFactory := gittest.NewCommandFactory(t, config.Cfg{
-			Git: config.Git{
-				HooksPath: "/hooks/path",
-			},
 			Ruby: config.Ruby{
 				Dir: rubyDir,
 			},
-		}, git.WithSkipHooks())
+		}, git.WithHooksPath("/hooks/path"))
 
 		// The environment variable shouldn't override an explicitly set hooks path.
 		require.Equal(t, "/hooks/path", gitCmdFactory.HooksPath())

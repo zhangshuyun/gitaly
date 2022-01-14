@@ -42,11 +42,13 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 	cfg.GitlabShell.Dir = "/foo/bar/gitlab-shell"
-	cfg, hookOutputFile := gittest.CaptureHookEnv(t, cfg)
+	gitCmdFactory, hookOutputFile := gittest.CaptureHookEnv(t, cfg)
 
-	serverSocketPath := runSmartHTTPServer(t, cfg)
+	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
+		testserver.WithGitCommandFactory(gitCmdFactory),
+	})
 
-	client, conn := newSmartHTTPClient(t, serverSocketPath, cfg.Auth.Token)
+	client, conn := newSmartHTTPClient(t, server.Address(), cfg.Auth.Token)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -222,8 +224,7 @@ func TestFailedReceivePackRequestDueToHooksFailure(t *testing.T) {
 	t.Parallel()
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
-	cfg.Git.HooksPath = testhelper.TempDir(t)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg, git.WithHooksPath(testhelper.TempDir(t)))
 
 	hookContent := []byte("#!/bin/sh\nexit 1")
 	require.NoError(t, os.WriteFile(filepath.Join(gitCmdFactory.HooksPath(), "pre-receive"), hookContent, 0o755))
@@ -374,13 +375,15 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	cfg, _ = gittest.CaptureHookEnv(t, cfg)
+	gitCmdFactory, _ := gittest.CaptureHookEnv(t, cfg)
 
 	_, localRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
-	socket := runSmartHTTPServer(t, cfg)
+	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
+		testserver.WithGitCommandFactory(gitCmdFactory),
+	})
 
-	client, conn := newSmartHTTPClient(t, socket, cfg.Auth.Token)
+	client, conn := newSmartHTTPClient(t, server.Address(), cfg.Auth.Token)
 	defer conn.Close()
 
 	head := text.ChompBytes(gittest.Exec(t, cfg, "-C", localRepoPath, "rev-parse", "HEAD"))

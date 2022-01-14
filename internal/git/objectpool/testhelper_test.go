@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
@@ -23,9 +24,7 @@ func setupObjectPool(t *testing.T, ctx context.Context) (*ObjectPool, *gitalypb.
 	t.Helper()
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
-	// We have no Gitaly server set up in these tests, so we cannot use hooks.
-	cfg.Git.HooksPath = "/"
-	gitCommandFactory := gittest.NewCommandFactory(t, cfg)
+	gitCommandFactory := gittest.NewCommandFactory(t, cfg, git.WithSkipHooks())
 
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)

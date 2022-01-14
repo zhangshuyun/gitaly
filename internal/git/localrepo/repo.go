@@ -36,10 +36,10 @@ func New(gitCmdFactory git.CommandFactory, catfileCache catfile.Cache, repo repo
 
 // NewTestRepo constructs a Repo. It is intended as a helper function for tests which assembles
 // dependencies ad-hoc from the given config.
-func NewTestRepo(t testing.TB, cfg config.Cfg, repo repository.GitRepo) *Repo {
+func NewTestRepo(t testing.TB, cfg config.Cfg, repo repository.GitRepo, factoryOpts ...git.ExecCommandFactoryOption) *Repo {
 	t.Helper()
 
-	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg)
+	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, factoryOpts...)
 	t.Cleanup(cleanup)
 	require.NoError(t, err)
 

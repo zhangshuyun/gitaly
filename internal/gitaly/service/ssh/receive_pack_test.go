@@ -93,11 +93,11 @@ func TestReceivePackPushSuccess(t *testing.T) {
 
 	cfg.GitlabShell.Dir = "/foo/bar/gitlab-shell"
 
-	cfg, hookOutputFile := gittest.CaptureHookEnv(t, cfg)
+	gitCmdFactory, hookOutputFile := gittest.CaptureHookEnv(t, cfg)
 
 	testcfg.BuildGitalySSH(t, cfg)
 
-	serverSocketPath := runSSHServer(t, cfg)
+	serverSocketPath := runSSHServer(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
 
 	glRepository := "project-456"
 	glProjectPath := "project/path"
@@ -207,8 +207,7 @@ func TestReceivePackPushHookFailure(t *testing.T) {
 	t.Parallel()
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
-	cfg.Git.HooksPath = testhelper.TempDir(t)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg, git.WithHooksPath(testhelper.TempDir(t)))
 
 	testcfg.BuildGitalySSH(t, cfg)
 

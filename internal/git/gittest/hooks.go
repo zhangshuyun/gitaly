@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
@@ -43,19 +44,16 @@ func WriteCustomHook(t testing.TB, repoPath, name string, content []byte) string
 	return fullPath
 }
 
-// CaptureHookEnv creates a bogus 'update' Git hook to sniff out what environment variables get set
-// for hooks. Returns a copy of the Gitaly configuration whose hook path is adapted as required.
-func CaptureHookEnv(t testing.TB, cfg config.Cfg) (config.Cfg, string) {
-	tempDir := testhelper.TempDir(t)
+// CaptureHookEnv creates a Git command factory which injects a bogus 'update' Git hook to sniff out
+// what environment variables get set for hooks.
+func CaptureHookEnv(t testing.TB, cfg config.Cfg) (git.CommandFactory, string) {
+	hooksPath := testhelper.TempDir(t)
+	hookOutputFile := filepath.Join(hooksPath, "hook.env")
 
-	cfg.Git.HooksPath = tempDir
-	hookOutputFile := filepath.Join(cfg.Git.HooksPath, "hook.env")
+	testhelper.WriteExecutable(t, filepath.Join(hooksPath, "update"), []byte(fmt.Sprintf(
+		`#!/usr/bin/env bash
+		env | grep -e ^GIT -e ^GL_ >%q
+	`, hookOutputFile)))
 
-	script := []byte(`
-#!/bin/sh
-env | grep -e ^GIT -e ^GL_ > ` + hookOutputFile + "\n")
-
-	testhelper.WriteExecutable(t, filepath.Join(tempDir, "update"), script)
-
-	return cfg, hookOutputFile
+	return NewCommandFactory(t, cfg, git.WithHooksPath(hooksPath)), hookOutputFile
 }

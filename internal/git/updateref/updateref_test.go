@@ -23,10 +23,8 @@ func setupUpdater(t *testing.T, ctx context.Context) (config.Cfg, *localrepo.Rep
 	t.Helper()
 
 	cfg, protoRepo, _ := testcfg.BuildWithRepo(t)
-	// We have no Gitaly server set up in these tests, so we cannot use hooks.
-	cfg.Git.HooksPath = "/"
 
-	repo := localrepo.NewTestRepo(t, cfg, protoRepo)
+	repo := localrepo.NewTestRepo(t, cfg, protoRepo, git.WithSkipHooks())
 
 	updater, err := New(ctx, repo)
 	require.NoError(t, err)
@@ -133,8 +131,7 @@ func TestUpdater_concurrentLocking(t *testing.T) {
 	defer cancel()
 
 	cfg, protoRepo, _ := testcfg.BuildWithRepo(t)
-	cfg.Git.HooksPath = "/"
-	repo := localrepo.NewTestRepo(t, cfg, protoRepo)
+	repo := localrepo.NewTestRepo(t, cfg, protoRepo, git.WithSkipHooks())
 
 	commit, logErr := repo.ReadCommit(ctx, "refs/heads/master")
 	require.NoError(t, logErr)
