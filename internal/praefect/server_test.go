@@ -999,7 +999,7 @@ func TestErrorThreshold(t *testing.T) {
 				writeThreshold = 5000
 			}
 
-			errorTracker, err := tracker.NewErrors(ctx, 10*time.Hour, readThreshold, writeThreshold)
+			errorTracker, err := tracker.NewErrors(ctx, func(_, _ time.Time) bool { return true }, readThreshold, writeThreshold)
 			require.NoError(t, err)
 
 			rs := datastore.MockRepositoryStore{}

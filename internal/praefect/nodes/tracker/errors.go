@@ -5,6 +5,8 @@ import (
 	"errors"
 	"sync"
 	"time"
+
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 )
 
 // ErrorTracker allows tracking how many read/write errors have occurred, and whether or not it has
@@ -20,19 +22,31 @@ type ErrorTracker interface {
 	WriteThresholdReached(nodeStorage string) bool
 }
 
+// ErrorWindowFunction is a function that is passed to `NewErrors()`. This function shall return
+// `true` if the time when a specific error occurred should be considered part of the error window.
+type ErrorWindowFunction func(now time.Time, errorTime time.Time) bool
+
+// NewErrorWindowFunction derives an error window from the given configuration.
+func NewErrorWindowFunction(cfg config.Failover) (ErrorWindowFunction, error) {
+	if cfg.ErrorThresholdWindow == 0 {
+		return nil, errors.New("errorWindow must be non zero")
+	}
+
+	errorWindow := cfg.ErrorThresholdWindow.Duration()
+	return func(now time.Time, errorTime time.Time) bool {
+		return errorTime.After(now.Add(-errorWindow))
+	}, nil
+}
+
 type errorTracker struct {
-	olderThan                     func() time.Time
+	isInErrorWindow               ErrorWindowFunction
 	m                             sync.RWMutex
 	writeThreshold, readThreshold int
 	readErrors, writeErrors       map[string][]time.Time
 	ctx                           context.Context
 }
 
-func newErrors(ctx context.Context, errorWindow time.Duration, readThreshold, writeThreshold uint32) (*errorTracker, error) {
-	if errorWindow == 0 {
-		return nil, errors.New("errorWindow must be non zero")
-	}
-
+func newErrors(ctx context.Context, isInErrorWindow ErrorWindowFunction, readThreshold, writeThreshold uint32) (*errorTracker, error) {
 	if readThreshold == 0 {
 		return nil, errors.New("readThreshold must be non zero")
 	}
@@ -42,14 +56,12 @@ func newErrors(ctx context.Context, errorWindow time.Duration, readThreshold, wr
 	}
 
 	e := &errorTracker{
-		olderThan: func() time.Time {
-			return time.Now().Add(-errorWindow)
-		},
-		readErrors:     make(map[string][]time.Time),
-		writeErrors:    make(map[string][]time.Time),
-		readThreshold:  int(readThreshold),
-		writeThreshold: int(writeThreshold),
-		ctx:            ctx,
+		isInErrorWindow: isInErrorWindow,
+		readErrors:      make(map[string][]time.Time),
+		writeErrors:     make(map[string][]time.Time),
+		readThreshold:   int(readThreshold),
+		writeThreshold:  int(writeThreshold),
+		ctx:             ctx,
 	}
 	go e.periodicallyClear()
 
@@ -57,8 +69,8 @@ func newErrors(ctx context.Context, errorWindow time.Duration, readThreshold, wr
 }
 
 // NewErrors creates a new Error instance given a time window in seconds, and read and write thresholds
-func NewErrors(ctx context.Context, errorWindow time.Duration, readThreshold, writeThreshold uint32) (ErrorTracker, error) {
-	return newErrors(ctx, errorWindow, readThreshold, writeThreshold)
+func NewErrors(ctx context.Context, isInErrorWindow ErrorWindowFunction, readThreshold, writeThreshold uint32) (ErrorTracker, error) {
+	return newErrors(ctx, isInErrorWindow, readThreshold, writeThreshold)
 }
 
 // IncrReadErr increases the read errors for a node by 1
@@ -104,10 +116,10 @@ func (e *errorTracker) ReadThresholdReached(node string) bool {
 		e.m.RLock()
 		defer e.m.RUnlock()
 
-		olderThanTime := e.olderThan()
+		now := time.Now()
 
 		for i, errTime := range e.readErrors[node] {
-			if errTime.After(olderThanTime) {
+			if e.isInErrorWindow(now, errTime) {
 				if i == 0 {
 					return len(e.readErrors[node]) >= e.readThreshold
 				}
@@ -128,10 +140,10 @@ func (e *errorTracker) WriteThresholdReached(node string) bool {
 		e.m.RLock()
 		defer e.m.RUnlock()
 
-		olderThanTime := e.olderThan()
+		now := time.Now()
 
 		for i, errTime := range e.writeErrors[node] {
-			if errTime.After(olderThanTime) {
+			if e.isInErrorWindow(now, errTime) {
 				if i == 0 {
 					return len(e.writeErrors[node]) >= e.writeThreshold
 				}
@@ -164,16 +176,16 @@ func (e *errorTracker) clear() {
 	e.m.Lock()
 	defer e.m.Unlock()
 
-	olderThanTime := e.olderThan()
+	now := time.Now()
 
-	clearErrors(e.writeErrors, olderThanTime)
-	clearErrors(e.readErrors, olderThanTime)
+	e.clearErrors(e.writeErrors, now)
+	e.clearErrors(e.readErrors, now)
 }
 
-func clearErrors(errs map[string][]time.Time, olderThan time.Time) {
+func (e *errorTracker) clearErrors(errs map[string][]time.Time, now time.Time) {
 	for node, errors := range errs {
 		for i, errTime := range errors {
-			if errTime.After(olderThan) {
+			if e.isInErrorWindow(now, errTime) {
 				errs[node] = errors[i:]
 				break
 			}

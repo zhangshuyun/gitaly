@@ -292,7 +292,12 @@ func run(
 		}
 
 		if thresholdsConfigured {
-			errTracker, err = tracker.NewErrors(ctx, conf.Failover.ErrorThresholdWindow.Duration(), conf.Failover.ReadErrorThresholdCount, conf.Failover.WriteErrorThresholdCount)
+			errorWindowFunction, err := tracker.NewErrorWindowFunction(conf.Failover)
+			if err != nil {
+				return err
+			}
+
+			errTracker, err = tracker.NewErrors(ctx, errorWindowFunction, conf.Failover.ReadErrorThresholdCount, conf.Failover.WriteErrorThresholdCount)
 			if err != nil {
 				return err
 			}

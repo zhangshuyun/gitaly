@@ -931,8 +931,8 @@ func TestPostgresReplicationEventQueue_StartHealthUpdate(t *testing.T) {
 		}()
 
 		trigger <- time.Time{}
-		time.Sleep(time.Millisecond) // we should sleep as the processing is too fast and won't give different time
-		trigger <- time.Time{}       // once this consumed we are sure that the previous update has been executed
+		// once this consumed we are sure that the previous update has been executed
+		trigger <- time.Time{}
 
 		updatedJobLocks := fetchJobLocks(t, ctx, db)
 		for i := range initialJobLocks {

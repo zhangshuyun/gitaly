@@ -68,9 +68,6 @@ func TestRepositoryProfile(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(1), looseObjects)
 
-	// let a ms elapse for the OS to recognize the blobs have been written after the packfile
-	time.Sleep(1 * time.Millisecond)
-
 	// write another loose object
 	blobID := gittest.WriteBlobs(t, cfg, testRepoPath, 1)[0]
 

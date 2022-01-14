@@ -15,15 +15,10 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func waitPing(s *Server) error {
-	var err error
-	for start := time.Now(); time.Since(start) < ConnectTimeout; time.Sleep(100 * time.Millisecond) {
-		err = makeRequest(s)
-		if err == nil {
-			return nil
-		}
-	}
-	return err
+func waitPing(tb testing.TB, s *Server) {
+	require.Eventually(tb, func() bool {
+		return makeRequest(s) == nil
+	}, ConnectTimeout, 100*time.Millisecond)
 }
 
 // This benchmark lets you see what happens when you throw a lot of
@@ -37,10 +32,7 @@ func BenchmarkConcurrency(b *testing.B) {
 	require.NoError(b, s.Start())
 	defer s.Stop()
 
-	// Warm-up: wait for gitaly-ruby to boot
-	if err := waitPing(s); err != nil {
-		b.Fatal(err)
-	}
+	waitPing(b, s)
 
 	concurrency := 100
 	b.Run(fmt.Sprintf("concurrency %d", concurrency), func(b *testing.B) {

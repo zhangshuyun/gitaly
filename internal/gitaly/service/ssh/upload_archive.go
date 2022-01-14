@@ -59,12 +59,14 @@ func (s *server) sshUploadArchive(stream gitalypb.SSHService_SSHUploadArchiveSer
 		return err
 	}
 
+	timeoutTicker := helper.NewTimerTicker(s.uploadArchiveRequestTimeout)
+
 	// upload-archive expects a list of options terminated by a flush packet:
 	// https://github.com/git/git/blob/v2.22.0/builtin/upload-archive.c#L38
 	//
 	// Place a timeout on receiving the flush packet to mitigate use-after-check
 	// attacks
-	go monitor.Monitor(pktline.PktFlush(), s.uploadArchiveRequestTimeout, cancelCtx)
+	go monitor.Monitor(ctx, pktline.PktFlush(), timeoutTicker, cancelCtx)
 
 	if err := cmd.Wait(); err != nil {
 		if status, ok := command.ExitStatus(err); ok {

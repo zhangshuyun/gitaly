@@ -43,9 +43,11 @@ func TestStreamInterceptor(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	window := 1 * time.Second
+	isInErrorWindow := true
 	threshold := 5
-	errTracker, err := tracker.NewErrors(ctx, window, uint32(threshold), uint32(threshold))
+	errTracker, err := tracker.NewErrors(ctx, func(_, _ time.Time) bool {
+		return isInErrorWindow
+	}, uint32(threshold), uint32(threshold))
 	require.NoError(t, err)
 	nodeName := "node-1"
 
@@ -126,7 +128,7 @@ func TestStreamInterceptor(t *testing.T) {
 	assert.True(t, errTracker.WriteThresholdReached(nodeName))
 	assert.True(t, errTracker.ReadThresholdReached(nodeName))
 
-	time.Sleep(window)
+	isInErrorWindow = false
 
 	for i := 0; i < threshold; i++ {
 		_, err = simpleClient.RepoAccessorUnary(ctx, &mock.RepoRequest{
