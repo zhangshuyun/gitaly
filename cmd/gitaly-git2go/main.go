@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 
+	git "github.com/libgit2/git2go/v32"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 )
 
@@ -58,6 +59,10 @@ func main() {
 
 	if subcmdFlags.NArg() != 0 {
 		fatalf("%s: trailing arguments", subcmdFlags.Name())
+	}
+
+	if err := git.EnableFsyncGitDir(true); err != nil {
+		fatalf("enable fsync: %s", err)
 	}
 
 	if err := subcmd.Run(context.Background(), os.Stdin, os.Stdout); err != nil {
