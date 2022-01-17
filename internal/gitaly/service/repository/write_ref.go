@@ -8,7 +8,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
@@ -33,10 +32,10 @@ func (s *server) writeRef(ctx context.Context, req *gitalypb.WriteRefRequest) er
 
 		return nil
 	}
-	return updateRef(ctx, s.cfg, repo, req)
+	return updateRef(ctx, repo, req)
 }
 
-func updateRef(ctx context.Context, cfg config.Cfg, repo *localrepo.Repo, req *gitalypb.WriteRefRequest) error {
+func updateRef(ctx context.Context, repo *localrepo.Repo, req *gitalypb.WriteRefRequest) error {
 	u, err := updateref.New(ctx, repo)
 	if err != nil {
 		return fmt.Errorf("error when running creating new updater: %v", err)
