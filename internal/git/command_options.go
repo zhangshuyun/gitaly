@@ -4,11 +4,25 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/x509"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/labkit/correlation"
+	"google.golang.org/protobuf/encoding/protojson"
+)
+
+const (
+	// InternalGitalyURL is a special URL that indicates Gitaly wants to push to or fetch from
+	// another internal Gitaly instance.
+	InternalGitalyURL = "ssh://gitaly/internal.git"
 )
 
 var (
@@ -215,6 +229,50 @@ func WithConfigEnv(configPairs ...ConfigPair) CmdOpt {
 func WithGlobalOption(opts ...GlobalOption) CmdOpt {
 	return func(_ context.Context, _ config.Cfg, _ CommandFactory, c *cmdCfg) error {
 		c.globals = append(c.globals, opts...)
+		return nil
+	}
+}
+
+// WithInternalFetch returns an option which sets up git-fetch(1) to fetch from another internal
+// Gitaly node.
+func WithInternalFetch(req *gitalypb.SSHUploadPackRequest) CmdOpt {
+	return func(ctx context.Context, cfg config.Cfg, _ CommandFactory, c *cmdCfg) error {
+		payload, err := protojson.Marshal(req)
+		if err != nil {
+			return helper.ErrInternalf("marshalling payload failed: %v", err)
+		}
+
+		serversInfo, err := storage.ExtractGitalyServers(ctx)
+		if err != nil {
+			return helper.ErrInternalf("extracting Gitaly servers: %v", err)
+		}
+
+		storageInfo, ok := serversInfo[req.GetRepository().GetStorageName()]
+		if !ok {
+			return helper.ErrInvalidArgumentf("no storage info for %q", req.GetRepository().GetStorageName())
+		}
+
+		if storageInfo.Address == "" {
+			return helper.ErrInvalidArgumentf("empty Gitaly address")
+		}
+
+		featureFlagPairs := featureflag.AllFlags(ctx)
+
+		c.env = append(c.env,
+			fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
+			fmt.Sprintf("GIT_SSH_COMMAND=%s %s", filepath.Join(cfg.BinDir, "gitaly-ssh"), "upload-pack"),
+			fmt.Sprintf("GITALY_ADDRESS=%s", storageInfo.Address),
+			fmt.Sprintf("GITALY_TOKEN=%s", storageInfo.Token),
+			fmt.Sprintf("GITALY_FEATUREFLAGS=%s", strings.Join(featureFlagPairs, ",")),
+			fmt.Sprintf("CORRELATION_ID=%s", correlation.ExtractFromContextOrGenerate(ctx)),
+			// please see https://github.com/git/git/commit/0da0e49ba12225684b75e86a4c9344ad121652cb for mote details
+			"GIT_SSH_VARIANT=simple",
+			// Pass through the SSL_CERT_* variables that indicate which
+			// system certs to trust
+			fmt.Sprintf("%s=%s", x509.SSLCertDir, os.Getenv(x509.SSLCertDir)),
+			fmt.Sprintf("%s=%s", x509.SSLCertFile, os.Getenv(x509.SSLCertFile)),
+		)
+
 		return nil
 	}
 }

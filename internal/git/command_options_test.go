@@ -2,12 +2,19 @@ package git
 
 import (
 	"bytes"
+	"encoding/base64"
+	"fmt"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/labkit/correlation"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func TestFlagValidation(t *testing.T) {
@@ -393,4 +400,38 @@ func TestWithConfigEnv(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWithInternalFetch(t *testing.T) {
+	cfg := config.Cfg{BinDir: testhelper.TempDir(t)}
+	require.NoError(t, cfg.SetGitPath())
+
+	gitCmdFactory := newCommandFactory(t, cfg, WithSkipHooks())
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	md := metadata.Pairs("gitaly-servers", base64.StdEncoding.EncodeToString([]byte(`{"default":{"address":"unix:///tmp/sock","token":"hunter1"}}`)))
+	ctx = metadata.NewIncomingContext(ctx, md)
+	ctx = correlation.ContextWithCorrelation(ctx, "correlation-id-1")
+
+	req := gitalypb.SSHUploadPackRequest{
+		Repository: &gitalypb.Repository{
+			StorageName: "default",
+		},
+	}
+
+	expectedPayload, err := protojson.Marshal(&req)
+	require.NoError(t, err)
+
+	var commandCfg cmdCfg
+	option := WithInternalFetch(&req)
+	require.NoError(t, option(ctx, cfg, gitCmdFactory, &commandCfg))
+
+	require.Subset(t, commandCfg.env, []string{
+		fmt.Sprintf("GIT_SSH_COMMAND=%s upload-pack", filepath.Join(cfg.BinDir, "gitaly-ssh")),
+		fmt.Sprintf("GITALY_PAYLOAD=%s", expectedPayload),
+		"CORRELATION_ID=correlation-id-1",
+		"GIT_SSH_VARIANT=simple",
+	})
 }
