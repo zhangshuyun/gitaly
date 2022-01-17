@@ -241,10 +241,8 @@ func WriteExecutable(t testing.TB, path string, content []byte) string {
 	return path
 }
 
-// ModifyEnvironment will change an environment variable and return a func suitable
-// for `defer` to change the value back. If the given value is empty, then the envvar will be
-// unset.
-func ModifyEnvironment(t testing.TB, key string, value string) func() {
+// ModifyEnvironment will change an environment variable and revert it when the test completed.
+func ModifyEnvironment(t testing.TB, key string, value string) {
 	t.Helper()
 
 	oldValue, hasOldValue := os.LookupEnv(key)
@@ -254,13 +252,13 @@ func ModifyEnvironment(t testing.TB, key string, value string) func() {
 		require.NoError(t, os.Setenv(key, value))
 	}
 
-	return func() {
+	t.Cleanup(func() {
 		if hasOldValue {
 			require.NoError(t, os.Setenv(key, oldValue))
 		} else {
 			require.NoError(t, os.Unsetenv(key))
 		}
-	}
+	})
 }
 
 // GenerateCerts creates a certificate that can be used to establish TLS protected TCP connection.

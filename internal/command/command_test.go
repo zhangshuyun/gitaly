@@ -116,8 +116,7 @@ func TestNewCommandExportedEnv(t *testing.T) {
 				t.Skip("System Integrity Protection prevents using dynamic linker (dyld) environment variables on macOS. https://apple.co/2XDH4iC")
 			}
 
-			cleanup := testhelper.ModifyEnvironment(t, tc.key, tc.value)
-			defer cleanup()
+			testhelper.ModifyEnvironment(t, tc.key, tc.value)
 
 			buff := &bytes.Buffer{}
 			cmd, err := New(ctx, exec.Command("/usr/bin/env"), nil, buff, nil)
@@ -135,8 +134,7 @@ func TestNewCommandUnexportedEnv(t *testing.T) {
 	defer cancel()
 
 	unexportedEnvKey, unexportedEnvVal := "GITALY_UNEXPORTED_ENV", "foobar"
-	cleanup := testhelper.ModifyEnvironment(t, unexportedEnvKey, unexportedEnvVal)
-	defer cleanup()
+	testhelper.ModifyEnvironment(t, unexportedEnvKey, unexportedEnvVal)
 
 	buff := &bytes.Buffer{}
 	cmd, err := New(ctx, exec.Command("/usr/bin/env"), nil, buff, nil)

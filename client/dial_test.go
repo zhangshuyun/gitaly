@@ -128,7 +128,7 @@ func TestDial(t *testing.T) {
 			}
 
 			if tt.envSSLCertFile != "" {
-				defer testhelper.ModifyEnvironment(t, gitalyx509.SSLCertFile, tt.envSSLCertFile)()
+				testhelper.ModifyEnvironment(t, gitalyx509.SSLCertFile, tt.envSSLCertFile)
 			}
 
 			ctx, cancel := testhelper.Context()
@@ -218,7 +218,7 @@ func TestDialSidechannel(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.envSSLCertFile != "" {
-				defer testhelper.ModifyEnvironment(t, gitalyx509.SSLCertFile, tt.envSSLCertFile)()
+				testhelper.ModifyEnvironment(t, gitalyx509.SSLCertFile, tt.envSSLCertFile)
 			}
 
 			ctx, cancel := testhelper.Context()
