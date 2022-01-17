@@ -61,6 +61,7 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 	))
 	gitalypb.RegisterCleanupServiceServer(srv, cleanup.NewServer(
 		deps.GetCfg(),
+		deps.GetLocator(),
 		deps.GetGitCmdFactory(),
 		deps.GetCatfileCache(),
 	))

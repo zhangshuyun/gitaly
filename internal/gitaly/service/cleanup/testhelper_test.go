@@ -32,6 +32,7 @@ func runCleanupServiceServer(t *testing.T, cfg config.Cfg) string {
 	return testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterCleanupServiceServer(srv, NewServer(
 			deps.GetCfg(),
+			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
 		))
