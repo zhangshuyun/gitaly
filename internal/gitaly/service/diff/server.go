@@ -33,5 +33,5 @@ func NewServer(cfg config.Cfg, locator storage.Locator, gitCmdFactory git.Comman
 }
 
 func (s *server) localrepo(repo repository.GitRepo) *localrepo.Repo {
-	return localrepo.New(s.gitCmdFactory, s.catfileCache, repo, s.cfg)
+	return localrepo.New(s.locator, s.gitCmdFactory, s.catfileCache, repo)
 }

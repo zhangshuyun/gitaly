@@ -17,20 +17,18 @@ import (
 // Repo represents a local Git repository.
 type Repo struct {
 	repository.GitRepo
-	gitCmdFactory git.CommandFactory
-	cfg           config.Cfg
 	locator       storage.Locator
+	gitCmdFactory git.CommandFactory
 	catfileCache  catfile.Cache
 }
 
 // New creates a new Repo from its protobuf representation.
-func New(gitCmdFactory git.CommandFactory, catfileCache catfile.Cache, repo repository.GitRepo, cfg config.Cfg) *Repo {
+func New(locator storage.Locator, gitCmdFactory git.CommandFactory, catfileCache catfile.Cache, repo repository.GitRepo) *Repo {
 	return &Repo{
 		GitRepo:       repo,
-		cfg:           cfg,
+		locator:       locator,
 		gitCmdFactory: gitCmdFactory,
 		catfileCache:  catfileCache,
-		locator:       config.NewLocator(cfg),
 	}
 }
 
@@ -46,7 +44,9 @@ func NewTestRepo(t testing.TB, cfg config.Cfg, repo repository.GitRepo, factoryO
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 
-	return New(gitCmdFactory, catfileCache, repo, cfg)
+	locator := config.NewLocator(cfg)
+
+	return New(locator, gitCmdFactory, catfileCache, repo)
 }
 
 // Path returns the on-disk path of the repository.

@@ -77,7 +77,7 @@ func NewObjectPool(
 		storagePath:   storagePath,
 		relativePath:  relativePath,
 	}
-	pool.poolRepo = localrepo.New(gitCmdFactory, catfileCache, pool, cfg)
+	pool.poolRepo = localrepo.New(locator, gitCmdFactory, catfileCache, pool)
 
 	return pool, nil
 }

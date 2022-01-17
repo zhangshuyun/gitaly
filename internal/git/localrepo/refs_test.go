@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -25,7 +26,7 @@ func TestRepo_ContainsRef(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _ := setupRepo(t)
+	_, repo, _ := setupRepo(t)
 
 	testcases := []struct {
 		desc      string
@@ -62,7 +63,7 @@ func TestRepo_GetReference(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _ := setupRepo(t)
+	_, repo, _ := setupRepo(t)
 
 	testcases := []struct {
 		desc        string
@@ -110,7 +111,7 @@ func TestRepo_GetReferenceWithAmbiguousRefs(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _ := setupRepo(t, withDisabledHooks())
+	_, repo, _ := setupRepo(t, withDisabledHooks())
 
 	currentOID, err := repo.ResolveRevision(ctx, "refs/heads/master")
 	require.NoError(t, err)
@@ -143,7 +144,7 @@ func TestRepo_GetReferences(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _ := setupRepo(t)
+	_, repo, _ := setupRepo(t)
 
 	masterBranch, err := repo.GetReference(ctx, "refs/heads/master")
 	require.NoError(t, err)
@@ -242,10 +243,10 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 	defer catfileCache.Stop()
 
 	repo := New(
+		config.NewLocator(cfg),
 		gitCmdFactory,
 		catfileCache,
 		&gitalypb.Repository{StorageName: "default", RelativePath: filepath.Join(relativePath, ".git")},
-		cfg,
 	)
 	for _, tc := range []struct {
 		desc                  string
@@ -331,7 +332,7 @@ func TestRepo_GetBranches(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _ := setupRepo(t)
+	_, repo, _ := setupRepo(t)
 
 	refs, err := repo.GetBranches(ctx)
 	require.NoError(t, err)
@@ -342,7 +343,7 @@ func TestRepo_UpdateRef(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _ := setupRepo(t, withDisabledHooks())
+	cfg, repo, _ := setupRepo(t, withDisabledHooks())
 
 	otherRef, err := repo.GetReference(ctx, "refs/heads/gitaly-test-ref")
 	require.NoError(t, err)
@@ -442,8 +443,8 @@ func TestRepo_UpdateRef(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
 			// Re-create repo for each testcase.
-			repoProto, _ := gittest.CloneRepo(t, repo.cfg, repo.cfg.Storages[0])
-			repo := New(repo.gitCmdFactory, repo.catfileCache, repoProto, repo.cfg)
+			repoProto, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+			repo := New(repo.locator, repo.gitCmdFactory, repo.catfileCache, repoProto)
 			err := repo.UpdateRef(ctx, git.ReferenceName(tc.ref), tc.newValue, tc.oldValue)
 			tc.verify(t, repo, err)
 		})
@@ -451,7 +452,7 @@ func TestRepo_UpdateRef(t *testing.T) {
 }
 
 func TestRepo_SetDefaultBranch(t *testing.T) {
-	repo, _ := setupRepo(t)
+	_, repo, _ := setupRepo(t)
 
 	testCases := []struct {
 		desc        string
@@ -486,10 +487,10 @@ func TestRepo_SetDefaultBranch(t *testing.T) {
 }
 
 func TestGuessHead(t *testing.T) {
-	repo, repoPath := setupRepo(t)
+	cfg, repo, repoPath := setupRepo(t)
 
-	commit1 := text.ChompBytes(gittest.Exec(t, repo.cfg, "-C", repoPath, "rev-parse", "refs/heads/master"))
-	commit2 := text.ChompBytes(gittest.Exec(t, repo.cfg, "-C", repoPath, "rev-parse", "refs/heads/feature"))
+	commit1 := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/master"))
+	commit2 := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/feature"))
 
 	for _, tc := range []struct {
 		desc        string
@@ -569,7 +570,7 @@ func TestGuessHead(t *testing.T) {
 			defer cancel()
 
 			for _, cmd := range tc.cmds {
-				gittest.Exec(t, repo.cfg, append([]string{"-C", repoPath}, cmd...)...)
+				gittest.Exec(t, cfg, append([]string{"-C", repoPath}, cmd...)...)
 			}
 
 			guess, err := repo.GuessHead(ctx, tc.head)

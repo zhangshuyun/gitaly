@@ -22,7 +22,7 @@ import (
 
 func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseRequest) (*gitalypb.FindLicenseResponse, error) {
 	if featureflag.GoFindLicense.IsEnabled(ctx) {
-		repo := localrepo.New(s.gitCmdFactory, s.catfileCache, req.GetRepository(), s.cfg)
+		repo := localrepo.New(s.locator, s.gitCmdFactory, s.catfileCache, req.GetRepository())
 
 		hasHeadRevision, err := repo.HasRevision(ctx, "HEAD")
 		if err != nil {

@@ -8,6 +8,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -22,7 +23,7 @@ func TestRepo(t *testing.T) {
 		gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 		catfileCache := catfile.NewCache(cfg)
 		t.Cleanup(catfileCache.Stop)
-		return New(gitCmdFactory, catfileCache, pbRepo, cfg)
+		return New(config.NewLocator(cfg), gitCmdFactory, catfileCache, pbRepo)
 	})
 }
 
@@ -32,7 +33,7 @@ func TestRepo_Path(t *testing.T) {
 		gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 		catfileCache := catfile.NewCache(cfg)
 		t.Cleanup(catfileCache.Stop)
-		repo := New(gitCmdFactory, catfileCache, repoProto, cfg)
+		repo := New(config.NewLocator(cfg), gitCmdFactory, catfileCache, repoProto)
 
 		path, err := repo.Path()
 		require.NoError(t, err)
@@ -44,7 +45,7 @@ func TestRepo_Path(t *testing.T) {
 		gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 		catfileCache := catfile.NewCache(cfg)
 		t.Cleanup(catfileCache.Stop)
-		repo := New(gitCmdFactory, catfileCache, repoProto, cfg)
+		repo := New(config.NewLocator(cfg), gitCmdFactory, catfileCache, repoProto)
 
 		require.NoError(t, os.RemoveAll(repoPath))
 
@@ -57,7 +58,7 @@ func TestRepo_Path(t *testing.T) {
 		gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 		catfileCache := catfile.NewCache(cfg)
 		t.Cleanup(catfileCache.Stop)
-		repo := New(gitCmdFactory, catfileCache, repoProto, cfg)
+		repo := New(config.NewLocator(cfg), gitCmdFactory, catfileCache, repoProto)
 
 		// Recreate the repository as a simple empty directory to simulate
 		// that the repository is in a partially-created state.

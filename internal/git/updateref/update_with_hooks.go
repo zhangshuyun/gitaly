@@ -242,5 +242,5 @@ func (u *UpdaterWithHooks) UpdateReference(
 }
 
 func (u *UpdaterWithHooks) localrepo(repo repository.GitRepo) *localrepo.Repo {
-	return localrepo.New(u.gitCmdFactory, u.catfileCache, repo, u.cfg)
+	return localrepo.New(u.locator, u.gitCmdFactory, u.catfileCache, repo)
 }

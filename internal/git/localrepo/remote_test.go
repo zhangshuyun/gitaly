@@ -27,6 +27,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg, git.WithSkipHooks())
 	catfileCache := catfile.NewCache(cfg)
 	defer catfileCache.Stop()
+	locator := config.NewLocator(cfg)
 
 	initBareWithRemote := func(t *testing.T, remote string) (*Repo, string) {
 		t.Helper()
@@ -41,11 +42,11 @@ func TestRepo_FetchRemote(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		return New(gitCmdFactory, catfileCache, clientRepo, cfg), clientRepoPath
+		return New(locator, gitCmdFactory, catfileCache, clientRepo), clientRepoPath
 	}
 
 	t.Run("invalid name", func(t *testing.T) {
-		repo := New(gitCmdFactory, catfileCache, nil, cfg)
+		repo := New(locator, gitCmdFactory, catfileCache, nil)
 
 		err := repo.FetchRemote(ctx, " ", FetchOpts{})
 		require.True(t, errors.Is(err, git.ErrInvalidArg))
@@ -55,7 +56,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 	t.Run("unknown remote", func(t *testing.T) {
 		repoProto, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
-		repo := New(gitCmdFactory, catfileCache, repoProto, cfg)
+		repo := New(locator, gitCmdFactory, catfileCache, repoProto)
 		var stderr bytes.Buffer
 		err := repo.FetchRemote(ctx, "stub", FetchOpts{Stderr: &stderr})
 		require.Error(t, err)
@@ -85,7 +86,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 		_, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 		testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
-		repo := New(gitCmdFactory, catfileCache, testRepo, cfg)
+		repo := New(locator, gitCmdFactory, catfileCache, testRepo)
 		gittest.Exec(t, cfg, "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
 
 		var stderr bytes.Buffer
@@ -97,7 +98,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 		_, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 		testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
-		repo := New(gitCmdFactory, catfileCache, testRepo, cfg)
+		repo := New(locator, gitCmdFactory, catfileCache, testRepo)
 		gittest.Exec(t, cfg, "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
 
 		var stderr bytes.Buffer
@@ -113,7 +114,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 		_, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 		testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
-		repo := New(gitCmdFactory, catfileCache, testRepo, cfg)
+		repo := New(locator, gitCmdFactory, catfileCache, testRepo)
 		gittest.Exec(t, cfg, "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
 
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{}))
@@ -140,7 +141,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 		_, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 		testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
-		repo := New(gitCmdFactory, catfileCache, testRepo, cfg)
+		repo := New(locator, gitCmdFactory, catfileCache, testRepo)
 
 		gittest.Exec(t, cfg, "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{}))
@@ -218,17 +219,18 @@ func TestRepo_Push(t *testing.T) {
 	gitCmdFactory, readSSHCommand := captureGitSSHCommand(ctx, t, cfg)
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
+	locator := config.NewLocator(cfg)
 
-	sourceRepo := New(gitCmdFactory, catfileCache, sourceRepoPb, cfg)
+	sourceRepo := New(locator, gitCmdFactory, catfileCache, sourceRepoPb)
 
 	setupPushRepo := func(t testing.TB) (*Repo, string, []git.ConfigPair) {
 		repoProto, repopath := gittest.InitRepo(t, cfg, cfg.Storages[0])
-		return New(gitCmdFactory, catfileCache, repoProto, cfg), repopath, nil
+		return New(locator, gitCmdFactory, catfileCache, repoProto), repopath, nil
 	}
 
 	setupDivergedRepo := func(t testing.TB) (*Repo, string, []git.ConfigPair) {
 		repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
-		repo := New(gitCmdFactory, catfileCache, repoProto, cfg)
+		repo := New(locator, gitCmdFactory, catfileCache, repoProto)
 
 		// set up master as a divergin ref in push repo
 		sourceMaster, err := sourceRepo.GetReference(ctx, "refs/heads/master")
@@ -302,7 +304,7 @@ func TestRepo_Push(t *testing.T) {
 			desc: "invalid remote",
 			setupPushRepo: func(t testing.TB) (*Repo, string, []git.ConfigPair) {
 				repoProto, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
-				return New(gitCmdFactory, catfileCache, repoProto, cfg), "", nil
+				return New(locator, gitCmdFactory, catfileCache, repoProto), "", nil
 			},
 			refspecs:     []string{"refs/heads/master"},
 			errorMessage: `git push: exit status 128, stderr: "fatal: no path specified; see 'git help pull' for valid url syntax\n"`,
@@ -311,7 +313,7 @@ func TestRepo_Push(t *testing.T) {
 			desc: "in-memory remote",
 			setupPushRepo: func(testing.TB) (*Repo, string, []git.ConfigPair) {
 				repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
-				return New(gitCmdFactory, catfileCache, repoProto, cfg), "inmemory", []git.ConfigPair{
+				return New(locator, gitCmdFactory, catfileCache, repoProto), "inmemory", []git.ConfigPair{
 					{Key: "remote.inmemory.url", Value: repoPath},
 				}
 			},
