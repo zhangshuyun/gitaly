@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
@@ -23,6 +24,7 @@ import (
 // UpdaterWithHooks updates a ref with Git hooks.
 type UpdaterWithHooks struct {
 	cfg           config.Cfg
+	locator       storage.Locator
 	hookManager   hook.Manager
 	gitCmdFactory git.CommandFactory
 	catfileCache  catfile.Cache
@@ -89,12 +91,14 @@ func (e Error) Error() string {
 // NewUpdaterWithHooks creates a new instance of a struct that will update a Git reference.
 func NewUpdaterWithHooks(
 	cfg config.Cfg,
+	locator storage.Locator,
 	hookManager hook.Manager,
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
 ) *UpdaterWithHooks {
 	return &UpdaterWithHooks{
 		cfg:           cfg,
+		locator:       locator,
 		hookManager:   hookManager,
 		gitCmdFactory: gitCmdFactory,
 		catfileCache:  catfileCache,

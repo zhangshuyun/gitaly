@@ -40,7 +40,7 @@ func TestUpdaterWithHooks_UpdateReference_invalidParameters(t *testing.T) {
 
 	revA, revB := git.ObjectID(strings.Repeat("a", 40)), git.ObjectID(strings.Repeat("b", 40))
 
-	updater := NewUpdaterWithHooks(cfg, &hook.MockManager{}, nil, nil)
+	updater := NewUpdaterWithHooks(cfg, nil, &hook.MockManager{}, nil, nil)
 
 	testCases := []struct {
 		desc           string
@@ -246,7 +246,7 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 			hookManager := hook.NewMockManager(t, tc.preReceive, tc.postReceive, tc.update, tc.referenceTransaction)
 
 			gitCmdFactory := gittest.NewCommandFactory(t, cfg)
-			updater := NewUpdaterWithHooks(cfg, hookManager, gitCmdFactory, nil)
+			updater := NewUpdaterWithHooks(cfg, config.NewLocator(cfg), hookManager, gitCmdFactory, nil)
 
 			err := updater.UpdateReference(ctx, repo, user, nil, git.ReferenceName("refs/heads/master"), git.ZeroOID, git.ObjectID(oldRev))
 			if tc.expectedErr == "" {
@@ -349,7 +349,7 @@ func TestUpdaterWithHooks_quarantine(t *testing.T) {
 		},
 	)
 
-	require.NoError(t, NewUpdaterWithHooks(cfg, hookManager, gitCmdFactory, nil).UpdateReference(
+	require.NoError(t, NewUpdaterWithHooks(cfg, locator, hookManager, gitCmdFactory, nil).UpdateReference(
 		ctx,
 		repoProto,
 		&gitalypb.User{

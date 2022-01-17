@@ -42,7 +42,7 @@ func NewServer(
 		gitCmdFactory: gitCmdFactory,
 		catfileCache:  catfileCache,
 		pool:          connsPool,
-		updater:       updateref.NewUpdaterWithHooks(cfg, hookManager, gitCmdFactory, catfileCache),
+		updater:       updateref.NewUpdaterWithHooks(cfg, locator, hookManager, gitCmdFactory, catfileCache),
 		git2go:        git2go.NewExecutor(cfg, gitCmdFactory, locator),
 	}
 }
