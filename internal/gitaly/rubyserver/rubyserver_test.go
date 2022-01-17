@@ -94,7 +94,7 @@ func (mockGitCommandFactory) GetExecutionEnvironment(context.Context) git.Execut
 	}
 }
 
-func (mockGitCommandFactory) HooksPath() string {
+func (mockGitCommandFactory) HooksPath(context.Context) string {
 	return "custom_hooks_path"
 }
 

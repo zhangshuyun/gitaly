@@ -107,9 +107,6 @@ type Git struct {
 	BinPath            string      `toml:"bin_path"`
 	CatfileCacheSize   int         `toml:"catfile_cache_size"`
 	Config             []GitConfig `toml:"config"`
-	// HooksPath is the location where Gitaly has its hooks. This variable cannot be set via the
-	// config file and is only used in our tests.
-	HooksPath string `toml:"-"`
 
 	execEnv []string
 }

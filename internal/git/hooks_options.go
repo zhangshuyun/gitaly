@@ -107,7 +107,7 @@ func (cc *cmdCfg) configureHooks(
 		fmt.Sprintf("%s=%s", log.GitalyLogDirEnvKey, cfg.Logging.Dir),
 	)
 
-	cc.globals = append(cc.globals, ConfigPair{Key: "core.hooksPath", Value: gitCmdFactory.HooksPath()})
+	cc.globals = append(cc.globals, ConfigPair{Key: "core.hooksPath", Value: gitCmdFactory.HooksPath(ctx)})
 	cc.hooksConfigured = true
 
 	return nil

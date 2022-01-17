@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
@@ -79,8 +80,7 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 
 func TestFetchIntoObjectPool_hooks(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
-	cfg.Git.HooksPath = testhelper.TempDir(t)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg, git.WithHooksPath(testhelper.TempDir(t)))
 
 	addr := runObjectPoolServer(t, cfg, config.NewLocator(cfg), testhelper.NewDiscardingLogger(t), testserver.WithGitCommandFactory(gitCmdFactory))
 
@@ -97,7 +97,7 @@ func TestFetchIntoObjectPool_hooks(t *testing.T) {
 
 	// Set up a custom reference-transaction hook which simply exits failure. This asserts that
 	// the RPC doesn't invoke any reference-transaction.
-	testhelper.WriteExecutable(t, filepath.Join(gitCmdFactory.HooksPath(), "reference-transaction"), []byte("#!/bin/sh\nexit 1\n"))
+	testhelper.WriteExecutable(t, filepath.Join(gitCmdFactory.HooksPath(ctx), "reference-transaction"), []byte("#!/bin/sh\nexit 1\n"))
 
 	req := &gitalypb.FetchIntoObjectPoolRequest{
 		ObjectPool: pool.ToProto(),

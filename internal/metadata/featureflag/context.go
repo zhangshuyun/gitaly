@@ -17,6 +17,11 @@ const (
 	ffPrefix = "gitaly-feature-"
 )
 
+// ContextWithFeatureFlag sets the feature flag in both the incoming and outgoing context.
+func ContextWithFeatureFlag(ctx context.Context, flag FeatureFlag, enabled bool) context.Context {
+	return injectIntoIncomingAndOutgoingContext(ctx, flag.MetadataKey(), enabled)
+}
+
 // OutgoingCtxWithFeatureFlag sets the feature flag for an outgoing context.
 func OutgoingCtxWithFeatureFlag(ctx context.Context, flag FeatureFlag, enabled bool) context.Context {
 	return outgoingCtxWithFeatureFlag(ctx, flag.MetadataKey(), enabled)

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	mrand "math/rand"
 	"net"
 	"os"
 	"os/exec"
@@ -183,7 +184,10 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	// There are some feature flags we need to enable in this function because they end up very
 	// deep in the call stack, so almost every test function would have to inject it into its
 	// context.
-	ctx = featureflag.ContextWithFeatureFlags(ctx, featureflag.RunCommandsInCGroup)
+	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RunCommandsInCGroup, true)
+	// We use hook directories everywhere, so it's infeasible to test this on a global
+	// scale. Instead, we use it randomly.
+	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.HooksInTempdir, mrand.Int()%2 == 0)
 
 	for _, opt := range opts {
 		ctx = opt(ctx)

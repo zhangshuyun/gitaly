@@ -93,11 +93,11 @@ func TestReceivePackPushSuccess(t *testing.T) {
 
 	cfg.GitlabShell.Dir = "/foo/bar/gitlab-shell"
 
-	cfg, hookOutputFile := gittest.CaptureHookEnv(t, cfg)
+	gitCmdFactory, hookOutputFile := gittest.CaptureHookEnv(t, cfg)
 
 	testcfg.BuildGitalySSH(t, cfg)
 
-	serverSocketPath := runSSHServer(t, cfg)
+	serverSocketPath := runSSHServer(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
 
 	glRepository := "project-456"
 	glProjectPath := "project/path"
@@ -207,15 +207,17 @@ func TestReceivePackPushHookFailure(t *testing.T) {
 	t.Parallel()
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
-	cfg.Git.HooksPath = testhelper.TempDir(t)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg, git.WithHooksPath(testhelper.TempDir(t)))
 
 	testcfg.BuildGitalySSH(t, cfg)
 
 	serverSocketPath := runSSHServer(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
 
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	hookContent := []byte("#!/bin/sh\nexit 1")
-	require.NoError(t, os.WriteFile(filepath.Join(gitCmdFactory.HooksPath(), "pre-receive"), hookContent, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(gitCmdFactory.HooksPath(ctx), "pre-receive"), hookContent, 0o755))
 
 	_, _, err := testCloneAndPush(t, cfg, cfg.Storages[0].Path, serverSocketPath, repo, pushParams{storageName: cfg.Storages[0].Name, glID: "1"})
 	require.Error(t, err)

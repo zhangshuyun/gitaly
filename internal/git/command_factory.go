@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"golang.org/x/sys/unix"
 )
@@ -63,13 +64,13 @@ type CommandFactory interface {
 	// GetExecutionEnvironment returns parameters required to execute Git commands.
 	GetExecutionEnvironment(context.Context) ExecutionEnvironment
 	// HooksPath returns the path where Gitaly's Git hooks reside.
-	HooksPath() string
+	HooksPath(context.Context) string
 	// GitVersion returns the Git version used by the command factory.
 	GitVersion(context.Context) (Version, error)
 }
 
 type execCommandFactoryConfig struct {
-	skipHooks bool
+	hooksPath string
 }
 
 // ExecCommandFactoryOption is an option that can be passed to NewExecCommandFactory.
@@ -78,8 +79,20 @@ type ExecCommandFactoryOption func(*execCommandFactoryConfig)
 // WithSkipHooks will skip any use of hooks in this command factory.
 func WithSkipHooks() ExecCommandFactoryOption {
 	return func(cfg *execCommandFactoryConfig) {
-		cfg.skipHooks = true
+		cfg.hooksPath = "/var/empty"
 	}
+}
+
+// WithHooksPath will override the path where hooks are to be found.
+func WithHooksPath(hooksPath string) ExecCommandFactoryOption {
+	return func(cfg *execCommandFactoryConfig) {
+		cfg.hooksPath = hooksPath
+	}
+}
+
+type hookDirectories struct {
+	rubyHooksPath string
+	tempHooksPath string
 }
 
 // ExecCommandFactory knows how to properly construct different types of commands.
@@ -88,7 +101,7 @@ type ExecCommandFactory struct {
 	cfg                   config.Cfg
 	cgroupsManager        cgroups.Manager
 	invalidCommandsMetric *prometheus.CounterVec
-	skipHooks             bool
+	hookDirs              hookDirectories
 
 	cachedGitVersionLock sync.RWMutex
 	cachedGitVersion     Version
@@ -97,11 +110,21 @@ type ExecCommandFactory struct {
 
 // NewExecCommandFactory returns a new instance of initialized ExecCommandFactory. The returned
 // cleanup function shall be executed when the server shuts down.
-func NewExecCommandFactory(cfg config.Cfg, opts ...ExecCommandFactoryOption) (*ExecCommandFactory, func(), error) {
+func NewExecCommandFactory(cfg config.Cfg, opts ...ExecCommandFactoryOption) (_ *ExecCommandFactory, _ func(), returnedErr error) {
 	var factoryCfg execCommandFactoryConfig
 	for _, opt := range opts {
 		opt(&factoryCfg)
 	}
+
+	hookDirectories, cleanup, err := setupHookDirectories(cfg, factoryCfg)
+	if err != nil {
+		return nil, nil, fmt.Errorf("setting up hooks: %w", err)
+	}
+	defer func() {
+		if returnedErr != nil {
+			cleanup()
+		}
+	}()
 
 	gitCmdFactory := &ExecCommandFactory{
 		cfg:            cfg,
@@ -114,14 +137,10 @@ func NewExecCommandFactory(cfg config.Cfg, opts ...ExecCommandFactoryOption) (*E
 			},
 			[]string{"command"},
 		),
-		skipHooks: factoryCfg.skipHooks,
+		hookDirs: hookDirectories,
 	}
 
-	if err := gitCmdFactory.validateHooks(); err != nil {
-		return nil, nil, fmt.Errorf("validating hooks: %w", err)
-	}
-
-	return gitCmdFactory, func() {}, nil
+	return gitCmdFactory, cleanup, nil
 }
 
 // Describe is used to describe Prometheus metrics.
@@ -165,26 +184,27 @@ func (cf *ExecCommandFactory) GetExecutionEnvironment(context.Context) Execution
 }
 
 // HooksPath returns the path where Gitaly's Git hooks reside.
-func (cf *ExecCommandFactory) HooksPath() string {
-	if len(cf.cfg.Git.HooksPath) > 0 {
-		return cf.cfg.Git.HooksPath
+func (cf *ExecCommandFactory) HooksPath(ctx context.Context) string {
+	if featureflag.HooksInTempdir.IsEnabled(ctx) {
+		return cf.hookDirs.tempHooksPath
 	}
-
-	if cf.skipHooks {
-		return "/var/empty"
-	}
-
-	return filepath.Join(cf.cfg.Ruby.Dir, "git-hooks")
+	return cf.hookDirs.rubyHooksPath
 }
 
-func (cf *ExecCommandFactory) validateHooks() error {
-	if cf.skipHooks {
-		return nil
+func setupHookDirectories(cfg config.Cfg, factoryCfg execCommandFactoryConfig) (hookDirectories, func(), error) {
+	if factoryCfg.hooksPath != "" {
+		return hookDirectories{
+			rubyHooksPath: factoryCfg.hooksPath,
+			tempHooksPath: factoryCfg.hooksPath,
+		}, func() {}, nil
 	}
+
+	// The old and now-deprecated location of Gitaly's hooks is in the Ruby directory.
+	rubyHooksPath := filepath.Join(cfg.Ruby.Dir, "git-hooks")
 
 	var errs []string
 	for _, hookName := range []string{"pre-receive", "post-receive", "update"} {
-		hookPath := filepath.Join(cf.cfg.Ruby.Dir, "git-hooks", hookName)
+		hookPath := filepath.Join(rubyHooksPath, hookName)
 		if err := unix.Access(hookPath, unix.X_OK); err != nil {
 			if errors.Is(err, os.ErrPermission) {
 				errs = append(errs, fmt.Sprintf("not executable: %v", hookPath))
@@ -195,10 +215,68 @@ func (cf *ExecCommandFactory) validateHooks() error {
 	}
 
 	if len(errs) > 0 {
-		return fmt.Errorf(strings.Join(errs, ", "))
+		return hookDirectories{}, nil, fmt.Errorf(strings.Join(errs, ", "))
 	}
 
-	return nil
+	if cfg.BinDir == "" {
+		return hookDirectories{}, nil, errors.New("binary directory required to set up hooks")
+	}
+
+	// This sets up the new hook location. Hooks now live in a temporary directory,
+	// where we write the previous equivalent of the `gitlab-shell-hook` script which
+	// knows to locate and execute the `gitaly-hooks` binary.
+	//
+	// Ideally, we'd be able to skip this intermediate step altogteher by just
+	// symlinking the hooks to the binary directly. But currently, the first argument of
+	// must be set to the hook name. We don't really need this given that the zero'th
+	// argument would be set to the symlink's path anyway. But `gitaly-hooks` doesn't
+	// yet know to handle that correctly. Instead, the hook script we write here starts
+	// to set both the zero'th argument and the first argument to the hook name such
+	// that we can eventually switch and get rid of the intermediate script.
+	tempHooksPath, err := os.MkdirTemp("", "gitaly-hooks-")
+	if err != nil {
+		return hookDirectories{}, nil, fmt.Errorf("creating temporary hooks directory: %w", err)
+	}
+
+	gitalyHooksPath := filepath.Join(cfg.BinDir, "gitaly-hooks")
+	wrapperScriptPath := filepath.Join(tempHooksPath, "gitlab-shell-hook")
+
+	// We first write the wrapper script which executes the `gitaly-hooks` binary.
+	wrapperScriptFile, err := os.OpenFile(wrapperScriptPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o755)
+	if err != nil {
+		return hookDirectories{}, nil, fmt.Errorf("creating wrapper script: %w", err)
+	}
+	defer wrapperScriptFile.Close()
+
+	// The script will set both the zeroth and first arguments to its own name. This will allow
+	// us to eventually remove the need for this script altogether when `gitaly-hooks` learns to
+	// deduce the hook name from its zeroth argument.
+	if _, err := wrapperScriptFile.WriteString(fmt.Sprintf(
+		`#!/bin/bash
+exec -a "$0" %q "$(basename "$0")" "$@"
+`, gitalyHooksPath)); err != nil {
+		return hookDirectories{}, nil, fmt.Errorf("writing wrapper script: %w", err)
+	}
+
+	if err := wrapperScriptFile.Close(); err != nil {
+		return hookDirectories{}, nil, fmt.Errorf("closing wrapper script: %w", err)
+	}
+
+	// And now we symlink all required hooks to the wrapper script.
+	for _, hook := range []string{"pre-receive", "post-receive", "update", "reference-transaction"} {
+		if err := os.Symlink(wrapperScriptPath, filepath.Join(tempHooksPath, hook)); err != nil {
+			return hookDirectories{}, nil, fmt.Errorf("creating symlink for %s hook: %w", hook, err)
+		}
+	}
+
+	return hookDirectories{
+			rubyHooksPath: rubyHooksPath,
+			tempHooksPath: tempHooksPath,
+		}, func() {
+			if err := os.RemoveAll(tempHooksPath); err != nil {
+				log.Default().WithError(err).Error("cleaning up temporary hooks path")
+			}
+		}, nil
 }
 
 func statDiffers(a, b os.FileInfo) bool {
