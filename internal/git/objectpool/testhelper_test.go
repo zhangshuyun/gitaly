@@ -20,7 +20,7 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-func setupObjectPool(t *testing.T, ctx context.Context) (*ObjectPool, *gitalypb.Repository) {
+func setupObjectPool(t *testing.T, ctx context.Context) (config.Cfg, *ObjectPool, *gitalypb.Repository) {
 	t.Helper()
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
@@ -30,7 +30,6 @@ func setupObjectPool(t *testing.T, ctx context.Context) (*ObjectPool, *gitalypb.
 	t.Cleanup(catfileCache.Stop)
 
 	pool, err := NewObjectPool(
-		cfg,
 		config.NewLocator(cfg),
 		gitCommandFactory,
 		catfileCache,
@@ -46,5 +45,5 @@ func setupObjectPool(t *testing.T, ctx context.Context) (*ObjectPool, *gitalypb.
 		}
 	})
 
-	return pool, repo
+	return cfg, pool, repo
 }

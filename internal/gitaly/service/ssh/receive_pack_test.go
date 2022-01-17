@@ -243,7 +243,6 @@ func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 	require.NoError(t, err)
 
 	pool, err := objectpool.NewObjectPool(
-		cfg,
 		config.NewLocator(cfg),
 		gittest.NewCommandFactory(t, cfg),
 		nil,

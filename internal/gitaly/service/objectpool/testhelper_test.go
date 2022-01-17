@@ -72,7 +72,6 @@ func initObjectPool(t testing.TB, cfg config.Cfg, storage config.Storage) *objec
 	t.Cleanup(catfileCache.Stop)
 
 	pool, err := objectpool.NewObjectPool(
-		cfg,
 		config.NewLocator(cfg),
 		gittest.NewCommandFactory(t, cfg),
 		catfileCache,

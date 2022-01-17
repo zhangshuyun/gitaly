@@ -15,7 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -35,7 +34,6 @@ const ErrInvalidPoolDir errString = "invalid object pool directory"
 // live in a pool in a distinct repository which is used as an alternate object
 // store for other repositories.
 type ObjectPool struct {
-	cfg           config.Cfg
 	locator       storage.Locator
 	gitCmdFactory git.CommandFactory
 	txManager     transaction.Manager
@@ -50,7 +48,6 @@ type ObjectPool struct {
 // shard. Relative path is validated to match the expected naming and directory
 // structure. If the shard cannot be found, this function returns an error.
 func NewObjectPool(
-	cfg config.Cfg,
 	locator storage.Locator,
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
@@ -69,7 +66,6 @@ func NewObjectPool(
 	}
 
 	pool := &ObjectPool{
-		cfg:           cfg,
 		locator:       locator,
 		gitCmdFactory: gitCmdFactory,
 		txManager:     txManager,
@@ -163,7 +159,6 @@ func (o *ObjectPool) Init(ctx context.Context) (err error) {
 
 // FromRepo returns an instance of ObjectPool that the repository points to
 func FromRepo(
-	cfg config.Cfg,
 	locator storage.Locator,
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
@@ -189,7 +184,7 @@ func FromRepo(
 		return nil, err
 	}
 
-	return NewObjectPool(cfg, locator, gitCmdFactory, catfileCache, txManager, repo.GetStorageName(), filepath.Dir(altPathRelativeToStorage))
+	return NewObjectPool(locator, gitCmdFactory, catfileCache, txManager, repo.GetStorageName(), filepath.Dir(altPathRelativeToStorage))
 }
 
 var (

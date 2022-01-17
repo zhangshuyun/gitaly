@@ -206,7 +206,6 @@ func TestObjectPoolRefAdvertisementHiding(t *testing.T) {
 	defer cancel()
 
 	pool, err := objectpool.NewObjectPool(
-		cfg,
 		config.NewLocator(cfg),
 		gittest.NewCommandFactory(t, cfg),
 		nil,

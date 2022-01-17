@@ -19,7 +19,7 @@ func TestFetchFromOriginDangling(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, testRepo := setupObjectPool(t, ctx)
+	cfg, pool, testRepo := setupObjectPool(t, ctx)
 
 	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "seed pool")
 
@@ -35,15 +35,15 @@ func TestFetchFromOriginDangling(t *testing.T) {
 	require.NoError(t, err)
 
 	// A blob with random contents should be unique.
-	newBlob := gittest.WriteBlob(t, pool.cfg, pool.FullPath(), []byte(nonce))
+	newBlob := gittest.WriteBlob(t, cfg, pool.FullPath(), []byte(nonce))
 
 	// A tree with a randomly named blob entry should be unique.
-	newTree := gittest.WriteTree(t, pool.cfg, pool.FullPath(), []gittest.TreeEntry{
+	newTree := gittest.WriteTree(t, cfg, pool.FullPath(), []gittest.TreeEntry{
 		{Mode: "100644", OID: git.ObjectID(existingBlob), Path: nonce},
 	})
 
 	// A commit with a random message should be unique.
-	newCommit := gittest.WriteCommit(t, pool.cfg, pool.FullPath(),
+	newCommit := gittest.WriteCommit(t, cfg, pool.FullPath(),
 		gittest.WithTreeEntries(gittest.TreeEntry{
 			OID: git.ObjectID(existingTree), Path: nonce, Mode: "040000",
 		}),
@@ -51,15 +51,15 @@ func TestFetchFromOriginDangling(t *testing.T) {
 
 	// A tag with random hex characters in its name should be unique.
 	newTagName := "tag-" + nonce
-	newTag := gittest.WriteTag(t, pool.cfg, pool.FullPath(), newTagName, existingCommit, gittest.WriteTagConfig{
+	newTag := gittest.WriteTag(t, cfg, pool.FullPath(), newTagName, existingCommit, gittest.WriteTagConfig{
 		Message: "msg",
 	})
 
 	// `git tag` automatically creates a ref, so our new tag is not dangling.
 	// Deleting the ref should fix that.
-	gittest.Exec(t, pool.cfg, "-C", pool.FullPath(), "update-ref", "-d", "refs/tags/"+newTagName)
+	gittest.Exec(t, cfg, "-C", pool.FullPath(), "update-ref", "-d", "refs/tags/"+newTagName)
 
-	fsckBefore := gittest.Exec(t, pool.cfg, "-C", pool.FullPath(), "fsck", "--connectivity-only", "--dangling")
+	fsckBefore := gittest.Exec(t, cfg, "-C", pool.FullPath(), "fsck", "--connectivity-only", "--dangling")
 	fsckBeforeLines := strings.Split(string(fsckBefore), "\n")
 
 	for _, l := range []string{
@@ -75,7 +75,7 @@ func TestFetchFromOriginDangling(t *testing.T) {
 	// non-dangling objects.
 	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "second fetch")
 
-	refsAfter := gittest.Exec(t, pool.cfg, "-C", pool.FullPath(), "for-each-ref", "--format=%(refname) %(objectname)")
+	refsAfter := gittest.Exec(t, cfg, "-C", pool.FullPath(), "for-each-ref", "--format=%(refname) %(objectname)")
 	refsAfterLines := strings.Split(string(refsAfter), "\n")
 	for _, id := range []git.ObjectID{newBlob, newTree, newCommit, newTag} {
 		require.Contains(t, refsAfterLines, fmt.Sprintf("refs/dangling/%s %s", id, id))
@@ -86,14 +86,14 @@ func TestFetchFromOriginFsck(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, repo := setupObjectPool(t, ctx)
-	repoPath := filepath.Join(pool.cfg.Storages[0].Path, repo.RelativePath)
+	cfg, pool, repo := setupObjectPool(t, ctx)
+	repoPath := filepath.Join(cfg.Storages[0].Path, repo.RelativePath)
 
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "seed pool")
 
 	// We're creating a new commit which has a root tree with duplicate entries. git-mktree(1)
 	// allows us to create these trees just fine, but git-fsck(1) complains.
-	gittest.WriteCommit(t, pool.cfg, repoPath,
+	gittest.WriteCommit(t, cfg, repoPath,
 		gittest.WithTreeEntries(
 			gittest.TreeEntry{OID: "4b825dc642cb6eb9a060e54bf8d69288fbee4904", Path: "dup", Mode: "040000"},
 			gittest.TreeEntry{OID: "4b825dc642cb6eb9a060e54bf8d69288fbee4904", Path: "dup", Mode: "040000"},
@@ -110,20 +110,20 @@ func TestFetchFromOriginDeltaIslands(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, testRepo := setupObjectPool(t, ctx)
-	testRepoPath := filepath.Join(pool.cfg.Storages[0].Path, testRepo.RelativePath)
+	cfg, pool, testRepo := setupObjectPool(t, ctx)
+	testRepoPath := filepath.Join(cfg.Storages[0].Path, testRepo.RelativePath)
 
 	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "seed pool")
 	require.NoError(t, pool.Link(ctx, testRepo))
 
-	gittest.TestDeltaIslands(t, pool.cfg, testRepoPath, func() error {
+	gittest.TestDeltaIslands(t, cfg, testRepoPath, func() error {
 		// This should create a new packfile with good delta chains in the pool
 		if err := pool.FetchFromOrigin(ctx, testRepo); err != nil {
 			return err
 		}
 
 		// Make sure the old packfile, with bad delta chains, is deleted from the source repo
-		gittest.Exec(t, pool.cfg, "-C", testRepoPath, "repack", "-ald")
+		gittest.Exec(t, cfg, "-C", testRepoPath, "repack", "-ald")
 
 		return nil
 	})
@@ -133,7 +133,7 @@ func TestFetchFromOriginBitmapHashCache(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, testRepo := setupObjectPool(t, ctx)
+	_, pool, testRepo := setupObjectPool(t, ctx)
 
 	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "seed pool")
 
@@ -158,8 +158,8 @@ func TestFetchFromOriginRefUpdates(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, testRepo := setupObjectPool(t, ctx)
-	testRepoPath := filepath.Join(pool.cfg.Storages[0].Path, testRepo.RelativePath)
+	cfg, pool, testRepo := setupObjectPool(t, ctx)
+	testRepoPath := filepath.Join(cfg.Storages[0].Path, testRepo.RelativePath)
 
 	poolPath := pool.FullPath()
 
@@ -171,8 +171,8 @@ func TestFetchFromOriginRefUpdates(t *testing.T) {
 	}
 
 	for ref, oid := range oldRefs {
-		require.Equal(t, oid, resolveRef(t, pool.cfg, testRepoPath, "refs/"+ref), "look up %q in source", ref)
-		require.Equal(t, oid, resolveRef(t, pool.cfg, poolPath, "refs/remotes/origin/"+ref), "look up %q in pool", ref)
+		require.Equal(t, oid, resolveRef(t, cfg, testRepoPath, "refs/"+ref), "look up %q in source", ref)
+		require.Equal(t, oid, resolveRef(t, cfg, poolPath, "refs/remotes/origin/"+ref), "look up %q in pool", ref)
 	}
 
 	newRefs := map[string]string{
@@ -185,14 +185,14 @@ func TestFetchFromOriginRefUpdates(t *testing.T) {
 	}
 
 	for ref, oid := range newRefs {
-		gittest.Exec(t, pool.cfg, "-C", testRepoPath, "update-ref", "refs/"+ref, oid)
-		require.Equal(t, oid, resolveRef(t, pool.cfg, testRepoPath, "refs/"+ref), "look up %q in source after update", ref)
+		gittest.Exec(t, cfg, "-C", testRepoPath, "update-ref", "refs/"+ref, oid)
+		require.Equal(t, oid, resolveRef(t, cfg, testRepoPath, "refs/"+ref), "look up %q in source after update", ref)
 	}
 
 	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "update pool")
 
 	for ref, oid := range newRefs {
-		require.Equal(t, oid, resolveRef(t, pool.cfg, poolPath, "refs/remotes/origin/"+ref), "look up %q in pool after update", ref)
+		require.Equal(t, oid, resolveRef(t, cfg, poolPath, "refs/remotes/origin/"+ref), "look up %q in pool after update", ref)
 	}
 
 	looseRefs := testhelper.MustRunCommand(t, nil, "find", filepath.Join(poolPath, "refs"), "-type", "f")
@@ -203,23 +203,23 @@ func TestFetchFromOrigin_refs(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, _ := setupObjectPool(t, ctx)
+	cfg, pool, _ := setupObjectPool(t, ctx)
 	poolPath := pool.FullPath()
 
 	// Init the source repo with a bunch of refs.
-	repo, repoPath := gittest.InitRepo(t, pool.cfg, pool.cfg.Storages[0])
-	commitID := gittest.WriteCommit(t, pool.cfg, repoPath, gittest.WithParents(), gittest.WithTreeEntries())
+	repo, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(), gittest.WithTreeEntries())
 	for _, ref := range []string{"refs/heads/master", "refs/environments/1", "refs/tags/lightweight-tag"} {
-		gittest.Exec(t, pool.cfg, "-C", repoPath, "update-ref", ref, commitID.String())
+		gittest.Exec(t, cfg, "-C", repoPath, "update-ref", ref, commitID.String())
 	}
-	gittest.WriteTag(t, pool.cfg, repoPath, "annotated-tag", commitID.Revision(), gittest.WriteTagConfig{
+	gittest.WriteTag(t, cfg, repoPath, "annotated-tag", commitID.Revision(), gittest.WriteTagConfig{
 		Message: "tag message",
 	})
 
 	require.NoError(t, pool.Init(ctx))
 
 	// The pool shouldn't have any refs yet.
-	require.Empty(t, gittest.Exec(t, pool.cfg, "-C", poolPath, "for-each-ref", "--format=%(refname)"))
+	require.Empty(t, gittest.Exec(t, cfg, "-C", poolPath, "for-each-ref", "--format=%(refname)"))
 
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo))
 
@@ -230,7 +230,7 @@ func TestFetchFromOrigin_refs(t *testing.T) {
 			"refs/remotes/origin/tags/annotated-tag",
 			"refs/remotes/origin/tags/lightweight-tag",
 		},
-		strings.Split(text.ChompBytes(gittest.Exec(t, pool.cfg, "-C", poolPath, "for-each-ref", "--format=%(refname)")), "\n"),
+		strings.Split(text.ChompBytes(gittest.Exec(t, cfg, "-C", poolPath, "for-each-ref", "--format=%(refname)")), "\n"),
 	)
 }
 
