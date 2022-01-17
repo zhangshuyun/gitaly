@@ -265,6 +265,7 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 			deps.GetGit2goExecutor(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
+			deps.GetUpdaterWithHooks(),
 		))
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
 	})

@@ -75,6 +75,7 @@ func runOperationServiceServer(t testing.TB, cfg config.Cfg, options ...testserv
 			deps.GetGit2goExecutor(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
+			deps.GetUpdaterWithHooks(),
 		)
 		operationServer.enableUserMergeBranchStructuredErrors = true
 

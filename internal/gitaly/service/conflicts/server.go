@@ -35,6 +35,7 @@ func NewServer(
 	catfileCache catfile.Cache,
 	connsPool *client.Pool,
 	git2goExecutor *git2go.Executor,
+	updater *updateref.UpdaterWithHooks,
 ) gitalypb.ConflictsServiceServer {
 	return &server{
 		cfg:            cfg,
@@ -43,7 +44,7 @@ func NewServer(
 		gitCmdFactory:  gitCmdFactory,
 		catfileCache:   catfileCache,
 		pool:           connsPool,
-		updater:        updateref.NewUpdaterWithHooks(cfg, locator, hookManager, gitCmdFactory, catfileCache),
+		updater:        updater,
 		git2goExecutor: git2goExecutor,
 	}
 }

@@ -135,6 +135,7 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 			deps.GetGit2goExecutor(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
+			deps.GetUpdaterWithHooks(),
 		))
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
 		// Praefect proxy execution disabled as praefect runs only on the UNIX socket, but
@@ -498,6 +499,7 @@ func TestUserDeleteBranch_transaction(t *testing.T) {
 			deps.GetGit2goExecutor(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
+			deps.GetUpdaterWithHooks(),
 		))
 	})
 

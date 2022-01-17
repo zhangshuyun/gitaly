@@ -47,6 +47,7 @@ func NewServer(
 	git2goExecutor *git2go.Executor,
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
+	updater *updateref.UpdaterWithHooks,
 ) *Server {
 	return &Server{
 		cfg:            cfg,
@@ -57,7 +58,7 @@ func NewServer(
 		git2goExecutor: git2goExecutor,
 		gitCmdFactory:  gitCmdFactory,
 		catfileCache:   catfileCache,
-		updater:        updateref.NewUpdaterWithHooks(cfg, locator, hookManager, gitCmdFactory, catfileCache),
+		updater:        updater,
 	}
 }
 

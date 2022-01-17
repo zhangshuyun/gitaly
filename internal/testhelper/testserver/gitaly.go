@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/auth"
@@ -243,6 +244,7 @@ type gitalyServerDeps struct {
 	packObjectsCache streamcache.Cache
 	limitHandler     *limithandler.LimiterMiddleware
 	git2goExecutor   *git2go.Executor
+	updaterWithHooks *updateref.UpdaterWithHooks
 }
 
 func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server) *service.Dependencies {
@@ -309,6 +311,10 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 		gsd.git2goExecutor = git2go.NewExecutor(cfg, gsd.gitCmdFactory, gsd.locator)
 	}
 
+	if gsd.updaterWithHooks == nil {
+		gsd.updaterWithHooks = updateref.NewUpdaterWithHooks(cfg, gsd.locator, gsd.hookMgr, gsd.gitCmdFactory, gsd.catfileCache)
+	}
+
 	return &service.Dependencies{
 		Cfg:                 cfg,
 		RubyServer:          rubyServer,
@@ -325,6 +331,7 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 		PackObjectsCache:    gsd.packObjectsCache,
 		LimitHandler:        gsd.limitHandler,
 		Git2goExecutor:      gsd.git2goExecutor,
+		UpdaterWithHooks:    gsd.updaterWithHooks,
 	}
 }
 
