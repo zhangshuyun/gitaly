@@ -16,14 +16,14 @@ import (
 
 type server struct {
 	gitalypb.UnimplementedConflictsServiceServer
-	cfg           config.Cfg
-	locator       storage.Locator
-	gitCmdFactory git.CommandFactory
-	catfileCache  catfile.Cache
-	pool          *client.Pool
-	hookManager   hook.Manager
-	updater       *updateref.UpdaterWithHooks
-	git2go        git2go.Executor
+	cfg            config.Cfg
+	locator        storage.Locator
+	gitCmdFactory  git.CommandFactory
+	catfileCache   catfile.Cache
+	pool           *client.Pool
+	hookManager    hook.Manager
+	updater        *updateref.UpdaterWithHooks
+	git2goExecutor *git2go.Executor
 }
 
 // NewServer creates a new instance of a grpc ConflictsServer
@@ -34,16 +34,17 @@ func NewServer(
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
 	connsPool *client.Pool,
+	git2goExecutor *git2go.Executor,
 ) gitalypb.ConflictsServiceServer {
 	return &server{
-		cfg:           cfg,
-		hookManager:   hookManager,
-		locator:       locator,
-		gitCmdFactory: gitCmdFactory,
-		catfileCache:  catfileCache,
-		pool:          connsPool,
-		updater:       updateref.NewUpdaterWithHooks(cfg, locator, hookManager, gitCmdFactory, catfileCache),
-		git2go:        git2go.NewExecutor(cfg, gitCmdFactory, locator),
+		cfg:            cfg,
+		hookManager:    hookManager,
+		locator:        locator,
+		gitCmdFactory:  gitCmdFactory,
+		catfileCache:   catfileCache,
+		pool:           connsPool,
+		updater:        updateref.NewUpdaterWithHooks(cfg, locator, hookManager, gitCmdFactory, catfileCache),
+		git2goExecutor: git2goExecutor,
 	}
 }
 

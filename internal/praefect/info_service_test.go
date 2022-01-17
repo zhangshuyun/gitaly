@@ -43,6 +43,7 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 				deps.GetGitCmdFactory(),
 				deps.GetCatfileCache(),
 				deps.GetConnsPool(),
+				deps.GetGit2goExecutor(),
 			))
 		}, testserver.WithDisablePraefect())
 		cfgNodes = append(cfgNodes, &config.Node{

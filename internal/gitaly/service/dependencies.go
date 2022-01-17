@@ -6,6 +6,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/linguist"
@@ -33,6 +34,7 @@ type Dependencies struct {
 	DiskCache           cache.Cache
 	PackObjectsCache    streamcache.Cache
 	LimitHandler        *limithandler.LimiterMiddleware
+	Git2goExecutor      *git2go.Executor
 }
 
 // GetCfg returns service configuration.
@@ -103,4 +105,9 @@ func (dc *Dependencies) GetPackObjectsCache() streamcache.Cache {
 // GetLimitHandler returns the RPC limit handler.
 func (dc *Dependencies) GetLimitHandler() *limithandler.LimiterMiddleware {
 	return dc.LimitHandler
+}
+
+// GetGit2goExecutor returns the git2go executor.
+func (dc *Dependencies) GetGit2goExecutor() *git2go.Executor {
+	return dc.Git2goExecutor
 }

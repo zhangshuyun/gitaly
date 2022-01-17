@@ -71,7 +71,7 @@ type ConflictsResult struct {
 }
 
 // Conflicts performs a merge via gitaly-git2go and returns all resulting conflicts.
-func (b Executor) Conflicts(ctx context.Context, repo repository.GitRepo, c ConflictsCommand) (ConflictsResult, error) {
+func (b *Executor) Conflicts(ctx context.Context, repo repository.GitRepo, c ConflictsCommand) (ConflictsResult, error) {
 	if err := c.verify(); err != nil {
 		return ConflictsResult{}, fmt.Errorf("conflicts: %w: %s", ErrInvalidArgument, err.Error())
 	}

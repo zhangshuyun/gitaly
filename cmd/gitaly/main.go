@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/sentry"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
@@ -212,6 +213,8 @@ func run(cfg config.Cfg) error {
 		return fmt.Errorf("linguist instance creation: %w", err)
 	}
 
+	git2goExecutor := git2go.NewExecutor(cfg, gitCmdFactory, locator)
+
 	rubySrv := rubyserver.New(cfg, gitCmdFactory)
 	if err := rubySrv.Start(); err != nil {
 		return fmt.Errorf("initialize gitaly-ruby: %v", err)
@@ -253,6 +256,7 @@ func run(cfg config.Cfg) error {
 			CatfileCache:       catfileCache,
 			DiskCache:          diskCache,
 			PackObjectsCache:   streamcache.New(cfg.PackObjectsCache, glog.Default()),
+			Git2goExecutor:     git2goExecutor,
 		})
 		b.RegisterStarter(starter.New(c, srv))
 	}

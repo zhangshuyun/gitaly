@@ -33,6 +33,7 @@ func TestRepository(t *testing.T) {
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
 			deps.GetConnsPool(),
+			deps.GetGit2goExecutor(),
 		))
 		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(
 			deps.GetCfg(),

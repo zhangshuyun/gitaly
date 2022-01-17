@@ -43,7 +43,7 @@ type MergeResult struct {
 }
 
 // Merge performs a merge via gitaly-git2go.
-func (b Executor) Merge(ctx context.Context, repo repository.GitRepo, m MergeCommand) (MergeResult, error) {
+func (b *Executor) Merge(ctx context.Context, repo repository.GitRepo, m MergeCommand) (MergeResult, error) {
 	if err := m.verify(); err != nil {
 		return MergeResult{}, fmt.Errorf("merge: %w: %s", ErrInvalidArgument, err.Error())
 	}

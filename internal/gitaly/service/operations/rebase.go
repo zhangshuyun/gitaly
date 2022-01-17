@@ -59,7 +59,7 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 		committer.When = header.Timestamp.AsTime()
 	}
 
-	newrev, err := s.git2go.Rebase(ctx, quarantineRepo, git2go.RebaseCommand{
+	newrev, err := s.git2goExecutor.Rebase(ctx, quarantineRepo, git2go.RebaseCommand{
 		Repository:       repoPath,
 		Committer:        committer,
 		BranchName:       string(header.Branch),

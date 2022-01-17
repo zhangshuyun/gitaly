@@ -29,6 +29,6 @@ type CherryPickCommand struct {
 }
 
 // CherryPick performs a cherry pick via gitaly-git2go.
-func (b Executor) CherryPick(ctx context.Context, repo repository.GitRepo, m CherryPickCommand) (git.ObjectID, error) {
+func (b *Executor) CherryPick(ctx context.Context, repo repository.GitRepo, m CherryPickCommand) (git.ObjectID, error) {
 	return b.runWithGob(ctx, repo, "cherry-pick", m)
 }

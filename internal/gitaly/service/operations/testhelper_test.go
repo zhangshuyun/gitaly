@@ -72,6 +72,7 @@ func runOperationServiceServer(t testing.TB, cfg config.Cfg, options ...testserv
 			deps.GetTxManager(),
 			deps.GetLocator(),
 			deps.GetConnsPool(),
+			deps.GetGit2goExecutor(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
 		)
@@ -87,6 +88,7 @@ func runOperationServiceServer(t testing.TB, cfg config.Cfg, options ...testserv
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
 			deps.GetConnsPool(),
+			deps.GetGit2goExecutor(),
 		))
 		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(
 			deps.GetCfg(),

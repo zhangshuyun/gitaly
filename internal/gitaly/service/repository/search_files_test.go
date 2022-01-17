@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -210,17 +211,22 @@ func TestSearchFilesByContentFailure(t *testing.T) {
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 
+	locator := config.NewLocator(cfg)
+
 	connsPool := client.NewPool()
 	defer testhelper.MustClose(t, connsPool)
+
+	git2goExecutor := git2go.NewExecutor(cfg, gitCommandFactory, locator)
 
 	server := NewServer(
 		cfg,
 		nil,
-		config.NewLocator(cfg),
+		locator,
 		transaction.NewManager(cfg, backchannel.NewRegistry()),
 		gitCommandFactory,
 		catfileCache,
 		connsPool,
+		git2goExecutor,
 	)
 
 	testCases := []struct {
@@ -339,17 +345,22 @@ func TestSearchFilesByNameFailure(t *testing.T) {
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 
+	locator := config.NewLocator(cfg)
+
 	connsPool := client.NewPool()
 	defer testhelper.MustClose(t, connsPool)
+
+	git2goExecutor := git2go.NewExecutor(cfg, gitCommandFactory, locator)
 
 	server := NewServer(
 		cfg,
 		nil,
-		config.NewLocator(cfg),
+		locator,
 		transaction.NewManager(cfg, backchannel.NewRegistry()),
 		gitCommandFactory,
 		catfileCache,
 		connsPool,
+		git2goExecutor,
 	)
 
 	testCases := []struct {

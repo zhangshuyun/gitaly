@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
@@ -35,6 +36,7 @@ func (mo *mockOptimizer) OptimizeRepository(ctx context.Context, req *gitalypb.O
 	gitCmdFactory := gittest.NewCommandFactory(mo.t, mo.cfg)
 	catfileCache := catfile.NewCache(mo.cfg)
 	mo.t.Cleanup(catfileCache.Stop)
+	git2goExecutor := git2go.NewExecutor(mo.cfg, gitCmdFactory, l)
 
 	connsPool := client.NewPool()
 	mo.t.Cleanup(func() { testhelper.MustClose(mo.t, connsPool) })
@@ -45,6 +47,7 @@ func (mo *mockOptimizer) OptimizeRepository(ctx context.Context, req *gitalypb.O
 		gitCmdFactory,
 		catfileCache,
 		connsPool,
+		git2goExecutor,
 	).OptimizeRepository(ctx, req)
 	assert.NoError(mo.t, err)
 	return resp, err

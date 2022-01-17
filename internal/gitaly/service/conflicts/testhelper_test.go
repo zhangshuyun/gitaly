@@ -61,6 +61,7 @@ func runConflictsServer(t testing.TB, cfg config.Cfg, hookManager hook.Manager) 
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
 			deps.GetConnsPool(),
+			deps.GetGit2goExecutor(),
 		))
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
 			deps.GetCfg(),
@@ -70,6 +71,7 @@ func runConflictsServer(t testing.TB, cfg config.Cfg, hookManager hook.Manager) 
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
 			deps.GetConnsPool(),
+			deps.GetGit2goExecutor(),
 		))
 		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
 			deps.GetCfg(),
