@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -34,74 +35,75 @@ func main() {
 		logrus.Fatalf("usage: %s forking_binary [args]", os.Args[0])
 	}
 
-	gitalyBin, gitalyArgs := os.Args[1], os.Args[2:]
+	binary, arguments := os.Args[1], os.Args[2:]
 
 	logger := log.Default().WithField("wrapper", os.Getpid())
 	logger.Info("Wrapper started")
 
-	if pidFile() == "" {
+	pidFilePath := os.Getenv(bootstrap.EnvPidFile)
+	if pidFilePath == "" {
 		logger.Fatalf("missing pid file ENV variable %q", bootstrap.EnvPidFile)
 	}
+	logger.WithField("pid_file", pidFilePath).Info("finding process")
 
-	logger.WithField("pid_file", pidFile()).Info("finding gitaly")
-	gitaly, err := findGitaly()
+	process, err := findProcess(pidFilePath)
 	if err != nil && !isRecoverable(err) {
-		logger.WithError(err).Fatal("find gitaly")
+		logger.WithError(err).Fatal("find process")
 	} else if err != nil {
-		logger.WithError(err).Error("find gitaly")
+		logger.WithError(err).Error("find process")
 	}
 
-	if gitaly != nil && isGitaly(gitaly, gitalyBin) {
+	if process != nil && isExpectedProcess(process, binary) {
 		logger.Info("adopting a process")
 	} else {
 		logger.Info("spawning a process")
 
-		proc, err := spawnGitaly(gitalyBin, gitalyArgs)
+		proc, err := spawnProcess(binary, arguments)
 		if err != nil {
 			logger.WithError(err).Fatal("spawn gitaly")
 		}
 
-		gitaly = proc
+		process = proc
 	}
 
-	logger = logger.WithField("gitaly", gitaly.Pid)
-	logger.Info("monitoring gitaly")
+	logger = logger.WithField("process", process.Pid)
+	logger.Info("monitoring process")
 
-	forwardSignals(gitaly, logger)
+	forwardSignals(process, logger)
 
 	// wait
-	for isAlive(gitaly) {
+	for isProcessAlive(process) {
 		time.Sleep(1 * time.Second)
 	}
 
-	logger.Error("wrapper for gitaly shutting down")
+	logger.Error("wrapper for process shutting down")
 }
 
 func isRecoverable(err error) bool {
-	_, isNumError := err.(*strconv.NumError)
-	return os.IsNotExist(err) || isNumError
+	var numError *strconv.NumError
+	return os.IsNotExist(err) || errors.As(err, &numError)
 }
 
-func findGitaly() (*os.Process, error) {
-	pid, err := getPid()
+func findProcess(pidFilePath string) (*os.Process, error) {
+	pid, err := readPIDFile(pidFilePath)
 	if err != nil {
 		return nil, err
 	}
 
 	// os.FindProcess on unix do not return an error if the process does not exist
-	gitaly, err := os.FindProcess(pid)
+	process, err := os.FindProcess(pid)
 	if err != nil {
 		return nil, err
 	}
 
-	if isAlive(gitaly) {
-		return gitaly, nil
+	if isProcessAlive(process) {
+		return process, nil
 	}
 
 	return nil, nil
 }
 
-func spawnGitaly(bin string, args []string) (*os.Process, error) {
+func spawnProcess(bin string, args []string) (*os.Process, error) {
 	cmd := exec.Command(bin, args...)
 	cmd.Env = append(os.Environ(), fmt.Sprintf("%s=true", bootstrap.EnvUpgradesEnabled))
 
@@ -145,8 +147,8 @@ func forwardSignals(gitaly *os.Process, log *logrus.Entry) {
 	signal.Notify(sigs)
 }
 
-func getPid() (int, error) {
-	data, err := os.ReadFile(pidFile())
+func readPIDFile(pidFilePath string) (int, error) {
+	data, err := os.ReadFile(pidFilePath)
 	if err != nil {
 		return 0, err
 	}
@@ -154,7 +156,7 @@ func getPid() (int, error) {
 	return strconv.Atoi(string(data))
 }
 
-func isAlive(p *os.Process) bool {
+func isProcessAlive(p *os.Process) bool {
 	// After p exits, and after it gets reaped, this p.Signal will fail. It is crucial that p gets reaped.
 	// If p was spawned by the current process, it will get reaped from a goroutine that does cmd.Wait().
 	// If p was spawned by someone else we rely on them to reap it, or on p to become an orphan.
@@ -162,21 +164,17 @@ func isAlive(p *os.Process) bool {
 	return p.Signal(syscall.Signal(0)) == nil
 }
 
-func isGitaly(p *os.Process, gitalyBin string) bool {
+func isExpectedProcess(p *os.Process, binary string) bool {
 	command, err := ps.Comm(p.Pid)
 	if err != nil {
 		return false
 	}
 
-	if filepath.Base(command) == filepath.Base(gitalyBin) {
+	if filepath.Base(command) == filepath.Base(binary) {
 		return true
 	}
 
 	return false
-}
-
-func pidFile() string {
-	return os.Getenv(bootstrap.EnvPidFile)
 }
 
 func jsonLogging() bool {

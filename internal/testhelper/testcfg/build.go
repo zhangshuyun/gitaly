@@ -33,6 +33,11 @@ func BuildGitalyGit2Go(t testing.TB, cfg config.Cfg) string {
 	return symlinkPath
 }
 
+// BuildGitalyWrapper builds the gitaly-wrapper command and installs it into the binary directory.
+func BuildGitalyWrapper(t *testing.T, cfg config.Cfg) string {
+	return BuildBinary(t, cfg.BinDir, gitalyCommandPath("gitaly-wrapper"))
+}
+
 // BuildGitalyLFSSmudge builds the gitaly-lfs-smudge command and installs it into the binary
 // directory.
 func BuildGitalyLFSSmudge(t *testing.T, cfg config.Cfg) string {
