@@ -56,8 +56,7 @@ func TestGetBool(t *testing.T) {
 		},
 	} {
 		t.Run(fmt.Sprintf("value=%s,fallback=%t", tc.value, tc.fallback), func(t *testing.T) {
-			cleanup := testhelper.ModifyEnvironment(t, "TEST_BOOL", tc.value)
-			t.Cleanup(cleanup)
+			testhelper.ModifyEnvironment(t, "TEST_BOOL", tc.value)
 
 			result, err := env.GetBool("TEST_BOOL", tc.fallback)
 
@@ -106,8 +105,7 @@ func TestGetInt(t *testing.T) {
 		},
 	} {
 		t.Run(fmt.Sprintf("value=%s,fallback=%d", tc.value, tc.fallback), func(t *testing.T) {
-			cleanup := testhelper.ModifyEnvironment(t, "TEST_INT", tc.value)
-			t.Cleanup(cleanup)
+			testhelper.ModifyEnvironment(t, "TEST_INT", tc.value)
 
 			result, err := env.GetInt("TEST_INT", tc.fallback)
 

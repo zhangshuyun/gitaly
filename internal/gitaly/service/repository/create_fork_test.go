@@ -243,8 +243,7 @@ func TestCreateFork_targetExists(t *testing.T) {
 func injectCustomCATestCerts(t *testing.T) (*x509.CertPool, config.TLS) {
 	certFile, keyFile := testhelper.GenerateCerts(t)
 
-	revertEnv := testhelper.ModifyEnvironment(t, gitalyx509.SSLCertFile, certFile)
-	t.Cleanup(revertEnv)
+	testhelper.ModifyEnvironment(t, gitalyx509.SSLCertFile, certFile)
 
 	caPEMBytes := testhelper.MustReadFile(t, certFile)
 	pool := x509.NewCertPool()

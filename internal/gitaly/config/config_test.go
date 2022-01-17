@@ -340,11 +340,8 @@ value = "second-value"
 }
 
 func TestSetGitPath(t *testing.T) {
-	cleanup := testhelper.ModifyEnvironment(t, "GITALY_TESTING_GIT_BINARY", "")
-	defer cleanup()
-
-	cleanup = testhelper.ModifyEnvironment(t, "GITALY_TESTING_BUNDLED_GIT_PATH", "")
-	defer cleanup()
+	testhelper.ModifyEnvironment(t, "GITALY_TESTING_GIT_BINARY", "")
+	testhelper.ModifyEnvironment(t, "GITALY_TESTING_BUNDLED_GIT_PATH", "")
 
 	t.Run("set in config", func(t *testing.T) {
 		cfg := Cfg{Git: Git{BinPath: "/path/to/myGit"}}
@@ -353,8 +350,7 @@ func TestSetGitPath(t *testing.T) {
 	})
 
 	t.Run("set using GITALY_TESTING_GIT_BINARY", func(t *testing.T) {
-		cleanup := testhelper.ModifyEnvironment(t, "GITALY_TESTING_GIT_BINARY", "/path/to/env_git")
-		defer cleanup()
+		testhelper.ModifyEnvironment(t, "GITALY_TESTING_GIT_BINARY", "/path/to/env_git")
 
 		cfg := Cfg{Git: Git{}}
 		require.NoError(t, cfg.SetGitPath())
@@ -367,8 +363,7 @@ func TestSetGitPath(t *testing.T) {
 		bundledGitRemoteExecutable := filepath.Join(bundledGitDir, "gitaly-git-remote-http")
 		bundledGitHTTPBackendExecutable := filepath.Join(bundledGitDir, "gitaly-git-http-backend")
 
-		cleanup := testhelper.ModifyEnvironment(t, "GITALY_TESTING_BUNDLED_GIT_PATH", bundledGitDir)
-		defer cleanup()
+		testhelper.ModifyEnvironment(t, "GITALY_TESTING_BUNDLED_GIT_PATH", bundledGitDir)
 
 		t.Run("missing bin_dir", func(t *testing.T) {
 			cfg := Cfg{Git: Git{}}
@@ -442,8 +437,7 @@ func TestSetGitPath(t *testing.T) {
 	})
 
 	t.Run("doesn't exist in the system", func(t *testing.T) {
-		cleanup := testhelper.ModifyEnvironment(t, "PATH", "")
-		defer cleanup()
+		testhelper.ModifyEnvironment(t, "PATH", "")
 
 		cfg := Cfg{Git: Git{}}
 		assert.EqualError(t, cfg.SetGitPath(), `"git" executable not found, set path to it in the configuration file or add it to the PATH`)

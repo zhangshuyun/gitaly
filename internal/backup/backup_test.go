@@ -636,7 +636,7 @@ func TestResolveSink(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			for k, v := range tc.envs {
-				t.Cleanup(testhelper.ModifyEnvironment(t, k, v))
+				testhelper.ModifyEnvironment(t, k, v)
 			}
 			sink, err := ResolveSink(ctx, tc.path)
 			if tc.errMsg != "" {
