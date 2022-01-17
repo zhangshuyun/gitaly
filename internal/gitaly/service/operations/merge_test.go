@@ -330,6 +330,7 @@ func testUserMergeBranchConcurrentUpdate(t *testing.T, ctx context.Context) {
 		CommitId:   commitToMerge,
 		Branch:     []byte(mergeBranchName),
 		Message:    []byte(mergeCommitMessage),
+		Timestamp:  &timestamppb.Timestamp{Seconds: 12, Nanos: 34},
 	}
 
 	require.NoError(t, mergeBidi.Send(firstRequest), "send first request")
@@ -346,7 +347,19 @@ func testUserMergeBranchConcurrentUpdate(t *testing.T, ctx context.Context) {
 
 	secondResponse, err := mergeBidi.Recv()
 	if featureflag.UserMergeBranchAccessError.IsEnabled(ctx) {
-		testhelper.RequireGrpcError(t, helper.ErrFailedPreconditionf("Could not update refs/heads/gitaly-merge-test-branch. Please refresh and try again."), err)
+		testhelper.RequireGrpcError(t, errWithDetails(t,
+			helper.ErrFailedPreconditionf("Could not update refs/heads/gitaly-merge-test-branch. Please refresh and try again."),
+			&gitalypb.UserMergeBranchError{
+				Error: &gitalypb.UserMergeBranchError_ReferenceUpdate{
+					ReferenceUpdate: &gitalypb.ReferenceUpdateError{
+						ReferenceName: []byte("refs/heads/" + mergeBranchName),
+						OldOid:        "281d3a76f31c812dbf48abce82ccf6860adedd81",
+						NewOid:        "f0165798887392f9148b55d54a832b005f93a38c",
+					},
+				},
+			},
+		), err)
+
 		require.Nil(t, secondResponse)
 	} else {
 		require.NoError(t, err, "receive second response")
