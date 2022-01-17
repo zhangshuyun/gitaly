@@ -75,6 +75,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     add_message "gitaly.UserMergeBranchError" do
       oneof :error do
         optional :access_check, :message, 1, "gitaly.AccessCheckError"
+        optional :reference_update, :message, 2, "gitaly.ReferenceUpdateError"
       end
     end
     add_message "gitaly.UserMergeToRefRequest" do

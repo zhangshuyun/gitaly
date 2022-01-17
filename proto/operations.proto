@@ -257,6 +257,9 @@ message UserMergeBranchError {
   oneof error {
     // AccessCheckError is set if the RPC failed because `/internal/allowed` failed.
     AccessCheckError access_check = 1;
+    // ReferenceUpdateError is set if the RPC failed because updating the
+    // reference to the new object ID has failed.
+    ReferenceUpdateError reference_update = 2;
   }
 }
 
