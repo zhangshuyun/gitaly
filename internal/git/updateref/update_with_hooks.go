@@ -75,11 +75,15 @@ func (e HookError) Unwrap() error {
 
 // Error reports an error in git update-ref
 type Error struct {
-	reference string
+	// Reference is the name of the reference that would have been updated.
+	Reference git.ReferenceName
+	// OldOID and NewOID are the expected object IDs previous to and after the update if it
+	// would have succeeded.
+	OldOID, NewOID git.ObjectID
 }
 
 func (e Error) Error() string {
-	return fmt.Sprintf("Could not update %s. Please refresh and try again.", e.reference)
+	return fmt.Sprintf("Could not update %s. Please refresh and try again.", e.Reference)
 }
 
 // NewUpdaterWithHooks creates a new instance of a struct that will update a Git reference.
@@ -200,7 +204,11 @@ func (u *UpdaterWithHooks) UpdateReference(
 	// We need to lock the reference before executing the reference-transaction hook such that
 	// there cannot be any concurrent modification.
 	if err := updater.Prepare(); err != nil {
-		return Error{reference: reference.String()}
+		return Error{
+			Reference: reference,
+			OldOID:    oldrev,
+			NewOID:    newrev,
+		}
 	}
 	// We need to explicitly cancel the update here such that we release the lock when this
 	// function exits if there is any error between locking and committing.
@@ -211,7 +219,11 @@ func (u *UpdaterWithHooks) UpdateReference(
 	}
 
 	if err := updater.Commit(); err != nil {
-		return Error{reference: reference.String()}
+		return Error{
+			Reference: reference,
+			OldOID:    oldrev,
+			NewOID:    newrev,
+		}
 	}
 
 	if err := u.hookManager.ReferenceTransactionHook(ctx, hook.ReferenceTransactionCommitted, []string{hooksPayload}, strings.NewReader(changes)); err != nil {
