@@ -19,8 +19,9 @@ able to derive required information:
 - We inject `GITALY_BIN_DIR`, which points to Gitaly's binary directory. This is
   used to locate the `gitaly-hooks` binary.
 - We inject the `core.hooksPath` config entry, which points to the directory
-  containing our global hooks. All hooks are symlinks to the `gitlab-shell-hook`
-  script, which locates the `gitaly-hooks` executable using `GITALY_BIN_DIR`.
+  containing our global hooks. Global hooks are set up as a temporary directory
+  containing symlinks to a wrapper script which is able to locato the
+  `gitaly-hooks` executable.
 - We inject `GITALY_HOOKS_PAYLOAD`, which contains JSON-formatted data. This
   payload encodes various information:
   - Which hooks have been requested. Gitaly uses this to only configure a
@@ -38,10 +39,9 @@ information to connect to Gitaly and execute the respective RPC call. The
 execution path is:
 
 1. Git locates the hook using `core.hooksPath`. If found, this is a symlink
-   pointing to the `gitlab-shell-hook` script.
-1. The `gitlab-shell-hook` script executes `gitaly-hook`, which it locates using
-   `GITALY_BIN_DIR`.
-1. `gitaly-hook` connects to Gitaly and executes the corresponding RPC call in
+   pointing to the wrapper script which is able to locate `gitaly-hooks`.
+1. The wrapper script executes `gitaly-hooks`.
+1. `gitaly-hooks` connects to Gitaly and executes the corresponding RPC call in
    Gitaly, passing along any hook-specific information to the RPC.
 1. Gitaly performs the hook-specific logic in the RPC handler.
 
