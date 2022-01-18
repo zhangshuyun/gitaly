@@ -84,41 +84,52 @@ func proxy(ctx context.Context) func(*ClientConn) error {
 		}
 		defer downstream.Close()
 
-		const nStreams = 2
-		errC := make(chan error, nStreams)
-
+		fromDownstream := make(chan error, 1)
 		go func() {
-			errC <- func() error {
+			fromDownstream <- func() error {
 				if _, err := io.Copy(upstream, downstream); err != nil {
-					return err
+					return fmt.Errorf("copy to upstream: %w", err)
 				}
 
-				// Downstream.Read() has returned EOF. That means we are done proxying
-				// the request body from downstream to upstream. Propagate this EOF to
-				// upstream by calling CloseWrite(). Use CloseWrite(), not Close(),
-				// because we still want to read the response body from upstream in the
-				// other goroutine.
-				return upstream.CloseWrite()
+				if err := upstream.CloseWrite(); err != nil {
+					return fmt.Errorf("closewrite upstream: %w", err)
+				}
+
+				return nil
 			}()
 		}()
 
+		fromUpstream := make(chan error, 1)
 		go func() {
-			errC <- func() error {
+			fromUpstream <- func() error {
 				if _, err := io.Copy(downstream, upstream); err != nil {
-					return err
+					return fmt.Errorf("copy to downstream: %w", err)
 				}
 
-				// Upstream is now closed for both reads and writes. Propagate this state
-				// to downstream. This also happens via defer, but this way we can log
-				// the Close error if there is one.
-				return downstream.Close()
+				return nil
 			}()
 		}()
 
-		for i := 0; i < nStreams; i++ {
-			if err := <-errC; err != nil {
-				return err
+	waitForUpstream:
+		for {
+			select {
+			case err := <-fromUpstream:
+				if err != nil {
+					return err
+				}
+
+				break waitForUpstream
+			case err := <-fromDownstream:
+				if err != nil {
+					return err
+				}
+			case <-ctx.Done():
+				return ctx.Err()
 			}
+		}
+
+		if err := downstream.Close(); err != nil {
+			return fmt.Errorf("close downstream: %w", err)
 		}
 
 		return nil

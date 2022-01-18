@@ -19,17 +19,25 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
-func testProxyServer(ctx context.Context) (err error) {
+func testProxyServer(ctx context.Context, expectEOF bool) (err error) {
 	conn, err := OpenSidechannel(ctx)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
 
-	buf, err := io.ReadAll(conn)
+	var buf []byte
+	if expectEOF {
+		buf, err = io.ReadAll(conn)
+	} else {
+		buf = make([]byte, 5)
+		_, err = conn.Read(buf)
+	}
+
 	if err != nil {
 		return fmt.Errorf("server read: %w", err)
 	}
+
 	if string(buf) != "hello" {
 		return fmt.Errorf("server: unexpected request: %q", buf)
 	}
@@ -44,30 +52,38 @@ func testProxyServer(ctx context.Context) (err error) {
 	return nil
 }
 
-func testProxyClient(conn *ClientConn) (err error) {
-	if _, err := io.WriteString(conn, "hello"); err != nil {
-		return fmt.Errorf("client write: %w", err)
-	}
-	if err := conn.CloseWrite(); err != nil {
-		return err
-	}
+func testProxyClient(closeWrite bool) func(*ClientConn) error {
+	return func(conn *ClientConn) (err error) {
+		if _, err := io.WriteString(conn, "hello"); err != nil {
+			return fmt.Errorf("client write: %w", err)
+		}
+		if closeWrite {
+			if err := conn.CloseWrite(); err != nil {
+				return err
+			}
+		}
 
-	buf, err := io.ReadAll(conn)
-	if err != nil {
-		return fmt.Errorf("client read: %w", err)
-	}
-	if string(buf) != "world" {
-		return fmt.Errorf("client: unexpected response: %q", buf)
-	}
+		buf, err := io.ReadAll(conn)
+		if err != nil {
+			return fmt.Errorf("client read: %w", err)
+		}
+		if string(buf) != "world" {
+			return fmt.Errorf("client: unexpected response: %q", buf)
+		}
 
-	return nil
+		return nil
+	}
 }
 
-func TestUnaryProxy(t *testing.T) {
+func TestUnaryProxy(t *testing.T) { testUnaryProxy(t, true) }
+
+func TestUnaryProxy_withoutCloseWrite(t *testing.T) { testUnaryProxy(t, false) }
+
+func testUnaryProxy(t *testing.T, closeWrite bool) {
 	upstreamAddr := startServer(
 		t,
 		func(ctx context.Context, request *healthpb.HealthCheckRequest) (*healthpb.HealthCheckResponse, error) {
-			if err := testProxyServer(ctx); err != nil {
+			if err := testProxyServer(ctx, closeWrite); err != nil {
 				return nil, err
 			}
 			return &healthpb.HealthCheckResponse{}, nil
@@ -92,7 +108,7 @@ func TestUnaryProxy(t *testing.T) {
 	defer cancel()
 
 	conn, registry := dial(t, proxyAddr)
-	require.NoError(t, call(ctx, conn, registry, testProxyClient))
+	require.NoError(t, call(ctx, conn, registry, testProxyClient(closeWrite)))
 }
 
 func newLogger() *logrus.Entry { return logrus.NewEntry(logrus.New()) }
@@ -115,11 +131,15 @@ func dialProxy(upstreamAddr string) (*grpc.ClientConn, error) {
 	return grpc.Dial(upstreamAddr, dialOpts...)
 }
 
-func TestStreamProxy(t *testing.T) {
+func TestStreamProxy(t *testing.T) { testStreamProxy(t, true) }
+
+func TestStreamProxy_noCloseWrite(t *testing.T) { testStreamProxy(t, false) }
+
+func testStreamProxy(t *testing.T, closeWrite bool) {
 	upstreamAddr := startStreamServer(
 		t,
 		func(stream gitalypb.SSHService_SSHUploadPackServer) error {
-			return testProxyServer(stream.Context())
+			return testProxyServer(stream.Context(), closeWrite)
 		},
 	)
 
@@ -150,7 +170,7 @@ func TestStreamProxy(t *testing.T) {
 	defer cancel()
 
 	conn, registry := dial(t, proxyAddr)
-	ctx, waiter := RegisterSidechannel(ctx, registry, testProxyClient)
+	ctx, waiter := RegisterSidechannel(ctx, registry, testProxyClient(closeWrite))
 	defer waiter.Close()
 
 	client, err := gitalypb.NewSSHServiceClient(conn).SSHUploadPack(ctx)

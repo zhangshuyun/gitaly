@@ -16,6 +16,8 @@ module Gitaly
 
       # To forward 'git upload-pack' to Gitaly for SSH sessions
       rpc :SSHUploadPack, stream(::Gitaly::SSHUploadPackRequest), stream(::Gitaly::SSHUploadPackResponse)
+      # To forward 'git upload-pack' to Gitaly for SSH sessions, via sidechannels
+      rpc :SSHUploadPackWithSidechannel, ::Gitaly::SSHUploadPackWithSidechannelRequest, ::Gitaly::SSHUploadPackWithSidechannelResponse
       # To forward 'git receive-pack' to Gitaly for SSH sessions
       rpc :SSHReceivePack, stream(::Gitaly::SSHReceivePackRequest), stream(::Gitaly::SSHReceivePackResponse)
       # To forward 'git upload-archive' to Gitaly for SSH sessions

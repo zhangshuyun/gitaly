@@ -33,6 +33,7 @@ type cloneCommand struct {
 	gitConfig    string
 	gitProtocol  string
 	cfg          config.Cfg
+	sidechannel  bool
 }
 
 func runTestWithAndWithoutConfigOptions(t *testing.T, tf func(t *testing.T, opts ...testcfg.Option), opts ...testcfg.Option) {
@@ -64,15 +65,20 @@ func (cmd cloneCommand) execute(t *testing.T) error {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
+	env := []string{
+		fmt.Sprintf("GITALY_ADDRESS=%s", cmd.server),
+		fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
+		fmt.Sprintf("GITALY_FEATUREFLAGS=%s", strings.Join(flagPairs, ",")),
+		fmt.Sprintf("PATH=.:%s", os.Getenv("PATH")),
+		fmt.Sprintf(`GIT_SSH_COMMAND=%s upload-pack`, filepath.Join(cmd.cfg.BinDir, "gitaly-ssh")),
+	}
+	if cmd.sidechannel {
+		env = append(env, "GITALY_USE_SIDECHANNEL=1")
+	}
+
 	var output bytes.Buffer
 	gitCommand, err := gittest.NewCommandFactory(t, cmd.cfg).NewWithoutRepo(ctx,
-		cmd.command, git.WithStdout(&output), git.WithStderr(&output), git.WithEnv(
-			fmt.Sprintf("GITALY_ADDRESS=%s", cmd.server),
-			fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
-			fmt.Sprintf("GITALY_FEATUREFLAGS=%s", strings.Join(flagPairs, ",")),
-			fmt.Sprintf("PATH=.:%s", os.Getenv("PATH")),
-			fmt.Sprintf(`GIT_SSH_COMMAND=%s upload-pack`, filepath.Join(cmd.cfg.BinDir, "gitaly-ssh")),
-		), git.WithDisabledHooks(),
+		cmd.command, git.WithStdout(&output), git.WithStderr(&output), git.WithEnv(env...), git.WithDisabledHooks(),
 	)
 	require.NoError(t, err)
 
@@ -221,6 +227,20 @@ func TestUploadPackCloneSuccess(t *testing.T) {
 }
 
 func testUploadPackCloneSuccess(t *testing.T, opts ...testcfg.Option) {
+	testUploadPackCloneSuccess2(t, false, opts...)
+}
+
+func TestUploadPackWithSidechannelCloneSuccess(t *testing.T) {
+	t.Parallel()
+
+	runTestWithAndWithoutConfigOptions(t, testUploadPackWithSidechannelCloneSuccess, testcfg.WithPackObjectsCacheEnabled())
+}
+
+func testUploadPackWithSidechannelCloneSuccess(t *testing.T, opts ...testcfg.Option) {
+	testUploadPackCloneSuccess2(t, true, opts...)
+}
+
+func testUploadPackCloneSuccess2(t *testing.T, sidechannel bool, opts ...testcfg.Option) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t, opts...)
 
 	testcfg.BuildGitalyHooks(t, cfg)
@@ -263,10 +283,11 @@ func testUploadPackCloneSuccess(t *testing.T, opts ...testcfg.Option) {
 			negotiationMetrics.Reset()
 
 			cmd := cloneCommand{
-				repository: repo,
-				command:    tc.cmd,
-				server:     serverSocketPath,
-				cfg:        cfg,
+				repository:  repo,
+				command:     tc.cmd,
+				server:      serverSocketPath,
+				cfg:         cfg,
+				sidechannel: sidechannel,
 			}
 			lHead, rHead, _, _ := cmd.test(t, cfg, repoPath, localRepoPath)
 			require.Equal(t, lHead, rHead, "local and remote head not equal")

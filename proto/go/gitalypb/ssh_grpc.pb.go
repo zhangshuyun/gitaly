@@ -20,6 +20,8 @@ const _ = grpc.SupportPackageIsVersion7
 type SSHServiceClient interface {
 	// To forward 'git upload-pack' to Gitaly for SSH sessions
 	SSHUploadPack(ctx context.Context, opts ...grpc.CallOption) (SSHService_SSHUploadPackClient, error)
+	// To forward 'git upload-pack' to Gitaly for SSH sessions, via sidechannels
+	SSHUploadPackWithSidechannel(ctx context.Context, in *SSHUploadPackWithSidechannelRequest, opts ...grpc.CallOption) (*SSHUploadPackWithSidechannelResponse, error)
 	// To forward 'git receive-pack' to Gitaly for SSH sessions
 	SSHReceivePack(ctx context.Context, opts ...grpc.CallOption) (SSHService_SSHReceivePackClient, error)
 	// To forward 'git upload-archive' to Gitaly for SSH sessions
@@ -63,6 +65,15 @@ func (x *sSHServiceSSHUploadPackClient) Recv() (*SSHUploadPackResponse, error) {
 		return nil, err
 	}
 	return m, nil
+}
+
+func (c *sSHServiceClient) SSHUploadPackWithSidechannel(ctx context.Context, in *SSHUploadPackWithSidechannelRequest, opts ...grpc.CallOption) (*SSHUploadPackWithSidechannelResponse, error) {
+	out := new(SSHUploadPackWithSidechannelResponse)
+	err := c.cc.Invoke(ctx, "/gitaly.SSHService/SSHUploadPackWithSidechannel", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *sSHServiceClient) SSHReceivePack(ctx context.Context, opts ...grpc.CallOption) (SSHService_SSHReceivePackClient, error) {
@@ -133,6 +144,8 @@ func (x *sSHServiceSSHUploadArchiveClient) Recv() (*SSHUploadArchiveResponse, er
 type SSHServiceServer interface {
 	// To forward 'git upload-pack' to Gitaly for SSH sessions
 	SSHUploadPack(SSHService_SSHUploadPackServer) error
+	// To forward 'git upload-pack' to Gitaly for SSH sessions, via sidechannels
+	SSHUploadPackWithSidechannel(context.Context, *SSHUploadPackWithSidechannelRequest) (*SSHUploadPackWithSidechannelResponse, error)
 	// To forward 'git receive-pack' to Gitaly for SSH sessions
 	SSHReceivePack(SSHService_SSHReceivePackServer) error
 	// To forward 'git upload-archive' to Gitaly for SSH sessions
@@ -146,6 +159,9 @@ type UnimplementedSSHServiceServer struct {
 
 func (UnimplementedSSHServiceServer) SSHUploadPack(SSHService_SSHUploadPackServer) error {
 	return status.Errorf(codes.Unimplemented, "method SSHUploadPack not implemented")
+}
+func (UnimplementedSSHServiceServer) SSHUploadPackWithSidechannel(context.Context, *SSHUploadPackWithSidechannelRequest) (*SSHUploadPackWithSidechannelResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SSHUploadPackWithSidechannel not implemented")
 }
 func (UnimplementedSSHServiceServer) SSHReceivePack(SSHService_SSHReceivePackServer) error {
 	return status.Errorf(codes.Unimplemented, "method SSHReceivePack not implemented")
@@ -190,6 +206,24 @@ func (x *sSHServiceSSHUploadPackServer) Recv() (*SSHUploadPackRequest, error) {
 		return nil, err
 	}
 	return m, nil
+}
+
+func _SSHService_SSHUploadPackWithSidechannel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SSHUploadPackWithSidechannelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SSHServiceServer).SSHUploadPackWithSidechannel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gitaly.SSHService/SSHUploadPackWithSidechannel",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SSHServiceServer).SSHUploadPackWithSidechannel(ctx, req.(*SSHUploadPackWithSidechannelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _SSHService_SSHReceivePack_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -250,7 +284,12 @@ func (x *sSHServiceSSHUploadArchiveServer) Recv() (*SSHUploadArchiveRequest, err
 var SSHService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "gitaly.SSHService",
 	HandlerType: (*SSHServiceServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "SSHUploadPackWithSidechannel",
+			Handler:    _SSHService_SSHUploadPackWithSidechannel_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "SSHUploadPack",

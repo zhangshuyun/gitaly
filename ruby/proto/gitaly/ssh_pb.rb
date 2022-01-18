@@ -18,6 +18,13 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :stderr, :bytes, 2
       optional :exit_status, :message, 3, "gitaly.ExitStatus"
     end
+    add_message "gitaly.SSHUploadPackWithSidechannelRequest" do
+      optional :repository, :message, 1, "gitaly.Repository"
+      repeated :git_config_options, :string, 2
+      optional :git_protocol, :string, 3
+    end
+    add_message "gitaly.SSHUploadPackWithSidechannelResponse" do
+    end
     add_message "gitaly.SSHReceivePackRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
       optional :stdin, :bytes, 2
@@ -47,6 +54,8 @@ end
 module Gitaly
   SSHUploadPackRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.SSHUploadPackRequest").msgclass
   SSHUploadPackResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.SSHUploadPackResponse").msgclass
+  SSHUploadPackWithSidechannelRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.SSHUploadPackWithSidechannelRequest").msgclass
+  SSHUploadPackWithSidechannelResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.SSHUploadPackWithSidechannelResponse").msgclass
   SSHReceivePackRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.SSHReceivePackRequest").msgclass
   SSHReceivePackResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.SSHReceivePackResponse").msgclass
   SSHUploadArchiveRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.SSHUploadArchiveRequest").msgclass

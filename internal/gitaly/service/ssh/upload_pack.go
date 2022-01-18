@@ -13,11 +13,15 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/sidechannel"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/stream"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 )
 
 func (s *server) SSHUploadPack(stream gitalypb.SSHService_SSHUploadPackServer) error {
+	ctx := stream.Context()
+
 	req, err := stream.Recv() // First request contains Repository only
 	if err != nil {
 		return helper.ErrInternal(err)
@@ -28,7 +32,7 @@ func (s *server) SSHUploadPack(stream gitalypb.SSHService_SSHUploadPackServer) e
 		repository = req.Repository.GlRepository
 	}
 
-	ctxlogrus.Extract(stream.Context()).WithFields(log.Fields{
+	ctxlogrus.Extract(ctx).WithFields(log.Fields{
 		"GlRepository":     repository,
 		"GitConfigOptions": req.GitConfigOptions,
 		"GitProtocol":      req.GitProtocol,
@@ -38,17 +42,6 @@ func (s *server) SSHUploadPack(stream gitalypb.SSHService_SSHUploadPackServer) e
 		return helper.ErrInvalidArgument(err)
 	}
 
-	if err = s.sshUploadPack(stream, req); err != nil {
-		return helper.ErrInternal(err)
-	}
-
-	return nil
-}
-
-func (s *server) sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, req *gitalypb.SSHUploadPackRequest) error {
-	ctx, cancelCtx := context.WithCancel(stream.Context())
-	defer cancelCtx()
-
 	stdin := streamio.NewReader(func() ([]byte, error) {
 		request, err := stream.Recv()
 		return request.GetStdin(), err
@@ -57,29 +50,51 @@ func (s *server) sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, r
 	// gRPC doesn't allow concurrent writes to a stream, so we need to
 	// synchronize writing stdout and stderrr.
 	var m sync.Mutex
-
-	stdoutCounter := &helper.CountingWriter{
-		W: streamio.NewSyncWriter(&m, func(p []byte) error {
-			return stream.Send(&gitalypb.SSHUploadPackResponse{Stdout: p})
-		}),
-	}
-	// Use large copy buffer to reduce the number of system calls
-	stdout := &largeBufferReaderFrom{Writer: stdoutCounter}
-
+	stdout := streamio.NewSyncWriter(&m, func(p []byte) error {
+		return stream.Send(&gitalypb.SSHUploadPackResponse{Stdout: p})
+	})
 	stderr := streamio.NewSyncWriter(&m, func(p []byte) error {
 		return stream.Send(&gitalypb.SSHUploadPackResponse{Stderr: p})
 	})
 
-	repoPath, err := s.locator.GetRepoPath(req.Repository)
-	if err != nil {
-		return err
+	if status, err := s.sshUploadPack(ctx, req, stdin, stdout, stderr); err != nil {
+		if errSend := stream.Send(&gitalypb.SSHUploadPackResponse{
+			ExitStatus: &gitalypb.ExitStatus{Value: int32(status)},
+		}); errSend != nil {
+			ctxlogrus.Extract(ctx).WithError(errSend).Error("send final status code")
+		}
+
+		return helper.ErrInternal(err)
 	}
 
-	git.WarnIfTooManyBitmaps(ctx, s.locator, req.GetRepository().StorageName, repoPath)
+	return nil
+}
 
-	config, err := git.ConvertConfigOptions(req.GitConfigOptions)
+type sshUploadPackRequest interface {
+	GetRepository() *gitalypb.Repository
+	GetGitConfigOptions() []string
+	GetGitProtocol() string
+}
+
+func (s *server) sshUploadPack(ctx context.Context, req sshUploadPackRequest, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
+	ctx, cancelCtx := context.WithCancel(ctx)
+	defer cancelCtx()
+
+	stdoutCounter := &helper.CountingWriter{W: stdout}
+	// Use large copy buffer to reduce the number of system calls
+	stdout = &largeBufferReaderFrom{Writer: stdoutCounter}
+
+	repo := req.GetRepository()
+	repoPath, err := s.locator.GetRepoPath(repo)
 	if err != nil {
-		return err
+		return 0, err
+	}
+
+	git.WarnIfTooManyBitmaps(ctx, s.locator, repo.StorageName, repoPath)
+
+	config, err := git.ConvertConfigOptions(req.GetGitConfigOptions())
+	if err != nil {
+		return 0, err
 	}
 
 	pr, pw := io.Pipe()
@@ -96,7 +111,7 @@ func (s *server) sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, r
 
 		stats, err := stats.ParsePackfileNegotiation(pr)
 		if err != nil {
-			ctxlogrus.Extract(stream.Context()).WithError(err).Debug("failed parsing packfile negotiation")
+			ctxlogrus.Extract(ctx).WithError(err).Debug("failed parsing packfile negotiation")
 			return
 		}
 		stats.UpdateMetrics(s.packfileNegotiationMetrics)
@@ -105,7 +120,7 @@ func (s *server) sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, r
 	commandOpts := []git.CmdOpt{
 		git.WithGitProtocol(req),
 		git.WithConfig(config...),
-		git.WithPackObjectsHookEnv(req.Repository),
+		git.WithPackObjectsHookEnv(repo),
 	}
 
 	cmd, monitor, err := monitorStdinCommand(ctx, s.gitCmdFactory, stdin, stdout, stderr, git.SubCmd{
@@ -113,7 +128,7 @@ func (s *server) sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, r
 		Args: []string{repoPath},
 	}, commandOpts...)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	timeoutTicker := helper.NewTimerTicker(s.uploadPackRequestTimeout)
@@ -130,15 +145,8 @@ func (s *server) sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, r
 		pw.Close()
 		wg.Wait()
 
-		if status, ok := command.ExitStatus(err); ok {
-			if sendErr := stream.Send(&gitalypb.SSHUploadPackResponse{
-				ExitStatus: &gitalypb.ExitStatus{Value: int32(status)},
-			}); sendErr != nil {
-				return sendErr
-			}
-			return fmt.Errorf("SSHUploadPack: %v", err)
-		}
-		return fmt.Errorf("cmd wait: %v", err)
+		status, _ := command.ExitStatus(err)
+		return status, fmt.Errorf("cmd wait: %w", err)
 	}
 
 	pw.Close()
@@ -146,7 +154,7 @@ func (s *server) sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, r
 
 	ctxlogrus.Extract(ctx).WithField("response_bytes", stdoutCounter.N).Info("request details")
 
-	return nil
+	return 0, nil
 }
 
 func validateFirstUploadPackRequest(req *gitalypb.SSHUploadPackRequest) error {
@@ -163,4 +171,24 @@ type largeBufferReaderFrom struct {
 
 func (rf *largeBufferReaderFrom) ReadFrom(r io.Reader) (int64, error) {
 	return io.CopyBuffer(rf.Writer, r, make([]byte, 64*1024))
+}
+
+func (s *server) SSHUploadPackWithSidechannel(ctx context.Context, req *gitalypb.SSHUploadPackWithSidechannelRequest) (*gitalypb.SSHUploadPackWithSidechannelResponse, error) {
+	conn, err := sidechannel.OpenSidechannel(ctx)
+	if err != nil {
+		return nil, helper.ErrUnavailable(err)
+	}
+	defer conn.Close()
+
+	sidebandWriter := pktline.NewSidebandWriter(conn)
+	stdout := sidebandWriter.Writer(stream.BandStdout)
+	stderr := sidebandWriter.Writer(stream.BandStderr)
+	if _, err := s.sshUploadPack(ctx, req, conn, stdout, stderr); err != nil {
+		return nil, helper.ErrInternal(err)
+	}
+	if err := conn.Close(); err != nil {
+		return nil, helper.ErrInternalf("close sidechannel: %w", err)
+	}
+
+	return &gitalypb.SSHUploadPackWithSidechannelResponse{}, nil
 }

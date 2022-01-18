@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
@@ -15,7 +16,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-type packFn func(_ context.Context, _ *grpc.ClientConn, _ string) (int32, error)
+type packFn func(context.Context, *grpc.ClientConn, *client.SidechannelRegistry, string) (int32, error)
 
 type gitalySSHCommand struct {
 	// The git packer that shall be executed. One of receivePack,
@@ -37,6 +38,7 @@ type gitalySSHCommand struct {
 // GITALY_PAYLOAD="{repo...}"
 // GITALY_WD="/path/to/working-directory"
 // GITALY_FEATUREFLAGS="upload_pack_filter:false,hooks_rpc:true"
+// GITALY_USE_SIDECHANNEL=1 if desired
 // gitaly-ssh upload-pack <git-garbage-x2>
 func main() {
 	// < 4 since git throws on 2x garbage here
@@ -49,7 +51,11 @@ func main() {
 	var packer packFn
 	switch command {
 	case "upload-pack":
-		packer = uploadPack
+		if useSidechannel() {
+			packer = uploadPackWithSidechannel
+		} else {
+			packer = uploadPack
+		}
 	case "receive-pack":
 		packer = receivePack
 	case "upload-archive":
@@ -104,13 +110,14 @@ func (cmd gitalySSHCommand) run() (int, error) {
 		}
 	}
 
-	conn, err := getConnection(cmd.address)
+	registry := client.NewSidechannelRegistry(logrus.NewEntry(logrus.StandardLogger()))
+	conn, err := getConnection(ctx, cmd.address, registry)
 	if err != nil {
 		return 1, err
 	}
 	defer conn.Close()
 
-	code, err := cmd.packer(ctx, conn, cmd.payload)
+	code, err := cmd.packer(ctx, conn, registry, cmd.payload)
 	if err != nil {
 		return 1, err
 	}
@@ -118,12 +125,16 @@ func (cmd gitalySSHCommand) run() (int, error) {
 	return int(code), nil
 }
 
-func getConnection(url string) (*grpc.ClientConn, error) {
+func getConnection(ctx context.Context, url string, registry *client.SidechannelRegistry) (*grpc.ClientConn, error) {
 	if url == "" {
 		return nil, fmt.Errorf("gitaly address can not be empty")
 	}
 
-	return client.Dial(url, dialOpts())
+	if useSidechannel() {
+		return client.DialSidechannel(ctx, url, registry, dialOpts())
+	}
+
+	return client.DialContext(ctx, url, dialOpts())
 }
 
 func dialOpts() []grpc.DialOption {
@@ -134,3 +145,5 @@ func dialOpts() []grpc.DialOption {
 
 	return connOpts
 }
+
+func useSidechannel() bool { return os.Getenv("GITALY_USE_SIDECHANNEL") == "1" }

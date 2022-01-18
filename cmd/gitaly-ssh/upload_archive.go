@@ -11,7 +11,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-func uploadArchive(ctx context.Context, conn *grpc.ClientConn, req string) (int32, error) {
+func uploadArchive(ctx context.Context, conn *grpc.ClientConn, registry *client.SidechannelRegistry, req string) (int32, error) {
 	var request gitalypb.SSHUploadArchiveRequest
 	if err := protojson.Unmarshal([]byte(req), &request); err != nil {
 		return 0, fmt.Errorf("json unmarshal: %w", err)

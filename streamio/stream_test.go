@@ -2,6 +2,7 @@ package streamio
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -58,6 +59,25 @@ func TestReadSizes(t *testing.T) {
 			return iotest.DataErrReader(strings.NewReader(s))
 		})
 	})
+}
+
+func TestRead_rememberError(t *testing.T) {
+	firstRead := true
+	myError := errors.New("hello world")
+	r := NewReader(func() ([]byte, error) {
+		if firstRead {
+			firstRead = false
+			return nil, myError
+		}
+		panic("should never be reached")
+	})
+
+	// Intentionally call Read more than once. We want the error to be
+	// sticky.
+	for i := 0; i < 10; i++ {
+		_, err := r.Read(nil)
+		require.Equal(t, err, myError)
+	}
 }
 
 func receiverFromReader(r io.Reader) func() ([]byte, error) {
