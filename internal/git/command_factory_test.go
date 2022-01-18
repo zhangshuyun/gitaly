@@ -202,12 +202,7 @@ func testExecCommandFactoryHooksPath(t *testing.T, ctx context.Context) {
 				for _, hook := range []string{"update", "pre-receive", "post-receive", "reference-transaction"} {
 					target, err := os.Readlink(filepath.Join(hooksPath, hook))
 					require.NoError(t, err)
-					require.Equal(t, filepath.Join(hooksPath, "gitlab-shell-hook"), target)
-
-					hookScript := testhelper.MustReadFile(t, filepath.Join(hooksPath, hook))
-					require.Equal(t, `#!/bin/bash
-exec -a "$0" "/gitaly-hooks/directory/gitaly-hooks" "$@"
-`, string(hookScript))
+					require.Equal(t, filepath.Join(cfg.BinDir, "gitaly-hooks"), target)
 				}
 			} else {
 				require.Equal(t, filepath.Join(rubyDir, "git-hooks"), gitCmdFactory.HooksPath(ctx))
