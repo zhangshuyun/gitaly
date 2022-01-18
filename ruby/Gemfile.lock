@@ -241,6 +241,7 @@ DEPENDENCIES
   pry (~> 0.12.2)
   rbtrace
   rdoc (~> 6.0)
+  rouge (~> 3.27.0)
   rspec
   rspec-parameterized
   rubocop (~> 0.69)

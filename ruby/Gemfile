@@ -10,6 +10,7 @@ gem 'gitlab-gollum-rugged_adapter', '~> 0.4.4.4.gitlab.1', require: false
 gem 'grpc', '~> 1.42.0' # keep in lock-step with grpc-tools
 gem 'sentry-raven', '~> 3.0', require: false
 gem 'faraday', '~> 1.0'
+gem 'rouge', '~> 3.27.0'
 gem 'rbtrace', require: false
 
 # Labkit provides observability functionality
