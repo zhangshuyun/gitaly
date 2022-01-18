@@ -252,7 +252,7 @@ func TestServer_PostUploadPackWithSidechannel_usesPackObjectsHook(t *testing.T) 
 }
 
 func testServerPostUploadPackUsesPackObjectsHook(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t, testcfg.WithPackObjectsCacheEnabled())
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t, append(opts, testcfg.WithPackObjectsCacheEnabled())...)
 	cfg.BinDir = testhelper.TempDir(t)
 
 	outputPath := filepath.Join(cfg.BinDir, "output")
@@ -449,7 +449,7 @@ func TestServer_PostUploadPackWithSidechannel_allowAnySHA1InWant(t *testing.T) {
 }
 
 func testServerPostUploadPackAllowAnySHA1InWant(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t, opts...)
 	_, localRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 	testcfg.BuildGitalyHooks(t, cfg)

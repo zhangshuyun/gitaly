@@ -230,9 +230,11 @@ func getReplicationDetails(methodName string, m proto.Message) (datastore.Change
 		if !ok {
 			return "", nil, fmt.Errorf("protocol changed: for method %q expected message type '%T', got '%T'", methodName, req, m)
 		}
-		return datastore.PackRefs, datastore.Params{
-			"AllRefs": req.GetAllRefs(),
-		}, nil
+		// TODO: There are no actual parameters to be returned and the hardcoded 'false'
+		// value is provided only for the backwards compatibility.
+		// It should return nil in the next release (14.8)
+		// https://gitlab.com/gitlab-org/gitaly/-/issues/3999
+		return datastore.PackRefs, datastore.Params{"AllRefs": false}, nil
 	default:
 		return datastore.UpdateRepo, nil, nil
 	}

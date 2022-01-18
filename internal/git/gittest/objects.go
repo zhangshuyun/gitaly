@@ -40,11 +40,6 @@ func requireObjectExists(t testing.TB, cfg config.Cfg, repoPath string, objectID
 	require.Error(t, cmd.Run(), "checking for object should fail")
 }
 
-// GetGitObjectDirSize gets the number of 1k blocks of a git object directory
-func GetGitObjectDirSize(t testing.TB, repoPath string) int64 {
-	return getGitDirSize(t, repoPath, "objects")
-}
-
 // GetGitPackfileDirSize gets the number of 1k blocks of a git object directory
 func GetGitPackfileDirSize(t testing.TB, repoPath string) int64 {
 	return getGitDirSize(t, repoPath, "objects", "pack")

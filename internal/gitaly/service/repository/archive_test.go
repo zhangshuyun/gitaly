@@ -499,7 +499,7 @@ func TestGetArchiveEnv(t *testing.T) {
 
 	commitID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
 
-	correlationID, _ := correlation.RandomID()
+	correlationID := correlation.SafeRandomID()
 	ctx = correlation.ContextWithCorrelation(ctx, correlationID)
 
 	req := &gitalypb.GetArchiveRequest{

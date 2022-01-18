@@ -9,7 +9,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/remoterepo"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
@@ -21,7 +20,6 @@ const (
 // FetchInternalRemote fetches another Gitaly repository set as a remote
 func FetchInternalRemote(
 	ctx context.Context,
-	cfg config.Cfg,
 	conns *client.Pool,
 	repo *localrepo.Repo,
 	remoteRepoProto *gitalypb.Repository,
