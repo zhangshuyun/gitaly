@@ -115,6 +115,15 @@ func run(args []string) error {
 		return nil
 	}
 
+	hookCommand, ok := hooksBySubcommand[subCmd]
+	if !ok {
+		return fmt.Errorf("subcommand name invalid: %q", subCmd)
+	}
+
+	return executeHook(hookCommand, args)
+}
+
+func executeHook(cmd hookCommand, args []string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -129,14 +138,9 @@ func run(args []string) error {
 		return fmt.Errorf("error when getting hooks payload: %v", err)
 	}
 
-	hookCommand, ok := hooksBySubcommand[subCmd]
-	if !ok {
-		return fmt.Errorf("subcommand name invalid: %q", subCmd)
-	}
-
 	// If the hook wasn't requested, then we simply skip executing any
 	// logic.
-	if !payload.IsHookRequested(hookCommand.hookType) {
+	if !payload.IsHookRequested(cmd.hookType) {
 		return nil
 	}
 
@@ -149,7 +153,7 @@ func run(args []string) error {
 	hookClient := gitalypb.NewHookServiceClient(conn)
 
 	ctx = featureflag.OutgoingWithRaw(ctx, payload.FeatureFlags)
-	if err := hookCommand.exec(ctx, payload, hookClient, args); err != nil {
+	if err := cmd.exec(ctx, payload, hookClient, args); err != nil {
 		return err
 	}
 
