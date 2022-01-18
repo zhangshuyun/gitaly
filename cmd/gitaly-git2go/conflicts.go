@@ -155,11 +155,13 @@ func conflictEntryFromIndex(entry *git.IndexEntry) git2go.ConflictEntry {
 }
 
 func conflictError(code codes.Code, message string) git2go.ConflictsResult {
+	err := git2go.ConflictError{
+		Code:    code,
+		Message: message,
+	}
 	return git2go.ConflictsResult{
-		Error: git2go.ConflictError{
-			Code:    code,
-			Message: message,
-		},
+		Error: err, // Set both fields for backwards compatibility.
+		Err:   err,
 	}
 }
 

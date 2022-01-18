@@ -50,14 +50,23 @@ type ConflictError struct {
 	Message string
 }
 
+func (e ConflictError) Error() string {
+	return status.Error(e.Code, e.Message).Error()
+}
+
 // ConflictsResult contains all conflicts resulting from a merge.
 type ConflictsResult struct {
 	// Conflicts
 	Conflicts []Conflict
 	// Error is an optional conflict error
+	//
+	// Deprecated: Use Err instead. Error clashes with the Result error field.
 	Error ConflictError
 	// Err is set if an error occurred. Err must exist on all gob serialized
 	// results so that any error can be returned.
+	//
+	// Will be a ConflictError when an error occurred with the conflicts
+	// subcommand.
 	Err error
 }
 
@@ -83,8 +92,12 @@ func (b Executor) Conflicts(ctx context.Context, repo repository.GitRepo, c Conf
 		return ConflictsResult{}, fmt.Errorf("%s: %w", cmd, err)
 	}
 
-	if result.Err != nil {
-		return ConflictsResult{}, result.Error
+	var conflictErr ConflictError
+	switch {
+	case errors.As(result.Err, &conflictErr):
+		return ConflictsResult{}, status.Error(conflictErr.Code, conflictErr.Message)
+	case result.Err != nil:
+		return ConflictsResult{}, result.Err
 	}
 
 	if result.Error.Code != codes.OK {

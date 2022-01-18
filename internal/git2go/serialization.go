@@ -28,6 +28,7 @@ var registeredTypes = map[reflect.Type]struct{}{
 	reflect.TypeOf(ConflictingFilesError{}):  {},
 	reflect.TypeOf(EmptyError{}):             {},
 	reflect.TypeOf(IndexError("")):           {},
+	reflect.TypeOf(ConflictError{}):          {},
 }
 
 // Result is the serialized result.
