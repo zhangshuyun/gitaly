@@ -86,6 +86,10 @@ func (b Executor) runWithGob(ctx context.Context, repo repository.GitRepo, cmd s
 		return "", fmt.Errorf("%s: %w", cmd, err)
 	}
 
+	if result.Err != nil {
+		return "", fmt.Errorf("%s: %w", cmd, result.Err)
+	}
+
 	if result.Error != nil {
 		return "", fmt.Errorf("%s: %w", cmd, result.Error)
 	}

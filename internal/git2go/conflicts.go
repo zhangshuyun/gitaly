@@ -56,6 +56,9 @@ type ConflictsResult struct {
 	Conflicts []Conflict
 	// Error is an optional conflict error
 	Error ConflictError
+	// Err is set if an error occurred. Err must exist on all gob serialized
+	// results so that any error can be returned.
+	Err error
 }
 
 // Conflicts performs a merge via gitaly-git2go and returns all resulting conflicts.
@@ -78,6 +81,10 @@ func (b Executor) Conflicts(ctx context.Context, repo repository.GitRepo, c Conf
 	var result ConflictsResult
 	if err := gob.NewDecoder(output).Decode(&result); err != nil {
 		return ConflictsResult{}, fmt.Errorf("%s: %w", cmd, err)
+	}
+
+	if result.Err != nil {
+		return ConflictsResult{}, result.Error
 	}
 
 	if result.Error.Code != codes.OK {
