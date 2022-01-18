@@ -122,20 +122,30 @@ func NewExecCommandFactory(cfg config.Cfg, opts ...ExecCommandFactoryOption) (_ 
 		opt(&factoryCfg)
 	}
 
+	var cleanups []func()
+	runCleanups := func() {
+		for i := len(cleanups) - 1; i >= 0; i-- {
+			cleanups[i]()
+		}
+	}
+
+	defer func() {
+		if returnedErr != nil {
+			runCleanups()
+		}
+	}()
+
 	hookDirectories, cleanup, err := setupHookDirectories(cfg, factoryCfg)
 	if err != nil {
 		return nil, nil, fmt.Errorf("setting up hooks: %w", err)
 	}
-	defer func() {
-		if returnedErr != nil {
-			cleanup()
-		}
-	}()
+	cleanups = append(cleanups, cleanup)
 
-	execEnv, err := setupGitExecutionEnvironment(cfg)
+	execEnv, cleanup, err := setupGitExecutionEnvironment(cfg)
 	if err != nil {
 		return nil, nil, fmt.Errorf("setting up Git execution environment: %w", err)
 	}
+	cleanups = append(cleanups, cleanup)
 
 	gitCmdFactory := &ExecCommandFactory{
 		cfg:            cfg,
@@ -153,24 +163,24 @@ func NewExecCommandFactory(cfg config.Cfg, opts ...ExecCommandFactoryOption) (_ 
 		cachedGitVersionByBinary: make(map[string]cachedGitVersion),
 	}
 
-	return gitCmdFactory, cleanup, nil
+	return gitCmdFactory, runCleanups, nil
 }
 
 // setupGitExecutionEnvironment assembles a Git execution environment that can be used to run Git
 // commands. It warns if no path was specified in the configuration.
-func setupGitExecutionEnvironment(cfg config.Cfg) (ExecutionEnvironment, error) {
+func setupGitExecutionEnvironment(cfg config.Cfg) (ExecutionEnvironment, func(), error) {
 	switch {
 	case cfg.Git.BinPath != "":
 		return ExecutionEnvironment{
 			BinaryPath: cfg.Git.BinPath,
-		}, nil
+		}, func() {}, nil
 	case os.Getenv("GITALY_TESTING_GIT_BINARY") != "":
 		return ExecutionEnvironment{
 			BinaryPath: os.Getenv("GITALY_TESTING_GIT_BINARY"),
-		}, nil
+		}, func() {}, nil
 	case os.Getenv("GITALY_TESTING_BUNDLED_GIT_PATH") != "":
 		if cfg.BinDir == "" {
-			return ExecutionEnvironment{}, errors.New("cannot use bundled binaries without bin path being set")
+			return ExecutionEnvironment{}, nil, errors.New("cannot use bundled binaries without bin path being set")
 		}
 
 		// We need to symlink pre-built Git binaries into Gitaly's binary directory.
@@ -179,7 +189,7 @@ func setupGitExecutionEnvironment(cfg config.Cfg) (ExecutionEnvironment, error) 
 		for _, binary := range []string{"gitaly-git", "gitaly-git-remote-http", "gitaly-git-http-backend"} {
 			bundledGitBinary := filepath.Join(os.Getenv("GITALY_TESTING_BUNDLED_GIT_PATH"), binary)
 			if _, err := os.Stat(bundledGitBinary); err != nil {
-				return ExecutionEnvironment{}, fmt.Errorf("statting %q: %w", binary, err)
+				return ExecutionEnvironment{}, nil, fmt.Errorf("statting %q: %w", binary, err)
 			}
 
 			if err := os.Symlink(bundledGitBinary, filepath.Join(cfg.BinDir, binary)); err != nil {
@@ -190,14 +200,14 @@ func setupGitExecutionEnvironment(cfg config.Cfg) (ExecutionEnvironment, error) 
 				if errors.Is(err, os.ErrExist) {
 					continue
 				}
-				return ExecutionEnvironment{}, fmt.Errorf("symlinking bundled %q: %w", binary, err)
+				return ExecutionEnvironment{}, nil, fmt.Errorf("symlinking bundled %q: %w", binary, err)
 			}
 		}
 
 		fallthrough
 	case cfg.Git.UseBundledBinaries:
 		if cfg.Git.BinPath != "" {
-			return ExecutionEnvironment{}, errors.New("cannot set Git path and use bundled binaries")
+			return ExecutionEnvironment{}, nil, errors.New("cannot set Git path and use bundled binaries")
 		}
 
 		// In order to support having a single Git binary only as compared to a complete Git
@@ -205,7 +215,7 @@ func setupGitExecutionEnvironment(cfg config.Cfg) (ExecutionEnvironment, error) 
 		// binary for executables which Git expects to be present.
 		gitExecPath, err := os.MkdirTemp("", "gitaly-git-exec-path-*")
 		if err != nil {
-			return ExecutionEnvironment{}, fmt.Errorf("creating Git exec path: %w", err)
+			return ExecutionEnvironment{}, nil, fmt.Errorf("creating Git exec path: %w", err)
 		}
 
 		for executable, target := range map[string]string{
@@ -223,21 +233,25 @@ func setupGitExecutionEnvironment(cfg config.Cfg) (ExecutionEnvironment, error) 
 				filepath.Join(cfg.BinDir, target),
 				filepath.Join(gitExecPath, executable),
 			); err != nil {
-				return ExecutionEnvironment{}, fmt.Errorf("linking Git executable %q: %w", executable, err)
+				return ExecutionEnvironment{}, nil, fmt.Errorf("linking Git executable %q: %w", executable, err)
 			}
 		}
 
 		return ExecutionEnvironment{
-			BinaryPath: filepath.Join(gitExecPath, "git"),
-			EnvironmentVariables: []string{
-				"GIT_EXEC_PATH=" + gitExecPath,
-			},
-		}, nil
+				BinaryPath: filepath.Join(gitExecPath, "git"),
+				EnvironmentVariables: []string{
+					"GIT_EXEC_PATH=" + gitExecPath,
+				},
+			}, func() {
+				if err := os.RemoveAll(gitExecPath); err != nil {
+					logrus.WithError(err).Error("cleanup of Git execution environment failed")
+				}
+			}, nil
 	default:
 		resolvedPath, err := exec.LookPath("git")
 		if err != nil {
 			if errors.Is(err, exec.ErrNotFound) {
-				return ExecutionEnvironment{}, fmt.Errorf(`"git" executable not found, set path to it in the configuration file or add it to the PATH`)
+				return ExecutionEnvironment{}, nil, fmt.Errorf(`"git" executable not found, set path to it in the configuration file or add it to the PATH`)
 			}
 		}
 
@@ -247,7 +261,7 @@ func setupGitExecutionEnvironment(cfg config.Cfg) (ExecutionEnvironment, error) 
 
 		return ExecutionEnvironment{
 			BinaryPath: resolvedPath,
-		}, nil
+		}, func() {}, nil
 	}
 }
 
