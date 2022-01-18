@@ -278,11 +278,11 @@ func runSecureServer(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) s
 	git2goExecutor := git2go.NewExecutor(cfg, gitCmdFactory, locator)
 
 	gitalypb.RegisterRepositoryServiceServer(server, NewServer(cfg, rubySrv, locator, txManager, gitCmdFactory, catfileCache, connsPool, git2goExecutor))
-	gitalypb.RegisterHookServiceServer(server, hookservice.NewServer(cfg, hookManager, gitCmdFactory, nil))
-	gitalypb.RegisterRemoteServiceServer(server, remote.NewServer(cfg, locator, gitCmdFactory, catfileCache, txManager, connsPool))
-	gitalypb.RegisterSSHServiceServer(server, ssh.NewServer(cfg, locator, gitCmdFactory, txManager))
-	gitalypb.RegisterRefServiceServer(server, ref.NewServer(cfg, locator, gitCmdFactory, txManager, catfileCache))
-	gitalypb.RegisterCommitServiceServer(server, commit.NewServer(cfg, locator, gitCmdFactory, nil, catfileCache))
+	gitalypb.RegisterHookServiceServer(server, hookservice.NewServer(hookManager, gitCmdFactory, nil))
+	gitalypb.RegisterRemoteServiceServer(server, remote.NewServer(locator, gitCmdFactory, catfileCache, txManager, connsPool))
+	gitalypb.RegisterSSHServiceServer(server, ssh.NewServer(locator, gitCmdFactory, txManager))
+	gitalypb.RegisterRefServiceServer(server, ref.NewServer(locator, gitCmdFactory, txManager, catfileCache))
+	gitalypb.RegisterCommitServiceServer(server, commit.NewServer(locator, gitCmdFactory, nil, catfileCache))
 	errQ := make(chan error, 1)
 
 	// This creates a secondary GRPC server which isn't "secure". Reusing
@@ -291,7 +291,7 @@ func runSecureServer(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) s
 
 	cfg.TLS.KeyPath = ""
 	testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
+		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
 	})
 
 	t.Cleanup(func() { require.NoError(t, <-errQ) })

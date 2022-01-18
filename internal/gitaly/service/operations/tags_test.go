@@ -257,7 +257,6 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 	transactionServer := &testTransactionServer{}
 	testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterOperationServiceServer(srv, NewServer(
-			deps.GetCfg(),
 			deps.GetHookManager(),
 			deps.GetTxManager(),
 			deps.GetLocator(),
@@ -267,7 +266,7 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 			deps.GetCatfileCache(),
 			deps.GetUpdaterWithHooks(),
 		))
-		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
+		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
 	})
 
 	ctx, cancel := testhelper.Context()

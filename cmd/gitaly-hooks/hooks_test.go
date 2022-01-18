@@ -631,7 +631,7 @@ func (svc featureFlagAsserter) PackObjectsHookWithSidechannel(ctx context.Contex
 func runHookServiceWithGitlabClient(t *testing.T, cfg config.Cfg, gitlabClient gitlab.Client, serverOpts ...testserver.GitalyServerOpt) {
 	testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterHookServiceServer(srv, featureFlagAsserter{
-			t: t, wrapped: hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()),
+			t: t, wrapped: hook.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()),
 		})
 	}, append(serverOpts, testserver.WithGitLabClient(gitlabClient))...)
 }

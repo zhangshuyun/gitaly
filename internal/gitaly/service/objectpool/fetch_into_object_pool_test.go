@@ -175,7 +175,6 @@ func TestFetchIntoObjectPool_Failure(t *testing.T) {
 	t.Cleanup(catfileCache.Stop)
 
 	server := NewServer(
-		cfg,
 		locator,
 		gitCmdFactory,
 		catfileCache,

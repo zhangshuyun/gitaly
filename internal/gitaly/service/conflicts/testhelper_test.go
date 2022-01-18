@@ -55,7 +55,6 @@ func SetupConflictsService(t testing.TB, bare bool, hookManager hook.Manager) (c
 func runConflictsServer(t testing.TB, cfg config.Cfg, hookManager hook.Manager) string {
 	return testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterConflictsServiceServer(srv, NewServer(
-			deps.GetCfg(),
 			deps.GetHookManager(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
@@ -75,14 +74,12 @@ func runConflictsServer(t testing.TB, cfg config.Cfg, hookManager hook.Manager) 
 			deps.GetGit2goExecutor(),
 		))
 		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
-			deps.GetCfg(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetTxManager(),
 		))
-		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
+		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
 		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(
-			deps.GetCfg(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetLinguist(),

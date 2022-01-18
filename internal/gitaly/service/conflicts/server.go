@@ -8,7 +8,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -16,7 +15,6 @@ import (
 
 type server struct {
 	gitalypb.UnimplementedConflictsServiceServer
-	cfg            config.Cfg
 	locator        storage.Locator
 	gitCmdFactory  git.CommandFactory
 	catfileCache   catfile.Cache
@@ -28,7 +26,6 @@ type server struct {
 
 // NewServer creates a new instance of a grpc ConflictsServer
 func NewServer(
-	cfg config.Cfg,
 	hookManager hook.Manager,
 	locator storage.Locator,
 	gitCmdFactory git.CommandFactory,
@@ -38,7 +35,6 @@ func NewServer(
 	updater *updateref.UpdaterWithHooks,
 ) gitalypb.ConflictsServiceServer {
 	return &server{
-		cfg:            cfg,
 		hookManager:    hookManager,
 		locator:        locator,
 		gitCmdFactory:  gitCmdFactory,

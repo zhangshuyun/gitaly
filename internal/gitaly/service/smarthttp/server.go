@@ -4,14 +4,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
 type server struct {
 	gitalypb.UnimplementedSmartHTTPServiceServer
-	cfg                        config.Cfg
 	locator                    storage.Locator
 	gitCmdFactory              git.CommandFactory
 	packfileNegotiationMetrics *prometheus.CounterVec
@@ -19,10 +17,9 @@ type server struct {
 }
 
 // NewServer creates a new instance of a grpc SmartHTTPServer
-func NewServer(cfg config.Cfg, locator storage.Locator, gitCmdFactory git.CommandFactory,
+func NewServer(locator storage.Locator, gitCmdFactory git.CommandFactory,
 	cache cache.Streamer, serverOpts ...ServerOpt) gitalypb.SmartHTTPServiceServer {
 	s := &server{
-		cfg:           cfg,
 		locator:       locator,
 		gitCmdFactory: gitCmdFactory,
 		packfileNegotiationMetrics: prometheus.NewCounterVec(

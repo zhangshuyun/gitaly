@@ -54,33 +54,28 @@ var (
 // RegisterAll will register all the known gRPC services on  the provided gRPC service instance.
 func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 	gitalypb.RegisterBlobServiceServer(srv, blob.NewServer(
-		deps.GetCfg(),
 		deps.GetLocator(),
 		deps.GetGitCmdFactory(),
 		deps.GetCatfileCache(),
 	))
 	gitalypb.RegisterCleanupServiceServer(srv, cleanup.NewServer(
-		deps.GetCfg(),
 		deps.GetLocator(),
 		deps.GetGitCmdFactory(),
 		deps.GetCatfileCache(),
 	))
 	gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(
-		deps.GetCfg(),
 		deps.GetLocator(),
 		deps.GetGitCmdFactory(),
 		deps.GetLinguist(),
 		deps.GetCatfileCache(),
 	))
 	gitalypb.RegisterDiffServiceServer(srv, diff.NewServer(
-		deps.GetCfg(),
 		deps.GetLocator(),
 		deps.GetGitCmdFactory(),
 		deps.GetCatfileCache(),
 	))
 	gitalypb.RegisterNamespaceServiceServer(srv, namespace.NewServer(deps.GetLocator()))
 	gitalypb.RegisterOperationServiceServer(srv, operations.NewServer(
-		deps.GetCfg(),
 		deps.GetHookManager(),
 		deps.GetTxManager(),
 		deps.GetLocator(),
@@ -91,7 +86,6 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 		deps.GetUpdaterWithHooks(),
 	))
 	gitalypb.RegisterRefServiceServer(srv, ref.NewServer(
-		deps.GetCfg(),
 		deps.GetLocator(),
 		deps.GetGitCmdFactory(),
 		deps.GetTxManager(),
@@ -108,14 +102,12 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 		deps.GetGit2goExecutor(),
 	))
 	gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
-		deps.GetCfg(),
 		deps.GetLocator(),
 		deps.GetGitCmdFactory(),
 		deps.GetTxManager(),
 		ssh.WithPackfileNegotiationMetrics(sshPackfileNegotiationMetrics),
 	))
 	gitalypb.RegisterSmartHTTPServiceServer(srv, smarthttp.NewServer(
-		deps.GetCfg(),
 		deps.GetLocator(),
 		deps.GetGitCmdFactory(),
 		deps.GetDiskCache(),
@@ -123,7 +115,6 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 	))
 	gitalypb.RegisterWikiServiceServer(srv, wiki.NewServer(deps.GetRubyServer(), deps.GetLocator()))
 	gitalypb.RegisterConflictsServiceServer(srv, conflicts.NewServer(
-		deps.GetCfg(),
 		deps.GetHookManager(),
 		deps.GetLocator(),
 		deps.GetGitCmdFactory(),
@@ -133,7 +124,6 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 		deps.GetUpdaterWithHooks(),
 	))
 	gitalypb.RegisterRemoteServiceServer(srv, remote.NewServer(
-		deps.GetCfg(),
 		deps.GetLocator(),
 		deps.GetGitCmdFactory(),
 		deps.GetCatfileCache(),
@@ -142,14 +132,12 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 	))
 	gitalypb.RegisterServerServiceServer(srv, server.NewServer(deps.GetGitCmdFactory(), deps.GetCfg().Storages))
 	gitalypb.RegisterObjectPoolServiceServer(srv, objectpool.NewServer(
-		deps.GetCfg(),
 		deps.GetLocator(),
 		deps.GetGitCmdFactory(),
 		deps.GetCatfileCache(),
 		deps.GetTxManager(),
 	))
 	gitalypb.RegisterHookServiceServer(srv, hook.NewServer(
-		deps.GetCfg(),
 		deps.GetHookManager(),
 		deps.GetGitCmdFactory(),
 		deps.GetPackObjectsCache(),

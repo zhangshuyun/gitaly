@@ -448,13 +448,11 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 
 	remoteAddr := testserver.RunGitalyServer(t, remoteCfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
-			deps.GetCfg(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetTxManager(),
 		))
 		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(
-			deps.GetCfg(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetTxManager(),
@@ -474,7 +472,6 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 	// `FetchInternalRemote` can reach the hook service which is injected via the config.
 	testserver.RunGitalyServer(t, localCfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(
-			deps.GetCfg(),
 			deps.GetHookManager(),
 			deps.GetGitCmdFactory(),
 			deps.GetPackObjectsCache(),

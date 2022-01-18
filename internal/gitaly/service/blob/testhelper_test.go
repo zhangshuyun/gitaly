@@ -25,7 +25,6 @@ func setup(tb testing.TB) (config.Cfg, *gitalypb.Repository, string, gitalypb.Bl
 
 	addr := testserver.RunGitalyServer(tb, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterBlobServiceServer(srv, NewServer(
-			deps.GetCfg(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),

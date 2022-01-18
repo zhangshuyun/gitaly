@@ -5,7 +5,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -18,7 +17,6 @@ var (
 
 type server struct {
 	gitalypb.UnimplementedSSHServiceServer
-	cfg                         config.Cfg
 	locator                     storage.Locator
 	gitCmdFactory               git.CommandFactory
 	txManager                   transaction.Manager
@@ -29,14 +27,12 @@ type server struct {
 
 // NewServer creates a new instance of a grpc SSHServer
 func NewServer(
-	cfg config.Cfg,
 	locator storage.Locator,
 	gitCmdFactory git.CommandFactory,
 	txManager transaction.Manager,
 	serverOpts ...ServerOpt,
 ) gitalypb.SSHServiceServer {
 	s := &server{
-		cfg:                         cfg,
 		locator:                     locator,
 		gitCmdFactory:               gitCmdFactory,
 		txManager:                   txManager,

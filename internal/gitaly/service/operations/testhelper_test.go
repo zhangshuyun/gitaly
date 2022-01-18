@@ -67,7 +67,6 @@ func runOperationServiceServer(t testing.TB, cfg config.Cfg, options ...testserv
 
 	return testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		operationServer := NewServer(
-			deps.GetCfg(),
 			deps.GetHookManager(),
 			deps.GetTxManager(),
 			deps.GetLocator(),
@@ -80,7 +79,7 @@ func runOperationServiceServer(t testing.TB, cfg config.Cfg, options ...testserv
 		operationServer.enableUserMergeBranchStructuredErrors = true
 
 		gitalypb.RegisterOperationServiceServer(srv, operationServer)
-		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(cfg, deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
+		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
 			deps.GetCfg(),
 			nil,
@@ -92,21 +91,18 @@ func runOperationServiceServer(t testing.TB, cfg config.Cfg, options ...testserv
 			deps.GetGit2goExecutor(),
 		))
 		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(
-			deps.GetCfg(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetTxManager(),
 			deps.GetCatfileCache(),
 		))
 		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(
-			deps.GetCfg(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			nil,
 			deps.GetCatfileCache(),
 		))
 		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
-			deps.GetCfg(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetTxManager(),

@@ -11,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
@@ -22,7 +21,6 @@ import (
 //nolint: revive,stylecheck // This is unintentionally missing documentation.
 type Server struct {
 	gitalypb.UnimplementedOperationServiceServer
-	cfg            config.Cfg
 	hookManager    hook.Manager
 	txManager      transaction.Manager
 	locator        storage.Locator
@@ -39,7 +37,6 @@ type Server struct {
 
 // NewServer creates a new instance of a grpc OperationServiceServer
 func NewServer(
-	cfg config.Cfg,
 	hookManager hook.Manager,
 	txManager transaction.Manager,
 	locator storage.Locator,
@@ -50,7 +47,6 @@ func NewServer(
 	updater *updateref.UpdaterWithHooks,
 ) *Server {
 	return &Server{
-		cfg:            cfg,
 		hookManager:    hookManager,
 		txManager:      txManager,
 		locator:        locator,

@@ -5,7 +5,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/linguist"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -13,7 +12,6 @@ import (
 
 type server struct {
 	gitalypb.UnimplementedCommitServiceServer
-	cfg           config.Cfg
 	locator       storage.Locator
 	gitCmdFactory git.CommandFactory
 	linguist      *linguist.Instance
@@ -22,14 +20,12 @@ type server struct {
 
 // NewServer creates a new instance of a grpc CommitServiceServer
 func NewServer(
-	cfg config.Cfg,
 	locator storage.Locator,
 	gitCmdFactory git.CommandFactory,
 	ling *linguist.Instance,
 	catfileCache catfile.Cache,
 ) gitalypb.CommitServiceServer {
 	return &server{
-		cfg:           cfg,
 		locator:       locator,
 		gitCmdFactory: gitCmdFactory,
 		linguist:      ling,

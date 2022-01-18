@@ -28,13 +28,11 @@ func TestRepo_FetchInternal(t *testing.T) {
 	cfg, remoteRepoProto, _ := testcfg.BuildWithRepo(t)
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
-			deps.GetCfg(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetTxManager(),
 		))
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(
-			deps.GetCfg(),
 			deps.GetHookManager(),
 			deps.GetGitCmdFactory(),
 			deps.GetPackObjectsCache(),

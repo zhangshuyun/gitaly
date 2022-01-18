@@ -55,7 +55,6 @@ func createNewServer(t *testing.T, cfg config.Cfg, logger *logrus.Logger) *grpc.
 	t.Cleanup(catfileCache.Stop)
 
 	gitalypb.RegisterRefServiceServer(server, ref.NewServer(
-		cfg,
 		config.NewLocator(cfg),
 		gitCommandFactory,
 		transaction.NewManager(cfg, backchannel.NewRegistry()),
