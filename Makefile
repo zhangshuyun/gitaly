@@ -1,5 +1,10 @@
 # Makefile for Gitaly
 
+# Enabling GNU build ids by default.  This slows local builds by a few seconds,
+# so you may optionally disable it (only for local builds, not in CI) by
+# undefining it in your local config.mak file (WITH_GNU_BUILD_ID:=).
+WITH_GNU_BUILD_ID := YesPlease
+
 # You can override options by creating a "config.mak" file in Gitaly's root
 # directory.
 -include config.mak
@@ -290,7 +295,7 @@ help:
 
 .PHONY: build
 ## Build Go binaries and install required Ruby Gems.
-build: $(call find_commands)
+build: ${SOURCE_DIR}/.ruby-bundle libgit2
 	@ # We used to install Gitaly binaries into the source directory by default when executing
 	@ # "make" or "make all", which has been changed in v14.5 to only build binaries into
 	@ # `_build/bin`. In order to quickly fail in case any source install still refers to these
@@ -299,22 +304,28 @@ build: $(call find_commands)
 	@ # This safety guard can go away in v14.6.
 	${Q}rm -f $(addprefix ${SOURCE_DIR}/,$(notdir $(call find_commands)) gitaly-git2go-v14)
 
+ifndef WITH_GNU_BUILD_ID
+	go install -ldflags '${GO_LDFLAGS}' -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, $(call find_commands))
+endif
+
 	@ # We use version suffix for the gitaly-git2go binary to support compatibility contract between
 	@ # gitaly and gitaly-git2go during upgrade deployment.
 	@ # For more information refer to https://gitlab.com/gitlab-org/gitaly/-/issues/3647#note_599082033
 	${Q}mv ${BUILD_DIR}/bin/gitaly-git2go "${BUILD_DIR}/bin/gitaly-git2go-${MODULE_VERSION}"
 
+ifdef WITH_GNU_BUILD_ID
+build: $(call find_commands)
+
 .PHONY: $(call find_commands)
-$(call find_commands): ${SOURCE_DIR}/.ruby-bundle libgit2
+$(call find_commands):
 	${Q}go install -ldflags '${GO_LDFLAGS}' -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, $@)
-ifeq "${ADD_GNU_BUILD_ID}" "true"
 	@ # To compute a unique and deterministic value for GNU build-id, we build the Go binary a second time.
 	@ # From the first build, we extract its unique and deterministic Go build-id, and use that to derive
 	@ # comparably unique and deterministic GNU build-id to inject into the final binary.
 	@ # If we cannot extract a Go build-id, we punt and fallback to using a random 32-byte hex string.
 	@ # This fallback is unique but non-deterministic, making it sufficient to avoid generating the
 	@ # GNU build-id from the empty string and causing guaranteed collisions.
-	${Q}GO_BUILD_ID=$$( go tool buildid $(addprefix ${BUILD_DIR}/bin/, $@) || openssl rand -hex 32 ) && \
+	GO_BUILD_ID=$$( go tool buildid $(addprefix ${BUILD_DIR}/bin/, $@) || openssl rand -hex 32 ) && \
 	GNU_BUILD_ID=$$( echo $$GO_BUILD_ID | sha1sum | cut -d' ' -f1 ) && \
 	go install -ldflags '${GO_LDFLAGS}'" -B 0x$$GNU_BUILD_ID" -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, $@)
 endif
