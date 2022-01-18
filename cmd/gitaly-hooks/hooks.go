@@ -120,7 +120,7 @@ func run(args []string) error {
 		return fmt.Errorf("subcommand name invalid: %q", subCmd)
 	}
 
-	return executeHook(hookCommand, args)
+	return executeHook(hookCommand, args[2:])
 }
 
 func executeHook(cmd hookCommand, args []string) error {
@@ -230,7 +230,6 @@ func check(configPath string) (*gitlab.CheckInfo, error) {
 }
 
 func updateHook(ctx context.Context, payload git.HooksPayload, hookClient gitalypb.HookServiceClient, args []string) error {
-	args = args[2:]
 	if len(args) != 3 {
 		return fmt.Errorf("update hook expects exactly three arguments, got %q", args)
 	}
@@ -319,12 +318,12 @@ func postReceiveHook(ctx context.Context, payload git.HooksPayload, hookClient g
 }
 
 func referenceTransactionHook(ctx context.Context, payload git.HooksPayload, hookClient gitalypb.HookServiceClient, args []string) error {
-	if len(args) != 3 {
+	if len(args) != 1 {
 		return fmt.Errorf("reference-transaction hook is missing required arguments, got %q", args)
 	}
 
 	var state gitalypb.ReferenceTransactionHookRequest_State
-	switch args[2] {
+	switch args[0] {
 	case "prepared":
 		state = gitalypb.ReferenceTransactionHookRequest_PREPARED
 	case "committed":
@@ -332,7 +331,7 @@ func referenceTransactionHook(ctx context.Context, payload git.HooksPayload, hoo
 	case "aborted":
 		state = gitalypb.ReferenceTransactionHookRequest_ABORTED
 	default:
-		return fmt.Errorf("reference-transaction hook has invalid state: %q", args[2])
+		return fmt.Errorf("reference-transaction hook has invalid state: %q", args[0])
 	}
 
 	referenceTransactionHookStream, err := hookClient.ReferenceTransactionHook(ctx)
@@ -364,7 +363,7 @@ func referenceTransactionHook(ctx context.Context, payload git.HooksPayload, hoo
 }
 
 func packObjectsHook(ctx context.Context, payload git.HooksPayload, hookClient gitalypb.HookServiceClient, args []string) error {
-	if err := handlePackObjectsWithSidechannel(ctx, hookClient, payload.Repo, args[2:]); err != nil {
+	if err := handlePackObjectsWithSidechannel(ctx, hookClient, payload.Repo, args); err != nil {
 		return hookError{returnCode: 1, err: fmt.Errorf("RPC failed: %w", err)}
 	}
 
