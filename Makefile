@@ -356,7 +356,7 @@ prepare-test-repos: ${TEST_REPO} ${TEST_REPO_GIT}
 test: test-go test-ruby
 
 .PHONY: test-ruby
-test-ruby: prepare-tests rspec
+test-ruby: rspec
 
 .PHONY: test-go
 ## Run Go tests.
@@ -391,8 +391,16 @@ race-go: test-go
 
 .PHONY: rspec
 ## Run Ruby tests.
-rspec: build prepare-tests
+rspec: prepare-tests
 	${Q}cd ${GITALY_RUBY_DIR} && PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}' bundle exec rspec
+
+# This is a workaround for our unprivileged CI builds. We manually execute the
+# build target as privileged user, but then run the rspec target unprivileged.
+# We thus cannot rebuild binaries there given that we have no permissions to
+# write into the build directory.
+ifndef SKIP_RSPEC_BUILD
+rspec: build
+endif
 
 .PHONY: verify
 ## Verify that various files conform to our expectations.

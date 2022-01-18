@@ -75,6 +75,7 @@ include:
     PGUSER: postgres
     POSTGRES_DB: praefect_test
     POSTGRES_HOST_AUTH_METHOD: trust
+    TEST_REPORT: /tmp/go-tests-report.xml
   before_script: &test_before_script
     - go version
     - while ! psql -h $PGHOST -U $PGUSER -c 'SELECT 1' > /dev/null; do echo "awaiting Postgres service to be ready..." && sleep 1 ; done && echo "Postgres service is ready!"
@@ -82,7 +83,7 @@ include:
     paths:
       - ruby/tmp/gitaly-rspec-test.log
     reports:
-      junit: _build/reports/go-tests-report.xml
+      junit: ${TEST_REPORT}
     when: on_failure
     expire_in: 1 week
 
@@ -156,16 +157,17 @@ build:binaries:
 test:
   <<: *test_definition
   script:
-    # This command will make all directories except of our build directory and Ruby code unwritable.
-    # The purpose is to verify that there is no test which writes into those directories anymore, as
-    # they should all instead use a temporary directory for runtime data.
-    - find . -type d \( -path ./_build -o -path ./ruby \) -prune -o -type d -exec chmod a-w {} \;
     # If we're testing with bundled Git, then we don't want to have the Git
     # installation around. Otherwise, Git would be able to resolve its binaries
     # by just looking at its own GIT_PREFIX and then pick binaries from that
     # installation directory.
     - if test -n "${WITH_BUNDLED_GIT}"; then rm -rf _build/deps/git/install; fi
-    - make ${TARGET}
+    # We need to prepare test dependencies as privileged user.
+    - make build prepare-tests
+    # But the actual tests should run unprivileged. This assures that we pay
+    # proper attention to permission bits and that we don't modify the source
+    # directory.
+    - setpriv --reuid=9999 --regid=9999 --clear-groups --no-new-privs env HOME=/dev/null make ${TARGET} SKIP_RSPEC_BUILD=YesPlease
   parallel:
     matrix:
       # These definitions are for the non-default Git versions.
@@ -233,7 +235,8 @@ test:nightly:
   <<: *test_definition
   script:
     - go version
-    - make all ${TARGET}
+    - make build prepare-tests
+    - setpriv --reuid=9999 --regid=9999 --clear-groups --no-new-privs env HOME=/dev/null make ${TARGET} SKIP_RSPEC_BUILD=YesPlease
   parallel:
     matrix:
       - GIT_VERSION: [ "master", "next" ]
