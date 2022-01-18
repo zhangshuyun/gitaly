@@ -224,6 +224,8 @@ func run(cfg config.Cfg) error {
 	}
 	defer rubySrv.Stop()
 
+	streamCache := streamcache.New(cfg.PackObjectsCache, glog.Default())
+
 	for _, c := range []starter.Config{
 		{Name: starter.Unix, Addr: cfg.SocketPath, HandoverOnUpgrade: true},
 		{Name: starter.Unix, Addr: cfg.GitalyInternalSocketPath(), HandoverOnUpgrade: false},
@@ -258,7 +260,7 @@ func run(cfg config.Cfg) error {
 			Linguist:           ling,
 			CatfileCache:       catfileCache,
 			DiskCache:          diskCache,
-			PackObjectsCache:   streamcache.New(cfg.PackObjectsCache, glog.Default()),
+			PackObjectsCache:   streamCache,
 			Git2goExecutor:     git2goExecutor,
 			UpdaterWithHooks:   updaterWithHooks,
 		})

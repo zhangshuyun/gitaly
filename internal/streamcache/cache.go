@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -39,12 +40,22 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 )
 
-var cacheIndexSize = promauto.NewGaugeVec(
-	prometheus.GaugeOpts{
-		Name: "gitaly_streamcache_index_entries",
-		Help: "Number of index entries in streamcache",
-	},
-	[]string{"dir"},
+var (
+	cacheIndexSize = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "gitaly_streamcache_index_entries",
+			Help: "Number of index entries in streamcache",
+		},
+		[]string{"dir"},
+	)
+
+	packObjectsCacheEnabled = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "gitaly_pack_objects_cache_enabled",
+			Help: "If set to 1, indicates that the cache for PackObjectsHook has been enabled in this process",
+		},
+		[]string{"dir", "max_age"},
+	)
 )
 
 // Cache is a cache for large byte streams.
@@ -132,6 +143,11 @@ type cache struct {
 // New returns a new cache instance.
 func New(cfg config.StreamCacheConfig, logger logrus.FieldLogger) Cache {
 	if cfg.Enabled {
+		packObjectsCacheEnabled.WithLabelValues(
+			cfg.Dir,
+			strconv.Itoa(int(cfg.MaxAge.Duration().Seconds())),
+		).Set(1)
+
 		return newCacheWithSleep(cfg.Dir, cfg.MaxAge.Duration(), time.After, time.After, logger)
 	}
 
