@@ -12,8 +12,10 @@ import (
 	"strings"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/remote"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
@@ -211,8 +213,52 @@ func (s *server) extractSnapshot(ctx context.Context, source, target *gitalypb.R
 func (s *server) syncRepository(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) error {
 	repo := s.localrepo(in.GetRepository())
 
-	if err := remote.FetchInternalRemote(ctx, s.conns, repo, in.GetSource()); err != nil {
+	if err := fetchInternalRemote(ctx, s.conns, repo, in.GetSource()); err != nil {
 		return fmt.Errorf("fetch internal remote: %w", err)
+	}
+
+	return nil
+}
+
+func fetchInternalRemote(
+	ctx context.Context,
+	conns *client.Pool,
+	repo *localrepo.Repo,
+	remoteRepoProto *gitalypb.Repository,
+) error {
+	var stderr bytes.Buffer
+	if err := repo.FetchInternal(
+		ctx,
+		remoteRepoProto,
+		[]string{mirrorRefSpec},
+		localrepo.FetchOpts{Prune: true, Stderr: &stderr},
+	); err != nil {
+		if errors.As(err, &localrepo.ErrFetchFailed{}) {
+			return fmt.Errorf("fetch: %w, stderr: %q", err, stderr.String())
+		}
+
+		return fmt.Errorf("fetch: %w", err)
+	}
+
+	remoteRepo, err := remoterepo.New(ctx, remoteRepoProto, conns)
+	if err != nil {
+		return helper.ErrInternal(err)
+	}
+
+	remoteDefaultBranch, err := remoteRepo.GetDefaultBranch(ctx)
+	if err != nil {
+		return helper.ErrInternalf("getting remote default branch: %w", err)
+	}
+
+	defaultBranch, err := repo.GetDefaultBranch(ctx)
+	if err != nil {
+		return helper.ErrInternalf("getting local default branch: %w", err)
+	}
+
+	if defaultBranch != remoteDefaultBranch {
+		if err := repo.SetDefaultBranch(ctx, remoteDefaultBranch); err != nil {
+			return helper.ErrInternalf("setting default branch: %w", err)
+		}
 	}
 
 	return nil
