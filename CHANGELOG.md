@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 14.6.3 (2022-01-18)
+
+No changes.
+
 ## 14.6.2 (2022-01-10)
 
 ### Fixed (1 change)
