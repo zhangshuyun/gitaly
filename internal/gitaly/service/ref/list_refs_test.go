@@ -26,7 +26,11 @@ func TestServer_ListRefs(t *testing.T) {
 	repoPath := filepath.Join(storagePath, relativePath)
 
 	gittest.Exec(t, cfg, "init", repoPath)
+	gittest.Exec(t, cfg, "-C", repoPath, "commit", "--allow-empty", "-m", "initial")
+	oldCommit := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/master"))
+
 	gittest.Exec(t, cfg, "-C", repoPath, "commit", "--allow-empty", "-m", "commit message")
+	gittest.Exec(t, cfg, "-C", repoPath, "commit", "--amend", "--date", "Wed Feb 16 14:01 2011 +0100", "--allow-empty", "--no-edit")
 	commit := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/master"))
 
 	for _, cmd := range [][]string{
@@ -36,6 +40,7 @@ func TestServer_ListRefs(t *testing.T) {
 		{"symbolic-ref", "refs/heads/symbolic", "refs/heads/master"},
 		{"update-ref", "refs/remote/remote-name/remote-branch", commit},
 		{"symbolic-ref", "HEAD", "refs/heads/master"},
+		{"update-ref", "refs/heads/old", oldCommit},
 	} {
 		gittest.Exec(t, cfg, append([]string{"-C", repoPath}, cmd...)...)
 	}
@@ -68,6 +73,30 @@ func TestServer_ListRefs(t *testing.T) {
 			expectedError:     "rpc error: code = InvalidArgument desc = patterns must have at least one entry",
 		},
 		{
+			desc: "bad sorting key",
+			request: &gitalypb.ListRefsRequest{
+				Repository: repo,
+				Patterns:   [][]byte{[]byte("refs/")},
+				SortBy: &gitalypb.ListRefsRequest_SortBy{
+					Key: gitalypb.ListRefsRequest_SortBy_Key(100),
+				},
+			},
+			expectedGrpcError: codes.InvalidArgument,
+			expectedError:     `rpc error: code = InvalidArgument desc = sorting key "100" is not supported`,
+		},
+		{
+			desc: "bad sorting direction",
+			request: &gitalypb.ListRefsRequest{
+				Repository: repo,
+				Patterns:   [][]byte{[]byte("refs/")},
+				SortBy: &gitalypb.ListRefsRequest_SortBy{
+					Direction: gitalypb.SortDirection(100),
+				},
+			},
+			expectedGrpcError: codes.InvalidArgument,
+			expectedError:     "rpc error: code = InvalidArgument desc = sorting direction is not supported",
+		},
+		{
 			desc: "not found",
 			request: &gitalypb.ListRefsRequest{
 				Repository: repo,
@@ -95,10 +124,27 @@ func TestServer_ListRefs(t *testing.T) {
 			},
 			expected: []*gitalypb.ListRefsResponse_Reference{
 				{Name: []byte("refs/heads/master"), Target: commit},
+				{Name: []byte("refs/heads/old"), Target: oldCommit},
 				{Name: []byte("refs/heads/symbolic"), Target: commit},
 				{Name: []byte("refs/remote/remote-name/remote-branch"), Target: commit},
 				{Name: []byte("refs/tags/annotated-tag"), Target: annotatedTagOID},
 				{Name: []byte("refs/tags/lightweight-tag"), Target: commit},
+			},
+		},
+		{
+			desc: "sort by authordate desc",
+			request: &gitalypb.ListRefsRequest{
+				Repository: repo,
+				Patterns:   [][]byte{[]byte("refs/heads")},
+				SortBy: &gitalypb.ListRefsRequest_SortBy{
+					Direction: gitalypb.SortDirection_DESCENDING,
+					Key:       gitalypb.ListRefsRequest_SortBy_AUTHORDATE,
+				},
+			},
+			expected: []*gitalypb.ListRefsResponse_Reference{
+				{Name: []byte("refs/heads/old"), Target: oldCommit},
+				{Name: []byte("refs/heads/master"), Target: commit},
+				{Name: []byte("refs/heads/symbolic"), Target: commit},
 			},
 		},
 		{
@@ -109,6 +155,7 @@ func TestServer_ListRefs(t *testing.T) {
 			},
 			expected: []*gitalypb.ListRefsResponse_Reference{
 				{Name: []byte("refs/heads/master"), Target: commit},
+				{Name: []byte("refs/heads/old"), Target: oldCommit},
 				{Name: []byte("refs/heads/symbolic"), Target: commit},
 				{Name: []byte("refs/tags/annotated-tag"), Target: annotatedTagOID},
 				{Name: []byte("refs/tags/lightweight-tag"), Target: commit},
@@ -124,6 +171,7 @@ func TestServer_ListRefs(t *testing.T) {
 			expected: []*gitalypb.ListRefsResponse_Reference{
 				{Name: []byte("HEAD"), Target: commit},
 				{Name: []byte("refs/heads/master"), Target: commit},
+				{Name: []byte("refs/heads/old"), Target: oldCommit},
 				{Name: []byte("refs/heads/symbolic"), Target: commit},
 				{Name: []byte("refs/tags/annotated-tag"), Target: annotatedTagOID},
 				{Name: []byte("refs/tags/lightweight-tag"), Target: commit},

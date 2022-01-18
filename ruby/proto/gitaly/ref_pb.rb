@@ -183,6 +183,17 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :repository, :message, 1, "gitaly.Repository"
       repeated :patterns, :bytes, 2
       optional :head, :bool, 3
+      optional :sort_by, :message, 4, "gitaly.ListRefsRequest.SortBy"
+    end
+    add_message "gitaly.ListRefsRequest.SortBy" do
+      optional :key, :enum, 1, "gitaly.ListRefsRequest.SortBy.Key"
+      optional :direction, :enum, 2, "gitaly.SortDirection"
+    end
+    add_enum "gitaly.ListRefsRequest.SortBy.Key" do
+      value :REFNAME, 0
+      value :CREATORDATE, 1
+      value :AUTHORDATE, 2
+      value :COMMITTERDATE, 3
     end
     add_message "gitaly.ListRefsResponse" do
       repeated :references, :message, 1, "gitaly.ListRefsResponse.Reference"
@@ -250,6 +261,8 @@ module Gitaly
   PackRefsRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.PackRefsRequest").msgclass
   PackRefsResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.PackRefsResponse").msgclass
   ListRefsRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListRefsRequest").msgclass
+  ListRefsRequest::SortBy = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListRefsRequest.SortBy").msgclass
+  ListRefsRequest::SortBy::Key = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListRefsRequest.SortBy.Key").enummodule
   ListRefsResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListRefsResponse").msgclass
   ListRefsResponse::Reference = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListRefsResponse.Reference").msgclass
   FindRefsByOIDRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindRefsByOIDRequest").msgclass
