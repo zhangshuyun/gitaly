@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 
 	"github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
@@ -82,45 +83,59 @@ func main() {
 }
 
 func run(args []string) error {
-	if len(args) < 2 {
-		return fmt.Errorf("requires hook name. args: %v", args)
-	}
-
-	subCmd := args[1]
-
-	if subCmd == "check" {
-		logrus.SetLevel(logrus.ErrorLevel)
-		if len(args) != 3 {
-			fmt.Fprint(os.Stderr, "no configuration file path provided invoke with: gitaly-hooks check <config_path>")
-			os.Exit(1)
+	switch filepath.Base(args[0]) {
+	case "gitaly-hooks":
+		if len(args) < 2 {
+			return fmt.Errorf("requires hook name. args: %v", args)
 		}
 
-		configPath := args[2]
-		fmt.Print("Checking GitLab API access: ")
+		subCmd := args[1]
 
-		info, err := check(configPath)
-		if err != nil {
-			fmt.Print("FAIL\n")
-			fmt.Fprint(os.Stderr, err)
-			os.Exit(1)
+		if subCmd == "check" {
+			logrus.SetLevel(logrus.ErrorLevel)
+			if len(args) != 3 {
+				fmt.Fprint(os.Stderr, "no configuration file path provided invoke with: gitaly-hooks check <config_path>")
+				os.Exit(1)
+			}
+
+			configPath := args[2]
+			fmt.Print("Checking GitLab API access: ")
+
+			info, err := check(configPath)
+			if err != nil {
+				fmt.Print("FAIL\n")
+				fmt.Fprint(os.Stderr, err)
+				os.Exit(1)
+			}
+
+			fmt.Print("OK\n")
+			fmt.Printf("GitLab version: %s\n", info.Version)
+			fmt.Printf("GitLab revision: %s\n", info.Revision)
+			fmt.Printf("GitLab Api version: %s\n", info.APIVersion)
+			fmt.Printf("Redis reachable for GitLab: %t\n", info.RedisReachable)
+			fmt.Println("OK")
+
+			return nil
 		}
 
-		fmt.Print("OK\n")
-		fmt.Printf("GitLab version: %s\n", info.Version)
-		fmt.Printf("GitLab revision: %s\n", info.Revision)
-		fmt.Printf("GitLab Api version: %s\n", info.APIVersion)
-		fmt.Printf("Redis reachable for GitLab: %t\n", info.RedisReachable)
-		fmt.Println("OK")
+		// This exists for backwards-compatibility reasons only and should be removed in
+		// v14.9 such that we always use the zeroth argument to derive the hook that we
+		// shall execute.
+		hookCommand, ok := hooksBySubcommand[subCmd]
+		if !ok {
+			return fmt.Errorf("subcommand name invalid: %q", subCmd)
+		}
 
-		return nil
+		return executeHook(hookCommand, args[2:])
+	default:
+		hookName := filepath.Base(args[0])
+		hookCommand, ok := hooksBySubcommand[hookName]
+		if !ok {
+			return fmt.Errorf("subcommand name invalid: %q", hookName)
+		}
+
+		return executeHook(hookCommand, args[1:])
 	}
-
-	hookCommand, ok := hooksBySubcommand[subCmd]
-	if !ok {
-		return fmt.Errorf("subcommand name invalid: %q", subCmd)
-	}
-
-	return executeHook(hookCommand, args[2:])
 }
 
 func executeHook(cmd hookCommand, args []string) error {

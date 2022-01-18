@@ -206,7 +206,7 @@ func testExecCommandFactoryHooksPath(t *testing.T, ctx context.Context) {
 
 					hookScript := testhelper.MustReadFile(t, filepath.Join(hooksPath, hook))
 					require.Equal(t, `#!/bin/bash
-exec -a "$0" "/gitaly-hooks/directory/gitaly-hooks" "$(basename "$0")" "$@"
+exec -a "$0" "/gitaly-hooks/directory/gitaly-hooks" "$@"
 `, string(hookScript))
 				}
 			} else {

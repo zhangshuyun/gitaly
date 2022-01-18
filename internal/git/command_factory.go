@@ -253,7 +253,7 @@ func setupHookDirectories(cfg config.Cfg, factoryCfg execCommandFactoryConfig) (
 	// deduce the hook name from its zeroth argument.
 	if _, err := wrapperScriptFile.WriteString(fmt.Sprintf(
 		`#!/bin/bash
-exec -a "$0" %q "$(basename "$0")" "$@"
+exec -a "$0" %q "$@"
 `, gitalyHooksPath)); err != nil {
 		return hookDirectories{}, nil, fmt.Errorf("writing wrapper script: %w", err)
 	}
