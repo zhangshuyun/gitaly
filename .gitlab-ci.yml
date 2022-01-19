@@ -358,3 +358,10 @@ trigger-qa:
     - when: manual
       allow_failure: true
   needs: []
+
+qa:nightly-praefect-migration-test:
+  stage: qa
+  trigger:
+    project: gitlab-org/quality/praefect-migration-testing
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
