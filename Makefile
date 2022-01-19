@@ -259,8 +259,6 @@ export PKG_CONFIG_PATH           := ${LIBGIT2_INSTALL_DIR}/lib/pkgconfig
 # Allow the linker flag -D_THREAD_SAFE as libgit2 is compiled with it on FreeBSD
 export CGO_LDFLAGS_ALLOW          = -D_THREAD_SAFE
 
-.NOTPARALLEL:
-
 # By default, intermediate targets get deleted automatically after a successful
 # build. We do not want that though: there's some precious intermediate targets
 # like our `*.version` targets which are required in order to determine whether
