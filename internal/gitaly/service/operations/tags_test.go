@@ -43,8 +43,9 @@ func TestSuccessfulUserDeleteTagRequest(t *testing.T) {
 		User:       gittest.TestUser,
 	}
 
-	_, err := client.UserDeleteTag(ctx, request)
+	response, err := client.UserDeleteTag(ctx, request)
 	require.NoError(t, err)
+	require.Empty(t, response.PreReceiveError)
 
 	tags := gittest.Exec(t, cfg, "-C", repoPath, "tag")
 	require.NotContains(t, string(tags), tagNameInput, "tag name still exists in tags list")
