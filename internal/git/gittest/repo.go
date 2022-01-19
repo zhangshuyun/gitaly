@@ -2,6 +2,7 @@ package gittest
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"os"
 	"path/filepath"
@@ -10,11 +11,16 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
+	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -24,6 +30,9 @@ const (
 	// GlProjectPath is the default project path for newly created test
 	// repos.
 	GlProjectPath = "gitlab-org/gitlab-test"
+
+	// SeedGitLabTest is the path of the gitlab-test.git repository in _build/testrepos.
+	SeedGitLabTest = "gitlab-test.git"
 )
 
 // InitRepoDir creates a temporary directory for a repo, without initializing it
@@ -64,6 +73,88 @@ func newDiskHash(t testing.TB) string {
 	b, err := text.RandomHex(sha256.Size)
 	require.NoError(t, err)
 	return filepath.Join(b[0:2], b[2:4], b)
+}
+
+// CreateRepositoryConfig allows for configuring how the repository is created.
+type CreateRepositoryConfig struct {
+	// Storage determines the storage the repository is created in. If unset, the first storage
+	// from the config is used.
+	Storage config.Storage
+	// RelativePath sets the relative path of the repository in the storage. If unset,
+	// the relative path is set to a randomly generated hashed storage path
+	RelativePath string
+	// Seed determines which repository is used to seed the created repository. If unset, the repository
+	// is just created. The value should be one of the test repositories in _build/testrepos.
+	Seed string
+}
+
+// CreateRepository creates a new repository and returns it and its absolute path.
+func CreateRepository(ctx context.Context, t testing.TB, cfg config.Cfg, configs ...CreateRepositoryConfig) (*gitalypb.Repository, string) {
+	t.Helper()
+
+	require.Less(t, len(configs), 2, "you must either pass no or exactly one option")
+
+	opts := CreateRepositoryConfig{}
+	if len(configs) == 1 {
+		opts = configs[0]
+	}
+
+	dialOptions := []grpc.DialOption{}
+	if cfg.Auth.Token != "" {
+		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)))
+	}
+
+	conn, err := client.DialContext(ctx, cfg.SocketPath, dialOptions)
+	require.NoError(t, err)
+	t.Cleanup(func() { conn.Close() })
+
+	storage := cfg.Storages[0]
+	if (opts.Storage != config.Storage{}) {
+		storage = opts.Storage
+	}
+
+	relativePath := newDiskHash(t)
+	if opts.RelativePath != "" {
+		relativePath = opts.RelativePath
+	}
+
+	repository := &gitalypb.Repository{
+		StorageName:   storage.Name,
+		RelativePath:  relativePath,
+		GlRepository:  GlRepository,
+		GlProjectPath: GlProjectPath,
+	}
+
+	client := gitalypb.NewRepositoryServiceClient(conn)
+
+	if opts.Seed != "" {
+		_, err := client.CreateRepositoryFromURL(ctx, &gitalypb.CreateRepositoryFromURLRequest{
+			Repository: repository,
+			Url:        testRepositoryPath(t, opts.Seed),
+		})
+		require.NoError(t, err)
+	} else {
+		_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
+			Repository: repository,
+		})
+		require.NoError(t, err)
+	}
+
+	t.Cleanup(func() {
+		// The ctx parameter would be canceled by now as the tests defer the cancellation.
+		_, err := client.RemoveRepository(context.TODO(), &gitalypb.RemoveRepositoryRequest{
+			Repository: repository,
+		})
+
+		if st, ok := status.FromError(err); ok && st.Code() == codes.NotFound {
+			// The tests may delete the repository, so this is not a failure.
+			return
+		}
+
+		require.NoError(t, err)
+	})
+
+	return repository, filepath.Join(storage.Path, testhelper.GetReplicaPath(ctx, t, conn, repository))
 }
 
 // InitRepoOpts contains options for InitRepo.
