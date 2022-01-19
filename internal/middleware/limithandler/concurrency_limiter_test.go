@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
@@ -138,7 +139,12 @@ func TestLimiter(t *testing.T) {
 
 			gauge := &counter{}
 
-			limiter := NewLimiter(tt.maxConcurrency, 0, gauge)
+			limiter := NewLimiter(
+				tt.maxConcurrency,
+				0,
+				nil,
+				gauge,
+			)
 			wg := sync.WaitGroup{}
 			wg.Add(tt.concurrency)
 
@@ -208,16 +214,16 @@ func TestLimiter(t *testing.T) {
 	}
 }
 
-type blockingCounter struct {
+type blockingQueueCounter struct {
 	counter
 
-	ch chan struct{}
+	queuedCh chan struct{}
 }
 
 // Queued will block on a channel. We need a way to synchronize on when a Limiter has attempted to acquire
 // a semaphore but has not yet. The caller can use the channel to wait for many requests to be queued
-func (b *blockingCounter) Queued(_ context.Context) {
-	b.ch <- struct{}{}
+func (b *blockingQueueCounter) Queued(_ context.Context) {
+	b.queuedCh <- struct{}{}
 }
 
 func TestConcurrencyLimiter_queueLimit(t *testing.T) {
@@ -247,9 +253,9 @@ func TestConcurrencyLimiter_queueLimit(t *testing.T) {
 			)
 
 			monitorCh := make(chan struct{})
-			gauge := &blockingCounter{ch: monitorCh}
+			gauge := &blockingQueueCounter{queuedCh: monitorCh}
 			ch := make(chan struct{})
-			limiter := NewLimiter(1, queueLimit, gauge)
+			limiter := NewLimiter(1, queueLimit, nil, gauge)
 
 			// occupied with one live request that takes a long time to complete
 			go func() {
@@ -307,4 +313,122 @@ func TestConcurrencyLimiter_queueLimit(t *testing.T) {
 			wg.Wait()
 		})
 	}
+}
+
+type blockingDequeueCounter struct {
+	counter
+
+	dequeuedCh chan struct{}
+}
+
+// Dequeued will block on a channel. We need a way to synchronize on when a Limiter has successfully
+// acquired a semaphore but has not yet. The caller can use the channel to wait for many requests to
+// be queued
+func (b *blockingDequeueCounter) Dequeued(context.Context) {
+	b.dequeuedCh <- struct{}{}
+}
+
+func TestLimitConcurrency_queueWaitTime(t *testing.T) {
+	ctx := testhelper.Context(t)
+
+	t.Run("with feature flag", func(t *testing.T) {
+		ctx = featureflag.IncomingCtxWithFeatureFlag(
+			ctx,
+			featureflag.ConcurrencyQueueMaxWait,
+			true,
+		)
+
+		ticker := helper.NewManualTicker()
+
+		dequeuedCh := make(chan struct{})
+		gauge := &blockingDequeueCounter{dequeuedCh: dequeuedCh}
+		limiter := NewLimiter(
+			1,
+			0,
+			func() helper.Ticker {
+				return ticker
+			},
+			gauge,
+		)
+
+		ch := make(chan struct{})
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			_, err := limiter.Limit(ctx, "key", func() (interface{}, error) {
+				<-ch
+				return nil, nil
+			})
+			require.NoError(t, err)
+			wg.Done()
+		}()
+
+		<-dequeuedCh
+
+		ticker.Tick()
+
+		errChan := make(chan error)
+		go func() {
+			_, err := limiter.Limit(ctx, "key", func() (interface{}, error) {
+				return nil, nil
+			})
+			errChan <- err
+		}()
+
+		<-dequeuedCh
+		err := <-errChan
+
+		assert.Equal(t, ErrMaxQueueTime, err)
+
+		close(ch)
+		wg.Wait()
+	})
+
+	t.Run("without feature flag", func(t *testing.T) {
+		ctx = featureflag.IncomingCtxWithFeatureFlag(
+			ctx,
+			featureflag.ConcurrencyQueueMaxWait,
+			false,
+		)
+
+		ticker := helper.NewManualTicker()
+
+		dequeuedCh := make(chan struct{})
+		gauge := &blockingDequeueCounter{dequeuedCh: dequeuedCh}
+		limiter := NewLimiter(
+			1,
+			0,
+			func() helper.Ticker {
+				return ticker
+			},
+			gauge,
+		)
+
+		ch := make(chan struct{})
+		go func() {
+			_, err := limiter.Limit(ctx, "key", func() (interface{}, error) {
+				<-ch
+				return nil, nil
+			})
+			require.NoError(t, err)
+		}()
+
+		<-dequeuedCh
+
+		ticker.Tick()
+
+		errChan := make(chan error)
+		go func() {
+			_, err := limiter.Limit(ctx, "key", func() (interface{}, error) {
+				return nil, nil
+			})
+			errChan <- err
+		}()
+
+		close(ch)
+		<-dequeuedCh
+		err := <-errChan
+
+		assert.NoError(t, err)
+	})
 }
