@@ -63,10 +63,16 @@ func GetReplicaPath(ctx context.Context, t testing.TB, conn *grpc.ClientConn, re
 	return metadata.ReplicaPath
 }
 
+// IsPraefectEnabled returns whether this testing run is done with Praefect in front of the Gitaly.
+func IsPraefectEnabled() bool {
+	_, enabled := os.LookupEnv("GITALY_TEST_WITH_PRAEFECT")
+	return enabled
+}
+
 // SkipWithPraefect skips the test if it is being executed with Praefect in front
 // of the Gitaly.
 func SkipWithPraefect(t testing.TB, reason string) {
-	if os.Getenv("GITALY_TEST_WITH_PRAEFECT") == "YesPlease" {
+	if IsPraefectEnabled() {
 		t.Skipf(reason)
 	}
 }

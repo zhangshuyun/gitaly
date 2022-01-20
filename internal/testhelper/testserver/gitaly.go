@@ -50,7 +50,7 @@ func RunGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server
 func StartGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) GitalyServer {
 	gitalySrv, gitalyAddr, disablePraefect, disableMetadataForceCreation := runGitaly(t, cfg, rubyServer, registrar, opts...)
 
-	if !isPraefectEnabled() || disablePraefect {
+	if !testhelper.IsPraefectEnabled() || disablePraefect {
 		return GitalyServer{
 			shutdown: gitalySrv.Stop,
 			address:  gitalyAddr,
@@ -418,9 +418,4 @@ func WithDiskCache(diskCache cache.Cache) GitalyServerOpt {
 		deps.diskCache = diskCache
 		return deps
 	}
-}
-
-func isPraefectEnabled() bool {
-	_, ok := os.LookupEnv("GITALY_TEST_WITH_PRAEFECT")
-	return ok
 }
