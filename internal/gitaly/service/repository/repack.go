@@ -6,6 +6,7 @@ import (
 	"math"
 
 	"github.com/prometheus/client_golang/prometheus"
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v14/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
@@ -33,6 +34,10 @@ func log2Threads(numCPUs int) git.ValueFlag {
 }
 
 func (s *server) RepackFull(ctx context.Context, in *gitalypb.RepackFullRequest) (*gitalypb.RepackFullResponse, error) {
+	if in.GetRepository() == nil {
+		return nil, helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	}
+
 	repo := s.localrepo(in.GetRepository())
 	cfg := housekeeping.RepackObjectsConfig{
 		FullRepack:  true,
@@ -49,6 +54,10 @@ func (s *server) RepackFull(ctx context.Context, in *gitalypb.RepackFullRequest)
 }
 
 func (s *server) RepackIncremental(ctx context.Context, in *gitalypb.RepackIncrementalRequest) (*gitalypb.RepackIncrementalResponse, error) {
+	if in.GetRepository() == nil {
+		return nil, helper.ErrInvalidArgumentf("empty repository")
+	}
+
 	repo := s.localrepo(in.GetRepository())
 	cfg := housekeeping.RepackObjectsConfig{
 		FullRepack:  false,
