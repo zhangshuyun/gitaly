@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var (
@@ -356,23 +358,38 @@ func TestGarbageCollectFailure(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(ctx, t)
+	_, repo, repoPath, client := setupRepositoryService(ctx, t)
+	storagePath := strings.TrimSuffix(repoPath, "/"+repo.RelativePath)
 
 	tests := []struct {
 		repo *gitalypb.Repository
-		code codes.Code
+		err  error
 	}{
-		{repo: nil, code: codes.InvalidArgument},
-		{repo: &gitalypb.Repository{StorageName: "foo"}, code: codes.InvalidArgument},
-		{repo: &gitalypb.Repository{RelativePath: "bar"}, code: codes.InvalidArgument},
-		{repo: &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "bar"}, code: codes.NotFound},
+		{
+			repo: nil,
+			err:  status.Error(codes.InvalidArgument, gitalyOrPraefect("empty Repository", "repo scoped: empty Repository")),
+		},
+		{
+			repo: &gitalypb.Repository{StorageName: "foo"},
+			err:  status.Error(codes.InvalidArgument, gitalyOrPraefect(`GetStorageByName: no such storage: "foo"`, "repo scoped: invalid Repository")),
+		},
+		{
+			repo: &gitalypb.Repository{StorageName: repo.StorageName, RelativePath: "bar"},
+			err: status.Error(
+				codes.NotFound,
+				gitalyOrPraefect(
+					fmt.Sprintf(`GetRepoPath: not a git repository: "%s/bar"`, storagePath),
+					`mutator call: route repository mutator: get repository id: repository "default"/"bar" not found`,
+				),
+			),
+		},
 	}
 
-	for _, test := range tests {
-		t.Run(fmt.Sprintf("%v", test.repo), func(t *testing.T) {
+	for _, tc := range tests {
+		t.Run(fmt.Sprintf("%v", tc.repo), func(t *testing.T) {
 			//nolint:staticcheck
-			_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: test.repo})
-			testhelper.RequireGrpcCode(t, err, test.code)
+			_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: tc.repo})
+			testhelper.RequireGrpcError(t, err, tc.err)
 		})
 	}
 }
