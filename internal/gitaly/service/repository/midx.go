@@ -9,12 +9,14 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v14/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -24,9 +26,16 @@ const (
 
 func (s *server) MidxRepack(ctx context.Context, in *gitalypb.MidxRepackRequest) (*gitalypb.MidxRepackResponse, error) {
 	repoProto := in.GetRepository()
+	if repoProto == nil {
+		return nil, helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	}
+
 	repo := s.localrepo(repoProto)
 
 	if err := repo.SetConfig(ctx, "core.multiPackIndex", "true", s.txManager); err != nil {
+		if _, ok := status.FromError(err); ok {
+			return nil, err
+		}
 		return nil, helper.ErrInternalf("setting config: %w", err)
 	}
 
