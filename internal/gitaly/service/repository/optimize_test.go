@@ -2,6 +2,7 @@ package repository
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func getNewestPackfileModtime(t *testing.T, repoPath string) time.Time {
@@ -151,27 +153,33 @@ func TestOptimizeRepositoryValidation(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(ctx, t)
+	cfg, repo, _, client := setupRepositoryService(ctx, t)
 
 	testCases := []struct {
-		desc              string
-		repo              *gitalypb.Repository
-		expectedErrorCode codes.Code
+		desc string
+		repo *gitalypb.Repository
+		exp  error
 	}{
 		{
-			desc:              "empty repository",
-			repo:              nil,
-			expectedErrorCode: codes.InvalidArgument,
+			desc: "empty repository",
+			repo: nil,
+			exp:  status.Error(codes.InvalidArgument, gitalyOrPraefect("empty Repository", "repo scoped: empty Repository")),
 		},
 		{
-			desc:              "invalid repository storage",
-			repo:              &gitalypb.Repository{StorageName: "non-existent", RelativePath: repo.GetRelativePath()},
-			expectedErrorCode: codes.InvalidArgument,
+			desc: "invalid repository storage",
+			repo: &gitalypb.Repository{StorageName: "non-existent", RelativePath: repo.GetRelativePath()},
+			exp:  status.Error(codes.InvalidArgument, gitalyOrPraefect(`GetStorageByName: no such storage: "non-existent"`, "repo scoped: invalid Repository")),
 		},
 		{
-			desc:              "invalid repository path",
-			repo:              &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "/path/not/exist"},
-			expectedErrorCode: codes.NotFound,
+			desc: "invalid repository path",
+			repo: &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "path/not/exist"},
+			exp: status.Error(
+				codes.NotFound,
+				gitalyOrPraefect(
+					fmt.Sprintf(`GetRepoPath: not a git repository: "%s/path/not/exist"`, cfg.Storages[0].Path),
+					`mutator call: route repository mutator: get repository id: repository "default"/"path/not/exist" not found`,
+				),
+			),
 		},
 	}
 
@@ -179,7 +187,7 @@ func TestOptimizeRepositoryValidation(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			_, err := client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: tc.repo})
 			require.Error(t, err)
-			testhelper.RequireGrpcCode(t, err, tc.expectedErrorCode)
+			testhelper.RequireGrpcError(t, err, tc.exp)
 		})
 	}
 
