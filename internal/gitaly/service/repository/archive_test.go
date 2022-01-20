@@ -472,6 +472,8 @@ func TestGetArchivePathInjection(t *testing.T) {
 }
 
 func TestGetArchiveEnv(t *testing.T) {
+	testhelper.SkipWithPraefect(t, "It's not possible to create repositories through the API with the git command overwritten by the script.")
+
 	t.Parallel()
 
 	cfg := testcfg.Build(t)

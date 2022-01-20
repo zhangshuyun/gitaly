@@ -166,7 +166,13 @@ func TestServer_FetchBundle_validation(t *testing.T) {
 					RelativePath: "unknown",
 				},
 			},
-			expectedStreamErr:     "not a git repository",
+			expectedStreamErr: func() string {
+				if testhelper.IsPraefectEnabled() {
+					return `repository "default"/"unknown" not found`
+				}
+
+				return "not a git repository"
+			}(),
 			expectedStreamErrCode: codes.NotFound,
 		},
 	} {

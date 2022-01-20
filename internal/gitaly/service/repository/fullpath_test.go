@@ -73,6 +73,10 @@ func TestSetFullPath(t *testing.T) {
 
 		expectedErr := fmt.Sprintf("rpc error: code = NotFound desc = setting config: rpc "+
 			"error: code = NotFound desc = GetRepoPath: not a git repository: %q", repoPath)
+		if testhelper.IsPraefectEnabled() {
+			expectedErr = `rpc error: code = NotFound desc = mutator call: route repository mutator: get repository id: repository "default"/"/path/to/repo.git" not found`
+		}
+
 		require.EqualError(t, err, expectedErr)
 	})
 

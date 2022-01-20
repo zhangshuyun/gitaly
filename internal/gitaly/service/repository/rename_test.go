@@ -67,6 +67,9 @@ func TestRenameRepository_DestinationExists(t *testing.T) {
 }
 
 func TestRenameRepository_invalidRequest(t *testing.T) {
+	// Prafect applies renames to metadata even on failed requests, which fails this test.
+	testhelper.SkipWithPraefect(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/4003")
+
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
