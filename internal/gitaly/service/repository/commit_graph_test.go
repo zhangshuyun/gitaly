@@ -23,7 +23,7 @@ func TestWriteCommitGraph_withExistingCommitGraphCreatedWithDefaults(t *testing.
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	commitGraphPath := filepath.Join(repoPath, stats.CommitGraphRelPath)
-	require.NoFileExists(t, commitGraphPath, "sanity check no commit graph")
+	require.NoError(t, os.RemoveAll(commitGraphPath))
 
 	chainPath := filepath.Join(repoPath, stats.CommitGraphChainRelPath)
 	require.NoFileExists(t, chainPath, "sanity check no commit graph chain exists")
@@ -59,7 +59,7 @@ func TestWriteCommitGraph_withExistingCommitGraphCreatedWithSplit(t *testing.T) 
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	commitGraphPath := filepath.Join(repoPath, stats.CommitGraphRelPath)
-	require.NoFileExists(t, commitGraphPath, "sanity check no commit graph")
+	require.NoError(t, os.RemoveAll(commitGraphPath))
 
 	chainPath := filepath.Join(repoPath, stats.CommitGraphChainRelPath)
 	require.NoFileExists(t, chainPath, "sanity check no commit graph chain exists")

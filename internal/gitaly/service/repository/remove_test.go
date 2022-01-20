@@ -58,7 +58,9 @@ func TestRemoveRepository_locking(t *testing.T) {
 	_, repo, repoPath, client := setupRepositoryService(t, testserver.WithDisablePraefect())
 
 	// Simulate a concurrent RPC holding the repository lock.
-	require.NoError(t, os.WriteFile(repoPath+".lock", []byte{}, 0o644))
+	lockPath := repoPath + ".lock"
+	require.NoError(t, os.WriteFile(lockPath, []byte{}, 0o644))
+	defer func() { require.NoError(t, os.RemoveAll(lockPath)) }()
 
 	_, err := client.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{Repository: repo})
 	testhelper.RequireGrpcError(t, helper.ErrFailedPreconditionf("repository is already locked"), err)
