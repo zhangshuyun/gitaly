@@ -207,11 +207,10 @@ func TestUserSquash_renames(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repoProto, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
-		WithWorktree: true,
-	})
+	gittest.AddWorktree(t, cfg, repoPath, "worktree")
+	repoPath = filepath.Join(repoPath, "worktree")
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 

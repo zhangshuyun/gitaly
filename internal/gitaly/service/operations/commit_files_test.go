@@ -4,10 +4,8 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -40,15 +38,7 @@ func TestUserCommitFiles(t *testing.T) {
 		targetRelativePath = "target-repository"
 	)
 
-	// Multiple locations in the call path depend on the global configuration.
-	// This creates a clean directory in the test storage. We then recreate the
-	// repository there on every test run. This allows us to use deterministic
-	// paths in the tests.
-
-	startRepo, startRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
-
-	pathToStorage := strings.TrimSuffix(startRepoPath, startRepo.RelativePath)
-	repoPath := filepath.Join(pathToStorage, targetRelativePath)
+	startRepo, _ := gittest.CreateRepository(ctx, t, cfg)
 
 	type step struct {
 		actions         []*gitalypb.UserCommitFilesRequest
@@ -877,17 +867,11 @@ func TestUserCommitFiles(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			defer func() { require.NoError(t, os.RemoveAll(repoPath)) }()
-			gittest.Exec(t, cfg, "init", "--bare", repoPath)
+			const branch = "main"
 
-			const branch = "master"
-
-			repo := &gitalypb.Repository{
-				StorageName:   startRepo.GetStorageName(),
-				RelativePath:  targetRelativePath,
-				GlRepository:  gittest.GlRepository,
-				GlProjectPath: gittest.GlProjectPath,
-			}
+			repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				RelativePath: targetRelativePath,
+			})
 
 			for i, step := range tc.steps {
 				headerRequest := headerRequest(
@@ -943,7 +927,7 @@ func TestUserCommitFilesStableCommitID(t *testing.T) {
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
-	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	for key, values := range testcfg.GitalyServersMetadataFromCfg(t, cfg) {
@@ -1001,7 +985,7 @@ func TestUserCommitFilesQuarantine(t *testing.T) {
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
-	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
@@ -1044,7 +1028,7 @@ func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	newRepo, newRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+	newRepo, newRepoPath := gittest.CreateRepository(ctx, t, cfg)
 
 	filePath := "héllo/wörld"
 	authorName := []byte("Jane Doe")
@@ -1169,7 +1153,9 @@ func TestSuccessfulUserCommitFilesRequestMove(t *testing.T) {
 		{content: "foo", infer: true},
 	} {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+			testRepo, testRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				Seed: gittest.SeedGitLabTest,
+			})
 
 			origFileContent := gittest.Exec(t, cfg, "-C", testRepoPath, "show", branchName+":"+previousFilePath)
 			headerRequest := headerRequest(testRepo, gittest.TestUser, branchName, commitFilesMessage, "")
@@ -1341,7 +1327,7 @@ func TestSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
-	repoProto, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
+	repoProto, _ := gittest.CreateRepository(ctx, t, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	targetBranchName := "master"

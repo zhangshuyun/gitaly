@@ -33,7 +33,9 @@ func TestServer_UserCherryPick_successful(t *testing.T) {
 	cherryPickedCommit, err := repo.ReadCommit(ctx, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
 	require.NoError(t, err)
 
-	testRepoCopy, testRepoCopyPath := gittest.CloneRepo(t, cfg, cfg.Storages[0]) // read-only repo
+	testRepoCopy, testRepoCopyPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	}) // read-only repo
 
 	gittest.Exec(t, cfg, "-C", testRepoCopyPath, "branch", destinationBranch, "master")
 
