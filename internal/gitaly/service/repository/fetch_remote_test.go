@@ -30,26 +30,15 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func copyRepo(t *testing.T, cfg config.Cfg, repo *gitalypb.Repository, repoPath string) *gitalypb.Repository {
-	cloneRepo := &gitalypb.Repository{
-		StorageName:  repo.GetStorageName(),
-		RelativePath: filepath.Join(filepath.Dir(repo.GetRelativePath()), "fetch-remote-clone.git"),
-	}
-
-	clonePath := filepath.Join(filepath.Dir(repoPath), "fetch-remote-clone.git")
-	require.NoError(t, os.RemoveAll(clonePath))
-
-	gittest.Exec(t, cfg, "clone", "--bare", repoPath, clonePath)
-
-	return cloneRepo
-}
-
 func TestFetchRemoteSuccess(t *testing.T) {
 	t.Parallel()
-	cfg, repo, repoPath, client := setupRepositoryService(t)
+
+	cfg, _, repoPath, client := setupRepositoryService(t)
 	ctx := testhelper.Context(t)
 
-	cloneRepo := copyRepo(t, cfg, repo, repoPath)
+	cloneRepo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	// Ensure there's a new tag to fetch
 	gittest.WriteTag(t, cfg, repoPath, "testtag", "master")
@@ -71,6 +60,8 @@ func TestFetchRemoteSuccess(t *testing.T) {
 }
 
 func TestFetchRemote_sshCommand(t *testing.T) {
+	testhelper.SkipWithPraefect(t, "It's not possible to create repositories through the API with the git command overwritten by the script.")
+
 	t.Parallel()
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
@@ -146,9 +137,11 @@ func TestFetchRemote_withDefaultRefmaps(t *testing.T) {
 
 	sourceRepo := localrepo.NewTestRepo(t, cfg, sourceRepoProto)
 
-	targetRepoProto := copyRepo(t, cfg, sourceRepoProto, sourceRepoPath)
-	targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
 	ctx := testhelper.Context(t)
+	targetRepoProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
+	targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
 
 	port, stopGitServer := gittest.HTTPServer(ctx, t, gitCmdFactory, sourceRepoPath, nil)
 	defer func() { require.NoError(t, stopGitServer()) }()
@@ -176,7 +169,7 @@ func TestFetchRemote_withDefaultRefmaps(t *testing.T) {
 
 func TestFetchRemote_transaction(t *testing.T) {
 	t.Parallel()
-	sourceCfg, _, sourceRepoPath := testcfg.BuildWithRepo(t)
+	sourceCfg := testcfg.Build(t)
 
 	txManager := transaction.NewTrackingManager()
 	addr := testserver.RunGitalyServer(t, sourceCfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
@@ -191,12 +184,20 @@ func TestFetchRemote_transaction(t *testing.T) {
 			deps.GetGit2goExecutor(),
 		))
 	}, testserver.WithTransactionManager(txManager))
+	sourceCfg.SocketPath = addr
 
 	client := newRepositoryClient(t, sourceCfg, addr)
 
+	ctx := testhelper.Context(t)
+	_, sourceRepoPath := gittest.CreateRepository(ctx, t, sourceCfg, gittest.CreateRepositoryConfig{
+		RelativePath: t.Name(),
+		Seed:         gittest.SeedGitLabTest,
+	})
+	// Reset the manager as creating the repository casts some votes.
+	txManager.Reset()
+
 	targetCfg, targetRepoProto, targetRepoPath := testcfg.BuildWithRepo(t)
 	targetGitCmdFactory := gittest.NewCommandFactory(t, targetCfg)
-	ctx := testhelper.Context(t)
 
 	port, stopGitServer := gittest.HTTPServer(ctx, t, targetGitCmdFactory, targetRepoPath, nil)
 	defer func() { require.NoError(t, stopGitServer()) }()
@@ -220,7 +221,7 @@ func TestFetchRemote_transaction(t *testing.T) {
 
 func TestFetchRemote_prune(t *testing.T) {
 	t.Parallel()
-	cfg, sourceRepo, sourceRepoPath, client := setupRepositoryService(t)
+	cfg, _, sourceRepoPath, client := setupRepositoryService(t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	ctx := testhelper.Context(t)
 
@@ -273,7 +274,9 @@ func TestFetchRemote_prune(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			targetRepoProto := copyRepo(t, cfg, sourceRepo, sourceRepoPath)
+			targetRepoProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				Seed: gittest.SeedGitLabTest,
+			})
 			targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
 
 			require.NoError(t, targetRepo.UpdateRef(ctx, tc.ref, "refs/heads/master", ""))
@@ -398,7 +401,9 @@ func TestFetchRemote_force(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			targetRepoProto := copyRepo(t, cfg, sourceRepoProto, sourceRepoPath)
+			targetRepoProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				Seed: gittest.SeedGitLabTest,
+			})
 
 			targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
 
@@ -592,7 +597,9 @@ func TestFetchRemoteOverHTTP(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			forkedRepo, forkedRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+			forkedRepo, forkedRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				Seed: gittest.SeedGitLabTest,
+			})
 
 			s, remoteURL := remoteHTTPServer(t, "my-repo", tc.httpToken)
 			defer s.Close()
@@ -629,7 +636,9 @@ func TestFetchRemoteWithPath(t *testing.T) {
 	cfg, _, sourceRepoPath, client := setupRepositoryService(t)
 	ctx := testhelper.Context(t)
 
-	mirrorRepo, mirrorRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+	mirrorRepo, mirrorRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	_, err := client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
 		Repository: mirrorRepo,
