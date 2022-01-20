@@ -72,13 +72,10 @@ func TestSidechannelServer(
 	creds credentials.TransportCredentials,
 	handler func(interface{}, grpc.ServerStream, io.ReadWriteCloser) error,
 ) []grpc.ServerOption {
-	lm := listenmux.New(creds)
-	lm.Register(backchannel.NewServerHandshaker(logger, backchannel.NewRegistry(), nil))
-
 	return []grpc.ServerOption{
-		grpc.Creds(lm),
+		SidechannelServer(logger, creds),
 		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
-			conn, err := sidechannel.OpenSidechannel(stream.Context())
+			conn, err := OpenServerSidechannel(stream.Context())
 			if err != nil {
 				return err
 			}
@@ -87,4 +84,17 @@ func TestSidechannelServer(
 			return handler(srv, stream, conn)
 		}),
 	}
+}
+
+// SidechannelServer adds sidechannel support to a gRPC server
+func SidechannelServer(logger *logrus.Entry, creds credentials.TransportCredentials) grpc.ServerOption {
+	lm := listenmux.New(creds)
+	lm.Register(backchannel.NewServerHandshaker(logger, backchannel.NewRegistry(), nil))
+	return grpc.Creds(lm)
+}
+
+// OpenServerSidechannel opens a sidechannel on the server side. This
+// only works if the server was created using SidechannelServer().
+func OpenServerSidechannel(ctx context.Context) (io.ReadWriteCloser, error) {
+	return sidechannel.OpenSidechannel(ctx)
 }
