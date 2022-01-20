@@ -1,8 +1,10 @@
 package repository
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -13,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestRenameRepository_success(t *testing.T) {
@@ -73,30 +76,45 @@ func TestRenameRepository_invalidRequest(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setupRepositoryService(ctx, t)
+	_, repo, repoPath, client := setupRepositoryService(ctx, t)
+	storagePath := strings.TrimSuffix(repoPath, "/"+repo.RelativePath)
 
 	testCases := []struct {
 		desc string
 		req  *gitalypb.RenameRepositoryRequest
+		exp  error
 	}{
 		{
 			desc: "empty repository",
 			req:  &gitalypb.RenameRepositoryRequest{Repository: nil, RelativePath: "/tmp/abc"},
+			exp:  status.Error(codes.InvalidArgument, gitalyOrPraefect("empty Repository", "repo scoped: empty Repository")),
 		},
 		{
 			desc: "empty destination relative path",
 			req:  &gitalypb.RenameRepositoryRequest{Repository: repo, RelativePath: ""},
+			exp:  status.Error(codes.InvalidArgument, "destination relative path is empty"),
 		},
 		{
 			desc: "destination relative path contains path traversal",
 			req:  &gitalypb.RenameRepositoryRequest{Repository: repo, RelativePath: "../usr/bin"},
+			exp:  status.Error(codes.InvalidArgument, "GetRepoPath: relative path escapes root directory"),
+		},
+		{
+			desc: "repository storage doesn't exist",
+			req:  &gitalypb.RenameRepositoryRequest{Repository: &gitalypb.Repository{StorageName: "stub", RelativePath: repo.RelativePath}, RelativePath: "../usr/bin"},
+			exp:  status.Error(codes.InvalidArgument, gitalyOrPraefect(`GetStorageByName: no such storage: "stub"`, "repo scoped: invalid Repository")),
+		},
+		{
+			desc: "repository relative path doesn't exist",
+			req:  &gitalypb.RenameRepositoryRequest{Repository: &gitalypb.Repository{StorageName: repo.StorageName, RelativePath: "stub"}, RelativePath: "../usr/bin"},
+			exp:  status.Error(codes.NotFound, fmt.Sprintf(`GetRepoPath: not a git repository: "%s/stub"`, storagePath)),
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			_, err := client.RenameRepository(ctx, tc.req)
-			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
+			testhelper.RequireGrpcError(t, err, tc.exp)
 		})
 	}
 }

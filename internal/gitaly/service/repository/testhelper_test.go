@@ -192,3 +192,10 @@ func setupRepositoryServiceWithWorktree(ctx context.Context, t testing.TB, opts 
 
 	return cfg, repo, repoPath, client
 }
+
+func gitalyOrPraefect(gitalyMsg, praefectMsg string) string {
+	if testhelper.IsPraefectEnabled() {
+		return praefectMsg
+	}
+	return gitalyMsg
+}
