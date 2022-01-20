@@ -2,7 +2,6 @@ package repository
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -114,10 +113,8 @@ func TestSuccessfulHasLocalBranches(t *testing.T) {
 	t.Parallel()
 	cfg, repo, _, client := setupRepositoryService(t)
 
-	emptyRepoName := "empty-repo.git"
-	emptyRepoPath := filepath.Join(cfg.Storages[0].Path, emptyRepoName)
-	gittest.Exec(t, cfg, "init", "--bare", emptyRepoPath)
-	defer func() { require.NoError(t, os.RemoveAll(emptyRepoPath)) }()
+	ctx := testhelper.Context(t)
+	emptyRepo, _ := gittest.CreateRepository(ctx, t, cfg)
 
 	testCases := []struct {
 		desc      string
@@ -133,10 +130,7 @@ func TestSuccessfulHasLocalBranches(t *testing.T) {
 		{
 			desc: "repository doesn't have branches",
 			request: &gitalypb.HasLocalBranchesRequest{
-				Repository: &gitalypb.Repository{
-					StorageName:  cfg.Storages[0].Name,
-					RelativePath: emptyRepoName,
-				},
+				Repository: emptyRepo,
 			},
 			value: false,
 		},
@@ -144,8 +138,6 @@ func TestSuccessfulHasLocalBranches(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			response, err := client.HasLocalBranches(ctx, tc.request)
 
 			require.Equal(t, tc.errorCode, helper.GrpcCode(err))

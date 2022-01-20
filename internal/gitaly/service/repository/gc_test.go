@@ -212,7 +212,10 @@ func TestGarbageCollectDeletesPackedRefsLock(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+			ctx := testhelper.Context(t)
+			repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				Seed: gittest.SeedGitLabTest,
+			})
 
 			// Force the packed-refs file to have an old time to test that even
 			// in that case it doesn't get deleted
@@ -225,7 +228,6 @@ func TestGarbageCollectDeletesPackedRefsLock(t *testing.T) {
 			if tc.lockTime != nil {
 				mustCreateFileWithTimes(t, lockPath, *tc.lockTime)
 			}
-			ctx := testhelper.Context(t)
 
 			c, err := client.GarbageCollect(ctx, req)
 
@@ -308,7 +310,8 @@ func TestGarbageCollectDeletesPackedRefsNew(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+			ctx := testhelper.Context(t)
+			repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
 
 			req := &gitalypb.GarbageCollectRequest{Repository: repo}
 			packedRefsNewPath := filepath.Join(repoPath, "packed-refs.new")
@@ -316,7 +319,6 @@ func TestGarbageCollectDeletesPackedRefsNew(t *testing.T) {
 			if tc.lockTime != nil {
 				mustCreateFileWithTimes(t, packedRefsNewPath, *tc.lockTime)
 			}
-			ctx := testhelper.Context(t)
 
 			c, err := client.GarbageCollect(ctx, req)
 

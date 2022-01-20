@@ -113,6 +113,9 @@ func TestMidxRepack_transactional(t *testing.T) {
 
 	cfg, repo, repoPath, client := setupRepositoryService(t, testserver.WithTransactionManager(txManager))
 
+	// Reset the votes after creating the test repository.
+	txManager.Reset()
+
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
 	ctx = peer.NewContext(ctx, &peer.Peer{
@@ -138,8 +141,10 @@ func TestMidxRepackExpire(t *testing.T) {
 	for _, packsAdded := range []int{3, 5, 11, 20} {
 		t.Run(fmt.Sprintf("Test repack expire with %d added packs", packsAdded),
 			func(t *testing.T) {
-				repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 				ctx := testhelper.Context(t)
+				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					Seed: gittest.SeedGitLabTest,
+				})
 
 				// add some pack files with different sizes
 				addPackFiles(t, ctx, cfg, client, repo, repoPath, packsAdded, false)

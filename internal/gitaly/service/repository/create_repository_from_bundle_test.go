@@ -98,6 +98,9 @@ func TestCreateRepositoryFromBundle_transactional(t *testing.T) {
 
 	cfg, repoProto, repoPath, client := setupRepositoryService(t, testserver.WithTransactionManager(txManager))
 
+	// Reset the votes casted while creating the test repository.
+	txManager.Reset()
+
 	masterOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/master"))
 
 	// keep-around refs are not cloned in the initial step, but are added via the second call to

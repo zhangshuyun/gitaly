@@ -32,7 +32,7 @@ func TestSetFullPath(t *testing.T) {
 	})
 
 	t.Run("missing path", func(t *testing.T) {
-		repo, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
+		repo, _ := gittest.CreateRepository(ctx, t, cfg)
 
 		response, err := client.SetFullPath(ctx, &gitalypb.SetFullPathRequest{
 			Repository: repo,
@@ -43,7 +43,7 @@ func TestSetFullPath(t *testing.T) {
 	})
 
 	t.Run("invalid storage", func(t *testing.T) {
-		repo, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
+		repo, _ := gittest.CreateRepository(ctx, t, cfg)
 		repo.StorageName = ""
 
 		response, err := client.SetFullPath(ctx, &gitalypb.SetFullPathRequest{
@@ -77,7 +77,7 @@ func TestSetFullPath(t *testing.T) {
 	})
 
 	t.Run("normal repo", func(t *testing.T) {
-		repo, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+		repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
 
 		response, err := client.SetFullPath(ctx, &gitalypb.SetFullPathRequest{
 			Repository: repo,
@@ -91,7 +91,7 @@ func TestSetFullPath(t *testing.T) {
 	})
 
 	t.Run("missing config", func(t *testing.T) {
-		repo, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+		repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
 
 		configPath := filepath.Join(repoPath, "config")
 		require.NoError(t, os.Remove(configPath))
@@ -108,7 +108,7 @@ func TestSetFullPath(t *testing.T) {
 	})
 
 	t.Run("multiple times", func(t *testing.T) {
-		repo, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+		repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
 
 		for i := 0; i < 5; i++ {
 			response, err := client.SetFullPath(ctx, &gitalypb.SetFullPathRequest{
@@ -124,7 +124,7 @@ func TestSetFullPath(t *testing.T) {
 	})
 
 	t.Run("multiple preexisting paths", func(t *testing.T) {
-		repo, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+		repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
 
 		for i := 0; i < 5; i++ {
 			gittest.Exec(t, cfg, "-C", repoPath, "config", "--add", fullPathKey, fmt.Sprintf("foo/%d", i))

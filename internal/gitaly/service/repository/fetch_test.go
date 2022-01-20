@@ -21,7 +21,9 @@ func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
 	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
-	targetRepoProto, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	targetRepoProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 	targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
 
 	sourceBranch := "fetch-source-branch-test-branch"
@@ -82,7 +84,9 @@ func TestFetchSourceBranchBranchNotFound(t *testing.T) {
 	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
-	sourceRepo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	sourceRepo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	sourceBranch := "does-not-exist"
 	targetRef := "refs/tmp/fetch-source-branch-test"

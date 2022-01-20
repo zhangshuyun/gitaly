@@ -129,14 +129,17 @@ func TestRepackFullSuccess(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
+			ctx := testhelper.Context(t)
+
 			var repoPath string
-			test.req.Repository, repoPath = gittest.CloneRepo(t, cfg, cfg.Storages[0])
+			test.req.Repository, repoPath = gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				Seed: gittest.SeedGitLabTest,
+			})
 			// Reset mtime to a long while ago since some filesystems don't have sub-second
 			// precision on `mtime`.
 			packPath := filepath.Join(repoPath, "objects", "pack")
 			testhelper.MustRunCommand(t, nil, "touch", "-t", testTimeString, packPath)
 			testTime := time.Date(2006, 0o1, 0o2, 15, 0o4, 0o5, 0, time.UTC)
-			ctx := testhelper.Context(t)
 			c, err := client.RepackFull(ctx, test.req)
 			assert.NoError(t, err)
 			assert.NotNil(t, c)

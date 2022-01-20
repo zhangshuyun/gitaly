@@ -190,8 +190,12 @@ func TestGetArchiveWithLfsSuccess(t *testing.T) {
 
 	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil)
 	client := newRepositoryClient(t, cfg, serverSocketPath)
+	cfg.SocketPath = serverSocketPath
 
-	repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	ctx := testhelper.Context(t)
+	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	testcfg.BuildGitalyLFSSmudge(t, cfg)
 
@@ -228,8 +232,6 @@ func TestGetArchiveWithLfsSuccess(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			req := &gitalypb.GetArchiveRequest{
 				Repository:      repo,
 				CommitId:        sha,

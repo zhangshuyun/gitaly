@@ -35,8 +35,8 @@ func TestServer_FetchBundle_success(t *testing.T) {
 	gittest.Exec(t, cfg, "-C", repoPath, "bundle", "create", bundlePath, "--all")
 	expectedRefs := gittest.Exec(t, cfg, "-C", repoPath, "show-ref", "--head")
 
-	targetRepo, targetRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 	ctx := testhelper.Context(t)
+	targetRepo, targetRepoPath := gittest.CreateRepository(ctx, t, cfg)
 
 	stream, err := client.FetchBundle(ctx)
 	require.NoError(t, err)

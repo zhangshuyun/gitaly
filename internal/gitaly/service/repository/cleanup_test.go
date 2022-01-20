@@ -45,7 +45,10 @@ func TestCleanupDeletesStaleWorktrees(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+			ctx := testhelper.Context(t)
+			repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				Seed: gittest.SeedGitLabTest,
+			})
 
 			req := &gitalypb.CleanupRequest{Repository: repo}
 
@@ -55,7 +58,6 @@ func TestCleanupDeletesStaleWorktrees(t *testing.T) {
 			worktreePath := filepath.Join(basePath, "test-worktree")
 
 			require.NoError(t, os.Chtimes(worktreeCheckoutPath, tc.worktreeTime, tc.worktreeTime))
-			ctx := testhelper.Context(t)
 
 			c, err := client.Cleanup(ctx, req)
 

@@ -161,9 +161,7 @@ func TestGetSnapshot_alternateObjectDirectory(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
-
-	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	locator := config.NewLocator(cfg)
 	alternatesFile, err := locator.InfoAlternatesPath(repo)

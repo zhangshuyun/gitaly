@@ -20,13 +20,13 @@ func TestGetConfig(t *testing.T) {
 	t.Parallel()
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
+	ctx := testhelper.Context(t)
+
 	getConfig := func(
 		t *testing.T,
 		client gitalypb.RepositoryServiceClient,
 		repo *gitalypb.Repository,
 	) (string, error) {
-		ctx := testhelper.Context(t)
-
 		stream, err := client.GetConfig(ctx, &gitalypb.GetConfigRequest{
 			Repository: repo,
 		})
@@ -46,7 +46,9 @@ func TestGetConfig(t *testing.T) {
 	}
 
 	t.Run("normal repo", func(t *testing.T) {
-		repo, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
+		repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			Seed: gittest.SeedGitLabTest,
+		})
 
 		config, err := getConfig(t, client, repo)
 		require.NoError(t, err)
@@ -60,7 +62,9 @@ func TestGetConfig(t *testing.T) {
 	})
 
 	t.Run("missing config", func(t *testing.T) {
-		repo, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+		repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			Seed: gittest.SeedGitLabTest,
+		})
 
 		configPath := filepath.Join(repoPath, "config")
 		require.NoError(t, os.Remove(configPath))
