@@ -35,7 +35,7 @@ func TestUserApplyPatch(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	ctx, cfg, _, _, client := setupOperationsService(t, ctx, testserver.WithDisableMetadataForceCreation())
+	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
 	type actionFunc func(testing.TB, *localrepo.Repo) git2go.Action
 
