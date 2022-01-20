@@ -44,8 +44,6 @@ func setupOperationsService(t testing.TB, ctx context.Context, options ...testse
 func setupOperationsServiceWithCfg(
 	t testing.TB, ctx context.Context, cfg config.Cfg, options ...testserver.GitalyServerOpt,
 ) (context.Context, config.Cfg, *gitalypb.Repository, string, gitalypb.OperationServiceClient) {
-	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
-
 	testcfg.BuildGitalySSH(t, cfg)
 	testcfg.BuildGitalyGit2Go(t, cfg)
 	testcfg.BuildGitalyHooks(t, cfg)
@@ -58,6 +56,10 @@ func setupOperationsServiceWithCfg(
 
 	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
+
+	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	return ctx, cfg, repo, repoPath, client
 }

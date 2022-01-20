@@ -612,6 +612,10 @@ func TestUserApplyPatch_transactional(t *testing.T) {
 
 	ctx, _, repoProto, _, client := setupOperationsService(t, ctx, testserver.WithTransactionManager(txManager))
 
+	// Reset the transaction manager as the setup call above creates a repository which
+	// ends up creating some votes with Praefect enabled.
+	txManager.Reset()
+
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
 	ctx = peer.NewContext(ctx, &peer.Peer{
