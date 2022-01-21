@@ -143,7 +143,23 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 				// When an error happens updating the reference, e.g. because of a
 				// race with another update, then we should tell the user that a
 				// precondition failed. A retry may fix this.
-				return helper.ErrFailedPrecondition(err)
+				detailedErr, err := helper.ErrWithDetails(
+					helper.ErrFailedPrecondition(updateRefError),
+					&gitalypb.UserMergeBranchError{
+						Error: &gitalypb.UserMergeBranchError_ReferenceUpdate{
+							ReferenceUpdate: &gitalypb.ReferenceUpdateError{
+								ReferenceName: []byte(updateRefError.Reference.String()),
+								OldOid:        updateRefError.OldOID.String(),
+								NewOid:        updateRefError.NewOID.String(),
+							},
+						},
+					},
+				)
+				if err != nil {
+					return helper.ErrInternalf("error details: %w", err)
+				}
+
+				return detailedErr
 			}
 
 			return helper.ErrInternal(err)

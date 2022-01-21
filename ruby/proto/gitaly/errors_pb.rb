@@ -11,9 +11,15 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :user_id, :string, 3
       optional :changes, :bytes, 4
     end
+    add_message "gitaly.ReferenceUpdateError" do
+      optional :reference_name, :bytes, 1
+      optional :old_oid, :string, 2
+      optional :new_oid, :string, 3
+    end
   end
 end
 
 module Gitaly
   AccessCheckError = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.AccessCheckError").msgclass
+  ReferenceUpdateError = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ReferenceUpdateError").msgclass
 end

@@ -16,3 +16,14 @@ message AccessCheckError {
   // Changes is the set of changes which have failed the access check.
   bytes changes = 4;
 }
+
+// ReferenceUpdateError is an error returned when updating a reference has
+// failed.
+message ReferenceUpdateError {
+  // ReferenceName is the name of the reference that failed to be updated.
+  bytes reference_name = 1;
+  // OldOid is the object ID the reference should have pointed to before the update.
+  string old_oid = 2;
+  // NewOid is the object ID the reference should have pointed to after the update.
+  string new_oid = 3;
+}
