@@ -1,10 +1,5 @@
 # Makefile for Gitaly
 
-# Enabling GNU build ids by default.  This slows local builds by a few seconds,
-# so you may optionally disable it (only for local builds, not in CI) by
-# undefining it in your local config.mak file (WITH_GNU_BUILD_ID:=).
-WITH_GNU_BUILD_ID := YesPlease
-
 # You can override options by creating a "config.mak" file in Gitaly's root
 # directory.
 -include config.mak
@@ -47,6 +42,9 @@ bindir           ?= ${exec_prefix}/bin
 INSTALL_DEST_DIR := ${DESTDIR}${bindir}
 ## The prefix where Git will be installed to.
 GIT_PREFIX       ?= ${GIT_DEFAULT_PREFIX}
+
+## Skip generation of the GNU build ID if set to speed up builds.
+WITHOUT_BUILD_ID ?=
 
 # Tools
 GIT               := $(shell command -v git)
@@ -301,7 +299,7 @@ build: ${SOURCE_DIR}/.ruby-bundle libgit2
 	@ # This safety guard can go away in v14.6.
 	${Q}rm -f $(addprefix ${SOURCE_DIR}/,$(notdir $(call find_commands)) gitaly-git2go-v14)
 
-ifndef WITH_GNU_BUILD_ID
+ifdef WITHOUT_BUILD_ID
 	go install -ldflags '${GO_LDFLAGS}' -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, $(call find_commands))
 endif
 
@@ -310,7 +308,7 @@ endif
 	@ # For more information refer to https://gitlab.com/gitlab-org/gitaly/-/issues/3647#note_599082033
 	${Q}mv ${BUILD_DIR}/bin/gitaly-git2go "${BUILD_DIR}/bin/gitaly-git2go-${MODULE_VERSION}"
 
-ifdef WITH_GNU_BUILD_ID
+ifndef WITHOUT_BUILD_ID
 build: $(call find_commands)
 
 .PHONY: $(call find_commands)
