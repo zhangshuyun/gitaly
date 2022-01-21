@@ -204,7 +204,6 @@ func TestGlobalOption(t *testing.T) {
 
 func TestWithConfig(t *testing.T) {
 	cfg := config.Cfg{BinDir: testhelper.TempDir(t)}
-	require.NoError(t, cfg.SetGitPath())
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -277,7 +276,6 @@ func TestWithConfig(t *testing.T) {
 
 func TestExecCommandFactoryGitalyConfigOverrides(t *testing.T) {
 	cfg := config.Cfg{BinDir: testhelper.TempDir(t)}
-	require.NoError(t, cfg.SetGitPath())
 
 	cfg.Git.Config = []config.GitConfig{
 		{Key: "foo.bar", Value: "from-gitaly-config"},
@@ -305,7 +303,6 @@ func TestExecCommandFactoryGitalyConfigOverrides(t *testing.T) {
 
 func TestWithConfigEnv(t *testing.T) {
 	cfg := config.Cfg{BinDir: testhelper.TempDir(t)}
-	require.NoError(t, cfg.SetGitPath())
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -404,7 +401,6 @@ func TestWithConfigEnv(t *testing.T) {
 
 func TestWithInternalFetch(t *testing.T) {
 	cfg := config.Cfg{BinDir: testhelper.TempDir(t)}
-	require.NoError(t, cfg.SetGitPath())
 
 	gitCmdFactory := newCommandFactory(t, cfg, WithSkipHooks())
 

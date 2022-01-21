@@ -6,7 +6,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -107,8 +106,6 @@ type Git struct {
 	BinPath            string      `toml:"bin_path"`
 	CatfileCacheSize   int         `toml:"catfile_cache_size"`
 	Config             []GitConfig `toml:"config"`
-
-	execEnv []string
 }
 
 // GitConfig contains a key-value pair which is to be passed to git as configuration.
@@ -307,102 +304,6 @@ func (cfg *Cfg) validateStorages() error {
 	return nil
 }
 
-// SetGitPath populates the variable GitPath with the path to the `git`
-// executable. It warns if no path was specified in the configuration.
-func (cfg *Cfg) SetGitPath() error {
-	switch {
-	case cfg.Git.BinPath != "":
-		// Nothing to do.
-	case os.Getenv("GITALY_TESTING_GIT_BINARY") != "":
-		cfg.Git.BinPath = os.Getenv("GITALY_TESTING_GIT_BINARY")
-	case os.Getenv("GITALY_TESTING_BUNDLED_GIT_PATH") != "":
-		if cfg.BinDir == "" {
-			return errors.New("cannot use bundled binaries without bin path being set")
-		}
-
-		// We need to symlink pre-built Git binaries into Gitaly's binary directory.
-		// Normally they would of course already exist there, but in tests we create a new
-		// binary directory for each server and thus need to populate it first.
-		for _, binary := range []string{"gitaly-git", "gitaly-git-remote-http", "gitaly-git-http-backend"} {
-			bundledGitBinary := filepath.Join(os.Getenv("GITALY_TESTING_BUNDLED_GIT_PATH"), binary)
-			if _, err := os.Stat(bundledGitBinary); err != nil {
-				return fmt.Errorf("statting %q: %w", binary, err)
-			}
-
-			if err := os.Symlink(bundledGitBinary, filepath.Join(cfg.BinDir, binary)); err != nil {
-				// While Gitaly's Go tests use a temporary binary directory, Ruby
-				// rspecs set up the binary directory to point to our build
-				// directory. They thus already contain the Git binaries and don't
-				// need symlinking.
-				if errors.Is(err, os.ErrExist) {
-					continue
-				}
-				return fmt.Errorf("symlinking bundled %q: %w", binary, err)
-			}
-		}
-
-		cfg.Git.UseBundledBinaries = true
-
-		fallthrough
-	case cfg.Git.UseBundledBinaries:
-		if cfg.Git.BinPath != "" {
-			return errors.New("cannot set Git path and use bundled binaries")
-		}
-
-		// In order to support having a single Git binary only as compared to a complete Git
-		// installation, we create our own GIT_EXEC_PATH which contains symlinks to the Git
-		// binary for executables which Git expects to be present.
-		gitExecPath, err := os.MkdirTemp("", "gitaly-git-exec-path-*")
-		if err != nil {
-			return fmt.Errorf("creating Git exec path: %w", err)
-		}
-
-		for executable, target := range map[string]string{
-			"git":                "gitaly-git",
-			"git-receive-pack":   "gitaly-git",
-			"git-upload-pack":    "gitaly-git",
-			"git-upload-archive": "gitaly-git",
-			"git-http-backend":   "gitaly-git-http-backend",
-			"git-remote-http":    "gitaly-git-remote-http",
-			"git-remote-https":   "gitaly-git-remote-http",
-			"git-remote-ftp":     "gitaly-git-remote-http",
-			"git-remote-ftps":    "gitaly-git-remote-http",
-		} {
-			if err := os.Symlink(
-				filepath.Join(cfg.BinDir, target),
-				filepath.Join(gitExecPath, executable),
-			); err != nil {
-				return fmt.Errorf("linking Git executable %q: %w", executable, err)
-			}
-		}
-
-		cfg.Git.BinPath = filepath.Join(gitExecPath, "git")
-		cfg.Git.execEnv = []string{
-			"GIT_EXEC_PATH=" + gitExecPath,
-		}
-	default:
-		resolvedPath, err := exec.LookPath("git")
-		if err != nil {
-			if errors.Is(err, exec.ErrNotFound) {
-				return fmt.Errorf(`"git" executable not found, set path to it in the configuration file or add it to the PATH`)
-			}
-		}
-
-		log.WithFields(log.Fields{
-			"resolvedPath": resolvedPath,
-		}).Warn("git path not configured. Using default path resolution")
-
-		cfg.Git.BinPath = resolvedPath
-	}
-
-	return nil
-}
-
-// GitExecEnv returns environment variables required to be set in the environment when Git executes.
-func (cfg *Cfg) GitExecEnv() []string {
-	return cfg.Git.execEnv
-}
-
 // StoragePath looks up the base path for storageName. The second boolean
 // return value indicates if anything was found.
 func (cfg *Cfg) StoragePath(storageName string) (string, bool) {
@@ -460,10 +361,6 @@ func validateGitConfigKey(key string) error {
 }
 
 func (cfg *Cfg) validateGit() error {
-	if err := cfg.SetGitPath(); err != nil {
-		return err
-	}
-
 	for _, configPair := range cfg.Git.Config {
 		if err := validateGitConfigKey(configPair.Key); err != nil {
 			return fmt.Errorf("invalid configuration key %q: %w", configPair.Key, err)

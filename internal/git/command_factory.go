@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/alternates"
@@ -104,6 +105,7 @@ type cachedGitVersion struct {
 type ExecCommandFactory struct {
 	locator               storage.Locator
 	cfg                   config.Cfg
+	execEnv               ExecutionEnvironment
 	cgroupsManager        cgroups.Manager
 	invalidCommandsMetric *prometheus.CounterVec
 	hookDirs              hookDirectories
@@ -130,8 +132,14 @@ func NewExecCommandFactory(cfg config.Cfg, opts ...ExecCommandFactoryOption) (_ 
 		}
 	}()
 
+	execEnv, err := setupGitExecutionEnvironment(cfg)
+	if err != nil {
+		return nil, nil, fmt.Errorf("setting up Git execution environment: %w", err)
+	}
+
 	gitCmdFactory := &ExecCommandFactory{
 		cfg:            cfg,
+		execEnv:        execEnv,
 		locator:        config.NewLocator(cfg),
 		cgroupsManager: cgroups.NewManager(cfg.Cgroups),
 		invalidCommandsMetric: prometheus.NewCounterVec(
@@ -146,6 +154,101 @@ func NewExecCommandFactory(cfg config.Cfg, opts ...ExecCommandFactoryOption) (_ 
 	}
 
 	return gitCmdFactory, cleanup, nil
+}
+
+// setupGitExecutionEnvironment assembles a Git execution environment that can be used to run Git
+// commands. It warns if no path was specified in the configuration.
+func setupGitExecutionEnvironment(cfg config.Cfg) (ExecutionEnvironment, error) {
+	switch {
+	case cfg.Git.BinPath != "":
+		return ExecutionEnvironment{
+			BinaryPath: cfg.Git.BinPath,
+		}, nil
+	case os.Getenv("GITALY_TESTING_GIT_BINARY") != "":
+		return ExecutionEnvironment{
+			BinaryPath: os.Getenv("GITALY_TESTING_GIT_BINARY"),
+		}, nil
+	case os.Getenv("GITALY_TESTING_BUNDLED_GIT_PATH") != "":
+		if cfg.BinDir == "" {
+			return ExecutionEnvironment{}, errors.New("cannot use bundled binaries without bin path being set")
+		}
+
+		// We need to symlink pre-built Git binaries into Gitaly's binary directory.
+		// Normally they would of course already exist there, but in tests we create a new
+		// binary directory for each server and thus need to populate it first.
+		for _, binary := range []string{"gitaly-git", "gitaly-git-remote-http", "gitaly-git-http-backend"} {
+			bundledGitBinary := filepath.Join(os.Getenv("GITALY_TESTING_BUNDLED_GIT_PATH"), binary)
+			if _, err := os.Stat(bundledGitBinary); err != nil {
+				return ExecutionEnvironment{}, fmt.Errorf("statting %q: %w", binary, err)
+			}
+
+			if err := os.Symlink(bundledGitBinary, filepath.Join(cfg.BinDir, binary)); err != nil {
+				// While Gitaly's Go tests use a temporary binary directory, Ruby
+				// rspecs set up the binary directory to point to our build
+				// directory. They thus already contain the Git binaries and don't
+				// need symlinking.
+				if errors.Is(err, os.ErrExist) {
+					continue
+				}
+				return ExecutionEnvironment{}, fmt.Errorf("symlinking bundled %q: %w", binary, err)
+			}
+		}
+
+		fallthrough
+	case cfg.Git.UseBundledBinaries:
+		if cfg.Git.BinPath != "" {
+			return ExecutionEnvironment{}, errors.New("cannot set Git path and use bundled binaries")
+		}
+
+		// In order to support having a single Git binary only as compared to a complete Git
+		// installation, we create our own GIT_EXEC_PATH which contains symlinks to the Git
+		// binary for executables which Git expects to be present.
+		gitExecPath, err := os.MkdirTemp("", "gitaly-git-exec-path-*")
+		if err != nil {
+			return ExecutionEnvironment{}, fmt.Errorf("creating Git exec path: %w", err)
+		}
+
+		for executable, target := range map[string]string{
+			"git":                "gitaly-git",
+			"git-receive-pack":   "gitaly-git",
+			"git-upload-pack":    "gitaly-git",
+			"git-upload-archive": "gitaly-git",
+			"git-http-backend":   "gitaly-git-http-backend",
+			"git-remote-http":    "gitaly-git-remote-http",
+			"git-remote-https":   "gitaly-git-remote-http",
+			"git-remote-ftp":     "gitaly-git-remote-http",
+			"git-remote-ftps":    "gitaly-git-remote-http",
+		} {
+			if err := os.Symlink(
+				filepath.Join(cfg.BinDir, target),
+				filepath.Join(gitExecPath, executable),
+			); err != nil {
+				return ExecutionEnvironment{}, fmt.Errorf("linking Git executable %q: %w", executable, err)
+			}
+		}
+
+		return ExecutionEnvironment{
+			BinaryPath: filepath.Join(gitExecPath, "git"),
+			EnvironmentVariables: []string{
+				"GIT_EXEC_PATH=" + gitExecPath,
+			},
+		}, nil
+	default:
+		resolvedPath, err := exec.LookPath("git")
+		if err != nil {
+			if errors.Is(err, exec.ErrNotFound) {
+				return ExecutionEnvironment{}, fmt.Errorf(`"git" executable not found, set path to it in the configuration file or add it to the PATH`)
+			}
+		}
+
+		logrus.WithFields(logrus.Fields{
+			"resolvedPath": resolvedPath,
+		}).Warn("git path not configured. Using default path resolution")
+
+		return ExecutionEnvironment{
+			BinaryPath: resolvedPath,
+		}, nil
+	}
 }
 
 // Describe is used to describe Prometheus metrics.
@@ -182,10 +285,7 @@ func (cf *ExecCommandFactory) NewWithDir(ctx context.Context, dir string, sc Cmd
 
 // GetExecutionEnvironment returns parameters required to execute Git commands.
 func (cf *ExecCommandFactory) GetExecutionEnvironment(context.Context) ExecutionEnvironment {
-	return ExecutionEnvironment{
-		BinaryPath:           cf.cfg.Git.BinPath,
-		EnvironmentVariables: cf.cfg.GitExecEnv(),
-	}
+	return cf.execEnv
 }
 
 // HooksPath returns the path where Gitaly's Git hooks reside.
