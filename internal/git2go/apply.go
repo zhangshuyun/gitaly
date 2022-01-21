@@ -114,6 +114,10 @@ func (b Executor) Apply(ctx context.Context, repo repository.GitRepo, params App
 		return "", fmt.Errorf("decode: %w", err)
 	}
 
+	if result.Err != nil {
+		return "", result.Err
+	}
+
 	if result.Error != nil {
 		return "", result.Error
 	}

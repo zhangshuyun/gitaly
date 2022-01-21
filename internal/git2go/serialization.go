@@ -28,6 +28,7 @@ var registeredTypes = map[reflect.Type]struct{}{
 	reflect.TypeOf(ConflictingFilesError{}):  {},
 	reflect.TypeOf(EmptyError{}):             {},
 	reflect.TypeOf(IndexError("")):           {},
+	reflect.TypeOf(ConflictError{}):          {},
 }
 
 // Result is the serialized result.
@@ -35,7 +36,13 @@ type Result struct {
 	// CommitID is the result of the call.
 	CommitID string
 	// Error is set if the call errord.
+	//
+	// Deprecated: Use Err instead. Error clashes with other serialized types
+	// where Error is not of type error
 	Error error
+	// Err is set if an error occurred. Err must exist on all gob serialized
+	// results so that all errors can be returned.
+	Err error
 }
 
 // wrapError is used to serialize wrapped errors as fmt.wrapError type only has

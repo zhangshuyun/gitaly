@@ -76,6 +76,10 @@ func (b Executor) Commit(ctx context.Context, repo repository.GitRepo, params Co
 		return "", err
 	}
 
+	if result.Err != nil {
+		return "", result.Err
+	}
+
 	if result.Error != nil {
 		return "", result.Error
 	}

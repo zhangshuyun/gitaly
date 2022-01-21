@@ -57,17 +57,26 @@ func (b Executor) Submodule(ctx context.Context, repo repository.GitRepo, s Subm
 		return SubmoduleResult{}, fmt.Errorf("%s: %w", cmd, err)
 	}
 
+	// Ideally we would use `b.runWithGob` here to avoid the gob encoding
+	// boilerplate but it is not possible here because `runWithGob` adds error
+	// prefixes and the `LegacyErrPrefix*` errors must match exactly.
 	stdout, err := b.run(ctx, repo, input, cmd)
 	if err != nil {
 		return SubmoduleResult{}, err
 	}
 
-	var response SubmoduleResult
-	if err := gob.NewDecoder(stdout).Decode(&response); err != nil {
+	var result Result
+	if err := gob.NewDecoder(stdout).Decode(&result); err != nil {
 		return SubmoduleResult{}, fmt.Errorf("%s: %w", cmd, err)
 	}
 
-	return response, nil
+	if result.Err != nil {
+		return SubmoduleResult{}, result.Err
+	}
+
+	return SubmoduleResult{
+		CommitID: result.CommitID,
+	}, nil
 }
 
 func (s SubmoduleCommand) verify() (err error) {
