@@ -43,6 +43,9 @@ INSTALL_DEST_DIR := ${DESTDIR}${bindir}
 ## The prefix where Git will be installed to.
 GIT_PREFIX       ?= ${GIT_DEFAULT_PREFIX}
 
+## Skip generation of the GNU build ID if set to speed up builds.
+WITHOUT_BUILD_ID ?=
+
 # Tools
 GIT               := $(shell command -v git)
 GOIMPORTS         := ${TOOLS_DIR}/goimports
@@ -64,7 +67,7 @@ GOLANGCI_LINT_CONFIG  ?= ${SOURCE_DIR}/.golangci.yml
 GITALY_PACKAGE    := gitlab.com/gitlab-org/gitaly/v14
 BUILD_TIME        := $(shell date +"%Y%m%d.%H%M%S")
 GITALY_VERSION    := $(shell ${GIT} describe --match v* 2>/dev/null | sed 's/^v//' || cat ${SOURCE_DIR}/VERSION 2>/dev/null || echo unknown)
-GO_LDFLAGS        := -ldflags '-X ${GITALY_PACKAGE}/internal/version.version=${GITALY_VERSION} -X ${GITALY_PACKAGE}/internal/version.buildtime=${BUILD_TIME} -X ${GITALY_PACKAGE}/internal/version.moduleVersion=${MODULE_VERSION}'
+GO_LDFLAGS        := -X ${GITALY_PACKAGE}/internal/version.version=${GITALY_VERSION} -X ${GITALY_PACKAGE}/internal/version.buildtime=${BUILD_TIME} -X ${GITALY_PACKAGE}/internal/version.moduleVersion=${MODULE_VERSION}
 GO_BUILD_TAGS     := tracer_static,tracer_static_jaeger,tracer_static_stackdriver,continuous_profiler_stackdriver,static,system_libgit2
 
 # Dependency versions
@@ -251,7 +254,7 @@ find_go_sources       = $(shell find ${SOURCE_DIR} -type d \( -name ruby -o -nam
 # TEST_PACKAGES: packages which shall be tested
 run_go_tests = PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}' \
     TEST_TMP_DIR='${TEST_TMP_DIR}' \
-    ${GOTESTSUM} --format ${TEST_FORMAT} --junitfile ${TEST_REPORT} -- ${GO_LDFLAGS} -tags '${GO_BUILD_TAGS}' ${TEST_OPTIONS} ${TEST_PACKAGES}
+    ${GOTESTSUM} --format ${TEST_FORMAT} --junitfile ${TEST_REPORT} -- -ldflags '${GO_LDFLAGS}' -tags '${GO_BUILD_TAGS}' ${TEST_OPTIONS} ${TEST_PACKAGES}
 
 unexport GOROOT
 export GOBIN                      = ${BUILD_DIR}/bin
@@ -261,8 +264,6 @@ export PATH                      := ${BUILD_DIR}/bin:${PATH}
 export PKG_CONFIG_PATH           := ${LIBGIT2_INSTALL_DIR}/lib/pkgconfig
 # Allow the linker flag -D_THREAD_SAFE as libgit2 is compiled with it on FreeBSD
 export CGO_LDFLAGS_ALLOW          = -D_THREAD_SAFE
-
-.NOTPARALLEL:
 
 # By default, intermediate targets get deleted automatically after a successful
 # build. We do not want that though: there's some precious intermediate targets
@@ -307,11 +308,31 @@ build: ${SOURCE_DIR}/.ruby-bundle libgit2
 	@ # This safety guard can go away in v14.6.
 	${Q}rm -f $(addprefix ${SOURCE_DIR}/,$(notdir $(call find_commands)) gitaly-git2go-v14)
 
-	go install ${GO_LDFLAGS} -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, $(call find_commands))
+ifdef WITHOUT_BUILD_ID
+	go install -ldflags '${GO_LDFLAGS}' -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, $(call find_commands))
+endif
+
 	@ # We use version suffix for the gitaly-git2go binary to support compatibility contract between
 	@ # gitaly and gitaly-git2go during upgrade deployment.
 	@ # For more information refer to https://gitlab.com/gitlab-org/gitaly/-/issues/3647#note_599082033
 	${Q}mv ${BUILD_DIR}/bin/gitaly-git2go "${BUILD_DIR}/bin/gitaly-git2go-${MODULE_VERSION}"
+
+ifndef WITHOUT_BUILD_ID
+build: $(call find_commands)
+
+.PHONY: $(call find_commands)
+$(call find_commands):
+	${Q}go install -ldflags '${GO_LDFLAGS}' -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, $@)
+	@ # To compute a unique and deterministic value for GNU build-id, we build the Go binary a second time.
+	@ # From the first build, we extract its unique and deterministic Go build-id, and use that to derive
+	@ # comparably unique and deterministic GNU build-id to inject into the final binary.
+	@ # If we cannot extract a Go build-id, we punt and fallback to using a random 32-byte hex string.
+	@ # This fallback is unique but non-deterministic, making it sufficient to avoid generating the
+	@ # GNU build-id from the empty string and causing guaranteed collisions.
+	GO_BUILD_ID=$$( go tool buildid $(addprefix ${BUILD_DIR}/bin/, $@) || openssl rand -hex 32 ) && \
+	GNU_BUILD_ID=$$( echo $$GO_BUILD_ID | sha1sum | cut -d' ' -f1 ) && \
+	go install -ldflags '${GO_LDFLAGS}'" -B 0x$$GNU_BUILD_ID" -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, $@)
+endif
 
 .PHONY: install
 ## Install Gitaly binaries. The target directory can be modified by setting PREFIX and DESTDIR.
