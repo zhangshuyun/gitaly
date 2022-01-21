@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 
 	"github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
@@ -81,39 +82,62 @@ func main() {
 }
 
 func run(args []string) error {
-	if len(args) < 2 {
-		return fmt.Errorf("requires hook name. args: %v", args)
-	}
-
-	subCmd := args[1]
-
-	if subCmd == "check" {
-		logrus.SetLevel(logrus.ErrorLevel)
-		if len(args) != 3 {
-			fmt.Fprint(os.Stderr, "no configuration file path provided invoke with: gitaly-hooks check <config_path>")
-			os.Exit(1)
+	switch filepath.Base(args[0]) {
+	case "gitaly-hooks":
+		if len(args) < 2 {
+			return fmt.Errorf("requires hook name. args: %v", args)
 		}
 
-		configPath := args[2]
-		fmt.Print("Checking GitLab API access: ")
+		subCmd := args[1]
 
-		info, err := check(configPath)
-		if err != nil {
-			fmt.Print("FAIL\n")
-			fmt.Fprint(os.Stderr, err)
-			os.Exit(1)
+		if subCmd == "check" {
+			logrus.SetLevel(logrus.ErrorLevel)
+			if len(args) != 3 {
+				fmt.Fprint(os.Stderr, "no configuration file path provided invoke with: gitaly-hooks check <config_path>")
+				os.Exit(1)
+			}
+
+			configPath := args[2]
+			fmt.Print("Checking GitLab API access: ")
+
+			info, err := check(configPath)
+			if err != nil {
+				fmt.Print("FAIL\n")
+				fmt.Fprint(os.Stderr, err)
+				os.Exit(1)
+			}
+
+			fmt.Print("OK\n")
+			fmt.Printf("GitLab version: %s\n", info.Version)
+			fmt.Printf("GitLab revision: %s\n", info.Revision)
+			fmt.Printf("GitLab Api version: %s\n", info.APIVersion)
+			fmt.Printf("Redis reachable for GitLab: %t\n", info.RedisReachable)
+			fmt.Println("OK")
+
+			return nil
 		}
 
-		fmt.Print("OK\n")
-		fmt.Printf("GitLab version: %s\n", info.Version)
-		fmt.Printf("GitLab revision: %s\n", info.Revision)
-		fmt.Printf("GitLab Api version: %s\n", info.APIVersion)
-		fmt.Printf("Redis reachable for GitLab: %t\n", info.RedisReachable)
-		fmt.Println("OK")
+		// This exists for backwards-compatibility reasons only and should be removed in
+		// v14.9 such that we always use the zeroth argument to derive the hook that we
+		// shall execute.
+		hookCommand, ok := hooksBySubcommand[subCmd]
+		if !ok {
+			return fmt.Errorf("subcommand name invalid: %q", subCmd)
+		}
 
-		return nil
+		return executeHook(hookCommand, args[2:])
+	default:
+		hookName := filepath.Base(args[0])
+		hookCommand, ok := hooksBySubcommand[hookName]
+		if !ok {
+			return fmt.Errorf("subcommand name invalid: %q", hookName)
+		}
+
+		return executeHook(hookCommand, args[1:])
 	}
+}
 
+func executeHook(cmd hookCommand, args []string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -128,14 +152,9 @@ func run(args []string) error {
 		return fmt.Errorf("error when getting hooks payload: %v", err)
 	}
 
-	hookCommand, ok := hooksBySubcommand[subCmd]
-	if !ok {
-		return fmt.Errorf("subcommand name invalid: %q", subCmd)
-	}
-
 	// If the hook wasn't requested, then we simply skip executing any
 	// logic.
-	if !payload.IsHookRequested(hookCommand.hookType) {
+	if !payload.IsHookRequested(cmd.hookType) {
 		return nil
 	}
 
@@ -148,7 +167,7 @@ func run(args []string) error {
 	hookClient := gitalypb.NewHookServiceClient(conn)
 
 	ctx = featureflag.OutgoingWithRaw(ctx, payload.FeatureFlags)
-	if err := hookCommand.exec(ctx, payload, hookClient, args); err != nil {
+	if err := cmd.exec(ctx, payload, hookClient, args); err != nil {
 		return err
 	}
 
@@ -225,7 +244,6 @@ func check(configPath string) (*gitlab.CheckInfo, error) {
 }
 
 func updateHook(ctx context.Context, payload git.HooksPayload, hookClient gitalypb.HookServiceClient, args []string) error {
-	args = args[2:]
 	if len(args) != 3 {
 		return fmt.Errorf("update hook expects exactly three arguments, got %q", args)
 	}
@@ -314,12 +332,12 @@ func postReceiveHook(ctx context.Context, payload git.HooksPayload, hookClient g
 }
 
 func referenceTransactionHook(ctx context.Context, payload git.HooksPayload, hookClient gitalypb.HookServiceClient, args []string) error {
-	if len(args) != 3 {
+	if len(args) != 1 {
 		return fmt.Errorf("reference-transaction hook is missing required arguments, got %q", args)
 	}
 
 	var state gitalypb.ReferenceTransactionHookRequest_State
-	switch args[2] {
+	switch args[0] {
 	case "prepared":
 		state = gitalypb.ReferenceTransactionHookRequest_PREPARED
 	case "committed":
@@ -327,7 +345,7 @@ func referenceTransactionHook(ctx context.Context, payload git.HooksPayload, hoo
 	case "aborted":
 		state = gitalypb.ReferenceTransactionHookRequest_ABORTED
 	default:
-		return fmt.Errorf("reference-transaction hook has invalid state: %q", args[2])
+		return fmt.Errorf("reference-transaction hook has invalid state: %q", args[0])
 	}
 
 	referenceTransactionHookStream, err := hookClient.ReferenceTransactionHook(ctx)
@@ -359,7 +377,7 @@ func referenceTransactionHook(ctx context.Context, payload git.HooksPayload, hoo
 }
 
 func packObjectsHook(ctx context.Context, payload git.HooksPayload, hookClient gitalypb.HookServiceClient, args []string) error {
-	if err := handlePackObjectsWithSidechannel(ctx, hookClient, payload.Repo, args[2:]); err != nil {
+	if err := handlePackObjectsWithSidechannel(ctx, hookClient, payload.Repo, args); err != nil {
 		return hookError{returnCode: 1, err: fmt.Errorf("RPC failed: %w", err)}
 	}
 

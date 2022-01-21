@@ -222,49 +222,18 @@ func setupHookDirectories(cfg config.Cfg, factoryCfg execCommandFactoryConfig) (
 		return hookDirectories{}, nil, errors.New("binary directory required to set up hooks")
 	}
 
-	// This sets up the new hook location. Hooks now live in a temporary directory,
-	// where we write the previous equivalent of the `gitlab-shell-hook` script which
-	// knows to locate and execute the `gitaly-hooks` binary.
-	//
-	// Ideally, we'd be able to skip this intermediate step altogteher by just
-	// symlinking the hooks to the binary directly. But currently, the first argument of
-	// must be set to the hook name. We don't really need this given that the zero'th
-	// argument would be set to the symlink's path anyway. But `gitaly-hooks` doesn't
-	// yet know to handle that correctly. Instead, the hook script we write here starts
-	// to set both the zero'th argument and the first argument to the hook name such
-	// that we can eventually switch and get rid of the intermediate script.
+	// This sets up the new hook location. Hooks now live in a temporary directory, where all
+	// hooks are symlinks to the `gitaly-hooks` binary.
 	tempHooksPath, err := os.MkdirTemp("", "gitaly-hooks-")
 	if err != nil {
 		return hookDirectories{}, nil, fmt.Errorf("creating temporary hooks directory: %w", err)
 	}
 
 	gitalyHooksPath := filepath.Join(cfg.BinDir, "gitaly-hooks")
-	wrapperScriptPath := filepath.Join(tempHooksPath, "gitlab-shell-hook")
-
-	// We first write the wrapper script which executes the `gitaly-hooks` binary.
-	wrapperScriptFile, err := os.OpenFile(wrapperScriptPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o755)
-	if err != nil {
-		return hookDirectories{}, nil, fmt.Errorf("creating wrapper script: %w", err)
-	}
-	defer wrapperScriptFile.Close()
-
-	// The script will set both the zeroth and first arguments to its own name. This will allow
-	// us to eventually remove the need for this script altogether when `gitaly-hooks` learns to
-	// deduce the hook name from its zeroth argument.
-	if _, err := wrapperScriptFile.WriteString(fmt.Sprintf(
-		`#!/bin/bash
-exec -a "$0" %q "$(basename "$0")" "$@"
-`, gitalyHooksPath)); err != nil {
-		return hookDirectories{}, nil, fmt.Errorf("writing wrapper script: %w", err)
-	}
-
-	if err := wrapperScriptFile.Close(); err != nil {
-		return hookDirectories{}, nil, fmt.Errorf("closing wrapper script: %w", err)
-	}
 
 	// And now we symlink all required hooks to the wrapper script.
 	for _, hook := range []string{"pre-receive", "post-receive", "update", "reference-transaction"} {
-		if err := os.Symlink(wrapperScriptPath, filepath.Join(tempHooksPath, hook)); err != nil {
+		if err := os.Symlink(gitalyHooksPath, filepath.Join(tempHooksPath, hook)); err != nil {
 			return hookDirectories{}, nil, fmt.Errorf("creating symlink for %s hook: %w", hook, err)
 		}
 	}
