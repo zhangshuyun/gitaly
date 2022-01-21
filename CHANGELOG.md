@@ -1,5 +1,60 @@
 # Gitaly changelog
 
+## 14.7.0 (2022-01-21)
+
+### Added (3 changes)
+
+- [datastore: Add metric to keep track of replication queue depth](gitlab-org/gitaly@7ab02310f4617d1cf5d0007b5fcbbe91530c76df) ([merge request](gitlab-org/gitaly!4233))
+- [cgroups: Add metric for number of processes in cgroup](gitlab-org/gitaly@f5d05e209c1bb950363890f48d8709b021c8deab) ([merge request](gitlab-org/gitaly!4196))
+- [cmd/praefect: Add missing primaries check](gitlab-org/gitaly@0aa1e36fcf2e4c6f2ece514b523b86cd3177b249) ([merge request](gitlab-org/gitaly!4176))
+
+### Fixed (8 changes)
+
+- [sidechannel: proxy: allow early upstream return](gitlab-org/gitaly@11fa95f708b9cb9775e934fb48db267505728a96) ([merge request](gitlab-org/gitaly!4251))
+- [streamio.Reader: remember errors](gitlab-org/gitaly@4b4a2e960636d518c5c223f241d5780624740e2c) ([merge request](gitlab-org/gitaly!4251))
+- [Optimize link repository ID migration](gitlab-org/gitaly@98f5c087c3e3acbd3a77911228ecd06be3865e5c) ([merge request](gitlab-org/gitaly!4234))
+- [hook: Set up Git execution environment for custom hooks](gitlab-org/gitaly@b39563ad585a0b85cc8f90f42aa7b53872d3f0d5) ([merge request](gitlab-org/gitaly!4205))
+- [hook: Fix potential use of wrong Git in custom hooks](gitlab-org/gitaly@3d64f6198499ff02cd420dd70c2cb904430b5357) ([merge request](gitlab-org/gitaly!4205))
+- [Prevent multiple failovers by concurrent election queries](gitlab-org/gitaly@33750df2a8c491c0dea526b6544a4e28972ecf84) ([merge request](gitlab-org/gitaly!4081))
+- [maintenance: Override deadline for RPC call](gitlab-org/gitaly@7412a98422c47269e18c937672a25e6047577bb1) ([merge request](gitlab-org/gitaly!4206))
+- [praefect: Fix output of remove-repository](gitlab-org/gitaly@bbb50dfb1493226b44981006b6c8f50d416d917e) ([merge request](gitlab-org/gitaly!4199))
+
+### Changed (14 changes)
+
+- [gitaly-git2go: Enable git2go fsync for git objects](gitlab-org/gitaly@ee6f7f1ed92525b5386d0d8d0ccbe31c89dacfd4) ([merge request](gitlab-org/gitaly!4261))
+- [git: Support setup of the hooks directory at runtime](gitlab-org/gitaly@dfeeebe1011e7977033117b9444ead2ed5bb34b5) ([merge request](gitlab-org/gitaly!4259))
+- [Update Nokogiri to v1.12.5](gitlab-org/gitaly@67353ebf22a180de636ee8f2dcf694b40344f0fe) ([merge request](gitlab-org/gitaly!4228))
+- [operations: Don't set core.splitIndex in UserApplyPatch](gitlab-org/gitaly@3f06e93ba60309d5c8443b53fb67d11104cc3fb4) ([merge request](gitlab-org/gitaly!4231))
+- [housekeeping: Remove unnecessary config entries](gitlab-org/gitaly@2cb339acafa818ead3222cb37644244339260236) ([merge request](gitlab-org/gitaly!4231))
+- [praefect: Replace lib/pq with jackc/pgx](gitlab-org/gitaly@2722c5b80fb2cbfec0b0b92dc2f8e046ff4f9e46) ([merge request](gitlab-org/gitaly!4155))
+- [Recompile protoc from git](gitlab-org/gitaly@8e648e96d5fc93821e6371ed4c7e23454bf6e341) ([merge request](gitlab-org/gitaly!4219))
+- [Update activesupport and related gems](gitlab-org/gitaly@651b061887912fc154761a01d1ff7b40ac94261b) ([merge request](gitlab-org/gitaly!4227))
+- [Update rexml to v3.2.5](gitlab-org/gitaly@65f04018529c27aa7d15d7bc11ef321c38822db3) ([merge request](gitlab-org/gitaly!4226))
+- [repository: Unconditionall enable atomic repo creation semantics](gitlab-org/gitaly@84c11c4dde287d5925ace57b38d0dc6fec0b0cfd) ([merge request](gitlab-org/gitaly!4213))
+- [repository: Unconditionall enable atomic RemoveRepository semantics](gitlab-org/gitaly@b297b913c7501918fbf4086f4eed0d4a57f39efc) ([merge request](gitlab-org/gitaly!4213))
+- [repository: Always use two-phase voting when deleting gitattributes](gitlab-org/gitaly@37aad5cf0fe2e3dbf07b7da4916f26b5c89c3e26) ([merge request](gitlab-org/gitaly!4215))
+- [ref: Always use two-phase voting to delete refs](gitlab-org/gitaly@1ab2a491cd729c904cc0366644d1f9da9d5a1b19) ([merge request](gitlab-org/gitaly!4214))
+- [Don't demote primaries](gitlab-org/gitaly@d35a33356524ec94b113a03b011314d0914938e1) ([merge request](gitlab-org/gitaly!4098))
+
+### Deprecated (2 changes)
+
+- [ref: Removal of unused all_refs parameter](gitlab-org/gitaly@ca28fc195cc746ae45f79e4c455052f0ed5053d4) ([merge request](gitlab-org/gitaly!4258))
+- [proto: Remove deprecated fields from GetRawChangesResponse](gitlab-org/gitaly@bf993148289c6940c9af7e8776d4914740aba4ef) ([merge request](gitlab-org/gitaly!4216))
+
+### Removed (1 change)
+
+- [commit: Remove deprecated and unused CommitsBetween RPC](gitlab-org/gitaly@30af1719236739cc5e813273672a4725bd4224d4) ([merge request](gitlab-org/gitaly!4217))
+
+### Security (1 change)
+
+- [git: Disallow use of replace refs](gitlab-org/gitaly@57d4c3dd7573d4286e8ed0538cd0710a2bd61561)
+
+### Performance (3 changes)
+
+- [git: Cache Git version](gitlab-org/gitaly@211cd4adf277d61a46a0d6f1a20ae510c9913864) ([merge request](gitlab-org/gitaly!4236))
+- [UploadPack: use 64KB copy buffer](gitlab-org/gitaly@a03ee7a6c4dedd3269b17623fa4aa5cd8c1584a6) ([merge request](gitlab-org/gitaly!4224))
+- [git: add upload-pack buffer size patch](gitlab-org/gitaly@39b72f695b8752cefe0a48218244951a287c3162) ([merge request](gitlab-org/gitaly!4224))
+
 ## 14.6.3 (2022-01-18)
 
 No changes.
