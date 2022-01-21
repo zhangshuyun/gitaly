@@ -26,7 +26,7 @@ require (
 	github.com/jackc/pgtype v1.9.1
 	github.com/jackc/pgx/v4 v4.14.1
 	github.com/kelseyhightower/envconfig v1.3.0
-	github.com/libgit2/git2go/v32 v32.1.6
+	github.com/libgit2/git2go/v33 v33.0.6
 	github.com/olekukonko/tablewriter v0.0.2
 	github.com/opencontainers/runtime-spec v1.0.2
 	github.com/opentracing/opentracing-go v1.2.0

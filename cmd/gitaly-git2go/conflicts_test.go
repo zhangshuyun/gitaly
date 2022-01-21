@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"testing"
 
-	git "github.com/libgit2/git2go/v32"
+	git "github.com/libgit2/git2go/v33"
 	"github.com/stretchr/testify/require"
 	cmdtesthelper "gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/testhelper"
 	glgit "gitlab.com/gitlab-org/gitaly/v14/internal/git"

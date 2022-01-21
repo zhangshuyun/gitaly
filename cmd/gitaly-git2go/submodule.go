@@ -11,7 +11,7 @@ import (
 	"io"
 	"time"
 
-	git "github.com/libgit2/git2go/v32"
+	git "github.com/libgit2/git2go/v33"
 	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/git2goutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 )
