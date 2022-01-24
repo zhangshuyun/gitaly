@@ -14,8 +14,8 @@ type LimitedFunc func() (resp interface{}, err error)
 type ConcurrencyLimiter struct {
 	semaphores map[string]*semaphoreReference
 	max        int64
-	mux        *sync.Mutex
 	monitor    ConcurrencyMonitor
+	mux        sync.RWMutex
 }
 
 type semaphoreReference struct {
@@ -67,8 +67,8 @@ func (c *ConcurrencyLimiter) putSemaphore(lockKey string) {
 }
 
 func (c *ConcurrencyLimiter) countSemaphores() int {
-	c.mux.Lock()
-	defer c.mux.Unlock()
+	c.mux.RLock()
+	defer c.mux.RUnlock()
 
 	return len(c.semaphores)
 }
@@ -107,7 +107,6 @@ func NewLimiter(max int, monitor ConcurrencyMonitor) *ConcurrencyLimiter {
 	return &ConcurrencyLimiter{
 		semaphores: make(map[string]*semaphoreReference),
 		max:        int64(max),
-		mux:        &sync.Mutex{},
 		monitor:    monitor,
 	}
 }
