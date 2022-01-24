@@ -78,6 +78,9 @@ func newDiskHash(t testing.TB) string {
 
 // CreateRepositoryConfig allows for configuring how the repository is created.
 type CreateRepositoryConfig struct {
+	// ClientConn is the connection used to create the repository. If unset, the config is used to
+	// dial the service.
+	ClientConn *grpc.ClientConn
 	// Storage determines the storage the repository is created in. If unset, the first storage
 	// from the config is used.
 	Storage config.Storage
@@ -100,14 +103,20 @@ func CreateRepository(ctx context.Context, t testing.TB, cfg config.Cfg, configs
 		opts = configs[0]
 	}
 
-	dialOptions := []grpc.DialOption{}
-	if cfg.Auth.Token != "" {
-		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)))
+	conn := opts.ClientConn
+	if conn == nil {
+		dialOptions := []grpc.DialOption{}
+		if cfg.Auth.Token != "" {
+			dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)))
+		}
+
+		var err error
+		conn, err = client.DialContext(ctx, cfg.SocketPath, dialOptions)
+		require.NoError(t, err)
+		t.Cleanup(func() { conn.Close() })
 	}
 
-	conn, err := client.DialContext(ctx, cfg.SocketPath, dialOptions)
-	require.NoError(t, err)
-	t.Cleanup(func() { conn.Close() })
+	client := gitalypb.NewRepositoryServiceClient(conn)
 
 	storage := cfg.Storages[0]
 	if (opts.Storage != config.Storage{}) {
@@ -125,8 +134,6 @@ func CreateRepository(ctx context.Context, t testing.TB, cfg config.Cfg, configs
 		GlRepository:  GlRepository,
 		GlProjectPath: GlProjectPath,
 	}
-
-	client := gitalypb.NewRepositoryServiceClient(conn)
 
 	if opts.Seed != "" {
 		_, err := client.CreateRepositoryFromURL(ctx, &gitalypb.CreateRepositoryFromURLRequest{
