@@ -8,10 +8,12 @@ import (
 	"time"
 
 	"github.com/jackc/pgconn"
+	migrate "github.com/rubenv/sql-migrate"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/migrations"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 )
@@ -318,6 +320,61 @@ func TestIsUniqueViolation(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			res := glsql.IsUniqueViolation(tc.err, tc.constr)
 			require.Equal(t, tc.exp, res)
+		})
+	}
+}
+
+func TestMigrateSome(t *testing.T) {
+	db := testdb.New(t)
+	dbCfg := testdb.GetConfig(t, db.Name)
+	cfg := config.Config{DB: dbCfg}
+
+	migs := migrations.All()
+	migrationCt := len(migs)
+
+	for _, tc := range []struct {
+		desc      string
+		up        int
+		executed  int
+		migration *migrate.Migration
+	}{
+		{
+			desc:      "All migrations up",
+			up:        migrationCt,
+			executed:  0,
+			migration: migs[migrationCt-1],
+		},
+		{
+			desc:      "Apply only first migration",
+			up:        0,
+			executed:  1,
+			migration: migs[0],
+		},
+		{
+			desc:      "Apply only last migration",
+			up:        migrationCt - 1,
+			executed:  1,
+			migration: migs[migrationCt-1],
+		},
+		{
+			desc:      "Apply only 10th migration",
+			up:        9,
+			executed:  1,
+			migration: migs[9],
+		},
+		{
+			desc:      "Apply 5th to 10th migrations",
+			up:        5,
+			executed:  5,
+			migration: migs[9],
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			testdb.SetMigrations(t, db, cfg, tc.up)
+
+			n, err := glsql.MigrateSome(tc.migration, db.DB, true)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.executed, n)
 		})
 	}
 }

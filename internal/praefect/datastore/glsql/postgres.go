@@ -108,6 +108,41 @@ func Migrate(db *sql.DB, ignoreUnknown bool) (int, error) {
 	return migrationSet.Exec(db, "postgres", migrationSource, migrate.Up)
 }
 
+// MigrateSome will apply migration m and all unapplied migrations with earlier ids.
+// To ensure a single migration is executed, run sql-migrate.PlanMigration and call
+// MigrateSome for each migration returned.
+func MigrateSome(m *migrate.Migration, db *sql.DB, ignoreUnknown bool) (int, error) {
+	migrationSet := migrate.MigrationSet{
+		IgnoreUnknown: ignoreUnknown,
+		TableName:     migrations.MigrationTableName,
+	}
+
+	// sql-migrate.ToApply() expects all migrations prior to the final migration be present in the
+	// in the slice. If we pass in only the target migration it will not be executed.
+	migs := leadingMigrations(m)
+
+	migrationSource := &migrate.MemoryMigrationSource{
+		Migrations: migs,
+	}
+
+	return migrationSet.Exec(db, "postgres", migrationSource, migrate.Up)
+}
+
+// Create a slice of all migrations up to and including the one to be applied.
+func leadingMigrations(target *migrate.Migration) []*migrate.Migration {
+	allMigrations := migrations.All()
+
+	for i, m := range allMigrations {
+		if m.Id == target.Id {
+			return allMigrations[:i+1]
+		}
+	}
+
+	// Planned migration not found in migrations.All(), assume it is more recent
+	// and return all migrations.
+	return allMigrations
+}
+
 // Querier is an abstraction on *sql.DB and *sql.Tx that allows to use their methods without awareness about actual type.
 type Querier interface {
 	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
