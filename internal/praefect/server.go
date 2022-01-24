@@ -125,6 +125,9 @@ func NewGRPCServer(
 			MinTime:             20 * time.Second,
 			PermitWithoutStream: true,
 		}),
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			Time: 5 * time.Minute,
+		}),
 	}...)
 
 	// Accept backchannel connections so that we can proxy sidechannels
