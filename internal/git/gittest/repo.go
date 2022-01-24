@@ -21,6 +21,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -154,7 +155,11 @@ func CreateRepository(ctx context.Context, t testing.TB, cfg config.Cfg, configs
 		require.NoError(t, err)
 	})
 
-	return repository, filepath.Join(storage.Path, testhelper.GetReplicaPath(ctx, t, conn, repository))
+	// Return a cloned repository so the above clean up function still targets the correct repository
+	// if the tests modify the returned repository.
+	clonedRepo := proto.Clone(repository).(*gitalypb.Repository)
+
+	return clonedRepo, filepath.Join(storage.Path, testhelper.GetReplicaPath(ctx, t, conn, repository))
 }
 
 // InitRepoOpts contains options for InitRepo.
