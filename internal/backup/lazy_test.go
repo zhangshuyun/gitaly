@@ -14,9 +14,7 @@ import (
 
 func TestLazyWrite_noData(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	var called bool
 	sink := MockSink{
@@ -33,9 +31,7 @@ func TestLazyWrite_noData(t *testing.T) {
 
 func TestLazyWrite_data(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	expectedData := make([]byte, 512)
 	_, err := rand.Read(expectedData)

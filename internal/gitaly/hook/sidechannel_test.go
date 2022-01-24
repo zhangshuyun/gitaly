@@ -12,8 +12,7 @@ import (
 )
 
 func TestSidechannel(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	// Client side
 	ctxOut, wt, err := SetupSidechannel(
@@ -41,8 +40,7 @@ func TestSidechannel(t *testing.T) {
 }
 
 func TestGetSidechannel(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	testCases := []string{
 		"foobar",

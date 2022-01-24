@@ -38,9 +38,7 @@ func TestReferenceTransactionHookInvalidArgument(t *testing.T) {
 
 	client, conn := newHooksClient(t, serverSocketPath)
 	defer conn.Close()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	stream, err := client.ReferenceTransactionHook(ctx)
 	require.NoError(t, err)
@@ -139,9 +137,7 @@ func TestReferenceTransactionHook(t *testing.T) {
 			}
 
 			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithBackchannelRegistry(registry))
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			hooksPayload, err := git.NewHooksPayload(
 				cfg,

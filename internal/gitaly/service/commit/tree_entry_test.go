@@ -139,9 +139,7 @@ func TestSuccessfulTreeEntry(t *testing.T) {
 				Limit:      testCase.limit,
 				MaxSize:    testCase.maxSize,
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			c, err := client.TreeEntry(ctx, request)
 			require.NoError(t, err)
 
@@ -221,8 +219,7 @@ func TestFailedTreeEntry(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			c, err := client.TreeEntry(ctx, testCase.req)
 			require.NoError(t, err)
 

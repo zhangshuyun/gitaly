@@ -25,8 +25,7 @@ import (
 
 func TestPostReceiveInvalidArgument(t *testing.T) {
 	_, _, _, client := setupHookService(t)
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	stream, err := client.PostReceiveHook(ctx)
 	require.NoError(t, err)
@@ -94,9 +93,7 @@ func TestHooksMissingStdin(t *testing.T) {
 
 			client, conn := newHooksClient(t, serverSocketPath)
 			defer conn.Close()
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			hooksPayload, err := git.NewHooksPayload(
 				cfg,
@@ -225,9 +222,7 @@ To create a merge request for okay, visit:
 
 			client, conn := newHooksClient(t, serverSocketPath)
 			defer conn.Close()
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			stream, err := client.PostReceiveHook(ctx)
 			require.NoError(t, err)

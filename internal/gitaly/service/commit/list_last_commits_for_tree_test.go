@@ -181,9 +181,7 @@ func TestSuccessfulListLastCommitsForTreeRequest(t *testing.T) {
 				Limit:      testCase.limit,
 				Offset:     testCase.offset,
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			stream, err := client.ListLastCommitsForTree(ctx, request)
 			require.NoError(t, err)
@@ -309,8 +307,7 @@ func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			stream, err := client.ListLastCommitsForTree(ctx, testCase.request)
 			require.NoError(t, err)
@@ -324,9 +321,7 @@ func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 func TestNonUtf8ListLastCommitsForTreeRequest(t *testing.T) {
 	t.Parallel()
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	// This is an arbitrary blob known to exist in the test repository
 	const blobID = "c60514b6d3d6bf4bec1030f70026e34dfbd69ad5"
@@ -373,9 +368,7 @@ func TestSuccessfulListLastCommitsForTreeRequestWithGlobCharacters(t *testing.T)
 		Limit:         100,
 		Offset:        0,
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	stream, err := client.ListLastCommitsForTree(ctx, request)
 	require.NoError(t, err)
 

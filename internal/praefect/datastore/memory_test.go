@@ -10,8 +10,7 @@ import (
 )
 
 func TestMemoryReplicationEventQueue(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	queue := NewMemoryReplicationEventQueue(config.Config{})
 
@@ -164,8 +163,7 @@ func TestMemoryReplicationEventQueue(t *testing.T) {
 }
 
 func TestMemoryReplicationEventQueue_ConcurrentAccess(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	queue := NewMemoryReplicationEventQueue(config.Config{})
 

@@ -37,8 +37,7 @@ func TestRefExists(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			req := &gitalypb.RefExistsRequest{Repository: tt.repo, Ref: []byte(tt.ref)}
 

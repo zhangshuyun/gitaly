@@ -1,6 +1,7 @@
 package quarantine
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,8 +42,7 @@ func TestQuarantine_lifecycle(t *testing.T) {
 	locator := config.NewLocator(cfg)
 
 	t.Run("quarantine directory gets created", func(t *testing.T) {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		quarantine, err := New(ctx, repo, locator)
 		require.NoError(t, err)
@@ -67,8 +67,7 @@ func TestQuarantine_lifecycle(t *testing.T) {
 	})
 
 	t.Run("context cancellation cleans up quarantine directory", func(t *testing.T) {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 		quarantine, err := New(ctx, repo, locator)
 		require.NoError(t, err)
@@ -85,8 +84,7 @@ func TestQuarantine_Migrate(t *testing.T) {
 	locator := config.NewLocator(cfg)
 
 	t.Run("no changes", func(t *testing.T) {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
@@ -101,8 +99,7 @@ func TestQuarantine_Migrate(t *testing.T) {
 	})
 
 	t.Run("simple change", func(t *testing.T) {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
@@ -124,8 +121,7 @@ func TestQuarantine_Migrate(t *testing.T) {
 }
 
 func TestQuarantine_localrepo(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repoProto, _ := testcfg.BuildWithRepo(t)
 	locator := config.NewLocator(cfg)

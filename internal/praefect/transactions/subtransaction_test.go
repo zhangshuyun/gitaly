@@ -437,8 +437,7 @@ func TestSubtransaction_mustSignalVoters(t *testing.T) {
 }
 
 func TestSubtransaction_voterStopsWaiting(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	agreeingVote := newVote(t, "agreeing")
 	disagreeingVote := newVote(t, "disagreeing")
@@ -554,8 +553,7 @@ func TestSubtransaction_voterStopsWaiting(t *testing.T) {
 }
 
 func TestSubtransaction_race(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	voters := make([]Voter, 1000)
 	for i := range voters {

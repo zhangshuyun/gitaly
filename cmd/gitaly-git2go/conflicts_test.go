@@ -179,8 +179,7 @@ func TestConflicts(t *testing.T) {
 		theirs := cmdtesthelper.BuildCommit(t, repoPath, []*git.Oid{base}, tc.theirs)
 
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			response, err := executor.Conflicts(ctx, repo, git2go.ConflictsCommand{
 				Repository: repoPath,
@@ -266,9 +265,7 @@ func TestConflicts_checkError(t *testing.T) {
 			if tc.overrideRepoPath != "" {
 				repoPath = tc.overrideRepoPath
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			_, err := executor.Conflicts(ctx, repo, git2go.ConflictsCommand{
 				Repository: repoPath,

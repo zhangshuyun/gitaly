@@ -18,9 +18,7 @@ import (
 func TestConfigLocator_GetObjectDirectoryPath(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 	locator := config.NewLocator(cfg)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	quarantine, err := quarantine.New(ctx, repo, locator)
 	require.NoError(t, err)

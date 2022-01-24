@@ -31,9 +31,7 @@ func TestAcceptDatalossSubcommand(t *testing.T) {
 			},
 		},
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	db := testdb.New(t)
 	rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())

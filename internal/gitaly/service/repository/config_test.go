@@ -25,8 +25,7 @@ func TestGetConfig(t *testing.T) {
 		client gitalypb.RepositoryServiceClient,
 		repo *gitalypb.Repository,
 	) (string, error) {
-		ctx, cleanup := testhelper.Context()
-		defer cleanup()
+		ctx := testhelper.Context(t)
 
 		stream, err := client.GetConfig(ctx, &gitalypb.GetConfigRequest{
 			Repository: repo,

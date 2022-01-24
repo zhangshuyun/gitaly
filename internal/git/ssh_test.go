@@ -10,8 +10,7 @@ import (
 )
 
 func TestBuildSSHInvocation(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	const tmpDirPattern = "=(\\S+)/(ssh-key|known-hosts)"
 	reTmpDir := regexp.MustCompile(tmpDirPattern)

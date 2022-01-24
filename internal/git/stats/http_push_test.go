@@ -22,9 +22,7 @@ import (
 func TestPerformHTTPPush(t *testing.T) {
 	cfg, _, targetRepoPath := testcfg.BuildWithRepo(t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	serverPort, stopGitServer := gittest.HTTPServer(ctx, t, gitCmdFactory, targetRepoPath, nil)
 	defer func() {

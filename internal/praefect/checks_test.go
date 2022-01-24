@@ -68,8 +68,7 @@ func TestPraefectMigrations_success(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			var cfg config.Config
 			db := testdb.New(t)
@@ -213,9 +212,7 @@ func TestGitalyNodeConnectivityCheck(t *testing.T) {
 				io.Discard,
 				false,
 			)
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			err := check.Run(ctx)
 			if tc.expectErr {
@@ -251,7 +248,7 @@ func TestGitalyNodeConnectivityCheck(t *testing.T) {
 			false,
 		)
 
-		ctx, cancel := testhelper.Context()
+		ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 		// Cancel the context directly such that dialling the node will fail.
 		cancel()
@@ -298,9 +295,7 @@ func TestGitalyNodeConnectivityCheck(t *testing.T) {
 				&output,
 				isQuiet,
 			)
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			require.NoError(t, check.Run(ctx))
 
@@ -399,8 +394,7 @@ func TestPostgresReadWriteCheck(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			db := testdb.New(t)
 			t.Cleanup(func() { require.NoError(t, db.Close()) })
@@ -472,8 +466,7 @@ func TestNewUnavailableReposCheck(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			db := testdb.New(t)
 			dbCfg := testdb.GetConfig(t, db.Name)
@@ -547,8 +540,7 @@ func TestNewClockSyncCheck(t *testing.T) {
 		},
 	} {
 		t.Run(tt.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			if tt.setup != nil {
 				tt.setup(t)

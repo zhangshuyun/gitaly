@@ -71,9 +71,7 @@ func TestNodeStatus(t *testing.T) {
 
 	storageName := "default"
 	cs := newConnectionStatus(config.Node{Storage: storageName}, cc, testhelper.NewDiscardingLogEntry(t), mockHistogramVec, nil)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	var expectedLabels [][]string
 	for i := 0; i < healthcheckThreshold; i++ {
@@ -124,9 +122,7 @@ func TestManagerFailoverDisabledElectionStrategySQL(t *testing.T) {
 
 	nm.Start(time.Millisecond, time.Millisecond)
 	defer nm.Stop()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	shard, err := nm.GetShard(ctx, virtualStorageName)
 	require.NoError(t, err)
@@ -173,9 +169,7 @@ func TestDialWithUnhealthyNode(t *testing.T) {
 
 	mgr.Start(1*time.Millisecond, 1*time.Millisecond)
 	defer mgr.Stop()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	shard, err := mgr.GetShard(ctx, storageName)
 	require.NoError(t, err)
@@ -229,9 +223,7 @@ func TestNodeManager(t *testing.T) {
 
 	nmWithoutFailover.Start(0, time.Hour)
 	defer nmWithoutFailover.Stop()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	shardWithoutFailover, err := nmWithoutFailover.GetShard(ctx, "virtual-storage-0")
 	require.NoError(t, err)
@@ -323,9 +315,7 @@ func TestMgr_GetSyncedNode(t *testing.T) {
 	conf := config.Config{
 		VirtualStorages: []*config.VirtualStorage{{Name: virtualStorage, Nodes: nodes[:]}},
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	var consistentSecondariesErr error
 	consistentStorages := map[string]struct{}{}
@@ -483,9 +473,7 @@ func TestNodeStatus_IsHealthy(t *testing.T) {
 	defer func() { require.NoError(t, clientConn.Close()) }()
 
 	node := config.Node{Storage: "gitaly-0", Address: address}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	logger := testhelper.NewDiscardingLogger(t)
 	latencyHistMock := &promtest.MockHistogramVec{}

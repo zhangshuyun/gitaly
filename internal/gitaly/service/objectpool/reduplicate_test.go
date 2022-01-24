@@ -13,9 +13,7 @@ import (
 
 func TestReduplicate(t *testing.T) {
 	cfg, repo, repoPath, locator, client := setup(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	pool := initObjectPool(t, cfg, cfg.Storages[0])

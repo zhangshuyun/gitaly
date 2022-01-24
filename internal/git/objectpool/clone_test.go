@@ -9,8 +9,7 @@ import (
 )
 
 func TestClone(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, pool, testRepo := setupObjectPool(t, ctx)
 
@@ -24,8 +23,7 @@ func TestClone(t *testing.T) {
 }
 
 func TestCloneExistingPool(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, pool, testRepo := setupObjectPool(t, ctx)
 

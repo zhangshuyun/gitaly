@@ -16,9 +16,7 @@ import (
 func TestClone(t *testing.T) {
 	cfg, _, repoPath := testcfg.BuildWithRepo(t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	serverPort, stopGitServer := gittest.HTTPServer(ctx, t, gitCmdFactory, repoPath, nil)
 	defer func() {
@@ -77,9 +75,7 @@ func TestClone(t *testing.T) {
 func TestCloneWithAuth(t *testing.T) {
 	cfg, _, repoPath := testcfg.BuildWithRepo(t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	const (
 		user     = "test-user"

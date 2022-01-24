@@ -87,8 +87,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	poolCtx, cancel := testhelper.Context()
-	defer cancel()
+	poolCtx := testhelper.Context(t)
 
 	require.NoError(t, pool.Create(poolCtx, testRepo))
 	require.NoError(t, pool.Link(poolCtx, testRepo))
@@ -97,9 +96,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	poolRepository := pool.ToProto().GetRepository()
 	targetObjectPoolRepo := proto.Clone(poolRepository).(*gitalypb.Repository)
 	targetObjectPoolRepo.StorageName = backupCfg.Storages[0].Name
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 	injectedCtx := metadata.NewOutgoingContext(ctx, testcfg.GitalyServersMetadataFromCfg(t, primaryCfg))
 
@@ -218,8 +215,7 @@ gitaly_praefect_replication_jobs{change_type="update",gitaly_storage="backup",vi
 }
 
 func TestReplicatorDowngradeAttempt(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx = correlation.ContextWithCorrelation(ctx, "correlation-id")
 
@@ -354,8 +350,7 @@ func TestReplicator_PropagateReplicationJob(t *testing.T) {
 	prf := NewGRPCServer(conf, logEntry, protoregistry.GitalyProtoPreregistered, coordinator.StreamDirector, txMgr, rs, nil, nil, nil, nil)
 
 	listener, port := listenAvailPort(t)
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 	go prf.Serve(listener)
 	defer prf.Stop()
@@ -589,8 +584,7 @@ func waitForRequest(t *testing.T, ch chan proto.Message, expected proto.Message,
 }
 
 func TestConfirmReplication(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, testRepoA, testRepoAPath := testcfg.BuildWithRepo(t)
 	srvSocketPath := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
@@ -680,9 +674,7 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 			},
 		},
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.New(t)))
 
@@ -755,9 +747,7 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 
 func TestProcessBacklog_Success(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 	primaryCfg, testRepo, _ := testcfg.BuildWithRepo(t, testcfg.WithStorages("primary"))
 	primaryCfg.SocketPath = testserver.RunGitalyServer(t, primaryCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
@@ -913,7 +903,7 @@ func TestReplMgrProcessBacklog_OnlyHealthyNodes(t *testing.T) {
 		},
 	}
 
-	ctx, cancel := testhelper.Context()
+	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 	var mtx sync.Mutex
 	expStorages := map[string]bool{conf.VirtualStorages[0].Nodes[0].Storage: true, conf.VirtualStorages[0].Nodes[2].Storage: true}
@@ -977,8 +967,7 @@ func (m mockReplicator) Replicate(ctx context.Context, event datastore.Replicati
 
 func TestProcessBacklog_ReplicatesToReadOnlyPrimary(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 	const virtualStorage = "virtal-storage"
 	const primaryStorage = "storage-1"
@@ -1109,9 +1098,7 @@ func TestReplMgr_ProcessStale(t *testing.T) {
 
 	queue := datastore.NewReplicationEventQueueInterceptor(nil)
 	mgr := NewReplMgr(logger.WithField("test", t.Name()), nil, queue, datastore.MockRepositoryStore{}, nil, nil)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 	const iterations = 3
 	var counter int

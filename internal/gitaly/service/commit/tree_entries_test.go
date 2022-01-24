@@ -21,9 +21,7 @@ func TestGetTreeEntries_curlyBraces(t *testing.T) {
 	t.Parallel()
 
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	normalFolderName := "issue-46261/folder"
 	curlyFolderName := "issue-46261/{{curly}}"
@@ -81,9 +79,7 @@ func TestGetTreeEntries_curlyBraces(t *testing.T) {
 
 func TestGetTreeEntries_successful(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	commitID := "d25b6d94034242f3930dfcfeb6d8d9aac3583992"
 	rootOid := "21bdc8af908562ae485ed46d71dd5426c08b084a"
@@ -474,9 +470,7 @@ func TestGetTreeEntries_successful(t *testing.T) {
 
 func TestGetTreeEntries_unsuccessful(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	commitID := "d25b6d94034242f3930dfcfeb6d8d9aac3583992"
 
@@ -525,9 +519,7 @@ func TestGetTreeEntries_unsuccessful(t *testing.T) {
 
 func TestGetTreeEntries_deepFlatpath(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
 
@@ -573,9 +565,7 @@ func TestGetTreeEntries_deepFlatpath(t *testing.T) {
 
 func TestGetTreeEntries_file(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
 
@@ -605,9 +595,7 @@ func TestGetTreeEntries_file(t *testing.T) {
 
 func TestGetTreeEntries_validation(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
@@ -635,9 +623,7 @@ func TestGetTreeEntries_validation(t *testing.T) {
 
 func BenchmarkGetTreeEntries(b *testing.B) {
 	cfg, client := setupCommitService(b)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(b)
 
 	repo, _ := gittest.CloneRepo(b, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
 		SourceRepo: "benchmark.git",

@@ -74,9 +74,7 @@ func TestNewCommandAddsToCgroup(t *testing.T) {
 
 			var manager mockCgroupsManager
 			gitCmdFactory.cgroupsManager = &manager
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, featureflag.RunCommandsInCGroup, tc.cgroupsFF)
 

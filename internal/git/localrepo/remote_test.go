@@ -19,8 +19,7 @@ import (
 )
 
 func TestRepo_FetchRemote(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
 
@@ -211,8 +210,7 @@ func captureGitSSHCommand(ctx context.Context, t testing.TB, cfg config.Cfg) (gi
 }
 
 func TestRepo_Push(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, sourceRepoPb, _ := testcfg.BuildWithRepo(t)
 

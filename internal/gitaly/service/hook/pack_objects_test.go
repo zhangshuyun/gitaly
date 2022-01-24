@@ -78,8 +78,7 @@ func TestServer_PackObjectsHook_separateContext(t *testing.T) {
 	client1, conn1 := newHooksClient(t, serverSocketPath)
 	defer conn1.Close()
 
-	ctx1, cancel1 := testhelper.Context()
-	defer cancel1()
+	ctx1 := testhelper.Context(t)
 
 	ctx1, wt1, err := hookPkg.SetupSidechannel(
 		ctx1,
@@ -114,8 +113,7 @@ func TestServer_PackObjectsHook_separateContext(t *testing.T) {
 	client2, conn2 := newHooksClient(t, serverSocketPath)
 	defer conn2.Close()
 
-	ctx2, cancel2 := testhelper.Context()
-	defer cancel2()
+	ctx2 := testhelper.Context(t)
 
 	var stdout2 []byte
 	ctx2, wt2, err := hookPkg.SetupSidechannel(
@@ -169,8 +167,7 @@ func TestServer_PackObjectsHook_usesCache(t *testing.T) {
 	}})
 
 	doRequest := func() {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		var stdout []byte
 		ctx, wt, err := hookPkg.SetupSidechannel(
@@ -254,9 +251,7 @@ func TestServer_PackObjectsHookWithSidechannel(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg, repo, repoPath := cfgWithCache(t)
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			logger, hook := test.NewNullLogger()
 			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithLogger(logger))
@@ -349,9 +344,7 @@ func TestServer_PackObjectsHookWithSidechannel(t *testing.T) {
 func TestServer_PackObjectsHookWithSidechannel_invalidArgument(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 	serverSocketPath := runHooksServer(t, cfg, nil)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	testCases := []struct {
 		desc string
@@ -384,8 +377,7 @@ func TestServer_PackObjectsHookWithSidechannel_invalidArgument(t *testing.T) {
 
 func TestServer_PackObjectsHookWithSidechannel_Canceled(t *testing.T) {
 	cfg, repo, _ := cfgWithCache(t)
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, wt, err := hookPkg.SetupSidechannel(
 		ctx,

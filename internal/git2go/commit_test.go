@@ -41,9 +41,7 @@ func TestExecutor_Commit(t *testing.T) {
 		error       error
 		treeEntries []gittest.TreeEntry
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyGit2Go(t, cfg)

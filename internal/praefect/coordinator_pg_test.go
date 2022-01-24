@@ -187,9 +187,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 				StorageName:  virtualStorage,
 				RelativePath: "/path/to/hashed/repository",
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			txMgr := transactions.NewManager(conf)
 

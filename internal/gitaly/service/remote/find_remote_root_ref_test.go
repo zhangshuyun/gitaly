@@ -41,8 +41,7 @@ func TestFindRemoteRootRefSuccess(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			response, err := client.FindRemoteRootRef(ctx, tc.request)
 			require.NoError(t, err)
@@ -59,9 +58,7 @@ func TestFindRemoteRootRefWithUnbornRemoteHead(t *testing.T) {
 	// point to an unborn branch because the default branch hasn't yet been created.
 	_, clientRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 	gittest.Exec(t, cfg, "-C", remoteRepoPath, "remote", "add", "foo", "file://"+clientRepoPath)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	response, err := client.FindRemoteRootRef(ctx, &gitalypb.FindRemoteRootRefRequest{
 		Repository: remoteRepo,
@@ -112,8 +109,7 @@ func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			_, err := client.FindRemoteRootRef(ctx, testCase.request)
 			testhelper.RequireGrpcError(t, testCase.expectedErr, err)
@@ -132,9 +128,7 @@ func TestFindRemoteRootRefFailedDueToInvalidRemote(t *testing.T) {
 		request := &gitalypb.FindRemoteRootRefRequest{
 			Repository: repo, RemoteUrl: "file://" + fakeRepoDir,
 		}
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		_, err := client.FindRemoteRootRef(ctx, request)
 		testhelper.RequireGrpcCode(t, err, codes.Internal)

@@ -21,8 +21,7 @@ import (
 )
 
 func TestRepo_SetConfig(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
 
@@ -137,8 +136,7 @@ func TestRepo_SetConfig(t *testing.T) {
 }
 
 func TestRepo_UnsetMatchingConfig(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
 

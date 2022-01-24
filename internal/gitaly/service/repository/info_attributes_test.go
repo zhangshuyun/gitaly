@@ -27,8 +27,7 @@ func TestGetInfoAttributesExisting(t *testing.T) {
 	require.NoError(t, err)
 
 	request := &gitalypb.GetInfoAttributesRequest{Repository: repo}
-	testCtx, cancelCtx := testhelper.Context()
-	defer cancelCtx()
+	testCtx := testhelper.Context(t)
 
 	stream, err := client.GetInfoAttributes(testCtx, request)
 	require.NoError(t, err)
@@ -47,8 +46,7 @@ func TestGetInfoAttributesNonExisting(t *testing.T) {
 	_, repo, _, client := setupRepositoryService(t)
 
 	request := &gitalypb.GetInfoAttributesRequest{Repository: repo}
-	testCtx, cancelCtx := testhelper.Context()
-	defer cancelCtx()
+	testCtx := testhelper.Context(t)
 
 	response, err := client.GetInfoAttributes(testCtx, request)
 	require.NoError(t, err)

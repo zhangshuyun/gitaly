@@ -12,9 +12,7 @@ import (
 
 func TestSetHeadersBlocksUnknownMetadata(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	otherKey := "unknown-key"
 	otherValue := "test-value"
@@ -32,9 +30,7 @@ func TestSetHeadersBlocksUnknownMetadata(t *testing.T) {
 
 func TestSetHeadersPreservesAllowlistedMetadata(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	key := "gitaly-servers"
 	value := "test-value"
@@ -51,9 +47,7 @@ func TestSetHeadersPreservesAllowlistedMetadata(t *testing.T) {
 
 func TestRubyFeatureHeaders(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	key := "gitaly-feature-ruby-test-feature"
 	value := "true"

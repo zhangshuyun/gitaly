@@ -1002,8 +1002,7 @@ func TestReconciler(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			db.TruncateAll(t)
 
@@ -1172,8 +1171,7 @@ func TestReconciler(t *testing.T) {
 }
 
 func TestReconciler_renames(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	db := testdb.New(t)
 

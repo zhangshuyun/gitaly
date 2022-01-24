@@ -20,9 +20,7 @@ import (
 
 func TestSuccessfulUserUpdateSubmoduleRequest(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -104,9 +102,7 @@ func TestSuccessfulUserUpdateSubmoduleRequest(t *testing.T) {
 
 func TestUserUpdateSubmoduleStableID(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -152,9 +148,7 @@ func TestUserUpdateSubmoduleStableID(t *testing.T) {
 
 func TestUserUpdateSubmoduleQuarantine(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -193,9 +187,7 @@ func TestUserUpdateSubmoduleQuarantine(t *testing.T) {
 
 func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
@@ -313,9 +305,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 
 func TestFailedUserUpdateSubmoduleRequestDueToInvalidBranch(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
@@ -335,9 +325,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToInvalidBranch(t *testing.T) {
 
 func TestFailedUserUpdateSubmoduleRequestDueToInvalidSubmodule(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
@@ -357,9 +345,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToInvalidSubmodule(t *testing.T) {
 
 func TestFailedUserUpdateSubmoduleRequestDueToSameReference(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
@@ -382,9 +368,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToSameReference(t *testing.T) {
 
 func TestFailedUserUpdateSubmoduleRequestDueToRepositoryEmpty(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 

@@ -18,9 +18,7 @@ import (
 
 func TestServer_UserCherryPick_successful(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -174,9 +172,7 @@ func TestServer_UserCherryPick_successful(t *testing.T) {
 
 func TestServer_UserCherryPick_successfulGitHooks(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -214,9 +210,7 @@ func TestServer_UserCherryPick_successfulGitHooks(t *testing.T) {
 
 func TestServer_UserCherryPick_stableID(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -272,9 +266,7 @@ func TestServer_UserCherryPick_stableID(t *testing.T) {
 
 func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
@@ -346,9 +338,7 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 
 func TestServer_UserCherryPick_failedWithPreReceiveError(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -383,9 +373,7 @@ func TestServer_UserCherryPick_failedWithPreReceiveError(t *testing.T) {
 
 func TestServer_UserCherryPick_failedWithCreateTreeError(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -414,9 +402,7 @@ func TestServer_UserCherryPick_failedWithCreateTreeError(t *testing.T) {
 
 func TestServer_UserCherryPick_failedWithCommitError(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -446,9 +432,7 @@ func TestServer_UserCherryPick_failedWithCommitError(t *testing.T) {
 
 func TestServer_UserCherryPick_failedWithConflict(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -477,9 +461,7 @@ func TestServer_UserCherryPick_failedWithConflict(t *testing.T) {
 
 func TestServer_UserCherryPick_successfulWithGivenCommits(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -534,9 +516,7 @@ func TestServer_UserCherryPick_successfulWithGivenCommits(t *testing.T) {
 
 func TestServer_UserCherryPick_quarantine(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)

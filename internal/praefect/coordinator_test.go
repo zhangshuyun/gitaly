@@ -89,9 +89,7 @@ func TestStreamDirectorReadOnlyEnforcement(t *testing.T) {
 					},
 				},
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			rs := datastore.MockRepositoryStore{
 				GetConsistentStoragesFunc: func(context.Context, string, string) (string, map[string]struct{}, error) {
@@ -158,9 +156,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 		StorageName:  "praefect",
 		RelativePath: "/path/to/hashed/storage",
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	txMgr := transactions.NewManager(conf)
 
@@ -307,9 +303,7 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Hour)
 	defer nodeMgr.Stop()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	shard, err := nodeMgr.GetShard(ctx, conf.VirtualStorages[0].Name)
 	require.NoError(t, err)
@@ -428,9 +422,7 @@ func TestStreamDirectorAccessor(t *testing.T) {
 		StorageName:  "praefect",
 		RelativePath: "/path/to/hashed/storage",
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	entry := testhelper.NewDiscardingLogEntry(t)
 	rs := datastore.MockRepositoryStore{}
@@ -535,9 +527,7 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 		StorageName:  "praefect",
 		RelativePath: "/path/to/hashed/storage",
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	entry := testhelper.NewDiscardingLogEntry(t)
 
@@ -661,9 +651,7 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 			fullMethod := "/gitaly.RepositoryService/GetObjectDirectorySize"
 
 			peeker := &mockPeeker{frame: frame}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			streamParams, err := coordinator.StreamDirector(ctx, fullMethod, peeker)
 			require.NoError(t, err)
@@ -968,9 +956,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 			require.NoError(t, err)
 
 			fullMethod := "/gitaly.RepositoryService/CreateRepository"
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			peeker := &mockPeeker{frame}
 			streamParams, err := coordinator.StreamDirector(correlation.ContextWithCorrelation(ctx, "my-correlation-id"), fullMethod, peeker)
@@ -1101,9 +1087,7 @@ func TestAbsentCorrelationID(t *testing.T) {
 		StorageName:  "praefect",
 		RelativePath: "/path/to/hashed/storage",
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	entry := testhelper.NewDiscardingLogEntry(t)
 
@@ -1190,9 +1174,7 @@ func TestCoordinatorEnqueueFailure(t *testing.T) {
 
 	r, err := protoregistry.NewFromPaths("praefect/mock/mock.proto")
 	require.NoError(t, err)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cc, _, cleanup := runPraefectServer(t, ctx, conf, buildOptions{
 		withAnnotations: r,
@@ -1254,9 +1236,7 @@ func TestStreamDirectorStorageScope(t *testing.T) {
 		conf,
 		protoregistry.GitalyProtoPreregistered,
 	)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	t.Run("mutator", func(t *testing.T) {
 		fullMethod := "/gitaly.NamespaceService/RemoveNamespace"
@@ -1300,8 +1280,7 @@ func TestStreamDirectorStorageScope(t *testing.T) {
 }
 
 func TestStreamDirectorStorageScopeError(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	t.Run("no storage provided", func(t *testing.T) {
 		mgr := &nodes.MockManager{
@@ -1428,8 +1407,7 @@ func TestStreamDirectorStorageScopeError(t *testing.T) {
 }
 
 func TestDisabledTransactionsWithFeatureFlag(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	for rpc, enabledFn := range transactionRPCs {
 		if enabledFn(ctx) {
@@ -1536,8 +1514,7 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cleanup := testhelper.Context()
-			defer cleanup()
+			ctx := testhelper.Context(t)
 
 			var wg sync.WaitGroup
 			gitalies := make(map[string]gitalyNode)
@@ -1652,9 +1629,7 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 		state transactions.VoteResult
 		err   error
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	anyErr := errors.New("arbitrary error")
 
@@ -2084,14 +2059,12 @@ func TestNewRequestFinalizer_contextIsDisjointedFromTheRPC(t *testing.T) {
 	type ctxKey struct{}
 
 	parentDeadline := time.Now()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	//nolint:forbidigo // We explicitly want to test that the deadline does not propagate into
 	// the request's context.
-	ctx, cancel = context.WithDeadline(context.WithValue(ctx, ctxKey{}, "value"), parentDeadline)
-	cancel()
+	ctx, cancel := context.WithDeadline(context.WithValue(ctx, ctxKey{}, "value"), parentDeadline)
+	defer cancel()
 
 	requireSuppressedCancellation := func(t testing.TB, ctx context.Context) {
 		deadline, ok := ctx.Deadline()

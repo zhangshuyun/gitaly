@@ -34,9 +34,7 @@ func TestStopSafe(t *testing.T) {
 
 func TestSetHeaders(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	locator := config.NewLocator(cfg)
 

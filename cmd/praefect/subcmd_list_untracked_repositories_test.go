@@ -85,9 +85,7 @@ func TestListUntrackedRepositories_Exec(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { require.NoError(t, cc.Close()) }()
 	repoClient := gitalypb.NewRepositoryServiceClient(cc)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	praefectStorage := conf.VirtualStorages[0].Name
 

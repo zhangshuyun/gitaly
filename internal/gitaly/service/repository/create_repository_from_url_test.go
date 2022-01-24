@@ -21,9 +21,7 @@ import (
 
 func TestCreateRepotitoryFromURL_successful(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, _, repoPath, client := setupRepositoryService(t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
@@ -63,9 +61,7 @@ func TestCreateRepotitoryFromURL_successful(t *testing.T) {
 
 func TestCreateRepositoryFromURL_existingTarget(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	testCases := []struct {
 		desc     string
@@ -113,9 +109,7 @@ func TestCreateRepositoryFromURL_existingTarget(t *testing.T) {
 
 func TestCreateRepositoryFromURL_redirect(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
@@ -143,8 +137,7 @@ func TestCreateRepositoryFromURL_redirect(t *testing.T) {
 
 func TestCloneRepositoryFromUrlCommand(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	userInfo := "user:pass%21%3F%40"
 	repositoryFullPath := "full/path/to/repository"

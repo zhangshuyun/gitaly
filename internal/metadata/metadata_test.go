@@ -10,8 +10,7 @@ import (
 )
 
 func TestOutgoingToIncoming(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, err := storage.InjectGitalyServers(ctx, "a", "b", "c")
 	require.NoError(t, err)

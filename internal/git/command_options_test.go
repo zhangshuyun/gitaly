@@ -205,8 +205,7 @@ func TestGlobalOption(t *testing.T) {
 func TestWithConfig(t *testing.T) {
 	cfg := config.Cfg{BinDir: testhelper.TempDir(t)}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	gitCmdFactory := newCommandFactory(t, cfg, WithSkipHooks())
 
@@ -280,9 +279,7 @@ func TestExecCommandFactoryGitalyConfigOverrides(t *testing.T) {
 	cfg.Git.Config = []config.GitConfig{
 		{Key: "foo.bar", Value: "from-gitaly-config"},
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	gitCmdFactory := newCommandFactory(t, cfg, WithSkipHooks())
 
@@ -304,8 +301,7 @@ func TestExecCommandFactoryGitalyConfigOverrides(t *testing.T) {
 func TestWithConfigEnv(t *testing.T) {
 	cfg := config.Cfg{BinDir: testhelper.TempDir(t)}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	gitCmdFactory := newCommandFactory(t, cfg, WithSkipHooks())
 
@@ -403,9 +399,7 @@ func TestWithInternalFetch(t *testing.T) {
 	cfg := config.Cfg{BinDir: testhelper.TempDir(t)}
 
 	gitCmdFactory := newCommandFactory(t, cfg, WithSkipHooks())
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	md := metadata.Pairs("gitaly-servers", base64.StdEncoding.EncodeToString([]byte(`{"default":{"address":"unix:///tmp/sock","token":"hunter1"}}`)))
 	ctx = metadata.NewIncomingContext(ctx, md)

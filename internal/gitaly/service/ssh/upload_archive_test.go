@@ -25,9 +25,7 @@ func TestFailedUploadArchiveRequestDueToTimeout(t *testing.T) {
 
 	client, conn := newSSHClient(t, serverSocketPath)
 	defer conn.Close()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	stream, err := client.SSHUploadArchive(ctx)
 	require.NoError(t, err)
@@ -87,8 +85,7 @@ func TestFailedUploadArchiveRequestDueToValidationError(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			stream, err := client.SSHUploadArchive(ctx)
 			if err != nil {
 				t.Fatal(err)

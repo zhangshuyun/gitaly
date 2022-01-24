@@ -18,8 +18,7 @@ import (
 )
 
 func TestObjectReader_reader(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 
@@ -122,8 +121,7 @@ func TestObjectReader_reader(t *testing.T) {
 }
 
 func TestObjectReader_queue(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 
@@ -422,9 +420,7 @@ func TestObjectReader_queue(t *testing.T) {
 
 func TestObjectReader_replaceRefs(t *testing.T) {
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	originalOID := gittest.WriteBlob(t, cfg, repoPath, []byte("original"))
 	replacedOID := gittest.WriteBlob(t, cfg, repoPath, []byte("replaced"))

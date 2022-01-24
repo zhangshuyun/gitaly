@@ -33,8 +33,7 @@ func TestHookManager_stopCalled(t *testing.T) {
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
 	))
 
-	ctx, cleanup := testhelper.Context()
-	defer cleanup()
+	ctx := testhelper.Context(t)
 
 	hooksPayload, err := git.NewHooksPayload(
 		cfg,
@@ -145,9 +144,7 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 		nil,
 	).Env()
 	require.NoError(t, err)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 	changes := fmt.Sprintf("%s %s refs/heads/master", strings.Repeat("1", 40), git.ZeroOID)
 

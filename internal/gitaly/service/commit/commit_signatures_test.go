@@ -23,9 +23,7 @@ func TestSuccessfulGetCommitSignaturesRequest(t *testing.T) {
 		"-C", repoPath, "hash-object", "-w", "-t", "commit", "--stdin", "--literally",
 	))
 	require.Equal(t, "dc00eb001f41dfac08192ead79c2377c588b82ee", commit)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	request := &gitalypb.GetCommitSignaturesRequest{
 		Repository: repo,
@@ -115,8 +113,7 @@ func TestFailedGetCommitSignaturesRequest(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			c, err := client.GetCommitSignatures(ctx, testCase.request)
 			require.NoError(t, err)

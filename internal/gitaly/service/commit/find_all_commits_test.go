@@ -16,9 +16,7 @@ func TestSuccessfulFindAllCommitsRequest(t *testing.T) {
 	t.Parallel()
 
 	cfg, repoProto, _, client := setupCommitServiceWithRepo(t, true)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	refs, err := repo.GetReferences(ctx, "refs/")
@@ -190,8 +188,7 @@ func TestFailedFindAllCommitsRequest(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			c, err := client.FindAllCommits(ctx, testCase.request)
 			require.NoError(t, err)
 

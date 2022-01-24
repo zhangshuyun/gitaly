@@ -100,9 +100,7 @@ func TestRemoveRepository_Exec(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { require.NoError(t, cc.Close()) }()
 	repoClient := gitalypb.NewRepositoryServiceClient(cc)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	praefectStorage := conf.VirtualStorages[0].Name
 
@@ -275,9 +273,7 @@ func TestRemoveRepository_removeReplicationEvents(t *testing.T) {
 		virtualStorage = "praefect"
 		relativePath   = "relative_path/to/repo.git"
 	)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	db := testdb.New(t)
 

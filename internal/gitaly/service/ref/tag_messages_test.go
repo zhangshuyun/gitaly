@@ -15,9 +15,7 @@ import (
 
 func TestSuccessfulGetTagMessagesRequest(t *testing.T) {
 	cfg, repo, repoPath, client := setupRefService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	message1 := strings.Repeat("a", helper.MaxCommitOrTagMessageSize*2)
 	message2 := strings.Repeat("b", helper.MaxCommitOrTagMessageSize)
@@ -70,8 +68,7 @@ func TestFailedGetTagMessagesRequest(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			c, err := client.GetTagMessages(ctx, testCase.request)
 			require.NoError(t, err)

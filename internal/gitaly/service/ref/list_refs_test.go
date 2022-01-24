@@ -15,9 +15,7 @@ import (
 
 func TestServer_ListRefs(t *testing.T) {
 	cfg, _, _, client := setupRefService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	storagePath, ok := cfg.StoragePath("default")
 	require.True(t, ok)

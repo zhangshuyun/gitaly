@@ -37,8 +37,7 @@ func TestUpdate_customHooks(t *testing.T) {
 		Protocol: "web",
 	}
 
-	ctx, cleanup := testhelper.Context()
-	defer cleanup()
+	ctx := testhelper.Context(t)
 
 	payload, err := git.NewHooksPayload(cfg, repo, nil, receiveHooksPayload, git.UpdateHook, featureflag.RawFromContext(ctx)).Env()
 	require.NoError(t, err)
@@ -206,8 +205,7 @@ func TestUpdate_customHooks(t *testing.T) {
 }
 
 func TestUpdate_quarantine(t *testing.T) {
-	ctx, cleanup := testhelper.Context()
-	defer cleanup()
+	ctx := testhelper.Context(t)
 
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 

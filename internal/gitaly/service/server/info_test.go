@@ -27,9 +27,7 @@ func TestGitalyServerInfo(t *testing.T) {
 	addr := runServer(t, cfg, testserver.WithDisablePraefect())
 
 	client := newServerClient(t, addr)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	require.NoError(t, storage.WriteMetadataFile(cfg.Storages[0].Path))
 	metadata, err := storage.ReadMetadataFile(cfg.Storages[0].Path)
@@ -70,9 +68,7 @@ func TestServerNoAuth(t *testing.T) {
 	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	require.NoError(t, err)
 	t.Cleanup(func() { testhelper.MustClose(t, conn) })
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	client := gitalypb.NewServerServiceClient(conn)
 	_, err = client.ServerInfo(ctx, &gitalypb.ServerInfoRequest{})

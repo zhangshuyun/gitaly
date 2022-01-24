@@ -21,9 +21,8 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
-func getSnapshot(client gitalypb.RepositoryServiceClient, req *gitalypb.GetSnapshotRequest) ([]byte, error) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+func getSnapshot(t testing.TB, client gitalypb.RepositoryServiceClient, req *gitalypb.GetSnapshotRequest) ([]byte, error) {
+	ctx := testhelper.Context(t)
 
 	stream, err := client.GetSnapshot(ctx, req)
 	if err != nil {
@@ -62,7 +61,7 @@ func TestGetSnapshotSuccess(t *testing.T) {
 	touch(t, filepath.Join(repoPath, "objects/this-should-not-be-included"))
 
 	req := &gitalypb.GetSnapshotRequest{Repository: repo}
-	data, err := getSnapshot(client, req)
+	data, err := getSnapshot(t, client, req)
 	require.NoError(t, err)
 
 	entries, err := archive.TarEntries(bytes.NewReader(data))
@@ -83,9 +82,7 @@ func TestGetSnapshotSuccess(t *testing.T) {
 
 func TestGetSnapshotWithDedupe(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc              string
@@ -162,9 +159,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 
 func TestGetSnapshot_alternateObjectDirectory(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
@@ -184,7 +179,7 @@ func TestGetSnapshot_alternateObjectDirectory(t *testing.T) {
 			require.NoError(t, os.Remove(alternatesFile))
 		}()
 
-		_, err = getSnapshot(client, req)
+		_, err = getSnapshot(t, client, req)
 		require.NoError(t, err)
 	})
 
@@ -199,7 +194,7 @@ func TestGetSnapshot_alternateObjectDirectory(t *testing.T) {
 			require.NoError(t, os.Remove(alternatesFile))
 		}()
 
-		_, err = getSnapshot(client, &gitalypb.GetSnapshotRequest{Repository: repo})
+		_, err = getSnapshot(t, client, &gitalypb.GetSnapshotRequest{Repository: repo})
 		require.NoError(t, err)
 	})
 
@@ -211,7 +206,7 @@ func TestGetSnapshot_alternateObjectDirectory(t *testing.T) {
 			require.NoError(t, os.Remove(alternatesFile))
 		}()
 
-		_, err = getSnapshot(client, req)
+		_, err = getSnapshot(t, client, req)
 		require.NoError(t, err)
 	})
 
@@ -247,7 +242,7 @@ func copyRepoUsingSnapshot(t *testing.T, ctx context.Context, cfg config.Cfg, cl
 	t.Helper()
 	// create the tar
 	req := &gitalypb.GetSnapshotRequest{Repository: source}
-	data, err := getSnapshot(client, req)
+	data, err := getSnapshot(t, client, req)
 	require.NoError(t, err)
 
 	secret := "my secret"
@@ -282,7 +277,7 @@ func TestGetSnapshotFailsIfRepositoryMissing(t *testing.T) {
 	}
 
 	req := &gitalypb.GetSnapshotRequest{Repository: repo}
-	data, err := getSnapshot(client, req)
+	data, err := getSnapshot(t, client, req)
 	testhelper.RequireGrpcCode(t, err, codes.NotFound)
 	require.Empty(t, data)
 }
@@ -297,7 +292,7 @@ func TestGetSnapshotFailsIfRepositoryContainsSymlink(t *testing.T) {
 	require.NoError(t, os.Symlink("HEAD", packedRefsFile))
 
 	req := &gitalypb.GetSnapshotRequest{Repository: repo}
-	data, err := getSnapshot(client, req)
+	data, err := getSnapshot(t, client, req)
 	testhelper.RequireGrpcCode(t, err, codes.Internal)
 	require.Contains(t, err.Error(), "building snapshot failed")
 

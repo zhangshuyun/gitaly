@@ -14,9 +14,7 @@ import (
 
 func TestDisconnectGitAlternates(t *testing.T) {
 	cfg, repo, repoPath, locator, client := setup(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
@@ -54,9 +52,7 @@ func TestDisconnectGitAlternates(t *testing.T) {
 
 func TestDisconnectGitAlternatesNoAlternates(t *testing.T) {
 	cfg, repo, repoPath, locator, client := setup(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	altPath, err := locator.InfoAlternatesPath(repo)
 	require.NoError(t, err, "find info/alternates")
@@ -70,9 +66,7 @@ func TestDisconnectGitAlternatesNoAlternates(t *testing.T) {
 
 func TestDisconnectGitAlternatesUnexpectedAlternates(t *testing.T) {
 	cfg, _, _, locator, client := setup(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	testCases := []struct {
 		desc       string
@@ -103,9 +97,7 @@ func TestDisconnectGitAlternatesUnexpectedAlternates(t *testing.T) {
 
 func TestRemoveAlternatesIfOk(t *testing.T) {
 	cfg, repo, repoPath, locator, _ := setup(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	altPath, err := locator.InfoAlternatesPath(repo)
 	require.NoError(t, err, "find info/alternates")

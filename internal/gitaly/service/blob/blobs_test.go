@@ -35,9 +35,7 @@ func TestListBlobs(t *testing.T) {
 		streamio.WriteBufferSize = oldValue
 	}(streamio.WriteBufferSize)
 	streamio.WriteBufferSize = 200
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repoProto, repoPath, client := setup(t)
 
@@ -283,9 +281,7 @@ func TestListBlobs(t *testing.T) {
 
 func TestListAllBlobs(t *testing.T) {
 	cfg, repo, _, client := setup(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	quarantine, err := quarantine.New(ctx, repo, config.NewLocator(cfg))
 	require.NoError(t, err)
@@ -421,9 +417,7 @@ func TestListAllBlobs(t *testing.T) {
 
 func BenchmarkListAllBlobs(b *testing.B) {
 	b.StopTimer()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(b)
 
 	_, repoProto, _, client := setup(b)
 
@@ -467,9 +461,7 @@ func BenchmarkListAllBlobs(b *testing.B) {
 
 func BenchmarkListBlobs(b *testing.B) {
 	b.StopTimer()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(b)
 
 	_, repoProto, _, client := setup(b)
 

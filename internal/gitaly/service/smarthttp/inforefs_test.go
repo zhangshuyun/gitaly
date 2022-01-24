@@ -39,9 +39,7 @@ func TestSuccessfulInfoRefsUploadPack(t *testing.T) {
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 
 	rpcRequest := &gitalypb.InfoRefsRequest{Repository: repo}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	response, err := makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest)
 	require.NoError(t, err)
@@ -62,9 +60,7 @@ func TestInfoRefsUploadPack_repositoryDoesntExist(t *testing.T) {
 		StorageName:  cfg.Storages[0].Name,
 		RelativePath: "doesnt/exist",
 	}}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, err := makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest)
 	testhelper.RequireGrpcError(t, helper.ErrNotFoundf(`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/doesnt/exist"`), err)
@@ -76,9 +72,7 @@ func TestSuccessfulInfoRefsUploadWithPartialClone(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	serverSocketPath := runSmartHTTPServer(t, cfg)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	request := &gitalypb.InfoRefsRequest{
 		Repository: repo,
@@ -108,9 +102,7 @@ func TestSuccessfulInfoRefsUploadPackWithGitConfigOptions(t *testing.T) {
 		Repository:       repo,
 		GitConfigOptions: []string{"transfer.hideRefs=refs"},
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	response, err := makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest)
 	require.NoError(t, err)
@@ -121,9 +113,7 @@ func TestSuccessfulInfoRefsUploadPackWithGitProtocol(t *testing.T) {
 	t.Parallel()
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	gitCmdFactory, readProtocol := gittest.EnableGitProtocolV2Support(ctx, t, cfg)
 
@@ -180,9 +170,7 @@ func TestSuccessfulInfoRefsReceivePack(t *testing.T) {
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 
 	rpcRequest := &gitalypb.InfoRefsRequest{Repository: repo}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	response, err := makeInfoRefsReceivePackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest)
 	require.NoError(t, err)
@@ -201,9 +189,7 @@ func TestObjectPoolRefAdvertisementHiding(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, cfg)
 
 	serverSocketPath := runSmartHTTPServer(t, cfg)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	pool, err := objectpool.NewObjectPool(
 		config.NewLocator(cfg),
@@ -240,9 +226,7 @@ func TestFailureRepoNotFoundInfoRefsReceivePack(t *testing.T) {
 
 	repo := &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "testdata/scratch/another_repo"}
 	rpcRequest := &gitalypb.InfoRefsRequest{Repository: repo}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	_, err := makeInfoRefsReceivePackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest)
 	msg := `GetRepoPath: not a git repository: "` + cfg.Storages[0].Path + "/" + repo.RelativePath + `"`
 	testhelper.RequireGrpcError(t, helper.ErrNotFoundf(msg), err)
@@ -256,9 +240,7 @@ func TestFailureRepoNotSetInfoRefsReceivePack(t *testing.T) {
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 
 	rpcRequest := &gitalypb.InfoRefsRequest{}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	_, err := makeInfoRefsReceivePackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest)
 	testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 }
@@ -329,9 +311,7 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 	gitalyServer := startSmartHTTPServer(t, cfg, withInfoRefCache(mockInfoRefCache))
 
 	rpcRequest := &gitalypb.InfoRefsRequest{Repository: repo}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	// The key computed for the cache entry takes into account all feature flags. Because
 	// Praefect explicitly injects all unset feature flags, the key is thus differend depending

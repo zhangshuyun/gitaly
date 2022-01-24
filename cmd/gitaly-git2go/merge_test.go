@@ -21,9 +21,7 @@ import (
 
 func TestMerge_missingArguments(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 	executor := buildExecutor(t, cfg)
@@ -80,9 +78,7 @@ func TestMerge_missingArguments(t *testing.T) {
 
 func TestMerge_invalidRepositoryPath(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 	testcfg.BuildGitalyGit2Go(t, cfg)
@@ -97,9 +93,7 @@ func TestMerge_invalidRepositoryPath(t *testing.T) {
 
 func TestMerge_trees(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	testcases := []struct {
 		desc             string
@@ -247,9 +241,7 @@ func TestMerge_trees(t *testing.T) {
 
 func TestMerge_recursive(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyGit2Go(t, cfg)

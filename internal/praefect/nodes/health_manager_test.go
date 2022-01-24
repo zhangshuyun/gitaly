@@ -49,8 +49,7 @@ func getHealthConsensus(ctx context.Context, t *testing.T, db glsql.Querier) map
 
 func TestHealthManager(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	type LocalStatus map[string]map[string]bool
 
@@ -556,8 +555,7 @@ func TestHealthManager(t *testing.T) {
 }
 
 func TestHealthManager_databaseTimeout(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	db := testdb.New(t)
 
@@ -626,9 +624,7 @@ func TestHealthManager_orderedWrites(t *testing.T) {
 
 	tx2 := db.Begin(t).Tx
 	defer func() { _ = tx2.Rollback() }()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	const (
 		praefectName   = "praefect-1"

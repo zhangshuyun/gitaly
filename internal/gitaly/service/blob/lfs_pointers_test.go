@@ -64,9 +64,7 @@ var lfsPointers = map[string]*gitalypb.LFSPointer{
 
 func TestListLFSPointers(t *testing.T) {
 	_, repo, _, client := setup(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc             string
@@ -172,8 +170,7 @@ func TestListLFSPointers(t *testing.T) {
 }
 
 func TestListAllLFSPointers(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	receivePointers := func(t *testing.T, stream gitalypb.BlobService_ListAllLFSPointersClient) []*gitalypb.LFSPointer {
 		t.Helper()
@@ -289,9 +286,7 @@ size 12345`
 
 func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
 	_, repo, _, client := setup(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	lfsPointerIds := []string{
 		lfsPointer1,
@@ -334,9 +329,7 @@ func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
 
 func TestFailedGetLFSPointersRequestDueToValidations(t *testing.T) {
 	_, repo, _, client := setup(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	testCases := []struct {
 		desc    string

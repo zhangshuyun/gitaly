@@ -122,8 +122,7 @@ func TestHooksPrePostReceive(t *testing.T) {
 }
 
 func testHooksPrePostReceive(t *testing.T, cfg config.Cfg, repo *gitalypb.Repository, repoPath string) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	secretToken := "secret token"
 	glID := "key-1234"
@@ -245,8 +244,7 @@ func testHooksPrePostReceive(t *testing.T, cfg config.Cfg, repo *gitalypb.Reposi
 }
 
 func TestHooksUpdate(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	glID := "key-1234"
 	glUsername := "iamgitlab"
@@ -401,8 +399,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			hooksPayload, err := git.NewHooksPayload(
 				cfg,
@@ -474,9 +471,7 @@ func TestHooksNotAllowed(t *testing.T) {
 	runHookServiceWithGitlabClient(t, cfg, gitlabClient)
 
 	var stderr, stdout bytes.Buffer
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	preReceiveHookPath, err := filepath.Abs("../../ruby/git-hooks/pre-receive")
 	require.NoError(t, err)
@@ -676,8 +671,7 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			hook.Reset()
 

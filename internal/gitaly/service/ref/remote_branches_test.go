@@ -15,8 +15,7 @@ import (
 )
 
 func TestSuccessfulFindAllRemoteBranchesRequest(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repoProto, repoPath, client := setupRefService(t)
 
@@ -101,8 +100,7 @@ func TestInvalidFindAllRemoteBranchesRequest(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			c, err := client.FindAllRemoteBranches(ctx, tc.request)
 			require.NoError(t, err)
 

@@ -24,9 +24,7 @@ func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, cfg)
 
 	repo := localrepo.NewTestRepo(t, cfg, protoRepo)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	headCommit, err := repo.ReadCommit(ctx, "HEAD")
 	require.NoError(t, err)
@@ -105,9 +103,7 @@ func requireEntry(t *testing.T, entry *gitalypb.ApplyBfgObjectMapStreamResponse_
 
 func TestApplyBfgObjectMapStreamFailsOnInvalidInput(t *testing.T) {
 	_, repo, _, client := setupCleanupService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	entries, err := doStreamingRequest(ctx, t, repo, client, "invalid-data here as you can see")
 	require.Empty(t, entries)

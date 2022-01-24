@@ -24,8 +24,7 @@ type ReaderFunc func([]byte) (int, error)
 func (fn ReaderFunc) Read(b []byte) (int, error) { return fn(b) }
 
 func TestRepo_WriteBlob(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, repoPath := setupRepo(t, withEmptyRepo())
 
@@ -152,8 +151,7 @@ func TestFormatTag(t *testing.T) {
 }
 
 func TestRepo_WriteTag(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath := setupRepo(t)
 
@@ -231,8 +229,7 @@ tagger root <root@localhost> 12345 -0100
 }
 
 func TestRepo_ReadObject(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, _ := setupRepo(t)
 
@@ -263,8 +260,7 @@ func TestRepo_ReadObject(t *testing.T) {
 }
 
 func TestRepo_ReadCommit(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, _ := setupRepo(t)
 
@@ -401,8 +397,7 @@ func TestRepo_ReadCommit(t *testing.T) {
 }
 
 func TestRepo_IsAncestor(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, _ := setupRepo(t)
 

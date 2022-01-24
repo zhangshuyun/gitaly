@@ -88,9 +88,7 @@ func TestSuccessfulListCommitsByOidRequest(t *testing.T) {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := testCase.request
 			request.Repository = repo
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			c, err := client.ListCommitsByOid(ctx, request)
 			require.NoError(t, err)
 
@@ -159,9 +157,7 @@ func TestSuccessfulListCommitsByOidLargeRequest(t *testing.T) {
 		Oid:        masterCommitids,
 		Repository: repo,
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	c, err := client.ListCommitsByOid(ctx, req)
 	require.NoError(t, err)
 

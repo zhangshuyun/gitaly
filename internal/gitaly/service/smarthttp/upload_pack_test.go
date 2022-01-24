@@ -42,8 +42,7 @@ func runTestWithAndWithoutConfigOptions(
 	makeRequest requestMaker,
 	opts ...testcfg.Option,
 ) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	t.Run("no config options", func(t *testing.T) { tf(t, ctx, makeRequest) })
 
@@ -235,18 +234,14 @@ func testServerPostUploadPackSuppressDeepenExitError(t *testing.T, ctx context.C
 
 func TestServer_PostUploadPack_usesPackObjectsHook(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	testServerPostUploadPackUsesPackObjectsHook(t, ctx, makePostUploadPackRequest)
 }
 
 func TestServer_PostUploadPackWithSidechannel_usesPackObjectsHook(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	testServerPostUploadPackUsesPackObjectsHook(t, ctx, makePostUploadPackWithSidechannelRequest)
 }
@@ -432,18 +427,14 @@ func testServerPostUploadPackPartialClone(t *testing.T, ctx context.Context, mak
 
 func TestServer_PostUploadPack_allowAnySHA1InWant(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	testServerPostUploadPackAllowAnySHA1InWant(t, ctx, makePostUploadPackRequest)
 }
 
 func TestServer_PostUploadPackWithSidechannel_allowAnySHA1InWant(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	testServerPostUploadPackAllowAnySHA1InWant(t, ctx, makePostUploadPackWithSidechannelRequest)
 }

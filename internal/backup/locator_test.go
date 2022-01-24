@@ -22,9 +22,7 @@ func TestLegacyLocator(t *testing.T) {
 
 	t.Run("Begin/Commit Full", func(t *testing.T) {
 		t.Parallel()
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		expected := &Step{
 			SkippableOnNotFound: true,
@@ -41,9 +39,7 @@ func TestLegacyLocator(t *testing.T) {
 
 	t.Run("FindLatest", func(t *testing.T) {
 		t.Parallel()
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		expected := &Backup{
 			Steps: []Step{
@@ -77,9 +73,7 @@ func TestPointerLocator(t *testing.T) {
 		var l Locator = PointerLocator{
 			Sink: NewFilesystemSink(backupPath),
 		}
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		const expectedIncrement = "001"
 		expected := &Step{
@@ -131,9 +125,7 @@ func TestPointerLocator(t *testing.T) {
 				backupPath := testhelper.TempDir(t)
 				sink := NewFilesystemSink(backupPath)
 				var l Locator = PointerLocator{Sink: sink}
-
-				ctx, cancel := testhelper.Context()
-				defer cancel()
+				ctx := testhelper.Context(t)
 
 				if tc.setup != nil {
 					tc.setup(t, ctx, sink)
@@ -180,9 +172,7 @@ func TestPointerLocator(t *testing.T) {
 			var l Locator = PointerLocator{
 				Sink: NewFilesystemSink(backupPath),
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			_, err := l.FindLatest(ctx, repo)
 			require.ErrorIs(t, err, ErrDoesntExist)
@@ -225,9 +215,7 @@ func TestPointerLocator(t *testing.T) {
 				Sink:     NewFilesystemSink(backupPath),
 				Fallback: LegacyLocator{},
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			expectedFallback := &Backup{
 				Steps: []Step{
@@ -269,9 +257,7 @@ func TestPointerLocator(t *testing.T) {
 			var l Locator = PointerLocator{
 				Sink: NewFilesystemSink(backupPath),
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			_, err := l.FindLatest(ctx, repo)
 			require.ErrorIs(t, err, ErrDoesntExist)
@@ -289,9 +275,7 @@ func TestPointerLocator(t *testing.T) {
 			var l Locator = PointerLocator{
 				Sink: NewFilesystemSink(backupPath),
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			_, err := l.FindLatest(ctx, repo)
 			require.ErrorIs(t, err, ErrDoesntExist)

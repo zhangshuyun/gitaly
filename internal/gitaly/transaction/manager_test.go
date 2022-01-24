@@ -46,9 +46,7 @@ func TestPoolManager_Vote(t *testing.T) {
 	cfg := testcfg.Build(t)
 
 	transactionServer, transactionServerAddr := runTransactionServer(t, cfg)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	registry := backchannel.NewRegistry()
 	backchannelConn, err := client.Dial(ctx, transactionServerAddr, nil, nil)
@@ -177,9 +175,7 @@ func TestPoolManager_Stop(t *testing.T) {
 	cfg := testcfg.Build(t)
 
 	transactionServer, transactionServerAddr := runTransactionServer(t, cfg)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	registry := backchannel.NewRegistry()
 	backchannelConn, err := client.Dial(ctx, transactionServerAddr, nil, nil)

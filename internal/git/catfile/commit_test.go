@@ -12,8 +12,7 @@ import (
 )
 
 func TestGetCommit(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, objectReader, _ := setupObjectReader(t, ctx)
 
@@ -59,8 +58,7 @@ func TestGetCommit(t *testing.T) {
 }
 
 func TestGetCommitWithTrailers(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, objectReader, testRepo := setupObjectReader(t, ctx)
 

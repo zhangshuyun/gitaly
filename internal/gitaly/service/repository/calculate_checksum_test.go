@@ -28,8 +28,7 @@ func TestSuccessfulCalculateChecksum(t *testing.T) {
 	gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
 
 	request := &gitalypb.CalculateChecksumRequest{Repository: repo}
-	testCtx, cancelCtx := testhelper.Context()
-	defer cancelCtx()
+	testCtx := testhelper.Context(t)
 
 	response, err := client.CalculateChecksum(testCtx, request)
 	require.NoError(t, err)
@@ -43,8 +42,7 @@ func TestEmptyRepositoryCalculateChecksum(t *testing.T) {
 	repo, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 	request := &gitalypb.CalculateChecksumRequest{Repository: repo}
-	testCtx, cancelCtx := testhelper.Context()
-	defer cancelCtx()
+	testCtx := testhelper.Context(t)
 
 	response, err := client.CalculateChecksum(testCtx, request)
 	require.NoError(t, err)
@@ -61,8 +59,7 @@ func TestBrokenRepositoryCalculateChecksum(t *testing.T) {
 	require.NoError(t, os.Truncate(filepath.Join(repoPath, "HEAD"), 0))
 
 	request := &gitalypb.CalculateChecksumRequest{Repository: repo}
-	testCtx, cancelCtx := testhelper.Context()
-	defer cancelCtx()
+	testCtx := testhelper.Context(t)
 
 	_, err := client.CalculateChecksum(testCtx, request)
 	testhelper.RequireGrpcCode(t, err, codes.DataLoss)
@@ -92,8 +89,7 @@ func TestFailedCalculateChecksum(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testCtx, cancelCtx := testhelper.Context()
-		defer cancelCtx()
+		testCtx := testhelper.Context(t)
 
 		_, err := client.CalculateChecksum(testCtx, testCase.request)
 		testhelper.RequireGrpcCode(t, err, testCase.code)
@@ -112,8 +108,7 @@ func TestInvalidRefsCalculateChecksum(t *testing.T) {
 	require.NoError(t, exec.Command("cp", "testdata/checksum-test-invalid-refs", filepath.Join(repoPath, "packed-refs")).Run())
 
 	request := &gitalypb.CalculateChecksumRequest{Repository: repo}
-	testCtx, cancelCtx := testhelper.Context()
-	defer cancelCtx()
+	testCtx := testhelper.Context(t)
 
 	response, err := client.CalculateChecksum(testCtx, request)
 	require.NoError(t, err)

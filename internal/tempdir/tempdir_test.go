@@ -1,6 +1,7 @@
 package tempdir
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,8 +13,7 @@ import (
 )
 
 func TestNewRepositorySuccess(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 	cfg := testcfg.Build(t)
 	locator := config.NewLocator(cfg)
@@ -40,9 +40,7 @@ func TestNewRepositorySuccess(t *testing.T) {
 func TestNewWithPrefix(t *testing.T) {
 	cfg := testcfg.Build(t)
 	locator := config.NewLocator(cfg)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	dir, err := NewWithPrefix(ctx, cfg.Storages[0].Name, "foobar-", locator)
 	require.NoError(t, err)
@@ -51,8 +49,7 @@ func TestNewWithPrefix(t *testing.T) {
 }
 
 func TestNewAsRepositoryFailStorageUnknown(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	_, err := New(ctx, "does-not-exist", config.NewLocator(config.Cfg{}))
 	require.Error(t, err)
 }

@@ -15,8 +15,7 @@ import (
 )
 
 func TestFindRefsByOID_successful(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath, client := setupRefService(t)
 
@@ -116,8 +115,7 @@ func TestFindRefsByOID_successful(t *testing.T) {
 }
 
 func TestFindRefsByOID_failure(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, client := setupRefServiceWithoutRepo(t)
 
@@ -204,8 +202,7 @@ func TestFindRefsByOID_failure(t *testing.T) {
 }
 
 func TestFindRefsByOID_validation(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, _, client := setupRefService(t)
 

@@ -77,8 +77,7 @@ func TestCheckTokenV2(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			md := metautils.NiceMD{}
 			md.Set("authorization", "Bearer "+tc.token)

@@ -62,8 +62,7 @@ func checkHealth(t *testing.T, ctx context.Context, cc *grpc.ClientConn) {
 }
 
 func TestMux_normalClientNoMux(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	addr := serverWithHandshaker(t, nil)
 
@@ -75,8 +74,7 @@ func TestMux_normalClientNoMux(t *testing.T) {
 }
 
 func TestMux_normalClientMuxIgnored(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	addr := serverWithHandshaker(t,
 		handshakeFunc(func(net.Conn, credentials.AuthInfo) (net.Conn, credentials.AuthInfo, error) {
@@ -93,8 +91,7 @@ func TestMux_normalClientMuxIgnored(t *testing.T) {
 }
 
 func TestMux_muxClientPassesThrough(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	handshakerCalled := false
 
@@ -219,9 +216,7 @@ func TestMux_concurrency(t *testing.T) {
 
 	streamClientErrors := make(chan error, N)
 	grpcHealthErrors := make(chan error, N)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	for i := 0; i < N; i++ {
 		go func() {

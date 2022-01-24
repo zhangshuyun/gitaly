@@ -130,9 +130,7 @@ func TestDial(t *testing.T) {
 			if tt.envSSLCertFile != "" {
 				testhelper.ModifyEnvironment(t, gitalyx509.SSLCertFile, tt.envSSLCertFile)
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			conn, err := Dial(tt.rawAddress, tt.dialOpts)
 			if tt.expectDialFailure {
@@ -220,9 +218,7 @@ func TestDialSidechannel(t *testing.T) {
 			if tt.envSSLCertFile != "" {
 				testhelper.ModifyEnvironment(t, gitalyx509.SSLCertFile, tt.envSSLCertFile)
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			conn, err := DialSidechannel(ctx, tt.rawAddress, registry, tt.dialOpts)
 			require.NoError(t, err)
@@ -298,9 +294,7 @@ func TestDial_Correlation(t *testing.T) {
 		go func() { assert.NoError(t, grpcServer.Serve(listener)) }()
 
 		defer grpcServer.Stop()
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		cc, err := DialContext(ctx, "unix://"+serverSocketPath, nil)
 		require.NoError(t, err)
@@ -333,9 +327,7 @@ func TestDial_Correlation(t *testing.T) {
 
 		go func() { assert.NoError(t, grpcServer.Serve(listener)) }()
 		defer grpcServer.Stop()
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		cc, err := DialContext(ctx, "unix://"+serverSocketPath, nil)
 		require.NoError(t, err)
@@ -396,9 +388,7 @@ func TestDial_Tracing(t *testing.T) {
 
 	go func() { require.NoError(t, grpcServer.Serve(listener)) }()
 	defer grpcServer.Stop()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	t.Run("unary", func(t *testing.T) {
 		reporter := jaeger.NewInMemoryReporter()
@@ -627,9 +617,7 @@ func emitProxyWarning() bool {
 func TestHealthCheckDialer(t *testing.T) {
 	_, addr, cleanup := runServer(t, "token")
 	defer cleanup()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, err := HealthCheckDialer(DialContext)(ctx, addr, nil)
 	testhelper.RequireGrpcError(t, status.Error(codes.Unauthenticated, "authentication required"), err)

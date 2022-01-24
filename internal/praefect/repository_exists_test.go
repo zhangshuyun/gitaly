@@ -69,9 +69,7 @@ func TestRepositoryExistsHandler(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			db.TruncateAll(t)
 			rs := datastore.NewPostgresRepositoryStore(db, map[string][]string{"virtual-storage": {"storage"}})
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			require.NoError(t, rs.CreateRepository(ctx, 0, "virtual-storage", "relative-path", "relative-path", "storage", nil, nil, false, false))
 

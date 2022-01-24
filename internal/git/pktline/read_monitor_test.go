@@ -17,9 +17,7 @@ import (
 func TestReadMonitorTimeout(t *testing.T) {
 	waitPipeR, waitPipeW := io.Pipe()
 	defer waitPipeW.Close()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 	in := io.MultiReader(
 		strings.NewReader("000ftest string"),
@@ -51,9 +49,7 @@ func TestReadMonitorTimeout(t *testing.T) {
 
 func TestReadMonitorSuccess(t *testing.T) {
 	waitPipeR, waitPipeW := io.Pipe()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 	preTimeoutPayload := "000ftest string"
 	postTimeoutPayload := "0017post-timeout string"

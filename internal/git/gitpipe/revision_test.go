@@ -484,8 +484,7 @@ func TestRevlist(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			it := Revlist(ctx, repo, tc.revisions, tc.options...)
 
@@ -508,8 +507,7 @@ func TestRevlist(t *testing.T) {
 }
 
 func TestForEachRef(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	readRefs := func(t *testing.T, repo *localrepo.Repo, patterns []string, opts ...ForEachRefOption) []RevisionResult {
 		it := ForEachRef(ctx, repo, patterns, opts...)
@@ -608,8 +606,7 @@ func TestForEachRef(t *testing.T) {
 }
 
 func TestForEachRef_options(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		// prepare is a function that prepares a repository and returns an oid to match on

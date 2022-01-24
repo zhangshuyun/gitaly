@@ -95,8 +95,7 @@ func TestRepositoryExists(t *testing.T) {
 
 	for _, tc := range queries {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			response, err := client.RepositoryExists(ctx, tc.request)
 
 			require.Equal(t, tc.errorCode, helper.GrpcCode(err))
@@ -145,8 +144,7 @@ func TestSuccessfulHasLocalBranches(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			response, err := client.HasLocalBranches(ctx, tc.request)
 
@@ -183,8 +181,7 @@ func TestFailedHasLocalBranches(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			request := &gitalypb.HasLocalBranchesRequest{Repository: tc.repository}
 			_, err := client.HasLocalBranches(ctx, request)

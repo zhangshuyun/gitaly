@@ -131,8 +131,7 @@ func TestGetArchiveSuccess(t *testing.T) {
 		for _, format := range formats {
 			testCaseName := fmt.Sprintf("%s-%s", tc.desc, format.String())
 			t.Run(testCaseName, func(t *testing.T) {
-				ctx, cancel := testhelper.Context()
-				defer cancel()
+				ctx := testhelper.Context(t)
 
 				req := &gitalypb.GetArchiveRequest{
 					Repository: repo,
@@ -229,8 +228,7 @@ func TestGetArchiveWithLfsSuccess(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			req := &gitalypb.GetArchiveRequest{
 				Repository:      repo,
@@ -387,8 +385,7 @@ func TestGetArchiveFailure(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			req := &gitalypb.GetArchiveRequest{
 				Repository: tc.repo,
@@ -411,9 +408,7 @@ func TestGetArchiveFailure(t *testing.T) {
 func TestGetArchivePathInjection(t *testing.T) {
 	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryServiceWithWorktree(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	// Adding a temp directory representing the .ssh directory
 	sshDirectory := testhelper.TempDir(t)
@@ -478,9 +473,7 @@ func TestGetArchiveEnv(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	gitCmdFactory := gittest.NewInterceptingCommandFactory(ctx, t, cfg, func(git.ExecutionEnvironment) string {
 		return `#!/bin/sh

@@ -101,9 +101,7 @@ func TestListFiles_success(t *testing.T) {
 			rpcRequest := gitalypb.ListFilesRequest{
 				Repository: repo, Revision: []byte(tc.revision),
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			c, err := client.ListFiles(ctx, &rpcRequest)
 			require.NoError(t, err)
@@ -169,9 +167,7 @@ func TestListFiles_unbornBranch(t *testing.T) {
 			rpcRequest := gitalypb.ListFilesRequest{
 				Repository: repo, Revision: []byte(tc.revision),
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			c, err := client.ListFiles(ctx, &rpcRequest)
 			require.NoError(t, err)
@@ -229,9 +225,7 @@ func TestListFiles_failure(t *testing.T) {
 			rpcRequest := gitalypb.ListFilesRequest{
 				Repository: tc.repo, Revision: []byte("master"),
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			c, err := client.ListFiles(ctx, &rpcRequest)
 			require.NoError(t, err)
@@ -256,9 +250,7 @@ func drainListFilesResponse(c gitalypb.CommitService_ListFilesClient) error {
 func TestListFiles_invalidRevision(t *testing.T) {
 	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	stream, err := client.ListFiles(ctx, &gitalypb.ListFilesRequest{
 		Repository: repo,

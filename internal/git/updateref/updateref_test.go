@@ -33,8 +33,7 @@ func setupUpdater(t *testing.T, ctx context.Context) (config.Cfg, *localrepo.Rep
 }
 
 func TestCreate(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, updater := setupUpdater(t, ctx)
 
@@ -54,8 +53,7 @@ func TestCreate(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, updater := setupUpdater(t, ctx)
 
@@ -91,8 +89,7 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, updater := setupUpdater(t, ctx)
 
@@ -107,8 +104,7 @@ func TestDelete(t *testing.T) {
 }
 
 func TestUpdater_prepareLocksTransaction(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, updater := setupUpdater(t, ctx)
 
@@ -126,9 +122,7 @@ func TestUpdater_prepareLocksTransaction(t *testing.T) {
 
 func TestUpdater_concurrentLocking(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, protoRepo, _ := testcfg.BuildWithRepo(t)
 	repo := localrepo.NewTestRepo(t, cfg, protoRepo, git.WithSkipHooks())
@@ -164,8 +158,7 @@ func TestUpdater_concurrentLocking(t *testing.T) {
 }
 
 func TestBulkOperation(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, updater := setupUpdater(t, ctx)
 
@@ -185,8 +178,7 @@ func TestBulkOperation(t *testing.T) {
 }
 
 func TestContextCancelAbortsRefChanges(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repo, _ := setupUpdater(t, ctx)
 
@@ -212,8 +204,7 @@ func TestContextCancelAbortsRefChanges(t *testing.T) {
 }
 
 func TestUpdater_cancel(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, updater := setupUpdater(t, ctx)
 
@@ -239,8 +230,7 @@ func TestUpdater_cancel(t *testing.T) {
 }
 
 func TestUpdater_closingStdinAbortsChanges(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, updater := setupUpdater(t, ctx)
 
@@ -266,9 +256,7 @@ func TestUpdater_closingStdinAbortsChanges(t *testing.T) {
 
 func TestUpdater_capturesStderr(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, _, updater := setupUpdater(t, ctx)
 

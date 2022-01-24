@@ -72,9 +72,7 @@ func createFromSnapshot(t *testing.T, ctx context.Context, req *gitalypb.CreateR
 
 func TestCreateRepositoryFromSnapshot_success(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
 	_, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
@@ -124,9 +122,7 @@ func TestCreateRepositoryFromSnapshot_success(t *testing.T) {
 
 func TestCreateRepositoryFromSnapshot_repositoryExists(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
 
@@ -146,9 +142,7 @@ func TestCreateRepositoryFromSnapshot_repositoryExists(t *testing.T) {
 
 func TestCreateRepositoryFromSnapshot_badURL(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
 	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
@@ -167,9 +161,7 @@ func TestCreateRepositoryFromSnapshot_badURL(t *testing.T) {
 
 func TestCreateRepositoryFromSnapshot_invalidArguments(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	testCases := []struct {
 		desc        string
@@ -227,9 +219,7 @@ func TestCreateRepositoryFromSnapshot_invalidArguments(t *testing.T) {
 
 func TestCreateRepositoryFromSnapshot_malformedResponse(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
 	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])

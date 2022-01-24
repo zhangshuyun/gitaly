@@ -64,8 +64,7 @@ func TestCommitIsAncestorFailure(t *testing.T) {
 
 	for _, v := range queries {
 		t.Run(fmt.Sprintf("%v", v.Request), func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			if _, err := client.CommitIsAncestor(ctx, v.Request); err == nil {
 				t.Error("Expected to throw an error")
 			} else if helper.GrpcCode(err) != v.ErrorCode {
@@ -151,8 +150,7 @@ func TestCommitIsAncestorSuccess(t *testing.T) {
 
 	for _, v := range queries {
 		t.Run(fmt.Sprintf("%v", v.Request), func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			c, err := client.CommitIsAncestor(ctx, v.Request)
 			require.NoError(t, err)
 
@@ -199,9 +197,7 @@ func TestSuccessfulIsAncestorRequestWithAltGitObjectDirs(t *testing.T) {
 				AncestorId: string(parentCommitID),
 				ChildId:    commitID.String(),
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			response, err := client.CommitIsAncestor(ctx, request)
 			require.NoError(t, err)
 

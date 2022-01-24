@@ -43,9 +43,7 @@ func TestSuccessfulRawBlameRequest(t *testing.T) {
 				Revision:   testCase.revision,
 				Path:       testCase.path,
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			c, err := client.RawBlame(ctx, request)
 			require.NoError(t, err)
 
@@ -111,9 +109,7 @@ func TestFailedRawBlameRequest(t *testing.T) {
 				Revision:   testCase.revision,
 				Path:       testCase.path,
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			c, err := client.RawBlame(ctx, &request)
 			require.NoError(t, err)
 

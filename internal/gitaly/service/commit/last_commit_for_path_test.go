@@ -60,9 +60,7 @@ func TestSuccessfulLastCommitForPathRequest(t *testing.T) {
 				Revision:   []byte(testCase.revision),
 				Path:       testCase.path,
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			response, err := client.LastCommitForPath(ctx, request)
 			require.NoError(t, err)
@@ -109,8 +107,7 @@ func TestFailedLastCommitForPathRequest(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			_, err := client.LastCommitForPath(ctx, testCase.request)
 			testhelper.RequireGrpcCode(t, err, testCase.code)
 		})
@@ -137,9 +134,7 @@ func TestSuccessfulLastCommitWithGlobCharacters(t *testing.T) {
 		Path:            []byte(path),
 		LiteralPathspec: true,
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	response, err := client.LastCommitForPath(ctx, request)
 	require.NoError(t, err)
 	require.NotNil(t, response.GetCommit())

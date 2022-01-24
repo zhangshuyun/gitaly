@@ -257,8 +257,7 @@ func TestListCommits(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			stream, err := client.ListCommits(ctx, tc.request)
 			require.NoError(t, err)

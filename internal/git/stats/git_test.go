@@ -22,9 +22,7 @@ func TestLogObjectInfo(t *testing.T) {
 
 	repo1, repoPath1 := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	repo2, repoPath2 := gittest.CloneRepo(t, cfg, cfg.Storages[0])
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 

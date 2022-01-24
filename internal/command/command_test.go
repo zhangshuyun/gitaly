@@ -2,6 +2,7 @@ package command
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os/exec"
@@ -23,8 +24,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestNewCommandExtraEnv(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	extraVar := "FOOBAR=123456"
 	buff := &bytes.Buffer{}
@@ -37,8 +37,7 @@ func TestNewCommandExtraEnv(t *testing.T) {
 }
 
 func TestNewCommandExportedEnv(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	testCases := []struct {
 		key   string
@@ -130,8 +129,7 @@ func TestNewCommandExportedEnv(t *testing.T) {
 }
 
 func TestNewCommandUnexportedEnv(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	unexportedEnvKey, unexportedEnvVal := "GITALY_UNEXPORTED_ENV", "foobar"
 	testhelper.ModifyEnvironment(t, unexportedEnvKey, unexportedEnvVal)
@@ -163,8 +161,7 @@ func TestRejectEmptyContextDone(t *testing.T) {
 }
 
 func TestNewCommandTimeout(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	defer func(ch chan struct{}, t time.Duration) {
 		spawnTokens = ch
@@ -207,8 +204,7 @@ wait:
 }
 
 func TestCommand_Wait_interrupts_after_context_cancellation(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 	cmd, err := New(ctx, exec.CommandContext(ctx, "sleep", "1h"), nil, nil, nil)
 	require.NoError(t, err)
@@ -224,8 +220,7 @@ func TestCommand_Wait_interrupts_after_context_cancellation(t *testing.T) {
 }
 
 func TestNewCommandWithSetupStdin(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	value := "Test value"
 	output := bytes.NewBuffer(nil)
@@ -245,8 +240,7 @@ func TestNewCommandWithSetupStdin(t *testing.T) {
 }
 
 func TestNewCommandNullInArg(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, err := New(ctx, exec.Command("sh", "-c", "hello\x00world"), nil, nil, nil)
 	require.Error(t, err)
@@ -254,8 +248,7 @@ func TestNewCommandNullInArg(t *testing.T) {
 }
 
 func TestNewNonExistent(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cmd, err := New(ctx, exec.Command("command-non-existent"), nil, nil, nil)
 	require.Nil(t, cmd)
@@ -263,8 +256,7 @@ func TestNewNonExistent(t *testing.T) {
 }
 
 func TestCommandStdErr(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	var stdout, stderr bytes.Buffer
 	expectedMessage := `hello world\nhello world\nhello world\nhello world\nhello world\n`
@@ -283,8 +275,7 @@ func TestCommandStdErr(t *testing.T) {
 }
 
 func TestCommandStdErrLargeOutput(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	var stdout, stderr bytes.Buffer
 
@@ -303,8 +294,7 @@ func TestCommandStdErrLargeOutput(t *testing.T) {
 }
 
 func TestCommandStdErrBinaryNullBytes(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	var stdout, stderr bytes.Buffer
 
@@ -323,8 +313,7 @@ func TestCommandStdErrBinaryNullBytes(t *testing.T) {
 }
 
 func TestCommandStdErrLongLine(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	var stdout, stderr bytes.Buffer
 
@@ -342,8 +331,7 @@ func TestCommandStdErrLongLine(t *testing.T) {
 }
 
 func TestCommandStdErrMaxBytes(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	var stdout, stderr bytes.Buffer
 

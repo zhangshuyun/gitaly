@@ -104,9 +104,7 @@ func TestCustomHookPartialFailure(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	globalCustomHooksDir := testhelper.TempDir(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	testCases := []struct {
 		hook                string
@@ -186,9 +184,7 @@ func TestCustomHooksMultipleHooks(t *testing.T) {
 	globalCustomHooksDir := testhelper.TempDir(t)
 
 	cfg.Hooks.CustomHooksDir = globalCustomHooksDir
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	var expectedExecutedScripts []string
 
@@ -234,9 +230,7 @@ func TestCustomHooksWithSymlinks(t *testing.T) {
 	globalCustomHooksDir := testhelper.TempDir(t)
 
 	cfg.Hooks.CustomHooksDir = globalCustomHooksDir
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	globalHooksPath := filepath.Join(globalCustomHooksDir, "update.d")
 
@@ -304,9 +298,7 @@ func TestMultilineStdin(t *testing.T) {
 	globalCustomHooksDir := testhelper.TempDir(t)
 
 	cfg.Hooks.CustomHooksDir = globalCustomHooksDir
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	projectHooksPath := filepath.Join(repoPath, "custom_hooks", "pre-receive.d")
 
@@ -336,9 +328,7 @@ func TestMultipleScriptsStdin(t *testing.T) {
 	globalCustomHooksDir := testhelper.TempDir(t)
 
 	cfg.Hooks.CustomHooksDir = globalCustomHooksDir
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	projectUpdateHooks := 9
 	projectHooksPath := filepath.Join(repoPath, "custom_hooks", "pre-receive.d")
@@ -371,8 +361,7 @@ func TestMultipleScriptsStdin(t *testing.T) {
 }
 
 func callAndVerifyHooks(t *testing.T, cfg config.Cfg, locator storage.Locator, repo *gitalypb.Repository, hookName, hookDir, stdin string, args, env []string) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	var stdout, stderr bytes.Buffer
 
 	cleanup := writeCustomHook(t, hookName, hookDir, printAllScript)

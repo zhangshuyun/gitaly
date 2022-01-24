@@ -61,9 +61,7 @@ func (cmd cloneCommand) execute(t *testing.T) error {
 	for _, flag := range cmd.featureFlags {
 		flagPairs = append(flagPairs, fmt.Sprintf("%s:true", flag))
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	env := []string{
 		fmt.Sprintf("GITALY_ADDRESS=%s", cmd.server),
@@ -119,9 +117,7 @@ func testFailedUploadPackRequestDueToTimeout(t *testing.T, opts ...testcfg.Optio
 
 	client, conn := newSSHClient(t, serverSocketPath)
 	defer conn.Close()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	stream, err := client.SSHUploadPack(ctx)
 	require.NoError(t, err)
@@ -202,8 +198,7 @@ func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			stream, err := client.SSHUploadPack(ctx)
 			if err != nil {
 				t.Fatal(err)
@@ -469,9 +464,7 @@ func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
 
 func testUploadPackCloneSuccessWithGitProtocol(t *testing.T, opts ...testcfg.Option) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t, opts...)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	gitCmdFactory, readProto := gittest.EnableGitProtocolV2Support(ctx, t, cfg)
 
@@ -604,9 +597,7 @@ func TestUploadPackCloneGitFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, gitconfig.Close())
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	stream, err := client.SSHUploadPack(ctx)
 	if err != nil {
 		t.Fatal(err)

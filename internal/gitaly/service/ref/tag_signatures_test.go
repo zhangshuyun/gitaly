@@ -16,8 +16,7 @@ import (
 )
 
 func TestGetTagSignatures(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repoProto, repoPath, client := setupRefService(t)
 

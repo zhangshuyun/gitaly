@@ -18,9 +18,7 @@ import (
 
 func TestServer_UserRevert_successful(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -177,9 +175,7 @@ func TestServer_UserRevert_successful(t *testing.T) {
 
 func TestServer_UserRevert_quarantine(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -220,9 +216,7 @@ func TestServer_UserRevert_quarantine(t *testing.T) {
 
 func TestServer_UserRevert_stableID(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
@@ -276,9 +270,7 @@ func TestServer_UserRevert_stableID(t *testing.T) {
 
 func TestServer_UserRevert_successfulIntoEmptyRepo(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, startRepoProto, _, client := setupOperationsService(t, ctx)
 
@@ -324,9 +316,7 @@ func TestServer_UserRevert_successfulIntoEmptyRepo(t *testing.T) {
 
 func TestServer_UserRevert_successfulGitHooks(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -364,9 +354,7 @@ func TestServer_UserRevert_successfulGitHooks(t *testing.T) {
 
 func TestServer_UserRevert_failuedDueToValidations(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
@@ -438,9 +426,7 @@ func TestServer_UserRevert_failuedDueToValidations(t *testing.T) {
 
 func TestServer_UserRevert_failedDueToPreReceiveError(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -475,9 +461,7 @@ func TestServer_UserRevert_failedDueToPreReceiveError(t *testing.T) {
 
 func TestServer_UserRevert_failedDueToCreateTreeErrorConflict(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -506,9 +490,7 @@ func TestServer_UserRevert_failedDueToCreateTreeErrorConflict(t *testing.T) {
 
 func TestServer_UserRevert_failedDueToCreateTreeErrorEmpty(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -541,9 +523,7 @@ func TestServer_UserRevert_failedDueToCreateTreeErrorEmpty(t *testing.T) {
 
 func TestServer_UserRevert_failedDueToCommitError(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 

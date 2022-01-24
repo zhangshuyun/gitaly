@@ -18,8 +18,7 @@ import (
 // into a stream. Further more, it demonstrates that peeking into a stream
 // will not disturb the stream sent from the proxy client to the backend.
 func TestStreamPeeking(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	backendCC, backendSrvr, cleanupPinger := newBackendPinger(t, ctx)
 	defer cleanupPinger()
@@ -76,8 +75,7 @@ func TestStreamPeeking(t *testing.T) {
 }
 
 func TestStreamInjecting(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	backendCC, backendSrvr, cleanupPinger := newBackendPinger(t, ctx)
 	defer cleanupPinger()

@@ -84,8 +84,7 @@ func TestListener_Listen(t *testing.T) {
 		}(-1)
 
 		handler := mockListenHandler{OnNotification: callback, OnConnected: func() { close(start) }}
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx, cancel := context.WithCancel(testhelper.Context(t))
 		allDone := make(chan struct{})
 		go func() {
 			waitFor(t, allReceivedChan)
@@ -99,8 +98,7 @@ func TestListener_Listen(t *testing.T) {
 	}
 
 	t.Run("listen on bad channel", func(t *testing.T) {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 		err := lis.Listen(ctx, mockListenHandler{}, "bad channel")
 		require.EqualError(t, err, `listen on channel(s): ERROR: syntax error at or near "channel" (SQLSTATE 42601)`)
 	})
@@ -157,9 +155,7 @@ func TestListener_Listen(t *testing.T) {
 			OnConnected:  func() { close(connected) },
 			OnDisconnect: func(error) { close(disconnected) },
 		}
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
@@ -182,9 +178,7 @@ func TestListener_Listen(t *testing.T) {
 func TestResilientListener_Listen(t *testing.T) {
 	t.Parallel()
 	db := testdb.New(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 	const channel = "channel_z"
 	logger, hook := test.NewNullLogger()
@@ -255,9 +249,7 @@ func TestListener_Listen_repositories_delete(t *testing.T) {
 	t.Parallel()
 	db := testdb.New(t)
 	dbConf := testdb.GetConfig(t, db.Name)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	verifyListener(
 		t,
@@ -291,9 +283,7 @@ func TestListener_Listen_storage_repositories_insert(t *testing.T) {
 	t.Parallel()
 	db := testdb.New(t)
 	dbConf := testdb.GetConfig(t, db.Name)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	verifyListener(
 		t,
@@ -323,9 +313,7 @@ func TestListener_Listen_storage_repositories_update(t *testing.T) {
 	t.Parallel()
 	db := testdb.New(t)
 	dbConf := testdb.GetConfig(t, db.Name)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	verifyListener(
 		t,
@@ -351,9 +339,7 @@ func TestListener_Listen_storage_empty_notification(t *testing.T) {
 	t.Parallel()
 	db := testdb.New(t)
 	dbConf := testdb.GetConfig(t, db.Name)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	verifyListener(
 		t,
@@ -373,9 +359,7 @@ func TestListener_Listen_storage_repositories_delete(t *testing.T) {
 	t.Parallel()
 	db := testdb.New(t)
 	dbConf := testdb.GetConfig(t, db.Name)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	verifyListener(
 		t,

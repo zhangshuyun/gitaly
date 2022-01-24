@@ -14,9 +14,7 @@ import (
 func TestWriteCommit(t *testing.T) {
 	cfg, repoProto, repoPath := setup(t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	catfileCache := catfile.NewCache(cfg)
 	defer catfileCache.Stop()

@@ -36,9 +36,7 @@ func TestServer_FetchBundle_success(t *testing.T) {
 	expectedRefs := gittest.Exec(t, cfg, "-C", repoPath, "show-ref", "--head")
 
 	targetRepo, targetRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	stream, err := client.FetchBundle(ctx)
 	require.NoError(t, err)
@@ -100,9 +98,7 @@ func TestServer_FetchBundle_transaction(t *testing.T) {
 	tmp := testhelper.TempDir(t)
 	bundlePath := filepath.Join(tmp, "test.bundle")
 	gittest.BundleTestRepo(t, cfg, "gitlab-test.git", bundlePath)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, stopGitServer := gittest.HTTPServer(ctx, t, gitCmdFactory, repoPath, nil)
 	defer func() { require.NoError(t, stopGitServer()) }()
@@ -176,9 +172,7 @@ func TestServer_FetchBundle_validation(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			_, client := setupRepositoryServiceWithoutRepo(t)
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			stream, err := client.FetchBundle(ctx)
 			require.NoError(t, err)

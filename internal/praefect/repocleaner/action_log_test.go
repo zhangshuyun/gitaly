@@ -10,8 +10,7 @@ import (
 )
 
 func TestLogWarnAction_Perform(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	logger, hook := test.NewNullLogger()
 	action := NewLogWarnAction(logger)

@@ -26,9 +26,7 @@ import (
 
 func TestRemoveRepositoryHandler(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	errServedByGitaly := status.Error(codes.Unknown, "request passed to Gitaly")
 	const virtualStorage, relativePath = "virtual-storage", "relative-path"

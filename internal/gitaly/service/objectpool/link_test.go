@@ -19,9 +19,7 @@ import (
 
 func TestLink(t *testing.T) {
 	cfg, repo, _, _, client := setup(t, testserver.WithDisablePraefect())
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	localRepo := localrepo.NewTestRepo(t, cfg, repo)
 
@@ -87,9 +85,7 @@ func TestLink(t *testing.T) {
 
 func TestLinkIdempotent(t *testing.T) {
 	cfg, repo, _, _, client := setup(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
 	require.NoError(t, pool.Create(ctx, repo))
@@ -108,9 +104,7 @@ func TestLinkIdempotent(t *testing.T) {
 
 func TestLinkNoClobber(t *testing.T) {
 	cfg, repo, repoPath, _, client := setup(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
 	require.NoError(t, pool.Create(ctx, repo))
@@ -135,9 +129,7 @@ func TestLinkNoClobber(t *testing.T) {
 
 func TestLinkNoPool(t *testing.T) {
 	cfg, repo, _, locator, client := setup(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
 	require.NoError(t, pool.Remove(ctx))

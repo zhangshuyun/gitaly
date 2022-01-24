@@ -139,9 +139,7 @@ func TestSuccessfulCommitsByMessageRequest(t *testing.T) {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := testCase.request
 			request.Repository = repo
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			c, err := client.CommitsByMessage(ctx, request)
 			require.NoError(t, err)
 
@@ -191,8 +189,7 @@ func TestFailedCommitsByMessageRequest(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			c, err := client.CommitsByMessage(ctx, testCase.request)
 			require.NoError(t, err)
 

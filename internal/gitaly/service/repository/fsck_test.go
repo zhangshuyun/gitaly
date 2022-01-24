@@ -14,8 +14,7 @@ import (
 
 func TestFsckSuccess(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, _, client := setupRepositoryService(t)
 
@@ -27,8 +26,7 @@ func TestFsckSuccess(t *testing.T) {
 
 func TestFsckFailureSeverelyBrokenRepo(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, repoPath, client := setupRepositoryService(t)
 
@@ -47,8 +45,7 @@ func TestFsckFailureSeverelyBrokenRepo(t *testing.T) {
 
 func TestFsckFailureSlightlyBrokenRepo(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, repoPath, client := setupRepositoryService(t)
 

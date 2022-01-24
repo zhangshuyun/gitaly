@@ -129,9 +129,7 @@ func TestLimiter(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			expectedGaugeMax := tt.maxConcurrency * tt.buckets
 			if tt.maxConcurrency <= 0 {
@@ -224,8 +222,7 @@ func (b *blockingCounter) Queued(_ context.Context) {
 
 func TestConcurrencyLimiter_queueLimit(t *testing.T) {
 	queueLimit := 10
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	testCases := []struct {
 		desc          string

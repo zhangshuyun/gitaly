@@ -22,9 +22,7 @@ func TestSuccessfulRepositorySizeRequest(t *testing.T) {
 	_, repo, _, client := setupRepositoryService(t)
 
 	request := &gitalypb.RepositorySizeRequest{Repository: repo}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	response, err := client.RepositorySize(ctx, request)
 	require.NoError(t, err)
 
@@ -53,9 +51,7 @@ func TestFailedRepositorySizeRequest(t *testing.T) {
 			request := &gitalypb.RepositorySizeRequest{
 				Repository: testCase.repo,
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			_, err := client.RepositorySize(ctx, request)
 			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 		})
@@ -66,9 +62,7 @@ func TestSuccessfulGetObjectDirectorySizeRequest(t *testing.T) {
 	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t)
 	repo.GitObjectDirectory = "objects/"
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	request := &gitalypb.GetObjectDirectorySizeRequest{Repository: repo}
 	response, err := client.GetObjectDirectorySize(ctx, request)
@@ -85,9 +79,7 @@ func TestGetObjectDirectorySize_quarantine(t *testing.T) {
 
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 	locator := config.NewLocator(cfg)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	t.Run("quarantined repo", func(t *testing.T) {
 		repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])

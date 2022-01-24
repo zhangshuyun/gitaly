@@ -71,8 +71,7 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			stream, err := client.SSHReceivePack(ctx)
 			require.NoError(t, err)
@@ -167,9 +166,7 @@ func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
 
 	testcfg.BuildGitalySSH(t, cfg)
 	testcfg.BuildGitalyHooks(t, cfg)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	gitCmdFactory, readProto := gittest.EnableGitProtocolV2Support(ctx, t, cfg)
 
@@ -212,9 +209,7 @@ func TestReceivePackPushHookFailure(t *testing.T) {
 	testcfg.BuildGitalySSH(t, cfg)
 
 	serverSocketPath := runSSHServer(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	hookContent := []byte("#!/bin/sh\nexit 1")
 	require.NoError(t, os.WriteFile(filepath.Join(gitCmdFactory.HooksPath(ctx), "pre-receive"), hookContent, 0o755))
@@ -235,9 +230,7 @@ func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 
 	client, conn := newSSHClient(t, serverSocketPath)
 	defer conn.Close()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	stream, err := client.SSHReceivePack(ctx)
 	require.NoError(t, err)
@@ -294,9 +287,7 @@ func TestReceivePackTransactional(t *testing.T) {
 
 	client, conn := newSSHClient(t, serverSocketPath)
 	defer conn.Close()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
 	ctx = metadata.IncomingToOutgoing(ctx)
@@ -498,9 +489,7 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 		glRepository = "some_repo"
 		glID         = "key-123"
 	)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	gitCmdFactory, readProto := gittest.EnableGitProtocolV2Support(ctx, t, cfg)
 

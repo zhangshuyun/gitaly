@@ -26,8 +26,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 	rs := NewPostgresRepositoryStore(db, nil)
 
 	t.Run("unknown virtual storage", func(t *testing.T) {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		require.NoError(t, rs.CreateRepository(ctx, 1, "unknown", "/repo/path", "replica-path", "g1", []string{"g2", "g3"}, nil, true, false))
 
@@ -51,9 +50,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 
 	t.Run("miss -> populate -> hit", func(t *testing.T) {
 		db.TruncateAll(t)
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		require.NoError(t, rs.CreateRepository(ctx, 1, "vs", "/repo/path", "replica-path", "g1", []string{"g2", "g3"}, nil, true, false))
 
@@ -94,8 +91,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 	t.Run("repository store returns an error", func(t *testing.T) {
 		db.TruncateAll(t)
 
-		ctx, cancel := testhelper.Context(testhelper.ContextWithLogger(testhelper.NewDiscardingLogEntry(t)))
-		defer cancel()
+		ctx := testhelper.Context(t, testhelper.ContextWithLogger(testhelper.NewDiscardingLogEntry(t)))
 
 		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
@@ -119,8 +115,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		logger := testhelper.NewDiscardingLogEntry(t)
 		logHook := test.NewLocal(logger.Logger)
 
-		ctx, cancel := testhelper.Context(testhelper.ContextWithLogger(logger))
-		defer cancel()
+		ctx := testhelper.Context(t, testhelper.ContextWithLogger(logger))
 
 		require.NoError(t, rs.CreateRepository(ctx, 1, "vs", "/repo/path/1", "replica-path", "g1", []string{"g2", "g3"}, nil, true, false))
 
@@ -178,9 +173,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 
 	t.Run("cache invalidation evicts cached entries", func(t *testing.T) {
 		db.TruncateAll(t)
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		require.NoError(t, rs.CreateRepository(ctx, 1, "vs", "/repo/path/1", "replica-path-1", "g1", []string{"g2", "g3"}, nil, true, false))
 		require.NoError(t, rs.CreateRepository(ctx, 2, "vs", "/repo/path/2", "replica-path-2", "g1", []string{"g2"}, nil, true, false))
@@ -231,9 +224,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 
 	t.Run("disconnect event disables cache", func(t *testing.T) {
 		db.TruncateAll(t)
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		require.NoError(t, rs.CreateRepository(ctx, 1, "vs", "/repo/path", "replica-path", "g1", []string{"g2", "g3"}, nil, true, false))
 
@@ -268,9 +259,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 
 	t.Run("concurrent access", func(t *testing.T) {
 		db.TruncateAll(t)
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		require.NoError(t, rs.CreateRepository(ctx, 1, "vs", "/repo/path/1", "replica-path-1", "g1", nil, nil, true, false))
 		require.NoError(t, rs.CreateRepository(ctx, 2, "vs", "/repo/path/2", "replica-path-2", "g1", nil, nil, true, false))

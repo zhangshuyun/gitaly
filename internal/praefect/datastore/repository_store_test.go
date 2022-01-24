@@ -199,8 +199,7 @@ func TestRepositoryStore_incrementGenerationConcurrently(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			db.TruncateAll(t)
 
@@ -230,8 +229,7 @@ func TestRepositoryStore_incrementGenerationConcurrently(t *testing.T) {
 }
 
 func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	const (
 		vs   = "virtual-storage-1"
@@ -1409,8 +1407,7 @@ func TestPostgresRepositoryStore_GetRepositoryMetadata(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			tx := db.Begin(t)
 			defer tx.Rollback(t)

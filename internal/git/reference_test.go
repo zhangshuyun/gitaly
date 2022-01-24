@@ -12,9 +12,7 @@ import (
 
 func TestCheckRefFormat(t *testing.T) {
 	cfg := testcfg.Build(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 

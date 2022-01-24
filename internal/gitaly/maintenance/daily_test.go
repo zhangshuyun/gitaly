@@ -38,9 +38,7 @@ func TestStartDaily(t *testing.T) {
 		Duration: config.Duration(time.Hour),
 		Storages: []string{"meow"},
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 	go func() { errQ <- dw.StartDaily(ctx, testhelper.NewDiscardingLogEntry(t), s, fn) }()
 

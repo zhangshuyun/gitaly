@@ -88,8 +88,7 @@ func TestBootstrap_unixListener(t *testing.T) {
 }
 
 func TestBootstrap_listenerError(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	b, upgrader, listeners := setup(t, ctx)
 
@@ -109,8 +108,7 @@ func TestBootstrap_listenerError(t *testing.T) {
 func TestBootstrap_signal(t *testing.T) {
 	for _, sig := range []syscall.Signal{syscall.SIGTERM, syscall.SIGINT} {
 		t.Run(sig.String(), func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			b, upgrader, _ := setup(t, ctx)
 
@@ -133,8 +131,7 @@ func TestBootstrap_signal(t *testing.T) {
 }
 
 func TestBootstrap_gracefulTerminationStuck(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 	b, upgrader, _ := setup(t, ctx)
 
@@ -159,8 +156,7 @@ func TestBootstrap_gracefulTerminationStuck(t *testing.T) {
 func TestBootstrap_gracefulTerminationWithSignals(t *testing.T) {
 	for _, sig := range []syscall.Signal{syscall.SIGTERM, syscall.SIGINT} {
 		t.Run(sig.String(), func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 			b, upgrader, _ := setup(t, ctx)
 
@@ -184,8 +180,7 @@ func TestBootstrap_gracefulTerminationWithSignals(t *testing.T) {
 }
 
 func TestBootstrap_gracefulTerminationTimeoutWithListenerError(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 	b, upgrader, listeners := setup(t, ctx)
 
@@ -212,8 +207,7 @@ func TestBootstrap_gracefulTerminationTimeoutWithListenerError(t *testing.T) {
 }
 
 func TestBootstrap_gracefulTermination(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	b, upgrader, _ := setup(t, ctx)
 

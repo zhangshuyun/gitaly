@@ -22,8 +22,7 @@ import (
 )
 
 func TestRepo_FetchInternal(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, remoteRepoProto, _ := testcfg.BuildWithRepo(t)
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {

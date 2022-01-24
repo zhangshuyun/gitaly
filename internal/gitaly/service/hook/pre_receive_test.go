@@ -29,9 +29,7 @@ import (
 
 func TestPreReceiveInvalidArgument(t *testing.T) {
 	_, _, _, client := setupHookService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	stream, err := client.PreReceiveHook(ctx)
 	require.NoError(t, err)
@@ -139,9 +137,7 @@ func TestPreReceiveHook_GitlabAPIAccess(t *testing.T) {
 
 	client, conn := newHooksClient(t, serverSocketPath)
 	defer conn.Close()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	hooksPayload, err := git.NewHooksPayload(
 		cfg,
@@ -259,9 +255,7 @@ func TestPreReceive_APIErrors(t *testing.T) {
 
 			client, conn := newHooksClient(t, serverSocketPath)
 			defer conn.Close()
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			hooksPayload, err := git.NewHooksPayload(
 				cfg,
@@ -331,9 +325,7 @@ exit %d
 
 	client, conn := newHooksClient(t, serverSocketPath)
 	defer conn.Close()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	hooksPayload, err := git.NewHooksPayload(
 		cfg,
@@ -460,9 +452,7 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 
 			client, conn := newHooksClient(t, serverSocketPath)
 			defer conn.Close()
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			hooksPayload, err := git.NewHooksPayload(
 				cfg,

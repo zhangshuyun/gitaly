@@ -21,8 +21,7 @@ import (
 const keepAroundNamespace = "refs/keep-around"
 
 func TestVisibilityOfHiddenRefs(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 	testcfg.BuildGitalySSH(t, cfg)

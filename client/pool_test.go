@@ -163,9 +163,7 @@ func TestPoolDial(t *testing.T) {
 			defer func() {
 				require.NoError(t, pool.Close())
 			}()
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			tc.test(t, ctx, pool)
 		})
@@ -227,8 +225,7 @@ func verifyConnection(t *testing.T, ctx context.Context, conn *grpc.ClientConn, 
 }
 
 func TestPool_Dial_same_addr_another_token(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, addr, stop1 := runServer(t, "")
 	defer func() { stop1() }()

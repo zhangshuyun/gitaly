@@ -29,9 +29,7 @@ var commitFilesMessage = []byte("Change files")
 
 func TestUserCommitFiles(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
@@ -941,9 +939,7 @@ func TestUserCommitFiles(t *testing.T) {
 
 func TestUserCommitFilesStableCommitID(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
@@ -1001,9 +997,7 @@ func TestUserCommitFilesStableCommitID(t *testing.T) {
 
 func TestUserCommitFilesQuarantine(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
@@ -1046,9 +1040,7 @@ func TestUserCommitFilesQuarantine(t *testing.T) {
 
 func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -1157,9 +1149,7 @@ func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
 
 func TestSuccessfulUserCommitFilesRequestMove(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
@@ -1215,9 +1205,7 @@ func TestSuccessfulUserCommitFilesRequestMove(t *testing.T) {
 
 func TestSuccessfulUserCommitFilesRequestForceCommit(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -1262,9 +1250,7 @@ func TestSuccessfulUserCommitFilesRequestForceCommit(t *testing.T) {
 
 func TestSuccessfulUserCommitFilesRequestStartSha(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
@@ -1351,9 +1337,7 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 
 func TestSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
@@ -1404,9 +1388,7 @@ func TestSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 
 func TestFailedUserCommitFilesRequestDueToHooks(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, _, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -1438,9 +1420,7 @@ func TestFailedUserCommitFilesRequestDueToHooks(t *testing.T) {
 
 func TestFailedUserCommitFilesRequestDueToIndexError(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
@@ -1503,9 +1483,7 @@ func TestFailedUserCommitFilesRequestDueToIndexError(t *testing.T) {
 
 func TestFailedUserCommitFilesRequest(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 

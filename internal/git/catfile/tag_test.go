@@ -15,8 +15,7 @@ import (
 )
 
 func TestGetTag(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, objectReader, testRepo := setupObjectReader(t, ctx)
 

@@ -78,8 +78,7 @@ func TestParseObjectInfoErrors(t *testing.T) {
 }
 
 func TestObjectInfoReader(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 
@@ -170,8 +169,7 @@ func TestObjectInfoReader(t *testing.T) {
 }
 
 func TestObjectInfoReader_queue(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 

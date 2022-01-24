@@ -18,8 +18,7 @@ import (
 )
 
 func TestDialNodes(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	tmp := testhelper.TempDir(t)
 

@@ -48,9 +48,7 @@ func TestRepository(t *testing.T) {
 			deps.GetCatfileCache(),
 		))
 	})
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, err := storage.InjectGitalyServers(ctx, "default", serverSocketPath, cfg.Auth.Token)
 	require.NoError(t, err)

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -46,9 +47,7 @@ func copyRepo(t *testing.T, cfg config.Cfg, repo *gitalypb.Repository, repoPath 
 func TestFetchRemoteSuccess(t *testing.T) {
 	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cloneRepo := copyRepo(t, cfg, repo, repoPath)
 
@@ -77,9 +76,7 @@ func TestFetchRemote_sshCommand(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	outputPath := filepath.Join(testhelper.TempDir(t), "output")
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	// We ain't got a nice way to intercept the SSH call, so we just write a custom git command
 	// which simply prints the GIT_SSH_COMMAND environment variable.
@@ -151,9 +148,7 @@ func TestFetchRemote_withDefaultRefmaps(t *testing.T) {
 
 	targetRepoProto := copyRepo(t, cfg, sourceRepoProto, sourceRepoPath)
 	targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	port, stopGitServer := gittest.HTTPServer(ctx, t, gitCmdFactory, sourceRepoPath, nil)
 	defer func() { require.NoError(t, stopGitServer()) }()
@@ -201,9 +196,7 @@ func TestFetchRemote_transaction(t *testing.T) {
 
 	targetCfg, targetRepoProto, targetRepoPath := testcfg.BuildWithRepo(t)
 	targetGitCmdFactory := gittest.NewCommandFactory(t, targetCfg)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	port, stopGitServer := gittest.HTTPServer(ctx, t, targetGitCmdFactory, targetRepoPath, nil)
 	defer func() { require.NoError(t, stopGitServer()) }()
@@ -229,9 +222,7 @@ func TestFetchRemote_prune(t *testing.T) {
 	t.Parallel()
 	cfg, sourceRepo, sourceRepoPath, client := setupRepositoryService(t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	port, stopGitServer := gittest.HTTPServer(ctx, t, gitCmdFactory, sourceRepoPath, nil)
 	defer func() { require.NoError(t, stopGitServer()) }()
@@ -301,8 +292,7 @@ func TestFetchRemote_prune(t *testing.T) {
 
 func TestFetchRemote_force(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, sourceRepoProto, sourceRepoPath, client := setupRepositoryService(t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
@@ -450,9 +440,7 @@ func TestFetchRemoteFailure(t *testing.T) {
 	const remoteName = "test-repo"
 	httpSrv, _ := remoteHTTPServer(t, remoteName, httpToken)
 	defer httpSrv.Close()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	tests := []struct {
 		desc   string
@@ -585,9 +573,7 @@ func getRefnames(t *testing.T, cfg config.Cfg, repoPath string) []string {
 func TestFetchRemoteOverHTTP(t *testing.T) {
 	t.Parallel()
 	cfg, _, _, client := setupRepositoryService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	testCases := []struct {
 		description string
@@ -641,9 +627,7 @@ func TestFetchRemoteOverHTTP(t *testing.T) {
 func TestFetchRemoteWithPath(t *testing.T) {
 	t.Parallel()
 	cfg, _, sourceRepoPath, client := setupRepositoryService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	mirrorRepo, mirrorRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
@@ -669,9 +653,7 @@ func TestFetchRemoteOverHTTPWithRedirect(t *testing.T) {
 		}),
 	)
 	defer s.Close()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	req := &gitalypb.FetchRemoteRequest{
 		Repository:   repo,
@@ -687,9 +669,7 @@ func TestFetchRemoteOverHTTPWithRedirect(t *testing.T) {
 func TestFetchRemoteOverHTTPWithTimeout(t *testing.T) {
 	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 	s := httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

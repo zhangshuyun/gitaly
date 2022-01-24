@@ -68,9 +68,7 @@ func TestParallelPipeline(t *testing.T) {
 				var p Pipeline
 				p = NewLoggingPipeline(logrus.StandardLogger())
 				p = NewParallelPipeline(p, tc.parallel, tc.parallelStorage)
-
-				ctx, cancel := testhelper.Context()
-				defer cancel()
+				ctx := testhelper.Context(t)
 
 				for i := 0; i < 10; i++ {
 					p.Handle(ctx, NewCreateCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{StorageName: "storage1"}, false))
@@ -87,7 +85,7 @@ func TestParallelPipeline(t *testing.T) {
 		p = NewLoggingPipeline(logrus.StandardLogger())
 		p = NewParallelPipeline(p, 0, 0) // make sure worker channels always block
 
-		ctx, cancel := testhelper.Context()
+		ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 		cancel()
 		<-ctx.Done()
@@ -137,9 +135,7 @@ func testPipeline(t *testing.T, init func() Pipeline) {
 			},
 		}
 		p := init()
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		commands := []Command{
 			NewCreateCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{RelativePath: "a.git", StorageName: "normal"}, false),
@@ -171,9 +167,7 @@ func testPipeline(t *testing.T, init func() Pipeline) {
 			},
 		}
 		p := init()
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		commands := []Command{
 			NewRestoreCommand(strategy, storage.ServerInfo{}, &gitalypb.Repository{RelativePath: "a.git", StorageName: "normal"}, false),

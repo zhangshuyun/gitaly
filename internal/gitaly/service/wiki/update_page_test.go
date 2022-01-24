@@ -18,9 +18,7 @@ import (
 func testSuccessfulWikiUpdatePageRequest(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
 	wikiRepoProto, wikiRepoPath := setupWikiRepo(t, cfg)
 	wikiRepo := localrepo.NewTestRepo(t, cfg, wikiRepoProto)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	writeWikiPage(t, client, wikiRepoProto, createWikiPageOpts{title: "Instálling Gitaly", content: []byte("foobar")})
 
@@ -237,8 +235,7 @@ func testFailedWikiUpdatePageDueToValidations(t *testing.T, cfg config.Cfg, clie
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			stream, err := client.WikiUpdatePage(ctx)
 			require.NoError(t, err)
@@ -276,9 +273,7 @@ func testFailedWikiUpdatePageDueToDuplicatePage(t *testing.T, cfg config.Cfg, cl
 		CommitDetails: commitDetails,
 		Content:       content,
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	stream, err := client.WikiUpdatePage(ctx)
 	require.NoError(t, err)

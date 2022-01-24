@@ -103,9 +103,7 @@ func testUnaryProxy(t *testing.T, closeWrite bool) {
 			return healthpb.NewHealthClient(conn).Check(ctxOut, request)
 		},
 	)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	conn, registry := dial(t, proxyAddr)
 	require.NoError(t, call(ctx, conn, registry, testProxyClient(closeWrite)))
@@ -165,9 +163,7 @@ func testStreamProxy(t *testing.T, closeWrite bool) {
 			return nil
 		},
 	)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	conn, registry := dial(t, proxyAddr)
 	ctx, waiter := RegisterSidechannel(ctx, registry, testProxyClient(closeWrite))

@@ -125,8 +125,7 @@ func TestSuccessfulCountDivergentCommitsRequest(t *testing.T) {
 				To:         []byte(testCase.rightRevision),
 				MaxCount:   int32(1000),
 			}
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			response, err := client.CountDivergingCommits(ctx, request)
 			require.NoError(t, err)
 			assert.Equal(t, testCase.leftCount, response.GetLeftCount())
@@ -171,8 +170,7 @@ func TestSuccessfulCountDivergentCommitsRequestWithMaxCount(t *testing.T) {
 				To:         []byte(testCase.rightRevision),
 				MaxCount:   int32(testCase.maxCount),
 			}
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			response, err := client.CountDivergingCommits(ctx, request)
 			require.NoError(t, err)
 			assert.Equal(t, testCase.maxCount, int(response.GetRightCount()+response.GetLeftCount()))
@@ -195,8 +193,7 @@ func TestFailedCountDivergentCommitsRequestDueToValidationError(t *testing.T) {
 
 	for _, rpcRequest := range rpcRequests {
 		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			_, err := client.CountDivergingCommits(ctx, rpcRequest)
 			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 		})

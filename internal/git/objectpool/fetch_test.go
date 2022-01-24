@@ -16,8 +16,7 @@ import (
 )
 
 func TestFetchFromOriginDangling(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, pool, testRepo := setupObjectPool(t, ctx)
 
@@ -83,8 +82,7 @@ func TestFetchFromOriginDangling(t *testing.T) {
 }
 
 func TestFetchFromOriginFsck(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, pool, repo := setupObjectPool(t, ctx)
 	repoPath := filepath.Join(cfg.Storages[0].Path, repo.RelativePath)
@@ -107,8 +105,7 @@ func TestFetchFromOriginFsck(t *testing.T) {
 }
 
 func TestFetchFromOriginDeltaIslands(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, pool, testRepo := setupObjectPool(t, ctx)
 	testRepoPath := filepath.Join(cfg.Storages[0].Path, testRepo.RelativePath)
@@ -130,8 +127,7 @@ func TestFetchFromOriginDeltaIslands(t *testing.T) {
 }
 
 func TestFetchFromOriginBitmapHashCache(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, pool, testRepo := setupObjectPool(t, ctx)
 
@@ -155,8 +151,7 @@ func TestFetchFromOriginBitmapHashCache(t *testing.T) {
 }
 
 func TestFetchFromOriginRefUpdates(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, pool, testRepo := setupObjectPool(t, ctx)
 	testRepoPath := filepath.Join(cfg.Storages[0].Path, testRepo.RelativePath)
@@ -200,8 +195,7 @@ func TestFetchFromOriginRefUpdates(t *testing.T) {
 }
 
 func TestFetchFromOrigin_refs(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, pool, _ := setupObjectPool(t, ctx)
 	poolPath := pool.FullPath()

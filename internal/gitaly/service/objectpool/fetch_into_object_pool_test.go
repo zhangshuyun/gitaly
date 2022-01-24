@@ -28,9 +28,7 @@ import (
 
 func TestFetchIntoObjectPool_Success(t *testing.T) {
 	cfg, repo, repoPath, locator, client := setup(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	repoCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(t.Name()))
 
@@ -89,9 +87,7 @@ func TestFetchIntoObjectPool_hooks(t *testing.T) {
 	defer testhelper.MustClose(t, conn)
 
 	client := gitalypb.NewObjectPoolServiceClient(conn)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
 
@@ -123,9 +119,7 @@ func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { testhelper.MustClose(t, conn) })
 	client := gitalypb.NewObjectPoolServiceClient(conn)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	ctx = ctxlogrus.ToContext(ctx, log.WithField("test", "logging"))
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
@@ -180,9 +174,7 @@ func TestFetchIntoObjectPool_Failure(t *testing.T) {
 		catfileCache,
 		transaction.NewManager(cfg, backchannel.NewRegistry()),
 	)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
 

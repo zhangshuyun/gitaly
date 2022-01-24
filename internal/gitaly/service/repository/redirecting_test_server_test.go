@@ -44,9 +44,7 @@ func TestRedirectingServerRedirects(t *testing.T) {
 	dir := testhelper.TempDir(t)
 
 	httpServerState, redirectingServer := StartRedirectingTestServer()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	var stderr bytes.Buffer
 	cmd, err := gittest.NewCommandFactory(t, cfg).NewWithoutRepo(ctx, git.SubCmd{

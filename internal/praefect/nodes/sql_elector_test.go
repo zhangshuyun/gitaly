@@ -59,9 +59,7 @@ func TestGetPrimaryAndSecondaries(t *testing.T) {
 	elector := newSQLElector(shardName, conf, db.DB, logger, ns)
 	require.Contains(t, elector.praefectName, ":"+socketName)
 	require.Equal(t, elector.shardName, shardName)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	err = elector.checkNodes(ctx)
 	require.NoError(t, err)
 	db.RequireRowsInTable(t, "shard_primaries", 1)
@@ -92,9 +90,7 @@ func TestSqlElector_slow_execution(t *testing.T) {
 
 	gitalyNodeStatus := newConnectionStatus(config.Node{Storage: "gitaly", Address: "gitaly-address"}, gitalyConn, logger, promtest.NewMockHistogramVec(), nil)
 	elector := newSQLElector(shardName, config.Config{SocketPath: praefectSocket}, db.DB, logger, []*nodeStatus{gitalyNodeStatus})
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	// Failover timeout is set to 0. If the election checks do not happen exactly at the same time
 	// as when the health checks are updated, gitaly node in the test is going to be considered
@@ -150,9 +146,7 @@ func TestBasicFailover(t *testing.T) {
 
 	ns := []*nodeStatus{cs0, cs1}
 	elector := newSQLElector(shardName, conf, db.DB, logger, ns)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	err = elector.checkNodes(ctx)
 	require.NoError(t, err)
 	db.RequireRowsInTable(t, "node_status", 2)
@@ -236,9 +230,7 @@ func TestElectDemotedPrimary(t *testing.T) {
 		testhelper.NewDiscardingLogger(t),
 		[]*nodeStatus{{node: node}},
 	)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	candidates := []*sqlCandidate{{Node: &nodeStatus{node: node}}}
 	require.NoError(t, elector.electNewPrimary(ctx, tx.Tx, candidates))
@@ -415,9 +407,7 @@ func TestElectNewPrimary(t *testing.T) {
 			logger, hook := test.NewNullLogger()
 
 			elector := newSQLElector(shardName, config.Config{}, db.DB, logger, ns)
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			require.NoError(t, elector.electNewPrimary(ctx, tx.Tx, candidates))
 			primary, err := elector.lookupPrimary(ctx, tx)
@@ -494,9 +484,7 @@ func TestConnectionMultiplexing(t *testing.T) {
 
 	// check the shard to get the primary in a healthy state
 	mgr.checkShards()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	for _, tc := range []struct {
 		desc  string
 		error error

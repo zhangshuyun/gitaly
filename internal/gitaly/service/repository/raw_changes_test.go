@@ -91,8 +91,7 @@ func TestGetRawChanges(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("old:%s,new:%s", tc.oldRev, tc.newRev), func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			req := &gitalypb.GetRawChangesRequest{
 				Repository:   repo,
@@ -121,9 +120,7 @@ func TestGetRawChangesSpecialCharacters(t *testing.T) {
 	// characters.
 
 	_, repo, _, client := setupRepositoryService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	req := &gitalypb.GetRawChangesRequest{
 		Repository:   repo,
@@ -190,8 +187,7 @@ func TestGetRawChangesFailures(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("old:%s,new:%s", tc.oldRev, tc.newRev), func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			req := &gitalypb.GetRawChangesRequest{
 				Repository:   repo,
@@ -218,9 +214,7 @@ func TestGetRawChangesFailures(t *testing.T) {
 func TestGetRawChangesManyFiles(t *testing.T) {
 	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	initCommit := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
 	req := &gitalypb.GetRawChangesRequest{
@@ -240,9 +234,7 @@ func TestGetRawChangesManyFiles(t *testing.T) {
 func TestGetRawChangesMappingOperations(t *testing.T) {
 	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	req := &gitalypb.GetRawChangesRequest{
 		Repository:   repo,
@@ -302,9 +294,7 @@ func TestGetRawChangesInvalidUTF8Paths(t *testing.T) {
 			OID: blobID2, Path: nonUTF8Filename, Mode: "100644",
 		}),
 	)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	req := &gitalypb.GetRawChangesRequest{
 		Repository:   repo,
