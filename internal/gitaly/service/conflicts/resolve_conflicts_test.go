@@ -198,13 +198,12 @@ func TestSuccessfulResolveConflictsRequestHelper(t *testing.T) {
 
 func TestResolveConflictsWithRemoteRepo(t *testing.T) {
 	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
-	cfg, _, _, client := SetupConflictsService(t, true, hookManager)
+	cfg, sourceRepo, sourceRepoPath, client := SetupConflictsService(t, true, hookManager)
 	ctx := testhelper.Context(t)
 
 	testcfg.BuildGitalySSH(t, cfg)
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	sourceRepo, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	sourceBlobOID := gittest.WriteBlob(t, cfg, sourceRepoPath, []byte("contents-1\n"))
 	sourceCommitOID := gittest.WriteCommit(t, cfg, sourceRepoPath,
 		gittest.WithTreeEntries(gittest.TreeEntry{
@@ -213,7 +212,9 @@ func TestResolveConflictsWithRemoteRepo(t *testing.T) {
 	)
 	gittest.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", "refs/heads/source", sourceCommitOID.String())
 
-	targetRepo, targetRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	targetRepo, targetRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 	targetBlobOID := gittest.WriteBlob(t, cfg, targetRepoPath, []byte("contents-2\n"))
 	targetCommitOID := gittest.WriteCommit(t, cfg, targetRepoPath,
 		gittest.WithTreeEntries(gittest.TreeEntry{
@@ -804,13 +805,12 @@ func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
 }
 
 func TestResolveConflictsQuarantine(t *testing.T) {
-	cfg, _, _, client := SetupConflictsService(t, true, nil)
+	cfg, sourceRepoProto, sourceRepoPath, client := SetupConflictsService(t, true, nil)
 	ctx := testhelper.Context(t)
 
 	testcfg.BuildGitalySSH(t, cfg)
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	sourceRepoProto, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	sourceBlobOID := gittest.WriteBlob(t, cfg, sourceRepoPath, []byte("contents-1\n"))
 	sourceCommitOID := gittest.WriteCommit(t, cfg, sourceRepoPath,
 		gittest.WithTreeEntries(gittest.TreeEntry{
@@ -830,7 +830,9 @@ func TestResolveConflictsQuarantine(t *testing.T) {
 		exit 1
 	`))
 
-	targetRepoProto, targetRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	targetRepoProto, targetRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 	targetBlobOID := gittest.WriteBlob(t, cfg, targetRepoPath, []byte("contents-2\n"))
 	targetCommitOID := gittest.WriteCommit(t, cfg, targetRepoPath,
 		gittest.WithTreeEntries(gittest.TreeEntry{

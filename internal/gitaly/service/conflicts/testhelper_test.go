@@ -1,6 +1,8 @@
 package conflicts
 
 import (
+	"context"
+	"path/filepath"
 	"testing"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
@@ -33,9 +35,17 @@ func SetupConflictsService(t testing.TB, bare bool, hookManager hook.Manager) (c
 	client, conn := NewConflictsClient(t, serverSocketPath)
 	t.Cleanup(func() { conn.Close() })
 
-	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
-		WithWorktree: !bare,
+	repo, repoPath := gittest.CreateRepository(context.TODO(), t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
 	})
+
+	if !bare {
+		gittest.AddWorktree(t, cfg, repoPath, "worktree")
+		repoPath = filepath.Join(repoPath, "worktree")
+		// AddWorktree creates a detached worktree. Checkout master here so the
+		// branch pointer moves as we later commit.
+		gittest.Exec(t, cfg, "-C", repoPath, "checkout", "master")
+	}
 
 	return cfg, repo, repoPath, client
 }
@@ -73,7 +83,7 @@ func runConflictsServer(t testing.TB, cfg config.Cfg, hookManager hook.Manager) 
 			deps.GetLinguist(),
 			deps.GetCatfileCache(),
 		))
-	}, testserver.WithHookManager(hookManager))
+	}, testserver.WithHookManager(hookManager), testserver.WithDisableMetadataForceCreation())
 }
 
 func NewConflictsClient(t testing.TB, serverSocketPath string) (gitalypb.ConflictsServiceClient, *grpc.ClientConn) {
