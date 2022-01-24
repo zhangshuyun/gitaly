@@ -147,6 +147,9 @@ func New(
 			MinTime:             20 * time.Second,
 			PermitWithoutStream: true,
 		}),
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			Time: 5 * time.Minute,
+		}),
 	}
 
 	return grpc.NewServer(opts...), nil
