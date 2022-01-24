@@ -347,16 +347,23 @@ install: build
 	${Q}mkdir -p ${INSTALL_DEST_DIR}
 	install $(call find_command_binaries) ${INSTALL_DEST_DIR}
 
+.PHONY: build-bundled-git
+## Build bundled Git binaries.
+build-bundled-git: $(patsubst %,${BUILD_DIR}/bin/gitaly-%,${GIT_EXECUTABLES})
+
+.PHONY: install-bundled-git
+## Install bundled Git binaries. The target directory can be modified by
+## setting PREFIX and DESTDIR.
+install-bundled-git: $(patsubst %,${INSTALL_DEST_DIR}/gitaly-%,${GIT_EXECUTABLES})
+
 ifdef WITH_BUNDLED_GIT
-build: $(patsubst %,${BUILD_DIR}/bin/gitaly-%,${GIT_EXECUTABLES})
-
-install: $(patsubst %,${INSTALL_DEST_DIR}/gitaly-%,${GIT_EXECUTABLES})
-
-prepare-tests: $(patsubst %,${BUILD_DIR}/bin/gitaly-%,${GIT_EXECUTABLES})
+build: build-bundled-git
+prepare-tests: build-bundled-git
+install: install-bundled-git
 
 export GITALY_TESTING_BUNDLED_GIT_PATH ?= ${BUILD_DIR}/bin
 else
-prepare-tests: git $(patsubst %,${BUILD_DIR}/bin/gitaly-%,${GIT_EXECUTABLES})
+prepare-tests: git build-bundled-git
 
 export GITALY_TESTING_BUNDLED_GIT_PATH ?= ${BUILD_DIR}/bin
 export GITALY_TESTING_GIT_BINARY       ?= ${GIT_PREFIX}/bin/git
