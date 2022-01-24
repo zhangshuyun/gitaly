@@ -75,6 +75,7 @@ ed775cc81e5477df30c2abba7b6fdbb5d0baadae refs/heads/smime-signed-commits
 ba3343bc4fa403a8dfbfcab7fc1a8c29ee34bd69 refs/heads/spooky-stuff
 35236eac0ce603467ba37d2f99cb591df4cb8f63 refs/heads/squash-encoding-error-trigger
 54cec5282aa9f21856362fe321c800c236a61615 refs/heads/squash-large-files
+7b5160f9bb23a3d58a0accdbe89da13b96b1ece9 refs/heads/ssh-signed-commit
 b491b929a311ca258a0731e58d73b7b089c7c358 refs/heads/submodule_inside_folder
 81e6355ce4e1544a3524b230952c12455de0777b refs/heads/symlink-expand-diff
 899d3d27b04690ac1cd9ef4d8a74fde0667c57f1 refs/heads/test-do-not-touch

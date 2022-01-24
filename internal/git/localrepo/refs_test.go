@@ -181,14 +181,14 @@ func TestRepo_GetReferences(t *testing.T) {
 		{
 			desc: "all references",
 			match: func(t *testing.T, refs []git.Reference) {
-				require.Len(t, refs, 96)
+				require.Len(t, refs, 97)
 			},
 		},
 		{
 			desc:     "branches",
 			patterns: []string{"refs/heads/"},
 			match: func(t *testing.T, refs []git.Reference) {
-				require.Len(t, refs, 93)
+				require.Len(t, refs, 94)
 			},
 		},
 		{
@@ -336,7 +336,7 @@ func TestRepo_GetBranches(t *testing.T) {
 
 	refs, err := repo.GetBranches(ctx)
 	require.NoError(t, err)
-	require.Len(t, refs, 93)
+	require.Len(t, refs, 94)
 }
 
 func TestRepo_UpdateRef(t *testing.T) {

@@ -70,6 +70,7 @@ refs/heads/signed-commits
 refs/heads/spooky-stuff
 refs/heads/squash-encoding-error-trigger
 refs/heads/squash-large-files
+refs/heads/ssh-signed-commit
 refs/heads/submodule_inside_folder
 refs/heads/symlink-expand-diff
 refs/heads/test-do-not-touch

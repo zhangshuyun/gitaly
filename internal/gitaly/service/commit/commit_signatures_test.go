@@ -36,6 +36,7 @@ func TestSuccessfulGetCommitSignaturesRequest(t *testing.T) {
 			"a17a9f66543673edf0a3d1c6b93bdda3fe600f32", // has signature
 			"8cf8e80a5a0546e391823c250f2b26b9cf15ce88", // has signature and commit message > 4MB
 			"dc00eb001f41dfac08192ead79c2377c588b82ee", // has signature and commit message without newline at the end
+			"7b5160f9bb23a3d58a0accdbe89da13b96b1ece9", // SSH signature
 		},
 	}
 
@@ -59,6 +60,11 @@ func TestSuccessfulGetCommitSignaturesRequest(t *testing.T) {
 			CommitId:   "dc00eb001f41dfac08192ead79c2377c588b82ee",
 			Signature:  testhelper.MustReadFile(t, "testdata/dc00eb001f41dfac08192ead79c2377c588b82ee-signed-no-newline-signature.txt"),
 			SignedText: testhelper.MustReadFile(t, "testdata/dc00eb001f41dfac08192ead79c2377c588b82ee-signed-no-newline-signed-text.txt"),
+		},
+		{
+			CommitId:   "7b5160f9bb23a3d58a0accdbe89da13b96b1ece9",
+			Signature:  testhelper.MustReadFile(t, "testdata/7b5160f9bb23a3d58a0accdbe89da13b96b1ece9-ssh-signature"),
+			SignedText: testhelper.MustReadFile(t, "testdata/7b5160f9bb23a3d58a0accdbe89da13b96b1ece9-ssh-signed-text"),
 		},
 	}
 
