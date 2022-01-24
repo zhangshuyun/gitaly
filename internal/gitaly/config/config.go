@@ -135,10 +135,17 @@ type Logging struct {
 	RubySentryDSN string `toml:"ruby_sentry_dsn"`
 }
 
-// Concurrency allows endpoints to be limited to a maximum concurrency per repo
+// Concurrency allows endpoints to be limited to a maximum concurrency per repo.
+// Requests that come in after the maximum number of concurrent requests are in progress will wait
+// in a queue that is bounded by MaxQueueSize.
 type Concurrency struct {
-	RPC        string `toml:"rpc"`
-	MaxPerRepo int    `toml:"max_per_repo"`
+	// RPC is the name of the RPC to set concurrency limits for
+	RPC string `toml:"rpc"`
+	// MaxPerRepo is the maximum number of concurrent calls for a given repository
+	MaxPerRepo int `toml:"max_per_repo"`
+	// MaxQueueSize is the maximum number of requests in the queue waiting to be picked up
+	// after which subsequent requests will return with an error.
+	MaxQueueSize int `toml:"max_queue_size"`
 }
 
 // StreamCacheConfig contains settings for a streamcache instance.

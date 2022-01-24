@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
@@ -139,7 +140,7 @@ func TestLimiter(t *testing.T) {
 
 			gauge := &counter{}
 
-			limiter := NewLimiter(tt.maxConcurrency, gauge)
+			limiter := NewLimiter(tt.maxConcurrency, 0, gauge)
 			wg := sync.WaitGroup{}
 			wg.Add(tt.concurrency)
 
@@ -205,6 +206,108 @@ func TestLimiter(t *testing.T) {
 			assert.Equal(t, wantMonitorCallCount, gauge.exit)
 			assert.Equal(t, wantMonitorCallCount, gauge.queued)
 			assert.Equal(t, wantMonitorCallCount, gauge.dequeued)
+		})
+	}
+}
+
+type blockingCounter struct {
+	counter
+
+	ch chan struct{}
+}
+
+// Queued will block on a channel. We need a way to synchronize on when a Limiter has attempted to acquire
+// a semaphore but has not yet. The caller can use the channel to wait for many requests to be queued
+func (b *blockingCounter) Queued(_ context.Context) {
+	b.ch <- struct{}{}
+}
+
+func TestConcurrencyLimiter_queueLimit(t *testing.T) {
+	queueLimit := 10
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	testCases := []struct {
+		desc          string
+		featureFlagOn bool
+	}{
+		{
+			desc:          "feature flag on",
+			featureFlagOn: true,
+		},
+		{
+			desc:          "feature flag off",
+			featureFlagOn: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx = featureflag.IncomingCtxWithFeatureFlag(
+				ctx,
+				featureflag.ConcurrencyQueueEnforceMax,
+				tc.featureFlagOn,
+			)
+
+			monitorCh := make(chan struct{})
+			gauge := &blockingCounter{ch: monitorCh}
+			ch := make(chan struct{})
+			limiter := NewLimiter(1, queueLimit, gauge)
+
+			// occupied with one live request that takes a long time to complete
+			go func() {
+				_, err := limiter.Limit(ctx, "key", func() (interface{}, error) {
+					ch <- struct{}{}
+					<-ch
+					return nil, nil
+				})
+				require.NoError(t, err)
+			}()
+
+			<-monitorCh
+			<-ch
+
+			var wg sync.WaitGroup
+			// fill up the queue
+			for i := 0; i < queueLimit; i++ {
+				wg.Add(1)
+				go func() {
+					_, err := limiter.Limit(ctx, "key", func() (interface{}, error) {
+						return nil, nil
+					})
+					require.NoError(t, err)
+					wg.Done()
+				}()
+			}
+
+			var queued int
+			for range monitorCh {
+				queued++
+				if queued == queueLimit {
+					break
+				}
+			}
+
+			errChan := make(chan error, 1)
+			go func() {
+				_, err := limiter.Limit(ctx, "key", func() (interface{}, error) {
+					return nil, nil
+				})
+				errChan <- err
+			}()
+
+			if tc.featureFlagOn {
+				err := <-errChan
+				assert.Error(t, err)
+				assert.Equal(t, "maximum queue size reached", err.Error())
+			} else {
+				<-monitorCh
+				assert.Equal(t, int64(queueLimit+1), limiter.queued)
+			}
+
+			close(ch)
+
+			wg.Wait()
 		})
 	}
 }
