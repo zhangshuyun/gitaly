@@ -38,7 +38,7 @@ func (s *server) ListConflictFiles(request *gitalypb.ListConflictFilesRequest, s
 		return err
 	}
 
-	conflicts, err := s.git2go.Conflicts(ctx, repo, git2go.ConflictsCommand{
+	conflicts, err := s.git2goExecutor.Conflicts(ctx, repo, git2go.ConflictsCommand{
 		Repository: repoPath,
 		Ours:       ours.String(),
 		Theirs:     theirs.String(),

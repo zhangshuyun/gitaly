@@ -11,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
@@ -22,15 +21,14 @@ import (
 //nolint: revive,stylecheck // This is unintentionally missing documentation.
 type Server struct {
 	gitalypb.UnimplementedOperationServiceServer
-	cfg           config.Cfg
-	hookManager   hook.Manager
-	txManager     transaction.Manager
-	locator       storage.Locator
-	conns         *client.Pool
-	git2go        git2go.Executor
-	gitCmdFactory git.CommandFactory
-	catfileCache  catfile.Cache
-	updater       *updateref.UpdaterWithHooks
+	hookManager    hook.Manager
+	txManager      transaction.Manager
+	locator        storage.Locator
+	conns          *client.Pool
+	git2goExecutor *git2go.Executor
+	gitCmdFactory  git.CommandFactory
+	catfileCache   catfile.Cache
+	updater        *updateref.UpdaterWithHooks
 
 	// enableUserMergeBranchStructuredErrors enables the use of structured errors in
 	// UserMergeBranch. This flag only exists for testing purposes.
@@ -39,29 +37,29 @@ type Server struct {
 
 // NewServer creates a new instance of a grpc OperationServiceServer
 func NewServer(
-	cfg config.Cfg,
 	hookManager hook.Manager,
 	txManager transaction.Manager,
 	locator storage.Locator,
 	conns *client.Pool,
+	git2goExecutor *git2go.Executor,
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
+	updater *updateref.UpdaterWithHooks,
 ) *Server {
 	return &Server{
-		cfg:           cfg,
-		hookManager:   hookManager,
-		txManager:     txManager,
-		locator:       locator,
-		conns:         conns,
-		git2go:        git2go.NewExecutor(cfg, gitCmdFactory, locator),
-		gitCmdFactory: gitCmdFactory,
-		catfileCache:  catfileCache,
-		updater:       updateref.NewUpdaterWithHooks(cfg, hookManager, gitCmdFactory, catfileCache),
+		hookManager:    hookManager,
+		txManager:      txManager,
+		locator:        locator,
+		conns:          conns,
+		git2goExecutor: git2goExecutor,
+		gitCmdFactory:  gitCmdFactory,
+		catfileCache:   catfileCache,
+		updater:        updater,
 	}
 }
 
 func (s *Server) localrepo(repo repository.GitRepo) *localrepo.Repo {
-	return localrepo.New(s.gitCmdFactory, s.catfileCache, repo, s.cfg)
+	return localrepo.New(s.locator, s.gitCmdFactory, s.catfileCache, repo)
 }
 
 func (s *Server) quarantinedRepo(

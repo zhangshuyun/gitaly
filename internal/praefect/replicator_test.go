@@ -78,7 +78,6 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	// create object pool on the source
 	objectPoolPath := gittest.NewObjectPoolName(t)
 	pool, err := objectpool.NewObjectPool(
-		primaryCfg,
 		gconfig.NewLocator(primaryCfg),
 		gittest.NewCommandFactory(t, primaryCfg),
 		nil,

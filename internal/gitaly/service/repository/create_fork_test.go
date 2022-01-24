@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
@@ -274,12 +275,14 @@ func runSecureServer(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) s
 	connsPool := client.NewPool()
 	t.Cleanup(func() { testhelper.MustClose(t, connsPool) })
 
-	gitalypb.RegisterRepositoryServiceServer(server, NewServer(cfg, rubySrv, locator, txManager, gitCmdFactory, catfileCache, connsPool))
-	gitalypb.RegisterHookServiceServer(server, hookservice.NewServer(cfg, hookManager, gitCmdFactory, nil))
-	gitalypb.RegisterRemoteServiceServer(server, remote.NewServer(cfg, locator, gitCmdFactory, catfileCache, txManager, connsPool))
-	gitalypb.RegisterSSHServiceServer(server, ssh.NewServer(cfg, locator, gitCmdFactory, txManager))
-	gitalypb.RegisterRefServiceServer(server, ref.NewServer(cfg, locator, gitCmdFactory, txManager, catfileCache))
-	gitalypb.RegisterCommitServiceServer(server, commit.NewServer(cfg, locator, gitCmdFactory, nil, catfileCache))
+	git2goExecutor := git2go.NewExecutor(cfg, gitCmdFactory, locator)
+
+	gitalypb.RegisterRepositoryServiceServer(server, NewServer(cfg, rubySrv, locator, txManager, gitCmdFactory, catfileCache, connsPool, git2goExecutor))
+	gitalypb.RegisterHookServiceServer(server, hookservice.NewServer(hookManager, gitCmdFactory, nil))
+	gitalypb.RegisterRemoteServiceServer(server, remote.NewServer(locator, gitCmdFactory, catfileCache, txManager, connsPool))
+	gitalypb.RegisterSSHServiceServer(server, ssh.NewServer(locator, gitCmdFactory, txManager))
+	gitalypb.RegisterRefServiceServer(server, ref.NewServer(locator, gitCmdFactory, txManager, catfileCache))
+	gitalypb.RegisterCommitServiceServer(server, commit.NewServer(locator, gitCmdFactory, nil, catfileCache))
 	errQ := make(chan error, 1)
 
 	// This creates a secondary GRPC server which isn't "secure". Reusing
@@ -288,7 +291,7 @@ func runSecureServer(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) s
 
 	cfg.TLS.KeyPath = ""
 	testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
+		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
 	})
 
 	t.Cleanup(func() { require.NoError(t, <-errQ) })

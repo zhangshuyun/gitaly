@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitalyssh"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -30,11 +29,6 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 			return err
 		}
 
-		env, err := gitalyssh.UploadPackEnv(ctx, s.cfg, &gitalypb.SSHUploadPackRequest{Repository: sourceRepository})
-		if err != nil {
-			return err
-		}
-
 		// git-clone(1) doesn't allow for the target path to exist, so we have to
 		// remove it first.
 		if err := os.RemoveAll(targetPath); err != nil {
@@ -50,10 +44,12 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 				git.Flag{Name: "--bare"},
 			},
 			Args: []string{
-				gitalyssh.GitalyInternalURL,
+				git.InternalGitalyURL,
 				targetPath,
 			},
-		}, git.WithEnv(env...), git.WithDisabledHooks())
+		}, git.WithInternalFetch(&gitalypb.SSHUploadPackRequest{
+			Repository: sourceRepository,
+		}), git.WithDisabledHooks())
 		if err != nil {
 			return fmt.Errorf("spawning fetch: %w", err)
 		}

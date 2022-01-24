@@ -27,7 +27,7 @@ func TestRepo_WriteBlob(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, repoPath := setupRepo(t, withEmptyRepo())
+	_, repo, repoPath := setupRepo(t, withEmptyRepo())
 
 	for _, tc := range []struct {
 		desc       string
@@ -155,7 +155,7 @@ func TestRepo_WriteTag(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, repoPath := setupRepo(t)
+	cfg, repo, repoPath := setupRepo(t)
 
 	for _, tc := range []struct {
 		desc        string
@@ -219,12 +219,11 @@ tagger root <root@localhost> 12345 -0100
 			tagObjID, err := repo.WriteTag(ctx, tc.objectID, tc.objectType, tc.tagName, tc.tagBody, tc.author, tc.authorDate)
 			require.NoError(t, err)
 
-			repoTagObjID := gittest.Exec(t, repo.cfg, "-C", repoPath, "rev-parse", tagObjID.String())
+			repoTagObjID := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", tagObjID.String())
 			require.Equal(t, text.ChompBytes(repoTagObjID), tagObjID.String())
 
 			if tc.expectedTag != "" {
-				tag := gittest.Exec(t, repo.cfg, "-C", repoPath, "cat-file",
-					"-p", tagObjID.String())
+				tag := gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-p", tagObjID.String())
 				require.Equal(t, tc.expectedTag, text.ChompBytes(tag))
 			}
 		})
@@ -235,7 +234,7 @@ func TestRepo_ReadObject(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _ := setupRepo(t)
+	_, repo, _ := setupRepo(t)
 
 	for _, tc := range []struct {
 		desc    string
@@ -267,7 +266,7 @@ func TestRepo_ReadCommit(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _ := setupRepo(t)
+	_, repo, _ := setupRepo(t)
 
 	for _, tc := range []struct {
 		desc           string
@@ -405,7 +404,7 @@ func TestRepo_IsAncestor(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _ := setupRepo(t)
+	_, repo, _ := setupRepo(t)
 
 	for _, tc := range []struct {
 		desc         string

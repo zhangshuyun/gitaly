@@ -60,7 +60,7 @@ type CommitParams struct {
 
 // Commit builds a commit from the actions, writes it to the object database and
 // returns its object id.
-func (b Executor) Commit(ctx context.Context, repo repository.GitRepo, params CommitParams) (git.ObjectID, error) {
+func (b *Executor) Commit(ctx context.Context, repo repository.GitRepo, params CommitParams) (git.ObjectID, error) {
 	input := &bytes.Buffer{}
 	if err := gob.NewEncoder(input).Encode(params); err != nil {
 		return "", err

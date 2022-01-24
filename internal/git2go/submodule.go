@@ -46,7 +46,7 @@ type SubmoduleResult struct {
 }
 
 // Submodule attempts to commit the request submodule change
-func (b Executor) Submodule(ctx context.Context, repo repository.GitRepo, s SubmoduleCommand) (SubmoduleResult, error) {
+func (b *Executor) Submodule(ctx context.Context, repo repository.GitRepo, s SubmoduleCommand) (SubmoduleResult, error) {
 	if err := s.verify(); err != nil {
 		return SubmoduleResult{}, fmt.Errorf("submodule: %w", err)
 	}

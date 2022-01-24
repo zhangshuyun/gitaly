@@ -24,12 +24,7 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 		return nil, helper.ErrInternal(err)
 	}
 
-	storage, ok := s.cfg.Storage(repo.GetStorageName())
-	if !ok {
-		return nil, helper.ErrInvalidArgumentf("storage %v not found", repo.GetStorageName())
-	}
-
-	tempDir, err := s.locator.TempDir(storage.Name)
+	tempDir, err := s.locator.TempDir(repo.GetStorageName())
 	if err != nil {
 		return nil, helper.ErrInternalf("temporary directory: %w", err)
 	}

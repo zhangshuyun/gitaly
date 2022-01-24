@@ -69,7 +69,6 @@ func TestWithRubySidecar(t *testing.T) {
 func setupWikiService(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server) gitalypb.WikiServiceClient {
 	addr := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(
-			deps.GetCfg(),
 			deps.GetHookManager(),
 			deps.GetGitCmdFactory(),
 			deps.GetPackObjectsCache(),

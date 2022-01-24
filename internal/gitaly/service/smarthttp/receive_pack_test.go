@@ -688,12 +688,11 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 
 	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterSmartHTTPServiceServer(srv, NewServer(
-			deps.GetCfg(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetDiskCache(),
 		))
-		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
+		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
 	}, testserver.WithDisablePraefect())
 
 	ctx, cancel := testhelper.Context()

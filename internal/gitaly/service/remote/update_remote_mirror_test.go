@@ -558,7 +558,6 @@ func TestUpdateRemoteMirror(t *testing.T) {
 				}
 
 				gitalypb.RegisterRemoteServiceServer(srv, NewServer(
-					deps.GetCfg(),
 					deps.GetLocator(),
 					cmdFactory,
 					deps.GetCatfileCache(),
@@ -627,7 +626,6 @@ func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 
 	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
-			deps.GetCfg(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
@@ -730,7 +728,6 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithWildcards(t *testing.T) {
 
 	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
-			deps.GetCfg(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
@@ -814,7 +811,6 @@ func TestUpdateRemoteMirrorInmemory(t *testing.T) {
 
 	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
-			deps.GetCfg(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
@@ -863,7 +859,6 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T) 
 
 	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
-			deps.GetCfg(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
@@ -951,7 +946,6 @@ func TestFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T) {
 
 	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
-			deps.GetCfg(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),

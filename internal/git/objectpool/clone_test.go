@@ -12,7 +12,7 @@ func TestClone(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, testRepo := setupObjectPool(t, ctx)
+	_, pool, testRepo := setupObjectPool(t, ctx)
 
 	require.NoError(t, pool.clone(ctx, testRepo))
 	defer func() {
@@ -27,7 +27,7 @@ func TestCloneExistingPool(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, testRepo := setupObjectPool(t, ctx)
+	_, pool, testRepo := setupObjectPool(t, ctx)
 
 	require.NoError(t, pool.clone(ctx, testRepo))
 	defer func() {

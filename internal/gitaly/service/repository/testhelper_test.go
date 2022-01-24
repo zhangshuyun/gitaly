@@ -124,10 +124,10 @@ func runRepositoryServerWithConfig(t testing.TB, cfg config.Cfg, rubySrv *rubyse
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
 			deps.GetConnsPool(),
+			deps.GetGit2goExecutor(),
 		))
-		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(cfg, deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
+		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
 		gitalypb.RegisterRemoteServiceServer(srv, remote.NewServer(
-			cfg,
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
@@ -135,20 +135,17 @@ func runRepositoryServerWithConfig(t testing.TB, cfg config.Cfg, rubySrv *rubyse
 			deps.GetConnsPool(),
 		))
 		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
-			cfg,
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetTxManager(),
 		))
 		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(
-			cfg,
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetTxManager(),
 			deps.GetCatfileCache(),
 		))
 		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(
-			cfg,
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			nil,

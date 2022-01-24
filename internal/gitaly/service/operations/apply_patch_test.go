@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
@@ -278,10 +277,7 @@ To restore the original branch and stop patching, run "git am --abort".
 		t.Run(tc.desc, func(t *testing.T) {
 			repoPb, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
-			catfileCache := catfile.NewCache(cfg)
-			t.Cleanup(catfileCache.Stop)
-
-			repo := localrepo.New(gittest.NewCommandFactory(t, cfg), catfileCache, repoPb, cfg)
+			repo := localrepo.NewTestRepo(t, cfg, repoPb)
 
 			executor := git2go.NewExecutor(cfg, gittest.NewCommandFactory(t, cfg), config.NewLocator(cfg))
 

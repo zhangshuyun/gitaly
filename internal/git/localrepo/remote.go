@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitalyssh"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -121,21 +120,17 @@ func (repo *Repo) FetchInternal(
 		return fmt.Errorf("fetch internal called without refspecs")
 	}
 
-	env, err := gitalyssh.UploadPackEnv(ctx, repo.cfg, &gitalypb.SSHUploadPackRequest{
-		Repository:       remoteRepo,
-		GitConfigOptions: []string{"uploadpack.allowAnySHA1InWant=true"},
-	})
-	if err != nil {
-		return fmt.Errorf("fetch internal: %w", err)
-	}
-
 	var stderr bytes.Buffer
 	if opts.Stderr == nil {
 		opts.Stderr = &stderr
 	}
 
 	commandOptions := []git.CmdOpt{
-		git.WithEnv(append(env, opts.Env...)...),
+		git.WithInternalFetch(&gitalypb.SSHUploadPackRequest{
+			Repository:       remoteRepo,
+			GitConfigOptions: []string{"uploadpack.allowAnySHA1InWant=true"},
+		}),
+		git.WithEnv(opts.Env...),
 		git.WithStderr(opts.Stderr),
 		// We've observed performance issues when fetching into big repositories part of an
 		// object pool. The root cause of this seems to be the connectivity check, which by
@@ -157,7 +152,7 @@ func (repo *Repo) FetchInternal(
 		git.SubCmd{
 			Name:  "fetch",
 			Flags: opts.buildFlags(),
-			Args:  append([]string{gitalyssh.GitalyInternalURL}, refspecs...),
+			Args:  append([]string{git.InternalGitalyURL}, refspecs...),
 		},
 		commandOptions...,
 	); err != nil {

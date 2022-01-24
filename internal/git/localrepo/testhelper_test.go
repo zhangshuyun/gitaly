@@ -6,6 +6,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -37,7 +38,7 @@ func withDisabledHooks() setupRepoOption {
 	}
 }
 
-func setupRepo(t *testing.T, opts ...setupRepoOption) (*Repo, string) {
+func setupRepo(t *testing.T, opts ...setupRepoOption) (config.Cfg, *Repo, string) {
 	t.Helper()
 
 	var setupRepoCfg setupRepoConfig
@@ -63,5 +64,5 @@ func setupRepo(t *testing.T, opts ...setupRepoOption) (*Repo, string) {
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg, commandFactoryOpts...)
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
-	return New(gitCmdFactory, catfileCache, repoProto, cfg), repoPath
+	return cfg, New(config.NewLocator(cfg), gitCmdFactory, catfileCache, repoProto), repoPath
 }

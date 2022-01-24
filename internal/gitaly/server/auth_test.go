@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
@@ -201,6 +202,7 @@ func runServer(t *testing.T, cfg config.Cfg) string {
 	t.Cleanup(catfileCache.Stop)
 	diskCache := cache.New(cfg, locator)
 	limitHandler := limithandler.New(cfg, limithandler.LimitConcurrencyByRepo)
+	updaterWithHooks := updateref.NewUpdaterWithHooks(cfg, locator, hookManager, gitCmdFactory, catfileCache)
 
 	srv, err := New(false, cfg, testhelper.NewDiscardingLogEntry(t), registry, diskCache, limitHandler)
 	require.NoError(t, err)
@@ -213,6 +215,7 @@ func runServer(t *testing.T, cfg config.Cfg) string {
 		ClientPool:         conns,
 		GitCmdFactory:      gitCmdFactory,
 		CatfileCache:       catfileCache,
+		UpdaterWithHooks:   updaterWithHooks,
 	})
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 

@@ -36,15 +36,15 @@ type Executor struct {
 
 // NewExecutor returns a new gitaly-git2go executor using binaries as configured in the given
 // configuration.
-func NewExecutor(cfg config.Cfg, gitCmdFactory git.CommandFactory, locator storage.Locator) Executor {
-	return Executor{
+func NewExecutor(cfg config.Cfg, gitCmdFactory git.CommandFactory, locator storage.Locator) *Executor {
+	return &Executor{
 		binaryPath:    filepath.Join(cfg.BinDir, BinaryName),
 		gitCmdFactory: gitCmdFactory,
 		locator:       locator,
 	}
 }
 
-func (b Executor) run(ctx context.Context, repo repository.GitRepo, stdin io.Reader, args ...string) (*bytes.Buffer, error) {
+func (b *Executor) run(ctx context.Context, repo repository.GitRepo, stdin io.Reader, args ...string) (*bytes.Buffer, error) {
 	repoPath, err := b.locator.GetRepoPath(repo)
 	if err != nil {
 		return nil, fmt.Errorf("gitaly-git2go: %w", err)
@@ -70,7 +70,7 @@ func (b Executor) run(ctx context.Context, repo repository.GitRepo, stdin io.Rea
 
 // runWithGob runs the specified gitaly-git2go cmd with the request gob-encoded
 // as input and returns the commit ID as string or an error.
-func (b Executor) runWithGob(ctx context.Context, repo repository.GitRepo, cmd string, request interface{}) (git.ObjectID, error) {
+func (b *Executor) runWithGob(ctx context.Context, repo repository.GitRepo, cmd string, request interface{}) (git.ObjectID, error) {
 	input := &bytes.Buffer{}
 	if err := gob.NewEncoder(input).Encode(request); err != nil {
 		return "", fmt.Errorf("%s: %w", cmd, err)

@@ -96,7 +96,7 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	result, err := s.git2go.Submodule(ctx, quarantineRepo, git2go.SubmoduleCommand{
+	result, err := s.git2goExecutor.Submodule(ctx, quarantineRepo, git2go.SubmoduleCommand{
 		Repository: repoPath,
 		AuthorMail: string(req.GetUser().GetEmail()),
 		AuthorName: string(req.GetUser().GetName()),

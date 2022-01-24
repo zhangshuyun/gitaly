@@ -1,4 +1,4 @@
-package updateref
+package updateref_test
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/quarantine"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
@@ -40,7 +41,7 @@ func TestUpdaterWithHooks_UpdateReference_invalidParameters(t *testing.T) {
 
 	revA, revB := git.ObjectID(strings.Repeat("a", 40)), git.ObjectID(strings.Repeat("b", 40))
 
-	updater := NewUpdaterWithHooks(cfg, &hook.MockManager{}, nil, nil)
+	updater := updateref.NewUpdaterWithHooks(cfg, nil, &hook.MockManager{}, nil, nil)
 
 	testCases := []struct {
 		desc           string
@@ -99,7 +100,7 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 	// We need to set up a separate "real" hook service here, as it will be used in
 	// git-update-ref(1) spawned by `updateRefWithHooks()`
 	testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
+		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
 	})
 
 	user := &gitalypb.User{
@@ -246,7 +247,7 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 			hookManager := hook.NewMockManager(t, tc.preReceive, tc.postReceive, tc.update, tc.referenceTransaction)
 
 			gitCmdFactory := gittest.NewCommandFactory(t, cfg)
-			updater := NewUpdaterWithHooks(cfg, hookManager, gitCmdFactory, nil)
+			updater := updateref.NewUpdaterWithHooks(cfg, config.NewLocator(cfg), hookManager, gitCmdFactory, nil)
 
 			err := updater.UpdateReference(ctx, repo, user, nil, git.ReferenceName("refs/heads/master"), git.ZeroOID, git.ObjectID(oldRev))
 			if tc.expectedErr == "" {
@@ -349,7 +350,7 @@ func TestUpdaterWithHooks_quarantine(t *testing.T) {
 		},
 	)
 
-	require.NoError(t, NewUpdaterWithHooks(cfg, hookManager, gitCmdFactory, nil).UpdateReference(
+	require.NoError(t, updateref.NewUpdaterWithHooks(cfg, locator, hookManager, gitCmdFactory, nil).UpdateReference(
 		ctx,
 		repoProto,
 		&gitalypb.User{

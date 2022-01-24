@@ -33,6 +33,6 @@ type RebaseCommand struct {
 }
 
 // Rebase performs the rebase via gitaly-git2go
-func (b Executor) Rebase(ctx context.Context, repo repository.GitRepo, r RebaseCommand) (git.ObjectID, error) {
+func (b *Executor) Rebase(ctx context.Context, repo repository.GitRepo, r RebaseCommand) (git.ObjectID, error) {
 	return b.runWithGob(ctx, repo, "rebase", r)
 }

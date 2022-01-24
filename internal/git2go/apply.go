@@ -73,7 +73,7 @@ func (iter *slicePatchIterator) Err() error { return nil }
 
 // Apply applies the provided patches and returns the OID of the commit with the patches
 // applied.
-func (b Executor) Apply(ctx context.Context, repo repository.GitRepo, params ApplyParams) (git.ObjectID, error) {
+func (b *Executor) Apply(ctx context.Context, repo repository.GitRepo, params ApplyParams) (git.ObjectID, error) {
 	reader, writer := io.Pipe()
 	defer writer.Close()
 

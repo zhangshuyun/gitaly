@@ -135,7 +135,7 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 
 	// We're now rebasing the end commit on top of the start commit. The resulting tree
 	// is then going to be the tree of the squashed commit.
-	rebasedCommitID, err := s.git2go.Rebase(ctx, repo, git2go.RebaseCommand{
+	rebasedCommitID, err := s.git2goExecutor.Rebase(ctx, repo, git2go.RebaseCommand{
 		Repository: repoPath,
 		Committer: git2go.NewSignature(
 			string(req.GetUser().Name), string(req.GetUser().Email), commitDate,
