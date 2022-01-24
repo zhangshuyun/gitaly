@@ -22,32 +22,20 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-func SetupConfigAndRepo(t testing.TB, bare bool) (config.Cfg, *gitalypb.Repository, string) {
+func SetupConflictsService(t testing.TB, bare bool, hookManager hook.Manager) (config.Cfg, *gitalypb.Repository, string, gitalypb.ConflictsServiceClient) {
 	cfg := testcfg.Build(t)
 
 	testcfg.BuildGitalyGit2Go(t, cfg)
 
-	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
-		WithWorktree: !bare,
-	})
-
-	return cfg, repo, repoPath
-}
-
-func SetupConflictsServiceWithConfig(t testing.TB, cfg *config.Cfg, hookManager hook.Manager) gitalypb.ConflictsServiceClient {
-	serverSocketPath := runConflictsServer(t, *cfg, hookManager)
+	serverSocketPath := runConflictsServer(t, cfg, hookManager)
 	cfg.SocketPath = serverSocketPath
 
 	client, conn := NewConflictsClient(t, serverSocketPath)
 	t.Cleanup(func() { conn.Close() })
 
-	return client
-}
-
-func SetupConflictsService(t testing.TB, bare bool, hookManager hook.Manager) (config.Cfg, *gitalypb.Repository, string, gitalypb.ConflictsServiceClient) {
-	cfg, repo, repoPath := SetupConfigAndRepo(t, bare)
-
-	client := SetupConflictsServiceWithConfig(t, &cfg, hookManager)
+	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+		WithWorktree: !bare,
+	})
 
 	return cfg, repo, repoPath, client
 }

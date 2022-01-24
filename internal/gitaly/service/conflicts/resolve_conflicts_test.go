@@ -56,7 +56,18 @@ var (
 )
 
 func TestSuccessfulResolveConflictsRequestHelper(t *testing.T) {
-	cfg, repoProto, repoPath := SetupConfigAndRepo(t, true)
+	var verifyFunc func(t testing.TB, pushOptions []string, stdin io.Reader)
+	verifyFuncProxy := func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
+		// We use a proxy func here as we need to provide the hookManager dependency while creating the service but we only
+		// know the commit IDs after the service is created. The proxy allows us to modify the verifyFunc after the service
+		// is already built.
+		verifyFunc(t, pushOptions, stdin)
+		return nil
+	}
+
+	hookManager := hook.NewMockManager(t, verifyFuncProxy, verifyFuncProxy, hook.NopUpdate, hook.NopReferenceTransaction)
+	cfg, repoProto, repoPath, client := SetupConflictsService(t, true, hookManager)
+
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	ctx := testhelper.Context(t)
 
@@ -126,18 +137,14 @@ func TestSuccessfulResolveConflictsRequestHelper(t *testing.T) {
 	theirCommitOID = commitConflict(theirCommitOID, targetBranch, "content-2")
 	hookCount := 0
 
-	verifyFunc := func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
+	verifyFunc = func(t testing.TB, pushOptions []string, stdin io.Reader) {
 		changes, err := io.ReadAll(stdin)
 		require.NoError(t, err)
 		pattern := fmt.Sprintf("%s .* refs/heads/%s\n", ourCommitOID, sourceBranch)
 		require.Regexp(t, regexp.MustCompile(pattern), string(changes))
 		require.Empty(t, pushOptions)
 		hookCount++
-		return nil
 	}
-
-	hookManager := hook.NewMockManager(t, verifyFunc, verifyFunc, hook.NopUpdate, hook.NopReferenceTransaction)
-	client := SetupConflictsServiceWithConfig(t, &cfg, hookManager)
 
 	mdGS := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	mdFF, _ := metadata.FromOutgoingContext(ctx)
