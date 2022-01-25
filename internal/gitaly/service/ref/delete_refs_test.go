@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	hookservice "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/hook"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -46,7 +47,9 @@ func TestDeleteRefs_successful(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+			repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				Seed: gittest.SeedGitLabTest,
+			})
 
 			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/delete/a", "b83d6e391c22777fca1ed3012fce84f633d7fed0")
 			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/also-delete/b", "1b12f15a11fc6e62177bef08f47bc7b5ce50b141")
@@ -92,8 +95,19 @@ func TestDeleteRefs_transaction(t *testing.T) {
 			deps.GetTxManager(),
 			deps.GetCatfileCache(),
 		))
+		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
+			deps.GetCfg(),
+			deps.GetRubyServer(),
+			deps.GetLocator(),
+			deps.GetTxManager(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+			deps.GetConnsPool(),
+			deps.GetGit2goExecutor(),
+		))
 		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
-	}, testserver.WithTransactionManager(txManager))
+	}, testserver.WithTransactionManager(txManager), testserver.WithDisableMetadataForceCreation())
+	cfg.SocketPath = addr
 
 	client, conn := newRefServiceClient(t, addr)
 	t.Cleanup(func() { conn.Close() })
@@ -123,9 +137,11 @@ func TestDeleteRefs_transaction(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				Seed: gittest.SeedGitLabTest,
+			})
 			txManager.Reset()
 
-			repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 			tc.request.Repository = repo
 
 			response, err := client.DeleteRefs(ctx, tc.request)

@@ -2,6 +2,7 @@ package ref
 
 import (
 	"bytes"
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -9,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	hookservice "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/hook"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/lines"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -34,7 +36,9 @@ func TestMain(m *testing.M) {
 
 func setupRefService(t testing.TB) (config.Cfg, *gitalypb.Repository, string, gitalypb.RefServiceClient) {
 	cfg, client := setupRefServiceWithoutRepo(t)
-	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	repo, repoPath := gittest.CreateRepository(context.TODO(), t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 	return cfg, repo, repoPath, client
 }
 
@@ -61,7 +65,17 @@ func runRefServiceServer(t testing.TB, cfg config.Cfg) string {
 			deps.GetCatfileCache(),
 		))
 		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
-	})
+		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
+			deps.GetCfg(),
+			deps.GetRubyServer(),
+			deps.GetLocator(),
+			deps.GetTxManager(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+			deps.GetConnsPool(),
+			deps.GetGit2goExecutor(),
+		))
+	}, testserver.WithDisableMetadataForceCreation())
 }
 
 func newRefServiceClient(t testing.TB, serverSocketPath string) (gitalypb.RefServiceClient, *grpc.ClientConn) {

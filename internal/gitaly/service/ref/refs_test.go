@@ -1081,9 +1081,8 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 }
 
 func TestFindTagNestedTag(t *testing.T) {
-	cfg, client := setupRefServiceWithoutRepo(t)
+	cfg, repoProto, repoPath, client := setupRefService(t)
 
-	repoProto, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	blobID := git.ObjectID("faaf198af3a36dbf41961466703cc1d47c61d051")

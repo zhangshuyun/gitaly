@@ -126,7 +126,9 @@ func TestFindRefsByOID_failure(t *testing.T) {
 		{
 			desc: "no ref exists for OID",
 			setup: func(t *testing.T) (*gitalypb.FindRefsByOIDRequest, error) {
-				repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					Seed: gittest.SeedGitLabTest,
+				})
 				oid := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("no ref exists for OID"))
 
 				return &gitalypb.FindRefsByOIDRequest{
@@ -138,7 +140,9 @@ func TestFindRefsByOID_failure(t *testing.T) {
 		{
 			desc: "repository is corrupted",
 			setup: func(t *testing.T) (*gitalypb.FindRefsByOIDRequest, error) {
-				repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					Seed: gittest.SeedGitLabTest,
+				})
 				oid := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("no ref exists for OID"))
 				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/corrupted-repo-branch", oid.String())
 
@@ -153,7 +157,9 @@ func TestFindRefsByOID_failure(t *testing.T) {
 		{
 			desc: "repository is missing",
 			setup: func(t *testing.T) (*gitalypb.FindRefsByOIDRequest, error) {
-				repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					Seed: gittest.SeedGitLabTest,
+				})
 				oid := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("repository is missing"))
 				require.NoError(t, os.RemoveAll(repoPath))
 
@@ -166,7 +172,9 @@ func TestFindRefsByOID_failure(t *testing.T) {
 		{
 			desc: "oid is not a commit",
 			setup: func(t *testing.T) (*gitalypb.FindRefsByOIDRequest, error) {
-				repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					Seed: gittest.SeedGitLabTest,
+				})
 				oid := gittest.WriteBlob(t, cfg, repoPath, []byte("the blob"))
 
 				return &gitalypb.FindRefsByOIDRequest{
@@ -178,7 +186,9 @@ func TestFindRefsByOID_failure(t *testing.T) {
 		{
 			desc: "oid prefix too short",
 			setup: func(t *testing.T) (*gitalypb.FindRefsByOIDRequest, error) {
-				repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					Seed: gittest.SeedGitLabTest,
+				})
 				oid := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("oid prefix too short"))
 				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/short-oid", oid.String())
 
