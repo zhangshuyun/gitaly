@@ -83,8 +83,11 @@ PROTOC_VERSION            ?= v3.17.3
 PROTOC_GEN_GO_VERSION     ?= 1.26.0
 # https://pkg.go.dev/google.golang.org/grpc/cmd/protoc-gen-go-grpc
 PROTOC_GEN_GO_GRPC_VERSION?= 1.1.0
-GIT2GO_VERSION            ?= v32
-LIBGIT2_VERSION           ?= v1.2.0
+# Git2Go and libgit2 may need to be updated in sync. Please refer to
+# https://github.com/libgit2/git2go/#which-go-version-to-use for a
+# compatibility matrix.
+GIT2GO_VERSION            ?= v33
+LIBGIT2_VERSION           ?= v1.3.0
 
 # The default version is used in case the caller does not set the variable or
 # if it is either set to the empty string or "default".
