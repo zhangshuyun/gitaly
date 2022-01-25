@@ -12,6 +12,7 @@ import (
 
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
@@ -48,6 +49,7 @@ var subcommands = map[string]subcmd{
 		praefect.NewGitalyNodeConnectivityCheck,
 		praefect.NewPostgresReadWriteCheck,
 		praefect.NewUnavailableReposCheck,
+		praefect.NewClockSyncCheck(helper.CheckClockSync),
 	),
 	metadataCmdName: newMetadataSubcommand(os.Stdout),
 }

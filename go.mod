@@ -10,6 +10,7 @@ exclude (
 )
 
 require (
+	github.com/beevik/ntp v0.3.0
 	github.com/cloudflare/tableflip v1.2.2
 	github.com/containerd/cgroups v0.0.0-20201118023556-2819c83ced99
 	github.com/getsentry/sentry-go v0.10.0

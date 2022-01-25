@@ -11,6 +11,9 @@ service ServerService {
 
   rpc ServerInfo(ServerInfoRequest) returns (ServerInfoResponse);
   rpc DiskStatistics(DiskStatisticsRequest) returns (DiskStatisticsResponse);
+  // ClockSynced checks if machine clock is synced
+  // (the offset is less that the one passed in the request).
+  rpc ClockSynced(ClockSyncedRequest) returns (ClockSyncedResponse) {}
 }
 
 message ServerInfoRequest {}
@@ -42,4 +45,17 @@ message DiskStatisticsResponse {
   }
 
   repeated StorageStatus storage_statuses = 1;
+}
+
+message ClockSyncedRequest {
+  // ntp_host is a URL to the external NTP service that should be used for clock sync check.
+  // Default is ntp.pool.org
+  string ntp_host = 1;
+  // drift_threshold_millis is an allowed drift from the NTP service in milliseconds.
+  int64 drift_threshold_millis = 2;
+}
+
+message ClockSyncedResponse {
+  // synced is set to true if system clock has an affordable drift compared to NTP service.
+  bool synced = 1;
 }

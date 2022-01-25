@@ -6,14 +6,22 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	migrate "github.com/rubenv/sql-migrate"
+	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
+	"gitlab.com/gitlab-org/gitaly/v14/client"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/env"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/migrations"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
+	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/labkit/correlation"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
 )
 
 // Severity is a type that indicates the severity of a check
@@ -178,6 +186,80 @@ func NewUnavailableReposCheck(conf config.Config, w io.Writer, quiet bool) *Chec
 			return errors.New("repositories unavailable")
 		},
 		Severity: Warning,
+	}
+}
+
+// NewClockSyncCheck returns a function that returns a check that verifies if system clock is in sync.
+func NewClockSyncCheck(clockDriftCheck func(ntpHost string, driftThreshold time.Duration) (bool, error)) func(_ config.Config, _ io.Writer, _ bool) *Check {
+	return func(conf config.Config, w io.Writer, quite bool) *Check {
+		return &Check{
+			Name: "clock synchronization",
+			Description: "checks if system clock is in sync with NTP service. " +
+				"You can use NTP_HOST env var to provide NTP service URL to query and " +
+				"DRIFT_THRESHOLD to provide allowed drift as a duration (1ms, 20sec, etc.)",
+			Severity: Fatal,
+			Run: func(ctx context.Context) error {
+				const driftThresholdMillisEnvName = "DRIFT_THRESHOLD"
+				driftThreshold, err := env.GetDuration(driftThresholdMillisEnvName, time.Minute)
+				if err != nil {
+					return fmt.Errorf("env var %s expected to be an duration (5s, 100ms, etc.)", driftThresholdMillisEnvName)
+				}
+				// If user specify 10ns it would be converted into 0ms, we should prevent
+				// this situation and exit with detailed error.
+				if driftThreshold != 0 && driftThreshold.Milliseconds() == 0 {
+					return fmt.Errorf("env var %s expected to be 0 or at least 1ms", driftThresholdMillisEnvName)
+				}
+
+				ntpHost := os.Getenv("NTP_HOST")
+				correlationID := correlation.SafeRandomID()
+				ctx = correlation.ContextWithCorrelation(ctx, correlationID)
+
+				logMessage(quite, w, "checking with NTP service at %s and allowed clock drift %d ms [correlation_id: %s]", ntpHost, driftThreshold.Milliseconds(), correlationID)
+
+				g, ctx := errgroup.WithContext(ctx)
+				g.Go(func() error {
+					synced, err := clockDriftCheck(ntpHost, driftThreshold)
+					if err != nil {
+						return fmt.Errorf("praefect: %w", err)
+					}
+					if !synced {
+						return errors.New("praefect: clock is not synced")
+					}
+					return nil
+				})
+
+				for i := range conf.VirtualStorages {
+					for j := range conf.VirtualStorages[i].Nodes {
+						node := conf.VirtualStorages[i].Nodes[j]
+						g.Go(func() error {
+							opts := []grpc.DialOption{grpc.WithBlock()}
+							if len(node.Token) > 0 {
+								opts = append(opts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(node.Token)))
+							}
+
+							cc, err := client.DialContext(ctx, node.Address, opts)
+							if err != nil {
+								return fmt.Errorf("%s machine: %w", node.Address, err)
+							}
+							defer func() { _ = cc.Close() }()
+
+							serverServiceClient := gitalypb.NewServerServiceClient(cc)
+							resp, err := serverServiceClient.ClockSynced(ctx, &gitalypb.ClockSyncedRequest{
+								NtpHost: ntpHost, DriftThresholdMillis: driftThreshold.Milliseconds(),
+							})
+							if err != nil {
+								return fmt.Errorf("gitaly node at %s: %w", node.Address, err)
+							}
+							if !resp.GetSynced() {
+								return fmt.Errorf("gitaly node at %s: clock is not synced", node.Address)
+							}
+							return nil
+						})
+					}
+				}
+				return g.Wait()
+			},
+		}
 	}
 }
 

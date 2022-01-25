@@ -31,6 +31,13 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :available, :int64, 2
       optional :used, :int64, 3
     end
+    add_message "gitaly.ClockSyncedRequest" do
+      optional :ntp_host, :string, 1
+      optional :drift_threshold_millis, :int64, 2
+    end
+    add_message "gitaly.ClockSyncedResponse" do
+      optional :synced, :bool, 1
+    end
   end
 end
 
@@ -41,4 +48,6 @@ module Gitaly
   DiskStatisticsRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.DiskStatisticsRequest").msgclass
   DiskStatisticsResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.DiskStatisticsResponse").msgclass
   DiskStatisticsResponse::StorageStatus = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.DiskStatisticsResponse.StorageStatus").msgclass
+  ClockSyncedRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ClockSyncedRequest").msgclass
+  ClockSyncedResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ClockSyncedResponse").msgclass
 end

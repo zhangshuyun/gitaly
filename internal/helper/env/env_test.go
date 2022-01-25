@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/env"
@@ -112,6 +113,56 @@ func TestGetInt(t *testing.T) {
 			if tc.expectedErrIs != nil {
 				assert.Error(t, err)
 				assert.True(t, errors.Is(err, tc.expectedErrIs), err)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestGetDuration(t *testing.T) {
+	for _, tc := range []struct {
+		value       string
+		fallback    time.Duration
+		expected    time.Duration
+		expectedErr string
+	}{
+		{
+			value:    "3m",
+			fallback: 0,
+			expected: 3 * time.Minute,
+		},
+		{
+			value:    "",
+			expected: 0,
+		},
+		{
+			value:    "",
+			fallback: 3,
+			expected: 3,
+		},
+		{
+			value:       "bad",
+			expected:    0,
+			expectedErr: `get duration TEST_DURATION: time: invalid duration "bad"`,
+		},
+		{
+			value:       "bad",
+			fallback:    3,
+			expected:    3,
+			expectedErr: `get duration TEST_DURATION: time: invalid duration "bad"`,
+		},
+	} {
+		t.Run(fmt.Sprintf("value=%s,fallback=%d", tc.value, tc.fallback), func(t *testing.T) {
+			testhelper.ModifyEnvironment(t, "TEST_DURATION", tc.value)
+
+			result, err := env.GetDuration("TEST_DURATION", tc.fallback)
+
+			if tc.expectedErr != "" {
+				assert.Error(t, err)
+				assert.EqualError(t, err, tc.expectedErr)
 			} else {
 				assert.NoError(t, err)
 			}

@@ -16,6 +16,9 @@ module Gitaly
 
       rpc :ServerInfo, ::Gitaly::ServerInfoRequest, ::Gitaly::ServerInfoResponse
       rpc :DiskStatistics, ::Gitaly::DiskStatisticsRequest, ::Gitaly::DiskStatisticsResponse
+      # ClockSynced checks if machine clock is synced
+      # (the offset is less that the one passed in the request).
+      rpc :ClockSynced, ::Gitaly::ClockSyncedRequest, ::Gitaly::ClockSyncedResponse
     end
 
     Stub = Service.rpc_stub_class

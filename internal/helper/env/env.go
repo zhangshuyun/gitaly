@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 )
 
 // GetBool fetches and parses a boolean typed environment variable
@@ -34,6 +35,19 @@ func GetInt(name string, fallback int) (int, error) {
 	v, err := strconv.Atoi(s)
 	if err != nil {
 		return fallback, fmt.Errorf("get int %s: %w", name, err)
+	}
+	return v, nil
+}
+
+// GetDuration fetches and parses a duration typed environment variable
+func GetDuration(name string, fallback time.Duration) (time.Duration, error) {
+	s := os.Getenv(name)
+	if s == "" {
+		return fallback, nil
+	}
+	v, err := time.ParseDuration(s)
+	if err != nil {
+		return fallback, fmt.Errorf("get duration %s: %w", name, err)
 	}
 	return v, nil
 }
