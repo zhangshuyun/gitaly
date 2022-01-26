@@ -18,15 +18,15 @@ import (
 
 func TestFindRemoteRootRefSuccess(t *testing.T) {
 	t.Parallel()
-	cfg, repo, repoPath, client := setupRemoteService(t)
+
+	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupRemoteService(ctx, t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
 	const (
 		host   = "example.com"
 		secret = "mysecret"
 	)
-
-	ctx := testhelper.Context(t)
 
 	port, stopGitServer := gittest.HTTPServer(ctx, t, gitCmdFactory, repoPath, newGitRequestValidationMiddleware(host, secret))
 	defer func() { require.NoError(t, stopGitServer()) }()
@@ -57,14 +57,14 @@ func TestFindRemoteRootRefSuccess(t *testing.T) {
 
 func TestFindRemoteRootRefWithUnbornRemoteHead(t *testing.T) {
 	t.Parallel()
-	cfg, remoteRepo, remoteRepoPath, client := setupRemoteService(t)
+
+	ctx := testhelper.Context(t)
+	cfg, remoteRepo, remoteRepoPath, client := setupRemoteService(ctx, t)
 
 	// We're creating an empty repository. Empty repositories do have a HEAD set up, but they
 	// point to an unborn branch because the default branch hasn't yet been created.
 	_, clientRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 	gittest.Exec(t, cfg, "-C", remoteRepoPath, "remote", "add", "foo", "file://"+clientRepoPath)
-	ctx := testhelper.Context(t)
-
 	response, err := client.FindRemoteRootRef(ctx, &gitalypb.FindRemoteRootRefRequest{
 		Repository: remoteRepo,
 		RemoteUrl:  "file://" + clientRepoPath,
@@ -77,9 +77,10 @@ func TestFindRemoteRootRefWithUnbornRemoteHead(t *testing.T) {
 func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 	t.Parallel()
 
+	ctx := testhelper.Context(t)
 	// We're running tests with Praefect disabled given that we don't want to exercise
 	// Praefect's validation, but Gitaly's.
-	_, repo, _, client := setupRemoteService(t, testserver.WithDisablePraefect())
+	_, repo, _, client := setupRemoteService(ctx, t, testserver.WithDisablePraefect())
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
 
@@ -114,8 +115,6 @@ func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			_, err := client.FindRemoteRootRef(ctx, testCase.request)
 			testhelper.RequireGrpcError(t, testCase.expectedErr, err)
 		})
@@ -124,7 +123,9 @@ func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 
 func TestFindRemoteRootRefFailedDueToInvalidRemote(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupRemoteService(t)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupRemoteService(ctx, t)
 
 	t.Run("invalid remote URL", func(t *testing.T) {
 		fakeRepoDir := testhelper.TempDir(t)
@@ -133,7 +134,6 @@ func TestFindRemoteRootRefFailedDueToInvalidRemote(t *testing.T) {
 		request := &gitalypb.FindRemoteRootRefRequest{
 			Repository: repo, RemoteUrl: "file://" + fakeRepoDir,
 		}
-		ctx := testhelper.Context(t)
 
 		_, err := client.FindRemoteRootRef(ctx, request)
 		testhelper.RequireGrpcCode(t, err, codes.Internal)
