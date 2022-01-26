@@ -51,7 +51,6 @@ func TestNewCommandAddsToCgroup(t *testing.T) {
 	}
 
 	require.NoError(t, os.MkdirAll(cfg.BinDir, 0o755))
-	require.NoError(t, cfg.SetGitPath())
 
 	gitCmdFactory := newCommandFactory(t, cfg, WithSkipHooks())
 

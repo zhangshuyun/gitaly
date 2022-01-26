@@ -28,15 +28,14 @@ func TestWithRefHook(t *testing.T) {
 		{
 			name: "NewCommand",
 			fn: func() (*command.Command, error) {
-				return gittest.NewCommandFactory(t, cfg).New(ctx, repo, subCmd, opt)
+				return gittest.NewCommandFactory(t, cfg, git.WithSkipHooks()).New(ctx, repo, subCmd, opt)
 			},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd, err := tt.fn()
 			require.NoError(t, err)
-			// There is no full setup, so executing the hook will fail.
-			require.Error(t, cmd.Wait())
+			require.NoError(t, cmd.Wait())
 
 			var actualEnvVars []string
 			for _, env := range cmd.Env() {

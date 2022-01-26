@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/alternates"
@@ -45,6 +46,11 @@ var globalOptions = []GlobalOption{
 	ConfigPair{Key: "core.useReplaceRefs", Value: "false"},
 }
 
+type executionEnvironments struct {
+	externalGit ExecutionEnvironment
+	bundledGit  ExecutionEnvironment
+}
+
 // ExecutionEnvironment describes the environment required to execute a Git command
 type ExecutionEnvironment struct {
 	// BinaryPath is the path to the Git binary.
@@ -70,7 +76,8 @@ type CommandFactory interface {
 }
 
 type execCommandFactoryConfig struct {
-	hooksPath string
+	hooksPath     string
+	gitBinaryPath string
 }
 
 // ExecCommandFactoryOption is an option that can be passed to NewExecCommandFactory.
@@ -90,22 +97,34 @@ func WithHooksPath(hooksPath string) ExecCommandFactoryOption {
 	}
 }
 
+// WithGitBinaryPath overrides the path to the Git binary that shall be executed.
+func WithGitBinaryPath(path string) ExecCommandFactoryOption {
+	return func(cfg *execCommandFactoryConfig) {
+		cfg.gitBinaryPath = path
+	}
+}
+
 type hookDirectories struct {
 	rubyHooksPath string
 	tempHooksPath string
+}
+
+type cachedGitVersion struct {
+	version Version
+	stat    os.FileInfo
 }
 
 // ExecCommandFactory knows how to properly construct different types of commands.
 type ExecCommandFactory struct {
 	locator               storage.Locator
 	cfg                   config.Cfg
+	execEnvs              executionEnvironments
 	cgroupsManager        cgroups.Manager
 	invalidCommandsMetric *prometheus.CounterVec
 	hookDirs              hookDirectories
 
-	cachedGitVersionLock sync.RWMutex
-	cachedGitVersion     Version
-	cachedGitStat        *os.FileInfo
+	cachedGitVersionLock     sync.RWMutex
+	cachedGitVersionByBinary map[string]cachedGitVersion
 }
 
 // NewExecCommandFactory returns a new instance of initialized ExecCommandFactory. The returned
@@ -116,18 +135,34 @@ func NewExecCommandFactory(cfg config.Cfg, opts ...ExecCommandFactoryOption) (_ 
 		opt(&factoryCfg)
 	}
 
+	var cleanups []func()
+	runCleanups := func() {
+		for i := len(cleanups) - 1; i >= 0; i-- {
+			cleanups[i]()
+		}
+	}
+
+	defer func() {
+		if returnedErr != nil {
+			runCleanups()
+		}
+	}()
+
 	hookDirectories, cleanup, err := setupHookDirectories(cfg, factoryCfg)
 	if err != nil {
 		return nil, nil, fmt.Errorf("setting up hooks: %w", err)
 	}
-	defer func() {
-		if returnedErr != nil {
-			cleanup()
-		}
-	}()
+	cleanups = append(cleanups, cleanup)
+
+	execEnvs, cleanup, err := setupGitExecutionEnvironments(cfg, factoryCfg)
+	if err != nil {
+		return nil, nil, fmt.Errorf("setting up Git execution environment: %w", err)
+	}
+	cleanups = append(cleanups, cleanup)
 
 	gitCmdFactory := &ExecCommandFactory{
 		cfg:            cfg,
+		execEnvs:       execEnvs,
 		locator:        config.NewLocator(cfg),
 		cgroupsManager: cgroups.NewManager(cfg.Cgroups),
 		invalidCommandsMetric: prometheus.NewCounterVec(
@@ -137,10 +172,136 @@ func NewExecCommandFactory(cfg config.Cfg, opts ...ExecCommandFactoryOption) (_ 
 			},
 			[]string{"command"},
 		),
-		hookDirs: hookDirectories,
+		hookDirs:                 hookDirectories,
+		cachedGitVersionByBinary: make(map[string]cachedGitVersion),
 	}
 
-	return gitCmdFactory, cleanup, nil
+	return gitCmdFactory, runCleanups, nil
+}
+
+// setupGitExecutionEnvironments assembles a Git execution environment that can be used to run Git
+// commands. It warns if no path was specified in the configuration.
+func setupGitExecutionEnvironments(cfg config.Cfg, factoryCfg execCommandFactoryConfig) (executionEnvironments, func(), error) {
+	if factoryCfg.gitBinaryPath != "" {
+		return executionEnvironments{
+			externalGit: ExecutionEnvironment{
+				BinaryPath: factoryCfg.gitBinaryPath,
+			},
+		}, func() {}, nil
+	}
+
+	binaryPath := cfg.Git.BinPath
+	if override := os.Getenv("GITALY_TESTING_GIT_BINARY"); binaryPath == "" && override != "" {
+		binaryPath = override
+	}
+
+	useBundledBinaries := cfg.Git.UseBundledBinaries
+	if bundledGitPath := os.Getenv("GITALY_TESTING_BUNDLED_GIT_PATH"); bundledGitPath != "" {
+		if cfg.BinDir == "" {
+			return executionEnvironments{}, nil, errors.New("cannot use bundled binaries without bin path being set")
+		}
+
+		// We need to symlink pre-built Git binaries into Gitaly's binary directory.
+		// Normally they would of course already exist there, but in tests we create a new
+		// binary directory for each server and thus need to populate it first.
+		for _, binary := range []string{"gitaly-git", "gitaly-git-remote-http", "gitaly-git-http-backend"} {
+			bundledGitBinary := filepath.Join(bundledGitPath, binary)
+			if _, err := os.Stat(bundledGitBinary); err != nil {
+				return executionEnvironments{}, nil, fmt.Errorf("statting %q: %w", binary, err)
+			}
+
+			if err := os.Symlink(bundledGitBinary, filepath.Join(cfg.BinDir, binary)); err != nil {
+				// While Gitaly's Go tests use a temporary binary directory, Ruby
+				// rspecs set up the binary directory to point to our build
+				// directory. They thus already contain the Git binaries and don't
+				// need symlinking.
+				if errors.Is(err, os.ErrExist) {
+					continue
+				}
+				return executionEnvironments{}, nil, fmt.Errorf("symlinking bundled %q: %w", binary, err)
+			}
+		}
+
+		useBundledBinaries = true
+	}
+
+	var execEnvs executionEnvironments
+	var cleanups []func()
+
+	if binaryPath != "" {
+		execEnvs.externalGit = ExecutionEnvironment{
+			BinaryPath: binaryPath,
+		}
+	}
+
+	if useBundledBinaries {
+		// In order to support having a single Git binary only as compared to a complete Git
+		// installation, we create our own GIT_EXEC_PATH which contains symlinks to the Git
+		// binary for executables which Git expects to be present.
+		gitExecPath, err := os.MkdirTemp("", "gitaly-git-exec-path-*")
+		if err != nil {
+			return executionEnvironments{}, nil, fmt.Errorf("creating Git exec path: %w", err)
+		}
+
+		for executable, target := range map[string]string{
+			"git":                "gitaly-git",
+			"git-receive-pack":   "gitaly-git",
+			"git-upload-pack":    "gitaly-git",
+			"git-upload-archive": "gitaly-git",
+			"git-http-backend":   "gitaly-git-http-backend",
+			"git-remote-http":    "gitaly-git-remote-http",
+			"git-remote-https":   "gitaly-git-remote-http",
+			"git-remote-ftp":     "gitaly-git-remote-http",
+			"git-remote-ftps":    "gitaly-git-remote-http",
+		} {
+			if err := os.Symlink(
+				filepath.Join(cfg.BinDir, target),
+				filepath.Join(gitExecPath, executable),
+			); err != nil {
+				return executionEnvironments{}, nil, fmt.Errorf("linking Git executable %q: %w", executable, err)
+			}
+		}
+
+		cleanups = append(cleanups, func() {
+			if err := os.RemoveAll(gitExecPath); err != nil {
+				logrus.WithError(err).Error("cleanup of Git execution environment failed")
+			}
+		})
+
+		execEnvs.bundledGit = ExecutionEnvironment{
+			BinaryPath: filepath.Join(gitExecPath, "git"),
+			EnvironmentVariables: []string{
+				"GIT_EXEC_PATH=" + gitExecPath,
+			},
+		}
+	}
+
+	// If neither an external Git distribution nor a bundled Git was configured we need to
+	// fall back to resolve the Git executable via PATH. We explicitly don't want to do this
+	// in case either one of those has been configured though: we have no clue where system Git
+	// comes from and what its version is, so it's the worst of all choices.
+	if execEnvs.externalGit.BinaryPath == "" && execEnvs.bundledGit.BinaryPath == "" {
+		resolvedPath, err := exec.LookPath("git")
+		if err != nil {
+			if errors.Is(err, exec.ErrNotFound) {
+				return executionEnvironments{}, nil, fmt.Errorf(`"git" executable not found, set path to it in the configuration file or add it to the PATH`)
+			}
+		}
+
+		logrus.WithFields(logrus.Fields{
+			"resolvedPath": resolvedPath,
+		}).Warn("git path not configured. Using default path resolution")
+
+		execEnvs.externalGit = ExecutionEnvironment{
+			BinaryPath: resolvedPath,
+		}
+	}
+
+	return execEnvs, func() {
+		for i := len(cleanups) - 1; i >= 0; i-- {
+			cleanups[i]()
+		}
+	}, nil
 }
 
 // Describe is used to describe Prometheus metrics.
@@ -176,10 +337,21 @@ func (cf *ExecCommandFactory) NewWithDir(ctx context.Context, dir string, sc Cmd
 }
 
 // GetExecutionEnvironment returns parameters required to execute Git commands.
-func (cf *ExecCommandFactory) GetExecutionEnvironment(context.Context) ExecutionEnvironment {
-	return ExecutionEnvironment{
-		BinaryPath:           cf.cfg.Git.BinPath,
-		EnvironmentVariables: cf.cfg.GitExecEnv(),
+func (cf *ExecCommandFactory) GetExecutionEnvironment(ctx context.Context) ExecutionEnvironment {
+	switch {
+	case cf.execEnvs.bundledGit.BinaryPath != "" && cf.execEnvs.externalGit.BinaryPath != "":
+		if featureflag.UseBundledGit.IsEnabled(ctx) {
+			return cf.execEnvs.bundledGit
+		}
+		return cf.execEnvs.externalGit
+	case cf.execEnvs.bundledGit.BinaryPath != "":
+		return cf.execEnvs.bundledGit
+	case cf.execEnvs.externalGit.BinaryPath != "":
+		return cf.execEnvs.externalGit
+	default:
+		// This shouldn't ever happen given that `setupGitExecutionEnvironments()` returns
+		// an error in case no environment was found.
+		panic("no Git execution environment defined")
 	}
 }
 
@@ -255,18 +427,22 @@ func statDiffers(a, b os.FileInfo) bool {
 // GitVersion returns the Git version in use. The version is cached as long as the binary remains
 // unchanged as determined by stat(3P).
 func (cf *ExecCommandFactory) GitVersion(ctx context.Context) (Version, error) {
-	stat, err := os.Stat(cf.GetExecutionEnvironment(ctx).BinaryPath)
+	gitBinary := cf.GetExecutionEnvironment(ctx).BinaryPath
+
+	stat, err := os.Stat(gitBinary)
 	if err != nil {
 		return Version{}, fmt.Errorf("cannot stat Git binary: %w", err)
 	}
 
 	cf.cachedGitVersionLock.RLock()
-	upToDate := cf.cachedGitStat != nil && !statDiffers(stat, *cf.cachedGitStat)
-	cachedGitVersion := cf.cachedGitVersion
+	cachedVersion, upToDate := cf.cachedGitVersionByBinary[gitBinary]
+	if upToDate {
+		upToDate = !statDiffers(stat, cachedVersion.stat)
+	}
 	cf.cachedGitVersionLock.RUnlock()
 
 	if upToDate {
-		return cachedGitVersion, nil
+		return cachedVersion.version, nil
 	}
 
 	cf.cachedGitVersionLock.Lock()
@@ -297,8 +473,10 @@ func (cf *ExecCommandFactory) GitVersion(ctx context.Context) (Version, error) {
 		return Version{}, err
 	}
 
-	cf.cachedGitVersion = gitVersion
-	cf.cachedGitStat = &stat
+	cf.cachedGitVersionByBinary[gitBinary] = cachedGitVersion{
+		version: gitVersion,
+		stat:    stat,
+	}
 
 	return gitVersion, nil
 }

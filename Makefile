@@ -125,6 +125,10 @@ ifeq (${Q},@)
     GIT_QUIET = --quiet
 endif
 
+GIT_EXECUTABLES += git
+GIT_EXECUTABLES += git-remote-http
+GIT_EXECUTABLES += git-http-backend
+
 ifdef GIT_APPLY_DEFAULT_PATCHES
     # Before adding custom patches, please read doc/PROCESS.md#Patching-git
     # first to make sure your patches meet our acceptance criteria. Patches
@@ -344,28 +348,18 @@ install: build
 	install $(call find_command_binaries) ${INSTALL_DEST_DIR}
 
 ifdef WITH_BUNDLED_GIT
-GIT_EXECUTABLES += git
-GIT_EXECUTABLES += git-remote-http
-GIT_EXECUTABLES += git-http-backend
-
 build: $(patsubst %,${BUILD_DIR}/bin/gitaly-%,${GIT_EXECUTABLES})
 
 install: $(patsubst %,${INSTALL_DEST_DIR}/gitaly-%,${GIT_EXECUTABLES})
 
 prepare-tests: $(patsubst %,${BUILD_DIR}/bin/gitaly-%,${GIT_EXECUTABLES})
 
-${BUILD_DIR}/bin/gitaly-%: ${GIT_SOURCE_DIR}/% | ${BUILD_DIR}/bin
-	${Q}install $< $@
-
-${INSTALL_DEST_DIR}/gitaly-%: ${BUILD_DIR}/bin/gitaly-%
-	${Q}mkdir -p $(@D)
-	${Q}install $< $@
-
 export GITALY_TESTING_BUNDLED_GIT_PATH ?= ${BUILD_DIR}/bin
 else
-prepare-tests: git
+prepare-tests: git $(patsubst %,${BUILD_DIR}/bin/gitaly-%,${GIT_EXECUTABLES})
 
-export GITALY_TESTING_GIT_BINARY ?= ${GIT_PREFIX}/bin/git
+export GITALY_TESTING_BUNDLED_GIT_PATH ?= ${BUILD_DIR}/bin
+export GITALY_TESTING_GIT_BINARY       ?= ${GIT_PREFIX}/bin/git
 endif
 
 .PHONY: prepare-tests
@@ -637,6 +631,13 @@ ${GIT_PREFIX}/bin/git: ${GIT_SOURCE_DIR}/Makefile
 	${Q}if [ "x${GIT_DEFAULT_PREFIX}" = "x${GIT_PREFIX}" ]; then rm -rf "${GIT_DEFAULT_PREFIX}"; fi
 	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C ${GIT_SOURCE_DIR} -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
 	${Q}touch $@
+
+${BUILD_DIR}/bin/gitaly-%: ${GIT_SOURCE_DIR}/% | ${BUILD_DIR}/bin
+	${Q}install $< $@
+
+${INSTALL_DEST_DIR}/gitaly-%: ${BUILD_DIR}/bin/gitaly-%
+	${Q}mkdir -p $(@D)
+	${Q}install $< $@
 
 ${PROTOC}: ${DEPENDENCY_DIR}/protoc.version | ${TOOLS_DIR}
 	${Q}${GIT} -c init.defaultBranch=master init ${GIT_QUIET} "${PROTOC_SOURCE_DIR}"
