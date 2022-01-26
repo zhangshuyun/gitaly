@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
 	"time"
 
@@ -657,42 +656,50 @@ func TestPerform_UnsetConfiguration(t *testing.T) {
 	cfg := testcfg.Build(t)
 	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	configPath := filepath.Join(repoPath, "config")
+
 	ctx := testhelper.Context(t)
 
-	var expectedEntries []string
-	for key, value := range map[string]string{
-		"core.commitgraph":        "true",
-		"core.sparsecheckout":     "true",
-		"core.splitindex":         "false",
-		"remote.first.fetch":      "baz",
-		"remote.first.mirror":     "baz",
-		"remote.first.prune":      "baz",
-		"remote.first.url":        "baz",
-		"http.first.extraHeader":  "barfoo",
-		"http.second.extraHeader": "barfoo",
-		"http.extraHeader":        "untouched",
-		"http.something.else":     "untouched",
-		"totally.unrelated":       "untouched",
-	} {
-		gittest.Exec(t, cfg, "-C", repoPath, "config", key, value)
-		expectedEntries = append(expectedEntries, strings.ToLower(key)+"="+value)
-	}
-
-	preimageConfig := gittest.Exec(t, cfg, "-C", repoPath, "config", "--local", "--list")
-	require.Subset(t, strings.Split(string(preimageConfig), "\n"), expectedEntries)
+	require.NoError(t, os.WriteFile(configPath, []byte(
+		`[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = true
+	commitGraph = true
+	sparseCheckout = true
+	splitIndex = false
+[remote "first"]
+	fetch = baz
+	mirror = baz
+	prune = baz
+	url = baz
+[http "first"]
+	extraHeader = barfoo
+[http "second"]
+	extraHeader = barfoo
+[http]
+	extraHeader = untouched
+[http "something"]
+	else = untouched
+[totally]
+	unrelated = untouched
+`), 0o644))
 
 	require.NoError(t, Perform(ctx, repo, nil))
-
-	postimageConfig := gittest.Exec(t, cfg, "-C", repoPath, "config", "--local", "--list")
-	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "core.commitgraph")
-	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "core.sparsecheckout")
-	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "core.splitindex")
-	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "remote.first.fetch")
-	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "remote.first.mirror")
-	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "remote.first.prune")
-	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "remote.first.url")
-	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "http.first.extraheader")
-	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "http.second.extraheader")
+	require.Equal(t,
+		`[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = true
+[remote "first"]
+	prune = baz
+[http]
+	extraHeader = untouched
+[http "something"]
+	else = untouched
+[totally]
+	unrelated = untouched
+`, string(testhelper.MustReadFile(t, configPath)))
 }
 
 func TestPerform_UnsetConfiguration_transactional(t *testing.T) {
