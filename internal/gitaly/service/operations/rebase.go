@@ -62,8 +62,8 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 	newrev, err := s.git2goExecutor.Rebase(ctx, quarantineRepo, git2go.RebaseCommand{
 		Repository:       repoPath,
 		Committer:        committer,
-		BranchName:       string(header.Branch),
-		UpstreamRevision: startRevision.String(),
+		CommitID:         oldrev,
+		UpstreamCommitID: startRevision,
 	})
 	if err != nil {
 		return stream.Send(&gitalypb.UserRebaseConfirmableResponse{
