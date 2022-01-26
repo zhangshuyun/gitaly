@@ -64,6 +64,7 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 		Committer:        committer,
 		CommitID:         oldrev,
 		UpstreamCommitID: startRevision,
+		SkipEmptyCommits: true,
 	})
 	if err != nil {
 		return stream.Send(&gitalypb.UserRebaseConfirmableResponse{

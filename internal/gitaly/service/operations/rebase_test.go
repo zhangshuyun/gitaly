@@ -99,7 +99,7 @@ func TestUserRebaseConfirmable_skipEmptyCommits(t *testing.T) {
 	)
 
 	// "theirs" changes the first line of the file to contain a "1".
-	gittest.WriteCommit(t, cfg, repoPath,
+	theirs := gittest.WriteCommit(t, cfg, repoPath,
 		gittest.WithParents(baseCommit),
 		gittest.WithTreeEntries(
 			gittest.TreeEntry{Mode: "100644", Path: "README", Content: "1\nb\nc\nd\ne\nf\n"},
@@ -145,16 +145,43 @@ func TestUserRebaseConfirmable_skipEmptyCommits(t *testing.T) {
 				BranchSha:        ours.String(),
 				RemoteRepository: repoProto,
 				RemoteBranch:     []byte("theirs"),
+				Timestamp:        &timestamppb.Timestamp{Seconds: 123456},
 			},
 		},
 	}))
 
 	response, err := stream.Recv()
 	require.NoError(t, err)
-	require.Equal(t,
-		fmt.Sprintf("rebase: commit %q: this patch has already been applied", oursBecomingEmpty),
-		response.GitError,
-	)
+	require.NoError(t, stream.Send(buildApplyRequest(true)))
+
+	rebaseOID := git.ObjectID(response.GetRebaseSha())
+
+	response, err = stream.Recv()
+	require.NoError(t, err)
+	require.True(t, response.GetRebaseApplied())
+
+	rebaseCommit, err := localrepo.NewTestRepo(t, cfg, repoProto).ReadCommit(ctx, rebaseOID.Revision())
+	require.NoError(t, err)
+	testhelper.ProtoEqual(t, &gitalypb.GitCommit{
+		Subject:   []byte("ours with additional changes"),
+		Body:      []byte("ours with additional changes"),
+		BodySize:  28,
+		Id:        "ef7f98be1f753f1a9fa895d999a855611d691629",
+		ParentIds: []string{theirs.String()},
+		TreeId:    "b68aeb18813d7f2e180f2cc0bccc128511438b29",
+		Author: &gitalypb.CommitAuthor{
+			Name:     []byte("Scrooge McDuck"),
+			Email:    []byte("scrooge@mcduck.com"),
+			Date:     &timestamppb.Timestamp{Seconds: 1572776879},
+			Timezone: []byte("+0100"),
+		},
+		Committer: &gitalypb.CommitAuthor{
+			Name:     gittest.TestUser.Name,
+			Email:    gittest.TestUser.Email,
+			Date:     &timestamppb.Timestamp{Seconds: 123456},
+			Timezone: []byte("+0000"),
+		},
+	}, rebaseCommit)
 }
 
 func TestUserRebaseConfirmableTransaction(t *testing.T) {
