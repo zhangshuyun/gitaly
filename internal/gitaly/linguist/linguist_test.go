@@ -16,6 +16,20 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
+func TestInstance_Stats_successful(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	cfg, _, repoPath := testcfg.BuildWithRepo(t)
+
+	ling, err := New(cfg, gittest.NewCommandFactory(t, cfg))
+	require.NoError(t, err)
+
+	counts, err := ling.Stats(ctx, repoPath, "1e292f8fedd741b75372e19097c76d327140c312")
+	require.NoError(t, err)
+	require.Equal(t, uint64(2943), counts["Ruby"])
+}
+
 func TestInstance_Stats_unmarshalJSONError(t *testing.T) {
 	cfg := testcfg.Build(t)
 

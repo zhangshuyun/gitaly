@@ -62,6 +62,7 @@ func setupEnv(cfg config.Cfg, gitCmdFactory git.CommandFactory) []string {
 	env = append(env, command.GitEnv...)
 	env = append(env, gitExecEnv.EnvironmentVariables...)
 	env = appendEnvIfSet(env, "BUNDLE_PATH")
+	env = appendEnvIfSet(env, "BUNDLE_USER_CONFIG")
 	env = appendEnvIfSet(env, "GEM_HOME")
 
 	if dsn := cfg.Logging.RubySentryDSN; dsn != "" {
