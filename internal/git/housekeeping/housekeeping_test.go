@@ -691,8 +691,6 @@ func TestPerform_UnsetConfiguration(t *testing.T) {
 	repositoryformatversion = 0
 	filemode = true
 	bare = true
-[remote "first"]
-	prune = baz
 [http]
 	extraHeader = untouched
 [http "something"]
