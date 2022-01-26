@@ -564,10 +564,8 @@ message UserRebaseConfirmableRequest {
     // user is the user to compute the rebase as. It will be used as
     // "committer" of rebased commits.
     User user = 2;
-    // rebase_id is an ID which uniquely identifies the rebase. Internally, it
-    // is used to identify the worktree in which the rebase shall be computed.
-    // There cannot be two concurrent calls using the same rebase_id.
-    string rebase_id = 3;
+    // RebaseId does nothing anymore.
+    string rebase_id = 3 [deprecated=true];
     // branch is the branch onto which the rebase shall happen.
     bytes branch = 4;
     // branch_sha is the expected object ID which branch currently points to.

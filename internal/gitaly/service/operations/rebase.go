@@ -128,10 +128,6 @@ func validateUserRebaseConfirmableHeader(header *gitalypb.UserRebaseConfirmableR
 		return errors.New("empty User")
 	}
 
-	if header.GetRebaseId() == "" {
-		return errors.New("empty RebaseId")
-	}
-
 	if header.GetBranch() == nil {
 		return errors.New("empty Branch")
 	}
