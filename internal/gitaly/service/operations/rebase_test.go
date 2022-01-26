@@ -83,6 +83,80 @@ func TestSuccessfulUserRebaseConfirmableRequest(t *testing.T) {
 	}
 }
 
+func TestUserRebaseConfirmable_skipEmptyCommits(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+
+	// This is the base commit from which both "theirs" and "ours" branch from".
+	baseCommit := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "README", Content: "a\nb\nc\nd\ne\nf\n"},
+		),
+	)
+
+	// "theirs" changes the first line of the file to contain a "1".
+	gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(baseCommit),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "README", Content: "1\nb\nc\nd\ne\nf\n"},
+		),
+		gittest.WithMessage("theirs"),
+		gittest.WithBranch("theirs"),
+	)
+
+	// We create two commits on "ours": the first one does the same changes as "theirs", but
+	// with a different commit ID. It is expected to become empty. And the second commit is an
+	// independent change which modifies the last line.
+	oursBecomingEmpty := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(baseCommit),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "README", Content: "1\nb\nc\nd\ne\nf\n"},
+		),
+		gittest.WithMessage("ours but same change as theirs"),
+	)
+	ours := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(oursBecomingEmpty),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "README", Content: "1\nb\nc\nd\ne\n6\n"},
+		),
+		gittest.WithMessage("ours with additional changes"),
+		gittest.WithBranch("ours"),
+	)
+
+	stream, err := client.UserRebaseConfirmable(ctx)
+	require.NoError(t, err)
+	require.NoError(t, stream.Send(&gitalypb.UserRebaseConfirmableRequest{
+		UserRebaseConfirmableRequestPayload: &gitalypb.UserRebaseConfirmableRequest_Header_{
+			Header: &gitalypb.UserRebaseConfirmableRequest_Header{
+				Repository: repoProto,
+				User:       gittest.TestUser,
+				RebaseId:   "something",
+				// Note: the way UserRebaseConfirmable handles BranchSha and
+				// RemoteBranch is really weird. What we're doing is to rebase
+				// BranchSha on top of RemoteBranch, even though documentation of
+				// the protobuf says that we're doing it the other way round. I
+				// don't dare changing this now though, so I simply abide and write
+				// the test with those weird semantics.
+				Branch:           []byte("ours"),
+				BranchSha:        ours.String(),
+				RemoteRepository: repoProto,
+				RemoteBranch:     []byte("theirs"),
+			},
+		},
+	}))
+
+	response, err := stream.Recv()
+	require.NoError(t, err)
+	require.Equal(t,
+		fmt.Sprintf("rebase: commit %q: this patch has already been applied", oursBecomingEmpty),
+		response.GitError,
+	)
+}
+
 func TestUserRebaseConfirmableTransaction(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
