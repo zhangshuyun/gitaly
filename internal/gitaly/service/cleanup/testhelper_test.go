@@ -1,11 +1,14 @@
 package cleanup
 
 import (
+	"context"
 	"testing"
 
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	hookservice "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/hook"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -18,11 +21,15 @@ func TestMain(m *testing.M) {
 }
 
 func setupCleanupService(t *testing.T) (config.Cfg, *gitalypb.Repository, string, gitalypb.CleanupServiceClient) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
 
-	serverSocketPath := runCleanupServiceServer(t, cfg)
+	cfg.SocketPath = runCleanupServiceServer(t, cfg)
 
-	client, conn := newCleanupServiceClient(t, serverSocketPath)
+	repo, repoPath := gittest.CreateRepository(context.TODO(), t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
+
+	client, conn := newCleanupServiceClient(t, cfg.SocketPath)
 	t.Cleanup(func() { conn.Close() })
 
 	return cfg, repo, repoPath, client
@@ -36,7 +43,17 @@ func runCleanupServiceServer(t *testing.T, cfg config.Cfg) string {
 			deps.GetCatfileCache(),
 		))
 		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
-	})
+		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
+			deps.GetCfg(),
+			deps.GetRubyServer(),
+			deps.GetLocator(),
+			deps.GetTxManager(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+			deps.GetConnsPool(),
+			deps.GetGit2goExecutor(),
+		))
+	}, testserver.WithDisableMetadataForceCreation())
 }
 
 func newCleanupServiceClient(t *testing.T, serverSocketPath string) (gitalypb.CleanupServiceClient, *grpc.ClientConn) {
