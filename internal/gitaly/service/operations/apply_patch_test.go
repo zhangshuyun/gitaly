@@ -1,7 +1,6 @@
 package operations
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -19,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -35,11 +33,8 @@ import (
 func TestUserApplyPatch(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.ApplyPatchRespectCommitterTimezone).Run(t, testUserApplyPatch)
-}
-
-func testUserApplyPatch(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
@@ -411,11 +406,6 @@ To restore the original branch and stop patching, run "git am --abort".
 			actualCommit.ParentIds = nil // the parent changes with the patches, we just check it is set
 			actualCommit.TreeId = ""     // treeID is asserted via its contents below
 
-			expectedCommitterTimezone := []byte("+0000")
-			if featureflag.ApplyPatchRespectCommitterTimezone.IsEnabled(ctx) {
-				expectedCommitterTimezone = []byte("+0800")
-			}
-
 			expectedBody := []byte("commit subject\n\ncommit message body\n")
 			testhelper.ProtoEqual(t,
 				&gitalypb.GitCommit{
@@ -432,7 +422,7 @@ To restore the original branch and stop patching, run "git am --abort".
 						Name:     gittest.TestUser.Name,
 						Email:    gittest.TestUser.Email,
 						Date:     requestTimestamp,
-						Timezone: expectedCommitterTimezone,
+						Timezone: []byte("+0800"),
 					},
 					BodySize: int64(len(expectedBody)),
 				},
@@ -447,11 +437,8 @@ To restore the original branch and stop patching, run "git am --abort".
 func TestUserApplyPatch_successful(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.ApplyPatchRespectCommitterTimezone).Run(t, testUserApplyPatchSuccessful)
-}
-
-func testUserApplyPatchSuccessful(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -561,11 +548,8 @@ func testUserApplyPatchSuccessful(t *testing.T, ctx context.Context) {
 func TestUserApplyPatch_stableID(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.ApplyPatchRespectCommitterTimezone).Run(t, testUserApplyPatchStableID)
-}
-
-func testUserApplyPatchStableID(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
@@ -596,17 +580,10 @@ func testUserApplyPatchStableID(t *testing.T, ctx context.Context) {
 	require.NoError(t, err)
 	require.True(t, response.BranchUpdate.BranchCreated)
 
-	expectedID := "8cd17acdb54178121167078c78d874d3cc09b216"
-	expectedCommitterTimezone := []byte("+0000")
-	if featureflag.ApplyPatchRespectCommitterTimezone.IsEnabled(ctx) {
-		expectedID = "93285a1e2319749f6d2bb7c394451a70ca7dcd07"
-		expectedCommitterTimezone = []byte("+0800")
-	}
-
 	patchedCommit, err := repo.ReadCommit(ctx, git.Revision("branch"))
 	require.NoError(t, err)
 	require.Equal(t, &gitalypb.GitCommit{
-		Id:     expectedID,
+		Id:     "93285a1e2319749f6d2bb7c394451a70ca7dcd07",
 		TreeId: "98091f327a9fb132fcb4b490a420c276c653c4c6",
 		ParentIds: []string{
 			"1e292f8fedd741b75372e19097c76d327140c312",
@@ -624,7 +601,7 @@ func testUserApplyPatchStableID(t *testing.T, ctx context.Context) {
 			Name:     gittest.TestUser.Name,
 			Email:    gittest.TestUser.Email,
 			Date:     &timestamppb.Timestamp{Seconds: 1234512345},
-			Timezone: expectedCommitterTimezone,
+			Timezone: []byte("+0800"),
 		},
 	}, patchedCommit)
 }
@@ -632,13 +609,10 @@ func testUserApplyPatchStableID(t *testing.T, ctx context.Context) {
 func TestUserApplyPatch_transactional(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.ApplyPatchRespectCommitterTimezone).Run(t, testUserApplyPatchTransactional)
-}
-
-func testUserApplyPatchTransactional(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
 	txManager := transaction.NewTrackingManager()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	ctx, _, repoProto, _, client := setupOperationsService(t, ctx, testserver.WithTransactionManager(txManager))
 
