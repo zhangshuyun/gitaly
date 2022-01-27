@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
@@ -123,6 +124,9 @@ func (s *server) sshUploadPack(ctx context.Context, req sshUploadPackRequest, st
 		git.WithPackObjectsHookEnv(repo),
 	}
 
+	var stderrBuilder strings.Builder
+	stderr = io.MultiWriter(stderr, &stderrBuilder)
+
 	cmd, monitor, err := monitorStdinCommand(ctx, s.gitCmdFactory, stdin, stdout, stderr, git.SubCmd{
 		Name: "upload-pack",
 		Args: []string{repoPath},
@@ -146,7 +150,7 @@ func (s *server) sshUploadPack(ctx context.Context, req sshUploadPackRequest, st
 		wg.Wait()
 
 		status, _ := command.ExitStatus(err)
-		return status, fmt.Errorf("cmd wait: %w", err)
+		return status, fmt.Errorf("cmd wait: %w, stderr: %q", err, stderrBuilder.String())
 	}
 
 	pw.Close()
