@@ -14,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 	"google.golang.org/grpc/codes"
@@ -78,13 +77,9 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 
 	committerTime := time.Now()
 	if header.Timestamp != nil {
-		if featureflag.ApplyPatchRespectCommitterTimezone.IsEnabled(ctx) {
-			committerTime, err = dateFromProto(header)
-			if err != nil {
-				return helper.ErrInvalidArgument(err)
-			}
-		} else {
-			committerTime = header.Timestamp.AsTime()
+		committerTime, err = dateFromProto(header)
+		if err != nil {
+			return helper.ErrInvalidArgument(err)
 		}
 	}
 
