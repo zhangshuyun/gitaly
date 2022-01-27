@@ -45,7 +45,7 @@ file.
 ### Housekeeping
 
 Housekeeping for object pools is handled differently from normal repositories as
-it not only involves repacking the pool, but also updating it. The houskeeping
+it not only involves repacking the pool, but also updating it. The housekeeping
 task is thus hosted by the `FetchIntoObjectPool` RPC. This task is typically
 only executed with the original object pool member from which the pool has been
 seeded and updates the pool by fetching from that member.

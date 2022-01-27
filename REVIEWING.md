@@ -18,7 +18,7 @@ these two for review. But it's not uncommon to swap out one or two of them when:
 - they are OOO
 - they know the context of the change already
 
-The complete list of elegible reviewers can be found at:
+The complete list of eligible reviewers can be found at:
 https://about.gitlab.com/handbook/engineering/projects/#gitaly_assignments
 
 For small changes it's fine to only chose one person for review. The contributor
