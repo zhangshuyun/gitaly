@@ -454,7 +454,7 @@ In order to add a patch, you can simply add it to the `GIT_PATCHES` array in our
 `Makefile`.
 
 Note: while there is only a single git distribution which is distributed across
-all of GitLab's official distributions, there may be unoffical ones which use a
+all of GitLab's official distributions, there may be unofficial ones which use a
 different version of git (most importantly source-based installations). So even
 if you add patches to Gitaly's Makefile, you cannot assume that installations
 will always have these patches. As a result, all code which makes use of

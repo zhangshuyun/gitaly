@@ -91,7 +91,7 @@ Praefect relies on replication when a Gitaly RPC doesn't support transactions or
 a repository replica needs to be repaired.
 
 For transaction mutator RPCs, Praefect attempts to make the same change to a
-quroum of a repository replicas in a single transactional write. If a quorom of replicas
+quorum of repository replicas in a single transactional write. If a quorum of replicas
 successfully applies the RPC, then replication will only be scheduled for any
 replicas that were unsuccessful. See the section on [strong consistency
 design](#strong-consistency-design) for more details.
@@ -202,7 +202,7 @@ When the beta nears completion further stages will be defined.
 
 ## Eventual consistency
 
-The beta implemention above describes an eventually consistent system:
+The beta implementation above describes an eventually consistent system:
 when a repository is modified, the secondaries asynchronously fetch the
 changes. This is similar to how Geo works today:
 
@@ -567,7 +567,7 @@ v13.1.0-rc3.
 * Complications
 	* Existing Rails app indicates the Gitaly instance that a request is destined for (e.g. request to modify repo X should be directed to gitaly #1).
 		* This means that rails app must be kept in the loop about any changes made to the location of a repo.
-		* This may be mitigated by changing the proxy implementation to intepret the destination address as a reference to a shard rather than a specific host. This might open the door to allowing for something like consistent hashing.
+		* This may be mitigated by changing the proxy implementation to interpret the destination address as a reference to a shard rather than a specific host. This might open the door to allowing for something like consistent hashing.
     * While Git is distributed in nature, some write operations need to be serialized to avoid race conditions. This includes ref updates.
 	* How do we coordinate proxies when applying ref updates? Do we need to?
 
