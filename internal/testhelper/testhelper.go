@@ -185,6 +185,9 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	// deep in the call stack, so almost every test function would have to inject it into its
 	// context.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RunCommandsInCGroup, true)
+	// ConcurrencyQueueEnforceMax is in the codepath of every RPC call since its in the limithandler
+	// middleware.
+	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.ConcurrencyQueueEnforceMax, true)
 	// We use hook directories everywhere, so it's infeasible to test this on a global
 	// scale. Instead, we use it randomly.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.HooksInTempdir, mrand.Int()%2 == 0)

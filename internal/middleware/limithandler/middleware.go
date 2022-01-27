@@ -120,13 +120,13 @@ func (c *LimiterMiddleware) StreamInterceptor() grpc.StreamServerInterceptor {
 func createLimiterConfig(middleware *LimiterMiddleware, cfg config.Cfg) map[string]*ConcurrencyLimiter {
 	result := make(map[string]*ConcurrencyLimiter)
 	for _, limit := range cfg.Concurrency {
-		result[limit.RPC] = NewLimiter(limit.MaxPerRepo, newPromMonitor(middleware, "gitaly", limit.RPC))
+		result[limit.RPC] = NewLimiter(limit.MaxPerRepo, limit.MaxQueueSize, newPromMonitor(middleware, "gitaly", limit.RPC))
 	}
 
 	// Set default for ReplicateRepository.
 	replicateRepositoryFullMethod := "/gitaly.RepositoryService/ReplicateRepository"
 	if _, ok := result[replicateRepositoryFullMethod]; !ok {
-		result[replicateRepositoryFullMethod] = NewLimiter(1, newPromMonitor(middleware, "gitaly", replicateRepositoryFullMethod))
+		result[replicateRepositoryFullMethod] = NewLimiter(1, 0, newPromMonitor(middleware, "gitaly", replicateRepositoryFullMethod))
 	}
 
 	return result
