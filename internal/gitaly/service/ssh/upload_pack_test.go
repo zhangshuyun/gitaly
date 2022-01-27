@@ -619,6 +619,7 @@ func TestUploadPackCloneGitFailure(t *testing.T) {
 
 	err = testPostUploadPackFailedResponse(t, stream)
 	testhelper.RequireGrpcCode(t, err, codes.Internal)
+	require.EqualError(t, err, "rpc error: code = Internal desc = cmd wait: exit status 128")
 }
 
 func testPostUploadPackFailedResponse(t *testing.T, stream gitalypb.SSHService_SSHUploadPackClient) error {
