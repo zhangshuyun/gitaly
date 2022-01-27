@@ -116,7 +116,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		// This code cannot be enabled via a feature flag only until Rails has adapted to
 		// the changed error handling because it will test with all feature flags enabled by
 		// default.
-		if s.enableUserMergeBranchStructuredErrors && featureflag.UserMergeBranchAccessError.IsEnabled(ctx) {
+		if featureflag.UserMergeBranchAccessError.IsEnabled(ctx) {
 			var notAllowedError hook.NotAllowedError
 			var updateRefError updateref.Error
 
