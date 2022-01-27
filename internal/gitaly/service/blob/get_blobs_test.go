@@ -71,8 +71,7 @@ func TestSuccessfulGetBlobsRequest(t *testing.T) {
 
 	for _, limit := range limits {
 		t.Run(fmt.Sprintf("limit = %d", limit), func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			request := &gitalypb.GetBlobsRequest{
 				Repository:    repo,
@@ -171,8 +170,7 @@ func TestFailedGetBlobsRequestDueToValidation(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			stream, err := client.GetBlobs(ctx, testCase.request)
 			require.NoError(t, err)

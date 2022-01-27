@@ -16,8 +16,7 @@ import (
 
 func TestPerRepositoryElector(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	type storageRecord struct {
 		generation int

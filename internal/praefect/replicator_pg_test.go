@@ -27,8 +27,7 @@ func (m *mockRepositoryService) ReplicateRepository(ctx context.Context, r *gita
 
 func TestReplicatorInvalidSourceRepository(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	tmp := testhelper.TempDir(t)
 
@@ -88,9 +87,7 @@ func TestReplicatorDestroy(t *testing.T) {
 			db.TruncateAll(t)
 
 			rs := datastore.NewPostgresRepositoryStore(db, nil)
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			require.NoError(t, rs.CreateRepository(ctx, 1, "virtual-storage-1", "relative-path-1", "relative-path-1", "storage-1", []string{"storage-2"}, nil, false, false))
 

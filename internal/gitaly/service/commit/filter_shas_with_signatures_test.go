@@ -11,8 +11,7 @@ import (
 
 func TestFilterShasWithSignaturesSuccessful(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 

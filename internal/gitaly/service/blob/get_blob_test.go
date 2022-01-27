@@ -66,9 +66,7 @@ func TestSuccessfulGetBlob(t *testing.T) {
 				Oid:        tc.oid,
 				Limit:      int64(tc.limit),
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			stream, err := client.GetBlob(ctx, request)
 			require.NoError(t, err, "initiate RPC")
@@ -91,9 +89,7 @@ func TestGetBlobNotFound(t *testing.T) {
 		Repository: repo,
 		Oid:        "doesnotexist",
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	stream, err := client.GetBlob(ctx, request)
 	require.NoError(t, err)
@@ -146,8 +142,7 @@ func TestFailedGetBlobRequestDueToValidationError(t *testing.T) {
 
 	for i, rpcRequest := range rpcRequests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			stream, err := client.GetBlob(ctx, rpcRequest)
 			require.NoError(t, err, rpcRequest)

@@ -17,7 +17,7 @@ import (
 
 func waitPing(tb testing.TB, s *Server) {
 	require.Eventually(tb, func() bool {
-		return makeRequest(s) == nil
+		return makeRequest(tb, s) == nil
 	}, ConnectTimeout, 100*time.Millisecond)
 }
 
@@ -54,7 +54,7 @@ func BenchmarkConcurrency(b *testing.B) {
 				defer wg.Done()
 
 				for j := 0; j < 1000; j++ {
-					err := makeRequest(s)
+					err := makeRequest(b, s)
 					if err != nil {
 						errCh <- err
 					}
@@ -78,9 +78,8 @@ func BenchmarkConcurrency(b *testing.B) {
 	})
 }
 
-func makeRequest(s *Server) error {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+func makeRequest(t testing.TB, s *Server) error {
+	ctx := testhelper.Context(t)
 
 	conn, err := s.getConnection(ctx)
 	if err != nil {

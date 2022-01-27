@@ -167,9 +167,11 @@ func ContextWithLogger(logger *log.Entry) ContextOpt {
 	}
 }
 
-// Context returns a cancellable context.
-func Context(opts ...ContextOpt) (context.Context, func()) {
-	return context.WithCancel(ContextWithoutCancel(opts...))
+// Context returns that gets canceled at the end of the test.
+func Context(t testing.TB, opts ...ContextOpt) context.Context {
+	ctx, cancel := context.WithCancel(ContextWithoutCancel(opts...))
+	t.Cleanup(cancel)
+	return ctx
 }
 
 // ContextWithoutCancel returns a non-cancellable context.

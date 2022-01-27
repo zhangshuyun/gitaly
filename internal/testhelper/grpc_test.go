@@ -10,9 +10,7 @@ import (
 
 func TestSetCtxGrpcMethod(t *testing.T) {
 	expectFullMethodName := "/pinkypb/TakeOverTheWorld.SNARF"
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx = testhelper.SetCtxGrpcMethod(ctx, expectFullMethodName)
 

@@ -118,9 +118,7 @@ func TestAccess_verifyParams(t *testing.T) {
 			allowed:      false,
 		},
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	for _, tc := range testCases {
 		allowed, _, err := c.Allowed(ctx, AllowedParams{
@@ -229,9 +227,7 @@ func TestAccess_escapedAndRelativeURLs(t *testing.T) {
 				prometheus.Config{},
 			)
 			require.NoError(t, err)
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			allowed, _, err := c.Allowed(ctx, AllowedParams{
 				RepoPath:                      repo.RelativePath,
@@ -384,9 +380,7 @@ func TestAccess_allowedResponseHandling(t *testing.T) {
 
 			mockHistogramVec := promtest.NewMockHistogramVec()
 			c.latencyMetric = mockHistogramVec
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			allowed, message, err := c.Allowed(ctx, AllowedParams{
 				RepoPath:                      repo.RelativePath,
@@ -497,9 +491,7 @@ func TestAccess_preReceive(t *testing.T) {
 
 			mockHistogramVec := promtest.NewMockHistogramVec()
 			c.latencyMetric = mockHistogramVec
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			success, err := c.PreReceive(ctx, "key-123")
 			require.Equal(t, tc.success, success)
@@ -588,9 +580,7 @@ func TestAccess_postReceive(t *testing.T) {
 
 			mockHistogramVec := promtest.NewMockHistogramVec()
 			c.latencyMetric = mockHistogramVec
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			repositoryID := "project-123"
 			identifier := "key-123"

@@ -95,9 +95,7 @@ func TestNewBackchannelServerFactory(t *testing.T) {
 	require.NoError(t, err)
 
 	go server.Serve(ln)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	nodeSet, err := DialNodes(ctx, []*config.VirtualStorage{{
 		Name:  "default",
@@ -117,8 +115,7 @@ func TestNewBackchannelServerFactory(t *testing.T) {
 
 func TestGitalyServerInfo(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	t.Run("gitaly responds with ok", func(t *testing.T) {
 		firstCfg := testcfg.Build(t, testcfg.WithStorages("praefect-internal-1"))
@@ -259,9 +256,7 @@ func TestGitalyServerInfoBadNode(t *testing.T) {
 			},
 		},
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	nodes, err := DialNodes(ctx, conf.VirtualStorages, nil, nil, nil, nil)
 	require.NoError(t, err)
@@ -293,9 +288,7 @@ func TestDiskStatistics(t *testing.T) {
 			Token:   gitalyCfg.Auth.Token,
 		})
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	nodes, err := DialNodes(ctx, praefectCfg.VirtualStorages, nil, nil, nil, nil)
 	require.NoError(t, err)
@@ -319,8 +312,7 @@ func TestDiskStatistics(t *testing.T) {
 
 func TestHealthCheck(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cc, _, cleanup := runPraefectServer(t, ctx, config.Config{VirtualStorages: []*config.VirtualStorage{
 		{
@@ -350,9 +342,7 @@ func TestRejectBadStorage(t *testing.T) {
 			},
 		},
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cc, _, cleanup := runPraefectServer(t, ctx, conf, buildOptions{})
 	defer cleanup()
@@ -400,9 +390,7 @@ func TestWarnDuplicateAddrs(t *testing.T) {
 			},
 		},
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	tLogger, hook := test.NewNullLogger()
 
@@ -500,9 +488,7 @@ func TestWarnDuplicateAddrs(t *testing.T) {
 
 func TestRemoveRepository(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	gitalyCfgs := make([]gconfig.Cfg, 3)
 	repos := make([][]*gitalypb.Repository, 3)
@@ -599,9 +585,7 @@ func pollUntilRemoved(t testing.TB, path string, deadline <-chan time.Time) {
 
 func TestRenameRepository(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	gitalyStorages := []string{"gitaly-1", "gitaly-2", "gitaly-3"}
 	repoPaths := make([]string, len(gitalyStorages))
@@ -839,9 +823,7 @@ func TestProxyWrites(t *testing.T) {
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Hour)
 	defer nodeMgr.Stop()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, _ := testcfg.BuildWithRepo(t)
 
@@ -964,9 +946,7 @@ func TestErrorThreshold(t *testing.T) {
 			ElectionStrategy: "local",
 		},
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	queue := datastore.NewPostgresReplicationEventQueue(testdb.New(t))
 	entry := testhelper.NewDiscardingLogEntry(t)

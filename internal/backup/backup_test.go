@@ -94,9 +94,7 @@ func TestManager_Create(t *testing.T) {
 			refsPath := filepath.Join(path, repo.RelativePath, backupID, "001.refs")
 			bundlePath := filepath.Join(path, repo.RelativePath, backupID, "001.bundle")
 			customHooksPath := filepath.Join(path, repo.RelativePath, backupID, "001.custom_hooks.tar")
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			pool := client.NewPool()
 			defer testhelper.MustClose(t, pool)
@@ -226,9 +224,7 @@ func TestManager_Create_incremental(t *testing.T) {
 			repoPath := filepath.Join(cfg.Storages[0].Path, repo.RelativePath)
 			refsPath := filepath.Join(path, repo.RelativePath, backupID, tc.expectedIncrement+".refs")
 			bundlePath := filepath.Join(path, repo.RelativePath, backupID, tc.expectedIncrement+".bundle")
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			pool := client.NewPool()
 			defer testhelper.MustClose(t, pool)
@@ -267,9 +263,7 @@ func TestManager_Restore(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, cfg)
 
 	gitalyAddr := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	testManagerRestore(t, ctx, cfg, gitalyAddr)
 }
@@ -304,9 +298,7 @@ func TestManager_Restore_praefect(t *testing.T) {
 			Level:  "panic",
 		},
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	testManagerRestore(t, ctx, gitalyCfg, testserver.StartPraefect(t, conf).Address())
 }
@@ -553,9 +545,7 @@ func testManagerRestore(t *testing.T, ctx context.Context, cfg config.Cfg, gital
 
 func TestResolveSink(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	isStorageServiceSink := func(expErrMsg string) func(t *testing.T, sink Sink) {
 		return func(t *testing.T, sink Sink) {

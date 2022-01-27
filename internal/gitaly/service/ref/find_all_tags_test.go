@@ -31,9 +31,7 @@ func TestFindAllTags_successful(t *testing.T) {
 
 	repoProto, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	// reconstruct the v1.1.2 tag from patches to test truncated tag message
 	// with partial PGP block
@@ -226,9 +224,7 @@ func TestFindAllTags_successful(t *testing.T) {
 
 func TestFindAllTags_simpleNestedTags(t *testing.T) {
 	cfg, client := setupRefServiceWithoutRepo(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
@@ -281,9 +277,7 @@ func TestFindAllTags_duplicateAnnotatedTags(t *testing.T) {
 
 	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
 	date := time.Unix(12345, 0)
@@ -361,9 +355,7 @@ func TestFindAllTags_duplicateAnnotatedTags(t *testing.T) {
 
 func TestFindAllTags_nestedTags(t *testing.T) {
 	cfg, client := setupRefServiceWithoutRepo(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	repoProto, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -477,9 +469,7 @@ func TestFindAllTags_nestedTags(t *testing.T) {
 
 func TestFindAllTags_invalidRequest(t *testing.T) {
 	_, client := setupRefServiceWithoutRepo(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	testCases := []struct {
 		desc    string
@@ -645,9 +635,7 @@ func testFindAllTagsPagination(t *testing.T, ctx context.Context) {
 
 func TestFindAllTags_sorted(t *testing.T) {
 	cfg, client := setupRefServiceWithoutRepo(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	repoProto, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
@@ -763,9 +751,7 @@ func TestFindAllTags_sorted(t *testing.T) {
 
 func BenchmarkFindAllTags(b *testing.B) {
 	b.StopTimer()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(b)
 
 	cfg, client := setupRefServiceWithoutRepo(b)
 

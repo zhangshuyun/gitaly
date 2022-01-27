@@ -15,9 +15,7 @@ import (
 
 func TestShowRefDecoder(t *testing.T) {
 	cfg := testcfg.Build(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	repoProto, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
 		RelativePath: "repo.git",

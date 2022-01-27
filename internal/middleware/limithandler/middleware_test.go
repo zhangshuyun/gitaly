@@ -42,9 +42,7 @@ func TestUnaryLimitHandler(t *testing.T) {
 
 	client, conn := newClient(t, serverSocketPath)
 	defer conn.Close()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	wg := &sync.WaitGroup{}
 	for i := 0; i < 10; i++ {
@@ -197,9 +195,7 @@ func TestStreamLimitHandler(t *testing.T) {
 
 			client, conn := newClient(t, serverSocketPath)
 			defer conn.Close()
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			wg := &sync.WaitGroup{}
 			for i := 0; i < 10; i++ {

@@ -155,9 +155,7 @@ func TestFindCommitsFields(t *testing.T) {
 				Trailers:   tc.trailers,
 				Limit:      1,
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			stream, err := client.FindCommits(ctx, request)
 			require.NoError(t, err)
 
@@ -405,8 +403,7 @@ func TestSuccessfulFindCommitsRequest(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			stream, err := client.FindCommits(ctx, tc.request)
 			require.NoError(t, err)
@@ -468,9 +465,7 @@ func TestSuccessfulFindCommitsRequestWithAltGitObjectDirs(t *testing.T) {
 				Revision:   []byte(commitID.String()),
 				Limit:      1,
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			c, err := client.FindCommits(ctx, request)
 			require.NoError(t, err)
@@ -499,9 +494,7 @@ func TestSuccessfulFindCommitsRequestWithAmbiguousRef(t *testing.T) {
 		Revision:   []byte(branchName),
 		Limit:      1,
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	c, err := client.FindCommits(ctx, request)
 	require.NoError(t, err)
@@ -541,8 +534,7 @@ func TestFailureFindCommitsRequest(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			stream, err := client.FindCommits(ctx, tc.request)
 			require.NoError(t, err)
@@ -566,15 +558,13 @@ func TestFindCommitsRequestWithFollowAndOffset(t *testing.T) {
 		Paths:      [][]byte{[]byte("CHANGELOG")},
 		Limit:      100,
 	}
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	allCommits := getCommits(ctx, t, request, client)
 	totalCommits := len(allCommits)
 
 	for offset := 0; offset < totalCommits; offset++ {
 		t.Run(fmt.Sprintf("testing with offset %d", offset), func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			request.Offset = int32(offset)
 			request.Limit = int32(totalCommits)
 			commits := getCommits(ctx, t, request, client)
@@ -587,9 +577,7 @@ func TestFindCommitsRequestWithFollowAndOffset(t *testing.T) {
 func TestFindCommitsWithExceedingOffset(t *testing.T) {
 	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	stream, err := client.FindCommits(ctx, &gitalypb.FindCommitsRequest{
 		Repository: repo,

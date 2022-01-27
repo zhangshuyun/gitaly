@@ -36,9 +36,7 @@ func TestGitCommandProxy(t *testing.T) {
 	oldHTTPProxy := os.Getenv("http_proxy")
 	defer require.NoError(t, os.Setenv("http_proxy", oldHTTPProxy))
 	require.NoError(t, os.Setenv("http_proxy", ts.URL))
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	dir := testhelper.TempDir(t)
 
@@ -71,9 +69,7 @@ func TestExecCommandFactory_globalGitConfigIgnored(t *testing.T) {
 	value = true
 `,
 	), os.ModePerm))
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc   string
@@ -108,8 +104,7 @@ func TestExecCommandFactory_NewWithDir(t *testing.T) {
 	defer cleanup()
 
 	t.Run("no dir specified", func(t *testing.T) {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		_, err := gitCmdFactory.NewWithDir(ctx, "", nil, nil)
 		require.Error(t, err)
@@ -121,9 +116,7 @@ func TestExecCommandFactory_NewWithDir(t *testing.T) {
 
 		gittest.Exec(t, cfg, "init", repoPath)
 		gittest.Exec(t, cfg, "-C", repoPath, "commit", "--allow-empty", "-m", "initial commit")
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		var stderr bytes.Buffer
 		cmd, err := gitCmdFactory.NewWithDir(ctx, repoPath, git.SubCmd{
@@ -141,8 +134,7 @@ func TestExecCommandFactory_NewWithDir(t *testing.T) {
 	})
 
 	t.Run("doesn't runs in non existing dir", func(t *testing.T) {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		var stderr bytes.Buffer
 		_, err := gitCmdFactory.NewWithDir(ctx, "non-existing-dir", git.SubCmd{
@@ -158,8 +150,7 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 	testhelper.ModifyEnvironment(t, "GITALY_TESTING_GIT_BINARY", "")
 	testhelper.ModifyEnvironment(t, "GITALY_TESTING_BUNDLED_GIT_PATH", "")
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	assertExecEnv := func(t *testing.T, cfg config.Cfg, expectedExecEnv git.ExecutionEnvironment) {
 		t.Helper()
@@ -426,8 +417,7 @@ func TestExecCommandFactory_ValidateHooks(t *testing.T) {
 }
 
 func TestExecCommandFactory_GitVersion(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	generateVersionScript := func(version string) func(git.ExecutionEnvironment) string {
 		return func(git.ExecutionEnvironment) string {

@@ -9,8 +9,7 @@ import (
 )
 
 func TestTransactionCancellationWithEmptyTransaction(t *testing.T) {
-	ctx, cleanup := testhelper.Context()
-	defer cleanup()
+	ctx := testhelper.Context(t)
 
 	tx, err := newTransaction(1, []Voter{
 		{Name: "voter", Votes: 1},
@@ -26,8 +25,7 @@ func TestTransactionCancellationWithEmptyTransaction(t *testing.T) {
 }
 
 func TestTransaction_DidVote(t *testing.T) {
-	ctx, cleanup := testhelper.Context()
-	defer cleanup()
+	ctx := testhelper.Context(t)
 
 	tx, err := newTransaction(1, []Voter{
 		{Name: "v1", Votes: 1},

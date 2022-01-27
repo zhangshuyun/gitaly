@@ -1,6 +1,7 @@
 package catfile
 
 import (
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -193,8 +194,7 @@ func TestCache_ObjectReader(t *testing.T) {
 	})
 
 	t.Run("uncacheable", func(t *testing.T) {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 		// The context doesn't carry a session ID and is thus uncacheable.
 		// The process should never get returned to the cache and must be
@@ -224,9 +224,7 @@ func TestCache_ObjectReader(t *testing.T) {
 
 	t.Run("cacheable", func(t *testing.T) {
 		defer cache.Evict()
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx, cancel := context.WithCancel(testhelper.Context(t))
 		ctx = correlation.ContextWithCorrelation(ctx, "1")
 		ctx = testhelper.MergeIncomingMetadata(ctx,
 			metadata.Pairs(SessionIDField, "1"),
@@ -256,9 +254,7 @@ func TestCache_ObjectReader(t *testing.T) {
 
 	t.Run("dirty process does not get cached", func(t *testing.T) {
 		defer cache.Evict()
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx, cancel := context.WithCancel(testhelper.Context(t))
 		ctx = testhelper.MergeIncomingMetadata(ctx,
 			metadata.Pairs(SessionIDField, "1"),
 		)
@@ -287,9 +283,7 @@ func TestCache_ObjectReader(t *testing.T) {
 
 	t.Run("closed process does not get cached", func(t *testing.T) {
 		defer cache.Evict()
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx, cancel := context.WithCancel(testhelper.Context(t))
 		ctx = testhelper.MergeIncomingMetadata(ctx,
 			metadata.Pairs(SessionIDField, "1"),
 		)
@@ -329,8 +323,7 @@ func TestCache_ObjectInfoReader(t *testing.T) {
 	})
 
 	t.Run("uncacheable", func(t *testing.T) {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 		// The context doesn't carry a session ID and is thus uncacheable.
 		// The process should never get returned to the cache and must be
@@ -360,9 +353,7 @@ func TestCache_ObjectInfoReader(t *testing.T) {
 
 	t.Run("cacheable", func(t *testing.T) {
 		defer cache.Evict()
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx, cancel := context.WithCancel(testhelper.Context(t))
 		ctx = correlation.ContextWithCorrelation(ctx, "1")
 		ctx = testhelper.MergeIncomingMetadata(ctx,
 			metadata.Pairs(SessionIDField, "1"),
@@ -392,9 +383,7 @@ func TestCache_ObjectInfoReader(t *testing.T) {
 
 	t.Run("closed process does not get cached", func(t *testing.T) {
 		defer cache.Evict()
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx, cancel := context.WithCancel(testhelper.Context(t))
 		ctx = testhelper.MergeIncomingMetadata(ctx,
 			metadata.Pairs(SessionIDField, "1"),
 		)
@@ -430,8 +419,7 @@ func requireProcessesValid(t *testing.T, p *processes) {
 func mustCreateCacheable(t *testing.T, cfg config.Cfg, repo repository.GitRepo) (cacheable, func()) {
 	t.Helper()
 
-	ctx, cancel := testhelper.Context()
-	t.Cleanup(cancel)
+	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 	batch, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repo), nil)
 	require.NoError(t, err)

@@ -162,9 +162,7 @@ func TestSuccessfulCountCommitsRequest(t *testing.T) {
 			if testCase.path != nil {
 				request.Path = testCase.path
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			response, err := client.CountCommits(ctx, request)
 			require.NoError(t, err)
 			require.Equal(t, response.Count, testCase.count)
@@ -187,8 +185,7 @@ func TestFailedCountCommitsRequestDueToValidationError(t *testing.T) {
 
 	for _, rpcRequest := range rpcRequests {
 		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			_, err := client.CountCommits(ctx, rpcRequest)
 			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 		})

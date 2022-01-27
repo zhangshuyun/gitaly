@@ -39,9 +39,7 @@ func BenchmarkPostgresRepositoryStore_GetConsistentStorages(b *testing.B) {
 
 func benchmarkGetConsistentStorages(b *testing.B, nstorages, nrepositories int) {
 	db := testdb.New(b)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(b)
 
 	for n := 0; n < b.N; n++ {
 		b.StopTimer()

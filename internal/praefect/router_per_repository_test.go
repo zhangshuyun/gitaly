@@ -34,8 +34,7 @@ func (st StaticRepositoryAssignments) GetHostAssignments(ctx context.Context, vi
 }
 
 func TestPerRepositoryRouter_RouteStorageAccessor(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc           string
@@ -191,8 +190,7 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			ctx = testhelper.MergeIncomingMetadata(ctx, metadata.New(tc.metadata))
 
@@ -353,8 +351,7 @@ func TestPerRepositoryRouter_RouteRepositoryMutator(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			conns := Connections{
 				"virtual-storage-1": {
@@ -619,8 +616,7 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			db.TruncateAll(t)
 

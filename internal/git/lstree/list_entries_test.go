@@ -13,9 +13,7 @@ import (
 
 func TestListEntries(t *testing.T) {
 	cfg := testcfg.Build(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	repoProto, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)

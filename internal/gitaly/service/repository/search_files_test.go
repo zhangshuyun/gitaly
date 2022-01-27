@@ -86,8 +86,7 @@ var (
 
 func TestSearchFilesByContentSuccessful(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, _, client := setupRepositoryService(t)
 
@@ -152,8 +151,7 @@ func TestSearchFilesByContentSuccessful(t *testing.T) {
 
 func TestSearchFilesByContentLargeFile(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath, client := setupRepositoryServiceWithWorktree(t)
 
@@ -281,8 +279,7 @@ func TestSearchFilesByContentFailure(t *testing.T) {
 
 func TestSearchFilesByNameSuccessful(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, _, client := setupRepositoryService(t)
 

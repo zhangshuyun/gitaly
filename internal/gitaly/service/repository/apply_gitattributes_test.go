@@ -27,9 +27,7 @@ import (
 
 func TestApplyGitattributesSuccess(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repo, _, client := setupRepositoryService(t)
 
@@ -89,9 +87,7 @@ func (s *testTransactionServer) VoteTransaction(ctx context.Context, in *gitalyp
 
 func TestApplyGitattributesWithTransaction(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
@@ -219,9 +215,7 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 
 func TestApplyGitattributesFailure(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, _, client := setupRepositoryService(t)
 

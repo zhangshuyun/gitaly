@@ -23,8 +23,7 @@ const (
 )
 
 func TestRepo_ContainsRef(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, _ := setupRepo(t)
 
@@ -60,8 +59,7 @@ func TestRepo_ContainsRef(t *testing.T) {
 }
 
 func TestRepo_GetReference(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, _ := setupRepo(t)
 
@@ -108,8 +106,7 @@ func TestRepo_GetReference(t *testing.T) {
 }
 
 func TestRepo_GetReferenceWithAmbiguousRefs(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, _ := setupRepo(t, withDisabledHooks())
 
@@ -141,8 +138,7 @@ func TestRepo_GetReferenceWithAmbiguousRefs(t *testing.T) {
 }
 
 func TestRepo_GetReferences(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, _ := setupRepo(t)
 
@@ -210,8 +206,7 @@ func TestRepo_GetReferences(t *testing.T) {
 }
 
 func TestRepo_GetRemoteReferences(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
 
@@ -329,8 +324,7 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 }
 
 func TestRepo_GetBranches(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, _ := setupRepo(t)
 
@@ -340,8 +334,7 @@ func TestRepo_GetBranches(t *testing.T) {
 }
 
 func TestRepo_UpdateRef(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repo, _ := setupRepo(t, withDisabledHooks())
 
@@ -473,8 +466,7 @@ func TestRepo_SetDefaultBranch(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			require.NoError(t, repo.SetDefaultBranch(ctx, tc.ref))
 
@@ -566,8 +558,7 @@ func TestGuessHead(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			for _, cmd := range tc.cmds {
 				gittest.Exec(t, cfg, append([]string{"-C", repoPath}, cmd...)...)

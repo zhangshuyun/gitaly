@@ -84,8 +84,7 @@ func Test_generateSentryEvent(t *testing.T) {
 			ctx: func() context.Context {
 				var result context.Context
 
-				ctx, cancel := testhelper.Context()
-				t.Cleanup(cancel)
+				ctx := testhelper.Context(t)
 
 				// this is the only way how we could populate context with `tags` assembler
 				_, err := grpcmwtags.UnaryServerInterceptor()(ctx, nil, nil, func(ctx context.Context, req interface{}) (interface{}, error) {
@@ -101,8 +100,7 @@ func Test_generateSentryEvent(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			if tt.ctx != nil {
 				ctx = tt.ctx

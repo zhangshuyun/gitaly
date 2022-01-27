@@ -19,8 +19,7 @@ import (
 )
 
 func TestSidechannel(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	const blobSize = 1024 * 1024
 
@@ -72,8 +71,7 @@ func TestSidechannel(t *testing.T) {
 // Conduct multiple requests with sidechannel included on the same grpc
 // connection.
 func TestSidechannelConcurrency(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	const concurrency = 10
 	const blobSize = 1024 * 1024

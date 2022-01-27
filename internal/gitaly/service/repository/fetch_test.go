@@ -16,9 +16,7 @@ import (
 func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
 	t.Parallel()
 	cfg, sourceRepo, sourcePath, client := setupRepositoryService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
@@ -49,9 +47,7 @@ func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
 func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
 	t.Parallel()
 	cfg, repoProto, repoPath, client := setupRepositoryService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
@@ -81,9 +77,7 @@ func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
 func TestFetchSourceBranchBranchNotFound(t *testing.T) {
 	t.Parallel()
 	cfg, targetRepo, _, client := setupRepositoryService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
@@ -129,9 +123,7 @@ func TestFetchSourceBranchBranchNotFound(t *testing.T) {
 func TestFetchSourceBranchWrongRef(t *testing.T) {
 	t.Parallel()
 	cfg, targetRepo, _, client := setupRepositoryService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)

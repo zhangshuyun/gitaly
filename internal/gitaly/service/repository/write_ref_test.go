@@ -48,8 +48,7 @@ func TestWriteRefSuccessful(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			_, err := client.WriteRef(ctx, tc.req)
 
 			require.NoError(t, err)
@@ -136,8 +135,7 @@ func TestWriteRefValidationError(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			_, err := client.WriteRef(ctx, tc.req)
 
 			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)

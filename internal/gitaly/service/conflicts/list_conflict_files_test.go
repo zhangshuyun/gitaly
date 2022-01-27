@@ -24,8 +24,7 @@ type conflictFile struct {
 }
 
 func TestSuccessfulListConflictFilesRequest(t *testing.T) {
-	ctx, cleanup := testhelper.Context()
-	defer cleanup()
+	ctx := testhelper.Context(t)
 
 	_, repo, _, client := SetupConflictsService(t, false, nil)
 
@@ -91,8 +90,7 @@ end
 }
 
 func TestSuccessfulListConflictFilesRequestWithAncestor(t *testing.T) {
-	ctx, cleanup := testhelper.Context()
-	defer cleanup()
+	ctx := testhelper.Context(t)
 
 	_, repo, _, client := SetupConflictsService(t, true, nil)
 
@@ -138,8 +136,7 @@ func TestSuccessfulListConflictFilesRequestWithAncestor(t *testing.T) {
 }
 
 func TestListConflictFilesHugeDiff(t *testing.T) {
-	ctx, cleanup := testhelper.Context()
-	defer cleanup()
+	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath, client := SetupConflictsService(t, false, nil)
 
@@ -199,8 +196,7 @@ func buildCommit(t *testing.T, ctx context.Context, cfg config.Cfg, repo *gitaly
 }
 
 func TestListConflictFilesFailedPrecondition(t *testing.T) {
-	ctx, cleanup := testhelper.Context()
-	defer cleanup()
+	ctx := testhelper.Context(t)
 
 	_, repo, _, client := SetupConflictsService(t, true, nil)
 
@@ -257,8 +253,7 @@ func TestListConflictFilesFailedPrecondition(t *testing.T) {
 }
 
 func TestListConflictFilesAllowTreeConflicts(t *testing.T) {
-	ctx, cleanup := testhelper.Context()
-	defer cleanup()
+	ctx := testhelper.Context(t)
 
 	_, repo, _, client := SetupConflictsService(t, true, nil)
 
@@ -350,8 +345,7 @@ end
 }
 
 func TestFailedListConflictFilesRequestDueToValidation(t *testing.T) {
-	ctx, cleanup := testhelper.Context()
-	defer cleanup()
+	ctx := testhelper.Context(t)
 
 	_, repo, _, client := SetupConflictsService(t, true, nil)
 

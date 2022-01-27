@@ -27,9 +27,7 @@ import (
 func TestMidxWrite(t *testing.T) {
 	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, err := client.MidxRepack(ctx, &gitalypb.MidxRepackRequest{Repository: repo})
 	assert.NoError(t, err)
@@ -46,9 +44,7 @@ func TestMidxWrite(t *testing.T) {
 func TestMidxRewrite(t *testing.T) {
 	t.Parallel()
 	_, repo, repoPath, client := setupRepositoryService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	midxPath := filepath.Join(repoPath, MidxRelPath)
 
@@ -74,9 +70,7 @@ func TestMidxRewrite(t *testing.T) {
 func TestMidxRepack(t *testing.T) {
 	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	// add some pack files with different sizes
 	packsAdded := 5
@@ -113,9 +107,7 @@ func TestMidxRepack(t *testing.T) {
 
 func TestMidxRepack_transactional(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	txManager := transaction.NewTrackingManager()
 
@@ -147,9 +139,7 @@ func TestMidxRepackExpire(t *testing.T) {
 		t.Run(fmt.Sprintf("Test repack expire with %d added packs", packsAdded),
 			func(t *testing.T) {
 				repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
-
-				ctx, cancel := testhelper.Context()
-				defer cancel()
+				ctx := testhelper.Context(t)
 
 				// add some pack files with different sizes
 				addPackFiles(t, ctx, cfg, client, repo, repoPath, packsAdded, false)

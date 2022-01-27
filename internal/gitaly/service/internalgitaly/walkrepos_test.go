@@ -74,9 +74,7 @@ func TestWalkRepos(t *testing.T) {
 	}
 
 	client := setupInternalGitalyService(t, cfg, wsrv)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	stream, err := client.WalkRepos(ctx, &gitalypb.WalkReposRequest{
 		StorageName: "invalid storage name",

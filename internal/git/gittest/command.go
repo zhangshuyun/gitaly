@@ -56,8 +56,7 @@ func NewCommand(t testing.TB, cfg config.Cfg, args ...string) *exec.Cmd {
 func createCommand(t testing.TB, cfg config.Cfg, execCfg ExecConfig, args ...string) *exec.Cmd {
 	t.Helper()
 
-	ctx, cancel := testhelper.Context()
-	t.Cleanup(cancel)
+	ctx := testhelper.Context(t)
 
 	execEnv := NewCommandFactory(t, cfg).GetExecutionEnvironment(ctx)
 

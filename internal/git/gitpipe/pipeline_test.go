@@ -1,6 +1,7 @@
 package gitpipe
 
 import (
+	"context"
 	"errors"
 	"io"
 	"sync"
@@ -218,8 +219,7 @@ func TestPipeline_revlist(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			catfileCache := catfile.NewCache(cfg)
 			defer catfileCache.Stop()
@@ -274,7 +274,7 @@ func TestPipeline_revlist(t *testing.T) {
 	}
 
 	t.Run("context cancellation", func(t *testing.T) {
-		ctx, cancel := testhelper.Context()
+		ctx, cancel := context.WithCancel(testhelper.Context(t))
 		defer cancel()
 
 		catfileCache := catfile.NewCache(cfg)
@@ -315,8 +315,7 @@ func TestPipeline_revlist(t *testing.T) {
 	})
 
 	t.Run("interleaving object reads", func(t *testing.T) {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		catfileCache := catfile.NewCache(cfg)
 		defer catfileCache.Stop()
@@ -368,9 +367,7 @@ func TestPipeline_forEachRef(t *testing.T) {
 
 	repoProto, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	catfileCache := catfile.NewCache(cfg)
 	defer catfileCache.Stop()

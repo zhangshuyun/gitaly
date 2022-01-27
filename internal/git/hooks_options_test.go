@@ -14,9 +14,7 @@ import (
 
 func TestWithRefHook(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	opt := git.WithRefTxHook(repo)
 	subCmd := git.SubCmd{Name: "update-ref", Args: []string{"refs/heads/master", git.ZeroOID.String()}}

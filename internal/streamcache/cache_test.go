@@ -29,8 +29,7 @@ func newCache(dir string) Cache {
 }
 
 func TestCache_writeOneReadMultiple(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	tmp := testhelper.TempDir(t)
 
@@ -62,8 +61,7 @@ func TestCache_writeOneReadMultiple(t *testing.T) {
 }
 
 func TestCache_manyConcurrentWrites(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	tmp := testhelper.TempDir(t)
 
@@ -181,8 +179,7 @@ func TestCache_deletedFile(t *testing.T) {
 }
 
 func TestCache_scope(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	tmp := testhelper.TempDir(t)
 
@@ -231,8 +228,7 @@ func TestCache_scope(t *testing.T) {
 }
 
 func TestCache_diskCleanup(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	tmp := testhelper.TempDir(t)
 
@@ -311,8 +307,7 @@ func TestCache_diskCleanup(t *testing.T) {
 }
 
 func TestCache_failedWrite(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	tmp := testhelper.TempDir(t)
 
@@ -374,8 +369,7 @@ func TestCache_failCreateFile(t *testing.T) {
 }
 
 func TestCache_unWriteableFile(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	tmp := testhelper.TempDir(t)
 
@@ -402,8 +396,7 @@ func TestCache_unWriteableFile(t *testing.T) {
 }
 
 func TestCache_unCloseableFile(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	tmp := testhelper.TempDir(t)
 
@@ -451,8 +444,7 @@ func TestCache_cannotOpenFileForReading(t *testing.T) {
 }
 
 func TestWaiter(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	w := newWaiter()
 	err := errors.New("test error")
@@ -461,8 +453,7 @@ func TestWaiter(t *testing.T) {
 }
 
 func TestWaiter_cancel(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 	w := newWaiter()
 	errc := make(chan error, 1)
@@ -473,8 +464,7 @@ func TestWaiter_cancel(t *testing.T) {
 }
 
 func TestNullCache(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	const (
 		N         = 1000

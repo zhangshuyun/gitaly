@@ -29,9 +29,7 @@ import (
 
 func TestSuccessfulUserDeleteTagRequest(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -54,8 +52,7 @@ func TestSuccessfulUserDeleteTagRequest(t *testing.T) {
 
 func TestSuccessfulGitHooksForUserDeleteTagRequest(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -144,9 +141,7 @@ func writeAssertObjectTypeUpdateHook(t *testing.T, repoPath, expectedObjectType 
 
 func TestSuccessfulUserCreateTagRequest(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -268,9 +263,7 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 		))
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
 	})
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	// We're using internal gitaly socket to connect to the server.
 	// This is kind of a hack when running tests with Praefect:
@@ -378,9 +371,7 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 
 func TestUserCreateTagQuarantine(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -428,9 +419,7 @@ message`,
 
 func TestSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -511,9 +500,7 @@ func TestSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *tes
 
 func TestSuccessfulUserCreateTagRequestWithParsedTargetRevision(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -592,8 +579,7 @@ func TestSuccessfulUserCreateTagRequestWithParsedTargetRevision(t *testing.T) {
 
 func TestSuccessfulUserCreateTagRequestToNonCommit(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -696,8 +682,7 @@ func TestSuccessfulUserCreateTagRequestToNonCommit(t *testing.T) {
 
 func TestSuccessfulUserCreateTagNestedTags(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -814,8 +799,7 @@ func TestSuccessfulUserCreateTagNestedTags(t *testing.T) {
 
 func TestUserCreateTagStableTagIDs(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
@@ -839,9 +823,7 @@ func TestUserCreateTagStableTagIDs(t *testing.T) {
 
 func TestUserDeleteTagSuccessfulDeletionOfPrefixedTag(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -885,8 +867,7 @@ func TestUserDeleteTagSuccessfulDeletionOfPrefixedTag(t *testing.T) {
 
 func TestUserCreateTagsuccessfulCreationOfPrefixedTag(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -942,8 +923,7 @@ func TestUserCreateTagsuccessfulCreationOfPrefixedTag(t *testing.T) {
 
 func TestSuccessfulGitHooksForUserCreateTagRequest(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -978,8 +958,7 @@ func TestSuccessfulGitHooksForUserCreateTagRequest(t *testing.T) {
 
 func TestFailedUserDeleteTagRequestDueToValidation(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
@@ -1050,9 +1029,7 @@ func TestFailedUserDeleteTagRequestDueToValidation(t *testing.T) {
 
 func TestFailedUserDeleteTagDueToHooks(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -1084,8 +1061,7 @@ func TestFailedUserDeleteTagDueToHooks(t *testing.T) {
 
 func TestFailedUserCreateTagDueToHooks(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -1109,8 +1085,7 @@ func TestFailedUserCreateTagDueToHooks(t *testing.T) {
 
 func TestFailedUserCreateTagRequestDueToTagExistence(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
@@ -1161,8 +1136,7 @@ func TestFailedUserCreateTagRequestDueToTagExistence(t *testing.T) {
 
 func TestFailedUserCreateTagRequestDueToValidation(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
@@ -1280,9 +1254,7 @@ func TestFailedUserCreateTagRequestDueToValidation(t *testing.T) {
 
 func TestTagHookOutput(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 

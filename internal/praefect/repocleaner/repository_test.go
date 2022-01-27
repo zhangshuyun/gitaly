@@ -84,9 +84,7 @@ func TestRunner_Run(t *testing.T) {
 	gittest.CloneRepo(t, g3Cfg, g3Cfg.Storages[0], gittest.CloneRepoOpts{RelativePath: repo2RelPath})
 	gittest.CloneRepo(t, g3Cfg, g3Cfg.Storages[0], gittest.CloneRepoOpts{RelativePath: repo3RelPath})
 	gittest.CloneRepo(t, g3Cfg, g3Cfg.Storages[0], gittest.CloneRepoOpts{RelativePath: "repo-4.git"})
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 	repoStore := datastore.NewPostgresRepositoryStore(db.DB, nil)
 	for i, set := range []struct {
@@ -219,9 +217,7 @@ func TestRunner_Run_noAvailableStorages(t *testing.T) {
 	}
 
 	gittest.CloneRepo(t, g1Cfg, g1Cfg.Storages[0], gittest.CloneRepoOpts{RelativePath: repo1RelPath})
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 	repoStore := datastore.NewPostgresRepositoryStore(db.DB, nil)
 	for i, set := range []struct {
@@ -272,9 +268,7 @@ func TestRunner_Run_noAvailableStorages(t *testing.T) {
 				return nil
 			},
 		})
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx, cancel := context.WithCancel(testhelper.Context(t))
 		ticker := helper.NewManualTicker()
 
 		done := make(chan struct{})

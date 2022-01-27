@@ -56,9 +56,7 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 	req2 := &gitalypb.InfoRefsRequest{
 		Repository: repo2,
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	ctx = testhelper.SetCtxGrpcMethod(ctx, "InfoRefsUploadPack")
 
 	t.Run("empty cache", func(t *testing.T) {
@@ -168,9 +166,7 @@ func TestLoserCount(t *testing.T) {
 			StorageName:  "storage-1",
 		},
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	ctx = testhelper.SetCtxGrpcMethod(ctx, "InfoRefsUploadPack")
 
 	leashes := []chan struct{}{make(chan struct{}), make(chan struct{}), make(chan struct{})}

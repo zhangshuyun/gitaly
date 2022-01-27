@@ -65,8 +65,7 @@ func TestRevert_validation(t *testing.T) {
 	}
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			_, err := executor.Revert(ctx, repo, tc.request)
 			require.Error(t, err)
@@ -176,9 +175,7 @@ func TestRevert_trees(t *testing.T) {
 			executor := buildExecutor(t, cfg)
 
 			ours, revert := tc.setupRepo(t, repoPath)
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			authorDate := time.Date(2020, 7, 30, 7, 45, 50, 0, time.FixedZone("UTC+2", +2*60*60))
 

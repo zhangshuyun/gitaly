@@ -49,9 +49,7 @@ func TestCreateFork_successful(t *testing.T) {
 	// and would cause failure. We should eventually address this and provide better testing
 	// utilities around this, but now's not the time.
 	certPool, tlsConfig := injectCustomCATestCerts(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	for _, tt := range []struct {
 		name   string
@@ -118,9 +116,7 @@ func TestCreateFork_successful(t *testing.T) {
 
 func TestCreateFork_refs(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyHooks(t, cfg)
@@ -178,9 +174,7 @@ func TestCreateFork_refs(t *testing.T) {
 
 func TestCreateFork_targetExists(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc                          string

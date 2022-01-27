@@ -70,9 +70,7 @@ func TestAddCommand(t *testing.T) {
 		paths:     make(map[string]interface{}),
 	}
 	require.NoError(t, v1Manager1.Setup())
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cmd1 := exec.Command("ls", "-hal", ".")
 	cmd2, err := command.New(ctx, cmd1, nil, nil, nil)
@@ -129,9 +127,7 @@ func TestMetrics(t *testing.T) {
 	mock.setupMockCgroupFiles(t, v1Manager1, 2)
 
 	require.NoError(t, v1Manager1.Setup())
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cmd1 := exec.Command("ls", "-hal", ".")
 	cmd2, err := command.New(ctx, cmd1, nil, nil, nil)

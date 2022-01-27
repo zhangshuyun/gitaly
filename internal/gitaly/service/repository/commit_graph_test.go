@@ -40,9 +40,7 @@ func TestWriteCommitGraph_withExistingCommitGraphCreatedWithDefaults(t *testing.
 		gittest.WithBranch(t.Name()),
 		gittest.WithTreeEntries(treeEntry),
 	)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
 		Repository:    repo,
@@ -78,9 +76,7 @@ func TestWriteCommitGraph_withExistingCommitGraphCreatedWithSplit(t *testing.T) 
 		gittest.WithBranch(t.Name()),
 		gittest.WithTreeEntries(treeEntry),
 	)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
 		Repository:    repo,
@@ -97,9 +93,7 @@ func TestWriteCommitGraph_withExistingCommitGraphCreatedWithSplit(t *testing.T) 
 func TestWriteCommitGraph(t *testing.T) {
 	t.Parallel()
 	_, repo, repoPath, client := setupRepositoryService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	chainPath := filepath.Join(repoPath, stats.CommitGraphChainRelPath)
 
@@ -118,9 +112,7 @@ func TestWriteCommitGraph(t *testing.T) {
 func TestWriteCommitGraph_validationChecks(t *testing.T) {
 	t.Parallel()
 	_, repo, _, client := setupRepositoryService(t, testserver.WithDisablePraefect())
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc   string
@@ -156,9 +148,7 @@ func TestWriteCommitGraph_validationChecks(t *testing.T) {
 func TestUpdateCommitGraph(t *testing.T) {
 	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	chainPath := filepath.Join(repoPath, stats.CommitGraphChainRelPath)
 	require.NoFileExists(t, chainPath)

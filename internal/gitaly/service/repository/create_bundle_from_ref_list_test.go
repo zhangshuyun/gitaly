@@ -20,9 +20,7 @@ import (
 func TestCreateBundleFromRefList_success(t *testing.T) {
 	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	// Create a work tree with a HEAD pointing to a commit that is missing. CreateBundle should
 	// clean this up before creating the bundle.
@@ -99,8 +97,7 @@ func TestCreateBundleFromRefList_validations(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			stream, err := client.CreateBundleFromRefList(ctx)
 			require.NoError(t, err)

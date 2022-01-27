@@ -76,8 +76,7 @@ func TestAssignmentStore_GetHostAssignments(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			db.TruncateAll(t)
 
@@ -207,8 +206,7 @@ func TestAssignmentStore_SetReplicationFactor(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			db.TruncateAll(t)
 

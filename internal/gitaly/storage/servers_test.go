@@ -14,8 +14,7 @@ import (
 )
 
 func TestExtractGitalyServers(t *testing.T) {
-	ctxOuter, cancel := testhelper.Context()
-	defer cancel()
+	ctxOuter := testhelper.Context(t)
 
 	testCases := []struct {
 		desc     string

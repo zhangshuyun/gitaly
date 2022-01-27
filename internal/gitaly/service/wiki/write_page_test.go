@@ -19,9 +19,7 @@ import (
 func testSuccessfulWikiWritePageRequest(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
 	wikiRepoProto, wikiRepoPath := setupWikiRepo(t, cfg)
 	wikiRepo := localrepo.NewTestRepo(t, cfg, wikiRepoProto)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	authorID := int32(1)
 	authorUserName := []byte("ahmad")
@@ -134,9 +132,7 @@ func testFailedWikiWritePageDueToDuplicatePage(t *testing.T, cfg config.Cfg, cli
 		CommitDetails: commitDetails,
 		Content:       content,
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	stream, err := client.WikiWritePage(ctx)
 	require.NoError(t, err)
@@ -172,9 +168,7 @@ func testFailedWikiWritePageInPathDueToDuplicatePage(t *testing.T, cfg config.Cf
 		CommitDetails: commitDetails,
 		Content:       content,
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	stream, err := client.WikiWritePage(ctx)
 	require.NoError(t, err)
@@ -289,8 +283,7 @@ func TestFailedWikiWritePageDueToValidations(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			stream, err := client.WikiWritePage(ctx)
 			require.NoError(t, err)

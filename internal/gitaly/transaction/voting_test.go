@@ -17,8 +17,7 @@ import (
 )
 
 func TestRunOnContext(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	backchannelPeer := &peer.Peer{
 		AuthInfo: backchannel.WithID(nil, 1234),
@@ -69,8 +68,7 @@ func TestRunOnContext(t *testing.T) {
 }
 
 func TestVoteOnContext(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	backchannelPeer := &peer.Peer{
 		AuthInfo: backchannel.WithID(nil, 1234),
@@ -120,8 +118,7 @@ func TestVoteOnContext(t *testing.T) {
 }
 
 func TestCommitLockedFile(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	backchannelPeer := &peer.Peer{
 		AuthInfo: backchannel.WithID(nil, 1234),

@@ -81,8 +81,7 @@ func TestPostReceive_customHook(t *testing.T) {
 		Protocol: "web",
 	}
 
-	ctx, cleanup := testhelper.Context()
-	defer cleanup()
+	ctx := testhelper.Context(t)
 
 	payload, err := git.NewHooksPayload(cfg, repo, nil, receiveHooksPayload, git.PostReceiveHook, featureflag.RawFromContext(ctx)).Env()
 	require.NoError(t, err)
@@ -328,8 +327,7 @@ func TestPostReceive_gitlab(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cleanup := testhelper.Context()
-			defer cleanup()
+			ctx := testhelper.Context(t)
 
 			gitlabAPI := postreceiveAPIMock{
 				postreceive: func(ctx context.Context, glRepo, glID, changes string, pushOptions ...string) (bool, []gitlab.PostReceiveMessage, error) {
@@ -357,8 +355,7 @@ func TestPostReceive_gitlab(t *testing.T) {
 }
 
 func TestPostReceive_quarantine(t *testing.T) {
-	ctx, cleanup := testhelper.Context()
-	defer cleanup()
+	ctx := testhelper.Context(t)
 
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 

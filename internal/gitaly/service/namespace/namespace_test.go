@@ -21,9 +21,7 @@ func TestMain(m *testing.M) {
 func TestNamespaceExists(t *testing.T) {
 	cfg, client := setupNamespaceService(t, testserver.WithDisablePraefect())
 	existingStorage := cfg.Storages[0]
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	const existingNamespace = "existing"
 	require.NoError(t, os.MkdirAll(filepath.Join(existingStorage.Path, existingNamespace), 0o755))
@@ -138,8 +136,7 @@ func TestAddNamespace(t *testing.T) {
 
 	for _, tc := range queries {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			_, err := client.AddNamespace(ctx, tc.request)
 
@@ -160,9 +157,7 @@ func TestRemoveNamespace(t *testing.T) {
 
 	cfg, client := setupNamespaceService(t)
 	existingStorage := cfg.Storages[0]
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	const existingNamespace = "created"
 	require.NoError(t, os.MkdirAll(filepath.Join(existingStorage.Path, existingNamespace), 0o755), "test setup")
@@ -216,9 +211,7 @@ func TestRenameNamespace(t *testing.T) {
 
 	cfg, client := setupNamespaceService(t)
 	existingStorage := cfg.Storages[0]
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	const existingNamespace = "existing"
 	require.NoError(t, os.MkdirAll(filepath.Join(existingStorage.Path, existingNamespace), 0o755))
@@ -286,9 +279,7 @@ func TestRenameNamespaceWithNonexistentParentDir(t *testing.T) {
 
 	cfg, client := setupNamespaceService(t)
 	existingStorage := cfg.Storages[0]
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, err := client.AddNamespace(ctx, &gitalypb.AddNamespaceRequest{
 		StorageName: existingStorage.Name,

@@ -94,9 +94,7 @@ func TestSubmodule(t *testing.T) {
 			executor := buildExecutor(t, cfg)
 
 			tc.command.Repository = repoPath
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			response, err := executor.Submodule(ctx, repo, tc.command)
 			if tc.expectedStderr != "" {

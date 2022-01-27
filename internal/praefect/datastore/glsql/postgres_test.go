@@ -1,6 +1,7 @@
 package glsql_test
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"testing"
@@ -17,8 +18,7 @@ import (
 
 func TestOpenDB(t *testing.T) {
 	dbCfg := testdb.GetConfig(t, "postgres")
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	t.Run("failed to ping because of incorrect config", func(t *testing.T) {
 		badCfg := dbCfg
@@ -38,7 +38,7 @@ func TestOpenDB(t *testing.T) {
 		badCfg.Port = (lis.Addr().(*net.TCPAddr)).Port
 		start := time.Now()
 
-		ctx, cancel := testhelper.Context()
+		ctx, cancel := context.WithCancel(testhelper.Context(t))
 		cancel()
 
 		_, err = glsql.OpenDB(ctx, badCfg)

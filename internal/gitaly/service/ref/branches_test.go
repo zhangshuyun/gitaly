@@ -12,8 +12,7 @@ import (
 )
 
 func TestSuccessfulFindBranchRequest(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repoProto, _, client := setupRefService(t)
 
@@ -72,9 +71,7 @@ func TestSuccessfulFindBranchRequest(t *testing.T) {
 				Repository: repoProto,
 				Name:       []byte(testCase.branchName),
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			response, err := client.FindBranch(ctx, request)
 
@@ -105,9 +102,7 @@ func TestFailedFindBranchRequest(t *testing.T) {
 				Repository: repo,
 				Name:       []byte(testCase.branchName),
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			_, err := client.FindBranch(ctx, request)
 			testhelper.RequireGrpcCode(t, err, testCase.code)

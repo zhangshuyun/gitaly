@@ -27,8 +27,7 @@ func TestNewObjectPool(t *testing.T) {
 }
 
 func TestNewFromRepoSuccess(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, pool, testRepo := setupObjectPool(t, ctx)
 
@@ -42,8 +41,7 @@ func TestNewFromRepoSuccess(t *testing.T) {
 }
 
 func TestNewFromRepoNoObjectPool(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, pool, testRepo := setupObjectPool(t, ctx)
 
@@ -93,8 +91,7 @@ func TestNewFromRepoNoObjectPool(t *testing.T) {
 }
 
 func TestCreate(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, pool, testRepo := setupObjectPool(t, ctx)
 
@@ -127,8 +124,7 @@ func TestCreate(t *testing.T) {
 }
 
 func TestCreateSubDirsExist(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, pool, testRepo := setupObjectPool(t, ctx)
 
@@ -143,8 +139,7 @@ func TestCreateSubDirsExist(t *testing.T) {
 }
 
 func TestRemove(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, pool, testRepo := setupObjectPool(t, ctx)
 

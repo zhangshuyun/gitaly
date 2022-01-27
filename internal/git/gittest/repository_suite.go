@@ -37,8 +37,7 @@ func TestRepository(t *testing.T, cfg config.Cfg, getRepository func(testing.TB,
 }
 
 func testRepositoryResolveRevision(t *testing.T, cfg config.Cfg, getRepository func(testing.TB, *gitalypb.Repository) git.Repository) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	pbRepo, _ := CloneRepo(t, cfg, cfg.Storages[0])
 
@@ -90,8 +89,7 @@ func testRepositoryResolveRevision(t *testing.T, cfg config.Cfg, getRepository f
 }
 
 func testRepositoryHasBranches(t *testing.T, cfg config.Cfg, getRepository func(testing.TB, *gitalypb.Repository) git.Repository) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	pbRepo, repoPath := InitRepo(t, cfg, cfg.Storages[0])
 
@@ -192,8 +190,7 @@ func testRepositoryGetDefaultBranch(t *testing.T, cfg config.Cfg, getRepository 
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			name, err := tc.repo(t).GetDefaultBranch(ctx)
 			require.NoError(t, err)

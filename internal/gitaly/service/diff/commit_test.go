@@ -172,9 +172,7 @@ func TestSuccessfulCommitDiffRequest(t *testing.T) {
 		t.Run(testCase.desc, func(t *testing.T) {
 			gittest.Exec(t, cfg, "-C", repoPath, "config", "diff.noprefix", testCase.noPrefixConfig)
 			rpcRequest := &gitalypb.CommitDiffRequest{Repository: repo, RightCommitId: rightCommit, LeftCommitId: leftCommit, IgnoreWhitespaceChange: false}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			c, err := client.CommitDiff(ctx, rpcRequest)
 			require.NoError(t, err)
 
@@ -200,9 +198,7 @@ func TestSuccessfulCommitDiffRequestWithPaths(t *testing.T) {
 			[]byte("gitaly/mode-file-with-mods"),
 		},
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	c, err := client.CommitDiff(ctx, rpcRequest)
 	require.NoError(t, err)
 
@@ -262,9 +258,7 @@ func TestSuccessfulCommitDiffRequestWithTypeChangeDiff(t *testing.T) {
 		RightCommitId: rightCommit,
 		LeftCommitId:  leftCommit,
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	c, err := client.CommitDiff(ctx, rpcRequest)
 	require.NoError(t, err)
 
@@ -388,9 +382,7 @@ func TestSuccessfulCommitDiffRequestWithIgnoreWhitespaceChange(t *testing.T) {
 				IgnoreWhitespaceChange: true,
 				Paths:                  entry.paths,
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			c, err := client.CommitDiff(ctx, rpcRequest)
 			require.NoError(t, err)
 
@@ -573,9 +565,7 @@ func TestSuccessfulCommitDiffRequestWithWordDiff(t *testing.T) {
 				IgnoreWhitespaceChange: false,
 				DiffMode:               gitalypb.CommitDiffRequest_WORDDIFF,
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			c, err := client.CommitDiff(ctx, rpcRequest)
 			if err != nil {
 				t.Fatal(err)
@@ -774,9 +764,7 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 			request.Repository = repo
 			request.LeftCommitId = leftCommit
 			request.RightCommitId = rightCommit
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			c, err := client.CommitDiff(ctx, request)
 			require.NoError(t, err)
 
@@ -814,8 +802,7 @@ func TestFailedCommitDiffRequestDueToValidationError(t *testing.T) {
 
 	for _, rpcRequest := range rpcRequests {
 		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			c, err := client.CommitDiff(ctx, rpcRequest)
 			require.NoError(t, err)
 
@@ -831,9 +818,7 @@ func TestFailedCommitDiffRequestWithNonExistentCommit(t *testing.T) {
 	nonExistentCommitID := "deadfacedeadfacedeadfacedeadfacedeadface"
 	leftCommit := nonExistentCommitID + "~" // Parent of rightCommit
 	rpcRequest := &gitalypb.CommitDiffRequest{Repository: repo, RightCommitId: nonExistentCommitID, LeftCommitId: leftCommit}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	c, err := client.CommitDiff(ctx, rpcRequest)
 	require.NoError(t, err)
 
@@ -847,9 +832,7 @@ func TestSuccessfulCommitDeltaRequest(t *testing.T) {
 	rightCommit := "742518b2be68fc750bb4c357c0df821a88113286"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
 	rpcRequest := &gitalypb.CommitDeltaRequest{Repository: repo, RightCommitId: rightCommit, LeftCommitId: leftCommit}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	c, err := client.CommitDelta(ctx, rpcRequest)
 	require.NoError(t, err)
 
@@ -971,9 +954,7 @@ func TestSuccessfulCommitDeltaRequestWithPaths(t *testing.T) {
 			[]byte("gitaly/mode-file-with-mods"),
 		},
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	c, err := client.CommitDelta(ctx, rpcRequest)
 	require.NoError(t, err)
 
@@ -1030,8 +1011,7 @@ func TestFailedCommitDeltaRequestDueToValidationError(t *testing.T) {
 
 	for _, rpcRequest := range rpcRequests {
 		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			c, err := client.CommitDelta(ctx, rpcRequest)
 			require.NoError(t, err)
 
@@ -1047,9 +1027,7 @@ func TestFailedCommitDeltaRequestWithNonExistentCommit(t *testing.T) {
 	nonExistentCommitID := "deadfacedeadfacedeadfacedeadfacedeadface"
 	leftCommit := nonExistentCommitID + "~" // Parent of rightCommit
 	rpcRequest := &gitalypb.CommitDeltaRequest{Repository: repo, RightCommitId: nonExistentCommitID, LeftCommitId: leftCommit}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	c, err := client.CommitDelta(ctx, rpcRequest)
 	require.NoError(t, err)
 

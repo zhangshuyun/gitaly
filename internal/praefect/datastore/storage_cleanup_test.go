@@ -12,8 +12,7 @@ import (
 
 func TestStorageCleanup_Populate(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	db := testdb.New(t)
 	storageCleanup := NewStorageCleanup(db.DB)
 
@@ -35,8 +34,7 @@ func TestStorageCleanup_Populate(t *testing.T) {
 
 func TestStorageCleanup_AcquireNextStorage(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	db := testdb.New(t)
 	storageCleanup := NewStorageCleanup(db.DB)
 
@@ -176,8 +174,7 @@ func TestStorageCleanup_AcquireNextStorage(t *testing.T) {
 
 func TestStorageCleanup_Exists(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	db := testdb.New(t)
 

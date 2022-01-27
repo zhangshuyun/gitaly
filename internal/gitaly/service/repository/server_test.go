@@ -16,9 +16,7 @@ func TestGetConnectionByStorage(t *testing.T) {
 	defer connPool.Close()
 
 	s := server{conns: connPool}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	storageName, address := "default", "unix:///fake/address/wont/work"
 	injectedCtx, err := storage.InjectGitalyServers(ctx, storageName, address, "token")

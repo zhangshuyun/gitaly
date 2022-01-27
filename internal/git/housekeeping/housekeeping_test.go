@@ -206,9 +206,7 @@ func TestPerform(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			// We need to fix permissions so we don't fail to
 			// remove the temporary directory after the test.
@@ -303,9 +301,7 @@ func TestPerform_references(t *testing.T) {
 				filetime := time.Now().Add(-ref.age)
 				require.NoError(t, os.Chtimes(path, filetime, filetime))
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			require.NoError(t, Perform(ctx, repo, nil))
 
@@ -402,9 +398,7 @@ func TestPerform_emptyRefDirs(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			for _, e := range tc.entries {
 				e.create(t, repoPath)
@@ -431,8 +425,7 @@ func TestPerform_withSpecificFile(t *testing.T) {
 }
 
 func testPerformWithSpecificFile(t *testing.T, file string, finder staleFileFinderFn) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -494,8 +487,7 @@ func testPerformWithSpecificFile(t *testing.T, file string, finder staleFileFind
 }
 
 func TestPerform_referenceLocks(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc                   string
@@ -654,9 +646,7 @@ func TestShouldRemoveTemporaryObject(t *testing.T) {
 func TestPerformRepoDoesNotExist(t *testing.T) {
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	require.NoError(t, os.RemoveAll(repoPath))
 
@@ -667,9 +657,7 @@ func TestPerform_UnsetConfiguration(t *testing.T) {
 	cfg := testcfg.Build(t)
 	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	var expectedEntries []string
 	for key, value := range map[string]string{
@@ -709,9 +697,7 @@ func TestPerform_UnsetConfiguration(t *testing.T) {
 
 func TestPerform_UnsetConfiguration_transactional(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
 	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])

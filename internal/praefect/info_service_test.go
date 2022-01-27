@@ -61,9 +61,7 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 
 	// create a commit in the second replica so we can check that its checksum is different than the primary
 	gittest.WriteCommit(t, cfgs[1], filepath.Join(cfgs[1].Storages[0].Path, testRepo.GetRelativePath()), gittest.WithBranch("master"))
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	tx := testdb.New(t).Begin(t)
 	defer tx.Rollback(t)

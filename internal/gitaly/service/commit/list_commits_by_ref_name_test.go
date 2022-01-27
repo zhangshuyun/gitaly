@@ -127,9 +127,7 @@ func TestSuccessfulListCommitsByRefNameRequest(t *testing.T) {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := testCase.request
 			request.Repository = repo
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			c, err := client.ListCommitsByRefName(ctx, request)
 			require.NoError(t, err)
@@ -179,9 +177,7 @@ func TestSuccessfulListCommitsByRefNameLargeRequest(t *testing.T) {
 		RefNames:   refNames,
 		Repository: repo,
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	c, err := client.ListCommitsByRefName(ctx, req)
 	require.NoError(t, err)

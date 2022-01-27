@@ -69,8 +69,7 @@ func TestCatfileObject(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			catfileCache := catfile.NewCache(cfg)
 			defer catfileCache.Stop()

@@ -40,9 +40,7 @@ func TestChunker(t *testing.T) {
 
 	client, conn := newClient(t, serverSocketPath)
 	defer conn.Close()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	stream, err := client.StreamOutput(ctx, &test.StreamOutputRequest{BytesToReturn: 3.5 * maxMessageSize})
 	require.NoError(t, err)

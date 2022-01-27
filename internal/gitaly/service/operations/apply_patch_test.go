@@ -33,8 +33,7 @@ import (
 func TestUserApplyPatch(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
@@ -437,8 +436,7 @@ To restore the original branch and stop patching, run "git am --abort".
 func TestUserApplyPatch_successful(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -548,8 +546,7 @@ func TestUserApplyPatch_successful(t *testing.T) {
 func TestUserApplyPatch_stableID(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
@@ -611,8 +608,7 @@ func TestUserApplyPatch_transactional(t *testing.T) {
 
 	txManager := transaction.NewTrackingManager()
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, _, repoProto, _, client := setupOperationsService(t, ctx, testserver.WithTransactionManager(txManager))
 
@@ -652,9 +648,7 @@ func TestUserApplyPatch_transactional(t *testing.T) {
 
 func TestFailedPatchApplyPatch(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 

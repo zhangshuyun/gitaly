@@ -51,8 +51,7 @@ func TestUserSquash_successful(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -91,9 +90,7 @@ func TestUserSquash_successful(t *testing.T) {
 
 func TestUserSquash_stableID(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
@@ -151,9 +148,7 @@ func ensureSplitIndexExists(t *testing.T, cfg config.Cfg, repoDir string) bool {
 
 func TestUserSquash_threeWayMerge(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
@@ -187,9 +182,7 @@ func TestUserSquash_threeWayMerge(t *testing.T) {
 
 func TestUserSquash_splitIndex(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -212,9 +205,7 @@ func TestUserSquash_splitIndex(t *testing.T) {
 
 func TestUserSquash_renames(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
@@ -274,9 +265,7 @@ func TestUserSquash_renames(t *testing.T) {
 
 func TestUserSquash_missingFileOnTargetBranch(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
@@ -298,9 +287,7 @@ func TestUserSquash_missingFileOnTargetBranch(t *testing.T) {
 
 func TestUserSquash_emptyCommit(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -405,9 +392,7 @@ func TestUserSquash_emptyCommit(t *testing.T) {
 
 func TestUserSquash_validation(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
@@ -501,9 +486,7 @@ func TestUserSquash_validation(t *testing.T) {
 
 func TestUserSquash_conflicts(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -539,9 +522,7 @@ func TestUserSquash_conflicts(t *testing.T) {
 
 func TestUserSquash_ancestry(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -575,8 +556,7 @@ func TestUserSquash_ancestry(t *testing.T) {
 
 func TestUserSquash_gitError(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 

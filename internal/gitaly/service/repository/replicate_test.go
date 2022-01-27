@@ -39,9 +39,7 @@ import (
 
 func TestReplicateRepository(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
@@ -114,9 +112,7 @@ func TestReplicateRepository(t *testing.T) {
 
 func TestReplicateRepositoryTransactional(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
@@ -183,9 +179,7 @@ func TestReplicateRepositoryTransactional(t *testing.T) {
 
 func TestReplicateRepositoryInvalidArguments(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	testCases := []struct {
 		description   string
@@ -270,9 +264,7 @@ func TestReplicateRepositoryInvalidArguments(t *testing.T) {
 
 func TestReplicateRepository_BadRepository(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc          string
@@ -355,9 +347,7 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 
 func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t, testcfg.WithStorages("default", "replica"))
 	testcfg.BuildGitalyHooks(t, cfg)
@@ -439,8 +429,7 @@ func listenGitalySSHCalls(t *testing.T, conf config.Cfg) func() gitalySSHParams 
 func TestFetchInternalRemote_successful(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := testhelper.Context()
-	t.Cleanup(cancel)
+	ctx := testhelper.Context(t)
 
 	remoteCfg, remoteRepo, remoteRepoPath := testcfg.BuildWithRepo(t)
 	testcfg.BuildGitalyHooks(t, remoteCfg)
@@ -530,9 +519,7 @@ func TestFetchInternalRemote_failure(t *testing.T) {
 
 	cfg, repoProto, _ := testcfg.BuildWithRepo(t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	ctx = testhelper.MergeIncomingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 	connsPool := client.NewPool()

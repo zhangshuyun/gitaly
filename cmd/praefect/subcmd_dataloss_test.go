@@ -43,9 +43,7 @@ func TestDatalossSubcommand(t *testing.T) {
 
 	tx := testdb.New(t).Begin(t)
 	defer tx.Rollback(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect-0": {
 		"virtual-storage-1": {"gitaly-1", "gitaly-3"},

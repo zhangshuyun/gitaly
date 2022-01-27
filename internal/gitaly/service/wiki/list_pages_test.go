@@ -12,8 +12,7 @@ import (
 )
 
 func testSuccessfulWikiListPagesRequest(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	wikiRepo, wikiRepoPath := setupWikiRepo(t, cfg)
 
@@ -62,8 +61,7 @@ func testSuccessfulWikiListPagesRequest(t *testing.T, cfg config.Cfg, client git
 }
 
 func testWikiListPagesSorting(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	wikiRepo, wikiRepoPath := setupWikiRepo(t, cfg)
 

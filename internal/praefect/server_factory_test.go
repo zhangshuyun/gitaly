@@ -194,9 +194,7 @@ func TestServerFactory(t *testing.T) {
 		cc, err := client.Dial(praefectAddr, nil)
 		require.NoError(t, err)
 		defer func() { require.NoError(t, cc.Close()) }()
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		t.Run("handles registered RPCs", func(t *testing.T) {
 			checkOwnRegisteredServices(ctx, t, cc)
@@ -220,9 +218,7 @@ func TestServerFactory(t *testing.T) {
 		defer func() { require.NoError(t, listener.Close()) }()
 
 		go praefectServerFactory.Serve(listener, true)
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		certPool, err := x509.SystemCertPool()
 		require.NoError(t, err)
@@ -254,8 +250,7 @@ func TestServerFactory(t *testing.T) {
 	})
 
 	t.Run("stops all listening servers", func(t *testing.T) {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		praefectServerFactory := NewServerFactory(conf, logger, coordinator.StreamDirector, nodeMgr, txMgr, queue, rs, datastore.AssignmentStore{}, registry, nil, nil)
 		defer praefectServerFactory.Stop()

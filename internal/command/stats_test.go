@@ -9,16 +9,14 @@ import (
 )
 
 func TestStatsFromContext_BackgroundContext(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	stats := StatsFromContext(ctx)
 	require.Nil(t, stats)
 }
 
 func TestStatsFromContext_InitContext(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx = InitContextStats(ctx)
 
@@ -29,8 +27,7 @@ func TestStatsFromContext_InitContext(t *testing.T) {
 }
 
 func TestStatsFromContext_RecordSum(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx = InitContextStats(ctx)
 
@@ -44,8 +41,7 @@ func TestStatsFromContext_RecordSum(t *testing.T) {
 }
 
 func TestStatsFromContext_RecordSumByRef(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx = InitContextStats(ctx)
 
@@ -61,8 +57,7 @@ func TestStatsFromContext_RecordSumByRef(t *testing.T) {
 }
 
 func TestStatsFromContext_RecordMax(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx = InitContextStats(ctx)
 

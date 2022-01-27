@@ -671,9 +671,7 @@ func errWithDetails(tb testing.TB, err error, details ...proto.Message) error {
 
 func TestUserFFBranch_successful(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -704,9 +702,7 @@ func TestUserFFBranch_successful(t *testing.T) {
 
 func TestUserFFBranch_failure(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -793,9 +789,7 @@ func TestUserFFBranch_failure(t *testing.T) {
 
 func TestUserFFBranch_failingHooks(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -825,9 +819,7 @@ func TestUserFFBranch_failingHooks(t *testing.T) {
 
 func TestUserFFBranch_ambiguousReference(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -871,9 +863,7 @@ func TestUserFFBranch_ambiguousReference(t *testing.T) {
 
 func TestUserMergeToRef_successful(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -977,9 +967,7 @@ func TestUserMergeToRef_successful(t *testing.T) {
 
 func TestUserMergeToRef_conflicts(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -1115,9 +1103,7 @@ func buildUserMergeToRefRequest(t testing.TB, cfg config.Cfg, repo *gitalypb.Rep
 
 func TestUserMergeToRef_stableMergeID(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -1168,9 +1154,7 @@ func TestUserMergeToRef_stableMergeID(t *testing.T) {
 
 func TestUserMergeToRef_failure(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -1265,9 +1249,7 @@ func TestUserMergeToRef_failure(t *testing.T) {
 
 func TestUserMergeToRef_ignoreHooksRequest(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 

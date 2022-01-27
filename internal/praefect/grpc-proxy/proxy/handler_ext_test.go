@@ -213,7 +213,7 @@ func (s *ProxyHappySuite) TestPingStream_StressTest() {
 }
 
 func (s *ProxyHappySuite) SetupSuite() {
-	s.ctx, s.cancel = testhelper.Context()
+	s.ctx, s.cancel = context.WithCancel(testhelper.Context(s.T()))
 
 	listenerProxy, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(s.T(), err, "must be able to allocate a port for listenerProxy")
@@ -267,8 +267,7 @@ func (s *ProxyHappySuite) SetupSuite() {
 	}()
 
 	// Setup client for test suite
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(s.T())
 
 	s.connClient2Proxy, err = grpc.DialContext(ctx, listenerProxy.Addr().String(), grpc.WithInsecure())
 	require.NoError(s.T(), err, "must not error on deferred client Dial")
@@ -379,9 +378,7 @@ func TestProxyErrorPropagation(t *testing.T) {
 			}))
 			go func() { backendServer.Serve(backendListener) }()
 			defer backendServer.Stop()
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			backendClientConn, err := grpc.DialContext(ctx, "unix://"+backendListener.Addr().String(),
 				grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())))
@@ -485,9 +482,7 @@ func TestRegisterStreamHandlers(t *testing.T) {
 	defer cc.Close()
 
 	testServiceClient := pb.NewTestServiceClient(cc)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, err = testServiceClient.Ping(ctx, &pb.PingRequest{Value: pingValue})
 	require.NoError(t, err)

@@ -16,16 +16,14 @@ func TestGetObjectPoolSuccess(t *testing.T) {
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
 	relativePoolPath := pool.GetRelativePath()
 
-	poolCtx, cancel := testhelper.Context()
-	defer cancel()
+	poolCtx := testhelper.Context(t)
 	require.NoError(t, pool.Create(poolCtx, repo))
 	require.NoError(t, pool.Link(poolCtx, repo))
 
-	ctx, cancel := testhelper.Context()
+	ctx := testhelper.Context(t)
 	defer func() {
 		require.NoError(t, pool.Remove(ctx))
 	}()
-	defer cancel()
 
 	resp, err := client.GetObjectPool(ctx, &gitalypb.GetObjectPoolRequest{
 		Repository: repo,
@@ -37,9 +35,7 @@ func TestGetObjectPoolSuccess(t *testing.T) {
 
 func TestGetObjectPoolNoFile(t *testing.T) {
 	_, repoo, _, _, client := setup(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	resp, err := client.GetObjectPool(ctx, &gitalypb.GetObjectPoolRequest{
 		Repository: repoo,
@@ -55,9 +51,7 @@ func TestGetObjectPoolBadFile(t *testing.T) {
 	alternatesFilePath := filepath.Join(repoPath, "objects", "info", "alternates")
 	require.NoError(t, os.MkdirAll(filepath.Dir(alternatesFilePath), 0o755))
 	require.NoError(t, os.WriteFile(alternatesFilePath, []byte("not-a-directory"), 0o644))
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	resp, err := client.GetObjectPool(ctx, &gitalypb.GetObjectPoolRequest{
 		Repository: repo,

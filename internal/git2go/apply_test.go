@@ -23,9 +23,7 @@ func TestExecutor_Apply(t *testing.T) {
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	executor := NewExecutor(cfg, gittest.NewCommandFactory(t, cfg), config.NewLocator(cfg))
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	oidBase, err := repo.WriteBlob(ctx, "file", strings.NewReader("base"))
 	require.NoError(t, err)

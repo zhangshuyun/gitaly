@@ -13,8 +13,7 @@ import (
 )
 
 func testSuccessfulWikiGetAllPagesRequest(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	wikiRepo, wikiRepoPath := setupWikiRepo(t, cfg)
 
@@ -61,8 +60,7 @@ func testSuccessfulWikiGetAllPagesRequest(t *testing.T, cfg config.Cfg, client g
 }
 
 func testWikiGetAllPagesSorting(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	wikiRepo, wikiRepoPath := setupWikiRepo(t, cfg)
 
@@ -174,8 +172,7 @@ func testFailedWikiGetAllPagesDueToValidation(t *testing.T, cfg config.Cfg, clie
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			c, err := client.WikiGetAllPages(ctx, tc.req)
 			require.NoError(t, err)

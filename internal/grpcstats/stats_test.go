@@ -10,8 +10,7 @@ import (
 )
 
 func TestPayloadBytes_TagRPC(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	ctx = (&PayloadBytes{}).TagRPC(ctx, nil)
 	require.Equal(t,
 		logrus.Fields{"grpc.request.payload_bytes": int64(0), "grpc.response.payload_bytes": int64(0)},
@@ -20,8 +19,7 @@ func TestPayloadBytes_TagRPC(t *testing.T) {
 }
 
 func TestPayloadBytes_HandleRPC(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	handler := &PayloadBytes{}
 	ctx = handler.TagRPC(ctx, nil)
 	handler.HandleRPC(ctx, nil)            // sanity check we don't fail anything
@@ -57,8 +55,7 @@ func TestPayloadBytesStats_Fields(t *testing.T) {
 }
 
 func TestFieldsProducer(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	t.Run("ok", func(t *testing.T) {
 		handler := &PayloadBytes{}

@@ -74,8 +74,7 @@ func TestRebase_validation(t *testing.T) {
 	}
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			_, err := executor.Rebase(ctx, repo, tc.request)
 			require.EqualError(t, err, tc.expectedErr)
@@ -168,8 +167,7 @@ func TestRebase_rebase(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			committer := git2go.NewSignature(string(gittest.TestUser.Name),
 				string(gittest.TestUser.Email),
@@ -242,8 +240,7 @@ func TestRebase_rebase(t *testing.T) {
 }
 
 func TestRebase_skipEmptyCommit(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 	testcfg.BuildGitalyGit2Go(t, cfg)

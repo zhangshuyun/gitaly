@@ -17,9 +17,7 @@ func TestRepositoryProfile(t *testing.T) {
 	cfg := testcfg.Build(t)
 
 	testRepo, testRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	hasBitmap, err := HasBitmap(testRepoPath)
 	require.NoError(t, err)

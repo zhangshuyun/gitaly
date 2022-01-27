@@ -22,9 +22,7 @@ import (
 
 func TestRestoreSubcommand(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyHooks(t, cfg)

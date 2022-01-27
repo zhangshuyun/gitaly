@@ -27,9 +27,7 @@ var rebaseBranchName = "many_files"
 
 func TestSuccessfulUserRebaseConfirmableRequest(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -87,9 +85,7 @@ func TestSuccessfulUserRebaseConfirmableRequest(t *testing.T) {
 
 func TestUserRebaseConfirmableTransaction(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	txManager := transaction.NewTrackingManager()
 
@@ -177,9 +173,7 @@ func TestUserRebaseConfirmableTransaction(t *testing.T) {
 
 func TestUserRebaseConfirmableStableCommitIDs(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	cfg.Gitlab.URL = setupAndStartGitlabServer(t, gittest.GlID, "project-1", cfg)
@@ -249,9 +243,7 @@ func TestUserRebaseConfirmableStableCommitIDs(t *testing.T) {
 
 func TestFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeader(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -310,9 +302,7 @@ func TestFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeader(t *testing.T
 
 func TestAbortedUserRebaseConfirmable(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
@@ -370,9 +360,7 @@ func TestAbortedUserRebaseConfirmable(t *testing.T) {
 
 func TestFailedUserRebaseConfirmableDueToApplyBeingFalse(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -412,9 +400,7 @@ func TestFailedUserRebaseConfirmableDueToApplyBeingFalse(t *testing.T) {
 
 func TestFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -468,9 +454,7 @@ func TestFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T) {
 
 func TestFailedUserRebaseConfirmableDueToGitError(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -503,9 +487,7 @@ func getBranchSha(t *testing.T, cfg config.Cfg, repoPath string, branchName stri
 
 func TestRebaseRequestWithDeletedFile(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 	repoProto, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
@@ -560,9 +542,7 @@ func TestRebaseRequestWithDeletedFile(t *testing.T) {
 
 func TestRebaseOntoRemoteBranch(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -620,9 +600,7 @@ func TestRebaseOntoRemoteBranch(t *testing.T) {
 
 func TestRebaseFailedWithCode(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 

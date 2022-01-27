@@ -227,8 +227,7 @@ func testSuccessfulWikiFindPageRequest(t *testing.T, cfg config.Cfg, client gita
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			c, err := client.WikiFindPage(ctx, testCase.request)
 			require.NoError(t, err)
@@ -336,8 +335,7 @@ func testSuccessfulWikiFindPageSameTitleDifferentPathRequest(t *testing.T, cfg c
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			c, err := client.WikiFindPage(ctx, testCase.request)
 			require.NoError(t, err)
@@ -380,8 +378,7 @@ func TestFailedWikiFindPageDueToValidation(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			request := &gitalypb.WikiFindPageRequest{
 				Repository: wikiRepo,
@@ -431,9 +428,7 @@ func TestInvalidWikiFindPageRequestRevision(t *testing.T) {
 	client := setupWikiService(t, cfg, nil)
 
 	wikiRepo, _ := setupWikiRepo(t, cfg)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	stream, err := client.WikiFindPage(ctx, &gitalypb.WikiFindPageRequest{
 		Repository: wikiRepo,
@@ -466,9 +461,7 @@ func testSuccessfulWikiFindPageRequestWithTrailers(t *testing.T, cfg config.Cfg,
 		"-c", fmt.Sprintf("user.name=%s", committerName),
 		"-c", fmt.Sprintf("user.email=%s", committerEmail),
 		"commit", "--amend", "-m", "Empty commit", "-s")
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	request := &gitalypb.WikiFindPageRequest{
 		Repository: wikiRepo,

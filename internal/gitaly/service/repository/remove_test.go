@@ -17,9 +17,7 @@ func TestRemoveRepository(t *testing.T) {
 	t.Parallel()
 
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	repo := &gitalypb.Repository{
 		StorageName:  cfg.Storages[0].Name,
@@ -41,9 +39,7 @@ func TestRemoveRepository(t *testing.T) {
 
 func TestRemoveRepository_doesNotExist(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	// Praefect special-cases repository removals, so we disable Praefect here.
 	cfg, client := setupRepositoryServiceWithoutRepo(t, testserver.WithDisablePraefect())
@@ -56,9 +52,7 @@ func TestRemoveRepository_doesNotExist(t *testing.T) {
 
 func TestRemoveRepository_locking(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	// Praefect special-cases repository removals, so we disable Praefect here.
 	_, repo, repoPath, client := setupRepositoryService(t, testserver.WithDisablePraefect())

@@ -66,9 +66,7 @@ func TestOptimizeReposRandomly(t *testing.T) {
 		Name: "duplicate",
 		Path: cfg.Storages[0].Path,
 	})
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc     string
@@ -145,13 +143,11 @@ func TestOptimizeReposRandomly_cancellationOverride(t *testing.T) {
 	cfg := cfgBuilder.Build(t)
 
 	gittest.InitRepo(t, cfg, cfg.Storages[0])
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	// The timeout should be overwritten by the default 5 min timeout.
 	//nolint:forbidigo // We're explicitly testing deadline override.
-	ctx, cancel = context.WithTimeout(ctx, 72*time.Hour)
+	ctx, cancel := context.WithTimeout(ctx, 72*time.Hour)
 	defer cancel()
 
 	ticker := helper.NewManualTicker()

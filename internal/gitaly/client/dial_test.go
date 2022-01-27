@@ -43,9 +43,7 @@ func TestDial(t *testing.T) {
 	require.NoError(t, err)
 
 	go srv.Serve(ln)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	t.Run("non-muxed conn", func(t *testing.T) {
 		nonMuxedConn, err := Dial(ctx, "tcp://"+ln.Addr().String(), nil, nil)

@@ -17,8 +17,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestInstance_Stats_successful(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, _, repoPath := testcfg.BuildWithRepo(t)
 
@@ -32,9 +31,7 @@ func TestInstance_Stats_successful(t *testing.T) {
 
 func TestInstance_Stats_unmarshalJSONError(t *testing.T) {
 	cfg := testcfg.Build(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ling, err := New(cfg, gittest.NewCommandFactory(t, cfg))
 	require.NoError(t, err)

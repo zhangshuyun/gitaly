@@ -29,9 +29,7 @@ import (
 
 func TestCreateRepositoryFromBundle_successful(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
@@ -94,9 +92,7 @@ func TestCreateRepositoryFromBundle_successful(t *testing.T) {
 
 func TestCreateRepositoryFromBundle_transactional(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	txManager := transaction.NewTrackingManager()
 
@@ -160,9 +156,7 @@ func TestCreateRepositoryFromBundle_transactional(t *testing.T) {
 
 func TestCreateRepositoryFromBundle_invalidBundle(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
@@ -199,9 +193,7 @@ func TestCreateRepositoryFromBundle_invalidBundle(t *testing.T) {
 
 func TestCreateRepositoryFromBundle_invalidArgument(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, client := setupRepositoryServiceWithoutRepo(t)
 
@@ -216,9 +208,7 @@ func TestCreateRepositoryFromBundle_invalidArgument(t *testing.T) {
 
 func TestCreateRepositoryFromBundle_existingRepository(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 

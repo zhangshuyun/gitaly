@@ -70,8 +70,7 @@ func verifyCounterMetrics(t *testing.T, manager *transactions.Manager, expected 
 
 func TestTransactionSucceeds(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
 	defer cleanup()
@@ -171,8 +170,7 @@ func TestTransactionWithMultipleNodes(t *testing.T) {
 		},
 	}
 
-	ctx, cleanup := testhelper.Context()
-	defer cleanup()
+	ctx := testhelper.Context(t)
 
 	cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
 	defer cleanup()
@@ -218,8 +216,7 @@ func TestTransactionWithMultipleNodes(t *testing.T) {
 
 func TestTransactionWithContextCancellation(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 	cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
 	defer cleanup()
@@ -256,8 +253,7 @@ func TestTransactionWithContextCancellation(t *testing.T) {
 }
 
 func TestTransactionRegistrationWithInvalidNodesFails(t *testing.T) {
-	ctx, cleanup := testhelper.Context()
-	defer cleanup()
+	ctx := testhelper.Context(t)
 
 	txMgr := transactions.NewManager(config.Config{})
 
@@ -305,8 +301,7 @@ func TestTransactionRegistrationWithInvalidThresholdFails(t *testing.T) {
 		},
 	}
 
-	ctx, cleanup := testhelper.Context()
-	defer cleanup()
+	ctx := testhelper.Context(t)
 
 	txMgr := transactions.NewManager(config.Config{})
 
@@ -399,8 +394,7 @@ func TestTransactionReachesQuorum(t *testing.T) {
 		},
 	}
 
-	ctx, cleanup := testhelper.Context()
-	defer cleanup()
+	ctx := testhelper.Context(t)
 
 	cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
 	defer cleanup()
@@ -506,8 +500,7 @@ func TestTransactionWithMultipleVotes(t *testing.T) {
 		},
 	}
 
-	ctx, cleanup := testhelper.Context()
-	defer cleanup()
+	ctx := testhelper.Context(t)
 
 	cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
 	defer cleanup()
@@ -568,8 +561,7 @@ func TestTransactionWithMultipleVotes(t *testing.T) {
 
 func TestTransactionFailures(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
 	defer cleanup()
@@ -639,8 +631,7 @@ func TestTransactionCancellation(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
 			defer cleanup()
@@ -711,8 +702,7 @@ func TestStopTransaction(t *testing.T) {
 	hash := sha1.Sum([]byte("foo"))
 
 	t.Run("stopping nonexisting transaction fails", func(t *testing.T) {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		cc, _, cleanup := runPraefectServerAndTxMgr(t, ctx)
 		defer cleanup()
@@ -726,8 +716,7 @@ func TestStopTransaction(t *testing.T) {
 	})
 
 	t.Run("stopping transaction multiple times succeeds", func(t *testing.T) {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
 		defer cleanup()
@@ -759,8 +748,7 @@ func TestStopTransaction(t *testing.T) {
 	})
 
 	t.Run("stopping a single voter", func(t *testing.T) {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
 		defer cleanup()
@@ -801,8 +789,7 @@ func TestStopTransaction(t *testing.T) {
 	})
 
 	t.Run("stopping in-progress transaction", func(t *testing.T) {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
 		defer cleanup()
@@ -854,8 +841,7 @@ func TestStopTransaction(t *testing.T) {
 	})
 
 	t.Run("stopping cancelled transaction fails", func(t *testing.T) {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
 		defer cleanup()
@@ -880,8 +866,7 @@ func TestStopTransaction(t *testing.T) {
 	})
 
 	t.Run("stopping concurrent voter", func(t *testing.T) {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
 		defer cleanup()

@@ -19,9 +19,7 @@ func TestStorageDiskStatistics(t *testing.T) {
 
 	addr := runServer(t, cfg)
 	client := newServerClient(t, addr)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	c, err := client.DiskStatistics(ctx, &gitalypb.DiskStatisticsRequest{})
 	require.NoError(t, err)

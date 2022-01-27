@@ -22,9 +22,7 @@ func TestLanguages(t *testing.T) {
 		Repository: repo,
 		Revision:   []byte("cb19058ecc02d01f8e4290b7e79cafd16a8839b6"),
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	resp, err := client.CommitLanguages(ctx, request)
 	require.NoError(t, err)
@@ -57,9 +55,7 @@ func TestFileCountIsZeroWhenFeatureIsDisabled(t *testing.T) {
 		Repository: repo,
 		Revision:   []byte("cb19058ecc02d01f8e4290b7e79cafd16a8839b6"),
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	resp, err := client.CommitLanguages(ctx, request)
 	require.NoError(t, err)
@@ -88,9 +84,7 @@ func TestLanguagesEmptyRevision(t *testing.T) {
 	request := &gitalypb.CommitLanguagesRequest{
 		Repository: repo,
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	resp, err := client.CommitLanguages(ctx, request)
 	require.NoError(t, err)
 
@@ -108,9 +102,7 @@ func TestLanguagesEmptyRevision(t *testing.T) {
 func TestInvalidCommitLanguagesRequestRevision(t *testing.T) {
 	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, err := client.CommitLanguages(ctx, &gitalypb.CommitLanguagesRequest{
 		Repository: repo,
@@ -122,9 +114,7 @@ func TestInvalidCommitLanguagesRequestRevision(t *testing.T) {
 func TestAmbiguousRefCommitLanguagesRequestRevision(t *testing.T) {
 	t.Parallel()
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	// gitlab-test repo has both a branch and a tag named 'v1.1.0'
 	// b83d6e391c22777fca1ed3012fce84f633d7fed0 refs/heads/v1.1.0

@@ -31,9 +31,7 @@ func TestListAllCommits(t *testing.T) {
 
 		return commits
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	t.Run("empty repo", func(t *testing.T) {
 		cfg, client := setupCommitService(t)
@@ -150,9 +148,7 @@ func TestListAllCommits(t *testing.T) {
 
 func BenchmarkListAllCommits(b *testing.B) {
 	b.StopTimer()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(b)
 
 	_, repo, _, client := setupCommitServiceWithRepo(b, true)
 

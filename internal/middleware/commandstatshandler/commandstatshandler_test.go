@@ -126,9 +126,7 @@ func TestInterceptor(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			hook.Reset()
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			conn, err := grpc.DialContext(ctx, "", grpc.WithContextDialer(getBufDialer(listener)), grpc.WithInsecure())
 			require.NoError(t, err)
@@ -149,8 +147,7 @@ func TestInterceptor(t *testing.T) {
 }
 
 func TestFieldsProducer(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx = command.InitContextStats(ctx)
 	stats := command.StatsFromContext(ctx)

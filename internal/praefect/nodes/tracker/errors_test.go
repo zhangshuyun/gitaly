@@ -1,6 +1,7 @@
 package tracker
 
 import (
+	"context"
 	"sync"
 	"testing"
 	"time"
@@ -16,8 +17,7 @@ var (
 )
 
 func TestErrorTracker_IncrErrors(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	writeThreshold, readThreshold := 10, 10
 
@@ -52,8 +52,7 @@ func TestErrorTracker_IncrErrors(t *testing.T) {
 }
 
 func TestErrorTracker_Concurrency(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	readAndWriteThreshold := 10
 	errors, err := newErrors(ctx, alwaysInErrorWindow, uint32(readAndWriteThreshold), uint32(readAndWriteThreshold))
@@ -81,8 +80,7 @@ func TestErrorTracker_Concurrency(t *testing.T) {
 }
 
 func TestErrorTracker_ClearErrors(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	writeThreshold, readThreshold := 10, 10
 	errors, err := newErrors(ctx, alwaysInErrorWindow, uint32(readThreshold), uint32(writeThreshold))
@@ -109,8 +107,7 @@ func TestErrorTracker_ClearErrors(t *testing.T) {
 }
 
 func TestErrorTracker_Expired(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 	threshold := 10
 	errors, err := newErrors(ctx, alwaysInErrorWindow, uint32(threshold), uint32(threshold))

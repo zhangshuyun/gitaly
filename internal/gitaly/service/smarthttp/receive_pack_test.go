@@ -50,9 +50,7 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 
 	client, conn := newSmartHTTPClient(t, server.Address(), cfg.Auth.Token)
 	defer conn.Close()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	// Below, we test whether extracting the hooks payload leads to the expected
 	// results. Part of this payload are feature flags, so we need to get them into a
@@ -117,9 +115,7 @@ func TestReceivePackHiddenRefs(t *testing.T) {
 	repoProto.GlProjectPath = "project/path"
 
 	testcfg.BuildGitalyHooks(t, cfg)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	oldHead, err := repo.ResolveRevision(ctx, "HEAD~")
@@ -169,9 +165,7 @@ func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	testcfg.BuildGitalyHooks(t, cfg)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	gitCmdFactory, readProto := gittest.EnableGitProtocolV2Support(ctx, t, cfg)
 
@@ -205,9 +199,7 @@ func TestFailedReceivePackRequestWithGitOpts(t *testing.T) {
 
 	client, conn := newSmartHTTPClient(t, serverSocketPath, cfg.Auth.Token)
 	defer conn.Close()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	stream, err := client.PostReceivePack(ctx)
 	require.NoError(t, err)
@@ -225,9 +217,7 @@ func TestFailedReceivePackRequestDueToHooksFailure(t *testing.T) {
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg, git.WithHooksPath(testhelper.TempDir(t)))
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	hookContent := []byte("#!/bin/sh\nexit 1")
 	require.NoError(t, os.WriteFile(filepath.Join(gitCmdFactory.HooksPath(ctx), "pre-receive"), hookContent, 0o755))
@@ -356,8 +346,7 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 
 	for _, rpcRequest := range rpcRequests {
 		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			stream, err := client.PostReceivePack(ctx)
 			require.NoError(t, err)
 
@@ -388,9 +377,7 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 
 	head := text.ChompBytes(gittest.Exec(t, cfg, "-C", localRepoPath, "rev-parse", "HEAD"))
 	tree := text.ChompBytes(gittest.Exec(t, cfg, "-C", localRepoPath, "rev-parse", "HEAD^{tree}"))
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc             string
@@ -522,9 +509,7 @@ func TestReceivePackFsck(t *testing.T) {
 	gittest.WritePktlineFlush(t, &body)
 	_, err := body.Write(pack)
 	require.NoError(t, err)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	client, conn := newSmartHTTPClient(t, runSmartHTTPServer(t, cfg), cfg.Auth.Token)
 	defer conn.Close()
@@ -587,9 +572,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 	defer cleanup()
 
 	gittest.WriteCheckNewObjectExistsHook(t, testRepoPath)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	socket := runSmartHTTPServer(t, cfg)
 
@@ -614,9 +597,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 
 func TestPostReceiveWithTransactionsViaPraefect(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
@@ -694,9 +675,7 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 		))
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
 	}, testserver.WithDisablePraefect())
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, err := txinfo.InjectTransaction(ctx, 1234, "primary", true)
 	require.NoError(t, err)

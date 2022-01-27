@@ -15,9 +15,7 @@ import (
 
 func TestCreate(t *testing.T) {
 	cfg, repo, _, _, client := setup(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
 
@@ -50,9 +48,7 @@ func TestCreate(t *testing.T) {
 
 func TestUnsuccessfulCreate(t *testing.T) {
 	cfg, repo, _, _, client := setup(t, testserver.WithDisablePraefect())
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	storageName := repo.GetStorageName()
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
@@ -141,9 +137,7 @@ func TestUnsuccessfulCreate(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	cfg, repo, _, _, client := setup(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
 	validPoolPath := pool.GetRelativePath()

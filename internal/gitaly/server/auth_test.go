@@ -49,7 +49,7 @@ func TestSanity(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { conn.Close() })
 
-	require.NoError(t, healthCheck(conn))
+	require.NoError(t, healthCheck(t, conn))
 }
 
 func TestTLSSanity(t *testing.T) {
@@ -74,7 +74,7 @@ func TestTLSSanity(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { conn.Close() })
 
-	require.NoError(t, healthCheck(conn))
+	require.NoError(t, healthCheck(t, conn))
 }
 
 func TestAuthFailures(t *testing.T) {
@@ -106,7 +106,7 @@ func TestAuthFailures(t *testing.T) {
 			conn, err := dial(serverSocketPath, connOpts)
 			require.NoError(t, err, tc.desc)
 			t.Cleanup(func() { conn.Close() })
-			testhelper.RequireGrpcCode(t, healthCheck(conn), tc.code)
+			testhelper.RequireGrpcCode(t, healthCheck(t, conn), tc.code)
 		})
 	}
 }
@@ -149,7 +149,7 @@ func TestAuthSuccess(t *testing.T) {
 			conn, err := dial(serverSocketPath, connOpts)
 			require.NoError(t, err, tc.desc)
 			t.Cleanup(func() { conn.Close() })
-			assert.NoError(t, healthCheck(conn), tc.desc)
+			assert.NoError(t, healthCheck(t, conn), tc.desc)
 		})
 	}
 }
@@ -165,9 +165,8 @@ func dial(serverSocketPath string, opts []grpc.DialOption) (*grpc.ClientConn, er
 	return grpc.Dial(serverSocketPath, opts...)
 }
 
-func healthCheck(conn *grpc.ClientConn) error {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+func healthCheck(t testing.TB, conn *grpc.ClientConn) error {
+	ctx := testhelper.Context(t)
 
 	_, err := healthpb.NewHealthClient(conn).Check(ctx, &healthpb.HealthCheckRequest{})
 	return err
@@ -264,9 +263,7 @@ func TestUnaryNoAuth(t *testing.T) {
 	conn, err := grpc.Dial(path, grpc.WithInsecure())
 	require.NoError(t, err)
 	defer testhelper.MustClose(t, conn)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	client := gitalypb.NewRepositoryServiceClient(conn)
 	_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
@@ -287,9 +284,7 @@ func TestStreamingNoAuth(t *testing.T) {
 	conn, err := dial(path, []grpc.DialOption{grpc.WithInsecure()})
 	require.NoError(t, err)
 	t.Cleanup(func() { conn.Close() })
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	client := gitalypb.NewRepositoryServiceClient(conn)
 	stream, err := client.GetInfoAttributes(ctx, &gitalypb.GetInfoAttributesRequest{
@@ -331,9 +326,7 @@ func TestAuthBeforeLimit(t *testing.T) {
 	serverSocketPath := runServer(t, cfg)
 	client, conn := newOperationClient(t, cfg.Auth.Token, serverSocketPath)
 	t.Cleanup(func() { conn.Close() })
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	defer func(d time.Duration) {
 		gitalyauth.SetTokenValidityDuration(d)

@@ -56,9 +56,7 @@ func TestCreateSubcommand(t *testing.T) {
 
 	fs := flag.NewFlagSet("create", flag.ContinueOnError)
 	cmd.Flags(fs)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	require.NoError(t, fs.Parse([]string{"-path", path}))
 	require.EqualError(t,

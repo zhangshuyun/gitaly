@@ -28,8 +28,7 @@ func TestRepackIncrementalSuccess(t *testing.T) {
 	// Stamp taken from https://golang.org/pkg/time/#pkg-constants
 	testhelper.MustRunCommand(t, nil, "touch", "-t", testTimeString, filepath.Join(packPath, "*"))
 	testTime := time.Date(2006, 0o1, 0o2, 15, 0o4, 0o5, 0, time.UTC)
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	c, err := client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: repo})
 	assert.NoError(t, err)
 	assert.NotNil(t, c)
@@ -45,8 +44,7 @@ func TestRepackIncrementalSuccess(t *testing.T) {
 
 func TestRepackIncrementalCollectLogStatistics(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	logger, hook := test.NewNullLogger()
 	_, repo, _, client := setupRepositoryService(t, testserver.WithLogger(logger))
@@ -73,9 +71,7 @@ func TestRepackLocal(t *testing.T) {
 		gittest.WithMessage("main commit"),
 		gittest.WithBranch("main-odb"),
 	)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	// Set GIT_ALTERNATE_OBJECT_DIRECTORIES on the outgoing request. The
 	// intended use case of the behavior we're testing here is that
@@ -112,8 +108,7 @@ func TestRepackIncrementalFailure(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			_, err := client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: test.repo})
 			testhelper.RequireGrpcCode(t, err, test.code)
 		})
@@ -141,8 +136,7 @@ func TestRepackFullSuccess(t *testing.T) {
 			packPath := filepath.Join(repoPath, "objects", "pack")
 			testhelper.MustRunCommand(t, nil, "touch", "-t", testTimeString, packPath)
 			testTime := time.Date(2006, 0o1, 0o2, 15, 0o4, 0o5, 0, time.UTC)
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			c, err := client.RepackFull(ctx, test.req)
 			assert.NoError(t, err)
 			assert.NotNil(t, c)
@@ -175,8 +169,7 @@ func TestRepackFullSuccess(t *testing.T) {
 
 func TestRepackFullCollectLogStatistics(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	logger, hook := test.NewNullLogger()
 	_, repo, _, client := setupRepositoryService(t, testserver.WithLogger(logger))
@@ -231,8 +224,7 @@ func TestRepackFullFailure(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: test.repo})
 			testhelper.RequireGrpcCode(t, err, test.code)
 		})
@@ -242,9 +234,7 @@ func TestRepackFullFailure(t *testing.T) {
 func TestRepackFullDeltaIslands(t *testing.T) {
 	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	gittest.TestDeltaIslands(t, cfg, repoPath, func() error {
 		_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: repo})

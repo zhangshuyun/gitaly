@@ -93,11 +93,7 @@ func (s FeatureSets) Run(t *testing.T, test func(t *testing.T, ctx context.Conte
 
 	for _, featureSet := range s {
 		t.Run(featureSet.Desc(), func(t *testing.T) {
-			ctx, cancel := Context()
-			defer cancel()
-			ctx = featureSet.Apply(ctx)
-
-			test(t, ctx)
+			test(t, featureSet.Apply(Context(t)))
 		})
 	}
 }
@@ -109,11 +105,7 @@ func (s FeatureSets) Bench(b *testing.B, test func(b *testing.B, ctx context.Con
 
 	for _, featureSet := range s {
 		b.Run(featureSet.Desc(), func(b *testing.B) {
-			ctx, cancel := Context()
-			defer cancel()
-			ctx = featureSet.Apply(ctx)
-
-			test(b, ctx)
+			test(b, featureSet.Apply(Context(b)))
 		})
 	}
 }

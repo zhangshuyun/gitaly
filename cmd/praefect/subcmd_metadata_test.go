@@ -18,9 +18,7 @@ import (
 
 func TestMetadataSubcommand(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	tx := testdb.New(t).Begin(t)
 	defer tx.Rollback(t)

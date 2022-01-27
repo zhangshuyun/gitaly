@@ -27,9 +27,7 @@ func BenchmarkReconcile(b *testing.B) {
 
 func benchmarkReconcile(b *testing.B, numRepositories int, worstCase bool) {
 	b.StopTimer()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(b)
 
 	db := testdb.New(b)
 

@@ -27,8 +27,7 @@ import (
 )
 
 func TestUpdaterWithHooks_UpdateReference_invalidParameters(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
@@ -92,8 +91,7 @@ func TestUpdaterWithHooks_UpdateReference_invalidParameters(t *testing.T) {
 }
 
 func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
@@ -274,9 +272,7 @@ func TestUpdaterWithHooks_quarantine(t *testing.T) {
 	cfg, repoProto, _ := testcfg.BuildWithRepo(t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	locator := config.NewLocator(cfg)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	unquarantinedRepo := localrepo.NewTestRepo(t, cfg, repoProto)
 

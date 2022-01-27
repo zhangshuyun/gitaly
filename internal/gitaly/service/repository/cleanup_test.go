@@ -55,9 +55,7 @@ func TestCleanupDeletesStaleWorktrees(t *testing.T) {
 			worktreePath := filepath.Join(basePath, "test-worktree")
 
 			require.NoError(t, os.Chtimes(worktreeCheckoutPath, tc.worktreeTime, tc.worktreeTime))
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			c, err := client.Cleanup(ctx, req)
 
@@ -89,9 +87,7 @@ func TestCleanupDeletesOrphanedWorktrees(t *testing.T) {
 
 	require.NoError(t, os.MkdirAll(worktreeCheckoutPath, os.ModePerm))
 	require.NoError(t, os.Chtimes(worktreeCheckoutPath, oldTreeTime, oldTreeTime))
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	c, err := client.Cleanup(ctx, &gitalypb.CleanupRequest{Repository: repo})
 	assert.NoError(t, err)
@@ -120,9 +116,7 @@ func TestCleanupDisconnectedWorktrees(t *testing.T) {
 	req := &gitalypb.CleanupRequest{Repository: repo}
 
 	gittest.AddWorktree(t, cfg, repoPath, worktreePath)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	// removing the work tree path but leaving the administrative files in
 	// $GIT_DIR/worktrees will result in the work tree being in a
@@ -187,8 +181,7 @@ func TestRemoveWorktree(t *testing.T) {
 		},
 	} {
 		t.Run(tc.worktree, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			worktreePath := filepath.Join(repoPath, worktreePrefix, tc.worktree)
 

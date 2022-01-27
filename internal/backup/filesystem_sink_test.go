@@ -17,9 +17,7 @@ func TestFilesystemSink_GetReader(t *testing.T) {
 
 	t.Run("ok", func(t *testing.T) {
 		t.Parallel()
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		dir := testhelper.TempDir(t)
 		const relativePath = "test.dat"
@@ -38,9 +36,7 @@ func TestFilesystemSink_GetReader(t *testing.T) {
 
 	t.Run("no file", func(t *testing.T) {
 		t.Parallel()
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		dir, err := os.Getwd()
 		require.NoError(t, err)
@@ -57,9 +53,7 @@ func TestFilesystemSink_Write(t *testing.T) {
 
 	t.Run("ok", func(t *testing.T) {
 		t.Parallel()
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		dir := testhelper.TempDir(t)
 		const relativePath = "nested/dir/test.dat"
@@ -75,9 +69,7 @@ func TestFilesystemSink_Write(t *testing.T) {
 
 	t.Run("overrides existing data", func(t *testing.T) {
 		t.Parallel()
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		dir := testhelper.TempDir(t)
 		const relativePath = "nested/dir/test.dat"
@@ -97,9 +89,7 @@ func TestFilesystemSink_Write(t *testing.T) {
 
 	t.Run("dir creation error", func(t *testing.T) {
 		t.Parallel()
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		dir := testhelper.TempDir(t)
 		const relativePath = "nested/test.dat"

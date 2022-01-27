@@ -17,9 +17,7 @@ import (
 
 func TestRenameRepository_success(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	// Praefect does not move repositories on the disk so this test case is not run with Praefect.
 	cfg, repo, _, client := setupRepositoryService(t, testserver.WithDisablePraefect())
@@ -43,9 +41,7 @@ func TestRenameRepository_success(t *testing.T) {
 
 func TestRenameRepository_DestinationExists(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
@@ -72,9 +68,7 @@ func TestRenameRepository_DestinationExists(t *testing.T) {
 
 func TestRenameRepository_invalidRequest(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, _, client := setupRepositoryService(t)
 

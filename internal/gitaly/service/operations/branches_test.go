@@ -37,9 +37,7 @@ func (s *testTransactionServer) VoteTransaction(ctx context.Context, in *gitalyp
 
 func TestSuccessfulCreateBranchRequest(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -116,9 +114,7 @@ func TestSuccessfulCreateBranchRequest(t *testing.T) {
 
 func TestUserCreateBranchWithTransaction(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
@@ -192,9 +188,7 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 
 func TestSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -224,9 +218,7 @@ func TestSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T) {
 
 func TestSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -299,9 +291,7 @@ func TestSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T) {
 
 func TestFailedUserCreateBranchDueToHooks(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -326,9 +316,7 @@ func TestFailedUserCreateBranchDueToHooks(t *testing.T) {
 
 func TestFailedUserCreateBranchRequest(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
@@ -388,9 +376,7 @@ func TestFailedUserCreateBranchRequest(t *testing.T) {
 
 func TestSuccessfulUserDeleteBranchRequest(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -445,8 +431,7 @@ func TestSuccessfulUserDeleteBranchRequest(t *testing.T) {
 
 func TestSuccessfulGitHooksForUserDeleteBranchRequest(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -500,9 +485,7 @@ func TestUserDeleteBranch_transaction(t *testing.T) {
 			deps.GetUpdaterWithHooks(),
 		))
 	})
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
 	ctx = metadata.IncomingToOutgoing(ctx)
@@ -529,8 +512,7 @@ func TestUserDeleteBranch_transaction(t *testing.T) {
 
 func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
@@ -581,8 +563,7 @@ func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
 
 func TestFailedUserDeleteBranchDueToHooks(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -613,8 +594,7 @@ func TestFailedUserDeleteBranchDueToHooks(t *testing.T) {
 
 func TestBranchHookOutput(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 

@@ -127,8 +127,7 @@ func TestCatfileInfo(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			catfileCache := catfile.NewCache(cfg)
 			defer catfileCache.Stop()
@@ -159,9 +158,7 @@ func TestCatfileInfo(t *testing.T) {
 
 func TestCatfileInfoAllObjects(t *testing.T) {
 	cfg := testcfg.Build(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)

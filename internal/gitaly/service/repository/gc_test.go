@@ -29,9 +29,7 @@ var (
 func TestGarbageCollectCommitGraph(t *testing.T) {
 	t.Parallel()
 	_, repo, repoPath, client := setupRepositoryService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	c, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo})
 	assert.NoError(t, err)
@@ -67,8 +65,7 @@ func TestGarbageCollectSuccess(t *testing.T) {
 			// precision on `mtime`.
 			// Stamp taken from https://golang.org/pkg/time/#pkg-constants
 			testhelper.MustRunCommand(t, nil, "touch", "-t", testTimeString, packPath)
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			c, err := client.GarbageCollect(ctx, test.req)
 			assert.NoError(t, err)
 			assert.NotNil(t, c)
@@ -95,8 +92,7 @@ func TestGarbageCollectSuccess(t *testing.T) {
 
 func TestGarbageCollectWithPrune(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
@@ -137,8 +133,7 @@ func TestGarbageCollectWithPrune(t *testing.T) {
 
 func TestGarbageCollectLogStatistics(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	logger, hook := test.NewNullLogger()
 	_, repo, _, client := setupRepositoryService(t, testserver.WithLogger(logger))
@@ -152,9 +147,7 @@ func TestGarbageCollectLogStatistics(t *testing.T) {
 func TestGarbageCollectDeletesRefsLocks(t *testing.T) {
 	t.Parallel()
 	_, repo, repoPath, client := setupRepositoryService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	req := &gitalypb.GarbageCollectRequest{Repository: repo}
 	refsPath := filepath.Join(repoPath, "refs")
@@ -232,9 +225,7 @@ func TestGarbageCollectDeletesPackedRefsLock(t *testing.T) {
 			if tc.lockTime != nil {
 				mustCreateFileWithTimes(t, lockPath, *tc.lockTime)
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			c, err := client.GarbageCollect(ctx, req)
 
@@ -260,9 +251,7 @@ func TestGarbageCollectDeletesPackedRefsLock(t *testing.T) {
 func TestGarbageCollectDeletesFileLocks(t *testing.T) {
 	t.Parallel()
 	_, repo, repoPath, client := setupRepositoryService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	req := &gitalypb.GarbageCollectRequest{Repository: repo}
 
@@ -327,9 +316,7 @@ func TestGarbageCollectDeletesPackedRefsNew(t *testing.T) {
 			if tc.lockTime != nil {
 				mustCreateFileWithTimes(t, packedRefsNewPath, *tc.lockTime)
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			c, err := client.GarbageCollect(ctx, req)
 
@@ -364,8 +351,7 @@ func TestGarbageCollectFailure(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("%v", test.repo), func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: test.repo})
 			testhelper.RequireGrpcCode(t, err, test.code)
 		})
@@ -419,8 +405,7 @@ func TestCleanupInvalidKeepAroundRefs(t *testing.T) {
 
 	for _, testcase := range testCases {
 		t.Run(testcase.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			// Create a proper keep-around loose ref
 			existingSha := "1e292f8fedd741b75372e19097c76d327140c312"
@@ -470,9 +455,7 @@ func mustCreateFileWithTimes(t testing.TB, path string, mTime time.Time) {
 func TestGarbageCollectDeltaIslands(t *testing.T) {
 	t.Parallel()
 	cfg, repo, repoPath, client := setupRepositoryService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	gittest.TestDeltaIslands(t, cfg, repoPath, func() error {
 		_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo})

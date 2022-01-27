@@ -24,8 +24,7 @@ import (
 )
 
 func TestAuthFailures(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	testCases := []struct {
 		desc string
@@ -68,8 +67,7 @@ func TestAuthFailures(t *testing.T) {
 }
 
 func TestAuthSuccess(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	token := "foobar"
 

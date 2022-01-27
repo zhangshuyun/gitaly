@@ -112,9 +112,7 @@ func TestAddRepository_Exec(t *testing.T) {
 	gitalyCC, err := client.Dial(g1Addr, nil)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, gitalyCC.Close()) }()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	gitaly1RepositoryClient := gitalypb.NewRepositoryServiceClient(gitalyCC)
 

@@ -40,8 +40,7 @@ func (s *simpleService) RepoMutatorUnary(ctx context.Context, in *mock.RepoReque
 }
 
 func TestStreamInterceptor(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	isInErrorWindow := true
 	threshold := 5

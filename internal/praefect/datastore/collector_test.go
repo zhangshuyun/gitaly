@@ -22,8 +22,7 @@ import (
 
 func TestRepositoryStoreCollector(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	type replicas map[string]struct {
 		generation int
@@ -257,8 +256,7 @@ func TestRepositoryStoreCollector_CollectNotCalledOnRegister(t *testing.T) {
 
 func TestRepositoryStoreCollector_ReplicationQueueDepth(t *testing.T) {
 	db := testdb.New(t)
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	log := testhelper.NewDiscardingLogger(t)
 

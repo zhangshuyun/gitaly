@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -25,9 +26,7 @@ func TestStolenPid(t *testing.T) {
 
 	pidFile, err := os.Create(filepath.Join(tempDir, "pidfile"))
 	require.NoError(t, err)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 	cmd := exec.CommandContext(ctx, "tail", "-f")
 	require.NoError(t, cmd.Start())
@@ -92,9 +91,7 @@ func TestFindProcess(t *testing.T) {
 
 	t.Run("running process", func(t *testing.T) {
 		t.Parallel()
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		// The process will exit immediately, but that's not much of a problem given that
 		// `findProcess()` also works with zombies.
@@ -205,9 +202,7 @@ func TestReadPIDFile(t *testing.T) {
 
 func TestIsExpectedProcess(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	executable := testhelper.WriteExecutable(t, filepath.Join(testhelper.TempDir(t), "noop"), []byte(
 		`#!/usr/bin/env bash
@@ -251,9 +246,7 @@ func TestIsProcessAlive(t *testing.T) {
 
 	t.Run("existing process", func(t *testing.T) {
 		t.Parallel()
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		executable := testhelper.WriteExecutable(t, filepath.Join(testhelper.TempDir(t), "noop"), []byte(
 			`#!/usr/bin/env bash
@@ -298,9 +291,7 @@ func TestRun(t *testing.T) {
 
 	t.Run("missing arguments", func(t *testing.T) {
 		t.Parallel()
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		output, err := exec.CommandContext(ctx, binary).CombinedOutput()
 		require.Error(t, err)
@@ -309,9 +300,7 @@ func TestRun(t *testing.T) {
 
 	t.Run("missing PID file envvar", func(t *testing.T) {
 		t.Parallel()
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		output, err := exec.CommandContext(ctx, binary, "binary").CombinedOutput()
 		require.Error(t, err)
@@ -320,9 +309,7 @@ func TestRun(t *testing.T) {
 
 	t.Run("invalid executable", func(t *testing.T) {
 		t.Parallel()
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		pidPath := filepath.Join(testhelper.TempDir(t), "pid")
 
@@ -336,9 +323,7 @@ func TestRun(t *testing.T) {
 
 	t.Run("adopting executable", func(t *testing.T) {
 		t.Parallel()
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		script := testhelper.WriteExecutable(t, filepath.Join(testhelper.TempDir(t), "script"), []byte(
 			`#!/usr/bin/env bash
@@ -395,9 +380,7 @@ func TestRun(t *testing.T) {
 
 	t.Run("spawning executable", func(t *testing.T) {
 		t.Parallel()
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		script := testhelper.WriteExecutable(t, filepath.Join(testhelper.TempDir(t), "script"), []byte(
 			`#!/usr/bin/env bash
@@ -419,9 +402,7 @@ func TestRun(t *testing.T) {
 
 	t.Run("spawning executable with missing process", func(t *testing.T) {
 		t.Parallel()
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		script := testhelper.WriteExecutable(t, filepath.Join(testhelper.TempDir(t), "script"), []byte(
 			`#!/usr/bin/env bash
@@ -442,9 +423,7 @@ func TestRun(t *testing.T) {
 
 	t.Run("spawning executable with zombie process", func(t *testing.T) {
 		t.Parallel()
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		ctx := testhelper.Context(t)
 
 		script := testhelper.WriteExecutable(t, filepath.Join(testhelper.TempDir(t), "script"), []byte(
 			`#!/usr/bin/env bash

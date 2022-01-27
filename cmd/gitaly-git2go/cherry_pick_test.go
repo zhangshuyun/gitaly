@@ -70,8 +70,7 @@ func TestCherryPick_validation(t *testing.T) {
 	}
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			_, err := executor.CherryPick(ctx, repo, tc.request)
 			require.EqualError(t, err, tc.expectedErr)
@@ -162,8 +161,7 @@ func TestCherryPick(t *testing.T) {
 		}
 
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			committer := git.Signature{
 				Name:  "Baz",

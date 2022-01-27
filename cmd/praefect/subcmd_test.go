@@ -45,9 +45,7 @@ func listenAndServe(t testing.TB, svcs []svcRegistrar) (net.Listener, testhelper
 	}
 
 	go func() { require.NoError(t, srv.Serve(ln)) }()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	// verify the service is up
 	addr := fmt.Sprintf("%s://%s", ln.Addr().Network(), ln.Addr())

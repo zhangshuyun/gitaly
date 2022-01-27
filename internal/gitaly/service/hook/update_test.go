@@ -24,9 +24,7 @@ func TestUpdateInvalidArgument(t *testing.T) {
 	serverSocketPath := runHooksServer(t, cfg, nil)
 	client, conn := newHooksClient(t, serverSocketPath)
 	t.Cleanup(func() { conn.Close() })
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	stream, err := client.UpdateHook(ctx, &gitalypb.UpdateHookRequest{})
 	require.NoError(t, err)
@@ -37,9 +35,7 @@ func TestUpdateInvalidArgument(t *testing.T) {
 
 func TestUpdate_CustomHooks(t *testing.T) {
 	cfg, repo, repoPath, client := setupHookService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	hooksPayload, err := git.NewHooksPayload(
 		cfg,

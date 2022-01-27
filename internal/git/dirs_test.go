@@ -10,8 +10,7 @@ import (
 )
 
 func TestObjectDirs(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	altObjDirs := []string{
 		"testdata/objdirs/repo1/objects",
@@ -35,8 +34,7 @@ func TestObjectDirs(t *testing.T) {
 }
 
 func TestObjectDirsNoAlternates(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	repo := "testdata/objdirs/no-alternates"
 	out, err := ObjectDirectories(ctx, "testdata/objdirs", repo)
@@ -72,8 +70,7 @@ func TestObjectDirsOutsideStorage(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			require.NoError(t, os.WriteFile(alternatesFile, []byte(tc.alternates), 0o600))
 			out, err := ObjectDirectories(ctx, storageRoot, repoPath)

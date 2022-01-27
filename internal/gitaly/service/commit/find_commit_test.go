@@ -25,9 +25,7 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 	cfg, repoProto, repoPath, client := setupCommitServiceWithRepo(t, true)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	bigMessage := "An empty commit with REALLY BIG message\n\n" + strings.Repeat("MOAR!\n", 20*1024)
 	bigCommitID := gittest.WriteCommit(t, cfg, repoPath,
@@ -269,9 +267,7 @@ func TestFailedFindCommitRequest(t *testing.T) {
 		{repo: repo, revision: []byte("-master"), description: "Invalid revision"},
 		{repo: repo, revision: []byte("mas:ter"), description: "Invalid revision"},
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	for _, testCase := range testCases {
 		t.Run(testCase.description, func(t *testing.T) {
@@ -295,8 +291,7 @@ func BenchmarkFindCommitWithCache(b *testing.B) {
 }
 
 func benchmarkFindCommit(withCache bool, b *testing.B) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(b)
 
 	cfg, repo, _, client := setupCommitServiceWithRepo(b, false)
 
@@ -334,8 +329,7 @@ func benchmarkFindCommit(withCache bool, b *testing.B) {
 
 func TestFindCommitWithCache(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repo, _, client := setupCommitServiceWithRepo(t, true)
 

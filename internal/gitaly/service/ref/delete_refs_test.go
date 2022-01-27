@@ -22,9 +22,7 @@ import (
 
 func TestDeleteRefs_successful(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, client := setupRefServiceWithoutRepo(t)
 
@@ -79,9 +77,7 @@ func TestDeleteRefs_successful(t *testing.T) {
 
 func TestDeleteRefs_transaction(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
 
@@ -143,9 +139,7 @@ func TestDeleteRefs_transaction(t *testing.T) {
 
 func TestDeleteRefs_invalidRefFormat(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, _, client := setupRefService(t)
 
@@ -162,9 +156,7 @@ func TestDeleteRefs_invalidRefFormat(t *testing.T) {
 
 func TestDeleteRefs_validation(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, repo, _, client := setupRefService(t)
 

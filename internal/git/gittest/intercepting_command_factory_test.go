@@ -12,9 +12,7 @@ import (
 
 func TestInterceptingCommandFactory(t *testing.T) {
 	cfg, repoProto, repoPath := setup(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	factory := NewInterceptingCommandFactory(ctx, t, cfg, func(execEnv git.ExecutionEnvironment) string {
 		return fmt.Sprintf(

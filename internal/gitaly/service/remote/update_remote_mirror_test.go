@@ -492,8 +492,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			cfg := testcfg.Build(t)
 
@@ -620,9 +619,7 @@ func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
@@ -722,9 +719,7 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithWildcards(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
@@ -826,9 +821,7 @@ func TestUpdateRemoteMirrorInmemory(t *testing.T) {
 	gittest.WriteCommit(t, cfg, localPath)
 
 	_, remotePath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	stream, err := client.UpdateRemoteMirror(ctx)
 	require.NoError(t, err)
@@ -853,9 +846,7 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T) 
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
@@ -940,9 +931,7 @@ func TestFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(

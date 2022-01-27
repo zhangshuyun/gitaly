@@ -36,9 +36,7 @@ func TestInvalidators(t *testing.T) {
 			UnaryInvalidator(mCache, reg),
 		),
 	)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	svc := &testSvc{}
 

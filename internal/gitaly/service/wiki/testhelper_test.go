@@ -121,9 +121,7 @@ func writeWikiPage(t *testing.T, client gitalypb.WikiServiceClient, wikiRepo *gi
 		CommitDetails: commitDetails,
 		Content:       content,
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	stream, err := client.WikiWritePage(ctx)
 	require.NoError(t, err)
@@ -157,9 +155,7 @@ func sendBytes(data []byte, chunkSize int, sender func([]byte) error) (int, erro
 
 func createTestWikiPage(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, wikiRepoProto *gitalypb.Repository, wikiRepoPath string, opts createWikiPageOpts) *gitalypb.GitCommit {
 	t.Helper()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	writeWikiPage(t, client, wikiRepoProto, opts)
 	head1ID := gittest.Exec(t, cfg, "-C", wikiRepoPath, "show", "--format=format:%H", "--no-patch", "HEAD")

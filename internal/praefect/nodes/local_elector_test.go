@@ -40,9 +40,7 @@ func setupElector(t *testing.T) (*localElector, []*nodeStatus, *grpc.ClientConn)
 
 func TestGetShard(t *testing.T) {
 	strategy, ns, _ := setupElector(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	shard, err := strategy.GetShard(ctx)
 	require.NoError(t, err)
@@ -58,9 +56,7 @@ func TestConcurrentCheckWithPrimary(t *testing.T) {
 	var wg sync.WaitGroup
 	start := make(chan bool)
 	wg.Add(2)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	go func() {
 		defer wg.Done()

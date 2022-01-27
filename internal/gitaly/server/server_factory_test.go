@@ -30,8 +30,7 @@ import (
 )
 
 func TestGitalyServerFactory(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	checkHealth := func(t *testing.T, sf *GitalyServerFactory, schema, addr string) healthpb.HealthClient {
 		t.Helper()
@@ -181,8 +180,7 @@ func TestGitalyServerFactory(t *testing.T) {
 }
 
 func TestGitalyServerFactory_closeOrder(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
 	sf := NewGitalyServerFactory(

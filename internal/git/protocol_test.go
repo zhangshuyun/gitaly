@@ -32,8 +32,7 @@ func TestGitProtocolEnv(t *testing.T) {
 		},
 	} {
 		t.Run(tt.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			actual := gitProtocolEnv(ctx, tt.msg)
 			require.Equal(t, tt.env, actual)

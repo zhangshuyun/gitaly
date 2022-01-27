@@ -27,9 +27,7 @@ import (
 
 func TestCreateRepository_missingAuth(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t, testcfg.WithBase(config.Cfg{Auth: auth.Config{Token: "some"}}))
 
@@ -43,9 +41,7 @@ func TestCreateRepository_missingAuth(t *testing.T) {
 
 func TestCreateRepository_successful(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
@@ -78,9 +74,7 @@ func TestCreateRepository_successful(t *testing.T) {
 
 func TestCreateRepository_failure(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
@@ -103,9 +97,7 @@ func TestCreateRepository_failure(t *testing.T) {
 
 func TestCreateRepository_invalidArguments(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	_, client := setupRepositoryServiceWithoutRepo(t)
 
@@ -131,9 +123,7 @@ func TestCreateRepository_invalidArguments(t *testing.T) {
 
 func TestCreateRepository_transactional(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	txManager := transaction.NewTrackingManager()
 
@@ -176,9 +166,7 @@ func TestCreateRepository_transactional(t *testing.T) {
 
 func TestCreateRepository_idempotent(t *testing.T) {
 	t.Parallel()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 

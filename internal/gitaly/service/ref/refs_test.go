@@ -36,9 +36,7 @@ func TestSuccessfulFindAllBranchNames(t *testing.T) {
 	_, repo, _, client := setupRefService(t)
 
 	rpcRequest := &gitalypb.FindAllBranchNamesRequest{Repository: repo}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	c, err := client.FindAllBranchNames(ctx, rpcRequest)
 	require.NoError(t, err)
 
@@ -61,9 +59,7 @@ func TestSuccessfulFindAllBranchNames(t *testing.T) {
 
 func TestFindAllBranchNamesVeryLargeResponse(t *testing.T) {
 	cfg, repoProto, _, client := setupRefService(t)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	updater, err := updateref.New(ctx, repo)
@@ -113,9 +109,7 @@ func TestEmptyFindAllBranchNamesRequest(t *testing.T) {
 	_, client := setupRefServiceWithoutRepo(t)
 
 	rpcRequest := &gitalypb.FindAllBranchNamesRequest{}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	c, err := client.FindAllBranchNames(ctx, rpcRequest)
 	require.NoError(t, err)
 
@@ -134,9 +128,7 @@ func TestInvalidRepoFindAllBranchNamesRequest(t *testing.T) {
 
 	repo := &gitalypb.Repository{StorageName: "default", RelativePath: "made/up/path"}
 	rpcRequest := &gitalypb.FindAllBranchNamesRequest{Repository: repo}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	c, err := client.FindAllBranchNames(ctx, rpcRequest)
 	require.NoError(t, err)
 
@@ -154,9 +146,7 @@ func TestSuccessfulFindAllTagNames(t *testing.T) {
 	_, repo, _, client := setupRefService(t)
 
 	rpcRequest := &gitalypb.FindAllTagNamesRequest{Repository: repo}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	c, err := client.FindAllTagNames(ctx, rpcRequest)
 	require.NoError(t, err)
 
@@ -181,9 +171,7 @@ func TestEmptyFindAllTagNamesRequest(t *testing.T) {
 	_, client := setupRefServiceWithoutRepo(t)
 
 	rpcRequest := &gitalypb.FindAllTagNamesRequest{}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	c, err := client.FindAllTagNames(ctx, rpcRequest)
 	require.NoError(t, err)
 
@@ -202,9 +190,7 @@ func TestInvalidRepoFindAllTagNamesRequest(t *testing.T) {
 
 	repo := &gitalypb.Repository{StorageName: "default", RelativePath: "made/up/path"}
 	rpcRequest := &gitalypb.FindAllTagNamesRequest{Repository: repo}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	c, err := client.FindAllTagNames(ctx, rpcRequest)
 	require.NoError(t, err)
 
@@ -226,9 +212,7 @@ func TestSuccessfulFindDefaultBranchName(t *testing.T) {
 	// HEAD to it
 	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/main", "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863")
 	gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/main")
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	r, err := client.FindDefaultBranchName(ctx, rpcRequest)
 	require.NoError(t, err)
 
@@ -238,9 +222,7 @@ func TestSuccessfulFindDefaultBranchName(t *testing.T) {
 func TestSuccessfulFindDefaultBranchNameLegacy(t *testing.T) {
 	_, repo, _, client := setupRefService(t)
 	rpcRequest := &gitalypb.FindDefaultBranchNameRequest{Repository: repo}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	r, err := client.FindDefaultBranchName(ctx, rpcRequest)
 	require.NoError(t, err)
 
@@ -250,9 +232,7 @@ func TestSuccessfulFindDefaultBranchNameLegacy(t *testing.T) {
 func TestEmptyFindDefaultBranchNameRequest(t *testing.T) {
 	_, client := setupRefServiceWithoutRepo(t)
 	rpcRequest := &gitalypb.FindDefaultBranchNameRequest{}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	_, err := client.FindDefaultBranchName(ctx, rpcRequest)
 
 	if helper.GrpcCode(err) != codes.InvalidArgument {
@@ -264,9 +244,7 @@ func TestInvalidRepoFindDefaultBranchNameRequest(t *testing.T) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 	repo := &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "/made/up/path"}
 	rpcRequest := &gitalypb.FindDefaultBranchNameRequest{Repository: repo}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	_, err := client.FindDefaultBranchName(ctx, rpcRequest)
 
 	if helper.GrpcCode(err) != codes.NotFound {
@@ -278,9 +256,7 @@ func TestSuccessfulFindLocalBranches(t *testing.T) {
 	_, repo, _, client := setupRefService(t)
 
 	rpcRequest := &gitalypb.FindLocalBranchesRequest{Repository: repo}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	c, err := client.FindLocalBranches(ctx, rpcRequest)
 	require.NoError(t, err)
 
@@ -583,9 +559,7 @@ func TestEmptyFindLocalBranchesRequest(t *testing.T) {
 	_, client := setupRefServiceWithoutRepo(t)
 
 	rpcRequest := &gitalypb.FindLocalBranchesRequest{}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	c, err := client.FindLocalBranches(ctx, rpcRequest)
 	require.NoError(t, err)
 
@@ -630,8 +604,7 @@ func TestSuccessfulFindAllBranchesRequest(t *testing.T) {
 	gittest.WriteRef(t, cfg, repoPath, "refs/remotes/origin/fake-remote-branch", git.ObjectID(remoteBranch.Target.Id))
 
 	request := &gitalypb.FindAllBranchesRequest{Repository: repo}
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 	c, err := client.FindAllBranches(ctx, request)
 	require.NoError(t, err)
 
@@ -654,9 +627,7 @@ func TestSuccessfulFindAllBranchesRequestWithMergedBranches(t *testing.T) {
 	cfg, repoProto, repoPath, client := setupRefService(t)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	localRefs := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--format=%(refname:strip=2)", "refs/heads")
 	for _, ref := range strings.Split(string(localRefs), "\n") {
@@ -762,8 +733,7 @@ func TestInvalidFindAllBranchesRequest(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			c, err := client.FindAllBranches(ctx, tc.request)
 			require.NoError(t, err)
 
@@ -829,8 +799,7 @@ func TestListTagNamesContainingCommit(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			request := &gitalypb.ListTagNamesContainingCommitRequest{Repository: repoProto, CommitId: tc.commitID}
 
@@ -916,8 +885,7 @@ func TestListBranchNamesContainingCommit(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 
 			request := &gitalypb.ListBranchNamesContainingCommitRequest{Repository: repo, CommitId: tc.commitID}
 
@@ -957,9 +925,7 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 	commitID := git.ObjectID("6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9")
 
 	gitCommit := testhelper.GitLabTestCommit(commitID.String())
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	bigCommitID := gittest.WriteCommit(t, cfg, repoPath,
 		gittest.WithBranch("local-big-commits"),
@@ -1122,9 +1088,7 @@ func TestFindTagNestedTag(t *testing.T) {
 
 	blobID := git.ObjectID("faaf198af3a36dbf41961466703cc1d47c61d051")
 	commitID := git.ObjectID("6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9")
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	testCases := []struct {
 		description string
@@ -1241,8 +1205,7 @@ func TestInvalidFindTagRequest(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
+			ctx := testhelper.Context(t)
 			_, err := client.FindTag(ctx, tc.request)
 			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 		})
