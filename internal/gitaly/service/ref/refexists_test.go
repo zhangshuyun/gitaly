@@ -10,7 +10,8 @@ import (
 )
 
 func TestRefExists(t *testing.T) {
-	_, repo, _, client := setupRefService(t)
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupRefService(ctx, t)
 
 	badRepo := &gitalypb.Repository{StorageName: "invalid", RelativePath: "/etc/"}
 
@@ -37,8 +38,6 @@ func TestRefExists(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			req := &gitalypb.RefExistsRequest{Repository: tt.repo, Ref: []byte(tt.ref)}
 
 			got, err := client.RefExists(ctx, req)

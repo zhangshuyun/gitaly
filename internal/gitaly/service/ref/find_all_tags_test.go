@@ -27,9 +27,9 @@ import (
 )
 
 func TestFindAllTags_successful(t *testing.T) {
-	cfg, repoProto, repoPath, client := setupRefService(t)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	ctx := testhelper.Context(t)
+	cfg, repoProto, repoPath, client := setupRefService(ctx, t)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	// reconstruct the v1.1.2 tag from patches to test truncated tag message
 	// with partial PGP block
@@ -353,9 +353,9 @@ func TestFindAllTags_duplicateAnnotatedTags(t *testing.T) {
 }
 
 func TestFindAllTags_nestedTags(t *testing.T) {
-	cfg, repoProto, repoPath, client := setupRefService(t)
-
 	ctx := testhelper.Context(t)
+	cfg, repoProto, repoPath, client := setupRefService(ctx, t)
+
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	blobID := git.ObjectID("faaf198af3a36dbf41961466703cc1d47c61d051")
@@ -508,7 +508,7 @@ func TestFindAllTags_pagination(t *testing.T) {
 }
 
 func testFindAllTagsPagination(t *testing.T, ctx context.Context) {
-	cfg, repoProto, repoPath, client := setupRefService(t)
+	cfg, repoProto, repoPath, client := setupRefService(ctx, t)
 
 	catfileCache := catfile.NewCache(cfg)
 	defer catfileCache.Stop()
@@ -630,9 +630,8 @@ func testFindAllTagsPagination(t *testing.T, ctx context.Context) {
 }
 
 func TestFindAllTags_sorted(t *testing.T) {
-	cfg, repoProto, _, client := setupRefService(t)
-
 	ctx := testhelper.Context(t)
+	cfg, repoProto, _, client := setupRefService(ctx, t)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	headCommit, err := repo.ReadCommit(ctx, "HEAD")

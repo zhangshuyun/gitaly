@@ -157,7 +157,7 @@ func TestDeleteRefs_invalidRefFormat(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setupRefService(t)
+	_, repo, _, client := setupRefService(ctx, t)
 
 	request := &gitalypb.DeleteRefsRequest{
 		Repository: repo,
@@ -174,7 +174,7 @@ func TestDeleteRefs_validation(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setupRefService(t)
+	_, repo, _, client := setupRefService(ctx, t)
 
 	testCases := []struct {
 		desc    string

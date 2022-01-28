@@ -17,7 +17,7 @@ import (
 func TestFindRefsByOID_successful(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, client := setupRefService(t)
+	cfg, repo, repoPath, client := setupRefService(ctx, t)
 
 	oid := gittest.WriteCommit(t, cfg, repoPath)
 
@@ -214,7 +214,7 @@ func TestFindRefsByOID_failure(t *testing.T) {
 func TestFindRefsByOID_validation(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setupRefService(t)
+	_, repo, _, client := setupRefService(ctx, t)
 
 	testCases := map[string]struct {
 		req          *gitalypb.FindRefsByOIDRequest

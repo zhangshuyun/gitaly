@@ -15,8 +15,8 @@ import (
 )
 
 func TestServer_ListRefs(t *testing.T) {
-	cfg, _, _, client := setupRefService(t)
 	ctx := testhelper.Context(t)
+	cfg, _, _, client := setupRefService(ctx, t)
 
 	repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
 	// Checking out a worktree in an empty repository is not possible, so we must first write an empty commit.

@@ -14,7 +14,7 @@ import (
 func TestSuccessfulFindBranchRequest(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, repoProto, _, client := setupRefService(t)
+	cfg, repoProto, _, client := setupRefService(ctx, t)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -71,7 +71,6 @@ func TestSuccessfulFindBranchRequest(t *testing.T) {
 				Repository: repoProto,
 				Name:       []byte(testCase.branchName),
 			}
-			ctx := testhelper.Context(t)
 
 			response, err := client.FindBranch(ctx, request)
 
@@ -82,7 +81,8 @@ func TestSuccessfulFindBranchRequest(t *testing.T) {
 }
 
 func TestFailedFindBranchRequest(t *testing.T) {
-	_, repo, _, client := setupRefService(t)
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupRefService(ctx, t)
 
 	testCases := []struct {
 		desc       string
@@ -102,7 +102,6 @@ func TestFailedFindBranchRequest(t *testing.T) {
 				Repository: repo,
 				Name:       []byte(testCase.branchName),
 			}
-			ctx := testhelper.Context(t)
 
 			_, err := client.FindBranch(ctx, request)
 			testhelper.RequireGrpcCode(t, err, testCase.code)
