@@ -471,6 +471,10 @@ message CreateForkResponse {}
 message CreateRepositoryFromURLRequest {
   Repository repository = 1 [(target_repository)=true];
   string url = 2;
+  // HttpHost is the hostname of the remote repository. Use this when the
+  // URL hostname has already been resolved to an IP address to prevent DNS
+  // rebinding.
+  string http_host = 3;
 }
 
 message CreateRepositoryFromURLResponse {}
@@ -569,6 +573,10 @@ message CreateRepositoryFromSnapshotRequest {
   Repository repository = 1 [(target_repository)=true];
   string http_url = 2;
   string http_auth = 3;
+  // HttpHost is the hostname of the remote snapshot. Use this when the
+  // URL hostname has already been resolved to an IP address to prevent DNS
+  // rebinding.
+  string http_host = 4;
 }
 
 message CreateRepositoryFromSnapshotResponse {}
@@ -662,6 +670,10 @@ message Remote {
   //
   // If no refspecs are given, this defaults to "all_refs".
   repeated string mirror_refmaps = 4;
+  // HttpHost is the hostname of the remote repository. Use this when the
+  // URL hostname has already been resolved to an IP address to prevent DNS
+  // rebinding.
+  string http_host = 5;
 
   // Previously, it was possible to specify a remote name. This was quite a
   // dangerous field to set though: the name was simply used to create an ad-hoc
