@@ -1,12 +1,14 @@
 package remote
 
 import (
+	"fmt"
+	"net/http"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -17,32 +19,35 @@ import (
 func TestFindRemoteRootRefSuccess(t *testing.T) {
 	t.Parallel()
 	cfg, repo, repoPath, client := setupRemoteService(t)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
-	originURL := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "remote", "get-url", "origin"))
+	const (
+		host   = "example.com"
+		secret = "mysecret"
+	)
+
+	ctx := testhelper.Context(t)
+
+	port, stopGitServer := gittest.HTTPServer(ctx, t, gitCmdFactory, repoPath, newGitRequestValidationMiddleware(host, secret))
+	defer func() { require.NoError(t, stopGitServer()) }()
+
+	originURL := fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(repoPath))
 
 	for _, tc := range []struct {
 		desc    string
 		request *gitalypb.FindRemoteRootRefRequest
 	}{
 		{
-			desc:    "with remote URL",
-			request: &gitalypb.FindRemoteRootRefRequest{Repository: repo, RemoteUrl: originURL},
-		},
-		{
-			// Unfortunately, we do not really have a nice way to verify we actually got
-			// the auth header. So this test case only really verifies that it doesn't
-			// break the world to set up one.
-			desc: "with remote URL and auth header",
+			desc: "with remote URL",
 			request: &gitalypb.FindRemoteRootRefRequest{
 				Repository:              repo,
 				RemoteUrl:               originURL,
-				HttpAuthorizationHeader: "mysecret",
+				HttpAuthorizationHeader: secret,
+				HttpHost:                host,
 			},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			response, err := client.FindRemoteRootRef(ctx, tc.request)
 			require.NoError(t, err)
 			require.Equal(t, "master", response.Ref)
@@ -133,4 +138,19 @@ func TestFindRemoteRootRefFailedDueToInvalidRemote(t *testing.T) {
 		_, err := client.FindRemoteRootRef(ctx, request)
 		testhelper.RequireGrpcCode(t, err, codes.Internal)
 	})
+}
+
+func newGitRequestValidationMiddleware(host, secret string) func(http.ResponseWriter, *http.Request, http.Handler) {
+	return func(w http.ResponseWriter, r *http.Request, next http.Handler) {
+		if r.Host != host {
+			http.Error(w, "No Host", http.StatusBadRequest)
+			return
+		}
+		if r.Header.Get("Authorization") != secret {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	}
 }
