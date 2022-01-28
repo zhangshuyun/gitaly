@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"syscall"
 	"testing"
 	"time"
 
@@ -240,17 +241,48 @@ type Cleanup func()
 func WriteExecutable(t testing.TB, path string, content []byte) string {
 	dir := filepath.Dir(path)
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-
-	executable, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o755)
-	require.NoError(t, err)
-	defer MustClose(t, executable)
-
-	_, err = io.Copy(executable, bytes.NewReader(content))
-	require.NoError(t, err)
-
 	t.Cleanup(func() {
 		assert.NoError(t, os.RemoveAll(dir))
 	})
+
+	// Open the file descriptor and write the script into it. It may happen that any other
+	// Goroutine forks while we hold this writeable file descriptor, and as a consequence we
+	// leak it into the other process. Subsequently, even if we close the file descriptor
+	// ourselves this other process may still hold on to the writeable file descriptor. The
+	// result is that calls to execve(3P) on our just-written file will fail with ETXTBSY,
+	// which is raised when trying to execute a file which is still open to be written to.
+	//
+	// We thus need to perform file locking to ensure that all writeable references to this
+	// file have been closed before returning.
+	executable, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o755)
+	require.NoError(t, err)
+	_, err = io.Copy(executable, bytes.NewReader(content))
+	require.NoError(t, err)
+
+	// We now lock the file descriptor for exclusive access. If there was a forked process
+	// holding the writeable file descriptor at this point in time, then it would refer to the
+	// same file descriptor and thus be locked for exclusive access, as well. If we fork after
+	// creating the lock and before closing the writeable file descriptor, then the dup'd file
+	// descriptor would automatically inherit the lock.
+	//
+	// No matter what, after this step any file descriptors referring to this writeable file
+	// descriptor will be exclusively locked.
+	require.NoError(t, syscall.Flock(int(executable.Fd()), syscall.LOCK_EX))
+
+	// We now close this file. The file will be automatically unlocked as soon as all
+	// references to this file descriptor are closed.
+	MustClose(t, executable)
+
+	// We now open the file again, but this time only for reading.
+	executable, err = os.Open(path)
+	require.NoError(t, err)
+
+	// And this time, we try to acquire a shared lock on this file. This call will block until
+	// the exclusive file lock on the above writeable file descriptor has been dropped. So as
+	// soon as we're able to acquire the lock we know that there cannot be any open writeable
+	// file descriptors for this file anymore, and thus we won't get ETXTBSY anymore.
+	require.NoError(t, syscall.Flock(int(executable.Fd()), syscall.LOCK_SH))
+	MustClose(t, executable)
 
 	return path
 }
