@@ -219,7 +219,7 @@ func TestCreateFork_targetExists(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg, repo, _, client := setupRepositoryService(t)
+			cfg, repo, _, client := setupRepositoryService(ctx, t)
 
 			ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 

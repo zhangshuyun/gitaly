@@ -26,7 +26,9 @@ import (
 
 func TestServer_FetchBundle_success(t *testing.T) {
 	t.Parallel()
-	cfg, _, repoPath, client := setupRepositoryService(t)
+
+	ctx := testhelper.Context(t)
+	cfg, _, repoPath, client := setupRepositoryService(ctx, t)
 
 	tmp := testhelper.TempDir(t)
 	bundlePath := filepath.Join(tmp, "test.bundle")
@@ -35,7 +37,6 @@ func TestServer_FetchBundle_success(t *testing.T) {
 	gittest.Exec(t, cfg, "-C", repoPath, "bundle", "create", bundlePath, "--all")
 	expectedRefs := gittest.Exec(t, cfg, "-C", repoPath, "show-ref", "--head")
 
-	ctx := testhelper.Context(t)
 	targetRepo, targetRepoPath := gittest.CreateRepository(ctx, t, cfg)
 
 	stream, err := client.FetchBundle(ctx)

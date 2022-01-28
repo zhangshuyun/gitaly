@@ -55,7 +55,7 @@ func TestRemoveRepository_locking(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	// Praefect special-cases repository removals, so we disable Praefect here.
-	_, repo, repoPath, client := setupRepositoryService(t, testserver.WithDisablePraefect())
+	_, repo, repoPath, client := setupRepositoryService(ctx, t, testserver.WithDisablePraefect())
 
 	// Simulate a concurrent RPC holding the repository lock.
 	lockPath := repoPath + ".lock"

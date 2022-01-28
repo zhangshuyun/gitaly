@@ -47,7 +47,7 @@ func touch(t *testing.T, format string, args ...interface{}) {
 
 func TestGetSnapshotSuccess(t *testing.T) {
 	t.Parallel()
-	cfg, repo, repoPath, client := setupRepositoryService(t)
+	cfg, repo, repoPath, client := setupRepositoryService(testhelper.Context(t), t)
 
 	// Ensure certain files exist in the test repo.
 	// WriteCommit produces a loose object with the given sha
@@ -110,7 +110,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg, repoProto, repoPath, client := setupRepositoryService(t)
+			cfg, repoProto, repoPath, client := setupRepositoryService(ctx, t)
 
 			alternateObjDir := tc.alternatePathFunc(t, cfg.Storages[0].Path, filepath.Join(repoPath, "objects"))
 			absoluteAlternateObjDir := alternateObjDir
@@ -161,7 +161,7 @@ func TestGetSnapshot_alternateObjectDirectory(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, client := setupRepositoryService(t)
+	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
 
 	locator := config.NewLocator(cfg)
 	alternatesFile, err := locator.InfoAlternatesPath(repo)
@@ -282,7 +282,7 @@ func TestGetSnapshotFailsIfRepositoryMissing(t *testing.T) {
 
 func TestGetSnapshotFailsIfRepositoryContainsSymlink(t *testing.T) {
 	t.Parallel()
-	_, repo, repoPath, client := setupRepositoryService(t)
+	_, repo, repoPath, client := setupRepositoryService(testhelper.Context(t), t)
 
 	// Make packed-refs into a symlink to break GetSnapshot()
 	packedRefsFile := filepath.Join(repoPath, "packed-refs")

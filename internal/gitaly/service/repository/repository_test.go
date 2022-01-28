@@ -111,9 +111,10 @@ func TestRepositoryExists(t *testing.T) {
 
 func TestSuccessfulHasLocalBranches(t *testing.T) {
 	t.Parallel()
-	cfg, repo, _, client := setupRepositoryService(t)
 
 	ctx := testhelper.Context(t)
+	cfg, repo, _, client := setupRepositoryService(ctx, t)
+
 	emptyRepo, _ := gittest.CreateRepository(ctx, t, cfg)
 
 	testCases := []struct {

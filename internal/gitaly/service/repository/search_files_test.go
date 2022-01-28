@@ -88,7 +88,7 @@ func TestSearchFilesByContentSuccessful(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setupRepositoryService(t)
+	_, repo, _, client := setupRepositoryService(ctx, t)
 
 	testCases := []struct {
 		desc   string
@@ -153,7 +153,7 @@ func TestSearchFilesByContentLargeFile(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, client := setupRepositoryServiceWithWorktree(t)
+	cfg, repo, repoPath, client := setupRepositoryServiceWithWorktree(ctx, t)
 
 	committerName := "Scrooge McDuck"
 	committerEmail := "scrooge@mcduck.com"
@@ -283,7 +283,7 @@ func TestSearchFilesByNameSuccessful(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setupRepositoryService(t)
+	_, repo, _, client := setupRepositoryService(ctx, t)
 
 	testCases := []struct {
 		desc     string

@@ -11,7 +11,9 @@ import (
 
 func TestSuccessfulFindFindMergeBaseRequest(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupRepositoryService(t)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupRepositoryService(ctx, t)
 
 	testCases := []struct {
 		desc      string
@@ -63,8 +65,6 @@ func TestSuccessfulFindFindMergeBaseRequest(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			request := &gitalypb.FindMergeBaseRequest{
 				Repository: repo,
 				Revisions:  testCase.revisions,
@@ -80,8 +80,9 @@ func TestSuccessfulFindFindMergeBaseRequest(t *testing.T) {
 
 func TestFailedFindMergeBaseRequestDueToValidations(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupRepositoryService(t)
+
 	ctx := testhelper.Context(t)
+	_, repo, _, client := setupRepositoryService(ctx, t)
 
 	request := &gitalypb.FindMergeBaseRequest{
 		Repository: repo,

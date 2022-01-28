@@ -19,7 +19,9 @@ import (
 
 func TestRepackIncrementalSuccess(t *testing.T) {
 	t.Parallel()
-	_, repo, repoPath, client := setupRepositoryService(t)
+
+	ctx := testhelper.Context(t)
+	_, repo, repoPath, client := setupRepositoryService(ctx, t)
 
 	packPath := filepath.Join(repoPath, "objects", "pack")
 
@@ -28,7 +30,6 @@ func TestRepackIncrementalSuccess(t *testing.T) {
 	// Stamp taken from https://golang.org/pkg/time/#pkg-constants
 	testhelper.MustRunCommand(t, nil, "touch", "-t", testTimeString, filepath.Join(packPath, "*"))
 	testTime := time.Date(2006, 0o1, 0o2, 15, 0o4, 0o5, 0, time.UTC)
-	ctx := testhelper.Context(t)
 	c, err := client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: repo})
 	assert.NoError(t, err)
 	assert.NotNil(t, c)
@@ -47,7 +48,7 @@ func TestRepackIncrementalCollectLogStatistics(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	logger, hook := test.NewNullLogger()
-	_, repo, _, client := setupRepositoryService(t, testserver.WithLogger(logger))
+	_, repo, _, client := setupRepositoryService(ctx, t, testserver.WithLogger(logger))
 
 	_, err := client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: repo})
 	assert.NoError(t, err)
@@ -58,7 +59,8 @@ func TestRepackIncrementalCollectLogStatistics(t *testing.T) {
 func TestRepackLocal(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, repoPath, client := setupRepositoryService(t)
+	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
 
 	altObjectsDir := "./alt-objects"
 	alternateCommit := gittest.WriteCommit(t, cfg, repoPath,
@@ -71,7 +73,6 @@ func TestRepackLocal(t *testing.T) {
 		gittest.WithMessage("main commit"),
 		gittest.WithBranch("main-odb"),
 	)
-	ctx := testhelper.Context(t)
 
 	// Set GIT_ALTERNATE_OBJECT_DIRECTORIES on the outgoing request. The
 	// intended use case of the behavior we're testing here is that
@@ -175,7 +176,7 @@ func TestRepackFullCollectLogStatistics(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	logger, hook := test.NewNullLogger()
-	_, repo, _, client := setupRepositoryService(t, testserver.WithLogger(logger))
+	_, repo, _, client := setupRepositoryService(ctx, t, testserver.WithLogger(logger))
 
 	_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: repo})
 	require.NoError(t, err)
@@ -236,8 +237,9 @@ func TestRepackFullFailure(t *testing.T) {
 
 func TestRepackFullDeltaIslands(t *testing.T) {
 	t.Parallel()
-	cfg, repo, repoPath, client := setupRepositoryService(t)
+
 	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
 
 	gittest.TestDeltaIslands(t, cfg, repoPath, func() error {
 		_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: repo})

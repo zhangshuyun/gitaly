@@ -164,10 +164,10 @@ func runRepositoryService(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Serv
 	return client, serverSocketPath
 }
 
-func setupRepositoryService(t testing.TB, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
+func setupRepositoryService(ctx context.Context, t testing.TB, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
 	cfg, client := setupRepositoryServiceWithoutRepo(t, opts...)
 
-	repo, repoPath := gittest.CreateRepository(context.TODO(), t, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 	return cfg, repo, repoPath, client
@@ -185,8 +185,8 @@ func setupRepositoryServiceWithoutRepo(t testing.TB, opts ...testserver.GitalySe
 	return cfg, client
 }
 
-func setupRepositoryServiceWithWorktree(t testing.TB, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
-	cfg, repo, repoPath, client := setupRepositoryService(t, opts...)
+func setupRepositoryServiceWithWorktree(ctx context.Context, t testing.TB, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
+	cfg, repo, repoPath, client := setupRepositoryService(ctx, t, opts...)
 
 	gittest.AddWorktree(t, cfg, repoPath, "worktree")
 	repoPath = filepath.Join(repoPath, "worktree")

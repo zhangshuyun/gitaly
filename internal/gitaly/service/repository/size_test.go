@@ -19,10 +19,11 @@ const testRepoMinSizeKB = 10000
 
 func TestSuccessfulRepositorySizeRequest(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupRepositoryService(t)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupRepositoryService(ctx, t)
 
 	request := &gitalypb.RepositorySizeRequest{Repository: repo}
-	ctx := testhelper.Context(t)
 	response, err := client.RepositorySize(ctx, request)
 	require.NoError(t, err)
 
@@ -60,9 +61,10 @@ func TestFailedRepositorySizeRequest(t *testing.T) {
 
 func TestSuccessfulGetObjectDirectorySizeRequest(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupRepositoryService(t)
-	repo.GitObjectDirectory = "objects/"
+
 	ctx := testhelper.Context(t)
+	_, repo, _, client := setupRepositoryService(ctx, t)
+	repo.GitObjectDirectory = "objects/"
 
 	request := &gitalypb.GetObjectDirectorySizeRequest{Repository: repo}
 	response, err := client.GetObjectDirectorySize(ctx, request)

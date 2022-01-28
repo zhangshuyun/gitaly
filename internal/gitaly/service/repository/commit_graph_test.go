@@ -20,7 +20,9 @@ import (
 
 func TestWriteCommitGraph_withExistingCommitGraphCreatedWithDefaults(t *testing.T) {
 	t.Parallel()
-	cfg, repo, repoPath, client := setupRepositoryService(t)
+
+	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
 
 	commitGraphPath := filepath.Join(repoPath, stats.CommitGraphRelPath)
 	require.NoError(t, os.RemoveAll(commitGraphPath))
@@ -40,7 +42,6 @@ func TestWriteCommitGraph_withExistingCommitGraphCreatedWithDefaults(t *testing.
 		gittest.WithBranch(t.Name()),
 		gittest.WithTreeEntries(treeEntry),
 	)
-	ctx := testhelper.Context(t)
 
 	res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
 		Repository:    repo,
@@ -56,7 +57,9 @@ func TestWriteCommitGraph_withExistingCommitGraphCreatedWithDefaults(t *testing.
 
 func TestWriteCommitGraph_withExistingCommitGraphCreatedWithSplit(t *testing.T) {
 	t.Parallel()
-	cfg, repo, repoPath, client := setupRepositoryService(t)
+
+	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
 
 	commitGraphPath := filepath.Join(repoPath, stats.CommitGraphRelPath)
 	require.NoError(t, os.RemoveAll(commitGraphPath))
@@ -76,7 +79,6 @@ func TestWriteCommitGraph_withExistingCommitGraphCreatedWithSplit(t *testing.T) 
 		gittest.WithBranch(t.Name()),
 		gittest.WithTreeEntries(treeEntry),
 	)
-	ctx := testhelper.Context(t)
 
 	res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
 		Repository:    repo,
@@ -92,8 +94,9 @@ func TestWriteCommitGraph_withExistingCommitGraphCreatedWithSplit(t *testing.T) 
 
 func TestWriteCommitGraph(t *testing.T) {
 	t.Parallel()
-	_, repo, repoPath, client := setupRepositoryService(t)
+
 	ctx := testhelper.Context(t)
+	_, repo, repoPath, client := setupRepositoryService(ctx, t)
 
 	chainPath := filepath.Join(repoPath, stats.CommitGraphChainRelPath)
 
@@ -111,8 +114,9 @@ func TestWriteCommitGraph(t *testing.T) {
 
 func TestWriteCommitGraph_validationChecks(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupRepositoryService(t, testserver.WithDisablePraefect())
+
 	ctx := testhelper.Context(t)
+	_, repo, _, client := setupRepositoryService(ctx, t, testserver.WithDisablePraefect())
 
 	for _, tc := range []struct {
 		desc   string
@@ -147,8 +151,9 @@ func TestWriteCommitGraph_validationChecks(t *testing.T) {
 
 func TestUpdateCommitGraph(t *testing.T) {
 	t.Parallel()
-	cfg, repo, repoPath, client := setupRepositoryService(t)
+
 	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
 
 	chainPath := filepath.Join(repoPath, stats.CommitGraphChainRelPath)
 	require.NoFileExists(t, chainPath)

@@ -32,7 +32,8 @@ const (
 
 func TestGetArchiveSuccess(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupRepositoryService(t)
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupRepositoryService(ctx, t)
 
 	formats := []gitalypb.GetArchiveRequest_Format{
 		gitalypb.GetArchiveRequest_ZIP,
@@ -131,8 +132,6 @@ func TestGetArchiveSuccess(t *testing.T) {
 		for _, format := range formats {
 			testCaseName := fmt.Sprintf("%s-%s", tc.desc, format.String())
 			t.Run(testCaseName, func(t *testing.T) {
-				ctx := testhelper.Context(t)
-
 				req := &gitalypb.GetArchiveRequest{
 					Repository: repo,
 					CommitId:   tc.commitID,
@@ -282,7 +281,8 @@ func TestGetArchiveWithLfsSuccess(t *testing.T) {
 
 func TestGetArchiveFailure(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupRepositoryService(t)
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupRepositoryService(ctx, t)
 
 	commitID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
 
@@ -387,8 +387,6 @@ func TestGetArchiveFailure(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			req := &gitalypb.GetArchiveRequest{
 				Repository: tc.repo,
 				CommitId:   tc.commitID,
@@ -409,8 +407,8 @@ func TestGetArchiveFailure(t *testing.T) {
 
 func TestGetArchivePathInjection(t *testing.T) {
 	t.Parallel()
-	cfg, repo, repoPath, client := setupRepositoryServiceWithWorktree(t)
 	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupRepositoryServiceWithWorktree(ctx, t)
 
 	// Adding a temp directory representing the .ssh directory
 	sshDirectory := testhelper.TempDir(t)

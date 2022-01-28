@@ -20,7 +20,7 @@ func TestRenameRepository_success(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	// Praefect does not move repositories on the disk so this test case is not run with Praefect.
-	cfg, repo, _, client := setupRepositoryService(t, testserver.WithDisablePraefect())
+	cfg, repo, _, client := setupRepositoryService(ctx, t, testserver.WithDisablePraefect())
 
 	const targetPath = "a-new-location"
 	_, err := client.RenameRepository(ctx, &gitalypb.RenameRepositoryRequest{
@@ -73,7 +73,7 @@ func TestRenameRepository_invalidRequest(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setupRepositoryService(t)
+	_, repo, _, client := setupRepositoryService(ctx, t)
 
 	testCases := []struct {
 		desc string

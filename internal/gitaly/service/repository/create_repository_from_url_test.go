@@ -23,7 +23,7 @@ func TestCreateRepotitoryFromURL_successful(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, _, repoPath, client := setupRepositoryService(t)
+	cfg, _, repoPath, client := setupRepositoryService(ctx, t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
 	importedRepo := &gitalypb.Repository{

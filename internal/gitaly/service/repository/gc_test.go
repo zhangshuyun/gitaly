@@ -28,8 +28,9 @@ var (
 
 func TestGarbageCollectCommitGraph(t *testing.T) {
 	t.Parallel()
-	_, repo, repoPath, client := setupRepositoryService(t)
+
 	ctx := testhelper.Context(t)
+	_, repo, repoPath, client := setupRepositoryService(ctx, t)
 
 	c, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo})
 	assert.NoError(t, err)
@@ -41,7 +42,9 @@ func TestGarbageCollectCommitGraph(t *testing.T) {
 
 func TestGarbageCollectSuccess(t *testing.T) {
 	t.Parallel()
-	cfg, repo, _, client := setupRepositoryService(t)
+
+	ctx := testhelper.Context(t)
+	cfg, repo, _, client := setupRepositoryService(ctx, t)
 
 	tests := []struct {
 		req  *gitalypb.GarbageCollectRequest
@@ -65,7 +68,6 @@ func TestGarbageCollectSuccess(t *testing.T) {
 			// precision on `mtime`.
 			// Stamp taken from https://golang.org/pkg/time/#pkg-constants
 			testhelper.MustRunCommand(t, nil, "touch", "-t", testTimeString, packPath)
-			ctx := testhelper.Context(t)
 			c, err := client.GarbageCollect(ctx, test.req)
 			assert.NoError(t, err)
 			assert.NotNil(t, c)
@@ -94,7 +96,7 @@ func TestGarbageCollectWithPrune(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, client := setupRepositoryService(t)
+	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
 
 	blobHashes := gittest.WriteBlobs(t, cfg, repoPath, 3)
 	oldDanglingObjFile := filepath.Join(repoPath, "objects", blobHashes[0][:2], blobHashes[0][2:])
@@ -136,7 +138,7 @@ func TestGarbageCollectLogStatistics(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	logger, hook := test.NewNullLogger()
-	_, repo, _, client := setupRepositoryService(t, testserver.WithLogger(logger))
+	_, repo, _, client := setupRepositoryService(ctx, t, testserver.WithLogger(logger))
 
 	_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo})
 	require.NoError(t, err)
@@ -146,8 +148,9 @@ func TestGarbageCollectLogStatistics(t *testing.T) {
 
 func TestGarbageCollectDeletesRefsLocks(t *testing.T) {
 	t.Parallel()
-	_, repo, repoPath, client := setupRepositoryService(t)
+
 	ctx := testhelper.Context(t)
+	_, repo, repoPath, client := setupRepositoryService(ctx, t)
 
 	req := &gitalypb.GarbageCollectRequest{Repository: repo}
 	refsPath := filepath.Join(repoPath, "refs")
@@ -252,8 +255,9 @@ func TestGarbageCollectDeletesPackedRefsLock(t *testing.T) {
 
 func TestGarbageCollectDeletesFileLocks(t *testing.T) {
 	t.Parallel()
-	_, repo, repoPath, client := setupRepositoryService(t)
+
 	ctx := testhelper.Context(t)
+	_, repo, repoPath, client := setupRepositoryService(ctx, t)
 
 	req := &gitalypb.GarbageCollectRequest{Repository: repo}
 
@@ -339,7 +343,9 @@ func TestGarbageCollectDeletesPackedRefsNew(t *testing.T) {
 
 func TestGarbageCollectFailure(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupRepositoryService(t)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupRepositoryService(ctx, t)
 
 	tests := []struct {
 		repo *gitalypb.Repository
@@ -353,7 +359,6 @@ func TestGarbageCollectFailure(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("%v", test.repo), func(t *testing.T) {
-			ctx := testhelper.Context(t)
 			_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: test.repo})
 			testhelper.RequireGrpcCode(t, err, test.code)
 		})
@@ -362,7 +367,9 @@ func TestGarbageCollectFailure(t *testing.T) {
 
 func TestCleanupInvalidKeepAroundRefs(t *testing.T) {
 	t.Parallel()
-	cfg, repo, repoPath, client := setupRepositoryService(t)
+
+	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
 
 	// Make the directory, so we can create random reflike things in it
 	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "refs", "keep-around"), 0o755))
@@ -407,8 +414,6 @@ func TestCleanupInvalidKeepAroundRefs(t *testing.T) {
 
 	for _, testcase := range testCases {
 		t.Run(testcase.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			// Create a proper keep-around loose ref
 			existingSha := "1e292f8fedd741b75372e19097c76d327140c312"
 			existingRefName := fmt.Sprintf("refs/keep-around/%s", existingSha)
@@ -456,8 +461,9 @@ func mustCreateFileWithTimes(t testing.TB, path string, mTime time.Time) {
 
 func TestGarbageCollectDeltaIslands(t *testing.T) {
 	t.Parallel()
-	cfg, repo, repoPath, client := setupRepositoryService(t)
+
 	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
 
 	gittest.TestDeltaIslands(t, cfg, repoPath, func() error {
 		_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo})

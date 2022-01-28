@@ -33,8 +33,8 @@ import (
 func TestFetchRemoteSuccess(t *testing.T) {
 	t.Parallel()
 
-	cfg, _, repoPath, client := setupRepositoryService(t)
 	ctx := testhelper.Context(t)
+	cfg, _, repoPath, client := setupRepositoryService(ctx, t)
 
 	cloneRepo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
@@ -132,12 +132,13 @@ func TestFetchRemote_sshCommand(t *testing.T) {
 
 func TestFetchRemote_withDefaultRefmaps(t *testing.T) {
 	t.Parallel()
-	cfg, sourceRepoProto, sourceRepoPath, client := setupRepositoryService(t)
+
+	ctx := testhelper.Context(t)
+	cfg, sourceRepoProto, sourceRepoPath, client := setupRepositoryService(ctx, t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
 	sourceRepo := localrepo.NewTestRepo(t, cfg, sourceRepoProto)
 
-	ctx := testhelper.Context(t)
 	targetRepoProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
@@ -221,9 +222,10 @@ func TestFetchRemote_transaction(t *testing.T) {
 
 func TestFetchRemote_prune(t *testing.T) {
 	t.Parallel()
-	cfg, _, sourceRepoPath, client := setupRepositoryService(t)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+
 	ctx := testhelper.Context(t)
+	cfg, _, sourceRepoPath, client := setupRepositoryService(ctx, t)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
 	port, stopGitServer := gittest.HTTPServer(ctx, t, gitCmdFactory, sourceRepoPath, nil)
 	defer func() { require.NoError(t, stopGitServer()) }()
@@ -297,7 +299,7 @@ func TestFetchRemote_force(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, sourceRepoProto, sourceRepoPath, client := setupRepositoryService(t)
+	cfg, sourceRepoProto, sourceRepoPath, client := setupRepositoryService(ctx, t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
 	sourceRepo := localrepo.NewTestRepo(t, cfg, sourceRepoProto)
@@ -440,12 +442,13 @@ func TestFetchRemote_force(t *testing.T) {
 
 func TestFetchRemoteFailure(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupRepositoryService(t)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupRepositoryService(ctx, t)
 
 	const remoteName = "test-repo"
 	httpSrv, _ := remoteHTTPServer(t, remoteName, httpToken)
 	defer httpSrv.Close()
-	ctx := testhelper.Context(t)
 
 	tests := []struct {
 		desc   string
@@ -577,8 +580,9 @@ func getRefnames(t *testing.T, cfg config.Cfg, repoPath string) []string {
 
 func TestFetchRemoteOverHTTP(t *testing.T) {
 	t.Parallel()
-	cfg, _, _, client := setupRepositoryService(t)
+
 	ctx := testhelper.Context(t)
+	cfg, _, _, client := setupRepositoryService(ctx, t)
 
 	testCases := []struct {
 		description string
@@ -633,8 +637,9 @@ func TestFetchRemoteOverHTTP(t *testing.T) {
 
 func TestFetchRemoteWithPath(t *testing.T) {
 	t.Parallel()
-	cfg, _, sourceRepoPath, client := setupRepositoryService(t)
+
 	ctx := testhelper.Context(t)
+	cfg, _, sourceRepoPath, client := setupRepositoryService(ctx, t)
 
 	mirrorRepo, mirrorRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
@@ -653,7 +658,9 @@ func TestFetchRemoteWithPath(t *testing.T) {
 
 func TestFetchRemoteOverHTTPWithRedirect(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupRepositoryService(t)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupRepositoryService(ctx, t)
 
 	s := httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -662,7 +669,6 @@ func TestFetchRemoteOverHTTPWithRedirect(t *testing.T) {
 		}),
 	)
 	defer s.Close()
-	ctx := testhelper.Context(t)
 
 	req := &gitalypb.FetchRemoteRequest{
 		Repository:   repo,
@@ -677,8 +683,9 @@ func TestFetchRemoteOverHTTPWithRedirect(t *testing.T) {
 
 func TestFetchRemoteOverHTTPWithTimeout(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupRepositoryService(t)
+
 	ctx, cancel := context.WithCancel(testhelper.Context(t))
+	_, repo, _, client := setupRepositoryService(ctx, t)
 
 	s := httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
