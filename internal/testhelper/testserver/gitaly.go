@@ -1,11 +1,9 @@
 package testserver
 
 import (
-	"context"
 	"net"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -131,8 +129,7 @@ func waitHealthy(t testing.TB, addr string, authToken string) {
 		grpcOpts = append(grpcOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(authToken)))
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
+	ctx := testhelper.Context(t)
 
 	conn, err := client.DialContext(ctx, addr, grpcOpts)
 	require.NoError(t, err)
