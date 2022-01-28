@@ -1,6 +1,7 @@
 package housekeeping
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/safe"
 	"google.golang.org/grpc/codes"
 )
 
@@ -107,14 +109,119 @@ func Perform(ctx context.Context, repo *localrepo.Repo, txManager transaction.Ma
 
 	// TODO: https://gitlab.com/gitlab-org/gitaly/-/issues/3987
 	// This is a temporary code and needs to be removed once it will be run on all repositories at least once.
-	unnecessaryConfigRegex := "^(http\\..+\\.extraheader|remote\\..+\\.(fetch|mirror|prunes|url)|core\\.(commitgraph|sparsecheckout|splitindex))$"
+	unnecessaryConfigRegex := "^(http\\..+\\.extraheader|remote\\..+\\.(fetch|mirror|prune|url)|core\\.(commitgraph|sparsecheckout|splitindex))$"
 	if err := repo.UnsetMatchingConfig(ctx, unnecessaryConfigRegex, txManager); err != nil {
 		if !errors.Is(err, git.ErrNotFound) {
 			return fmt.Errorf("housekeeping could not unset unnecessary config lines: %w", err)
 		}
 	}
 
+	if err := pruneEmptyConfigSections(ctx, repo); err != nil {
+		return fmt.Errorf("failed pruning empty sections: %w", err)
+	}
+
 	return nil
+}
+
+// pruneEmptyConfigSections prunes all empty sections from the repo's config.
+func pruneEmptyConfigSections(ctx context.Context, repo *localrepo.Repo) (returnedErr error) {
+	repoPath, err := repo.Path()
+	if err != nil {
+		return fmt.Errorf("getting repo path: %w", err)
+	}
+	configPath := filepath.Join(repoPath, "config")
+
+	// The gitconfig shouldn't ever be big given that we nowadays don't write any unbounded
+	// values into it anymore. Slurping it into memory should thus be fine.
+	configContents, err := os.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("reading config: %w", err)
+	}
+	configLines := strings.SplitAfter(string(configContents), "\n")
+	if configLines[len(configLines)-1] == "" {
+		// Strip the last line if it's empty.
+		configLines = configLines[:len(configLines)-1]
+	}
+
+	// We now filter out any empty sections. A section is empty if the next line is a section
+	// header as well, or if it is the last line in the gitconfig. This isn't quite the whole
+	// story given that a section can also be empty if it just ain't got any keys, but only
+	// comments or whitespace. But we only ever write the gitconfig programmatically, so we
+	// shouldn't typically see any such cases at all.
+	filteredLines := make([]string, 0, len(configLines))
+	for i := 0; i < len(configLines)-1; i++ {
+		// Skip if we have two consecutive section headers.
+		if isSectionHeader(configLines[i]) && isSectionHeader(configLines[i+1]) {
+			continue
+		}
+		filteredLines = append(filteredLines, configLines[i])
+	}
+	// The final line is always stripped in case it is a section header.
+	if len(configLines) > 0 && !isSectionHeader(configLines[len(configLines)-1]) {
+		filteredLines = append(filteredLines, configLines[len(configLines)-1])
+	}
+
+	// If we haven't filtered out anything then there is no need to update the target file.
+	if len(configLines) == len(filteredLines) {
+		return
+	}
+
+	// Otherwise, we need to update the repository's configuration.
+	configWriter, err := safe.NewLockingFileWriter(configPath)
+	if err != nil {
+		return fmt.Errorf("creating config configWriter: %w", err)
+	}
+	defer func() {
+		if err := configWriter.Close(); err != nil && returnedErr == nil {
+			returnedErr = fmt.Errorf("closing config writer: %w", err)
+		}
+	}()
+
+	for _, filteredLine := range filteredLines {
+		if _, err := configWriter.Write([]byte(filteredLine)); err != nil {
+			return fmt.Errorf("writing filtered config: %w", err)
+		}
+	}
+
+	// This is a sanity check to assert that we really didn't change anything as seen by
+	// Git. We run `git config -l` on both old and new file and assert that they report
+	// the same config entries. Because empty sections are never reported we shouldn't
+	// see those, and as a result any difference in output is a difference we need to
+	// worry about.
+	var configOutputs []string
+	for _, path := range []string{configPath, configWriter.Path()} {
+		var configOutput bytes.Buffer
+		if err := repo.ExecAndWait(ctx, git.SubCmd{
+			Name: "config",
+			Flags: []git.Option{
+				git.ValueFlag{Name: "-f", Value: path},
+				git.Flag{Name: "-l"},
+			},
+		}, git.WithStdout(&configOutput)); err != nil {
+			return fmt.Errorf("listing config: %w", err)
+		}
+
+		configOutputs = append(configOutputs, configOutput.String())
+	}
+	if configOutputs[0] != configOutputs[1] {
+		return fmt.Errorf("section pruning has caused config change")
+	}
+
+	// We don't use transactional voting but commit the file directly -- we have asserted that
+	// the change is idempotent anyway.
+	if err := configWriter.Lock(); err != nil {
+		return fmt.Errorf("failed locking config: %w", err)
+	}
+	if err := configWriter.Commit(); err != nil {
+		return fmt.Errorf("failed committing pruned config: %w", err)
+	}
+
+	return nil
+}
+
+func isSectionHeader(line string) bool {
+	line = strings.TrimSpace(line)
+	return strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]")
 }
 
 // findStaleFiles determines whether any of the given files rooted at repoPath

@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
 	"time"
 
@@ -657,42 +656,48 @@ func TestPerform_UnsetConfiguration(t *testing.T) {
 	cfg := testcfg.Build(t)
 	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	configPath := filepath.Join(repoPath, "config")
+
 	ctx := testhelper.Context(t)
 
-	var expectedEntries []string
-	for key, value := range map[string]string{
-		"core.commitgraph":        "true",
-		"core.sparsecheckout":     "true",
-		"core.splitindex":         "false",
-		"remote.first.fetch":      "baz",
-		"remote.first.mirror":     "baz",
-		"remote.first.prune":      "baz",
-		"remote.first.url":        "baz",
-		"http.first.extraHeader":  "barfoo",
-		"http.second.extraHeader": "barfoo",
-		"http.extraHeader":        "untouched",
-		"http.something.else":     "untouched",
-		"totally.unrelated":       "untouched",
-	} {
-		gittest.Exec(t, cfg, "-C", repoPath, "config", key, value)
-		expectedEntries = append(expectedEntries, strings.ToLower(key)+"="+value)
-	}
-
-	preimageConfig := gittest.Exec(t, cfg, "-C", repoPath, "config", "--local", "--list")
-	require.Subset(t, strings.Split(string(preimageConfig), "\n"), expectedEntries)
+	require.NoError(t, os.WriteFile(configPath, []byte(
+		`[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = true
+	commitGraph = true
+	sparseCheckout = true
+	splitIndex = false
+[remote "first"]
+	fetch = baz
+	mirror = baz
+	prune = baz
+	url = baz
+[http "first"]
+	extraHeader = barfoo
+[http "second"]
+	extraHeader = barfoo
+[http]
+	extraHeader = untouched
+[http "something"]
+	else = untouched
+[totally]
+	unrelated = untouched
+`), 0o644))
 
 	require.NoError(t, Perform(ctx, repo, nil))
-
-	postimageConfig := gittest.Exec(t, cfg, "-C", repoPath, "config", "--local", "--list")
-	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "core.commitgraph")
-	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "core.sparsecheckout")
-	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "core.splitindex")
-	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "remote.first.fetch")
-	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "remote.first.mirror")
-	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "remote.first.prune")
-	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "remote.first.url")
-	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "http.first.extraheader")
-	require.NotContains(t, strings.Split(string(postimageConfig), "\n"), "http.second.extraheader")
+	require.Equal(t,
+		`[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = true
+[http]
+	extraHeader = untouched
+[http "something"]
+	else = untouched
+[totally]
+	unrelated = untouched
+`, string(testhelper.MustReadFile(t, configPath)))
 }
 
 func TestPerform_UnsetConfiguration_transactional(t *testing.T) {
@@ -724,4 +729,173 @@ func TestPerform_UnsetConfiguration_transactional(t *testing.T) {
 		expectedConfig = expectedConfig + "core.ignorecase\ncore.precomposeunicode\n"
 	}
 	require.Equal(t, expectedConfig, string(configKeys))
+}
+
+func TestPerform_cleanupConfig(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	cfg := testcfg.Build(t)
+	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	configPath := filepath.Join(repoPath, "config")
+
+	require.NoError(t, os.WriteFile(configPath, []byte(
+		`[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = true
+[uploadpack]
+	allowAnySHA1InWant = true
+[remote "tmp-8be1695862b62390d1f873f9164122e4"]
+[remote "tmp-d97f78c39fde4b55e0d0771dfc0501ef"]
+[remote "tmp-23a2471e7084e1548ef47bbc9d6afff6"]
+[remote "tmp-d76633a16d61f6681de396ec9ecfd7b5"]
+	prune = true
+[remote "tmp-8fbf8d5e7585d48668f1791284a912ef"]
+[remote "tmp-f539c59068f291e52f1140e39830f9ca"]
+[remote "tmp-17b67d28909768db3213917255c72af2"]
+	prune = true
+[remote "tmp-03b5e8c765135b343214d471843a062a"]
+[remote "tmp-f57338181aca1d599669dbb71ce9ce57"]
+[remote "tmp-8c948ca94832c2725733e48cb2902287"]
+`), 0o644))
+
+	require.NoError(t, Perform(ctx, repo, nil))
+	require.Equal(t, `[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = true
+[uploadpack]
+	allowAnySHA1InWant = true
+`, string(testhelper.MustReadFile(t, configPath)))
+}
+
+func TestPruneEmptyConfigSections(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	cfg := testcfg.Build(t)
+	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	configPath := filepath.Join(repoPath, "config")
+
+	for _, tc := range []struct {
+		desc         string
+		configData   string
+		expectedData string
+	}{
+		{
+			desc:         "empty",
+			configData:   "",
+			expectedData: "",
+		},
+		{
+			desc:         "newline only",
+			configData:   "\n",
+			expectedData: "\n",
+		},
+		{
+			desc:         "no stripping",
+			configData:   "[foo]\nbar = baz\n",
+			expectedData: "[foo]\nbar = baz\n",
+		},
+		{
+			desc:         "no stripping with missing newline",
+			configData:   "[foo]\nbar = baz",
+			expectedData: "[foo]\nbar = baz",
+		},
+		{
+			desc:         "multiple sections",
+			configData:   "[foo]\nbar = baz\n[bar]\nfoo = baz\n",
+			expectedData: "[foo]\nbar = baz\n[bar]\nfoo = baz\n",
+		},
+		{
+			desc:         "missing newline",
+			configData:   "[foo]\nbar = baz",
+			expectedData: "[foo]\nbar = baz",
+		},
+		{
+			desc:         "single comment",
+			configData:   "# foobar\n",
+			expectedData: "# foobar\n",
+		},
+		{
+			// This is not correct, but we really don't want to start parsing
+			// the config format completely. So we err on the side of caution
+			// and just say this is fine.
+			desc:         "empty section with comment",
+			configData:   "[foo]\n# comment\n[bar]\n[baz]\n",
+			expectedData: "[foo]\n# comment\n",
+		},
+		{
+			desc:         "empty section",
+			configData:   "[foo]\n",
+			expectedData: "",
+		},
+		{
+			desc:         "empty sections",
+			configData:   "[foo]\n[bar]\n[baz]\n",
+			expectedData: "",
+		},
+		{
+			desc:         "empty sections with missing newline",
+			configData:   "[foo]\n[bar]\n[baz]",
+			expectedData: "",
+		},
+		{
+			desc:         "trailing empty section",
+			configData:   "[foo]\nbar = baz\n[foo]\n",
+			expectedData: "[foo]\nbar = baz\n",
+		},
+		{
+			desc:         "mixed keys and sections",
+			configData:   "[empty]\n[nonempty]\nbar = baz\nbar = baz\n[empty]\n",
+			expectedData: "[nonempty]\nbar = baz\nbar = baz\n",
+		},
+		{
+			desc: "real world example",
+			configData: `[core]
+        repositoryformatversion = 0
+        filemode = true
+        bare = true
+[uploadpack]
+        allowAnySHA1InWant = true
+[remote "tmp-8be1695862b62390d1f873f9164122e4"]
+[remote "tmp-d97f78c39fde4b55e0d0771dfc0501ef"]
+[remote "tmp-23a2471e7084e1548ef47bbc9d6afff6"]
+[remote "tmp-6ef9759bb14db34ca67de4681f0a812a"]
+[remote "tmp-992cb6a0ea428a511cc2de3cde051227"]
+[remote "tmp-a720c2b6794fdbad50f36f0a4e9501ff"]
+[remote "tmp-4b4f6d68031aa1288613f40b1a433278"]
+[remote "tmp-fc12da796c907e8ea5faed134806acfb"]
+[remote "tmp-49e1fbb6eccdb89059a7231eef785d03"]
+[remote "tmp-e504bbbed5d828cd96b228abdef4b055"]
+[remote "tmp-36e856371fdacb7b4909240ba6bc0b34"]
+[remote "tmp-9a1bc23bb2200b9426340a5ba934f5ba"]
+[remote "tmp-49ead30f732995498e0585b569917c31"]
+[remote "tmp-8419f1e1445ccd6e1c60aa421573447c"]
+[remote "tmp-f7a91ec9415f984d3747cf608b0a7e9c"]
+        prune = true
+[remote "tmp-ea77d1e5348d07d693aa2bf8a2c98637"]
+[remote "tmp-3f190ab463b804612cb007487e0cbb4d"]`,
+			expectedData: `[core]
+        repositoryformatversion = 0
+        filemode = true
+        bare = true
+[uploadpack]
+        allowAnySHA1InWant = true
+[remote "tmp-f7a91ec9415f984d3747cf608b0a7e9c"]
+        prune = true
+`,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			require.NoError(t, os.WriteFile(configPath, []byte(tc.configData), 0o644))
+			require.NoError(t, pruneEmptyConfigSections(ctx, repo))
+			require.Equal(t, tc.expectedData, string(testhelper.MustReadFile(t, configPath)))
+		})
+	}
 }
