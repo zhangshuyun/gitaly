@@ -83,6 +83,107 @@ func TestSuccessfulUserRebaseConfirmableRequest(t *testing.T) {
 	}
 }
 
+func TestUserRebaseConfirmable_skipEmptyCommits(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+
+	// This is the base commit from which both "theirs" and "ours" branch from".
+	baseCommit := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "README", Content: "a\nb\nc\nd\ne\nf\n"},
+		),
+	)
+
+	// "theirs" changes the first line of the file to contain a "1".
+	theirs := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(baseCommit),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "README", Content: "1\nb\nc\nd\ne\nf\n"},
+		),
+		gittest.WithMessage("theirs"),
+		gittest.WithBranch("theirs"),
+	)
+
+	// We create two commits on "ours": the first one does the same changes as "theirs", but
+	// with a different commit ID. It is expected to become empty. And the second commit is an
+	// independent change which modifies the last line.
+	oursBecomingEmpty := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(baseCommit),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "README", Content: "1\nb\nc\nd\ne\nf\n"},
+		),
+		gittest.WithMessage("ours but same change as theirs"),
+	)
+	ours := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(oursBecomingEmpty),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: "README", Content: "1\nb\nc\nd\ne\n6\n"},
+		),
+		gittest.WithMessage("ours with additional changes"),
+		gittest.WithBranch("ours"),
+	)
+
+	stream, err := client.UserRebaseConfirmable(ctx)
+	require.NoError(t, err)
+	require.NoError(t, stream.Send(&gitalypb.UserRebaseConfirmableRequest{
+		UserRebaseConfirmableRequestPayload: &gitalypb.UserRebaseConfirmableRequest_Header_{
+			Header: &gitalypb.UserRebaseConfirmableRequest_Header{
+				Repository: repoProto,
+				User:       gittest.TestUser,
+				RebaseId:   "something",
+				// Note: the way UserRebaseConfirmable handles BranchSha and
+				// RemoteBranch is really weird. What we're doing is to rebase
+				// BranchSha on top of RemoteBranch, even though documentation of
+				// the protobuf says that we're doing it the other way round. I
+				// don't dare changing this now though, so I simply abide and write
+				// the test with those weird semantics.
+				Branch:           []byte("ours"),
+				BranchSha:        ours.String(),
+				RemoteRepository: repoProto,
+				RemoteBranch:     []byte("theirs"),
+				Timestamp:        &timestamppb.Timestamp{Seconds: 123456},
+			},
+		},
+	}))
+
+	response, err := stream.Recv()
+	require.NoError(t, err)
+	require.NoError(t, stream.Send(buildApplyRequest(true)))
+
+	rebaseOID := git.ObjectID(response.GetRebaseSha())
+
+	response, err = stream.Recv()
+	require.NoError(t, err)
+	require.True(t, response.GetRebaseApplied())
+
+	rebaseCommit, err := localrepo.NewTestRepo(t, cfg, repoProto).ReadCommit(ctx, rebaseOID.Revision())
+	require.NoError(t, err)
+	testhelper.ProtoEqual(t, &gitalypb.GitCommit{
+		Subject:   []byte("ours with additional changes"),
+		Body:      []byte("ours with additional changes"),
+		BodySize:  28,
+		Id:        "ef7f98be1f753f1a9fa895d999a855611d691629",
+		ParentIds: []string{theirs.String()},
+		TreeId:    "b68aeb18813d7f2e180f2cc0bccc128511438b29",
+		Author: &gitalypb.CommitAuthor{
+			Name:     []byte("Scrooge McDuck"),
+			Email:    []byte("scrooge@mcduck.com"),
+			Date:     &timestamppb.Timestamp{Seconds: 1572776879},
+			Timezone: []byte("+0100"),
+		},
+		Committer: &gitalypb.CommitAuthor{
+			Name:     gittest.TestUser.Name,
+			Email:    gittest.TestUser.Email,
+			Date:     &timestamppb.Timestamp{Seconds: 123456},
+			Timezone: []byte("+0000"),
+		},
+	}, rebaseCommit)
+}
+
 func TestUserRebaseConfirmableTransaction(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)

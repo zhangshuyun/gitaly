@@ -62,8 +62,9 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 	newrev, err := s.git2goExecutor.Rebase(ctx, quarantineRepo, git2go.RebaseCommand{
 		Repository:       repoPath,
 		Committer:        committer,
-		BranchName:       string(header.Branch),
-		UpstreamRevision: startRevision.String(),
+		CommitID:         oldrev,
+		UpstreamCommitID: startRevision,
+		SkipEmptyCommits: true,
 	})
 	if err != nil {
 		return stream.Send(&gitalypb.UserRebaseConfirmableResponse{
@@ -126,10 +127,6 @@ func validateUserRebaseConfirmableHeader(header *gitalypb.UserRebaseConfirmableR
 
 	if header.GetUser() == nil {
 		return errors.New("empty User")
-	}
-
-	if header.GetRebaseId() == "" {
-		return errors.New("empty RebaseId")
 	}
 
 	if header.GetBranch() == nil {
