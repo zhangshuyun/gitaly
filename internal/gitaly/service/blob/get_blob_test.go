@@ -14,7 +14,9 @@ import (
 )
 
 func TestSuccessfulGetBlob(t *testing.T) {
-	_, repo, _, client := setup(t)
+	ctx := testhelper.Context(t)
+
+	_, repo, _, client := setup(ctx, t)
 
 	maintenanceMdBlobData := testhelper.MustReadFile(t, "testdata/maintenance-md-blob.txt")
 	testCases := []struct {
@@ -66,7 +68,6 @@ func TestSuccessfulGetBlob(t *testing.T) {
 				Oid:        tc.oid,
 				Limit:      int64(tc.limit),
 			}
-			ctx := testhelper.Context(t)
 
 			stream, err := client.GetBlob(ctx, request)
 			require.NoError(t, err, "initiate RPC")
@@ -83,13 +84,14 @@ func TestSuccessfulGetBlob(t *testing.T) {
 }
 
 func TestGetBlobNotFound(t *testing.T) {
-	_, repo, _, client := setup(t)
+	ctx := testhelper.Context(t)
+
+	_, repo, _, client := setup(ctx, t)
 
 	request := &gitalypb.GetBlobRequest{
 		Repository: repo,
 		Oid:        "doesnotexist",
 	}
-	ctx := testhelper.Context(t)
 
 	stream, err := client.GetBlob(ctx, request)
 	require.NoError(t, err)
@@ -130,7 +132,9 @@ func getBlob(stream gitalypb.BlobService_GetBlobClient) (int64, string, []byte, 
 }
 
 func TestFailedGetBlobRequestDueToValidationError(t *testing.T) {
-	_, repo, _, client := setup(t)
+	ctx := testhelper.Context(t)
+
+	_, repo, _, client := setup(ctx, t)
 
 	oid := "d42783470dc29fde2cf459eb3199ee1d7e3f3a72"
 
@@ -142,8 +146,6 @@ func TestFailedGetBlobRequestDueToValidationError(t *testing.T) {
 
 	for i, rpcRequest := range rpcRequests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			stream, err := client.GetBlob(ctx, rpcRequest)
 			require.NoError(t, err, rpcRequest)
 			_, err = stream.Recv()

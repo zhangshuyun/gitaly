@@ -20,7 +20,7 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-func setup(tb testing.TB) (config.Cfg, *gitalypb.Repository, string, gitalypb.BlobServiceClient) {
+func setup(ctx context.Context, tb testing.TB) (config.Cfg, *gitalypb.Repository, string, gitalypb.BlobServiceClient) {
 	cfg := testcfg.Build(tb)
 
 	addr := testserver.RunGitalyServer(tb, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
@@ -46,7 +46,7 @@ func setup(tb testing.TB) (config.Cfg, *gitalypb.Repository, string, gitalypb.Bl
 	require.NoError(tb, err)
 	tb.Cleanup(func() { conn.Close() })
 
-	repo, repoPath := gittest.CreateRepository(context.TODO(), tb, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(ctx, tb, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 

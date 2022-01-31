@@ -63,8 +63,8 @@ var lfsPointers = map[string]*gitalypb.LFSPointer{
 }
 
 func TestListLFSPointers(t *testing.T) {
-	_, repo, _, client := setup(t)
 	ctx := testhelper.Context(t)
+	_, repo, _, client := setup(ctx, t)
 
 	for _, tc := range []struct {
 		desc             string
@@ -192,7 +192,7 @@ oid sha256:1111111111111111111111111111111111111111111111111111111111111111
 size 12345`
 
 	t.Run("normal repository", func(t *testing.T) {
-		_, repo, _, client := setup(t)
+		_, repo, _, client := setup(ctx, t)
 		stream, err := client.ListAllLFSPointers(ctx, &gitalypb.ListAllLFSPointersRequest{
 			Repository: repo,
 		})
@@ -208,7 +208,7 @@ size 12345`
 	})
 
 	t.Run("dangling LFS pointer", func(t *testing.T) {
-		cfg, repo, repoPath, client := setup(t)
+		cfg, repo, repoPath, client := setup(ctx, t)
 
 		hash := gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: strings.NewReader(lfsPointerContents)},
 			"-C", repoPath, "hash-object", "-w", "--stdin",
@@ -235,7 +235,7 @@ size 12345`
 	})
 
 	t.Run("quarantine", func(t *testing.T) {
-		cfg, repoProto, repoPath, client := setup(t)
+		cfg, repoProto, repoPath, client := setup(ctx, t)
 
 		// We're emulating the case where git is receiving data via a push, where objects
 		// are stored in a separate quarantine environment. In this case, LFS pointer checks
@@ -285,8 +285,9 @@ size 12345`
 }
 
 func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
-	_, repo, _, client := setup(t)
 	ctx := testhelper.Context(t)
+
+	_, repo, _, client := setup(ctx, t)
 
 	lfsPointerIds := []string{
 		lfsPointer1,
@@ -328,8 +329,9 @@ func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
 }
 
 func TestFailedGetLFSPointersRequestDueToValidations(t *testing.T) {
-	_, repo, _, client := setup(t)
 	ctx := testhelper.Context(t)
+
+	_, repo, _, client := setup(ctx, t)
 
 	testCases := []struct {
 		desc    string
