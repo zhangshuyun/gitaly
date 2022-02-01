@@ -40,7 +40,7 @@ func TestSuccessfulCountDivergentCommitsRequest(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupCommitService(t)
+	cfg, client := setupCommitService(ctx, t)
 
 	testRepo := createRepoWithDivergentBranches(ctx, t, cfg, 3, 3, "left", "right")
 
@@ -114,7 +114,7 @@ func TestSuccessfulCountDivergentCommitsRequestWithMaxCount(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupCommitService(t)
+	cfg, client := setupCommitService(ctx, t)
 
 	testRepo := createRepoWithDivergentBranches(ctx, t, cfg, 4, 4, "left", "right")
 
@@ -157,7 +157,9 @@ func TestSuccessfulCountDivergentCommitsRequestWithMaxCount(t *testing.T) {
 
 func TestFailedCountDivergentCommitsRequestDueToValidationError(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	revision := []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72")
 
@@ -170,7 +172,6 @@ func TestFailedCountDivergentCommitsRequestDueToValidationError(t *testing.T) {
 
 	for _, rpcRequest := range rpcRequests {
 		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
-			ctx := testhelper.Context(t)
 			_, err := client.CountDivergingCommits(ctx, rpcRequest)
 			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 		})

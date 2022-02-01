@@ -14,7 +14,9 @@ import (
 
 func TestSuccessfulRawBlameRequest(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	testCases := []struct {
 		revision, path, data []byte
@@ -43,7 +45,6 @@ func TestSuccessfulRawBlameRequest(t *testing.T) {
 				Revision:   testCase.revision,
 				Path:       testCase.path,
 			}
-			ctx := testhelper.Context(t)
 			c, err := client.RawBlame(ctx, request)
 			require.NoError(t, err)
 
@@ -62,7 +63,9 @@ func TestSuccessfulRawBlameRequest(t *testing.T) {
 
 func TestFailedRawBlameRequest(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
 
@@ -109,7 +112,6 @@ func TestFailedRawBlameRequest(t *testing.T) {
 				Revision:   testCase.revision,
 				Path:       testCase.path,
 			}
-			ctx := testhelper.Context(t)
 			c, err := client.RawBlame(ctx, &request)
 			require.NoError(t, err)
 

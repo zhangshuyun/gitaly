@@ -17,7 +17,7 @@ func TestSuccessfulCountCommitsRequest(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo1, _, client := setupCommitServiceWithRepo(t, true)
+	cfg, repo1, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	repo2, repo2Path := gittest.CreateRepository(ctx, t, cfg)
 
@@ -146,6 +146,7 @@ func TestSuccessfulCountCommitsRequest(t *testing.T) {
 			if testCase.path != nil {
 				request.Path = testCase.path
 			}
+
 			response, err := client.CountCommits(ctx, request)
 			require.NoError(t, err)
 			require.Equal(t, response.Count, testCase.count)
@@ -155,7 +156,9 @@ func TestSuccessfulCountCommitsRequest(t *testing.T) {
 
 func TestFailedCountCommitsRequestDueToValidationError(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	revision := []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72")
 
@@ -168,7 +171,6 @@ func TestFailedCountCommitsRequestDueToValidationError(t *testing.T) {
 
 	for _, rpcRequest := range rpcRequests {
 		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
-			ctx := testhelper.Context(t)
 			_, err := client.CountCommits(ctx, rpcRequest)
 			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 		})

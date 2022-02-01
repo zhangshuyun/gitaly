@@ -26,8 +26,8 @@ func TestMain(m *testing.M) {
 }
 
 // setupCommitService makes a basic configuration and starts the service with the client.
-func setupCommitService(t testing.TB) (config.Cfg, gitalypb.CommitServiceClient) {
-	cfg, _, _, client := setupCommitServiceCreateRepo(t, func(tb testing.TB, cfg config.Cfg) (*gitalypb.Repository, string) {
+func setupCommitService(ctx context.Context, t testing.TB) (config.Cfg, gitalypb.CommitServiceClient) {
+	cfg, _, _, client := setupCommitServiceCreateRepo(ctx, t, func(ctx context.Context, tb testing.TB, cfg config.Cfg) (*gitalypb.Repository, string) {
 		return nil, ""
 	})
 	return cfg, client
@@ -35,10 +35,10 @@ func setupCommitService(t testing.TB) (config.Cfg, gitalypb.CommitServiceClient)
 
 // setupCommitServiceWithRepo makes a basic configuration, creates a test repository and starts the service with the client.
 func setupCommitServiceWithRepo(
-	t testing.TB, bare bool,
+	ctx context.Context, t testing.TB, bare bool,
 ) (config.Cfg, *gitalypb.Repository, string, gitalypb.CommitServiceClient) {
-	return setupCommitServiceCreateRepo(t, func(tb testing.TB, cfg config.Cfg) (*gitalypb.Repository, string) {
-		repo, repoPath := gittest.CreateRepository(context.TODO(), tb, cfg, gittest.CreateRepositoryConfig{
+	return setupCommitServiceCreateRepo(ctx, t, func(ctx context.Context, tb testing.TB, cfg config.Cfg) (*gitalypb.Repository, string) {
+		repo, repoPath := gittest.CreateRepository(ctx, tb, cfg, gittest.CreateRepositoryConfig{
 			Seed: gittest.SeedGitLabTest,
 		})
 
@@ -53,15 +53,16 @@ func setupCommitServiceWithRepo(
 }
 
 func setupCommitServiceCreateRepo(
+	ctx context.Context,
 	t testing.TB,
-	createRepo func(testing.TB, config.Cfg) (*gitalypb.Repository, string),
+	createRepo func(context.Context, testing.TB, config.Cfg) (*gitalypb.Repository, string),
 ) (config.Cfg, *gitalypb.Repository, string, gitalypb.CommitServiceClient) {
 	cfg := testcfg.Build(t)
 
 	cfg.SocketPath = startTestServices(t, cfg)
 	client := newCommitServiceClient(t, cfg.SocketPath)
 
-	repo, repoPath := createRepo(t, cfg)
+	repo, repoPath := createRepo(ctx, t, cfg)
 
 	return cfg, repo, repoPath, client
 }

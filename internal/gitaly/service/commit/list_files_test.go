@@ -37,7 +37,8 @@ var defaultFiles = [][]byte{
 }
 
 func TestListFiles_success(t *testing.T) {
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
+	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/test-do-not-touch")
 
@@ -101,7 +102,6 @@ func TestListFiles_success(t *testing.T) {
 			rpcRequest := gitalypb.ListFilesRequest{
 				Repository: repo, Revision: []byte(tc.revision),
 			}
-			ctx := testhelper.Context(t)
 
 			c, err := client.ListFiles(ctx, &rpcRequest)
 			require.NoError(t, err)
@@ -125,7 +125,7 @@ func TestListFiles_unbornBranch(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, _, _, client := setupCommitServiceWithRepo(t, true)
+	cfg, _, _, client := setupCommitServiceWithRepo(ctx, t, true)
 	repo, _ := gittest.CreateRepository(ctx, t, cfg)
 
 	tests := []struct {
@@ -197,7 +197,9 @@ func TestListFiles_unbornBranch(t *testing.T) {
 
 func TestListFiles_failure(t *testing.T) {
 	t.Parallel()
-	_, _, _, client := setupCommitServiceWithRepo(t, true)
+
+	ctx := testhelper.Context(t)
+	_, _, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	tests := []struct {
 		desc string
@@ -226,7 +228,6 @@ func TestListFiles_failure(t *testing.T) {
 			rpcRequest := gitalypb.ListFilesRequest{
 				Repository: tc.repo, Revision: []byte("master"),
 			}
-			ctx := testhelper.Context(t)
 
 			c, err := client.ListFiles(ctx, &rpcRequest)
 			require.NoError(t, err)
@@ -250,8 +251,9 @@ func drainListFilesResponse(c gitalypb.CommitService_ListFilesClient) error {
 
 func TestListFiles_invalidRevision(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
 	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	stream, err := client.ListFiles(ctx, &gitalypb.ListFilesRequest{
 		Repository: repo,

@@ -24,7 +24,9 @@ type commitInfo struct {
 
 func TestSuccessfulListLastCommitsForTreeRequest(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	testCases := []struct {
 		desc     string
@@ -181,7 +183,6 @@ func TestSuccessfulListLastCommitsForTreeRequest(t *testing.T) {
 				Limit:      testCase.limit,
 				Offset:     testCase.offset,
 			}
-			ctx := testhelper.Context(t)
 
 			stream, err := client.ListLastCommitsForTree(ctx, request)
 			require.NoError(t, err)
@@ -212,7 +213,9 @@ func TestSuccessfulListLastCommitsForTreeRequest(t *testing.T) {
 
 func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	invalidRepo := &gitalypb.Repository{StorageName: "broken", RelativePath: "path"}
 
@@ -307,8 +310,6 @@ func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			stream, err := client.ListLastCommitsForTree(ctx, testCase.request)
 			require.NoError(t, err)
 
@@ -320,8 +321,9 @@ func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 
 func TestNonUtf8ListLastCommitsForTreeRequest(t *testing.T) {
 	t.Parallel()
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
+
 	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	// This is an arbitrary blob known to exist in the test repository
 	const blobID = "c60514b6d3d6bf4bec1030f70026e34dfbd69ad5"
@@ -350,7 +352,9 @@ func TestNonUtf8ListLastCommitsForTreeRequest(t *testing.T) {
 
 func TestSuccessfulListLastCommitsForTreeRequestWithGlobCharacters(t *testing.T) {
 	t.Parallel()
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
+
+	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(ctx, t, false)
 
 	path := ":wq"
 	err := os.Mkdir(filepath.Join(repoPath, path), 0o755)
@@ -368,7 +372,6 @@ func TestSuccessfulListLastCommitsForTreeRequestWithGlobCharacters(t *testing.T)
 		Limit:         100,
 		Offset:        0,
 	}
-	ctx := testhelper.Context(t)
 	stream, err := client.ListLastCommitsForTree(ctx, request)
 	require.NoError(t, err)
 

@@ -15,8 +15,9 @@ import (
 
 func TestSuccessfulGetCommitMessagesRequest(t *testing.T) {
 	t.Parallel()
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
+
 	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	message1 := strings.Repeat("a\n", helper.MaxCommitOrTagMessageSize*2)
 	message2 := strings.Repeat("b\n", helper.MaxCommitOrTagMessageSize*2)
@@ -56,7 +57,9 @@ func TestSuccessfulGetCommitMessagesRequest(t *testing.T) {
 
 func TestFailedGetCommitMessagesRequest(t *testing.T) {
 	t.Parallel()
-	_, _, _, client := setupCommitServiceWithRepo(t, true)
+
+	ctx := testhelper.Context(t)
+	_, _, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	testCases := []struct {
 		desc    string
@@ -75,8 +78,6 @@ func TestFailedGetCommitMessagesRequest(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			c, err := client.GetCommitMessages(ctx, testCase.request)
 			require.NoError(t, err)
 

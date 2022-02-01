@@ -13,7 +13,8 @@ import (
 )
 
 func TestListCommits(t *testing.T) {
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	for _, tc := range []struct {
 		desc            string
@@ -257,8 +258,6 @@ func TestListCommits(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			stream, err := client.ListCommits(ctx, tc.request)
 			require.NoError(t, err)
 

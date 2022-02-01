@@ -20,7 +20,8 @@ func TestFindCommitsFields(t *testing.T) {
 	t.Parallel()
 	windows1251Message := testhelper.MustReadFile(t, "testdata/commit-c809470461118b7bcab850f6e9a7ca97ac42f8ea-message.txt")
 
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	testCases := []struct {
 		id       string
@@ -155,7 +156,6 @@ func TestFindCommitsFields(t *testing.T) {
 				Trailers:   tc.trailers,
 				Limit:      1,
 			}
-			ctx := testhelper.Context(t)
 			stream, err := client.FindCommits(ctx, request)
 			require.NoError(t, err)
 
@@ -175,7 +175,9 @@ func TestFindCommitsFields(t *testing.T) {
 
 func TestSuccessfulFindCommitsRequest(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	testCases := []struct {
 		desc    string
@@ -403,8 +405,6 @@ func TestSuccessfulFindCommitsRequest(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			stream, err := client.FindCommits(ctx, tc.request)
 			require.NoError(t, err)
 
@@ -433,7 +433,9 @@ func TestSuccessfulFindCommitsRequest(t *testing.T) {
 
 func TestSuccessfulFindCommitsRequestWithAltGitObjectDirs(t *testing.T) {
 	t.Parallel()
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
+
+	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	altObjectsDir := "./alt-objects"
 	commitID := gittest.WriteCommit(t, cfg, repoPath,
@@ -465,7 +467,6 @@ func TestSuccessfulFindCommitsRequestWithAltGitObjectDirs(t *testing.T) {
 				Revision:   []byte(commitID.String()),
 				Limit:      1,
 			}
-			ctx := testhelper.Context(t)
 
 			c, err := client.FindCommits(ctx, request)
 			require.NoError(t, err)
@@ -479,7 +480,9 @@ func TestSuccessfulFindCommitsRequestWithAltGitObjectDirs(t *testing.T) {
 
 func TestSuccessfulFindCommitsRequestWithAmbiguousRef(t *testing.T) {
 	t.Parallel()
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
+
+	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(ctx, t, false)
 
 	// These are arbitrary SHAs in the repository. The important part is
 	// that we create a branch using one of them with a different SHA so
@@ -494,7 +497,6 @@ func TestSuccessfulFindCommitsRequestWithAmbiguousRef(t *testing.T) {
 		Revision:   []byte(branchName),
 		Limit:      1,
 	}
-	ctx := testhelper.Context(t)
 
 	c, err := client.FindCommits(ctx, request)
 	require.NoError(t, err)
@@ -506,7 +508,9 @@ func TestSuccessfulFindCommitsRequestWithAmbiguousRef(t *testing.T) {
 
 func TestFailureFindCommitsRequest(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	testCases := []struct {
 		desc    string
@@ -534,8 +538,6 @@ func TestFailureFindCommitsRequest(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			stream, err := client.FindCommits(ctx, tc.request)
 			require.NoError(t, err)
 
@@ -550,7 +552,9 @@ func TestFailureFindCommitsRequest(t *testing.T) {
 
 func TestFindCommitsRequestWithFollowAndOffset(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	request := &gitalypb.FindCommitsRequest{
 		Repository: repo,
@@ -558,7 +562,6 @@ func TestFindCommitsRequestWithFollowAndOffset(t *testing.T) {
 		Paths:      [][]byte{[]byte("CHANGELOG")},
 		Limit:      100,
 	}
-	ctx := testhelper.Context(t)
 	allCommits := getCommits(ctx, t, request, client)
 	totalCommits := len(allCommits)
 
@@ -576,8 +579,9 @@ func TestFindCommitsRequestWithFollowAndOffset(t *testing.T) {
 
 func TestFindCommitsWithExceedingOffset(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
 	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	stream, err := client.FindCommits(ctx, &gitalypb.FindCommitsRequest{
 		Repository: repo,

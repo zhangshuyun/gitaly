@@ -15,8 +15,8 @@ import (
 func TestSuccessfulFindAllCommitsRequest(t *testing.T) {
 	t.Parallel()
 
-	cfg, repoProto, _, client := setupCommitServiceWithRepo(t, true)
 	ctx := testhelper.Context(t)
+	cfg, repoProto, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	refs, err := repo.GetReferences(ctx, "refs/")
@@ -157,7 +157,9 @@ func TestSuccessfulFindAllCommitsRequest(t *testing.T) {
 
 func TestFailedFindAllCommitsRequest(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
 
@@ -188,7 +190,6 @@ func TestFailedFindAllCommitsRequest(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
 			c, err := client.FindAllCommits(ctx, testCase.request)
 			require.NoError(t, err)
 

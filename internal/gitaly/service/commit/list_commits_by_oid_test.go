@@ -10,7 +10,9 @@ import (
 
 func TestSuccessfulListCommitsByOidRequest(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	commits := []*gitalypb.GitCommit{
 		{
@@ -88,7 +90,6 @@ func TestSuccessfulListCommitsByOidRequest(t *testing.T) {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := testCase.request
 			request.Repository = repo
-			ctx := testhelper.Context(t)
 			c, err := client.ListCommitsByOid(ctx, request)
 			require.NoError(t, err)
 
@@ -151,13 +152,14 @@ var masterCommitids = []string{
 
 func TestSuccessfulListCommitsByOidLargeRequest(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	req := &gitalypb.ListCommitsByOidRequest{
 		Oid:        masterCommitids,
 		Repository: repo,
 	}
-	ctx := testhelper.Context(t)
 	c, err := client.ListCommitsByOid(ctx, req)
 	require.NoError(t, err)
 

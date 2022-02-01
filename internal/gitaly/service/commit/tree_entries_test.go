@@ -20,8 +20,8 @@ import (
 func TestGetTreeEntries_curlyBraces(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
 	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(ctx, t, false)
 
 	normalFolderName := "issue-46261/folder"
 	curlyFolderName := "issue-46261/{{curly}}"
@@ -84,7 +84,7 @@ func TestGetTreeEntries_successful(t *testing.T) {
 	commitID := "d25b6d94034242f3930dfcfeb6d8d9aac3583992"
 	rootOid := "21bdc8af908562ae485ed46d71dd5426c08b084a"
 
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	rootEntries := []*gitalypb.TreeEntry{
 		{
@@ -474,7 +474,7 @@ func TestGetTreeEntries_unsuccessful(t *testing.T) {
 
 	commitID := "d25b6d94034242f3930dfcfeb6d8d9aac3583992"
 
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	testCases := []struct {
 		description   string
@@ -521,7 +521,7 @@ func TestGetTreeEntries_deepFlatpath(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(ctx, t, false)
 
 	folderName := "1/2/3/4/5/6/7/8/9/10/11/12"
 	require.GreaterOrEqual(t, strings.Count(strings.Trim(folderName, "/"), "/"), defaultFlatTreeRecursion, "sanity check: construct folder deeper than default recursion value")
@@ -567,7 +567,7 @@ func TestGetTreeEntries_file(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath,
 		gittest.WithTreeEntries(gittest.TreeEntry{
@@ -597,7 +597,7 @@ func TestGetTreeEntries_validation(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	revision := []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72")
 	path := []byte("a/b/c")
@@ -622,8 +622,8 @@ func TestGetTreeEntries_validation(t *testing.T) {
 }
 
 func BenchmarkGetTreeEntries(b *testing.B) {
-	cfg, client := setupCommitService(b)
 	ctx := testhelper.Context(b)
+	cfg, client := setupCommitService(ctx, b)
 
 	repo, _ := gittest.CloneRepo(b, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
 		SourceRepo: "benchmark.git",
