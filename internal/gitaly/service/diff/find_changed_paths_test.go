@@ -14,8 +14,8 @@ import (
 )
 
 func TestFindChangedPathsRequest_success(t *testing.T) {
-	_, repo, _, client := setupDiffService(t)
 	ctx := testhelper.Context(t)
+	_, repo, _, client := setupDiffService(ctx, t)
 
 	testCases := []struct {
 		desc          string
@@ -109,8 +109,8 @@ func TestFindChangedPathsRequest_success(t *testing.T) {
 }
 
 func TestFindChangedPathsRequest_failing(t *testing.T) {
-	cfg, repo, _, client := setupDiffService(t, testserver.WithDisablePraefect())
 	ctx := testhelper.Context(t)
+	cfg, repo, _, client := setupDiffService(ctx, t, testserver.WithDisablePraefect())
 
 	tests := []struct {
 		desc    string

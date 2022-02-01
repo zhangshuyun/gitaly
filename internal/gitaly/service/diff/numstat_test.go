@@ -12,12 +12,12 @@ import (
 )
 
 func TestSuccessfulDiffStatsRequest(t *testing.T) {
-	_, repo, _, client := setupDiffService(t)
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupDiffService(ctx, t)
 
 	rightCommit := "e4003da16c1c2c3fc4567700121b17bf8e591c6c"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
 	rpcRequest := &gitalypb.DiffStatsRequest{Repository: repo, RightCommitId: rightCommit, LeftCommitId: leftCommit}
-	ctx := testhelper.Context(t)
 
 	expectedStats := []diff.NumStat{
 		{
@@ -116,8 +116,8 @@ func TestSuccessfulDiffStatsRequest(t *testing.T) {
 }
 
 func TestFailedDiffStatsRequest(t *testing.T) {
-	_, repo, _, client := setupDiffService(t)
 	ctx := testhelper.Context(t)
+	_, repo, _, client := setupDiffService(ctx, t)
 
 	tests := []struct {
 		desc          string

@@ -16,7 +16,8 @@ import (
 )
 
 func TestSuccessfulCommitDiffRequest(t *testing.T) {
-	cfg, repo, repoPath, client := setupDiffService(t)
+	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupDiffService(ctx, t)
 
 	rightCommit := "ab2c9622c02288a2bbaaf35d96088cfdff31d9d9"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
@@ -172,7 +173,6 @@ func TestSuccessfulCommitDiffRequest(t *testing.T) {
 		t.Run(testCase.desc, func(t *testing.T) {
 			gittest.Exec(t, cfg, "-C", repoPath, "config", "diff.noprefix", testCase.noPrefixConfig)
 			rpcRequest := &gitalypb.CommitDiffRequest{Repository: repo, RightCommitId: rightCommit, LeftCommitId: leftCommit, IgnoreWhitespaceChange: false}
-			ctx := testhelper.Context(t)
 			c, err := client.CommitDiff(ctx, rpcRequest)
 			require.NoError(t, err)
 
@@ -182,7 +182,8 @@ func TestSuccessfulCommitDiffRequest(t *testing.T) {
 }
 
 func TestSuccessfulCommitDiffRequestWithPaths(t *testing.T) {
-	_, repo, _, client := setupDiffService(t)
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupDiffService(ctx, t)
 
 	rightCommit := "e4003da16c1c2c3fc4567700121b17bf8e591c6c"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
@@ -198,7 +199,6 @@ func TestSuccessfulCommitDiffRequestWithPaths(t *testing.T) {
 			[]byte("gitaly/mode-file-with-mods"),
 		},
 	}
-	ctx := testhelper.Context(t)
 	c, err := client.CommitDiff(ctx, rpcRequest)
 	require.NoError(t, err)
 
@@ -249,7 +249,8 @@ func TestSuccessfulCommitDiffRequestWithPaths(t *testing.T) {
 }
 
 func TestSuccessfulCommitDiffRequestWithTypeChangeDiff(t *testing.T) {
-	_, repo, _, client := setupDiffService(t)
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupDiffService(ctx, t)
 
 	rightCommit := "184a47d38677e2e439964859b877ae9bc424ab11"
 	leftCommit := "80d56eb72ba5d77fd8af857eced17a7d0640cb82"
@@ -258,7 +259,6 @@ func TestSuccessfulCommitDiffRequestWithTypeChangeDiff(t *testing.T) {
 		RightCommitId: rightCommit,
 		LeftCommitId:  leftCommit,
 	}
-	ctx := testhelper.Context(t)
 	c, err := client.CommitDiff(ctx, rpcRequest)
 	require.NoError(t, err)
 
@@ -289,7 +289,8 @@ func TestSuccessfulCommitDiffRequestWithTypeChangeDiff(t *testing.T) {
 }
 
 func TestSuccessfulCommitDiffRequestWithIgnoreWhitespaceChange(t *testing.T) {
-	_, repo, _, client := setupDiffService(t)
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupDiffService(ctx, t)
 
 	rightCommit := "e4003da16c1c2c3fc4567700121b17bf8e591c6c"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
@@ -382,7 +383,6 @@ func TestSuccessfulCommitDiffRequestWithIgnoreWhitespaceChange(t *testing.T) {
 				IgnoreWhitespaceChange: true,
 				Paths:                  entry.paths,
 			}
-			ctx := testhelper.Context(t)
 			c, err := client.CommitDiff(ctx, rpcRequest)
 			require.NoError(t, err)
 
@@ -392,7 +392,8 @@ func TestSuccessfulCommitDiffRequestWithIgnoreWhitespaceChange(t *testing.T) {
 }
 
 func TestSuccessfulCommitDiffRequestWithWordDiff(t *testing.T) {
-	cfg, repo, repoPath, client := setupDiffService(t)
+	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupDiffService(ctx, t)
 
 	rightCommit := "ab2c9622c02288a2bbaaf35d96088cfdff31d9d9"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
@@ -565,7 +566,6 @@ func TestSuccessfulCommitDiffRequestWithWordDiff(t *testing.T) {
 				IgnoreWhitespaceChange: false,
 				DiffMode:               gitalypb.CommitDiffRequest_WORDDIFF,
 			}
-			ctx := testhelper.Context(t)
 			c, err := client.CommitDiff(ctx, rpcRequest)
 			if err != nil {
 				t.Fatal(err)
@@ -577,7 +577,8 @@ func TestSuccessfulCommitDiffRequestWithWordDiff(t *testing.T) {
 }
 
 func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
-	_, repo, _, client := setupDiffService(t)
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupDiffService(ctx, t)
 
 	rightCommit := "899d3d27b04690ac1cd9ef4d8a74fde0667c57f1"
 	leftCommit := "184a47d38677e2e439964859b877ae9bc424ab11"
@@ -764,7 +765,6 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 			request.Repository = repo
 			request.LeftCommitId = leftCommit
 			request.RightCommitId = rightCommit
-			ctx := testhelper.Context(t)
 			c, err := client.CommitDiff(ctx, request)
 			require.NoError(t, err)
 
@@ -788,7 +788,8 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 }
 
 func TestFailedCommitDiffRequestDueToValidationError(t *testing.T) {
-	_, repo, _, client := setupDiffService(t)
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupDiffService(ctx, t)
 
 	rightCommit := "d42783470dc29fde2cf459eb3199ee1d7e3f3a72"
 	leftCommit := rightCommit + "~" // Parent of rightCommit
@@ -802,7 +803,6 @@ func TestFailedCommitDiffRequestDueToValidationError(t *testing.T) {
 
 	for _, rpcRequest := range rpcRequests {
 		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
-			ctx := testhelper.Context(t)
 			c, err := client.CommitDiff(ctx, rpcRequest)
 			require.NoError(t, err)
 
@@ -813,12 +813,12 @@ func TestFailedCommitDiffRequestDueToValidationError(t *testing.T) {
 }
 
 func TestFailedCommitDiffRequestWithNonExistentCommit(t *testing.T) {
-	_, repo, _, client := setupDiffService(t)
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupDiffService(ctx, t)
 
 	nonExistentCommitID := "deadfacedeadfacedeadfacedeadfacedeadface"
 	leftCommit := nonExistentCommitID + "~" // Parent of rightCommit
 	rpcRequest := &gitalypb.CommitDiffRequest{Repository: repo, RightCommitId: nonExistentCommitID, LeftCommitId: leftCommit}
-	ctx := testhelper.Context(t)
 	c, err := client.CommitDiff(ctx, rpcRequest)
 	require.NoError(t, err)
 
@@ -827,12 +827,12 @@ func TestFailedCommitDiffRequestWithNonExistentCommit(t *testing.T) {
 }
 
 func TestSuccessfulCommitDeltaRequest(t *testing.T) {
-	_, repo, _, client := setupDiffService(t)
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupDiffService(ctx, t)
 
 	rightCommit := "742518b2be68fc750bb4c357c0df821a88113286"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
 	rpcRequest := &gitalypb.CommitDeltaRequest{Repository: repo, RightCommitId: rightCommit, LeftCommitId: leftCommit}
-	ctx := testhelper.Context(t)
 	c, err := client.CommitDelta(ctx, rpcRequest)
 	require.NoError(t, err)
 
@@ -939,7 +939,8 @@ func TestSuccessfulCommitDeltaRequest(t *testing.T) {
 }
 
 func TestSuccessfulCommitDeltaRequestWithPaths(t *testing.T) {
-	_, repo, _, client := setupDiffService(t)
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupDiffService(ctx, t)
 
 	rightCommit := "e4003da16c1c2c3fc4567700121b17bf8e591c6c"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
@@ -954,7 +955,6 @@ func TestSuccessfulCommitDeltaRequestWithPaths(t *testing.T) {
 			[]byte("gitaly/mode-file-with-mods"),
 		},
 	}
-	ctx := testhelper.Context(t)
 	c, err := client.CommitDelta(ctx, rpcRequest)
 	require.NoError(t, err)
 
@@ -997,7 +997,8 @@ func TestSuccessfulCommitDeltaRequestWithPaths(t *testing.T) {
 }
 
 func TestFailedCommitDeltaRequestDueToValidationError(t *testing.T) {
-	_, repo, _, client := setupDiffService(t)
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupDiffService(ctx, t)
 
 	rightCommit := "d42783470dc29fde2cf459eb3199ee1d7e3f3a72"
 	leftCommit := rightCommit + "~" // Parent of rightCommit
@@ -1011,7 +1012,6 @@ func TestFailedCommitDeltaRequestDueToValidationError(t *testing.T) {
 
 	for _, rpcRequest := range rpcRequests {
 		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
-			ctx := testhelper.Context(t)
 			c, err := client.CommitDelta(ctx, rpcRequest)
 			require.NoError(t, err)
 
@@ -1022,12 +1022,12 @@ func TestFailedCommitDeltaRequestDueToValidationError(t *testing.T) {
 }
 
 func TestFailedCommitDeltaRequestWithNonExistentCommit(t *testing.T) {
-	_, repo, _, client := setupDiffService(t)
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupDiffService(ctx, t)
 
 	nonExistentCommitID := "deadfacedeadfacedeadfacedeadfacedeadface"
 	leftCommit := nonExistentCommitID + "~" // Parent of rightCommit
 	rpcRequest := &gitalypb.CommitDeltaRequest{Repository: repo, RightCommitId: nonExistentCommitID, LeftCommitId: leftCommit}
-	ctx := testhelper.Context(t)
 	c, err := client.CommitDelta(ctx, rpcRequest)
 	require.NoError(t, err)
 
