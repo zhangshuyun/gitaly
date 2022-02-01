@@ -12,6 +12,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :stdin, :bytes, 2
       repeated :git_config_options, :string, 4
       optional :git_protocol, :string, 5
+      optional :timeout_seconds, :int32, 6
     end
     add_message "gitaly.SSHUploadPackResponse" do
       optional :stdout, :bytes, 1
@@ -22,6 +23,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :repository, :message, 1, "gitaly.Repository"
       repeated :git_config_options, :string, 2
       optional :git_protocol, :string, 3
+      optional :timeout_seconds, :int32, 4
     end
     add_message "gitaly.SSHUploadPackWithSidechannelResponse" do
     end

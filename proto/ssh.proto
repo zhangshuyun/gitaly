@@ -39,7 +39,7 @@ service SSHService {
 
 message SSHUploadPackRequest {
   // 'repository' must be present in the first message.
-  Repository repository = 1 [(target_repository)=true];
+  Repository repository = 1 [(target_repository) = true];
   // A chunk of raw data to be copied to 'git upload-pack' standard input
   bytes stdin = 2;
   // Prevent re-use of field id 3 and/or the "git_config_parameters" name
@@ -50,6 +50,8 @@ message SSHUploadPackRequest {
 
   // Git protocol version
   string git_protocol = 5;
+
+  int32 timeout_seconds = 6;
 }
 
 message SSHUploadPackResponse {
@@ -64,7 +66,7 @@ message SSHUploadPackResponse {
 
 message SSHUploadPackWithSidechannelRequest {
   // 'repository' must be present in the first message.
-  Repository repository = 1 [(target_repository)=true];
+  Repository repository = 1 [(target_repository) = true];
   // Parameters to use with git -c (key=value pairs)
   repeated string git_config_options = 2;
 
@@ -76,7 +78,7 @@ message SSHUploadPackWithSidechannelResponse {}
 
 message SSHReceivePackRequest {
   // 'repository' must be present in the first message.
-  Repository repository = 1 [(target_repository)=true];
+  Repository repository = 1 [(target_repository) = true];
   // A chunk of raw data to be copied to 'git upload-pack' standard input
   bytes stdin = 2;
   // Contents of GL_ID, GL_REPOSITORY, and GL_USERNAME environment variables
@@ -104,7 +106,7 @@ message SSHReceivePackResponse {
 
 message SSHUploadArchiveRequest {
   // 'repository' must be present in the first message.
-  Repository repository = 1 [(target_repository)=true];
+  Repository repository = 1 [(target_repository) = true];
   // A chunk of raw data to be copied to 'git upload-archive' standard input
   bytes stdin = 2;
 }
