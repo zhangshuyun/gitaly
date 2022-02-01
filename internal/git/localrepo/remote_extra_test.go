@@ -79,6 +79,8 @@ func TestRepo_FetchInternal(t *testing.T) {
 
 		// Assert that we're using the expected Git protocol version, which is protocol v2.
 		require.Equal(t, "GIT_PROTOCOL=version=2\n", readGitProtocol())
+
+		require.FileExists(t, filepath.Join(repoPath, "FETCH_HEAD"))
 	})
 
 	t.Run("refspec without tags", func(t *testing.T) {

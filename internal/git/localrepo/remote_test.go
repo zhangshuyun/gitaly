@@ -63,7 +63,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 	})
 
 	t.Run("ok", func(t *testing.T) {
-		repo, _ := initBareWithRemote(t, "origin")
+		repo, repoPath := initBareWithRemote(t, "origin")
 
 		var stderr bytes.Buffer
 		require.NoError(t, repo.FetchRemote(ctx, "origin", FetchOpts{Stderr: &stderr}))
@@ -78,6 +78,8 @@ func TestRepo_FetchRemote(t *testing.T) {
 		sha, err := repo.ResolveRevision(ctx, git.Revision("refs/remotes/origin/master^{commit}"))
 		require.NoError(t, err, "the object from remote should exists in local after fetch done")
 		require.Equal(t, git.ObjectID("1e292f8fedd741b75372e19097c76d327140c312"), sha)
+
+		require.FileExists(t, filepath.Join(repoPath, "FETCH_HEAD"))
 	})
 
 	t.Run("with env", func(t *testing.T) {
