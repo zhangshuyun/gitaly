@@ -110,7 +110,13 @@ To restore the original branch and stop patching, run "git am --abort".
 			desc:                  "non-existent repository",
 			targetBranch:          "master",
 			nonExistentRepository: true,
-			error:                 status.Errorf(codes.NotFound, "GetRepoPath: not a git repository: \"%s/%s\"", cfg.Storages[0].Path, "doesnt-exist"),
+			error: func() error {
+				if testhelper.IsPraefectEnabled() {
+					return status.Errorf(codes.NotFound, "mutator call: route repository mutator: get repository id: repository %q/%q not found", cfg.Storages[0].Name, "doesnt-exist")
+				}
+
+				return status.Errorf(codes.NotFound, "GetRepoPath: not a git repository: \"%s/%s\"", cfg.Storages[0].Path, "doesnt-exist")
+			}(),
 		},
 		{
 			desc:         "creating the first branch does not work",
@@ -269,7 +275,7 @@ To restore the original branch and stop patching, run "git am --abort".
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			repoPb, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+			repoPb, repoPath := gittest.CreateRepository(ctx, t, cfg)
 
 			repo := localrepo.NewTestRepo(t, cfg, repoPb)
 
@@ -611,6 +617,10 @@ func TestUserApplyPatch_transactional(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	ctx, _, repoProto, _, client := setupOperationsService(t, ctx, testserver.WithTransactionManager(txManager))
+
+	// Reset the transaction manager as the setup call above creates a repository which
+	// ends up creating some votes with Praefect enabled.
+	txManager.Reset()
 
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)

@@ -3,6 +3,7 @@ package operations
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -36,7 +37,9 @@ func TestSuccessfulUserRebaseConfirmableRequest(t *testing.T) {
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	repoCopyProto, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	repoCopyProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	branchSha := getBranchSha(t, cfg, repoPath, rebaseBranchName)
 
@@ -420,8 +423,9 @@ func TestAbortedUserRebaseConfirmable(t *testing.T) {
 
 	for i, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
-			testRepoCopy, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+			createRepoOpts := gittest.CreateRepositoryConfig{Seed: gittest.SeedGitLabTest}
+			testRepo, testRepoPath := gittest.CreateRepository(ctx, t, cfg, createRepoOpts)
+			testRepoCopy, _ := gittest.CreateRepository(ctx, t, cfg, createRepoOpts)
 
 			branchSha := getBranchSha(t, cfg, testRepoPath, rebaseBranchName)
 
@@ -467,7 +471,9 @@ func TestFailedUserRebaseConfirmableDueToApplyBeingFalse(t *testing.T) {
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	testRepoCopy, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	testRepoCopy, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	branchSha := getBranchSha(t, cfg, repoPath, rebaseBranchName)
 
@@ -506,7 +512,9 @@ func TestFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	repoCopyProto, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	repoCopyProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	branchSha := getBranchSha(t, cfg, repoPath, rebaseBranchName)
 
@@ -559,7 +567,9 @@ func TestFailedUserRebaseConfirmableDueToGitError(t *testing.T) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repoCopyProto, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	repoCopyProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	failedBranchName := "rebase-encoding-failure-trigger"
 	branchSha := getBranchSha(t, cfg, repoPath, failedBranchName)
@@ -590,14 +600,15 @@ func TestRebaseRequestWithDeletedFile(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
-	repoProto, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
-		WithWorktree: true,
-	})
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	gittest.AddWorktree(t, cfg, repoPath, "worktree")
+	repoPath = filepath.Join(repoPath, "worktree")
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	repoCopyProto, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	repoCopyProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	branch := "rebase-delete-test"
 
@@ -649,9 +660,11 @@ func TestRebaseOntoRemoteBranch(t *testing.T) {
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	remoteRepo, remoteRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
-		WithWorktree: true,
+	remoteRepo, remoteRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
 	})
+	gittest.AddWorktree(t, cfg, remoteRepoPath, "worktree")
+	remoteRepoPath = filepath.Join(remoteRepoPath, "worktree")
 
 	localBranch := "master"
 	localBranchHash := getBranchSha(t, cfg, repoPath, localBranch)
