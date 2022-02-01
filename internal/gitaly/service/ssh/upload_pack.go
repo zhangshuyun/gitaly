@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
@@ -74,6 +75,7 @@ type sshUploadPackRequest interface {
 	GetRepository() *gitalypb.Repository
 	GetGitConfigOptions() []string
 	GetGitProtocol() string
+	GetTimeoutSeconds() int32
 }
 
 func (s *server) sshUploadPack(ctx context.Context, req sshUploadPackRequest, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
@@ -131,7 +133,12 @@ func (s *server) sshUploadPack(ctx context.Context, req sshUploadPackRequest, st
 		return 0, err
 	}
 
-	timeoutTicker := helper.NewTimerTicker(s.uploadPackRequestTimeout)
+	var timeoutTicker helper.Ticker
+	if req.GetTimeoutSeconds() > 0 {
+		timeoutTicker = helper.NewTimerTicker(time.Duration(req.GetTimeoutSeconds()) * time.Second)
+	} else {
+		timeoutTicker = helper.NewTimerTicker(s.uploadPackRequestTimeout)
+	}
 
 	// upload-pack negotiation is terminated by either a flush, or the "done"
 	// packet: https://github.com/git/git/blob/v2.20.0/Documentation/technical/pack-protocol.txt#L335

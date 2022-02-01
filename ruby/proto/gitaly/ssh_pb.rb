@@ -23,7 +23,6 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :repository, :message, 1, "gitaly.Repository"
       repeated :git_config_options, :string, 2
       optional :git_protocol, :string, 3
-      optional :timeout_seconds, :int32, 4
     end
     add_message "gitaly.SSHUploadPackWithSidechannelResponse" do
     end

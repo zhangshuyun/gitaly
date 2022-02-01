@@ -108,6 +108,8 @@ func (repo *Repo) FetchRemote(ctx context.Context, remoteName string, opts Fetch
 	return nil
 }
 
+var replicationUploadPackTimeoutSeconds = 30 * 60 // 30 minutes
+
 // FetchInternal performs a fetch from an internal Gitaly-hosted repository. Returns an
 // ErrFetchFailed error in case git-fetch(1) failed.
 func (repo *Repo) FetchInternal(
@@ -129,6 +131,7 @@ func (repo *Repo) FetchInternal(
 		git.WithInternalFetch(&gitalypb.SSHUploadPackRequest{
 			Repository:       remoteRepo,
 			GitConfigOptions: []string{"uploadpack.allowAnySHA1InWant=true"},
+			TimeoutSeconds:   int32(replicationUploadPackTimeoutSeconds),
 		}),
 		git.WithEnv(opts.Env...),
 		git.WithStderr(opts.Stderr),
