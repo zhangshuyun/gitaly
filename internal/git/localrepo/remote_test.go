@@ -79,7 +79,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 		require.NoError(t, err, "the object from remote should exists in local after fetch done")
 		require.Equal(t, git.ObjectID("1e292f8fedd741b75372e19097c76d327140c312"), sha)
 
-		require.FileExists(t, filepath.Join(repoPath, "FETCH_HEAD"))
+		require.NoFileExists(t, filepath.Join(repoPath, "FETCH_HEAD"))
 	})
 
 	t.Run("with env", func(t *testing.T) {
@@ -91,7 +91,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 
 		var stderr bytes.Buffer
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{Stderr: &stderr, Env: []string{"GIT_TRACE=1"}}))
-		require.Contains(t, stderr.String(), "trace: built-in: git fetch --quiet --atomic --end-of-options source")
+		require.Contains(t, stderr.String(), "trace: built-in: git fetch --no-write-fetch-head --quiet --atomic --end-of-options source")
 	})
 
 	t.Run("with disabled transactions", func(t *testing.T) {
@@ -107,7 +107,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 			Env:                 []string{"GIT_TRACE=1"},
 			DisableTransactions: true,
 		}))
-		require.Contains(t, stderr.String(), "trace: built-in: git fetch --quiet --end-of-options source")
+		require.Contains(t, stderr.String(), "trace: built-in: git fetch --no-write-fetch-head --quiet --end-of-options source")
 	})
 
 	t.Run("with globals", func(t *testing.T) {

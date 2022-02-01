@@ -80,7 +80,7 @@ func TestRepo_FetchInternal(t *testing.T) {
 		// Assert that we're using the expected Git protocol version, which is protocol v2.
 		require.Equal(t, "GIT_PROTOCOL=version=2\n", readGitProtocol())
 
-		require.FileExists(t, filepath.Join(repoPath, "FETCH_HEAD"))
+		require.NoFileExists(t, filepath.Join(repoPath, "FETCH_HEAD"))
 	})
 
 	t.Run("refspec without tags", func(t *testing.T) {
@@ -145,7 +145,7 @@ func TestRepo_FetchInternal(t *testing.T) {
 			localrepo.FetchOpts{Stderr: &stderr, Env: []string{"GIT_TRACE=1"}},
 		)
 		require.NoError(t, err)
-		require.Contains(t, stderr.String(), "trace: built-in: git fetch --quiet --atomic --end-of-options")
+		require.Contains(t, stderr.String(), "trace: built-in: git fetch --no-write-fetch-head --quiet --atomic --end-of-options")
 	})
 
 	t.Run("with disabled transactions", func(t *testing.T) {
@@ -160,7 +160,7 @@ func TestRepo_FetchInternal(t *testing.T) {
 			localrepo.FetchOpts{Stderr: &stderr, Env: []string{"GIT_TRACE=1"}, DisableTransactions: true},
 		)
 		require.NoError(t, err)
-		require.Contains(t, stderr.String(), "trace: built-in: git fetch --quiet --end-of-options")
+		require.Contains(t, stderr.String(), "trace: built-in: git fetch --no-write-fetch-head --quiet --end-of-options")
 	})
 
 	t.Run("invalid remote repo", func(t *testing.T) {
