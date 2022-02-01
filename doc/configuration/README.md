@@ -148,24 +148,6 @@ max\_rss limit.
 |num_workers|integer|no|Number of gitaly-ruby worker processes. Try increasing this number in case of ResourceExhausted errors. Default 2, minimum 2.|
 |linguist_languages_path|string|no|Override for dynamic languages.json discovery. Default: "" (use dynamic discovery).|
 
-### gitlab-shell
-
-For historical reasons
-[gitlab-shell](https://gitlab.com/gitlab-org/gitlab-shell) contains
-the Git hooks that allow GitLab to validate and react to Git pushes.
-Because Gitaly "owns" Git pushes, gitlab-shell must therefore be
-installed alongside Gitaly. We hope this will be [simplified in the
-future](https://gitlab.com/gitlab-org/gitaly/issues/1226).
-
-```toml
-[gitlab-shell]
-dir = "/home/git/gitlab-shell"
-```
-
-|name|type|required|notes|
-|----|----|--------|-----|
-|dir|string|yes|The directory where gitlab-shell is installed.|
-
 ### Logging
 
 Example:
