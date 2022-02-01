@@ -22,7 +22,7 @@ variable "praefect_disk_size" { default = "10" }
 variable "praefect_sql_password" { }
 
 provider "google" {
-  version = "~> 3.12"
+  version = "~> 3.90"
 
   project = var.project
   region  = var.demo_region
@@ -43,6 +43,7 @@ resource "google_sql_database_instance" "praefect_sql" {
   name = "${var.praefect_demo_cluster_name}-praefect-postgresql-${random_id.db_name_suffix.hex}"
   database_version = "POSTGRES_12"
   region = var.demo_region
+  deletion_protection = false
 
   settings {
     tier = "db-f1-micro"
@@ -85,6 +86,7 @@ resource "google_sql_user" "users" {
   name     = "praefect"
   instance = google_sql_database_instance.praefect_sql.name
   password = var.praefect_sql_password
+  deletion_policy = "ABANDON"
 }
 
 resource "google_sql_database" "praefect-database" {
