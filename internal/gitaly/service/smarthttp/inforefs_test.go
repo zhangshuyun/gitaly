@@ -115,7 +115,7 @@ func TestSuccessfulInfoRefsUploadPackWithGitProtocol(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 	ctx := testhelper.Context(t)
 
-	gitCmdFactory, readProtocol := gittest.EnableGitProtocolV2Support(ctx, t, cfg)
+	gitCmdFactory, readProtocol := gittest.NewProtocolDetectingCommandFactory(ctx, t, cfg)
 
 	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
 		testserver.WithGitCommandFactory(gitCmdFactory),

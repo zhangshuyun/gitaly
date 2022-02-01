@@ -167,7 +167,7 @@ func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, cfg)
 	ctx := testhelper.Context(t)
 
-	gitCmdFactory, readProto := gittest.EnableGitProtocolV2Support(ctx, t, cfg)
+	gitCmdFactory, readProto := gittest.NewProtocolDetectingCommandFactory(ctx, t, cfg)
 
 	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
 		testserver.WithGitCommandFactory(gitCmdFactory),

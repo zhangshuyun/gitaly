@@ -175,7 +175,7 @@ func TestServer_PostUploadPackWithSidechannel_gitProtocol(t *testing.T) {
 
 func testServerPostUploadPackGitProtocol(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t, opts...)
-	gitCmdFactory, readProto := gittest.EnableGitProtocolV2Support(ctx, t, cfg)
+	gitCmdFactory, readProto := gittest.NewProtocolDetectingCommandFactory(ctx, t, cfg)
 	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
 		testserver.WithGitCommandFactory(gitCmdFactory),
 	})
