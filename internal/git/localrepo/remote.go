@@ -129,6 +129,7 @@ func (repo *Repo) FetchInternal(
 		git.WithInternalFetch(&gitalypb.SSHUploadPackRequest{
 			Repository:       remoteRepo,
 			GitConfigOptions: []string{"uploadpack.allowAnySHA1InWant=true"},
+			GitProtocol:      git.ProtocolV2,
 		}),
 		git.WithEnv(opts.Env...),
 		git.WithStderr(opts.Stderr),

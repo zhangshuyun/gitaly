@@ -81,10 +81,8 @@ func TestRepo_FetchInternal(t *testing.T) {
 		require.NoFileExists(t, filepath.Join(repoPath, "objects/info/commit-graph"))
 		require.NoDirExists(t, filepath.Join(repoPath, "objects/info/commit-graphs"))
 
-		// Assert that we're using the expected Git protocol version. This is currently
-		// broken: we use the default Git protocol version, whereas we really want to use
-		// protocol v2.
-		require.Empty(t, readGitProtocol())
+		// Assert that we're using the expected Git protocol version, which is protocol v2.
+		require.Equal(t, "GIT_PROTOCOL=version=2\n", readGitProtocol())
 	})
 
 	t.Run("refspec without tags", func(t *testing.T) {
@@ -136,7 +134,7 @@ func TestRepo_FetchInternal(t *testing.T) {
 		)
 		require.EqualError(t, err, "exit status 128")
 		require.IsType(t, err, localrepo.ErrFetchFailed{})
-		require.Contains(t, stderr.String(), "fatal: couldn't find remote ref refs/does/not/exist\nfatal: the remote end hung up unexpectedly\n")
+		require.Equal(t, stderr.String(), "fatal: couldn't find remote ref refs/does/not/exist\n")
 	})
 
 	t.Run("with env", func(t *testing.T) {
