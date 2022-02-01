@@ -13,10 +13,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
-// EnableGitProtocolV2Support creates a new intercepting Git command factory that allows the
+// NewProtocolDetectingCommandFactory creates a new intercepting Git command factory that allows the
 // protocol to be tested. It returns this factory and a function to read the GIT_PROTOCOL
 // environment variable created by the wrapper script.
-func EnableGitProtocolV2Support(ctx context.Context, t testing.TB, cfg config.Cfg) (git.CommandFactory, func() string) {
+func NewProtocolDetectingCommandFactory(ctx context.Context, t testing.TB, cfg config.Cfg) (git.CommandFactory, func() string) {
 	envPath := filepath.Join(testhelper.TempDir(t), "git-env")
 
 	gitCmdFactory := NewInterceptingCommandFactory(ctx, t, cfg, func(execEnv git.ExecutionEnvironment) string {

@@ -168,7 +168,7 @@ func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, cfg)
 	ctx := testhelper.Context(t)
 
-	gitCmdFactory, readProto := gittest.EnableGitProtocolV2Support(ctx, t, cfg)
+	gitCmdFactory, readProto := gittest.NewProtocolDetectingCommandFactory(ctx, t, cfg)
 
 	serverSocketPath := runSSHServer(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
 
@@ -491,7 +491,7 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 	)
 	ctx := testhelper.Context(t)
 
-	gitCmdFactory, readProto := gittest.EnableGitProtocolV2Support(ctx, t, cfg)
+	gitCmdFactory, readProto := gittest.NewProtocolDetectingCommandFactory(ctx, t, cfg)
 
 	tempGitlabShellDir := testhelper.TempDir(t)
 
