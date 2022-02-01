@@ -126,7 +126,7 @@ type Config struct {
 	// PrometheusExcludeDatabaseFromDefaultMetrics excludes database-related metrics from the
 	// default metrics. If set to `false`, then database metrics will be available both via
 	// `/metrics` and `/db_metrics`. Otherwise, they will only be accessible via `/db_metrics`.
-	// Defaults to `false`. This is used as a transitory configuration key: eventually, database
+	// Defaults to `true`. This is used as a transitory configuration key: eventually, database
 	// metrics will always be removed from the standard metrics endpoint.
 	PrometheusExcludeDatabaseFromDefaultMetrics bool        `toml:"prometheus_exclude_database_from_default_metrics,omitempty"`
 	Auth                                        auth.Config `toml:"auth,omitempty"`
@@ -167,6 +167,7 @@ func FromFile(filePath string) (Config, error) {
 		Reconciliation: DefaultReconciliationConfig(),
 		Replication:    DefaultReplicationConfig(),
 		Prometheus:     prometheus.DefaultConfig(),
+		PrometheusExcludeDatabaseFromDefaultMetrics: true,
 		// Sets the default Failover, to be overwritten when deserializing the TOML
 		Failover:            Failover{Enabled: true, ElectionStrategy: ElectionStrategyPerRepository},
 		RepositoriesCleanup: DefaultRepositoriesCleanup(),
