@@ -14,6 +14,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
@@ -231,7 +232,13 @@ func fetchInternalRemote(
 		ctx,
 		remoteRepoProto,
 		[]string{mirrorRefSpec},
-		localrepo.FetchOpts{Prune: true, Stderr: &stderr},
+		localrepo.FetchOpts{
+			Prune:  true,
+			Stderr: &stderr,
+			CommandOptions: []git.CmdOpt{
+				git.WithConfig(git.ConfigPair{Key: "fetch.negotiationAlgorithm", Value: "skipping"}),
+			},
+		},
 	); err != nil {
 		if errors.As(err, &localrepo.ErrFetchFailed{}) {
 			return fmt.Errorf("fetch: %w, stderr: %q", err, stderr.String())
