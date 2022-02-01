@@ -7,6 +7,7 @@ import (
 	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"google.golang.org/grpc"
 )
 
@@ -119,14 +120,37 @@ func (c *LimiterMiddleware) StreamInterceptor() grpc.StreamServerInterceptor {
 
 func createLimiterConfig(middleware *LimiterMiddleware, cfg config.Cfg) map[string]*ConcurrencyLimiter {
 	result := make(map[string]*ConcurrencyLimiter)
+
+	newTickerFunc := func() helper.Ticker {
+		return helper.NewManualTicker()
+	}
+
 	for _, limit := range cfg.Concurrency {
-		result[limit.RPC] = NewLimiter(limit.MaxPerRepo, limit.MaxQueueSize, newPromMonitor(middleware, "gitaly", limit.RPC))
+		if limit.MaxQueueWait > 0 {
+			limit := limit
+			newTickerFunc = func() helper.Ticker {
+				return helper.NewTimerTicker(limit.MaxQueueWait.Duration())
+			}
+		}
+
+		result[limit.RPC] = NewLimiter(
+			limit.MaxPerRepo,
+			limit.MaxQueueSize,
+			newTickerFunc,
+			newPromMonitor(middleware, "gitaly", limit.RPC),
+		)
 	}
 
 	// Set default for ReplicateRepository.
 	replicateRepositoryFullMethod := "/gitaly.RepositoryService/ReplicateRepository"
 	if _, ok := result[replicateRepositoryFullMethod]; !ok {
-		result[replicateRepositoryFullMethod] = NewLimiter(1, 0, newPromMonitor(middleware, "gitaly", replicateRepositoryFullMethod))
+		result[replicateRepositoryFullMethod] = NewLimiter(
+			1,
+			0,
+			func() helper.Ticker {
+				return helper.NewManualTicker()
+			},
+			newPromMonitor(middleware, "gitaly", replicateRepositoryFullMethod))
 	}
 
 	return result

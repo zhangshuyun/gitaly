@@ -143,6 +143,9 @@ type Concurrency struct {
 	// MaxQueueSize is the maximum number of requests in the queue waiting to be picked up
 	// after which subsequent requests will return with an error.
 	MaxQueueSize int `toml:"max_queue_size"`
+	// MaxQueueWait is the maximum time a request can remain in the concurrency queue
+	// waiting to be picked up by Gitaly
+	MaxQueueWait Duration `toml:"max_queue_wait"`
 }
 
 // StreamCacheConfig contains settings for a streamcache instance.

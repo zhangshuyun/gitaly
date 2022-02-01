@@ -197,6 +197,9 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	// ConcurrencyQueueEnforceMax is in the codepath of every RPC call since its in the limithandler
 	// middleware.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.ConcurrencyQueueEnforceMax, true)
+	// ConcurrencyQueueMaxWait is in the codepath of every RPC call since it's in the limithandler
+	// middleware.
+	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.ConcurrencyQueueMaxWait, true)
 	// We use hook directories everywhere, so it's infeasible to test this on a global
 	// scale. Instead, we use it randomly.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.HooksInTempdir, mrand.Int()%2 == 0)

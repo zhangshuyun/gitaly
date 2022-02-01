@@ -7,11 +7,19 @@ import (
 	"sync"
 	"time"
 
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 )
 
+// ErrMaxQueueTime indicates a request has reached the maximum time allowed to wait in the
+// concurrency queue.
+var ErrMaxQueueTime = errors.New("maximum time in concurrency queue reached")
+
 // LimitedFunc represents a function that will be limited
 type LimitedFunc func() (resp interface{}, err error)
+
+// QueueTickerCreator is a function that provides a ticker
+type QueueTickerCreator func() helper.Ticker
 
 // ConcurrencyLimiter contains rate limiter state
 type ConcurrencyLimiter struct {
@@ -23,20 +31,36 @@ type ConcurrencyLimiter struct {
 	queued int64
 	// queuedLimit is the maximum number of operations allowed to wait in a queued state.
 	// subsequent incoming operations will fail with an error.
-	queuedLimit int64
-	monitor     ConcurrencyMonitor
-	mux         sync.RWMutex
+	queuedLimit         int64
+	monitor             ConcurrencyMonitor
+	mux                 sync.RWMutex
+	maxWaitTickerGetter QueueTickerCreator
 }
 
 type semaphoreReference struct {
-	tokens chan struct{}
-	count  int
+	tokens    chan struct{}
+	count     int
+	newTicker QueueTickerCreator
 }
 
 func (sem *semaphoreReference) acquire(ctx context.Context) error {
+	var ticker helper.Ticker
+
+	if featureflag.ConcurrencyQueueMaxWait.IsEnabled(ctx) &&
+		sem.newTicker != nil {
+		ticker = sem.newTicker()
+	} else {
+		ticker = helper.Ticker(helper.NewManualTicker())
+	}
+
+	defer ticker.Stop()
+	ticker.Reset()
+
 	select {
 	case sem.tokens <- struct{}{}:
 		return nil
+	case <-ticker.C():
+		return ErrMaxQueueTime
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -50,7 +74,10 @@ func (c *ConcurrencyLimiter) getSemaphore(lockKey string) *semaphoreReference {
 	defer c.mux.Unlock()
 
 	if c.semaphores[lockKey] == nil {
-		c.semaphores[lockKey] = &semaphoreReference{tokens: make(chan struct{}, c.maxPerKey)}
+		c.semaphores[lockKey] = &semaphoreReference{
+			tokens:    make(chan struct{}, c.maxPerKey),
+			newTicker: c.maxWaitTickerGetter,
+		}
 	}
 
 	c.semaphores[lockKey].count++
@@ -143,15 +170,16 @@ func (c *ConcurrencyLimiter) Limit(ctx context.Context, lockKey string, f Limite
 }
 
 // NewLimiter creates a new rate limiter
-func NewLimiter(perKeyLimit, globalLimit int, monitor ConcurrencyMonitor) *ConcurrencyLimiter {
+func NewLimiter(perKeyLimit, globalLimit int, maxWaitTickerGetter QueueTickerCreator, monitor ConcurrencyMonitor) *ConcurrencyLimiter {
 	if monitor == nil {
 		monitor = &nullConcurrencyMonitor{}
 	}
 
 	return &ConcurrencyLimiter{
-		semaphores:  make(map[string]*semaphoreReference),
-		maxPerKey:   int64(perKeyLimit),
-		queuedLimit: int64(globalLimit),
-		monitor:     monitor,
+		semaphores:          make(map[string]*semaphoreReference),
+		maxPerKey:           int64(perKeyLimit),
+		queuedLimit:         int64(globalLimit),
+		monitor:             monitor,
+		maxWaitTickerGetter: maxWaitTickerGetter,
 	}
 }
