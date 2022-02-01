@@ -25,6 +25,8 @@ func TestRepo_FetchInternal(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg, remoteRepoProto, _ := testcfg.BuildWithRepo(t)
+	gitCmdFactory, readGitProtocol := gittest.NewProtocolDetectingCommandFactory(ctx, t, cfg)
+
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
 			deps.GetLocator(),
@@ -36,7 +38,7 @@ func TestRepo_FetchInternal(t *testing.T) {
 			deps.GetGitCmdFactory(),
 			deps.GetPackObjectsCache(),
 		))
-	})
+	}, testserver.WithGitCommandFactory(gitCmdFactory))
 
 	remoteRepo := localrepo.NewTestRepo(t, cfg, remoteRepoProto)
 	testcfg.BuildGitalySSH(t, cfg)
@@ -78,6 +80,11 @@ func TestRepo_FetchInternal(t *testing.T) {
 		// to do so.
 		require.NoFileExists(t, filepath.Join(repoPath, "objects/info/commit-graph"))
 		require.NoDirExists(t, filepath.Join(repoPath, "objects/info/commit-graphs"))
+
+		// Assert that we're using the expected Git protocol version. This is currently
+		// broken: we use the default Git protocol version, whereas we really want to use
+		// protocol v2.
+		require.Empty(t, readGitProtocol())
 	})
 
 	t.Run("refspec without tags", func(t *testing.T) {
