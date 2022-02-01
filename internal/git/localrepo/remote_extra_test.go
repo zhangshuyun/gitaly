@@ -2,7 +2,6 @@ package localrepo_test
 
 import (
 	"bytes"
-	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -13,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ssh"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -66,15 +64,13 @@ func TestRepo_FetchInternal(t *testing.T) {
 			localrepo.FetchOpts{},
 		))
 
-		fetchHead := testhelper.MustReadFile(t, filepath.Join(repoPath, "FETCH_HEAD"))
-		expectedFetchHead := fmt.Sprintf("%s\t\tbranch 'master' of ssh://gitaly/internal\n", remoteOID.String())
-		expectedFetchHead += fmt.Sprintf("%s\tnot-for-merge\ttag 'v1.0.0' of ssh://gitaly/internal\n", tagV100OID.String())
-		expectedFetchHead += fmt.Sprintf("%s\tnot-for-merge\ttag 'v1.1.0' of ssh://gitaly/internal", tagV110OID.String())
-		require.Equal(t, expectedFetchHead, text.ChompBytes(fetchHead))
-
-		oid, err := repo.ResolveRevision(ctx, git.Revision("refs/heads/master"))
-		require.NoError(t, err, "the object from remote should exists in local after fetch done")
-		require.Equal(t, remoteOID, oid)
+		refs, err := repo.GetReferences(ctx)
+		require.NoError(t, err)
+		require.Equal(t, []git.Reference{
+			{Name: "refs/heads/master", Target: remoteOID.String()},
+			{Name: "refs/tags/v1.0.0", Target: tagV100OID.String()},
+			{Name: "refs/tags/v1.1.0", Target: tagV110OID.String()},
+		}, refs)
 
 		// Even if the gitconfig says we should write a commit graph, Gitaly should refuse
 		// to do so.
@@ -88,7 +84,7 @@ func TestRepo_FetchInternal(t *testing.T) {
 	t.Run("refspec without tags", func(t *testing.T) {
 		ctx := testhelper.MergeIncomingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
-		repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+		repoProto, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		require.NoError(t, repo.FetchInternal(
@@ -96,13 +92,11 @@ func TestRepo_FetchInternal(t *testing.T) {
 			localrepo.FetchOpts{Tags: localrepo.FetchOptsTagsNone},
 		))
 
-		fetchHead := testhelper.MustReadFile(t, filepath.Join(repoPath, "FETCH_HEAD"))
-		expectedFetchHead := fmt.Sprintf("%s\t\tbranch 'master' of ssh://gitaly/internal", remoteOID.String())
-		require.Equal(t, expectedFetchHead, text.ChompBytes(fetchHead))
-
-		oid, err := repo.ResolveRevision(ctx, git.Revision("refs/heads/master"))
-		require.NoError(t, err, "the object from remote should exists in local after fetch done")
-		require.Equal(t, remoteOID, oid)
+		refs, err := repo.GetReferences(ctx)
+		require.NoError(t, err)
+		require.Equal(t, []git.Reference{
+			{Name: "refs/heads/master", Target: remoteOID.String()},
+		}, refs)
 	})
 
 	t.Run("object ID", func(t *testing.T) {

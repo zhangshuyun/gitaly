@@ -63,18 +63,17 @@ func TestRepo_FetchRemote(t *testing.T) {
 	})
 
 	t.Run("ok", func(t *testing.T) {
-		repo, testRepoPath := initBareWithRemote(t, "origin")
+		repo, _ := initBareWithRemote(t, "origin")
 
 		var stderr bytes.Buffer
 		require.NoError(t, repo.FetchRemote(ctx, "origin", FetchOpts{Stderr: &stderr}))
 
 		require.Empty(t, stderr.String(), "it should not produce output as it is called with --quite flag by default")
 
-		fetchHeadData := testhelper.MustReadFile(t, filepath.Join(testRepoPath, "FETCH_HEAD"))
-
-		fetchHead := string(fetchHeadData)
-		require.Contains(t, fetchHead, "e56497bb5f03a90a51293fc6d516788730953899	not-for-merge	branch ''test''")
-		require.Contains(t, fetchHead, "8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b	not-for-merge	tag 'v1.1.0'")
+		refs, err := repo.GetReferences(ctx)
+		require.NoError(t, err)
+		require.Contains(t, refs, git.Reference{Name: "refs/remotes/origin/'test'", Target: "e56497bb5f03a90a51293fc6d516788730953899"})
+		require.Contains(t, refs, git.Reference{Name: "refs/tags/v1.1.0", Target: "8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b"})
 
 		sha, err := repo.ResolveRevision(ctx, git.Revision("refs/remotes/origin/master^{commit}"))
 		require.NoError(t, err, "the object from remote should exists in local after fetch done")
