@@ -100,6 +100,8 @@ type Command struct {
 	waitError error
 	waitOnce  sync.Once
 
+	trace2Cleanup func()
+
 	span opentracing.Span
 }
 
@@ -164,7 +166,7 @@ func New(ctx context.Context, cmd *exec.Cmd, stdin io.Reader, stdout, stderr io.
 	span, ctx := opentracing.StartSpanFromContext(
 		ctx,
 		cmd.Path,
-		opentracing.Tag{Key: "args", Value: strings.Join(cmd.Args, " ")},
+		opentracing.Tag{Key: "args", Value: strings.Join(cmd.Args[1:], " ")},
 	)
 
 	putToken, err := getSpawnToken(ctx)
@@ -195,6 +197,13 @@ func New(ctx context.Context, cmd *exec.Cmd, stdin io.Reader, stdout, stderr io.
 	// Export env vars
 	cmd.Env = append(AllowedEnvironment(os.Environ()), env...)
 	cmd.Env = envInjector(ctx, cmd.Env)
+
+	// TODO we should only enable this on git commands
+	err, trace2Cleanup := command.enableTrace2(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("git command: %w", err)
+	}
+	defer func() { trace2Cleanup() }()
 
 	// Start the command in its own process group (nice for signalling)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
@@ -240,6 +249,10 @@ func New(ctx context.Context, cmd *exec.Cmd, stdin io.Reader, stdout, stderr io.
 	}
 	inFlightCommandGauge.Inc()
 
+	// Command was started correctly, only run Trace2 cleanup when finished
+	command.trace2Cleanup = trace2Cleanup
+	trace2Cleanup = func() {}
+
 	// The goroutine below is responsible for terminating and reaping the
 	// process when ctx is canceled.
 	commandcounter.Increment()
@@ -254,6 +267,8 @@ func New(ctx context.Context, cmd *exec.Cmd, stdin io.Reader, stdout, stderr io.
 		// We do not care for any potential erorr code, but just want to make sure that the
 		// subprocess gets properly killed and processed.
 		_ = command.Wait()
+
+		command.trace2Cleanup()
 	}()
 
 	logPid = cmd.Process.Pid
