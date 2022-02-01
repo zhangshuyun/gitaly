@@ -1,10 +1,12 @@
 package commit
 
 import (
+	"fmt"
 	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
@@ -90,6 +92,23 @@ func dummyCommitAuthor(ts int64) *gitalypb.CommitAuthor {
 
 type gitCommitsGetter interface {
 	GetCommits() []*gitalypb.GitCommit
+}
+
+func createCommits(t testing.TB, cfg config.Cfg, repoPath, branch string, commitCount int, parent git.ObjectID) git.ObjectID {
+	for i := 0; i < commitCount; i++ {
+		var parents []git.ObjectID
+		if parent != "" {
+			parents = append(parents, parent)
+		}
+
+		parent = gittest.WriteCommit(t, cfg, repoPath,
+			gittest.WithBranch(branch),
+			gittest.WithMessage(fmt.Sprintf("%s branch Empty commit %d", branch, i)),
+			gittest.WithParents(parents...),
+		)
+	}
+
+	return parent
 }
 
 func getAllCommits(t testing.TB, getter func() (gitCommitsGetter, error)) []*gitalypb.GitCommit {

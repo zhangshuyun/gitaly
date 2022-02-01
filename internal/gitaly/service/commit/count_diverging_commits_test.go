@@ -26,37 +26,11 @@ func createRepoWithDivergentBranches(t *testing.T, cfg config.Cfg, leftCommits, 
 		 f   h
 	*/
 
-	repo, worktreePath := gittest.InitRepo(t, cfg, cfg.Storages[0], gittest.InitRepoOpts{
-		WithWorktree: true,
-	})
-	committerName := "Scrooge McDuck"
-	committerEmail := "scrooge@mcduck.com"
+	repo, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
-	for i := 0; i < 2; i++ {
-		gittest.Exec(t, cfg, "-C", worktreePath,
-			"-c", fmt.Sprintf("user.name=%s", committerName),
-			"-c", fmt.Sprintf("user.email=%s", committerEmail),
-			"commit", "--allow-empty", "-m", fmt.Sprintf("master branch Empty commit %d", i))
-	}
-
-	gittest.Exec(t, cfg, "-C", worktreePath, "checkout", "-b", leftBranchName)
-
-	for i := 0; i < leftCommits; i++ {
-		gittest.Exec(t, cfg, "-C", worktreePath,
-			"-c", fmt.Sprintf("user.name=%s", committerName),
-			"-c", fmt.Sprintf("user.email=%s", committerEmail),
-			"commit", "--allow-empty", "-m", fmt.Sprintf("branch-1 Empty commit %d", i))
-	}
-
-	gittest.Exec(t, cfg, "-C", worktreePath, "checkout", "master")
-	gittest.Exec(t, cfg, "-C", worktreePath, "checkout", "-b", rightBranchName)
-
-	for i := 0; i < rightCommits; i++ {
-		gittest.Exec(t, cfg, "-C", worktreePath,
-			"-c", fmt.Sprintf("user.name=%s", committerName),
-			"-c", fmt.Sprintf("user.email=%s", committerEmail),
-			"commit", "--allow-empty", "-m", fmt.Sprintf("branch-2 Empty commit %d", i))
-	}
+	mainCommitOID := createCommits(t, cfg, repoPath, "master", 2, "")
+	createCommits(t, cfg, repoPath, leftBranchName, leftCommits, mainCommitOID)
+	createCommits(t, cfg, repoPath, rightBranchName, rightCommits, mainCommitOID)
 
 	return repo
 }

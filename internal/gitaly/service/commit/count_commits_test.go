@@ -17,28 +17,10 @@ func TestSuccessfulCountCommitsRequest(t *testing.T) {
 	t.Parallel()
 	cfg, repo1, _, client := setupCommitServiceWithRepo(t, true)
 
-	repo2, repo2Path := gittest.InitRepo(t, cfg, cfg.Storages[0], gittest.InitRepoOpts{
-		WithWorktree: true,
-	})
+	repo2, repo2Path := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
-	committerName := "Scrooge McDuck"
-	committerEmail := "scrooge@mcduck.com"
-
-	for i := 0; i < 5; i++ {
-		gittest.Exec(t, cfg, "-C", repo2Path,
-			"-c", fmt.Sprintf("user.name=%s", committerName),
-			"-c", fmt.Sprintf("user.email=%s", committerEmail),
-			"commit", "--allow-empty", "-m", "Empty commit")
-	}
-
-	gittest.Exec(t, cfg, "-C", repo2Path, "checkout", "-b", "another-branch")
-
-	for i := 0; i < 3; i++ {
-		gittest.Exec(t, cfg, "-C", repo2Path,
-			"-c", fmt.Sprintf("user.name=%s", committerName),
-			"-c", fmt.Sprintf("user.email=%s", committerEmail),
-			"commit", "--allow-empty", "-m", "Empty commit")
-	}
+	commitOID := createCommits(t, cfg, repo2Path, "master", 5, "")
+	createCommits(t, cfg, repo2Path, "another-branch", 3, commitOID)
 
 	literalOptions := &gitalypb.GlobalOptions{LiteralPathspecs: true}
 
