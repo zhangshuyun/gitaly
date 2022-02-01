@@ -123,8 +123,10 @@ func TestListFiles_success(t *testing.T) {
 
 func TestListFiles_unbornBranch(t *testing.T) {
 	t.Parallel()
+
+	ctx := testhelper.Context(t)
 	cfg, _, _, client := setupCommitServiceWithRepo(t, true)
-	repo, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
+	repo, _ := gittest.CreateRepository(ctx, t, cfg)
 
 	tests := []struct {
 		desc     string
@@ -167,7 +169,6 @@ func TestListFiles_unbornBranch(t *testing.T) {
 			rpcRequest := gitalypb.ListFilesRequest{
 				Repository: repo, Revision: []byte(tc.revision),
 			}
-			ctx := testhelper.Context(t)
 
 			c, err := client.ListFiles(ctx, &rpcRequest)
 			require.NoError(t, err)

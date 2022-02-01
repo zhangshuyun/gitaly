@@ -15,9 +15,11 @@ import (
 
 func TestSuccessfulCountCommitsRequest(t *testing.T) {
 	t.Parallel()
+
+	ctx := testhelper.Context(t)
 	cfg, repo1, _, client := setupCommitServiceWithRepo(t, true)
 
-	repo2, repo2Path := gittest.InitRepo(t, cfg, cfg.Storages[0])
+	repo2, repo2Path := gittest.CreateRepository(ctx, t, cfg)
 
 	commitOID := createCommits(t, cfg, repo2Path, "master", 5, "")
 	createCommits(t, cfg, repo2Path, "another-branch", 3, commitOID)
@@ -144,7 +146,6 @@ func TestSuccessfulCountCommitsRequest(t *testing.T) {
 			if testCase.path != nil {
 				request.Path = testCase.path
 			}
-			ctx := testhelper.Context(t)
 			response, err := client.CountCommits(ctx, request)
 			require.NoError(t, err)
 			require.Equal(t, response.Count, testCase.count)

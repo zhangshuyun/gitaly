@@ -1,8 +1,10 @@
 package commit
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -10,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -35,9 +38,17 @@ func setupCommitServiceWithRepo(
 	t testing.TB, bare bool,
 ) (config.Cfg, *gitalypb.Repository, string, gitalypb.CommitServiceClient) {
 	return setupCommitServiceCreateRepo(t, func(tb testing.TB, cfg config.Cfg) (*gitalypb.Repository, string) {
-		return gittest.CloneRepo(tb, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
-			WithWorktree: !bare,
+		repo, repoPath := gittest.CreateRepository(context.TODO(), tb, cfg, gittest.CreateRepositoryConfig{
+			Seed: gittest.SeedGitLabTest,
 		})
+
+		if !bare {
+			gittest.AddWorktree(t, cfg, repoPath, "worktree")
+			repoPath = filepath.Join(repoPath, "worktree")
+			gittest.Exec(t, cfg, "-C", repoPath, "checkout", "master")
+		}
+
+		return repo, repoPath
 	})
 }
 
@@ -47,11 +58,10 @@ func setupCommitServiceCreateRepo(
 ) (config.Cfg, *gitalypb.Repository, string, gitalypb.CommitServiceClient) {
 	cfg := testcfg.Build(t)
 
+	cfg.SocketPath = startTestServices(t, cfg)
+	client := newCommitServiceClient(t, cfg.SocketPath)
+
 	repo, repoPath := createRepo(t, cfg)
-
-	serverSocketPath := startTestServices(t, cfg)
-
-	client := newCommitServiceClient(t, serverSocketPath)
 
 	return cfg, repo, repoPath, client
 }
@@ -65,7 +75,17 @@ func startTestServices(t testing.TB, cfg config.Cfg) string {
 			deps.GetLinguist(),
 			deps.GetCatfileCache(),
 		))
-	})
+		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
+			cfg,
+			deps.GetRubyServer(),
+			deps.GetLocator(),
+			deps.GetTxManager(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+			deps.GetConnsPool(),
+			deps.GetGit2goExecutor(),
+		))
+	}, testserver.WithDisableMetadataForceCreation())
 }
 
 func newCommitServiceClient(t testing.TB, serviceSocketPath string) gitalypb.CommitServiceClient {
