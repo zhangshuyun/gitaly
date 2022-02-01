@@ -6,7 +6,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/commit"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 	"google.golang.org/grpc/codes"
@@ -27,7 +26,7 @@ func sendGetBlobsResponse(
 ) error {
 	ctx := stream.Context()
 
-	tef := commit.NewTreeEntryFinder(objectReader, objectInfoReader)
+	tef := catfile.NewTreeEntryFinder(objectReader, objectInfoReader)
 
 	for _, revisionPath := range req.RevisionPaths {
 		revision := revisionPath.Revision

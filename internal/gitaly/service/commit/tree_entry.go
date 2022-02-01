@@ -21,7 +21,7 @@ func sendTreeEntry(
 ) error {
 	ctx := stream.Context()
 
-	treeEntry, err := NewTreeEntryFinder(objectReader, objectInfoReader).FindByRevisionAndPath(ctx, revision, path)
+	treeEntry, err := catfile.NewTreeEntryFinder(objectReader, objectInfoReader).FindByRevisionAndPath(ctx, revision, path)
 	if err != nil {
 		return err
 	}

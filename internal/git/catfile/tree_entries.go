@@ -1,4 +1,4 @@
-package commit
+package catfile
 
 import (
 	"bufio"
@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -20,13 +19,13 @@ type revisionPath struct{ revision, path string }
 
 // TreeEntryFinder is a struct for searching through a tree with caching.
 type TreeEntryFinder struct {
-	objectReader     catfile.ObjectReader
-	objectInfoReader catfile.ObjectInfoReader
+	objectReader     ObjectReader
+	objectInfoReader ObjectInfoReader
 	treeCache        map[revisionPath][]*gitalypb.TreeEntry
 }
 
 // NewTreeEntryFinder initializes a TreeEntryFinder with an empty tree cache.
-func NewTreeEntryFinder(objectReader catfile.ObjectReader, objectInfoReader catfile.ObjectInfoReader) *TreeEntryFinder {
+func NewTreeEntryFinder(objectReader ObjectReader, objectInfoReader ObjectInfoReader) *TreeEntryFinder {
 	return &TreeEntryFinder{
 		objectReader:     objectReader,
 		objectInfoReader: objectInfoReader,
@@ -42,7 +41,7 @@ func (tef *TreeEntryFinder) FindByRevisionAndPath(ctx context.Context, revision,
 
 	if !ok {
 		var err error
-		entries, err = treeEntries(ctx, tef.objectReader, tef.objectInfoReader, revision, dir)
+		entries, err = TreeEntries(ctx, tef.objectReader, tef.objectInfoReader, revision, dir)
 		if err != nil {
 			return nil, err
 		}
@@ -60,8 +59,7 @@ func (tef *TreeEntryFinder) FindByRevisionAndPath(ctx context.Context, revision,
 }
 
 const (
-	oidSize                  = sha1.Size
-	defaultFlatTreeRecursion = 10
+	oidSize = sha1.Size
 )
 
 func extractEntryInfoFromTreeData(treeData io.Reader, commitOid, rootOid, rootPath, oid string) ([]*gitalypb.TreeEntry, error) {
@@ -95,7 +93,7 @@ func extractEntryInfoFromTreeData(treeData io.Reader, commitOid, rootOid, rootPa
 			return nil, fmt.Errorf("read entry oid: %v", err)
 		}
 
-		treeEntry, err := newTreeEntry(commitOid, rootOid, rootPath, filename, oidBuf.Bytes(), modeBytes)
+		treeEntry, err := git.NewTreeEntry(commitOid, rootOid, rootPath, filename, oidBuf.Bytes(), modeBytes)
 		if err != nil {
 			return nil, fmt.Errorf("new entry info: %v", err)
 		}
@@ -106,10 +104,11 @@ func extractEntryInfoFromTreeData(treeData io.Reader, commitOid, rootOid, rootPa
 	return entries, nil
 }
 
-func treeEntries(
+// TreeEntries returns the entries of a tree in given revision and path.
+func TreeEntries(
 	ctx context.Context,
-	objectReader catfile.ObjectReader,
-	objectInfoReader catfile.ObjectInfoReader,
+	objectReader ObjectReader,
+	objectInfoReader ObjectInfoReader,
 	revision, path string,
 ) (_ []*gitalypb.TreeEntry, returnedErr error) {
 	if path == "." {
@@ -124,7 +123,7 @@ func treeEntries(
 
 	rootTreeInfo, err := objectInfoReader.Info(ctx, git.Revision(revision+"^{tree}"))
 	if err != nil {
-		if catfile.IsNotFound(err) {
+		if IsNotFound(err) {
 			return nil, nil
 		}
 
@@ -134,7 +133,7 @@ func treeEntries(
 
 	treeObj, err := objectReader.Object(ctx, git.Revision(fmt.Sprintf("%s:%s", revision, path)))
 	if err != nil {
-		if catfile.IsNotFound(err) {
+		if IsNotFound(err) {
 			return nil, nil
 		}
 		return nil, err
