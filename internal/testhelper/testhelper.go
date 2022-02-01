@@ -79,6 +79,8 @@ func SkipWithPraefect(t testing.TB, reason string) {
 
 // MustReadFile returns the content of a file or fails at once.
 func MustReadFile(t testing.TB, filename string) []byte {
+	t.Helper()
+
 	content, err := os.ReadFile(filename)
 	if err != nil {
 		t.Fatal(err)
