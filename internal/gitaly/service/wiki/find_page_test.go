@@ -3,6 +3,7 @@ package wiki
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -360,9 +361,11 @@ func testSuccessfulWikiFindPageSameTitleDifferentPathRequest(t *testing.T, cfg c
 
 func TestFailedWikiFindPageDueToValidation(t *testing.T) {
 	cfg := testcfg.Build(t)
-	wikiRepo, _ := setupWikiRepo(t, cfg)
 
-	client := setupWikiService(t, cfg, nil)
+	client, socketPath := setupWikiService(t, cfg, nil)
+	cfg.SocketPath = socketPath
+
+	wikiRepo, _ := setupWikiRepo(t, cfg)
 
 	testCases := []struct {
 		desc  string
@@ -425,7 +428,8 @@ func readFullWikiPageFromWikiFindPageClient(t *testing.T, c gitalypb.WikiService
 func TestInvalidWikiFindPageRequestRevision(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	client := setupWikiService(t, cfg, nil)
+	client, socketPath := setupWikiService(t, cfg, nil)
+	cfg.SocketPath = socketPath
 
 	wikiRepo, _ := setupWikiRepo(t, cfg)
 	ctx := testhelper.Context(t)
@@ -442,26 +446,26 @@ func TestInvalidWikiFindPageRequestRevision(t *testing.T) {
 }
 
 func testSuccessfulWikiFindPageRequestWithTrailers(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
-	wikiRepo, worktreePath := gittest.InitRepo(t, cfg, cfg.Storages[0], gittest.InitRepoOpts{
-		WithWorktree: true,
-	})
+	ctx := testhelper.Context(t)
+	wikiRepo, repoPath := gittest.CreateRepository(ctx, t, cfg)
 
-	committerName := "Scróoge McDuck" // Include UTF-8 to ensure encoding is handled
-	committerEmail := "scrooge@mcduck.com"
-
-	gittest.Exec(t, cfg, "-C", worktreePath,
-		"-c", fmt.Sprintf("user.name=%s", committerName),
-		"-c", fmt.Sprintf("user.email=%s", committerEmail),
-		"commit", "--allow-empty", "-m", "master branch, empty commit")
+	gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithBranch("main"),
+		gittest.WithParents(),
+		gittest.WithMessage("main branch, empty commit"),
+	)
 
 	page1Name := "Home Pagé"
-	createTestWikiPage(t, cfg, client, wikiRepo, worktreePath, createWikiPageOpts{title: page1Name})
+	createTestWikiPage(t, cfg, client, wikiRepo, repoPath, createWikiPageOpts{title: page1Name})
 
+	gittest.AddWorktree(t, cfg, repoPath, "worktree")
+	worktreePath := filepath.Join(repoPath, "worktree")
+	gittest.Exec(t, cfg, "-C", worktreePath, "checkout", "main")
 	gittest.Exec(t, cfg, "-C", worktreePath,
-		"-c", fmt.Sprintf("user.name=%s", committerName),
-		"-c", fmt.Sprintf("user.email=%s", committerEmail),
+		// Include UTF-8 to ensure encoding is handled
+		"-c", fmt.Sprintf("user.name=%s", "Scróoge McDuck"),
+		"-c", fmt.Sprintf("user.email=%s", "scrooge@mcduck.com"),
 		"commit", "--amend", "-m", "Empty commit", "-s")
-	ctx := testhelper.Context(t)
 
 	request := &gitalypb.WikiFindPageRequest{
 		Repository: wikiRepo,

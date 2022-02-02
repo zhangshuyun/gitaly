@@ -186,7 +186,8 @@ func TestFailedWikiWritePageDueToValidations(t *testing.T) {
 	wikiRepo := &gitalypb.Repository{}
 
 	cfg := testcfg.Build(t)
-	client := setupWikiService(t, cfg, nil)
+	client, socketPath := setupWikiService(t, cfg, nil)
+	cfg.SocketPath = socketPath
 
 	commitDetails := &gitalypb.WikiCommitDetails{
 		Name:     []byte("Ahmad Sherif"),

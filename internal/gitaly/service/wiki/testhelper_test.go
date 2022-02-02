@@ -2,6 +2,7 @@ package wiki
 
 import (
 	"bytes"
+	"context"
 	"reflect"
 	"runtime"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/hook"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -41,7 +43,8 @@ func TestWithRubySidecar(t *testing.T) {
 	require.NoError(t, rubySrv.Start())
 	t.Cleanup(rubySrv.Stop)
 
-	client := setupWikiService(t, cfg, rubySrv)
+	client, socketPath := setupWikiService(t, cfg, rubySrv)
+	cfg.SocketPath = socketPath
 
 	fs := []func(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server){
 		testSuccessfulWikiFindPageRequest,
@@ -66,7 +69,7 @@ func TestWithRubySidecar(t *testing.T) {
 	}
 }
 
-func setupWikiService(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server) gitalypb.WikiServiceClient {
+func setupWikiService(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server) (gitalypb.WikiServiceClient, string) {
 	addr := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(
 			deps.GetHookManager(),
@@ -74,10 +77,20 @@ func setupWikiService(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server) 
 			deps.GetPackObjectsCache(),
 		))
 		gitalypb.RegisterWikiServiceServer(srv, NewServer(deps.GetRubyServer(), deps.GetLocator()))
-	})
+		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
+			cfg,
+			deps.GetRubyServer(),
+			deps.GetLocator(),
+			deps.GetTxManager(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+			deps.GetConnsPool(),
+			deps.GetGit2goExecutor(),
+		))
+	}, testserver.WithDisableMetadataForceCreation())
 	testcfg.BuildGitalyHooks(t, cfg)
 	client := newWikiClient(t, addr)
-	return client
+	return client, addr
 }
 
 func newWikiClient(t testing.TB, serverSocketPath string) gitalypb.WikiServiceClient {
@@ -133,7 +146,7 @@ func writeWikiPage(t *testing.T, client gitalypb.WikiServiceClient, wikiRepo *gi
 }
 
 func setupWikiRepo(t *testing.T, cfg config.Cfg) (*gitalypb.Repository, string) {
-	return gittest.InitRepo(t, cfg, cfg.Storages[0])
+	return gittest.CreateRepository(context.TODO(), t, cfg)
 }
 
 func sendBytes(data []byte, chunkSize int, sender func([]byte) error) (int, error) {
