@@ -56,9 +56,20 @@ var (
 )
 
 func TestSuccessfulResolveConflictsRequestHelper(t *testing.T) {
-	cfg, repoProto, repoPath := SetupConfigAndRepo(t, true)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	var verifyFunc func(t testing.TB, pushOptions []string, stdin io.Reader)
+	verifyFuncProxy := func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
+		// We use a proxy func here as we need to provide the hookManager dependency while creating the service but we only
+		// know the commit IDs after the service is created. The proxy allows us to modify the verifyFunc after the service
+		// is already built.
+		verifyFunc(t, pushOptions, stdin)
+		return nil
+	}
+
 	ctx := testhelper.Context(t)
+	hookManager := hook.NewMockManager(t, verifyFuncProxy, verifyFuncProxy, hook.NopUpdate, hook.NopReferenceTransaction)
+	cfg, repoProto, repoPath, client := SetupConflictsService(ctx, t, true, hookManager)
+
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	missingAncestorPath := "files/missing_ancestor.txt"
 	files := []map[string]interface{}{
@@ -126,18 +137,14 @@ func TestSuccessfulResolveConflictsRequestHelper(t *testing.T) {
 	theirCommitOID = commitConflict(theirCommitOID, targetBranch, "content-2")
 	hookCount := 0
 
-	verifyFunc := func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
+	verifyFunc = func(t testing.TB, pushOptions []string, stdin io.Reader) {
 		changes, err := io.ReadAll(stdin)
 		require.NoError(t, err)
 		pattern := fmt.Sprintf("%s .* refs/heads/%s\n", ourCommitOID, sourceBranch)
 		require.Regexp(t, regexp.MustCompile(pattern), string(changes))
 		require.Empty(t, pushOptions)
 		hookCount++
-		return nil
 	}
-
-	hookManager := hook.NewMockManager(t, verifyFunc, verifyFunc, hook.NopUpdate, hook.NopReferenceTransaction)
-	client := SetupConflictsServiceWithConfig(t, &cfg, hookManager)
 
 	mdGS := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	mdFF, _ := metadata.FromOutgoingContext(ctx)
@@ -190,14 +197,13 @@ func TestSuccessfulResolveConflictsRequestHelper(t *testing.T) {
 }
 
 func TestResolveConflictsWithRemoteRepo(t *testing.T) {
-	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
-	cfg, _, _, client := SetupConflictsService(t, true, hookManager)
 	ctx := testhelper.Context(t)
+	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
+	cfg, sourceRepo, sourceRepoPath, client := SetupConflictsService(ctx, t, true, hookManager)
 
 	testcfg.BuildGitalySSH(t, cfg)
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	sourceRepo, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	sourceBlobOID := gittest.WriteBlob(t, cfg, sourceRepoPath, []byte("contents-1\n"))
 	sourceCommitOID := gittest.WriteCommit(t, cfg, sourceRepoPath,
 		gittest.WithTreeEntries(gittest.TreeEntry{
@@ -206,7 +212,9 @@ func TestResolveConflictsWithRemoteRepo(t *testing.T) {
 	)
 	gittest.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", "refs/heads/source", sourceCommitOID.String())
 
-	targetRepo, targetRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	targetRepo, targetRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 	targetBlobOID := gittest.WriteBlob(t, cfg, targetRepoPath, []byte("contents-2\n"))
 	targetCommitOID := gittest.WriteCommit(t, cfg, targetRepoPath,
 		gittest.WithTreeEntries(gittest.TreeEntry{
@@ -259,9 +267,10 @@ func TestResolveConflictsWithRemoteRepo(t *testing.T) {
 }
 
 func TestResolveConflictsLineEndings(t *testing.T) {
-	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
-	cfg, repo, repoPath, client := SetupConflictsService(t, true, hookManager)
 	ctx := testhelper.Context(t)
+	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
+	cfg, repo, repoPath, client := SetupConflictsService(ctx, t, true, hookManager)
+
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 	for _, tc := range []struct {
@@ -378,9 +387,10 @@ func TestResolveConflictsLineEndings(t *testing.T) {
 }
 
 func TestResolveConflictsNonOIDRequests(t *testing.T) {
-	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
-	cfg, repoProto, _, client := SetupConflictsService(t, true, hookManager)
 	ctx := testhelper.Context(t)
+	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
+	cfg, repoProto, _, client := SetupConflictsService(ctx, t, true, hookManager)
+
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 	stream, err := client.ResolveConflicts(ctx)
@@ -414,11 +424,12 @@ func TestResolveConflictsNonOIDRequests(t *testing.T) {
 }
 
 func TestResolveConflictsIdenticalContent(t *testing.T) {
+	ctx := testhelper.Context(t)
+
 	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
-	cfg, repoProto, repoPath, client := SetupConflictsService(t, true, hookManager)
+	cfg, repoProto, repoPath, client := SetupConflictsService(ctx, t, true, hookManager)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	ctx := testhelper.Context(t)
 
 	sourceBranch := "conflict-resolvable"
 	sourceOID, err := repo.ResolveRevision(ctx, git.Revision(sourceBranch))
@@ -510,11 +521,13 @@ func TestResolveConflictsIdenticalContent(t *testing.T) {
 }
 
 func TestResolveConflictsStableID(t *testing.T) {
+	ctx := testhelper.Context(t)
+
 	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
-	cfg, repoProto, _, client := SetupConflictsService(t, true, hookManager)
+	cfg, repoProto, _, client := SetupConflictsService(ctx, t, true, hookManager)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	ctx := testhelper.Context(t)
+
 	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
@@ -577,9 +590,10 @@ func TestResolveConflictsStableID(t *testing.T) {
 }
 
 func TestFailedResolveConflictsRequestDueToResolutionError(t *testing.T) {
-	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
-	cfg, repo, _, client := SetupConflictsService(t, true, hookManager)
 	ctx := testhelper.Context(t)
+	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
+	cfg, repo, _, client := SetupConflictsService(ctx, t, true, hookManager)
+
 	mdGS := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	mdFF, _ := metadata.FromOutgoingContext(ctx)
 	ctx = metadata.NewOutgoingContext(ctx, metadata.Join(mdGS, mdFF))
@@ -632,9 +646,9 @@ func TestFailedResolveConflictsRequestDueToResolutionError(t *testing.T) {
 }
 
 func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
-	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
-	cfg, repo, _, client := SetupConflictsService(t, true, hookManager)
 	ctx := testhelper.Context(t)
+	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
+	cfg, repo, _, client := SetupConflictsService(ctx, t, true, hookManager)
 
 	mdGS := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	ourCommitOid := "1450cd639e0bc6721eb02800169e464f212cde06"
@@ -797,13 +811,12 @@ func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
 }
 
 func TestResolveConflictsQuarantine(t *testing.T) {
-	cfg, _, _, client := SetupConflictsService(t, true, nil)
 	ctx := testhelper.Context(t)
+	cfg, sourceRepoProto, sourceRepoPath, client := SetupConflictsService(ctx, t, true, nil)
 
 	testcfg.BuildGitalySSH(t, cfg)
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	sourceRepoProto, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	sourceBlobOID := gittest.WriteBlob(t, cfg, sourceRepoPath, []byte("contents-1\n"))
 	sourceCommitOID := gittest.WriteCommit(t, cfg, sourceRepoPath,
 		gittest.WithTreeEntries(gittest.TreeEntry{
@@ -823,7 +836,9 @@ func TestResolveConflictsQuarantine(t *testing.T) {
 		exit 1
 	`))
 
-	targetRepoProto, targetRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	targetRepoProto, targetRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 	targetBlobOID := gittest.WriteBlob(t, cfg, targetRepoPath, []byte("contents-2\n"))
 	targetCommitOID := gittest.WriteCommit(t, cfg, targetRepoPath,
 		gittest.WithTreeEntries(gittest.TreeEntry{

@@ -1,6 +1,8 @@
 package conflicts
 
 import (
+	"context"
+	"path/filepath"
 	"testing"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
@@ -22,32 +24,28 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-func SetupConfigAndRepo(t testing.TB, bare bool) (config.Cfg, *gitalypb.Repository, string) {
+func SetupConflictsService(ctx context.Context, t testing.TB, bare bool, hookManager hook.Manager) (config.Cfg, *gitalypb.Repository, string, gitalypb.ConflictsServiceClient) {
 	cfg := testcfg.Build(t)
 
 	testcfg.BuildGitalyGit2Go(t, cfg)
 
-	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
-		WithWorktree: !bare,
-	})
-
-	return cfg, repo, repoPath
-}
-
-func SetupConflictsServiceWithConfig(t testing.TB, cfg *config.Cfg, hookManager hook.Manager) gitalypb.ConflictsServiceClient {
-	serverSocketPath := runConflictsServer(t, *cfg, hookManager)
+	serverSocketPath := runConflictsServer(t, cfg, hookManager)
 	cfg.SocketPath = serverSocketPath
 
 	client, conn := NewConflictsClient(t, serverSocketPath)
 	t.Cleanup(func() { conn.Close() })
 
-	return client
-}
+	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
-func SetupConflictsService(t testing.TB, bare bool, hookManager hook.Manager) (config.Cfg, *gitalypb.Repository, string, gitalypb.ConflictsServiceClient) {
-	cfg, repo, repoPath := SetupConfigAndRepo(t, bare)
-
-	client := SetupConflictsServiceWithConfig(t, &cfg, hookManager)
+	if !bare {
+		gittest.AddWorktree(t, cfg, repoPath, "worktree")
+		repoPath = filepath.Join(repoPath, "worktree")
+		// AddWorktree creates a detached worktree. Checkout master here so the
+		// branch pointer moves as we later commit.
+		gittest.Exec(t, cfg, "-C", repoPath, "checkout", "master")
+	}
 
 	return cfg, repo, repoPath, client
 }
@@ -85,7 +83,7 @@ func runConflictsServer(t testing.TB, cfg config.Cfg, hookManager hook.Manager) 
 			deps.GetLinguist(),
 			deps.GetCatfileCache(),
 		))
-	}, testserver.WithHookManager(hookManager))
+	}, testserver.WithHookManager(hookManager), testserver.WithDisableMetadataForceCreation())
 }
 
 func NewConflictsClient(t testing.TB, serverSocketPath string) (gitalypb.ConflictsServiceClient, *grpc.ClientConn) {
