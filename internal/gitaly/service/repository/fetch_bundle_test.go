@@ -26,7 +26,9 @@ import (
 
 func TestServer_FetchBundle_success(t *testing.T) {
 	t.Parallel()
-	cfg, _, repoPath, client := setupRepositoryService(t)
+
+	ctx := testhelper.Context(t)
+	cfg, _, repoPath, client := setupRepositoryService(ctx, t)
 
 	tmp := testhelper.TempDir(t)
 	bundlePath := filepath.Join(tmp, "test.bundle")
@@ -35,8 +37,7 @@ func TestServer_FetchBundle_success(t *testing.T) {
 	gittest.Exec(t, cfg, "-C", repoPath, "bundle", "create", bundlePath, "--all")
 	expectedRefs := gittest.Exec(t, cfg, "-C", repoPath, "show-ref", "--head")
 
-	targetRepo, targetRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
-	ctx := testhelper.Context(t)
+	targetRepo, targetRepoPath := gittest.CreateRepository(ctx, t, cfg)
 
 	stream, err := client.FetchBundle(ctx)
 	require.NoError(t, err)
@@ -166,7 +167,13 @@ func TestServer_FetchBundle_validation(t *testing.T) {
 					RelativePath: "unknown",
 				},
 			},
-			expectedStreamErr:     "not a git repository",
+			expectedStreamErr: func() string {
+				if testhelper.IsPraefectEnabled() {
+					return `repository "default"/"unknown" not found`
+				}
+
+				return "not a git repository"
+			}(),
 			expectedStreamErrCode: codes.NotFound,
 		},
 	} {

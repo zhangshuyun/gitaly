@@ -16,7 +16,9 @@ import (
 
 func TestGetRawChanges(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupRepositoryService(t)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupRepositoryService(ctx, t)
 
 	testCases := []struct {
 		oldRev  string
@@ -91,8 +93,6 @@ func TestGetRawChanges(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("old:%s,new:%s", tc.oldRev, tc.newRev), func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			req := &gitalypb.GetRawChangesRequest{
 				Repository:   repo,
 				FromRevision: tc.oldRev,
@@ -119,8 +119,8 @@ func TestGetRawChangesSpecialCharacters(t *testing.T) {
 	// This test looks for a specific path known to contain special
 	// characters.
 
-	_, repo, _, client := setupRepositoryService(t)
 	ctx := testhelper.Context(t)
+	_, repo, _, client := setupRepositoryService(ctx, t)
 
 	req := &gitalypb.GetRawChangesRequest{
 		Repository:   repo,
@@ -158,7 +158,9 @@ func collectChanges(t *testing.T, stream gitalypb.RepositoryService_GetRawChange
 
 func TestGetRawChangesFailures(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupRepositoryService(t)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupRepositoryService(ctx, t)
 
 	testCases := []struct {
 		oldRev         string
@@ -187,8 +189,6 @@ func TestGetRawChangesFailures(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("old:%s,new:%s", tc.oldRev, tc.newRev), func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			req := &gitalypb.GetRawChangesRequest{
 				Repository:   repo,
 				FromRevision: tc.oldRev,
@@ -213,8 +213,9 @@ func TestGetRawChangesFailures(t *testing.T) {
 
 func TestGetRawChangesManyFiles(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupRepositoryService(t)
+
 	ctx := testhelper.Context(t)
+	_, repo, _, client := setupRepositoryService(ctx, t)
 
 	initCommit := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
 	req := &gitalypb.GetRawChangesRequest{
@@ -233,8 +234,9 @@ func TestGetRawChangesManyFiles(t *testing.T) {
 
 func TestGetRawChangesMappingOperations(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupRepositoryService(t)
+
 	ctx := testhelper.Context(t)
+	_, repo, _, client := setupRepositoryService(ctx, t)
 
 	req := &gitalypb.GetRawChangesRequest{
 		Repository:   repo,
@@ -274,7 +276,9 @@ func TestGetRawChangesMappingOperations(t *testing.T) {
 
 func TestGetRawChangesInvalidUTF8Paths(t *testing.T) {
 	t.Parallel()
-	cfg, repo, repoPath, client := setupRepositoryService(t)
+
+	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
 
 	const (
 		// These are arbitrary blobs known to exist in the test repository
@@ -294,7 +298,6 @@ func TestGetRawChangesInvalidUTF8Paths(t *testing.T) {
 			OID: blobID2, Path: nonUTF8Filename, Mode: "100644",
 		}),
 	)
-	ctx := testhelper.Context(t)
 
 	req := &gitalypb.GetRawChangesRequest{
 		Repository:   repo,

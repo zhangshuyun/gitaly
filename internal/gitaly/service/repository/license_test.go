@@ -71,7 +71,7 @@ SOFTWARE.`,
 			},
 		} {
 			t.Run(tc.desc, func(t *testing.T) {
-				repo, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+				repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
 
 				var treeEntries []gittest.TreeEntry
 				for file, content := range tc.files {
@@ -82,7 +82,7 @@ SOFTWARE.`,
 					})
 				}
 
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithTreeEntries(treeEntries...), gittest.WithParents())
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithTreeEntries(treeEntries...), gittest.WithParents())
 
 				if tc.nonExistentRepository {
 					require.NoError(t, os.RemoveAll(repoPath))

@@ -64,7 +64,7 @@ func TestCreateFork_successful(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg, repo, _ := testcfg.BuildWithRepo(t)
+			cfg := testcfg.Build(t)
 
 			testcfg.BuildGitalyHooks(t, cfg)
 			testcfg.BuildGitalySSH(t, cfg)
@@ -74,14 +74,20 @@ func TestCreateFork_successful(t *testing.T) {
 				conn   *grpc.ClientConn
 			)
 
+			createRepoConfig := gittest.CreateRepositoryConfig{
+				Seed: gittest.SeedGitLabTest,
+			}
 			if tt.secure {
 				cfg.TLS = tlsConfig
 				cfg.TLSListenAddr = runSecureServer(t, cfg, nil)
 				client, conn = newSecureRepoClient(t, cfg.TLSListenAddr, cfg.Auth.Token, certPool)
-				defer conn.Close()
+				t.Cleanup(func() { conn.Close() })
+				createRepoConfig.ClientConn = conn
 			} else {
 				client, cfg.SocketPath = runRepositoryService(t, cfg, nil)
 			}
+
+			repo, _ := gittest.CreateRepository(ctx, t, cfg, createRepoConfig)
 
 			ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
@@ -122,7 +128,10 @@ func TestCreateFork_refs(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
 
-	sourceRepo, sourceRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+	client, socketPath := runRepositoryService(t, cfg, nil)
+	cfg.SocketPath = socketPath
+
+	sourceRepo, sourceRepoPath := gittest.CreateRepository(ctx, t, cfg)
 
 	// Prepare the source repository with a bunch of refs and a non-default HEAD ref so we can
 	// assert that the target repo gets created with the correct set of refs.
@@ -136,9 +145,6 @@ func TestCreateFork_refs(t *testing.T) {
 		gittest.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", ref, commitID.String())
 	}
 	gittest.Exec(t, cfg, "-C", sourceRepoPath, "symbolic-ref", "HEAD", "refs/heads/something")
-
-	client, socketPath := runRepositoryService(t, cfg, nil)
-	cfg.SocketPath = socketPath
 
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
@@ -213,7 +219,7 @@ func TestCreateFork_targetExists(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg, repo, _, client := setupRepositoryService(t)
+			cfg, repo, _, client := setupRepositoryService(ctx, t)
 
 			ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 

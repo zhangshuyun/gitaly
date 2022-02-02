@@ -26,8 +26,9 @@ import (
 
 func TestMidxWrite(t *testing.T) {
 	t.Parallel()
-	cfg, repo, repoPath, client := setupRepositoryService(t)
+
 	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
 
 	_, err := client.MidxRepack(ctx, &gitalypb.MidxRepackRequest{Repository: repo})
 	assert.NoError(t, err)
@@ -43,8 +44,9 @@ func TestMidxWrite(t *testing.T) {
 
 func TestMidxRewrite(t *testing.T) {
 	t.Parallel()
-	_, repo, repoPath, client := setupRepositoryService(t)
+
 	ctx := testhelper.Context(t)
+	_, repo, repoPath, client := setupRepositoryService(ctx, t)
 
 	midxPath := filepath.Join(repoPath, MidxRelPath)
 
@@ -69,8 +71,9 @@ func TestMidxRewrite(t *testing.T) {
 
 func TestMidxRepack(t *testing.T) {
 	t.Parallel()
-	cfg, repo, repoPath, client := setupRepositoryService(t)
+
 	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
 
 	// add some pack files with different sizes
 	packsAdded := 5
@@ -111,7 +114,10 @@ func TestMidxRepack_transactional(t *testing.T) {
 
 	txManager := transaction.NewTrackingManager()
 
-	cfg, repo, repoPath, client := setupRepositoryService(t, testserver.WithTransactionManager(txManager))
+	cfg, repo, repoPath, client := setupRepositoryService(ctx, t, testserver.WithTransactionManager(txManager))
+
+	// Reset the votes after creating the test repository.
+	txManager.Reset()
 
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
@@ -138,8 +144,10 @@ func TestMidxRepackExpire(t *testing.T) {
 	for _, packsAdded := range []int{3, 5, 11, 20} {
 		t.Run(fmt.Sprintf("Test repack expire with %d added packs", packsAdded),
 			func(t *testing.T) {
-				repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 				ctx := testhelper.Context(t)
+				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					Seed: gittest.SeedGitLabTest,
+				})
 
 				// add some pack files with different sizes
 				addPackFiles(t, ctx, cfg, client, repo, repoPath, packsAdded, false)

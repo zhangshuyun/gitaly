@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"reflect"
 	"runtime"
 	"testing"
@@ -115,6 +116,8 @@ func assertModTimeAfter(t *testing.T, afterTime time.Time, paths ...string) bool
 }
 
 func runRepositoryServerWithConfig(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server, opts ...testserver.GitalyServerOpt) string {
+	opts = append(opts, testserver.WithDisableMetadataForceCreation())
+
 	return testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRepositoryServiceServer(srv, NewServer(
 			cfg,
@@ -161,9 +164,12 @@ func runRepositoryService(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Serv
 	return client, serverSocketPath
 }
 
-func setupRepositoryService(t testing.TB, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
+func setupRepositoryService(ctx context.Context, t testing.TB, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
 	cfg, client := setupRepositoryServiceWithoutRepo(t, opts...)
-	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+
+	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 	return cfg, repo, repoPath, client
 }
 
@@ -179,12 +185,11 @@ func setupRepositoryServiceWithoutRepo(t testing.TB, opts ...testserver.GitalySe
 	return cfg, client
 }
 
-func setupRepositoryServiceWithWorktree(t testing.TB, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
-	cfg, client := setupRepositoryServiceWithoutRepo(t, opts...)
+func setupRepositoryServiceWithWorktree(ctx context.Context, t testing.TB, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
+	cfg, repo, repoPath, client := setupRepositoryService(ctx, t, opts...)
 
-	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
-		WithWorktree: true,
-	})
+	gittest.AddWorktree(t, cfg, repoPath, "worktree")
+	repoPath = filepath.Join(repoPath, "worktree")
 
 	return cfg, repo, repoPath, client
 }

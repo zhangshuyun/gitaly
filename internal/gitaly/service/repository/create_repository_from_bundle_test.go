@@ -31,7 +31,7 @@ func TestCreateRepositoryFromBundle_successful(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, client := setupRepositoryService(t)
+	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
 
 	locator := config.NewLocator(cfg)
 	tmpdir, err := tempdir.New(ctx, repo.GetStorageName(), locator)
@@ -96,7 +96,10 @@ func TestCreateRepositoryFromBundle_transactional(t *testing.T) {
 
 	txManager := transaction.NewTrackingManager()
 
-	cfg, repoProto, repoPath, client := setupRepositoryService(t, testserver.WithTransactionManager(txManager))
+	cfg, repoProto, repoPath, client := setupRepositoryService(ctx, t, testserver.WithTransactionManager(txManager))
+
+	// Reset the votes casted while creating the test repository.
+	txManager.Reset()
 
 	masterOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/master"))
 

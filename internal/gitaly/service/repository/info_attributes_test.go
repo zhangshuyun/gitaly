@@ -15,7 +15,9 @@ import (
 
 func TestGetInfoAttributesExisting(t *testing.T) {
 	t.Parallel()
-	_, repo, repoPath, client := setupRepositoryService(t)
+
+	ctx := testhelper.Context(t)
+	_, repo, repoPath, client := setupRepositoryService(ctx, t)
 
 	infoPath := filepath.Join(repoPath, "info")
 	require.NoError(t, os.MkdirAll(infoPath, 0o755))
@@ -27,9 +29,8 @@ func TestGetInfoAttributesExisting(t *testing.T) {
 	require.NoError(t, err)
 
 	request := &gitalypb.GetInfoAttributesRequest{Repository: repo}
-	testCtx := testhelper.Context(t)
 
-	stream, err := client.GetInfoAttributes(testCtx, request)
+	stream, err := client.GetInfoAttributes(ctx, request)
 	require.NoError(t, err)
 
 	receivedData, err := io.ReadAll(streamio.NewReader(func() ([]byte, error) {
@@ -43,12 +44,13 @@ func TestGetInfoAttributesExisting(t *testing.T) {
 
 func TestGetInfoAttributesNonExisting(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupRepositoryService(t)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupRepositoryService(ctx, t)
 
 	request := &gitalypb.GetInfoAttributesRequest{Repository: repo}
-	testCtx := testhelper.Context(t)
 
-	response, err := client.GetInfoAttributes(testCtx, request)
+	response, err := client.GetInfoAttributes(ctx, request)
 	require.NoError(t, err)
 
 	message, err := response.Recv()

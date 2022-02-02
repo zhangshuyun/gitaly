@@ -15,13 +15,16 @@ import (
 
 func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
 	t.Parallel()
-	cfg, sourceRepo, sourcePath, client := setupRepositoryService(t)
+
 	ctx := testhelper.Context(t)
+	cfg, sourceRepo, sourcePath, client := setupRepositoryService(ctx, t)
 
 	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
-	targetRepoProto, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	targetRepoProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 	targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
 
 	sourceBranch := "fetch-source-branch-test-branch"
@@ -46,8 +49,9 @@ func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
 
 func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
 	t.Parallel()
-	cfg, repoProto, repoPath, client := setupRepositoryService(t)
+
 	ctx := testhelper.Context(t)
+	cfg, repoProto, repoPath, client := setupRepositoryService(ctx, t)
 
 	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
@@ -76,13 +80,16 @@ func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
 
 func TestFetchSourceBranchBranchNotFound(t *testing.T) {
 	t.Parallel()
-	cfg, targetRepo, _, client := setupRepositoryService(t)
+
 	ctx := testhelper.Context(t)
+	cfg, targetRepo, _, client := setupRepositoryService(ctx, t)
 
 	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
-	sourceRepo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	sourceRepo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	sourceBranch := "does-not-exist"
 	targetRef := "refs/tmp/fetch-source-branch-test"
@@ -122,8 +129,9 @@ func TestFetchSourceBranchBranchNotFound(t *testing.T) {
 
 func TestFetchSourceBranchWrongRef(t *testing.T) {
 	t.Parallel()
-	cfg, targetRepo, _, client := setupRepositoryService(t)
+
 	ctx := testhelper.Context(t)
+	cfg, targetRepo, _, client := setupRepositoryService(ctx, t)
 
 	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)

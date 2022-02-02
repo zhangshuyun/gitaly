@@ -40,11 +40,12 @@ func getNewestPackfileModtime(t *testing.T, repoPath string) time.Time {
 
 func TestOptimizeRepository(t *testing.T) {
 	t.Parallel()
-	cfg, repoProto, repoPath, client := setupRepositoryService(t)
+
+	ctx := testhelper.Context(t)
+	cfg, repoProto, repoPath, client := setupRepositoryService(ctx, t)
 
 	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-b")
 	gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--size-multiple=4", "--split=replace", "--reachable", "--changed-paths")
-	ctx := testhelper.Context(t)
 
 	hasBitmap, err := stats.HasBitmap(repoPath)
 	require.NoError(t, err)
@@ -89,7 +90,7 @@ func TestOptimizeRepository(t *testing.T) {
 
 	require.Equal(t, getNewestPackfileModtime(t, repoPath), newestsPackfileTime, "there should not have been a new packfile created")
 
-	testRepoProto, testRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+	testRepoProto, testRepoPath := gittest.CreateRepository(ctx, t, cfg)
 
 	blobs := 10
 	blobIDs := gittest.WriteBlobs(t, cfg, testRepoPath, blobs)
@@ -148,7 +149,9 @@ func TestOptimizeRepository(t *testing.T) {
 
 func TestOptimizeRepositoryValidation(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupRepositoryService(t)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupRepositoryService(ctx, t)
 
 	testCases := []struct {
 		desc              string
@@ -171,7 +174,6 @@ func TestOptimizeRepositoryValidation(t *testing.T) {
 			expectedErrorCode: codes.NotFound,
 		},
 	}
-	ctx := testhelper.Context(t)
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {

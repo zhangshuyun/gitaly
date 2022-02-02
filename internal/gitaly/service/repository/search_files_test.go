@@ -88,7 +88,7 @@ func TestSearchFilesByContentSuccessful(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setupRepositoryService(t)
+	_, repo, _, client := setupRepositoryService(ctx, t)
 
 	testCases := []struct {
 		desc   string
@@ -153,7 +153,7 @@ func TestSearchFilesByContentLargeFile(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, client := setupRepositoryServiceWithWorktree(t)
+	cfg, repo, repoPath, client := setupRepositoryServiceWithWorktree(ctx, t)
 
 	committerName := "Scrooge McDuck"
 	committerEmail := "scrooge@mcduck.com"
@@ -181,6 +181,8 @@ func TestSearchFilesByContentLargeFile(t *testing.T) {
 	for _, largeFile := range largeFiles {
 		t.Run(largeFile.filename, func(t *testing.T) {
 			require.NoError(t, os.WriteFile(filepath.Join(repoPath, largeFile.filename), bytes.Repeat([]byte(largeFile.line), largeFile.repeated), 0o644))
+			// By default, the worktree is detached. Checkout master so the branch advances with the commit.
+			gittest.Exec(t, cfg, "-C", repoPath, "checkout", "master")
 			gittest.Exec(t, cfg, "-C", repoPath, "add", ".")
 			gittest.Exec(t, cfg, "-C", repoPath,
 				"-c", fmt.Sprintf("user.name=%s", committerName),
@@ -281,7 +283,7 @@ func TestSearchFilesByNameSuccessful(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setupRepositoryService(t)
+	_, repo, _, client := setupRepositoryService(ctx, t)
 
 	testCases := []struct {
 		desc     string

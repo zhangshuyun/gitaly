@@ -13,7 +13,8 @@ import (
 )
 
 func TestWriteRefSuccessful(t *testing.T) {
-	cfg, repo, repoPath, client := setupRepositoryService(t)
+	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
 
 	testCases := []struct {
 		desc string
@@ -48,9 +49,7 @@ func TestWriteRefSuccessful(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
 			_, err := client.WriteRef(ctx, tc.req)
-
 			require.NoError(t, err)
 
 			if bytes.Equal(tc.req.Ref, []byte("HEAD")) {
@@ -71,7 +70,8 @@ func TestWriteRefSuccessful(t *testing.T) {
 }
 
 func TestWriteRefValidationError(t *testing.T) {
-	_, repo, _, client := setupRepositoryService(t)
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupRepositoryService(ctx, t)
 
 	testCases := []struct {
 		desc string
@@ -135,7 +135,6 @@ func TestWriteRefValidationError(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
 			_, err := client.WriteRef(ctx, tc.req)
 
 			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)

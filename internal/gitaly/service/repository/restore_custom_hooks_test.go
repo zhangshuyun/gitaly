@@ -15,8 +15,9 @@ import (
 
 func TestSuccessfullRestoreCustomHooksRequest(t *testing.T) {
 	t.Parallel()
-	_, repo, repoPath, client := setupRepositoryService(t)
+
 	ctx := testhelper.Context(t)
+	_, repo, repoPath, client := setupRepositoryService(ctx, t)
 
 	stream, err := client.RestoreCustomHooks(ctx)
 	require.NoError(t, err)
@@ -60,8 +61,9 @@ func TestFailedRestoreCustomHooksDueToValidations(t *testing.T) {
 
 func TestFailedRestoreCustomHooksDueToBadTar(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupRepositoryService(t)
+
 	ctx := testhelper.Context(t)
+	_, repo, _, client := setupRepositoryService(ctx, t)
 
 	stream, err := client.RestoreCustomHooks(ctx)
 

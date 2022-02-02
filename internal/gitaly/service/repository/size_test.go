@@ -19,10 +19,11 @@ const testRepoMinSizeKB = 10000
 
 func TestSuccessfulRepositorySizeRequest(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupRepositoryService(t)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupRepositoryService(ctx, t)
 
 	request := &gitalypb.RepositorySizeRequest{Repository: repo}
-	ctx := testhelper.Context(t)
 	response, err := client.RepositorySize(ctx, request)
 	require.NoError(t, err)
 
@@ -60,9 +61,10 @@ func TestFailedRepositorySizeRequest(t *testing.T) {
 
 func TestSuccessfulGetObjectDirectorySizeRequest(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupRepositoryService(t)
-	repo.GitObjectDirectory = "objects/"
+
 	ctx := testhelper.Context(t)
+	_, repo, _, client := setupRepositoryService(ctx, t)
+	repo.GitObjectDirectory = "objects/"
 
 	request := &gitalypb.GetObjectDirectorySizeRequest{Repository: repo}
 	response, err := client.GetObjectDirectorySize(ctx, request)
@@ -82,7 +84,9 @@ func TestGetObjectDirectorySize_quarantine(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	t.Run("quarantined repo", func(t *testing.T) {
-		repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+		repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			Seed: gittest.SeedGitLabTest,
+		})
 
 		quarantine, err := quarantine.New(ctx, repo, locator)
 		require.NoError(t, err)
@@ -99,11 +103,15 @@ func TestGetObjectDirectorySize_quarantine(t *testing.T) {
 	})
 
 	t.Run("quarantined repo with different relative path", func(t *testing.T) {
-		repo1, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+		repo1, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			Seed: gittest.SeedGitLabTest,
+		})
 		quarantine1, err := quarantine.New(ctx, repo1, locator)
 		require.NoError(t, err)
 
-		repo2, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+		repo2, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			Seed: gittest.SeedGitLabTest,
+		})
 		quarantine2, err := quarantine.New(ctx, repo2, locator)
 		require.NoError(t, err)
 

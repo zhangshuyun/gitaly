@@ -45,7 +45,10 @@ func TestCleanupDeletesStaleWorktrees(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+			ctx := testhelper.Context(t)
+			repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				Seed: gittest.SeedGitLabTest,
+			})
 
 			req := &gitalypb.CleanupRequest{Repository: repo}
 
@@ -55,7 +58,6 @@ func TestCleanupDeletesStaleWorktrees(t *testing.T) {
 			worktreePath := filepath.Join(basePath, "test-worktree")
 
 			require.NoError(t, os.Chtimes(worktreeCheckoutPath, tc.worktreeTime, tc.worktreeTime))
-			ctx := testhelper.Context(t)
 
 			c, err := client.Cleanup(ctx, req)
 
@@ -79,7 +81,8 @@ func TestCleanupDeletesStaleWorktrees(t *testing.T) {
 func TestCleanupDeletesOrphanedWorktrees(t *testing.T) {
 	t.Parallel()
 
-	_, repo, repoPath, client := setupRepositoryService(t)
+	ctx := testhelper.Context(t)
+	_, repo, repoPath, client := setupRepositoryService(ctx, t)
 
 	worktreeCheckoutPath := filepath.Join(repoPath, worktreePrefix, "test-worktree")
 	basePath := filepath.Join(repoPath, "worktrees")
@@ -87,7 +90,6 @@ func TestCleanupDeletesOrphanedWorktrees(t *testing.T) {
 
 	require.NoError(t, os.MkdirAll(worktreeCheckoutPath, os.ModePerm))
 	require.NoError(t, os.Chtimes(worktreeCheckoutPath, oldTreeTime, oldTreeTime))
-	ctx := testhelper.Context(t)
 
 	c, err := client.Cleanup(ctx, &gitalypb.CleanupRequest{Repository: repo})
 	assert.NoError(t, err)
@@ -106,7 +108,8 @@ func TestCleanupDisconnectedWorktrees(t *testing.T) {
 		worktreeAdminDir = "worktrees"
 	)
 
-	cfg, repo, repoPath, client := setupRepositoryService(t)
+	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
 
 	worktreePath := filepath.Join(repoPath, worktreePrefix, worktreeName)
 	worktreeAdminPath := filepath.Join(
@@ -116,7 +119,6 @@ func TestCleanupDisconnectedWorktrees(t *testing.T) {
 	req := &gitalypb.CleanupRequest{Repository: repo}
 
 	gittest.AddWorktree(t, cfg, repoPath, worktreePath)
-	ctx := testhelper.Context(t)
 
 	// removing the work tree path but leaving the administrative files in
 	// $GIT_DIR/worktrees will result in the work tree being in a

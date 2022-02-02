@@ -20,7 +20,7 @@ func TestRenameRepository_success(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	// Praefect does not move repositories on the disk so this test case is not run with Praefect.
-	cfg, repo, _, client := setupRepositoryService(t, testserver.WithDisablePraefect())
+	cfg, repo, _, client := setupRepositoryService(ctx, t, testserver.WithDisablePraefect())
 
 	const targetPath = "a-new-location"
 	_, err := client.RenameRepository(ctx, &gitalypb.RenameRepositoryRequest{
@@ -67,10 +67,13 @@ func TestRenameRepository_DestinationExists(t *testing.T) {
 }
 
 func TestRenameRepository_invalidRequest(t *testing.T) {
+	// Prafect applies renames to metadata even on failed requests, which fails this test.
+	testhelper.SkipWithPraefect(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/4003")
+
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setupRepositoryService(t)
+	_, repo, _, client := setupRepositoryService(ctx, t)
 
 	testCases := []struct {
 		desc string
