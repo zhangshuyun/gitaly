@@ -34,14 +34,17 @@ import (
 func TestSuccessfulInfoRefsUploadPack(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
 
-	serverSocketPath := runSmartHTTPServer(t, cfg)
+	cfg.SocketPath = runSmartHTTPServer(t, cfg)
+
+	ctx := testhelper.Context(t)
+	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	rpcRequest := &gitalypb.InfoRefsRequest{Repository: repo}
-	ctx := testhelper.Context(t)
-
-	response, err := makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest)
+	response, err := makeInfoRefsUploadPackRequest(ctx, t, cfg.SocketPath, cfg.Auth.Token, rpcRequest)
 	require.NoError(t, err)
 	assertGitRefAdvertisement(t, "InfoRefsUploadPack", string(response), "001e# service=git-upload-pack", "0000", []string{
 		"003ef4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8 refs/tags/v1.0.0",
@@ -63,22 +66,32 @@ func TestInfoRefsUploadPack_repositoryDoesntExist(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	_, err := makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest)
-	testhelper.RequireGrpcError(t, helper.ErrNotFoundf(`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/doesnt/exist"`), err)
+
+	expectedErr := helper.ErrNotFoundf(`GetRepoPath: not a git repository: "` + cfg.Storages[0].Path + `/doesnt/exist"`)
+	if testhelper.IsPraefectEnabled() {
+		expectedErr = helper.ErrNotFoundf(`accessor call: route repository accessor: consistent storages: repository "default"/"doesnt/exist" not found`)
+	}
+
+	testhelper.RequireGrpcError(t, expectedErr, err)
 }
 
 func TestSuccessfulInfoRefsUploadWithPartialClone(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
 
-	serverSocketPath := runSmartHTTPServer(t, cfg)
+	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 	ctx := testhelper.Context(t)
+
+	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	request := &gitalypb.InfoRefsRequest{
 		Repository: repo,
 	}
 
-	partialResponse, err := makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, request)
+	partialResponse, err := makeInfoRefsUploadPackRequest(ctx, t, cfg.SocketPath, cfg.Auth.Token, request)
 	require.NoError(t, err)
 	partialRefs := stats.ReferenceDiscovery{}
 	err = partialRefs.Parse(bytes.NewReader(partialResponse))
@@ -92,9 +105,13 @@ func TestSuccessfulInfoRefsUploadWithPartialClone(t *testing.T) {
 func TestSuccessfulInfoRefsUploadPackWithGitConfigOptions(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
+	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 
-	serverSocketPath := runSmartHTTPServer(t, cfg)
+	ctx := testhelper.Context(t)
+	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	// transfer.hideRefs=refs will hide every ref that info-refs would normally
 	// output, allowing us to test that the custom configuration is respected
@@ -102,9 +119,7 @@ func TestSuccessfulInfoRefsUploadPackWithGitConfigOptions(t *testing.T) {
 		Repository:       repo,
 		GitConfigOptions: []string{"transfer.hideRefs=refs"},
 	}
-	ctx := testhelper.Context(t)
-
-	response, err := makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest)
+	response, err := makeInfoRefsUploadPackRequest(ctx, t, cfg.SocketPath, cfg.Auth.Token, rpcRequest)
 	require.NoError(t, err)
 	assertGitRefAdvertisement(t, "InfoRefsUploadPack", string(response), "001e# service=git-upload-pack", "0000", []string{})
 }
@@ -112,13 +127,18 @@ func TestSuccessfulInfoRefsUploadPackWithGitConfigOptions(t *testing.T) {
 func TestSuccessfulInfoRefsUploadPackWithGitProtocol(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
 
 	gitCmdFactory, readProtocol := gittest.NewProtocolDetectingCommandFactory(ctx, t, cfg)
 
 	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
 		testserver.WithGitCommandFactory(gitCmdFactory),
+	})
+	cfg.SocketPath = server.Address()
+
+	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
 	})
 
 	rpcRequest := &gitalypb.InfoRefsRequest{
@@ -165,14 +185,18 @@ func makeInfoRefsUploadPackRequest(ctx context.Context, t *testing.T, serverSock
 func TestSuccessfulInfoRefsReceivePack(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
 
-	serverSocketPath := runSmartHTTPServer(t, cfg)
+	cfg.SocketPath = runSmartHTTPServer(t, cfg)
+
+	ctx := testhelper.Context(t)
+	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	rpcRequest := &gitalypb.InfoRefsRequest{Repository: repo}
-	ctx := testhelper.Context(t)
 
-	response, err := makeInfoRefsReceivePackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest)
+	response, err := makeInfoRefsReceivePackRequest(ctx, t, cfg.SocketPath, cfg.Auth.Token, rpcRequest)
 	require.NoError(t, err)
 
 	assertGitRefAdvertisement(t, "InfoRefsReceivePack", string(response), "001f# service=git-receive-pack", "0000", []string{
@@ -184,12 +208,16 @@ func TestSuccessfulInfoRefsReceivePack(t *testing.T) {
 func TestObjectPoolRefAdvertisementHiding(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
 
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	serverSocketPath := runSmartHTTPServer(t, cfg)
+	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 	ctx := testhelper.Context(t)
+
+	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	pool, err := objectpool.NewObjectPool(
 		config.NewLocator(cfg),
@@ -212,7 +240,7 @@ func TestObjectPoolRefAdvertisementHiding(t *testing.T) {
 
 	rpcRequest := &gitalypb.InfoRefsRequest{Repository: repo}
 
-	response, err := makeInfoRefsReceivePackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest)
+	response, err := makeInfoRefsReceivePackRequest(ctx, t, cfg.SocketPath, cfg.Auth.Token, rpcRequest)
 	require.NoError(t, err)
 	require.NotContains(t, string(response), commitID+" .have")
 }
@@ -228,8 +256,13 @@ func TestFailureRepoNotFoundInfoRefsReceivePack(t *testing.T) {
 	rpcRequest := &gitalypb.InfoRefsRequest{Repository: repo}
 	ctx := testhelper.Context(t)
 	_, err := makeInfoRefsReceivePackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest)
-	msg := `GetRepoPath: not a git repository: "` + cfg.Storages[0].Path + "/" + repo.RelativePath + `"`
-	testhelper.RequireGrpcError(t, helper.ErrNotFoundf(msg), err)
+
+	expectedErr := helper.ErrNotFoundf(`GetRepoPath: not a git repository: "` + cfg.Storages[0].Path + "/" + repo.RelativePath + `"`)
+	if testhelper.IsPraefectEnabled() {
+		expectedErr = helper.ErrNotFoundf(`accessor call: route repository accessor: consistent storages: repository "default"/"testdata/scratch/another_repo" not found`)
+	}
+
+	testhelper.RequireGrpcError(t, expectedErr, err)
 }
 
 func TestFailureRepoNotSetInfoRefsReceivePack(t *testing.T) {
@@ -298,7 +331,7 @@ func (ms *mockStreamer) PutStream(ctx context.Context, repo *gitalypb.Repository
 func TestCacheInfoRefsUploadPack(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
 
 	locator := config.NewLocator(cfg)
 	cache := cache.New(cfg, locator)
@@ -309,9 +342,14 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 	mockInfoRefCache := newInfoRefCache(&streamer)
 
 	gitalyServer := startSmartHTTPServer(t, cfg, withInfoRefCache(mockInfoRefCache))
+	cfg.SocketPath = gitalyServer.Address()
+
+	ctx := testhelper.Context(t)
+	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	rpcRequest := &gitalypb.InfoRefsRequest{Repository: repo}
-	ctx := testhelper.Context(t)
 
 	// The key computed for the cache entry takes into account all feature flags. Because
 	// Praefect explicitly injects all unset feature flags, the key is thus differend depending
