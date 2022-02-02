@@ -1,5 +1,8 @@
 # Makefile for Gitaly
 
+# Generated automatically
+-include config_generated.mak
+
 # You can override options by creating a "config.mak" file in Gitaly's root
 # directory.
 -include config.mak

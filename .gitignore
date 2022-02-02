@@ -10,4 +10,5 @@
 
 # Configuration and runtime data
 /config.mak
+/config_generated.mak
 /*.toml
