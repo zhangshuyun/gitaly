@@ -18,7 +18,7 @@ import (
 func TestGetTagSignatures(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, repoProto, repoPath, client := setupRefService(t)
+	cfg, repoProto, repoPath, client := setupRefService(ctx, t)
 
 	message1 := strings.Repeat("a", helper.MaxCommitOrTagMessageSize) + "\n"
 	signature1 := string(testhelper.MustReadFile(t, "testdata/tag-1e292f8fedd741b75372e19097c76d327140c312-signature"))

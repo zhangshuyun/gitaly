@@ -17,7 +17,7 @@ import (
 func TestSuccessfulFindAllRemoteBranchesRequest(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, repoProto, repoPath, client := setupRefService(t)
+	cfg, repoProto, repoPath, client := setupRefService(ctx, t)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -73,7 +73,8 @@ func TestSuccessfulFindAllRemoteBranchesRequest(t *testing.T) {
 }
 
 func TestInvalidFindAllRemoteBranchesRequest(t *testing.T) {
-	_, repo, _, client := setupRefService(t)
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupRefService(ctx, t)
 
 	testCases := []struct {
 		description string
@@ -100,7 +101,6 @@ func TestInvalidFindAllRemoteBranchesRequest(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			ctx := testhelper.Context(t)
 			c, err := client.FindAllRemoteBranches(ctx, tc.request)
 			require.NoError(t, err)
 

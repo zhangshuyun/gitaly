@@ -20,7 +20,7 @@ import (
 func TestPackRefsSuccessfulRequest(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, repoProto, repoPath, client := setupRefService(t)
+	cfg, repoProto, repoPath, client := setupRefService(ctx, t)
 
 	packedRefs := linesInPackfile(t, repoPath)
 
