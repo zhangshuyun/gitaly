@@ -145,8 +145,8 @@ func writeWikiPage(t *testing.T, client gitalypb.WikiServiceClient, wikiRepo *gi
 	require.NoError(t, err)
 }
 
-func setupWikiRepo(t *testing.T, cfg config.Cfg) (*gitalypb.Repository, string) {
-	return gittest.CreateRepository(context.TODO(), t, cfg)
+func setupWikiRepo(ctx context.Context, t *testing.T, cfg config.Cfg) (*gitalypb.Repository, string) {
+	return gittest.CreateRepository(ctx, t, cfg)
 }
 
 func sendBytes(data []byte, chunkSize int, sender func([]byte) error) (int, error) {

@@ -17,7 +17,8 @@ import (
 )
 
 func testSuccessfulWikiFindPageRequest(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
-	wikiRepo, wikiRepoPath := setupWikiRepo(t, cfg)
+	ctx := testhelper.Context(t)
+	wikiRepo, wikiRepoPath := setupWikiRepo(ctx, t, cfg)
 
 	page1Name := "Home Pagé"
 	page2Name := "Instálling/Step 133-b"
@@ -228,8 +229,6 @@ func testSuccessfulWikiFindPageRequest(t *testing.T, cfg config.Cfg, client gita
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			c, err := client.WikiFindPage(ctx, testCase.request)
 			require.NoError(t, err)
 
@@ -252,7 +251,8 @@ func testSuccessfulWikiFindPageRequest(t *testing.T, cfg config.Cfg, client gita
 }
 
 func testSuccessfulWikiFindPageSameTitleDifferentPathRequest(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
-	wikiRepo, wikiRepoPath := setupWikiRepo(t, cfg)
+	ctx := testhelper.Context(t)
+	wikiRepo, wikiRepoPath := setupWikiRepo(ctx, t, cfg)
 
 	page1Name := "page1"
 	page1Content := []byte("content " + page1Name)
@@ -336,8 +336,6 @@ func testSuccessfulWikiFindPageSameTitleDifferentPathRequest(t *testing.T, cfg c
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			c, err := client.WikiFindPage(ctx, testCase.request)
 			require.NoError(t, err)
 
@@ -365,7 +363,8 @@ func TestFailedWikiFindPageDueToValidation(t *testing.T) {
 	client, socketPath := setupWikiService(t, cfg, nil)
 	cfg.SocketPath = socketPath
 
-	wikiRepo, _ := setupWikiRepo(t, cfg)
+	ctx := testhelper.Context(t)
+	wikiRepo, _ := setupWikiRepo(ctx, t, cfg)
 
 	testCases := []struct {
 		desc  string
@@ -381,8 +380,6 @@ func TestFailedWikiFindPageDueToValidation(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			request := &gitalypb.WikiFindPageRequest{
 				Repository: wikiRepo,
 				Title:      []byte(testCase.title),
@@ -431,8 +428,8 @@ func TestInvalidWikiFindPageRequestRevision(t *testing.T) {
 	client, socketPath := setupWikiService(t, cfg, nil)
 	cfg.SocketPath = socketPath
 
-	wikiRepo, _ := setupWikiRepo(t, cfg)
 	ctx := testhelper.Context(t)
+	wikiRepo, _ := setupWikiRepo(ctx, t, cfg)
 
 	stream, err := client.WikiFindPage(ctx, &gitalypb.WikiFindPageRequest{
 		Repository: wikiRepo,
