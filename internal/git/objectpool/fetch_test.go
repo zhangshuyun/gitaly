@@ -226,6 +226,8 @@ func TestFetchFromOrigin_refs(t *testing.T) {
 		},
 		strings.Split(text.ChompBytes(gittest.Exec(t, cfg, "-C", poolPath, "for-each-ref", "--format=%(refname)")), "\n"),
 	)
+
+	require.NoFileExists(t, filepath.Join(poolPath, "FETCH_HEAD"))
 }
 
 func resolveRef(t *testing.T, cfg config.Cfg, repo string, ref string) string {

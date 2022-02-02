@@ -153,7 +153,10 @@ func (repo *Repo) FetchInternal(
 		git.SubCmd{
 			Name:  "fetch",
 			Flags: opts.buildFlags(),
-			Args:  append([]string{git.InternalGitalyURL}, refspecs...),
+			Args: append(
+				[]string{git.InternalGitalyURL},
+				refspecs...,
+			),
 		},
 		commandOptions...,
 	); err != nil {
@@ -164,7 +167,11 @@ func (repo *Repo) FetchInternal(
 }
 
 func (opts FetchOpts) buildFlags() []git.Option {
-	flags := []git.Option{}
+	flags := []git.Option{
+		// We don't need FETCH_HEAD, and it can potentially be hundreds of megabytes when
+		// doing a mirror-sync of repos with huge numbers of references.
+		git.Flag{Name: "--no-write-fetch-head"},
+	}
 
 	if !opts.Verbose {
 		flags = append(flags, git.Flag{Name: "--quiet"})

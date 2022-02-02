@@ -55,6 +55,10 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 				// want to fetch them a second time via Git's default
 				// tag refspec.
 				git.Flag{Name: "--no-tags"},
+				// We don't need FETCH_HEAD, and it can potentially be hundreds of
+				// megabytes when doing a mirror-sync of repos with huge numbers of
+				// references.
+				git.Flag{Name: "--no-write-fetch-head"},
 			},
 			Args: []string{originPath, refSpec},
 		},
