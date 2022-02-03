@@ -45,6 +45,10 @@ message UpdateRemoteMirrorRequest {
     // HTTPAuthorizationHeader is an optional HTTP header used for
     // authenticating against the remote repository.
     string http_authorization_header = 2;
+    // HttpHost is the hostname of the remote repository. Use this when the
+    // URL hostname has already been resolved to an IP address to prevent DNS
+    // rebinding.
+    string http_host = 3;
   }
 
   // Repository is the repository whose mirror repository to update.
@@ -105,6 +109,10 @@ message FindRemoteRootRefRequest {
   // HttpAuthorizationHeader is the HTTP header which should be added to the
   // request in order to authenticate against the repository.
   string http_authorization_header = 4;
+  // HttpHost is the hostname of the remote repository. Use this when the
+  // URL hostname has already been resolved to an IP address to prevent DNS
+  // rebinding.
+  string http_host = 5;
 
   reserved 2;
   reserved "remote";

@@ -81,6 +81,12 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 			Value: "Authorization: " + authHeader,
 		})
 	}
+	if host := remote.GetHttpHost(); host != "" {
+		remoteConfig = append(remoteConfig, git.ConfigPair{
+			Key:   fmt.Sprintf("http.%s.extraHeader", remote.GetUrl()),
+			Value: "Host: " + host,
+		})
+	}
 
 	sshCommand, clean, err := git.BuildSSHInvocation(ctx, firstRequest.GetSshKey(), firstRequest.GetKnownHosts())
 	if err != nil {
