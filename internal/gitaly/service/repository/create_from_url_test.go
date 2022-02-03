@@ -57,30 +57,6 @@ func TestSuccessfulCreateRepositoryFromURLRequest(t *testing.T) {
 	require.True(t, os.IsNotExist(err), "hooks directory should not have been created")
 }
 
-func TestCloneRepositoryFromUrlCommand(t *testing.T) {
-	t.Parallel()
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	userInfo := "user:pass%21%3F%40"
-	repositoryFullPath := "full/path/to/repository"
-	url := fmt.Sprintf("https://%s@www.example.com/secretrepo.git", userInfo)
-
-	cfg := testcfg.Build(t)
-	s := server{cfg: cfg, gitCmdFactory: git.NewExecCommandFactory(cfg)}
-	cmd, err := s.cloneFromURLCommand(ctx, &gitalypb.Repository{}, url, repositoryFullPath, nil)
-	require.NoError(t, err)
-
-	expectedScrubbedURL := "https://www.example.com/secretrepo.git"
-	expectedBasicAuthHeader := fmt.Sprintf("Authorization: Basic %s", base64.StdEncoding.EncodeToString([]byte("user:pass!?@")))
-	expectedHeader := fmt.Sprintf("http.extraHeader=%s", expectedBasicAuthHeader)
-
-	args := cmd.Args()
-	require.Contains(t, args, expectedScrubbedURL)
-	require.Contains(t, args, expectedHeader)
-	require.NotContains(t, args, userInfo)
-}
-
 func TestFailedCreateRepositoryFromURLRequestDueToExistingTarget(t *testing.T) {
 	t.Parallel()
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
@@ -158,6 +134,33 @@ func TestPreventingRedirect(t *testing.T) {
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "The requested URL returned error: 301")
+}
+
+func TestCloneRepositoryFromUrlCommand(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	userInfo := "user:pass%21%3F%40"
+	repositoryFullPath := "full/path/to/repository"
+	url := fmt.Sprintf("https://%s@192.0.2.1/secretrepo.git", userInfo)
+	host := "www.example.com"
+
+	cfg := testcfg.Build(t)
+	s := server{cfg: cfg, gitCmdFactory: git.NewExecCommandFactory(cfg)}
+	cmd, err := s.cloneFromURLCommand(ctx, &gitalypb.Repository{}, url, host, repositoryFullPath, nil)
+	require.NoError(t, err)
+
+	expectedScrubbedURL := "https://192.0.2.1/secretrepo.git"
+	expectedBasicAuthHeader := fmt.Sprintf("Authorization: Basic %s", base64.StdEncoding.EncodeToString([]byte("user:pass!?@")))
+	expectedAuthHeader := fmt.Sprintf("http.extraHeader=%s", expectedBasicAuthHeader)
+	expectedHostHeader := "http.extraHeader=Host: www.example.com"
+
+	args := cmd.Args()
+	require.Contains(t, args, expectedScrubbedURL)
+	require.Contains(t, args, expectedAuthHeader)
+	require.Contains(t, args, expectedHostHeader)
+	require.NotContains(t, args, userInfo)
 }
 
 func gitServerWithBasicAuth(t testing.TB, cfg config.Cfg, user, pass, repoPath string) (int, func() error) {
