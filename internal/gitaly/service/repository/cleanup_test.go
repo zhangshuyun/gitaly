@@ -8,8 +8,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -139,6 +141,33 @@ func TestCleanupDisconnectedWorktrees(t *testing.T) {
 	// if the worktree administrative files are pruned, then we should be able
 	// to checkout another worktree at the same path
 	gittest.AddWorktree(t, cfg, repoPath, worktreePath)
+}
+
+func TestCleanupDisconnectedWorktrees_doesNothingWithoutWorktrees(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg, repoProto, repoPath, _ := setupRepositoryService(ctx, t)
+	worktreePath := filepath.Join(testhelper.TempDir(t), "worktree")
+
+	failingGitCmdFactory := gittest.NewInterceptingCommandFactory(ctx, t, cfg, func(git.ExecutionEnvironment) string {
+		return `#!/usr/bin/env bash
+		exit 15
+		`
+	})
+
+	repo := localrepo.New(config.NewLocator(cfg), failingGitCmdFactory, nil, repoProto)
+
+	// If this command did spawn git-worktree(1) we'd see an error. It doesn't though because it
+	// detects that there aren't any worktrees at all.
+	require.NoError(t, cleanDisconnectedWorktrees(ctx, repo))
+
+	gittest.AddWorktree(t, cfg, repoPath, worktreePath)
+
+	// We have now added a worktree now, so it should detect that there are worktrees and thus
+	// spawn the Git command. We thus expect the error code we inject via the failing Git
+	// command factory.
+	require.EqualError(t, cleanDisconnectedWorktrees(ctx, repo), "exit status 15")
 }
 
 func TestRemoveWorktree(t *testing.T) {

@@ -127,6 +127,41 @@ func isExitWithCode(err error, code int) bool {
 }
 
 func cleanDisconnectedWorktrees(ctx context.Context, repo *localrepo.Repo) error {
+	repoPath, err := repo.Path()
+	if err != nil {
+		return err
+	}
+
+	// Spawning a command is expensive. We thus try to avoid the overhead by first
+	// determining if there could possibly be any work to be done by git-worktree(1). We do so
+	// by reading the directory in which worktrees are stored, and if it's empty then we know
+	// that there aren't any worktrees in the first place.
+	worktreeEntries, err := os.ReadDir(filepath.Join(repoPath, "worktrees"))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+	}
+
+	hasWorktrees := false
+	for _, worktreeEntry := range worktreeEntries {
+		if !worktreeEntry.IsDir() {
+			continue
+		}
+
+		if worktreeEntry.Name() == "." || worktreeEntry.Name() == ".." {
+			continue
+		}
+
+		hasWorktrees = true
+		break
+	}
+
+	// There are no worktrees, so let's avoid spawning the Git command.
+	if !hasWorktrees {
+		return nil
+	}
+
 	return repo.ExecAndWait(ctx, git.SubSubCmd{
 		Name:   "worktree",
 		Action: "prune",
