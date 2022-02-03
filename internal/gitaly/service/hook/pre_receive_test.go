@@ -28,8 +28,8 @@ import (
 )
 
 func TestPreReceiveInvalidArgument(t *testing.T) {
-	_, _, _, client := setupHookService(t)
 	ctx := testhelper.Context(t)
+	_, _, _, client := setupHookService(ctx, t)
 
 	stream, err := client.PreReceiveHook(ctx)
 	require.NoError(t, err)

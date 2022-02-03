@@ -34,8 +34,8 @@ func TestUpdateInvalidArgument(t *testing.T) {
 }
 
 func TestUpdate_CustomHooks(t *testing.T) {
-	cfg, repo, repoPath, client := setupHookService(t)
 	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupHookService(ctx, t)
 
 	hooksPayload, err := git.NewHooksPayload(
 		cfg,

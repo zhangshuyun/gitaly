@@ -20,7 +20,7 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-func setupHookService(t testing.TB) (config.Cfg, *gitalypb.Repository, string, gitalypb.HookServiceClient) {
+func setupHookService(ctx context.Context, t testing.TB) (config.Cfg, *gitalypb.Repository, string, gitalypb.HookServiceClient) {
 	t.Helper()
 
 	cfg := testcfg.Build(t)
@@ -28,7 +28,7 @@ func setupHookService(t testing.TB) (config.Cfg, *gitalypb.Repository, string, g
 	client, conn := newHooksClient(t, cfg.SocketPath)
 	t.Cleanup(func() { conn.Close() })
 
-	repo, repoPath := gittest.CreateRepository(context.TODO(), t, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
