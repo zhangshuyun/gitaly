@@ -18,7 +18,7 @@ import (
 
 func (s *server) cloneFromURLCommand(
 	ctx context.Context,
-	repoURL, repositoryFullPath string,
+	repoURL, repoHost, repositoryFullPath string,
 	opts ...git.CmdOpt,
 ) (*command.Command, error) {
 	u, err := url.Parse(repoURL)
@@ -48,6 +48,13 @@ func (s *server) cloneFromURLCommand(
 		config = append(config, git.ConfigPair{Key: "http.extraHeader", Value: authHeader})
 	}
 
+	if repoHost != "" {
+		config = append(config, git.ConfigPair{
+			Key:   "http.extraHeader",
+			Value: "Host: " + repoHost,
+		})
+	}
+
 	return s.gitCmdFactory.NewWithoutRepo(ctx,
 		git.SubCmd{
 			Name:  "clone",
@@ -75,7 +82,13 @@ func (s *server) CreateRepositoryFromURL(ctx context.Context, req *gitalypb.Crea
 		}
 
 		var stderr bytes.Buffer
-		cmd, err := s.cloneFromURLCommand(ctx, req.GetUrl(), targetPath, git.WithStderr(&stderr), git.WithDisabledHooks())
+		cmd, err := s.cloneFromURLCommand(ctx,
+			req.GetUrl(),
+			req.GetHttpHost(),
+			targetPath,
+			git.WithStderr(&stderr),
+			git.WithDisabledHooks(),
+		)
 		if err != nil {
 			return fmt.Errorf("starting clone: %w", err)
 		}
