@@ -58,6 +58,9 @@ func untar(ctx context.Context, path string, in *gitalypb.CreateRepositoryFromSn
 	if in.HttpAuth != "" {
 		req.Header.Set("Authorization", in.HttpAuth)
 	}
+	if in.GetHttpHost() != "" {
+		req.Host = in.HttpHost
+	}
 
 	rsp, err := httpClient.Do(req)
 	if err != nil {

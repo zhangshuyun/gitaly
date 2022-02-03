@@ -25,16 +25,22 @@ import (
 
 var (
 	secret       = "Magic secret"
+	host         = "example.com"
 	redirectPath = "/redirecting-snapshot.tar"
 	tarPath      = "/snapshot.tar"
 )
 
 type tarTesthandler struct {
 	tarData io.Reader
+	host    string
 	secret  string
 }
 
 func (h *tarTesthandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if h.host != "" && r.Host != h.host {
+		http.Error(w, "No Host", http.StatusBadRequest)
+		return
+	}
 	if r.Header.Get("Authorization") != h.secret {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -87,7 +93,7 @@ func testCreateRepositoryFromSnapshotSuccess(t *testing.T, ctx context.Context) 
 	data, entries := generateTarFile(t, sourceRepoPath)
 
 	// Create a HTTP server that serves a given tar file
-	srv := httptest.NewServer(&tarTesthandler{tarData: bytes.NewReader(data), secret: secret})
+	srv := httptest.NewServer(&tarTesthandler{tarData: bytes.NewReader(data), secret: secret, host: host})
 	defer srv.Close()
 
 	repoRelativePath := filepath.Join("non-existing-parent", "repository")
@@ -100,6 +106,7 @@ func testCreateRepositoryFromSnapshotSuccess(t *testing.T, ctx context.Context) 
 		Repository: repo,
 		HttpUrl:    srv.URL + tarPath,
 		HttpAuth:   secret,
+		HttpHost:   host,
 	}
 
 	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil)
@@ -210,7 +217,7 @@ func testCreateRepositoryFromSnapshotBadRequests(t *testing.T, ctx context.Conte
 		},
 	}
 
-	srv := httptest.NewServer(&tarTesthandler{secret: secret})
+	srv := httptest.NewServer(&tarTesthandler{secret: secret, host: host})
 	defer srv.Close()
 
 	for _, tc := range testCases {
@@ -223,6 +230,7 @@ func testCreateRepositoryFromSnapshotBadRequests(t *testing.T, ctx context.Conte
 				Repository: repo,
 				HttpUrl:    srv.URL + tc.url,
 				HttpAuth:   tc.auth,
+				HttpHost:   host,
 			}
 
 			rsp, err := createFromSnapshot(t, ctx, req, cfg)
@@ -250,7 +258,7 @@ func testCreateRepositoryFromSnapshotHandlesMalformedResponse(t *testing.T, ctx 
 	// Only serve half of the tar file
 	dataReader := io.LimitReader(bytes.NewReader(data), int64(len(data)/2))
 
-	srv := httptest.NewServer(&tarTesthandler{tarData: dataReader, secret: secret})
+	srv := httptest.NewServer(&tarTesthandler{tarData: dataReader, secret: secret, host: host})
 	defer srv.Close()
 
 	// Delete the repository so we can re-use the path
@@ -260,6 +268,7 @@ func testCreateRepositoryFromSnapshotHandlesMalformedResponse(t *testing.T, ctx 
 		Repository: repo,
 		HttpUrl:    srv.URL + tarPath,
 		HttpAuth:   secret,
+		HttpHost:   host,
 	}
 
 	rsp, err := createFromSnapshot(t, ctx, req, cfg)
