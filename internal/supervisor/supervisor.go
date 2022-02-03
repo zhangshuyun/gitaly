@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/labkit/tracing"
 )
 
@@ -125,6 +126,12 @@ func watch(p *Process) {
 		go monitorHealth(p.healthCheck, p.events, p.Name, healthShutdown)
 	}
 
+	notificationTicker := helper.NewTimerTicker(1 * time.Minute)
+	defer notificationTicker.Stop()
+
+	crashResetTicker := helper.NewTimerTicker(p.config.CrashResetTime)
+	defer crashResetTicker.Stop()
+
 spawnLoop:
 	for {
 		if crashes >= p.config.CrashThreshold {
@@ -166,14 +173,25 @@ spawnLoop:
 
 		monitorChan <- monitorProcess{pid: pid, wait: waitCh}
 
+		// We create the tickers before the spawn loop so we don't recreate the channels
+		// every time we loop. Furthermore, stopping those tickers via deferred function
+		// calls would only clean them up after we stop watching. So instead, we just reset
+		// both timers here.
+		notificationTicker.Reset()
+		crashResetTicker.Reset()
+
 	waitLoop:
 		for {
 			select {
-			case <-time.After(1 * time.Minute):
+			case <-notificationTicker.C():
+				go p.notifyUp(pid)
+
 				// We repeat this idempotent notification because its delivery is not
 				// guaranteed.
-				go p.notifyUp(pid)
-			case <-time.After(p.config.CrashResetTime):
+				notificationTicker.Reset()
+			case <-crashResetTicker.C():
+				// We do not reset the crash reset ticker because we only need to
+				// reset crashes once.
 				crashes = 0
 			case <-waitCh:
 				crashes++
