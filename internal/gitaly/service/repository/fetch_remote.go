@@ -58,6 +58,12 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 			Value: "Authorization: " + authHeader,
 		})
 	}
+	if host := req.GetRemoteParams().GetHttpHost(); host != "" {
+		config = append(config, git.ConfigPair{
+			Key:   fmt.Sprintf("http.%s.extraHeader", remoteURL),
+			Value: "Host: " + host,
+		})
+	}
 
 	opts.CommandOptions = append(opts.CommandOptions, git.WithConfigEnv(config...))
 
