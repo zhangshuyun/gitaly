@@ -54,6 +54,8 @@ type serverOption func(*server)
 func runHooksServer(t testing.TB, cfg config.Cfg, opts []serverOption, serverOpts ...testserver.GitalyServerOpt) string {
 	t.Helper()
 
+	serverOpts = append(serverOpts, testserver.WithDisablePraefect())
+
 	return testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		hookServer := NewServer(
 			gitalyhook.NewManager(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory(), deps.GetTxManager(), deps.GetGitlabClient()),
