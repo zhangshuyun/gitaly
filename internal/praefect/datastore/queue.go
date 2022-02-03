@@ -34,7 +34,7 @@ type ReplicationEventQueue interface {
 	// into the next state:
 	//   'failed' - in case it has more attempts to be executed
 	//   'dead' - in case it has no more attempts to be executed
-	AcknowledgeStale(ctx context.Context, staleAfter time.Duration) error
+	AcknowledgeStale(ctx context.Context, staleAfter time.Duration) (int64, error)
 }
 
 func allowToAck(state JobState) error {
@@ -481,7 +481,7 @@ func (rq PostgresReplicationEventQueue) StartHealthUpdate(ctx context.Context, t
 // The job considered 'in_progress' if it has corresponding entry in the 'replication_queue_job_lock' table.
 // When moving from 'in_progress' to other state the entry from 'replication_queue_job_lock' table will be
 // removed and entry in the 'replication_queue_lock' will be updated if needed (release of the lock).
-func (rq PostgresReplicationEventQueue) AcknowledgeStale(ctx context.Context, staleAfter time.Duration) error {
+func (rq PostgresReplicationEventQueue) AcknowledgeStale(ctx context.Context, staleAfter time.Duration) (int64, error) {
 	query := `
 		WITH stale_job_lock AS (
 			DELETE FROM replication_queue_job_lock WHERE triggered_at < NOW() AT TIME ZONE 'UTC' - INTERVAL '1 MILLISECOND' * $1
@@ -510,10 +510,15 @@ func (rq PostgresReplicationEventQueue) AcknowledgeStale(ctx context.Context, st
 				GROUP BY lock_id
 			) AS existing ON removed.lock_id = existing.lock_id AND removed.amount = existing.amount
 		)`
-	_, err := rq.qc.ExecContext(ctx, query, staleAfter.Milliseconds())
+	result, err := rq.qc.ExecContext(ctx, query, staleAfter.Milliseconds())
 	if err != nil {
-		return fmt.Errorf("exec acknowledge stale: %w", err)
+		return 0, fmt.Errorf("exec acknowledge stale: %w", err)
 	}
 
-	return nil
+	n, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("exec acknowledge stale: %w", err)
+	}
+
+	return n, nil
 }
