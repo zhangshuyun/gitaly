@@ -23,11 +23,11 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
-func cfgWithCache(t *testing.T) (config.Cfg, *gitalypb.Repository, string) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+func cfgWithCache(t *testing.T) config.Cfg {
+	cfg := testcfg.Build(t)
 	cfg.PackObjectsCache.Enabled = true
 	cfg.PackObjectsCache.Dir = testhelper.TempDir(t)
-	return cfg, repo, repoPath
+	return cfg
 }
 
 func TestParsePackObjectsArgs(t *testing.T) {
@@ -59,7 +59,13 @@ func TestParsePackObjectsArgs(t *testing.T) {
 }
 
 func TestServer_PackObjectsHook_separateContext(t *testing.T) {
-	cfg, repo, repoPath := cfgWithCache(t)
+	cfg := cfgWithCache(t)
+	cfg.SocketPath = runHooksServer(t, cfg, nil)
+
+	ctx1 := testhelper.Context(t)
+	repo, repoPath := gittest.CreateRepository(ctx1, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	req := &gitalypb.PackObjectsHookWithSidechannelRequest{
 		Repository: repo,
@@ -71,14 +77,11 @@ func TestServer_PackObjectsHook_separateContext(t *testing.T) {
 	start2 := make(chan struct{})
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
-	serverSocketPath := runHooksServer(t, cfg, nil)
 
 	// Call 1: sends a valid request but hangs up without reading response.
 	// This should not break call 2.
-	client1, conn1 := newHooksClient(t, serverSocketPath)
+	client1, conn1 := newHooksClient(t, cfg.SocketPath)
 	defer conn1.Close()
-
-	ctx1 := testhelper.Context(t)
 
 	ctx1, wt1, err := hookPkg.SetupSidechannel(
 		ctx1,
@@ -110,7 +113,7 @@ func TestServer_PackObjectsHook_separateContext(t *testing.T) {
 	}()
 
 	// Call 2: this is a normal call with the same request as call 1
-	client2, conn2 := newHooksClient(t, serverSocketPath)
+	client2, conn2 := newHooksClient(t, cfg.SocketPath)
 	defer conn2.Close()
 
 	ctx2 := testhelper.Context(t)
@@ -158,17 +161,20 @@ func TestServer_PackObjectsHook_separateContext(t *testing.T) {
 }
 
 func TestServer_PackObjectsHook_usesCache(t *testing.T) {
-	cfg, repo, repoPath := cfgWithCache(t)
+	cfg := cfgWithCache(t)
 
 	tlc := &streamcache.TestLoggingCache{}
-	serverSocketPath := runHooksServer(t, cfg, []serverOption{func(s *server) {
+	cfg.SocketPath = runHooksServer(t, cfg, []serverOption{func(s *server) {
 		tlc.Cache = s.packObjectsCache
 		s.packObjectsCache = tlc
 	}})
 
-	doRequest := func() {
-		ctx := testhelper.Context(t)
+	ctx := testhelper.Context(t)
+	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
+	doRequest := func() {
 		var stdout []byte
 		ctx, wt, err := hookPkg.SetupSidechannel(
 			ctx,
@@ -191,7 +197,7 @@ func TestServer_PackObjectsHook_usesCache(t *testing.T) {
 		require.NoError(t, err)
 		defer wt.Close()
 
-		client, conn := newHooksClient(t, serverSocketPath)
+		client, conn := newHooksClient(t, cfg.SocketPath)
 		defer conn.Close()
 
 		_, err = client.PackObjectsHookWithSidechannel(ctx, &gitalypb.PackObjectsHookWithSidechannelRequest{
@@ -250,11 +256,14 @@ func TestServer_PackObjectsHookWithSidechannel(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg, repo, repoPath := cfgWithCache(t)
+			cfg := cfgWithCache(t)
 			ctx := testhelper.Context(t)
 
 			logger, hook := test.NewNullLogger()
-			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithLogger(logger))
+			cfg.SocketPath = runHooksServer(t, cfg, nil, testserver.WithLogger(logger))
+			repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				Seed: gittest.SeedGitLabTest,
+			})
 
 			var packets []string
 			ctx, wt, err := hookPkg.SetupSidechannel(
@@ -277,7 +286,7 @@ func TestServer_PackObjectsHookWithSidechannel(t *testing.T) {
 			require.NoError(t, err)
 			defer wt.Close()
 
-			client, conn := newHooksClient(t, serverSocketPath)
+			client, conn := newHooksClient(t, cfg.SocketPath)
 			defer conn.Close()
 
 			_, err = client.PackObjectsHookWithSidechannel(ctx, &gitalypb.PackObjectsHookWithSidechannelRequest{
@@ -342,9 +351,13 @@ func TestServer_PackObjectsHookWithSidechannel(t *testing.T) {
 }
 
 func TestServer_PackObjectsHookWithSidechannel_invalidArgument(t *testing.T) {
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
-	serverSocketPath := runHooksServer(t, cfg, nil)
+	cfg := testcfg.Build(t)
+	cfg.SocketPath = runHooksServer(t, cfg, nil)
 	ctx := testhelper.Context(t)
+
+	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	testCases := []struct {
 		desc string
@@ -366,7 +379,7 @@ func TestServer_PackObjectsHookWithSidechannel_invalidArgument(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			client, conn := newHooksClient(t, serverSocketPath)
+			client, conn := newHooksClient(t, cfg.SocketPath)
 			defer conn.Close()
 
 			_, err := client.PackObjectsHookWithSidechannel(ctx, tc.req)
@@ -376,7 +389,7 @@ func TestServer_PackObjectsHookWithSidechannel_invalidArgument(t *testing.T) {
 }
 
 func TestServer_PackObjectsHookWithSidechannel_Canceled(t *testing.T) {
-	cfg, repo, _ := cfgWithCache(t)
+	cfg := cfgWithCache(t)
 	ctx := testhelper.Context(t)
 
 	ctx, wt, err := hookPkg.SetupSidechannel(
@@ -391,7 +404,12 @@ func TestServer_PackObjectsHookWithSidechannel_Canceled(t *testing.T) {
 	require.NoError(t, err)
 	defer wt.Close()
 
-	client, conn := newHooksClient(t, runHooksServer(t, cfg, nil))
+	cfg.SocketPath = runHooksServer(t, cfg, nil)
+	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
+
+	client, conn := newHooksClient(t, cfg.SocketPath)
 	defer conn.Close()
 
 	_, err = client.PackObjectsHookWithSidechannel(ctx, &gitalypb.PackObjectsHookWithSidechannelRequest{

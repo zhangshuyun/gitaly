@@ -1,11 +1,14 @@
 package hook
 
 import (
+	"context"
 	"testing"
 
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -20,10 +23,14 @@ func TestMain(m *testing.M) {
 func setupHookService(t testing.TB) (config.Cfg, *gitalypb.Repository, string, gitalypb.HookServiceClient) {
 	t.Helper()
 
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
-	serverSocketPath := runHooksServer(t, cfg, nil)
-	client, conn := newHooksClient(t, serverSocketPath)
+	cfg := testcfg.Build(t)
+	cfg.SocketPath = runHooksServer(t, cfg, nil)
+	client, conn := newHooksClient(t, cfg.SocketPath)
 	t.Cleanup(func() { conn.Close() })
+
+	repo, repoPath := gittest.CreateRepository(context.TODO(), t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	return cfg, repo, repoPath, client
 }
@@ -58,5 +65,15 @@ func runHooksServer(t testing.TB, cfg config.Cfg, opts []serverOption, serverOpt
 		}
 
 		gitalypb.RegisterHookServiceServer(srv, hookServer)
+		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
+			cfg,
+			deps.GetRubyServer(),
+			deps.GetLocator(),
+			deps.GetTxManager(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+			deps.GetConnsPool(),
+			deps.GetGit2goExecutor(),
+		))
 	}, serverOpts...)
 }

@@ -231,7 +231,7 @@ func TestPreReceive_APIErrors(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg, repo, _ := testcfg.BuildWithRepo(t)
+			cfg := testcfg.Build(t)
 
 			tmpDir := testhelper.TempDir(t)
 			secretFilePath := filepath.Join(tmpDir, ".gitlab_shell_secret")
@@ -251,11 +251,15 @@ func TestPreReceive_APIErrors(t *testing.T) {
 			gitlabClient, err := gitlab.NewHTTPClient(testhelper.NewDiscardingLogger(t), gitlabConfig, cfg.TLS, prometheus.Config{})
 			require.NoError(t, err)
 
-			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
+			cfg.SocketPath = runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
 
-			client, conn := newHooksClient(t, serverSocketPath)
-			defer conn.Close()
 			ctx := testhelper.Context(t)
+			repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				Seed: gittest.SeedGitLabTest,
+			})
+
+			client, conn := newHooksClient(t, cfg.SocketPath)
+			defer conn.Close()
 
 			hooksPayload, err := git.NewHooksPayload(
 				cfg,
@@ -293,7 +297,7 @@ func TestPreReceive_APIErrors(t *testing.T) {
 }
 
 func TestPreReceiveHook_CustomHookErrors(t *testing.T) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
 
 	mux := http.NewServeMux()
 	mux.Handle("/api/v4/internal/allowed", allowedHandler(t, true))
@@ -305,14 +309,6 @@ func TestPreReceiveHook_CustomHookErrors(t *testing.T) {
 	secretFilePath := filepath.Join(tmpDir, ".gitlab_shell_secret")
 	gitlab.WriteShellSecretFile(t, tmpDir, "token")
 
-	customHookReturnCode := int32(128)
-	customHookReturnMsg := "custom hook error"
-
-	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(fmt.Sprintf(`#!/bin/bash
-echo '%s' 1>&2
-exit %d
-`, customHookReturnMsg, customHookReturnCode)))
-
 	gitlabConfig := config.Gitlab{
 		URL:        srv.URL,
 		SecretFile: secretFilePath,
@@ -321,11 +317,23 @@ exit %d
 	gitlabClient, err := gitlab.NewHTTPClient(testhelper.NewDiscardingLogger(t), gitlabConfig, cfg.TLS, prometheus.Config{})
 	require.NoError(t, err)
 
-	serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
+	cfg.SocketPath = runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
 
-	client, conn := newHooksClient(t, serverSocketPath)
-	defer conn.Close()
 	ctx := testhelper.Context(t)
+	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
+
+	customHookReturnCode := int32(128)
+	customHookReturnMsg := "custom hook error"
+
+	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(fmt.Sprintf(`#!/bin/bash
+echo '%s' 1>&2
+exit %d
+`, customHookReturnMsg, customHookReturnCode)))
+
+	client, conn := newHooksClient(t, cfg.SocketPath)
+	defer conn.Close()
 
 	hooksPayload, err := git.NewHooksPayload(
 		cfg,
@@ -422,8 +430,6 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg := testcfg.Build(t)
 
-			testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
-
 			mux := http.NewServeMux()
 			mux.Handle("/api/v4/internal/allowed", tc.allowedHandler)
 			mux.Handle("/api/v4/internal/pre_receive", tc.preReceiveHandler)
@@ -434,8 +440,6 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 
 			secretFilePath := filepath.Join(tmpDir, ".gitlab_shell_secret")
 			gitlab.WriteShellSecretFile(t, tmpDir, "token")
-
-			gittest.WriteCustomHook(t, testRepoPath, "pre-receive", []byte(fmt.Sprintf("#!/bin/bash\nexit %d", tc.hookExitCode)))
 
 			gitlabClient, err := gitlab.NewHTTPClient(
 				testhelper.NewDiscardingLogger(t),
@@ -448,11 +452,17 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
+			cfg.SocketPath = runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
 
-			client, conn := newHooksClient(t, serverSocketPath)
-			defer conn.Close()
 			ctx := testhelper.Context(t)
+			testRepo, testRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				Seed: gittest.SeedGitLabTest,
+			})
+
+			gittest.WriteCustomHook(t, testRepoPath, "pre-receive", []byte(fmt.Sprintf("#!/bin/bash\nexit %d", tc.hookExitCode)))
+
+			client, conn := newHooksClient(t, cfg.SocketPath)
+			defer conn.Close()
 
 			hooksPayload, err := git.NewHooksPayload(
 				cfg,
