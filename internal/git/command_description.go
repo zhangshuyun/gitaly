@@ -176,6 +176,9 @@ var commandDescriptions = map[string]commandDescription{
 	"pack-objects": {
 		flags: scNoRefUpdates | scGeneratesPackfiles,
 	},
+	"prune": {
+		flags: scNoRefUpdates,
+	},
 	"push": {
 		flags: scNoRefUpdates,
 		opts: []GlobalOption{

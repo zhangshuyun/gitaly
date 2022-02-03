@@ -10,11 +10,18 @@ import (
 	"strings"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+)
+
+const (
+	// looseObjectLimit is the limit of loose objects we accept both when doing incremental
+	// repacks and when pruning objects.
+	looseObjectLimit = 1024
 )
 
 func (s *server) OptimizeRepository(ctx context.Context, in *gitalypb.OptimizeRepositoryRequest) (*gitalypb.OptimizeRepositoryResponse, error) {
@@ -47,6 +54,7 @@ func (s *server) validateOptimizeRepositoryRequest(in *gitalypb.OptimizeReposito
 func (s *server) optimizeRepository(ctx context.Context, repo *localrepo.Repo) error {
 	optimizations := struct {
 		PackedObjects bool `json:"packed_objects"`
+		PrunedObjects bool `json:"pruned_objects"`
 	}{}
 	defer func() {
 		ctxlogrus.Extract(ctx).WithField("optimizations", optimizations).Info("optimized repository")
@@ -61,6 +69,12 @@ func (s *server) optimizeRepository(ctx context.Context, repo *localrepo.Repo) e
 		return fmt.Errorf("could not repack: %w", err)
 	}
 	optimizations.PackedObjects = didRepack
+
+	didPrune, err := pruneIfNeeded(ctx, repo)
+	if err != nil {
+		return fmt.Errorf("could not prune: %w", err)
+	}
+	optimizations.PrunedObjects = didPrune
 
 	return nil
 }
@@ -199,7 +213,7 @@ func needsRepacking(repo *localrepo.Repo) (bool, repackCommandConfig, error) {
 	//
 	// In our case we typically want to ensure that our repositories are much better packed than
 	// it is necessary on the client side. We thus take a much stricter limit of 1024 objects.
-	if looseObjectCount > 1024 {
+	if looseObjectCount > looseObjectLimit {
 		return true, repackCommandConfig{
 			fullRepack:  false,
 			writeBitmap: false,
@@ -282,4 +296,41 @@ func estimateLooseObjectCount(repo *localrepo.Repo) (int64, error) {
 
 	// Scale up found loose objects by the number of sharding directories.
 	return looseObjects * 256, nil
+}
+
+// pruneIfNeeded removes objects from the repository which are either unreachable or which are
+// already part of a packfile. We use a grace period of two weeks.
+func pruneIfNeeded(ctx context.Context, repo *localrepo.Repo) (bool, error) {
+	// Pool repositories must never prune any objects, or otherwise we may corrupt members of
+	// that pool if they still refer to that object.
+	if strings.HasPrefix(repo.GetRelativePath(), "@pools") {
+		return false, nil
+	}
+
+	looseObjectCount, err := estimateLooseObjectCount(repo)
+	if err != nil {
+		return false, fmt.Errorf("estimating loose object count: %w", err)
+	}
+
+	// We again use the same limit here as we do when doing an incremental repack. This is done
+	// intentionally: if we determine that there's too many loose objects and try to repack, but
+	// all of those loose objects are in fact unreachable, then we'd still have the same number
+	// of unreachable objects after the incremental repack. We'd thus try to repack every single
+	// time.
+	//
+	// Using the same limit here doesn't quite fix this case: the unreachable objects would only
+	// be pruned after a grace period of two weeks. But at least we know that we will eventually
+	// prune up those unreachable objects, at which point we won't try to do another incremental
+	// repack.
+	if looseObjectCount <= looseObjectLimit {
+		return false, nil
+	}
+
+	if err := repo.ExecAndWait(ctx, git.SubCmd{
+		Name: "prune",
+	}); err != nil {
+		return false, fmt.Errorf("pruning objects: %w", err)
+	}
+
+	return true, nil
 }
