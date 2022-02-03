@@ -447,7 +447,7 @@ func TestFetchRemoteFailure(t *testing.T) {
 	_, repo, _, client := setupRepositoryService(t)
 
 	const remoteName = "test-repo"
-	httpSrv, _ := remoteHTTPServer(t, remoteName, httpToken)
+	httpSrv, _ := remoteHTTPServer(t, remoteName, httpHost, httpToken)
 	defer httpSrv.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -515,6 +515,7 @@ func TestFetchRemoteFailure(t *testing.T) {
 				RemoteParams: &gitalypb.Remote{
 					Url:                     httpSrv.URL + "/invalid/repo/path.git",
 					HttpAuthorizationHeader: httpToken,
+					HttpHost:                httpHost,
 					MirrorRefmaps:           []string{"all_refs"},
 				},
 				Timeout: 1000,
@@ -549,14 +550,20 @@ func TestFetchRemoteFailure(t *testing.T) {
 
 const (
 	httpToken = "ABCefg0999182"
+	httpHost  = "example.com"
 )
 
-func remoteHTTPServer(t *testing.T, repoName, httpToken string) (*httptest.Server, string) {
+func remoteHTTPServer(t *testing.T, repoName, httpHost, httpToken string) (*httptest.Server, string) {
 	b := testhelper.MustReadFile(t, "testdata/advertise.txt")
 
 	s := httptest.NewServer(
 		// https://github.com/git/git/blob/master/Documentation/technical/http-protocol.txt
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Host != httpHost {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+
 			if r.URL.String() != fmt.Sprintf("/%s.git/info/refs?service=git-upload-pack", repoName) {
 				w.WriteHeader(http.StatusNotFound)
 				return
@@ -607,7 +614,7 @@ func TestFetchRemoteOverHTTP(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			forkedRepo, forkedRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
-			s, remoteURL := remoteHTTPServer(t, "my-repo", tc.httpToken)
+			s, remoteURL := remoteHTTPServer(t, "my-repo", httpHost, tc.httpToken)
 			defer s.Close()
 
 			req := &gitalypb.FetchRemoteRequest{
@@ -615,6 +622,7 @@ func TestFetchRemoteOverHTTP(t *testing.T) {
 				RemoteParams: &gitalypb.Remote{
 					Url:                     remoteURL,
 					HttpAuthorizationHeader: tc.httpToken,
+					HttpHost:                httpHost,
 					MirrorRefmaps:           []string{"all_refs"},
 				},
 				Timeout: 1000,
