@@ -12,6 +12,45 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
+func (s *server) OptimizeRepository(ctx context.Context, in *gitalypb.OptimizeRepositoryRequest) (*gitalypb.OptimizeRepositoryResponse, error) {
+	if err := s.validateOptimizeRepositoryRequest(in); err != nil {
+		return nil, err
+	}
+
+	if err := s.optimizeRepository(ctx, in.GetRepository()); err != nil {
+		return nil, helper.ErrInternal(err)
+	}
+
+	return &gitalypb.OptimizeRepositoryResponse{}, nil
+}
+
+func (s *server) validateOptimizeRepositoryRequest(in *gitalypb.OptimizeRepositoryRequest) error {
+	if in.GetRepository() == nil {
+		return helper.ErrInvalidArgumentf("empty repository")
+	}
+
+	_, err := s.locator.GetRepoPath(in.GetRepository())
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *server) optimizeRepository(ctx context.Context, repository *gitalypb.Repository) error {
+	repo := s.localrepo(repository)
+
+	if err := s.repackIfNeeded(ctx, repo, repository); err != nil {
+		return fmt.Errorf("could not repack: %w", err)
+	}
+
+	if err := housekeeping.Perform(ctx, repo, s.txManager); err != nil {
+		return fmt.Errorf("could not execute houskeeping: %w", err)
+	}
+
+	return nil
+}
+
 // repackIfNeeded uses a set of heuristics to determine whether the repository needs a
 // full repack and, if so, repacks it.
 func (s *server) repackIfNeeded(ctx context.Context, repo *localrepo.Repo, repoProto *gitalypb.Repository) error {
@@ -51,45 +90,6 @@ func (s *server) repackIfNeeded(ctx context.Context, repo *localrepo.Repo, repoP
 		Repository:   repoProto,
 		CreateBitmap: createBitMap,
 	}); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (s *server) optimizeRepository(ctx context.Context, repository *gitalypb.Repository) error {
-	repo := s.localrepo(repository)
-
-	if err := s.repackIfNeeded(ctx, repo, repository); err != nil {
-		return fmt.Errorf("could not repack: %w", err)
-	}
-
-	if err := housekeeping.Perform(ctx, repo, s.txManager); err != nil {
-		return fmt.Errorf("could not execute houskeeping: %w", err)
-	}
-
-	return nil
-}
-
-func (s *server) OptimizeRepository(ctx context.Context, in *gitalypb.OptimizeRepositoryRequest) (*gitalypb.OptimizeRepositoryResponse, error) {
-	if err := s.validateOptimizeRepositoryRequest(in); err != nil {
-		return nil, err
-	}
-
-	if err := s.optimizeRepository(ctx, in.GetRepository()); err != nil {
-		return nil, helper.ErrInternal(err)
-	}
-
-	return &gitalypb.OptimizeRepositoryResponse{}, nil
-}
-
-func (s *server) validateOptimizeRepositoryRequest(in *gitalypb.OptimizeRepositoryRequest) error {
-	if in.GetRepository() == nil {
-		return helper.ErrInvalidArgumentf("empty repository")
-	}
-
-	_, err := s.locator.GetRepoPath(in.GetRepository())
-	if err != nil {
 		return err
 	}
 
