@@ -18,6 +18,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     add_message "gitaly.UpdateRemoteMirrorRequest.Remote" do
       optional :url, :string, 1
       optional :http_authorization_header, :string, 2
+      optional :http_host, :string, 3
     end
     add_message "gitaly.UpdateRemoteMirrorResponse" do
       repeated :divergent_refs, :bytes, 1
@@ -33,6 +34,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :repository, :message, 1, "gitaly.Repository"
       optional :remote_url, :string, 3
       optional :http_authorization_header, :string, 4
+      optional :http_host, :string, 5
     end
     add_message "gitaly.FindRemoteRootRefResponse" do
       optional :ref, :string, 1

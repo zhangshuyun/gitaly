@@ -141,20 +141,23 @@ func TestCloneRepositoryFromUrlCommand(t *testing.T) {
 
 	userInfo := "user:pass%21%3F%40"
 	repositoryFullPath := "full/path/to/repository"
-	url := fmt.Sprintf("https://%s@www.example.com/secretrepo.git", userInfo)
+	url := fmt.Sprintf("https://%s@192.0.2.1/secretrepo.git", userInfo)
+	host := "www.example.com"
 
 	cfg := testcfg.Build(t)
 	s := server{cfg: cfg, gitCmdFactory: gittest.NewCommandFactory(t, cfg)}
-	cmd, err := s.cloneFromURLCommand(ctx, url, repositoryFullPath, git.WithDisabledHooks())
+	cmd, err := s.cloneFromURLCommand(ctx, url, host, repositoryFullPath, git.WithDisabledHooks())
 	require.NoError(t, err)
 
-	expectedScrubbedURL := "https://www.example.com/secretrepo.git"
+	expectedScrubbedURL := "https://192.0.2.1/secretrepo.git"
 	expectedBasicAuthHeader := fmt.Sprintf("Authorization: Basic %s", base64.StdEncoding.EncodeToString([]byte("user:pass!?@")))
-	expectedHeader := fmt.Sprintf("http.extraHeader=%s", expectedBasicAuthHeader)
+	expectedAuthHeader := fmt.Sprintf("http.extraHeader=%s", expectedBasicAuthHeader)
+	expectedHostHeader := "http.extraHeader=Host: www.example.com"
 
 	args := cmd.Args()
 	require.Contains(t, args, expectedScrubbedURL)
-	require.Contains(t, args, expectedHeader)
+	require.Contains(t, args, expectedAuthHeader)
+	require.Contains(t, args, expectedHostHeader)
 	require.NotContains(t, args, userInfo)
 }
 
