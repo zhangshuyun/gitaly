@@ -1,6 +1,7 @@
 package commit
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -13,7 +14,7 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
-func createRepoWithDivergentBranches(t *testing.T, cfg config.Cfg, leftCommits, rightCommits int, leftBranchName, rightBranchName string) *gitalypb.Repository {
+func createRepoWithDivergentBranches(ctx context.Context, t *testing.T, cfg config.Cfg, leftCommits, rightCommits int, leftBranchName, rightBranchName string) *gitalypb.Repository {
 	/* create a branch structure as follows
 	   	   a
 	   	   |
@@ -26,46 +27,22 @@ func createRepoWithDivergentBranches(t *testing.T, cfg config.Cfg, leftCommits, 
 		 f   h
 	*/
 
-	repo, worktreePath := gittest.InitRepo(t, cfg, cfg.Storages[0], gittest.InitRepoOpts{
-		WithWorktree: true,
-	})
-	committerName := "Scrooge McDuck"
-	committerEmail := "scrooge@mcduck.com"
+	repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
 
-	for i := 0; i < 2; i++ {
-		gittest.Exec(t, cfg, "-C", worktreePath,
-			"-c", fmt.Sprintf("user.name=%s", committerName),
-			"-c", fmt.Sprintf("user.email=%s", committerEmail),
-			"commit", "--allow-empty", "-m", fmt.Sprintf("master branch Empty commit %d", i))
-	}
-
-	gittest.Exec(t, cfg, "-C", worktreePath, "checkout", "-b", leftBranchName)
-
-	for i := 0; i < leftCommits; i++ {
-		gittest.Exec(t, cfg, "-C", worktreePath,
-			"-c", fmt.Sprintf("user.name=%s", committerName),
-			"-c", fmt.Sprintf("user.email=%s", committerEmail),
-			"commit", "--allow-empty", "-m", fmt.Sprintf("branch-1 Empty commit %d", i))
-	}
-
-	gittest.Exec(t, cfg, "-C", worktreePath, "checkout", "master")
-	gittest.Exec(t, cfg, "-C", worktreePath, "checkout", "-b", rightBranchName)
-
-	for i := 0; i < rightCommits; i++ {
-		gittest.Exec(t, cfg, "-C", worktreePath,
-			"-c", fmt.Sprintf("user.name=%s", committerName),
-			"-c", fmt.Sprintf("user.email=%s", committerEmail),
-			"commit", "--allow-empty", "-m", fmt.Sprintf("branch-2 Empty commit %d", i))
-	}
+	mainCommitOID := createCommits(t, cfg, repoPath, "main", 2, "")
+	createCommits(t, cfg, repoPath, leftBranchName, leftCommits, mainCommitOID)
+	createCommits(t, cfg, repoPath, rightBranchName, rightCommits, mainCommitOID)
 
 	return repo
 }
 
 func TestSuccessfulCountDivergentCommitsRequest(t *testing.T) {
 	t.Parallel()
-	cfg, client := setupCommitService(t)
 
-	testRepo := createRepoWithDivergentBranches(t, cfg, 3, 3, "left", "right")
+	ctx := testhelper.Context(t)
+	cfg, client := setupCommitService(ctx, t)
+
+	testRepo := createRepoWithDivergentBranches(ctx, t, cfg, 3, 3, "left", "right")
 
 	testCases := []struct {
 		leftRevision  string
@@ -98,20 +75,20 @@ func TestSuccessfulCountDivergentCommitsRequest(t *testing.T) {
 			rightCount:    2,
 		},
 		{
-			leftRevision:  "master",
+			leftRevision:  "main",
 			rightRevision: "right",
 			leftCount:     0,
 			rightCount:    3,
 		},
 		{
 			leftRevision:  "left",
-			rightRevision: "master",
+			rightRevision: "main",
 			leftCount:     3,
 			rightCount:    0,
 		},
 		{
-			leftRevision:  "master",
-			rightRevision: "master",
+			leftRevision:  "main",
+			rightRevision: "main",
 			leftCount:     0,
 			rightCount:    0,
 		},
@@ -125,7 +102,6 @@ func TestSuccessfulCountDivergentCommitsRequest(t *testing.T) {
 				To:         []byte(testCase.rightRevision),
 				MaxCount:   int32(1000),
 			}
-			ctx := testhelper.Context(t)
 			response, err := client.CountDivergingCommits(ctx, request)
 			require.NoError(t, err)
 			assert.Equal(t, testCase.leftCount, response.GetLeftCount())
@@ -136,9 +112,11 @@ func TestSuccessfulCountDivergentCommitsRequest(t *testing.T) {
 
 func TestSuccessfulCountDivergentCommitsRequestWithMaxCount(t *testing.T) {
 	t.Parallel()
-	cfg, client := setupCommitService(t)
 
-	testRepo := createRepoWithDivergentBranches(t, cfg, 4, 4, "left", "right")
+	ctx := testhelper.Context(t)
+	cfg, client := setupCommitService(ctx, t)
+
+	testRepo := createRepoWithDivergentBranches(ctx, t, cfg, 4, 4, "left", "right")
 
 	testCases := []struct {
 		leftRevision  string
@@ -170,7 +148,6 @@ func TestSuccessfulCountDivergentCommitsRequestWithMaxCount(t *testing.T) {
 				To:         []byte(testCase.rightRevision),
 				MaxCount:   int32(testCase.maxCount),
 			}
-			ctx := testhelper.Context(t)
 			response, err := client.CountDivergingCommits(ctx, request)
 			require.NoError(t, err)
 			assert.Equal(t, testCase.maxCount, int(response.GetRightCount()+response.GetLeftCount()))
@@ -180,7 +157,9 @@ func TestSuccessfulCountDivergentCommitsRequestWithMaxCount(t *testing.T) {
 
 func TestFailedCountDivergentCommitsRequestDueToValidationError(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	revision := []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72")
 
@@ -193,7 +172,6 @@ func TestFailedCountDivergentCommitsRequestDueToValidationError(t *testing.T) {
 
 	for _, rpcRequest := range rpcRequests {
 		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
-			ctx := testhelper.Context(t)
 			_, err := client.CountDivergingCommits(ctx, rpcRequest)
 			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 		})

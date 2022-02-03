@@ -36,7 +36,9 @@ var rubyFilesCommit = []*gitalypb.GitCommit{
 
 func TestSuccessfulCommitsByMessageRequest(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	commits := []*gitalypb.GitCommit{
 		{
@@ -139,7 +141,6 @@ func TestSuccessfulCommitsByMessageRequest(t *testing.T) {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := testCase.request
 			request.Repository = repo
-			ctx := testhelper.Context(t)
 			c, err := client.CommitsByMessage(ctx, request)
 			require.NoError(t, err)
 
@@ -156,7 +157,9 @@ func TestSuccessfulCommitsByMessageRequest(t *testing.T) {
 
 func TestFailedCommitsByMessageRequest(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
 
@@ -189,7 +192,6 @@ func TestFailedCommitsByMessageRequest(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
 			c, err := client.CommitsByMessage(ctx, testCase.request)
 			require.NoError(t, err)
 

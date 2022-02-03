@@ -12,8 +12,9 @@ import (
 
 func TestCommitStatsSuccess(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
 	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	tests := []struct {
 		desc                 string
@@ -75,8 +76,9 @@ func TestCommitStatsSuccess(t *testing.T) {
 
 func TestCommitStatsFailure(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
 	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	tests := []struct {
 		desc     string

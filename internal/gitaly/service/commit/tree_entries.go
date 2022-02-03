@@ -19,6 +19,10 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+const (
+	defaultFlatTreeRecursion = 10
+)
+
 func validateGetTreeEntriesRequest(in *gitalypb.GetTreeEntriesRequest) error {
 	if err := git.ValidateRevision(in.Revision); err != nil {
 		return err
@@ -45,7 +49,7 @@ func populateFlatPath(
 		}
 
 		for i := 1; i < defaultFlatTreeRecursion; i++ {
-			subEntries, err := treeEntries(ctx, objectReader, objectInfoReader, entry.CommitOid, string(entry.FlatPath))
+			subEntries, err := catfile.TreeEntries(ctx, objectReader, objectInfoReader, entry.CommitOid, string(entry.FlatPath))
 			if err != nil {
 				return err
 			}
@@ -127,7 +131,7 @@ func (s *server) sendTreeEntries(
 				return fmt.Errorf("converting tree entry OID: %w", err)
 			}
 
-			treeEntry, err := newTreeEntry(
+			treeEntry, err := git.NewTreeEntry(
 				revision,
 				rootTreeInfo.String(),
 				path,
@@ -154,7 +158,7 @@ func (s *server) sendTreeEntries(
 			return err
 		}
 
-		entries, err = treeEntries(ctx, objectReader, objectInfoReader, revision, path)
+		entries, err = catfile.TreeEntries(ctx, objectReader, objectInfoReader, revision, path)
 		if err != nil {
 			return err
 		}

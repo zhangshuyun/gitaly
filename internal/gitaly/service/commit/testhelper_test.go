@@ -1,13 +1,18 @@
 package commit
 
 import (
+	"context"
+	"fmt"
 	"io"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -21,8 +26,8 @@ func TestMain(m *testing.M) {
 }
 
 // setupCommitService makes a basic configuration and starts the service with the client.
-func setupCommitService(t testing.TB) (config.Cfg, gitalypb.CommitServiceClient) {
-	cfg, _, _, client := setupCommitServiceCreateRepo(t, func(tb testing.TB, cfg config.Cfg) (*gitalypb.Repository, string) {
+func setupCommitService(ctx context.Context, t testing.TB) (config.Cfg, gitalypb.CommitServiceClient) {
+	cfg, _, _, client := setupCommitServiceCreateRepo(ctx, t, func(ctx context.Context, tb testing.TB, cfg config.Cfg) (*gitalypb.Repository, string) {
 		return nil, ""
 	})
 	return cfg, client
@@ -30,26 +35,34 @@ func setupCommitService(t testing.TB) (config.Cfg, gitalypb.CommitServiceClient)
 
 // setupCommitServiceWithRepo makes a basic configuration, creates a test repository and starts the service with the client.
 func setupCommitServiceWithRepo(
-	t testing.TB, bare bool,
+	ctx context.Context, t testing.TB, bare bool,
 ) (config.Cfg, *gitalypb.Repository, string, gitalypb.CommitServiceClient) {
-	return setupCommitServiceCreateRepo(t, func(tb testing.TB, cfg config.Cfg) (*gitalypb.Repository, string) {
-		return gittest.CloneRepo(tb, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
-			WithWorktree: !bare,
+	return setupCommitServiceCreateRepo(ctx, t, func(ctx context.Context, tb testing.TB, cfg config.Cfg) (*gitalypb.Repository, string) {
+		repo, repoPath := gittest.CreateRepository(ctx, tb, cfg, gittest.CreateRepositoryConfig{
+			Seed: gittest.SeedGitLabTest,
 		})
+
+		if !bare {
+			gittest.AddWorktree(t, cfg, repoPath, "worktree")
+			repoPath = filepath.Join(repoPath, "worktree")
+			gittest.Exec(t, cfg, "-C", repoPath, "checkout", "master")
+		}
+
+		return repo, repoPath
 	})
 }
 
 func setupCommitServiceCreateRepo(
+	ctx context.Context,
 	t testing.TB,
-	createRepo func(testing.TB, config.Cfg) (*gitalypb.Repository, string),
+	createRepo func(context.Context, testing.TB, config.Cfg) (*gitalypb.Repository, string),
 ) (config.Cfg, *gitalypb.Repository, string, gitalypb.CommitServiceClient) {
 	cfg := testcfg.Build(t)
 
-	repo, repoPath := createRepo(t, cfg)
+	cfg.SocketPath = startTestServices(t, cfg)
+	client := newCommitServiceClient(t, cfg.SocketPath)
 
-	serverSocketPath := startTestServices(t, cfg)
-
-	client := newCommitServiceClient(t, serverSocketPath)
+	repo, repoPath := createRepo(ctx, t, cfg)
 
 	return cfg, repo, repoPath, client
 }
@@ -63,7 +76,17 @@ func startTestServices(t testing.TB, cfg config.Cfg) string {
 			deps.GetLinguist(),
 			deps.GetCatfileCache(),
 		))
-	})
+		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
+			cfg,
+			deps.GetRubyServer(),
+			deps.GetLocator(),
+			deps.GetTxManager(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+			deps.GetConnsPool(),
+			deps.GetGit2goExecutor(),
+		))
+	}, testserver.WithDisableMetadataForceCreation())
 }
 
 func newCommitServiceClient(t testing.TB, serviceSocketPath string) gitalypb.CommitServiceClient {
@@ -90,6 +113,23 @@ func dummyCommitAuthor(ts int64) *gitalypb.CommitAuthor {
 
 type gitCommitsGetter interface {
 	GetCommits() []*gitalypb.GitCommit
+}
+
+func createCommits(t testing.TB, cfg config.Cfg, repoPath, branch string, commitCount int, parent git.ObjectID) git.ObjectID {
+	for i := 0; i < commitCount; i++ {
+		var parents []git.ObjectID
+		if parent != "" {
+			parents = append(parents, parent)
+		}
+
+		parent = gittest.WriteCommit(t, cfg, repoPath,
+			gittest.WithBranch(branch),
+			gittest.WithMessage(fmt.Sprintf("%s branch Empty commit %d", branch, i)),
+			gittest.WithParents(parents...),
+		)
+	}
+
+	return parent
 }
 
 func getAllCommits(t testing.TB, getter func() (gitCommitsGetter, error)) []*gitalypb.GitCommit {

@@ -12,7 +12,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/commit"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/log"
@@ -151,7 +151,7 @@ func (s *server) validateGetArchivePrecondition(
 		return err
 	}
 
-	f := commit.NewTreeEntryFinder(objectReader, objectInfoReader)
+	f := catfile.NewTreeEntryFinder(objectReader, objectInfoReader)
 	if path != "." {
 		if ok, err := findGetArchivePath(ctx, f, commitID, path); err != nil {
 			return err
@@ -171,7 +171,7 @@ func (s *server) validateGetArchivePrecondition(
 	return nil
 }
 
-func findGetArchivePath(ctx context.Context, f *commit.TreeEntryFinder, commitID, path string) (ok bool, err error) {
+func findGetArchivePath(ctx context.Context, f *catfile.TreeEntryFinder, commitID, path string) (ok bool, err error) {
 	treeEntry, err := f.FindByRevisionAndPath(ctx, commitID, path)
 	if err != nil {
 		return false, err

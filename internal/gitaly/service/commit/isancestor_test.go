@@ -17,7 +17,9 @@ import (
 
 func TestCommitIsAncestorFailure(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	queries := []struct {
 		Request   *gitalypb.CommitIsAncestorRequest
@@ -64,7 +66,6 @@ func TestCommitIsAncestorFailure(t *testing.T) {
 
 	for _, v := range queries {
 		t.Run(fmt.Sprintf("%v", v.Request), func(t *testing.T) {
-			ctx := testhelper.Context(t)
 			if _, err := client.CommitIsAncestor(ctx, v.Request); err == nil {
 				t.Error("Expected to throw an error")
 			} else if helper.GrpcCode(err) != v.ErrorCode {
@@ -76,7 +77,9 @@ func TestCommitIsAncestorFailure(t *testing.T) {
 
 func TestCommitIsAncestorSuccess(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	queries := []struct {
 		Request  *gitalypb.CommitIsAncestorRequest
@@ -150,7 +153,6 @@ func TestCommitIsAncestorSuccess(t *testing.T) {
 
 	for _, v := range queries {
 		t.Run(fmt.Sprintf("%v", v.Request), func(t *testing.T) {
-			ctx := testhelper.Context(t)
 			c, err := client.CommitIsAncestor(ctx, v.Request)
 			require.NoError(t, err)
 
@@ -162,7 +164,9 @@ func TestCommitIsAncestorSuccess(t *testing.T) {
 
 func TestSuccessfulIsAncestorRequestWithAltGitObjectDirs(t *testing.T) {
 	t.Parallel()
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
+
+	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	parentCommitID := git.ObjectID(text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "--verify", "HEAD")))
 
@@ -197,7 +201,6 @@ func TestSuccessfulIsAncestorRequestWithAltGitObjectDirs(t *testing.T) {
 				AncestorId: string(parentCommitID),
 				ChildId:    commitID.String(),
 			}
-			ctx := testhelper.Context(t)
 			response, err := client.CommitIsAncestor(ctx, request)
 			require.NoError(t, err)
 

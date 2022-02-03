@@ -15,30 +15,14 @@ import (
 
 func TestSuccessfulCountCommitsRequest(t *testing.T) {
 	t.Parallel()
-	cfg, repo1, _, client := setupCommitServiceWithRepo(t, true)
 
-	repo2, repo2Path := gittest.InitRepo(t, cfg, cfg.Storages[0], gittest.InitRepoOpts{
-		WithWorktree: true,
-	})
+	ctx := testhelper.Context(t)
+	cfg, repo1, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
-	committerName := "Scrooge McDuck"
-	committerEmail := "scrooge@mcduck.com"
+	repo2, repo2Path := gittest.CreateRepository(ctx, t, cfg)
 
-	for i := 0; i < 5; i++ {
-		gittest.Exec(t, cfg, "-C", repo2Path,
-			"-c", fmt.Sprintf("user.name=%s", committerName),
-			"-c", fmt.Sprintf("user.email=%s", committerEmail),
-			"commit", "--allow-empty", "-m", "Empty commit")
-	}
-
-	gittest.Exec(t, cfg, "-C", repo2Path, "checkout", "-b", "another-branch")
-
-	for i := 0; i < 3; i++ {
-		gittest.Exec(t, cfg, "-C", repo2Path,
-			"-c", fmt.Sprintf("user.name=%s", committerName),
-			"-c", fmt.Sprintf("user.email=%s", committerEmail),
-			"commit", "--allow-empty", "-m", "Empty commit")
-	}
+	commitOID := createCommits(t, cfg, repo2Path, "master", 5, "")
+	createCommits(t, cfg, repo2Path, "another-branch", 3, commitOID)
 
 	literalOptions := &gitalypb.GlobalOptions{LiteralPathspecs: true}
 
@@ -162,7 +146,7 @@ func TestSuccessfulCountCommitsRequest(t *testing.T) {
 			if testCase.path != nil {
 				request.Path = testCase.path
 			}
-			ctx := testhelper.Context(t)
+
 			response, err := client.CountCommits(ctx, request)
 			require.NoError(t, err)
 			require.Equal(t, response.Count, testCase.count)
@@ -172,7 +156,9 @@ func TestSuccessfulCountCommitsRequest(t *testing.T) {
 
 func TestFailedCountCommitsRequestDueToValidationError(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	revision := []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72")
 
@@ -185,7 +171,6 @@ func TestFailedCountCommitsRequestDueToValidationError(t *testing.T) {
 
 	for _, rpcRequest := range rpcRequests {
 		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
-			ctx := testhelper.Context(t)
 			_, err := client.CountCommits(ctx, rpcRequest)
 			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 		})

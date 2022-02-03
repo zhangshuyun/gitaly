@@ -22,7 +22,9 @@ type treeEntry struct {
 
 func TestSuccessfulTreeEntry(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	testCases := []struct {
 		revision          []byte
@@ -139,7 +141,6 @@ func TestSuccessfulTreeEntry(t *testing.T) {
 				Limit:      testCase.limit,
 				MaxSize:    testCase.maxSize,
 			}
-			ctx := testhelper.Context(t)
 			c, err := client.TreeEntry(ctx, request)
 			require.NoError(t, err)
 
@@ -150,7 +151,9 @@ func TestSuccessfulTreeEntry(t *testing.T) {
 
 func TestFailedTreeEntry(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	revision := []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72")
 	path := []byte("a/b/c")
@@ -219,7 +222,6 @@ func TestFailedTreeEntry(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			ctx := testhelper.Context(t)
 			c, err := client.TreeEntry(ctx, testCase.req)
 			require.NoError(t, err)
 

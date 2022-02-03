@@ -13,7 +13,9 @@ import (
 
 func TestSuccessfulLastCommitForPathRequest(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	commit := testhelper.GitLabTestCommit("570e7b2abdd848b95f2f578043fc23bd6f6fd24d")
 
@@ -60,7 +62,6 @@ func TestSuccessfulLastCommitForPathRequest(t *testing.T) {
 				Revision:   []byte(testCase.revision),
 				Path:       testCase.path,
 			}
-			ctx := testhelper.Context(t)
 
 			response, err := client.LastCommitForPath(ctx, request)
 			require.NoError(t, err)
@@ -72,7 +73,9 @@ func TestSuccessfulLastCommitForPathRequest(t *testing.T) {
 
 func TestFailedLastCommitForPathRequest(t *testing.T) {
 	t.Parallel()
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
 
@@ -107,7 +110,6 @@ func TestFailedLastCommitForPathRequest(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
 			_, err := client.LastCommitForPath(ctx, testCase.request)
 			testhelper.RequireGrpcCode(t, err, testCase.code)
 		})
@@ -116,7 +118,9 @@ func TestFailedLastCommitForPathRequest(t *testing.T) {
 
 func TestSuccessfulLastCommitWithGlobCharacters(t *testing.T) {
 	t.Parallel()
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
+
+	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	// This is an arbitrary blob known to exist in the test repository
 	const blobID = "c60514b6d3d6bf4bec1030f70026e34dfbd69ad5"
@@ -134,7 +138,6 @@ func TestSuccessfulLastCommitWithGlobCharacters(t *testing.T) {
 		Path:            []byte(path),
 		LiteralPathspec: true,
 	}
-	ctx := testhelper.Context(t)
 	response, err := client.LastCommitForPath(ctx, request)
 	require.NoError(t, err)
 	require.NotNil(t, response.GetCommit())

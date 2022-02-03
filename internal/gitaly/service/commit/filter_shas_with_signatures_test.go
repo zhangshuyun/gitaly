@@ -13,7 +13,7 @@ func TestFilterShasWithSignaturesSuccessful(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+	_, repo, _, client := setupCommitServiceWithRepo(ctx, t, true)
 
 	type testCase struct {
 		desc string
