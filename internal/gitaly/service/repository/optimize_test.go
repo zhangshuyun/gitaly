@@ -411,4 +411,144 @@ func TestNeedsRepacking(t *testing.T) {
 			}, repackCfg)
 		})
 	}
+
+	for _, tc := range []struct {
+		desc           string
+		looseObjects   []string
+		expectedRepack bool
+	}{
+		{
+			desc:           "no objects",
+			looseObjects:   nil,
+			expectedRepack: false,
+		},
+		{
+			desc: "object not in 17 shard",
+			looseObjects: []string{
+				filepath.Join("ab/12345"),
+			},
+			expectedRepack: false,
+		},
+		{
+			desc: "object in 17 shard",
+			looseObjects: []string{
+				filepath.Join("17/12345"),
+			},
+			expectedRepack: false,
+		},
+		{
+			desc: "objects in different shards",
+			looseObjects: []string{
+				filepath.Join("ab/12345"),
+				filepath.Join("cd/12345"),
+				filepath.Join("12/12345"),
+				filepath.Join("17/12345"),
+			},
+			expectedRepack: false,
+		},
+		{
+			desc: "boundary",
+			looseObjects: []string{
+				filepath.Join("17/1"),
+				filepath.Join("17/2"),
+				filepath.Join("17/3"),
+				filepath.Join("17/4"),
+			},
+			expectedRepack: false,
+		},
+		{
+			desc: "exceeding boundary should cause repack",
+			looseObjects: []string{
+				filepath.Join("17/1"),
+				filepath.Join("17/2"),
+				filepath.Join("17/3"),
+				filepath.Join("17/4"),
+				filepath.Join("17/5"),
+			},
+			expectedRepack: true,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+			// Emulate the existence of a bitmap and a commit-graph with bloom filters.
+			// We explicitly don't want to generate them via Git commands as they would
+			// require us to already have objects in the repository, and we want to be
+			// in full control over all objects and packfiles in the repo.
+			require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "pack", "something.bitmap"), nil, 0o644))
+			commitGraphChainPath := filepath.Join(repoPath, stats.CommitGraphChainRelPath)
+			require.NoError(t, os.MkdirAll(filepath.Dir(commitGraphChainPath), 0o755))
+			require.NoError(t, os.WriteFile(commitGraphChainPath, nil, 0o644))
+
+			for _, looseObjectPath := range tc.looseObjects {
+				looseObjectPath := filepath.Join(repoPath, "objects", looseObjectPath)
+				require.NoError(t, os.MkdirAll(filepath.Dir(looseObjectPath), 0o755))
+
+				looseObjectFile, err := os.Create(looseObjectPath)
+				require.NoError(t, err)
+				testhelper.MustClose(t, looseObjectFile)
+			}
+
+			repackNeeded, repackCfg, err := needsRepacking(repo)
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedRepack, repackNeeded)
+			if tc.expectedRepack {
+				require.Equal(t, repackCommandConfig{
+					fullRepack:  false,
+					writeBitmap: false,
+				}, repackCfg)
+			}
+		})
+	}
+}
+
+func TestEstimateLooseObjectCount(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg, _ := setupRepositoryServiceWithoutRepo(t)
+	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	t.Run("empty repository", func(t *testing.T) {
+		looseObjects, err := estimateLooseObjectCount(repo)
+		require.NoError(t, err)
+		require.Zero(t, looseObjects)
+	})
+
+	t.Run("object in different shard", func(t *testing.T) {
+		differentShard := filepath.Join(repoPath, "objects", "a0")
+		require.NoError(t, os.MkdirAll(differentShard, 0o755))
+
+		object, err := os.Create(filepath.Join(differentShard, "123456"))
+		require.NoError(t, err)
+		testhelper.MustClose(t, object)
+
+		looseObjects, err := estimateLooseObjectCount(repo)
+		require.NoError(t, err)
+		require.Zero(t, looseObjects)
+	})
+
+	t.Run("object in estimation shard", func(t *testing.T) {
+		estimationShard := filepath.Join(repoPath, "objects", "17")
+		require.NoError(t, os.MkdirAll(estimationShard, 0o755))
+
+		object, err := os.Create(filepath.Join(estimationShard, "123456"))
+		require.NoError(t, err)
+		testhelper.MustClose(t, object)
+
+		looseObjects, err := estimateLooseObjectCount(repo)
+		require.NoError(t, err)
+		require.Equal(t, int64(256), looseObjects)
+
+		// Create a second object in there.
+		object, err = os.Create(filepath.Join(estimationShard, "654321"))
+		require.NoError(t, err)
+		testhelper.MustClose(t, object)
+
+		looseObjects, err = estimateLooseObjectCount(repo)
+		require.NoError(t, err)
+		require.Equal(t, int64(512), looseObjects)
+	})
 }

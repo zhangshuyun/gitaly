@@ -181,6 +181,31 @@ func needsRepacking(repo *localrepo.Repo) (bool, repackCommandConfig, error) {
 		}, nil
 	}
 
+	looseObjectCount, err := estimateLooseObjectCount(repo)
+	if err != nil {
+		return false, repackCommandConfig{}, fmt.Errorf("estimating loose object count: %w", err)
+	}
+
+	// Most Git commands do not write packfiles directly, but instead write loose objects into
+	// the object database. So while we now know that there ain't too many packfiles, we still
+	// need to check whether we have too many objects.
+	//
+	// In this case it doesn't make a lot of sense to scale incremental repacks with the repo's
+	// size: we only pack loose objects, so the time to pack them doesn't scale with repository
+	// size but with the number of loose objects we have. git-gc(1) uses a threshold of 6700
+	// loose objects to start an incremental repack, but one needs to keep in mind that Git
+	// typically has defaults which are better suited for the client-side instead of the
+	// server-side in most commands.
+	//
+	// In our case we typically want to ensure that our repositories are much better packed than
+	// it is necessary on the client side. We thus take a much stricter limit of 1024 objects.
+	if looseObjectCount > 1024 {
+		return true, repackCommandConfig{
+			fullRepack:  false,
+			writeBitmap: false,
+		}, nil
+	}
+
 	return false, repackCommandConfig{}, nil
 }
 
@@ -224,4 +249,37 @@ func packfileSizeAndCount(repo *localrepo.Repo) (int64, int64, error) {
 	}
 
 	return largestSize / 1024 / 1024, count, nil
+}
+
+// estimateLooseObjectCount estimates the number of loose objects in the repository. Due to the
+// object name being derived via a cryptographic hash we know that in the general case, objects are
+// evenly distributed across their sharding directories. We can thus estimate the number of loose
+// objects by opening a single sharding directory and counting its entries.
+func estimateLooseObjectCount(repo *localrepo.Repo) (int64, error) {
+	repoPath, err := repo.Path()
+	if err != nil {
+		return 0, fmt.Errorf("getting repository path: %w", err)
+	}
+
+	// We use the same sharding directory as git-gc(1) does for its estimation.
+	entries, err := os.ReadDir(filepath.Join(repoPath, "objects/17"))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return 0, nil
+		}
+
+		return 0, fmt.Errorf("reading loose object shard: %w", err)
+	}
+
+	looseObjects := int64(0)
+	for _, entry := range entries {
+		if strings.LastIndexAny(entry.Name(), "0123456789abcdef") != len(entry.Name())-1 {
+			continue
+		}
+
+		looseObjects++
+	}
+
+	// Scale up found loose objects by the number of sharding directories.
+	return looseObjects * 256, nil
 }
