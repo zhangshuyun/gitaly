@@ -18,7 +18,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func (s *server) cloneFromURLCommand(ctx context.Context, repo *gitalypb.Repository, repoURL, repositoryFullPath string, stderr io.Writer) (*command.Command, error) {
+func (s *server) cloneFromURLCommand(ctx context.Context, repo *gitalypb.Repository, repoURL, repoHost, repositoryFullPath string, stderr io.Writer) (*command.Command, error) {
 	u, err := url.Parse(repoURL)
 	if err != nil {
 		return nil, helper.ErrInternal(err)
@@ -46,6 +46,13 @@ func (s *server) cloneFromURLCommand(ctx context.Context, repo *gitalypb.Reposit
 		u.User = nil
 		authHeader := fmt.Sprintf("Authorization: Basic %s", base64.StdEncoding.EncodeToString([]byte(creds)))
 		config = append(config, git.ConfigPair{Key: "http.extraHeader", Value: authHeader})
+	}
+
+	if repoHost != "" {
+		config = append(config, git.ConfigPair{
+			Key:   "http.extraHeader",
+			Value: "Host: " + repoHost,
+		})
 	}
 
 	return s.gitCmdFactory.NewWithoutRepo(ctx,
@@ -77,7 +84,7 @@ func (s *server) CreateRepositoryFromURL(ctx context.Context, req *gitalypb.Crea
 	}
 
 	stderr := bytes.Buffer{}
-	cmd, err := s.cloneFromURLCommand(ctx, repository, req.GetUrl(), repositoryFullPath, &stderr)
+	cmd, err := s.cloneFromURLCommand(ctx, repository, req.GetUrl(), req.GetHttpHost(), repositoryFullPath, &stderr)
 	if err != nil {
 		return nil, helper.ErrInternal(err)
 	}
