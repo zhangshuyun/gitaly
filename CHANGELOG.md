@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## 14.7.1 (2022-02-03)
+
+### Fixed (1 change)
+
+- [Shorten server keepalive period to 5 minutes](gitlab-org/security/gitaly@28cc55a319b077b4903942a9a9e5df351a61a5e9)
+
 ## 14.7.0 (2022-01-21)
 
 ### Added (3 changes)
