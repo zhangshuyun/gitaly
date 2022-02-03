@@ -605,6 +605,95 @@ func TestPruneIfNeeded(t *testing.T) {
 	}
 }
 
+func TestPackRefsIfNeeded(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg, _ := setupRepositoryServiceWithoutRepo(t)
+
+	const kiloByte = 1024
+
+	for _, tc := range []struct {
+		packedRefsSize int64
+		requiredRefs   int
+	}{
+		{
+			packedRefsSize: 1,
+			requiredRefs:   16,
+		},
+		{
+			packedRefsSize: 1 * kiloByte,
+			requiredRefs:   16,
+		},
+		{
+			packedRefsSize: 10 * kiloByte,
+			requiredRefs:   33,
+		},
+		{
+			packedRefsSize: 100 * kiloByte,
+			requiredRefs:   49,
+		},
+		{
+			packedRefsSize: 1000 * kiloByte,
+			requiredRefs:   66,
+		},
+		{
+			packedRefsSize: 10000 * kiloByte,
+			requiredRefs:   82,
+		},
+		{
+			packedRefsSize: 100000 * kiloByte,
+			requiredRefs:   99,
+		},
+	} {
+		t.Run(fmt.Sprintf("packed-refs with %d bytes", tc.packedRefsSize), func(t *testing.T) {
+			repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+			// Write an empty commit such that we can create valid refs.
+			commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
+			looseRefContent := []byte(commitID.String() + "\n")
+
+			// We first create a single big packfile which is used to determine the
+			// boundary of when we repack. We need to write a valid packed-refs file or
+			// otherwise git-pack-refs(1) would choke later on, so we just write the
+			// file such that every line is a separate ref of exactly 128 bytes in
+			// length (a divisor of 1024), referring to the commit we created above.
+			packedRefs, err := os.OpenFile(filepath.Join(repoPath, "packed-refs"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+			require.NoError(t, err)
+			defer testhelper.MustClose(t, packedRefs)
+			for i := int64(0); i < tc.packedRefsSize/128; i++ {
+				packedRefLine := fmt.Sprintf("%s refs/something/this-line-is-padded-to-exactly-128-bytes-%030d\n", commitID.String(), i)
+				require.Len(t, packedRefLine, 128)
+				_, err := packedRefs.WriteString(packedRefLine)
+				require.NoError(t, err)
+			}
+			require.NoError(t, packedRefs.Sync())
+
+			// And then we create one less loose ref than we need to hit the boundary.
+			// This is done to assert that we indeed don't repack before hitting the
+			// boundary.
+			for i := 0; i < tc.requiredRefs-1; i++ {
+				looseRefPath := filepath.Join(repoPath, "refs", "heads", fmt.Sprintf("branch-%d", i))
+				require.NoError(t, os.WriteFile(looseRefPath, looseRefContent, 0o644))
+			}
+
+			didRepack, err := packRefsIfNeeded(ctx, repo)
+			require.NoError(t, err)
+			require.False(t, didRepack)
+
+			// Now we create the additional loose ref that causes us to hit the
+			// boundary. We should thus see that we want to repack now.
+			looseRefPath := filepath.Join(repoPath, "refs", "heads", "last-branch")
+			require.NoError(t, os.WriteFile(looseRefPath, looseRefContent, 0o644))
+
+			didRepack, err = packRefsIfNeeded(ctx, repo)
+			require.NoError(t, err)
+			require.True(t, didRepack)
+		})
+	}
+}
+
 func TestEstimateLooseObjectCount(t *testing.T) {
 	t.Parallel()
 

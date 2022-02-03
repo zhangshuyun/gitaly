@@ -1,9 +1,11 @@
 package repository
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"math"
 	"os"
 	"path/filepath"
@@ -55,6 +57,7 @@ func (s *server) optimizeRepository(ctx context.Context, repo *localrepo.Repo) e
 	optimizations := struct {
 		PackedObjects bool `json:"packed_objects"`
 		PrunedObjects bool `json:"pruned_objects"`
+		PackedRefs    bool `json:"packed_refs"`
 	}{}
 	defer func() {
 		ctxlogrus.Extract(ctx).WithField("optimizations", optimizations).Info("optimized repository")
@@ -75,6 +78,12 @@ func (s *server) optimizeRepository(ctx context.Context, repo *localrepo.Repo) e
 		return fmt.Errorf("could not prune: %w", err)
 	}
 	optimizations.PrunedObjects = didPrune
+
+	didPackRefs, err := packRefsIfNeeded(ctx, repo)
+	if err != nil {
+		return fmt.Errorf("could not pack refs: %w", err)
+	}
+	optimizations.PackedRefs = didPackRefs
 
 	return nil
 }
@@ -330,6 +339,80 @@ func pruneIfNeeded(ctx context.Context, repo *localrepo.Repo) (bool, error) {
 		Name: "prune",
 	}); err != nil {
 		return false, fmt.Errorf("pruning objects: %w", err)
+	}
+
+	return true, nil
+}
+
+func packRefsIfNeeded(ctx context.Context, repo *localrepo.Repo) (bool, error) {
+	repoPath, err := repo.Path()
+	if err != nil {
+		return false, fmt.Errorf("getting repository path: %w", err)
+	}
+	refsPath := filepath.Join(repoPath, "refs")
+
+	looseRefs := int64(0)
+	if err := filepath.WalkDir(refsPath, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !entry.IsDir() {
+			looseRefs++
+		}
+
+		return nil
+	}); err != nil {
+		return false, fmt.Errorf("counting loose refs: %w", err)
+	}
+
+	// If there aren't any loose refs then there is nothing we need to do.
+	if looseRefs == 0 {
+		return false, nil
+	}
+
+	packedRefsSize := int64(0)
+	if stat, err := os.Stat(filepath.Join(repoPath, "packed-refs")); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return false, fmt.Errorf("getting packed-refs size: %w", err)
+		}
+	} else {
+		packedRefsSize = stat.Size()
+	}
+
+	// Packing loose references into the packed-refs file scales with the number of references
+	// we're about to write. We thus decide whether we repack refs by weighing the current size
+	// of the packed-refs file against the number of loose references. This is done such that we
+	// do not repack too often on repositories with a huge number of references, where we can
+	// expect a lot of churn in the number of references.
+	//
+	// As a heuristic, we repack if the number of loose references in the repository exceeds
+	// `log(packed_refs_size_in_bytes/100)/log(1.15)`, which scales as following (number of refs
+	// is estimated with 100 bytes per reference):
+	//
+	// - 1kB ~ 10 packed refs: 16 refs
+	// - 10kB ~ 100 packed refs: 33 refs
+	// - 100kB ~ 1k packed refs: 49 refs
+	// - 1MB ~ 10k packed refs: 66 refs
+	// - 10MB ~ 100k packed refs: 82 refs
+	// - 100MB ~ 1m packed refs: 99 refs
+	//
+	// We thus allow roughly 16 additional loose refs per factor of ten of packed refs.
+	//
+	// This heuristic may likely need tweaking in the future, but should serve as a good first
+	// iteration.
+	if int64(math.Max(16, math.Log(float64(packedRefsSize)/100)/math.Log(1.15))) > looseRefs {
+		return false, nil
+	}
+
+	var stderr bytes.Buffer
+	if err := repo.ExecAndWait(ctx, git.SubCmd{
+		Name: "pack-refs",
+		Flags: []git.Option{
+			git.Flag{Name: "--all"},
+		},
+	}, git.WithStderr(&stderr)); err != nil {
+		return false, fmt.Errorf("packing refs: %w, stderr: %q", err, stderr.String())
 	}
 
 	return true, nil
