@@ -196,6 +196,13 @@ ifeq ($(origin GIT_BUILD_OPTIONS),undefined)
     GIT_BUILD_OPTIONS += NO_INSTALL_HARDLINKS=YesPlease
 endif
 
+MACOS_HOMEBREW_PREFIX := $(shell command -v brew > /dev/null 2>&1 && brew --prefix || true)
+
+# LIBPCREDIR needs to explicitly be set for macOS platforms
+ifneq ($(MACOS_HOMEBREW_PREFIX),)
+GIT_BUILD_OPTIONS += LIBPCREDIR="${MACOS_HOMEBREW_PREFIX}/opt/pcre2"
+endif
+
 ifdef GIT_APPEND_BUILD_OPTIONS
 	GIT_BUILD_OPTIONS += ${GIT_APPEND_BUILD_OPTIONS}
 endif
