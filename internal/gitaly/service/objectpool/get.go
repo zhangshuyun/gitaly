@@ -15,7 +15,9 @@ func (s *server) GetObjectPool(ctx context.Context, in *gitalypb.GetObjectPoolRe
 		return nil, helper.ErrInternal(errors.New("repository is empty"))
 	}
 
-	objectPool, err := objectpool.FromRepo(s.locator, s.gitCmdFactory, s.catfileCache, s.txManager, in.GetRepository())
+	repo := s.localrepo(in.GetRepository())
+
+	objectPool, err := objectpool.FromRepo(s.locator, s.gitCmdFactory, s.catfileCache, s.txManager, repo)
 	if err != nil {
 		ctxlogrus.Extract(ctx).
 			WithError(err).

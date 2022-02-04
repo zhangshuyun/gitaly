@@ -5,15 +5,17 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
 func TestClone(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	_, pool, testRepo := setupObjectPool(t, ctx)
+	cfg, pool, repoProto := setupObjectPool(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	require.NoError(t, pool.clone(ctx, testRepo))
+	require.NoError(t, pool.clone(ctx, repo))
 	defer func() {
 		require.NoError(t, pool.Remove(ctx))
 	}()
@@ -25,13 +27,14 @@ func TestClone(t *testing.T) {
 func TestCloneExistingPool(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	_, pool, testRepo := setupObjectPool(t, ctx)
+	cfg, pool, repoProto := setupObjectPool(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	require.NoError(t, pool.clone(ctx, testRepo))
+	require.NoError(t, pool.clone(ctx, repo))
 	defer func() {
 		require.NoError(t, pool.Remove(ctx))
 	}()
 
 	// re-clone on the directory
-	require.Error(t, pool.clone(ctx, testRepo))
+	require.Error(t, pool.clone(ctx, repo))
 }

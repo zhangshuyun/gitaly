@@ -16,21 +16,21 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/housekeeping"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
 const sourceRefNamespace = "refs/remotes/origin"
 
 // FetchFromOrigin initializes the pool and fetches the objects from its origin repository
-func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repository) error {
+func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *localrepo.Repo) error {
 	if err := o.Init(ctx); err != nil {
 		return err
 	}
 
-	originPath, err := o.locator.GetPath(origin)
+	originPath, err := origin.Path()
 	if err != nil {
 		return err
 	}

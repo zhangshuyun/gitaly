@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
@@ -215,9 +216,10 @@ func TestObjectPoolRefAdvertisementHiding(t *testing.T) {
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 	ctx := testhelper.Context(t)
 
-	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	pool, err := objectpool.NewObjectPool(
 		config.NewLocator(cfg),
@@ -238,7 +240,7 @@ func TestObjectPoolRefAdvertisementHiding(t *testing.T) {
 
 	require.NoError(t, pool.Link(ctx, repo))
 
-	rpcRequest := &gitalypb.InfoRefsRequest{Repository: repo}
+	rpcRequest := &gitalypb.InfoRefsRequest{Repository: repoProto}
 
 	response, err := makeInfoRefsReceivePackRequest(ctx, t, cfg.SocketPath, cfg.Auth.Token, rpcRequest)
 	require.NoError(t, err)

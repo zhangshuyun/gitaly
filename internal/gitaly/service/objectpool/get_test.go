@@ -6,12 +6,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
 func TestGetObjectPoolSuccess(t *testing.T) {
-	cfg, repo, _, _, client := setup(t)
+	cfg, repoProto, _, _, client := setup(t)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
 	relativePoolPath := pool.GetRelativePath()
@@ -26,7 +28,7 @@ func TestGetObjectPoolSuccess(t *testing.T) {
 	}()
 
 	resp, err := client.GetObjectPool(ctx, &gitalypb.GetObjectPoolRequest{
-		Repository: repo,
+		Repository: repoProto,
 	})
 
 	require.NoError(t, err)

@@ -246,9 +246,10 @@ func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 	cfg.SocketPath = runSSHServer(t, cfg)
 
 	ctx := testhelper.Context(t)
-	repo, _ := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
+	repoProto, _ := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	client, conn := newSSHClient(t, cfg.SocketPath)
 	defer conn.Close()

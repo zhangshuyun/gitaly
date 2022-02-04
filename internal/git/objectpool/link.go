@@ -8,17 +8,16 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/safe"
-	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
 // Link will link the given repository to the object pool. This is done by writing the object pool's
 // path relative to the repository into the repository's "alternates" file. This does not trigger
 // deduplication, which is the responsibility of the caller.
-func (o *ObjectPool) Link(ctx context.Context, repo *gitalypb.Repository) (returnedErr error) {
-	altPath, err := o.locator.InfoAlternatesPath(repo)
+func (o *ObjectPool) Link(ctx context.Context, repo *localrepo.Repo) (returnedErr error) {
+	altPath, err := repo.InfoAlternatesPath()
 	if err != nil {
 		return err
 	}
@@ -68,8 +67,8 @@ func (o *ObjectPool) Link(ctx context.Context, repo *gitalypb.Repository) (retur
 // but none of its members will. With removeMemberBitmaps we try to
 // change "eventually" to "immediately", so that users won't see the
 // warning. https://gitlab.com/gitlab-org/gitaly/issues/1728
-func (o *ObjectPool) removeMemberBitmaps(repo repository.GitRepo) error {
-	poolPath, err := o.locator.GetPath(o)
+func (o *ObjectPool) removeMemberBitmaps(repo *localrepo.Repo) error {
+	poolPath, err := o.Repo.Path()
 	if err != nil {
 		return err
 	}
@@ -82,7 +81,7 @@ func (o *ObjectPool) removeMemberBitmaps(repo repository.GitRepo) error {
 		return nil
 	}
 
-	repoPath, err := o.locator.GetPath(repo)
+	repoPath, err := repo.Path()
 	if err != nil {
 		return err
 	}
@@ -121,8 +120,8 @@ func getBitmaps(repoPath string) ([]string, error) {
 	return bitmaps, nil
 }
 
-func (o *ObjectPool) getRelativeObjectPath(repo *gitalypb.Repository) (string, error) {
-	repoPath, err := o.locator.GetRepoPath(repo)
+func (o *ObjectPool) getRelativeObjectPath(repo *localrepo.Repo) (string, error) {
+	repoPath, err := repo.Path()
 	if err != nil {
 		return "", err
 	}
@@ -136,8 +135,8 @@ func (o *ObjectPool) getRelativeObjectPath(repo *gitalypb.Repository) (string, e
 }
 
 // LinkedToRepository tests if a repository is linked to an object pool
-func (o *ObjectPool) LinkedToRepository(repo *gitalypb.Repository) (bool, error) {
-	relPath, err := getAlternateObjectDir(o.locator, repo)
+func (o *ObjectPool) LinkedToRepository(repo *localrepo.Repo) (bool, error) {
+	relPath, err := getAlternateObjectDir(repo)
 	if err != nil {
 		if err == ErrAlternateObjectDirNotExist {
 			return false, nil

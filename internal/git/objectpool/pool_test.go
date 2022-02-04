@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -29,12 +30,14 @@ func TestNewObjectPool(t *testing.T) {
 func TestNewFromRepoSuccess(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	_, pool, testRepo := setupObjectPool(t, ctx)
+	cfg, pool, repoProto := setupObjectPool(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	locator := config.NewLocator(cfg)
 
-	require.NoError(t, pool.Create(ctx, testRepo))
-	require.NoError(t, pool.Link(ctx, testRepo))
+	require.NoError(t, pool.Create(ctx, repo))
+	require.NoError(t, pool.Link(ctx, repo))
 
-	poolFromRepo, err := FromRepo(pool.locator, pool.gitCmdFactory, nil, nil, testRepo)
+	poolFromRepo, err := FromRepo(locator, pool.gitCmdFactory, nil, nil, repo)
 	require.NoError(t, err)
 	require.Equal(t, pool.relativePath, poolFromRepo.relativePath)
 	require.Equal(t, pool.storageName, poolFromRepo.storageName)
@@ -43,12 +46,13 @@ func TestNewFromRepoSuccess(t *testing.T) {
 func TestNewFromRepoNoObjectPool(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, pool, testRepo := setupObjectPool(t, ctx)
-
-	testRepoPath := filepath.Join(cfg.Storages[0].Path, testRepo.RelativePath)
+	cfg, pool, repoProto := setupObjectPool(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	locator := config.NewLocator(cfg)
+	testRepoPath := filepath.Join(cfg.Storages[0].Path, repo.GetRelativePath())
 
 	// no alternates file
-	poolFromRepo, err := FromRepo(pool.locator, pool.gitCmdFactory, nil, nil, testRepo)
+	poolFromRepo, err := FromRepo(locator, pool.gitCmdFactory, nil, nil, repo)
 	require.Equal(t, ErrAlternateObjectDirNotExist, err)
 	require.Nil(t, poolFromRepo)
 
@@ -81,7 +85,7 @@ func TestNewFromRepoNoObjectPool(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			alternateFilePath := filepath.Join(testRepoPath, "objects", "info", "alternates")
 			require.NoError(t, os.WriteFile(alternateFilePath, tc.fileContent, 0o644))
-			poolFromRepo, err := FromRepo(pool.locator, pool.gitCmdFactory, nil, nil, testRepo)
+			poolFromRepo, err := FromRepo(locator, pool.gitCmdFactory, nil, nil, repo)
 			require.Equal(t, tc.expectedErr, err)
 			require.Nil(t, poolFromRepo)
 
@@ -93,13 +97,14 @@ func TestNewFromRepoNoObjectPool(t *testing.T) {
 func TestCreate(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, pool, testRepo := setupObjectPool(t, ctx)
+	cfg, pool, repoProto := setupObjectPool(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	testRepoPath := filepath.Join(cfg.Storages[0].Path, testRepo.RelativePath)
+	testRepoPath := filepath.Join(cfg.Storages[0].Path, repo.GetRelativePath())
 
 	masterSha := gittest.Exec(t, cfg, "-C", testRepoPath, "show-ref", "master")
 
-	err := pool.Create(ctx, testRepo)
+	err := pool.Create(ctx, repo)
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, pool.Remove(ctx))
@@ -126,24 +131,26 @@ func TestCreate(t *testing.T) {
 func TestCreateSubDirsExist(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	_, pool, testRepo := setupObjectPool(t, ctx)
+	cfg, pool, repoProto := setupObjectPool(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	err := pool.Create(ctx, testRepo)
+	err := pool.Create(ctx, repo)
 	require.NoError(t, err)
 
 	require.NoError(t, pool.Remove(ctx))
 
 	// Recreate pool so the subdirs exist already
-	err = pool.Create(ctx, testRepo)
+	err = pool.Create(ctx, repo)
 	require.NoError(t, err)
 }
 
 func TestRemove(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	_, pool, testRepo := setupObjectPool(t, ctx)
+	cfg, pool, repoProto := setupObjectPool(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	err := pool.Create(ctx, testRepo)
+	err := pool.Create(ctx, repo)
 	require.NoError(t, err)
 
 	require.True(t, pool.Exists())

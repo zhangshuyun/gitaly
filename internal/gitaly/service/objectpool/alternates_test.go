@@ -8,13 +8,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
 func TestDisconnectGitAlternates(t *testing.T) {
-	cfg, repo, repoPath, locator, client := setup(t)
+	cfg, repoProto, repoPath, locator, client := setup(t)
 	ctx := testhelper.Context(t)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
@@ -40,7 +42,7 @@ func TestDisconnectGitAlternates(t *testing.T) {
 	// At this point we know that the repository has access to
 	// existingObjectID, but only if objects/info/alternates is in place.
 
-	_, err = client.DisconnectGitAlternates(ctx, &gitalypb.DisconnectGitAlternatesRequest{Repository: repo})
+	_, err = client.DisconnectGitAlternates(ctx, &gitalypb.DisconnectGitAlternatesRequest{Repository: repoProto})
 	require.NoError(t, err, "call DisconnectGitAlternates")
 
 	// Check that the object can still be found, even though
