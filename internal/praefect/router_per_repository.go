@@ -190,6 +190,19 @@ func (r *PerRepositoryRouter) RouteRepositoryAccessor(ctx context.Context, virtu
 	}, nil
 }
 
+func (r *PerRepositoryRouter) resolveAdditionalReplicaPath(ctx context.Context, virtualStorage, additionalRelativePath string) (string, error) {
+	if additionalRelativePath == "" {
+		return "", nil
+	}
+
+	additionalRepositoryID, err := r.rs.GetRepositoryID(ctx, virtualStorage, additionalRelativePath)
+	if err != nil {
+		return "", fmt.Errorf("get additional repository id: %w", err)
+	}
+
+	return r.rs.GetReplicaPath(ctx, additionalRepositoryID)
+}
+
 //nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtualStorage, relativePath, additionalRelativePath string) (RepositoryMutatorRoute, error) {
 	healthyNodes, err := r.healthyNodes(virtualStorage)
@@ -202,17 +215,9 @@ func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtua
 		return RepositoryMutatorRoute{}, fmt.Errorf("get repository id: %w", err)
 	}
 
-	var additionalReplicaPath string
-	if additionalRelativePath != "" {
-		additionalRepositoryID, err := r.rs.GetRepositoryID(ctx, virtualStorage, additionalRelativePath)
-		if err != nil {
-			return RepositoryMutatorRoute{}, fmt.Errorf("get additional repository id: %w", err)
-		}
-
-		additionalReplicaPath, err = r.rs.GetReplicaPath(ctx, additionalRepositoryID)
-		if err != nil {
-			return RepositoryMutatorRoute{}, fmt.Errorf("get additional repository replica path: %w", err)
-		}
+	additionalReplicaPath, err := r.resolveAdditionalReplicaPath(ctx, virtualStorage, additionalRelativePath)
+	if err != nil {
+		return RepositoryMutatorRoute{}, fmt.Errorf("resolve additional replica path: %w", err)
 	}
 
 	primary, err := r.pg.GetPrimary(ctx, virtualStorage, repositoryID)
@@ -280,7 +285,12 @@ func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtua
 // RouteRepositoryCreation picks a random healthy node to act as the primary node and selects the secondary nodes
 // if assignments are enabled. Healthy secondaries take part in the transaction, unhealthy secondaries are set as
 // replication targets.
-func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtualStorage, relativePath string) (RepositoryMutatorRoute, error) {
+func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtualStorage, relativePath, additionalRelativePath string) (RepositoryMutatorRoute, error) {
+	additionalReplicaPath, err := r.resolveAdditionalReplicaPath(ctx, virtualStorage, additionalRelativePath)
+	if err != nil {
+		return RepositoryMutatorRoute{}, fmt.Errorf("resolve additional replica path: %w", err)
+	}
+
 	healthyNodes, err := r.healthyNodes(virtualStorage)
 	if err != nil {
 		return RepositoryMutatorRoute{}, err
@@ -348,10 +358,11 @@ func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtu
 	}
 
 	return RepositoryMutatorRoute{
-		RepositoryID:       id,
-		ReplicaPath:        relativePath,
-		Primary:            primary,
-		Secondaries:        secondaries,
-		ReplicationTargets: replicationTargets,
+		RepositoryID:          id,
+		ReplicaPath:           relativePath,
+		AdditionalReplicaPath: additionalReplicaPath,
+		Primary:               primary,
+		Secondaries:           secondaries,
+		ReplicationTargets:    replicationTargets,
 	}, nil
 }

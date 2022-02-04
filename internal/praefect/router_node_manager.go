@@ -125,7 +125,7 @@ func (r *nodeManagerRouter) RouteRepositoryMutator(ctx context.Context, virtualS
 
 // RouteRepositoryCreation includes healthy secondaries in the transaction and sets the unhealthy secondaries as
 // replication targets. The virtual storage's primary acts as the primary for every repository.
-func (r *nodeManagerRouter) RouteRepositoryCreation(ctx context.Context, virtualStorage, relativePath string) (RepositoryMutatorRoute, error) {
+func (r *nodeManagerRouter) RouteRepositoryCreation(ctx context.Context, virtualStorage, relativePath, additionalRepoRelativePath string) (RepositoryMutatorRoute, error) {
 	shard, err := r.mgr.GetShard(ctx, virtualStorage)
 	if err != nil {
 		return RepositoryMutatorRoute{}, fmt.Errorf("get shard: %w", err)
@@ -144,9 +144,10 @@ func (r *nodeManagerRouter) RouteRepositoryCreation(ctx context.Context, virtual
 	}
 
 	return RepositoryMutatorRoute{
-		Primary:            toRouterNode(shard.Primary),
-		ReplicaPath:        relativePath,
-		Secondaries:        secondaries,
-		ReplicationTargets: replicationTargets,
+		Primary:               toRouterNode(shard.Primary),
+		ReplicaPath:           relativePath,
+		AdditionalReplicaPath: additionalRepoRelativePath,
+		Secondaries:           secondaries,
+		ReplicationTargets:    replicationTargets,
 	}, nil
 }
