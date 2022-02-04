@@ -194,6 +194,10 @@ ifeq ($(origin GIT_BUILD_OPTIONS),undefined)
     GIT_BUILD_OPTIONS += NO_GETTEXT=YesPlease
     GIT_BUILD_OPTIONS += NO_PYTHON=YesPlease
     GIT_BUILD_OPTIONS += NO_INSTALL_HARDLINKS=YesPlease
+    PCRE_PC=libpcre2-8
+    ifeq ($(shell pkg-config --exists ${PCRE_PC} && echo exists),exists)
+	    GIT_BUILD_OPTIONS += LIBPCREDIR=$(shell pkg-config ${PCRE_PC} --variable prefix)
+    endif
 endif
 
 ifdef GIT_APPEND_BUILD_OPTIONS
