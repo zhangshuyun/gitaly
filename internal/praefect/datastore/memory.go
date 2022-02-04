@@ -199,10 +199,10 @@ func (s *memoryReplicationEventQueue) StartHealthUpdate(context.Context, <-chan 
 	return nil
 }
 
-func (s *memoryReplicationEventQueue) AcknowledgeStale(context.Context, time.Duration) error {
+func (s *memoryReplicationEventQueue) AcknowledgeStale(context.Context, time.Duration) (int64, error) {
 	// this implementation has no problem of stale replication events as it has no information about
 	// job processing after restart of the application
-	return nil
+	return 0, nil
 }
 
 // remove deletes i-th element from the queue and from the in-flight tracking map.
@@ -246,7 +246,7 @@ type ReplicationEventQueueInterceptor struct {
 	onDequeue           func(context.Context, string, string, int, ReplicationEventQueue) ([]ReplicationEvent, error)
 	onAcknowledge       func(context.Context, JobState, []uint64, ReplicationEventQueue) ([]uint64, error)
 	onStartHealthUpdate func(context.Context, <-chan time.Time, []ReplicationEvent) error
-	onAcknowledgeStale  func(context.Context, time.Duration) error
+	onAcknowledgeStale  func(context.Context, time.Duration) (int64, error)
 
 	enqueue           []ReplicationEvent
 	enqueueResult     []ReplicationEvent
@@ -277,7 +277,7 @@ func (i *ReplicationEventQueueInterceptor) OnStartHealthUpdate(action func(conte
 }
 
 // OnAcknowledgeStale allows to set action that would be executed each time when `AcknowledgeStale` method called.
-func (i *ReplicationEventQueueInterceptor) OnAcknowledgeStale(action func(context.Context, time.Duration) error) {
+func (i *ReplicationEventQueueInterceptor) OnAcknowledgeStale(action func(context.Context, time.Duration) (int64, error)) {
 	i.onAcknowledgeStale = action
 }
 
@@ -356,7 +356,7 @@ func (i *ReplicationEventQueueInterceptor) StartHealthUpdate(ctx context.Context
 }
 
 // AcknowledgeStale intercepts call to the AcknowledgeStale method of the underling implementation or a call back.
-func (i *ReplicationEventQueueInterceptor) AcknowledgeStale(ctx context.Context, staleAfter time.Duration) error {
+func (i *ReplicationEventQueueInterceptor) AcknowledgeStale(ctx context.Context, staleAfter time.Duration) (int64, error) {
 	if i.onAcknowledgeStale != nil {
 		return i.onAcknowledgeStale(ctx, staleAfter)
 	}

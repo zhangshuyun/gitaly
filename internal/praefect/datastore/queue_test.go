@@ -963,8 +963,10 @@ func TestPostgresReplicationEventQueue_AcknowledgeStale(t *testing.T) {
 		require.NoError(t, err)
 
 		// events triggered just now (< 1 sec ago), so nothing considered stale
-		require.NoError(t, source.AcknowledgeStale(ctx, time.Second))
+		n, err := source.AcknowledgeStale(ctx, time.Second)
+		require.NoError(t, err)
 		requireEvents(t, ctx, db, devents)
+		require.Equal(t, n, int64(0))
 	})
 
 	t.Run("jobs considered stale only at 'in_progress' state", func(t *testing.T) {
@@ -998,12 +1000,14 @@ func TestPostgresReplicationEventQueue_AcknowledgeStale(t *testing.T) {
 		devents4, err := source.Dequeue(ctx, event4.Job.VirtualStorage, event4.Job.TargetNodeStorage, 1)
 		require.NoError(t, err)
 
-		require.NoError(t, source.AcknowledgeStale(ctx, time.Microsecond))
+		n, err := source.AcknowledgeStale(ctx, time.Microsecond)
+		require.NoError(t, err)
 
 		devents2[0].State = JobStateFailed
 		devents4[0].Attempt = 2
 		devents4[0].State = JobStateFailed
 		requireEvents(t, ctx, db, []ReplicationEvent{event1, devents2[0], devents4[0]})
+		require.Equal(t, n, int64(1))
 	})
 
 	t.Run("stale jobs updated for all virtual storages and storages at once", func(t *testing.T) {
@@ -1026,7 +1030,9 @@ func TestPostgresReplicationEventQueue_AcknowledgeStale(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		require.NoError(t, source.AcknowledgeStale(ctx, time.Microsecond))
+		n, err := source.AcknowledgeStale(ctx, time.Microsecond)
+		require.NoError(t, err)
+		require.Equal(t, n, int64(3))
 
 		var exp []ReplicationEvent
 		// The first event should be removed from table as its state changed to 'dead'.

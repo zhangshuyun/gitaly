@@ -1102,13 +1102,13 @@ func TestReplMgr_ProcessStale(t *testing.T) {
 
 	const iterations = 3
 	var counter int
-	queue.OnAcknowledgeStale(func(context.Context, time.Duration) error {
+	queue.OnAcknowledgeStale(func(context.Context, time.Duration) (int64, error) {
 		counter++
 		if counter >= iterations {
 			cancel()
-			return assert.AnError
+			return 0, assert.AnError
 		}
-		return nil
+		return 0, nil
 	})
 
 	ticker := helper.NewManualTicker()

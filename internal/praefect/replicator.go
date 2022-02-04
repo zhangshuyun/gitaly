@@ -560,8 +560,12 @@ func (r ReplMgr) ProcessStale(ctx context.Context, ticker helper.Ticker, staleAf
 		for {
 			select {
 			case <-ticker.C():
-				if err := r.queue.AcknowledgeStale(ctx, staleAfter); err != nil {
+				n, err := r.queue.AcknowledgeStale(ctx, staleAfter)
+				if err != nil {
 					r.log.WithError(err).Error("background periodical acknowledgement for stale replication jobs")
+				} else if n > 0 {
+					logger := r.log.WithFields(logrus.Fields{"component": "ProcessStale", "count": n})
+					logger.Info("stale replication jobs deleted")
 				}
 				ticker.Reset()
 			case <-ctx.Done():
