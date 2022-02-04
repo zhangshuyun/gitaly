@@ -14,7 +14,9 @@ import (
 )
 
 func TestSuccessfulGetBlobsRequest(t *testing.T) {
-	cfg, repo, repoPath, client := setup(t)
+	ctx := testhelper.Context(t)
+
+	cfg, repo, repoPath, client := setup(ctx, t)
 
 	expectedBlobs := []*gitalypb.GetBlobsResponse{
 		{
@@ -71,8 +73,6 @@ func TestSuccessfulGetBlobsRequest(t *testing.T) {
 
 	for _, limit := range limits {
 		t.Run(fmt.Sprintf("limit = %d", limit), func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			request := &gitalypb.GetBlobsRequest{
 				Repository:    repo,
 				RevisionPaths: revisionPaths,
@@ -130,7 +130,9 @@ func TestSuccessfulGetBlobsRequest(t *testing.T) {
 }
 
 func TestFailedGetBlobsRequestDueToValidation(t *testing.T) {
-	_, repo, _, client := setup(t)
+	ctx := testhelper.Context(t)
+
+	_, repo, _, client := setup(ctx, t)
 
 	testCases := []struct {
 		desc    string
@@ -170,8 +172,6 @@ func TestFailedGetBlobsRequestDueToValidation(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			stream, err := client.GetBlobs(ctx, testCase.request)
 			require.NoError(t, err)
 

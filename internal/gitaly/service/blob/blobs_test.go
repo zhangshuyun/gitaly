@@ -37,7 +37,7 @@ func TestListBlobs(t *testing.T) {
 	streamio.WriteBufferSize = 200
 	ctx := testhelper.Context(t)
 
-	cfg, repoProto, repoPath, client := setup(t)
+	cfg, repoProto, repoPath, client := setup(ctx, t)
 
 	bigBlobContents := bytes.Repeat([]byte{1}, streamio.WriteBufferSize*2+1)
 	bigBlobOID := gittest.WriteBlob(t, cfg, repoPath, bigBlobContents)
@@ -280,8 +280,8 @@ func TestListBlobs(t *testing.T) {
 }
 
 func TestListAllBlobs(t *testing.T) {
-	cfg, repo, _, client := setup(t)
 	ctx := testhelper.Context(t)
+	cfg, repo, _, client := setup(ctx, t)
 
 	quarantine, err := quarantine.New(ctx, repo, config.NewLocator(cfg))
 	require.NoError(t, err)
@@ -289,9 +289,9 @@ func TestListAllBlobs(t *testing.T) {
 	quarantineRepoWithoutAlternates := proto.Clone(quarantine.QuarantinedRepo()).(*gitalypb.Repository)
 	quarantineRepoWithoutAlternates.GitAlternateObjectDirectories = []string{}
 
-	emptyRepo, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
+	emptyRepo, _ := gittest.CreateRepository(ctx, t, cfg)
 
-	singleBlobRepo, singleBlobRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+	singleBlobRepo, singleBlobRepoPath := gittest.CreateRepository(ctx, t, cfg)
 	blobID := gittest.WriteBlob(t, cfg, singleBlobRepoPath, []byte("foobar"))
 
 	for _, tc := range []struct {
@@ -419,7 +419,7 @@ func BenchmarkListAllBlobs(b *testing.B) {
 	b.StopTimer()
 	ctx := testhelper.Context(b)
 
-	_, repoProto, _, client := setup(b)
+	_, repoProto, _, client := setup(ctx, b)
 
 	for _, tc := range []struct {
 		desc    string
@@ -463,7 +463,7 @@ func BenchmarkListBlobs(b *testing.B) {
 	b.StopTimer()
 	ctx := testhelper.Context(b)
 
-	_, repoProto, _, client := setup(b)
+	_, repoProto, _, client := setup(ctx, b)
 
 	for _, tc := range []struct {
 		desc    string
