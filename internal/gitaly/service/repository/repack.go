@@ -36,31 +36,52 @@ func log2Threads(numCPUs int) git.ValueFlag {
 
 func (s *server) RepackFull(ctx context.Context, in *gitalypb.RepackFullRequest) (*gitalypb.RepackFullResponse, error) {
 	repo := s.localrepo(in.GetRepository())
-	options := []git.Option{
-		git.Flag{Name: "-A"},
-		git.Flag{Name: "--pack-kept-objects"},
-		git.Flag{Name: "-l"},
-		log2Threads(runtime.NumCPU()),
+	cfg := repackCommandConfig{
+		fullRepack:  true,
+		writeBitmap: in.GetCreateBitmap(),
 	}
-	if err := repack(ctx, repo, in.GetCreateBitmap(), options...); err != nil {
+
+	if err := repack(ctx, repo, cfg); err != nil {
 		return nil, helper.ErrInternal(err)
 	}
+
 	return &gitalypb.RepackFullResponse{}, nil
 }
 
 func (s *server) RepackIncremental(ctx context.Context, in *gitalypb.RepackIncrementalRequest) (*gitalypb.RepackIncrementalResponse, error) {
 	repo := s.localrepo(in.GetRepository())
-	if err := repack(ctx, repo, false); err != nil {
-		return nil, helper.ErrInternal(err)
+	cfg := repackCommandConfig{
+		fullRepack:  false,
+		writeBitmap: false,
 	}
+
+	if err := repack(ctx, repo, cfg); err != nil {
+		return nil, err
+	}
+
 	return &gitalypb.RepackIncrementalResponse{}, nil
 }
 
-func repack(ctx context.Context, repo *localrepo.Repo, bitmap bool, args ...git.Option) error {
+type repackCommandConfig struct {
+	fullRepack  bool
+	writeBitmap bool
+}
+
+func repack(ctx context.Context, repo *localrepo.Repo, cfg repackCommandConfig) error {
+	var options []git.Option
+	if cfg.fullRepack {
+		options = append(options,
+			git.Flag{Name: "-A"},
+			git.Flag{Name: "--pack-kept-objects"},
+			git.Flag{Name: "-l"},
+			log2Threads(runtime.NumCPU()),
+		)
+	}
+
 	if err := repo.ExecAndWait(ctx, git.SubCmd{
 		Name:  "repack",
-		Flags: append([]git.Option{git.Flag{Name: "-d"}}, args...),
-	}, git.WithConfig(repackConfig(ctx, bitmap)...)); err != nil {
+		Flags: append([]git.Option{git.Flag{Name: "-d"}}, options...),
+	}, git.WithConfig(repackConfig(ctx, cfg.writeBitmap)...)); err != nil {
 		return err
 	}
 
