@@ -13,7 +13,7 @@ import (
 )
 
 func TestReduplicate(t *testing.T) {
-	cfg, repoProto, repoPath, locator, client := setup(t)
+	cfg, repoProto, repoPath, _, client := setup(t)
 	ctx := testhelper.Context(t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -27,7 +27,7 @@ func TestReduplicate(t *testing.T) {
 	existingObjectID := "55bc176024cfa3baaceb71db584c7e5df900ea65"
 
 	// Corrupt the repository to check if the object can't be found
-	altPath, err := locator.InfoAlternatesPath(repo)
+	altPath, err := repo.InfoAlternatesPath()
 	require.NoError(t, err, "find info/alternates")
 	require.NoError(t, os.RemoveAll(altPath))
 

@@ -14,7 +14,7 @@ import (
 )
 
 func TestDisconnectGitAlternates(t *testing.T) {
-	cfg, repoProto, repoPath, locator, client := setup(t)
+	cfg, repoProto, repoPath, _, client := setup(t)
 	ctx := testhelper.Context(t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -27,7 +27,7 @@ func TestDisconnectGitAlternates(t *testing.T) {
 	existingObjectID := "55bc176024cfa3baaceb71db584c7e5df900ea65"
 
 	// Corrupt the repository to check that existingObjectID can no longer be found
-	altPath, err := locator.InfoAlternatesPath(repo)
+	altPath, err := repo.InfoAlternatesPath()
 	require.NoError(t, err, "find info/alternates")
 	require.NoError(t, os.RemoveAll(altPath))
 
@@ -53,21 +53,22 @@ func TestDisconnectGitAlternates(t *testing.T) {
 }
 
 func TestDisconnectGitAlternatesNoAlternates(t *testing.T) {
-	cfg, repo, repoPath, locator, client := setup(t)
+	cfg, repoProto, repoPath, _, client := setup(t)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	ctx := testhelper.Context(t)
 
-	altPath, err := locator.InfoAlternatesPath(repo)
+	altPath, err := repo.InfoAlternatesPath()
 	require.NoError(t, err, "find info/alternates")
 	require.NoFileExists(t, altPath)
 
-	_, err = client.DisconnectGitAlternates(ctx, &gitalypb.DisconnectGitAlternatesRequest{Repository: repo})
+	_, err = client.DisconnectGitAlternates(ctx, &gitalypb.DisconnectGitAlternatesRequest{Repository: repoProto})
 	require.NoError(t, err, "call DisconnectGitAlternates on repository without alternates")
 
 	gittest.Exec(t, cfg, "-C", repoPath, "fsck")
 }
 
 func TestDisconnectGitAlternatesUnexpectedAlternates(t *testing.T) {
-	cfg, _, _, locator, client := setup(t)
+	cfg, _, _, _, client := setup(t)
 	ctx := testhelper.Context(t)
 
 	testCases := []struct {
@@ -81,14 +82,15 @@ func TestDisconnectGitAlternatesUnexpectedAlternates(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+			repoProto, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-			altPath, err := locator.InfoAlternatesPath(repo)
+			altPath, err := repo.InfoAlternatesPath()
 			require.NoError(t, err, "find info/alternates")
 
 			require.NoError(t, os.WriteFile(altPath, []byte(tc.altContent), 0o644))
 
-			_, err = client.DisconnectGitAlternates(ctx, &gitalypb.DisconnectGitAlternatesRequest{Repository: repo})
+			_, err = client.DisconnectGitAlternates(ctx, &gitalypb.DisconnectGitAlternatesRequest{Repository: repoProto})
 			require.Error(t, err, "call DisconnectGitAlternates on repository with unexpected objects/info/alternates")
 
 			contentAfterRPC := testhelper.MustReadFile(t, altPath)
@@ -98,10 +100,11 @@ func TestDisconnectGitAlternatesUnexpectedAlternates(t *testing.T) {
 }
 
 func TestRemoveAlternatesIfOk(t *testing.T) {
-	cfg, repo, repoPath, locator, _ := setup(t)
+	cfg, repoProto, repoPath, _, _ := setup(t)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	ctx := testhelper.Context(t)
 
-	altPath, err := locator.InfoAlternatesPath(repo)
+	altPath, err := repo.InfoAlternatesPath()
 	require.NoError(t, err, "find info/alternates")
 	altContent := "/var/empty\n"
 	require.NoError(t, os.WriteFile(altPath, []byte(altContent), 0o644), "write alternates file")
