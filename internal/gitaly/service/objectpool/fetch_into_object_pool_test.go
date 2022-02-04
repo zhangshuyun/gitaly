@@ -27,8 +27,6 @@ import (
 )
 
 func TestFetchIntoObjectPool_Success(t *testing.T) {
-	testhelper.SkipWithPraefect(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/4030")
-
 	cfg, repo, repoPath, locator, client := setup(t)
 	ctx := testhelper.Context(t)
 
@@ -84,8 +82,6 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 }
 
 func TestFetchIntoObjectPool_hooks(t *testing.T) {
-	testhelper.SkipWithPraefect(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/4030")
-
 	cfg := testcfg.Build(t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg, git.WithHooksPath(testhelper.TempDir(t)))
 
@@ -124,8 +120,6 @@ func TestFetchIntoObjectPool_hooks(t *testing.T) {
 }
 
 func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
-	testhelper.SkipWithPraefect(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/4030")
-
 	cfg := testcfg.Build(t)
 
 	testcfg.BuildGitalyHooks(t, cfg)

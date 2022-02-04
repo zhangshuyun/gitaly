@@ -213,7 +213,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 				protoregistry.GitalyProtoPreregistered,
 			)
 
-			frame, err := proto.Marshal(&gitalypb.CreateObjectPoolRequest{
+			frame, err := proto.Marshal(&gitalypb.FetchIntoObjectPoolRequest{
 				Origin:     &targetRepo,
 				ObjectPool: &gitalypb.ObjectPool{Repository: &targetRepo},
 			})
@@ -221,7 +221,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 
 			require.NoError(t, err)
 
-			fullMethod := "/gitaly.ObjectPoolService/CreateObjectPool"
+			fullMethod := "/gitaly.ObjectPoolService/FetchIntoObjectPool"
 
 			peeker := &mockPeeker{frame}
 			streamParams, err := coordinator.StreamDirector(correlation.ContextWithCorrelation(ctx, "my-correlation-id"), fullMethod, peeker)

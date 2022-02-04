@@ -84,8 +84,6 @@ func TestLink(t *testing.T) {
 }
 
 func TestLinkIdempotent(t *testing.T) {
-	testhelper.SkipWithPraefect(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/4030")
-
 	cfg, repoProto, _, _, client := setup(t)
 	ctx := testhelper.Context(t)
 
@@ -135,8 +133,6 @@ func TestLinkNoClobber(t *testing.T) {
 }
 
 func TestLinkNoPool(t *testing.T) {
-	testhelper.SkipWithPraefect(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/4030")
-
 	cfg, repo, _, locator, client := setup(t)
 	ctx := testhelper.Context(t)
 

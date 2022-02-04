@@ -18,8 +18,6 @@ import (
 )
 
 func TestCreate(t *testing.T) {
-	testhelper.SkipWithPraefect(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/4030")
-
 	cfg, repo, _, _, client := setup(t)
 	ctx := testhelper.Context(t)
 
@@ -142,8 +140,6 @@ func TestUnsuccessfulCreate(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	testhelper.SkipWithPraefect(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/4030")
-
 	cfg, repoProto, _, _, client := setup(t)
 	ctx := testhelper.Context(t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)

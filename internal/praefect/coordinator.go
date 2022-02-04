@@ -165,7 +165,8 @@ func getReplicationDetails(methodName string, m proto.Message) (datastore.Change
 	switch methodName {
 	case "/gitaly.RepositoryService/RemoveRepository":
 		return datastore.DeleteRepo, nil, nil
-	case "/gitaly.RepositoryService/CreateFork",
+	case "/gitaly.ObjectPoolService/CreateObjectPool",
+		"/gitaly.RepositoryService/CreateFork",
 		"/gitaly.RepositoryService/CreateRepository",
 		"/gitaly.RepositoryService/CreateRepositoryFromBundle",
 		"/gitaly.RepositoryService/CreateRepositoryFromSnapshot",
