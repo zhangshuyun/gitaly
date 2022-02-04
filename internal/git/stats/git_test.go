@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -23,8 +24,6 @@ func TestLogObjectInfo(t *testing.T) {
 	repo1, repoPath1 := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	repo2, repoPath2 := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 	ctx := testhelper.Context(t)
-
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
 	requireLog := func(entries []*logrus.Entry) map[string]interface{} {
 		for _, entry := range entries {
@@ -62,10 +61,10 @@ func TestLogObjectInfo(t *testing.T) {
 		logger, hook := test.NewNullLogger()
 		testCtx := ctxlogrus.ToContext(ctx, logger.WithField("test", "logging"))
 
-		LogObjectsInfo(testCtx, gitCmdFactory, &gitalypb.Repository{
+		LogObjectsInfo(testCtx, localrepo.NewTestRepo(t, cfg, &gitalypb.Repository{
 			StorageName:  repo1.StorageName,
 			RelativePath: filepath.Join(strings.TrimPrefix(tmpDir, storagePath), ".git"),
-		})
+		}))
 
 		countObjects := requireLog(hook.AllEntries())
 		require.ElementsMatch(t, []string{repoPath1 + "/objects", repoPath2 + "/objects"}, countObjects["alternate"])
@@ -75,7 +74,7 @@ func TestLogObjectInfo(t *testing.T) {
 		logger, hook := test.NewNullLogger()
 		testCtx := ctxlogrus.ToContext(ctx, logger.WithField("test", "logging"))
 
-		LogObjectsInfo(testCtx, gitCmdFactory, repo2)
+		LogObjectsInfo(testCtx, localrepo.NewTestRepo(t, cfg, repo2))
 
 		countObjects := requireLog(hook.AllEntries())
 		require.Contains(t, countObjects, "prune-packable")

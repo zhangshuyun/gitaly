@@ -8,7 +8,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -36,26 +36,28 @@ func log2Threads(numCPUs int) git.ValueFlag {
 }
 
 func (s *server) RepackFull(ctx context.Context, in *gitalypb.RepackFullRequest) (*gitalypb.RepackFullResponse, error) {
+	repo := s.localrepo(in.GetRepository())
 	options := []git.Option{
 		git.Flag{Name: "-A"},
 		git.Flag{Name: "--pack-kept-objects"},
 		git.Flag{Name: "-l"},
 		log2Threads(runtime.NumCPU()),
 	}
-	if err := s.repackCommand(ctx, in.GetRepository(), in.GetCreateBitmap(), options...); err != nil {
+	if err := s.repackCommand(ctx, repo, in.GetCreateBitmap(), options...); err != nil {
 		return nil, err
 	}
 	return &gitalypb.RepackFullResponse{}, nil
 }
 
 func (s *server) RepackIncremental(ctx context.Context, in *gitalypb.RepackIncrementalRequest) (*gitalypb.RepackIncrementalResponse, error) {
-	if err := s.repackCommand(ctx, in.GetRepository(), false); err != nil {
+	repo := s.localrepo(in.GetRepository())
+	if err := s.repackCommand(ctx, repo, false); err != nil {
 		return nil, err
 	}
 	return &gitalypb.RepackIncrementalResponse{}, nil
 }
 
-func (s *server) repackCommand(ctx context.Context, repo repository.GitRepo, bitmap bool, args ...git.Option) error {
+func (s *server) repackCommand(ctx context.Context, repo *localrepo.Repo, bitmap bool, args ...git.Option) error {
 	cmd, err := s.gitCmdFactory.New(ctx, repo,
 		git.SubCmd{
 			Name:  "repack",
@@ -78,7 +80,7 @@ func (s *server) repackCommand(ctx context.Context, repo repository.GitRepo, bit
 		return err
 	}
 
-	stats.LogObjectsInfo(ctx, s.gitCmdFactory, repo)
+	stats.LogObjectsInfo(ctx, repo)
 
 	return nil
 }

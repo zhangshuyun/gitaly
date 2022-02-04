@@ -9,15 +9,14 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 )
 
 // LogObjectsInfo read statistics of the git repo objects
 // and logs it under 'count-objects' key as structured entry.
-func LogObjectsInfo(ctx context.Context, gitCmdFactory git.CommandFactory, repo repository.GitRepo) {
+func LogObjectsInfo(ctx context.Context, repo git.RepositoryExecutor) {
 	logger := ctxlogrus.Extract(ctx)
 
-	cmd, err := gitCmdFactory.New(ctx, repo, git.SubCmd{
+	cmd, err := repo.Exec(ctx, git.SubCmd{
 		Name:  "count-objects",
 		Flags: []git.Option{git.Flag{Name: "--verbose"}},
 	})

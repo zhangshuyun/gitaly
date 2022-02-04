@@ -25,7 +25,7 @@ func (s *server) FetchIntoObjectPool(ctx context.Context, req *gitalypb.FetchInt
 		return nil, helper.ErrInternal(err)
 	}
 
-	stats.LogObjectsInfo(ctx, s.gitCmdFactory, req.ObjectPool.Repository)
+	stats.LogObjectsInfo(ctx, objectPool.Repo)
 
 	return &gitalypb.FetchIntoObjectPoolResponse{}, nil
 }

@@ -39,7 +39,7 @@ func (s *server) MidxRepack(ctx context.Context, in *gitalypb.MidxRepackRequest)
 		}
 	}
 
-	stats.LogObjectsInfo(ctx, s.gitCmdFactory, repo)
+	stats.LogObjectsInfo(ctx, repo)
 
 	return &gitalypb.MidxRepackResponse{}, nil
 }
