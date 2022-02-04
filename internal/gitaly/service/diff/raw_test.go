@@ -15,8 +15,8 @@ import (
 )
 
 func TestSuccessfulRawDiffRequest(t *testing.T) {
-	cfg, repo, repoPath, client := setupDiffService(t)
 	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupDiffService(ctx, t)
 
 	rightCommit := "e395f646b1499e8e0279445fc99a0596a65fab7e"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
@@ -51,7 +51,8 @@ func TestSuccessfulRawDiffRequest(t *testing.T) {
 }
 
 func TestFailedRawDiffRequestDueToValidations(t *testing.T) {
-	_, repo, _, client := setupDiffService(t)
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupDiffService(ctx, t)
 
 	testCases := []struct {
 		desc    string
@@ -89,8 +90,6 @@ func TestFailedRawDiffRequestDueToValidations(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			c, _ := client.RawDiff(ctx, testCase.request)
 			testhelper.RequireGrpcCode(t, drainRawDiffResponse(c), testCase.code)
 		})
@@ -98,8 +97,8 @@ func TestFailedRawDiffRequestDueToValidations(t *testing.T) {
 }
 
 func TestSuccessfulRawPatchRequest(t *testing.T) {
-	cfg, repo, repoPath, client := setupDiffService(t)
 	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupDiffService(ctx, t)
 
 	rightCommit := "e395f646b1499e8e0279445fc99a0596a65fab7e"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
@@ -126,7 +125,8 @@ func TestSuccessfulRawPatchRequest(t *testing.T) {
 }
 
 func TestFailedRawPatchRequestDueToValidations(t *testing.T) {
-	_, repo, _, client := setupDiffService(t)
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupDiffService(ctx, t)
 
 	testCases := []struct {
 		desc    string
@@ -164,8 +164,6 @@ func TestFailedRawPatchRequestDueToValidations(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			c, _ := client.RawPatch(ctx, testCase.request)
 			testhelper.RequireGrpcCode(t, drainRawPatchResponse(c), testCase.code)
 		})
@@ -173,8 +171,8 @@ func TestFailedRawPatchRequestDueToValidations(t *testing.T) {
 }
 
 func TestRawPatchContainsGitLabSignature(t *testing.T) {
-	_, repo, _, client := setupDiffService(t)
 	ctx := testhelper.Context(t)
+	_, repo, _, client := setupDiffService(ctx, t)
 
 	rightCommit := "e395f646b1499e8e0279445fc99a0596a65fab7e"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
