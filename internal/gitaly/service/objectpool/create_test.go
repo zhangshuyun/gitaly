@@ -1,6 +1,7 @@
 package objectpool
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -9,12 +10,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
 func TestCreate(t *testing.T) {
+	testhelper.SkipWithPraefect(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/4030")
+
 	cfg, repo, _, _, client := setup(t)
 	ctx := testhelper.Context(t)
 
@@ -137,13 +142,20 @@ func TestUnsuccessfulCreate(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
+	testhelper.SkipWithPraefect(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/4030")
+
 	cfg, repoProto, _, _, client := setup(t)
 	ctx := testhelper.Context(t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
+	_, err := client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
+		ObjectPool: pool.ToProto(),
+		Origin:     repoProto,
+	})
+	require.NoError(t, err)
+
 	validPoolPath := pool.GetRelativePath()
-	require.NoError(t, pool.Create(ctx, repo))
 
 	for _, tc := range []struct {
 		desc         string
@@ -196,7 +208,16 @@ func TestDelete(t *testing.T) {
 					RelativePath: tc.relativePath,
 				},
 			}})
-			testhelper.RequireGrpcError(t, tc.error, err)
+
+			expectedErr := tc.error
+			if tc.error == errInvalidPoolDir && testhelper.IsPraefectEnabled() {
+				expectedErr = helper.ErrNotFound(fmt.Errorf(
+					"mutator call: route repository mutator: get repository id: %w",
+					commonerr.NewRepositoryNotFoundError(repo.GetStorageName(), tc.relativePath),
+				))
+			}
+
+			testhelper.RequireGrpcError(t, expectedErr, err)
 		})
 	}
 }

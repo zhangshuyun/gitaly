@@ -84,19 +84,24 @@ func TestLink(t *testing.T) {
 }
 
 func TestLinkIdempotent(t *testing.T) {
+	testhelper.SkipWithPraefect(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/4030")
+
 	cfg, repoProto, _, _, client := setup(t)
 	ctx := testhelper.Context(t)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
-	require.NoError(t, pool.Create(ctx, repo))
+	_, err := client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
+		ObjectPool: pool.ToProto(),
+		Origin:     repoProto,
+	})
+	require.NoError(t, err)
 
 	request := &gitalypb.LinkRepositoryToObjectPoolRequest{
 		Repository: repoProto,
 		ObjectPool: pool.ToProto(),
 	}
 
-	_, err := client.LinkRepositoryToObjectPool(ctx, request)
+	_, err = client.LinkRepositoryToObjectPool(ctx, request)
 	require.NoError(t, err)
 
 	_, err = client.LinkRepositoryToObjectPool(ctx, request)
@@ -130,18 +135,29 @@ func TestLinkNoClobber(t *testing.T) {
 }
 
 func TestLinkNoPool(t *testing.T) {
+	testhelper.SkipWithPraefect(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/4030")
+
 	cfg, repo, _, locator, client := setup(t)
 	ctx := testhelper.Context(t)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
-	require.NoError(t, pool.Remove(ctx))
+	_, err := client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
+		ObjectPool: pool.ToProto(),
+		Origin:     repo,
+	})
+	require.NoError(t, err)
+
+	_, err = client.DeleteObjectPool(ctx, &gitalypb.DeleteObjectPoolRequest{
+		ObjectPool: pool.ToProto(),
+	})
+	require.NoError(t, err)
 
 	request := &gitalypb.LinkRepositoryToObjectPoolRequest{
 		Repository: repo,
 		ObjectPool: pool.ToProto(),
 	}
 
-	_, err := client.LinkRepositoryToObjectPool(ctx, request)
+	_, err = client.LinkRepositoryToObjectPool(ctx, request)
 	require.NoError(t, err)
 
 	poolRepoPath, err := locator.GetRepoPath(pool)

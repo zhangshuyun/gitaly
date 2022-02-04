@@ -27,12 +27,19 @@ import (
 )
 
 func TestFetchIntoObjectPool_Success(t *testing.T) {
+	testhelper.SkipWithPraefect(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/4030")
+
 	cfg, repo, repoPath, locator, client := setup(t)
 	ctx := testhelper.Context(t)
 
 	repoCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(t.Name()))
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
+	_, err := client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
+		ObjectPool: pool.ToProto(),
+		Origin:     repo,
+	})
+	require.NoError(t, err)
 
 	req := &gitalypb.FetchIntoObjectPoolRequest{
 		ObjectPool: pool.ToProto(),
@@ -40,7 +47,7 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 		Repack:     true,
 	}
 
-	_, err := client.FetchIntoObjectPool(ctx, req)
+	_, err = client.FetchIntoObjectPool(ctx, req)
 	require.NoError(t, err)
 
 	require.True(t, pool.IsValid(), "ensure underlying repository is valid")
@@ -77,19 +84,30 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 }
 
 func TestFetchIntoObjectPool_hooks(t *testing.T) {
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	testhelper.SkipWithPraefect(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/4030")
+
+	cfg := testcfg.Build(t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg, git.WithHooksPath(testhelper.TempDir(t)))
 
-	addr := runObjectPoolServer(t, cfg, config.NewLocator(cfg), testhelper.NewDiscardingLogger(t), testserver.WithGitCommandFactory(gitCmdFactory))
+	cfg.SocketPath = runObjectPoolServer(t, cfg, config.NewLocator(cfg), testhelper.NewDiscardingLogger(t), testserver.WithGitCommandFactory(gitCmdFactory))
 
-	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	ctx := testhelper.Context(t)
+	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
+
+	conn, err := grpc.Dial(cfg.SocketPath, grpc.WithInsecure())
 	require.NoError(t, err)
 	defer testhelper.MustClose(t, conn)
 
 	client := gitalypb.NewObjectPoolServiceClient(conn)
-	ctx := testhelper.Context(t)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
+	_, err = client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
+		ObjectPool: pool.ToProto(),
+		Origin:     repo,
+	})
+	require.NoError(t, err)
 
 	// Set up a custom reference-transaction hook which simply exits failure. This asserts that
 	// the RPC doesn't invoke any reference-transaction.
@@ -106,23 +124,34 @@ func TestFetchIntoObjectPool_hooks(t *testing.T) {
 }
 
 func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	testhelper.SkipWithPraefect(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/4030")
+
+	cfg := testcfg.Build(t)
 
 	testcfg.BuildGitalyHooks(t, cfg)
 
 	locator := config.NewLocator(cfg)
 
 	logger, hook := test.NewNullLogger()
-	serverSocketPath := runObjectPoolServer(t, cfg, locator, logger)
+	cfg.SocketPath = runObjectPoolServer(t, cfg, locator, logger)
 
-	conn, err := grpc.Dial(serverSocketPath, grpc.WithInsecure())
+	ctx := testhelper.Context(t)
+	ctx = ctxlogrus.ToContext(ctx, log.WithField("test", "logging"))
+	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
+
+	conn, err := grpc.Dial(cfg.SocketPath, grpc.WithInsecure())
 	require.NoError(t, err)
 	t.Cleanup(func() { testhelper.MustClose(t, conn) })
 	client := gitalypb.NewObjectPoolServiceClient(conn)
-	ctx := testhelper.Context(t)
-	ctx = ctxlogrus.ToContext(ctx, log.WithField("test", "logging"))
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
+	_, err = client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
+		ObjectPool: pool.ToProto(),
+		Origin:     repo,
+	})
+	require.NoError(t, err)
 
 	req := &gitalypb.FetchIntoObjectPoolRequest{
 		ObjectPool: pool.ToProto(),
