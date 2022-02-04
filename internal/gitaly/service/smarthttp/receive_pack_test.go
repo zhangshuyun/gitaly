@@ -40,17 +40,22 @@ const (
 func TestSuccessfulReceivePackRequest(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
 	cfg.GitlabShell.Dir = "/foo/bar/gitlab-shell"
 	gitCmdFactory, hookOutputFile := gittest.CaptureHookEnv(t, cfg)
 
 	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
 		testserver.WithGitCommandFactory(gitCmdFactory),
 	})
+	cfg.SocketPath = server.Address()
+
+	ctx := testhelper.Context(t)
+	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	client, conn := newSmartHTTPClient(t, server.Address(), cfg.Auth.Token)
 	defer conn.Close()
-	ctx := testhelper.Context(t)
 
 	// Below, we test whether extracting the hooks payload leads to the expected
 	// results. Part of this payload are feature flags, so we need to get them into a
@@ -111,11 +116,16 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 func TestReceivePackHiddenRefs(t *testing.T) {
 	t.Parallel()
 
-	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
+	cfg.SocketPath = runSmartHTTPServer(t, cfg)
+
+	ctx := testhelper.Context(t)
+	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 	repoProto.GlProjectPath = "project/path"
 
 	testcfg.BuildGitalyHooks(t, cfg)
-	ctx := testhelper.Context(t)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	oldHead, err := repo.ResolveRevision(ctx, "HEAD~")
@@ -123,9 +133,7 @@ func TestReceivePackHiddenRefs(t *testing.T) {
 	newHead, err := repo.ResolveRevision(ctx, "HEAD")
 	require.NoError(t, err)
 
-	serverSocketPath := runSmartHTTPServer(t, cfg)
-
-	client, conn := newSmartHTTPClient(t, serverSocketPath, cfg.Auth.Token)
+	client, conn := newSmartHTTPClient(t, cfg.SocketPath, cfg.Auth.Token)
 	defer conn.Close()
 
 	for _, ref := range []string{
@@ -162,7 +170,7 @@ func TestReceivePackHiddenRefs(t *testing.T) {
 func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
 
 	testcfg.BuildGitalyHooks(t, cfg)
 	ctx := testhelper.Context(t)
@@ -171,6 +179,12 @@ func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 
 	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
 		testserver.WithGitCommandFactory(gitCmdFactory),
+	})
+
+	cfg.SocketPath = server.Address()
+
+	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
 	})
 
 	client, conn := newSmartHTTPClient(t, server.Address(), cfg.Auth.Token)
@@ -193,13 +207,17 @@ func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 func TestFailedReceivePackRequestWithGitOpts(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
 
-	serverSocketPath := runSmartHTTPServer(t, cfg)
+	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 
-	client, conn := newSmartHTTPClient(t, serverSocketPath, cfg.Auth.Token)
-	defer conn.Close()
 	ctx := testhelper.Context(t)
+	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
+
+	client, conn := newSmartHTTPClient(t, cfg.SocketPath, cfg.Auth.Token)
+	defer conn.Close()
 
 	stream, err := client.PostReceivePack(ctx)
 	require.NoError(t, err)
@@ -215,7 +233,7 @@ func TestFailedReceivePackRequestWithGitOpts(t *testing.T) {
 func TestFailedReceivePackRequestDueToHooksFailure(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg, git.WithHooksPath(testhelper.TempDir(t)))
 	ctx := testhelper.Context(t)
 
@@ -224,6 +242,11 @@ func TestFailedReceivePackRequestDueToHooksFailure(t *testing.T) {
 
 	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
 		testserver.WithGitCommandFactory(gitCmdFactory),
+	})
+	cfg.SocketPath = server.Address()
+
+	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
 	})
 
 	client, conn := newSmartHTTPClient(t, server.Address(), cfg.Auth.Token)
@@ -337,24 +360,73 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 	client, conn := newSmartHTTPClient(t, serverSocketPath, cfg.Auth.Token)
 	defer conn.Close()
 
-	rpcRequests := []*gitalypb.PostReceivePackRequest{
-		{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, GlId: "user-123"}, // Repository doesn't exist
-		{Repository: nil, GlId: "user-123"}, // Repository is nil
-		{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "path/to/repo"}, GlId: ""},                               // Empty GlId
-		{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "path/to/repo"}, GlId: "user-123", Data: []byte("Fail")}, // Data exists on first request
-	}
+	for _, tc := range []struct {
+		desc    string
+		request *gitalypb.PostReceivePackRequest
+		code    codes.Code
+	}{
+		{
+			desc: "Repository doesn't exist",
+			request: &gitalypb.PostReceivePackRequest{
+				Repository: &gitalypb.Repository{
+					StorageName:  "fake",
+					RelativePath: "path",
+				},
+				GlId: "user-123",
+			},
+			code: codes.InvalidArgument,
+		},
+		{
+			desc:    "Repository is nil",
+			request: &gitalypb.PostReceivePackRequest{Repository: nil, GlId: "user-123"},
+			code:    codes.InvalidArgument,
+		},
+		{
+			desc: "Empty GlId",
+			request: &gitalypb.PostReceivePackRequest{
+				Repository: &gitalypb.Repository{
+					StorageName:  cfg.Storages[0].Name,
+					RelativePath: "path/to/repo",
+				},
+				GlId: "",
+			},
+			code: func() codes.Code {
+				if testhelper.IsPraefectEnabled() {
+					return codes.NotFound
+				}
 
-	for _, rpcRequest := range rpcRequests {
-		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
+				return codes.InvalidArgument
+			}(),
+		},
+		{
+			desc: "Data exists on first request",
+			request: &gitalypb.PostReceivePackRequest{
+				Repository: &gitalypb.Repository{
+					StorageName:  cfg.Storages[0].Name,
+					RelativePath: "path/to/repo",
+				},
+				GlId: "user-123",
+				Data: []byte("Fail"),
+			},
+			code: func() codes.Code {
+				if testhelper.IsPraefectEnabled() {
+					return codes.NotFound
+				}
+
+				return codes.InvalidArgument
+			}(),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
 			ctx := testhelper.Context(t)
 			stream, err := client.PostReceivePack(ctx)
 			require.NoError(t, err)
 
-			require.NoError(t, stream.Send(rpcRequest))
+			require.NoError(t, stream.Send(tc.request))
 			require.NoError(t, stream.CloseSend())
 
 			err = drainPostReceivePackResponse(stream)
-			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
+			testhelper.RequireGrpcCode(t, err, tc.code)
 		})
 	}
 }
@@ -362,14 +434,22 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 func TestPostReceivePack_invalidObjects(t *testing.T) {
 	t.Parallel()
 
-	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	cfg := testcfg.Build(t)
+
 	gitCmdFactory, _ := gittest.CaptureHookEnv(t, cfg)
-
-	_, localRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
-
 	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
 		testserver.WithGitCommandFactory(gitCmdFactory),
+	})
+	cfg.SocketPath = server.Address()
+
+	ctx := testhelper.Context(t)
+	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
+
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	_, localRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
 	})
 
 	client, conn := newSmartHTTPClient(t, server.Address(), cfg.Auth.Token)
@@ -377,7 +457,6 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 
 	head := text.ChompBytes(gittest.Exec(t, cfg, "-C", localRepoPath, "rev-parse", "HEAD"))
 	tree := text.ChompBytes(gittest.Exec(t, cfg, "-C", localRepoPath, "rev-parse", "HEAD^{tree}"))
-	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc             string
@@ -484,7 +563,13 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 func TestReceivePackFsck(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
+	cfg.SocketPath = runSmartHTTPServer(t, cfg)
+
+	ctx := testhelper.Context(t)
+	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	testcfg.BuildGitalyHooks(t, cfg)
 
@@ -509,9 +594,8 @@ func TestReceivePackFsck(t *testing.T) {
 	gittest.WritePktlineFlush(t, &body)
 	_, err := body.Write(pack)
 	require.NoError(t, err)
-	ctx := testhelper.Context(t)
 
-	client, conn := newSmartHTTPClient(t, runSmartHTTPServer(t, cfg), cfg.Auth.Token)
+	client, conn := newSmartHTTPClient(t, cfg.SocketPath, cfg.Auth.Token)
 	defer conn.Close()
 
 	stream, err := client.PostReceivePack(ctx)
@@ -537,7 +621,13 @@ func drainPostReceivePackResponse(stream gitalypb.SmartHTTPService_PostReceivePa
 func TestPostReceivePackToHooks(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
+	cfg.SocketPath = runSmartHTTPServer(t, cfg)
+
+	ctx := testhelper.Context(t)
+	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	testcfg.BuildGitalyHooks(t, cfg)
 
@@ -572,11 +662,8 @@ func TestPostReceivePackToHooks(t *testing.T) {
 	defer cleanup()
 
 	gittest.WriteCheckNewObjectExistsHook(t, testRepoPath)
-	ctx := testhelper.Context(t)
 
-	socket := runSmartHTTPServer(t, cfg)
-
-	client, conn := newSmartHTTPClient(t, socket, cfg.Auth.Token)
+	client, conn := newSmartHTTPClient(t, cfg.SocketPath, cfg.Auth.Token)
 	defer conn.Close()
 
 	stream, err := client.PostReceivePack(ctx)
@@ -599,7 +686,12 @@ func TestPostReceiveWithTransactionsViaPraefect(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
+	cfg.SocketPath = runSmartHTTPServer(t, cfg)
+
+	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	testcfg.BuildGitalyHooks(t, cfg)
 
@@ -630,9 +722,7 @@ func TestPostReceiveWithTransactionsViaPraefect(t *testing.T) {
 
 	gitlab.WriteShellSecretFile(t, gitlabShellDir, secretToken)
 
-	addr := runSmartHTTPServer(t, cfg)
-
-	client, conn := newSmartHTTPClient(t, addr, cfg.Auth.Token)
+	client, conn := newSmartHTTPClient(t, cfg.SocketPath, cfg.Auth.Token)
 	defer conn.Close()
 
 	stream, err := client.PostReceivePack(ctx)
