@@ -10,9 +10,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 var repackCounter = prometheus.NewCounterVec(
@@ -43,40 +42,29 @@ func (s *server) RepackFull(ctx context.Context, in *gitalypb.RepackFullRequest)
 		git.Flag{Name: "-l"},
 		log2Threads(runtime.NumCPU()),
 	}
-	if err := s.repackCommand(ctx, repo, in.GetCreateBitmap(), options...); err != nil {
-		return nil, err
+	if err := repack(ctx, repo, in.GetCreateBitmap(), options...); err != nil {
+		return nil, helper.ErrInternal(err)
 	}
 	return &gitalypb.RepackFullResponse{}, nil
 }
 
 func (s *server) RepackIncremental(ctx context.Context, in *gitalypb.RepackIncrementalRequest) (*gitalypb.RepackIncrementalResponse, error) {
 	repo := s.localrepo(in.GetRepository())
-	if err := s.repackCommand(ctx, repo, false); err != nil {
-		return nil, err
+	if err := repack(ctx, repo, false); err != nil {
+		return nil, helper.ErrInternal(err)
 	}
 	return &gitalypb.RepackIncrementalResponse{}, nil
 }
 
-func (s *server) repackCommand(ctx context.Context, repo *localrepo.Repo, bitmap bool, args ...git.Option) error {
-	cmd, err := s.gitCmdFactory.New(ctx, repo,
-		git.SubCmd{
-			Name:  "repack",
-			Flags: append([]git.Option{git.Flag{Name: "-d"}}, args...),
-		},
-		git.WithConfig(repackConfig(ctx, bitmap)...),
-	)
-	if err != nil {
-		if _, ok := status.FromError(err); ok {
-			return err
-		}
-		return status.Errorf(codes.Internal, err.Error())
+func repack(ctx context.Context, repo *localrepo.Repo, bitmap bool, args ...git.Option) error {
+	if err := repo.ExecAndWait(ctx, git.SubCmd{
+		Name:  "repack",
+		Flags: append([]git.Option{git.Flag{Name: "-d"}}, args...),
+	}, git.WithConfig(repackConfig(ctx, bitmap)...)); err != nil {
+		return err
 	}
 
-	if err := cmd.Wait(); err != nil {
-		return status.Errorf(codes.Internal, err.Error())
-	}
-
-	if err = s.writeCommitGraph(ctx, repo, gitalypb.WriteCommitGraphRequest_SizeMultiple); err != nil {
+	if err := writeCommitGraph(ctx, repo, gitalypb.WriteCommitGraphRequest_SizeMultiple); err != nil {
 		return err
 	}
 

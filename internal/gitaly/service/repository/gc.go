@@ -29,7 +29,7 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 
 	repo := s.localrepo(in.GetRepository())
 
-	if err := s.cleanupRepo(ctx, repo); err != nil {
+	if err := cleanupWorktrees(ctx, repo); err != nil {
 		return nil, err
 	}
 
@@ -46,7 +46,7 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 		return nil, err
 	}
 
-	if err := s.writeCommitGraph(ctx, repo, gitalypb.WriteCommitGraphRequest_SizeMultiple); err != nil {
+	if err := writeCommitGraph(ctx, repo, gitalypb.WriteCommitGraphRequest_SizeMultiple); err != nil {
 		return nil, err
 	}
 
