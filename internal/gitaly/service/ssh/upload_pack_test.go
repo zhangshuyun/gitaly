@@ -111,11 +111,15 @@ func TestFailedUploadPackRequestDueToTimeout(t *testing.T) {
 }
 
 func testFailedUploadPackRequestDueToTimeout(t *testing.T, opts ...testcfg.Option) {
-	cfg, repo, _ := testcfg.BuildWithRepo(t, opts...)
+	cfg := testcfg.Build(t, opts...)
 
-	serverSocketPath := runSSHServerWithOptions(t, cfg, []ServerOpt{WithUploadPackRequestTimeout(10 * time.Microsecond)})
+	cfg.SocketPath = runSSHServerWithOptions(t, cfg, []ServerOpt{WithUploadPackRequestTimeout(10 * time.Microsecond)})
 
-	client, conn := newSSHClient(t, serverSocketPath)
+	repo, _ := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
+
+	client, conn := newSSHClient(t, cfg.SocketPath)
 	defer conn.Close()
 	ctx := testhelper.Context(t)
 
@@ -192,7 +196,13 @@ func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 		{
 			Desc: "Data exists on first request",
 			Req:  &gitalypb.SSHUploadPackRequest{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "path/to/repo"}, Stdin: []byte("Fail")},
-			Code: codes.InvalidArgument,
+			Code: func() codes.Code {
+				if testhelper.IsPraefectEnabled() {
+					return codes.NotFound
+				}
+
+				return codes.InvalidArgument
+			}(),
 		},
 	}
 
@@ -236,14 +246,18 @@ func testUploadPackWithSidechannelCloneSuccess(t *testing.T, opts ...testcfg.Opt
 }
 
 func testUploadPackCloneSuccess2(t *testing.T, sidechannel bool, opts ...testcfg.Option) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t, opts...)
+	cfg := testcfg.Build(t, opts...)
 
 	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
 
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
 
-	serverSocketPath := runSSHServerWithOptions(t, cfg, []ServerOpt{WithPackfileNegotiationMetrics(negotiationMetrics)})
+	cfg.SocketPath = runSSHServerWithOptions(t, cfg, []ServerOpt{WithPackfileNegotiationMetrics(negotiationMetrics)})
+
+	repo, repoPath := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	localRepoPath := testhelper.TempDir(t)
 
@@ -280,7 +294,7 @@ func testUploadPackCloneSuccess2(t *testing.T, sidechannel bool, opts ...testcfg
 			cmd := cloneCommand{
 				repository:  repo,
 				command:     tc.cmd,
-				server:      serverSocketPath,
+				server:      cfg.SocketPath,
 				cfg:         cfg,
 				sidechannel: sidechannel,
 			}
@@ -297,7 +311,7 @@ func testUploadPackCloneSuccess2(t *testing.T, sidechannel bool, opts ...testcfg
 func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t, testcfg.WithPackObjectsCacheEnabled())
+	cfg := testcfg.Build(t, testcfg.WithPackObjectsCacheEnabled())
 
 	filterDir := testhelper.TempDir(t)
 	outputPath := filepath.Join(filterDir, "output")
@@ -318,7 +332,11 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 		exec git "$@"
 	`, outputPath)))
 
-	serverSocketPath := runSSHServer(t, cfg)
+	cfg.SocketPath = runSSHServer(t, cfg)
+
+	repo, _ := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	localRepoPath := testhelper.TempDir(t)
 
@@ -327,7 +345,7 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 		command: git.SubCmd{
 			Name: "clone", Args: []string{"git@localhost:test/test.git", localRepoPath},
 		},
-		server: serverSocketPath,
+		server: cfg.SocketPath,
 		cfg:    cfg,
 	}.execute(t)
 	require.NoError(t, err)
@@ -342,12 +360,16 @@ func TestUploadPackWithoutSideband(t *testing.T) {
 }
 
 func testUploadPackWithoutSideband(t *testing.T, opts ...testcfg.Option) {
-	cfg, repo, _ := testcfg.BuildWithRepo(t, opts...)
+	cfg := testcfg.Build(t, opts...)
 
 	testcfg.BuildGitalySSH(t, cfg)
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	serverSocketPath := runSSHServer(t, cfg)
+	cfg.SocketPath = runSSHServer(t, cfg)
+
+	repo, _ := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	// While Git knows the side-band-64 capability, some other clients don't. There is no way
 	// though to have Git not use that capability, so we're instead manually crafting a packfile
@@ -370,7 +392,7 @@ func testUploadPackWithoutSideband(t *testing.T, opts ...testcfg.Option) {
 	// a deadlock would result.
 	uploadPack := exec.Command(filepath.Join(cfg.BinDir, "gitaly-ssh"), "upload-pack", "dontcare", "dontcare")
 	uploadPack.Env = []string{
-		fmt.Sprintf("GITALY_ADDRESS=%s", serverSocketPath),
+		fmt.Sprintf("GITALY_ADDRESS=%s", cfg.SocketPath),
 		fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
 		fmt.Sprintf("PATH=.:%s", os.Getenv("PATH")),
 	}
@@ -391,12 +413,16 @@ func TestUploadPackCloneWithPartialCloneFilter(t *testing.T) {
 }
 
 func testUploadPackCloneWithPartialCloneFilter(t *testing.T, opts ...testcfg.Option) {
-	cfg, repo, _ := testcfg.BuildWithRepo(t, opts...)
+	cfg := testcfg.Build(t, opts...)
 
 	testcfg.BuildGitalySSH(t, cfg)
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	serverSocketPath := runSSHServer(t, cfg)
+	cfg.SocketPath = runSSHServer(t, cfg)
+
+	repo, _ := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	// Ruby file which is ~1kB in size and not present in HEAD
 	blobLessThanLimit := git.ObjectID("6ee41e85cc9bf33c10b690df09ca735b22f3790f")
@@ -443,7 +469,7 @@ func testUploadPackCloneWithPartialCloneFilter(t *testing.T, opts ...testcfg.Opt
 			cmd := cloneCommand{
 				repository: repo,
 				command:    tc.cmd,
-				server:     serverSocketPath,
+				server:     cfg.SocketPath,
 				cfg:        cfg,
 			}
 			err := cmd.execute(t)
@@ -463,12 +489,16 @@ func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
 }
 
 func testUploadPackCloneSuccessWithGitProtocol(t *testing.T, opts ...testcfg.Option) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t, opts...)
+	cfg := testcfg.Build(t, opts...)
 	ctx := testhelper.Context(t)
 
 	gitCmdFactory, readProto := gittest.NewProtocolDetectingCommandFactory(ctx, t, cfg)
 
-	serverSocketPath := runSSHServer(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
+	cfg.SocketPath = runSSHServer(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
+
+	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	testcfg.BuildGitalySSH(t, cfg)
 	testcfg.BuildGitalyHooks(t, cfg)
@@ -503,7 +533,7 @@ func testUploadPackCloneSuccessWithGitProtocol(t *testing.T, opts ...testcfg.Opt
 			cmd := cloneCommand{
 				repository:  repo,
 				command:     tc.cmd,
-				server:      serverSocketPath,
+				server:      cfg.SocketPath,
 				gitProtocol: git.ProtocolV2,
 				cfg:         cfg,
 			}
@@ -520,12 +550,16 @@ func testUploadPackCloneSuccessWithGitProtocol(t *testing.T, opts ...testcfg.Opt
 func TestUploadPackCloneHideTags(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
 
 	testcfg.BuildGitalySSH(t, cfg)
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	serverSocketPath := runSSHServer(t, cfg)
+	cfg.SocketPath = runSSHServer(t, cfg)
+
+	repo, repoPath := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	localRepoPath := testhelper.TempDir(t)
 
@@ -538,7 +572,7 @@ func TestUploadPackCloneHideTags(t *testing.T) {
 			},
 			Args: []string{"git@localhost:test/test.git", localRepoPath},
 		},
-		server:    serverSocketPath,
+		server:    cfg.SocketPath,
 		gitConfig: "transfer.hideRefs=refs/tags",
 		cfg:       cfg,
 	}
@@ -555,9 +589,13 @@ func TestUploadPackCloneHideTags(t *testing.T) {
 func TestUploadPackCloneFailure(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
 
-	serverSocketPath := runSSHServer(t, cfg)
+	cfg.SocketPath = runSSHServer(t, cfg)
+
+	repo, _ := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	localRepoPath := testhelper.TempDir(t)
 
@@ -570,7 +608,7 @@ func TestUploadPackCloneFailure(t *testing.T) {
 			Name: "clone",
 			Args: []string{"git@localhost:test/test.git", localRepoPath},
 		},
-		server: serverSocketPath,
+		server: cfg.SocketPath,
 		cfg:    cfg,
 	}
 	err := cmd.execute(t)
@@ -580,11 +618,15 @@ func TestUploadPackCloneFailure(t *testing.T) {
 func TestUploadPackCloneGitFailure(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
 
-	serverSocketPath := runSSHServer(t, cfg)
+	cfg.SocketPath = runSSHServer(t, cfg)
 
-	client, conn := newSSHClient(t, serverSocketPath)
+	repo, _ := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
+
+	client, conn := newSSHClient(t, cfg.SocketPath)
 	defer conn.Close()
 
 	configPath := filepath.Join(cfg.Storages[0].Path, repo.RelativePath, "config")

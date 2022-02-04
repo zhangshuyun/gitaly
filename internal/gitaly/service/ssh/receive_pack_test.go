@@ -35,11 +35,15 @@ import (
 func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
 
-	serverSocketPath := runSSHServer(t, cfg)
+	cfg.SocketPath = runSSHServer(t, cfg)
 
-	client, conn := newSSHClient(t, serverSocketPath)
+	repo, _ := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
+
+	client, conn := newSSHClient(t, cfg.SocketPath)
 	defer conn.Close()
 
 	tests := []struct {
@@ -88,7 +92,7 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 func TestReceivePackPushSuccess(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
 
 	cfg.GitlabShell.Dir = "/foo/bar/gitlab-shell"
 
@@ -96,7 +100,12 @@ func TestReceivePackPushSuccess(t *testing.T) {
 
 	testcfg.BuildGitalySSH(t, cfg)
 
-	serverSocketPath := runSSHServer(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
+	cfg.SocketPath = runSSHServer(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
+
+	repo, repoPath := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
+		Seed:         gittest.SeedGitLabTest,
+		RelativePath: "gitlab-test-ssh-receive-pack.git",
+	})
 
 	glRepository := "project-456"
 	glProjectPath := "project/path"
@@ -112,7 +121,7 @@ func TestReceivePackPushSuccess(t *testing.T) {
 		featureFlags[featureFlag] = true
 	}
 
-	lHead, rHead, err := testCloneAndPush(t, cfg, cfg.Storages[0].Path, serverSocketPath, repo, pushParams{
+	lHead, rHead, err := testCloneAndPush(t, cfg, cfg.SocketPath, repo, repoPath, pushParams{
 		storageName:   cfg.Storages[0].Name,
 		glID:          "123",
 		glUsername:    "user",
@@ -162,7 +171,7 @@ func TestReceivePackPushSuccess(t *testing.T) {
 func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
 
 	testcfg.BuildGitalySSH(t, cfg)
 	testcfg.BuildGitalyHooks(t, cfg)
@@ -170,9 +179,13 @@ func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
 
 	gitCmdFactory, readProto := gittest.NewProtocolDetectingCommandFactory(ctx, t, cfg)
 
-	serverSocketPath := runSSHServer(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
+	cfg.SocketPath = runSSHServer(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
 
-	lHead, rHead, err := testCloneAndPush(t, cfg, cfg.Storages[0].Path, serverSocketPath, repo, pushParams{
+	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
+
+	lHead, rHead, err := testCloneAndPush(t, cfg, cfg.SocketPath, repo, repoPath, pushParams{
 		storageName:  testhelper.DefaultStorageName,
 		glRepository: "project-123",
 		glID:         "1",
@@ -189,32 +202,36 @@ func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
 func TestReceivePackPushFailure(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	serverSocketPath := runSSHServer(t, cfg)
 
-	_, _, err := testCloneAndPush(t, cfg, cfg.Storages[0].Path, serverSocketPath, repo, pushParams{storageName: "foobar", glID: "1"})
+	_, _, err := testCloneAndPush(t, cfg, serverSocketPath, repo, repoPath, pushParams{storageName: "foobar", glID: "1"})
 	require.Error(t, err, "local and remote head equal. push did not fail")
 
-	_, _, err = testCloneAndPush(t, cfg, cfg.Storages[0].Path, serverSocketPath, repo, pushParams{storageName: cfg.Storages[0].Name, glID: ""})
+	_, _, err = testCloneAndPush(t, cfg, serverSocketPath, repo, repoPath, pushParams{storageName: cfg.Storages[0].Name, glID: ""})
 	require.Error(t, err, "local and remote head equal. push did not fail")
 }
 
 func TestReceivePackPushHookFailure(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg, git.WithHooksPath(testhelper.TempDir(t)))
 
 	testcfg.BuildGitalySSH(t, cfg)
 
-	serverSocketPath := runSSHServer(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
+	cfg.SocketPath = runSSHServer(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
 	ctx := testhelper.Context(t)
+
+	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	hookContent := []byte("#!/bin/sh\nexit 1")
 	require.NoError(t, os.WriteFile(filepath.Join(gitCmdFactory.HooksPath(ctx), "pre-receive"), hookContent, 0o755))
 
-	_, _, err := testCloneAndPush(t, cfg, cfg.Storages[0].Path, serverSocketPath, repo, pushParams{storageName: cfg.Storages[0].Name, glID: "1"})
+	_, _, err := testCloneAndPush(t, cfg, cfg.SocketPath, repo, repoPath, pushParams{storageName: cfg.Storages[0].Name, glID: "1"})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "(pre-receive hook declined)")
 }
@@ -222,15 +239,19 @@ func TestReceivePackPushHookFailure(t *testing.T) {
 func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
 
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	serverSocketPath := runSSHServer(t, cfg)
+	cfg.SocketPath = runSSHServer(t, cfg)
 
-	client, conn := newSSHClient(t, serverSocketPath)
-	defer conn.Close()
 	ctx := testhelper.Context(t)
+	repo, _ := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
+
+	client, conn := newSSHClient(t, cfg.SocketPath)
+	defer conn.Close()
 
 	stream, err := client.SSHReceivePack(ctx)
 	require.NoError(t, err)
@@ -276,18 +297,22 @@ func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 func TestReceivePackTransactional(t *testing.T) {
 	t.Parallel()
 
-	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	cfg := testcfg.Build(t)
 
 	testcfg.BuildGitalyHooks(t, cfg)
 
 	txManager := transaction.NewTrackingManager()
 
-	serverSocketPath := runSSHServer(t, cfg, testserver.WithTransactionManager(txManager))
+	cfg.SocketPath = runSSHServer(t, cfg, testserver.WithTransactionManager(txManager))
 
-	client, conn := newSSHClient(t, serverSocketPath)
-	defer conn.Close()
 	ctx := testhelper.Context(t)
+	repoProto, repoPath := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	client, conn := newSSHClient(t, cfg.SocketPath)
+	defer conn.Close()
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
 	ctx = metadata.IncomingToOutgoing(ctx)
@@ -479,7 +504,7 @@ func TestReceivePackTransactional(t *testing.T) {
 func TestSSHReceivePackToHooks(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
 
 	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
@@ -492,12 +517,17 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	gitCmdFactory, readProto := gittest.NewProtocolDetectingCommandFactory(ctx, t, cfg)
+	cfg.SocketPath = runSSHServer(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
+
+	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	tempGitlabShellDir := testhelper.TempDir(t)
 
 	cfg.GitlabShell.Dir = tempGitlabShellDir
 
-	cloneDetails, cleanup := setupSSHClone(t, cfg, cfg.Storages[0].Path, repo)
+	cloneDetails, cleanup := setupSSHClone(t, cfg, repo, repoPath)
 	defer cleanup()
 
 	serverURL, cleanup := gitlab.NewTestServer(t, gitlab.TestServerOptions{
@@ -519,9 +549,7 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 
 	gittest.WriteCheckNewObjectExistsHook(t, cloneDetails.RemoteRepoPath)
 
-	serverSocketPath := runSSHServer(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
-
-	lHead, rHead, err := sshPush(t, cfg, cloneDetails, serverSocketPath, pushParams{
+	lHead, rHead, err := sshPush(t, cfg, cloneDetails, cfg.SocketPath, pushParams{
 		storageName:  cfg.Storages[0].Name,
 		glID:         glID,
 		glRepository: glRepository,
@@ -542,21 +570,11 @@ type SSHCloneDetails struct {
 }
 
 // setupSSHClone sets up a test clone
-func setupSSHClone(t *testing.T, cfg config.Cfg, storagePath string, testRepo *gitalypb.Repository) (SSHCloneDetails, func()) {
-	tempRepo := "gitlab-test-ssh-receive-pack.git"
-	testRepoPath := filepath.Join(storagePath, testRepo.GetRelativePath())
-	remoteRepoPath := filepath.Join(storagePath, tempRepo)
-	localRepoPath := filepath.Join(storagePath, "gitlab-test-ssh-receive-pack-local")
-	// Make a bare clone of the test repo to act as a remote one and to leave the original repo intact for other tests
-	if err := os.RemoveAll(remoteRepoPath); err != nil && !os.IsNotExist(err) {
-		t.Fatal(err)
-	}
-	gittest.Exec(t, cfg, "clone", "--bare", testRepoPath, remoteRepoPath)
+func setupSSHClone(t *testing.T, cfg config.Cfg, remoteRepo *gitalypb.Repository, remoteRepoPath string) (SSHCloneDetails, func()) {
 	// Make a non-bare clone of the test repo to act as a local one
-	if err := os.RemoveAll(localRepoPath); err != nil && !os.IsNotExist(err) {
-		t.Fatal(err)
-	}
-	gittest.Exec(t, cfg, "clone", remoteRepoPath, localRepoPath)
+	_, localRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+		WithWorktree: true,
+	})
 
 	// We need git thinking we're pushing over SSH...
 	oldHead, newHead, success := makeCommit(t, cfg, localRepoPath)
@@ -567,7 +585,7 @@ func setupSSHClone(t *testing.T, cfg config.Cfg, storagePath string, testRepo *g
 			NewHead:        newHead,
 			LocalRepoPath:  localRepoPath,
 			RemoteRepoPath: remoteRepoPath,
-			TempRepo:       tempRepo,
+			TempRepo:       remoteRepo.GetRelativePath(),
 		}, func() {
 			require.NoError(t, os.RemoveAll(remoteRepoPath))
 			require.NoError(t, os.RemoveAll(localRepoPath))
@@ -619,8 +637,8 @@ func sshPush(t *testing.T, cfg config.Cfg, cloneDetails SSHCloneDetails, serverS
 	return string(localHead), string(remoteHead), nil
 }
 
-func testCloneAndPush(t *testing.T, cfg config.Cfg, storagePath, serverSocketPath string, testRepo *gitalypb.Repository, params pushParams) (string, string, error) {
-	cloneDetails, cleanup := setupSSHClone(t, cfg, storagePath, testRepo)
+func testCloneAndPush(t *testing.T, cfg config.Cfg, serverSocketPath string, remoteRepo *gitalypb.Repository, remoteRepoPath string, params pushParams) (string, string, error) {
+	cloneDetails, cleanup := setupSSHClone(t, cfg, remoteRepo, remoteRepoPath)
 	defer cleanup()
 
 	return sshPush(t, cfg, cloneDetails, serverSocketPath, params)

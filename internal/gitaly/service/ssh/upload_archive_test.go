@@ -19,13 +19,17 @@ import (
 func TestFailedUploadArchiveRequestDueToTimeout(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
 
-	serverSocketPath := runSSHServerWithOptions(t, cfg, []ServerOpt{WithArchiveRequestTimeout(100 * time.Microsecond)})
+	cfg.SocketPath = runSSHServerWithOptions(t, cfg, []ServerOpt{WithArchiveRequestTimeout(100 * time.Microsecond)})
 
-	client, conn := newSSHClient(t, serverSocketPath)
-	defer conn.Close()
 	ctx := testhelper.Context(t)
+	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
+
+	client, conn := newSSHClient(t, cfg.SocketPath)
+	defer conn.Close()
 
 	stream, err := client.SSHUploadArchive(ctx)
 	require.NoError(t, err)
@@ -79,7 +83,13 @@ func TestFailedUploadArchiveRequestDueToValidationError(t *testing.T) {
 		{
 			Desc: "Data exists on first request",
 			Req:  &gitalypb.SSHUploadArchiveRequest{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "path/to/repo"}, Stdin: []byte("Fail")},
-			Code: codes.InvalidArgument,
+			Code: func() codes.Code {
+				if testhelper.IsPraefectEnabled() {
+					return codes.NotFound
+				}
+
+				return codes.InvalidArgument
+			}(),
 		},
 	}
 
@@ -105,11 +115,16 @@ func TestFailedUploadArchiveRequestDueToValidationError(t *testing.T) {
 func TestUploadArchiveSuccess(t *testing.T) {
 	t.Parallel()
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
 
 	testcfg.BuildGitalySSH(t, cfg)
 
-	serverSocketPath := runSSHServer(t, cfg)
+	cfg.SocketPath = runSSHServer(t, cfg)
+
+	ctx := testhelper.Context(t)
+	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	payload, err := protojson.Marshal(&gitalypb.SSHUploadArchiveRequest{
 		Repository: repo,
@@ -118,7 +133,7 @@ func TestUploadArchiveSuccess(t *testing.T) {
 
 	gittest.ExecOpts(t, cfg, gittest.ExecConfig{
 		Env: []string{
-			fmt.Sprintf("GITALY_ADDRESS=%s", serverSocketPath),
+			fmt.Sprintf("GITALY_ADDRESS=%s", cfg.SocketPath),
 			fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
 			fmt.Sprintf("PATH=%s", ".:"+os.Getenv("PATH")),
 			fmt.Sprintf(`GIT_SSH_COMMAND=%s upload-archive`, filepath.Join(cfg.BinDir, "gitaly-ssh")),
