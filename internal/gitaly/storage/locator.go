@@ -25,13 +25,6 @@ type Locator interface {
 	// GetStorageByName will return the path for the storage, which is fetched by
 	// its key. An error is return if it cannot be found.
 	GetStorageByName(storageName string) (string, error)
-	// GetObjectDirectoryPath returns the full path of the object directory in a
-	// repository referenced by an RPC Repository message. The errors returned are
-	// gRPC errors with relevant error codes and should be passed back to gRPC
-	// without further decoration.
-	GetObjectDirectoryPath(repo repository.GitRepo) (string, error)
-	// InfoAlternatesPath finds the fully qualified path for the alternates file.
-	InfoAlternatesPath(repo repository.GitRepo) (string, error)
 
 	// CacheDir returns the path to the cache dir for a storage.
 	CacheDir(storageName string) (string, error)
