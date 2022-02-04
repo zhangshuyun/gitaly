@@ -35,7 +35,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 		return err
 	}
 
-	if err := housekeeping.Perform(ctx, o.poolRepo, o.txManager); err != nil {
+	if err := housekeeping.Perform(ctx, o.Repo, o.txManager); err != nil {
 		return err
 	}
 
@@ -45,7 +45,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 
 	refSpec := fmt.Sprintf("+refs/*:%s/*", sourceRefNamespace)
 	var stderr bytes.Buffer
-	if err := o.poolRepo.ExecAndWait(ctx,
+	if err := o.Repo.ExecAndWait(ctx,
 		git.SubCmd{
 			Name: "fetch",
 			Flags: []git.Option{
@@ -62,7 +62,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 			},
 			Args: []string{originPath, refSpec},
 		},
-		git.WithRefTxHook(o.poolRepo),
+		git.WithRefTxHook(o.Repo),
 		git.WithStderr(&stderr),
 	); err != nil {
 		return helper.ErrInternalf("fetch into object pool: %w, stderr: %q", err,
@@ -77,7 +77,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 		return err
 	}
 
-	if err := o.poolRepo.ExecAndWait(ctx, git.SubCmd{
+	if err := o.Repo.ExecAndWait(ctx, git.SubCmd{
 		Name:  "pack-refs",
 		Flags: []git.Option{git.Flag{Name: "--all"}},
 	}); err != nil {
@@ -98,7 +98,7 @@ const danglingObjectNamespace = "refs/dangling/"
 // an object is still used anywhere, so the only safe thing to do is to
 // assume that every object _is_ used.
 func (o *ObjectPool) rescueDanglingObjects(ctx context.Context) error {
-	fsck, err := o.poolRepo.Exec(ctx, git.SubCmd{
+	fsck, err := o.Repo.Exec(ctx, git.SubCmd{
 		Name:  "fsck",
 		Flags: []git.Option{git.Flag{Name: "--connectivity-only"}, git.Flag{Name: "--dangling"}},
 	})
@@ -106,7 +106,7 @@ func (o *ObjectPool) rescueDanglingObjects(ctx context.Context) error {
 		return err
 	}
 
-	updater, err := updateref.New(ctx, o.poolRepo, updateref.WithDisabledTransactions())
+	updater, err := updateref.New(ctx, o.Repo, updateref.WithDisabledTransactions())
 	if err != nil {
 		return err
 	}
@@ -147,7 +147,7 @@ func (o *ObjectPool) repackPool(ctx context.Context, pool repository.GitRepo) er
 		{Key: "pack.writeBitmapHashCache", Value: "true"},
 	}
 
-	if err := o.poolRepo.ExecAndWait(ctx, git.SubCmd{
+	if err := o.Repo.ExecAndWait(ctx, git.SubCmd{
 		Name:  "repack",
 		Flags: []git.Option{git.Flag{Name: "-aidb"}},
 	}, git.WithConfig(config...)); err != nil {
@@ -173,7 +173,7 @@ func (o *ObjectPool) logStats(ctx context.Context, when string) error {
 		}
 	}
 
-	forEachRef, err := o.poolRepo.Exec(ctx, git.SubCmd{
+	forEachRef, err := o.Repo.Exec(ctx, git.SubCmd{
 		Name:  "for-each-ref",
 		Flags: []git.Option{git.Flag{Name: "--format=%(objecttype)%00%(refname)"}},
 		Args:  []string{"refs/"},

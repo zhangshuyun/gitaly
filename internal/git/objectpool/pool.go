@@ -34,10 +34,11 @@ const ErrInvalidPoolDir errString = "invalid object pool directory"
 // live in a pool in a distinct repository which is used as an alternate object
 // store for other repositories.
 type ObjectPool struct {
+	Repo *localrepo.Repo
+
 	locator       storage.Locator
 	gitCmdFactory git.CommandFactory
 	txManager     transaction.Manager
-	poolRepo      *localrepo.Repo
 	storageName   string
 	storagePath   string
 
@@ -73,7 +74,7 @@ func NewObjectPool(
 		storagePath:   storagePath,
 		relativePath:  relativePath,
 	}
-	pool.poolRepo = localrepo.New(locator, gitCmdFactory, catfileCache, pool)
+	pool.Repo = localrepo.New(locator, gitCmdFactory, catfileCache, pool)
 
 	return pool, nil
 }
