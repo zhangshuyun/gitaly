@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -126,7 +127,7 @@ func TestReferenceTransactionHook(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg, repo, _ := testcfg.BuildWithRepo(t)
+			cfg := testcfg.Build(t)
 
 			var reftxHash []byte
 			transactionServer.handler = func(in *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
@@ -136,8 +137,12 @@ func TestReferenceTransactionHook(t *testing.T) {
 				}, nil
 			}
 
-			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithBackchannelRegistry(registry))
+			cfg.SocketPath = runHooksServer(t, cfg, nil, testserver.WithBackchannelRegistry(registry))
 			ctx := testhelper.Context(t)
+
+			repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				Seed: gittest.SeedGitLabTest,
+			})
 
 			hooksPayload, err := git.NewHooksPayload(
 				cfg,
@@ -157,7 +162,7 @@ func TestReferenceTransactionHook(t *testing.T) {
 				hooksPayload,
 			}
 
-			client, conn := newHooksClient(t, serverSocketPath)
+			client, conn := newHooksClient(t, cfg.SocketPath)
 			defer conn.Close()
 
 			stream, err := client.ReferenceTransactionHook(ctx)

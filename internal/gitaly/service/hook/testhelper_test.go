@@ -1,11 +1,14 @@
 package hook
 
 import (
+	"context"
 	"testing"
 
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -17,13 +20,17 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-func setupHookService(t testing.TB) (config.Cfg, *gitalypb.Repository, string, gitalypb.HookServiceClient) {
+func setupHookService(ctx context.Context, t testing.TB) (config.Cfg, *gitalypb.Repository, string, gitalypb.HookServiceClient) {
 	t.Helper()
 
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
-	serverSocketPath := runHooksServer(t, cfg, nil)
-	client, conn := newHooksClient(t, serverSocketPath)
+	cfg := testcfg.Build(t)
+	cfg.SocketPath = runHooksServer(t, cfg, nil)
+	client, conn := newHooksClient(t, cfg.SocketPath)
 	t.Cleanup(func() { conn.Close() })
+
+	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	return cfg, repo, repoPath, client
 }
@@ -47,6 +54,8 @@ type serverOption func(*server)
 func runHooksServer(t testing.TB, cfg config.Cfg, opts []serverOption, serverOpts ...testserver.GitalyServerOpt) string {
 	t.Helper()
 
+	serverOpts = append(serverOpts, testserver.WithDisablePraefect())
+
 	return testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		hookServer := NewServer(
 			gitalyhook.NewManager(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory(), deps.GetTxManager(), deps.GetGitlabClient()),
@@ -58,5 +67,15 @@ func runHooksServer(t testing.TB, cfg config.Cfg, opts []serverOption, serverOpt
 		}
 
 		gitalypb.RegisterHookServiceServer(srv, hookServer)
+		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
+			cfg,
+			deps.GetRubyServer(),
+			deps.GetLocator(),
+			deps.GetTxManager(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+			deps.GetConnsPool(),
+			deps.GetGit2goExecutor(),
+		))
 	}, serverOpts...)
 }
