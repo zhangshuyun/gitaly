@@ -27,8 +27,8 @@ import (
 )
 
 func TestFetchIntoObjectPool_Success(t *testing.T) {
-	cfg, repo, repoPath, locator, client := setup(t)
 	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, locator, client := setup(ctx, t)
 
 	repoCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(t.Name()))
 

@@ -14,8 +14,8 @@ import (
 )
 
 func TestDisconnectGitAlternates(t *testing.T) {
-	cfg, repoProto, repoPath, _, client := setup(t)
 	ctx := testhelper.Context(t)
+	cfg, repoProto, repoPath, _, client := setup(ctx, t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
@@ -53,9 +53,9 @@ func TestDisconnectGitAlternates(t *testing.T) {
 }
 
 func TestDisconnectGitAlternatesNoAlternates(t *testing.T) {
-	cfg, repoProto, repoPath, _, client := setup(t)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	ctx := testhelper.Context(t)
+	cfg, repoProto, repoPath, _, client := setup(ctx, t)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	altPath, err := repo.InfoAlternatesPath()
 	require.NoError(t, err, "find info/alternates")
@@ -68,8 +68,8 @@ func TestDisconnectGitAlternatesNoAlternates(t *testing.T) {
 }
 
 func TestDisconnectGitAlternatesUnexpectedAlternates(t *testing.T) {
-	cfg, _, _, _, client := setup(t)
 	ctx := testhelper.Context(t)
+	cfg, _, _, _, client := setup(ctx, t)
 
 	testCases := []struct {
 		desc       string
@@ -100,9 +100,9 @@ func TestDisconnectGitAlternatesUnexpectedAlternates(t *testing.T) {
 }
 
 func TestRemoveAlternatesIfOk(t *testing.T) {
-	cfg, repoProto, repoPath, _, _ := setup(t)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	ctx := testhelper.Context(t)
+	cfg, repoProto, repoPath, _, _ := setup(ctx, t)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	altPath, err := repo.InfoAlternatesPath()
 	require.NoError(t, err, "find info/alternates")
