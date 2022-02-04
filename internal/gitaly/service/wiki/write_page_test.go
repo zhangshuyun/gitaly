@@ -17,9 +17,9 @@ import (
 )
 
 func testSuccessfulWikiWritePageRequest(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
-	wikiRepoProto, wikiRepoPath := setupWikiRepo(t, cfg)
-	wikiRepo := localrepo.NewTestRepo(t, cfg, wikiRepoProto)
 	ctx := testhelper.Context(t)
+	wikiRepoProto, wikiRepoPath := setupWikiRepo(ctx, t, cfg)
+	wikiRepo := localrepo.NewTestRepo(t, cfg, wikiRepoProto)
 
 	authorID := int32(1)
 	authorUserName := []byte("ahmad")
@@ -111,7 +111,8 @@ func testSuccessfulWikiWritePageRequest(t *testing.T, cfg config.Cfg, client git
 }
 
 func testFailedWikiWritePageDueToDuplicatePage(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
-	wikiRepo, _ := setupWikiRepo(t, cfg)
+	ctx := testhelper.Context(t)
+	wikiRepo, _ := setupWikiRepo(ctx, t, cfg)
 
 	pageName := "Installing Gitaly"
 	content := []byte("Mock wiki page content")
@@ -132,7 +133,6 @@ func testFailedWikiWritePageDueToDuplicatePage(t *testing.T, cfg config.Cfg, cli
 		CommitDetails: commitDetails,
 		Content:       content,
 	}
-	ctx := testhelper.Context(t)
 
 	stream, err := client.WikiWritePage(ctx)
 	require.NoError(t, err)
@@ -147,7 +147,8 @@ func testFailedWikiWritePageDueToDuplicatePage(t *testing.T, cfg config.Cfg, cli
 }
 
 func testFailedWikiWritePageInPathDueToDuplicatePage(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
-	wikiRepo, _ := setupWikiRepo(t, cfg)
+	ctx := testhelper.Context(t)
+	wikiRepo, _ := setupWikiRepo(ctx, t, cfg)
 
 	pageName := "foo/Installing Gitaly"
 	content := []byte("Mock wiki page content")
@@ -168,7 +169,6 @@ func testFailedWikiWritePageInPathDueToDuplicatePage(t *testing.T, cfg config.Cf
 		CommitDetails: commitDetails,
 		Content:       content,
 	}
-	ctx := testhelper.Context(t)
 
 	stream, err := client.WikiWritePage(ctx)
 	require.NoError(t, err)
@@ -186,7 +186,8 @@ func TestFailedWikiWritePageDueToValidations(t *testing.T) {
 	wikiRepo := &gitalypb.Repository{}
 
 	cfg := testcfg.Build(t)
-	client := setupWikiService(t, cfg, nil)
+	client, socketPath := setupWikiService(t, cfg, nil)
+	cfg.SocketPath = socketPath
 
 	commitDetails := &gitalypb.WikiCommitDetails{
 		Name:     []byte("Ahmad Sherif"),
