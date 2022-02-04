@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -20,19 +20,21 @@ func (s *server) WriteCommitGraph(
 	ctx context.Context,
 	in *gitalypb.WriteCommitGraphRequest,
 ) (*gitalypb.WriteCommitGraphResponse, error) {
-	if err := s.writeCommitGraph(ctx, in.GetRepository(), in.GetSplitStrategy()); err != nil {
+	repo := s.localrepo(in.GetRepository())
+
+	if err := writeCommitGraph(ctx, repo, in.GetSplitStrategy()); err != nil {
 		return nil, err
 	}
 
 	return &gitalypb.WriteCommitGraphResponse{}, nil
 }
 
-func (s *server) writeCommitGraph(
+func writeCommitGraph(
 	ctx context.Context,
-	repo repository.GitRepo,
+	repo *localrepo.Repo,
 	splitStrategy gitalypb.WriteCommitGraphRequest_SplitStrategy,
 ) error {
-	repoPath, err := s.locator.GetRepoPath(repo)
+	repoPath, err := repo.Path()
 	if err != nil {
 		return err
 	}
@@ -75,20 +77,12 @@ func (s *server) writeCommitGraph(
 	}
 
 	var stderr bytes.Buffer
-	cmd, err := s.gitCmdFactory.New(ctx, repo,
-		git.SubSubCmd{
-			Name:   "commit-graph",
-			Action: "write",
-			Flags:  flags,
-		},
-		git.WithStderr(&stderr),
-	)
-	if err != nil {
-		return helper.ErrInternal(err)
-	}
-
-	if err := cmd.Wait(); err != nil {
-		return helper.ErrInternalf("commit-graph write: %s: %v", err, stderr.String())
+	if err := repo.ExecAndWait(ctx, git.SubSubCmd{
+		Name:   "commit-graph",
+		Action: "write",
+		Flags:  flags,
+	}, git.WithStderr(&stderr)); err != nil {
+		return helper.ErrInternalf("writing commit-graph: %s: %v", err, stderr.String())
 	}
 
 	return nil

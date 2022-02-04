@@ -27,31 +27,31 @@ const (
 func (s *server) Cleanup(ctx context.Context, in *gitalypb.CleanupRequest) (*gitalypb.CleanupResponse, error) {
 	repo := s.localrepo(in.GetRepository())
 
-	if err := s.cleanupRepo(ctx, repo); err != nil {
+	if err := cleanupWorktrees(ctx, repo); err != nil {
 		return nil, err
 	}
 
 	return &gitalypb.CleanupResponse{}, nil
 }
 
-func (s *server) cleanupRepo(ctx context.Context, repo *localrepo.Repo) error {
+func cleanupWorktrees(ctx context.Context, repo *localrepo.Repo) error {
 	if _, err := repo.Path(); err != nil {
 		return err
 	}
 
 	worktreeThreshold := time.Now().Add(-6 * time.Hour)
-	if err := s.cleanStaleWorktrees(ctx, repo, worktreeThreshold); err != nil {
+	if err := cleanStaleWorktrees(ctx, repo, worktreeThreshold); err != nil {
 		return status.Errorf(codes.Internal, "Cleanup: cleanStaleWorktrees: %v", err)
 	}
 
-	if err := s.cleanDisconnectedWorktrees(ctx, repo); err != nil {
+	if err := cleanDisconnectedWorktrees(ctx, repo); err != nil {
 		return status.Errorf(codes.Internal, "Cleanup: cleanDisconnectedWorktrees: %v", err)
 	}
 
 	return nil
 }
 
-func (s *server) cleanStaleWorktrees(ctx context.Context, repo *localrepo.Repo, threshold time.Time) error {
+func cleanStaleWorktrees(ctx context.Context, repo *localrepo.Repo, threshold time.Time) error {
 	repoPath, err := repo.Path()
 	if err != nil {
 		return err
@@ -126,7 +126,7 @@ func isExitWithCode(err error, code int) bool {
 	return code == actual
 }
 
-func (s *server) cleanDisconnectedWorktrees(ctx context.Context, repo *localrepo.Repo) error {
+func cleanDisconnectedWorktrees(ctx context.Context, repo *localrepo.Repo) error {
 	return repo.ExecAndWait(ctx, git.SubSubCmd{
 		Name:   "worktree",
 		Action: "prune",
