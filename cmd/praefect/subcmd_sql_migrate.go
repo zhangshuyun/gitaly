@@ -20,6 +20,7 @@ const (
 type sqlMigrateSubcommand struct {
 	w             io.Writer
 	ignoreUnknown bool
+	verbose       bool
 }
 
 func newSQLMigrateSubCommand(writer io.Writer) *sqlMigrateSubcommand {
@@ -29,6 +30,7 @@ func newSQLMigrateSubCommand(writer io.Writer) *sqlMigrateSubcommand {
 func (cmd *sqlMigrateSubcommand) FlagSet() *flag.FlagSet {
 	flags := flag.NewFlagSet(sqlMigrateCmdName, flag.ExitOnError)
 	flags.BoolVar(&cmd.ignoreUnknown, "ignore-unknown", true, "ignore unknown migrations (default is true)")
+	flags.BoolVar(&cmd.verbose, "verbose", false, "show text of migration query (default is false)")
 	return flags
 }
 
@@ -63,6 +65,10 @@ func (cmd *sqlMigrateSubcommand) Exec(flags *flag.FlagSet, conf config.Config) e
 	for _, mig := range planMigrations {
 		fmt.Fprintf(cmd.w, "=  %s %v: migrating\n", time.Now().Format(timeFmt), mig.Id)
 		start := time.Now()
+
+		if cmd.verbose {
+			fmt.Fprintf(cmd.w, "\t%v\n", mig.Up)
+		}
 
 		n, err := glsql.MigrateSome(mig.Migration, db, cmd.ignoreUnknown)
 		if err != nil {

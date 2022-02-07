@@ -22,6 +22,7 @@ func TestSubCmdSqlMigrate(t *testing.T) {
 	for _, tc := range []struct {
 		desc           string
 		up             int
+		verbose        bool
 		expectedOutput []string
 	}{
 		{
@@ -49,12 +50,24 @@ func TestSubCmdSqlMigrate(t *testing.T) {
 				fmt.Sprintf("praefect sql-migrate: OK (applied %d migrations)", migrationCt-10),
 			},
 		},
+		{
+			desc:    "Verbose output",
+			up:      0,
+			verbose: true,
+			expectedOutput: []string{
+				fmt.Sprintf("praefect sql-migrate: migrations to apply: %d", migrationCt),
+				"20200109161404_hello_world: migrating",
+				"[CREATE TABLE hello_world (id integer)]",
+				"20200109161404_hello_world: applied (",
+				fmt.Sprintf("praefect sql-migrate: OK (applied %d migrations)", migrationCt),
+			},
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			testdb.SetMigrations(t, db, cfg, tc.up)
 
 			var stdout bytes.Buffer
-			migrateCmd := sqlMigrateSubcommand{w: &stdout, ignoreUnknown: true}
+			migrateCmd := sqlMigrateSubcommand{w: &stdout, ignoreUnknown: true, verbose: tc.verbose}
 			assert.NoError(t, migrateCmd.Exec(flag.NewFlagSet("", flag.PanicOnError), cfg))
 
 			for _, out := range tc.expectedOutput {
