@@ -1,8 +1,8 @@
 package git
 
 import (
-	"bytes"
 	"context"
+	"io"
 	"strings"
 )
 
@@ -99,16 +99,13 @@ func (e CheckRefFormatError) Error() string {
 // CheckRefFormat checks whether a fully-qualified refname is well
 // well-formed using git-check-ref-format
 func CheckRefFormat(ctx context.Context, gitCmdFactory CommandFactory, refName string) (bool, error) {
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
-
 	cmd, err := gitCmdFactory.NewWithoutRepo(ctx,
 		SubCmd{
 			Name: "check-ref-format",
 			Args: []string{refName},
 		},
-		WithStdout(stdout),
-		WithStderr(stderr),
+		WithStdout(io.Discard),
+		WithStderr(io.Discard),
 	)
 	if err != nil {
 		return false, err
