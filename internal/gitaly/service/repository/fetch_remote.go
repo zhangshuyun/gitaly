@@ -19,6 +19,25 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+func gitFetchStatusType(input git.RefUpdateType) gitalypb.GitFetchStatus_Type {
+	switch input {
+	case git.RefUpdateTypeFastForwardUpdate:
+		return gitalypb.GitFetchStatus_FAST_FORWARD_UPDATE
+	case git.RefUpdateTypeForcedUpdate:
+		return gitalypb.GitFetchStatus_FORCED_UPDATE
+	case git.RefUpdateTypePruned:
+		return gitalypb.GitFetchStatus_PRUNED
+	case git.RefUpdateTypeTagUpdate:
+		return gitalypb.GitFetchStatus_TAG_UPDATE
+	case git.RefUpdateTypeFetched:
+		return gitalypb.GitFetchStatus_FETCHED
+	case git.RefUpdateTypeUnchanged:
+		return gitalypb.GitFetchStatus_UNCHANGED
+	default:
+		return gitalypb.GitFetchStatus_UPDATE_FAILED
+	}
+}
+
 func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteRequest) (*gitalypb.FetchRemoteResponse, error) {
 	if err := s.validateFetchRemoteRequest(req); err != nil {
 		return nil, err
@@ -30,7 +49,7 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 		Force:               req.Force,
 		Prune:               !req.NoPrune,
 		Tags:                localrepo.FetchOptsTagsAll,
-		Verbose:             req.GetCheckTagsChanged(),
+		Verbose:             req.GetCheckTagsChanged() || req.GetSendFetchStatus(),
 		DisableTransactions: true,
 	}
 
@@ -126,28 +145,45 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 	}
 
 	out := &gitalypb.FetchRemoteResponse{TagsChanged: true}
-	if req.GetCheckTagsChanged() {
-		out.TagsChanged = didTagsChange(&stderr)
+	if req.GetCheckTagsChanged() || req.GetSendFetchStatus() {
+		processFetchStatus(&stderr, req.GetSendFetchStatus(), out)
 	}
 
 	return out, nil
 }
 
-func didTagsChange(r io.Reader) bool {
+func processFetchStatus(r io.Reader, includeStatus bool, response *gitalypb.FetchRemoteResponse) {
 	scanner := git.NewFetchScanner(r)
+
 	for scanner.Scan() {
 		status := scanner.StatusLine()
+
+		if includeStatus {
+			s := &gitalypb.GitFetchStatus{
+				Type:    gitFetchStatusType(status.Type),
+				Summary: status.Summary,
+				From:    status.From,
+				To:      status.To,
+				Reason:  status.Reason,
+			}
+
+			response.FetchStatus = append(response.GetFetchStatus(), s)
+		}
 
 		// We can't detect if tags have been deleted, but we never call fetch
 		// with --prune-tags at the moment, so it should never happen.
 		if status.IsTagAdded() || status.IsTagUpdated() {
-			return true
+			response.TagsChanged = true
 		}
 	}
 
-	// If the scanner fails for some reason, we don't know if tags changed, so
-	// assume they did for safety reasons.
-	return scanner.Err() != nil
+	if scanner.Err() != nil {
+		response.FetchStatusParseError = scanner.Err().Error()
+
+		// If the scanner fails for some reason, we don't know if tags changed, so
+		// assume they did for safety reasons.
+		response.TagsChanged = true
+	}
 }
 
 func (s *server) validateFetchRemoteRequest(req *gitalypb.FetchRemoteRequest) error {

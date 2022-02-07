@@ -79,9 +79,28 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :no_prune, :bool, 9
       optional :remote_params, :message, 10, "gitaly.Remote"
       optional :check_tags_changed, :bool, 11
+      optional :send_fetch_status, :bool, 12
+    end
+    add_message "gitaly.GitFetchStatus" do
+      optional :type, :enum, 1, "gitaly.GitFetchStatus.Type"
+      optional :summary, :string, 2
+      optional :from, :string, 3
+      optional :to, :string, 4
+      optional :reason, :string, 5
+    end
+    add_enum "gitaly.GitFetchStatus.Type" do
+      value :FAST_FORWARD_UPDATE, 0
+      value :FORCED_UPDATE, 1
+      value :PRUNED, 2
+      value :TAG_UPDATE, 3
+      value :FETCHED, 4
+      value :UPDATE_FAILED, 5
+      value :UNCHANGED, 6
     end
     add_message "gitaly.FetchRemoteResponse" do
       optional :tags_changed, :bool, 1
+      repeated :fetch_status, :message, 2, "gitaly.GitFetchStatus"
+      optional :fetch_status_parse_error, :string, 3
     end
     add_message "gitaly.CreateRepositoryRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
@@ -339,6 +358,8 @@ module Gitaly
   FetchBundleRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FetchBundleRequest").msgclass
   FetchBundleResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FetchBundleResponse").msgclass
   FetchRemoteRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FetchRemoteRequest").msgclass
+  GitFetchStatus = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GitFetchStatus").msgclass
+  GitFetchStatus::Type = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GitFetchStatus.Type").enummodule
   FetchRemoteResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FetchRemoteResponse").msgclass
   CreateRepositoryRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CreateRepositoryRequest").msgclass
   CreateRepositoryResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CreateRepositoryResponse").msgclass

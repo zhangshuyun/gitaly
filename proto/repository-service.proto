@@ -350,16 +350,47 @@ message FetchRemoteRequest {
   // tags were modified, returning the result in the tags_changed field of
   // FetchRemoteResponse
   bool check_tags_changed = 11;
-
   reserved 2;
   reserved "remote";
+
+  // If send_fetch_status is true, the FetchRemoteRPC will send the
+  // status of which refs were modified upon success. This also implictly activates
+  // check_tags_changed.
+  bool send_fetch_status = 12;
+}
+
+message GitFetchStatus {
+  enum Type {
+    FAST_FORWARD_UPDATE = 0;
+    FORCED_UPDATE = 1;
+    PRUNED = 2;
+    TAG_UPDATE = 3;
+    FETCHED = 4;
+    UPDATE_FAILED = 5;
+    UNCHANGED = 6;
+  }
+
+  Type type = 1;
+  string summary = 2;
+  string from = 3;
+  string to = 4;
+  string reason = 5;
 }
 
 message FetchRemoteResponse {
-  // If check_tags_changed was set in the FetchRemoteRequest, the FetchRemote
-  // RPC will return false when no tags were changed, and true if tags were
-  // changed or answer cannot be determined.
+
+  // If check_tags_changed or send_fetch_status is set in the FetchRemoteRequest, the
+  // FetchRemote RPC will return false when no tags were changed, and true if tags were.
   bool tags_changed = 1;
+
+  // If fetch_git_status is set in the FetchRemoteStatus, the FetchRemote
+  // RPC will return a list of which refs were updated as returned from the
+  // git process, one entry per ref update. tags_changed will also be
+  // updated. This status may aid in debugging.
+  repeated GitFetchStatus fetch_status = 2;
+
+  // If this value is present, some parse error occurred in the status.
+  string fetch_status_parse_error = 3;
 }
 
 message CreateRepositoryRequest {

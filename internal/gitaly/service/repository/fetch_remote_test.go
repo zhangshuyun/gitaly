@@ -28,6 +28,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestFetchRemoteSuccess(t *testing.T) {
@@ -56,6 +57,31 @@ func TestFetchRemoteSuccess(t *testing.T) {
 	resp, err = client.FetchRemote(ctx, req)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
+	require.Equal(t, resp.TagsChanged, true)
+
+	// Get the fetch status
+	gittest.WriteTag(t, cfg, repoPath, "testtag2", "master")
+	req.SendFetchStatus = true
+	req.CheckTagsChanged = false
+	resp, err = client.FetchRemote(ctx, req)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.Equal(t, resp.TagsChanged, true)
+
+	status := resp.GetFetchStatus()
+	require.Equal(t, 1, len(status))
+	require.True(t, proto.Equal(&gitalypb.GitFetchStatus{
+		Type:    gitalypb.GitFetchStatus_FETCHED,
+		Summary: "[new tag]",
+		From:    "testtag2",
+		To:      "testtag2",
+	}, status[0]))
+	require.Empty(t, resp.FetchStatusParseError)
+
+	resp, err = client.FetchRemote(ctx, req)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.Empty(t, resp.GetFetchStatus())
 	require.Equal(t, resp.TagsChanged, true)
 }
 
@@ -319,10 +345,12 @@ func TestFetchRemote_force(t *testing.T) {
 	remoteURL := fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(sourceRepoPath))
 
 	for _, tc := range []struct {
-		desc         string
-		request      *gitalypb.FetchRemoteRequest
-		expectedErr  error
-		expectedRefs map[git.ReferenceName]git.ObjectID
+		desc                string
+		request             *gitalypb.FetchRemoteRequest
+		expectedErr         error
+		expectedRefs        map[git.ReferenceName]git.ObjectID
+		expectedStatus      []gitalypb.GitFetchStatus
+		expectedTagsChanged bool
 	}{
 		{
 			desc: "remote params without force fails with diverging refs",
@@ -349,6 +377,31 @@ func TestFetchRemote_force(t *testing.T) {
 				"refs/heads/master": divergingBranchOID,
 				"refs/tags/v1.0.0":  divergingTagOID,
 			},
+		},
+		{
+			desc: "remote params with force updates diverging refs with Git status",
+			request: &gitalypb.FetchRemoteRequest{
+				RemoteParams: &gitalypb.Remote{
+					Url: remoteURL,
+				},
+				SendFetchStatus: true,
+				Force:           true,
+			},
+			expectedRefs: map[git.ReferenceName]git.ObjectID{
+				"refs/heads/master": divergingBranchOID,
+				"refs/tags/v1.0.0":  divergingTagOID,
+			},
+			// * [new branch]      b1         -> b1
+			// * [new branch]      b2         -> b2
+			// + 1e292f8...cab056f master     -> master  (forced update)
+			// t [tag update]      v1.0.0     -> v1.0.0
+			expectedStatus: []gitalypb.GitFetchStatus{
+				{Type: gitalypb.GitFetchStatus_FETCHED, Summary: "[new branch]", From: "b1", To: "b1"},
+				{Type: gitalypb.GitFetchStatus_FETCHED, Summary: "[new branch]", From: "b2", To: "b2"},
+				{Type: gitalypb.GitFetchStatus_FORCED_UPDATE, Reason: "(forced update)", Summary: "1e292f8...cab056f", From: "master", To: "master"},
+				{Type: gitalypb.GitFetchStatus_TAG_UPDATE, Summary: "[tag update]", From: "v1.0.0", To: "v1.0.0"},
+			},
+			expectedTagsChanged: true,
 		},
 		{
 			desc: "remote params with force-refmap fails with divergent tag",
@@ -424,7 +477,7 @@ func TestFetchRemote_force(t *testing.T) {
 			}()
 
 			tc.request.Repository = targetRepoProto
-			_, err := client.FetchRemote(ctx, tc.request)
+			response, err := client.FetchRemote(ctx, tc.request)
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 
 			updatedBranchOID, err := targetRepo.ResolveRevision(ctx, "refs/heads/master")
@@ -436,6 +489,14 @@ func TestFetchRemote_force(t *testing.T) {
 				"refs/heads/master": updatedBranchOID,
 				"refs/tags/v1.0.0":  updatedTagOID,
 			}, tc.expectedRefs)
+
+			if tc.request.SendFetchStatus {
+				require.Equal(t, tc.expectedTagsChanged, response.GetTagsChanged())
+				require.Equal(t, len(tc.expectedStatus), len(response.GetFetchStatus()))
+				for index, status := range response.GetFetchStatus() {
+					require.True(t, proto.Equal(&tc.expectedStatus[index], status))
+				}
+			}
 		})
 	}
 }
@@ -719,4 +780,22 @@ func TestFetchRemoteOverHTTPWithTimeout(t *testing.T) {
 	require.Error(t, err)
 
 	require.Contains(t, err.Error(), "fetch remote: signal: terminated")
+}
+
+func TestFetchStatusConversion(t *testing.T) {
+	t.Parallel()
+
+	expectedMappings := map[git.RefUpdateType]gitalypb.GitFetchStatus_Type{
+		git.RefUpdateTypeFastForwardUpdate: gitalypb.GitFetchStatus_FAST_FORWARD_UPDATE,
+		git.RefUpdateTypeForcedUpdate:      gitalypb.GitFetchStatus_FORCED_UPDATE,
+		git.RefUpdateTypePruned:            gitalypb.GitFetchStatus_PRUNED,
+		git.RefUpdateTypeTagUpdate:         gitalypb.GitFetchStatus_TAG_UPDATE,
+		git.RefUpdateTypeFetched:           gitalypb.GitFetchStatus_FETCHED,
+		git.RefUpdateTypeUpdateFailed:      gitalypb.GitFetchStatus_UPDATE_FAILED,
+		git.RefUpdateTypeUnchanged:         gitalypb.GitFetchStatus_UNCHANGED,
+	}
+
+	for input, output := range expectedMappings {
+		require.Equal(t, output, gitFetchStatusType(input))
+	}
 }
