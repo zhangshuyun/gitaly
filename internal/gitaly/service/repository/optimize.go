@@ -40,12 +40,12 @@ func (s *server) validateOptimizeRepositoryRequest(in *gitalypb.OptimizeReposito
 func (s *server) optimizeRepository(ctx context.Context, repository *gitalypb.Repository) error {
 	repo := s.localrepo(repository)
 
-	if err := s.repackIfNeeded(ctx, repo, repository); err != nil {
-		return fmt.Errorf("could not repack: %w", err)
-	}
-
 	if err := housekeeping.Perform(ctx, repo, s.txManager); err != nil {
 		return fmt.Errorf("could not execute houskeeping: %w", err)
+	}
+
+	if err := s.repackIfNeeded(ctx, repo, repository); err != nil {
+		return fmt.Errorf("could not repack: %w", err)
 	}
 
 	return nil
