@@ -2,6 +2,10 @@
 
 ## 14.7.1 (2022-02-03)
 
+### Security (1 change)
+
+- [Add HTTP Host to all requests that use URLs](gitlab-org/security/gitaly@d13adea8d2767b2b35288d078370b3cd2f5b2819)
+
 ### Fixed (1 change)
 
 - [Shorten server keepalive period to 5 minutes](gitlab-org/security/gitaly@28cc55a319b077b4903942a9a9e5df351a61a5e9)
@@ -63,7 +67,9 @@
 
 ## 14.6.4 (2022-02-03)
 
-No changes.
+### Security (1 change)
+
+- [Add HTTP Host to all requests that use URLs](gitlab-org/security/gitaly@fde0ca6af2a30d9517a49be8b90ad910ad5a035e)
 
 ## 14.6.3 (2022-01-18)
 
@@ -154,7 +160,9 @@ No changes.
 
 ## 14.5.4 (2022-02-03)
 
-No changes.
+### Security (1 change)
+
+- [Add HTTP Host to all requests that use URLs](gitlab-org/security/gitaly@ed1852d61f32361b051a5c6df11fdd9aa281cd4a)
 
 ## 14.5.3 (2022-01-11)
 
