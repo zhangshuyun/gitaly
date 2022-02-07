@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -185,4 +186,131 @@ func TestOptimizeRepositoryValidation(t *testing.T) {
 
 	_, err := client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: repo})
 	require.NoError(t, err)
+}
+
+func TestNeedsRepacking(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg, _ := setupRepositoryServiceWithoutRepo(t)
+
+	for _, tc := range []struct {
+		desc           string
+		setup          func(t *testing.T) *gitalypb.Repository
+		expectedErr    error
+		expectedNeeded bool
+		expectedConfig repackCommandConfig
+	}{
+		{
+			desc: "empty repo",
+			setup: func(t *testing.T) *gitalypb.Repository {
+				repoProto, _ := gittest.CreateRepository(ctx, t, cfg)
+				return repoProto
+			},
+			// This is a bug: if the repo is empty then we wouldn't ever generate a
+			// packfile, but we determine a repack is needed because it's missing a
+			// bitmap. It's a rather benign bug though: git-repack(1) will exit
+			// immediately because it knows that there's nothing to repack.
+			expectedNeeded: true,
+			expectedConfig: repackCommandConfig{
+				fullRepack:  true,
+				writeBitmap: true,
+			},
+		},
+		{
+			desc: "missing bitmap",
+			setup: func(t *testing.T) *gitalypb.Repository {
+				repoProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					Seed: gittest.SeedGitLabTest,
+				})
+				return repoProto
+			},
+			expectedNeeded: true,
+			expectedConfig: repackCommandConfig{
+				fullRepack:  true,
+				writeBitmap: true,
+			},
+		},
+		{
+			desc: "missing bitmap with alternate",
+			setup: func(t *testing.T) *gitalypb.Repository {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					Seed: gittest.SeedGitLabTest,
+				})
+
+				// Create the alternates file. If it exists, then we shouldn't try
+				// to generate a bitmap.
+				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "info", "alternates"), nil, 0o755))
+
+				return repoProto
+			},
+			expectedNeeded: true,
+			expectedConfig: repackCommandConfig{
+				fullRepack:  true,
+				writeBitmap: false,
+			},
+		},
+		{
+			desc: "missing commit-graph",
+			setup: func(t *testing.T) *gitalypb.Repository {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					Seed: gittest.SeedGitLabTest,
+				})
+
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad", "--write-bitmap-index")
+
+				return repoProto
+			},
+			expectedNeeded: true,
+			expectedConfig: repackCommandConfig{
+				fullRepack:  true,
+				writeBitmap: true,
+			},
+		},
+		{
+			desc: "commit-graph without bloom filters",
+			setup: func(t *testing.T) *gitalypb.Repository {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					Seed: gittest.SeedGitLabTest,
+				})
+
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad", "--write-bitmap-index")
+				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write")
+
+				return repoProto
+			},
+			expectedNeeded: true,
+			expectedConfig: repackCommandConfig{
+				fullRepack:  true,
+				writeBitmap: true,
+			},
+		},
+		{
+			desc: "no repack needed",
+			setup: func(t *testing.T) *gitalypb.Repository {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					Seed: gittest.SeedGitLabTest,
+				})
+
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad", "--write-bitmap-index")
+				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--changed-paths", "--split")
+
+				return repoProto
+			},
+			expectedNeeded: false,
+		},
+	} {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			repoProto := tc.setup(t)
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+			repackNeeded, repackCfg, err := needsRepacking(repo)
+			require.Equal(t, tc.expectedErr, err)
+			require.Equal(t, tc.expectedNeeded, repackNeeded)
+			require.Equal(t, tc.expectedConfig, repackCfg)
+		})
+	}
 }
