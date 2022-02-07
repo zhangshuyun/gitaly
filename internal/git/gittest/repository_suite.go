@@ -1,6 +1,7 @@
 package gittest
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -8,14 +9,17 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
+// GetRepositoryFunc is used to get a clean test repository for the different implementations of the
+// Repository interface in the common test suite TestRepository.
+type GetRepositoryFunc func(ctx context.Context, t testing.TB, seeded bool) (git.Repository, string)
+
 // TestRepository tests an implementation of Repository.
-func TestRepository(t *testing.T, cfg config.Cfg, getRepository func(testing.TB, *gitalypb.Repository) git.Repository) {
+func TestRepository(t *testing.T, cfg config.Cfg, getRepository GetRepositoryFunc) {
 	for _, tc := range []struct {
 		desc string
-		test func(*testing.T, config.Cfg, func(testing.TB, *gitalypb.Repository) git.Repository)
+		test func(*testing.T, config.Cfg, GetRepositoryFunc)
 	}{
 		{
 			desc: "ResolveRevision",
@@ -36,10 +40,8 @@ func TestRepository(t *testing.T, cfg config.Cfg, getRepository func(testing.TB,
 	}
 }
 
-func testRepositoryResolveRevision(t *testing.T, cfg config.Cfg, getRepository func(testing.TB, *gitalypb.Repository) git.Repository) {
+func testRepositoryResolveRevision(t *testing.T, cfg config.Cfg, getRepository GetRepositoryFunc) {
 	ctx := testhelper.Context(t)
-
-	pbRepo, _ := CloneRepo(t, cfg, cfg.Storages[0])
 
 	for _, tc := range []struct {
 		desc     string
@@ -76,7 +78,8 @@ func testRepositoryResolveRevision(t *testing.T, cfg config.Cfg, getRepository f
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			oid, err := getRepository(t, pbRepo).ResolveRevision(ctx, git.Revision(tc.revision))
+			repo, _ := getRepository(ctx, t, true)
+			oid, err := repo.ResolveRevision(ctx, git.Revision(tc.revision))
 			if tc.expected == "" {
 				require.Equal(t, err, git.ErrReferenceNotFound)
 				return
@@ -88,12 +91,10 @@ func testRepositoryResolveRevision(t *testing.T, cfg config.Cfg, getRepository f
 	}
 }
 
-func testRepositoryHasBranches(t *testing.T, cfg config.Cfg, getRepository func(testing.TB, *gitalypb.Repository) git.Repository) {
+func testRepositoryHasBranches(t *testing.T, cfg config.Cfg, getRepository GetRepositoryFunc) {
 	ctx := testhelper.Context(t)
 
-	pbRepo, repoPath := InitRepo(t, cfg, cfg.Storages[0])
-
-	repo := getRepository(t, pbRepo)
+	repo, repoPath := getRepository(ctx, t, false)
 
 	emptyCommit := text.ChompBytes(Exec(t, cfg, "-C", repoPath, "commit-tree", git.EmptyTreeOID.String()))
 
@@ -110,8 +111,9 @@ func testRepositoryHasBranches(t *testing.T, cfg config.Cfg, getRepository func(
 	require.True(t, hasBranches)
 }
 
-func testRepositoryGetDefaultBranch(t *testing.T, cfg config.Cfg, getRepository func(testing.TB, *gitalypb.Repository) git.Repository) {
+func testRepositoryGetDefaultBranch(t *testing.T, cfg config.Cfg, getRepository GetRepositoryFunc) {
 	const testOID = "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
+	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc         string
@@ -121,8 +123,7 @@ func testRepositoryGetDefaultBranch(t *testing.T, cfg config.Cfg, getRepository 
 		{
 			desc: "default ref",
 			repo: func(t *testing.T) git.Repository {
-				repoProto, repoPath := InitRepo(t, cfg, cfg.Storages[0])
-				repo := getRepository(t, repoProto)
+				repo, repoPath := getRepository(ctx, t, false)
 				oid := WriteCommit(t, cfg, repoPath, WithParents(), WithBranch("apple"))
 				WriteCommit(t, cfg, repoPath, WithParents(oid), WithBranch("main"))
 				return repo
@@ -132,8 +133,7 @@ func testRepositoryGetDefaultBranch(t *testing.T, cfg config.Cfg, getRepository 
 		{
 			desc: "legacy default ref",
 			repo: func(t *testing.T) git.Repository {
-				repoProto, repoPath := InitRepo(t, cfg, cfg.Storages[0])
-				repo := getRepository(t, repoProto)
+				repo, repoPath := getRepository(ctx, t, false)
 				oid := WriteCommit(t, cfg, repoPath, WithParents(), WithBranch("apple"))
 				WriteCommit(t, cfg, repoPath, WithParents(oid), WithBranch("master"))
 				return repo
@@ -143,16 +143,14 @@ func testRepositoryGetDefaultBranch(t *testing.T, cfg config.Cfg, getRepository 
 		{
 			desc: "no branches",
 			repo: func(t *testing.T) git.Repository {
-				repoProto, _ := InitRepo(t, cfg, cfg.Storages[0])
-				repo := getRepository(t, repoProto)
+				repo, _ := getRepository(ctx, t, false)
 				return repo
 			},
 		},
 		{
 			desc: "one branch",
 			repo: func(t *testing.T) git.Repository {
-				repoProto, repoPath := InitRepo(t, cfg, cfg.Storages[0])
-				repo := getRepository(t, repoProto)
+				repo, repoPath := getRepository(ctx, t, false)
 				WriteCommit(t, cfg, repoPath, WithParents(), WithBranch("apple"))
 				return repo
 			},
@@ -161,8 +159,7 @@ func testRepositoryGetDefaultBranch(t *testing.T, cfg config.Cfg, getRepository 
 		{
 			desc: "no default branches",
 			repo: func(t *testing.T) git.Repository {
-				repoProto, repoPath := InitRepo(t, cfg, cfg.Storages[0])
-				repo := getRepository(t, repoProto)
+				repo, repoPath := getRepository(ctx, t, false)
 				oid := WriteCommit(t, cfg, repoPath, WithParents(), WithBranch("apple"))
 				WriteCommit(t, cfg, repoPath, WithParents(oid), WithBranch("banana"))
 				return repo
@@ -172,16 +169,15 @@ func testRepositoryGetDefaultBranch(t *testing.T, cfg config.Cfg, getRepository 
 		{
 			desc: "test repo default",
 			repo: func(t *testing.T) git.Repository {
-				repoProto, _ := CloneRepo(t, cfg, cfg.Storages[0])
-				return getRepository(t, repoProto)
+				repo, _ := getRepository(ctx, t, true)
+				return repo
 			},
 			expectedName: git.LegacyDefaultRef,
 		},
 		{
 			desc: "test repo HEAD set",
 			repo: func(t *testing.T) git.Repository {
-				repoProto, repoPath := CloneRepo(t, cfg, cfg.Storages[0])
-				repo := getRepository(t, repoProto)
+				repo, repoPath := getRepository(ctx, t, true)
 				Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/feature", testOID)
 				Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
 				return repo
@@ -190,8 +186,6 @@ func testRepositoryGetDefaultBranch(t *testing.T, cfg config.Cfg, getRepository 
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			name, err := tc.repo(t).GetDefaultBranch(ctx)
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedName, name)
