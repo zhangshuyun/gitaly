@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
@@ -40,34 +41,43 @@ func (s *server) validateOptimizeRepositoryRequest(in *gitalypb.OptimizeReposito
 }
 
 func (s *server) optimizeRepository(ctx context.Context, repo *localrepo.Repo) error {
+	optimizations := struct {
+		PackedObjects bool `json:"packed_objects"`
+	}{}
+	defer func() {
+		ctxlogrus.Extract(ctx).WithField("optimizations", optimizations).Info("optimized repository")
+	}()
+
 	if err := housekeeping.Perform(ctx, repo, s.txManager); err != nil {
 		return fmt.Errorf("could not execute houskeeping: %w", err)
 	}
 
-	if err := repackIfNeeded(ctx, repo); err != nil {
+	didRepack, err := repackIfNeeded(ctx, repo)
+	if err != nil {
 		return fmt.Errorf("could not repack: %w", err)
 	}
+	optimizations.PackedObjects = didRepack
 
 	return nil
 }
 
 // repackIfNeeded uses a set of heuristics to determine whether the repository needs a
 // full repack and, if so, repacks it.
-func repackIfNeeded(ctx context.Context, repo *localrepo.Repo) error {
+func repackIfNeeded(ctx context.Context, repo *localrepo.Repo) (bool, error) {
 	repackNeeded, cfg, err := needsRepacking(repo)
 	if err != nil {
-		return fmt.Errorf("determining whether repo needs repack: %w", err)
+		return false, fmt.Errorf("determining whether repo needs repack: %w", err)
 	}
 
 	if !repackNeeded {
-		return nil
+		return false, nil
 	}
 
 	if err := repack(ctx, repo, cfg); err != nil {
-		return err
+		return false, err
 	}
 
-	return nil
+	return true, nil
 }
 
 func needsRepacking(repo *localrepo.Repo) (bool, repackCommandConfig, error) {
