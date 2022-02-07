@@ -2,8 +2,12 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/housekeeping"
@@ -138,5 +142,86 @@ func needsRepacking(repo *localrepo.Repo) (bool, repackCommandConfig, error) {
 		}, nil
 	}
 
+	largestPackfileSize, packfileCount, err := packfileSizeAndCount(repo)
+	if err != nil {
+		return false, repackCommandConfig{}, fmt.Errorf("checking largest packfile size: %w", err)
+	}
+
+	// Whenever we do an incremental repack we create a new packfile, and as a result Git may
+	// have to look into every one of the packfiles to find objects. This is less efficient the
+	// more packfiles we have, but we cannot repack the whole repository every time either given
+	// that this may take a lot of time.
+	//
+	// Instead, we determine whether the repository has "too many" packfiles. "Too many" is
+	// relative though: for small repositories it's fine to do full repacks regularly, but for
+	// large repositories we need to be more careful. We thus use a heuristic of "repository
+	// largeness": we take the biggest packfile that exists, and then the maximum allowed number
+	// of packfiles is `log(largestpackfile_size_in_mb) / log(1.3)`. This gives the following
+	// allowed number of packfiles:
+	//
+	// - No packfile: 5 packfile. This is a special case.
+	// - 10MB packfile: 8 packfiles.
+	// - 100MB packfile: 17 packfiles.
+	// - 500MB packfile: 23 packfiles.
+	// - 1GB packfile: 26 packfiles.
+	// - 5GB packfile: 32 packfiles.
+	// - 10GB packfile: 35 packfiles.
+	// - 100GB packfile: 43 packfiles.
+	//
+	// The goal is to have a comparatively quick ramp-up of allowed packfiles as the repository
+	// size grows, but then slow down such that we're effectively capped and don't end up with
+	// an excessive amount of packfiles.
+	//
+	// This is a heuristic and thus imperfect by necessity. We may tune it as we gain experience
+	// with the way it behaves.
+	if int64(math.Max(5, math.Log(float64(largestPackfileSize))/math.Log(1.3))) < packfileCount {
+		return true, repackCommandConfig{
+			fullRepack:  true,
+			writeBitmap: !hasAlternate,
+		}, nil
+	}
+
 	return false, repackCommandConfig{}, nil
+}
+
+func packfileSizeAndCount(repo *localrepo.Repo) (int64, int64, error) {
+	repoPath, err := repo.Path()
+	if err != nil {
+		return 0, 0, fmt.Errorf("getting repository path: %w", err)
+	}
+
+	entries, err := os.ReadDir(filepath.Join(repoPath, "objects/pack"))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return 0, 0, nil
+		}
+
+		return 0, 0, err
+	}
+
+	largestSize := int64(0)
+	count := int64(0)
+
+	for _, entry := range entries {
+		if !strings.HasSuffix(entry.Name(), ".pack") {
+			continue
+		}
+
+		entryInfo, err := entry.Info()
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+
+			return 0, 0, fmt.Errorf("getting packfile info: %w", err)
+		}
+
+		if entryInfo.Size() > largestSize {
+			largestSize = entryInfo.Size()
+		}
+
+		count++
+	}
+
+	return largestSize / 1024 / 1024, count, nil
 }

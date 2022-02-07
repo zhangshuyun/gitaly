@@ -2,6 +2,8 @@ package repository
 
 import (
 	"bytes"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -188,6 +190,15 @@ func TestOptimizeRepositoryValidation(t *testing.T) {
 	require.NoError(t, err)
 }
 
+type infiniteReader struct{}
+
+func (r infiniteReader) Read(b []byte) (int, error) {
+	for i := range b {
+		b[i] = '\000'
+	}
+	return len(b), nil
+}
+
 func TestNeedsRepacking(t *testing.T) {
 	t.Parallel()
 
@@ -311,6 +322,93 @@ func TestNeedsRepacking(t *testing.T) {
 			require.Equal(t, tc.expectedErr, err)
 			require.Equal(t, tc.expectedNeeded, repackNeeded)
 			require.Equal(t, tc.expectedConfig, repackCfg)
+		})
+	}
+
+	const megaByte = 1024 * 1024
+
+	for _, tc := range []struct {
+		packfileSize      int64
+		requiredPackfiles int
+	}{
+		{
+			packfileSize:      1,
+			requiredPackfiles: 5,
+		},
+		{
+			packfileSize:      5 * megaByte,
+			requiredPackfiles: 6,
+		},
+		{
+			packfileSize:      10 * megaByte,
+			requiredPackfiles: 8,
+		},
+		{
+			packfileSize:      50 * megaByte,
+			requiredPackfiles: 14,
+		},
+		{
+			packfileSize:      100 * megaByte,
+			requiredPackfiles: 17,
+		},
+		{
+			packfileSize:      500 * megaByte,
+			requiredPackfiles: 23,
+		},
+		{
+			packfileSize:      1000 * megaByte,
+			requiredPackfiles: 26,
+		},
+		// Let's not go any further than this, we're thrashing the temporary directory.
+	} {
+		t.Run(fmt.Sprintf("packfile with %d bytes", tc.packfileSize), func(t *testing.T) {
+			repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+			packDir := filepath.Join(repoPath, "objects", "pack")
+
+			// Emulate the existence of a bitmap and a commit-graph with bloom filters.
+			// We explicitly don't want to generate them via Git commands as they would
+			// require us to already have objects in the repository, and we want to be
+			// in full control over all objects and packfiles in the repo.
+			require.NoError(t, os.WriteFile(filepath.Join(packDir, "something.bitmap"), nil, 0o644))
+			commitGraphChainPath := filepath.Join(repoPath, stats.CommitGraphChainRelPath)
+			require.NoError(t, os.MkdirAll(filepath.Dir(commitGraphChainPath), 0o755))
+			require.NoError(t, os.WriteFile(commitGraphChainPath, nil, 0o644))
+
+			// We first create a single big packfile which is used to determine the
+			// boundary of when we repack.
+			bigPackfile, err := os.OpenFile(filepath.Join(packDir, "big.pack"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+			require.NoError(t, err)
+			defer testhelper.MustClose(t, bigPackfile)
+			_, err = io.Copy(bigPackfile, io.LimitReader(infiniteReader{}, tc.packfileSize))
+			require.NoError(t, err)
+
+			// And then we create one less packfile than we need to hit the boundary.
+			// This is done to assert that we indeed don't repack before hitting the
+			// boundary.
+			for i := 0; i < tc.requiredPackfiles-1; i++ {
+				additionalPackfile, err := os.Create(filepath.Join(packDir, fmt.Sprintf("%d.pack", i)))
+				require.NoError(t, err)
+				testhelper.MustClose(t, additionalPackfile)
+			}
+
+			repackNeeded, _, err := needsRepacking(repo)
+			require.NoError(t, err)
+			require.False(t, repackNeeded)
+
+			// Now we create the additional packfile that causes us to hit the boundary.
+			// We should thus see that we want to repack now.
+			lastPackfile, err := os.Create(filepath.Join(packDir, "last.pack"))
+			require.NoError(t, err)
+			testhelper.MustClose(t, lastPackfile)
+
+			repackNeeded, repackCfg, err := needsRepacking(repo)
+			require.NoError(t, err)
+			require.True(t, repackNeeded)
+			require.Equal(t, repackCommandConfig{
+				fullRepack:  true,
+				writeBitmap: true,
+			}, repackCfg)
 		})
 	}
 }
