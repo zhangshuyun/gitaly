@@ -20,7 +20,7 @@ var subcommands = map[string]subcmd{
 }
 
 func main() {
-	log.Configure(log.Loggers, "", "")
+	log.Configure(log.Loggers, "json", "")
 
 	logger := log.Default()
 
