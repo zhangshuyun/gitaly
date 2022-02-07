@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/hook"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ssh"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -22,7 +23,7 @@ import (
 func TestRepo_FetchInternal(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, remoteRepoProto, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
 	gitCmdFactory, readGitProtocol := gittest.NewProtocolDetectingCommandFactory(ctx, t, cfg)
 
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
@@ -36,7 +37,21 @@ func TestRepo_FetchInternal(t *testing.T) {
 			deps.GetGitCmdFactory(),
 			deps.GetPackObjectsCache(),
 		))
-	}, testserver.WithGitCommandFactory(gitCmdFactory))
+		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
+			deps.GetCfg(),
+			deps.GetRubyServer(),
+			deps.GetLocator(),
+			deps.GetTxManager(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+			deps.GetConnsPool(),
+			deps.GetGit2goExecutor(),
+		))
+	}, testserver.WithGitCommandFactory(gitCmdFactory), testserver.WithDisableMetadataForceCreation())
+
+	remoteRepoProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	remoteRepo := localrepo.NewTestRepo(t, cfg, remoteRepoProto)
 	testcfg.BuildGitalySSH(t, cfg)
@@ -54,7 +69,7 @@ func TestRepo_FetchInternal(t *testing.T) {
 	t.Run("refspec with tag", func(t *testing.T) {
 		ctx := testhelper.MergeIncomingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
-		repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+		repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		gittest.Exec(t, cfg, "-C", repoPath, "config", "fetch.writeCommitGraph", "true")
@@ -86,7 +101,7 @@ func TestRepo_FetchInternal(t *testing.T) {
 	t.Run("refspec without tags", func(t *testing.T) {
 		ctx := testhelper.MergeIncomingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
-		repoProto, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
+		repoProto, _ := gittest.CreateRepository(ctx, t, cfg)
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		require.NoError(t, repo.FetchInternal(
@@ -104,7 +119,7 @@ func TestRepo_FetchInternal(t *testing.T) {
 	t.Run("object ID", func(t *testing.T) {
 		ctx := testhelper.MergeIncomingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
-		repoProto, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
+		repoProto, _ := gittest.CreateRepository(ctx, t, cfg)
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		require.NoError(t, repo.FetchInternal(
@@ -120,7 +135,7 @@ func TestRepo_FetchInternal(t *testing.T) {
 	t.Run("nonexistent revision", func(t *testing.T) {
 		ctx := testhelper.MergeIncomingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
-		repoProto, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
+		repoProto, _ := gittest.CreateRepository(ctx, t, cfg)
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		var stderr bytes.Buffer
@@ -136,7 +151,7 @@ func TestRepo_FetchInternal(t *testing.T) {
 	t.Run("with env", func(t *testing.T) {
 		ctx := testhelper.MergeIncomingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
-		repoProto, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
+		repoProto, _ := gittest.CreateRepository(ctx, t, cfg)
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		var stderr bytes.Buffer
@@ -151,7 +166,7 @@ func TestRepo_FetchInternal(t *testing.T) {
 	t.Run("with disabled transactions", func(t *testing.T) {
 		ctx := testhelper.MergeIncomingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
-		repoProto, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
+		repoProto, _ := gittest.CreateRepository(ctx, t, cfg)
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		var stderr bytes.Buffer
@@ -166,7 +181,7 @@ func TestRepo_FetchInternal(t *testing.T) {
 	t.Run("invalid remote repo", func(t *testing.T) {
 		ctx := testhelper.MergeIncomingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
-		repoProto, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
+		repoProto, _ := gittest.CreateRepository(ctx, t, cfg)
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		err := repo.FetchInternal(ctx, &gitalypb.Repository{
@@ -175,13 +190,21 @@ func TestRepo_FetchInternal(t *testing.T) {
 		}, []string{"refs/does/not/exist"}, localrepo.FetchOpts{})
 		require.Error(t, err)
 		require.IsType(t, err, localrepo.ErrFetchFailed{})
-		require.Contains(t, err.Error(), "GetRepoPath: not a git repository")
+
+		expectedMsg := "GetRepoPath: not a git repository"
+		if testhelper.IsPraefectEnabled() {
+			expectedMsg = `repository \"default\"/\"does/not/exist\" not found`
+		}
+
+		require.Contains(t, err.Error(), expectedMsg)
 	})
 
 	t.Run("pruning", func(t *testing.T) {
 		ctx := testhelper.MergeIncomingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
-		repoProto, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+		repoProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			Seed: gittest.SeedGitLabTest,
+		})
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		// Create a local reference. Given that it doesn't exist on the remote side, it
