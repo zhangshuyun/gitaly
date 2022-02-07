@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
+	repositorysvc "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
@@ -495,12 +496,37 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			ctx := testhelper.Context(t)
 
 			cfg := testcfg.Build(t)
+			addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+				cmdFactory := deps.GetGitCmdFactory()
+				if tc.wrapCommandFactory != nil {
+					cmdFactory = tc.wrapCommandFactory(t, deps.GetGitCmdFactory())
+				}
+
+				gitalypb.RegisterRemoteServiceServer(srv, NewServer(
+					deps.GetLocator(),
+					cmdFactory,
+					deps.GetCatfileCache(),
+					deps.GetTxManager(),
+					deps.GetConnsPool(),
+				))
+				gitalypb.RegisterRepositoryServiceServer(srv, repositorysvc.NewServer(
+					deps.GetCfg(),
+					deps.GetRubyServer(),
+					deps.GetLocator(),
+					deps.GetTxManager(),
+					deps.GetGitCmdFactory(),
+					deps.GetCatfileCache(),
+					deps.GetConnsPool(),
+					deps.GetGit2goExecutor(),
+				))
+			})
+			cfg.SocketPath = addr
 
 			testcfg.BuildGitalyGit2Go(t, cfg)
 
-			mirrorRepoPb, mirrorRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+			mirrorRepoPb, mirrorRepoPath := gittest.CreateRepository(ctx, t, cfg)
 
-			sourceRepoPb, sourceRepoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+			sourceRepoPb, sourceRepoPath := gittest.CreateRepository(ctx, t, cfg)
 
 			// create identical commits in both repositories so we can use them for
 			// the references
@@ -549,21 +575,6 @@ func TestUpdateRemoteMirror(t *testing.T) {
 					gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", symRef, targetRef)
 				}
 			}
-
-			addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-				cmdFactory := deps.GetGitCmdFactory()
-				if tc.wrapCommandFactory != nil {
-					cmdFactory = tc.wrapCommandFactory(t, deps.GetGitCmdFactory())
-				}
-
-				gitalypb.RegisterRemoteServiceServer(srv, NewServer(
-					deps.GetLocator(),
-					cmdFactory,
-					deps.GetCatfileCache(),
-					deps.GetTxManager(),
-					deps.GetConnsPool(),
-				))
-			})
 
 			client, conn := newRemoteClient(t, addr)
 			defer conn.Close()
@@ -618,24 +629,11 @@ func TestUpdateRemoteMirror(t *testing.T) {
 func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 	t.Parallel()
 
-	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
-
-	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-			deps.GetTxManager(),
-			deps.GetConnsPool(),
-		))
+	cfg, testRepo, testRepoPath, client := setupRemoteService(ctx, t)
+	_, mirrorPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
 	})
-
-	client, conn := newRemoteClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
-	_, mirrorPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	gittest.WriteTag(t, cfg, mirrorPath, "v0.0.1", "master") // I needed another tag for the tests
 	gittest.WriteTag(t, cfg, testRepoPath, "new-tag", "60ecb67744cb56576c30214ff52294f8ce2def98")
@@ -718,25 +716,12 @@ func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 func TestSuccessfulUpdateRemoteMirrorRequestWithWildcards(t *testing.T) {
 	t.Parallel()
 
-	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
+	cfg, testRepo, testRepoPath, client := setupRemoteService(ctx, t)
 
-	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-			deps.GetTxManager(),
-			deps.GetConnsPool(),
-		))
+	_, mirrorPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
 	})
-
-	client, conn := newRemoteClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
-
-	_, mirrorPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	setupCommands := [][]string{
 		// Preconditions
@@ -802,26 +787,13 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithWildcards(t *testing.T) {
 func TestUpdateRemoteMirrorInmemory(t *testing.T) {
 	t.Parallel()
 
-	cfg := testcfg.Build(t)
-
-	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-			deps.GetTxManager(),
-			deps.GetConnsPool(),
-		))
-	})
-
-	client, conn := newRemoteClient(t, serverSocketPath)
-	defer conn.Close()
-
-	localRepo, localPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	ctx := testhelper.Context(t)
+	cfg, localRepo, localPath, client := setupRemoteService(ctx, t)
 	gittest.WriteCommit(t, cfg, localPath)
 
-	_, remotePath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
-	ctx := testhelper.Context(t)
+	_, remotePath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	stream, err := client.UpdateRemoteMirror(ctx)
 	require.NoError(t, err)
@@ -845,24 +817,11 @@ func TestUpdateRemoteMirrorInmemory(t *testing.T) {
 func TestSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T) {
 	t.Parallel()
 
-	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
-
-	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-			deps.GetTxManager(),
-			deps.GetConnsPool(),
-		))
+	cfg, testRepo, testRepoPath, client := setupRemoteService(ctx, t)
+	_, mirrorPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
 	})
-
-	client, conn := newRemoteClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
-	_, mirrorPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	gittest.WriteTag(t, cfg, mirrorPath, "v2.0.0", "master")
 
@@ -930,23 +889,8 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T) 
 func TestFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T) {
 	t.Parallel()
 
-	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
-
-	serverSocketPath := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-			deps.GetTxManager(),
-			deps.GetConnsPool(),
-		))
-	})
-
-	client, conn := newRemoteClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	_, testRepo, _, client := setupRemoteService(ctx, t)
 
 	testCases := []struct {
 		desc    string
