@@ -17,7 +17,9 @@ func (s *server) OptimizeRepository(ctx context.Context, in *gitalypb.OptimizeRe
 		return nil, err
 	}
 
-	if err := s.optimizeRepository(ctx, in.GetRepository()); err != nil {
+	repo := s.localrepo(in.GetRepository())
+
+	if err := s.optimizeRepository(ctx, repo); err != nil {
 		return nil, helper.ErrInternal(err)
 	}
 
@@ -37,14 +39,12 @@ func (s *server) validateOptimizeRepositoryRequest(in *gitalypb.OptimizeReposito
 	return nil
 }
 
-func (s *server) optimizeRepository(ctx context.Context, repository *gitalypb.Repository) error {
-	repo := s.localrepo(repository)
-
+func (s *server) optimizeRepository(ctx context.Context, repo *localrepo.Repo) error {
 	if err := housekeeping.Perform(ctx, repo, s.txManager); err != nil {
 		return fmt.Errorf("could not execute houskeeping: %w", err)
 	}
 
-	if err := s.repackIfNeeded(ctx, repo, repository); err != nil {
+	if err := repackIfNeeded(ctx, repo); err != nil {
 		return fmt.Errorf("could not repack: %w", err)
 	}
 
@@ -53,7 +53,7 @@ func (s *server) optimizeRepository(ctx context.Context, repository *gitalypb.Re
 
 // repackIfNeeded uses a set of heuristics to determine whether the repository needs a
 // full repack and, if so, repacks it.
-func (s *server) repackIfNeeded(ctx context.Context, repo *localrepo.Repo, repoProto *gitalypb.Repository) error {
+func repackIfNeeded(ctx context.Context, repo *localrepo.Repo) error {
 	repoPath, err := repo.Path()
 	if err != nil {
 		return err
@@ -73,23 +73,23 @@ func (s *server) repackIfNeeded(ctx context.Context, repo *localrepo.Repo, repoP
 		return nil
 	}
 
+	cfg := repackCommandConfig{
+		fullRepack: true,
+	}
+
 	altFile, err := repo.InfoAlternatesPath()
 	if err != nil {
 		return helper.ErrInternal(err)
 	}
 
-	// Repositories with alternates should never have a bitmap, as Git will otherwise complain about
-	// multiple bitmaps being present in parent and alternate repository.
-	// In case of an error it still tries it is best to optimise the repository.
-	createBitMap := false
+	// Repositories with alternates should never have a bitmap, as Git will otherwise complain
+	// about multiple bitmaps being present in parent and alternate repository. In case of an
+	// error it still tries it is best to optimise the repository.
 	if _, err := os.Stat(altFile); os.IsNotExist(err) {
-		createBitMap = true
+		cfg.writeBitmap = true
 	}
 
-	if _, err = s.RepackFull(ctx, &gitalypb.RepackFullRequest{
-		Repository:   repoProto,
-		CreateBitmap: createBitMap,
-	}); err != nil {
+	if err := repack(ctx, repo, cfg); err != nil {
 		return err
 	}
 
