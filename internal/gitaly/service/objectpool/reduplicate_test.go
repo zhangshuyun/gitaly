@@ -7,13 +7,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
 func TestReduplicate(t *testing.T) {
-	cfg, repo, repoPath, locator, client := setup(t)
+	cfg, repoProto, repoPath, _, client := setup(t)
 	ctx := testhelper.Context(t)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
@@ -25,7 +27,7 @@ func TestReduplicate(t *testing.T) {
 	existingObjectID := "55bc176024cfa3baaceb71db584c7e5df900ea65"
 
 	// Corrupt the repository to check if the object can't be found
-	altPath, err := locator.InfoAlternatesPath(repo)
+	altPath, err := repo.InfoAlternatesPath()
 	require.NoError(t, err, "find info/alternates")
 	require.NoError(t, os.RemoveAll(altPath))
 
@@ -36,7 +38,7 @@ func TestReduplicate(t *testing.T) {
 
 	// Reduplicate and check if the objects appear again
 	require.NoError(t, pool.Link(ctx, repo))
-	_, err = client.ReduplicateRepository(ctx, &gitalypb.ReduplicateRepositoryRequest{Repository: repo})
+	_, err = client.ReduplicateRepository(ctx, &gitalypb.ReduplicateRepositoryRequest{Repository: repoProto})
 	require.NoError(t, err)
 
 	require.NoError(t, os.RemoveAll(altPath))

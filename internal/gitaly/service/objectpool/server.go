@@ -3,6 +3,8 @@ package objectpool
 import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -29,4 +31,8 @@ func NewServer(
 		catfileCache:  catfileCache,
 		txManager:     txManager,
 	}
+}
+
+func (s *server) localrepo(repo repository.GitRepo) *localrepo.Repo {
+	return localrepo.New(s.locator, s.gitCmdFactory, s.catfileCache, repo)
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -18,9 +19,10 @@ import (
 func TestFetchFromOriginDangling(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, pool, testRepo := setupObjectPool(t, ctx)
+	cfg, pool, repoProto := setupObjectPool(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "seed pool")
+	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "seed pool")
 
 	const (
 		existingTree   = "07f8147e8e73aab6c935c296e8cdc5194dee729b"
@@ -72,7 +74,7 @@ func TestFetchFromOriginDangling(t *testing.T) {
 
 	// We expect this second run to convert the dangling objects into
 	// non-dangling objects.
-	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "second fetch")
+	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "second fetch")
 
 	refsAfter := gittest.Exec(t, cfg, "-C", pool.FullPath(), "for-each-ref", "--format=%(refname) %(objectname)")
 	refsAfterLines := strings.Split(string(refsAfter), "\n")
@@ -84,8 +86,9 @@ func TestFetchFromOriginDangling(t *testing.T) {
 func TestFetchFromOriginFsck(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, pool, repo := setupObjectPool(t, ctx)
-	repoPath := filepath.Join(cfg.Storages[0].Path, repo.RelativePath)
+	cfg, pool, repoProto := setupObjectPool(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	repoPath := filepath.Join(cfg.Storages[0].Path, repo.GetRelativePath())
 
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "seed pool")
 
@@ -107,20 +110,21 @@ func TestFetchFromOriginFsck(t *testing.T) {
 func TestFetchFromOriginDeltaIslands(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, pool, testRepo := setupObjectPool(t, ctx)
-	testRepoPath := filepath.Join(cfg.Storages[0].Path, testRepo.RelativePath)
+	cfg, pool, repoProto := setupObjectPool(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	repoPath := filepath.Join(cfg.Storages[0].Path, repo.GetRelativePath())
 
-	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "seed pool")
-	require.NoError(t, pool.Link(ctx, testRepo))
+	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "seed pool")
+	require.NoError(t, pool.Link(ctx, repo))
 
-	gittest.TestDeltaIslands(t, cfg, testRepoPath, func() error {
+	gittest.TestDeltaIslands(t, cfg, repoPath, func() error {
 		// This should create a new packfile with good delta chains in the pool
-		if err := pool.FetchFromOrigin(ctx, testRepo); err != nil {
+		if err := pool.FetchFromOrigin(ctx, repo); err != nil {
 			return err
 		}
 
 		// Make sure the old packfile, with bad delta chains, is deleted from the source repo
-		gittest.Exec(t, cfg, "-C", testRepoPath, "repack", "-ald")
+		gittest.Exec(t, cfg, "-C", repoPath, "repack", "-ald")
 
 		return nil
 	})
@@ -129,9 +133,10 @@ func TestFetchFromOriginDeltaIslands(t *testing.T) {
 func TestFetchFromOriginBitmapHashCache(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	_, pool, testRepo := setupObjectPool(t, ctx)
+	cfg, pool, repoProto := setupObjectPool(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "seed pool")
+	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "seed pool")
 
 	packDir := filepath.Join(pool.FullPath(), "objects/pack")
 	packEntries, err := os.ReadDir(packDir)
@@ -153,12 +158,13 @@ func TestFetchFromOriginBitmapHashCache(t *testing.T) {
 func TestFetchFromOriginRefUpdates(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, pool, testRepo := setupObjectPool(t, ctx)
-	testRepoPath := filepath.Join(cfg.Storages[0].Path, testRepo.RelativePath)
+	cfg, pool, repoProto := setupObjectPool(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	repoPath := filepath.Join(cfg.Storages[0].Path, repo.GetRelativePath())
 
 	poolPath := pool.FullPath()
 
-	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "seed pool")
+	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "seed pool")
 
 	oldRefs := map[string]string{
 		"heads/csv":   "3dd08961455abf80ef9115f4afdc1c6f968b503c",
@@ -166,7 +172,7 @@ func TestFetchFromOriginRefUpdates(t *testing.T) {
 	}
 
 	for ref, oid := range oldRefs {
-		require.Equal(t, oid, resolveRef(t, cfg, testRepoPath, "refs/"+ref), "look up %q in source", ref)
+		require.Equal(t, oid, resolveRef(t, cfg, repoPath, "refs/"+ref), "look up %q in source", ref)
 		require.Equal(t, oid, resolveRef(t, cfg, poolPath, "refs/remotes/origin/"+ref), "look up %q in pool", ref)
 	}
 
@@ -180,11 +186,11 @@ func TestFetchFromOriginRefUpdates(t *testing.T) {
 	}
 
 	for ref, oid := range newRefs {
-		gittest.Exec(t, cfg, "-C", testRepoPath, "update-ref", "refs/"+ref, oid)
-		require.Equal(t, oid, resolveRef(t, cfg, testRepoPath, "refs/"+ref), "look up %q in source after update", ref)
+		gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/"+ref, oid)
+		require.Equal(t, oid, resolveRef(t, cfg, repoPath, "refs/"+ref), "look up %q in source after update", ref)
 	}
 
-	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "update pool")
+	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "update pool")
 
 	for ref, oid := range newRefs {
 		require.Equal(t, oid, resolveRef(t, cfg, poolPath, "refs/remotes/origin/"+ref), "look up %q in pool after update", ref)
@@ -201,7 +207,9 @@ func TestFetchFromOrigin_refs(t *testing.T) {
 	poolPath := pool.FullPath()
 
 	// Init the source repo with a bunch of refs.
-	repo, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(), gittest.WithTreeEntries())
 	for _, ref := range []string{"refs/heads/master", "refs/environments/1", "refs/tags/lightweight-tag"} {
 		gittest.Exec(t, cfg, "-C", repoPath, "update-ref", ref, commitID.String())

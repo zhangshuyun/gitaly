@@ -26,7 +26,7 @@ func TestLink(t *testing.T) {
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
 
 	require.NoError(t, pool.Remove(ctx), "make sure pool does not exist at start of test")
-	require.NoError(t, pool.Create(ctx, repo), "create pool")
+	require.NoError(t, pool.Create(ctx, localRepo), "create pool")
 
 	// Mock object in the pool, which should be available to the pool members
 	// after linking
@@ -84,14 +84,15 @@ func TestLink(t *testing.T) {
 }
 
 func TestLinkIdempotent(t *testing.T) {
-	cfg, repo, _, _, client := setup(t)
+	cfg, repoProto, _, _, client := setup(t)
 	ctx := testhelper.Context(t)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
 	require.NoError(t, pool.Create(ctx, repo))
 
 	request := &gitalypb.LinkRepositoryToObjectPoolRequest{
-		Repository: repo,
+		Repository: repoProto,
 		ObjectPool: pool.ToProto(),
 	}
 
@@ -103,8 +104,9 @@ func TestLinkIdempotent(t *testing.T) {
 }
 
 func TestLinkNoClobber(t *testing.T) {
-	cfg, repo, repoPath, _, client := setup(t)
+	cfg, repoProto, repoPath, _, client := setup(t)
 	ctx := testhelper.Context(t)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
 	require.NoError(t, pool.Create(ctx, repo))
@@ -116,7 +118,7 @@ func TestLinkNoClobber(t *testing.T) {
 	require.NoError(t, os.WriteFile(alternatesFile, []byte(contentBefore), 0o644))
 
 	request := &gitalypb.LinkRepositoryToObjectPoolRequest{
-		Repository: repo,
+		Repository: repoProto,
 		ObjectPool: pool.ToProto(),
 	}
 

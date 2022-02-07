@@ -23,7 +23,9 @@ func (s *server) RepositorySize(ctx context.Context, in *gitalypb.RepositorySize
 }
 
 func (s *server) GetObjectDirectorySize(ctx context.Context, in *gitalypb.GetObjectDirectorySizeRequest) (*gitalypb.GetObjectDirectorySizeResponse, error) {
-	path, err := s.locator.GetObjectDirectoryPath(in.Repository)
+	repo := s.localrepo(in.GetRepository())
+
+	path, err := repo.ObjectDirectoryPath()
 	if err != nil {
 		return nil, err
 	}

@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -136,8 +137,9 @@ func TestUnsuccessfulCreate(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	cfg, repo, _, _, client := setup(t)
+	cfg, repoProto, _, _, client := setup(t)
 	ctx := testhelper.Context(t)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
 	validPoolPath := pool.GetRelativePath()

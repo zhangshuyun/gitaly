@@ -3,7 +3,6 @@ package config
 import (
 	"os"
 	"path/filepath"
-	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
@@ -95,59 +94,6 @@ func (l *configLocator) GetStorageByName(storageName string) (string, error) {
 	}
 
 	return storagePath, nil
-}
-
-// GetObjectDirectoryPath returns the full path of the object directory in a
-// repository referenced by an RPC Repository message. The errors returned are
-// gRPC errors with relevant error codes and should be passed back to gRPC
-// without further decoration.
-func (l *configLocator) GetObjectDirectoryPath(repo repository.GitRepo) (string, error) {
-	repoPath, err := l.GetRepoPath(repo)
-	if err != nil {
-		return "", err
-	}
-
-	objectDirectoryPath := repo.GetGitObjectDirectory()
-	if objectDirectoryPath == "" {
-		return "", status.Errorf(codes.InvalidArgument, "GetObjectDirectoryPath: empty directory")
-	}
-
-	// We need to check whether the relative object directory as given by the repository is
-	// a valid path. This may either be a path in the Git repository itself, where it may either
-	// point to the main object directory storage or to an object quarantine directory as
-	// created by git-receive-pack(1). Alternatively, if that is not the case, then it may be a
-	// manual object quarantine directory located in the storage's temporary directory. These
-	// have a repository-specific prefix which we must check in order to determine whether the
-	// quarantine directory does in fact belong to the repo at hand.
-	if _, origError := storage.ValidateRelativePath(repoPath, objectDirectoryPath); origError != nil {
-		tempDir, err := l.TempDir(repo.GetStorageName())
-		if err != nil {
-			return "", status.Errorf(codes.InvalidArgument, "GetObjectDirectoryPath: %s", err)
-		}
-
-		expectedQuarantinePrefix := filepath.Join(tempDir, storage.QuarantineDirectoryPrefix(repo))
-		absoluteObjectDirectoryPath := filepath.Join(repoPath, objectDirectoryPath)
-
-		if !strings.HasPrefix(absoluteObjectDirectoryPath, expectedQuarantinePrefix) {
-			return "", status.Errorf(codes.InvalidArgument, "GetObjectDirectoryPath: %s", origError)
-		}
-	}
-
-	fullPath := filepath.Join(repoPath, objectDirectoryPath)
-	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
-		return "", status.Errorf(codes.NotFound, "GetObjectDirectoryPath: does not exist: %q", fullPath)
-	}
-
-	return fullPath, nil
-}
-
-func (l *configLocator) InfoAlternatesPath(repo repository.GitRepo) (string, error) {
-	repoPath, err := l.GetRepoPath(repo)
-	if err != nil {
-		return "", err
-	}
-
-	return filepath.Join(repoPath, "objects", "info", "alternates"), nil
 }
 
 // CacheDir returns the path to the cache dir for a storage.

@@ -21,7 +21,9 @@ func (s *server) FetchIntoObjectPool(ctx context.Context, req *gitalypb.FetchInt
 		return nil, helper.ErrInvalidArgument(fmt.Errorf("object pool invalid: %v", err))
 	}
 
-	if err := objectPool.FetchFromOrigin(ctx, req.GetOrigin()); err != nil {
+	origin := s.localrepo(req.GetOrigin())
+
+	if err := objectPool.FetchFromOrigin(ctx, origin); err != nil {
 		return nil, helper.ErrInternal(err)
 	}
 

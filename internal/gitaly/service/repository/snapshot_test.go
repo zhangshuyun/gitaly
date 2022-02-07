@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/archive"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -111,6 +112,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg, repoProto, repoPath, client := setupRepositoryService(ctx, t)
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 			alternateObjDir := tc.alternatePathFunc(t, cfg.Storages[0].Path, filepath.Join(repoPath, "objects"))
 			absoluteAlternateObjDir := alternateObjDir
@@ -130,7 +132,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 			gittest.RequireObjectNotExists(t, cfg, repoPath, firstCommitID)
 
 			// Write alternates file to point to alt objects folder.
-			alternatesPath, err := locator.InfoAlternatesPath(repoProto)
+			alternatesPath, err := repo.InfoAlternatesPath()
 			require.NoError(t, err)
 			require.NoError(t, os.WriteFile(alternatesPath, []byte(fmt.Sprintf("%s\n", alternateObjDir)), 0o644))
 
@@ -161,13 +163,14 @@ func TestGetSnapshot_alternateObjectDirectory(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, repoProto, repoPath, client := setupRepositoryService(ctx, t)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	locator := config.NewLocator(cfg)
-	alternatesFile, err := locator.InfoAlternatesPath(repo)
+	alternatesFile, err := repo.InfoAlternatesPath()
 	require.NoError(t, err)
 
-	req := &gitalypb.GetSnapshotRequest{Repository: repo}
+	req := &gitalypb.GetSnapshotRequest{Repository: repoProto}
 
 	t.Run("nonexistent", func(t *testing.T) {
 		alternateObjectDir := filepath.Join(repoPath, "does-not-exist")
@@ -192,7 +195,7 @@ func TestGetSnapshot_alternateObjectDirectory(t *testing.T) {
 			require.NoError(t, os.Remove(alternatesFile))
 		}()
 
-		_, err = getSnapshot(t, client, &gitalypb.GetSnapshotRequest{Repository: repo})
+		_, err = getSnapshot(t, client, &gitalypb.GetSnapshotRequest{Repository: repoProto})
 		require.NoError(t, err)
 	})
 
@@ -223,7 +226,7 @@ func TestGetSnapshot_alternateObjectDirectory(t *testing.T) {
 			require.NoError(t, os.Remove(alternatesFile))
 		}()
 
-		repoCopy, _ := copyRepoUsingSnapshot(t, ctx, cfg, client, repo)
+		repoCopy, _ := copyRepoUsingSnapshot(t, ctx, cfg, client, repoProto)
 		repoCopy.RelativePath = getReplicaPath(ctx, t, client, repoCopy)
 		repoCopyPath, err := locator.GetRepoPath(repoCopy)
 		require.NoError(t, err)

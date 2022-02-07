@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
@@ -18,41 +19,43 @@ import (
 func TestLink(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, pool, testRepo := setupObjectPool(t, ctx)
+	cfg, pool, repoProto := setupObjectPool(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	require.NoError(t, pool.Remove(ctx), "make sure pool does not exist prior to creation")
-	require.NoError(t, pool.Create(ctx, testRepo), "create pool")
+	require.NoError(t, pool.Create(ctx, repo), "create pool")
 
-	altPath, err := pool.locator.InfoAlternatesPath(testRepo)
+	altPath, err := repo.InfoAlternatesPath()
 	require.NoError(t, err)
 	require.NoFileExists(t, altPath)
 
-	require.NoError(t, pool.Link(ctx, testRepo))
+	require.NoError(t, pool.Link(ctx, repo))
 
 	require.FileExists(t, altPath, "alternates file must exist after Link")
 
 	content := testhelper.MustReadFile(t, altPath)
 	require.True(t, strings.HasPrefix(string(content), "../"), "expected %q to be relative path", content)
 
-	require.NoError(t, pool.Link(ctx, testRepo))
+	require.NoError(t, pool.Link(ctx, repo))
 
 	newContent := testhelper.MustReadFile(t, altPath)
 	require.Equal(t, content, newContent)
 
-	require.False(t, gittest.RemoteExists(t, cfg, pool.FullPath(), testRepo.GetGlRepository()), "pool remotes should not include %v", testRepo)
+	require.False(t, gittest.RemoteExists(t, cfg, pool.FullPath(), repoProto.GetGlRepository()), "pool remotes should not include %v", repo)
 }
 
 func TestLink_transactional(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	_, pool, poolMember := setupObjectPool(t, ctx)
+	cfg, pool, poolMemberProto := setupObjectPool(t, ctx)
+	poolMember := localrepo.NewTestRepo(t, cfg, poolMemberProto)
 	require.NoError(t, pool.Create(ctx, poolMember))
 
 	txManager := transaction.NewTrackingManager()
 	pool.txManager = txManager
 
-	alternatesPath, err := pool.locator.InfoAlternatesPath(poolMember)
+	alternatesPath, err := poolMember.InfoAlternatesPath()
 	require.NoError(t, err)
 	require.NoFileExists(t, alternatesPath)
 
@@ -70,10 +73,11 @@ func TestLink_transactional(t *testing.T) {
 func TestLinkRemoveBitmap(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, pool, testRepo := setupObjectPool(t, ctx)
+	cfg, pool, repoProto := setupObjectPool(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	require.NoError(t, pool.Init(ctx))
 
-	testRepoPath := filepath.Join(cfg.Storages[0].Path, testRepo.RelativePath)
+	testRepoPath := filepath.Join(cfg.Storages[0].Path, repo.GetRelativePath())
 
 	poolPath := pool.FullPath()
 	gittest.Exec(t, cfg, "-C", poolPath, "fetch", testRepoPath, "+refs/*:refs/*")
@@ -86,7 +90,7 @@ func TestLinkRemoveBitmap(t *testing.T) {
 
 	refsBefore := gittest.Exec(t, cfg, "-C", testRepoPath, "for-each-ref")
 
-	require.NoError(t, pool.Link(ctx, testRepo))
+	require.NoError(t, pool.Link(ctx, repo))
 
 	require.Len(t, listBitmaps(t, pool.FullPath()), 1, "pool bitmaps after")
 	require.Len(t, listBitmaps(t, testRepoPath), 0, "member bitmaps after")
@@ -114,21 +118,22 @@ func listBitmaps(t *testing.T, repoPath string) []string {
 func TestLinkAbsoluteLinkExists(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, pool, testRepo := setupObjectPool(t, ctx)
+	cfg, pool, repoProto := setupObjectPool(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	testRepoPath := filepath.Join(cfg.Storages[0].Path, testRepo.RelativePath)
+	testRepoPath := filepath.Join(cfg.Storages[0].Path, repo.GetRelativePath())
 
 	require.NoError(t, pool.Remove(ctx), "make sure pool does not exist prior to creation")
-	require.NoError(t, pool.Create(ctx, testRepo), "create pool")
+	require.NoError(t, pool.Create(ctx, repo), "create pool")
 
-	altPath, err := pool.locator.InfoAlternatesPath(testRepo)
+	altPath, err := repo.InfoAlternatesPath()
 	require.NoError(t, err)
 
 	fullPath := filepath.Join(pool.FullPath(), "objects")
 
 	require.NoError(t, os.WriteFile(altPath, []byte(fullPath), 0o644))
 
-	require.NoError(t, pool.Link(ctx, testRepo), "we expect this call to change the absolute link to a relative link")
+	require.NoError(t, pool.Link(ctx, repo), "we expect this call to change the absolute link to a relative link")
 
 	require.FileExists(t, altPath, "alternates file must exist after Link")
 
@@ -138,5 +143,5 @@ func TestLinkAbsoluteLinkExists(t *testing.T) {
 	testRepoObjectsPath := filepath.Join(testRepoPath, "objects")
 	require.Equal(t, fullPath, filepath.Join(testRepoObjectsPath, string(content)), "the content of the alternates file should be the relative version of the absolute pat")
 
-	require.True(t, gittest.RemoteExists(t, cfg, pool.FullPath(), "origin"), "pool remotes should include %v", testRepo)
+	require.True(t, gittest.RemoteExists(t, cfg, pool.FullPath(), "origin"), "pool remotes should include %v", repo)
 }

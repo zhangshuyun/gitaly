@@ -31,11 +31,13 @@ func (s *server) CreateObjectPool(ctx context.Context, in *gitalypb.CreateObject
 		return nil, err
 	}
 
+	origin := s.localrepo(in.GetOrigin())
+
 	if pool.Exists() {
 		return nil, status.Errorf(codes.FailedPrecondition, "pool already exists at: %v", pool.GetRelativePath())
 	}
 
-	if err := pool.Create(ctx, in.GetOrigin()); err != nil {
+	if err := pool.Create(ctx, origin); err != nil {
 		return nil, err
 	}
 

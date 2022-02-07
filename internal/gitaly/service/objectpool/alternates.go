@@ -12,6 +12,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -25,11 +26,11 @@ import (
 // in a broken state until an administrator intervenes and restores the
 // backed-up copy of objects/info/alternates.
 func (s *server) DisconnectGitAlternates(ctx context.Context, req *gitalypb.DisconnectGitAlternatesRequest) (*gitalypb.DisconnectGitAlternatesResponse, error) {
-	repo := req.Repository
-
-	if repo == nil {
+	if req.GetRepository() == nil {
 		return nil, helper.ErrInvalidArgument(errors.New("no repository"))
 	}
+
+	repo := s.localrepo(req.GetRepository())
 
 	if err := s.disconnectAlternates(ctx, repo); err != nil {
 		return nil, helper.ErrInternal(err)
@@ -38,13 +39,13 @@ func (s *server) DisconnectGitAlternates(ctx context.Context, req *gitalypb.Disc
 	return &gitalypb.DisconnectGitAlternatesResponse{}, nil
 }
 
-func (s *server) disconnectAlternates(ctx context.Context, repo *gitalypb.Repository) error {
-	repoPath, err := s.locator.GetRepoPath(repo)
+func (s *server) disconnectAlternates(ctx context.Context, repo *localrepo.Repo) error {
+	repoPath, err := repo.Path()
 	if err != nil {
 		return err
 	}
 
-	altFile, err := s.locator.InfoAlternatesPath(repo)
+	altFile, err := repo.InfoAlternatesPath()
 	if err != nil {
 		return err
 	}
@@ -170,7 +171,7 @@ func (e *invalidAlternatesError) Error() string {
 // middle of this function, the repo is left in a broken state. We do
 // take care to leave a copy of the alternates file, so that it can be
 // manually restored by an administrator if needed.
-func (s *server) removeAlternatesIfOk(ctx context.Context, repo *gitalypb.Repository, altFile, backupFile string) error {
+func (s *server) removeAlternatesIfOk(ctx context.Context, repo *localrepo.Repo, altFile, backupFile string) error {
 	if err := os.Rename(altFile, backupFile); err != nil {
 		return err
 	}
@@ -199,7 +200,7 @@ func (s *server) removeAlternatesIfOk(ctx context.Context, repo *gitalypb.Reposi
 		}
 	}()
 
-	cmd, err := s.gitCmdFactory.New(ctx, repo, git.SubCmd{
+	cmd, err := repo.Exec(ctx, git.SubCmd{
 		Name:  "fsck",
 		Flags: []git.Option{git.Flag{Name: "--connectivity-only"}},
 	}, git.WithConfig(git.ConfigPair{

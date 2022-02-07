@@ -49,11 +49,6 @@ func NewTestRepo(t testing.TB, cfg config.Cfg, repo repository.GitRepo, factoryO
 	return New(locator, gitCmdFactory, catfileCache, repo)
 }
 
-// Path returns the on-disk path of the repository.
-func (repo *Repo) Path() (string, error) {
-	return repo.locator.GetRepoPath(repo)
-}
-
 // Exec creates a git command with the given args and Repo, executed in the
 // Repo. It validates the arguments in the command before executing.
 func (repo *Repo) Exec(ctx context.Context, cmd git.Cmd, opts ...git.CmdOpt) (*command.Command, error) {

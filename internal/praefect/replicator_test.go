@@ -17,6 +17,7 @@ import (
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/objectpool"
 	gconfig "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
@@ -49,7 +50,8 @@ func TestMain(m *testing.M) {
 
 func TestReplMgr_ProcessBacklog(t *testing.T) {
 	t.Parallel()
-	primaryCfg, testRepo, testRepoPath := testcfg.BuildWithRepo(t, testcfg.WithStorages("primary"))
+	primaryCfg, testRepoProto, testRepoPath := testcfg.BuildWithRepo(t, testcfg.WithStorages("primary"))
+	testRepo := localrepo.NewTestRepo(t, primaryCfg, testRepoProto)
 	primaryCfg.SocketPath = testserver.RunGitalyServer(t, primaryCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 	testcfg.BuildGitalySSH(t, primaryCfg)
 	testcfg.BuildGitalyHooks(t, primaryCfg)
@@ -82,7 +84,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 		gittest.NewCommandFactory(t, primaryCfg),
 		nil,
 		transaction.NewManager(primaryCfg, backchannel.NewRegistry()),
-		testRepo.GetStorageName(),
+		testRepoProto.GetStorageName(),
 		objectPoolPath,
 	)
 	require.NoError(t, err)

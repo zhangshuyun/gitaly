@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/housekeeping"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -13,8 +14,8 @@ import (
 
 // repackIfNeeded uses a set of heuristics to determine whether the repository needs a
 // full repack and, if so, repacks it.
-func (s *server) repackIfNeeded(ctx context.Context, repository *gitalypb.Repository) error {
-	repoPath, err := s.locator.GetRepoPath(repository)
+func (s *server) repackIfNeeded(ctx context.Context, repo *localrepo.Repo, repoProto *gitalypb.Repository) error {
+	repoPath, err := repo.Path()
 	if err != nil {
 		return err
 	}
@@ -33,7 +34,7 @@ func (s *server) repackIfNeeded(ctx context.Context, repository *gitalypb.Reposi
 		return nil
 	}
 
-	altFile, err := s.locator.InfoAlternatesPath(repository)
+	altFile, err := repo.InfoAlternatesPath()
 	if err != nil {
 		return helper.ErrInternal(err)
 	}
@@ -47,7 +48,7 @@ func (s *server) repackIfNeeded(ctx context.Context, repository *gitalypb.Reposi
 	}
 
 	if _, err = s.RepackFull(ctx, &gitalypb.RepackFullRequest{
-		Repository:   repository,
+		Repository:   repoProto,
 		CreateBitmap: createBitMap,
 	}); err != nil {
 		return err
@@ -57,11 +58,11 @@ func (s *server) repackIfNeeded(ctx context.Context, repository *gitalypb.Reposi
 }
 
 func (s *server) optimizeRepository(ctx context.Context, repository *gitalypb.Repository) error {
-	if err := s.repackIfNeeded(ctx, repository); err != nil {
+	repo := s.localrepo(repository)
+
+	if err := s.repackIfNeeded(ctx, repo, repository); err != nil {
 		return fmt.Errorf("could not repack: %w", err)
 	}
-
-	repo := s.localrepo(repository)
 
 	if err := housekeeping.Perform(ctx, repo, s.txManager); err != nil {
 		return fmt.Errorf("could not execute houskeeping: %w", err)

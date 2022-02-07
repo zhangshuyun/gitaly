@@ -17,7 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
 // poolDirRegexp is used to validate object pool directory structure and name.
@@ -36,7 +35,6 @@ const ErrInvalidPoolDir errString = "invalid object pool directory"
 type ObjectPool struct {
 	Repo *localrepo.Repo
 
-	locator       storage.Locator
 	gitCmdFactory git.CommandFactory
 	txManager     transaction.Manager
 	storageName   string
@@ -67,7 +65,6 @@ func NewObjectPool(
 	}
 
 	pool := &ObjectPool{
-		locator:       locator,
 		gitCmdFactory: gitCmdFactory,
 		txManager:     txManager,
 		storageName:   storageName,
@@ -113,7 +110,7 @@ func (o *ObjectPool) IsValid() bool {
 
 // Create will create a pool for a repository and pull the required data to this
 // pool. `repo` that is passed also joins the repository.
-func (o *ObjectPool) Create(ctx context.Context, repo *gitalypb.Repository) (err error) {
+func (o *ObjectPool) Create(ctx context.Context, repo *localrepo.Repo) (err error) {
 	if err := o.clone(ctx, repo); err != nil {
 		return fmt.Errorf("clone: %v", err)
 	}
@@ -164,9 +161,9 @@ func FromRepo(
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
 	txManager transaction.Manager,
-	repo *gitalypb.Repository,
+	repo *localrepo.Repo,
 ) (*ObjectPool, error) {
-	dir, err := getAlternateObjectDir(locator, repo)
+	dir, err := getAlternateObjectDir(repo)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +172,7 @@ func FromRepo(
 		return nil, nil
 	}
 
-	repoPath, err := locator.GetPath(repo)
+	repoPath, err := repo.Path()
 	if err != nil {
 		return nil, err
 	}
@@ -198,8 +195,8 @@ var (
 
 // getAlternateObjectDir returns the entry in the objects/info/attributes file if it exists
 // it will only return the first line of the file if there are multiple lines.
-func getAlternateObjectDir(locator storage.Locator, repo *gitalypb.Repository) (string, error) {
-	altPath, err := locator.InfoAlternatesPath(repo)
+func getAlternateObjectDir(repo *localrepo.Repo) (string, error) {
+	altPath, err := repo.InfoAlternatesPath()
 	if err != nil {
 		return "", err
 	}
