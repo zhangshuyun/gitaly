@@ -138,10 +138,6 @@ type Config struct {
 	MemoryQueueEnabled  bool                `toml:"memory_queue_enabled,omitempty"`
 	GracefulStopTimeout config.Duration     `toml:"graceful_stop_timeout,omitempty"`
 	RepositoriesCleanup RepositoriesCleanup `toml:"repositories_cleanup,omitempty"`
-	// ForceCreateRepositories will enable force-creation of repositories in the
-	// coordinator when routing repository-scoped mutators. This must never be used
-	// outside of tests.
-	ForceCreateRepositories bool `toml:"force_create_repositories_for_testing_purposes,omitempty"`
 }
 
 // VirtualStorage represents a set of nodes for a storage

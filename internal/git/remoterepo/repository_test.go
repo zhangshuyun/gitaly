@@ -47,7 +47,7 @@ func TestRepository(t *testing.T) {
 			deps.GetTxManager(),
 			deps.GetCatfileCache(),
 		))
-	}, testserver.WithDisableMetadataForceCreation())
+	})
 
 	pool := client.NewPool()
 	defer pool.Close()

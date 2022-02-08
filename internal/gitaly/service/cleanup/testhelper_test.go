@@ -53,7 +53,7 @@ func runCleanupServiceServer(t *testing.T, cfg config.Cfg) string {
 			deps.GetConnsPool(),
 			deps.GetGit2goExecutor(),
 		))
-	}, testserver.WithDisableMetadataForceCreation())
+	})
 }
 
 func newCleanupServiceClient(t *testing.T, serverSocketPath string) (gitalypb.CleanupServiceClient, *grpc.ClientConn) {

@@ -24,8 +24,6 @@ func setupRemoteService(ctx context.Context, t *testing.T, opts ...testserver.Gi
 
 	cfg := testcfg.Build(t)
 
-	opts = append(opts, testserver.WithDisableMetadataForceCreation())
-
 	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
 			deps.GetLocator(),

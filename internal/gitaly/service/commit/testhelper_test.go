@@ -86,7 +86,7 @@ func startTestServices(t testing.TB, cfg config.Cfg) string {
 			deps.GetConnsPool(),
 			deps.GetGit2goExecutor(),
 		))
-	}, testserver.WithDisableMetadataForceCreation())
+	})
 }
 
 func newCommitServiceClient(t testing.TB, serviceSocketPath string) gitalypb.CommitServiceClient {
