@@ -38,6 +38,7 @@ type LimiterMiddleware struct {
 	acquiringSecondsMetric *prometheus.HistogramVec
 	inProgressMetric       *prometheus.GaugeVec
 	queuedMetric           *prometheus.GaugeVec
+	requestsDroppedMetric  *prometheus.CounterVec
 }
 
 // New creates a new rate limiter
@@ -73,6 +74,18 @@ func New(cfg config.Cfg, getLockKey GetLockKey) *LimiterMiddleware {
 			},
 			[]string{"system", "grpc_service", "grpc_method"},
 		),
+		requestsDroppedMetric: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "gitaly_requests_dropped_total",
+				Help: "Number of requests dropped from the queue",
+			},
+			[]string{
+				"system",
+				"grpc_service",
+				"grpc_method",
+				"reason",
+			},
+		),
 	}
 	middleware.methodLimiters = createLimiterConfig(middleware, cfg)
 	return middleware
@@ -88,6 +101,7 @@ func (c *LimiterMiddleware) Collect(metrics chan<- prometheus.Metric) {
 	c.acquiringSecondsMetric.Collect(metrics)
 	c.inProgressMetric.Collect(metrics)
 	c.queuedMetric.Collect(metrics)
+	c.requestsDroppedMetric.Collect(metrics)
 }
 
 // UnaryInterceptor returns a Unary Interceptor

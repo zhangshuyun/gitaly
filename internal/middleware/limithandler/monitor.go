@@ -17,6 +17,7 @@ type ConcurrencyMonitor interface {
 	Dequeued(ctx context.Context)
 	Enter(ctx context.Context, acquireTime time.Duration)
 	Exit(ctx context.Context)
+	Dropped(ctx context.Context, message string)
 }
 
 type nullConcurrencyMonitor struct{}
@@ -25,11 +26,13 @@ func (c *nullConcurrencyMonitor) Queued(ctx context.Context)                    
 func (c *nullConcurrencyMonitor) Dequeued(ctx context.Context)                         {}
 func (c *nullConcurrencyMonitor) Enter(ctx context.Context, acquireTime time.Duration) {}
 func (c *nullConcurrencyMonitor) Exit(ctx context.Context)                             {}
+func (c *nullConcurrencyMonitor) Dropped(ctx context.Context, reason string)           {}
 
 type promMonitor struct {
 	queuedMetric           prometheus.Gauge
 	inProgressMetric       prometheus.Gauge
 	acquiringSecondsMetric prometheus.Observer
+	requestsDroppedMetric  *prometheus.CounterVec
 }
 
 // newPromMonitor creates a new ConcurrencyMonitor that tracks limiter
@@ -41,6 +44,11 @@ func newPromMonitor(lh *LimiterMiddleware, system string, fullMethod string) Con
 		lh.queuedMetric.WithLabelValues(system, serviceName, methodName),
 		lh.inProgressMetric.WithLabelValues(system, serviceName, methodName),
 		lh.acquiringSecondsMetric.WithLabelValues(system, serviceName, methodName),
+		lh.requestsDroppedMetric.MustCurryWith(prometheus.Labels{
+			"system":       system,
+			"grpc_service": serviceName,
+			"grpc_method":  methodName,
+		}),
 	}
 }
 
@@ -65,6 +73,10 @@ func (c *promMonitor) Enter(ctx context.Context, acquireTime time.Duration) {
 
 func (c *promMonitor) Exit(ctx context.Context) {
 	c.inProgressMetric.Dec()
+}
+
+func (c *promMonitor) Dropped(ctx context.Context, reason string) {
+	c.requestsDroppedMetric.WithLabelValues(reason).Inc()
 }
 
 func splitMethodName(fullMethodName string) (string, string) {
