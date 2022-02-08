@@ -21,13 +21,15 @@ import (
 func TestCreateSubcommand(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	gitalyAddr := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
+	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll, testserver.WithDisableMetadataForceCreation())
 
+	ctx := testhelper.Context(t)
 	path := testhelper.TempDir(t)
 
 	var repos []*gitalypb.Repository
 	for i := 0; i < 5; i++ {
-		repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+		repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			Seed:         gittest.SeedGitLabTest,
 			RelativePath: fmt.Sprintf("repo-%d", i),
 		})
 		repos = append(repos, repo)
@@ -38,7 +40,7 @@ func TestCreateSubcommand(t *testing.T) {
 	encoder := json.NewEncoder(&stdin)
 	for _, repo := range repos {
 		require.NoError(t, encoder.Encode(map[string]string{
-			"address":         gitalyAddr,
+			"address":         cfg.SocketPath,
 			"token":           cfg.Auth.Token,
 			"storage_name":    repo.StorageName,
 			"relative_path":   repo.RelativePath,
@@ -56,7 +58,6 @@ func TestCreateSubcommand(t *testing.T) {
 
 	fs := flag.NewFlagSet("create", flag.ContinueOnError)
 	cmd.Flags(fs)
-	ctx := testhelper.Context(t)
 
 	require.NoError(t, fs.Parse([]string{"-path", path}))
 	require.EqualError(t,
