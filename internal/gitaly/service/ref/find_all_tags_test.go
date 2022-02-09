@@ -642,7 +642,12 @@ func TestFindAllTags_sorted(t *testing.T) {
 
 	require.NoError(t, repo.ExecAndWait(ctx, git.SubCmd{
 		Name: "tag",
-		Args: []string{"not-annotated", headCommit.Id},
+		Args: []string{"v1.2.0", headCommit.Id},
+	}, git.WithDisabledHooks()))
+
+	require.NoError(t, repo.ExecAndWait(ctx, git.SubCmd{
+		Name: "tag",
+		Args: []string{"v1.10.0", headCommit.Id},
 	}, git.WithDisabledHooks()))
 
 	for _, tc := range []struct {
@@ -654,33 +659,36 @@ func TestFindAllTags_sorted(t *testing.T) {
 			desc:   "by name",
 			sortBy: &gitalypb.FindAllTagsRequest_SortBy{Key: gitalypb.FindAllTagsRequest_SortBy_REFNAME},
 			exp: []string{
-				annotatedTagID.String(),
-				headCommit.Id,
-				"f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8",
-				"8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b",
-				"8f03acbcd11c53d9c9468078f32a2622005a4841",
+				"annotated",
+				"v1.0.0",
+				"v1.1.0",
+				"v1.1.1",
+				"v1.2.0",
+				"v1.10.0",
 			},
 		},
 		{
 			desc:   "by updated in ascending order",
 			sortBy: &gitalypb.FindAllTagsRequest_SortBy{Key: gitalypb.FindAllTagsRequest_SortBy_CREATORDATE, Direction: gitalypb.SortDirection_ASCENDING},
 			exp: []string{
-				"f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8",
-				"8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b",
-				headCommit.Id,
-				"8f03acbcd11c53d9c9468078f32a2622005a4841",
-				annotatedTagID.String(),
+				"v1.0.0",
+				"v1.1.0",
+				"v1.10.0",
+				"v1.2.0",
+				"v1.1.1",
+				"annotated",
 			},
 		},
 		{
 			desc:   "by updated in descending order",
 			sortBy: &gitalypb.FindAllTagsRequest_SortBy{Key: gitalypb.FindAllTagsRequest_SortBy_CREATORDATE, Direction: gitalypb.SortDirection_DESCENDING},
 			exp: []string{
-				annotatedTagID.String(),
-				"8f03acbcd11c53d9c9468078f32a2622005a4841",
-				headCommit.Id,
-				"8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b",
-				"f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8",
+				"annotated",
+				"v1.1.1",
+				"v1.10.0",
+				"v1.2.0",
+				"v1.1.0",
+				"v1.0.0",
 			},
 		},
 	} {
@@ -699,7 +707,7 @@ func TestFindAllTags_sorted(t *testing.T) {
 				}
 				require.NoError(t, err)
 				for _, tag := range r.GetTags() {
-					tags = append(tags, tag.Id)
+					tags = append(tags, string(tag.Name))
 				}
 			}
 
