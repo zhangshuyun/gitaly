@@ -125,7 +125,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 
 	repoPath, err := quarantineRepo.Path()
 	if err != nil {
-		return fmt.Errorf("get repo path: %w", err)
+		return err
 	}
 
 	remoteRepo := header.GetStartRepository()
