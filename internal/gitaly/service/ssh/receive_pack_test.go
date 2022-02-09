@@ -284,6 +284,7 @@ func TestReceivePackPushHookFailureWithCustomHook(t *testing.T) {
 
 	require.Contains(t, string(slurpErr), "remote: this is wrong")
 	require.Contains(t, string(slurpErr), "(pre-receive hook declined)")
+	require.NotContains(t, string(slurpErr), "final transactional vote: transaction was stopped")
 }
 
 func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
