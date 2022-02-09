@@ -473,19 +473,24 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 
 	db := testdb.New(t)
 
-	const relativePath = "relative-path"
+	const (
+		relativePath           = "relative-path"
+		additionalRelativePath = "additional-relative-path"
+		additionalReplicaPath  = "additional-replica-path"
+	)
 
 	for _, tc := range []struct {
-		desc                string
-		virtualStorage      string
-		healthyNodes        StaticHealthChecker
-		replicationFactor   int
-		primaryCandidates   int
-		primaryPick         int
-		secondaryCandidates int
-		repositoryExists    bool
-		matchRoute          matcher
-		error               error
+		desc                   string
+		virtualStorage         string
+		healthyNodes           StaticHealthChecker
+		replicationFactor      int
+		primaryCandidates      int
+		primaryPick            int
+		secondaryCandidates    int
+		repositoryExists       bool
+		additionalRelativePath string
+		matchRoute             matcher
+		error                  error
 	}{
 		{
 			desc:           "no healthy nodes",
@@ -499,17 +504,19 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 			error:          nodes.ErrVirtualStorageNotExist,
 		},
 		{
-			desc:              "no healthy secondaries",
-			virtualStorage:    "virtual-storage-1",
-			healthyNodes:      StaticHealthChecker{"virtual-storage-1": {"primary"}},
-			primaryCandidates: 1,
-			primaryPick:       0,
+			desc:                   "no healthy secondaries",
+			virtualStorage:         "virtual-storage-1",
+			healthyNodes:           StaticHealthChecker{"virtual-storage-1": {"primary"}},
+			primaryCandidates:      1,
+			primaryPick:            0,
+			additionalRelativePath: additionalRelativePath,
 			matchRoute: requireOneOf(
 				RepositoryMutatorRoute{
-					RepositoryID:       1,
-					ReplicaPath:        relativePath,
-					Primary:            RouterNode{Storage: "primary", Connection: primaryConn},
-					ReplicationTargets: []string{"secondary-1", "secondary-2"},
+					RepositoryID:          1,
+					ReplicaPath:           relativePath,
+					AdditionalReplicaPath: additionalReplicaPath,
+					Primary:               RouterNode{Storage: "primary", Connection: primaryConn},
+					ReplicationTargets:    []string{"secondary-1", "secondary-2"},
 				},
 			),
 		},
@@ -614,6 +621,18 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 			repositoryExists:  true,
 			error:             fmt.Errorf("reserve repository id: %w", commonerr.ErrRepositoryAlreadyExists),
 		},
+		{
+			desc:                   "additional repository doesn't exist",
+			virtualStorage:         "virtual-storage-1",
+			additionalRelativePath: "non-existent",
+			error: fmt.Errorf(
+				"resolve additional replica path: %w",
+				fmt.Errorf(
+					"get additional repository id: %w",
+					commonerr.NewRepositoryNotFoundError("virtual-storage-1", "non-existent"),
+				),
+			),
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx := testhelper.Context(t)
@@ -626,6 +645,8 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 					rs.CreateRepository(ctx, 1, "virtual-storage-1", relativePath, relativePath, "primary", nil, nil, true, true),
 				)
 			}
+
+			require.NoError(t, rs.CreateRepository(ctx, 2, "virtual-storage-1", additionalRelativePath, additionalReplicaPath, "primary", nil, nil, true, true))
 
 			route, err := NewPerRepositoryRouter(
 				Connections{
@@ -650,7 +671,7 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 				nil,
 				rs,
 				map[string]int{"virtual-storage-1": tc.replicationFactor},
-			).RouteRepositoryCreation(ctx, tc.virtualStorage, relativePath)
+			).RouteRepositoryCreation(ctx, tc.virtualStorage, relativePath, tc.additionalRelativePath)
 			if tc.error != nil {
 				require.Equal(t, tc.error, err)
 				return

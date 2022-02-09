@@ -165,7 +165,8 @@ func getReplicationDetails(methodName string, m proto.Message) (datastore.Change
 	switch methodName {
 	case "/gitaly.RepositoryService/RemoveRepository":
 		return datastore.DeleteRepo, nil, nil
-	case "/gitaly.RepositoryService/CreateFork",
+	case "/gitaly.ObjectPoolService/CreateObjectPool",
+		"/gitaly.RepositoryService/CreateFork",
 		"/gitaly.RepositoryService/CreateRepository",
 		"/gitaly.RepositoryService/CreateRepositoryFromBundle",
 		"/gitaly.RepositoryService/CreateRepositoryFromSnapshot",
@@ -475,21 +476,21 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 		return nil, fmt.Errorf("mutator call: replication details: %w", err)
 	}
 
+	var additionalRepoRelativePath string
+	if additionalRepo, ok, err := call.methodInfo.AdditionalRepo(call.msg); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
+	} else if ok {
+		additionalRepoRelativePath = additionalRepo.GetRelativePath()
+	}
+
 	var route RepositoryMutatorRoute
 	switch change {
 	case datastore.CreateRepo:
-		route, err = c.router.RouteRepositoryCreation(ctx, virtualStorage, targetRepo.RelativePath)
+		route, err = c.router.RouteRepositoryCreation(ctx, virtualStorage, targetRepo.RelativePath, additionalRepoRelativePath)
 		if err != nil {
 			return nil, fmt.Errorf("route repository creation: %w", err)
 		}
 	default:
-		var additionalRepoRelativePath string
-		if additionalRepo, ok, err := call.methodInfo.AdditionalRepo(call.msg); err != nil {
-			return nil, helper.ErrInvalidArgument(err)
-		} else if ok {
-			additionalRepoRelativePath = additionalRepo.GetRelativePath()
-		}
-
 		route, err = c.router.RouteRepositoryMutator(ctx, virtualStorage, targetRepo.RelativePath, additionalRepoRelativePath)
 		if err != nil {
 			if errors.Is(err, ErrRepositoryReadOnly) {

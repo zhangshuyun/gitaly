@@ -65,5 +65,5 @@ type Router interface {
 	RouteRepositoryMutator(ctx context.Context, virtualStorage, relativePath, additionalRepoRelativePath string) (RepositoryMutatorRoute, error)
 	// RouteRepositoryCreation decides returns the primary and secondaries that should handle the repository creation
 	// request. It is up to the caller to store the assignments and primary information after finishing the RPC.
-	RouteRepositoryCreation(ctx context.Context, virtualStorage, relativePath string) (RepositoryMutatorRoute, error)
+	RouteRepositoryCreation(ctx context.Context, virtualStorage, relativePath, additionalRepoRelativePath string) (RepositoryMutatorRoute, error)
 }

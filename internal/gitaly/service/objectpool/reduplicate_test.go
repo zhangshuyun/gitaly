@@ -13,8 +13,8 @@ import (
 )
 
 func TestReduplicate(t *testing.T) {
-	cfg, repoProto, repoPath, _, client := setup(t)
 	ctx := testhelper.Context(t)
+	cfg, repoProto, repoPath, _, client := setup(ctx, t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)

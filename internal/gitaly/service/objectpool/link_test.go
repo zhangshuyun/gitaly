@@ -18,8 +18,8 @@ import (
 )
 
 func TestLink(t *testing.T) {
-	cfg, repo, _, _, client := setup(t, testserver.WithDisablePraefect())
 	ctx := testhelper.Context(t)
+	cfg, repo, _, _, client := setup(ctx, t, testserver.WithDisablePraefect())
 
 	localRepo := localrepo.NewTestRepo(t, cfg, repo)
 
@@ -84,19 +84,22 @@ func TestLink(t *testing.T) {
 }
 
 func TestLinkIdempotent(t *testing.T) {
-	cfg, repoProto, _, _, client := setup(t)
 	ctx := testhelper.Context(t)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	cfg, repoProto, _, _, client := setup(ctx, t)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
-	require.NoError(t, pool.Create(ctx, repo))
+	_, err := client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
+		ObjectPool: pool.ToProto(),
+		Origin:     repoProto,
+	})
+	require.NoError(t, err)
 
 	request := &gitalypb.LinkRepositoryToObjectPoolRequest{
 		Repository: repoProto,
 		ObjectPool: pool.ToProto(),
 	}
 
-	_, err := client.LinkRepositoryToObjectPool(ctx, request)
+	_, err = client.LinkRepositoryToObjectPool(ctx, request)
 	require.NoError(t, err)
 
 	_, err = client.LinkRepositoryToObjectPool(ctx, request)
@@ -104,8 +107,8 @@ func TestLinkIdempotent(t *testing.T) {
 }
 
 func TestLinkNoClobber(t *testing.T) {
-	cfg, repoProto, repoPath, _, client := setup(t)
 	ctx := testhelper.Context(t)
+	cfg, repoProto, repoPath, _, client := setup(ctx, t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
@@ -130,18 +133,27 @@ func TestLinkNoClobber(t *testing.T) {
 }
 
 func TestLinkNoPool(t *testing.T) {
-	cfg, repo, _, locator, client := setup(t)
 	ctx := testhelper.Context(t)
+	cfg, repo, _, locator, client := setup(ctx, t)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
-	require.NoError(t, pool.Remove(ctx))
+	_, err := client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
+		ObjectPool: pool.ToProto(),
+		Origin:     repo,
+	})
+	require.NoError(t, err)
+
+	_, err = client.DeleteObjectPool(ctx, &gitalypb.DeleteObjectPoolRequest{
+		ObjectPool: pool.ToProto(),
+	})
+	require.NoError(t, err)
 
 	request := &gitalypb.LinkRepositoryToObjectPoolRequest{
 		Repository: repo,
 		ObjectPool: pool.ToProto(),
 	}
 
-	_, err := client.LinkRepositoryToObjectPool(ctx, request)
+	_, err = client.LinkRepositoryToObjectPool(ctx, request)
 	require.NoError(t, err)
 
 	poolRepoPath, err := locator.GetRepoPath(pool)

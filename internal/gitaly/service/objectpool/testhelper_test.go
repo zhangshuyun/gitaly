@@ -1,6 +1,7 @@
 package objectpool
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	hookservice "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/hook"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -27,24 +29,30 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-func setup(t *testing.T, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, storage.Locator, gitalypb.ObjectPoolServiceClient) {
+func setup(ctx context.Context, t *testing.T, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, storage.Locator, gitalypb.ObjectPoolServiceClient) {
 	t.Helper()
 
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
 
 	testcfg.BuildGitalyHooks(t, cfg)
 
 	locator := config.NewLocator(cfg)
-	addr := runObjectPoolServer(t, cfg, locator, testhelper.NewDiscardingLogger(t), opts...)
+	cfg.SocketPath = runObjectPoolServer(t, cfg, locator, testhelper.NewDiscardingLogger(t), opts...)
 
-	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	conn, err := grpc.Dial(cfg.SocketPath, grpc.WithInsecure())
 	require.NoError(t, err)
 	t.Cleanup(func() { testhelper.MustClose(t, conn) })
+
+	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
 
 	return cfg, repo, repoPath, locator, gitalypb.NewObjectPoolServiceClient(conn)
 }
 
 func runObjectPoolServer(t *testing.T, cfg config.Cfg, locator storage.Locator, logger *logrus.Logger, opts ...testserver.GitalyServerOpt) string {
+	opts = append(opts, testserver.WithDisableMetadataForceCreation())
+
 	return testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterObjectPoolServiceServer(srv, NewServer(
 			deps.GetLocator(),
@@ -56,6 +64,16 @@ func runObjectPoolServer(t *testing.T, cfg config.Cfg, locator storage.Locator, 
 			deps.GetHookManager(),
 			deps.GetGitCmdFactory(),
 			deps.GetPackObjectsCache(),
+		))
+		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
+			cfg,
+			deps.GetRubyServer(),
+			deps.GetLocator(),
+			deps.GetTxManager(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+			deps.GetConnsPool(),
+			deps.GetGit2goExecutor(),
 		))
 	}, append(opts, testserver.WithLocator(locator), testserver.WithLogger(logger))...)
 }
