@@ -31,7 +31,9 @@ func TestManager_Create(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 
-	gitalyAddr := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
+	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll, testserver.WithDisableMetadataForceCreation())
+
+	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc               string
@@ -43,8 +45,9 @@ func TestManager_Create(t *testing.T) {
 		{
 			desc: "no hooks",
 			setup: func(t testing.TB) *gitalypb.Repository {
-				noHooksRepo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+				noHooksRepo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
 					RelativePath: "no-hooks",
+					Seed:         gittest.SeedGitLabTest,
 				})
 				return noHooksRepo
 			},
@@ -54,8 +57,9 @@ func TestManager_Create(t *testing.T) {
 		{
 			desc: "hooks",
 			setup: func(t testing.TB) *gitalypb.Repository {
-				hooksRepo, hooksRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+				hooksRepo, hooksRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
 					RelativePath: "hooks",
+					Seed:         gittest.SeedGitLabTest,
 				})
 				require.NoError(t, os.Mkdir(filepath.Join(hooksRepoPath, "custom_hooks"), os.ModePerm))
 				require.NoError(t, os.WriteFile(filepath.Join(hooksRepoPath, "custom_hooks/pre-commit.sample"), []byte("Some hooks"), os.ModePerm))
@@ -67,7 +71,7 @@ func TestManager_Create(t *testing.T) {
 		{
 			desc: "empty repo",
 			setup: func(t testing.TB) *gitalypb.Repository {
-				emptyRepo, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
+				emptyRepo, _ := gittest.CreateRepository(ctx, t, cfg)
 				return emptyRepo
 			},
 			createsBundle:      false,
@@ -77,7 +81,7 @@ func TestManager_Create(t *testing.T) {
 		{
 			desc: "nonexistent repo",
 			setup: func(t testing.TB) *gitalypb.Repository {
-				emptyRepo, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
+				emptyRepo, _ := gittest.CreateRepository(ctx, t, cfg)
 				nonexistentRepo := proto.Clone(emptyRepo).(*gitalypb.Repository)
 				nonexistentRepo.RelativePath = "nonexistent"
 				return nonexistentRepo
@@ -94,7 +98,6 @@ func TestManager_Create(t *testing.T) {
 			refsPath := filepath.Join(path, repo.RelativePath, backupID, "001.refs")
 			bundlePath := filepath.Join(path, repo.RelativePath, backupID, "001.bundle")
 			customHooksPath := filepath.Join(path, repo.RelativePath, backupID, "001.custom_hooks.tar")
-			ctx := testhelper.Context(t)
 
 			pool := client.NewPool()
 			defer testhelper.MustClose(t, pool)
@@ -105,7 +108,7 @@ func TestManager_Create(t *testing.T) {
 
 			fsBackup := NewManager(sink, locator, pool, backupID)
 			err = fsBackup.Create(ctx, &CreateRequest{
-				Server:     storage.ServerInfo{Address: gitalyAddr, Token: cfg.Auth.Token},
+				Server:     storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
 				Repository: repo,
 			})
 			if tc.err == nil {
@@ -152,7 +155,8 @@ func TestManager_Create_incremental(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 
-	gitalyAddr := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
+	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll, testserver.WithDisableMetadataForceCreation())
+	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc              string
@@ -163,7 +167,10 @@ func TestManager_Create_incremental(t *testing.T) {
 		{
 			desc: "no previous backup",
 			setup: func(t testing.TB, backupRoot string) *gitalypb.Repository {
-				repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{RelativePath: "repo"})
+				repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					RelativePath: "repo",
+					Seed:         gittest.SeedGitLabTest,
+				})
 				return repo
 			},
 			expectedIncrement: "001",
@@ -171,7 +178,10 @@ func TestManager_Create_incremental(t *testing.T) {
 		{
 			desc: "previous backup, no updates",
 			setup: func(t testing.TB, backupRoot string) *gitalypb.Repository {
-				repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{RelativePath: "repo"})
+				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					RelativePath: "repo",
+					Seed:         gittest.SeedGitLabTest,
+				})
 
 				backupRepoPath := filepath.Join(backupRoot, repo.RelativePath)
 				backupPath := filepath.Join(backupRepoPath, backupID)
@@ -194,7 +204,10 @@ func TestManager_Create_incremental(t *testing.T) {
 		{
 			desc: "previous backup, updates",
 			setup: func(t testing.TB, backupRoot string) *gitalypb.Repository {
-				repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{RelativePath: "repo"})
+				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					RelativePath: "repo",
+					Seed:         gittest.SeedGitLabTest,
+				})
 
 				backupRepoPath := filepath.Join(backupRoot, repo.RelativePath)
 				backupPath := filepath.Join(backupRepoPath, backupID)
@@ -224,7 +237,6 @@ func TestManager_Create_incremental(t *testing.T) {
 			repoPath := filepath.Join(cfg.Storages[0].Path, repo.RelativePath)
 			refsPath := filepath.Join(path, repo.RelativePath, backupID, tc.expectedIncrement+".refs")
 			bundlePath := filepath.Join(path, repo.RelativePath, backupID, tc.expectedIncrement+".bundle")
-			ctx := testhelper.Context(t)
 
 			pool := client.NewPool()
 			defer testhelper.MustClose(t, pool)
@@ -235,7 +247,7 @@ func TestManager_Create_incremental(t *testing.T) {
 
 			fsBackup := NewManager(sink, locator, pool, backupID)
 			err = fsBackup.Create(ctx, &CreateRequest{
-				Server:      storage.ServerInfo{Address: gitalyAddr, Token: cfg.Auth.Token},
+				Server:      storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
 				Repository:  repo,
 				Incremental: true,
 			})
@@ -262,7 +274,7 @@ func TestManager_Restore(t *testing.T) {
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	gitalyAddr := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
+	gitalyAddr := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll, testserver.WithDisableMetadataForceCreation())
 	ctx := testhelper.Context(t)
 
 	testManagerRestore(t, ctx, cfg, gitalyAddr)
