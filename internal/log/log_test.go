@@ -445,3 +445,73 @@ func TestStreamLogDataCatcherServerInterceptor(t *testing.T) {
 func createContext() context.Context {
 	return context.Background()
 }
+
+func TestLogDeciderOption_logByRegexpMatch(t *testing.T) {
+	methodNames := []string{
+		"/grpc.health.v1.Health/Check",
+		"/gitaly.SmartHTTPService/InfoRefsUploadPack",
+		"/gitaly.SmartHTTPService/PostUploadPackWithSidechannel",
+	}
+	for _, tc := range []struct {
+		desc             string
+		skip             string
+		only             string
+		shouldLogMethods []string
+	}{
+		{
+			desc:             "default setting",
+			skip:             "",
+			only:             "",
+			shouldLogMethods: []string{"Check", "InfoRefsUploadPack", "PostUploadPackWithSidechannel"},
+		},
+		{
+			desc:             "only log Check",
+			skip:             "",
+			only:             "^/grpc.health.v1.Health/Check$",
+			shouldLogMethods: []string{"Check"},
+		},
+		{
+			desc:             "skip log Check",
+			skip:             "^/grpc.health.v1.Health/Check$",
+			only:             "",
+			shouldLogMethods: []string{"InfoRefsUploadPack", "PostUploadPackWithSidechannel"},
+		},
+		{
+			// If condition 'only' exists, ignore condition 'skip'
+			desc:             "only log Check and ignore skip setting",
+			skip:             "^/grpc.health.v1.Health/Check$",
+			only:             "^/grpc.health.v1.Health/Check$",
+			shouldLogMethods: []string{"Check"},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			require.NoError(t, os.Setenv("GITALY_LOG_REQUEST_METHOD_DENY_PATTERN", tc.skip))
+			defer func() { require.NoError(t, os.Unsetenv("GITALY_LOG_REQUEST_METHOD_DENY_PATTERN")) }()
+			require.NoError(t, os.Setenv("GITALY_LOG_REQUEST_METHOD_ALLOW_PATTERN", tc.only))
+			defer func() { require.NoError(t, os.Unsetenv("GITALY_LOG_REQUEST_METHOD_ALLOW_PATTERN")) }()
+
+			logger, hook := test.NewNullLogger()
+			interceptor := grpcmwlogrus.UnaryServerInterceptor(logrus.NewEntry(logger), DeciderOption())
+
+			ctx := createContext()
+			for _, methodName := range methodNames {
+				_, err := interceptor(
+					ctx,
+					nil,
+					&grpc.UnaryServerInfo{FullMethod: methodName},
+					func(ctx context.Context, req interface{}) (interface{}, error) {
+						return nil, nil
+					},
+				)
+				require.NoError(t, err)
+			}
+
+			entries := hook.AllEntries()
+			require.Len(t, entries, len(tc.shouldLogMethods))
+			for idx, entry := range entries {
+				require.Equal(t, entry.Message, "finished unary call with code OK")
+				require.Equal(t, entry.Data["grpc.method"], tc.shouldLogMethods[idx])
+			}
+		})
+	}
+}
