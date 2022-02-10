@@ -37,42 +37,42 @@ func TestManager_Create(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc               string
-		setup              func(t testing.TB) *gitalypb.Repository
+		setup              func(t testing.TB) (*gitalypb.Repository, string)
 		createsBundle      bool
 		createsCustomHooks bool
 		err                error
 	}{
 		{
 			desc: "no hooks",
-			setup: func(t testing.TB) *gitalypb.Repository {
-				noHooksRepo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			setup: func(t testing.TB) (*gitalypb.Repository, string) {
+				noHooksRepo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
 					RelativePath: "no-hooks",
 					Seed:         gittest.SeedGitLabTest,
 				})
-				return noHooksRepo
+				return noHooksRepo, repoPath
 			},
 			createsBundle:      true,
 			createsCustomHooks: false,
 		},
 		{
 			desc: "hooks",
-			setup: func(t testing.TB) *gitalypb.Repository {
+			setup: func(t testing.TB) (*gitalypb.Repository, string) {
 				hooksRepo, hooksRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
 					RelativePath: "hooks",
 					Seed:         gittest.SeedGitLabTest,
 				})
 				require.NoError(t, os.Mkdir(filepath.Join(hooksRepoPath, "custom_hooks"), os.ModePerm))
 				require.NoError(t, os.WriteFile(filepath.Join(hooksRepoPath, "custom_hooks/pre-commit.sample"), []byte("Some hooks"), os.ModePerm))
-				return hooksRepo
+				return hooksRepo, hooksRepoPath
 			},
 			createsBundle:      true,
 			createsCustomHooks: true,
 		},
 		{
 			desc: "empty repo",
-			setup: func(t testing.TB) *gitalypb.Repository {
-				emptyRepo, _ := gittest.CreateRepository(ctx, t, cfg)
-				return emptyRepo
+			setup: func(t testing.TB) (*gitalypb.Repository, string) {
+				emptyRepo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+				return emptyRepo, repoPath
 			},
 			createsBundle:      false,
 			createsCustomHooks: false,
@@ -80,11 +80,11 @@ func TestManager_Create(t *testing.T) {
 		},
 		{
 			desc: "nonexistent repo",
-			setup: func(t testing.TB) *gitalypb.Repository {
-				emptyRepo, _ := gittest.CreateRepository(ctx, t, cfg)
+			setup: func(t testing.TB) (*gitalypb.Repository, string) {
+				emptyRepo, repoPath := gittest.CreateRepository(ctx, t, cfg)
 				nonexistentRepo := proto.Clone(emptyRepo).(*gitalypb.Repository)
 				nonexistentRepo.RelativePath = "nonexistent"
-				return nonexistentRepo
+				return nonexistentRepo, repoPath
 			},
 			createsBundle:      false,
 			createsCustomHooks: false,
@@ -92,8 +92,7 @@ func TestManager_Create(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			repo := tc.setup(t)
-			repoPath := filepath.Join(cfg.Storages[0].Path, repo.RelativePath)
+			repo, repoPath := tc.setup(t)
 			path := testhelper.TempDir(t)
 			refsPath := filepath.Join(path, repo.RelativePath, backupID, "001.refs")
 			bundlePath := filepath.Join(path, repo.RelativePath, backupID, "001.bundle")
@@ -160,24 +159,24 @@ func TestManager_Create_incremental(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc              string
-		setup             func(t testing.TB, backupRoot string) *gitalypb.Repository
+		setup             func(t testing.TB, backupRoot string) (*gitalypb.Repository, string)
 		expectedIncrement string
 		expectedErr       error
 	}{
 		{
 			desc: "no previous backup",
-			setup: func(t testing.TB, backupRoot string) *gitalypb.Repository {
-				repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			setup: func(t testing.TB, backupRoot string) (*gitalypb.Repository, string) {
+				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
 					RelativePath: "repo",
 					Seed:         gittest.SeedGitLabTest,
 				})
-				return repo
+				return repo, repoPath
 			},
 			expectedIncrement: "001",
 		},
 		{
 			desc: "previous backup, no updates",
-			setup: func(t testing.TB, backupRoot string) *gitalypb.Repository {
+			setup: func(t testing.TB, backupRoot string) (*gitalypb.Repository, string) {
 				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
 					RelativePath: "repo",
 					Seed:         gittest.SeedGitLabTest,
@@ -197,13 +196,13 @@ func TestManager_Create_incremental(t *testing.T) {
 				require.NoError(t, os.WriteFile(filepath.Join(backupRepoPath, "LATEST"), []byte(backupID), os.ModePerm))
 				require.NoError(t, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("001"), os.ModePerm))
 
-				return repo
+				return repo, repoPath
 			},
 			expectedErr: fmt.Errorf("manager: write bundle: %w", fmt.Errorf("*backup.FilesystemSink write: %w: no changes to bundle", ErrSkipped)),
 		},
 		{
 			desc: "previous backup, updates",
-			setup: func(t testing.TB, backupRoot string) *gitalypb.Repository {
+			setup: func(t testing.TB, backupRoot string) (*gitalypb.Repository, string) {
 				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
 					RelativePath: "repo",
 					Seed:         gittest.SeedGitLabTest,
@@ -225,16 +224,15 @@ func TestManager_Create_incremental(t *testing.T) {
 
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 
-				return repo
+				return repo, repoPath
 			},
 			expectedIncrement: "002",
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			path := testhelper.TempDir(t)
-			repo := tc.setup(t, path)
+			repo, repoPath := tc.setup(t, path)
 
-			repoPath := filepath.Join(cfg.Storages[0].Path, repo.RelativePath)
 			refsPath := filepath.Join(path, repo.RelativePath, backupID, tc.expectedIncrement+".refs")
 			bundlePath := filepath.Join(path, repo.RelativePath, backupID, tc.expectedIncrement+".bundle")
 
