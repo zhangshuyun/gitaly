@@ -3,7 +3,9 @@ package log
 import (
 	"context"
 	"os"
+	"regexp"
 
+	grpcmwlogging "github.com/grpc-ecosystem/go-grpc-middleware/logging"
 	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
@@ -89,6 +91,48 @@ func Configure(loggers []*logrus.Logger, format string, level string) {
 			l.Formatter = formatter
 		}
 	}
+}
+
+// DeciderOption returns a Option to support log filtering.
+// If "GITALY_LOG_REQUEST_METHOD_DENY_PATTERN" ENV variable is set, logger will filter out the log whose "fullMethodName" matches it;
+// If "GITALY_LOG_REQUEST_METHOD_ALLOW_PATTERN" ENV variable is set, logger will only keep the log whose "fullMethodName" matches it;
+// Under any conditions, the error log will not be filtered out;
+// If the ENV variables are not set, there will be no additional effects.
+func DeciderOption() grpcmwlogrus.Option {
+	matcher := methodNameMatcherFromEnv()
+
+	if matcher == nil {
+		return grpcmwlogrus.WithDecider(grpcmwlogging.DefaultDeciderMethod)
+	}
+
+	decider := func(fullMethodName string, err error) bool {
+		if err != nil {
+			return true
+		}
+		return matcher(fullMethodName)
+	}
+
+	return grpcmwlogrus.WithDecider(decider)
+}
+
+func methodNameMatcherFromEnv() func(string) bool {
+	if pattern := os.Getenv("GITALY_LOG_REQUEST_METHOD_ALLOW_PATTERN"); pattern != "" {
+		methodRegex := regexp.MustCompile(pattern)
+
+		return func(fullMethodName string) bool {
+			return methodRegex.MatchString(fullMethodName)
+		}
+	}
+
+	if pattern := os.Getenv("GITALY_LOG_REQUEST_METHOD_DENY_PATTERN"); pattern != "" {
+		methodRegex := regexp.MustCompile(pattern)
+
+		return func(fullMethodName string) bool {
+			return !methodRegex.MatchString(fullMethodName)
+		}
+	}
+
+	return nil
 }
 
 func mapGrpcLogLevel(level logrus.Level) logrus.Level {
