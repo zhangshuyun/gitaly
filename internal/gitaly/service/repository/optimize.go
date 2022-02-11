@@ -68,7 +68,7 @@ func optimizeRepository(ctx context.Context, repo *localrepo.Repo, txManager tra
 		return fmt.Errorf("could not execute houskeeping: %w", err)
 	}
 
-	if err := cleanupWorktrees(ctx, repo); err != nil {
+	if err := housekeeping.CleanupWorktrees(ctx, repo); err != nil {
 		return fmt.Errorf("could not clean up worktrees: %w", err)
 	}
 

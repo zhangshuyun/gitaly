@@ -29,7 +29,7 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 
 	repo := s.localrepo(in.GetRepository())
 
-	if err := cleanupWorktrees(ctx, repo); err != nil {
+	if err := housekeeping.CleanupWorktrees(ctx, repo); err != nil {
 		return nil, err
 	}
 
