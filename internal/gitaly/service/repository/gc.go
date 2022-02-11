@@ -46,7 +46,7 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 		return nil, err
 	}
 
-	if err := writeCommitGraph(ctx, repo, gitalypb.WriteCommitGraphRequest_SizeMultiple); err != nil {
+	if err := housekeeping.WriteCommitGraph(ctx, repo); err != nil {
 		return nil, err
 	}
 
