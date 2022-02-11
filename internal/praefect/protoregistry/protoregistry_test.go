@@ -123,6 +123,7 @@ func TestNewProtoRegistry(t *testing.T) {
 			"GetRawChanges":                protoregistry.OpAccessor,
 			"GetSnapshot":                  protoregistry.OpAccessor,
 			"HasLocalBranches":             protoregistry.OpAccessor,
+			"OptimizeRepository":           protoregistry.OpMutator,
 			"RepackFull":                   protoregistry.OpMutator,
 			"RepackIncremental":            protoregistry.OpMutator,
 			"RepositoryExists":             protoregistry.OpAccessor,
