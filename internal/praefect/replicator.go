@@ -46,6 +46,8 @@ type Replicator interface {
 	MidxRepack(ctx context.Context, event datastore.ReplicationEvent, target *grpc.ClientConn) error
 	// OptimizeRepository will optimize the target repository
 	OptimizeRepository(ctx context.Context, event datastore.ReplicationEvent, target *grpc.ClientConn) error
+	// PruneUnreachableObjects prunes unreachable objects from the target repository
+	PruneUnreachableObjects(ctx context.Context, event datastore.ReplicationEvent, target *grpc.ClientConn) error
 }
 
 type defaultReplicator struct {
@@ -352,6 +354,23 @@ func (dr defaultReplicator) OptimizeRepository(ctx context.Context, event datast
 	repoSvcClient := gitalypb.NewRepositoryServiceClient(targetCC)
 
 	if _, err := repoSvcClient.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{
+		Repository: targetRepo,
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (dr defaultReplicator) PruneUnreachableObjects(ctx context.Context, event datastore.ReplicationEvent, targetCC *grpc.ClientConn) error {
+	targetRepo := &gitalypb.Repository{
+		StorageName:  event.Job.TargetNodeStorage,
+		RelativePath: event.Job.ReplicaPath,
+	}
+
+	repoSvcClient := gitalypb.NewRepositoryServiceClient(targetCC)
+
+	if _, err := repoSvcClient.PruneUnreachableObjects(ctx, &gitalypb.PruneUnreachableObjectsRequest{
 		Repository: targetRepo,
 	}); err != nil {
 		return err
@@ -840,6 +859,8 @@ func (r ReplMgr) processReplicationEvent(ctx context.Context, event datastore.Re
 		err = r.replicator.MidxRepack(ctx, event, targetCC)
 	case datastore.OptimizeRepository:
 		err = r.replicator.OptimizeRepository(ctx, event, targetCC)
+	case datastore.PruneUnreachableObjects:
+		err = r.replicator.PruneUnreachableObjects(ctx, event, targetCC)
 	default:
 		err = fmt.Errorf("unknown replication change type encountered: %q", event.Job.Change)
 	}

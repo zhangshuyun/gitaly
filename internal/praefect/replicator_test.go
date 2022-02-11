@@ -400,6 +400,9 @@ func TestReplicator_PropagateReplicationJob(t *testing.T) {
 	_, err = repositoryClient.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: repository})
 	require.NoError(t, err)
 
+	_, err = repositoryClient.PruneUnreachableObjects(ctx, &gitalypb.PruneUnreachableObjectsRequest{Repository: repository})
+	require.NoError(t, err)
+
 	_, err = refClient.PackRefs(ctx, &gitalypb.PackRefsRequest{
 		Repository: repository,
 	})
@@ -431,6 +434,9 @@ func TestReplicator_PropagateReplicationJob(t *testing.T) {
 	expectedPrimaryOptimizeRepository := &gitalypb.OptimizeRepositoryRequest{
 		Repository: primaryRepository,
 	}
+	expectedPruneUnreachableObjects := &gitalypb.PruneUnreachableObjectsRequest{
+		Repository: primaryRepository,
+	}
 	expectedPrimaryPackRefs := &gitalypb.PackRefsRequest{
 		Repository: primaryRepository,
 	}
@@ -445,6 +451,7 @@ func TestReplicator_PropagateReplicationJob(t *testing.T) {
 	waitForRequest(t, primaryServer.writeCommitGraphChan, expectedPrimaryWriteCommitGraph, 5*time.Second)
 	waitForRequest(t, primaryServer.midxRepackChan, expectedPrimaryMidxRepack, 5*time.Second)
 	waitForRequest(t, primaryServer.optimizeRepositoryChan, expectedPrimaryOptimizeRepository, 5*time.Second)
+	waitForRequest(t, primaryServer.pruneUnreachableObjectsChan, expectedPruneUnreachableObjects, 5*time.Second)
 	waitForRequest(t, primaryServer.packRefsChan, expectedPrimaryPackRefs, 5*time.Second)
 
 	secondaryRepository := &gitalypb.Repository{StorageName: secondaryStorage, RelativePath: repositoryRelativePath}
@@ -470,6 +477,9 @@ func TestReplicator_PropagateReplicationJob(t *testing.T) {
 	expectedSecondaryOptimizeRepository := expectedPrimaryOptimizeRepository
 	expectedSecondaryOptimizeRepository.Repository = secondaryRepository
 
+	expectedSecondaryPruneUnreachableObjects := expectedPruneUnreachableObjects
+	expectedSecondaryPruneUnreachableObjects.Repository = secondaryRepository
+
 	expectedSecondaryPackRefs := expectedPrimaryPackRefs
 	expectedSecondaryPackRefs.Repository = secondaryRepository
 
@@ -481,6 +491,7 @@ func TestReplicator_PropagateReplicationJob(t *testing.T) {
 	waitForRequest(t, secondaryServer.writeCommitGraphChan, expectedSecondaryWriteCommitGraph, 5*time.Second)
 	waitForRequest(t, secondaryServer.midxRepackChan, expectedSecondaryMidxRepack, 5*time.Second)
 	waitForRequest(t, secondaryServer.optimizeRepositoryChan, expectedSecondaryOptimizeRepository, 5*time.Second)
+	waitForRequest(t, secondaryServer.pruneUnreachableObjectsChan, expectedSecondaryPruneUnreachableObjects, 5*time.Second)
 	waitForRequest(t, secondaryServer.packRefsChan, expectedSecondaryPackRefs, 5*time.Second)
 	wg.Wait()
 	cancel()
@@ -488,7 +499,7 @@ func TestReplicator_PropagateReplicationJob(t *testing.T) {
 }
 
 type mockServer struct {
-	gcChan, repackFullChan, repackIncrChan, cleanupChan, writeCommitGraphChan, midxRepackChan, optimizeRepositoryChan, packRefsChan chan proto.Message
+	gcChan, repackFullChan, repackIncrChan, cleanupChan, writeCommitGraphChan, midxRepackChan, optimizeRepositoryChan, pruneUnreachableObjectsChan, packRefsChan chan proto.Message
 
 	gitalypb.UnimplementedRepositoryServiceServer
 	gitalypb.UnimplementedRefServiceServer
@@ -496,14 +507,15 @@ type mockServer struct {
 
 func newMockRepositoryServer() *mockServer {
 	return &mockServer{
-		gcChan:                 make(chan proto.Message),
-		repackFullChan:         make(chan proto.Message),
-		repackIncrChan:         make(chan proto.Message),
-		cleanupChan:            make(chan proto.Message),
-		writeCommitGraphChan:   make(chan proto.Message),
-		midxRepackChan:         make(chan proto.Message),
-		optimizeRepositoryChan: make(chan proto.Message),
-		packRefsChan:           make(chan proto.Message),
+		gcChan:                      make(chan proto.Message),
+		repackFullChan:              make(chan proto.Message),
+		repackIncrChan:              make(chan proto.Message),
+		cleanupChan:                 make(chan proto.Message),
+		writeCommitGraphChan:        make(chan proto.Message),
+		midxRepackChan:              make(chan proto.Message),
+		optimizeRepositoryChan:      make(chan proto.Message),
+		pruneUnreachableObjectsChan: make(chan proto.Message),
+		packRefsChan:                make(chan proto.Message),
 	}
 }
 
@@ -554,6 +566,13 @@ func (m *mockServer) OptimizeRepository(ctx context.Context, in *gitalypb.Optimi
 		m.optimizeRepositoryChan <- in
 	}()
 	return &gitalypb.OptimizeRepositoryResponse{}, nil
+}
+
+func (m *mockServer) PruneUnreachableObjects(ctx context.Context, in *gitalypb.PruneUnreachableObjectsRequest) (*gitalypb.PruneUnreachableObjectsResponse, error) {
+	go func() {
+		m.pruneUnreachableObjectsChan <- in
+	}()
+	return &gitalypb.PruneUnreachableObjectsResponse{}, nil
 }
 
 func (m *mockServer) PackRefs(ctx context.Context, in *gitalypb.PackRefsRequest) (*gitalypb.PackRefsResponse, error) {
