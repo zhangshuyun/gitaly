@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -210,7 +211,7 @@ func TestNeedsRepacking(t *testing.T) {
 		setup          func(t *testing.T) *gitalypb.Repository
 		expectedErr    error
 		expectedNeeded bool
-		expectedConfig repackCommandConfig
+		expectedConfig housekeeping.RepackObjectsConfig
 	}{
 		{
 			desc: "empty repo",
@@ -223,9 +224,9 @@ func TestNeedsRepacking(t *testing.T) {
 			// bitmap. It's a rather benign bug though: git-repack(1) will exit
 			// immediately because it knows that there's nothing to repack.
 			expectedNeeded: true,
-			expectedConfig: repackCommandConfig{
-				fullRepack:  true,
-				writeBitmap: true,
+			expectedConfig: housekeeping.RepackObjectsConfig{
+				FullRepack:  true,
+				WriteBitmap: true,
 			},
 		},
 		{
@@ -237,9 +238,9 @@ func TestNeedsRepacking(t *testing.T) {
 				return repoProto
 			},
 			expectedNeeded: true,
-			expectedConfig: repackCommandConfig{
-				fullRepack:  true,
-				writeBitmap: true,
+			expectedConfig: housekeeping.RepackObjectsConfig{
+				FullRepack:  true,
+				WriteBitmap: true,
 			},
 		},
 		{
@@ -256,9 +257,9 @@ func TestNeedsRepacking(t *testing.T) {
 				return repoProto
 			},
 			expectedNeeded: true,
-			expectedConfig: repackCommandConfig{
-				fullRepack:  true,
-				writeBitmap: false,
+			expectedConfig: housekeeping.RepackObjectsConfig{
+				FullRepack:  true,
+				WriteBitmap: false,
 			},
 		},
 		{
@@ -273,9 +274,9 @@ func TestNeedsRepacking(t *testing.T) {
 				return repoProto
 			},
 			expectedNeeded: true,
-			expectedConfig: repackCommandConfig{
-				fullRepack:  true,
-				writeBitmap: true,
+			expectedConfig: housekeeping.RepackObjectsConfig{
+				FullRepack:  true,
+				WriteBitmap: true,
 			},
 		},
 		{
@@ -291,9 +292,9 @@ func TestNeedsRepacking(t *testing.T) {
 				return repoProto
 			},
 			expectedNeeded: true,
-			expectedConfig: repackCommandConfig{
-				fullRepack:  true,
-				writeBitmap: true,
+			expectedConfig: housekeeping.RepackObjectsConfig{
+				FullRepack:  true,
+				WriteBitmap: true,
 			},
 		},
 		{
@@ -405,9 +406,9 @@ func TestNeedsRepacking(t *testing.T) {
 			repackNeeded, repackCfg, err := needsRepacking(repo)
 			require.NoError(t, err)
 			require.True(t, repackNeeded)
-			require.Equal(t, repackCommandConfig{
-				fullRepack:  true,
-				writeBitmap: true,
+			require.Equal(t, housekeeping.RepackObjectsConfig{
+				FullRepack:  true,
+				WriteBitmap: true,
 			}, repackCfg)
 		})
 	}
@@ -494,9 +495,9 @@ func TestNeedsRepacking(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedRepack, repackNeeded)
 			if tc.expectedRepack {
-				require.Equal(t, repackCommandConfig{
-					fullRepack:  false,
-					writeBitmap: false,
+				require.Equal(t, housekeeping.RepackObjectsConfig{
+					FullRepack:  false,
+					WriteBitmap: false,
 				}, repackCfg)
 			}
 		})

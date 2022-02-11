@@ -56,7 +56,7 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 }
 
 func (s *server) gc(ctx context.Context, in *gitalypb.GarbageCollectRequest) error {
-	config := append(repackConfig(ctx, in.CreateBitmap), git.ConfigPair{Key: "gc.writeCommitGraph", Value: "false"})
+	config := append(housekeeping.GetRepackGitConfig(ctx, in.CreateBitmap), git.ConfigPair{Key: "gc.writeCommitGraph", Value: "false"})
 
 	var flags []git.Option
 	if in.Prune {

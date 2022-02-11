@@ -105,22 +105,22 @@ func repackIfNeeded(ctx context.Context, repo *localrepo.Repo) (bool, error) {
 		return false, nil
 	}
 
-	if err := repack(ctx, repo, cfg); err != nil {
+	if err := housekeeping.RepackObjects(ctx, repo, cfg); err != nil {
 		return false, err
 	}
 
 	return true, nil
 }
 
-func needsRepacking(repo *localrepo.Repo) (bool, repackCommandConfig, error) {
+func needsRepacking(repo *localrepo.Repo) (bool, housekeeping.RepackObjectsConfig, error) {
 	repoPath, err := repo.Path()
 	if err != nil {
-		return false, repackCommandConfig{}, fmt.Errorf("getting repository path: %w", err)
+		return false, housekeeping.RepackObjectsConfig{}, fmt.Errorf("getting repository path: %w", err)
 	}
 
 	altFile, err := repo.InfoAlternatesPath()
 	if err != nil {
-		return false, repackCommandConfig{}, helper.ErrInternal(err)
+		return false, housekeeping.RepackObjectsConfig{}, helper.ErrInternal(err)
 	}
 
 	hasAlternate := true
@@ -130,7 +130,7 @@ func needsRepacking(repo *localrepo.Repo) (bool, repackCommandConfig, error) {
 
 	hasBitmap, err := stats.HasBitmap(repoPath)
 	if err != nil {
-		return false, repackCommandConfig{}, fmt.Errorf("checking for bitmap: %w", err)
+		return false, housekeeping.RepackObjectsConfig{}, fmt.Errorf("checking for bitmap: %w", err)
 	}
 
 	// Bitmaps are used to efficiently determine transitive reachability of objects from a
@@ -144,15 +144,15 @@ func needsRepacking(repo *localrepo.Repo) (bool, repackCommandConfig, error) {
 	// only use one bitmap. We already generate this bitmap in the pool, so member of it
 	// shouldn't have another bitmap on their own.
 	if !hasBitmap && !hasAlternate {
-		return true, repackCommandConfig{
-			fullRepack:  true,
-			writeBitmap: true,
+		return true, housekeeping.RepackObjectsConfig{
+			FullRepack:  true,
+			WriteBitmap: true,
 		}, nil
 	}
 
 	missingBloomFilters, err := stats.IsMissingBloomFilters(repoPath)
 	if err != nil {
-		return false, repackCommandConfig{}, fmt.Errorf("checking for bloom filters: %w", err)
+		return false, housekeeping.RepackObjectsConfig{}, fmt.Errorf("checking for bloom filters: %w", err)
 	}
 
 	// Bloom filters are part of the commit-graph and allow us to efficiently determine which
@@ -164,15 +164,15 @@ func needsRepacking(repo *localrepo.Repo) (bool, repackCommandConfig, error) {
 	// that happens we should update the commit-graph either if it's missing, when bloom filters
 	// are missing or when packfiles have been updated.
 	if missingBloomFilters {
-		return true, repackCommandConfig{
-			fullRepack:  true,
-			writeBitmap: !hasAlternate,
+		return true, housekeeping.RepackObjectsConfig{
+			FullRepack:  true,
+			WriteBitmap: !hasAlternate,
 		}, nil
 	}
 
 	largestPackfileSize, packfileCount, err := packfileSizeAndCount(repo)
 	if err != nil {
-		return false, repackCommandConfig{}, fmt.Errorf("checking largest packfile size: %w", err)
+		return false, housekeeping.RepackObjectsConfig{}, fmt.Errorf("checking largest packfile size: %w", err)
 	}
 
 	// Whenever we do an incremental repack we create a new packfile, and as a result Git may
@@ -203,15 +203,15 @@ func needsRepacking(repo *localrepo.Repo) (bool, repackCommandConfig, error) {
 	// This is a heuristic and thus imperfect by necessity. We may tune it as we gain experience
 	// with the way it behaves.
 	if int64(math.Max(5, math.Log(float64(largestPackfileSize))/math.Log(1.3))) < packfileCount {
-		return true, repackCommandConfig{
-			fullRepack:  true,
-			writeBitmap: !hasAlternate,
+		return true, housekeeping.RepackObjectsConfig{
+			FullRepack:  true,
+			WriteBitmap: !hasAlternate,
 		}, nil
 	}
 
 	looseObjectCount, err := estimateLooseObjectCount(repo)
 	if err != nil {
-		return false, repackCommandConfig{}, fmt.Errorf("estimating loose object count: %w", err)
+		return false, housekeeping.RepackObjectsConfig{}, fmt.Errorf("estimating loose object count: %w", err)
 	}
 
 	// Most Git commands do not write packfiles directly, but instead write loose objects into
@@ -228,13 +228,13 @@ func needsRepacking(repo *localrepo.Repo) (bool, repackCommandConfig, error) {
 	// In our case we typically want to ensure that our repositories are much better packed than
 	// it is necessary on the client side. We thus take a much stricter limit of 1024 objects.
 	if looseObjectCount > looseObjectLimit {
-		return true, repackCommandConfig{
-			fullRepack:  false,
-			writeBitmap: false,
+		return true, housekeeping.RepackObjectsConfig{
+			FullRepack:  false,
+			WriteBitmap: false,
 		}, nil
 	}
 
-	return false, repackCommandConfig{}, nil
+	return false, housekeeping.RepackObjectsConfig{}, nil
 }
 
 func packfileSizeAndCount(repo *localrepo.Repo) (int64, int64, error) {
