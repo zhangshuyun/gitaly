@@ -20,6 +20,10 @@ type ResolveCommand struct {
 // ResolveResult returns information about the successful merge and resolution
 type ResolveResult struct {
 	MergeResult
+
+	// Err is set if an error occurred. Err must exist on all gob serialized
+	// results so that any error can be returned.
+	Err error
 }
 
 // Resolve will attempt merging and resolving conflicts for the provided request
@@ -41,6 +45,10 @@ func (b *Executor) Resolve(ctx context.Context, repo repository.GitRepo, r Resol
 	var response ResolveResult
 	if err := gob.NewDecoder(stdout).Decode(&response); err != nil {
 		return ResolveResult{}, fmt.Errorf("resolve: %w", err)
+	}
+
+	if response.Err != nil {
+		return ResolveResult{}, response.Err
 	}
 
 	return response, nil
