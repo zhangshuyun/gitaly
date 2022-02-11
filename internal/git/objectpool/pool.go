@@ -9,8 +9,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
@@ -19,9 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 )
-
-// poolDirRegexp is used to validate object pool directory structure and name.
-var poolDirRegexp = regexp.MustCompile(`^@pools/([0-9a-f]{2})/([0-9a-f]{2})/([0-9a-f]{64})\.git$`)
 
 type errString string
 
@@ -62,8 +57,7 @@ func NewObjectPool(
 		return nil, err
 	}
 
-	matches := poolDirRegexp.FindStringSubmatch(relativePath)
-	if matches == nil || !strings.HasPrefix(matches[3], matches[1]+matches[2]) {
+	if !housekeeping.IsPoolPath(relativePath) {
 		return nil, ErrInvalidPoolDir
 	}
 
