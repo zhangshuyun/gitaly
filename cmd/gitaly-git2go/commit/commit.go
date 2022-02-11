@@ -8,7 +8,6 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"io"
 
 	git "github.com/libgit2/git2go/v33"
 	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/git2goutil"
@@ -16,14 +15,14 @@ import (
 )
 
 // Run runs the commit subcommand.
-func Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
+func Run(ctx context.Context, decoder *gob.Decoder, encoder *gob.Encoder) error {
 	var params git2go.CommitParams
-	if err := gob.NewDecoder(stdin).Decode(&params); err != nil {
+	if err := decoder.Decode(&params); err != nil {
 		return err
 	}
 
 	commitID, err := commit(ctx, params)
-	return gob.NewEncoder(stdout).Encode(git2go.Result{
+	return encoder.Encode(git2go.Result{
 		CommitID: commitID,
 		Err:      git2go.SerializableError(err),
 	})

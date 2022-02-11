@@ -9,7 +9,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 
 	git "github.com/libgit2/git2go/v33"
 	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/git2goutil"
@@ -25,13 +24,13 @@ func (cmd *conflictsSubcommand) Flags() *flag.FlagSet {
 	return flag.NewFlagSet("conflicts", flag.ExitOnError)
 }
 
-func (cmd *conflictsSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) error {
+func (cmd *conflictsSubcommand) Run(_ context.Context, decoder *gob.Decoder, encoder *gob.Encoder) error {
 	var request git2go.ConflictsCommand
-	if err := gob.NewDecoder(r).Decode(&request); err != nil {
+	if err := decoder.Decode(&request); err != nil {
 		return err
 	}
 	res := cmd.conflicts(request)
-	return gob.NewEncoder(w).Encode(res)
+	return encoder.Encode(res)
 }
 
 func (conflictsSubcommand) conflicts(request git2go.ConflictsCommand) git2go.ConflictsResult {

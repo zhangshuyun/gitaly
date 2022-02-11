@@ -5,9 +5,9 @@ package main
 
 import (
 	"context"
+	"encoding/gob"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 
 	git "github.com/libgit2/git2go/v33"
@@ -16,7 +16,7 @@ import (
 
 type subcmd interface {
 	Flags() *flag.FlagSet
-	Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error
+	Run(ctx context.Context, decoder *gob.Decoder, encoder *gob.Encoder) error
 }
 
 var subcommands = map[string]subcmd{
@@ -47,6 +47,9 @@ func main() {
 		fatalf("missing subcommand")
 	}
 
+	decoder := gob.NewDecoder(os.Stdin)
+	encoder := gob.NewEncoder(os.Stdout)
+
 	subcmd, ok := subcommands[flags.Arg(1)]
 	if !ok {
 		fatalf("unknown subcommand: %q", flags.Arg(1))
@@ -65,7 +68,7 @@ func main() {
 		fatalf("enable fsync: %s", err)
 	}
 
-	if err := subcmd.Run(context.Background(), os.Stdin, os.Stdout); err != nil {
+	if err := subcmd.Run(context.Background(), decoder, encoder); err != nil {
 		fatalf("%s: %s", subcmdFlags.Name(), err)
 	}
 }

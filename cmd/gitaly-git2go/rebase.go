@@ -9,7 +9,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 
 	git "github.com/libgit2/git2go/v33"
 	"gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go/git2goutil"
@@ -22,14 +21,14 @@ func (cmd *rebaseSubcommand) Flags() *flag.FlagSet {
 	return flag.NewFlagSet("rebase", flag.ExitOnError)
 }
 
-func (cmd *rebaseSubcommand) Run(ctx context.Context, r io.Reader, w io.Writer) error {
+func (cmd *rebaseSubcommand) Run(ctx context.Context, decoder *gob.Decoder, encoder *gob.Encoder) error {
 	var request git2go.RebaseCommand
-	if err := gob.NewDecoder(r).Decode(&request); err != nil {
+	if err := decoder.Decode(&request); err != nil {
 		return err
 	}
 
 	commitID, err := cmd.rebase(ctx, &request)
-	return gob.NewEncoder(w).Encode(git2go.Result{
+	return encoder.Encode(git2go.Result{
 		CommitID: commitID,
 		Err:      git2go.SerializableError(err),
 	})
