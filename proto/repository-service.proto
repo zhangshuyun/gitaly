@@ -222,7 +222,25 @@ service RepositoryService {
       op: MUTATOR
     };
   }
+
   rpc OptimizeRepository(OptimizeRepositoryRequest) returns (OptimizeRepositoryResponse) {
+    option (op_type)  = {
+      op: MUTATOR
+    };
+  }
+
+  // PruneUnreachableObjetcs will prune all objects which aren't reachable from
+  // the repository's current set of references. Because pruning can only
+  // happen for objects which aren't packed, you are required to first run
+  // OptimizeRepository to explode any unreachable objects into loose objects.
+  //
+  // Furthermore, this RPC call has a grace period of 30 minutes: any
+  // unreachable loose objects must not have been accessed or modified in the
+  // last 30 minutes. This is a hard requirement to avoid repository corruption.
+  //
+  // To make proper use of this RPC you thus need to call OptimizeRepository,
+  // wait 30 minutes, and then call PruneUnreachableObjects.
+  rpc PruneUnreachableObjects(PruneUnreachableObjectsRequest) returns (PruneUnreachableObjectsResponse) {
     option (op_type)  = {
       op: MUTATOR
     };
@@ -720,6 +738,17 @@ message OptimizeRepositoryRequest {
 }
 
 message OptimizeRepositoryResponse{}
+
+// PruneUnreachableObjectsRequest is a request for the PruneUnreachableObjects
+// RPC call.
+message PruneUnreachableObjectsRequest {
+  Repository repository = 1 [(target_repository)=true];
+}
+
+// PruneUnreachableObjectsResponse is a response for the
+// PruneUnreachableObjects RPC call.
+message PruneUnreachableObjectsResponse {
+}
 
 // SetFullPathRequest is a request for the SetFullPath RPC.
 message SetFullPathRequest {

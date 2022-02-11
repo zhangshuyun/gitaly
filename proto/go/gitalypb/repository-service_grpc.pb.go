@@ -72,6 +72,18 @@ type RepositoryServiceClient interface {
 	RenameRepository(ctx context.Context, in *RenameRepositoryRequest, opts ...grpc.CallOption) (*RenameRepositoryResponse, error)
 	ReplicateRepository(ctx context.Context, in *ReplicateRepositoryRequest, opts ...grpc.CallOption) (*ReplicateRepositoryResponse, error)
 	OptimizeRepository(ctx context.Context, in *OptimizeRepositoryRequest, opts ...grpc.CallOption) (*OptimizeRepositoryResponse, error)
+	// PruneUnreachableObjetcs will prune all objects which aren't reachable from
+	// the repository's current set of references. Because pruning can only
+	// happen for objects which aren't packed, you are required to first run
+	// OptimizeRepository to explode any unreachable objects into loose objects.
+	//
+	// Furthermore, this RPC call has a grace period of 30 minutes: any
+	// unreachable loose objects must not have been accessed or modified in the
+	// last 30 minutes. This is a hard requirement to avoid repository corruption.
+	//
+	// To make proper use of this RPC you thus need to call OptimizeRepository,
+	// wait 30 minutes, and then call PruneUnreachableObjects.
+	PruneUnreachableObjects(ctx context.Context, in *PruneUnreachableObjectsRequest, opts ...grpc.CallOption) (*PruneUnreachableObjectsResponse, error)
 	// SetFullPath writes the "gitlab.fullpath" configuration into the
 	// repository's gitconfig. This is mainly to help debugging purposes in case
 	// an admin inspects the repository's gitconfig such that he can easily see
@@ -742,6 +754,15 @@ func (c *repositoryServiceClient) OptimizeRepository(ctx context.Context, in *Op
 	return out, nil
 }
 
+func (c *repositoryServiceClient) PruneUnreachableObjects(ctx context.Context, in *PruneUnreachableObjectsRequest, opts ...grpc.CallOption) (*PruneUnreachableObjectsResponse, error) {
+	out := new(PruneUnreachableObjectsResponse)
+	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/PruneUnreachableObjects", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *repositoryServiceClient) SetFullPath(ctx context.Context, in *SetFullPathRequest, opts ...grpc.CallOption) (*SetFullPathResponse, error) {
 	out := new(SetFullPathResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/SetFullPath", in, out, opts...)
@@ -809,6 +830,18 @@ type RepositoryServiceServer interface {
 	RenameRepository(context.Context, *RenameRepositoryRequest) (*RenameRepositoryResponse, error)
 	ReplicateRepository(context.Context, *ReplicateRepositoryRequest) (*ReplicateRepositoryResponse, error)
 	OptimizeRepository(context.Context, *OptimizeRepositoryRequest) (*OptimizeRepositoryResponse, error)
+	// PruneUnreachableObjetcs will prune all objects which aren't reachable from
+	// the repository's current set of references. Because pruning can only
+	// happen for objects which aren't packed, you are required to first run
+	// OptimizeRepository to explode any unreachable objects into loose objects.
+	//
+	// Furthermore, this RPC call has a grace period of 30 minutes: any
+	// unreachable loose objects must not have been accessed or modified in the
+	// last 30 minutes. This is a hard requirement to avoid repository corruption.
+	//
+	// To make proper use of this RPC you thus need to call OptimizeRepository,
+	// wait 30 minutes, and then call PruneUnreachableObjects.
+	PruneUnreachableObjects(context.Context, *PruneUnreachableObjectsRequest) (*PruneUnreachableObjectsResponse, error)
 	// SetFullPath writes the "gitlab.fullpath" configuration into the
 	// repository's gitconfig. This is mainly to help debugging purposes in case
 	// an admin inspects the repository's gitconfig such that he can easily see
@@ -937,6 +970,9 @@ func (UnimplementedRepositoryServiceServer) ReplicateRepository(context.Context,
 }
 func (UnimplementedRepositoryServiceServer) OptimizeRepository(context.Context, *OptimizeRepositoryRequest) (*OptimizeRepositoryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method OptimizeRepository not implemented")
+}
+func (UnimplementedRepositoryServiceServer) PruneUnreachableObjects(context.Context, *PruneUnreachableObjectsRequest) (*PruneUnreachableObjectsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PruneUnreachableObjects not implemented")
 }
 func (UnimplementedRepositoryServiceServer) SetFullPath(context.Context, *SetFullPathRequest) (*SetFullPathResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetFullPath not implemented")
@@ -1715,6 +1751,24 @@ func _RepositoryService_OptimizeRepository_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RepositoryService_PruneUnreachableObjects_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PruneUnreachableObjectsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RepositoryServiceServer).PruneUnreachableObjects(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gitaly.RepositoryService/PruneUnreachableObjects",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RepositoryServiceServer).PruneUnreachableObjects(ctx, req.(*PruneUnreachableObjectsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _RepositoryService_SetFullPath_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SetFullPathRequest)
 	if err := dec(in); err != nil {
@@ -1843,6 +1897,10 @@ var RepositoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "OptimizeRepository",
 			Handler:    _RepositoryService_OptimizeRepository_Handler,
+		},
+		{
+			MethodName: "PruneUnreachableObjects",
+			Handler:    _RepositoryService_PruneUnreachableObjects_Handler,
 		},
 		{
 			MethodName: "SetFullPath",
