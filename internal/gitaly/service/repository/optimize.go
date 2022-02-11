@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
@@ -33,7 +34,7 @@ func (s *server) OptimizeRepository(ctx context.Context, in *gitalypb.OptimizeRe
 
 	repo := s.localrepo(in.GetRepository())
 
-	if err := s.optimizeRepository(ctx, repo); err != nil {
+	if err := optimizeRepository(ctx, repo, s.txManager); err != nil {
 		return nil, helper.ErrInternal(err)
 	}
 
@@ -53,7 +54,7 @@ func (s *server) validateOptimizeRepositoryRequest(in *gitalypb.OptimizeReposito
 	return nil
 }
 
-func (s *server) optimizeRepository(ctx context.Context, repo *localrepo.Repo) error {
+func optimizeRepository(ctx context.Context, repo *localrepo.Repo, txManager transaction.Manager) error {
 	optimizations := struct {
 		PackedObjects bool `json:"packed_objects"`
 		PrunedObjects bool `json:"pruned_objects"`
@@ -63,7 +64,7 @@ func (s *server) optimizeRepository(ctx context.Context, repo *localrepo.Repo) e
 		ctxlogrus.Extract(ctx).WithField("optimizations", optimizations).Info("optimized repository")
 	}()
 
-	if err := housekeeping.Perform(ctx, repo, s.txManager); err != nil {
+	if err := housekeeping.Perform(ctx, repo, txManager); err != nil {
 		return fmt.Errorf("could not execute houskeeping: %w", err)
 	}
 
