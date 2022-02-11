@@ -4,7 +4,7 @@ stages:
   - qa
 
 default:
-  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.31
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:debian-${DEBIAN_VERSION}-ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.33-postgresql-11
   tags:
     - gitlab-org
 
@@ -12,6 +12,7 @@ variables:
   DOCKER_DRIVER: overlay2
   SAST_DISABLE_DIND: "true"
   SAST_DEFAULT_ANALYZERS: "gosec"
+  DEBIAN_VERSION: "bullseye"
   # We use Gitaly's Git version by default.
   GIT_VERSION: "default"
   GO_VERSION: "1.17"
@@ -45,7 +46,7 @@ include:
     key:
       files:
         - ruby/Gemfile.lock
-      prefix: ruby-${RUBY_VERSION}
+      prefix: debian-${DEBIAN_VERSION}-ruby-${RUBY_VERSION}
     paths:
       - .ruby
     policy: pull
