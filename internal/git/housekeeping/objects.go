@@ -11,6 +11,12 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
 )
 
+const (
+	// looseObjectLimit is the limit of loose objects we accept both when doing incremental
+	// repacks and when pruning objects.
+	looseObjectLimit = 1024
+)
+
 // RepackObjectsConfig is configuration for RepackObjects.
 type RepackObjectsConfig struct {
 	// FullRepack determines whether all reachable objects should be repacked into a single

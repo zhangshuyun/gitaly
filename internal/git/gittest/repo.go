@@ -174,6 +174,8 @@ type InitRepoOpts struct {
 	// WithWorktree determines whether the resulting Git repository should have a worktree or
 	// not.
 	WithWorktree bool
+	// WithRelativePath determines the relative path of this repository.
+	WithRelativePath string
 }
 
 // InitRepo creates a new empty repository in the given storage. You can either pass no or exactly
@@ -186,7 +188,10 @@ func InitRepo(t testing.TB, cfg config.Cfg, storage config.Storage, opts ...Init
 		opt = opts[0]
 	}
 
-	relativePath := NewRepositoryName(t, !opt.WithWorktree)
+	relativePath := opt.WithRelativePath
+	if relativePath == "" {
+		relativePath = NewRepositoryName(t, !opt.WithWorktree)
+	}
 	repoPath := filepath.Join(storage.Path, relativePath)
 
 	args := []string{"init"}
