@@ -183,6 +183,112 @@ func TestPostgresReplicationEventQueue_Enqueue(t *testing.T) {
 	db.RequireRowsInTable(t, "replication_queue_job_lock", 0)
 }
 
+func TestPostgresReplicationEventQueue_Enqueue_triggerPopulatesColumns(t *testing.T) {
+	t.Parallel()
+	db := testdb.New(t)
+	ctx := testhelper.Context(t)
+
+	type action func(t *testing.T, tx *testdb.TxWrapper, event ReplicationEvent) ReplicationEvent
+
+	for _, tc := range []struct {
+		desc          string
+		job           ReplicationJob
+		beforeEnqueue action
+		afterEnqueue  action
+	}{
+		{
+			desc: "repository id embedded into the job",
+			job: ReplicationJob{
+				Change:            UpdateRepo,
+				RepositoryID:      1,
+				RelativePath:      "/project/path-1",
+				ReplicaPath:       "relative/project/path-1",
+				TargetNodeStorage: "gitaly-1",
+				SourceNodeStorage: "gitaly-0",
+				VirtualStorage:    "praefect",
+				Params:            nil,
+			},
+		},
+		{
+			desc: "repository id extracted from repositories table",
+			job: ReplicationJob{
+				Change:            RenameRepo,
+				RelativePath:      "/project/path-1",
+				ReplicaPath:       "relative/project/path-1",
+				TargetNodeStorage: "gitaly-1",
+				SourceNodeStorage: "gitaly-0",
+				VirtualStorage:    "praefect",
+				Params:            Params{"RelativePath": "new/path"},
+			},
+			beforeEnqueue: func(t *testing.T, tx *testdb.TxWrapper, event ReplicationEvent) ReplicationEvent {
+				const query = `
+					INSERT INTO repositories(virtual_storage, relative_path, generation, "primary", replica_path)
+					VALUES ($1, $2, $3, $4, $5)
+					RETURNING repository_id`
+				var repositoryID int64
+				err := tx.QueryRowContext(ctx, query, event.Job.VirtualStorage, event.Job.RelativePath, 1, event.Job.SourceNodeStorage, event.Job.ReplicaPath).
+					Scan(&repositoryID)
+				require.NoError(t, err, "create repository record to have it as a source of repository id")
+				return event
+			},
+			afterEnqueue: func(t *testing.T, tx *testdb.TxWrapper, event ReplicationEvent) ReplicationEvent {
+				const query = `SELECT repository_id FROM repositories WHERE virtual_storage = $1 AND relative_path = $2`
+				err := tx.QueryRowContext(ctx, query, event.Job.VirtualStorage, event.Job.RelativePath).
+					Scan(&event.Job.RepositoryID)
+				require.NoError(t, err, "create repository record to have it as a source of repository id")
+				return event
+			},
+		},
+		{
+			desc: "repository id doesn't exist",
+			job: ReplicationJob{
+				Change:            RenameRepo,
+				RelativePath:      "/project/path-1",
+				ReplicaPath:       "relative/project/path-1",
+				TargetNodeStorage: "gitaly-1",
+				SourceNodeStorage: "gitaly-0",
+				VirtualStorage:    "praefect",
+				Params:            Params{"RelativePath": "new/path"},
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			tx := db.Begin(t)
+			defer tx.Rollback(t)
+
+			queue := NewPostgresReplicationEventQueue(tx)
+			event := ReplicationEvent{Job: tc.job}
+			if tc.beforeEnqueue != nil {
+				event = tc.beforeEnqueue(t, tx, event)
+			}
+			enqueued, err := queue.Enqueue(ctx, event)
+			require.NoError(t, err)
+
+			if tc.afterEnqueue != nil {
+				enqueued = tc.afterEnqueue(t, tx, enqueued)
+			}
+
+			job := extractReplicationJob(t, ctx, tx, enqueued.ID)
+			require.Equal(t, enqueued.Job, job)
+		})
+	}
+}
+
+func extractReplicationJob(t *testing.T, ctx context.Context, tx *testdb.TxWrapper, id uint64) ReplicationJob {
+	t.Helper()
+	const selectJob = `
+			SELECT
+			       change, repository_id, replica_path, relative_path, target_node_storage,
+			       source_node_storage, virtual_storage, params
+			FROM replication_queue WHERE id = $1`
+	var job ReplicationJob
+	require.NoError(t, tx.QueryRowContext(ctx, selectJob, id).Scan(
+		&job.Change, &job.RepositoryID, &job.ReplicaPath, &job.RelativePath, &job.TargetNodeStorage,
+		&job.SourceNodeStorage, &job.VirtualStorage, &job.Params,
+	))
+	return job
+}
+
 func TestPostgresReplicationEventQueue_DeleteReplicaInfiniteAttempts(t *testing.T) {
 	t.Parallel()
 	queue := NewPostgresReplicationEventQueue(testdb.New(t))
