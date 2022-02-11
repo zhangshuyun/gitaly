@@ -25,7 +25,6 @@ func Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
 	commitID, err := commit(ctx, params)
 	return gob.NewEncoder(stdout).Encode(git2go.Result{
 		CommitID: commitID,
-		Error:    git2go.SerializableError(err), // Set both fields for backwards compatibility.
 		Err:      git2go.SerializableError(err),
 	})
 }

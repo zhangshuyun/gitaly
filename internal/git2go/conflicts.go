@@ -58,10 +58,6 @@ func (e ConflictError) Error() string {
 type ConflictsResult struct {
 	// Conflicts
 	Conflicts []Conflict
-	// Error is an optional conflict error
-	//
-	// Deprecated: Use Err instead. Error clashes with the Result error field.
-	Error ConflictError
 	// Err is set if an error occurred. Err must exist on all gob serialized
 	// results so that any error can be returned.
 	//
@@ -100,9 +96,6 @@ func (b *Executor) Conflicts(ctx context.Context, repo repository.GitRepo, c Con
 		return ConflictsResult{}, result.Err
 	}
 
-	if result.Error.Code != codes.OK {
-		return ConflictsResult{}, status.Error(result.Error.Code, result.Error.Message)
-	}
 	return result, nil
 }
 

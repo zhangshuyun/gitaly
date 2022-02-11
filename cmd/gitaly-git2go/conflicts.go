@@ -160,8 +160,7 @@ func conflictError(code codes.Code, message string) git2go.ConflictsResult {
 		Message: message,
 	}
 	return git2go.ConflictsResult{
-		Error: err, // Set both fields for backwards compatibility.
-		Err:   err,
+		Err: err,
 	}
 }
 

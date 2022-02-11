@@ -38,7 +38,6 @@ func (cmd *mergeSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) err
 
 	return gob.NewEncoder(w).Encode(git2go.Result{
 		CommitID: commitID,
-		Error:    git2go.SerializableError(err), // Set both fields for backwards compatibility.
 		Err:      git2go.SerializableError(err),
 	})
 }
