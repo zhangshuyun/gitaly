@@ -3,12 +3,13 @@ package repository
 import (
 	"bytes"
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -133,10 +134,10 @@ func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
 	targetRepo := proto.Clone(sourceRepo).(*gitalypb.Repository)
 	targetRepo.StorageName = cfg.Storages[1].Name
 
-	votes := int32(0)
+	var votes []string
 	txServer := testTransactionServer{
 		vote: func(request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
-			atomic.AddInt32(&votes, 1)
+			votes = append(votes, hex.EncodeToString(request.ReferenceUpdatesHash))
 			return &gitalypb.VoteTransactionResponse{
 				State: gitalypb.VoteTransactionResponse_COMMIT,
 			}, nil
@@ -165,13 +166,35 @@ func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
 	})
 	require.NoError(t, err)
 
-	require.EqualValues(t, 6, atomic.LoadInt32(&votes))
+	// There is no gitattributes file, so we vote on the empty contents of that file.
+	gitattributesVote := sha1.Sum([]byte{})
+	// There is a gitconfig though, so the vote should reflect its contents.
+	gitconfigVote := sha1.Sum(testhelper.MustReadFile(t, filepath.Join(sourceRepoPath, "config")))
+
+	require.Equal(t, []string{
+		// We cannot easily derive these first two votes: they are based on the complete
+		// hashed contents of the unpacked repository. We thus just only assert that they
+		// are always the first two entries and that they are the same by simply taking the
+		// first vote twice here.
+		votes[0],
+		votes[0],
+		hex.EncodeToString(gitconfigVote[:]),
+		hex.EncodeToString(gitconfigVote[:]),
+		hex.EncodeToString(gitattributesVote[:]),
+		hex.EncodeToString(gitattributesVote[:]),
+	}, votes)
+
+	// We're about to change refs/heads/master, and thus the mirror-fetch will update it. The
+	// vote should reflect that.
+	oldOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", sourceRepoPath, "rev-parse", "refs/heads/master"))
+	newOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", sourceRepoPath, "rev-parse", "refs/heads/master~"))
+	replicationVote := sha1.Sum([]byte(fmt.Sprintf("%[1]s %[2]s refs/heads/master\n%[1]s %[2]s HEAD\n", oldOID, newOID)))
 
 	// We're now changing a reference in the source repository such that we can observe changes
 	// in the target repo.
 	gittest.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", "refs/heads/master", "refs/heads/master~")
 
-	atomic.StoreInt32(&votes, 0)
+	votes = nil
 
 	// And the second invocation uses FetchInternalRemote.
 	_, err = client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
@@ -179,7 +202,14 @@ func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
 		Source:     sourceRepo,
 	})
 	require.NoError(t, err)
-	require.EqualValues(t, 6, atomic.LoadInt32(&votes))
+	require.Equal(t, []string{
+		hex.EncodeToString(gitconfigVote[:]),
+		hex.EncodeToString(gitconfigVote[:]),
+		hex.EncodeToString(gitattributesVote[:]),
+		hex.EncodeToString(gitattributesVote[:]),
+		hex.EncodeToString(replicationVote[:]),
+		hex.EncodeToString(replicationVote[:]),
+	}, votes)
 }
 
 func TestReplicateRepositoryInvalidArguments(t *testing.T) {

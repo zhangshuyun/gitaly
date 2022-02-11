@@ -25,7 +25,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
-	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -74,28 +73,18 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 		return nil, helper.ErrNotFoundf("source repository does not exist")
 	}
 
-	// We're not using the context of the errgroup here, as an error
-	// returned by either of the called functions would cancel the
-	// respective other function. Given that we're doing RPC calls in
-	// them, cancellation of the calls would mean that the remote side
-	// may still modify the repository even though the local side has
-	// returned already.
-	g, _ := errgroup.WithContext(ctx)
 	outgoingCtx := metadata.IncomingToOutgoing(ctx)
 
-	syncFuncs := []func(context.Context, *gitalypb.ReplicateRepositoryRequest) error{
-		s.syncGitconfig,
-		s.syncInfoAttributes,
-		s.syncRepository,
+	if err := s.syncGitconfig(outgoingCtx, in); err != nil {
+		return nil, helper.ErrInternalf("synchronizing gitconfig: %w", err)
 	}
 
-	for _, f := range syncFuncs {
-		f := f // rescoping f
-		g.Go(func() error { return f(outgoingCtx, in) })
+	if err := s.syncInfoAttributes(outgoingCtx, in); err != nil {
+		return nil, helper.ErrInternalf("synchronizing gitattributes: %w", err)
 	}
 
-	if err := g.Wait(); err != nil {
-		return nil, helper.ErrInternal(err)
+	if err := s.syncRepository(outgoingCtx, in); err != nil {
+		return nil, helper.ErrInternalf("synchronizing repository: %w", err)
 	}
 
 	return &gitalypb.ReplicateRepositoryResponse{}, nil
