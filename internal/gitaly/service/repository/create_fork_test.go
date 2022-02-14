@@ -186,7 +186,6 @@ func TestCreateFork_targetExists(t *testing.T) {
 	for _, tc := range []struct {
 		desc                          string
 		seed                          func(t *testing.T, targetPath string)
-		expectedErr                   error
 		expectedErrWithAtomicCreation error
 	}{
 		{
@@ -206,7 +205,6 @@ func TestCreateFork_targetExists(t *testing.T) {
 					0o644,
 				))
 			},
-			expectedErr:                   helper.ErrInvalidArgumentf("CreateFork: destination directory is not empty"),
 			expectedErrWithAtomicCreation: helper.ErrAlreadyExistsf("creating fork: repository exists already"),
 		},
 		{
@@ -215,7 +213,6 @@ func TestCreateFork_targetExists(t *testing.T) {
 				require.NoError(t, os.MkdirAll(filepath.Dir(targetPath), 0o770))
 				require.NoError(t, os.WriteFile(targetPath, nil, 0o644))
 			},
-			expectedErr:                   helper.ErrInvalidArgumentf("CreateFork: destination path exists"),
 			expectedErrWithAtomicCreation: helper.ErrAlreadyExistsf("creating fork: repository exists already"),
 		},
 	} {
