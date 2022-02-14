@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/migrations"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 )
 
@@ -399,5 +400,29 @@ func WaitForBlockedQuery(ctx context.Context, t testing.TB, db glsql.Querier, qu
 			return
 		case <-retry.C:
 		}
+	}
+}
+
+// SetMigrations ensures the requested number of migrations are up and the remainder are down.
+func SetMigrations(t testing.TB, db DB, cfg config.Config, up int) {
+	// Ensure all migrations are up first
+	_, err := glsql.Migrate(db.DB, true)
+	require.NoError(t, err)
+
+	migrationCt := len(migrations.All())
+
+	if up < migrationCt {
+		down := migrationCt - up
+
+		migrationSet := migrate.MigrationSet{
+			TableName: migrations.MigrationTableName,
+		}
+		ms := &migrate.MemoryMigrationSource{Migrations: migrations.All()}
+
+		// It would be preferable to use migrate.MigrateDown() here, but that introduces
+		// a circular dependency between testdb and datastore.
+		n, err := migrationSet.ExecMax(db.DB, "postgres", ms, migrate.Down, down)
+		require.NoError(t, err)
+		require.Equal(t, down, n)
 	}
 }

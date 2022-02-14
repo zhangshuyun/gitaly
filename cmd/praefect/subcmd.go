@@ -33,7 +33,7 @@ const (
 
 var subcommands = map[string]subcmd{
 	sqlPingCmdName:                &sqlPingSubcommand{},
-	sqlMigrateCmdName:             &sqlMigrateSubcommand{},
+	sqlMigrateCmdName:             newSQLMigrateSubCommand(os.Stdout),
 	dialNodesCmdName:              newDialNodesSubcommand(os.Stdout),
 	sqlMigrateDownCmdName:         &sqlMigrateDownSubcommand{},
 	sqlMigrateStatusCmdName:       &sqlMigrateStatusSubcommand{},
