@@ -1632,6 +1632,7 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	anyErr := errors.New("arbitrary error")
+	grpcErr := status.Error(codes.Internal, "arbitrary gRPC error")
 
 	for _, tc := range []struct {
 		desc                   string
@@ -1666,10 +1667,17 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			subtransactions: 1,
 		},
 		{
-			desc: "single erred node",
+			desc: "single node with standard error",
 			primary: node{
 				name: "primary",
 				err:  anyErr,
+			},
+		},
+		{
+			desc: "single node with gRPC error",
+			primary: node{
+				name: "primary",
+				err:  grpcErr,
 			},
 		},
 		{
@@ -1706,7 +1714,7 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			subtransactions: 1,
 		},
 		{
-			desc: "single erred node with replica",
+			desc: "single node with standard error with replica",
 			primary: node{
 				name:  "primary",
 				state: transactions.VoteCommitted,
@@ -1724,11 +1732,40 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			},
 		},
 		{
-			desc: "single erred node without commit with replica",
+			desc: "single node with gRPC error with replica",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteCommitted,
+				err:   grpcErr,
+			},
+			replicas: []string{"replica"},
+			didVote: map[string]bool{
+				"primary": true,
+			},
+			subtransactions:        1,
+			expectedPrimaryDirtied: true,
+			expectedOutdated:       []string{"replica"},
+			expectedMetrics: map[string]int{
+				"outdated": 1,
+			},
+		},
+		{
+			desc: "single node with standard error without commit with replica",
 			primary: node{
 				name:  "primary",
 				state: transactions.VoteCommitted,
 				err:   anyErr,
+			},
+			replicas:               []string{"replica"},
+			subtransactions:        1,
+			expectedPrimaryDirtied: false,
+		},
+		{
+			desc: "single node with gRPC error without commit with replica",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteCommitted,
+				err:   grpcErr,
 			},
 			replicas:               []string{"replica"},
 			subtransactions:        1,
@@ -1789,7 +1826,28 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			},
 		},
 		{
-			desc: "multiple committed nodes with same error as primary",
+			desc: "multiple committed nodes with primary gRPC err",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteCommitted,
+				err:   grpcErr,
+			},
+			secondaries: []node{
+				{name: "s1", state: transactions.VoteCommitted},
+				{name: "s2", state: transactions.VoteCommitted},
+			},
+			didVote: map[string]bool{
+				"primary": true,
+			},
+			subtransactions:        1,
+			expectedPrimaryDirtied: true,
+			expectedOutdated:       []string{"s1", "s2"},
+			expectedMetrics: map[string]int{
+				"node-error-status": 2,
+			},
+		},
+		{
+			desc: "multiple committed nodes with same standard error as primary",
 			primary: node{
 				name:  "primary",
 				state: transactions.VoteCommitted,
@@ -1810,15 +1868,108 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			},
 		},
 		{
+			desc: "multiple committed nodes with same gRPC error as primary",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteCommitted,
+				err:   grpcErr,
+			},
+			secondaries: []node{
+				{name: "s1", state: transactions.VoteCommitted, err: grpcErr},
+				{name: "s2", state: transactions.VoteCommitted, err: grpcErr},
+			},
+			didVote: map[string]bool{
+				"primary": true,
+			},
+			subtransactions:        1,
+			expectedPrimaryDirtied: true,
+			expectedUpdated:        []string{"s1", "s2"},
+			expectedMetrics: map[string]int{
+				"updated": 2,
+			},
+		},
+		{
+			desc: "committed node with same generated error code and message",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteCommitted,
+				err:   status.Error(codes.Internal, "some error"),
+			},
+			secondaries: []node{
+				{
+					name:  "s1",
+					state: transactions.VoteCommitted,
+					err:   status.Error(codes.Internal, "some error"),
+				},
+			},
+			didVote: map[string]bool{
+				"primary": true,
+			},
+			subtransactions:        1,
+			expectedPrimaryDirtied: true,
+			expectedOutdated:       []string{"s1"},
+			expectedMetrics: map[string]int{
+				"node-error-status": 1,
+			},
+		},
+		{
+			desc: "committed node with different generated error code",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteCommitted,
+				err:   status.Error(codes.Internal, "some error"),
+			},
+			secondaries: []node{
+				{
+					name:  "s1",
+					state: transactions.VoteCommitted,
+					err:   status.Error(codes.FailedPrecondition, "some error"),
+				},
+			},
+			didVote: map[string]bool{
+				"primary": true,
+			},
+			subtransactions:        1,
+			expectedPrimaryDirtied: true,
+			expectedOutdated:       []string{"s1"},
+			expectedMetrics: map[string]int{
+				"node-error-status": 1,
+			},
+		},
+		{
+			desc: "committed node with different generated error message",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteCommitted,
+				err:   status.Error(codes.Internal, "some error"),
+			},
+			secondaries: []node{
+				{
+					name:  "s1",
+					state: transactions.VoteCommitted,
+					err:   status.Error(codes.Internal, "different error"),
+				},
+			},
+			didVote: map[string]bool{
+				"primary": true,
+			},
+			subtransactions:        1,
+			expectedPrimaryDirtied: true,
+			expectedOutdated:       []string{"s1"},
+			expectedMetrics: map[string]int{
+				"node-error-status": 1,
+			},
+		},
+		{
 			desc: "multiple committed nodes with different error as primary",
 			primary: node{
 				name:  "primary",
 				state: transactions.VoteCommitted,
-				err:   anyErr,
+				err:   grpcErr,
 			},
 			secondaries: []node{
-				{name: "s1", state: transactions.VoteCommitted, err: errors.New("somethingsomething")},
-				{name: "s2", state: transactions.VoteCommitted, err: anyErr},
+				{name: "s1", state: transactions.VoteCommitted, err: status.Error(codes.Internal, "somethingsomething")},
+				{name: "s2", state: transactions.VoteCommitted, err: grpcErr},
 			},
 			didVote: map[string]bool{
 				"primary": true,
@@ -1839,7 +1990,7 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 				state: transactions.VoteCommitted,
 			},
 			secondaries: []node{
-				{name: "s1", state: transactions.VoteCommitted, err: anyErr},
+				{name: "s1", state: transactions.VoteCommitted, err: grpcErr},
 				{name: "s2", state: transactions.VoteCommitted},
 			},
 			didVote: map[string]bool{
@@ -1859,10 +2010,10 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			primary: node{
 				name:  "primary",
 				state: transactions.VoteCommitted,
-				err:   anyErr,
+				err:   grpcErr,
 			},
 			secondaries: []node{
-				{name: "s1", state: transactions.VoteCommitted, err: anyErr},
+				{name: "s1", state: transactions.VoteCommitted, err: grpcErr},
 				{name: "s2", state: transactions.VoteCommitted},
 			},
 			didVote: map[string]bool{
@@ -1984,7 +2135,7 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			},
 			secondaries: []node{
 				{name: "s1", state: transactions.VoteFailed},
-				{name: "s2", state: transactions.VoteCommitted, err: anyErr},
+				{name: "s2", state: transactions.VoteCommitted, err: grpcErr},
 			},
 			replicas: []string{"r1", "r2"},
 			didVote: map[string]bool{
