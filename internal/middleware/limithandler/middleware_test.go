@@ -258,14 +258,15 @@ func TestLimitHandlerMetrics(t *testing.T) {
 		true,
 	)
 
+	respCh := make(chan *pb.UnaryResponse)
 	go func() {
-		_, err := client.Unary(ctx, &pb.UnaryRequest{})
+		resp, err := client.Unary(ctx, &pb.UnaryRequest{})
+		respCh <- resp
 		require.NoError(t, err)
 	}()
 	// wait until the first request is being processed. After this, requests will be queued
 	<-s.reqArrivedCh
 
-	respCh := make(chan *pb.UnaryResponse)
 	errChan := make(chan error)
 	// out of ten requests, the first one will be queued and the other 9 will return with
 	// an error
@@ -308,6 +309,9 @@ gitaly_requests_dropped_total{grpc_method="Unary",grpc_service="test.limithandle
 
 	close(s.blockCh)
 	<-s.reqArrivedCh
+	// we expect two requests to complete. The first one that started to process immediately,
+	// and the second one that got queued
+	<-respCh
 	<-respCh
 }
 
