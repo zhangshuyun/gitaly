@@ -1862,9 +1862,9 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			},
 			subtransactions:        1,
 			expectedPrimaryDirtied: true,
-			expectedUpdated:        []string{"s1", "s2"},
+			expectedOutdated:       []string{"s1", "s2"},
 			expectedMetrics: map[string]int{
-				"updated": 2,
+				"node-error-status": 2,
 			},
 		},
 		{
@@ -1907,9 +1907,9 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			},
 			subtransactions:        1,
 			expectedPrimaryDirtied: true,
-			expectedOutdated:       []string{"s1"},
+			expectedUpdated:        []string{"s1"},
 			expectedMetrics: map[string]int{
-				"node-error-status": 1,
+				"updated": 1,
 			},
 		},
 		{

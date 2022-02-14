@@ -29,6 +29,7 @@ import (
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"golang.org/x/sync/errgroup"
 	grpc_metadata "google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -975,7 +976,7 @@ func getUpdatedAndOutdatedSecondaries(
 	// transaction and has the same error state as the primary, then it's considered up to date
 	// and thus does not need replication.
 	for _, secondary := range route.Secondaries {
-		if nodeErrors.errByNode[secondary.Storage] != primaryErr {
+		if !equalGrpcError(nodeErrors.errByNode[secondary.Storage], primaryErr) {
 			markOutdated("node-error-status", []string{secondary.Storage})
 			continue
 		}
@@ -990,6 +991,28 @@ func getUpdatedAndOutdatedSecondaries(
 	}
 
 	return
+}
+
+func equalGrpcError(err1, err2 error) bool {
+	status1, ok := status.FromError(err1)
+	if !ok {
+		return false
+	}
+
+	status2, ok := status.FromError(err2)
+	if !ok {
+		return false
+	}
+
+	if status1.Code() != status2.Code() {
+		return false
+	}
+
+	if status1.Message() != status2.Message() {
+		return false
+	}
+
+	return true
 }
 
 func routerNodesToStorages(nodes []RouterNode) []string {
