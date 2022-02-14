@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
@@ -15,7 +14,7 @@ func (s *server) OptimizeRepository(ctx context.Context, in *gitalypb.OptimizeRe
 
 	repo := s.localrepo(in.GetRepository())
 
-	if err := housekeeping.OptimizeRepository(ctx, repo, s.txManager); err != nil {
+	if err := s.housekeepingManager.OptimizeRepository(ctx, repo); err != nil {
 		return nil, helper.ErrInternal(err)
 	}
 

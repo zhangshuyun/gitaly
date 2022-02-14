@@ -15,13 +15,12 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 )
 
 // OptimizeRepository performs optimizations on the repository. Whether optimizations are performed
 // or not depends on a set of heuristics.
-func OptimizeRepository(ctx context.Context, repo *localrepo.Repo, txManager transaction.Manager) error {
+func (m *RepositoryManager) OptimizeRepository(ctx context.Context, repo *localrepo.Repo) error {
 	optimizations := struct {
 		PackedObjects bool `json:"packed_objects"`
 		PrunedObjects bool `json:"pruned_objects"`
@@ -31,7 +30,7 @@ func OptimizeRepository(ctx context.Context, repo *localrepo.Repo, txManager tra
 		ctxlogrus.Extract(ctx).WithField("optimizations", optimizations).Info("optimized repository")
 	}()
 
-	if err := Perform(ctx, repo, txManager); err != nil {
+	if err := m.CleanStaleData(ctx, repo); err != nil {
 		return fmt.Errorf("could not execute houskeeping: %w", err)
 	}
 

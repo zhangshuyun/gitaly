@@ -15,7 +15,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
@@ -35,7 +34,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *localrepo.Repo
 		return err
 	}
 
-	if err := housekeeping.Perform(ctx, o.Repo, o.txManager); err != nil {
+	if err := o.housekeepingManager.CleanStaleData(ctx, o.Repo); err != nil {
 		return err
 	}
 
