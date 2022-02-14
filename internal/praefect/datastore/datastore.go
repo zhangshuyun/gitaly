@@ -63,6 +63,8 @@ const (
 	MidxRepack = ChangeType("midx_repack")
 	// OptimizeRepository is when replication optimizes a repository
 	OptimizeRepository = ChangeType("optimize_repository")
+	// PruneUnreachableObjects is when replication prunes unreachable objects in a repository
+	PruneUnreachableObjects = ChangeType("prune_unreachable_objects")
 )
 
 func (ct ChangeType) String() string {

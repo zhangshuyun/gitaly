@@ -68,6 +68,18 @@ module Gitaly
       rpc :RenameRepository, ::Gitaly::RenameRepositoryRequest, ::Gitaly::RenameRepositoryResponse
       rpc :ReplicateRepository, ::Gitaly::ReplicateRepositoryRequest, ::Gitaly::ReplicateRepositoryResponse
       rpc :OptimizeRepository, ::Gitaly::OptimizeRepositoryRequest, ::Gitaly::OptimizeRepositoryResponse
+      # PruneUnreachableObjetcs will prune all objects which aren't reachable from
+      # the repository's current set of references. Because pruning can only
+      # happen for objects which aren't packed, you are required to first run
+      # OptimizeRepository to explode any unreachable objects into loose objects.
+      #
+      # Furthermore, this RPC call has a grace period of 30 minutes: any
+      # unreachable loose objects must not have been accessed or modified in the
+      # last 30 minutes. This is a hard requirement to avoid repository corruption.
+      #
+      # To make proper use of this RPC you thus need to call OptimizeRepository,
+      # wait 30 minutes, and then call PruneUnreachableObjects.
+      rpc :PruneUnreachableObjects, ::Gitaly::PruneUnreachableObjectsRequest, ::Gitaly::PruneUnreachableObjectsResponse
       # SetFullPath writes the "gitlab.fullpath" configuration into the
       # repository's gitconfig. This is mainly to help debugging purposes in case
       # an admin inspects the repository's gitconfig such that he can easily see

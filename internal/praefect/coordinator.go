@@ -95,15 +95,16 @@ var transactionRPCs = map[string]transactionsCondition{
 	// target repository, this shouldn't ever have any user-visible impact given that they're
 	// purely optimizations of the on-disk state. These RPCs are thus treated specially and
 	// shouldn't ever cause a repository generation bump.
-	"/gitaly.RefService/PackRefs":                  transactionsDisabled,
-	"/gitaly.RepositoryService/Cleanup":            transactionsDisabled,
-	"/gitaly.RepositoryService/GarbageCollect":     transactionsDisabled,
-	"/gitaly.RepositoryService/MidxRepack":         transactionsDisabled,
-	"/gitaly.RepositoryService/OptimizeRepository": transactionsDisabled,
-	"/gitaly.RepositoryService/RepackFull":         transactionsDisabled,
-	"/gitaly.RepositoryService/RepackIncremental":  transactionsDisabled,
-	"/gitaly.RepositoryService/RestoreCustomHooks": transactionsDisabled,
-	"/gitaly.RepositoryService/WriteCommitGraph":   transactionsDisabled,
+	"/gitaly.RefService/PackRefs":                       transactionsDisabled,
+	"/gitaly.RepositoryService/Cleanup":                 transactionsDisabled,
+	"/gitaly.RepositoryService/GarbageCollect":          transactionsDisabled,
+	"/gitaly.RepositoryService/MidxRepack":              transactionsDisabled,
+	"/gitaly.RepositoryService/OptimizeRepository":      transactionsDisabled,
+	"/gitaly.RepositoryService/PruneUnreachableObjects": transactionsDisabled,
+	"/gitaly.RepositoryService/RepackFull":              transactionsDisabled,
+	"/gitaly.RepositoryService/RepackIncremental":       transactionsDisabled,
+	"/gitaly.RepositoryService/RestoreCustomHooks":      transactionsDisabled,
+	"/gitaly.RepositoryService/WriteCommitGraph":        transactionsDisabled,
 
 	// These shouldn't ever use transactions for the sake of not creating cyclic dependencies.
 	"/gitaly.RefTransaction/StopTransaction": transactionsDisabled,
@@ -226,6 +227,12 @@ func getReplicationDetails(methodName string, m proto.Message) (datastore.Change
 			return "", nil, fmt.Errorf("protocol changed: for method %q expected message type '%T', got '%T'", methodName, req, m)
 		}
 		return datastore.OptimizeRepository, nil, nil
+	case "/gitaly.RepositoryService/PruneUnreachableObjects":
+		req, ok := m.(*gitalypb.PruneUnreachableObjectsRequest)
+		if !ok {
+			return "", nil, fmt.Errorf("protocol changed: for method %q expected message type '%T', got '%T'", methodName, req, m)
+		}
+		return datastore.PruneUnreachableObjects, nil, nil
 	case "/gitaly.RefService/PackRefs":
 		req, ok := m.(*gitalypb.PackRefsRequest)
 		if !ok {
