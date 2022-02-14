@@ -39,7 +39,7 @@ func setup(ctx context.Context, tb testing.TB) (config.Cfg, *gitalypb.Repository
 			deps.GetConnsPool(),
 			deps.GetGit2goExecutor(),
 		))
-	}, testserver.WithDisableMetadataForceCreation())
+	})
 	cfg.SocketPath = addr
 
 	conn, err := grpc.Dial(addr, grpc.WithInsecure())

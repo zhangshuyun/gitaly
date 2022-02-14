@@ -51,8 +51,6 @@ func setup(ctx context.Context, t *testing.T, opts ...testserver.GitalyServerOpt
 }
 
 func runObjectPoolServer(t *testing.T, cfg config.Cfg, locator storage.Locator, logger *logrus.Logger, opts ...testserver.GitalyServerOpt) string {
-	opts = append(opts, testserver.WithDisableMetadataForceCreation())
-
 	return testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterObjectPoolServiceServer(srv, NewServer(
 			deps.GetLocator(),

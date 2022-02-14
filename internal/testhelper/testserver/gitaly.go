@@ -48,7 +48,7 @@ func RunGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server
 
 // StartGitalyServer creates and runs gitaly (and praefect as a proxy) server.
 func StartGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) GitalyServer {
-	gitalySrv, gitalyAddr, disablePraefect, disableMetadataForceCreation := runGitaly(t, cfg, rubyServer, registrar, opts...)
+	gitalySrv, gitalyAddr, disablePraefect := runGitaly(t, cfg, rubyServer, registrar, opts...)
 
 	if !testhelper.IsPraefectEnabled() || disablePraefect {
 		return GitalyServer{
@@ -57,7 +57,7 @@ func StartGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Serv
 		}
 	}
 
-	praefectServer := runPraefectProxy(t, cfg, gitalyAddr, disableMetadataForceCreation)
+	praefectServer := runPraefectProxy(t, cfg, gitalyAddr)
 	return GitalyServer{
 		shutdown: func() {
 			praefectServer.Shutdown()
@@ -67,7 +67,7 @@ func StartGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Serv
 	}
 }
 
-func runPraefectProxy(t testing.TB, gitalyCfg config.Cfg, gitalyAddr string, disableMetadataForceCreation bool) PraefectServer {
+func runPraefectProxy(t testing.TB, gitalyCfg config.Cfg, gitalyAddr string) PraefectServer {
 	return StartPraefect(t, praefectconfig.Config{
 		SocketPath: testhelper.GetTemporaryGitalySocketFileName(t),
 		Auth: auth.Config{
@@ -83,7 +83,6 @@ func runPraefectProxy(t testing.TB, gitalyCfg config.Cfg, gitalyAddr string, dis
 			Format: "json",
 			Level:  "panic",
 		},
-		ForceCreateRepositories: !disableMetadataForceCreation,
 		VirtualStorages: []*praefectconfig.VirtualStorage{
 			{
 				// Only single storage will be served by the Praefect instance. We
@@ -142,7 +141,7 @@ func waitHealthy(t testing.TB, addr string, authToken string) {
 	require.Equal(t, healthpb.HealthCheckResponse_SERVING, resp.Status, "server not yet ready to serve")
 }
 
-func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) (*grpc.Server, string, bool, bool) {
+func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) (*grpc.Server, string, bool) {
 	t.Helper()
 
 	var gsd gitalyServerDeps
@@ -214,7 +213,7 @@ func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, regi
 
 	waitHealthy(t, addr, cfg.Auth.Token)
 
-	return externalServer, addr, gsd.disablePraefect, gsd.disableMetadataForceCreation
+	return externalServer, addr, gsd.disablePraefect
 }
 
 func registerHealthServerIfNotRegistered(srv *grpc.Server) {
@@ -226,23 +225,22 @@ func registerHealthServerIfNotRegistered(srv *grpc.Server) {
 }
 
 type gitalyServerDeps struct {
-	disablePraefect              bool
-	disableMetadataForceCreation bool
-	logger                       *logrus.Logger
-	conns                        *client.Pool
-	locator                      storage.Locator
-	txMgr                        transaction.Manager
-	hookMgr                      hook.Manager
-	gitlabClient                 gitlab.Client
-	gitCmdFactory                git.CommandFactory
-	linguist                     *linguist.Instance
-	backchannelReg               *backchannel.Registry
-	catfileCache                 catfile.Cache
-	diskCache                    cache.Cache
-	packObjectsCache             streamcache.Cache
-	limitHandler                 *limithandler.LimiterMiddleware
-	git2goExecutor               *git2go.Executor
-	updaterWithHooks             *updateref.UpdaterWithHooks
+	disablePraefect  bool
+	logger           *logrus.Logger
+	conns            *client.Pool
+	locator          storage.Locator
+	txMgr            transaction.Manager
+	hookMgr          hook.Manager
+	gitlabClient     gitlab.Client
+	gitCmdFactory    git.CommandFactory
+	linguist         *linguist.Instance
+	backchannelReg   *backchannel.Registry
+	catfileCache     catfile.Cache
+	diskCache        cache.Cache
+	packObjectsCache streamcache.Cache
+	limitHandler     *limithandler.LimiterMiddleware
+	git2goExecutor   *git2go.Executor
+	updaterWithHooks *updateref.UpdaterWithHooks
 }
 
 func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server) *service.Dependencies {
@@ -389,17 +387,6 @@ func WithTransactionManager(txMgr transaction.Manager) GitalyServerOpt {
 func WithDisablePraefect() GitalyServerOpt {
 	return func(deps gitalyServerDeps) gitalyServerDeps {
 		deps.disablePraefect = true
-		return deps
-	}
-}
-
-// WithDisableMetadataForceCreation disables a testing hack to create repository metadata when Praefect first sees a request
-// for a repository. This can be used to ensure the test does not rely on the force creation behavior after it has been fixed
-// to not depend on it anymore. New tests should use this to avoid adding to the problem. This option can be removed once the hack
-// itself has been removed.
-func WithDisableMetadataForceCreation() GitalyServerOpt {
-	return func(deps gitalyServerDeps) gitalyServerDeps {
-		deps.disableMetadataForceCreation = true
 		return deps
 	}
 }

@@ -75,7 +75,7 @@ func runRefServiceServer(t testing.TB, cfg config.Cfg) string {
 			deps.GetConnsPool(),
 			deps.GetGit2goExecutor(),
 		))
-	}, testserver.WithDisableMetadataForceCreation())
+	})
 }
 
 func newRefServiceClient(t testing.TB, serverSocketPath string) (gitalypb.RefServiceClient, *grpc.ClientConn) {

@@ -31,7 +31,7 @@ func TestManager_Create(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 
-	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll, testserver.WithDisableMetadataForceCreation())
+	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
 
 	ctx := testhelper.Context(t)
 
@@ -155,7 +155,7 @@ func TestManager_Create_incremental(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 
-	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll, testserver.WithDisableMetadataForceCreation())
+	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
 	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
@@ -274,7 +274,7 @@ func TestManager_Restore(t *testing.T) {
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	gitalyAddr := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll, testserver.WithDisableMetadataForceCreation())
+	gitalyAddr := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
 	ctx := testhelper.Context(t)
 
 	testManagerRestore(t, ctx, cfg, gitalyAddr)

@@ -87,7 +87,7 @@ func setupWikiService(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server) 
 			deps.GetConnsPool(),
 			deps.GetGit2goExecutor(),
 		))
-	}, testserver.WithDisableMetadataForceCreation())
+	})
 	testcfg.BuildGitalyHooks(t, cfg)
 	client := newWikiClient(t, addr)
 	return client, addr

@@ -83,7 +83,7 @@ func runConflictsServer(t testing.TB, cfg config.Cfg, hookManager hook.Manager) 
 			deps.GetLinguist(),
 			deps.GetCatfileCache(),
 		))
-	}, testserver.WithHookManager(hookManager), testserver.WithDisableMetadataForceCreation())
+	}, testserver.WithHookManager(hookManager))
 }
 
 func NewConflictsClient(t testing.TB, serverSocketPath string) (gitalypb.ConflictsServiceClient, *grpc.ClientConn) {

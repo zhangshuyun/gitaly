@@ -27,8 +27,6 @@ func TestMain(m *testing.M) {
 }
 
 func startSmartHTTPServerWithOptions(t *testing.T, cfg config.Cfg, opts []ServerOpt, serverOpts []testserver.GitalyServerOpt) testserver.GitalyServer {
-	serverOpts = append(serverOpts, testserver.WithDisableMetadataForceCreation())
-
 	return testserver.StartGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterSmartHTTPServiceServer(srv, NewServer(
 			deps.GetLocator(),

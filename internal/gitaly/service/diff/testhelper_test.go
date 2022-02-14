@@ -23,8 +23,6 @@ func TestMain(m *testing.M) {
 func setupDiffService(ctx context.Context, t testing.TB, opt ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.DiffServiceClient) {
 	cfg := testcfg.Build(t)
 
-	opt = append(opt, testserver.WithDisableMetadataForceCreation())
-
 	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterDiffServiceServer(srv, NewServer(
 			deps.GetLocator(),

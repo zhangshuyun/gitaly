@@ -67,8 +67,6 @@ func setupOperationsServiceWithCfg(
 func runOperationServiceServer(t testing.TB, cfg config.Cfg, options ...testserver.GitalyServerOpt) string {
 	t.Helper()
 
-	options = append(options, testserver.WithDisableMetadataForceCreation())
-
 	return testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		operationServer := NewServer(
 			deps.GetHookManager(),

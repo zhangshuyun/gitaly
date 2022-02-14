@@ -264,10 +264,6 @@ type Coordinator struct {
 	conf                     config.Config
 	votersMetric             *prometheus.HistogramVec
 	txReplicationCountMetric *prometheus.CounterVec
-
-	// forceCreateRepositories will enable force-creation of repositories when routing
-	// repository-scoped mutators. This must never be used outside of tests.
-	forceCreateRepositories bool
 }
 
 // NewCoordinator returns a new Coordinator that utilizes the provided logger
@@ -308,7 +304,6 @@ func NewCoordinator(
 			},
 			[]string{"reason"},
 		),
-		forceCreateRepositories: conf.ForceCreateRepositories,
 	}
 
 	return coordinator
@@ -333,42 +328,6 @@ func (c *Coordinator) directRepositoryScopedMessage(ctx context.Context, call gr
 
 	var err error
 	var ps *proxy.StreamParameters
-
-	if c.forceCreateRepositories {
-		replicationType, _, err := getReplicationDetails(call.fullMethodName, call.msg)
-		if err != nil {
-			return nil, err
-		}
-
-		if replicationType != datastore.CreateRepo {
-			relativePaths := []string{call.targetRepo.RelativePath}
-
-			if additionalRepo, ok, err := call.methodInfo.AdditionalRepo(call.msg); err != nil {
-				return nil, err
-			} else if ok {
-				relativePaths = append(relativePaths, additionalRepo.RelativePath)
-			}
-
-			for _, relativePath := range relativePaths {
-				// This is a hack for the tests: during execution of the gitaly tests under praefect proxy
-				// the repositories are created directly on the filesystem. There is no call for the
-				// CreateRepository that creates records in the database that is why we do it artificially
-				// before redirecting the calls.
-				id, err := c.rs.ReserveRepositoryID(ctx, call.targetRepo.StorageName, relativePath)
-				if err != nil {
-					if !errors.Is(err, commonerr.ErrRepositoryAlreadyExists) {
-						return nil, err
-					}
-				} else {
-					if err := c.rs.CreateRepository(ctx, id, call.targetRepo.StorageName, relativePath, relativePath, call.targetRepo.StorageName, nil, nil, true, true); err != nil {
-						if !errors.As(err, &datastore.RepositoryExistsError{}) {
-							return nil, err
-						}
-					}
-				}
-			}
-		}
-	}
 
 	switch call.methodInfo.Operation {
 	case protoregistry.OpAccessor:

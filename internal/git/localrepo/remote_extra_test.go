@@ -47,7 +47,7 @@ func TestRepo_FetchInternal(t *testing.T) {
 			deps.GetConnsPool(),
 			deps.GetGit2goExecutor(),
 		))
-	}, testserver.WithGitCommandFactory(gitCmdFactory), testserver.WithDisableMetadataForceCreation())
+	}, testserver.WithGitCommandFactory(gitCmdFactory))
 
 	remoteRepoProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
