@@ -21,12 +21,30 @@ type Manager interface {
 // RepositoryManager is an implementation of the Manager interface.
 type RepositoryManager struct {
 	txManager transaction.Manager
+
+	tasksTotal   *prometheus.CounterVec
+	tasksLatency *prometheus.HistogramVec
 }
 
 // NewManager creates a new RepositoryManager.
 func NewManager(txManager transaction.Manager) *RepositoryManager {
 	return &RepositoryManager{
 		txManager: txManager,
+
+		tasksTotal: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "gitaly_housekeeping_tasks_total",
+				Help: "Total number of housekeeping tasks performed in the repository",
+			},
+			[]string{"housekeeping_task"},
+		),
+		tasksLatency: prometheus.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name: "gitaly_housekeeping_tasks_latency",
+				Help: "Latency of the housekeeping tasks performed",
+			},
+			[]string{"housekeeping_task"},
+		),
 	}
 }
 
@@ -37,4 +55,6 @@ func (m *RepositoryManager) Describe(descs chan<- *prometheus.Desc) {
 
 // Collect is used to collect Prometheus metrics.
 func (m *RepositoryManager) Collect(metrics chan<- prometheus.Metric) {
+	m.tasksTotal.Collect(metrics)
+	m.tasksLatency.Collect(metrics)
 }

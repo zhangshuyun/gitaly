@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
@@ -21,40 +22,63 @@ import (
 // OptimizeRepository performs optimizations on the repository. Whether optimizations are performed
 // or not depends on a set of heuristics.
 func (m *RepositoryManager) OptimizeRepository(ctx context.Context, repo *localrepo.Repo) error {
+	totalTimer := prometheus.NewTimer(m.tasksLatency.WithLabelValues("total"))
+
 	optimizations := struct {
 		PackedObjects bool `json:"packed_objects"`
 		PrunedObjects bool `json:"pruned_objects"`
 		PackedRefs    bool `json:"packed_refs"`
 	}{}
 	defer func() {
+		totalTimer.ObserveDuration()
 		ctxlogrus.Extract(ctx).WithField("optimizations", optimizations).Info("optimized repository")
+
+		for task, executed := range map[string]bool{
+			"packed_objects": optimizations.PackedObjects,
+			"pruned_objects": optimizations.PrunedObjects,
+			"packed_refs":    optimizations.PackedRefs,
+		} {
+			if executed {
+				m.tasksTotal.WithLabelValues(task).Add(1)
+			}
+		}
 	}()
 
+	timer := prometheus.NewTimer(m.tasksLatency.WithLabelValues("clean-stale-data"))
 	if err := m.CleanStaleData(ctx, repo); err != nil {
 		return fmt.Errorf("could not execute houskeeping: %w", err)
 	}
+	timer.ObserveDuration()
 
+	timer = prometheus.NewTimer(m.tasksLatency.WithLabelValues("clean-worktrees"))
 	if err := CleanupWorktrees(ctx, repo); err != nil {
 		return fmt.Errorf("could not clean up worktrees: %w", err)
 	}
+	timer.ObserveDuration()
 
+	timer = prometheus.NewTimer(m.tasksLatency.WithLabelValues("repack"))
 	didRepack, err := repackIfNeeded(ctx, repo)
 	if err != nil {
 		return fmt.Errorf("could not repack: %w", err)
 	}
 	optimizations.PackedObjects = didRepack
+	timer.ObserveDuration()
 
+	timer = prometheus.NewTimer(m.tasksLatency.WithLabelValues("prune"))
 	didPrune, err := pruneIfNeeded(ctx, repo)
 	if err != nil {
 		return fmt.Errorf("could not prune: %w", err)
 	}
 	optimizations.PrunedObjects = didPrune
+	timer.ObserveDuration()
 
+	timer = prometheus.NewTimer(m.tasksLatency.WithLabelValues("pack-refs"))
 	didPackRefs, err := packRefsIfNeeded(ctx, repo)
 	if err != nil {
 		return fmt.Errorf("could not pack refs: %w", err)
 	}
 	optimizations.PackedRefs = didPackRefs
+	timer.ObserveDuration()
 
 	return nil
 }

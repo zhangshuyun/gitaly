@@ -7,10 +7,13 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -556,4 +559,118 @@ func TestEstimateLooseObjectCount(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int64(512), looseObjects)
 	})
+}
+
+func TestOptimizeRepository(t *testing.T) {
+	cfg := testcfg.Build(t)
+	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
+
+	for _, tc := range []struct {
+		desc                  string
+		setup                 func(t *testing.T) *gitalypb.Repository
+		expectedErr           error
+		expectedOptimizations map[string]float64
+	}{
+		{
+			desc: "empty repository tries to write bitmap",
+			setup: func(t *testing.T) *gitalypb.Repository {
+				repo, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
+				return repo
+			},
+			expectedOptimizations: map[string]float64{
+				"packed_objects": 1,
+			},
+		},
+		{
+			desc: "repository without bitmap repacks objects",
+			setup: func(t *testing.T) *gitalypb.Repository {
+				repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+				return repo
+			},
+			expectedOptimizations: map[string]float64{
+				"packed_objects": 1,
+			},
+		},
+		{
+			desc: "repository without commit-graph repacks objects",
+			setup: func(t *testing.T) *gitalypb.Repository {
+				repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "--write-bitmap-index")
+				return repo
+			},
+			expectedOptimizations: map[string]float64{
+				"packed_objects": 1,
+			},
+		},
+		{
+			desc: "well-packed repository does not optimize",
+			setup: func(t *testing.T) *gitalypb.Repository {
+				repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "--write-bitmap-index")
+				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
+				return repo
+			},
+		},
+		{
+			desc: "loose objects get pruned",
+			setup: func(t *testing.T) *gitalypb.Repository {
+				repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "--write-bitmap-index")
+				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
+
+				// The repack won't repack the following objects because they're
+				// broken, and thus we'll retry to prune them afterwards.
+				require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "objects", "17"), 0o755))
+				for i := 0; i < 10; i++ {
+					blobPath := filepath.Join(repoPath, "objects", "17", fmt.Sprintf("%d", i))
+					require.NoError(t, os.WriteFile(blobPath, nil, 0o644))
+				}
+
+				return repo
+			},
+			expectedOptimizations: map[string]float64{
+				"packed_objects": 1,
+				"pruned_objects": 1,
+			},
+		},
+		{
+			desc: "loose refs get packed",
+			setup: func(t *testing.T) *gitalypb.Repository {
+				repo, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+
+				for i := 0; i < 16; i++ {
+					gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(), gittest.WithBranch(fmt.Sprintf("branch-%d", i)))
+				}
+
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "--write-bitmap-index")
+				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
+
+				return repo
+			},
+			expectedOptimizations: map[string]float64{
+				"packed_refs": 1,
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx := testhelper.Context(t)
+
+			repoProto := tc.setup(t)
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+			manager := NewManager(txManager)
+
+			err := manager.OptimizeRepository(ctx, repo)
+			require.Equal(t, tc.expectedErr, err)
+
+			for _, metric := range []string{
+				"packed_objects",
+				"pruned_objects",
+				"packed_refs",
+			} {
+				value := testutil.ToFloat64(manager.tasksTotal.WithLabelValues(metric))
+				require.Equal(t, tc.expectedOptimizations[metric], value, metric)
+			}
+		})
+	}
 }
