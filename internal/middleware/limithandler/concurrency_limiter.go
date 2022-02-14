@@ -15,6 +15,9 @@ import (
 // concurrency queue.
 var ErrMaxQueueTime = errors.New("maximum time in concurrency queue reached")
 
+// ErrMaxQueueSize indicates the concurrency queue has reached its maximum size
+var ErrMaxQueueSize = errors.New("maximum queue size reached")
+
 // LimitedFunc represents a function that will be limited
 type LimitedFunc func() (resp interface{}, err error)
 
@@ -117,7 +120,8 @@ func (c *ConcurrencyLimiter) queueInc(ctx context.Context) error {
 	if featureflag.ConcurrencyQueueEnforceMax.IsEnabled(ctx) &&
 		c.queuedLimit > 0 &&
 		c.queued >= c.queuedLimit {
-		return errors.New("maximum queue size reached")
+		c.monitor.Dropped(ctx, "max_size")
+		return ErrMaxQueueSize
 	}
 
 	c.queued++
@@ -159,6 +163,9 @@ func (c *ConcurrencyLimiter) Limit(ctx context.Context, lockKey string, f Limite
 
 	c.monitor.Dequeued(ctx)
 	if err != nil {
+		if errors.Is(err, ErrMaxQueueTime) {
+			c.monitor.Dropped(ctx, "max_time")
+		}
 		return nil, err
 	}
 	defer sem.release()

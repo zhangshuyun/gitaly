@@ -1,15 +1,18 @@
 package limithandler_test
 
 import (
+	"bytes"
 	"context"
 	"net"
 	"sync"
 	"testing"
 	"time"
 
+	promtest "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/limithandler"
 	pb "gitlab.com/gitlab-org/gitaly/v14/internal/middleware/limithandler/testdata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -216,7 +219,99 @@ func TestStreamLimitHandler(t *testing.T) {
 	}
 }
 
-func runServer(t *testing.T, s *server, opt ...grpc.ServerOption) (*grpc.Server, string) {
+type queueTestServer struct {
+	server
+	reqArrivedCh chan struct{}
+}
+
+func (q *queueTestServer) Unary(ctx context.Context, in *pb.UnaryRequest) (*pb.UnaryResponse, error) {
+	q.registerRequest()
+
+	q.reqArrivedCh <- struct{}{} // We need a way to know when a request got to the middleware
+	<-q.blockCh                  // Block to ensure concurrency
+
+	return &pb.UnaryResponse{Ok: true}, nil
+}
+
+func TestLimitHandlerMetrics(t *testing.T) {
+	s := &queueTestServer{reqArrivedCh: make(chan struct{})}
+	s.blockCh = make(chan struct{})
+
+	methodName := "/test.limithandler.Test/Unary"
+	cfg := config.Cfg{
+		Concurrency: []config.Concurrency{
+			{RPC: methodName, MaxPerRepo: 1, MaxQueueSize: 1},
+		},
+	}
+
+	lh := limithandler.New(cfg, fixedLockKey)
+	interceptor := lh.UnaryInterceptor()
+	srv, serverSocketPath := runServer(t, s, grpc.UnaryInterceptor(interceptor))
+	defer srv.Stop()
+
+	client, conn := newClient(t, serverSocketPath)
+	defer conn.Close()
+
+	ctx := featureflag.IncomingCtxWithFeatureFlag(
+		testhelper.Context(t),
+		featureflag.ConcurrencyQueueEnforceMax,
+		true,
+	)
+
+	go func() {
+		_, err := client.Unary(ctx, &pb.UnaryRequest{})
+		require.NoError(t, err)
+	}()
+	// wait until the first request is being processed. After this, requests will be queued
+	<-s.reqArrivedCh
+
+	respCh := make(chan *pb.UnaryResponse)
+	errChan := make(chan error)
+	// out of ten requests, the first one will be queued and the other 9 will return with
+	// an error
+	for i := 0; i < 10; i++ {
+		go func() {
+			resp, err := client.Unary(ctx, &pb.UnaryRequest{})
+			if err != nil {
+				errChan <- err
+			} else {
+				respCh <- resp
+			}
+		}()
+	}
+
+	var errs int
+	for err := range errChan {
+		testhelper.RequireGrpcError(t, limithandler.ErrMaxQueueSize, err)
+		errs++
+		if errs == 9 {
+			break
+		}
+	}
+
+	expectedMetrics := `# HELP gitaly_rate_limiting_in_progress Gauge of number of concurrent in-progress calls
+# TYPE gitaly_rate_limiting_in_progress gauge
+gitaly_rate_limiting_in_progress{grpc_method="ReplicateRepository",grpc_service="gitaly.RepositoryService",system="gitaly"} 0
+gitaly_rate_limiting_in_progress{grpc_method="Unary",grpc_service="test.limithandler.Test",system="gitaly"} 1
+# HELP gitaly_rate_limiting_queued Gauge of number of queued calls
+# TYPE gitaly_rate_limiting_queued gauge
+gitaly_rate_limiting_queued{grpc_method="ReplicateRepository",grpc_service="gitaly.RepositoryService",system="gitaly"} 0
+gitaly_rate_limiting_queued{grpc_method="Unary",grpc_service="test.limithandler.Test",system="gitaly"} 1
+# HELP gitaly_requests_dropped_total Number of requests dropped from the queue
+# TYPE gitaly_requests_dropped_total counter
+gitaly_requests_dropped_total{grpc_method="Unary",grpc_service="test.limithandler.Test",reason="max_size",system="gitaly"} 9
+`
+	assert.NoError(t, promtest.CollectAndCompare(lh, bytes.NewBufferString(expectedMetrics),
+		"gitaly_rate_limiting_queued",
+		"gitaly_requests_dropped_total",
+		"gitaly_rate_limiting_in_progress"))
+
+	close(s.blockCh)
+	<-s.reqArrivedCh
+	<-respCh
+}
+
+func runServer(t *testing.T, s pb.TestServer, opt ...grpc.ServerOption) (*grpc.Server, string) {
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 	grpcServer := grpc.NewServer(opt...)
 	pb.RegisterTestServer(grpcServer, s)

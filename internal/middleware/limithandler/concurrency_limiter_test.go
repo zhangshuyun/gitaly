@@ -16,12 +16,14 @@ import (
 
 type counter struct {
 	sync.Mutex
-	max      int
-	current  int
-	queued   int
-	dequeued int
-	enter    int
-	exit     int
+	max         int
+	current     int
+	queued      int
+	dequeued    int
+	enter       int
+	exit        int
+	droppedSize int
+	droppedTime int
 }
 
 func (c *counter) up() {
@@ -69,6 +71,15 @@ func (c *counter) Exit(ctx context.Context) {
 	c.Lock()
 	defer c.Unlock()
 	c.exit++
+}
+
+func (c *counter) Dropped(ctx context.Context, reason string) {
+	switch reason {
+	case "max_time":
+		c.droppedTime++
+	case "max_size":
+		c.droppedSize++
+	}
 }
 
 func TestLimiter(t *testing.T) {
@@ -253,9 +264,9 @@ func TestConcurrencyLimiter_queueLimit(t *testing.T) {
 			)
 
 			monitorCh := make(chan struct{})
-			gauge := &blockingQueueCounter{queuedCh: monitorCh}
+			monitor := &blockingQueueCounter{queuedCh: monitorCh}
 			ch := make(chan struct{})
-			limiter := NewLimiter(1, queueLimit, nil, gauge)
+			limiter := NewLimiter(1, queueLimit, nil, monitor)
 
 			// occupied with one live request that takes a long time to complete
 			go func() {
@@ -303,13 +314,14 @@ func TestConcurrencyLimiter_queueLimit(t *testing.T) {
 				err := <-errChan
 				assert.Error(t, err)
 				assert.Equal(t, "maximum queue size reached", err.Error())
+				assert.Equal(t, monitor.droppedSize, 1)
 			} else {
 				<-monitorCh
 				assert.Equal(t, int64(queueLimit+1), limiter.queued)
+				assert.Equal(t, monitor.droppedSize, 0)
 			}
 
 			close(ch)
-
 			wg.Wait()
 		})
 	}
@@ -341,14 +353,15 @@ func TestLimitConcurrency_queueWaitTime(t *testing.T) {
 		ticker := helper.NewManualTicker()
 
 		dequeuedCh := make(chan struct{})
-		gauge := &blockingDequeueCounter{dequeuedCh: dequeuedCh}
+		monitor := &blockingDequeueCounter{dequeuedCh: dequeuedCh}
+
 		limiter := NewLimiter(
 			1,
 			0,
 			func() helper.Ticker {
 				return ticker
 			},
-			gauge,
+			monitor,
 		)
 
 		ch := make(chan struct{})
@@ -379,7 +392,7 @@ func TestLimitConcurrency_queueWaitTime(t *testing.T) {
 		err := <-errChan
 
 		assert.Equal(t, ErrMaxQueueTime, err)
-
+		assert.Equal(t, monitor.droppedTime, 1)
 		close(ch)
 		wg.Wait()
 	})
@@ -394,14 +407,15 @@ func TestLimitConcurrency_queueWaitTime(t *testing.T) {
 		ticker := helper.NewManualTicker()
 
 		dequeuedCh := make(chan struct{})
-		gauge := &blockingDequeueCounter{dequeuedCh: dequeuedCh}
+		monitor := &blockingDequeueCounter{dequeuedCh: dequeuedCh}
+
 		limiter := NewLimiter(
 			1,
 			0,
 			func() helper.Ticker {
 				return ticker
 			},
-			gauge,
+			monitor,
 		)
 
 		ch := make(chan struct{})
@@ -430,5 +444,6 @@ func TestLimitConcurrency_queueWaitTime(t *testing.T) {
 		err := <-errChan
 
 		assert.NoError(t, err)
+		assert.Equal(t, monitor.droppedTime, 0)
 	})
 }
