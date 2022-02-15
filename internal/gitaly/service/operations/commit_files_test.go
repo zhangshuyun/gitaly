@@ -1535,6 +1535,34 @@ func TestFailedUserCommitFilesRequest(t *testing.T) {
 	}
 }
 
+func TestUserCommitFilesFailsIfRepositoryMissing(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+	repo := &gitalypb.Repository{
+		StorageName:   cfg.Storages[0].Name,
+		RelativePath:  t.Name(),
+		GlRepository:  gittest.GlRepository,
+		GlProjectPath: gittest.GlProjectPath,
+	}
+
+	branchName := "feature"
+	req := headerRequest(repo, gittest.TestUser, branchName, commitFilesMessage, "")
+
+	stream, err := client.UserCommitFiles(ctx)
+	require.NoError(t, err)
+	require.NoError(t, stream.Send(req))
+
+	_, err = stream.CloseAndRecv()
+	testhelper.RequireGrpcCode(t, err, codes.NotFound)
+	if testhelper.IsPraefectEnabled() {
+		require.Contains(t, err.Error(), "mutator call: route repository mutator: get repository id")
+		require.Contains(t, err.Error(), "not found")
+	} else {
+		require.Contains(t, err.Error(), "GetRepoPath: not a git repository")
+	}
+}
+
 func headerRequest(repo *gitalypb.Repository, user *gitalypb.User, branchName string, commitMessage []byte, startBranchName string) *gitalypb.UserCommitFilesRequest {
 	return &gitalypb.UserCommitFilesRequest{
 		UserCommitFilesRequestPayload: &gitalypb.UserCommitFilesRequest_Header{

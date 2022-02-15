@@ -64,6 +64,27 @@ func setupOperationsServiceWithCfg(
 	return ctx, cfg, repo, repoPath, client
 }
 
+func setupOperationsServiceWithoutRepo(
+	t testing.TB, ctx context.Context, options ...testserver.GitalyServerOpt,
+) (context.Context, config.Cfg, gitalypb.OperationServiceClient) {
+	cfg := testcfg.Build(t)
+
+	testcfg.BuildGitalySSH(t, cfg)
+	testcfg.BuildGitalyGit2Go(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
+
+	serverSocketPath := runOperationServiceServer(t, cfg, options...)
+	cfg.SocketPath = serverSocketPath
+
+	client, conn := newOperationClient(t, serverSocketPath)
+	t.Cleanup(func() { conn.Close() })
+
+	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
+	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
+
+	return ctx, cfg, client
+}
+
 func runOperationServiceServer(t testing.TB, cfg config.Cfg, options ...testserver.GitalyServerOpt) string {
 	t.Helper()
 
