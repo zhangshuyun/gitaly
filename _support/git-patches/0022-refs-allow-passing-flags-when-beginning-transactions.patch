@@ -1,0 +1,183 @@
+From 60d0682e02db5c197c09bc4cd5a643dc2269cca2 Mon Sep 17 00:00:00 2001
+Message-Id: <60d0682e02db5c197c09bc4cd5a643dc2269cca2.1646206541.git.ps@pks.im>
+In-Reply-To: <c74f385fb46855ac0db222b6845ddb95e6a36264.1646206541.git.ps@pks.im>
+References: <c74f385fb46855ac0db222b6845ddb95e6a36264.1646206541.git.ps@pks.im>
+From: Patrick Steinhardt <ps@pks.im>
+Date: Mon, 17 Jan 2022 09:12:35 +0100
+Subject: [PATCH 22/34] refs: allow passing flags when beginning transactions
+
+We do not currently have any flags when creating reference transactions,
+but we'll add one to disable execution of the reference transaction hook
+in some cases.
+
+Allow passing flags to `ref_store_transaction_begin()` to prepare for
+this change.
+
+Signed-off-by: Patrick Steinhardt <ps@pks.im>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+(cherry picked from commit fbe73f61cbc29f6c4a85478cf792c37dbe5aa26c)
+---
+ refs.c                |  8 +++++---
+ refs.h                |  3 ++-
+ refs/files-backend.c  | 10 +++++-----
+ refs/packed-backend.c |  2 +-
+ refs/refs-internal.h  |  1 +
+ sequencer.c           |  2 +-
+ 6 files changed, 15 insertions(+), 11 deletions(-)
+
+diff --git a/refs.c b/refs.c
+index addb26293b..f498d232e5 100644
+--- a/refs.c
++++ b/refs.c
+@@ -800,7 +800,7 @@ int refs_delete_ref(struct ref_store *refs, const char *msg,
+ 	struct ref_transaction *transaction;
+ 	struct strbuf err = STRBUF_INIT;
+ 
+-	transaction = ref_store_transaction_begin(refs, &err);
++	transaction = ref_store_transaction_begin(refs, 0, &err);
+ 	if (!transaction ||
+ 	    ref_transaction_delete(transaction, refname, old_oid,
+ 				   flags, msg, &err) ||
+@@ -1005,6 +1005,7 @@ int read_ref_at(struct ref_store *refs, const char *refname,
+ }
+ 
+ struct ref_transaction *ref_store_transaction_begin(struct ref_store *refs,
++						    unsigned int flags,
+ 						    struct strbuf *err)
+ {
+ 	struct ref_transaction *tr;
+@@ -1012,12 +1013,13 @@ struct ref_transaction *ref_store_transaction_begin(struct ref_store *refs,
+ 
+ 	CALLOC_ARRAY(tr, 1);
+ 	tr->ref_store = refs;
++	tr->flags = flags;
+ 	return tr;
+ }
+ 
+ struct ref_transaction *ref_transaction_begin(struct strbuf *err)
+ {
+-	return ref_store_transaction_begin(get_main_ref_store(the_repository), err);
++	return ref_store_transaction_begin(get_main_ref_store(the_repository), 0, err);
+ }
+ 
+ void ref_transaction_free(struct ref_transaction *transaction)
+@@ -1156,7 +1158,7 @@ int refs_update_ref(struct ref_store *refs, const char *msg,
+ 	struct strbuf err = STRBUF_INIT;
+ 	int ret = 0;
+ 
+-	t = ref_store_transaction_begin(refs, &err);
++	t = ref_store_transaction_begin(refs, 0, &err);
+ 	if (!t ||
+ 	    ref_transaction_update(t, refname, new_oid, old_oid, flags, msg,
+ 				   &err) ||
+diff --git a/refs.h b/refs.h
+index 8f91a7f9ff..3a141d7066 100644
+--- a/refs.h
++++ b/refs.h
+@@ -231,7 +231,7 @@ char *repo_default_branch_name(struct repository *r, int quiet);
+  *         struct strbuf err = STRBUF_INIT;
+  *         int ret = 0;
+  *
+- *         transaction = ref_store_transaction_begin(refs, &err);
++ *         transaction = ref_store_transaction_begin(refs, 0, &err);
+  *         if (!transaction ||
+  *             ref_transaction_update(...) ||
+  *             ref_transaction_create(...) ||
+@@ -573,6 +573,7 @@ enum action_on_err {
+  * be freed by calling ref_transaction_free().
+  */
+ struct ref_transaction *ref_store_transaction_begin(struct ref_store *refs,
++						    unsigned int flags,
+ 						    struct strbuf *err);
+ struct ref_transaction *ref_transaction_begin(struct strbuf *err);
+ 
+diff --git a/refs/files-backend.c b/refs/files-backend.c
+index 18baea4c6a..758d12a0fa 100644
+--- a/refs/files-backend.c
++++ b/refs/files-backend.c
+@@ -1116,7 +1116,7 @@ static void prune_ref(struct files_ref_store *refs, struct ref_to_prune *r)
+ 	if (check_refname_format(r->name, 0))
+ 		return;
+ 
+-	transaction = ref_store_transaction_begin(&refs->base, &err);
++	transaction = ref_store_transaction_begin(&refs->base, 0, &err);
+ 	if (!transaction)
+ 		goto cleanup;
+ 	ref_transaction_add_update(
+@@ -1187,7 +1187,7 @@ static int files_pack_refs(struct ref_store *ref_store, unsigned int flags)
+ 	struct strbuf err = STRBUF_INIT;
+ 	struct ref_transaction *transaction;
+ 
+-	transaction = ref_store_transaction_begin(refs->packed_ref_store, &err);
++	transaction = ref_store_transaction_begin(refs->packed_ref_store, 0, &err);
+ 	if (!transaction)
+ 		return -1;
+ 
+@@ -1254,7 +1254,7 @@ static int files_delete_refs(struct ref_store *ref_store, const char *msg,
+ 	if (packed_refs_lock(refs->packed_ref_store, 0, &err))
+ 		goto error;
+ 
+-	transaction = ref_store_transaction_begin(refs->packed_ref_store, &err);
++	transaction = ref_store_transaction_begin(refs->packed_ref_store, 0, &err);
+ 	if (!transaction)
+ 		goto error;
+ 
+@@ -2769,7 +2769,7 @@ static int files_transaction_prepare(struct ref_store *ref_store,
+ 			 */
+ 			if (!packed_transaction) {
+ 				packed_transaction = ref_store_transaction_begin(
+-						refs->packed_ref_store, err);
++						refs->packed_ref_store, 0, err);
+ 				if (!packed_transaction) {
+ 					ret = TRANSACTION_GENERIC_ERROR;
+ 					goto cleanup;
+@@ -3040,7 +3040,7 @@ static int files_initial_transaction_commit(struct ref_store *ref_store,
+ 				 &affected_refnames))
+ 		BUG("initial ref transaction called with existing refs");
+ 
+-	packed_transaction = ref_store_transaction_begin(refs->packed_ref_store, err);
++	packed_transaction = ref_store_transaction_begin(refs->packed_ref_store, 0, err);
+ 	if (!packed_transaction) {
+ 		ret = TRANSACTION_GENERIC_ERROR;
+ 		goto cleanup;
+diff --git a/refs/packed-backend.c b/refs/packed-backend.c
+index 960b43ff76..27dd8c3922 100644
+--- a/refs/packed-backend.c
++++ b/refs/packed-backend.c
+@@ -1534,7 +1534,7 @@ static int packed_delete_refs(struct ref_store *ref_store, const char *msg,
+ 	 * updates into a single transaction.
+ 	 */
+ 
+-	transaction = ref_store_transaction_begin(ref_store, &err);
++	transaction = ref_store_transaction_begin(ref_store, 0, &err);
+ 	if (!transaction)
+ 		return -1;
+ 
+diff --git a/refs/refs-internal.h b/refs/refs-internal.h
+index 7ff6fba4f0..6e15db3ca4 100644
+--- a/refs/refs-internal.h
++++ b/refs/refs-internal.h
+@@ -213,6 +213,7 @@ struct ref_transaction {
+ 	size_t nr;
+ 	enum ref_transaction_state state;
+ 	void *backend_data;
++	unsigned int flags;
+ };
+ 
+ /*
+diff --git a/sequencer.c b/sequencer.c
+index 5213d16e97..5a2b609557 100644
+--- a/sequencer.c
++++ b/sequencer.c
+@@ -3588,7 +3588,7 @@ static int do_label(struct repository *r, const char *name, int len)
+ 	strbuf_addf(&ref_name, "refs/rewritten/%.*s", len, name);
+ 	strbuf_addf(&msg, "rebase (label) '%.*s'", len, name);
+ 
+-	transaction = ref_store_transaction_begin(refs, &err);
++	transaction = ref_store_transaction_begin(refs, 0, &err);
+ 	if (!transaction) {
+ 		error("%s", err.buf);
+ 		ret = -1;
+-- 
+2.35.1
+

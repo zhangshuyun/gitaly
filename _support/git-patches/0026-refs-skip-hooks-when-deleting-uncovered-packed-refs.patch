@@ -1,0 +1,99 @@
+From d56f2a0e1eed4d0a39b99638117e0c8259e5078d Mon Sep 17 00:00:00 2001
+Message-Id: <d56f2a0e1eed4d0a39b99638117e0c8259e5078d.1646206542.git.ps@pks.im>
+In-Reply-To: <c74f385fb46855ac0db222b6845ddb95e6a36264.1646206541.git.ps@pks.im>
+References: <c74f385fb46855ac0db222b6845ddb95e6a36264.1646206541.git.ps@pks.im>
+From: Patrick Steinhardt <ps@pks.im>
+Date: Mon, 17 Jan 2022 09:12:53 +0100
+Subject: [PATCH 26/34] refs: skip hooks when deleting uncovered packed refs
+
+When deleting refs from the loose-files refs backend, then we need to be
+careful to also delete the same ref from the packed refs backend, if it
+exists. If we don't, then deleting the loose ref would "uncover" the
+packed ref. We thus always have to queue up deletions of refs for both
+the loose and the packed refs backend. This is done in two separate
+transactions, where the end result is that the reference-transaction
+hook is executed twice for the deleted refs.
+
+This behaviour is quite misleading: it's exposing implementation details
+of how the files backend works to the user, in contrast to the logical
+updates that we'd really want to expose via the hook. Worse yet, whether
+the hook gets executed once or twice depends on how well-packed the
+repository is: if the ref only exists as a loose ref, then we execute it
+once, otherwise if it is also packed then we execute it twice.
+
+Fix this behaviour and don't execute the reference-transaction hook at
+all when refs in the packed-refs backend if it's driven by the files
+backend. This works as expected even in case the refs to be deleted only
+exist in the packed-refs backend because the loose-backend always queues
+refs in its own transaction even if they don't exist such that they can
+be locked for concurrent creation. And it also does the right thing in
+case neither of the backends has the ref because that would cause the
+transaction to fail completely.
+
+Signed-off-by: Patrick Steinhardt <ps@pks.im>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+(cherry picked from commit 2ed1b64ebdeefc7f9473ae159fb45ff0c6cf121a)
+---
+ refs/files-backend.c             | 9 ++++++---
+ t/t1416-ref-transaction-hooks.sh | 7 +------
+ 2 files changed, 7 insertions(+), 9 deletions(-)
+
+diff --git a/refs/files-backend.c b/refs/files-backend.c
+index 19f43e8d29..c931dd479c 100644
+--- a/refs/files-backend.c
++++ b/refs/files-backend.c
+@@ -1256,7 +1256,8 @@ static int files_delete_refs(struct ref_store *ref_store, const char *msg,
+ 	if (packed_refs_lock(refs->packed_ref_store, 0, &err))
+ 		goto error;
+ 
+-	transaction = ref_store_transaction_begin(refs->packed_ref_store, 0, &err);
++	transaction = ref_store_transaction_begin(refs->packed_ref_store,
++						  REF_TRANSACTION_SKIP_HOOK, &err);
+ 	if (!transaction)
+ 		goto error;
+ 
+@@ -2771,7 +2772,8 @@ static int files_transaction_prepare(struct ref_store *ref_store,
+ 			 */
+ 			if (!packed_transaction) {
+ 				packed_transaction = ref_store_transaction_begin(
+-						refs->packed_ref_store, 0, err);
++						refs->packed_ref_store,
++						REF_TRANSACTION_SKIP_HOOK, err);
+ 				if (!packed_transaction) {
+ 					ret = TRANSACTION_GENERIC_ERROR;
+ 					goto cleanup;
+@@ -3042,7 +3044,8 @@ static int files_initial_transaction_commit(struct ref_store *ref_store,
+ 				 &affected_refnames))
+ 		BUG("initial ref transaction called with existing refs");
+ 
+-	packed_transaction = ref_store_transaction_begin(refs->packed_ref_store, 0, err);
++	packed_transaction = ref_store_transaction_begin(refs->packed_ref_store,
++							 REF_TRANSACTION_SKIP_HOOK, err);
+ 	if (!packed_transaction) {
+ 		ret = TRANSACTION_GENERIC_ERROR;
+ 		goto cleanup;
+diff --git a/t/t1416-ref-transaction-hooks.sh b/t/t1416-ref-transaction-hooks.sh
+index f9d3d5213f..4e1e84a91f 100755
+--- a/t/t1416-ref-transaction-hooks.sh
++++ b/t/t1416-ref-transaction-hooks.sh
+@@ -175,16 +175,11 @@ test_expect_success 'deleting packed ref calls hook once' '
+ 	git update-ref -d refs/heads/to-be-deleted $POST_OID &&
+ 
+ 	# We only expect a single hook invocation, which is the logical
+-	# deletion. But currently, we see two interleaving transactions, once
+-	# for deleting the loose refs and once for deleting the packed ref.
++	# deletion.
+ 	cat >expect <<-EOF &&
+-		prepared
+-		$ZERO_OID $ZERO_OID refs/heads/to-be-deleted
+ 		prepared
+ 		$POST_OID $ZERO_OID refs/heads/to-be-deleted
+ 		committed
+-		$ZERO_OID $ZERO_OID refs/heads/to-be-deleted
+-		committed
+ 		$POST_OID $ZERO_OID refs/heads/to-be-deleted
+ 	EOF
+ 
+-- 
+2.35.1
+

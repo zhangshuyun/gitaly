@@ -1,0 +1,310 @@
+From 3a62f32960d2df2451003f2561a4f14d459991ec Mon Sep 17 00:00:00 2001
+Message-Id: <3a62f32960d2df2451003f2561a4f14d459991ec.1646206542.git.ps@pks.im>
+In-Reply-To: <c74f385fb46855ac0db222b6845ddb95e6a36264.1646206541.git.ps@pks.im>
+References: <c74f385fb46855ac0db222b6845ddb95e6a36264.1646206541.git.ps@pks.im>
+From: Patrick Steinhardt <ps@pks.im>
+Date: Thu, 17 Feb 2022 14:04:36 +0100
+Subject: [PATCH 33/34] fetch: make `--atomic` flag cover backfilling of tags
+
+When fetching references from a remote we by default also fetch all tags
+which point into the history we have fetched. This is a separate step
+performed after updating local references because it requires us to walk
+over the history on the client-side to determine whether the remote has
+announced any tags which point to one of the fetched commits.
+
+This backfilling of tags isn't covered by the `--atomic` flag: right
+now, it only applies to the step where we update our local references.
+This is an oversight at the time the flag was introduced: its purpose is
+to either update all references or none, but right now we happily update
+local references even in the case where backfilling failed.
+
+Fix this by pulling up creation of the reference transaction such that
+we can pass the same transaction to both the code which updates local
+references and to the code which backfills tags. This allows us to only
+commit the transaction in case both actions succeed.
+
+Note that we also have to start passing the transaction into
+`find_non_local_tags()`: this function is responsible for finding all
+tags which we need to backfill. Right now, it will happily return tags
+which have already been updated with our local references. But when we
+use a single transaction for both local references and backfilling then
+it may happen that we try to queue the same reference update twice to
+the transaction, which consequently triggers a bug. We thus have to skip
+over any tags which have already been queued.
+
+Signed-off-by: Patrick Steinhardt <ps@pks.im>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+(cherry picked from commit b3a804663c4682f6df55dd6703f8f8af9a7c6ab5)
+---
+ builtin/fetch.c      | 92 +++++++++++++++++++++++++++++++-------------
+ t/t5503-tagfollow.sh | 11 ++----
+ 2 files changed, 69 insertions(+), 34 deletions(-)
+
+diff --git a/builtin/fetch.c b/builtin/fetch.c
+index 2d0ffb9859..e996a74862 100644
+--- a/builtin/fetch.c
++++ b/builtin/fetch.c
+@@ -348,7 +348,19 @@ static void clear_item(struct refname_hash_entry *item)
+ 	item->ignore = 1;
+ }
+ 
++
++static void add_already_queued_tags(const char *refname,
++				    const struct object_id *old_oid,
++				    const struct object_id *new_oid,
++				    void *cb_data)
++{
++	struct hashmap *queued_tags = cb_data;
++	if (starts_with(refname, "refs/tags/") && new_oid)
++		(void) refname_hash_add(queued_tags, refname, new_oid);
++}
++
+ static void find_non_local_tags(const struct ref *refs,
++				struct ref_transaction *transaction,
+ 				struct ref **head,
+ 				struct ref ***tail)
+ {
+@@ -366,6 +378,16 @@ static void find_non_local_tags(const struct ref *refs,
+ 	create_fetch_oidset(head, &fetch_oids);
+ 
+ 	for_each_ref(add_one_refname, &existing_refs);
++
++	/*
++	 * If we already have a transaction, then we need to filter out all
++	 * tags which have already been queued up.
++	 */
++	if (transaction)
++		ref_transaction_for_each_queued_update(transaction,
++						       add_already_queued_tags,
++						       &existing_refs);
++
+ 	for (ref = refs; ref; ref = ref->next) {
+ 		if (!starts_with(ref->name, "refs/tags/"))
+ 			continue;
+@@ -599,7 +621,7 @@ static struct ref *get_ref_map(struct remote *remote,
+ 		/* also fetch all tags */
+ 		get_fetch_map(remote_refs, tag_refspec, &tail, 0);
+ 	else if (tags == TAGS_DEFAULT && *autotags)
+-		find_non_local_tags(remote_refs, &ref_map, &tail);
++		find_non_local_tags(remote_refs, NULL, &ref_map, &tail);
+ 
+ 	/* Now append any refs to be updated opportunistically: */
+ 	*tail = orefs;
+@@ -1082,12 +1104,12 @@ N_("it took %.2f seconds to check forced updates; you can use\n"
+    "to avoid this check\n");
+ 
+ static int store_updated_refs(const char *raw_url, const char *remote_name,
+-			      int connectivity_checked, struct ref *ref_map,
++			      int connectivity_checked,
++			      struct ref_transaction *transaction, struct ref *ref_map,
+ 			      struct fetch_head *fetch_head, struct worktree **worktrees)
+ {
+ 	int url_len, i, rc = 0;
+ 	struct strbuf note = STRBUF_INIT, err = STRBUF_INIT;
+-	struct ref_transaction *transaction = NULL;
+ 	const char *what, *kind;
+ 	struct ref *rm;
+ 	char *url;
+@@ -1112,14 +1134,6 @@ static int store_updated_refs(const char *raw_url, const char *remote_name,
+ 		}
+ 	}
+ 
+-	if (atomic_fetch) {
+-		transaction = ref_transaction_begin(&err);
+-		if (!transaction) {
+-			error("%s", err.buf);
+-			goto abort;
+-		}
+-	}
+-
+ 	prepare_format_display(ref_map);
+ 
+ 	/*
+@@ -1235,14 +1249,6 @@ static int store_updated_refs(const char *raw_url, const char *remote_name,
+ 		}
+ 	}
+ 
+-	if (!rc && transaction) {
+-		rc = ref_transaction_commit(transaction, &err);
+-		if (rc) {
+-			error("%s", err.buf);
+-			goto abort;
+-		}
+-	}
+-
+ 	if (rc & STORE_REF_ERROR_DF_CONFLICT)
+ 		error(_("some local refs could not be updated; try running\n"
+ 		      " 'git remote prune %s' to remove any old, conflicting "
+@@ -1260,7 +1266,6 @@ static int store_updated_refs(const char *raw_url, const char *remote_name,
+  abort:
+ 	strbuf_release(&note);
+ 	strbuf_release(&err);
+-	ref_transaction_free(transaction);
+ 	free(url);
+ 	return rc;
+ }
+@@ -1301,6 +1306,7 @@ static int check_exist_and_connected(struct ref *ref_map)
+ }
+ 
+ static int fetch_and_consume_refs(struct transport *transport,
++				  struct ref_transaction *transaction,
+ 				  struct ref *ref_map,
+ 				  struct fetch_head *fetch_head,
+ 				  struct worktree **worktrees)
+@@ -1325,7 +1331,8 @@ static int fetch_and_consume_refs(struct transport *transport,
+ 
+ 	trace2_region_enter("fetch", "consume_refs", the_repository);
+ 	ret = store_updated_refs(transport->url, transport->remote->name,
+-				 connectivity_checked, ref_map, fetch_head, worktrees);
++				 connectivity_checked, transaction, ref_map,
++				 fetch_head, worktrees);
+ 	trace2_region_leave("fetch", "consume_refs", the_repository);
+ 
+ out:
+@@ -1499,6 +1506,7 @@ static struct transport *prepare_transport(struct remote *remote, int deepen)
+ }
+ 
+ static int backfill_tags(struct transport *transport,
++			 struct ref_transaction *transaction,
+ 			 struct ref *ref_map,
+ 			 struct fetch_head *fetch_head,
+ 			 struct worktree **worktrees)
+@@ -1522,7 +1530,7 @@ static int backfill_tags(struct transport *transport,
+ 	transport_set_option(transport, TRANS_OPT_FOLLOWTAGS, NULL);
+ 	transport_set_option(transport, TRANS_OPT_DEPTH, "0");
+ 	transport_set_option(transport, TRANS_OPT_DEEPEN_RELATIVE, NULL);
+-	retcode = fetch_and_consume_refs(transport, ref_map, fetch_head, worktrees);
++	retcode = fetch_and_consume_refs(transport, transaction, ref_map, fetch_head, worktrees);
+ 
+ 	if (gsecondary) {
+ 		transport_disconnect(gsecondary);
+@@ -1535,6 +1543,7 @@ static int backfill_tags(struct transport *transport,
+ static int do_fetch(struct transport *transport,
+ 		    struct refspec *rs)
+ {
++	struct ref_transaction *transaction = NULL;
+ 	struct ref *ref_map = NULL;
+ 	int autotags = (transport->remote->fetch_tags == 1);
+ 	int retcode = 0;
+@@ -1544,6 +1553,7 @@ static int do_fetch(struct transport *transport,
+ 	int must_list_refs = 1;
+ 	struct worktree **worktrees = get_worktrees();
+ 	struct fetch_head fetch_head = { 0 };
++	struct strbuf err = STRBUF_INIT;
+ 
+ 	if (tags == TAGS_DEFAULT) {
+ 		if (transport->remote->fetch_tags == 2)
+@@ -1605,6 +1615,14 @@ static int do_fetch(struct transport *transport,
+ 	if (retcode)
+ 		goto cleanup;
+ 
++	if (atomic_fetch) {
++		transaction = ref_transaction_begin(&err);
++		if (!transaction) {
++			retcode = error("%s", err.buf);
++			goto cleanup;
++		}
++	}
++
+ 	if (tags == TAGS_DEFAULT && autotags)
+ 		transport_set_option(transport, TRANS_OPT_FOLLOWTAGS, "1");
+ 	if (prune) {
+@@ -1624,7 +1642,7 @@ static int do_fetch(struct transport *transport,
+ 			retcode = 1;
+ 	}
+ 
+-	if (fetch_and_consume_refs(transport, ref_map, &fetch_head, worktrees)) {
++	if (fetch_and_consume_refs(transport, transaction, ref_map, &fetch_head, worktrees)) {
+ 		retcode = 1;
+ 		goto cleanup;
+ 	}
+@@ -1636,21 +1654,37 @@ static int do_fetch(struct transport *transport,
+ 	if (tags == TAGS_DEFAULT && autotags) {
+ 		struct ref *tags_ref_map = NULL, **tail = &tags_ref_map;
+ 
+-		find_non_local_tags(remote_refs, &tags_ref_map, &tail);
++		find_non_local_tags(remote_refs, transaction, &tags_ref_map, &tail);
+ 		if (tags_ref_map) {
+ 			/*
+ 			 * If backfilling of tags fails then we want to tell
+ 			 * the user so, but we have to continue regardless to
+ 			 * populate upstream information of the references we
+-			 * have already fetched above.
++			 * have already fetched above. The exception though is
++			 * when `--atomic` is passed: in that case we'll abort
++			 * the transaction and don't commit anything.
+ 			 */
+-			if (backfill_tags(transport, tags_ref_map, &fetch_head, worktrees))
++			if (backfill_tags(transport, transaction, tags_ref_map,
++					  &fetch_head, worktrees))
+ 				retcode = 1;
+ 		}
+ 
+ 		free_refs(tags_ref_map);
+ 	}
+ 
++	if (transaction) {
++		if (retcode)
++			goto cleanup;
++
++		retcode = ref_transaction_commit(transaction, &err);
++		if (retcode) {
++			error("%s", err.buf);
++			ref_transaction_free(transaction);
++			transaction = NULL;
++			goto cleanup;
++		}
++	}
++
+ 	commit_fetch_head(&fetch_head);
+ 
+ 	if (set_upstream) {
+@@ -1708,7 +1742,13 @@ static int do_fetch(struct transport *transport,
+ 	}
+ 
+ cleanup:
++	if (retcode && transaction) {
++		ref_transaction_abort(transaction, &err);
++		error("%s", err.buf);
++	}
++
+ 	close_fetch_head(&fetch_head);
++	strbuf_release(&err);
+ 	free_refs(ref_map);
+ 	free_worktrees(worktrees);
+ 	return retcode;
+diff --git a/t/t5503-tagfollow.sh b/t/t5503-tagfollow.sh
+index c057c49e80..e72fdc2534 100755
+--- a/t/t5503-tagfollow.sh
++++ b/t/t5503-tagfollow.sh
+@@ -180,11 +180,8 @@ test_expect_success 'atomic fetch with failing backfill' '
+ 	EOF
+ 
+ 	test_must_fail git -C clone3 fetch --atomic .. $B:refs/heads/something &&
+-
+-	# Creation of the tag has failed, so ideally refs/heads/something
+-	# should not exist. The fact that it does demonstrates that there is
+-	# a bug in the `--atomic` flag.
+-	test $B = "$(git -C clone3 rev-parse --verify refs/heads/something)"
++	test_must_fail git -C clone3 rev-parse --verify refs/heads/something &&
++	test_must_fail git -C clone3 rev-parse --verify refs/tags/tag2
+ '
+ 
+ test_expect_success 'atomic fetch with backfill should use single transaction' '
+@@ -197,12 +194,10 @@ test_expect_success 'atomic fetch with backfill should use single transaction' '
+ 		prepared
+ 		$ZERO_OID $B refs/heads/something
+ 		$ZERO_OID $S refs/tags/tag2
++		$ZERO_OID $T refs/tags/tag1
+ 		committed
+ 		$ZERO_OID $B refs/heads/something
+ 		$ZERO_OID $S refs/tags/tag2
+-		prepared
+-		$ZERO_OID $T refs/tags/tag1
+-		committed
+ 		$ZERO_OID $T refs/tags/tag1
+ 	EOF
+ 
+-- 
+2.35.1
+

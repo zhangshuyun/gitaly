@@ -356,12 +356,16 @@ install: build
 
 .PHONY: build-bundled-git
 ## Build bundled Git binaries.
-build-bundled-git: $(patsubst %,${BUILD_DIR}/bin/gitaly-%,${GIT_EXECUTABLES})
+build-bundled-git: build-bundled-git-v2.33.1.gl2 build-bundled-git-v2.35.1.gl1
+build-bundled-git-v2.33.1.gl2: $(patsubst %,${BUILD_DIR}/bin/gitaly-%,${GIT_EXECUTABLES})
+build-bundled-git-v2.35.1.gl1: $(patsubst %,${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1,${GIT_EXECUTABLES})
 
 .PHONY: install-bundled-git
 ## Install bundled Git binaries. The target directory can be modified by
 ## setting PREFIX and DESTDIR.
-install-bundled-git: $(patsubst %,${INSTALL_DEST_DIR}/gitaly-%,${GIT_EXECUTABLES})
+install-bundled-git: install-bundled-git-v2.33.1.gl2 install-bundled-git-v2.35.1.gl1
+install-bundled-git-v2.33.1.gl2: $(patsubst %,${INSTALL_DEST_DIR}/gitaly-%,${GIT_EXECUTABLES})
+install-bundled-git-v2.35.1.gl1: $(patsubst %,${INSTALL_DEST_DIR}/gitaly-%-v2.35.1.gl1,${GIT_EXECUTABLES})
 
 ifdef WITH_BUNDLED_GIT
 build: build-bundled-git
@@ -641,6 +645,48 @@ ${GIT_PREFIX}/bin/git: ${DEPENDENCY_DIR}/git-${GIT_VERSION}.${GIT_EXTRA_VERSION}
 	${Q}touch $@
 
 ${BUILD_DIR}/bin/gitaly-%: ${DEPENDENCY_DIR}/git-${GIT_VERSION}.${GIT_EXTRA_VERSION}/% | ${BUILD_DIR}/bin
+	${Q}install $< $@
+
+# Speed up fetches by making better use of the commit-graph and by not
+# computing the output-width if not requested. Merged into next via
+# 2b331293fb (Merge branch 'ps/fetch-optim-with-commit-graph' into next,
+# 2022-02-14).
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES := 0019-fetch-pack-use-commit-graph-when-computing-cutoff.patch
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0020-fetch-skip-computing-output-width-when-not-printing-.patch
+
+# Skip execution of the reference-transaction hook a second time via the
+# packed-refs backend in case loose references are deleted. This will
+# eventually make a workaround obsolete where we had to filter out all
+# invocations of the hook where we only saw force-deletions of references such
+# that we don't depend on whether refs are packed or not. Merged into main via
+# 991b4d47f0 (Merge branch
+# 'ps/avoid-unnecessary-hook-invocation-with-packed-refs', 2022-02-18).
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0021-refs-extract-packed_refs_delete_refs-to-allow-contro.patch
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0022-refs-allow-passing-flags-when-beginning-transactions.patch
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0023-refs-allow-skipping-the-reference-transaction-hook.patch
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0024-refs-demonstrate-excessive-execution-of-the-referenc.patch
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0025-refs-do-not-execute-reference-transaction-hook-on-pa.patch
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0026-refs-skip-hooks-when-deleting-uncovered-packed-refs.patch
+
+# Fix atomicity of git-fetch(1) to also cover pruning of references and
+# backfilling of tags. Previously, each reference modified via any of both
+# means would have created its own transaction and thus led to multiple hook
+# invocations. Merged into next via 3824153b23 (Merge branch 'ps/fetch-atomic'
+# into next, 2022-02-18). The first patch is unrelated, but required to fix a
+# merge conflict. It has been merged to main via c73d46b3a8 (Merge branch
+# 'tg/fetch-prune-exit-code-fix', 2022-02-11).
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0027-fetch-prune-exit-with-error-if-pruning-fails.patch
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0028-fetch-increase-test-coverage-of-fetches.patch
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0029-fetch-backfill-tags-before-setting-upstream.patch
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0030-fetch-control-lifecycle-of-FETCH_HEAD-in-a-single-pl.patch
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0031-fetch-report-errors-when-backfilling-tags-fails.patch
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0032-refs-add-interface-to-iterate-over-queued-transactio.patch
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0033-fetch-make-atomic-flag-cover-backfilling-of-tags.patch
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0034-fetch-make-atomic-flag-cover-pruning-of-refs.patch
+
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_VERSION = v2.35.1
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_EXTRA_VERSION = gl1
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: ${DEPENDENCY_DIR}/git-v2.35.1.gl1/% | ${BUILD_DIR}/bin
 	${Q}install $< $@
 
 ${INSTALL_DEST_DIR}/gitaly-%: ${BUILD_DIR}/bin/gitaly-%

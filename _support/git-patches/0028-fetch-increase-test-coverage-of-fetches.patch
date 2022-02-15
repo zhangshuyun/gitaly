@@ -1,0 +1,169 @@
+From e6b86c1dcd01137afe71fe2c303efcf587b01abf Mon Sep 17 00:00:00 2001
+Message-Id: <e6b86c1dcd01137afe71fe2c303efcf587b01abf.1646206542.git.ps@pks.im>
+In-Reply-To: <c74f385fb46855ac0db222b6845ddb95e6a36264.1646206541.git.ps@pks.im>
+References: <c74f385fb46855ac0db222b6845ddb95e6a36264.1646206541.git.ps@pks.im>
+From: Patrick Steinhardt <ps@pks.im>
+Date: Thu, 17 Feb 2022 14:04:16 +0100
+Subject: [PATCH 28/34] fetch: increase test coverage of fetches
+
+When using git-fetch(1) with the `--atomic` flag the expectation is that
+either all of the references are updated, or alternatively none are in
+case the fetch fails. While we already have tests for this, we do not
+have any tests which exercise atomicity either when pruning deleted refs
+or when backfilling tags. This gap in test coverage hides that we indeed
+don't handle atomicity correctly for both of these cases.
+
+Add test cases which cover these testing gaps to demonstrate the broken
+behaviour. Note that tests are not marked as `test_expect_failure`: this
+is done to explicitly demonstrate the current known-wrong behaviour, and
+they will be fixed up as soon as we fix the underlying bugs.
+
+While at it this commit also adds another test case which demonstrates
+that backfilling of tags does not return an error code in case the
+backfill fails. This bug will also be fixed by a subsequent commit.
+
+Signed-off-by: Patrick Steinhardt <ps@pks.im>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+(cherry picked from commit 2a0cafd464709cfa22fe7249290c644a2a26c520)
+---
+ t/t5503-tagfollow.sh | 81 ++++++++++++++++++++++++++++++++++++++++++++
+ t/t5510-fetch.sh     | 33 ++++++++++++++++++
+ 2 files changed, 114 insertions(+)
+
+diff --git a/t/t5503-tagfollow.sh b/t/t5503-tagfollow.sh
+index 195fc64dd4..6ffe2a5719 100755
+--- a/t/t5503-tagfollow.sh
++++ b/t/t5503-tagfollow.sh
+@@ -160,4 +160,85 @@ test_expect_success 'new clone fetch main and tags' '
+ 	test_cmp expect actual
+ '
+ 
++test_expect_success 'atomic fetch with failing backfill' '
++	git init clone3 &&
++
++	# We want to test whether a failure when backfilling tags correctly
++	# aborts the complete transaction when `--atomic` is passed: we should
++	# neither create the branch nor should we create the tag when either
++	# one of both fails to update correctly.
++	#
++	# To trigger failure we simply abort when backfilling a tag.
++	write_script clone3/.git/hooks/reference-transaction <<-\EOF &&
++		while read oldrev newrev reference
++		do
++			if test "$reference" = refs/tags/tag1
++			then
++				exit 1
++			fi
++		done
++	EOF
++
++	test_must_fail git -C clone3 fetch --atomic .. $B:refs/heads/something &&
++
++	# Creation of the tag has failed, so ideally refs/heads/something
++	# should not exist. The fact that it does demonstrates that there is
++	# a bug in the `--atomic` flag.
++	test $B = "$(git -C clone3 rev-parse --verify refs/heads/something)"
++'
++
++test_expect_success 'atomic fetch with backfill should use single transaction' '
++	git init clone4 &&
++
++	# Fetching with the `--atomic` flag should update all references in a
++	# single transaction, including backfilled tags. We thus expect to see
++	# a single reference transaction for the created branch and tags.
++	cat >expected <<-EOF &&
++		prepared
++		$ZERO_OID $B refs/heads/something
++		$ZERO_OID $S refs/tags/tag2
++		committed
++		$ZERO_OID $B refs/heads/something
++		$ZERO_OID $S refs/tags/tag2
++		prepared
++		$ZERO_OID $T refs/tags/tag1
++		committed
++		$ZERO_OID $T refs/tags/tag1
++	EOF
++
++	write_script clone4/.git/hooks/reference-transaction <<-\EOF &&
++		( echo "$*" && cat ) >>actual
++	EOF
++
++	git -C clone4 fetch --atomic .. $B:refs/heads/something &&
++	test_cmp expected clone4/actual
++'
++
++test_expect_success 'backfill failure causes command to fail' '
++	git init clone5 &&
++
++	write_script clone5/.git/hooks/reference-transaction <<-EOF &&
++		while read oldrev newrev reference
++		do
++			if test "\$reference" = refs/tags/tag1
++			then
++				# Create a nested tag below the actual tag we
++				# wanted to write, which causes a D/F conflict
++				# later when we want to commit refs/tags/tag1.
++				# We cannot just `exit 1` here given that this
++				# would cause us to die immediately.
++				git update-ref refs/tags/tag1/nested $B
++				exit \$!
++			fi
++		done
++	EOF
++
++	# Even though we fail to create refs/tags/tag1 the below command
++	# unexpectedly succeeds.
++	git -C clone5 fetch .. $B:refs/heads/something &&
++	test $B = $(git -C clone5 rev-parse --verify refs/heads/something) &&
++	test $S = $(git -C clone5 rev-parse --verify tag2) &&
++	test_must_fail git -C clone5 rev-parse --verify tag1
++'
++
+ test_done
+diff --git a/t/t5510-fetch.sh b/t/t5510-fetch.sh
+index ef0da0a63b..70d51f343b 100755
+--- a/t/t5510-fetch.sh
++++ b/t/t5510-fetch.sh
+@@ -343,6 +343,39 @@ test_expect_success 'fetch --atomic --append appends to FETCH_HEAD' '
+ 	test_cmp expected atomic/.git/FETCH_HEAD
+ '
+ 
++test_expect_success 'fetch --atomic --prune executes a single reference transaction only' '
++	test_when_finished "rm -rf \"$D\"/atomic" &&
++
++	cd "$D" &&
++	git branch scheduled-for-deletion &&
++	git clone . atomic &&
++	git branch -D scheduled-for-deletion &&
++	git branch new-branch &&
++	head_oid=$(git rev-parse HEAD) &&
++
++	# Fetching with the `--atomic` flag should update all references in a
++	# single transaction. It is currently missing coverage of pruned
++	# references though, and as a result those may be committed to disk
++	# even if updating references fails later.
++	cat >expected <<-EOF &&
++		prepared
++		$ZERO_OID $ZERO_OID refs/remotes/origin/scheduled-for-deletion
++		committed
++		$ZERO_OID $ZERO_OID refs/remotes/origin/scheduled-for-deletion
++		prepared
++		$ZERO_OID $head_oid refs/remotes/origin/new-branch
++		committed
++		$ZERO_OID $head_oid refs/remotes/origin/new-branch
++	EOF
++
++	write_script atomic/.git/hooks/reference-transaction <<-\EOF &&
++		( echo "$*" && cat ) >>actual
++	EOF
++
++	git -C atomic fetch --atomic --prune origin &&
++	test_cmp expected atomic/actual
++'
++
+ test_expect_success '--refmap="" ignores configured refspec' '
+ 	cd "$TRASH_DIRECTORY" &&
+ 	git clone "$D" remote-refs &&
+-- 
+2.35.1
+

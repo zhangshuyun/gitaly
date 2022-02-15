@@ -1,0 +1,149 @@
+From c1334339eccde428151dc9e544ab2ec4d0178cad Mon Sep 17 00:00:00 2001
+Message-Id: <c1334339eccde428151dc9e544ab2ec4d0178cad.1646206542.git.ps@pks.im>
+In-Reply-To: <c74f385fb46855ac0db222b6845ddb95e6a36264.1646206541.git.ps@pks.im>
+References: <c74f385fb46855ac0db222b6845ddb95e6a36264.1646206541.git.ps@pks.im>
+From: Patrick Steinhardt <ps@pks.im>
+Date: Thu, 17 Feb 2022 14:04:41 +0100
+Subject: [PATCH 34/34] fetch: make `--atomic` flag cover pruning of refs
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+When fetching with the `--prune` flag we will delete any local
+references matching the fetch refspec which have disappeared on the
+remote. This step is not currently covered by the `--atomic` flag: we
+delete branches even though updating of local references has failed,
+which means that the fetch is not an all-or-nothing operation.
+
+Fix this bug by passing in the global transaction into `prune_refs()`:
+if one is given, then we'll only queue up deletions and not commit them
+right away.
+
+This change also improves performance when pruning many branches in a
+repository with a big packed-refs file: every references is pruned in
+its own transaction, which means that we potentially have to rewrite
+the packed-refs files for every single reference we're about to prune.
+
+The following benchmark demonstrates this: it performs a pruning fetch
+from a repository with a single reference into a repository with 100k
+references, which causes us to prune all but one reference. This is of
+course a very artificial setup, but serves to demonstrate the impact of
+only having to write the packed-refs file once:
+
+    Benchmark 1: git fetch --prune --atomic +refs/*:refs/* (HEAD~)
+      Time (mean ± σ):      2.366 s ±  0.021 s    [User: 0.858 s, System: 1.508 s]
+      Range (min … max):    2.328 s …  2.407 s    10 runs
+
+    Benchmark 2: git fetch --prune --atomic +refs/*:refs/* (HEAD)
+      Time (mean ± σ):      1.369 s ±  0.017 s    [User: 0.715 s, System: 0.641 s]
+      Range (min … max):    1.346 s …  1.400 s    10 runs
+
+    Summary
+      'git fetch --prune --atomic +refs/*:refs/* (HEAD)' ran
+        1.73 ± 0.03 times faster than 'git fetch --prune --atomic +refs/*:refs/* (HEAD~)'
+
+Signed-off-by: Patrick Steinhardt <ps@pks.im>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+(cherry picked from commit 583bc419235cedc6a2ba12593f058a9f812b9594)
+---
+ builtin/fetch.c  | 30 ++++++++++++++++++++++--------
+ t/t5510-fetch.sh |  8 ++------
+ 2 files changed, 24 insertions(+), 14 deletions(-)
+
+diff --git a/builtin/fetch.c b/builtin/fetch.c
+index e996a74862..25cc0b906e 100644
+--- a/builtin/fetch.c
++++ b/builtin/fetch.c
+@@ -1340,11 +1340,14 @@ static int fetch_and_consume_refs(struct transport *transport,
+ 	return ret;
+ }
+ 
+-static int prune_refs(struct refspec *rs, struct ref *ref_map,
++static int prune_refs(struct refspec *rs,
++		      struct ref_transaction *transaction,
++		      struct ref *ref_map,
+ 		      const char *raw_url)
+ {
+ 	int url_len, i, result = 0;
+ 	struct ref *ref, *stale_refs = get_stale_heads(rs, ref_map);
++	struct strbuf err = STRBUF_INIT;
+ 	char *url;
+ 	const char *dangling_msg = dry_run
+ 		? _("   (%s will become dangling)")
+@@ -1364,13 +1367,22 @@ static int prune_refs(struct refspec *rs, struct ref *ref_map,
+ 		url_len = i - 3;
+ 
+ 	if (!dry_run) {
+-		struct string_list refnames = STRING_LIST_INIT_NODUP;
++		if (transaction) {
++			for (ref = stale_refs; ref; ref = ref->next) {
++				result = ref_transaction_delete(transaction, ref->name, NULL, 0,
++								"fetch: prune", &err);
++				if (result)
++					goto cleanup;
++			}
++		} else {
++			struct string_list refnames = STRING_LIST_INIT_NODUP;
+ 
+-		for (ref = stale_refs; ref; ref = ref->next)
+-			string_list_append(&refnames, ref->name);
++			for (ref = stale_refs; ref; ref = ref->next)
++				string_list_append(&refnames, ref->name);
+ 
+-		result = delete_refs("fetch: prune", &refnames, 0);
+-		string_list_clear(&refnames, 0);
++			result = delete_refs("fetch: prune", &refnames, 0);
++			string_list_clear(&refnames, 0);
++		}
+ 	}
+ 
+ 	if (verbosity >= 0) {
+@@ -1391,6 +1403,8 @@ static int prune_refs(struct refspec *rs, struct ref *ref_map,
+ 		}
+ 	}
+ 
++cleanup:
++	strbuf_release(&err);
+ 	free(url);
+ 	free_refs(stale_refs);
+ 	return result;
+@@ -1632,10 +1646,10 @@ static int do_fetch(struct transport *transport,
+ 		 * don't care whether --tags was specified.
+ 		 */
+ 		if (rs->nr) {
+-			retcode = prune_refs(rs, ref_map, transport->url);
++			retcode = prune_refs(rs, transaction, ref_map, transport->url);
+ 		} else {
+ 			retcode = prune_refs(&transport->remote->fetch,
+-					     ref_map,
++					     transaction, ref_map,
+ 					     transport->url);
+ 		}
+ 		if (retcode != 0)
+diff --git a/t/t5510-fetch.sh b/t/t5510-fetch.sh
+index 70d51f343b..48e14e2dab 100755
+--- a/t/t5510-fetch.sh
++++ b/t/t5510-fetch.sh
+@@ -354,17 +354,13 @@ test_expect_success 'fetch --atomic --prune executes a single reference transact
+ 	head_oid=$(git rev-parse HEAD) &&
+ 
+ 	# Fetching with the `--atomic` flag should update all references in a
+-	# single transaction. It is currently missing coverage of pruned
+-	# references though, and as a result those may be committed to disk
+-	# even if updating references fails later.
++	# single transaction.
+ 	cat >expected <<-EOF &&
+ 		prepared
+ 		$ZERO_OID $ZERO_OID refs/remotes/origin/scheduled-for-deletion
+-		committed
+-		$ZERO_OID $ZERO_OID refs/remotes/origin/scheduled-for-deletion
+-		prepared
+ 		$ZERO_OID $head_oid refs/remotes/origin/new-branch
+ 		committed
++		$ZERO_OID $ZERO_OID refs/remotes/origin/scheduled-for-deletion
+ 		$ZERO_OID $head_oid refs/remotes/origin/new-branch
+ 	EOF
+ 
+-- 
+2.35.1
+

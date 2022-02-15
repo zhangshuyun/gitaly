@@ -1,0 +1,60 @@
+From 4eccd16b45516df5ab02288d0c50c16e03cc44e4 Mon Sep 17 00:00:00 2001
+Message-Id: <4eccd16b45516df5ab02288d0c50c16e03cc44e4.1646206541.git.ps@pks.im>
+In-Reply-To: <c74f385fb46855ac0db222b6845ddb95e6a36264.1646206541.git.ps@pks.im>
+References: <c74f385fb46855ac0db222b6845ddb95e6a36264.1646206541.git.ps@pks.im>
+From: Patrick Steinhardt <ps@pks.im>
+Date: Mon, 17 Jan 2022 09:12:39 +0100
+Subject: [PATCH 23/34] refs: allow skipping the reference-transaction hook
+
+The reference-transaction hook is executing whenever we prepare, commit
+or abort a reference transaction. While this is mostly intentional, in
+case of the files backend we're leaking the implementation detail that
+the store is in fact a composite store with one loose and one packed
+backend to the caller. So while we want to execute the hook for all
+logical updates, executing it for such implementation details is
+unexpected.
+
+Prepare for a fix by adding a new flag which allows to skip execution of
+the hook.
+
+Signed-off-by: Patrick Steinhardt <ps@pks.im>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+(cherry picked from commit 958fbc74e3d0fcc88b2065190e23db556a963644)
+---
+ refs.c | 3 +++
+ refs.h | 5 +++++
+ 2 files changed, 8 insertions(+)
+
+diff --git a/refs.c b/refs.c
+index f498d232e5..435b90b1ec 100644
+--- a/refs.c
++++ b/refs.c
+@@ -2084,6 +2084,9 @@ static int run_transaction_hook(struct ref_transaction *transaction,
+ 	const char *hook;
+ 	int ret = 0, i;
+ 
++	if (transaction->flags & REF_TRANSACTION_SKIP_HOOK)
++		return 0;
++
+ 	hook = find_hook("reference-transaction");
+ 	if (!hook)
+ 		return ret;
+diff --git a/refs.h b/refs.h
+index 3a141d7066..a015354fd6 100644
+--- a/refs.h
++++ b/refs.h
+@@ -568,6 +568,11 @@ enum action_on_err {
+ 	UPDATE_REFS_QUIET_ON_ERR
+ };
+ 
++/*
++ * Skip executing the reference-transaction hook.
++ */
++#define REF_TRANSACTION_SKIP_HOOK (1 << 0)
++
+ /*
+  * Begin a reference transaction.  The reference transaction must
+  * be freed by calling ref_transaction_free().
+-- 
+2.35.1
+

@@ -1,0 +1,156 @@
+From c74f385fb46855ac0db222b6845ddb95e6a36264 Mon Sep 17 00:00:00 2001
+Message-Id: <c74f385fb46855ac0db222b6845ddb95e6a36264.1646206541.git.ps@pks.im>
+From: Patrick Steinhardt <ps@pks.im>
+Date: Mon, 17 Jan 2022 09:12:31 +0100
+Subject: [PATCH 21/34] refs: extract packed_refs_delete_refs() to allow
+ control of transaction
+
+When deleting loose refs, then we also have to delete the refs in the
+packed backend. This is done by calling `refs_delete_refs()`, which
+then uses the packed-backend's logic to delete refs. This doesn't allow
+us to exercise any control over the reference transaction which is being
+created in the packed backend, which is required in a subsequent commit.
+
+Extract a new function `packed_refs_delete_refs()`, which hosts most of
+the logic to delete refs except for creating the transaction itself.
+Like this, we can easily create the transaction in the files backend
+and thus exert more control over it.
+
+Signed-off-by: Patrick Steinhardt <ps@pks.im>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+(cherry picked from commit 69840cc0f7b4f3352903bd2b8f3de7077916c26b)
+---
+ refs/files-backend.c  | 13 ++++++++++---
+ refs/packed-backend.c | 26 ++++++++++++++++++++------
+ refs/packed-backend.h |  7 +++++++
+ 3 files changed, 37 insertions(+), 9 deletions(-)
+
+diff --git a/refs/files-backend.c b/refs/files-backend.c
+index 43a3b882d7..18baea4c6a 100644
+--- a/refs/files-backend.c
++++ b/refs/files-backend.c
+@@ -1244,6 +1244,7 @@ static int files_delete_refs(struct ref_store *ref_store, const char *msg,
+ {
+ 	struct files_ref_store *refs =
+ 		files_downcast(ref_store, REF_STORE_WRITE, "delete_refs");
++	struct ref_transaction *transaction = NULL;
+ 	struct strbuf err = STRBUF_INIT;
+ 	int i, result = 0;
+ 
+@@ -1253,10 +1254,14 @@ static int files_delete_refs(struct ref_store *ref_store, const char *msg,
+ 	if (packed_refs_lock(refs->packed_ref_store, 0, &err))
+ 		goto error;
+ 
+-	if (refs_delete_refs(refs->packed_ref_store, msg, refnames, flags)) {
+-		packed_refs_unlock(refs->packed_ref_store);
++	transaction = ref_store_transaction_begin(refs->packed_ref_store, &err);
++	if (!transaction)
++		goto error;
++
++	result = packed_refs_delete_refs(refs->packed_ref_store,
++					 transaction, msg, refnames, flags);
++	if (result)
+ 		goto error;
+-	}
+ 
+ 	packed_refs_unlock(refs->packed_ref_store);
+ 
+@@ -1267,6 +1272,7 @@ static int files_delete_refs(struct ref_store *ref_store, const char *msg,
+ 			result |= error(_("could not remove reference %s"), refname);
+ 	}
+ 
++	ref_transaction_free(transaction);
+ 	strbuf_release(&err);
+ 	return result;
+ 
+@@ -1283,6 +1289,7 @@ static int files_delete_refs(struct ref_store *ref_store, const char *msg,
+ 	else
+ 		error(_("could not delete references: %s"), err.buf);
+ 
++	ref_transaction_free(transaction);
+ 	strbuf_release(&err);
+ 	return -1;
+ }
+diff --git a/refs/packed-backend.c b/refs/packed-backend.c
+index d91a2018f6..960b43ff76 100644
+--- a/refs/packed-backend.c
++++ b/refs/packed-backend.c
+@@ -1521,15 +1521,10 @@ static int packed_initial_transaction_commit(struct ref_store *ref_store,
+ static int packed_delete_refs(struct ref_store *ref_store, const char *msg,
+ 			     struct string_list *refnames, unsigned int flags)
+ {
+-	struct packed_ref_store *refs =
+-		packed_downcast(ref_store, REF_STORE_WRITE, "delete_refs");
+ 	struct strbuf err = STRBUF_INIT;
+ 	struct ref_transaction *transaction;
+-	struct string_list_item *item;
+ 	int ret;
+ 
+-	(void)refs; /* We need the check above, but don't use the variable */
+-
+ 	if (!refnames->nr)
+ 		return 0;
+ 
+@@ -1543,6 +1538,26 @@ static int packed_delete_refs(struct ref_store *ref_store, const char *msg,
+ 	if (!transaction)
+ 		return -1;
+ 
++	ret = packed_refs_delete_refs(ref_store, transaction,
++				      msg, refnames, flags);
++
++	ref_transaction_free(transaction);
++	return ret;
++}
++
++int packed_refs_delete_refs(struct ref_store *ref_store,
++			    struct ref_transaction *transaction,
++			    const char *msg,
++			    struct string_list *refnames,
++			    unsigned int flags)
++{
++	struct strbuf err = STRBUF_INIT;
++	struct string_list_item *item;
++	int ret;
++
++	/* Assert that the ref store refers to a packed backend. */
++	packed_downcast(ref_store, REF_STORE_WRITE, "delete_refs");
++
+ 	for_each_string_list_item(item, refnames) {
+ 		if (ref_transaction_delete(transaction, item->string, NULL,
+ 					   flags, msg, &err)) {
+@@ -1562,7 +1577,6 @@ static int packed_delete_refs(struct ref_store *ref_store, const char *msg,
+ 			error(_("could not delete references: %s"), err.buf);
+ 	}
+ 
+-	ref_transaction_free(transaction);
+ 	strbuf_release(&err);
+ 	return ret;
+ }
+diff --git a/refs/packed-backend.h b/refs/packed-backend.h
+index 9dd8a344c3..52e0490753 100644
+--- a/refs/packed-backend.h
++++ b/refs/packed-backend.h
+@@ -3,6 +3,7 @@
+ 
+ struct repository;
+ struct ref_transaction;
++struct string_list;
+ 
+ /*
+  * Support for storing references in a `packed-refs` file.
+@@ -27,6 +28,12 @@ int packed_refs_lock(struct ref_store *ref_store, int flags, struct strbuf *err)
+ void packed_refs_unlock(struct ref_store *ref_store);
+ int packed_refs_is_locked(struct ref_store *ref_store);
+ 
++int packed_refs_delete_refs(struct ref_store *ref_store,
++			    struct ref_transaction *transaction,
++			    const char *msg,
++			    struct string_list *refnames,
++			    unsigned int flags);
++
+ /*
+  * Return true if `transaction` really needs to be carried out against
+  * the specified packed_ref_store, or false if it can be skipped
+-- 
+2.35.1
+

@@ -1,0 +1,81 @@
+From ef35ab926309bf406d3871679c576c718708a93b Mon Sep 17 00:00:00 2001
+Message-Id: <ef35ab926309bf406d3871679c576c718708a93b.1646206541.git.ps@pks.im>
+In-Reply-To: <c74f385fb46855ac0db222b6845ddb95e6a36264.1646206541.git.ps@pks.im>
+References: <c74f385fb46855ac0db222b6845ddb95e6a36264.1646206541.git.ps@pks.im>
+From: Patrick Steinhardt <ps@pks.im>
+Date: Mon, 17 Jan 2022 09:12:48 +0100
+Subject: [PATCH 25/34] refs: do not execute reference-transaction hook on
+ packing refs
+
+The reference-transaction hook is supposed to track logical changes to
+references, but it currently also gets executed when packing refs in a
+repository. This is unexpected and ultimately not all that useful:
+packing refs is not supposed to result in any user-visible change to the
+refs' state, and it ultimately is an implementation detail of how refs
+stores work.
+
+Fix this excessive execution of the hook when packing refs.
+
+Reported-by: Waleed Khan <me@waleedkhan.name>
+Signed-off-by: Patrick Steinhardt <ps@pks.im>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+(cherry picked from commit ffad9941383465553bf26d88050f3243726f30df)
+---
+ refs/files-backend.c             |  6 ++++--
+ t/t1416-ref-transaction-hooks.sh | 11 +----------
+ 2 files changed, 5 insertions(+), 12 deletions(-)
+
+diff --git a/refs/files-backend.c b/refs/files-backend.c
+index 758d12a0fa..19f43e8d29 100644
+--- a/refs/files-backend.c
++++ b/refs/files-backend.c
+@@ -1116,7 +1116,8 @@ static void prune_ref(struct files_ref_store *refs, struct ref_to_prune *r)
+ 	if (check_refname_format(r->name, 0))
+ 		return;
+ 
+-	transaction = ref_store_transaction_begin(&refs->base, 0, &err);
++	transaction = ref_store_transaction_begin(&refs->base,
++						  REF_TRANSACTION_SKIP_HOOK, &err);
+ 	if (!transaction)
+ 		goto cleanup;
+ 	ref_transaction_add_update(
+@@ -1187,7 +1188,8 @@ static int files_pack_refs(struct ref_store *ref_store, unsigned int flags)
+ 	struct strbuf err = STRBUF_INIT;
+ 	struct ref_transaction *transaction;
+ 
+-	transaction = ref_store_transaction_begin(refs->packed_ref_store, 0, &err);
++	transaction = ref_store_transaction_begin(refs->packed_ref_store,
++						  REF_TRANSACTION_SKIP_HOOK, &err);
+ 	if (!transaction)
+ 		return -1;
+ 
+diff --git a/t/t1416-ref-transaction-hooks.sh b/t/t1416-ref-transaction-hooks.sh
+index 0567fbdf0b..f9d3d5213f 100755
+--- a/t/t1416-ref-transaction-hooks.sh
++++ b/t/t1416-ref-transaction-hooks.sh
+@@ -150,21 +150,12 @@ test_expect_success 'hook does not get called on packing refs' '
+ 	git pack-refs --all &&
+ 
+ 	# We only expect a single hook invocation, which is the call to
+-	# git-update-ref(1). But currently, packing refs will also trigger the
+-	# hook.
++	# git-update-ref(1).
+ 	cat >expect <<-EOF &&
+ 		prepared
+ 		$ZERO_OID $POST_OID refs/heads/unpacked-ref
+ 		committed
+ 		$ZERO_OID $POST_OID refs/heads/unpacked-ref
+-		prepared
+-		$ZERO_OID $POST_OID refs/heads/unpacked-ref
+-		committed
+-		$ZERO_OID $POST_OID refs/heads/unpacked-ref
+-		prepared
+-		$POST_OID $ZERO_OID refs/heads/unpacked-ref
+-		committed
+-		$POST_OID $ZERO_OID refs/heads/unpacked-ref
+ 	EOF
+ 
+ 	test_cmp expect actual
+-- 
+2.35.1
+

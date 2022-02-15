@@ -1,0 +1,100 @@
+From ab0fa78af6741c409979889d7596042eb03192b5 Mon Sep 17 00:00:00 2001
+Message-Id: <ab0fa78af6741c409979889d7596042eb03192b5.1646206542.git.ps@pks.im>
+In-Reply-To: <c74f385fb46855ac0db222b6845ddb95e6a36264.1646206541.git.ps@pks.im>
+References: <c74f385fb46855ac0db222b6845ddb95e6a36264.1646206541.git.ps@pks.im>
+From: Patrick Steinhardt <ps@pks.im>
+Date: Thu, 17 Feb 2022 14:04:28 +0100
+Subject: [PATCH 31/34] fetch: report errors when backfilling tags fails
+
+When the backfilling of tags fails we do not report this error to the
+caller, but only report it implicitly at a later point when reporting
+updated references. This leaves callers unable to act upon the
+information of whether the backfilling succeeded or not.
+
+Refactor the function to return an error code and pass it up the
+callstack. This causes us to correctly propagate the error back to the
+user of git-fetch(1).
+
+Signed-off-by: Patrick Steinhardt <ps@pks.im>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+(cherry picked from commit 62091b4c87a199c172556f15c5662c6c3679e9cd)
+---
+ builtin/fetch.c      | 26 ++++++++++++++++++--------
+ t/t5503-tagfollow.sh |  4 +---
+ 2 files changed, 19 insertions(+), 11 deletions(-)
+
+diff --git a/builtin/fetch.c b/builtin/fetch.c
+index 897fa247d9..2d0ffb9859 100644
+--- a/builtin/fetch.c
++++ b/builtin/fetch.c
+@@ -1498,12 +1498,12 @@ static struct transport *prepare_transport(struct remote *remote, int deepen)
+ 	return transport;
+ }
+ 
+-static void backfill_tags(struct transport *transport,
+-			  struct ref *ref_map,
+-			  struct fetch_head *fetch_head,
+-			  struct worktree **worktrees)
++static int backfill_tags(struct transport *transport,
++			 struct ref *ref_map,
++			 struct fetch_head *fetch_head,
++			 struct worktree **worktrees)
+ {
+-	int cannot_reuse;
++	int retcode, cannot_reuse;
+ 
+ 	/*
+ 	 * Once we have set TRANS_OPT_DEEPEN_SINCE, we can't unset it
+@@ -1522,12 +1522,14 @@ static void backfill_tags(struct transport *transport,
+ 	transport_set_option(transport, TRANS_OPT_FOLLOWTAGS, NULL);
+ 	transport_set_option(transport, TRANS_OPT_DEPTH, "0");
+ 	transport_set_option(transport, TRANS_OPT_DEEPEN_RELATIVE, NULL);
+-	fetch_and_consume_refs(transport, ref_map, fetch_head, worktrees);
++	retcode = fetch_and_consume_refs(transport, ref_map, fetch_head, worktrees);
+ 
+ 	if (gsecondary) {
+ 		transport_disconnect(gsecondary);
+ 		gsecondary = NULL;
+ 	}
++
++	return retcode;
+ }
+ 
+ static int do_fetch(struct transport *transport,
+@@ -1635,8 +1637,16 @@ static int do_fetch(struct transport *transport,
+ 		struct ref *tags_ref_map = NULL, **tail = &tags_ref_map;
+ 
+ 		find_non_local_tags(remote_refs, &tags_ref_map, &tail);
+-		if (tags_ref_map)
+-			backfill_tags(transport, tags_ref_map, &fetch_head, worktrees);
++		if (tags_ref_map) {
++			/*
++			 * If backfilling of tags fails then we want to tell
++			 * the user so, but we have to continue regardless to
++			 * populate upstream information of the references we
++			 * have already fetched above.
++			 */
++			if (backfill_tags(transport, tags_ref_map, &fetch_head, worktrees))
++				retcode = 1;
++		}
+ 
+ 		free_refs(tags_ref_map);
+ 	}
+diff --git a/t/t5503-tagfollow.sh b/t/t5503-tagfollow.sh
+index 6ffe2a5719..c057c49e80 100755
+--- a/t/t5503-tagfollow.sh
++++ b/t/t5503-tagfollow.sh
+@@ -233,9 +233,7 @@ test_expect_success 'backfill failure causes command to fail' '
+ 		done
+ 	EOF
+ 
+-	# Even though we fail to create refs/tags/tag1 the below command
+-	# unexpectedly succeeds.
+-	git -C clone5 fetch .. $B:refs/heads/something &&
++	test_must_fail git -C clone5 fetch .. $B:refs/heads/something &&
+ 	test $B = $(git -C clone5 rev-parse --verify refs/heads/something) &&
+ 	test $S = $(git -C clone5 rev-parse --verify tag2) &&
+ 	test_must_fail git -C clone5 rev-parse --verify tag1
+-- 
+2.35.1
+
