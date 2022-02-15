@@ -89,17 +89,6 @@ PROTOC_GEN_GO_GRPC_VERSION?= 1.1.0
 GIT2GO_VERSION            ?= v33
 LIBGIT2_VERSION           ?= v1.3.0
 
-# The default version is used in case the caller does not set the variable or
-# if it is either set to the empty string or "default".
-ifeq (${GIT_VERSION:default=},)
-    override GIT_VERSION := v2.33.1
-    GIT_APPLY_DEFAULT_PATCHES := YesPlease
-else
-    # Support both vX.Y.Z and X.Y.Z version patterns, since callers across GitLab
-    # use both.
-    override GIT_VERSION := $(shell echo ${GIT_VERSION} | awk '/^[0-9]\.[0-9]+\.[0-9]+$$/ { printf "v" } { print $$1 }')
-endif
-
 # protoc target
 PROTOC_REPO_URL ?= https://github.com/protocolbuffers/protobuf
 PROTOC_SOURCE_DIR   ?= ${DEPENDENCY_DIR}/protobuf/source
@@ -129,7 +118,11 @@ GIT_EXECUTABLES += git
 GIT_EXECUTABLES += git-remote-http
 GIT_EXECUTABLES += git-http-backend
 
-ifdef GIT_APPLY_DEFAULT_PATCHES
+# The default version is used in case the caller does not set the variable or
+# if it is either set to the empty string or "default".
+ifeq (${GIT_VERSION:default=},)
+    override GIT_VERSION := v2.33.1
+
     # Before adding custom patches, please read doc/PROCESS.md#Patching-git
     # first to make sure your patches meet our acceptance criteria. Patches
     # must be put into `_support/git-patches`.
@@ -185,6 +178,10 @@ ifdef GIT_APPLY_DEFAULT_PATCHES
     # then this should be undefined. Otherwise, it must be set to at least
     # `gl1` given that `0` is the "default" GitLab patch level.
     GIT_EXTRA_VERSION := gl3
+else
+    # Support both vX.Y.Z and X.Y.Z version patterns, since callers across GitLab
+    # use both.
+    override GIT_VERSION := $(shell echo ${GIT_VERSION} | awk '/^[0-9]\.[0-9]+\.[0-9]+$$/ { printf "v" } { print $$1 }')
 endif
 
 ifeq ($(origin GIT_BUILD_OPTIONS),undefined)
