@@ -614,21 +614,21 @@ ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a: ${DEPENDENCY_DIR}/libgit2.version
 # otherwise try to rebuild all targets depending on it whenever we build
 # something else. We thus depend on the Makefile instead.
 ${GIT_SOURCE_DIR}/Makefile: ${DEPENDENCY_DIR}/git.version
-	${Q}${GIT} -c init.defaultBranch=master init ${GIT_QUIET} ${GIT_SOURCE_DIR}
-	${Q}${GIT} -C "${GIT_SOURCE_DIR}" config remote.origin.url ${GIT_REPO_URL}
-	${Q}${GIT} -C "${GIT_SOURCE_DIR}" config remote.origin.tagOpt --no-tags
-	${Q}${GIT} -C "${GIT_SOURCE_DIR}" fetch --depth 1 ${GIT_QUIET} origin ${GIT_VERSION}
-	${Q}${GIT} -C "${GIT_SOURCE_DIR}" reset --hard
-	${Q}${GIT} -C "${GIT_SOURCE_DIR}" checkout ${GIT_QUIET} --detach FETCH_HEAD
-	${Q}if test -n "${GIT_PATCHES}"; then ${GIT} -C "${GIT_SOURCE_DIR}" apply $(addprefix "${SOURCE_DIR}"/_support/git-patches/,${GIT_PATCHES}); fi
+	${Q}${GIT} -c init.defaultBranch=master init ${GIT_QUIET} "${@D}"
+	${Q}${GIT} -C "${@D}" config remote.origin.url ${GIT_REPO_URL}
+	${Q}${GIT} -C "${@D}" config remote.origin.tagOpt --no-tags
+	${Q}${GIT} -C "${@D}" fetch --depth 1 ${GIT_QUIET} origin ${GIT_VERSION}
+	${Q}${GIT} -C "${@D}" reset --hard
+	${Q}${GIT} -C "${@D}" checkout ${GIT_QUIET} --detach FETCH_HEAD
+	${Q}if test -n "${GIT_PATCHES}"; then ${GIT} -C "${@D}" apply $(addprefix "${SOURCE_DIR}"/_support/git-patches/,${GIT_PATCHES}); fi
 	@ # We're writing the version into the "version" file in Git's own source
 	@ # directory. If it exists, Git's Makefile will pick it up and use it as
 	@ # the version instead of auto-detecting via git-describe(1).
-	${Q}if test -n "${GIT_EXTRA_VERSION}"; then echo ${GIT_VERSION}.${GIT_EXTRA_VERSION} >"${GIT_SOURCE_DIR}"/version; else rm -f "${GIT_SOURCE_DIR}"/version; fi
+	${Q}if test -n "${GIT_EXTRA_VERSION}"; then echo ${GIT_VERSION}.${GIT_EXTRA_VERSION} >"${@D}"/version; else rm -f "${@D}"/version; fi
 	${Q}touch $@
 
 ${GIT_SOURCE_DIR}/%: ${GIT_SOURCE_DIR}/Makefile
-	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C ${GIT_SOURCE_DIR} -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} $(notdir $@)
+	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C "${@D}" -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} $(notdir $@)
 	${Q}touch $@
 
 ${GIT_PREFIX}/bin/git: ${GIT_SOURCE_DIR}/Makefile
@@ -638,14 +638,14 @@ ${GIT_PREFIX}/bin/git: ${GIT_SOURCE_DIR}/Makefile
 	@ # We cannot ever remove GIT_PREFIX though in case they're different
 	@ # because it may point to a user-controlled directory.
 	${Q}if [ "x${GIT_DEFAULT_PREFIX}" = "x${GIT_PREFIX}" ]; then rm -rf "${GIT_DEFAULT_PREFIX}"; fi
-	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C ${GIT_SOURCE_DIR} -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
+	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C "$(<D)" -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
 	${Q}touch $@
 
 ${BUILD_DIR}/bin/gitaly-%: ${GIT_SOURCE_DIR}/% | ${BUILD_DIR}/bin
 	${Q}install $< $@
 
 ${INSTALL_DEST_DIR}/gitaly-%: ${BUILD_DIR}/bin/gitaly-%
-	${Q}mkdir -p $(@D)
+	${Q}mkdir -p ${@D}
 	${Q}install $< $@
 
 ${PROTOC}: ${DEPENDENCY_DIR}/protoc.version | ${TOOLS_DIR}
