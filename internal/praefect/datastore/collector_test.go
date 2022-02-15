@@ -269,15 +269,17 @@ func TestRepositoryStoreCollector_ReplicationQueueDepth(t *testing.T) {
 	readyJobs := 5
 	for virtualStorage, nodes := range storageNames {
 		for i := 0; i < readyJobs; i++ {
+			job := ReplicationJob{
+				Change:            UpdateRepo,
+				RelativePath:      "/project/path-1",
+				TargetNodeStorage: nodes[1],
+				SourceNodeStorage: nodes[0],
+				VirtualStorage:    virtualStorage,
+				Params:            nil,
+			}
+			insertRepository(t, db, ctx, job.VirtualStorage, job.RelativePath, job.SourceNodeStorage)
 			_, err := queue.Enqueue(ctx, ReplicationEvent{
-				Job: ReplicationJob{
-					Change:            UpdateRepo,
-					RelativePath:      "/project/path-1",
-					TargetNodeStorage: nodes[1],
-					SourceNodeStorage: nodes[0],
-					VirtualStorage:    virtualStorage,
-					Params:            nil,
-				},
+				Job: job,
 			})
 			require.NoError(t, err)
 		}

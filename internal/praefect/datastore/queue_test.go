@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 )
@@ -111,6 +112,7 @@ func TestPostgresReplicationEventQueue_DeleteReplicaUniqueIndex(t *testing.T) {
 			ctx := testhelper.Context(t)
 
 			if tc.existingJob != nil {
+				insertRepository(t, db, ctx, tc.existingJob.Job.VirtualStorage, tc.existingJob.Job.RelativePath, "stub")
 				_, err := db.ExecContext(ctx, `
 					INSERT INTO replication_queue (state, job)
 					VALUES ($1, $2)
@@ -118,14 +120,16 @@ func TestPostgresReplicationEventQueue_DeleteReplicaUniqueIndex(t *testing.T) {
 				require.NoError(t, err)
 			}
 
+			job := ReplicationJob{
+				Change:            DeleteReplica,
+				VirtualStorage:    "praefect",
+				RelativePath:      "relative-path",
+				TargetNodeStorage: "gitaly-1",
+			}
+			insertRepository(t, db, ctx, job.VirtualStorage, job.RelativePath, "stub")
 			_, err := NewPostgresReplicationEventQueue(db).Enqueue(ctx, ReplicationEvent{
 				State: JobStateReady,
-				Job: ReplicationJob{
-					Change:            DeleteReplica,
-					VirtualStorage:    "praefect",
-					RelativePath:      "relative-path",
-					TargetNodeStorage: "gitaly-1",
-				},
+				Job:   job,
 			})
 
 			if tc.succeeds {
@@ -155,6 +159,7 @@ func TestPostgresReplicationEventQueue_Enqueue(t *testing.T) {
 			Params:            nil,
 		},
 	}
+	insertRepository(t, db, ctx, eventType.Job.VirtualStorage, eventType.Job.RelativePath, eventType.Job.SourceNodeStorage)
 
 	actualEvent, err := queue.Enqueue(ctx, eventType) // initial event
 	require.NoError(t, err)
@@ -188,90 +193,74 @@ func TestPostgresReplicationEventQueue_Enqueue_triggerPopulatesColumns(t *testin
 	db := testdb.New(t)
 	ctx := testhelper.Context(t)
 
-	type action func(t *testing.T, tx *testdb.TxWrapper, event ReplicationEvent) ReplicationEvent
+	t.Run("no repository record exists", func(t *testing.T) {
+		tx := db.Begin(t)
+		defer tx.Rollback(t)
 
-	for _, tc := range []struct {
-		desc          string
-		job           ReplicationJob
-		beforeEnqueue action
-		afterEnqueue  action
-	}{
-		{
-			desc: "repository id embedded into the job",
-			job: ReplicationJob{
-				Change:            UpdateRepo,
-				RepositoryID:      1,
-				RelativePath:      "/project/path-1",
-				ReplicaPath:       "relative/project/path-1",
-				TargetNodeStorage: "gitaly-1",
-				SourceNodeStorage: "gitaly-0",
-				VirtualStorage:    "praefect",
-				Params:            nil,
-			},
-		},
-		{
-			desc: "repository id extracted from repositories table",
-			job: ReplicationJob{
-				Change:            RenameRepo,
-				RelativePath:      "/project/path-1",
-				ReplicaPath:       "relative/project/path-1",
-				TargetNodeStorage: "gitaly-1",
-				SourceNodeStorage: "gitaly-0",
-				VirtualStorage:    "praefect",
-				Params:            Params{"RelativePath": "new/path"},
-			},
-			beforeEnqueue: func(t *testing.T, tx *testdb.TxWrapper, event ReplicationEvent) ReplicationEvent {
-				const query = `
-					INSERT INTO repositories(virtual_storage, relative_path, generation, "primary", replica_path)
-					VALUES ($1, $2, $3, $4, $5)
-					RETURNING repository_id`
-				var repositoryID int64
-				err := tx.QueryRowContext(ctx, query, event.Job.VirtualStorage, event.Job.RelativePath, 1, event.Job.SourceNodeStorage, event.Job.ReplicaPath).
-					Scan(&repositoryID)
-				require.NoError(t, err, "create repository record to have it as a source of repository id")
-				return event
-			},
-			afterEnqueue: func(t *testing.T, tx *testdb.TxWrapper, event ReplicationEvent) ReplicationEvent {
-				const query = `SELECT repository_id FROM repositories WHERE virtual_storage = $1 AND relative_path = $2`
-				err := tx.QueryRowContext(ctx, query, event.Job.VirtualStorage, event.Job.RelativePath).
-					Scan(&event.Job.RepositoryID)
-				require.NoError(t, err, "create repository record to have it as a source of repository id")
-				return event
-			},
-		},
-		{
-			desc: "repository id doesn't exist",
-			job: ReplicationJob{
-				Change:            RenameRepo,
-				RelativePath:      "/project/path-1",
-				ReplicaPath:       "relative/project/path-1",
-				TargetNodeStorage: "gitaly-1",
-				SourceNodeStorage: "gitaly-0",
-				VirtualStorage:    "praefect",
-				Params:            Params{"RelativePath": "new/path"},
-			},
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			tx := db.Begin(t)
-			defer tx.Rollback(t)
+		job := ReplicationJob{
+			Change:            UpdateRepo,
+			RepositoryID:      1,
+			RelativePath:      "/project/path-1",
+			ReplicaPath:       "relative/project/path-1",
+			TargetNodeStorage: "gitaly-1",
+			SourceNodeStorage: "gitaly-0",
+			VirtualStorage:    "praefect",
+			Params:            nil,
+		}
+		queue := NewPostgresReplicationEventQueue(tx)
+		event := ReplicationEvent{Job: job}
+		_, err := queue.Enqueue(ctx, event)
+		ok := glsql.IsForeignKeyViolation(err, "replication_queue_repository_id_fkey")
+		require.Truef(t, ok, "returned error is not expected: %+v", err)
+	})
 
-			queue := NewPostgresReplicationEventQueue(tx)
-			event := ReplicationEvent{Job: tc.job}
-			if tc.beforeEnqueue != nil {
-				event = tc.beforeEnqueue(t, tx, event)
-			}
-			enqueued, err := queue.Enqueue(ctx, event)
-			require.NoError(t, err)
+	t.Run("repository id not set on job, but found in repositories table", func(t *testing.T) {
+		tx := db.Begin(t)
+		defer tx.Rollback(t)
 
-			if tc.afterEnqueue != nil {
-				enqueued = tc.afterEnqueue(t, tx, enqueued)
-			}
+		job := ReplicationJob{
+			Change:            RenameRepo,
+			RelativePath:      "/project/path-1",
+			ReplicaPath:       "relative/project/path-1",
+			TargetNodeStorage: "gitaly-1",
+			SourceNodeStorage: "gitaly-0",
+			VirtualStorage:    "praefect",
+			Params:            Params{"RelativePath": "new/path"},
+		}
+		repositoryID := insertRepository(t, tx, ctx, job.VirtualStorage, job.RelativePath, job.SourceNodeStorage)
+		queue := NewPostgresReplicationEventQueue(tx)
+		event := ReplicationEvent{Job: job}
+		enqueued, err := queue.Enqueue(ctx, event)
+		require.NoError(t, err)
 
-			job := extractReplicationJob(t, ctx, tx, enqueued.ID)
-			require.Equal(t, enqueued.Job, job)
-		})
-	}
+		actual := extractReplicationJob(t, ctx, tx, enqueued.ID)
+		job.RepositoryID = repositoryID
+		require.Equal(t, job, actual)
+	})
+
+	t.Run("repository id set on job", func(t *testing.T) {
+		tx := db.Begin(t)
+		defer tx.Rollback(t)
+
+		job := ReplicationJob{
+			Change:            RenameRepo,
+			RelativePath:      "/project/path-1",
+			ReplicaPath:       "relative/project/path-1",
+			TargetNodeStorage: "gitaly-1",
+			SourceNodeStorage: "gitaly-0",
+			VirtualStorage:    "praefect",
+			Params:            Params{"RelativePath": "new/path"},
+		}
+		job.RepositoryID = insertRepository(t, tx, ctx, job.VirtualStorage, job.RelativePath, job.SourceNodeStorage)
+
+		queue := NewPostgresReplicationEventQueue(tx)
+		event := ReplicationEvent{Job: job}
+		enqueued, err := queue.Enqueue(ctx, event)
+		require.NoError(t, err)
+
+		actual := extractReplicationJob(t, ctx, tx, enqueued.ID)
+		require.Equal(t, job, actual)
+	})
 }
 
 func extractReplicationJob(t *testing.T, ctx context.Context, tx *testdb.TxWrapper, id uint64) ReplicationJob {
@@ -291,16 +280,19 @@ func extractReplicationJob(t *testing.T, ctx context.Context, tx *testdb.TxWrapp
 
 func TestPostgresReplicationEventQueue_DeleteReplicaInfiniteAttempts(t *testing.T) {
 	t.Parallel()
-	queue := NewPostgresReplicationEventQueue(testdb.New(t))
+	db := testdb.New(t)
+	queue := NewPostgresReplicationEventQueue(db)
 	ctx := testhelper.Context(t)
 
+	job := ReplicationJob{
+		Change:            DeleteReplica,
+		RelativePath:      "/project/path-1",
+		TargetNodeStorage: "gitaly-1",
+		VirtualStorage:    "praefect",
+	}
+	job.RepositoryID = insertRepository(t, db, ctx, job.VirtualStorage, job.RelativePath, "stub")
 	actualEvent, err := queue.Enqueue(ctx, ReplicationEvent{
-		Job: ReplicationJob{
-			Change:            DeleteReplica,
-			RelativePath:      "/project/path-1",
-			TargetNodeStorage: "gitaly-1",
-			VirtualStorage:    "praefect",
-		},
+		Job: job,
 	})
 	require.NoError(t, err)
 
@@ -310,6 +302,7 @@ func TestPostgresReplicationEventQueue_DeleteReplicaInfiniteAttempts(t *testing.
 		Attempt: 3,
 		LockID:  "praefect|gitaly-1|/project/path-1",
 		Job: ReplicationJob{
+			RepositoryID:      job.RepositoryID,
 			Change:            DeleteReplica,
 			RelativePath:      "/project/path-1",
 			TargetNodeStorage: "gitaly-1",
@@ -378,6 +371,7 @@ func TestPostgresReplicationEventQueue_EnqueueMultiple(t *testing.T) {
 		},
 	}
 
+	eventType1.Job.RepositoryID = insertRepository(t, db, ctx, eventType1.Job.VirtualStorage, eventType1.Job.RelativePath, eventType1.Job.SourceNodeStorage)
 	event1, err := queue.Enqueue(ctx, eventType1) // initial event
 	require.NoError(t, err)
 
@@ -392,6 +386,7 @@ func TestPostgresReplicationEventQueue_EnqueueMultiple(t *testing.T) {
 		LockID:  "praefect-0|gitaly-1|/project/path-1",
 		Job: ReplicationJob{
 			Change:            UpdateRepo,
+			RepositoryID:      eventType1.Job.RepositoryID,
 			RelativePath:      "/project/path-1",
 			TargetNodeStorage: "gitaly-1",
 			SourceNodeStorage: "gitaly-0",
@@ -414,6 +409,7 @@ func TestPostgresReplicationEventQueue_EnqueueMultiple(t *testing.T) {
 		LockID:  "praefect-0|gitaly-1|/project/path-1",
 		Job: ReplicationJob{
 			Change:            UpdateRepo,
+			RepositoryID:      eventType1.Job.RepositoryID,
 			RelativePath:      "/project/path-1",
 			TargetNodeStorage: "gitaly-1",
 			SourceNodeStorage: "gitaly-0",
@@ -446,6 +442,7 @@ func TestPostgresReplicationEventQueue_EnqueueMultiple(t *testing.T) {
 	requireEvents(t, ctx, db, []ReplicationEvent{expEvent1, expEvent2, expEvent3})
 	requireLocks(t, ctx, db, []LockRow{expLock1, expLock2}) // the new lock for another target repeated event
 
+	eventType3.Job.RepositoryID = insertRepository(t, db, ctx, eventType3.Job.VirtualStorage, eventType3.Job.RelativePath, eventType3.Job.SourceNodeStorage)
 	event4, err := queue.Enqueue(ctx, eventType3) // event for another repo
 	require.NoError(t, err)
 
@@ -456,6 +453,7 @@ func TestPostgresReplicationEventQueue_EnqueueMultiple(t *testing.T) {
 		LockID:  "praefect-1|gitaly-1|/project/path-2",
 		Job: ReplicationJob{
 			Change:            UpdateRepo,
+			RepositoryID:      eventType3.Job.RepositoryID,
 			RelativePath:      "/project/path-2",
 			TargetNodeStorage: "gitaly-1",
 			SourceNodeStorage: "gitaly-0",
@@ -487,6 +485,7 @@ func TestPostgresReplicationEventQueue_Dequeue(t *testing.T) {
 			Params:            nil,
 		},
 	}
+	event.Job.RepositoryID = insertRepository(t, db, ctx, event.Job.VirtualStorage, event.Job.RelativePath, event.Job.SourceNodeStorage)
 
 	event, err := queue.Enqueue(ctx, event)
 	require.NoError(t, err, "failed to fill in event queue")
@@ -570,6 +569,8 @@ func TestPostgresReplicationEventQueue_DequeueMultiple(t *testing.T) {
 	// events to fill in the queue
 	events := []ReplicationEvent{eventType1, eventType1, eventType2, eventType1, eventType3, eventType4}
 	for i := range events {
+		events[i].Job.RepositoryID = insertRepository(t, db, ctx, events[i].Job.VirtualStorage, events[i].Job.RelativePath, events[i].Job.SourceNodeStorage)
+
 		var err error
 		events[i], err = queue.Enqueue(ctx, events[i])
 		require.NoError(t, err, "failed to fill in event queue")
@@ -655,6 +656,7 @@ func TestPostgresReplicationEventQueue_DequeueSameStorageOtherRepository(t *test
 	}
 
 	for i := 0; i < 2; i++ {
+		eventType1.Job.RepositoryID = insertRepository(t, db, ctx, eventType1.Job.VirtualStorage, eventType1.Job.RelativePath, eventType1.Job.SourceNodeStorage)
 		_, err := queue.Enqueue(ctx, eventType1)
 		require.NoError(t, err, "failed to fill in event queue")
 	}
@@ -669,6 +671,7 @@ func TestPostgresReplicationEventQueue_DequeueSameStorageOtherRepository(t *test
 	requireJobLocks(t, ctx, db, []JobLockRow{{JobID: 1, LockID: "praefect|gitaly-1|/project/path-1"}})
 
 	for i := 0; i < 2; i++ {
+		eventType2.Job.RepositoryID = insertRepository(t, db, ctx, eventType2.Job.VirtualStorage, eventType2.Job.RelativePath, eventType2.Job.SourceNodeStorage)
 		_, err := queue.Enqueue(ctx, eventType2)
 		require.NoError(t, err, "failed to fill in event queue")
 	}
@@ -704,7 +707,9 @@ func TestPostgresReplicationEventQueue_Acknowledge(t *testing.T) {
 		},
 	}
 
+	repositoryID := insertRepository(t, db, ctx, event.Job.VirtualStorage, event.Job.RelativePath, event.Job.SourceNodeStorage)
 	event, err := queue.Enqueue(ctx, event)
+	event.Job.RepositoryID = repositoryID
 	require.NoError(t, err, "failed to fill in event queue")
 
 	actual, err := queue.Dequeue(ctx, event.Job.VirtualStorage, event.Job.TargetNodeStorage, 100)
@@ -781,6 +786,7 @@ func TestPostgresReplicationEventQueue_AcknowledgeMultiple(t *testing.T) {
 
 	events := []ReplicationEvent{eventType1, eventType1, eventType2, eventType1, eventType3, eventType2, eventType4} // events to fill in the queue
 	for i := range events {
+		events[i].Job.RepositoryID = insertRepository(t, db, ctx, events[i].Job.VirtualStorage, events[i].Job.RelativePath, events[i].Job.SourceNodeStorage)
 		var err error
 		events[i], err = queue.Enqueue(ctx, events[i])
 		require.NoError(t, err, "failed to fill in event queue")
@@ -988,6 +994,7 @@ func TestPostgresReplicationEventQueue_StartHealthUpdate(t *testing.T) {
 		queue := NewPostgresReplicationEventQueue(db)
 		events := []ReplicationEvent{eventType1, eventType2, eventType3, eventType4}
 		for i := range events {
+			events[i].Job.RepositoryID = insertRepository(t, db, ctx, events[i].Job.VirtualStorage, events[i].Job.RelativePath, events[i].Job.SourceNodeStorage)
 			var err error
 			events[i], err = queue.Enqueue(ctx, events[i])
 			require.NoError(t, err, "failed to fill in event queue")
@@ -1062,6 +1069,7 @@ func TestPostgresReplicationEventQueue_AcknowledgeStale(t *testing.T) {
 		db.TruncateAll(t)
 		source := NewPostgresReplicationEventQueue(db)
 
+		insertRepository(t, db, ctx, eventType1.Job.VirtualStorage, eventType1.Job.RelativePath, eventType1.Job.SourceNodeStorage)
 		event, err := source.Enqueue(ctx, eventType1)
 		require.NoError(t, err)
 
@@ -1079,10 +1087,12 @@ func TestPostgresReplicationEventQueue_AcknowledgeStale(t *testing.T) {
 		db.TruncateAll(t)
 		source := NewPostgresReplicationEventQueue(db)
 
+		insertRepository(t, db, ctx, eventType1.Job.VirtualStorage, eventType1.Job.RelativePath, eventType1.Job.SourceNodeStorage)
 		// move event to 'ready' state
 		event1, err := source.Enqueue(ctx, eventType1)
 		require.NoError(t, err)
 
+		insertRepository(t, db, ctx, eventType2.Job.VirtualStorage, eventType2.Job.RelativePath, eventType2.Job.SourceNodeStorage)
 		// move event to 'failed' state
 		event2, err := source.Enqueue(ctx, eventType2)
 		require.NoError(t, err)
@@ -1092,6 +1102,7 @@ func TestPostgresReplicationEventQueue_AcknowledgeStale(t *testing.T) {
 		_, err = source.Acknowledge(ctx, JobStateFailed, []uint64{devents2[0].ID})
 		require.NoError(t, err)
 
+		insertRepository(t, db, ctx, eventType3.Job.VirtualStorage, eventType3.Job.RelativePath, eventType3.Job.SourceNodeStorage)
 		// move event to 'dead' state
 		event3, err := source.Enqueue(ctx, eventType3)
 		require.NoError(t, err)
@@ -1101,6 +1112,7 @@ func TestPostgresReplicationEventQueue_AcknowledgeStale(t *testing.T) {
 		_, err = source.Acknowledge(ctx, JobStateDead, []uint64{devents3[0].ID})
 		require.NoError(t, err)
 
+		insertRepository(t, db, ctx, eventType4.Job.VirtualStorage, eventType4.Job.RelativePath, eventType4.Job.SourceNodeStorage)
 		event4, err := source.Enqueue(ctx, eventType4)
 		require.NoError(t, err)
 		devents4, err := source.Dequeue(ctx, event4.Job.VirtualStorage, event4.Job.TargetNodeStorage, 1)
@@ -1122,6 +1134,7 @@ func TestPostgresReplicationEventQueue_AcknowledgeStale(t *testing.T) {
 
 		var events []ReplicationEvent
 		for _, eventType := range []ReplicationEvent{eventType1, eventType2, eventType3} {
+			insertRepository(t, db, ctx, eventType.Job.VirtualStorage, eventType.Job.RelativePath, eventType.Job.SourceNodeStorage)
 			event, err := source.Enqueue(ctx, eventType)
 			require.NoError(t, err)
 			devents, err := source.Dequeue(ctx, event.Job.VirtualStorage, event.Job.TargetNodeStorage, 1)
@@ -1149,6 +1162,73 @@ func TestPostgresReplicationEventQueue_AcknowledgeStale(t *testing.T) {
 
 		requireEvents(t, ctx, db, exp)
 	})
+}
+
+func TestLockRowIsRemovedOnceRepositoryIsRemoved(t *testing.T) {
+	t.Parallel()
+	db := testdb.New(t)
+	ctx := testhelper.Context(t)
+
+	const (
+		virtualStorage = "praefect"
+		relativePath   = "/project/path-1"
+		primaryStorage = "gitaly-0"
+	)
+
+	enqueueJobs := []ReplicationJob{
+		// This event will be moved to in_progress state and lock will be with acquired=true.
+		{
+			Change:            UpdateRepo,
+			RepositoryID:      1,
+			RelativePath:      relativePath,
+			ReplicaPath:       "relative/project/path-1",
+			TargetNodeStorage: "gitaly-1",
+			SourceNodeStorage: primaryStorage,
+			VirtualStorage:    virtualStorage,
+			Params:            nil,
+		},
+		// This event is for another storage, but for the same repository.
+		{
+			Change:            UpdateRepo,
+			RepositoryID:      1,
+			RelativePath:      relativePath,
+			ReplicaPath:       "relative/project/path-2",
+			TargetNodeStorage: "gitaly-2",
+			SourceNodeStorage: primaryStorage,
+			VirtualStorage:    virtualStorage,
+			Params:            nil,
+		},
+	}
+	repositoryID := insertRepository(t, db, ctx, virtualStorage, relativePath, primaryStorage)
+
+	queue := NewPostgresReplicationEventQueue(db)
+	for _, job := range enqueueJobs {
+		event := ReplicationEvent{Job: job}
+		_, err := queue.Enqueue(ctx, event)
+		require.NoError(t, err)
+	}
+	_, err := queue.Dequeue(ctx, enqueueJobs[0].VirtualStorage, enqueueJobs[0].TargetNodeStorage, 1)
+	require.NoError(t, err, "pickup one job to change it's status and create additional rows")
+
+	_, err = db.ExecContext(ctx, `DELETE FROM repositories where repository_id = $1`, repositoryID)
+	require.NoError(t, err)
+
+	db.RequireRowsInTable(t, "replication_queue_lock", 0)
+}
+
+func insertRepository(t *testing.T, db glsql.Querier, ctx context.Context, virtualStorage, relativePath, primary string) int64 {
+	t.Helper()
+	const query = `
+		INSERT INTO repositories(virtual_storage, relative_path, generation, "primary")
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (virtual_storage, relative_path)
+		DO UPDATE SET relative_path = excluded.relative_path
+		RETURNING repository_id`
+	var repositoryID int64
+	err := db.QueryRowContext(ctx, query, virtualStorage, relativePath, 1, primary).
+		Scan(&repositoryID)
+	require.NoError(t, err, "create repository record")
+	return repositoryID
 }
 
 func requireEvents(t *testing.T, ctx context.Context, db testdb.DB, expected []ReplicationEvent) {
