@@ -108,7 +108,6 @@ GIT_REPO_URL       ?= https://gitlab.com/gitlab-org/gitlab-git.git
 # The default prefix specifies where Git will be installed to if no GIT_PREFIX
 # was given. This directory will be cleaned up before we install into it.
 GIT_DEFAULT_PREFIX := ${DEPENDENCY_DIR}/git/install
-GIT_SOURCE_DIR     := ${DEPENDENCY_DIR}/git/source
 GIT_QUIET          :=
 ifeq (${Q},@)
     GIT_QUIET = --quiet
@@ -588,7 +587,7 @@ ${DEPENDENCY_DIR}: | ${BUILD_DIR}
 .PHONY: dependency-version
 ${DEPENDENCY_DIR}/libgit2.version: dependency-version | ${DEPENDENCY_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${LIBGIT2_VERSION} ${LIBGIT2_BUILD_OPTIONS}" ] || >$@ echo -n "${LIBGIT2_VERSION} ${LIBGIT2_BUILD_OPTIONS}"
-${DEPENDENCY_DIR}/git.version: dependency-version | ${DEPENDENCY_DIR}
+${DEPENDENCY_DIR}/git-%.version: dependency-version | ${DEPENDENCY_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${GIT_VERSION}.${GIT_EXTRA_VERSION} ${GIT_BUILD_OPTIONS} ${GIT_PATCHES}" ] || >$@ echo -n "${GIT_VERSION}.${GIT_EXTRA_VERSION} ${GIT_BUILD_OPTIONS} ${GIT_PATCHES}"
 ${DEPENDENCY_DIR}/protoc.version: dependency-version | ${DEPENDENCY_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${PROTOC_VERSION} ${PROTOC_BUILD_OPTIONS}" ] || >$@ echo -n "${PROTOC_VERSION} ${PROTOC_BUILD_OPTIONS}"
@@ -613,7 +612,7 @@ ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a: ${DEPENDENCY_DIR}/libgit2.version
 # build binaries inside of it, we cannot depend on it directly or we'd
 # otherwise try to rebuild all targets depending on it whenever we build
 # something else. We thus depend on the Makefile instead.
-${GIT_SOURCE_DIR}/Makefile: ${DEPENDENCY_DIR}/git.version
+${DEPENDENCY_DIR}/git-%/Makefile: ${DEPENDENCY_DIR}/git-%.version
 	${Q}${GIT} -c init.defaultBranch=master init ${GIT_QUIET} "${@D}"
 	${Q}${GIT} -C "${@D}" config remote.origin.url ${GIT_REPO_URL}
 	${Q}${GIT} -C "${@D}" config remote.origin.tagOpt --no-tags
@@ -627,11 +626,11 @@ ${GIT_SOURCE_DIR}/Makefile: ${DEPENDENCY_DIR}/git.version
 	${Q}if test -n "${GIT_EXTRA_VERSION}"; then echo ${GIT_VERSION}.${GIT_EXTRA_VERSION} >"${@D}"/version; else rm -f "${@D}"/version; fi
 	${Q}touch $@
 
-${GIT_SOURCE_DIR}/%: ${GIT_SOURCE_DIR}/Makefile
-	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C "${@D}" -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} $(notdir $@)
+$(patsubst %,${DEPENDENCY_DIR}/git-\%/%,${GIT_EXECUTABLES}): ${DEPENDENCY_DIR}/git-%/Makefile
+	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C "${@D}" -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} ${GIT_EXECUTABLES}
 	${Q}touch $@
 
-${GIT_PREFIX}/bin/git: ${GIT_SOURCE_DIR}/Makefile
+${GIT_PREFIX}/bin/git: ${DEPENDENCY_DIR}/git-${GIT_VERSION}.${GIT_EXTRA_VERSION}/Makefile
 	@ # Remove the Git installation first in case GIT_PREFIX is the default
 	@ # prefix which always points into our build directory. This is done so
 	@ # we never end up with mixed Git installations on developer machines.
@@ -641,7 +640,7 @@ ${GIT_PREFIX}/bin/git: ${GIT_SOURCE_DIR}/Makefile
 	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C "$(<D)" -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
 	${Q}touch $@
 
-${BUILD_DIR}/bin/gitaly-%: ${GIT_SOURCE_DIR}/% | ${BUILD_DIR}/bin
+${BUILD_DIR}/bin/gitaly-%: ${DEPENDENCY_DIR}/git-${GIT_VERSION}.${GIT_EXTRA_VERSION}/% | ${BUILD_DIR}/bin
 	${Q}install $< $@
 
 ${INSTALL_DEST_DIR}/gitaly-%: ${BUILD_DIR}/bin/gitaly-%
