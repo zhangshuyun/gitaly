@@ -324,6 +324,52 @@ func TestIsUniqueViolation(t *testing.T) {
 	}
 }
 
+func TestIsForeignKeyViolation(t *testing.T) {
+	for _, tc := range []struct {
+		desc   string
+		err    error
+		constr string
+		exp    bool
+	}{
+		{
+			desc: "nil input",
+			err:  nil,
+			exp:  false,
+		},
+		{
+			desc: "wrong error type",
+			err:  assert.AnError,
+			exp:  false,
+		},
+		{
+			desc: "wrong code",
+			err:  &pgconn.PgError{Code: "stub"},
+			exp:  false,
+		},
+		{
+			desc: "unique violation",
+			err:  &pgconn.PgError{Code: "23503"},
+			exp:  true,
+		},
+		{
+			desc: "wrapped unique violation",
+			err:  fmt.Errorf("stub: %w", &pgconn.PgError{Code: "23503"}),
+			exp:  true,
+		},
+		{
+			desc:   "unique violation with accepted conditions",
+			err:    &pgconn.PgError{Code: "23503", ConstraintName: "cname"},
+			constr: "cname",
+			exp:    true,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			res := glsql.IsForeignKeyViolation(tc.err, tc.constr)
+			require.Equal(t, tc.exp, res)
+		})
+	}
+}
+
 func TestMigrateSome(t *testing.T) {
 	db := testdb.New(t)
 	dbCfg := testdb.GetConfig(t, db.Name)

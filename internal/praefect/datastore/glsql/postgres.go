@@ -299,6 +299,13 @@ func IsUniqueViolation(err error, constraint string) bool {
 	return isPgError(err, "23505", []errorCondition{withConstraintName(constraint)})
 }
 
+// IsForeignKeyViolation returns true if an error is a foreign key violation.
+func IsForeignKeyViolation(err error, constraint string) bool {
+	// https://www.postgresql.org/docs/11/errcodes-appendix.html
+	// foreign_key_violation
+	return isPgError(err, "23503", []errorCondition{withConstraintName(constraint)})
+}
+
 func isPgError(err error, code string, conditions []errorCondition) bool {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == code {
