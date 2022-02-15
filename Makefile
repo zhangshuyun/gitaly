@@ -623,17 +623,11 @@ ${GIT_SOURCE_DIR}/Makefile: ${DEPENDENCY_DIR}/git.version
 	${Q}${GIT} -C "${GIT_SOURCE_DIR}" fetch --depth 1 ${GIT_QUIET} origin ${GIT_VERSION}
 	${Q}${GIT} -C "${GIT_SOURCE_DIR}" reset --hard
 	${Q}${GIT} -C "${GIT_SOURCE_DIR}" checkout ${GIT_QUIET} --detach FETCH_HEAD
-ifdef GIT_PATCHES
-	${Q}${GIT} -C "${GIT_SOURCE_DIR}" apply $(addprefix "${SOURCE_DIR}"/_support/git-patches/,${GIT_PATCHES})
-endif
+	${Q}if test -n "${GIT_PATCHES}"; then ${GIT} -C "${GIT_SOURCE_DIR}" apply $(addprefix "${SOURCE_DIR}"/_support/git-patches/,${GIT_PATCHES}); fi
 	@ # We're writing the version into the "version" file in Git's own source
 	@ # directory. If it exists, Git's Makefile will pick it up and use it as
 	@ # the version instead of auto-detecting via git-describe(1).
-ifdef GIT_EXTRA_VERSION
-	${Q}echo ${GIT_VERSION}.${GIT_EXTRA_VERSION} >"${GIT_SOURCE_DIR}"/version
-else
-	${Q}rm -f "${GIT_SOURCE_DIR}"/version
-endif
+	${Q}if test -n "${GIT_EXTRA_VERSION}"; then echo ${GIT_VERSION}.${GIT_EXTRA_VERSION} >"${GIT_SOURCE_DIR}"/version; else rm -f "${GIT_SOURCE_DIR}"/version; fi
 	${Q}touch $@
 
 ${GIT_SOURCE_DIR}/%: ${GIT_SOURCE_DIR}/Makefile
