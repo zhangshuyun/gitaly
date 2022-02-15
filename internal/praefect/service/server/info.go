@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
@@ -29,6 +30,7 @@ func (s *Server) ServerInfo(ctx context.Context, in *gitalypb.ServerInfoRequest)
 	var wg sync.WaitGroup
 
 	storageStatuses := make([]*gitalypb.ServerInfoResponse_StorageStatus, len(s.conns))
+	ctx = metadata.IncomingToOutgoing(ctx)
 
 	i := 0
 	for virtualStorage, storages := range s.conns {
