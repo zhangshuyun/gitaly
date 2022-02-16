@@ -159,7 +159,7 @@ func TestPostgresReplicationEventQueue_Enqueue(t *testing.T) {
 			Params:            nil,
 		},
 	}
-	insertRepository(t, db, ctx, eventType.Job.VirtualStorage, eventType.Job.RelativePath, eventType.Job.SourceNodeStorage)
+	repositoryID := insertRepository(t, db, ctx, eventType.Job.VirtualStorage, eventType.Job.RelativePath, eventType.Job.SourceNodeStorage)
 
 	actualEvent, err := queue.Enqueue(ctx, eventType) // initial event
 	require.NoError(t, err)
@@ -173,6 +173,7 @@ func TestPostgresReplicationEventQueue_Enqueue(t *testing.T) {
 		Attempt: 3,
 		LockID:  "praefect|gitaly-1|/project/path-1",
 		Job: ReplicationJob{
+			RepositoryID:      repositoryID,
 			Change:            UpdateRepo,
 			RelativePath:      "/project/path-1",
 			TargetNodeStorage: "gitaly-1",
@@ -431,6 +432,7 @@ func TestPostgresReplicationEventQueue_EnqueueMultiple(t *testing.T) {
 		LockID:  "praefect-0|gitaly-2|/project/path-1",
 		Job: ReplicationJob{
 			Change:            RenameRepo,
+			RepositoryID:      eventType1.Job.RepositoryID,
 			RelativePath:      "/project/path-1",
 			TargetNodeStorage: "gitaly-2",
 			SourceNodeStorage: "",
@@ -1244,12 +1246,19 @@ func requireEvents(t *testing.T, ctx context.Context, db testdb.DB, expected []R
 		exp[i].UpdatedAt = nil
 	}
 
-	sqlStmt := `SELECT id, state, attempt, lock_id, job FROM replication_queue ORDER BY id`
+	sqlStmt := `SELECT id, state, created_at, updated_at, lock_id, attempt, meta, change,
+			repository_id, replica_path, relative_path, target_node_storage,
+			source_node_storage, virtual_storage, params
+		FROM replication_queue ORDER BY id`
 	rows, err := db.QueryContext(ctx, sqlStmt)
 	require.NoError(t, err)
 
 	actual, err := scanReplicationEvents(rows)
 	require.NoError(t, err)
+	for i := 0; i < len(actual); i++ {
+		actual[i].CreatedAt = time.Time{}
+		actual[i].UpdatedAt = nil
+	}
 	require.Equal(t, exp, actual)
 }
 
