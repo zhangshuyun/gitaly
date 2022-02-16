@@ -22,7 +22,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -41,10 +40,9 @@ var (
 
 func TestUserMergeBranch_successful(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserMergeBranchAccessError).Run(t, testUserMergeBranchSuccessful)
-}
 
-func testUserMergeBranchSuccessful(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
+
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -122,10 +120,9 @@ func testUserMergeBranchSuccessful(t *testing.T, ctx context.Context) {
 
 func TestUserMergeBranch_quarantine(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserMergeBranchAccessError).Run(t, testUserMergeBranchQuarantine)
-}
 
-func testUserMergeBranchQuarantine(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
+
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -156,15 +153,8 @@ func testUserMergeBranchQuarantine(t *testing.T, ctx context.Context) {
 
 	require.NoError(t, stream.Send(&gitalypb.UserMergeBranchRequest{Apply: true}), "apply merge")
 	secondResponse, err := stream.Recv()
-	if featureflag.UserMergeBranchAccessError.IsEnabled(ctx) {
-		testhelper.RequireGrpcError(t, helper.ErrInternalf("%s\n", firstResponse.CommitId), err)
-		require.Nil(t, secondResponse)
-	} else {
-		require.NoError(t, err, "receive second response")
-		testhelper.ProtoEqual(t, &gitalypb.UserMergeBranchResponse{
-			PreReceiveError: firstResponse.CommitId + "\n",
-		}, secondResponse)
-	}
+	testhelper.RequireGrpcError(t, helper.ErrInternalf("%s\n", firstResponse.CommitId), err)
+	require.Nil(t, secondResponse)
 
 	oid, err := git.NewObjectIDFromHex(strings.TrimSpace(firstResponse.CommitId))
 	require.NoError(t, err)
@@ -176,10 +166,9 @@ func testUserMergeBranchQuarantine(t *testing.T, ctx context.Context) {
 
 func TestUserMergeBranch_stableMergeIDs(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserMergeBranchAccessError).Run(t, testUserMergeBranchStableMergeIDs)
-}
 
-func testUserMergeBranchStableMergeIDs(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
+
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -245,10 +234,9 @@ func testUserMergeBranchStableMergeIDs(t *testing.T, ctx context.Context) {
 
 func TestUserMergeBranch_abort(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserMergeBranchAccessError).Run(t, testUserMergeBranchAbort)
-}
 
-func testUserMergeBranchAbort(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
+
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -310,10 +298,9 @@ func testUserMergeBranchAbort(t *testing.T, ctx context.Context) {
 
 func TestUserMergeBranch_concurrentUpdate(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserMergeBranchAccessError).Run(t, testUserMergeBranchConcurrentUpdate)
-}
 
-func testUserMergeBranchConcurrentUpdate(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
+
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -346,25 +333,19 @@ func testUserMergeBranchConcurrentUpdate(t *testing.T, ctx context.Context) {
 	require.NoError(t, mergeBidi.CloseSend(), "close send")
 
 	secondResponse, err := mergeBidi.Recv()
-	if featureflag.UserMergeBranchAccessError.IsEnabled(ctx) {
-		testhelper.RequireGrpcError(t, errWithDetails(t,
-			helper.ErrFailedPreconditionf("Could not update refs/heads/gitaly-merge-test-branch. Please refresh and try again."),
-			&gitalypb.UserMergeBranchError{
-				Error: &gitalypb.UserMergeBranchError_ReferenceUpdate{
-					ReferenceUpdate: &gitalypb.ReferenceUpdateError{
-						ReferenceName: []byte("refs/heads/" + mergeBranchName),
-						OldOid:        "281d3a76f31c812dbf48abce82ccf6860adedd81",
-						NewOid:        "f0165798887392f9148b55d54a832b005f93a38c",
-					},
+	testhelper.RequireGrpcError(t, errWithDetails(t,
+		helper.ErrFailedPreconditionf("Could not update refs/heads/gitaly-merge-test-branch. Please refresh and try again."),
+		&gitalypb.UserMergeBranchError{
+			Error: &gitalypb.UserMergeBranchError_ReferenceUpdate{
+				ReferenceUpdate: &gitalypb.ReferenceUpdateError{
+					ReferenceName: []byte("refs/heads/" + mergeBranchName),
+					OldOid:        "281d3a76f31c812dbf48abce82ccf6860adedd81",
+					NewOid:        "f0165798887392f9148b55d54a832b005f93a38c",
 				},
 			},
-		), err)
-
-		require.Nil(t, secondResponse)
-	} else {
-		require.NoError(t, err, "receive second response")
-		testhelper.ProtoEqual(t, secondResponse, &gitalypb.UserMergeBranchResponse{})
-	}
+		},
+	), err)
+	require.Nil(t, secondResponse)
 
 	commit, err := repo.ReadCommit(ctx, git.Revision(mergeBranchName))
 	require.NoError(t, err, "get commit after RPC finished")
@@ -373,10 +354,9 @@ func testUserMergeBranchConcurrentUpdate(t *testing.T, ctx context.Context) {
 
 func TestUserMergeBranch_ambiguousReference(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserMergeBranchAccessError).Run(t, testUserMergeBranchAmbiguousReference)
-}
 
-func testUserMergeBranchAmbiguousReference(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
+
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -436,10 +416,9 @@ func testUserMergeBranchAmbiguousReference(t *testing.T, ctx context.Context) {
 
 func TestUserMergeBranch_failingHooks(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserMergeBranchAccessError).Run(t, testUserMergeBranchFailingHooks)
-}
 
-func testUserMergeBranchFailingHooks(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
+
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
@@ -471,16 +450,8 @@ func testUserMergeBranchFailingHooks(t *testing.T, ctx context.Context) {
 			require.NoError(t, mergeBidi.CloseSend(), "close send")
 
 			secondResponse, err := mergeBidi.Recv()
-			if featureflag.UserMergeBranchAccessError.IsEnabled(ctx) {
-				testhelper.RequireGrpcError(t, helper.ErrInternalf("failure\n"), err)
-				require.Nil(t, secondResponse)
-			} else {
-				require.NoError(t, err, "receive second response")
-				require.Contains(t, secondResponse.PreReceiveError, "failure")
-
-				_, err = mergeBidi.Recv()
-				require.Equal(t, io.EOF, err)
-			}
+			testhelper.RequireGrpcError(t, helper.ErrInternalf("failure\n"), err)
+			require.Nil(t, secondResponse)
 
 			currentBranchHead := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", mergeBranchName)
 			require.Equal(t, mergeBranchHeadBefore, text.ChompBytes(currentBranchHead), "branch head updated")
@@ -490,10 +461,9 @@ func testUserMergeBranchFailingHooks(t *testing.T, ctx context.Context) {
 
 func TestUserMergeBranch_conflict(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserMergeBranchAccessError).Run(t, testUserMergeBranchConflict)
-}
 
-func testUserMergeBranchConflict(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
+
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	const mergeIntoBranch = "mergeIntoBranch"
@@ -532,10 +502,9 @@ func testUserMergeBranchConflict(t *testing.T, ctx context.Context) {
 
 func TestUserMergeBranch_allowed(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserMergeBranchAccessError).Run(t, testUserMergeBranchAllowed)
-}
 
-func testUserMergeBranchAllowed(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
+
 	mergeBranchHeadAfter := "ff0ac4dfa30d6b26fd14aa83a75650355270bf76"
 
 	for _, tc := range []struct {
@@ -647,13 +616,8 @@ func testUserMergeBranchAllowed(t *testing.T, ctx context.Context) {
 			}))
 
 			response, err = stream.Recv()
-			if featureflag.UserMergeBranchAccessError.IsEnabled(ctx) {
-				testhelper.RequireGrpcError(t, tc.expectedErr, err)
-				testhelper.ProtoEqual(t, tc.expectedResponse, response)
-			} else {
-				require.NoError(t, err)
-				testhelper.ProtoEqual(t, tc.expectedResponseWithoutFF, response)
-			}
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+			testhelper.ProtoEqual(t, tc.expectedResponse, response)
 
 			if err == nil {
 				_, err = stream.Recv()
