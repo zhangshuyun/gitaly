@@ -27,6 +27,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -39,8 +40,10 @@ import (
 
 func TestReplicateRepository(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(featureflag.FetchInternalWithSidechannel).Run(t, testReplicateRepository)
+}
 
+func testReplicateRepository(t *testing.T, ctx context.Context) {
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
 
@@ -112,8 +115,10 @@ func TestReplicateRepository(t *testing.T) {
 
 func TestReplicateRepositoryTransactional(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(featureflag.FetchInternalWithSidechannel).Run(t, testReplicateRepositoryTransactional)
+}
 
+func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
 
@@ -264,8 +269,10 @@ func TestReplicateRepositoryInvalidArguments(t *testing.T) {
 
 func TestReplicateRepository_BadRepository(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(featureflag.FetchInternalWithSidechannel).Run(t, testReplicateRepositoryBadRepository)
+}
 
+func testReplicateRepositoryBadRepository(t *testing.T, ctx context.Context) {
 	for _, tc := range []struct {
 		desc          string
 		invalidSource bool
@@ -347,8 +354,10 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 
 func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(featureflag.FetchInternalWithSidechannel).Run(t, testReplicateRepositoryFailedFetchInternalRemote)
+}
 
+func testReplicateRepositoryFailedFetchInternalRemote(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t, testcfg.WithStorages("default", "replica"))
 	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
@@ -428,9 +437,10 @@ func listenGitalySSHCalls(t *testing.T, conf config.Cfg) func() gitalySSHParams 
 
 func TestFetchInternalRemote_successful(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.FetchInternalWithSidechannel).Run(t, testFetchInternalRemoteSuccessful)
+}
 
-	ctx := testhelper.Context(t)
-
+func testFetchInternalRemoteSuccessful(t *testing.T, ctx context.Context) {
 	remoteCfg, remoteRepo, remoteRepoPath := testcfg.BuildWithRepo(t)
 	testcfg.BuildGitalyHooks(t, remoteCfg)
 	gittest.WriteCommit(t, remoteCfg, remoteRepoPath, gittest.WithBranch("master"))
@@ -516,10 +526,12 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 
 func TestFetchInternalRemote_failure(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.FetchInternalWithSidechannel).Run(t, testFetchInternalRemoteFailure)
+}
 
+func testFetchInternalRemoteFailure(t *testing.T, ctx context.Context) {
 	cfg, repoProto, _ := testcfg.BuildWithRepo(t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	ctx := testhelper.Context(t)
 	ctx = testhelper.MergeIncomingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 	connsPool := client.NewPool()

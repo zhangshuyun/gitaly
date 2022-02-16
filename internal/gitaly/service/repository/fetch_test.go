@@ -1,12 +1,14 @@
 package repository
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -16,7 +18,10 @@ import (
 func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(featureflag.FetchInternalWithSidechannel).Run(t, testFetchSourceBranchSourceRepositorySuccess)
+}
+
+func testFetchSourceBranchSourceRepositorySuccess(t *testing.T, ctx context.Context) {
 	cfg, sourceRepo, sourcePath, client := setupRepositoryService(ctx, t)
 
 	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)

@@ -25,6 +25,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
@@ -50,6 +51,10 @@ func TestMain(m *testing.M) {
 
 func TestReplMgr_ProcessBacklog(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.FetchInternalWithSidechannel).Run(t, testReplMgrProcessBacklog)
+}
+
+func testReplMgrProcessBacklog(t *testing.T, ctx context.Context) {
 	primaryCfg, testRepoProto, testRepoPath := testcfg.BuildWithRepo(t, testcfg.WithStorages("primary"))
 	testRepo := localrepo.NewTestRepo(t, primaryCfg, testRepoProto)
 	primaryCfg.SocketPath = testserver.RunGitalyServer(t, primaryCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
@@ -90,7 +95,6 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	require.NoError(t, err)
 
 	poolCtx := testhelper.Context(t)
-
 	require.NoError(t, pool.Create(poolCtx, testRepo))
 	require.NoError(t, pool.Link(poolCtx, testRepo))
 
@@ -98,7 +102,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	poolRepository := pool.ToProto().GetRepository()
 	targetObjectPoolRepo := proto.Clone(poolRepository).(*gitalypb.Repository)
 	targetObjectPoolRepo.StorageName = backupCfg.Storages[0].Name
-	ctx, cancel := context.WithCancel(testhelper.Context(t))
+	ctx, cancel := context.WithCancel(ctx)
 
 	injectedCtx := metadata.NewOutgoingContext(ctx, testcfg.GitalyServersMetadataFromCfg(t, primaryCfg))
 
@@ -666,6 +670,10 @@ func getChecksumFunc(ctx context.Context, client gitalypb.RepositoryServiceClien
 
 func TestProcessBacklog_FailedJobs(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.FetchInternalWithSidechannel).Run(t, testProcessBacklogFailedJobs)
+}
+
+func testProcessBacklogFailedJobs(t *testing.T, ctx context.Context) {
 	primaryCfg, testRepo, _ := testcfg.BuildWithRepo(t, testcfg.WithStorages("default"))
 	primaryAddr := testserver.RunGitalyServer(t, primaryCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
@@ -695,7 +703,7 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 			},
 		},
 	}
-	ctx, cancel := context.WithCancel(testhelper.Context(t))
+	ctx, cancel := context.WithCancel(ctx)
 
 	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.New(t)))
 
@@ -768,7 +776,11 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 
 func TestProcessBacklog_Success(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := context.WithCancel(testhelper.Context(t))
+	testhelper.NewFeatureSets(featureflag.FetchInternalWithSidechannel).Run(t, testProcessBacklogSuccess)
+}
+
+func testProcessBacklogSuccess(t *testing.T, ctx context.Context) {
+	ctx, cancel := context.WithCancel(ctx)
 
 	primaryCfg, testRepo, _ := testcfg.BuildWithRepo(t, testcfg.WithStorages("primary"))
 	primaryCfg.SocketPath = testserver.RunGitalyServer(t, primaryCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
