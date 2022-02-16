@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore/glsql"
@@ -150,14 +149,6 @@ func (cmd *removeRepository) exec(ctx context.Context, logger logrus.FieldLogger
 		fmt.Fprintln(cmd.w, "Removed repository metadata from the database.")
 	}
 
-	fmt.Fprintln(cmd.w, "Removing replication events...")
-	ticker := helper.NewTimerTicker(time.Second)
-	defer ticker.Stop()
-	if err := cmd.removeReplicationEvents(ctx, logger, db, ticker); err != nil {
-		return fmt.Errorf("remove scheduled replication events: %w", err)
-	}
-	fmt.Fprintln(cmd.w, "Replication event removal completed.")
-
 	// We should try to remove repository from each of gitaly nodes.
 	fmt.Fprintln(cmd.w, "Removing repository directly from gitaly nodes...")
 	cmd.removeRepositoryForEachGitaly(ctx, cfg, logger)
@@ -247,49 +238,6 @@ func (cmd *removeRepository) removeRepository(ctx context.Context, repo *gitalyp
 		return false, nil
 	}
 	return true, nil
-}
-
-func (cmd *removeRepository) removeReplicationEvents(ctx context.Context, logger logrus.FieldLogger, db *sql.DB, ticker helper.Ticker) error {
-	// Wait for the completion of the repository replication jobs.
-	// As some of them could be a repository creation jobs we need to remove those newly created
-	// repositories after replication finished.
-	start := time.Now()
-	var tick helper.Ticker
-	for found := true; found; {
-		if tick != nil {
-			tick.Reset()
-			<-tick.C()
-		} else {
-			tick = ticker
-		}
-
-		if int(time.Since(start).Seconds())%5 == 0 {
-			logger.Debug("awaiting for the repository in_progress replication jobs to complete...")
-		}
-		row := db.QueryRowContext(
-			ctx,
-			`WITH remove_replication_jobs AS (
-				DELETE FROM replication_queue
-				WHERE job->>'virtual_storage' = $1
-					AND job->>'relative_path' = $2
-					-- Do not remove ongoing replication events as we need to wait
-					-- for their completion.
-					AND state != 'in_progress'
-			)
-			SELECT EXISTS(
-				SELECT
-				FROM replication_queue
-				WHERE job->>'virtual_storage' = $1
-					AND job->>'relative_path' = $2
-					AND state = 'in_progress')`,
-			cmd.virtualStorage,
-			cmd.relativePath,
-		)
-		if err := row.Scan(&found); err != nil {
-			return fmt.Errorf("scan in progress jobs: %w", err)
-		}
-	}
-	return nil
 }
 
 func (cmd *removeRepository) removeNode(

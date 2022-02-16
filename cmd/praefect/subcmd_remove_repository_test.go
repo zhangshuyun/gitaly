@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/setup"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -265,107 +264,4 @@ func requireNoDatabaseInfo(t *testing.T, db testdb.DB, cmd *removeRepository) {
 		cmd.virtualStorage, cmd.relativePath,
 	).Scan(&storageRowExists))
 	require.False(t, storageRowExists)
-}
-
-func TestRemoveRepository_removeReplicationEvents(t *testing.T) {
-	t.Parallel()
-	const (
-		virtualStorage = "praefect"
-		relativePath   = "relative_path/to/repo.git"
-	)
-	ctx := testhelper.Context(t)
-
-	db := testdb.New(t)
-
-	queue := datastore.NewPostgresReplicationEventQueue(db)
-
-	// Set replication event in_progress.
-	inProgressEvent, err := queue.Enqueue(ctx, datastore.ReplicationEvent{
-		Job: datastore.ReplicationJob{
-			Change:            datastore.CreateRepo,
-			VirtualStorage:    virtualStorage,
-			TargetNodeStorage: "gitaly-2",
-			RelativePath:      relativePath,
-		},
-	})
-	require.NoError(t, err)
-	inProgress1, err := queue.Dequeue(ctx, virtualStorage, "gitaly-2", 10)
-	require.NoError(t, err)
-	require.Len(t, inProgress1, 1)
-
-	// New event - events in the 'ready' state should be removed.
-	_, err = queue.Enqueue(ctx, datastore.ReplicationEvent{
-		Job: datastore.ReplicationJob{
-			Change:            datastore.UpdateRepo,
-			VirtualStorage:    virtualStorage,
-			TargetNodeStorage: "gitaly-3",
-			SourceNodeStorage: "gitaly-1",
-			RelativePath:      relativePath,
-		},
-	})
-	require.NoError(t, err)
-
-	// Failed event - should be removed as well.
-	failedEvent, err := queue.Enqueue(ctx, datastore.ReplicationEvent{
-		Job: datastore.ReplicationJob{
-			Change:            datastore.UpdateRepo,
-			VirtualStorage:    virtualStorage,
-			TargetNodeStorage: "gitaly-4",
-			SourceNodeStorage: "gitaly-0",
-			RelativePath:      relativePath,
-		},
-	})
-	require.NoError(t, err)
-	inProgress2, err := queue.Dequeue(ctx, virtualStorage, "gitaly-4", 10)
-	require.NoError(t, err)
-	require.Len(t, inProgress2, 1)
-	// Acknowledge with failed status, so it will remain in the database for the next processing
-	// attempt or until it is deleted by the 'removeReplicationEvents' method.
-	acks2, err := queue.Acknowledge(ctx, datastore.JobStateFailed, []uint64{inProgress2[0].ID})
-	require.NoError(t, err)
-	require.Equal(t, []uint64{inProgress2[0].ID}, acks2)
-
-	ticker := helper.NewManualTicker()
-	defer ticker.Stop()
-
-	errChan := make(chan error, 1)
-	go func() {
-		cmd := &removeRepository{virtualStorage: virtualStorage, relativePath: relativePath}
-		errChan <- cmd.removeReplicationEvents(ctx, testhelper.NewDiscardingLogger(t), db.DB, ticker)
-	}()
-
-	ticker.Tick()
-	ticker.Tick()
-	ticker.Tick() // blocks until previous tick is consumed
-
-	// Now we acknowledge in_progress job, so it stops the processing loop or the command.
-	acks, err := queue.Acknowledge(ctx, datastore.JobStateCompleted, []uint64{inProgressEvent.ID})
-	if assert.NoError(t, err) {
-		assert.Equal(t, []uint64{inProgress1[0].ID}, acks)
-	}
-
-	ticker.Tick()
-
-	timeout := time.After(time.Minute)
-	for checkChan, exists := errChan, true; exists; {
-		select {
-		case err := <-checkChan:
-			require.NoError(t, err)
-			close(errChan)
-			checkChan = nil
-		case <-timeout:
-			require.FailNow(t, "timeout reached, looks like the command hasn't made any progress")
-		case <-time.After(50 * time.Millisecond):
-			// Wait until job removed
-			row := db.QueryRow(`SELECT EXISTS(SELECT FROM replication_queue WHERE id = $1)`, failedEvent.ID)
-			require.NoError(t, row.Scan(&exists))
-		}
-	}
-	// Once there are no in_progress jobs anymore the method returns.
-	require.NoError(t, <-errChan)
-
-	var notExists bool
-	row := db.QueryRow(`SELECT NOT EXISTS(SELECT FROM replication_queue)`)
-	require.NoError(t, row.Scan(&notExists))
-	require.True(t, notExists)
 }
