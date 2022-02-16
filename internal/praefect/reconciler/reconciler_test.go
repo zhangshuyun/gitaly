@@ -648,6 +648,7 @@ func TestReconciler(t *testing.T) {
 				{
 					State: datastore.JobStateReady,
 					Job: datastore.ReplicationJob{
+						Change:            datastore.GarbageCollect,
 						VirtualStorage:    "virtual-storage-1",
 						RelativePath:      "relative-path-1",
 						TargetNodeStorage: "storage-2",
@@ -670,6 +671,7 @@ func TestReconciler(t *testing.T) {
 				{
 					State: datastore.JobStateInProgress,
 					Job: datastore.ReplicationJob{
+						Change:            datastore.GarbageCollect,
 						VirtualStorage:    "virtual-storage-1",
 						RelativePath:      "relative-path-1",
 						TargetNodeStorage: "storage-2",
@@ -692,6 +694,7 @@ func TestReconciler(t *testing.T) {
 				{
 					State: datastore.JobStateFailed,
 					Job: datastore.ReplicationJob{
+						Change:            datastore.GarbageCollect,
 						VirtualStorage:    "virtual-storage-1",
 						RelativePath:      "relative-path-1",
 						TargetNodeStorage: "storage-2",
@@ -714,6 +717,7 @@ func TestReconciler(t *testing.T) {
 				{
 					State: datastore.JobStateReady,
 					Job: datastore.ReplicationJob{
+						Change:            datastore.GarbageCollect,
 						VirtualStorage:    "virtual-storage-1",
 						RelativePath:      "relative-path-1",
 						SourceNodeStorage: "storage-2",
@@ -736,6 +740,7 @@ func TestReconciler(t *testing.T) {
 				{
 					State: datastore.JobStateInProgress,
 					Job: datastore.ReplicationJob{
+						Change:            datastore.GarbageCollect,
 						VirtualStorage:    "virtual-storage-1",
 						RelativePath:      "relative-path-1",
 						SourceNodeStorage: "storage-2",
@@ -758,6 +763,7 @@ func TestReconciler(t *testing.T) {
 				{
 					State: datastore.JobStateFailed,
 					Job: datastore.ReplicationJob{
+						Change:            datastore.GarbageCollect,
 						VirtualStorage:    "virtual-storage-1",
 						RelativePath:      "relative-path-1",
 						SourceNodeStorage: "storage-2",
@@ -778,24 +784,9 @@ func TestReconciler(t *testing.T) {
 			},
 			existingJobs: existingJobs{
 				{
-					State: datastore.JobStateReady,
-					Job: datastore.ReplicationJob{
-						VirtualStorage:    "wrong-virtual-storage",
-						RelativePath:      "relative-path-1",
-						SourceNodeStorage: "storage-2",
-					},
-				},
-				{
-					State: datastore.JobStateReady,
-					Job: datastore.ReplicationJob{
-						VirtualStorage:    "virtual-storage-1",
-						RelativePath:      "wrong-relative-path",
-						SourceNodeStorage: "storage-2",
-					},
-				},
-				{
 					State: datastore.JobStateDead,
 					Job: datastore.ReplicationJob{
+						Change:            datastore.GarbageCollect,
 						VirtualStorage:    "virtual-storage-1",
 						RelativePath:      "relative-path-1",
 						SourceNodeStorage: "storage-2",
@@ -804,6 +795,7 @@ func TestReconciler(t *testing.T) {
 				{
 					State: datastore.JobStateCompleted,
 					Job: datastore.ReplicationJob{
+						Change:            datastore.GarbageCollect,
 						VirtualStorage:    "virtual-storage-1",
 						RelativePath:      "relative-path-1",
 						SourceNodeStorage: "storage-2",
@@ -952,24 +944,6 @@ func TestReconciler(t *testing.T) {
 				},
 			},
 			existingJobs: existingJobs{
-				{
-					State: datastore.JobStateFailed,
-					Job: datastore.ReplicationJob{
-						Change:            datastore.DeleteReplica,
-						VirtualStorage:    "wrong-virtual-storage",
-						RelativePath:      "relative-path-1",
-						SourceNodeStorage: "storage-1",
-					},
-				},
-				{
-					State: datastore.JobStateFailed,
-					Job: datastore.ReplicationJob{
-						Change:            datastore.DeleteReplica,
-						VirtualStorage:    "virtual-storage-1",
-						RelativePath:      "wrong-relative-path",
-						SourceNodeStorage: "storage-1",
-					},
-				},
 				{
 					State: datastore.JobStateDead,
 					Job: datastore.ReplicationJob{

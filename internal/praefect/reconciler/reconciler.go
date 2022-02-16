@@ -177,21 +177,21 @@ delete_jobs AS (
 	) AND NOT EXISTS (
 		-- Ensure the replica is not used as target or source in any scheduled job. This is to avoid breaking
 		-- any already scheduled jobs.
-		SELECT FROM replication_queue
-		WHERE (job->'repository_id')::bigint = repository_id
+		SELECT FROM replication_queue AS q
+		WHERE q.repository_id = repositories.repository_id
 		AND (
-				job->>'source_node_storage' = storage
-			OR 	job->>'target_node_storage' = storage
+				q.source_node_storage = healthy_storages.storage
+			OR 	q.target_node_storage = healthy_storages.storage
 		)
 		AND state NOT IN ('completed', 'dead')
 	) AND NOT EXISTS (
 		-- Ensure there are no other scheduled 'delete_replica' type jobs for the repository. Performing rapid
 		-- repository_assignments could cause the reconciler to schedule deletion against all replicas. To avoid this,
 		-- we do not allow more than one 'delete_replica' job to be active at any given time.
-		SELECT FROM replication_queue
+		SELECT FROM replication_queue AS q
 		WHERE state NOT IN ('completed', 'dead')
-		AND (job->>'repository_id')::bigint = repository_id
-		AND job->>'change' = 'delete_replica'
+		AND q.repository_id = repositories.repository_id
+		AND q.change = 'delete_replica'
 	)
 ),
 
@@ -229,20 +229,20 @@ update_jobs AS (
 		JOIN repositories USING (repository_id, relative_path, generation)
 		JOIN healthy_storages USING (virtual_storage, storage)
 		WHERE NOT EXISTS (
-			SELECT FROM replication_queue
+			SELECT FROM replication_queue AS q
 			WHERE state NOT IN ('completed', 'dead')
-			AND (job->>'repository_id')::bigint = repository_id
-			AND job->>'target_node_storage' = storage
-			AND job->>'change' = 'delete_replica'
+			AND q.repository_id = repositories.repository_id
+			AND q.target_node_storage = healthy_storages.storage
+			AND q.change = 'delete_replica'
 		)
 		ORDER BY virtual_storage, relative_path
 	) AS healthy_repositories USING (repository_id)
 	WHERE NOT EXISTS (
-		SELECT FROM replication_queue
+		SELECT FROM replication_queue AS q
 		WHERE state NOT IN ('completed', 'dead')
-		AND (job->>'repository_id')::bigint = repository_id
-		AND job->>'target_node_storage' = target_node_storage
-		AND job->>'change' = 'update'
+		AND q.repository_id = unhealthy_repositories.repository_id
+		AND q.target_node_storage = unhealthy_repositories.target_node_storage
+		AND q.change = 'update'
 	)
 	ORDER BY repository_id, target_node_storage, random()
 ),
@@ -275,7 +275,7 @@ reconciliation_jobs AS (
 	-- only perform inserts if we managed to acquire the lock as otherwise
 	-- we'd schedule duplicate jobs
 	WHERE ( SELECT acquired FROM reconciliation_lock )
-	RETURNING lock_id, meta, job
+	RETURNING lock_id, meta, repository_id, change, virtual_storage, relative_path, source_node_storage, target_node_storage
 ),
 
 create_locks AS (
@@ -287,12 +287,12 @@ create_locks AS (
 
 SELECT
 	meta->>'correlation_id',
-	job->>'repository_id',
-	job->>'change',
-	job->>'virtual_storage',
-	job->>'relative_path',
-	job->>'source_node_storage',
-	job->>'target_node_storage'
+	repository_id,
+	change,
+	virtual_storage,
+	relative_path,
+	source_node_storage,
+	target_node_storage
 FROM reconciliation_jobs
 `, advisorylock.Reconcile, virtualStorages, storages)
 	if err != nil {
