@@ -148,9 +148,9 @@ func (q *QueueDepthCollector) Collect(ch chan<- prometheus.Metric) {
 	defer cancel()
 
 	rows, err := q.db.QueryContext(ctx, `
-SELECT job->>'virtual_storage', job->>'target_node_storage', state, COUNT(*)
+SELECT virtual_storage, target_node_storage, state, COUNT(*)
 FROM replication_queue
-GROUP BY job->>'virtual_storage', job->>'target_node_storage', state
+GROUP BY virtual_storage, target_node_storage, state
 `)
 	if err != nil {
 		q.log.WithError(err).Error("failed to query queue depth metrics")
