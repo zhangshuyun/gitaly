@@ -1,0 +1,92 @@
+From 6fd1cc8f985ccd8b014e945a819482b267dae21f Mon Sep 17 00:00:00 2001
+Message-Id: <6fd1cc8f985ccd8b014e945a819482b267dae21f.1645001444.git.ps@pks.im>
+From: Patrick Steinhardt <ps@pks.im>
+Date: Thu, 10 Feb 2022 13:28:09 +0100
+Subject: [PATCH 1/2] fetch-pack: use commit-graph when computing cutoff
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+During packfile negotiation we iterate over all refs announced by the
+remote side to check whether their IDs refer to commits already known to
+us. If a commit is known to us already, then its date is a potential
+cutoff point for commits we have in common with the remote side.
+
+There is potentially a lot of commits announced by the remote depending
+on how many refs there are in the remote repository, and for every one
+of them we need to search for it in our object database and, if found,
+parse the corresponding object to find out whether it is a candidate for
+the cutoff date. This can be sped up by trying to look up commits via
+the commit-graph first, which is a lot more efficient.
+
+Benchmarks in a repository with about 2,1 million refs and an up-to-date
+commit-graph show an almost 20% speedup when mirror-fetching:
+
+    Benchmark 1: git fetch +refs/*:refs/* (v2.35.0)
+      Time (mean ± σ):     115.587 s ±  2.009 s    [User: 109.874 s, System: 11.305 s]
+      Range (min … max):   113.584 s … 118.820 s    5 runs
+
+    Benchmark 2: git fetch +refs/*:refs/* (HEAD)
+      Time (mean ± σ):     96.859 s ±  0.624 s    [User: 91.948 s, System: 10.980 s]
+      Range (min … max):   96.180 s … 97.875 s    5 runs
+
+    Summary
+      'git fetch +refs/*:refs/* (HEAD)' ran
+        1.19 ± 0.02 times faster than 'git fetch +refs/*:refs/* (v2.35.0)'
+
+Signed-off-by: Patrick Steinhardt <ps@pks.im>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+---
+ fetch-pack.c | 28 ++++++++++++++++------------
+ 1 file changed, 16 insertions(+), 12 deletions(-)
+
+diff --git a/fetch-pack.c b/fetch-pack.c
+index dd6ec449f2..c5967e228e 100644
+--- a/fetch-pack.c
++++ b/fetch-pack.c
+@@ -696,26 +696,30 @@ static void mark_complete_and_common_ref(struct fetch_negotiator *negotiator,
+ 
+ 	trace2_region_enter("fetch-pack", "parse_remote_refs_and_find_cutoff", NULL);
+ 	for (ref = *refs; ref; ref = ref->next) {
+-		struct object *o;
++		struct commit *commit;
+ 
+-		if (!has_object_file_with_flags(&ref->old_oid,
++		commit = lookup_commit_in_graph(the_repository, &ref->old_oid);
++		if (!commit) {
++			struct object *o;
++
++			if (!has_object_file_with_flags(&ref->old_oid,
+ 						OBJECT_INFO_QUICK |
+-							OBJECT_INFO_SKIP_FETCH_OBJECT))
+-			continue;
+-		o = parse_object(the_repository, &ref->old_oid);
+-		if (!o)
+-			continue;
++						OBJECT_INFO_SKIP_FETCH_OBJECT))
++				continue;
++			o = parse_object(the_repository, &ref->old_oid);
++			if (!o || o->type != OBJ_COMMIT)
++				continue;
++
++			commit = (struct commit *)o;
++		}
+ 
+ 		/*
+ 		 * We already have it -- which may mean that we were
+ 		 * in sync with the other side at some time after
+ 		 * that (it is OK if we guess wrong here).
+ 		 */
+-		if (o->type == OBJ_COMMIT) {
+-			struct commit *commit = (struct commit *)o;
+-			if (!cutoff || cutoff < commit->date)
+-				cutoff = commit->date;
+-		}
++		if (!cutoff || cutoff < commit->date)
++			cutoff = commit->date;
+ 	}
+ 	trace2_region_leave("fetch-pack", "parse_remote_refs_and_find_cutoff", NULL);
+ 
+-- 
+2.35.1
+
