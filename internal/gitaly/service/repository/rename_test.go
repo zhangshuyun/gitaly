@@ -56,7 +56,7 @@ func TestRenameRepository_DestinationExists(t *testing.T) {
 	_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: renamedRepo})
 	require.NoError(t, err)
 
-	destinationRepoPath := filepath.Join(cfg.Storages[0].Path, getReplicaPath(ctx, t, client, existingDestinationRepo))
+	destinationRepoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(ctx, t, cfg, existingDestinationRepo))
 	commitID := gittest.WriteCommit(t, cfg, destinationRepoPath, gittest.WithParents())
 
 	_, err = client.RenameRepository(ctx, &gitalypb.RenameRepositoryRequest{

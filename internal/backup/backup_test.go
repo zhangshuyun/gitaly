@@ -272,10 +272,10 @@ func TestManager_Restore(t *testing.T) {
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	gitalyAddr := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
+	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
 	ctx := testhelper.Context(t)
 
-	testManagerRestore(t, ctx, cfg, gitalyAddr)
+	testManagerRestore(t, ctx, cfg, cfg.SocketPath)
 }
 
 func TestManager_Restore_praefect(t *testing.T) {
@@ -285,7 +285,7 @@ func TestManager_Restore_praefect(t *testing.T) {
 
 	testcfg.BuildGitalyHooks(t, gitalyCfg)
 
-	gitalyAddr := testserver.RunGitalyServer(t, gitalyCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+	gitalyCfg.SocketPath = testserver.RunGitalyServer(t, gitalyCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
 	conf := praefectConfig.Config{
 		SocketPath: testhelper.GetTemporaryGitalySocketFileName(t),
@@ -293,7 +293,7 @@ func TestManager_Restore_praefect(t *testing.T) {
 			{
 				Name: "default",
 				Nodes: []*praefectConfig.Node{
-					{Storage: gitalyCfg.Storages[0].Name, Address: gitalyAddr},
+					{Storage: gitalyCfg.Storages[0].Name, Address: gitalyCfg.SocketPath},
 				},
 			},
 		},
@@ -334,7 +334,7 @@ func testManagerRestore(t *testing.T, ctx context.Context, cfg config.Cfg, gital
 		// The repository might be created through Praefect and the tests reach into the repository directly
 		// on the filesystem. To ensure the test accesses correct directory, we need to rewrite the relative
 		// path if the repository creation went through Praefect.
-		repo.RelativePath = testhelper.GetReplicaPath(ctx, t, cc, repo)
+		repo.RelativePath = gittest.GetReplicaPath(ctx, t, cfg, repo)
 
 		return repo
 	}
@@ -542,7 +542,7 @@ func testManagerRestore(t *testing.T, ctx context.Context, cfg config.Cfg, gital
 						// Restore has to use the rewritten path as the relative path due to the test creating
 						// the repository through Praefect. In order to get to the correct disk paths, we need
 						// to get the replica path of the rewritten repository.
-						repoPath := filepath.Join(cfg.Storages[0].Path, testhelper.GetReplicaPath(ctx, t, cc, repo))
+						repoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(ctx, t, cfg, repo))
 						for _, p := range tc.expectedPaths {
 							require.FileExists(t, filepath.Join(repoPath, p))
 						}

@@ -107,7 +107,7 @@ func TestCreateFork_successful(t *testing.T) {
 			if !tt.secure {
 				// Only the insecure test cases run through Praefect, so we only rewrite the path
 				// in that case.
-				replicaPath = getReplicaPath(ctx, t, client, forkedRepo)
+				replicaPath = gittest.GetReplicaPath(ctx, t, cfg, forkedRepo)
 			}
 
 			forkedRepoPath := filepath.Join(cfg.Storages[0].Path, replicaPath)
@@ -163,7 +163,7 @@ func TestCreateFork_refs(t *testing.T) {
 	storagePath, err := config.NewLocator(cfg).GetStorageByName(targetRepo.GetStorageName())
 	require.NoError(t, err)
 
-	targetRepoPath := filepath.Join(storagePath, getReplicaPath(ctx, t, client, targetRepo))
+	targetRepoPath := filepath.Join(storagePath, gittest.GetReplicaPath(ctx, t, cfg, targetRepo))
 
 	require.Equal(t,
 		[]string{

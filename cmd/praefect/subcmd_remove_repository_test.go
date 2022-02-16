@@ -220,6 +220,7 @@ func TestRemoveRepository_Exec(t *testing.T) {
 
 		logger := testhelper.NewDiscardingLogger(t)
 		loggerHook := test.NewLocal(logger)
+
 		cmd := &removeRepository{
 			logger:         logrus.NewEntry(logger),
 			virtualStorage: praefectStorage,

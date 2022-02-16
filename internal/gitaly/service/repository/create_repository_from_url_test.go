@@ -48,7 +48,7 @@ func TestCreateRepotitoryFromURL_successful(t *testing.T) {
 	_, err := client.CreateRepositoryFromURL(ctx, req)
 	require.NoError(t, err)
 
-	importedRepoPath := filepath.Join(cfg.Storages[0].Path, getReplicaPath(ctx, t, client, importedRepo))
+	importedRepoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(ctx, t, cfg, importedRepo))
 
 	gittest.Exec(t, cfg, "-C", importedRepoPath, "fsck")
 
