@@ -29,9 +29,9 @@ func TestApplyGitattributesSuccess(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, repo, _, client := setupRepositoryService(ctx, t)
+	_, repo, repoPath, client := setupRepositoryService(ctx, t)
 
-	infoPath := filepath.Join(cfg.Storages[0].Path, repo.GetRelativePath(), "info")
+	infoPath := filepath.Join(repoPath, "info")
 	attributesPath := filepath.Join(infoPath, "attributes")
 
 	tests := []struct {

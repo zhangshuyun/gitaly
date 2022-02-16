@@ -191,7 +191,7 @@ func TestFetchRemote_transaction(t *testing.T) {
 	client := newRepositoryClient(t, sourceCfg, addr)
 
 	ctx := testhelper.Context(t)
-	_, sourceRepoPath := gittest.CreateRepository(ctx, t, sourceCfg, gittest.CreateRepositoryConfig{
+	repo, _ := gittest.CreateRepository(ctx, t, sourceCfg, gittest.CreateRepositoryConfig{
 		RelativePath: t.Name(),
 		Seed:         gittest.SeedGitLabTest,
 	})
@@ -213,7 +213,7 @@ func TestFetchRemote_transaction(t *testing.T) {
 	_, err = client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
 		Repository: targetRepoProto,
 		RemoteParams: &gitalypb.Remote{
-			Url: fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(sourceRepoPath)),
+			Url: fmt.Sprintf("http://127.0.0.1:%d/%s", port, repo.GetRelativePath()),
 		},
 	})
 	require.NoError(t, err)

@@ -74,9 +74,8 @@ func TestCreateRepositoryFromBundle_successful(t *testing.T) {
 	_, err = stream.CloseAndRecv()
 	require.NoError(t, err)
 
-	importedRepoProto.RelativePath = getReplicaPath(ctx, t, client, importedRepoProto)
 	importedRepo := localrepo.NewTestRepo(t, cfg, importedRepoProto)
-	importedRepoPath, err := locator.GetPath(importedRepoProto)
+	importedRepoPath, err := locator.GetPath(gittest.RewrittenRepository(ctx, t, cfg, importedRepoProto))
 	require.NoError(t, err)
 	defer func() { require.NoError(t, os.RemoveAll(importedRepoPath)) }()
 

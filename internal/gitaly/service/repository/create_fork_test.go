@@ -224,7 +224,9 @@ func TestCreateFork_targetExists(t *testing.T) {
 			forkedRepo := &gitalypb.Repository{
 				// As this test can run with Praefect in front of it, we'll use the next replica path Praefect will
 				// assign in order to ensure this repository creation conflicts even with Praefect in front of it.
-				RelativePath: praefectutil.DeriveReplicaPath(1),
+				// As the source repository created in the setup is the first one, this would get the repository
+				// ID 2.
+				RelativePath: praefectutil.DeriveReplicaPath(2),
 				StorageName:  repo.StorageName,
 			}
 

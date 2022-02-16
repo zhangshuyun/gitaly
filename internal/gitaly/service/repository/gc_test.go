@@ -47,7 +47,7 @@ func TestGarbageCollectSuccess(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, _, client := setupRepositoryService(ctx, t)
+	_, repo, repoPath, client := setupRepositoryService(ctx, t)
 
 	tests := []struct {
 		req  *gitalypb.GarbageCollectRequest
@@ -63,7 +63,7 @@ func TestGarbageCollectSuccess(t *testing.T) {
 		},
 	}
 
-	packPath := filepath.Join(cfg.Storages[0].Path, repo.GetRelativePath(), "objects", "pack")
+	packPath := filepath.Join(repoPath, "objects", "pack")
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
