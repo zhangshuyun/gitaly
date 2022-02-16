@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -20,7 +19,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
-	"golang.org/x/sys/unix"
 )
 
 var globalOptions = []GlobalOption{
@@ -105,7 +103,6 @@ func WithGitBinaryPath(path string) ExecCommandFactoryOption {
 }
 
 type hookDirectories struct {
-	rubyHooksPath string
 	tempHooksPath string
 }
 
@@ -357,37 +354,14 @@ func (cf *ExecCommandFactory) GetExecutionEnvironment(ctx context.Context) Execu
 
 // HooksPath returns the path where Gitaly's Git hooks reside.
 func (cf *ExecCommandFactory) HooksPath(ctx context.Context) string {
-	if featureflag.HooksInTempdir.IsEnabled(ctx) {
-		return cf.hookDirs.tempHooksPath
-	}
-	return cf.hookDirs.rubyHooksPath
+	return cf.hookDirs.tempHooksPath
 }
 
 func setupHookDirectories(cfg config.Cfg, factoryCfg execCommandFactoryConfig) (hookDirectories, func(), error) {
 	if factoryCfg.hooksPath != "" {
 		return hookDirectories{
-			rubyHooksPath: factoryCfg.hooksPath,
 			tempHooksPath: factoryCfg.hooksPath,
 		}, func() {}, nil
-	}
-
-	// The old and now-deprecated location of Gitaly's hooks is in the Ruby directory.
-	rubyHooksPath := filepath.Join(cfg.Ruby.Dir, "git-hooks")
-
-	var errs []string
-	for _, hookName := range []string{"pre-receive", "post-receive", "update"} {
-		hookPath := filepath.Join(rubyHooksPath, hookName)
-		if err := unix.Access(hookPath, unix.X_OK); err != nil {
-			if errors.Is(err, os.ErrPermission) {
-				errs = append(errs, fmt.Sprintf("not executable: %v", hookPath))
-			} else {
-				errs = append(errs, err.Error())
-			}
-		}
-	}
-
-	if len(errs) > 0 {
-		return hookDirectories{}, nil, fmt.Errorf(strings.Join(errs, ", "))
 	}
 
 	if cfg.BinDir == "" {
@@ -411,7 +385,6 @@ func setupHookDirectories(cfg config.Cfg, factoryCfg execCommandFactoryConfig) (
 	}
 
 	return hookDirectories{
-			rubyHooksPath: rubyHooksPath,
 			tempHooksPath: tempHooksPath,
 		}, func() {
 			if err := os.RemoveAll(tempHooksPath); err != nil {

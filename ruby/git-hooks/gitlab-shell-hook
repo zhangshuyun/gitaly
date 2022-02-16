@@ -1,5 +1,0 @@
-#!/bin/sh
-
-# This is the single source of truth for where Gitaly's embedded Git hooks are.
-exec "$GITALY_BIN_DIR/gitaly-hooks" "$(basename $0)" "$@"
-
