@@ -21,7 +21,10 @@ def main(gitaly_dir)
 
   Dir.mktmpdir do |dir|
     Dir.chdir(dir)
-    File.write(File.join("#{gitaly_dir}/ruby/git-hooks", '.gitlab_shell_secret'), 'test_gitlab_shell_token')
+
+    gitlab_shell_dir = File.join(dir, 'gitlab-shell')
+    Dir.mkdir(gitlab_shell_dir)
+    File.write(File.join(gitlab_shell_dir, '.gitlab_shell_secret'), 'test_gitlab_shell_token')
 
     File.write('config.toml', <<~CONFIG
       socket_path = "#{ADDR}"
@@ -38,7 +41,7 @@ def main(gitaly_dir)
       dir = "#{gitaly_dir}/ruby"
 
       [gitlab-shell]
-      dir = "#{gitaly_dir}/ruby/git-hooks"
+      dir = "#{gitlab_shell_dir}"
 
       [gitlab]
       url = 'http://gitlab_url'
