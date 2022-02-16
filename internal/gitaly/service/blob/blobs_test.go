@@ -283,10 +283,19 @@ func TestListAllBlobs(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, repo, _, client := setup(ctx, t)
 
-	quarantine, err := quarantine.New(ctx, repo, config.NewLocator(cfg))
+	quarantine, err := quarantine.New(ctx, gittest.RewrittenRepository(ctx, t, cfg, repo), config.NewLocator(cfg))
 	require.NoError(t, err)
 
-	quarantineRepoWithoutAlternates := proto.Clone(quarantine.QuarantinedRepo()).(*gitalypb.Repository)
+	// quarantine.New in Gitaly would receive an already rewritten repository. Gitaly would then calculate
+	// the quarantine directories based on the rewritten relative path. That quarantine would then be looped
+	// through Rails, which would then send a request with the quarantine object directories set based on the
+	// rewritten relative path but with the original relative path of the repository. Since we're using the production
+	// helpers here, we need to manually substitute the rewritten relative path with the original one when sending
+	// it back through the API.
+	quarantinedRepo := quarantine.QuarantinedRepo()
+	quarantinedRepo.RelativePath = repo.RelativePath
+
+	quarantineRepoWithoutAlternates := proto.Clone(quarantinedRepo).(*gitalypb.Repository)
 	quarantineRepoWithoutAlternates.GitAlternateObjectDirectories = []string{}
 
 	emptyRepo, _ := gittest.CreateRepository(ctx, t, cfg)
@@ -377,7 +386,7 @@ func TestListAllBlobs(t *testing.T) {
 		{
 			desc: "quarantine repo with alternates",
 			request: &gitalypb.ListAllBlobsRequest{
-				Repository: quarantine.QuarantinedRepo(),
+				Repository: quarantinedRepo,
 			},
 			verify: func(t *testing.T, blobs []*gitalypb.ListAllBlobsResponse_Blob) {
 				require.Greater(t, len(blobs), 300)

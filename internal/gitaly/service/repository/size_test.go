@@ -88,11 +88,20 @@ func TestGetObjectDirectorySize_quarantine(t *testing.T) {
 			Seed: gittest.SeedGitLabTest,
 		})
 
-		quarantine, err := quarantine.New(ctx, repo, locator)
+		quarantine, err := quarantine.New(ctx, gittest.RewrittenRepository(ctx, t, cfg, repo), locator)
 		require.NoError(t, err)
 
+		// quarantine.New in Gitaly would receive an already rewritten repository. Gitaly would then calculate
+		// the quarantine directories based on the rewritten relative path. That quarantine would then be looped
+		// through Rails, which would then send a request with the quarantine object directories set based on the
+		// rewritten relative path but with the original relative path of the repository. Since we're using the production
+		// helpers here, we need to manually substitute the rewritten relative path with the original one when sending
+		// it back through the API.
+		quarantinedRepo := quarantine.QuarantinedRepo()
+		quarantinedRepo.RelativePath = repo.RelativePath
+
 		response, err := client.GetObjectDirectorySize(ctx, &gitalypb.GetObjectDirectorySizeRequest{
-			Repository: quarantine.QuarantinedRepo(),
+			Repository: quarantinedRepo,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, response)
@@ -106,13 +115,13 @@ func TestGetObjectDirectorySize_quarantine(t *testing.T) {
 		repo1, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
 			Seed: gittest.SeedGitLabTest,
 		})
-		quarantine1, err := quarantine.New(ctx, repo1, locator)
+		quarantine1, err := quarantine.New(ctx, gittest.RewrittenRepository(ctx, t, cfg, repo1), locator)
 		require.NoError(t, err)
 
 		repo2, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
 			Seed: gittest.SeedGitLabTest,
 		})
-		quarantine2, err := quarantine.New(ctx, repo2, locator)
+		quarantine2, err := quarantine.New(ctx, gittest.RewrittenRepository(ctx, t, cfg, repo2), locator)
 		require.NoError(t, err)
 
 		// We swap out the the object directories of both quarantines. So while both are
@@ -120,6 +129,13 @@ func TestGetObjectDirectorySize_quarantine(t *testing.T) {
 		// swapped-in quarantine directory does not belong to our repository.
 		repo := proto.Clone(quarantine1.QuarantinedRepo()).(*gitalypb.Repository)
 		repo.GitObjectDirectory = quarantine2.QuarantinedRepo().GetGitObjectDirectory()
+		// quarantine.New in Gitaly would receive an already rewritten repository. Gitaly would then calculate
+		// the quarantine directories based on the rewritten relative path. That quarantine would then be looped
+		// through Rails, which would then send a request with the quarantine object directories set based on the
+		// rewritten relative path but with the original relative path of the repository. Since we're using the production
+		// helpers here, we need to manually substitute the rewritten relative path with the original one when sending
+		// it back through the API.
+		repo.RelativePath = repo1.RelativePath
 
 		response, err := client.GetObjectDirectorySize(ctx, &gitalypb.GetObjectDirectorySizeRequest{
 			Repository: repo,
