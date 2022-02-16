@@ -111,6 +111,7 @@ func runOperationServiceServer(t testing.TB, cfg config.Cfg, options ...testserv
 			deps.GetCatfileCache(),
 			deps.GetConnsPool(),
 			deps.GetGit2goExecutor(),
+			deps.GetHousekeepingManager(),
 		))
 		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(
 			deps.GetLocator(),

@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -28,12 +29,14 @@ func setupObjectPool(t *testing.T, ctx context.Context) (config.Cfg, *ObjectPool
 
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
+	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 
 	pool, err := NewObjectPool(
 		config.NewLocator(cfg),
 		gitCommandFactory,
 		catfileCache,
-		transaction.NewManager(cfg, backchannel.NewRegistry()),
+		txManager,
+		housekeeping.NewManager(txManager),
 		repo.GetStorageName(),
 		gittest.NewObjectPoolName(t),
 	)

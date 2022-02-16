@@ -69,7 +69,7 @@ func (s *server) poolForRequest(req poolRequest) (*objectpool.ObjectPool, error)
 		return nil, errMissingPool
 	}
 
-	pool, err := objectpool.NewObjectPool(s.locator, s.gitCmdFactory, s.catfileCache, s.txManager, poolRepo.GetStorageName(), poolRepo.GetRelativePath())
+	pool, err := objectpool.NewObjectPool(s.locator, s.gitCmdFactory, s.catfileCache, s.txManager, s.housekeepingManager, poolRepo.GetStorageName(), poolRepo.GetRelativePath())
 	if err != nil {
 		if err == objectpool.ErrInvalidPoolDir {
 			return nil, errInvalidPoolDir

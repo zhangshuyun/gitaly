@@ -17,7 +17,7 @@ func (s *server) GetObjectPool(ctx context.Context, in *gitalypb.GetObjectPoolRe
 
 	repo := s.localrepo(in.GetRepository())
 
-	objectPool, err := objectpool.FromRepo(s.locator, s.gitCmdFactory, s.catfileCache, s.txManager, repo)
+	objectPool, err := objectpool.FromRepo(s.locator, s.gitCmdFactory, s.catfileCache, s.txManager, s.housekeepingManager, repo)
 	if err != nil {
 		ctxlogrus.Extract(ctx).
 			WithError(err).

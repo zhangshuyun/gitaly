@@ -38,6 +38,7 @@ func setup(ctx context.Context, tb testing.TB) (config.Cfg, *gitalypb.Repository
 			deps.GetCatfileCache(),
 			deps.GetConnsPool(),
 			deps.GetGit2goExecutor(),
+			deps.GetHousekeepingManager(),
 		))
 	})
 	cfg.SocketPath = addr

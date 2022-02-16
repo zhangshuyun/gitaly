@@ -38,6 +38,7 @@ func setupDiffService(ctx context.Context, t testing.TB, opt ...testserver.Gital
 			deps.GetCatfileCache(),
 			deps.GetConnsPool(),
 			deps.GetGit2goExecutor(),
+			deps.GetHousekeepingManager(),
 		))
 	}, opt...)
 	cfg.SocketPath = addr

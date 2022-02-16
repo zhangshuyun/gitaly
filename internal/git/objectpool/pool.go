@@ -14,6 +14,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
@@ -35,11 +36,12 @@ const ErrInvalidPoolDir errString = "invalid object pool directory"
 type ObjectPool struct {
 	Repo *localrepo.Repo
 
-	gitCmdFactory git.CommandFactory
-	txManager     transaction.Manager
-	storageName   string
-	storagePath   string
+	gitCmdFactory       git.CommandFactory
+	txManager           transaction.Manager
+	housekeepingManager housekeeping.Manager
 
+	storageName  string
+	storagePath  string
 	relativePath string
 }
 
@@ -51,6 +53,7 @@ func NewObjectPool(
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
 	txManager transaction.Manager,
+	housekeepingManager housekeeping.Manager,
 	storageName,
 	relativePath string,
 ) (*ObjectPool, error) {
@@ -65,11 +68,12 @@ func NewObjectPool(
 	}
 
 	pool := &ObjectPool{
-		gitCmdFactory: gitCmdFactory,
-		txManager:     txManager,
-		storageName:   storageName,
-		storagePath:   storagePath,
-		relativePath:  relativePath,
+		gitCmdFactory:       gitCmdFactory,
+		txManager:           txManager,
+		housekeepingManager: housekeepingManager,
+		storageName:         storageName,
+		storagePath:         storagePath,
+		relativePath:        relativePath,
 	}
 	pool.Repo = localrepo.New(locator, gitCmdFactory, catfileCache, pool)
 
@@ -161,6 +165,7 @@ func FromRepo(
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
 	txManager transaction.Manager,
+	housekeepingManager housekeeping.Manager,
 	repo *localrepo.Repo,
 ) (*ObjectPool, error) {
 	dir, err := getAlternateObjectDir(repo)
@@ -182,7 +187,7 @@ func FromRepo(
 		return nil, err
 	}
 
-	return NewObjectPool(locator, gitCmdFactory, catfileCache, txManager, repo.GetStorageName(), filepath.Dir(altPathRelativeToStorage))
+	return NewObjectPool(locator, gitCmdFactory, catfileCache, txManager, housekeepingManager, repo.GetStorageName(), filepath.Dir(altPathRelativeToStorage))
 }
 
 var (

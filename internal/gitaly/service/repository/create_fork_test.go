@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
@@ -272,17 +273,53 @@ func runSecureServer(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) s
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 
+	housekeepingManager := housekeeping.NewManager(txManager)
+
 	connsPool := client.NewPool()
 	t.Cleanup(func() { testhelper.MustClose(t, connsPool) })
 
 	git2goExecutor := git2go.NewExecutor(cfg, gitCmdFactory, locator)
 
-	gitalypb.RegisterRepositoryServiceServer(server, NewServer(cfg, rubySrv, locator, txManager, gitCmdFactory, catfileCache, connsPool, git2goExecutor))
-	gitalypb.RegisterHookServiceServer(server, hookservice.NewServer(hookManager, gitCmdFactory, nil))
-	gitalypb.RegisterRemoteServiceServer(server, remote.NewServer(locator, gitCmdFactory, catfileCache, txManager, connsPool))
-	gitalypb.RegisterSSHServiceServer(server, ssh.NewServer(locator, gitCmdFactory, txManager))
-	gitalypb.RegisterRefServiceServer(server, ref.NewServer(locator, gitCmdFactory, txManager, catfileCache))
-	gitalypb.RegisterCommitServiceServer(server, commit.NewServer(locator, gitCmdFactory, nil, catfileCache))
+	gitalypb.RegisterRepositoryServiceServer(server, NewServer(
+		cfg,
+		rubySrv,
+		locator,
+		txManager,
+		gitCmdFactory,
+		catfileCache,
+		connsPool,
+		git2goExecutor,
+		housekeepingManager,
+	))
+	gitalypb.RegisterHookServiceServer(server, hookservice.NewServer(
+		hookManager,
+		gitCmdFactory,
+		nil,
+	))
+	gitalypb.RegisterRemoteServiceServer(server, remote.NewServer(
+		locator,
+		gitCmdFactory,
+		catfileCache,
+		txManager,
+		connsPool,
+	))
+	gitalypb.RegisterSSHServiceServer(server, ssh.NewServer(
+		locator,
+		gitCmdFactory,
+		txManager,
+	))
+	gitalypb.RegisterRefServiceServer(server, ref.NewServer(
+		locator,
+		gitCmdFactory,
+		txManager,
+		catfileCache,
+	))
+	gitalypb.RegisterCommitServiceServer(server, commit.NewServer(
+		locator,
+		gitCmdFactory,
+		nil,
+		catfileCache,
+	))
 	errQ := make(chan error, 1)
 
 	// This creates a secondary GRPC server which isn't "secure". Reusing

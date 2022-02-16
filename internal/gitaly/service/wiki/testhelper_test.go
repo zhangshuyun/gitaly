@@ -86,6 +86,7 @@ func setupWikiService(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server) 
 			deps.GetCatfileCache(),
 			deps.GetConnsPool(),
 			deps.GetGit2goExecutor(),
+			deps.GetHousekeepingManager(),
 		))
 	})
 	testcfg.BuildGitalyHooks(t, cfg)

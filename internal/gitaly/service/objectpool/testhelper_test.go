@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
@@ -57,6 +58,7 @@ func runObjectPoolServer(t *testing.T, cfg config.Cfg, locator storage.Locator, 
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
 			deps.GetTxManager(),
+			deps.GetHousekeepingManager(),
 		))
 		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(
 			deps.GetHookManager(),
@@ -72,6 +74,7 @@ func runObjectPoolServer(t *testing.T, cfg config.Cfg, locator storage.Locator, 
 			deps.GetCatfileCache(),
 			deps.GetConnsPool(),
 			deps.GetGit2goExecutor(),
+			deps.GetHousekeepingManager(),
 		))
 	}, append(opts, testserver.WithLocator(locator), testserver.WithLogger(logger))...)
 }
@@ -84,12 +87,14 @@ func initObjectPool(t testing.TB, cfg config.Cfg, storage config.Storage) *objec
 	gittest.InitRepoDir(t, storage.Path, relativePath)
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
+	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 
 	pool, err := objectpool.NewObjectPool(
 		config.NewLocator(cfg),
 		gittest.NewCommandFactory(t, cfg),
 		catfileCache,
-		transaction.NewManager(cfg, backchannel.NewRegistry()),
+		txManager,
+		housekeeping.NewManager(txManager),
 		storage.Name,
 		relativePath,
 	)

@@ -46,6 +46,7 @@ func TestRepo_FetchInternal(t *testing.T) {
 			deps.GetCatfileCache(),
 			deps.GetConnsPool(),
 			deps.GetGit2goExecutor(),
+			deps.GetHousekeepingManager(),
 		))
 	}, testserver.WithGitCommandFactory(gitCmdFactory))
 
