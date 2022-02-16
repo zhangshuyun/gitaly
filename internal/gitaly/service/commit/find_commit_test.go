@@ -337,7 +337,7 @@ func TestFindCommitWithCache(t *testing.T) {
 	// get a list of revisions
 
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
-	logCmd, err := gitCmdFactory.New(ctx, repo,
+	logCmd, err := gitCmdFactory.New(ctx, gittest.RewrittenRepository(ctx, t, cfg, repo),
 		git.SubCmd{Name: "log", Flags: []git.Option{git.Flag{Name: "--format=format:%H"}}})
 	require.NoError(t, err)
 
