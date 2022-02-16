@@ -204,6 +204,16 @@ func getReplicaPath(ctx context.Context, t testing.TB, conn *grpc.ClientConn, re
 	return metadata.ReplicaPath
 }
 
+// RewrittenRepository returns the repository as it would be received by a Gitaly after being rewritten by Praefect.
+// This should be used when the repository is being accessed through the filesystem to ensure the access path is
+// correct. If the test is not running with Praefect in front, it returns the an unaltered copy of repository.
+func RewrittenRepository(ctx context.Context, t testing.TB, cfg config.Cfg, repository *gitalypb.Repository) *gitalypb.Repository {
+	// Don't modify the original repository.
+	rewritten := proto.Clone(repository).(*gitalypb.Repository)
+	rewritten.RelativePath = GetReplicaPath(ctx, t, cfg, repository)
+	return rewritten
+}
+
 // InitRepoOpts contains options for InitRepo.
 type InitRepoOpts struct {
 	// WithWorktree determines whether the resulting Git repository should have a worktree or
