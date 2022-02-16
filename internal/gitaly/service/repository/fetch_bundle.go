@@ -97,7 +97,7 @@ func (s *server) updateHeadFromBundle(ctx context.Context, repo *localrepo.Repo,
 		return fmt.Errorf("update head from bundle: %w", err)
 	}
 
-	if err := repo.SetDefaultBranch(ctx, branch); err != nil {
+	if err := repo.SetDefaultBranch(ctx, s.txManager, branch); err != nil {
 		return fmt.Errorf("update head from bundle: %w", err)
 	}
 	return nil

@@ -203,7 +203,7 @@ func (s *server) extractSnapshot(ctx context.Context, source, target *gitalypb.R
 func (s *server) syncRepository(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) error {
 	repo := s.localrepo(in.GetRepository())
 
-	if err := fetchInternalRemote(ctx, s.conns, repo, in.GetSource()); err != nil {
+	if err := fetchInternalRemote(ctx, s.txManager, s.conns, repo, in.GetSource()); err != nil {
 		return fmt.Errorf("fetch internal remote: %w", err)
 	}
 
@@ -212,6 +212,7 @@ func (s *server) syncRepository(ctx context.Context, in *gitalypb.ReplicateRepos
 
 func fetchInternalRemote(
 	ctx context.Context,
+	txManager transaction.Manager,
 	conns *client.Pool,
 	repo *localrepo.Repo,
 	remoteRepoProto *gitalypb.Repository,
@@ -252,7 +253,7 @@ func fetchInternalRemote(
 	}
 
 	if defaultBranch != remoteDefaultBranch {
-		if err := repo.SetDefaultBranch(ctx, remoteDefaultBranch); err != nil {
+		if err := repo.SetDefaultBranch(ctx, txManager, remoteDefaultBranch); err != nil {
 			return helper.ErrInternalf("setting default branch: %w", err)
 		}
 	}

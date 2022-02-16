@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -262,13 +264,16 @@ func TestManager_Create_incremental(t *testing.T) {
 }
 
 func TestManager_Restore(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.TransactionalSymbolicRefUpdates).Run(t, testManagerRestore)
+}
+
+func testManagerRestore(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyHooks(t, cfg)
 
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
-	ctx := testhelper.Context(t)
 
 	cc, err := client.Dial(cfg.SocketPath, nil)
 	require.NoError(t, err)

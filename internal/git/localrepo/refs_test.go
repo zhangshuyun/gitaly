@@ -1,20 +1,30 @@
 package localrepo
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"google.golang.org/grpc/peer"
 )
 
 const (
@@ -445,7 +455,13 @@ func TestRepo_UpdateRef(t *testing.T) {
 }
 
 func TestRepo_SetDefaultBranch(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.TransactionalSymbolicRefUpdates).Run(t, testRepoSetBranchFeatures)
+}
+
+func testRepoSetBranchFeatures(t *testing.T, ctx context.Context) {
 	_, repo, _ := setupRepo(t)
+
+	txManager := transaction.NewTrackingManager()
 
 	testCases := []struct {
 		desc        string
@@ -463,19 +479,125 @@ func TestRepo_SetDefaultBranch(t *testing.T) {
 			expectedRef: git.LegacyDefaultRef,
 		},
 	}
-
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
+			txManager.Reset()
+			ctx, err := txinfo.InjectTransaction(
+				peer.NewContext(ctx, &peer.Peer{}),
+				1,
+				"node",
+				true,
+			)
+			require.NoError(t, err)
 
-			require.NoError(t, repo.SetDefaultBranch(ctx, tc.ref))
+			require.NoError(t, repo.SetDefaultBranch(ctx, txManager, tc.ref))
 
 			newRef, err := repo.GetDefaultBranch(ctx)
 			require.NoError(t, err)
 
 			require.Equal(t, tc.expectedRef, newRef)
+
+			if featureflag.TransactionalSymbolicRefUpdates.IsEnabled(ctx) {
+				require.Len(t, txManager.Votes(), 2)
+				h := voting.NewVoteHash()
+				_, err = h.Write([]byte("ref: " + tc.ref.String() + "\n"))
+				require.NoError(t, err)
+				vote, err := h.Vote()
+				require.NoError(t, err)
+
+				require.Equal(t, voting.Prepared, txManager.Votes()[0].Phase)
+				require.Equal(t, vote.String(), txManager.Votes()[0].Vote.String())
+				require.Equal(t, voting.Committed, txManager.Votes()[1].Phase)
+				require.Equal(t, vote.String(), txManager.Votes()[1].Vote.String())
+			}
 		})
 	}
+}
+
+type blockingManager struct {
+	ch chan struct{}
+}
+
+func (b *blockingManager) Vote(_ context.Context, _ txinfo.Transaction, _ voting.Vote, phase voting.Phase) error {
+	// the purpose of this is to block SetDefaultBranch from completing, so just choose to block on
+	// a Prepared vote.
+	if phase == voting.Prepared {
+		b.ch <- struct{}{}
+		<-b.ch
+	}
+
+	return nil
+}
+
+func (b *blockingManager) Stop(_ context.Context, _ txinfo.Transaction) error {
+	return nil
+}
+
+func TestRepo_SetDefaultBranch_errors(t *testing.T) {
+	ctx := featureflag.ContextWithFeatureFlag(
+		testhelper.Context(t),
+		featureflag.TransactionalSymbolicRefUpdates,
+		true)
+
+	t.Run("malformed refname", func(t *testing.T) {
+		_, repo, _ := setupRepo(t)
+
+		err := repo.SetDefaultBranch(ctx, &transaction.MockManager{}, "./.lock")
+		require.EqualError(t, err, `"./.lock" is a malformed refname`)
+	})
+
+	t.Run("HEAD is locked by another process", func(t *testing.T) {
+		_, repo, _ := setupRepo(t)
+
+		ref, err := repo.GetDefaultBranch(ctx)
+		require.NoError(t, err)
+
+		path, err := repo.Path()
+		require.NoError(t, err)
+
+		require.NoError(t, os.WriteFile(filepath.Join(path, "HEAD.lock"), []byte(""), 0o644))
+
+		err = repo.SetDefaultBranch(ctx, &transaction.MockManager{}, "refs/heads/branch")
+		require.ErrorIs(t, err, safe.ErrFileAlreadyLocked)
+
+		refAfter, err := repo.GetDefaultBranch(ctx)
+		require.NoError(t, err)
+		require.Equal(t, ref, refAfter)
+	})
+
+	t.Run("HEAD is locked by SetDefaultBranch", func(t *testing.T) {
+		ctx, err := txinfo.InjectTransaction(
+			peer.NewContext(ctx, &peer.Peer{}),
+			1,
+			"node",
+			true,
+		)
+
+		require.NoError(t, err)
+
+		_, repo, _ := setupRepo(t)
+
+		ch := make(chan struct{})
+		doneCh := make(chan struct{})
+		go func() {
+			_ = repo.SetDefaultBranch(ctx, &blockingManager{ch}, "refs/heads/branch")
+			doneCh <- struct{}{}
+		}()
+		<-ch
+
+		var stderr bytes.Buffer
+		err = repo.ExecAndWait(ctx, git.SubCmd{
+			Name: "symbolic-ref",
+			Args: []string{"HEAD", "refs/heads/otherbranch"},
+		}, git.WithRefTxHook(repo), git.WithStderr(&stderr))
+
+		code, ok := command.ExitStatus(err)
+		require.True(t, ok)
+		assert.Equal(t, 1, code)
+		assert.Regexp(t, "Unable to create .+\\/HEAD\\.lock': File exists.", stderr.String())
+		ch <- struct{}{}
+		<-doneCh
+	})
 }
 
 func TestGuessHead(t *testing.T) {
