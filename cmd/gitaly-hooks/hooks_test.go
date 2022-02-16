@@ -162,6 +162,8 @@ func testHooksPrePostReceive(t *testing.T, cfg config.Cfg, repo *gitalypb.Reposi
 	cfg.Gitlab.HTTPSettings.User = gitlabUser
 	cfg.Gitlab.HTTPSettings.Password = gitlabPassword
 
+	gitalyHooksPath := filepath.Join(cfg.BinDir, "gitaly-hooks")
+
 	gitlabClient, err := gitlab.NewHTTPClient(logger, cfg.Gitlab, cfg.TLS, prometheus.Config{})
 	require.NoError(t, err)
 
@@ -178,9 +180,9 @@ func testHooksPrePostReceive(t *testing.T, cfg config.Cfg, repo *gitalypb.Reposi
 
 			var stderr, stdout bytes.Buffer
 			stdin := bytes.NewBuffer([]byte(changes))
-			hookPath, err := filepath.Abs(fmt.Sprintf("../../ruby/git-hooks/%s", hookName))
 			require.NoError(t, err)
-			cmd := exec.Command(hookPath)
+			cmd := exec.Command(gitalyHooksPath)
+			cmd.Args = []string{hookName}
 			cmd.Stderr = &stderr
 			cmd.Stdout = &stdout
 			cmd.Stdin = stdin
@@ -276,9 +278,9 @@ func testHooksUpdate(t *testing.T, ctx context.Context, cfg config.Cfg, glValues
 	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 	refval, oldval, newval := "refval", strings.Repeat("a", 40), strings.Repeat("b", 40)
-	updateHookPath, err := filepath.Abs("../../ruby/git-hooks/update")
-	require.NoError(t, err)
-	cmd := exec.Command(updateHookPath, refval, oldval, newval)
+
+	cmd := exec.Command(filepath.Join(cfg.BinDir, "gitaly-hooks"))
+	cmd.Args = []string{"update", refval, oldval, newval}
 	cmd.Env = envForHooks(t, ctx, cfg, repo, glValues, proxyValues{})
 	cmd.Dir = repoPath
 
@@ -330,7 +332,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 	logger, _ := test.NewNullLogger()
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t, testcfg.WithBase(config.Cfg{Auth: auth.Config{Token: "abc123"}}))
-	testcfg.BuildGitalyHooks(t, cfg)
+	gitalyHooksPath := testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
 
 	// By setting the last parameter to false, the post-receive API call will
@@ -360,9 +362,6 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 	customHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
 
 	var stdout, stderr bytes.Buffer
-
-	postReceiveHookPath, err := filepath.Abs("../../ruby/git-hooks/post-receive")
-	require.NoError(t, err)
 
 	testcases := []struct {
 		desc    string
@@ -422,7 +421,8 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 			env := envForHooks(t, ctx, cfg, repo, glHookValues{}, proxyValues{})
 			env = append(env, hooksPayload)
 
-			cmd := exec.Command(postReceiveHookPath)
+			cmd := exec.Command(gitalyHooksPath)
+			cmd.Args = []string{"post-receive"}
 			cmd.Env = env
 			cmd.Stdout = &stdout
 			cmd.Stderr = &stderr
@@ -444,7 +444,7 @@ func TestHooksNotAllowed(t *testing.T) {
 	logger, _ := test.NewNullLogger()
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t, testcfg.WithBase(config.Cfg{Auth: auth.Config{Token: "abc123"}}))
-	testcfg.BuildGitalyHooks(t, cfg)
+	gitalyHooksPath := testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
 
 	c := gitlab.TestServerOptions{
@@ -473,9 +473,8 @@ func TestHooksNotAllowed(t *testing.T) {
 	var stderr, stdout bytes.Buffer
 	ctx := testhelper.Context(t)
 
-	preReceiveHookPath, err := filepath.Abs("../../ruby/git-hooks/pre-receive")
-	require.NoError(t, err)
-	cmd := exec.Command(preReceiveHookPath)
+	cmd := exec.Command(gitalyHooksPath)
+	cmd.Args = []string{"pre-receive"}
 	cmd.Stderr = &stderr
 	cmd.Stdout = &stdout
 	cmd.Stdin = strings.NewReader(changes)
@@ -688,14 +687,14 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 }
 
 func TestRequestedHooks(t *testing.T) {
-	for hook, hookName := range map[git.Hook]string{
-		git.ReferenceTransactionHook: "reference-transaction",
-		git.UpdateHook:               "update",
-		git.PreReceiveHook:           "pre-receive",
-		git.PostReceiveHook:          "post-receive",
-		git.PackObjectsHook:          "git",
+	for hook, hookArgs := range map[git.Hook][]string{
+		git.ReferenceTransactionHook: {"reference-transaction"},
+		git.UpdateHook:               {"update"},
+		git.PreReceiveHook:           {"pre-receive"},
+		git.PostReceiveHook:          {"post-receive"},
+		git.PackObjectsHook:          {"gitaly-hooks", "git"},
 	} {
-		t.Run(hookName, func(t *testing.T) {
+		t.Run(hookArgs[0], func(t *testing.T) {
 			t.Run("unrequested hook is ignored", func(t *testing.T) {
 				cfg := testcfg.Build(t)
 				testcfg.BuildGitalyHooks(t, cfg)
@@ -704,7 +703,8 @@ func TestRequestedHooks(t *testing.T) {
 				payload, err := git.NewHooksPayload(cfg, &gitalypb.Repository{}, nil, nil, git.AllHooks&^hook, nil).Env()
 				require.NoError(t, err)
 
-				cmd := exec.Command(filepath.Join(cfg.BinDir, "gitaly-hooks"), hookName)
+				cmd := exec.Command(filepath.Join(cfg.BinDir, "gitaly-hooks"))
+				cmd.Args = hookArgs
 				cmd.Env = []string{payload}
 				require.NoError(t, cmd.Run())
 			})
@@ -717,7 +717,8 @@ func TestRequestedHooks(t *testing.T) {
 				payload, err := git.NewHooksPayload(cfg, &gitalypb.Repository{}, nil, nil, hook, nil).Env()
 				require.NoError(t, err)
 
-				cmd := exec.Command(filepath.Join(cfg.BinDir, "gitaly-hooks"), hookName)
+				cmd := exec.Command(filepath.Join(cfg.BinDir, "gitaly-hooks"))
+				cmd.Args = hookArgs
 				cmd.Env = []string{payload}
 
 				// We simply check that there is an error here as an indicator that
