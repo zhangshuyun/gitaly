@@ -67,7 +67,6 @@ func envForHooks(t testing.TB, ctx context.Context, cfg config.Cfg, repo *gitaly
 
 	env := append(command.AllowedEnvironment(os.Environ()), []string{
 		payload,
-		"GITALY_BIN_DIR=" + cfg.BinDir,
 		fmt.Sprintf("%s=%s", gitalylog.GitalyLogDirEnvKey, cfg.Logging.Dir),
 	}...)
 	env = append(env, gitPushOptions...)
