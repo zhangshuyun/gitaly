@@ -79,14 +79,10 @@ func runObjectPoolServer(t *testing.T, cfg config.Cfg, locator storage.Locator, 
 	}, append(opts, testserver.WithLocator(locator), testserver.WithLogger(logger))...)
 }
 
-// initObjectPool creates a new empty object pool in the given storage.
-func initObjectPool(t testing.TB, cfg config.Cfg, storage config.Storage) *objectpool.ObjectPool {
-	t.Helper()
-
-	relativePath := gittest.NewObjectPoolName(t)
-	gittest.InitRepoDir(t, storage.Path, relativePath)
+func newObjectPool(t testing.TB, cfg config.Cfg, storage, relativePath string) *objectpool.ObjectPool {
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
+
 	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 
 	pool, err := objectpool.NewObjectPool(
@@ -95,13 +91,34 @@ func initObjectPool(t testing.TB, cfg config.Cfg, storage config.Storage) *objec
 		catfileCache,
 		txManager,
 		housekeeping.NewManager(txManager),
-		storage.Name,
+		storage,
 		relativePath,
 	)
 	require.NoError(t, err)
+
+	return pool
+}
+
+// initObjectPool creates a new empty object pool in the given storage.
+func initObjectPool(t testing.TB, cfg config.Cfg, storage config.Storage) *objectpool.ObjectPool {
+	t.Helper()
+
+	relativePath := gittest.NewObjectPoolName(t)
+	gittest.InitRepoDir(t, storage.Path, relativePath)
+	catfileCache := catfile.NewCache(cfg)
+	t.Cleanup(catfileCache.Stop)
+
+	pool := newObjectPool(t, cfg, storage.Name, relativePath)
 
 	poolPath := filepath.Join(storage.Path, relativePath)
 	t.Cleanup(func() { require.NoError(t, os.RemoveAll(poolPath)) })
 
 	return pool
+}
+
+// rewrittenObjectPool returns a pool that is rewritten as if it was passed through Praefect. This should be used
+// to access the pool on the disk if the tests are running with Praefect in front of them.
+func rewrittenObjectPool(ctx context.Context, t testing.TB, cfg config.Cfg, pool *objectpool.ObjectPool) *objectpool.ObjectPool {
+	replicaPath := gittest.GetReplicaPath(ctx, t, cfg, pool)
+	return newObjectPool(t, cfg, pool.GetStorageName(), replicaPath)
 }

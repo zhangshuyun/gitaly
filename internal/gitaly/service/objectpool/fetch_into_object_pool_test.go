@@ -49,6 +49,8 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 	_, err = client.FetchIntoObjectPool(ctx, req)
 	require.NoError(t, err)
 
+	pool = rewrittenObjectPool(ctx, t, cfg, pool)
+
 	require.True(t, pool.IsValid(), "ensure underlying repository is valid")
 
 	// No problems
