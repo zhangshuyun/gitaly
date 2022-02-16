@@ -493,6 +493,8 @@ func TestUpdateRemoteMirror(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := testhelper.Context(t)
 
 			cfg := testcfg.Build(t)
@@ -555,13 +557,14 @@ func TestUpdateRemoteMirror(t *testing.T) {
 					var commitOID git.ObjectID
 					for _, commit := range commits {
 						var err error
-						commitOID, err = executor.Commit(ctx, c.repoProto, git2go.CommitParams{
-							Repository: c.repoPath,
-							Author:     commitSignature,
-							Committer:  commitSignature,
-							Message:    commit,
-							Parent:     commitOID.String(),
-						})
+						commitOID, err = executor.Commit(ctx, gittest.RewrittenRepository(ctx, t, cfg, c.repoProto),
+							git2go.CommitParams{
+								Repository: c.repoPath,
+								Author:     commitSignature,
+								Committer:  commitSignature,
+								Message:    commit,
+								Parent:     commitOID.String(),
+							})
 						require.NoError(t, err)
 					}
 
