@@ -565,14 +565,6 @@ func (cf *ExecCommandFactory) combineArgs(ctx context.Context, gitConfig []confi
 		return nil, fmt.Errorf("invalid sub command name %q: %w", sc.Subcommand(), ErrInvalidArg)
 	}
 
-	commandSpecificOptions := commandDescription.opts
-	if commandDescription.mayGeneratePackfiles() {
-		commandSpecificOptions = append(commandSpecificOptions,
-			ConfigPair{Key: "pack.windowMemory", Value: "100m"},
-			ConfigPair{Key: "pack.writeReverseIndex", Value: "true"},
-		)
-	}
-
 	// As global options may cancel out each other, we have a clearly defined order in which
 	// globals get applied. The order is similar to how git handles configuration options from
 	// most general to most specific. This allows callsites to override options which would
@@ -587,7 +579,7 @@ func (cf *ExecCommandFactory) combineArgs(ctx context.Context, gitConfig []confi
 	// 4. Configuration as provided by the admin in Gitaly's config.toml.
 	var combinedGlobals []GlobalOption
 	combinedGlobals = append(combinedGlobals, globalOptions...)
-	combinedGlobals = append(combinedGlobals, commandSpecificOptions...)
+	combinedGlobals = append(combinedGlobals, commandDescription.opts...)
 	combinedGlobals = append(combinedGlobals, cc.globals...)
 	for _, configPair := range gitConfig {
 		combinedGlobals = append(combinedGlobals, ConfigPair{
