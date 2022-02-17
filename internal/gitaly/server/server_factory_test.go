@@ -147,6 +147,8 @@ func TestGitalyServerFactory(t *testing.T) {
 	})
 
 	t.Run("logging check", func(t *testing.T) {
+		testhelper.ModifyEnvironment(t, "GITALY_LOG_REQUEST_METHOD_ALLOW_PATTERN", ".")
+
 		cfg := testcfg.Build(t)
 		logger, hook := test.NewNullLogger()
 		sf := NewGitalyServerFactory(

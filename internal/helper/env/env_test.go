@@ -171,3 +171,37 @@ func TestGetDuration(t *testing.T) {
 		})
 	}
 }
+
+func TestGetString(t *testing.T) {
+	for _, tc := range []struct {
+		value    string
+		fallback string
+		expected string
+	}{
+		{
+			value:    "Hello",
+			expected: "Hello",
+		},
+		{
+			value:    "hello ",
+			expected: "hello",
+		},
+		{
+			fallback: "fallback value",
+			expected: "fallback value",
+		},
+		{
+			value:    " ",
+			fallback: "fallback value",
+			expected: "",
+		},
+	} {
+		t.Run(fmt.Sprintf("value=%s,fallback=%s", tc.value, tc.fallback), func(t *testing.T) {
+			testhelper.ModifyEnvironment(t, "TEST_STRING", tc.value)
+
+			result := env.GetString("TEST_STRING", tc.fallback)
+
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}

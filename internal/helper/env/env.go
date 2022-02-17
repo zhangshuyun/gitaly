@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -50,4 +51,17 @@ func GetDuration(name string, fallback time.Duration) (time.Duration, error) {
 		return fallback, fmt.Errorf("get duration %s: %w", name, err)
 	}
 	return v, nil
+}
+
+// GetString fetches a given name from the environment and falls back to a
+// default value if the name is not available. The value is stripped of
+// leading and trailing whitespace.
+func GetString(name string, fallback string) string {
+	value := os.Getenv(name)
+
+	if value == "" {
+		return fallback
+	}
+
+	return strings.TrimSpace(value)
 }

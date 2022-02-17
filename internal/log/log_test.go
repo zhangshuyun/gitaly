@@ -462,6 +462,12 @@ func TestLogDeciderOption_logByRegexpMatch(t *testing.T) {
 			desc:             "default setting",
 			skip:             "",
 			only:             "",
+			shouldLogMethods: []string{"InfoRefsUploadPack", "PostUploadPackWithSidechannel"},
+		},
+		{
+			desc:             "allow all",
+			skip:             "",
+			only:             ".",
 			shouldLogMethods: []string{"Check", "InfoRefsUploadPack", "PostUploadPackWithSidechannel"},
 		},
 		{

@@ -164,3 +164,18 @@ level = "warn"
 |sentry_dsn|string|no|Sentry DSN for exception monitoring|
 |sentry_environment|string|no|Sentry Environment for exception monitoring|
 |ruby_sentry_dsn|string|no|Sentry DSN for gitaly-ruby exception monitoring|
+
+#### Environment variables
+
+|name|default|notes|
+|----|-------|-----|
+|GITALY_LOG_REQUEST_METHOD_ALLOW_PATTERN||Regular expression that controls which gRPC methods should be logged|
+|GITALY_LOG_REQUEST_METHOD_DENY_PATTERN|`^/grpc.health.v1.Health/Check$`|Regular expression that controls which gRPC methods should be filtered out|
+
+Note that `GITALY_LOG_REQUEST_METHOD_ALLOW_PATTERN` takes precedence
+over `GITALY_LOG_REQUEST_METHOD_DENY_PATTERN`. If a pattern matches in
+allow pattern, then it will be logged, even if it also matches the deny
+pattern. All error messages are logged unconditionally.
+
+By default, health check gRPC messages are not logged. To enable them,
+set `GITALY_LOG_REQUEST_METHOD_ALLOW_PATTERN` to `.`.
