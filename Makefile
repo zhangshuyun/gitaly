@@ -171,13 +171,20 @@ ifdef GIT_APPLY_DEFAULT_PATCHES
     # 2021-12-27).
     GIT_PATCHES += 0018-upload-pack.c-increase-output-buffer-size.patch
 
+    # Speed up fetches by making better use of the commit-graph and by not
+    # computing the output-width if not requested. Merged into next via
+    # 2b331293fb (Merge branch 'ps/fetch-optim-with-commit-graph' into next,
+    # 2022-02-14).
+    GIT_PATCHES += 0019-fetch-pack-use-commit-graph-when-computing-cutoff.patch
+    GIT_PATCHES += 0020-fetch-skip-computing-output-width-when-not-printing-.patch
+
     # This extra version has two intentions: first, it allows us to detect
     # capabilities of the command at runtime. Second, it helps admins to
     # discover which version is currently in use. As such, this version must be
     # incremented whenever a new patch is added above. When no patches exist,
     # then this should be undefined. Otherwise, it must be set to at least
     # `gl1` given that `0` is the "default" GitLab patch level.
-    GIT_EXTRA_VERSION := gl2
+    GIT_EXTRA_VERSION := gl3
 endif
 
 ifeq ($(origin GIT_BUILD_OPTIONS),undefined)

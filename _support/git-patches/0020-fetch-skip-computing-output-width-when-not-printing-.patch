@@ -1,0 +1,84 @@
+From b18aaaa5e931d79d057f68ac0d7c3dd0377e5f03 Mon Sep 17 00:00:00 2001
+Message-Id: <b18aaaa5e931d79d057f68ac0d7c3dd0377e5f03.1645001444.git.ps@pks.im>
+In-Reply-To: <6fd1cc8f985ccd8b014e945a819482b267dae21f.1645001444.git.ps@pks.im>
+References: <6fd1cc8f985ccd8b014e945a819482b267dae21f.1645001444.git.ps@pks.im>
+From: Patrick Steinhardt <ps@pks.im>
+Date: Thu, 10 Feb 2022 13:28:16 +0100
+Subject: [PATCH 2/2] fetch: skip computing output width when not printing
+ anything
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+When updating references via git-fetch(1), then by default we report to
+the user which references have been changed. This output is formatted in
+a nice table such that the different columns are aligned. Because the
+first column contains abbreviated object IDs we thus need to iterate
+over all refs which have changed and compute the minimum length for
+their respective abbreviated hashes. While this effort makes sense in
+most cases, it is wasteful when the user passes the `--quiet` flag: we
+don't print the summary, but still compute the length.
+
+Skip computing the summary width when the user asked for us to be quiet.
+This gives us a speedup of nearly 10% when doing a mirror-fetch in a
+repository with thousands of references being updated:
+
+    Benchmark 1: git fetch --quiet +refs/*:refs/* (HEAD~)
+      Time (mean ± σ):     96.078 s ±  0.508 s    [User: 91.378 s, System: 10.870 s]
+      Range (min … max):   95.449 s … 96.760 s    5 runs
+
+    Benchmark 2: git fetch --quiet +refs/*:refs/* (HEAD)
+      Time (mean ± σ):     88.214 s ±  0.192 s    [User: 83.274 s, System: 10.978 s]
+      Range (min … max):   87.998 s … 88.446 s    5 runs
+
+    Summary
+      'git fetch --quiet +refs/*:refs/* (HEAD)' ran
+        1.09 ± 0.01 times faster than 'git fetch --quiet +refs/*:refs/* (HEAD~)'
+
+Signed-off-by: Patrick Steinhardt <ps@pks.im>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+---
+ builtin/fetch.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/builtin/fetch.c b/builtin/fetch.c
+index 5b3b18a72f..7ef305c66d 100644
+--- a/builtin/fetch.c
++++ b/builtin/fetch.c
+@@ -1094,12 +1094,15 @@ static int store_updated_refs(const char *raw_url, const char *remote_name,
+ 	struct ref *rm;
+ 	char *url;
+ 	int want_status;
+-	int summary_width = transport_summary_width(ref_map);
++	int summary_width = 0;
+ 
+ 	rc = open_fetch_head(&fetch_head);
+ 	if (rc)
+ 		return -1;
+ 
++	if (verbosity >= 0)
++		summary_width = transport_summary_width(ref_map);
++
+ 	if (raw_url)
+ 		url = transport_anonymize_url(raw_url);
+ 	else
+@@ -1345,7 +1348,6 @@ static int prune_refs(struct refspec *rs, struct ref *ref_map,
+ 	int url_len, i, result = 0;
+ 	struct ref *ref, *stale_refs = get_stale_heads(rs, ref_map);
+ 	char *url;
+-	int summary_width = transport_summary_width(stale_refs);
+ 	const char *dangling_msg = dry_run
+ 		? _("   (%s will become dangling)")
+ 		: _("   (%s has become dangling)");
+@@ -1374,6 +1376,8 @@ static int prune_refs(struct refspec *rs, struct ref *ref_map,
+ 	}
+ 
+ 	if (verbosity >= 0) {
++		int summary_width = transport_summary_width(stale_refs);
++
+ 		for (ref = stale_refs; ref; ref = ref->next) {
+ 			struct strbuf sb = STRBUF_INIT;
+ 			if (!shown_url) {
+-- 
+2.35.1
+
